@@ -1357,6 +1357,12 @@ export function openShareQuizModal(quizId, quizTitle) {
     linkInput.value = quizUrl;
     embedInput.value = `<iframe src="${quizUrl}" width="100%" height="600px" style="border:none; border-radius:12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);"></iframe>`;
     
+    // Tạo và hiển thị mã QR động
+    const qrImg = document.getElementById('share-qr-img');
+    if (qrImg) {
+        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(quizUrl)}`;
+    }
+    
     modal.classList.remove('hidden');
 }
 
