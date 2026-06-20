@@ -70,6 +70,12 @@ export function triggerConfetti() {
 }
 
 export function parseInlineMarkdown(text) {
+    if (text === null || text === undefined) return '';
+    if (typeof text === 'object') {
+        text = text.text || text.content || JSON.stringify(text);
+    } else if (typeof text !== 'string') {
+        text = String(text);
+    }
     if (!text) return '';
     let html = text;
     // Bold: **text** hoặc __text__ (in đậm nét dày hơn, phối màu hồng tím mận nổi bật)
@@ -86,6 +92,12 @@ export function parseInlineMarkdown(text) {
 }
 
 export function parseMarkdown(text) {
+    if (text === null || text === undefined) return '';
+    if (typeof text === 'object') {
+        text = text.text || text.content || JSON.stringify(text);
+    } else if (typeof text !== 'string') {
+        text = String(text);
+    }
     if (!text) return '';
     let html = text;
     
