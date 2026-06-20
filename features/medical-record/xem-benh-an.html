@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xem bệnh án</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.0.4/docx.umd.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', 'Roboto', Arial, sans-serif; }
+        /* Custom scrollbar for better UX */
+        ::-webkit-scrollbar { width: 8px; background: #ffe4ef; }
+        ::-webkit-scrollbar-thumb { background: #f472b6; border-radius: 8px; }
+        .fade-in { animation: fadeIn 0.7s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px);} to { opacity: 1; transform: none; } }
+        .fab-btn { position: fixed; bottom: 32px; right: 32px; z-index: 50; box-shadow: 0 4px 24px 0 #f472b6a0; }
+        .fab-btn:active { transform: scale(0.97); }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-pink-50 to-blue-100 min-h-screen flex flex-col items-center py-0 px-2 sm:px-0">
+    <!-- Header -->
+    <header class="w-full max-w-3xl mx-auto flex items-center gap-3 py-6 px-4 sm:px-8">
+        <img src="../../assets/logo.png" alt="Logo" class="w-12 h-12 rounded-full shadow-lg border-2 border-pink-200 bg-white">
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-pink-600 drop-shadow flex items-center gap-2"><i class="fas fa-file-medical-alt"></i> Xem Bệnh Án</h1>
+    </header>
+    <main class="bg-white rounded-3xl shadow-2xl p-4 sm:p-8 max-w-3xl w-full border-2 border-pink-100 transition-all duration-300 fade-in relative">
+        <div id="medical-record-view" class="space-y-8 text-[15px] sm:text-base">
+            <!-- Nội dung bệnh án sẽ được render ở đây -->
+        </div>
+        <a href="../study-room/waiting-room.html" class="block mt-10 text-pink-600 hover:underline hover:text-pink-700 text-center text-lg font-medium transition-all duration-200"><i class="fas fa-arrow-left"></i> Quay lại danh sách bệnh án</a>
+    </main>
+    <!-- Floating Copy Link Button -->
+    <button id="copy-link-btn" class="fab-btn px-5 py-3 bg-pink-500 text-white rounded-full hover:bg-pink-600 text-base flex items-center gap-2 shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-pink-300"><i class="fas fa-link"></i> Sao chép liên kết</button>
+    <!-- Footer -->
+    <footer class="w-full max-w-3xl mx-auto text-center text-pink-300 text-sm py-6 mt-8">© 2025 Bệnh viện Squirrel. All rights reserved.</footer>
+    <script>
+    // Lấy id từ query string
+    function getQueryParam(name) {
+        const url = new URL(window.location.href);
+        return url.searchParams.get(name);
+    }
+    const recordId = getQueryParam('id');
+    let record = null;
+    if (recordId) {
+        try {
+            const records = JSON.parse(localStorage.getItem('medicalRecords')) || [];
+            record = records.find(r => r.id == recordId);
+        } catch (e) { record = null; }
+    }
+    function renderField(label, value) {
+        if (!value) return '';
+        return `<div class='block'><span class='font-semibold text-pink-500'>${label}${label ? ':' : ''}</span> <span class='text-gray-700 break-words'>${value}</span></div>`;
+    }
+    function renderSection(title, html) {
+        if (!html) return '';
+        // Thêm icon cho từng section lớn
+        let icon = '';
+        if (title.startsWith('I.')) icon = '<i class="fas fa-user"></i>';
+        else if (title.startsWith('II.')) icon = '<i class="fas fa-sign-in-alt"></i>';
+        else if (title.startsWith('III.')) icon = '<i class="fas fa-history"></i>';
+        else if (title.startsWith('IV.')) icon = '<i class="fas fa-notes-medical"></i>';
+        else if (title.startsWith('V.')) icon = '<i class="fas fa-stethoscope"></i>';
+        else if (title.startsWith('VI.')) icon = '<i class="fas fa-clipboard-list"></i>';
+        else if (title.startsWith('VII.')) icon = '<i class="fas fa-search"></i>';
+        else if (title.startsWith('VIII.')) icon = '<i class="fas fa-vials"></i>';
+        else if (title.startsWith('IX.')) icon = '<i class="fas fa-microscope"></i>';
+        else if (title.startsWith('X.')) icon = '<i class="fas fa-check-circle"></i>';
+        else if (title.startsWith('XI.')) icon = '<i class="fas fa-syringe"></i>';
+        else if (title.startsWith('XII.')) icon = '<i class="fas fa-heartbeat"></i>';
+        else if (title.startsWith('XIII.')) icon = '<i class="fas fa-shield-alt"></i>';
+        return `<div class='bg-pink-50/80 border border-pink-200 rounded-2xl shadow-sm p-4 sm:p-5 mb-2 transition-all duration-200 hover:shadow-xl hover:border-pink-400 fade-in'><h3 class='text-base sm:text-lg font-bold text-pink-600 mb-3 flex items-center gap-2'>${icon} ${title}</h3><div class='pl-1 sm:pl-2 space-y-2'>${html}</div></div>`;
+    }
+    function renderRecordView(record) {
+        if (!record) return `<div class='text-center text-gray-400'>Không tìm thấy bệnh án.</div>`;
+        let html = '';
+        // Hành chính
+        const h = record.hanhChinh || {};
+        html += renderSection('I. HÀNH CHÍNH',
+            renderField('Họ và tên', h.hoTen) +
+            renderField('Năm sinh', h.namSinh) +
+            renderField('Tuổi', h.tuoi) +
+            renderField('Giới tính', h.gioiTinh) +
+            renderField('Dân tộc', h.danToc) +
+            renderField('Nghề nghiệp', h.ngheNghiep) +
+            renderField('Địa chỉ', h.diaChi) +
+            renderField('Người liên hệ', h.nguoiLienHe) +
+            renderField('SĐT liên hệ', h.sdtLienHe) +
+            renderField('Giờ vào viện', h.gioVaoVien) +
+            renderField('Ngày vào viện', h.ngayVaoVien) +
+            renderField('Ngày giờ làm bệnh án', h.ngayLamBenhAn) +
+            renderField('Số giường', h.soGiuong) +
+            renderField('Số phòng', h.soPhong) +
+            renderField('Bệnh viện', h.benhVien)
+        );
+        // Lý do, bệnh sử, tiền sử
+        html += renderSection('II. LÝ DO VÀO VIỆN', renderField('', record.lyDoVaoVien));
+        html += renderSection('III. BỆNH SỬ', renderField('', record.benhSu));
+        // Tiền sử (có mục nhỏ)
+        const t = record.tienSu || {};
+        html += renderSection('IV. TIỀN SỬ',
+            renderField('Nội khoa', t.noiKhoa) +
+            renderField('Ngoại khoa', t.ngoaiKhoa) +
+            renderField('Sản phụ khoa', t.sanPhuKhoa) +
+            renderField('Dị ứng', t.diUng) +
+            renderField('Thói quen', t.thoiQuen) +
+            renderField('Gia đình', t.giaDinh)
+        );
+        // Khám bệnh (gồm sinh tồn, toàn thân, các cơ quan)
+        const k = (record.khamBenh && record.khamBenh.sinhTon) || {};
+        let khamBenhHtml =
+            renderField('Mạch (l/p)', k.mach) +
+            renderField('Nhiệt độ (°C)', k.nhietDo) +
+            renderField('Huyết áp (mmHg)', k.huyetAp) +
+            renderField('Nhịp thở (l/p)', k.nhipTho) +
+            renderField('SpO2 (%)', k.spo2) +
+            renderField('Chiều cao (cm)', k.chieuCao) +
+            renderField('Cân nặng (kg)', k.canNang) +
+            renderField('BMI (kg/m²)', k.bmi);
+        khamBenhHtml += renderField('Toàn thân', record.khamBenh?.toanThan);
+        khamBenhHtml += renderField('Các cơ quan', record.khamBenh?.cacCoQuan);
+        khamBenhHtml += renderField('Tuần hoàn (Tim mạch)', record.khamBenh?.circulation);
+        khamBenhHtml += renderField('Hô hấp', record.khamBenh?.respiratory);
+        khamBenhHtml += renderField('Tiêu hóa', record.khamBenh?.digestive);
+        khamBenhHtml += renderField('Thận - Tiết niệu - Sinh dục', record.khamBenh?.urinary);
+        khamBenhHtml += renderField('Thần kinh', record.khamBenh?.neuro);
+        khamBenhHtml += renderField('Cơ - Xương - Khớp', record.khamBenh?.musculoskeletal);
+        khamBenhHtml += renderField('Tai - Mũi - Họng', record.khamBenh?.ent);
+        khamBenhHtml += renderField('Răng - Hàm - Mặt', record.khamBenh?.dental);
+        khamBenhHtml += renderField('Mắt', record.khamBenh?.eye);
+        html += renderSection('V. KHÁM BỆNH', khamBenhHtml);
+        html += renderSection('VIII. CẬN LÂM SÀNG ĐỀ NGHỊ', renderField('', record.canLamSangDeNghi));
+        html += renderSection('IX. KẾT QUẢ CẬN LÂM SÀNG ĐÃ CÓ', renderField('', record.ketQuaCanLamSang));
+        // Chẩn đoán, điều trị
+        html += renderSection('VI. TÓM TẮT BỆNH ÁN', renderField('', record.tomTatBenhAn));
+        html += renderSection('VII. CHẨN ĐOÁN SƠ BỘ', renderField('', record.chanDoanSoBo));
+        html += renderSection('X. CHẨN ĐOÁN XÁC ĐỊNH', renderField('', record.chanDoanXacDinh));
+        html += renderSection('XI. HƯỚNG ĐIỀU TRỊ', renderField('', record.huongDieuTri));
+        html += renderSection('XII. TIÊN LƯỢNG', renderField('', record.tienLuong));
+        html += renderSection('XIII. DỰ PHÒNG', renderField('', record.duPhong));
+        return html;
+    }
+    document.getElementById('medical-record-view').innerHTML = renderRecordView(record);
+    // Copy link (FAB)
+    const copyBtn = document.getElementById('copy-link-btn');
+    copyBtn.onclick = function() {
+        navigator.clipboard.writeText(window.location.href);
+        this.innerHTML = '<i class="fas fa-check"></i> Đã sao chép!';
+        this.classList.remove('bg-pink-500');
+        this.classList.add('bg-green-500');
+        setTimeout(() => {
+            this.innerHTML = '<i class="fas fa-link"></i> Sao chép liên kết';
+            this.classList.remove('bg-green-500');
+            this.classList.add('bg-pink-500');
+        }, 1500);
+    };
+    </script>
+</body>
+</html>

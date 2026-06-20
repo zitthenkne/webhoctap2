@@ -1,0 +1,110 @@
+/* Quiz Preview Styles */
+.quiz-preview-container {
+  background: #fff0fa;
+  border: 2px solid #ffb6d5;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px 0 #ffe0ee44;
+  transition: box-shadow 0.2s;
+}
+.quiz-preview-container:hover {
+  box-shadow: 0 4px 16px 0 #ffe0ee66;
+}
+.quiz-preview-title {
+  color: #ff69b4;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+.quiz-preview-list {
+  list-style: decimal inside;
+  padding-left: 0;
+  margin: 0;
+}
+.quiz-preview-list li {
+  margin-bottom: 1.2rem;
+  color: #7c3aed;
+  background: #fdf6fb;
+  border-radius: 0.8rem;
+  padding: 1rem 1.2rem 0.8rem 1.2rem;
+  font-size: 1.05rem;
+  box-shadow: 0 1px 4px 0 #ffd6ec22;
+  transition: background 0.2s;
+  position: relative;
+}
+.quiz-preview-list .preview-question-text {
+  display: block;
+  font-weight: 600;
+  color: #ff69b4;
+  margin-bottom: 0.5rem;
+  font-size: 1.08em;
+}
+.quiz-preview-list .preview-answers {
+  margin-left: 0;
+  margin-bottom: 0.2em;
+  padding-left: 0;
+  color: #7c3aed;
+  font-size: 1em;
+}
+.preview-answers-2col {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5em 1.2em;
+  margin: 0.5em 0 0.3em 0;
+  padding: 0;
+  list-style: none;
+}
+@media (min-width: 640px) {
+  .preview-answers-2col {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6em 2em;
+  }
+}
+.preview-answer-item {
+  background: #f9e6f6;
+  border-radius: 0.5em;
+  padding: 0.3em 1em;
+  font-size: 0.98em;
+  color: #7c3aed;
+  box-shadow: 0 1px 2px 0 #ffd6ec22;
+  text-align: center;
+  margin-bottom: 0;
+  margin-top: 0;
+  min-width: 100px;
+  word-break: break-word;
+}
+.quiz-preview-list .preview-no-answers {
+  color: #bbb;
+  font-style: italic;
+  font-size: 0.98em;
+  margin-left: 1.2em;
+}
+#collapse-preview-btn {
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+#collapse-preview-btn:active {
+  background: #ffe0ee;
+  color: #d946ef;
+}
+#quiz-preview-content {
+  transition: max-height 0.3s cubic-bezier(.4,0,.2,1), opacity 0.3s;
+  overflow: hidden;
+}
+#quiz-preview-content.collapsed {
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  padding: 0;
+}
+.quiz-preview-list li:hover {
+  background: #ffe0ef;
+  color: #d946ef;
+}
+.quiz-preview-empty {
+  color: #aaa;
+  font-style: italic;
+  text-align: center;
+  padding: 1rem 0;
+}

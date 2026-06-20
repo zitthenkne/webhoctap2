@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Luyện tập Flashcard</title>
+    <script src="../../pwa-install.js" defer></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="../../style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="quiz-preview.css">
+    <!-- KaTeX -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+    <style>
+        .flashcard-scene {
+            perspective: 1000px;
+            width: 100%;
+            height: 350px;
+        }
+        .flashcard-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            cursor: pointer;
+        }
+        .flashcard-inner.is-flipped {
+            transform: rotateY(180deg);
+        }
+        .flashcard-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden; /* Safari */
+            backface-visibility: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .flashcard-front {
+            background-color: white;
+        }
+        .flashcard-back {
+            background-color: #F0FFF4;
+            color: black;
+            transform: rotateY(180deg);
+        }
+        @keyframes pulse-animation {
+          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6); }
+          70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+          100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+        .correct-answer-pulse {
+          animation: pulse-animation 1s ease-in-out;
+        }
+        @keyframes shake-animation {
+          10%, 90% { transform: translate3d(-1px, 0, 0); }
+          20%, 80% { transform: translate3d(2px, 0, 0); }
+          30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+          40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+        .wrong-answer-shake {
+            animation: shake-animation 0.82s cubic-bezier(.36,.07,.19,.97) both;
+        }
+    </style>
+</head>
+<body class="bg-[#FCE4EC] flex items-center justify-center min-h-screen p-2 sm:p-4 text-sm">
+    <div class="w-full max-w-4xl mx-auto mt-8 md:mt-0">
+        <div class="flex justify-center gap-2 mb-4" id="view-mode-switch">
+          <button id="mode-normal-btn" class="px-3 py-2 rounded-lg border border-pink-300 bg-white text-pink-600 font-semibold flex items-center gap-2 shadow-sm hover:bg-pink-50 transition">
+            <i class="fas fa-clone"></i> Thường
+          </button>
+          <button id="mode-grid-btn" class="px-3 py-2 rounded-lg border border-blue-300 bg-white text-blue-600 font-semibold flex items-center gap-2 shadow-sm hover:bg-blue-50 transition">
+            <i class="fas fa-th"></i> Lưới
+          </button>
+          <button id="mode-quickreview-btn" class="px-3 py-2 rounded-lg border border-green-300 bg-white text-green-600 font-semibold flex items-center gap-2 shadow-sm hover:bg-green-50 transition">
+            <i class="fas fa-bolt"></i> Ôn tập nhanh
+          </button>
+        </div>
+        <div id="flashcard-container"></div>
+        <div id="flashcard-note-hint" class="hidden text-center text-yellow-700 text-xs sm:text-sm mt-2"></div>
+        <div class="flex flex-col md:flex-row gap-2 sm:gap-4 justify-center mt-8">
+            
+        </div>
+    </div>
+    <script type="module" src="flashcard.js"></script>
+    <div id="toast-container"></div>
+</body>
+</html>

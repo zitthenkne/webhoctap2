@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Thông tin cá nhân - Zitthenkne</title>
+    <script src="../../pwa-install.js" defer></script>
+    <link rel="stylesheet" href="../../style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-[#FCE4EC] min-h-screen flex flex-col items-center justify-center text-gray-700">
+    <div class="cute-card cute-shadow p-8 w-full max-w-md mt-10">
+        <div class="flex flex-col items-center mb-6">
+            <div class="relative flex flex-col items-center mb-2">
+  <div id="profile-avatar" class="w-24 h-24 rounded-full cute-border cute-shadow flex items-center justify-center text-5xl mb-2 transition" style="background: #FF69B4; color: #fff; cursor:pointer;">
+    <span id="avatar-icon">🐱</span>
+  </div>
+  <div class="flex gap-2 mt-1">
+    <input type="color" id="avatar-bgcolor" value="#FF69B4" class="w-8 h-8 p-0 border-0 rounded-full cursor-pointer">
+    <select id="avatar-animal" class="cute-input text-2xl px-2 py-1">
+      <option value="🐱">🐱 Mèo</option>
+      <option value="🐶">🐶 Chó</option>
+      <option value="🐰">🐰 Thỏ</option>
+      <option value="🦊">🦊 Cáo</option>
+      <option value="🐻">🐻 Gấu</option>
+      <option value="🦁">🦁 Sư tử</option>
+      <option value="🐼">🐼 Gấu trúc</option>
+      <option value="🐸">🐸 Ếch</option>
+      <option value="🐵">🐵 Khỉ</option>
+      <option value="🦉">🦉 Cú</option>
+    </select>
+  </div>
+</div>
+        </div>
+        <div class="mb-4">
+            <label class="block text-sm font-semibold mb-1" for="profile-name">Tên người dùng</label>
+            <input id="profile-name" type="text" class="w-full cute-input" placeholder="Nhập tên mới">
+        </div>
+        <div class="mb-4">
+            <label class="block text-sm font-semibold mb-1" for="profile-email">Email</label>
+            <input id="profile-email" type="email" class="w-full cute-input bg-gray-100 cursor-not-allowed" readonly>
+        </div>
+        <div class="mb-4">
+            <label class="block text-sm font-semibold mb-1" for="profile-password">Mật khẩu mới</label>
+            <input id="profile-password" type="password" class="w-full cute-input" placeholder="Để trống nếu không đổi">
+        </div>
+        <div class="flex flex-col gap-2 mt-6">
+            <button id="save-profile-btn" class="cute-btn font-bold"><i class="fas fa-save mr-1"></i> Lưu thay đổi</button>
+            <button id="logout-btn" class="cute-btn bg-white text-pink-600 border border-pink-200 font-bold hover:bg-pink-50"><i class="fas fa-sign-out-alt mr-1"></i> Đăng xuất</button>
+            <a href="../../index.html" class="block text-center text-xs text-gray-500 hover:underline mt-2"><i class="fas fa-arrow-left mr-1"></i> Quay về trang chủ</a>
+        </div>
+        <div id="profile-message" class="mt-4 text-center text-sm"></div>
+    </div>
+    <!-- Firebase App (the core Firebase SDK) -->
+<script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+<!-- Firebase Auth -->
+<script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+<!-- Firebase Firestore -->
+<script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+<!-- Script chính -->
+<script type="module" src="profile.js"></script>
+</body>
+</html>

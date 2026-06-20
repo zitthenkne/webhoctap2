@@ -1,0 +1,718 @@
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap');
+
+body {
+    font-family: 'Quicksand', 'Poppins', 'Baloo 2', cursive, sans-serif;
+    background: linear-gradient(135deg, #FCE4EC 0%, #D8BFD8 100%);
+    min-height: 100vh;
+    color: #444;
+    overscroll-behavior-y: contain; /* Ngăn pull-to-refresh trên điện thoại */
+}
+
+/* Safe Area padding cho thiết bị di động tràn viền */
+@supports (padding: env(safe-area-inset-top)) {
+    body {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+    }
+    /* Mobile Top Bar cần đẩy padding-top xuống để không bị tai thỏ che mất */
+    .md\:hidden.fixed.top-0 {
+        padding-top: calc(0.5rem + env(safe-area-inset-top));
+    }
+}
+
+.cute-bg {
+    background: linear-gradient(120deg, #FCE4EC 60%, #D8BFD8 100%);
+}
+
+.cute-border {
+    border: 2px solid #FFB6C1;
+    border-radius: 20px;
+}
+
+.cute-shadow {
+    box-shadow: 0 4px 24px 0 #FFD6E0, 0 1.5px 6px #D8BFD8;
+}
+
+.cute-card {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 4px 24px 0 #FFD6E0, 0 1.5px 6px #D8BFD8;
+    padding: 1.5rem;
+    transition: box-shadow 0.2s, transform 0.2s;
+}
+.cute-card:hover {
+    box-shadow: 0 8px 32px 0 #FFB6C1, 0 3px 12px #D8BFD8;
+    transform: translateY(-3px) scale(1.01);
+}
+
+.cute-btn {
+    border-radius: 999px;
+    background: linear-gradient(90deg, #FFB6C1 60%, #FFD6E0 100%);
+    color: #fff;
+    font-weight: 600;
+    padding: 0.5rem 1.2rem;
+    font-size: 1rem;
+    box-shadow: 0 2px 8px #FFD6E0;
+    transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.cute-btn:hover {
+    background: linear-gradient(90deg, #FF69B4 60%, #FFD6E0 100%);
+    box-shadow: 0 4px 16px #FFB6C1;
+    transform: scale(1.04);
+}
+
+.cute-input, .cute-textarea {
+    border-radius: 12px;
+
+    background: #FFF7FA;
+    padding: 0.7rem 1rem;
+    font-size: 1rem;
+    transition: border 0.2s, box-shadow 0.2s;
+}
+.cute-input:focus, .cute-textarea:focus {
+    border: 2px solid #FF69B4;
+    box-shadow: 0 0 0 2px #FFD6E0;
+    outline: none;
+}
+
+.cute-label {
+    font-weight: 600;
+    color: #FF69B4;
+    margin-bottom: 0.3rem;
+    display: block;
+}
+
+.cute-question-block {
+    background: linear-gradient(120deg, #FFF7FA 80%, #FCE4EC 100%);
+    border: 2px solid #FFD6E0;
+    border-radius: 18px;
+    box-shadow: 0 2px 12px #FFD6E0;
+    margin-bottom: 1.5rem;
+    padding: 1.2rem 1.2rem 1.6rem 1.2rem;
+    position: relative;
+    animation: fadeIn 0.5s;
+}
+.cute-question-block .cute-corner-icon {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    font-size: 1.2rem;
+    color: #FFD6E0;
+    opacity: 0.7;
+}
+
+.cute-add-btn {
+    background: linear-gradient(90deg, #B2F2FF 60%, #FFD6E0 100%);
+    color: #FF69B4;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 1.1rem;
+    box-shadow: 0 2px 8px #B2F2FF44;
+    padding: 0.4rem 1.1rem;
+    transition: background 0.2s, transform 0.1s;
+}
+.cute-add-btn:hover {
+    background: linear-gradient(90deg, #FF69B4 60%, #B2F2FF 100%);
+    color: #fff;
+    transform: scale(1.06);
+}
+
+.cute-remove-btn {
+    background: #FFD6E0;
+    color: #FF69B4;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 1rem;
+    padding: 0.3rem 0.9rem;
+    transition: background 0.2s, color 0.2s, transform 0.1s;
+}
+.cute-remove-btn:hover {
+    background: #FF69B4;
+    color: #fff;
+    transform: scale(1.08);
+}
+
+.cute-radio:checked {
+    box-shadow: 0 0 0 3px #FFB6C1;
+    border-color: #FF69B4;
+}
+
+.cute-toast {
+    border-radius: 16px;
+    background: linear-gradient(90deg, #FFF7FA 70%, #FCE4EC 100%);
+    color: #FF69B4;
+    box-shadow: 0 2px 12px #FFD6E0;
+    font-weight: 600;
+    padding: 1rem 1.5rem;
+    margin-bottom: 0.7rem;
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    font-size: 1rem;
+}
+
+.cute-helper {
+    font-size: 0.95rem;
+    color: #B2B2B2;
+    margin-top: 0.2rem;
+    margin-bottom: 0.7rem;
+}
+
+.cute-mascot {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: #FFD6E0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: #FF69B4;
+    box-shadow: 0 2px 8px #FFD6E0;
+    margin-bottom: 0.7rem;
+    margin-right: 0.6rem;
+}
+
+.cute-divider {
+    border-top: 2px dashed #FFD6E0;
+    margin: 1.2rem 0;
+}
+
+.cute-fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+}
+
+/* Hiệu ứng hover đáp án quiz */
+.answer-btn.bg-green-200:hover, .answer-btn.border-green-500:hover {
+  background: #bbf7d0 !important; /* bg-green-200 */
+  border-color: #22c55e !important; /* border-green-500 */
+}
+.answer-btn.bg-red-200:hover, .answer-btn.border-red-500:hover {
+  background: #fecaca !important; /* bg-red-200 */
+  border-color: #ef4444 !important; /* border-red-500 */
+}
+.answer-btn:hover {
+  background: #DBEAFE !important; /* bg-blue-100 */
+  border-color: #60A5FA !important; /* border-blue-400 */
+}
+
+/* Giữ lại các class chung cho site phía dưới */
+
+.progress-bar {
+    height: 0.75rem;
+    background: #FFB6C1;
+    border-radius: 999px;
+    margin: 1rem 0;
+    overflow: hidden;
+}
+
+/* Progress bar for collaborative quiz modal */
+.collaborative-quiz-progress-bar {
+    background-color: #e9e9e9;
+    border-radius: 9999px;
+    height: 8px;
+    width: 100%;
+    overflow: hidden;
+}
+
+#progressFill {
+    height: 100%;
+    background: #FF69B4;
+    border-radius: 999px;
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Tool button active state for study room */
+.tool-btn.active {
+    background-color: #FFB6C1;
+    color: white;
+}
+
+/* Hợp nhất animation để có hiệu ứng đồng nhất trên toàn trang */
+.fade-in { animation: fadeIn 0.5s ease-out forwards; }
+
+/* Toast Notifications */
+#toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000; /* Ensure toast is on top */
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.toast-notification {
+    min-width: 250px;
+    max-width: 350px;
+    box-sizing: border-box;
+}
+.fade-in { animation: fadeIn 0.5s ease-out forwards; }
+/* Flashcard nâng cấp: hiệu ứng rung khi đánh dấu sai, sáng khi đúng */
+.flashcard-inner.rumble {
+    animation: rumble 0.4s;
+}
+@keyframes rumble {
+    0% { transform: rotateY(180deg) translateX(0); }
+    20% { transform: rotateY(180deg) translateX(-8px); }
+    40% { transform: rotateY(180deg) translateX(8px); }
+    60% { transform: rotateY(180deg) translateX(-8px); }
+    80% { transform: rotateY(180deg) translateX(8px); }
+    100% { transform: rotateY(180deg) translateX(0); }
+}
+.flashcard-inner.flash-success {
+    box-shadow: 0 0 24px 4px #a7f3d0;
+    transition: box-shadow 0.3s;
+}
+.flashcard-inner.flash-note {
+    box-shadow: 0 0 16px 2px #fef08a;
+    transition: box-shadow 0.3s;
+}
+/* Ghi chú cá nhân flashcard */
+#flashcard-note {
+    resize: vertical;
+    min-height: 40px;
+    font-size: 1rem;
+}
+
+/* Custom scrollbar-none for horizontal folders */
+.scrollbar-none::-webkit-scrollbar {
+    display: none;
+}
+.scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* Custom horizontal scroll container for folders */
+.folders-scroll-container {
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    padding-bottom: 0.75rem;
+    padding-top: 0.25rem;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Beautiful folder card style */
+.folder-mini-card {
+    flex: 0 0 auto;
+    width: 200px; /* Độ rộng cố định nhỏ hơn trên mobile (200px thay vì 240px) */
+    scroll-snap-align: start;
+    background: white;
+    border: 1px solid rgba(244, 63, 94, 0.1); /* border mỏng hồng dịu */
+    border-radius: 16px;
+    padding: 0.875rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    box-shadow: 0 2px 8px -2px rgba(244, 63, 94, 0.05);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+
+.folder-mini-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px -4px rgba(244, 63, 94, 0.15);
+    border-color: rgba(244, 63, 94, 0.3);
+}
+
+.folder-mini-card-content {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-grow: 1;
+    min-width: 0; /* Cho phép text truncate hoạt động */
+}
+
+.folder-icon-wrapper {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+/* Responsive cho phần Thư mục: chuyển từ cuộn ngang sang Grid với số lượng cột cụ thể */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .folders-scroll-container {
+        display: grid !important;
+        grid-template-cols: repeat(4, minmax(0, 1fr)) !important;
+        gap: 1rem;
+        overflow-x: visible;
+        width: 100%;
+        padding-bottom: 0;
+    }
+    .folder-mini-card {
+        width: auto !important; /* Co giãn tự do theo cột của Grid */
+        flex: 1 1 auto;
+    }
+}
+
+@media (min-width: 1024px) {
+    .folders-scroll-container {
+        display: grid !important;
+        grid-template-cols: repeat(5, minmax(0, 1fr)) !important;
+        gap: 1.25rem;
+        overflow-x: visible;
+        width: 100%;
+        padding-bottom: 0;
+    }
+    .folder-mini-card {
+        width: auto !important; /* Co giãn tự do theo cột của Grid */
+        flex: 1 1 auto;
+    }
+}
+
+/* Nút phân trang Thư mục */
+.folder-page-btn {
+    width: 1.75rem;
+    height: 1.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    transition: all 0.2s ease;
+    background-color: #f9fafb; /* bg-gray-50 */
+    border: 1px solid #f3f4f6; /* border-gray-200 */
+    color: #4b5563; /* text-gray-600 */
+    cursor: pointer;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.folder-page-btn:hover:not(:disabled) {
+    background-color: #fdf2f8; /* bg-pink-50 */
+    border-color: #fbcfe8; /* border-pink-200 */
+    color: #db2777; /* text-pink-600 */
+    transform: translateY(-1px);
+}
+
+.folder-page-btn.active {
+    background-color: #db2777; /* bg-pink-600 */
+    border-color: #db2777;
+    color: #ffffff;
+    box-shadow: 0 4px 6px -1px rgba(219, 39, 119, 0.2);
+}
+
+.folder-page-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* Custom Obsidian Markdown Styling - Tối giản */
+.obsidian-bold {
+    font-weight: 700 !important;
+    color: #D81B60 !important;
+    -webkit-text-stroke: 0.3px currentColor !important;
+}
+
+.obsidian-italic {
+    font-style: italic !important;
+    font-weight: 600 !important;
+    color: #7B1FA2 !important;
+}
+
+
+/* Tùy chỉnh màu sắc Obsidian Bold/Italic/Code trên từng nền giải thích để tăng độ tương phản và thẩm mỹ */
+
+/* 1. Nền đáp án đúng (Xanh lá) */
+.exp-correct {
+    font-size: 0.95rem !important; /* To lên một chút */
+    line-height: 1.5 !important;
+}
+.exp-correct .obsidian-bold {
+    color: #0f5132 !important; /* Xanh lá siêu đậm */
+    -webkit-text-stroke: 0.2px currentColor !important;
+}
+.exp-correct .obsidian-italic {
+    color: #0b5ed7 !important; /* Xanh sapphire đậm thanh lịch */
+}
+.exp-correct code {
+    background-color: #d1e7dd !important; /* Nền xanh lá nhạt */
+    color: #0f5132 !important; /* Chữ xanh lá đậm */
+    border: 1px solid #a3cfbb !important;
+}
+
+/* 2. Nền đáp án sai được chọn (Đỏ) */
+.exp-wrong-selected {
+    font-size: 0.95rem !important;
+    line-height: 1.5 !important;
+}
+.exp-wrong-selected .obsidian-bold {
+    color: #5c0f16 !important; /* Đỏ đô rượu vang siêu đậm */
+    -webkit-text-stroke: 0.2px currentColor !important;
+}
+.exp-wrong-selected .obsidian-italic {
+    color: #a14f03 !important; /* Màu cam cháy đậm tạo điểm nhấn */
+}
+.exp-wrong-selected code {
+    background-color: #f8d7da !important; /* Nền đỏ nhạt */
+    color: #842029 !important; /* Chữ đỏ đậm */
+    border: 1px solid #f5c2c7 !important;
+}
+
+/* 3. Nền đáp án sai không được chọn (Xám/Trắng/Pink nhạt) */
+.exp-wrong-normal {
+    font-size: 0.95rem !important;
+    line-height: 1.5 !important;
+}
+.exp-wrong-normal .obsidian-bold {
+    color: #b0124c !important; /* Hồng mận đậm đà, dịu hơn mâm xôi để dễ đọc trên nền sáng */
+}
+.exp-wrong-normal .obsidian-italic {
+    font-size: 1rem;
+}
+
+/* Custom scrollbar-none for horizontal folders */
+.scrollbar-none::-webkit-scrollbar {
+    display: none;
+}
+.scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* Custom horizontal scroll container for folders */
+.folders-scroll-container {
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    padding-bottom: 0.75rem;
+    padding-top: 0.25rem;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Beautiful folder card style */
+.folder-mini-card {
+    flex: 0 0 auto;
+    width: 200px; /* Độ rộng cố định nhỏ hơn trên mobile (200px thay vì 240px) */
+    scroll-snap-align: start;
+    background: white;
+    border: 1px solid rgba(244, 63, 94, 0.1); /* border mỏng hồng dịu */
+    border-radius: 16px;
+    padding: 0.875rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    box-shadow: 0 2px 8px -2px rgba(244, 63, 94, 0.05);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+
+.folder-mini-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px -4px rgba(244, 63, 94, 0.15);
+    border-color: rgba(244, 63, 94, 0.3);
+}
+
+.folder-mini-card-content {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-grow: 1;
+    min-width: 0; /* Cho phép text truncate hoạt động */
+}
+
+.folder-icon-wrapper {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+/* Responsive cho phần Thư mục: chuyển từ cuộn ngang sang Grid với số lượng cột cụ thể */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .folders-scroll-container {
+        display: grid !important;
+        grid-template-cols: repeat(4, minmax(0, 1fr)) !important;
+        gap: 1rem;
+        overflow-x: visible;
+        width: 100%;
+        padding-bottom: 0;
+    }
+    .folder-mini-card {
+        width: auto !important; /* Co giãn tự do theo cột của Grid */
+        flex: 1 1 auto;
+    }
+}
+
+@media (min-width: 1024px) {
+    .folders-scroll-container {
+        display: grid !important;
+        grid-template-cols: repeat(5, minmax(0, 1fr)) !important;
+        gap: 1.25rem;
+        overflow-x: visible;
+        width: 100%;
+        padding-bottom: 0;
+    }
+    .folder-mini-card {
+        width: auto !important; /* Co giãn tự do theo cột của Grid */
+        flex: 1 1 auto;
+    }
+}
+
+/* Nút phân trang Thư mục */
+.folder-page-btn {
+    width: 1.75rem;
+    height: 1.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    transition: all 0.2s ease;
+    background-color: #f9fafb; /* bg-gray-50 */
+    border: 1px solid #f3f4f6; /* border-gray-200 */
+    color: #4b5563; /* text-gray-600 */
+    cursor: pointer;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.folder-page-btn:hover:not(:disabled) {
+    background-color: #fdf2f8; /* bg-pink-50 */
+    border-color: #fbcfe8; /* border-pink-200 */
+    color: #db2777; /* text-pink-600 */
+    transform: translateY(-1px);
+}
+
+.folder-page-btn.active {
+    background-color: #db2777; /* bg-pink-600 */
+    border-color: #db2777;
+    color: #ffffff;
+    box-shadow: 0 4px 6px -1px rgba(219, 39, 119, 0.2);
+}
+
+.folder-page-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* Custom Obsidian Markdown Styling - Tối giản */
+.obsidian-bold {
+    font-weight: 700 !important;
+    color: #D81B60 !important;
+    -webkit-text-stroke: 0.3px currentColor !important;
+}
+
+.obsidian-italic {
+    font-style: italic !important;
+    font-weight: 600 !important;
+    color: #7B1FA2 !important;
+}
+
+
+/* Tùy chỉnh màu sắc Obsidian Bold/Italic/Code trên từng nền giải thích để tăng độ tương phản và thẩm mỹ */
+
+/* 1. Nền đáp án đúng (Xanh lá) */
+.exp-correct {
+    font-size: 0.95rem !important; /* To lên một chút */
+    line-height: 1.5 !important;
+}
+.exp-correct .obsidian-bold {
+    color: #0f5132 !important; /* Xanh lá siêu đậm */
+    -webkit-text-stroke: 0.2px currentColor !important;
+}
+.exp-correct .obsidian-italic {
+    color: #0b5ed7 !important; /* Xanh sapphire đậm thanh lịch */
+}
+.exp-correct code {
+    background-color: #d1e7dd !important; /* Nền xanh lá nhạt */
+    color: #0f5132 !important; /* Chữ xanh lá đậm */
+    border: 1px solid #a3cfbb !important;
+}
+
+/* 2. Nền đáp án sai được chọn (Đỏ) */
+.exp-wrong-selected {
+    font-size: 0.95rem !important;
+    line-height: 1.5 !important;
+}
+.exp-wrong-selected .obsidian-bold {
+    color: #5c0f16 !important; /* Đỏ đô rượu vang siêu đậm */
+    -webkit-text-stroke: 0.2px currentColor !important;
+}
+.exp-wrong-selected .obsidian-italic {
+    color: #a14f03 !important; /* Màu cam cháy đậm tạo điểm nhấn */
+}
+.exp-wrong-selected code {
+    background-color: #f8d7da !important; /* Nền đỏ nhạt */
+    color: #842029 !important; /* Chữ đỏ đậm */
+    border: 1px solid #f5c2c7 !important;
+}
+
+/* 3. Nền đáp án sai không được chọn (Xám/Trắng/Pink nhạt) */
+.exp-wrong-normal {
+    font-size: 0.95rem !important;
+    line-height: 1.5 !important;
+}
+.exp-wrong-normal .obsidian-bold {
+    color: #b0124c !important; /* Hồng mận đậm đà, dịu hơn mâm xôi để dễ đọc trên nền sáng */
+}
+.exp-wrong-normal .obsidian-italic {
+    color: #69108c !important; /* Tím đậm đà */
+}
+.exp-wrong-normal code {
+    background-color: #f8f9fa !important;
+    color: #c92a2a !important;
+    border: 1px solid #e9ecef !important;
+}
+
+/* Custom Table Styling cho câu hỏi trắc nghiệm */
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 1rem 0;
+}
+
+.cute-table {
+    background-color: #fff;
+    border-radius: 0.75rem;
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+    border: 1px solid rgba(255, 182, 193, 0.2);
+}
+
+.cute-table th {
+    background-color: rgba(255, 182, 193, 0.15); /* Nền hồng nhạt cute */
+    color: #b0124c; /* Chữ hồng đậm */
+    font-weight: 700;
+    padding: 0.75rem 1rem;
+    border-bottom: 2px solid rgba(255, 182, 193, 0.3);
+}
+
+.cute-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(255, 182, 193, 0.08);
+    color: #495057;
+}
+
+.cute-table tr:last-child td {
+    border-bottom: none;
+}
+
+.cute-table tr:hover td {
+    background-color: rgba(255, 182, 193, 0.03);
+}

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Bệnh án điện tử chi tiết</title>
+    <script src="../../pwa-install.js" defer></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .tab-link { cursor: pointer; }
+        .tab-link.active { 
+            border-color: #ec4899; /* pink-500 */
+            color: #ec4899; 
+            font-weight: 600;
+        }
+        /* Nâng cấp: Cố định thanh tab */
+        .sticky-tabs {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            background: #fff;
+        }
+        /* Nâng cấp: Hiệu ứng focus cho input */
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #ec4899;
+            box-shadow: 0 0 0 2px #fbcfe8;
+        }
+        /* Nâng cấp: Tooltip */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 180px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 6px 8px;
+            position: absolute;
+            z-index: 30;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -90px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.9rem;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        /* Nâng cấp: Thông báo lưu thành công */
+        #save-message {
+            animation: fadeIn 0.5s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-pink-50 to-blue-50 min-h-screen flex flex-col items-center py-10">
+    <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-6xl w-full">
+        <h2 class="text-2xl font-bold text-pink-600 mb-4 flex items-center gap-3"><i class="fas fa-file-medical-alt"></i> Bệnh Án Điện Tử Nội Khoa</h2>
+        
+        <div class="border-b border-gray-200 mb-6 sticky-tabs">
+            <ul class="flex flex-wrap -mb-px text-sm font-medium text-center text-gray-500" id="tab-nav">
+                <li class="mr-2">
+                    <a class="tab-link inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 active" data-tab="hanh-chinh"><i class="fas fa-user"></i> I. Hành chính</a>
+                </li>
+                <li class="mr-2">
+                    <a class="tab-link inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300" data-tab="lydo-tiensu"><i class="fas fa-notes-medical"></i> II, III & IV. Lý do & Bệnh sử</a>
+                </li>
+                <li class="mr-2">
+                    <a class="tab-link inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300" data-tab="kham-benh"><i class="fas fa-stethoscope"></i> V & VIII, IX. Khám bệnh</a>
+                </li>
+                 <li class="mr-2">
+                    <a class="tab-link inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300" data-tab="chan-doan-dieu-tri"><i class="fas fa-diagnoses"></i> VI-XIII. Chẩn đoán & Điều trị</a>
+                </li>
+            </ul>
+        </div>
+
+        <form id="medical-record-form" class="flex flex-col gap-6">
+            <input type="hidden" id="medical-record-id">
+
+            <div id="hanh-chinh" class="tab-content active">
+                <fieldset class="border-2 border-pink-200 p-4 rounded-lg shadow-sm mb-6">
+                    <legend class="text-lg font-semibold text-pink-500 px-2 flex items-center gap-2"><i class="fas fa-user"></i> I. HÀNH CHÍNH</legend>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
+                        <div class="tooltip">
+                            <label for="patient-name" class="block font-semibold mb-1">Họ và tên <span class="text-pink-500">*</span></label>
+                            <input type="text" id="patient-name" class="w-full border rounded-lg px-3 py-2" required placeholder="Nhập họ tên bệnh nhân (bắt buộc)">
+                            <span class="tooltiptext">Bắt buộc nhập họ tên bệnh nhân</span>
+                            <span id="patient-name-error" class="text-red-500 text-sm mt-1 hidden">Vui lòng nhập họ tên.</span>
+                        </div>
+                        <div>
+                            <label for="patient-yob" class="block font-semibold mb-1">Năm sinh</label>
+                            <input type="number" id="patient-yob" placeholder="Ví dụ: 1980" class="w-full border rounded-lg px-3 py-2">
+                        </div>
+                        <div>
+                            <label for="patient-age" class="block font-semibold mb-1">Tuổi</label>
+                            <input type="number" id="patient-age" class="w-full border rounded-lg px-3 py-2" placeholder="Tự động tính từ năm sinh">
+                        </div>
+                        <div><label for="patient-gender" class="block font-semibold mb-1">Giới tính</label><select id="patient-gender" class="w-full border rounded-lg px-3 py-2"><option>Nam</option><option>Nữ</option><option>Khác</option></select></div>
+                        <div><label for="patient-ethnicity" class="block font-semibold mb-1">Dân tộc</label><input type="text" id="patient-ethnicity" value="Kinh" class="w-full border rounded-lg px-3 py-2"></div>
+                        <div><label for="patient-occupation" class="block font-semibold mb-1">Nghề nghiệp</label><input type="text" id="patient-occupation" class="w-full border rounded-lg px-3 py-2" placeholder="Ví dụ: Sinh viên, Công nhân..."></div>
+                        <div class="lg:col-span-3"><label for="patient-address" class="block font-semibold mb-1">Địa chỉ</label><input type="text" id="patient-address" class="w-full border rounded-lg px-3 py-2" placeholder="Nhập địa chỉ cụ thể"></div>
+                        <div><label for="contact-name" class="block font-semibold mb-1">Người liên hệ</label><input type="text" id="contact-name" class="w-full border rounded-lg px-3 py-2" placeholder="Tên người thân"></div>
+                        <div><label for="contact-phone" class="block font-semibold mb-1">SĐT liên hệ</label><input type="tel" id="contact-phone" class="w-full border rounded-lg px-3 py-2" placeholder="09xxxxxxxx"></div>
+                        <div class="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div class="tooltip">
+                                <label for="admission-time" class="block font-semibold mb-1">Giờ vào viện</label>
+                                <input type="text" id="admission-time" class="w-full border rounded-lg px-3 py-2" placeholder="hh:mm">
+                                <span class="tooltiptext">Nhập giờ vào viện (24h)</span>
+                            </div>
+                            <div class="tooltip">
+                                <label for="admission-date" class="block font-semibold mb-1">Ngày vào viện</label>
+                                <input type="text" id="admission-date" class="w-full border rounded-lg px-3 py-2" placeholder="dd/mm/yyyy">
+                                <span class="tooltiptext">Nhập ngày vào viện (dd/mm/yyyy)</span>
+                            </div>
+                            <div class="tooltip">
+                                <label for="record-datetime" class="block font-semibold mb-1">Ngày giờ làm bệnh án</label>
+                                <input type="datetime-local" id="record-datetime" class="w-full border rounded-lg px-3 py-2">
+                                <span class="tooltiptext">Tự động lấy thời gian hiện tại</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="bed-number" class="block font-semibold mb-1">Số giường</label>
+                            <input type="text" id="bed-number" class="w-full border rounded-lg px-3 py-2" placeholder="Nhập số giường (nếu có)">
+                        </div>
+                        <div>
+                            <label for="room-number" class="block font-semibold mb-1">Số phòng</label>
+                            <input type="text" id="room-number" class="w-full border rounded-lg px-3 py-2" placeholder="Nhập số phòng (nếu có)">
+                        </div>
+                        <div>
+                            <label for="hospital-name" class="block font-semibold mb-1">Bệnh viện</label>
+                            <input type="text" id="hospital-name" class="w-full border rounded-lg px-3 py-2" placeholder="Nhập tên bệnh viện (nếu có)">
+                        </div>
+                    </div>
+                </fieldset>
+            </div>
+
+            <div id="lydo-tiensu" class="tab-content">
+                <div class="tooltip"><label for="reason-for-admission" class="block font-semibold mb-1 text-pink-500">II. LÝ DO VÀO VIỆN <span class="text-pink-500">*</span></label><textarea id="reason-for-admission" rows="2" class="w-full border rounded-lg px-3 py-2" required placeholder="Nhập lý do vào viện"></textarea><span class="tooltiptext">Bắt buộc nhập lý do vào viện</span><span id="reason-error" class="text-red-500 text-sm mt-1 hidden">Vui lòng nhập lý do.</span></div>
+                <div class="mt-4"><label for="illness-history" class="block font-semibold mb-1 text-pink-500">III. BỆNH SỬ</label><textarea id="illness-history" rows="6" class="w-full border rounded-lg px-3 py-2" placeholder="Mô tả diễn tiến bệnh"></textarea></div>
+                <fieldset class="border-2 border-pink-200 p-4 rounded-lg mt-4">
+                    <legend class="text-lg font-semibold text-pink-500 px-2">IV. TIỀN SỬ</legend>
+                    <div class="flex flex-col gap-4 mt-2">
+                        <div>
+                            <label for="history-internal" class="block font-semibold mb-1">Nội khoa</label>
+                            <textarea id="history-internal" rows="2" class="w-full border rounded-lg px-3 py-2" placeholder="Các bệnh mãn tính, đã điều trị khỏi..."></textarea>
+                        </div>
+                        <div>
+                            <label for="history-surgery" class="block font-semibold mb-1">Ngoại khoa</label>
+                            <textarea id="history-surgery" rows="2" class="w-full border rounded-lg px-3 py-2" placeholder="Phẫu thuật, tai nạn, chấn thương..."></textarea>
+                        </div>
+                        <div>
+                            <label for="history-obgyne" class="block font-semibold mb-1">Sản phụ khoa (nữ)</label>
+                            <textarea id="history-obgyne" rows="2" class="w-full border rounded-lg px-3 py-2" placeholder="Kinh nguyệt, PARA, bệnh phụ khoa..."></textarea>
+                        </div>
+                        <div>
+                            <label for="history-allergy" class="block font-semibold mb-1">Dị ứng</label>
+                            <textarea id="history-allergy" rows="2" class="w-full border rounded-lg px-3 py-2" placeholder="Thuốc, thức ăn, hóa chất..."></textarea>
+                        </div>
+                        <div>
+                            <label for="history-habit" class="block font-semibold mb-1">Thói quen</label>
+                            <textarea id="history-habit" rows="2" class="w-full border rounded-lg px-3 py-2" placeholder="Hút thuốc, rượu bia, chất gây nghiện..."></textarea>
+                        </div>
+                        <div>
+                            <label for="history-family" class="block font-semibold mb-1">Gia đình</label>
+                            <textarea id="history-family" rows="2" class="w-full border rounded-lg px-3 py-2" placeholder="Bệnh di truyền, lây nhiễm trong gia đình..."></textarea>
+                        </div>
+                    </div>
+                </fieldset>
+            </div>
+
+            <div id="kham-benh" class="tab-content">
+                <fieldset class="border-2 border-pink-200 p-4 rounded-lg">
+                    <legend class="text-lg font-semibold text-pink-500 px-2">V. KHÁM BỆNH</legend>
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-2">
+                        <div><label class="block font-semibold mb-1">Mạch (l/p)</label><input type="number" id="vital-pulse" class="w-full border rounded-lg p-2" placeholder="Nhập mạch"></div>
+                        <div><label class="block font-semibold mb-1">Nhiệt độ (°C)</label><input type="number" step="0.1" id="vital-temp" class="w-full border rounded-lg p-2" placeholder="Nhập nhiệt độ"></div>
+                        <div><label class="block font-semibold mb-1">Huyết áp (mmHg)</label><input type="text" id="vital-bp" class="w-full border rounded-lg p-2" placeholder="120/80"></div>
+                        <div><label class="block font-semibold mb-1">Nhịp thở (l/p)</label><input type="number" id="vital-resp" class="w-full border rounded-lg p-2" placeholder="Nhập nhịp thở"></div>
+                        <div><label class="block font-semibold mb-1">SpO2 (%)</label><input type="number" id="vital-spo2" class="w-full border rounded-lg p-2" placeholder="Nhập SpO2"></div>
+                        <div><label class="block font-semibold mb-1">Chiều cao (cm)</label><input type="number" id="vital-height" class="w-full border rounded-lg p-2" placeholder="Nhập chiều cao"></div>
+                        <div><label class="block font-semibold mb-1">Cân nặng (kg)</label><input type="number" id="vital-weight" class="w-full border rounded-lg p-2" placeholder="Nhập cân nặng"></div>
+                        <div><label class="block font-semibold mb-1">BMI (kg/m²)</label><input type="text" id="vital-bmi" class="w-full bg-gray-100 border rounded-lg p-2" readonly></div>
+                    </div>
+                    <div class="flex flex-col gap-4 mt-4">
+                        <div><label class="block font-semibold mb-1">Toàn thân</label><textarea id="exam-general" rows="3" class="w-full border rounded-lg p-2" placeholder="Mô tả khám toàn thân"></textarea></div>
+                        <div><label class="block font-semibold mb-1">Thể trạng</label><textarea id="exam-physical" rows="2" class="w-full border rounded-lg p-2" placeholder="Tỉnh táo, tiếp xúc tốt..."></textarea></div>
+                        <div><label class="block font-semibold mb-1">Da, niêm mạc</label><textarea id="exam-skin-mucosa" rows="2" class="w-full border rounded-lg p-2" placeholder="Mô tả da, niêm mạc"></textarea></div>
+                        <div><label class="block font-semibold mb-1">Lông, tóc, móng</label><textarea id="exam-hair-nail" rows="2" class="w-full border rounded-lg p-2" placeholder="Mô tả hệ thống lông, tóc, móng"></textarea></div>
+                        <div><label class="block font-semibold mb-1">Tuyến giáp, hạch ngoại vi</label><textarea id="exam-thyroid-lymph" rows="2" class="w-full border rounded-lg p-2" placeholder="Mô tả tuyến giáp, hạch ngoại vi"></textarea></div>
+                        <div><label class="block font-semibold mb-1">Dấu hiệu phù, xuất huyết</label><textarea id="exam-edema-bleed" rows="2" class="w-full border rounded-lg p-2" placeholder="Mô tả dấu hiệu phù, xuất huyết"></textarea></div>
+                    </div>
+                    <div class="flex flex-col gap-4 mt-4">
+                        <div><label class="block font-semibold mb-1">Toàn thân</label><textarea id="exam-general" rows="3" class="w-full border rounded-lg p-2" placeholder="Mô tả khám toàn thân"></textarea></div>
+                        <fieldset class="border border-pink-200 rounded-lg p-4">
+                            <legend class="font-semibold text-pink-500 px-2">Khám các cơ quan (Bộ phận): Khám theo trình tự từ trên xuống dưới một cách hệ thống</legend>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                                <div><label class="block font-semibold mb-1">Tuần hoàn (Tim mạch)</label><textarea id="exam-circulation" rows="2" class="w-full border rounded-lg p-2" placeholder="Mô tả khám tuần hoàn, tim mạch"></textarea></div>
+                                <div><label class="block font-semibold mb-1">Hô hấp</label><textarea id="exam-respiratory" rows="2" class="w-full border rounded-lg p-2" placeholder="Mô tả khám hô hấp"></textarea></div>
+                                <div><label class="block font-semibold mb-1">Tiêu hóa</label><textarea id="exam-digestive" rows="2" class="w-full border rounded-lg p-2" placeholder="Mô tả khám tiêu hóa"></textarea></div>
+                                <div><label class="block font-semibold mb-1">Thận - Tiết niệu - Sinh dục</label><textarea id="exam-urinary" rows="2" class="w-full border rounded-lg p-2" placeholder="Mô tả khám thận, tiết niệu, sinh dục"></textarea></div>
+                                <div><label class="block font-semibold mb-1">Thần kinh</label><textarea id="exam-neuro" rows="2" class="w-full border rounded-lg p-2" placeholder="Mô tả khám thần kinh"></textarea></div>
+                                <div><label class="block font-semibold mb-1">Cơ - Xương - Khớp</label><textarea id="exam-musculoskeletal" rows="2" class="w-full border rounded-lg p-2" placeholder="Mô tả khám cơ, xương, khớp"></textarea></div>
+                                <div><label class="block font-semibold mb-1">Tai - Mũi - Họng</label><textarea id="exam-ent" rows="2" class="w-full border rounded-lg p-2" placeholder="Mô tả khám tai, mũi, họng"></textarea></div>
+                                <div><label class="block font-semibold mb-1">Răng - Hàm - Mặt</label><textarea id="exam-dental" rows="2" class="w-full border rounded-lg p-2" placeholder="Mô tả khám răng, hàm, mặt"></textarea></div>
+                                <div><label class="block font-semibold mb-1">Mắt</label><textarea id="exam-eye" rows="2" class="w-full border rounded-lg p-2" placeholder="Mô tả khám mắt"></textarea></div>
+                            </div>
+                        </fieldset>
+                    </div>
+                </fieldset>
+                <div class="mt-4"><label for="labs-proposed" class="block font-semibold mb-1 text-pink-500">VIII. CẬN LÂM SÀNG ĐỀ NGHỊ</label><textarea id="labs-proposed" rows="4" class="w-full border rounded-lg px-3 py-2" placeholder="Ghi rõ các CLS cần làm"></textarea></div>
+                <div class="mt-4"><label for="labs-results" class="block font-semibold mb-1 text-pink-500">IX. KẾT QUẢ CẬN LÂM SÀNG ĐÃ CÓ</label><textarea id="labs-results" rows="4" class="w-full border rounded-lg px-3 py-2" placeholder="Ghi rõ kết quả CLS đã có"></textarea></div>
+            </div>
+            
+            <div id="chan-doan-dieu-tri" class="tab-content">
+                <div class="flex flex-col gap-4">
+                    <div class="flex items-center gap-2">
+                        <label class="block font-semibold mb-1 text-pink-500" for="summary">VI. TÓM TẮT BỆNH ÁN</label>
+                        <button type="button" id="auto-summary-btn" class="ml-2 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"><i class="fas fa-magic"></i> Tự động tóm tắt</button>
+                    </div>
+                    <textarea id="summary" rows="4" class="w-full border rounded-lg p-2" placeholder="Tóm tắt tự động hoặc nhập tay"></textarea>
+                    <div><label class="block font-semibold mb-1 text-pink-500">VII. CHẨN ĐOÁN SƠ BỘ</label><textarea id="provisional-diagnosis" rows="2" class="w-full border rounded-lg p-2" placeholder="Nhập chẩn đoán sơ bộ"></textarea></div>
+                    <div><label class="block font-semibold mb-1 text-pink-500">X. CHẨN ĐOÁN XÁC ĐỊNH</label><textarea id="final-diagnosis" rows="2" class="w-full border rounded-lg p-2" placeholder="Nhập chẩn đoán xác định"></textarea></div>
+                    <div><label class="block font-semibold mb-1 text-pink-500">XI. HƯỚNG ĐIỀU TRỊ</label><textarea id="treatment-plan" rows="4" class="w-full border rounded-lg p-2" placeholder="Nhập hướng điều trị"></textarea></div>
+                    <div><label class="block font-semibold mb-1 text-pink-500">XII. TIÊN LƯỢNG</label><textarea id="prognosis" rows="2" class="w-full border rounded-lg p-2" placeholder="Nhập tiên lượng"></textarea></div>
+                    <div><label class="block font-semibold mb-1 text-pink-500">XIII. DỰ PHÒNG</label><textarea id="prevention" rows="2" class="w-full border rounded-lg p-2" placeholder="Nhập dự phòng"></textarea></div>
+                </div>
+            </div>
+
+            <div class="flex flex-col md:flex-row gap-4 items-center mt-4">
+                <label for="record-status" class="block font-semibold mb-1 text-pink-500">Trạng thái bệnh án:</label>
+                <select id="record-status" class="border rounded-lg px-3 py-2 w-full md:w-auto">
+                    <option value="Hoàn thành">Hoàn thành</option>
+                    <option value="Đang chỉnh sửa">Chưa hoàn thành</option>
+                </select>
+            </div>
+
+            <button type="submit" id="save-button" class="mt-4 bg-pink-500 text-white px-4 py-3 rounded-lg hover:bg-pink-600 transition font-bold flex items-center justify-center gap-2 disabled:bg-pink-300 shadow-lg focus:ring-2 focus:ring-pink-300">
+                <span class="button-text"><i class="fas fa-save"></i> Lưu bệnh án</span>
+                <i class="fas fa-spinner fa-spin button-spinner hidden"></i>
+            </button>
+        </form>
+
+        <div id="save-message" class="mt-4 text-green-600 font-semibold hidden text-center text-lg bg-green-50 border border-green-200 rounded-lg py-2 px-4 shadow">Đã lưu bệnh án thành công!</div>
+        <a href="../study-room/waiting-room.html" class="block mt-6 text-blue-600 hover:underline text-center"><i class="fas fa-arrow-left"></i> Quay lại danh sách bệnh án</a>
+    </div>
+    <script src="tao-benh-an.js"></script>
+</body>
+</html>

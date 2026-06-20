@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Phòng học Zitthenkne</title>
+    <script src="../../pwa-install.js" defer></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="../../style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="flex flex-col h-screen bg-gray-100 text-gray-700 text-sm">
+    <div class="md:hidden fixed top-0 left-0 w-full z-40 bg-white/90 shadow flex items-center justify-between px-4 py-3 border-b-2 border-pink-100">
+        <a href="../../index.html" class="text-pink-500 text-xl"><i class="fas fa-arrow-left"></i></a>
+        <span class="font-bold text-[#FF69B4] text-lg">Phòng học</span>
+        <button id="mobile-chat-toggle" class="text-2xl text-pink-500 focus:outline-none">
+            <i class="fas fa-comments"></i>
+        </button>
+    </div>
+    <header class="bg-white shadow-sm p-2 flex justify-between items-center flex-shrink-0 z-20 mt-12 md:mt-0">
+        <div class="flex items-center gap-4">
+            <a href="../../index.html" class="px-4 py-2 text-gray-600 hover:text-pink-500 transition rounded-lg hover:bg-gray-100 flex items-center gap-2">
+                <i class="fas fa-arrow-left"></i> Trang chủ
+            </a>
+            <div id="room-id-display" class="text-xs text-gray-500 bg-pink-50 px-3 py-1 rounded-lg font-mono"></div>
+        </div>
+        <div class="flex items-center gap-4">
+            <button id="start-collaborative-quiz-btn" class="px-4 py-2 bg-[#D8BFD8] text-white rounded-lg hover:bg-opacity-80 transition text-sm flex items-center gap-2 shadow-sm hover:shadow-md">
+                <i class="fas fa-users"></i> <span class="hidden xs:inline">Cùng nhau đánh đề</span>
+            </button>
+            <button id="share-room-btn" class="px-4 py-2 bg-[#FF69B4] text-white rounded-lg hover:bg-opacity-80 transition text-sm flex items-center gap-2 shadow-sm hover:shadow-md">
+                <i class="fas fa-share-alt"></i> <span class="hidden xs:inline">Chia sẻ phòng</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 flex relative pt-2 md:pt-0">
+        <div class="fixed bottom-0 left-0 w-full bg-white/95 shadow-lg flex flex-row gap-1 px-1 py-2 z-30 md:absolute md:top-4 md:left-4 md:bg-white/80 md:backdrop-blur-md md:rounded-lg md:shadow-lg md:p-1 md:flex-col md:gap-2 md:w-16 md:static md:bottom-auto md:w-auto md:h-auto rounded-t-2xl md:rounded-lg md:z-10 md:w-auto">
+            <button data-tool="select" class="tool-btn p-2 w-12 h-12 flex items-center justify-center rounded hover:bg-gray-200 transition active text-xl md:w-10 md:h-10 md:text-base" title="Chọn"><i class="fas fa-mouse-pointer"></i></button>
+            <button data-tool="pen" class="tool-btn p-2 w-12 h-12 flex items-center justify-center rounded hover:bg-gray-200 transition text-xl md:w-10 md:h-10 md:text-base" title="Bút"><i class="fas fa-pen"></i></button>
+            <button data-tool="highlight" class="tool-btn p-2 w-12 h-12 flex items-center justify-center rounded hover:bg-yellow-100 transition text-xl md:w-10 md:h-10 md:text-base" title="Highlight"><i class="fas fa-highlighter"></i></button>
+            <button data-tool="line" class="tool-btn p-2 w-12 h-12 flex items-center justify-center rounded hover:bg-gray-200 transition text-xl md:w-10 md:h-10 md:text-base" title="Đường thẳng"><i class="fas fa-minus"></i></button>
+            <button data-tool="rectangle" class="tool-btn p-2 w-12 h-12 flex items-center justify-center rounded hover:bg-gray-200 transition text-xl md:w-10 md:h-10 md:text-base" title="Hình chữ nhật"><i class="far fa-square"></i></button>
+            <button data-tool="circle" class="tool-btn p-2 w-12 h-12 flex items-center justify-center rounded hover:bg-gray-200 transition text-xl md:w-10 md:h-10 md:text-base" title="Hình tròn"><i class="far fa-circle"></i></button>
+            <button data-tool="eraser" class="tool-btn p-2 w-12 h-12 flex items-center justify-center rounded hover:bg-gray-200 transition text-xl md:w-10 md:h-10 md:text-base" title="Tẩy"><i class="fas fa-eraser"></i></button>
+            <input type="color" id="color-picker" value="#FF69B4" class="w-12 h-12 p-1 border-none rounded cursor-pointer bg-white md:w-10 md:h-10" title="Chọn màu">
+            <input type="range" id="line-width" min="1" max="50" value="5" class="w-24 mx-auto my-2 md:w-20" title="Độ dày nét">
+            <label class="flex items-center gap-2 px-2 cursor-pointer select-none text-xs"><input type="checkbox" id="dashed-checkbox" class="accent-pink-400"> <span class="hidden xs:inline">Nét đứt</span></label>
+            <button id="undo-btn" class="p-2 w-12 h-12 flex items-center justify-center rounded hover:bg-gray-200 transition text-xl md:w-10 md:h-10 md:text-base" title="Hoàn tác"><i class="fas fa-undo"></i></button>
+            <button id="redo-btn" class="p-2 w-12 h-12 flex items-center justify-center rounded hover:bg-gray-200 transition text-xl md:w-10 md:h-10 md:text-base" title="Làm lại"><i class="fas fa-redo"></i></button>
+            <button id="clear-canvas-btn" class="p-2 w-12 h-12 flex items-center justify-center rounded hover:bg-red-100 transition text-red-500 text-xl md:w-10 md:h-10 md:text-base" title="Xóa bảng"><i class="fas fa-trash"></i></button>
+            <button id="upload-image-object-btn" class="p-2 w-12 h-12 flex items-center justify-center rounded hover:bg-gray-200 transition text-xl md:w-10 md:h-10 md:text-base" title="Chèn ảnh"><i class="fas fa-image"></i></button>
+            <input type="file" id="image-object-file-input" accept="image/*" class="hidden">
+        </div>
+
+        <div id="canvas-container" class="flex-1 relative w-full h-full bg-white rounded-lg shadow-inner flex items-center justify-center min-h-[300px] md:min-h-0 pt-2 pb-20 md:pb-0 md:pt-0">
+            <canvas id="whiteboard" class="w-full h-full rounded-lg cursor-crosshair"></canvas>
+        </div>
+
+        <aside id="chat-sidebar" class="fixed md:absolute top-0 md:top-4 right-0 md:right-4 w-full md:w-80 max-w-full bg-white/95 rounded-t-2xl md:rounded-lg shadow-lg flex flex-col z-30 md:z-20 h-[70vh] md:h-[90%] transition-transform duration-300 md:translate-x-0 translate-y-full md:translate-y-0 pointer-events-none md:pointer-events-auto md:block">
+            <div class="flex flex-col h-full pointer-events-auto">
+                <div class="flex items-center justify-between p-4 border-b border-pink-100">
+                    <div class="font-bold text-[#FF69B4] flex items-center gap-2"><i class="fas fa-users"></i> <span class="hidden xs:inline">Thành viên</span></div>
+                    <span id="room-notice-area" class="text-xs text-gray-400"></span>
+                </div>
+                <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-2 bg-pink-50"></div>
+                <ul id="member-list" class="h-40 overflow-y-auto p-4 space-y-2 bg-pink-100/50 border-t border-pink-200"></ul>
+                <div class="border-t border-pink-100 p-4 bg-white rounded-b-lg">
+                    <form id="chat-form" class="flex gap-2">
+                        <input id="chat-input" type="text" placeholder="Nhắn tin..." class="flex-1 p-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-pink-200">
+                        <button type="submit" class="bg-[#FF69B4] text-white px-4 py-2 rounded-lg hover:bg-opacity-80 transition flex items-center gap-1"><i class="fas fa-paper-plane"></i></button>
+                    </form>
+                </div>
+            </div>
+        </aside>
+
+        <div id="loading-overlay" class="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+            <div class="flex flex-col items-center gap-4">
+                <i class="fas fa-spinner fa-spin text-4xl text-[#FF69B4]"></i>
+                <span class="text-[#FF69B4] font-semibold">Đang tải dữ liệu...</span>
+            </div>
+        </div>
+    </main>
+
+    <div id="collaborative-quiz-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 hidden">
+        <div class="bg-white rounded-lg shadow-xl p-8 w-full max-w-3xl relative">
+            <button id="close-collaborative-quiz-modal-btn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700"><i class="fas fa-times text-2xl"></i></button>
+            <div id="quiz-upload-area">
+                <div id="upload-quiz-file-area" class="border-2 border-dashed border-pink-300 rounded-lg p-8 text-center cursor-pointer hover:bg-pink-50 transition mb-4">
+                    <i class="fas fa-upload text-3xl text-[#FF69B4] mb-2"></i>
+                    <div class="font-semibold text-[#FF69B4]">Kéo thả hoặc chọn file Excel đề trắc nghiệm</div>
+                    <input type="file" id="quizFileInput" accept=".xlsx,.xls" class="hidden">
+                    <div id="quizFileInfo" class="hidden mt-2 text-xs text-gray-500">File: <span id="quizFileName"></span> <span id="quiz-question-count-info"></span></div>
+                </div>
+                <div class="flex flex-wrap items-center gap-4 mb-4">
+                    <button id="download-quiz-template-btn" type="button" class="bg-gray-200 text-pink-500 px-4 py-2 rounded-lg hover:bg-pink-50 transition flex items-center gap-2"><i class="fas fa-download"></i> Tải file mẫu</button>
+                    <button id="library-quiz-btn" type="button" class="bg-[#B0E0E6] text-pink-700 px-4 py-2 rounded-lg hover:bg-pink-100 transition flex items-center gap-2"><i class="fas fa-book"></i> Làm đề trong thư viện</button>
+                </div>
+                 <div class="flex justify-end">
+                    <button id="start-quiz-collaboration-btn" class="bg-[#FF69B4] text-white px-6 py-2 rounded-lg hover:bg-opacity-80 transition flex items-center gap-2 shadow disabled:opacity-50" disabled><i class="fas fa-play"></i> Bắt đầu</button>
+                </div>
+            </div>
+
+            <div id="collaborative-quiz-display" class="hidden max-h-[70vh] overflow-y-auto p-2 bg-pink-50 rounded-lg">
+                <div class="mb-4">
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+                        <div id="collaborative-quiz-progress-fill" class="bg-[#FF69B4] h-2.5 rounded-full transition-all duration-300" style="width: 0%;"></div>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span id="question-counter" class="text-xs text-gray-500"></span>
+                    </div>
+                     <p id="current-question-text" class="font-semibold text-lg my-3"></p>
+                </div>
+                <div id="quiz-options-area" class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4"></div>
+                <div class="flex justify-between items-center gap-2 mt-6">
+                    <button id="prev-question-btn" class="px-4 py-2 bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300 transition flex items-center gap-2 disabled:opacity-50" disabled><i class="fas fa-arrow-left"></i> Trước</button>
+                    <button id="finish-quiz-collaboration-btn" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition flex items-center gap-2 hidden"><i class="fas fa-check"></i> Hoàn thành & Lưu</button>
+                    <button id="next-question-btn" class="px-4 py-2 bg-[#FFB6C1] text-black rounded-lg hover:bg-pink-300 transition flex items-center gap-2 disabled:opacity-50">Tiếp <i class="fas fa-arrow-right"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script type="module" src="firebase-init.js"></script>
+    <script type="module" src="utils.js"></script>
+    
+    <script type="module" src="study-room-main.js"></script>
+    
+    <script>
+    // Mobile chat sidebar toggle logic
+    document.addEventListener('DOMContentLoaded', function() {
+        const chatSidebar = document.getElementById('chat-sidebar');
+        const chatToggle = document.getElementById('mobile-chat-toggle');
+        if (chatSidebar && chatToggle) {
+            chatToggle.addEventListener('click', () => {
+                chatSidebar.classList.toggle('translate-y-full');
+                chatSidebar.classList.toggle('md:translate-x-full');
+            });
+            // Đóng khi click ra ngoài trên mobile
+            document.addEventListener('click', (e) => {
+                if (window.innerWidth < 768 && chatSidebar && !chatSidebar.contains(e.target) && !chatToggle.contains(e.target)) {
+                    chatSidebar.classList.add('translate-y-full');
+                }
+            });
+        }
+    });
+    </script>
+</body>
+</html>

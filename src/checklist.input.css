@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Project-specific overrides for checklist page */
+:root{
+  --muted:#6b7280;
+  --accent:#6c63ff;
+  --accent-2:#1a73e8;
+  --card-bg:#ffffff;
+  --border:#e6e9ef;
+}
+
+/* Small helpers */
+.container-custom { @apply max-w-6xl mx-auto p-4 }
+.sidebar-card { @apply bg-white rounded-2xl p-4 border shadow-sm }
+.card-custom { @apply bg-white rounded-xl p-4 border shadow-sm }
+.btn-primary { @apply inline-flex items-center gap-2 px-4 py-2 bg-pink-500 text-white rounded-lg shadow }
+.btn-ghost { @apply inline-flex items-center gap-2 px-4 py-2 bg-white border rounded-lg }
+
+/* Checklist specific */
+.step { @apply flex items-start gap-3 rounded-lg p-3 border bg-white }
+.step.completed { @apply bg-green-50 }
+
+/* Modal sheet
+.sheet uses existing checklist.css for base styles; keep small adjustments here */
+.sheet { @apply rounded-xl }
