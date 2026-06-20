@@ -1,3 +1,5 @@
+const axios = require('axios');
+
 module.exports = async function handler(req, res) {
     const { id } = req.query;
 
@@ -22,18 +24,18 @@ module.exports = async function handler(req, res) {
         'og_squirrel_stars.png'
     ];
     const randomImg = images[Math.floor(Math.random() * images.length)];
+    
     // Lấy host từ request để sinh đường dẫn tuyệt đối
     const host = req.headers['x-forwarded-host'] || req.headers.host || 'zitthenkne.vercel.app';
     const protocol = host.includes('localhost') ? 'http' : 'https';
     const imageUrl = `${protocol}://${host}/assets/${randomImg}`;
 
     try {
-        // Gọi REST API của Firestore để lấy tiêu đề bộ đề
+        // Sử dụng axios lấy dữ liệu bộ đề từ Firestore REST API (tránh lỗi fetch undefined trên Node.js cũ)
         const firestoreUrl = `https://firestore.googleapis.com/v1/projects/zitthenkne/databases/(default)/documents/quiz_sets/${id}`;
-        const response = await fetch(firestoreUrl);
-        if (response.ok) {
-            const data = await response.json();
-            // Firestore REST API trả về dữ liệu dạng { fields: { title: { stringValue: '...' } } }
+        const response = await axios.get(firestoreUrl);
+        if (response.status === 200) {
+            const data = response.data;
             const quizTitle = data.fields?.title?.stringValue;
             if (quizTitle) {
                 title = `${quizTitle}`;
@@ -41,7 +43,7 @@ module.exports = async function handler(req, res) {
             }
         }
     } catch (error) {
-        console.error("Lỗi khi lấy dữ liệu bộ đề từ Firestore:", error);
+        console.error("Lỗi khi lấy dữ liệu bộ đề từ Firestore:", error.message);
     }
 
     // Trả về HTML chứa các thẻ Open Graph meta động và script redirect về trang quiz thực tế
@@ -57,7 +59,7 @@ module.exports = async function handler(req, res) {
     <meta property="og:title" content="${title}">
     <meta property="og:description" content="${description}">
     <meta property="og:image" content="${imageUrl}">
-    <meta property="og:url" content="${protocol}://${host}/features/quiz/quiz.html?id=${id}">
+    <meta property="og:url" content="${protocol}://${host}/features/quiz/quiz.html?id=${id}&img=${randomImg}">
     
     <!-- Twitter Cards -->
     <meta name="twitter:card" content="summary_large_image">
@@ -65,7 +67,7 @@ module.exports = async function handler(req, res) {
     <meta name="twitter:description" content="${description}">
     <meta name="twitter:image" content="${imageUrl}">
 
-    <!-- Redirect ngay lập tức về trang quiz thực tế -->
+    <!-- Redirect ngay lập tức về trang quiz thực tế kèm ảnh Hero đồng bộ -->
     <script>
         window.location.href = "/features/quiz/quiz.html?id=${id}&img=${randomImg}";
     </script>
