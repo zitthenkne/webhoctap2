@@ -4,6 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Sẵn sàng làm bài kiểm tra</title>
+    <link rel="icon" type="image/png" href="../../assets/logo.png">
+    
+    <!-- Open Graph / Facebook / Zalo Share Preview -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Zitthenkne - Ôn luyện trắc nghiệm hiệu quả">
+    <meta property="og:description" content="Thử thách bản thân với các bộ đề trắc nghiệm thú vị và nâng cao kiến thức mỗi ngày cùng Zitthenkne!">
+    <meta property="og:image" content="../../assets/og_squirrel_close.png">
+    
+    <script>
+        (function() {
+            const images = [
+                'assets/og_squirrel_close.png',
+                'assets/og_squirrel_jump.png',
+                'assets/og_squirrel_study.png'
+            ];
+            const randomImg = images[Math.floor(Math.random() * images.length)];
+            try {
+                const origin = window.location.origin;
+                const path = window.location.pathname;
+                const rootDir = path.substring(0, path.indexOf('/features/quiz/')) || '';
+                const absoluteUrl = origin + (rootDir.endsWith('/') ? rootDir : rootDir + '/') + randomImg;
+                const metaOgImage = document.querySelector('meta[property="og:image"]');
+                if (metaOgImage) {
+                    metaOgImage.setAttribute('content', absoluteUrl);
+                }
+            } catch (e) {
+                console.error('Lỗi cấu hình động og:image:', e);
+            }
+        })();
+    </script>
+    
     <script src="../../pwa-install.js" defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="../../style.css">
