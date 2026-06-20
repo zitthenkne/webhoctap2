@@ -1362,6 +1362,40 @@ export function openShareQuizModal(quizId, quizTitle) {
     if (qrImg) {
         qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(quizUrl)}`;
     }
+
+    // Gán sự kiện click cho các nút chia sẻ nhanh
+    const messengerBtn = document.getElementById('share-messenger-btn');
+    const facebookBtn = document.getElementById('share-facebook-btn');
+    const systemBtn = document.getElementById('share-system-btn');
+    
+    if (messengerBtn) {
+        messengerBtn.onclick = () => {
+            const fbSendUrl = `https://www.facebook.com/dialog/send?app_id=966242223397117&link=${encodeURIComponent(quizUrl)}&redirect_uri=${encodeURIComponent(quizUrl)}`;
+            window.open(fbSendUrl, '_blank', 'width=600,height=500');
+        };
+    }
+    
+    if (facebookBtn) {
+        facebookBtn.onclick = () => {
+            const fbShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(quizUrl)}`;
+            window.open(fbShareUrl, '_blank', 'width=600,height=500');
+        };
+    }
+    
+    if (systemBtn) {
+        if (navigator.share) {
+            systemBtn.classList.remove('hidden');
+            systemBtn.onclick = () => {
+                navigator.share({
+                    title: quizTitle,
+                    text: `Hãy cùng làm bài kiểm tra "${quizTitle}" trên Zitthenkne nhé!`,
+                    url: quizUrl
+                }).catch(err => console.error('Lỗi chia sẻ hệ thống:', err));
+            };
+        } else {
+            systemBtn.classList.add('hidden');
+        }
+    }
     
     modal.classList.remove('hidden');
 }
