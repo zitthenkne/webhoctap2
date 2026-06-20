@@ -26,12 +26,26 @@
                 'assets/og_squirrel_paint.png',
                 'assets/og_squirrel_stars.png'
             ];
-            const randomImg = images[Math.floor(Math.random() * images.length)];
+            
+            // Đọc tham số img từ URL để hiển thị đồng nhất
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlImg = urlParams.get('img');
+            
+            let selectedImg;
+            if (urlImg && images.includes(urlImg)) {
+                selectedImg = urlImg;
+            } else if (urlImg && images.includes('assets/' + urlImg)) {
+                selectedImg = 'assets/' + urlImg;
+            } else {
+                selectedImg = images[Math.floor(Math.random() * images.length)];
+            }
+            
+            window.selectedOgImage = selectedImg; // Đồng bộ ảnh Hero với OG Image
             try {
                 const origin = window.location.origin;
                 const path = window.location.pathname;
                 const rootDir = path.substring(0, path.indexOf('/features/quiz/')) || '';
-                const absoluteUrl = origin + (rootDir.endsWith('/') ? rootDir : rootDir + '/') + randomImg;
+                const absoluteUrl = origin + (rootDir.endsWith('/') ? rootDir : rootDir + '/') + selectedImg;
                 const metaOgImage = document.querySelector('meta[property="og:image"]');
                 if (metaOgImage) {
                     metaOgImage.setAttribute('content', absoluteUrl);
@@ -133,9 +147,10 @@
     <div class="w-full max-w-4xl mx-auto mt-14 md:mt-0">
         <div id="quiz-landing" class="bg-white/95 backdrop-blur-md rounded-3xl shadow-[0_20px_50px_rgba(255,105,180,0.12)] border border-pink-100/50 p-6 sm:p-10 text-center fade-in max-w-2xl mx-auto">
             <!-- Header Icon & Title -->
+            <!-- Header Mascot Hero Image -->
             <div class="flex justify-center mb-6">
-                <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-pink-400 to-[#FF69B4] flex items-center justify-center shadow-lg shadow-pink-200 animate-bounce">
-                    <i class="fas fa-graduation-cap text-white text-3xl"></i>
+                <div class="relative w-48 h-48 sm:w-56 sm:h-56 rounded-3xl overflow-hidden shadow-lg border-4 border-pink-100/50 hover:scale-[1.03] transition-all duration-300 bg-pink-50 flex items-center justify-center">
+                    <img id="quiz-hero-img" src="../../assets/og_squirrel_close.png" alt="Zitthenkne Mascot" class="w-full h-full object-cover" />
                 </div>
             </div>
             <h1 id="quiz-title" class="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent mb-2">Đang tải thông tin...</h1>
@@ -391,6 +406,12 @@
     <script>
     // Hamburger menu logic for quiz.html
     document.addEventListener('DOMContentLoaded', function() {
+        // Gán ảnh Hero ngẫu nhiên đồng bộ với Open Graph Image
+        const heroImg = document.getElementById('quiz-hero-img');
+        if (heroImg && window.selectedOgImage) {
+            heroImg.src = '../../' + window.selectedOgImage;
+        }
+
         const menuBtn = document.getElementById('quiz-menu-toggle');
         const menuDrawer = document.getElementById('quiz-mobile-menu');
         const closeBtn = document.getElementById('quiz-menu-close');

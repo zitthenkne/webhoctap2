@@ -67,9 +67,9 @@ module.exports = async function handler(req, res) {
 
     <!-- Redirect ngay lập tức về trang quiz thực tế -->
     <script>
-        window.location.href = "/features/quiz/quiz.html?id=${id}";
+        window.location.href = "/features/quiz/quiz.html?id=${id}&img=${randomImg}";
     </script>
-    <meta http-equiv="refresh" content="0;url=/features/quiz/quiz.html?id=${id}">
+    <meta http-equiv="refresh" content="0;url=/features/quiz/quiz.html?id=${id}&img=${randomImg}">
 </head>
 <body>
     <p style="text-align: center; margin-top: 50px; font-family: sans-serif; color: #ff69b4; font-weight: bold;">
