@@ -1299,7 +1299,7 @@ export function handleBulkShare() {
     const links = selectedQuizIds.map(id => {
         const quiz = userQuizSets.find(q => q.id === id);
         const title = quiz ? quiz.title : 'Bộ đề';
-        const quizUrl = new URL(`features/quiz/quiz.html?id=${id}`, window.location.href).href;
+        const quizUrl = new URL(`api/share-quiz?id=${id}`, window.location.origin).href;
         return `${title}: ${quizUrl}`;
     }).join('\n');
 
@@ -1353,7 +1353,7 @@ export function openShareQuizModal(quizId, quizTitle) {
     
     titleEl.textContent = quizTitle;
     
-    const quizUrl = new URL(`features/quiz/quiz.html?id=${quizId}`, window.location.href).href;
+    const quizUrl = new URL(`api/share-quiz?id=${quizId}`, window.location.origin).href;
     linkInput.value = quizUrl;
     embedInput.value = `<iframe src="${quizUrl}" width="100%" height="600px" style="border:none; border-radius:12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);"></iframe>`;
     
