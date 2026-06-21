@@ -216,17 +216,109 @@ export function parseMarkdown(text) {
         return placeholder;
     });
 
-    // 4. Phân tách các dòng để xử lý bảng và Markdown inline
+    // 4. Phân tách các dòng để xử lý bảng, danh sách phân cấp và Markdown inline
     const lines = html.split('\n');
     let inTable = false;
     let tableHtml = '';
+    let inList = false;
+    let listHtml = '';
     let processedLines = [];
     
     for (let i = 0; i < lines.length; i++) {
-        let line = lines[i].trim();
+        const rawLine = lines[i];
+        const trimmedLine = rawLine.trim();
         
-        if (line.startsWith('|') && line.endsWith('|')) {
-            const cells = line.split('|').map(c => c.trim()).filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
+        // Nhận diện danh sách và thụt lề
+        // Danh sách không thứ tự: ví dụ "- mục", "* mục", "+ mục"
+        const unorderedListMatch = rawLine.match(/^(\s*)([-*+])\s+(.*)$/);
+        // Danh sách có thứ tự: ví dụ "1. mục", "1.1. mục", "a. mục"
+        const orderedListMatch = rawLine.match(/^(\s*)(\d+\.(?:\d+\.)*|[a-zA-Z]\.)\s+(.*)$/);
+        // Văn bản thụt lề (ít nhất 2 khoảng trắng ở đầu dòng, không bắt đầu bằng ký tự đặc biệt của list hoặc khoảng trắng)
+        const indentedTextMatch = rawLine.match(/^(\s{2,})([^-*+\d\s][^\n]*)$/);
+        
+        const isList = unorderedListMatch || orderedListMatch || indentedTextMatch;
+        const isTable = trimmedLine.startsWith('|') && trimmedLine.endsWith('|');
+        
+        if (isList) {
+            // Đóng bảng nếu đang mở
+            if (inTable) {
+                inTable = false;
+                tableHtml += '</tbody></table></div>';
+                processedLines.push(tableHtml);
+                tableHtml = '';
+            }
+            
+            // Mở container danh sách nếu chưa mở
+            if (!inList) {
+                inList = true;
+                listHtml = '<div class="quiz-list-container my-2 flex flex-col gap-1.5">';
+            }
+            
+            let indentStr = '';
+            let contentStr = '';
+            let lineHtml = '';
+            
+            if (unorderedListMatch) {
+                indentStr = unorderedListMatch[1];
+                const bulletSymbol = unorderedListMatch[2];
+                contentStr = unorderedListMatch[3];
+                
+                const indentLevel = Math.floor(indentStr.length / 2);
+                let bulletHtml = '';
+                
+                // Chọn bullet point dựa trên độ sâu thụt lề
+                if (indentLevel === 0) {
+                    bulletHtml = '<i class="fas fa-circle text-[6px] mt-2 text-[#FF69B4] flex-shrink-0"></i>';
+                } else if (indentLevel === 1) {
+                    bulletHtml = '<i class="far fa-circle text-[6px] mt-2 text-[#FF69B4] flex-shrink-0"></i>';
+                } else {
+                    bulletHtml = '<i class="fas fa-square text-[5px] mt-2 text-pink-400 flex-shrink-0"></i>';
+                }
+                
+                lineHtml = `
+                    <div class="flex items-start gap-2.5 my-0.5" style="padding-left: ${indentLevel * 1.25}rem;">
+                        <span class="flex items-center justify-center h-5 w-4 select-none flex-shrink-0">${bulletHtml}</span>
+                        <div class="flex-1">${parseInlineMarkdown(contentStr)}</div>
+                    </div>
+                `;
+            } else if (orderedListMatch) {
+                indentStr = orderedListMatch[1];
+                const orderPrefix = orderedListMatch[2];
+                contentStr = orderedListMatch[3];
+                
+                const indentLevel = Math.floor(indentStr.length / 2);
+                
+                lineHtml = `
+                    <div class="flex items-start gap-2.5 my-0.5" style="padding-left: ${indentLevel * 1.25}rem;">
+                        <span class="flex items-center justify-center h-5 select-none flex-shrink-0 text-[#FF69B4] font-bold text-xs min-w-[1rem]">${orderPrefix}</span>
+                        <div class="flex-1">${parseInlineMarkdown(contentStr)}</div>
+                    </div>
+                `;
+            } else if (indentedTextMatch) {
+                indentStr = indentedTextMatch[1];
+                contentStr = indentedTextMatch[2];
+                
+                const indentLevel = Math.floor(indentStr.length / 2);
+                
+                // Thụt dòng bổ trợ, thụt thêm 1.0rem để thẳng hàng với phần chữ của list item phía trước
+                lineHtml = `
+                    <div class="flex items-start gap-2.5 my-0.5" style="padding-left: ${indentLevel * 1.25 + 1.0}rem;">
+                        <div class="flex-1 text-gray-500 text-sm">${parseInlineMarkdown(contentStr)}</div>
+                    </div>
+                `;
+            }
+            
+            listHtml += lineHtml;
+        } else if (isTable) {
+            // Đóng danh sách nếu đang mở
+            if (inList) {
+                inList = false;
+                listHtml += '</div>';
+                processedLines.push(listHtml);
+                listHtml = '';
+            }
+            
+            const cells = trimmedLine.split('|').map(c => c.trim()).filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
             
             if (!inTable) {
                 inTable = true;
@@ -249,16 +341,30 @@ export function parseMarkdown(text) {
                 tableHtml += '</tr>';
             }
         } else {
+            // Dòng bình thường (không list, không table)
+            // Đóng các khối đang mở
+            if (inList) {
+                inList = false;
+                listHtml += '</div>';
+                processedLines.push(listHtml);
+                listHtml = '';
+            }
             if (inTable) {
                 inTable = false;
                 tableHtml += '</tbody></table></div>';
                 processedLines.push(tableHtml);
                 tableHtml = '';
             }
-            processedLines.push(parseInlineMarkdown(lines[i]));
+            
+            processedLines.push(parseInlineMarkdown(rawLine));
         }
     }
     
+    // Đóng các khối còn sót sau khi duyệt hết các dòng
+    if (inList) {
+        listHtml += '</div>';
+        processedLines.push(listHtml);
+    }
     if (inTable) {
         tableHtml += '</tbody></table></div>';
         processedLines.push(tableHtml);
