@@ -275,7 +275,7 @@ function handleJsonInput() {
                 answers: rawOptions.map(opt => String(opt)),
                 correctAnswerIndex: correctIdx,
                 explanation: String(item.explanation || ''),
-                topic: String(item.topic || 'Chung'),
+                topic: item.topic ? String(item.topic) : '',
                 source: String(item.source || ''),
                 level: String(item.level || ''),
                 note: String(item.note || ''),

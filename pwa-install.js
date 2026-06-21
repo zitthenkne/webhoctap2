@@ -4,7 +4,19 @@ let deferredPrompt;
 // 1. Register Service Worker và tự động cập nhật khi có bản mới
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
+    // Tự động xác định thư mục gốc của ứng dụng (đặc biệt khi chạy trong thư mục con như trên Live Server)
+    const path = window.location.pathname;
+    let rootPath = '/';
+    if (path.includes('/features/')) {
+        rootPath = path.substring(0, path.indexOf('/features/')) + '/';
+    } else {
+        rootPath = path.substring(0, path.lastIndexOf('/')) + '/';
+    }
+    if (!rootPath.startsWith('/')) rootPath = '/' + rootPath;
+    if (rootPath.endsWith('//')) rootPath = rootPath.slice(0, -1);
+    
+    const swPath = rootPath + 'sw.js';
+    navigator.serviceWorker.register(swPath, { scope: rootPath })
       .then(reg => {
         console.log('Zitthenkne Service Worker registered successfully with scope: ', reg.scope);
         

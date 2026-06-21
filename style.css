@@ -714,5 +714,103 @@ body {
 }
 
 .cute-table tr:hover td {
-    background-color: rgba(255, 182, 193, 0.03);
+    background-color: rgba(255, 182, 193, 0.22) !important; /* Khi hover sáng rõ hẳn lên */
 }
+
+/* Sọc vằn (zebra striping) để dễ phân biệt giữa các hàng trong bảng - áp dụng trực tiếp lên td */
+.cute-table tbody tr:nth-child(even) td {
+    background-color: rgba(255, 182, 193, 0.12) !important; /* Tăng độ tương phản màu */
+}
+
+.cute-table th {
+    background-color: rgba(255, 182, 193, 0.35) !important; /* Nền hồng rõ nét */
+    border-bottom: 2px solid rgba(255, 182, 193, 0.5) !important;
+}
+
+.cute-table td {
+    border-bottom: 1px solid rgba(255, 182, 193, 0.15) !important;
+}
+
+/* Đổi toàn bộ chữ in nghiêng (Obsidian Italic) thành màu xanh dương nổi bật */
+.obsidian-italic,
+.exp-correct .obsidian-italic,
+.exp-wrong-selected .obsidian-italic,
+.exp-wrong-normal .obsidian-italic {
+    color: #0b5ed7 !important; /* Màu xanh dương sapphire nổi bật */
+}
+
+/* Tối ưu hiển thị sơ đồ Mermaid không bị co chữ quá nhỏ trên di động */
+.mermaid-container {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    display: flex;
+    justify-content: flex-start; /* Căn trái trên di động để cuộn dễ nhìn hơn */
+    padding: 1rem;
+    background-color: rgba(255, 255, 255, 0.4);
+    border-radius: 12px;
+}
+
+@media (min-width: 768px) {
+    .mermaid-container {
+        justify-content: center; /* Desktop căn giữa */
+    }
+}
+
+.mermaid {
+    display: inline-block;
+    min-width: 700px; /* Đảm bảo sơ đồ có độ rộng tối thiểu để chữ đủ to và dễ đọc */
+    max-width: 100%;
+}
+
+.mermaid svg {
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100% !important;
+}
+
+/* Tối ưu hóa hiển thị KaTeX (toán học) để không bị tràn trên màn hình di động */
+.katex-display {
+    display: block !important;
+    width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    padding: 0.5rem 0 !important;
+    box-sizing: border-box;
+}
+
+.katex {
+    display: inline-block !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    vertical-align: middle;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Tùy chỉnh thanh cuộn nhỏ cho biểu thức toán học khi bị cuộn ngang */
+.katex-display::-webkit-scrollbar,
+.katex::-webkit-scrollbar {
+    height: 4px;
+}
+.katex-display::-webkit-scrollbar-thumb,
+.katex::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 105, 180, 0.3); /* Màu hồng nhạt đồng điệu với app */
+    border-radius: 99px;
+}
+.katex-display::-webkit-scrollbar-track,
+.katex::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* Tự động thu nhỏ một chút font size trên thiết bị di động để hạn chế cuộn ngang */
+@media (max-width: 640px) {
+    .katex-display {
+        font-size: 0.9em !important;
+    }
+    .katex {
+        font-size: 0.92em !important;
+    }
+}
+

@@ -2,6 +2,69 @@
 
 export function renderMermaid(element) {
     if (window.mermaid && element) {
+        // Cấu hình Mermaid với tông màu Pastel tương đồng với trang web, phân biệt rõ các ô
+        try {
+            if (typeof mermaid.initialize === 'function') {
+                mermaid.initialize({
+                    startOnLoad: false,
+                    theme: 'base',
+                    themeVariables: {
+                        fontSize: '16px',
+                        fontFamily: 'Quicksand, sans-serif',
+                        
+                        // Node tiến trình (Hình chữ nhật) màu hồng anh đào ngọt ngào
+                        primaryColor: '#FFEbee', 
+                        primaryTextColor: '#c62828',
+                        primaryBorderColor: '#FFcdd2',
+                        
+                        // Node quyết định (Hình thoi/Decision) màu xanh ngọc mint để cực kỳ dễ phân biệt
+                        tertiaryColor: '#E0f2f1',
+                        tertiaryTextColor: '#004d40',
+                        tertiaryBorderColor: '#b2dfdb',
+                        
+                        // Node kết quả (hoặc trạng thái khác) màu tím Lavender thanh lịch
+                        secondaryColor: '#F3e5f5',
+                        secondaryTextColor: '#4a148c',
+                        secondaryBorderColor: '#e1bee7',
+                        
+                        // Đường nối và mũi tên màu hồng sen nổi bật
+                        lineColor: '#FF69B4',
+                        arrowheadColor: '#FF69B4',
+                        
+                        // Nhãn chữ trên đường nối nền trắng chữ đen rõ nét
+                        edgeLabelBackground: '#ffffff',
+                        textColor: '#333333'
+                    }
+                });
+            }
+        } catch (e) {
+            console.error("Lỗi cấu hình Mermaid:", e);
+        }
+
+        // Tìm các thẻ mermaid-viewer chưa được render
+        const viewerDivs = element.querySelectorAll('.mermaid-viewer');
+        viewerDivs.forEach(div => {
+            const encodedCode = div.getAttribute('data-code');
+            if (encodedCode) {
+                try {
+                    let decodedCode = decodeURIComponent(encodedCode);
+                    
+                    // Tự động sửa lỗi nhãn liên kết thiếu nháy kép trong Mermaid v10 (khi có tiếng Việt, khoảng trắng hoặc ký tự đặc biệt +, /)
+                    decodedCode = decodedCode.replace(/([=-]+>|==>|-\.->|---)\s*\|([^"\n|]+)\|/g, (match, arrow, label) => {
+                        return `${arrow} |"${label.trim()}"|`;
+                    });
+                    
+                    // Gán text thuần để bảo vệ các ký tự đặc biệt như <, >, & không bị trình duyệt parse nhầm
+                    div.textContent = decodedCode;
+                    div.classList.remove('mermaid-viewer');
+                    div.classList.add('mermaid');
+                } catch (e) {
+                    console.error("Lỗi giải mã code Mermaid:", e);
+                }
+            }
+        });
+
+        // Tìm các thẻ mermaid đã chuẩn bị để render
         const mermaidDivs = element.querySelectorAll('.mermaid');
         if (mermaidDivs.length > 0) {
             try {
@@ -99,40 +162,54 @@ export function parseMarkdown(text) {
         text = String(text);
     }
     if (!text) return '';
-    let html = text;
     
-    // Phân tách các dòng để xử lý bảng và Mermaid
+    // Chuẩn hóa xuống dòng của Windows (\r\n -> \n) để tránh lỗi cú pháp Mermaid
+    let html = text.replace(/\r\n/g, '\n');
+    
+    const placeholders = [];
+    
+    // 1. Trích xuất và bảo vệ các khối mã Mermaid (```mermaid ... ```)
+    html = html.replace(/```mermaid([\s\S]*?)```/g, (match, code) => {
+        const placeholder = `<!--MERMAIDPLACEHOLDER${placeholders.length}-->`;
+        // Encode URL an toàn để chèn vào attribute của thẻ HTML mà không sợ lỗi cú pháp
+        const encodedCode = encodeURIComponent(code.trim());
+        placeholders.push({
+            type: 'mermaid',
+            content: `<div class="mermaid-container flex justify-center my-4 overflow-x-auto w-full bg-white/50 p-4 rounded-xl border border-pink-100/30 shadow-sm"><div class="mermaid-viewer" data-code="${encodedCode}"></div></div>`
+        });
+        return placeholder;
+    });
+
+    // 2. Trích xuất và bảo vệ các khối LaTeX $$...$$ (Display Math)
+    html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula) => {
+        const placeholder = `<!--MATHBLOCKPLACEHOLDER${placeholders.length}-->`;
+        placeholders.push({
+            type: 'math_block',
+            content: `$$${formula}$$`
+        });
+        return placeholder;
+    });
+
+    // 3. Trích xuất và bảo vệ các khối LaTeX $...$ (Inline Math)
+    html = html.replace(/\$([^\$\s\n](?:[^\$\n]*?[^\$\s\n])?)\$/g, (match, formula) => {
+        const placeholder = `<!--MATHINLINEPLACEHOLDER${placeholders.length}-->`;
+        placeholders.push({
+            type: 'math_inline',
+            content: `$${formula}$`
+        });
+        return placeholder;
+    });
+
+    // 4. Phân tách các dòng để xử lý bảng và Markdown inline
     const lines = html.split('\n');
     let inTable = false;
     let tableHtml = '';
-    let inMermaid = false;
-    let mermaidCode = '';
     let processedLines = [];
     
     for (let i = 0; i < lines.length; i++) {
         let line = lines[i].trim();
         
-        // Nhận diện khối mã Mermaid
-        if (line.startsWith('```mermaid')) {
-            inMermaid = true;
-            mermaidCode = '';
-            continue;
-        }
-        
-        if (inMermaid) {
-            if (line.startsWith('```')) {
-                inMermaid = false;
-                processedLines.push(`<div class="mermaid-container flex justify-center my-4 overflow-x-auto w-full bg-white/50 p-4 rounded-xl border border-pink-100/30 shadow-sm"><div class="mermaid">${mermaidCode.trim()}</div></div>`);
-                mermaidCode = '';
-            } else {
-                // Không trim dòng trong mermaid để giữ nguyên cấu trúc thụt lề
-                mermaidCode += lines[i] + '\n';
-            }
-            continue;
-        }
-
         if (line.startsWith('|') && line.endsWith('|')) {
-            // Tách các ô trong hàng, lọc bỏ cột trống ở 2 đầu
             const cells = line.split('|').map(c => c.trim()).filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
             
             if (!inTable) {
@@ -144,10 +221,9 @@ export function parseMarkdown(text) {
                 });
                 tableHtml += '</tr></thead><tbody>';
             } else {
-                // Kiểm tra xem có phải dòng gạch ngang phân cách header (| --- | --- |) không
                 const isSeparator = cells.every(cell => cell.replace(/:/g, '').split('').every(char => char === '-'));
                 if (isSeparator) {
-                    continue; // Bỏ qua hàng phân cách
+                    continue;
                 }
                 
                 tableHtml += '<tr class="border-b border-pink-50 hover:bg-pink-50/30 transition-colors text-gray-700">';
@@ -163,7 +239,6 @@ export function parseMarkdown(text) {
                 processedLines.push(tableHtml);
                 tableHtml = '';
             }
-            // Dòng thường thì xử lý các tag inline
             processedLines.push(parseInlineMarkdown(lines[i]));
         }
     }
@@ -173,14 +248,13 @@ export function parseMarkdown(text) {
         processedLines.push(tableHtml);
     }
     
-    if (inMermaid) {
-        // Đóng block Mermaid nếu quên đóng dấu ``` ở cuối
-        processedLines.push(`<div class="mermaid-container flex justify-center my-4 overflow-x-auto w-full bg-white/50 p-4 rounded-xl border border-pink-100/30 shadow-sm"><div class="mermaid">${mermaidCode.trim()}</div></div>`);
+    html = processedLines.join('<div class="h-2.5"></div>');
+    
+    // 5. Khôi phục lại các khối đã bảo vệ bằng cách thay thế an toàn (dùng callback để tránh lỗi ký tự $)
+    for (let i = placeholders.length - 1; i >= 0; i--) {
+        const placeholderPattern = new RegExp(`<!--(?:MERMAID|MATHBLOCK|MATHINLINE)PLACEHOLDER${i}-->`, 'g');
+        html = html.replace(placeholderPattern, () => placeholders[i].content);
     }
-    
-    // Ghép các dòng lại và chuyển đổi dòng thường thành xuống dòng <br>
-    html = processedLines.join('<br>');
-    
     return html;
 }
 

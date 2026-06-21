@@ -249,14 +249,14 @@ function showQuestion() {
     const question = state.questions[state.currentIndex];
     const quizSection = document.getElementById('quizSection');
 
-    let qSizeClass = 'text-2xl';
-    let aSizeClass = 'text-lg';
+    let qSizeClass = 'text-lg md:text-2xl';
+    let aSizeClass = 'text-base md:text-lg';
     if (state.currentFontSize === 'small') {
-        qSizeClass = 'text-lg';
-        aSizeClass = 'text-base';
+        qSizeClass = 'text-base md:text-lg';
+        aSizeClass = 'text-sm md:text-base';
     } else if (state.currentFontSize === 'large') {
-        qSizeClass = 'text-3xl';
-        aSizeClass = 'text-xl';
+        qSizeClass = 'text-2xl md:text-3xl';
+        aSizeClass = 'text-lg md:text-xl';
     }
 
     if (!question || !question.question) {
@@ -280,9 +280,7 @@ function showQuestion() {
             <h2 class="text-xl font-bold text-gray-700">${title}</h2>
         </div>
         <div class="mb-2 flex flex-wrap items-center gap-2 focus-hide">
-            <span class="inline-block px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold border border-blue-200">
-                <i class="fas fa-tag mr-1"></i> Chủ đề: ${question.topic ? question.topic : 'Chung'}
-            </span>
+            ${question.topic && String(question.topic).trim() && String(question.topic).trim().toLowerCase() !== 'chung' ? `<span class="inline-block px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold border border-blue-200"><i class="fas fa-tag mr-1"></i> Chủ đề: ${question.topic}</span>` : ''}
             ${question.level && question.level.trim() ? `<span class="inline-block px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold border border-purple-200"><i class="fas fa-layer-group mr-1"></i> Mức độ: ${question.level}</span>` : ''}
             ${question.source && question.source.trim() ? `<span class="inline-block px-3 py-1 rounded-full bg-pink-100 text-pink-700 text-xs font-semibold border border-pink-200"><i class="fas fa-book mr-1"></i> Nguồn: ${question.source}</span>` : ''}
             ${state.streak > 0 ? `<span id="streak-badge" class="inline-block px-3 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-semibold border border-orange-200 animate-pulse"><i class="fas fa-fire mr-1 text-orange-500 animate-bounce"></i> Chuỗi đúng: ${state.streak}</span>` : ''}
@@ -341,7 +339,7 @@ function showQuestion() {
             <h4 class="font-extrabold text-blue-800 text-xl flex items-center gap-2 mb-3">
                 <i class="fas fa-expand text-blue-500 animate-pulse"></i> Mở rộng kiến thức
             </h4>
-            <p class="text-blue-900 leading-relaxed text-base">${question.expanded ? parseMarkdown(question.expanded) : ''}</p>
+            <div class="text-blue-900 leading-relaxed text-base">${question.expanded ? parseMarkdown(question.expanded) : ''}</div>
         </div>
         <div class="mt-8 flex justify-between">
             <button id="prevBtn" class="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition ${state.currentIndex === 0 || state.quizMode === 'practice' ? 'invisible' : ''}">
