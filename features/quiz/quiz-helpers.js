@@ -141,6 +141,22 @@ export function parseInlineMarkdown(text) {
     }
     if (!text) return '';
     let html = text;
+    
+    // Parse Markdown Image: ![alt](src)
+    html = html.replace(/!\[(.*?)\]\((.*?)\)/g, (match, alt, src) => {
+        let finalSrc = src;
+        // Nếu là ảnh local trong thư mục uploads, tự động sửa đường dẫn cho trang quiz
+        if (src.startsWith('uploads/') || src.startsWith('/uploads/')) {
+            const cleanSrc = src.startsWith('/') ? src.substring(1) : src;
+            if (window.location.pathname.includes('/features/quiz/')) {
+                finalSrc = `../../${cleanSrc}`;
+            } else {
+                finalSrc = cleanSrc;
+            }
+        }
+        return `<img src="${finalSrc}" alt="${alt}" class="quiz-image max-w-full h-auto my-4 rounded-xl shadow-md border border-pink-100/30 mx-auto block" />`;
+    });
+
     // Bold: **text** hoặc __text__ (in đậm nét dày hơn, phối màu hồng tím mận nổi bật)
     html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="obsidian-bold">$1</strong>');
     html = html.replace(/__(.*?)__/g, '<strong class="obsidian-bold">$1</strong>');
