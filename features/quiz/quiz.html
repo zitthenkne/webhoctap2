@@ -385,7 +385,15 @@
                 var shareBtn = document.getElementById('share-quiz-btn');
                 if (shareBtn) {
                     shareBtn.addEventListener('click', function() {
-                        var url = window.location.href;
+                        // Dùng link /api/share-quiz để Zalo/Messenger hiện ảnh sóc + tên đề,
+                        // thay vì link quiz.html thô (không có preview động).
+                        var shareId = new URLSearchParams(window.location.search).get('id');
+                        var url;
+                        if (shareId) {
+                            url = window.location.origin + '/api/share-quiz?id=' + encodeURIComponent(shareId) + '&t=' + Date.now();
+                        } else {
+                            url = window.location.href;
+                        }
                         if (navigator.share) {
                             navigator.share({
                                 title: document.title,

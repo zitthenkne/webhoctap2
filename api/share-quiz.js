@@ -1,5 +1,15 @@
 const axios = require('axios');
 
+// Escape các ký tự đặc biệt để không làm vỡ thuộc tính HTML (vd: dấu " trong tên đề)
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 module.exports = async function handler(req, res) {
     const { id } = req.query;
 
@@ -46,37 +56,55 @@ module.exports = async function handler(req, res) {
         console.error("Lỗi khi lấy dữ liệu bộ đề từ Firestore:", error.message);
     }
 
-    // Trả về HTML chứa các thẻ Open Graph meta động và script redirect về trang quiz thực tế
+    // Escape nội dung động trước khi nhúng vào HTML để tránh vỡ thẻ meta
+    const safeTitle = escapeHtml(title);
+    const safeDescription = escapeHtml(description);
+    const targetUrl = `/features/quiz/quiz.html?id=${encodeURIComponent(id)}&img=${encodeURIComponent(randomImg)}`;
+    const canonicalUrl = `${protocol}://${host}${targetUrl}`;
+
+    // Trả về HTML chứa các thẻ Open Graph meta động.
+    // Trình quét link (Zalo/Messenger/Facebook) KHÔNG chạy JavaScript: chúng chỉ đọc
+    // các thẻ <meta> tĩnh dưới đây rồi dừng -> luôn lấy đúng ảnh + tên đề.
+    // Người dùng thật (trình duyệt) sẽ chạy script và được chuyển sang trang làm bài.
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     return res.send(`
 <!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>${title}</title>
+    <title>${safeTitle}</title>
     <!-- Open Graph Meta Tags -->
     <meta property="og:type" content="website">
-    <meta property="og:title" content="${title}">
-    <meta property="og:description" content="${description}">
+    <meta property="og:site_name" content="Zitthenkne">
+    <meta property="og:locale" content="vi_VN">
+    <meta property="og:title" content="${safeTitle}">
+    <meta property="og:description" content="${safeDescription}">
+    <meta property="og:url" content="${canonicalUrl}">
     <meta property="og:image" content="${imageUrl}">
-    <meta property="og:url" content="${protocol}://${host}/features/quiz/quiz.html?id=${id}&img=${randomImg}">
-    
+    <meta property="og:image:secure_url" content="${imageUrl}">
+    <meta property="og:image:width" content="1024">
+    <meta property="og:image:height" content="1024">
+    <meta property="og:image:alt" content="${safeTitle}">
+
     <!-- Twitter Cards -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="${title}">
-    <meta name="twitter:description" content="${description}">
+    <meta name="twitter:title" content="${safeTitle}">
+    <meta name="twitter:description" content="${safeDescription}">
     <meta name="twitter:image" content="${imageUrl}">
 
-    <!-- Redirect ngay lập tức về trang quiz thực tế kèm ảnh Hero đồng bộ -->
+    <!-- Chỉ redirect bằng JavaScript: trình quét không chạy JS nên sẽ đọc trọn meta ở trên.
+         (Đã bỏ <meta http-equiv="refresh"> vì một số crawler đi theo nó sang trang khác và mất preview.) -->
     <script>
-        window.location.href = "/features/quiz/quiz.html?id=${id}&img=${randomImg}";
+        window.location.href = "${targetUrl}";
     </script>
-    <meta http-equiv="refresh" content="0;url=/features/quiz/quiz.html?id=${id}&img=${randomImg}">
 </head>
 <body>
     <p style="text-align: center; margin-top: 50px; font-family: sans-serif; color: #ff69b4; font-weight: bold;">
         Đang tải bộ đề kiểm tra... Vui lòng đợi trong giây lát.
     </p>
+    <noscript>
+        <p style="text-align:center;"><a href="${targetUrl}">Bấm vào đây để mở bộ đề</a></p>
+    </noscript>
 </body>
 </html>
     `);
