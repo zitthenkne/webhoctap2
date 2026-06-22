@@ -419,195 +419,249 @@ export function calculateGPA() {
 }
 
 /**
- * Tính số câu cần đạt ở lần thi tới để đạt điểm hệ 4 mong muốn (Logic nâng cao từ index.html)
+ * Quy đổi điểm hệ 4 mong muốn -> điểm hệ 10 tối thiểu cần đạt.
+ * Lấy đúng các ngưỡng trong bảng chuẩn calculateGPAFromPercent để không bị lệch.
+ * @param {number} targetGpa4 Điểm hệ 4 mong muốn (1.0 - 4.0)
+ * @returns {number} Điểm hệ 10 tối thiểu để đạt được GPA đó
+ */
+function minScore10ForGpa4(targetGpa4) {
+    // Sắp xếp theo GPA tăng dần; ngưỡng hệ 10 là biên dưới của mỗi mức điểm chữ.
+    const table = [
+        { min10: 4.0, gpa: 1.0 }, // D
+        { min10: 5.0, gpa: 1.5 }, // D+
+        { min10: 5.5, gpa: 2.0 }, // C
+        { min10: 6.5, gpa: 2.5 }, // C+
+        { min10: 7.0, gpa: 3.0 }, // B
+        { min10: 8.0, gpa: 3.5 }, // B+
+        { min10: 8.5, gpa: 4.0 }, // A
+    ];
+    for (const row of table) {
+        if (row.gpa >= targetGpa4 - 1e-9) return row.min10;
+    }
+    return 8.5;
+}
+
+/**
+ * Tính số câu cần đúng ở các lần thi còn lại để đạt điểm hệ 4 mong muốn.
+ *
+ * Mô hình chuẩn hoá: mỗi lần thi có trọng số w_i (%) và hiệu suất p_i ∈ [0,1]
+ * (lần thường: p = câu đúng / tổng câu; pretest: p = điểm hệ 10 / 10).
+ * Điểm tổng kết (thang 0–100) = Σ p_i * w_i, với Σ w_i = 100.
  */
 export function calculateRequiredCorrectAnswers() {
-    const examTypeEl = document.getElementById('exam-type');
-    const numAttemptsEl = document.getElementById('num-attempts');
     const desiredGPAInput = document.getElementById('desired-gpa-4');
     const resultArea = document.getElementById('required-correct-result');
+    if (!desiredGPAInput || !resultArea) return;
 
-    if (!examTypeEl || !desiredGPAInput || !resultArea) return;
+    const showError = (msg) => {
+        resultArea.innerHTML = `<div class="p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm font-medium flex items-start gap-2"><i class="fas fa-circle-exclamation mt-0.5"></i><span>${msg}</span></div>`;
+    };
+    const card = (cls, icon, body) =>
+        `<div class="p-4 rounded-2xl border ${cls} text-sm leading-relaxed"><div class="flex items-start gap-2"><i class="fas ${icon} mt-0.5"></i><div class="flex-1">${body}</div></div></div>`;
 
-    const examType = examTypeEl.value;
-    let numAttempts;
-    if (examType === 'custom') {
-        numAttempts = parseInt(numAttemptsEl.value, 10);
-    } else if (examType === 'pretest') {
-        numAttempts = 3;
-    } else {
-        numAttempts = 2;
-    }
+    // 1. Thu thập dữ liệu từng lần thi từ bảng
+    const rowEls = Array.from(document.querySelectorAll('#attempts-table .attempt-row'));
+    if (rowEls.length === 0) { showError('Chưa có bảng các lần thi. Vui lòng chọn loại kỳ thi.'); return; }
 
-    const percentInputs = Array.from(document.querySelectorAll('#attempts-table .attempt-percent'));
-    const totalInputs = Array.from(document.querySelectorAll('#attempts-table .attempt-total'));
-    const correctInputs = Array.from(document.querySelectorAll('#attempts-table .attempt-correct'));
-
-    // Lấy số câu từng lần
-    let totals = totalInputs.map(input => parseInt(input.value, 10));
-    if (totals.some(v => isNaN(v) || v <= 0)) {
-        resultArea.textContent = 'Vui lòng nhập số câu cho từng lần thi.';
-        return;
-    }
-    // Lấy phần trăm từng lần
-    let percents = percentInputs.map(input => parseFloat(input.value) || 0);
-    let percentSum = percents.reduce((a, b) => a + b, 0);
-    if (percentSum !== 100) {
-        resultArea.textContent = 'Tổng phần trăm các lần thi phải bằng 100%.';
-        return;
-    }
-    // Lấy số câu đúng từng lần thi
-    let scores = [];
-    const pretestScoreInput = document.querySelector('#attempts-table .attempt-pretest-score');
-    for (let i = 0; i < numAttempts; i++) {
-        if (i === 0 && examType === 'pretest') {
-            let v = pretestScoreInput ? pretestScoreInput.value.trim() : '';
-            if (v === '') scores.push(null);
-            else scores.push(parseFloat(v));
-        } else {
-            let input = examType === 'pretest' ? correctInputs[i - 1] : correctInputs[i];
-            let v = input ? input.value.trim() : '';
-            scores.push(v === '' ? null : parseInt(v, 10));
+    const attempts = [];
+    let weightSum = 0;
+    for (const el of rowEls) {
+        const kind = el.dataset.kind;
+        const label = el.dataset.label || 'Lần thi';
+        const weight = parseFloat(el.querySelector('.attempt-weight')?.value);
+        if (isNaN(weight) || weight < 0 || weight > 100) {
+            showError(`Trọng số của "<b>${label}</b>" không hợp lệ (0–100%).`);
+            return;
         }
+        weightSum += weight;
+
+        if (kind === 'score') {
+            const raw = (el.querySelector('.attempt-score')?.value || '').trim();
+            let p = null;
+            if (raw !== '') {
+                const s = parseFloat(raw);
+                if (isNaN(s) || s < 0 || s > 10) {
+                    showError(`Điểm pretest của "<b>${label}</b>" phải trong khoảng 0–10.`);
+                    return;
+                }
+                p = s / 10;
+            }
+            attempts.push({ label, kind, weight, total: null, p });
+        } else {
+            const total = parseInt((el.querySelector('.attempt-total')?.value || '').trim(), 10);
+            if (isNaN(total) || total <= 0) {
+                showError(`Vui lòng nhập <b>tổng số câu</b> của "<b>${label}</b>".`);
+                return;
+            }
+            const correctRaw = (el.querySelector('.attempt-correct')?.value || '').trim();
+            let p = null;
+            if (correctRaw !== '') {
+                const c = parseInt(correctRaw, 10);
+                if (isNaN(c) || c < 0 || c > total) {
+                    showError(`Số câu đúng của "<b>${label}</b>" phải trong khoảng 0–${total}.`);
+                    return;
+                }
+                p = c / total;
+            }
+            attempts.push({ label, kind, weight, total, p });
+        }
+    }
+
+    if (Math.round(weightSum) !== 100) {
+        showError(`Tổng trọng số các lần thi phải bằng <b>100%</b> (hiện tại đang là ${Math.round(weightSum * 100) / 100}%).`);
+        return;
     }
 
     const desiredGPA = parseFloat(desiredGPAInput.value);
-    if (isNaN(desiredGPA) || desiredGPA < 0 || desiredGPA > 4) {
-        resultArea.textContent = 'Vui lòng nhập điểm hệ 4 mong muốn hợp lệ.';
+    if (isNaN(desiredGPA) || desiredGPA <= 0 || desiredGPA > 4) {
+        showError('Vui lòng chọn điểm hệ 4 mong muốn hợp lệ.');
         return;
     }
 
-    // Chuyển điểm hệ 4 sang hệ 10
-    let desiredScore10;
-    if (desiredGPA >= 3.8) desiredScore10 = 9.5;
-    else if (desiredGPA >= 3.5) desiredScore10 = 8.5;
-    else if (desiredGPA >= 3.2) desiredScore10 = 7.0;
-    else if (desiredGPA >= 2.5) desiredScore10 = 5.5;
-    else if (desiredGPA >= 2.0) desiredScore10 = 4.0;
-    else desiredScore10 = 0;
+    // 2. Mục tiêu (thang 0–100, = điểm hệ 10 × 10)
+    const targetScore10 = minScore10ForGpa4(desiredGPA);
+    const targetPct = targetScore10 * 10;
 
-    // Đếm số lần chưa nhập
-    let emptyIdx = [];
-    let weightedCorrect = 0;
-    let totalAll = 0;
-    for (let i = 0; i < numAttempts; i++) {
-        totalAll += totals[i];
-        if (scores[i] === null) emptyIdx.push(i);
-        else if (i === 0 && examType === 'pretest') {
-            weightedCorrect += (scores[i] / 10) * percents[i];
-        } else {
-            weightedCorrect += (scores[i] / totals[i]) * percents[i];
-        }
+    const knownPct = attempts.filter(a => a.p !== null).reduce((s, a) => s + a.p * a.weight, 0);
+    const unknown = attempts.filter(a => a.p === null);
+    const neededPct = targetPct - knownPct;
+
+    const targetNote = `<div class="text-xs text-gray-500 mt-3 pt-2 border-t border-gray-200/70">🎯 Để đạt <b>GPA ${desiredGPA.toFixed(1)}</b>, điểm tổng kết cần <b>≥ ${targetScore10.toFixed(1)}</b> (hệ 10).</div>`;
+
+    // 3a. Đã nhập đủ tất cả -> báo kết quả tổng kết
+    if (unknown.length === 0) {
+        const finalScore10 = knownPct / 10;
+        const { score4, letterGrade } = calculateGPAFromPercent(knownPct);
+        const reached = knownPct >= targetPct - 1e-9;
+        const summary = `
+            <div class="font-bold mb-2">Điểm tổng kết dự kiến</div>
+            <div class="flex flex-wrap gap-x-5 gap-y-1">
+                <span>Hệ 10: <b>${finalScore10.toFixed(2)}</b></span>
+                <span>Hệ 4: <b>${score4.toFixed(1)}</b></span>
+                <span>Điểm chữ: <b>${letterGrade}</b></span>
+            </div>
+            <div class="mt-2 font-semibold ${reached ? 'text-emerald-600' : 'text-amber-600'}">
+                ${reached ? '🎉 Bạn đã đạt mục tiêu!' : `Chưa đạt mục tiêu GPA ${desiredGPA.toFixed(1)} (cần hệ 10 ≥ ${targetScore10.toFixed(1)}).`}
+            </div>`;
+        resultArea.innerHTML = card(
+            reached ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800',
+            reached ? 'fa-trophy' : 'fa-circle-info',
+            summary
+        ) + targetNote;
+        return;
     }
 
-    // Tổng điểm cần đạt (theo hệ 10)
-    const requiredSum = desiredScore10 * totalAll * 0.1;
+    // 3b. Đã chắc chắn đạt dù các lần còn lại được 0 điểm
+    if (neededPct <= 1e-9) {
+        resultArea.innerHTML = card(
+            'bg-emerald-50 border-emerald-200 text-emerald-800', 'fa-circle-check',
+            `<div class="font-bold mb-1">Bạn đã chắc suất đạt mục tiêu! 🎉</div>
+             <div>Kết quả các lần đã thi đủ để đạt <b>GPA ${desiredGPA.toFixed(1)}</b> kể cả khi các lần còn lại được 0 điểm.</div>`
+        ) + targetNote;
+        return;
+    }
 
-    // Nếu chỉ còn 1 lần chưa nhập, giải phương trình cho lần đó
-    if (emptyIdx.length === 1) {
-        const idx = emptyIdx[0];
-        let x;
-        if (idx === 0 && examType === 'pretest') {
-            x = ((requiredSum - weightedCorrect) * 10) / percents[idx];
-            x = Math.ceil(x * 100) / 100;
-            if (x < 0) {
-                resultArea.textContent = 'Bạn đã đủ điểm mong muốn!';
-            } else if (x > 10) {
-                resultArea.textContent = `Không thể đạt điểm mong muốn với điểm pretest này.`;
+    const labelList = (a) => a.label;
+
+    // 3c. Còn đúng 1 lần chưa nhập -> giải chính xác
+    if (unknown.length === 1) {
+        const a = unknown[0];
+        if (a.weight <= 0) {
+            resultArea.innerHTML = card('bg-amber-50 border-amber-200 text-amber-800', 'fa-triangle-exclamation',
+                `Lần "<b>${labelList(a)}</b>" có trọng số 0% nên không thể bù điểm cho mục tiêu này.`) + targetNote;
+            return;
+        }
+        const neededP = neededPct / a.weight; // hiệu suất cần ở lần này
+
+        if (a.kind === 'score') {
+            let needScore = Math.ceil(neededP * 10 * 100) / 100; // điểm hệ 10, làm tròn lên 2 số lẻ
+            if (needScore > 10) {
+                resultArea.innerHTML = card('bg-red-50 border-red-200 text-red-700', 'fa-triangle-exclamation',
+                    `Không thể đạt mục tiêu: lần "<b>${labelList(a)}</b>" cần <b>${needScore.toFixed(2)}</b> điểm hệ 10 (vượt quá 10).`) + targetNote;
             } else {
-                resultArea.textContent = `Bạn cần đạt nhất ${x} điểm hệ 10 ở lần Pretest để đạt điểm mong muốn.`;
+                resultArea.innerHTML = card('bg-pink-50 border-pink-200 text-pink-800', 'fa-bullseye',
+                    `Bạn cần đạt tối thiểu <b>${needScore.toFixed(2)}</b> điểm hệ 10 ở lần "<b>${labelList(a)}</b>".`) + targetNote;
             }
-        } else {
-            x = Math.ceil((requiredSum - weightedCorrect) * totals[idx] / percents[idx]);
-            if (x < 0) {
-                resultArea.textContent = 'Bạn đã đủ điểm mong muốn!';
-            } else if (x > totals[idx]) {
-                resultArea.textContent = `Không thể đạt điểm mong muốn với số câu này ở lần thi thứ ${idx + 1}.`;
-            } else {
-                resultArea.textContent = `Bạn cần đúng ít nhất ${x} câu trong lần thi thứ ${idx + 1} (${totals[idx]} câu) để đạt điểm mong muốn.`;
-            }
+            return;
         }
+
+        let needCorrect = Math.ceil(neededP * a.total - 1e-9);
+        if (needCorrect < 0) needCorrect = 0;
+        if (needCorrect > a.total) {
+            const maxScore10 = (knownPct + a.weight) / 10;
+            resultArea.innerHTML = card('bg-red-50 border-red-200 text-red-700', 'fa-triangle-exclamation',
+                `<div class="font-bold mb-1">Mục tiêu ngoài tầm với 😢</div>
+                 <div>Dù đúng cả <b>${a.total}/${a.total}</b> câu ở lần "<b>${labelList(a)}</b>", điểm tổng kết tối đa chỉ đạt <b>${maxScore10.toFixed(2)}</b> (hệ 10).</div>`) + targetNote;
+            return;
+        }
+        const acc = Math.round((needCorrect / a.total) * 100);
+        resultArea.innerHTML = card('bg-pink-50 border-pink-200 text-pink-800', 'fa-bullseye',
+            `Bạn cần đúng tối thiểu <b>${needCorrect}/${a.total}</b> câu (≈ ${acc}%) ở lần "<b>${labelList(a)}</b>" để đạt mục tiêu.`) + targetNote;
         return;
     }
 
-    // Nếu còn nhiều hơn 1 lần chưa nhập, đưa ra 3 gợi ý tối ưu
-    if (emptyIdx.length > 1) {
-        let remainPercent = emptyIdx.map(i => percents[i]);
-        let remainTotals = emptyIdx.map(i => totals[i]);
-        let remainSum = remainPercent.reduce((a, b) => a + b, 0);
-        let remainTotal = emptyIdx.length;
-        let minRatio = (requiredSum - weightedCorrect) / remainSum;
-        let suggestions = [];
+    // 3d. Còn nhiều lần chưa nhập -> gợi ý theo mức "đúng đều" giữa các lần
+    const unknownWeight = unknown.reduce((s, a) => s + a.weight, 0);
+    if (unknownWeight <= 0) {
+        resultArea.innerHTML = card('bg-amber-50 border-amber-200 text-amber-800', 'fa-triangle-exclamation',
+            'Các lần còn lại có tổng trọng số 0% nên không thể bù điểm cho mục tiêu này.') + targetNote;
+        return;
+    }
+    const reqRatio = neededPct / unknownWeight; // hiệu suất đồng đều cần ở các lần còn lại
 
-        // Gợi ý 1: chia đều tỉ lệ đúng
-        let even = remainPercent.map((p, j) => Math.ceil(minRatio * remainTotals[j]));
-        suggestions.push(even);
-
-        // Gợi ý 2: ưu tiên lần phần trăm cao nhất
-        let sortedIdx = [...emptyIdx].sort((a, b) => percents[b] - percents[a]);
-        let opt1 = Array(remainTotal).fill(0);
-        let remain = minRatio * remainSum;
-        for (let i = 0; i < remainTotal; i++) {
-            let idx2 = emptyIdx.indexOf(sortedIdx[i]);
-            let val = i === 0 ? Math.ceil(remain * remainTotals[idx2] / remainTotals.reduce((a, b) => a + b, 0)) : Math.floor(remain * remainTotals[idx2] / remainTotals.reduce((a, b) => a + b, 0));
-            opt1[idx2] = val;
-            remain -= val / remainTotals[idx2];
-        }
-        suggestions.push(opt1.map(x => Math.max(0, Math.ceil(x))));
-
-        // Gợi ý 3: ưu tiên lần phần trăm thấp nhất
-        let sortedIdx2 = [...emptyIdx].sort((a, b) => percents[a] - percents[b]);
-        let opt2 = Array(remainTotal).fill(0);
-        remain = minRatio * remainSum;
-        for (let i = 0; i < remainTotal; i++) {
-            let idx2 = emptyIdx.indexOf(sortedIdx2[i]);
-            let val = i === 0 ? Math.ceil(remain * remainTotals[idx2] / remainTotals.reduce((a, b) => a + b, 0)) : Math.floor(remain * remainTotals[idx2] / remainTotals.reduce((a, b) => a + b, 0));
-            opt2[idx2] = val;
-            remain -= val / remainTotals[idx2];
-        }
-        suggestions.push(opt2.map(x => Math.max(0, Math.ceil(x))));
-
-        // Hiển thị gợi ý
-        let html = '<div class="mb-2">Gợi ý số câu đúng tối thiểu cho các lần còn lại:</div>';
-        suggestions.forEach((arr, idx) => {
-            html += `<div class="mb-1">Gợi ý ${idx + 1}: ` + arr.map((v, j) => `Lần ${emptyIdx[j] + 1} (${remainTotals[j]} câu): <b>${v}</b> câu`).join(' | ') + '</div>';
-        });
-        resultArea.innerHTML = html;
+    if (reqRatio > 1 + 1e-9) {
+        const maxScore10 = (knownPct + unknownWeight) / 10;
+        resultArea.innerHTML = card('bg-red-50 border-red-200 text-red-700', 'fa-triangle-exclamation',
+            `<div class="font-bold mb-1">Mục tiêu ngoài tầm với 😢</div>
+             <div>Dù đạt điểm tuyệt đối ở tất cả các lần còn lại, điểm tổng kết tối đa chỉ đạt <b>${maxScore10.toFixed(2)}</b> (hệ 10).</div>`) + targetNote;
         return;
     }
 
-    // Nếu không còn lần nào trống, kiểm tra đã đạt chưa
-    if (emptyIdx.length === 0) {
-        let totalScore10 = 0;
-        for (let i = 0; i < numAttempts; i++) {
-            if (i === 0 && examType === 'pretest') {
-                totalScore10 += scores[i] * percents[i] / 100;
-            } else {
-                let score10 = (scores[i] / totals[i]) * 10;
-                totalScore10 += score10 * percents[i] / 100;
-            }
+    const accPct = Math.ceil(reqRatio * 100);
+    const items = unknown.map(a => {
+        if (a.kind === 'score') {
+            const needScore = Math.min(10, Math.ceil(reqRatio * 10 * 100) / 100);
+            return `<li>Lần "<b>${a.label}</b>": tối thiểu <b>${needScore.toFixed(2)}</b> điểm hệ 10</li>`;
         }
+        const needCorrect = Math.min(a.total, Math.max(0, Math.ceil(reqRatio * a.total - 1e-9)));
+        return `<li>Lần "<b>${a.label}</b>": tối thiểu <b>${needCorrect}/${a.total}</b> câu</li>`;
+    }).join('');
 
-        let score4, letterGrade;
-        if (totalScore10 >= 9.5) { score4 = 4.0; letterGrade = 'A+'; }
-        else if (totalScore10 >= 8.5) { score4 = 4.0; letterGrade = 'A'; }
-        else if (totalScore10 >= 8.0) { score4 = 3.5; letterGrade = 'B+'; }
-        else if (totalScore10 >= 7.0) { score4 = 3.0; letterGrade = 'B'; }
-        else if (totalScore10 >= 6.5) { score4 = 2.5; letterGrade = 'C+'; }
-        else if (totalScore10 >= 5.5) { score4 = 2.0; letterGrade = 'C'; }
-        else if (totalScore10 >= 5.0) { score4 = 1.5; letterGrade = 'D+'; }
-        else if (totalScore10 >= 4.0) { score4 = 1.0; letterGrade = 'D'; }
-        else { score4 = 0.0; letterGrade = 'F'; }
-
-        resultArea.innerHTML = `<div class='mb-2'>Điểm tổng kết:</div><div>Điểm hệ 10: <b>${totalScore10.toFixed(2)}</b></div><div>Điểm hệ 4: <b>${score4.toFixed(1)}</b></div><div>Điểm chữ: <b>${letterGrade}</b></div>`;
-        return;
-    }
+    resultArea.innerHTML = card('bg-pink-50 border-pink-200 text-pink-800', 'fa-lightbulb',
+        `<div class="font-bold mb-1">Gợi ý cho ${unknown.length} lần thi còn lại</div>
+         <div class="mb-2">Nếu giữ phong độ <b>đúng đều ≈ ${accPct}%</b> mỗi lần, bạn cần:</div>
+         <ul class="list-disc pl-5 space-y-0.5">${items}</ul>
+         <div class="text-xs text-gray-500 mt-2">💡 Đây là một phương án cân bằng — nếu lần này làm tốt hơn thì lần sau có thể nhẹ nhàng hơn.</div>`) + targetNote;
 }
 
-function getDefaultConfig(type) {
-    if (type === 'pretest') return { num: 3, percents: [10, 20, 70] };
-    if (type === 'nopretest') return { num: 2, percents: [30, 70] };
-    return { num: 3, percents: [0, 0, 0] };
+/**
+ * Trả về cấu hình các lần thi (nhãn, kiểu nhập, trọng số) theo loại kỳ thi.
+ * kind: 'ratio' = nhập câu đúng / tổng câu; 'score' = nhập thẳng điểm hệ 10 (pretest).
+ */
+function getExamConfig(type, numAttempts) {
+    if (type === 'pretest') {
+        return [
+            { label: 'Pretest', kind: 'score', weight: 10 },
+            { label: 'Giữa kỳ', kind: 'ratio', weight: 20 },
+            { label: 'Cuối kỳ', kind: 'ratio', weight: 70 },
+        ];
+    }
+    if (type === 'nopretest') {
+        return [
+            { label: 'Giữa kỳ', kind: 'ratio', weight: 30 },
+            { label: 'Cuối kỳ', kind: 'ratio', weight: 70 },
+        ];
+    }
+    // Tùy chỉnh: chia đều trọng số, phần dư dồn vào lần cuối
+    const n = Math.max(1, numAttempts || 2);
+    const base = Math.floor(100 / n);
+    const rows = [];
+    for (let i = 0; i < n; i++) {
+        const label = i === n - 1 ? 'Cuối kỳ' : (i === 0 ? 'Giữa kỳ' : `Lần ${i + 1}`);
+        const weight = i === n - 1 ? 100 - base * (n - 1) : base;
+        rows.push({ label, kind: 'ratio', weight });
+    }
+    return rows;
 }
 
 /**
@@ -622,61 +676,60 @@ export function renderAttemptsTable() {
 
     const examType = examTypeEl.value;
     const numAttemptsEl = document.getElementById('num-attempts');
-    let numAttempts;
-    let percents;
+    const isCustom = examType === 'custom';
+    if (customRow) customRow.style.display = isCustom ? '' : 'none';
 
-    if (examType === 'custom') {
-        if (customRow) customRow.style.display = '';
-        numAttempts = parseInt(numAttemptsEl.value, 10);
-        percents = [];
-        for (let i = 0; i < numAttempts; i++) percents.push(0);
-    } else {
-        if (customRow) customRow.style.display = 'none';
-        const conf = getDefaultConfig(examType);
-        numAttempts = conf.num;
-        percents = conf.percents;
-    }
+    const numAttempts = isCustom ? parseInt(numAttemptsEl.value, 10) : undefined;
+    const rows = getExamConfig(examType, numAttempts);
 
-    let html = '';
-    if (examType === 'pretest') {
-        html += `<div class="overflow-x-auto mb-4"><table class="min-w-full border text-center"><thead><tr><th class="border px-2 py-1">Pretest</th><th class="border px-2 py-1">Điểm pretest (hệ 10)</th></tr></thead><tbody>`;
-        html += `<tr>
-            <td class="border px-2 py-1">Pretest</td>
-            <td class="border px-2 py-1"><input type="number" class="attempt-pretest-score w-20 px-2 py-1 border rounded" min="0" max="10" step="0.01" placeholder="Điểm pretest"></td>
-        </tr>`;
-        html += '</tbody></table></div>';
-    }
+    let html = `<div class="overflow-x-auto rounded-xl border border-pink-100">
+        <table class="min-w-full text-center text-sm">
+            <thead><tr class="bg-pink-50 text-gray-600">
+                <th class="px-2 py-2 font-semibold whitespace-nowrap">Lần thi</th>
+                <th class="px-2 py-2 font-semibold whitespace-nowrap">Số câu đúng / Điểm</th>
+                <th class="px-2 py-2 font-semibold whitespace-nowrap">Số câu thi</th>
+                <th class="px-2 py-2 font-semibold whitespace-nowrap">Trọng số (%)</th>
+            </tr></thead><tbody>`;
 
-    html += `<div class="overflow-x-auto"><table class="min-w-full border text-center text-sm text-gray-500"><thead><tr class="bg-pink-50/50"><th class="border px-2 py-1">Lần thi</th><th class="border px-2 py-1">Số câu đúng</th><th class="border px-2 py-1">Số câu thi</th><th class="border px-2 py-1">Phần trăm (%)</th></tr></thead><tbody>`;
-    
-    if (examType === 'pretest') {
-        for (let i = 0; i < 2; i++) {
-            const label = i === 0 ? 'Giữa kỳ' : 'Cuối kỳ';
-            html += `<tr>
-                <td class="border px-2 py-1 font-semibold text-gray-800">${label}</td>
-                <td class="border px-2 py-1"><input type="number" class="attempt-correct w-20 px-2 py-1 border rounded" min="0" placeholder="Số câu đúng"></td>
-                <td class="border px-2 py-1"><input type="number" class="attempt-total w-20 px-2 py-1 border rounded" min="1" placeholder="Số câu thi"></td>
-                <td class="border px-2 py-1"><input type="number" class="attempt-percent w-20 px-2 py-1 border rounded" min="1" max="100" value="${percents[i + 1] || ''}" ${examType === 'custom' ? '' : 'readonly'}></td>
+    rows.forEach(row => {
+        const weightInput = `<input type="number" class="attempt-weight w-16 px-2 py-1 border border-pink-200 rounded text-center ${isCustom ? '' : 'bg-gray-100 text-gray-500'}" min="0" max="100" value="${row.weight}" ${isCustom ? '' : 'readonly'}>`;
+        if (row.kind === 'score') {
+            html += `<tr class="attempt-row border-t border-pink-100" data-kind="score" data-label="${row.label}">
+                <td class="px-2 py-2 font-semibold text-gray-800 whitespace-nowrap">${row.label}</td>
+                <td class="px-2 py-2"><input type="number" class="attempt-score w-24 px-2 py-1 border border-pink-200 rounded text-center" min="0" max="10" step="0.01" placeholder="Điểm hệ 10"></td>
+                <td class="px-2 py-2 text-gray-400 text-xs">dùng điểm hệ 10</td>
+                <td class="px-2 py-2">${weightInput}</td>
+            </tr>`;
+        } else {
+            html += `<tr class="attempt-row border-t border-pink-100" data-kind="ratio" data-label="${row.label}">
+                <td class="px-2 py-2 font-semibold text-gray-800 whitespace-nowrap">${row.label}</td>
+                <td class="px-2 py-2"><input type="number" class="attempt-correct w-20 px-2 py-1 border border-pink-200 rounded text-center" min="0" placeholder="Câu đúng"></td>
+                <td class="px-2 py-2"><input type="number" class="attempt-total w-20 px-2 py-1 border border-pink-200 rounded text-center" min="1" placeholder="Tổng câu"></td>
+                <td class="px-2 py-2">${weightInput}</td>
             </tr>`;
         }
-    } else {
-        for (let i = 0; i < numAttempts; i++) {
-            let label;
-            if (examType === 'nopretest') {
-                label = i === 0 ? 'Giữa kỳ' : 'Cuối kỳ';
-            } else {
-                label = i === 0 ? 'Lần 1' : (i === numAttempts - 1 ? 'Cuối kỳ' : `Lần ${i + 1}`);
-            }
-            html += `<tr>
-                <td class="border px-2 py-1 font-semibold text-gray-800">${label}</td>
-                <td class="border px-2 py-1"><input type="number" class="attempt-correct w-20 px-2 py-1 border rounded" min="0" placeholder="Số câu đúng"></td>
-                <td class="border px-2 py-1"><input type="number" class="attempt-total w-20 px-2 py-1 border rounded" min="1" placeholder="Số câu thi"></td>
-                <td class="border px-2 py-1"><input type="number" class="attempt-percent w-20 px-2 py-1 border rounded" min="1" max="100" value="${percents[i] || ''}" ${examType === 'custom' ? '' : 'readonly'}></td>
-            </tr>`;
-        }
-    }
-    html += '</tbody></table></div>';
+    });
+
+    const totalWeight = rows.reduce((a, r) => a + r.weight, 0);
+    html += `</tbody></table></div>
+        <div id="attempts-weight-note" class="text-xs ${totalWeight === 100 ? 'text-gray-400' : 'text-red-500'} mt-2 text-right">Tổng trọng số: <b id="attempts-weight-sum">${totalWeight}</b>%</div>`;
     tableContainer.innerHTML = html;
+
+    // Ở chế độ tùy chỉnh: cập nhật tổng trọng số trực tiếp khi người dùng chỉnh để dễ canh đủ 100%
+    if (isCustom) {
+        const weightInputs = Array.from(tableContainer.querySelectorAll('.attempt-weight'));
+        const note = document.getElementById('attempts-weight-note');
+        const sumEl = document.getElementById('attempts-weight-sum');
+        const updateSum = () => {
+            const sum = weightInputs.reduce((a, el) => a + (parseFloat(el.value) || 0), 0);
+            if (sumEl) sumEl.textContent = Math.round(sum * 100) / 100;
+            if (note) {
+                note.classList.toggle('text-red-500', Math.round(sum) !== 100);
+                note.classList.toggle('text-gray-400', Math.round(sum) === 100);
+            }
+        };
+        weightInputs.forEach(el => el.addEventListener('input', updateSum));
+    }
 }
 
 /**

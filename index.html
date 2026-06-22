@@ -9,7 +9,19 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
     <script src="core/libs/mermaid.min.js"></script>
-    <link rel="icon" type="image/png" href="assets/logo.png">
+    <!-- PWA manifest & theme -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#FF69B4">
+    <!-- Favicon (trình duyệt) -->
+    <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="assets/icon-512.png">
+    <!-- iOS / iPad: bắt buộc có apple-touch-icon thì mới hiện logo khi "Thêm vào MH chính" -->
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Zitthenkne">
     <link rel="stylesheet" href="style.css?v=5">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -248,94 +260,120 @@
             </div>
 
             <div id="gpaCalculatorContent" class="content-panel hidden fade-in">
-                <div class="max-w-xl mx-auto bg-white rounded-lg shadow-lg p-8">
-                    <h2 class="text-2xl font-bold text-center text-[#FF69B4] mb-6">Công cụ tính điểm Đại học Y Dược</h2>
-                    <form id="gpa-form">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label for="correct-answers" class="block text-sm font-medium text-gray-700">Số câu
-                                    đúng</label>
-                                <input type="number" id="correct-answers"
-                                    class="mt-1 block w-full px-4 py-2 border border-pink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF69B4]"
-                                    placeholder="Ví dụ: 35">
-                            </div>
-                            <div>
-                                <label for="total-questions" class="block text-sm font-medium text-gray-700">Tổng số
-                                    câu</label>
-                                <input type="number" id="total-questions"
-                                    class="mt-1 block w-full px-4 py-2 border border-pink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF69B4]"
-                                    placeholder="Ví dụ: 50">
-                            </div>
-                        </div>
-                        <div class="mt-6">
-                            <button type="button" id="calculate-gpa-btn"
-                                class="w-full px-6 py-3 bg-[#FF69B4] text-white rounded-lg hover:bg-opacity-80 transition shadow-md font-bold">Quy
-                                đổi điểm</button>
-                        </div>
-                    </form>
-                    <div id="gpa-result-area" class="mt-6 text-center hidden p-6 bg-pink-50 rounded-lg">
-                        <img id="gpa-squirrel-img" src="" alt="Biểu cảm của sóc con" class="w-24 h-24 mx-auto mb-4">
-                        <p id="gpa-motivation-text" class="text-gray-600 font-semibold mb-4"></p>
-                        <div class="flex justify-around items-center">
-                            <div>
-                                <p class="text-sm text-gray-500">Điểm hệ 10</p>
-                                <p id="gpa-score10-text" class="text-3xl font-bold text-[#FF69B4]"></p>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-500">Điểm hệ 4</p>
-                                <p id="gpa-score4-text" class="text-3xl font-bold text-gray-700"></p>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-500">Điểm chữ</p>
-                                <p id="gpa-letter-grade" class="text-3xl font-bold text-gray-700"></p>
-                            </div>
-                        </div>
+                <div class="max-w-2xl mx-auto">
+                    <!-- Tiêu đề trang -->
+                    <div class="text-center mb-8">
+                        <h2 class="text-2xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-[#FF69B4] to-[#D8BFD8] drop-shadow">
+                            <i class="fas fa-graduation-cap mr-2 text-[#FF69B4]"></i>Công cụ tính điểm Đại học Y Dược
+                        </h2>
+                        <p class="text-sm text-gray-400 mt-2">Quy đổi điểm và tính số câu cần đạt cho từng kỳ thi 🐿️</p>
                     </div>
-                    <!-- TIỆN ÍCH: Tính số câu cần đạt để đạt điểm mong muốn (TÁCH RIÊNG) -->
+
+                    <!-- CARD 1: Quy đổi điểm nhanh -->
+                    <section class="bg-white rounded-3xl shadow-xl shadow-pink-100/50 border border-pink-100 p-6 sm:p-8 mb-8">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#FF69B4] to-[#D8BFD8] flex items-center justify-center text-white shadow-md shrink-0">
+                                <i class="fas fa-wand-magic-sparkles"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-extrabold text-gray-800">Quy đổi điểm nhanh</h3>
+                                <p class="text-xs text-gray-400">Nhập kết quả một bài để xem điểm hệ 10, hệ 4 và điểm chữ</p>
+                            </div>
+                        </div>
+                        <form id="gpa-form">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="correct-answers" class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-1.5">
+                                        <i class="fas fa-circle-check text-emerald-400"></i> Số câu đúng
+                                    </label>
+                                    <input type="number" id="correct-answers" min="0"
+                                        class="block w-full px-4 py-2.5 border border-pink-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] transition"
+                                        placeholder="Ví dụ: 35">
+                                </div>
+                                <div>
+                                    <label for="total-questions" class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-1.5">
+                                        <i class="fas fa-list-ol text-pink-400"></i> Tổng số câu
+                                    </label>
+                                    <input type="number" id="total-questions" min="1"
+                                        class="block w-full px-4 py-2.5 border border-pink-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] transition"
+                                        placeholder="Ví dụ: 50">
+                                </div>
+                            </div>
+                            <button type="button" id="calculate-gpa-btn"
+                                class="mt-6 w-full px-6 py-3 bg-gradient-to-r from-[#FF69B4] to-[#FF8DC7] text-white rounded-xl hover:shadow-lg hover:shadow-pink-200 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 font-bold flex items-center justify-center gap-2">
+                                <i class="fas fa-calculator"></i> Quy đổi điểm
+                            </button>
+                        </form>
+                        <div id="gpa-result-area" class="mt-6 hidden"></div>
+                    </section>
+
+                    <!-- CARD 2: Tính số câu cần đạt cho từng kỳ thi -->
                     <section id="required-correct-section"
-                        class="max-w-xl mx-auto bg-white rounded-lg shadow-lg p-8 mt-10 mb-10 border border-pink-200">
-                        <h2 class="text-2xl font-bold text-pink-600 mb-6 text-center">Tính số câu cần đạt cho từng kỳ
-                            thi</h2>
-                        <div class="mb-4">
-                            <label class="block mb-1 font-medium text-gray-700">Chọn loại kỳ thi:</label>
-                            <select id="exam-type"
-                                class="w-full px-3 py-2 border border-pink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-300">
-                                <option value="pretest">Có pretest (10-20-70)</option>
-                                <option value="nopretest">Không pretest (30-70)</option>
-                                <option value="custom">Tùy chỉnh</option>
-                            </select>
+                        class="bg-white rounded-3xl shadow-xl shadow-pink-100/50 border border-pink-100 p-6 sm:p-8 mb-10">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#FF69B4] to-[#D8BFD8] flex items-center justify-center text-white shadow-md shrink-0">
+                                <i class="fas fa-bullseye"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-extrabold text-gray-800">Tính số câu cần đạt cho từng kỳ thi</h3>
+                                <p class="text-xs text-gray-400">Đặt mục tiêu GPA và xem cần đúng bao nhiêu câu mỗi lần thi</p>
+                            </div>
                         </div>
-                        <div class="mb-4" id="custom-attempts-row" style="display:none">
-                            <label class="block mb-1 font-medium text-gray-700">Số lần thi:</label>
-                            <select id="num-attempts"
-                                class="w-full px-3 py-2 border border-pink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-300">
-                                <option value="1">1 lần</option>
-                                <option value="2">2 lần</option>
-                                <option value="3">3 lần</option>
-                            </select>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+                            <div>
+                                <label for="exam-type" class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-1.5">
+                                    <i class="fas fa-clipboard-list text-pink-400"></i> Loại kỳ thi
+                                </label>
+                                <select id="exam-type"
+                                    class="w-full px-4 py-2.5 bg-white border border-pink-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] transition cursor-pointer">
+                                    <option value="pretest">Có pretest (10 · 20 · 70)</option>
+                                    <option value="nopretest">Không pretest (30 · 70)</option>
+                                    <option value="custom">Tùy chỉnh</option>
+                                </select>
+                            </div>
+                            <div id="custom-attempts-row" style="display:none">
+                                <label for="num-attempts" class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-1.5">
+                                    <i class="fas fa-layer-group text-pink-400"></i> Số lần thi
+                                </label>
+                                <select id="num-attempts"
+                                    class="w-full px-4 py-2.5 bg-white border border-pink-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] transition cursor-pointer">
+                                    <option value="1">1 lần</option>
+                                    <option value="2">2 lần</option>
+                                    <option value="3">3 lần</option>
+                                </select>
+                            </div>
                         </div>
-                        <div id="attempts-table" class="mb-4">
-                            <!-- Bảng nhập số câu, phần trăm, số câu đúng từng lần -->
+
+                        <div id="attempts-table" class="mb-5">
+                            <!-- Bảng nhập câu đúng / tổng câu / trọng số từng lần (render bằng JS) -->
                         </div>
-                        <div class="mb-4">
-                            <label class="block mb-1 font-medium text-gray-700">Điểm hệ 4 mong muốn:</label>
+
+                        <div class="mb-5">
+                            <label for="desired-gpa-4" class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-1.5">
+                                <i class="fas fa-star text-amber-400"></i> Điểm hệ 4 mong muốn
+                            </label>
                             <select id="desired-gpa-4"
-                                class="w-full px-3 py-2 border border-pink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-300">
-                                <option value="1.0">1.0</option>
-                                <option value="1.5">1.5</option>
-                                <option value="2.0">2.0</option>
-                                <option value="2.5">2.5</option>
-                                <option value="3.0">3.0</option>
-                                <option value="3.5">3.5</option>
-                                <option value="4.0">4.0</option>
+                                class="w-full px-4 py-2.5 bg-white border border-pink-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] transition cursor-pointer">
+                                <option value="1.0">1.0 — D</option>
+                                <option value="1.5">1.5 — D+</option>
+                                <option value="2.0">2.0 — C</option>
+                                <option value="2.5">2.5 — C+</option>
+                                <option value="3.0" selected>3.0 — B</option>
+                                <option value="3.5">3.5 — B+</option>
+                                <option value="4.0">4.0 — A</option>
                             </select>
                         </div>
+
                         <button type="button" id="calculate-required-btn"
-                            class="px-6 py-2 bg-[#FF69B4] text-white rounded-lg hover:bg-opacity-80 transition shadow-md font-bold">Tính
-                            số câu cần đạt/gợi ý</button>
-                        <div id="required-correct-result" class="mt-4 text-base font-semibold text-pink-700"></div>
-                        <div class="text-xs text-gray-500 mt-2">* Để trống số câu đúng các lần thi chưa làm để nhận gợi
-                            ý tối ưu.</div>
+                            class="w-full px-6 py-3 bg-gradient-to-r from-[#FF69B4] to-[#FF8DC7] text-white rounded-xl hover:shadow-lg hover:shadow-pink-200 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 font-bold flex items-center justify-center gap-2">
+                            <i class="fas fa-bullseye"></i> Tính số câu cần đạt
+                        </button>
+                        <div id="required-correct-result" class="mt-5"></div>
+                        <div class="flex items-start gap-1.5 text-xs text-gray-400 mt-3">
+                            <i class="fas fa-circle-info mt-0.5"></i>
+                            <span>Để trống ô câu đúng của các lần <b>chưa thi</b> để nhận gợi ý số câu cần đạt.</span>
+                        </div>
                     </section>
                 </div>
             </div>
@@ -359,6 +397,30 @@
                         <button type="button" id="create-folder-btn" class="px-3 py-2 bg-pink-100 text-pink-700 rounded-xl hover:bg-pink-200 transition font-bold flex items-center gap-1.5 text-xs focus:outline-none shadow-sm">
                             <i class="fas fa-folder-plus text-xs"></i> <span>Tạo thư mục</span>
                         </button>
+                    </div>
+                </div>
+                <!-- Thanh tổng quan nhanh -->
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm grid grid-cols-3 divide-x divide-gray-100 mb-4">
+                    <div class="flex items-center justify-center gap-2.5 py-3 px-2">
+                        <span class="w-8 h-8 rounded-lg bg-pink-50 text-pink-500 flex items-center justify-center text-sm flex-shrink-0"><i class="fas fa-file-alt"></i></span>
+                        <div class="leading-tight">
+                            <div id="lib-stat-quizzes" class="text-base font-bold text-gray-800 tabular-nums">…</div>
+                            <div class="text-[11px] text-gray-400 font-medium">Bộ đề</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-center gap-2.5 py-3 px-2">
+                        <span class="w-8 h-8 rounded-lg bg-purple-50 text-purple-500 flex items-center justify-center text-sm flex-shrink-0"><i class="fas fa-question-circle"></i></span>
+                        <div class="leading-tight">
+                            <div id="lib-stat-questions" class="text-base font-bold text-gray-800 tabular-nums">…</div>
+                            <div class="text-[11px] text-gray-400 font-medium">Câu hỏi</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-center gap-2.5 py-3 px-2">
+                        <span class="w-8 h-8 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center text-sm flex-shrink-0"><i class="fas fa-folder"></i></span>
+                        <div class="leading-tight">
+                            <div id="lib-stat-folders" class="text-base font-bold text-gray-800 tabular-nums">…</div>
+                            <div class="text-[11px] text-gray-400 font-medium">Thư mục</div>
+                        </div>
                     </div>
                 </div>
                 <!-- Breadcrumbs điều hướng thư mục -->
@@ -392,6 +454,24 @@
                         <button type="button" id="refresh-library-btn"
                             class="w-10 h-10 flex items-center justify-center bg-gray-50 text-gray-500 hover:text-pink-500 rounded-xl border border-gray-200 shadow-sm flex-shrink-0 transition-colors focus:outline-none"
                             title="Tải lại"><i class="fas fa-sync-alt text-sm"></i></button>
+                    </div>
+                </div>
+                <!-- Hàng Lọc nhanh + Sắp xếp -->
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <button type="button" data-filter="all" class="library-filter-chip is-active"><i class="fas fa-layer-group mr-1.5 text-[11px]"></i>Tất cả</button>
+                        <button type="button" data-filter="recent" class="library-filter-chip"><i class="fas fa-clock mr-1.5 text-[11px]"></i>Gần đây</button>
+                        <button type="button" data-filter="pinned" class="library-filter-chip"><i class="fas fa-thumbtack mr-1.5 text-[11px]"></i>Đã ghim</button>
+                        <span id="library-result-count" class="hidden text-xs text-gray-400 font-medium ml-1"></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label for="library-sort-select" class="text-xs text-gray-400 font-medium hidden sm:inline">Sắp xếp:</label>
+                        <select id="library-sort-select" class="text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg pl-3 pr-8 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-200 cursor-pointer">
+                            <option value="newest">Mới nhất</option>
+                            <option value="oldest">Cũ nhất</option>
+                            <option value="name">Tên A → Z</option>
+                            <option value="count">Nhiều câu nhất</option>
+                        </select>
                     </div>
                 </div>
                 <!-- Khu vực hiển thị Thư mục cuộn ngang -->

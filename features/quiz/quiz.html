@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Sẵn sàng làm bài kiểm tra</title>
+    <!-- Áp dụng chế độ tối NGAY trước khi vẽ trang để tránh nháy sáng -->
+    <script>
+        try { if (localStorage.getItem('quiz_theme') === 'dark') document.documentElement.classList.add('theme-dark'); } catch (e) {}
+    </script>
     <link rel="icon" type="image/png" href="../../assets/logo.png">
     
     <!-- Open Graph / Facebook / Zalo Share Preview -->
@@ -104,6 +108,14 @@
             animation: stripes-move 1s linear infinite;
         }
 
+        /* Rút gọn câu hỏi còn 2 dòng ở phần chi tiết kết quả (dự phòng nếu Tailwind CDN thiếu) */
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
         /* CSS cho Chế độ tập trung (Focus Mode) */
         body.focus-mode-active {
             padding: 0 !important;
@@ -125,6 +137,7 @@
         }
     </style>
     <link rel="stylesheet" href="quiz-preview.css">
+    <link rel="stylesheet" href="quiz-enhance.css">
 </head>
 <body class="bg-[#FCE4EC] flex items-center justify-center min-h-screen p-2 sm:p-4 text-sm">
     <!-- Floating Exit Focus Button -->
@@ -219,6 +232,25 @@
                             <div class="relative">
                                 <input type="checkbox" id="shuffle-questions-checkbox" class="sr-only peer">
                                 <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-pink-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#FF69B4]"></div>
+                            </div>
+                        </div>
+                    </label>
+
+                    <!-- Option 1b: Shuffle Answers -->
+                    <label for="shuffle-answers-checkbox" class="flex flex-col justify-between bg-gray-50/40 hover:bg-pink-50/20 border border-gray-100 hover:border-pink-200/40 p-4 rounded-2xl cursor-pointer transition shadow-sm text-left">
+                        <div class="flex justify-between items-start w-full">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-xl bg-cyan-50 text-cyan-500 flex items-center justify-center border border-cyan-100/40">
+                                    <i class="fas fa-shuffle text-sm"></i>
+                                </div>
+                                <div>
+                                    <span class="font-bold text-gray-700 text-sm block">Xáo trộn đáp án</span>
+                                    <span class="text-xs text-gray-400">Đảo vị trí A, B, C, D ở mỗi câu</span>
+                                </div>
+                            </div>
+                            <div class="relative">
+                                <input type="checkbox" id="shuffle-answers-checkbox" class="sr-only peer">
+                                <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-cyan-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#06b6d4]"></div>
                             </div>
                         </div>
                     </label>
@@ -370,7 +402,12 @@
         </div>
 
         <div id="quiz-container" class="hidden">
-    <div id="timerDisplay" class="hidden text-2xl font-bold text-red-500 text-center mb-4"></div>
+    <!-- Thanh HUD dính: luôn thấy tiến trình + giờ khi cuộn câu hỏi dài -->
+    <div id="quiz-hud">
+        <span class="hud-counter" id="hud-counter">Câu 1</span>
+        <div class="hud-progress"><div id="hud-progress-fill" style="width:0%"></div></div>
+        <div id="timerDisplay" class="hidden"></div>
+    </div>
     <div class="flex flex-wrap justify-between items-center gap-2 mb-2 focus-hide">
         <div class="flex flex-wrap gap-2">
             <button id="toggle-nav-btn" type="button" class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg shadow hover:bg-blue-200 transition flex items-center gap-2">
@@ -387,9 +424,6 @@
             <button type="button" id="font-size-large" class="px-2 py-1 text-xs rounded hover:bg-pink-100 transition font-bold text-gray-600">A+</button>
         </div>
     </div>
-    <div class="progress-bar mb-2 sm:mb-4 focus-hide">
-        <div id="quiz-progress-fill" class="h-full bg-[#FF69B4] rounded-full transition-all duration-300" style="width: 0%;"></div>
-    </div>
     <div id="quizSection"></div>
             <div id="resultsSection" class="hidden">
     <button id="retry-wrong-btn" class="mt-6 px-6 py-3 bg-yellow-400 text-white rounded-lg hover:bg-yellow-500 transition-transform transform hover:scale-105 shadow-lg text-lg font-bold hidden">
@@ -403,6 +437,31 @@
 
         <div id="toast-container"></div>
     </div>
+
+    <!-- Nút thiết lập nổi: Chế độ tối / Âm thanh / Rung -->
+    <button id="quiz-settings-fab" type="button" title="Thiết lập" aria-label="Thiết lập">
+        <i class="fas fa-sliders-h"></i>
+    </button>
+    <div id="quiz-settings-popover" class="hidden-pop">
+        <div class="qs-row" id="qs-dark" role="switch" aria-checked="false" tabindex="0">
+            <span class="qs-label"><i class="fas fa-moon"></i> Chế độ tối</span>
+            <span class="qs-switch"></span>
+        </div>
+        <div class="qs-row" id="qs-sound" role="switch" aria-checked="false" tabindex="0">
+            <span class="qs-label"><i class="fas fa-volume-up"></i> Âm thanh</span>
+            <span class="qs-switch"></span>
+        </div>
+        <div class="qs-row" id="qs-vibrate" role="switch" aria-checked="true" tabindex="0">
+            <span class="qs-label"><i class="fas fa-mobile-alt"></i> Rung phản hồi</span>
+            <span class="qs-switch"></span>
+        </div>
+    </div>
+
+    <!-- Nút bôi vàng nổi khi bôi đen chữ trong đề -->
+    <button id="hl-float-btn" type="button"><i class="fas fa-highlighter"></i> Bôi vàng</button>
+
+    <!-- Lớp phủ phóng to ảnh -->
+    <div id="img-lightbox" class="hidden"><img src="" alt="Ảnh phóng to" /></div>
 
     <script type="module" src="quiz-page.js"></script>
     <script>

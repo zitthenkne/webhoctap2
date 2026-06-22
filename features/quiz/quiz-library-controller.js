@@ -28,6 +28,11 @@ let isBulkMoving = false;
 let libraryLayoutMode = localStorage.getItem('libraryLayoutMode') || 'grid';
 let currentFolderPage = 1;
 
+// Sắp xếp, lọc & ghim
+let librarySortMode = localStorage.getItem('librarySortMode') || 'newest'; // newest | oldest | name | count
+let libraryFilterMode = 'all'; // all | recent | pinned
+let pinnedQuizIds = [];
+
 const FOLDERS_PER_PAGE = 10;
 const FOLDER_COLORS = {
     amber: { bg: 'bg-amber-50/50 hover:bg-amber-50 border-amber-100', iconBg: 'bg-amber-100 text-amber-600' },
@@ -57,6 +62,76 @@ export function setLibraryLayoutMode(mode) {
     localStorage.setItem('libraryLayoutMode', mode);
 }
 export function getCurrentLibraryPage() { return currentLibraryPage; }
+
+// Getters & Setters cho Sắp xếp / Lọc
+export function getLibrarySortMode() { return librarySortMode; }
+export function setLibrarySortMode(mode) {
+    librarySortMode = mode;
+    localStorage.setItem('librarySortMode', mode);
+    currentLibraryPage = 1;
+    rerenderCurrentView();
+}
+export function getLibraryFilterMode() { return libraryFilterMode; }
+export function setLibraryFilterMode(mode) {
+    libraryFilterMode = mode;
+    currentLibraryPage = 1;
+    rerenderCurrentView();
+}
+
+// === GHIM BỘ ĐỀ (PIN) — lưu cục bộ theo từng tài khoản ===
+function pinnedStorageKey() {
+    const uid = auth.currentUser ? auth.currentUser.uid : 'anon';
+    return `pinnedQuizIds_${uid}`;
+}
+function loadPinnedQuizIds() {
+    try {
+        pinnedQuizIds = JSON.parse(localStorage.getItem(pinnedStorageKey()) || '[]');
+        if (!Array.isArray(pinnedQuizIds)) pinnedQuizIds = [];
+    } catch {
+        pinnedQuizIds = [];
+    }
+}
+function savePinnedQuizIds() {
+    localStorage.setItem(pinnedStorageKey(), JSON.stringify(pinnedQuizIds));
+}
+function isPinned(quizId) { return pinnedQuizIds.includes(quizId); }
+export function togglePin(quizId) {
+    const idx = pinnedQuizIds.indexOf(quizId);
+    if (idx >= 0) pinnedQuizIds.splice(idx, 1);
+    else pinnedQuizIds.push(quizId);
+    savePinnedQuizIds();
+    rerenderCurrentView();
+}
+
+// === HỖ TRỢ SẮP XẾP / LỌC ===
+function getQuizTime(q) {
+    if (q.createdAt && typeof q.createdAt.toDate === 'function') return q.createdAt.toDate().getTime();
+    return q.createdAt ? new Date(q.createdAt).getTime() : 0;
+}
+function isNewQuiz(q) {
+    return (Date.now() - getQuizTime(q)) <= 24 * 60 * 60 * 1000;
+}
+function applyLibraryFilter(list) {
+    if (libraryFilterMode === 'pinned') return list.filter(q => isPinned(q.id));
+    if (libraryFilterMode === 'recent') {
+        const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        return list.filter(q => getQuizTime(q) >= weekAgo);
+    }
+    return list;
+}
+function sortQuizList(list) {
+    const arr = [...list];
+    switch (librarySortMode) {
+        case 'oldest': arr.sort((a, b) => getQuizTime(a) - getQuizTime(b)); break;
+        case 'name': arr.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'vi', { sensitivity: 'base' })); break;
+        case 'count': arr.sort((a, b) => (b.questionCount || 0) - (a.questionCount || 0)); break;
+        case 'newest':
+        default: arr.sort((a, b) => getQuizTime(b) - getQuizTime(a));
+    }
+    // Bộ đề đã ghim luôn nổi lên đầu (sort ổn định nên giữ nguyên thứ tự còn lại)
+    arr.sort((a, b) => (isPinned(b.id) ? 1 : 0) - (isPinned(a.id) ? 1 : 0));
+    return arr;
+}
 
 /**
  * Lưu bộ đề và chuyển sang màn hình làm quiz
@@ -274,6 +349,7 @@ export async function loadAndDisplayLibrary(page = 1) {
     }
 
     currentLibraryPage = page;
+    loadPinnedQuizIds();
 
     if (isLibraryFullyLoaded) {
         renderBreadcrumb();
@@ -282,7 +358,7 @@ export async function loadAndDisplayLibrary(page = 1) {
     }
 
     if (page === 1) {
-        quizListContainer.innerHTML = `<div class="text-gray-500 col-span-full text-center py-6"><i class="fas fa-spinner fa-spin mr-2"></i>Đang tải thư viện...</div>`;
+        renderLibrarySkeleton(quizListContainer);
     }
 
     try {
@@ -377,6 +453,95 @@ export function updateLayoutButtons() {
     }
 }
 
+// === THANH TỔNG QUAN NHANH ===
+function updateLibraryOverview() {
+    const elQuizzes = document.getElementById('lib-stat-quizzes');
+    const elQuestions = document.getElementById('lib-stat-questions');
+    const elFolders = document.getElementById('lib-stat-folders');
+    if (!elQuizzes && !elQuestions && !elFolders) return;
+
+    if (!isLibraryFullyLoaded) {
+        if (elQuizzes) elQuizzes.textContent = '…';
+        if (elQuestions) elQuestions.textContent = '…';
+        if (elFolders) elFolders.textContent = userFolders.length || '…';
+        return;
+    }
+    const totalQuestions = userQuizSets.reduce((sum, q) => sum + (q.questionCount || 0), 0);
+    const fmt = (n) => n.toLocaleString('vi-VN');
+    if (elQuizzes) elQuizzes.textContent = fmt(userQuizSets.length);
+    if (elQuestions) elQuestions.textContent = fmt(totalQuestions);
+    if (elFolders) elFolders.textContent = fmt(userFolders.length);
+}
+
+// === SKELETON LOADING ===
+function renderLibrarySkeleton(container, count = 8) {
+    if (!container) return;
+    container.className = 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6';
+    let html = '';
+    for (let i = 0; i < count; i++) {
+        html += `
+            <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex flex-col">
+                <div class="skeleton-line h-4 w-3/4 mb-3"></div>
+                <div class="skeleton-line h-4 w-1/2 mb-4"></div>
+                <div class="flex gap-2 mb-4">
+                    <div class="skeleton-line h-6 w-20 rounded-full"></div>
+                    <div class="skeleton-line h-6 w-24 rounded-full"></div>
+                </div>
+                <div class="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center">
+                    <div class="skeleton-line h-7 w-24 rounded-lg"></div>
+                    <div class="skeleton-line h-8 w-24 rounded-xl"></div>
+                </div>
+            </div>`;
+    }
+    container.innerHTML = html;
+}
+
+// === TRẠNG THÁI RỖNG ===
+function renderEmptyState(container, type) {
+    if (!container) return;
+    let icon, title, desc, ctaHTML = '';
+    if (type === 'search') {
+        icon = 'fa-magnifying-glass';
+        title = 'Không tìm thấy kết quả';
+        desc = 'Thử từ khoá khác hoặc kiểm tra lại chính tả nhé.';
+    } else if (type === 'folder') {
+        icon = 'fa-folder-open';
+        title = 'Thư mục này đang trống';
+        desc = 'Kéo-thả bộ đề vào đây, hoặc dùng nút “Di chuyển” trên mỗi bộ đề.';
+    } else if (type === 'filter') {
+        icon = 'fa-filter';
+        title = 'Không có bộ đề nào khớp bộ lọc';
+        desc = 'Thử đổi sang “Tất cả” để xem toàn bộ thư viện.';
+    } else {
+        icon = 'fa-book-open';
+        title = 'Thư viện của bạn đang trống';
+        desc = 'Tạo bộ đề đầu tiên để bắt đầu ôn luyện thôi nào!';
+        ctaHTML = `
+            <button type="button" id="empty-create-quiz-btn"
+                class="mt-5 inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 text-white rounded-xl font-bold text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all">
+                <i class="fas fa-plus"></i> Tạo bộ đề đầu tiên
+            </button>`;
+    }
+    const wrap = document.createElement('div');
+    wrap.className = 'col-span-full flex flex-col items-center justify-center text-center py-14 px-4';
+    wrap.innerHTML = `
+        <div class="w-20 h-20 rounded-full bg-pink-50 flex items-center justify-center mb-4">
+            <i class="fas ${icon} text-3xl text-pink-300"></i>
+        </div>
+        <h3 class="text-lg font-bold text-gray-700">${title}</h3>
+        <p class="text-sm text-gray-400 mt-1 max-w-xs">${desc}</p>
+        ${ctaHTML}
+    `;
+    container.appendChild(wrap);
+    const ctaBtn = wrap.querySelector('#empty-create-quiz-btn');
+    if (ctaBtn) {
+        ctaBtn.addEventListener('click', () => {
+            const navLink = document.querySelector('.nav-link[data-target="createQuizContent"]');
+            if (navLink) navLink.click();
+        });
+    }
+}
+
 export function renderLibrary(quizzesToDisplay, page = 1) {
     if (typeof page !== 'number') page = 1;
     const quizListContainer = document.getElementById('quiz-list-container');
@@ -392,18 +557,30 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
     const librarySearchInput = document.getElementById('library-search-input');
     const isSearching = librarySearchInput && librarySearchInput.value.trim() !== '';
 
+    updateLibraryOverview();
+
     let filteredQuizzes = quizzesToDisplay;
     if (!isSearching) {
-        filteredQuizzes = quizzesToDisplay.filter(quiz => 
+        filteredQuizzes = quizzesToDisplay.filter(quiz =>
             currentFolderId === null ? (!quiz.folderId) : (quiz.folderId === currentFolderId)
         );
+        // Áp dụng bộ lọc nhanh (Tất cả / Gần đây / Đã ghim)
+        filteredQuizzes = applyLibraryFilter(filteredQuizzes);
     }
 
-    filteredQuizzes.sort((a, b) => {
-        const timeA = a.createdAt && typeof a.createdAt.toDate === 'function' ? a.createdAt.toDate().getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
-        const timeB = b.createdAt && typeof b.createdAt.toDate === 'function' ? b.createdAt.toDate().getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
-        return timeB - timeA;
-    });
+    // Sắp xếp theo lựa chọn người dùng (ghim luôn lên đầu); khi tìm kiếm giữ thứ tự liên quan
+    filteredQuizzes = isSearching ? [...filteredQuizzes] : sortQuizList(filteredQuizzes);
+
+    // Cập nhật bộ đếm kết quả
+    const resultCountEl = document.getElementById('library-result-count');
+    if (resultCountEl) {
+        if (isSearching || libraryFilterMode !== 'all') {
+            resultCountEl.textContent = `${filteredQuizzes.length} bộ đề`;
+            resultCountEl.classList.remove('hidden');
+        } else {
+            resultCountEl.classList.add('hidden');
+        }
+    }
 
     const foldersSection = document.getElementById('folders-section');
     const foldersContainer = document.getElementById('folders-container');
@@ -459,7 +636,7 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                         ${wrapperHTML}
                         <div class="min-w-0">
                             <h4 class="font-bold text-gray-800 text-sm truncate" title="${folder.name}">${folder.name}</h4>
-                            <p class="text-xs text-gray-500 mt-0.5">${count} bộ đề</p>
+                            <span class="folder-count-badge"><i class="fas fa-file-alt text-[9px] opacity-70"></i>${count} bộ đề</span>
                         </div>
                     </div>
                     <div class="relative flex items-center">
@@ -506,14 +683,14 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                 });
                 card.addEventListener('dragenter', (e) => {
                     e.preventDefault();
-                    card.classList.add('border-pink-500', 'bg-pink-50/20');
+                    card.classList.add('drop-target');
                 });
                 card.addEventListener('dragleave', () => {
-                    card.classList.remove('border-pink-500', 'bg-pink-50/20');
+                    card.classList.remove('drop-target');
                 });
                 card.addEventListener('drop', async (e) => {
                     e.preventDefault();
-                    card.classList.remove('border-pink-500', 'bg-pink-50/20');
+                    card.classList.remove('drop-target');
                     const quizId = e.dataTransfer.getData('text/plain');
                     if (!quizId) return;
                     
@@ -541,11 +718,13 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
         }
     }
 
-    if (filteredQuizzes.length === 0 && (!userFolders.length || currentFolderId !== null || isSearching)) {
-        const emptyMsg = document.createElement('p');
-        emptyMsg.className = 'text-gray-500 col-span-full text-center py-6';
-        emptyMsg.textContent = isSearching ? 'Không tìm thấy bộ đề nào khớp.' : 'Chưa có bộ đề nào trong thư mục này.';
-        if (quizListContainer) quizListContainer.appendChild(emptyMsg);
+    if (filteredQuizzes.length === 0 && (!userFolders.length || currentFolderId !== null || isSearching || libraryFilterMode !== 'all')) {
+        let emptyType = 'root';
+        if (isSearching) emptyType = 'search';
+        else if (libraryFilterMode !== 'all') emptyType = 'filter';
+        else if (currentFolderId !== null) emptyType = 'folder';
+        renderEmptyState(quizListContainer, emptyType);
+        renderLibraryPagination([], 1, 1);
         return;
     }
 
@@ -571,7 +750,14 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
         filteredQuizzes.forEach((quizSet) => {
             const card = document.createElement('div');
             const isSelected = selectedQuizIds.includes(quizSet.id);
-            
+            const pinned = isPinned(quizSet.id);
+            const isNew = isNewQuiz(quizSet);
+            const newBadge = isNew
+                ? `<span class="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center">Mới</span>`
+                : '';
+            const pinBtnSm = `<button class="pin-quiz-btn w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${pinned ? 'text-pink-500 bg-pink-50' : 'text-gray-400 hover:text-pink-500 hover:bg-pink-50'}" data-id="${quizSet.id}" title="${pinned ? 'Bỏ ghim' : 'Ghim lên đầu'}"><i class="fas fa-thumbtack text-xs"></i></button>`;
+            const pinBtnMd = `<button class="pin-quiz-btn w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${pinned ? 'text-pink-500 bg-pink-50' : 'text-gray-400 hover:text-pink-500 hover:bg-pink-50'}" data-id="${quizSet.id}" title="${pinned ? 'Bỏ ghim' : 'Ghim lên đầu'}"><i class="fas fa-thumbtack text-sm"></i></button>`;
+
             card.className = getQuizCardClassName(isSelected);
             card.setAttribute('data-id', quizSet.id);
 
@@ -621,6 +807,7 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                                 </a>
                             </h3>
                             <div class="flex flex-wrap gap-2 mt-1 items-center">
+                                ${newBadge}
                                 <span class="bg-pink-50 text-pink-600 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold inline-flex items-center gap-1">
                                     <i class="fas fa-question-circle text-[10px] opacity-80"></i>
                                     ${quizSet.questionCount} câu hỏi
@@ -633,6 +820,7 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                         </div>
                         <div class="flex items-center gap-2 mt-1 sm:mt-0 justify-between sm:justify-end ${isSelectionMode ? 'opacity-40 pointer-events-none' : ''}">
                             <div class="flex items-center gap-0.5">
+                                ${pinBtnSm}
                                 <button class="edit-quiz-content-btn w-7 h-7 flex items-center justify-center text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" data-id="${quizSet.id}" title="Sửa câu hỏi">
                                     <i class="fas fa-pen-alt text-xs"></i>
                                 </button>
@@ -643,8 +831,9 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                                     <i class="fas fa-share-alt text-xs"></i>
                                 </button>
                             </div>
-                            <a href="features/quiz/quiz.html?id=${quizSet.id}" class="inline-flex items-center justify-center px-3 py-1.5 bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 text-white rounded-lg hover:shadow-md hover:shadow-pink-100 active:translate-y-0 transition-all duration-200 text-xs font-bold gap-1 flex-shrink-0">
-                                Luyện tập <i class="fas fa-play text-[9px]"></i>
+                            <a href="features/quiz/quiz.html?id=${quizSet.id}" class="practice-btn inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 text-white rounded-xl shadow-md shadow-pink-200/60 hover:shadow-lg hover:shadow-pink-300/70 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 text-sm font-extrabold tracking-wide flex-shrink-0">
+                                <span class="w-5 h-5 rounded-full bg-white/25 flex items-center justify-center"><i class="fas fa-play text-[8px] ml-0.5"></i></span>
+                                Luyện tập
                             </a>
                         </div>
                     </div>
@@ -673,15 +862,21 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                     `;
                 }
 
+                const pinnedRibbon = (pinned && !isSelectionMode)
+                    ? `<div class="absolute top-4 left-4 text-pink-500" title="Đã ghim"><i class="fas fa-thumbtack text-xs"></i></div>`
+                    : '';
+
                 card.innerHTML = `
                     ${checkboxHTML}
-                    <div class="flex-grow ${isSelectionMode ? 'pl-8' : ''}">
+                    ${pinnedRibbon}
+                    <div class="flex-grow ${(isSelectionMode || (pinned && !isSelectionMode)) ? 'pl-8' : ''}">
                         <h3 class="text-sm sm:text-base font-bold text-gray-800 line-clamp-2 pr-8 mb-3" title="${quizSet.title}">
                             <a href="features/quiz/quiz.html?id=${quizSet.id}" class="hover:text-pink-600 focus:text-pink-600 transition-colors duration-150 block">
                                 ${quizSet.title}
                             </a>
                         </h3>
                         <div class="flex flex-wrap gap-2 mb-4">
+                            ${newBadge}
                             <span class="bg-pink-50 text-pink-600 px-2.5 py-1 rounded-full text-xs font-semibold inline-flex items-center gap-1.5">
                                 <i class="fas fa-question-circle text-xs opacity-80"></i>
                                 ${quizSet.questionCount} câu hỏi
@@ -695,6 +890,7 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                     </div>
                     <div class="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center ${isSelectionMode ? 'opacity-40 pointer-events-none' : ''}">
                         <div class="flex items-center gap-1">
+                            ${pinBtnMd}
                             <button class="edit-quiz-content-btn w-8 h-8 flex items-center justify-center text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" data-id="${quizSet.id}" title="Sửa câu hỏi">
                                 <i class="fas fa-pen-alt text-sm"></i>
                             </button>
@@ -705,8 +901,9 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                                 <i class="fas fa-share-alt text-sm"></i>
                             </button>
                         </div>
-                        <a href="features/quiz/quiz.html?id=${quizSet.id}" class="inline-flex items-center justify-center px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 text-white rounded-xl hover:shadow-lg hover:shadow-pink-100 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 text-xs font-bold gap-1.5">
-                            Luyện tập <i class="fas fa-play text-[10px]"></i>
+                        <a href="features/quiz/quiz.html?id=${quizSet.id}" class="practice-btn inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 text-white rounded-xl shadow-md shadow-pink-200/60 hover:shadow-lg hover:shadow-pink-300/70 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 text-sm font-extrabold tracking-wide">
+                            <span class="w-5 h-5 rounded-full bg-white/25 flex items-center justify-center"><i class="fas fa-play text-[9px] ml-0.5"></i></span>
+                            Luyện tập
                         </a>
                     </div>
                 `;
@@ -812,7 +1009,15 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
             card.addEventListener('touchcancel', cancelPress);
 
             // Gán listener phụ
-            setTimeout(() => { 
+            setTimeout(() => {
+                const pinBtn = card.querySelector('.pin-quiz-btn');
+                if (pinBtn) {
+                    pinBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        togglePin(this.getAttribute('data-id'));
+                    });
+                }
+
                 const shareBtn = card.querySelector('.share-quiz-btn');
                 if (shareBtn) {
                     shareBtn.addEventListener('click', function(e) {
@@ -1312,34 +1517,106 @@ export function handleBulkShare() {
 }
 
 // === CHẾ ĐỘ CHỌN NHIỀU (SELECTION MODE) ===
+
+/**
+ * Lấy danh sách bộ đề đang hiển thị trong khung nhìn hiện tại
+ * (theo thư mục đang mở hoặc theo kết quả tìm kiếm).
+ */
+function getFilteredQuizzesForView() {
+    const librarySearchInput = document.getElementById('library-search-input');
+    const keyword = librarySearchInput ? librarySearchInput.value.trim() : '';
+    if (keyword) {
+        return filterLibraryByMode(keyword, 'quiz');
+    }
+    return userQuizSets.filter(quiz =>
+        currentFolderId === null ? (!quiz.folderId) : (quiz.folderId === currentFolderId)
+    );
+}
+
+/**
+ * Vẽ lại danh sách hiện tại, tự nhận biết đang tìm kiếm hay đang duyệt thư mục.
+ */
+function rerenderCurrentView() {
+    const librarySearchInput = document.getElementById('library-search-input');
+    const keyword = librarySearchInput ? librarySearchInput.value.trim() : '';
+    if (keyword) {
+        renderLibrary(getFilteredQuizzesForView(), currentLibraryPage);
+    } else {
+        renderLibrary(userQuizSets, currentLibraryPage);
+    }
+}
+
+/**
+ * Chọn tất cả bộ đề trong khung nhìn hiện tại (mọi trang của thư mục/tìm kiếm).
+ */
+export function selectAllInView() {
+    if (!isSelectionMode) isSelectionMode = true;
+    const ids = getFilteredQuizzesForView().map(q => q.id);
+    selectedQuizIds = Array.from(new Set(ids));
+    rerenderCurrentView();
+    updateBulkActionsToolbar();
+}
+
+/**
+ * Bỏ chọn toàn bộ nhưng vẫn ở trong chế độ chọn nhiều.
+ */
+export function deselectAllInView() {
+    selectedQuizIds = [];
+    rerenderCurrentView();
+    updateBulkActionsToolbar();
+}
+
 export function exitSelectionMode() {
     isSelectionMode = false;
     selectedQuizIds = [];
-    
-    const bulkSelectToggleBtn = document.getElementById('bulk-select-toggle-btn');
-    if (bulkSelectToggleBtn) {
-        bulkSelectToggleBtn.className = 'px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-xs font-semibold flex items-center gap-1.5 focus:outline-none';
-        bulkSelectToggleBtn.innerHTML = '<i class="fas fa-tasks"></i> Chọn nhiều';
-    }
-    
     updateBulkActionsToolbar();
     loadAndDisplayLibrary();
 }
 
 export function updateBulkActionsToolbar() {
     const toolbar = document.getElementById('bulk-actions-toolbar');
-    const countLabel = document.getElementById('bulk-selected-count');
-    
+    const countLabel = document.getElementById('bulk-select-count');
+    const toggleBtn = document.getElementById('bulk-select-toggle-btn');
+    const count = selectedQuizIds.length;
+
+    // Đồng bộ nút "Chọn nhiều" cho cả 2 lối vào: bấm nút và nhấn giữ (long-press)
+    if (toggleBtn) {
+        if (isSelectionMode) {
+            toggleBtn.classList.remove('bg-gray-100', 'text-gray-700');
+            toggleBtn.classList.add('bg-pink-100', 'text-pink-700', 'border', 'border-pink-300');
+            toggleBtn.innerHTML = '<i class="fas fa-check-circle text-xs"></i> <span>Xong</span>';
+            toggleBtn.setAttribute('title', 'Thoát chế độ chọn nhiều');
+        } else {
+            toggleBtn.classList.remove('bg-pink-100', 'text-pink-700', 'border', 'border-pink-300');
+            toggleBtn.classList.add('bg-gray-100', 'text-gray-700');
+            toggleBtn.innerHTML = '<i class="fas fa-tasks text-xs"></i> <span>Chọn nhiều</span>';
+            toggleBtn.setAttribute('title', 'Chọn nhiều bộ đề để thao tác đồng loạt');
+        }
+    }
+
     if (!toolbar) return;
-    
-    if (isSelectionMode && selectedQuizIds.length > 0) {
+
+    // Hiện thanh tác vụ ngay khi vào chế độ chọn (kể cả khi chưa chọn gì)
+    if (isSelectionMode) {
         toolbar.classList.remove('translate-y-28', 'opacity-0', 'pointer-events-none');
         toolbar.classList.add('translate-y-0', 'opacity-100');
-        if (countLabel) countLabel.textContent = `Đã chọn: ${selectedQuizIds.length} bộ đề`;
     } else {
         toolbar.classList.remove('translate-y-0', 'opacity-100');
         toolbar.classList.add('translate-y-28', 'opacity-0', 'pointer-events-none');
     }
+
+    if (countLabel) {
+        countLabel.innerHTML = `<i class="fas fa-check-square mr-1.5"></i> Đã chọn: ${count} bộ đề`;
+    }
+
+    // Vô hiệu hoá các nút thao tác khi chưa chọn bộ đề nào
+    ['bulk-move-btn', 'bulk-share-btn', 'bulk-delete-btn'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.disabled = count === 0;
+        btn.classList.toggle('opacity-50', count === 0);
+        btn.classList.toggle('cursor-not-allowed', count === 0);
+    });
 }
 
 // === CHIA SẺ BỘ ĐỀ (SHARE QUIZ) ===

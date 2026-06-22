@@ -1,7 +1,7 @@
 // features/quiz/quiz-ui.js
 
 import { state } from './quiz-state.js';
-import { parseMarkdown, renderMath, convertScoreToGPA, formatTime } from './quiz-helpers.js';
+import { parseMarkdown, renderMath, convertScoreToGPA, formatTime, triggerConfetti } from './quiz-helpers.js';
 
 export function showSubmitQuizBtn(show) {
     const submitQuizBtn = document.getElementById('submit-quiz-btn');
@@ -58,11 +58,6 @@ export function renderQuizProgressBar() {
     }
     return `
         <div class="mb-4">
-            <div class="w-full h-4 bg-gray-100 rounded-full overflow-hidden mb-2 shadow-inner border border-gray-200/50 focus-hide">
-                <div class="h-full bg-gradient-to-r from-pink-400 via-purple-400 to-indigo-500 transition-all duration-500 relative" style="width:${percent}%">
-                    <div class="absolute inset-0 bg-white/20 bg-striped animate-stripes"></div>
-                </div>
-            </div>
             <div class="flex justify-between items-center text-xs text-gray-600 mb-2 px-1 focus-hide">
                 <span class="font-medium">Đã trả lời: ${answeredCount}/${total} (${percent}%)</span>
                 <span class="font-medium">Còn lại: ${total - answeredCount}</span>
@@ -166,134 +161,295 @@ export function showResults(totalTime) {
     const resultsSection = document.getElementById('resultsSection');
     if (!resultsSection) return;
 
-    const retryWrongBtn = document.getElementById('retry-wrong-btn');
-    if (retryWrongBtn) {
-        const incorrectCount = state.questions.reduce((count, q, idx) => {
-            if (state.userAnswers[idx] !== q.correctAnswerIndex) count++;
-            return count;
-        }, 0);
-        if (incorrectCount > 0) {
-            retryWrongBtn.classList.remove('hidden');
-        } else {
-            retryWrongBtn.classList.add('hidden');
-        }
+    resultsSection.classList.remove('hidden');
+
+    // --- Tính toán thống kê ---
+    const total = state.questions.length;
+    let correctCount = 0;
+    state.questions.forEach((q, i) => {
+        if (state.userAnswers[i] === q.correctAnswerIndex) correctCount++;
+    });
+    const answeredCount = state.userAnswers.filter(a => a !== null && a !== undefined).length;
+    const unansweredCount = total - answeredCount;
+    const wrongCount = answeredCount - correctCount;
+
+    const percentage = total > 0 ? (correctCount / total) * 100 : 0;
+    const percentageStr = percentage.toFixed(1);
+    const gpaResult = convertScoreToGPA(correctCount, total);
+    const { score4: gpa4, letterGrade, motivation, score10 } = gpaResult;
+    const showPracticeButton = correctCount < total;
+
+    // Màu sắc theo thành tích
+    let ringColor = '#ef4444', ringBg = '#fee2e2';
+    if (percentage >= 80) { ringColor = '#22c55e'; ringBg = '#dcfce7'; }
+    else if (percentage >= 50) { ringColor = '#f59e0b'; ringBg = '#fef3c7'; }
+
+    const radius = 52;
+    const circumference = 2 * Math.PI * radius;
+    const dashOffset = circumference * (1 - percentage / 100);
+
+    // --- Thống kê theo chủ đề (chỉ hiện khi có từ 2 chủ đề trở lên) ---
+    const topicStats = {};
+    state.questions.forEach((q, i) => {
+        const t = (q.topic && String(q.topic).trim()) ? String(q.topic).trim() : '';
+        if (!t || t.toLowerCase() === 'chung') return;
+        if (!topicStats[t]) topicStats[t] = { correct: 0, total: 0 };
+        topicStats[t].total++;
+        if (state.userAnswers[i] === q.correctAnswerIndex) topicStats[t].correct++;
+    });
+    const topicEntries = Object.entries(topicStats);
+    let topicHtml = '';
+    if (topicEntries.length >= 2) {
+        topicHtml = `
+        <div class="bg-white rounded-2xl shadow-lg p-5 sm:p-6 mt-6 fade-in text-left">
+            <h3 class="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+                <i class="fas fa-chart-pie text-pink-500"></i> Kết quả theo chủ đề
+            </h3>
+            <div class="space-y-3">
+                ${topicEntries.map(([topic, s]) => {
+                    const pct = s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0;
+                    let barColor = 'bg-red-400';
+                    if (pct >= 80) barColor = 'bg-green-500';
+                    else if (pct >= 50) barColor = 'bg-amber-400';
+                    return `
+                    <div>
+                        <div class="flex justify-between items-center text-sm mb-1">
+                            <span class="font-medium text-gray-600 truncate pr-2">${topic}</span>
+                            <span class="font-semibold text-gray-500 flex-shrink-0">${s.correct}/${s.total} · ${pct}%</span>
+                        </div>
+                        <div class="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div class="h-full ${barColor} rounded-full transition-all duration-700" style="width:${pct}%"></div>
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>
+        </div>`;
     }
 
-    resultsSection.classList.remove('hidden');
-    const percentage = state.questions.length > 0 ? ((state.score / state.questions.length) * 100).toFixed(1) : 0;
-    const gpaResult = convertScoreToGPA(state.score, state.questions.length);
-    const gpa4 = gpaResult.score4;
-    const letterGrade = gpaResult.letterGrade;
-    const motivation = gpaResult.motivation;
-    const score10 = gpaResult.score10;
-    const showPracticeButton = state.score < state.questions.length;
-    const unansweredList = state.questions.map((q, i) => state.userAnswers[i] === null ? i+1 : null).filter(x => x !== null);
-    const markedList = state.markedQuestions.map(i => i+1);
+    // --- Danh sách chi tiết từng câu ---
+    const letter = (idx) => String.fromCharCode(65 + idx);
+    const statusConfig = {
+        correct: { wrap: 'bg-green-50/60 border-green-200', icon: 'fa-check-circle text-green-500', pill: 'bg-green-100 text-green-700', label: 'Đúng' },
+        wrong: { wrap: 'bg-red-50/60 border-red-200', icon: 'fa-times-circle text-red-500', pill: 'bg-red-100 text-red-700', label: 'Sai' },
+        unanswered: { wrap: 'bg-gray-50 border-gray-200', icon: 'fa-minus-circle text-gray-400', pill: 'bg-gray-200 text-gray-600', label: 'Bỏ trống' }
+    };
+
+    // #11: xác định câu tốn nhiều thời gian nhất (chỉ xét câu có >0s) để đánh dấu tinh tế
+    const times = Array.isArray(state.questionTimes) ? state.questionTimes : [];
+    let slowestIdx = -1, slowestVal = 0;
+    times.forEach((t, i) => { if (t > slowestVal) { slowestVal = t; slowestIdx = i; } });
+    // #7: số câu người dùng tự nhận là "đoán"
+    const guessCount = Object.values(state.confidence || {}).filter(v => v === 'guess').length;
 
     const detailedResultsHtml = state.questions.map((q, index) => {
         const userAnswerIndex = state.userAnswers[index];
-        const isCorrect = userAnswerIndex === q.correctAnswerIndex;
         const answerOptions = q.answers || q.options;
+        const isUnanswered = userAnswerIndex === null || userAnswerIndex === undefined;
+        const isCorrect = !isUnanswered && userAnswerIndex === q.correctAnswerIndex;
+        const status = isCorrect ? 'correct' : (isUnanswered ? 'unanswered' : 'wrong');
 
         if (!answerOptions || !Array.isArray(answerOptions)) {
-            return `<div class="mb-8 p-6 rounded-lg bg-red-50 border border-red-200">
-                        <div class="text-lg font-semibold text-gray-800">Câu ${index + 1}: ${parseMarkdown(q.question || 'Câu hỏi bị lỗi')}</div>
-                        <p class="text-red-600 mt-2">Lỗi: Không thể hiển thị chi tiết do dữ liệu đáp án bị lỗi.</p>
+            return `<div class="result-item rounded-xl bg-red-50 border border-red-200 p-3" data-status="wrong">
+                        <div class="text-sm font-semibold text-gray-800">Câu ${index + 1}: dữ liệu đáp án bị hỏng.</div>
                     </div>`;
         }
 
-        const userAnswerText = userAnswerIndex !== null ? answerOptions[userAnswerIndex] : 'Chưa trả lời';
-        const correctAnswerText = answerOptions[q.correctAnswerIndex];
+        const userAnswerText = !isUnanswered ? parseMarkdown(answerOptions[userAnswerIndex]) : '';
+        const correctAnswerText = parseMarkdown(answerOptions[q.correctAnswerIndex]);
+        const cfg = statusConfig[status];
+        const hasExplanation = q.explanation && String(q.explanation).trim();
 
         return `
-            <div class="mb-8 p-6 rounded-lg ${isCorrect ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}">
-                <div class="flex items-center mb-3">
-                    ${isCorrect ? 
-                        '<i class="fas fa-check-circle text-green-500 text-xl mr-3"></i>' : 
-                        '<i class="fas fa-times-circle text-red-500 text-xl mr-3"></i>'
-                    }
-                    <div class="text-lg font-semibold text-gray-800">Câu ${index + 1}: ${parseMarkdown(q.question)}</div>
-                </div>
-                <div class="ml-8">
-                    <p class="text-gray-700 mb-2">
-                        <span class="font-medium">Câu trả lời của bạn:</span> 
-                        <span class="${isCorrect ? 'text-green-600' : 'text-red-600'}">${parseMarkdown(userAnswerText)}</span>
-                        ${!isCorrect && userAnswerIndex !== null ? `<i class="fas fa-times ml-1"></i>` : ''}
-                    </p>
-                    <p class="text-gray-700 mb-2">
-                        <span class="font-medium">Đáp án đúng:</span> 
-                        <span class="text-green-600">${parseMarkdown(correctAnswerText)}</span> <i class="fas fa-check ml-1"></i>
-                    </p>
-                    <div class="mt-4 p-3 bg-gray-100 rounded-md">
-                        <h5 class="font-bold text-gray-800">Giải thích:</h5>
-                        <p class="text-gray-700">${parseMarkdown(q.explanation || 'Không có giải thích.')}</p>
+        <div class="result-item rounded-xl border ${cfg.wrap} overflow-hidden transition-all" data-status="${status}">
+            <div class="result-header flex items-start gap-2.5 p-3 cursor-pointer select-none" role="button" tabindex="0" aria-expanded="false">
+                <i class="fas ${cfg.icon} text-lg flex-shrink-0 mt-0.5"></i>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center flex-wrap gap-2 mb-0.5">
+                        <span class="text-xs font-bold text-gray-500">Câu ${index + 1}</span>
+                        <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${cfg.pill}">${cfg.label}</span>
+                        ${(times[index] > 0) ? `<span class="q-time ${index === slowestIdx && slowestVal >= 5 ? 'q-slow' : ''}" title="Thời gian làm câu này"><i class="fas fa-clock"></i> ${formatTime(times[index])}${index === slowestIdx && slowestVal >= 5 ? ' · lâu nhất' : ''}</span>` : ''}
+                        ${state.confidence && state.confidence[index] === 'guess' ? `<span class="q-guess-badge" title="Bạn đã đánh dấu là đoán"><i class="fas fa-dice"></i> Đoán</span>` : ''}
                     </div>
+                    <div class="result-question text-sm text-gray-700 line-clamp-2">${parseMarkdown(q.question)}</div>
                 </div>
+                <i class="fas fa-chevron-down text-gray-300 text-xs flex-shrink-0 mt-1.5 result-chevron transition-transform duration-300"></i>
             </div>
-        `;
+            <div class="result-body hidden border-t border-gray-200/50 px-3 py-3 space-y-2 text-sm bg-white/50">
+                ${!isCorrect ? `
+                <div>
+                    <span class="font-medium text-gray-500">Bạn chọn: </span>
+                    <span class="${isUnanswered ? 'text-gray-400 italic' : 'text-red-600 font-medium'}">${isUnanswered ? 'Chưa trả lời' : letter(userAnswerIndex) + '. ' + userAnswerText}</span>
+                </div>` : ''}
+                <div>
+                    <span class="font-medium text-gray-500">Đáp án đúng: </span>
+                    <span class="text-green-600 font-medium">${letter(q.correctAnswerIndex)}. ${correctAnswerText}</span>
+                </div>
+                ${hasExplanation ? `
+                <div class="mt-1 p-2.5 bg-amber-50/60 border border-amber-100 rounded-lg text-gray-600">
+                    <span class="font-semibold text-gray-700"><i class="fas fa-lightbulb text-amber-400 mr-1"></i>Giải thích:</span> ${parseMarkdown(q.explanation)}
+                </div>` : ''}
+            </div>
+        </div>`;
     }).join('');
 
     resultsSection.innerHTML = `
-        <div class="bg-gradient-to-br from-pink-100 via-white to-pink-200 rounded-2xl shadow-2xl p-10 text-center fade-in animate__animated animate__bounceIn">
-            <div class="flex flex-col items-center justify-center mb-6">
-                <div class="w-24 h-24 rounded-full bg-[#FF69B4]/10 flex items-center justify-center shadow-lg mb-2 animate__animated animate__tada">
-                    <i class="fas fa-crown text-5xl text-[#FF69B4] animate__animated animate__heartBeat"></i>
+        <!-- Thẻ tổng kết -->
+        <div class="bg-white rounded-3xl shadow-xl p-6 sm:p-8 fade-in border border-pink-100/60">
+            <div class="flex flex-col md:flex-row items-center gap-6 md:gap-10">
+                <!-- Vòng tròn phần trăm -->
+                <div class="relative flex-shrink-0">
+                    <svg width="150" height="150" viewBox="0 0 120 120" class="-rotate-90">
+                        <circle cx="60" cy="60" r="${radius}" fill="none" stroke="${ringBg}" stroke-width="12" />
+                        <circle id="result-ring" cx="60" cy="60" r="${radius}" fill="none" stroke="${ringColor}" stroke-width="12" stroke-linecap="round"
+                            stroke-dasharray="${circumference.toFixed(2)}" stroke-dashoffset="${circumference.toFixed(2)}"
+                            style="transition: stroke-dashoffset 1.2s ease-out;" />
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <span class="text-3xl font-extrabold" style="color:${ringColor}">${percentageStr}%</span>
+                        <span class="text-xs text-gray-400 font-medium">${correctCount}/${total} câu</span>
+                    </div>
                 </div>
-                <h2 class="text-4xl font-extrabold text-[#FF69B4] drop-shadow mb-2">Hoàn thành!</h2>
-                <p class="text-gray-600">Đây là kết quả của bạn:</p>
-            </div>
-            <div class="my-8">
-                <p class="text-6xl font-extrabold text-[#FF69B4] animate__animated animate__pulse animate__infinite">
-                    ${percentage}%
-                </p>
-                <p class="text-lg text-gray-700 mt-2">Đúng ${state.score}/${state.questions.length} câu</p>
-                <div class="flex flex-wrap justify-center gap-4 mt-4">
-                  <div class="bg-white/80 px-6 py-3 rounded-xl shadow text-center">
-                    <div class="text-gray-600 text-sm font-medium">Điểm hệ 4</div>
-                    <div class="text-3xl font-bold text-blue-500">${gpa4}</div>
-                  </div>
-                  <div class="bg-white/80 px-6 py-3 rounded-xl shadow text-center">
-                    <div class="text-gray-600 text-sm font-medium">Điểm chữ</div>
-                    <div class="text-2xl font-bold text-pink-500">${letterGrade}</div>
-                  </div>
-                  <div class="bg-white/80 px-6 py-3 rounded-xl shadow text-center">
-                    <div class="text-gray-600 text-sm font-medium">Điểm hệ 10</div>
-                    <div class="text-2xl font-bold text-green-500">${score10}</div>
-                  </div>
+                <!-- Thông tin tổng kết -->
+                <div class="flex-1 text-center md:text-left w-full">
+                    <h2 class="text-2xl sm:text-3xl font-extrabold text-gray-800 mb-1">Hoàn thành! 🎉</h2>
+                    <p class="text-pink-600 font-semibold mb-4">${motivation}</p>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                        <div class="bg-green-50 border border-green-100 rounded-xl px-3 py-2 text-center">
+                            <div class="text-lg font-bold text-green-600">${correctCount}</div>
+                            <div class="text-[11px] text-gray-500 font-medium">Đúng</div>
+                        </div>
+                        <div class="bg-red-50 border border-red-100 rounded-xl px-3 py-2 text-center">
+                            <div class="text-lg font-bold text-red-500">${wrongCount}</div>
+                            <div class="text-[11px] text-gray-500 font-medium">Sai</div>
+                        </div>
+                        <div class="bg-gray-50 border border-gray-100 rounded-xl px-3 py-2 text-center">
+                            <div class="text-lg font-bold text-gray-500">${unansweredCount}</div>
+                            <div class="text-[11px] text-gray-500 font-medium">Bỏ trống</div>
+                        </div>
+                        <div class="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 text-center">
+                            <div class="text-lg font-bold text-blue-500">${formatTime(totalTime)}</div>
+                            <div class="text-[11px] text-gray-500 font-medium">Thời gian</div>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap justify-center md:justify-start gap-2">
+                        <span class="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-sm font-semibold border border-blue-100">Hệ 4: <b>${gpa4}</b></span>
+                        <span class="inline-flex items-center gap-1.5 bg-pink-50 text-pink-700 px-3 py-1.5 rounded-full text-sm font-semibold border border-pink-100">Điểm chữ: <b>${letterGrade}</b></span>
+                        <span class="inline-flex items-center gap-1.5 bg-green-50 text-green-700 px-3 py-1.5 rounded-full text-sm font-semibold border border-green-100">Hệ 10: <b>${score10}</b></span>
+                    </div>
                 </div>
-                <div class="mt-3 text-pink-700 font-semibold text-base">${motivation}</div>
-                <p class="text-sm text-gray-500 mt-1">Bạn đã trả lời ${state.questions.length - state.userAnswers.filter(a => a === null).length} / ${state.questions.length} câu</p>
             </div>
-            <div class="text-md text-gray-500">
-                <i class="fas fa-clock mr-2"></i> Thời gian: ${formatTime(totalTime)}
-            </div>
-            <div class="mt-4 text-left">
-                ${unansweredList.length > 0 ? `<div class="mb-2"><span class="font-bold text-red-500">Câu chưa trả lời:</span> ${unansweredList.join(', ')}</div>` : ''}
-                ${markedList.length > 0 ? `<div><span class="font-bold text-yellow-600">Câu đã đánh dấu:</span> ${markedList.join(', ')}</div>` : ''}
-            </div>
-            <div class="mt-8 flex justify-center flex-wrap gap-4">
-                <button id="restartQuizBtn" class="px-6 py-3 bg-[#FF69B4] text-white rounded-lg hover:bg-opacity-80 transition shadow-lg">
-                    <i class="fas fa-redo mr-2"></i> Làm lại
+            <div class="mt-6 pt-6 border-t border-gray-100 flex flex-wrap justify-center gap-3">
+                <button id="restartQuizBtn" class="px-5 py-2.5 bg-[#FF69B4] text-white rounded-xl hover:bg-opacity-90 hover:scale-[1.02] transition shadow-md font-semibold flex items-center gap-2">
+                    <i class="fas fa-redo"></i> Làm lại
                 </button>
                 ${showPracticeButton ? `
-                    <button id="practiceIncorrectBtn" class="px-6 py-3 bg-orange-400 text-white rounded-lg hover:bg-orange-500 transition shadow-lg">
-                        <i class="fas fa-pencil-alt mr-2"></i> Luyện tập câu sai
-                    </button>` : ''}
-                <a href="../../index.html#libraryContent" class="px-6 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition shadow-lg">
-                    <i class="fas fa-book mr-2"></i> Về thư viện
+                <button id="practiceIncorrectBtn" class="px-5 py-2.5 bg-orange-400 text-white rounded-xl hover:bg-orange-500 hover:scale-[1.02] transition shadow-md font-semibold flex items-center gap-2">
+                    <i class="fas fa-pencil-alt"></i> Luyện câu sai
+                </button>` : ''}
+                <a href="../../index.html#libraryContent" class="px-5 py-2.5 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-100 transition shadow-sm font-semibold flex items-center gap-2">
+                    <i class="fas fa-book"></i> Thư viện
                 </a>
-                <a href="../../index.html" class="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition shadow-lg">
-                    <i class="fas fa-home mr-2"></i> Về trang chủ
+                <a href="../../index.html" class="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition shadow-sm font-semibold flex items-center gap-2">
+                    <i class="fas fa-home"></i> Trang chủ
                 </a>
             </div>
         </div>
-        <div class="bg-white rounded-lg shadow-lg p-8 mt-8 fade-in">
-            <h3 class="text-2xl font-bold text-[#FF69B4] mb-6 text-center">Chi tiết kết quả</h3>
-            <div id="detailed-results-list">
+
+        ${topicHtml}
+
+        <!-- Chi tiết kết quả -->
+        <div class="bg-white rounded-2xl shadow-lg p-5 sm:p-6 mt-6 fade-in">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+                <div>
+                <h3 class="text-xl font-bold text-gray-700 flex items-center gap-2">
+                    <i class="fas fa-list-ul text-pink-500"></i> Chi tiết kết quả
+                </h3>
+                ${(guessCount > 0 || (slowestIdx >= 0 && slowestVal >= 5)) ? `
+                <p class="text-xs text-gray-400 mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                    ${guessCount > 0 ? `<span><i class="fas fa-dice text-amber-400 mr-1"></i>Đã đoán: ${guessCount} câu</span>` : ''}
+                    ${(slowestIdx >= 0 && slowestVal >= 5) ? `<span><i class="fas fa-clock text-amber-400 mr-1"></i>Lâu nhất: Câu ${slowestIdx + 1} (${formatTime(slowestVal)})</span>` : ''}
+                </p>` : ''}
+                </div>
+                <div class="flex flex-wrap gap-1.5" id="result-filter-tabs">
+                    <button data-filter="all" class="result-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-pink-500 text-white transition">Tất cả (${total})</button>
+                    <button data-filter="wrong" class="result-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Câu sai (${wrongCount})</button>
+                    <button data-filter="unanswered" class="result-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Bỏ trống (${unansweredCount})</button>
+                    <button data-filter="correct" class="result-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Đúng (${correctCount})</button>
+                </div>
+            </div>
+            <div id="detailed-results-list" class="space-y-2.5">
                 ${detailedResultsHtml}
             </div>
+            <div id="result-empty-msg" class="hidden text-center text-gray-400 py-8 italic">Không có câu nào trong mục này.</div>
         </div>
     `;
+
+    // Hiệu ứng vẽ vòng tròn phần trăm
+    requestAnimationFrame(() => {
+        const ring = document.getElementById('result-ring');
+        if (ring) ring.style.strokeDashoffset = dashOffset.toFixed(2);
+    });
+
+    // Pháo giấy chúc mừng khi đạt điểm cao
+    if (percentage >= 80) {
+        setTimeout(() => triggerConfetti(), 300);
+    }
+
+    // Bộ lọc danh sách chi tiết
+    const filterTabs = document.getElementById('result-filter-tabs');
+    if (filterTabs) {
+        filterTabs.addEventListener('click', (e) => {
+            const btn = e.target.closest('.result-filter-btn');
+            if (!btn) return;
+            const filter = btn.getAttribute('data-filter');
+            filterTabs.querySelectorAll('.result-filter-btn').forEach(b => {
+                b.classList.remove('bg-pink-500', 'text-white');
+                b.classList.add('bg-gray-100', 'text-gray-600', 'hover:bg-gray-200');
+            });
+            btn.classList.add('bg-pink-500', 'text-white');
+            btn.classList.remove('bg-gray-100', 'text-gray-600', 'hover:bg-gray-200');
+
+            let visibleCount = 0;
+            document.querySelectorAll('#detailed-results-list .result-item').forEach(item => {
+                const match = filter === 'all' || item.getAttribute('data-status') === filter;
+                item.classList.toggle('hidden', !match);
+                if (match) visibleCount++;
+            });
+            const emptyMsg = document.getElementById('result-empty-msg');
+            if (emptyMsg) emptyMsg.classList.toggle('hidden', visibleCount > 0);
+        });
+    }
+
+    // Mở/đóng chi tiết từng câu (accordion): mặc định gọn, bấm để xem đầy đủ
+    const detailedList = document.getElementById('detailed-results-list');
+    if (detailedList) {
+        const toggleItem = (header) => {
+            const item = header.closest('.result-item');
+            if (!item) return;
+            const body = item.querySelector('.result-body');
+            if (!body) return;
+            const chevron = header.querySelector('.result-chevron');
+            const question = header.querySelector('.result-question');
+            const willOpen = body.classList.contains('hidden');
+            body.classList.toggle('hidden', !willOpen);
+            if (chevron) chevron.classList.toggle('rotate-180', willOpen);
+            if (question) question.classList.toggle('line-clamp-2', !willOpen);
+            header.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        };
+        detailedList.addEventListener('click', (e) => {
+            const header = e.target.closest('.result-header');
+            if (header) toggleItem(header);
+        });
+        detailedList.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            const header = e.target.closest('.result-header');
+            if (header) {
+                e.preventDefault();
+                toggleItem(header);
+            }
+        });
+    }
+
     renderMath(resultsSection);
 }
 

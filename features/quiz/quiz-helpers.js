@@ -1,86 +1,145 @@
 // features/quiz/quiz-helpers.js
 
-export function renderMermaid(element) {
-    if (window.mermaid && element) {
-        // Cấu hình Mermaid với tông màu Pastel tương đồng với trang web, phân biệt rõ các ô
-        try {
-            if (typeof mermaid.initialize === 'function') {
-                mermaid.initialize({
-                    startOnLoad: false,
-                    theme: 'base',
-                    themeVariables: {
-                        fontSize: '16px',
-                        fontFamily: 'Quicksand, sans-serif',
-                        
-                        // Node tiến trình (Hình chữ nhật) màu hồng anh đào ngọt ngào
-                        primaryColor: '#FFEbee', 
-                        primaryTextColor: '#c62828',
-                        primaryBorderColor: '#FFcdd2',
-                        
-                        // Node quyết định (Hình thoi/Decision) màu xanh ngọc mint để cực kỳ dễ phân biệt
-                        tertiaryColor: '#E0f2f1',
-                        tertiaryTextColor: '#004d40',
-                        tertiaryBorderColor: '#b2dfdb',
-                        
-                        // Node kết quả (hoặc trạng thái khác) màu tím Lavender thanh lịch
-                        secondaryColor: '#F3e5f5',
-                        secondaryTextColor: '#4a148c',
-                        secondaryBorderColor: '#e1bee7',
-                        
-                        // Đường nối và mũi tên màu hồng sen nổi bật
-                        lineColor: '#FF69B4',
-                        arrowheadColor: '#FF69B4',
-                        
-                        // Nhãn chữ trên đường nối nền trắng chữ đen rõ nét
-                        edgeLabelBackground: '#ffffff',
-                        textColor: '#333333'
-                    }
-                });
-            }
-        } catch (e) {
-            console.error("Lỗi cấu hình Mermaid:", e);
-        }
+// Cờ đảm bảo mermaid.initialize() chỉ chạy MỘT lần duy nhất (tránh reset cấu hình giữa chừng)
+let mermaidInitialized = false;
 
-        // Tìm các thẻ mermaid-viewer chưa được render
-        const viewerDivs = element.querySelectorAll('.mermaid-viewer');
-        viewerDivs.forEach(div => {
-            const encodedCode = div.getAttribute('data-code');
-            if (encodedCode) {
-                try {
-                    let decodedCode = decodeURIComponent(encodedCode);
-                    
-                    // Tự động sửa lỗi nhãn liên kết thiếu nháy kép trong Mermaid v10 (khi có tiếng Việt, khoảng trắng hoặc ký tự đặc biệt +, /)
-                    decodedCode = decodedCode.replace(/([=-]+>|==>|-\.->|---)\s*\|([^"\n|]+)\|/g, (match, arrow, label) => {
-                        return `${arrow} |"${label.trim()}"|`;
-                    });
-                    
-                    // Gán text thuần để bảo vệ các ký tự đặc biệt như <, >, & không bị trình duyệt parse nhầm
-                    div.textContent = decodedCode;
-                    div.classList.remove('mermaid-viewer');
-                    div.classList.add('mermaid');
-                } catch (e) {
-                    console.error("Lỗi giải mã code Mermaid:", e);
-                }
+// Hàng đợi để các lần render không chạy đè (await) lên nhau gây race condition
+let mermaidRenderQueue = Promise.resolve();
+
+export function ensureMermaidInit() {
+    if (mermaidInitialized || !window.mermaid || typeof mermaid.initialize !== 'function') return;
+    try {
+        // Cấu hình Mermaid với tông màu Pastel tương đồng với trang web, phân biệt rõ các ô
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'base',
+            securityLevel: 'loose', // Cho phép nhãn HTML / ký tự đặc biệt (tiếng Việt) không bị chặn
+            flowchart: { useMaxWidth: true, htmlLabels: true },
+            themeVariables: {
+                fontSize: '16px',
+                fontFamily: 'Quicksand, sans-serif',
+
+                // Node tiến trình (Hình chữ nhật) màu hồng anh đào ngọt ngào
+                primaryColor: '#FFEbee',
+                primaryTextColor: '#c62828',
+                primaryBorderColor: '#FFcdd2',
+
+                // Node quyết định (Hình thoi/Decision) màu xanh ngọc mint để cực kỳ dễ phân biệt
+                tertiaryColor: '#E0f2f1',
+                tertiaryTextColor: '#004d40',
+                tertiaryBorderColor: '#b2dfdb',
+
+                // Node kết quả (hoặc trạng thái khác) màu tím Lavender thanh lịch
+                secondaryColor: '#F3e5f5',
+                secondaryTextColor: '#4a148c',
+                secondaryBorderColor: '#e1bee7',
+
+                // Đường nối và mũi tên màu hồng sen nổi bật
+                lineColor: '#FF69B4',
+                arrowheadColor: '#FF69B4',
+
+                // Nhãn chữ trên đường nối nền trắng chữ đen rõ nét
+                edgeLabelBackground: '#ffffff',
+                textColor: '#333333'
             }
         });
+        mermaidInitialized = true;
+    } catch (e) {
+        console.error("Lỗi cấu hình Mermaid:", e);
+    }
+}
 
-        // Tìm các thẻ mermaid đã chuẩn bị để render
-        const mermaidDivs = element.querySelectorAll('.mermaid');
-        if (mermaidDivs.length > 0) {
+export function renderMermaid(element) {
+    if (!window.mermaid || !element) return Promise.resolve();
+
+    ensureMermaidInit();
+
+    // Chuyển các thẻ mermaid-viewer (còn ở dạng dữ liệu) thành thẻ .mermaid sẵn sàng render
+    const viewerDivs = element.querySelectorAll('.mermaid-viewer');
+    viewerDivs.forEach(div => {
+        const encodedCode = div.getAttribute('data-code');
+        if (!encodedCode) return;
+        try {
+            let decodedCode = decodeURIComponent(encodedCode);
+
+            // Tự động sửa lỗi nhãn liên kết thiếu nháy kép trong Mermaid v10 (khi có tiếng Việt, khoảng trắng hoặc ký tự đặc biệt +, /)
+            decodedCode = decodedCode.replace(/([=-]+>|==>|-\.->|---)\s*\|([^"\n|]+)\|/g, (match, arrow, label) => {
+                return `${arrow} |"${label.trim()}"|`;
+            });
+
+            // Tự động đổi dấu so sánh < / > trong nhãn (vd "K < 3.3 mEq/L") thành mã ký tự an toàn
+            // của Mermaid (#60; / #62;) để không bị hiểu nhầm là mũi tên hay thẻ HTML -> tránh "Syntax error".
+            // Chỉ áp dụng khi đứng cạnh chữ số, nên KHÔNG đụng tới mũi tên -->, <--, ==>, -.->
+            decodedCode = decodedCode
+                .replace(/(?<![-=.<])<(?=\s*\d)/g, '#60;')   // "< 3.3" -> "#60; 3.3"
+                .replace(/(?<![-=.>])>(?=\s*\d)/g, '#62;');  // "> 5.3" -> "#62; 5.3"
+
+            // Tự động bọc nháy kép cho nhãn node trong [...] khi chứa ký tự đặc biệt ( ) hoặc &
+            // (vd "[ACE (Men chuyển)]", "[Co mạch & Tiết Aldosterone]") -> "[\"...\"]" để Mermaid không báo lỗi cú pháp.
+            // Bỏ qua nhãn đã có sẵn nháy kép. [^\[\]"] đảm bảo không ăn lan sang node khác / shape lồng nhau.
+            decodedCode = decodedCode.replace(/\[([^\[\]"]*[()&][^\[\]"]*)\]/g, (match, label) => {
+                return `["${label.trim()}"]`;
+            });
+
+            // Gán text thuần để bảo vệ các ký tự đặc biệt như <, >, & không bị trình duyệt parse nhầm
+            div.textContent = decodedCode;
+            div.classList.remove('mermaid-viewer');
+            div.classList.add('mermaid');
+        } catch (e) {
+            console.error("Lỗi giải mã code Mermaid:", e);
+        }
+    });
+
+    // Chỉ lấy các node CHƯA render (mermaid đánh dấu node đã xong bằng data-processed)
+    const mermaidDivs = Array.from(element.querySelectorAll('.mermaid'))
+        .filter(div => div.getAttribute('data-processed') !== 'true');
+
+    if (mermaidDivs.length === 0) return mermaidRenderQueue;
+
+    // Nối vào hàng đợi: render tuần tự, không để các lần gọi chạy đè lên nhau
+    mermaidRenderQueue = mermaidRenderQueue.then(async () => {
+        // QUAN TRỌNG: chờ font Quicksand tải xong rồi mới vẽ. Mermaid đo kích thước chữ theo font,
+        // nếu font chưa sẵn sàng (lần đầu vào trang, chưa cache) thì sơ đồ sẽ vẽ sai/trống.
+        // Đây là lý do trước đây phải F5 mới hiện (lần 2 font đã có trong cache).
+        if (document.fonts) {
             try {
-                if (typeof mermaid.run === 'function') {
-                    mermaid.run({
-                        nodes: Array.from(mermaidDivs),
-                        suppressErrors: true
-                    });
+                await document.fonts.load('1em Quicksand');
+            } catch (e) { /* bỏ qua nếu trình duyệt không hỗ trợ load() */ }
+            try {
+                await document.fonts.ready;
+            } catch (e) { /* bỏ qua */ }
+        }
+
+        for (const div of mermaidDivs) {
+            // Có thể node đã bị render bởi lần gọi trước khi tới lượt -> bỏ qua
+            if (div.getAttribute('data-processed') === 'true') continue;
+            const code = (div.textContent || '').trim();
+            if (!code) continue;
+            try {
+                // Ưu tiên mermaid.render(): tự dựng SVG trong vùng tạm rồi gắn vào.
+                // KHÔNG phụ thuộc phần tử có đang hiển thị / có layout hay không
+                // -> khắc phục việc sơ đồ trống ở lần đầu (phải F5 mới hiện) khi nó nằm
+                // trong vùng đang ẩn (giải thích, mở rộng kiến thức...).
+                if (typeof mermaid.render === 'function') {
+                    const renderId = 'mmd-' + Math.random().toString(36).slice(2, 11);
+                    const { svg, bindFunctions } = await mermaid.render(renderId, code);
+                    div.innerHTML = svg;
+                    if (typeof bindFunctions === 'function') bindFunctions(div);
+                    div.setAttribute('data-processed', 'true');
+                } else if (typeof mermaid.run === 'function') {
+                    await mermaid.run({ nodes: [div], suppressErrors: false });
                 } else if (typeof mermaid.init === 'function') {
-                    mermaid.init(undefined, mermaidDivs);
+                    mermaid.init(undefined, div);
                 }
             } catch (err) {
-                console.error("Lỗi render Mermaid:", err);
+                // Một sơ đồ lỗi cú pháp không được làm hỏng cả trang -> log code để dễ debug
+                console.error("Lỗi render Mermaid (code bên dưới):", err);
+                console.error(code);
             }
         }
-    }
+    });
+
+    return mermaidRenderQueue;
 }
 
 export function renderMath(element) {
@@ -251,7 +310,7 @@ export function parseMarkdown(text) {
             // Mở container danh sách nếu chưa mở
             if (!inList) {
                 inList = true;
-                listHtml = '<div class="quiz-list-container my-2 flex flex-col gap-1.5">';
+                listHtml = '<div class="quiz-list-container">';
             }
             
             let indentStr = '';
@@ -265,20 +324,22 @@ export function parseMarkdown(text) {
                 
                 const indentLevel = Math.floor(indentStr.length / 2);
                 let bulletHtml = '';
-                
-                // Chọn bullet point dựa trên độ sâu thụt lề
+
+                // Chọn bullet point dựa trên độ sâu thụt lề (mỗi cấp một dạng riêng cho rõ phân cấp)
                 if (indentLevel === 0) {
-                    bulletHtml = '<i class="fas fa-circle text-[6px] mt-2 text-[#FF69B4] flex-shrink-0"></i>';
+                    bulletHtml = '<i class="fas fa-circle text-[6px] text-[#FF69B4]"></i>';
                 } else if (indentLevel === 1) {
-                    bulletHtml = '<i class="far fa-circle text-[6px] mt-2 text-[#FF69B4] flex-shrink-0"></i>';
+                    bulletHtml = '<i class="far fa-circle text-[7px] text-[#FF69B4]"></i>';
+                } else if (indentLevel === 2) {
+                    bulletHtml = '<i class="fas fa-square text-[5px] text-pink-400"></i>';
                 } else {
-                    bulletHtml = '<i class="fas fa-square text-[5px] mt-2 text-pink-400 flex-shrink-0"></i>';
+                    bulletHtml = '<i class="far fa-square text-[5px] text-pink-400"></i>';
                 }
-                
+
                 lineHtml = `
-                    <div class="flex items-start gap-2.5 my-0.5" style="padding-left: ${indentLevel * 1.25}rem;">
-                        <span class="flex items-center justify-center h-5 w-4 select-none flex-shrink-0">${bulletHtml}</span>
-                        <div class="flex-1">${parseInlineMarkdown(contentStr)}</div>
+                    <div class="quiz-li" data-lvl="${indentLevel}" style="--lvl:${indentLevel};">
+                        <span class="quiz-li-bullet">${bulletHtml}</span>
+                        <div class="quiz-li-body">${parseInlineMarkdown(contentStr)}</div>
                     </div>
                 `;
             } else if (orderedListMatch) {
@@ -287,11 +348,11 @@ export function parseMarkdown(text) {
                 contentStr = orderedListMatch[3];
                 
                 const indentLevel = Math.floor(indentStr.length / 2);
-                
+
                 lineHtml = `
-                    <div class="flex items-start gap-2.5 my-0.5" style="padding-left: ${indentLevel * 1.25}rem;">
-                        <span class="flex items-center justify-center h-5 select-none flex-shrink-0 text-[#FF69B4] font-bold text-xs min-w-[1rem]">${orderPrefix}</span>
-                        <div class="flex-1">${parseInlineMarkdown(contentStr)}</div>
+                    <div class="quiz-li" data-lvl="${indentLevel}" style="--lvl:${indentLevel};">
+                        <span class="quiz-li-bullet quiz-li-num">${orderPrefix}</span>
+                        <div class="quiz-li-body">${parseInlineMarkdown(contentStr)}</div>
                     </div>
                 `;
             } else if (indentedTextMatch) {
@@ -299,11 +360,11 @@ export function parseMarkdown(text) {
                 contentStr = indentedTextMatch[2];
                 
                 const indentLevel = Math.floor(indentStr.length / 2);
-                
-                // Thụt dòng bổ trợ, thụt thêm 1.0rem để thẳng hàng với phần chữ của list item phía trước
+
+                // Dòng bổ trợ (xuống dòng trong cùng một cấp): canh thẳng hàng với phần chữ của mục cha
                 lineHtml = `
-                    <div class="flex items-start gap-2.5 my-0.5" style="padding-left: ${indentLevel * 1.25 + 1.0}rem;">
-                        <div class="flex-1 text-gray-500 text-sm">${parseInlineMarkdown(contentStr)}</div>
+                    <div class="quiz-li quiz-li-continued" data-lvl="${indentLevel}" style="--lvl:${indentLevel};">
+                        <div class="quiz-li-cont">${parseInlineMarkdown(contentStr)}</div>
                     </div>
                 `;
             }
@@ -370,7 +431,7 @@ export function parseMarkdown(text) {
         processedLines.push(tableHtml);
     }
     
-    html = processedLines.join('<div class="h-2.5"></div>');
+    html = processedLines.join('<div class="quiz-md-gap"></div>');
     
     // 5. Khôi phục lại các khối đã bảo vệ bằng cách thay thế an toàn (dùng callback để tránh lỗi ký tự $)
     for (let i = placeholders.length - 1; i >= 0; i--) {
@@ -393,6 +454,51 @@ export function shuffleArray(array) {
         [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
     }
     return newArray;
+}
+
+/**
+ * Trộn thứ tự đáp án của MỘT câu hỏi một cách an toàn:
+ * - Đảo vị trí các lựa chọn (answers/options)
+ * - Cập nhật lại correctAnswerIndex theo vị trí mới
+ * - Cập nhật lại optionExplanations (giải thích từng đáp án) theo vị trí mới
+ * Trả về một object câu hỏi MỚI, không làm thay đổi dữ liệu gốc.
+ */
+export function shuffleQuestionOptions(question) {
+    const answerOptions = question.answers || question.options;
+    // Không trộn nếu dữ liệu không hợp lệ hoặc chỉ có 0-1 đáp án
+    if (!Array.isArray(answerOptions) || answerOptions.length <= 1) {
+        return { ...question };
+    }
+
+    // Tạo mảng vị trí gốc rồi xáo trộn (Fisher–Yates)
+    const order = answerOptions.map((_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [order[i], order[j]] = [order[j], order[i]];
+    }
+
+    const shuffled = { ...question };
+    const newOptions = order.map(i => answerOptions[i]);
+
+    // Đồng bộ cả hai trường nếu cùng tồn tại (editor lưu cả answers lẫn options),
+    // để không sót mảng cũ chưa trộn ở bất kỳ nơi nào đọc dữ liệu.
+    if (Array.isArray(question.answers)) shuffled.answers = newOptions;
+    if (Array.isArray(question.options)) shuffled.options = newOptions;
+    if (!Array.isArray(question.answers) && !Array.isArray(question.options)) {
+        shuffled.options = newOptions;
+    }
+
+    // Remap đáp án đúng: vị trí mới của index đúng cũ
+    if (typeof question.correctAnswerIndex === 'number' && question.correctAnswerIndex >= 0) {
+        shuffled.correctAnswerIndex = order.indexOf(question.correctAnswerIndex);
+    }
+
+    // Remap giải thích theo từng đáp án (nếu có)
+    if (Array.isArray(question.optionExplanations)) {
+        shuffled.optionExplanations = order.map(i => question.optionExplanations[i]);
+    }
+
+    return shuffled;
 }
 
 export function convertScoreToGPA(correct, total) {

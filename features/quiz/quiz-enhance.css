@@ -1,0 +1,520 @@
+/* features/quiz/quiz-enhance.css
+   Các nâng cấp trải nghiệm làm bài: Dark mode, thanh HUD dính, loại trừ đáp án,
+   cảnh báo giờ, độ chắc chắn, bôi vàng, zoom ảnh. Tách riêng để dễ bảo trì. */
+
+/* ============================================================
+   1) THANH HUD DÍNH (sticky) — luôn thấy tiến trình + giờ
+   ============================================================ */
+#quiz-hud {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0 0 0.75rem;
+    padding: 0.5rem 0.9rem;
+    border-radius: 0 0 1rem 1rem;
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 105, 180, 0.18);
+    border-top: none;
+    box-shadow: 0 6px 18px rgba(255, 105, 180, 0.12);
+    transition: background .3s, box-shadow .3s, transform .25s;
+}
+/* Trên mobile có thanh hamburger fixed phía trên -> đẩy HUD xuống dưới nó */
+@media (max-width: 767px) {
+    #quiz-hud { top: 3.25rem; }
+}
+#quiz-hud .hud-counter {
+    font-weight: 800;
+    font-size: 0.85rem;
+    color: #be185d;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+#quiz-hud .hud-progress {
+    flex: 1;
+    height: 8px;
+    border-radius: 9999px;
+    background: rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+}
+#quiz-hud .hud-progress > div {
+    height: 100%;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, #f472b6, #a78bfa, #818cf8);
+    transition: width .4s ease;
+}
+/* Chip đồng hồ trong HUD (chỉ hiện khi KHÔNG có class .hidden — tránh ID đè .hidden của Tailwind) */
+#timerDisplay:not(.hidden) {
+    display: inline-flex;
+}
+#timerDisplay {
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.95rem !important;
+    font-weight: 800;
+    color: #db2777 !important;
+    background: rgba(255, 105, 180, 0.1);
+    border: 1px solid rgba(255, 105, 180, 0.25);
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    margin: 0 !important;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+#timerDisplay::before {
+    content: "\f017"; /* fa-clock */
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    font-size: 0.8rem;
+}
+/* #5 Cảnh báo sắp hết giờ */
+#timerDisplay.timer-warn {
+    color: #b45309 !important;
+    background: rgba(245, 158, 11, 0.15);
+    border-color: rgba(245, 158, 11, 0.4);
+}
+#timerDisplay.timer-critical {
+    color: #fff !important;
+    background: #ef4444;
+    border-color: #dc2626;
+    animation: timer-pulse 1s ease-in-out infinite;
+}
+@keyframes timer-pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+    50%      { transform: scale(1.06); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+}
+
+/* ============================================================
+   2) NÚT THIẾT LẬP NỔI (Dark / Âm thanh / Rung) — có mọi nơi
+   ============================================================ */
+#quiz-settings-fab {
+    position: fixed;
+    left: 1rem;
+    bottom: 1rem;
+    z-index: 45;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    color: #db2777;
+    border: 1px solid rgba(255, 105, 180, 0.3);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+    cursor: pointer;
+    transition: transform .2s, background .25s, color .25s;
+}
+#quiz-settings-fab:hover { transform: scale(1.08) rotate(8deg); }
+#quiz-settings-popover {
+    position: fixed;
+    left: 1rem;
+    bottom: 4.25rem;
+    z-index: 46;
+    width: 230px;
+    padding: 0.5rem;
+    border-radius: 1rem;
+    background: #fff;
+    border: 1px solid rgba(255, 105, 180, 0.2);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+    transform-origin: bottom left;
+    transition: opacity .18s ease, transform .18s ease;
+}
+#quiz-settings-popover.hidden-pop {
+    opacity: 0;
+    transform: scale(0.9) translateY(8px);
+    pointer-events: none;
+}
+.qs-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.55rem 0.6rem;
+    border-radius: 0.75rem;
+    cursor: pointer;
+    transition: background .15s;
+}
+.qs-row:hover { background: rgba(255, 105, 180, 0.07); }
+.qs-row .qs-label { display: flex; align-items: center; gap: 0.55rem; font-weight: 700; font-size: 0.82rem; color: #4b5563; }
+.qs-row .qs-label i { width: 1.1rem; text-align: center; color: #db2777; }
+/* mini switch */
+.qs-switch { position: relative; width: 38px; height: 20px; border-radius: 9999px; background: #d1d5db; flex-shrink: 0; transition: background .2s; }
+.qs-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 9999px; background: #fff; transition: transform .2s; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+.qs-row[aria-checked="true"] .qs-switch { background: #FF69B4; }
+.qs-row[aria-checked="true"] .qs-switch::after { transform: translateX(18px); }
+
+/* ============================================================
+   3) LOẠI TRỪ ĐÁP ÁN (#4) — gạch bỏ, chạm để hồi phục
+   ============================================================ */
+.answer-btn.answer-eliminated {
+    opacity: 0.55;
+    background: repeating-linear-gradient(135deg, rgba(0,0,0,0.02) 0 8px, rgba(0,0,0,0.05) 8px 16px);
+    border-style: dashed !important;
+}
+.answer-btn.answer-eliminated .answer-content {
+    text-decoration: line-through;
+    text-decoration-color: rgba(239, 68, 68, 0.7);
+    text-decoration-thickness: 2px;
+}
+.answer-btn.answer-eliminated .answer-letter {
+    background: #fee2e2 !important;
+    color: #ef4444 !important;
+    border-color: #fecaca !important;
+}
+/* gợi ý hồi phục khi rê chuột vào đáp án đã loại */
+.answer-btn.answer-eliminated::after {
+    content: "Chạm để khôi phục";
+    position: absolute;
+    top: 0.35rem;
+    right: 0.5rem;
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: #ef4444;
+    background: rgba(254, 226, 226, 0.9);
+    padding: 0.05rem 0.4rem;
+    border-radius: 9999px;
+    opacity: 0;
+    transition: opacity .2s;
+}
+.answer-btn.answer-eliminated:hover::after { opacity: 1; }
+.answer-btn { position: relative; }
+
+/* ============================================================
+   4) ĐỘ CHẮC CHẮN (#7) — pill nhỏ, ẩn mình, mặc định "chắc chắn"
+   ============================================================ */
+#confidence-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 9999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    border: 1px dashed #d1d5db;
+    background: transparent;
+    color: #9ca3af;
+    transition: all .2s;
+    cursor: pointer;
+}
+#confidence-toggle:hover { border-color: #f59e0b; color: #d97706; }
+#confidence-toggle.conf-guess {
+    border-style: solid;
+    border-color: #fbbf24;
+    background: #fffbeb;
+    color: #b45309;
+}
+
+/* ============================================================
+   5) BÔI VÀNG (#9)
+   ============================================================ */
+mark.quiz-hl {
+    background: linear-gradient(180deg, transparent 55%, #fde68a 55%);
+    color: inherit;
+    padding: 0 1px;
+    border-radius: 2px;
+    cursor: pointer;
+}
+mark.quiz-hl:hover { background: linear-gradient(180deg, transparent 55%, #fca5a5 55%); }
+#hl-float-btn {
+    position: absolute;
+    z-index: 60;
+    transform: translate(-50%, -100%);
+    display: none;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 9999px;
+    background: #1f2937;
+    color: #fde68a;
+    font-size: 0.72rem;
+    font-weight: 700;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+    cursor: pointer;
+    white-space: nowrap;
+}
+#hl-float-btn.show { display: inline-flex; }
+
+/* ============================================================
+   6) ZOOM ẢNH (#13 bổ sung)
+   ============================================================ */
+.quiz-image { cursor: zoom-in; }
+#img-lightbox:not(.hidden) { display: flex; }
+#img-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.85);
+    padding: 1rem;
+    cursor: zoom-out;
+    opacity: 0;
+    transition: opacity .2s;
+}
+#img-lightbox.show { opacity: 1; }
+#img-lightbox img {
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    animation: lb-in .25s ease;
+}
+@keyframes lb-in { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* ============================================================
+   7) THỜI GIAN TỪNG CÂU (#11) — hiển thị tinh tế ở kết quả
+   ============================================================ */
+.q-time {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.66rem;
+    font-weight: 700;
+    color: #94a3b8;
+    white-space: nowrap;
+}
+.q-time.q-slow { color: #d97706; }
+.q-guess-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 0.05rem 0.4rem;
+    border-radius: 9999px;
+    background: #fef3c7;
+    color: #b45309;
+}
+
+/* ============================================================
+   8) DARK MODE (#1) — tông hồng/tím trầm, dịu mắt ban đêm
+   Phạm vi: trang làm bài. Dùng class .theme-dark trên <html>.
+   Phủ ĐẦY ĐỦ mọi class màu đang dùng (đã rà soát quiz-page/ui/html/helpers).
+   ============================================================ */
+html.theme-dark body { background: #14101e !important; color: #e7dff1; }
+
+/* --- Bề mặt thẻ trắng --- */
+html.theme-dark .bg-white,
+html.theme-dark .bg-white\/95,
+html.theme-dark .bg-white\/90,
+html.theme-dark .bg-white\/80,
+html.theme-dark .bg-white\/60,
+html.theme-dark .bg-white\/50 { background-color: #1e1730 !important; }
+
+/* --- Nền pastel -> tông trầm (đủ mọi biến thể độ mờ) --- */
+html.theme-dark .bg-gray-50,
+html.theme-dark .bg-gray-50\/40,
+html.theme-dark .bg-gray-50\/50,
+html.theme-dark .bg-gray-100 { background-color: #241b38 !important; }
+html.theme-dark .bg-gray-200 { background-color: #2e2347 !important; }
+html.theme-dark .bg-gray-300 { background-color: #382a52 !important; }
+
+html.theme-dark .bg-pink-50,
+html.theme-dark .bg-pink-50\/20,
+html.theme-dark .bg-pink-50\/30,
+html.theme-dark .bg-pink-50\/40,
+html.theme-dark .bg-pink-50\/50,
+html.theme-dark .bg-pink-100,
+html.theme-dark .bg-pink-100\/70 { background-color: #34203a !important; }
+
+html.theme-dark .bg-blue-50,
+html.theme-dark .bg-blue-100,
+html.theme-dark .bg-blue-200 { background-color: #18283f !important; }
+
+html.theme-dark .bg-purple-50,
+html.theme-dark .bg-purple-50\/50,
+html.theme-dark .bg-purple-100,
+html.theme-dark .bg-purple-100\/80,
+html.theme-dark .bg-purple-200 { background-color: #271d40 !important; }
+
+html.theme-dark .bg-indigo-50,
+html.theme-dark .bg-indigo-50\/50,
+html.theme-dark .bg-indigo-100 { background-color: #20203f !important; }
+
+html.theme-dark .bg-green-50,
+html.theme-dark .bg-green-50\/60,
+html.theme-dark .bg-green-100,
+html.theme-dark .bg-green-200 { background-color: #15301e !important; }
+
+html.theme-dark .bg-red-50,
+html.theme-dark .bg-red-50\/60,
+html.theme-dark .bg-red-100,
+html.theme-dark .bg-red-200 { background-color: #3a1a1f !important; }
+
+html.theme-dark .bg-amber-50,
+html.theme-dark .bg-amber-50\/60 { background-color: #352a14 !important; }
+html.theme-dark .bg-yellow-50,
+html.theme-dark .bg-yellow-100 { background-color: #38330f !important; }
+html.theme-dark .bg-orange-50,
+html.theme-dark .bg-orange-100 { background-color: #3a2613 !important; }
+html.theme-dark .bg-cyan-50 { background-color: #15303a !important; }
+
+/* --- Gradient (vùng giải thích / mở rộng) -> nền đặc tối --- */
+html.theme-dark #explanation-area { background-image: none !important; background-color: #34203a !important; }
+html.theme-dark #expanded-area    { background-image: none !important; background-color: #1b2440 !important; }
+
+/* --- Chữ: xám -> sáng, màu đậm -> pastel sáng để đủ tương phản --- */
+html.theme-dark .text-gray-800,
+html.theme-dark .text-gray-700,
+html.theme-dark .text-gray-600 { color: #ded5ee !important; }
+html.theme-dark .text-gray-500,
+html.theme-dark .text-gray-400 { color: #a99fc0 !important; }
+html.theme-dark .text-blue-600,
+html.theme-dark .text-blue-700,
+html.theme-dark .text-blue-800,
+html.theme-dark .text-blue-900 { color: #93c5fd !important; }
+html.theme-dark .text-green-600,
+html.theme-dark .text-green-700,
+html.theme-dark .text-green-800,
+html.theme-dark .text-green-950 { color: #86efac !important; }
+html.theme-dark .text-red-600,
+html.theme-dark .text-red-700,
+html.theme-dark .text-red-800,
+html.theme-dark .text-red-950 { color: #fca5a5 !important; }
+html.theme-dark .text-pink-600,
+html.theme-dark .text-pink-700,
+html.theme-dark .text-pink-800 { color: #f9a8d4 !important; }
+html.theme-dark .text-purple-600,
+html.theme-dark .text-purple-700 { color: #c4b5fd !important; }
+html.theme-dark .text-indigo-700 { color: #a5b4fc !important; }
+html.theme-dark .text-orange-700 { color: #fdba74 !important; }
+html.theme-dark .text-yellow-700 { color: #fde047 !important; }
+
+/* --- Viền nhạt (100/200/300 mọi biến thể) -> mảnh, dịu --- */
+html.theme-dark [class*="border-gray-1"],
+html.theme-dark [class*="border-gray-2"],
+html.theme-dark [class*="border-gray-3"],
+html.theme-dark [class*="border-pink-1"],
+html.theme-dark [class*="border-pink-2"],
+html.theme-dark [class*="border-pink-5"],
+html.theme-dark [class*="border-blue-1"],
+html.theme-dark [class*="border-blue-2"],
+html.theme-dark [class*="border-green-1"],
+html.theme-dark [class*="border-green-2"],
+html.theme-dark [class*="border-green-3"],
+html.theme-dark [class*="border-red-1"],
+html.theme-dark [class*="border-red-2"],
+html.theme-dark [class*="border-red-3"],
+html.theme-dark [class*="border-purple-1"],
+html.theme-dark [class*="border-purple-2"],
+html.theme-dark [class*="border-indigo-1"],
+html.theme-dark [class*="border-amber-1"],
+html.theme-dark [class*="border-cyan-1"],
+html.theme-dark [class*="border-orange-2"] { border-color: rgba(255, 255, 255, 0.1) !important; }
+
+/* --- Nút đáp án --- */
+html.theme-dark .answer-btn { background-color: #241b38 !important; border-color: #3c2d56 !important; color: #e7dff1 !important; }
+html.theme-dark .answer-btn:hover { background-color: #2e2347 !important; }
+html.theme-dark .answer-letter { background-color: #3c2d56 !important; color: #ff9ecb !important; border-color: #4a3a66 !important; }
+html.theme-dark .answer-btn.bg-green-200 { background-color: #1d4731 !important; color: #bbf7d0 !important; border-color: #2f6b48 !important; }
+html.theme-dark .answer-btn.bg-green-200 .answer-content,
+html.theme-dark .answer-btn.bg-green-200 * { color: #bbf7d0 !important; }
+html.theme-dark .answer-btn.bg-red-200 { background-color: #4a1d24 !important; color: #fecaca !important; border-color: #7a2d38 !important; }
+html.theme-dark .answer-btn.bg-red-200 .answer-content,
+html.theme-dark .answer-btn.bg-red-200 * { color: #fecaca !important; }
+
+/* --- Bảng trong đề (markdown) --- */
+html.theme-dark .cute-table { background-color: #1e1730 !important; }
+
+/* --- HUD + chip giờ + nút thiết lập trong dark --- */
+html.theme-dark #quiz-hud { background: rgba(30, 23, 48, 0.85) !important; border-color: rgba(255,255,255,0.08); }
+html.theme-dark #quiz-hud .hud-counter { color: #f9a8d4; }
+html.theme-dark #quiz-hud .hud-progress { background: rgba(255,255,255,0.08); }
+html.theme-dark #timerDisplay { background: rgba(255, 105, 180, 0.12); color: #f9a8d4 !important; border-color: rgba(255,105,180,0.3); }
+html.theme-dark #quiz-settings-fab,
+html.theme-dark #quiz-settings-popover { background: #1e1730 !important; color: #f9a8d4; border-color: rgba(255,255,255,0.12); }
+html.theme-dark .qs-row .qs-label { color: #ded5ee; }
+html.theme-dark .qs-row .qs-label i { color: #f9a8d4; }
+html.theme-dark .qs-row:hover { background: rgba(255,255,255,0.05); }
+
+/* --- Ô nhập / ghi chú --- */
+html.theme-dark textarea,
+html.theme-dark input[type="number"],
+html.theme-dark input[type="text"] { background-color: #241b38 !important; color: #ded5ee !important; border-color: #3c2d56 !important; }
+html.theme-dark textarea::placeholder { color: #8a7fa3 !important; }
+
+/* --- Loại trừ / bôi vàng / pill độ chắc chắn trong dark --- */
+html.theme-dark .answer-eliminated { background: repeating-linear-gradient(135deg, rgba(255,255,255,0.02) 0 8px, rgba(255,255,255,0.05) 8px 16px) !important; }
+html.theme-dark mark.quiz-hl { color: #1f2937; }
+html.theme-dark #confidence-toggle { border-color: #463a5e; color: #a99fc0; }
+html.theme-dark #confidence-toggle.conf-guess { background: #3a2e14; border-color: #b4830b; color: #fcd34d; }
+
+/* --- Vòng tròn % ở kết quả: nền rãnh tối hơn cho dịu --- */
+html.theme-dark .q-time { color: #8a7fa3; }
+html.theme-dark .q-guess-badge { background: #3a2e14; color: #fcd34d; }
+
+/* --- Giữ nguyên nút thương hiệu (gradient hồng) chữ trắng --- */
+html.theme-dark #nextBtn,
+html.theme-dark #start-now-btn,
+html.theme-dark #submit-quiz-btn,
+html.theme-dark #restartQuizBtn { color: #fff !important; }
+/* Mép sáng nhẹ giúp tách thẻ khỏi nền tối */
+html.theme-dark .shadow-lg,
+html.theme-dark .shadow-xl,
+html.theme-dark .shadow-md { box-shadow: 0 6px 20px rgba(0,0,0,0.45) !important; }
+
+/* ============================================================
+   9) DANH SÁCH MARKDOWN (gạch đầu dòng phân cấp) — trình bày rõ nét
+   - Thụt lề sâu & đều theo từng cấp
+   - Đường dẫn hướng (guide) bên trái cho các cấp con
+   - Giãn dòng thoáng khi nội dung xuống hàng
+   ============================================================ */
+.quiz-list-container {
+    --indent-step: 1.7rem;                 /* độ thụt mỗi cấp */
+    --guide-color: rgba(255, 105, 180, 0.22);
+    display: flex;
+    flex-direction: column;
+    margin: 0.55rem 0;
+}
+.quiz-li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.22rem 0;                     /* khoảng cách giữa các mục cùng cấp */
+    margin-left: calc(var(--lvl, 0) * var(--indent-step));
+}
+/* Cấp con: thêm đường kẻ dẫn hướng bên trái cho dễ theo dõi phân cấp */
+.quiz-li[data-lvl]:not([data-lvl="0"]) {
+    border-left: 2px solid var(--guide-color);
+    padding-left: 0.85rem;
+}
+.quiz-li-body {
+    flex: 1;
+    line-height: 1.7;                       /* giãn dòng khi nội dung xuống hàng */
+}
+/* Bullet/số canh giữa theo chiều cao dòng đầu */
+.quiz-li-bullet {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 1.7em;
+    min-width: 1rem;
+    flex-shrink: 0;
+    user-select: none;
+}
+.quiz-li-num {
+    color: #FF69B4;
+    font-weight: 700;
+    font-size: 0.8rem;
+}
+/* Dòng bổ trợ (xuống dòng trong cùng cấp): chữ dịu hơn, canh dưới chữ của mục cha */
+.quiz-li-continued { padding-left: 1.6rem; }
+.quiz-li[data-lvl]:not([data-lvl="0"]).quiz-li-continued { padding-left: calc(0.85rem + 1.6rem); }
+.quiz-li-cont {
+    flex: 1;
+    color: #6b7280;
+    font-size: 0.9em;
+    line-height: 1.7;
+}
+/* Khoảng cách giữa các đoạn / khối nội dung */
+.quiz-md-gap { height: 0.85rem; }
+
+/* Dark mode cho danh sách */
+html.theme-dark .quiz-list-container { --guide-color: rgba(255, 105, 180, 0.3); }
+html.theme-dark .quiz-li-cont { color: #a99fc0; }
+html.theme-dark .quiz-li-num { color: #f9a8d4; }

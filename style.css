@@ -814,3 +814,88 @@ body {
     }
 }
 
+/* ===== Nâng cấp giao diện Thư viện ===== */
+
+/* Skeleton loading */
+.skeleton-line {
+    display: block;
+    border-radius: 6px;
+    background: linear-gradient(90deg, #f1f5f9 25%, #e8edf3 37%, #f1f5f9 63%);
+    background-size: 400% 100%;
+    animation: skeleton-shimmer 1.4s ease infinite;
+}
+@keyframes skeleton-shimmer {
+    0% { background-position: 100% 50%; }
+    100% { background-position: 0 50%; }
+}
+
+/* Chip lọc nhanh */
+.library-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.4rem 0.85rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #6b7280;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+    transition: all 0.18s ease;
+    cursor: pointer;
+}
+.library-filter-chip:hover {
+    color: #db2777;
+    border-color: #fbcfe8;
+    background: #fdf2f8;
+}
+.library-filter-chip.is-active {
+    color: #fff;
+    background: linear-gradient(135deg, #ec4899, #fb7185);
+    border-color: transparent;
+    box-shadow: 0 4px 10px -3px rgba(236, 72, 153, 0.45);
+}
+
+/* Đồng bộ con trỏ ghim */
+.pin-quiz-btn { cursor: pointer; }
+
+/* Nút Luyện tập: hiệu ứng quét sáng khi rê chuột */
+.practice-btn {
+    position: relative;
+    overflow: hidden;
+}
+.practice-btn::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -120%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+    transform: skewX(-20deg);
+    transition: left 0.55s ease;
+    pointer-events: none;
+}
+.practice-btn:hover::after {
+    left: 130%;
+}
+
+/* Thẻ thư mục: badge số lượng bộ đề */
+.folder-count-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-top: 0.25rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #6b7280;
+    background: #f3f4f6;
+}
+.folder-mini-card.drop-target {
+    border-color: #ec4899 !important;
+    background: rgba(236, 72, 153, 0.06) !important;
+    box-shadow: 0 0 0 2px rgba(236, 72, 153, 0.25);
+}
+

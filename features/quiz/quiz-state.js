@@ -20,7 +20,12 @@ export const state = {
     currentFontSize: localStorage.getItem('quiz_font_size') || 'normal',
     streak: 0,
     used5050Questions: {},
-    focusMode: false
+    focusMode: false,
+    eliminatedAnswers: {},   // #4: { [qIndex]: [optIdx,...] } các đáp án bị gạch bỏ
+    confidence: {},          // #7: { [qIndex]: 'guess' } khi người dùng đánh dấu là đoán
+    questionTimes: [],       // #11: số giây đã dùng cho từng câu
+    _timingIndex: null,      // câu đang được tính giờ (runtime)
+    _timingEnterAt: 0        // mốc thời gian vào câu hiện tại (runtime)
 };
 
 export function resetState() {
@@ -31,6 +36,11 @@ export function resetState() {
     state.markedQuestions = [];
     state.streak = 0;
     state.used5050Questions = {};
+    state.eliminatedAnswers = {};
+    state.confidence = {};
+    state.questionTimes = new Array(state.questions.length).fill(0);
+    state._timingIndex = null;
+    state._timingEnterAt = 0;
 }
 
 export function saveQuizState() {
@@ -41,10 +51,24 @@ export function saveQuizState() {
         userAnswers: state.userAnswers,
         score: state.score,
         markedQuestions: state.markedQuestions,
+        eliminatedAnswers: state.eliminatedAnswers,
+        confidence: state.confidence,
+        questionTimes: state.questionTimes,
         quizStartTime: state.quizStartTime ? state.quizStartTime.toISOString() : null,
-        questionsLength: state.questions.length
+        questionsLength: state.questions.length,
+        // Lưu nguyên bộ câu hỏi đang làm (đã trộn câu/đáp án) để khôi phục chính xác
+        questions: state.questions,
+        quizMode: state.quizMode,
+        quizOptions: state.quizOptions
     };
-    localStorage.setItem('quizState', JSON.stringify(stateObj));
+    try {
+        localStorage.setItem('quizState', JSON.stringify(stateObj));
+    } catch (e) {
+        // Nếu vượt quá dung lượng localStorage, lưu bản rút gọn (không kèm câu hỏi)
+        console.warn('Không lưu được đầy đủ trạng thái quiz, lưu bản rút gọn:', e);
+        delete stateObj.questions;
+        try { localStorage.setItem('quizState', JSON.stringify(stateObj)); } catch (_) {}
+    }
 }
 
 export function clearQuizState() {

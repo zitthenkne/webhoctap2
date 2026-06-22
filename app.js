@@ -24,12 +24,20 @@ import {
     closeMoveQuizModal,
     confirmMoveQuiz,
     exitSelectionMode,
+    selectAllInView,
+    deselectAllInView,
     closeShareQuizModal,
     setQuestions,
     setCurrentQuizTitle,
     getIsSelectionMode,
+    setIsSelectionMode,
+    setSelectedQuizIds,
     setLibraryLayoutMode,
     getLibraryLayoutMode,
+    getLibrarySortMode,
+    setLibrarySortMode,
+    getLibraryFilterMode,
+    setLibraryFilterMode,
     updateLayoutButtons,
     renderLibrary,
     getUserQuizSets,
@@ -460,8 +468,27 @@ function setupEventListeners() {
             }
         });
     }
-    
+
     updateLayoutButtons();
+
+    // Sắp xếp thư viện
+    const librarySortSelect = document.getElementById('library-sort-select');
+    if (librarySortSelect) {
+        librarySortSelect.value = getLibrarySortMode();
+        librarySortSelect.addEventListener('change', () => {
+            setLibrarySortMode(librarySortSelect.value);
+        });
+    }
+
+    // Chip lọc nhanh (Tất cả / Gần đây / Đã ghim)
+    const filterChips = document.querySelectorAll('.library-filter-chip');
+    filterChips.forEach(chip => {
+        chip.addEventListener('click', () => {
+            const mode = chip.getAttribute('data-filter') || 'all';
+            filterChips.forEach(c => c.classList.toggle('is-active', c === chip));
+            setLibraryFilterMode(mode);
+        });
+    });
     
     if (selectStudyRoomBtn) {
         selectStudyRoomBtn.addEventListener('click', (event) => {
@@ -596,11 +623,8 @@ function setupEventListeners() {
             if (!getIsSelectionMode()) {
                 setIsSelectionMode(true);
                 setSelectedQuizIds([]);
-                updateBulkActionsToolbar();
-                bulkSelectToggleBtn.classList.remove('bg-gray-100', 'text-gray-700');
-                bulkSelectToggleBtn.classList.add('bg-pink-100', 'text-pink-700', 'border-pink-300');
-                bulkSelectToggleBtn.innerHTML = '<i class="fas fa-check-square"></i> Đang chọn...';
                 loadAndDisplayLibrary();
+                updateBulkActionsToolbar();
             } else {
                 exitSelectionMode();
             }
@@ -609,55 +633,23 @@ function setupEventListeners() {
 
     const bulkSelectAllBtn = document.getElementById('bulk-select-all-btn');
     if (bulkSelectAllBtn) {
-        bulkSelectAllBtn.addEventListener('click', () => {
-            const cards = document.querySelectorAll('#quiz-list-container .bulk-quiz-checkbox');
-            const newIds = [];
-            cards.forEach(cb => {
-                const cardEl = cb.closest('[data-id]');
-                if (cardEl) {
-                    const id = cardEl.getAttribute('data-id');
-                    if (id) newIds.push(id);
-                }
-            });
-            
-            const currentSelected = getSelectedQuizIds();
-            const mergedIds = Array.from(new Set([...currentSelected, ...newIds]));
-            setSelectedQuizIds(mergedIds);
-            
-            cards.forEach(cb => {
-                cb.checked = true;
-                const cardEl = cb.closest('[data-id]');
-                if (cardEl) {
-                    cardEl.className = cardEl.className.replace('bg-white', 'bg-pink-50/20').replace('border-pink-100', 'border-pink-500 border-2');
-                }
-            });
-            updateBulkActionsToolbar();
-        });
+        bulkSelectAllBtn.addEventListener('click', () => selectAllInView());
     }
 
     const bulkDeselectAllBtn = document.getElementById('bulk-deselect-all-btn');
     if (bulkDeselectAllBtn) {
-        bulkDeselectAllBtn.addEventListener('click', () => {
-            const cards = document.querySelectorAll('#quiz-list-container .bulk-quiz-checkbox');
-            let currentSelected = getSelectedQuizIds();
-            cards.forEach(cb => {
-                cb.checked = false;
-                const cardEl = cb.closest('[data-id]');
-                if (cardEl) {
-                    const id = cardEl.getAttribute('data-id');
-                    if (id) {
-                        currentSelected = currentSelected.filter(qId => qId !== id);
-                    }
-                    cardEl.className = cardEl.className.replace('bg-pink-50/20', 'bg-white').replace('border-pink-500 border-2', 'border-pink-100');
-                }
-            });
-            setSelectedQuizIds(currentSelected);
-            updateBulkActionsToolbar();
-        });
+        bulkDeselectAllBtn.addEventListener('click', () => deselectAllInView());
     }
 
     const bulkCancelBtn = document.getElementById('bulk-cancel-btn');
     if (bulkCancelBtn) bulkCancelBtn.addEventListener('click', exitSelectionMode);
+
+    // Nhấn phím Esc để thoát nhanh chế độ chọn nhiều
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && getIsSelectionMode()) {
+            exitSelectionMode();
+        }
+    });
 
     const bulkMoveBtn = document.getElementById('bulk-move-btn');
     if (bulkMoveBtn) bulkMoveBtn.addEventListener('click', handleBulkMove);

@@ -1,5 +1,5 @@
 // Service Worker for PWA - Offline Support & Caching
-const CACHE_NAME = 'zitthenkne-v5';
+const CACHE_NAME = 'zitthenkne-v6';
 const urlsToCache = [
   '/',
   'index.html',
@@ -9,6 +9,7 @@ const urlsToCache = [
   'app.js',
   '/features/quiz/quiz.js',
   '/features/quiz/quiz-page.js',
+  '/features/quiz/quiz-enhance.css',
   '/features/study-room/study-room.js',
   '/features/flashcard/flashcard.js',
   '/features/auth/auth.js',
@@ -34,7 +35,13 @@ const urlsToCache = [
   '/features/medical-record/xem-benh-an.html',
   'offline.html',
   'pwa-install.js',
+  'manifest.json',
   '/assets/logo.png',
+  '/assets/icon-192.png',
+  '/assets/icon-512.png',
+  '/assets/maskable-192.png',
+  '/assets/maskable-512.png',
+  '/assets/apple-touch-icon.png',
   '/assets/squirrel-pixel.png',
   '/assets/hero-image.png'
 ];
