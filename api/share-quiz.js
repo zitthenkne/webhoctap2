@@ -18,20 +18,21 @@ module.exports = async function handler(req, res) {
     }
 
     let title = "Zitthenkne - Ôn luyện trắc nghiệm hiệu quả";
-    let description = "Thử thách bản thân với các bộ đề trắc nghiệm thú vị và nâng cao kiến thức mỗi ngày cùng Zitthenkne!";
-    
-    // Danh sách 10 ảnh sóc dễ thương
+    let description = "Bộ đề trắc nghiệm trên Zitthenkne";
+
+    // Danh sách 10 ảnh sóc dễ thương (đuôi .jpg cho khớp định dạng thật của ảnh,
+    // tránh việc Facebook/Messenger từ chối ảnh do sai Content-Type)
     const images = [
-        'og_squirrel_close.png',
-        'og_squirrel_jump.png',
-        'og_squirrel_study.png',
-        'og_squirrel_drink.png',
-        'og_squirrel_fly.png',
-        'og_squirrel_sleep.png',
-        'og_squirrel_garden.png',
-        'og_squirrel_picnic.png',
-        'og_squirrel_paint.png',
-        'og_squirrel_stars.png'
+        'og_squirrel_close.jpg',
+        'og_squirrel_jump.jpg',
+        'og_squirrel_study.jpg',
+        'og_squirrel_drink.jpg',
+        'og_squirrel_fly.jpg',
+        'og_squirrel_sleep.jpg',
+        'og_squirrel_garden.jpg',
+        'og_squirrel_picnic.jpg',
+        'og_squirrel_paint.jpg',
+        'og_squirrel_stars.jpg'
     ];
     const randomImg = images[Math.floor(Math.random() * images.length)];
     
@@ -43,13 +44,24 @@ module.exports = async function handler(req, res) {
     try {
         // Sử dụng axios lấy dữ liệu bộ đề từ Firestore REST API (tránh lỗi fetch undefined trên Node.js cũ)
         const firestoreUrl = `https://firestore.googleapis.com/v1/projects/zitthenkne/databases/(default)/documents/quiz_sets/${id}`;
-        const response = await axios.get(firestoreUrl);
+        const response = await axios.get(firestoreUrl, { timeout: 5000 });
         if (response.status === 200) {
             const data = response.data;
             const quizTitle = data.fields?.title?.stringValue;
             if (quizTitle) {
-                title = `${quizTitle}`;
-                description = `Hãy cùng làm bài kiểm tra "${quizTitle}" trên ứng dụng học tập thông minh Zitthenkne ngay nhé!`;
+                // Tên bộ đề là nội dung chính (dòng chữ to, đậm trên thẻ preview)
+                title = quizTitle;
+
+                // Mô tả ngắn gọn, thông tin thật (số câu hỏi) thay cho câu kêu gọi sáo rỗng
+                const countField = data.fields?.questionCount;
+                const questionCount = countField
+                    ? parseInt(countField.integerValue || countField.doubleValue, 10)
+                    : (Array.isArray(data.fields?.questions?.arrayValue?.values)
+                        ? data.fields.questions.arrayValue.values.length
+                        : null);
+                description = questionCount
+                    ? `${questionCount} câu hỏi · Bộ đề trắc nghiệm trên Zitthenkne`
+                    : `Bộ đề trắc nghiệm trên Zitthenkne`;
             }
         }
     } catch (error) {
