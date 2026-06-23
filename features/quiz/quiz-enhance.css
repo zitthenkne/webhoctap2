@@ -27,6 +27,28 @@
 @media (max-width: 767px) {
     #quiz-hud { top: 3.25rem; }
 }
+#quiz-hud #hud-home-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 9999px;
+    color: #be185d;
+    background: rgba(255, 105, 180, 0.10);
+    border: 1px solid rgba(255, 105, 180, 0.20);
+    font-size: 0.85rem;
+    text-decoration: none;
+    transition: background .2s, transform .2s, color .2s;
+}
+#quiz-hud #hud-home-btn:hover {
+    background: rgba(255, 105, 180, 0.20);
+    transform: scale(1.08);
+}
+#quiz-hud #hud-home-btn:active {
+    transform: scale(0.94);
+}
 #quiz-hud .hud-counter {
     font-weight: 800;
     font-size: 0.85rem;
@@ -219,25 +241,69 @@ mark.quiz-hl {
     border-radius: 2px;
     cursor: pointer;
 }
-mark.quiz-hl:hover { background: linear-gradient(180deg, transparent 55%, #fca5a5 55%); }
-#hl-float-btn {
-    position: absolute;
+/* Bôi vàng đổi tông màu theo từng vùng cho dễ phân biệt & đẹp mắt */
+[data-annot="q"] mark.quiz-hl        { background: linear-gradient(180deg, transparent 55%, #fde68a 55%); }   /* đề: vàng */
+[data-annot^="a"] mark.quiz-hl       { background: linear-gradient(180deg, transparent 55%, #bae6fd 55%); }   /* đáp án: xanh da trời */
+[data-annot^="oe"] mark.quiz-hl      { background: linear-gradient(180deg, transparent 55%, #d9f99d 55%); }   /* giải thích: xanh chanh */
+[data-annot="note"] mark.quiz-hl     { background: linear-gradient(180deg, transparent 55%, #fbcfe8 55%); }   /* ghi chú: hồng */
+[data-annot="expand"] mark.quiz-hl   { background: linear-gradient(180deg, transparent 55%, #c7d2fe 55%); }   /* mở rộng: chàm */
+/* Hover: hồng đỏ gợi ý "bấm để gỡ" — đặt selector đủ đặc hiệu để thắng màu theo vùng ở trên */
+[data-annot] mark.quiz-hl:hover,
+mark.quiz-hl:hover                   { background: linear-gradient(180deg, transparent 55%, #fca5a5 55%); }
+
+/* Cho phép bôi đen chữ trong nội dung đáp án + giải thích để ghi chú.
+   Mặc định trình duyệt KHÔNG cho chọn chữ trong <button>, và khóa hẳn khi nút disabled
+   (sau khi đã trả lời) -> phải bật lại tường minh. */
+.answer-content, .option-explanation {
+    -webkit-user-select: text;
+    user-select: text;
+}
+/* Nút đáp án đã trả lời được khóa bằng class .answer-locked (không dùng `disabled`)
+   nên vẫn bôi đen được chữ để ghi chú. */
+.answer-btn.answer-locked { cursor: default; }
+.answer-btn.answer-locked .answer-content,
+.answer-btn.answer-locked .option-explanation {
+    cursor: text;
+}
+
+/* In đậm / in nghiêng do người dùng tạo: dùng chung style markdown (obsidian-*),
+   chỉ thêm con trỏ tay + gợi ý gỡ khi rê chuột */
+.quiz-annot { cursor: pointer; }
+strong.quiz-annot:hover,
+em.quiz-annot:hover { text-decoration: underline wavy #f87171; text-underline-offset: 3px; }
+
+/* Thanh công cụ định dạng nổi (fixed: bám sát ngay trên đoạn đang chọn) */
+#annot-toolbar {
+    position: fixed;
     z-index: 60;
     transform: translate(-50%, -100%);
     display: none;
     align-items: center;
-    gap: 0.3rem;
-    padding: 0.3rem 0.6rem;
+    gap: 0.15rem;
+    padding: 0.2rem 0.25rem;
     border-radius: 9999px;
     background: #1f2937;
-    color: #fde68a;
-    font-size: 0.72rem;
-    font-weight: 700;
     box-shadow: 0 6px 18px rgba(0,0,0,0.25);
-    cursor: pointer;
     white-space: nowrap;
 }
-#hl-float-btn.show { display: inline-flex; }
+#annot-toolbar.show { display: inline-flex; }
+#annot-toolbar button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    border-radius: 9999px;
+    background: transparent;
+    color: #f9fafb;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+#annot-toolbar button:hover { background: #374151; }
+#annot-toolbar button[data-annot-action="highlight"]:hover { color: #fde68a; }
+#annot-toolbar button[data-annot-action="bold"]:hover,
+#annot-toolbar button[data-annot-action="italic"]:hover { color: #93c5fd; }
 
 /* ============================================================
    6) ZOOM ẢNH (#13 bổ sung)
@@ -424,6 +490,8 @@ html.theme-dark .cute-table { background-color: #1e1730 !important; }
 /* --- HUD + chip giờ + nút thiết lập trong dark --- */
 html.theme-dark #quiz-hud { background: rgba(30, 23, 48, 0.85) !important; border-color: rgba(255,255,255,0.08); }
 html.theme-dark #quiz-hud .hud-counter { color: #f9a8d4; }
+html.theme-dark #quiz-hud #hud-home-btn { color: #f9a8d4; background: rgba(249, 168, 212, 0.12); border-color: rgba(249, 168, 212, 0.25); }
+html.theme-dark #quiz-hud #hud-home-btn:hover { background: rgba(249, 168, 212, 0.22); }
 html.theme-dark #quiz-hud .hud-progress { background: rgba(255,255,255,0.08); }
 html.theme-dark #timerDisplay { background: rgba(255, 105, 180, 0.12); color: #f9a8d4 !important; border-color: rgba(255,105,180,0.3); }
 html.theme-dark #quiz-settings-fab,
@@ -441,6 +509,10 @@ html.theme-dark textarea::placeholder { color: #8a7fa3 !important; }
 /* --- Loại trừ / bôi vàng / pill độ chắc chắn trong dark --- */
 html.theme-dark .answer-eliminated { background: repeating-linear-gradient(135deg, rgba(255,255,255,0.02) 0 8px, rgba(255,255,255,0.05) 8px 16px) !important; }
 html.theme-dark mark.quiz-hl { color: #1f2937; }
+/* In đậm/nghiêng do người dùng tạo: sáng lên trên nền tối cho dễ đọc.
+   Trong ô đáp án xanh/đỏ, rule ".answer-btn.bg-..* " (đặc hiệu hơn) vẫn thắng nên giữ đúng tông. */
+html.theme-dark .obsidian-bold   { color: #f9a8d4 !important; }
+html.theme-dark .obsidian-italic { color: #93c5fd !important; }
 html.theme-dark #confidence-toggle { border-color: #463a5e; color: #a99fc0; }
 html.theme-dark #confidence-toggle.conf-guess { background: #3a2e14; border-color: #b4830b; color: #fcd34d; }
 

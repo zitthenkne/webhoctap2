@@ -2,7 +2,7 @@
 
 import { db, auth } from '../../core/firebase-init.js';
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
-import { showToast } from '../../core/utils.js';
+import { showToast, showConfirm } from '../../core/utils.js';
 
 import { state, resetState, saveQuizState, clearQuizState, saveQuizResult } from './quiz-state.js';
 import {
@@ -130,6 +130,16 @@ function toggleEliminate(idx) {
     if (getVibrate() && navigator.vibrate) navigator.vibrate(10);
     saveQuizState();
 }
+// Khóa nút đáp án SAU KHI trả lời bằng class thay vì thuộc tính `disabled`.
+// Lý do: nút <button disabled> bị trình duyệt chặn luôn việc bôi đen chữ bên trong,
+// khiến không thể ghi chú lên đáp án/giải thích. Việc chặn chọn lại đáp án đã được
+// bảo đảm bởi guard `userAnswers !== null` trong handleAnswerClick & toggleEliminate.
+function setAnswerLock(btn, locked) {
+    if (!btn) return;
+    btn.classList.toggle('answer-locked', !!locked);
+    btn.setAttribute('aria-disabled', locked ? 'true' : 'false');
+}
+
 function setupAnswerInteractions() {
     applyEliminatedStyles();
     document.querySelectorAll('.answer-btn').forEach(btn => {
@@ -157,6 +167,11 @@ function setupAnswerInteractions() {
         btn.addEventListener('click', (e) => {
             // Vừa giữ lâu -> đã loại trừ, không tính là chọn
             if (longPressed) { e.preventDefault(); e.stopImmediatePropagation(); longPressed = false; return; }
+            // Đang bôi đen chữ trong đáp án (để ghi chú) -> không tính là chọn đáp án
+            const sel = window.getSelection();
+            if (sel && !sel.isCollapsed && sel.toString().trim().length > 0) {
+                e.preventDefault(); e.stopImmediatePropagation(); return;
+            }
             // Chạm vào đáp án đã loại -> KHÔI PHỤC thay vì chọn (tránh chọn nhầm)
             const elim = state.eliminatedAnswers[state.currentIndex] || [];
             if (elim.includes(idx)) {
@@ -169,28 +184,65 @@ function setupAnswerInteractions() {
     });
 }
 
-// --- #9: bôi vàng từ khóa trong đề, lưu theo từng câu ---
-function hlStorageKey() {
+// --- #9: ghi chú trực quan (bôi vàng / in đậm / in nghiêng) cho từng vùng của câu hỏi ---
+// Lưu theo từng câu: { qText: [ { scope, text, type } ] }
+// scope = "q" (đề), "a<idx>" (đáp án), "oe<idx>" (giải thích đáp án),
+//         "note" (ghi chú ghi nhớ), "expand" (mở rộng kiến thức)
+function annotStorageKey() {
     const quizId = (state.quizData && state.quizData.id) || (new URLSearchParams(window.location.search)).get('id') || 'default_quiz';
-    return `quiz_hl_${quizId}`;
+    return `quiz_annot_${quizId}`;
 }
-function getHighlightStore() {
-    try { return JSON.parse(localStorage.getItem(hlStorageKey()) || '{}'); } catch (e) { return {}; }
+function getAnnotStore() {
+    try { return JSON.parse(localStorage.getItem(annotStorageKey()) || '{}'); } catch (e) { return {}; }
 }
-function saveHighlightStore(store) {
-    try { localStorage.setItem(hlStorageKey(), JSON.stringify(store)); } catch (e) {}
+function saveAnnotStore(store) {
+    try { localStorage.setItem(annotStorageKey(), JSON.stringify(store)); } catch (e) {}
 }
-function getHighlightsFor(qText) {
-    const store = getHighlightStore();
+function getAnnotsFor(qText) {
+    const store = getAnnotStore();
     return Array.isArray(store[qText]) ? store[qText] : [];
 }
-function applyHighlights(container, phrases) {
-    if (!container || !phrases || !phrases.length) return;
-    phrases.forEach(phrase => {
-        if (!phrase || phrase.length < 2) return;
+function addAnnot(qText, scope, text, type) {
+    const store = getAnnotStore();
+    const arr = Array.isArray(store[qText]) ? store[qText] : [];
+    if (!arr.some(a => a.scope === scope && a.text === text && a.type === type)) {
+        arr.push({ scope, text, type });
+    }
+    store[qText] = arr;
+    saveAnnotStore(store);
+}
+function removeAnnot(qText, scope, text, type) {
+    const store = getAnnotStore();
+    if (Array.isArray(store[qText])) {
+        store[qText] = store[qText].filter(a => !(a.scope === scope && a.text === text && a.type === type));
+        if (store[qText].length === 0) delete store[qText];
+        saveAnnotStore(store);
+    }
+}
+function annotTag(type) { return type === 'bold' ? 'strong' : type === 'italic' ? 'em' : 'mark'; }
+function annotClass(type) {
+    // Tái dùng class markdown sẵn có để màu in đậm (hồng) / in nghiêng (xanh) đồng nhất
+    // với phần còn lại của web và tự đổi màu theo nền đúng/sai/tối.
+    if (type === 'bold') return 'quiz-annot obsidian-bold';
+    if (type === 'italic') return 'quiz-annot obsidian-italic';
+    return 'quiz-annot quiz-hl';
+}
+// Bọc các đoạn đã ghi chú trong một vùng cụ thể (bỏ qua phần đã bọc sẵn để chạy lại an toàn)
+function applyAnnotsToContainer(container, annots) {
+    if (!container || !annots || !annots.length) return;
+    annots.forEach(a => {
+        const phrase = a.text;
+        if (!phrase || phrase.length < 1) return;
         const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
-            acceptNode: (n) => (n.parentNode && n.parentNode.nodeName !== 'MARK' && n.nodeValue.includes(phrase))
-                ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT
+            acceptNode: (n) => {
+                if (!n.nodeValue.includes(phrase)) return NodeFilter.FILTER_REJECT;
+                let p = n.parentNode;
+                while (p && p !== container) {
+                    if (p.classList && p.classList.contains('quiz-annot')) return NodeFilter.FILTER_REJECT;
+                    p = p.parentNode;
+                }
+                return NodeFilter.FILTER_ACCEPT;
+            }
         });
         const targets = [];
         while (walker.nextNode()) targets.push(walker.currentNode);
@@ -201,73 +253,86 @@ function applyHighlights(container, phrases) {
                 const range = document.createRange();
                 range.setStart(node, pos);
                 range.setEnd(node, pos + phrase.length);
-                const mark = document.createElement('mark');
-                mark.className = 'quiz-hl';
-                range.surroundContents(mark);
-            } catch (e) { /* selection trải qua nhiều thẻ -> bỏ qua đoạn này */ }
+                const el = document.createElement(annotTag(a.type));
+                el.className = annotClass(a.type);
+                el.setAttribute('data-annot-type', a.type);
+                range.surroundContents(el);
+            } catch (e) { /* vùng chọn trải qua nhiều thẻ -> bỏ qua đoạn này */ }
         });
     });
 }
-function addHighlight(qText, phrase) {
-    const store = getHighlightStore();
-    const arr = Array.isArray(store[qText]) ? store[qText] : [];
-    if (!arr.includes(phrase)) arr.push(phrase);
-    store[qText] = arr;
-    saveHighlightStore(store);
+// Áp dụng ghi chú cho mọi vùng [data-annot] của câu đang hiển thị
+function applyAnnotationsAll() {
+    const quizSection = document.getElementById('quizSection');
+    if (!quizSection) return;
+    const question = state.questions[state.currentIndex];
+    if (!question) return;
+    const annots = getAnnotsFor(question.question);
+    if (!annots.length) return;
+    quizSection.querySelectorAll('[data-annot]').forEach(el => {
+        const scope = el.getAttribute('data-annot');
+        applyAnnotsToContainer(el, annots.filter(a => a.scope === scope));
+    });
 }
-function removeHighlight(qText, phrase) {
-    const store = getHighlightStore();
-    if (Array.isArray(store[qText])) {
-        store[qText] = store[qText].filter(p => p !== phrase);
-        if (store[qText].length === 0) delete store[qText];
-        saveHighlightStore(store);
-    }
-}
-function setupHighlighting() {
-    const hlBtn = document.getElementById('hl-float-btn');
-    if (!hlBtn) return;
+function setupAnnotations() {
+    const toolbar = document.getElementById('annot-toolbar');
+    if (!toolbar) return;
 
-    const hideBtn = () => hlBtn.classList.remove('show');
+    let activeScope = null;
+    const hide = () => { toolbar.classList.remove('show'); activeScope = null; };
+    const scopeOf = (node) => {
+        const el = node && node.nodeType === 3 ? node.parentElement : node;
+        return el && el.closest ? el.closest('#quizSection [data-annot]') : null;
+    };
     const onSelect = () => {
         const sel = window.getSelection();
-        if (!sel || sel.isCollapsed || sel.rangeCount === 0) { hideBtn(); return; }
-        const qTextEl = document.querySelector('#quizSection .question-text');
-        if (!qTextEl) { hideBtn(); return; }
-        // Chỉ hiện khi vùng chọn nằm trong đề bài
-        if (!qTextEl.contains(sel.anchorNode) || !qTextEl.contains(sel.focusNode)) { hideBtn(); return; }
+        if (!sel || sel.isCollapsed || sel.rangeCount === 0) { hide(); return; }
         const text = sel.toString().trim();
-        if (text.length < 2) { hideBtn(); return; }
+        if (text.length < 1) { hide(); return; }
+        // Vùng chọn phải nằm gọn trong MỘT vùng cho phép ghi chú
+        const a = scopeOf(sel.anchorNode);
+        const b = scopeOf(sel.focusNode);
+        if (!a || a !== b) { hide(); return; }
+        activeScope = a.getAttribute('data-annot');
         const rect = sel.getRangeAt(0).getBoundingClientRect();
-        hlBtn.style.left = (rect.left + rect.width / 2) + 'px';
-        hlBtn.style.top = (rect.top - 8) + 'px';
-        hlBtn.classList.add('show');
+        toolbar.style.left = (rect.left + rect.width / 2) + 'px';
+        toolbar.style.top = (rect.top - 8) + 'px';
+        toolbar.classList.add('show');
     };
     document.addEventListener('mouseup', () => setTimeout(onSelect, 10));
     document.addEventListener('touchend', () => setTimeout(onSelect, 10));
-    // Giữ vùng chọn khi nhấn nút (đừng để mousedown xóa selection)
-    hlBtn.addEventListener('mousedown', (e) => e.preventDefault());
-    hlBtn.addEventListener('click', () => {
-        const sel = window.getSelection();
-        const text = sel ? sel.toString().trim() : '';
-        const question = state.questions[state.currentIndex];
-        if (text.length >= 2 && question) {
-            addHighlight(question.question, text);
-            sel.removeAllRanges();
-            hideBtn();
-            showQuestion(); // vẽ lại để áp dụng bôi vàng
-        }
-    });
-    // Bấm vào một đoạn bôi vàng để gỡ
-    document.addEventListener('click', (e) => {
-        const mark = e.target.closest && e.target.closest('mark.quiz-hl');
-        if (mark && document.querySelector('#quizSection .question-text') && document.querySelector('#quizSection .question-text').contains(mark)) {
+    // Giữ vùng chọn khi nhấn nút công cụ (đừng để mousedown xóa selection)
+    toolbar.addEventListener('mousedown', (e) => e.preventDefault());
+    toolbar.querySelectorAll('[data-annot-action]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const type = btn.getAttribute('data-annot-action');
+            const sel = window.getSelection();
+            const text = sel ? sel.toString().trim() : '';
             const question = state.questions[state.currentIndex];
-            if (question) {
-                removeHighlight(question.question, mark.textContent);
-                showQuestion();
+            if (text.length >= 1 && question && activeScope) {
+                addAnnot(question.question, activeScope, text, type);
+                sel.removeAllRanges();
+                hide();
+                showQuestion(); // vẽ lại để áp dụng định dạng
             }
-        }
+        });
     });
+    // Bấm vào một đoạn đã ghi chú để gỡ (capture để không kích hoạt chọn đáp án)
+    document.addEventListener('click', (e) => {
+        const mark = e.target.closest && e.target.closest('.quiz-annot');
+        if (!mark) return;
+        const cont = mark.closest('#quizSection [data-annot]');
+        if (!cont) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const question = state.questions[state.currentIndex];
+        if (question) {
+            const scope = cont.getAttribute('data-annot');
+            const type = mark.getAttribute('data-annot-type') || 'highlight';
+            removeAnnot(question.question, scope, mark.textContent, type);
+            showQuestion();
+        }
+    }, true);
 }
 
 // --- #13 (bổ sung): phóng to ảnh trong đề ---
@@ -343,7 +408,7 @@ function setupSwipe() {
     section.addEventListener('touchstart', (e) => {
         if (e.touches.length !== 1) { tracking = false; return; }
         // Không cướp thao tác trên vùng cần tương tác / chọn chữ
-        if (e.target.closest('button, a, textarea, input, .answer-btn, table, .question-text, mark, .quiz-image, .mermaid')) {
+        if (e.target.closest('button, a, textarea, input, .answer-btn, table, .question-text, mark, .quiz-annot, .quiz-image, .mermaid')) {
             tracking = false; return;
         }
         tracking = true;
@@ -653,22 +718,19 @@ function showQuestion() {
             ${question.source && question.source.trim() ? `<span class="inline-block px-3 py-1 rounded-full bg-pink-100 text-pink-700 text-xs font-semibold border border-pink-200"><i class="fas fa-book mr-1"></i> Nguồn: ${question.source}</span>` : ''}
             ${state.streak > 0 ? `<span id="streak-badge" class="inline-block px-3 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-semibold border border-orange-200 animate-pulse"><i class="fas fa-fire mr-1 text-orange-500 animate-bounce"></i> Chuỗi đúng: ${state.streak}</span>` : ''}
         </div>
-        <div class="question-text font-semibold text-gray-800 my-6 text-left ${qSizeClass}">${parseMarkdown(question.question)}</div>
+        <div class="question-text font-semibold text-gray-800 my-6 text-left ${qSizeClass}" data-annot="q">${parseMarkdown(question.question)}</div>
         <div id="answers-container" class="${answersGridClass}">
             ${answerOptions.map((answer, index) => `
                 <button class="answer-btn p-4 border border-pink-200 rounded-lg text-left hover:bg-[#FFB6C1]/50 hover:border-[#FF69B4] hover:scale-[1.01] hover:-translate-y-0.5 transition-all ${aSizeClass}" data-index="${index}">
                     <div class="flex items-start">
                         <span class="answer-letter inline-block w-8 h-8 rounded-full bg-pink-50 text-[#FF69B4] border border-pink-200 text-center leading-7 font-bold mr-2 text-sm flex-shrink-0">${String.fromCharCode(65 + index)}</span>
                         <div class="flex-1">
-                            <div class="answer-content">${parseMarkdown(answer)}</div>
-                            <div class="option-explanation mt-2 text-xs md:text-sm font-normal border-t pt-1.5 border-dashed border-gray-300/30 hidden transition-all duration-300"></div>
+                            <div class="answer-content" data-annot="a${index}">${parseMarkdown(answer)}</div>
+                            <div class="option-explanation mt-2 text-xs md:text-sm font-normal border-t pt-1.5 border-dashed border-gray-300/30 hidden transition-all duration-300" data-annot="oe${index}"></div>
                         </div>
                     </div>
                 </button>
             `).join('')}
-        </div>
-        <div class="mt-3 text-center text-xs text-gray-400 focus-hide hidden sm:block">
-            <i class="fas fa-keyboard mr-1"></i> Mẹo: nhấn <kbd class="px-1.5 py-0.5 bg-gray-100 border border-gray-200 rounded text-gray-600 font-semibold">A</kbd>–<kbd class="px-1.5 py-0.5 bg-gray-100 border border-gray-200 rounded text-gray-600 font-semibold">D</kbd> hoặc <kbd class="px-1.5 py-0.5 bg-gray-100 border border-gray-200 rounded text-gray-600 font-semibold">1</kbd>–<kbd class="px-1.5 py-0.5 bg-gray-100 border border-gray-200 rounded text-gray-600 font-semibold">4</kbd> để chọn đáp án, <kbd class="px-1.5 py-0.5 bg-gray-100 border border-gray-200 rounded text-gray-600 font-semibold">Enter</kbd> để câu tiếp, <kbd class="px-1.5 py-0.5 bg-gray-100 border border-gray-200 rounded text-gray-600 font-semibold">←</kbd> <kbd class="px-1.5 py-0.5 bg-gray-100 border border-gray-200 rounded text-gray-600 font-semibold">→</kbd> để chuyển câu.
         </div>
         <div class="mt-4 flex flex-wrap justify-between items-center gap-2">
             <button type="button" id="confidence-toggle" class="${isGuess ? 'conf-guess' : ''}" title="Đánh dấu nếu bạn chỉ đoán câu này — sẽ được gợi ý ôn lại ở phần kết quả">
@@ -706,8 +768,8 @@ function showQuestion() {
             <div class="flex items-start gap-3 bg-white/60 p-3 rounded-lg border border-pink-100">
                 <i class="fas fa-thumbtack text-pink-500 mt-1 animate-bounce"></i>
                 <div class="text-pink-800 text-base">
-                    <span class="font-bold">Ghi chú ghi nhớ:</span> 
-                    <div class="mt-1">${parseMarkdown(question.note)}</div>
+                    <span class="font-bold">Ghi chú ghi nhớ:</span>
+                    <div class="mt-1" data-annot="note">${parseMarkdown(question.note)}</div>
                 </div>
             </div>
         </div>` : `<div id="explanation-area" class="hidden"></div>`}
@@ -715,7 +777,7 @@ function showQuestion() {
             <h4 class="font-extrabold text-blue-800 text-xl flex items-center gap-2 mb-3">
                 <i class="fas fa-expand text-blue-500 animate-pulse"></i> Mở rộng kiến thức
             </h4>
-            <div class="text-blue-900 leading-relaxed text-base">${question.expanded ? parseMarkdown(question.expanded) : ''}</div>
+            <div class="text-blue-900 leading-relaxed text-base" data-annot="expand">${question.expanded ? parseMarkdown(question.expanded) : ''}</div>
         </div>
         <div class="mt-8 flex justify-between">
             <button id="prevBtn" class="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition ${state.currentIndex === 0 || state.quizMode === 'practice' ? 'invisible' : ''}">
@@ -749,9 +811,7 @@ function showQuestion() {
             confBtn.innerHTML = `<i class="fas ${guess ? 'fa-dice' : 'fa-circle-check'}"></i> ${guess ? 'Đoán' : 'Chắc chắn'}`;
         });
     }
-    // #9: áp dụng các đoạn đã bôi vàng đã lưu cho câu hiện tại
-    const qTextEl = quizSection.querySelector('.question-text');
-    if (qTextEl) applyHighlights(qTextEl, getHighlightsFor(question.question));
+    // #9: áp dụng ghi chú trực quan (bôi vàng/đậm/nghiêng) đã lưu cho câu hiện tại
 
     const answeredIdx = state.userAnswers[state.currentIndex];
     const btn5050 = document.getElementById('help-5050-btn');
@@ -781,7 +841,7 @@ function showQuestion() {
     if (answeredIdx !== null && answeredIdx !== undefined) {
         if (!state.quizOptions.showAnswerImmediately) {
             document.querySelectorAll('.answer-btn').forEach((btn, idx) => {
-                btn.disabled = true;
+                setAnswerLock(btn, true);
                 if (idx === answeredIdx) {
                     btn.classList.add('bg-blue-100', 'border-blue-400');
                 }
@@ -793,10 +853,11 @@ function showQuestion() {
                 nextBtn.classList.remove('hidden');
                 nextBtn.addEventListener('click', showNextQuestion, { once: true });
             }
+            applyAnnotationsAll();
             return;
         }
         document.querySelectorAll('.answer-btn').forEach((btn, idx) => {
-            btn.disabled = true;
+            setAnswerLock(btn, true);
             const isCorrectAnswer = (idx === state.questions[state.currentIndex].correctAnswerIndex);
             const isSelectedAnswer = (idx === answeredIdx);
 
@@ -936,6 +997,9 @@ function showQuestion() {
             }, 600);
         });
     }
+
+    // #9: áp dụng ghi chú trực quan cho mọi vùng (đề, đáp án, giải thích, mở rộng, ghi chú)
+    applyAnnotationsAll();
 }
 
 function showPreviousQuestion() {
@@ -1010,16 +1074,18 @@ function endQuiz() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function showNextQuestion() {
+async function showNextQuestion() {
     if (state.currentIndex < state.questions.length - 1) {
         state.currentIndex++;
         showQuestion();
     } else {
         const unanswered = state.userAnswers.filter(a => a === null).length;
         if (unanswered > 0 || state.markedQuestions.length > 0) {
-            if (!confirm(`Bạn còn ${unanswered} câu chưa trả lời và ${state.markedQuestions.length} câu đã đánh dấu. Bạn chắc chắn muốn nộp bài?`)) {
-                return;
-            }
+            const ok = await showConfirm(
+                `Bạn còn ${unanswered} câu chưa trả lời và ${state.markedQuestions.length} câu đã đánh dấu. Bạn chắc chắn muốn nộp bài?`,
+                { title: 'Nộp bài?', confirmText: 'Nộp bài', cancelText: 'Tiếp tục làm', tone: 'warning' }
+            );
+            if (!ok) return;
         }
         endQuiz();
     }
@@ -1089,7 +1155,7 @@ function handleAnswerClick(e) {
         if (getVibrate() && navigator.vibrate) navigator.vibrate(12);
         selectedBtn.classList.add('bg-blue-100', 'border-blue-400');
         const answerBtns = document.querySelectorAll('.answer-btn');
-        answerBtns.forEach(btn => btn.disabled = true);
+        answerBtns.forEach(btn => setAnswerLock(btn, true));
         const nextBtn = document.getElementById('nextBtn');
         if (nextBtn) {
             nextBtn.classList.remove('hidden');
@@ -1118,7 +1184,7 @@ function handleAnswerClick(e) {
     const question = state.questions[state.currentIndex];
 
     document.querySelectorAll('.answer-btn').forEach((btn, idx) => {
-        btn.disabled = true;
+        setAnswerLock(btn, true);
         const isCorrectAnswer = (idx === question.correctAnswerIndex);
         const isSelectedAnswer = (idx === selectedIdx);
 
@@ -1229,8 +1295,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const quizId = (new URLSearchParams(window.location.search)).get('id');
             if (savedState.quizId === quizId && savedState.userAnswers && savedState.userAnswers.length === savedState.questionsLength && !savedState.finished) {
                 askedToRestore = true;
-                setTimeout(() => {
-                    if (confirm('Bạn có muốn tiếp tục bài làm trước đó không?')) {
+                setTimeout(async () => {
+                    const wantRestore = await showConfirm(
+                        'Bạn có muốn tiếp tục bài làm trước đó không?',
+                        { title: 'Tiếp tục bài làm', confirmText: 'Tiếp tục', cancelText: 'Làm lại từ đầu', tone: 'primary' }
+                    );
+                    if (wantRestore) {
                         // Khôi phục cấu hình phiên (tính giờ, xem đáp án ngay...) để render đúng trạng thái
                         if (savedState.quizOptions) state.quizOptions = savedState.quizOptions;
                         const restoreMode = savedState.quizMode || 'normal';
@@ -1255,13 +1325,35 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) { console.warn('Không thể khôi phục trạng thái quiz:', err); }
     }
 
+    const hudHomeBtn = document.getElementById('hud-home-btn');
+    if (hudHomeBtn) {
+        hudHomeBtn.addEventListener('click', async (e) => {
+            // Chỉ hỏi khi đang làm bài dở để tránh mất tiến trình do chạm nhầm.
+            // (HUD đã bị ẩn ở màn kết quả nên nút này chỉ xuất hiện khi đang làm bài.)
+            // Tiến trình vẫn được tự động lưu nên có thể khôi phục khi quay lại.
+            const inProgress = Array.isArray(state.userAnswers) && state.userAnswers.some(a => a !== null);
+            if (!inProgress) return;
+            // Vì là thẻ <a>, luôn chặn điều hướng mặc định rồi tự chuyển trang khi đã xác nhận
+            e.preventDefault();
+            const ok = await showConfirm(
+                'Tiến trình của bạn đã được tự động lưu và có thể tiếp tục khi quay lại.',
+                { title: 'Về trang chủ?', confirmText: 'Về trang chủ', cancelText: 'Ở lại', tone: 'primary' }
+            );
+            if (ok) window.location.href = hudHomeBtn.getAttribute('href');
+        });
+    }
+
     const submitQuizBtn = document.getElementById('submit-quiz-btn');
     if (submitQuizBtn) {
-        submitQuizBtn.addEventListener('click', () => {
+        submitQuizBtn.addEventListener('click', async () => {
             const unanswered = state.userAnswers.filter(ans => ans == null).length;
             const marked = state.markedQuestions.length;
             if (unanswered > 0 || marked > 0) {
-                if (!confirm(`Bạn còn ${unanswered} câu chưa trả lời${marked > 0 ? ' và ' + marked + ' câu đã đánh dấu' : ''}. Bạn chắc chắn muốn nộp bài?`)) return;
+                const ok = await showConfirm(
+                    `Bạn còn ${unanswered} câu chưa trả lời${marked > 0 ? ' và ' + marked + ' câu đã đánh dấu' : ''}. Bạn chắc chắn muốn nộp bài?`,
+                    { title: 'Nộp bài?', confirmText: 'Nộp bài', cancelText: 'Tiếp tục làm', tone: 'warning' }
+                );
+                if (!ok) return;
             }
             endQuiz();
             showSubmitQuizBtn(false);
@@ -1285,7 +1377,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupFontSizeControls();
     setupFocusModeControls();
     setupSettings();       // #1 + #15: Dark / Âm thanh / Rung
-    setupHighlighting();   // #9: bôi vàng
+    setupAnnotations();    // #9: ghi chú trực quan (bôi vàng / in đậm / in nghiêng)
     setupLightbox();       // #13: phóng to ảnh
     setupSwipe();          // #3: vuốt chuyển câu
 
@@ -1331,7 +1423,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const answerBtns = document.querySelectorAll('.answer-btn');
             if (optionIdx < answerBtns.length) {
                 const targetBtn = answerBtns[optionIdx];
-                if (targetBtn && !targetBtn.disabled) {
+                if (targetBtn && !targetBtn.disabled && !targetBtn.classList.contains('answer-locked')) {
                     e.preventDefault();
                     targetBtn.click();
                 }

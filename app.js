@@ -21,6 +21,10 @@ import {
     openFolderModal,
     closeFolderModal,
     saveFolder,
+    selectFolderIcon,
+    setCustomFolderIcon,
+    selectFolderColor,
+    setCustomFolderColor,
     closeMoveQuizModal,
     confirmMoveQuiz,
     exitSelectionMode,
@@ -670,17 +674,33 @@ function setupEventListeners() {
     // Sự kiện Folder Modal Icon & Color Pickers
     document.querySelectorAll('.icon-option').forEach(btn => {
         btn.addEventListener('click', function() {
-            const icon = this.getAttribute('data-icon') || 'fa-folder';
-            openFolderModal(editingFolderId ? 'edit' : 'create', editingFolderId, document.getElementById('folderNameInput').value);
+            selectFolderIcon(this.getAttribute('data-icon') || 'fa-folder');
+            const iconInput = document.getElementById('folderIconInput');
+            if (iconInput) iconInput.value = '';
         });
     });
 
     document.querySelectorAll('.color-option').forEach(btn => {
         btn.addEventListener('click', function() {
-            const color = this.getAttribute('data-color') || 'amber';
-            openFolderModal(editingFolderId ? 'edit' : 'create', editingFolderId, document.getElementById('folderNameInput').value);
+            selectFolderColor(this.getAttribute('data-color') || 'amber');
         });
     });
+
+    // Nhập icon FontAwesome tùy chọn (chấp nhận dán nguyên thẻ <i ...>)
+    const folderIconInput = document.getElementById('folderIconInput');
+    if (folderIconInput) {
+        folderIconInput.addEventListener('input', function() {
+            setCustomFolderIcon(this.value);
+        });
+    }
+
+    // Chọn màu tùy chọn từ bảng màu
+    const folderColorInput = document.getElementById('folderColorInput');
+    if (folderColorInput) {
+        folderColorInput.addEventListener('input', function() {
+            setCustomFolderColor(this.value);
+        });
+    }
 
     // Close folder/quiz menus when clicking outside
     document.body.addEventListener('click', (e) => {
@@ -738,16 +758,21 @@ function setupEventListeners() {
         const modeQuestionBtn = document.getElementById('search-mode-question-btn');
         
         if (modeQuizBtn && modeQuestionBtn) {
-            const updateSegmentedUI = (activeMode) => {
-                if (activeMode === 'quiz') {
-                    modeQuizBtn.className = 'flex-1 text-center py-2 text-xs font-bold rounded-lg transition-all duration-200 bg-white text-pink-600 shadow-sm flex items-center justify-center gap-1.5 focus:outline-none';
-                    modeQuestionBtn.className = 'flex-1 text-center py-2 text-xs font-bold rounded-lg transition-all duration-200 text-gray-500 hover:text-gray-700 flex items-center justify-center gap-1.5 focus:outline-none';
-                    librarySearchInput.placeholder = 'Tìm kiếm bộ đề...';
+            // Chỉ bật/tắt các class trạng thái, giữ nguyên class bố cục để không làm vỡ giao diện
+            const setSegmentActive = (btn, active) => {
+                if (active) {
+                    btn.classList.add('bg-white', 'text-pink-600', 'shadow-sm');
+                    btn.classList.remove('text-gray-500', 'hover:text-gray-700');
                 } else {
-                    modeQuizBtn.className = 'flex-1 text-center py-2 text-xs font-bold rounded-lg transition-all duration-200 text-gray-500 hover:text-gray-700 flex items-center justify-center gap-1.5 focus:outline-none';
-                    modeQuestionBtn.className = 'flex-1 text-center py-2 text-xs font-bold rounded-lg transition-all duration-200 bg-white text-pink-600 shadow-sm flex items-center justify-center gap-1.5 focus:outline-none';
-                    librarySearchInput.placeholder = 'Tìm kiếm câu hỏi...';
+                    btn.classList.remove('bg-white', 'text-pink-600', 'shadow-sm');
+                    btn.classList.add('text-gray-500', 'hover:text-gray-700');
                 }
+            };
+            const updateSegmentedUI = (activeMode) => {
+                const isQuiz = activeMode === 'quiz';
+                setSegmentActive(modeQuizBtn, isQuiz);
+                setSegmentActive(modeQuestionBtn, !isQuiz);
+                librarySearchInput.placeholder = isQuiz ? 'Tìm kiếm bộ đề...' : 'Tìm kiếm câu hỏi...';
             };
 
             modeQuizBtn.addEventListener('click', () => {

@@ -149,7 +149,10 @@
         <button id="quiz-menu-toggle" class="text-2xl text-pink-500 focus:outline-none">
             <i class="fas fa-bars"></i>
         </button>
-        <span class="font-bold text-[#FF69B4] text-lg">Quiz</span>
+        <span class="font-bold text-[#FF69B4] text-lg flex items-center gap-2">
+            <img src="../../assets/logo.png" alt="Zitthenkne logo" class="w-7 h-7 rounded-full object-cover">
+            Zitthenkne
+        </span>
         <span></span>
     </div>
     <!-- Mobile Menu Drawer -->
@@ -401,7 +404,11 @@
                             });
                         } else {
                             navigator.clipboard.writeText(url);
-                            alert('Đã copy link quiz vào clipboard!');
+                            if (window.showToast) {
+                                window.showToast('Đã copy link quiz vào clipboard!', 'success');
+                            } else {
+                                alert('Đã copy link quiz vào clipboard!');
+                            }
                         }
                     });
                 }
@@ -412,6 +419,7 @@
         <div id="quiz-container" class="hidden">
     <!-- Thanh HUD dính: luôn thấy tiến trình + giờ khi cuộn câu hỏi dài -->
     <div id="quiz-hud">
+        <a href="../../index.html" id="hud-home-btn" title="Về trang chủ" aria-label="Về trang chủ"><i class="fas fa-home"></i></a>
         <span class="hud-counter" id="hud-counter">Câu 1</span>
         <div class="hud-progress"><div id="hud-progress-fill" style="width:0%"></div></div>
         <div id="timerDisplay" class="hidden"></div>
@@ -465,8 +473,12 @@
         </div>
     </div>
 
-    <!-- Nút bôi vàng nổi khi bôi đen chữ trong đề -->
-    <button id="hl-float-btn" type="button"><i class="fas fa-highlighter"></i> Bôi vàng</button>
+    <!-- Thanh công cụ định dạng nổi khi bôi đen chữ (đề / đáp án / giải thích / mở rộng / ghi chú) -->
+    <div id="annot-toolbar" role="toolbar" aria-label="Định dạng ghi chú">
+        <button type="button" data-annot-action="highlight" title="Bôi vàng"><i class="fas fa-highlighter"></i></button>
+        <button type="button" data-annot-action="bold" title="In đậm"><i class="fas fa-bold"></i></button>
+        <button type="button" data-annot-action="italic" title="In nghiêng"><i class="fas fa-italic"></i></button>
+    </div>
 
     <!-- Lớp phủ phóng to ảnh -->
     <div id="img-lightbox" class="hidden"><img src="" alt="Ảnh phóng to" /></div>

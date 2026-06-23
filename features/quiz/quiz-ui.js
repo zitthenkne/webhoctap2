@@ -257,7 +257,9 @@ export function showResults(totalTime) {
         const userAnswerText = !isUnanswered ? parseMarkdown(answerOptions[userAnswerIndex]) : '';
         const correctAnswerText = parseMarkdown(answerOptions[q.correctAnswerIndex]);
         const cfg = statusConfig[status];
-        const hasExplanation = q.explanation && String(q.explanation).trim();
+        const correctOptionExp = q.optionExplanations && q.optionExplanations[q.correctAnswerIndex] && String(q.optionExplanations[q.correctAnswerIndex]).trim();
+        const explanationText = correctOptionExp || (q.explanation && String(q.explanation).trim());
+        const hasExplanation = !!explanationText;
 
         return `
         <div class="result-item rounded-xl border ${cfg.wrap} overflow-hidden transition-all" data-status="${status}">
@@ -286,7 +288,7 @@ export function showResults(totalTime) {
                 </div>
                 ${hasExplanation ? `
                 <div class="mt-1 p-2.5 bg-amber-50/60 border border-amber-100 rounded-lg text-gray-600">
-                    <span class="font-semibold text-gray-700"><i class="fas fa-lightbulb text-amber-400 mr-1"></i>Giải thích:</span> ${parseMarkdown(q.explanation)}
+                    <span class="font-semibold text-gray-700"><i class="fas fa-lightbulb text-amber-400 mr-1"></i>Giải thích:</span> ${parseMarkdown(explanationText)}
                 </div>` : ''}
             </div>
         </div>`;

@@ -27,6 +27,7 @@ let isLibraryFullyLoaded = false;
 let isBulkMoving = false;
 let libraryLayoutMode = localStorage.getItem('libraryLayoutMode') || 'grid';
 let currentFolderPage = 1;
+let foldersExpanded = false; // false: phân trang 10 thư mục/trang; true: hiện tất cả
 
 // Sắp xếp, lọc & ghim
 let librarySortMode = localStorage.getItem('librarySortMode') || 'newest'; // newest | oldest | name | count
@@ -43,6 +44,30 @@ const FOLDER_COLORS = {
     red: { bg: 'bg-red-50/50 hover:bg-red-50 border-red-100', iconBg: 'bg-red-100 text-red-600' },
     indigo: { bg: 'bg-indigo-50/50 hover:bg-indigo-50 border-indigo-100', iconBg: 'bg-indigo-100 text-indigo-600' }
 };
+
+// Bảng màu rút gọn cho thao tác "đổi màu nhanh" trong menu thư mục
+const FOLDER_SWATCHES = [
+    { key: 'amber', hex: '#f59e0b', label: 'Hổ phách' },
+    { key: 'pink', hex: '#ec4899', label: 'Hồng' },
+    { key: 'red', hex: '#ef4444', label: 'Đỏ' },
+    { key: 'green', hex: '#22c55e', label: 'Xanh lá' },
+    { key: 'blue', hex: '#3b82f6', label: 'Xanh dương' },
+    { key: 'indigo', hex: '#6366f1', label: 'Chàm' },
+    { key: 'purple', hex: '#a855f7', label: 'Tím' }
+];
+
+// Sắp xếp thư mục: ghim lên đầu → theo thứ tự kéo-thả thủ công → mới nhất trước
+function sortUserFolders() {
+    userFolders.sort((a, b) => {
+        const ap = a.pinned ? 1 : 0;
+        const bp = b.pinned ? 1 : 0;
+        if (ap !== bp) return bp - ap;
+        const ao = (typeof a.order === 'number') ? a.order : Number.MAX_SAFE_INTEGER;
+        const bo = (typeof b.order === 'number') ? b.order : Number.MAX_SAFE_INTEGER;
+        if (ao !== bo) return ao - bo;
+        return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+}
 
 // Getters & Setters cho câu hỏi upload
 export function getQuestions() { return questions; }
@@ -365,7 +390,7 @@ export async function loadAndDisplayLibrary(page = 1) {
         const qFolders = query(collection(db, "quiz_folders"), where("userId", "==", user.uid));
         const querySnapshotFolders = await getDocs(qFolders);
         userFolders = querySnapshotFolders.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
-        userFolders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        sortUserFolders();
 
         const q = query(
             collection(db, "quiz_sets"),
@@ -599,22 +624,32 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
     if (foldersContainer) {
         foldersContainer.innerHTML = '';
         if (!isSearching && currentFolderId === null) {
-            const totalFolderPages = Math.ceil(userFolders.length / FOLDERS_PER_PAGE) || 1;
-            if (currentFolderPage > totalFolderPages) currentFolderPage = totalFolderPages;
-            if (currentFolderPage < 1) currentFolderPage = 1;
-            
-            const startIdx = (currentFolderPage - 1) * FOLDERS_PER_PAGE;
-            const endIdx = startIdx + FOLDERS_PER_PAGE;
-            const foldersToDisplay = userFolders.slice(startIdx, endIdx);
+            const totalFolders = userFolders.length;
+            const showAll = foldersExpanded || totalFolders <= FOLDERS_PER_PAGE;
+            const totalFolderPages = Math.ceil(totalFolders / FOLDERS_PER_PAGE) || 1;
+
+            let foldersToDisplay;
+            if (showAll) {
+                foldersToDisplay = userFolders;
+                currentFolderPage = 1;
+            } else {
+                if (currentFolderPage > totalFolderPages) currentFolderPage = totalFolderPages;
+                if (currentFolderPage < 1) currentFolderPage = 1;
+                const startIdx = (currentFolderPage - 1) * FOLDERS_PER_PAGE;
+                foldersToDisplay = userFolders.slice(startIdx, startIdx + FOLDERS_PER_PAGE);
+            }
 
             foldersToDisplay.forEach((folder) => {
                 const card = document.createElement('div');
                 const colorVal = folder.color || 'amber';
                 const iconClass = folder.icon || 'fa-folder';
                 const count = userQuizSets.filter(q => q.folderId === folder.id).length;
+                const isPinnedFolder = !!folder.pinned;
 
-                card.className = 'folder-mini-card w-[200px] flex-shrink-0 md:w-auto md:flex-initial';
+                card.className = 'folder-mini-card';
                 card.setAttribute('data-id', folder.id);
+                card.setAttribute('draggable', 'true');
+                if (isPinnedFolder) card.classList.add('is-pinned');
 
                 let iconStyle = '';
                 if (colorVal.startsWith('#')) {
@@ -627,11 +662,20 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                     iconStyle = `class="folder-icon-wrapper ${theme.iconBg}"`;
                 }
 
-                const wrapperHTML = colorVal.startsWith('#') 
+                const wrapperHTML = colorVal.startsWith('#')
                     ? `<div class="folder-icon-wrapper" ${iconStyle}><i class="fas ${iconClass}"></i></div>`
                     : `<div ${iconStyle}><i class="fas ${iconClass}"></i></div>`;
 
+                const pinBadge = isPinnedFolder
+                    ? `<span class="folder-pin-badge" title="Đã ghim"><i class="fas fa-thumbtack"></i></span>`
+                    : '';
+
+                const swatchHTML = FOLDER_SWATCHES.map(s =>
+                    `<button type="button" class="folder-color-dot ${s.key === colorVal ? 'is-active' : ''}" data-color="${s.key}" style="background:${s.hex}" title="${s.label}" aria-label="${s.label}"></button>`
+                ).join('');
+
                 card.innerHTML = `
+                    ${pinBadge}
                     <div class="folder-mini-card-content folder-click-area">
                         ${wrapperHTML}
                         <div class="min-w-0">
@@ -641,9 +685,15 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                     </div>
                     <div class="relative flex items-center">
                         <button class="folder-menu-btn w-6 h-6 flex items-center justify-center text-gray-400 hover:text-pink-500 rounded-full focus:outline-none" data-id="${folder.id}"><i class="fas fa-ellipsis-v text-xs"></i></button>
-                        <div class="folder-menu hidden absolute right-0 top-7 bg-white rounded-lg shadow-lg border border-pink-100 z-30 min-w-[120px]">
-                            <button class="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-pink-50 rename-folder-btn" data-id="${folder.id}" data-name="${folder.name}"><i class="fas fa-edit mr-2 text-blue-400"></i>Đổi tên</button>
-                            <button class="block w-full text-left px-4 py-2 text-xs text-red-700 hover:bg-pink-50 delete-folder-btn" data-id="${folder.id}"><i class="fas fa-trash-alt mr-2 text-red-400"></i>Xóa</button>
+                        <div class="folder-menu hidden absolute right-0 top-7 bg-white rounded-xl shadow-xl border border-pink-100 z-30 min-w-[180px] p-1">
+                            <button class="block w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-gray-700 hover:bg-pink-50 pin-folder-btn" data-id="${folder.id}"><i class="fas fa-thumbtack mr-2 ${isPinnedFolder ? 'text-pink-500' : 'text-gray-400'}"></i>${isPinnedFolder ? 'Bỏ ghim' : 'Ghim lên đầu'}</button>
+                            <button class="block w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-gray-700 hover:bg-pink-50 rename-folder-btn" data-id="${folder.id}" data-name="${folder.name}"><i class="fas fa-pen mr-2 text-blue-400"></i>Sửa tên, icon &amp; màu</button>
+                            <div class="px-3 pt-2 pb-1">
+                                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Đổi màu nhanh</p>
+                                <div class="folder-color-row">${swatchHTML}</div>
+                            </div>
+                            <div class="h-px bg-gray-100 my-1"></div>
+                            <button class="block w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-red-600 hover:bg-red-50 delete-folder-btn" data-id="${folder.id}"><i class="fas fa-trash-alt mr-2 text-red-400"></i>Xóa thư mục</button>
                         </div>
                     </div>
                 `;
@@ -658,10 +708,23 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                 const menu = card.querySelector('.folder-menu');
                 menuBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
+                    const isHidden = menu.classList.contains('hidden');
                     document.querySelectorAll('.quiz-menu, .folder-menu').forEach(m => {
                         if (m !== menu) m.classList.add('hidden');
                     });
-                    menu.classList.toggle('hidden');
+                    if (isHidden) {
+                        positionFolderMenu(menu, menuBtn); // dùng position:fixed để không bị khung thư mục cắt
+                    } else {
+                        resetFolderMenuPosition(menu);
+                    }
+                });
+                // Ngăn click bên trong menu làm điều hướng vào thư mục
+                menu.addEventListener('click', (e) => e.stopPropagation());
+
+                card.querySelector('.pin-folder-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    menu.classList.add('hidden');
+                    toggleFolderPin(folder.id, !isPinnedFolder);
                 });
 
                 card.querySelector('.rename-folder-btn').addEventListener('click', (e) => {
@@ -670,13 +733,35 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                     openFolderModal('edit', folder.id, folder.name);
                 });
 
+                card.querySelectorAll('.folder-color-dot').forEach(dot => {
+                    dot.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const newColor = dot.getAttribute('data-color');
+                        if (newColor === colorVal) { menu.classList.add('hidden'); return; }
+                        menu.classList.add('hidden');
+                        quickSetFolderColor(folder.id, newColor);
+                    });
+                });
+
                 card.querySelector('.delete-folder-btn').addEventListener('click', (e) => {
                     e.stopPropagation();
                     menu.classList.add('hidden');
                     confirmDeleteFolder(folder.id);
                 });
 
-                // Drag & Drop Folder
+                // Kéo thư mục để sắp xếp lại thứ tự
+                card.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('application/x-folder', folder.id);
+                    card.classList.add('folder-dragging');
+                });
+                card.addEventListener('dragend', () => {
+                    card.classList.remove('folder-dragging');
+                    document.querySelectorAll('.folder-mini-card.drop-target')
+                        .forEach(c => c.classList.remove('drop-target'));
+                });
+
+                // Drag & Drop: nhận bộ đề (di chuyển) hoặc thư mục (sắp xếp lại)
                 card.addEventListener('dragover', (e) => {
                     e.preventDefault();
                     e.dataTransfer.dropEffect = 'move';
@@ -691,9 +776,15 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                 card.addEventListener('drop', async (e) => {
                     e.preventDefault();
                     card.classList.remove('drop-target');
+
+                    const draggedFolderId = e.dataTransfer.getData('application/x-folder');
+                    if (draggedFolderId) {
+                        await reorderFolders(draggedFolderId, folder.id);
+                        return;
+                    }
+
                     const quizId = e.dataTransfer.getData('text/plain');
                     if (!quizId) return;
-                    
                     try {
                         isLibraryFullyLoaded = false;
                         const quizDocRef = doc(db, "quiz_sets", quizId);
@@ -708,13 +799,16 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
 
                 foldersContainer.appendChild(card);
             });
-            renderFoldersPagination(userFolders.length, currentFolderPage, totalFolderPages);
-        } else {
-            const folderPaginationContainer = document.getElementById('folders-pagination');
-            if (folderPaginationContainer) {
-                folderPaginationContainer.innerHTML = '';
-                folderPaginationContainer.classList.add('hidden');
+
+            if (!showAll) {
+                renderFoldersPagination(totalFolders, currentFolderPage, totalFolderPages);
+            } else {
+                clearFoldersPagination();
             }
+            renderFoldersToggle(totalFolders);
+        } else {
+            clearFoldersPagination();
+            renderFoldersToggle(0);
         }
     }
 
@@ -1109,6 +1203,82 @@ function renderLibraryPagination(quizzesToDisplay, currentPage, totalPages) {
     });
 }
 
+// Hiện menu thư mục bằng position:fixed (định vị theo viewport) để menu không bị
+// container cuộn ngang hay khung thẻ cắt mất phần dưới.
+function positionFolderMenu(menu, btn) {
+    menu.style.position = 'fixed';
+    menu.style.zIndex = '60';
+    menu.style.right = 'auto';  // huỷ class Tailwind right-0 (nếu không menu sẽ bị kéo giãn)
+    menu.style.bottom = 'auto';
+    menu.style.top = '-9999px';
+    menu.style.left = '-9999px';
+    menu.classList.remove('hidden'); // bỏ ẩn để đo được kích thước thật
+
+    const margin = 8;
+    const br = btn.getBoundingClientRect();
+    const mw = menu.offsetWidth;
+    const mh = menu.offsetHeight;
+
+    let left = br.right - mw; // canh mép phải menu với mép phải nút ⋮
+    if (left + mw > window.innerWidth - margin) left = window.innerWidth - margin - mw;
+    if (left < margin) left = margin;
+
+    let top = br.bottom + 6; // mặc định thả xuống dưới
+    if (top + mh > window.innerHeight - margin) {
+        top = br.top - 6 - mh; // không đủ chỗ thì bật lên trên nút
+        if (top < margin) top = margin;
+    }
+
+    menu.style.top = top + 'px';
+    menu.style.left = left + 'px';
+}
+
+function resetFolderMenuPosition(menu) {
+    menu.classList.add('hidden');
+    menu.style.position = '';
+    menu.style.zIndex = '';
+    menu.style.right = '';
+    menu.style.bottom = '';
+    menu.style.top = '';
+    menu.style.left = '';
+}
+
+function clearFoldersPagination() {
+    const paginationContainer = document.getElementById('folders-pagination');
+    if (paginationContainer) {
+        paginationContainer.innerHTML = '';
+        paginationContainer.classList.add('hidden');
+    }
+}
+
+// Nút "Xem tất cả / Thu gọn" thư mục — chỉ hiện khi có nhiều hơn 1 trang
+function renderFoldersToggle(totalFolders) {
+    const toggle = document.getElementById('folders-toggle');
+    if (!toggle) return;
+
+    if (totalFolders <= FOLDERS_PER_PAGE) {
+        toggle.innerHTML = '';
+        toggle.classList.add('hidden');
+        return;
+    }
+
+    toggle.classList.remove('hidden');
+    toggle.innerHTML = '';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'folders-toggle-btn';
+    btn.innerHTML = foldersExpanded
+        ? '<i class="fas fa-chevron-up text-[10px]"></i> Thu gọn'
+        : `<i class="fas fa-layer-group text-[10px]"></i> Xem tất cả (${totalFolders})`;
+    btn.addEventListener('click', () => {
+        foldersExpanded = !foldersExpanded;
+        currentFolderPage = 1;
+        renderLibrary(userQuizSets, currentLibraryPage);
+    });
+    toggle.appendChild(btn);
+}
+
 function renderFoldersPagination(totalFolders, currentPage, totalPages) {
     const paginationContainer = document.getElementById('folders-pagination');
     if (!paginationContainer) return;
@@ -1195,10 +1365,15 @@ export async function editQuizSetTitle(quizId, currentTitle) {
 export function renderBreadcrumb() {
     const breadcrumb = document.getElementById('folder-breadcrumb');
     if (!breadcrumb) return;
-    
+
     if (currentFolderId === null) {
+        // Ở thư viện gốc thì ẩn breadcrumb cho gọn (đã có tiêu đề trang)
+        breadcrumb.classList.add('hidden');
+        breadcrumb.classList.remove('flex');
         breadcrumb.innerHTML = `<span class="font-semibold text-pink-500"><i class="fas fa-home mr-1"></i>Thư viện gốc</span>`;
     } else {
+        breadcrumb.classList.remove('hidden');
+        breadcrumb.classList.add('flex');
         const currentFolder = userFolders.find(f => f.id === currentFolderId);
         const folderName = currentFolder ? currentFolder.name : 'Thư mục không tên';
         const iconClass = currentFolder && currentFolder.icon ? currentFolder.icon : 'fa-folder';
@@ -1246,7 +1421,7 @@ export function openFolderModal(mode = 'create', folderId = null, folderName = '
     
     if (!modal || !title || !input) return;
     
-    title.textContent = mode === 'create' ? 'Tạo thư mục mới' : 'Đổi tên thư mục';
+    title.textContent = mode === 'create' ? 'Tạo thư mục mới' : 'Sửa thư mục';
     input.value = folderName;
     input.classList.remove('border-red-400');
     
@@ -1272,37 +1447,89 @@ export function closeFolderModal() {
 }
 
 function updateFolderModalPickers() {
-    // Cập nhật các trạng thái chọn Icon & Màu trong DOM Modal
+    // Icon có khớp với một mẫu sẵn có không? Nếu không thì là icon tùy chọn.
+    const isPresetIcon = !!document.querySelector(`.icon-option[data-icon="${selectedFolderIcon}"]`);
     document.querySelectorAll('.icon-option').forEach(btn => {
-        const icon = btn.getAttribute('data-icon');
-        if (icon === selectedFolderIcon) {
-            btn.classList.add('bg-pink-100', 'text-pink-600', 'ring-2', 'ring-pink-400');
-        } else {
-            btn.classList.remove('bg-pink-100', 'text-pink-600', 'ring-2', 'ring-pink-400');
-        }
+        const active = btn.getAttribute('data-icon') === selectedFolderIcon;
+        btn.classList.toggle('bg-pink-100', active);
+        btn.classList.toggle('text-pink-600', active);
+        btn.classList.toggle('ring-2', active);
+        btn.classList.toggle('ring-pink-400', active);
     });
+    // Ô nhập tùy chọn: chỉ điền khi đang dùng icon ngoài danh sách mẫu
+    const iconInput = document.getElementById('folderIconInput');
+    if (iconInput) iconInput.value = isPresetIcon ? '' : (selectedFolderIcon || '');
 
+    const isCustomColor = typeof selectedFolderColor === 'string' && selectedFolderColor.startsWith('#');
     document.querySelectorAll('.color-option').forEach(btn => {
-        const color = btn.getAttribute('data-color');
-        if (color === selectedFolderColor) {
-            btn.classList.add('ring-4', 'ring-offset-2', 'ring-pink-400');
-        } else {
-            btn.classList.remove('ring-4', 'ring-offset-2', 'ring-pink-400');
-        }
+        const active = !isCustomColor && btn.getAttribute('data-color') === selectedFolderColor;
+        btn.classList.toggle('ring-4', active);
+        btn.classList.toggle('ring-offset-2', active);
+        btn.classList.toggle('ring-pink-400', active);
     });
-
-    // custom picker
     const colorInput = document.getElementById('folderColorInput');
-    if (colorInput && selectedFolderColor.startsWith('#')) {
-        colorInput.value = selectedFolderColor;
-        const textSpan = document.getElementById('folderColorText');
+    const textSpan = document.getElementById('folderColorText');
+    if (isCustomColor) {
+        if (colorInput) colorInput.value = selectedFolderColor;
         if (textSpan) textSpan.textContent = selectedFolderColor.toUpperCase();
     }
-    
-    const iconInput = document.getElementById('folderIconInput');
-    if (iconInput && selectedFolderIcon && !['fa-folder', 'fa-book', 'fa-graduation-cap', 'fa-heartbeat', 'fa-stethoscope'].includes(selectedFolderIcon)) {
-        iconInput.value = selectedFolderIcon;
+}
+
+// Các token chỉ kiểu dáng (style) của FontAwesome — không phải tên icon
+const FA_STYLE_TOKENS = new Set([
+    'fa', 'fas', 'far', 'fab', 'fal', 'fat', 'fad', 'fass',
+    'fa-solid', 'fa-regular', 'fa-brands', 'fa-light', 'fa-thin', 'fa-duotone', 'fa-sharp'
+]);
+
+// Nhận diện tên icon từ bất kỳ định dạng nào người dùng dán vào:
+//   "fa-bell"  |  "fas fa-bell"  |  "fa-solid fa-bell"  |  <i class="fa-solid fa-megaphone"></i>
+// Trả về tên icon dạng "fa-bell", hoặc null nếu không tìm thấy.
+function parseFontAwesomeIcon(raw) {
+    if (!raw) return null;
+    let text = String(raw).trim();
+    // Nếu dán nguyên thẻ HTML, lấy nội dung trong class="..."
+    const classMatch = text.match(/class\s*=\s*["']([^"']+)["']/i);
+    if (classMatch) text = classMatch[1];
+    text = text.replace(/[<>"']/g, ' '); // bỏ ký tự thẻ còn sót
+    const tokens = text.split(/\s+/).filter(Boolean);
+    const iconToken = tokens.find(t => t.startsWith('fa-') && !FA_STYLE_TOKENS.has(t));
+    return iconToken || null;
+}
+
+// Chọn icon mẫu trong lưới
+export function selectFolderIcon(icon) {
+    selectedFolderIcon = icon || 'fa-folder';
+    updateFolderModalPickers();
+}
+
+// Đặt icon tùy chọn từ ô nhập (chấp nhận dán nguyên thẻ <i>). Trả về tên icon đã nhận hoặc null.
+export function setCustomFolderIcon(rawText) {
+    const parsed = parseFontAwesomeIcon(rawText);
+    if (parsed) {
+        selectedFolderIcon = parsed;
+        // Đang dùng icon tùy chọn nên bỏ chọn các icon mẫu
+        document.querySelectorAll('.icon-option').forEach(btn => {
+            btn.classList.remove('bg-pink-100', 'text-pink-600', 'ring-2', 'ring-pink-400');
+        });
     }
+    return parsed;
+}
+
+// Chọn màu mẫu
+export function selectFolderColor(color) {
+    selectedFolderColor = color || 'amber';
+    updateFolderModalPickers();
+}
+
+// Đặt màu tùy chọn từ bảng chọn màu (#hex)
+export function setCustomFolderColor(hex) {
+    if (!hex) return;
+    selectedFolderColor = hex;
+    const textSpan = document.getElementById('folderColorText');
+    if (textSpan) textSpan.textContent = hex.toUpperCase();
+    document.querySelectorAll('.color-option').forEach(btn => {
+        btn.classList.remove('ring-4', 'ring-offset-2', 'ring-pink-400');
+    });
 }
 
 export async function saveFolder() {
@@ -1351,6 +1578,69 @@ export async function saveFolder() {
             saveBtn.disabled = false;
             saveBtn.textContent = 'Lưu';
         }
+    }
+}
+
+// Ghim / bỏ ghim thư mục — cập nhật lạc quan rồi đồng bộ Firestore
+async function toggleFolderPin(folderId, pinned) {
+    const folder = userFolders.find(f => f.id === folderId);
+    if (!folder) return;
+    folder.pinned = pinned;
+    sortUserFolders();
+    renderLibrary(userQuizSets, currentLibraryPage);
+    try {
+        await updateDoc(doc(db, "quiz_folders", folderId), { pinned });
+        showToast(pinned ? 'Đã ghim thư mục lên đầu!' : 'Đã bỏ ghim thư mục.', 'success');
+    } catch (err) {
+        console.error("Lỗi khi ghim thư mục:", err);
+        folder.pinned = !pinned; // hoàn tác
+        sortUserFolders();
+        renderLibrary(userQuizSets, currentLibraryPage);
+        showToast('Không thể cập nhật ghim thư mục!', 'error');
+    }
+}
+
+// Đổi màu thư mục ngay trong menu (không cần mở modal)
+async function quickSetFolderColor(folderId, color) {
+    const folder = userFolders.find(f => f.id === folderId);
+    if (!folder) return;
+    const prevColor = folder.color;
+    folder.color = color;
+    renderLibrary(userQuizSets, currentLibraryPage);
+    try {
+        await updateDoc(doc(db, "quiz_folders", folderId), { color });
+    } catch (err) {
+        console.error("Lỗi khi đổi màu thư mục:", err);
+        folder.color = prevColor; // hoàn tác
+        renderLibrary(userQuizSets, currentLibraryPage);
+        showToast('Không thể đổi màu thư mục!', 'error');
+    }
+}
+
+// Kéo-thả sắp xếp lại thứ tự thư mục: ghi lại trường order tuần tự cho toàn bộ
+async function reorderFolders(draggedId, targetId) {
+    if (draggedId === targetId) return;
+    const arr = [...userFolders];
+    const from = arr.findIndex(f => f.id === draggedId);
+    const to = arr.findIndex(f => f.id === targetId);
+    if (from < 0 || to < 0) return;
+
+    const [moved] = arr.splice(from, 1);
+    arr.splice(to, 0, moved);
+
+    // Cập nhật lạc quan trên client
+    arr.forEach((f, idx) => { f.order = idx; });
+    userFolders = arr;
+    sortUserFolders();
+    renderLibrary(userQuizSets, currentLibraryPage);
+
+    try {
+        await Promise.all(arr.map((f, idx) =>
+            updateDoc(doc(db, "quiz_folders", f.id), { order: idx })
+        ));
+    } catch (err) {
+        console.error("Lỗi khi sắp xếp lại thư mục:", err);
+        showToast('Không thể lưu thứ tự thư mục mới!', 'error');
     }
 }
 
