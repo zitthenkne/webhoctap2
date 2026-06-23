@@ -169,6 +169,16 @@
 .qs-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 9999px; background: #fff; transition: transform .2s; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
 .qs-row[aria-checked="true"] .qs-switch { background: #FF69B4; }
 .qs-row[aria-checked="true"] .qs-switch::after { transform: translateX(18px); }
+/* hàng có thanh trượt (độ rõ ảnh nền) — không phải nút bấm */
+.qs-row-slider { cursor: default; }
+.qs-row-slider:hover { background: transparent; }
+.qs-range { -webkit-appearance: none; appearance: none; width: 96px; height: 4px; flex-shrink: 0;
+    border-radius: 9999px; background: #e5d3df; outline: none; cursor: pointer; }
+.qs-range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 15px; height: 15px;
+    border-radius: 9999px; background: #FF69B4; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); cursor: pointer; }
+.qs-range::-moz-range-thumb { width: 15px; height: 15px; border-radius: 9999px; background: #FF69B4;
+    border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); cursor: pointer; }
+.theme-dark .qs-range { background: #3a2d4d; }
 
 /* ============================================================
    3) LOẠI TRỪ ĐÁP ÁN (#4) — gạch bỏ, chạm để hồi phục
@@ -538,10 +548,12 @@ html.theme-dark .shadow-md { box-shadow: 0 6px 20px rgba(0,0,0,0.45) !important;
    ============================================================ */
 .quiz-list-container {
     --indent-step: 1.7rem;                 /* độ thụt mỗi cấp */
+    --base-indent: 1.25rem;                /* thụt nền: cấp 1 cũng được thụt vào */
     --guide-color: rgba(255, 105, 180, 0.22);
     display: flex;
     flex-direction: column;
     margin: 0.55rem 0;
+    padding-left: var(--base-indent);
 }
 .quiz-li {
     display: flex;
@@ -590,3 +602,332 @@ html.theme-dark .shadow-md { box-shadow: 0 6px 20px rgba(0,0,0,0.45) !important;
 html.theme-dark .quiz-list-container { --guide-color: rgba(255, 105, 180, 0.3); }
 html.theme-dark .quiz-li-cont { color: #a99fc0; }
 html.theme-dark .quiz-li-num { color: #f9a8d4; }
+
+/* ============================================================
+   10) GHI CHÚ CÁ NHÂN — panel gọn, thu gọn được, hiện cả ở chế độ tập trung
+   ============================================================ */
+.quiz-note-box {
+    border: 1px solid rgba(255, 105, 180, 0.25);
+    background: linear-gradient(180deg, rgba(255, 240, 246, 0.6), rgba(255, 255, 255, 0.85));
+    border-radius: 0.9rem;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(255, 105, 180, 0.06);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.quiz-note-box:focus-within {
+    box-shadow: 0 4px 16px rgba(255, 105, 180, 0.16);
+    border-color: rgba(255, 105, 180, 0.45);
+}
+.quiz-note-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.7rem 0.9rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    color: #be185d;
+}
+.quiz-note-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #be185d;
+}
+.quiz-note-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 9999px;
+    background: #ec4899;
+    box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.18);
+}
+.quiz-note-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+.quiz-note-chevron {
+    color: #f472b6;
+    font-size: 0.8rem;
+    transition: transform 0.25s ease;
+}
+.quiz-note-box.collapsed .quiz-note-chevron { transform: rotate(180deg); }
+.quiz-note-body {
+    max-height: 400px;
+    opacity: 1;
+    padding: 0 0.9rem 0.85rem;
+    transition: max-height 0.28s ease, opacity 0.2s ease, padding 0.28s ease;
+}
+.quiz-note-box.collapsed .quiz-note-body {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    pointer-events: none;
+}
+.quiz-note-input {
+    width: 100%;
+    min-height: 3rem;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid rgba(255, 105, 180, 0.3);
+    border-radius: 0.6rem;
+    background: rgba(255, 255, 255, 0.9);
+    color: #374151;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    resize: none;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.quiz-note-input:focus {
+    outline: none;
+    border-color: #f472b6;
+    box-shadow: 0 0 0 3px rgba(244, 114, 182, 0.2);
+}
+.quiz-note-input::placeholder { color: #9ca3af; }
+.quiz-note-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.45rem;
+}
+.quiz-note-count {
+    font-size: 0.7rem;
+    color: #9ca3af;
+}
+.quiz-note-clear {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.18);
+    border-radius: 9999px;
+    padding: 0.18rem 0.6rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+.quiz-note-clear:hover { background: rgba(239, 68, 68, 0.16); }
+
+/* Chế độ tập trung: nền dịu hơn để không lấn nội dung chính */
+body.focus-mode-active .quiz-note-box {
+    margin-top: 1rem;
+    background: rgba(255, 255, 255, 0.72);
+}
+
+/* Dark mode cho panel ghi chú */
+html.theme-dark .quiz-note-box {
+    border-color: rgba(244, 114, 182, 0.28);
+    background: linear-gradient(180deg, rgba(60, 40, 55, 0.5), rgba(40, 32, 48, 0.6));
+}
+html.theme-dark .quiz-note-header,
+html.theme-dark .quiz-note-title { color: #f9a8d4; }
+html.theme-dark .quiz-note-input {
+    background: rgba(30, 24, 38, 0.8);
+    color: #e5e1ee;
+    border-color: rgba(244, 114, 182, 0.3);
+}
+html.theme-dark .quiz-note-input::placeholder { color: #8a7fa3; }
+html.theme-dark .quiz-note-count { color: #8a7fa3; }
+
+/* ============================================================
+   11) BỐ CỤC 3 CỘT (màn rộng ≥1024px): số câu (trái) | bài làm (giữa) | ghi chú (phải)
+   - Tận dụng khoảng trống hai bên trên desktop / iPad nằm ngang
+   - Màn hẹp hơn: tự xếp 1 cột như cũ (số câu trên, ghi chú dưới)
+   ============================================================ */
+#quiz-workspace {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    align-items: start;
+}
+#quiz-main { min-width: 0; }            /* tránh tràn ngang khi nội dung dài */
+.quiz-side-panel { min-width: 0; }
+/* Hàng nút "Nộp bài" luôn trải đủ rộng dưới các cột; trên mobile nằm sau ghi chú */
+#quiz-submit-row { grid-column: 1 / -1; }
+
+/* Màn kết quả: hai cột bên đã ẩn -> dồn bài làm/kết quả về 1 cột tràn rộng */
+#quiz-workspace.results-active { grid-template-columns: 1fr !important; }
+
+@media (min-width: 1024px) {
+    #quiz-workspace {
+        grid-template-columns: 13rem minmax(0, 1fr) 16rem;
+        gap: 1.25rem;
+    }
+    .quiz-side-panel {
+        position: sticky;
+        top: 3.5rem;                    /* nằm ngay dưới thanh HUD dính */
+        max-height: calc(100vh - 4.5rem);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
+    }
+    /* Bảng số câu gọn trong cột trái (căn trái thay vì giữa) */
+    #quiz-nav-panel #question-nav-wrapper { justify-content: flex-start; }
+    /* Ghi chú ở cột phải canh đỉnh cột */
+    #quiz-note-panel .quiz-note-box { margin-top: 0; }
+}
+
+/* Chế độ tập trung: gập về 1 cột, bỏ sticky (ghi chú nằm dưới bài làm),
+   giữ bề rộng đọc thoải mái như cũ (căn giữa, không kéo dài cả màn hình rộng) */
+body.focus-mode-active #quiz-workspace { grid-template-columns: 1fr !important; }
+body.focus-mode-active .quiz-side-panel {
+    position: static !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+body.focus-mode-active #quiz-main,
+body.focus-mode-active #quiz-note-panel,
+body.focus-mode-active #quiz-submit-row {
+    width: 100%;
+    max-width: 56rem;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Thanh cuộn mảnh, dịu cho hai cột bên hông (WebKit) */
+.quiz-side-panel::-webkit-scrollbar { width: 6px; }
+.quiz-side-panel::-webkit-scrollbar-thumb {
+    background: rgba(255, 105, 180, 0.25);
+    border-radius: 9999px;
+}
+html.theme-dark .quiz-side-panel::-webkit-scrollbar-thumb { background: rgba(244, 114, 182, 0.3); }
+
+/* ============================================================
+   12) ĐÁNH DẤU CÂU HỎI THEO LÝ DO — menu chọn lý do + nhãn ở màn kết quả
+   ============================================================ */
+.mark-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.4rem);
+    z-index: 40;
+    width: 16rem;
+    max-width: 80vw;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 0.85rem;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+    padding: 0.4rem;
+    animation: mark-menu-in 0.14s ease-out;
+}
+@keyframes mark-menu-in {
+    from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.mark-menu-title {
+    padding: 0.3rem 0.55rem 0.35rem;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #9ca3af;
+}
+.mark-reason-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.55rem;
+    border: none;
+    background: transparent;
+    border-radius: 0.6rem;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    color: #374151;
+    transition: background 0.12s ease;
+}
+.mark-reason-item:hover { background: #f3f4f6; }
+.mark-reason-item.is-active { background: #fdf2f8; box-shadow: inset 0 0 0 1px rgba(244, 114, 182, 0.35); }
+.mark-reason-ic {
+    width: 1.85rem;
+    height: 1.85rem;
+    flex-shrink: 0;
+    border-radius: 0.55rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.82rem;
+}
+.mark-reason-label { flex: 1; font-size: 0.85rem; font-weight: 600; }
+.mark-reason-check { color: #ec4899; font-size: 0.8rem; }
+.mark-reason-unmark { color: #dc2626; }
+.mark-reason-unmark:hover { background: #fef2f2; }
+.mark-menu-divider { height: 1px; background: rgba(0, 0, 0, 0.06); margin: 0.3rem 0.2rem; }
+
+/* Nhãn lý do đánh dấu ở danh sách chi tiết kết quả */
+.q-mark-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 0.05rem 0.4rem;
+    border-radius: 9999px;
+    white-space: nowrap;
+}
+
+/* Dark mode cho menu lý do */
+html.theme-dark .mark-menu {
+    background: #241b33;
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+html.theme-dark .mark-reason-item { color: #e5e1ee; }
+html.theme-dark .mark-reason-item:hover { background: rgba(255, 255, 255, 0.06); }
+html.theme-dark .mark-reason-item.is-active { background: rgba(244, 114, 182, 0.12); }
+html.theme-dark .mark-reason-unmark { color: #f87171; }
+html.theme-dark .mark-reason-unmark:hover { background: rgba(248, 113, 113, 0.12); }
+html.theme-dark .mark-menu-divider { background: rgba(255, 255, 255, 0.08); }
+
+/* ============================================================
+   MÀN HÌNH CẤU HÌNH — toggle & thẻ tùy chọn (sáng + tối)
+   ============================================================ */
+
+/* Thẻ tùy chọn: chuyển động mượt + nhấc nhẹ khi rê chuột cho cảm giác cao cấp */
+#quiz-options-grid > label,
+#quiz-options-grid > div {
+    transition: border-color .2s ease, background-color .2s ease, box-shadow .2s ease, transform .15s ease;
+}
+#quiz-options-grid > label:hover,
+#quiz-options-grid > div:hover { transform: translateY(-1px); }
+
+/* Thẻ ĐANG CHỌN: viền hồng + nền nổi nhẹ + bóng dịu (cả 2 chế độ) */
+#quiz-options-grid > label:has(input:checked),
+#quiz-options-grid > div:has(input:checked) {
+    border-color: rgba(244, 114, 182, 0.55) !important;
+    background-color: rgba(244, 114, 182, 0.07) !important;
+    box-shadow: 0 6px 18px rgba(244, 114, 182, 0.12);
+}
+html.theme-dark #quiz-options-grid > label:has(input:checked),
+html.theme-dark #quiz-options-grid > div:has(input:checked) {
+    border-color: rgba(244, 114, 182, 0.5) !important;
+    background-color: rgba(244, 114, 182, 0.12) !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+/* Track toggle khi BẬT: thêm glow nhẹ theo màu để trông sống động, chuyên nghiệp hơn */
+#quiz-options-grid .peer:checked ~ div { box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06), 0 2px 8px rgba(0, 0, 0, 0.18); }
+
+/* ============================================================
+   MẸO ÔN TẬP (dải gợi ý xoay vòng ở màn cấu hình)
+   ============================================================ */
+#quiz-tip-next i { transition: transform .4s ease; }
+#quiz-tip-next:hover i { transform: rotate(180deg); }
+html.theme-dark #quiz-tip { background-color: #352a14 !important; border-color: rgba(251, 191, 36, 0.18) !important; }
+html.theme-dark #quiz-tip .text-amber-800,
+html.theme-dark #quiz-tip-text { color: #fcd34d !important; }
+html.theme-dark #quiz-tip .bg-amber-100 { background-color: rgba(251, 191, 36, 0.16) !important; }
+html.theme-dark #quiz-tip-next { background-color: rgba(255, 255, 255, 0.06) !important; border-color: rgba(251, 191, 36, 0.25) !important; color: #fcd34d !important; }
+
+/* DARK FIX: bảo đảm track toggle hiện ĐÚNG màu khi BẬT
+   (rule .bg-gray-200 !important của dark mode vốn đè mất màu peer-checked) */
+html.theme-dark #shuffle-questions-checkbox:checked ~ div,
+html.theme-dark #timed-mode-checkbox:checked ~ div { background-color: #FF69B4 !important; }
+html.theme-dark #shuffle-answers-checkbox:checked ~ div { background-color: #22d3ee !important; }
+html.theme-dark #enable-question-count-checkbox:checked ~ div { background-color: #a78bfa !important; }
+html.theme-dark #show-answer-immediately-checkbox:checked ~ div { background-color: #4ade80 !important; }

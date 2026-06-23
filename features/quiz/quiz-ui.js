@@ -1,6 +1,6 @@
 // features/quiz/quiz-ui.js
 
-import { state } from './quiz-state.js';
+import { state, MARK_REASONS } from './quiz-state.js';
 import { parseMarkdown, renderMath, convertScoreToGPA, formatTime, triggerConfetti } from './quiz-helpers.js';
 
 export function showSubmitQuizBtn(show) {
@@ -29,7 +29,9 @@ export function renderQuizProgressBar() {
         let markerHtml = '';
         
         if (isMarked) {
-            markerHtml = `<span class="absolute -top-1 -right-1 flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-yellow-500"></span></span>`;
+            const rk = (state.markedReasons && state.markedReasons[i]) || 'review';
+            const mc = (MARK_REASONS[rk] && MARK_REASONS[rk].color) || '#eab308';
+            markerHtml = `<span class="absolute -top-1 -right-1 flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style="background:${mc}"></span><span class="relative inline-flex rounded-full h-3 w-3" style="background:${mc}"></span></span>`;
         }
 
         if (i === state.currentIndex) {
@@ -75,8 +77,13 @@ export function renderPreviewQuestions() {
         return;
     }
 
-    const previewCount = Math.min(state.originalQuestions.length, 5);
+    const total = state.originalQuestions.length;
+    const previewCount = Math.min(total, 5);
     const previewQuestions = state.originalQuestions.slice(0, previewCount);
+
+    // Cập nhật huy hiệu đếm: "X / Y câu"
+    const badge = document.getElementById('preview-count-badge');
+    if (badge) badge.innerHTML = `<i class="fas fa-layer-group"></i> ${previewCount} / ${total} câu`;
 
     let html = '';
     previewQuestions.forEach((q, idx) => {
@@ -84,25 +91,36 @@ export function renderPreviewQuestions() {
         let answersHtml = '';
         if (answerOptions && Array.isArray(answerOptions)) {
             answersHtml = `
-                <ul class="preview-answers-2col">
+                <ul class="qpc-answers">
                     ${answerOptions.map((ans, aIdx) => `
-                        <li class="preview-answer-item">
-                            <span class="font-bold mr-1">${String.fromCharCode(65 + aIdx)}:</span> ${parseMarkdown(ans)}
+                        <li class="qpc-ans">
+                            <span class="qpc-letter">${String.fromCharCode(65 + aIdx)}</span>
+                            <span class="qpc-text">${parseMarkdown(ans)}</span>
                         </li>
                     `).join('')}
                 </ul>
             `;
         } else {
-            answersHtml = `<div class="preview-no-answers text-gray-400 italic text-xs">Không có đáp án.</div>`;
+            answersHtml = `<div class="preview-no-answers">Không có đáp án.</div>`;
         }
 
         html += `
-            <li class="p-3 bg-pink-50/40 rounded-xl border border-pink-100/60 shadow-sm transition hover:bg-pink-50">
-                <div class="preview-question-text text-pink-600 font-bold block mb-2 text-sm">Câu ${idx + 1}: ${parseMarkdown(q.question)}</div>
+            <li class="quiz-preview-card">
+                <div class="qpc-head">
+                    <span class="qpc-num">${idx + 1}</span>
+                    <div class="qpc-q">${parseMarkdown(q.question)}</div>
+                </div>
                 ${answersHtml}
             </li>
         `;
     });
+
+    // Lưu ý: đáp án đúng được giấu cho tới khi làm bài
+    html += `
+        <li class="quiz-preview-foot">
+            <i class="fas fa-lock"></i> Đáp án đúng sẽ hiện khi bạn bắt đầu làm bài
+        </li>
+    `;
 
     previewList.innerHTML = html;
     renderMath(previewList);
@@ -136,7 +154,14 @@ export function loadQuizDetails() {
         if (statQuestionsCount) {
             statQuestionsCount.textContent = `${state.originalQuestions.length} câu`;
         }
-        
+
+        // Gợi ý thời gian làm bài (~45 giây/câu, tối thiểu 1 phút)
+        const statDurationEst = document.getElementById('stat-duration-est');
+        if (statDurationEst) {
+            const estMinutes = Math.max(1, Math.round(state.originalQuestions.length * 0.75));
+            statDurationEst.textContent = `≈ ${estMinutes} phút gợi ý`;
+        }
+
         updateStatDuration();
         
         const timedCheckbox = document.getElementById('timed-mode-checkbox');
@@ -241,6 +266,11 @@ export function showResults(totalTime) {
     // #7: số câu người dùng tự nhận là "đoán"
     const guessCount = Object.values(state.confidence || {}).filter(v => v === 'guess').length;
 
+    // Câu đã đánh dấu (kèm lý do) -> hiển thị nhãn trong chi tiết + bộ lọc riêng
+    const markedSet = new Set(state.markedQuestions || []);
+    const markedReasons = state.markedReasons || {};
+    const markedCount = markedSet.size;
+
     const detailedResultsHtml = state.questions.map((q, index) => {
         const userAnswerIndex = state.userAnswers[index];
         const answerOptions = q.answers || q.options;
@@ -261,8 +291,12 @@ export function showResults(totalTime) {
         const explanationText = correctOptionExp || (q.explanation && String(q.explanation).trim());
         const hasExplanation = !!explanationText;
 
+        const markReasonKey = markedSet.has(index) ? (markedReasons[index] || 'review') : '';
+        const mr = markReasonKey ? MARK_REASONS[markReasonKey] : null;
+        const markBadge = mr ? `<span class="q-mark-badge" style="background:${mr.bg};color:${mr.text}" title="Đã đánh dấu: ${mr.label}"><i class="fas ${mr.icon}"></i> ${mr.short}</span>` : '';
+
         return `
-        <div class="result-item rounded-xl border ${cfg.wrap} overflow-hidden transition-all" data-status="${status}">
+        <div class="result-item rounded-xl border ${cfg.wrap} overflow-hidden transition-all" data-status="${status}" data-marked="${markReasonKey}">
             <div class="result-header flex items-start gap-2.5 p-3 cursor-pointer select-none" role="button" tabindex="0" aria-expanded="false">
                 <i class="fas ${cfg.icon} text-lg flex-shrink-0 mt-0.5"></i>
                 <div class="flex-1 min-w-0">
@@ -271,6 +305,7 @@ export function showResults(totalTime) {
                         <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${cfg.pill}">${cfg.label}</span>
                         ${(times[index] > 0) ? `<span class="q-time ${index === slowestIdx && slowestVal >= 5 ? 'q-slow' : ''}" title="Thời gian làm câu này"><i class="fas fa-clock"></i> ${formatTime(times[index])}${index === slowestIdx && slowestVal >= 5 ? ' · lâu nhất' : ''}</span>` : ''}
                         ${state.confidence && state.confidence[index] === 'guess' ? `<span class="q-guess-badge" title="Bạn đã đánh dấu là đoán"><i class="fas fa-dice"></i> Đoán</span>` : ''}
+                        ${markBadge}
                     </div>
                     <div class="result-question text-sm text-gray-700 line-clamp-2">${parseMarkdown(q.question)}</div>
                 </div>
@@ -377,6 +412,7 @@ export function showResults(totalTime) {
                     <button data-filter="wrong" class="result-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Câu sai (${wrongCount})</button>
                     <button data-filter="unanswered" class="result-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Bỏ trống (${unansweredCount})</button>
                     <button data-filter="correct" class="result-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Đúng (${correctCount})</button>
+                    ${markedCount > 0 ? `<button data-filter="marked" class="result-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition"><i class="fas fa-flag mr-1 text-amber-500"></i>Đã đánh dấu (${markedCount})</button>` : ''}
                 </div>
             </div>
             <div id="detailed-results-list" class="space-y-2.5">
@@ -413,7 +449,10 @@ export function showResults(totalTime) {
 
             let visibleCount = 0;
             document.querySelectorAll('#detailed-results-list .result-item').forEach(item => {
-                const match = filter === 'all' || item.getAttribute('data-status') === filter;
+                let match;
+                if (filter === 'all') match = true;
+                else if (filter === 'marked') match = !!item.getAttribute('data-marked');
+                else match = item.getAttribute('data-status') === filter;
                 item.classList.toggle('hidden', !match);
                 if (match) visibleCount++;
             });

@@ -4,7 +4,7 @@ import { db, auth } from '../../core/firebase-init.js';
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { showToast, showConfirm } from '../../core/utils.js';
 
-import { state, resetState, saveQuizState, clearQuizState, saveQuizResult } from './quiz-state.js';
+import { state, resetState, saveQuizState, clearQuizState, saveQuizResult, MARK_REASONS } from './quiz-state.js';
 import {
     renderMermaid,
     ensureMermaidInit,
@@ -37,6 +37,11 @@ let autoSaveInterval = null;
 function getTheme()   { try { return localStorage.getItem('quiz_theme') || 'light'; } catch (e) { return 'light'; } }
 function getSound()   { try { return localStorage.getItem('quiz_sound') === '1'; } catch (e) { return false; } }
 function getVibrate() { try { return localStorage.getItem('quiz_vibrate') !== '0'; } catch (e) { return true; } } // mặc định BẬT
+function getBgOpacity() { // % độ rõ ảnh nền, 0–60, mặc định 28
+    try { const v = parseInt(localStorage.getItem('quiz_bg_opacity'), 10); return isNaN(v) ? 28 : Math.max(0, Math.min(60, v)); }
+    catch (e) { return 28; }
+}
+function applyBgOpacity(pct) { document.documentElement.style.setProperty('--quiz-bg-opacity', pct / 100); }
 
 // --- #15: Phản hồi rung + âm thanh nhẹ khi trả lời ---
 let _audioCtx = null;
@@ -363,12 +368,15 @@ function setupSettings() {
     const rowDark = document.getElementById('qs-dark');
     const rowSound = document.getElementById('qs-sound');
     const rowVibrate = document.getElementById('qs-vibrate');
+    const bgOpacityInput = document.getElementById('qs-bg-opacity');
     if (!fab || !pop) return;
 
     const sync = () => {
         if (rowDark) rowDark.setAttribute('aria-checked', getTheme() === 'dark');
         if (rowSound) rowSound.setAttribute('aria-checked', getSound());
         if (rowVibrate) rowVibrate.setAttribute('aria-checked', getVibrate());
+        if (bgOpacityInput) bgOpacityInput.value = getBgOpacity();
+        applyBgOpacity(getBgOpacity());
     };
     sync();
 
@@ -398,6 +406,16 @@ function setupSettings() {
         if (on && navigator.vibrate) navigator.vibrate(20);
         sync();
     });
+    if (bgOpacityInput) {
+        // Áp ngay khi đang kéo cho cảm giác trực quan; lưu lại để nhớ cho bài sau
+        bgOpacityInput.addEventListener('input', () => {
+            const pct = Math.max(0, Math.min(60, parseInt(bgOpacityInput.value, 10) || 0));
+            applyBgOpacity(pct);
+            setLS('quiz_bg_opacity', String(pct));
+        });
+        // Không đóng popover khi tương tác với thanh trượt
+        bgOpacityInput.addEventListener('click', (e) => e.stopPropagation());
+    }
 }
 
 // --- #3: vuốt trái/phải để chuyển câu (mobile) ---
@@ -597,6 +615,7 @@ function startQuizMode(questionsArray, mode = 'normal', restoreState = null) {
         state.userAnswers = restoreState.userAnswers || new Array(state.questions.length).fill(null);
         state.score = restoreState.score || 0;
         state.markedQuestions = restoreState.markedQuestions || [];
+        state.markedReasons = restoreState.markedReasons || {};
         state.eliminatedAnswers = restoreState.eliminatedAnswers || {};
         state.confidence = restoreState.confidence || {};
         state.questionTimes = restoreState.questionTimes || new Array(state.questions.length).fill(0);
@@ -607,6 +626,7 @@ function startQuizMode(questionsArray, mode = 'normal', restoreState = null) {
         state.score = 0;
         state.quizStartTime = new Date();
         state.markedQuestions = [];
+        state.markedReasons = {};
         state.streak = 0;
         state.used5050Questions = {};
         state.eliminatedAnswers = {};
@@ -667,20 +687,287 @@ function attachToggleNavEvent() {
     }
 }
 
+// Nút "Đánh dấu câu hỏi" nâng cao: bấm để mở menu chọn lý do (khó / tranh cãi / hay / ôn lại).
+// Khi đã đánh dấu, nút đổi màu + nhãn theo lý do; mở lại menu để đổi lý do hoặc bỏ đánh dấu.
+function renderMarkControl() {
+    const idx = state.currentIndex;
+    const isMarked = state.markedQuestions.includes(idx);
+    const reasonKey = isMarked ? (state.markedReasons[idx] || 'review') : null;
+    const r = reasonKey ? MARK_REASONS[reasonKey] : null;
+
+    const btnClass = r
+        ? 'border font-semibold'
+        : 'border border-yellow-400 text-yellow-700 bg-yellow-50 hover:bg-yellow-100';
+    const btnStyle = r ? `style="border-color:${r.color};color:${r.text};background:${r.bg}"` : '';
+
+    const items = Object.entries(MARK_REASONS).map(([key, m]) => `
+        <button type="button" data-mark-reason="${key}" class="mark-reason-item ${reasonKey === key ? 'is-active' : ''}">
+            <span class="mark-reason-ic" style="background:${m.bg};color:${m.color}"><i class="fas ${m.icon}"></i></span>
+            <span class="mark-reason-label">${m.label}</span>
+            ${reasonKey === key ? '<i class="fas fa-check mark-reason-check"></i>' : ''}
+        </button>`).join('');
+
+    const unmark = isMarked ? `
+        <div class="mark-menu-divider"></div>
+        <button type="button" data-mark-reason="__unmark" class="mark-reason-item mark-reason-unmark">
+            <span class="mark-reason-ic" style="background:#fee2e2;color:#ef4444"><i class="fas fa-flag-checkered"></i></span>
+            <span class="mark-reason-label">Bỏ đánh dấu</span>
+        </button>` : '';
+
+    return `
+        <div class="relative" id="mark-control">
+            <button id="mark-question-btn" type="button" class="px-4 py-2 rounded-lg ${btnClass} transition flex items-center gap-2"
+                    ${btnStyle} aria-haspopup="true" aria-expanded="false" title="Đánh dấu câu hỏi theo lý do">
+                <i class="fas ${r ? r.icon : 'fa-flag'}"></i>
+                <span>${r ? r.short : 'Đánh dấu'}</span>
+                <i class="fas fa-chevron-down text-xs opacity-70"></i>
+            </button>
+            <div id="mark-menu" class="mark-menu hidden">
+                <div class="mark-menu-title">Lý do đánh dấu</div>
+                ${items}
+                ${unmark}
+            </div>
+        </div>`;
+}
+
+// Cập nhật trạng thái đánh dấu của một câu theo lý do ('__unmark' để bỏ đánh dấu)
+function applyMark(idx, reason) {
+    if (reason === '__unmark') {
+        state.markedQuestions = state.markedQuestions.filter(i => i !== idx);
+        delete state.markedReasons[idx];
+    } else {
+        if (!state.markedQuestions.includes(idx)) state.markedQuestions.push(idx);
+        state.markedReasons[idx] = reason;
+    }
+    saveQuizState();
+}
+
+// Nối sự kiện cho nút đánh dấu + menu lý do của câu hiện tại.
+// (Đóng menu khi bấm ra ngoài được xử lý bởi 1 listener toàn cục đăng ký lúc DOMContentLoaded.)
+function setupMarkControl() {
+    const markBtn = document.getElementById('mark-question-btn');
+    const markMenu = document.getElementById('mark-menu');
+    if (!markBtn || !markMenu) return;
+
+    markBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const willOpen = markMenu.classList.contains('hidden');
+        markMenu.classList.toggle('hidden', !willOpen);
+        markBtn.setAttribute('aria-expanded', String(willOpen));
+    });
+
+    markMenu.querySelectorAll('[data-mark-reason]').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            applyMark(state.currentIndex, item.getAttribute('data-mark-reason'));
+            showQuestion();
+        });
+    });
+}
+
+// Markup panel ghi chú cá nhân (đặt ở cột phải; logic được nối trong showQuestion)
+function renderPersonalNotePanel() {
+    return `
+        <div id="personal-note-box" class="quiz-note-box">
+            <button type="button" id="note-toggle" class="quiz-note-header" aria-expanded="true" aria-controls="note-body">
+                <span class="quiz-note-title">
+                    <i class="fas fa-sticky-note"></i> Ghi chú cá nhân
+                    <span id="note-dot" class="quiz-note-dot hidden" title="Câu này đã có ghi chú"></span>
+                </span>
+                <span class="quiz-note-meta">
+                    <span id="note-save-status" class="text-xs font-medium opacity-0 transition-opacity duration-300">
+                        <i class="fas fa-check-circle mr-1"></i>Đã lưu
+                    </span>
+                    <i id="note-chevron" class="fas fa-chevron-up quiz-note-chevron"></i>
+                </span>
+            </button>
+            <div id="note-body" class="quiz-note-body">
+                <textarea id="personal-note-input"
+                    class="quiz-note-input"
+                    rows="2"
+                    placeholder="Nhập ghi chú cho câu hỏi này — tự động lưu, hiển thị cả ở chế độ tập trung..."></textarea>
+                <div class="quiz-note-footer">
+                    <span id="note-char-count" class="quiz-note-count">Chưa có ghi chú</span>
+                    <button type="button" id="note-clear-btn" class="quiz-note-clear hidden">
+                        <i class="fas fa-eraser mr-1"></i>Xóa ghi chú
+                    </button>
+                </div>
+            </div>
+        </div>`;
+}
+
+// Nối logic ghi chú cá nhân cho câu hiện tại: nạp nội dung đã lưu, tự lưu, tự giãn,
+// đếm ký tự, thu gọn/mở rộng, xóa nhanh. Tách riêng để chạy được trên mọi nhánh render.
+function setupPersonalNote(question) {
+    const noteInput = document.getElementById('personal-note-input');
+    const noteStatus = document.getElementById('note-save-status');
+    if (!noteInput) return;
+
+    const noteBox = document.getElementById('personal-note-box');
+    const noteToggle = document.getElementById('note-toggle');
+    const noteDot = document.getElementById('note-dot');
+    const noteCount = document.getElementById('note-char-count');
+    const noteClearBtn = document.getElementById('note-clear-btn');
+
+    const quizIdKey = (state.quizData && state.quizData.id) || (new URLSearchParams(window.location.search)).get('id') || 'default_quiz';
+    const storageKey = `quiz_notes_${quizIdKey}`;
+    let notesObj = {};
+    try {
+        notesObj = JSON.parse(localStorage.getItem(storageKey) || '{}');
+    } catch(e) {
+        console.error("Lỗi đọc ghi chú cá nhân:", e);
+    }
+
+    const qText = question.question;
+    noteInput.value = notesObj[qText] || '';
+
+    // Tự giãn chiều cao textarea theo nội dung (giới hạn rồi cuộn)
+    const autoGrow = () => {
+        noteInput.style.height = 'auto';
+        noteInput.style.height = Math.min(noteInput.scrollHeight, 260) + 'px';
+    };
+    // Cập nhật bộ đếm ký tự, chấm báo có ghi chú, nút xóa
+    const refreshMeta = () => {
+        const len = noteInput.value.length;
+        const has = noteInput.value.trim().length > 0;
+        if (noteCount) noteCount.textContent = has ? `${len} ký tự` : 'Chưa có ghi chú';
+        if (noteDot) noteDot.classList.toggle('hidden', !has);
+        if (noteClearBtn) noteClearBtn.classList.toggle('hidden', !has);
+    };
+
+    // Trạng thái lưu (đang lưu / đã lưu / lỗi)
+    const showSaving = () => {
+        if (!noteStatus) return;
+        noteStatus.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Đang lưu...';
+        noteStatus.classList.remove('opacity-0', 'text-green-600', 'text-red-500');
+        noteStatus.classList.add('opacity-100', 'text-gray-500');
+    };
+    const showSaved = () => {
+        if (!noteStatus) return;
+        noteStatus.innerHTML = '<i class="fas fa-check-circle mr-1"></i>Đã lưu';
+        noteStatus.classList.remove('text-gray-500', 'text-red-500', 'opacity-0');
+        noteStatus.classList.add('text-green-600', 'opacity-100');
+        clearTimeout(noteStatus._hideT);
+        noteStatus._hideT = setTimeout(() => {
+            noteStatus.classList.add('opacity-0');
+            noteStatus.classList.remove('opacity-100');
+        }, 1500);
+    };
+    const showError = () => {
+        if (!noteStatus) return;
+        noteStatus.innerHTML = '<i class="fas fa-exclamation-circle mr-1"></i>Lỗi khi lưu';
+        noteStatus.classList.remove('text-gray-500', 'text-green-600', 'opacity-0');
+        noteStatus.classList.add('text-red-500', 'opacity-100');
+    };
+
+    const persist = (val) => {
+        try {
+            const currentNotes = JSON.parse(localStorage.getItem(storageKey) || '{}');
+            if (val.trim() === '') {
+                delete currentNotes[qText];
+            } else {
+                currentNotes[qText] = val;
+            }
+            localStorage.setItem(storageKey, JSON.stringify(currentNotes));
+            showSaved();
+        } catch(err) {
+            console.error("Lỗi lưu ghi chú:", err);
+            showError();
+        }
+    };
+
+    // Khởi tạo hiển thị
+    autoGrow();
+    refreshMeta();
+
+    // Thu gọn / mở rộng panel (ghi nhớ lựa chọn cho toàn phiên)
+    if (noteToggle && noteBox) {
+        const collapsed = localStorage.getItem('quiz_note_collapsed') === '1';
+        noteBox.classList.toggle('collapsed', collapsed);
+        noteToggle.setAttribute('aria-expanded', String(!collapsed));
+        noteToggle.addEventListener('click', () => {
+            const nowCollapsed = !noteBox.classList.contains('collapsed');
+            noteBox.classList.toggle('collapsed', nowCollapsed);
+            noteToggle.setAttribute('aria-expanded', String(!nowCollapsed));
+            localStorage.setItem('quiz_note_collapsed', nowCollapsed ? '1' : '0');
+            if (!nowCollapsed) autoGrow();
+        });
+    }
+
+    let saveTimeout;
+    noteInput.addEventListener('input', () => {
+        autoGrow();
+        refreshMeta();
+        clearTimeout(saveTimeout);
+        showSaving();
+        saveTimeout = setTimeout(() => persist(noteInput.value), 600);
+    });
+    // Lưu ngay khi rời ô nhập (không phải chờ debounce)
+    noteInput.addEventListener('blur', () => {
+        clearTimeout(saveTimeout);
+        persist(noteInput.value);
+    });
+    // Nút xóa nhanh ghi chú của câu hiện tại
+    if (noteClearBtn) {
+        noteClearBtn.addEventListener('click', () => {
+            noteInput.value = '';
+            autoGrow();
+            refreshMeta();
+            clearTimeout(saveTimeout);
+            persist('');
+            noteInput.focus();
+        });
+    }
+}
+
+// Đếm số từ của câu hỏi (bỏ markdown/HTML/công thức để đếm sát thực tế)
+function countQuestionWords(raw) {
+    if (!raw) return 0;
+    const text = String(raw)
+        .replace(/\$[^$]*\$/g, ' ')        // công thức KaTeX $...$
+        .replace(/`[^`]*`/g, ' ')          // code inline
+        .replace(/<[^>]+>/g, ' ')          // thẻ HTML
+        .replace(/[#*_>~\-\[\]()!]/g, ' ') // ký hiệu markdown
+        .trim();
+    if (!text) return 0;
+    return text.split(/\s+/).length;
+}
+
+// Chọn cỡ chữ câu hỏi theo lựa chọn người dùng + độ dài câu.
+// Câu > 40 từ giảm 1 bậc, > 80 từ giảm 2 bậc (tự co thêm trên mobile nhờ lớp responsive).
+function getQuestionSizeClass(fontSize, rawQuestion) {
+    // Thang cỡ chữ từ nhỏ -> lớn (mobile : md trở lên)
+    const ladder = [
+        'text-sm md:text-base',
+        'text-base md:text-lg',
+        'text-lg md:text-xl',
+        'text-lg md:text-2xl',  // = "normal" mặc định
+        'text-xl md:text-2xl',
+        'text-2xl md:text-3xl', // = "large"
+    ];
+    const baseIdx = fontSize === 'small' ? 1 : fontSize === 'large' ? 5 : 3;
+    const words = countQuestionWords(rawQuestion);
+    let drop = 0;
+    if (words > 80) drop = 2;
+    else if (words > 40) drop = 1;
+    const idx = Math.max(0, baseIdx - drop);
+    return ladder[idx];
+}
+
 function showQuestion() {
     updateProgressBar();
     const question = state.questions[state.currentIndex];
     const quizSection = document.getElementById('quizSection');
 
-    let qSizeClass = 'text-lg md:text-2xl';
     let aSizeClass = 'text-base md:text-lg';
     if (state.currentFontSize === 'small') {
-        qSizeClass = 'text-base md:text-lg';
         aSizeClass = 'text-sm md:text-base';
     } else if (state.currentFontSize === 'large') {
-        qSizeClass = 'text-2xl md:text-3xl';
         aSizeClass = 'text-lg md:text-xl';
     }
+    // Cỡ chữ câu hỏi "thông minh": câu dài thì tự thu nhỏ 1–2 bậc cho dễ đọc,
+    // đặc biệt trên màn hình nhỏ. Vẫn tôn trọng lựa chọn A-/A/A+ của người dùng.
+    const qSizeClass = getQuestionSizeClass(state.currentFontSize, question && question.question);
 
     if (!question || !question.question) {
         quizSection.innerHTML = `<p class="text-red-500 text-center p-6">Lỗi: Không thể tải dữ liệu câu hỏi. Dữ liệu có thể bị hỏng.</p>`;
@@ -707,7 +994,6 @@ function showQuestion() {
     const isGuess = state.confidence[state.currentIndex] === 'guess';
 
     quizSection.innerHTML = `
-    ${renderQuizProgressBar()}
     <div class="bg-white rounded-lg shadow-lg p-6 fade-in">
         <div class="flex justify-between items-center mb-4">
             <h2 class="text-xl font-bold text-gray-700">${title}</h2>
@@ -740,28 +1026,11 @@ function showQuestion() {
             <button type="button" id="help-5050-btn" class="px-4 py-2 rounded-lg border border-blue-400 text-blue-700 bg-blue-50 hover:bg-blue-100 transition flex items-center gap-2">
                 <i class="fas fa-life-ring"></i> Trợ giúp 50:50
             </button>
-            <button id="mark-question-btn" class="px-4 py-2 rounded-lg border border-yellow-400 text-yellow-700 bg-yellow-50 hover:bg-yellow-100 transition flex items-center gap-2">
-                <i class="fas fa-flag"></i> ${state.markedQuestions.includes(state.currentIndex) ? 'Bỏ đánh dấu' : 'Đánh dấu câu này'}
-            </button>
+            ${renderMarkControl()}
             <button id="review-marked-btn" class="px-4 py-2 rounded-lg border border-blue-400 text-blue-700 bg-blue-50 hover:bg-blue-100 transition flex items-center gap-2 ${state.markedQuestions.length === 0 ? 'hidden' : ''}">
                 <i class="fas fa-eye"></i> Xem các câu đã đánh dấu
             </button>
             </div>
-        </div>
-        <!-- Ghi chú cá nhân -->
-        <div class="mt-6 p-4 bg-pink-50/50 border border-pink-100 rounded-xl focus-hide">
-            <div class="flex items-center justify-between mb-2">
-                <h4 class="font-bold text-gray-700 text-sm flex items-center gap-2">
-                    <i class="fas fa-sticky-note text-pink-500 animate-pulse"></i> Ghi chú cá nhân của bạn
-                </h4>
-                <span id="note-save-status" class="text-xs text-green-600 font-medium opacity-0 transition-opacity duration-300">
-                    <i class="fas fa-check-circle mr-1"></i>Đã tự động lưu
-                </span>
-            </div>
-            <textarea id="personal-note-input" 
-                class="w-full p-3 border border-pink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-300 text-sm text-gray-700 placeholder-gray-400 bg-white/80 resize-none shadow-sm transition-all" 
-                rows="2" 
-                placeholder="Nhập ghi chú cá nhân của bạn cho câu hỏi này (sẽ được tự động lưu)..."></textarea>
         </div>
         ${question.note && question.note.trim() ? `
         <div id="explanation-area" class="mt-6 p-6 bg-gradient-to-r from-pink-50 to-orange-50 border-l-8 border-pink-400 rounded-xl shadow-inner hidden fade-in animate__animated animate__fadeIn">
@@ -789,6 +1058,25 @@ function showQuestion() {
         </div>
     </div>
     `;
+
+    // Đưa bảng số câu (cột trái) và ghi chú cá nhân (cột phải) ra hai bên hông trên màn rộng.
+    // Màn hẹp / chế độ tập trung sẽ tự xếp lại 1 cột (xem quiz-enhance.css).
+    const navPanel = document.getElementById('quiz-nav-panel');
+    if (navPanel) {
+        navPanel.innerHTML = renderQuizProgressBar();
+        navPanel.classList.remove('hidden');
+    }
+    const notePanel = document.getElementById('quiz-note-panel');
+    if (notePanel) {
+        notePanel.innerHTML = renderPersonalNotePanel();
+        notePanel.classList.remove('hidden');
+        // Nối logic ghi chú ngay tại đây để hoạt động trên MỌI nhánh render
+        // (kể cả khi xem lại câu đã trả lời ở chế độ không hiện đáp án ngay -> return sớm)
+        setupPersonalNote(question);
+    }
+    const workspaceEl = document.getElementById('quiz-workspace');
+    if (workspaceEl) workspaceEl.classList.remove('results-active');
+
     renderMath(quizSection);
     attachToggleNavEvent();
     setNavVisibility(navVisible);
@@ -915,14 +1203,7 @@ function showQuestion() {
     if (state.quizMode === 'normal' && state.currentIndex > 0) {
         document.getElementById('prevBtn').addEventListener('click', showPreviousQuestion);
     }
-    document.getElementById('mark-question-btn').addEventListener('click', () => {
-        if (state.markedQuestions.includes(state.currentIndex)) {
-            state.markedQuestions = state.markedQuestions.filter(i => i !== state.currentIndex);
-        } else {
-            state.markedQuestions.push(state.currentIndex);
-        }
-        showQuestion();
-    });
+    setupMarkControl();
     document.querySelectorAll('.quiz-nav-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const idx = parseInt(e.target.getAttribute('data-qidx'));
@@ -939,62 +1220,6 @@ function showQuestion() {
                 state.currentIndex = state.markedQuestions[0];
                 showQuestion();
             }
-        });
-    }
-
-    const noteInput = document.getElementById('personal-note-input');
-    const noteStatus = document.getElementById('note-save-status');
-    if (noteInput) {
-        const quizIdKey = (state.quizData && state.quizData.id) || (new URLSearchParams(window.location.search)).get('id') || 'default_quiz';
-        const storageKey = `quiz_notes_${quizIdKey}`;
-        let notesObj = {};
-        try {
-            notesObj = JSON.parse(localStorage.getItem(storageKey) || '{}');
-        } catch(e) {
-            console.error("Lỗi đọc ghi chú cá nhân:", e);
-        }
-        
-        const qText = question.question;
-        noteInput.value = notesObj[qText] || '';
-        
-        let saveTimeout;
-        noteInput.addEventListener('input', (e) => {
-            clearTimeout(saveTimeout);
-            if (noteStatus) {
-                noteStatus.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Đang lưu...';
-                noteStatus.classList.remove('opacity-0', 'text-green-600');
-                noteStatus.classList.add('opacity-100', 'text-gray-500');
-            }
-            
-            saveTimeout = setTimeout(() => {
-                const updatedVal = e.target.value;
-                try {
-                    const currentNotes = JSON.parse(localStorage.getItem(storageKey) || '{}');
-                    if (updatedVal.trim() === '') {
-                        delete currentNotes[qText];
-                    } else {
-                        currentNotes[qText] = updatedVal;
-                    }
-                    localStorage.setItem(storageKey, JSON.stringify(currentNotes));
-                    
-                    if (noteStatus) {
-                        noteStatus.innerHTML = '<i class="fas fa-check-circle mr-1"></i>Đã tự động lưu';
-                        noteStatus.classList.remove('text-gray-500');
-                        noteStatus.classList.add('text-green-600');
-                        setTimeout(() => {
-                            noteStatus.classList.add('opacity-0');
-                            noteStatus.classList.remove('opacity-100');
-                        }, 1500);
-                    }
-                } catch(err) {
-                    console.error("Lỗi lưu ghi chú:", err);
-                    if (noteStatus) {
-                        noteStatus.innerHTML = '<i class="fas fa-exclamation-circle mr-1"></i>Lỗi khi lưu';
-                        noteStatus.classList.remove('text-gray-500');
-                        noteStatus.classList.add('text-red-500');
-                    }
-                }
-            }, 600);
         });
     }
 
@@ -1069,6 +1294,13 @@ function endQuiz() {
     const resultsSection = document.getElementById('resultsSection');
     quizSection.classList.add('hidden');
     resultsSection.classList.remove('hidden');
+    // Ẩn hai cột bên hông (số câu / ghi chú) ở màn kết quả để dồn về 1 cột
+    const navPanel = document.getElementById('quiz-nav-panel');
+    const notePanel = document.getElementById('quiz-note-panel');
+    if (navPanel) navPanel.classList.add('hidden');
+    if (notePanel) notePanel.classList.add('hidden');
+    const workspace = document.getElementById('quiz-workspace');
+    if (workspace) workspace.classList.add('results-active');
 
     // Tự động cuộn lên đầu trang để xem kết quả ngay từ đầu
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1363,14 +1595,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const showPreviewBtn = document.getElementById('show-preview-btn');
     const collapsePreviewBtn = document.getElementById('collapse-preview-btn');
     const quizPreview = document.getElementById('quiz-preview');
+    const previewLabel = document.getElementById('show-preview-label');
+    const previewChevron = document.getElementById('show-preview-chevron');
+    const syncPreviewBtn = () => {
+        const open = quizPreview && !quizPreview.classList.contains('hidden');
+        if (previewLabel) previewLabel.textContent = open ? 'Ẩn phần xem trước' : 'Xem trước một số câu hỏi';
+        if (previewChevron) previewChevron.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+    };
     if (showPreviewBtn && quizPreview) {
         showPreviewBtn.addEventListener('click', () => {
             quizPreview.classList.toggle('hidden');
+            syncPreviewBtn();
         });
     }
     if (collapsePreviewBtn && quizPreview) {
         collapsePreviewBtn.addEventListener('click', () => {
             quizPreview.classList.add('hidden');
+            syncPreviewBtn();
         });
     }
 
@@ -1380,6 +1621,18 @@ document.addEventListener('DOMContentLoaded', () => {
     setupAnnotations();    // #9: ghi chú trực quan (bôi vàng / in đậm / in nghiêng)
     setupLightbox();       // #13: phóng to ảnh
     setupSwipe();          // #3: vuốt chuyển câu
+
+    // Đóng menu lý do đánh dấu khi bấm ra ngoài (1 listener dùng chung cho mọi câu)
+    document.addEventListener('click', (e) => {
+        const menu = document.getElementById('mark-menu');
+        if (!menu || menu.classList.contains('hidden')) return;
+        const control = document.getElementById('mark-control');
+        if (control && !control.contains(e.target)) {
+            menu.classList.add('hidden');
+            const b = document.getElementById('mark-question-btn');
+            if (b) b.setAttribute('aria-expanded', 'false');
+        }
+    });
 
     // #11: tạm dừng tính giờ khi rời tab để không cộng dồn thời gian "treo"
     document.addEventListener('visibilitychange', () => {
@@ -1456,15 +1709,51 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Cảnh báo khi người dùng định rời trang trong lúc đang làm bài dở
-    window.addEventListener('beforeunload', (e) => {
+    // Đang làm bài dở (chưa nộp) hay không?
+    const isQuizInProgress = () => {
         const quizContainerElement = document.getElementById('quiz-container');
         const resultsSectionElement = document.getElementById('resultsSection');
-        const inProgress = quizContainerElement
+        return quizContainerElement
             && !quizContainerElement.classList.contains('hidden')
             && (!resultsSectionElement || resultsSectionElement.classList.contains('hidden'))
             && state.questions && state.questions.length > 0;
-        if (inProgress) {
+    };
+
+    // Khi đã xác nhận rời qua modal đẹp thì không hiện thêm dialog mặc định nữa
+    let allowLeaveWithoutPrompt = false;
+
+    // Chặn điều hướng NỘI BỘ (bấm link trong trang) khi đang làm bài dở:
+    // hiện modal đẹp của web thay cho hộp thoại mặc định của trình duyệt.
+    document.addEventListener('click', async (e) => {
+        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        const anchor = e.target.closest('a[href]');
+        if (!anchor) return;
+        const href = anchor.getAttribute('href');
+        // Bỏ qua link neo trong trang, mở tab mới, hoặc link không điều hướng
+        if (!href || href.startsWith('#') || anchor.target === '_blank'
+            || /^(javascript:|mailto:|tel:)/i.test(href)) return;
+        if (!isQuizInProgress()) return;
+
+        e.preventDefault();
+        const ok = await showConfirm('Tiến độ làm bài sẽ được lưu lại để bạn quay lại tiếp tục sau.', {
+            title: 'Rời khỏi trang làm bài?',
+            confirmText: 'Rời khỏi',
+            cancelText: 'Ở lại',
+            tone: 'danger',
+            icon: 'fas fa-door-open'
+        });
+        if (ok) {
+            allowLeaveWithoutPrompt = true;
+            saveQuizState();
+            window.location.href = anchor.href;
+        }
+    }, true); // capture: chặn trước khi link kịp điều hướng
+
+    // Lớp bảo vệ cuối cho ĐÓNG TAB / F5 / gõ URL khác — trình duyệt không cho thay
+    // hộp thoại này bằng modal tùy biến, nên đành dùng dialog mặc định.
+    window.addEventListener('beforeunload', (e) => {
+        if (allowLeaveWithoutPrompt) return;
+        if (isQuizInProgress()) {
             saveQuizState();
             e.preventDefault();
             e.returnValue = '';

@@ -5,6 +5,15 @@ import { doc, getDoc, collection, addDoc } from "https://www.gstatic.com/firebas
 import { checkAndAwardAchievement } from '../../core/achievements.js';
 import { showToast } from '../../core/utils.js';
 
+// Các loại lý do đánh dấu câu hỏi (dùng chung cho lúc làm bài và màn tổng kết).
+// Thứ tự khai báo cũng là thứ tự hiển thị trong menu / bộ lọc.
+export const MARK_REASONS = {
+    hard:        { label: 'Khó, quay lại làm sau', short: 'Khó',       icon: 'fa-dumbbell',        color: '#ef4444', bg: '#fee2e2', text: '#b91c1c' },
+    doubt:       { label: 'Tranh cãi đáp án',       short: 'Tranh cãi', icon: 'fa-scale-balanced',  color: '#f59e0b', bg: '#fef3c7', text: '#b45309' },
+    interesting: { label: 'Hay, để dành xem lại',   short: 'Hay',       icon: 'fa-star',            color: '#a855f7', bg: '#f3e8ff', text: '#7e22ce' },
+    review:      { label: 'Cần ôn lại',             short: 'Ôn lại',    icon: 'fa-rotate',          color: '#3b82f6', bg: '#dbeafe', text: '#1d4ed8' },
+};
+
 export const state = {
     quizData: null,          // Dữ liệu bộ đề từ Firestore
     questions: [],           // Các câu hỏi cho phiên làm bài hiện tại
@@ -17,6 +26,7 @@ export const state = {
     quizMode: 'normal',      // 'normal' hoặc 'practice'
     quizOptions: { isTimed: false, showAnswerImmediately: true, timedMinutes: 30 }, // To store session options
     markedQuestions: [],
+    markedReasons: {},       // { [qIndex]: 'hard' | 'doubt' | 'interesting' | 'review' } lý do đánh dấu
     currentFontSize: localStorage.getItem('quiz_font_size') || 'normal',
     streak: 0,
     used5050Questions: {},
@@ -34,6 +44,7 @@ export function resetState() {
     state.score = 0;
     state.quizStartTime = new Date();
     state.markedQuestions = [];
+    state.markedReasons = {};
     state.streak = 0;
     state.used5050Questions = {};
     state.eliminatedAnswers = {};
@@ -51,6 +62,7 @@ export function saveQuizState() {
         userAnswers: state.userAnswers,
         score: state.score,
         markedQuestions: state.markedQuestions,
+        markedReasons: state.markedReasons,
         eliminatedAnswers: state.eliminatedAnswers,
         confidence: state.confidence,
         questionTimes: state.questionTimes,

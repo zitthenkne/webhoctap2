@@ -8,6 +8,45 @@
     <script>
         try { if (localStorage.getItem('quiz_theme') === 'dark') document.documentElement.classList.add('theme-dark'); } catch (e) {}
     </script>
+    <!-- Chọn ngẫu nhiên hình nền cho chế độ sáng & tối (đặt sớm để tránh nháy nền) -->
+    <script>
+        (function () {
+            try {
+                var lightImages = [
+                    'A_dreamy_campsite_next_to_202606231955.jpeg',
+                    'Apartment_balcony_with_flowers_202606231955.jpeg',
+                    'Attic_bedroom_corner_pixel_art_202606231955.jpeg',
+                    'Bakery_shopfront_pixel_art_style_202606231955.jpeg',
+                    'Bus_stop_in_Japan_spring_202606231955.jpeg',
+                    'Hot_chocolate_station_in_winter_202606231955.jpeg',
+                    'Riverside_cafe_veranda_pixel_art_202606231955.jpeg',
+                    'Study_desk_by_rain_window_202606231955.jpeg',
+                    'Train_carriage_interior_pixel_art_202606231955.jpeg'
+                ];
+                var darkImages = [
+                    'Apartment_balcony_on_rainy_night_202606232010.jpeg',
+                    'Bedroom_interior_at_night_202606232010.jpeg',
+                    'Florist_shop_window_at_midnight_202606232010.jpeg',
+                    'Forest_pond_with_glowing_lotus_202606232010.jpeg',
+                    'Greenhouse_at_night_aurora_borealis_202606232010.jpeg',
+                    'Library_corner_at_night_202606232010.jpeg',
+                    'Rooftop_at_midnight_dark_mode_202606232010.jpeg',
+                    'Underwater_scene_viewed_from_window_202606232010.jpeg'
+                ];
+                var pick = function (arr) { return arr[Math.floor(Math.random() * arr.length)]; };
+                var lightUrl = encodeURI('../../assets/bg quiz page/' + pick(lightImages));
+                var darkUrl = encodeURI('../../assets/bg quiz page dark/' + pick(darkImages));
+                document.documentElement.style.setProperty('--quiz-bg-light', 'url("' + lightUrl + '")');
+                document.documentElement.style.setProperty('--quiz-bg-dark', 'url("' + darkUrl + '")');
+
+                // Độ rõ ảnh nền do người dùng tự chỉnh (lưu %, 0–60). Mặc định 28%.
+                var pct = parseInt(localStorage.getItem('quiz_bg_opacity'), 10);
+                if (isNaN(pct)) pct = 28;
+                pct = Math.max(0, Math.min(60, pct));
+                document.documentElement.style.setProperty('--quiz-bg-opacity', pct / 100);
+            } catch (e) {}
+        })();
+    </script>
     <link rel="icon" type="image/png" href="../../assets/logo.png">
     
     <!-- Open Graph / Facebook / Zalo Share Preview -->
@@ -73,6 +112,23 @@
     <!-- Mermaid -->
     <script src="../../core/libs/mermaid.min.js"></script>
     <style>
+        /* Hình nền trang làm bài: lớp phủ mờ, trong suốt, đặt TRÊN nền gốc (hồng ombre ở sáng, tối ở dark). */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: -12px; /* nới rộng để viền không bị hở khi blur */
+            z-index: -1;  /* nằm dưới nội dung, trên nền của body */
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            opacity: var(--quiz-bg-opacity, 0.28);  /* để lộ nền bên dưới; người dùng tự chỉnh */
+            filter: blur(3px);   /* làm mờ cho đỡ chói/đỡ mất tập trung */
+            pointer-events: none;
+            transition: opacity .2s ease;
+        }
+        html:not(.theme-dark) body::before { background-image: var(--quiz-bg-light, none); }
+        html.theme-dark body::before { background-image: var(--quiz-bg-dark, none); }
+
         /* Hiệu ứng cho đáp án đúng và sai */
         @keyframes pulse-animation {
           0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6); }
@@ -119,7 +175,11 @@
         /* CSS cho Chế độ tập trung (Focus Mode) */
         body.focus-mode-active {
             padding: 0 !important;
-            background-color: #f3f4f6 !important;
+            /* Giữ nguyên nền lót gốc (hồng ombre ở sáng / nền tối ở dark) như khi chưa bật focus */
+        }
+        /* Focus mode: vẫn hiện ảnh nền nhưng nhạt hơn nữa cho đỡ phân tâm */
+        body.focus-mode-active::before {
+            opacity: calc(var(--quiz-bg-opacity, 0.28) * 0.45) !important;
         }
         body.focus-mode-active .focus-hide {
             display: none !important;
@@ -162,7 +222,7 @@
             <a href="../../index.html" class="text-pink-500 font-semibold flex items-center gap-2"><i class="fas fa-home"></i> Trang chủ</a>
             <a href="../../index.html#libraryContent" class="text-blue-500 font-semibold flex items-center gap-2"><i class="fas fa-book"></i> Thư viện</a>
     </div>
-    <div class="w-full max-w-4xl mx-auto mt-14 md:mt-0">
+    <div class="w-full max-w-4xl lg:max-w-7xl mx-auto mt-14 md:mt-0">
         <div id="quiz-landing" class="bg-white/95 backdrop-blur-md rounded-3xl shadow-[0_20px_50px_rgba(255,105,180,0.12)] border border-pink-100/50 p-6 sm:p-10 text-center fade-in max-w-2xl mx-auto">
             <!-- Header Icon & Title -->
             <!-- Header Mascot Hero Image -->
@@ -173,6 +233,17 @@
             </div>
             <h1 id="quiz-title" class="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent mb-2">Đang tải thông tin...</h1>
             <p id="quiz-info" class="text-gray-500 mb-6 text-sm sm:text-base font-medium">Hãy sẵn sàng cho cuộc phiêu lưu tri thức!</p>
+
+            <!-- Mẹo ôn tập xoay vòng -->
+            <div id="quiz-tip" class="flex items-center gap-3 text-left bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3 mb-6 shadow-sm">
+                <div class="w-9 h-9 flex-shrink-0 rounded-xl bg-amber-100 text-amber-500 flex items-center justify-center">
+                    <i class="fas fa-lightbulb"></i>
+                </div>
+                <p id="quiz-tip-text" class="flex-1 text-xs sm:text-sm text-amber-800 font-medium leading-snug transition-opacity duration-200">Mẹo: Hít thở sâu và tập trung — bạn làm được!</p>
+                <button id="quiz-tip-next" type="button" title="Mẹo khác" class="flex-shrink-0 w-8 h-8 rounded-full bg-white/70 text-amber-500 hover:bg-white hover:text-amber-600 border border-amber-200/60 flex items-center justify-center transition active:scale-90">
+                    <i class="fas fa-rotate"></i>
+                </button>
+            </div>
 
             <!-- Stats Summary Cards -->
             <div class="grid grid-cols-3 gap-3 mb-8">
@@ -185,6 +256,7 @@
                     <i class="fas fa-clock text-purple-500 text-lg sm:text-xl mb-1"></i>
                     <span class="text-[10px] sm:text-xs text-gray-400 font-medium">Thời gian</span>
                     <span id="stat-duration" class="text-sm sm:text-base font-bold text-gray-700">--</span>
+                    <span id="stat-duration-est" class="text-[9px] text-purple-400 font-medium mt-0.5"></span>
                 </div>
                 <div class="bg-indigo-50/50 border border-indigo-100/60 p-3 rounded-2xl flex flex-col items-center justify-center transition-all hover:scale-[1.03] hover:bg-indigo-50">
                     <i class="fas fa-trophy text-indigo-500 text-lg sm:text-xl mb-1"></i>
@@ -196,18 +268,23 @@
             <!-- Preview Questions Button and Container -->
             <div class="mb-6">
                 <button id="show-preview-btn" class="px-4 py-2 bg-pink-50 text-pink-600 font-semibold rounded-xl hover:bg-pink-100 hover:text-pink-700 transition flex items-center gap-2 mx-auto text-xs sm:text-sm border border-pink-200/40">
-                    <i class="fas fa-eye"></i> Xem trước một số câu hỏi
+                    <i class="fas fa-eye"></i>
+                    <span id="show-preview-label">Xem trước một số câu hỏi</span>
+                    <i id="show-preview-chevron" class="fas fa-chevron-down text-[10px] transition-transform duration-300"></i>
                 </button>
-                <div id="quiz-preview" class="quiz-preview-container mt-4 hidden text-left bg-pink-50/20 border border-pink-100/80 rounded-2xl p-4 max-h-[300px] overflow-y-auto">
-                    <div class="flex items-center justify-between mb-3 border-b border-pink-100 pb-2">
-                        <div class="quiz-preview-title flex items-center gap-2 text-pink-600 font-bold text-sm">
-                            <i class="fas fa-eye"></i>
-                            Danh sách xem trước
+                <div id="quiz-preview" class="quiz-preview-container mt-4 hidden text-left bg-pink-50/20 border border-pink-100/80 rounded-2xl p-4 max-h-[340px] overflow-y-auto">
+                    <div class="flex items-center justify-between gap-2 mb-3 border-b border-pink-100 pb-2 sticky -top-4 -mx-4 px-4 pt-1 bg-white/70 backdrop-blur-sm z-10 rounded-t-2xl">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <div class="quiz-preview-title flex items-center gap-2 text-pink-600 font-bold text-sm whitespace-nowrap">
+                                <i class="fas fa-eye"></i>
+                                Xem trước
+                            </div>
+                            <span id="preview-count-badge"><i class="fas fa-layer-group"></i> --</span>
                         </div>
-                        <button id="collapse-preview-btn" class="text-pink-400 hover:text-pink-600 bg-white border border-pink-200 rounded-full w-6 h-6 flex items-center justify-center shadow transition" title="Thu gọn"><i class="fas fa-chevron-up text-xs"></i></button>
+                        <button id="collapse-preview-btn" class="flex-shrink-0 text-pink-400 hover:text-pink-600 bg-white border border-pink-200 rounded-full w-6 h-6 flex items-center justify-center shadow transition" title="Thu gọn"><i class="fas fa-chevron-up text-xs"></i></button>
                     </div>
                     <div id="quiz-preview-content">
-                        <ul class="quiz-preview-list space-y-4" id="quiz-preview-list">
+                        <ul class="quiz-preview-list space-y-3" id="quiz-preview-list">
                             <li class="quiz-preview-empty text-gray-400 italic text-xs">Đang tải trước câu hỏi...</li>
                         </ul>
                     </div>
@@ -219,7 +296,7 @@
                 <h3 class="text-md sm:text-lg font-bold text-gray-700 mb-4 text-left flex items-center gap-2">
                     <i class="fas fa-sliders-h text-pink-500"></i> Tùy chỉnh phiên làm bài
                 </h3>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div id="quiz-options-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <!-- Option 1: Shuffle -->
                     <label for="shuffle-questions-checkbox" class="flex flex-col justify-between bg-gray-50/40 hover:bg-pink-50/20 border border-gray-100 hover:border-pink-200/40 p-4 rounded-2xl cursor-pointer transition shadow-sm text-left">
                         <div class="flex justify-between items-start w-full">
@@ -252,7 +329,7 @@
                                 </div>
                             </div>
                             <div class="relative">
-                                <input type="checkbox" id="shuffle-answers-checkbox" class="sr-only peer">
+                                <input type="checkbox" id="shuffle-answers-checkbox" class="sr-only peer" checked>
                                 <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-cyan-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#06b6d4]"></div>
                             </div>
                         </div>
@@ -347,6 +424,41 @@
             <script>
             // Các script inline cho toggle và redirect
             document.addEventListener('DOMContentLoaded', function() {
+                // Mẹo ôn tập xoay vòng (random khi tải + đổi khi bấm nút)
+                const tipText = document.getElementById('quiz-tip-text');
+                const tipNextBtn = document.getElementById('quiz-tip-next');
+                if (tipText) {
+                    const tips = [
+                        'Hít thở sâu và tập trung — bạn làm được!',
+                        'Đọc kỹ câu hỏi trước khi chọn đáp án để tránh sai sót đáng tiếc.',
+                        'Loại trừ các đáp án sai trước, cơ hội đúng sẽ cao hơn.',
+                        'Bật "Chế độ tập trung" để học không bị xao nhãng.',
+                        'Câu khó cứ đánh dấu lại rồi quay lại sau, đừng mất thời gian.',
+                        'Bạn có thể chọn đáp án bằng phím A–D hoặc số 1–9 cho nhanh.',
+                        'Dùng phím ← → để chuyển nhanh giữa các câu hỏi.',
+                        'Bôi đen chữ trên đề để bôi vàng, in đậm hay ghi chú lại.',
+                        'Bật "Xáo trộn đáp án" để luyện tập sát với thi thật hơn.',
+                        'Ôn bằng Flashcard trước khi làm bài giúp nhớ lâu hơn nhiều.',
+                        'Nghỉ ngắn 5 phút sau mỗi 25 phút học giúp não tỉnh táo hơn.',
+                        'Sai cũng không sao — "Làm lại câu sai" sẽ giúp bạn tiến bộ.'
+                    ];
+                    let lastTip = -1;
+                    const showRandomTip = function () {
+                        let i = Math.floor(Math.random() * tips.length);
+                        if (tips.length > 1) { while (i === lastTip) i = Math.floor(Math.random() * tips.length); }
+                        lastTip = i;
+                        tipText.style.opacity = '0';
+                        setTimeout(function () {
+                            tipText.textContent = 'Mẹo: ' + tips[i];
+                            tipText.style.opacity = '1';
+                        }, 180);
+                    };
+                    // Mẹo đầu tiên hiện ngay (không cần hiệu ứng mờ)
+                    lastTip = Math.floor(Math.random() * tips.length);
+                    tipText.textContent = 'Mẹo: ' + tips[lastTip];
+                    if (tipNextBtn) tipNextBtn.addEventListener('click', showRandomTip);
+                }
+
                 // Ẩn/hiện input thời gian theo checkbox
                 const timedCheckbox = document.getElementById('timed-mode-checkbox');
                 const timedInputBlock = document.getElementById('timed-minutes-input-block');
@@ -424,6 +536,9 @@
         <div class="hud-progress"><div id="hud-progress-fill" style="width:0%"></div></div>
         <div id="timerDisplay" class="hidden"></div>
     </div>
+    <div id="quiz-workspace">
+        <aside id="quiz-nav-panel" class="quiz-side-panel focus-hide hidden"></aside>
+        <div id="quiz-main">
     <div class="flex flex-wrap justify-between items-center gap-2 mb-2 focus-hide">
         <div class="flex flex-wrap gap-2">
             <button id="toggle-nav-btn" type="button" class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg shadow hover:bg-blue-200 transition flex items-center gap-2">
@@ -446,9 +561,12 @@
         <i class="fas fa-redo-alt mr-2"></i> Làm lại câu sai
     </button>
 </div>
-                <div class="flex flex-row justify-end mt-4">
-  <button id="submit-quiz-btn" class="px-6 py-3 bg-[#FF69B4] text-white rounded-lg hover:bg-pink-600 transition-transform transform hover:scale-105 shadow-lg text-lg font-bold hidden">Nộp bài</button>
-</div>
+        </div><!-- /#quiz-main -->
+        <aside id="quiz-note-panel" class="quiz-side-panel hidden"></aside>
+        <div id="quiz-submit-row" class="flex flex-row justify-end mt-4">
+            <button id="submit-quiz-btn" class="px-6 py-3 bg-[#FF69B4] text-white rounded-lg hover:bg-pink-600 transition-transform transform hover:scale-105 shadow-lg text-lg font-bold hidden">Nộp bài</button>
+        </div>
+        </div><!-- /#quiz-workspace -->
             </div>
 
         <div id="toast-container"></div>
@@ -470,6 +588,11 @@
         <div class="qs-row" id="qs-vibrate" role="switch" aria-checked="true" tabindex="0">
             <span class="qs-label"><i class="fas fa-mobile-alt"></i> Rung phản hồi</span>
             <span class="qs-switch"></span>
+        </div>
+        <div class="qs-row qs-row-slider">
+            <span class="qs-label"><i class="fas fa-image"></i> Độ rõ ảnh nền</span>
+            <input type="range" id="qs-bg-opacity" class="qs-range" min="0" max="60" step="2" value="28"
+                   aria-label="Độ rõ ảnh nền">
         </div>
     </div>
 

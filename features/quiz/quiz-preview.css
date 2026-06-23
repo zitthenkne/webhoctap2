@@ -1,110 +1,190 @@
-/* Quiz Preview Styles */
+/* ============================================================
+   XEM TRƯỚC CÂU HỎI — thiết kế lại: thẻ câu hỏi có số thứ tự,
+   đáp án dạng "chip" với chữ cái A/B/C/D, hỗ trợ chế độ tối.
+   ============================================================ */
+
 .quiz-preview-container {
-  background: #fff0fa;
-  border: 2px solid #ffb6d5;
-  border-radius: 1rem;
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
-  box-shadow: 0 2px 8px 0 #ffe0ee44;
-  transition: box-shadow 0.2s;
+  border-radius: 1.1rem;
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
 }
-.quiz-preview-container:hover {
-  box-shadow: 0 4px 16px 0 #ffe0ee66;
+
+/* Hiệu ứng đổ xuống mượt khi mở phần xem trước */
+@keyframes preview-slide-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
+.quiz-preview-container:not(.hidden) {
+  animation: preview-slide-in 0.28s cubic-bezier(.22,1,.36,1);
+}
+
+/* --- Tiêu đề + huy hiệu đếm số câu mẫu --- */
 .quiz-preview-title {
-  color: #ff69b4;
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
+  color: #db2777;
+  font-weight: 700;
 }
+#preview-count-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #be185d;
+  background: rgba(255, 105, 180, 0.12);
+  border: 1px solid rgba(255, 105, 180, 0.28);
+  padding: 0.1rem 0.55rem;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+/* --- Danh sách: bỏ số thập phân mặc định, dùng badge tự vẽ --- */
 .quiz-preview-list {
-  list-style: decimal inside;
+  list-style: none;
   padding-left: 0;
   margin: 0;
 }
-.quiz-preview-list li {
-  margin-bottom: 1.2rem;
-  color: #7c3aed;
-  background: #fdf6fb;
-  border-radius: 0.8rem;
-  padding: 1rem 1.2rem 0.8rem 1.2rem;
-  font-size: 1.05rem;
-  box-shadow: 0 1px 4px 0 #ffd6ec22;
-  transition: background 0.2s;
+
+/* --- Thẻ một câu hỏi --- */
+.quiz-preview-card {
   position: relative;
+  background: #fff;
+  border: 1px solid rgba(255, 105, 180, 0.18);
+  border-radius: 0.9rem;
+  padding: 0.85rem 0.95rem 0.8rem;
+  box-shadow: 0 1px 3px rgba(255, 105, 180, 0.06);
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
 }
-.quiz-preview-list .preview-question-text {
-  display: block;
+.quiz-preview-card:hover {
+  border-color: rgba(255, 105, 180, 0.4);
+  box-shadow: 0 6px 18px rgba(255, 105, 180, 0.14);
+  transform: translateY(-1px);
+}
+
+/* Hàng đầu: số thứ tự + nội dung câu hỏi */
+.qpc-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-bottom: 0.6rem;
+}
+.qpc-num {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #f472b6, #a78bfa);
+  box-shadow: 0 2px 6px rgba(167, 139, 250, 0.35);
+}
+.qpc-q {
+  flex: 1;
+  min-width: 0;
   font-weight: 600;
-  color: #ff69b4;
-  margin-bottom: 0.5rem;
-  font-size: 1.08em;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #374151;
 }
-.quiz-preview-list .preview-answers {
-  margin-left: 0;
-  margin-bottom: 0.2em;
-  padding-left: 0;
-  color: #7c3aed;
-  font-size: 1em;
-}
-.preview-answers-2col {
+
+/* --- Đáp án dạng chip 1–2 cột --- */
+.qpc-answers {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 0.5em 1.2em;
-  margin: 0.5em 0 0.3em 0;
+  gap: 0.4rem;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
 @media (min-width: 640px) {
-  .preview-answers-2col {
-    grid-template-columns: 1fr 1fr;
-    gap: 0.6em 2em;
-  }
+  .qpc-answers { grid-template-columns: 1fr 1fr; gap: 0.45rem 0.6rem; }
 }
-.preview-answer-item {
-  background: #f9e6f6;
-  border-radius: 0.5em;
-  padding: 0.3em 1em;
-  font-size: 0.98em;
-  color: #7c3aed;
-  box-shadow: 0 1px 2px 0 #ffd6ec22;
-  text-align: center;
-  margin-bottom: 0;
-  margin-top: 0;
-  min-width: 100px;
-  word-break: break-word;
+.qpc-ans {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: rgba(249, 250, 251, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 0.6rem;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.82rem;
+  color: #4b5563;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
-.quiz-preview-list .preview-no-answers {
-  color: #bbb;
+.qpc-ans:hover {
+  background: #fdf2f8;
+  border-color: rgba(244, 114, 182, 0.35);
+}
+.qpc-letter {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #be185d;
+  background: rgba(255, 105, 180, 0.12);
+  border: 1px solid rgba(255, 105, 180, 0.22);
+}
+.qpc-text { min-width: 0; word-break: break-word; }
+
+.preview-no-answers {
+  color: #9ca3af;
   font-style: italic;
-  font-size: 0.98em;
-  margin-left: 1.2em;
+  font-size: 0.8rem;
 }
-#collapse-preview-btn {
-  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
-  outline: none;
+
+/* --- Chân: lưu ý đáp án ẩn --- */
+.quiz-preview-foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.85rem;
+  padding-top: 0.7rem;
+  border-top: 1px dashed rgba(255, 105, 180, 0.25);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #be185d;
 }
-#collapse-preview-btn:active {
-  background: #ffe0ee;
-  color: #d946ef;
-}
-#quiz-preview-content {
-  transition: max-height 0.3s cubic-bezier(.4,0,.2,1), opacity 0.3s;
-  overflow: hidden;
-}
-#quiz-preview-content.collapsed {
-  max-height: 0;
-  opacity: 0;
-  pointer-events: none;
-  padding: 0;
-}
-.quiz-preview-list li:hover {
-  background: #ffe0ef;
-  color: #d946ef;
-}
+.quiz-preview-foot i { color: #f472b6; }
+
 .quiz-preview-empty {
   color: #aaa;
   font-style: italic;
   text-align: center;
   padding: 1rem 0;
 }
+
+#collapse-preview-btn { transition: background 0.2s, color 0.2s, box-shadow 0.2s; outline: none; }
+#collapse-preview-btn:active { background: #ffe0ee; color: #d946ef; }
+
+/* ============================================================
+   CHẾ ĐỘ TỐI
+   ============================================================ */
+html.theme-dark .quiz-preview-card {
+  background: #241b38;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+html.theme-dark .quiz-preview-card:hover {
+  border-color: rgba(244, 114, 182, 0.4);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+html.theme-dark .qpc-q { color: #ded5ee; }
+html.theme-dark .qpc-ans {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #c9bfe0;
+}
+html.theme-dark .qpc-ans:hover { background: rgba(244, 114, 182, 0.12); border-color: rgba(244, 114, 182, 0.35); }
+html.theme-dark .qpc-letter { color: #f9a8d4; background: rgba(249, 168, 212, 0.14); border-color: rgba(249, 168, 212, 0.28); }
+html.theme-dark #preview-count-badge { color: #f9a8d4; background: rgba(249, 168, 212, 0.14); border-color: rgba(249, 168, 212, 0.28); }
+html.theme-dark .quiz-preview-foot { color: #f9a8d4; border-top-color: rgba(249, 168, 212, 0.2); }
+html.theme-dark .quiz-preview-title { color: #f9a8d4 !important; }
