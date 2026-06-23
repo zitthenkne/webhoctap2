@@ -352,9 +352,10 @@
                                 <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-pink-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#FF69B4]"></div>
                             </div>
                         </label>
-                        <div id="timed-minutes-input-block" class="flex items-center gap-2 mt-3 ml-12 transition-all duration-300">
+                        <div id="timed-minutes-input-block" class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-3 ml-12 transition-all duration-300">
                             <span class="text-xs text-gray-500">Thời gian (phút):</span>
                             <input type="number" id="timed-minutes-input" min="1" max="180" value="30" class="w-16 px-2 py-1 text-xs border border-pink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-300 font-bold text-gray-700" />
+                            <span class="basis-full text-[10px] text-gray-400 italic">Gợi ý tự động theo số câu — bạn có thể tự chỉnh</span>
                         </div>
                     </div>
 
@@ -462,9 +463,46 @@
                 // Ẩn/hiện input thời gian theo checkbox
                 const timedCheckbox = document.getElementById('timed-mode-checkbox');
                 const timedInputBlock = document.getElementById('timed-minutes-input-block');
+                const timedInput = document.getElementById('timed-minutes-input');
+
+                // --- Tính giờ gợi ý theo số câu: phút = ceil(số câu / 2 + 10) ---
+                // Tự động điền cho tới khi người dùng tự chỉnh thì tôn trọng lựa chọn của họ.
+                let timerUserSet = false;       // người dùng đã tự nhập thời gian?
+                let timerProgrammatic = false;  // đang gán giá trị bằng code (đừng coi là user nhập)
+                if (timedInput) {
+                    timedInput.addEventListener('input', () => {
+                        if (!timerProgrammatic) timerUserSet = true;
+                    });
+                }
+                function getEffectiveQuestionCount() {
+                    const enableCount = document.getElementById('enable-question-count-checkbox');
+                    const cInput = document.getElementById('question-count-input');
+                    if (enableCount && enableCount.checked && cInput && cInput.value) {
+                        const v = parseInt(cInput.value, 10);
+                        if (!isNaN(v) && v > 0) return v;
+                    }
+                    return window.quizQuestionsLength || 0;
+                }
+                // Cho quiz-ui.js gọi sau khi tải xong dữ liệu, và dùng nội bộ khi số câu thay đổi.
+                window.applySuggestedTime = function () {
+                    if (!timedInput || timerUserSet) return;
+                    const count = getEffectiveQuestionCount();
+                    if (count <= 0) return;
+                    let mins = Math.ceil(count / 2 + 10);
+                    const max = parseInt(timedInput.max, 10) || 180;
+                    mins = Math.max(1, Math.min(max, mins));
+                    timerProgrammatic = true;
+                    timedInput.value = mins;
+                    // Báo cho quiz-ui.js cập nhật thẻ "Thời gian" mà không đánh dấu là user nhập
+                    timedInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    timerProgrammatic = false;
+                };
+
                 if (timedCheckbox && timedInputBlock) {
                     function updateTimedInputVisibility() {
                         timedInputBlock.style.display = timedCheckbox.checked ? 'flex' : 'none';
+                        // Khi bật tính giờ: đảm bảo đã có gợi ý theo số câu (nếu user chưa tự chỉnh)
+                        if (timedCheckbox.checked) window.applySuggestedTime();
                     }
                     timedCheckbox.addEventListener('change', updateTimedInputVisibility);
                     updateTimedInputVisibility();
@@ -475,7 +513,7 @@
                 const countInputBlock = document.getElementById('question-count-input-block');
                 const countInput = document.getElementById('question-count-input');
                 const countMaxSpan = document.getElementById('question-count-max');
-                
+
                 if (enableCountCheckbox && countInputBlock) {
                     function updateCountInputVisibility() {
                         countInputBlock.style.display = enableCountCheckbox.checked ? 'flex' : 'none';
@@ -484,8 +522,14 @@
                             countInput.value = window.quizQuestionsLength;
                             if (countMaxSpan) countMaxSpan.textContent = `/ ${window.quizQuestionsLength}`;
                         }
+                        // Số câu thay đổi -> cập nhật lại thời gian gợi ý
+                        window.applySuggestedTime();
                     }
                     enableCountCheckbox.addEventListener('change', updateCountInputVisibility);
+                }
+                // Người dùng đổi số câu -> tính lại thời gian gợi ý (nếu chưa tự chỉnh giờ)
+                if (countInput) {
+                    countInput.addEventListener('input', () => window.applySuggestedTime());
                 }
 
                 // Redirect flashcard
@@ -496,34 +540,88 @@
                     btn.href = quizId ? `flashcard.html?id=${quizId}` : 'flashcard.html';
                 }
 
-                // Share quiz link
-                var shareBtn = document.getElementById('share-quiz-btn');
-                if (shareBtn) {
-                    shareBtn.addEventListener('click', function() {
-                        // Dùng link /api/share-quiz để Zalo/Messenger hiện ảnh sóc + tên đề,
-                        // thay vì link quiz.html thô (không có preview động).
-                        var shareId = new URLSearchParams(window.location.search).get('id');
-                        var url;
-                        if (shareId) {
-                            url = window.location.origin + '/api/share-quiz?id=' + encodeURIComponent(shareId) + '&t=' + Date.now();
-                        } else {
-                            url = window.location.href;
-                        }
+                // === CHIA SẺ BỘ ĐỀ (modal đầy đủ, đồng bộ với thư viện) ===
+                const toast = function (msg, type) {
+                    if (window.showToast) window.showToast(msg, type);
+                    else alert(msg);
+                };
+                const shareModal = document.getElementById('shareQuizModal');
+
+                function openQuizShareModal() {
+                    if (!shareModal) return;
+                    const shareId = new URLSearchParams(window.location.search).get('id');
+                    // Ưu tiên link /api/share-quiz (Zalo/Messenger hiện ảnh sóc + tên đề)
+                    const quizUrl = shareId
+                        ? new URL('api/share-quiz?id=' + encodeURIComponent(shareId) + '&t=' + Date.now(), window.location.origin).href
+                        : window.location.href;
+                    const titleEl = document.getElementById('quiz-title');
+                    const quizTitle = (titleEl && titleEl.textContent && titleEl.textContent.trim() !== 'Đang tải thông tin...')
+                        ? titleEl.textContent.trim()
+                        : (document.title || 'Bộ đề trắc nghiệm');
+
+                    const titleField = document.getElementById('share-quiz-title');
+                    const linkInput = document.getElementById('share-link-input');
+                    const embedInput = document.getElementById('share-embed-input');
+                    const qrImg = document.getElementById('share-qr-img');
+                    if (titleField) titleField.textContent = quizTitle;
+                    if (linkInput) linkInput.value = quizUrl;
+                    if (embedInput) embedInput.value = `<iframe src="${quizUrl}" width="100%" height="600px" style="border:none; border-radius:12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);"></iframe>`;
+                    if (qrImg) qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(quizUrl)}`;
+
+                    const messengerBtn = document.getElementById('share-messenger-btn');
+                    const facebookBtn = document.getElementById('share-facebook-btn');
+                    const systemBtn = document.getElementById('share-system-btn');
+                    if (messengerBtn) messengerBtn.onclick = () => {
+                        window.open(`https://www.facebook.com/dialog/send?app_id=966242223397117&link=${encodeURIComponent(quizUrl)}&redirect_uri=${encodeURIComponent(quizUrl)}`, '_blank', 'width=600,height=500');
+                    };
+                    if (facebookBtn) facebookBtn.onclick = () => {
+                        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(quizUrl)}`, '_blank', 'width=600,height=500');
+                    };
+                    if (systemBtn) {
                         if (navigator.share) {
-                            navigator.share({
-                                title: document.title,
-                                url: url
-                            });
+                            systemBtn.classList.remove('hidden');
+                            systemBtn.onclick = () => {
+                                navigator.share({
+                                    title: quizTitle,
+                                    text: `Hãy cùng làm bài kiểm tra "${quizTitle}" trên Zitthenkne nhé!`,
+                                    url: quizUrl
+                                }).catch(err => console.error('Lỗi chia sẻ hệ thống:', err));
+                            };
                         } else {
-                            navigator.clipboard.writeText(url);
-                            if (window.showToast) {
-                                window.showToast('Đã copy link quiz vào clipboard!', 'success');
-                            } else {
-                                alert('Đã copy link quiz vào clipboard!');
-                            }
+                            systemBtn.classList.add('hidden');
                         }
-                    });
+                    }
+
+                    shareModal.classList.remove('hidden');
                 }
+                function closeQuizShareModal() {
+                    if (shareModal) shareModal.classList.add('hidden');
+                }
+
+                const shareBtn = document.getElementById('share-quiz-btn');
+                if (shareBtn) shareBtn.addEventListener('click', openQuizShareModal);
+
+                const closeShareBtn = document.getElementById('closeShareQuizModalBtn');
+                if (closeShareBtn) closeShareBtn.addEventListener('click', closeQuizShareModal);
+                if (shareModal) shareModal.addEventListener('click', (e) => { if (e.target === shareModal) closeQuizShareModal(); });
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && shareModal && !shareModal.classList.contains('hidden')) closeQuizShareModal();
+                });
+
+                const copyLinkBtn = document.getElementById('copy-share-link-btn');
+                if (copyLinkBtn) copyLinkBtn.addEventListener('click', () => {
+                    const input = document.getElementById('share-link-input');
+                    if (input && input.value) navigator.clipboard.writeText(input.value)
+                        .then(() => toast('Đã copy link bộ đề!', 'success'))
+                        .catch(() => toast('Không thể sao chép!', 'error'));
+                });
+                const copyEmbedBtn = document.getElementById('copy-share-embed-btn');
+                if (copyEmbedBtn) copyEmbedBtn.addEventListener('click', () => {
+                    const input = document.getElementById('share-embed-input');
+                    if (input && input.value) navigator.clipboard.writeText(input.value)
+                        .then(() => toast('Đã copy mã nhúng!', 'success'))
+                        .catch(() => toast('Không thể sao chép!', 'error'));
+                });
             });
             </script>
         </div>
@@ -605,6 +703,60 @@
 
     <!-- Lớp phủ phóng to ảnh -->
     <div id="img-lightbox" class="hidden"><img src="" alt="Ảnh phóng to" /></div>
+
+    <!-- Modal Chia sẻ bộ đề (đồng bộ với thư viện) -->
+    <div id="shareQuizModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] hidden">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl transform transition-all mx-4 max-h-[90vh] overflow-y-auto">
+            <h3 class="text-xl font-extrabold text-[#FF69B4] mb-4 flex items-center gap-2">
+                <i class="fas fa-share-alt text-[#FF69B4]"></i> Chia sẻ bộ đề
+            </h3>
+            <div class="space-y-4">
+                <!-- Tên bộ đề -->
+                <p id="share-quiz-title" class="font-bold text-gray-800 text-sm line-clamp-2 bg-pink-50/50 p-2.5 rounded-xl border border-pink-100/50"></p>
+
+                <!-- QR Code Section -->
+                <div class="flex flex-col items-center justify-center py-3 bg-gray-50 rounded-2xl border border-gray-100">
+                    <img id="share-qr-img" src="" alt="QR Code" class="w-36 h-36 object-contain rounded-lg shadow-sm border border-gray-100 bg-white p-1" />
+                    <span class="text-[10px] text-gray-400 mt-2"><i class="fas fa-qrcode mr-1"></i>Quét mã QR để làm bài trên điện thoại</span>
+                </div>
+
+                <!-- Quick Share Buttons -->
+                <div class="flex gap-2 justify-center py-1">
+                    <button type="button" id="share-messenger-btn" class="flex-1 py-2 px-3 bg-[#0084FF] hover:bg-opacity-90 active:scale-95 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition">
+                        <i class="fab fa-facebook-messenger text-sm"></i> Messenger
+                    </button>
+                    <button type="button" id="share-facebook-btn" class="flex-1 py-2 px-3 bg-[#1877F2] hover:bg-opacity-90 active:scale-95 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition">
+                        <i class="fab fa-facebook text-sm"></i> Facebook
+                    </button>
+                    <button type="button" id="share-system-btn" class="flex-1 py-2 px-3 bg-pink-500 hover:bg-opacity-90 active:scale-95 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition hidden">
+                        <i class="fas fa-share-alt text-sm"></i> App Khác
+                    </button>
+                </div>
+
+                <!-- Link Section -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Đường dẫn liên kết</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="share-link-input" readonly class="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-xs bg-gray-50 focus:outline-none w-full truncate font-mono text-gray-600" />
+                        <button type="button" id="copy-share-link-btn" class="px-3 py-2 bg-[#FF69B4] text-white rounded-xl hover:bg-opacity-90 active:scale-95 transition font-bold text-xs flex items-center gap-1 shadow-sm"><i class="far fa-copy"></i> Copy</button>
+                    </div>
+                </div>
+
+                <!-- Embed Section -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Nhúng vào Notion</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="share-embed-input" readonly class="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-xs bg-gray-50 focus:outline-none w-full truncate font-mono text-gray-600" />
+                        <button type="button" id="copy-share-embed-btn" class="px-3 py-2 bg-indigo-500 text-white rounded-xl hover:bg-opacity-90 active:scale-95 transition font-bold text-xs flex items-center gap-1 shadow-sm"><i class="far fa-copy"></i> Copy</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-6">
+                <button type="button" id="closeShareQuizModalBtn" class="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition font-bold text-sm shadow-sm w-full sm:w-auto">Đóng</button>
+            </div>
+        </div>
+    </div>
 
     <script type="module" src="quiz-page.js"></script>
     <script>

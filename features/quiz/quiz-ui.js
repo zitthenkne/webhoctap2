@@ -155,12 +155,14 @@ export function loadQuizDetails() {
             statQuestionsCount.textContent = `${state.originalQuestions.length} câu`;
         }
 
-        // Gợi ý thời gian làm bài (~45 giây/câu, tối thiểu 1 phút)
+        // Gợi ý thời gian làm bài: phút = ceil(số câu / 2 + 10)
+        const estMinutes = Math.max(1, Math.ceil(state.originalQuestions.length / 2 + 10));
         const statDurationEst = document.getElementById('stat-duration-est');
         if (statDurationEst) {
-            const estMinutes = Math.max(1, Math.round(state.originalQuestions.length * 0.75));
             statDurationEst.textContent = `≈ ${estMinutes} phút gợi ý`;
         }
+        // Điền sẵn thời gian gợi ý cho chế độ tính giờ (người dùng vẫn chỉnh được)
+        if (typeof window.applySuggestedTime === 'function') window.applySuggestedTime();
 
         updateStatDuration();
         
