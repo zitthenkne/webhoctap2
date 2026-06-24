@@ -27,6 +27,8 @@
 </head>
 
 <body class="flex h-screen bg-gray-50 text-gray-700 text-sm">
+    <!-- Nền ngẫu nhiên: chọn 1 ảnh trong thư mục "assets/bg index/" mỗi lần tải -->
+    <script src="bg-random.js"></script>
     <!-- Mobile Top Bar with Hamburger -->
     <div
         class="md:hidden fixed top-0 left-0 w-full z-40 bg-white/95 shadow-lg flex items-center justify-between px-2 py-2 border-b border-pink-100 min-h-[54px]">
@@ -116,10 +118,10 @@
             </div>
         </header>
 
-        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-[#FCE4EC] p-2 sm:p-4 md:p-6">
+        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-transparent p-2 sm:p-4 md:p-6">
             <div id="dashboardContent" class="content-panel fade-in">
                 <div class="text-center mt-10 mb-8 md:mt-16 md:mb-10">
-                    <h2 class="text-2xl md:text-3xl font-extrabold text-[#FF69B4] drop-shadow mb-2">Bạn muốn làm gì hôm
+                    <h2 class="text-on-bg text-2xl md:text-3xl font-extrabold text-[#FF69B4] drop-shadow mb-2">Bạn muốn làm gì hôm
                         nay?</h2>
                 </div>
                 <div
@@ -263,10 +265,10 @@
                 <div class="max-w-2xl mx-auto">
                     <!-- Tiêu đề trang -->
                     <div class="text-center mb-8">
-                        <h2 class="text-2xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-[#FF69B4] to-[#D8BFD8] drop-shadow">
+                        <h2 class="text-on-bg text-2xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-[#FF69B4] to-[#D8BFD8] drop-shadow">
                             <i class="fas fa-graduation-cap mr-2 text-[#FF69B4]"></i>Công cụ tính điểm Đại học Y Dược
                         </h2>
-                        <p class="text-sm text-gray-400 mt-2">Quy đổi điểm và tính số câu cần đạt cho từng kỳ thi 🐿️</p>
+                        <p class="text-on-bg text-sm text-gray-500 mt-2">Quy đổi điểm và tính số câu cần đạt cho từng kỳ thi 🐿️</p>
                     </div>
 
                     <!-- CARD 1: Quy đổi điểm nhanh -->
@@ -380,7 +382,7 @@
 
             <div id="libraryContent" class="content-panel hidden">
                 <div class="flex flex-row justify-between items-center gap-3 mb-4">
-                    <h2 class="text-xl sm:text-2xl font-extrabold text-[#FF69B4] tracking-wide">Thư viện</h2>
+                    <h2 class="text-on-bg text-xl sm:text-2xl font-extrabold text-[#FF69B4] tracking-wide">Thư viện</h2>
                     <div class="flex items-center gap-2 flex-shrink-0">
                         <!-- Hành động chính: Tạo thư mục (luôn hiển thị) -->
                         <button type="button" id="create-folder-btn" class="px-3 py-2 bg-pink-100 text-pink-700 rounded-xl hover:bg-pink-200 transition font-bold flex items-center gap-1.5 text-xs focus:outline-none shadow-sm">
@@ -499,7 +501,7 @@
                 </div>
                 <!-- Khu vực hiển thị Thư mục cuộn ngang -->
                 <div id="folders-section" class="mb-8 hidden">
-                    <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <h3 class="text-on-bg text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
                         <i class="fas fa-folder-open text-pink-400"></i> Thư mục của bạn
                     </h3>
                     <div id="folders-container" class="folders-scroll-container scrollbar-none">
@@ -515,7 +517,7 @@
 
                 <!-- Khu vực hiển thị Bộ đề -->
                 <div id="quizzes-section">
-                    <h3 id="quizzes-section-title" class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2 hidden">
+                    <h3 id="quizzes-section-title" class="text-on-bg text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2 hidden">
                         <i class="fas fa-file-alt text-pink-400"></i> Bộ đề trắc nghiệm
                     </h3>
                     <div id="quiz-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -526,8 +528,8 @@
             <div id="statsContent" class="content-panel hidden p-4 sm:p-6">
                 <div class="flex justify-between items-center mb-6 border-b border-pink-100 pb-4">
                     <div>
-                        <h2 class="text-2xl sm:text-3xl font-extrabold text-[#FF69B4]">Báo cáo học tập & Thành tích</h2>
-                        <p class="text-gray-500 text-xs sm:text-sm mt-1">Phân tích hiệu suất học tập của bạn theo thời gian</p>
+                        <h2 class="text-on-bg text-2xl sm:text-3xl font-extrabold text-[#FF69B4]">Báo cáo học tập & Thành tích</h2>
+                        <p class="text-on-bg text-gray-500 text-xs sm:text-sm mt-1">Phân tích hiệu suất học tập của bạn theo thời gian</p>
                     </div>
                     <button type="button" id="refresh-stats-btn"
                         class="p-2.5 bg-pink-50 text-pink-600 rounded-full hover:bg-pink-100 transition-all shadow-sm" title="Tải lại dữ liệu"><i
@@ -622,7 +624,7 @@
             </div>
 
             <div id="myStudyRoomsContent" class="content-panel hidden p-6">
-                <h2 class="text-2xl font-bold text-gray-800 mb-6">Phòng học của tôi</h2>
+                <h2 class="text-on-bg text-2xl font-bold text-gray-800 mb-6">Phòng học của tôi</h2>
                 <div class="flex justify-end mb-4 gap-2">
                     <button id="join-room-by-code-btn"
                         class="px-6 py-2 bg-blue-200 text-blue-800 rounded-lg hover:bg-blue-300 transition">

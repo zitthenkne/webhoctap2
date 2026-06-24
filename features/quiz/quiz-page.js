@@ -3,6 +3,7 @@
 import { db, auth } from '../../core/firebase-init.js';
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { showToast, showConfirm } from '../../core/utils.js';
+import { applyLocalQuestionEdits, openQuestionEditor, setupQuestionEditor } from './quiz-editor.js';
 
 import { state, resetState, saveQuizState, clearQuizState, saveQuizResult, MARK_REASONS } from './quiz-state.js';
 import {
@@ -369,6 +370,7 @@ function setupSettings() {
     const rowSound = document.getElementById('qs-sound');
     const rowVibrate = document.getElementById('qs-vibrate');
     const bgOpacityInput = document.getElementById('qs-bg-opacity');
+    const rowShuffleBg = document.getElementById('qs-shuffle-bg');
     if (!fab || !pop) return;
 
     const sync = () => {
@@ -416,6 +418,95 @@ function setupSettings() {
         // Không đóng popover khi tương tác với thanh trượt
         bgOpacityInput.addEventListener('click', (e) => e.stopPropagation());
     }
+    if (rowShuffleBg) rowShuffleBg.addEventListener('click', (e) => {
+        // Giữ popover mở để bấm đổi liên tục cho tới khi ưng ý
+        e.stopPropagation();
+        if (typeof window.shuffleQuizBg === 'function') {
+            window.shuffleQuizBg();
+            showToast('Đã đổi ảnh nền 🎨');
+        }
+    });
+}
+
+// --- Kéo giãn độ rộng 3 cột (số câu | bài làm | ghi chú), nhớ riêng theo thiết bị ---
+// Mỗi cột bên có giới hạn min/max; bề rộng lưu vào localStorage (px) theo từng máy.
+const COLUMN_RESIZE = {
+    nav:  { min: 120, max: 320, key: 'quiz_nav_w',  cssVar: '--quiz-nav-w',  panelId: 'quiz-nav-panel' },
+    note: { min: 150, max: 380, key: 'quiz_note_w', cssVar: '--quiz-note-w', panelId: 'quiz-note-panel' }
+};
+
+function applyStoredColumnWidths() {
+    const ws = document.getElementById('quiz-workspace');
+    if (!ws) return;
+    Object.values(COLUMN_RESIZE).forEach(cfg => {
+        let v = parseInt(localStorage.getItem(cfg.key), 10);
+        if (!isNaN(v)) {
+            v = Math.max(cfg.min, Math.min(cfg.max, v));
+            ws.style.setProperty(cfg.cssVar, v + 'px');
+        }
+    });
+}
+
+function resetColumnWidths() {
+    const ws = document.getElementById('quiz-workspace');
+    if (!ws) return;
+    Object.values(COLUMN_RESIZE).forEach(cfg => {
+        ws.style.removeProperty(cfg.cssVar);
+        try { localStorage.removeItem(cfg.key); } catch (e) {}
+    });
+}
+
+function setupResizers() {
+    const ws = document.getElementById('quiz-workspace');
+    if (!ws) return;
+    applyStoredColumnWidths();
+
+    ws.querySelectorAll('.quiz-resizer').forEach(handle => {
+        const cfg = COLUMN_RESIZE[handle.getAttribute('data-resize')];
+        if (!cfg) return;
+        const panel = document.getElementById(cfg.panelId);
+        if (!panel) return;
+        const isNav = handle.getAttribute('data-resize') === 'nav';
+
+        let startX = 0, startW = 0;
+        const onPointerMove = (e) => {
+            const delta = e.clientX - startX;
+            // Kéo phải nới rộng cột số câu; cột ghi chú thì ngược lại
+            let w = isNav ? startW + delta : startW - delta;
+            w = Math.max(cfg.min, Math.min(cfg.max, w));
+            ws.style.setProperty(cfg.cssVar, Math.round(w) + 'px');
+        };
+        const onPointerUp = () => {
+            handle.classList.remove('is-dragging');
+            document.body.classList.remove('quiz-resizing');
+            window.removeEventListener('pointermove', onPointerMove);
+            window.removeEventListener('pointerup', onPointerUp);
+            try { localStorage.setItem(cfg.key, String(Math.round(panel.getBoundingClientRect().width))); } catch (e) {}
+        };
+        handle.addEventListener('pointerdown', (e) => {
+            // Chỉ kéo ở bố cục 3 cột (desktop), bỏ qua khi đang ở chế độ tập trung
+            if (window.innerWidth < 1024 || document.body.classList.contains('focus-mode-active')) return;
+            e.preventDefault();
+            startX = e.clientX;
+            startW = panel.getBoundingClientRect().width;
+            handle.classList.add('is-dragging');
+            document.body.classList.add('quiz-resizing');
+            window.addEventListener('pointermove', onPointerMove);
+            window.addEventListener('pointerup', onPointerUp);
+        });
+        // Bấm đúp tay kéo: trả riêng cột này về mặc định
+        handle.addEventListener('dblclick', () => {
+            ws.style.removeProperty(cfg.cssVar);
+            try { localStorage.removeItem(cfg.key); } catch (e) {}
+        });
+    });
+
+    const resetBtn = document.getElementById('reset-layout-btn');
+    if (resetBtn) resetBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        resetColumnWidths();
+        showToast('Đã khôi phục độ rộng cột mặc định');
+    });
 }
 
 // --- #3: vuốt trái/phải để chuyển câu (mobile) ---
@@ -578,6 +669,8 @@ async function loadQuizData() {
         if (docSnap.exists()) {
             state.quizData = docSnap.data();
             state.quizData.id = quizId; // Make sure id is stored in state
+            // Áp dụng các chỉnh sửa câu hỏi đã lưu cục bộ trên thiết bị này (nếu không phải chủ bộ đề)
+            applyLocalQuestionEdits();
             state.originalQuestions = state.quizData.questions;
             loadQuizDetails();
         } else {
@@ -672,8 +765,8 @@ function setNavVisibility(visible) {
     const toggleBtn = document.getElementById('toggle-nav-btn');
     if (toggleBtn) {
         toggleBtn.innerHTML = visible
-            ? '<i class="fas fa-eye-slash"></i> Ẩn số câu hỏi'
-            : '<i class="fas fa-eye"></i> Hiện số câu hỏi';
+            ? '<span class="qs-label"><i class="fas fa-eye-slash"></i> Ẩn số câu hỏi</span>'
+            : '<span class="qs-label"><i class="fas fa-eye"></i> Hiện số câu hỏi</span>';
     }
 }
 
@@ -762,6 +855,110 @@ function setupMarkControl() {
             applyMark(state.currentIndex, item.getAttribute('data-mark-reason'));
             showQuestion();
         });
+    });
+}
+
+// ===== "Câu đã đánh dấu" trong bảng thiết lập (góc trái) =====
+// Rút gọn nội dung câu hỏi (bỏ markdown/latex, escape HTML) để hiện preview gọn trong danh sách.
+function plainSnippet(str, max = 52) {
+    let s = String(str || '')
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')   // ảnh markdown
+        .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')  // [text](url) -> text
+        .replace(/[`*_#>~$]/g, '')                // ký hiệu markdown/latex
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (s.length > max) s = s.slice(0, max).trim() + '…';
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Dựng lại danh sách câu đã đánh dấu + số đếm; ẩn cả khối khi chưa đánh dấu câu nào.
+function refreshMarkedPanel() {
+    const control = document.getElementById('marked-control');
+    const panel = document.getElementById('marked-list-panel');
+    const badge = document.getElementById('marked-count-badge');
+    if (!control || !panel) return;
+
+    const marked = [...state.markedQuestions].sort((a, b) => a - b);
+    if (badge) badge.textContent = String(marked.length);
+    control.classList.toggle('hidden', marked.length === 0);
+    if (marked.length === 0) {
+        panel.innerHTML = '';
+        panel.classList.add('hidden');
+        const tb = document.getElementById('marked-list-btn');
+        if (tb) tb.setAttribute('aria-expanded', 'false');
+        return;
+    }
+
+    panel.innerHTML = marked.map(idx => {
+        const q = state.questions[idx];
+        const rk = state.markedReasons[idx] || 'review';
+        const r = MARK_REASONS[rk] || MARK_REASONS.review;
+        const answered = state.userAnswers[idx] !== null && state.userAnswers[idx] !== undefined;
+        const isCurrent = idx === state.currentIndex;
+        const snippet = plainSnippet(q && q.question);
+        return `
+            <div class="qs-marked-item ${isCurrent ? 'qs-marked-current' : ''}" data-marked-idx="${idx}" role="menuitem" tabindex="0" title="Tới câu ${idx + 1}">
+                <span class="qs-marked-num" style="background:${r.color}">${idx + 1}</span>
+                <span class="qs-marked-body">
+                    <span class="qs-marked-reason" style="color:${r.text}"><i class="fas ${r.icon}"></i> ${r.short}${answered ? '' : ' · <span class="qs-marked-todo">chưa làm</span>'}</span>
+                    <span class="qs-marked-text">${snippet || 'Câu ' + (idx + 1)}</span>
+                </span>
+                <button type="button" class="qs-marked-unmark" data-unmark-idx="${idx}" title="Bỏ đánh dấu câu ${idx + 1}" aria-label="Bỏ đánh dấu câu ${idx + 1}"><i class="fas fa-times"></i></button>
+            </div>`;
+    }).join('');
+}
+
+// Nối sự kiện cho khối "Câu đã đánh dấu" (gọi 1 lần lúc khởi tạo; dùng ủy quyền sự kiện).
+function setupMarkedList() {
+    const toggleBtn = document.getElementById('marked-list-btn');
+    const panel = document.getElementById('marked-list-panel');
+    const pop = document.getElementById('quiz-settings-popover');
+    if (!toggleBtn || !panel) return;
+
+    // Mở/đóng danh sách trong popover (không đóng popover)
+    toggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const willOpen = panel.classList.contains('hidden');
+        panel.classList.toggle('hidden', !willOpen);
+        toggleBtn.setAttribute('aria-expanded', String(willOpen));
+        if (willOpen) {
+            // Cuộn mục câu hiện tại vào tầm nhìn nếu có
+            const cur = panel.querySelector('.qs-marked-current');
+            if (cur) cur.scrollIntoView({ block: 'nearest' });
+        }
+    });
+
+    const jumpTo = (idx) => {
+        if (isNaN(idx)) return;
+        state.currentIndex = idx;
+        if (pop) pop.classList.add('hidden-pop');     // đóng popover sau khi nhảy câu
+        showQuestion();
+    };
+
+    panel.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const unmarkBtn = e.target.closest('[data-unmark-idx]');
+        if (unmarkBtn) {
+            const idx = parseInt(unmarkBtn.getAttribute('data-unmark-idx'), 10);
+            applyMark(idx, '__unmark');
+            // Giữ popover & danh sách đang mở; cập nhật lại nav + thẻ câu hiện tại
+            showQuestion();
+            showToast('Đã bỏ đánh dấu câu ' + (idx + 1));
+            return;
+        }
+        const item = e.target.closest('[data-marked-idx]');
+        if (item) jumpTo(parseInt(item.getAttribute('data-marked-idx'), 10));
+    });
+
+    // Bàn phím: Enter/Space để nhảy tới câu đang focus
+    panel.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const item = e.target.closest('[data-marked-idx]');
+        if (item) {
+            e.preventDefault();
+            e.stopPropagation();   // không để lọt xuống phím tắt làm bài toàn cục
+            jumpTo(parseInt(item.getAttribute('data-marked-idx'), 10));
+        }
     });
 }
 
@@ -955,6 +1152,8 @@ function getQuestionSizeClass(fontSize, rawQuestion) {
 }
 
 function showQuestion() {
+    // Đang làm bài -> mở khóa nhóm điều khiển làm bài trong bảng thiết lập
+    document.body.classList.add('quiz-active');
     updateProgressBar();
     const question = state.questions[state.currentIndex];
     const quizSection = document.getElementById('quizSection');
@@ -997,6 +1196,9 @@ function showQuestion() {
     <div class="bg-white rounded-lg shadow-lg p-6 fade-in">
         <div class="flex justify-between items-center mb-4">
             <h2 class="text-xl font-bold text-gray-700">${title}</h2>
+            <button type="button" id="edit-question-btn" class="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border border-pink-300 text-[#FF69B4] bg-pink-50 hover:bg-pink-100 hover:text-pink-600 transition" title="Sửa đáp án, giải thích, ghi chú, mở rộng cho câu này" aria-label="Sửa câu hỏi">
+                <i class="fas fa-pen-to-square"></i>
+            </button>
         </div>
         <div class="mb-2 flex flex-wrap items-center gap-2 focus-hide">
             ${question.topic && String(question.topic).trim() && String(question.topic).trim().toLowerCase() !== 'chung' ? `<span class="inline-block px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold border border-blue-200"><i class="fas fa-tag mr-1"></i> Chủ đề: ${question.topic}</span>` : ''}
@@ -1027,9 +1229,6 @@ function showQuestion() {
                 <i class="fas fa-life-ring"></i> Trợ giúp 50:50
             </button>
             ${renderMarkControl()}
-            <button id="review-marked-btn" class="px-4 py-2 rounded-lg border border-blue-400 text-blue-700 bg-blue-50 hover:bg-blue-100 transition flex items-center gap-2 ${state.markedQuestions.length === 0 ? 'hidden' : ''}">
-                <i class="fas fa-eye"></i> Xem các câu đã đánh dấu
-            </button>
             </div>
         </div>
         ${question.note && question.note.trim() ? `
@@ -1077,6 +1276,10 @@ function showQuestion() {
     const workspaceEl = document.getElementById('quiz-workspace');
     if (workspaceEl) workspaceEl.classList.remove('results-active');
 
+    // Đồng bộ bảng "Câu đã đánh dấu" (số đếm + danh sách) — đặt ở MỌI nhánh render,
+    // kể cả khi xem lại câu đã trả lời ở chế độ không hiện đáp án ngay (return sớm bên dưới).
+    refreshMarkedPanel();
+
     renderMath(quizSection);
     attachToggleNavEvent();
     setNavVisibility(navVisible);
@@ -1084,6 +1287,9 @@ function showQuestion() {
     // Chạy cho MỌI trạng thái câu (kể cả khi revisit câu đã trả lời ở chế độ không xem đáp án ngay)
     // #2: cập nhật thanh HUD dính (số câu + tiến trình)
     updateHud();
+    // Nút "Sửa câu hỏi": mở modal chỉnh sửa đáp án/giải thích/ghi chú/mở rộng (chạy ở mọi nhánh render)
+    const editBtn = document.getElementById('edit-question-btn');
+    if (editBtn) editBtn.addEventListener('click', openQuestionEditor);
     // #7: nút độ chắc chắn (tinh tế, mặc định "chắc chắn")
     const confBtn = document.getElementById('confidence-toggle');
     if (confBtn) {
@@ -1213,16 +1419,6 @@ function showQuestion() {
             }
         });
     });
-    const reviewMarkedBtn = document.getElementById('review-marked-btn');
-    if (reviewMarkedBtn) {
-        reviewMarkedBtn.addEventListener('click', () => {
-            if (state.markedQuestions.length > 0) {
-                state.currentIndex = state.markedQuestions[0];
-                showQuestion();
-            }
-        });
-    }
-
     // #9: áp dụng ghi chú trực quan cho mọi vùng (đề, đáp án, giải thích, mở rộng, ghi chú)
     applyAnnotationsAll();
 }
@@ -1241,6 +1437,8 @@ function endQuiz() {
     state._timingIndex = null;
     const hud = document.getElementById('quiz-hud');
     if (hud) hud.style.display = 'none';
+    // Rời màn làm bài -> ẩn nhóm điều khiển làm bài trong bảng thiết lập
+    document.body.classList.remove('quiz-active');
     if (autoSaveInterval) {
         clearInterval(autoSaveInterval);
         autoSaveInterval = null;
@@ -1481,7 +1679,9 @@ function startQuizWithCurrentSettings() {
     state.streak = 0;
     state.used5050Questions = {};
 
-    let selectedQuestions = [...state.originalQuestions];
+    // Gắn chỉ số gốc (__origIdx) cho từng câu để khi người dùng chỉnh sửa trong lúc làm bài
+    // còn ánh xạ ngược về đúng câu trong dữ liệu gốc (kể cả khi đã trộn câu/đáp án).
+    let selectedQuestions = state.originalQuestions.map((q, i) => ({ ...q, __origIdx: i }));
 
     const shuffleCheckbox = document.getElementById('shuffle-questions-checkbox');
     if (shuffleCheckbox && shuffleCheckbox.checked) {
@@ -1545,7 +1745,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             const restoreInterval = setInterval(() => {
                                 if (state.originalQuestions && state.originalQuestions.length === savedState.questionsLength) {
                                     clearInterval(restoreInterval);
-                                    startQuizMode([...state.originalQuestions], restoreMode, savedState);
+                                    startQuizMode(state.originalQuestions.map((q, i) => ({ ...q, __origIdx: i })), restoreMode, savedState);
                                 }
                             }, 200);
                         }
@@ -1617,9 +1817,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setupFontSizeControls();
     setupFocusModeControls();
+    setupMarkedList();     // "Câu đã đánh dấu" trong bảng thiết lập (góc trái)
     setupSettings();       // #1 + #15: Dark / Âm thanh / Rung
+    setupResizers();       // Kéo giãn độ rộng 3 cột + nhớ theo thiết bị
     setupAnnotations();    // #9: ghi chú trực quan (bôi vàng / in đậm / in nghiêng)
     setupLightbox();       // #13: phóng to ảnh
+    setupQuestionEditor(showQuestion); // Chỉnh sửa câu hỏi (đáp án/giải thích/ghi chú/mở rộng) ngay khi làm bài
     setupSwipe();          // #3: vuốt chuyển câu
 
     // Đóng menu lý do đánh dấu khi bấm ra ngoài (1 listener dùng chung cho mọi câu)

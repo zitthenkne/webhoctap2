@@ -52,7 +52,7 @@ export function renderQuizProgressBar() {
         }
         
         navHtml += `
-            <button type="button" class="quiz-nav-btn relative rounded-full w-9 h-9 mx-1 my-1 text-sm font-bold focus:outline-none transition-all ${btnClass}" data-qidx="${i}" title="Câu ${i+1}${isMarked ? ' (Đánh dấu)' : ''}">
+            <button type="button" class="quiz-nav-btn relative rounded-full w-8 h-8 text-sm font-bold focus:outline-none transition-all ${btnClass}" data-qidx="${i}" title="Câu ${i+1}${isMarked ? ' (Đánh dấu)' : ''}">
                 ${i+1}
                 ${markerHtml}
             </button>
@@ -64,7 +64,7 @@ export function renderQuizProgressBar() {
                 <span class="font-medium">Đã trả lời: ${answeredCount}/${total} (${percent}%)</span>
                 <span class="font-medium">Còn lại: ${total - answeredCount}</span>
             </div>
-            <div id="question-nav-wrapper" class="flex flex-wrap justify-center mt-3 bg-gray-50/50 p-2 rounded-xl border border-gray-100 focus-hide">${navHtml}</div>
+            <div id="question-nav-wrapper" class="quiz-nav-grid mt-3 bg-gray-50/50 rounded-xl border border-gray-100 focus-hide">${navHtml}</div>
         </div>
     `;
 }

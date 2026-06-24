@@ -3,90 +3,51 @@
    cảnh báo giờ, độ chắc chắn, bôi vàng, zoom ảnh. Tách riêng để dễ bảo trì. */
 
 /* ============================================================
-   1) THANH HUD DÍNH (sticky) — luôn thấy tiến trình + giờ
+   1) ĐỒNG HỒ ĐẾM NGƯỢC NỔI — chip nhỏ góc trên phải (chỉ khi tính giờ)
+   (Đã bỏ thanh HUD tiến trình để tiết kiệm không gian, giao diện thoáng hơn)
    ============================================================ */
-#quiz-hud {
-    position: sticky;
-    top: 0;
-    z-index: 30;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin: 0 0 0.75rem;
-    padding: 0.5rem 0.9rem;
-    border-radius: 0 0 1rem 1rem;
-    background: rgba(255, 255, 255, 0.82);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 105, 180, 0.18);
-    border-top: none;
-    box-shadow: 0 6px 18px rgba(255, 105, 180, 0.12);
-    transition: background .3s, box-shadow .3s, transform .25s;
-}
-/* Trên mobile có thanh hamburger fixed phía trên -> đẩy HUD xuống dưới nó */
-@media (max-width: 767px) {
-    #quiz-hud { top: 3.25rem; }
-}
-#quiz-hud #hud-home-btn {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    border-radius: 9999px;
-    color: #be185d;
-    background: rgba(255, 105, 180, 0.10);
-    border: 1px solid rgba(255, 105, 180, 0.20);
-    font-size: 0.85rem;
-    text-decoration: none;
-    transition: background .2s, transform .2s, color .2s;
-}
-#quiz-hud #hud-home-btn:hover {
-    background: rgba(255, 105, 180, 0.20);
-    transform: scale(1.08);
-}
-#quiz-hud #hud-home-btn:active {
-    transform: scale(0.94);
-}
-#quiz-hud .hud-counter {
-    font-weight: 800;
-    font-size: 0.85rem;
-    color: #be185d;
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-#quiz-hud .hud-progress {
-    flex: 1;
-    height: 8px;
-    border-radius: 9999px;
-    background: rgba(0, 0, 0, 0.06);
-    overflow: hidden;
-}
-#quiz-hud .hud-progress > div {
-    height: 100%;
-    border-radius: 9999px;
-    background: linear-gradient(90deg, #f472b6, #a78bfa, #818cf8);
-    transition: width .4s ease;
-}
-/* Chip đồng hồ trong HUD (chỉ hiện khi KHÔNG có class .hidden — tránh ID đè .hidden của Tailwind) */
+/* Chip đồng hồ nổi (chỉ hiện khi KHÔNG có class .hidden — tránh ID đè .hidden của Tailwind) */
 #timerDisplay:not(.hidden) {
     display: inline-flex;
 }
 #timerDisplay {
+    position: fixed;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 45;
     align-items: center;
     gap: 0.35rem;
     font-size: 0.95rem !important;
     font-weight: 800;
     color: #db2777 !important;
-    background: rgba(255, 105, 180, 0.1);
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid rgba(255, 105, 180, 0.25);
-    padding: 0.2rem 0.6rem;
+    padding: 0.3rem 0.75rem;
     border-radius: 9999px;
     margin: 0 !important;
     flex-shrink: 0;
     white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(255, 105, 180, 0.18);
 }
+/* Trên mobile có thanh hamburger fixed phía trên -> đẩy đồng hồ xuống dưới nó */
+@media (max-width: 767px) {
+    #timerDisplay { top: 3.75rem; }
+}
+/* Chế độ tập trung có nút "Thoát" nổi góc trên phải -> né sang trái cho khỏi đè */
+body.focus-mode-active #timerDisplay { right: 4.25rem; }
+
+/* Ô bảng số câu: lưới co giãn auto-fill, ôm gọn theo bề rộng cột,
+   tự xếp lại số ô mỗi hàng cho vừa khít (cột hẹp lẫn màn rộng) */
+#question-nav-wrapper.quiz-nav-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(2.1rem, 1fr));
+    gap: 0.3rem;
+    place-items: center;
+    padding: 0.5rem;
+}
+#question-nav-wrapper .quiz-nav-btn { margin: 0; }
 #timerDisplay::before {
     content: "\f017"; /* fa-clock */
     font-family: "Font Awesome 6 Free";
@@ -179,6 +140,99 @@
 .qs-range::-moz-range-thumb { width: 15px; height: 15px; border-radius: 9999px; background: #FF69B4;
     border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); cursor: pointer; }
 .theme-dark .qs-range { background: #3a2d4d; }
+/* Đường ngăn cách giữa nhóm thiết lập và nhóm hành động */
+.qs-divider { height: 1px; background: rgba(0, 0, 0, 0.07); margin: 0.35rem 0.4rem; }
+/* Hàng hành động (Đổi nền / Về trang chủ): dùng chung dáng qs-row, là <button>/<a> */
+.qs-row.qs-action {
+    width: 100%;
+    border: none;
+    background: transparent;
+    font: inherit;
+    text-align: left;
+    text-decoration: none;
+}
+.qs-action .qs-action-ic { color: #db2777; font-size: 0.8rem; transition: transform .25s ease; }
+#qs-shuffle-bg:hover .qs-action-ic { transform: rotate(180deg); }
+#qs-home:hover .qs-action-ic { transform: translateX(3px); }
+html.theme-dark .qs-divider { background: rgba(255, 255, 255, 0.1); }
+html.theme-dark .qs-action .qs-action-ic { color: #f9a8d4; }
+
+/* Popover dài hơn khi gom nhiều điều khiển -> cho cuộn trong khung */
+#quiz-settings-popover { max-height: min(82vh, 36rem); overflow-y: auto; overscroll-behavior: contain; }
+/* Nhóm điều khiển chỉ liên quan khi đang làm bài -> ẩn ở màn cấu hình */
+#qs-quiz-controls { display: none; }
+body.quiz-active #qs-quiz-controls { display: block; }
+/* Hàng "Cỡ chữ": nhãn trái + cụm nút A-/A/A+ bên phải */
+.qs-row-fontsize { cursor: default; }
+.qs-row-fontsize:hover { background: transparent; }
+.qs-fontsize-group {
+    display: inline-flex;
+    gap: 0.15rem;
+    padding: 0.15rem;
+    border-radius: 0.6rem;
+    background: rgba(0, 0, 0, 0.04);
+    flex-shrink: 0;
+}
+.qs-fontsize-group button { min-width: 1.9rem; }
+html.theme-dark .qs-fontsize-group { background: rgba(255, 255, 255, 0.06); }
+
+/* --- "Câu đã đánh dấu": huy hiệu đếm + danh sách thu gọn trong popover --- */
+.qs-marked-meta { display: inline-flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
+.qs-count-badge {
+    min-width: 1.3rem; height: 1.3rem; padding: 0 0.35rem;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 9999px; font-size: 0.68rem; font-weight: 800; line-height: 1;
+    background: #FF69B4; color: #fff;
+}
+#marked-list-btn[aria-expanded="true"] .qs-action-ic { transform: rotate(180deg); }
+.qs-marked-panel {
+    display: flex; flex-direction: column; gap: 0.25rem;
+    margin: 0.1rem 0.15rem 0.35rem;
+    padding: 0.25rem;
+    max-height: 14rem; overflow-y: auto; overscroll-behavior: contain;
+    border-radius: 0.7rem;
+    background: rgba(0, 0, 0, 0.03);
+    animation: marked-panel-in 0.16s ease-out;
+}
+@keyframes marked-panel-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+.qs-marked-item {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.4rem 0.45rem;
+    border-radius: 0.6rem;
+    background: #fff;
+    cursor: pointer;
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+.qs-marked-item:hover { background: #fdf2f8; }
+.qs-marked-item:focus-visible { outline: 2px solid #f472b6; outline-offset: 1px; }
+.qs-marked-current { box-shadow: inset 0 0 0 1.5px rgba(255, 105, 180, 0.6); }
+.qs-marked-num {
+    flex-shrink: 0; width: 1.55rem; height: 1.55rem; border-radius: 0.5rem;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.72rem; font-weight: 800; color: #fff; line-height: 1;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+.qs-marked-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.qs-marked-reason { font-size: 0.64rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.25rem; white-space: nowrap; }
+.qs-marked-todo { color: #ef4444; }
+.qs-marked-text {
+    font-size: 0.72rem; color: #6b7280; line-height: 1.25;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.qs-marked-unmark {
+    flex-shrink: 0; width: 1.5rem; height: 1.5rem; border-radius: 9999px;
+    border: none; background: transparent; color: #b6adc4; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.72rem; transition: background 0.15s ease, color 0.15s ease;
+}
+.qs-marked-unmark:hover { background: rgba(239, 68, 68, 0.14); color: #ef4444; }
+
+/* Dark mode cho khối "Câu đã đánh dấu" */
+html.theme-dark .qs-marked-panel { background: rgba(255, 255, 255, 0.04); }
+html.theme-dark .qs-marked-item { background: #241b38; }
+html.theme-dark .qs-marked-item:hover { background: rgba(244, 114, 182, 0.12); }
+html.theme-dark .qs-marked-text { color: #a99fc0; }
+html.theme-dark .qs-marked-unmark { color: #8a7fa3; }
 
 /* ============================================================
    3) LOẠI TRỪ ĐÁP ÁN (#4) — gạch bỏ, chạm để hồi phục
@@ -497,13 +551,8 @@ html.theme-dark .answer-btn.bg-red-200 * { color: #fecaca !important; }
 /* --- Bảng trong đề (markdown) --- */
 html.theme-dark .cute-table { background-color: #1e1730 !important; }
 
-/* --- HUD + chip giờ + nút thiết lập trong dark --- */
-html.theme-dark #quiz-hud { background: rgba(30, 23, 48, 0.85) !important; border-color: rgba(255,255,255,0.08); }
-html.theme-dark #quiz-hud .hud-counter { color: #f9a8d4; }
-html.theme-dark #quiz-hud #hud-home-btn { color: #f9a8d4; background: rgba(249, 168, 212, 0.12); border-color: rgba(249, 168, 212, 0.25); }
-html.theme-dark #quiz-hud #hud-home-btn:hover { background: rgba(249, 168, 212, 0.22); }
-html.theme-dark #quiz-hud .hud-progress { background: rgba(255,255,255,0.08); }
-html.theme-dark #timerDisplay { background: rgba(255, 105, 180, 0.12); color: #f9a8d4 !important; border-color: rgba(255,105,180,0.3); }
+/* --- Chip giờ nổi + nút thiết lập trong dark --- */
+html.theme-dark #timerDisplay { background: rgba(30, 23, 48, 0.92) !important; color: #f9a8d4 !important; border-color: rgba(255,105,180,0.3); }
 html.theme-dark #quiz-settings-fab,
 html.theme-dark #quiz-settings-popover { background: #1e1730 !important; color: #f9a8d4; border-color: rgba(255,255,255,0.12); }
 html.theme-dark .qs-row .qs-label { color: #ded5ee; }
@@ -755,21 +804,43 @@ html.theme-dark .quiz-note-count { color: #8a7fa3; }
 
 @media (min-width: 1024px) {
     #quiz-workspace {
-        grid-template-columns: 13rem minmax(0, 1fr) 16rem;
-        gap: 1.25rem;
+        /* 5 cột: số câu | tay kéo | bài làm | tay kéo | ghi chú.
+           Bề rộng hai cột bên do người dùng kéo (lưu vào localStorage) qua biến CSS. */
+        grid-template-columns:
+            var(--quiz-nav-w, 11rem) var(--quiz-gutter, 1.25rem)
+            minmax(0, 1fr)
+            var(--quiz-gutter, 1.25rem) var(--quiz-note-w, 13rem);
+        column-gap: 0;
+        row-gap: 1rem;
     }
     .quiz-side-panel {
         position: sticky;
-        top: 3.5rem;                    /* nằm ngay dưới thanh HUD dính */
-        max-height: calc(100vh - 4.5rem);
+        top: 1rem;                      /* đã bỏ HUD nên bám sát đỉnh hơn */
+        max-height: calc(100vh - 2rem);
         overflow-y: auto;
         overscroll-behavior: contain;
         scrollbar-width: thin;
     }
-    /* Bảng số câu gọn trong cột trái (căn trái thay vì giữa) */
-    #quiz-nav-panel #question-nav-wrapper { justify-content: flex-start; }
+    /* Bảng số câu trong cột trái: ô nhỏ hơn cho ôm gọn cột hẹp */
+    #quiz-nav-panel #question-nav-wrapper {
+        grid-template-columns: repeat(auto-fill, minmax(1.9rem, 1fr));
+        padding: 0.4rem;
+    }
     /* Ghi chú ở cột phải canh đỉnh cột */
     #quiz-note-panel .quiz-note-box { margin-top: 0; }
+
+    /* Cân đối chiều dọc cho cột bài làm: cho cột giữa cao bằng hàng (do hai cột
+       số câu / ghi chú bên cạnh quyết định) rồi căn giữa nội dung theo chiều dọc.
+       Nhờ đó khi câu hỏi ngắn (chưa chọn đáp án) thẻ không bị dán lên đỉnh để hở
+       khoảng trống lớn bên dưới, mà nằm cân đối — thoáng đều trên–dưới; khi nội
+       dung dài (đã hiện giải thích) thì cột tự cao theo và giãn ra tự nhiên.
+       Loại trừ màn kết quả & chế độ tập trung (đã có bố cục riêng). */
+    body:not(.focus-mode-active) #quiz-workspace:not(.results-active) #quiz-main {
+        align-self: stretch;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
 }
 
 /* Chế độ tập trung: gập về 1 cột, bỏ sticky (ghi chú nằm dưới bài làm),
@@ -796,6 +867,46 @@ body.focus-mode-active #quiz-submit-row {
     border-radius: 9999px;
 }
 html.theme-dark .quiz-side-panel::-webkit-scrollbar-thumb { background: rgba(244, 114, 182, 0.3); }
+
+/* --- Tay kéo chỉnh độ rộng cột (chỉ ở bố cục 3 cột ≥1024px) --- */
+.quiz-resizer { display: none; }
+@media (min-width: 1024px) {
+    .quiz-resizer {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: col-resize;
+        position: sticky;
+        top: 1rem;
+        align-self: start;
+        height: calc(100vh - 2rem);
+        z-index: 5;
+        touch-action: none;          /* để pointer kéo mượt trên cảm ứng */
+        -webkit-user-select: none;
+        user-select: none;
+    }
+    .quiz-resizer::before {
+        content: "";
+        width: 4px;
+        height: 3rem;
+        border-radius: 9999px;
+        background: rgba(255, 105, 180, 0.3);
+        transition: background .2s ease, height .2s ease;
+    }
+    .quiz-resizer:hover::before,
+    .quiz-resizer.is-dragging::before {
+        background: rgba(255, 105, 180, 0.75);
+        height: 4.5rem;
+    }
+}
+/* Đang kéo: khóa chọn chữ toàn trang + ép con trỏ col-resize */
+body.quiz-resizing { cursor: col-resize !important; -webkit-user-select: none; user-select: none; }
+/* Bố cục 1 cột (tập trung / màn kết quả) thì giấu tay kéo */
+body.focus-mode-active .quiz-resizer,
+#quiz-workspace.results-active .quiz-resizer { display: none !important; }
+html.theme-dark .quiz-resizer::before { background: rgba(244, 114, 182, 0.32); }
+html.theme-dark .quiz-resizer:hover::before,
+html.theme-dark .quiz-resizer.is-dragging::before { background: rgba(244, 114, 182, 0.7); }
 
 /* ============================================================
    12) ĐÁNH DẤU CÂU HỎI THEO LÝ DO — menu chọn lý do + nhãn ở màn kết quả
@@ -931,3 +1042,422 @@ html.theme-dark #timed-mode-checkbox:checked ~ div { background-color: #FF69B4 !
 html.theme-dark #shuffle-answers-checkbox:checked ~ div { background-color: #22d3ee !important; }
 html.theme-dark #enable-question-count-checkbox:checked ~ div { background-color: #a78bfa !important; }
 html.theme-dark #show-answer-immediately-checkbox:checked ~ div { background-color: #4ade80 !important; }
+
+/* ============================================================
+   MODAL CHỈNH SỬA CÂU HỎI (Question Editor)
+   ============================================================ */
+.qe-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+    background: rgba(17, 12, 20, 0.55);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    animation: qe-fade-in .18s ease;
+}
+.qe-modal.hidden { display: none !important; }
+
+@keyframes qe-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes qe-pop-in {
+    from { opacity: 0; transform: translateY(14px) scale(.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.qe-dialog {
+    width: 100%;
+    max-width: 640px;
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-radius: 22px;
+    box-shadow: 0 24px 60px rgba(255, 105, 180, 0.22), 0 8px 24px rgba(0,0,0,.14);
+    overflow: hidden;
+    animation: qe-pop-in .22s cubic-bezier(.21,1.02,.55,1.0);
+}
+
+/* Header */
+.qe-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 16px 20px;
+    background: linear-gradient(120deg, #fff0f6 0%, #ffe8f1 55%, #fff4e9 100%);
+    border-bottom: 1px solid #ffd6e7;
+}
+.qe-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.12rem;
+    font-weight: 800;
+    color: #e63b86;
+    margin: 0;
+}
+.qe-title-ic {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 11px;
+    background: linear-gradient(135deg, #ff8cc3, #ff69b4);
+    color: #fff;
+    font-size: .95rem;
+    box-shadow: 0 4px 12px rgba(255,105,180,.4);
+}
+.qe-icon-btn {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    color: #b08aa0;
+    font-size: 1.1rem;
+    transition: all .15s ease;
+}
+.qe-icon-btn:hover { background: #ffe3ef; color: #e63b86; transform: rotate(90deg); }
+
+/* Body */
+.qe-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background: #fdfbfc;
+}
+
+/* Section cards với viền màu trái + tiêu đề có icon */
+.qe-section {
+    background: #fff;
+    border: 1px solid #f1e3ea;
+    border-left-width: 4px;
+    border-radius: 14px;
+    padding: 12px 14px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.03);
+    transition: box-shadow .15s ease, border-color .15s ease;
+}
+.qe-section:focus-within { box-shadow: 0 4px 14px rgba(255,105,180,.12); }
+.qe-sec-q      { border-left-color: #94a3b8; }
+.qe-sec-opt    { border-left-color: #ff69b4; }
+.qe-sec-exp    { border-left-color: #22c55e; }
+.qe-sec-note   { border-left-color: #f59e0b; }
+.qe-sec-expand { border-left-color: #3b82f6; }
+
+.qe-sec-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: .74rem;
+    font-weight: 800;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    color: #6b7280;
+    margin-bottom: 8px;
+}
+.qe-sec-title--row { justify-content: space-between; }
+.qe-sec-q .qe-sec-title i      { color: #64748b; }
+.qe-sec-opt .qe-sec-title i    { color: #ff69b4; }
+.qe-sec-exp .qe-sec-title i    { color: #22c55e; }
+.qe-sec-note .qe-sec-title i   { color: #f59e0b; }
+.qe-sec-expand .qe-sec-title i { color: #3b82f6; }
+
+/* Ô nhập chung */
+.qe-input {
+    width: 100%;
+    padding: 9px 11px;
+    border: 1px solid #e6e1e4;
+    border-radius: 11px;
+    font-size: .9rem;
+    line-height: 1.5;
+    color: #374151;
+    background: #fff;
+    resize: none;
+    overflow: hidden;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+.qe-input:focus {
+    outline: none;
+    border-color: #ff9ecb;
+    box-shadow: 0 0 0 3px rgba(255,105,180,.18);
+}
+.qe-sec-exp    .qe-input:focus { border-color: #6ee7a3; box-shadow: 0 0 0 3px rgba(34,197,94,.16); }
+.qe-sec-note   .qe-input:focus { border-color: #fcd34d; box-shadow: 0 0 0 3px rgba(245,158,11,.16); }
+.qe-sec-expand .qe-input:focus { border-color: #93c5fd; box-shadow: 0 0 0 3px rgba(59,130,246,.16); }
+
+/* Nút "Thêm phương án" */
+.qe-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: .72rem;
+    font-weight: 800;
+    color: #e63b86;
+    background: #fff0f6;
+    border: 1px solid #ffc6df;
+    border-radius: 9px;
+    padding: 4px 10px;
+    transition: all .15s ease;
+}
+.qe-add-btn:hover { background: #ffdcec; transform: translateY(-1px); }
+.qe-add-btn:active { transform: translateY(0); }
+
+/* Danh sách phương án */
+.qe-options { display: flex; flex-direction: column; gap: 9px; }
+
+.qe-opt-row {
+    position: relative;
+    border: 1.5px solid #ece6ea;
+    border-radius: 13px;
+    padding: 10px 11px;
+    background: #fcfafb;
+    transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+.qe-opt-row.is-correct {
+    border-color: #4ade80;
+    background: linear-gradient(180deg, #f0fdf4, #ffffff);
+    box-shadow: 0 2px 10px rgba(34,197,94,.13);
+}
+
+.qe-opt-head { display: flex; align-items: center; gap: 9px; }
+
+/* Nút chữ cái = chọn đáp án đúng */
+.qe-opt-mark {
+    position: relative;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid #ffc6df;
+    background: #fff0f6;
+    color: #ff69b4;
+    font-weight: 800;
+    font-size: .9rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all .18s ease;
+}
+.qe-opt-mark:hover { transform: scale(1.08); border-color: #4ade80; }
+.qe-opt-check { display: none; }
+.qe-opt-row.is-correct .qe-opt-mark {
+    background: linear-gradient(135deg, #4ade80, #22c55e);
+    border-color: #16a34a;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(34,197,94,.4);
+}
+.qe-opt-row.is-correct .qe-opt-letter { display: none; }
+.qe-opt-row.is-correct .qe-opt-check  { display: inline-block; font-size: .95rem; }
+
+/* Ô nhập nội dung phương án */
+.qe-opt-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid #e6e1e4;
+    border-radius: 10px;
+    font-size: .9rem;
+    color: #374151;
+    background: #fff;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+.qe-opt-text:focus {
+    outline: none;
+    border-color: #ff9ecb;
+    box-shadow: 0 0 0 3px rgba(255,105,180,.16);
+}
+
+/* Huy hiệu "Đáp án đúng" — chỉ hiện khi đúng */
+.qe-opt-badge {
+    display: none;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    font-size: .68rem;
+    font-weight: 800;
+    color: #15803d;
+    background: #dcfce7;
+    border: 1px solid #86efac;
+    border-radius: 999px;
+    padding: 3px 9px;
+    white-space: nowrap;
+}
+.qe-opt-row.is-correct .qe-opt-badge { display: inline-flex; }
+
+.qe-opt-remove {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    color: #ef4444;
+    border: 1px solid #fecaca;
+    background: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .8rem;
+    transition: all .15s ease;
+}
+.qe-opt-remove:hover { background: #fee2e2; transform: translateY(-1px); }
+
+/* Ô giải thích từng phương án */
+.qe-opt-exp-wrap { display: flex; align-items: flex-start; gap: 7px; margin-top: 8px; padding-left: 2px; }
+.qe-opt-exp-ic { color: #c0a9b5; font-size: .8rem; margin-top: 8px; flex-shrink: 0; }
+.qe-opt-exp {
+    flex: 1 1 auto;
+    width: 100%;
+    padding: 6px 9px;
+    border: 1px dashed #e0d5db;
+    border-radius: 9px;
+    font-size: .8rem;
+    color: #4b5563;
+    background: #fff;
+    resize: none;
+    overflow: hidden;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+.qe-opt-exp:focus {
+    outline: none;
+    border-style: solid;
+    border-color: #ff9ecb;
+    box-shadow: 0 0 0 3px rgba(255,105,180,.14);
+}
+
+.qe-hint-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: .72rem;
+    color: #9aa1ad;
+    margin-top: 9px;
+}
+.qe-hint-line i { color: #ff9ecb; }
+
+/* Banner cho biết nơi lưu */
+.qe-save-hint {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: .78rem;
+    font-weight: 600;
+    border-radius: 12px;
+    padding: 10px 13px;
+    border: 1px solid;
+}
+.qe-save-hint.is-cloud { color: #1d4ed8; background: #eff6ff; border-color: #bfdbfe; }
+.qe-save-hint.is-local { color: #92400e; background: #fffbeb; border-color: #fde68a; }
+.qe-save-hint i { font-size: 1rem; }
+
+/* Footer */
+.qe-footer {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 20px;
+    background: #fff;
+    border-top: 1px solid #f1e3ea;
+}
+.qe-btn-secondary {
+    padding: 10px 18px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: .88rem;
+    color: #4b5563;
+    background: #f1f1f3;
+    transition: all .15s ease;
+}
+.qe-btn-secondary:hover { background: #e5e5e9; }
+.qe-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-weight: 800;
+    font-size: .88rem;
+    color: #fff;
+    background: linear-gradient(135deg, #ff8cc3, #ff69b4);
+    box-shadow: 0 6px 16px rgba(255,105,180,.35);
+    transition: all .15s ease;
+}
+.qe-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 9px 22px rgba(255,105,180,.45); }
+.qe-btn-primary:active { transform: translateY(0); }
+
+@media (max-width: 480px) {
+    .qe-dialog { max-height: 96vh; border-radius: 18px; }
+    .qe-header, .qe-body, .qe-footer { padding-left: 14px; padding-right: 14px; }
+    .qe-opt-badge { display: none !important; }
+}
+
+/* ----- Chế độ tối ----- */
+html.theme-dark .qe-dialog { background: #1f1a23; box-shadow: 0 24px 60px rgba(0,0,0,.55); }
+html.theme-dark .qe-header { background: linear-gradient(120deg, #2a1f29, #261c26); border-bottom-color: #3a2c38; }
+html.theme-dark .qe-title { color: #ff9ecb; }
+html.theme-dark .qe-icon-btn { color: #b59aa9; }
+html.theme-dark .qe-icon-btn:hover { background: #3a2c38; color: #ff9ecb; }
+html.theme-dark .qe-body { background: #181419; }
+html.theme-dark .qe-section { background: #221c26; border-color: #352a38; }
+html.theme-dark .qe-sec-title { color: #b7adba; }
+html.theme-dark .qe-input,
+html.theme-dark .qe-opt-text { background: #2a222e; border-color: #3d2f40; color: #e9e2ec; }
+html.theme-dark .qe-opt-row { background: #221c26; border-color: #352a38; }
+html.theme-dark .qe-opt-row.is-correct { background: linear-gradient(180deg, #1c2b20, #221c26); border-color: #2f8f50; }
+html.theme-dark .qe-opt-exp { background: #2a222e; border-color: #3d2f40; color: #cfc6d3; }
+html.theme-dark .qe-opt-mark { background: #3a2233; border-color: #5a3349; color: #ff9ecb; }
+html.theme-dark .qe-add-btn { background: #3a2233; border-color: #5a3349; color: #ff9ecb; }
+html.theme-dark .qe-footer { background: #1f1a23; border-top-color: #352a38; }
+html.theme-dark .qe-btn-secondary { background: #332a37; color: #d9d0dc; }
+html.theme-dark .qe-btn-secondary:hover { background: #3f3344; }
+html.theme-dark .qe-save-hint.is-cloud { color: #93c5fd; background: #1e293b; border-color: #334155; }
+html.theme-dark .qe-save-hint.is-local { color: #fcd34d; background: #2a230f; border-color: #4d3f15; }
+html.theme-dark .qe-hint-line { color: #9a8fa3; }
+
+/* Snackbar Hoàn tác sau khi lưu chỉnh sửa câu hỏi */
+.qe-undo-snackbar {
+    position: fixed;
+    left: 50%;
+    bottom: 22px;
+    transform: translate(-50%, 16px);
+    z-index: 90;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    max-width: calc(100vw - 28px);
+    padding: 11px 12px 11px 18px;
+    border-radius: 14px;
+    background: #2a2233;
+    color: #fff;
+    box-shadow: 0 12px 30px rgba(0,0,0,.32);
+    font-size: .86rem;
+    opacity: 0;
+    transition: opacity .22s ease, transform .22s ease;
+}
+.qe-undo-snackbar.show { opacity: 1; transform: translate(-50%, 0); }
+.qe-undo-msg { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.qe-undo-msg i { color: #4ade80; }
+.qe-undo-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 800;
+    font-size: .82rem;
+    color: #fff;
+    background: linear-gradient(135deg, #ff8cc3, #ff69b4);
+    border-radius: 10px;
+    padding: 7px 13px;
+    transition: transform .12s ease, box-shadow .12s ease;
+}
+.qe-undo-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(255,105,180,.45); }
+.qe-undo-btn:active { transform: translateY(0); }

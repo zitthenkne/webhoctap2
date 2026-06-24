@@ -34,10 +34,14 @@
                     'Underwater_scene_viewed_from_window_202606232010.jpeg'
                 ];
                 var pick = function (arr) { return arr[Math.floor(Math.random() * arr.length)]; };
-                var lightUrl = encodeURI('../../assets/bg quiz page/' + pick(lightImages));
-                var darkUrl = encodeURI('../../assets/bg quiz page dark/' + pick(darkImages));
-                document.documentElement.style.setProperty('--quiz-bg-light', 'url("' + lightUrl + '")');
-                document.documentElement.style.setProperty('--quiz-bg-dark', 'url("' + darkUrl + '")');
+                // Chọn lại ngẫu nhiên cặp nền sáng/tối — phơi ra cho nút "Đổi nền" trong bảng thiết lập gọi
+                window.shuffleQuizBg = function () {
+                    var lightUrl = encodeURI('../../assets/bg quiz page/' + pick(lightImages));
+                    var darkUrl = encodeURI('../../assets/bg quiz page dark/' + pick(darkImages));
+                    document.documentElement.style.setProperty('--quiz-bg-light', 'url("' + lightUrl + '")');
+                    document.documentElement.style.setProperty('--quiz-bg-dark', 'url("' + darkUrl + '")');
+                };
+                window.shuffleQuizBg();
 
                 // Độ rõ ảnh nền do người dùng tự chỉnh (lưu %, 0–60). Mặc định 28%.
                 var pct = parseInt(localStorage.getItem('quiz_bg_opacity'), 10);
@@ -222,7 +226,7 @@
             <a href="../../index.html" class="text-pink-500 font-semibold flex items-center gap-2"><i class="fas fa-home"></i> Trang chủ</a>
             <a href="../../index.html#libraryContent" class="text-blue-500 font-semibold flex items-center gap-2"><i class="fas fa-book"></i> Thư viện</a>
     </div>
-    <div class="w-full max-w-4xl lg:max-w-7xl mx-auto mt-14 md:mt-0">
+    <div class="w-full max-w-4xl lg:max-w-[88rem] mx-auto mt-14 md:mt-0">
         <div id="quiz-landing" class="bg-white/95 backdrop-blur-md rounded-3xl shadow-[0_20px_50px_rgba(255,105,180,0.12)] border border-pink-100/50 p-6 sm:p-10 text-center fade-in max-w-2xl mx-auto">
             <!-- Header Icon & Title -->
             <!-- Header Mascot Hero Image -->
@@ -627,32 +631,12 @@
         </div>
 
         <div id="quiz-container" class="hidden">
-    <!-- Thanh HUD dính: luôn thấy tiến trình + giờ khi cuộn câu hỏi dài -->
-    <div id="quiz-hud">
-        <a href="../../index.html" id="hud-home-btn" title="Về trang chủ" aria-label="Về trang chủ"><i class="fas fa-home"></i></a>
-        <span class="hud-counter" id="hud-counter">Câu 1</span>
-        <div class="hud-progress"><div id="hud-progress-fill" style="width:0%"></div></div>
-        <div id="timerDisplay" class="hidden"></div>
-    </div>
+    <!-- Đồng hồ đếm ngược nổi (chỉ hiện ở chế độ tính giờ) -->
+    <div id="timerDisplay" class="hidden"></div>
     <div id="quiz-workspace">
         <aside id="quiz-nav-panel" class="quiz-side-panel focus-hide hidden"></aside>
+        <div class="quiz-resizer focus-hide" data-resize="nav" title="Kéo để chỉnh độ rộng cột số câu" role="separator" aria-label="Kéo để chỉnh độ rộng cột số câu"></div>
         <div id="quiz-main">
-    <div class="flex flex-wrap justify-between items-center gap-2 mb-2 focus-hide">
-        <div class="flex flex-wrap gap-2">
-            <button id="toggle-nav-btn" type="button" class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg shadow hover:bg-blue-200 transition flex items-center gap-2">
-                <i class="fas fa-eye-slash"></i> Ẩn/Hiện số câu hỏi
-            </button>
-            <button id="focus-mode-btn" type="button" class="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg shadow hover:bg-purple-200 transition flex items-center gap-2">
-                <i class="fas fa-expand"></i> Chế độ tập trung
-            </button>
-        </div>
-        <div class="flex items-center gap-1 bg-white p-1 rounded-lg shadow border border-pink-100">
-            <span class="text-xs text-gray-500 px-2 font-medium">Cỡ chữ:</span>
-            <button type="button" id="font-size-small" class="px-2 py-1 text-xs rounded hover:bg-pink-100 transition font-bold text-gray-600">A-</button>
-            <button type="button" id="font-size-normal" class="px-2 py-1 text-xs rounded bg-pink-500 text-white transition font-bold">A</button>
-            <button type="button" id="font-size-large" class="px-2 py-1 text-xs rounded hover:bg-pink-100 transition font-bold text-gray-600">A+</button>
-        </div>
-    </div>
     <div id="quizSection"></div>
             <div id="resultsSection" class="hidden">
     <button id="retry-wrong-btn" class="mt-6 px-6 py-3 bg-yellow-400 text-white rounded-lg hover:bg-yellow-500 transition-transform transform hover:scale-105 shadow-lg text-lg font-bold hidden">
@@ -660,6 +644,7 @@
     </button>
 </div>
         </div><!-- /#quiz-main -->
+        <div class="quiz-resizer" data-resize="note" title="Kéo để chỉnh độ rộng cột ghi chú" role="separator" aria-label="Kéo để chỉnh độ rộng cột ghi chú"></div>
         <aside id="quiz-note-panel" class="quiz-side-panel hidden"></aside>
         <div id="quiz-submit-row" class="flex flex-row justify-end mt-4">
             <button id="submit-quiz-btn" class="px-6 py-3 bg-[#FF69B4] text-white rounded-lg hover:bg-pink-600 transition-transform transform hover:scale-105 shadow-lg text-lg font-bold hidden">Nộp bài</button>
@@ -687,11 +672,53 @@
             <span class="qs-label"><i class="fas fa-mobile-alt"></i> Rung phản hồi</span>
             <span class="qs-switch"></span>
         </div>
+        <div id="qs-quiz-controls">
+            <div class="qs-divider"></div>
+            <div id="marked-control" class="hidden">
+                <button type="button" id="marked-list-btn" class="qs-row qs-action" aria-expanded="false" aria-controls="marked-list-panel" title="Xem nhanh các câu đã đánh dấu">
+                    <span class="qs-label"><i class="fas fa-flag"></i> Câu đã đánh dấu</span>
+                    <span class="qs-marked-meta">
+                        <span id="marked-count-badge" class="qs-count-badge">0</span>
+                        <i class="fas fa-chevron-down qs-action-ic"></i>
+                    </span>
+                </button>
+                <div id="marked-list-panel" class="qs-marked-panel hidden" role="menu" aria-label="Danh sách câu đã đánh dấu"></div>
+            </div>
+            <button type="button" id="toggle-nav-btn" class="qs-row qs-action">
+                <span class="qs-label"><i class="fas fa-eye-slash"></i> Ẩn số câu hỏi</span>
+            </button>
+            <button type="button" id="focus-mode-btn" class="qs-row qs-action">
+                <span class="qs-label"><i class="fas fa-expand"></i> Chế độ tập trung</span>
+                <i class="fas fa-chevron-right qs-action-ic"></i>
+            </button>
+            <div class="qs-row qs-row-fontsize">
+                <span class="qs-label"><i class="fas fa-font"></i> Cỡ chữ</span>
+                <span class="qs-fontsize-group">
+                    <button type="button" id="font-size-small" class="px-2 py-1 text-xs rounded hover:bg-pink-100 transition font-bold text-gray-600">A-</button>
+                    <button type="button" id="font-size-normal" class="px-2 py-1 text-xs rounded bg-pink-500 text-white transition font-bold">A</button>
+                    <button type="button" id="font-size-large" class="px-2 py-1 text-xs rounded hover:bg-pink-100 transition font-bold text-gray-600">A+</button>
+                </span>
+            </div>
+            <button type="button" id="reset-layout-btn" class="qs-row qs-action">
+                <span class="qs-label"><i class="fas fa-table-columns"></i> Khôi phục độ rộng cột</span>
+                <i class="fas fa-rotate-left qs-action-ic"></i>
+            </button>
+        </div>
+        <div class="qs-divider"></div>
         <div class="qs-row qs-row-slider">
             <span class="qs-label"><i class="fas fa-image"></i> Độ rõ ảnh nền</span>
             <input type="range" id="qs-bg-opacity" class="qs-range" min="0" max="60" step="2" value="28"
                    aria-label="Độ rõ ảnh nền">
         </div>
+        <div class="qs-divider"></div>
+        <button type="button" class="qs-row qs-action" id="qs-shuffle-bg">
+            <span class="qs-label"><i class="fas fa-images"></i> Đổi nền ngẫu nhiên</span>
+            <i class="fas fa-dice qs-action-ic"></i>
+        </button>
+        <a href="../../index.html" class="qs-row qs-action" id="qs-home">
+            <span class="qs-label"><i class="fas fa-home"></i> Về trang chủ</span>
+            <i class="fas fa-arrow-right qs-action-ic"></i>
+        </a>
     </div>
 
     <!-- Thanh công cụ định dạng nổi khi bôi đen chữ (đề / đáp án / giải thích / mở rộng / ghi chú) -->
@@ -754,6 +781,62 @@
 
             <div class="flex justify-end gap-3 mt-6">
                 <button type="button" id="closeShareQuizModalBtn" class="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition font-bold text-sm shadow-sm w-full sm:w-auto">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Chỉnh sửa câu hỏi (đáp án / giải thích / ghi chú / mở rộng) ngay khi làm bài -->
+    <div id="question-editor-modal" class="qe-modal hidden">
+        <div class="qe-dialog" role="dialog" aria-modal="true" aria-label="Chỉnh sửa câu hỏi">
+            <!-- Header -->
+            <div class="qe-header">
+                <h3 class="qe-title"><span class="qe-title-ic"><i class="fas fa-pen-to-square"></i></span> Chỉnh sửa câu hỏi</h3>
+                <button type="button" id="qe-close-btn" class="qe-icon-btn" title="Đóng" aria-label="Đóng"><i class="fas fa-times"></i></button>
+            </div>
+
+            <!-- Body -->
+            <div class="qe-body">
+                <!-- Câu hỏi -->
+                <section class="qe-section qe-sec-q">
+                    <div class="qe-sec-title"><i class="fas fa-circle-question"></i> Nội dung câu hỏi</div>
+                    <textarea id="qe-question" rows="2" class="qe-input qe-grow" placeholder="Nhập nội dung câu hỏi…"></textarea>
+                </section>
+
+                <!-- Các phương án -->
+                <section class="qe-section qe-sec-opt">
+                    <div class="qe-sec-title qe-sec-title--row">
+                        <span><i class="fas fa-list-check"></i> Phương án &amp; đáp án đúng</span>
+                        <button type="button" id="qe-add-option" class="qe-add-btn"><i class="fas fa-plus"></i> Thêm phương án</button>
+                    </div>
+                    <div id="qe-options" class="qe-options"></div>
+                    <p class="qe-hint-line"><i class="fas fa-circle-info"></i> Bấm vào chữ cái (A, B, C…) ở phương án để chọn làm đáp án đúng.</p>
+                </section>
+
+                <!-- Giải thích chung -->
+                <section class="qe-section qe-sec-exp">
+                    <div class="qe-sec-title"><i class="fas fa-circle-check"></i> Giải thích chung</div>
+                    <textarea id="qe-explanation" rows="2" class="qe-input qe-grow" placeholder="Dùng khi phương án đúng chưa có giải thích riêng — tùy chọn"></textarea>
+                </section>
+
+                <!-- Ghi chú ghi nhớ -->
+                <section class="qe-section qe-sec-note">
+                    <div class="qe-sec-title"><i class="fas fa-thumbtack"></i> Ghi chú ghi nhớ</div>
+                    <textarea id="qe-note" rows="2" class="qe-input qe-grow" placeholder="Mẹo ghi nhớ, lưu ý nhanh… — tùy chọn"></textarea>
+                </section>
+
+                <!-- Mở rộng kiến thức -->
+                <section class="qe-section qe-sec-expand">
+                    <div class="qe-sec-title"><i class="fas fa-up-right-and-down-left-from-center"></i> Mở rộng kiến thức</div>
+                    <textarea id="qe-expanded" rows="3" class="qe-input qe-grow" placeholder="Kiến thức mở rộng liên quan — tùy chọn"></textarea>
+                </section>
+
+                <p id="qe-save-hint" class="qe-save-hint"></p>
+            </div>
+
+            <!-- Footer -->
+            <div class="qe-footer">
+                <button type="button" id="qe-cancel-btn" class="qe-btn-secondary">Hủy</button>
+                <button type="button" id="qe-save-btn" class="qe-btn-primary"><i class="fas fa-floppy-disk"></i> Lưu chỉnh sửa</button>
             </div>
         </div>
     </div>
