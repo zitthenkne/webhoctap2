@@ -50,6 +50,7 @@ import {
     renderLibrary,
     getUserQuizSets,
     getCurrentLibraryPage,
+    initLibraryAutoSync,
     initDragAndDropBreadcrumb,
     handleBulkMove,
     handleBulkDelete,
@@ -648,6 +649,8 @@ function setupEventListeners() {
     
     const refreshLibraryBtn = document.getElementById('refresh-library-btn');
     if (refreshLibraryBtn) refreshLibraryBtn.addEventListener('click', () => loadAndDisplayLibrary());
+    // Tự đồng bộ thư viện khi quay lại app (đặc biệt cho PWA trên iPad/iOS)
+    initLibraryAutoSync();
     // Thùng rác giờ là trang riêng (features/quiz/trash.html) — nút "#open-trash-btn" là thẻ <a> điều hướng trực tiếp
     
     const refreshStatsBtn = document.getElementById('refresh-stats-btn');

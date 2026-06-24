@@ -2,9 +2,9 @@
 // Module chịu trách nhiệm quản lý thư viện bộ đề, thư mục, trạng thái chọn nhiều, tìm kiếm fuzzy và lưu trữ quiz lên Firestore
 
 import { auth, db } from '../../core/firebase-init.js';
-import { 
-    doc, setDoc, collection, addDoc, query, where, getDocs, getDoc, 
-    orderBy, limit, deleteDoc, updateDoc, runTransaction, serverTimestamp 
+import {
+    doc, setDoc, collection, addDoc, query, where, getDocs, getDoc,
+    orderBy, limit, startAfter, deleteDoc, updateDoc, runTransaction, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { showToast, showConfirm } from '../../core/utils.js';
 import { checkAndAwardAchievement } from '../../core/achievements.js';
@@ -14,7 +14,11 @@ let questions = [];
 let currentQuizTitle = '';
 
 // Trạng thái thư viện
-let userQuizSets = []; // Cache bộ đề client-side
+let userQuizSets = []; // Cache bộ đề client-side (CHỈ metadata — mảng `questions` được loại bỏ để tiết kiệm RAM)
+// Chỉ mục câu hỏi cho tìm kiếm theo nội dung câu hỏi — tải LƯỜI (chỉ khi người dùng thực sự tìm theo câu hỏi)
+let questionIndexCache = null;        // mảng phẳng { quizTitle, question, options }
+let isQuestionIndexLoaded = false;
+let questionIndexLoadingPromise = null;
 let currentFolderId = null;
 let userFolders = [];
 let selectedFolderIcon = 'fa-folder';
@@ -24,6 +28,19 @@ let selectedQuizIds = [];
 
 let currentLibraryPage = 1;
 let isLibraryFullyLoaded = false;
+// Thời điểm thư viện được nạp mới nhất từ server, dùng để giới hạn tần suất tự đồng bộ khi quay lại app
+let lastLibrarySyncAt = 0;
+const LIBRARY_AUTO_SYNC_MIN_INTERVAL = 60 * 1000; // 60s: tránh gọi lại Firestore liên tục khi bật/tắt app nhanh
+
+// === CUỐN CHIẾU (lazy pagination theo con trỏ Firestore) ===
+// Chỉ áp dụng cho danh sách phẳng (không thư mục, ở gốc, sắp xếp mới nhất, không lọc/tìm kiếm) — xem canUseRollingLibrary().
+// Các trường hợp khác (có thư mục, sắp xếp khác, lọc, tìm kiếm) vẫn dùng đường tải-đầy-đủ như cũ.
+const LIB_PAGE_SIZE = 12;
+const LIB_PREFETCH_PAGES = 2;                              // tải sẵn thêm 2 trang
+const LIB_CHUNK = LIB_PAGE_SIZE * (1 + LIB_PREFETCH_PAGES); // mỗi cụm = 36 bộ đề
+let libraryCursor = null;          // QueryDocumentSnapshot cuối cùng đã tải (con trỏ startAfter)
+let serverHasMore = true;          // còn dữ liệu trên server để tải tiếp không
+let chunkLoadingPromise = null;    // promise của cụm đang tải (chống tải chồng + cho phép await cụm đang chạy)
 let isBulkMoving = false;
 let libraryLayoutMode = localStorage.getItem('libraryLayoutMode') || 'grid';
 // Số cột lưới do người dùng tự chọn, lưu cục bộ theo thiết bị ('auto' = tự co giãn theo màn hình)
@@ -320,11 +337,12 @@ async function checkCreationAchievements(userId) {
 }
 
 // === TÌM KIẾM THƯ VIỆN FUZZY ===
+// Tìm theo bộ đề (title/description) — chạy trực tiếp trên cache metadata, không cần `questions`.
 export function filterLibraryByMode(keyword, mode) {
     if (!keyword) return userQuizSets;
     if (typeof Fuse === 'undefined') return userQuizSets;
     keyword = keyword.toLowerCase();
-    
+
     if (mode === 'quiz') {
         const fuse = new Fuse(userQuizSets, {
             keys: ['title', 'description'],
@@ -334,19 +352,8 @@ export function filterLibraryByMode(keyword, mode) {
         });
         return fuse.search(keyword).map(res => res.item);
     } else if (mode === 'question') {
-        let allQuestions = [];
-        userQuizSets.forEach(qz => {
-            if (Array.isArray(qz.questions)) {
-                qz.questions.forEach(q => {
-                    allQuestions.push({
-                        quizTitle: qz.title || 'Không tên',
-                        question: q.question,
-                        options: q.answers || q.options || [] // Tương thích cả dạng cũ/mới
-                    });
-                });
-            }
-        });
-        const fuse = new Fuse(allQuestions, {
+        // Dùng chỉ mục câu hỏi đã tải lười; nếu chưa có thì trả rỗng (handleLibrarySearch lo việc tải)
+        const fuse = new Fuse(questionIndexCache || [], {
             keys: ['question'],
             threshold: 0.4,
             ignoreLocation: true,
@@ -355,6 +362,46 @@ export function filterLibraryByMode(keyword, mode) {
         return fuse.search(keyword).map(res => res.item);
     }
     return userQuizSets;
+}
+
+// Tải LƯỜI chỉ mục câu hỏi: chỉ kéo nội dung `questions` của toàn bộ bộ đề khi người dùng thực sự
+// tìm kiếm theo câu hỏi. Kết quả được cache để các lần gõ sau không phải tải lại.
+function ensureQuestionIndex() {
+    if (isQuestionIndexLoaded) return Promise.resolve(questionIndexCache);
+    if (questionIndexLoadingPromise) return questionIndexLoadingPromise;
+    const user = auth.currentUser;
+    if (!user) return Promise.resolve([]);
+
+    questionIndexLoadingPromise = (async () => {
+        const q = query(collection(db, "quiz_sets"), where("userId", "==", user.uid));
+        const snap = await getDocs(q);
+        const flat = [];
+        snap.docs.forEach(docSnap => {
+            const data = docSnap.data();
+            if (data.deleted) return; // ẩn bộ đề đang trong thùng rác
+            if (Array.isArray(data.questions)) {
+                data.questions.forEach(qq => {
+                    flat.push({
+                        quizTitle: data.title || 'Không tên',
+                        question: qq.question,
+                        options: qq.answers || qq.options || [] // Tương thích cả dạng cũ/mới
+                    });
+                });
+            }
+        });
+        questionIndexCache = flat;
+        isQuestionIndexLoaded = true;
+        questionIndexLoadingPromise = null;
+        return flat;
+    })();
+    return questionIndexLoadingPromise;
+}
+
+// Vô hiệu hoá chỉ mục câu hỏi khi thư viện thay đổi (tạo/sửa/xoá/di chuyển bộ đề) để lần tìm sau tải lại bản mới.
+function invalidateQuestionIndex() {
+    questionIndexCache = null;
+    isQuestionIndexLoaded = false;
+    questionIndexLoadingPromise = null;
 }
 
 function highlightKeyword(text, keyword) {
@@ -385,34 +432,47 @@ function renderQuestionSearchResults(results) {
     `).join('');
 }
 
-export function handleLibrarySearch() {
+export async function handleLibrarySearch() {
     const librarySearchInput = document.getElementById('library-search-input');
     if (!librarySearchInput) return;
     const keyword = librarySearchInput.value.trim();
     const mode = document.querySelector('input[name="search-mode"]:checked')?.value || 'quiz';
-    
+
     if (mode === 'quiz') {
+        // Tìm theo bộ đề phải quét toàn thư viện → nạp đầy đủ trước nếu đang cuốn chiếu
+        if (keyword && !isLibraryFullyLoaded) {
+            await ensureFullLibraryLoaded();
+            // Người dùng có thể đã xoá từ khoá trong lúc chờ → kiểm tra lại
+            if (librarySearchInput.value.trim() !== keyword) return;
+        }
         const filtered = filterLibraryByMode(keyword, 'quiz');
         renderLibrary(filtered);
-    } else {
-        let results = [];
-        if (keyword) {
-            userQuizSets.forEach(qz => {
-                if (Array.isArray(qz.questions)) {
-                    qz.questions.forEach(q => {
-                        if ((q.question || '').toLowerCase().includes(keyword.toLowerCase())) {
-                            results.push({
-                                quizTitle: qz.title || 'Không tên',
-                                question: q.question,
-                                options: q.answers || q.options || []
-                            });
-                        }
-                    });
-                }
-            });
-        }
-        renderQuestionSearchResults(results);
+        return;
     }
+
+    // Tìm theo câu hỏi: cần nội dung `questions` (không có trong cache metadata) → tải lười chỉ mục.
+    if (!keyword) {
+        renderQuestionSearchResults([]);
+        return;
+    }
+
+    if (!isQuestionIndexLoaded) {
+        const container = document.getElementById('quiz-list-container');
+        if (container) {
+            container.innerHTML = '<div class="text-gray-400 text-center col-span-full py-6"><i class="fas fa-circle-notch fa-spin mr-2"></i>Đang tải nội dung câu hỏi…</div>';
+        }
+    }
+
+    const index = await ensureQuestionIndex();
+
+    // Người dùng có thể đã đổi từ khoá/chế độ trong lúc chờ tải — bỏ qua kết quả cũ
+    const latestKeyword = librarySearchInput.value.trim();
+    const latestMode = document.querySelector('input[name="search-mode"]:checked')?.value || 'quiz';
+    if (latestMode !== 'question' || latestKeyword !== keyword) return;
+
+    const kw = keyword.toLowerCase();
+    const results = index.filter(item => (item.question || '').toLowerCase().includes(kw));
+    renderQuestionSearchResults(results);
 }
 
 // === TẢI VÀ RENDER THƯ VIỆN ===
@@ -444,6 +504,9 @@ export async function loadAndDisplayLibrary(page = 1) {
         return;
     }
 
+    // Đây là một lần nạp lại thật sự (lần đầu hoặc sau khi dữ liệu đổi) → chỉ mục câu hỏi có thể đã cũ
+    invalidateQuestionIndex();
+
     if (page === 1) {
         renderLibrarySkeleton(quizListContainer);
     }
@@ -456,22 +519,37 @@ export async function loadAndDisplayLibrary(page = 1) {
         userFolders = allFolders.filter(f => !f.deleted); // ẩn thư mục đang trong thùng rác
         sortUserFolders();
 
-        const q = query(
-            collection(db, "quiz_sets"),
-            where("userId", "==", user.uid),
-            orderBy("createdAt", "desc"),
-            limit(13)
-        );
+        if (canUseRollingLibrary()) {
+            // CUỐN CHIẾU: chỉ tải cụm đầu (36 = 12 hiển thị + prefetch 2 trang), tải thêm khi sang trang.
+            libraryCursor = null;
+            serverHasMore = true;
+            userQuizSets = [];
+            await loadLibraryChunk(user.uid);
+            renderBreadcrumb();
+            renderLibrary(userQuizSets, page);
+        } else {
+            // Đường tải-đầy-đủ (có thư mục / sắp xếp khác / lọc / tìm kiếm): hiển thị nhanh trang đầu rồi nạp toàn bộ ở nền.
+            const q = query(
+                collection(db, "quiz_sets"),
+                where("userId", "==", user.uid),
+                orderBy("createdAt", "desc"),
+                limit(13)
+            );
 
-        const querySnapshot = await getDocs(q);
-        const pageQuizzes = querySnapshot.docs
-            .map(docSnap => ({ id: docSnap.id, ...docSnap.data() }))
-            .filter(q => !q.deleted); // ẩn bộ đề đang trong thùng rác
+            const querySnapshot = await getDocs(q);
+            const pageQuizzes = querySnapshot.docs
+                .map(docSnap => {
+                    const { questions, ...meta } = docSnap.data(); // không giữ câu hỏi trong RAM
+                    return { id: docSnap.id, ...meta };
+                })
+                .filter(q => !q.deleted); // ẩn bộ đề đang trong thùng rác
 
-        renderBreadcrumb();
-        renderLibrary(pageQuizzes, 1);
+            lastLibrarySyncAt = Date.now(); // đánh dấu vừa nạp tươi từ server
+            renderBreadcrumb();
+            renderLibrary(pageQuizzes, 1);
 
-        loadAllLibraryInBackground(user.uid);
+            loadAllLibraryInBackground(user.uid);
+        }
     } catch (e) {
         console.error("Lỗi tải thư viện: ", e);
         quizListContainer.innerHTML = '<p class="text-red-500">Lỗi tải thư viện: ' + e.message + '</p>';
@@ -483,14 +561,16 @@ async function loadAllLibraryInBackground(userId) {
         const q = query(collection(db, "quiz_sets"), where("userId", "==", userId));
         const querySnapshot = await getDocs(q);
         const allQuizzes = querySnapshot.docs.map(docSnap => {
-            const data = docSnap.data();
-            if (data.folderId === undefined) {
+            // Loại bỏ mảng `questions` (chiếm ~99% dung lượng) khỏi cache để giảm mạnh RAM.
+            // Thư viện chỉ cần metadata; nội dung câu hỏi được tải riêng khi mở bộ đề hoặc khi tìm theo câu hỏi.
+            const { questions, ...meta } = docSnap.data();
+            if (meta.folderId === undefined) {
                 updateDoc(docSnap.ref, { folderId: null }).catch(err => {
                     console.warn(`Lỗi tự động cập nhật folderId cho bộ đề ${docSnap.id}:`, err);
                 });
-                return { id: docSnap.id, ...data, folderId: null };
+                return { id: docSnap.id, ...meta, folderId: null };
             }
-            return { id: docSnap.id, ...data };
+            return { id: docSnap.id, ...meta };
         });
         purgeExpiredTrash(allQuizzes, "quiz_sets"); // dọn bộ đề quá hạn 30 ngày
         userQuizSets = allQuizzes.filter(q => !q.deleted); // ẩn bộ đề đang trong thùng rác
@@ -502,10 +582,112 @@ async function loadAllLibraryInBackground(userId) {
         });
 
         isLibraryFullyLoaded = true;
+        serverHasMore = false;          // đã có toàn bộ; cuốn chiếu không cần tải thêm
+        lastLibrarySyncAt = Date.now(); // toàn bộ thư viện đã đồng bộ xong
         renderLibrary(userQuizSets, currentLibraryPage);
     } catch (err) {
         console.error("Lỗi tải thư viện chạy ngầm: ", err);
     }
+}
+
+// Có nên dùng chế độ cuốn chiếu không? Chỉ khi danh sách phẳng & không có thao tác cần toàn bộ dữ liệu.
+// (Có thư mục → cần đếm số bộ/thư mục & lọc theo thư mục; sắp xếp khác/lọc/tìm kiếm → cần toàn bộ.)
+function isLibrarySearchActive() {
+    const input = document.getElementById('library-search-input');
+    return !!(input && input.value.trim());
+}
+function canUseRollingLibrary() {
+    return currentFolderId === null
+        && userFolders.length === 0
+        && librarySortMode === 'newest'
+        && libraryFilterMode === 'all'
+        && !isSelectionMode
+        && !isLibrarySearchActive();
+}
+
+// Tải một cụm bộ đề kế tiếp theo con trỏ Firestore (startAfter). Bổ sung vào userQuizSets, không tải lại từ đầu.
+// Nếu đang có cụm chạy dở, trả về chính promise đó để nơi gọi await đúng (tránh hiển thị trang trống do race).
+function loadLibraryChunk(userId) {
+    if (!serverHasMore) return Promise.resolve();
+    if (chunkLoadingPromise) return chunkLoadingPromise;
+
+    chunkLoadingPromise = (async () => {
+        try {
+            const constraints = [
+                where("userId", "==", userId),
+                orderBy("createdAt", "desc")
+            ];
+            if (libraryCursor) constraints.push(startAfter(libraryCursor));
+            constraints.push(limit(LIB_CHUNK));
+
+            const snap = await getDocs(query(collection(db, "quiz_sets"), ...constraints));
+            if (!snap.empty) libraryCursor = snap.docs[snap.docs.length - 1];
+            // Dựa trên SỐ DOC THÔ trả về (không tính lọc deleted) để biết server còn dữ liệu không
+            serverHasMore = snap.docs.length === LIB_CHUNK;
+
+            const existingIds = new Set(userQuizSets.map(q => q.id));
+            snap.docs.forEach(docSnap => {
+                const { questions, ...meta } = docSnap.data(); // bỏ mảng câu hỏi nặng khỏi cache
+                if (meta.deleted) return;                       // ẩn bộ đề trong thùng rác
+                if (existingIds.has(docSnap.id)) return;        // tránh trùng nếu nạp chồng
+                if (meta.folderId === undefined) {
+                    updateDoc(docSnap.ref, { folderId: null }).catch(() => {});
+                    meta.folderId = null;
+                }
+                userQuizSets.push({ id: docSnap.id, ...meta });
+            });
+
+            lastLibrarySyncAt = Date.now();
+            if (!serverHasMore) isLibraryFullyLoaded = true; // hết dữ liệu → coi như đã tải đầy đủ
+        } catch (err) {
+            console.error("Lỗi tải cụm thư viện (cuốn chiếu): ", err);
+        } finally {
+            chunkLoadingPromise = null;
+        }
+    })();
+    return chunkLoadingPromise;
+}
+
+// Đảm bảo toàn bộ thư viện đã nằm trong cache (dùng trước khi sắp xếp/lọc/tìm kiếm/chọn-tất-cả —
+// những thao tác cần dữ liệu đầy đủ trong khi cuốn chiếu mới chỉ tải vài cụm).
+async function ensureFullLibraryLoaded() {
+    if (isLibraryFullyLoaded) return;
+    const user = auth.currentUser;
+    if (!user) return;
+    await loadAllLibraryInBackground(user.uid); // tải toàn bộ metadata + set cờ + render lại
+}
+
+// === TỰ ĐỘNG ĐỒNG BỘ KHI QUAY LẠI APP ===
+// Trên iPad/iOS, PWA bị tạm dừng rồi khôi phục chứ KHÔNG tải lại trang, nên cache `isLibraryFullyLoaded`
+// trong RAM giữ dữ liệu cũ nhiều ngày → bộ đề tạo ở thiết bị khác không xuất hiện. Khi app hiển thị trở lại
+// (visibilitychange) hoặc trang được khôi phục từ bfcache (pageshow), ta vô hiệu hoá cache và nạp lại từ server.
+function refreshLibraryOnResume() {
+    if (document.visibilityState !== 'visible') return;
+    if (!auth.currentUser) return;
+    // Giới hạn tần suất: nếu vừa đồng bộ trong vòng 60s thì bỏ qua để khỏi tốn lượt đọc Firestore
+    if (Date.now() - lastLibrarySyncAt < LIBRARY_AUTO_SYNC_MIN_INTERVAL) return;
+    // Đang chọn nhiều bộ đề: đừng nạp lại kẻo mất lựa chọn của người dùng
+    if (isSelectionMode) return;
+    // Đang tìm kiếm: giữ nguyên kết quả, không phá thao tác của người dùng
+    const searchInput = document.getElementById('library-search-input');
+    if (searchInput && searchInput.value.trim()) return;
+
+    isLibraryFullyLoaded = false; // buộc lần nạp tới lấy dữ liệu mới từ server
+    const libraryPanel = document.getElementById('libraryContent');
+    const isLibraryTabVisible = libraryPanel && !libraryPanel.classList.contains('hidden');
+    // Chỉ nạp ngay nếu đang mở tab Thư viện; nếu không, để dành tới khi người dùng mở tab (tiết kiệm lượt đọc)
+    if (isLibraryTabVisible) {
+        loadAndDisplayLibrary(currentLibraryPage);
+    }
+}
+
+// Gắn listener tự đồng bộ. Gọi một lần khi khởi tạo app.
+export function initLibraryAutoSync() {
+    document.addEventListener('visibilitychange', refreshLibraryOnResume);
+    // pageshow với persisted=true: trang được khôi phục từ bfcache (Safari/iOS khi quay lại app)
+    window.addEventListener('pageshow', (e) => {
+        if (e.persisted) refreshLibraryOnResume();
+    });
 }
 
 function getQuizCardClassName(isSelected = false) {
@@ -892,6 +1074,7 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
     const ITEMS_PER_PAGE = 12;
     let totalPages = 1;
     let currentPage = page;
+    const rollingActive = !isLibraryFullyLoaded && !isSearching && canUseRollingLibrary();
 
     if (isLibraryFullyLoaded || isSearching) {
         totalPages = Math.ceil(filteredQuizzes.length / ITEMS_PER_PAGE) || 1;
@@ -901,6 +1084,19 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
         const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
         const endIndex = startIndex + ITEMS_PER_PAGE;
         filteredQuizzes = filteredQuizzes.slice(startIndex, endIndex);
+    } else if (rollingActive) {
+        // Phân trang trên phần dữ liệu ĐÃ tải; nút "Trang sau" sẽ tải thêm cụm khi cần.
+        totalPages = Math.ceil(filteredQuizzes.length / ITEMS_PER_PAGE) || 1;
+        if (currentPage > totalPages) currentPage = totalPages;
+        if (currentPage < 1) currentPage = 1;
+
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        filteredQuizzes = filteredQuizzes.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+        // Prefetch: sắp chạm cuối phần đã tải mà server còn dữ liệu → tải sẵn cụm kế (làm ấm cache, không re-render)
+        if (serverHasMore && !chunkLoadingPromise && auth.currentUser && (totalPages - currentPage) < LIB_PREFETCH_PAGES) {
+            loadLibraryChunk(auth.currentUser.uid);
+        }
     } else {
         totalPages = 1;
         currentPage = 1;
@@ -1135,7 +1331,13 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                     isSelectionMode = true;
                     selectedQuizIds = [quizSet.id];
                     if (navigator.vibrate) navigator.vibrate(50);
-                    renderLibrary(quizzesToDisplay, currentPage);
+                    // Chọn nhiều cần toàn bộ dữ liệu (chọn xuyên trang). Nếu đang cuốn chiếu chưa tải hết
+                    // thì nạp đầy đủ (đã ở selection mode nên đi đường non-rolling); ngược lại re-render tại chỗ.
+                    if (!isLibraryFullyLoaded) {
+                        loadAndDisplayLibrary();
+                    } else {
+                        renderLibrary(quizzesToDisplay, currentPage);
+                    }
                     updateBulkActionsToolbar();
                 }, 600);
             };
@@ -1219,7 +1421,9 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
         });
     }
 
-    renderLibraryPagination(isSearching ? quizzesToDisplay : (isLibraryFullyLoaded ? quizzesToDisplay : filteredQuizzes), currentPage, totalPages);
+    // Cuốn chiếu cần danh sách đầy đủ (chưa cắt) để nút phân trang chuyển trang đúng
+    const paginationList = (isSearching || isLibraryFullyLoaded || rollingActive) ? quizzesToDisplay : filteredQuizzes;
+    renderLibraryPagination(paginationList, currentPage, totalPages);
 }
 
 function renderLibraryPagination(quizzesToDisplay, currentPage, totalPages) {
@@ -1236,23 +1440,29 @@ function renderLibraryPagination(quizzesToDisplay, currentPage, totalPages) {
 
     const librarySearchInput = document.getElementById('library-search-input');
     const isSearching = librarySearchInput && librarySearchInput.value.trim() !== '';
+    const rolling = !isLibraryFullyLoaded && !isSearching && canUseRollingLibrary();
+    const hasMore = rolling && serverHasMore; // còn cụm để tải tiếp trên server
 
-    if (!isLibraryFullyLoaded && !isSearching) {
+    if (!isLibraryFullyLoaded && !isSearching && !rolling) {
         paginationContainer.innerHTML = '';
         return;
     }
 
-    if (totalPages <= 1) {
+    // Ẩn thanh phân trang khi chỉ có 1 trang VÀ không còn dữ liệu để tải thêm
+    if (totalPages <= 1 && !hasMore) {
         paginationContainer.innerHTML = '';
         return;
     }
+
+    const nextDisabled = currentPage >= totalPages && !hasMore;
+    const totalLabel = hasMore ? `${totalPages}+` : totalPages; // "+" báo hiệu còn trang chưa tải
 
     paginationContainer.innerHTML = `
         <button id="lib-prev-page" class="px-4 py-2 bg-pink-100 text-pink-700 rounded-lg hover:bg-pink-200 transition disabled:opacity-50 disabled:cursor-not-allowed" ${currentPage === 1 ? 'disabled' : ''}>
             <i class="fas fa-chevron-left mr-1"></i> Trang trước
         </button>
-        <span class="text-gray-700 font-medium">Trang ${currentPage} / ${totalPages}</span>
-        <button id="lib-next-page" class="px-4 py-2 bg-pink-100 text-pink-700 rounded-lg hover:bg-pink-200 transition disabled:opacity-50 disabled:cursor-not-allowed" ${currentPage === totalPages ? 'disabled' : ''}>
+        <span class="text-gray-700 font-medium">Trang ${currentPage} / ${totalLabel}</span>
+        <button id="lib-next-page" class="px-4 py-2 bg-pink-100 text-pink-700 rounded-lg hover:bg-pink-200 transition disabled:opacity-50 disabled:cursor-not-allowed" ${nextDisabled ? 'disabled' : ''}>
             Trang sau <i class="fas fa-chevron-right ml-1"></i>
         </button>
     `;
@@ -1263,9 +1473,18 @@ function renderLibraryPagination(quizzesToDisplay, currentPage, totalPages) {
         }
     });
 
-    document.getElementById('lib-next-page').addEventListener('click', () => {
+    document.getElementById('lib-next-page').addEventListener('click', async () => {
         if (currentPage < totalPages) {
             renderLibrary(quizzesToDisplay, currentPage + 1);
+        } else if (hasMore && auth.currentUser) {
+            // Đang ở cuối phần đã tải nhưng server còn dữ liệu → tải cụm kế rồi sang trang
+            const nextBtn = document.getElementById('lib-next-page');
+            if (nextBtn) {
+                nextBtn.disabled = true;
+                nextBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
+            }
+            await loadLibraryChunk(auth.currentUser.uid);
+            renderLibrary(userQuizSets, currentPage + 1);
         }
     });
 }
@@ -1931,6 +2150,12 @@ function getFilteredQuizzesForView() {
 function rerenderCurrentView() {
     const librarySearchInput = document.getElementById('library-search-input');
     const keyword = librarySearchInput ? librarySearchInput.value.trim() : '';
+    // Chế độ hiện tại cần toàn bộ dữ liệu (sắp xếp khác/lọc/chọn nhiều) nhưng đang cuốn chiếu chưa tải hết
+    // → nạp đầy đủ rồi tự render; tránh sắp xếp/lọc sai trên phần dữ liệu mới tải một phần.
+    if (!isLibraryFullyLoaded && !keyword && !canUseRollingLibrary() && auth.currentUser) {
+        loadAllLibraryInBackground(auth.currentUser.uid);
+        return;
+    }
     if (keyword) {
         renderLibrary(getFilteredQuizzesForView(), currentLibraryPage);
     } else {
@@ -1941,8 +2166,10 @@ function rerenderCurrentView() {
 /**
  * Chọn tất cả bộ đề trong khung nhìn hiện tại (mọi trang của thư mục/tìm kiếm).
  */
-export function selectAllInView() {
+export async function selectAllInView() {
     if (!isSelectionMode) isSelectionMode = true;
+    // "Chọn tất cả" cần toàn bộ dữ liệu (chọn xuyên trang) → nạp đầy đủ nếu đang cuốn chiếu
+    if (!isLibraryFullyLoaded) await ensureFullLibraryLoaded();
     const ids = getFilteredQuizzesForView().map(q => q.id);
     selectedQuizIds = Array.from(new Set(ids));
     rerenderCurrentView();

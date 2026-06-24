@@ -659,7 +659,32 @@ function handle5050Help() {
         btn5050.classList.remove('hover:bg-blue-100');
     }
 
-    showToast('Đã loại bỏ 2 đáp án sai!');
+    // Pill độ chắc chắn -> trạng thái tự động "Đã dùng trợ giúp" (khóa, không bấm đổi nữa)
+    const confBtn = document.getElementById('confidence-toggle');
+    if (confBtn) {
+        confBtn.classList.remove('conf-guess');
+        confBtn.classList.add('conf-helped');
+        confBtn.disabled = true;
+        confBtn.setAttribute('title', 'Bạn đã dùng trợ giúp 50:50 cho câu này');
+        confBtn.innerHTML = '<i class="fas fa-life-ring"></i> Đã dùng trợ giúp';
+    }
+
+    // Tự đánh dấu câu là "Hay, để dành xem lại" — không ghi đè nếu đã được đánh dấu lý do khác
+    let autoMarked = false;
+    if (!state.markedQuestions.includes(state.currentIndex)) {
+        applyMark(state.currentIndex, 'interesting');
+        autoMarked = true;
+        const markControl = document.getElementById('mark-control');
+        if (markControl) {
+            markControl.outerHTML = renderMarkControl();
+            setupMarkControl();
+        }
+        refreshMarkedPanel();
+    }
+
+    showToast(autoMarked
+        ? 'Đã loại 2 đáp án sai • Đánh dấu câu "Hay, để dành xem lại"'
+        : 'Đã loại bỏ 2 đáp án sai!');
 }
 
 function handleToggleFocusMode() {
@@ -1245,11 +1270,21 @@ function showQuestion() {
 
     // #7: trạng thái nút độ chắc chắn (mặc định "chắc chắn", ẩn mình)
     const isGuess = state.confidence[state.currentIndex] === 'guess';
+    // Đã dùng 50:50 cho câu này -> pill chuyển sang trạng thái tự động "Đã dùng trợ giúp" (khóa lại)
+    const usedHelp = !!state.used5050Questions[state.currentIndex];
+
+    // Tên bộ đề hiển thị tinh tế phía trên "Câu hỏi N" (eyebrow nhỏ, 1 dòng, tự cắt nếu dài)
+    const setName = (state.quizData && state.quizData.title) ? String(state.quizData.title).trim() : '';
+    const setNameSafe = setName
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
     quizSection.innerHTML = `
     <div class="bg-white rounded-lg shadow-lg p-6 fade-in">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-bold text-gray-700">${title}</h2>
+        <div class="flex justify-between items-start gap-3 mb-4">
+            <div class="min-w-0 flex-1">
+                ${setNameSafe ? `<div class="quiz-setname focus-hide" title="${setNameSafe}"><i class="fas fa-book-open"></i><span class="quiz-setname-text">${setNameSafe}</span></div>` : ''}
+                <h2 class="quiz-question-heading text-xl font-bold text-gray-700">${title}</h2>
+            </div>
             <button type="button" id="edit-question-btn" class="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border border-pink-300 text-[#FF69B4] bg-pink-50 hover:bg-pink-100 hover:text-pink-600 transition" title="Sửa đáp án, giải thích, ghi chú, mở rộng cho câu này" aria-label="Sửa câu hỏi">
                 <i class="fas fa-pen-to-square"></i>
             </button>
@@ -1275,8 +1310,8 @@ function showQuestion() {
             `).join('')}
         </div>
         <div class="mt-4 flex flex-wrap justify-between items-center gap-2">
-            <button type="button" id="confidence-toggle" class="${isGuess ? 'conf-guess' : ''}" title="Đánh dấu nếu bạn chỉ đoán câu này — sẽ được gợi ý ôn lại ở phần kết quả">
-                <i class="fas ${isGuess ? 'fa-dice' : 'fa-circle-check'}"></i> ${isGuess ? 'Đoán' : 'Chắc chắn'}
+            <button type="button" id="confidence-toggle" class="${usedHelp ? 'conf-helped' : (isGuess ? 'conf-guess' : '')}" ${usedHelp ? 'disabled' : ''} title="${usedHelp ? 'Bạn đã dùng trợ giúp 50:50 cho câu này' : 'Đánh dấu nếu bạn chỉ đoán câu này — sẽ được gợi ý ôn lại ở phần kết quả'}">
+                <i class="fas ${usedHelp ? 'fa-life-ring' : (isGuess ? 'fa-dice' : 'fa-circle-check')}"></i> ${usedHelp ? 'Đã dùng trợ giúp' : (isGuess ? 'Đoán' : 'Chắc chắn')}
             </button>
             <div class="flex flex-wrap justify-end gap-2">
             <button type="button" id="help-5050-btn" class="px-4 py-2 rounded-lg border border-blue-400 text-blue-700 bg-blue-50 hover:bg-blue-100 transition flex items-center gap-2">
@@ -1346,7 +1381,8 @@ function showQuestion() {
     if (editBtn) editBtn.addEventListener('click', openQuestionEditor);
     // #7: nút độ chắc chắn (tinh tế, mặc định "chắc chắn")
     const confBtn = document.getElementById('confidence-toggle');
-    if (confBtn) {
+    // Khi đã dùng 50:50, pill là nhãn trạng thái "Đã dùng trợ giúp" (khóa) -> không gắn toggle.
+    if (confBtn && !state.used5050Questions[state.currentIndex]) {
         confBtn.addEventListener('click', () => {
             if (state.confidence[state.currentIndex] === 'guess') {
                 delete state.confidence[state.currentIndex];

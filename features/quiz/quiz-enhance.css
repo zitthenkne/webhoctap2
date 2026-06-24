@@ -98,9 +98,9 @@ body.focus-mode-active #timerDisplay { right: 4.25rem; }
     left: 1rem;
     bottom: 4.25rem;
     z-index: 46;
-    width: 230px;
-    padding: 0.5rem;
-    border-radius: 1rem;
+    width: 252px;
+    padding: 0.55rem;
+    border-radius: 1.1rem;
     background: #fff;
     border: 1px solid rgba(255, 105, 180, 0.2);
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
@@ -156,6 +156,68 @@ body.focus-mode-active #timerDisplay { right: 4.25rem; }
 #qs-home:hover .qs-action-ic { transform: translateX(3px); }
 html.theme-dark .qs-divider { background: rgba(255, 255, 255, 0.1); }
 html.theme-dark .qs-action .qs-action-ic { color: #f9a8d4; }
+
+/* === Bảng điều khiển: tiêu đề + các nhóm gọn gàng === */
+.qs-pop-header {
+    padding: 0.15rem 0.45rem 0.5rem;
+    margin-bottom: 0.4rem;
+    border-bottom: 1px solid rgba(255, 105, 180, 0.14);
+}
+.qs-pop-title {
+    display: flex; align-items: center; gap: 0.45rem;
+    font-weight: 800; font-size: 0.92rem; color: #db2777; letter-spacing: 0.01em;
+}
+.qs-pop-title i { font-size: 0.85rem; }
+
+/* Khung nhóm: gom các điều khiển cùng loại vào một thẻ nhẹ */
+.qs-group {
+    background: rgba(255, 105, 180, 0.045);
+    border: 1px solid rgba(255, 105, 180, 0.1);
+    border-radius: 0.9rem;
+    padding: 0.3rem 0.25rem 0.35rem;
+    margin-bottom: 0.5rem;
+}
+.qs-group-title {
+    display: flex; align-items: center; gap: 0.4rem;
+    padding: 0.25rem 0.5rem 0.3rem;
+    font-size: 0.64rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
+    color: #9b8b97;
+}
+.qs-group-title i { color: #db2777; font-size: 0.72rem; }
+
+/* Nhóm "Ngựa thì chỉnh" — chất riêng, vui mắt */
+.qs-group--horse {
+    background: linear-gradient(135deg, rgba(255, 105, 180, 0.08), rgba(167, 139, 250, 0.08));
+    border-color: rgba(255, 105, 180, 0.18);
+}
+.qs-group-title--horse { color: #db2777; }
+.qs-group-title--horse .fa-horse { font-size: 0.92rem; }
+.qs-gt-spark {
+    margin-left: auto; color: #f59e0b !important; font-size: 0.7rem;
+    animation: qs-sparkle 1.9s ease-in-out infinite;
+}
+@keyframes qs-sparkle {
+    0%, 100% { opacity: 0.35; transform: scale(0.85) rotate(-8deg); }
+    50% { opacity: 1; transform: scale(1.15) rotate(8deg); }
+}
+
+/* Hàng "Về trang chủ" tách riêng cuối bảng */
+.qs-home-row { margin-top: 0.1rem; }
+
+/* Dark mode cho nhóm/tiêu đề */
+html.theme-dark .qs-pop-header { border-bottom-color: rgba(255, 255, 255, 0.1); }
+html.theme-dark .qs-pop-title { color: #f9a8d4; }
+html.theme-dark .qs-group {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+html.theme-dark .qs-group--horse {
+    background: linear-gradient(135deg, rgba(244, 114, 182, 0.14), rgba(167, 139, 250, 0.14));
+    border-color: rgba(244, 114, 182, 0.22);
+}
+html.theme-dark .qs-group-title { color: #b6a9c4; }
+html.theme-dark .qs-group-title i,
+html.theme-dark .qs-group-title--horse { color: #f9a8d4; }
 
 /* Popover dài hơn khi gom nhiều điều khiển -> cho cuộn trong khung */
 #quiz-settings-popover { max-height: min(82vh, 36rem); overflow-y: auto; overscroll-behavior: contain; }
@@ -294,6 +356,15 @@ html.theme-dark .qs-marked-unmark { color: #8a7fa3; }
     background: #fffbeb;
     color: #b45309;
 }
+/* Trạng thái tự động khi đã dùng 50:50 — nhãn "Đã dùng trợ giúp" (xanh dương, chỉ để xem) */
+#confidence-toggle.conf-helped {
+    border-style: solid;
+    border-color: #60a5fa;
+    background: #eff6ff;
+    color: #1d4ed8;
+    cursor: default;
+}
+#confidence-toggle:disabled { opacity: 1; }   /* đây là nhãn trạng thái, không làm mờ như nút bị khóa */
 
 /* ============================================================
    5) BÔI VÀNG (#9)
@@ -574,6 +645,7 @@ html.theme-dark .obsidian-bold   { color: #f9a8d4 !important; }
 html.theme-dark .obsidian-italic { color: #93c5fd !important; }
 html.theme-dark #confidence-toggle { border-color: #463a5e; color: #a99fc0; }
 html.theme-dark #confidence-toggle.conf-guess { background: #3a2e14; border-color: #b4830b; color: #fcd34d; }
+html.theme-dark #confidence-toggle.conf-helped { background: #16243f; border-color: #3b6fb0; color: #93c5fd; }
 
 /* --- Vòng tròn % ở kết quả: nền rãnh tối hơn cho dịu --- */
 html.theme-dark .q-time { color: #8a7fa3; }
@@ -1461,3 +1533,86 @@ html.theme-dark .qe-hint-line { color: #9a8fa3; }
 }
 .qe-undo-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(255,105,180,.45); }
 .qe-undo-btn:active { transform: translateY(0); }
+
+/* ============================================================
+   13) PHÔNG CHỮ ĐẶC BIỆT — tạo điểm nhấn typography cho trang làm bài
+   • IN NGHIÊNG  -> serif Cormorant Upright (vốn đứng thẳng) — ép nghiêng + làm dày nét
+   • IN ĐẬM      -> sans nét gọn, rõ ràng (Be Vietnam Pro) cho mạnh, sắc
+   Áp cho cả markdown tự sinh (.obsidian-*) lẫn chữ người dùng tự bôi (.quiz-annot).
+   ============================================================ */
+/* CHỈ nhắm vào class bọc chữ in đậm/nghiêng (.obsidian-* do markdown sinh ra,
+   .quiz-annot do người dùng tự bôi). TUYỆT ĐỐI không dùng selector theo thẻ
+   <i>/<em>/<strong>/<b> vì icon Font Awesome dùng thẻ <i> -> sẽ mất hết ký hiệu. */
+.obsidian-bold,
+strong.quiz-annot {
+    font-family: 'Be Vietnam Pro', 'Quicksand', sans-serif !important;
+    letter-spacing: -0.005em;
+    -webkit-text-stroke: 0 !important;   /* font đã đủ nét -> bỏ stroke giả cho sạch nét */
+}
+.obsidian-italic,
+em.quiz-annot {
+    font-family: 'Cormorant Upright', Georgia, serif !important;
+    font-weight: 700 !important;          /* dày nét hơn (mặc định serif này khá mảnh) */
+    font-style: oblique 11deg !important; /* Cormorant Upright vốn đứng thẳng -> ép nghiêng */
+    font-size: 1.14em;                    /* serif này nhỏ thị giác -> phóng nhẹ cho cân với chữ nền */
+    letter-spacing: 0.006em;
+}
+/* Bôi đậm + nghiêng lồng nhau: vẫn ưu tiên dáng serif nghiêng cho thống nhất */
+.obsidian-italic .obsidian-bold,
+.obsidian-bold .obsidian-italic {
+    font-family: 'Cormorant Upright', Georgia, serif !important;
+    font-style: oblique 11deg !important;
+}
+
+/* ============================================================
+   14) TÊN BỘ ĐỀ TRÊN MÀN LÀM BÀI — "eyebrow" nhỏ phía trên "Câu hỏi N"
+   Tinh tế, 1 dòng, tự cắt gọn (…) khi dài; ẩn ở chế độ tập trung.
+   ============================================================ */
+.quiz-setname {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    max-width: 100%;
+    margin-bottom: 0.25rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #db2777;
+    line-height: 1.2;
+}
+.quiz-setname i { font-size: 0.72rem; color: #f472b6; flex-shrink: 0; }
+.quiz-setname-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.quiz-question-heading { letter-spacing: 0.01em; }
+html.theme-dark .quiz-setname { color: #f9a8d4; }
+html.theme-dark .quiz-setname i { color: #f9a8d4; }
+
+/* ============================================================
+   15) NÂNG CẤP GIAO DIỆN LÀM BÀI — nút đáp án có chiều sâu hơn + câu hỏi giãn dòng.
+       (Thẻ câu hỏi giữ nguyên dáng gốc theo yêu cầu.)
+   ============================================================ */
+
+/* Câu hỏi: giãn dòng thoáng, dễ đọc hơn */
+#quizSection .question-text { line-height: 1.6; }
+
+/* Nút đáp án: bo tròn mềm + nổi khối nhẹ khi rê chuột (không đụng màu nền hover của Tailwind) */
+#quizSection .answer-btn {
+    border-radius: 0.9rem;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    transition: background-color .2s ease, border-color .2s ease, box-shadow .2s ease, transform .15s ease;
+}
+#quizSection .answer-btn:hover {
+    box-shadow: 0 12px 26px -14px rgba(255, 105, 180, 0.55);
+}
+#quizSection .answer-letter {
+    box-shadow: 0 1px 2px rgba(255, 105, 180, 0.2);
+    transition: transform .15s ease, background-color .2s ease;
+}
+#quizSection .answer-btn:hover .answer-letter { transform: scale(1.08); }
+html.theme-dark #quizSection .answer-btn { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }
+html.theme-dark #quizSection .answer-btn:hover { box-shadow: 0 12px 26px -14px rgba(0, 0, 0, 0.6); }

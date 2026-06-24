@@ -107,6 +107,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="../../style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Phông chữ đặc biệt cho trang làm bài:
+         • Cormorant Upright (serif đứng thẳng, được ép nghiêng + làm dày nét) cho chữ IN NGHIÊNG
+         • Be Vietnam Pro (sans nét gọn, rõ) cho chữ IN ĐẬM — đều hỗ trợ tiếng Việt -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@600;700;800&family=Cormorant+Upright:wght@500;600;700&display=swap" rel="stylesheet">
     <!-- KaTeX -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
@@ -602,8 +608,20 @@
                     if (shareModal) shareModal.classList.add('hidden');
                 }
 
+                // Phơi ra để các nút khác (vd. trong bảng thiết lập khi đang làm bài) gọi mở
+                window.openQuizShareModal = openQuizShareModal;
+
                 const shareBtn = document.getElementById('share-quiz-btn');
                 if (shareBtn) shareBtn.addEventListener('click', openQuizShareModal);
+
+                // Nút "Chia sẻ bộ đề" trong bảng thiết lập (hiện khi đang làm bài)
+                const qsShareBtn = document.getElementById('qs-share-quiz');
+                if (qsShareBtn) qsShareBtn.addEventListener('click', () => {
+                    // Đóng popover thiết lập (nếu đang mở) trước khi bật modal chia sẻ
+                    const pop = document.getElementById('quiz-settings-popover');
+                    if (pop) pop.classList.add('hidden-pop');
+                    openQuizShareModal();
+                });
 
                 const closeShareBtn = document.getElementById('closeShareQuizModalBtn');
                 if (closeShareBtn) closeShareBtn.addEventListener('click', closeQuizShareModal);
@@ -660,20 +678,34 @@
         <i class="fas fa-sliders-h"></i>
     </button>
     <div id="quiz-settings-popover" class="hidden-pop">
-        <div class="qs-row" id="qs-dark" role="switch" aria-checked="false" tabindex="0">
-            <span class="qs-label"><i class="fas fa-moon"></i> Chế độ tối</span>
-            <span class="qs-switch"></span>
+        <!-- Tiêu đề bảng điều khiển -->
+        <div class="qs-pop-header">
+            <span class="qs-pop-title"><i class="fas fa-wand-magic-sparkles"></i> Bảng điều khiển</span>
         </div>
-        <div class="qs-row" id="qs-sound" role="switch" aria-checked="false" tabindex="0">
-            <span class="qs-label"><i class="fas fa-volume-up"></i> Âm thanh</span>
-            <span class="qs-switch"></span>
+
+        <!-- Nhóm: Giao diện & cảm giác -->
+        <div class="qs-group">
+            <div class="qs-group-title"><i class="fas fa-palette"></i> Giao diện &amp; cảm giác</div>
+            <div class="qs-row" id="qs-dark" role="switch" aria-checked="false" tabindex="0">
+                <span class="qs-label"><i class="fas fa-moon"></i> Chế độ tối</span>
+                <span class="qs-switch"></span>
+            </div>
+            <div class="qs-row" id="qs-sound" role="switch" aria-checked="false" tabindex="0">
+                <span class="qs-label"><i class="fas fa-volume-up"></i> Âm thanh</span>
+                <span class="qs-switch"></span>
+            </div>
+            <div class="qs-row" id="qs-vibrate" role="switch" aria-checked="true" tabindex="0">
+                <span class="qs-label"><i class="fas fa-mobile-alt"></i> Rung phản hồi</span>
+                <span class="qs-switch"></span>
+            </div>
         </div>
-        <div class="qs-row" id="qs-vibrate" role="switch" aria-checked="true" tabindex="0">
-            <span class="qs-label"><i class="fas fa-mobile-alt"></i> Rung phản hồi</span>
-            <span class="qs-switch"></span>
-        </div>
-        <div id="qs-quiz-controls">
-            <div class="qs-divider"></div>
+
+        <!-- Nhóm: Ngựa thì chỉnh (điều chỉnh giao diện làm bài — chỉ hiện khi đang làm bài) -->
+        <div id="qs-quiz-controls" class="qs-group qs-group--horse">
+            <div class="qs-group-title qs-group-title--horse">
+                <i class="fas fa-horse"></i> Ngựa thì chỉnh
+                <i class="fas fa-wand-magic-sparkles qs-gt-spark"></i>
+            </div>
             <div id="marked-control" class="hidden">
                 <button type="button" id="marked-list-btn" class="qs-row qs-action" aria-expanded="false" aria-controls="marked-list-panel" title="Xem nhanh các câu đã đánh dấu">
                     <span class="qs-label"><i class="fas fa-flag"></i> Câu đã đánh dấu</span>
@@ -703,19 +735,27 @@
                 <span class="qs-label"><i class="fas fa-table-columns"></i> Khôi phục độ rộng cột</span>
                 <i class="fas fa-rotate-left qs-action-ic"></i>
             </button>
+            <button type="button" id="qs-share-quiz" class="qs-row qs-action">
+                <span class="qs-label"><i class="fas fa-share-alt"></i> Chia sẻ bộ đề</span>
+                <i class="fas fa-arrow-up-right-from-square qs-action-ic"></i>
+            </button>
         </div>
-        <div class="qs-divider"></div>
-        <div class="qs-row qs-row-slider">
-            <span class="qs-label"><i class="fas fa-image"></i> Độ rõ ảnh nền</span>
-            <input type="range" id="qs-bg-opacity" class="qs-range" min="0" max="60" step="2" value="28"
-                   aria-label="Độ rõ ảnh nền">
+
+        <!-- Nhóm: Ảnh nền -->
+        <div class="qs-group">
+            <div class="qs-group-title"><i class="fas fa-image"></i> Ảnh nền</div>
+            <div class="qs-row qs-row-slider">
+                <span class="qs-label"><i class="fas fa-sun"></i> Độ rõ ảnh nền</span>
+                <input type="range" id="qs-bg-opacity" class="qs-range" min="0" max="60" step="2" value="28"
+                       aria-label="Độ rõ ảnh nền">
+            </div>
+            <button type="button" class="qs-row qs-action" id="qs-shuffle-bg">
+                <span class="qs-label"><i class="fas fa-images"></i> Đổi nền ngẫu nhiên</span>
+                <i class="fas fa-dice qs-action-ic"></i>
+            </button>
         </div>
-        <div class="qs-divider"></div>
-        <button type="button" class="qs-row qs-action" id="qs-shuffle-bg">
-            <span class="qs-label"><i class="fas fa-images"></i> Đổi nền ngẫu nhiên</span>
-            <i class="fas fa-dice qs-action-ic"></i>
-        </button>
-        <a href="../../index.html" class="qs-row qs-action" id="qs-home">
+
+        <a href="../../index.html" class="qs-row qs-action qs-home-row" id="qs-home">
             <span class="qs-label"><i class="fas fa-home"></i> Về trang chủ</span>
             <i class="fas fa-arrow-right qs-action-ic"></i>
         </a>

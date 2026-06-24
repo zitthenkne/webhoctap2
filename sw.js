@@ -1,5 +1,5 @@
 // Service Worker for PWA - Offline Support & Caching
-const CACHE_NAME = 'zitthenkne-v6';
+const CACHE_NAME = 'zitthenkne-v7';
 const urlsToCache = [
   '/',
   'index.html',
