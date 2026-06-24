@@ -1,0 +1,7 @@
+# CodeGraph & Git ignore rules for parent directory
+webhoctap2/core/libs/
+webhoctap2/node_modules/
+webhoctap2/uploads/
+.codegraph/
+**/node_modules/
+**/libs/

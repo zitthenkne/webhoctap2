@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.log
+# QUAN TRỌNG: không commit khóa service account
+service-account.json
+*-service-account.json
+.env
