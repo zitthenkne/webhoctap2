@@ -402,6 +402,34 @@
                                         <button type="button" id="library-layout-list-btn" class="flex-1 h-8 flex items-center justify-center gap-1.5 rounded-lg text-xs font-bold text-gray-500 transition focus:outline-none" title="Xem dạng danh sách"><i class="fas fa-list text-xs"></i> Danh sách</button>
                                     </div>
                                 </div>
+                                <!-- Số cột lưới (lưu cục bộ theo thiết bị) — bộ đề & thư mục chỉnh độc lập -->
+                                <div class="px-1.5 pt-1 pb-2 mb-1 border-b border-gray-100">
+                                    <div class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 px-0.5">Số cột lưới</div>
+                                    <div class="flex items-center justify-between gap-2 mb-1.5">
+                                        <span class="text-xs font-semibold text-gray-600 flex items-center gap-1.5"><i class="fas fa-folder text-amber-400 text-[11px] w-3.5 text-center"></i> Thư mục</span>
+                                        <select id="folder-grid-cols-select" class="text-xs font-semibold text-gray-700 bg-gray-100 border border-gray-200 rounded-lg pl-2.5 pr-7 py-1.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-200 cursor-pointer">
+                                            <option value="auto">Tự động</option>
+                                            <option value="2">2 cột</option>
+                                            <option value="3">3 cột</option>
+                                            <option value="4">4 cột</option>
+                                            <option value="5">5 cột</option>
+                                            <option value="6">6 cột</option>
+                                        </select>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="text-xs font-semibold text-gray-600 flex items-center gap-1.5"><i class="fas fa-file-alt text-pink-400 text-[11px] w-3.5 text-center"></i> Bộ đề</span>
+                                        <select id="quiz-grid-cols-select" class="text-xs font-semibold text-gray-700 bg-gray-100 border border-gray-200 rounded-lg pl-2.5 pr-7 py-1.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-200 cursor-pointer">
+                                            <option value="auto">Tự động</option>
+                                            <option value="1">1 cột</option>
+                                            <option value="2">2 cột</option>
+                                            <option value="3">3 cột</option>
+                                            <option value="4">4 cột</option>
+                                            <option value="5">5 cột</option>
+                                            <option value="6">6 cột</option>
+                                        </select>
+                                    </div>
+                                    <p class="text-[10px] text-gray-400 mt-1.5 px-0.5 leading-snug">Lưu riêng cho thiết bị này. Cột bộ đề chỉ áp dụng ở chế độ Lưới.</p>
+                                </div>
                                 <!-- Các thao tác ít dùng -->
                                 <div class="space-y-1">
                                     <button type="button" id="bulk-select-toggle-btn" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition focus:outline-none" title="Chọn nhiều bộ đề để thao tác đồng loạt">
@@ -410,6 +438,9 @@
                                     <button type="button" id="refresh-library-btn" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition focus:outline-none" title="Tải lại thư viện">
                                         <i class="fas fa-sync-alt text-xs w-4 text-center"></i> <span>Tải lại</span>
                                     </button>
+                                    <a href="features/quiz/trash.html" id="open-trash-btn" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition focus:outline-none" title="Xem thùng rác">
+                                        <i class="fas fa-trash-can text-xs w-4 text-center"></i> <span>Thùng rác</span>
+                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -669,27 +700,80 @@
         </div>
     </div>
 
-    <div id="authModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden px-2">
-        <div class="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 w-full max-w-md relative">
-            <button type="button" id="closeModalBtn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700"><i
-                    class="fas fa-times text-2xl"></i></button>
-            <form id="auth-form">
-                <h2 class="text-2xl font-bold text-center mb-6 text-[#FF69B4]">Chào mừng bạn!</h2>
+    <div id="authModal"
+        class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 hidden px-3 py-6 overflow-y-auto">
+        <div
+            class="auth-card bg-white rounded-3xl shadow-2xl w-full max-w-md relative overflow-hidden border border-pink-100 my-auto">
+            <button type="button" id="closeModalBtn"
+                class="absolute top-3.5 right-3.5 w-9 h-9 flex items-center justify-center text-white/90 hover:text-white hover:bg-white/20 rounded-full transition z-10">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+
+            <!-- Header với gradient + mascot -->
+            <div class="relative bg-gradient-to-br from-[#FF69B4] to-[#D8BFD8] px-6 pt-7 pb-12 text-center">
+                <img src="assets/logo.png" alt="Zitthenkne"
+                    class="w-16 h-16 mx-auto mb-2 drop-shadow-lg bg-white/30 rounded-2xl p-1.5 backdrop-blur-sm">
+                <h2 class="text-2xl font-extrabold text-white drop-shadow-sm">Chào mừng bạn!</h2>
+                <p id="auth-subtitle" class="text-white/90 text-sm mt-1 font-medium">Đăng nhập để đồng bộ bộ đề & thành tích của bạn 🐿️</p>
+            </div>
+
+            <form id="auth-form" class="px-6 sm:px-8 -mt-6 relative pb-7">
+                <!-- Segmented toggle Đăng nhập / Đăng ký -->
+                <div class="bg-white rounded-2xl shadow-lg border border-pink-100 p-1 flex gap-1 mb-6">
+                    <button type="button" id="auth-tab-login"
+                        class="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 bg-gradient-to-r from-[#FF69B4] to-[#FF8DC7] text-white shadow-sm flex items-center justify-center gap-2">
+                        <i class="fas fa-right-to-bracket"></i> Đăng nhập
+                    </button>
+                    <button type="button" id="auth-tab-signup"
+                        class="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 text-gray-500 hover:text-[#FF69B4] flex items-center justify-center gap-2">
+                        <i class="fas fa-user-plus"></i> Đăng ký
+                    </button>
+                </div>
+
                 <div class="space-y-4">
-                    <input type="email" id="emailInput" placeholder="Email"
-                        class="w-full px-4 py-2 border border-pink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF69B4]">
-                    <input type="password" id="passwordInput" placeholder="Mật khẩu"
-                        class="w-full px-4 py-2 border border-pink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF69B4]"
-                        type="password">
+                    <!-- Email -->
+                    <div>
+                        <label for="emailInput" class="block text-xs font-bold text-gray-500 mb-1.5 ml-1">Email</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400 pointer-events-none">
+                                <i class="fas fa-envelope"></i>
+                            </span>
+                            <input type="email" id="emailInput" placeholder="ban@example.com" autocomplete="email"
+                                class="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] focus:bg-white transition">
+                        </div>
+                    </div>
+                    <!-- Mật khẩu -->
+                    <div>
+                        <label for="passwordInput" class="block text-xs font-bold text-gray-500 mb-1.5 ml-1">Mật khẩu</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400 pointer-events-none">
+                                <i class="fas fa-lock"></i>
+                            </span>
+                            <input type="password" id="passwordInput" placeholder="••••••••" autocomplete="current-password"
+                                class="w-full pl-11 pr-11 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] focus:bg-white transition">
+                            <button type="button" id="togglePasswordBtn" aria-label="Hiện/ẩn mật khẩu"
+                                class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-[#FF69B4] transition">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <div class="mt-6 flex flex-col md:flex-row gap-4">
+
+                <div class="mt-6 space-y-3">
                     <button type="button" id="loginBtn"
-                        class="w-full px-6 py-2 bg-[#FF69B4] text-white rounded-lg hover:bg-opacity-80 transition">Đăng
-                        nhập</button>
+                        class="w-full px-6 py-3 bg-gradient-to-r from-[#FF69B4] to-[#FF8DC7] text-white rounded-xl font-bold shadow-md hover:shadow-lg hover:shadow-pink-200 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 flex items-center justify-center gap-2">
+                        <i class="fas fa-right-to-bracket"></i> Đăng nhập
+                    </button>
                     <button type="button" id="signupBtn"
-                        class="w-full px-6 py-2 bg-[#D8BFD8] text-white rounded-lg hover:bg-opacity-80 transition">Đăng
-                        ký</button>
+                        class="w-full px-6 py-3 bg-white text-[#FF69B4] border-2 border-pink-200 rounded-xl font-bold hover:bg-pink-50 hover:border-[#FF69B4] active:scale-[0.99] transition-all duration-200 flex items-center justify-center gap-2">
+                        <i class="fas fa-user-plus"></i> Tạo tài khoản mới
+                    </button>
                 </div>
+
+                <p class="text-center text-[11px] text-gray-400 mt-5 leading-relaxed">
+                    <i class="fas fa-shield-heart text-pink-300 mr-1"></i>
+                    Thông tin của bạn được bảo mật. Bằng việc tiếp tục, bạn đồng ý với điều khoản sử dụng.
+                </p>
             </form>
         </div>
     </div>
@@ -917,6 +1001,48 @@
                     statsToggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
                     if (statsChevron) statsChevron.style.transform = willOpen ? 'rotate(180deg)' : '';
                 });
+            }
+
+            // --- Modal đăng nhập / đăng ký: hiện/ẩn mật khẩu + chuyển tab ---
+            var pwInput = document.getElementById('passwordInput');
+            var togglePwBtn = document.getElementById('togglePasswordBtn');
+            if (pwInput && togglePwBtn) {
+                togglePwBtn.addEventListener('click', function () {
+                    var show = pwInput.type === 'password';
+                    pwInput.type = show ? 'text' : 'password';
+                    var icon = togglePwBtn.querySelector('i');
+                    if (icon) icon.className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
+                });
+            }
+
+            // Chuyển đổi giữa chế độ Đăng nhập và Đăng ký (chỉ đổi giao diện cho trực quan)
+            var tabLogin = document.getElementById('auth-tab-login');
+            var tabSignup = document.getElementById('auth-tab-signup');
+            var loginBtnEl = document.getElementById('loginBtn');
+            var signupBtnEl = document.getElementById('signupBtn');
+            var authSubtitle = document.getElementById('auth-subtitle');
+            if (tabLogin && tabSignup && loginBtnEl && signupBtnEl) {
+                var TAB_ON = 'flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 bg-gradient-to-r from-[#FF69B4] to-[#FF8DC7] text-white shadow-sm flex items-center justify-center gap-2';
+                var TAB_OFF = 'flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 text-gray-500 hover:text-[#FF69B4] flex items-center justify-center gap-2';
+                var BTN_PRIMARY = 'w-full px-6 py-3 bg-gradient-to-r from-[#FF69B4] to-[#FF8DC7] text-white rounded-xl font-bold shadow-md hover:shadow-lg hover:shadow-pink-200 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 flex items-center justify-center gap-2';
+                var BTN_SECONDARY = 'w-full px-6 py-3 bg-white text-[#FF69B4] border-2 border-pink-200 rounded-xl font-bold hover:bg-pink-50 hover:border-[#FF69B4] active:scale-[0.99] transition-all duration-200 flex items-center justify-center gap-2';
+                var setMode = function (mode) {
+                    var isLogin = mode === 'login';
+                    tabLogin.className = isLogin ? TAB_ON : TAB_OFF;
+                    tabSignup.className = isLogin ? TAB_OFF : TAB_ON;
+                    loginBtnEl.className = isLogin ? BTN_PRIMARY : BTN_SECONDARY;
+                    signupBtnEl.className = isLogin ? BTN_SECONDARY : BTN_PRIMARY;
+                    if (authSubtitle) {
+                        authSubtitle.textContent = isLogin
+                            ? 'Đăng nhập để đồng bộ bộ đề & thành tích của bạn 🐿️'
+                            : 'Tạo tài khoản miễn phí để lưu lại mọi thứ của bạn 🐿️';
+                    }
+                    if (pwInput) {
+                        pwInput.setAttribute('autocomplete', isLogin ? 'current-password' : 'new-password');
+                    }
+                };
+                tabLogin.addEventListener('click', function () { setMode('login'); });
+                tabSignup.addEventListener('click', function () { setMode('signup'); });
             }
         })();
     </script>

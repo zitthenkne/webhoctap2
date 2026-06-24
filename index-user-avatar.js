@@ -47,14 +47,12 @@ document.addEventListener('DOMContentLoaded', () => {
         avatarDiv.innerText = avatarAnimal;
         avatarDiv.title = displayName;
         avatarDiv.className = el.className;
-        // Click: sang profile.html nếu đăng nhập, chưa đăng nhập thì sang auth.html
+        // Click vào AVATAR: sang trang thông tin cá nhân (chưa đăng nhập thì sang auth.html)
         avatarDiv.style.cursor = 'pointer';
-        avatarDiv.onclick = () => {
-          if (user) {
-            window.location.href = 'features/profile/profile.html';
-          } else {
-            window.location.href = 'features/auth/auth.html';
-          }
+        avatarDiv.title = user ? 'Thông tin cá nhân' : 'Đăng nhập';
+        avatarDiv.onclick = (e) => {
+          if (e) e.stopPropagation();
+          window.location.href = user ? 'features/profile/profile.html' : 'features/auth/auth.html';
         };
         el.replaceWith(avatarDiv);
       });
@@ -62,11 +60,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (el) {
           el.textContent = displayName;
           el.style.cursor = 'pointer';
-          el.onclick = () => {
-            if (user) {
-              window.location.href = 'features/profile/profile.html';
+          // Click vào TÊN người dùng: hỏi đăng xuất thay vì vào trang thông tin cá nhân
+          el.title = 'Bấm để đăng xuất';
+          el.onclick = (e) => {
+            if (e) e.stopPropagation();
+            if (typeof window.handleLogout === 'function') {
+              window.handleLogout();
             } else {
-              window.location.href = 'features/auth/auth.html';
+              // Dự phòng nếu app.js chưa sẵn sàng
+              window.location.href = 'features/profile/profile.html';
             }
           };
         }

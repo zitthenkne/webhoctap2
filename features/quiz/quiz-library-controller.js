@@ -6,7 +6,7 @@ import {
     doc, setDoc, collection, addDoc, query, where, getDocs, getDoc, 
     orderBy, limit, deleteDoc, updateDoc, runTransaction, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
-import { showToast } from '../../core/utils.js';
+import { showToast, showConfirm } from '../../core/utils.js';
 import { checkAndAwardAchievement } from '../../core/achievements.js';
 
 // Trạng thái câu hỏi upload từ file
@@ -26,6 +26,9 @@ let currentLibraryPage = 1;
 let isLibraryFullyLoaded = false;
 let isBulkMoving = false;
 let libraryLayoutMode = localStorage.getItem('libraryLayoutMode') || 'grid';
+// Số cột lưới do người dùng tự chọn, lưu cục bộ theo thiết bị ('auto' = tự co giãn theo màn hình)
+let libraryGridCols = localStorage.getItem('libraryGridCols') || 'auto';
+let folderGridCols = localStorage.getItem('folderGridCols') || 'auto';
 let currentFolderPage = 1;
 let foldersExpanded = false; // false: phân trang 10 thư mục/trang; true: hiện tất cả
 
@@ -56,6 +59,31 @@ const FOLDER_SWATCHES = [
     { key: 'purple', hex: '#a855f7', label: 'Tím' }
 ];
 
+// Map nhanh từ tên màu sẵn có → mã hex, để tô màu toàn bộ thẻ thư mục theo một code path duy nhất
+const FOLDER_COLOR_HEX = Object.fromEntries(FOLDER_SWATCHES.map(s => [s.key, s.hex]));
+
+// === THÙNG RÁC ===
+// Xóa thư mục / bộ đề sẽ chuyển vào thùng rác (đánh dấu deleted) và tự xóa vĩnh viễn sau 30 ngày.
+// Giao diện xem/khôi phục nằm ở trang riêng features/quiz/trash.html (cho index.html nhẹ hơn).
+const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+
+function tsToMillis(ts) {
+    if (!ts) return 0;
+    if (typeof ts.toDate === 'function') return ts.toDate().getTime();
+    const t = new Date(ts).getTime();
+    return Number.isNaN(t) ? 0 : t;
+}
+function isTrashExpired(deletedAt) {
+    return (Date.now() - tsToMillis(deletedAt)) > TRASH_RETENTION_MS;
+}
+// Xóa vĩnh viễn các mục đã quá hạn 30 ngày (chạy ké trên dữ liệu đã tải sẵn nên không tốn thêm lượt đọc)
+function purgeExpiredTrash(items, collectionName) {
+    const expired = items.filter(it => it.deleted && isTrashExpired(it.deletedAt));
+    if (!expired.length) return;
+    Promise.allSettled(expired.map(it => deleteDoc(doc(db, collectionName, it.id))))
+        .catch(err => console.warn('Lỗi dọn thùng rác quá hạn:', err));
+}
+
 // Sắp xếp thư mục: ghim lên đầu → theo thứ tự kéo-thả thủ công → mới nhất trước
 function sortUserFolders() {
     userFolders.sort((a, b) => {
@@ -82,10 +110,44 @@ export function getSelectedQuizIds() { return selectedQuizIds; }
 export function setSelectedQuizIds(val) { selectedQuizIds = val; }
 export function getUserQuizSets() { return userQuizSets; }
 export function getLibraryLayoutMode() { return libraryLayoutMode; }
-export function setLibraryLayoutMode(mode) { 
-    libraryLayoutMode = mode; 
+export function setLibraryLayoutMode(mode) {
+    libraryLayoutMode = mode;
     localStorage.setItem('libraryLayoutMode', mode);
 }
+// Số cột lưới tuỳ chỉnh (lưu cục bộ theo thiết bị) — 'auto' hoặc số dạng chuỗi
+export function getLibraryGridCols() { return libraryGridCols; }
+export function setLibraryGridCols(cols) {
+    libraryGridCols = cols;
+    localStorage.setItem('libraryGridCols', cols);
+}
+export function getFolderGridCols() { return folderGridCols; }
+export function setFolderGridCols(cols) {
+    folderGridCols = cols;
+    localStorage.setItem('folderGridCols', cols);
+}
+
+// Áp dụng số cột tuỳ chỉnh cho lưới bộ đề (chỉ ở chế độ lưới; danh sách bỏ qua)
+function applyQuizGridColumns(container) {
+    if (!container) return;
+    if (libraryLayoutMode === 'list' || !libraryGridCols || libraryGridCols === 'auto') {
+        container.style.gridTemplateColumns = '';
+    } else {
+        container.style.gridTemplateColumns = `repeat(${libraryGridCols}, minmax(0, 1fr))`;
+    }
+}
+
+// Áp dụng số cột tuỳ chỉnh cho lưới thư mục
+function applyFolderGridColumns(container) {
+    if (!container) return;
+    if (!folderGridCols || folderGridCols === 'auto') {
+        container.classList.remove('folders-custom-cols');
+        container.style.removeProperty('--folder-grid-cols');
+    } else {
+        container.classList.add('folders-custom-cols');
+        container.style.setProperty('--folder-grid-cols', `repeat(${folderGridCols}, minmax(0, 1fr))`);
+    }
+}
+
 export function getCurrentLibraryPage() { return currentLibraryPage; }
 
 // Getters & Setters cho Sắp xếp / Lọc
@@ -389,7 +451,9 @@ export async function loadAndDisplayLibrary(page = 1) {
     try {
         const qFolders = query(collection(db, "quiz_folders"), where("userId", "==", user.uid));
         const querySnapshotFolders = await getDocs(qFolders);
-        userFolders = querySnapshotFolders.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+        const allFolders = querySnapshotFolders.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+        purgeExpiredTrash(allFolders, "quiz_folders"); // dọn thư mục quá hạn 30 ngày
+        userFolders = allFolders.filter(f => !f.deleted); // ẩn thư mục đang trong thùng rác
         sortUserFolders();
 
         const q = query(
@@ -400,7 +464,9 @@ export async function loadAndDisplayLibrary(page = 1) {
         );
 
         const querySnapshot = await getDocs(q);
-        const pageQuizzes = querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+        const pageQuizzes = querySnapshot.docs
+            .map(docSnap => ({ id: docSnap.id, ...docSnap.data() }))
+            .filter(q => !q.deleted); // ẩn bộ đề đang trong thùng rác
 
         renderBreadcrumb();
         renderLibrary(pageQuizzes, 1);
@@ -416,7 +482,7 @@ async function loadAllLibraryInBackground(userId) {
     try {
         const q = query(collection(db, "quiz_sets"), where("userId", "==", userId));
         const querySnapshot = await getDocs(q);
-        userQuizSets = querySnapshot.docs.map(docSnap => {
+        const allQuizzes = querySnapshot.docs.map(docSnap => {
             const data = docSnap.data();
             if (data.folderId === undefined) {
                 updateDoc(docSnap.ref, { folderId: null }).catch(err => {
@@ -426,6 +492,8 @@ async function loadAllLibraryInBackground(userId) {
             }
             return { id: docSnap.id, ...data };
         });
+        purgeExpiredTrash(allQuizzes, "quiz_sets"); // dọn bộ đề quá hạn 30 ngày
+        userQuizSets = allQuizzes.filter(q => !q.deleted); // ẩn bộ đề đang trong thùng rác
 
         userQuizSets.sort((a, b) => {
             const timeA = a.createdAt && typeof a.createdAt.toDate === 'function' ? a.createdAt.toDate().getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
@@ -502,6 +570,7 @@ function updateLibraryOverview() {
 function renderLibrarySkeleton(container, count = 8) {
     if (!container) return;
     container.className = 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6';
+    applyQuizGridColumns(container);
     let html = '';
     for (let i = 0; i < count; i++) {
         html += `
@@ -576,6 +645,7 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
         } else {
             quizListContainer.className = 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6';
         }
+        applyQuizGridColumns(quizListContainer);
         quizListContainer.innerHTML = '';
     }
 
@@ -623,6 +693,7 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
 
     if (foldersContainer) {
         foldersContainer.innerHTML = '';
+        applyFolderGridColumns(foldersContainer);
         if (!isSearching && currentFolderId === null) {
             const totalFolders = userFolders.length;
             const showAll = foldersExpanded || totalFolders <= FOLDERS_PER_PAGE;
@@ -651,20 +722,16 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                 card.setAttribute('draggable', 'true');
                 if (isPinnedFolder) card.classList.add('is-pinned');
 
-                let iconStyle = '';
-                if (colorVal.startsWith('#')) {
-                    card.style.borderColor = `${colorVal}33`;
-                    card.style.backgroundColor = `${colorVal}08`;
-                    iconStyle = `style="background-color: ${colorVal}1a; color: ${colorVal};"`;
-                } else {
-                    const theme = FOLDER_COLORS[colorVal] || FOLDER_COLORS['amber'];
-                    card.classList.add(`border-${colorVal}-100`);
-                    iconStyle = `class="folder-icon-wrapper ${theme.iconBg}"`;
-                }
+                // Tô màu nguyên cả thẻ thư mục theo màu đã chọn (thay vì chỉ ô icon nhỏ)
+                const hex = colorVal.startsWith('#')
+                    ? colorVal
+                    : (FOLDER_COLOR_HEX[colorVal] || FOLDER_COLOR_HEX.amber);
+                card.style.background = `linear-gradient(145deg, ${hex}33, ${hex}14)`;
+                card.style.borderColor = `${hex}66`;
+                card.style.setProperty('--folder-shadow', `${hex}40`);
 
-                const wrapperHTML = colorVal.startsWith('#')
-                    ? `<div class="folder-icon-wrapper" ${iconStyle}><i class="fas ${iconClass}"></i></div>`
-                    : `<div ${iconStyle}><i class="fas ${iconClass}"></i></div>`;
+                // Icon nổi bật: chip màu đặc + icon trắng để tương phản trên nền đã tô màu
+                const wrapperHTML = `<div class="folder-icon-wrapper" style="background-color: ${hex}; color: #fff;"><i class="fas ${iconClass}"></i></div>`;
 
                 const pinBadge = isPinnedFolder
                     ? `<span class="folder-pin-badge" title="Đã ghim"><i class="fas fa-thumbtack"></i></span>`
@@ -680,7 +747,7 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                         ${wrapperHTML}
                         <div class="min-w-0">
                             <h4 class="font-bold text-gray-800 text-sm truncate" title="${folder.name}">${folder.name}</h4>
-                            <span class="folder-count-badge"><i class="fas fa-file-alt text-[9px] opacity-70"></i>${count} bộ đề</span>
+                            <span class="folder-count-badge" style="background:rgba(255,255,255,0.78); color:#4b5563;"><i class="fas fa-file-alt text-[9px] opacity-70"></i>${count} bộ đề</span>
                         </div>
                     </div>
                     <div class="relative flex items-center">
@@ -1334,16 +1401,19 @@ function renderFoldersPagination(totalFolders, currentPage, totalPages) {
 }
 
 export async function deleteQuizSet(quizId) {
-    if (confirm("Bạn có chắc muốn xóa bộ đề này? Hành động này không thể hoàn tác.")) {
-        try {
-            isLibraryFullyLoaded = false;
-            await deleteDoc(doc(db, "quiz_sets", quizId));
-            showToast("Đã xóa bộ đề thành công!", 'success');
-            loadAndDisplayLibrary();
-        } catch (e) {
-            showToast("Xóa thất bại! Lỗi: " + e.message, 'error');
-            console.error("Lỗi khi xóa bộ đề: ", e);
-        }
+    const ok = await showConfirm(
+        'Bộ đề sẽ được chuyển vào thùng rác và tự động xóa vĩnh viễn sau 30 ngày. Bạn có thể khôi phục bất cứ lúc nào trước đó.',
+        { title: 'Chuyển bộ đề vào thùng rác?', confirmText: 'Vào thùng rác', cancelText: 'Hủy', tone: 'danger' }
+    );
+    if (!ok) return;
+    try {
+        await updateDoc(doc(db, "quiz_sets", quizId), { deleted: true, deletedAt: new Date() });
+        userQuizSets = userQuizSets.filter(q => q.id !== quizId); // cập nhật cache để ẩn ngay
+        showToast('Đã chuyển bộ đề vào thùng rác.', 'success');
+        renderLibrary(userQuizSets, currentLibraryPage);
+    } catch (e) {
+        showToast("Không thể chuyển vào thùng rác! Lỗi: " + e.message, 'error');
+        console.error("Lỗi khi xóa bộ đề: ", e);
     }
 }
 
@@ -1551,7 +1621,16 @@ export async function saveFolder() {
 
     try {
         if (folderModalMode === 'create') {
-            await addDoc(collection(db, "quiz_folders"), {
+            const newDoc = await addDoc(collection(db, "quiz_folders"), {
+                userId: user.uid,
+                name: name,
+                icon: selectedFolderIcon,
+                color: selectedFolderColor,
+                createdAt: new Date()
+            });
+            // Cập nhật ngay vào cache để thư mục mới hiện liền, không cần tải lại trang
+            userFolders.push({
+                id: newDoc.id,
                 userId: user.uid,
                 name: name,
                 icon: selectedFolderIcon,
@@ -1566,8 +1645,16 @@ export async function saveFolder() {
                 icon: selectedFolderIcon,
                 color: selectedFolderColor
             });
-            showToast('Đã đổi tên thư mục thành công!', 'success');
+            // Đồng bộ ngay tên/icon/màu mới vào cache để giao diện tự cập nhật tức thì
+            const folder = userFolders.find(f => f.id === editingFolderId);
+            if (folder) {
+                folder.name = name;
+                folder.icon = selectedFolderIcon;
+                folder.color = selectedFolderColor;
+            }
+            showToast('Đã cập nhật thư mục thành công!', 'success');
         }
+        sortUserFolders();
         closeFolderModal();
         await loadAndDisplayLibrary();
     } catch (err) {
@@ -1647,45 +1734,56 @@ async function reorderFolders(draggedId, targetId) {
 async function confirmDeleteFolder(folderId) {
     const folder = userFolders.find(f => f.id === folderId);
     const name = folder ? folder.name : 'thư mục';
-    
-    const msg = `Bạn có chắc muốn xóa thư mục "${name}"?\nCác bộ đề bên trong thư mục này sẽ ĐƯỢC CHUYỂN VỀ THƯ VIỆN GỐC (không bị xóa).`;
-    
-    if (confirm(msg)) {
-        try {
-            isLibraryFullyLoaded = false;
-            const user = auth.currentUser;
-            if (!user) {
-                throw new Error("Người dùng chưa đăng nhập.");
-            }
-            // 1. Tìm các bộ đề trong thư mục
-            const q = query(collection(db, "quiz_sets"), where("userId", "==", user.uid), where("folderId", "==", folderId));
-            const snapshot = await getDocs(q);
-            
-            // 2. Chuyển chúng về null
-            if (!snapshot.empty) {
-                try {
-                    const promises = snapshot.docs.map(docSnap => updateDoc(docSnap.ref, { folderId: null }));
-                    await Promise.all(promises);
-                } catch (updateErr) {
-                    console.error("Lỗi khi cập nhật bộ đề về thư viện gốc:", updateErr);
-                    throw new Error("Không thể chuyển bộ đề về thư viện gốc (Lỗi phân quyền quiz_sets).");
-                }
-            }
-            
-            // 3. Xóa thư mục
+    const count = userQuizSets.filter(q => q.folderId === folderId).length;
+
+    const msg = count > 0
+        ? `Thư mục "${name}" cùng ${count} bộ đề bên trong sẽ được chuyển vào thùng rác và tự động xóa vĩnh viễn sau 30 ngày. Bạn có thể khôi phục cả thư mục lẫn bộ đề trước đó.`
+        : `Thư mục "${name}" sẽ được chuyển vào thùng rác và tự động xóa vĩnh viễn sau 30 ngày. Bạn có thể khôi phục bất cứ lúc nào trước đó.`;
+
+    const ok = await showConfirm(msg, {
+        title: 'Chuyển thư mục vào thùng rác?', confirmText: 'Vào thùng rác', cancelText: 'Hủy', tone: 'danger'
+    });
+    if (!ok) return;
+
+    try {
+        const user = auth.currentUser;
+        if (!user) throw new Error("Người dùng chưa đăng nhập.");
+        const now = new Date();
+
+        // 1. Chuyển các bộ đề bên trong vào thùng rác kèm theo (đánh dấu để khôi phục cùng thư mục)
+        const q = query(collection(db, "quiz_sets"), where("userId", "==", user.uid), where("folderId", "==", folderId));
+        const snapshot = await getDocs(q);
+        const toTrash = snapshot.docs.filter(docSnap => !docSnap.data().deleted);
+        if (toTrash.length) {
             try {
-                await deleteDoc(doc(db, "quiz_folders", folderId));
-            } catch (deleteErr) {
-                console.error("Lỗi khi xóa thư mục khỏi Firestore:", deleteErr);
-                throw new Error("Lỗi phân quyền Firestore khi xóa thư mục (quiz_folders delete).");
+                await Promise.all(toTrash.map(docSnap =>
+                    updateDoc(docSnap.ref, { deleted: true, deletedAt: now, trashedWithFolder: folderId })
+                ));
+            } catch (updateErr) {
+                console.error("Lỗi khi chuyển bộ đề vào thùng rác:", updateErr);
+                throw new Error("Không thể chuyển bộ đề vào thùng rác (Lỗi phân quyền quiz_sets).");
             }
-            
-            showToast('Đã xóa thư mục thành công!', 'success');
-            await loadAndDisplayLibrary();
-        } catch (err) {
-            console.error("Lỗi khi xóa thư mục:", err);
-            showToast(err.message || 'Xóa thư mục thất bại!', 'error');
         }
+
+        // 2. Chuyển thư mục vào thùng rác
+        try {
+            await updateDoc(doc(db, "quiz_folders", folderId), { deleted: true, deletedAt: now });
+        } catch (deleteErr) {
+            console.error("Lỗi khi chuyển thư mục vào thùng rác:", deleteErr);
+            throw new Error("Lỗi phân quyền Firestore khi cập nhật thư mục (quiz_folders).");
+        }
+
+        // 3. Cập nhật cache để ẩn ngay
+        userFolders = userFolders.filter(f => f.id !== folderId);
+        userQuizSets = userQuizSets.filter(q => q.folderId !== folderId);
+        if (currentFolderId === folderId) currentFolderId = null;
+
+        showToast('Đã chuyển thư mục vào thùng rác.', 'success');
+        renderBreadcrumb();
+        renderLibrary(userQuizSets, currentLibraryPage);
+    } catch (err) {
+        console.error("Lỗi khi xóa thư mục:", err);
+        showToast(err.message || 'Chuyển thư mục vào thùng rác thất bại!', 'error');
     }
 }
 
@@ -1771,17 +1869,21 @@ export async function handleBulkDelete() {
         showToast('Vui lòng chọn ít nhất một bộ đề để xóa!', 'warning');
         return;
     }
-    if (confirm(`Bạn có chắc chắn muốn xóa ${selectedQuizIds.length} bộ đề đã chọn? Thao tác này không thể hoàn tác.`)) {
-        try {
-            isLibraryFullyLoaded = false;
-            const promises = selectedQuizIds.map(id => deleteDoc(doc(db, "quiz_sets", id)));
-            await Promise.all(promises);
-            showToast(`Đã xóa thành công ${selectedQuizIds.length} bộ đề!`, 'success');
-            exitSelectionMode();
-        } catch (e) {
-            showToast("Xóa thất bại! Lỗi: " + e.message, 'error');
-            console.error("Lỗi khi xóa hàng loạt bộ đề: ", e);
-        }
+    const ok = await showConfirm(
+        `${selectedQuizIds.length} bộ đề đã chọn sẽ được chuyển vào thùng rác và tự động xóa vĩnh viễn sau 30 ngày. Bạn có thể khôi phục trước đó.`,
+        { title: 'Chuyển vào thùng rác?', confirmText: 'Vào thùng rác', cancelText: 'Hủy', tone: 'danger' }
+    );
+    if (!ok) return;
+    try {
+        const now = new Date();
+        const ids = [...selectedQuizIds];
+        await Promise.all(ids.map(id => updateDoc(doc(db, "quiz_sets", id), { deleted: true, deletedAt: now })));
+        userQuizSets = userQuizSets.filter(q => !ids.includes(q.id)); // cập nhật cache
+        showToast(`Đã chuyển ${ids.length} bộ đề vào thùng rác.`, 'success');
+        exitSelectionMode(); // sẽ render lại thư viện
+    } catch (e) {
+        showToast("Không thể chuyển vào thùng rác! Lỗi: " + e.message, 'error');
+        console.error("Lỗi khi xóa hàng loạt bộ đề: ", e);
     }
 }
 

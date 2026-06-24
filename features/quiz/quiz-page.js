@@ -2,8 +2,10 @@
 
 import { db, auth } from '../../core/firebase-init.js';
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
 import { showToast, showConfirm } from '../../core/utils.js';
 import { applyLocalQuestionEdits, openQuestionEditor, setupQuestionEditor } from './quiz-editor.js';
+import { studyKeys, syncPullStudy, scheduleCloudPush } from './quiz-study-store.js';
 
 import { state, resetState, saveQuizState, clearQuizState, saveQuizResult, MARK_REASONS } from './quiz-state.js';
 import {
@@ -29,6 +31,28 @@ import {
 
 let navVisible = true;
 let autoSaveInterval = null;
+
+// --- Đồng bộ "dữ liệu học tập" (ghi chú / đánh dấu / bôi vàng) lên cloud ---
+function currentQuizId() {
+    return (state.quizData && state.quizData.id) || (new URLSearchParams(window.location.search)).get('id') || 'default_quiz';
+}
+// Gọi sau mỗi lần ghi chú / đánh dấu / annotation thay đổi localStorage.
+function pushStudyToCloud() {
+    const uid = auth.currentUser && auth.currentUser.uid;
+    if (uid) scheduleCloudPush(uid, currentQuizId());
+}
+// Lưu/bỏ đánh dấu BỀN theo nội dung câu hỏi (để trang Lịch sử đọc lại được).
+// Khác với state.markedReasons (theo chỉ số phiên, bị xóa khi nộp bài).
+function persistMarkByText(qText, reason) {
+    if (!qText) return;
+    const key = studyKeys(currentQuizId()).marks;
+    let store = {};
+    try { store = JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) {}
+    if (reason === '__unmark' || !reason) delete store[qText];
+    else store[qText] = reason;
+    try { localStorage.setItem(key, JSON.stringify(store)); } catch (e) {}
+    pushStudyToCloud();
+}
 
 /* ============================================================
    TIỆN ÍCH NÂNG CẤP TRẢI NGHIỆM LÀM BÀI
@@ -216,6 +240,7 @@ function addAnnot(qText, scope, text, type) {
     }
     store[qText] = arr;
     saveAnnotStore(store);
+    pushStudyToCloud();
 }
 function removeAnnot(qText, scope, text, type) {
     const store = getAnnotStore();
@@ -223,6 +248,7 @@ function removeAnnot(qText, scope, text, type) {
         store[qText] = store[qText].filter(a => !(a.scope === scope && a.text === text && a.type === type));
         if (store[qText].length === 0) delete store[qText];
         saveAnnotStore(store);
+        pushStudyToCloud();
     }
 }
 function annotTag(type) { return type === 'bold' ? 'strong' : type === 'italic' ? 'em' : 'mark'; }
@@ -653,6 +679,27 @@ function setupFocusModeControls() {
     if (exitFocusBtn) exitFocusBtn.onclick = handleToggleFocusMode;
 }
 
+// Kéo dữ liệu học tập từ cloud về máy này (chạy 1 lần khi đã biết người dùng).
+// Gọi ngay nếu đã đăng nhập; nếu auth resolve muộn thì chờ qua onAuthStateChanged.
+let _studyPulled = false;
+function pullStudyFromCloud(quizId) {
+    const run = (uid) => {
+        if (_studyPulled || !uid) return;
+        _studyPulled = true;
+        syncPullStudy(uid, quizId, { preferCloud: false }).then(() => {
+            // Sao lưu ngay bản đã hợp nhất (đề phòng ghi chú cũ chỉ có ở máy này)
+            scheduleCloudPush(uid, quizId, 800);
+            // Nếu đang hiển thị một câu hỏi, vẽ lại để áp dụng ghi chú/annotation mới kéo về
+            const sec = document.getElementById('quizSection');
+            if (state.questions && state.questions.length && sec && !sec.classList.contains('hidden')) {
+                try { showQuestion(); } catch (e) {}
+            }
+        });
+    };
+    if (auth.currentUser) run(auth.currentUser.uid);
+    else onAuthStateChanged(auth, (u) => { if (u) run(u.uid); });
+}
+
 async function loadQuizData() {
     const urlParams = new URLSearchParams(window.location.search);
     const quizId = urlParams.get('id');
@@ -673,6 +720,9 @@ async function loadQuizData() {
             applyLocalQuestionEdits();
             state.originalQuestions = state.quizData.questions;
             loadQuizDetails();
+            // Kéo ghi chú / đánh dấu / bôi vàng đã sao lưu trên cloud về máy này.
+            // Hợp nhất vào localStorage trước khi người dùng bắt đầu làm bài.
+            pullStudyFromCloud(quizId);
         } else {
             document.getElementById('quiz-title').textContent = "Lỗi";
             document.getElementById('quiz-info').textContent = "Không tìm thấy bộ đề này.";
@@ -833,6 +883,9 @@ function applyMark(idx, reason) {
         state.markedReasons[idx] = reason;
     }
     saveQuizState();
+    // Lưu bền theo nội dung câu hỏi + đồng bộ cloud (cho trang Lịch sử)
+    const q = state.questions[idx];
+    if (q) persistMarkByText(q.question, reason);
 }
 
 // Nối sự kiện cho nút đánh dấu + menu lý do của câu hiện tại.
@@ -1067,6 +1120,7 @@ function setupPersonalNote(question) {
             }
             localStorage.setItem(storageKey, JSON.stringify(currentNotes));
             showSaved();
+            pushStudyToCloud();
         } catch(err) {
             console.error("Lỗi lưu ghi chú:", err);
             showError();

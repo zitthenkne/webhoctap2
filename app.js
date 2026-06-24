@@ -5,7 +5,7 @@
 import { auth, db } from './core/firebase-init.js';
 import { onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
 import { doc, setDoc, collection, query, where, getDocs, getDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
-import { showToast } from './core/utils.js';
+import { showToast, showConfirm } from './core/utils.js';
 
 // Import các Module chức năng
 import { parseFile, downloadTemplate } from './core/file-parser.js';
@@ -38,6 +38,10 @@ import {
     setSelectedQuizIds,
     setLibraryLayoutMode,
     getLibraryLayoutMode,
+    getLibraryGridCols,
+    setLibraryGridCols,
+    getFolderGridCols,
+    setFolderGridCols,
     getLibrarySortMode,
     setLibrarySortMode,
     getLibraryFilterMode,
@@ -122,23 +126,40 @@ onAuthStateChanged(auth, user => {
     if (user) {
         const displayName = user.displayName || user.email.split('@')[0];
         const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=FF69B4&color=fff`;
-        if (userName) userName.textContent = displayName;
+        // Bấm vào TÊN người dùng -> hỏi đăng xuất; bấm vào AVATAR -> sang trang thông tin cá nhân
+        const goProfile = (e) => { if (e) e.stopPropagation(); window.location.href = 'features/profile/profile.html'; };
+        const askLogout = (e) => { if (e) e.stopPropagation(); handleLogout(); };
+        if (userName) {
+            userName.textContent = displayName;
+            userName.style.cursor = 'pointer';
+            userName.title = 'Bấm để đăng xuất';
+            userName.onclick = askLogout;
+        }
         if (userAvatar) {
             userAvatar.src = avatarUrl;
             userAvatar.style.cursor = 'pointer';
-            userAvatar.onclick = () => window.location.href = 'features/profile/profile.html';
+            userAvatar.title = 'Thông tin cá nhân';
+            userAvatar.onclick = goProfile;
         }
-        if (userNameSidebar) userNameSidebar.textContent = displayName;
+        if (userNameSidebar) {
+            userNameSidebar.textContent = displayName;
+            userNameSidebar.style.cursor = 'pointer';
+            userNameSidebar.title = 'Bấm để đăng xuất';
+            userNameSidebar.onclick = askLogout;
+        }
         if (userAvatarSidebar) {
             userAvatarSidebar.src = avatarUrl;
             userAvatarSidebar.style.cursor = 'pointer';
-            userAvatarSidebar.onclick = () => window.location.href = 'features/profile/profile.html';
+            userAvatarSidebar.title = 'Thông tin cá nhân';
+            userAvatarSidebar.onclick = goProfile;
         }
         if (userAvatarMobile) {
             userAvatarMobile.src = avatarUrl;
             userAvatarMobile.style.cursor = 'pointer';
-            userAvatarMobile.onclick = () => window.location.href = 'features/profile/profile.html';
+            userAvatarMobile.title = 'Thông tin cá nhân';
+            userAvatarMobile.onclick = goProfile;
         }
+        // Phần "khung" còn lại của menu (vùng đệm quanh tên) cũng hỏi đăng xuất
         if (userMenuButton) userMenuButton.onclick = handleLogout;
     } else {
         if (userName) userName.textContent = 'Khách';
@@ -150,12 +171,21 @@ onAuthStateChanged(auth, user => {
     }
 });
 
-async function handleLogout() { 
-    if (confirm('Bạn có chắc muốn đăng xuất?')) { 
-        await signOut(auth); 
-        showToast('Đã đăng xuất!', 'info'); 
-    } 
+async function handleLogout() {
+    const ok = await showConfirm('Bạn có muốn đăng xuất khỏi tài khoản này không?', {
+        title: 'Đăng xuất',
+        confirmText: 'Đăng xuất',
+        cancelText: 'Ở lại',
+        tone: 'danger',
+        icon: 'fas fa-right-from-bracket'
+    });
+    if (ok) {
+        await signOut(auth);
+        showToast('Đã đăng xuất!', 'info');
+    }
 }
+// Cho phép module khác (index-user-avatar.js) gọi lại đúng một luồng đăng xuất
+window.handleLogout = handleLogout;
 
 function toggleAuthModal() { 
     if (authModal) authModal.classList.toggle('hidden'); 
@@ -475,6 +505,24 @@ function setupEventListeners() {
 
     updateLayoutButtons();
 
+    // Số cột lưới tuỳ chỉnh (lưu cục bộ theo thiết bị) — bộ đề & thư mục độc lập
+    const quizColsSelect = document.getElementById('quiz-grid-cols-select');
+    if (quizColsSelect) {
+        quizColsSelect.value = getLibraryGridCols();
+        quizColsSelect.addEventListener('change', () => {
+            setLibraryGridCols(quizColsSelect.value);
+            renderLibrary(getUserQuizSets(), getCurrentLibraryPage());
+        });
+    }
+    const folderColsSelect = document.getElementById('folder-grid-cols-select');
+    if (folderColsSelect) {
+        folderColsSelect.value = getFolderGridCols();
+        folderColsSelect.addEventListener('change', () => {
+            setFolderGridCols(folderColsSelect.value);
+            renderLibrary(getUserQuizSets(), getCurrentLibraryPage());
+        });
+    }
+
     // Sắp xếp thư viện
     const librarySortSelect = document.getElementById('library-sort-select');
     if (librarySortSelect) {
@@ -600,6 +648,7 @@ function setupEventListeners() {
     
     const refreshLibraryBtn = document.getElementById('refresh-library-btn');
     if (refreshLibraryBtn) refreshLibraryBtn.addEventListener('click', () => loadAndDisplayLibrary());
+    // Thùng rác giờ là trang riêng (features/quiz/trash.html) — nút "#open-trash-btn" là thẻ <a> điều hướng trực tiếp
     
     const refreshStatsBtn = document.getElementById('refresh-stats-btn');
     if (refreshStatsBtn) refreshStatsBtn.addEventListener('click', loadAndDisplayStats);
