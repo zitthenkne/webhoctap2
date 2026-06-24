@@ -106,21 +106,23 @@
     <script src="../../pwa-install.js" defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="../../style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tăng tốc bắt tay tới các CDN bên thứ ba -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <!-- Font Awesome: tải bất đồng bộ để không chặn hiển thị trang (icon hiện ngay sau khi tải xong) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
     <!-- Phông chữ đặc biệt cho trang làm bài:
          • Cormorant Upright (serif đứng thẳng, được ép nghiêng + làm dày nét) cho chữ IN NGHIÊNG
          • Be Vietnam Pro (sans nét gọn, rõ) cho chữ IN ĐẬM — đều hỗ trợ tiếng Việt -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@600;700;800&family=Cormorant+Upright:wght@500;600;700&display=swap" rel="stylesheet">
-    <!-- KaTeX -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
-    <!-- Canvas Confetti -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <!-- Mermaid -->
-    <script src="../../core/libs/mermaid.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@600;700;800&family=Cormorant+Upright:wght@500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@600;700;800&family=Cormorant+Upright:wght@500;600;700&display=swap" rel="stylesheet"></noscript>
+    <!-- KaTeX & Mermaid KHÔNG tải sẵn ở đây nữa: quiz-helpers.js tự nạp chúng theo nhu cầu
+         (chỉ khi câu hỏi thật sự có công thức / sơ đồ) -> bộ đề thuần chữ mở nhanh hơn nhiều. -->
+    <!-- Canvas Confetti (chỉ dùng ở màn kết quả → defer để không chặn tải trang) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
         /* Hình nền trang làm bài: lớp phủ mờ, trong suốt, đặt TRÊN nền gốc (hồng ombre ở sáng, tối ở dark). */
         body::before {

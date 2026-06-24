@@ -48,6 +48,9 @@ let libraryGridCols = localStorage.getItem('libraryGridCols') || 'auto';
 let folderGridCols = localStorage.getItem('folderGridCols') || 'auto';
 let currentFolderPage = 1;
 let foldersExpanded = false; // false: phân trang 10 thư mục/trang; true: hiện tất cả
+// Sắp xếp & tìm kiếm thư mục (lưu cục bộ theo thiết bị)
+let folderSortMode = localStorage.getItem('folderSortMode') || 'manual'; // manual | name | newest | count
+let folderSearchTerm = '';
 
 // Sắp xếp, lọc & ghim
 let librarySortMode = localStorage.getItem('librarySortMode') || 'newest'; // newest | oldest | name | count
@@ -112,6 +115,89 @@ function sortUserFolders() {
         if (ao !== bo) return ao - bo;
         return new Date(b.createdAt) - new Date(a.createdAt);
     });
+}
+
+// === LẦN MỞ THƯ MỤC GẦN NHẤT ===
+// Lưu cục bộ (không ghi Firestore) thời điểm người dùng mở từng thư mục, để hiện "mở gần đây".
+const FOLDER_LAST_OPENED_KEY = 'folderLastOpened';
+function getFolderLastOpenedMap() {
+    try { return JSON.parse(localStorage.getItem(FOLDER_LAST_OPENED_KEY) || '{}'); }
+    catch { return {}; }
+}
+function markFolderOpened(folderId) {
+    if (!folderId) return;
+    const map = getFolderLastOpenedMap();
+    map[folderId] = Date.now();
+    try { localStorage.setItem(FOLDER_LAST_OPENED_KEY, JSON.stringify(map)); } catch {}
+}
+
+// Escape HTML để tránh chèn mã khi hiển thị tên bộ đề trong panel xem nhanh
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Định dạng "thời gian tương đối" gọn (vd: "2 giờ trước", "3 ngày trước")
+function formatRelativeTime(ms) {
+    if (!ms) return '';
+    const diff = Date.now() - ms;
+    if (diff < 0) return 'vừa xong';
+    const min = Math.floor(diff / 60000);
+    if (min < 1) return 'vừa xong';
+    if (min < 60) return `${min} phút trước`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr} giờ trước`;
+    const day = Math.floor(hr / 24);
+    if (day < 30) return `${day} ngày trước`;
+    const month = Math.floor(day / 30);
+    if (month < 12) return `${month} tháng trước`;
+    return `${Math.floor(month / 12)} năm trước`;
+}
+
+// Danh sách thư mục để hiển thị: lọc theo từ khoá tìm kiếm rồi sắp xếp theo chế độ đã chọn.
+// Thư mục đã ghim luôn nằm trên đầu ở mọi chế độ (trừ khi đang tìm kiếm).
+function getFoldersForDisplay() {
+    let list = userFolders.slice();
+    const term = folderSearchTerm.trim().toLowerCase();
+    if (term) {
+        list = list.filter(f => (f.name || '').toLowerCase().includes(term));
+    }
+    if (folderSortMode === 'manual') {
+        return list; // userFolders đã được sortUserFolders() sắp sẵn (ghim → kéo-thả → mới nhất)
+    }
+    const cmpByMode = (a, b) => {
+        switch (folderSortMode) {
+            case 'name': return (a.name || '').localeCompare(b.name || '', 'vi', { sensitivity: 'base' });
+            case 'newest': return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+            case 'count': {
+                const ca = userQuizSets.filter(q => q.folderId === a.id).length;
+                const cb = userQuizSets.filter(q => q.folderId === b.id).length;
+                return cb - ca;
+            }
+            default: return 0;
+        }
+    };
+    list.sort((a, b) => {
+        const ap = a.pinned ? 1 : 0;
+        const bp = b.pinned ? 1 : 0;
+        if (ap !== bp) return bp - ap; // ghim vẫn ưu tiên lên đầu
+        return cmpByMode(a, b);
+    });
+    return list;
+}
+
+// Getters & Setters sắp xếp / tìm kiếm thư mục
+export function getFolderSortMode() { return folderSortMode; }
+export function setFolderSortMode(mode) {
+    folderSortMode = mode;
+    localStorage.setItem('folderSortMode', mode);
+    renderLibrary(userQuizSets, currentLibraryPage);
+}
+export function setFolderSearchTerm(term) {
+    folderSearchTerm = term || '';
+    currentFolderPage = 1; // về trang đầu khi đổi từ khoá
+    renderLibrary(userQuizSets, currentLibraryPage);
 }
 
 // Getters & Setters cho câu hỏi upload
@@ -862,8 +948,24 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
     const foldersSection = document.getElementById('folders-section');
     const foldersContainer = document.getElementById('folders-container');
     const quizzesSectionTitle = document.getElementById('quizzes-section-title');
+    const foldersHeader = document.getElementById('folders-header');
+    const folderToolsGroup = document.getElementById('folder-tools-group');
 
-    const showFolders = !isSearching && currentFolderId === null && userFolders.length > 0;
+    const atRoot = !isSearching && currentFolderId === null;
+    const hasFolders = userFolders.length > 0;
+    const showFolders = atRoot && hasFolders;
+
+    // Header (tiêu đề + nút Tạo thư mục + tìm kiếm + sắp xếp) hiển thị ở gốc thư viện,
+    // kể cả khi chưa có thư mục nào (để người dùng mới vẫn thấy nút "Tạo thư mục").
+    if (foldersHeader) {
+        if (atRoot) foldersHeader.classList.remove('hidden');
+        else foldersHeader.classList.add('hidden');
+    }
+    // Ô tìm kiếm & sắp xếp chỉ có ý nghĩa khi đã có thư mục.
+    if (folderToolsGroup) {
+        if (hasFolders) folderToolsGroup.classList.remove('hidden');
+        else folderToolsGroup.classList.add('hidden');
+    }
     if (foldersSection) {
         if (showFolders) foldersSection.classList.remove('hidden');
         else foldersSection.classList.add('hidden');
@@ -877,26 +979,36 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
         foldersContainer.innerHTML = '';
         applyFolderGridColumns(foldersContainer);
         if (!isSearching && currentFolderId === null) {
-            const totalFolders = userFolders.length;
-            const showAll = foldersExpanded || totalFolders <= FOLDERS_PER_PAGE;
+            const visibleFolders = getFoldersForDisplay(); // đã lọc theo tìm kiếm + sắp xếp
+            const totalFolders = visibleFolders.length;
+            const showAll = foldersExpanded || folderSearchTerm.trim() !== '' || totalFolders <= FOLDERS_PER_PAGE;
             const totalFolderPages = Math.ceil(totalFolders / FOLDERS_PER_PAGE) || 1;
+
+            // Không có thư mục nào khớp từ khoá tìm kiếm → báo "không tìm thấy"
+            if (totalFolders === 0 && folderSearchTerm.trim() !== '') {
+                foldersContainer.innerHTML = `<div class="col-span-full text-center py-6 text-sm text-gray-400"><i class="fas fa-folder-open text-2xl mb-2 block opacity-50"></i>Không tìm thấy thư mục khớp "${folderSearchTerm.trim()}"</div>`;
+            }
 
             let foldersToDisplay;
             if (showAll) {
-                foldersToDisplay = userFolders;
-                currentFolderPage = 1;
+                foldersToDisplay = visibleFolders;
+                if (folderSearchTerm.trim() === '') currentFolderPage = 1;
             } else {
                 if (currentFolderPage > totalFolderPages) currentFolderPage = totalFolderPages;
                 if (currentFolderPage < 1) currentFolderPage = 1;
                 const startIdx = (currentFolderPage - 1) * FOLDERS_PER_PAGE;
-                foldersToDisplay = userFolders.slice(startIdx, startIdx + FOLDERS_PER_PAGE);
+                foldersToDisplay = visibleFolders.slice(startIdx, startIdx + FOLDERS_PER_PAGE);
             }
 
             foldersToDisplay.forEach((folder) => {
                 const card = document.createElement('div');
                 const colorVal = folder.color || 'amber';
                 const iconClass = folder.icon || 'fa-folder';
-                const count = userQuizSets.filter(q => q.folderId === folder.id).length;
+                const folderQuizzes = userQuizSets.filter(q => q.folderId === folder.id);
+                const count = folderQuizzes.length;
+                const totalQuestions = folderQuizzes.reduce((sum, q) => sum + (q.questionCount || 0), 0);
+                const lastOpenedTs = getFolderLastOpenedMap()[folder.id];
+                const lastOpenedText = formatRelativeTime(lastOpenedTs);
                 const isPinnedFolder = !!folder.pinned;
 
                 card.className = 'folder-mini-card';
@@ -908,9 +1020,11 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                 const hex = colorVal.startsWith('#')
                     ? colorVal
                     : (FOLDER_COLOR_HEX[colorVal] || FOLDER_COLOR_HEX.amber);
-                card.style.background = `linear-gradient(145deg, ${hex}33, ${hex}14)`;
-                card.style.borderColor = `${hex}66`;
+                // Nền kính mờ: lớp màu nhạt phủ trên nền trắng gần đặc → đậm & dễ đọc trên mọi ảnh nền
+                card.style.background = `linear-gradient(145deg, ${hex}3d, ${hex}1f), linear-gradient(0deg, rgba(255,255,255,0.9), rgba(255,255,255,0.9))`;
+                card.style.borderColor = `${hex}80`;
                 card.style.setProperty('--folder-shadow', `${hex}40`);
+                card.style.setProperty('--folder-accent', hex);
 
                 // Icon nổi bật: chip màu đặc + icon trắng để tương phản trên nền đã tô màu
                 const wrapperHTML = `<div class="folder-icon-wrapper" style="background-color: ${hex}; color: #fff;"><i class="fas ${iconClass}"></i></div>`;
@@ -923,13 +1037,33 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                     `<button type="button" class="folder-color-dot ${s.key === colorVal ? 'is-active' : ''}" data-color="${s.key}" style="background:${s.hex}" title="${s.label}" aria-label="${s.label}"></button>`
                 ).join('');
 
+                // Dòng thông tin phụ: số câu hỏi + lần mở gần nhất (nếu có)
+                const totalQHTML = `<span class="folder-meta-chip"><i class="fas fa-circle-question text-[9px] opacity-70"></i>${totalQuestions} câu</span>`;
+                const lastOpenedHTML = lastOpenedText
+                    ? `<span class="folder-meta-chip folder-meta-time"><i class="fas fa-clock text-[9px] opacity-70"></i>${lastOpenedText}</span>`
+                    : '';
+
+                // Xem nhanh khi hover: liệt kê tối đa 5 bộ đề trong thư mục
+                const previewItems = folderQuizzes.slice(0, 5)
+                    .map(q => `<li><i class="fas fa-file-alt"></i><span class="truncate">${escapeHtml(q.title || 'Không tên')}</span></li>`)
+                    .join('');
+                const previewMore = count > 5 ? `<li class="folder-preview-more">… và ${count - 5} bộ đề khác</li>` : '';
+                const previewHTML = count > 0
+                    ? `<div class="folder-preview-pop"><p class="folder-preview-title"><i class="fas fa-layer-group"></i> ${count} bộ đề${totalQuestions ? ` · ${totalQuestions} câu` : ''}</p><ul>${previewItems}${previewMore}</ul></div>`
+                    : '';
+
                 card.innerHTML = `
                     ${pinBadge}
+                    ${previewHTML}
                     <div class="folder-mini-card-content folder-click-area">
                         ${wrapperHTML}
-                        <div class="min-w-0">
+                        <div class="min-w-0 flex-1">
                             <h4 class="font-bold text-gray-800 text-sm truncate" title="${folder.name}">${folder.name}</h4>
-                            <span class="folder-count-badge" style="background:rgba(255,255,255,0.78); color:#4b5563;"><i class="fas fa-file-alt text-[9px] opacity-70"></i>${count} bộ đề</span>
+                            <div class="folder-meta-row">
+                                <span class="folder-count-badge"><i class="fas fa-file-alt text-[9px] opacity-70"></i>${count} bộ đề</span>
+                                ${totalQHTML}
+                                ${lastOpenedHTML}
+                            </div>
                         </div>
                     </div>
                     <div class="relative flex items-center">
@@ -948,6 +1082,7 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                 `;
 
                 card.querySelector('.folder-click-area').addEventListener('click', () => {
+                    markFolderOpened(folder.id); // ghi nhận lần mở gần nhất (cục bộ)
                     currentFolderId = folder.id;
                     renderBreadcrumb();
                     loadAndDisplayLibrary(1);
@@ -1054,7 +1189,8 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
             } else {
                 clearFoldersPagination();
             }
-            renderFoldersToggle(totalFolders);
+            // Khi đang tìm kiếm thì luôn hiện hết kết quả → ẩn nút "Xem tất cả / Thu gọn"
+            renderFoldersToggle(folderSearchTerm.trim() !== '' ? 0 : totalFolders);
         } else {
             clearFoldersPagination();
             renderFoldersToggle(0);

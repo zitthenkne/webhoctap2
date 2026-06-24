@@ -42,6 +42,9 @@ import {
     setLibraryGridCols,
     getFolderGridCols,
     setFolderGridCols,
+    getFolderSortMode,
+    setFolderSortMode,
+    setFolderSearchTerm,
     getLibrarySortMode,
     setLibrarySortMode,
     getLibraryFilterMode,
@@ -521,6 +524,34 @@ function setupEventListeners() {
         folderColsSelect.addEventListener('change', () => {
             setFolderGridCols(folderColsSelect.value);
             renderLibrary(getUserQuizSets(), getCurrentLibraryPage());
+        });
+    }
+
+    // Sắp xếp thư mục
+    const folderSortSelect = document.getElementById('folder-sort-select');
+    if (folderSortSelect) {
+        folderSortSelect.value = getFolderSortMode();
+        folderSortSelect.addEventListener('change', () => {
+            setFolderSortMode(folderSortSelect.value);
+        });
+    }
+
+    // Tìm kiếm thư mục (lọc tức thì theo tên)
+    const folderSearchInput = document.getElementById('folder-search-input');
+    const folderSearchClear = document.getElementById('folder-search-clear');
+    if (folderSearchInput) {
+        folderSearchInput.addEventListener('input', () => {
+            const val = folderSearchInput.value;
+            if (folderSearchClear) folderSearchClear.classList.toggle('hidden', val.trim() === '');
+            setFolderSearchTerm(val);
+        });
+    }
+    if (folderSearchClear) {
+        folderSearchClear.addEventListener('click', () => {
+            if (folderSearchInput) folderSearchInput.value = '';
+            folderSearchClear.classList.add('hidden');
+            setFolderSearchTerm('');
+            if (folderSearchInput) folderSearchInput.focus();
         });
     }
 

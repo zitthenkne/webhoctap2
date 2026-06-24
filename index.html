@@ -384,10 +384,6 @@
                 <div class="flex flex-row justify-between items-center gap-3 mb-4">
                     <h2 class="text-on-bg text-xl sm:text-2xl font-extrabold text-[#FF69B4] tracking-wide">Thư viện</h2>
                     <div class="flex items-center gap-2 flex-shrink-0">
-                        <!-- Hành động chính: Tạo thư mục (luôn hiển thị) -->
-                        <button type="button" id="create-folder-btn" class="px-3 py-2 bg-pink-100 text-pink-700 rounded-xl hover:bg-pink-200 transition font-bold flex items-center gap-1.5 text-xs focus:outline-none shadow-sm">
-                            <i class="fas fa-folder-plus text-xs"></i> <span>Tạo thư mục</span>
-                        </button>
                         <!-- Menu "..." gom các thao tác ít dùng cho gọn gàng -->
                         <div class="relative">
                             <button type="button" id="library-more-btn" class="w-9 h-9 flex items-center justify-center bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 hover:text-pink-500 transition focus:outline-none shadow-sm" title="Thêm tùy chọn" aria-haspopup="true" aria-expanded="false">
@@ -530,11 +526,33 @@
                         </div>
                     </div>
                 </div>
-                <!-- Khu vực hiển thị Thư mục cuộn ngang -->
-                <div id="folders-section" class="mb-8 hidden">
-                    <h3 class="text-on-bg text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <!-- Header khu vực thư mục: tiêu đề + tìm kiếm + sắp xếp + nút tạo (luôn hiện ở gốc thư viện) -->
+                <div id="folders-header" class="flex items-center justify-between gap-2 mb-3 flex-wrap hidden">
+                    <h3 class="text-on-bg text-sm font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 flex-shrink-0">
                         <i class="fas fa-folder-open text-pink-400"></i> Thư mục của bạn
                     </h3>
+                    <div class="flex items-center gap-2 flex-wrap justify-end ml-auto">
+                        <!-- Ô tìm kiếm + sắp xếp (chỉ hiện khi đã có thư mục) -->
+                        <div id="folder-tools-group" class="flex items-center gap-2 hidden">
+                            <div class="relative">
+                                <i class="fas fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+                                <input type="text" id="folder-search-input" placeholder="Tìm thư mục..." class="w-32 sm:w-44 pl-7 pr-7 py-1.5 text-xs font-semibold bg-white/90 border border-pink-100 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-200 placeholder-gray-400" />
+                                <button type="button" id="folder-search-clear" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-pink-500 focus:outline-none"><i class="fas fa-times-circle text-xs"></i></button>
+                            </div>
+                            <select id="folder-sort-select" class="text-xs font-semibold text-gray-700 bg-white/90 border border-pink-100 rounded-xl pl-2.5 pr-7 py-1.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-200 cursor-pointer" title="Sắp xếp thư mục">
+                                <option value="manual">Thủ công</option>
+                                <option value="name">Tên A→Z</option>
+                                <option value="newest">Mới nhất</option>
+                                <option value="count">Nhiều bộ đề</option>
+                            </select>
+                        </div>
+                        <!-- Nút Tạo thư mục: trên điện thoại chỉ hiện icon + để tiết kiệm chỗ -->
+                        <button type="button" id="create-folder-btn" class="px-2.5 sm:px-3 py-1.5 bg-pink-100 text-pink-700 rounded-xl hover:bg-pink-200 transition font-bold flex items-center gap-1.5 text-xs focus:outline-none shadow-sm" title="Tạo thư mục mới">
+                            <i class="fas fa-folder-plus text-xs"></i> <span class="hidden sm:inline">Tạo thư mục</span>
+                        </button>
+                    </div>
+                </div>
+                <div id="folders-section" class="mb-8 hidden">
                     <div id="folders-container" class="folders-scroll-container scrollbar-none">
                         <!-- Thư mục render ở đây (cuộn ngang) -->
                     </div>

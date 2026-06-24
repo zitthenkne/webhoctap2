@@ -49,8 +49,54 @@ export function ensureMermaidInit() {
     }
 }
 
-export function renderMermaid(element) {
-    if (!window.mermaid || !element) return Promise.resolve();
+// --- Tải KaTeX / Mermaid THEO NHU CẦU: chỉ nạp khi câu hỏi thật sự có công thức / sơ đồ ---
+// Nhờ vậy các bộ đề thuần văn bản không phải tải 2 thư viện nặng này -> mở trang nhanh hơn.
+function _loadScriptOnce(src) {
+    return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src; s.async = true;
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error('Không tải được ' + src));
+        document.head.appendChild(s);
+    });
+}
+function _loadCssOnce(href) {
+    return new Promise((resolve) => {
+        const l = document.createElement('link');
+        l.rel = 'stylesheet'; l.href = href;
+        l.onload = () => resolve();
+        l.onerror = () => resolve(); // CSS lỗi cũng không nên treo việc render
+        document.head.appendChild(l);
+    });
+}
+let _katexPromise = null;
+export function ensureKaTeXLoaded() {
+    if (window.renderMathInElement) return Promise.resolve();
+    if (_katexPromise) return _katexPromise;
+    const base = 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist';
+    _katexPromise = Promise.all([
+        _loadCssOnce(base + '/katex.min.css'),
+        _loadScriptOnce(base + '/katex.min.js')
+            .then(() => _loadScriptOnce(base + '/contrib/auto-render.min.js'))
+    ]).catch((e) => { console.error('Không tải được KaTeX:', e); });
+    return _katexPromise;
+}
+let _mermaidPromise = null;
+export function ensureMermaidLoaded() {
+    if (window.mermaid) return Promise.resolve();
+    if (_mermaidPromise) return _mermaidPromise;
+    // Đường dẫn tương đối tính theo trang HTML (features/quiz/*.html) -> core/libs
+    _mermaidPromise = _loadScriptOnce('../../core/libs/mermaid.min.js')
+        .catch((e) => { console.error('Không tải được Mermaid:', e); });
+    return _mermaidPromise;
+}
+
+export async function renderMermaid(element) {
+    if (!element) return;
+    // Chỉ nạp Mermaid khi vùng này thật sự có sơ đồ
+    if (!element.querySelector('.mermaid, .mermaid-viewer')) return;
+    await ensureMermaidLoaded();
+    if (!window.mermaid) return;
 
     ensureMermaidInit();
 
@@ -142,42 +188,30 @@ export function renderMermaid(element) {
     return mermaidRenderQueue;
 }
 
-export function renderMath(element) {
-    if (window.renderMathInElement && element) {
-        try {
-            window.renderMathInElement(element, {
-                delimiters: [
-                    {left: "$$", right: "$$", display: true},
-                    {left: "$", right: "$", display: false},
-                    {left: "\\(", right: "\\)", display: false},
-                    {left: "\\[", right: "\\[", display: true}
-                ],
-                throwOnError: false
-            });
-        } catch (err) {
-            console.error("Lỗi render công thức KaTeX:", err);
-        }
-    } else if (element) {
-        setTimeout(() => {
-            if (window.renderMathInElement) {
-                try {
-                    window.renderMathInElement(element, {
-                        delimiters: [
-                            {left: "$$", right: "$$", display: true},
-                            {left: "$", right: "$", display: false},
-                            {left: "\\(", right: "\\)", display: false},
-                            {left: "\\[", right: "\\[", display: true}
-                        ],
-                        throwOnError: false
-                    });
-                } catch (err) {
-                    console.error("Lỗi render công thức KaTeX sau khi chờ:", err);
-                }
-            }
-        }, 200);
+function _runKaTeX(element) {
+    if (!window.renderMathInElement) return;
+    try {
+        window.renderMathInElement(element, {
+            delimiters: [
+                {left: "$$", right: "$$", display: true},
+                {left: "$", right: "$", display: false},
+                {left: "\\(", right: "\\)", display: false},
+                {left: "\\[", right: "\\[", display: true}
+            ],
+            throwOnError: false
+        });
+    } catch (err) {
+        console.error("Lỗi render công thức KaTeX:", err);
     }
-    
-    // Render Mermaid diagrams
+}
+
+export function renderMath(element) {
+    if (!element) return;
+    // Chỉ tải KaTeX khi vùng này có dấu hiệu công thức ($, \( hoặc \[)
+    if (/\$|\\\(|\\\[/.test(element.textContent || '')) {
+        ensureKaTeXLoaded().then(() => _runKaTeX(element));
+    }
+    // Sơ đồ Mermaid: renderMermaid tự nạp thư viện khi cần
     renderMermaid(element);
 }
 
