@@ -36,6 +36,8 @@ let autoSaveInterval = null;
 // (để cuộn lên đầu trang) so với khi chỉ vẽ lại cùng một câu (đổi cỡ chữ, ghi chú…).
 let _lastShownIndex = -1;
 let _catMemeTimer = null; // hẹn giờ tự ẩn meme con mèo
+// GIF đã được tải sẵn cho câu đang xem (để khi trả lời hiện tức thì, không trễ)
+let _preloadedMemes = { idx: -1, happy: null, sad: null };
 
 // --- Đồng bộ "dữ liệu học tập" (ghi chú / đánh dấu / bôi vàng) lên cloud ---
 function currentQuizId() {
@@ -164,12 +166,32 @@ function getCatMemeEnabled() {
     try { return localStorage.getItem('quiz_meme_enabled') !== '0'; } catch (e) { return true; }
 }
 
+function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+// Chọn sẵn 1 GIF đúng + 1 GIF sai cho câu hiện tại và tải trước vào cache trình duyệt,
+// để khi người dùng trả lời thì meme hiện ra ngay (đỡ phải chờ tải GIF nặng).
+function preloadCurrentMemes() {
+    if (!getCatMemeEnabled()) return;
+    const idx = state.currentIndex;
+    if (_preloadedMemes.idx === idx && _preloadedMemes.happy && _preloadedMemes.sad) return;
+    const happy = pickRandom(HAPPY_CAT_MEMES);
+    const sad = pickRandom(SAD_CAT_MEMES);
+    _preloadedMemes = { idx, happy, sad };
+    [happy, sad].forEach(u => { try { const im = new Image(); im.src = u; } catch (e) {} });
+}
+
 function hideCatMeme() {
     const el = document.getElementById('cat-meme-pop');
     if (!el) return;
     if (_catMemeTimer) { clearTimeout(_catMemeTimer); _catMemeTimer = null; }
     el.classList.remove('show');
-    _catMemeTimer = setTimeout(() => el.classList.add('hidden'), 240);
+    _catMemeTimer = setTimeout(() => {
+        el.classList.add('hidden');
+        // Xóa luôn ảnh đang giữ để giải phóng RAM khi meme đã ẩn
+        // (byte GIF vẫn nằm trong HTTP cache của trình duyệt nên lần sau vẫn hiện nhanh)
+        const img = el.querySelector('.cat-meme-img');
+        if (img) { img.onload = null; img.onerror = null; img.removeAttribute('src'); }
+    }, 240);
 }
 
 function showCatMeme(isCorrect) {
@@ -194,13 +216,16 @@ function showCatMeme(isCorrect) {
     img.style.visibility = 'hidden';
     img.removeAttribute('src');
 
-    // Xáo trộn để mỗi lần hiện ngẫu nhiên một meme; các meme còn lại làm dự phòng nếu link lỗi.
-    const candidates = (isCorrect ? HAPPY_CAT_MEMES : SAD_CAT_MEMES)
+    // Ưu tiên GIF đã tải sẵn cho câu này (hiện tức thì); phần còn lại xáo trộn làm dự phòng.
+    const preferred = (_preloadedMemes.idx === state.currentIndex)
+        ? (isCorrect ? _preloadedMemes.happy : _preloadedMemes.sad) : null;
+    let candidates = (isCorrect ? HAPPY_CAT_MEMES : SAD_CAT_MEMES)
         .map(u => ({ u, r: Math.random() }))
         .sort((a, b) => a.r - b.r)
-        .map(o => o.u)
-        // Thêm tham số ngẫu nhiên cho cataas để mỗi lần là một chú mèo khác (tránh cache)
-        .map(u => u.includes('cataas') ? u + (u.includes('?') ? '&' : '?') + 'cb=' + Date.now() + Math.random().toString(36).slice(2) : u);
+        .map(o => o.u);
+    if (preferred) candidates = [preferred, ...candidates.filter(u => u !== preferred)];
+    // Thêm tham số ngẫu nhiên cho cataas để mỗi lần là một chú mèo khác (tránh cache)
+    candidates = candidates.map(u => u.includes('cataas') ? u + (u.includes('?') ? '&' : '?') + 'cb=' + Date.now() + Math.random().toString(36).slice(2) : u);
     let i = 0;
 
     // Chỉ hiện popup KHI GIF mới đã tải xong -> không bao giờ thấy meme của câu trước
@@ -688,6 +713,51 @@ function setupSwipe() {
         } else {
             // vuốt sang phải -> câu trước
             if (state.currentIndex > 0 && state.quizMode !== 'practice') showPreviousQuestion();
+        }
+    }, { passive: true });
+}
+
+// --- Chạm vào CẠNH trái/phải màn hình để chuyển câu (mobile) ---
+// Không vẽ gì cả: chỉ lắng nghe cú chạm nhanh ở rìa màn hình, nên không che nội dung.
+// Tự động "chừa" các nút/điều khiển nhờ kiểm tra closest() y như khi vuốt.
+function setupEdgeTap() {
+    // Bề rộng vùng chạm ở mỗi rìa: ~9% màn hình, tối thiểu 34px, tối đa 64px
+    const edgeWidth = () => Math.max(34, Math.min(64, window.innerWidth * 0.09));
+    let sx = 0, sy = 0, st = 0, tracking = false;
+
+    document.addEventListener('touchstart', (e) => {
+        // Chỉ ở màn hình hẹp (mobile/tablet), và chỉ khi đang làm bài
+        if (window.innerWidth >= 1024 || e.touches.length !== 1) { tracking = false; return; }
+        if (!document.body.classList.contains('quiz-active')) { tracking = false; return; }
+        if (document.body.classList.contains('focus-mode-active')) { tracking = false; return; }
+        const x = e.touches[0].clientX;
+        const ew = edgeWidth();
+        // Chỉ quan tâm cú chạm bắt đầu ở rìa trái hoặc rìa phải
+        if (x > ew && x < window.innerWidth - ew) { tracking = false; return; }
+        // Chừa ra các nút bấm / vùng tương tác / chữ chọn được
+        if (e.target.closest('button, a, textarea, input, select, label, .answer-btn, table, .question-text, mark, .quiz-annot, .quiz-image, .mermaid, .qs-row, #quiz-settings-popover, #quiz-settings-fab, #quiz-mobile-menu')) {
+            tracking = false; return;
+        }
+        tracking = true;
+        sx = x;
+        sy = e.touches[0].clientY;
+        st = Date.now();
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+        if (!tracking) return;
+        tracking = false;
+        const t = e.changedTouches[0];
+        // Phải là một cú CHẠM dứt khoát: nhanh & gần như không di chuyển (không phải vuốt/cuộn)
+        if (Date.now() - st > 400) return;
+        if (Math.abs(t.clientX - sx) > 12 || Math.abs(t.clientY - sy) > 12) return;
+        if (window.getSelection && window.getSelection().toString().trim()) return; // đang chọn chữ
+        if (sx <= edgeWidth()) {
+            // Chạm rìa TRÁI -> câu trước
+            if (state.currentIndex > 0 && state.quizMode !== 'practice') showPreviousQuestion();
+        } else {
+            // Chạm rìa PHẢI -> câu tiếp (không tự nộp bài ở câu cuối)
+            if (state.currentIndex < state.questions.length - 1) showNextQuestion();
         }
     }, { passive: true });
 }
@@ -1396,6 +1466,8 @@ function showQuestion() {
     const indexChanged = _lastShownIndex !== state.currentIndex;
     _lastShownIndex = state.currentIndex;
     if (indexChanged) { hideCatMeme(); scrollQuizToTop(); }
+    // Tải trước meme cho câu này ngay khi đang đọc đề -> trả lời là hiện liền, không trễ
+    preloadCurrentMemes();
     updateProgressBar();
     const question = state.questions[state.currentIndex];
     const quizSection = document.getElementById('quizSection');
@@ -2078,6 +2150,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupLightbox();       // #13: phóng to ảnh
     setupQuestionEditor(showQuestion); // Chỉnh sửa câu hỏi (đáp án/giải thích/ghi chú/mở rộng) ngay khi làm bài
     setupSwipe();          // #3: vuốt chuyển câu
+    setupEdgeTap();        // Chạm rìa trái/phải màn hình để chuyển câu (mobile)
 
     // Đóng menu lý do đánh dấu khi bấm ra ngoài (1 listener dùng chung cho mọi câu)
     document.addEventListener('click', (e) => {
