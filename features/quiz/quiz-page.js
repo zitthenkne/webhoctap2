@@ -6,6 +6,7 @@ import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/fir
 import { showToast, showConfirm } from '../../core/utils.js';
 import { applyLocalQuestionEdits, openQuestionEditor, setupQuestionEditor } from './quiz-editor.js';
 import { studyKeys, syncPullStudy, scheduleCloudPush } from './quiz-study-store.js';
+import { getOfflineQuiz, refreshOfflineQuizIfSaved } from './quiz-offline-store.js';
 
 import { state, resetState, saveQuizState, clearQuizState, saveQuizResult, MARK_REASONS } from './quiz-state.js';
 import {
@@ -31,6 +32,10 @@ import {
 
 let navVisible = true;
 let autoSaveInterval = null;
+// Câu vừa hiển thị trước đó — dùng để biết khi nào THỰC SỰ chuyển sang câu khác
+// (để cuộn lên đầu trang) so với khi chỉ vẽ lại cùng một câu (đổi cỡ chữ, ghi chú…).
+let _lastShownIndex = -1;
+let _catMemeTimer = null; // hẹn giờ tự ẩn meme con mèo
 
 // --- Đồng bộ "dữ liệu học tập" (ghi chú / đánh dấu / bôi vàng) lên cloud ---
 function currentQuizId() {
@@ -94,6 +99,125 @@ function playTone(isCorrect) {
 function feedback(isCorrect) {
     if (getVibrate() && navigator.vibrate) navigator.vibrate(isCorrect ? 18 : [25, 35, 25]);
     if (getSound()) playTone(isCorrect);
+}
+
+// --- Cuộn mượt lên đầu trang khi chuyển sang câu khác (nội dung câu luôn nằm gọn ở giữa màn) ---
+function scrollQuizToTop() {
+    try {
+        const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+    } catch (e) { try { window.scrollTo(0, 0); } catch (_) {} }
+}
+
+// --- Meme con mèo: chỉ hiện ảnh meme (đúng = mèo vui, sai = mèo khóc), lấy qua link ---
+// Mỗi danh sách có nhiều link dự phòng: nếu link đầu lỗi sẽ tự thử link sau,
+// hết link thì ẩn luôn nên không bao giờ hiện ảnh vỡ.
+// Meme câu ĐÚNG (happy cat) — 20 GIF từ giphy.com/search/happy-cat
+const HAPPY_CAT_MEMES = [
+    'https://media.giphy.com/media/QaO94TsFEnZauKsboY/giphy.gif',
+    'https://media.giphy.com/media/LDI8pqI24xe6wxRWuF/giphy.gif',
+    'https://media.giphy.com/media/PleihcHr0kbJVD0bNe/giphy.gif',
+    'https://media.giphy.com/media/td5eq6qlu1UL6/giphy.gif',
+    'https://media.giphy.com/media/BK1EfIsdkKZMY/giphy.gif',
+    'https://media.giphy.com/media/gT93oBucqsHNS/giphy.gif',
+    'https://media.giphy.com/media/W8hVGGjOjV82Rh6Oyi/giphy.gif',
+    'https://media.giphy.com/media/Rtu8Jzs4MzoC3cl8lM/giphy.gif',
+    'https://media.giphy.com/media/T70hpBP1L0N7U0jtkq/giphy.gif',
+    'https://media.giphy.com/media/GAtTF1kUyoMFx2QL7n/giphy.gif',
+    'https://media.giphy.com/media/kalDkPUTRfV4XFEvJ5/giphy.gif',
+    'https://media.giphy.com/media/1rzHSymOFmy0Do1Mb0/giphy.gif',
+    'https://media.giphy.com/media/NfzERYyiWcXU4/giphy.gif',
+    'https://media.giphy.com/media/wvYNSqBAMDVx8CEYkt/giphy.gif',
+    'https://media.giphy.com/media/Yt09iFvD9u5AQ/giphy.gif',
+    'https://media.giphy.com/media/HJibfnd7xqk5hAMD4v/giphy.gif',
+    'https://media.giphy.com/media/gZFHLPFHNpjwaondsz/giphy.gif',
+    'https://media.giphy.com/media/NPwRSSWKyXkbxl8SaX/giphy.gif',
+    'https://media.giphy.com/media/wXbyhZ5mWQmv7c672G/giphy.gif',
+    'https://media.giphy.com/media/GRC8pK6FJ9Nm3AFArf/giphy.gif'
+];
+// Meme câu SAI (confused) — 20 GIF từ giphy.com/search/confused
+const SAD_CAT_MEMES = [
+    'https://media.giphy.com/media/ji6zzUZwNIuLS/giphy.gif',
+    'https://media.giphy.com/media/gKHGnB1ml0moQdjhEJ/giphy.gif',
+    'https://media.giphy.com/media/ukGm72ZLZvYfS/giphy.gif',
+    'https://media.giphy.com/media/fa1AV8UvZvfBFOIt7F/giphy.gif',
+    'https://media.giphy.com/media/fFwOzwhCO1FMA/giphy.gif',
+    'https://media.giphy.com/media/xRq2Mo2yewajZLPmCt/giphy.gif',
+    'https://media.giphy.com/media/hv53DaYcXWe3nRbR1A/giphy.gif',
+    'https://media.giphy.com/media/lkdH8FmImcGoylv3t3/giphy.gif',
+    'https://media.giphy.com/media/5M5N7Rc0y2NkJWEarU/giphy.gif',
+    'https://media.giphy.com/media/lHfxDepSGlzom6f65K/giphy.gif',
+    'https://media.giphy.com/media/H4zeDO4ocDYqY/giphy.gif',
+    'https://media.giphy.com/media/Z5xk7fGO5FjjTElnpT/giphy.gif',
+    'https://media.giphy.com/media/WRQBXSCnEFJIuxktnw/giphy.gif',
+    'https://media.giphy.com/media/YVPwi7L2izTJS/giphy.gif',
+    'https://media.giphy.com/media/YaXDLHHbz0t5lTM03z/giphy.gif',
+    'https://media.giphy.com/media/3o7aCTPPm4OHfRLSH6/giphy.gif',
+    'https://media.giphy.com/media/3EiNpweH34XGoQcq9Q/giphy.gif',
+    'https://media.giphy.com/media/a0FuPjiLZev4c/giphy.gif',
+    'https://media.giphy.com/media/iHe7mA9M9SsyQ/giphy.gif',
+    'https://media.giphy.com/media/FY8c5SKwiNf1EtZKGs/giphy.gif'
+];
+
+// Người dùng có thể tắt meme ở trang thiết lập; lựa chọn lưu cục bộ (mặc định BẬT).
+function getCatMemeEnabled() {
+    try { return localStorage.getItem('quiz_meme_enabled') !== '0'; } catch (e) { return true; }
+}
+
+function hideCatMeme() {
+    const el = document.getElementById('cat-meme-pop');
+    if (!el) return;
+    if (_catMemeTimer) { clearTimeout(_catMemeTimer); _catMemeTimer = null; }
+    el.classList.remove('show');
+    _catMemeTimer = setTimeout(() => el.classList.add('hidden'), 240);
+}
+
+function showCatMeme(isCorrect) {
+    if (!getCatMemeEnabled()) return; // người dùng đã tắt meme
+    let el = document.getElementById('cat-meme-pop');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'cat-meme-pop';
+        el.className = 'hidden';
+        el.innerHTML = `<img class="cat-meme-img" alt="Meme phản hồi" />`;
+        document.body.appendChild(el);
+        // Bấm ra ngoài (hoặc vào) meme là ẩn ngay
+        el.addEventListener('click', hideCatMeme);
+    }
+    if (_catMemeTimer) { clearTimeout(_catMemeTimer); _catMemeTimer = null; }
+
+    // Ẩn NGAY ảnh của câu trước để không lóe meme cũ trong lúc GIF mới đang tải
+    el.classList.remove('show');
+    const img = el.querySelector('.cat-meme-img');
+    img.onload = null;
+    img.onerror = null;
+    img.style.visibility = 'hidden';
+    img.removeAttribute('src');
+
+    // Xáo trộn để mỗi lần hiện ngẫu nhiên một meme; các meme còn lại làm dự phòng nếu link lỗi.
+    const candidates = (isCorrect ? HAPPY_CAT_MEMES : SAD_CAT_MEMES)
+        .map(u => ({ u, r: Math.random() }))
+        .sort((a, b) => a.r - b.r)
+        .map(o => o.u)
+        // Thêm tham số ngẫu nhiên cho cataas để mỗi lần là một chú mèo khác (tránh cache)
+        .map(u => u.includes('cataas') ? u + (u.includes('?') ? '&' : '?') + 'cb=' + Date.now() + Math.random().toString(36).slice(2) : u);
+    let i = 0;
+
+    // Chỉ hiện popup KHI GIF mới đã tải xong -> không bao giờ thấy meme của câu trước
+    const reveal = () => {
+        img.style.visibility = '';
+        el.classList.remove('hidden');
+        requestAnimationFrame(() => el.classList.add('show'));
+        if (_catMemeTimer) clearTimeout(_catMemeTimer);
+        _catMemeTimer = setTimeout(hideCatMeme, 2600);
+    };
+    img.onload = reveal;
+    img.onerror = () => {
+        i++;
+        if (i < candidates.length) img.src = candidates[i];
+        else { img.onerror = null; img.onload = null; hideCatMeme(); } // hết link dự phòng -> ẩn luôn
+    };
+    img.src = candidates[0];
 }
 
 // --- #17: chỉ dùng 1 cột khi bản thân đáp án dài (không tính giải thích) ---
@@ -734,6 +858,26 @@ async function loadQuizData() {
         return;
     }
 
+    // Dùng bộ đề đã tải về máy (IndexedDB) để bắt đầu làm bài.
+    const useOfflineData = (data) => {
+        state.quizData = data;
+        state.quizData.id = quizId;
+        applyLocalQuestionEdits();
+        state.originalQuestions = state.quizData.questions;
+        loadQuizDetails();
+        pullStudyFromCloud(quizId);
+    };
+
+    // Nếu đang ngoại tuyến, thử dùng bản đã tải về máy trước (không phải chờ mạng timeout).
+    if (!navigator.onLine) {
+        const offline = await getOfflineQuiz(quizId);
+        if (offline) {
+            useOfflineData(offline);
+            showToast('Đang dùng bản đã tải về máy (ngoại tuyến).', 'info');
+            return;
+        }
+    }
+
     try {
         const docRef = doc(db, "quiz_sets", quizId);
         const docSnap = await getDoc(docRef);
@@ -745,6 +889,8 @@ async function loadQuizData() {
             applyLocalQuestionEdits();
             state.originalQuestions = state.quizData.questions;
             loadQuizDetails();
+            // Nếu bộ đề này đã được tải về máy, cập nhật lại bản offline để giữ dữ liệu mới nhất.
+            refreshOfflineQuizIfSaved(quizId, docSnap.data());
             // Kéo ghi chú / đánh dấu / bôi vàng đã sao lưu trên cloud về máy này.
             // Hợp nhất vào localStorage trước khi người dùng bắt đầu làm bài.
             pullStudyFromCloud(quizId);
@@ -754,8 +900,15 @@ async function loadQuizData() {
         }
     } catch (error) {
         console.error("Lỗi tải dữ liệu bộ đề:", error);
+        // Mất mạng / lỗi server: thử dùng bản đã tải về máy nếu có.
+        const offline = await getOfflineQuiz(quizId);
+        if (offline) {
+            useOfflineData(offline);
+            showToast('Mất kết nối — đang dùng bản đã tải về máy.', 'info');
+            return;
+        }
         document.getElementById('quiz-title').textContent = "Lỗi";
-        document.getElementById('quiz-info').textContent = "Đã xảy ra lỗi khi tải dữ liệu.";
+        document.getElementById('quiz-info').textContent = "Đã xảy ra lỗi khi tải dữ liệu. Bộ đề này chưa được tải về máy để làm offline.";
     }
 }
 
@@ -814,7 +967,12 @@ function startQuizMode(questionsArray, mode = 'normal', restoreState = null) {
     }
 
     quizLanding.classList.add('hidden');
+    quizLanding.classList.remove('quiz-landing-leaving');
     quizContainer.classList.remove('hidden');
+    // Khởi động lại hiệu ứng "vào màn" mỗi lần bắt đầu (kể cả khi làm lại từ kết quả)
+    quizContainer.classList.remove('quiz-enter');
+    void quizContainer.offsetWidth; // ép trình duyệt reflow để animation chạy lại
+    quizContainer.classList.add('quiz-enter');
     quizSection.innerHTML = '';
     resultsSection.innerHTML = '';
     quizSection.classList.remove('hidden');
@@ -1233,6 +1391,11 @@ function getQuestionSizeClass(fontSize, rawQuestion) {
 function showQuestion() {
     // Đang làm bài -> mở khóa nhóm điều khiển làm bài trong bảng thiết lập
     document.body.classList.add('quiz-active');
+    // Chỉ cuộn lên đầu khi THỰC SỰ chuyển sang câu khác (không cuộn khi vẽ lại cùng câu
+    // do đổi cỡ chữ / thêm ghi chú…) để nội dung câu hỏi luôn nằm gọn ở giữa màn hình.
+    const indexChanged = _lastShownIndex !== state.currentIndex;
+    _lastShownIndex = state.currentIndex;
+    if (indexChanged) { hideCatMeme(); scrollQuizToTop(); }
     updateProgressBar();
     const question = state.questions[state.currentIndex];
     const quizSection = document.getElementById('quizSection');
@@ -1693,6 +1856,7 @@ function handleAnswerClick(e) {
     state.userAnswers[state.currentIndex] = selectedIdx;
     const isCorrect = selectedIdx === state.questions[state.currentIndex].correctAnswerIndex;
     feedback(isCorrect); // #15: rung/âm thanh phản hồi
+    showCatMeme(isCorrect); // meme con mèo vui khi đúng / khóc khi sai
     if (isCorrect) {
         state.score++;
         state.streak++;
@@ -1939,7 +2103,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const startNowBtn = document.getElementById('start-now-btn');
     if (startNowBtn) {
-        startNowBtn.addEventListener('click', startQuizWithCurrentSettings);
+        startNowBtn.addEventListener('click', () => {
+            const landing = document.getElementById('quiz-landing');
+            // Hiệu ứng chuyển cảnh: trang thiết lập "bay" ra rồi mới vào màn làm bài
+            if (landing && !landing.classList.contains('hidden') && !landing.classList.contains('quiz-landing-leaving')) {
+                const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                landing.classList.add('quiz-landing-leaving');
+                scrollQuizToTop();
+                setTimeout(startQuizWithCurrentSettings, reduce ? 0 : 420);
+            } else {
+                startQuizWithCurrentSettings();
+            }
+        });
+    }
+
+    // Bật/tắt meme con mèo — đồng bộ với lựa chọn đã lưu cục bộ
+    const memeCheckbox = document.getElementById('meme-enabled-checkbox');
+    if (memeCheckbox) {
+        memeCheckbox.checked = getCatMemeEnabled();
+        memeCheckbox.addEventListener('change', () => {
+            try { localStorage.setItem('quiz_meme_enabled', memeCheckbox.checked ? '1' : '0'); } catch (e) {}
+            if (!memeCheckbox.checked) hideCatMeme();
+        });
     }
 
     const retryWrongBtn = document.getElementById('retry-wrong-btn');

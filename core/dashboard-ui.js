@@ -44,10 +44,10 @@ export function updateSidebarState() {
 
     if (window.innerWidth >= 768) {
         sidebar.classList.remove('-translate-x-full');
-        if (sidebarOverlay) sidebarOverlay.classList.add('hidden');
+        if (sidebarOverlay) sidebarOverlay.classList.add('hidden', 'opacity-0');
     } else {
         sidebar.classList.add('-translate-x-full');
-        if (sidebarOverlay) sidebarOverlay.classList.add('hidden');
+        if (sidebarOverlay) sidebarOverlay.classList.add('hidden', 'opacity-0');
     }
 }
 
@@ -82,15 +82,34 @@ export function initDashboardUI() {
     const sidebarCloseBtn = document.getElementById('sidebar-close-btn');
 
     if (menuToggleBtn && sidebar && sidebarOverlay && sidebarCloseBtn) {
+        let overlayHideTimer = null;
+
+        const openSidebar = () => {
+            clearTimeout(overlayHideTimer);
+            // Phòng trường hợp sidebar bị gắn 'hidden' ở nơi khác -> gỡ ra để trượt vào hiện được
+            sidebar.classList.remove('hidden', '-translate-x-full');
+            sidebarOverlay.classList.remove('hidden');
+            // Hiện overlay rồi fade-in ở frame kế tiếp để transition chạy mượt
+            requestAnimationFrame(() => sidebarOverlay.classList.remove('opacity-0'));
+        };
+
         const closeSidebarImmediately = () => {
+            clearTimeout(overlayHideTimer);
             sidebar.classList.add('-translate-x-full');
-            sidebarOverlay.classList.add('hidden');
+            sidebarOverlay.classList.add('opacity-0');
+            // Ẩn hẳn overlay sau khi fade-out xong để không chặn thao tác chạm
+            overlayHideTimer = setTimeout(() => sidebarOverlay.classList.add('hidden'), 250);
         };
 
         menuToggleBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            sidebar.classList.remove('-translate-x-full');
-            sidebarOverlay.classList.remove('hidden');
+            e.preventDefault();
+            // Toggle: đang đóng thì mở, đang mở thì đóng
+            if (sidebar.classList.contains('-translate-x-full')) {
+                openSidebar();
+            } else {
+                closeSidebarImmediately();
+            }
         });
 
         sidebarCloseBtn.addEventListener('click', closeSidebarImmediately);

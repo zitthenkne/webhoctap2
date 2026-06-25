@@ -8,6 +8,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { showToast, showConfirm } from '../../core/utils.js';
 import { checkAndAwardAchievement } from '../../core/achievements.js';
+import { isOfflineSavedSync, saveOfflineQuiz, deleteOfflineQuiz } from './quiz-offline-store.js';
 
 // Trạng thái câu hỏi upload từ file
 let questions = [];
@@ -767,6 +768,15 @@ function refreshLibraryOnResume() {
     }
 }
 
+// Tải lại thủ công từ server khi người dùng bấm nút "Tải lại".
+// Khác với loadAndDisplayLibrary() (chỉ vẽ lại từ cache RAM khi đã nạp đầy đủ),
+// hàm này bỏ cache để BUỘC lấy dữ liệu mới từ server. Trả về Promise để UI hiện trạng thái đang tải.
+export async function forceReloadLibrary() {
+    if (!auth.currentUser) return;
+    isLibraryFullyLoaded = false; // bỏ cache RAM → lần nạp tới lấy dữ liệu mới từ server
+    await loadAndDisplayLibrary(currentLibraryPage);
+}
+
 // Gắn listener tự đồng bộ. Gọi một lần khi khởi tạo app.
 export function initLibraryAutoSync() {
     document.addEventListener('visibilitychange', refreshLibraryOnResume);
@@ -779,21 +789,40 @@ export function initLibraryAutoSync() {
 function getQuizCardClassName(isSelected = false) {
     if (libraryLayoutMode === 'list') {
         if (isSelectionMode) {
-            return isSelected 
-                ? 'bg-pink-50/20 rounded-xl border-2 border-pink-500 p-4 shadow-md flex items-center justify-between gap-4 cursor-pointer transition-all duration-200 relative'
-                : 'bg-white rounded-xl border border-pink-100 p-4 shadow-sm flex items-center justify-between gap-4 cursor-pointer hover:border-pink-300 transition-all duration-200 relative';
+            return isSelected
+                ? 'quiz-list-card bg-pink-50/20 rounded-xl border-2 border-pink-500 p-3 sm:p-4 shadow-md flex items-center justify-between gap-3 sm:gap-4 cursor-pointer transition-all duration-200 relative'
+                : 'quiz-list-card bg-white rounded-xl border border-pink-100 p-3 sm:p-4 shadow-sm flex items-center justify-between gap-3 sm:gap-4 cursor-pointer hover:border-pink-300 transition-all duration-200 relative';
         } else {
-            return 'bg-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md hover:border-pink-200 cursor-pointer transition-all duration-200 flex items-center justify-between gap-4 relative';
+            return 'quiz-list-card bg-white rounded-xl border border-gray-100 p-3 sm:p-4 shadow-sm hover:shadow-md hover:border-pink-200 cursor-pointer transition-all duration-200 flex items-center justify-between gap-3 sm:gap-4 relative';
         }
     } else {
         if (isSelectionMode) {
-            return isSelected 
-                ? 'bg-pink-50/20 rounded-2xl border-2 border-pink-500 p-5 shadow-md flex flex-col cursor-pointer transition-all duration-300 relative'
-                : 'bg-white rounded-2xl border border-pink-100 p-5 shadow-sm flex flex-col cursor-pointer hover:border-pink-300 transition-all duration-300 relative';
+            return isSelected
+                ? 'quiz-grid-card bg-pink-50/20 rounded-2xl border-2 border-pink-500 p-4 sm:p-5 shadow-md flex flex-col cursor-pointer transition-all duration-300 relative'
+                : 'quiz-grid-card bg-white rounded-2xl border border-pink-100 p-4 sm:p-5 shadow-sm flex flex-col cursor-pointer hover:border-pink-300 transition-all duration-300 relative';
         } else {
-            return 'bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:-translate-y-1 hover:shadow-md hover:border-pink-200 cursor-pointer transition-all duration-300 flex flex-col relative';
+            return 'quiz-grid-card bg-white rounded-2xl border border-gray-100 p-4 sm:p-5 shadow-sm hover:-translate-y-1 hover:shadow-md hover:border-pink-200 cursor-pointer transition-all duration-300 flex flex-col relative';
         }
     }
+}
+
+// Bảng màu gradient cho thẻ bộ đề — mỗi bộ đề mang một sắc thái + icon riêng để
+// thư viện sinh động, dễ phân biệt và "mời gọi" click hơn (đặc biệt trên điện thoại).
+const QUIZ_ACCENTS = [
+    { from: '#ec4899', to: '#fb7185', icon: 'fa-layer-group' },
+    { from: '#8b5cf6', to: '#c084fc', icon: 'fa-book-open' },
+    { from: '#0ea5e9', to: '#38bdf8', icon: 'fa-file-lines' },
+    { from: '#10b981', to: '#34d399', icon: 'fa-flask' },
+    { from: '#f59e0b', to: '#fbbf24', icon: 'fa-lightbulb' },
+    { from: '#6366f1', to: '#818cf8', icon: 'fa-brain' },
+    { from: '#f43f5e', to: '#fb7185', icon: 'fa-heart-pulse' },
+    { from: '#14b8a6', to: '#2dd4bf', icon: 'fa-microscope' },
+];
+function getQuizAccent(seed) {
+    const s = String(seed || '');
+    let hash = 0;
+    for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
+    return QUIZ_ACCENTS[hash % QUIZ_ACCENTS.length];
 }
 
 export function updateLayoutButtons() {
@@ -1248,6 +1277,15 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
             const newBadge = isNew
                 ? `<span class="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center">Mới</span>`
                 : '';
+            const offlineSaved = isOfflineSavedSync(quizSet.id);
+            // Huy hiệu "Đã tải" hiển thị cạnh số câu hỏi khi bộ đề đã được lưu để làm offline
+            const offlineBadge = offlineSaved
+                ? `<span class="offline-badge bg-sky-50 text-sky-600 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold inline-flex items-center gap-1" title="Đã tải về máy — làm được khi không có mạng"><i class="fas fa-circle-check text-[10px]"></i>Đã tải</span>`
+                : '';
+            // Mục trong menu "..." để tải về / xóa bản offline
+            const offlineMenuItem = offlineSaved
+                ? `<button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 remove-offline-btn" data-id="${quizSet.id}"><i class="fas fa-trash-can mr-2.5 text-sky-400"></i>Xóa bản offline</button>`
+                : `<button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 download-offline-btn" data-id="${quizSet.id}"><i class="fas fa-cloud-arrow-down mr-2.5 text-sky-500"></i>Tải về máy (offline)</button>`;
             const pinBtnSm = `<button class="pin-quiz-btn w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${pinned ? 'text-pink-500 bg-pink-50' : 'text-gray-400 hover:text-pink-500 hover:bg-pink-50'}" data-id="${quizSet.id}" title="${pinned ? 'Bỏ ghim' : 'Ghim lên đầu'}"><i class="fas fa-thumbtack text-xs"></i></button>`;
             const pinBtnMd = `<button class="pin-quiz-btn w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${pinned ? 'text-pink-500 bg-pink-50' : 'text-gray-400 hover:text-pink-500 hover:bg-pink-50'}" data-id="${quizSet.id}" title="${pinned ? 'Bỏ ghim' : 'Ghim lên đầu'}"><i class="fas fa-thumbtack text-sm"></i></button>`;
 
@@ -1264,7 +1302,11 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                 const year = dateObj.getFullYear();
                 dateStr = `${hours}:${minutes} ${day}/${month}/${year}`;
             }
-            
+
+            // Sắc thái màu + icon riêng cho từng bộ đề (ổn định theo id)
+            const accent = getQuizAccent(quizSet.id || quizSet.title);
+            const accentStyle = `background-image:linear-gradient(135deg, ${accent.from}, ${accent.to});`;
+
             if (libraryLayoutMode === 'list') {
                 let checkboxHTML = '';
                 if (isSelectionMode) {
@@ -1283,6 +1325,7 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                             <div class="quiz-menu hidden absolute right-0 top-9 bg-white rounded-xl shadow-xl border border-gray-100 z-20 min-w-[175px] py-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
                                 <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 quiz-history-btn" data-id="${quizSet.id}"><i class="fas fa-history mr-2.5 text-pink-400"></i>Xem lịch sử làm bài</button>
                                 <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 move-quiz-btn" data-id="${quizSet.id}"><i class="fas fa-folder-open mr-2.5 text-yellow-500"></i>Di chuyển</button>
+                                ${offlineMenuItem}
                                 <div class="border-t border-gray-100 my-1"></div>
                                 <button class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 delete-quiz-btn" data-id="${quizSet.id}"><i class="fas fa-trash-alt mr-2.5 text-red-500"></i>Xóa bộ đề</button>
                             </div>
@@ -1292,6 +1335,9 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
 
                 card.innerHTML = `
                     ${checkboxHTML}
+                    <span class="quiz-card-icon quiz-card-icon-sm flex-shrink-0" style="${accentStyle}" aria-hidden="true">
+                        <i class="fas ${accent.icon}"></i>
+                    </span>
                     <div class="flex-grow min-w-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
                         <div class="min-w-0 flex-1">
                             <h3 class="text-sm sm:text-base font-bold text-gray-800 truncate" title="${quizSet.title}">
@@ -1299,15 +1345,13 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                                     ${quizSet.title}
                                 </a>
                             </h3>
-                            <div class="flex flex-wrap gap-2 mt-1 items-center">
-                                ${newBadge}
-                                <span class="bg-pink-50 text-pink-600 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold inline-flex items-center gap-1">
-                                    <i class="fas fa-question-circle text-[10px] opacity-80"></i>
-                                    ${quizSet.questionCount} câu hỏi
+                            <div class="flex flex-wrap gap-1.5 mt-1 items-center">
+                                ${newBadge}${offlineBadge}
+                                <span class="quiz-chip quiz-chip-count">
+                                    <i class="fas fa-circle-question"></i>${quizSet.questionCount} câu
                                 </span>
-                                <span class="text-gray-400 text-[10px] sm:text-xs hidden sm:inline-flex items-center gap-1">
-                                    <i class="far fa-calendar-alt text-[10px] opacity-80"></i>
-                                    ${dateStr}
+                                <span class="quiz-chip quiz-chip-date hidden sm:inline-flex">
+                                    <i class="far fa-clock"></i>${dateStr}
                                 </span>
                             </div>
                         </div>
@@ -1326,7 +1370,7 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                             </div>
                             <a href="features/quiz/quiz.html?id=${quizSet.id}" class="practice-btn inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 text-white rounded-xl shadow-md shadow-pink-200/60 hover:shadow-lg hover:shadow-pink-300/70 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 text-sm font-extrabold tracking-wide flex-shrink-0">
                                 <span class="w-5 h-5 rounded-full bg-white/25 flex items-center justify-center"><i class="fas fa-play text-[8px] ml-0.5"></i></span>
-                                Luyện tập
+                                Làm bài
                             </a>
                         </div>
                     </div>
@@ -1348,6 +1392,7 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                             <div class="quiz-menu hidden absolute right-0 top-9 bg-white rounded-xl shadow-xl border border-gray-100 z-20 min-w-[175px] py-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
                                 <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 quiz-history-btn" data-id="${quizSet.id}"><i class="fas fa-history mr-2.5 text-pink-400"></i>Xem lịch sử làm bài</button>
                                 <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 move-quiz-btn" data-id="${quizSet.id}"><i class="fas fa-folder-open mr-2.5 text-yellow-500"></i>Di chuyển</button>
+                                ${offlineMenuItem}
                                 <div class="border-t border-gray-100 my-1"></div>
                                 <button class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 delete-quiz-btn" data-id="${quizSet.id}"><i class="fas fa-trash-alt mr-2.5 text-red-500"></i>Xóa bộ đề</button>
                             </div>
@@ -1363,26 +1408,31 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                     ${checkboxHTML}
                     ${pinnedRibbon}
                     <div class="flex-grow ${(isSelectionMode || (pinned && !isSelectionMode)) ? 'pl-8' : ''}">
-                        <h3 class="text-sm sm:text-base font-bold text-gray-800 line-clamp-2 pr-8 mb-3" title="${quizSet.title}">
-                            <a href="features/quiz/quiz.html?id=${quizSet.id}" class="hover:text-pink-600 focus:text-pink-600 transition-colors duration-150 block">
-                                ${quizSet.title}
-                            </a>
-                        </h3>
-                        <div class="flex flex-wrap gap-2 mb-4">
-                            ${newBadge}
-                            <span class="bg-pink-50 text-pink-600 px-2.5 py-1 rounded-full text-xs font-semibold inline-flex items-center gap-1.5">
-                                <i class="fas fa-question-circle text-xs opacity-80"></i>
-                                ${quizSet.questionCount} câu hỏi
+                        <div class="flex items-start gap-3 mb-3 pr-8">
+                            <span class="quiz-card-icon flex-shrink-0" style="${accentStyle}" aria-hidden="true">
+                                <i class="fas ${accent.icon}"></i>
                             </span>
-                            <span class="bg-gray-50 text-gray-500 px-2.5 py-1 rounded-full text-xs inline-flex items-center gap-1.5">
-                                <i class="far fa-calendar-alt text-xs opacity-80"></i>
-                                ${dateStr}
-                            </span>
+                            <div class="min-w-0 flex-1">
+                                <h3 class="text-sm sm:text-base font-bold text-gray-800 line-clamp-2 leading-snug" title="${quizSet.title}">
+                                    <a href="features/quiz/quiz.html?id=${quizSet.id}" class="hover:text-pink-600 focus:text-pink-600 transition-colors duration-150 block">
+                                        ${quizSet.title}
+                                    </a>
+                                </h3>
+                                <div class="flex flex-wrap gap-1.5 mt-2">
+                                    ${newBadge}${offlineBadge}
+                                    <span class="quiz-chip quiz-chip-count">
+                                        <i class="fas fa-circle-question"></i>${quizSet.questionCount} câu
+                                    </span>
+                                    <span class="quiz-chip quiz-chip-date">
+                                        <i class="far fa-clock"></i>${dateStr}
+                                    </span>
+                                </div>
+                            </div>
                         </div>
                         ${menuHTML}
                     </div>
-                    <div class="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center ${isSelectionMode ? 'opacity-40 pointer-events-none' : ''}">
-                        <div class="flex items-center gap-1">
+                    <div class="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center gap-2 ${isSelectionMode ? 'opacity-40 pointer-events-none' : ''}">
+                        <div class="flex items-center gap-0.5 flex-shrink-0">
                             ${pinBtnMd}
                             <button class="edit-quiz-content-btn w-8 h-8 flex items-center justify-center text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" data-id="${quizSet.id}" title="Sửa câu hỏi">
                                 <i class="fas fa-pen-alt text-sm"></i>
@@ -1396,7 +1446,7 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                         </div>
                         <a href="features/quiz/quiz.html?id=${quizSet.id}" class="practice-btn inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 text-white rounded-xl shadow-md shadow-pink-200/60 hover:shadow-lg hover:shadow-pink-300/70 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 text-sm font-extrabold tracking-wide">
                             <span class="w-5 h-5 rounded-full bg-white/25 flex items-center justify-center"><i class="fas fa-play text-[9px] ml-0.5"></i></span>
-                            Luyện tập
+                            Làm bài
                         </a>
                     </div>
                 `;
@@ -1553,6 +1603,22 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                         window.location.href = `features/quiz/quiz-history.html?id=${qId}`;
                     });
                 }
+
+                const downloadOfflineBtn = card.querySelector('.download-offline-btn');
+                if (downloadOfflineBtn) {
+                    downloadOfflineBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        handleDownloadOffline(this.getAttribute('data-id'), quizSet.title, this);
+                    });
+                }
+
+                const removeOfflineBtn = card.querySelector('.remove-offline-btn');
+                if (removeOfflineBtn) {
+                    removeOfflineBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        handleRemoveOffline(this.getAttribute('data-id'), quizSet.title);
+                    });
+                }
             }, 0);
         });
     }
@@ -1560,6 +1626,50 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
     // Cuốn chiếu cần danh sách đầy đủ (chưa cắt) để nút phân trang chuyển trang đúng
     const paginationList = (isSearching || isLibraryFullyLoaded || rollingActive) ? quizzesToDisplay : filteredQuizzes;
     renderLibraryPagination(paginationList, currentPage, totalPages);
+}
+
+// === TẢI BỘ ĐỀ VỀ MÁY ĐỂ LÀM OFFLINE ===
+// Tải đầy đủ doc (kèm mảng `questions`) từ Firestore và lưu vào IndexedDB,
+// để sau này mở bài làm được kể cả khi không có mạng.
+async function handleDownloadOffline(quizId, quizTitle, btnEl) {
+    if (!navigator.onLine) {
+        showToast('Cần có mạng để tải bộ đề về máy lần đầu.', 'warning');
+        return;
+    }
+    const originalHTML = btnEl ? btnEl.innerHTML : '';
+    if (btnEl) {
+        btnEl.disabled = true;
+        btnEl.innerHTML = `<i class="fas fa-spinner fa-spin mr-2.5 text-sky-500"></i>Đang tải...`;
+    }
+    try {
+        const snap = await getDoc(doc(db, 'quiz_sets', quizId));
+        if (!snap.exists()) {
+            showToast('Không tìm thấy bộ đề trên máy chủ.', 'error');
+            return;
+        }
+        await saveOfflineQuiz(quizId, snap.data());
+        showToast(`Đã tải "${quizTitle}" về máy. Làm được khi không có mạng!`, 'success');
+        rerenderCurrentView();
+    } catch (e) {
+        console.error('Lỗi tải bộ đề offline:', e);
+        showToast('Lỗi khi tải bộ đề: ' + (e && e.message ? e.message : e), 'error');
+        if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = originalHTML; }
+    }
+}
+
+async function handleRemoveOffline(quizId, quizTitle) {
+    const ok = await showConfirm('Bộ đề vẫn còn trên máy chủ, chỉ xóa bản tải về máy này.', {
+        title: `Xóa bản offline của "${quizTitle}"?`, confirmText: 'Xóa bản offline', cancelText: 'Hủy', tone: 'danger'
+    });
+    if (!ok) return;
+    try {
+        await deleteOfflineQuiz(quizId);
+        showToast('Đã xóa bản offline.', 'success');
+        rerenderCurrentView();
+    } catch (e) {
+        console.error('Lỗi xóa bản offline:', e);
+        showToast('Lỗi khi xóa bản offline.', 'error');
+    }
 }
 
 function renderLibraryPagination(quizzesToDisplay, currentPage, totalPages) {

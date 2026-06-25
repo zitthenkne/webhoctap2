@@ -1,5 +1,5 @@
 // Service Worker for PWA - Offline Support & Caching
-const CACHE_NAME = 'zitthenkne-v7';
+const CACHE_NAME = 'zitthenkne-v8';
 const urlsToCache = [
   '/',
   'index.html',
@@ -9,6 +9,12 @@ const urlsToCache = [
   'app.js',
   '/features/quiz/quiz.js',
   '/features/quiz/quiz-page.js',
+  '/features/quiz/quiz-offline-store.js',
+  '/features/quiz/quiz-helpers.js',
+  '/features/quiz/quiz-ui.js',
+  '/features/quiz/quiz-state.js',
+  '/features/quiz/quiz-study-store.js',
+  '/features/quiz/quiz-editor.js',
   '/features/quiz/quiz-enhance.css',
   '/features/study-room/study-room.js',
   '/features/flashcard/flashcard.js',

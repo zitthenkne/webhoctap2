@@ -9,7 +9,7 @@ import { showToast, showConfirm } from './core/utils.js';
 
 // Import các Module chức năng
 import { parseFile, downloadTemplate } from './core/file-parser.js';
-import { loadAndDisplayStats, initGpaCalculator, calculateGPA } from './features/profile/stats-service.js';
+import { loadAndDisplayStats, loadMarkedNotedQuizzes, initGpaCalculator, calculateGPA } from './features/profile/stats-service.js';
 import { initDashboardUI } from './core/dashboard-ui.js';
 import {
     loadAndDisplayLibrary,
@@ -54,6 +54,7 @@ import {
     getUserQuizSets,
     getCurrentLibraryPage,
     initLibraryAutoSync,
+    forceReloadLibrary,
     initDragAndDropBreadcrumb,
     handleBulkMove,
     handleBulkDelete,
@@ -110,7 +111,11 @@ function showContent(targetId, title = 'Dashboard') {
         pageTitle.textContent = title;
     }
     if (window.innerWidth < 768 && sidebar) {
-        sidebar.classList.add('hidden');
+        // Đóng sidebar bằng cách trượt ra (KHÔNG dùng 'hidden'/display:none,
+        // vì khi đó nút hamburger gỡ '-translate-x-full' sẽ không hiện lại được sidebar)
+        sidebar.classList.add('-translate-x-full');
+        const sidebarOverlay = document.getElementById('sidebar-overlay');
+        if (sidebarOverlay) sidebarOverlay.classList.add('hidden', 'opacity-0');
     }
     
     // Điều phối hành động tương ứng cho từng tab
@@ -679,13 +684,37 @@ function setupEventListeners() {
     }
     
     const refreshLibraryBtn = document.getElementById('refresh-library-btn');
-    if (refreshLibraryBtn) refreshLibraryBtn.addEventListener('click', () => loadAndDisplayLibrary());
+    if (refreshLibraryBtn) {
+        refreshLibraryBtn.addEventListener('click', async () => {
+            if (refreshLibraryBtn.disabled) return;
+            const icon = refreshLibraryBtn.querySelector('i');
+            refreshLibraryBtn.disabled = true;
+            refreshLibraryBtn.classList.add('opacity-60', 'cursor-not-allowed');
+            if (icon) icon.classList.add('fa-spin');
+            try {
+                await forceReloadLibrary(); // bỏ cache, lấy dữ liệu mới từ server
+            } finally {
+                if (icon) icon.classList.remove('fa-spin');
+                refreshLibraryBtn.disabled = false;
+                refreshLibraryBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+            }
+        });
+    }
     // Tự đồng bộ thư viện khi quay lại app (đặc biệt cho PWA trên iPad/iOS)
     initLibraryAutoSync();
     // Thùng rác giờ là trang riêng (features/quiz/trash.html) — nút "#open-trash-btn" là thẻ <a> điều hướng trực tiếp
     
     const refreshStatsBtn = document.getElementById('refresh-stats-btn');
     if (refreshStatsBtn) refreshStatsBtn.addEventListener('click', loadAndDisplayStats);
+
+    // Danh sách "Bộ đề đã đánh dấu & ghi chú" chỉ tải khi người dùng bấm (không tự tải để trang nhẹ hơn)
+    const loadMarkedQuizzesBtn = document.getElementById('load-marked-quizzes-btn');
+    if (loadMarkedQuizzesBtn) {
+        loadMarkedQuizzesBtn.addEventListener('click', () => {
+            loadMarkedQuizzesBtn.innerHTML = '<i class="fas fa-rotate"></i> Tải lại';
+            loadMarkedNotedQuizzes();
+        });
+    }
 
     // Sự kiện Folder Modal
     const createFolderBtn = document.getElementById('create-folder-btn');

@@ -1603,6 +1603,7 @@ html.theme-dark .quiz-setname i { color: #f9a8d4; }
 /* Nút đáp án: bo tròn mềm + nổi khối nhẹ khi rê chuột (không đụng màu nền hover của Tailwind) */
 #quizSection .answer-btn {
     border-radius: 0.9rem;
+    overflow: hidden; /* để gợn sóng khi bấm bị cắt gọn trong viền bo tròn */
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
     transition: background-color .2s ease, border-color .2s ease, box-shadow .2s ease, transform .15s ease;
 }
@@ -1616,3 +1617,116 @@ html.theme-dark .quiz-setname i { color: #f9a8d4; }
 #quizSection .answer-btn:hover .answer-letter { transform: scale(1.08); }
 html.theme-dark #quizSection .answer-btn { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }
 html.theme-dark #quizSection .answer-btn:hover { box-shadow: 0 12px 26px -14px rgba(0, 0, 0, 0.6); }
+
+/* ============================================================
+   16) HIỆU ỨNG CHUYỂN CẢNH + NHÃN ĐÁP ÁN A/B/C/D CHUYÊN NGHIỆP HƠN + MEME CON MÈO
+   ============================================================ */
+
+/* --- Chuyển cảnh từ trang thiết lập vào màn làm bài --- */
+@keyframes quiz-landing-leave {
+    0%   { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+    100% { opacity: 0; transform: scale(0.94) translateY(-18px); filter: blur(4px); }
+}
+#quiz-landing.quiz-landing-leaving {
+    animation: quiz-landing-leave .42s cubic-bezier(.4, 0, .2, 1) both;
+    pointer-events: none;
+}
+@keyframes quiz-enter {
+    0%   { opacity: 0; transform: translateY(22px) scale(0.985); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+#quiz-container.quiz-enter {
+    animation: quiz-enter .5s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+/* --- Nhãn A/B/C/D: viên tròn gradient nổi khối, đổi màu theo đúng/sai --- */
+html:not(.theme-dark) #quizSection .answer-letter {
+    background: linear-gradient(135deg, #ff9ecb, #ff5fa8);
+    color: #fff;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px -3px rgba(255, 105, 180, 0.6);
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.12);
+}
+html.theme-dark #quizSection .answer-letter {
+    background: linear-gradient(135deg, #ff7eb6, #d23f86) !important;
+    color: #fff !important;
+    border: none !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px -3px rgba(0, 0, 0, 0.5) !important;
+}
+/* Nhãn đổi màu theo trạng thái đúng (xanh) / sai (đỏ) sau khi trả lời */
+#quizSection .answer-btn.bg-green-200 .answer-letter {
+    background: linear-gradient(135deg, #34d399, #10b981) !important;
+    color: #fff !important;
+    box-shadow: 0 4px 10px -3px rgba(16, 185, 129, 0.6) !important;
+}
+#quizSection .answer-btn.bg-red-200 .answer-letter {
+    background: linear-gradient(135deg, #fb7185, #ef4444) !important;
+    color: #fff !important;
+    box-shadow: 0 4px 10px -3px rgba(239, 68, 68, 0.55) !important;
+}
+
+/* --- Hiệu ứng khi BẤM vào đáp án (lún nhẹ + lóe sáng lan ra) --- */
+#quizSection .answer-btn:not(.answer-locked):active { transform: scale(0.975); }
+#quizSection .answer-btn::before {
+    content: "";
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 8px; height: 8px;
+    border-radius: 9999px;
+    background: rgba(255, 105, 180, 0.35);
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+    pointer-events: none;
+}
+#quizSection .answer-btn:not(.answer-locked):active::before {
+    animation: answer-ripple .5s ease-out;
+}
+@keyframes answer-ripple {
+    0%   { opacity: .5; transform: translate(-50%, -50%) scale(0); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(28); }
+}
+
+/* --- Meme con mèo: chỉ hiện ảnh meme, bấm ra ngoài là ẩn ngay --- */
+#cat-meme-pop {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;       /* lớp phủ trong suốt */
+    opacity: 0;
+    transition: opacity .22s ease;
+}
+#cat-meme-pop.hidden { display: none; }
+/* Khi hiện: bắt được click ở MỌI nơi để bấm ra ngoài ảnh là tắt ngay */
+#cat-meme-pop.show { opacity: 1; pointer-events: auto; }
+#cat-meme-pop .cat-meme-img {
+    width: min(74vw, 320px);
+    max-height: 64vh;
+    object-fit: contain;
+    cursor: pointer;
+    filter: drop-shadow(0 18px 45px rgba(0, 0, 0, 0.45));
+}
+#cat-meme-pop.show .cat-meme-img {
+    animation: cat-meme-pop-in .5s cubic-bezier(.16, 1, .3, 1) both;
+}
+@keyframes cat-meme-pop-in {
+    0%   { opacity: 0; transform: translateY(22px) scale(0.82); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #quiz-landing.quiz-landing-leaving,
+    #quiz-container.quiz-enter,
+    #cat-meme-pop.show .cat-meme-img,
+    #quizSection .answer-btn:not(.answer-locked):active::before {
+        animation: none !important;
+    }
+}

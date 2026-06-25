@@ -773,6 +773,80 @@ body {
     left: 130%;
 }
 
+/* ===== Thẻ bộ đề trong thư viện (lưới + danh sách) ===== */
+/* Ô icon gradient: tạo điểm nhấn màu sắc, giúp mỗi bộ đề nổi bật & dễ phân biệt */
+.quiz-card-icon {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 1.05rem;
+    box-shadow: 0 6px 14px -5px rgba(0, 0, 0, 0.35);
+    transition: transform 0.25s ease;
+}
+.quiz-card-icon-sm {
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 0.8rem;
+    font-size: 0.95rem;
+}
+.quiz-grid-card:hover .quiz-card-icon,
+.quiz-list-card:hover .quiz-card-icon {
+    transform: scale(1.06) rotate(-3deg);
+}
+
+/* Chip thông tin (số câu hỏi / ngày tạo) */
+.quiz-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.18rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.3;
+    white-space: nowrap;
+}
+.quiz-chip i {
+    font-size: 0.66rem;
+    opacity: 0.8;
+}
+.quiz-chip-count {
+    color: #be185d; /* pink-700 */
+    background: #fce7f3; /* pink-100 */
+}
+.quiz-chip-date {
+    color: #64748b; /* slate-500 */
+    background: #f1f5f9; /* slate-100 */
+    font-weight: 600;
+}
+
+/* Phản hồi chạm trên điện thoại (không có hover) → cảm giác "bấm được" */
+@media (hover: none) {
+    .quiz-grid-card:active,
+    .quiz-list-card:active {
+        transform: scale(0.985);
+        border-color: #fbcfe8;
+    }
+}
+
+/* Tinh chỉnh cho màn hình điện thoại: gọn gàng, CTA nổi bật hơn */
+@media (max-width: 640px) {
+    /* Ẩn ngày tạo cho gọn — thông tin quan trọng nhất là tên & số câu */
+    .quiz-grid-card .quiz-chip-date {
+        display: none;
+    }
+    /* Nút "Làm bài" to & rõ hơn để mời gọi bấm vào làm */
+    .quiz-grid-card .practice-btn {
+        padding-top: 0.6rem;
+        padding-bottom: 0.6rem;
+        font-size: 0.9rem;
+    }
+}
+
 /* Thẻ thư mục: hàng thông tin phụ (số bộ đề · số câu · lần mở gần nhất) */
 .folder-meta-row {
     display: flex;
@@ -935,10 +1009,13 @@ body {
     border-color: rgba(236, 72, 153, 0.28);
 }
 
-/* Khi menu thư mục đang mở: bỏ transform của thẻ để menu position:fixed định vị
-   chính xác theo viewport (transform của tổ tiên sẽ làm sai gốc toạ độ của fixed) */
+/* Khi menu thư mục đang mở: bỏ transform VÀ backdrop-filter của thẻ để menu
+   position:fixed định vị đúng theo viewport. Cả transform lẫn backdrop-filter đều
+   tạo "containing block" mới khiến position:fixed bám vào thẻ thay vì viewport. */
 .folder-mini-card:has(.folder-menu:not(.hidden)) {
     transform: none !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
 }
 
 /* Hàng chấm màu "đổi màu nhanh" trong menu thư mục */

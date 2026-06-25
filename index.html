@@ -22,7 +22,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Zitthenkne">
-    <link rel="stylesheet" href="style.css?v=5">
+    <link rel="stylesheet" href="style.css?v=6">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 
@@ -33,8 +33,9 @@
     <div
         class="md:hidden fixed top-0 left-0 w-full z-40 bg-white/95 shadow-lg flex items-center justify-between px-2 py-2 border-b border-pink-100 min-h-[54px]">
         <div class="flex items-center gap-2 min-w-0">
-            <button id="menu-toggle-btn" class="text-2xl text-pink-500 focus:outline-none p-1 flex-shrink-0">
-                <i class="fas fa-bars"></i>
+            <button id="menu-toggle-btn" type="button" aria-label="Mở menu"
+                class="text-2xl text-pink-500 focus:outline-none flex-shrink-0 flex items-center justify-center w-11 h-11 -ml-1 rounded-xl active:bg-pink-100 active:scale-90 transition-transform duration-150 select-none touch-manipulation">
+                <i class="fas fa-bars pointer-events-none"></i>
             </button>
             <a href="index.html" class="flex items-center gap-1 min-w-0">
                 <img src="assets/logo.png" alt="Zitthenkne Logo"
@@ -47,7 +48,7 @@
     </div>
     <!-- Overlay for sidebar on mobile -->
     <div id="sidebar-overlay"
-        class="fixed inset-0 bg-black bg-opacity-20 z-30 hidden md:hidden transition-opacity duration-200"></div>
+        class="fixed inset-0 bg-black bg-opacity-20 z-30 hidden md:hidden opacity-0 transition-opacity duration-300"></div>
     <aside id="sidebar"
         class="w-11/12 max-w-xs bg-white/90 backdrop-blur-xl shadow-2xl fixed md:relative z-40 h-full transition-transform duration-300 ease-in-out rounded-r-3xl border-r-2 border-pink-100 top-0 left-0 md:static md:translate-x-0 -translate-x-full md:rounded-none md:block">
         <!-- Nút đóng sidebar trên mobile -->
@@ -125,11 +126,11 @@
                         nay?</h2>
                 </div>
                 <div
-                    class="grid grid-cols-1 gap-5 sm:gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-2xl md:max-w-6xl mx-auto px-3 sm:px-6">
+                    class="grid grid-cols-1 gap-5 sm:gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-2xl md:max-w-6xl mx-auto px-5 sm:px-6">
                     <button type="button" id="selectCreateQuiz"
                         class="group bg-white rounded-3xl shadow-xl p-7 sm:p-10 text-center hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 border-2 border-transparent hover:border-[#FFB6C1] flex flex-col items-center gap-2 mb-2 px-2 sm:px-4">
                         <img src="assets/squirrel_quiz.png" alt="Squirrel Quiz"
-                            class="w-32 h-32 mb-2 transition-transform group-hover:scale-110 rounded-xl shadow border-2 border-pink-200 bg-white">
+                            class="w-40 h-40 sm:w-48 sm:h-48 mb-2 transition-transform group-hover:scale-110 rounded-xl shadow border-2 border-pink-200 bg-white">
                         <h3 class="text-lg sm:text-xl font-bold text-gray-800">Tạo Trắc Nghiệm</h3>
                         <p class="text-gray-500 mt-1 text-sm sm:text-base">Biến file Excel/CSV của bạn thành một bài
                             kiểm tra tương tác.</p>
@@ -137,7 +138,7 @@
                     <a href="#" id="selectStudyRoom"
                         class="group bg-white rounded-3xl shadow-xl p-7 sm:p-10 text-center hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 border-2 border-transparent hover:border-blue-300 flex flex-col items-center gap-2 mb-2 block px-2 sm:px-4">
                         <img src="assets/squirrel_group.png" alt="Squirrel Group"
-                            class="w-32 h-32 mb-2 transition-transform group-hover:scale-110 rounded-xl shadow border-2 border-blue-200 bg-white">
+                            class="w-40 h-40 sm:w-48 sm:h-48 mb-2 transition-transform group-hover:scale-110 rounded-xl shadow border-2 border-blue-200 bg-white">
                         <h3 class="text-lg sm:text-xl font-bold text-gray-800">Đánh đề</h3>
                         <p class="text-gray-500 mt-1 text-sm sm:text-base">Tạo phòng học nhóm và cùng nhau giải đề trên
                             bảng trắng.</p>
@@ -145,7 +146,7 @@
                     <button type="button" id="selectGpaCalculator"
                         class="group bg-white rounded-3xl shadow-xl p-7 sm:p-10 text-center hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 border-2 border-transparent hover:border-[#D8BFD8] flex flex-col items-center gap-2 mb-2 lg:col-start-1 md:col-span-2 lg:col-start-3 px-2 sm:px-4">
                         <img src="assets/squirrel_calculator.png" alt="Squirrel Calculator"
-                            class="w-32 h-32 mb-2 transition-transform group-hover:scale-110 rounded-xl shadow border-2 border-purple-200 bg-white">
+                            class="w-40 h-40 sm:w-48 sm:h-48 mb-2 transition-transform group-hover:scale-110 rounded-xl shadow border-2 border-purple-200 bg-white">
                         <h3 class="text-lg sm:text-xl font-bold text-gray-800">Tính Điểm Hệ 4</h3>
                         <p class="text-gray-500 mt-1 text-sm sm:text-base">Quy đổi nhanh điểm số trắc nghiệm của bạn
                             sang thang điểm 4.0.</p>
@@ -153,7 +154,7 @@
                     <button type="button" id="selectWriteMedicalRecord"
                         class="group bg-white rounded-3xl shadow-xl p-7 sm:p-10 text-center hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 border-2 border-transparent hover:border-green-300 flex flex-col items-center gap-2 mb-2 px-2 sm:px-4">
                         <img src="assets/squirrel_benhan.png" alt="Squirrel Medical"
-                            class="w-32 h-32 mb-2 transition-transform group-hover:scale-110 rounded-xl shadow border-2 border-green-200 bg-white">
+                            class="w-40 h-40 sm:w-48 sm:h-48 mb-2 transition-transform group-hover:scale-110 rounded-xl shadow border-2 border-green-200 bg-white">
                         <h3 class="text-lg sm:text-xl font-bold text-gray-800">Viết bệnh án</h3>
                         <p class="text-gray-500 mt-1 text-sm sm:text-base">Vào phòng chờ để bắt đầu viết bệnh án lâm
                             sàng.</p>
@@ -161,7 +162,7 @@
                     <button type="button" id="selectChecklist"
                         class="group bg-white rounded-3xl shadow-xl p-7 sm:p-10 text-center hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 border-2 border-transparent hover:border-blue-400 flex flex-col items-center gap-2 mb-2 px-2 sm:px-4">
                         <img src="assets/squirrel_A.png" alt="Checklist Squirrel"
-                            class="w-32 h-32 mb-2 transition-transform group-hover:scale-110 rounded-xl shadow border-2 border-blue-200 bg-white">
+                            class="w-40 h-40 sm:w-48 sm:h-48 mb-2 transition-transform group-hover:scale-110 rounded-xl shadow border-2 border-blue-200 bg-white">
                         <h3 class="text-lg sm:text-xl font-bold text-gray-800">Tạo Checklist</h3>
                         <p class="text-gray-500 mt-1 text-sm sm:text-base">Quản lý checklist ATCS, tạo checklist và thư
                             mục cá nhân.</p>
@@ -169,7 +170,7 @@
                 </div>
             </div>
 
-            <div id="createQuizContent" class="content-panel hidden fade-in">
+            <div id="createQuizContent" class="content-panel hidden fade-in px-5 pt-3 sm:px-0 sm:pt-0">
                 <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
                     <!-- Tabs Navigation -->
                     <div class="flex border-b border-pink-100 mb-6">
@@ -261,7 +262,7 @@
                 </div>
             </div>
 
-            <div id="gpaCalculatorContent" class="content-panel hidden fade-in">
+            <div id="gpaCalculatorContent" class="content-panel hidden fade-in px-5 pt-3 sm:px-0 sm:pt-0">
                 <div class="max-w-2xl mx-auto">
                     <!-- Tiêu đề trang -->
                     <div class="text-center mb-8">
@@ -361,11 +362,14 @@
                                 <option value="1.5">1.5 — D+</option>
                                 <option value="2.0">2.0 — C</option>
                                 <option value="2.5">2.5 — C+</option>
-                                <option value="3.0" selected>3.0 — B</option>
+                                <option value="3.0">3.0 — B</option>
                                 <option value="3.5">3.5 — B+</option>
-                                <option value="4.0">4.0 — A</option>
+                                <option value="4.0" selected>4.0 — A</option>
                             </select>
                         </div>
+
+                        <!-- Điểm tổng kết tạm tính (cập nhật theo thời gian thực khi nhập / kéo thanh trượt) -->
+                        <div id="gpa-live-projection" class="hidden"></div>
 
                         <button type="button" id="calculate-required-btn"
                             class="w-full px-6 py-3 bg-gradient-to-r from-[#FF69B4] to-[#FF8DC7] text-white rounded-xl hover:shadow-lg hover:shadow-pink-200 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 font-bold flex items-center justify-center gap-2">
@@ -380,10 +384,14 @@
                 </div>
             </div>
 
-            <div id="libraryContent" class="content-panel hidden">
+            <div id="libraryContent" class="content-panel hidden px-5 pt-3 sm:px-0 sm:pt-0">
                 <div class="flex flex-row justify-between items-center gap-3 mb-4">
                     <h2 class="text-on-bg text-xl sm:text-2xl font-extrabold text-[#FF69B4] tracking-wide">Thư viện</h2>
                     <div class="flex items-center gap-2 flex-shrink-0">
+                        <!-- Nút tải lại đặt cạnh dấu "..." cho dễ bấm -->
+                        <button type="button" id="refresh-library-btn" class="w-9 h-9 flex items-center justify-center bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 hover:text-pink-500 transition focus:outline-none shadow-sm" title="Tải lại thư viện" aria-label="Tải lại thư viện">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
                         <!-- Menu "..." gom các thao tác ít dùng cho gọn gàng -->
                         <div class="relative">
                             <button type="button" id="library-more-btn" class="w-9 h-9 flex items-center justify-center bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 hover:text-pink-500 transition focus:outline-none shadow-sm" title="Thêm tùy chọn" aria-haspopup="true" aria-expanded="false">
@@ -430,9 +438,6 @@
                                 <div class="space-y-1">
                                     <button type="button" id="bulk-select-toggle-btn" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition focus:outline-none" title="Chọn nhiều bộ đề để thao tác đồng loạt">
                                         <i class="fas fa-tasks text-xs w-4 text-center"></i> <span>Chọn nhiều</span>
-                                    </button>
-                                    <button type="button" id="refresh-library-btn" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition focus:outline-none" title="Tải lại thư viện">
-                                        <i class="fas fa-sync-alt text-xs w-4 text-center"></i> <span>Tải lại</span>
                                     </button>
                                     <a href="features/quiz/trash.html" id="open-trash-btn" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition focus:outline-none" title="Xem thùng rác">
                                         <i class="fas fa-trash-can text-xs w-4 text-center"></i> <span>Thùng rác</span>
@@ -574,57 +579,57 @@
                 </div>
             </div>
 
-            <div id="statsContent" class="content-panel hidden p-4 sm:p-6">
+            <div id="statsContent" class="content-panel hidden py-4 px-5 sm:p-6">
                 <div class="flex justify-between items-center mb-6 border-b border-pink-100 pb-4">
                     <div>
-                        <h2 class="text-on-bg text-2xl sm:text-3xl font-extrabold text-[#FF69B4]">Báo cáo học tập & Thành tích</h2>
-                        <p class="text-on-bg text-gray-500 text-xs sm:text-sm mt-1">Phân tích hiệu suất học tập của bạn theo thời gian</p>
+                        <h2 class="text-on-bg text-2xl sm:text-3xl font-extrabold text-[#FF69B4]">Thống kê</h2>
+                        <p class="text-on-bg text-gray-500 text-xs sm:text-sm mt-1">Theo dõi quá trình ôn tập của bạn</p>
                     </div>
                     <button type="button" id="refresh-stats-btn"
                         class="p-2.5 bg-pink-50 text-pink-600 rounded-full hover:bg-pink-100 transition-all shadow-sm" title="Tải lại dữ liệu"><i
                             class="fas fa-sync-alt"></i></button>
                 </div>
 
-                <!-- Stats Summary Cards -->
+                <!-- Stats Summary Cards: tập trung vào hoạt động ôn tập thay vì điểm số -->
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                    <!-- Card 1: Total attempts -->
+                    <!-- Card 1: Bộ đề đã ôn -->
                     <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3">
                         <div class="p-2.5 bg-purple-50 text-purple-600 rounded-xl">
-                            <i class="fas fa-clipboard-list text-xl sm:text-2xl"></i>
+                            <i class="fas fa-book-open text-xl sm:text-2xl"></i>
                         </div>
                         <div>
-                            <span class="text-gray-400 text-[10px] sm:text-xs font-semibold uppercase block">Tổng bài làm</span>
+                            <span class="text-gray-400 text-[10px] sm:text-xs font-semibold uppercase block">Bộ đề đã ôn</span>
+                            <span id="stat-unique-quizzes" class="text-xl sm:text-2xl font-bold text-gray-800">0</span>
+                        </div>
+                    </div>
+                    <!-- Card 2: Lượt ôn tập -->
+                    <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3">
+                        <div class="p-2.5 bg-pink-50 text-pink-600 rounded-xl">
+                            <i class="fas fa-repeat text-xl sm:text-2xl"></i>
+                        </div>
+                        <div>
+                            <span class="text-gray-400 text-[10px] sm:text-xs font-semibold uppercase block">Lượt ôn tập</span>
                             <span id="stat-total-attempts" class="text-xl sm:text-2xl font-bold text-gray-800">0</span>
                         </div>
                     </div>
-                    <!-- Card 2: Average Score -->
+                    <!-- Card 3: Câu đã luyện -->
                     <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3">
-                        <div class="p-2.5 bg-yellow-50 text-yellow-600 rounded-xl">
-                            <i class="fas fa-star text-xl sm:text-2xl"></i>
+                        <div class="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
+                            <i class="fas fa-list-check text-xl sm:text-2xl"></i>
                         </div>
                         <div>
-                            <span class="text-gray-400 text-[10px] sm:text-xs font-semibold uppercase block">Điểm TB (Hệ 10)</span>
-                            <span id="stat-avg-score10" class="text-xl sm:text-2xl font-bold text-gray-800">0.0</span>
+                            <span class="text-gray-400 text-[10px] sm:text-xs font-semibold uppercase block">Câu đã luyện</span>
+                            <span id="stat-total-questions" class="text-xl sm:text-2xl font-bold text-gray-800">0</span>
                         </div>
                     </div>
-                    <!-- Card 3: Avg GPA -->
-                    <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3">
-                        <div class="p-2.5 bg-pink-50 text-pink-600 rounded-xl">
-                            <i class="fas fa-graduation-cap text-xl sm:text-2xl"></i>
-                        </div>
-                        <div>
-                            <span class="text-gray-400 text-[10px] sm:text-xs font-semibold uppercase block">GPA trung bình</span>
-                            <span id="stat-avg-gpa" class="text-xl sm:text-2xl font-bold text-gray-800">0.0</span>
-                        </div>
-                    </div>
-                    <!-- Card 4: Passing Rate -->
+                    <!-- Card 4: Thời gian ôn -->
                     <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3">
                         <div class="p-2.5 bg-green-50 text-green-600 rounded-xl">
-                            <i class="fas fa-check-double text-xl sm:text-2xl"></i>
+                            <i class="fas fa-clock text-xl sm:text-2xl"></i>
                         </div>
                         <div>
-                            <span class="text-gray-400 text-[10px] sm:text-xs font-semibold uppercase block">Tỷ lệ qua môn</span>
-                            <span id="stat-pass-rate" class="text-xl sm:text-2xl font-bold text-gray-800">0%</span>
+                            <span class="text-gray-400 text-[10px] sm:text-xs font-semibold uppercase block">Thời gian ôn</span>
+                            <span id="stat-total-time" class="text-xl sm:text-2xl font-bold text-gray-800">0p</span>
                         </div>
                     </div>
                 </div>
@@ -639,35 +644,25 @@
                     </div>
                 </div>
 
-                <!-- Charts Area (Double column on desktop) -->
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                    <!-- Progress Chart (Line) -->
-                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 lg:col-span-2">
-                        <h3 class="text-lg font-bold mb-4 text-gray-700 flex items-center gap-2">
-                            <i class="fas fa-chart-line text-[#FF69B4]"></i> Tiến độ qua các lần làm bài
-                        </h3>
-                        <div class="h-64">
-                            <canvas id="progressChart"></canvas>
-                        </div>
-                    </div>
-                    <!-- Distribution Chart (Doughnut) -->
-                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                        <h3 class="text-lg font-bold mb-4 text-gray-700 flex items-center gap-2">
-                            <i class="fas fa-chart-pie text-indigo-500"></i> Phân bố học lực
-                        </h3>
-                        <div class="h-64 relative">
-                            <canvas id="distributionChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Detailed History Table -->
+                <!-- Bộ đề đã đánh dấu & ghi chú cá nhân (tải theo yêu cầu để trang nhẹ hơn) -->
                 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                    <h3 class="text-lg font-bold p-6 border-b border-gray-100 text-gray-700 flex items-center gap-2">
-                        <i class="fas fa-history text-gray-500"></i> Nhật ký luyện thi chi tiết
-                    </h3>
-                    <div id="stats-container" class="divide-y divide-gray-100">
-                        <!-- Lịch sử sẽ tự động render vào đây -->
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-6 border-b border-gray-100">
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-700 flex items-center gap-2">
+                                <i class="fas fa-bookmark text-purple-500"></i> Bộ đề đã đánh dấu &amp; ghi chú
+                            </h3>
+                            <p class="text-gray-400 text-xs mt-1">Các bộ đề bạn từng đánh dấu hoặc ghi chú cá nhân — bấm để xem chi tiết</p>
+                        </div>
+                        <button type="button" id="load-marked-quizzes-btn"
+                            class="px-4 py-2 bg-purple-50 text-purple-600 rounded-xl hover:bg-purple-100 transition text-sm font-semibold flex items-center justify-center gap-2 shadow-sm shrink-0">
+                            <i class="fas fa-folder-open"></i> Mở danh sách
+                        </button>
+                    </div>
+                    <div id="marked-quizzes-list" class="p-4 sm:p-6">
+                        <div class="text-center py-8 text-gray-400">
+                            <i class="fas fa-hand-pointer text-2xl block mb-2 text-gray-300"></i>
+                            <p class="text-sm">Nhấn <b class="text-purple-500">"Mở danh sách"</b> để xem các bộ đề bạn đã đánh dấu hoặc ghi chú.</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -706,7 +701,17 @@
         </main>
         <footer
             class="bg-white/80 backdrop-blur-lg text-gray-600 text-center p-3 border-t border-pink-100 flex-shrink-0 rounded-t-2xl shadow-inner text-xs md:text-base">
-            <p>&copy; 2025 Zitthenk - Y23C - UMP.</p>
+            <p class="flex items-center justify-center gap-1.5 tracking-wide">
+                <span>&copy; 2025</span>
+                <a href="https://fb.com/vietthanh1911" target="_blank" rel="noopener noreferrer"
+                    class="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#FF69B4] to-[#D8BFD8] hover:underline underline-offset-2 transition-all duration-200">Zitthenk</a>
+                <span class="text-pink-300">&bull;</span>
+                <span>Y23C</span>
+                <span class="text-pink-300">&bull;</span>
+                <span>17</span>
+                <span class="text-pink-300">&bull;</span>
+                <span>UMP</span>
+            </p>
         </footer>
         <div id="squirrel-floating"
             class="fixed bottom-4 right-4 z-50 cursor-pointer select-none max-w-[60vw] sm:max-w-xs">
@@ -814,7 +819,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module" src="app.js?v=5"></script>
     <script src="features/quiz/quiz-library-menu.js"></script>
 
