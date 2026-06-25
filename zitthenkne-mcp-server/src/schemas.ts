@@ -116,6 +116,18 @@ const QuestionInputSchema = z
     note: z.string().optional().describe("Ghi chú học tập/lâm sàng (tùy chọn)"),
     expanded: z.string().optional().describe("Kiến thức mở rộng giảng giải (tùy chọn)"),
     source: z.string().optional().describe("Nguồn tài liệu tham khảo đối chiếu (tùy chọn)"),
+    case_id: z
+      .string()
+      .optional()
+      .describe("Mã ca lâm sàng. Các câu cùng case_id dùng chung một tình huống lâm sàng và được nhóm liền nhau khi làm bài (tùy chọn)"),
+    case_text: z
+      .string()
+      .optional()
+      .describe("Nội dung tình huống/ca lâm sàng dùng chung (markdown). Nên đặt giống nhau ở mọi câu cùng case_id (tùy chọn)"),
+    case_title: z
+      .string()
+      .optional()
+      .describe("Tiêu đề ngắn của ca lâm sàng, hiển thị trên đầu khung ca (tùy chọn)"),
   })
   .strict()
   .refine((q) => q.correct_answer_index < q.answers.length, {

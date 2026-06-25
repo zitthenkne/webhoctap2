@@ -22,6 +22,12 @@ export interface QuizQuestion {
   expanded?: string;
   /** Nguồn tham khảo đối chiếu. */
   source?: string;
+  /** Mã ca lâm sàng — các câu cùng caseId dùng chung một tình huống. */
+  caseId?: string;
+  /** Nội dung tình huống/ca lâm sàng dùng chung. */
+  caseText?: string;
+  /** Tiêu đề ngắn của ca lâm sàng. */
+  caseTitle?: string;
 }
 
 /** Một bộ đề trắc nghiệm. */

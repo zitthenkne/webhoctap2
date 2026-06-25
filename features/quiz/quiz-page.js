@@ -180,6 +180,22 @@ function preloadCurrentMemes() {
     [happy, sad].forEach(u => { try { const im = new Image(); im.src = u; } catch (e) {} });
 }
 
+// Đồng bộ trạng thái BẬT/TẮT meme lên cả 2 nơi: công tắc trong bảng điều khiển khi
+// đang làm bài (#qs-meme) và ô gạt ở trang thiết lập (#meme-enabled-checkbox).
+function syncMemeControls() {
+    const on = getCatMemeEnabled();
+    const row = document.getElementById('qs-meme');
+    if (row) row.setAttribute('aria-checked', String(on));
+    const cb = document.getElementById('meme-enabled-checkbox');
+    if (cb) cb.checked = on;
+}
+function setMemeEnabled(on) {
+    try { localStorage.setItem('quiz_meme_enabled', on ? '1' : '0'); } catch (e) {}
+    syncMemeControls();
+    if (on) preloadCurrentMemes();
+    else hideCatMeme();
+}
+
 function hideCatMeme() {
     const el = document.getElementById('cat-meme-pop');
     if (!el) return;
@@ -544,6 +560,7 @@ function setupSettings() {
     const rowDark = document.getElementById('qs-dark');
     const rowSound = document.getElementById('qs-sound');
     const rowVibrate = document.getElementById('qs-vibrate');
+    const rowMeme = document.getElementById('qs-meme');
     const bgOpacityInput = document.getElementById('qs-bg-opacity');
     const rowShuffleBg = document.getElementById('qs-shuffle-bg');
     if (!fab || !pop) return;
@@ -552,6 +569,7 @@ function setupSettings() {
         if (rowDark) rowDark.setAttribute('aria-checked', getTheme() === 'dark');
         if (rowSound) rowSound.setAttribute('aria-checked', getSound());
         if (rowVibrate) rowVibrate.setAttribute('aria-checked', getVibrate());
+        if (rowMeme) rowMeme.setAttribute('aria-checked', getCatMemeEnabled());
         if (bgOpacityInput) bgOpacityInput.value = getBgOpacity();
         applyBgOpacity(getBgOpacity());
     };
@@ -581,6 +599,11 @@ function setupSettings() {
         const on = !getVibrate();
         setLS('quiz_vibrate', on ? '1' : '0');
         if (on && navigator.vibrate) navigator.vibrate(20);
+        sync();
+    });
+    if (rowMeme) rowMeme.addEventListener('click', () => {
+        setMemeEnabled(!getCatMemeEnabled()); // lưu cục bộ + đồng bộ ô gạt ở trang thiết lập
+        showToast(getCatMemeEnabled() ? '🤡 Đã bật chế độ meme' : '🤡 Đã tắt chế độ meme');
         sync();
     });
     if (bgOpacityInput) {
@@ -990,6 +1013,9 @@ function startQuizMode(questionsArray, mode = 'normal', restoreState = null) {
     }
     state.quizMode = mode;
     state.questions = questionsArray;
+    // Bảo đảm thông tin thứ tự câu trong ca lâm sàng luôn có mặt cho mọi đường vào
+    // (luyện tập lại, khôi phục bài làm dở...), không chỉ riêng startQuizWithCurrentSettings.
+    tagCaseSequence(state.questions);
 
     const quizLanding = document.getElementById('quiz-landing');
     const quizContainer = document.getElementById('quiz-container');
@@ -1513,8 +1539,39 @@ function showQuestion() {
     const setNameSafe = setName
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+    // Khung "Ca lâm sàng" dùng chung cho các câu cùng caseId — luôn hiện, có nút thu gọn.
+    const caseText = question.caseText ? String(question.caseText).trim() : '';
+    let casePanelHtml = '';
+    if (caseText) {
+        const caseKey = caseKeyOf(question);
+        const collapsed = caseKey ? !!caseCollapseState[caseKey] : false;
+        const caseTitleRaw = (question.caseTitle && String(question.caseTitle).trim()) || 'Ca lâm sàng';
+        const caseTitleSafe = caseTitleRaw
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const caseKeySafe = caseKey
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const seqLabel = (question.__caseTotal && question.__caseTotal > 1)
+            ? `Câu ${question.__caseSeq}/${question.__caseTotal} trong ca` : '';
+        casePanelHtml = `
+        <div id="clinical-case-panel" class="clinical-case mb-5 rounded-xl border border-teal-200 bg-teal-50/70 p-4 shadow-sm" data-case-id="${caseKeySafe}">
+            <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2 min-w-0 text-teal-800">
+                    <i class="fas fa-notes-medical flex-shrink-0"></i>
+                    <span class="font-bold truncate">${caseTitleSafe}</span>
+                    ${seqLabel ? `<span class="hidden sm:inline-block flex-shrink-0 px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 text-xs font-semibold border border-teal-200">${seqLabel}</span>` : ''}
+                </div>
+                <button type="button" id="case-toggle-btn" class="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-teal-300 text-teal-700 bg-white/70 hover:bg-teal-100 transition text-xs font-semibold" aria-expanded="${collapsed ? 'false' : 'true'}" title="Ẩn/hiện nội dung ca lâm sàng">
+                    <i class="fas fa-chevron-${collapsed ? 'down' : 'up'}"></i>
+                    <span class="case-toggle-label">${collapsed ? 'Mở ca' : 'Thu gọn'}</span>
+                </button>
+            </div>
+            ${seqLabel ? `<div class="sm:hidden mt-1 text-xs font-semibold text-teal-700">${seqLabel}</div>` : ''}
+            <div id="case-body" class="case-body mt-3 text-gray-800 leading-relaxed ${collapsed ? 'hidden' : ''}">${parseMarkdown(caseText)}</div>
+        </div>`;
+    }
+
     quizSection.innerHTML = `
-    <div class="bg-white rounded-lg shadow-lg p-6 fade-in">
+    <div class="bg-white rounded-2xl shadow-lg p-6 fade-in">
         <div class="flex justify-between items-start gap-3 mb-4">
             <div class="min-w-0 flex-1">
                 ${setNameSafe ? `<div class="quiz-setname focus-hide" title="${setNameSafe}"><i class="fas fa-book-open"></i><span class="quiz-setname-text">${setNameSafe}</span></div>` : ''}
@@ -1530,10 +1587,11 @@ function showQuestion() {
             ${question.source && question.source.trim() ? `<span class="inline-block px-3 py-1 rounded-full bg-pink-100 text-pink-700 text-xs font-semibold border border-pink-200"><i class="fas fa-book mr-1"></i> Nguồn: ${question.source}</span>` : ''}
             ${state.streak > 0 ? `<span id="streak-badge" class="inline-block px-3 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-semibold border border-orange-200 animate-pulse"><i class="fas fa-fire mr-1 text-orange-500 animate-bounce"></i> Chuỗi đúng: ${state.streak}</span>` : ''}
         </div>
+        ${casePanelHtml}
         <div class="question-text font-semibold text-gray-800 my-6 text-left ${qSizeClass}" data-annot="q">${parseMarkdown(question.question)}</div>
         <div id="answers-container" class="${answersGridClass}">
             ${answerOptions.map((answer, index) => `
-                <button class="answer-btn p-4 border border-pink-200 rounded-lg text-left hover:bg-[#FFB6C1]/50 hover:border-[#FF69B4] hover:scale-[1.01] hover:-translate-y-0.5 transition-all ${aSizeClass}" data-index="${index}">
+                <button class="answer-btn p-4 border border-pink-200 rounded-xl text-left hover:bg-[#FFB6C1]/50 hover:border-[#FF69B4] hover:scale-[1.01] hover:-translate-y-0.5 transition-all ${aSizeClass}" data-index="${index}">
                     <div class="flex items-start">
                         <span class="answer-letter inline-block w-8 h-8 rounded-full bg-pink-50 text-[#FF69B4] border border-pink-200 text-center leading-7 font-bold mr-2 text-sm flex-shrink-0">${String.fromCharCode(65 + index)}</span>
                         <div class="flex-1">
@@ -1614,6 +1672,24 @@ function showQuestion() {
     // Nút "Sửa câu hỏi": mở modal chỉnh sửa đáp án/giải thích/ghi chú/mở rộng (chạy ở mọi nhánh render)
     const editBtn = document.getElementById('edit-question-btn');
     if (editBtn) editBtn.addEventListener('click', openQuestionEditor);
+    // Nút thu gọn / mở lại khung ca lâm sàng (lưu trạng thái theo caseId trong phiên)
+    const caseToggleBtn = document.getElementById('case-toggle-btn');
+    if (caseToggleBtn) {
+        caseToggleBtn.addEventListener('click', () => {
+            const panel = document.getElementById('clinical-case-panel');
+            const body = document.getElementById('case-body');
+            if (!panel || !body) return;
+            const caseKey = panel.getAttribute('data-case-id') || '';
+            const willCollapse = !body.classList.contains('hidden');
+            body.classList.toggle('hidden', willCollapse);
+            if (caseKey) caseCollapseState[caseKey] = willCollapse;
+            caseToggleBtn.setAttribute('aria-expanded', willCollapse ? 'false' : 'true');
+            const icon = caseToggleBtn.querySelector('i');
+            if (icon) icon.className = `fas fa-chevron-${willCollapse ? 'down' : 'up'}`;
+            const label = caseToggleBtn.querySelector('.case-toggle-label');
+            if (label) label.textContent = willCollapse ? 'Mở ca' : 'Thu gọn';
+        });
+    }
     // #7: nút độ chắc chắn (tinh tế, mặc định "chắc chắn")
     const confBtn = document.getElementById('confidence-toggle');
     // Khi đã dùng 50:50, pill là nhãn trạng thái "Đã dùng trợ giúp" (khóa) -> không gắn toggle.
@@ -2000,6 +2076,57 @@ function handleAnswerClick(e) {
     }
 }
 
+// Trạng thái thu gọn của khung ca lâm sàng, theo caseId, giữ trong phiên làm bài.
+// Mặc định ca luôn HIỆN (không có trong map = đang mở); người dùng tự thu gọn nếu muốn.
+const caseCollapseState = {};
+
+// Trả về caseId đã chuẩn hóa của một câu (chuỗi rỗng nếu là câu độc lập, không thuộc ca nào).
+function caseKeyOf(q) {
+    return q && q.caseId ? String(q.caseId).trim() : '';
+}
+
+// Gom mảng câu hỏi thành mảng các "khối": các câu cùng caseId vào chung một khối
+// (theo thứ tự xuất hiện đầu tiên), mỗi câu độc lập là một khối riêng kích thước 1.
+function groupQuestionsByCase(questions) {
+    const order = [];
+    const map = new Map();
+    let soloSeq = 0;
+    for (const q of questions) {
+        const cid = caseKeyOf(q);
+        const key = cid ? 'C:' + cid : 'S:' + (soloSeq++);
+        if (!map.has(key)) { map.set(key, []); order.push(key); }
+        map.get(key).push(q);
+    }
+    return order.map(k => map.get(k));
+}
+
+// Gán thông tin vị trí trong ca lâm sàng cho từng câu (dựa trên thứ tự cuối cùng,
+// các câu cùng caseId được giả định đã đứng liền nhau): __caseSeq (1-based),
+// __caseTotal (tổng số câu trong ca), __caseFirst (có phải câu đầu ca không).
+function tagCaseSequence(questions) {
+    if (!Array.isArray(questions)) return;
+    let i = 0;
+    while (i < questions.length) {
+        const cid = caseKeyOf(questions[i]);
+        if (!cid) {
+            delete questions[i].__caseSeq;
+            delete questions[i].__caseTotal;
+            delete questions[i].__caseFirst;
+            i++;
+            continue;
+        }
+        let j = i;
+        while (j < questions.length && caseKeyOf(questions[j]) === cid) j++;
+        const total = j - i;
+        for (let k = i; k < j; k++) {
+            questions[k].__caseSeq = k - i + 1;
+            questions[k].__caseTotal = total;
+            questions[k].__caseFirst = (k === i);
+        }
+        i = j;
+    }
+}
+
 function startQuizWithCurrentSettings() {
     clearQuizState();
     state.streak = 0;
@@ -2009,9 +2136,14 @@ function startQuizWithCurrentSettings() {
     // còn ánh xạ ngược về đúng câu trong dữ liệu gốc (kể cả khi đã trộn câu/đáp án).
     let selectedQuestions = state.originalQuestions.map((q, i) => ({ ...q, __origIdx: i }));
 
+    // Gom các câu cùng ca lâm sàng (caseId) thành "khối" để không bị xé lẻ khi trộn/cắt số câu.
+    // Câu không có caseId là khối kích thước 1.
+    let caseBlocks = groupQuestionsByCase(selectedQuestions);
+
     const shuffleCheckbox = document.getElementById('shuffle-questions-checkbox');
     if (shuffleCheckbox && shuffleCheckbox.checked) {
-        selectedQuestions = shuffleArray(selectedQuestions);
+        // Trộn ở mức KHỐI: thứ tự các ca bị xáo, nhưng câu con trong mỗi ca giữ nguyên thứ tự.
+        caseBlocks = shuffleArray(caseBlocks);
     }
 
     const enableCountCheckbox = document.getElementById('enable-question-count-checkbox');
@@ -2019,9 +2151,21 @@ function startQuizWithCurrentSettings() {
     if (enableCountCheckbox && enableCountCheckbox.checked && countInput) {
         const countVal = parseInt(countInput.value);
         if (!isNaN(countVal) && countVal > 0) {
-            selectedQuestions = selectedQuestions.slice(0, Math.min(countVal, selectedQuestions.length));
+            // Cắt theo ranh giới khối: gom đủ khối cho tới khi đạt số câu yêu cầu, không cắt ngang một ca.
+            const limitedBlocks = [];
+            let total = 0;
+            for (const block of caseBlocks) {
+                if (total >= countVal) break;
+                limitedBlocks.push(block);
+                total += block.length;
+            }
+            caseBlocks = limitedBlocks;
         }
     }
+
+    selectedQuestions = caseBlocks.flat();
+    // Gán thứ tự câu trong ca (__caseSeq / __caseTotal / __caseFirst) sau khi đã chốt thứ tự cuối.
+    tagCaseSequence(selectedQuestions);
 
     // Xáo trộn thứ tự đáp án trong từng câu (sau khi đã chọn/cắt số câu)
     const shuffleAnswersCheckbox = document.getElementById('shuffle-answers-checkbox');
@@ -2194,10 +2338,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const memeCheckbox = document.getElementById('meme-enabled-checkbox');
     if (memeCheckbox) {
         memeCheckbox.checked = getCatMemeEnabled();
-        memeCheckbox.addEventListener('change', () => {
-            try { localStorage.setItem('quiz_meme_enabled', memeCheckbox.checked ? '1' : '0'); } catch (e) {}
-            if (!memeCheckbox.checked) hideCatMeme();
-        });
+        memeCheckbox.addEventListener('change', () => setMemeEnabled(memeCheckbox.checked));
     }
 
     const retryWrongBtn = document.getElementById('retry-wrong-btn');

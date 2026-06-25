@@ -24,6 +24,23 @@
     <meta name="apple-mobile-web-app-title" content="Zitthenkne">
     <link rel="stylesheet" href="style.css?v=6">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Thanh cuộn hồng pastel dễ thương cho toàn trang chủ
+           (không đụng tới .scrollbar-none — vẫn ẩn như cũ vì class đó đặc hiệu hơn) */
+        html { scrollbar-width: thin; scrollbar-color: #f9a8d4 rgba(255, 228, 236, 0.5); }
+        *, *::before, *::after { scrollbar-width: thin; scrollbar-color: #f9a8d4 transparent; }
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: rgba(255, 228, 236, 0.45); border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb {
+            background-color: #f9a8d4;
+            background-image: linear-gradient(#fbcfe8, #f9a8d4);
+            border-radius: 9999px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+        ::-webkit-scrollbar-thumb:hover { background-image: linear-gradient(#f9a8d4, #f472b6); }
+        ::-webkit-scrollbar-corner { background: transparent; }
+    </style>
 </head>
 
 <body class="flex h-screen bg-gray-50 text-gray-700 text-sm">
@@ -821,6 +838,8 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script type="module" src="app.js?v=5"></script>
     <script src="features/quiz/quiz-library-menu.js"></script>
+    <!-- Hoạt ảnh mở thẻ bộ đề + nạp ngầm trang làm bài khi bấm "Làm bài" -->
+    <script src="features/quiz/quiz-launch-transition.js" defer></script>
 
     <!-- Modal Tạo/Sửa thư mục -->
     <div id="folderModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">

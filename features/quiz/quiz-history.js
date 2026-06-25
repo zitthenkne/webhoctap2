@@ -4,7 +4,7 @@ import { collection, query, where, orderBy, getDocs, doc, getDoc, deleteDoc } fr
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
 import { showToast } from '../../core/utils.js';
 import { MARK_REASONS } from './quiz-state.js';
-import { syncPullStudy } from './quiz-study-store.js';
+import { syncPullStudy, writeLocalStudy, pushCloudStudy } from './quiz-study-store.js';
 import { parseMarkdown, renderMath } from './quiz-helpers.js';
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -50,6 +50,9 @@ let deleteCallback = null;
 let quizQuestions = [];      // câu hỏi của bộ đề (để đánh số + sắp xếp)
 let studyItems = [];         // dữ liệu đã gộp theo từng câu để render
 let studyActiveFilter = 'all';
+let studyData = { notes: {}, marks: {}, annotations: {} }; // nguồn dữ liệu (map theo qText) để chỉnh sửa/xóa
+let studyQuizId = null;      // id bộ đề cho phần ghi chú & đánh dấu
+let studyUserId = null;      // uid để đẩy thay đổi lên cloud
 
 if (!quizId) {
     showErrorState('Thiếu thông tin bộ đề. Vui lòng quay lại thư viện.');
@@ -603,12 +606,20 @@ function closeConfirmModal() {
 // Tải dữ liệu học tập: hợp nhất cloud + local rồi dựng danh sách theo từng câu.
 async function loadStudyData(quizId, userId) {
     if (!studyContainer) return;
+    studyQuizId = quizId;
+    studyUserId = userId;
     try {
         // preferCloud: trang lịch sử coi bản trên cloud là "bản chuẩn" khi tranh chấp
         const merged = await syncPullStudy(userId, quizId, { preferCloud: true });
-        studyItems = buildStudyItems(merged);
+        studyData = {
+            notes: merged.notes || {},
+            marks: merged.marks || {},
+            annotations: merged.annotations || {},
+        };
+        studyItems = buildStudyItems(studyData);
     } catch (err) {
         console.error('Lỗi khi tải ghi chú/đánh dấu:', err);
+        studyData = { notes: {}, marks: {}, annotations: {} };
         studyItems = [];
     }
 
@@ -663,6 +674,69 @@ function buildStudyItems(merged) {
     // Gán id ổn định để nút "Xem chi tiết" tra cứu lại được sau khi lọc/tìm kiếm
     items.forEach((it, i) => { it._id = i; });
     return items;
+}
+
+// Lưu lại studyData (sau khi chỉnh sửa/xóa) xuống local + cloud rồi dựng lại danh sách.
+async function persistStudy() {
+    // Dọn các câu rỗng để dữ liệu gọn gàng
+    Object.keys(studyData.notes).forEach(q => {
+        if (!studyData.notes[q] || !String(studyData.notes[q]).trim()) delete studyData.notes[q];
+    });
+    Object.keys(studyData.marks).forEach(q => {
+        if (!studyData.marks[q]) delete studyData.marks[q];
+    });
+    Object.keys(studyData.annotations).forEach(q => {
+        if (!Array.isArray(studyData.annotations[q]) || studyData.annotations[q].length === 0) delete studyData.annotations[q];
+    });
+
+    // Ghi local ngay để phản hồi tức thì, đẩy cloud chạy nền
+    try { writeLocalStudy(studyQuizId, studyData); } catch (e) { console.warn('Không lưu được dữ liệu học tập cục bộ:', e); }
+
+    studyItems = buildStudyItems(studyData);
+    renderStudyFilters();
+    renderStudyList();
+
+    if (studyUserId) {
+        try {
+            const ok = await pushCloudStudy(studyUserId, studyQuizId, studyData);
+            if (!ok) showToast('Đã lưu trên máy, nhưng chưa đồng bộ được lên cloud.', 'warning');
+        } catch (e) {
+            console.warn('Không đẩy được thay đổi học tập lên cloud:', e);
+            showToast('Đã lưu trên máy, nhưng chưa đồng bộ được lên cloud.', 'warning');
+        }
+    }
+}
+
+// Lưu ghi chú + lý do đánh dấu sau khi chỉnh sửa trong panel.
+async function saveStudyEdit(item, noteVal, reasonVal) {
+    const note = (noteVal || '').trim();
+    if (note) studyData.notes[item.qText] = note;
+    else delete studyData.notes[item.qText];
+
+    if (reasonVal && MARK_REASONS[reasonVal]) studyData.marks[item.qText] = reasonVal;
+    else delete studyData.marks[item.qText];
+
+    await persistStudy();
+    showToast('Đã lưu thay đổi.', 'success');
+}
+
+// Xóa một đoạn đã bôi vàng/đậm/nghiêng của một câu.
+async function deleteAnnotation(item, annotIndex) {
+    const list = studyData.annotations[item.qText];
+    if (!Array.isArray(list)) return;
+    list.splice(annotIndex, 1);
+    if (list.length === 0) delete studyData.annotations[item.qText];
+    await persistStudy();
+    showToast('Đã xóa đoạn đánh dấu.', 'success');
+}
+
+// Xóa toàn bộ ghi chú/đánh dấu/bôi vàng của một câu.
+async function deleteStudyItem(item) {
+    delete studyData.notes[item.qText];
+    delete studyData.marks[item.qText];
+    delete studyData.annotations[item.qText];
+    await persistStudy();
+    showToast('Đã xóa ghi chú & đánh dấu của câu này.', 'success');
 }
 
 // Dựng các chip lọc nhanh (chỉ hiện chip có dữ liệu).
@@ -768,10 +842,10 @@ function renderStudyCard(item) {
             </div>`;
     }
 
-    // Đoạn đã bôi vàng / in đậm / in nghiêng
+    // Đoạn đã bôi vàng / in đậm / in nghiêng (mỗi đoạn có nút xóa riêng)
     let annotBlock = '';
     if (item.annots.length > 0) {
-        const pills = item.annots.map(a => {
+        const pills = item.annots.map((a, ai) => {
             const t = a.type || 'highlight';
             const ic = t === 'bold' ? 'fa-bold' : t === 'italic' ? 'fa-italic' : 'fa-highlighter';
             const cls = t === 'bold'
@@ -779,9 +853,13 @@ function renderStudyCard(item) {
                 : t === 'italic'
                 ? 'bg-indigo-50 text-indigo-700 border-indigo-100'
                 : 'bg-yellow-50 text-yellow-800 border-yellow-200';
-            return `<span class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg border ${cls} max-w-full">
+            return `<span class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg border ${cls} max-w-full group/pill">
                         <i class="fas ${ic} text-[10px] opacity-70"></i>
                         <span class="truncate">${escapeHtml(a.text)}</span>
+                        <button type="button" class="study-annot-del ml-0.5 -mr-0.5 w-4 h-4 flex-shrink-0 rounded-full inline-flex items-center justify-center text-current opacity-40 hover:opacity-100 hover:bg-black/10 transition"
+                                data-annot-index="${ai}" title="Xóa đoạn này">
+                            <i class="fas fa-times text-[9px]"></i>
+                        </button>
                     </span>`;
         }).join('');
         annotBlock = `
@@ -793,6 +871,40 @@ function renderStudyCard(item) {
             </div>`;
     }
 
+    // Thanh hành động: Sửa ghi chú/đánh dấu + Xóa cả câu
+    const actionsBar = `
+        <div class="flex items-center gap-1 flex-shrink-0">
+            <button type="button" class="study-edit-toggle w-8 h-8 rounded-full text-gray-300 hover:text-purple-600 hover:bg-purple-50 flex items-center justify-center transition" title="Sửa ghi chú & đánh dấu">
+                <i class="fas fa-pen text-xs"></i>
+            </button>
+            <button type="button" class="study-item-del w-8 h-8 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition" title="Xóa ghi chú & đánh dấu của câu này">
+                <i class="fas fa-trash-alt text-xs"></i>
+            </button>
+        </div>`;
+
+    // Panel chỉnh sửa (ẩn mặc định): textarea ghi chú + chọn lý do đánh dấu
+    const markOpts = ['', ...Object.keys(MARK_REASONS)].map(k => markOptBtn(k, item.reason || '')).join('');
+    const editPanel = `
+        <div class="study-edit hidden mt-3 pt-3 border-t border-dashed border-purple-200" data-selected-reason="${item.reason || ''}">
+            <label class="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+                <i class="fas fa-sticky-note text-sky-400 mr-1"></i> Ghi chú cá nhân
+            </label>
+            <textarea class="study-edit-note w-full text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-300 bg-gray-50/60 p-2.5 leading-relaxed resize-y min-h-[72px]"
+                placeholder="Nhập ghi chú cho câu này...">${escapeHtml(item.note)}</textarea>
+            <label class="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mt-3 mb-1.5">
+                <i class="fas fa-tag text-purple-400 mr-1"></i> Lý do đánh dấu
+            </label>
+            <div class="study-edit-marks flex flex-wrap gap-1.5">${markOpts}</div>
+            <div class="flex items-center justify-end gap-2 mt-3">
+                <button type="button" class="study-edit-cancel text-xs font-semibold text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg px-3 py-1.5 transition">
+                    Hủy
+                </button>
+                <button type="button" class="study-edit-save text-xs font-semibold text-white bg-purple-500 hover:bg-purple-600 rounded-lg px-3 py-1.5 shadow-sm transition flex items-center gap-1.5">
+                    <i class="fas fa-check"></i> Lưu thay đổi
+                </button>
+            </div>
+        </div>`;
+
     // Nút xem chi tiết (chỉ khi câu vẫn còn trong bộ đề hiện tại)
     const detailToggle = item.question
         ? `<button type="button" class="study-detail-toggle mt-3 text-xs font-semibold text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 border border-purple-100 rounded-lg px-3 py-1.5 flex items-center gap-1.5 transition">
@@ -802,7 +914,7 @@ function renderStudyCard(item) {
         : `<p class="mt-3 text-xs text-gray-400 italic"><i class="fas fa-circle-info mr-1"></i>Câu này không còn trong bộ đề hiện tại nên không xem được chi tiết.</p>`;
 
     return `
-        <div class="study-card p-4 bg-white rounded-xl border border-gray-100 hover:border-purple-200 hover:shadow-sm transition-all" data-id="${item._id}">
+        <div class="study-card p-4 bg-white rounded-xl border border-gray-100 hover:border-purple-200 hover:shadow-sm transition-all group" data-id="${item._id}">
             <div class="flex items-start gap-3">
                 ${numBadge}
                 <div class="flex-1 min-w-0">
@@ -812,11 +924,38 @@ function renderStudyCard(item) {
                     <div class="study-qtext text-sm font-semibold text-gray-800 break-words leading-snug">${escapeHtml(stripMarkup(item.qText))}</div>
                     ${noteBlock}
                     ${annotBlock}
-                    ${detailToggle}
+                    <div class="flex items-center gap-2 flex-wrap">
+                        ${detailToggle}
+                    </div>
+                    ${editPanel}
                     <div class="study-detail hidden mt-3 pt-3 border-t border-dashed border-gray-200" data-built="0"></div>
                 </div>
+                ${actionsBar}
             </div>
         </div>`;
+}
+
+// Một nút chọn lý do đánh dấu trong panel chỉnh sửa ('' = bỏ đánh dấu).
+function markOptBtn(reasonKey, selected) {
+    const isSel = reasonKey === selected;
+    if (reasonKey === '') {
+        const style = isSel
+            ? 'background:#6b7280;color:#fff;border-color:#6b7280'
+            : 'background:#f3f4f6;color:#6b7280;border-color:#f3f4f6';
+        return `<button type="button" class="study-mark-opt text-xs font-semibold px-3 py-1.5 rounded-full border transition flex items-center gap-1.5"
+                    data-reason="" style="${style}">
+                    <i class="fas fa-ban"></i> Bỏ đánh dấu
+                </button>`;
+    }
+    const m = MARK_REASONS[reasonKey];
+    if (!m) return '';
+    const style = isSel
+        ? `background:${m.color};color:#fff;border-color:${m.color}`
+        : `background:${m.bg};color:${m.text};border-color:${m.bg}`;
+    return `<button type="button" class="study-mark-opt text-xs font-semibold px-3 py-1.5 rounded-full border transition flex items-center gap-1.5"
+                data-reason="${reasonKey}" style="${style}">
+                <i class="fas ${m.icon}"></i> ${m.short}
+            </button>`;
 }
 
 // Dựng HTML chi tiết đầy đủ của một câu hỏi: đáp án (tô đúng/sai), giải thích,
@@ -938,29 +1077,114 @@ function setupStudyEvents() {
     }
     if (studyList) {
         studyList.addEventListener('click', (e) => {
-            const toggle = e.target.closest('.study-detail-toggle');
-            if (!toggle) return;
-            const card = toggle.closest('.study-card');
+            const card = e.target.closest('.study-card');
             if (!card) return;
             const item = studyItems.find(it => String(it._id) === card.getAttribute('data-id'));
-            const detail = card.querySelector('.study-detail');
-            if (!item || !detail) return;
+            if (!item) return;
 
-            // Dựng nội dung chi tiết lần đầu mở (lazy) rồi render công thức/sơ đồ
-            if (detail.getAttribute('data-built') !== '1') {
-                detail.innerHTML = renderQuestionDetail(item);
-                detail.setAttribute('data-built', '1');
-                try { renderMath(detail); } catch (err) { console.error('Lỗi render chi tiết câu hỏi:', err); }
+            // --- Xem/ẩn chi tiết câu hỏi ---
+            const toggle = e.target.closest('.study-detail-toggle');
+            if (toggle) {
+                const detail = card.querySelector('.study-detail');
+                if (!detail) return;
+                // Dựng nội dung chi tiết lần đầu mở (lazy) rồi render công thức/sơ đồ
+                if (detail.getAttribute('data-built') !== '1') {
+                    detail.innerHTML = renderQuestionDetail(item);
+                    detail.setAttribute('data-built', '1');
+                    try { renderMath(detail); } catch (err) { console.error('Lỗi render chi tiết câu hỏi:', err); }
+                }
+                const willShow = detail.classList.contains('hidden');
+                detail.classList.toggle('hidden', !willShow);
+                const label = toggle.querySelector('.study-detail-label');
+                const caret = toggle.querySelector('.study-detail-caret');
+                if (label) label.textContent = willShow ? 'Ẩn chi tiết' : 'Xem chi tiết';
+                if (caret) caret.style.transform = willShow ? 'rotate(180deg)' : '';
+                return;
             }
 
-            const willShow = detail.classList.contains('hidden');
-            detail.classList.toggle('hidden', !willShow);
-            const label = toggle.querySelector('.study-detail-label');
-            const caret = toggle.querySelector('.study-detail-caret');
-            if (label) label.textContent = willShow ? 'Ẩn chi tiết' : 'Xem chi tiết';
-            if (caret) caret.style.transform = willShow ? 'rotate(180deg)' : '';
+            // --- Mở/đóng panel chỉnh sửa ---
+            if (e.target.closest('.study-edit-toggle')) {
+                const panel = card.querySelector('.study-edit');
+                if (panel) {
+                    panel.classList.toggle('hidden');
+                    if (!panel.classList.contains('hidden')) {
+                        const ta = panel.querySelector('.study-edit-note');
+                        if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+                    }
+                }
+                return;
+            }
+
+            // --- Hủy chỉnh sửa: đóng panel + khôi phục giá trị ban đầu ---
+            if (e.target.closest('.study-edit-cancel')) {
+                const panel = card.querySelector('.study-edit');
+                if (panel) {
+                    const ta = panel.querySelector('.study-edit-note');
+                    if (ta) ta.value = item.note || '';
+                    setMarkSelection(panel, item.reason || '');
+                    panel.classList.add('hidden');
+                }
+                return;
+            }
+
+            // --- Chọn lý do đánh dấu trong panel ---
+            const markOpt = e.target.closest('.study-mark-opt');
+            if (markOpt) {
+                const panel = card.querySelector('.study-edit');
+                if (panel) setMarkSelection(panel, markOpt.getAttribute('data-reason') || '');
+                return;
+            }
+
+            // --- Lưu thay đổi (ghi chú + đánh dấu) ---
+            if (e.target.closest('.study-edit-save')) {
+                const panel = card.querySelector('.study-edit');
+                if (!panel) return;
+                const ta = panel.querySelector('.study-edit-note');
+                const noteVal = ta ? ta.value : '';
+                const reasonVal = panel.getAttribute('data-selected-reason') || '';
+                saveStudyEdit(item, noteVal, reasonVal);
+                return;
+            }
+
+            // --- Xóa một đoạn bôi vàng ---
+            const annotDel = e.target.closest('.study-annot-del');
+            if (annotDel) {
+                const ai = parseInt(annotDel.getAttribute('data-annot-index'), 10);
+                if (!Number.isNaN(ai)) deleteAnnotation(item, ai);
+                return;
+            }
+
+            // --- Xóa toàn bộ ghi chú & đánh dấu của câu ---
+            if (e.target.closest('.study-item-del')) {
+                showConfirmModal(
+                    'Xóa ghi chú & đánh dấu',
+                    'Bạn có chắc muốn xóa toàn bộ ghi chú, đánh dấu và đoạn bôi vàng của câu này không? Hành động này không thể hoàn tác.',
+                    () => deleteStudyItem(item)
+                );
+                return;
+            }
         });
     }
+}
+
+// Cập nhật lựa chọn lý do đánh dấu trong panel: lưu vào data-attr + tô lại các nút.
+function setMarkSelection(panel, reason) {
+    panel.setAttribute('data-selected-reason', reason);
+    panel.querySelectorAll('.study-mark-opt').forEach(btn => {
+        const k = btn.getAttribute('data-reason') || '';
+        const isSel = k === reason;
+        if (k === '') {
+            btn.style.cssText = isSel
+                ? 'background:#6b7280;color:#fff;border-color:#6b7280'
+                : 'background:#f3f4f6;color:#6b7280;border-color:#f3f4f6';
+        } else {
+            const m = MARK_REASONS[k];
+            if (!m) return;
+            btn.style.cssText = isSel
+                ? `background:${m.color};color:#fff;border-color:${m.color}`
+                : `background:${m.bg};color:${m.text};border-color:${m.bg}`;
+        }
+    });
 }
 
 // Bỏ dấu tiếng Việt + lowercase để tìm kiếm dễ chịu hơn.

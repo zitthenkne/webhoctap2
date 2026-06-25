@@ -30,6 +30,9 @@ type QuestionInput = {
   note?: string;
   expanded?: string;
   source?: string;
+  case_id?: string;
+  case_text?: string;
+  case_title?: string;
 };
 
 /** Chuyển câu hỏi từ định dạng input (snake_case) sang định dạng lưu Firestore (giống web app). */
@@ -44,6 +47,9 @@ function toStoredQuestion(q: QuestionInput): Record<string, unknown> {
   if (q.note) stored.note = q.note;
   if (q.expanded) stored.expanded = q.expanded;
   if (q.source) stored.source = q.source;
+  if (q.case_id) stored.caseId = q.case_id;
+  if (q.case_text) stored.caseText = q.case_text;
+  if (q.case_title) stored.caseTitle = q.case_title;
   return stored;
 }
 
@@ -69,6 +75,7 @@ Args:
   - title (string, bắt buộc)
   - user_id (string, bắt buộc): UID chủ sở hữu
   - questions (array, >=1): mỗi câu gồm { question, answers[>=2], correct_answer_index, option_explanations?, explanation? }
+    Ca lâm sàng (case chùm): để nhiều câu dùng chung một tình huống, đặt cùng case_id cho các câu đó và truyền case_text (nội dung ca) + case_title (tùy chọn) giống nhau ở các câu cùng nhóm. Các câu cùng case_id sẽ được nhóm liền nhau khi làm bài.
   - is_public (boolean, mặc định true)
   - folder_id (string | null, mặc định null)
   - response_format ('markdown' | 'json')

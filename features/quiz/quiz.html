@@ -419,7 +419,7 @@
                         <div class="flex justify-between items-start w-full">
                             <div class="flex items-center gap-3">
                                 <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center border border-amber-100/40">
-                                    <i class="fas fa-cat text-sm"></i>
+                                    <span class="text-lg leading-none" aria-hidden="true">🤡</span>
                                 </div>
                                 <div>
                                     <span class="font-bold text-gray-700 text-sm block">Meme</span>
@@ -453,6 +453,19 @@
                   <i class="fas fa-share-alt"></i> Chia sẻ
                 </button>
             </div>
+
+            <!-- Dòng nguồn tinh tế -->
+            <p class="flex flex-wrap items-center justify-center gap-1.5 mt-6 text-[11px] text-gray-400/90 tracking-wide">
+                <span>&copy; 2025</span>
+                <a href="https://fb.com/vietthanh1911" target="_blank" rel="noopener noreferrer"
+                    class="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#FF69B4] to-[#D8BFD8] hover:underline underline-offset-2 transition-all duration-200">Zitthenk</a>
+                <span class="text-pink-300/70">&bull;</span>
+                <span>Y23C</span>
+                <span class="text-pink-300/70">&bull;</span>
+                <span>17</span>
+                <span class="text-pink-300/70">&bull;</span>
+                <span>UMP</span>
+            </p>
             <script>
             // Các script inline cho toggle và redirect
             document.addEventListener('DOMContentLoaded', function() {
@@ -695,18 +708,18 @@
     </div>
 
     <!-- Nút thiết lập nổi: Chế độ tối / Âm thanh / Rung -->
-    <button id="quiz-settings-fab" type="button" title="Thiết lập" aria-label="Thiết lập">
-        <i class="fas fa-sliders-h"></i>
+    <button id="quiz-settings-fab" type="button" title="Ngựa thì chỉnh" aria-label="Ngựa thì chỉnh">
+        <i class="fas fa-horse"></i>
     </button>
     <div id="quiz-settings-popover" class="hidden-pop">
         <!-- Tiêu đề bảng điều khiển -->
         <div class="qs-pop-header">
-            <span class="qs-pop-title"><i class="fas fa-wand-magic-sparkles"></i> Bảng điều khiển</span>
+            <span class="qs-pop-title"><i class="fas fa-horse"></i> Ngựa thì chỉnh <i class="fas fa-wand-magic-sparkles qs-gt-spark"></i></span>
         </div>
 
-        <!-- Nhóm: Giao diện & cảm giác -->
+        <!-- Nhóm: Giao diện & âm thanh (luôn hiện) -->
         <div class="qs-group">
-            <div class="qs-group-title"><i class="fas fa-palette"></i> Giao diện &amp; cảm giác</div>
+            <div class="qs-group-title"><i class="fas fa-palette"></i> Giao diện &amp; âm thanh</div>
             <div class="qs-row" id="qs-dark" role="switch" aria-checked="false" tabindex="0">
                 <span class="qs-label"><i class="fas fa-moon"></i> Chế độ tối</span>
                 <span class="qs-switch"></span>
@@ -721,48 +734,57 @@
             </div>
         </div>
 
-        <!-- Nhóm: Ngựa thì chỉnh (điều chỉnh giao diện làm bài — chỉ hiện khi đang làm bài) -->
-        <div id="qs-quiz-controls" class="qs-group qs-group--horse">
-            <div class="qs-group-title qs-group-title--horse">
-                <i class="fas fa-horse"></i> Ngựa thì chỉnh
-                <i class="fas fa-wand-magic-sparkles qs-gt-spark"></i>
-            </div>
-            <div id="marked-control" class="hidden">
-                <button type="button" id="marked-list-btn" class="qs-row qs-action" aria-expanded="false" aria-controls="marked-list-panel" title="Xem nhanh các câu đã đánh dấu">
-                    <span class="qs-label"><i class="fas fa-flag"></i> Câu đã đánh dấu</span>
-                    <span class="qs-marked-meta">
-                        <span id="marked-count-badge" class="qs-count-badge">0</span>
-                        <i class="fas fa-chevron-down qs-action-ic"></i>
+        <!-- Khối điều khiển khi làm bài (chỉ hiện khi đang làm bài) -->
+        <div id="qs-quiz-controls">
+            <!-- Nhóm: Hiển thị bài làm -->
+            <div class="qs-group">
+                <div class="qs-group-title"><i class="fas fa-desktop"></i> Hiển thị bài làm</div>
+                <div class="qs-row qs-row-fontsize">
+                    <span class="qs-label"><i class="fas fa-font"></i> Cỡ chữ</span>
+                    <span class="qs-fontsize-group">
+                        <button type="button" id="font-size-small" class="px-2 py-1 text-xs rounded hover:bg-pink-100 transition font-bold text-gray-600">A-</button>
+                        <button type="button" id="font-size-normal" class="px-2 py-1 text-xs rounded bg-pink-500 text-white transition font-bold">A</button>
+                        <button type="button" id="font-size-large" class="px-2 py-1 text-xs rounded hover:bg-pink-100 transition font-bold text-gray-600">A+</button>
                     </span>
+                </div>
+                <button type="button" id="focus-mode-btn" class="qs-row qs-action">
+                    <span class="qs-label"><i class="fas fa-expand"></i> Chế độ tập trung</span>
+                    <i class="fas fa-chevron-right qs-action-ic"></i>
                 </button>
-                <div id="marked-list-panel" class="qs-marked-panel hidden" role="menu" aria-label="Danh sách câu đã đánh dấu"></div>
+                <button type="button" id="toggle-nav-btn" class="qs-row qs-action">
+                    <span class="qs-label"><i class="fas fa-eye-slash"></i> Ẩn số câu hỏi</span>
+                </button>
+                <button type="button" id="reset-layout-btn" class="qs-row qs-action">
+                    <span class="qs-label"><i class="fas fa-table-columns"></i> Khôi phục độ rộng cột</span>
+                    <i class="fas fa-rotate-left qs-action-ic"></i>
+                </button>
             </div>
-            <button type="button" id="toggle-nav-btn" class="qs-row qs-action">
-                <span class="qs-label"><i class="fas fa-eye-slash"></i> Ẩn số câu hỏi</span>
-            </button>
-            <button type="button" id="focus-mode-btn" class="qs-row qs-action">
-                <span class="qs-label"><i class="fas fa-expand"></i> Chế độ tập trung</span>
-                <i class="fas fa-chevron-right qs-action-ic"></i>
-            </button>
-            <div class="qs-row qs-row-fontsize">
-                <span class="qs-label"><i class="fas fa-font"></i> Cỡ chữ</span>
-                <span class="qs-fontsize-group">
-                    <button type="button" id="font-size-small" class="px-2 py-1 text-xs rounded hover:bg-pink-100 transition font-bold text-gray-600">A-</button>
-                    <button type="button" id="font-size-normal" class="px-2 py-1 text-xs rounded bg-pink-500 text-white transition font-bold">A</button>
-                    <button type="button" id="font-size-large" class="px-2 py-1 text-xs rounded hover:bg-pink-100 transition font-bold text-gray-600">A+</button>
-                </span>
+
+            <!-- Nhóm: Tiện ích khi làm bài -->
+            <div class="qs-group">
+                <div class="qs-group-title"><i class="fas fa-bolt"></i> Tiện ích khi làm bài</div>
+                <div class="qs-row" id="qs-meme" role="switch" aria-checked="true" tabindex="0">
+                    <span class="qs-label"><span class="qs-emoji-ic" aria-hidden="true">🤡</span> Meme</span>
+                    <span class="qs-switch"></span>
+                </div>
+                <div id="marked-control" class="hidden">
+                    <button type="button" id="marked-list-btn" class="qs-row qs-action" aria-expanded="false" aria-controls="marked-list-panel" title="Xem nhanh các câu đã đánh dấu">
+                        <span class="qs-label"><i class="fas fa-flag"></i> Câu đã đánh dấu</span>
+                        <span class="qs-marked-meta">
+                            <span id="marked-count-badge" class="qs-count-badge">0</span>
+                            <i class="fas fa-chevron-down qs-action-ic"></i>
+                        </span>
+                    </button>
+                    <div id="marked-list-panel" class="qs-marked-panel hidden" role="menu" aria-label="Danh sách câu đã đánh dấu"></div>
+                </div>
+                <button type="button" id="qs-share-quiz" class="qs-row qs-action">
+                    <span class="qs-label"><i class="fas fa-share-alt"></i> Chia sẻ bộ đề</span>
+                    <i class="fas fa-arrow-up-right-from-square qs-action-ic"></i>
+                </button>
             </div>
-            <button type="button" id="reset-layout-btn" class="qs-row qs-action">
-                <span class="qs-label"><i class="fas fa-table-columns"></i> Khôi phục độ rộng cột</span>
-                <i class="fas fa-rotate-left qs-action-ic"></i>
-            </button>
-            <button type="button" id="qs-share-quiz" class="qs-row qs-action">
-                <span class="qs-label"><i class="fas fa-share-alt"></i> Chia sẻ bộ đề</span>
-                <i class="fas fa-arrow-up-right-from-square qs-action-ic"></i>
-            </button>
         </div>
 
-        <!-- Nhóm: Ảnh nền -->
+        <!-- Nhóm: Ảnh nền (luôn hiện) -->
         <div class="qs-group">
             <div class="qs-group-title"><i class="fas fa-image"></i> Ảnh nền</div>
             <div class="qs-row qs-row-slider">
@@ -780,6 +802,19 @@
             <span class="qs-label"><i class="fas fa-home"></i> Về trang chủ</span>
             <i class="fas fa-arrow-right qs-action-ic"></i>
         </a>
+
+        <!-- Dòng nguồn tinh tế trong bảng thiết lập -->
+        <p class="flex flex-wrap items-center justify-center gap-1 mt-3 pt-2 text-[10px] text-gray-400/80 tracking-wide">
+            <span>&copy; 2025</span>
+            <a href="https://fb.com/vietthanh1911" target="_blank" rel="noopener noreferrer"
+                class="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#FF69B4] to-[#D8BFD8] hover:underline underline-offset-2 transition-all duration-200">Zitthenk</a>
+            <span class="text-pink-300/70">&bull;</span>
+            <span>Y23C</span>
+            <span class="text-pink-300/70">&bull;</span>
+            <span>17</span>
+            <span class="text-pink-300/70">&bull;</span>
+            <span>UMP</span>
+        </p>
     </div>
 
     <!-- Thanh công cụ định dạng nổi khi bôi đen chữ (đề / đáp án / giải thích / mở rộng / ghi chú) -->

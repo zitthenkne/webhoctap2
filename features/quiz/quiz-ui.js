@@ -422,6 +422,19 @@ export function showResults(totalTime) {
             </div>
             <div id="result-empty-msg" class="hidden text-center text-gray-400 py-8 italic">Không có câu nào trong mục này.</div>
         </div>
+
+        <!-- Dòng nguồn tinh tế -->
+        <p class="flex flex-wrap items-center justify-center gap-1.5 mt-6 mb-2 text-[11px] text-gray-400/90 tracking-wide">
+            <span>&copy; 2025</span>
+            <a href="https://fb.com/vietthanh1911" target="_blank" rel="noopener noreferrer"
+                class="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#FF69B4] to-[#D8BFD8] hover:underline underline-offset-2 transition-all duration-200">Zitthenk</a>
+            <span class="text-pink-300/70">&bull;</span>
+            <span>Y23C</span>
+            <span class="text-pink-300/70">&bull;</span>
+            <span>17</span>
+            <span class="text-pink-300/70">&bull;</span>
+            <span>UMP</span>
+        </p>
     `;
 
     // Hiệu ứng vẽ vòng tròn phần trăm

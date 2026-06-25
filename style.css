@@ -798,6 +798,12 @@ body {
     transform: scale(1.06) rotate(-3deg);
 }
 
+/* Thẻ đang mở menu "..." được nâng lên trên mọi thẻ khác để dàn lựa chọn không bị che */
+.quiz-grid-card.quiz-card-menu-open,
+.quiz-list-card.quiz-card-menu-open {
+    z-index: 50;
+}
+
 /* Chip thông tin (số câu hỏi / ngày tạo) */
 .quiz-chip {
     display: inline-flex;
@@ -835,9 +841,11 @@ body {
 
 /* Tinh chỉnh cho màn hình điện thoại: gọn gàng, CTA nổi bật hơn */
 @media (max-width: 640px) {
-    /* Ẩn ngày tạo cho gọn — thông tin quan trọng nhất là tên & số câu */
+    /* Thẻ đã cao hơn nên hiện luôn ngày giờ tạo (thu nhỏ chút cho gọn) */
     .quiz-grid-card .quiz-chip-date {
-        display: none;
+        display: inline-flex;
+        font-size: 0.66rem;
+        padding: 0.15rem 0.5rem;
     }
     /* Nút "Làm bài" to & rõ hơn để mời gọi bấm vào làm */
     .quiz-grid-card .practice-btn {

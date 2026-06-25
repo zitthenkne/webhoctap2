@@ -56,6 +56,11 @@ document.addEventListener('DOMContentLoaded', () => {
             optionExplanations,
             explanation: q.explanation || q.explain || '',
             correctAnswerIndex: correct,
+            // Giữ nguyên thông tin ca lâm sàng (clinical case) dù editor chưa có UI sửa,
+            // để không làm mất dữ liệu khi mở rồi lưu lại bộ đề có ca chùm.
+            caseId: q.caseId || '',
+            caseText: q.caseText || '',
+            caseTitle: q.caseTitle || '',
             _collapsed: false
         };
     }
@@ -571,7 +576,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const correct = (q.correctAnswerIndex >= 0 && q.correctAnswerIndex < options.length) ? q.correctAnswerIndex : 0;
             const optionExplanations = Array.isArray(q.optionExplanations) ? q.optionExplanations.slice() : [];
             while (optionExplanations.length < options.length) optionExplanations.push('');
-            return {
+            const out = {
                 question: q.question,
                 options,
                 answers: options.slice(),       // engine single-player đọc answers||options
@@ -580,6 +585,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 correctAnswerIndex: correct,    // canonical 0-based
                 answer: correct + 1             // tương thích đường collab (1-based)
             };
+            // Giữ thông tin ca lâm sàng nếu có (chỉ ghi khi có giá trị để không phình dữ liệu)
+            if (q.caseId && String(q.caseId).trim()) out.caseId = String(q.caseId).trim();
+            if (q.caseText && String(q.caseText).trim()) out.caseText = String(q.caseText).trim();
+            if (q.caseTitle && String(q.caseTitle).trim()) out.caseTitle = String(q.caseTitle).trim();
+            return out;
         });
         return {
             title: quizData.title?.trim() || 'Bộ đề mới không tiêu đề',
