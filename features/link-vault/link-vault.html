@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Kho link đáng yêu 🎀 - Zitthenkne</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" sizes="192x192" href="../../assets/icon-192.png">
+    <meta name="theme-color" content="#FF8FB1">
+    <style>
+        * { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }
+        h1, h2, h3, h4, .font-display { font-family: 'Outfit', system-ui, -apple-system, sans-serif; }
+        html { scrollbar-width: thin; scrollbar-color: #fbcfe8 transparent; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-thumb { background-color: #fbcfe8; border-radius: 9999px; border: 2px solid transparent; background-clip: padding-box; }
+        ::-webkit-scrollbar-thumb:hover { background-color: #f9a8d4; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .fade-in { animation: fadeIn .45s cubic-bezier(0.16, 1, 0.3, 1) both; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .pop-in { animation: popIn .35s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+        @keyframes popIn { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: scale(1); } }
+        
+        @keyframes floatY { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .float-slow { animation: floatY 6s ease-in-out infinite; }
+        .float-slower { animation: floatY 9s ease-in-out infinite; }
+        
+        @keyframes wiggle { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+        .wiggle { animation: wiggle 3s ease-in-out infinite; }
+        
+        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+        .shimmer { background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0) 100%); background-size: 200% 100%; animation: shimmer 2s infinite; }
+        
+        .text-gradient { background: linear-gradient(135deg, #FF5E97 0%, #C77DFF 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .heart-shadow { box-shadow: 0 12px 35px -8px rgba(255, 94, 151, 0.4); }
+        
+        /* True Glassmorphism Utilities */
+        .glass-panel { background: rgba(255, 255, 255, 0.72); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.85); box-shadow: 0 8px 32px 0 rgba(255, 143, 177, 0.12); }
+        .glass-card { background: rgba(255, 255, 255, 0.82); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.9); box-shadow: 0 4px 24px -2px rgba(255, 143, 177, 0.08); }
+        .glass-modal { background: rgba(255, 255, 255, 0.88); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.95); box-shadow: 0 20px 50px -10px rgba(199, 125, 255, 0.25); }
+    </style>
+</head>
+
+<body class="min-h-screen text-gray-700 text-sm antialiased" style="background:radial-gradient(circle at 15% 10%, #fff0f7 0%, #ffe8f3 30%, #f7efff 65%, #edf3ff 100%);">
+
+    <!-- Trang trí nền -->
+    <div class="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <div class="absolute -top-24 -left-16 w-80 h-80 bg-pink-300/30 rounded-full blur-3xl float-slow"></div>
+        <div class="absolute top-1/3 -right-20 w-96 h-96 bg-purple-300/25 rounded-full blur-3xl float-slower"></div>
+        <div class="absolute bottom-0 left-1/4 w-72 h-72 bg-rose-200/30 rounded-full blur-3xl float-slow"></div>
+        <i class="fas fa-heart absolute top-24 left-[12%] text-pink-200/70 text-2xl float-slow"></i>
+        <i class="fas fa-heart absolute top-1/2 right-[10%] text-purple-200/70 text-xl float-slower"></i>
+        <i class="fas fa-star absolute bottom-24 left-[20%] text-pink-200/70 text-lg float-slower"></i>
+    </div>
+
+    <!-- ============ MÀN HÌNH NHẬP MẬT KHẨU CHUNG ============ -->
+    <div id="gate-screen" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background:radial-gradient(circle at center, #ffe5f1 0%, #ffd0ea 40%, #edd8ff 100%);">
+        <div class="pointer-events-none absolute inset-0 overflow-hidden">
+            <div class="absolute top-[10%] left-[15%] w-72 h-72 bg-pink-400/20 rounded-full blur-3xl float-slow"></div>
+            <div class="absolute bottom-[15%] right-[10%] w-80 h-80 bg-purple-400/20 rounded-full blur-3xl float-slower"></div>
+            <i class="fas fa-heart absolute top-[18%] left-[20%] text-pink-400/40 text-3xl float-slow"></i>
+            <i class="fas fa-sparkles absolute bottom-[22%] right-[18%] text-purple-400/50 text-2xl float-slower"></i>
+            <i class="fas fa-star absolute top-[28%] right-[25%] text-pink-400/30 text-xl float-slower"></i>
+        </div>
+        <div class="relative w-full max-w-sm glass-modal rounded-[2.5rem] p-8 sm:p-10 text-center pop-in heart-shadow border border-white/80">
+            <div class="w-24 h-24 mx-auto rounded-[2rem] bg-gradient-to-tr from-pink-500 via-rose-400 to-purple-500 flex items-center justify-center text-white text-5xl shadow-xl shadow-pink-500/30 mb-5 wiggle">
+                <i class="fas fa-heart"></i>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-bold text-gradient font-display tracking-tight">Kho link đáng yêu</h1>
+            <p class="text-gray-500 mt-1.5 mb-7 text-xs sm:text-sm font-medium">Nhập mật khẩu để mở kho link dùng chung nha 🎀</p>
+            <form id="gate-form" class="space-y-4">
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-4.5 flex items-center text-pink-400"><i class="fas fa-key text-sm"></i></span>
+                    <input type="password" id="gate-input" inputmode="numeric" autocomplete="off"
+                        class="w-full pl-11 pr-11 py-4 border-2 border-pink-200/70 rounded-2xl text-center tracking-[0.35em] text-lg font-bold bg-white/80 focus:outline-none focus:ring-4 focus:ring-pink-300/40 focus:border-pink-400 transition shadow-inner"
+                        placeholder="••••••••">
+                    <button type="button" id="gate-toggle" tabindex="-1"
+                        class="absolute inset-y-0 right-0 pr-4.5 flex items-center text-gray-400 hover:text-pink-500 transition" aria-label="Hiện/ẩn mật khẩu">
+                        <i class="fas fa-eye text-sm"></i>
+                    </button>
+                </div>
+                <p id="gate-error" class="hidden text-rose-500 font-bold text-xs bg-rose-50/80 py-2 px-3 rounded-xl border border-rose-100 flex items-center justify-center gap-1.5"><i class="fas fa-circle-exclamation"></i>Sai mật khẩu rồi, thử lại nha!</p>
+                <button type="submit"
+                    class="w-full py-4 bg-gradient-to-r from-pink-500 via-rose-400 to-purple-500 text-white font-bold rounded-2xl shadow-lg shadow-pink-500/25 hover:shadow-pink-500/40 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                    <i class="fas fa-unlock-keyhole"></i> Mở khóa ngay
+                </button>
+            </form>
+            <a href="../../index.html" class="inline-flex items-center gap-1.5 mt-6 text-xs text-gray-400 hover:text-pink-500 font-semibold transition group">
+                <i class="fas fa-arrow-left transition-transform group-hover:-translate-x-1"></i> Về trang chủ
+            </a>
+        </div>
+    </div>
+
+    <!-- ============ NỘI DUNG CHÍNH ============ -->
+    <div id="app-screen" class="hidden relative z-10">
+        <header class="sticky top-0 z-30 glass-panel border-b border-pink-200/50 shadow-sm shadow-pink-500/5">
+            <div class="max-w-6xl mx-auto px-4 py-3.5 flex items-center justify-between gap-3">
+                <a href="../../index.html" class="flex items-center gap-3 min-w-0 group">
+                    <span class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-pink-500 via-rose-400 to-purple-500 flex items-center justify-center text-white text-xl shadow-md shadow-pink-500/30 group-hover:scale-105 group-hover:rotate-6 transition-all duration-300"><i class="fas fa-heart"></i></span>
+                    <div>
+                        <span class="font-bold text-lg sm:text-xl text-gradient font-display truncate block leading-tight">Kho link đáng yêu</span>
+                        <span class="text-[10px] text-gray-400 font-medium tracking-wide uppercase">Zitthenkne Vault</span>
+                    </div>
+                </a>
+                <div class="flex items-center gap-2.5">
+                    <button id="master-badge" type="button" class="hidden items-center gap-1.5 text-xs font-bold text-amber-700 bg-gradient-to-r from-amber-100 to-yellow-100 px-3.5 py-1.5 rounded-full border border-amber-300/80 shadow-sm hover:brightness-95 transition" title="Đang ở chế độ chủ — bấm để tắt">
+                        <i class="fas fa-crown text-[11px] text-amber-500 animate-bounce"></i> Chế độ chủ <i class="fas fa-xmark ml-0.5 opacity-70"></i>
+                    </button>
+                    <span id="link-count-badge" class="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold text-pink-600 bg-white/80 px-3.5 py-1.5 rounded-full border border-pink-200/80 shadow-sm"><i class="fas fa-bookmark text-pink-400 text-[11px]"></i><span id="link-count">0</span> liên kết</span>
+                    <button id="lock-vault-btn" type="button" class="flex items-center gap-1.5 text-xs font-bold text-gray-500 bg-white/80 px-3 py-1.5 rounded-full border border-pink-200/80 shadow-sm hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition" title="Khóa lại (Đăng xuất kho link)">
+                        <i class="fas fa-lock text-[11px] text-pink-400"></i> Khóa
+                    </button>
+                    <a href="../../index.html" class="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/80 border border-pink-100 text-pink-500 hover:bg-pink-50 hover:text-pink-600 hover:scale-105 transition shadow-sm" title="Về trang chủ"><i class="fas fa-home"></i></a>
+                </div>
+            </div>
+        </header>
+
+        <main class="max-w-6xl mx-auto px-4 py-8">
+            <!-- THƯ MỤC & TÌM KIẾM NHANH -->
+            <section class="mb-8 fade-in">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                    <div class="flex items-center justify-between sm:justify-start gap-4">
+                        <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2 font-display">
+                            <i class="fas fa-folder-open text-pink-500"></i> Thư mục học tập
+                        </h2>
+                        <button type="button" id="open-create-folder"
+                            class="text-xs font-bold text-pink-600 bg-white/90 hover:bg-pink-50 border border-pink-200/80 px-3.5 py-1.5 rounded-full transition-all shadow-sm hover:shadow hover:-translate-y-0.5 flex items-center gap-1.5">
+                            <i class="fas fa-folder-plus text-pink-400"></i> Thư mục mới
+                        </button>
+                    </div>
+                    <!-- Tìm kiếm nhanh -->
+                    <div class="relative w-full sm:w-72">
+                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-pink-400"><i class="fas fa-magnifying-glass text-xs"></i></span>
+                        <input type="text" id="search-input" placeholder="Tìm tên, URL, ghi chú..."
+                            class="w-full pl-9 pr-8 py-2 border border-pink-200/80 rounded-full bg-white/80 backdrop-blur text-xs font-medium focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition shadow-sm">
+                        <button type="button" id="search-clear" class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-gray-300 hover:text-pink-500"><i class="fas fa-circle-xmark text-xs"></i></button>
+                    </div>
+                </div>
+                <div id="folder-bar" class="flex gap-3 overflow-x-auto no-scrollbar pb-3 -mx-1 px-1 pt-1"></div>
+            </section>
+
+            <!-- ACTION BANNER / COMMAND BAR FOR ADDING LINK -->
+            <section class="mb-8 fade-in">
+                <div class="glass-panel rounded-[2rem] p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4 border border-pink-200/70 shadow-xl shadow-pink-500/5">
+                    <div class="flex items-center gap-4 w-full sm:w-auto">
+                        <span class="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white text-xl shadow-lg shadow-pink-500/30 shrink-0 wiggle"><i class="fas fa-sparkles"></i></span>
+                        <div>
+                            <h2 class="text-base sm:text-lg font-bold text-gray-800 font-display">Tạo liên kết mới 💕</h2>
+                            <p class="text-xs text-gray-500 font-medium">Lưu trữ và chia sẻ tài liệu học tập cùng mọi người</p>
+                        </div>
+                    </div>
+                    <button type="button" id="toggle-add-form-btn"
+                        class="w-full sm:w-auto px-6 py-3 rounded-2xl bg-gradient-to-r from-pink-500 via-rose-500 to-purple-500 text-white font-bold text-sm shadow-lg shadow-pink-500/25 hover:shadow-pink-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2 group">
+                        <i class="fas fa-plus text-xs group-hover:rotate-90 transition-transform duration-300"></i> Thêm link ngay
+                    </button>
+                </div>
+
+                <!-- FORM THÊM LINK (ACCORDION - GẬP GỌN) -->
+                <div id="add-form-container" class="hidden overflow-hidden transition-all duration-500 ease-in-out mt-4">
+                    <div class="glass-card rounded-[2rem] p-6 sm:p-8 border border-pink-200/90 shadow-2xl relative">
+                        <button type="button" id="close-add-form-btn" class="absolute top-5 right-5 w-8 h-8 rounded-full bg-pink-50 text-pink-400 hover:bg-pink-100 hover:text-pink-600 transition flex items-center justify-center" title="Đóng form">
+                            <i class="fas fa-xmark"></i>
+                        </button>
+                        <h3 class="text-base font-bold text-gray-800 font-display flex items-center gap-2 mb-5">
+                            <span class="w-7 h-7 rounded-lg bg-pink-100 text-pink-500 flex items-center justify-center text-xs"><i class="fas fa-link"></i></span>
+                            Thông tin liên kết
+                        </h3>
+                        <form id="add-form" class="space-y-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div class="sm:col-span-2">
+                                    <label class="block text-xs font-bold text-gray-600 mb-1.5 ml-1">Đường dẫn (URL) <span class="text-rose-500">*</span></label>
+                                    <div class="relative">
+                                        <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-pink-400"><i class="fas fa-globe text-sm"></i></span>
+                                        <input type="text" id="f-url" required placeholder="dán link vào đây, ví dụ: https://docs.google.com/..."
+                                            class="w-full pl-10 pr-4 py-3 border border-pink-200/80 rounded-xl bg-white/90 focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition shadow-inner text-sm font-medium">
+                                    </div>
+                                </div>
+                                <!-- KHUNG PREVIEW TỰ ĐỘNG HIỂN THỊ HÌNH ẢNH & ICON WEB -->
+                                <div id="form-url-preview-box" class="hidden sm:col-span-2 mt-1 transition-all duration-300 ease-out pop-in">
+                                    <div class="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-br from-pink-50/95 via-purple-50/80 to-rose-50/95 border border-pink-200/80 shadow-md flex flex-col sm:flex-row gap-3.5 items-center">
+                                        <div class="relative w-full sm:w-36 h-28 sm:h-24 rounded-xl overflow-hidden bg-gradient-to-tr from-pink-200 to-purple-200 shrink-0 shadow-inner border border-white/80 group">
+                                            <div class="absolute inset-0 flex items-center justify-center text-pink-400 text-2xl font-display font-bold">🌐</div>
+                                            <img id="form-preview-img" class="absolute inset-0 w-full h-full object-cover object-top z-10 hidden transition-transform duration-500 hover:scale-105" alt="Preview Web" onerror="this.style.display='none'" onload="this.style.display='block'">
+                                            <div class="absolute top-2 left-2 w-7 h-7 rounded-lg bg-white/95 backdrop-blur shadow-md flex items-center justify-center z-20 border border-white/80 overflow-hidden">
+                                                <i class="fas fa-link text-pink-500 text-xs absolute"></i>
+                                                <img id="form-preview-favicon" class="w-4 h-4 relative z-10 hidden bg-white rounded-sm" alt="" onerror="this.style.display='none'" onload="this.style.display='inline-block'">
+                                            </div>
+                                        </div>
+                                        <div class="flex-1 min-w-0 w-full flex flex-col justify-center gap-1.5">
+                                            <div class="flex items-center justify-between gap-2 flex-wrap">
+                                                <span id="form-fetch-status" class="inline-flex items-center gap-1.5 text-[11px] font-bold text-pink-600 bg-white/90 px-3 py-1 rounded-full border border-pink-200/80 shadow-sm animate-pulse">
+                                                    <i class="fas fa-spinner fa-spin text-pink-500"></i> Đang tìm hình ảnh & thông tin web...
+                                                </span>
+                                                <button type="button" id="refetch-meta-btn" class="hidden text-[11px] font-bold text-purple-600 hover:text-purple-700 hover:underline bg-purple-50/80 px-2.5 py-1 rounded-full border border-purple-200/60 transition flex items-center gap-1" title="Tải lại thông tin web">
+                                                    <i class="fas fa-rotate"></i> Tải lại
+                                                </button>
+                                            </div>
+                                            <p id="form-preview-title" class="text-xs font-bold text-gray-800 truncate font-display"></p>
+                                            <p id="form-preview-url" class="text-[11px] text-pink-500 font-semibold truncate flex items-center gap-1"><i class="fas fa-globe text-[10px]"></i> <span></span></p>
+                                            <p id="form-preview-desc" class="text-[11px] text-gray-500 line-clamp-2 mt-0.5 leading-relaxed font-medium"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-600 mb-1.5 ml-1">Tên hiển thị</label>
+                                    <input type="text" id="f-title" placeholder="vd: Nhóm Zalo lớp Y23, Slide Bài giảng..."
+                                        class="w-full px-4 py-3 border border-pink-200/80 rounded-xl bg-white/90 focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition shadow-inner text-sm font-medium">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-600 mb-1.5 ml-1">Cho vào thư mục</label>
+                                    <select id="f-folder"
+                                        class="w-full px-4 py-3 border border-pink-200/80 rounded-xl bg-white/90 focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition shadow-inner text-sm font-medium cursor-pointer">
+                                        <option value="">— Chưa phân loại —</option>
+                                    </select>
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label class="block text-xs font-bold text-gray-600 mb-1.5 ml-1">Ghi chú / mô tả ngắn</label>
+                                    <input type="text" id="f-note" placeholder="mô tả ngắn, vẫn hiển thị ngay cả khi link được khóa bảo mật"
+                                        class="w-full px-4 py-3 border border-pink-200/80 rounded-xl bg-white/90 focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition shadow-inner text-sm font-medium">
+                                </div>
+                                <div class="sm:col-span-2 bg-pink-50/50 p-4 rounded-2xl border border-pink-100">
+                                    <label class="block text-xs font-bold text-gray-700 mb-1 flex items-center gap-1.5"><i class="fas fa-lock text-pink-500 text-xs"></i> Mật khẩu bảo vệ link (tùy chọn)</label>
+                                    <input type="password" id="f-pw" autocomplete="new-password" placeholder="để trống nếu muốn chia sẻ công khai cho tất cả mọi người"
+                                        class="w-full px-4 py-2.5 border border-pink-200 rounded-xl bg-white focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition text-sm">
+                                    <p class="text-[11px] text-gray-400 mt-1.5 flex items-center gap-1"><i class="fas fa-shield-halved text-pink-400"></i> Người khác phải nhập đúng mật khẩu mới mở hoặc chỉnh sửa được liên kết này.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between gap-3 pt-3 border-t border-pink-100 flex-wrap">
+                                <p id="add-status" class="text-xs text-pink-600 min-h-[16px] font-bold animate-pulse"></p>
+                                <div class="flex gap-2.5 ml-auto">
+                                    <button type="button" id="cancel-add-btn" class="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-600 font-bold text-xs hover:bg-gray-200 transition">Hủy bỏ</button>
+                                    <button type="submit" id="add-btn"
+                                        class="px-7 py-2.5 bg-gradient-to-r from-pink-500 to-purple-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-pink-500/25 hover:shadow-pink-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-2">
+                                        <i class="fas fa-cloud-arrow-up"></i> Lưu liên kết
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <div id="current-folder-title" class="hidden items-center gap-2 mb-4 text-sm font-bold text-gray-700 font-display"></div>
+
+            <!-- DANH SÁCH LINK (WITH SKELETON LOADING) -->
+            <div id="loading-state" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 py-4">
+                <div class="glass-card rounded-[2rem] h-64 overflow-hidden border border-pink-100/60 flex flex-col">
+                    <div class="h-36 bg-pink-100/40 shimmer"></div>
+                    <div class="p-5 flex flex-col gap-3 flex-1 justify-center">
+                        <div class="h-4 bg-pink-100/60 rounded-full w-3/4 shimmer"></div>
+                        <div class="h-3 bg-pink-50 rounded-full w-1/2 shimmer"></div>
+                        <div class="h-8 bg-pink-100/40 rounded-xl w-full mt-auto shimmer"></div>
+                    </div>
+                </div>
+                <div class="glass-card rounded-[2rem] h-64 overflow-hidden border border-pink-100/60 flex flex-col hidden sm:flex">
+                    <div class="h-36 bg-purple-100/40 shimmer"></div>
+                    <div class="p-5 flex flex-col gap-3 flex-1 justify-center">
+                        <div class="h-4 bg-purple-100/60 rounded-full w-2/3 shimmer"></div>
+                        <div class="h-3 bg-purple-50 rounded-full w-1/2 shimmer"></div>
+                        <div class="h-8 bg-purple-100/40 rounded-xl w-full mt-auto shimmer"></div>
+                    </div>
+                </div>
+                <div class="glass-card rounded-[2rem] h-64 overflow-hidden border border-pink-100/60 flex flex-col hidden lg:flex">
+                    <div class="h-36 bg-rose-100/40 shimmer"></div>
+                    <div class="p-5 flex flex-col gap-3 flex-1 justify-center">
+                        <div class="h-4 bg-rose-100/60 rounded-full w-4/5 shimmer"></div>
+                        <div class="h-3 bg-rose-50 rounded-full w-1/3 shimmer"></div>
+                        <div class="h-8 bg-rose-100/40 rounded-xl w-full mt-auto shimmer"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="empty-state" class="hidden text-center py-20 glass-panel rounded-[2.5rem] border border-pink-200/50 shadow-sm max-w-lg mx-auto my-6">
+                <div class="w-24 h-24 mx-auto rounded-[2rem] bg-gradient-to-tr from-pink-100 to-purple-100 flex items-center justify-center text-pink-400 text-5xl mb-5 shadow-inner wiggle"><i class="fas fa-box-open"></i></div>
+                <p class="font-bold text-gray-800 text-lg font-display">Kho liên kết đang trống trơn 🌸</p>
+                <p class="text-gray-400 text-xs sm:text-sm mt-1 max-w-xs mx-auto">Chưa có liên kết nào được lưu trong khu vực này. Hãy bấm tạo liên kết mới nhé!</p>
+                <button type="button" onclick="document.getElementById('toggle-add-form-btn').click()" class="mt-6 px-6 py-2.5 rounded-xl bg-pink-500 text-white font-bold text-xs shadow-md shadow-pink-500/20 hover:bg-pink-600 transition inline-flex items-center gap-2">
+                    <i class="fas fa-plus"></i> Thêm link đầu tiên
+                </button>
+            </div>
+            <div id="no-result-state" class="hidden text-center py-20 glass-panel rounded-[2.5rem] border border-pink-200/50 shadow-sm max-w-lg mx-auto my-6 text-gray-500">
+                <div class="w-20 h-20 mx-auto rounded-2xl bg-gray-50 flex items-center justify-center text-gray-300 text-4xl mb-4"><i class="fas fa-magnifying-glass"></i></div>
+                <p class="font-bold text-base font-display">Không tìm thấy liên kết phù hợp</p>
+                <p class="text-xs text-gray-400 mt-1">Thử tìm kiếm với từ khóa khác hoặc xóa bộ lọc xem sao nha!</p>
+            </div>
+            <div id="links-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </main>
+        <footer class="text-center text-xs text-gray-400 py-8 font-medium border-t border-pink-100/60 mt-12 bg-white/40 backdrop-blur-sm">Kho link dùng chung • phát triển với tinh thần học tập <span class="text-pink-500 font-bold">🎀 Zitthenkne Vault 🐿️</span></footer>
+    </div>
+
+    <!-- MODAL: THƯ MỤC -->
+    <div id="folder-modal" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-900/30 backdrop-blur-md transition-opacity" data-close-folder></div>
+        <div class="relative w-full max-w-md glass-modal rounded-[2.25rem] shadow-2xl border border-white p-7 sm:p-8 pop-in max-h-[90vh] overflow-y-auto">
+            <h3 id="folder-modal-title" class="text-lg font-bold text-gradient font-display flex items-center gap-2 mb-5"><i class="fas fa-folder-plus"></i> Thư mục mới</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1.5 ml-1">Tên thư mục</label>
+                    <input type="text" id="folder-name" maxlength="40" placeholder="vd: Liên lạc, Học tập lâm sàng, Giải trí..."
+                        class="w-full px-4 py-3 border border-pink-200/80 rounded-xl bg-white focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition text-sm font-medium">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-2 ml-1">Chọn biểu tượng (Icon)</label>
+                    <div id="emoji-picker" class="flex flex-wrap gap-2 max-h-36 overflow-y-auto p-2 bg-pink-50/50 rounded-2xl border border-pink-100"></div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-2 ml-1">Chọn màu sắc chủ đề</label>
+                    <div id="color-picker" class="flex flex-wrap gap-3 p-2"></div>
+                </div>
+                <div class="bg-pink-50/50 p-4 rounded-2xl border border-pink-100">
+                    <label class="block text-xs font-bold text-gray-700 mb-1.5 ml-1 flex items-center gap-1.5"><i class="fas fa-lock text-pink-500 text-xs"></i> Mật khẩu thư mục (tùy chọn)</label>
+                    <input type="password" id="folder-pw" autocomplete="new-password" placeholder="để trống = công khai không khóa"
+                        class="w-full px-4 py-2.5 border border-pink-200 rounded-xl bg-white focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition text-sm">
+                    <button type="button" id="folder-pw-clear" class="hidden mt-2 text-xs font-bold text-rose-500 hover:underline inline-flex items-center gap-1"><i class="fas fa-unlock"></i>Bỏ mật khẩu hiện tại</button>
+                    <p id="folder-pw-hint" class="hidden text-[11px] text-amber-600 mt-1.5 font-medium"><i class="fas fa-circle-info mr-1"></i>Thư mục đang có mật khẩu. Để trống = giữ nguyên.</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2.5 mt-6 pt-3 border-t border-pink-100/80">
+                <button type="button" id="folder-delete-btn" class="hidden w-11 h-11 rounded-xl bg-rose-50 text-rose-500 font-bold hover:bg-rose-100 hover:scale-105 transition flex items-center justify-center" title="Xóa thư mục"><i class="fas fa-trash-can"></i></button>
+                <div class="flex-1"></div>
+                <button type="button" data-close-folder class="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-600 font-bold text-xs hover:bg-gray-200 transition">Hủy</button>
+                <button type="button" id="folder-save-btn" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-500 text-white font-bold text-xs shadow-lg shadow-pink-500/25 hover:shadow-pink-500/40 transition flex items-center gap-2"><i class="fas fa-check"></i> Lưu thay đổi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: SỬA LINK -->
+    <div id="link-modal" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-900/30 backdrop-blur-md transition-opacity" data-close-link></div>
+        <div class="relative w-full max-w-md glass-modal rounded-[2.25rem] shadow-2xl border border-white p-7 sm:p-8 pop-in max-h-[90vh] overflow-y-auto">
+            <h3 class="text-lg font-bold text-gradient font-display flex items-center gap-2 mb-5"><i class="fas fa-pen-to-square"></i> Sửa liên kết</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1.5 ml-1">Đường dẫn URL</label>
+                    <input type="text" id="e-url" class="w-full px-4 py-3 border border-pink-200/80 rounded-xl bg-white focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition text-sm font-medium">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1.5 ml-1">Tên hiển thị</label>
+                    <input type="text" id="e-title" class="w-full px-4 py-3 border border-pink-200/80 rounded-xl bg-white focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition text-sm font-medium">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1.5 ml-1">Thư mục lưu trữ</label>
+                    <select id="e-folder" class="w-full px-4 py-3 border border-pink-200/80 rounded-xl bg-white focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition text-sm font-medium cursor-pointer">
+                        <option value="">— Chưa phân loại —</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1.5 ml-1">Ghi chú ngắn</label>
+                    <input type="text" id="e-note" class="w-full px-4 py-3 border border-pink-200/80 rounded-xl bg-white focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition text-sm font-medium">
+                </div>
+                <div class="bg-pink-50/50 p-4 rounded-2xl border border-pink-100">
+                    <label class="block text-xs font-bold text-gray-700 mb-1.5 ml-1 flex items-center gap-1.5"><i class="fas fa-lock text-pink-500 text-xs"></i> Mật khẩu bảo vệ</label>
+                    <input type="password" id="e-pw" autocomplete="new-password" placeholder="nhập để đặt/đổi, để trống = giữ nguyên"
+                        class="w-full px-4 py-2.5 border border-pink-200 rounded-xl bg-white focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition text-sm">
+                    <button type="button" id="e-pw-clear" class="hidden mt-2 text-xs font-bold text-rose-500 hover:underline inline-flex items-center gap-1"><i class="fas fa-unlock"></i>Bỏ mật khẩu hiện tại</button>
+                    <p id="e-pw-hint" class="hidden text-[11px] text-amber-600 mt-1.5 font-medium"><i class="fas fa-circle-info mr-1"></i>Link đang có mật khẩu. Để trống = giữ nguyên.</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2.5 mt-6 pt-3 border-t border-pink-100/80">
+                <button type="button" id="link-delete-btn" class="w-11 h-11 rounded-xl bg-rose-50 text-rose-500 font-bold hover:bg-rose-100 hover:scale-105 transition flex items-center justify-center" title="Xóa link"><i class="fas fa-trash-can"></i></button>
+                <div class="flex-1"></div>
+                <button type="button" data-close-link class="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-600 font-bold text-xs hover:bg-gray-200 transition">Hủy</button>
+                <button type="button" id="link-save-btn" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-500 text-white font-bold text-xs shadow-lg shadow-pink-500/25 hover:shadow-pink-500/40 transition flex items-center gap-2"><i class="fas fa-check"></i> Cập nhật</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: NHẬP MẬT KHẨU MỞ KHÓA -->
+    <div id="pw-modal" class="hidden fixed inset-0 z-[75] flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-900/35 backdrop-blur-md transition-opacity" data-close-pw></div>
+        <div class="relative w-full max-w-xs glass-modal rounded-[2.25rem] shadow-2xl border border-white p-7 text-center pop-in">
+            <div class="w-16 h-16 mx-auto rounded-[1.25rem] bg-gradient-to-tr from-pink-500 to-purple-500 flex items-center justify-center text-white text-2xl shadow-lg shadow-pink-500/30 mb-4 animate-pulse"><i class="fas fa-lock"></i></div>
+            <h3 id="pw-modal-title" class="text-base font-bold text-gray-800 font-display">Xác thực mật khẩu</h3>
+            <p id="pw-modal-sub" class="text-xs text-gray-400 font-medium mt-1 mb-5 truncate"></p>
+            <form id="pw-form" class="space-y-3.5">
+                <div class="relative">
+                    <input type="password" id="pw-input" autocomplete="off" inputmode="text"
+                        class="w-full px-4 py-3.5 border border-pink-200/80 rounded-2xl text-center tracking-[0.25em] text-sm font-bold bg-white focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition shadow-inner" placeholder="••••••">
+                    <button type="button" id="pw-toggle" tabindex="-1" class="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-pink-500 transition"><i class="fas fa-eye text-xs"></i></button>
+                </div>
+                <p id="pw-error" class="hidden text-rose-500 font-bold text-xs bg-rose-50 py-2 rounded-xl border border-rose-100"><i class="fas fa-circle-exclamation mr-1"></i>Sai mật khẩu rồi!</p>
+                <div class="flex gap-2.5 pt-1">
+                    <button type="button" data-close-pw class="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-600 font-bold text-xs hover:bg-gray-200 transition">Hủy</button>
+                    <button type="submit" class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-500 text-white font-bold text-xs shadow-md shadow-pink-500/20 hover:shadow-pink-500/30 transition">Mở khóa</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[80] px-5 py-3 rounded-2xl bg-slate-900/90 backdrop-blur-md text-white font-bold text-xs shadow-2xl border border-white/10 flex items-center gap-2.5 animate-bounce"></div>
+
+    <script type="module">
+        import { db } from '../../core/firebase-init.js';
+        import {
+            collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, serverTimestamp, writeBatch
+        } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+
+        const PASSWORD = "111230322";   // mật khẩu mở cả kho
+        const MASTER_KEY = "190590";    // mã chủ: mở được mọi link/thư mục
+        const UNLOCK_KEY = "linkVaultUnlocked";
+        const linksRef = collection(db, "shared_links");
+        const foldersRef = collection(db, "shared_link_folders");
+
+        // ---------- Bảng màu thư mục ----------
+        const THEMES = {
+            pink:    { grad: 'from-pink-200 to-rose-200',      soft: 'bg-pink-100',    text: 'text-pink-600',    ring: 'ring-pink-300' },
+            rose:    { grad: 'from-rose-200 to-pink-200',      soft: 'bg-rose-100',    text: 'text-rose-600',    ring: 'ring-rose-300' },
+            purple:  { grad: 'from-purple-200 to-fuchsia-200', soft: 'bg-purple-100',  text: 'text-purple-600',  ring: 'ring-purple-300' },
+            violet:  { grad: 'from-violet-200 to-indigo-200',  soft: 'bg-violet-100',  text: 'text-violet-600',  ring: 'ring-violet-300' },
+            sky:     { grad: 'from-sky-200 to-cyan-200',       soft: 'bg-sky-100',     text: 'text-sky-600',     ring: 'ring-sky-300' },
+            teal:    { grad: 'from-teal-200 to-emerald-200',   soft: 'bg-teal-100',    text: 'text-teal-600',    ring: 'ring-teal-300' },
+            amber:   { grad: 'from-amber-200 to-yellow-200',   soft: 'bg-amber-100',   text: 'text-amber-600',   ring: 'ring-amber-300' },
+            emerald: { grad: 'from-emerald-200 to-lime-200',   soft: 'bg-emerald-100', text: 'text-emerald-600', ring: 'ring-emerald-300' },
+        };
+        const COLOR_KEYS = Object.keys(THEMES);
+        const EMOJIS = ['📁', '💖', '⭐', '📚', '💊', '🩺', '🎀', '🔖', '🌸', '📌', '💬', '🎓'];
+        const theme = (k) => THEMES[k] || THEMES.pink;
+
+        // ---------- Hash mật khẩu (giấu mật khẩu thật khỏi DB) ----------
+        async function hashPw(str) {
+            try {
+                if (crypto && crypto.subtle) {
+                    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('zlv:' + str));
+                    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+                }
+            } catch (_) {}
+            let h = 0; const s = 'zlv:' + str; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+            return 'f' + h.toString(16);
+        }
+
+        // ---------- Toast ----------
+        let toastTimer;
+        function toast(msg, type = 'ok') {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.className = "fixed bottom-5 left-1/2 -translate-x-1/2 z-[80] px-4 py-2.5 rounded-2xl text-white font-bold text-sm shadow-xl pop-in "
+                + (type === 'err' ? 'bg-rose-500' : type === 'warn' ? 'bg-amber-500' : 'bg-gradient-to-r from-pink-400 to-purple-400');
+            el.classList.remove('hidden');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => el.classList.add('hidden'), 2600);
+        }
+
+        // ---------- Cổng mật khẩu chung ----------
+        const gateScreen = document.getElementById('gate-screen');
+        const appScreen = document.getElementById('app-screen');
+        const gateForm = document.getElementById('gate-form');
+        const gateInput = document.getElementById('gate-input');
+        const gateError = document.getElementById('gate-error');
+        document.getElementById('gate-toggle').addEventListener('click', () => {
+            const showing = gateInput.type === 'text';
+            gateInput.type = showing ? 'password' : 'text';
+            document.querySelector('#gate-toggle i').className = showing ? 'fas fa-eye' : 'fas fa-eye-slash';
+            gateInput.focus();
+        });
+        function unlock() { gateScreen.classList.add('hidden'); appScreen.classList.remove('hidden'); startSync(); }
+        gateForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (gateInput.value === PASSWORD) {
+                try { sessionStorage.setItem(UNLOCK_KEY, '1'); } catch (_) {}
+                unlock();
+            } else {
+                gateError.classList.remove('hidden'); gateInput.value = ''; gateInput.focus();
+                gateScreen.querySelector('.pop-in').animate(
+                    [{ transform: 'translateX(0)' }, { transform: 'translateX(-8px)' }, { transform: 'translateX(8px)' }, { transform: 'translateX(0)' }], { duration: 280 });
+            }
+        });
+        gateInput.addEventListener('input', () => gateError.classList.add('hidden'));
+
+        // ---------- Trạng thái ----------
+        let allLinks = [], allFolders = [];
+        let activeFolder = '__all__';
+        let syncing = false, linksLoaded = false, foldersLoaded = false;
+        let masterUnlocked = false;
+        const unlocked = new Set(); // 'l:<id>' hoặc 'f:<id>'
+
+        const grid = document.getElementById('links-grid');
+        const searchInput = document.getElementById('search-input');
+
+        function startSync() {
+            if (syncing) return; syncing = true;
+            onSnapshot(foldersRef, (snap) => {
+                allFolders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                allFolders.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+                foldersLoaded = true;
+                if (activeFolder !== '__all__' && activeFolder !== '__none__' && !allFolders.find(f => f.id === activeFolder)) activeFolder = '__all__';
+                refreshAll();
+            }, () => { foldersLoaded = true; refreshAll(); });
+            onSnapshot(linksRef, (snap) => {
+                allLinks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                allLinks.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+                linksLoaded = true; refreshAll();
+            }, (err) => {
+                document.getElementById('loading-state').innerHTML =
+                    '<i class="fas fa-heart-crack text-3xl mb-3 text-rose-400"></i><p class="font-semibold text-rose-500">Không tải được dữ liệu</p><p class="text-xs mt-1">' + esc(err.message || '') + '</p>';
+            });
+        }
+        function refreshAll() {
+            if (!linksLoaded || !foldersLoaded) return;
+            document.getElementById('loading-state').classList.add('hidden');
+            document.getElementById('link-count').textContent = allLinks.length;
+            document.getElementById('link-count-badge').classList.toggle('hidden', allLinks.length === 0);
+            populateFolderSelects(); renderFolderBar(); render();
+        }
+
+        // ---------- Tiện ích ----------
+        function normalizeUrl(raw) {
+            let u = (raw || '').trim(); if (!u) return '';
+            if (!/^https?:\/\//i.test(u) && !/^mailto:|^tel:/i.test(u)) u = 'https://' + u;
+            return u;
+        }
+        function hostOf(url) { try { return new URL(url).hostname.replace(/^www\./, ''); } catch (_) { return url; } }
+        function faviconOf(url) { try { return 'https://www.google.com/s2/favicons?sz=64&domain=' + new URL(url).hostname; } catch (_) { return ''; } }
+        function previewOf(url) { return 'https://image.thum.io/get/width/600/noanimate/' + url; }
+        function esc(s) { return (s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+        function folderById(id) { return allFolders.find(f => f.id === id); }
+        function countInFolder(id) {
+            if (id === '__all__') return allLinks.length;
+            if (id === '__none__') return allLinks.filter(l => !l.folderId || !folderById(l.folderId)).length;
+            return allLinks.filter(l => l.folderId === id).length;
+        }
+        function folderUnlocked(f) { return masterUnlocked || !f || !f.pw || unlocked.has('f:' + f.id); }
+        function linkRevealed(l) {
+            if (masterUnlocked) return true;
+            const f = folderById(l.folderId);
+            if (f && f.pw && !unlocked.has('f:' + f.id)) return false;
+            if (l.pw && !unlocked.has('l:' + l.id)) return false;
+            return true;
+        }
+
+        // ---------- Hỏi mật khẩu (Promise) ----------
+        const pwModal = document.getElementById('pw-modal');
+        const pwInput = document.getElementById('pw-input');
+        const pwError = document.getElementById('pw-error');
+        let pwResolver = null;
+        function askPassword(title, sub) {
+            return new Promise(res => {
+                pwResolver = res;
+                document.getElementById('pw-modal-title').textContent = title || 'Nhập mật khẩu';
+                document.getElementById('pw-modal-sub').textContent = sub || '';
+                pwInput.value = ''; pwInput.type = 'password'; pwError.classList.add('hidden');
+                document.querySelector('#pw-toggle i').className = 'fas fa-eye';
+                pwModal.classList.remove('hidden');
+                setTimeout(() => pwInput.focus(), 50);
+            });
+        }
+        function closePw(val) { pwModal.classList.add('hidden'); const r = pwResolver; pwResolver = null; if (r) r(val); }
+        document.getElementById('pw-form').addEventListener('submit', (e) => { e.preventDefault(); closePw(pwInput.value); });
+        pwModal.querySelectorAll('[data-close-pw]').forEach(el => el.addEventListener('click', () => closePw(null)));
+        document.getElementById('pw-toggle').addEventListener('click', () => {
+            const showing = pwInput.type === 'text';
+            pwInput.type = showing ? 'password' : 'text';
+            document.querySelector('#pw-toggle i').className = showing ? 'fas fa-eye' : 'fas fa-eye-slash';
+            pwInput.focus();
+        });
+
+        // Trả về true nếu mở được (đúng mật khẩu của item, hoặc master key)
+        async function tryUnlock(type, item) {
+            const name = type === 'f' ? item.name : ((item.title || '').trim() || hostOf(item.url));
+            const input = await askPassword(type === 'f' ? '🔒 Mở khóa thư mục' : '🔒 Mở khóa link', name);
+            if (input == null || input === '') return false;
+            if (input === MASTER_KEY) { masterUnlocked = true; updateMasterBadge(); toast('Đã bật chế độ chủ 🔑'); refreshAll(); return true; }
+            const h = await hashPw(input);
+            if (h === item.pw) { unlocked.add(type + ':' + item.id); toast('Mở khóa thành công 🔓'); return true; }
+            toast('Sai mật khẩu', 'err'); return false;
+        }
+        // Đảm bảo có quyền mở 1 link (mở khóa thư mục trước nếu cần, rồi tới link)
+        async function ensureLinkOpen(l) {
+            if (masterUnlocked) return true;
+            const f = folderById(l.folderId);
+            if (f && f.pw && !unlocked.has('f:' + f.id)) { if (!await tryUnlock('f', f)) return false; }
+            if (masterUnlocked) return true;
+            if (l.pw && !unlocked.has('l:' + l.id)) { if (!await tryUnlock('l', l)) return false; }
+            return true;
+        }
+
+        function updateMasterBadge() {
+            document.getElementById('master-badge').classList.toggle('hidden', !masterUnlocked);
+            document.getElementById('master-badge').classList.toggle('inline-flex', masterUnlocked);
+        }
+        document.getElementById('master-badge').addEventListener('click', () => {
+            masterUnlocked = false; unlocked.clear(); updateMasterBadge(); refreshAll(); toast('Đã tắt chế độ chủ');
+        });
+
+        // ---------- Folder bar ----------
+        function renderFolderBar() {
+            const bar = document.getElementById('folder-bar');
+            const cards = [folderCard('__all__', 'Tất cả', '🗂️', 'pink', false, false)];
+            allFolders.forEach(f => cards.push(folderCard(f.id, f.name, f.icon || '📁', f.color || 'pink', true, !!(f.pw) && !folderUnlocked(f))));
+            if (countInFolder('__none__') > 0) cards.push(folderCard('__none__', 'Chưa phân loại', '🌷', 'rose', false, false));
+            bar.innerHTML = cards.join('');
+            bar.querySelectorAll('[data-folder]').forEach(el => el.addEventListener('click', async () => {
+                const id = el.dataset.folder;
+                const f = folderById(id);
+                if (f && f.pw && !folderUnlocked(f)) { if (!await tryUnlock('f', f)) return; }
+                activeFolder = id; renderFolderBar(); render();
+            }));
+            bar.querySelectorAll('[data-edit-folder]').forEach(el => el.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const f = folderById(el.dataset.editFolder);
+                if (f && f.pw && !folderUnlocked(f)) { if (!await tryUnlock('f', f)) return; }
+                openFolderModal(el.dataset.editFolder);
+            }));
+        }
+        function folderCard(id, name, icon, color, editable, locked) {
+            const t = theme(color);
+            const on = activeFolder === id;
+            const cnt = countInFolder(id);
+            return `
+            <button type="button" data-folder="${esc(id)}"
+                class="relative flex-shrink-0 w-36 rounded-2xl p-3.5 text-left transition-all duration-300 bg-gradient-to-br ${t.grad} ${on ? 'ring-4 ring-offset-2 ' + t.ring + ' scale-[1.04] shadow-xl font-bold' : 'opacity-85 hover:opacity-100 hover:-translate-y-1 shadow-md hover:shadow-lg'} border border-white/60">
+                ${editable ? `<span data-edit-folder="${esc(id)}" class="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-full bg-white/80 text-gray-500 hover:text-pink-600 hover:bg-white transition text-xs shadow-sm" title="Sửa thư mục"><i class="fas fa-pen"></i></span>` : ''}
+                <div class="text-2xl mb-2 drop-shadow-sm">${locked ? '🔒' : icon}</div>
+                <div class="font-bold text-gray-800 text-sm leading-tight truncate pr-5 font-display">${esc(name)}</div>
+                <div class="text-[11px] font-semibold text-gray-500 mt-0.5 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-pink-400"></span>${cnt} liên kết${locked ? ' · bảo mật' : ''}</div>
+            </button>`;
+        }
+
+        // ---------- Render link ----------
+        function render() {
+            const q = searchInput.value.trim().toLowerCase();
+            document.getElementById('search-clear').classList.toggle('hidden', !q);
+            let list = allLinks;
+            if (activeFolder === '__none__') list = list.filter(l => !l.folderId || !folderById(l.folderId));
+            else if (activeFolder !== '__all__') list = list.filter(l => l.folderId === activeFolder);
+            if (q) list = list.filter(l => [(l.title || ''), (l.url || ''), (l.note || '')].join(' ').toLowerCase().includes(q));
+
+            const titleEl = document.getElementById('current-folder-title');
+            if (activeFolder === '__all__') { titleEl.classList.add('hidden'); titleEl.classList.remove('flex'); }
+            else {
+                const f = folderById(activeFolder);
+                const label = activeFolder === '__none__' ? '🌷 Chưa phân loại' : `${f ? (f.icon || '📁') : ''} ${f ? f.name : ''}`;
+                titleEl.innerHTML = `<i class="fas fa-folder-open text-pink-400"></i> Đang xem: <span class="text-gradient">${esc(label)}</span> <span class="text-gray-400 font-medium">(${list.length})</span>`;
+                titleEl.classList.remove('hidden'); titleEl.classList.add('flex');
+            }
+
+            document.getElementById('empty-state').classList.toggle('hidden', allLinks.length !== 0);
+            document.getElementById('no-result-state').classList.toggle('hidden', !(allLinks.length !== 0 && list.length === 0));
+
+            grid.innerHTML = list.map(cardHtml).join('');
+
+            grid.querySelectorAll('img.preview-img').forEach(img => {
+                img.addEventListener('error', () => img.remove());
+                img.addEventListener('load', () => { const fb = img.parentElement.querySelector('.preview-fallback'); if (fb) fb.style.opacity = '0'; });
+            });
+            grid.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => {
+                navigator.clipboard.writeText(b.dataset.copy).then(() => toast('Đã sao chép link 📋')).catch(() => toast('Không sao chép được', 'err'));
+            }));
+            grid.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', async () => {
+                const l = allLinks.find(x => x.id === b.dataset.edit); if (!l) return;
+                if (!await ensureLinkOpen(l)) return;
+                openLinkModal(l.id);
+            }));
+            grid.querySelectorAll('[data-open-locked]').forEach(b => b.addEventListener('click', async () => {
+                const l = allLinks.find(x => x.id === b.dataset.openLocked); if (!l) return;
+                if (!await ensureLinkOpen(l)) return;
+                render();
+                window.open(l.url, '_blank', 'noopener');
+            }));
+        }
+
+        function cardHtml(l) {
+            const url = l.url || '';
+            const title = (l.title || '').trim() || hostOf(url);
+            const f = folderById(l.folderId);
+            const t = f ? theme(f.color) : theme('pink');
+            const initial = (title.trim()[0] || '?').toUpperCase();
+            const folderChip = f ? `<span class="absolute top-2.5 right-2.5 ${t.soft} ${t.text} text-[10px] font-bold px-2 py-1 rounded-full shadow-sm flex items-center gap-1">${f.icon || '📁'} ${esc(f.name)}</span>` : '';
+            const revealed = linkRevealed(l);
+
+            if (!revealed) {
+                // ----- Thẻ KHÓA: chỉ hiện tên + mô tả, không hiện link -----
+                return `
+                <div class="group glass-card rounded-[2rem] border border-pink-200/70 shadow-md hover:shadow-2xl hover:shadow-pink-500/15 hover:-translate-y-1.5 transition-all duration-300 ease-out overflow-hidden flex flex-col pop-in relative">
+                    <div class="relative h-40 overflow-hidden bg-gradient-to-tr ${t.grad} flex items-center justify-center border-b border-white/50">
+                        <div class="absolute inset-0 bg-white/20 backdrop-blur-[2px]"></div>
+                        <div class="text-center text-white z-10 p-4">
+                            <div class="w-14 h-14 mx-auto rounded-2xl bg-white/30 backdrop-blur-md flex items-center justify-center text-2xl mb-2 shadow-inner border border-white/40 group-hover:scale-110 transition-transform duration-300"><i class="fas fa-lock"></i></div>
+                            <div class="text-xs font-bold tracking-wider uppercase drop-shadow-sm font-display">Liên kết bảo mật</div>
+                        </div>
+                        ${folderChip}
+                    </div>
+                    <div class="p-5 flex flex-col gap-2 flex-1 bg-white/60">
+                        <h3 class="font-bold text-gray-800 text-base leading-snug break-words line-clamp-2 font-display">${esc(title)}</h3>
+                        <p class="text-[11px] text-pink-500 font-bold flex items-center gap-1"><i class="fas fa-shield-halved text-[10px]"></i> Cần mật khẩu để truy cập</p>
+                        ${l.note ? `<p class="text-xs text-gray-600 bg-white/80 border border-pink-100/80 rounded-xl px-3 py-2 break-words mt-1 shadow-sm font-medium">${esc(l.note)}</p>` : ''}
+                        <div class="flex items-center gap-2 mt-auto pt-4">
+                            <button type="button" data-open-locked="${esc(l.id)}"
+                                class="flex-1 text-center py-2.5 rounded-xl bg-gradient-to-r from-pink-500 via-rose-400 to-purple-500 text-white text-xs font-bold shadow-md shadow-pink-500/20 hover:shadow-pink-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2">
+                                <i class="fas fa-key"></i> Nhập mật khẩu để mở
+                            </button>
+                            <button type="button" data-edit="${esc(l.id)}" title="Chỉnh sửa"
+                                class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-purple-100 text-purple-500 hover:bg-purple-50 hover:scale-105 transition shadow-sm"><i class="fas fa-pen text-xs"></i></button>
+                        </div>
+                    </div>
+                </div>`;
+            }
+
+            // ----- Thẻ MỞ (bình thường) -----
+            const protectedBadge = l.pw ? `<span class="absolute top-3 left-14 bg-emerald-500/90 backdrop-blur text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md flex items-center gap-1 border border-white/20"><i class="fas fa-lock-open text-[9px]"></i> Bảo mật</span>` : '';
+            return `
+            <div class="group glass-card rounded-[2rem] border border-pink-200/70 shadow-md hover:shadow-2xl hover:shadow-pink-500/15 hover:-translate-y-1.5 transition-all duration-300 ease-out overflow-hidden flex flex-col pop-in relative">
+                <div class="relative h-40 overflow-hidden bg-gradient-to-tr ${t.grad} border-b border-white/50">
+                    <div class="preview-fallback absolute inset-0 flex items-center justify-center transition-opacity duration-300">
+                        <span class="text-6xl font-bold text-white/80 drop-shadow-md font-display">${esc(initial)}</span>
+                    </div>
+                    <img class="preview-img absolute inset-0 w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500 ease-out" loading="lazy" src="${esc(previewOf(url))}" alt="">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div class="absolute top-3 left-3 w-9 h-9 rounded-xl bg-white/95 backdrop-blur shadow-md flex items-center justify-center overflow-hidden border border-white/80 group-hover:scale-110 transition-transform duration-300">
+                        <img src="${esc(faviconOf(url))}" style="width:20px;height:20px" onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'fas fa-link text-pink-500 text-sm'}))">
+                    </div>
+                    ${protectedBadge}
+                    ${folderChip}
+                </div>
+                <div class="p-5 flex flex-col gap-2 flex-1 bg-white/60">
+                    <h3 class="font-bold text-gray-800 text-base leading-snug break-words line-clamp-2 font-display group-hover:text-pink-600 transition-colors">${esc(title)}</h3>
+                    <p class="text-xs text-pink-500 font-bold truncate flex items-center gap-1.5" title="${esc(url)}"><i class="fas fa-globe text-[10px] text-pink-400"></i>${esc(hostOf(url))}</p>
+                    ${l.note ? `<p class="text-xs text-gray-600 bg-white/80 border border-pink-100/80 rounded-xl px-3 py-2 break-words mt-1 shadow-sm font-medium">${esc(l.note)}</p>` : ''}
+                    <div class="flex items-center gap-2 mt-auto pt-4">
+                        <a href="${esc(url)}" target="_blank" rel="noopener noreferrer"
+                            class="flex-1 text-center py-2.5 rounded-xl bg-gradient-to-r from-pink-500 via-rose-400 to-purple-500 text-white text-xs font-bold shadow-md shadow-pink-500/20 hover:shadow-pink-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2">
+                            <i class="fas fa-arrow-up-right-from-square"></i> Mở liên kết
+                        </a>
+                        <button type="button" data-copy="${esc(url)}" title="Sao chép URL"
+                            class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-pink-100 text-pink-500 hover:bg-pink-50 hover:scale-105 transition shadow-sm"><i class="fas fa-copy text-xs"></i></button>
+                        <button type="button" data-edit="${esc(l.id)}" title="Chỉnh sửa"
+                            class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-purple-100 text-purple-500 hover:bg-purple-50 hover:scale-105 transition shadow-sm"><i class="fas fa-pen text-xs"></i></button>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        // ---------- Folder selects ----------
+        function populateFolderSelects() {
+            const opts = '<option value="">— Chưa phân loại —</option>' +
+                allFolders.map(f => `<option value="${esc(f.id)}">${f.icon || '📁'} ${esc(f.name)}${f.pw ? ' 🔒' : ''}</option>`).join('');
+            const fSel = document.getElementById('f-folder'), eSel = document.getElementById('e-folder');
+            const fVal = fSel.value, eVal = eSel.value;
+            fSel.innerHTML = opts; eSel.innerHTML = opts; fSel.value = fVal; eSel.value = eVal;
+        }
+
+        // ---------- Thêm link ----------
+        const addForm = document.getElementById('add-form');
+        const addBtn = document.getElementById('add-btn');
+        const addStatus = document.getElementById('add-status');
+        addForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const url = normalizeUrl(document.getElementById('f-url').value);
+            if (!url) { toast('Hãy nhập đường dẫn nha', 'warn'); return; }
+            const pwRaw = document.getElementById('f-pw').value;
+            addBtn.disabled = true; addBtn.classList.add('opacity-60'); addStatus.textContent = 'Đang lưu...';
+            try {
+                await addDoc(linksRef, {
+                    url,
+                    title: document.getElementById('f-title').value.trim(),
+                    folderId: document.getElementById('f-folder').value || '',
+                    note: document.getElementById('f-note').value.trim(),
+                    pw: pwRaw ? await hashPw(pwRaw) : '',
+                    createdAt: serverTimestamp(),
+                });
+                const keepFolder = document.getElementById('f-folder').value;
+                addForm.reset();
+                if (typeof resetFormPreview === 'function') resetFormPreview();
+                document.getElementById('f-folder').value = keepFolder;
+                addStatus.textContent = ''; toast('Đã thêm link 🎉');
+                if (typeof toggleAddForm === 'function') toggleAddForm(false);
+            } catch (err) { addStatus.textContent = ''; toast('Lưu thất bại: ' + (err.message || 'lỗi'), 'err'); }
+            finally { addBtn.disabled = false; addBtn.classList.remove('opacity-60'); }
+        });
+        document.getElementById('f-url').addEventListener('focus', () => {
+            const sel = document.getElementById('f-folder');
+            if (!sel.value && folderById(activeFolder)) sel.value = activeFolder;
+        });
+
+        // ---------- Tự động lấy metadata (Hình ảnh, Favicon, Tên, Mô tả) khi nhập link ----------
+        let fetchMetaTimeout = null;
+        let lastFetchedUrl = '';
+        let isAutoFilledTitle = false;
+        let isAutoFilledNote = false;
+        const fUrlInput = document.getElementById('f-url');
+        const fTitleInput = document.getElementById('f-title');
+        const fNoteInput = document.getElementById('f-note');
+        const previewBox = document.getElementById('form-url-preview-box');
+        const previewImg = document.getElementById('form-preview-img');
+        const previewFavicon = document.getElementById('form-preview-favicon');
+        const previewTitle = document.getElementById('form-preview-title');
+        const previewUrlSpan = document.querySelector('#form-preview-url span');
+        const previewDesc = document.getElementById('form-preview-desc');
+        const fetchStatus = document.getElementById('form-fetch-status');
+        const refetchBtn = document.getElementById('refetch-meta-btn');
+
+        function resetFormPreview() {
+            if (previewBox) previewBox.classList.add('hidden');
+            lastFetchedUrl = '';
+            isAutoFilledTitle = false;
+            isAutoFilledNote = false;
+            if (fetchMetaTimeout) clearTimeout(fetchMetaTimeout);
+        }
+
+        fTitleInput.addEventListener('input', () => { isAutoFilledTitle = false; });
+        fNoteInput.addEventListener('input', () => { isAutoFilledNote = false; });
+
+        async function fetchUrlMetadata(url) {
+            // Layer 1: Microlink API
+            try {
+                const ctrl = new AbortController();
+                const timer = setTimeout(() => ctrl.abort(), 6000);
+                const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`, { signal: ctrl.signal });
+                clearTimeout(timer);
+                if (res.ok) {
+                    const json = await res.json();
+                    if (json.status === 'success' && json.data) {
+                        const d = json.data;
+                        if (d.title || d.description || d.image?.url) {
+                            return {
+                                title: d.title || '',
+                                description: d.description || '',
+                                image: d.image?.url || previewOf(url),
+                                icon: d.logo?.url || faviconOf(url)
+                            };
+                        }
+                    }
+                }
+            } catch (_) {}
+
+            // Layer 2: AllOrigins proxy HTML extraction
+            try {
+                const ctrl2 = new AbortController();
+                const timer2 = setTimeout(() => ctrl2.abort(), 6000);
+                const res2 = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, { signal: ctrl2.signal });
+                clearTimeout(timer2);
+                if (res2.ok) {
+                    const json2 = await res2.json();
+                    if (json2.contents) {
+                        const doc = new DOMParser().parseFromString(json2.contents, "text/html");
+                        const ogTitle = doc.querySelector('meta[property="og:title"]')?.content || doc.querySelector('title')?.textContent || '';
+                        const ogDesc = doc.querySelector('meta[property="og:description"]')?.content || doc.querySelector('meta[name="description"]')?.content || '';
+                        const ogImg = doc.querySelector('meta[property="og:image"]')?.content || previewOf(url);
+                        const iconLink = doc.querySelector('link[rel*="icon"]')?.href || faviconOf(url);
+                        if (ogTitle || ogDesc) {
+                            return {
+                                title: ogTitle.trim(),
+                                description: ogDesc.trim(),
+                                image: ogImg,
+                                icon: iconLink
+                            };
+                        }
+                    }
+                }
+            } catch (_) {}
+
+            // Layer 3: Fallback (thum.io + google favicon)
+            return {
+                title: hostOf(url),
+                description: '',
+                image: previewOf(url),
+                icon: faviconOf(url)
+            };
+        }
+
+        async function triggerUrlFetch(force = false) {
+            if (!fUrlInput) return;
+            let url = (fUrlInput.value || '').trim();
+            if (!url || !/^https?:\/\/.+/i.test(url) && !/^[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,5}(:[0-9]{1,5})?(\/.*)?$/i.test(url)) {
+                if (previewBox) previewBox.classList.add('hidden');
+                return;
+            }
+            url = normalizeUrl(url);
+            if (!force && url === lastFetchedUrl) return;
+            lastFetchedUrl = url;
+
+            // Hiển thị ngay khung preview với ảnh screenshot & icon mặc định
+            if (previewBox) previewBox.classList.remove('hidden');
+            if (previewUrlSpan) previewUrlSpan.textContent = hostOf(url);
+            if (previewTitle) previewTitle.textContent = hostOf(url);
+            if (previewDesc) previewDesc.textContent = 'Đang tự động tra cứu thông tin chi tiết...';
+            if (previewImg) {
+                previewImg.style.display = 'block';
+                previewImg.src = previewOf(url);
+            }
+            if (previewFavicon) {
+                previewFavicon.style.display = 'inline-block';
+                previewFavicon.src = faviconOf(url);
+            }
+            if (fetchStatus) {
+                fetchStatus.className = 'inline-flex items-center gap-1.5 text-[11px] font-bold text-pink-600 bg-white/90 px-3 py-1 rounded-full border border-pink-200/80 shadow-sm animate-pulse';
+                fetchStatus.innerHTML = '<i class="fas fa-spinner fa-spin text-pink-500"></i> Đang đọc Tên & Mô tả từ web...';
+            }
+            if (refetchBtn) refetchBtn.classList.add('hidden');
+
+            if (fetchMetaTimeout) clearTimeout(fetchMetaTimeout);
+            fetchMetaTimeout = setTimeout(async () => {
+                try {
+                    const meta = await fetchUrlMetadata(url);
+                    if (lastFetchedUrl !== url) return;
+
+                    if (meta.image && previewImg) { previewImg.style.display = 'block'; previewImg.src = meta.image; }
+                    if (meta.icon && previewFavicon) { previewFavicon.style.display = 'inline-block'; previewFavicon.src = meta.icon; }
+                    if (previewTitle) previewTitle.textContent = meta.title || hostOf(url);
+                    if (previewDesc) previewDesc.textContent = meta.description || 'Chưa có mô tả chi tiết cho trang web này.';
+
+                    if (meta.title && fTitleInput && (fTitleInput.value.trim() === '' || isAutoFilledTitle || force)) {
+                        fTitleInput.value = meta.title;
+                        isAutoFilledTitle = true;
+                        highlightInput(fTitleInput);
+                    }
+                    if (meta.description && fNoteInput && (fNoteInput.value.trim() === '' || isAutoFilledNote || force)) {
+                        fNoteInput.value = meta.description;
+                        isAutoFilledNote = true;
+                        highlightInput(fNoteInput);
+                    }
+
+                    if (fetchStatus) {
+                        fetchStatus.className = 'inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200/80 shadow-sm';
+                        fetchStatus.innerHTML = '<i class="fas fa-check-circle text-emerald-500"></i> Đã tự động điền Tên & Mô tả ✨';
+                    }
+                    if (refetchBtn) refetchBtn.classList.remove('hidden');
+                } catch (err) {
+                    if (fetchStatus) {
+                        fetchStatus.className = 'inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200/80 shadow-sm';
+                        fetchStatus.innerHTML = '<i class="fas fa-circle-info text-amber-500"></i> Đã tải hình ảnh preview';
+                    }
+                    if (refetchBtn) refetchBtn.classList.remove('hidden');
+                }
+            }, 450);
+        }
+
+        function highlightInput(inputEl) {
+            if (!inputEl) return;
+            inputEl.classList.add('ring-4', 'ring-pink-300/60', 'bg-pink-50/70');
+            setTimeout(() => {
+                if (inputEl) inputEl.classList.remove('ring-4', 'ring-pink-300/60', 'bg-pink-50/70');
+            }, 1200);
+        }
+
+        if (fUrlInput) {
+            fUrlInput.addEventListener('input', () => triggerUrlFetch(false));
+            fUrlInput.addEventListener('paste', () => setTimeout(() => triggerUrlFetch(false), 50));
+            fUrlInput.addEventListener('blur', () => triggerUrlFetch(false));
+        }
+        if (refetchBtn) refetchBtn.addEventListener('click', () => {
+            isAutoFilledTitle = true;
+            isAutoFilledNote = true;
+            triggerUrlFetch(true);
+            toast('Đang tải lại thông tin web... 🔄');
+        });
+
+        // ---------- Toggle Form Thêm Link (Accordion) ----------
+        const addFormContainer = document.getElementById('add-form-container');
+        const toggleAddFormBtn = document.getElementById('toggle-add-form-btn');
+        const closeAddFormBtn = document.getElementById('close-add-form-btn');
+        const cancelAddBtn = document.getElementById('cancel-add-btn');
+        function toggleAddForm(show) {
+            if (!addFormContainer) return;
+            const isHidden = addFormContainer.classList.contains('hidden');
+            const shouldShow = show !== undefined ? show : isHidden;
+            if (shouldShow) {
+                addFormContainer.classList.remove('hidden');
+                setTimeout(() => { const urlInput = document.getElementById('f-url'); if (urlInput) urlInput.focus(); }, 100);
+                if (toggleAddFormBtn) toggleAddFormBtn.innerHTML = '<i class="fas fa-angle-up text-xs"></i> Ẩn form';
+            } else {
+                addFormContainer.classList.add('hidden');
+                if (toggleAddFormBtn) toggleAddFormBtn.innerHTML = '<i class="fas fa-plus text-xs"></i> Thêm link ngay';
+                if (typeof resetFormPreview === 'function') resetFormPreview();
+            }
+        }
+        if (toggleAddFormBtn) toggleAddFormBtn.addEventListener('click', () => toggleAddForm());
+        if (closeAddFormBtn) closeAddFormBtn.addEventListener('click', () => toggleAddForm(false));
+        if (cancelAddBtn) cancelAddBtn.addEventListener('click', () => toggleAddForm(false));
+
+        // ---------- Sửa / xóa link ----------
+        const linkModal = document.getElementById('link-modal');
+        let editingLinkId = null, ePwClear = false;
+        function openLinkModal(id) {
+            const l = allLinks.find(x => x.id === id); if (!l) return;
+            editingLinkId = id; ePwClear = false;
+            document.getElementById('e-url').value = l.url || '';
+            document.getElementById('e-title').value = l.title || '';
+            document.getElementById('e-note').value = l.note || '';
+            document.getElementById('e-pw').value = '';
+            populateFolderSelects();
+            document.getElementById('e-folder').value = l.folderId || '';
+            document.getElementById('e-pw-clear').classList.toggle('hidden', !l.pw);
+            document.getElementById('e-pw-hint').classList.toggle('hidden', !l.pw);
+            linkModal.classList.remove('hidden');
+        }
+        function closeLinkModal() { linkModal.classList.add('hidden'); editingLinkId = null; }
+        linkModal.querySelectorAll('[data-close-link]').forEach(el => el.addEventListener('click', closeLinkModal));
+        document.getElementById('e-pw-clear').addEventListener('click', () => {
+            ePwClear = true; document.getElementById('e-pw').value = '';
+            document.getElementById('e-pw-hint').textContent = 'Sẽ bỏ mật khẩu khi lưu.';
+            toast('Mật khẩu sẽ được gỡ khi bấm Lưu', 'warn');
+        });
+        document.getElementById('link-save-btn').addEventListener('click', async () => {
+            if (!editingLinkId) return;
+            const l = allLinks.find(x => x.id === editingLinkId);
+            const url = normalizeUrl(document.getElementById('e-url').value);
+            if (!url) { toast('Đường dẫn không được trống', 'warn'); return; }
+            const raw = document.getElementById('e-pw').value;
+            let pw = l ? (l.pw || '') : '';
+            if (raw) pw = await hashPw(raw); else if (ePwClear) pw = '';
+            try {
+                await updateDoc(doc(db, 'shared_links', editingLinkId), {
+                    url,
+                    title: document.getElementById('e-title').value.trim(),
+                    note: document.getElementById('e-note').value.trim(),
+                    folderId: document.getElementById('e-folder').value || '',
+                    pw,
+                });
+                closeLinkModal(); toast('Đã cập nhật 💝');
+            } catch (err) { toast('Lỗi: ' + (err.message || ''), 'err'); }
+        });
+        document.getElementById('link-delete-btn').addEventListener('click', async () => {
+            if (!editingLinkId) return;
+            if (!confirm('Xóa link này? Link sẽ biến mất với tất cả mọi người.')) return;
+            try { await deleteDoc(doc(db, 'shared_links', editingLinkId)); closeLinkModal(); toast('Đã xóa link 🗑️'); }
+            catch (err) { toast('Xóa thất bại: ' + (err.message || ''), 'err'); }
+        });
+
+        // ---------- Modal thư mục ----------
+        const folderModal = document.getElementById('folder-modal');
+        let editingFolderId = null, pickedEmoji = '📁', pickedColor = 'pink', folderPwClear = false;
+        document.getElementById('emoji-picker').innerHTML = EMOJIS.map(e =>
+            `<button type="button" data-emoji="${e}" class="w-10 h-10 rounded-xl bg-pink-50 hover:bg-pink-100 text-xl flex items-center justify-center transition">${e}</button>`).join('');
+        document.getElementById('color-picker').innerHTML = COLOR_KEYS.map(k =>
+            `<button type="button" data-color="${k}" class="w-9 h-9 rounded-full bg-gradient-to-br ${THEMES[k].grad} transition shadow-sm"></button>`).join('');
+        function syncPickerUI() {
+            document.querySelectorAll('#emoji-picker [data-emoji]').forEach(b => {
+                const on = b.dataset.emoji === pickedEmoji;
+                b.className = `w-10 h-10 rounded-xl text-xl flex items-center justify-center transition ${on ? 'bg-pink-200 ring-2 ring-pink-400' : 'bg-pink-50 hover:bg-pink-100'}`;
+            });
+            document.querySelectorAll('#color-picker [data-color]').forEach(b => {
+                const on = b.dataset.color === pickedColor;
+                b.className = `w-9 h-9 rounded-full bg-gradient-to-br ${THEMES[b.dataset.color].grad} transition shadow-sm ${on ? 'ring-4 ring-offset-1 ' + THEMES[b.dataset.color].ring + ' scale-110' : 'hover:scale-105'}`;
+            });
+        }
+        document.getElementById('emoji-picker').addEventListener('click', (e) => { const b = e.target.closest('[data-emoji]'); if (b) { pickedEmoji = b.dataset.emoji; syncPickerUI(); } });
+        document.getElementById('color-picker').addEventListener('click', (e) => { const b = e.target.closest('[data-color]'); if (b) { pickedColor = b.dataset.color; syncPickerUI(); } });
+        function openFolderModal(id) {
+            editingFolderId = id || null; folderPwClear = false;
+            const f = id ? folderById(id) : null;
+            document.getElementById('folder-modal-title').innerHTML = f ? '<i class="fas fa-pen-to-square"></i> Sửa thư mục' : '<i class="fas fa-folder-plus"></i> Thư mục mới';
+            document.getElementById('folder-name').value = f ? f.name : '';
+            document.getElementById('folder-pw').value = '';
+            pickedEmoji = f ? (f.icon || '📁') : '📁';
+            pickedColor = f ? (f.color || 'pink') : 'pink';
+            document.getElementById('folder-delete-btn').classList.toggle('hidden', !f);
+            document.getElementById('folder-pw-clear').classList.toggle('hidden', !(f && f.pw));
+            const hint = document.getElementById('folder-pw-hint');
+            hint.textContent = 'Thư mục đang có mật khẩu. Để trống = giữ nguyên.';
+            hint.classList.toggle('hidden', !(f && f.pw));
+            syncPickerUI(); folderModal.classList.remove('hidden');
+            setTimeout(() => document.getElementById('folder-name').focus(), 50);
+        }
+        function closeFolderModal() { folderModal.classList.add('hidden'); editingFolderId = null; }
+        document.getElementById('open-create-folder').addEventListener('click', () => openFolderModal(null));
+        folderModal.querySelectorAll('[data-close-folder]').forEach(el => el.addEventListener('click', closeFolderModal));
+        document.getElementById('folder-pw-clear').addEventListener('click', () => {
+            folderPwClear = true; document.getElementById('folder-pw').value = '';
+            document.getElementById('folder-pw-hint').textContent = 'Sẽ bỏ mật khẩu khi lưu.';
+            toast('Mật khẩu thư mục sẽ được gỡ khi bấm Lưu', 'warn');
+        });
+        document.getElementById('folder-save-btn').addEventListener('click', async () => {
+            const name = document.getElementById('folder-name').value.trim();
+            if (!name) { toast('Đặt tên cho thư mục nha', 'warn'); return; }
+            const raw = document.getElementById('folder-pw').value;
+            try {
+                if (editingFolderId) {
+                    const cur = folderById(editingFolderId);
+                    let pw = cur ? (cur.pw || '') : '';
+                    if (raw) pw = await hashPw(raw); else if (folderPwClear) pw = '';
+                    await updateDoc(doc(db, 'shared_link_folders', editingFolderId), { name, icon: pickedEmoji, color: pickedColor, pw });
+                    toast('Đã cập nhật thư mục 💕');
+                } else {
+                    const ref = await addDoc(foldersRef, { name, icon: pickedEmoji, color: pickedColor, pw: raw ? await hashPw(raw) : '', createdAt: serverTimestamp() });
+                    if (raw) unlocked.add('f:' + ref.id); // người tạo mở sẵn
+                    activeFolder = ref.id; toast('Đã tạo thư mục 🎀');
+                }
+                closeFolderModal();
+            } catch (err) { toast('Lỗi: ' + (err.message || ''), 'err'); }
+        });
+        document.getElementById('folder-delete-btn').addEventListener('click', async () => {
+            if (!editingFolderId) return;
+            const cnt = countInFolder(editingFolderId);
+            if (!confirm(`Xóa thư mục này?\n${cnt} link bên trong sẽ chuyển sang "Chưa phân loại" (không bị mất).`)) return;
+            try {
+                const batch = writeBatch(db);
+                allLinks.filter(l => l.folderId === editingFolderId).forEach(l => batch.update(doc(db, 'shared_links', l.id), { folderId: '' }));
+                batch.delete(doc(db, 'shared_link_folders', editingFolderId));
+                await batch.commit();
+                if (activeFolder === editingFolderId) activeFolder = '__all__';
+                closeFolderModal(); toast('Đã xóa thư mục 🗑️');
+            } catch (err) { toast('Xóa thất bại: ' + (err.message || ''), 'err'); }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') { if (!pwModal.classList.contains('hidden')) closePw(null); closeFolderModal(); closeLinkModal(); }
+        });
+
+        // ---------- Tìm kiếm ----------
+        searchInput.addEventListener('input', render);
+        document.getElementById('search-clear').addEventListener('click', () => { searchInput.value = ''; render(); searchInput.focus(); });
+
+        // ---------- Khóa kho link & Auto-unlock an toàn ----------
+        const lockBtn = document.getElementById('lock-vault-btn');
+        if (lockBtn) {
+            lockBtn.addEventListener('click', () => {
+                try { sessionStorage.removeItem(UNLOCK_KEY); } catch (_) {}
+                appScreen.classList.add('hidden');
+                gateScreen.classList.remove('hidden');
+                gateInput.value = '';
+                gateInput.focus();
+                toast('Đã khóa kho link 🔒');
+            });
+        }
+
+        // Kích hoạt unlock SAU KHI toàn bộ hàm, biến DOM và sự kiện đã được khởi tạo hoàn tất (tránh lỗi TDZ ReferenceError)
+        try {
+            if (sessionStorage.getItem(UNLOCK_KEY) === '1') {
+                unlock();
+            } else {
+                gateInput.focus();
+            }
+        } catch (_) {
+            gateInput.focus();
+        }
+    </script>
+</body>
+
+</html>

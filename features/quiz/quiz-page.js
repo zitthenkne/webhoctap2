@@ -2341,10 +2341,6 @@ document.addEventListener('DOMContentLoaded', () => {
         memeCheckbox.addEventListener('change', () => setMemeEnabled(memeCheckbox.checked));
     }
 
-    const retryWrongBtn = document.getElementById('retry-wrong-btn');
-    if (retryWrongBtn) {
-        retryWrongBtn.addEventListener('click', startIncorrectPracticeMode);
-    }
 
     document.addEventListener('keydown', (e) => {
         const quizContainerElement = document.getElementById('quiz-container');

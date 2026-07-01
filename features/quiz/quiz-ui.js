@@ -204,7 +204,8 @@ export function showResults(totalTime) {
     const percentageStr = percentage.toFixed(1);
     const gpaResult = convertScoreToGPA(correctCount, total);
     const { score4: gpa4, letterGrade, motivation, score10 } = gpaResult;
-    const showPracticeButton = correctCount < total;
+    const incorrectCount = total - correctCount;
+    const showPracticeButton = incorrectCount > 0;
 
     // Màu sắc theo thành tích
     let ringColor = '#ef4444', ringBg = '#fee2e2';
@@ -377,14 +378,40 @@ export function showResults(totalTime) {
                     </div>
                 </div>
             </div>
+
+            <!-- Instant Redo Loop Banner -->
+            ${showPracticeButton ? `
+            <div class="mt-6 p-5 sm:p-6 bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-red-500/10 border-2 border-amber-400/80 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-md transition-all duration-300">
+                <div class="flex items-center gap-4 text-left">
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-lg flex-shrink-0 animate-bounce">
+                        <i class="fas fa-fire text-2xl"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-extrabold text-gray-800 text-lg sm:text-xl flex flex-wrap items-center gap-2">
+                            <span>Instant Redo Loop</span>
+                            <span class="text-xs bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full font-bold border border-amber-300/60">⚡ Khuyên dùng</span>
+                        </h4>
+                        <p class="text-xs sm:text-sm text-gray-700 font-medium mt-1">Bạn có <span class="text-red-600 font-extrabold text-base">${incorrectCount} câu</span> sai hoặc chưa trả lời. Ôn lại ngay lúc đang có ấn tượng mạnh để nhớ lâu nhất!</p>
+                    </div>
+                </div>
+                <button id="practiceIncorrectBtn" class="w-full md:w-auto px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl shadow-[0_8px_20px_rgba(245,158,11,0.4)] hover:scale-[1.03] active:scale-[0.98] transition-all font-extrabold text-sm sm:text-base flex items-center justify-center gap-2.5 flex-shrink-0">
+                    <i class="fas fa-redo-alt"></i> Làm lại ngay ${incorrectCount} câu sai
+                </button>
+            </div>` : `
+            <div class="mt-6 p-5 sm:p-6 bg-gradient-to-r from-green-500/15 to-emerald-500/15 border-2 border-green-400/80 rounded-2xl flex items-center gap-4 text-left shadow-md">
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-400 to-emerald-500 text-white flex items-center justify-center shadow-lg flex-shrink-0">
+                    <i class="fas fa-trophy text-2xl"></i>
+                </div>
+                <div>
+                    <h4 class="font-extrabold text-green-800 text-lg sm:text-xl">Hoàn hảo! 100% chính xác!</h4>
+                    <p class="text-xs sm:text-sm text-green-700 font-medium mt-1">Bạn đã trả lời đúng toàn bộ ${total} câu hỏi trong phiên này. Quá xuất sắc, không còn câu nào cần làm lại!</p>
+                </div>
+            </div>`}
+
             <div class="mt-6 pt-6 border-t border-gray-100 flex flex-wrap justify-center gap-3">
                 <button id="restartQuizBtn" class="px-5 py-2.5 bg-[#FF69B4] text-white rounded-xl hover:bg-opacity-90 hover:scale-[1.02] transition shadow-md font-semibold flex items-center gap-2">
-                    <i class="fas fa-redo"></i> Làm lại
+                    <i class="fas fa-redo"></i> Làm lại toàn bộ
                 </button>
-                ${showPracticeButton ? `
-                <button id="practiceIncorrectBtn" class="px-5 py-2.5 bg-orange-400 text-white rounded-xl hover:bg-orange-500 hover:scale-[1.02] transition shadow-md font-semibold flex items-center gap-2">
-                    <i class="fas fa-pencil-alt"></i> Luyện câu sai
-                </button>` : ''}
                 <a href="../../index.html#libraryContent" class="px-5 py-2.5 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-100 transition shadow-sm font-semibold flex items-center gap-2">
                     <i class="fas fa-book"></i> Thư viện
                 </a>
