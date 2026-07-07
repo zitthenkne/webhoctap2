@@ -333,6 +333,39 @@
                             </button>
                         </form>
                         <div id="gpa-result-area" class="mt-6 hidden"></div>
+
+                        <!-- Bảng quy đổi tham khảo (đóng/mở) -->
+                        <details class="mt-5 group">
+                            <summary class="cursor-pointer list-none flex items-center gap-1.5 text-xs font-bold text-pink-500 hover:text-pink-600 transition select-none">
+                                <i class="fas fa-chevron-right text-[10px] transition-transform group-open:rotate-90"></i>
+                                Xem bảng quy đổi hệ 10 → điểm chữ → hệ 4
+                            </summary>
+                            <div class="mt-3 overflow-x-auto rounded-xl border border-pink-100">
+                                <table class="w-full text-xs text-center">
+                                    <thead>
+                                        <tr class="bg-pink-50 text-gray-500 font-bold uppercase tracking-wide text-[10px]">
+                                            <th class="py-2 px-2">Hệ 10</th>
+                                            <th class="py-2 px-2">Điểm chữ</th>
+                                            <th class="py-2 px-2">Hệ 4</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-pink-50 text-gray-700 font-semibold">
+                                        <tr><td class="py-1.5">9.5 – 10</td><td class="text-amber-500 font-extrabold">A+</td><td>4.0</td></tr>
+                                        <tr><td class="py-1.5">8.5 – 9.4</td><td class="text-amber-500 font-extrabold">A</td><td>4.0</td></tr>
+                                        <tr><td class="py-1.5">8.0 – 8.4</td><td class="text-emerald-500 font-extrabold">B+</td><td>3.5</td></tr>
+                                        <tr><td class="py-1.5">7.0 – 7.9</td><td class="text-emerald-500 font-extrabold">B</td><td>3.0</td></tr>
+                                        <tr><td class="py-1.5">6.5 – 6.9</td><td class="text-sky-500 font-extrabold">C+</td><td>2.5</td></tr>
+                                        <tr><td class="py-1.5">5.5 – 6.4</td><td class="text-sky-500 font-extrabold">C</td><td>2.0</td></tr>
+                                        <tr><td class="py-1.5">5.0 – 5.4</td><td class="text-violet-500 font-extrabold">D+</td><td>1.5</td></tr>
+                                        <tr><td class="py-1.5">4.0 – 4.9</td><td class="text-violet-500 font-extrabold">D</td><td>1.0</td></tr>
+                                        <tr><td class="py-1.5">&lt; 4.0</td><td class="text-gray-400 font-extrabold">F</td><td>0.0</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <p class="text-[11px] text-gray-400 mt-2 leading-relaxed">
+                                <i class="fas fa-circle-info mr-1"></i>Câu đúng → hệ 10 theo công thức UMP: dưới 50% đúng tính <b>8 × tỉ lệ đúng</b>; 50% = 4.0đ; 60% = 5.0đ; trên 60% tăng dần tới 10đ.
+                            </p>
+                        </details>
                     </section>
 
                     <!-- CARD 2: Tính số câu cần đạt cho từng kỳ thi -->
@@ -342,34 +375,40 @@
                             <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#FF69B4] to-[#D8BFD8] flex items-center justify-center text-white shadow-md shrink-0">
                                 <i class="fas fa-bullseye"></i>
                             </div>
-                            <div>
+                            <div class="min-w-0">
                                 <h3 class="text-lg font-extrabold text-gray-800">Tính số câu cần đạt cho từng kỳ thi</h3>
                                 <p class="text-xs text-gray-400">Đặt mục tiêu GPA và xem cần đúng bao nhiêu câu mỗi lần thi</p>
                             </div>
+                            <button type="button" id="reset-goal-btn"
+                                class="ml-auto w-9 h-9 shrink-0 flex items-center justify-center bg-gray-100 text-gray-500 rounded-xl hover:bg-pink-100 hover:text-pink-500 transition shadow-sm"
+                                title="Xoá dữ liệu đã nhập" aria-label="Xoá dữ liệu đã nhập">
+                                <i class="fas fa-rotate-left"></i>
+                            </button>
                         </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
-                            <div>
-                                <label for="exam-type" class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-1.5">
-                                    <i class="fas fa-clipboard-list text-pink-400"></i> Loại kỳ thi
-                                </label>
-                                <select id="exam-type"
-                                    class="w-full px-4 py-2.5 bg-white border border-pink-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] transition cursor-pointer">
-                                    <option value="pretest">Có pretest (10 · 20 · 70)</option>
-                                    <option value="nopretest">Không pretest (30 · 70)</option>
-                                    <option value="custom">Tùy chỉnh</option>
-                                </select>
-                            </div>
-                            <div id="custom-attempts-row" style="display:none">
-                                <label for="num-attempts" class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-1.5">
-                                    <i class="fas fa-layer-group text-pink-400"></i> Số lần thi
-                                </label>
-                                <select id="num-attempts"
-                                    class="w-full px-4 py-2.5 bg-white border border-pink-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] transition cursor-pointer">
-                                    <option value="1">1 lần</option>
-                                    <option value="2">2 lần</option>
-                                    <option value="3">3 lần</option>
-                                </select>
+                        <div class="mb-5">
+                            <label for="exam-type" class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-1.5">
+                                <i class="fas fa-clipboard-list text-pink-400"></i> Loại kỳ thi
+                            </label>
+                            <select id="exam-type"
+                                class="w-full px-4 py-2.5 bg-white border border-pink-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] transition cursor-pointer">
+                                <option value="pretest">Có pretest (10 · 20 · 70)</option>
+                                <option value="nopretest">Không pretest (30 · 70)</option>
+                                <option value="custom">Tùy chỉnh — nhiều đợt, tự đặt tên</option>
+                            </select>
+                        </div>
+
+                        <!-- Thang điểm mỗi bài: cách quy đổi câu đúng → hệ 10 trước khi nhân trọng số -->
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-5 bg-pink-50/60 border border-pink-100 rounded-xl px-3 py-2.5">
+                            <span class="text-xs font-semibold text-gray-500 flex items-center gap-1.5"
+                                title="Cách quy đổi câu đúng của mỗi bài thi ra điểm hệ 10 trước khi nhân trọng số">
+                                <i class="fas fa-scale-balanced text-pink-400"></i> Thang điểm mỗi bài
+                            </span>
+                            <div id="scale-mode-toggle" class="flex bg-white p-0.5 rounded-lg border border-pink-100 gap-0.5">
+                                <button type="button" data-mode="ump" class="scale-mode-btn px-3 h-7 rounded-md text-xs font-bold transition"
+                                    title="Câu đúng → hệ 10 theo công thức UMP (giống card Quy đổi nhanh phía trên)">Công thức UMP</button>
+                                <button type="button" data-mode="linear" class="scale-mode-btn px-3 h-7 rounded-md text-xs font-bold transition"
+                                    title="Hệ 10 = tỉ lệ câu đúng × 10">% đúng × 10</button>
                             </div>
                         </div>
 
@@ -378,19 +417,33 @@
                         </div>
 
                         <div class="mb-5">
-                            <label for="desired-gpa-4" class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-1.5">
+                            <label class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-2">
                                 <i class="fas fa-star text-amber-400"></i> Điểm hệ 4 mong muốn
                             </label>
-                            <select id="desired-gpa-4"
-                                class="w-full px-4 py-2.5 bg-white border border-pink-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] transition cursor-pointer">
-                                <option value="1.0">1.0 — D</option>
-                                <option value="1.5">1.5 — D+</option>
-                                <option value="2.0">2.0 — C</option>
-                                <option value="2.5">2.5 — C+</option>
-                                <option value="3.0">3.0 — B</option>
-                                <option value="3.5">3.5 — B+</option>
-                                <option value="4.0" selected>4.0 — A</option>
-                            </select>
+                            <input type="hidden" id="desired-gpa-4" value="4.0">
+                            <div id="desired-gpa-chips" class="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
+                                <button type="button" data-gpa="1.0" class="gpa-chip flex flex-col items-center justify-center py-2 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 transition">
+                                    <span class="text-sm font-extrabold leading-none">D</span><span class="text-[10px] font-semibold opacity-70 mt-1">1.0</span>
+                                </button>
+                                <button type="button" data-gpa="1.5" class="gpa-chip flex flex-col items-center justify-center py-2 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 transition">
+                                    <span class="text-sm font-extrabold leading-none">D+</span><span class="text-[10px] font-semibold opacity-70 mt-1">1.5</span>
+                                </button>
+                                <button type="button" data-gpa="2.0" class="gpa-chip flex flex-col items-center justify-center py-2 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 transition">
+                                    <span class="text-sm font-extrabold leading-none">C</span><span class="text-[10px] font-semibold opacity-70 mt-1">2.0</span>
+                                </button>
+                                <button type="button" data-gpa="2.5" class="gpa-chip flex flex-col items-center justify-center py-2 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 transition">
+                                    <span class="text-sm font-extrabold leading-none">C+</span><span class="text-[10px] font-semibold opacity-70 mt-1">2.5</span>
+                                </button>
+                                <button type="button" data-gpa="3.0" class="gpa-chip flex flex-col items-center justify-center py-2 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 transition">
+                                    <span class="text-sm font-extrabold leading-none">B</span><span class="text-[10px] font-semibold opacity-70 mt-1">3.0</span>
+                                </button>
+                                <button type="button" data-gpa="3.5" class="gpa-chip flex flex-col items-center justify-center py-2 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 transition">
+                                    <span class="text-sm font-extrabold leading-none">B+</span><span class="text-[10px] font-semibold opacity-70 mt-1">3.5</span>
+                                </button>
+                                <button type="button" data-gpa="4.0" class="gpa-chip flex flex-col items-center justify-center py-2 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 transition">
+                                    <span class="text-sm font-extrabold leading-none">A</span><span class="text-[10px] font-semibold opacity-70 mt-1">4.0</span>
+                                </button>
+                            </div>
                         </div>
 
                         <!-- Điểm tổng kết tạm tính (cập nhật theo thời gian thực khi nhập / kéo thanh trượt) -->
@@ -403,7 +456,7 @@
                         <div id="required-correct-result" class="mt-5"></div>
                         <div class="flex items-start gap-1.5 text-xs text-gray-400 mt-3">
                             <i class="fas fa-circle-info mt-0.5"></i>
-                            <span>Để trống ô câu đúng của các lần <b>chưa thi</b> để nhận gợi ý số câu cần đạt.</span>
+                            <span>Để trống ô câu đúng của các lần <b>chưa thi</b> để nhận gợi ý số câu cần đạt. Dữ liệu bạn nhập được lưu tự động trên máy; sau lần tính đầu tiên, kết quả sẽ tự cập nhật khi bạn chỉnh số liệu.</span>
                         </div>
                     </section>
                 </div>
