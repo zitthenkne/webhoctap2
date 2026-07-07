@@ -47,12 +47,17 @@ document.addEventListener('DOMContentLoaded', () => {
         avatarDiv.innerText = avatarAnimal;
         avatarDiv.title = displayName;
         avatarDiv.className = el.className;
-        // Click vào AVATAR: sang trang thông tin cá nhân (chưa đăng nhập thì sang auth.html)
+        // Click vào AVATAR: sang trang thông tin cá nhân (chưa đăng nhập thì mở modal đăng nhập)
         avatarDiv.style.cursor = 'pointer';
         avatarDiv.title = user ? 'Thông tin cá nhân' : 'Đăng nhập';
         avatarDiv.onclick = (e) => {
           if (e) e.stopPropagation();
-          window.location.href = user ? 'features/profile/profile.html' : 'features/auth/auth.html';
+          if (user) {
+            window.location.href = 'features/profile/profile.html';
+          } else {
+            const authModal = document.getElementById('authModal');
+            if (authModal) authModal.classList.remove('hidden');
+          }
         };
         el.replaceWith(avatarDiv);
       });

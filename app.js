@@ -200,24 +200,52 @@ function toggleAuthModal() {
     if (authModal) authModal.classList.toggle('hidden'); 
 }
 
-async function handleLogin() { 
-    const email = document.getElementById('emailInput').value; 
-    const password = document.getElementById('passwordInput').value; 
-    if (!email || !password) return showToast('Vui lòng nhập đủ thông tin.', 'warning'); 
-    try { 
-        await signInWithEmailAndPassword(auth, email, password); 
-        toggleAuthModal(); 
-        showToast('Đăng nhập thành công!', 'success'); 
-    } catch (error) { 
-        showToast('Đăng nhập thất bại: ' + error.message, 'error'); 
-    } 
+async function handleLogin() {
+    const identifier = document.getElementById('emailInput').value.trim();
+    const password = document.getElementById('passwordInput').value;
+    if (!identifier || !password) return showToast('Vui lòng nhập đủ thông tin.', 'warning');
+    let email = identifier;
+    // Nhập tên người dùng thay vì email: tra Firestore lấy email tương ứng
+    if (!identifier.includes('@')) {
+        try {
+            const snap = await getDocs(query(collection(db, 'users'), where('displayName', '==', identifier)));
+            if (snap.empty) {
+                return showToast('Không tìm thấy tên người dùng "' + identifier + '". Hãy thử đăng nhập bằng email.', 'error');
+            }
+            email = snap.docs[0].data().email;
+            if (!email) {
+                return showToast('Tài khoản này chưa lưu email, vui lòng đăng nhập bằng email.', 'error');
+            }
+        } catch (error) {
+            return showToast('Không tra cứu được tên người dùng: ' + error.message, 'error');
+        }
+    }
+    try {
+        await signInWithEmailAndPassword(auth, email, password);
+        toggleAuthModal();
+        showToast('Đăng nhập thành công!', 'success');
+    } catch (error) {
+        showToast('Đăng nhập thất bại: ' + error.message, 'error');
+    }
 }
 
-async function handleSignup() { 
-    const email = document.getElementById('emailInput').value; 
-    const password = document.getElementById('passwordInput').value; 
-    if (!email || !password) return showToast('Vui lòng nhập đủ thông tin.', 'warning'); 
-    try { 
+async function handleSignup() {
+    const email = document.getElementById('emailInput').value.trim();
+    const password = document.getElementById('passwordInput').value;
+    if (!email || !password) return showToast('Vui lòng nhập đủ thông tin.', 'warning');
+    if (!email.includes('@')) return showToast('Vui lòng nhập email hợp lệ để đăng ký.', 'warning');
+    const signupCodeWrap = document.getElementById('signupCodeWrap');
+    const signupCode = (document.getElementById('signupCodeInput')?.value || '').trim();
+    if (!signupCode) {
+        if (signupCodeWrap) signupCodeWrap.classList.remove('hidden');
+        document.getElementById('signupCodeInput')?.focus();
+        return showToast('Vui lòng nhập mật khẩu web để tạo tài khoản mới.', 'warning');
+    }
+    if (signupCode !== '111230322') {
+        if (signupCodeWrap) signupCodeWrap.classList.remove('hidden');
+        return showToast('Mật khẩu web không đúng. Bạn không thể tạo tài khoản mới.', 'error');
+    }
+    try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password); 
         const user = userCredential.user; 
         await setDoc(doc(db, "users", user.uid), { email: user.email, createdAt: new Date(), quizSetsCreated: 0 }); 
@@ -569,7 +597,7 @@ function setupEventListeners() {
         });
     }
 
-    // Chip lọc nhanh (Tất cả / Gần đây / Đã ghim)
+    // Chip lọc nhanh (Tất cả / Gần đây / Chưa làm / Đã ghim)
     const filterChips = document.querySelectorAll('.library-filter-chip');
     filterChips.forEach(chip => {
         chip.addEventListener('click', () => {
@@ -578,6 +606,26 @@ function setupEventListeners() {
             setLibraryFilterMode(mode);
         });
     });
+    // Khôi phục bộ lọc đã lưu từ phiên trước (state đã đọc localStorage, chỉ cần đồng bộ UI chip)
+    const savedFilterMode = getLibraryFilterMode();
+    if (savedFilterMode !== 'all') {
+        filterChips.forEach(c => c.classList.toggle('is-active', c.getAttribute('data-filter') === savedFilterMode));
+    }
+
+    // Gợi ý "còn thư mục phía sau" trên mobile: làm mờ mép của dải cuộn ngang khi còn cuộn được
+    const foldersScrollEl = document.getElementById('folders-container');
+    if (foldersScrollEl) {
+        const updateFolderFade = () => {
+            const canScroll = foldersScrollEl.scrollWidth - foldersScrollEl.clientWidth > 8;
+            const atEnd = foldersScrollEl.scrollLeft + foldersScrollEl.clientWidth >= foldersScrollEl.scrollWidth - 8;
+            foldersScrollEl.classList.toggle('has-overflow-right', canScroll && !atEnd);
+            foldersScrollEl.classList.toggle('has-overflow-left', canScroll && foldersScrollEl.scrollLeft > 8);
+        };
+        foldersScrollEl.addEventListener('scroll', updateFolderFade, { passive: true });
+        window.addEventListener('resize', updateFolderFade);
+        // Thư mục được render lại nhiều lần → theo dõi thay đổi con để cập nhật fade
+        new MutationObserver(updateFolderFade).observe(foldersScrollEl, { childList: true });
+    }
     
     if (selectStudyRoomBtn) {
         selectStudyRoomBtn.addEventListener('click', (event) => {
@@ -860,6 +908,42 @@ function setupEventListeners() {
     const librarySearchInput = document.getElementById('library-search-input');
     if (librarySearchInput) {
         librarySearchInput.addEventListener('input', handleLibrarySearch);
+
+        // Nút xóa nhanh từ khóa (×) — chỉ hiện khi có chữ
+        const librarySearchClear = document.getElementById('library-search-clear');
+        const updateSearchClear = () => {
+            if (librarySearchClear) librarySearchClear.classList.toggle('hidden', librarySearchInput.value.trim() === '');
+        };
+        librarySearchInput.addEventListener('input', updateSearchClear);
+        if (librarySearchClear) {
+            librarySearchClear.addEventListener('click', () => {
+                librarySearchInput.value = '';
+                librarySearchInput.dispatchEvent(new Event('input')); // chạy lại handleLibrarySearch + ẩn nút ×
+                librarySearchInput.focus();
+            });
+        }
+        // Esc trong ô tìm kiếm: có chữ thì xóa, trống thì bỏ focus
+        librarySearchInput.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape') return;
+            e.stopPropagation();
+            if (librarySearchInput.value) {
+                librarySearchInput.value = '';
+                librarySearchInput.dispatchEvent(new Event('input'));
+            } else {
+                librarySearchInput.blur();
+            }
+        });
+        // Phím "/" focus nhanh ô tìm kiếm khi đang mở tab Thư viện (và không gõ ở ô khác)
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+            const ae = document.activeElement;
+            if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable)) return;
+            const libraryPanel = document.getElementById('libraryContent');
+            if (!libraryPanel || libraryPanel.classList.contains('hidden')) return;
+            e.preventDefault();
+            librarySearchInput.focus();
+        });
+
         const searchModeQuiz = document.getElementById('search-mode-quiz');
         const searchModeQuestion = document.getElementById('search-mode-question');
         if (searchModeQuiz) searchModeQuiz.addEventListener('change', handleLibrarySearch);
@@ -892,6 +976,7 @@ function setupEventListeners() {
                     searchModeQuiz.checked = true;
                     searchModeQuiz.dispatchEvent(new Event('change'));
                     updateSegmentedUI('quiz');
+                    localStorage.setItem('librarySearchMode', 'quiz');
                 }
             });
             modeQuestionBtn.addEventListener('click', () => {
@@ -899,8 +984,15 @@ function setupEventListeners() {
                     searchModeQuestion.checked = true;
                     searchModeQuestion.dispatchEvent(new Event('change'));
                     updateSegmentedUI('question');
+                    localStorage.setItem('librarySearchMode', 'question');
                 }
             });
+
+            // Khôi phục chế độ tìm (bộ đề / câu hỏi) đã chọn ở phiên trước
+            if (localStorage.getItem('librarySearchMode') === 'question' && searchModeQuestion) {
+                searchModeQuestion.checked = true;
+                updateSegmentedUI('question');
+            }
         }
     }
 }

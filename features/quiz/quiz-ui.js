@@ -165,6 +165,11 @@ export function loadQuizDetails() {
         if (typeof window.applySuggestedTime === 'function') window.applySuggestedTime();
 
         updateStatDuration();
+
+        // Dữ liệu đã sẵn sàng -> gỡ hiệu ứng skeleton trên các thẻ stats
+        // (riêng thẻ "Lần làm gần nhất" còn được quiz-page.js điền theo tài khoản)
+        document.querySelectorAll('#quiz-landing .skeleton-line')
+            .forEach(el => el.classList.remove('skeleton-line'));
         
         const timedCheckbox = document.getElementById('timed-mode-checkbox');
         const timedInput = document.getElementById('timed-minutes-input');

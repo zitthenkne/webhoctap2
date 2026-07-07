@@ -7,12 +7,27 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.quiz-card-menu-open').forEach(c => c.classList.remove('quiz-card-menu-open'));
     };
 
+    // Hạ cờ aria-expanded của mọi nút "..." đang mở (đồng bộ với việc đóng menu)
+    const resetMenuButtons = () => {
+        document.querySelectorAll('.quiz-menu-btn[aria-expanded="true"], .folder-menu-btn[aria-expanded="true"]')
+            .forEach(b => b.setAttribute('aria-expanded', 'false'));
+    };
+
     // Đóng menu khi click ngoài
     document.body.addEventListener('click', (e) => {
         // Không đóng menu nếu bấm vào một nút trong .quiz-menu
         if (e.target.closest('.quiz-menu')) return;
         document.querySelectorAll('.quiz-menu').forEach(menu => menu.classList.add('hidden'));
         lowerAllCards();
+        resetMenuButtons();
+    });
+
+    // Nhấn Esc: đóng mọi menu "..." của bộ đề & thư mục đang mở
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        document.querySelectorAll('.quiz-menu, .folder-menu').forEach(menu => menu.classList.add('hidden'));
+        lowerAllCards();
+        resetMenuButtons();
     });
 
     // Uỷ quyền sự kiện cho quiz-list-container
@@ -28,9 +43,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // Đóng tất cả menu khác + hạ mọi thẻ về z-index thường
             document.querySelectorAll('.quiz-menu').forEach(m => m.classList.add('hidden'));
             lowerAllCards();
+            resetMenuButtons();
             // Mở menu của thẻ này và nâng cả thẻ lên TRÊN mọi thẻ khác (tránh bị che)
             if (menu && willOpen) {
                 menu.classList.remove('hidden');
+                btn.setAttribute('aria-expanded', 'true');
                 const card = btn.closest('.quiz-grid-card, .quiz-list-card');
                 if (card) card.classList.add('quiz-card-menu-open');
             }

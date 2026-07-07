@@ -221,13 +221,86 @@
             border: 1px solid rgba(255, 255, 255, 0.7) !important;
             box-shadow: 0 20px 50px rgba(255, 105, 180, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
         }
+        /* Chế độ tối: card landing chuyển nền tối (trước đây bị kẹt nền trắng) */
+        html.theme-dark .glass-premium {
+            background: rgba(30, 23, 48, 0.92) !important;
+            border-color: rgba(255, 255, 255, 0.08) !important;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+        }
+
+        /* Skeleton shimmer khi đang tải thông tin bộ đề (gỡ class khi có dữ liệu) */
+        .skeleton-line {
+            color: transparent !important;
+            border-radius: 0.5rem;
+            min-width: 3.5rem;
+            background: linear-gradient(90deg, rgba(0, 0, 0, 0.06) 25%, rgba(0, 0, 0, 0.13) 50%, rgba(0, 0, 0, 0.06) 75%);
+            background-size: 200% 100%;
+            animation: skeleton-shimmer 1.4s ease-in-out infinite;
+            user-select: none;
+        }
+        html.theme-dark .skeleton-line {
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.07) 25%, rgba(255, 255, 255, 0.14) 50%, rgba(255, 255, 255, 0.07) 75%);
+            background-size: 200% 100%;
+        }
+        @keyframes skeleton-shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Chip chọn nhanh số câu / số phút ở phần tùy chỉnh phiên làm bài */
+        .chip-preset {
+            padding: 2px 10px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 700;
+            border: 1px solid rgba(244, 114, 182, 0.35);
+            color: #db2777;
+            background: #fff0f6;
+            cursor: pointer;
+            transition: background-color .15s ease, color .15s ease, transform .1s ease;
+        }
+        .chip-preset:hover { background: #ffdff0; }
+        .chip-preset:active { transform: scale(0.94); }
+        .chip-preset.chip-active { background: #ff69b4; border-color: #ff69b4; color: #fff; }
+        html.theme-dark .chip-preset { background: #34203a; color: #f9a8d4; border-color: rgba(249, 168, 212, 0.3); }
+        html.theme-dark .chip-preset:hover { background: #45294c; }
+        html.theme-dark .chip-preset.chip-active { background: #d65fa0; border-color: #d65fa0; color: #fff; }
+
+        /* Nút thoát chế độ tập trung: chỉ nhấp nháy vài nhịp đầu để gây chú ý rồi đứng yên
+           (nhấp nháy vô hạn đi ngược mục đích "tập trung") */
+        @keyframes exit-focus-pulse { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+        .exit-focus-pulse { animation: exit-focus-pulse 2s ease-in-out 3; }
+
+        /* Hộp QR chia sẻ: luôn nền trắng kể cả dark mode để máy quét đọc được */
+        #share-qr-box { background: #fff !important; }
+
+        /* Thanh "Bắt đầu ngay" nổi ở đáy màn hình mobile khi nút chính trôi khỏi tầm nhìn */
+        #mobile-start-bar {
+            transform: translateY(110%);
+            transition: transform .28s cubic-bezier(.16, 1, .3, 1);
+        }
+        #mobile-start-bar.show { transform: translateY(0); }
+
+        /* Tôn trọng thiết lập giảm chuyển động của hệ điều hành */
+        @media (prefers-reduced-motion: reduce) {
+            .mascot-floating,
+            .animate-pulse,
+            .animate-stripes,
+            .skeleton-line,
+            .exit-focus-pulse,
+            .correct-answer-pulse,
+            .wrong-answer-shake {
+                animation: none !important;
+            }
+            #mobile-start-bar { transition: none; }
+        }
     </style>
     <link rel="stylesheet" href="quiz-preview.css">
     <link rel="stylesheet" href="quiz-enhance.css">
 </head>
 <body class="bg-[#FCE4EC] flex items-center justify-center min-h-screen p-2 sm:p-4 text-sm">
     <!-- Floating Exit Focus Button -->
-    <button id="exit-focus-btn" type="button" class="fixed top-4 right-4 z-50 p-3 bg-pink-500 text-white rounded-full shadow-lg opacity-50 hover:opacity-100 transition hidden focus:outline-none animate-pulse" title="Thoát chế độ tập trung">
+    <button id="exit-focus-btn" type="button" class="fixed top-4 right-4 z-50 p-3 bg-pink-500 text-white rounded-full shadow-lg opacity-50 hover:opacity-100 transition hidden focus:outline-none exit-focus-pulse" title="Thoát chế độ tập trung">
         <i class="fas fa-compress-arrows-alt text-lg"></i>
     </button>
     <!-- Mobile Top Bar with Hamburger -->
@@ -239,21 +312,26 @@
             <img src="../../assets/logo.png" alt="Zitthenkne logo" class="w-7 h-7 rounded-full object-cover">
             Zitthenkne
         </span>
-        <span></span>
+        <a href="quiz-history.html" class="text-xl text-pink-400 hover:text-pink-500 transition p-1" title="Lịch sử làm bài" aria-label="Lịch sử làm bài"><i class="fas fa-clock-rotate-left"></i></a>
     </div>
+    <!-- Lớp phủ tối phía sau menu drawer (bấm vào để đóng) -->
+    <div id="quiz-menu-backdrop" class="fixed inset-0 bg-black/40 z-40 opacity-0 pointer-events-none transition-opacity duration-300 md:hidden" aria-hidden="true"></div>
     <!-- Mobile Menu Drawer -->
     <div id="quiz-mobile-menu" class="fixed top-0 left-0 w-2/3 max-w-xs h-full bg-white shadow-lg z-50 p-6 pt-16 transition-transform duration-300 -translate-x-full md:hidden">
         <button id="quiz-menu-close" class="absolute top-4 right-4 text-gray-400 hover:text-pink-500 text-2xl"><i class="fas fa-times"></i></button>
         <nav class="flex flex-col gap-4 mt-4">
             <a href="../../index.html" class="text-pink-500 font-semibold flex items-center gap-2"><i class="fas fa-home"></i> Trang chủ</a>
             <a href="../../index.html#libraryContent" class="text-blue-500 font-semibold flex items-center gap-2"><i class="fas fa-book"></i> Thư viện</a>
+            <a id="menu-flashcard-link" href="flashcard.html" class="text-purple-500 font-semibold flex items-center gap-2"><i class="fas fa-clone"></i> Flashcard</a>
+            <a href="quiz-history.html" class="text-amber-500 font-semibold flex items-center gap-2"><i class="fas fa-clock-rotate-left"></i> Lịch sử làm bài</a>
+        </nav>
     </div>
     <div class="w-full max-w-4xl lg:max-w-[88rem] mx-auto mt-14 md:mt-0">
         <div id="quiz-landing" class="glass-premium rounded-3xl p-6 sm:p-10 text-center fade-in max-w-2xl mx-auto transition-all duration-300">
             <!-- Header Icon & Title -->
             <!-- Header Mascot Hero Image -->
             <div class="flex justify-center mb-6">
-                <div class="relative w-48 h-48 sm:w-56 sm:h-56 rounded-3xl overflow-hidden shadow-[0_15px_35px_rgba(255,105,180,0.25)] border-4 border-white/90 hover:scale-[1.04] transition-all duration-300 bg-pink-50 flex items-center justify-center mascot-floating">
+                <div class="relative w-36 h-36 sm:w-56 sm:h-56 rounded-3xl overflow-hidden shadow-[0_15px_35px_rgba(255,105,180,0.25)] border-4 border-white/90 hover:scale-[1.04] transition-all duration-300 bg-pink-50 flex items-center justify-center mascot-floating">
                     <img id="quiz-hero-img" src="../../assets/og_squirrel_close.jpg" alt="Zitthenkne Mascot" class="w-full h-full object-cover" />
                 </div>
             </div>
@@ -275,19 +353,20 @@
             <div class="grid grid-cols-3 gap-3 mb-8">
                 <div class="bg-pink-50/50 border border-pink-100/60 p-3 rounded-2xl flex flex-col items-center justify-center transition-all hover:scale-[1.03] hover:bg-pink-50">
                     <i class="fas fa-question-circle text-pink-500 text-lg sm:text-xl mb-1"></i>
-                    <span class="text-[10px] sm:text-xs text-gray-400 font-medium">Số câu hỏi</span>
-                    <span id="stat-questions-count" class="text-sm sm:text-base font-bold text-gray-700">--</span>
+                    <span class="text-[11px] sm:text-xs text-gray-400 font-medium">Số câu hỏi</span>
+                    <span id="stat-questions-count" class="text-sm sm:text-base font-bold text-gray-700 skeleton-line">--</span>
                 </div>
                 <div class="bg-purple-50/50 border border-purple-100/60 p-3 rounded-2xl flex flex-col items-center justify-center transition-all hover:scale-[1.03] hover:bg-purple-50">
                     <i class="fas fa-clock text-purple-500 text-lg sm:text-xl mb-1"></i>
-                    <span class="text-[10px] sm:text-xs text-gray-400 font-medium">Thời gian</span>
-                    <span id="stat-duration" class="text-sm sm:text-base font-bold text-gray-700">--</span>
-                    <span id="stat-duration-est" class="text-[9px] text-purple-400 font-medium mt-0.5"></span>
+                    <span class="text-[11px] sm:text-xs text-gray-400 font-medium">Thời gian</span>
+                    <span id="stat-duration" class="text-sm sm:text-base font-bold text-gray-700 skeleton-line">--</span>
+                    <span id="stat-duration-est" class="text-[11px] text-purple-400 font-medium mt-0.5"></span>
                 </div>
                 <div class="bg-indigo-50/50 border border-indigo-100/60 p-3 rounded-2xl flex flex-col items-center justify-center transition-all hover:scale-[1.03] hover:bg-indigo-50">
                     <i class="fas fa-trophy text-indigo-500 text-lg sm:text-xl mb-1"></i>
-                    <span class="text-[10px] sm:text-xs text-gray-400 font-medium">Chế độ</span>
-                    <span class="text-[10px] sm:text-xs font-bold text-indigo-700 px-2 py-0.5 bg-indigo-100 rounded-full">Trắc nghiệm</span>
+                    <span class="text-[11px] sm:text-xs text-gray-400 font-medium">Lần làm gần nhất</span>
+                    <span id="stat-last-attempt" class="text-sm sm:text-base font-bold text-gray-700 skeleton-line">--</span>
+                    <span id="stat-last-attempt-sub" class="text-[11px] text-indigo-400 font-medium mt-0.5"></span>
                 </div>
             </div>
 
@@ -327,7 +406,7 @@
                     <label for="shuffle-questions-checkbox" class="flex flex-col justify-between bg-gray-50/40 hover:bg-pink-50/20 border border-gray-100 hover:border-pink-200/40 p-4 rounded-2xl cursor-pointer transition shadow-sm text-left">
                         <div class="flex justify-between items-start w-full">
                             <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center border border-blue-100/40">
+                                <div class="w-9 h-9 rounded-xl bg-pink-50 text-pink-500 flex items-center justify-center border border-pink-100/40">
                                     <i class="fas fa-random text-sm"></i>
                                 </div>
                                 <div>
@@ -346,7 +425,7 @@
                     <label for="shuffle-answers-checkbox" class="flex flex-col justify-between bg-gray-50/40 hover:bg-pink-50/20 border border-gray-100 hover:border-pink-200/40 p-4 rounded-2xl cursor-pointer transition shadow-sm text-left">
                         <div class="flex justify-between items-start w-full">
                             <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-xl bg-cyan-50 text-cyan-500 flex items-center justify-center border border-cyan-100/40">
+                                <div class="w-9 h-9 rounded-xl bg-pink-50 text-pink-500 flex items-center justify-center border border-pink-100/40">
                                     <i class="fas fa-shuffle text-sm"></i>
                                 </div>
                                 <div>
@@ -356,7 +435,7 @@
                             </div>
                             <div class="relative">
                                 <input type="checkbox" id="shuffle-answers-checkbox" class="sr-only peer" checked>
-                                <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-cyan-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#06b6d4]"></div>
+                                <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-pink-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#FF69B4]"></div>
                             </div>
                         </div>
                     </label>
@@ -365,7 +444,7 @@
                     <div class="flex flex-col bg-gray-50/40 border border-gray-100 p-4 rounded-2xl transition shadow-sm text-left">
                         <label for="timed-mode-checkbox" class="flex justify-between items-start w-full cursor-pointer">
                             <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-xl bg-red-50 text-red-500 flex items-center justify-center border border-red-100/40">
+                                <div class="w-9 h-9 rounded-xl bg-pink-50 text-pink-500 flex items-center justify-center border border-pink-100/40">
                                     <i class="fas fa-stopwatch text-sm"></i>
                                 </div>
                                 <div>
@@ -381,7 +460,13 @@
                         <div id="timed-minutes-input-block" class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-3 ml-12 transition-all duration-300">
                             <span class="text-xs text-gray-500">Thời gian (phút):</span>
                             <input type="number" id="timed-minutes-input" min="1" max="180" value="30" class="w-16 px-2 py-1 text-xs border border-pink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-300 font-bold text-gray-700" />
-                            <span class="basis-full text-[10px] text-gray-400 italic">Gợi ý tự động theo số câu — bạn có thể tự chỉnh</span>
+                            <span id="timed-preset-row" class="basis-full flex flex-wrap gap-1.5 mt-1">
+                                <button type="button" class="chip-preset timed-preset" data-minutes="15">15′</button>
+                                <button type="button" class="chip-preset timed-preset" data-minutes="30">30′</button>
+                                <button type="button" class="chip-preset timed-preset" data-minutes="45">45′</button>
+                                <button type="button" class="chip-preset timed-preset" data-minutes="60">60′</button>
+                                <button type="button" class="chip-preset timed-preset" data-minutes="suggest" title="Tự tính theo số câu"><i class="fas fa-wand-magic-sparkles"></i> Gợi ý</button>
+                            </span>
                         </div>
                     </div>
 
@@ -389,7 +474,7 @@
                     <div class="flex flex-col bg-gray-50/40 border border-gray-100 p-4 rounded-2xl transition shadow-sm text-left">
                         <label for="enable-question-count-checkbox" class="flex justify-between items-start w-full cursor-pointer">
                             <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center border border-purple-100/40">
+                                <div class="w-9 h-9 rounded-xl bg-pink-50 text-pink-500 flex items-center justify-center border border-pink-100/40">
                                     <i class="fas fa-list-ol text-sm"></i>
                                 </div>
                                 <div>
@@ -399,13 +484,20 @@
                             </div>
                             <div class="relative">
                                 <input type="checkbox" id="enable-question-count-checkbox" class="sr-only peer">
-                                <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-purple-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#a78bfa]"></div>
+                                <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-pink-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#FF69B4]"></div>
                             </div>
                         </label>
-                        <div id="question-count-input-block" class="flex items-center gap-2 mt-3 ml-12 transition-all duration-300 hidden">
+                        <div id="question-count-input-block" class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-3 ml-12 transition-all duration-300 hidden">
                             <span class="text-xs text-gray-500">Số câu:</span>
-                            <input type="number" id="question-count-input" min="1" step="1" class="w-16 px-2 py-1 text-xs border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300 font-bold text-gray-700" />
+                            <input type="number" id="question-count-input" min="1" step="1" class="w-16 px-2 py-1 text-xs border border-pink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-300 font-bold text-gray-700" />
                             <span id="question-count-max" class="text-xs text-gray-400"></span>
+                            <span id="count-preset-row" class="basis-full flex flex-wrap gap-1.5 mt-1">
+                                <button type="button" class="chip-preset count-preset" data-count="10">10</button>
+                                <button type="button" class="chip-preset count-preset" data-count="20">20</button>
+                                <button type="button" class="chip-preset count-preset" data-count="50">50</button>
+                                <button type="button" class="chip-preset count-preset" data-count="100">100</button>
+                                <button type="button" class="chip-preset count-preset" data-count="all">Tất cả</button>
+                            </span>
                         </div>
                     </div>
 
@@ -413,7 +505,7 @@
                     <label for="show-answer-immediately-checkbox" class="flex flex-col justify-between bg-gray-50/40 hover:bg-pink-50/20 border border-gray-100 hover:border-pink-200/40 p-4 rounded-2xl cursor-pointer transition shadow-sm text-left">
                         <div class="flex justify-between items-start w-full">
                             <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-xl bg-green-50 text-green-500 flex items-center justify-center border border-green-100/40">
+                                <div class="w-9 h-9 rounded-xl bg-pink-50 text-pink-500 flex items-center justify-center border border-pink-100/40">
                                     <i class="fas fa-eye text-sm"></i>
                                 </div>
                                 <div>
@@ -423,7 +515,7 @@
                             </div>
                             <div class="relative">
                                 <input type="checkbox" id="show-answer-immediately-checkbox" class="sr-only peer" checked>
-                                <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-green-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#4ADE80]"></div>
+                                <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-pink-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#FF69B4]"></div>
                             </div>
                         </div>
                     </label>
@@ -432,7 +524,7 @@
                     <label for="meme-enabled-checkbox" class="flex flex-col justify-between bg-gray-50/40 hover:bg-pink-50/20 border border-gray-100 hover:border-pink-200/40 p-4 rounded-2xl cursor-pointer transition shadow-sm text-left">
                         <div class="flex justify-between items-start w-full">
                             <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center border border-amber-100/40">
+                                <div class="w-9 h-9 rounded-xl bg-pink-50 text-pink-500 flex items-center justify-center border border-pink-100/40">
                                     <span class="text-lg leading-none" aria-hidden="true">🤡</span>
                                 </div>
                                 <div>
@@ -442,7 +534,7 @@
                             </div>
                             <div class="relative">
                                 <input type="checkbox" id="meme-enabled-checkbox" class="sr-only peer" checked>
-                                <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-amber-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#f59e0b]"></div>
+                                <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-pink-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#FF69B4]"></div>
                             </div>
                         </div>
                     </label>
@@ -460,9 +552,10 @@
             </div>
 
             <!-- Footer Utilities -->
-            <div class="flex gap-3 justify-center mt-8 pt-6 border-t border-pink-50">
+            <div class="flex flex-wrap gap-3 justify-center mt-8 pt-6 border-t border-pink-50">
                 <a href="../../index.html" class="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl transition text-xs sm:text-sm font-semibold flex items-center gap-1.5 border border-gray-200/50"><i class="fas fa-home"></i> Trang chủ</a>
                 <a href="../../index.html#libraryContent" class="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl transition text-xs sm:text-sm font-semibold flex items-center gap-1.5 border border-blue-200/30"><i class="fas fa-book"></i> Thư viện</a>
+                <a href="quiz-history.html" class="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-xl transition text-xs sm:text-sm font-semibold flex items-center gap-1.5 border border-amber-200/30"><i class="fas fa-clock-rotate-left"></i> Lịch sử</a>
                 <button id="share-quiz-btn" class="px-4 py-2 bg-green-50 hover:bg-green-100 text-green-600 rounded-xl transition text-xs sm:text-sm font-semibold flex items-center gap-1.5 border border-green-200/30">
                   <i class="fas fa-share-alt"></i> Chia sẻ
                 </button>
@@ -571,15 +664,50 @@
                 const countInputBlock = document.getElementById('question-count-input-block');
                 const countInput = document.getElementById('question-count-input');
                 const countMaxSpan = document.getElementById('question-count-max');
+                // Số câu đã lưu từ lần trước (khôi phục một lần khi dữ liệu bộ đề tải xong)
+                let restoredCountValue = null;
+
+                // --- Chip chọn nhanh số câu: ẩn các mốc vượt quá tổng số câu, tô mốc đang chọn ---
+                const countPresets = document.querySelectorAll('.count-preset');
+                function refreshCountPresets() {
+                    const total = window.quizQuestionsLength || 0;
+                    const v = parseInt(countInput && countInput.value, 10);
+                    countPresets.forEach(function (btn) {
+                        if (btn.dataset.count === 'all') {
+                            btn.classList.toggle('chip-active', total > 0 && v === total);
+                        } else {
+                            const n = parseInt(btn.dataset.count, 10);
+                            btn.style.display = (total > 0 && n >= total) ? 'none' : '';
+                            btn.classList.toggle('chip-active', v === n);
+                        }
+                    });
+                }
+                countPresets.forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        if (!countInput) return;
+                        const total = window.quizQuestionsLength || 0;
+                        let v = btn.dataset.count === 'all' ? total : parseInt(btn.dataset.count, 10);
+                        if (total > 0) v = Math.min(v, total);
+                        if (v > 0) {
+                            countInput.value = v;
+                            countInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                        refreshCountPresets();
+                    });
+                });
 
                 if (enableCountCheckbox && countInputBlock) {
                     function updateCountInputVisibility() {
                         countInputBlock.style.display = enableCountCheckbox.checked ? 'flex' : 'none';
                         if (enableCountCheckbox.checked && window.quizQuestionsLength > 0) {
                             countInput.max = window.quizQuestionsLength;
-                            countInput.value = window.quizQuestionsLength;
+                            let v = parseInt(countInput.value, 10);
+                            if (restoredCountValue) { v = restoredCountValue; restoredCountValue = null; }
+                            if (isNaN(v) || v < 1 || v > window.quizQuestionsLength) v = window.quizQuestionsLength;
+                            countInput.value = v;
                             if (countMaxSpan) countMaxSpan.textContent = `/ ${window.quizQuestionsLength}`;
                         }
+                        refreshCountPresets();
                         // Số câu thay đổi -> cập nhật lại thời gian gợi ý
                         window.applySuggestedTime();
                     }
@@ -587,8 +715,114 @@
                 }
                 // Người dùng đổi số câu -> tính lại thời gian gợi ý (nếu chưa tự chỉnh giờ)
                 if (countInput) {
-                    countInput.addEventListener('input', () => window.applySuggestedTime());
+                    countInput.addEventListener('input', () => {
+                        refreshCountPresets();
+                        window.applySuggestedTime();
+                    });
+                    // Rời ô nhập: kẹp giá trị về khoảng hợp lệ [1, tổng số câu]
+                    countInput.addEventListener('change', () => {
+                        const max = parseInt(countInput.max, 10) || window.quizQuestionsLength || 0;
+                        let v = parseInt(countInput.value, 10);
+                        if (isNaN(v) || v < 1) v = max || 1;
+                        if (max > 0 && v > max) v = max;
+                        countInput.value = v;
+                        refreshCountPresets();
+                        window.applySuggestedTime();
+                    });
                 }
+
+                // --- Chip chọn nhanh thời gian làm bài ---
+                const timedPresets = document.querySelectorAll('.timed-preset');
+                function syncTimedPresetActive() {
+                    const v = parseInt(timedInput && timedInput.value, 10);
+                    timedPresets.forEach(function (btn) {
+                        btn.classList.toggle('chip-active',
+                            btn.dataset.minutes !== 'suggest' && parseInt(btn.dataset.minutes, 10) === v);
+                    });
+                }
+                timedPresets.forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        if (!timedInput) return;
+                        if (btn.dataset.minutes === 'suggest') {
+                            timerUserSet = false;           // trả lại quyền gợi ý tự động
+                            window.applySuggestedTime();
+                        } else {
+                            timedInput.value = btn.dataset.minutes;
+                            timedInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                        syncTimedPresetActive();
+                    });
+                });
+                if (timedInput) {
+                    timedInput.addEventListener('input', syncTimedPresetActive);
+                    // Rời ô nhập: kẹp về [1, 180]; bỏ trống thì quay về gợi ý tự động
+                    timedInput.addEventListener('change', () => {
+                        const max = parseInt(timedInput.max, 10) || 180;
+                        const v = parseInt(timedInput.value, 10);
+                        if (isNaN(v)) {
+                            timerUserSet = false;
+                            window.applySuggestedTime();
+                        } else {
+                            timedInput.value = Math.max(1, Math.min(max, v));
+                        }
+                        syncTimedPresetActive();
+                    });
+                }
+
+                // === NHỚ TÙY CHỌN PHIÊN THEO TỪNG BỘ ĐỀ (localStorage) ===
+                const landingQuizId = new URLSearchParams(window.location.search).get('id');
+                const landingOptsKey = landingQuizId ? `quizLandingOpts_${landingQuizId}` : null;
+                const shuffleQCheckbox = document.getElementById('shuffle-questions-checkbox');
+                const shuffleACheckbox = document.getElementById('shuffle-answers-checkbox');
+                const showAnsCheckbox = document.getElementById('show-answer-immediately-checkbox');
+
+                function saveLandingOpts() {
+                    if (!landingOptsKey) return;
+                    try {
+                        localStorage.setItem(landingOptsKey, JSON.stringify({
+                            sq: !!(shuffleQCheckbox && shuffleQCheckbox.checked),
+                            sa: !!(shuffleACheckbox && shuffleACheckbox.checked),
+                            ans: !!(showAnsCheckbox && showAnsCheckbox.checked),
+                            tm: !!(timedCheckbox && timedCheckbox.checked),
+                            tmin: timedInput ? (parseInt(timedInput.value, 10) || null) : null,
+                            tuser: timerUserSet,
+                            cnt: !!(enableCountCheckbox && enableCountCheckbox.checked),
+                            cval: countInput ? (parseInt(countInput.value, 10) || null) : null
+                        }));
+                    } catch (e) {}
+                }
+                (function restoreLandingOpts() {
+                    if (!landingOptsKey) return;
+                    let saved = null;
+                    try { saved = JSON.parse(localStorage.getItem(landingOptsKey) || 'null'); } catch (e) {}
+                    if (!saved) return;
+                    if (shuffleQCheckbox) shuffleQCheckbox.checked = !!saved.sq;
+                    if (shuffleACheckbox && typeof saved.sa === 'boolean') shuffleACheckbox.checked = saved.sa;
+                    if (showAnsCheckbox && typeof saved.ans === 'boolean') showAnsCheckbox.checked = saved.ans;
+                    if (timedCheckbox) {
+                        if (saved.tuser && saved.tmin && timedInput) {
+                            timerProgrammatic = true;
+                            timedInput.value = saved.tmin;
+                            timerProgrammatic = false;
+                            timerUserSet = true;
+                        }
+                        timedCheckbox.checked = !!saved.tm;
+                        timedCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                    if (enableCountCheckbox) {
+                        if (saved.cnt && saved.cval) restoredCountValue = saved.cval;
+                        enableCountCheckbox.checked = !!saved.cnt;
+                        enableCountCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                    syncTimedPresetActive();
+                })();
+                // Mọi thay đổi tùy chọn -> lưu lại cho lần mở sau
+                [shuffleQCheckbox, shuffleACheckbox, showAnsCheckbox, timedCheckbox, enableCountCheckbox].forEach(function (el) {
+                    if (el) el.addEventListener('change', saveLandingOpts);
+                });
+                [timedInput, countInput].forEach(function (el) {
+                    if (el) el.addEventListener('input', saveLandingOpts);
+                });
 
                 // Redirect flashcard
                 var btn = document.getElementById('flashcard-link-btn');
@@ -605,6 +839,44 @@
                 };
                 const shareModal = document.getElementById('shareQuizModal');
 
+                // --- Mã QR tạo ngay trên máy (qrcode-generator, nạp lười khi mở modal lần đầu)
+                //     thay cho api.qrserver.com: không phụ thuộc dịch vụ ngoài, không rò link đề ---
+                let qrLibPromise = null;
+                function ensureQrLib() {
+                    if (window.qrcode) return Promise.resolve();
+                    if (!qrLibPromise) {
+                        qrLibPromise = new Promise(function (resolve, reject) {
+                            const s = document.createElement('script');
+                            s.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js';
+                            s.onload = resolve;
+                            s.onerror = function () { qrLibPromise = null; reject(new Error('Không tải được thư viện QR')); };
+                            document.head.appendChild(s);
+                        });
+                    }
+                    return qrLibPromise;
+                }
+                function renderShareQr(url) {
+                    const box = document.getElementById('share-qr-box');
+                    if (!box) return;
+                    box.innerHTML = '<span class="text-[11px] text-gray-300">Đang tạo mã…</span>';
+                    ensureQrLib().then(function () {
+                        const qr = window.qrcode(0, 'M');
+                        qr.addData(url);
+                        qr.make();
+                        box.innerHTML = qr.createSvgTag(4, 8);
+                        const svg = box.querySelector('svg');
+                        if (svg) {
+                            const w = parseInt(svg.getAttribute('width'), 10);
+                            const h = parseInt(svg.getAttribute('height'), 10);
+                            if (w && h && !svg.getAttribute('viewBox')) svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+                            svg.setAttribute('width', '100%');
+                            svg.setAttribute('height', '100%');
+                        }
+                    }).catch(function () {
+                        box.innerHTML = '<span class="text-[11px] text-gray-400">Không tạo được mã QR</span>';
+                    });
+                }
+
                 function openQuizShareModal() {
                     if (!shareModal) return;
                     const shareId = new URLSearchParams(window.location.search).get('id');
@@ -620,11 +892,10 @@
                     const titleField = document.getElementById('share-quiz-title');
                     const linkInput = document.getElementById('share-link-input');
                     const embedInput = document.getElementById('share-embed-input');
-                    const qrImg = document.getElementById('share-qr-img');
                     if (titleField) titleField.textContent = quizTitle;
                     if (linkInput) linkInput.value = quizUrl;
                     if (embedInput) embedInput.value = `<iframe src="${quizUrl}" width="100%" height="600px" style="border:none; border-radius:12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);"></iframe>`;
-                    if (qrImg) qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(quizUrl)}`;
+                    renderShareQr(quizUrl);
 
                     const messengerBtn = document.getElementById('share-messenger-btn');
                     const facebookBtn = document.getElementById('share-facebook-btn');
@@ -713,8 +984,6 @@
         </div>
         </div><!-- /#quiz-workspace -->
             </div>
-
-        <div id="toast-container"></div>
     </div>
 
     <!-- Nút thiết lập nổi: Chế độ tối / Âm thanh / Rung -->
@@ -814,7 +1083,7 @@
         </a>
 
         <!-- Dòng nguồn tinh tế trong bảng thiết lập -->
-        <p class="flex flex-wrap items-center justify-center gap-1 mt-3 pt-2 text-[10px] text-gray-400/80 tracking-wide">
+        <p class="flex flex-wrap items-center justify-center gap-1 mt-3 pt-2 text-[11px] text-gray-400/80 tracking-wide">
             <span>&copy; 2025</span>
             <a href="https://fb.com/vietthanh1911" target="_blank" rel="noopener noreferrer"
                 class="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#FF69B4] to-[#D8BFD8] hover:underline underline-offset-2 transition-all duration-200">Zitthenk</a>
@@ -825,6 +1094,13 @@
             <span class="text-pink-300/70">&bull;</span>
             <span>UMP</span>
         </p>
+    </div>
+
+    <!-- Thanh "Bắt đầu ngay" nổi ở đáy màn hình (chỉ mobile, hiện khi nút chính trôi khỏi tầm nhìn) -->
+    <div id="mobile-start-bar" class="sm:hidden fixed bottom-0 left-0 right-0 z-40 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <button type="button" id="mobile-start-btn" class="w-full py-3.5 bg-gradient-to-r from-pink-500 to-[#FF69B4] text-white rounded-2xl shadow-[0_8px_25px_rgba(255,105,180,0.45)] text-base font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition">
+            <i class="fas fa-play"></i> Bắt đầu ngay!
+        </button>
     </div>
 
     <!-- Thanh công cụ định dạng nổi khi bôi đen chữ (đề / đáp án / giải thích / mở rộng / ghi chú) -->
@@ -847,10 +1123,12 @@
                 <!-- Tên bộ đề -->
                 <p id="share-quiz-title" class="font-bold text-gray-800 text-sm line-clamp-2 bg-pink-50/50 p-2.5 rounded-xl border border-pink-100/50"></p>
 
-                <!-- QR Code Section -->
+                <!-- QR Code Section (mã QR tạo ngay trên máy, không gửi link ra dịch vụ ngoài) -->
                 <div class="flex flex-col items-center justify-center py-3 bg-gray-50 rounded-2xl border border-gray-100">
-                    <img id="share-qr-img" src="" alt="QR Code" class="w-36 h-36 object-contain rounded-lg shadow-sm border border-gray-100 bg-white p-1" />
-                    <span class="text-[10px] text-gray-400 mt-2"><i class="fas fa-qrcode mr-1"></i>Quét mã QR để làm bài trên điện thoại</span>
+                    <div id="share-qr-box" class="w-36 h-36 flex items-center justify-center rounded-lg shadow-sm border border-gray-100 p-1.5">
+                        <span class="text-[11px] text-gray-300">Đang tạo mã…</span>
+                    </div>
+                    <span class="text-[11px] text-gray-400 mt-2"><i class="fas fa-qrcode mr-1"></i>Quét mã QR để làm bài trên điện thoại</span>
                 </div>
 
                 <!-- Quick Share Buttons -->
@@ -960,18 +1238,53 @@
         const menuBtn = document.getElementById('quiz-menu-toggle');
         const menuDrawer = document.getElementById('quiz-mobile-menu');
         const closeBtn = document.getElementById('quiz-menu-close');
+        const menuBackdrop = document.getElementById('quiz-menu-backdrop');
         if (menuBtn && menuDrawer && closeBtn) {
-            menuBtn.addEventListener('click', () => {
+            const openDrawer = () => {
                 menuDrawer.classList.remove('-translate-x-full');
-            });
-            closeBtn.addEventListener('click', () => {
+                if (menuBackdrop) menuBackdrop.classList.remove('opacity-0', 'pointer-events-none');
+                document.body.style.overflow = 'hidden'; // khóa cuộn nền khi drawer mở
+            };
+            const closeDrawer = () => {
                 menuDrawer.classList.add('-translate-x-full');
-            });
+                if (menuBackdrop) menuBackdrop.classList.add('opacity-0', 'pointer-events-none');
+                document.body.style.overflow = '';
+            };
+            menuBtn.addEventListener('click', openDrawer);
+            closeBtn.addEventListener('click', closeDrawer);
+            if (menuBackdrop) menuBackdrop.addEventListener('click', closeDrawer);
             // Đóng khi click ra ngoài menu
             document.addEventListener('click', (e) => {
                 if (window.innerWidth < 768 && menuDrawer && !menuDrawer.contains(e.target) && !menuBtn.contains(e.target)) {
-                    menuDrawer.classList.add('-translate-x-full');
+                    closeDrawer();
                 }
+            });
+        }
+
+        // Link Flashcard trong drawer cũng mang theo id bộ đề đang mở
+        const menuFlashcard = document.getElementById('menu-flashcard-link');
+        if (menuFlashcard) {
+            const qid = new URLSearchParams(window.location.search).get('id');
+            if (qid) menuFlashcard.href = `flashcard.html?id=${qid}`;
+        }
+
+        // Thanh "Bắt đầu ngay" nổi trên mobile: chỉ hiện khi trang thiết lập đang mở
+        // mà nút Bắt đầu chính đã trôi khỏi màn hình (đỡ phải cuộn xuống tận đáy card)
+        const mobileBar = document.getElementById('mobile-start-bar');
+        const mobileStartBtn = document.getElementById('mobile-start-btn');
+        const mainStartBtn = document.getElementById('start-now-btn');
+        const landingEl = document.getElementById('quiz-landing');
+        if (mobileBar && mobileStartBtn && mainStartBtn && landingEl && 'IntersectionObserver' in window) {
+            const syncBar = (mainBtnVisible) => {
+                const landingShown = !landingEl.classList.contains('hidden')
+                    && !landingEl.classList.contains('quiz-landing-leaving');
+                mobileBar.classList.toggle('show', !mainBtnVisible && landingShown);
+            };
+            const io = new IntersectionObserver((entries) => syncBar(entries[0].isIntersecting), { threshold: 0.1 });
+            io.observe(mainStartBtn);
+            mobileStartBtn.addEventListener('click', () => {
+                mobileBar.classList.remove('show');
+                mainStartBtn.click();
             });
         }
     });

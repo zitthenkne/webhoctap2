@@ -22,7 +22,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Zitthenkne">
-    <link rel="stylesheet" href="style.css?v=6">
+    <link rel="stylesheet" href="style.css?v=7">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* Thanh cuộn hồng pastel dễ thương cho toàn trang chủ
@@ -472,8 +472,9 @@
                         </div>
                     </div>
                 </div>
-                <!-- BẢNG ĐIỀU KHIỂN THƯ VIỆN: gộp tổng quan + điều hướng + tìm kiếm + lọc vào một khối thống nhất -->
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm mb-6 overflow-hidden">
+                <!-- BẢNG ĐIỀU KHIỂN THƯ VIỆN: gộp tổng quan + điều hướng + tìm kiếm + lọc vào một khối thống nhất.
+                     Từ md trở lên: dính (sticky) ở mép trên khi cuộn để đổi lọc/tìm kiếm không phải cuộn ngược lên. -->
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm mb-6 overflow-hidden md:sticky md:top-0 z-10">
                     <!-- Hàng tổng quan nhanh (thu gọn / mở rộng được để bớt rườm rà) -->
                     <button type="button" id="lib-stats-toggle" class="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-gray-50/70 transition focus:outline-none" aria-expanded="false">
                         <span class="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2"><i class="fas fa-chart-pie text-pink-400"></i> Tổng quan thư viện</span>
@@ -518,8 +519,10 @@
                                         <i class="fas fa-search text-xs"></i>
                                     </span>
                                     <input type="text" id="library-search-input"
-                                        class="pl-9 pr-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] w-full text-sm transition-all duration-200 shadow-sm"
+                                        class="pl-9 pr-10 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] w-full text-sm transition-all duration-200 shadow-sm"
                                         placeholder="Tìm kiếm bộ đề...">
+                                    <!-- Nút xóa nhanh từ khóa (chỉ hiện khi có chữ). Phím tắt: "/" focus ô tìm, Esc xóa -->
+                                    <button type="button" id="library-search-clear" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-pink-500 focus:outline-none" aria-label="Xóa từ khóa tìm kiếm"><i class="fas fa-times-circle"></i></button>
                                 </div>
                                 <!-- Segmented Control: Tìm bộ đề / Tìm câu hỏi -->
                                 <div class="bg-gray-100 p-1 rounded-xl flex gap-1 w-full sm:w-auto flex-shrink-0 border border-gray-200/40">
@@ -540,6 +543,7 @@
                                 <div class="flex items-center gap-2 flex-wrap">
                                     <button type="button" data-filter="all" class="library-filter-chip is-active"><i class="fas fa-layer-group mr-1.5 text-[11px]"></i>Tất cả</button>
                                     <button type="button" data-filter="recent" class="library-filter-chip"><i class="fas fa-clock mr-1.5 text-[11px]"></i>Gần đây</button>
+                                    <button type="button" data-filter="unattempted" class="library-filter-chip" title="Các bộ đề bạn chưa làm lần nào"><i class="far fa-circle mr-1.5 text-[11px]"></i>Chưa làm</button>
                                     <button type="button" data-filter="pinned" class="library-filter-chip"><i class="fas fa-thumbtack mr-1.5 text-[11px]"></i>Đã ghim</button>
                                     <span id="library-result-count" class="hidden text-xs text-gray-400 font-medium ml-1"></span>
                                 </div>
@@ -556,6 +560,14 @@
                         </div>
                     </div>
                 </div>
+                <!-- KHỐI "HỌC TIẾP": các bộ đề vừa mở / vừa làm gần nhất, bấm là vào làm luôn (render động) -->
+                <div id="library-continue-section" class="hidden mb-6">
+                    <h3 class="text-on-bg text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <i class="fas fa-circle-play text-pink-400"></i> Học tiếp
+                    </h3>
+                    <div id="library-continue-list" class="continue-strip scrollbar-none"></div>
+                </div>
+
                 <!-- Header khu vực thư mục: tiêu đề + tìm kiếm + sắp xếp + nút tạo (luôn hiện ở gốc thư viện) -->
                 <div id="folders-header" class="flex items-center justify-between gap-2 mb-3 flex-wrap hidden">
                     <h3 class="text-on-bg text-sm font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 flex-shrink-0">
@@ -781,12 +793,12 @@
                 <div class="space-y-4">
                     <!-- Email -->
                     <div>
-                        <label for="emailInput" class="block text-xs font-bold text-gray-500 mb-1.5 ml-1">Email</label>
+                        <label for="emailInput" id="emailLabel" class="block text-xs font-bold text-gray-500 mb-1.5 ml-1">Email hoặc tên người dùng</label>
                         <div class="relative">
                             <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400 pointer-events-none">
                                 <i class="fas fa-envelope"></i>
                             </span>
-                            <input type="email" id="emailInput" placeholder="ban@example.com" autocomplete="email"
+                            <input type="text" id="emailInput" placeholder="ban@example.com hoặc tên của bạn" autocomplete="username"
                                 class="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] focus:bg-white transition">
                         </div>
                     </div>
@@ -803,6 +815,17 @@
                                 class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-[#FF69B4] transition">
                                 <i class="fas fa-eye"></i>
                             </button>
+                        </div>
+                    </div>
+                    <!-- Mật khẩu web (chỉ hiện khi ở tab Đăng ký) -->
+                    <div id="signupCodeWrap" class="hidden">
+                        <label for="signupCodeInput" class="block text-xs font-bold text-gray-500 mb-1.5 ml-1">Mật khẩu web</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400 pointer-events-none">
+                                <i class="fas fa-key"></i>
+                            </span>
+                            <input type="password" id="signupCodeInput" placeholder="Nhập mật khẩu web để được đăng ký" autocomplete="off"
+                                class="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] focus:bg-white transition">
                         </div>
                     </div>
                 </div>
@@ -844,7 +867,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script type="module" src="app.js?v=5"></script>
+    <script type="module" src="app.js?v=6"></script>
     <script src="features/quiz/quiz-library-menu.js"></script>
     <!-- Hoạt ảnh mở thẻ bộ đề + nạp ngầm trang làm bài khi bấm "Làm bài" -->
     <script src="features/quiz/quiz-launch-transition.js" defer></script>
@@ -1088,6 +1111,19 @@
                     }
                     if (pwInput) {
                         pwInput.setAttribute('autocomplete', isLogin ? 'current-password' : 'new-password');
+                    }
+                    var emailLabel = document.getElementById('emailLabel');
+                    var emailInputEl = document.getElementById('emailInput');
+                    if (emailLabel) {
+                        emailLabel.textContent = isLogin ? 'Email hoặc tên người dùng' : 'Email';
+                    }
+                    if (emailInputEl) {
+                        emailInputEl.setAttribute('placeholder', isLogin ? 'ban@example.com hoặc tên của bạn' : 'ban@example.com');
+                        emailInputEl.setAttribute('autocomplete', isLogin ? 'username' : 'email');
+                    }
+                    var signupCodeWrap = document.getElementById('signupCodeWrap');
+                    if (signupCodeWrap) {
+                        signupCodeWrap.classList.toggle('hidden', isLogin);
                     }
                 };
                 tabLogin.addEventListener('click', function () { setMode('login'); });
