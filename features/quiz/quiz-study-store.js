@@ -17,10 +17,16 @@
 //        notes:       [ { q, text } ],
 //        marks:       [ { q, reason } ],
 //        annotations: [ { q, items:[{scope,text,type}] } ],
+//        srs:         [ { q, n, ivl, due, lapses, last } ],  // lịch ôn ngắt quãng
 //        updatedAt
 //     }
+//
+// LƯU Ý khi thêm loại dữ liệu mới: pushCloudStudy setDoc GHI ĐÈ TOÀN DOC, nên
+// field mới phải đi qua ĐỦ readLocalStudy / writeLocalStudy / mapsToArrays /
+// arraysToMaps / mergeStudy — thiếu một chỗ là chu trình pull→push xóa mất nó.
 
 import { db } from '../../core/firebase-init.js';
+import { srsKeys, mergeSrsMaps, readSrsMeta } from './quiz-srs-store.js';
 import { doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 
 // ----- Khóa localStorage -----
@@ -30,6 +36,7 @@ export function studyKeys(quizId) {
         notes: `quiz_notes_${id}`,
         marks: `quiz_marks_${id}`,
         annot: `quiz_annot_${id}`,
+        srs: srsKeys(id).map,
     };
 }
 
@@ -48,6 +55,7 @@ export function readLocalStudy(quizId) {
         notes: readMap(k.notes),
         marks: readMap(k.marks),
         annotations: readMap(k.annot),
+        srs: readMap(k.srs),
     };
 }
 
@@ -57,6 +65,7 @@ export function writeLocalStudy(quizId, data) {
     writeMap(k.notes, data.notes || {});
     writeMap(k.marks, data.marks || {});
     writeMap(k.annot, data.annotations || {});
+    writeMap(k.srs, data.srs || {});
 }
 
 // ----- Chuyển đổi map <-> mảng (cho Firestore) -----
@@ -70,7 +79,18 @@ function mapsToArrays(data) {
     const annotations = Object.entries(data.annotations || {})
         .filter(([, v]) => Array.isArray(v) && v.length > 0)
         .map(([q, items]) => ({ q, items }));
-    return { notes, marks, annotations };
+    // due/last là ms epoch — KHÔNG dùng |0 (tràn 32-bit), ép qua Number.
+    const srs = Object.entries(data.srs || {})
+        .filter(([, v]) => !!v)
+        .map(([q, e]) => ({
+            q,
+            n: Number(e.n) || 0,
+            ivl: Number(e.ivl) || 0,
+            due: Number(e.due) || 0,
+            lapses: Number(e.lapses) || 0,
+            last: Number(e.last) || 0,
+        }));
+    return { notes, marks, annotations, srs };
 }
 function arraysToMaps(payload) {
     const notes = {};
@@ -79,7 +99,11 @@ function arraysToMaps(payload) {
     (payload.marks || []).forEach(m => { if (m && m.q != null) marks[m.q] = m.reason; });
     const annotations = {};
     (payload.annotations || []).forEach(a => { if (a && a.q != null) annotations[a.q] = a.items || []; });
-    return { notes, marks, annotations };
+    const srs = {};
+    (payload.srs || []).forEach(e => { // doc cũ không có srs → giữ {}
+        if (e && e.q != null) srs[e.q] = { n: e.n, ivl: e.ivl, due: e.due, lapses: e.lapses, last: e.last };
+    });
+    return { notes, marks, annotations, srs };
 }
 
 // ----- Hợp nhất hai bộ dữ liệu (dạng map). preferCloud=true → khi cùng một câu
@@ -89,6 +113,9 @@ export function mergeStudy(localData, cloudData, preferCloud) {
     const top = preferCloud ? cloudData : localData;    // phía "thắng" khi tranh chấp
 
     const merged = { notes: {}, marks: {}, annotations: {} };
+
+    // srs: không theo preferCloud toàn phần — từng câu lấy entry có `last` mới hơn.
+    merged.srs = mergeSrsMaps(localData.srs || {}, cloudData.srs || {});
 
     // notes & marks: union, top thắng khi trùng khóa
     ['notes', 'marks'].forEach(kind => {
@@ -145,10 +172,15 @@ export async function pushCloudStudy(uid, quizId, data) {
     try {
         const ref = doc(db, 'quiz_study', studyDocId(uid, quizId));
         const arrays = mapsToArrays(data);
+        // Kèm tên/số câu của bộ đề (từ meta SRS cục bộ) để chuông thông báo trên
+        // index đọc thẳng từ cloud được — máy mới chưa từng mở bộ đề vẫn hiện đúng.
+        const meta = readSrsMeta(quizId);
         await setDoc(ref, {
             userId: uid,
             quizId,
             ...arrays,
+            srsTitle: meta.title || '',
+            srsTotal: meta.total | 0,
             updatedAt: serverTimestamp(),
         });
         return true;

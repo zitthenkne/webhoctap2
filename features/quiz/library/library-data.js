@@ -8,6 +8,7 @@ import {
     doc, collection, addDoc, query, where, getDocs,
     orderBy, limit, startAfter, updateDoc, runTransaction
 } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
 import { showToast } from '../../../core/utils.js';
 import { checkAndAwardAchievement } from '../../../core/achievements.js';
 import { S, LIB_CHUNK, LIBRARY_AUTO_SYNC_MIN_INTERVAL } from './library-state.js';
@@ -115,12 +116,32 @@ async function checkCreationAchievements(userId) {
     }
 }
 
+// === CHỜ FIREBASE KHÔI PHỤC PHIÊN ĐĂNG NHẬP ===
+// Lúc mới tải trang, auth.currentUser là null cho tới khi Firebase khôi phục xong phiên (~1-2s).
+// Nếu mở tab Thư viện trong khoảng đó mà hiện ngay "Vui lòng đăng nhập" thì vừa sai vừa xấu —
+// thay vào đó giữ skeleton và chờ auth resolve lần đầu rồi mới quyết định.
+let authResolved = false;
+const authReadyPromise = new Promise(resolve => {
+    const unsubscribe = onAuthStateChanged(auth, () => {
+        authResolved = true;
+        unsubscribe();
+        resolve();
+    });
+});
+
 // === TẢI VÀ RENDER THƯ VIỆN ===
 export async function loadAndDisplayLibrary(page = 1) {
     if (typeof page !== 'number') page = 1;
-    const user = auth.currentUser;
+    let user = auth.currentUser;
     const quizListContainer = document.getElementById('quiz-list-container');
     if (!quizListContainer) return;
+
+    if (!user && !authResolved) {
+        // Auth chưa xác định xong → hiện skeleton trong lúc chờ, rồi kiểm tra lại
+        renderLibrarySkeleton(quizListContainer);
+        await authReadyPromise;
+        user = auth.currentUser;
+    }
 
     if (!user) {
         quizListContainer.innerHTML = '<p>Vui lòng <a href="#" id="login-link" class="text-[#FF69B4] underline">đăng nhập</a>.</p>';

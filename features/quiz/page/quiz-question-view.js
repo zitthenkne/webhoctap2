@@ -17,6 +17,8 @@ import { caseKeyOf, caseCollapseState } from './quiz-cases.js';
 import { applyNavVisibility, attachToggleNavEvent } from './quiz-page-setup.js';
 import { updateMobileNav } from './quiz-mobile-nav.js';
 import { endQuiz } from './quiz-session.js';
+import { currentQuizId, pushStudyToCloud } from './quiz-study-sync.js';
+import { gradeSrsAnswer } from '../quiz-srs-store.js';
 
 // Câu vừa hiển thị trước đó — dùng để biết khi nào THỰC SỰ chuyển sang câu khác
 // (để cuộn lên đầu trang) so với khi chỉ vẽ lại cùng một câu (đổi cỡ chữ, ghi chú…).
@@ -638,6 +640,13 @@ export function handleAnswerClick(e) {
 
     state.userAnswers[state.currentIndex] = selectedIdx;
     const isCorrect = selectedIdx === state.questions[state.currentIndex].correctAnswerIndex;
+    if (state.quizMode === 'srs') {
+        // Chấm lịch ôn ngắt quãng ngay lúc trả lời (mỗi câu chỉ chấm một lần —
+        // guard userAnswers !== null ở trên chặn chấm lại khi khôi phục phiên).
+        const qText = (state.questions[state.currentIndex].question || '').trim();
+        gradeSrsAnswer(currentQuizId(), qText, isCorrect);
+        pushStudyToCloud();
+    }
     feedback(isCorrect); // #15: rung/âm thanh phản hồi
     showCatMeme(isCorrect); // meme con mèo vui khi đúng / khóc khi sai
     if (isCorrect) {

@@ -22,7 +22,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Zitthenkne">
-    <link rel="stylesheet" href="style.css?v=7">
+    <link rel="stylesheet" href="style.css?v=11">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* Thanh cuộn hồng pastel dễ thương cho toàn trang chủ
@@ -60,8 +60,11 @@
                 <span class="font-extrabold text-[#FF69B4] text-2xl truncate block md:hidden">Zitthenkne</span>
             </a>
         </div>
-        <img id="user-avatar-mobile" src="https://ui-avatars.com/api/?name=?&background=D8BFD8&color=fff"
-            class="w-9 h-9 rounded-full border-2 border-[#D8BFD8] shadow ml-1 flex-shrink-0">
+        <div class="flex items-center gap-1 flex-shrink-0">
+            <div id="srs-bell-mobile"></div>
+            <img id="user-avatar-mobile" src="https://ui-avatars.com/api/?name=?&background=D8BFD8&color=fff"
+                class="w-9 h-9 rounded-full border-2 border-[#D8BFD8] shadow ml-1 flex-shrink-0">
+        </div>
     </div>
     <!-- Overlay for sidebar on mobile -->
     <div id="sidebar-overlay"
@@ -124,7 +127,9 @@
                     <h2 id="pageTitle" class="text-2xl font-bold text-gray-800 hidden md:block tracking-wide">Trang chủ
                     </h2>
                 </div>
-                <!-- Menu người dùng (desktop) -->
+                <!-- Chuông ôn ngắt quãng + Menu người dùng (desktop) -->
+                <div class="flex items-center gap-3">
+                <div id="srs-bell-desktop"></div>
                 <div id="user-menu-button" class="relative">
                     <a class="flex items-center gap-2 hover:bg-pink-50 px-4 py-2 rounded-2xl transition shadow border-2 border-transparent hover:border-[#FFB6C1]"
                         style="cursor:pointer">
@@ -132,6 +137,7 @@
                         <img id="user-avatar" src="https://ui-avatars.com/api/?name=?&background=D8BFD8&color=fff"
                             class="w-10 h-10 rounded-full border-4 border-[#D8BFD8] shadow-lg hover:shadow-pink-200 transition-all duration-300">
                     </a>
+                </div>
                 </div>
             </div>
         </header>
@@ -525,93 +531,89 @@
                         </div>
                     </div>
                 </div>
-                <!-- BẢNG ĐIỀU KHIỂN THƯ VIỆN: gộp tổng quan + điều hướng + tìm kiếm + lọc vào một khối thống nhất.
-                     Từ md trở lên: dính (sticky) ở mép trên khi cuộn để đổi lọc/tìm kiếm không phải cuộn ngược lên. -->
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm mb-6 overflow-hidden md:sticky md:top-0 z-10">
-                    <!-- Hàng tổng quan nhanh (thu gọn / mở rộng được để bớt rườm rà) -->
-                    <button type="button" id="lib-stats-toggle" class="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-gray-50/70 transition focus:outline-none" aria-expanded="false">
-                        <span class="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2"><i class="fas fa-chart-pie text-pink-400"></i> Tổng quan thư viện</span>
-                        <i id="lib-stats-chevron" class="fas fa-chevron-down text-xs text-gray-400 transition-transform duration-200"></i>
-                    </button>
-                    <div id="lib-stats-body" class="hidden grid grid-cols-3 divide-x divide-gray-100 border-t border-gray-100">
-                        <div class="flex items-center justify-center gap-2.5 py-3 px-2">
-                            <span class="w-8 h-8 rounded-lg bg-pink-50 text-pink-500 flex items-center justify-center text-sm flex-shrink-0"><i class="fas fa-file-alt"></i></span>
-                            <div class="leading-tight">
-                                <div id="lib-stat-quizzes" class="text-base font-bold text-gray-800 tabular-nums">…</div>
-                                <div class="text-[11px] text-gray-400 font-medium">Bộ đề</div>
-                            </div>
+                <!-- BẢNG ĐIỀU KHIỂN THƯ VIỆN: ô tìm kiếm luôn hiện + nút Bộ lọc mở/thu phần lọc.
+                     Dính (sticky) ở mép trên; trên mobile tự ẩn khi cuộn xuống, hiện lại khi cuộn lên. -->
+                <div id="library-panel" class="lib-panel bg-white rounded-2xl border border-gray-100 shadow-sm mb-6 overflow-hidden sticky top-0 z-20">
+                    <!-- Hàng trên (LUÔN hiện): ô tìm kiếm + nút Bộ lọc -->
+                    <div class="flex items-center gap-2 p-2.5 sm:p-3">
+                        <div class="relative flex-1 min-w-0">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                <i class="fas fa-search text-xs"></i>
+                            </span>
+                            <input type="text" id="library-search-input"
+                                class="pl-9 pr-9 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] w-full text-sm transition-all duration-200 shadow-sm bg-gray-50/60 focus:bg-white"
+                                placeholder="Tìm kiếm bộ đề...">
+                            <!-- Nút xóa nhanh từ khóa (chỉ hiện khi có chữ). Phím tắt: "/" focus ô tìm, Esc xóa -->
+                            <button type="button" id="library-search-clear" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-pink-500 focus:outline-none" aria-label="Xóa từ khóa tìm kiếm"><i class="fas fa-times-circle"></i></button>
                         </div>
-                        <div class="flex items-center justify-center gap-2.5 py-3 px-2">
-                            <span class="w-8 h-8 rounded-lg bg-purple-50 text-purple-500 flex items-center justify-center text-sm flex-shrink-0"><i class="fas fa-question-circle"></i></span>
-                            <div class="leading-tight">
-                                <div id="lib-stat-questions" class="text-base font-bold text-gray-800 tabular-nums">…</div>
-                                <div class="text-[11px] text-gray-400 font-medium">Câu hỏi</div>
-                            </div>
-                        </div>
-                        <div class="flex items-center justify-center gap-2.5 py-3 px-2">
-                            <span class="w-8 h-8 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center text-sm flex-shrink-0"><i class="fas fa-folder"></i></span>
-                            <div class="leading-tight">
-                                <div id="lib-stat-folders" class="text-base font-bold text-gray-800 tabular-nums">…</div>
-                                <div class="text-[11px] text-gray-400 font-medium">Thư mục</div>
-                            </div>
-                        </div>
+                        <!-- Nút Bộ lọc: mở/thu phần lọc; chấm hồng báo đang có bộ lọc bật -->
+                        <button type="button" id="lib-filter-btn" class="relative flex-shrink-0 h-9 px-3 flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white text-gray-600 text-xs font-bold hover:bg-gray-50 hover:text-pink-600 transition focus:outline-none shadow-sm" aria-expanded="true" aria-controls="lib-panel-body" title="Bộ lọc & sắp xếp">
+                            <i class="fas fa-sliders text-xs"></i>
+                            <span class="hidden sm:inline">Bộ lọc</span>
+                            <i id="lib-filter-chevron" class="fas fa-chevron-up text-[10px] transition-transform duration-300"></i>
+                            <span id="lib-filter-dot" class="hidden absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-pink-500 border-2 border-white"></span>
+                        </button>
                     </div>
 
-                    <!-- Khu vực điều khiển: tìm kiếm + lọc -->
-                    <div class="p-3 sm:p-4 border-t border-gray-100">
-                        <!-- Breadcrumb: chỉ hiện khi đang ở trong một thư mục (ẩn ở thư viện gốc cho gọn) -->
-                        <div id="folder-breadcrumb" class="hidden items-center gap-2 text-sm text-gray-500 bg-pink-50/60 px-3 py-2 rounded-xl border border-pink-100/60 min-w-0 mb-3 focus-hide">
+                    <!-- Hàng ngữ cảnh (LUÔN hiện khi có): breadcrumb + chip báo bộ lọc đang bật (xóa nhanh) -->
+                    <div class="flex flex-wrap items-center gap-2 px-2.5 sm:px-3 pb-2.5" id="lib-context-row" style="display:none">
+                        <!-- Breadcrumb: chỉ hiện khi đang ở trong một thư mục (innerHTML do renderBreadcrumb quản lý) -->
+                        <div id="folder-breadcrumb" class="hidden items-center gap-2 text-xs text-gray-500 bg-pink-50/60 px-2.5 py-1.5 rounded-lg border border-pink-100/60 min-w-0 focus-hide">
                             <span class="cursor-pointer hover:text-pink-500 font-semibold text-pink-500" id="breadcrumb-root"><i class="fas fa-home mr-1"></i>Thư viện gốc</span>
                         </div>
+                        <!-- Chip báo bộ lọc đang bật + xóa nhanh (hiện cả khi phần lọc đang thu gọn) -->
+                        <button type="button" id="lib-active-filter-chip" class="hidden items-center gap-1.5 text-xs font-bold text-pink-600 bg-pink-50 border border-pink-200 rounded-full pl-2.5 pr-2 py-1 hover:bg-pink-100 transition focus:outline-none" title="Xóa bộ lọc đang áp dụng">
+                            <i id="lib-active-filter-icon" class="fas fa-filter text-[10px]"></i>
+                            <span id="lib-active-filter-label">Gần đây</span>
+                            <i class="fas fa-times-circle text-[11px] opacity-70"></i>
+                        </button>
+                    </div>
 
-                        <div class="space-y-3">
-                            <!-- Hàng 1: Ô tìm kiếm + chế độ tìm (gộp chung một hàng) -->
-                            <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:items-center">
-                                <div class="relative flex-1 w-full">
-                                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
-                                        <i class="fas fa-search text-xs"></i>
-                                    </span>
-                                    <input type="text" id="library-search-input"
-                                        class="pl-9 pr-10 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] w-full text-sm transition-all duration-200 shadow-sm"
-                                        placeholder="Tìm kiếm bộ đề...">
-                                    <!-- Nút xóa nhanh từ khóa (chỉ hiện khi có chữ). Phím tắt: "/" focus ô tìm, Esc xóa -->
-                                    <button type="button" id="library-search-clear" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-pink-500 focus:outline-none" aria-label="Xóa từ khóa tìm kiếm"><i class="fas fa-times-circle"></i></button>
-                                </div>
-                                <!-- Segmented Control: Tìm bộ đề / Tìm câu hỏi -->
-                                <div class="bg-gray-100 p-1 rounded-xl flex gap-1 w-full sm:w-auto flex-shrink-0 border border-gray-200/40">
-                                    <button type="button" id="search-mode-quiz-btn" class="flex-1 sm:flex-initial text-center px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-200 bg-white text-pink-600 shadow-sm flex items-center justify-center gap-1.5 focus:outline-none">
-                                        <i class="fas fa-file-alt text-xs"></i> Tìm bộ đề
-                                    </button>
-                                    <button type="button" id="search-mode-question-btn" class="flex-1 sm:flex-initial text-center px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-200 text-gray-500 hover:text-gray-700 flex items-center justify-center gap-1.5 focus:outline-none">
-                                        <i class="fas fa-question-circle text-xs"></i> Tìm câu hỏi
-                                    </button>
-                                    <!-- Giữ lại các radio ẩn để phục vụ code JS cũ -->
-                                    <input type="radio" name="search-mode" value="quiz" id="search-mode-quiz" class="hidden" checked>
-                                    <input type="radio" name="search-mode" value="question" id="search-mode-question" class="hidden">
-                                </div>
+                    <!-- PHẦN LỌC (thu/mở bằng nút "Bộ lọc"): chế độ tìm + sắp xếp + lọc nhanh + số liệu -->
+                    <div id="lib-panel-body" class="lib-panel-body">
+                    <div class="px-2.5 sm:px-3 pb-3 pt-3 border-t border-gray-100 space-y-3">
+                        <!-- Chế độ tìm (bộ đề / câu hỏi) + Sắp xếp -->
+                        <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+                            <div class="bg-gray-100 p-1 rounded-xl flex gap-1 flex-1 border border-gray-200/40">
+                                <button type="button" id="search-mode-quiz-btn" class="flex-1 text-center px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-200 bg-white text-pink-600 shadow-sm flex items-center justify-center gap-1.5 focus:outline-none">
+                                    <i class="fas fa-file-alt text-xs"></i> Tìm bộ đề
+                                </button>
+                                <button type="button" id="search-mode-question-btn" class="flex-1 text-center px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-200 text-gray-500 hover:text-gray-700 flex items-center justify-center gap-1.5 focus:outline-none">
+                                    <i class="fas fa-question-circle text-xs"></i> Tìm câu hỏi
+                                </button>
+                                <!-- Giữ lại các radio ẩn để phục vụ code JS cũ -->
+                                <input type="radio" name="search-mode" value="quiz" id="search-mode-quiz" class="hidden" checked>
+                                <input type="radio" name="search-mode" value="question" id="search-mode-question" class="hidden">
                             </div>
-
-                            <!-- Hàng 2: Lọc nhanh + Sắp xếp -->
-                            <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pt-3 border-t border-gray-100">
-                                <div class="flex items-center gap-2 flex-wrap">
-                                    <button type="button" data-filter="all" class="library-filter-chip is-active"><i class="fas fa-layer-group mr-1.5 text-[11px]"></i>Tất cả</button>
-                                    <button type="button" data-filter="recent" class="library-filter-chip"><i class="fas fa-clock mr-1.5 text-[11px]"></i>Gần đây</button>
-                                    <button type="button" data-filter="unattempted" class="library-filter-chip" title="Các bộ đề bạn chưa làm lần nào"><i class="far fa-circle mr-1.5 text-[11px]"></i>Chưa làm</button>
-                                    <button type="button" data-filter="pinned" class="library-filter-chip"><i class="fas fa-thumbtack mr-1.5 text-[11px]"></i>Đã ghim</button>
-                                    <span id="library-result-count" class="hidden text-xs text-gray-400 font-medium ml-1"></span>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <label for="library-sort-select" class="text-xs text-gray-400 font-medium hidden sm:inline">Sắp xếp:</label>
-                                    <select id="library-sort-select" class="text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg pl-3 pr-8 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-200 cursor-pointer">
-                                        <option value="newest">Mới nhất</option>
-                                        <option value="oldest">Cũ nhất</option>
-                                        <option value="name">Tên A → Z</option>
-                                        <option value="count">Nhiều câu nhất</option>
-                                    </select>
-                                </div>
+                            <div class="flex items-center gap-2 flex-shrink-0">
+                                <label for="library-sort-select" class="text-xs text-gray-400 font-medium hidden sm:inline">Sắp xếp:</label>
+                                <select id="library-sort-select" class="flex-1 sm:flex-initial text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg pl-3 pr-8 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-200 cursor-pointer">
+                                    <option value="newest">Mới nhất</option>
+                                    <option value="oldest">Cũ nhất</option>
+                                    <option value="name">Tên A → Z</option>
+                                    <option value="count">Nhiều câu nhất</option>
+                                </select>
                             </div>
                         </div>
+
+                        <!-- Lọc nhanh + nút Xóa lọc + số kết quả -->
+                        <div id="lib-filter-chips" class="flex flex-wrap items-center gap-2">
+                            <button type="button" data-filter="all" class="library-filter-chip is-active"><i class="fas fa-layer-group mr-1.5 text-[11px]"></i>Tất cả</button>
+                            <button type="button" data-filter="recent" class="library-filter-chip"><i class="fas fa-clock mr-1.5 text-[11px]"></i>Gần đây</button>
+                            <button type="button" data-filter="unattempted" class="library-filter-chip" title="Các bộ đề bạn chưa làm lần nào"><i class="far fa-circle mr-1.5 text-[11px]"></i>Chưa làm</button>
+                            <button type="button" data-filter="pinned" class="library-filter-chip"><i class="fas fa-thumbtack mr-1.5 text-[11px]"></i>Đã ghim</button>
+                            <button type="button" id="lib-clear-filters" class="hidden items-center gap-1 text-xs font-bold text-gray-500 hover:text-pink-600 bg-gray-100 hover:bg-pink-50 rounded-full px-2.5 py-1 transition focus:outline-none" title="Về Tất cả"><i class="fas fa-rotate-left text-[10px]"></i> Xóa lọc</button>
+                            <span id="library-result-count" class="hidden text-xs text-gray-400 font-medium ml-auto"></span>
+                        </div>
+
+                        <!-- Số liệu tổng quan (phụ, tự cập nhật) -->
+                        <div class="flex items-center gap-3 pt-2.5 border-t border-gray-100 text-[11px] text-gray-400 font-medium">
+                            <span class="flex items-center gap-1"><i class="fas fa-file-alt text-pink-300 text-[10px]"></i><b id="lib-stat-quizzes" class="text-gray-600 font-bold tabular-nums">…</b> bộ đề</span>
+                            <span class="flex items-center gap-1"><i class="fas fa-question-circle text-purple-300 text-[10px]"></i><b id="lib-stat-questions" class="text-gray-600 font-bold tabular-nums">…</b> câu</span>
+                            <span class="flex items-center gap-1"><i class="fas fa-folder text-amber-300 text-[10px]"></i><b id="lib-stat-folders" class="text-gray-600 font-bold tabular-nums">…</b> thư mục</span>
+                        </div>
                     </div>
+                    </div><!-- /#lib-panel-body -->
                 </div>
                 <!-- KHỐI "HỌC TIẾP": các bộ đề vừa mở / vừa làm gần nhất, bấm là vào làm luôn (render động) -->
                 <div id="library-continue-section" class="hidden mb-6">
@@ -664,7 +666,104 @@
                     <h3 id="quizzes-section-title" class="text-on-bg text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2 hidden">
                         <i class="fas fa-file-alt text-pink-400"></i> Bộ đề trắc nghiệm
                     </h3>
-                    <div id="quiz-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div id="quiz-list-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+                        <!-- Skeleton tĩnh: hiện ngay khi mở tab, JS sẽ thay bằng dữ liệu thật (hoặc skeleton động) khi tải xong -->
+                        <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex flex-col">
+                            <div class="skeleton-line h-4 w-3/4 mb-3"></div>
+                            <div class="skeleton-line h-4 w-1/2 mb-4"></div>
+                            <div class="flex gap-2 mb-4">
+                                <div class="skeleton-line h-6 w-20 rounded-full"></div>
+                                <div class="skeleton-line h-6 w-24 rounded-full"></div>
+                            </div>
+                            <div class="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center">
+                                <div class="skeleton-line h-7 w-24 rounded-lg"></div>
+                                <div class="skeleton-line h-8 w-24 rounded-xl"></div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex flex-col">
+                            <div class="skeleton-line h-4 w-3/4 mb-3"></div>
+                            <div class="skeleton-line h-4 w-1/2 mb-4"></div>
+                            <div class="flex gap-2 mb-4">
+                                <div class="skeleton-line h-6 w-20 rounded-full"></div>
+                                <div class="skeleton-line h-6 w-24 rounded-full"></div>
+                            </div>
+                            <div class="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center">
+                                <div class="skeleton-line h-7 w-24 rounded-lg"></div>
+                                <div class="skeleton-line h-8 w-24 rounded-xl"></div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex flex-col">
+                            <div class="skeleton-line h-4 w-3/4 mb-3"></div>
+                            <div class="skeleton-line h-4 w-1/2 mb-4"></div>
+                            <div class="flex gap-2 mb-4">
+                                <div class="skeleton-line h-6 w-20 rounded-full"></div>
+                                <div class="skeleton-line h-6 w-24 rounded-full"></div>
+                            </div>
+                            <div class="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center">
+                                <div class="skeleton-line h-7 w-24 rounded-lg"></div>
+                                <div class="skeleton-line h-8 w-24 rounded-xl"></div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex flex-col">
+                            <div class="skeleton-line h-4 w-3/4 mb-3"></div>
+                            <div class="skeleton-line h-4 w-1/2 mb-4"></div>
+                            <div class="flex gap-2 mb-4">
+                                <div class="skeleton-line h-6 w-20 rounded-full"></div>
+                                <div class="skeleton-line h-6 w-24 rounded-full"></div>
+                            </div>
+                            <div class="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center">
+                                <div class="skeleton-line h-7 w-24 rounded-lg"></div>
+                                <div class="skeleton-line h-8 w-24 rounded-xl"></div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex-col hidden sm:flex">
+                            <div class="skeleton-line h-4 w-3/4 mb-3"></div>
+                            <div class="skeleton-line h-4 w-1/2 mb-4"></div>
+                            <div class="flex gap-2 mb-4">
+                                <div class="skeleton-line h-6 w-20 rounded-full"></div>
+                                <div class="skeleton-line h-6 w-24 rounded-full"></div>
+                            </div>
+                            <div class="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center">
+                                <div class="skeleton-line h-7 w-24 rounded-lg"></div>
+                                <div class="skeleton-line h-8 w-24 rounded-xl"></div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex-col hidden sm:flex">
+                            <div class="skeleton-line h-4 w-3/4 mb-3"></div>
+                            <div class="skeleton-line h-4 w-1/2 mb-4"></div>
+                            <div class="flex gap-2 mb-4">
+                                <div class="skeleton-line h-6 w-20 rounded-full"></div>
+                                <div class="skeleton-line h-6 w-24 rounded-full"></div>
+                            </div>
+                            <div class="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center">
+                                <div class="skeleton-line h-7 w-24 rounded-lg"></div>
+                                <div class="skeleton-line h-8 w-24 rounded-xl"></div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex-col hidden lg:flex">
+                            <div class="skeleton-line h-4 w-3/4 mb-3"></div>
+                            <div class="skeleton-line h-4 w-1/2 mb-4"></div>
+                            <div class="flex gap-2 mb-4">
+                                <div class="skeleton-line h-6 w-20 rounded-full"></div>
+                                <div class="skeleton-line h-6 w-24 rounded-full"></div>
+                            </div>
+                            <div class="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center">
+                                <div class="skeleton-line h-7 w-24 rounded-lg"></div>
+                                <div class="skeleton-line h-8 w-24 rounded-xl"></div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex-col hidden lg:flex">
+                            <div class="skeleton-line h-4 w-3/4 mb-3"></div>
+                            <div class="skeleton-line h-4 w-1/2 mb-4"></div>
+                            <div class="flex gap-2 mb-4">
+                                <div class="skeleton-line h-6 w-20 rounded-full"></div>
+                                <div class="skeleton-line h-6 w-24 rounded-full"></div>
+                            </div>
+                            <div class="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center">
+                                <div class="skeleton-line h-7 w-24 rounded-lg"></div>
+                                <div class="skeleton-line h-8 w-24 rounded-xl"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1084,6 +1183,8 @@
     </div>
 
     <script type="module" src="index-user-avatar.js"></script>
+    <!-- Chuông thông báo ôn ngắt quãng (đọc thuần localStorage, không Firebase) -->
+    <script type="module" src="features/quiz/quiz-srs-bell.js"></script>
     <!-- Tương tác gọn nhẹ cho thư viện: menu "..." và thu gọn phần Tổng quan -->
     <script>
         (function () {
@@ -1115,18 +1216,117 @@
                 });
             }
 
-            // Thu gọn / mở rộng phần Tổng quan thư viện
-            var statsToggle = document.getElementById('lib-stats-toggle');
-            var statsBody = document.getElementById('lib-stats-body');
-            var statsChevron = document.getElementById('lib-stats-chevron');
-            if (statsToggle && statsBody) {
-                statsToggle.addEventListener('click', function () {
-                    var willOpen = statsBody.classList.contains('hidden');
-                    statsBody.classList.toggle('hidden');
-                    statsToggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-                    if (statsChevron) statsChevron.style.transform = willOpen ? 'rotate(180deg)' : '';
+            // ===== Panel công cụ thư viện: bộ lọc thu/mở, chỉ báo lọc đang bật, tự ẩn khi cuộn =====
+            var panel = document.getElementById('library-panel');
+            var filterBtn = document.getElementById('lib-filter-btn');
+            var panelBody = document.getElementById('lib-panel-body');
+            var filterChevron = document.getElementById('lib-filter-chevron');
+            var filterDot = document.getElementById('lib-filter-dot');
+            var activeChip = document.getElementById('lib-active-filter-chip');
+            var activeChipLabel = document.getElementById('lib-active-filter-label');
+            var activeChipIcon = document.getElementById('lib-active-filter-icon');
+            var clearFiltersBtn = document.getElementById('lib-clear-filters');
+            var contextRow = document.getElementById('lib-context-row');
+            var breadcrumbEl = document.getElementById('folder-breadcrumb');
+
+            var FILTER_META = {
+                recent: { label: 'Gần đây', icon: 'fas fa-clock' },
+                unattempted: { label: 'Chưa làm', icon: 'far fa-circle' },
+                pinned: { label: 'Đã ghim', icon: 'fas fa-thumbtack' }
+            };
+
+            // --- Thu / mở phần lọc (nhớ trạng thái theo thiết bị) ---
+            if (filterBtn && panelBody) {
+                var LIB_PANEL_KEY = 'libPanelCollapsed';
+                var applyPanelState = function (collapsed, animate) {
+                    panelBody.classList.toggle('is-collapsed', collapsed);
+                    if (!animate) panelBody.classList.add('no-anim');
+                    filterBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+                    if (filterChevron) filterChevron.style.transform = collapsed ? 'rotate(180deg)' : '';
+                    if (!animate) {
+                        requestAnimationFrame(function () {
+                            requestAnimationFrame(function () { panelBody.classList.remove('no-anim'); });
+                        });
+                    }
+                };
+                var collapsedInit = false;
+                try { collapsedInit = localStorage.getItem(LIB_PANEL_KEY) === '1'; } catch (e) {}
+                applyPanelState(collapsedInit, false);
+                filterBtn.addEventListener('click', function () {
+                    var nowCollapsed = !panelBody.classList.contains('is-collapsed');
+                    applyPanelState(nowCollapsed, true);
+                    try { localStorage.setItem(LIB_PANEL_KEY, nowCollapsed ? '1' : '0'); } catch (e) {}
                 });
             }
+
+            // --- Chỉ báo bộ lọc đang bật + xóa nhanh (hiện cả khi phần lọc đang thu gọn) ---
+            var getActiveFilter = function () {
+                var el = document.querySelector('.library-filter-chip.is-active');
+                return el ? (el.getAttribute('data-filter') || 'all') : 'all';
+            };
+            var resetFilter = function () {
+                var allChip = document.querySelector('.library-filter-chip[data-filter="all"]');
+                if (allChip) allChip.click(); // đi qua handler chuẩn trong app.js
+            };
+            var setShown = function (el, shown) {
+                if (!el) return;
+                el.classList.toggle('hidden', !shown);
+                el.classList.toggle('inline-flex', shown);
+            };
+            var updateContextRow = function () {
+                var bcVisible = breadcrumbEl && !breadcrumbEl.classList.contains('hidden');
+                var chipVisible = activeChip && !activeChip.classList.contains('hidden');
+                if (contextRow) contextRow.style.display = (bcVisible || chipVisible) ? '' : 'none';
+            };
+            var updateFilterIndicator = function () {
+                var meta = FILTER_META[getActiveFilter()];
+                var active = !!meta;
+                if (filterDot) filterDot.classList.toggle('hidden', !active);
+                setShown(clearFiltersBtn, active);
+                setShown(activeChip, active);
+                if (active && activeChip) {
+                    if (activeChipLabel) activeChipLabel.textContent = meta.label;
+                    if (activeChipIcon) activeChipIcon.className = meta.icon + ' text-[10px]';
+                }
+                updateContextRow();
+            };
+            if (activeChip) activeChip.addEventListener('click', resetFilter);
+            if (clearFiltersBtn) clearFiltersBtn.addEventListener('click', resetFilter);
+
+            // Theo dõi app.js đổi bộ lọc (class is-active) và renderBreadcrumb ẩn/hiện breadcrumb
+            if (window.MutationObserver) {
+                var mo = new MutationObserver(function () { updateFilterIndicator(); });
+                document.querySelectorAll('.library-filter-chip').forEach(function (c) {
+                    mo.observe(c, { attributes: true, attributeFilter: ['class'] });
+                });
+                if (breadcrumbEl) mo.observe(breadcrumbEl, { attributes: true, attributeFilter: ['class'] });
+            }
+            window.addEventListener('load', updateFilterIndicator); // sau khi app.js khôi phục lọc đã lưu
+            updateFilterIndicator();
+
+            // --- Tự ẩn panel khi cuộn xuống, hiện khi cuộn lên (chỉ mobile/tablet) ---
+            (function () {
+                var scroller = document.querySelector('main.overflow-y-auto') || document.querySelector('main');
+                if (!scroller || !panel) return;
+                var lastY = 0, ticking = false;
+                var isMobile = function () { return window.matchMedia('(max-width: 1023px)').matches; };
+                scroller.addEventListener('scroll', function () {
+                    if (ticking) return;
+                    ticking = true;
+                    requestAnimationFrame(function () {
+                        var y = scroller.scrollTop;
+                        if (!isMobile() || y < 60) {
+                            panel.classList.remove('lib-panel-hidden');
+                        } else if (y > lastY + 6) {
+                            panel.classList.add('lib-panel-hidden');    // cuộn xuống → ẩn
+                        } else if (y < lastY - 6) {
+                            panel.classList.remove('lib-panel-hidden');  // cuộn lên → hiện
+                        }
+                        lastY = y;
+                        ticking = false;
+                    });
+                }, { passive: true });
+            })();
 
             // --- Modal đăng nhập / đăng ký: hiện/ẩn mật khẩu + chuyển tab ---
             var pwInput = document.getElementById('passwordInput');

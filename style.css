@@ -340,10 +340,24 @@ body {
     cursor: pointer;
     box-shadow: 0 4px 14px -4px rgba(244, 63, 94, 0.14),
                 inset 0 1px 0 rgba(255, 255, 255, 0.6);
-    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-                box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
+                box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1),
                 border-color 0.2s ease;
     position: relative;
+    /* Hoạt ảnh xuất hiện: trượt lên + phóng nhẹ, so le theo --card-index để cả dải "nở" mượt */
+    animation: folderCardIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(var(--card-index, 0) * 55ms);
+}
+
+@keyframes folderCardIn {
+    from {
+        opacity: 0;
+        transform: translateY(14px) scale(0.94);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
 }
 
 /* "Tai" thư mục: một mảnh bo tròn nhô lên ở mép trên-trái, kế thừa nền & viền
@@ -382,8 +396,8 @@ body {
 }
 
 .folder-mini-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 22px -8px var(--folder-shadow, rgba(244, 63, 94, 0.22));
+    transform: translateY(-4px) scale(1.015);
+    box-shadow: 0 16px 28px -12px var(--folder-shadow, rgba(244, 63, 94, 0.3));
 }
 
 .folder-mini-card:hover::before {
@@ -391,7 +405,8 @@ body {
 }
 
 .folder-mini-card:active {
-    transform: translateY(-1px) scale(0.99);
+    transform: translateY(-1px) scale(0.985);
+    transition-duration: 0.08s;
 }
 
 .folder-mini-card-content {
@@ -411,12 +426,14 @@ body {
     justify-content: center;
     font-size: 1.3rem;
     flex-shrink: 0;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
-    transition: transform 0.2s ease;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5),
+                0 3px 8px -2px var(--folder-shadow, rgba(244, 63, 94, 0.28));
+    transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.folder-mini-card:hover .folder-icon-wrapper {
-    transform: scale(1.06) rotate(-3deg);
+.folder-mini-card:hover .folder-icon-wrapper,
+.folder-mini-card:active .folder-icon-wrapper {
+    transform: scale(1.1) rotate(-5deg);
 }
 
 /* Responsive: ≥768px chuyển sang lưới tự co giãn (auto-fill) để thẻ
@@ -1147,5 +1164,254 @@ body {
     background: #fce7f3;
     transform: translateY(-1px);
     box-shadow: 0 4px 10px -4px rgba(219, 39, 119, 0.4);
+}
+
+/* ── Nâng cấp trải nghiệm thư mục trên điện thoại ─────────────────────────── */
+
+/* Thiết bị cảm ứng không có hover: bù lại bằng phản hồi khi chạm cho "đã bấm" rõ rệt.
+   Dùng .folder-click-area:active để tránh xung đột với thao tác kéo-thả cả thẻ. */
+@media (hover: none) {
+    .folder-mini-card:active {
+        transform: scale(0.965);
+        box-shadow: 0 6px 16px -6px var(--folder-shadow, rgba(244, 63, 94, 0.3));
+        transition-duration: 0.09s;
+    }
+    .folder-mini-card:active .folder-icon-wrapper {
+        transform: scale(1.12) rotate(-6deg);
+    }
+    /* Snap "chắc tay" hơn khi vuốt ngang dải thư mục + chừa lề đầu dải */
+    .folders-scroll-container:not(.folders-custom-cols) {
+        scroll-snap-type: x mandatory;
+        scroll-padding-left: 0.25rem;
+    }
+}
+
+/* Huy hiệu ghim: nhịp đập nhẹ để mắt bắt ngay thư mục quan trọng */
+.folder-pin-badge {
+    animation: folderPinPulse 2.4s ease-in-out infinite;
+}
+@keyframes folderPinPulse {
+    0%, 100% { transform: rotate(20deg) scale(1); }
+    50%      { transform: rotate(20deg) scale(1.14); }
+}
+
+/* Đích thả (drag & drop) rõ hơn: viền phát sáng phập phồng để biết "thả được vào đây" */
+.folder-mini-card.drop-target {
+    animation: folderDropPulse 1s ease-in-out infinite;
+}
+@keyframes folderDropPulse {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(236, 72, 153, 0.25); }
+    50%      { box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.4); }
+}
+
+/* ── Panel công cụ thư viện: thu gọn / mở rộng khối tìm kiếm + bộ lọc ─────────
+   Dùng grid-template-rows 1fr↔0fr để trượt mượt mà không cần đo chiều cao. */
+.lib-panel-body {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.28s ease;
+    opacity: 1;
+}
+.lib-panel-body > div {
+    min-height: 0;
+    overflow: hidden;
+}
+.lib-panel-body.is-collapsed {
+    grid-template-rows: 0fr;
+    opacity: 0;
+}
+/* Áp trạng thái ban đầu (khôi phục từ localStorage) mà không chạy hoạt ảnh */
+.lib-panel-body.no-anim {
+    transition: none !important;
+}
+
+/* Panel dính + tự ẩn khi cuộn xuống, hiện khi cuộn lên (mobile: như thanh địa chỉ trình duyệt) */
+.lib-panel {
+    transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+    will-change: transform;
+}
+.lib-panel.lib-panel-hidden {
+    transform: translateY(-118%);
+    box-shadow: none;
+    pointer-events: none;
+}
+/* Nút Bộ lọc khi phần lọc đang mở: tô nhẹ để biết đang bật */
+#lib-filter-btn[aria-expanded="true"] {
+    background: #fdf2f8;
+    border-color: #fbcfe8;
+    color: #db2777;
+}
+
+/* ── Hoạt ảnh "mở thư mục" 3D: chiếc thư mục lật bìa, giấy trồi lên, rồi phóng to & tan ──
+   Dựng bằng JS ngay tại vị trí thẻ vừa bấm, chạy trên lớp phủ position:fixed. */
+.folder-open-stage {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    pointer-events: none;
+    overflow: hidden;
+    perspective: 1100px;
+    /* Mờ vào/ra đặt Ở ĐÂY (không đặt trên .folder-open-scene) vì opacity trên phần tử
+       preserve-3d sẽ làm "phẳng" các con, phá mất hiệu ứng 3D. */
+    animation: foStage 1.7s ease-out forwards;
+}
+@keyframes foStage {
+    0%  { opacity: 0; }
+    12% { opacity: 1; }
+    70% { opacity: 1; }
+    100% { opacity: 0; }
+}
+/* Khung cảnh 3D cỡ nội bộ cố định 150×114 (mọi thành phần con tính theo px cỡ này).
+   Scale ban đầu (--fo-start-scale) khớp bề rộng thẻ thư mục cho liền mạch. Chỉ biến đổi transform. */
+.folder-open-scene {
+    position: absolute;
+    width: 150px;
+    height: 114px;
+    margin-left: -75px;
+    margin-top: -57px;
+    transform-style: preserve-3d;
+    animation: foScene 1.7s cubic-bezier(0.32, 0.72, 0.24, 1) forwards;
+}
+@keyframes foScene {
+    0%   { transform: scale(var(--fo-start-scale, 1)) translateZ(0) rotateX(7deg); }
+    14%  { transform: scale(1) translateZ(0) rotateX(7deg); }
+    58%  { transform: scale(1.3) translateZ(80px) translateY(-8px) rotateX(3deg); }
+    100% { transform: scale(2.7) translateZ(320px) translateY(-30px) rotateX(0deg); }
+}
+
+/* Quầng sáng màu thư mục lan ra phía sau → tăng độ "bùng" */
+.fo-glow {
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 190px; height: 150px;
+    margin: -75px 0 0 -95px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--fo-color-l, #fff) 0%, transparent 68%);
+    filter: blur(8px);
+    opacity: 0;
+    transform: translateZ(-40px);
+    animation: foGlow 1.7s ease-out forwards;
+}
+@keyframes foGlow {
+    0%   { opacity: 0; transform: translateZ(-40px) scale(0.5); }
+    32%  { opacity: 0.55; }
+    100% { opacity: 0; transform: translateZ(-40px) scale(1.7); }
+}
+
+/* Thân thư mục (bìa sau) — có "tai" nhô lên mép trên-trái */
+.fo-back {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(160deg, var(--fo-color) 0%, var(--fo-color-d) 100%);
+    border-radius: 7px 18px 18px 18px;
+    box-shadow: 0 24px 44px -14px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    transform: translateZ(-5px);
+}
+.fo-back::before {
+    content: '';
+    position: absolute;
+    top: -10px; left: -1px;
+    width: 44%; height: 13px;
+    background: inherit;
+    border-radius: 9px 13px 0 0;
+}
+
+/* Xấp giấy (bộ đề) bên trong: nền trắng, thanh màu đầu trang + vài dòng chữ */
+.fo-paper {
+    position: absolute;
+    left: 50%; bottom: 15px;
+    width: 62px; height: 78px;
+    margin-left: -31px;
+    background: linear-gradient(150deg, #ffffff 0%, #f1f3f7 100%);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: 6px;
+    box-shadow: 0 12px 20px -6px rgba(0, 0, 0, 0.34);
+    padding: 9px 8px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transform-origin: bottom center;
+    opacity: 0;
+    animation: foPaper 1.7s cubic-bezier(0.28, 0.8, 0.24, 1) forwards;
+    animation-delay: calc(var(--fo-i, 0) * 95ms + 220ms);
+}
+.fo-paper-bar {
+    height: 14px;
+    width: 78%;
+    border-radius: 3px;
+    background: var(--fo-color, #ec4899);
+}
+.fo-paper-line {
+    height: 5px;
+    border-radius: 2px;
+    background: #e5e7eb;
+}
+.fo-paper-line.short { width: 60%; }
+/* Ban đầu nằm trong túi (sau bìa) → trồi lên & xoè ra → tiếp tục bay lên và tan */
+@keyframes foPaper {
+    0%   { opacity: 0; transform: translate3d(0, 12px, -8px) rotateZ(0deg) scale(0.9); }
+    22%  { opacity: 1; }
+    55%  { opacity: 1; transform: translate3d(var(--fo-dx, 0px), -60px, 36px) rotateZ(var(--fo-rot, 0deg)) scale(1); }
+    100% { opacity: 0; transform: translate3d(calc(var(--fo-dx, 0px) * 1.5), -128px, 72px) rotateZ(var(--fo-rot, 0deg)) scale(1.06); }
+}
+
+/* Bìa trước (nắp): che xấp giấy lúc đầu, lật mở quanh bản lề ở đáy để lộ giấy bên trong */
+.fo-flap {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(160deg, var(--fo-color-l, #fbcfe8) 0%, var(--fo-color, #ec4899) 55%, var(--fo-color-d, #be185d) 100%);
+    border-radius: 7px 18px 14px 14px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 8px 16px -6px rgba(0, 0, 0, 0.32);
+    transform-origin: bottom center;
+    transform: translateZ(9px);
+    animation: foFlap 1.7s cubic-bezier(0.5, 0.02, 0.3, 1) forwards;
+}
+.fo-flap .fo-tab {
+    position: absolute;
+    top: -10px; left: 9px;
+    width: 40%; height: 13px;
+    background: var(--fo-color-l, #fbcfe8);
+    border-radius: 8px 11px 0 0;
+}
+@keyframes foFlap {
+    0%   { transform: translateZ(9px) rotateX(0deg); }
+    16%  { transform: translateZ(9px) rotateX(-7deg); }
+    58%  { transform: translateZ(9px) rotateX(-126deg); }
+    100% { opacity: 0.75; transform: translateZ(9px) rotateX(-152deg); }
+}
+
+/* Thẻ thư mục thật: nhún nhẹ rồi mờ dần để "nhường chỗ" cho chiếc thư mục 3D hiện lên đúng vị trí */
+.folder-mini-card.folder-ejecting {
+    animation: folderEject 0.32s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    z-index: 5;
+}
+@keyframes folderEject {
+    0%   { transform: scale(1); opacity: 1; }
+    30%  { transform: scale(1.05); opacity: 1; }
+    100% { transform: scale(0.9); opacity: 0; }
+}
+
+/* Tôn trọng người dùng tắt hoạt ảnh: bỏ mọi chuyển động không thiết yếu */
+@media (prefers-reduced-motion: reduce) {
+    .folder-mini-card {
+        animation: none !important;
+    }
+    .folder-pin-badge,
+    .folder-mini-card.drop-target {
+        animation: none !important;
+    }
+    .folder-mini-card:hover {
+        transform: none;
+    }
+    .folder-mini-card:hover .folder-icon-wrapper,
+    .folder-mini-card:active .folder-icon-wrapper {
+        transform: none;
+    }
+    /* Thu gọn/mở panel công cụ + tự ẩn: giữ chức năng nhưng bỏ hoạt ảnh trượt */
+    .lib-panel-body,
+    .lib-panel {
+        transition: none !important;
+    }
 }
 

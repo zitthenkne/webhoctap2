@@ -259,8 +259,11 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
                 foldersToDisplay = visibleFolders.slice(startIdx, startIdx + FOLDERS_PER_PAGE);
             }
 
-            foldersToDisplay.forEach((folder) => {
-                foldersContainer.appendChild(createFolderCard(folder));
+            foldersToDisplay.forEach((folder, idx) => {
+                const folderCard = createFolderCard(folder);
+                // Chỉ số dùng cho hoạt ảnh xuất hiện so le (stagger); giới hạn để thẻ cuối không trễ quá lâu
+                folderCard.style.setProperty('--card-index', Math.min(idx, 12));
+                foldersContainer.appendChild(folderCard);
             });
 
             if (!showAll) {

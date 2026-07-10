@@ -36,7 +36,7 @@ import {
 } from './page/quiz-question-view.js';
 import { setupMobileNav } from './page/quiz-mobile-nav.js';
 import {
-    loadQuizData, startQuizMode, startQuizWithCurrentSettings, endQuiz
+    loadQuizData, startQuizMode, startQuizWithCurrentSettings, startSrsSession, endQuiz
 } from './page/quiz-session.js';
 
 // Thời điểm nộp bài -> chuỗi "x phút/giờ/ngày trước" (quá 1 tuần thì hiện ngày cụ thể)
@@ -90,42 +90,63 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setupLastAttemptStat();
 
-    const savedStateStr = localStorage.getItem('quizState');
-    let askedToRestore = false;
-    if (savedStateStr) {
+    // === BÀI LÀM DỞ ===
+    // KHÔNG hỏi "làm tiếp?" ngay khi vừa vào trang — người dùng chưa kịp đọc thông tin bộ đề
+    // mà đã bị modal chặn lại. Thay vào đó: hiện gợi ý nhỏ dưới nút Bắt đầu, và chỉ hỏi
+    // đúng lúc người dùng chủ động bấm "Bắt đầu ngay" / "Ôn ngay".
+    const getPendingSavedState = () => {
         try {
-            const savedState = JSON.parse(savedStateStr);
+            const savedState = JSON.parse(localStorage.getItem('quizState') || 'null');
             const quizId = (new URLSearchParams(window.location.search)).get('id');
-            if (savedState.quizId === quizId && savedState.userAnswers && savedState.userAnswers.length === savedState.questionsLength && !savedState.finished) {
-                askedToRestore = true;
-                setTimeout(async () => {
-                    const wantRestore = await showConfirm(
-                        'Bạn có muốn tiếp tục bài làm trước đó không?',
-                        { title: 'Tiếp tục bài làm', confirmText: 'Tiếp tục', cancelText: 'Làm lại từ đầu', tone: 'primary' }
-                    );
-                    if (wantRestore) {
-                        // Khôi phục cấu hình phiên (tính giờ, xem đáp án ngay...) để render đúng trạng thái
-                        if (savedState.quizOptions) state.quizOptions = savedState.quizOptions;
-                        const restoreMode = savedState.quizMode || 'normal';
-
-                        if (Array.isArray(savedState.questions) && savedState.questions.length === savedState.questionsLength) {
-                            // Có sẵn bộ câu hỏi đã chơi (đã trộn câu/đáp án) -> khôi phục chính xác tuyệt đối
-                            startQuizMode(savedState.questions, restoreMode, savedState);
-                        } else {
-                            // Bản lưu cũ không kèm câu hỏi -> chờ dữ liệu gốc tải xong rồi khôi phục
-                            const restoreInterval = setInterval(() => {
-                                if (state.originalQuestions && state.originalQuestions.length === savedState.questionsLength) {
-                                    clearInterval(restoreInterval);
-                                    startQuizMode(state.originalQuestions.map((q, i) => ({ ...q, __origIdx: i })), restoreMode, savedState);
-                                }
-                            }, 200);
-                        }
-                    } else {
-                        clearQuizState();
-                    }
-                }, 400);
+            if (savedState && savedState.quizId === quizId && savedState.userAnswers
+                && savedState.userAnswers.length === savedState.questionsLength && !savedState.finished) {
+                return savedState;
             }
-        } catch (err) { console.warn('Không thể khôi phục trạng thái quiz:', err); }
+        } catch (err) { console.warn('Không thể đọc bài làm dở đã lưu:', err); }
+        return null;
+    };
+
+    const restoreSavedSession = (savedState) => {
+        // Khôi phục cấu hình phiên (tính giờ, xem đáp án ngay...) để render đúng trạng thái
+        if (savedState.quizOptions) state.quizOptions = savedState.quizOptions;
+        const restoreMode = savedState.quizMode || 'normal';
+
+        if (Array.isArray(savedState.questions) && savedState.questions.length === savedState.questionsLength) {
+            // Có sẵn bộ câu hỏi đã chơi (đã trộn câu/đáp án) -> khôi phục chính xác tuyệt đối
+            startQuizMode(savedState.questions, restoreMode, savedState);
+        } else {
+            // Bản lưu cũ không kèm câu hỏi -> chờ dữ liệu gốc tải xong rồi khôi phục
+            const restoreInterval = setInterval(() => {
+                if (state.originalQuestions && state.originalQuestions.length === savedState.questionsLength) {
+                    clearInterval(restoreInterval);
+                    startQuizMode(state.originalQuestions.map((q, i) => ({ ...q, __origIdx: i })), restoreMode, savedState);
+                }
+            }, 200);
+        }
+    };
+
+    // Hỏi khôi phục khi người dùng CHỦ ĐỘNG bắt đầu; cancelText đổi theo ngữ cảnh nút bấm
+    // (chọn cancel đồng nghĩa bỏ bài dở và đi tiếp luồng mới).
+    const askResumeSavedSession = (savedState, cancelText) => {
+        const answered = savedState.userAnswers.filter(a => a !== null).length;
+        return showConfirm(
+            `Bạn đang làm dở bài này (đã trả lời ${answered}/${savedState.questionsLength} câu). Tiếp tục từ chỗ cũ nhé?`,
+            { title: 'Tiếp tục bài làm?', confirmText: 'Tiếp tục', cancelText, tone: 'primary' }
+        );
+    };
+
+    // Gợi ý nhỏ dưới nút Bắt đầu để người dùng biết trước là có bài dở (thay cho modal đường đột)
+    const pendingAtLoad = getPendingSavedState();
+    if (pendingAtLoad) {
+        const startBtn = document.getElementById('start-now-btn');
+        if (startBtn && !document.getElementById('resume-hint')) {
+            const answered = pendingAtLoad.userAnswers.filter(a => a !== null).length;
+            const hint = document.createElement('p');
+            hint.id = 'resume-hint';
+            hint.className = 'text-xs font-semibold text-pink-500 flex items-center gap-1.5';
+            hint.innerHTML = `<i class="fas fa-circle-pause"></i> Đang làm dở ${answered}/${pendingAtLoad.questionsLength} câu — bấm Bắt đầu để làm tiếp`;
+            startBtn.insertAdjacentElement('afterend', hint);
+        }
     }
 
     const hudHomeBtn = document.getElementById('hud-home-btn');
@@ -222,16 +243,57 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const startNowBtn = document.getElementById('start-now-btn');
     if (startNowBtn) {
-        startNowBtn.addEventListener('click', () => {
+        startNowBtn.addEventListener('click', async () => {
+            // Có bài dở -> hỏi đúng lúc này (người dùng vừa chủ động bấm nên câu hỏi không đường đột)
+            let beginQuiz = startQuizWithCurrentSettings;
+            const savedState = getPendingSavedState();
+            if (savedState) {
+                if (await askResumeSavedSession(savedState, 'Làm lại từ đầu')) {
+                    beginQuiz = () => restoreSavedSession(savedState);
+                } else {
+                    clearQuizState();
+                }
+            }
             const landing = document.getElementById('quiz-landing');
             // Hiệu ứng chuyển cảnh: trang thiết lập "bay" ra rồi mới vào màn làm bài
             if (landing && !landing.classList.contains('hidden') && !landing.classList.contains('quiz-landing-leaving')) {
                 const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
                 landing.classList.add('quiz-landing-leaving');
                 scrollQuizToTop();
-                setTimeout(startQuizWithCurrentSettings, reduce ? 0 : 420);
+                setTimeout(beginQuiz, reduce ? 0 : 420);
             } else {
-                startQuizWithCurrentSettings();
+                beginQuiz();
+            }
+        });
+    }
+
+    // Nút "Ôn ngay" (ôn ngắt quãng) — cùng hiệu ứng chuyển cảnh với nút bắt đầu.
+    // startSrsSession trả false khi hết câu để ôn → trả landing về trạng thái cũ.
+    const startSrsBtn = document.getElementById('start-srs-btn');
+    if (startSrsBtn) {
+        startSrsBtn.addEventListener('click', async () => {
+            const landing = document.getElementById('quiz-landing');
+            let runSrs = async () => {
+                if (await startSrsSession() === false && landing) {
+                    landing.classList.remove('quiz-landing-leaving');
+                }
+            };
+            // Phiên ôn cũng ghi đè bài dở đã lưu -> hỏi trước, giống nút Bắt đầu
+            const savedState = getPendingSavedState();
+            if (savedState) {
+                if (await askResumeSavedSession(savedState, 'Bỏ qua, ôn ngay')) {
+                    runSrs = () => restoreSavedSession(savedState);
+                } else {
+                    clearQuizState();
+                }
+            }
+            if (landing && !landing.classList.contains('hidden') && !landing.classList.contains('quiz-landing-leaving')) {
+                const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                landing.classList.add('quiz-landing-leaving');
+                scrollQuizToTop();
+                setTimeout(runSrs, reduce ? 0 : 420);
+            } else {
+                runSrs();
             }
         });
     }
@@ -350,5 +412,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    loadQuizData();
+    // Mở từ chuông thông báo (?srs=1) → tự vào phiên ôn ngắt quãng ngay khi dữ liệu
+    // sẵn sàng. Nếu đang có bài làm dở thì KHÔNG tự vào (tránh ghi đè bài dở khi chưa hỏi):
+    // đứng lại ở trang thiết lập, gợi ý "đang làm dở" đã hiện và người dùng tự bấm nút.
+    loadQuizData().then(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('srs') === '1' && !getPendingSavedState()
+            && Array.isArray(state.originalQuestions) && state.originalQuestions.length) {
+            startSrsSession();
+        }
+    });
 });

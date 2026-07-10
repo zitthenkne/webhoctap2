@@ -37,6 +37,72 @@ document.addEventListener('click', (e) => {
     if (quizId) markQuizOpened(quizId);
 }, true);
 
+// Kiểm tra người dùng có bật "giảm chuyển động" (accessibility) không → nếu có thì bỏ hoạt ảnh.
+function prefersReducedMotion() {
+    return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+// Làm sáng/tối một mã màu hex (amt: -100..100). Dùng để tạo màu bìa & thân thư mục hài hoà.
+function shadeHex(hex, amt) {
+    let h = String(hex || '').replace('#', '');
+    if (h.length === 3) h = h.split('').map(c => c + c).join('');
+    if (h.length !== 6 || /[^0-9a-fA-F]/.test(h)) return hex;
+    const num = parseInt(h, 16);
+    const f = amt / 100;
+    const adj = (c) => Math.max(0, Math.min(255, Math.round(c + (f < 0 ? c * f : (255 - c) * f))));
+    const r = adj((num >> 16) & 255), g = adj((num >> 8) & 255), b = adj(num & 255);
+    return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+}
+
+// Hoạt ảnh "mở thư mục" 3D: dựng một chiếc thư mục thật ngay tại vị trí thẻ vừa bấm —
+// bìa trước lật mở (bản lề ở đáy), xấp giấy (bộ đề) bên trong trồi lên & xoè ra, rồi cả
+// khối phóng to tiến về phía người xem và tan dần vào nội dung → cảm giác "bước vào" thư mục.
+// Chạy trên lớp phủ position:fixed gắn ở body nên không bị việc render lại thư viện xoá mất.
+function playFolderOpenBurst(cardEl, hex, quizCount) {
+    if (prefersReducedMotion()) return;
+    const rect = cardEl.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    // Scene có cỡ nội bộ cố định (150px); scale ban đầu để khớp bề rộng thẻ thư mục → liền mạch
+    const startScale = Math.max(0.8, Math.min(rect.width / 150, 1.5));
+
+    const stage = document.createElement('div');
+    stage.className = 'folder-open-stage';
+
+    const scene = document.createElement('div');
+    scene.className = 'folder-open-scene';
+    scene.style.left = cx + 'px';
+    scene.style.top = cy + 'px';
+    scene.style.setProperty('--fo-start-scale', startScale.toFixed(3));
+    scene.style.setProperty('--fo-color', hex);
+    scene.style.setProperty('--fo-color-d', shadeHex(hex, -22));
+    scene.style.setProperty('--fo-color-l', shadeHex(hex, 14));
+
+    // Xấp giấy bên trong: số tờ theo số bộ đề (3–5), xoè đối xứng
+    const n = Math.max(3, Math.min(5, quizCount || 4));
+    const mid = (n - 1) / 2;
+    let papers = '';
+    for (let i = 0; i < n; i++) {
+        const off = i - mid;
+        papers += `<span class="fo-paper" style="--fo-i:${i}; --fo-dx:${(off * 17).toFixed(1)}px; --fo-rot:${(off * 8).toFixed(1)}deg; z-index:${20 - Math.abs(off)}">`
+            + `<span class="fo-paper-bar"></span><span class="fo-paper-line"></span><span class="fo-paper-line short"></span></span>`;
+    }
+
+    scene.innerHTML = `
+        <span class="fo-glow"></span>
+        <span class="fo-back"></span>
+        ${papers}
+        <span class="fo-flap"><span class="fo-tab"></span></span>
+    `;
+    stage.appendChild(scene);
+    document.body.appendChild(stage);
+
+    // Thẻ thư mục "nảy" nhẹ như vừa được mở ra
+    cardEl.classList.add('folder-ejecting');
+
+    setTimeout(() => stage.remove(), 1850);
+}
+
 // Dựng một thẻ thư mục hoàn chỉnh (markup + toàn bộ listener: mở, menu, ghim, đổi màu, xóa, kéo-thả)
 export function createFolderCard(folder) {
     const card = document.createElement('div');
@@ -121,9 +187,15 @@ export function createFolderCard(folder) {
 
     card.querySelector('.folder-click-area').addEventListener('click', () => {
         markFolderOpened(folder.id); // ghi nhận lần mở gần nhất (cục bộ)
+        playFolderOpenBurst(card, hex, count); // giấy bung ra từ thư mục
         S.currentFolderId = folder.id;
         renderBreadcrumb();
-        loadAndDisplayLibrary(1);
+        // Trễ nhẹ để xấp giấy kịp xoè lên từ thư mục trước khi danh sách đổi sang nội dung bên trong
+        if (prefersReducedMotion()) {
+            loadAndDisplayLibrary(1);
+        } else {
+            setTimeout(() => loadAndDisplayLibrary(1), 900);
+        }
     });
 
     const menuBtn = card.querySelector('.folder-menu-btn');

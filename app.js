@@ -941,6 +941,8 @@ function setupEventListeners() {
             const libraryPanel = document.getElementById('libraryContent');
             if (!libraryPanel || libraryPanel.classList.contains('hidden')) return;
             e.preventDefault();
+            // Ô tìm kiếm giờ luôn hiện; nếu panel đang bị tự ẩn khi cuộn thì hiện lại cho dễ thấy
+            document.getElementById('library-panel')?.classList.remove('lib-panel-hidden');
             librarySearchInput.focus();
         });
 

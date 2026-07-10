@@ -541,6 +541,40 @@
                 </div>
             </div>
 
+            <!-- Ôn ngắt quãng (spaced repetition kiểu Anki) — nằm NGOÀI #quiz-options-grid
+                 để không dính vòng lưu/khôi phục quizLandingOpts_; số câu mới/ngày có kho
+                 riêng trong quiz-srs-store.js -->
+            <div class="mt-8 p-5 sm:p-6 bg-gradient-to-r from-indigo-500/10 to-violet-500/10 border-2 border-indigo-300/60 rounded-2xl">
+                <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div class="flex items-center gap-4 text-left w-full md:w-auto">
+                        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-400 to-violet-500 text-white flex items-center justify-center shadow-lg flex-shrink-0">
+                            <i class="fas fa-brain text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-extrabold text-gray-800 text-base sm:text-lg flex flex-wrap items-center gap-2">
+                                <span>Ôn ngắt quãng</span>
+                                <span class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold border border-indigo-300/60 uppercase tracking-wide">kiểu Anki</span>
+                            </h3>
+                            <p class="text-xs sm:text-sm text-gray-600 font-medium mt-0.5">
+                                <span id="srs-due-count" class="skeleton-line inline-block min-w-[140px]">&nbsp;</span>
+                            </p>
+                            <p id="srs-login-hint" class="hidden text-[11px] text-gray-400 mt-0.5">Đăng nhập để đồng bộ lịch ôn giữa các thiết bị.</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                        <label class="flex items-center gap-2 text-xs font-semibold text-gray-500" title="Để trống = không giới hạn (ôn full bộ đề)">
+                            Câu mới/ngày
+                            <input type="number" id="srs-new-per-day" min="0" max="999" step="5" placeholder="Tất cả"
+                                class="w-24 px-2 py-1.5 border border-indigo-200 rounded-lg text-center text-sm font-bold text-indigo-700 focus:ring-2 focus:ring-indigo-300 focus:outline-none bg-white/80 placeholder:font-medium placeholder:text-gray-300 placeholder:text-xs">
+                        </label>
+                        <button type="button" id="start-srs-btn" disabled
+                            class="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-indigo-500 to-violet-500 text-white rounded-xl shadow-[0_8px_20px_rgba(99,102,241,0.35)] hover:scale-[1.03] active:scale-[0.98] transition-all font-extrabold text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none">
+                            <i class="fas fa-calendar-check"></i> Ôn ngay
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Start Button & Flashcard practicing -->
             <div class="mt-8 flex flex-col items-center gap-4">
                 <button type="button" id="start-now-btn" class="w-full max-w-xs px-8 py-4 bg-gradient-to-r from-pink-500 to-[#FF69B4] text-white rounded-2xl hover:shadow-[0_8px_25px_rgba(255,105,180,0.35)] hover:scale-[1.03] active:scale-[0.98] transition-all duration-250 shadow-lg text-lg font-bold flex items-center justify-center gap-2">

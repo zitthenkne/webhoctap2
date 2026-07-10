@@ -2,6 +2,9 @@
 
 import { state, MARK_REASONS } from './quiz-state.js';
 import { parseMarkdown, renderMath, convertScoreToGPA, formatTime, triggerConfetti } from './quiz-helpers.js';
+import { previewSrsCounts, getNewPerDay, setNewPerDay } from './quiz-srs-store.js';
+import { auth } from '../../core/firebase-init.js';
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
 
 export function showSubmitQuizBtn(show) {
     const submitQuizBtn = document.getElementById('submit-quiz-btn');
@@ -185,7 +188,49 @@ export function loadQuizDetails() {
             enableCountCheckbox.dispatchEvent(new Event('change'));
         }
 
+        renderSrsLandingCard();
+
         renderPreviewQuestions();
+    }
+}
+
+// Điền số liệu cho card "Ôn ngắt quãng" trên landing: X câu đến hạn · Y câu mới
+// hôm nay (previewSrsCounts KHÔNG trừ quota — quota chỉ trừ khi thật sự bắt đầu).
+function renderSrsLandingCard() {
+    const countEl = document.getElementById('srs-due-count');
+    const startBtn = document.getElementById('start-srs-btn');
+    const newPerDayInput = document.getElementById('srs-new-per-day');
+    if (!countEl || !startBtn) return;
+
+    const quizId = state.quizData && state.quizData.id;
+
+    const refresh = () => {
+        const { due, newToday } = previewSrsCounts(quizId, state.originalQuestions);
+        countEl.classList.remove('skeleton-line');
+        countEl.innerHTML = due + newToday > 0
+            ? `<b class="text-indigo-700">${due} câu đến hạn</b> · ${newToday} câu mới hôm nay`
+            : 'Hôm nay không còn câu nào cần ôn 🎉';
+        startBtn.disabled = due + newToday === 0;
+    };
+
+    if (newPerDayInput) {
+        // null = không giới hạn (mặc định) → input để trống, placeholder "Tất cả"
+        const cur = getNewPerDay(quizId);
+        newPerDayInput.value = cur == null ? '' : cur;
+        newPerDayInput.addEventListener('change', () => {
+            const v = setNewPerDay(quizId, newPerDayInput.value);
+            newPerDayInput.value = v == null ? '' : v;
+            refresh();
+        });
+    }
+    refresh();
+    // Cloud có thể kéo lịch về SAU khi card đã vẽ (pullStudyFromCloud chạy nền)
+    document.addEventListener('quiz-study-pulled', refresh);
+
+    // Gợi ý đăng nhập để lịch ôn được sao lưu/đồng bộ qua quiz_study
+    const loginHint = document.getElementById('srs-login-hint');
+    if (loginHint) {
+        onAuthStateChanged(auth, (u) => loginHint.classList.toggle('hidden', !!u));
     }
 }
 
@@ -211,6 +256,28 @@ export function showResults(totalTime) {
     const { score4: gpa4, letterGrade, motivation, score10 } = gpaResult;
     const incorrectCount = total - correctCount;
     const showPracticeButton = incorrectCount > 0;
+    const isSrs = state.quizMode === 'srs';
+
+    // --- Tóm tắt lịch hẹn cho phiên ôn ngắt quãng ---
+    let srsSummaryHtml = '';
+    if (isSrs) {
+        const info = state._srsSessionInfo || {};
+        const newPart = info.newCount ? ` (trong đó ${info.newCount} câu mới bắt đầu học)` : '';
+        srsSummaryHtml = `
+            <div class="mt-6 p-5 bg-gradient-to-r from-indigo-500/10 to-violet-500/10 border-2 border-indigo-300/70 rounded-2xl flex items-center gap-4 text-left shadow-md">
+                <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-400 to-violet-500 text-white flex items-center justify-center shadow-lg flex-shrink-0">
+                    <i class="fas fa-calendar-check text-xl"></i>
+                </div>
+                <div>
+                    <h4 class="font-extrabold text-indigo-800 text-base sm:text-lg">Đã hẹn lịch ôn ngắt quãng</h4>
+                    <p class="text-xs sm:text-sm text-gray-700 font-medium mt-1">
+                        <span class="text-green-600 font-bold">${correctCount} câu đúng</span> được giãn ra xa hơn,
+                        <span class="text-red-500 font-bold">${wrongCount} câu sai</span> sẽ quay lại trong hôm nay${newPart}.
+                        Nhớ ghé lại khi chuông thông báo có câu đến hạn nhé!
+                    </p>
+                </div>
+            </div>`;
+    }
 
     // Màu sắc theo thành tích
     let ringColor = '#ef4444', ringBg = '#fee2e2';
@@ -384,6 +451,8 @@ export function showResults(totalTime) {
                 </div>
             </div>
 
+            ${srsSummaryHtml}
+
             <!-- Instant Redo Loop Banner -->
             ${showPracticeButton ? `
             <div class="mt-6 p-5 sm:p-6 bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-red-500/10 border-2 border-amber-400/80 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-md transition-all duration-300">
@@ -396,7 +465,7 @@ export function showResults(totalTime) {
                             <span>Instant Redo Loop</span>
                             <span class="text-xs bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full font-bold border border-amber-300/60">⚡ Khuyên dùng</span>
                         </h4>
-                        <p class="text-xs sm:text-sm text-gray-700 font-medium mt-1">Bạn có <span class="text-red-600 font-extrabold text-base">${incorrectCount} câu</span> sai hoặc chưa trả lời. Ôn lại ngay lúc đang có ấn tượng mạnh để nhớ lâu nhất!</p>
+                        <p class="text-xs sm:text-sm text-gray-700 font-medium mt-1">Bạn có <span class="text-red-600 font-extrabold text-base">${incorrectCount} câu</span> sai hoặc chưa trả lời. ${isSrs ? 'Học lại ngay không tính vào lịch ôn — lịch vẫn giữ nguyên hẹn của phiên vừa rồi.' : 'Ôn lại ngay lúc đang có ấn tượng mạnh để nhớ lâu nhất!'}</p>
                     </div>
                 </div>
                 <button id="practiceIncorrectBtn" class="w-full md:w-auto px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl shadow-[0_8px_20px_rgba(245,158,11,0.4)] hover:scale-[1.03] active:scale-[0.98] transition-all font-extrabold text-sm sm:text-base flex items-center justify-center gap-2.5 flex-shrink-0">
@@ -414,9 +483,10 @@ export function showResults(totalTime) {
             </div>`}
 
             <div class="mt-6 pt-6 border-t border-gray-100 flex flex-wrap justify-center gap-3">
+                ${isSrs ? '' : `
                 <button id="restartQuizBtn" class="px-5 py-2.5 bg-[#FF69B4] text-white rounded-xl hover:bg-opacity-90 hover:scale-[1.02] transition shadow-md font-semibold flex items-center gap-2">
                     <i class="fas fa-redo"></i> Làm lại toàn bộ
-                </button>
+                </button>`}
                 <a href="../../index.html#libraryContent" class="px-5 py-2.5 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-100 transition shadow-sm font-semibold flex items-center gap-2">
                     <i class="fas fa-book"></i> Thư viện
                 </a>

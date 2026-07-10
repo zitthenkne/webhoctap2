@@ -12,7 +12,8 @@ import { state, saveQuizState, clearQuizState, saveQuizResult } from '../quiz-st
 import { shuffleArray, shuffleQuestionOptions } from '../quiz-helpers.js';
 import { showSubmitQuizBtn, loadQuizDetails, showResults, toggleFocusMode } from '../quiz-ui.js';
 import { getVibrate } from './quiz-page-prefs.js';
-import { pullStudyFromCloud } from './quiz-study-sync.js';
+import { pullStudyFromCloud, whenStudyPulled, currentQuizId } from './quiz-study-sync.js';
+import { buildSrsQueue } from '../quiz-srs-store.js';
 import { groupQuestionsByCase, tagCaseSequence } from './quiz-cases.js';
 import { showQuestion, accrueTime } from './quiz-question-view.js';
 import { hideMobileNav } from './quiz-mobile-nav.js';
@@ -103,7 +104,7 @@ export async function loadQuizData() {
 }
 
 export function startQuizMode(questionsArray, mode = 'normal', restoreState = null) {
-    if (mode === 'normal' || mode === 'practice') {
+    if (mode === 'normal' || mode === 'practice' || mode === 'srs') {
         showSubmitQuizBtn(true);
     } else {
         showSubmitQuizBtn(false);
@@ -369,4 +370,39 @@ export function startQuizWithCurrentSettings() {
 
     showSubmitQuizBtn(true);
     startQuizMode(selectedQuestions, 'normal');
+}
+
+// Bắt đầu phiên ÔN NGẮT QUÃNG: hàng đợi = câu đến hạn + câu mới trong quota ngày
+// (xem quiz-srs-store.js). Luôn hiện đáp án ngay (cần biết đúng/sai để chấm lịch),
+// không tính giờ. Trả về (Promise) false nếu hôm nay không còn gì để ôn.
+export async function startSrsSession() {
+    // Firestore là nguồn chính: chờ bản kéo cloud đầu tiên hợp nhất vào local
+    // (timeout 4s — mạng chậm/khách thì dùng local) rồi mới tính hàng đợi,
+    // để máy mới không coi toàn bộ câu đã học là "câu mới".
+    await whenStudyPulled();
+    clearQuizState();
+    state.streak = 0;
+    state.used5050Questions = {};
+    state.quizOptions.isTimed = false;
+    state.quizOptions.timedMinutes = 0;
+    state.quizOptions.showAnswerImmediately = true;
+
+    const base = state.originalQuestions.map((q, i) => ({ ...q, __origIdx: i }));
+    const { queue, dueCount, newCount } = buildSrsQueue(
+        currentQuizId(), base, { title: state.quizData && state.quizData.title }
+    );
+    if (!queue.length) {
+        showToast('Hôm nay không có câu nào đến hạn ôn. Quay lại sau nhé!', 'info');
+        return false;
+    }
+
+    let questions = queue;
+    const shuffleAnswersCheckbox = document.getElementById('shuffle-answers-checkbox');
+    if (shuffleAnswersCheckbox && shuffleAnswersCheckbox.checked) {
+        questions = questions.map(q => shuffleQuestionOptions(q));
+    }
+
+    state._srsSessionInfo = { dueCount, newCount };
+    startQuizMode(questions, 'srs');
+    return true;
 }
