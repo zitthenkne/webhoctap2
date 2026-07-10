@@ -1814,3 +1814,234 @@ html.theme-dark ::-webkit-scrollbar-thumb {
 html.theme-dark ::-webkit-scrollbar-thumb:hover {
     background-image: linear-gradient(#ec92c2, #d65fa0);
 }
+
+/* ============================================================
+   18) THANH ĐIỀU HƯỚNG ĐÁY (MOBILE) + BẢNG NHẢY CÂU (BOTTOM-SHEET)
+   - Chỉ hiện ở màn hẹp (<1024px) khi ĐANG làm bài (JS thêm .show + body.has-mobile-nav)
+   - Luôn với tới Trước/Tiếp + tiến trình mà không phải cuộn tới cuối thẻ câu hỏi
+   ============================================================ */
+#quiz-mobile-nav { display: none; }
+
+@media (max-width: 1023px) {
+    #quiz-mobile-nav.show {
+        display: flex;
+        align-items: stretch;
+        gap: 0.5rem;
+        position: fixed;
+        left: 0; right: 0; bottom: 0;
+        z-index: 44;
+        padding: 0.5rem 0.6rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+        background: rgba(255, 255, 255, 0.86);
+        -webkit-backdrop-filter: blur(16px);
+        backdrop-filter: blur(16px);
+        border-top: 1px solid rgba(255, 105, 180, 0.25);
+        box-shadow: 0 -8px 26px -12px rgba(255, 105, 180, 0.4);
+        animation: qmn-rise .32s cubic-bezier(.16, 1, .3, 1) both;
+    }
+    /* Chừa chỗ cho thanh cố định để nút "Nộp bài"/"Câu tiếp" trong thẻ không bị che */
+    body.has-mobile-nav #quiz-workspace { padding-bottom: 4.6rem; }
+    /* Đã có thanh đáy (Câu X/Y + %) và bảng "Danh sách câu" (bottom-sheet) thay thế,
+       nên lưới số câu xếp dọc phía trên câu hỏi thành thừa -> ẩn trên mobile để đỡ chật.
+       Vẫn giữ ở desktop (≥1024px) trong bố cục 3 cột. */
+    body.has-mobile-nav #quiz-nav-panel { display: none !important; }
+    /* Nút "Ẩn/hiện số câu hỏi" trong bảng thiết lập không còn tác dụng khi lưới đã ẩn */
+    body.has-mobile-nav #toggle-nav-btn { display: none !important; }
+    /* Nút thiết lập (ngựa) & popover nhấc lên trên thanh để không chồng nhau */
+    body.has-mobile-nav #quiz-settings-fab { bottom: calc(4rem + env(safe-area-inset-bottom, 0px)); }
+    body.has-mobile-nav #quiz-settings-popover { bottom: calc(7.2rem + env(safe-area-inset-bottom, 0px)); }
+}
+@keyframes qmn-rise { 0% { transform: translateY(100%); } 100% { transform: translateY(0); } }
+
+.qmn-arrow {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-width: 4.6rem;
+    padding: 0 0.85rem;
+    border-radius: 0.85rem;
+    border: 1px solid rgba(255, 105, 180, 0.3);
+    background: #fff0f6;
+    color: #db2777;
+    font-weight: 800;
+    font-size: 0.9rem;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .12s ease, background-color .2s ease, opacity .2s ease;
+}
+.qmn-arrow:active { transform: scale(0.95); }
+.qmn-arrow.is-off { opacity: 0.4; pointer-events: none; }
+.qmn-arrow-next.qmn-submit {
+    background: linear-gradient(135deg, #34d399, #10b981);
+    border-color: #10b981;
+    color: #fff;
+}
+.qmn-center {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.22rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 0.85rem;
+    border: 1px solid rgba(255, 105, 180, 0.22);
+    background: linear-gradient(180deg, rgba(255, 240, 246, 0.9), rgba(255, 255, 255, 0.6));
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .12s ease;
+}
+.qmn-center:active { transform: scale(0.98); }
+.qmn-counter { font-weight: 800; font-size: 0.9rem; color: #be185d; line-height: 1.1; }
+.qmn-progress {
+    width: 100%;
+    height: 5px;
+    border-radius: 9999px;
+    background: rgba(255, 105, 180, 0.18);
+    overflow: hidden;
+}
+.qmn-progress-fill {
+    display: block;
+    height: 100%;
+    width: 0%;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, #ff9ecb, #ff5fa8);
+    transition: width .35s cubic-bezier(.16, 1, .3, 1);
+}
+.qmn-hint {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #db2777;
+    opacity: 0.75;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    letter-spacing: 0.01em;
+}
+
+html.theme-dark #quiz-mobile-nav.show {
+    background: rgba(30, 23, 48, 0.9);
+    border-top-color: rgba(255, 105, 180, 0.25);
+    box-shadow: 0 -8px 26px -12px rgba(0, 0, 0, 0.6);
+}
+html.theme-dark .qmn-arrow { background: #34203a; color: #f9a8d4; border-color: rgba(249, 168, 212, 0.28); }
+html.theme-dark .qmn-center { background: linear-gradient(180deg, rgba(52, 32, 58, 0.9), rgba(40, 28, 52, 0.6)); border-color: rgba(249, 168, 212, 0.22); }
+html.theme-dark .qmn-counter { color: #f9a8d4; }
+html.theme-dark .qmn-hint { color: #f9a8d4; }
+html.theme-dark .qmn-progress { background: rgba(249, 168, 212, 0.18); }
+
+/* --- Bảng nhảy câu (bottom-sheet) --- */
+#quiz-jump-sheet { position: fixed; inset: 0; z-index: 78; }
+#quiz-jump-sheet.hidden { display: none; }
+#quiz-jump-sheet .qjs-backdrop {
+    position: absolute; inset: 0;
+    background: rgba(17, 12, 24, 0.4);
+    opacity: 0;
+    transition: opacity .24s ease;
+}
+#quiz-jump-sheet.show .qjs-backdrop { opacity: 1; }
+#quiz-jump-sheet .qjs-panel {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    max-height: 72vh;
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem 1rem calc(1.1rem + env(safe-area-inset-bottom, 0px));
+    background: #fff;
+    border-radius: 1.3rem 1.3rem 0 0;
+    box-shadow: 0 -14px 40px -10px rgba(0, 0, 0, 0.35);
+    transform: translateY(100%);
+    transition: transform .28s cubic-bezier(.16, 1, .3, 1);
+}
+#quiz-jump-sheet.show .qjs-panel { transform: translateY(0); }
+.qjs-grip {
+    width: 2.6rem; height: 0.28rem;
+    border-radius: 9999px;
+    background: rgba(255, 105, 180, 0.35);
+    margin: 0.1rem auto 0.55rem;
+    flex: 0 0 auto;
+}
+.qjs-header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    flex: 0 0 auto;
+}
+.qjs-title { font-weight: 800; color: #be185d; display: inline-flex; align-items: center; gap: 0.4rem; }
+.qjs-meta { font-size: 0.78rem; font-weight: 700; color: #db2777; background: #fff0f6; padding: 0.05rem 0.5rem; border-radius: 9999px; border: 1px solid rgba(255,105,180,0.25); }
+.qjs-close {
+    width: 2rem; height: 2rem;
+    border-radius: 9999px;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: #9ca3af; background: #f3f4f6;
+    -webkit-tap-highlight-color: transparent;
+}
+.qjs-close:active { transform: scale(0.9); }
+.qjs-legend {
+    display: flex; flex-wrap: wrap; gap: 0.4rem 0.9rem;
+    font-size: 0.68rem; color: #6b7280; font-weight: 600;
+    margin-bottom: 0.6rem;
+    flex: 0 0 auto;
+}
+.qjs-legend span { display: inline-flex; align-items: center; gap: 0.3rem; }
+.qjs-key { width: 0.8rem; height: 0.8rem; border-radius: 0.28rem; display: inline-block; }
+.qjs-key-cur { background: #FF69B4; }
+.qjs-key-done { background: #60a5fa; }
+.qjs-key-flag { background: #eab308; border-radius: 9999px; }
+.qjs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(2.6rem, 1fr));
+    gap: 0.45rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.15rem 0.15rem 0.3rem;
+    -webkit-overflow-scrolling: touch;
+}
+.qjs-cell {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    border-radius: 0.7rem;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 0.92rem;
+    background: #f3f4f6;
+    color: #4b5563;
+    border: 1px solid #e5e7eb;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .1s ease;
+}
+.qjs-cell:active { transform: scale(0.92); }
+.qjs-cell.is-answered { background: #dbeafe; color: #1d4ed8; border-color: #bfdbfe; }
+.qjs-cell.is-correct { background: #dcfce7; color: #15803d; border-color: #bbf7d0; }
+.qjs-cell.is-wrong { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
+.qjs-cell.is-current { background: #FF69B4; color: #fff; border-color: #FF69B4; box-shadow: 0 4px 12px -4px rgba(255, 105, 180, 0.7); }
+.qjs-cell .qjs-flag {
+    position: absolute; top: -3px; right: -3px;
+    width: 0.6rem; height: 0.6rem;
+    border-radius: 9999px;
+    border: 2px solid #fff;
+}
+html.theme-dark #quiz-jump-sheet .qjs-panel { background: #241b38; box-shadow: 0 -14px 40px -10px rgba(0,0,0,0.6); }
+html.theme-dark .qjs-title { color: #f9a8d4; }
+html.theme-dark .qjs-meta { background: #34203a; color: #f9a8d4; border-color: rgba(249,168,212,0.3); }
+html.theme-dark .qjs-close { background: #34203a; color: #cbb8dd; }
+html.theme-dark .qjs-legend { color: #a99bbf; }
+html.theme-dark .qjs-cell { background: #2e2347; color: #cbb8dd; border-color: #3c2d56; }
+html.theme-dark .qjs-cell.is-answered { background: #1e3a5f; color: #bfdbfe; border-color: #2c5282; }
+html.theme-dark .qjs-cell.is-correct { background: #1d4731; color: #bbf7d0; border-color: #2f6b48; }
+html.theme-dark .qjs-cell.is-wrong { background: #4a1d24; color: #fecaca; border-color: #7a2d38; }
+html.theme-dark .qjs-cell.is-current { background: #d65fa0; border-color: #d65fa0; color: #fff; }
+html.theme-dark .qjs-cell .qjs-flag { border-color: #241b38; }
+
+@media (prefers-reduced-motion: reduce) {
+    #quiz-mobile-nav.show { animation: none; }
+    .qmn-progress-fill,
+    #quiz-jump-sheet .qjs-backdrop,
+    #quiz-jump-sheet .qjs-panel { transition: none; }
+}
+
+/* --- Tinh chỉnh nhỏ cho thẻ đáp án trên mobile: tap target thoải mái, bỏ nháy xám khi chạm --- */
+#quizSection .answer-btn { -webkit-tap-highlight-color: transparent; }
+@media (max-width: 640px) {
+    #quizSection .answer-btn { min-height: 3.35rem; }
+    #quizSection .answer-letter { width: 2rem; height: 2rem; line-height: 2rem; }
+}

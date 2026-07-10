@@ -56,6 +56,24 @@
         /* Nút chuyển chế độ xem */
         .view-btn.active { background: linear-gradient(135deg, #ec4899, #a855f7); color: #fff !important; box-shadow: 0 4px 12px -2px rgba(236, 72, 153, .4); }
 
+        /* ===== Nâng cấp mobile & tính năng mới ===== */
+        /* Bottom-sheet trượt lên (mobile) / modal (desktop) */
+        @keyframes sheetUp { from { opacity: 0; transform: translateY(48px); } to { opacity: 1; transform: none; } }
+        .sheet-panel { animation: sheetUp .38s cubic-bezier(0.16, 1, 0.3, 1) both; }
+        .safe-bottom { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.25rem); }
+        #fab-add { bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)); }
+
+        /* Ô chọn ở chế độ chọn nhiều */
+        .sel-check { position: absolute; top: 10px; left: 10px; z-index: 30; width: 26px; height: 26px; border-radius: 9999px; background: rgba(255,255,255,.92); border: 2px solid #f9a8d4; display: flex; align-items: center; justify-content: center; color: transparent; font-size: 12px; box-shadow: 0 2px 8px rgba(190,24,93,.25); transition: transform .18s, background .18s; }
+        .is-selected .sel-check { background: linear-gradient(135deg, #ec4899, #a855f7); border-color: #fff; color: #fff; transform: scale(1.08); }
+        .is-selected { box-shadow: 0 0 0 3px #ec4899, 0 10px 30px -6px rgba(236,72,153,.45) !important; }
+        .select-mode { user-select: none; -webkit-user-select: none; }
+        #select-mode-btn.active-sel { background: linear-gradient(135deg, #ec4899, #a855f7) !important; color: #fff !important; border-color: transparent !important; box-shadow: 0 4px 12px -2px rgba(236,72,153,.4); }
+
+        /* Thanh hành động hàng loạt */
+        #bulk-bar { transform: translate(-50%, 0); transition: transform .32s cubic-bezier(0.16,1,0.3,1), opacity .3s; }
+        #bulk-bar.hide { transform: translate(-50%, 160%); opacity: 0; pointer-events: none; }
+
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
         }
@@ -125,11 +143,11 @@
                 </a>
                 <div class="flex items-center gap-2.5">
                     <button id="master-badge" type="button" class="hidden items-center gap-1.5 text-xs font-bold text-amber-700 bg-gradient-to-r from-amber-100 to-yellow-100 px-3.5 py-1.5 rounded-full border border-amber-300/80 shadow-sm hover:brightness-95 transition" title="Đang ở chế độ chủ — bấm để tắt">
-                        <i class="fas fa-crown text-[11px] text-amber-500 animate-bounce"></i> Chế độ chủ <i class="fas fa-xmark ml-0.5 opacity-70"></i>
+                        <i class="fas fa-crown text-[11px] text-amber-500 animate-bounce"></i> <span class="hidden sm:inline">Chế độ chủ</span> <i class="fas fa-xmark ml-0.5 opacity-70"></i>
                     </button>
                     <span id="link-count-badge" class="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold text-pink-600 bg-white/80 px-3.5 py-1.5 rounded-full border border-pink-200/80 shadow-sm"><i class="fas fa-bookmark text-pink-400 text-[11px]"></i><span id="link-count">0</span> liên kết</span>
-                    <button id="lock-vault-btn" type="button" class="flex items-center gap-1.5 text-xs font-bold text-gray-500 bg-white/80 px-3 py-1.5 rounded-full border border-pink-200/80 shadow-sm hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition" title="Khóa lại (Đăng xuất kho link)">
-                        <i class="fas fa-lock text-[11px] text-pink-400"></i> Khóa
+                    <button id="lock-vault-btn" type="button" class="flex items-center gap-1.5 text-xs font-bold text-gray-500 bg-white/80 px-2.5 sm:px-3 py-1.5 rounded-full border border-pink-200/80 shadow-sm hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition" title="Khóa lại (Đăng xuất kho link)">
+                        <i class="fas fa-lock text-[11px] text-pink-400"></i> <span class="hidden sm:inline">Khóa</span>
                     </button>
                     <a href="../../index.html" class="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/80 border border-pink-100 text-pink-500 hover:bg-pink-50 hover:text-pink-600 hover:scale-105 transition shadow-sm" title="Về trang chủ"><i class="fas fa-home"></i></a>
                 </div>
@@ -159,8 +177,9 @@
             </section>
 
             <!-- ACTION BANNER / COMMAND BAR FOR ADDING LINK -->
-            <section class="mb-6 fade-in">
-                <div class="glass-panel rounded-[1.5rem] px-4 py-3.5 sm:px-5 flex flex-row items-center justify-between gap-3 border border-pink-200/70 shadow-xl shadow-pink-500/5">
+            <!-- Lưu ý: KHÔNG đặt .fade-in ở section này vì nó giữ transform (fill both) → tạo containing block khiến form #add-form-container (position:fixed) bị neo sai. Đặt fade-in vào banner bên trong. -->
+            <section class="mb-6">
+                <div class="glass-panel fade-in rounded-[1.5rem] px-4 py-3.5 sm:px-5 flex flex-row items-center justify-between gap-3 border border-pink-200/70 shadow-xl shadow-pink-500/5">
                     <div class="flex items-center gap-3 min-w-0">
                         <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white text-base shadow-lg shadow-pink-500/30 shrink-0 wiggle"><i class="fas fa-sparkles"></i></span>
                         <div class="min-w-0">
@@ -174,9 +193,11 @@
                     </button>
                 </div>
 
-                <!-- FORM THÊM LINK (ACCORDION - GẬP GỌN) -->
-                <div id="add-form-container" class="hidden overflow-hidden transition-all duration-500 ease-in-out mt-4">
-                    <div class="glass-card rounded-[2rem] p-6 sm:p-8 border border-pink-200/90 shadow-2xl relative">
+                <!-- FORM THÊM LINK (BOTTOM-SHEET trên mobile / MODAL trên desktop) -->
+                <div id="add-form-container" class="hidden fixed inset-0 z-[72] flex items-end sm:items-center justify-center">
+                    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-md" data-close-add></div>
+                    <div class="sheet-panel relative w-full sm:max-w-2xl glass-modal rounded-t-[2.5rem] sm:rounded-[2.5rem] p-6 sm:p-8 border border-white/80 shadow-2xl max-h-[92vh] overflow-y-auto">
+                        <div class="sm:hidden flex justify-center -mt-2 mb-3"><span class="w-10 h-1.5 rounded-full bg-pink-200"></span></div>
                         <button type="button" id="close-add-form-btn" class="absolute top-5 right-5 w-8 h-8 rounded-full bg-pink-50 text-pink-400 hover:bg-pink-100 hover:text-pink-600 transition flex items-center justify-center" title="Đóng form">
                             <i class="fas fa-xmark"></i>
                         </button>
@@ -282,6 +303,8 @@
                         <button type="button" id="view-grid-btn" class="view-btn w-8 h-7 rounded-full flex items-center justify-center text-xs text-gray-400 hover:text-pink-500 transition" title="Xem dạng lưới" aria-label="Xem dạng lưới"><i class="fas fa-table-cells-large"></i></button>
                         <button type="button" id="view-list-btn" class="view-btn w-8 h-7 rounded-full flex items-center justify-center text-xs text-gray-400 hover:text-pink-500 transition" title="Xem dạng danh sách" aria-label="Xem dạng danh sách"><i class="fas fa-list"></i></button>
                     </div>
+                    <button type="button" id="select-mode-btn" title="Chọn nhiều link để thao tác hàng loạt" aria-label="Chọn nhiều"
+                        class="w-9 h-8 rounded-full flex items-center justify-center text-xs font-bold text-gray-500 bg-white/90 border border-pink-200/80 shadow-sm hover:text-pink-500 hover:border-pink-300 transition"><i class="fas fa-list-check"></i></button>
                 </div>
             </div>
 
@@ -332,9 +355,9 @@
     </div>
 
     <!-- MODAL: THƯ MỤC -->
-    <div id="folder-modal" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4">
+    <div id="folder-modal" class="hidden fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4">
         <div class="absolute inset-0 bg-slate-900/30 backdrop-blur-md transition-opacity" data-close-folder></div>
-        <div class="relative w-full max-w-md glass-modal rounded-[2.25rem] shadow-2xl border border-white p-7 sm:p-8 pop-in max-h-[90vh] overflow-y-auto">
+        <div class="sheet-panel relative w-full sm:max-w-md glass-modal rounded-t-[2rem] sm:rounded-[2.25rem] shadow-2xl border border-white p-7 sm:p-8 max-h-[90vh] overflow-y-auto">
             <h3 id="folder-modal-title" class="text-lg font-bold text-gradient font-display flex items-center gap-2 mb-5"><i class="fas fa-folder-plus"></i> Thư mục mới</h3>
             <div class="space-y-4">
                 <div>
@@ -368,9 +391,9 @@
     </div>
 
     <!-- MODAL: SỬA LINK -->
-    <div id="link-modal" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4">
+    <div id="link-modal" class="hidden fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4">
         <div class="absolute inset-0 bg-slate-900/30 backdrop-blur-md transition-opacity" data-close-link></div>
-        <div class="relative w-full max-w-md glass-modal rounded-[2.25rem] shadow-2xl border border-white p-7 sm:p-8 pop-in max-h-[90vh] overflow-y-auto">
+        <div class="sheet-panel relative w-full sm:max-w-md glass-modal rounded-t-[2rem] sm:rounded-[2.25rem] shadow-2xl border border-white p-7 sm:p-8 max-h-[90vh] overflow-y-auto">
             <h3 class="text-lg font-bold text-gradient font-display flex items-center gap-2 mb-5"><i class="fas fa-pen-to-square"></i> Sửa liên kết</h3>
             <div class="space-y-4">
                 <div>
@@ -448,11 +471,49 @@
         </div>
     </div>
 
-    <!-- NÚT CUỘN LÊN ĐẦU TRANG -->
+    <!-- NÚT CUỘN LÊN ĐẦU TRANG (đặt phía trên FAB) -->
     <button type="button" id="scroll-top-btn" aria-label="Lên đầu trang" title="Lên đầu trang"
-        class="fixed bottom-6 right-5 z-[60] w-11 h-11 rounded-full bg-gradient-to-tr from-pink-500 to-purple-500 text-white shadow-lg shadow-pink-500/30 flex items-center justify-center hover:scale-110 active:scale-95">
+        class="fixed bottom-[5.75rem] right-5 z-[60] w-11 h-11 rounded-full bg-white/90 backdrop-blur border border-pink-200 text-pink-500 shadow-lg shadow-pink-500/20 flex items-center justify-center hover:scale-110 active:scale-95">
         <i class="fas fa-arrow-up text-sm"></i>
     </button>
+
+    <!-- FAB: THÊM LINK (nổi, dễ bấm bằng ngón cái) -->
+    <button type="button" id="fab-add" aria-label="Thêm link mới" title="Thêm link mới"
+        class="hidden fixed right-5 z-[62] h-14 w-14 rounded-2xl bg-gradient-to-tr from-pink-500 via-rose-500 to-purple-500 text-white text-xl shadow-xl shadow-pink-500/40 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform">
+        <i class="fas fa-plus"></i>
+    </button>
+
+    <!-- MODAL: XEM NHANH LINK (quick view) -->
+    <div id="quick-modal" class="hidden fixed inset-0 z-[74] flex items-end sm:items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-md" data-close-quick></div>
+        <div id="quick-body" class="sheet-panel relative w-full sm:max-w-md glass-modal rounded-t-[2rem] sm:rounded-[2.25rem] shadow-2xl border border-white max-h-[92vh] overflow-y-auto no-scrollbar"></div>
+    </div>
+
+    <!-- THANH HÀNH ĐỘNG HÀNG LOẠT (chọn nhiều) -->
+    <div id="bulk-bar" class="hide fixed bottom-4 left-1/2 z-[68] w-[min(94vw,42rem)] glass-modal rounded-2xl border border-pink-200/80 shadow-2xl px-2.5 py-2 flex items-center gap-1.5 safe-bottom">
+        <span class="flex items-center gap-1.5 text-xs font-bold text-gray-700 pl-1 shrink-0">
+            <span id="bulk-count" class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 text-white">0</span>
+            <span class="hidden min-[420px]:inline">đã chọn</span>
+        </span>
+        <button type="button" id="bulk-all" title="Chọn / bỏ chọn tất cả" class="px-2.5 py-1.5 rounded-xl bg-white border border-pink-100 text-gray-600 font-bold text-[11px] hover:bg-pink-50 transition flex items-center gap-1.5"><i class="fas fa-check-double text-pink-400"></i><span class="hidden sm:inline">Tất cả</span></button>
+        <div class="flex-1"></div>
+        <button type="button" id="bulk-move" title="Chuyển vào thư mục" class="px-2.5 py-1.5 rounded-xl bg-white border border-pink-100 text-purple-500 font-bold text-[11px] hover:bg-purple-50 transition flex items-center gap-1.5"><i class="fas fa-folder-open"></i><span class="hidden sm:inline">Chuyển</span></button>
+        <button type="button" id="bulk-pin" title="Ghim / bỏ ghim" class="px-2.5 py-1.5 rounded-xl bg-white border border-pink-100 text-amber-500 font-bold text-[11px] hover:bg-amber-50 transition flex items-center gap-1.5"><i class="fas fa-thumbtack"></i><span class="hidden sm:inline">Ghim</span></button>
+        <button type="button" id="bulk-delete" title="Xóa các link đã chọn" class="px-2.5 py-1.5 rounded-xl bg-rose-50 border border-rose-100 text-rose-500 font-bold text-[11px] hover:bg-rose-100 transition flex items-center gap-1.5"><i class="fas fa-trash-can"></i><span class="hidden sm:inline">Xóa</span></button>
+        <button type="button" id="bulk-exit" title="Thoát chế độ chọn" class="w-8 h-8 rounded-xl bg-gray-100 text-gray-500 font-bold hover:bg-gray-200 transition flex items-center justify-center shrink-0"><i class="fas fa-xmark"></i></button>
+    </div>
+
+    <!-- SHEET: CHỌN THƯ MỤC ĐỂ CHUYỂN (bulk move) -->
+    <div id="move-sheet" class="hidden fixed inset-0 z-[76] flex items-end sm:items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-md" data-close-move></div>
+        <div class="sheet-panel relative w-full sm:max-w-sm glass-modal rounded-t-[2rem] sm:rounded-[2.25rem] shadow-2xl border border-white p-6 sm:p-7 max-h-[80vh] overflow-y-auto">
+            <div class="sm:hidden flex justify-center -mt-2 mb-3"><span class="w-10 h-1.5 rounded-full bg-pink-200"></span></div>
+            <h3 class="text-base font-bold text-gradient font-display flex items-center gap-2 mb-1"><i class="fas fa-folder-open"></i> Chuyển vào thư mục</h3>
+            <p class="text-[11px] text-gray-400 font-medium mb-4">Chọn nơi chuyển các link đang chọn tới</p>
+            <div id="move-options" class="space-y-2"></div>
+            <button type="button" data-close-move class="mt-4 w-full py-2.5 rounded-xl bg-gray-100 text-gray-600 font-bold text-xs hover:bg-gray-200 transition">Hủy</button>
+        </div>
+    </div>
 
     <!-- Toast -->
     <div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[80] px-5 py-3 rounded-2xl bg-slate-900/90 backdrop-blur-md text-white font-bold text-xs shadow-2xl border border-white/10 flex items-center gap-2.5 animate-bounce"></div>
@@ -521,7 +582,7 @@
             document.querySelector('#gate-toggle i').className = showing ? 'fas fa-eye' : 'fas fa-eye-slash';
             gateInput.focus();
         });
-        function unlock() { gateScreen.classList.add('hidden'); appScreen.classList.remove('hidden'); startSync(); }
+        function unlock() { gateScreen.classList.add('hidden'); appScreen.classList.remove('hidden'); startSync(); updateFab(); }
         gateForm.addEventListener('submit', (e) => {
             e.preventDefault();
             if (gateInput.value === PASSWORD) {
@@ -774,6 +835,7 @@
             }
 
             grid.className = viewMode === 'list' ? 'flex flex-col gap-3' : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6';
+            currentList = list;
             grid.innerHTML = list.map(l => viewMode === 'list' ? listRowHtml(l) : cardHtml(l)).join('');
 
             grid.querySelectorAll('img.preview-img').forEach(img => {
@@ -806,6 +868,7 @@
                     toast(l.pinned ? 'Đã bỏ ghim liên kết' : 'Đã ghim lên đầu 📌');
                 } catch (err) { toast('Lỗi: ' + (err.message || ''), 'err'); b.disabled = false; }
             }));
+            updateFab(); updateBulkBar();
         }
 
         function cardHtml(l) {
@@ -823,7 +886,7 @@
             if (!revealed) {
                 // ----- Thẻ KHÓA: chỉ hiện tên + mô tả, không hiện link -----
                 return `
-                <div class="group glass-card rounded-[2rem] border ${pinRing} shadow-md hover:shadow-2xl hover:shadow-pink-500/15 hover:-translate-y-1.5 transition-all duration-300 ease-out overflow-hidden flex flex-col pop-in relative">
+                <div data-card="${esc(l.id)}" class="group glass-card rounded-[2rem] border ${pinRing} shadow-md hover:shadow-2xl hover:shadow-pink-500/15 hover:-translate-y-1.5 transition-all duration-300 ease-out overflow-hidden flex flex-col pop-in relative${selClass(l.id)}">${checkOverlay()}
                     <div class="relative h-40 overflow-hidden bg-gradient-to-tr ${t.grad} flex items-center justify-center border-b border-white/50">
                         <div class="absolute inset-0 bg-white/20 backdrop-blur-[2px]"></div>
                         <div class="text-center text-white z-10 p-4">
@@ -908,7 +971,7 @@
 
             if (!revealed) {
                 return `
-                <div class="glass-card rounded-2xl border ${rowRing} shadow-sm hover:shadow-md transition-all p-3 flex items-center gap-3 pop-in">
+                <div data-card="${esc(l.id)}" class="glass-card rounded-2xl border ${rowRing} shadow-sm hover:shadow-md transition-all p-3 flex items-center gap-3 pop-in relative${selClass(l.id)}">${checkOverlay()}
                     <span class="w-10 h-10 rounded-xl bg-gradient-to-tr ${t.grad} flex items-center justify-center text-white shrink-0 shadow-sm"><i class="fas fa-lock text-sm"></i></span>
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2 min-w-0">
@@ -925,7 +988,7 @@
                 </div>`;
             }
             return `
-            <div class="glass-card rounded-2xl border ${rowRing} shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all p-3 flex items-center gap-3 pop-in">
+            <div data-card="${esc(l.id)}" class="glass-card rounded-2xl border ${rowRing} shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all p-3 flex items-center gap-3 pop-in relative${selClass(l.id)}">${checkOverlay()}
                 <span class="w-10 h-10 rounded-xl bg-white border border-pink-100 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
                     <img src="${esc(l.favicon || faviconOf(url))}"${l.favicon ? ` data-fb="${esc(faviconOf(url))}"` : ''} style="width:20px;height:20px" loading="lazy" onerror="if(this.dataset.fb){this.src=this.dataset.fb;this.removeAttribute('data-fb');}else{this.replaceWith(Object.assign(document.createElement('i'),{className:'fas fa-link text-pink-400 text-sm'}));}">
                 </span>
@@ -1244,10 +1307,12 @@
                 if (toggleAddFormBtn) toggleAddFormBtn.innerHTML = '<i class="fas fa-plus text-xs group-hover:rotate-90 transition-transform duration-300"></i> Thêm link<span class="hidden sm:inline"> ngay</span>';
                 if (typeof resetFormPreview === 'function') resetFormPreview();
             }
+            updateFab();
         }
         if (toggleAddFormBtn) toggleAddFormBtn.addEventListener('click', () => toggleAddForm());
         if (closeAddFormBtn) closeAddFormBtn.addEventListener('click', () => toggleAddForm(false));
         if (cancelAddBtn) cancelAddBtn.addEventListener('click', () => toggleAddForm(false));
+        addFormContainer.querySelectorAll('[data-close-add]').forEach(el => el.addEventListener('click', () => toggleAddForm(false)));
 
         // ---------- Sửa / xóa link ----------
         const linkModal = document.getElementById('link-modal');
@@ -1433,6 +1498,10 @@
             if (e.key === 'Escape') {
                 if (!confirmModal.classList.contains('hidden')) { closeConfirm(false); return; }
                 if (!pwModal.classList.contains('hidden')) closePw(null);
+                if (!document.getElementById('move-sheet').classList.contains('hidden')) { closeMoveSheet(); return; }
+                if (!document.getElementById('quick-modal').classList.contains('hidden')) { closeQuick(); return; }
+                if (!addFormContainer.classList.contains('hidden')) { toggleAddForm(false); return; }
+                if (selectMode) { setSelectMode(false); return; }
                 closeFolderModal(); closeLinkModal();
                 return;
             }
@@ -1493,9 +1562,222 @@
                 gateScreen.classList.remove('hidden');
                 gateInput.value = '';
                 gateInput.focus();
+                if (selectMode) setSelectMode(false);
+                updateFab();
                 toast('Đã khóa kho link 🔒');
             });
         }
+
+        // ================= NÂNG CẤP: XEM NHANH + CHỌN NHIỀU + FAB =================
+        let selectMode = false;
+        const selected = new Set();
+        let currentList = [];   // danh sách link đang hiển thị (đã lọc/sắp xếp) — dùng cho "chọn tất cả"
+        let quickId = null;
+
+        // Lớp CSS & ô chọn cho thẻ khi ở chế độ chọn nhiều (đọc bởi cardHtml/listRowHtml)
+        function selClass(id) { return selectMode ? ' select-mode cursor-pointer' + (selected.has(id) ? ' is-selected' : '') : ''; }
+        function checkOverlay() { return selectMode ? '<span class="sel-check"><i class="fas fa-check"></i></span>' : ''; }
+
+        // ---------- FAB thêm link ----------
+        const fabAdd = document.getElementById('fab-add');
+        function updateFab() {
+            const show = !appScreen.classList.contains('hidden') && !selectMode && addFormContainer.classList.contains('hidden');
+            fabAdd.classList.toggle('hidden', !show);
+        }
+        fabAdd.addEventListener('click', () => toggleAddForm(true));
+
+        // ---------- Chế độ chọn nhiều ----------
+        const selectModeBtn = document.getElementById('select-mode-btn');
+        const bulkBar = document.getElementById('bulk-bar');
+        function setSelectMode(on) {
+            selectMode = on;
+            if (!on) selected.clear();
+            selectModeBtn.classList.toggle('active-sel', on);
+            selectModeBtn.innerHTML = on ? '<i class="fas fa-xmark"></i>' : '<i class="fas fa-list-check"></i>';
+            selectModeBtn.title = on ? 'Thoát chế độ chọn' : 'Chọn nhiều link để thao tác hàng loạt';
+            render();
+            updateBulkBar(); updateFab();
+        }
+        function updateBulkBar() {
+            document.getElementById('bulk-count').textContent = selected.size;
+            bulkBar.classList.toggle('hide', !selectMode);
+        }
+        function toggleSelect(id) {
+            if (selected.has(id)) selected.delete(id); else selected.add(id);
+            const el = grid.querySelector('[data-card="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
+            if (el) el.classList.toggle('is-selected', selected.has(id));
+            updateBulkBar();
+        }
+        selectModeBtn.addEventListener('click', () => setSelectMode(!selectMode));
+
+        // Bấm thẻ khi đang chọn nhiều → tick chọn (chặn hẳn mọi hành vi khác bằng capture)
+        grid.addEventListener('click', (e) => {
+            if (!selectMode) return;
+            const card = e.target.closest('[data-card]');
+            if (!card || !grid.contains(card)) return;
+            e.preventDefault(); e.stopPropagation();
+            toggleSelect(card.dataset.card);
+        }, true);
+
+        // Bấm vào phần trống của thẻ (không phải nút/link) khi KHÔNG chọn nhiều → xem nhanh
+        grid.addEventListener('click', (e) => {
+            if (selectMode) return;
+            const card = e.target.closest('[data-card]');
+            if (!card) return;
+            if (e.target.closest('a, button, [role="button"]')) return;
+            openQuickView(card.dataset.card);
+        });
+
+        // ---------- Thao tác hàng loạt ----------
+        document.getElementById('bulk-exit').addEventListener('click', () => setSelectMode(false));
+        document.getElementById('bulk-all').addEventListener('click', () => {
+            const allSel = currentList.length > 0 && currentList.every(l => selected.has(l.id));
+            if (allSel) selected.clear(); else currentList.forEach(l => selected.add(l.id));
+            render(); updateBulkBar();
+        });
+        document.getElementById('bulk-pin').addEventListener('click', async () => {
+            const ids = [...selected];
+            if (!ids.length) { toast('Chưa chọn link nào', 'warn'); return; }
+            const allPinned = ids.every(id => { const l = allLinks.find(x => x.id === id); return l && l.pinned; });
+            try {
+                const batch = writeBatch(db);
+                ids.forEach(id => batch.update(doc(db, 'shared_links', id), { pinned: !allPinned }));
+                await batch.commit();
+                toast(allPinned ? 'Đã bỏ ghim các link' : `Đã ghim ${ids.length} link 📌`);
+                setSelectMode(false);
+            } catch (err) { toast('Lỗi: ' + (err.message || ''), 'err'); }
+        });
+        document.getElementById('bulk-delete').addEventListener('click', async () => {
+            const ids = [...selected];
+            if (!ids.length) { toast('Chưa chọn link nào', 'warn'); return; }
+            if (!await askConfirm(`Xóa ${ids.length} liên kết?`, 'Các link đã chọn sẽ biến mất với tất cả mọi người và không thể khôi phục.')) return;
+            try {
+                const batch = writeBatch(db);
+                ids.forEach(id => batch.delete(doc(db, 'shared_links', id)));
+                await batch.commit();
+                toast(`Đã xóa ${ids.length} link 🗑️`);
+                setSelectMode(false);
+            } catch (err) { toast('Lỗi: ' + (err.message || ''), 'err'); }
+        });
+
+        // ---------- Sheet chuyển thư mục hàng loạt ----------
+        const moveSheet = document.getElementById('move-sheet');
+        document.getElementById('bulk-move').addEventListener('click', () => {
+            if (!selected.size) { toast('Chưa chọn link nào', 'warn'); return; }
+            openMoveSheet();
+        });
+        function openMoveSheet() {
+            const opts = [{ id: '', name: 'Chưa phân loại', icon: '🌷', color: 'rose' }]
+                .concat(allFolders.map(f => ({ id: f.id, name: f.name, icon: f.icon || '📁', color: f.color || 'pink' })));
+            document.getElementById('move-options').innerHTML = opts.map(o => {
+                const t = theme(o.color);
+                return `<button type="button" data-move="${esc(o.id)}" class="w-full flex items-center gap-3 p-3 rounded-2xl border border-pink-100 bg-white/80 hover:bg-pink-50 hover:border-pink-200 transition text-left">
+                    <span class="w-9 h-9 rounded-xl bg-gradient-to-tr ${t.grad} flex items-center justify-center text-white shrink-0 shadow-sm">${o.icon}</span>
+                    <span class="font-bold text-sm text-gray-700 font-display truncate flex-1">${esc(o.name)}</span>
+                    <i class="fas fa-arrow-right text-pink-300"></i></button>`;
+            }).join('');
+            document.getElementById('move-options').querySelectorAll('[data-move]').forEach(b =>
+                b.addEventListener('click', () => moveSelectedTo(b.dataset.move)));
+            moveSheet.classList.remove('hidden');
+        }
+        function closeMoveSheet() { moveSheet.classList.add('hidden'); }
+        moveSheet.querySelectorAll('[data-close-move]').forEach(el => el.addEventListener('click', closeMoveSheet));
+        async function moveSelectedTo(folderId) {
+            const ids = [...selected];
+            if (!ids.length) return;
+            try {
+                const batch = writeBatch(db);
+                ids.forEach(id => batch.update(doc(db, 'shared_links', id), { folderId: folderId || '' }));
+                await batch.commit();
+                closeMoveSheet();
+                toast(`Đã chuyển ${ids.length} link 📁`);
+                setSelectMode(false);
+            } catch (err) { toast('Lỗi: ' + (err.message || ''), 'err'); }
+        }
+
+        // ---------- Xem nhanh (quick view) ----------
+        const quickModal = document.getElementById('quick-modal');
+        const quickBody = document.getElementById('quick-body');
+        function shareLink(l) {
+            const url = l.url || '';
+            const title = (l.title || '').trim() || hostOf(url);
+            if (navigator.share) {
+                navigator.share({ title, url }).catch(() => {});
+            } else {
+                navigator.clipboard.writeText(url).then(() => toast('Đã sao chép link để chia sẻ 📋')).catch(() => toast('Không chia sẻ được', 'err'));
+            }
+        }
+        function quickViewHtml(l, revealed) {
+            const url = l.url || '';
+            const title = (l.title || '').trim() || hostOf(url);
+            const f = folderById(l.folderId);
+            const t = f ? theme(f.color) : theme('pink');
+            const folderChip = f ? `<span class="${t.soft} ${t.text} text-[11px] font-bold px-2.5 py-1 rounded-full inline-flex items-center gap-1">${f.icon || '📁'} ${esc(f.name)}</span>` : '';
+            if (!revealed) {
+                return `<div class="p-6 sm:p-7 text-center">
+                    <div class="sm:hidden flex justify-center -mt-2 mb-4"><span class="w-10 h-1.5 rounded-full bg-pink-200"></span></div>
+                    <div class="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-tr ${t.grad} flex items-center justify-center text-white text-3xl shadow-lg mb-4"><i class="fas fa-lock"></i></div>
+                    <h3 class="text-lg font-bold text-gray-800 font-display break-words">${hi(title)}</h3>
+                    <p class="text-xs text-pink-500 font-bold mt-1"><i class="fas fa-shield-halved mr-1"></i>Liên kết cần mật khẩu</p>
+                    ${l.note ? `<p class="text-sm text-gray-600 mt-3 bg-pink-50/70 border border-pink-100 rounded-xl px-3 py-2 break-words">${hi(l.note)}</p>` : ''}
+                    <button type="button" data-qv-unlock class="mt-5 w-full py-3 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-500 text-white font-bold text-sm shadow-lg flex items-center justify-center gap-2"><i class="fas fa-key"></i> Nhập mật khẩu để mở</button>
+                    <button type="button" data-close-quick class="mt-2 w-full py-2.5 rounded-2xl bg-gray-100 text-gray-500 font-bold text-xs">Đóng</button>
+                </div>`;
+            }
+            const cardImg = l.image || previewOf(url);
+            const fbAttr = l.image ? ` data-fb="${esc(previewOf(url))}"` : '';
+            const siteLabel = (l.siteName && l.siteName.toLowerCase() !== hostOf(url).toLowerCase()) ? `${l.siteName} · ${hostOf(url)}` : hostOf(url);
+            return `
+            <div class="relative">
+                <div class="sm:hidden pt-2.5 flex justify-center absolute top-0 inset-x-0 z-20"><span class="w-10 h-1.5 rounded-full bg-white/80"></span></div>
+                <div class="relative h-48 sm:h-52 overflow-hidden bg-gradient-to-tr ${t.grad} rounded-t-[2rem] sm:rounded-t-[2.25rem] flex items-center justify-center">
+                    <span class="absolute text-6xl font-bold text-white/80 font-display">${esc((title[0] || '?').toUpperCase())}</span>
+                    <img class="absolute inset-0 w-full h-full object-cover object-top" src="${esc(cardImg)}"${fbAttr} alt="" onerror="if(this.dataset.fb){this.src=this.dataset.fb;this.removeAttribute('data-fb');}else{this.style.display='none';}">
+                    <button type="button" data-close-quick class="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/30 backdrop-blur text-white flex items-center justify-center hover:bg-black/50 transition"><i class="fas fa-xmark"></i></button>
+                </div>
+            </div>
+            <div class="p-5 sm:p-6 flex flex-col gap-3">
+                <div class="flex items-center gap-2 flex-wrap">
+                    ${folderChip}
+                    ${l.pinned ? '<span class="bg-amber-100 text-amber-600 text-[11px] font-bold px-2.5 py-1 rounded-full inline-flex items-center gap-1"><i class="fas fa-thumbtack text-[9px]"></i> Đã ghim</span>' : ''}
+                    ${l.pw ? '<span class="bg-emerald-100 text-emerald-600 text-[11px] font-bold px-2.5 py-1 rounded-full inline-flex items-center gap-1"><i class="fas fa-lock-open text-[9px]"></i> Bảo mật</span>' : ''}
+                </div>
+                <h3 class="text-lg font-bold text-gray-800 font-display leading-snug break-words">${hi(title)}</h3>
+                <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" class="text-xs text-pink-500 font-bold break-all hover:underline flex items-start gap-1.5"><i class="fas fa-globe text-[10px] mt-0.5 shrink-0"></i><span>${hi(siteLabel)}</span></a>
+                ${l.note ? `<p class="text-sm text-gray-600 bg-white/80 border border-pink-100 rounded-xl px-3 py-2 break-words">${hi(l.note)}</p>` : ''}
+                ${l.createdAt ? `<p class="text-[11px] text-gray-400 font-semibold"><i class="far fa-clock mr-1"></i>Thêm ${timeAgo(l.createdAt)}</p>` : ''}
+                <div class="grid grid-cols-2 gap-2.5 pt-1">
+                    <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" class="col-span-2 text-center py-3 rounded-2xl bg-gradient-to-r from-pink-500 via-rose-400 to-purple-500 text-white text-sm font-bold shadow-lg flex items-center justify-center gap-2"><i class="fas fa-arrow-up-right-from-square"></i> Mở liên kết</a>
+                    <button type="button" data-qv-copy class="py-2.5 rounded-xl bg-white border border-pink-100 text-pink-500 font-bold text-xs flex items-center justify-center gap-2 hover:bg-pink-50 transition"><i class="fas fa-copy"></i> Sao chép</button>
+                    <button type="button" data-qv-share class="py-2.5 rounded-xl bg-white border border-purple-100 text-purple-500 font-bold text-xs flex items-center justify-center gap-2 hover:bg-purple-50 transition"><i class="fas fa-share-nodes"></i> Chia sẻ</button>
+                    <button type="button" data-qv-pin class="py-2.5 rounded-xl ${l.pinned ? 'bg-amber-50 border border-amber-200 text-amber-600' : 'bg-white border border-pink-100 text-gray-500 hover:text-amber-500'} font-bold text-xs flex items-center justify-center gap-2 transition"><i class="fas fa-thumbtack text-xs${l.pinned ? '' : ' rotate-45'}"></i> ${l.pinned ? 'Bỏ ghim' : 'Ghim'}</button>
+                    <button type="button" data-qv-edit class="py-2.5 rounded-xl bg-white border border-purple-100 text-purple-500 font-bold text-xs flex items-center justify-center gap-2 hover:bg-purple-50 transition"><i class="fas fa-pen"></i> Sửa</button>
+                </div>
+            </div>`;
+        }
+        function openQuickView(id) {
+            const l = allLinks.find(x => x.id === id);
+            if (!l) return;
+            quickId = id;
+            quickBody.innerHTML = quickViewHtml(l, linkRevealed(l));
+            quickModal.classList.remove('hidden');
+            quickBody.querySelectorAll('[data-close-quick]').forEach(b => b.addEventListener('click', closeQuick));
+            const copyBtn = quickBody.querySelector('[data-qv-copy]');
+            if (copyBtn) copyBtn.addEventListener('click', () => navigator.clipboard.writeText(l.url || '').then(() => toast('Đã sao chép link 📋')).catch(() => toast('Không sao chép được', 'err')));
+            const shareBtn = quickBody.querySelector('[data-qv-share]');
+            if (shareBtn) shareBtn.addEventListener('click', () => shareLink(l));
+            const pinBtn = quickBody.querySelector('[data-qv-pin]');
+            if (pinBtn) pinBtn.addEventListener('click', async () => {
+                try { await updateDoc(doc(db, 'shared_links', l.id), { pinned: !l.pinned }); toast(l.pinned ? 'Đã bỏ ghim liên kết' : 'Đã ghim lên đầu 📌'); closeQuick(); }
+                catch (err) { toast('Lỗi: ' + (err.message || ''), 'err'); }
+            });
+            const editBtn = quickBody.querySelector('[data-qv-edit]');
+            if (editBtn) editBtn.addEventListener('click', () => { closeQuick(); openLinkModal(l.id); });
+            const unlockBtn = quickBody.querySelector('[data-qv-unlock]');
+            if (unlockBtn) unlockBtn.addEventListener('click', async () => { if (await ensureLinkOpen(l)) { render(); openQuickView(l.id); } });
+        }
+        function closeQuick() { quickModal.classList.add('hidden'); quickId = null; }
+        quickModal.addEventListener('click', (e) => { if (e.target === quickModal.firstElementChild) closeQuick(); });
 
         // Kích hoạt unlock SAU KHI toàn bộ hàm, biến DOM và sự kiện đã được khởi tạo hoàn tất (tránh lỗi TDZ ReferenceError)
         try {

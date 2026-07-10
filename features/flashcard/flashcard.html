@@ -4,95 +4,391 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Luyện tập Flashcard</title>
+    <!-- Áp dụng chế độ tối NGAY trước khi vẽ (dùng chung khóa quiz_theme với trang làm bài) -->
+    <script>
+        try { if (localStorage.getItem('quiz_theme') === 'dark') document.documentElement.classList.add('theme-dark'); } catch (e) {}
+    </script>
     <link rel="icon" type="image/png" href="../../assets/logo.png">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Zitthenkne - Luyện tập Flashcard">
+    <meta property="og:description" content="Lật thẻ, ghi nhớ nhanh và theo dõi tiến độ thuộc bài cùng Zitthenkne!">
+    <meta property="og:image" content="https://zitthenkne.vercel.app/assets/og_squirrel_study.jpg">
+
     <script src="../../pwa-install.js" defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="../../style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="quiz-preview.css">
-    <!-- KaTeX -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&display=swap" rel="stylesheet"></noscript>
     <style>
+        :root {
+            --fc-bg-1: #ffe3f1;
+            --fc-bg-2: #f3e8ff;
+            --fc-bg-3: #e0f2fe;
+            --fc-ink: #3f3350;
+            --fc-muted: #8b7f96;
+            --fc-card: rgba(255, 255, 255, 0.92);
+            --fc-card-border: rgba(255, 255, 255, 0.8);
+            --fc-pink: #ff69b4;
+            --fc-pink-600: #db2777;
+            --fc-surface: rgba(255, 255, 255, 0.72);
+        }
+        html.theme-dark {
+            --fc-bg-1: #241a33;
+            --fc-bg-2: #1a1526;
+            --fc-bg-3: #101a2b;
+            --fc-ink: #ede8f5;
+            --fc-muted: #a99fc0;
+            --fc-card: rgba(36, 28, 52, 0.92);
+            --fc-card-border: rgba(255, 255, 255, 0.08);
+            --fc-pink: #ec6cb0;
+            --fc-pink-600: #f9a8d4;
+            --fc-surface: rgba(40, 31, 58, 0.72);
+        }
+
+        html, body { font-family: 'Be Vietnam Pro', system-ui, -apple-system, sans-serif; }
+        body {
+            color: var(--fc-ink);
+            min-height: 100dvh;
+            letter-spacing: -0.005em;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+            background:
+                radial-gradient(1200px 600px at 12% -8%, var(--fc-bg-1), transparent 60%),
+                radial-gradient(1000px 700px at 108% 12%, var(--fc-bg-3), transparent 55%),
+                linear-gradient(160deg, var(--fc-bg-2), var(--fc-bg-1) 45%, var(--fc-bg-3));
+            background-attachment: fixed;
+        }
+
+        .fc-glass {
+            background: var(--fc-card);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border: 1px solid var(--fc-card-border);
+            box-shadow: 0 20px 50px rgba(255, 105, 180, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+        }
+        html.theme-dark .fc-glass {
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+
+        /* ===== Thẻ lật 3D ===== */
         .flashcard-scene {
-            perspective: 1000px;
-            width: 100%;
-            height: 350px;
+            position: relative;
+            perspective: 2000px; width: 100%; height: clamp(340px, 56vh, 520px);
+            animation: fc-card-in .34s cubic-bezier(.2, .7, .2, 1) both;
+            will-change: transform; /* promote lên lớp GPU để kéo mượt, đỡ vẽ lại bóng mỗi khung hình */
+        }
+        @keyframes fc-card-in { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+        /* Lớp nghiêng 3D theo con trỏ (cảm giác cầm thẻ thật) — tách khỏi lớp lật */
+        .flashcard-tilt {
+            position: relative; width: 100%; height: 100%;
+            transform-style: preserve-3d;
+            transition: transform .4s cubic-bezier(.2, .7, .2, 1);
+            will-change: transform;
         }
         .flashcard-inner {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            text-align: center;
-            transition: transform 0.6s;
-            transform-style: preserve-3d;
-            cursor: pointer;
+            position: relative; width: 100%; height: 100%;
+            transition: transform .6s cubic-bezier(.34, 1.32, .44, 1);
+            transform-style: preserve-3d; cursor: pointer;
+            will-change: transform;
         }
-        .flashcard-inner.is-flipped {
-            transform: rotateY(180deg);
+        .flashcard-inner.is-flipped { transform: rotateY(180deg); }
+
+        /* Ánh sáng lướt trên bề mặt thẻ khi nghiêng */
+        .fc-glare {
+            position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 3;
+            background: radial-gradient(circle at var(--gx, 50%) var(--gy, 50%),
+                rgba(255, 255, 255, .55), rgba(255, 255, 255, .12) 32%, rgba(255, 255, 255, 0) 60%);
+            opacity: 0; transition: opacity .25s ease; mix-blend-mode: soft-light;
+        }
+        .flashcard-scene.tilting .fc-glare { opacity: 1; }
+
+        /* Nhấc thẻ + bóng đổ động khi cầm / rê / nghiêng */
+        .flashcard-scene.tilting .flashcard-front,
+        .flashcard-scene.grabbing .flashcard-front {
+            box-shadow: 0 40px 70px -28px rgba(255, 105, 180, 0.6), 0 12px 26px -12px rgba(0, 0, 0, 0.14);
+        }
+        .flashcard-scene.tilting .flashcard-back,
+        .flashcard-scene.grabbing .flashcard-back {
+            box-shadow: 0 40px 70px -28px rgba(16, 185, 129, 0.55), 0 12px 26px -12px rgba(0, 0, 0, 0.14);
         }
         .flashcard-face {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            -webkit-backface-visibility: hidden; /* Safari */
-            backface-visibility: hidden;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            border-radius: 0.5rem;
-            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            position: absolute; inset: 0;
+            -webkit-backface-visibility: hidden; backface-visibility: hidden;
+            display: flex; flex-direction: column;
+            border-radius: 1.75rem; overflow: hidden;
+            border: 1px solid var(--fc-card-border);
+        }
+        .flashcard-face-scroll {
+            flex: 1; overflow-y: auto; overflow-x: hidden;
+            padding: clamp(1.25rem, 5vw, 2.15rem);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; gap: .7rem;
         }
         .flashcard-front {
-            background-color: white;
+            background:
+                radial-gradient(120% 90% at 50% 0%, rgba(255, 240, 248, 0.7), transparent 60%),
+                var(--fc-card);
+            box-shadow: 0 22px 45px -18px rgba(255, 105, 180, 0.4), 0 6px 18px -8px rgba(0, 0, 0, 0.06);
         }
         .flashcard-back {
-            background-color: #F0FFF4;
-            color: black;
             transform: rotateY(180deg);
+            background:
+                radial-gradient(120% 90% at 50% 0%, rgba(220, 252, 231, 0.75), transparent 60%),
+                linear-gradient(180deg, rgba(247, 254, 251, 0.97), rgba(255, 255, 255, 0.97));
+            box-shadow: 0 22px 45px -18px rgba(16, 185, 129, 0.38), 0 6px 18px -8px rgba(0, 0, 0, 0.06);
         }
-        @keyframes pulse-animation {
-          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6); }
-          70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
-          100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        html.theme-dark .flashcard-front {
+            background: radial-gradient(120% 90% at 50% 0%, rgba(60, 40, 70, 0.5), transparent 60%), var(--fc-card);
         }
-        .correct-answer-pulse {
-          animation: pulse-animation 1s ease-in-out;
+        html.theme-dark .flashcard-back {
+            background: radial-gradient(120% 90% at 50% 0%, rgba(24, 60, 48, 0.55), transparent 60%), linear-gradient(180deg, rgba(24, 42, 38, 0.97), rgba(28, 22, 42, 0.97));
         }
-        @keyframes shake-animation {
-          10%, 90% { transform: translate3d(-1px, 0, 0); }
-          20%, 80% { transform: translate3d(2px, 0, 0); }
-          30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
-          40%, 60% { transform: translate3d(4px, 0, 0); }
+        .flashcard-back .flashcard-face-scroll { justify-content: flex-start; text-align: left; }
+
+        /* Dải màu mép trên của mỗi mặt (mảnh, dịu) để phân biệt hỏi / đáp */
+        .flashcard-face::before {
+            content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; opacity: .8;
+            background: linear-gradient(90deg, var(--fc-pink), #b57be6, #7c8bf0);
         }
-        .wrong-answer-shake {
-            animation: shake-animation 0.82s cubic-bezier(.36,.07,.19,.97) both;
+        .flashcard-back::before { background: linear-gradient(90deg, #34d399, #22c55e, #a3d977); }
+
+        .fc-face-tag {
+            position: absolute; top: 13px; right: 15px; z-index: 2;
+            font-size: 9.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+            padding: 3px 10px; border-radius: 999px;
+        }
+        .fc-tag-q { background: rgba(255, 105, 180, 0.14); color: var(--fc-pink-600); }
+        .fc-tag-a { background: rgba(16, 185, 129, 0.16); color: #059669; }
+        html.theme-dark .fc-tag-a { color: #6ee7b7; }
+
+        /* Mặt câu hỏi: câu hỏi căn giữa dọc; gợi ý ghim ở đáy (không xô lệch canh giữa).
+           'safe center' để câu quá dài không bị cắt mất phần trên khi tràn (rơi về canh đầu). */
+        .flashcard-front .flashcard-face-scroll { justify-content: center; justify-content: safe center; padding-bottom: 2.9rem; }
+        .fc-face-hint {
+            position: absolute; bottom: 12px; left: 0; right: 0; z-index: 2;
+            display: flex; align-items: center; justify-content: center; gap: .4rem;
+            font-size: 11px; color: var(--fc-muted); pointer-events: none; padding: 0 1rem;
+        }
+
+        /* Nhãn vuốt (Tinder): vuốt phải = Thuộc, vuốt trái = Chưa thuộc */
+        .flashcard-scene { touch-action: pan-y; }
+        .fc-swipe-badge {
+            position: absolute; top: 20px; z-index: 6; pointer-events: none; opacity: 0;
+            display: flex; align-items: center; gap: .4rem;
+            font-weight: 800; font-size: .95rem; letter-spacing: .06em; text-transform: uppercase;
+            padding: .35rem .7rem; border-radius: .7rem; border: 2.5px solid currentColor;
+            background: rgba(255,255,255,.85);
+        }
+        html.theme-dark .fc-swipe-badge { background: rgba(24,18,34,.7); }
+        .fc-swipe-badge.right { right: 20px; color: #10b981; transform: rotate(11deg); }
+        .fc-swipe-badge.left { left: 20px; color: #ef4444; transform: rotate(-11deg); }
+        .flashcard-inner.dragging { cursor: grabbing; }
+
+        .fc-scroll-thin::-webkit-scrollbar { width: 7px; height: 7px; }
+        .fc-scroll-thin::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.35); border-radius: 999px; }
+        .fc-scroll-thin::-webkit-scrollbar-track { background: transparent; }
+
+        /* Nút bấm chung */
+        .fc-btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+            font-weight: 600; border-radius: 1rem; transition: transform .18s cubic-bezier(.2,.7,.2,1), box-shadow .2s ease, background-color .2s ease;
+            cursor: pointer; user-select: none;
+        }
+        .fc-btn:active { transform: scale(.95); }
+        .fc-btn-primary { background: linear-gradient(135deg, #ff9ccf, var(--fc-pink)); color: #fff; box-shadow: 0 10px 24px -8px rgba(255, 105, 180, .55); }
+        .fc-btn-primary:hover { box-shadow: 0 14px 30px -8px rgba(255, 105, 180, .6); }
+        .fc-btn-ghost { background: var(--fc-surface); color: var(--fc-ink); border: 1px solid var(--fc-card-border); }
+        .fc-btn-ghost:hover { background: rgba(255, 105, 180, 0.08); }
+
+        /* Chip chế độ / bộ lọc */
+        .fc-chip {
+            display: inline-flex; align-items: center; gap: .4rem;
+            padding: .45rem .85rem; border-radius: 999px; font-weight: 600; font-size: .8rem;
+            background: var(--fc-surface); color: var(--fc-muted);
+            border: 1px solid var(--fc-card-border); cursor: pointer;
+            transition: color .18s ease, background-color .18s ease, box-shadow .2s ease, transform .15s ease; white-space: nowrap;
+        }
+        .fc-chip:hover { color: var(--fc-ink); }
+        .fc-chip:active { transform: scale(.95); }
+        .fc-chip.is-active { background: linear-gradient(135deg, #ff9ccf, var(--fc-pink)); color: #fff; border-color: transparent; box-shadow: 0 8px 18px -6px rgba(255, 105, 180, .5); }
+
+        .fc-input {
+            background: var(--fc-surface); color: var(--fc-ink);
+            border: 1px solid var(--fc-card-border); border-radius: .85rem;
+            padding: .55rem .9rem; font-size: .85rem; outline: none;
+            transition: border-color .18s ease, box-shadow .18s ease;
+        }
+        .fc-input:focus { border-color: var(--fc-pink); box-shadow: 0 0 0 3px rgba(255, 105, 180, .18); }
+        .fc-input::placeholder { color: var(--fc-muted); }
+
+        /* Thanh tiến độ */
+        .fc-progress-track { height: 8px; border-radius: 999px; background: rgba(0,0,0,.07); overflow: hidden; }
+        html.theme-dark .fc-progress-track { background: rgba(255,255,255,.09); }
+        .fc-progress-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #34d399, #10b981); transition: width .5s cubic-bezier(.2,.7,.2,1); }
+
+        kbd { font-family: inherit; }
+        .fc-kbd {
+            display: inline-flex; align-items: center; justify-content: center; min-width: 1.5rem;
+            padding: .1rem .4rem; border-radius: .4rem; font-size: .72rem; font-weight: 700;
+            background: var(--fc-surface); border: 1px solid var(--fc-card-border);
+            box-shadow: 0 2px 0 rgba(0,0,0,.06);
+        }
+
+        /* Hiệu ứng đánh dấu */
+        @keyframes fc-pop-known { 0%{transform:scale(1)} 40%{transform:scale(1.04); box-shadow:0 0 0 6px rgba(34,197,94,.25)} 100%{transform:scale(1)} }
+        @keyframes fc-shake { 10%,90%{transform:translateX(-2px)} 30%,70%{transform:translateX(4px)} 50%{transform:translateX(-6px)} }
+        .fc-anim-known { animation: fc-pop-known .5s ease; }
+        .fc-anim-unknown { animation: fc-shake .45s ease; }
+
+        @keyframes fc-fade-up { from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)} }
+        .fc-fade-up { animation: fc-fade-up .35s ease both; }
+
+        /* Lưới thẻ (chế độ Duyệt) */
+        .fc-grid-card {
+            background: var(--fc-card); border: 1px solid var(--fc-card-border);
+            border-radius: 1rem; padding: .95rem; cursor: pointer;
+            transition: transform .16s ease, box-shadow .2s ease; position: relative;
+            display: flex; flex-direction: column; min-height: 120px;
+        }
+        .fc-grid-card:hover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(168,85,247,.18); }
+        .fc-grid-known { position: absolute; top: 8px; right: 8px; font-size: .7rem; }
+
+        .fc-answer-box {
+            width: 100%; border-radius: 1.15rem; padding: .95rem 1.15rem;
+            background: rgba(16,185,129,.09); border: 1px solid rgba(16,185,129,.28);
+            box-shadow: 0 4px 14px -8px rgba(16,185,129,.4);
+        }
+        html.theme-dark .fc-answer-box { background: rgba(16,185,129,.11); }
+
+        .fc-note-area {
+            width: 100%; border-radius: .85rem; padding: .7rem .9rem; resize: vertical;
+            background: var(--fc-surface); color: var(--fc-ink);
+            border: 1px dashed rgba(255,105,180,.4); outline: none; font-size: .9rem;
+            transition: border-color .18s ease, box-shadow .18s ease;
+        }
+        .fc-note-area:focus { border-style: solid; border-color: var(--fc-pink); box-shadow: 0 0 0 3px rgba(255,105,180,.15); }
+
+        details.fc-expand > summary { cursor: pointer; list-style: none; }
+        details.fc-expand > summary::-webkit-details-marker { display: none; }
+
+        /* Cỡ chữ mặt thẻ (theo em để mọi phần trong thẻ co giãn cùng nhau) */
+        .flashcard-face-scroll { font-size: 15px; }
+        #flashcard-container.fc-font-1 .flashcard-face-scroll { font-size: 13.5px; }
+        #flashcard-container.fc-font-2 .flashcard-face-scroll { font-size: 15px; }
+        #flashcard-container.fc-font-3 .flashcard-face-scroll { font-size: 17px; }
+        #flashcard-container.fc-font-4 .flashcard-face-scroll { font-size: 19.5px; }
+        .fc-q-text { font-size: 1.32em; font-weight: 600; line-height: 1.5; letter-spacing: -0.01em; }
+        .fc-a-text { font-size: 1.14em; font-weight: 700; line-height: 1.45; letter-spacing: -0.01em; }
+        .fc-body { font-size: .97em; line-height: 1.68; color: var(--fc-ink); opacity: .92; }
+        @media (min-width: 640px) {
+            .flashcard-face-scroll { font-size: 15.5px; }
+            #flashcard-container.fc-font-1 .flashcard-face-scroll { font-size: 14px; }
+            #flashcard-container.fc-font-2 .flashcard-face-scroll { font-size: 15.5px; }
+            #flashcard-container.fc-font-3 .flashcard-face-scroll { font-size: 17.5px; }
+            #flashcard-container.fc-font-4 .flashcard-face-scroll { font-size: 20px; }
+            .fc-q-text { font-size: 1.42em; }
+        }
+
+        /* Nút đọc to trên mỗi mặt thẻ */
+        .fc-face-speak {
+            position: absolute; top: 10px; left: 12px; z-index: 2;
+            width: 32px; height: 32px; border-radius: 999px; display: flex; align-items: center; justify-content: center;
+            background: var(--fc-surface); border: 1px solid var(--fc-card-border); color: var(--fc-muted); cursor: pointer;
+            transition: color .15s ease, transform .12s ease;
+        }
+        .fc-face-speak:hover { color: var(--fc-pink-600); }
+        .fc-face-speak:active { transform: scale(.9); }
+        .fc-face-speak.speaking { color: var(--fc-pink); animation: fc-speak-pulse 1s ease infinite; }
+        @keyframes fc-speak-pulse { 0%,100%{ box-shadow: 0 0 0 0 rgba(255,105,180,.4) } 50%{ box-shadow: 0 0 0 6px rgba(255,105,180,0) } }
+
+        /* Bảng thiết lập nhỏ */
+        #fc-settings-pop {
+            position: absolute; top: calc(100% + 8px); right: 0; width: 260px; max-width: calc(100vw - 20px); z-index: 40;
+            border-radius: 1rem; padding: .9rem; transform-origin: top right;
+        }
+        #fc-settings-pop.hidden-pop { display: none; }
+        .fc-set-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .5rem 0; }
+        .fc-set-row + .fc-set-row { border-top: 1px solid var(--fc-card-border); }
+        .fc-seg { display: inline-flex; background: var(--fc-surface); border: 1px solid var(--fc-card-border); border-radius: .7rem; overflow: hidden; }
+        .fc-seg button { padding: .3rem .6rem; font-weight: 800; color: var(--fc-muted); transition: background-color .15s ease, color .15s ease; }
+        .fc-seg button.is-active { background: linear-gradient(135deg,#ff8dc7,var(--fc-pink)); color: #fff; }
+        .fc-toggle { width: 42px; height: 24px; border-radius: 999px; background: rgba(0,0,0,.15); position: relative; cursor: pointer; transition: background-color .2s ease; flex-shrink: 0; }
+        html.theme-dark .fc-toggle { background: rgba(255,255,255,.18); }
+        .fc-toggle.on { background: var(--fc-pink); }
+        .fc-toggle::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 999px; background: #fff; transition: transform .2s ease; }
+        .fc-toggle.on::after { transform: translateX(18px); }
+
+        /* Tối ưu cho màn hình điện thoại nhỏ */
+        @media (max-width: 480px) {
+            .flashcard-scene { height: min(62vh, 480px); }
+            .fc-face-tag { top: 11px; right: 12px; }
+            .fc-face-speak { top: 9px; left: 10px; width: 30px; height: 30px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .flashcard-scene, .flashcard-tilt, .flashcard-inner, .fc-progress-fill, .fc-anim-known, .fc-anim-unknown, .fc-fade-up { transition: none !important; animation: none !important; }
+            .fc-glare { display: none !important; }
         }
     </style>
 </head>
-<body class="bg-[#FCE4EC] flex items-center justify-center min-h-screen p-2 sm:p-4 text-sm">
-    <div class="w-full max-w-4xl mx-auto mt-8 md:mt-0">
-        <div class="flex justify-center gap-2 mb-4" id="view-mode-switch">
-          <button id="mode-normal-btn" class="px-3 py-2 rounded-lg border border-pink-300 bg-white text-pink-600 font-semibold flex items-center gap-2 shadow-sm hover:bg-pink-50 transition">
-            <i class="fas fa-clone"></i> Thường
-          </button>
-          <button id="mode-grid-btn" class="px-3 py-2 rounded-lg border border-blue-300 bg-white text-blue-600 font-semibold flex items-center gap-2 shadow-sm hover:bg-blue-50 transition">
-            <i class="fas fa-th"></i> Lưới
-          </button>
-          <button id="mode-quickreview-btn" class="px-3 py-2 rounded-lg border border-green-300 bg-white text-green-600 font-semibold flex items-center gap-2 shadow-sm hover:bg-green-50 transition">
-            <i class="fas fa-bolt"></i> Ôn tập nhanh
-          </button>
+<body class="text-sm">
+    <!-- ===== Thanh trên cùng ===== -->
+    <header class="sticky top-0 z-30 fc-glass border-b" style="border-color:var(--fc-card-border)">
+        <div class="max-w-5xl mx-auto px-2.5 sm:px-5 py-2 sm:py-2.5 flex items-center gap-2 sm:gap-3">
+            <a id="fc-back-btn" href="../quiz/quiz.html" class="fc-btn fc-btn-ghost px-2.5 sm:px-3 h-10 text-sm shrink-0" title="Về trang làm bài">
+                <i class="fas fa-arrow-left"></i><span class="hidden sm:inline">Bài làm</span>
+            </a>
+            <div class="min-w-0 flex-1 text-center sm:text-left">
+                <h1 id="fc-deck-title" class="font-bold text-[15px] sm:text-lg leading-tight truncate bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent">Flashcard</h1>
+                <p id="fc-deck-sub" class="text-[11px] sm:text-xs -mt-0.5" style="color:var(--fc-muted)">Đang tải bộ thẻ…</p>
+            </div>
+            <div class="relative shrink-0">
+                <button id="fc-settings-btn" class="fc-btn fc-btn-ghost w-10 h-10" title="Thiết lập" aria-label="Thiết lập">
+                    <i class="fas fa-sliders"></i>
+                </button>
+                <div id="fc-settings-pop" class="fc-glass hidden-pop text-left">
+                    <div class="fc-set-row">
+                        <span class="font-bold text-sm"><i class="fas fa-font mr-1.5" style="color:var(--fc-muted)"></i> Cỡ chữ</span>
+                        <span class="fc-seg" id="fc-fontsize-seg">
+                            <button data-size="1" class="text-xs">A</button>
+                            <button data-size="2" class="text-sm">A</button>
+                            <button data-size="3" class="text-base">A</button>
+                            <button data-size="4" class="text-lg">A</button>
+                        </span>
+                    </div>
+                    <div class="fc-set-row">
+                        <span class="font-bold text-sm"><i class="fas fa-volume-high mr-1.5" style="color:var(--fc-muted)"></i> Tự đọc khi lật</span>
+                        <span id="fc-autospeak-toggle" class="fc-toggle" role="switch" tabindex="0" aria-checked="false"></span>
+                    </div>
+                    <div class="fc-set-row">
+                        <span class="font-bold text-sm"><i class="fas fa-mobile-screen-button mr-1.5" style="color:var(--fc-muted)"></i> Rung phản hồi</span>
+                        <span id="fc-vibrate-toggle" class="fc-toggle on" role="switch" tabindex="0" aria-checked="true"></span>
+                    </div>
+                </div>
+            </div>
+            <button id="fc-theme-btn" class="fc-btn fc-btn-ghost w-10 h-10 shrink-0" title="Chế độ sáng/tối" aria-label="Chế độ sáng/tối">
+                <i class="fas fa-moon"></i>
+            </button>
+            <a href="../../index.html" class="fc-btn fc-btn-ghost w-10 h-10 shrink-0" title="Trang chủ" aria-label="Trang chủ">
+                <i class="fas fa-home"></i>
+            </a>
         </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-3 sm:px-5 pt-4 pb-28 sm:pb-10">
         <div id="flashcard-container"></div>
-        <div id="flashcard-note-hint" class="hidden text-center text-yellow-700 text-xs sm:text-sm mt-2"></div>
-        <div class="flex flex-col md:flex-row gap-2 sm:gap-4 justify-center mt-8">
-            
-        </div>
-    </div>
-    <script type="module" src="flashcard.js"></script>
+    </main>
+
     <div id="toast-container"></div>
+    <script type="module" src="flashcard.js"></script>
 </body>
 </html>

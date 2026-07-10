@@ -34,6 +34,7 @@ import {
 import {
     showQuestion, showNextQuestion, showPreviousQuestion, accrueTime
 } from './page/quiz-question-view.js';
+import { setupMobileNav } from './page/quiz-mobile-nav.js';
 import {
     loadQuizData, startQuizMode, startQuizWithCurrentSettings, endQuiz
 } from './page/quiz-session.js';
@@ -195,6 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupQuestionEditor(showQuestion); // Chỉnh sửa câu hỏi (đáp án/giải thích/ghi chú/mở rộng) ngay khi làm bài
     setupSwipe();          // #3: vuốt chuyển câu
     setupEdgeTap();        // Chạm rìa trái/phải màn hình để chuyển câu (mobile)
+    setupMobileNav();      // Thanh điều hướng đáy + bảng nhảy câu (mobile)
 
     // Đóng menu lý do đánh dấu khi bấm ra ngoài (1 listener dùng chung cho mọi câu)
     document.addEventListener('click', (e) => {

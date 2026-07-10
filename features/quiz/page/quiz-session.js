@@ -15,6 +15,7 @@ import { getVibrate } from './quiz-page-prefs.js';
 import { pullStudyFromCloud } from './quiz-study-sync.js';
 import { groupQuestionsByCase, tagCaseSequence } from './quiz-cases.js';
 import { showQuestion, accrueTime } from './quiz-question-view.js';
+import { hideMobileNav } from './quiz-mobile-nav.js';
 
 let autoSaveInterval = null;
 
@@ -189,6 +190,8 @@ export function endQuiz() {
     state._timingIndex = null;
     const hud = document.getElementById('quiz-hud');
     if (hud) hud.style.display = 'none';
+    // Ẩn thanh điều hướng đáy (mobile) + đóng bảng nhảy câu khi rời màn làm bài
+    hideMobileNav();
     // Rời màn làm bài -> ẩn nhóm điều khiển làm bài trong bảng thiết lập
     document.body.classList.remove('quiz-active');
     if (autoSaveInterval) {

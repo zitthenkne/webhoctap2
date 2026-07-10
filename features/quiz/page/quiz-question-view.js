@@ -15,6 +15,7 @@ import { renderPersonalNotePanel, setupPersonalNote } from './quiz-notes-panel.j
 import { applyAnnotationsAll } from './quiz-annotations.js';
 import { caseKeyOf, caseCollapseState } from './quiz-cases.js';
 import { applyNavVisibility, attachToggleNavEvent } from './quiz-page-setup.js';
+import { updateMobileNav } from './quiz-mobile-nav.js';
 import { endQuiz } from './quiz-session.js';
 
 // Câu vừa hiển thị trước đó — dùng để biết khi nào THỰC SỰ chuyển sang câu khác
@@ -427,6 +428,9 @@ export function showQuestion() {
     // Chạy cho MỌI trạng thái câu (kể cả khi revisit câu đã trả lời ở chế độ không xem đáp án ngay)
     // #2: cập nhật thanh HUD dính (số câu + tiến trình)
     updateHud();
+    // Thanh điều hướng đáy (mobile) + bảng nhảy câu: đồng bộ ở MỌI nhánh render
+    // (đặt trước các return sớm bên dưới để không bị bỏ sót khi xem lại câu đã trả lời).
+    updateMobileNav();
     // Nút "Sửa câu hỏi": mở modal chỉnh sửa đáp án/giải thích/ghi chú/mở rộng (chạy ở mọi nhánh render)
     const editBtn = document.getElementById('edit-question-btn');
     if (editBtn) editBtn.addEventListener('click', openQuestionEditor);
@@ -622,6 +626,7 @@ export function handleAnswerClick(e) {
             nextBtn.classList.remove('hidden');
             nextBtn.addEventListener('click', showNextQuestion, { once: true });
         }
+        updateMobileNav();
         return;
     }
 
@@ -704,4 +709,7 @@ export function handleAnswerClick(e) {
         nextBtn.classList.remove('hidden');
         nextBtn.addEventListener('click', showNextQuestion, { once: true });
     }
+
+    // Đã trả lời -> cập nhật tiến trình trên thanh điều hướng đáy (mobile)
+    updateMobileNav();
 }

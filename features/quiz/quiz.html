@@ -322,7 +322,7 @@
         <nav class="flex flex-col gap-4 mt-4">
             <a href="../../index.html" class="text-pink-500 font-semibold flex items-center gap-2"><i class="fas fa-home"></i> Trang chủ</a>
             <a href="../../index.html#libraryContent" class="text-blue-500 font-semibold flex items-center gap-2"><i class="fas fa-book"></i> Thư viện</a>
-            <a id="menu-flashcard-link" href="flashcard.html" class="text-purple-500 font-semibold flex items-center gap-2"><i class="fas fa-clone"></i> Flashcard</a>
+            <a id="menu-flashcard-link" href="../flashcard/flashcard.html" class="text-purple-500 font-semibold flex items-center gap-2"><i class="fas fa-clone"></i> Flashcard</a>
             <a href="quiz-history.html" class="text-amber-500 font-semibold flex items-center gap-2"><i class="fas fa-clock-rotate-left"></i> Lịch sử làm bài</a>
         </nav>
     </div>
@@ -829,7 +829,7 @@
                 if (btn) {
                     var params = new URLSearchParams(window.location.search);
                     var quizId = params.get('id');
-                    btn.href = quizId ? `flashcard.html?id=${quizId}` : 'flashcard.html';
+                    btn.href = quizId ? `../flashcard/flashcard.html?id=${quizId}` : '../flashcard/flashcard.html';
                 }
 
                 // === CHIA SẺ BỘ ĐỀ (modal đầy đủ, đồng bộ với thư viện) ===
@@ -1103,6 +1103,40 @@
         </button>
     </div>
 
+    <!-- Thanh điều hướng cố định ở đáy màn hình khi ĐANG LÀM BÀI (chỉ mobile/tablet hẹp).
+         Luôn với tới Trước/Tiếp + tiến trình mà không phải cuộn xuống cuối thẻ câu hỏi. -->
+    <nav id="quiz-mobile-nav" aria-label="Điều hướng câu hỏi" aria-hidden="true">
+        <button type="button" id="qmn-prev" class="qmn-arrow" aria-label="Câu trước">
+            <i class="fas fa-chevron-left"></i><span class="qmn-arrow-txt">Trước</span>
+        </button>
+        <button type="button" id="qmn-jump" class="qmn-center" aria-haspopup="dialog" aria-controls="quiz-jump-sheet" aria-expanded="false">
+            <span id="qmn-counter" class="qmn-counter">Câu 1/1</span>
+            <span class="qmn-progress"><span id="qmn-progress-fill" class="qmn-progress-fill"></span></span>
+            <span class="qmn-hint"><i class="fas fa-table-cells-large"></i> Danh sách câu</span>
+        </button>
+        <button type="button" id="qmn-next" class="qmn-arrow qmn-arrow-next" aria-label="Câu tiếp">
+            <span class="qmn-arrow-txt">Tiếp</span><i class="fas fa-chevron-right"></i>
+        </button>
+    </nav>
+
+    <!-- Bảng "nhảy câu" (bottom-sheet, mobile): xem toàn bộ câu & chạm để nhảy nhanh -->
+    <div id="quiz-jump-sheet" class="hidden" role="dialog" aria-modal="true" aria-label="Danh sách câu hỏi">
+        <div class="qjs-backdrop"></div>
+        <div class="qjs-panel">
+            <div class="qjs-grip" aria-hidden="true"></div>
+            <div class="qjs-header">
+                <span class="qjs-title"><i class="fas fa-table-cells-large"></i> Danh sách câu <span id="qjs-meta" class="qjs-meta"></span></span>
+                <button type="button" id="qjs-close" class="qjs-close" aria-label="Đóng"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="qjs-legend" aria-hidden="true">
+                <span><span class="qjs-key qjs-key-cur"></span> Đang làm</span>
+                <span><span class="qjs-key qjs-key-done"></span> Đã trả lời</span>
+                <span><span class="qjs-key qjs-key-flag"></span> Đã đánh dấu</span>
+            </div>
+            <div id="qjs-grid" class="qjs-grid"></div>
+        </div>
+    </div>
+
     <!-- Thanh công cụ định dạng nổi khi bôi đen chữ (đề / đáp án / giải thích / mở rộng / ghi chú) -->
     <div id="annot-toolbar" role="toolbar" aria-label="Định dạng ghi chú">
         <button type="button" data-annot-action="highlight" title="Bôi vàng"><i class="fas fa-highlighter"></i></button>
@@ -1265,8 +1299,19 @@
         const menuFlashcard = document.getElementById('menu-flashcard-link');
         if (menuFlashcard) {
             const qid = new URLSearchParams(window.location.search).get('id');
-            if (qid) menuFlashcard.href = `flashcard.html?id=${qid}`;
+            if (qid) menuFlashcard.href = `../flashcard/flashcard.html?id=${qid}`;
         }
+
+        // MỌI link "Lịch sử làm bài" phải mang theo id bộ đề đang mở:
+        // quiz-history.html là trang lịch sử theo TỪNG bộ đề, thiếu ?id sẽ báo
+        // "Thiếu thông tin bộ đề". (Trước đây các link để trống id -> lỗi trên mọi thiết bị.)
+        (function attachQuizIdToHistoryLinks() {
+            const hid = new URLSearchParams(window.location.search).get('id');
+            if (!hid) return; // không có id thì để nguyên (hiếm gặp)
+            document.querySelectorAll('a[href="quiz-history.html"]').forEach(function (a) {
+                a.href = `quiz-history.html?id=${encodeURIComponent(hid)}`;
+            });
+        })();
 
         // Thanh "Bắt đầu ngay" nổi trên mobile: chỉ hiện khi trang thiết lập đang mở
         // mà nút Bắt đầu chính đã trôi khỏi màn hình (đỡ phải cuộn xuống tận đáy card)
