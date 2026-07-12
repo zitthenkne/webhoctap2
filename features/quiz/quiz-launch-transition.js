@@ -3,12 +3,19 @@
  * ---------------------------------------------------------------------------
  * Nâng cấp trải nghiệm khi bấm "Làm bài" trên thẻ bộ đề ở thư viện:
  *   1. Làm mờ + tối toàn bộ giao diện xung quanh.
- *   2. Thẻ bộ đề được chọn "nhấc" lên, bay ra giữa màn hình, LẬT VÒNG VÒNG (3 vòng)
- *      rồi khựng lại — pha "mở bài" quen thuộc.
+ *   2. Thẻ bộ đề được chọn "nhấc" lên, DÃN tại chỗ thành tỉ lệ LÁ BÀI (63:88),
+ *      rồi bay ra giữa màn hình, LẬT VÒNG VÒNG (2 vòng) rồi khựng lại — như lật
+ *      một lá bài thật: mặt sau lá bài (gradient + hoạ tiết + huy hiệu ✦) lộ ra
+ *      mỗi khi thẻ xoay quá 90°.
  *   3. PHA KẾT = MORPH (shared-element): thay vì thẻ phóng to rồi nhạt đi nhạt nhẽo,
  *      icon của thẻ TÁCH RA, bay + phóng to khớp đúng vào ô ảnh sóc của trang chờ rồi
  *      cross-fade thành con sóc; tên đề trượt khớp vào tiêu đề gradient. Toạ độ đích
- *      được ĐO THẲNG trong iframe (cùng origin) nên khớp pixel.
+ *      được ĐO THẲNG trong iframe (cùng origin) nên khớp pixel. Tên đề được "mồi"
+ *      sẵn vào #quiz-title của iframe trước khi đo -> đích đo đúng theo cách tên
+ *      thật xuống dòng, và không còn nháy "Đang tải thông tin...".
+ *      Tên dài xuống dòng: bản morph giữ đúng khối chữ (width + line-clamp như thẻ)
+ *      rồi CHUYỂN DẦN width/line-height sang khối của tiêu đề đích — chữ tự dàn
+ *      lại dòng trong lúc bay thay vì bung thành một hàng dài tràn màn hình.
  *   4. Trong lúc hoạt ảnh, quiz.html được nạp ngầm trong iframe phủ kín (ẩn). Khi
  *      morph hạ cánh thì iframe hiện ra -> nối liền mạch, không thấy độ trễ load.
  *
@@ -24,13 +31,14 @@
     // Chỉ chạy ở trang thư viện (index). Tránh tự kích hoạt khi nhúng trong iframe.
     if (window.top !== window.self) return;
 
-    var FLY_MS = 1700;         // thời lượng pha "bay ra giữa + lật vòng vòng + phóng to"
-    var SETTLE_MS = 340;       // nhịp khựng ngắn sau khi lật xong (spin dừng hẳn rồi mới morph)
-    var TITLE_LIFT_MS = 320;   // nhịp 1: nâng tên đề (chữ đen) lên khỏi thẻ
-    var TITLE_SWEEP_MS = 520;  // nhịp 2: quét đổi màu gradient dọc theo chiều dài tên
-    var MORPH_MS = 950;        // nhịp 3: morph icon/tên đề bay vào trang chờ
+    var STRETCH_MS = 520;      // pha 0: thẻ dãn ra thành tỉ lệ lá bài (63:88) tại chỗ
+    var FLY_MS = 1350;         // thời lượng pha "bay ra giữa + lật vòng vòng + phóng to"
+    var SETTLE_MS = 260;       // nhịp khựng ngắn sau khi lật xong (spin dừng hẳn rồi mới morph)
+    var TITLE_LIFT_MS = 280;   // nhịp 1: nâng tên đề (chữ đen) lên khỏi thẻ
+    var TITLE_SWEEP_MS = 460;  // nhịp 2: quét đổi màu gradient dọc theo chiều dài tên
+    var MORPH_MS = 900;        // nhịp 3: morph icon/tên đề bay vào trang chờ
     var TITLE_LEAD_MS = 90;    // icon nở thành sóc hơi trễ so với tên đề khi bay -> có biên đạo
-    var REVEAL_MIN_MS = FLY_MS + SETTLE_MS; // chờ đủ rồi mới bắt đầu morph
+    var REVEAL_MIN_MS = STRETCH_MS + FLY_MS + SETTLE_MS; // chờ đủ rồi mới bắt đầu morph
     var REVEAL_MAX_MS = 9000;  // chờ iframe tối đa rồi vẫn hiện (đề phòng mạng chậm)
     var HERO_RADIUS = 24;      // bo góc ô ảnh sóc trên trang chờ (rounded-3xl ≈ 1.5rem)
     var STYLE_ID = 'quiz-launch-transition-style';
@@ -81,16 +89,33 @@
             '#quiz-launch-ring.is-on{animation:quiz-launch-ring .75s ease-out forwards;}',
             '@keyframes quiz-launch-ring{0%{opacity:.9;transform:scale(.3);}100%{opacity:0;transform:scale(15);}}',
 
-            // Thẻ bay ra giữa: vừa phóng to vừa lật vòng vòng (3 vòng) rồi khựng lại
+            // Thẻ bay ra giữa: vừa phóng to vừa lật vòng vòng (3 vòng) rồi khựng lại.
+            // preserve-3d + backface-visibility:hidden trên con -> khi xoay quá 90° thấy
+            // MẶT SAU lá bài thật (không phải mặt trước bị soi gương).
             '.quiz-launch-ghost{position:fixed;z-index:9999;margin:0;box-sizing:border-box;',
-            '  transform-origin:center center;will-change:transform,opacity;pointer-events:none;backface-visibility:visible;',
+            '  transform-origin:center center;will-change:transform,opacity;pointer-events:none;',
+            '  transform-style:preserve-3d;overflow:visible !important;',
             '  transition:transform .7s cubic-bezier(.5,0,.55,1), box-shadow .5s ease, opacity .45s ease;',
             '  box-shadow:0 40px 90px rgba(255,105,180,0.40), 0 12px 30px rgba(0,0,0,0.22);}',
+
+            // Mặt sau lá bài: gradient + hoạ tiết chéo + viền trong + huy hiệu ✦ ở tâm
+            '.quiz-launch-card-back{position:absolute;inset:0;z-index:5;border-radius:inherit;',
+            '  transform:rotateY(180deg);backface-visibility:hidden;-webkit-backface-visibility:hidden;',
+            '  background:linear-gradient(150deg,#f9a8d4,#ec4899 32%,#a855f7 66%,#6366f1);',
+            '  display:flex;align-items:center;justify-content:center;overflow:hidden;}',
+            '.quiz-launch-card-back::before{content:"";position:absolute;inset:12px;',
+            '  border:2px solid rgba(255,255,255,0.6);border-radius:16px;',
+            '  background:radial-gradient(circle, rgba(255,255,255,0.16) 0 5px, transparent 6px) 0 0/32px 32px,',
+            '    repeating-linear-gradient(45deg, rgba(255,255,255,0.07) 0 10px, transparent 10px 20px);}',
+            '.quiz-launch-card-back::after{content:"✦";position:relative;z-index:1;color:#fff;',
+            '  font-size:2.6rem;width:5rem;height:5rem;display:flex;align-items:center;justify-content:center;',
+            '  border:2px solid rgba(255,255,255,0.75);border-radius:50%;background:rgba(255,255,255,0.14);',
+            '  text-shadow:0 0 16px rgba(255,255,255,0.85);}',
             // Một mạch duy nhất (2 mốc) để trình duyệt nội suy liên tục -> xoay đều,
             // không bị khựng ở các mốc giữa. Easing đặt ở JS (giảm tốc dần khi về đích).
             '@keyframes quiz-launch-fly{',
             '  0%{transform:translate(0px,0px) perspective(1300px) rotateZ(-8deg) rotateY(0deg) scale(1.04);}',
-            '  100%{transform:translate(var(--fx),var(--fy)) perspective(1300px) rotateZ(0deg) rotateY(1080deg) scale(var(--fs));}}',
+            '  100%{transform:translate(var(--fx),var(--fy)) perspective(1300px) rotateZ(0deg) rotateY(720deg) scale(var(--fs));}}',
 
             // Tia sáng quét ngang thẻ lúc bay
             '.quiz-launch-shine{position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none;z-index:6;}',
@@ -108,11 +133,13 @@
             // ---- PHA MORPH: icon & tên đề "tách" khỏi thẻ, bay khớp vào trang chờ ----
             '.quiz-launch-morph{position:fixed;z-index:10001;margin:0;box-sizing:border-box;pointer-events:none;',
             '  transform-origin:center center;will-change:transform,opacity;backface-visibility:hidden;}',
-            // Tên đề khi morph: LUÔN một hàng (dàn ra, không xuống dòng, không cắt "…")
-            '.quiz-launch-morph-title{display:inline-grid;place-items:center;white-space:nowrap;line-height:1.15;}',
+            // Tên đề khi morph: một hàng với tên ngắn; tên dài giữ KHỐI xuống dòng như thẻ
+            // (white-space/width/line-height đặt inline theo từng chế độ trong morphReveal)
+            '.quiz-launch-morph-title{display:inline-grid;place-items:center;line-height:1.15;}',
             // Hai lớp chữ xếp chồng: lớp đen (như thẻ) + lớp gradient phủ đúng lên trên.
+            // width:100% + white-space kế thừa -> hai lớp luôn xuống dòng giống hệt nhau.
             '.quiz-launch-morph-title .qz-mt-solid,.quiz-launch-morph-title .qz-mt-grad{',
-            '  grid-area:1/1;white-space:nowrap;}',
+            '  grid-area:1/1;white-space:inherit;width:100%;}',
             // Gradient lộ dần TỪ TRÁI SANG PHẢI (clip-path) -> màu chạy dọc theo chiều dài tên
             '.quiz-launch-morph-title .qz-mt-grad{',
             '  background:linear-gradient(90deg,#ec4899,#a855f7,#6366f1);',
@@ -156,6 +183,32 @@
             root.querySelector('h3 a') || root.querySelector('h3'))) || null;
     }
 
+    // Hộp bao quanh CHỮ thật (union các dòng chữ, đo bằng Range) — khác với hộp của
+    // phần tử: <a>/<h1> là block chiếm trọn cột nên tâm hộp phần tử KHÔNG phải tâm chữ
+    // (đây là lý do tên đề từng bị "nhảy ngang" khi morph bắt đầu).
+    function textRect(el, doc) {
+        try {
+            var r = (doc || document).createRange();
+            r.selectNodeContents(el);
+            var rect = r.getBoundingClientRect();
+            if (rect && rect.width) return rect;
+        } catch (e) {}
+        return el.getBoundingClientRect();
+    }
+
+    // Như textRect nhưng CẮT theo vùng nhìn thấy của khối chứa (h3 có line-clamp-2 /
+    // truncate): Range đo cả phần chữ bị clip nên phải giao với hộp h3 để lấy đúng
+    // phần đang hiện trên thẻ.
+    function visibleTextRect(el) {
+        var r = textRect(el);
+        var host = (el.closest && el.closest('h3')) || el;
+        var c = host.getBoundingClientRect();
+        var left = Math.max(r.left, c.left), top = Math.max(r.top, c.top);
+        var right = Math.min(r.right, c.right), bottom = Math.min(r.bottom, c.bottom);
+        if (right <= left || bottom <= top) return r;
+        return { left: left, top: top, width: right - left, height: bottom - top };
+    }
+
     // Đo toạ độ ĐÍCH trong iframe trang chờ: ô ảnh sóc + tiêu đề (cùng origin nên đọc được).
     // iframe phủ kín màn hình & không zoom -> toạ độ nội bộ trùng với toạ độ cửa sổ.
     function measureTargets(frame) {
@@ -167,11 +220,16 @@
             if (!img || !title) return null;
             var box = img.parentElement || img;   // ô bo tròn quanh ảnh sóc
             var hr = box.getBoundingClientRect();
-            var tr = title.getBoundingClientRect();
+            // Đo hộp CHỮ (Range) chứ không phải hộp <h1> (block full cột): tâm đích
+            // mới đúng là tâm chữ, kể cả khi tiêu đề căn trái / xuống nhiều dòng.
+            var tr = textRect(title, doc);
             if (!hr.width || !tr.width) return null;
             var win = frame.contentWindow || window;
-            var tf = parseFloat(win.getComputedStyle(title).fontSize) || 28;
-            return { hero: hr, title: tr, titleFont: tf };
+            var cs = win.getComputedStyle(title);
+            var tf = parseFloat(cs.fontSize) || 28;
+            var tlh = parseFloat(cs.lineHeight);
+            if (!tlh || isNaN(tlh)) tlh = tf * 1.25;
+            return { hero: hr, title: tr, titleFont: tf, titleLineH: tlh };
         } catch (e) { return null; }
     }
 
@@ -200,6 +258,20 @@
 
         var rect = card.getBoundingClientRect();
 
+        // --- Kích thước "lá bài" (tỉ lệ bài tây 63:88 ≈ 1:1.4), giữ nguyên tâm thẻ ---
+        // FLIP: ghost được đặt kích thước lá bài NGAY từ đầu (reflow đúng 1 lần), pha dãn
+        // chỉ animate transform scale(sx,sy) -> 1 nên chạy trên GPU, không giật.
+        var cardW = Math.min(rect.width, 340);
+        var cardH = Math.round(cardW * 1.4);
+        if (cardH > window.innerHeight * 0.8) {
+            cardH = Math.round(window.innerHeight * 0.8);
+            cardW = Math.round(cardH / 1.4);
+        }
+        var cx = rect.left + rect.width / 2;
+        var cy = rect.top + rect.height / 2;
+        var sx = rect.width / cardW;   // tỉ lệ nén ban đầu: lá bài bị "bóp" về đúng hộp thẻ cũ
+        var sy = rect.height / cardH;
+
         // Đo icon & tên đề của thẻ (kích thước THẬT chưa bị scale) để morph về sau.
         var srcIconEl = card.querySelector('.quiz-card-icon');
         var srcTitleEl = findTitleEl(card);
@@ -211,6 +283,9 @@
         var srcTitleFamily = titleCS ? titleCS.fontFamily : 'inherit';
         var srcTitleColor = titleCS ? titleCS.color : '#1f2937';
         var srcTitleLetter = titleCS ? titleCS.letterSpacing : 'normal';
+        var srcTitleAlign = titleCS ? (titleCS.textAlign || 'left') : 'left';
+        var srcTitleLineH = titleCS ? parseFloat(titleCS.lineHeight) : 0;
+        if (!srcTitleLineH || isNaN(srcTitleLineH)) srcTitleLineH = srcTitleFont * 1.3;
         var srcTitleText = srcTitleEl ? srcTitleEl.textContent.trim() : '';
 
         var prevOverflow = document.documentElement.style.overflow;
@@ -237,16 +312,28 @@
         var ghost = card.cloneNode(true);
         ghost.classList.add('quiz-launch-ghost');
         ghost.classList.remove('hover:-translate-y-1', 'qz-tilt-on'); // tránh xung đột transform
-        ghost.style.left = rect.left + 'px';
-        ghost.style.top = rect.top + 'px';
-        ghost.style.width = rect.width + 'px';
-        ghost.style.height = rect.height + 'px';
-        // tư thế "nhấc lên" ban đầu (khớp 0% của keyframes để không bị giật khi bắt đầu)
-        ghost.style.transform = 'translate(0px,0px) perspective(1300px) rotateZ(-8deg) rotateY(0deg) scale(1.04)';
+        ghost.style.left = (cx - cardW / 2) + 'px';
+        ghost.style.top = (cy - cardH / 2) + 'px';
+        ghost.style.width = cardW + 'px';
+        ghost.style.height = cardH + 'px';
+        // Tư thế ban đầu: lá bài bị nén scale(sx,sy) về đúng hộp thẻ cũ + "nhấc lên";
+        // pha dãn chỉ việc thả nén về scale(1.04) -> transform thuần, mượt.
+        ghost.style.transform = 'translate(0px,0px) perspective(1300px) rotateZ(-8deg) rotateY(0deg) ' +
+            'scale(' + (sx * 1.04).toFixed(4) + ',' + (sy * 1.04).toFixed(4) + ')';
         // Tia sáng quét ngang
         var shine = document.createElement('div');
         shine.className = 'quiz-launch-shine';
         ghost.appendChild(shine);
+        // Mặt sau lá bài (chỉ hiện khi rotateY quay quá 90°)
+        var cardBack = document.createElement('div');
+        cardBack.className = 'quiz-launch-card-back';
+        ghost.appendChild(cardBack);
+        // Nội dung mặt trước phải ẩn khi xoay ra sau (không thì thấy chữ bị soi gương)
+        Array.prototype.forEach.call(ghost.children, function (el) {
+            if (el === cardBack) return;
+            el.style.backfaceVisibility = 'hidden';
+            el.style.webkitBackfaceVisibility = 'hidden';
+        });
         overlay.appendChild(ghost);
 
         document.body.appendChild(overlay);
@@ -268,36 +355,42 @@
         };
         active = session;
 
-        // --- Tính đích phóng to: đưa thẻ ra giữa màn hình, to vừa phải ---
-        var targetW = Math.min(window.innerWidth * 0.92, 560);
-        var scale = targetW / rect.width;
-        // Giới hạn để thẻ không tràn quá chiều cao màn hình
-        var maxScaleByH = (window.innerHeight * 0.9) / rect.height;
+        // --- Tính đích phóng to: đưa lá bài ra giữa màn hình, to vừa phải ---
+        var targetW = Math.min(window.innerWidth * 0.92, 420);
+        var scale = targetW / cardW;
+        // Giới hạn để lá bài không tràn quá chiều cao màn hình
+        var maxScaleByH = (window.innerHeight * 0.88) / cardH;
         scale = Math.min(scale, maxScaleByH);
         if (!isFinite(scale) || scale <= 0) scale = 1;
-        var cx = rect.left + rect.width / 2;
-        var cy = rect.top + rect.height / 2;
         var dx = (window.innerWidth / 2) - cx;
         var dy = (window.innerHeight / 2) - cy;
 
-        // Trạng thái "đứng yên" sau khi lật xong (rotateY 1080° ≡ 0° về mặt hình ảnh)
+        // Trạng thái "đứng yên" sau khi lật xong (rotateY 720° ≡ 0° về mặt hình ảnh)
         var settledTransform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + scale + ')';
         // Hệ số phóng để thẻ phủ KÍN màn hình ở pha dự phòng (khi không đo được đích)
-        var coverScale = Math.max(window.innerWidth / rect.width, window.innerHeight / rect.height) * 1.08;
+        var coverScale = Math.max(window.innerWidth / cardW, window.innerHeight / cardH) * 1.08;
 
         // Truyền đích bay/phóng cho keyframes qua biến CSS
         ghost.style.setProperty('--fx', dx + 'px');
         ghost.style.setProperty('--fy', dy + 'px');
         ghost.style.setProperty('--fs', scale);
 
-        // Bật hoạt ảnh ở khung hình kế tiếp: thẻ bay ra giữa, lật vòng vòng rồi khựng lại
+        // Bật hoạt ảnh ở khung hình kế tiếp.
+        // Pha 0: thả nén scale(sx,sy) -> scale(1.04): thẻ "dãn" thành lá bài tại chỗ
+        // (transform thuần, GPU) -> rồi mới bay ra giữa, lật vòng vòng, phóng to.
         requestAnimationFrame(function () {
             requestAnimationFrame(function () {
                 backdrop.classList.add('is-on');
                 glow.classList.add('is-on');
-                // Bắt đầu nhanh rồi giảm tốc mượt về đích (decelerate) -> xoay & phóng liền mạch
-                ghost.style.animation = 'quiz-launch-fly ' + (FLY_MS / 1000) +
-                    's cubic-bezier(.12,.66,.18,1) forwards';
+                ghost.style.transition = 'transform ' + STRETCH_MS + 'ms cubic-bezier(.34,1.15,.3,1)';
+                // khớp đúng 0% của keyframes quiz-launch-fly -> nối pha không giật
+                ghost.style.transform =
+                    'translate(0px,0px) perspective(1300px) rotateZ(-8deg) rotateY(0deg) scale(1.04)';
+                setTimeout(function () {
+                    // Bắt đầu nhanh rồi giảm tốc mượt về đích (decelerate) -> xoay & phóng liền mạch
+                    ghost.style.animation = 'quiz-launch-fly ' + (FLY_MS / 1000) +
+                        's cubic-bezier(.12,.66,.18,1) forwards';
+                }, STRETCH_MS);
             });
         });
 
@@ -316,9 +409,26 @@
 
         // Chốt thẻ ở tư thế "đứng yên" giữa màn hình (gỡ animation đang giữ frame 100%).
         function settleGhost() {
+            ghost.style.transition = 'none'; // inline transition của pha dãn còn đó -> phải tắt, không thì rotateY 720->0 quay ngược
             ghost.style.animation = 'none';
             ghost.style.transform = settledTransform;
             void ghost.offsetWidth; // ép reflow -> mốc kế tiếp tính từ trạng thái đứng yên
+        }
+
+        // "Mồi" tên đề từ thẻ vào #quiz-title của iframe (cùng origin) TRƯỚC khi đo:
+        // - đích đo đúng theo cách tên thật xuống dòng (không phải "Đang tải thông tin...")
+        // - người dùng không bao giờ thấy placeholder nháy qua khi trang lộ diện.
+        // loadQuizDetails của quiz-ui.js sau đó vẫn gán lại đúng tên này từ Firestore.
+        function primeFrameTitle() {
+            try {
+                var doc = frame.contentDocument || (frame.contentWindow && frame.contentWindow.document);
+                var t = doc && doc.getElementById('quiz-title');
+                if (t && srcTitleText && t.textContent.indexOf('Đang tải') !== -1) {
+                    t.textContent = srcTitleText;
+                    doc.title = srcTitleText;
+                }
+                return t;
+            } catch (e) { return null; }
         }
 
         function doReveal() {
@@ -330,22 +440,28 @@
 
             settleGhost();
 
+            var realTitle = primeFrameTitle();
             var targets = measureTargets(frame);
             if (targets && srcIconRect && srcTitleRect) {
-                morphReveal(targets);
+                morphReveal(targets, realTitle);
             } else {
                 fallbackCover();  // không đo được đích -> rơi về pha "bung kín màn hình" cũ
             }
         }
 
         // ===== PHA KẾT (chính): MORPH icon -> ảnh sóc, tên đề -> tiêu đề trang chờ =====
-        function morphReveal(targets) {
+        function morphReveal(targets, realTitle) {
             // Vị trí THẬT (đã scale) của icon & tên đề bên trong thẻ đang khựng giữa màn hình
             var gIcon = ghost.querySelector('.quiz-card-icon');
             var gTitle = findTitleEl(ghost);
             var giR = gIcon ? gIcon.getBoundingClientRect() : null;
-            var gtR = gTitle ? gTitle.getBoundingClientRect() : null;
+            // Hộp CHỮ nhìn thấy (đã cắt theo line-clamp/truncate của h3) — không phải hộp <a>
+            var gtR = gTitle ? visibleTextRect(gTitle) : null;
             if (!giR || !gtR) { fallbackCover(); return; }
+
+            // Ẩn tiêu đề thật của trang chờ tới khi bản morph hạ cánh: tránh nhìn thấy
+            // HAI tiêu đề chồng nhau lúc iframe cross-fade vào giữa chừng chuyến bay.
+            if (realTitle) { try { realTitle.style.visibility = 'hidden'; } catch (e) {} }
 
             // Ẩn icon/tên đề GỐC trong thẻ để không bị "nhân đôi" khi bản morph tách ra
             if (gIcon) gIcon.style.visibility = 'hidden';
@@ -374,10 +490,17 @@
             iconGhost.style.boxShadow = '0 14px 32px rgba(255,105,180,0.34)'; // bóng nhỏ, lớn dần khi nở
             overlay.appendChild(iconGhost);
 
-            // ---- Bản morph của TÊN ĐỀ (một hàng + đổi màu đen -> gradient) ----
-            // Dựng 2 lớp chữ xếp chồng: lớp đen (như thẻ) & lớp gradient (như tiêu đề đích).
+            // ---- Bản morph của TÊN ĐỀ (đổi màu đen -> gradient) ----
+            // Hai chế độ:
+            //  • simpleMode (tên ngắn, 1 dòng ở cả thẻ lẫn trang chờ): một hàng nowrap như cũ.
+            //  • khối xuống dòng (tên dài / bị line-clamp): giữ ĐÚNG khối chữ của thẻ
+            //    (width + max-height như đang hiện) rồi chuyển dần width/line-height sang
+            //    khối của tiêu đề đích — chữ tự dàn lại dòng trong lúc bay.
             var tCx = gtR.left + gtR.width / 2, tCy = gtR.top + gtR.height / 2;
             var tScaleEnd = targets.titleFont / srcTitleFont;
+            var oneLineSrc = gtR.height <= srcTitleLineH * scale * 1.6;
+            var oneLineDst = targets.title.height <= targets.titleLineH * 1.6;
+            var simpleMode = oneLineSrc && oneLineDst;
 
             var titleGhost = document.createElement('div');
             titleGhost.className = 'quiz-launch-morph quiz-launch-morph-title';
@@ -385,7 +508,22 @@
             titleGhost.style.fontWeight = srcTitleWeight;
             titleGhost.style.fontFamily = srcTitleFamily;
             titleGhost.style.letterSpacing = srcTitleLetter;
-            titleGhost.style.opacity = '0';           // fade-in nhẹ để "dàn 1 hàng" không bị giật
+            titleGhost.style.opacity = '0';           // fade-in nhẹ để lúc "tách lớp" không bị giật
+            if (simpleMode) {
+                titleGhost.style.whiteSpace = 'nowrap';
+            } else {
+                titleGhost.style.whiteSpace = 'normal';
+                titleGhost.style.textAlign = srcTitleAlign;
+                titleGhost.style.lineHeight = srcTitleLineH + 'px';
+                // Neo chữ từ ĐỈNH khối: place-items:center của class làm nội dung tràn
+                // (5 dòng trong hộp 2 dòng) bị canh giữa -> lộ nửa dòng thừa khi clip.
+                titleGhost.style.placeItems = 'start';
+                // Khối chữ đúng như đang hiện trên thẻ (đơn vị CHƯA scale — transform lo phần phóng);
+                // clip làm tròn XUỐNG để không hở sliver của dòng kế tiếp.
+                titleGhost.style.width = Math.ceil(gtR.width / scale) + 'px';
+                titleGhost.style.maxHeight = Math.floor(gtR.height / scale) + 'px';
+                titleGhost.style.overflow = 'hidden';
+            }
             var titleSolid = document.createElement('span');
             titleSolid.className = 'qz-mt-solid';
             titleSolid.textContent = srcTitleText;
@@ -397,14 +535,29 @@
             titleGhost.appendChild(titleGrad);
             overlay.appendChild(titleGhost);
 
-            // Đo kích thước tự nhiên (đã là MỘT hàng) rồi canh tâm trùng tên đề đang hiện.
+            // Đo kích thước tự nhiên rồi canh tâm trùng khối chữ đang hiện trên thẻ.
             var natT = titleGhost.getBoundingClientRect();
-            titleGhost.style.left = (tCx - natT.width / 2) + 'px';
-            titleGhost.style.top = (tCy - natT.height / 2) + 'px';
+            var tLeft = tCx - natT.width / 2;
+            var tTop = tCy - natT.height / 2;
+            titleGhost.style.left = tLeft + 'px';
+            titleGhost.style.top = tTop + 'px';
             titleGhost.style.transform = 'translate(0px,0px) scale(' + scale + ')';
 
-            var tTx = (targets.title.left + targets.title.width / 2) - tCx;
-            var tTy = (targets.title.top + targets.title.height / 2) - tCy;
+            // Đích: tâm hộp CHỮ của tiêu đề trang chờ (đã mồi đúng tên thật).
+            var dstCx = targets.title.left + targets.title.width / 2;
+            var dstCy = targets.title.top + targets.title.height / 2;
+            var tTx, tTy, endW = 0, endH = 0;
+            if (simpleMode) {
+                tTx = dstCx - tCx;
+                tTy = dstCy - tCy;
+            } else {
+                // Khối đích quy về đơn vị chưa scale; width đổi làm tâm layout dịch đi,
+                // nên translate phải tính theo tâm MỚI (left + endW/2) thay vì tâm cũ.
+                endW = Math.ceil(targets.title.width / tScaleEnd);
+                endH = Math.ceil(targets.title.height / tScaleEnd);
+                tTx = dstCx - (tLeft + endW / 2);
+                tTy = dstCy - (tTop + endH / 2);
+            }
 
             // ---- Quầng sáng "đáp" mềm phía sau ô ảnh sóc (điểm nhấn khi icon hạ cánh) ----
             var bloomSize = targets.hero.width * 1.75;
@@ -449,8 +602,19 @@
                 iconGhost.style.boxShadow = '0 44px 92px rgba(255,105,180,0.5), 0 18px 42px rgba(0,0,0,0.22)';
                 iconGhost.style.transform = 'translate(' + iTx + 'px,' + iTy + 'px) scale(' + iScaleEnd + ')';
 
-                // TÊN ĐỀ (giờ đã gradient): bay khớp vào tiêu đề trang chờ
-                titleGhost.style.transition = 'transform ' + MORPH_MS + 'ms ' + easeMove + ', opacity .3s ease';
+                // TÊN ĐỀ (giờ đã gradient): bay khớp vào tiêu đề trang chờ.
+                // Chế độ khối: width/line-height/max-height chuyển dần theo -> chữ tự
+                // dàn lại dòng giữa không trung, hạ cánh đúng khối của tiêu đề đích.
+                titleGhost.style.transition = 'transform ' + MORPH_MS + 'ms ' + easeMove + ', opacity .3s ease' +
+                    (simpleMode ? '' :
+                        ', width ' + MORPH_MS + 'ms ' + easeMove +
+                        ', max-height ' + MORPH_MS + 'ms ' + easeMove +
+                        ', line-height ' + MORPH_MS + 'ms ' + easeMove);
+                if (!simpleMode) {
+                    titleGhost.style.width = endW + 'px';
+                    titleGhost.style.maxHeight = (endH + 4) + 'px';
+                    titleGhost.style.lineHeight = (targets.titleLineH / tScaleEnd) + 'px';
+                }
                 titleGhost.style.transform = 'translate(' + tTx + 'px,' + tTy + 'px) scale(' + tScaleEnd + ')';
 
                 // Khung thẻ tan ra để nhường chỗ cho trang chờ (glow vẫn sáng sau lưng)
@@ -460,10 +624,16 @@
                 // Mốc thời gian trong nhịp morph (giãn nhịp để mắt kịp bắt từng bước):
                 setTimeout(function () { frame.classList.add('is-on'); }, TITLE_LEAD_MS + Math.round(MORPH_MS * 0.60));
                 setTimeout(function () { bloom.style.animation = 'quiz-launch-bloom .8s ease-out forwards'; }, TITLE_LEAD_MS + Math.round(MORPH_MS * 0.80));
-                setTimeout(function () { titleGhost.style.opacity = '0'; }, MORPH_MS + 40);
+                setTimeout(function () {
+                    // Hạ cánh: lộ tiêu đề thật ĐÚNG lúc bản morph tan -> bàn giao liền mạch
+                    if (realTitle) { try { realTitle.style.visibility = ''; } catch (e) {} }
+                    titleGhost.style.opacity = '0';
+                }, MORPH_MS + 40);
                 var iconFadeAt = TITLE_LEAD_MS + MORPH_MS + 140; // icon tan CHẬM -> sóc hiện ra từ trong
                 setTimeout(function () { iconGhost.style.opacity = '0'; }, iconFadeAt);
                 setTimeout(function () {
+                    // Phòng hờ: bảo đảm tiêu đề thật luôn được trả lại trước khi dọn overlay
+                    if (realTitle) { try { realTitle.style.visibility = ''; } catch (e) {} }
                     try { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); } catch (e) {}
                 }, iconFadeAt + 660);
             }, morphStart);

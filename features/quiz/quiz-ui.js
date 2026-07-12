@@ -1,7 +1,7 @@
 // features/quiz/quiz-ui.js
 
 import { state, MARK_REASONS } from './quiz-state.js';
-import { parseMarkdown, renderMath, convertScoreToGPA, formatTime, triggerConfetti } from './quiz-helpers.js';
+import { parseMarkdown, renderMath, convertScoreToGPA, formatTime, triggerConfetti, stripOptionLabels } from './quiz-helpers.js';
 import { previewSrsCounts, getNewPerDay, setNewPerDay } from './quiz-srs-store.js';
 import { auth } from '../../core/firebase-init.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
@@ -62,6 +62,7 @@ export function renderQuizProgressBar() {
         `;
     }
     return `
+        <div class="quiz-panel-drag focus-hide" data-panel="nav" role="separator" aria-label="Kéo để xích bảng số câu lên/xuống" title="Kéo để xích bảng lên/xuống • bấm đúp để trả về"><i class="fas fa-grip-lines"></i></div>
         <div class="mb-4">
             <div class="flex justify-between items-center text-xs text-gray-600 mb-2 px-1 focus-hide">
                 <span class="font-medium">Đã trả lời: ${answeredCount}/${total} (${percent}%)</span>
@@ -90,7 +91,7 @@ export function renderPreviewQuestions() {
 
     let html = '';
     previewQuestions.forEach((q, idx) => {
-        const answerOptions = q.answers || q.options;
+        const answerOptions = stripOptionLabels(q.answers || q.options);
         let answersHtml = '';
         if (answerOptions && Array.isArray(answerOptions)) {
             answersHtml = `
@@ -149,7 +150,7 @@ export function loadQuizDetails() {
     
     if (state.quizData) {
         quizTitle.textContent = state.quizData.title;
-        quizInfo.textContent = "Hãy lựa chọn cấu hình làm bài phù hợp nhất dưới đây để sẵn sàng chinh phục đỉnh cao kiến thức!";
+        quizInfo.textContent = "Chọn nhanh một chế độ hoặc tự tùy chỉnh bên dưới, rồi bắt đầu thôi!";
         document.title = state.quizData.title;
         
         window.quizQuestionsLength = state.originalQuestions.length;
@@ -284,6 +285,38 @@ export function showResults(totalTime) {
     if (percentage >= 80) { ringColor = '#22c55e'; ringBg = '#dcfce7'; }
     else if (percentage >= 50) { ringColor = '#f59e0b'; ringBg = '#fef3c7'; }
 
+    // --- So sánh với lần làm trước (đọc cache đã đồng bộ từ thư viện — cache chỉ được
+    // cập nhật ở lần đồng bộ SAU nên lúc này vẫn còn giữ kết quả của lần trước) ---
+    let deltaHtml = '';
+    if (state.quizMode === 'normal') {
+        try {
+            const user = auth.currentUser;
+            const qid = state.quizData && state.quizData.id;
+            const cache = (user && qid) ? JSON.parse(localStorage.getItem(`quizAttemptCache_${user.uid}`) || 'null') : null;
+            const prev = cache && cache.map && cache.map[qid];
+            if (prev && prev.t > 0) {
+                const prevPct = (prev.s / prev.t) * 100;
+                const diff = percentage - prevPct;
+                const diffStr = Math.abs(diff).toFixed(1).replace(/\.0$/, '');
+                if (diff > 0.05) {
+                    deltaHtml = `<span class="inline-flex items-center gap-1.5 bg-green-50 text-green-700 border border-green-200 px-3 py-1 rounded-full text-xs font-bold" title="Lần trước: ${prev.s}/${prev.t} câu (${prevPct.toFixed(1)}%)"><i class="fas fa-arrow-trend-up"></i> Tiến bộ +${diffStr}% so với lần trước</span>`;
+                } else if (diff < -0.05) {
+                    deltaHtml = `<span class="inline-flex items-center gap-1.5 bg-red-50 text-red-600 border border-red-200 px-3 py-1 rounded-full text-xs font-bold" title="Lần trước: ${prev.s}/${prev.t} câu (${prevPct.toFixed(1)}%)"><i class="fas fa-arrow-trend-down"></i> Thấp hơn lần trước ${diffStr}%</span>`;
+                } else {
+                    deltaHtml = `<span class="inline-flex items-center gap-1.5 bg-gray-50 text-gray-500 border border-gray-200 px-3 py-1 rounded-full text-xs font-bold"><i class="fas fa-equals"></i> Bằng lần trước (${prevPct.toFixed(1)}%)</span>`;
+                }
+            }
+        } catch (e) {}
+    }
+
+    // --- Độ chính xác khi "đoán": tự nhận đoán mà vẫn trúng thì nên ôn lại cho chắc ---
+    let guessRight = 0, guessTotal = 0;
+    Object.entries(state.confidence || {}).forEach(([i, v]) => {
+        if (v !== 'guess') return;
+        guessTotal++;
+        if (state.userAnswers[i] === state.questions[i]?.correctAnswerIndex) guessRight++;
+    });
+
     const radius = 52;
     const circumference = 2 * Math.PI * radius;
     const dashOffset = circumference * (1 - percentage / 100);
@@ -348,7 +381,7 @@ export function showResults(totalTime) {
 
     const detailedResultsHtml = state.questions.map((q, index) => {
         const userAnswerIndex = state.userAnswers[index];
-        const answerOptions = q.answers || q.options;
+        const answerOptions = stripOptionLabels(q.answers || q.options);
         const isUnanswered = userAnswerIndex === null || userAnswerIndex === undefined;
         const isCorrect = !isUnanswered && userAnswerIndex === q.correctAnswerIndex;
         const status = isCorrect ? 'correct' : (isUnanswered ? 'unanswered' : 'wrong');
@@ -370,6 +403,18 @@ export function showResults(totalTime) {
         const mr = markReasonKey ? MARK_REASONS[markReasonKey] : null;
         const markBadge = mr ? `<span class="q-mark-badge" style="background:${mr.bg};color:${mr.text}" title="Đã đánh dấu: ${mr.label}"><i class="fas ${mr.icon}"></i> ${mr.short}</span>` : '';
 
+        // Ca lâm sàng: chip nhận diện ở tiêu đề + tình huống (thu gọn) trong phần chi tiết.
+        const caseText = q.caseText ? String(q.caseText).trim() : '';
+        const caseSeqLabel = (q.__caseTotal && q.__caseTotal > 1) ? ` ${q.__caseSeq}/${q.__caseTotal}` : '';
+        const caseTitleSafe = ((q.caseTitle && String(q.caseTitle).trim()) || 'Ca lâm sàng')
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const caseBadge = caseText ? `<span class="q-case-badge inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-cyan-100 text-cyan-700 border border-cyan-200" title="Câu thuộc ca lâm sàng"><i class="fas fa-notes-medical"></i> Ca${caseSeqLabel}</span>` : '';
+        const caseBlock = caseText ? `
+                <details class="result-case rounded-lg border border-cyan-200 bg-cyan-50/60 px-2.5 py-2">
+                    <summary class="cursor-pointer text-xs font-semibold text-cyan-700 select-none"><i class="fas fa-notes-medical mr-1"></i>${caseTitleSafe} — xem tình huống</summary>
+                    <div class="mt-2 leading-relaxed text-gray-700">${parseMarkdown(caseText)}</div>
+                </details>` : '';
+
         return `
         <div class="result-item rounded-xl border ${cfg.wrap} overflow-hidden transition-all" data-status="${status}" data-marked="${markReasonKey}">
             <div class="result-header flex items-start gap-2.5 p-3 cursor-pointer select-none" role="button" tabindex="0" aria-expanded="false">
@@ -380,6 +425,7 @@ export function showResults(totalTime) {
                         <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${cfg.pill}">${cfg.label}</span>
                         ${(times[index] > 0) ? `<span class="q-time ${index === slowestIdx && slowestVal >= 5 ? 'q-slow' : ''}" title="Thời gian làm câu này"><i class="fas fa-clock"></i> ${formatTime(times[index])}${index === slowestIdx && slowestVal >= 5 ? ' · lâu nhất' : ''}</span>` : ''}
                         ${state.confidence && state.confidence[index] === 'guess' ? `<span class="q-guess-badge" title="Bạn đã đánh dấu là đoán"><i class="fas fa-dice"></i> Đoán</span>` : ''}
+                        ${caseBadge}
                         ${markBadge}
                     </div>
                     <div class="result-question text-sm text-gray-700 line-clamp-2">${parseMarkdown(q.question)}</div>
@@ -387,6 +433,7 @@ export function showResults(totalTime) {
                 <i class="fas fa-chevron-down text-gray-300 text-xs flex-shrink-0 mt-1.5 result-chevron transition-transform duration-300"></i>
             </div>
             <div class="result-body hidden border-t border-gray-200/50 px-3 py-3 space-y-2 text-sm bg-white/50">
+                ${caseBlock}
                 ${!isCorrect ? `
                 <div>
                     <span class="font-medium text-gray-500">Bạn chọn: </span>
@@ -417,14 +464,15 @@ export function showResults(totalTime) {
                             style="transition: stroke-dashoffset 1.2s ease-out;" />
                     </svg>
                     <div class="absolute inset-0 flex flex-col items-center justify-center">
-                        <span class="text-3xl font-extrabold" style="color:${ringColor}">${percentageStr}%</span>
+                        <span id="result-pct" class="text-3xl font-extrabold" style="color:${ringColor}">0%</span>
                         <span class="text-xs text-gray-400 font-medium">${correctCount}/${total} câu</span>
                     </div>
                 </div>
                 <!-- Thông tin tổng kết -->
                 <div class="flex-1 text-center md:text-left w-full">
                     <h2 class="text-2xl sm:text-3xl font-extrabold text-gray-800 mb-1">Hoàn thành! 🎉</h2>
-                    <p class="text-pink-600 font-semibold mb-4">${motivation}</p>
+                    <p class="text-pink-600 font-semibold ${deltaHtml ? 'mb-2' : 'mb-4'}">${motivation}</p>
+                    ${deltaHtml ? `<div class="flex justify-center md:justify-start mb-4">${deltaHtml}</div>` : ''}
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
                         <div class="bg-green-50 border border-green-100 rounded-xl px-3 py-2 text-center">
                             <div class="text-lg font-bold text-green-600">${correctCount}</div>
@@ -440,13 +488,14 @@ export function showResults(totalTime) {
                         </div>
                         <div class="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 text-center">
                             <div class="text-lg font-bold text-blue-500">${formatTime(totalTime)}</div>
-                            <div class="text-[11px] text-gray-500 font-medium">Thời gian</div>
+                            <div class="text-[11px] text-gray-500 font-medium">Thời gian${total > 0 && totalTime > 0 ? ` · TB ${formatTime(Math.round(totalTime / total))}/câu` : ''}</div>
                         </div>
                     </div>
                     <div class="flex flex-wrap justify-center md:justify-start gap-2">
                         <span class="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-sm font-semibold border border-blue-100">Hệ 4: <b>${gpa4}</b></span>
                         <span class="inline-flex items-center gap-1.5 bg-pink-50 text-pink-700 px-3 py-1.5 rounded-full text-sm font-semibold border border-pink-100">Điểm chữ: <b>${letterGrade}</b></span>
                         <span class="inline-flex items-center gap-1.5 bg-green-50 text-green-700 px-3 py-1.5 rounded-full text-sm font-semibold border border-green-100">Hệ 10: <b>${score10}</b></span>
+                        ${guessTotal > 0 ? `<span class="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 px-3 py-1.5 rounded-full text-sm font-semibold border border-amber-100" title="Câu bạn tự nhận là đoán — trúng nhờ may mắn thì vẫn nên ôn lại"><i class="fas fa-dice"></i> Đoán trúng <b>${guessRight}/${guessTotal}</b></span>` : ''}
                     </div>
                 </div>
             </div>
@@ -482,15 +531,25 @@ export function showResults(totalTime) {
                 </div>
             </div>`}
 
-            <div class="mt-6 pt-6 border-t border-gray-100 flex flex-wrap justify-center gap-3">
+            <div class="mt-6 pt-6 border-t border-gray-100 flex flex-wrap justify-center gap-2.5">
                 ${isSrs ? '' : `
                 <button id="restartQuizBtn" class="px-5 py-2.5 bg-[#FF69B4] text-white rounded-xl hover:bg-opacity-90 hover:scale-[1.02] transition shadow-md font-semibold flex items-center gap-2">
                     <i class="fas fa-redo"></i> Làm lại toàn bộ
                 </button>`}
-                <a href="../../index.html#libraryContent" class="px-5 py-2.5 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-100 transition shadow-sm font-semibold flex items-center gap-2">
+                ${state.quizData && state.quizData.id ? `
+                <a href="quiz-history.html?id=${encodeURIComponent(state.quizData.id)}" class="px-4 py-2.5 bg-amber-50 text-amber-700 rounded-xl hover:bg-amber-100 transition shadow-sm font-semibold flex items-center gap-2 text-sm">
+                    <i class="fas fa-clock-rotate-left"></i> Lịch sử
+                </a>
+                <a href="../flashcard/flashcard.html?id=${encodeURIComponent(state.quizData.id)}" class="px-4 py-2.5 bg-purple-50 text-purple-700 rounded-xl hover:bg-purple-100 transition shadow-sm font-semibold flex items-center gap-2 text-sm">
+                    <i class="fas fa-clone"></i> Flashcard
+                </a>` : ''}
+                <button id="result-share-btn" class="px-4 py-2.5 bg-green-50 text-green-700 rounded-xl hover:bg-green-100 transition shadow-sm font-semibold flex items-center gap-2 text-sm">
+                    <i class="fas fa-share-alt"></i> Chia sẻ
+                </button>
+                <a href="../../index.html#libraryContent" class="px-4 py-2.5 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-100 transition shadow-sm font-semibold flex items-center gap-2 text-sm">
                     <i class="fas fa-book"></i> Thư viện
                 </a>
-                <a href="../../index.html" class="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition shadow-sm font-semibold flex items-center gap-2">
+                <a href="../../index.html" class="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition shadow-sm font-semibold flex items-center gap-2 text-sm">
                     <i class="fas fa-home"></i> Trang chủ
                 </a>
             </div>
@@ -511,12 +570,15 @@ export function showResults(totalTime) {
                     ${(slowestIdx >= 0 && slowestVal >= 5) ? `<span><i class="fas fa-clock text-amber-400 mr-1"></i>Lâu nhất: Câu ${slowestIdx + 1} (${formatTime(slowestVal)})</span>` : ''}
                 </p>` : ''}
                 </div>
-                <div class="flex flex-wrap gap-1.5" id="result-filter-tabs">
+                <div class="flex flex-wrap items-center gap-1.5" id="result-filter-tabs">
                     <button data-filter="all" class="result-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-pink-500 text-white transition">Tất cả (${total})</button>
                     <button data-filter="wrong" class="result-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Câu sai (${wrongCount})</button>
                     <button data-filter="unanswered" class="result-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Bỏ trống (${unansweredCount})</button>
                     <button data-filter="correct" class="result-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Đúng (${correctCount})</button>
                     ${markedCount > 0 ? `<button data-filter="marked" class="result-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition"><i class="fas fa-flag mr-1 text-amber-500"></i>Đã đánh dấu (${markedCount})</button>` : ''}
+                    <button id="toggle-all-results" class="px-3 py-1.5 rounded-full text-xs font-semibold bg-white text-pink-600 border border-pink-200 hover:bg-pink-50 transition flex items-center gap-1" title="Mở/thu gọn toàn bộ câu đang hiện">
+                        <i class="fas fa-angles-down"></i> <span>Mở tất cả</span>
+                    </button>
                 </div>
             </div>
             <div id="detailed-results-list" class="space-y-2.5">
@@ -539,11 +601,36 @@ export function showResults(totalTime) {
         </p>
     `;
 
-    // Hiệu ứng vẽ vòng tròn phần trăm
+    // Hiệu ứng vẽ vòng tròn phần trăm + đếm số % chạy song song
     requestAnimationFrame(() => {
         const ring = document.getElementById('result-ring');
         if (ring) ring.style.strokeDashoffset = dashOffset.toFixed(2);
+
+        const pctEl = document.getElementById('result-pct');
+        if (!pctEl) return;
+        const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reduce) { pctEl.textContent = `${percentageStr}%`; return; }
+        const DURATION = 1200; // khớp với transition 1.2s của vòng tròn
+        const startAt = performance.now();
+        const tick = (now) => {
+            const t = Math.min(1, (now - startAt) / DURATION);
+            const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic, khớp nhịp giảm tốc của vòng
+            pctEl.textContent = `${(percentage * eased).toFixed(1)}%`;
+            if (t < 1) requestAnimationFrame(tick);
+            else pctEl.textContent = `${percentageStr}%`;
+        };
+        requestAnimationFrame(tick);
     });
+
+    // Nút "Chia sẻ": mở lại modal chia sẻ bộ đề (inline script của quiz.html phơi sẵn)
+    const shareResultBtn = document.getElementById('result-share-btn');
+    if (shareResultBtn) {
+        if (typeof window.openQuizShareModal === 'function') {
+            shareResultBtn.addEventListener('click', () => window.openQuizShareModal());
+        } else {
+            shareResultBtn.classList.add('hidden');
+        }
+    }
 
     // Pháo giấy chúc mừng khi đạt điểm cao
     if (percentage >= 80) {
@@ -575,6 +662,17 @@ export function showResults(totalTime) {
             });
             const emptyMsg = document.getElementById('result-empty-msg');
             if (emptyMsg) emptyMsg.classList.toggle('hidden', visibleCount > 0);
+
+            // Nhãn "Mở tất cả / Thu gọn" tính lại theo các câu đang hiện sau khi lọc
+            const toggleAllBtn = document.getElementById('toggle-all-results');
+            if (toggleAllBtn) {
+                const anyClosed = [...document.querySelectorAll('#detailed-results-list .result-item:not(.hidden)')]
+                    .some(it => { const b = it.querySelector('.result-body'); return b && b.classList.contains('hidden'); });
+                const icon = toggleAllBtn.querySelector('i');
+                const label = toggleAllBtn.querySelector('span');
+                if (icon) icon.className = anyClosed ? 'fas fa-angles-down' : 'fas fa-angles-up';
+                if (label) label.textContent = anyClosed ? 'Mở tất cả' : 'Thu gọn';
+            }
         });
     }
 
@@ -606,6 +704,35 @@ export function showResults(totalTime) {
                 toggleItem(header);
             }
         });
+
+        // "Mở tất cả / Thu gọn": chỉ tác động các câu đang hiện theo bộ lọc hiện tại
+        const toggleAllBtn = document.getElementById('toggle-all-results');
+        if (toggleAllBtn) {
+            const setItemOpen = (item, open) => {
+                const body = item.querySelector('.result-body');
+                const header = item.querySelector('.result-header');
+                if (!body || !header) return;
+                body.classList.toggle('hidden', !open);
+                const chevron = header.querySelector('.result-chevron');
+                const question = header.querySelector('.result-question');
+                if (chevron) chevron.classList.toggle('rotate-180', open);
+                if (question) question.classList.toggle('line-clamp-2', !open);
+                header.setAttribute('aria-expanded', open ? 'true' : 'false');
+            };
+            toggleAllBtn.addEventListener('click', () => {
+                const visibleItems = [...detailedList.querySelectorAll('.result-item:not(.hidden)')];
+                // Còn câu nào đang đóng -> mở hết; tất cả đã mở -> thu gọn hết
+                const anyClosed = visibleItems.some(it => {
+                    const b = it.querySelector('.result-body');
+                    return b && b.classList.contains('hidden');
+                });
+                visibleItems.forEach(it => setItemOpen(it, anyClosed));
+                const icon = toggleAllBtn.querySelector('i');
+                const label = toggleAllBtn.querySelector('span');
+                if (icon) icon.className = anyClosed ? 'fas fa-angles-up' : 'fas fa-angles-down';
+                if (label) label.textContent = anyClosed ? 'Thu gọn' : 'Mở tất cả';
+            });
+        }
     }
 
     renderMath(resultsSection);

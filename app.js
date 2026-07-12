@@ -4,7 +4,7 @@
 
 import { auth, db } from './core/firebase-init.js';
 import { onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
-import { doc, setDoc, collection, query, where, getDocs, getDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { doc, setDoc, collection, query, where, getDocs, getDoc, deleteDoc, serverTimestamp, orderBy } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { showToast, showConfirm } from './core/utils.js';
 
 // Import các Module chức năng
@@ -409,11 +409,24 @@ async function loadAndDisplayMyStudyRooms() {
     const user = auth.currentUser;
     const myStudyRoomsListContainer = document.getElementById('my-study-rooms-list');
     if (!myStudyRoomsListContainer) return;
-    
-    myStudyRoomsListContainer.innerHTML = `<div class="text-gray-500 text-center col-span-full">Đang tải phòng học của bạn...</div>`;
+
+    // Skeleton loading thay cho dòng chữ "Đang tải..."
+    myStudyRoomsListContainer.innerHTML = Array(3).fill(`
+        <div class="bg-white rounded-2xl border border-pink-100 shadow-sm p-5 animate-pulse">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-11 h-11 rounded-xl bg-pink-100"></div>
+                <div class="flex-1 space-y-2"><div class="h-4 bg-gray-100 rounded w-2/3"></div><div class="h-3 bg-gray-100 rounded w-1/2"></div></div>
+            </div>
+            <div class="h-9 bg-pink-50 rounded-xl"></div>
+        </div>`).join('');
 
     if (!user) {
-        myStudyRoomsListContainer.innerHTML = '<p class="text-center text-gray-500 col-span-full">Vui lòng <a href="#" id="login-link-study-room" class="text-[#FF69B4] underline">đăng nhập</a> để xem các phòng học của bạn.</p>';
+        myStudyRoomsListContainer.innerHTML = `
+            <div class="col-span-full flex flex-col items-center text-center py-10 gap-3">
+                <img src="assets/squirrel_group.png" alt="" class="w-28 h-28 rounded-2xl shadow-md ring-4 ring-blue-100/70 bg-white">
+                <p class="text-gray-600 font-semibold">Đăng nhập để xem và tạo phòng học của bạn</p>
+                <a href="#" id="login-link-study-room" class="px-5 py-2.5 bg-[#FF69B4] text-white rounded-xl font-bold text-sm shadow-md hover:bg-pink-400 transition"><i class="fas fa-sign-in-alt mr-1.5"></i>Đăng nhập</a>
+            </div>`;
         const loginLink = document.getElementById('login-link-study-room');
         if (loginLink) {
             loginLink.onclick = (e) => { e.preventDefault(); toggleAuthModal(); };
@@ -422,35 +435,67 @@ async function loadAndDisplayMyStudyRooms() {
     }
 
     try {
-        const q = query(collection(db, "study_rooms"), where("owner", "==", user.uid), orderBy("createdAt", "desc"));
+        // Sort phía client: where + orderBy khác field đòi composite index Firestore
+        const q = query(collection(db, "study_rooms"), where("owner", "==", user.uid));
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
-            myStudyRoomsListContainer.innerHTML = '<p class="text-gray-500 text-center col-span-full">Bạn chưa tạo phòng học nào. Hãy tạo một phòng mới!</p>';
+            myStudyRoomsListContainer.innerHTML = `
+                <div class="col-span-full flex flex-col items-center text-center py-10 gap-3">
+                    <img src="assets/squirrel_group.png" alt="" class="w-28 h-28 rounded-2xl shadow-md ring-4 ring-blue-100/70 bg-white">
+                    <p class="text-gray-600 font-semibold">Bạn chưa có phòng học nào</p>
+                    <p class="text-sm text-gray-400 -mt-2">Tạo phòng mới rồi gửi mã cho bạn bè để học cùng nhau nhé!</p>
+                    <button type="button" class="create-study-room-trigger px-5 py-2.5 bg-[#FF69B4] text-white rounded-xl font-bold text-sm shadow-md hover:bg-pink-400 transition"><i class="fas fa-plus-circle mr-1.5"></i>Tạo phòng đầu tiên</button>
+                </div>`;
             return;
         }
 
         myStudyRoomsListContainer.innerHTML = '';
-        querySnapshot.forEach((docSnap) => {
+        const sortedDocs = querySnapshot.docs.slice().sort((a, b) =>
+            (b.data().createdAt?.toMillis?.() || 0) - (a.data().createdAt?.toMillis?.() || 0));
+        sortedDocs.forEach((docSnap) => {
             const roomData = docSnap.data();
             const roomId = docSnap.id;
+            const createdAt = roomData.createdAt
+                ? new Date(roomData.createdAt.toDate()).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                : 'N/A';
             const card = document.createElement('div');
-            card.className = 'bg-white rounded-lg shadow-md p-4 flex flex-col';
+            card.className = 'study-room-card group bg-white rounded-2xl border-2 border-pink-100 hover:border-[#FFB6C1] shadow-md hover:shadow-xl hover:shadow-pink-100/60 hover:-translate-y-1 transition-all duration-300 p-5 flex flex-col cursor-pointer';
+            card.dataset.id = roomId;
             card.innerHTML = `
-                <div class="flex-grow">
-                    <h3 class="text-lg font-bold text-gray-700 truncate" title="${roomId}">Phòng: ${roomId.substring(0, 8)}...</h3>
-                    <p class="text-sm text-gray-500 mt-2">Tạo lúc: ${roomData.createdAt ? new Date(roomData.createdAt.toDate()).toLocaleString() : 'N/A'}</p>
+                <div class="flex items-start gap-3 mb-3">
+                    <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-300 to-[#D8BFD8] flex items-center justify-center text-white shadow shrink-0">
+                        <i class="fas fa-chalkboard-user"></i>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <h3 class="text-base font-bold text-gray-800 truncate" title="${roomId}">${roomId}</h3>
+                        <p class="text-xs text-gray-400 mt-0.5"><i class="far fa-clock mr-1"></i>${createdAt}</p>
+                    </div>
+                    <button type="button" data-id="${roomId}" title="Xóa phòng"
+                        class="delete-study-room-btn w-8 h-8 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition shrink-0 opacity-70 group-hover:opacity-100">
+                        <i class="fas fa-trash-alt text-sm"></i>
+                    </button>
                 </div>
-                <div class="mt-4 flex flex-col gap-2">
-                    <a href="features/study-room/study-room.html?id=${roomId}" class="w-full text-center px-4 py-2 bg-[#FF69B4] text-white rounded-lg hover:bg-opacity-80 transition text-sm">Vào phòng</a>
-                    <button data-id="${roomId}" class="delete-study-room-btn w-full text-center px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition text-xs">Xóa phòng</button>
+                <div class="mt-auto flex gap-2">
+                    <a href="features/study-room/study-room.html?id=${encodeURIComponent(roomId)}"
+                        class="flex-1 text-center px-4 py-2 bg-[#FF69B4] text-white rounded-xl hover:bg-pink-400 transition text-sm font-bold shadow-sm">
+                        <i class="fas fa-door-open mr-1.5"></i>Vào phòng
+                    </a>
+                    <button type="button" data-id="${roomId}" title="Sao chép mã phòng"
+                        class="copy-room-code-btn px-3 py-2 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl hover:bg-blue-100 transition text-sm font-bold">
+                        <i class="far fa-copy"></i>
+                    </button>
                 </div>
             `;
             myStudyRoomsListContainer.appendChild(card);
         });
     } catch (e) {
         console.error("Lỗi tải phòng học của người dùng: ", e);
-        myStudyRoomsListContainer.innerHTML = '<p class="text-red-500 text-center col-span-full">Lỗi tải phòng học của bạn.</p>';
+        myStudyRoomsListContainer.innerHTML = `
+            <div class="col-span-full text-center py-8">
+                <p class="text-red-500 font-semibold mb-3"><i class="fas fa-triangle-exclamation mr-1.5"></i>Lỗi tải phòng học của bạn.</p>
+                <button type="button" onclick="location.reload()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-200 transition"><i class="fas fa-rotate-right mr-1.5"></i>Thử lại</button>
+            </div>`;
     }
 }
 
@@ -655,7 +700,8 @@ function setupEventListeners() {
 
     // Event delegation cho Study Room
     document.body.addEventListener('click', (event) => {
-        if (event.target.id === 'create-new-study-room-btn') {
+        // closest: bấm trúng icon/chữ bên trong nút vẫn phải ăn
+        if (event.target.closest && event.target.closest('#create-new-study-room-btn, .create-study-room-trigger')) {
             let modal = document.getElementById('createRoomIdModal');
             if (!modal) {
                 modal = document.createElement('div');
@@ -708,9 +754,24 @@ function setupEventListeners() {
             return;
         }
         
-        if (event.target.classList.contains('delete-study-room-btn')) {
-            const roomIdToDelete = event.target.dataset.id;
-            deleteStudyRoom(roomIdToDelete);
+        const deleteBtn = event.target.closest && event.target.closest('.delete-study-room-btn');
+        if (deleteBtn) {
+            deleteStudyRoom(deleteBtn.dataset.id);
+            return;
+        }
+
+        const copyBtn = event.target.closest && event.target.closest('.copy-room-code-btn');
+        if (copyBtn) {
+            navigator.clipboard.writeText(copyBtn.dataset.id)
+                .then(() => showToast('Đã sao chép mã phòng!', 'success'))
+                .catch(() => showToast('Không sao chép được, hãy copy thủ công: ' + copyBtn.dataset.id, 'warning'));
+            return;
+        }
+
+        // Bấm vùng trống của thẻ phòng cũng vào phòng (trừ khi bấm nút)
+        const roomCard = event.target.closest && event.target.closest('.study-room-card');
+        if (roomCard && !event.target.closest('a, button')) {
+            window.location.href = `features/study-room/study-room.html?id=${encodeURIComponent(roomCard.dataset.id)}`;
         }
     });
 

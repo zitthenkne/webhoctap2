@@ -4,8 +4,9 @@
 // Tách từ quiz-page.js — logic giữ nguyên.
 
 import { showToast } from '../../../core/utils.js';
-import { state } from '../quiz-state.js';
+import { state, saveQuizState } from '../quiz-state.js';
 import { toggleFocusMode } from '../quiz-ui.js';
+import { startTimer, stopTimer } from './quiz-session.js';
 import {
     getTheme, getSound, getVibrate, getBgOpacity, applyBgOpacity, playTone
 } from './quiz-page-prefs.js';
@@ -88,6 +89,8 @@ export function setupSettings() {
     const rowSound = document.getElementById('qs-sound');
     const rowVibrate = document.getElementById('qs-vibrate');
     const rowMeme = document.getElementById('qs-meme');
+    const rowTimed = document.getElementById('qs-timed');
+    const rowShowAns = document.getElementById('qs-show-answer');
     const bgOpacityInput = document.getElementById('qs-bg-opacity');
     const rowShuffleBg = document.getElementById('qs-shuffle-bg');
     if (!fab || !pop) return;
@@ -97,12 +100,16 @@ export function setupSettings() {
         if (rowSound) rowSound.setAttribute('aria-checked', getSound());
         if (rowVibrate) rowVibrate.setAttribute('aria-checked', getVibrate());
         if (rowMeme) rowMeme.setAttribute('aria-checked', getCatMemeEnabled());
+        if (rowTimed) rowTimed.setAttribute('aria-checked', !!state.quizOptions.isTimed);
+        if (rowShowAns) rowShowAns.setAttribute('aria-checked', !!state.quizOptions.showAnswerImmediately);
         if (bgOpacityInput) bgOpacityInput.value = getBgOpacity();
         applyBgOpacity(getBgOpacity());
     };
     sync();
 
-    fab.addEventListener('click', (e) => { e.stopPropagation(); pop.classList.toggle('hidden-pop'); });
+    // sync() lại mỗi lần mở bảng: isTimed/showAnswerImmediately được gán lúc BẮT ĐẦU
+    // phiên (sau khi setupSettings chạy) nên trạng thái công tắc phải đọc lại từ state.
+    fab.addEventListener('click', (e) => { e.stopPropagation(); sync(); pop.classList.toggle('hidden-pop'); });
     document.addEventListener('click', (e) => {
         if (!pop.classList.contains('hidden-pop') && !pop.contains(e.target) && e.target !== fab && !fab.contains(e.target)) {
             pop.classList.add('hidden-pop');
@@ -133,6 +140,48 @@ export function setupSettings() {
         showToast(getCatMemeEnabled() ? '🤡 Đã bật chế độ meme' : '🤡 Đã tắt chế độ meme');
         sync();
     });
+
+    // --- Bật/tắt TÍNH GIỜ ngay giữa phiên làm bài ---
+    // Bật: đếm ngược MỚI từ bây giờ theo số phút đã cấu hình (hoặc gợi ý theo số câu).
+    // Tắt: dừng + ẩn đồng hồ, bài không còn tự nộp khi hết giờ.
+    if (rowTimed) rowTimed.addEventListener('click', () => {
+        const on = !state.quizOptions.isTimed;
+        state.quizOptions.isTimed = on;
+        if (on) {
+            let mins = parseInt(state.quizOptions.timedMinutes, 10);
+            if (isNaN(mins) || mins <= 0) {
+                mins = Math.max(1, Math.ceil((state.questions.length || 0) / 2 + 10));
+                state.quizOptions.timedMinutes = mins;
+            }
+            startTimer(mins * 60);
+            showToast(`⏱️ Đã bật tính giờ: ${mins} phút, đếm từ bây giờ`);
+        } else {
+            stopTimer();
+            showToast('Đã tắt tính giờ — làm bài thoải mái nhé');
+        }
+        saveQuizState(); // nhớ vào bản lưu bài dở để khôi phục đúng chế độ
+        sync();
+    });
+
+    // --- Bật/tắt XEM ĐÁP ÁN NGAY ngay giữa phiên làm bài ---
+    // Vẽ lại câu hiện tại + bảng số câu để phản ánh chế độ mới (câu đã trả lời sẽ
+    // hiện/giấu đúng-sai tương ứng). Điểm cuối luôn được chấm lại từ userAnswers
+    // trong endQuiz nên đổi chế độ giữa chừng không làm sai điểm.
+    if (rowShowAns) rowShowAns.addEventListener('click', () => {
+        if (state.quizMode === 'srs') {
+            showToast('Chế độ ôn ngắt quãng luôn hiện đáp án ngay để chấm lịch ôn.', 'info');
+            return;
+        }
+        const on = !state.quizOptions.showAnswerImmediately;
+        state.quizOptions.showAnswerImmediately = on;
+        showToast(on ? '👀 Đáp án + giải thích sẽ hiện ngay sau mỗi câu' : '📝 Đáp án sẽ chỉ hiện khi nộp bài');
+        saveQuizState();
+        const quizContainer = document.getElementById('quiz-container');
+        if (quizContainer && !quizContainer.classList.contains('hidden') && state.questions.length) {
+            showQuestion();
+        }
+        sync();
+    });
     if (bgOpacityInput) {
         // Áp ngay khi đang kéo cho cảm giác trực quan; lưu lại để nhớ cho bài sau
         bgOpacityInput.addEventListener('input', () => {
@@ -160,10 +209,17 @@ const COLUMN_RESIZE = {
     note: { min: 150, max: 380, key: 'quiz_note_w', cssVar: '--quiz-note-w', panelId: 'quiz-note-panel' }
 };
 
+// Xích bảng số câu / ghi chú LÊN–XUỐNG (translateY), nhớ riêng theo thiết bị (px).
+// Chỉ có tác dụng ở bố cục 3 cột (desktop) nơi hai bảng là cột sticky.
+const PANEL_OFFSET = {
+    nav:  { min: -140, max: 600, key: 'quiz_nav_y',  cssVar: '--quiz-nav-y' },
+    note: { min: -140, max: 600, key: 'quiz_note_y', cssVar: '--quiz-note-y' }
+};
+
 function applyStoredColumnWidths() {
     const ws = document.getElementById('quiz-workspace');
     if (!ws) return;
-    Object.values(COLUMN_RESIZE).forEach(cfg => {
+    [...Object.values(COLUMN_RESIZE), ...Object.values(PANEL_OFFSET)].forEach(cfg => {
         let v = parseInt(localStorage.getItem(cfg.key), 10);
         if (!isNaN(v)) {
             v = Math.max(cfg.min, Math.min(cfg.max, v));
@@ -175,9 +231,54 @@ function applyStoredColumnWidths() {
 function resetColumnWidths() {
     const ws = document.getElementById('quiz-workspace');
     if (!ws) return;
-    Object.values(COLUMN_RESIZE).forEach(cfg => {
+    [...Object.values(COLUMN_RESIZE), ...Object.values(PANEL_OFFSET)].forEach(cfg => {
         ws.style.removeProperty(cfg.cssVar);
         try { localStorage.removeItem(cfg.key); } catch (e) {}
+    });
+}
+
+// Kéo grip trên mỗi bảng để xích lên/xuống. Grip nằm trong HTML được vẽ lại mỗi câu
+// nên phải ủy thác sự kiện ở #quiz-workspace (phần tử KHÔNG bị vẽ lại).
+function setupPanelOffsetDrag() {
+    const ws = document.getElementById('quiz-workspace');
+    if (!ws) return;
+    let cfg = null, startY = 0, startVal = 0;
+    const onMove = (e) => {
+        if (!cfg) return;
+        let v = Math.max(cfg.min, Math.min(cfg.max, startVal + (e.clientY - startY)));
+        ws.style.setProperty(cfg.cssVar, Math.round(v) + 'px');
+    };
+    const onUp = () => {
+        if (cfg) {
+            const v = parseInt(ws.style.getPropertyValue(cfg.cssVar), 10) || 0;
+            try { localStorage.setItem(cfg.key, String(v)); } catch (e) {}
+        }
+        cfg = null;
+        document.body.classList.remove('quiz-resizing', 'dragging-panel-y');
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+    };
+    ws.addEventListener('pointerdown', (e) => {
+        const grip = e.target.closest && e.target.closest('.quiz-panel-drag');
+        if (!grip) return;
+        if (window.innerWidth < 1024 || document.body.classList.contains('focus-mode-active')) return;
+        cfg = PANEL_OFFSET[grip.getAttribute('data-panel')];
+        if (!cfg) return;
+        e.preventDefault();
+        startY = e.clientY;
+        startVal = parseInt(ws.style.getPropertyValue(cfg.cssVar), 10) || 0;
+        document.body.classList.add('quiz-resizing', 'dragging-panel-y');
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+    });
+    // Bấm đúp grip: trả bảng này về vị trí mặc định
+    ws.addEventListener('dblclick', (e) => {
+        const grip = e.target.closest && e.target.closest('.quiz-panel-drag');
+        if (!grip) return;
+        const c = PANEL_OFFSET[grip.getAttribute('data-panel')];
+        if (!c) return;
+        ws.style.removeProperty(c.cssVar);
+        try { localStorage.removeItem(c.key); } catch (e) {}
     });
 }
 
@@ -185,6 +286,7 @@ export function setupResizers() {
     const ws = document.getElementById('quiz-workspace');
     if (!ws) return;
     applyStoredColumnWidths();
+    setupPanelOffsetDrag();
 
     ws.querySelectorAll('.quiz-resizer').forEach(handle => {
         const cfg = COLUMN_RESIZE[handle.getAttribute('data-resize')];
@@ -230,7 +332,7 @@ export function setupResizers() {
     if (resetBtn) resetBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         resetColumnWidths();
-        showToast('Đã khôi phục độ rộng cột mặc định');
+        showToast('Đã khôi phục bố cục mặc định');
     });
 }
 

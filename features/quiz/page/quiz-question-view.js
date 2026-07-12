@@ -6,7 +6,7 @@
 import { showToast, showConfirm } from '../../../core/utils.js';
 import { openQuestionEditor } from '../quiz-editor.js';
 import { state, saveQuizState } from '../quiz-state.js';
-import { renderMath, triggerConfetti, parseMarkdown } from '../quiz-helpers.js';
+import { renderMath, triggerConfetti, parseMarkdown, stripOptionLabels } from '../quiz-helpers.js';
 import { updateProgressBar, renderQuizProgressBar } from '../quiz-ui.js';
 import { feedback, getVibrate, scrollQuizToTop } from './quiz-page-prefs.js';
 import { hideCatMeme, preloadCurrentMemes, showCatMeme } from './quiz-cat-meme.js';
@@ -274,7 +274,7 @@ export function showQuestion() {
         return;
     }
 
-    const answerOptions = question.answers || question.options;
+    const answerOptions = stripOptionLabels(question.answers || question.options);
     if (!answerOptions || !Array.isArray(answerOptions)) {
         quizSection.innerHTML = `<p class="text-red-500 text-center p-6">Lỗi: Câu hỏi này không có đáp án. Dữ liệu có thể bị hỏng.</p>`;
         return;
@@ -311,23 +311,43 @@ export function showQuestion() {
             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         const caseKeySafe = caseKey
             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        const seqLabel = (question.__caseTotal && question.__caseTotal > 1)
-            ? `Câu ${question.__caseSeq}/${question.__caseTotal} trong ca` : '';
+        const caseTotal = question.__caseTotal || 0;
+        const caseSeq = question.__caseSeq || 0;
+        const seqLabel = (caseTotal > 1)
+            ? `Câu ${caseSeq}/${caseTotal} trong ca` : '';
+        // Điều hướng nhanh giữa các câu con cùng ca (các câu cùng caseId đứng liền nhau):
+        // chấm số nhảy thẳng tới câu, tô theo trạng thái đã/chưa trả lời + câu hiện tại.
+        let caseDotsHtml = '';
+        if (caseTotal > 1 && caseSeq >= 1) {
+            const firstIdx = state.currentIndex - (caseSeq - 1);
+            let dots = '';
+            for (let k = 0; k < caseTotal; k++) {
+                const gi = firstIdx + k;
+                const answered = state.userAnswers[gi] !== null && state.userAnswers[gi] !== undefined;
+                const isCur = gi === state.currentIndex;
+                const cls = isCur
+                    ? 'bg-cyan-600 text-white border-cyan-600 ring-2 ring-cyan-300'
+                    : (answered ? 'bg-cyan-100 text-cyan-700 border-cyan-300' : 'bg-white/70 text-cyan-500 border-cyan-200 hover:bg-cyan-100');
+                dots += `<button type="button" class="case-dot w-7 h-7 rounded-full border text-xs font-bold transition ${cls}" data-case-jump="${gi}" title="Tới câu ${k + 1} của ca"${isCur ? ' aria-current="true"' : ''}>${k + 1}</button>`;
+            }
+            caseDotsHtml = `<div class="case-dots mt-3 flex flex-wrap items-center gap-1.5" role="group" aria-label="Điều hướng câu trong ca">${dots}</div>`;
+        }
         casePanelHtml = `
-        <div id="clinical-case-panel" class="clinical-case mb-5 rounded-xl border border-teal-200 bg-teal-50/70 p-4 shadow-sm" data-case-id="${caseKeySafe}">
-            <div class="flex items-center justify-between gap-2">
-                <div class="flex items-center gap-2 min-w-0 text-teal-800">
-                    <i class="fas fa-notes-medical flex-shrink-0"></i>
-                    <span class="font-bold truncate">${caseTitleSafe}</span>
-                    ${seqLabel ? `<span class="hidden sm:inline-block flex-shrink-0 px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 text-xs font-semibold border border-teal-200">${seqLabel}</span>` : ''}
+        <div id="clinical-case-panel" class="clinical-case mb-5 rounded-xl border border-cyan-200 bg-cyan-50/70 p-4 shadow-sm" data-case-id="${caseKeySafe}">
+            <div class="flex items-start justify-between gap-2">
+                <div class="flex items-start gap-2 min-w-0 text-cyan-800">
+                    <i class="fas fa-notes-medical flex-shrink-0 mt-0.5"></i>
+                    <span class="font-bold leading-snug break-words min-w-0">${caseTitleSafe}</span>
+                    ${seqLabel ? `<span class="hidden sm:inline-block flex-shrink-0 px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-700 text-xs font-semibold border border-cyan-200">${seqLabel}</span>` : ''}
                 </div>
-                <button type="button" id="case-toggle-btn" class="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-teal-300 text-teal-700 bg-white/70 hover:bg-teal-100 transition text-xs font-semibold" aria-expanded="${collapsed ? 'false' : 'true'}" title="Ẩn/hiện nội dung ca lâm sàng">
+                <button type="button" id="case-toggle-btn" class="flex-shrink-0 inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg border border-cyan-300 text-cyan-700 bg-white/70 hover:bg-cyan-100 transition text-xs font-semibold" aria-expanded="${collapsed ? 'false' : 'true'}" title="Ẩn/hiện nội dung ca lâm sàng">
                     <i class="fas fa-chevron-${collapsed ? 'down' : 'up'}"></i>
-                    <span class="case-toggle-label">${collapsed ? 'Mở ca' : 'Thu gọn'}</span>
+                    <span class="case-toggle-label hidden sm:inline">${collapsed ? 'Mở ca' : 'Thu gọn'}</span>
                 </button>
             </div>
-            ${seqLabel ? `<div class="sm:hidden mt-1 text-xs font-semibold text-teal-700">${seqLabel}</div>` : ''}
-            <div id="case-body" class="case-body mt-3 text-gray-800 leading-relaxed ${collapsed ? 'hidden' : ''}">${parseMarkdown(caseText)}</div>
+            ${seqLabel ? `<div class="sm:hidden mt-1 text-xs font-semibold text-cyan-700">${seqLabel}</div>` : ''}
+            <div id="case-body" data-annot="case" class="case-body mt-3 text-gray-800 leading-relaxed max-h-72 overflow-y-auto pr-1 ${collapsed ? 'hidden' : ''}">${parseMarkdown(caseText)}</div>
+            ${caseDotsHtml}
         </div>`;
     }
 
@@ -342,7 +362,7 @@ export function showQuestion() {
                 <i class="fas fa-pen-to-square"></i>
             </button>
         </div>
-        <div class="mb-2 flex flex-wrap items-center gap-2 focus-hide">
+        <div class="quiz-meta-chips mb-2 flex flex-wrap items-center gap-2 focus-hide">
             ${question.topic && String(question.topic).trim() && String(question.topic).trim().toLowerCase() !== 'chung' ? `<span class="inline-block px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold border border-blue-200"><i class="fas fa-tag mr-1"></i> Chủ đề: ${question.topic}</span>` : ''}
             ${question.level && question.level.trim() ? `<span class="inline-block px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold border border-purple-200"><i class="fas fa-layer-group mr-1"></i> Mức độ: ${question.level}</span>` : ''}
             ${question.source && question.source.trim() ? `<span class="inline-block px-3 py-1 rounded-full bg-pink-100 text-pink-700 text-xs font-semibold border border-pink-200"><i class="fas fa-book mr-1"></i> Nguồn: ${question.source}</span>` : ''}
@@ -390,14 +410,19 @@ export function showQuestion() {
             </h4>
             <div class="text-blue-900 leading-relaxed text-base" data-annot="expand">${question.expanded ? parseMarkdown(question.expanded) : ''}</div>
         </div>
-        <div class="mt-8 flex justify-between">
+        <div class="quiz-card-nav mt-8 flex justify-between">
             <button id="prevBtn" class="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition ${state.currentIndex === 0 || state.quizMode === 'practice' ? 'invisible' : ''}">
-                Câu trước
+                <i class="fas fa-arrow-left mr-2"></i>Câu trước
             </button>
             <button id="nextBtn" class="px-6 py-2 bg-[#FF69B4] text-white rounded-lg hover:bg-opacity-80 transition hidden">
                 ${state.currentIndex === state.questions.length - 1 ? 'Xem kết quả' : 'Câu tiếp'} <i class="fas fa-arrow-right ml-2"></i>
             </button>
         </div>
+        <p class="quiz-kbd-hint focus-hide" aria-hidden="true">
+            <span><kbd class="kbd-key">A</kbd>–<kbd class="kbd-key">D</kbd> chọn đáp án</span>
+            <span><kbd class="kbd-key">←</kbd><kbd class="kbd-key">→</kbd> chuyển câu</span>
+            <span><kbd class="kbd-key">Enter ⏎</kbd> câu tiếp</span>
+        </p>
     </div>
     `;
 
@@ -454,6 +479,16 @@ export function showQuestion() {
             if (label) label.textContent = willCollapse ? 'Mở ca' : 'Thu gọn';
         });
     }
+    // Chấm điều hướng giữa các câu con cùng ca lâm sàng
+    document.querySelectorAll('.case-dot[data-case-jump]').forEach(dot => {
+        dot.addEventListener('click', () => {
+            const gi = parseInt(dot.getAttribute('data-case-jump'), 10);
+            if (!isNaN(gi) && gi !== state.currentIndex) {
+                state.currentIndex = gi;
+                showQuestion();
+            }
+        });
+    });
     // #7: nút độ chắc chắn (tinh tế, mặc định "chắc chắn")
     const confBtn = document.getElementById('confidence-toggle');
     // Khi đã dùng 50:50, pill là nhãn trạng thái "Đã dùng trợ giúp" (khóa) -> không gắn toggle.

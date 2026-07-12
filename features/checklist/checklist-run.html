@@ -2,51 +2,126 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Thực hiện Checklist</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Thực hiện Checklist 🎀 - Zitthenkne</title>
   <link rel="icon" type="image/png" href="../../assets/logo.png">
-  <link rel="stylesheet" href="../../style.css">
+  <meta name="theme-color" content="#FF8FB1">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="checklist.css">
   <style>
-    body{padding:20px}
-    .list-step { border:1px solid #ddd; padding:10px; border-radius:6px; margin-bottom:8px }
-    .completed{ background:#e6ffe6 }
-    /* Presentation mode */
-    .present-area { display:none; position:fixed; inset:0; align-items:center; justify-content:center; background:rgba(0,0,0,0.6); z-index:200 }
-    .present-card { background:#fff; padding:28px; border-radius:12px; max-width:900px; width:90%; box-shadow:0 12px 40px rgba(2,6,23,0.5); text-align:left }
-    .present-step-title{ font-size:20px; font-weight:700; margin-bottom:8px }
-    .present-step-content{ font-size:18px; color:#222 }
-    .present-controls{ display:flex; gap:10px; justify-content:center; margin-top:14px }
-    .btn-present{ padding:10px 14px; border-radius:8px; background:#FF69B4; color:#fff; border:none; cursor:pointer }
-    .btn-present.ghost{ background:#fff; color:#111; border:1px solid #ddd }
-    .kbd-hint{ font-size:13px;color:#777;margin-top:8px }
+    .step-item.completed { background: linear-gradient(90deg, rgba(240,253,244,.9), rgba(236,253,245,.85)); }
+    .step-item.completed .step-content { text-decoration: line-through; color: #9ca3af; }
+
+    /* Thẻ quẹt chấm điểm */
+    .grade-card { touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; will-change: transform; }
+    .grade-card:active { cursor: grabbing; }
+    .grade-card .stamp { position: absolute; top: 18px; font-size: 15px; font-weight: 800; padding: 6px 14px; border-radius: 12px; border: 3px solid; opacity: 0; transform: rotate(-8deg); pointer-events: none; }
+    .grade-card .stamp-pass { left: 16px; color: #10b981; border-color: #10b981; background: rgba(236,253,245,.9); }
+    .grade-card .stamp-fail { right: 16px; color: #f43f5e; border-color: #f43f5e; background: rgba(255,241,242,.9); transform: rotate(8deg); }
   </style>
 </head>
-<body>
-  <a href="checklist.html" style="margin-bottom:12px;display:inline-block">← Trở về thư viện</a>
-  <h2 id="title">Checklist</h2>
-  <div id="meta" style="color:#666;margin-bottom:8px"></div>
+<body class="min-h-screen text-gray-700 text-sm antialiased">
 
-  <div id="listView" class="max-w-6xl mx-auto p-4">
-    <div id="steps"></div>
-    <div style="margin-top:12px; text-align:center">
-      <button id="startBtn" class="cute-btn">Bắt đầu</button>
+  <!-- Trang trí nền -->
+  <div class="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+    <div class="absolute -top-24 -left-16 w-80 h-80 bg-pink-300/30 rounded-full blur-3xl float-slow"></div>
+    <div class="absolute top-1/3 -right-20 w-96 h-96 bg-purple-300/25 rounded-full blur-3xl float-slower"></div>
+  </div>
+
+  <div class="relative z-10 max-w-2xl mx-auto p-4 sm:p-6">
+    <a href="checklist.html" class="glass-card inline-flex items-center gap-2 px-4 py-2 rounded-full text-pink-500 font-semibold hover:scale-[1.02] transition mb-4">
+      <i class="fas fa-arrow-left"></i> Thư viện
+    </a>
+
+    <!-- Thẻ tổng quan -->
+    <div class="glass-card rounded-3xl p-5 sm:p-6 fade-in">
+      <h1 id="title" class="text-xl sm:text-2xl font-bold text-gradient font-display tracking-tight">Checklist</h1>
+      <div id="meta" class="text-xs text-gray-500 mt-1"></div>
+      <div id="scoreChip" class="hidden mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-600 text-xs font-semibold"></div>
+      <div class="mt-4">
+        <div class="flex justify-between text-[11px] font-semibold text-gray-500 mb-1">
+          <span>Tiến độ</span><span id="progressText">0/0</span>
+        </div>
+        <div class="h-2.5 rounded-full bg-pink-100 overflow-hidden">
+          <div id="progressBar" class="h-full rounded-full bg-gradient-to-r from-pink-500 to-purple-500 transition-all duration-300" style="width:0%"></div>
+        </div>
+      </div>
+      <!-- Thanh hành động: trong thẻ trên desktop, dính đáy màn hình trên mobile -->
+      <div class="max-sm:fixed max-sm:inset-x-3 max-sm:z-40 max-sm:glass-card max-sm:rounded-3xl max-sm:p-2 sm:mt-4 flex gap-2"
+        style="bottom: calc(.75rem + env(safe-area-inset-bottom, 0px))">
+        <button id="startBtn" class="flex-1 py-3 sm:py-2.5 rounded-2xl bg-white/80 border border-pink-100 text-pink-500 font-semibold hover:bg-pink-50 transition"><i class="fas fa-book-open mr-1.5"></i>Học</button>
+        <button id="gradeBtn" class="btn-gradient flex-[1.3] py-3 sm:py-2.5 rounded-2xl font-semibold"><i class="fas fa-clipboard-check mr-1.5"></i>Kiểm tra</button>
+        <button id="resetBtn" class="w-12 py-3 sm:py-2.5 rounded-2xl bg-white/80 border border-pink-100 text-pink-500 hover:bg-pink-50 transition" title="Xóa tiến độ tick, làm lại"><i class="fas fa-rotate-right"></i></button>
+      </div>
+    </div>
+
+    <!-- Danh sách bước -->
+    <div id="steps" class="mt-4 space-y-2 pb-32 sm:pb-8"></div>
+  </div>
+
+  <!-- Chế độ học từng bước -->
+  <div id="present" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div class="glass-modal rounded-3xl w-full max-w-2xl p-6 sm:p-8 pop-in text-center">
+      <div class="flex items-center justify-between mb-4">
+        <span id="presentCounter" class="px-3 py-1 rounded-full bg-pink-100 text-pink-600 text-xs font-bold">Bước 1/1</span>
+        <button id="exitBtn" class="w-9 h-9 rounded-full bg-pink-50 text-pink-400 hover:bg-pink-100 transition" aria-label="Thoát"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="h-1.5 rounded-full bg-pink-100 overflow-hidden mb-6">
+        <div id="presentBar" class="h-full rounded-full bg-gradient-to-r from-pink-500 to-purple-500 transition-all duration-300" style="width:0%"></div>
+      </div>
+      <div id="presentInner" class="min-h-[120px]">
+        <div id="presentTitle" class="text-sm font-bold text-pink-500 uppercase tracking-wide"></div>
+        <div id="presentContent" class="text-lg sm:text-2xl font-bold text-gray-800 mt-2 font-display leading-snug"></div>
+        <div id="presentNote" class="text-sm text-gray-500 mt-3"></div>
+      </div>
+      <div class="flex gap-2 justify-center mt-6">
+        <button id="prevBtn" class="flex-1 sm:flex-none px-4 py-3 sm:py-2.5 rounded-2xl bg-white/80 border border-pink-100 text-gray-600 font-semibold hover:bg-pink-50 transition"><i class="fas fa-arrow-left mr-1.5"></i>Quay lại</button>
+        <button id="nextBtn" class="btn-gradient flex-[1.4] sm:flex-none px-6 py-3 sm:py-2.5 rounded-2xl font-semibold">Xong, tiếp <i class="fas fa-arrow-right ml-1.5"></i></button>
+      </div>
+      <div class="text-[11px] text-gray-400 mt-4 hidden sm:block">Space / → : xong &amp; tiếp · ← : quay lại · Esc : thoát</div>
     </div>
   </div>
 
-  <div id="present" class="present-area">
-    <div class="present-card">
-      <div id="presentInner">
-        <div class="present-step-title" id="presentTitle"></div>
-        <div class="present-step-content" id="presentContent"></div>
-        <div class="present-step-note small text-muted" id="presentNote"></div>
+  <!-- Chế độ kiểm tra chấm điểm -->
+  <div id="grade" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div class="w-full max-w-md">
+      <!-- màn quẹt thẻ -->
+      <div id="gradeRun">
+        <div class="flex items-center justify-between mb-3">
+          <span id="gradeCounter" class="px-3 py-1 rounded-full bg-white/25 text-white text-xs font-bold backdrop-blur">1/1</span>
+          <div class="flex gap-2">
+            <button id="gradeUndo" class="px-3 py-1.5 rounded-full bg-white/25 text-white text-xs font-semibold backdrop-blur hover:bg-white/40 transition"><i class="fas fa-rotate-left mr-1"></i>Hoàn tác</button>
+            <button id="gradeExit" class="w-8 h-8 rounded-full bg-white/25 text-white backdrop-blur hover:bg-white/40 transition" aria-label="Thoát"><i class="fas fa-xmark"></i></button>
+          </div>
+        </div>
+        <div class="h-1.5 rounded-full bg-white/25 overflow-hidden mb-4">
+          <div id="gradeBar" class="h-full rounded-full bg-gradient-to-r from-pink-400 to-purple-400 transition-all duration-300" style="width:0%"></div>
+        </div>
+        <div id="gradeStack" class="relative h-[46vh] min-h-[280px] sm:h-[340px]"></div>
+        <div class="flex justify-center gap-3 mt-5">
+          <button id="gradeFail" class="flex-1 max-w-[180px] py-3.5 sm:py-3 rounded-2xl bg-rose-500 text-white font-bold shadow-lg shadow-rose-500/40 hover:bg-rose-400 active:scale-95 transition"><i class="fas fa-xmark mr-1.5"></i>Chưa thuộc</button>
+          <button id="gradePass" class="flex-1 max-w-[180px] py-3.5 sm:py-3 rounded-2xl bg-emerald-500 text-white font-bold shadow-lg shadow-emerald-500/40 hover:bg-emerald-400 active:scale-95 transition"><i class="fas fa-check mr-1.5"></i>Thuộc / Đúng</button>
+        </div>
+        <div class="text-center text-[11px] text-white/70 mt-3 safe-bottom">Quẹt phải = thuộc · quẹt trái = chưa · (phím → / ←)</div>
       </div>
-      <div class="present-controls">
-        <button id="prevBtn" class="btn-present ghost">← Quay lại</button>
-        <button id="nextBtn" class="btn-present">Tiếp / (Space)</button>
-        <button id="exitBtn" class="btn-present ghost">Kết thúc (Esc)</button>
+
+      <!-- màn kết quả -->
+      <div id="gradeResult" class="hidden glass-modal rounded-3xl p-6 sm:p-8 pop-in text-center max-h-[85vh] overflow-y-auto">
+        <div id="resultEmoji" class="text-5xl mb-3">🎉</div>
+        <div id="resultPct" class="text-4xl font-bold text-gradient font-display">100%</div>
+        <div id="resultDetail" class="text-sm text-gray-500 mt-1"></div>
+        <div id="resultMsg" class="font-semibold text-gray-700 mt-2"></div>
+        <div id="resultFailed" class="mt-4 text-left"></div>
+        <div class="flex flex-col gap-2 mt-5">
+          <button id="retryFailedBtn" class="btn-gradient py-2.5 rounded-2xl font-semibold hidden"><i class="fas fa-repeat mr-1.5"></i>Ôn lại bước chưa thuộc</button>
+          <button id="retryAllBtn" class="py-2.5 rounded-2xl bg-white/80 border border-pink-100 text-pink-500 font-semibold hover:bg-pink-50 transition"><i class="fas fa-rotate-right mr-1.5"></i>Kiểm tra lại từ đầu</button>
+          <button id="resultCloseBtn" class="py-2.5 rounded-2xl bg-gray-100 text-gray-600 font-semibold hover:bg-gray-200 transition">Đóng</button>
+        </div>
       </div>
-      <div class="kbd-hint">Điều khiển: Space hoặc → để tiếp, ← để quay lại, Esc để thoát</div>
     </div>
   </div>
 

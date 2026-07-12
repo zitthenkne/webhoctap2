@@ -24,6 +24,76 @@ body {
         0 0 16px rgba(255, 255, 255, 0.7);
 }
 
+/* Tiêu đề hero trên nền ảnh: chữ gradient + quầng sáng trắng mềm ôm theo nét chữ
+   (drop-shadow filter, không phải text-shadow -> không lộ khối hộp trên ảnh nền) */
+.hero-title {
+    display: inline-block;
+    color: #db2777;
+    text-shadow:
+        0 0 2px rgba(255, 255, 255, 1),
+        0 0 4px rgba(255, 255, 255, 1),
+        0 0 8px rgba(255, 255, 255, 1),
+        0 0 14px rgba(255, 255, 255, 0.95),
+        0 0 26px rgba(255, 255, 255, 0.9),
+        0 0 45px rgba(255, 255, 255, 0.8),
+        0 2px 3px rgba(219, 39, 119, 0.35);
+}
+
+/* ===== Hiệu ứng thẻ trang chủ (chỉ lưới thẻ trong #dashboardContent) ===== */
+
+/* 1. Thẻ lần lượt nảy vào khi mở trang (stagger entrance) */
+@keyframes card-pop {
+    from { opacity: 0; transform: translateY(28px) scale(0.92); }
+    to { opacity: 1; transform: none; }
+}
+#dashboardContent .grid > * {
+    animation: card-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+    position: relative;
+    overflow: hidden;
+}
+#dashboardContent .grid > *:nth-child(1) { animation-delay: 0.05s; }
+#dashboardContent .grid > *:nth-child(2) { animation-delay: 0.13s; }
+#dashboardContent .grid > *:nth-child(3) { animation-delay: 0.21s; }
+#dashboardContent .grid > *:nth-child(4) { animation-delay: 0.29s; }
+#dashboardContent .grid > *:nth-child(5) { animation-delay: 0.37s; }
+#dashboardContent .grid > *:nth-child(6) { animation-delay: 0.45s; }
+
+/* 2. Sóc lơ lửng nhấp nhô nhẹ; tắt khi hover để nhường transform scale/rotate của Tailwind */
+@keyframes squirrel-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-7px); }
+}
+#dashboardContent .grid > *:not(:hover) img {
+    animation: squirrel-float 3.2s ease-in-out infinite;
+}
+#dashboardContent .grid > *:nth-child(even):not(:hover) img { animation-delay: -1.6s; }
+
+/* 3. Vệt sáng quét qua thẻ khi hover */
+@keyframes card-shine {
+    to { left: 130%; }
+}
+#dashboardContent .grid > *::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -80%;
+    width: 55%;
+    height: 100%;
+    background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+    transform: skewX(-20deg);
+    pointer-events: none;
+}
+#dashboardContent .grid > *:hover::after {
+    animation: card-shine 0.8s ease;
+}
+
+/* Tôn trọng người dùng tắt animation */
+@media (prefers-reduced-motion: reduce) {
+    #dashboardContent .grid > *,
+    #dashboardContent .grid > * img,
+    #dashboardContent .grid > *::after { animation: none !important; }
+}
+
 /* Safe Area padding cho thiết bị di động tràn viền */
 @supports (padding: env(safe-area-inset-top)) {
     body {
@@ -815,6 +885,19 @@ body {
     transform: scale(1.06) rotate(-3deg);
 }
 
+/* Hoạt ảnh xuất hiện thẻ bộ đề: hiện dần + trượt lên, so le theo --card-index.
+   fill-mode: backwards (KHÔNG dùng both/forwards) → chạy xong nhả transform lại cho CSS,
+   nếu không animation sẽ giữ transform:none vĩnh viễn và đè mất hover 3D của thẻ */
+.quiz-grid-card,
+.quiz-list-card {
+    animation: quizCardIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-delay: calc(var(--card-index, 0) * 42ms);
+}
+@keyframes quizCardIn {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+}
+
 /* Thẻ đang mở menu "..." được nâng lên trên mọi thẻ khác để dàn lựa chọn không bị che */
 .quiz-grid-card.quiz-card-menu-open,
 .quiz-list-card.quiz-card-menu-open {
@@ -1394,7 +1477,9 @@ body {
 
 /* Tôn trọng người dùng tắt hoạt ảnh: bỏ mọi chuyển động không thiết yếu */
 @media (prefers-reduced-motion: reduce) {
-    .folder-mini-card {
+    .folder-mini-card,
+    .quiz-grid-card,
+    .quiz-list-card {
         animation: none !important;
     }
     .folder-pin-badge,

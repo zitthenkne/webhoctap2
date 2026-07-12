@@ -263,6 +263,18 @@ export function parseInlineMarkdown(text) {
     return html;
 }
 
+// Lột bỏ nhãn "A." / "B)" … dính đầu mỗi phương án khi nhập liệu. Vì app tự gán chữ cái
+// theo VỊ TRÍ (và còn xáo trộn đáp án) nên nhãn cũ vừa thừa vừa lệch, lại bị parseMarkdown
+// hiểu nhầm là mục danh sách chữ. Chỉ lột khi đa số phương án đều có nhãn (>=2 và quá nửa)
+// để không cắt nhầm một đáp án tình cờ bắt đầu bằng "X.". Trả về MẢNG MỚI, giữ nguyên thứ tự.
+export function stripOptionLabels(options) {
+    if (!Array.isArray(options)) return options;
+    const re = /^\s*[A-Za-z][.)]\s+/;
+    const labeled = options.filter(o => typeof o === 'string' && re.test(o)).length;
+    if (labeled < 2 || labeled < Math.ceil(options.length / 2)) return options;
+    return options.map(o => (typeof o === 'string' ? o.replace(re, '') : o));
+}
+
 export function parseMarkdown(text) {
     if (text === null || text === undefined) return '';
     if (typeof text === 'object') {

@@ -145,57 +145,56 @@
         <main class="flex-1 overflow-x-hidden overflow-y-auto bg-transparent p-2 sm:p-4 md:p-6">
             <div id="dashboardContent" class="content-panel fade-in">
                 <div class="text-center mt-10 mb-8 md:mt-16 md:mb-10">
-                    <h2 class="text-on-bg text-2xl md:text-3xl font-extrabold text-[#FF69B4] drop-shadow mb-2">Bạn muốn làm gì hôm
-                        nay?</h2>
+                    <h2 class="hero-title text-2xl md:text-3xl font-extrabold mb-2">Bạn muốn làm gì hôm nay?</h2>
                 </div>
                 <div
-                    class="grid grid-cols-1 gap-5 sm:gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-2xl md:max-w-6xl mx-auto px-5 sm:px-6">
+                    class="grid grid-cols-2 gap-3 sm:gap-8 lg:grid-cols-3 max-w-2xl md:max-w-6xl mx-auto px-3 sm:px-6">
                     <button type="button" id="selectCreateQuiz"
-                        class="group bg-white rounded-3xl shadow-xl p-7 sm:p-10 text-center hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 border-2 border-transparent hover:border-[#FFB6C1] flex flex-col items-center gap-2 mb-2 px-2 sm:px-4">
+                        class="group bg-gradient-to-b from-white to-pink-50 rounded-3xl shadow-xl p-4 sm:p-10 text-center hover:shadow-2xl hover:shadow-pink-200/70 hover:-translate-y-2 transition-all duration-300 border-2 border-pink-100 hover:border-[#FFB6C1] flex flex-col items-center gap-2 mb-2 px-2 sm:px-4">
                         <img src="assets/squirrel_quiz.png" alt="Squirrel Quiz"
-                            class="w-40 h-40 sm:w-48 sm:h-48 mb-2 transition-transform group-hover:scale-110 rounded-xl shadow border-2 border-pink-200 bg-white">
+                            class="w-4/5 h-auto aspect-square sm:w-48 sm:h-48 mb-2 transition-transform group-hover:scale-110 group-hover:-rotate-3 duration-300 rounded-2xl shadow-md ring-4 ring-pink-100/70 bg-white">
                         <h3 class="text-lg sm:text-xl font-bold text-gray-800">Tạo Trắc Nghiệm</h3>
-                        <p class="text-gray-500 mt-1 text-sm sm:text-base">Biến file Excel/CSV của bạn thành một bài
+                        <p class="hidden sm:block text-gray-500 mt-1 text-sm sm:text-base">Biến file Excel/CSV của bạn thành một bài
                             kiểm tra tương tác.</p>
                     </button>
                     <a href="#" id="selectStudyRoom"
-                        class="group bg-white rounded-3xl shadow-xl p-7 sm:p-10 text-center hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 border-2 border-transparent hover:border-blue-300 flex flex-col items-center gap-2 mb-2 block px-2 sm:px-4">
+                        class="group bg-gradient-to-b from-white to-blue-50 rounded-3xl shadow-xl p-4 sm:p-10 text-center hover:shadow-2xl hover:shadow-blue-200/70 hover:-translate-y-2 transition-all duration-300 border-2 border-blue-100 hover:border-blue-300 flex flex-col items-center gap-2 mb-2 block px-2 sm:px-4">
                         <img src="assets/squirrel_group.png" alt="Squirrel Group"
-                            class="w-40 h-40 sm:w-48 sm:h-48 mb-2 transition-transform group-hover:scale-110 rounded-xl shadow border-2 border-blue-200 bg-white">
+                            class="w-4/5 h-auto aspect-square sm:w-48 sm:h-48 mb-2 transition-transform group-hover:scale-110 group-hover:-rotate-3 duration-300 rounded-2xl shadow-md ring-4 ring-blue-100/70 bg-white">
                         <h3 class="text-lg sm:text-xl font-bold text-gray-800">Đánh đề</h3>
-                        <p class="text-gray-500 mt-1 text-sm sm:text-base">Tạo phòng học nhóm và cùng nhau giải đề trên
+                        <p class="hidden sm:block text-gray-500 mt-1 text-sm sm:text-base">Tạo phòng học nhóm và cùng nhau giải đề trên
                             bảng trắng.</p>
                     </a>
                     <button type="button" id="selectGpaCalculator"
-                        class="group bg-white rounded-3xl shadow-xl p-7 sm:p-10 text-center hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 border-2 border-transparent hover:border-[#D8BFD8] flex flex-col items-center gap-2 mb-2 lg:col-start-1 md:col-span-2 lg:col-start-3 px-2 sm:px-4">
+                        class="group bg-gradient-to-b from-white to-purple-50 rounded-3xl shadow-xl p-4 sm:p-10 text-center hover:shadow-2xl hover:shadow-purple-200/70 hover:-translate-y-2 transition-all duration-300 border-2 border-purple-100 hover:border-[#D8BFD8] flex flex-col items-center gap-2 mb-2 lg:col-start-1 md:col-span-2 lg:col-start-3 px-2 sm:px-4">
                         <img src="assets/squirrel_calculator.png" alt="Squirrel Calculator"
-                            class="w-40 h-40 sm:w-48 sm:h-48 mb-2 transition-transform group-hover:scale-110 rounded-xl shadow border-2 border-purple-200 bg-white">
+                            class="w-4/5 h-auto aspect-square sm:w-48 sm:h-48 mb-2 transition-transform group-hover:scale-110 group-hover:-rotate-3 duration-300 rounded-2xl shadow-md ring-4 ring-purple-100/70 bg-white">
                         <h3 class="text-lg sm:text-xl font-bold text-gray-800">Tính Điểm Hệ 4</h3>
-                        <p class="text-gray-500 mt-1 text-sm sm:text-base">Quy đổi nhanh điểm số trắc nghiệm của bạn
+                        <p class="hidden sm:block text-gray-500 mt-1 text-sm sm:text-base">Quy đổi nhanh điểm số trắc nghiệm của bạn
                             sang thang điểm 4.0.</p>
                     </button>
                     <button type="button" id="selectWriteMedicalRecord"
-                        class="group bg-white rounded-3xl shadow-xl p-7 sm:p-10 text-center hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 border-2 border-transparent hover:border-green-300 flex flex-col items-center gap-2 mb-2 px-2 sm:px-4">
+                        class="group bg-gradient-to-b from-white to-green-50 rounded-3xl shadow-xl p-4 sm:p-10 text-center hover:shadow-2xl hover:shadow-green-200/70 hover:-translate-y-2 transition-all duration-300 border-2 border-green-100 hover:border-green-300 flex flex-col items-center gap-2 mb-2 px-2 sm:px-4">
                         <img src="assets/squirrel_benhan.png" alt="Squirrel Medical"
-                            class="w-40 h-40 sm:w-48 sm:h-48 mb-2 transition-transform group-hover:scale-110 rounded-xl shadow border-2 border-green-200 bg-white">
+                            class="w-4/5 h-auto aspect-square sm:w-48 sm:h-48 mb-2 transition-transform group-hover:scale-110 group-hover:-rotate-3 duration-300 rounded-2xl shadow-md ring-4 ring-green-100/70 bg-white">
                         <h3 class="text-lg sm:text-xl font-bold text-gray-800">Viết bệnh án</h3>
-                        <p class="text-gray-500 mt-1 text-sm sm:text-base">Vào phòng chờ để bắt đầu viết bệnh án lâm
+                        <p class="hidden sm:block text-gray-500 mt-1 text-sm sm:text-base">Vào phòng chờ để bắt đầu viết bệnh án lâm
                             sàng.</p>
                     </button>
                     <button type="button" id="selectChecklist"
-                        class="group bg-white rounded-3xl shadow-xl p-7 sm:p-10 text-center hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 border-2 border-transparent hover:border-blue-400 flex flex-col items-center gap-2 mb-2 px-2 sm:px-4">
+                        class="group bg-gradient-to-b from-white to-sky-50 rounded-3xl shadow-xl p-4 sm:p-10 text-center hover:shadow-2xl hover:shadow-sky-200/70 hover:-translate-y-2 transition-all duration-300 border-2 border-sky-100 hover:border-blue-400 flex flex-col items-center gap-2 mb-2 px-2 sm:px-4">
                         <img src="assets/squirrel_A.png" alt="Checklist Squirrel"
-                            class="w-40 h-40 sm:w-48 sm:h-48 mb-2 transition-transform group-hover:scale-110 rounded-xl shadow border-2 border-blue-200 bg-white">
+                            class="w-4/5 h-auto aspect-square sm:w-48 sm:h-48 mb-2 transition-transform group-hover:scale-110 group-hover:-rotate-3 duration-300 rounded-2xl shadow-md ring-4 ring-blue-100/70 bg-white">
                         <h3 class="text-lg sm:text-xl font-bold text-gray-800">Tạo Checklist</h3>
-                        <p class="text-gray-500 mt-1 text-sm sm:text-base">Quản lý checklist ATCS, tạo checklist và thư
+                        <p class="hidden sm:block text-gray-500 mt-1 text-sm sm:text-base">Quản lý checklist ATCS, tạo checklist và thư
                             mục cá nhân.</p>
                     </button>
                     <a href="features/link-vault/link-vault.html" id="selectLinkVault"
-                        class="group bg-white rounded-3xl shadow-xl p-7 sm:p-10 text-center hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 border-2 border-transparent hover:border-pink-300 flex flex-col items-center gap-2 mb-2 block px-2 sm:px-4">
+                        class="group bg-gradient-to-b from-white to-rose-50 rounded-3xl shadow-xl p-4 sm:p-10 text-center hover:shadow-2xl hover:shadow-rose-200/70 hover:-translate-y-2 transition-all duration-300 border-2 border-rose-100 hover:border-pink-300 flex flex-col items-center gap-2 mb-2 block px-2 sm:px-4">
                         <img src="assets/squirrel_linkvault.png" alt="Squirrel Link Vault"
-                            class="w-40 h-40 sm:w-48 sm:h-48 mb-2 transition-transform group-hover:scale-110 rounded-xl shadow border-2 border-pink-200 bg-white">
+                            class="w-4/5 h-auto aspect-square sm:w-48 sm:h-48 mb-2 transition-transform group-hover:scale-110 group-hover:-rotate-3 duration-300 rounded-2xl shadow-md ring-4 ring-pink-100/70 bg-white">
                         <h3 class="text-lg sm:text-xl font-bold text-gray-800">Lưu trữ link</h3>
-                        <p class="text-gray-500 mt-1 text-sm sm:text-base">Kho link dùng chung, mở nhanh mọi đường dẫn
+                        <p class="hidden sm:block text-gray-500 mt-1 text-sm sm:text-base">Kho link dùng chung, mở nhanh mọi đường dẫn
                             trên máy lạ mà không cần đăng nhập.</p>
                     </a>
                 </div>
@@ -296,45 +295,61 @@
             <div id="gpaCalculatorContent" class="content-panel hidden fade-in px-5 pt-3 sm:px-0 sm:pt-0">
                 <div class="max-w-2xl mx-auto">
                     <!-- Tiêu đề trang -->
-                    <div class="text-center mb-8">
+                    <div class="text-center mb-6 sm:mb-8">
                         <h2 class="text-on-bg text-2xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-[#FF69B4] to-[#D8BFD8] drop-shadow">
                             <i class="fas fa-graduation-cap mr-2 text-[#FF69B4]"></i>Công cụ tính điểm Đại học Y Dược
                         </h2>
                         <p class="text-on-bg text-sm text-gray-500 mt-2">Quy đổi điểm và tính số câu cần đạt cho từng kỳ thi 🐿️</p>
+                        <div class="flex flex-wrap items-center justify-center gap-2 mt-3">
+                            <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-pink-500 bg-white/80 backdrop-blur border border-pink-100 rounded-full px-3 py-1 shadow-sm"><i class="fas fa-circle-check"></i> Chuẩn UMP</span>
+                            <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-violet-500 bg-white/80 backdrop-blur border border-violet-100 rounded-full px-3 py-1 shadow-sm"><i class="fas fa-floppy-disk"></i> Tự lưu trên máy</span>
+                            <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-500 bg-white/80 backdrop-blur border border-amber-100 rounded-full px-3 py-1 shadow-sm"><i class="fas fa-bolt"></i> Cập nhật tức thì</span>
+                        </div>
                     </div>
 
                     <!-- CARD 1: Quy đổi điểm nhanh -->
-                    <section class="bg-white rounded-3xl shadow-xl shadow-pink-100/50 border border-pink-100 p-6 sm:p-8 mb-8">
+                    <section class="relative overflow-hidden bg-white rounded-3xl shadow-xl shadow-pink-100/50 border border-pink-100 p-4 sm:p-8 mb-6 sm:mb-8">
+                        <div class="pointer-events-none absolute -top-12 -right-12 w-44 h-44 rounded-full bg-gradient-to-br from-pink-100/80 to-purple-100/50 blur-2xl"></div>
                         <div class="flex items-center gap-3 mb-6">
                             <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#FF69B4] to-[#D8BFD8] flex items-center justify-center text-white shadow-md shrink-0">
                                 <i class="fas fa-wand-magic-sparkles"></i>
                             </div>
                             <div>
-                                <h3 class="text-lg font-extrabold text-gray-800">Quy đổi điểm nhanh</h3>
+                                <h3 class="text-base sm:text-lg font-extrabold text-gray-800 leading-snug">Quy đổi điểm nhanh</h3>
                                 <p class="text-xs text-gray-400">Nhập kết quả một bài để xem điểm hệ 10, hệ 4 và điểm chữ</p>
                             </div>
                         </div>
                         <form id="gpa-form">
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label for="correct-answers" class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-1.5">
+                            <div class="flex items-end gap-2 sm:gap-3">
+                                <div class="flex-1 min-w-0">
+                                    <label for="correct-answers" class="flex items-center justify-center gap-1.5 text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-2">
                                         <i class="fas fa-circle-check text-emerald-400"></i> Số câu đúng
                                     </label>
-                                    <input type="number" id="correct-answers" min="0"
-                                        class="block w-full px-4 py-2.5 border border-pink-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] transition"
-                                        placeholder="Ví dụ: 35">
+                                    <input type="number" id="correct-answers" min="0" inputmode="numeric"
+                                        class="block w-full px-3 py-3 text-xl font-extrabold text-center text-gray-800 bg-pink-50/50 border border-pink-200 rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] transition placeholder:text-gray-300 placeholder:font-semibold"
+                                        placeholder="35">
                                 </div>
-                                <div>
-                                    <label for="total-questions" class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-1.5">
+                                <span class="text-2xl font-extrabold text-pink-200 pb-3 select-none">/</span>
+                                <div class="flex-1 min-w-0">
+                                    <label for="total-questions" class="flex items-center justify-center gap-1.5 text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-2">
                                         <i class="fas fa-list-ol text-pink-400"></i> Tổng số câu
                                     </label>
-                                    <input type="number" id="total-questions" min="1"
-                                        class="block w-full px-4 py-2.5 border border-pink-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] transition"
-                                        placeholder="Ví dụ: 50">
+                                    <input type="number" id="total-questions" min="1" inputmode="numeric"
+                                        class="block w-full px-3 py-3 text-xl font-extrabold text-center text-gray-800 bg-pink-50/50 border border-pink-200 rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] transition placeholder:text-gray-300 placeholder:font-semibold"
+                                        placeholder="50">
                                 </div>
                             </div>
+                            <div id="total-quick-chips" class="flex flex-wrap items-center justify-center gap-1.5 mt-3">
+                                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mr-0.5">Tổng câu:</span>
+                                <button type="button" data-total="30" class="px-3 py-1.5 rounded-full border border-pink-100 bg-pink-50/50 text-xs font-bold text-gray-500 hover:border-pink-300 hover:text-pink-500 active:scale-95 transition">30</button>
+                                <button type="button" data-total="40" class="px-3 py-1.5 rounded-full border border-pink-100 bg-pink-50/50 text-xs font-bold text-gray-500 hover:border-pink-300 hover:text-pink-500 active:scale-95 transition">40</button>
+                                <button type="button" data-total="50" class="px-3 py-1.5 rounded-full border border-pink-100 bg-pink-50/50 text-xs font-bold text-gray-500 hover:border-pink-300 hover:text-pink-500 active:scale-95 transition">50</button>
+                                <button type="button" data-total="60" class="px-3 py-1.5 rounded-full border border-pink-100 bg-pink-50/50 text-xs font-bold text-gray-500 hover:border-pink-300 hover:text-pink-500 active:scale-95 transition">60</button>
+                                <button type="button" data-total="100" class="px-3 py-1.5 rounded-full border border-pink-100 bg-pink-50/50 text-xs font-bold text-gray-500 hover:border-pink-300 hover:text-pink-500 active:scale-95 transition">100</button>
+                            </div>
+                            <p class="text-[11px] text-gray-400 text-center mt-2.5"><i class="fas fa-wand-magic-sparkles mr-1 text-pink-300"></i>Kết quả tự hiện khi nhập đủ hai ô — không cần bấm nút</p>
                             <button type="button" id="calculate-gpa-btn"
-                                class="mt-6 w-full px-6 py-3 bg-gradient-to-r from-[#FF69B4] to-[#FF8DC7] text-white rounded-xl hover:shadow-lg hover:shadow-pink-200 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 font-bold flex items-center justify-center gap-2">
+                                class="mt-4 w-full px-6 py-3 bg-gradient-to-r from-[#FF69B4] to-[#FF8DC7] text-white rounded-2xl shadow-md shadow-pink-200/60 hover:shadow-lg hover:shadow-pink-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 font-bold flex items-center justify-center gap-2">
                                 <i class="fas fa-calculator"></i> Quy đổi điểm
                             </button>
                         </form>
@@ -342,7 +357,7 @@
 
                         <!-- Bảng quy đổi tham khảo (đóng/mở) -->
                         <details class="mt-5 group">
-                            <summary class="cursor-pointer list-none flex items-center gap-1.5 text-xs font-bold text-pink-500 hover:text-pink-600 transition select-none">
+                            <summary class="cursor-pointer list-none flex items-center gap-1.5 text-xs font-bold text-pink-500 hover:text-pink-600 transition select-none py-2 -my-2 touch-manipulation">
                                 <i class="fas fa-chevron-right text-[10px] transition-transform group-open:rotate-90"></i>
                                 Xem bảng quy đổi hệ 10 → điểm chữ → hệ 4
                             </summary>
@@ -356,15 +371,15 @@
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-pink-50 text-gray-700 font-semibold">
-                                        <tr><td class="py-1.5">9.5 – 10</td><td class="text-amber-500 font-extrabold">A+</td><td>4.0</td></tr>
-                                        <tr><td class="py-1.5">8.5 – 9.4</td><td class="text-amber-500 font-extrabold">A</td><td>4.0</td></tr>
-                                        <tr><td class="py-1.5">8.0 – 8.4</td><td class="text-emerald-500 font-extrabold">B+</td><td>3.5</td></tr>
-                                        <tr><td class="py-1.5">7.0 – 7.9</td><td class="text-emerald-500 font-extrabold">B</td><td>3.0</td></tr>
-                                        <tr><td class="py-1.5">6.5 – 6.9</td><td class="text-sky-500 font-extrabold">C+</td><td>2.5</td></tr>
-                                        <tr><td class="py-1.5">5.5 – 6.4</td><td class="text-sky-500 font-extrabold">C</td><td>2.0</td></tr>
-                                        <tr><td class="py-1.5">5.0 – 5.4</td><td class="text-violet-500 font-extrabold">D+</td><td>1.5</td></tr>
-                                        <tr><td class="py-1.5">4.0 – 4.9</td><td class="text-violet-500 font-extrabold">D</td><td>1.0</td></tr>
-                                        <tr><td class="py-1.5">&lt; 4.0</td><td class="text-gray-400 font-extrabold">F</td><td>0.0</td></tr>
+                                        <tr class="hover:bg-pink-50/40 transition"><td class="py-1.5">9.5 – 10</td><td class="py-1.5"><span class="inline-block min-w-[34px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 font-extrabold">A+</span></td><td>4.0</td></tr>
+                                        <tr class="hover:bg-pink-50/40 transition"><td class="py-1.5">8.5 – 9.4</td><td class="py-1.5"><span class="inline-block min-w-[34px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 font-extrabold">A</span></td><td>4.0</td></tr>
+                                        <tr class="hover:bg-pink-50/40 transition"><td class="py-1.5">8.0 – 8.4</td><td class="py-1.5"><span class="inline-block min-w-[34px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600 font-extrabold">B+</span></td><td>3.5</td></tr>
+                                        <tr class="hover:bg-pink-50/40 transition"><td class="py-1.5">7.0 – 7.9</td><td class="py-1.5"><span class="inline-block min-w-[34px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600 font-extrabold">B</span></td><td>3.0</td></tr>
+                                        <tr class="hover:bg-pink-50/40 transition"><td class="py-1.5">6.5 – 6.9</td><td class="py-1.5"><span class="inline-block min-w-[34px] px-2 py-0.5 rounded-full bg-sky-100 text-sky-600 font-extrabold">C+</span></td><td>2.5</td></tr>
+                                        <tr class="hover:bg-pink-50/40 transition"><td class="py-1.5">5.5 – 6.4</td><td class="py-1.5"><span class="inline-block min-w-[34px] px-2 py-0.5 rounded-full bg-sky-100 text-sky-600 font-extrabold">C</span></td><td>2.0</td></tr>
+                                        <tr class="hover:bg-pink-50/40 transition"><td class="py-1.5">5.0 – 5.4</td><td class="py-1.5"><span class="inline-block min-w-[34px] px-2 py-0.5 rounded-full bg-violet-100 text-violet-600 font-extrabold">D+</span></td><td>1.5</td></tr>
+                                        <tr class="hover:bg-pink-50/40 transition"><td class="py-1.5">4.0 – 4.9</td><td class="py-1.5"><span class="inline-block min-w-[34px] px-2 py-0.5 rounded-full bg-violet-100 text-violet-600 font-extrabold">D</span></td><td>1.0</td></tr>
+                                        <tr class="hover:bg-pink-50/40 transition"><td class="py-1.5">&lt; 4.0</td><td class="py-1.5"><span class="inline-block min-w-[34px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-extrabold">F</span></td><td>0.0</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -376,17 +391,18 @@
 
                     <!-- CARD 2: Tính số câu cần đạt cho từng kỳ thi -->
                     <section id="required-correct-section"
-                        class="bg-white rounded-3xl shadow-xl shadow-pink-100/50 border border-pink-100 p-6 sm:p-8 mb-10">
+                        class="relative overflow-hidden bg-white rounded-3xl shadow-xl shadow-pink-100/50 border border-pink-100 p-4 sm:p-8 mb-10">
+                        <div class="pointer-events-none absolute -bottom-12 -right-12 w-44 h-44 rounded-full bg-gradient-to-br from-purple-100/60 to-pink-100/70 blur-2xl"></div>
                         <div class="flex items-center gap-3 mb-6">
                             <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#FF69B4] to-[#D8BFD8] flex items-center justify-center text-white shadow-md shrink-0">
                                 <i class="fas fa-bullseye"></i>
                             </div>
                             <div class="min-w-0">
-                                <h3 class="text-lg font-extrabold text-gray-800">Tính số câu cần đạt cho từng kỳ thi</h3>
+                                <h3 class="text-base sm:text-lg font-extrabold text-gray-800 leading-snug">Tính số câu cần đạt cho từng kỳ thi</h3>
                                 <p class="text-xs text-gray-400">Đặt mục tiêu GPA và xem cần đúng bao nhiêu câu mỗi lần thi</p>
                             </div>
                             <button type="button" id="reset-goal-btn"
-                                class="ml-auto w-9 h-9 shrink-0 flex items-center justify-center bg-gray-100 text-gray-500 rounded-xl hover:bg-pink-100 hover:text-pink-500 transition shadow-sm"
+                                class="ml-auto w-10 h-10 sm:w-9 sm:h-9 shrink-0 flex items-center justify-center bg-gray-100 text-gray-500 rounded-xl hover:bg-pink-100 hover:text-pink-500 active:scale-90 transition shadow-sm touch-manipulation"
                                 title="Xoá dữ liệu đã nhập" aria-label="Xoá dữ liệu đã nhập">
                                 <i class="fas fa-rotate-left"></i>
                             </button>
@@ -397,7 +413,7 @@
                                 <i class="fas fa-clipboard-list text-pink-400"></i> Loại kỳ thi
                             </label>
                             <select id="exam-type"
-                                class="w-full px-4 py-2.5 bg-white border border-pink-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] transition cursor-pointer">
+                                class="w-full px-4 py-3 sm:py-2.5 bg-white border border-pink-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] transition cursor-pointer">
                                 <option value="pretest">Có pretest (10 · 20 · 70)</option>
                                 <option value="nopretest">Không pretest (30 · 70)</option>
                                 <option value="custom">Tùy chỉnh — nhiều đợt, tự đặt tên</option>
@@ -410,10 +426,10 @@
                                 title="Cách quy đổi câu đúng của mỗi bài thi ra điểm hệ 10 trước khi nhân trọng số">
                                 <i class="fas fa-scale-balanced text-pink-400"></i> Thang điểm mỗi bài
                             </span>
-                            <div id="scale-mode-toggle" class="flex bg-white p-0.5 rounded-lg border border-pink-100 gap-0.5">
-                                <button type="button" data-mode="ump" class="scale-mode-btn px-3 h-7 rounded-md text-xs font-bold transition"
+                            <div id="scale-mode-toggle" class="flex w-full sm:w-auto bg-white p-0.5 rounded-lg border border-pink-100 gap-0.5">
+                                <button type="button" data-mode="ump" class="scale-mode-btn flex-1 sm:flex-none px-3 h-9 sm:h-7 rounded-md text-xs font-bold transition"
                                     title="Câu đúng → hệ 10 theo công thức UMP (giống card Quy đổi nhanh phía trên)">Công thức UMP</button>
-                                <button type="button" data-mode="linear" class="scale-mode-btn px-3 h-7 rounded-md text-xs font-bold transition"
+                                <button type="button" data-mode="linear" class="scale-mode-btn flex-1 sm:flex-none px-3 h-9 sm:h-7 rounded-md text-xs font-bold transition"
                                     title="Hệ 10 = tỉ lệ câu đúng × 10">% đúng × 10</button>
                             </div>
                         </div>
@@ -427,26 +443,26 @@
                                 <i class="fas fa-star text-amber-400"></i> Điểm hệ 4 mong muốn
                             </label>
                             <input type="hidden" id="desired-gpa-4" value="4.0">
-                            <div id="desired-gpa-chips" class="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
-                                <button type="button" data-gpa="1.0" class="gpa-chip flex flex-col items-center justify-center py-2 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 transition">
+                            <div id="desired-gpa-chips" class="grid grid-cols-4 sm:grid-cols-7 gap-2 sm:gap-1.5">
+                                <button type="button" data-gpa="1.0" class="gpa-chip flex flex-col items-center justify-center py-2.5 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 hover:-translate-y-0.5 hover:shadow-sm active:scale-95 transition-all duration-150">
                                     <span class="text-sm font-extrabold leading-none">D</span><span class="text-[10px] font-semibold opacity-70 mt-1">1.0</span>
                                 </button>
-                                <button type="button" data-gpa="1.5" class="gpa-chip flex flex-col items-center justify-center py-2 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 transition">
+                                <button type="button" data-gpa="1.5" class="gpa-chip flex flex-col items-center justify-center py-2.5 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 hover:-translate-y-0.5 hover:shadow-sm active:scale-95 transition-all duration-150">
                                     <span class="text-sm font-extrabold leading-none">D+</span><span class="text-[10px] font-semibold opacity-70 mt-1">1.5</span>
                                 </button>
-                                <button type="button" data-gpa="2.0" class="gpa-chip flex flex-col items-center justify-center py-2 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 transition">
+                                <button type="button" data-gpa="2.0" class="gpa-chip flex flex-col items-center justify-center py-2.5 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 hover:-translate-y-0.5 hover:shadow-sm active:scale-95 transition-all duration-150">
                                     <span class="text-sm font-extrabold leading-none">C</span><span class="text-[10px] font-semibold opacity-70 mt-1">2.0</span>
                                 </button>
-                                <button type="button" data-gpa="2.5" class="gpa-chip flex flex-col items-center justify-center py-2 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 transition">
+                                <button type="button" data-gpa="2.5" class="gpa-chip flex flex-col items-center justify-center py-2.5 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 hover:-translate-y-0.5 hover:shadow-sm active:scale-95 transition-all duration-150">
                                     <span class="text-sm font-extrabold leading-none">C+</span><span class="text-[10px] font-semibold opacity-70 mt-1">2.5</span>
                                 </button>
-                                <button type="button" data-gpa="3.0" class="gpa-chip flex flex-col items-center justify-center py-2 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 transition">
+                                <button type="button" data-gpa="3.0" class="gpa-chip flex flex-col items-center justify-center py-2.5 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 hover:-translate-y-0.5 hover:shadow-sm active:scale-95 transition-all duration-150">
                                     <span class="text-sm font-extrabold leading-none">B</span><span class="text-[10px] font-semibold opacity-70 mt-1">3.0</span>
                                 </button>
-                                <button type="button" data-gpa="3.5" class="gpa-chip flex flex-col items-center justify-center py-2 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 transition">
+                                <button type="button" data-gpa="3.5" class="gpa-chip flex flex-col items-center justify-center py-2.5 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 hover:-translate-y-0.5 hover:shadow-sm active:scale-95 transition-all duration-150">
                                     <span class="text-sm font-extrabold leading-none">B+</span><span class="text-[10px] font-semibold opacity-70 mt-1">3.5</span>
                                 </button>
-                                <button type="button" data-gpa="4.0" class="gpa-chip flex flex-col items-center justify-center py-2 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 transition">
+                                <button type="button" data-gpa="4.0" class="gpa-chip flex flex-col items-center justify-center py-2.5 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 hover:-translate-y-0.5 hover:shadow-sm active:scale-95 transition-all duration-150">
                                     <span class="text-sm font-extrabold leading-none">A</span><span class="text-[10px] font-semibold opacity-70 mt-1">4.0</span>
                                 </button>
                             </div>
@@ -456,7 +472,7 @@
                         <div id="gpa-live-projection" class="hidden"></div>
 
                         <button type="button" id="calculate-required-btn"
-                            class="w-full px-6 py-3 bg-gradient-to-r from-[#FF69B4] to-[#FF8DC7] text-white rounded-xl hover:shadow-lg hover:shadow-pink-200 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 font-bold flex items-center justify-center gap-2">
+                            class="w-full px-6 py-3 bg-gradient-to-r from-[#FF69B4] to-[#FF8DC7] text-white rounded-2xl shadow-md shadow-pink-200/60 hover:shadow-lg hover:shadow-pink-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 font-bold flex items-center justify-center gap-2">
                             <i class="fas fa-bullseye"></i> Tính số câu cần đạt
                         </button>
                         <div id="required-correct-result" class="mt-5"></div>
@@ -823,6 +839,10 @@
                     </div>
                 </div>
 
+                <!-- Bảng ôn tập ngắt quãng: hôm nay / 7 ngày tới / quản lý bộ đề
+                     (render bởi features/quiz/quiz-srs-dashboard.js) -->
+                <div id="srs-dashboard" class="mb-8"></div>
+
                 <!-- Achievements Area -->
                 <div class="mb-8 bg-white/70 backdrop-blur-md rounded-2xl p-6 border border-pink-100 shadow-sm">
                     <h3 class="text-lg font-bold mb-4 text-gray-700 flex items-center gap-2">
@@ -856,17 +876,24 @@
                 </div>
             </div>
 
-            <div id="myStudyRoomsContent" class="content-panel hidden p-6">
-                <h2 class="text-on-bg text-2xl font-bold text-gray-800 mb-6">Phòng học của tôi</h2>
-                <div class="flex justify-end mb-4 gap-2">
-                    <button id="join-room-by-code-btn"
-                        class="px-6 py-2 bg-blue-200 text-blue-800 rounded-lg hover:bg-blue-300 transition">
-                        <i class="fas fa-key mr-2"></i>Vào phòng bằng mã
-                    </button>
-                    <button id="create-new-study-room-btn"
-                        class="px-6 py-2 bg-[#FF69B4] text-white rounded-lg hover:bg-opacity-80 transition">
-                        <i class="fas fa-plus-circle mr-2"></i> Tạo phòng mới
-                    </button>
+            <div id="myStudyRoomsContent" class="content-panel hidden p-4 sm:p-6">
+                <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
+                    <div>
+                        <h2 class="text-on-bg text-2xl font-extrabold text-gray-800 flex items-center gap-2">
+                            <i class="fas fa-chalkboard-user text-blue-400"></i>Phòng học của tôi
+                        </h2>
+                        <p class="text-on-bg text-sm text-gray-500 mt-1">Tạo phòng, chia sẻ mã và cùng nhau giải đề trên bảng trắng 🐿️</p>
+                    </div>
+                    <div class="flex gap-2 shrink-0">
+                        <button id="join-room-by-code-btn"
+                            class="flex-1 sm:flex-none px-4 sm:px-5 py-2.5 bg-white text-blue-600 border-2 border-blue-200 rounded-xl hover:bg-blue-50 transition font-bold text-sm shadow-sm">
+                            <i class="fas fa-key mr-1.5"></i>Vào bằng mã
+                        </button>
+                        <button id="create-new-study-room-btn"
+                            class="flex-1 sm:flex-none px-4 sm:px-5 py-2.5 bg-[#FF69B4] text-white rounded-xl hover:bg-pink-400 transition font-bold text-sm shadow-md">
+                            <i class="fas fa-plus-circle mr-1.5"></i>Tạo phòng mới
+                        </button>
+                    </div>
                 </div>
                 <div id="my-study-rooms-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <!-- Các phòng học của bạn sẽ được tải vào đây -->
@@ -1185,6 +1212,7 @@
     <script type="module" src="index-user-avatar.js"></script>
     <!-- Chuông thông báo ôn ngắt quãng (đọc thuần localStorage, không Firebase) -->
     <script type="module" src="features/quiz/quiz-srs-bell.js"></script>
+    <script type="module" src="features/quiz/quiz-srs-dashboard.js"></script>
     <!-- Tương tác gọn nhẹ cho thư viện: menu "..." và thu gọn phần Tổng quan -->
     <script>
         (function () {
@@ -1249,8 +1277,9 @@
                         });
                     }
                 };
-                var collapsedInit = false;
-                try { collapsedInit = localStorage.getItem(LIB_PANEL_KEY) === '1'; } catch (e) {}
+                // Mặc định thu gọn cho giao diện gọn (ô tìm kiếm vẫn luôn hiện); chỉ mở khi người dùng từng chủ động mở
+                var collapsedInit = true;
+                try { collapsedInit = localStorage.getItem(LIB_PANEL_KEY) !== '0'; } catch (e) {}
                 applyPanelState(collapsedInit, false);
                 filterBtn.addEventListener('click', function () {
                     var nowCollapsed = !panelBody.classList.contains('is-collapsed');

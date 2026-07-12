@@ -88,6 +88,7 @@
             }
             
             window.selectedOgImage = selectedImg; // Đồng bộ ảnh Hero với OG Image
+            window.quizOgImages = images;         // Cho nút "đổi linh vật" trên landing dùng lại danh sách
             try {
                 const origin = window.location.origin;
                 const path = window.location.pathname;
@@ -266,6 +267,52 @@
         html.theme-dark .chip-preset:hover { background: #45294c; }
         html.theme-dark .chip-preset.chip-active { background: #d65fa0; border-color: #d65fa0; color: #fff; }
 
+        /* Thẻ "Chọn nhanh chế độ" trên landing: 1 chạm gạt sẵn các tùy chọn bên dưới */
+        .mode-preset {
+            display: flex; flex-direction: column; align-items: center; gap: 2px;
+            padding: 10px 6px; border-radius: 16px; cursor: pointer; text-align: center;
+            border: 1.5px solid rgba(244, 114, 182, 0.25); background: rgba(255, 255, 255, 0.55);
+            transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease, background-color .15s ease;
+        }
+        .mode-preset:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(255, 105, 180, 0.14); border-color: rgba(244, 114, 182, 0.5); }
+        .mode-preset:active { transform: scale(0.96); }
+        .mode-preset .mp-ic { font-size: 20px; line-height: 1.2; }
+        .mode-preset .mp-name { font-size: 12.5px; font-weight: 800; color: #374151; }
+        .mode-preset .mp-desc { font-size: 10px; color: #9ca3af; font-weight: 600; line-height: 1.35; }
+        .mode-preset.mp-active { border-color: #ff69b4; background: #fff0f6; box-shadow: 0 6px 16px rgba(255, 105, 180, 0.18); }
+        .mode-preset.mp-active .mp-name { color: #db2777; }
+        html.theme-dark .mode-preset { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.1); }
+        html.theme-dark .mode-preset .mp-name { color: #ded5ee; }
+        html.theme-dark .mode-preset .mp-desc { color: #a99fc0; }
+        html.theme-dark .mode-preset.mp-active { border-color: #d65fa0; background: #34203a; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35); }
+        html.theme-dark .mode-preset.mp-active .mp-name { color: #f9a8d4; }
+
+        /* Chip tóm tắt phiên (ngay trên nút Bắt đầu) */
+        .sum-chip {
+            display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 9999px;
+            font-size: 11px; font-weight: 700; color: #6b7280;
+            background: rgba(255, 255, 255, 0.6); border: 1px solid rgba(0, 0, 0, 0.06);
+        }
+        .sum-chip i { color: #f472b6; font-size: 10px; }
+        html.theme-dark .sum-chip { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.1); color: #c9bfdd; }
+
+        /* Gợi ý "đang làm dở" (quiz-page.js chèn sau nút Bắt đầu) -> pill nổi bật hơn */
+        #resume-hint { background: #fff0f6; border: 1px dashed rgba(244, 114, 182, 0.55); padding: 6px 14px; border-radius: 9999px; }
+        html.theme-dark #resume-hint { background: #34203a; border-color: rgba(249, 168, 212, 0.35); }
+
+        /* Phím tắt hiển thị kiểu bàn phím */
+        .kbd-key {
+            padding: 1px 7px; border-radius: 7px; border: 1px solid rgba(0, 0, 0, 0.14);
+            border-bottom-width: 2px; background: rgba(255, 255, 255, 0.8);
+            font-size: 10px; font-weight: 800; color: #6b7280; font-family: inherit;
+        }
+        html.theme-dark .kbd-key { background: rgba(255, 255, 255, 0.07); border-color: rgba(255, 255, 255, 0.16); color: #c9bfdd; }
+
+        /* Lưới tùy chọn phiên: nén lại cho gọn (đè các utility p-4 / gap-4 / icon w-9) */
+        #quiz-options-grid { gap: 0.65rem; }
+        #quiz-options-grid > label, #quiz-options-grid > div { padding: 0.7rem 0.9rem; border-radius: 1rem; }
+        #quiz-options-grid .w-9 { width: 2.1rem; height: 2.1rem; border-radius: 0.7rem; }
+
         /* Nút thoát chế độ tập trung: chỉ nhấp nháy vài nhịp đầu để gây chú ý rồi đứng yên
            (nhấp nháy vô hạn đi ngược mục đích "tập trung") */
         @keyframes exit-focus-pulse { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
@@ -328,45 +375,49 @@
     </div>
     <div class="w-full max-w-4xl lg:max-w-[88rem] mx-auto mt-14 md:mt-0">
         <div id="quiz-landing" class="glass-premium rounded-3xl p-6 sm:p-10 text-center fade-in max-w-2xl mx-auto transition-all duration-300">
-            <!-- Header Icon & Title -->
-            <!-- Header Mascot Hero Image -->
-            <div class="flex justify-center mb-6">
-                <div class="relative w-36 h-36 sm:w-56 sm:h-56 rounded-3xl overflow-hidden shadow-[0_15px_35px_rgba(255,105,180,0.25)] border-4 border-white/90 hover:scale-[1.04] transition-all duration-300 bg-pink-50 flex items-center justify-center mascot-floating">
+            <!-- Hero: linh vật + tiêu đề + mẹo — bố cục ngang trên desktop để card gọn hơn.
+                 Bấm vào linh vật để đổi ảnh ngẫu nhiên (đồng bộ danh sách với ảnh OG). -->
+            <div class="flex flex-col sm:flex-row items-center gap-4 sm:gap-5 mb-5 text-center sm:text-left">
+                <button type="button" id="quiz-hero-btn" title="Bấm để đổi linh vật" aria-label="Đổi ảnh linh vật ngẫu nhiên"
+                    class="relative flex-shrink-0 w-28 h-28 sm:w-36 sm:h-36 rounded-3xl overflow-hidden shadow-[0_15px_35px_rgba(255,105,180,0.25)] border-4 border-white/90 hover:scale-[1.04] active:scale-[0.96] transition-all duration-300 bg-pink-50 mascot-floating group focus:outline-none focus:ring-2 focus:ring-pink-300">
                     <img id="quiz-hero-img" src="../../assets/og_squirrel_close.jpg" alt="Zitthenkne Mascot" class="w-full h-full object-cover" />
-                </div>
-            </div>
-            <h1 id="quiz-title" class="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent mb-2 tracking-tight">Đang tải thông tin...</h1>
-            <p id="quiz-info" class="text-gray-500 mb-6 text-sm sm:text-base font-medium">Hãy sẵn sàng cho cuộc phiêu lưu tri thức!</p>
-
-            <!-- Mẹo ôn tập xoay vòng -->
-            <div id="quiz-tip" class="flex items-center gap-3 text-left bg-gradient-to-r from-amber-50/90 to-yellow-50/80 border border-amber-200/70 rounded-2xl px-4 py-3.5 mb-6 shadow-sm hover:shadow transition-all duration-200">
-                <div class="w-10 h-10 flex-shrink-0 rounded-xl bg-amber-100/80 text-amber-600 flex items-center justify-center shadow-[0_0_15px_rgba(245,158,11,0.25)] animate-pulse">
-                    <i class="fas fa-lightbulb text-base"></i>
-                </div>
-                <p id="quiz-tip-text" class="flex-1 text-xs sm:text-sm text-amber-900 font-semibold leading-snug transition-opacity duration-200">Mẹo: Hít thở sâu và tập trung — bạn làm được!</p>
-                <button id="quiz-tip-next" type="button" title="Mẹo khác" class="flex-shrink-0 w-8 h-8 rounded-full bg-white/90 text-amber-600 hover:bg-white hover:text-amber-700 border border-amber-300/60 flex items-center justify-center transition active:scale-90 shadow-sm">
-                    <i class="fas fa-rotate"></i>
+                    <span class="absolute bottom-1.5 right-1.5 w-7 h-7 rounded-full bg-white/90 text-pink-500 text-[11px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow" aria-hidden="true"><i class="fas fa-dice"></i></span>
                 </button>
+                <div class="flex-1 min-w-0 w-full">
+                    <h1 id="quiz-title" class="text-xl sm:text-2xl lg:text-3xl font-extrabold bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent mb-1.5 tracking-tight">Đang tải thông tin...</h1>
+                    <p id="quiz-info" class="text-gray-500 mb-3 text-xs sm:text-sm font-medium">Hãy sẵn sàng cho cuộc phiêu lưu tri thức!</p>
+
+                    <!-- Mẹo ôn tập xoay vòng -->
+                    <div id="quiz-tip" class="flex items-center gap-2.5 text-left bg-gradient-to-r from-amber-50/90 to-yellow-50/80 border border-amber-200/70 rounded-xl px-3 py-2.5 shadow-sm">
+                        <div class="w-8 h-8 flex-shrink-0 rounded-lg bg-amber-100/80 text-amber-600 flex items-center justify-center">
+                            <i class="fas fa-lightbulb text-sm"></i>
+                        </div>
+                        <p id="quiz-tip-text" class="flex-1 text-[11px] sm:text-xs text-amber-900 font-semibold leading-snug transition-opacity duration-200">Mẹo: Hít thở sâu và tập trung — bạn làm được!</p>
+                        <button id="quiz-tip-next" type="button" title="Mẹo khác" class="flex-shrink-0 w-7 h-7 rounded-full bg-white/90 text-amber-600 hover:bg-white hover:text-amber-700 border border-amber-300/60 flex items-center justify-center transition active:scale-90 shadow-sm">
+                            <i class="fas fa-rotate text-[11px]"></i>
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- Stats Summary Cards -->
-            <div class="grid grid-cols-3 gap-3 mb-8">
-                <div class="bg-pink-50/50 border border-pink-100/60 p-3 rounded-2xl flex flex-col items-center justify-center transition-all hover:scale-[1.03] hover:bg-pink-50">
-                    <i class="fas fa-question-circle text-pink-500 text-lg sm:text-xl mb-1"></i>
-                    <span class="text-[11px] sm:text-xs text-gray-400 font-medium">Số câu hỏi</span>
+            <div class="grid grid-cols-3 gap-2.5 mb-6">
+                <div class="bg-pink-50/50 border border-pink-100/60 px-2 py-2.5 rounded-2xl flex flex-col items-center justify-center transition-all hover:scale-[1.03] hover:bg-pink-50">
+                    <i class="fas fa-question-circle text-pink-500 text-base sm:text-lg mb-0.5"></i>
+                    <span class="text-[10px] sm:text-[11px] text-gray-400 font-medium">Số câu hỏi</span>
                     <span id="stat-questions-count" class="text-sm sm:text-base font-bold text-gray-700 skeleton-line">--</span>
                 </div>
-                <div class="bg-purple-50/50 border border-purple-100/60 p-3 rounded-2xl flex flex-col items-center justify-center transition-all hover:scale-[1.03] hover:bg-purple-50">
-                    <i class="fas fa-clock text-purple-500 text-lg sm:text-xl mb-1"></i>
-                    <span class="text-[11px] sm:text-xs text-gray-400 font-medium">Thời gian</span>
+                <div class="bg-purple-50/50 border border-purple-100/60 px-2 py-2.5 rounded-2xl flex flex-col items-center justify-center transition-all hover:scale-[1.03] hover:bg-purple-50">
+                    <i class="fas fa-clock text-purple-500 text-base sm:text-lg mb-0.5"></i>
+                    <span class="text-[10px] sm:text-[11px] text-gray-400 font-medium">Thời gian</span>
                     <span id="stat-duration" class="text-sm sm:text-base font-bold text-gray-700 skeleton-line">--</span>
-                    <span id="stat-duration-est" class="text-[11px] text-purple-400 font-medium mt-0.5"></span>
+                    <span id="stat-duration-est" class="text-[10px] text-purple-400 font-medium mt-0.5"></span>
                 </div>
-                <div class="bg-indigo-50/50 border border-indigo-100/60 p-3 rounded-2xl flex flex-col items-center justify-center transition-all hover:scale-[1.03] hover:bg-indigo-50">
-                    <i class="fas fa-trophy text-indigo-500 text-lg sm:text-xl mb-1"></i>
-                    <span class="text-[11px] sm:text-xs text-gray-400 font-medium">Lần làm gần nhất</span>
+                <div class="bg-indigo-50/50 border border-indigo-100/60 px-2 py-2.5 rounded-2xl flex flex-col items-center justify-center transition-all hover:scale-[1.03] hover:bg-indigo-50">
+                    <i class="fas fa-trophy text-indigo-500 text-base sm:text-lg mb-0.5"></i>
+                    <span class="text-[10px] sm:text-[11px] text-gray-400 font-medium">Lần làm gần nhất</span>
                     <span id="stat-last-attempt" class="text-sm sm:text-base font-bold text-gray-700 skeleton-line">--</span>
-                    <span id="stat-last-attempt-sub" class="text-[11px] text-indigo-400 font-medium mt-0.5"></span>
+                    <span id="stat-last-attempt-sub" class="text-[10px] text-indigo-400 font-medium mt-0.5"></span>
                 </div>
             </div>
 
@@ -396,9 +447,31 @@
                 </div>
             </div>
 
-            <!-- Bento-style Options Grid -->
-            <div class="mt-6 border-t border-pink-100/50 pt-6">
-                <h3 class="text-md sm:text-lg font-bold text-gray-700 mb-4 text-left flex items-center gap-2">
+            <!-- Chọn nhanh chế độ: mỗi preset chỉ gạt sẵn các tùy chọn bên dưới (1 chạm là xong),
+                 người dùng vẫn tinh chỉnh tiếp được — preset sáng lên khi cấu hình hiện tại khớp. -->
+            <div class="mt-5 border-t border-pink-100/50 pt-5">
+                <h3 class="text-sm sm:text-base font-bold text-gray-700 mb-3 text-left flex items-center gap-2">
+                    <i class="fas fa-wand-magic-sparkles text-pink-500"></i> Chọn nhanh chế độ
+                </h3>
+                <div id="quiz-mode-presets" class="grid grid-cols-3 gap-2 sm:gap-2.5 mb-5">
+                    <button type="button" class="mode-preset" data-mode="exam">
+                        <span class="mp-ic" aria-hidden="true">🎯</span>
+                        <span class="mp-name">Thi thử</span>
+                        <span class="mp-desc">Tính giờ · trộn đề · chấm khi nộp</span>
+                    </button>
+                    <button type="button" class="mode-preset" data-mode="study">
+                        <span class="mp-ic" aria-hidden="true">📖</span>
+                        <span class="mp-name">Ôn tập</span>
+                        <span class="mp-desc">Đáp án hiện ngay · không tính giờ</span>
+                    </button>
+                    <button type="button" class="mode-preset" data-mode="sprint">
+                        <span class="mp-ic" aria-hidden="true">⚡</span>
+                        <span class="mp-name">Học nhanh</span>
+                        <span class="mp-desc">20 câu ngẫu nhiên · đáp án ngay</span>
+                    </button>
+                </div>
+
+                <h3 class="text-sm sm:text-base font-bold text-gray-700 mb-3 text-left flex items-center gap-2">
                     <i class="fas fa-sliders-h text-pink-500"></i> Tùy chỉnh phiên làm bài
                 </h3>
                 <div id="quiz-options-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -544,7 +617,7 @@
             <!-- Ôn ngắt quãng (spaced repetition kiểu Anki) — nằm NGOÀI #quiz-options-grid
                  để không dính vòng lưu/khôi phục quizLandingOpts_; số câu mới/ngày có kho
                  riêng trong quiz-srs-store.js -->
-            <div class="mt-8 p-5 sm:p-6 bg-gradient-to-r from-indigo-500/10 to-violet-500/10 border-2 border-indigo-300/60 rounded-2xl">
+            <div class="mt-6 p-4 sm:p-5 bg-gradient-to-r from-indigo-500/10 to-violet-500/10 border-2 border-indigo-300/60 rounded-2xl">
                 <div class="flex flex-col md:flex-row items-center justify-between gap-4">
                     <div class="flex items-center gap-4 text-left w-full md:w-auto">
                         <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-400 to-violet-500 text-white flex items-center justify-center shadow-lg flex-shrink-0">
@@ -576,11 +649,14 @@
             </div>
 
             <!-- Start Button & Flashcard practicing -->
-            <div class="mt-8 flex flex-col items-center gap-4">
+            <div class="mt-7 flex flex-col items-center gap-3">
+                <!-- Tóm tắt phiên sắp làm: cập nhật sống theo mọi tùy chọn phía trên -->
+                <div id="session-summary" class="flex flex-wrap justify-center gap-1.5 min-h-[24px]" aria-live="polite"></div>
                 <button type="button" id="start-now-btn" class="w-full max-w-xs px-8 py-4 bg-gradient-to-r from-pink-500 to-[#FF69B4] text-white rounded-2xl hover:shadow-[0_8px_25px_rgba(255,105,180,0.35)] hover:scale-[1.03] active:scale-[0.98] transition-all duration-250 shadow-lg text-lg font-bold flex items-center justify-center gap-2">
                     <i class="fas fa-play"></i> Bắt đầu ngay!
                 </button>
-                <a id="flashcard-link-btn" href="#" class="w-full max-w-xs px-8 py-3.5 bg-purple-50 text-purple-600 border border-purple-200/50 rounded-2xl hover:bg-purple-100/80 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-sm text-sm sm:text-base font-bold flex items-center justify-center gap-2">
+                <p class="hidden sm:flex items-center gap-1.5 text-[11px] text-gray-400 font-medium">Nhấn <kbd class="kbd-key">Enter ⏎</kbd> để bắt đầu ngay</p>
+                <a id="flashcard-link-btn" href="#" class="w-full max-w-xs px-8 py-3 bg-purple-50 text-purple-600 border border-purple-200/50 rounded-2xl hover:bg-purple-100/80 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-sm text-sm sm:text-base font-bold flex items-center justify-center gap-2">
                     <i class="fas fa-clone"></i> Luyện tập Flashcard
                 </a>
             </div>
@@ -858,6 +934,118 @@
                     if (el) el.addEventListener('input', saveLandingOpts);
                 });
 
+                // === CHỌN NHANH CHẾ ĐỘ: preset chỉ gạt các tùy chọn sẵn có (vẫn đi qua
+                // saveLandingOpts + applySuggestedTime nhờ dispatch change như người dùng tự gạt) ===
+                const memeChk = document.getElementById('meme-enabled-checkbox');
+                const presetBtns = document.querySelectorAll('#quiz-mode-presets .mode-preset');
+                const MODE_PRESETS = {
+                    exam:   { sq: true,  sa: true,  ans: false, tm: true,  cnt: false, meme: false },
+                    study:  { sq: false, sa: true,  ans: true,  tm: false, cnt: false, meme: true },
+                    sprint: { sq: true,  sa: true,  ans: true,  tm: false, cnt: true,  meme: true }
+                };
+                const sprintCount = function () { return Math.min(20, window.quizQuestionsLength || 20); };
+                function setChecked(el, val) {
+                    if (el && el.checked !== !!val) {
+                        el.checked = !!val;
+                        el.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                }
+                function applyModePreset(name) {
+                    const p = MODE_PRESETS[name];
+                    if (!p) return;
+                    setChecked(shuffleQCheckbox, p.sq);
+                    setChecked(shuffleACheckbox, p.sa);
+                    setChecked(showAnsCheckbox, p.ans);
+                    setChecked(timedCheckbox, p.tm);
+                    setChecked(memeChk, p.meme);
+                    setChecked(enableCountCheckbox, p.cnt);
+                    if (p.cnt && countInput) {
+                        countInput.value = sprintCount();
+                        countInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                }
+                // Preset sáng lên khi cấu hình hiện tại khớp (meme không tính — chỉ là gia vị)
+                function syncModePresets() {
+                    presetBtns.forEach(function (btn) {
+                        const p = MODE_PRESETS[btn.dataset.mode];
+                        if (!p) return;
+                        let match = (!shuffleQCheckbox || shuffleQCheckbox.checked === p.sq)
+                            && (!shuffleACheckbox || shuffleACheckbox.checked === p.sa)
+                            && (!showAnsCheckbox || showAnsCheckbox.checked === p.ans)
+                            && (!timedCheckbox || timedCheckbox.checked === p.tm)
+                            && (!enableCountCheckbox || enableCountCheckbox.checked === p.cnt);
+                        if (match && p.cnt && countInput) match = parseInt(countInput.value, 10) === sprintCount();
+                        btn.classList.toggle('mp-active', match);
+                    });
+                }
+                presetBtns.forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        applyModePreset(btn.dataset.mode);
+                        syncModePresets();
+                        updateSessionSummary();
+                    });
+                });
+
+                // === TÓM TẮT PHIÊN ngay trên nút Bắt đầu: luôn thấy mình sắp làm gì ===
+                const summaryBox = document.getElementById('session-summary');
+                function updateSessionSummary() {
+                    if (!summaryBox) return;
+                    const total = window.quizQuestionsLength || 0;
+                    let count = total;
+                    if (enableCountCheckbox && enableCountCheckbox.checked && countInput) {
+                        const v = parseInt(countInput.value, 10);
+                        if (!isNaN(v) && v > 0) count = total > 0 ? Math.min(v, total) : v;
+                    }
+                    const chips = [];
+                    chips.push(count > 0
+                        ? { ic: 'fa-list-ol', txt: count + ' câu' }
+                        : { ic: 'fa-hourglass-half', txt: 'Đang tải bộ đề…' });
+                    if (timedCheckbox && timedCheckbox.checked) {
+                        const m = parseInt(timedInput && timedInput.value, 10);
+                        chips.push({ ic: 'fa-stopwatch', txt: (m > 0 ? m : '—') + ' phút' });
+                    } else {
+                        chips.push({ ic: 'fa-infinity', txt: 'Tự do' });
+                    }
+                    chips.push(showAnsCheckbox && showAnsCheckbox.checked
+                        ? { ic: 'fa-eye', txt: 'Đáp án ngay' }
+                        : { ic: 'fa-file-circle-check', txt: 'Chấm khi nộp' });
+                    const mix = [];
+                    if (shuffleQCheckbox && shuffleQCheckbox.checked) mix.push('câu');
+                    if (shuffleACheckbox && shuffleACheckbox.checked) mix.push('đáp án');
+                    if (mix.length) chips.push({ ic: 'fa-shuffle', txt: 'Trộn ' + mix.join(' + ') });
+                    summaryBox.innerHTML = chips.map(function (c) {
+                        return '<span class="sum-chip"><i class="fas ' + c.ic + '"></i>' + c.txt + '</span>';
+                    }).join('');
+                }
+                [shuffleQCheckbox, shuffleACheckbox, showAnsCheckbox, timedCheckbox, enableCountCheckbox, memeChk].forEach(function (el) {
+                    if (el) el.addEventListener('change', function () { syncModePresets(); updateSessionSummary(); });
+                });
+                [timedInput, countInput].forEach(function (el) {
+                    if (el) el.addEventListener('input', function () { syncModePresets(); updateSessionSummary(); });
+                });
+                // Dữ liệu bộ đề tải xong (quiz-ui.js điền thẻ "Số câu hỏi") -> cập nhật lại
+                const statCountEl = document.getElementById('stat-questions-count');
+                if (statCountEl && 'MutationObserver' in window) {
+                    new MutationObserver(function () { syncModePresets(); updateSessionSummary(); })
+                        .observe(statCountEl, { childList: true, characterData: true, subtree: true });
+                }
+                syncModePresets();
+                updateSessionSummary();
+
+                // === Enter = Bắt đầu ngay (chỉ khi đang ở trang chờ, không gõ trong ô nhập/nút,
+                // không có modal xác nhận hay modal chia sẻ đang mở) ===
+                document.addEventListener('keydown', function (e) {
+                    if (e.key !== 'Enter' || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
+                    const landing = document.getElementById('quiz-landing');
+                    if (!landing || landing.classList.contains('hidden') || landing.classList.contains('quiz-landing-leaving')) return;
+                    const t = document.activeElement;
+                    if (t && ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'A'].indexOf(t.tagName) !== -1) return;
+                    if (document.querySelector('.zt-confirm-overlay')) return;
+                    if (shareModal && !shareModal.classList.contains('hidden')) return;
+                    const startBtn = document.getElementById('start-now-btn');
+                    if (startBtn) { e.preventDefault(); startBtn.click(); }
+                });
+
                 // Redirect flashcard
                 var btn = document.getElementById('flashcard-link-btn');
                 if (btn) {
@@ -1076,6 +1264,14 @@
             <!-- Nhóm: Tiện ích khi làm bài -->
             <div class="qs-group">
                 <div class="qs-group-title"><i class="fas fa-bolt"></i> Tiện ích khi làm bài</div>
+                <div class="qs-row" id="qs-timed" role="switch" aria-checked="false" tabindex="0" title="Bật: đếm ngược từ bây giờ; Tắt: bỏ giới hạn giờ">
+                    <span class="qs-label"><i class="fas fa-stopwatch"></i> Tính giờ</span>
+                    <span class="qs-switch"></span>
+                </div>
+                <div class="qs-row" id="qs-show-answer" role="switch" aria-checked="true" tabindex="0" title="Hiện đúng/sai + giải thích ngay sau mỗi câu trả lời">
+                    <span class="qs-label"><i class="fas fa-eye"></i> Xem đáp án ngay</span>
+                    <span class="qs-switch"></span>
+                </div>
                 <div class="qs-row" id="qs-meme" role="switch" aria-checked="true" tabindex="0">
                     <span class="qs-label"><span class="qs-emoji-ic" aria-hidden="true">🤡</span> Meme</span>
                     <span class="qs-switch"></span>
@@ -1171,11 +1367,19 @@
         </div>
     </div>
 
-    <!-- Thanh công cụ định dạng nổi khi bôi đen chữ (đề / đáp án / giải thích / mở rộng / ghi chú) -->
+    <!-- Thanh công cụ định dạng nổi khi bôi đen chữ (đề / đáp án / giải thích / mở rộng / ghi chú):
+         3 màu bôi + in đậm/nghiêng + tẩy gỡ định dạng trong vùng chọn -->
     <div id="annot-toolbar" role="toolbar" aria-label="Định dạng ghi chú">
-        <button type="button" data-annot-action="highlight" title="Bôi vàng"><i class="fas fa-highlighter"></i></button>
+        <button type="button" data-annot-action="highlight" class="annot-dot annot-dot-yellow" title="Bôi vàng" aria-label="Bôi vàng"></button>
+        <button type="button" data-annot-action="hl-green" class="annot-dot annot-dot-green" title="Bôi xanh lá" aria-label="Bôi xanh lá"></button>
+        <button type="button" data-annot-action="hl-blue" class="annot-dot annot-dot-blue" title="Bôi xanh dương" aria-label="Bôi xanh dương"></button>
+        <span class="annot-sep" aria-hidden="true"></span>
         <button type="button" data-annot-action="bold" title="In đậm"><i class="fas fa-bold"></i></button>
         <button type="button" data-annot-action="italic" title="In nghiêng"><i class="fas fa-italic"></i></button>
+        <button type="button" data-annot-action="underline" title="Gạch chân"><i class="fas fa-underline"></i></button>
+        <button type="button" data-annot-action="strike" title="Gạch ngang"><i class="fas fa-strikethrough"></i></button>
+        <span class="annot-sep" aria-hidden="true"></span>
+        <button type="button" data-annot-action="erase" title="Gỡ định dạng trong vùng chọn"><i class="fas fa-eraser"></i></button>
     </div>
 
     <!-- Lớp phủ phóng to ảnh -->
@@ -1282,6 +1486,21 @@
                     <textarea id="qe-expanded" rows="3" class="qe-input qe-grow" placeholder="Kiến thức mở rộng liên quan — tùy chọn"></textarea>
                 </section>
 
+                <!-- Ca lâm sàng (câu chùm) -->
+                <section class="qe-section qe-sec-case">
+                    <details id="qe-case-details">
+                        <summary class="qe-sec-title" style="cursor:pointer;list-style:none;"><i class="fas fa-notes-medical"></i> Ca lâm sàng (câu chùm) <span style="font-weight:400;opacity:.7;">— các câu cùng mã ca dùng chung tình huống</span></summary>
+                        <div style="margin-top:.5rem;display:flex;flex-direction:column;gap:.5rem;">
+                            <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+                                <input id="qe-case-id" class="qe-input" style="flex:1;min-width:8rem;" placeholder="Mã ca (caseId) — để trống nếu câu độc lập" />
+                                <input id="qe-case-title" class="qe-input" style="flex:1;min-width:8rem;" placeholder="Tiêu đề ca — tùy chọn" />
+                            </div>
+                            <textarea id="qe-case-text" rows="3" class="qe-input qe-grow" placeholder="Nội dung tình huống lâm sàng dùng chung (markdown) — tùy chọn"></textarea>
+                            <p class="qe-hint-line"><i class="fas fa-circle-info"></i> Các câu có cùng <b>Mã ca</b> sẽ được gom liền nhau và hiển thị chung khung tình huống này.</p>
+                        </div>
+                    </details>
+                </section>
+
                 <p id="qe-save-hint" class="qe-save-hint"></p>
             </div>
 
@@ -1301,6 +1520,22 @@
         const heroImg = document.getElementById('quiz-hero-img');
         if (heroImg && window.selectedOgImage) {
             heroImg.src = '../../' + window.selectedOgImage;
+        }
+
+        // Bấm vào linh vật -> đổi sang ảnh ngẫu nhiên khác (dùng lại danh sách ảnh OG)
+        const heroBtn = document.getElementById('quiz-hero-btn');
+        if (heroBtn && heroImg && Array.isArray(window.quizOgImages) && window.quizOgImages.length > 1) {
+            heroBtn.addEventListener('click', function () {
+                const cur = heroImg.getAttribute('src') || '';
+                const pool = window.quizOgImages.filter(function (p) { return !cur.endsWith(p); });
+                const pick = pool[Math.floor(Math.random() * pool.length)];
+                heroImg.style.opacity = '0';
+                setTimeout(function () {
+                    heroImg.src = '../../' + pick;
+                    heroImg.style.transition = 'opacity .25s ease';
+                    heroImg.style.opacity = '1';
+                }, 120);
+            });
         }
 
         const menuBtn = document.getElementById('quiz-menu-toggle');
@@ -1356,7 +1591,9 @@
         if (mobileBar && mobileStartBtn && mainStartBtn && landingEl && 'IntersectionObserver' in window) {
             const syncBar = (mainBtnVisible) => {
                 const landingShown = !landingEl.classList.contains('hidden')
-                    && !landingEl.classList.contains('quiz-landing-leaving');
+                    && !landingEl.classList.contains('quiz-landing-leaving')
+                    // Nút gốc bị gỡ khỏi DOM (vd. card lỗi thay thế landing) -> đừng hiện thanh nổi
+                    && mainStartBtn.isConnected;
                 mobileBar.classList.toggle('show', !mainBtnVisible && landingShown);
             };
             const io = new IntersectionObserver((entries) => syncBar(entries[0].isIntersecting), { threshold: 0.1 });

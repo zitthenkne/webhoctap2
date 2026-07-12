@@ -6,7 +6,7 @@ import { showToast } from '../../core/utils.js';
 
 // IMPORT CÁC MODULES CON
 import { initWhiteboard } from './whiteboard.js';
-import { initQuiz } from './quiz.js';
+import { initQuiz } from '../quiz/quiz.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Lấy tất cả các DOM Elements ở một nơi ---
@@ -165,6 +165,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Main Execution Flow ---
+    // Đăng nhập ẩn danh có thể bị tắt trên Firebase -> phải hiện màn chặn rõ ràng,
+    // không để trang "chết im" với các nút không bấm được.
+    function showAuthRequired() {
+        const overlay = document.createElement('div');
+        overlay.className = 'fixed inset-0 z-50 bg-white/95 backdrop-blur flex items-center justify-center p-6';
+        overlay.innerHTML = `
+            <div class="text-center max-w-sm">
+                <img src="../../assets/squirrel_group.png" alt="" class="w-28 h-28 mx-auto mb-4 rounded-2xl shadow-md ring-4 ring-pink-100/70 bg-white">
+                <h2 class="text-xl font-extrabold text-gray-800 mb-2">Cần đăng nhập để vào phòng</h2>
+                <p class="text-sm text-gray-500 mb-5">Đăng nhập ở trang chủ rồi quay lại link phòng này nhé.</p>
+                <a href="../../index.html" class="inline-flex items-center gap-2 px-6 py-2.5 bg-[#FF69B4] text-white rounded-xl font-bold text-sm shadow-md hover:bg-pink-400 transition">
+                    <i class="fas fa-sign-in-alt"></i> Về trang chủ đăng nhập
+                </a>
+            </div>`;
+        document.body.appendChild(overlay);
+    }
+
     onAuthStateChanged(auth, async (authenticatedUser) => {
         if (authenticatedUser) {
             user = authenticatedUser;
@@ -172,7 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             await signInAnonymously(auth).catch((error) => {
                 console.error("Lỗi đăng nhập ẩn danh:", error);
-                showToast('Lỗi xác thực. Vui lòng tải lại trang.', 'error');
+                showAuthRequired();
             });
         }
     });

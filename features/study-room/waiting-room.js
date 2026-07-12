@@ -121,50 +121,62 @@ document.addEventListener('DOMContentLoaded', () => {
         ];
     }
 
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
     function renderMedicalRecords(records) {
         const cardContainer = document.getElementById('medical-record-cards');
-        if (cardContainer) {
-            cardContainer.innerHTML = '';
-            if (records.length === 0) {
-                cardContainer.innerHTML = `<div class='text-center py-6 text-gray-400'>Chưa có bệnh án nào.</div>`;
-            } else {
-                records.forEach((rec, idx) => {
-                    let badgeClass = 'bg-gray-200 text-gray-700';
-                    let status = rec.status || '';
-                    if (!status) status = 'Hoàn thành';
-                    if (status === 'Hoàn thành') badgeClass = 'bg-green-100 text-green-700 border border-green-300';
-                    else if (status === 'Đang chỉnh sửa') badgeClass = 'bg-yellow-100 text-yellow-700 border border-yellow-300';
-                    else if (status === 'Đã xóa') badgeClass = 'bg-red-100 text-red-700 border border-red-300';
-                    const hoTen = rec.hanhChinh?.hoTen || '';
-                    const lyDo = rec.lyDoVaoVien || '';
-                    const chanDoan = rec.chanDoanSoBo || rec.chanDoanXacDinh || '';
-                    const soPhong = rec.hanhChinh?.roomNumber || rec.hanhChinh?.soPhong || '';
-                    const soGiuong = rec.hanhChinh?.bedNumber || rec.hanhChinh?.soGiuong || '';
-                    const thoiGian = rec.hanhChinh?.ngayLamBenhAn || '';
-                    const card = document.createElement('div');
-                    card.className = 'bg-pink-50 border border-pink-200 rounded-2xl shadow-md p-4 flex flex-col gap-2 h-full';
-                    card.innerHTML = `
-                        <div class='flex justify-between items-center'>
-                            <span class='font-bold text-pink-700 text-lg'>${hoTen || 'Chưa đặt tên'}</span>
-                            <span class='px-2 py-1 rounded text-xs ${badgeClass}'>${status}</span>
-                        </div>
-                        <div class='text-gray-600'><b>Lý do:</b> ${lyDo}</div>
-                        <div class='text-gray-600'><b>Chẩn đoán:</b> ${chanDoan}</div>
-                        <div class='flex gap-4 text-gray-500 text-sm'>
-                            <span><i class='fas fa-door-open'></i> Phòng: ${soPhong}</span>
-                            <span><i class='fas fa-bed'></i> Giường: ${soGiuong}</span>
-                        </div>
-                        <div class='text-gray-400 text-xs'>Thời gian: ${thoiGian}</div>
-                        <div class='flex gap-2 mt-2'>
-                            <button class="view-record flex-1 px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition shadow" data-id="${rec.id}" title="Xem bệnh án"><i class="fas fa-eye"></i></button>
-                            <button class="edit-record flex-1 px-2 py-1 bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200 transition shadow" data-id="${rec.id}" title="Chỉnh sửa"><i class="fas fa-edit"></i></button>
-                            <button class="delete-record flex-1 px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition shadow" data-id="${rec.id}" title="Xóa"><i class="fas fa-trash"></i></button>
-                        </div>
-                    `;
-                    cardContainer.appendChild(card);
-                });
-            }
+        if (!cardContainer) return;
+        const countEl = document.getElementById('record-count');
+        if (countEl) countEl.textContent = records.length ? `· ${records.length} bệnh án` : '';
+        cardContainer.innerHTML = '';
+        if (records.length === 0) {
+            cardContainer.innerHTML = `
+                <div class='col-span-full flex flex-col items-center justify-center py-12 text-center'>
+                    <div class='w-16 h-16 rounded-full bg-pink-100 flex items-center justify-center mb-3'><i class='fas fa-notes-medical text-2xl text-pink-400'></i></div>
+                    <p class='text-gray-500 font-semibold'>Chưa có bệnh án nào</p>
+                    <p class='text-gray-400 text-sm mt-1'>Bấm nút <b class='text-pink-500'>+ Tạo bệnh án</b> để bắt đầu nhé!</p>
+                </div>`;
+            return;
         }
+        records.forEach((rec) => {
+            let badgeClass = 'bg-gray-100 text-gray-600 border border-gray-200';
+            let badgeIcon = 'fa-circle';
+            const status = rec.status || 'Hoàn thành';
+            if (status === 'Hoàn thành') { badgeClass = 'bg-green-50 text-green-600 border border-green-200'; badgeIcon = 'fa-check-circle'; }
+            else if (status === 'Đang chỉnh sửa') { badgeClass = 'bg-yellow-50 text-yellow-600 border border-yellow-200'; badgeIcon = 'fa-pen'; }
+            else if (status === 'Đã xóa') { badgeClass = 'bg-red-50 text-red-600 border border-red-200'; badgeIcon = 'fa-trash'; }
+            const hoTen = esc(rec.hanhChinh?.hoTen);
+            const lyDo = esc(rec.lyDoVaoVien);
+            const chanDoan = esc(rec.chanDoanSoBo || rec.chanDoanXacDinh);
+            const soPhong = esc(rec.hanhChinh?.roomNumber || rec.hanhChinh?.soPhong);
+            const soGiuong = esc(rec.hanhChinh?.bedNumber || rec.hanhChinh?.soGiuong);
+            const thoiGian = esc(rec.hanhChinh?.ngayLamBenhAn);
+            const initial = esc((rec.hanhChinh?.hoTen || '?').trim().charAt(0).toUpperCase());
+            const card = document.createElement('div');
+            card.className = 'group bg-white border border-pink-100 rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-pink-300 transition-all duration-200 p-4 flex flex-col gap-2.5 h-full';
+            card.innerHTML = `
+                <div class='flex items-start gap-3'>
+                    <div class='w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-purple-400 text-white font-bold flex items-center justify-center flex-shrink-0 shadow'>${initial}</div>
+                    <div class='min-w-0 flex-1'>
+                        <p class='font-bold text-gray-800 truncate' title='${hoTen}'>${hoTen || 'Chưa đặt tên'}</p>
+                        <span class='inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium mt-0.5 ${badgeClass}'><i class='fas ${badgeIcon} text-[10px]'></i>${esc(status)}</span>
+                    </div>
+                </div>
+                <div class='text-gray-600 text-sm truncate' title='${lyDo}'><span class='text-gray-400'>Lý do:</span> ${lyDo || '—'}</div>
+                <div class='text-gray-600 text-sm truncate' title='${chanDoan}'><span class='text-gray-400'>Chẩn đoán:</span> ${chanDoan || '—'}</div>
+                <div class='flex items-center gap-4 text-gray-400 text-xs mt-auto pt-1'>
+                    <span><i class='fas fa-door-open mr-1'></i>Phòng ${soPhong || '—'}</span>
+                    <span><i class='fas fa-bed mr-1'></i>Giường ${soGiuong || '—'}</span>
+                    ${thoiGian ? `<span class='ml-auto'><i class='far fa-clock mr-1'></i>${thoiGian}</span>` : ''}
+                </div>
+                <div class='flex gap-2 pt-2 border-t border-pink-50'>
+                    <button class="view-record flex-1 px-2 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 active:scale-95 transition text-sm font-medium" data-id="${esc(rec.id)}" title="Xem bệnh án"><i class="fas fa-eye mr-1"></i>Xem</button>
+                    <button class="edit-record flex-1 px-2 py-1.5 bg-yellow-50 text-yellow-600 rounded-lg hover:bg-yellow-100 active:scale-95 transition text-sm font-medium" data-id="${esc(rec.id)}" title="Chỉnh sửa"><i class="fas fa-edit mr-1"></i>Sửa</button>
+                    <button class="delete-record px-3 py-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 active:scale-95 transition text-sm" data-id="${esc(rec.id)}" title="Xóa"><i class="fas fa-trash"></i></button>
+                </div>
+            `;
+            cardContainer.appendChild(card);
+        });
     }
 
     renderMedicalRecords(records);
@@ -198,41 +210,20 @@ document.addEventListener('DOMContentLoaded', () => {
         createBtn.addEventListener('click', () => {
             const newId = 'ba_' + Date.now();
             localStorage.setItem('newMedicalRecordId', newId);
-            window.location.href = 'tao-benh-an.html?id=' + encodeURIComponent(newId);
+            window.location.href = '../medical-record/tao-benh-an.html?id=' + encodeURIComponent(newId);
             window.showToast('Tạo bệnh án mới!');
         });
     }
 
     // Xử lý nút xem/sửa/xóa
-    document.getElementById('medical-record-list')?.addEventListener('click', (e) => {
-        const target = e.target.closest('button');
-        if (!target) return;
-        const id = target.getAttribute('data-id');
-        if (target.classList.contains('view-record')) {
-            window.open(`xem-benh-an.html?id=${encodeURIComponent(id)}`, '_blank');
-        } else if (target.classList.contains('edit-record')) {
-            window.location.href = `tao-benh-an.html?id=${encodeURIComponent(id)}`;
-        } else if (target.classList.contains('delete-record')) {
-            if (confirm('Bạn có chắc muốn xóa bệnh án này?')) {
-                const idx = records.findIndex(r => r.id == id);
-                if (idx !== -1) {
-                    records.splice(idx, 1);
-                    localStorage.setItem('medicalRecords', JSON.stringify(records));
-                    renderMedicalRecords(records);
-                    window.showToast('Đã xóa bệnh án!');
-                }
-            }
-        }
-    });
-    // Xử lý nút xem/sửa/xóa cho card (mobile)
     document.getElementById('medical-record-cards')?.addEventListener('click', (e) => {
         const target = e.target.closest('button');
         if (!target) return;
         const id = target.getAttribute('data-id');
         if (target.classList.contains('view-record')) {
-            window.open(`xem-benh-an.html?id=${encodeURIComponent(id)}`, '_blank');
+            window.open(`../medical-record/xem-benh-an.html?id=${encodeURIComponent(id)}`, '_blank');
         } else if (target.classList.contains('edit-record')) {
-            window.location.href = `tao-benh-an.html?id=${encodeURIComponent(id)}`;
+            window.location.href = `../medical-record/tao-benh-an.html?id=${encodeURIComponent(id)}`;
         } else if (target.classList.contains('delete-record')) {
             if (confirm('Bạn có chắc muốn xóa bệnh án này?')) {
                 const idx = records.findIndex(r => r.id == id);

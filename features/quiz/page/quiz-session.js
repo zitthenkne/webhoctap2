@@ -39,6 +39,10 @@ function showLandingError(message, { showRetry = true } = {}) {
         </div>`;
     const retryBtn = document.getElementById('landing-retry-btn');
     if (retryBtn) retryBtn.addEventListener('click', () => window.location.reload());
+    // Nút "Bắt đầu ngay" gốc đã bị gỡ cùng landing -> ẩn luôn thanh bắt đầu nổi (mobile),
+    // vì IntersectionObserver không bắn lại khi phần tử theo dõi rời DOM.
+    const mobileBar = document.getElementById('mobile-start-bar');
+    if (mobileBar) mobileBar.classList.remove('show');
     document.title = 'Không tải được bộ đề';
 }
 
@@ -203,11 +207,12 @@ export function endQuiz() {
         toggleFocusMode();
     }
 
-    if (!state.quizOptions.showAnswerImmediately) {
-        state.score = 0;
-        for (let i = 0; i < state.questions.length; i++) {
-            if (state.userAnswers[i] === state.questions[i].correctAnswerIndex) state.score++;
-        }
+    // LUÔN chấm lại điểm từ userAnswers: "Xem đáp án ngay" giờ bật/tắt được giữa chừng
+    // (bảng Ngựa thì chỉnh) nên bộ đếm dồn state.score không còn đáng tin — các câu trả
+    // lời trong lúc chế độ đang tắt không được cộng điểm lúc bấm.
+    state.score = 0;
+    for (let i = 0; i < state.questions.length; i++) {
+        if (state.userAnswers[i] === state.questions[i].correctAnswerIndex) state.score++;
     }
 
     try {
@@ -312,6 +317,17 @@ export function startTimer(totalSeconds) {
         }
         totalSeconds--;
     }, 1000);
+}
+
+// Tắt đồng hồ đếm ngược giữa chừng (công tắc "Tính giờ" trong bảng Ngựa thì chỉnh)
+export function stopTimer() {
+    if (state.quizTimerInterval) clearInterval(state.quizTimerInterval);
+    state.quizTimerInterval = null;
+    const timerDisplay = document.getElementById('timerDisplay');
+    if (timerDisplay) {
+        timerDisplay.classList.add('hidden');
+        timerDisplay.classList.remove('timer-warn', 'timer-critical');
+    }
 }
 
 export function startQuizWithCurrentSettings() {

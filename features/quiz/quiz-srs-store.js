@@ -104,6 +104,65 @@ export function setNewPerDay(quizId, n) {
     return meta.newPerDay;
 }
 
+// ----- Nhật ký ôn tập theo ngày (chuỗi ngày + dải hoạt động trên dashboard) -----
+// Khóa toàn cục (không theo bộ đề): { 'YYYY-MM-DD': số câu đã chấm }. Chỉ đếm
+// câu chấm trong phiên ôn ngắt quãng; per-device, không sync cloud.
+// CHÚ Ý: tên khóa cố tình KHÔNG bắt đầu bằng 'quiz_srs_' — prefix đó được
+// getAllSrsSummaries/getAllSrsDeckDetails quét như map của một bộ đề.
+const LOG_KEY = 'quizSrsReviewLog';
+const LOG_KEEP_DAYS = 400;
+
+export function readSrsLog() {
+    return readJson(LOG_KEY, {});
+}
+function bumpSrsLog(now) {
+    const log = readSrsLog();
+    const day = localDayStr(now);
+    log[day] = (log[day] | 0) + 1;
+    const keys = Object.keys(log);
+    if (keys.length > LOG_KEEP_DAYS) {
+        keys.sort();
+        keys.slice(0, keys.length - LOG_KEEP_DAYS).forEach(k => delete log[k]);
+    }
+    writeJson(LOG_KEY, log);
+}
+// Chuỗi ngày ôn liên tiếp. Hôm nay chưa ôn thì CHƯA phá chuỗi (còn cả ngày để
+// giữ) — khi đó đếm lùi từ hôm qua.
+export function getSrsStreak(now = Date.now()) {
+    const log = readSrsLog();
+    let t = now;
+    if (!(log[localDayStr(t)] > 0)) t -= DAY_MS;
+    let streak = 0;
+    while (log[localDayStr(t)] > 0) { streak++; t -= DAY_MS; }
+    return streak;
+}
+
+// ----- Tạm dừng / tiếp tục ôn một bộ đề -----
+// paused nằm trong meta; khác các field meta còn lại, nó ĐƯỢC đồng bộ cloud qua
+// cặp scalar srsPaused/srsPausedAt trên doc quiz_study (last-write-wins theo
+// pausedAt) — push ở quiz-study-store.js, adopt khi kéo về ở quiz-srs-bell.js.
+// Tạm dừng chỉ ẩn bộ đề khỏi chuông + mục "hôm nay" của dashboard; lịch vẫn giữ
+// nguyên và người dùng vẫn có thể tự mở phiên ôn từ trang bộ đề.
+export function isSrsPaused(quizId) {
+    return !!readMeta(quizId).paused;
+}
+export function setSrsPaused(quizId, paused, now = Date.now()) {
+    const meta = readMeta(quizId);
+    meta.paused = !!paused;
+    meta.pausedAt = now;
+    writeMeta(quizId, meta);
+}
+
+// Xóa lịch ôn cục bộ (map + meta). Xóa phía cloud do dashboard đảm nhiệm
+// (đẩy srs rỗng lên quiz_study) — nếu chỉ xóa local, lần sync sau sẽ hồi sinh.
+export function deleteSrsLocal(quizId) {
+    const k = srsKeys(quizId);
+    try {
+        localStorage.removeItem(k.map);
+        localStorage.removeItem(k.meta);
+    } catch (e) {}
+}
+
 // ----- Chấm một câu trả lời trong phiên ôn -----
 export function gradeSrsAnswer(quizId, qText, isCorrect, now = Date.now()) {
     if (!qText) return null;
@@ -126,6 +185,7 @@ export function gradeSrsAnswer(quizId, qText, isCorrect, now = Date.now()) {
     entry.last = now;
     map[qText] = entry;
     writeSrsMap(quizId, map);
+    bumpSrsLog(now);
     return { prevExisted: !!prev, isCorrect, ivl: entry.ivl };
 }
 
@@ -197,6 +257,7 @@ export function countDueNow(quizId, now = Date.now()) {
 
 // Quét toàn bộ localStorage tìm các bộ đề có câu đến hạn — nguồn dữ liệu cho
 // chuông thông báo trên index. title/total lấy từ meta (fallback quizId).
+// Bộ đang tạm dừng không vào chuông.
 export function getAllSrsSummaries(now = Date.now()) {
     const out = [];
     const prefix = 'quiz_srs_';
@@ -209,9 +270,75 @@ export function getAllSrsSummaries(now = Date.now()) {
         const due = countDueNow(quizId, now);
         if (due <= 0) continue;
         const meta = readMeta(quizId);
+        if (meta.paused) continue;
         out.push({ quizId, due, title: meta.title || quizId, total: meta.total | 0 });
     }
     out.sort((a, b) => b.due - a.due);
+    return out;
+}
+
+// Chi tiết mọi bộ đề đang có lịch ôn (kể cả tạm dừng) — nguồn dữ liệu cho
+// dashboard "Ôn tập ngắt quãng" trong mục Thống kê. Mỗi bộ:
+//   due        : số câu đến hạn ngay bây giờ (gồm cả quá hạn)
+//   byOffset   : { 1: n, 2: n, ... } câu đến hạn sau đúng k ngày (1..daysAhead)
+//   later      : số câu đến hạn sau cửa sổ daysAhead ngày
+//   nextDue    : ms của hạn gần nhất trong tương lai (0 nếu không còn)
+//   learned    : số câu đã từng vào lịch; strong: đúng ≥ 3 lần liên tiếp; hard: sai ≥ 3 lần
+//   newToday   : số câu mới còn được phát hôm nay (theo quota, cần meta.total)
+export function getAllSrsDeckDetails(daysAhead = 7, now = Date.now()) {
+    const out = [];
+    const prefix = 'quiz_srs_';
+    const metaPrefix = 'quiz_srs_meta_';
+    const todayEnd = endOfDay(now);
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key || !key.startsWith(prefix) || key.startsWith(metaPrefix)) continue;
+        const quizId = key.slice(prefix.length);
+        if (!quizId) continue;
+        const entries = Object.values(readSrsMap(quizId)).filter(Boolean);
+        if (!entries.length) continue;
+        const meta = readMeta(quizId);
+
+        let due = 0, later = 0, nextDue = 0, strong = 0, hard = 0;
+        const byOffset = {};
+        entries.forEach(e => {
+            if ((e.n | 0) >= 3) strong++;
+            if ((e.lapses | 0) >= 3) hard++;
+            const d = Number(e.due) || 0;
+            if (d <= now) { due++; return; }
+            if (!nextDue || d < nextDue) nextDue = d;
+            // due tương lai luôn chốt cuối ngày → offset ngày = khoảng cách tới
+            // cuối ngày hôm nay chia ngày, làm tròn (an toàn với lệch giờ nhỏ)
+            const offset = Math.max(1, Math.round((d - todayEnd) / DAY_MS));
+            if (offset <= daysAhead) byOffset[offset] = (byOffset[offset] || 0) + 1;
+            else later++;
+        });
+
+        // Câu mới còn lại của bộ (cần biết tổng số câu) + số được phát hôm nay theo quota
+        const total = meta.total | 0;
+        const newRemaining = total > 0 ? Math.max(0, total - entries.length) : 0;
+        const perDay = (meta.newPerDay == null || meta.newPerDay === '') ? null : Math.max(0, parseInt(meta.newPerDay, 10) || 0);
+        const introduced = meta.date === localDayStr(now) ? (meta.newIntroduced | 0) : 0;
+        const newToday = perDay == null ? newRemaining : Math.min(newRemaining, Math.max(0, perDay - introduced));
+
+        out.push({
+            quizId,
+            title: meta.title || quizId,
+            total,
+            learned: entries.length,
+            strong,
+            hard,
+            due,
+            byOffset,
+            later,
+            nextDue,
+            newToday,
+            newPerDay: perDay,
+            paused: !!meta.paused,
+        });
+    }
+    // Bộ đang hoạt động trước (nhiều câu đến hạn hơn lên đầu, rồi hạn gần hơn), bộ tạm dừng xuống cuối
+    out.sort((a, b) => (a.paused - b.paused) || (b.due - a.due) || ((a.nextDue || Infinity) - (b.nextDue || Infinity)));
     return out;
 }
 

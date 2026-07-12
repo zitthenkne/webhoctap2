@@ -2,11 +2,11 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Xem bệnh án</title>
+    <link rel="icon" type="image/png" href="../../assets/logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.0.4/docx.umd.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', 'Roboto', Arial, sans-serif; }
         /* Custom scrollbar for better UX */
@@ -14,24 +14,36 @@
         ::-webkit-scrollbar-thumb { background: #f472b6; border-radius: 8px; }
         .fade-in { animation: fadeIn 0.7s; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px);} to { opacity: 1; transform: none; } }
-        .fab-btn { position: fixed; bottom: 32px; right: 32px; z-index: 50; box-shadow: 0 4px 24px 0 #f472b6a0; }
+        .fab-btn { position: fixed; bottom: calc(20px + env(safe-area-inset-bottom)); right: 16px; z-index: 50; box-shadow: 0 4px 24px 0 #f472b6a0; }
+        @media (min-width: 640px) { .fab-btn { bottom: 32px; right: 32px; } }
         .fab-btn:active { transform: scale(0.97); }
+        /* In bệnh án: chỉ giữ nội dung, bỏ trang trí */
+        @media print {
+            header, footer, .fab-btn, .no-print { display: none !important; }
+            body { background: #fff !important; }
+            main { box-shadow: none !important; border: none !important; max-width: 100% !important; padding: 0 !important; }
+            #medical-record-view > div { box-shadow: none !important; break-inside: avoid; }
+        }
     </style>
 </head>
-<body class="bg-gradient-to-br from-pink-50 to-blue-100 min-h-screen flex flex-col items-center py-0 px-2 sm:px-0">
+<body class="bg-gradient-to-br from-[#FCE4EC] via-[#FDF2F8] to-[#EDE9FE] min-h-screen flex flex-col items-center py-0 px-2 sm:px-0">
     <!-- Header -->
-    <header class="w-full max-w-3xl mx-auto flex items-center gap-3 py-6 px-4 sm:px-8">
-        <img src="../../assets/logo.png" alt="Logo" class="w-12 h-12 rounded-full shadow-lg border-2 border-pink-200 bg-white">
-        <h1 class="text-3xl sm:text-4xl font-extrabold text-pink-600 drop-shadow flex items-center gap-2"><i class="fas fa-file-medical-alt"></i> Xem Bệnh Án</h1>
+    <header class="w-full max-w-3xl mx-auto flex items-center gap-3 py-4 sm:py-6 px-2 sm:px-8 flex-wrap">
+        <img src="../../assets/logo.png" alt="Logo" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-lg border-2 border-pink-200 bg-white">
+        <h1 class="text-xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-400 flex items-center gap-2 flex-1 min-w-0"><i class="fas fa-file-medical-alt text-pink-400"></i> Xem Bệnh Án</h1>
+        <div class="flex items-center gap-2">
+            <a id="edit-record-btn" href="#" class="hidden px-3 py-2 sm:px-4 bg-white border border-pink-200 text-pink-500 rounded-xl hover:bg-pink-50 transition text-sm font-semibold shadow-sm"><i class="fas fa-edit"></i> <span class="hidden sm:inline">Sửa</span></a>
+            <button onclick="window.print()" class="px-3 py-2 sm:px-4 bg-white border border-pink-200 text-pink-500 rounded-xl hover:bg-pink-50 transition text-sm font-semibold shadow-sm"><i class="fas fa-print"></i> <span class="hidden sm:inline">In / PDF</span></button>
+        </div>
     </header>
-    <main class="bg-white rounded-3xl shadow-2xl p-4 sm:p-8 max-w-3xl w-full border-2 border-pink-100 transition-all duration-300 fade-in relative">
-        <div id="medical-record-view" class="space-y-8 text-[15px] sm:text-base">
+    <main class="bg-white rounded-3xl shadow-xl p-4 sm:p-8 max-w-3xl w-full border border-pink-100 transition-all duration-300 fade-in relative">
+        <div id="medical-record-view" class="space-y-4 text-[15px] sm:text-base">
             <!-- Nội dung bệnh án sẽ được render ở đây -->
         </div>
-        <a href="../study-room/waiting-room.html" class="block mt-10 text-pink-600 hover:underline hover:text-pink-700 text-center text-lg font-medium transition-all duration-200"><i class="fas fa-arrow-left"></i> Quay lại danh sách bệnh án</a>
+        <a href="../study-room/waiting-room.html" class="no-print block mt-8 text-pink-600 hover:underline hover:text-pink-700 text-center text-lg font-medium transition-all duration-200"><i class="fas fa-arrow-left"></i> Quay lại danh sách bệnh án</a>
     </main>
-    <!-- Floating Copy Link Button -->
-    <button id="copy-link-btn" class="fab-btn px-5 py-3 bg-pink-500 text-white rounded-full hover:bg-pink-600 text-base flex items-center gap-2 shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-pink-300"><i class="fas fa-link"></i> Sao chép liên kết</button>
+    <!-- Floating Copy Content Button -->
+    <button id="copy-content-btn" class="fab-btn px-4 py-3 sm:px-5 bg-pink-500 text-white rounded-full hover:bg-pink-600 text-base flex items-center gap-2 shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-pink-300" title="Sao chép toàn bộ nội dung bệnh án"><i class="fas fa-copy"></i> <span class="hidden sm:inline">Sao chép nội dung</span></button>
     <!-- Footer -->
     <footer class="w-full max-w-3xl mx-auto text-center text-pink-300 text-sm py-6 mt-8">© 2025 Bệnh viện Squirrel. All rights reserved.</footer>
     <script>
@@ -48,9 +60,17 @@
             record = records.find(r => r.id == recordId);
         } catch (e) { record = null; }
     }
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     function renderField(label, value) {
         if (!value) return '';
-        return `<div class='block'><span class='font-semibold text-pink-500'>${label}${label ? ':' : ''}</span> <span class='text-gray-700 break-words'>${value}</span></div>`;
+        return `<div class='block'><span class='font-semibold text-pink-500'>${label}${label ? ':' : ''}</span> <span class='text-gray-700 break-words whitespace-pre-line'>${esc(value)}</span></div>`;
+    }
+    // Sinh tồn hiển thị dạng badge nằm ngang cho gọn
+    function renderVitals(pairs) {
+        const badges = pairs.filter(([, v]) => v)
+            .map(([l, v]) => `<span class='inline-flex items-baseline gap-1 bg-white border border-pink-200 rounded-lg px-2.5 py-1 text-sm'><span class='text-gray-400 text-xs'>${l}</span><b class='text-gray-700'>${esc(v)}</b></span>`)
+            .join('');
+        return badges ? `<div class='flex flex-wrap gap-2'>${badges}</div>` : '';
     }
     function renderSection(title, html) {
         if (!html) return '';
@@ -72,7 +92,12 @@
         return `<div class='bg-pink-50/80 border border-pink-200 rounded-2xl shadow-sm p-4 sm:p-5 mb-2 transition-all duration-200 hover:shadow-xl hover:border-pink-400 fade-in'><h3 class='text-base sm:text-lg font-bold text-pink-600 mb-3 flex items-center gap-2'>${icon} ${title}</h3><div class='pl-1 sm:pl-2 space-y-2'>${html}</div></div>`;
     }
     function renderRecordView(record) {
-        if (!record) return `<div class='text-center text-gray-400'>Không tìm thấy bệnh án.</div>`;
+        if (!record) return `
+            <div class='flex flex-col items-center justify-center py-16 text-center'>
+                <div class='w-16 h-16 rounded-full bg-pink-100 flex items-center justify-center mb-3'><i class='fas fa-file-circle-question text-2xl text-pink-400'></i></div>
+                <p class='text-gray-500 font-semibold'>Không tìm thấy bệnh án</p>
+                <p class='text-gray-400 text-sm mt-1'>Bệnh án được lưu trên máy đã tạo. Liên kết mở từ máy khác sẽ không có dữ liệu.</p>
+            </div>`;
         let html = '';
         // Hành chính
         const h = record.hanhChinh || {};
@@ -108,16 +133,22 @@
         );
         // Khám bệnh (gồm sinh tồn, toàn thân, các cơ quan)
         const k = (record.khamBenh && record.khamBenh.sinhTon) || {};
-        let khamBenhHtml =
-            renderField('Mạch (l/p)', k.mach) +
-            renderField('Nhiệt độ (°C)', k.nhietDo) +
-            renderField('Huyết áp (mmHg)', k.huyetAp) +
-            renderField('Nhịp thở (l/p)', k.nhipTho) +
-            renderField('SpO2 (%)', k.spo2) +
-            renderField('Chiều cao (cm)', k.chieuCao) +
-            renderField('Cân nặng (kg)', k.canNang) +
-            renderField('BMI (kg/m²)', k.bmi);
+        let khamBenhHtml = renderVitals([
+            ['Mạch', k.mach && k.mach + ' l/p'],
+            ['Nhiệt độ', k.nhietDo && k.nhietDo + ' °C'],
+            ['HA', k.huyetAp && k.huyetAp + ' mmHg'],
+            ['Nhịp thở', k.nhipTho && k.nhipTho + ' l/p'],
+            ['SpO2', k.spo2 && k.spo2 + ' %'],
+            ['Cao', k.chieuCao && k.chieuCao + ' cm'],
+            ['Nặng', k.canNang && k.canNang + ' kg'],
+            ['BMI', k.bmi]
+        ]);
         khamBenhHtml += renderField('Toàn thân', record.khamBenh?.toanThan);
+        khamBenhHtml += renderField('Thể trạng', record.khamBenh?.theTrang);
+        khamBenhHtml += renderField('Da, niêm mạc', record.khamBenh?.daNiemMac);
+        khamBenhHtml += renderField('Lông, tóc, móng', record.khamBenh?.longTocMong);
+        khamBenhHtml += renderField('Tuyến giáp, hạch ngoại vi', record.khamBenh?.tuyenGiapHach);
+        khamBenhHtml += renderField('Dấu hiệu phù, xuất huyết', record.khamBenh?.phuXuatHuyet);
         khamBenhHtml += renderField('Các cơ quan', record.khamBenh?.cacCoQuan);
         khamBenhHtml += renderField('Tuần hoàn (Tim mạch)', record.khamBenh?.circulation);
         khamBenhHtml += renderField('Hô hấp', record.khamBenh?.respiratory);
@@ -129,11 +160,10 @@
         khamBenhHtml += renderField('Răng - Hàm - Mặt', record.khamBenh?.dental);
         khamBenhHtml += renderField('Mắt', record.khamBenh?.eye);
         html += renderSection('V. KHÁM BỆNH', khamBenhHtml);
-        html += renderSection('VIII. CẬN LÂM SÀNG ĐỀ NGHỊ', renderField('', record.canLamSangDeNghi));
-        html += renderSection('IX. KẾT QUẢ CẬN LÂM SÀNG ĐÃ CÓ', renderField('', record.ketQuaCanLamSang));
-        // Chẩn đoán, điều trị
         html += renderSection('VI. TÓM TẮT BỆNH ÁN', renderField('', record.tomTatBenhAn));
         html += renderSection('VII. CHẨN ĐOÁN SƠ BỘ', renderField('', record.chanDoanSoBo));
+        html += renderSection('VIII. CẬN LÂM SÀNG ĐỀ NGHỊ', renderField('', record.canLamSangDeNghi));
+        html += renderSection('IX. KẾT QUẢ CẬN LÂM SÀNG ĐÃ CÓ', renderField('', record.ketQuaCanLamSang));
         html += renderSection('X. CHẨN ĐOÁN XÁC ĐỊNH', renderField('', record.chanDoanXacDinh));
         html += renderSection('XI. HƯỚNG ĐIỀU TRỊ', renderField('', record.huongDieuTri));
         html += renderSection('XII. TIÊN LƯỢNG', renderField('', record.tienLuong));
@@ -141,15 +171,22 @@
         return html;
     }
     document.getElementById('medical-record-view').innerHTML = renderRecordView(record);
-    // Copy link (FAB)
-    const copyBtn = document.getElementById('copy-link-btn');
+    if (record) {
+        // Title động + nút Sửa
+        if (record.hanhChinh?.hoTen) document.title = 'Bệnh án - ' + record.hanhChinh.hoTen;
+        const editBtn = document.getElementById('edit-record-btn');
+        editBtn.href = 'tao-benh-an.html?id=' + encodeURIComponent(record.id);
+        editBtn.classList.remove('hidden');
+    }
+    // Copy toàn bộ nội dung bệnh án dạng text (dữ liệu nằm localStorage nên copy link vô nghĩa với máy khác)
+    const copyBtn = document.getElementById('copy-content-btn');
     copyBtn.onclick = function() {
-        navigator.clipboard.writeText(window.location.href);
-        this.innerHTML = '<i class="fas fa-check"></i> Đã sao chép!';
+        navigator.clipboard.writeText(document.getElementById('medical-record-view').innerText);
+        this.innerHTML = '<i class="fas fa-check"></i> <span class="hidden sm:inline">Đã sao chép!</span>';
         this.classList.remove('bg-pink-500');
         this.classList.add('bg-green-500');
         setTimeout(() => {
-            this.innerHTML = '<i class="fas fa-link"></i> Sao chép liên kết';
+            this.innerHTML = '<i class="fas fa-copy"></i> <span class="hidden sm:inline">Sao chép nội dung</span>';
             this.classList.remove('bg-green-500');
             this.classList.add('bg-pink-500');
         }, 1500);

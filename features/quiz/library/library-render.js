@@ -322,8 +322,11 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
     }
 
     if (quizListContainer) {
-        filteredQuizzes.forEach((quizSet) => {
-            quizListContainer.appendChild(createQuizCard(quizSet, quizzesToDisplay, currentPage));
+        filteredQuizzes.forEach((quizSet, idx) => {
+            const card = createQuizCard(quizSet, quizzesToDisplay, currentPage);
+            // Chỉ số cho hoạt ảnh xuất hiện so le (stagger); giới hạn để thẻ cuối không trễ quá lâu
+            card.style.setProperty('--card-index', Math.min(idx, 12));
+            quizListContainer.appendChild(card);
         });
     }
 

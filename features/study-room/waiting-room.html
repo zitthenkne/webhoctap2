@@ -43,7 +43,7 @@
                 <li><a href="../../index.html" class="nav-link flex items-center p-3 rounded-2xl text-gray-700 hover:bg-gradient-to-r hover:from-[#FFB6C1]/40 hover:to-[#D8BFD8]/40 transition font-bold shadow-sm text-base gap-3"><i class="fas fa-book text-xl w-7 text-center"></i><span>Thư viện</span></a></li>
                 <li><a href="../../index.html" class="nav-link flex items-center p-3 rounded-2xl text-gray-700 hover:bg-gradient-to-r hover:from-[#FFB6C1]/40 hover:to-[#D8BFD8]/40 transition font-bold shadow-sm text-base gap-3"><i class="fas fa-chart-bar text-xl w-7 text-center"></i><span>Thống kê</span></a></li>
                 <li><a href="../../index.html" class="nav-link flex items-center p-3 rounded-2xl text-gray-700 hover:bg-gradient-to-r hover:from-[#FFB6C1]/40 hover:to-[#D8BFD8]/40 transition font-bold shadow-sm text-base gap-3"><i class="fas fa-chalkboard-teacher text-xl w-7 text-center"></i><span>Phòng học của tôi</span></a></li>
-                <li><a href="waiting-room.html" onclick="window.location.href="waiting-room.html"; return false;" class="nav-link flex items-center p-3 rounded-2xl text-gray-700 hover:bg-gradient-to-r hover:from-green-200/40 hover:to-green-100/40 transition font-bold shadow-sm text-base gap-3"><i class="fas fa-notes-medical text-xl w-7 text-center"></i><span>Danh sách bệnh án</span></a></li>
+                <li><a href="waiting-room.html" class="nav-link flex items-center p-3 rounded-2xl text-pink-600 bg-gradient-to-r from-[#FFB6C1]/40 to-[#D8BFD8]/40 transition font-bold shadow-sm text-base gap-3"><i class="fas fa-notes-medical text-xl w-7 text-center"></i><span>Danh sách bệnh án</span></a></li>
             </ul>
         </nav>
     </aside>
@@ -61,24 +61,28 @@
                 </div>
             </div>
         </header>
-        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-[#FCE4EC] p-2 sm:p-4 md:p-8 flex flex-col items-center justify-center">
+        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gradient-to-br from-[#FCE4EC] via-[#FDF2F8] to-[#EDE9FE] p-2 sm:p-4 md:p-8 flex flex-col items-center">
             <!-- Danh sách bệnh án đã làm -->
-            <div class="bg-white rounded-3xl shadow-2xl p-4 sm:p-8 max-w-4xl w-full mb-12 border-2 border-pink-100">
-                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-2">
-                    <h2 class="text-xl sm:text-2xl font-bold text-pink-600">Danh sách bệnh án đã làm</h2>
+            <div class="bg-white/90 backdrop-blur rounded-3xl shadow-xl p-4 sm:p-8 max-w-5xl w-full my-4 md:my-8 border border-pink-100">
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-3">
+                    <div>
+                        <h2 class="text-xl sm:text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-400 flex items-center gap-2"><i class="fas fa-notes-medical text-pink-400"></i>Danh sách bệnh án</h2>
+                        <p class="text-gray-400 text-sm mt-1">Quản lý các bệnh án bạn đã viết <span id="record-count" class="font-semibold text-pink-500"></span></p>
+                    </div>
                     <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                        <input id="search-record" type="text" placeholder="Tìm kiếm bệnh án..." class="px-4 py-2 border-2 border-pink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-300 w-full sm:w-64 text-base shadow-sm transition" />
-                        <button id="create-new-record" class="px-5 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition flex items-center gap-2 shadow-md fixed bottom-20 right-4 z-50 sm:static sm:bottom-auto sm:right-auto" title="Tạo bệnh án mới"><i class="fas fa-plus"></i> <span class="hidden sm:inline">Tạo bệnh án mới</span></button>
+                        <div class="relative w-full sm:w-64">
+                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-pink-300 pointer-events-none"></i>
+                            <input id="search-record" type="search" placeholder="Tìm theo tên, phòng, chẩn đoán..." class="pl-9 pr-4 py-2.5 border-2 border-pink-100 bg-pink-50/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-pink-300 focus:bg-white w-full text-base shadow-sm transition" />
+                        </div>
+                        <button id="create-new-record" class="bg-pink-500 text-white hover:bg-pink-600 active:scale-95 transition flex items-center justify-center gap-2 shadow-lg shadow-pink-200 fixed bottom-24 right-4 z-50 rounded-full w-14 h-14 text-2xl sm:static sm:w-auto sm:h-auto sm:rounded-xl sm:px-5 sm:py-2.5 sm:text-base font-semibold" title="Tạo bệnh án mới"><i class="fas fa-plus"></i> <span class="hidden sm:inline">Tạo bệnh án</span></button>
                     </div>
                 </div>
                 <!-- Card view cho mọi thiết bị -->
-                <div id="medical-record-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div id="medical-record-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     <!-- JS sẽ render các card ở đây -->
                 </div>
             </div>
             <div id="toast-container" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center space-y-2 pointer-events-none"></div>
-            <!-- Floating create button for mobile -->
-            <button id="floating-create-btn" class="sm:hidden fixed bottom-6 right-4 bg-pink-500 text-white rounded-full shadow-lg p-4 flex items-center justify-center text-2xl z-50 hover:bg-pink-600 transition"><i class="fas fa-plus"></i></button>
         </main>
         <footer class="bg-white/80 backdrop-blur-lg text-gray-600 text-center p-3 border-t border-pink-100 flex-shrink-0 rounded-t-2xl shadow-inner text-xs md:text-base">
             <p>&copy; 2025 Zitthenk - Y23C - UMP.</p>
@@ -88,9 +92,33 @@
             <div id="squirrel-message" class="hidden absolute bottom-16 right-0 bg-white/90 text-gray-800 rounded-lg shadow-lg px-4 py-2 text-base max-w-[80vw] sm:max-w-xs z-50 border border-pink-200"></div>
         </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script type="module" src="app.js"></script>
+    <script type="module">
+        // Hiển thị trạng thái đăng nhập (app.js cũ trỏ file không tồn tại nên trang luôn hiện "Khách")
+        import { auth } from '../../core/firebase-init.js';
+        import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js';
+
+        onAuthStateChanged(auth, user => {
+            const name = user ? (user.displayName || (user.email || '').split('@')[0] || 'Bạn') : 'Đăng nhập';
+            const avatar = (user && user.photoURL) ||
+                `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=D8BFD8&color=fff`;
+            ['user-name', 'user-name-sidebar'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = name;
+            });
+            ['user-avatar', 'user-avatar-sidebar', 'user-avatar-mobile'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.src = avatar;
+            });
+            if (!user) {
+                // Chưa đăng nhập: bấm avatar/tên đưa về trang chủ (modal đăng nhập nằm ở đó)
+                const goLogin = () => { window.location.href = '../../index.html'; };
+                const menu = document.getElementById('user-menu-button');
+                if (menu) { menu.style.cursor = 'pointer'; menu.addEventListener('click', goLogin); }
+                const mob = document.getElementById('user-avatar-mobile');
+                if (mob) { mob.style.cursor = 'pointer'; mob.addEventListener('click', goLogin); }
+            }
+        });
+    </script>
     <script src="waiting-room.js"></script>
 </body>
 </html>

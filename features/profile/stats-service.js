@@ -550,35 +550,63 @@ export function calculateGPA(opts) {
             </div>`;
     }
 
-    resultArea.className = `mt-6 p-6 rounded-2xl border-2 bg-gradient-to-br ${gradeBg} ${gradeBorder} transition-all duration-500`;
+    // Thanh "thang hệ 10" chia vùng theo điểm chữ + kim chỉ vị trí hiện tại — nhìn phát biết mình đang ở đâu
+    const ZONES = [
+        { to: 4.0, cls: 'bg-gray-300', label: 'F' },
+        { to: 5.5, cls: 'bg-violet-300', label: 'D' },
+        { to: 7.0, cls: 'bg-sky-300', label: 'C' },
+        { to: 8.5, cls: 'bg-emerald-300', label: 'B' },
+        { to: 10, cls: 'bg-amber-300', label: 'A' },
+    ];
+    let zoneFrom = 0;
+    const zoneHtml = ZONES.map(z => {
+        const seg = `<div class="h-full ${z.cls} flex items-center justify-center" style="width:${(z.to - zoneFrom) * 10}%"><span class="text-[9px] font-extrabold text-white drop-shadow-sm">${z.label}</span></div>`;
+        zoneFrom = z.to;
+        return seg;
+    }).join('');
+    const markerLeft = Math.max(0, Math.min(100, score10 * 10));
+
+    resultArea.className = `mt-6 p-4 sm:p-6 rounded-2xl border-2 bg-gradient-to-br ${gradeBg} ${gradeBorder} transition-all duration-500`;
     resultArea.innerHTML = `
-        <div class="flex flex-col items-center gap-4">
-            <div class="relative">
-                <img src="${img}" alt="Sóc con" class="w-32 h-32 object-contain drop-shadow-lg animate-bounce" style="animation-duration:2s">
-                <span class="absolute -top-2 -right-2 text-3xl">${gradeEmoji}</span>
-            </div>
-            <p class="text-sm sm:text-base font-semibold text-gray-600 text-center italic px-4 leading-relaxed">"${motivation}"</p>
-            <div class="flex justify-center gap-4 sm:gap-8 w-full mt-2">
-                <div class="flex flex-col items-center bg-white/80 rounded-2xl shadow px-4 py-3 min-w-[72px]">
-                    <span class="text-xs text-gray-500 font-medium mb-1">Hệ 10</span>
-                    <span class="${gradeColor} text-3xl font-extrabold">${score10.toFixed(2)}</span>
+        <div class="flex flex-col gap-4">
+            <div class="flex items-center gap-4">
+                <div class="relative shrink-0">
+                    <img src="${img}" alt="Sóc con" class="w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-lg animate-bounce" style="animation-duration:2s">
+                    <span class="absolute -top-1 -right-1 text-2xl">${gradeEmoji}</span>
                 </div>
-                <div class="flex flex-col items-center bg-white/80 rounded-2xl shadow px-4 py-3 min-w-[72px]">
-                    <span class="text-xs text-gray-500 font-medium mb-1">Hệ 4</span>
-                    <span class="${gradeColor} text-3xl font-extrabold">${score4.toFixed(1)}</span>
-                </div>
-                <div class="flex flex-col items-center bg-white/80 rounded-2xl shadow px-4 py-3 min-w-[72px]">
-                    <span class="text-xs text-gray-500 font-medium mb-1">Điểm chữ</span>
-                    <span class="${gradeColor} text-3xl font-extrabold">${letterGrade}</span>
+                <div class="min-w-0 flex-1">
+                    <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Điểm hệ 4</span>
+                    <div class="flex items-end gap-2 flex-wrap mt-0.5">
+                        <span class="${gradeColor} text-6xl font-extrabold leading-none drop-shadow-sm">${score4.toFixed(1)}</span>
+                        <span class="text-lg font-bold text-gray-400 leading-none mb-0.5">/ 4</span>
+                        <span class="${gradeColor} text-base font-extrabold bg-white/80 rounded-full px-3 py-1 shadow-sm mb-0.5">${letterGrade}</span>
+                    </div>
+                    <p class="text-xs sm:text-sm font-semibold text-gray-600 italic mt-2 leading-relaxed">"${motivation}"</p>
                 </div>
             </div>
-            <div class="w-full mt-2">
-                <div class="flex justify-between text-xs text-gray-500 mb-1 font-medium">
-                    <span>Tỉ lệ đúng</span>
-                    <span>${x}/${y} câu (${percentage}%)</span>
+            <div class="grid grid-cols-3 gap-2 sm:gap-3 w-full">
+                <div class="flex flex-col items-center bg-white/80 rounded-2xl shadow px-2 py-2.5">
+                    <span class="text-[10px] text-gray-500 font-semibold mb-0.5 uppercase tracking-wide">Hệ 10</span>
+                    <span class="${gradeColor} text-2xl font-extrabold">${score10.toFixed(2)}</span>
                 </div>
-                <div class="w-full h-4 bg-gray-200 rounded-full overflow-hidden shadow-inner">
-                    <div class="h-full rounded-full transition-all duration-1000 ${gradeColor.replace('text-', 'bg-')}" style="width:${percentage}%"></div>
+                <div class="flex flex-col items-center bg-white/80 rounded-2xl shadow px-2 py-2.5">
+                    <span class="text-[10px] text-gray-500 font-semibold mb-0.5 uppercase tracking-wide">Câu đúng</span>
+                    <span class="${gradeColor} text-2xl font-extrabold">${x}/${y}</span>
+                </div>
+                <div class="flex flex-col items-center bg-white/80 rounded-2xl shadow px-2 py-2.5">
+                    <span class="text-[10px] text-gray-500 font-semibold mb-0.5 uppercase tracking-wide">Tỉ lệ</span>
+                    <span class="${gradeColor} text-2xl font-extrabold">${percentage}%</span>
+                </div>
+            </div>
+            <div class="w-full">
+                <div class="relative mt-1">
+                    <div class="w-full h-5 rounded-full overflow-hidden flex shadow-inner">${zoneHtml}</div>
+                    <div class="absolute -top-1 h-7 w-1 rounded-full bg-gray-700 shadow" style="left:calc(${markerLeft}% - 2px)"></div>
+                </div>
+                <div class="flex justify-between text-[10px] text-gray-400 mt-1 font-semibold">
+                    <span>0</span>
+                    <span>Điểm hệ 10 của bạn: <b class="text-gray-600">${score10.toFixed(2)}</b></span>
+                    <span>10</span>
                 </div>
             </div>
             ${hintHtml}
@@ -743,8 +771,8 @@ export function calculateRequiredCorrectAnswers(opts) {
     // Ba ô điểm hệ 10 / hệ 4 / điểm chữ
     const statChips = (s10, s4, letter, tone) => {
         const t = TONES[tone];
-        const chip = (lbl, val) => `<div class="px-3 py-1.5 rounded-xl bg-white/70 border ${t.border} text-center"><span class="text-[10px] text-gray-400 font-semibold block">${lbl}</span><b class="text-base text-gray-800">${val}</b></div>`;
-        return `<div class="flex flex-wrap gap-2">${chip('HỆ 10', s10)}${chip('HỆ 4', s4)}${chip('ĐIỂM CHỮ', letter)}</div>`;
+        const chip = (lbl, val, hero) => `<div class="px-3 py-1.5 rounded-xl text-center ${hero ? `bg-white border-2 ${t.border} shadow-sm` : `bg-white/70 border ${t.border}`}"><span class="text-[10px] text-gray-400 font-semibold block">${lbl}</span><b class="${hero ? `text-xl ${t.head}` : 'text-base text-gray-800'}">${val}</b></div>`;
+        return `<div class="flex flex-wrap items-stretch gap-2">${chip('HỆ 4', s4, true)}${chip('HỆ 10', s10)}${chip('ĐIỂM CHỮ', letter)}</div>`;
     };
 
     // 3a. Đã nhập đủ tất cả -> báo kết quả tổng kết
@@ -781,7 +809,7 @@ export function calculateRequiredCorrectAnswers(opts) {
                            ${milestoneTableHtml(lever, otherPct, mode, desiredGPA)}` });
             } else {
                 render({ tone: 'info', icon: 'fa-bullseye', title: 'Để đạt mục tiêu cần',
-                    body: `${chips}<div class="mt-3">${heroNumber(needScore.toFixed(2), '/ 10 điểm', null)}</div>
+                    body: `${chips}<div class="mt-3">${heroNumber(needScore.toFixed(2), '/ 10 điểm', '+' + Math.max(0, needScore - cur).toFixed(2) + 'đ nữa')}</div>
                            <p class="mt-2 text-gray-500">Ở lần <b class="text-gray-700">${lever.label}</b> cần đạt bấy nhiêu điểm (đang ${cur.toFixed(2)}/10), giữ nguyên các lần khác.</p>
                            ${milestoneTableHtml(lever, otherPct, mode, desiredGPA)}` });
             }
@@ -799,8 +827,8 @@ export function calculateRequiredCorrectAnswers(opts) {
         const acc = Math.round((needCorrect / lever.total) * 100);
         render({ tone: 'info', icon: 'fa-bullseye', title: 'Để đạt mục tiêu cần',
             body: `${chips}
-                   <div class="mt-3">${heroNumber(needCorrect, `/ ${lever.total} câu`, '≈ ' + acc + '%')}</div>
-                   <p class="mt-2 text-gray-500">Số câu đúng tối thiểu ở lần <b class="text-gray-700">${lever.label}</b> (đang ${cur}/${lever.total}), giữ nguyên các lần khác.</p>
+                   <div class="mt-3">${heroNumber(needCorrect, `/ ${lever.total} câu`, '+' + Math.max(0, needCorrect - cur) + ' câu nữa')}</div>
+                   <p class="mt-2 text-gray-500">Số câu đúng tối thiểu ở lần <b class="text-gray-700">${lever.label}</b> (đang ${cur}/${lever.total} · ≈ ${acc}% bài), giữ nguyên các lần khác.</p>
                    <div class="mt-3 w-full h-2 bg-white rounded-full overflow-hidden shadow-inner"><div class="h-full bg-pink-400 rounded-full transition-all duration-500" style="width:${acc}%"></div></div>
                    ${milestoneTableHtml(lever, otherPct, mode, desiredGPA)}` });
         return;
@@ -1164,6 +1192,24 @@ function wireAttemptInputs(isCustom) {
     }
 }
 
+// Confetti mini khi điểm tạm tính vừa chạm mục tiêu (không dùng thư viện).
+// ponytail: chỉ bắn khi chuyển trạng thái chưa đạt -> đạt, không bắn lại mỗi lần gõ.
+let projReachedBefore = false;
+function burstConfetti(host) {
+    if (!host || !('animate' in Element.prototype)) return;
+    const EMOJI = ['🎉', '✨', '🌸', '💖', '⭐'];
+    for (let i = 0; i < 18; i++) {
+        const s = document.createElement('span');
+        s.textContent = EMOJI[i % EMOJI.length];
+        s.style.cssText = 'position:absolute;left:50%;top:40%;font-size:14px;pointer-events:none;z-index:10;';
+        host.appendChild(s);
+        s.animate([
+            { transform: 'translate(-50%,-50%) scale(0.6)', opacity: 1 },
+            { transform: `translate(${(Math.random() - 0.5) * 280}px, ${(Math.random() - 0.9) * 200}px) scale(${0.9 + Math.random()}) rotate(${(Math.random() - 0.5) * 240}deg)`, opacity: 0 }
+        ], { duration: 700 + Math.random() * 500, easing: 'cubic-bezier(.2,.6,.3,1)' }).onfinish = () => s.remove();
+    }
+}
+
 /**
  * Cập nhật bảng "Điểm tổng kết tạm tính" theo thời gian thực khi người dùng nhập / kéo thanh trượt.
  * Các lần chưa nhập được tạm tính = 0 điểm; có thanh tiến độ và mốc mục tiêu để dễ hình dung.
@@ -1236,16 +1282,16 @@ function updateGpaProjection() {
         ? `<span class="text-[11px] text-gray-400">${blanks} lần chưa nhập = 0đ</span>`
         : '';
 
-    panel.className = 'mt-1 mb-5 p-4 rounded-2xl border ' + (reached ? 'bg-emerald-50 border-emerald-200' : 'bg-pink-50/70 border-pink-200');
+    panel.className = 'relative mt-1 mb-5 p-4 rounded-2xl border ' + (reached ? 'bg-emerald-50 border-emerald-200' : 'bg-pink-50/70 border-pink-200');
     panel.innerHTML = `
         <div class="flex items-center justify-between mb-3">
             <span class="text-xs font-bold text-gray-500 uppercase tracking-wide flex items-center gap-1.5"><i class="fas fa-gauge-high text-pink-400"></i> Điểm tổng kết tạm tính</span>
             ${blankNote}
         </div>
         <div class="flex items-end gap-4 mb-3 flex-wrap">
-            <div class="flex flex-col"><span class="text-[10px] text-gray-400 font-semibold">HỆ 10</span><span class="text-2xl font-extrabold ${accent}">${score10.toFixed(2)}</span></div>
-            <div class="flex flex-col"><span class="text-[10px] text-gray-400 font-semibold">HỆ 4</span><span class="text-2xl font-extrabold ${accent}">${score4.toFixed(1)}</span></div>
-            <div class="flex flex-col"><span class="text-[10px] text-gray-400 font-semibold">ĐIỂM CHỮ</span><span class="text-2xl font-extrabold ${accent}">${letterGrade}</span></div>
+            <div class="flex flex-col"><span class="text-[10px] text-gray-400 font-semibold">HỆ 4</span><span class="text-4xl font-extrabold leading-none ${accent} drop-shadow-sm">${score4.toFixed(1)}</span></div>
+            <div class="flex flex-col"><span class="text-[10px] text-gray-400 font-semibold">HỆ 10</span><span class="text-xl font-extrabold text-gray-600">${score10.toFixed(2)}</span></div>
+            <div class="flex flex-col"><span class="text-[10px] text-gray-400 font-semibold">ĐIỂM CHỮ</span><span class="text-xl font-extrabold text-gray-600">${letterGrade}</span></div>
             <div class="ml-auto text-right"><span class="text-[10px] text-gray-400 font-semibold block">MỤC TIÊU</span><span class="text-sm font-bold ${reached ? 'text-emerald-600' : 'text-amber-600'}">${reached ? 'Đã đạt 🎉' : 'GPA ' + desired.toFixed(1)}</span></div>
         </div>
         <div class="relative w-full h-3 bg-white rounded-full overflow-hidden shadow-inner">
@@ -1258,6 +1304,10 @@ function updateGpaProjection() {
             <span>10</span>
         </div>`;
     panel.classList.remove('hidden');
+
+    // Vừa chạm mục tiêu -> ăn mừng một phát 🎉
+    if (reached && !projReachedBefore) burstConfetti(panel);
+    projReachedBefore = reached;
 }
 
 /**
@@ -1288,6 +1338,19 @@ export function initGpaCalculator() {
             if (e.key === 'Enter') { e.preventDefault(); calculateGPA(); totalEl.blur(); }
         });
         correctEl.dataset.autoAdded = 'true';
+    }
+
+    // Chip điền nhanh tổng số câu (30/40/50/60/100) — bắn 'input' để auto quy đổi
+    const quickChips = document.getElementById('total-quick-chips');
+    if (quickChips && totalEl && !quickChips.dataset.listenerAdded) {
+        quickChips.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-total]');
+            if (!btn) return;
+            totalEl.value = btn.dataset.total;
+            totalEl.dispatchEvent(new Event('input'));
+            if (correctEl && correctEl.value.trim() === '') { correctEl.focus(); correctEl.select?.(); }
+        });
+        quickChips.dataset.listenerAdded = 'true';
     }
 
     // Chips chọn mục tiêu GPA (thay cho dropdown cũ, #desired-gpa-4 giờ là input ẩn)

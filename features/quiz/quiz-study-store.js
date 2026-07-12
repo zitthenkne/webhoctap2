@@ -181,6 +181,10 @@ export async function pushCloudStudy(uid, quizId, data) {
             ...arrays,
             srsTitle: meta.title || '',
             srsTotal: meta.total | 0,
+            // Trạng thái tạm dừng ôn ngắt quãng — scalar last-write-wins theo
+            // pausedAt; máy khác adopt trong syncSrsFromCloud (quiz-srs-bell.js)
+            srsPaused: !!meta.paused,
+            srsPausedAt: Number(meta.pausedAt) || 0,
             updatedAt: serverTimestamp(),
         });
         return true;

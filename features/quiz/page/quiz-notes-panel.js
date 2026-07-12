@@ -8,6 +8,7 @@ import { pushStudyToCloud } from './quiz-study-sync.js';
 // Markup panel ghi chú cá nhân (đặt ở cột phải; logic được nối trong showQuestion)
 export function renderPersonalNotePanel() {
     return `
+        <div class="quiz-panel-drag focus-hide" data-panel="note" role="separator" aria-label="Kéo để xích bảng ghi chú lên/xuống" title="Kéo để xích bảng lên/xuống • bấm đúp để trả về"><i class="fas fa-grip-lines"></i></div>
         <div id="personal-note-box" class="quiz-note-box">
             <button type="button" id="note-toggle" class="quiz-note-header" aria-expanded="true" aria-controls="note-body">
                 <span class="quiz-note-title">

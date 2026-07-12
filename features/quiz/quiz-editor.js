@@ -14,9 +14,10 @@ import { db, auth } from '../../core/firebase-init.js';
 import { doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { showToast } from '../../core/utils.js';
 import { state, saveQuizState } from './quiz-state.js';
+import { tagCaseSequence } from './page/quiz-cases.js';
 
 // Các trường của một câu hỏi mà trình sửa được phép thay đổi (dùng cho cả lưu lẫn hoàn tác).
-const EDIT_FIELDS = ['question', 'answers', 'options', 'correctAnswerIndex', 'optionExplanations', 'note', 'explanation', 'expanded'];
+const EDIT_FIELDS = ['question', 'answers', 'options', 'correctAnswerIndex', 'optionExplanations', 'note', 'explanation', 'expanded', 'caseId', 'caseText', 'caseTitle'];
 
 // Hàm render lại câu hỏi hiện tại (được tiêm vào từ quiz-page.js).
 let _rerender = () => {};
@@ -178,6 +179,12 @@ export function openQuestionEditor() {
     qeEl('qe-note').value = q.note == null ? '' : String(q.note);
     qeEl('qe-explanation').value = q.explanation == null ? '' : String(q.explanation);
     qeEl('qe-expanded').value = q.expanded == null ? '' : String(q.expanded);
+    qeEl('qe-case-id').value = q.caseId == null ? '' : String(q.caseId);
+    qeEl('qe-case-title').value = q.caseTitle == null ? '' : String(q.caseTitle);
+    qeEl('qe-case-text').value = q.caseText == null ? '' : String(q.caseText);
+    // Mở sẵn phần "Ca lâm sàng" nếu câu này đã thuộc một ca
+    const caseDetails = qeEl('qe-case-details');
+    if (caseDetails) caseDetails.open = !!(q.caseId || q.caseText);
 
     // Cho biết nơi lưu (đám mây nếu là chủ bộ đề, ngược lại lưu cục bộ)
     const user = auth.currentUser;
@@ -223,7 +230,10 @@ async function saveQuestionEditor() {
         optionExplanations: optionExps,
         note: qeEl('qe-note').value,
         explanation: qeEl('qe-explanation').value,
-        expanded: qeEl('qe-expanded').value
+        expanded: qeEl('qe-expanded').value,
+        caseId: qeEl('qe-case-id').value.trim(),
+        caseTitle: qeEl('qe-case-title').value.trim(),
+        caseText: qeEl('qe-case-text').value
     };
 
     const idx = state.currentIndex;
@@ -259,6 +269,8 @@ async function saveQuestionEditor() {
     if (origIdx >= 0 && state.quizData && state.quizData.questions[origIdx]) {
         Object.assign(state.quizData.questions[origIdx], edited);
     }
+    // Sửa mã ca có thể đổi nhóm ca -> gán lại thứ tự câu trong ca cho nhãn/chấm đúng.
+    tagCaseSequence(state.questions);
 
     saveQuizState();
     closeQuestionEditor();
@@ -315,6 +327,7 @@ async function undoLastEdit() {
     if (snap.origIdx >= 0 && state.quizData && state.quizData.questions[snap.origIdx]) {
         restoreFields(state.quizData.questions[snap.origIdx], snap.prevCanonical);
     }
+    tagCaseSequence(state.questions);
 
     // 2) Khôi phục kết quả/điểm/trạng thái trả lời của câu
     state.userAnswers[snap.idx] = snap.prevAnswer;

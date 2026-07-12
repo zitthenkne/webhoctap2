@@ -9,6 +9,9 @@ import { state } from '../quiz-state.js';
 let _catMemeTimer = null; // hẹn giờ tự ẩn meme con mèo
 // GIF đã được tải sẵn cho câu đang xem (để khi trả lời hiện tức thì, không trễ)
 let _preloadedMemes = { idx: -1, happy: null, sad: null };
+// Loại meme đã HIỆN ở câu trước ('happy'|'sad'): chỉ cái này cần thay+tải mới,
+// cái còn lại chưa dùng nên giữ nguyên (khỏi tải lại cả 2).
+let _lastConsumed = null;
 
 // Meme câu ĐÚNG (happy cat) — 20 GIF từ giphy.com/search/happy-cat
 const HAPPY_CAT_MEMES = [
@@ -70,10 +73,15 @@ export function preloadCurrentMemes() {
     if (!getCatMemeEnabled()) return;
     const idx = state.currentIndex;
     if (_preloadedMemes.idx === idx && _preloadedMemes.happy && _preloadedMemes.sad) return;
-    const happy = pickRandom(HAPPY_CAT_MEMES);
-    const sad = pickRandom(SAD_CAT_MEMES);
+    // Giữ lại meme CHƯA hiện ở câu trước (vẫn còn tải sẵn), chỉ chọn+tải mới cái đã dùng.
+    let happy = _preloadedMemes.happy;
+    let sad = _preloadedMemes.sad;
+    const toLoad = [];
+    if (!happy || _lastConsumed === 'happy') { happy = pickRandom(HAPPY_CAT_MEMES); toLoad.push(happy); }
+    if (!sad || _lastConsumed === 'sad') { sad = pickRandom(SAD_CAT_MEMES); toLoad.push(sad); }
     _preloadedMemes = { idx, happy, sad };
-    [happy, sad].forEach(u => { try { const im = new Image(); im.src = u; } catch (e) {} });
+    _lastConsumed = null;
+    toLoad.forEach(u => { try { const im = new Image(); im.src = u; } catch (e) {} });
 }
 
 // Đồng bộ trạng thái BẬT/TẮT meme lên cả 2 nơi: công tắc trong bảng điều khiển khi
@@ -108,6 +116,7 @@ export function hideCatMeme() {
 
 export function showCatMeme(isCorrect) {
     if (!getCatMemeEnabled()) return; // người dùng đã tắt meme
+    _lastConsumed = isCorrect ? 'happy' : 'sad'; // câu sau chỉ tải lại đúng loại này
     let el = document.getElementById('cat-meme-pop');
     if (!el) {
         el = document.createElement('div');

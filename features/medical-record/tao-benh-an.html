@@ -4,23 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Bệnh án điện tử chi tiết</title>
+    <link rel="icon" type="image/png" href="../../assets/logo.png">
     <script src="../../pwa-install.js" defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        .tab-link { cursor: pointer; }
-        .tab-link.active { 
+        .tab-content.active { display: block; animation: fadeIn 0.25s; }
+        .tab-link { cursor: pointer; white-space: nowrap; }
+        .tab-link.active {
             border-color: #ec4899; /* pink-500 */
-            color: #ec4899; 
+            color: #ec4899;
             font-weight: 600;
+            background: #fdf2f8; /* pink-50 */
         }
-        /* Nâng cấp: Cố định thanh tab */
+        /* Nâng cấp: Cố định thanh tab, cuộn ngang trên mobile */
         .sticky-tabs {
             position: sticky;
             top: 0;
             z-index: 20;
+            background: #fff;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+        .sticky-tabs::-webkit-scrollbar { display: none; }
+        /* Nâng cấp: đồng bộ style input toàn form */
+        #medical-record-form input:not([type=hidden]), #medical-record-form select, #medical-record-form textarea {
+            border-color: #fbcfe8; /* pink-200 */
+            background: #fdf2f8aa;
+            transition: border-color .15s, box-shadow .15s, background .15s;
+        }
+        #medical-record-form input:focus, #medical-record-form select:focus, #medical-record-form textarea:focus {
             background: #fff;
         }
         /* Nâng cấp: Hiệu ứng focus cho input */
@@ -29,10 +43,46 @@
             border-color: #ec4899;
             box-shadow: 0 0 0 2px #fbcfe8;
         }
-        /* Nâng cấp: Tooltip */
+        /* Nâng cấp: Tooltip (display:block để input w-full không bị co trên mobile) */
         .tooltip {
             position: relative;
-            display: inline-block;
+            display: block;
+        }
+        /* Chừa chỗ cho home indicator iPhone */
+        .sticky-actions {
+            padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+        }
+        /* Touch: bỏ tooltip hover (không có hover), placeholder đã đủ thông tin */
+        @media (hover: none) {
+            .tooltip .tooltiptext { display: none; }
+        }
+        /* Chip gợi ý nhanh: bấm để điền, đỡ gõ trên điện thoại */
+        .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+        .chip {
+            border: 1px solid #fbcfe8;
+            background: #fdf2f8;
+            color: #db2777;
+            border-radius: 9999px;
+            padding: 4px 12px;
+            font-size: 12px;
+            line-height: 1.4;
+            cursor: pointer;
+            transition: background .15s;
+        }
+        .chip:hover, .chip:active { background: #fbcfe8; }
+        @media (max-width: 640px) {
+            /* Ô nhập cao hơn cho dễ chạm */
+            #medical-record-form input:not([type=hidden]), #medical-record-form select {
+                min-height: 44px;
+            }
+            #medical-record-form textarea { padding: 0.65rem 0.75rem; }
+            /* Fieldset bớt padding để nội dung rộng hơn */
+            #medical-record-form fieldset { padding: 0.625rem; }
+            .chip { padding: 6px 14px; }
+        }
+        /* Bàn phím mở: ẩn thanh lưu sticky để không che ô đang gõ (chỉ thiết bị touch) */
+        @media (hover: none) {
+            body.typing .sticky-actions { display: none; }
         }
         .tooltip .tooltiptext {
             visibility: hidden;
@@ -65,29 +115,41 @@
         }
     </style>
 </head>
-<body class="bg-gradient-to-br from-pink-50 to-blue-50 min-h-screen flex flex-col items-center py-10">
-    <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-6xl w-full">
-        <h2 class="text-2xl font-bold text-pink-600 mb-4 flex items-center gap-3"><i class="fas fa-file-medical-alt"></i> Bệnh Án Điện Tử Nội Khoa</h2>
-        
-        <div class="border-b border-gray-200 mb-6 sticky-tabs">
-            <ul class="flex flex-wrap -mb-px text-sm font-medium text-center text-gray-500" id="tab-nav">
-                <li class="mr-2">
-                    <a class="tab-link inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 active" data-tab="hanh-chinh"><i class="fas fa-user"></i> I. Hành chính</a>
+<body class="bg-gradient-to-br from-[#FCE4EC] via-[#FDF2F8] to-[#EDE9FE] min-h-screen flex flex-col items-center p-2 sm:p-6 md:py-10">
+    <div class="bg-white/95 backdrop-blur rounded-3xl shadow-xl p-4 sm:p-8 max-w-6xl w-full border border-pink-100">
+        <div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
+            <h2 class="text-xl sm:text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-400 flex items-center gap-3"><i class="fas fa-file-medical-alt text-pink-400"></i> Bệnh Án Điện Tử Nội Khoa</h2>
+            <a href="../study-room/waiting-room.html" class="text-sm text-pink-500 hover:text-pink-600 hover:underline flex items-center gap-1.5 font-medium"><i class="fas fa-arrow-left"></i> Danh sách bệnh án</a>
+        </div>
+
+        <div class="border-b border-pink-100 mb-6 sticky-tabs">
+            <ul class="flex -mb-px text-sm font-medium text-center text-gray-500" id="tab-nav">
+                <li class="mr-1">
+                    <a class="tab-link inline-block px-3 py-3 sm:p-4 border-b-2 border-transparent rounded-t-lg hover:text-pink-500 hover:border-pink-200 transition active" data-tab="hanh-chinh"><i class="fas fa-user mr-1"></i> <span class="hidden sm:inline">I. </span>Hành chính</a>
                 </li>
-                <li class="mr-2">
-                    <a class="tab-link inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300" data-tab="lydo-tiensu"><i class="fas fa-notes-medical"></i> II, III & IV. Lý do & Bệnh sử</a>
+                <li class="mr-1">
+                    <a class="tab-link inline-block px-3 py-3 sm:p-4 border-b-2 border-transparent rounded-t-lg hover:text-pink-500 hover:border-pink-200 transition" data-tab="lydo-tiensu"><i class="fas fa-notes-medical mr-1"></i> <span class="hidden sm:inline">II–IV. Lý do & </span>Tiền sử</a>
                 </li>
-                <li class="mr-2">
-                    <a class="tab-link inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300" data-tab="kham-benh"><i class="fas fa-stethoscope"></i> V & VIII, IX. Khám bệnh</a>
+                <li class="mr-1">
+                    <a class="tab-link inline-block px-3 py-3 sm:p-4 border-b-2 border-transparent rounded-t-lg hover:text-pink-500 hover:border-pink-200 transition" data-tab="kham-benh"><i class="fas fa-stethoscope mr-1"></i> <span class="hidden sm:inline">V, VIII–IX. </span>Khám<span class="hidden sm:inline"> & CLS</span></a>
                 </li>
-                 <li class="mr-2">
-                    <a class="tab-link inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300" data-tab="chan-doan-dieu-tri"><i class="fas fa-diagnoses"></i> VI-XIII. Chẩn đoán & Điều trị</a>
+                 <li class="mr-1">
+                    <a class="tab-link inline-block px-3 py-3 sm:p-4 border-b-2 border-transparent rounded-t-lg hover:text-pink-500 hover:border-pink-200 transition" data-tab="chan-doan-dieu-tri"><i class="fas fa-diagnoses mr-1"></i> Chẩn đoán<span class="hidden sm:inline"> & Điều trị</span></a>
                 </li>
             </ul>
         </div>
 
         <form id="medical-record-form" class="flex flex-col gap-6">
             <input type="hidden" id="medical-record-id">
+            <datalist id="ethnicity-list">
+                <option>Kinh</option><option>Hoa</option><option>Khmer</option><option>Chăm</option><option>Tày</option><option>Thái</option><option>Mường</option><option>Nùng</option><option>Ê Đê</option><option>Gia Rai</option>
+            </datalist>
+            <datalist id="occupation-list">
+                <option>Học sinh</option><option>Sinh viên</option><option>Công nhân</option><option>Nông dân</option><option>Nhân viên văn phòng</option><option>Buôn bán</option><option>Nội trợ</option><option>Tài xế</option><option>Giáo viên</option><option>Hưu trí</option>
+            </datalist>
+            <datalist id="hospital-list">
+                <option>BV Chợ Rẫy</option><option>BV Đại học Y Dược TP.HCM</option><option>BV Nhân dân Gia Định</option><option>BV Nhân dân 115</option><option>BV Nguyễn Tri Phương</option><option>BV Nguyễn Trãi</option><option>BV Bình Dân</option><option>BV Trưng Vương</option><option>BV Thống Nhất</option>
+            </datalist>
 
             <div id="hanh-chinh" class="tab-content active">
                 <fieldset class="border-2 border-pink-200 p-4 rounded-lg shadow-sm mb-6">
@@ -108,8 +170,8 @@
                             <input type="number" id="patient-age" class="w-full border rounded-lg px-3 py-2" placeholder="Tự động tính từ năm sinh">
                         </div>
                         <div><label for="patient-gender" class="block font-semibold mb-1">Giới tính</label><select id="patient-gender" class="w-full border rounded-lg px-3 py-2"><option>Nam</option><option>Nữ</option><option>Khác</option></select></div>
-                        <div><label for="patient-ethnicity" class="block font-semibold mb-1">Dân tộc</label><input type="text" id="patient-ethnicity" value="Kinh" class="w-full border rounded-lg px-3 py-2"></div>
-                        <div><label for="patient-occupation" class="block font-semibold mb-1">Nghề nghiệp</label><input type="text" id="patient-occupation" class="w-full border rounded-lg px-3 py-2" placeholder="Ví dụ: Sinh viên, Công nhân..."></div>
+                        <div><label for="patient-ethnicity" class="block font-semibold mb-1">Dân tộc</label><input type="text" id="patient-ethnicity" value="Kinh" list="ethnicity-list" class="w-full border rounded-lg px-3 py-2"></div>
+                        <div><label for="patient-occupation" class="block font-semibold mb-1">Nghề nghiệp</label><input type="text" id="patient-occupation" list="occupation-list" class="w-full border rounded-lg px-3 py-2" placeholder="Ví dụ: Sinh viên, Công nhân..."></div>
                         <div class="lg:col-span-3"><label for="patient-address" class="block font-semibold mb-1">Địa chỉ</label><input type="text" id="patient-address" class="w-full border rounded-lg px-3 py-2" placeholder="Nhập địa chỉ cụ thể"></div>
                         <div><label for="contact-name" class="block font-semibold mb-1">Người liên hệ</label><input type="text" id="contact-name" class="w-full border rounded-lg px-3 py-2" placeholder="Tên người thân"></div>
                         <div><label for="contact-phone" class="block font-semibold mb-1">SĐT liên hệ</label><input type="tel" id="contact-phone" class="w-full border rounded-lg px-3 py-2" placeholder="09xxxxxxxx"></div>
@@ -140,7 +202,7 @@
                         </div>
                         <div>
                             <label for="hospital-name" class="block font-semibold mb-1">Bệnh viện</label>
-                            <input type="text" id="hospital-name" class="w-full border rounded-lg px-3 py-2" placeholder="Nhập tên bệnh viện (nếu có)">
+                            <input type="text" id="hospital-name" list="hospital-list" class="w-full border rounded-lg px-3 py-2" placeholder="Nhập tên bệnh viện (nếu có)">
                         </div>
                     </div>
                 </fieldset>
@@ -202,7 +264,6 @@
                         <div><label class="block font-semibold mb-1">Dấu hiệu phù, xuất huyết</label><textarea id="exam-edema-bleed" rows="2" class="w-full border rounded-lg p-2" placeholder="Mô tả dấu hiệu phù, xuất huyết"></textarea></div>
                     </div>
                     <div class="flex flex-col gap-4 mt-4">
-                        <div><label class="block font-semibold mb-1">Toàn thân</label><textarea id="exam-general" rows="3" class="w-full border rounded-lg p-2" placeholder="Mô tả khám toàn thân"></textarea></div>
                         <fieldset class="border border-pink-200 rounded-lg p-4">
                             <legend class="font-semibold text-pink-500 px-2">Khám các cơ quan (Bộ phận): Khám theo trình tự từ trên xuống dưới một cách hệ thống</legend>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
@@ -238,22 +299,22 @@
                 </div>
             </div>
 
-            <div class="flex flex-col md:flex-row gap-4 items-center mt-4">
-                <label for="record-status" class="block font-semibold mb-1 text-pink-500">Trạng thái bệnh án:</label>
-                <select id="record-status" class="border rounded-lg px-3 py-2 w-full md:w-auto">
-                    <option value="Hoàn thành">Hoàn thành</option>
-                    <option value="Đang chỉnh sửa">Chưa hoàn thành</option>
-                </select>
+            <div class="sticky-actions sticky bottom-0 z-20 -mx-4 sm:-mx-8 px-4 sm:px-8 py-3 bg-white/95 backdrop-blur border-t border-pink-100 rounded-b-3xl flex flex-row gap-3 items-center mt-4">
+                <div class="flex items-center gap-2 flex-1">
+                    <label for="record-status" class="font-semibold text-pink-500 whitespace-nowrap text-sm hidden sm:inline">Trạng thái:</label>
+                    <select id="record-status" class="border rounded-lg px-3 py-2 w-full sm:w-auto">
+                        <option value="Hoàn thành">Hoàn thành</option>
+                        <option value="Đang chỉnh sửa">Chưa hoàn thành</option>
+                    </select>
+                </div>
+                <button type="submit" id="save-button" class="bg-pink-500 text-white px-6 py-3 rounded-xl hover:bg-pink-600 active:scale-[0.98] transition font-bold flex items-center justify-center gap-2 disabled:bg-pink-300 shadow-lg shadow-pink-200 focus:ring-2 focus:ring-pink-300">
+                    <span class="button-text"><i class="fas fa-save"></i> Lưu bệnh án</span>
+                    <i class="fas fa-spinner fa-spin button-spinner hidden"></i>
+                </button>
             </div>
-
-            <button type="submit" id="save-button" class="mt-4 bg-pink-500 text-white px-4 py-3 rounded-lg hover:bg-pink-600 transition font-bold flex items-center justify-center gap-2 disabled:bg-pink-300 shadow-lg focus:ring-2 focus:ring-pink-300">
-                <span class="button-text"><i class="fas fa-save"></i> Lưu bệnh án</span>
-                <i class="fas fa-spinner fa-spin button-spinner hidden"></i>
-            </button>
         </form>
 
-        <div id="save-message" class="mt-4 text-green-600 font-semibold hidden text-center text-lg bg-green-50 border border-green-200 rounded-lg py-2 px-4 shadow">Đã lưu bệnh án thành công!</div>
-        <a href="../study-room/waiting-room.html" class="block mt-6 text-blue-600 hover:underline text-center"><i class="fas fa-arrow-left"></i> Quay lại danh sách bệnh án</a>
+        <div id="save-message" class="mt-4 text-green-600 font-semibold hidden text-center text-lg bg-green-50 border border-green-200 rounded-lg py-2 px-4 shadow"><i class="fas fa-check-circle"></i> Đã lưu bệnh án thành công!</div>
     </div>
     <script src="tao-benh-an.js"></script>
 </body>
