@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "test": "node --test \"features/quiz/tests/**/*.test.js\""
+    "test": "node --test \"features/quiz/tests/**/*.test.js\"",
+    "deploy:rules": "firebase deploy --only firestore:rules"
   },
   "dependencies": {
     "axios": "^1.11.0",

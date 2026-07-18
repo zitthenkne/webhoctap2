@@ -1446,7 +1446,7 @@
         <div class="qe-dialog" role="dialog" aria-modal="true" aria-label="Chỉnh sửa câu hỏi">
             <!-- Header -->
             <div class="qe-header">
-                <h3 class="qe-title"><span class="qe-title-ic"><i class="fas fa-pen-to-square"></i></span> Chỉnh sửa câu hỏi</h3>
+                <h3 class="qe-title"><span class="qe-title-ic"><i class="fas fa-pen-to-square"></i></span> <span>Chỉnh sửa câu hỏi</span><span id="qe-qpos" class="qe-qpos"></span></h3>
                 <button type="button" id="qe-close-btn" class="qe-icon-btn" title="Đóng" aria-label="Đóng"><i class="fas fa-times"></i></button>
             </div>
 
@@ -1464,42 +1464,53 @@
                         <span><i class="fas fa-list-check"></i> Phương án &amp; đáp án đúng</span>
                         <button type="button" id="qe-add-option" class="qe-add-btn"><i class="fas fa-plus"></i> Thêm phương án</button>
                     </div>
+                    <label class="qe-multi-toggle" style="display:flex;align-items:center;gap:8px;margin:6px 0 10px;font-size:.9rem;cursor:pointer;">
+                        <input type="checkbox" id="qe-multi-check" style="width:16px;height:16px;cursor:pointer;">
+                        <span><i class="fas fa-list-check"></i> Cho phép nhiều đáp án đúng</span>
+                    </label>
                     <div id="qe-options" class="qe-options"></div>
-                    <p class="qe-hint-line"><i class="fas fa-circle-info"></i> Bấm vào chữ cái (A, B, C…) ở phương án để chọn làm đáp án đúng.</p>
+                    <p class="qe-hint-line"><i class="fas fa-circle-info"></i> <span id="qe-mark-hint">Bấm vào chữ cái (A, B, C…) ở phương án để chọn làm đáp án đúng.</span></p>
                 </section>
+
+                <!-- Nhóm tùy chọn: gấp gọn để bớt rối, tự mở khi có sẵn nội dung -->
+                <div class="qe-optional-label"><span>Tùy chọn thêm</span></div>
 
                 <!-- Giải thích chung -->
-                <section class="qe-section qe-sec-exp">
-                    <div class="qe-sec-title"><i class="fas fa-circle-check"></i> Giải thích chung</div>
-                    <textarea id="qe-explanation" rows="2" class="qe-input qe-grow" placeholder="Dùng khi phương án đúng chưa có giải thích riêng — tùy chọn"></textarea>
-                </section>
+                <div class="qe-acc qe-sec-exp">
+                    <button type="button" class="qe-acc-sum"><i class="fas fa-circle-check"></i> <span class="qe-acc-name">Giải thích chung</span> <span class="qe-acc-hint">khi đáp án đúng chưa có giải thích riêng</span><span class="qe-acc-dot" title="Đã có nội dung"></span><i class="fas fa-chevron-down qe-acc-chev"></i></button>
+                    <div class="qe-acc-body">
+                        <textarea id="qe-explanation" rows="2" class="qe-input qe-grow" placeholder="Nhập giải thích chung… — tùy chọn"></textarea>
+                    </div>
+                </div>
 
                 <!-- Ghi chú ghi nhớ -->
-                <section class="qe-section qe-sec-note">
-                    <div class="qe-sec-title"><i class="fas fa-thumbtack"></i> Ghi chú ghi nhớ</div>
-                    <textarea id="qe-note" rows="2" class="qe-input qe-grow" placeholder="Mẹo ghi nhớ, lưu ý nhanh… — tùy chọn"></textarea>
-                </section>
+                <div class="qe-acc qe-sec-note">
+                    <button type="button" class="qe-acc-sum"><i class="fas fa-thumbtack"></i> <span class="qe-acc-name">Ghi chú ghi nhớ</span> <span class="qe-acc-hint">mẹo nhớ, lưu ý nhanh</span><span class="qe-acc-dot" title="Đã có nội dung"></span><i class="fas fa-chevron-down qe-acc-chev"></i></button>
+                    <div class="qe-acc-body">
+                        <textarea id="qe-note" rows="2" class="qe-input qe-grow" placeholder="Nhập ghi chú ghi nhớ… — tùy chọn"></textarea>
+                    </div>
+                </div>
 
                 <!-- Mở rộng kiến thức -->
-                <section class="qe-section qe-sec-expand">
-                    <div class="qe-sec-title"><i class="fas fa-up-right-and-down-left-from-center"></i> Mở rộng kiến thức</div>
-                    <textarea id="qe-expanded" rows="3" class="qe-input qe-grow" placeholder="Kiến thức mở rộng liên quan — tùy chọn"></textarea>
-                </section>
+                <div class="qe-acc qe-sec-expand">
+                    <button type="button" class="qe-acc-sum"><i class="fas fa-up-right-and-down-left-from-center"></i> <span class="qe-acc-name">Mở rộng kiến thức</span> <span class="qe-acc-hint">kiến thức liên quan</span><span class="qe-acc-dot" title="Đã có nội dung"></span><i class="fas fa-chevron-down qe-acc-chev"></i></button>
+                    <div class="qe-acc-body">
+                        <textarea id="qe-expanded" rows="3" class="qe-input qe-grow" placeholder="Nhập kiến thức mở rộng… — tùy chọn"></textarea>
+                    </div>
+                </div>
 
                 <!-- Ca lâm sàng (câu chùm) -->
-                <section class="qe-section qe-sec-case">
-                    <details id="qe-case-details">
-                        <summary class="qe-sec-title" style="cursor:pointer;list-style:none;"><i class="fas fa-notes-medical"></i> Ca lâm sàng (câu chùm) <span style="font-weight:400;opacity:.7;">— các câu cùng mã ca dùng chung tình huống</span></summary>
-                        <div style="margin-top:.5rem;display:flex;flex-direction:column;gap:.5rem;">
-                            <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-                                <input id="qe-case-id" class="qe-input" style="flex:1;min-width:8rem;" placeholder="Mã ca (caseId) — để trống nếu câu độc lập" />
-                                <input id="qe-case-title" class="qe-input" style="flex:1;min-width:8rem;" placeholder="Tiêu đề ca — tùy chọn" />
-                            </div>
-                            <textarea id="qe-case-text" rows="3" class="qe-input qe-grow" placeholder="Nội dung tình huống lâm sàng dùng chung (markdown) — tùy chọn"></textarea>
-                            <p class="qe-hint-line"><i class="fas fa-circle-info"></i> Các câu có cùng <b>Mã ca</b> sẽ được gom liền nhau và hiển thị chung khung tình huống này.</p>
+                <div class="qe-acc qe-sec-case">
+                    <button type="button" class="qe-acc-sum"><i class="fas fa-notes-medical"></i> <span class="qe-acc-name">Ca lâm sàng (câu chùm)</span> <span class="qe-acc-hint">các câu cùng mã ca dùng chung tình huống</span><span class="qe-acc-dot" title="Đã có nội dung"></span><i class="fas fa-chevron-down qe-acc-chev"></i></button>
+                    <div class="qe-acc-body">
+                        <div class="qe-case-fields">
+                            <input id="qe-case-id" class="qe-input" placeholder="Mã ca (caseId) — để trống nếu câu độc lập" />
+                            <input id="qe-case-title" class="qe-input" placeholder="Tiêu đề ca — tùy chọn" />
                         </div>
-                    </details>
-                </section>
+                        <textarea id="qe-case-text" rows="3" class="qe-input qe-grow" placeholder="Nội dung tình huống lâm sàng dùng chung (markdown) — tùy chọn"></textarea>
+                        <p class="qe-hint-line"><i class="fas fa-circle-info"></i> Các câu có cùng <b>Mã ca</b> sẽ được gom liền nhau và hiển thị chung khung tình huống này.</p>
+                    </div>
+                </div>
 
                 <p id="qe-save-hint" class="qe-save-hint"></p>
             </div>

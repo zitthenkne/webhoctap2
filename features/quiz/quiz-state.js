@@ -32,6 +32,7 @@ export const state = {
     used5050Questions: {},
     focusMode: false,
     eliminatedAnswers: {},   // #4: { [qIndex]: [optIdx,...] } các đáp án bị gạch bỏ
+    multiSelections: {},     // câu nhiều đáp án: { [qIndex]: [optIdx,...] } lựa chọn tạm CHƯA xác nhận
     confidence: {},          // #7: { [qIndex]: 'guess' } khi người dùng đánh dấu là đoán
     questionTimes: [],       // #11: số giây đã dùng cho từng câu
     _timingIndex: null,      // câu đang được tính giờ (runtime)
@@ -48,6 +49,7 @@ export function resetState() {
     state.streak = 0;
     state.used5050Questions = {};
     state.eliminatedAnswers = {};
+    state.multiSelections = {};
     state.confidence = {};
     state.questionTimes = new Array(state.questions.length).fill(0);
     state._timingIndex = null;

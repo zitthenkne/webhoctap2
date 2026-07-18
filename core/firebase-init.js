@@ -2,7 +2,7 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { getFirestore, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { getStorage } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-storage.js";
 
 const firebaseConfig = {
@@ -19,3 +19,8 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+
+// Bật cache offline (IndexedDB): dữ liệu đã đọc vẫn xem được khi mất mạng,
+// thao tác ghi được xếp hàng và tự đồng bộ khi có mạng lại. Lỗi (nhiều tab mở /
+// trình duyệt không hỗ trợ) chỉ tắt tính năng, không ảnh hưởng phần còn lại.
+enableIndexedDbPersistence(db).catch(() => {});

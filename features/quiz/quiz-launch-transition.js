@@ -95,6 +95,10 @@
             '.quiz-launch-ghost{position:fixed;z-index:9999;margin:0;box-sizing:border-box;',
             '  transform-origin:center center;will-change:transform,opacity;pointer-events:none;',
             '  transform-style:preserve-3d;overflow:visible !important;',
+            // Ẩn cả mặt lưng CỦA CHÍNH ghost (nền trắng của thẻ): trong preserve-3d,
+            // z-index không quyết định thứ tự vẽ khi lật quá 90°. Không ẩn -> Chrome/desktop
+            // vẽ nền trắng gương đè lên .quiz-launch-card-back nên KHÔNG thấy mặt sau (chỉ Safari/iPad đúng).
+            '  backface-visibility:hidden;-webkit-backface-visibility:hidden;',
             '  transition:transform .7s cubic-bezier(.5,0,.55,1), box-shadow .5s ease, opacity .45s ease;',
             '  box-shadow:0 40px 90px rgba(255,105,180,0.40), 0 12px 30px rgba(0,0,0,0.22);}',
 

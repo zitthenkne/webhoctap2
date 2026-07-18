@@ -502,6 +502,38 @@ export function shuffleArray(array) {
     return newArray;
 }
 
+/* ----------------------------------------------------------------
+   Đáp án đúng: hỗ trợ CẢ hai kiểu câu hỏi
+   - 1 đáp án đúng  -> correctAnswerIndex (số)
+   - nhiều đáp án đúng -> correctAnswerIndexes (mảng số), chỉ có khi được điền
+   Câu chưa điền correctAnswerIndexes vẫn chạy y như cũ.
+   ---------------------------------------------------------------- */
+export function isMultiAnswer(q) {
+    return !!(q && Array.isArray(q.correctAnswerIndexes) && q.correctAnswerIndexes.length > 0);
+}
+// Mảng index đúng đã sắp xếp (dùng chung cho tô màu, chấm điểm, hiển thị kết quả).
+export function getCorrectIndexes(q) {
+    if (!q) return [];
+    if (Array.isArray(q.correctAnswerIndexes) && q.correctAnswerIndexes.length > 0) {
+        return q.correctAnswerIndexes.slice().sort((a, b) => a - b);
+    }
+    if (typeof q.correctAnswerIndex === 'number' && q.correctAnswerIndex >= 0) {
+        return [q.correctAnswerIndex];
+    }
+    return [];
+}
+// Trả lời của người dùng đúng không? userAnswer là số (1 đáp án) hoặc mảng (nhiều đáp án).
+export function isAnswerCorrect(q, userAnswer) {
+    if (userAnswer === null || userAnswer === undefined) return false;
+    const correct = getCorrectIndexes(q);
+    if (correct.length === 0) return false;
+    if (Array.isArray(userAnswer)) {
+        const u = userAnswer.slice().sort((a, b) => a - b);
+        return u.length === correct.length && u.every((v, i) => v === correct[i]);
+    }
+    return correct.length === 1 && userAnswer === correct[0];
+}
+
 /**
  * Trộn thứ tự đáp án của MỘT câu hỏi một cách an toàn:
  * - Đảo vị trí các lựa chọn (answers/options)
@@ -537,6 +569,11 @@ export function shuffleQuestionOptions(question) {
     // Remap đáp án đúng: vị trí mới của index đúng cũ
     if (typeof question.correctAnswerIndex === 'number' && question.correctAnswerIndex >= 0) {
         shuffled.correctAnswerIndex = order.indexOf(question.correctAnswerIndex);
+    }
+    // Remap cả tập đáp án đúng khi câu cho phép chọn nhiều đáp án
+    if (Array.isArray(question.correctAnswerIndexes) && question.correctAnswerIndexes.length > 0) {
+        shuffled.correctAnswerIndexes = question.correctAnswerIndexes
+            .map(ci => order.indexOf(ci)).filter(x => x >= 0).sort((a, b) => a - b);
     }
 
     // Remap giải thích theo từng đáp án (nếu có)

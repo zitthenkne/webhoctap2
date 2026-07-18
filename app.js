@@ -229,6 +229,12 @@ async function handleLogin() {
     }
 }
 
+// SHA-256 → hex. Dùng để so mã với hash lưu trên Firestore (không để plaintext trong code).
+async function sha256Hex(str) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 async function handleSignup() {
     const email = document.getElementById('emailInput').value.trim();
     const password = document.getElementById('passwordInput').value;
@@ -241,19 +247,20 @@ async function handleSignup() {
         document.getElementById('signupCodeInput')?.focus();
         return showToast('Vui lòng nhập mật khẩu web để tạo tài khoản mới.', 'warning');
     }
-    if (signupCode !== '111230322') {
+    // Mã đăng ký so bằng hash SHA-256, plaintext không nằm trong code.
+    if (await sha256Hex(signupCode) !== '862d3cd3eaab0767603e2bb0925e2b08d64ef4bbeac1d00b602886749f0ce195') {
         if (signupCodeWrap) signupCodeWrap.classList.remove('hidden');
         return showToast('Mật khẩu web không đúng. Bạn không thể tạo tài khoản mới.', 'error');
     }
     try {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password); 
-        const user = userCredential.user; 
-        await setDoc(doc(db, "users", user.uid), { email: user.email, createdAt: new Date(), quizSetsCreated: 0 }); 
-        showToast('Đăng ký thành công!', 'success'); 
-        toggleAuthModal(); 
-    } catch (error) { 
-        showToast('Đăng ký thất bại: ' + error.message, 'error'); 
-    } 
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        await setDoc(doc(db, "users", user.uid), { email: user.email, createdAt: new Date(), quizSetsCreated: 0 });
+        showToast('Đăng ký thành công!', 'success');
+        toggleAuthModal();
+    } catch (error) {
+        showToast('Đăng ký thất bại: ' + error.message, 'error');
+    }
 }
 
 // --- QUẢN LÝ CHỌN FILE VÀ GỌI PARSER ---

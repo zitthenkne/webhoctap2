@@ -1,7 +1,7 @@
 // features/quiz/quiz-ui.js
 
 import { state, MARK_REASONS } from './quiz-state.js';
-import { parseMarkdown, renderMath, convertScoreToGPA, formatTime, triggerConfetti, stripOptionLabels } from './quiz-helpers.js';
+import { parseMarkdown, renderMath, convertScoreToGPA, formatTime, triggerConfetti, stripOptionLabels, isAnswerCorrect, getCorrectIndexes } from './quiz-helpers.js';
 import { previewSrsCounts, getNewPerDay, setNewPerDay } from './quiz-srs-store.js';
 import { auth } from '../../core/firebase-init.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
@@ -41,7 +41,7 @@ export function renderQuizProgressBar() {
             btnClass = 'bg-[#FF69B4] text-white shadow-md ring-2 ring-pink-300 transform scale-110 z-10';
         } else if (isAnswered) {
             if (state.quizOptions.showAnswerImmediately) {
-                const isCorrect = state.userAnswers[i] === state.questions[i].correctAnswerIndex;
+                const isCorrect = isAnswerCorrect(state.questions[i], state.userAnswers[i]);
                 if (isCorrect) {
                     btnClass = 'bg-green-500 text-white border border-green-600 shadow-sm';
                 } else {
@@ -245,7 +245,7 @@ export function showResults(totalTime) {
     const total = state.questions.length;
     let correctCount = 0;
     state.questions.forEach((q, i) => {
-        if (state.userAnswers[i] === q.correctAnswerIndex) correctCount++;
+        if (isAnswerCorrect(q, state.userAnswers[i])) correctCount++;
     });
     const answeredCount = state.userAnswers.filter(a => a !== null && a !== undefined).length;
     const unansweredCount = total - answeredCount;
@@ -314,7 +314,7 @@ export function showResults(totalTime) {
     Object.entries(state.confidence || {}).forEach(([i, v]) => {
         if (v !== 'guess') return;
         guessTotal++;
-        if (state.userAnswers[i] === state.questions[i]?.correctAnswerIndex) guessRight++;
+        if (isAnswerCorrect(state.questions[i], state.userAnswers[i])) guessRight++;
     });
 
     const radius = 52;
@@ -328,7 +328,7 @@ export function showResults(totalTime) {
         if (!t || t.toLowerCase() === 'chung') return;
         if (!topicStats[t]) topicStats[t] = { correct: 0, total: 0 };
         topicStats[t].total++;
-        if (state.userAnswers[i] === q.correctAnswerIndex) topicStats[t].correct++;
+        if (isAnswerCorrect(q, state.userAnswers[i])) topicStats[t].correct++;
     });
     const topicEntries = Object.entries(topicStats);
     let topicHtml = '';
@@ -383,8 +383,10 @@ export function showResults(totalTime) {
         const userAnswerIndex = state.userAnswers[index];
         const answerOptions = stripOptionLabels(q.answers || q.options);
         const isUnanswered = userAnswerIndex === null || userAnswerIndex === undefined;
-        const isCorrect = !isUnanswered && userAnswerIndex === q.correctAnswerIndex;
+        const isCorrect = !isUnanswered && isAnswerCorrect(q, userAnswerIndex);
         const status = isCorrect ? 'correct' : (isUnanswered ? 'unanswered' : 'wrong');
+        // Câu nhiều đáp án đúng: gộp các lựa chọn của người dùng / các đáp án đúng thành chuỗi "A, C".
+        const correctIdxList = getCorrectIndexes(q);
 
         if (!answerOptions || !Array.isArray(answerOptions)) {
             return `<div class="result-item rounded-xl bg-red-50 border border-red-200 p-3" data-status="wrong">
@@ -392,10 +394,12 @@ export function showResults(totalTime) {
                     </div>`;
         }
 
-        const userAnswerText = !isUnanswered ? parseMarkdown(answerOptions[userAnswerIndex]) : '';
-        const correctAnswerText = parseMarkdown(answerOptions[q.correctAnswerIndex]);
+        const userIdxList = Array.isArray(userAnswerIndex) ? userAnswerIndex.slice().sort((a, b) => a - b) : (isUnanswered ? [] : [userAnswerIndex]);
+        const userAnswerText = userIdxList.map(i => `${letter(i)}. ${parseMarkdown(answerOptions[i])}`).join('<br>');
+        const correctAnswerText = correctIdxList.map(i => `${letter(i)}. ${parseMarkdown(answerOptions[i])}`).join('<br>');
         const cfg = statusConfig[status];
-        const correctOptionExp = q.optionExplanations && q.optionExplanations[q.correctAnswerIndex] && String(q.optionExplanations[q.correctAnswerIndex]).trim();
+        const firstCorrectIdx = correctIdxList.length ? correctIdxList[0] : q.correctAnswerIndex;
+        const correctOptionExp = q.optionExplanations && q.optionExplanations[firstCorrectIdx] && String(q.optionExplanations[firstCorrectIdx]).trim();
         const explanationText = correctOptionExp || (q.explanation && String(q.explanation).trim());
         const hasExplanation = !!explanationText;
 
@@ -437,11 +441,11 @@ export function showResults(totalTime) {
                 ${!isCorrect ? `
                 <div>
                     <span class="font-medium text-gray-500">Bạn chọn: </span>
-                    <span class="${isUnanswered ? 'text-gray-400 italic' : 'text-red-600 font-medium'}">${isUnanswered ? 'Chưa trả lời' : letter(userAnswerIndex) + '. ' + userAnswerText}</span>
+                    <span class="${isUnanswered ? 'text-gray-400 italic' : 'text-red-600 font-medium'}">${isUnanswered ? 'Chưa trả lời' : userAnswerText}</span>
                 </div>` : ''}
                 <div>
-                    <span class="font-medium text-gray-500">Đáp án đúng: </span>
-                    <span class="text-green-600 font-medium">${letter(q.correctAnswerIndex)}. ${correctAnswerText}</span>
+                    <span class="font-medium text-gray-500">Đáp án đúng${correctIdxList.length > 1 ? ' (chọn tất cả)' : ''}: </span>
+                    <span class="text-green-600 font-medium">${correctAnswerText}</span>
                 </div>
                 ${hasExplanation ? `
                 <div class="mt-1 p-2.5 bg-amber-50/60 border border-amber-100 rounded-lg text-gray-600">

@@ -524,7 +524,8 @@
             collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, serverTimestamp, writeBatch
         } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 
-        const PASSWORD = "111230322";   // mật khẩu mở cả kho
+        // Hash SHA-256 của mật khẩu mở kho (plaintext không nằm trong code).
+        const VAULT_HASH = "862d3cd3eaab0767603e2bb0925e2b08d64ef4bbeac1d00b602886749f0ce195";
         const MASTER_KEY = "190590";    // mã chủ: mở được mọi link/thư mục
         const UNLOCK_KEY = "linkVaultUnlocked";
         const linksRef = collection(db, "shared_links");
@@ -583,15 +584,32 @@
             gateInput.focus();
         });
         function unlock() { gateScreen.classList.add('hidden'); appScreen.classList.remove('hidden'); startSync(); updateFab(); }
-        gateForm.addEventListener('submit', (e) => {
+        function gateFail() {
+            gateError.classList.remove('hidden'); gateInput.value = ''; gateInput.focus();
+            gateScreen.querySelector('.pop-in').animate(
+                [{ transform: 'translateX(0)' }, { transform: 'translateX(-8px)' }, { transform: 'translateX(8px)' }, { transform: 'translateX(0)' }], { duration: 280 });
+        }
+        // SHA-256 → hex, so với hash lưu trên Firestore (không để plaintext trong code).
+        async function sha256Hex(str) {
+            const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+            return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+        gateForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            if (gateInput.value === PASSWORD) {
-                try { sessionStorage.setItem(UNLOCK_KEY, '1'); } catch (_) {}
-                unlock();
-            } else {
-                gateError.classList.remove('hidden'); gateInput.value = ''; gateInput.focus();
-                gateScreen.querySelector('.pop-in').animate(
-                    [{ transform: 'translateX(0)' }, { transform: 'translateX(-8px)' }, { transform: 'translateX(8px)' }, { transform: 'translateX(0)' }], { duration: 280 });
+            const val = gateInput.value;
+            const btn = gateForm.querySelector('button[type="submit"]');
+            if (btn) btn.disabled = true;
+            try {
+                if (await sha256Hex(val) === VAULT_HASH) {
+                    try { sessionStorage.setItem(UNLOCK_KEY, '1'); } catch (_) {}
+                    unlock();
+                } else {
+                    gateFail();
+                }
+            } catch (_) {
+                gateFail();
+            } finally {
+                if (btn) btn.disabled = false;
             }
         });
         gateInput.addEventListener('input', () => gateError.classList.add('hidden'));

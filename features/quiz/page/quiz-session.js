@@ -9,7 +9,7 @@ import { showToast } from '../../../core/utils.js';
 import { applyLocalQuestionEdits } from '../quiz-editor.js';
 import { getOfflineQuiz, refreshOfflineQuizIfSaved } from '../quiz-offline-store.js';
 import { state, saveQuizState, clearQuizState, saveQuizResult } from '../quiz-state.js';
-import { shuffleArray, shuffleQuestionOptions } from '../quiz-helpers.js';
+import { shuffleArray, shuffleQuestionOptions, isAnswerCorrect } from '../quiz-helpers.js';
 import { showSubmitQuizBtn, loadQuizDetails, showResults, toggleFocusMode } from '../quiz-ui.js';
 import { getVibrate } from './quiz-page-prefs.js';
 import { pullStudyFromCloud, whenStudyPulled, currentQuizId } from './quiz-study-sync.js';
@@ -212,7 +212,7 @@ export function endQuiz() {
     // lời trong lúc chế độ đang tắt không được cộng điểm lúc bấm.
     state.score = 0;
     for (let i = 0; i < state.questions.length; i++) {
-        if (state.userAnswers[i] === state.questions[i].correctAnswerIndex) state.score++;
+        if (isAnswerCorrect(state.questions[i], state.userAnswers[i])) state.score++;
     }
 
     try {
@@ -266,7 +266,7 @@ export function endQuiz() {
 }
 
 export function startIncorrectPracticeMode() {
-    const incorrectQuestions = state.questions.filter((q, index) => state.userAnswers[index] !== q.correctAnswerIndex);
+    const incorrectQuestions = state.questions.filter((q, index) => !isAnswerCorrect(q, state.userAnswers[index]));
     if (incorrectQuestions.length > 0) {
         startQuizMode(incorrectQuestions, 'practice');
     } else {

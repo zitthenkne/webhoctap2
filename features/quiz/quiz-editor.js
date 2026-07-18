@@ -15,9 +15,10 @@ import { doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebas
 import { showToast } from '../../core/utils.js';
 import { state, saveQuizState } from './quiz-state.js';
 import { tagCaseSequence } from './page/quiz-cases.js';
+import { isMultiAnswer, getCorrectIndexes, isAnswerCorrect } from './quiz-helpers.js';
 
 // Các trường của một câu hỏi mà trình sửa được phép thay đổi (dùng cho cả lưu lẫn hoàn tác).
-const EDIT_FIELDS = ['question', 'answers', 'options', 'correctAnswerIndex', 'optionExplanations', 'note', 'explanation', 'expanded', 'caseId', 'caseText', 'caseTitle'];
+const EDIT_FIELDS = ['question', 'answers', 'options', 'correctAnswerIndex', 'correctAnswerIndexes', 'optionExplanations', 'note', 'explanation', 'expanded', 'caseId', 'caseText', 'caseTitle'];
 
 // Hàm render lại câu hỏi hiện tại (được tiêm vào từ quiz-page.js).
 let _rerender = () => {};
@@ -87,15 +88,52 @@ function restoreFields(q, snap) {
    Modal: trạng thái + tiện ích.
    ---------------------------------------------------------------- */
 let _qeOptions = []; // [{ text, exp, correct }] trạng thái phương án trong modal
+let _qeMulti = false; // true = câu cho phép nhiều đáp án đúng (lưu correctAnswerIndexes)
 
 function qeEl(id) { return document.getElementById(id); }
 
+// Đổi câu nhắc bên dưới danh sách phương án theo chế độ 1 hay nhiều đáp án đúng.
+function updateMultiHint() {
+    const hint = qeEl('qe-mark-hint');
+    if (hint) hint.textContent = _qeMulti
+        ? 'Bấm vào chữ cái (A, B, C…) để BẬT/TẮT từng đáp án đúng — có thể chọn nhiều.'
+        : 'Bấm vào chữ cái (A, B, C…) ở phương án để chọn làm đáp án đúng.';
+}
+
 // Tự giãn chiều cao textarea theo nội dung cho dễ nhìn.
 function autoGrow(el) {
-    if (!el) return;
+    if (!el || el.dataset.autogrow) return;   // tránh gắn listener trùng
+    el.dataset.autogrow = '1';
     const fit = () => { el.style.height = 'auto'; el.style.height = Math.max(el.scrollHeight, 34) + 'px'; };
     el.addEventListener('input', fit);
     requestAnimationFrame(fit);
+}
+
+// Nhóm tùy chọn (giải thích/ghi chú/mở rộng/ca): accordion đóng/mở bằng class .open
+// (KHÔNG dùng <details> native để tránh vênh trình duyệt). Tự MỞ nếu đã có nội dung, gắn
+// chấm báo "đã có nội dung", và khi mở mới đo được chiều cao để textarea tự giãn.
+function setupAccordions(modal) {
+    modal.querySelectorAll('.qe-acc').forEach(acc => {
+        const fields = Array.from(acc.querySelectorAll('input, textarea'));
+        const sum = acc.querySelector('.qe-acc-sum');
+        const hasContent = () => fields.some(f => f.value && f.value.trim() !== '');
+        const refitGrow = () => acc.querySelectorAll('.qe-grow').forEach(t => {
+            t.style.height = 'auto';
+            t.style.height = Math.max(t.scrollHeight, 34) + 'px';
+        });
+        const refresh = () => acc.classList.toggle('is-filled', hasContent());
+        acc.classList.toggle('open', hasContent());   // mở sẵn nếu đã có nội dung
+        refresh();
+        fields.forEach(f => f.addEventListener('input', refresh));
+        if (sum && !sum.dataset.bound) {
+            sum.dataset.bound = '1';
+            sum.addEventListener('click', () => {
+                const opening = !acc.classList.contains('open');
+                acc.classList.toggle('open', opening);
+                if (opening) refitGrow();   // mở ra mới đo được chiều cao thật
+            });
+        }
+    });
 }
 
 function escapeHtml(s) {
@@ -131,7 +169,13 @@ function renderQEOptions() {
         btn.addEventListener('click', () => {
             collectQEOptions();
             const i = parseInt(btn.dataset.mark, 10);
-            _qeOptions.forEach((o, j) => o.correct = (j === i));
+            if (_qeMulti) {
+                // Nhiều đáp án đúng: bật/tắt từng ô độc lập.
+                _qeOptions[i].correct = !_qeOptions[i].correct;
+            } else {
+                // Một đáp án đúng: chọn ô này, bỏ các ô khác.
+                _qeOptions.forEach((o, j) => o.correct = (j === i));
+            }
             renderQEOptions();
         });
     });
@@ -167,13 +211,18 @@ export function openQuestionEditor() {
     const modal = qeEl('question-editor-modal');
     if (!modal) return;
 
+    _qeMulti = isMultiAnswer(q);
+    const correctSet = getCorrectIndexes(q);
     const opts = (q.answers || q.options || []);
     _qeOptions = opts.map((t, i) => ({
         text: t == null ? '' : String(t),
         exp: (q.optionExplanations && q.optionExplanations[i] != null) ? String(q.optionExplanations[i]) : '',
-        correct: i === q.correctAnswerIndex
+        correct: correctSet.includes(i)
     }));
     if (!_qeOptions.some(o => o.correct) && _qeOptions.length) _qeOptions[0].correct = true;
+    const multiCheck = qeEl('qe-multi-check');
+    if (multiCheck) multiCheck.checked = _qeMulti;
+    updateMultiHint();
 
     qeEl('qe-question').value = q.question == null ? '' : String(q.question);
     qeEl('qe-note').value = q.note == null ? '' : String(q.note);
@@ -182,9 +231,10 @@ export function openQuestionEditor() {
     qeEl('qe-case-id').value = q.caseId == null ? '' : String(q.caseId);
     qeEl('qe-case-title').value = q.caseTitle == null ? '' : String(q.caseTitle);
     qeEl('qe-case-text').value = q.caseText == null ? '' : String(q.caseText);
-    // Mở sẵn phần "Ca lâm sàng" nếu câu này đã thuộc một ca
-    const caseDetails = qeEl('qe-case-details');
-    if (caseDetails) caseDetails.open = !!(q.caseId || q.caseText);
+
+    // Số thứ tự câu đang sửa (định hướng cho người dùng)
+    const qpos = qeEl('qe-qpos');
+    if (qpos) qpos.textContent = `Câu ${state.currentIndex + 1}/${state.questions.length}`;
 
     // Cho biết nơi lưu (đám mây nếu là chủ bộ đề, ngược lại lưu cục bộ)
     const user = auth.currentUser;
@@ -201,7 +251,8 @@ export function openQuestionEditor() {
     modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
     renderQEOptions();
-    modal.querySelectorAll('.qe-section > .qe-grow').forEach(autoGrow);
+    modal.querySelectorAll('.qe-grow').forEach(autoGrow);
+    setupAccordions(modal);
     setTimeout(() => { const f = qeEl('qe-question'); if (f) f.focus(); }, 50);
 }
 
@@ -216,8 +267,9 @@ async function saveQuestionEditor() {
     const cleaned = _qeOptions.map(o => ({ text: (o.text || '').trim(), exp: o.exp, correct: o.correct }))
                               .filter(o => o.text !== '');
     if (cleaned.length < 2) { showToast('Cần ít nhất 2 phương án có nội dung.', 'error'); return; }
-    let correctIdx = cleaned.findIndex(o => o.correct);
-    if (correctIdx < 0) { showToast('Hãy chọn một đáp án đúng.', 'error'); return; }
+    const correctIndices = cleaned.map((o, i) => o.correct ? i : -1).filter(i => i >= 0);
+    if (correctIndices.length < 1) { showToast('Hãy chọn ít nhất một đáp án đúng.', 'error'); return; }
+    if (_qeMulti && correctIndices.length < 2) { showToast('Chế độ nhiều đáp án cần chọn từ 2 đáp án đúng (hoặc bỏ tick "nhiều đáp án").', 'error'); return; }
 
     const optionTexts = cleaned.map(o => o.text);
     const optionExps = cleaned.map(o => (o.exp == null ? '' : String(o.exp)));
@@ -226,7 +278,8 @@ async function saveQuestionEditor() {
         question: qeEl('qe-question').value,
         answers: optionTexts.slice(),
         options: optionTexts.slice(),
-        correctAnswerIndex: correctIdx,
+        correctAnswerIndex: correctIndices[0],
+        correctAnswerIndexes: _qeMulti ? correctIndices.slice() : null,
         optionExplanations: optionExps,
         note: qeEl('qe-note').value,
         explanation: qeEl('qe-explanation').value,
@@ -258,7 +311,7 @@ async function saveQuestionEditor() {
 
     // Nếu trước đó đã trả lời câu này: bỏ kết quả cũ để tránh tô màu/điểm lệch sau khi sửa.
     if (prevAns !== null && prevAns !== undefined) {
-        if (prevAns === dq.correctAnswerIndex) state.score = Math.max(0, state.score - 1);
+        if (isAnswerCorrect(dq, prevAns)) state.score = Math.max(0, state.score - 1);
         state.userAnswers[idx] = null;
         delete state.eliminatedAnswers[idx];
         delete state.used5050Questions[idx];
@@ -400,6 +453,18 @@ export function setupQuestionEditor(rerenderFn) {
         collectQEOptions();
         if (_qeOptions.length >= 8) { showToast('Tối đa 8 phương án.', 'error'); return; }
         _qeOptions.push({ text: '', exp: '', correct: _qeOptions.length === 0 });
+        renderQEOptions();
+    });
+    const multiCheck = qeEl('qe-multi-check');
+    if (multiCheck) multiCheck.addEventListener('change', () => {
+        collectQEOptions();
+        _qeMulti = multiCheck.checked;
+        // Tắt chế độ nhiều đáp án mà đang chọn >1 -> chỉ giữ đáp án đúng đầu tiên.
+        if (!_qeMulti) {
+            const first = _qeOptions.findIndex(o => o.correct);
+            _qeOptions.forEach((o, j) => o.correct = (j === first));
+        }
+        updateMultiHint();
         renderQEOptions();
     });
     modal.addEventListener('click', (e) => { if (e.target === modal) closeQuestionEditor(); });

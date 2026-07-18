@@ -6,6 +6,7 @@
 // và thay cho lưới số câu xếp dọc (đỡ chiếm chỗ trên màn hẹp).
 
 import { state, MARK_REASONS } from '../quiz-state.js';
+import { isAnswerCorrect } from '../quiz-helpers.js';
 import { showQuestion, showNextQuestion, showPreviousQuestion } from './quiz-question-view.js';
 import { getVibrate } from './quiz-page-prefs.js';
 
@@ -42,7 +43,7 @@ function renderJumpGrid() {
             cls += ' is-current';
         } else if (answered) {
             if (immediate) {
-                cls += (ans === state.questions[i].correctAnswerIndex) ? ' is-correct' : ' is-wrong';
+                cls += isAnswerCorrect(state.questions[i], ans) ? ' is-correct' : ' is-wrong';
             } else {
                 cls += ' is-answered';
             }

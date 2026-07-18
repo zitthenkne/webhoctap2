@@ -6,7 +6,7 @@
 import { showToast, showConfirm } from '../../../core/utils.js';
 import { openQuestionEditor } from '../quiz-editor.js';
 import { state, saveQuizState } from '../quiz-state.js';
-import { renderMath, triggerConfetti, parseMarkdown, stripOptionLabels } from '../quiz-helpers.js';
+import { renderMath, triggerConfetti, parseMarkdown, stripOptionLabels, isMultiAnswer, getCorrectIndexes, isAnswerCorrect } from '../quiz-helpers.js';
 import { updateProgressBar, renderQuizProgressBar } from '../quiz-ui.js';
 import { feedback, getVibrate, scrollQuizToTop } from './quiz-page-prefs.js';
 import { hideCatMeme, preloadCurrentMemes, showCatMeme } from './quiz-cat-meme.js';
@@ -290,6 +290,12 @@ export function showQuestion() {
     const useSingleCol = answersNeedSingleColumn(answerOptions);
     const answersGridClass = useSingleCol ? 'grid grid-cols-1 gap-4' : 'grid grid-cols-1 md:grid-cols-2 gap-4';
 
+    // Câu nhiều đáp án đúng: chỉ bật khi câu có trường correctAnswerIndexes.
+    // Ô đáp án đổi thành hình vuông (checkbox) + có badge nhắc "chọn nhiều".
+    const isMulti = isMultiAnswer(question);
+    const letterShape = isMulti ? 'rounded-md' : 'rounded-full';
+    const multiCount = isMulti ? getCorrectIndexes(question).length : 0;
+
     // #7: trạng thái nút độ chắc chắn (mặc định "chắc chắn", ẩn mình)
     const isGuess = state.confidence[state.currentIndex] === 'guess';
     // Đã dùng 50:50 cho câu này -> pill chuyển sang trạng thái tự động "Đã dùng trợ giúp" (khóa lại)
@@ -367,6 +373,7 @@ export function showQuestion() {
             ${question.level && question.level.trim() ? `<span class="inline-block px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold border border-purple-200"><i class="fas fa-layer-group mr-1"></i> Mức độ: ${question.level}</span>` : ''}
             ${question.source && question.source.trim() ? `<span class="inline-block px-3 py-1 rounded-full bg-pink-100 text-pink-700 text-xs font-semibold border border-pink-200"><i class="fas fa-book mr-1"></i> Nguồn: ${question.source}</span>` : ''}
             ${state.streak > 0 ? `<span id="streak-badge" class="inline-block px-3 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-semibold border border-orange-200 animate-pulse"><i class="fas fa-fire mr-1 text-orange-500 animate-bounce"></i> Chuỗi đúng: ${state.streak}</span>` : ''}
+            ${isMulti ? `<span class="inline-block px-3 py-1 rounded-full bg-teal-100 text-teal-700 text-xs font-semibold border border-teal-200"><i class="fas fa-list-check mr-1"></i> Chọn nhiều đáp án${multiCount ? ` (chọn ${multiCount})` : ''}</span>` : ''}
         </div>
         ${casePanelHtml}
         <div class="question-text font-semibold text-gray-800 my-6 text-left ${qSizeClass}" data-annot="q">${parseMarkdown(question.question)}</div>
@@ -374,7 +381,7 @@ export function showQuestion() {
             ${answerOptions.map((answer, index) => `
                 <button class="answer-btn p-4 border border-pink-200 rounded-xl text-left hover:bg-[#FFB6C1]/50 hover:border-[#FF69B4] hover:scale-[1.01] hover:-translate-y-0.5 transition-all ${aSizeClass}" data-index="${index}">
                     <div class="flex items-start">
-                        <span class="answer-letter inline-block w-8 h-8 rounded-full bg-pink-50 text-[#FF69B4] border border-pink-200 text-center leading-7 font-bold mr-2 text-sm flex-shrink-0">${String.fromCharCode(65 + index)}</span>
+                        <span class="answer-letter inline-block w-8 h-8 ${letterShape} bg-pink-50 text-[#FF69B4] border border-pink-200 text-center leading-7 font-bold mr-2 text-sm flex-shrink-0">${String.fromCharCode(65 + index)}</span>
                         <div class="flex-1">
                             <div class="answer-content" data-annot="a${index}">${parseMarkdown(answer)}</div>
                             <div class="option-explanation mt-2 text-xs md:text-sm font-normal border-t pt-1.5 border-dashed border-gray-300/30 hidden transition-all duration-300" data-annot="oe${index}"></div>
@@ -383,6 +390,12 @@ export function showQuestion() {
                 </button>
             `).join('')}
         </div>
+        ${isMulti ? `
+        <div id="multi-confirm-wrap" class="mt-4 flex justify-end">
+            <button type="button" id="multi-confirm-btn" class="px-5 py-2 rounded-lg bg-[#FF69B4] text-white font-semibold hover:bg-opacity-80 transition disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+                <i class="fas fa-check-double mr-2"></i>Xác nhận đáp án
+            </button>
+        </div>` : ''}
         <div class="mt-4 flex flex-wrap justify-between items-center gap-2">
             <button type="button" id="confidence-toggle" class="${usedHelp ? 'conf-helped' : (isGuess ? 'conf-guess' : '')}" ${usedHelp ? 'disabled' : ''} title="${usedHelp ? 'Bạn đã dùng trợ giúp 50:50 cho câu này' : 'Đánh dấu nếu bạn chỉ đoán câu này — sẽ được gợi ý ôn lại ở phần kết quả'}">
                 <i class="fas ${usedHelp ? 'fa-life-ring' : (isGuess ? 'fa-dice' : 'fa-circle-check')}"></i> ${usedHelp ? 'Đã dùng trợ giúp' : (isGuess ? 'Đoán' : 'Chắc chắn')}
@@ -523,7 +536,10 @@ export function showQuestion() {
     }
 
     if (btn5050) {
-        if (answeredIdx !== null || hiddenIndices) {
+        // 50:50 không có nghĩa với câu nhiều đáp án đúng -> ẩn hẳn.
+        if (isMultiAnswer(question)) {
+            btn5050.style.display = 'none';
+        } else if (answeredIdx !== null || hiddenIndices) {
             btn5050.disabled = true;
             btn5050.classList.add('opacity-50', 'cursor-not-allowed');
             btn5050.classList.remove('hover:bg-blue-100');
@@ -532,7 +548,28 @@ export function showQuestion() {
         }
     }
 
-    if (answeredIdx !== null && answeredIdx !== undefined) {
+    if (isMultiAnswer(question)) {
+        // Câu nhiều đáp án: xử lý riêng (chọn nhiều ô -> bấm "Xác nhận" mới chấm).
+        if (answeredIdx !== null && answeredIdx !== undefined) {
+            const arr = Array.isArray(answeredIdx) ? answeredIdx : [answeredIdx];
+            document.querySelectorAll('.answer-btn').forEach(b => setAnswerLock(b, true));
+            if (state.quizOptions.showAnswerImmediately) {
+                revealMultiAnswer(question, arr);
+            } else {
+                document.querySelectorAll('.answer-btn').forEach(btn => {
+                    const i = parseInt(btn.getAttribute('data-index'));
+                    if (arr.includes(i)) btn.classList.add('bg-blue-100', 'border-blue-400');
+                });
+            }
+            const nextBtn = document.getElementById('nextBtn');
+            if (nextBtn) { nextBtn.classList.remove('hidden'); nextBtn.addEventListener('click', showNextQuestion, { once: true }); }
+        } else {
+            setupAnswerInteractions();
+            applyMultiSelectionStyles();
+            const confirmBtn = document.getElementById('multi-confirm-btn');
+            if (confirmBtn) confirmBtn.addEventListener('click', confirmMultiAnswer);
+        }
+    } else if (answeredIdx !== null && answeredIdx !== undefined) {
         if (!state.quizOptions.showAnswerImmediately) {
             document.querySelectorAll('.answer-btn').forEach((btn, idx) => {
                 setAnswerLock(btn, true);
@@ -647,7 +684,120 @@ export async function showNextQuestion() {
     }
 }
 
+/* ----------------------------------------------------------------
+   Câu NHIỀU đáp án đúng: chọn nhiều ô rồi bấm "Xác nhận" mới chấm.
+   Lựa chọn tạm lưu ở state.multiSelections[idx]; xác nhận -> userAnswers[idx] = mảng.
+   ---------------------------------------------------------------- */
+function applyMultiSelectionStyles() {
+    const sel = state.multiSelections[state.currentIndex] || [];
+    document.querySelectorAll('.answer-btn').forEach(btn => {
+        const idx = parseInt(btn.getAttribute('data-index'));
+        const on = sel.includes(idx);
+        btn.classList.toggle('bg-blue-100', on);
+        btn.classList.toggle('border-blue-400', on);
+        btn.classList.toggle('ring-2', on);
+        btn.classList.toggle('ring-blue-300', on);
+    });
+    const confirmBtn = document.getElementById('multi-confirm-btn');
+    if (confirmBtn) confirmBtn.disabled = sel.length === 0;
+}
+
+function handleMultiToggle(e) {
+    const idx = state.currentIndex;
+    if (state.userAnswers[idx] !== null && state.userAnswers[idx] !== undefined) return; // đã xác nhận rồi
+    const optIdx = parseInt(e.currentTarget.getAttribute('data-index'));
+    if (isNaN(optIdx)) return;
+    const cur = state.multiSelections[idx] || [];
+    state.multiSelections[idx] = cur.includes(optIdx) ? cur.filter(i => i !== optIdx) : [...cur, optIdx];
+    applyMultiSelectionStyles();
+    if (getVibrate() && navigator.vibrate) navigator.vibrate(8);
+}
+
+// Tô màu đúng/sai cho câu nhiều đáp án (dùng lại lúc chấm và lúc quay lại câu đã làm).
+function revealMultiAnswer(question, selected) {
+    const correctSet = getCorrectIndexes(question);
+    document.querySelectorAll('.answer-btn').forEach(btn => {
+        setAnswerLock(btn, true);
+        const idx = parseInt(btn.getAttribute('data-index'));
+        const isCorrectAnswer = correctSet.includes(idx);
+        const isSelected = selected.includes(idx);
+        btn.classList.remove('bg-blue-100', 'border-blue-400', 'ring-2', 'ring-blue-300');
+        if (isCorrectAnswer) {
+            btn.classList.add('bg-green-200', 'border-green-400', 'text-green-800', 'font-bold', 'hover:bg-green-200', 'hover:border-green-400');
+            if (isSelected) btn.classList.add('correct-answer-pulse');
+        } else if (isSelected) {
+            btn.classList.add('bg-red-200', 'border-red-400', 'text-red-800', 'wrong-answer-shake', 'hover:bg-red-200', 'hover:border-red-400');
+        } else {
+            btn.classList.remove('hover:bg-[#FFB6C1]/50', 'hover:border-[#FF69B4]');
+        }
+        const expDiv = btn.querySelector('.option-explanation');
+        if (expDiv) {
+            if (isCorrectAnswer) {
+                const correctExp = (question.optionExplanations && question.optionExplanations[idx] && question.optionExplanations[idx].trim())
+                                   || (question.explanation && question.explanation.trim());
+                if (correctExp) {
+                    expDiv.innerHTML = `<span class="font-semibold text-xs uppercase tracking-wider block mb-1 opacity-80"><i class="fas fa-check-circle mr-1"></i>Tại sao đúng:</span>${parseMarkdown(correctExp)}`;
+                    expDiv.className = "option-explanation exp-correct mt-2 text-sm md:text-base font-normal border-t pt-1.5 border-green-300/40 text-green-950 transition-all duration-300";
+                    renderMath(expDiv);
+                }
+            } else if (question.optionExplanations && question.optionExplanations[idx] && question.optionExplanations[idx].trim()) {
+                expDiv.innerHTML = `<span class="font-semibold text-xs uppercase tracking-wider block mb-1 opacity-80"><i class="fas fa-times-circle mr-1"></i>Tại sao sai:</span>${parseMarkdown(question.optionExplanations[idx])}`;
+                expDiv.className = isSelected
+                    ? "option-explanation exp-wrong-selected mt-2 text-sm md:text-base font-normal border-t pt-1.5 border-red-300/40 text-red-950 transition-all duration-300"
+                    : "option-explanation exp-wrong-normal mt-2 text-sm md:text-base font-normal border-t pt-1.5 border-pink-200/50 text-gray-600 transition-all duration-300";
+                renderMath(expDiv);
+            }
+        }
+    });
+    const explanationArea = document.getElementById('explanation-area');
+    if (explanationArea) explanationArea.classList.remove('hidden');
+    const expandedArea = document.getElementById('expanded-area');
+    if (expandedArea && question.expanded && String(question.expanded).trim()) expandedArea.classList.remove('hidden');
+    applyAnnotationsAll();
+}
+
+function confirmMultiAnswer() {
+    const idx = state.currentIndex;
+    if (state.userAnswers[idx] !== null && state.userAnswers[idx] !== undefined) return;
+    const sel = (state.multiSelections[idx] || []).slice().sort((a, b) => a - b);
+    if (sel.length === 0) return;
+
+    state.userAnswers[idx] = sel;
+    const question = state.questions[idx];
+    const isCorrect = isAnswerCorrect(question, sel);
+
+    if (state.quizMode === 'srs') {
+        const qText = (question.question || '').trim();
+        gradeSrsAnswer(currentQuizId(), qText, isCorrect);
+        pushStudyToCloud();
+    }
+
+    const wrap = document.getElementById('multi-confirm-wrap');
+    if (wrap) wrap.classList.add('hidden');
+
+    if (state.quizOptions.showAnswerImmediately) {
+        feedback(isCorrect);
+        showCatMeme(isCorrect);
+        if (isCorrect) { state.score++; state.streak++; triggerConfetti(); }
+        else { state.streak = 0; }
+        revealMultiAnswer(question, sel);
+    } else {
+        document.querySelectorAll('.answer-btn').forEach(btn => {
+            setAnswerLock(btn, true);
+            btn.classList.remove('ring-2', 'ring-blue-300');
+        });
+    }
+
+    const nextBtn = document.getElementById('nextBtn');
+    if (nextBtn) { nextBtn.classList.remove('hidden'); nextBtn.addEventListener('click', showNextQuestion, { once: true }); }
+    saveQuizState();
+    updateMobileNav();
+}
+
 export function handleAnswerClick(e) {
+    // Câu nhiều đáp án: mỗi lần bấm là bật/tắt lựa chọn, chưa chấm cho tới khi "Xác nhận".
+    if (isMultiAnswer(state.questions[state.currentIndex])) { handleMultiToggle(e); return; }
+
     if (!state.quizOptions.showAnswerImmediately) {
         const selectedBtn = e.currentTarget;
         const selectedIdx = parseInt(selectedBtn.getAttribute('data-index'));
