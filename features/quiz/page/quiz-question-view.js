@@ -106,11 +106,26 @@ function setupAnswerInteractions() {
         let longPressed = false;
         let pStartX = 0, pStartY = 0;
         const startPress = (e) => {
+            // Bỏ chuột phải (đã có contextmenu lo) và câu đã trả lời (không cho gạch nữa)
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+            const ans = state.userAnswers[state.currentIndex];
+            if (ans !== null && ans !== undefined) return;
             longPressed = false;
             pStartX = e.clientX; pStartY = e.clientY;
-            pressTimer = setTimeout(() => { longPressed = true; toggleEliminate(idx); }, 450);
+            // Phản hồi ngay khi bắt đầu giữ: vòng đỏ lớn dần trong 380ms -> biết là đang gạch
+            btn.classList.add('answer-holding');
+            if (getVibrate() && navigator.vibrate) navigator.vibrate(6);
+            pressTimer = setTimeout(() => {
+                longPressed = true;
+                btn.classList.remove('answer-holding');
+                if (getVibrate() && navigator.vibrate) navigator.vibrate(18);
+                toggleEliminate(idx);
+            }, 380);
         };
-        const cancelPress = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
+        const cancelPress = () => {
+            if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+            btn.classList.remove('answer-holding');
+        };
         const movePress = (e) => {
             // chỉ hủy nếu di chuyển đáng kể (cuộn trang), bỏ qua rung tay nhẹ
             if (Math.abs(e.clientX - pStartX) > 12 || Math.abs(e.clientY - pStartY) > 12) cancelPress();
@@ -251,6 +266,8 @@ export function showQuestion() {
     // Chỉ cuộn lên đầu khi THỰC SỰ chuyển sang câu khác (không cuộn khi vẽ lại cùng câu
     // do đổi cỡ chữ / thêm ghi chú…) để nội dung câu hỏi luôn nằm gọn ở giữa màn hình.
     const indexChanged = _lastShownIndex !== state.currentIndex;
+    // Hướng trượt: tiến (câu sau) trượt vào từ phải, lùi (câu trước) từ trái.
+    const slideDir = state.currentIndex >= _lastShownIndex ? 'next' : 'prev';
     _lastShownIndex = state.currentIndex;
     if (indexChanged) { hideCatMeme(); scrollQuizToTop(); }
     // Tải trước meme cho câu này ngay khi đang đọc đề -> trả lời là hiện liền, không trễ
@@ -438,6 +455,12 @@ export function showQuestion() {
         </p>
     </div>
     `;
+
+    // Hiệu ứng trượt-vào theo hướng chuyển câu (chỉ khi thực sự đổi câu, không khi vẽ lại)
+    if (indexChanged) {
+        const card = quizSection.firstElementChild;
+        if (card) card.classList.add(slideDir === 'prev' ? 'q-slide-prev' : 'q-slide-next');
+    }
 
     // Đưa bảng số câu (cột trái) và ghi chú cá nhân (cột phải) ra hai bên hông trên màn rộng.
     // Màn hẹp / chế độ tập trung sẽ tự xếp lại 1 cột (xem quiz-enhance.css).

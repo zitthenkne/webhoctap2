@@ -382,6 +382,59 @@ html.theme-dark .qs-marked-unmark { color: #8a7fa3; }
 .answer-btn.answer-eliminated:hover::after { opacity: 1; }
 .answer-btn { position: relative; }
 
+/* Đang GIỮ để gạch: vòng đỏ lớn dần trong 380ms -> biết cú giữ đang được ghi nhận.
+   Buông sớm (gỡ class) là vòng biến mất, không gạch. Chặn callout/chọn chữ của OS
+   trong lúc giữ để cử chỉ không bị cướp. */
+#quizSection .answer-btn.answer-holding {
+    border-color: #f87171 !important;
+    animation: answer-hold-grow .38s ease forwards;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+@keyframes answer-hold-grow {
+    0%   { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); transform: scale(1); }
+    100% { box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.5); transform: scale(0.97); }
+}
+@media (prefers-reduced-motion: reduce) {
+    #quizSection .answer-btn.answer-holding { animation: none; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.5); }
+}
+
+/* Mũi tên lóe khi CHẠM RÌA chuyển câu (mobile) — chỉ để phản hồi, không chặn chạm */
+.edge-tap-hint {
+    position: fixed;
+    top: 50%;
+    width: 42px; height: 42px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 9999px;
+    background: rgba(255, 105, 180, 0.92);
+    color: #fff;
+    font-size: 1.05rem;
+    z-index: 60;
+    pointer-events: none;
+    opacity: 0;
+    box-shadow: 0 8px 20px -6px rgba(255, 105, 180, 0.7);
+}
+.edge-tap-hint.is-left  { left: 10px; }
+.edge-tap-hint.is-right { right: 10px; }
+.edge-tap-hint.show { animation: edge-hint-flash .5s ease forwards; }
+@keyframes edge-hint-flash {
+    0%   { opacity: 0; transform: translateY(-50%) scale(0.6); }
+    35%  { opacity: 1; transform: translateY(-50%) scale(1); }
+    100% { opacity: 0; transform: translateY(-50%) scale(0.85); }
+}
+@media (prefers-reduced-motion: reduce) { .edge-tap-hint.show { animation: none; } }
+
+/* Chuyển câu: thẻ trượt-vào theo hướng (tiến từ phải, lùi từ trái) — đỡ "nhảy giật" */
+#quizSection > .bg-white.q-slide-next { animation: q-slide-in-next .24s cubic-bezier(.16, 1, .3, 1) both; }
+#quizSection > .bg-white.q-slide-prev { animation: q-slide-in-prev .24s cubic-bezier(.16, 1, .3, 1) both; }
+@keyframes q-slide-in-next { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+@keyframes q-slide-in-prev { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+    #quizSection > .bg-white.q-slide-next,
+    #quizSection > .bg-white.q-slide-prev { animation: none; }
+}
+
 /* ============================================================
    4) ĐỘ CHẮC CHẮN (#7) — pill nhỏ, ẩn mình, mặc định "chắc chắn"
    ============================================================ */
@@ -661,6 +714,16 @@ html.theme-dark .bg-cyan-50 { background-color: #15303a !important; }
 /* --- Gradient (vùng giải thích / mở rộng) -> nền đặc tối --- */
 html.theme-dark #explanation-area { background-image: none !important; background-color: #34203a !important; }
 html.theme-dark #expanded-area    { background-image: none !important; background-color: #1b2440 !important; }
+
+/* --- Khung ca lâm sàng ở nền tối: nền xanh mòng két đậm, chữ/nút pastel sáng --- */
+html.theme-dark #clinical-case-panel {
+    background-color: #15303a !important;
+    border-color: rgba(103, 232, 249, 0.22) !important;
+}
+html.theme-dark #clinical-case-panel .text-cyan-800 { color: #a5f3fc !important; }
+html.theme-dark #clinical-case-panel .bg-cyan-100 { background-color: rgba(103, 232, 249, 0.15) !important; color: #a5f3fc !important; border-color: rgba(103, 232, 249, 0.3) !important; }
+html.theme-dark #case-toggle-btn { background: rgba(103, 232, 249, 0.12) !important; border-color: rgba(103, 232, 249, 0.3) !important; color: #a5f3fc !important; }
+html.theme-dark .case-dot:not(.bg-cyan-600) { background: rgba(103, 232, 249, 0.1) !important; border-color: rgba(103, 232, 249, 0.3) !important; color: #a5f3fc !important; }
 
 /* --- Chữ: xám -> sáng, màu đậm -> pastel sáng để đủ tương phản --- */
 html.theme-dark .text-gray-800,
@@ -2014,12 +2077,12 @@ html.theme-dark ::-webkit-scrollbar-thumb:hover {
 @media (max-width: 1023px) {
     #quiz-mobile-nav.show {
         display: flex;
-        align-items: stretch;
-        gap: 0.5rem;
+        flex-direction: column;
+        gap: 0.4rem;
         position: fixed;
         left: 0; right: 0; bottom: 0;
         z-index: 44;
-        padding: 0.5rem 0.6rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+        padding: 0.45rem 0.6rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
         background: rgba(255, 255, 255, 0.86);
         -webkit-backdrop-filter: blur(16px);
         backdrop-filter: blur(16px);
@@ -2027,8 +2090,8 @@ html.theme-dark ::-webkit-scrollbar-thumb:hover {
         box-shadow: 0 -8px 26px -12px rgba(255, 105, 180, 0.4);
         animation: qmn-rise .32s cubic-bezier(.16, 1, .3, 1) both;
     }
-    /* Chừa chỗ cho thanh cố định để nút "Nộp bài"/"Câu tiếp" trong thẻ không bị che */
-    body.has-mobile-nav #quiz-workspace { padding-bottom: 4.6rem; }
+    /* Chừa chỗ cho thanh cố định (2 tầng) để nút trong thẻ không bị che */
+    body.has-mobile-nav #quiz-workspace { padding-bottom: 6.8rem; }
     /* Đã có thanh đáy (Câu X/Y + %) và bảng "Danh sách câu" (bottom-sheet) thay thế,
        nên lưới số câu xếp dọc phía trên câu hỏi thành thừa -> ẩn trên mobile để đỡ chật.
        Vẫn giữ ở desktop (≥1024px) trong bố cục 3 cột. */
@@ -2036,8 +2099,8 @@ html.theme-dark ::-webkit-scrollbar-thumb:hover {
     /* Nút "Ẩn/hiện số câu hỏi" trong bảng thiết lập không còn tác dụng khi lưới đã ẩn */
     body.has-mobile-nav #toggle-nav-btn { display: none !important; }
     /* Nút thiết lập (ngựa) & popover nhấc lên trên thanh để không chồng nhau */
-    body.has-mobile-nav #quiz-settings-fab { bottom: calc(4rem + env(safe-area-inset-bottom, 0px)); }
-    body.has-mobile-nav #quiz-settings-popover { bottom: calc(7.2rem + env(safe-area-inset-bottom, 0px)); }
+    body.has-mobile-nav #quiz-settings-fab { bottom: calc(6.2rem + env(safe-area-inset-bottom, 0px)); }
+    body.has-mobile-nav #quiz-settings-popover { bottom: calc(9.4rem + env(safe-area-inset-bottom, 0px)); }
 }
 @keyframes qmn-rise { 0% { transform: translateY(100%); } 100% { transform: translateY(0); } }
 
@@ -2065,30 +2128,50 @@ html.theme-dark ::-webkit-scrollbar-thumb:hover {
     border-color: #10b981;
     color: #fff;
 }
-.qmn-center {
-    flex: 1 1 auto;
-    min-width: 0;
+/* Tầng 1: dải tiến trình ngang (chạm/vuốt lên mở danh sách câu) */
+.qmn-strip {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 0.22rem;
-    padding: 0.3rem 0.6rem;
-    border-radius: 0.85rem;
+    gap: 0.55rem;
+    width: 100%;
+    padding: 0.32rem 0.7rem;
+    border-radius: 0.75rem;
     border: 1px solid rgba(255, 105, 180, 0.22);
     background: linear-gradient(180deg, rgba(255, 240, 246, 0.9), rgba(255, 255, 255, 0.6));
     -webkit-tap-highlight-color: transparent;
     transition: transform .12s ease;
 }
-.qmn-center:active { transform: scale(0.98); }
-.qmn-counter { font-weight: 800; font-size: 0.9rem; color: #be185d; line-height: 1.1; }
+.qmn-strip:active { transform: scale(0.99); }
+.qmn-counter { font-weight: 800; font-size: 0.82rem; color: #be185d; line-height: 1.1; flex: 0 0 auto; white-space: nowrap; }
 .qmn-progress {
-    width: 100%;
-    height: 5px;
+    flex: 1 1 auto;
+    height: 6px;
     border-radius: 9999px;
     background: rgba(255, 105, 180, 0.18);
     overflow: hidden;
 }
+
+/* Tầng 2: hàng nút Trước · 50:50 · Đánh dấu · Tiếp */
+.qmn-row { display: flex; align-items: stretch; gap: 0.45rem; }
+.qmn-row .qmn-arrow { flex: 1 1 0; min-width: 0; min-height: 2.85rem; }
+.qmn-act {
+    flex: 0 0 auto;
+    width: 3rem;
+    min-height: 2.85rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.85rem;
+    border: 1px solid rgba(255, 105, 180, 0.3);
+    background: #fff0f6;
+    color: #db2777;
+    font-size: 1rem;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .12s ease, background-color .2s ease, opacity .2s ease;
+}
+.qmn-act:active { transform: scale(0.94); }
+.qmn-act.is-off { opacity: 0.4; pointer-events: none; }
+.qmn-act.is-active { background: #db2777; border-color: #db2777; color: #fff; }
 .qmn-progress-fill {
     display: block;
     height: 100%;
@@ -2113,8 +2196,10 @@ html.theme-dark #quiz-mobile-nav.show {
     border-top-color: rgba(255, 105, 180, 0.25);
     box-shadow: 0 -8px 26px -12px rgba(0, 0, 0, 0.6);
 }
-html.theme-dark .qmn-arrow { background: #34203a; color: #f9a8d4; border-color: rgba(249, 168, 212, 0.28); }
-html.theme-dark .qmn-center { background: linear-gradient(180deg, rgba(52, 32, 58, 0.9), rgba(40, 28, 52, 0.6)); border-color: rgba(249, 168, 212, 0.22); }
+html.theme-dark .qmn-arrow,
+html.theme-dark .qmn-act { background: #34203a; color: #f9a8d4; border-color: rgba(249, 168, 212, 0.28); }
+html.theme-dark .qmn-act.is-active { background: #db2777; border-color: #db2777; color: #fff; }
+html.theme-dark .qmn-strip { background: linear-gradient(180deg, rgba(52, 32, 58, 0.9), rgba(40, 28, 52, 0.6)); border-color: rgba(249, 168, 212, 0.22); }
 html.theme-dark .qmn-counter { color: #f9a8d4; }
 html.theme-dark .qmn-hint { color: #f9a8d4; }
 html.theme-dark .qmn-progress { background: rgba(249, 168, 212, 0.18); }
@@ -2360,6 +2445,10 @@ html.theme-dark .quiz-kbd-hint { color: #8a7fa3; }
        và bảng/danh sách bên trong không rơi xuống text-sm 14px cho khó đọc). */
     #case-body { font-size: 1.02rem; line-height: 1.72; }
     #case-body .cute-table th, #case-body .cute-table td { font-size: 0.92rem; }
+    /* Bỏ CUỘN LỒNG (max-h-72 overflow-y-auto) trên điện thoại: ô cuộn trong-cuộn
+       hay kẹt tay khi lướt. Cho nội dung ca trôi tự nhiên theo trang; ca dài thì
+       dùng nút "Thu gọn" để giấu. */
+    #case-body { max-height: none !important; overflow: visible !important; }
     #explanation-area:not(.hidden), #expanded-area:not(.hidden) {
         padding: 0.9rem;
         margin-top: 1rem;

@@ -1,0 +1,552 @@
+/* =====================================================================
+   Zitthenkne Quiz — Giao diện "Ceramic Futurism & Kintsugi Porcelain"
+   Lớp phủ CHỈ áp dụng khi <body class="theme-ceramic"> (quiz-ceramic.html).
+   Tái dùng nguyên DOM + JS của quiz.html; file này chỉ repaint.
+   Token theo web_assets/DESIGN.md. Không đụng file classic.
+   ===================================================================== */
+
+/* ---------- Tier 1: Primitive tokens ---------- */
+body.theme-ceramic {
+  --color-porcelain-100: #FFFFFF;
+  --color-porcelain-200: #FDFBF7;
+  --color-porcelain-300: #F3EFEA;
+  --color-obsidian-900: #141417;
+  --color-obsidian-800: #1E1E24;
+  --color-obsidian-700: #282830;
+  --color-kintsugi-gold-pure: #D4AF37;
+  --color-kintsugi-gold-soft: #E6CA65;
+  --color-kintsugi-gold-dim: rgba(212, 175, 55, 0.18);
+  --color-ink-charcoal: #1F1F23;
+  --color-ink-slate: #64646F;
+  --color-ink-silver: #A1A1AA;
+  --color-ink-light-primary: #F5F5F7;
+  --color-ink-light-secondary: #A0A0AB;
+  --color-clinical-emerald: #10B981;
+  --color-clinical-rose: #F43F5E;
+
+  /* ---------- Tier 2: Semantic (light) ---------- */
+  --surface-canvas: var(--color-porcelain-200);
+  --surface-card: var(--color-porcelain-100);
+  --surface-tile-elevated: rgba(255, 255, 255, 0.92);
+  --text-main: var(--color-ink-charcoal);
+  --text-muted: var(--color-ink-slate);
+  --border-subtle: rgba(212, 175, 55, 0.25);
+  --border-kintsugi-active: var(--color-kintsugi-gold-pure);
+  --accent-primary: var(--color-kintsugi-gold-pure);
+  --accent-surface: var(--color-kintsugi-gold-dim);
+  --status-success-surface: rgba(16, 185, 129, 0.12);
+  --status-error-surface: rgba(244, 63, 94, 0.12);
+
+  /* ---------- Tier 3: Component ---------- */
+  --btn-primary-bg: var(--color-ink-charcoal);
+  --btn-primary-text: var(--color-porcelain-100);
+  --btn-primary-border: var(--color-kintsugi-gold-pure);
+  --card-shadow-ceramic: 0 20px 40px -15px rgba(20, 20, 23, 0.08), 0 0 0 1px var(--border-subtle);
+  --card-shadow-kintsugi-glow: 0 0 25px -5px rgba(212, 175, 55, 0.45), inset 0 0 12px rgba(212, 175, 55, 0.2);
+  --tile-radius-lg: 1.75rem;
+  --tile-radius-md: 1.25rem;
+  --tile-radius-sm: 0.75rem;
+
+  /* Fluid type + easing */
+  --font-display-xl: clamp(1.75rem, 3.5vw + 1rem, 2.75rem);
+  --font-heading-lg: clamp(1.25rem, 2vw + 0.75rem, 1.75rem);
+  --font-body-md: clamp(0.9375rem, 0.5vw + 0.85rem, 1.0625rem);
+  --font-meta-sm: clamp(0.8125rem, 0.3vw + 0.75rem, 0.875rem);
+  --ease-expo: cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --font-display: 'Outfit', 'Be Vietnam Pro', system-ui, sans-serif;
+  --font-body: 'Be Vietnam Pro', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* ---------- Tier 2: Semantic (dark / obsidian) ---------- */
+html.theme-dark body.theme-ceramic {
+  --surface-canvas: var(--color-obsidian-900);
+  --surface-card: var(--color-obsidian-800);
+  --surface-tile-elevated: rgba(30, 30, 36, 0.92);
+  --text-main: var(--color-ink-light-primary);
+  --text-muted: var(--color-ink-light-secondary);
+  --border-subtle: rgba(212, 175, 55, 0.35);
+  --card-shadow-ceramic: 0 20px 45px -15px rgba(0, 0, 0, 0.65), 0 0 0 1px var(--border-subtle);
+  --btn-primary-bg: var(--color-porcelain-100);
+  --btn-primary-text: var(--color-ink-charcoal);
+}
+
+/* =====================================================================
+   Canvas + typography
+   ===================================================================== */
+body.theme-ceramic {
+  background: var(--surface-canvas) !important;
+  color: var(--text-main);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+/* Nền porcelain có vân kintsugi mờ thay cho ảnh nền hồng gốc */
+body.theme-ceramic::before {
+  background-image:
+    radial-gradient(60rem 60rem at 82% -10%, var(--color-kintsugi-gold-dim), transparent 55%),
+    radial-gradient(50rem 50rem at -10% 110%, rgba(212, 175, 55, 0.10), transparent 55%) !important;
+  opacity: 1 !important;
+  filter: none !important;
+}
+body.theme-ceramic ::selection { background: var(--accent-surface); color: var(--accent-primary); }
+
+body.theme-ceramic h1,
+body.theme-ceramic h2,
+body.theme-ceramic h3 { font-family: var(--font-display); letter-spacing: -0.02em; }
+
+/* Tiêu đề hero: đổi gradient hồng → kintsugi gold */
+body.theme-ceramic #quiz-title {
+  font-size: var(--font-display-xl);
+  background: linear-gradient(100deg, var(--color-kintsugi-gold-pure), var(--color-kintsugi-gold-soft) 55%, var(--color-ink-charcoal)) !important;
+  -webkit-background-clip: text; background-clip: text;
+}
+html.theme-dark body.theme-ceramic #quiz-title {
+  background: linear-gradient(100deg, var(--color-kintsugi-gold-soft), var(--color-kintsugi-gold-pure) 55%, var(--color-ink-light-primary)) !important;
+  -webkit-background-clip: text; background-clip: text;
+}
+
+/* Số liệu / đồng hồ dùng mono + tabular */
+body.theme-ceramic #stat-questions-count,
+body.theme-ceramic #stat-duration,
+body.theme-ceramic #stat-last-attempt,
+body.theme-ceramic #timed-minutes-input,
+body.theme-ceramic #timer,
+body.theme-ceramic [id*="count"] {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* =====================================================================
+   Repaint theo lô: quét sạch tông HỒNG của Tailwind → gốm/vàng
+   (dùng attribute-substring để khỏi sửa HTML)
+   ===================================================================== */
+body.theme-ceramic [class*="bg-pink"],
+body.theme-ceramic [class*="bg-purple"],
+body.theme-ceramic [class*="bg-indigo"] {
+  background-color: var(--color-porcelain-300) !important;
+}
+html.theme-dark body.theme-ceramic [class*="bg-pink"],
+html.theme-dark body.theme-ceramic [class*="bg-purple"],
+html.theme-dark body.theme-ceramic [class*="bg-indigo"] {
+  background-color: var(--color-obsidian-700) !important;
+}
+body.theme-ceramic [class*="text-pink"],
+body.theme-ceramic [class*="text-purple"],
+body.theme-ceramic [class*="text-indigo"],
+body.theme-ceramic [class*="text-[#FF69B4]"] {
+  color: var(--accent-primary) !important;
+}
+body.theme-ceramic [class*="border-pink"],
+body.theme-ceramic [class*="border-purple"],
+body.theme-ceramic [class*="border-indigo"],
+body.theme-ceramic [class*="border-amber"] {
+  border-color: var(--border-subtle) !important;
+}
+body.theme-ceramic [class*="from-pink"],
+body.theme-ceramic [class*="via-purple"],
+body.theme-ceramic [class*="to-indigo"] {
+  --tw-gradient-from: var(--color-kintsugi-gold-pure) !important;
+  --tw-gradient-to: var(--color-kintsugi-gold-soft) !important;
+}
+body.theme-ceramic [class*="text-gray-4"],
+body.theme-ceramic [class*="text-gray-5"] { color: var(--text-muted) !important; }
+body.theme-ceramic [class*="text-gray-7"],
+body.theme-ceramic [class*="text-gray-8"] { color: var(--text-main) !important; }
+
+/* =====================================================================
+   Card landing chính (glass-premium) → tấm porcelain tráng men
+   ===================================================================== */
+body.theme-ceramic .glass-premium {
+  background: var(--surface-tile-elevated) !important;
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: var(--tile-radius-lg) !important;
+  box-shadow: var(--card-shadow-ceramic) !important;
+}
+
+/* Bệ linh vật gốm phát sáng kintsugi */
+body.theme-ceramic #quiz-hero-btn {
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: var(--tile-radius-lg) !important;
+  background: var(--surface-tile-elevated) !important;
+  box-shadow: var(--card-shadow-ceramic), var(--card-shadow-kintsugi-glow) !important;
+  padding: 0.75rem;
+}
+body.theme-ceramic #quiz-hero-img { object-fit: contain !important; }
+
+/* Thẻ mẹo ôn ttập */
+body.theme-ceramic #quiz-tip {
+  background: var(--accent-surface) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: var(--tile-radius-md) !important;
+}
+body.theme-ceramic #quiz-tip .fa-lightbulb { color: var(--color-kintsugi-gold-pure) !important; }
+body.theme-ceramic #quiz-tip-text { color: var(--text-main) !important; }        /* ink, tương phản cao */
+body.theme-ceramic #quiz-tip [class*="bg-amber"] { background: var(--accent-surface) !important; }  /* ổ icon amber → gold-dim */
+
+/* =====================================================================
+   Bento chọn nhanh chế độ — tile gốm + viền kintsugi khi active
+   ===================================================================== */
+body.theme-ceramic .mode-preset {
+  border: 1.5px solid var(--border-subtle);
+  background: var(--surface-tile-elevated);
+  border-radius: var(--tile-radius-md);
+  padding: clamp(0.75rem, 2vw, 1rem) 0.5rem;
+  min-height: 48px;
+  transition: transform .28s var(--ease-spring), box-shadow .28s var(--ease-expo), border-color .28s var(--ease-expo);
+}
+body.theme-ceramic .mode-preset .mp-ic {
+  display: flex; align-items: center; justify-content: center;
+  width: 56px; height: 56px; margin-bottom: 4px;
+  border-radius: 1rem; padding: 0.5rem;
+  background: var(--surface-canvas); border: 1px solid var(--border-subtle);
+}
+body.theme-ceramic .mode-preset .mp-ic img { width: 100%; height: 100%; object-fit: contain; transition: transform .28s var(--ease-spring); }
+body.theme-ceramic .mode-preset .mp-name { color: var(--text-main); font-family: var(--font-display); }
+body.theme-ceramic .mode-preset .mp-desc { color: var(--text-muted); }
+@media (hover: hover) and (pointer: fine) {
+  body.theme-ceramic .mode-preset:hover {
+    transform: translateY(-4px);
+    border-color: var(--color-kintsugi-gold-soft);
+    box-shadow: var(--card-shadow-kintsugi-glow);
+  }
+  body.theme-ceramic .mode-preset:hover .mp-ic img { transform: scale(1.1); }
+}
+body.theme-ceramic .mode-preset:active { transform: scale(0.97); }
+body.theme-ceramic .mode-preset.mp-active {
+  border: 2px solid var(--color-kintsugi-gold-pure);
+  background: var(--accent-surface);
+  box-shadow: var(--card-shadow-kintsugi-glow);
+}
+body.theme-ceramic .mode-preset.mp-active .mp-name { color: var(--color-kintsugi-gold-pure); }
+
+/* =====================================================================
+   Chip preset (số phút / số câu) + sum-chip + resume-hint
+   ===================================================================== */
+body.theme-ceramic .chip-preset {
+  border: 1px solid var(--border-subtle);
+  color: var(--color-kintsugi-gold-pure);
+  background: var(--accent-surface);
+  font-family: var(--font-mono);
+}
+body.theme-ceramic .chip-preset:hover { background: var(--color-kintsugi-gold-dim); }
+body.theme-ceramic .chip-preset.chip-active {
+  background: var(--color-kintsugi-gold-pure); border-color: var(--color-kintsugi-gold-pure); color: var(--color-obsidian-900);
+}
+body.theme-ceramic .sum-chip {
+  background: var(--surface-tile-elevated); border: 1px solid var(--border-subtle); color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+body.theme-ceramic .sum-chip i { color: var(--color-kintsugi-gold-pure); }
+body.theme-ceramic #resume-hint {
+  background: var(--accent-surface) !important; border: 1px dashed var(--color-kintsugi-gold-soft) !important;
+}
+
+/* =====================================================================
+   Nút CTA chính "Bắt đầu ngay" — obsidian ink + viền kintsugi
+   ===================================================================== */
+body.theme-ceramic #start-now-btn,
+body.theme-ceramic #mobile-start-bar button {
+  background: var(--btn-primary-bg) !important;
+  color: var(--btn-primary-text) !important;
+  border: 1.5px solid var(--btn-primary-border) !important;
+  border-radius: var(--tile-radius-md) !important;
+  font-family: var(--font-display);
+  transition: transform .28s var(--ease-spring), box-shadow .28s var(--ease-expo) !important;
+}
+@media (hover: hover) and (pointer: fine) {
+  body.theme-ceramic #start-now-btn:hover { transform: translateY(-3px) scale(1.008); box-shadow: var(--card-shadow-kintsugi-glow) !important; }
+}
+body.theme-ceramic #start-now-btn:active { transform: translateY(2px) scale(0.99); }
+
+/* Nút SRS + nút phụ */
+body.theme-ceramic #start-srs-btn {
+  background: var(--accent-surface) !important; color: var(--color-kintsugi-gold-pure) !important;
+  border: 1.5px solid var(--border-subtle) !important;
+}
+
+/* =====================================================================
+   Skeleton shimmer gốm (vàng nhạt) — cấm spinner
+   ===================================================================== */
+body.theme-ceramic .skeleton-line {
+  background: linear-gradient(90deg, rgba(212,175,55,0.08) 25%, rgba(212,175,55,0.18) 50%, rgba(212,175,55,0.08) 75%) !important;
+  background-size: 200% 100% !important;
+  border-radius: var(--tile-radius-sm);
+}
+
+/* =====================================================================
+   Toggle switch (peer) → gold khi bật
+   ===================================================================== */
+body.theme-ceramic .peer:checked ~ div { background-color: var(--color-kintsugi-gold-pure) !important; }
+
+/* =====================================================================
+   Theme switcher chip (đặt trong quiz-ceramic.html)
+   ===================================================================== */
+.ceramic-theme-switch {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.5rem 0.9rem; min-height: 44px;
+  font-family: var(--font-body, 'Be Vietnam Pro', sans-serif); font-size: var(--font-meta-sm, 0.85rem); font-weight: 600;
+  color: var(--text-main, #1F1F23);
+  background: var(--surface-tile-elevated, rgba(255,255,255,0.92));
+  border: 1px solid var(--border-subtle, rgba(212,175,55,0.25));
+  border-radius: 9999px; cursor: pointer;
+  box-shadow: var(--card-shadow-ceramic);
+  transition: transform .28s var(--ease-spring, cubic-bezier(0.34,1.56,0.64,1)), box-shadow .28s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .ceramic-theme-switch:hover { transform: translateY(-2px); box-shadow: var(--card-shadow-kintsugi-glow); }
+}
+.ceramic-theme-switch:active { transform: scale(0.97); }
+.ceramic-theme-switch i { color: var(--color-kintsugi-gold-pure, #D4AF37); }
+
+/* Badge crystalline SRS (brain PNG) */
+.ceramic-srs-badge {
+  width: 44px; height: 44px; object-fit: contain; flex-shrink: 0;
+  filter: drop-shadow(0 0 8px rgba(212,175,55,0.35));
+}
+
+/* =====================================================================
+   a11y: focus ring kintsugi + reduced motion
+   ===================================================================== */
+body.theme-ceramic button:focus-visible,
+body.theme-ceramic input:focus-visible,
+body.theme-ceramic label:focus-visible,
+body.theme-ceramic a:focus-visible,
+.ceramic-theme-switch:focus-visible {
+  outline: 2px solid var(--color-kintsugi-gold-pure); outline-offset: 3px;
+}
+
+@keyframes kintsugiPulse {
+  0%, 100% { opacity: 0.85; filter: drop-shadow(0 0 8px rgba(212, 175, 55, 0.3)); }
+  50% { opacity: 1; filter: drop-shadow(0 0 16px rgba(212, 175, 55, 0.6)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.theme-ceramic *, body.theme-ceramic *::before, body.theme-ceramic *::after {
+    animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important; scroll-behavior: auto !important;
+  }
+}
+
+/* =====================================================================
+   ADDENDUM — quét nốt tông hồng arbitrary còn sót (#FF69B4, #D8BFD8),
+   ring, và các nút HỒNG MẠNH bị đổ nhầm về porcelain nhạt.
+   Loại trừ ':not([class*="peer-checked"])' để không phá công tắc toggle.
+   ===================================================================== */
+
+/* Nền hồng đậm arbitrary + pink-500/600 → nút vàng kintsugi, chữ obsidian */
+body.theme-ceramic [class*="bg-[#FF69B4]"]:not([class*="peer-checked"]),
+body.theme-ceramic [class*="bg-[#ff69b4]"]:not([class*="peer-checked"]),
+body.theme-ceramic [class*="bg-pink-500"],
+body.theme-ceramic [class*="bg-pink-600"] {
+  background-color: var(--color-kintsugi-gold-pure) !important;
+  color: var(--color-obsidian-900) !important;
+  border-color: var(--color-kintsugi-gold-pure) !important;
+}
+
+/* Chữ / icon hồng arbitrary → gold */
+body.theme-ceramic [class*="text-[#FF69B4]"],
+body.theme-ceramic [class*="text-[#ff69b4]"] { color: var(--accent-primary) !important; }
+
+/* Gradient hồng/tím arbitrary → seam vàng */
+body.theme-ceramic [class*="from-[#FF69B4]"] { --tw-gradient-from: var(--color-kintsugi-gold-pure) !important; }
+body.theme-ceramic [class*="to-[#FF69B4]"],
+body.theme-ceramic [class*="to-[#D8BFD8]"] { --tw-gradient-to: var(--color-kintsugi-gold-soft) !important; }
+
+/* Ring focus/hover hồng/chàm → gold */
+body.theme-ceramic [class*="ring-pink"],
+body.theme-ceramic [class*="ring-indigo"] { --tw-ring-color: var(--color-kintsugi-gold-pure) !important; }
+
+/* Chữ trang trí xanh/tím lẻ (menu, flashcard, chia sẻ) → gold; GIỮ xanh lá = success */
+body.theme-ceramic #quiz-mobile-menu [class*="text-blue"],
+body.theme-ceramic #quiz-mobile-menu [class*="text-purple"],
+body.theme-ceramic [class*="text-[#FF69B4]"],
+body.theme-ceramic .fa-share-alt { color: var(--accent-primary) !important; }
+
+/* Ổ icon xanh/tím lẻ → porcelain lõm cho đồng bộ */
+body.theme-ceramic [class*="bg-blue-50"],
+body.theme-ceramic [class*="bg-amber-50"],
+body.theme-ceramic [class*="bg-amber-100"] { background-color: var(--color-porcelain-300) !important; }
+html.theme-dark body.theme-ceramic [class*="bg-blue-50"],
+html.theme-dark body.theme-ceramic [class*="bg-amber-50"],
+html.theme-dark body.theme-ceramic [class*="bg-amber-100"] { background-color: var(--color-obsidian-700) !important; }
+
+/* Nút chia sẻ hệ thống (bg-pink-500) giờ đã là gold ở trên — chữ obsidian đọc rõ */
+body.theme-ceramic #share-system-btn,
+body.theme-ceramic #exit-focus-btn { color: var(--color-obsidian-900) !important; }
+body.theme-ceramic #exit-focus-btn .fas { color: var(--color-obsidian-900) !important; }
+
+/* Tinh chỉnh chữ: đảm bảo tương phản trên nền gốm sáng/tối */
+body.theme-ceramic [class*="text-gray-6"] { color: var(--text-muted) !important; }
+body.theme-ceramic [class*="text-gray-9"],
+body.theme-ceramic [class*="text-gray-8"] { color: var(--text-main) !important; }
+html.theme-dark body.theme-ceramic [class*="text-gray-3"],
+html.theme-dark body.theme-ceramic [class*="text-gray-4"] { color: var(--color-ink-light-secondary) !important; }
+
+/* =====================================================================
+   ✦ WOW LAYER — chất gốm nung 1300°C + mạch vàng Kintsugi thật
+   Thuần CSS/SVG (pseudo-element, background, keyframe). Không đụng DOM/JS.
+   ===================================================================== */
+
+/* Nền phòng: men rạn ceramic mờ + hai quầng vàng ấm (thay 2 radial cũ) */
+body.theme-ceramic::before {
+  background-image:
+    radial-gradient(60rem 60rem at 82% -12%, rgba(212,175,55,0.16), transparent 55%),
+    radial-gradient(48rem 48rem at -12% 112%, rgba(212,175,55,0.10), transparent 55%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cg fill='none' stroke='%23D4AF37' stroke-width='0.6' opacity='0.05'%3E%3Cpath d='M0 80 L90 96 L150 60 L240 108 L320 74'/%3E%3Cpath d='M60 0 L84 70 L48 140 L110 210 L70 320'/%3E%3Cpath d='M320 200 L250 214 L300 260 L220 300'/%3E%3C/g%3E%3C/svg%3E") !important;
+  background-size: auto, auto, 320px 320px !important;
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+/* ---- Tấm porcelain chính: men bóng + mạch vàng chạy đỉnh + chiều sâu kép ---- */
+body.theme-ceramic .glass-premium {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.65), rgba(255,255,255,0) 26%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='120'%3E%3Cg fill='none' stroke='%23D4AF37' stroke-linejoin='round'%3E%3Cpath d='M0 26 L120 18 L210 40 L330 12 L470 46 L610 20 L720 40 L800 24' stroke-width='1.6' opacity='0.85'/%3E%3Cpath d='M210 40 L226 66 M470 46 L486 74 M330 12 L318 -6 M610 20 L622 2' stroke-width='1' opacity='0.5'/%3E%3C/g%3E%3C/svg%3E") no-repeat top center / 118% auto,
+    var(--surface-tile-elevated) !important;
+  box-shadow:
+    0 28px 60px -22px rgba(20,20,23,0.16),
+    0 8px 20px -12px rgba(20,20,23,0.10),
+    inset 0 1px 0 rgba(255,255,255,0.9),
+    0 0 0 1px var(--border-subtle) !important;
+}
+html.theme-dark body.theme-ceramic .glass-premium {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0) 26%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='120'%3E%3Cg fill='none' stroke='%23D4AF37' stroke-linejoin='round'%3E%3Cpath d='M0 26 L120 18 L210 40 L330 12 L470 46 L610 20 L720 40 L800 24' stroke-width='1.6' opacity='0.9'/%3E%3Cpath d='M210 40 L226 66 M470 46 L486 74 M330 12 L318 -6 M610 20 L622 2' stroke-width='1' opacity='0.55'/%3E%3C/g%3E%3C/svg%3E") no-repeat top center / 118% auto,
+    var(--surface-tile-elevated) !important;
+  box-shadow:
+    0 30px 65px -20px rgba(0,0,0,0.7),
+    inset 0 1px 0 rgba(255,255,255,0.05),
+    0 0 0 1px var(--border-subtle) !important;
+}
+/* Vệt nứt vàng mảnh ở góc dưới card (dấu ấn kintsugi) */
+body.theme-ceramic .glass-premium::after {
+  content: ""; position: absolute; right: 0; bottom: 0; width: 46%; height: 42%;
+  pointer-events: none; opacity: 0.5; border-bottom-right-radius: var(--tile-radius-lg);
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='200'%3E%3Cg fill='none' stroke='%23D4AF37' stroke-width='1.1' stroke-linejoin='round' opacity='0.55'%3E%3Cpath d='M240 60 L188 96 L214 132 L150 168 L182 200'/%3E%3Cpath d='M188 96 L150 88 M150 168 L120 176'/%3E%3C/g%3E%3C/svg%3E") no-repeat right bottom;
+}
+
+/* ---- Tiêu đề mục: mạch vàng kéo dài hết dòng (h3 vốn là flex) ---- */
+body.theme-ceramic #quiz-landing h3 { gap: 0.6rem; }
+body.theme-ceramic #quiz-landing h3::after {
+  content: ""; flex: 1 1 auto; height: 1px; margin-left: 0.25rem;
+  background: linear-gradient(90deg, var(--color-kintsugi-gold-pure), rgba(212,175,55,0.15) 60%, transparent);
+}
+body.theme-ceramic #quiz-landing h3 .fa-wand-magic-sparkles,
+body.theme-ceramic #quiz-landing h3 .fa-sliders-h,
+body.theme-ceramic #quiz-landing h3 i { color: var(--color-kintsugi-gold-pure) !important; }
+
+/* ---- Divider giữa các khối: mạch vàng phát sáng thay hairline ---- */
+body.theme-ceramic #quiz-landing [class*="border-t"] {
+  border-top-color: transparent !important;
+  border-image: linear-gradient(90deg, transparent, var(--color-kintsugi-gold-pure) 20%, var(--color-kintsugi-gold-soft) 50%, var(--color-kintsugi-gold-pure) 80%, transparent) 1 !important;
+}
+
+/* ---- Thẻ Stats: hố porcelain lõm, số mono nổi bật ---- */
+body.theme-ceramic .grid.grid-cols-3 > div {
+  background: var(--surface-canvas) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: var(--tile-radius-md) !important;
+  box-shadow: inset 0 2px 6px rgba(20,20,23,0.06), inset 0 -1px 0 rgba(255,255,255,0.7) !important;
+}
+html.theme-dark body.theme-ceramic .grid.grid-cols-3 > div {
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.5), inset 0 -1px 0 rgba(255,255,255,0.04) !important;
+}
+body.theme-ceramic #stat-questions-count,
+body.theme-ceramic #stat-duration,
+body.theme-ceramic #stat-last-attempt {
+  font-size: clamp(1rem, 1.2vw + 0.7rem, 1.35rem) !important;
+  font-weight: 700; color: var(--text-main) !important; letter-spacing: -0.01em;
+}
+body.theme-ceramic .grid.grid-cols-3 > div .fas { color: var(--color-kintsugi-gold-pure) !important; }
+
+/* ---- Bệ linh vật: quầng vàng thở + nền đế ---- */
+body.theme-ceramic #quiz-hero-btn { position: relative; overflow: visible !important; }
+body.theme-ceramic #quiz-hero-btn::before {
+  content: ""; position: absolute; inset: -10px; border-radius: inherit; z-index: -1;
+  background: radial-gradient(closest-side, rgba(212,175,55,0.35), transparent 78%);
+  animation: kintsugiPulse 2.6s ease-in-out infinite;
+}
+body.theme-ceramic #quiz-hero-img { border-radius: calc(var(--tile-radius-lg) - 0.4rem); }
+
+/* ---- Mode tile active: mạch vàng thở quanh viền ---- */
+body.theme-ceramic .mode-preset.mp-active { animation: kintsugiPulse 2.5s ease-in-out infinite; }
+
+/* ---- Nút CTA: men bóng + vệt sáng quét chéo khi hover ---- */
+body.theme-ceramic #start-now-btn { position: relative; overflow: hidden; isolation: isolate; }
+body.theme-ceramic #start-now-btn::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background: linear-gradient(180deg, rgba(255,255,255,0.14), transparent 45%);
+}
+body.theme-ceramic #start-now-btn::after {
+  content: ""; position: absolute; top: 0; left: -60%; width: 45%; height: 100%; z-index: -1;
+  background: linear-gradient(100deg, transparent, rgba(212,175,55,0.55), transparent);
+  transform: skewX(-18deg);
+}
+@media (hover: hover) and (pointer: fine) {
+  body.theme-ceramic #start-now-btn:hover::after { animation: ceramicSheen 0.9s var(--ease-expo) forwards; }
+}
+@keyframes ceramicSheen { to { left: 120%; } }
+
+/* ---- Hiện lên lần lượt (stagger 60ms) cho tile chế độ & lưới tùy chọn ---- */
+@keyframes ceramicRise { from { opacity: 0; transform: translateY(14px) scale(0.98); } to { opacity: 1; transform: none; } }
+body.theme-ceramic #quiz-mode-presets .mode-preset,
+body.theme-ceramic #quiz-options-grid > * {
+  animation: ceramicRise 0.55s var(--ease-spring) both;
+}
+body.theme-ceramic #quiz-mode-presets .mode-preset:nth-child(1) { animation-delay: 0.04s; }
+body.theme-ceramic #quiz-mode-presets .mode-preset:nth-child(2) { animation-delay: 0.10s; }
+body.theme-ceramic #quiz-mode-presets .mode-preset:nth-child(3) { animation-delay: 0.16s; }
+body.theme-ceramic #quiz-options-grid > *:nth-child(1) { animation-delay: 0.06s; }
+body.theme-ceramic #quiz-options-grid > *:nth-child(2) { animation-delay: 0.12s; }
+body.theme-ceramic #quiz-options-grid > *:nth-child(3) { animation-delay: 0.18s; }
+body.theme-ceramic #quiz-options-grid > *:nth-child(4) { animation-delay: 0.24s; }
+body.theme-ceramic #quiz-options-grid > *:nth-child(5) { animation-delay: 0.30s; }
+body.theme-ceramic #quiz-options-grid > *:nth-child(6) { animation-delay: 0.36s; }
+
+/* ---- Tile tùy chọn: porcelain nổi + men, viền vàng khi hover ---- */
+body.theme-ceramic #quiz-options-grid > label,
+body.theme-ceramic #quiz-options-grid > div {
+  background: var(--surface-tile-elevated) !important;
+  border: 1px solid var(--border-subtle) !important;
+  box-shadow: 0 6px 16px -10px rgba(20,20,23,0.14), inset 0 1px 0 rgba(255,255,255,0.7) !important;
+  transition: transform .28s var(--ease-spring), box-shadow .28s var(--ease-expo), border-color .28s var(--ease-expo);
+}
+@media (hover: hover) and (pointer: fine) {
+  body.theme-ceramic #quiz-options-grid > label:hover,
+  body.theme-ceramic #quiz-options-grid > div:hover {
+    transform: translateY(-2px); border-color: var(--color-kintsugi-gold-soft) !important;
+    box-shadow: var(--card-shadow-kintsugi-glow) !important;
+  }
+}
+body.theme-ceramic #quiz-options-grid .w-9 {
+  background: var(--surface-canvas) !important; color: var(--color-kintsugi-gold-pure) !important;
+  border: 1px solid var(--border-subtle) !important; border-radius: 0.8rem !important;
+}
+
+/* ---- Nút "Xem trước": chip gốm ---- */
+body.theme-ceramic #show-preview-btn {
+  background: var(--surface-tile-elevated) !important; color: var(--color-kintsugi-gold-pure) !important;
+  border: 1px solid var(--border-subtle) !important; border-radius: 9999px !important;
+}
+
+/* Chip switcher: thêm men bóng cho khớp tổng thể */
+.ceramic-theme-switch { position: relative; overflow: hidden; }
+.ceramic-theme-switch::before {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.35), transparent 50%); pointer-events: none;
+}
+
+/* Reduced-motion: tắt mọi vòng lặp thêm ở lớp WOW */
+@media (prefers-reduced-motion: reduce) {
+  body.theme-ceramic #quiz-hero-btn::before,
+  body.theme-ceramic .mode-preset.mp-active,
+  body.theme-ceramic #quiz-mode-presets .mode-preset,
+  body.theme-ceramic #quiz-options-grid > * { animation: none !important; }
+}

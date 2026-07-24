@@ -373,44 +373,70 @@ export function setupSwipe() {
 // Không vẽ gì cả: chỉ lắng nghe cú chạm nhanh ở rìa màn hình, nên không che nội dung.
 // Tự động "chừa" các nút/điều khiển nhờ kiểm tra closest() y như khi vuốt.
 export function setupEdgeTap() {
-    // Bề rộng vùng chạm ở mỗi rìa: ~9% màn hình, tối thiểu 34px, tối đa 64px
-    const edgeWidth = () => Math.max(34, Math.min(64, window.innerWidth * 0.09));
-    let sx = 0, sy = 0, st = 0, tracking = false;
+    // Dải chạm HẸP sát mép (~6% màn hình, 24–40px). Nhỏ nên hiếm khi đè lên chỗ
+    // người dùng nhắm để CHỌN đáp án (họ nhắm chữ/giữa ô), nhưng đủ để "chạm rìa".
+    const edgeWidth = () => Math.max(24, Math.min(40, window.innerWidth * 0.06));
+    let sx = 0, sy = 0, st = 0, tracking = false, side = 0;
+
+    // Gợi ý trực quan: lóe một mũi tên ở rìa vừa chạm -> cảm giác "ăn" & dạy chỗ chạm.
+    let hintEl = null;
+    const flashHint = (leftSide) => {
+        if (!hintEl) {
+            hintEl = document.createElement('div');
+            hintEl.className = 'edge-tap-hint';
+            hintEl.innerHTML = '<i class="fas fa-chevron-left"></i>';
+            document.body.appendChild(hintEl);
+        }
+        hintEl.classList.toggle('is-left', leftSide);
+        hintEl.classList.toggle('is-right', !leftSide);
+        hintEl.querySelector('i').className = leftSide ? 'fas fa-chevron-left' : 'fas fa-chevron-right';
+        hintEl.classList.remove('show');
+        void hintEl.offsetWidth; // reset animation
+        hintEl.classList.add('show');
+    };
+
+    const canNav = () => window.innerWidth < 1024
+        && document.body.classList.contains('quiz-active')
+        && !document.body.classList.contains('focus-mode-active')
+        && !document.body.classList.contains('qjs-open'); // bảng nhảy câu đang mở
 
     document.addEventListener('touchstart', (e) => {
-        // Chỉ ở màn hình hẹp (mobile/tablet), và chỉ khi đang làm bài
-        if (window.innerWidth >= 1024 || e.touches.length !== 1) { tracking = false; return; }
-        if (!document.body.classList.contains('quiz-active')) { tracking = false; return; }
-        if (document.body.classList.contains('focus-mode-active')) { tracking = false; return; }
+        tracking = false;
+        if (!canNav() || e.touches.length !== 1) return;
         const x = e.touches[0].clientX;
         const ew = edgeWidth();
-        // Chỉ quan tâm cú chạm bắt đầu ở rìa trái hoặc rìa phải
-        if (x > ew && x < window.innerWidth - ew) { tracking = false; return; }
-        // Chừa ra các nút bấm / vùng tương tác / chữ chọn được
-        if (e.target.closest('button, a, textarea, input, select, label, .answer-btn, table, .question-text, mark, .quiz-annot, .quiz-image, .mermaid, .qs-row, #quiz-settings-popover, #quiz-settings-fab, #quiz-mobile-menu')) {
-            tracking = false; return;
-        }
+        if (x > ew && x < window.innerWidth - ew) return; // không phải rìa
+        // Chỉ chừa CHROME thật + vùng cần vuốt/gõ ngang (ảnh, bảng, ô nhập). Đáp án
+        // KHÔNG còn bị chừa: chạm sát rìa luôn là chuyển câu, và ta chặn luôn cú click
+        // tổng hợp bên dưới -> hết cảnh "định chuyển câu mà bấm nhầm đáp án".
+        if (e.target.closest('a, textarea, input, select, .quiz-image, .mermaid, table, #quiz-settings-popover, #quiz-settings-fab, #quiz-mobile-menu, #quiz-mobile-nav, .qjs-sheet')) return;
         tracking = true;
-        sx = x;
-        sy = e.touches[0].clientY;
-        st = Date.now();
+        side = x <= ew ? -1 : 1;
+        sx = x; sy = e.touches[0].clientY; st = Date.now();
     }, { passive: true });
 
     document.addEventListener('touchend', (e) => {
         if (!tracking) return;
         tracking = false;
         const t = e.changedTouches[0];
-        // Phải là một cú CHẠM dứt khoát: nhanh & gần như không di chuyển (không phải vuốt/cuộn)
+        // Cú CHẠM dứt khoát: nhanh & gần như không nhích (khỏi lẫn với vuốt/cuộn)
         if (Date.now() - st > 400) return;
-        if (Math.abs(t.clientX - sx) > 12 || Math.abs(t.clientY - sy) > 12) return;
+        if (Math.abs(t.clientX - sx) > 14 || Math.abs(t.clientY - sy) > 14) return;
         if (window.getSelection && window.getSelection().toString().trim()) return; // đang chọn chữ
-        if (sx <= edgeWidth()) {
-            // Chạm rìa TRÁI -> câu trước
-            if (state.currentIndex > 0 && state.quizMode !== 'practice') showPreviousQuestion();
-        } else {
-            // Chạm rìa PHẢI -> câu tiếp (không tự nộp bài ở câu cuối)
-            if (state.currentIndex < state.questions.length - 1) showNextQuestion();
-        }
+
+        const goPrev = side < 0 && state.currentIndex > 0 && state.quizMode !== 'practice';
+        const goNext = side > 0 && state.currentIndex < state.questions.length - 1;
+        if (!goPrev && !goNext) return; // ở đầu/cuối: không làm gì, cũng KHÔNG nuốt click
+
+        // Nuốt cú click tổng hợp mà trình duyệt bắn ra sau touch (nếu ngón nằm trên đáp án)
+        // -> chuyển câu chứ không chọn nhầm đáp án. Tự gỡ sau 350ms nếu chẳng có click nào.
+        const kill = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
+        document.addEventListener('click', kill, { capture: true, once: true });
+        setTimeout(() => document.removeEventListener('click', kill, true), 350);
+
+        if (getVibrate() && navigator.vibrate) navigator.vibrate(10);
+        if (goPrev) { flashHint(true); showPreviousQuestion(); }
+        else { flashHint(false); showNextQuestion(); }
     }, { passive: true });
 }
 

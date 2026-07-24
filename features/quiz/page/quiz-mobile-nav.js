@@ -6,11 +6,12 @@
 // và thay cho lưới số câu xếp dọc (đỡ chiếm chỗ trên màn hẹp).
 
 import { state, MARK_REASONS } from '../quiz-state.js';
-import { isAnswerCorrect } from '../quiz-helpers.js';
-import { showQuestion, showNextQuestion, showPreviousQuestion } from './quiz-question-view.js';
+import { isAnswerCorrect, isMultiAnswer } from '../quiz-helpers.js';
+import { showQuestion, showNextQuestion, showPreviousQuestion, handle5050Help } from './quiz-question-view.js';
+import { applyMark } from './quiz-marks.js';
 import { getVibrate } from './quiz-page-prefs.js';
 
-let bar, prevBtn, nextBtn, jumpBtn, counterEl, fillEl;
+let bar, prevBtn, nextBtn, jumpBtn, counterEl, fillEl, fiveBtn, markBtn;
 let sheet, sheetGrid, sheetMeta, sheetBackdrop, sheetClose;
 let wired = false;
 
@@ -90,6 +91,8 @@ export function setupMobileNav() {
     jumpBtn = document.getElementById('qmn-jump');
     counterEl = document.getElementById('qmn-counter');
     fillEl = document.getElementById('qmn-progress-fill');
+    fiveBtn = document.getElementById('qmn-5050');
+    markBtn = document.getElementById('qmn-mark');
     sheet = document.getElementById('quiz-jump-sheet');
     sheetGrid = document.getElementById('qjs-grid');
     sheetMeta = document.getElementById('qjs-meta');
@@ -107,6 +110,38 @@ export function setupMobileNav() {
         buzz();
         if (sheet && !sheet.classList.contains('hidden')) closeJumpSheet();
         else openJumpSheet();
+    });
+
+    // Vuốt trên thanh: LÊN = mở danh sách câu, XUỐNG = đóng (bù cho việc phải bấm đúng dải)
+    if (jumpBtn) {
+        let barY = 0, barTrack = false;
+        jumpBtn.addEventListener('touchstart', (e) => {
+            barTrack = e.touches.length === 1;
+            if (barTrack) barY = e.touches[0].clientY;
+        }, { passive: true });
+        jumpBtn.addEventListener('touchend', (e) => {
+            if (!barTrack) return; barTrack = false;
+            const dy = e.changedTouches[0].clientY - barY;
+            if (dy < -32) { buzz(); openJumpSheet(); }
+            else if (dy > 32) closeJumpSheet();
+        }, { passive: true });
+    }
+
+    // 50:50 ở thanh đáy — gọi đúng logic trong thẻ rồi làm mờ nút khi đã dùng
+    if (fiveBtn) fiveBtn.addEventListener('click', () => {
+        if (fiveBtn.classList.contains('is-off')) return;
+        buzz();
+        handle5050Help();
+        updateMobileNav();
+    });
+
+    // Đánh dấu nhanh ở thanh đáy — bật/tắt lý do mặc định "để dành xem lại".
+    // Muốn đổi lý do cụ thể thì dùng nút đánh dấu trong thẻ (có menu).
+    if (markBtn) markBtn.addEventListener('click', () => {
+        buzz();
+        const i = state.currentIndex;
+        applyMark(i, state.markedQuestions.includes(i) ? '__unmark' : 'review');
+        showQuestion(); // đồng bộ nút đánh dấu trong thẻ + bảng "Câu đã đánh dấu"
     });
 
     if (sheetGrid) sheetGrid.addEventListener('click', (e) => {
@@ -169,6 +204,17 @@ export function updateMobileNav() {
             ? '<i class="fas fa-flag-checkered"></i><span class="qmn-arrow-txt">Nộp bài</span>'
             : '<span class="qmn-arrow-txt">Tiếp</span><i class="fas fa-chevron-right"></i>';
     }
+
+    // 50:50: ẩn với câu nhiều đáp án; làm mờ (khóa) khi đã trả lời hoặc đã dùng
+    const q = state.questions[idx];
+    if (fiveBtn) {
+        const multi = isMultiAnswer(q);
+        fiveBtn.style.display = multi ? 'none' : '';
+        const off = multi || state.userAnswers[idx] != null || !!state.used5050Questions[idx];
+        fiveBtn.classList.toggle('is-off', off);
+    }
+    // Đánh dấu: tô đậm khi câu hiện tại đang được đánh dấu
+    if (markBtn) markBtn.classList.toggle('is-active', state.markedQuestions.includes(idx));
 
     // Nếu bảng nhảy câu đang mở, cập nhật lại các ô cho khớp trạng thái mới nhất
     if (sheet && !sheet.classList.contains('hidden')) renderJumpGrid();

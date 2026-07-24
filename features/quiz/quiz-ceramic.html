@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Sẵn sàng làm bài kiểm tra</title>
-    <!-- Định tuyến giao diện: nếu người dùng đã chọn Gốm sứ Kintsugi thì chuyển ngay (tránh nháy) -->
+    <title>Sẵn sàng làm bài kiểm tra · Gốm sứ Kintsugi</title>
+    <!-- Định tuyến giao diện: nếu người dùng đã chọn Gốc/Classic thì chuyển ngay (tránh nháy) -->
     <script>
         try {
             var _p = new URLSearchParams(location.search);
-            if (localStorage.getItem('quiz_theme_mode') === 'ceramic' && _p.get('mode') !== 'classic') {
-                location.replace('quiz-ceramic.html' + location.search);
+            if (localStorage.getItem('quiz_theme_mode') === 'classic' && _p.get('mode') !== 'ceramic') {
+                location.replace('quiz.html' + location.search);
             }
         } catch (e) {}
     </script>
@@ -353,8 +353,13 @@
     </style>
     <link rel="stylesheet" href="quiz-preview.css">
     <link rel="stylesheet" href="quiz-enhance.css">
+    <!-- ===== Giao diện Ceramic Kintsugi (phủ lên, chỉ khi body.theme-ceramic) ===== -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;700;800&family=Be+Vietnam+Pro:wght@500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap">
+    <link rel="stylesheet" href="quiz-ceramic.css">
 </head>
-<body class="bg-[#FCE4EC] flex items-center justify-center min-h-screen p-2 sm:p-4 text-sm">
+<body class="theme-ceramic bg-[#FCE4EC] flex items-center justify-center min-h-screen p-2 sm:p-4 text-sm">
     <!-- Floating Exit Focus Button -->
     <button id="exit-focus-btn" type="button" class="fixed top-4 right-4 z-50 p-3 bg-pink-500 text-white rounded-full shadow-lg opacity-50 hover:opacity-100 transition hidden focus:outline-none exit-focus-pulse" title="Thoát chế độ tập trung">
         <i class="fas fa-compress-arrows-alt text-lg"></i>
@@ -384,12 +389,10 @@
     </div>
     <div class="w-full max-w-4xl lg:max-w-[88rem] mx-auto mt-14 md:mt-0">
         <div id="quiz-landing" class="glass-premium rounded-3xl p-6 sm:p-10 text-center fade-in max-w-2xl mx-auto transition-all duration-300">
-            <!-- Chuyển sang giao diện mới: Gốm sứ Kintsugi -->
+            <!-- Thanh tiện ích: chuyển về giao diện Gốc/Classic -->
             <div class="flex justify-end mb-4">
-                <button type="button" onclick="try{localStorage.setItem('quiz_theme_mode','ceramic')}catch(e){};window.location.href='quiz-ceramic.html'+window.location.search;"
-                    class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs sm:text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 hover:border-amber-300 transition shadow-sm active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-300"
-                    aria-label="Chuyển sang giao diện Gốm sứ Kintsugi">
-                    <i class="fas fa-magic text-amber-500" aria-hidden="true"></i> Giao diện: Gốm sứ Kintsugi (Mới)
+                <button type="button" id="ceramic-theme-switch-btn" class="ceramic-theme-switch" aria-label="Chuyển sang giao diện gốc">
+                    <i class="fas fa-layer-group" aria-hidden="true"></i> Giao diện: Gốc (Classic)
                 </button>
             </div>
             <!-- Hero: linh vật + tiêu đề + mẹo — bố cục ngang trên desktop để card gọn hơn.
@@ -1359,7 +1362,7 @@
             <span class="qmn-progress"><span id="qmn-progress-fill" class="qmn-progress-fill"></span></span>
             <span class="qmn-hint"><i class="fas fa-table-cells-large"></i> Danh sách câu</span>
         </button>
-        <!-- Tầng 2: Trước · 50:50 · Đánh dấu · Tiếp — luôn với tới bằng ngón cái -->
+        <!-- Tầng 2: Trước · 50:50 · Đánh dấu · Tiếp -->
         <div class="qmn-row">
             <button type="button" id="qmn-prev" class="qmn-arrow" aria-label="Câu trước">
                 <i class="fas fa-chevron-left"></i><span class="qmn-arrow-txt">Trước</span>
@@ -1551,29 +1554,15 @@
     </div>
 
     <script type="module" src="quiz-page.js"></script>
+    <script src="quiz-ceramic.js"></script>
     <script>
     // Hamburger menu logic for quiz.html
     document.addEventListener('DOMContentLoaded', function() {
-        // Gán ảnh Hero ngẫu nhiên đồng bộ với Open Graph Image
+        // Giao diện Ceramic: linh vật cố định là mascot gốm Kintsugi (không đổi ảnh sóc)
         const heroImg = document.getElementById('quiz-hero-img');
-        if (heroImg && window.selectedOgImage) {
-            heroImg.src = '../../' + window.selectedOgImage;
-        }
-
-        // Bấm vào linh vật -> đổi sang ảnh ngẫu nhiên khác (dùng lại danh sách ảnh OG)
-        const heroBtn = document.getElementById('quiz-hero-btn');
-        if (heroBtn && heroImg && Array.isArray(window.quizOgImages) && window.quizOgImages.length > 1) {
-            heroBtn.addEventListener('click', function () {
-                const cur = heroImg.getAttribute('src') || '';
-                const pool = window.quizOgImages.filter(function (p) { return !cur.endsWith(p); });
-                const pick = pool[Math.floor(Math.random() * pool.length)];
-                heroImg.style.opacity = '0';
-                setTimeout(function () {
-                    heroImg.src = '../../' + pick;
-                    heroImg.style.transition = 'opacity .25s ease';
-                    heroImg.style.opacity = '1';
-                }, 120);
-            });
+        if (heroImg) {
+            heroImg.src = 'web_assets/mascot_ceramic_kintsugi.png';
+            heroImg.alt = 'Linh vật gốm Kintsugi';
         }
 
         const menuBtn = document.getElementById('quiz-menu-toggle');

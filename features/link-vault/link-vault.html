@@ -4,75 +4,213 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Kho link đáng yêu 🎀 - Zitthenkne</title>
+    <title>HỒ SƠ MẬT (CLASSIFIED VAULT) - Zitthenkne</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" type="image/png" sizes="192x192" href="../../assets/icon-192.png">
+    <meta name="theme-color" content="#1C1C1C">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/png" sizes="192x192" href="../../assets/icon-192.png">
-    <meta name="theme-color" content="#FF8FB1">
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=IBM+Plex+Mono:ital,wght@0,500;0,600;0,700;1,500&family=JetBrains+Mono:ital,wght@0,500;0,600;0,700;0,800;1,500&family=Space+Grotesk:wght@600;700;800&display=swap" rel="stylesheet">
     <style>
-        * { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }
-        h1, h2, h3, h4, .font-display { font-family: 'Outfit', system-ui, -apple-system, sans-serif; }
-        html { scrollbar-width: thin; scrollbar-color: #fbcfe8 transparent; }
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-thumb { background-color: #fbcfe8; border-radius: 9999px; border: 2px solid transparent; background-clip: padding-box; }
-        ::-webkit-scrollbar-thumb:hover { background-color: #f9a8d4; }
+        /* ============ ARCHIVE FEVER — DESIGN TOKENS ============ */
+        :root {
+            /* Primitive tokens */
+            --color-manila: #E6D5B8;
+            --color-paper: #F4EBD9;
+            --color-ink: #1C1C1C;
+            --color-redact: #0A0A0A;
+            --color-stamp: #D32F2F;
+            --color-clip: #9CA3AF;
+            --color-desk: #38322A;
+            --color-term-bg: #070604;
+            --color-term-fg: #FFB000;
+            --color-term-ok: #33FF66;
+            --font-mono: 'JetBrains Mono', 'IBM Plex Mono', Consolas, 'Courier New', monospace;
+            --font-display: 'Space Grotesk', 'Be Vietnam Pro', 'Arial Black', sans-serif;
+            --font-sans: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --ease-snap: linear;
+            /* Semantic tokens */
+            --bg-surface: var(--color-manila);
+            --bg-panel: var(--color-paper);
+            --bg-page: var(--color-desk);
+            --text-primary: var(--color-ink);
+            --text-invert: var(--color-paper);
+            --border-heavy: 3px solid var(--color-ink);
+            --border-mid: 2px solid var(--color-ink);
+            /* Component tokens */
+            --shadow-card: 6px 6px 0 var(--color-redact);
+            --shadow-hover: 10px 10px 0 var(--color-stamp);
+            --shadow-modal: 14px 14px 0 rgba(10, 10, 10, .85);
+        }
+        /* Folder theme accents (aged file-tab dyes; keys mapped from Firestore color field) */
+        .th-red    { --accent: #D32F2F; }
+        .th-rust   { --accent: #A8502F; }
+        .th-plum   { --accent: #6D3A55; }
+        .th-navy   { --accent: #2F4A6D; }
+        .th-steel  { --accent: #4A616D; }
+        .th-olive  { --accent: #5A6132; }
+        .th-ochre  { --accent: #9A7B1E; }
+        .th-moss   { --accent: #3F6142; }
+        .accent-tab { border-top: 6px solid var(--accent, var(--color-ink)); }
+        .accent-text { color: var(--accent, var(--color-ink)); }
+        .accent-bg { background: var(--accent, var(--color-ink)); color: #fff; }
+
+        * { font-family: var(--font-sans); font-weight: 500; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+        .font-mono, code, pre, .tw-input, select.tw-input, .term-input, .folder-tab .tab-count, .stamp, .boot-label, .cursor-blk { font-family: var(--font-mono); font-weight: 600; }
+        .font-display, h1, h2, h3, .term-title, .stamp { font-family: var(--font-display); font-weight: 800; }
+        body { background: var(--bg-page); color: var(--text-primary); font-size: clamp(1rem, 2vw, 1.25rem); font-family: var(--font-sans); font-weight: 500; line-height: 1.6; }
+        ::selection { background: var(--color-stamp); color: #fff; }
+        :focus-visible { outline: 2px dashed var(--color-stamp); outline-offset: 4px; }
+        html { scrollbar-width: thin; scrollbar-color: var(--color-ink) var(--color-manila); }
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: var(--color-manila); }
+        ::-webkit-scrollbar-thumb { background: var(--color-ink); border-radius: 0; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        .fade-in { animation: fadeIn .45s cubic-bezier(0.16, 1, 0.3, 1) both; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-        
-        .pop-in { animation: popIn .35s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
-        @keyframes popIn { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: scale(1); } }
-        
-        @keyframes floatY { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-        .float-slow { animation: floatY 6s ease-in-out infinite; }
-        .float-slower { animation: floatY 9s ease-in-out infinite; }
-        
-        @keyframes wiggle { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
-        .wiggle { animation: wiggle 3s ease-in-out infinite; }
-        
-        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-        .shimmer { background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0) 100%); background-size: 200% 100%; animation: shimmer 2s infinite; }
-        
-        .text-gradient { background: linear-gradient(135deg, #FF5E97 0%, #C77DFF 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
-        .heart-shadow { box-shadow: 0 12px 35px -8px rgba(255, 94, 151, 0.4); }
-        
-        /* True Glassmorphism Utilities */
-        .glass-panel { background: rgba(255, 255, 255, 0.72); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.85); box-shadow: 0 8px 32px 0 rgba(255, 143, 177, 0.12); }
-        .glass-card { background: rgba(255, 255, 255, 0.82); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.9); box-shadow: 0 4px 24px -2px rgba(255, 143, 177, 0.08); }
-        .glass-modal { background: rgba(255, 255, 255, 0.88); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.95); box-shadow: 0 20px 50px -10px rgba(199, 125, 255, 0.25); }
 
-        /* Highlight từ khóa tìm kiếm */
-        mark.hl { background: linear-gradient(0deg, #fde68a 0%, #fef9c3 100%); color: inherit; border-radius: 3px; padding: 0 1px; }
+        /* Mechanical entrances — no soft easing */
+        .fade-in { animation: afIn .14s var(--ease-snap) both; }
+        .pop-in { animation: afIn .12s var(--ease-snap) both; }
+        .sheet-panel { animation: afIn .14s var(--ease-snap) both; }
+        @keyframes afIn { from { opacity: 0; } to { opacity: 1; } }
 
-        /* Nút cuộn lên đầu trang */
-        #scroll-top-btn { opacity: 0; pointer-events: none; transform: translateY(12px); transition: opacity .3s ease, transform .3s ease; }
+        /* ===== Boot: black screen splits open vertically ===== */
+        #boot { position: fixed; inset: 0; z-index: 100; pointer-events: none; }
+        #boot::before, #boot::after { content: ''; position: absolute; left: 0; right: 0; height: 51%; background: var(--color-redact); animation-delay: .5s; animation-fill-mode: forwards; animation-duration: .55s; animation-timing-function: var(--ease-snap); }
+        #boot::before { top: 0; animation-name: bootUp; }
+        #boot::after { bottom: 0; animation-name: bootDown; }
+        @keyframes bootUp { to { transform: translateY(-102%); } }
+        @keyframes bootDown { to { transform: translateY(102%); } }
+        #boot .boot-label { position: absolute; top: 50%; left: 50%; translate: -50% -50%; z-index: 1; color: var(--color-term-fg); font-size: .8rem; letter-spacing: .3em; text-transform: uppercase; animation: bootLabel .45s var(--ease-snap) .5s forwards; }
+        @keyframes bootLabel { to { opacity: 0; } }
+
+        /* ===== Paper / dossier components ===== */
+        .paper-card { position: relative; background: var(--bg-surface); border: var(--border-heavy); border-radius: 2px; box-shadow: var(--shadow-card); transition: transform .1s var(--ease-snap), box-shadow .1s var(--ease-snap); }
+        .paper-card:hover { transform: translate(-4px, -4px); box-shadow: var(--shadow-hover); }
+        .paper-flat { background: var(--bg-panel); border: var(--border-mid); border-radius: 2px; }
+        /* Messy pile: slight pseudo-random rotations */
+        #links-grid > article.dossier:nth-child(4n+1) { rotate: -1deg; }
+        #links-grid > article.dossier:nth-child(4n+2) { rotate: .6deg; }
+        #links-grid > article.dossier:nth-child(4n+3) { rotate: 1.4deg; }
+        #links-grid > article.dossier:nth-child(4n)   { rotate: -.8deg; }
+
+        .stamp { display: inline-block; font-family: var(--font-display); text-transform: uppercase; color: var(--color-stamp); border: 3px solid var(--color-stamp); padding: .08em .4em; letter-spacing: .12em; line-height: 1.15; mix-blend-mode: multiply; border-radius: 2px; }
+        .stamp-abs { position: absolute; rotate: -12deg; opacity: .9; pointer-events: none; z-index: 20; }
+        .tape { position: absolute; top: -11px; left: 50%; translate: -50% 0; width: 92px; height: 24px; background: rgba(244, 235, 217, .55); border: 1px solid rgba(28, 28, 28, .18); rotate: -3deg; pointer-events: none; z-index: 20; }
+        .paperclip { position: absolute; top: -13px; left: 16px; width: 15px; height: 36px; border: 3px solid var(--color-clip); border-radius: 8px 8px 2px 2px; border-bottom: none; pointer-events: none; z-index: 20; }
+        .paperclip::after { content: ''; position: absolute; inset: 6px 2px -8px; border: 2px solid var(--color-clip); border-radius: 6px 6px 2px 2px; border-top: none; }
+
+        .redacted { background: var(--color-ink); color: var(--color-ink); padding: 0 .2em; transition: color .15s var(--ease-snap); }
+        .redacted:hover, .redacted:focus, .redacted:focus-visible { color: #fff; }
+
+        /* ===== Controls ===== */
+        .btn-ink { background: var(--color-ink); color: var(--text-invert); border: var(--border-heavy); border-radius: 2px; font-family: var(--font-display); text-transform: uppercase; letter-spacing: .1em; box-shadow: 3px 3px 0 var(--color-redact); transition: transform .1s var(--ease-snap), box-shadow .1s var(--ease-snap); }
+        .btn-ink:hover { transform: translate(-2px, -2px); box-shadow: 5px 5px 0 var(--color-stamp); }
+        .btn-ink:active { transform: none; box-shadow: 1px 1px 0 var(--color-redact); }
+        .btn-paper { background: var(--bg-panel); color: var(--text-primary); border: var(--border-mid); border-radius: 2px; font-weight: 700; transition: transform .1s var(--ease-snap), box-shadow .1s var(--ease-snap); }
+        .btn-paper:hover { transform: translate(-2px, -2px); box-shadow: 3px 3px 0 var(--color-ink); }
+        .btn-danger { background: var(--color-stamp); color: #fff; border: 3px solid var(--color-redact); border-radius: 2px; font-family: var(--font-display); text-transform: uppercase; letter-spacing: .08em; transition: transform .1s var(--ease-snap), box-shadow .1s var(--ease-snap); }
+        .btn-danger:hover { transform: translate(-2px, -2px); box-shadow: 4px 4px 0 var(--color-redact); }
+
+        /* Typewriter form fields */
+        .tw-input { width: 100%; background: transparent; border: 0; border-bottom: 2px solid var(--color-ink); border-radius: 0; font-family: var(--font-mono); font-size: .95rem; font-weight: 600; padding: .55rem .25rem; color: var(--text-primary); }
+        .tw-input:focus { outline: none; border-bottom-color: var(--color-stamp); background: rgba(211, 47, 47, .06); }
+        .tw-input::placeholder { color: rgba(28, 28, 28, .5); text-transform: uppercase; font-size: .8rem; font-weight: 500; letter-spacing: .05em; }
+        select.tw-input { border: var(--border-mid); background: var(--bg-panel); padding: .55rem; cursor: pointer; font-weight: 600; }
+        .field-label { display: block; font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; margin-bottom: .4rem; color: var(--text-primary); }
+
+        dialog { border: 0; padding: 0; margin: 0; background: transparent; color: inherit; max-width: 100vw; max-height: 100vh; }
+        .modal-panel { background: var(--bg-panel); border: var(--border-heavy); border-radius: 2px; box-shadow: var(--shadow-modal); }
+        .overlay-dim { background: rgba(10, 10, 10, .72); }
+
+        mark.hl { background: var(--color-stamp); color: #fff; border-radius: 0; padding: 0 2px; }
+
+        #scroll-top-btn { opacity: 0; pointer-events: none; transform: translateY(12px); transition: opacity .1s var(--ease-snap), transform .1s var(--ease-snap); }
         #scroll-top-btn.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
 
-        /* Nút chuyển chế độ xem */
-        .view-btn.active { background: linear-gradient(135deg, #ec4899, #a855f7); color: #fff !important; box-shadow: 0 4px 12px -2px rgba(236, 72, 153, .4); }
+        .view-btn.active { background: var(--color-ink); color: var(--text-invert) !important; }
 
-        /* ===== Nâng cấp mobile & tính năng mới ===== */
-        /* Bottom-sheet trượt lên (mobile) / modal (desktop) */
-        @keyframes sheetUp { from { opacity: 0; transform: translateY(48px); } to { opacity: 1; transform: none; } }
-        .sheet-panel { animation: sheetUp .38s cubic-bezier(0.16, 1, 0.3, 1) both; }
         .safe-bottom { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.25rem); }
         #fab-add { bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)); }
 
-        /* Ô chọn ở chế độ chọn nhiều */
-        .sel-check { position: absolute; top: 10px; left: 10px; z-index: 30; width: 26px; height: 26px; border-radius: 9999px; background: rgba(255,255,255,.92); border: 2px solid #f9a8d4; display: flex; align-items: center; justify-content: center; color: transparent; font-size: 12px; box-shadow: 0 2px 8px rgba(190,24,93,.25); transition: transform .18s, background .18s; }
-        .is-selected .sel-check { background: linear-gradient(135deg, #ec4899, #a855f7); border-color: #fff; color: #fff; transform: scale(1.08); }
-        .is-selected { box-shadow: 0 0 0 3px #ec4899, 0 10px 30px -6px rgba(236,72,153,.45) !important; }
+        /* Multi-select */
+        .sel-check { position: absolute; top: 8px; left: 8px; z-index: 30; width: 24px; height: 24px; background: var(--bg-panel); border: var(--border-mid); display: flex; align-items: center; justify-content: center; color: transparent; font-size: 11px; }
+        .is-selected .sel-check { background: var(--color-stamp); color: #fff; }
+        .is-selected { outline: 3px solid var(--color-stamp); outline-offset: 2px; }
         .select-mode { user-select: none; -webkit-user-select: none; }
-        #select-mode-btn.active-sel { background: linear-gradient(135deg, #ec4899, #a855f7) !important; color: #fff !important; border-color: transparent !important; box-shadow: 0 4px 12px -2px rgba(236,72,153,.4); }
+        #select-mode-btn.active-sel { background: var(--color-stamp) !important; color: #fff !important; }
 
-        /* Thanh hành động hàng loạt */
-        #bulk-bar { transform: translate(-50%, 0); transition: transform .32s cubic-bezier(0.16,1,0.3,1), opacity .3s; }
+        #bulk-bar { transform: translate(-50%, 0); transition: transform .12s var(--ease-snap), opacity .1s var(--ease-snap); }
         #bulk-bar.hide { transform: translate(-50%, 160%); opacity: 0; pointer-events: none; }
+
+        /* ===== Terminal gate ===== */
+        #gate-screen { background: var(--color-term-bg); color: var(--color-term-fg); }
+        #gate-screen * { font-family: var(--font-mono); }
+        #gate-screen::after { content: ''; position: fixed; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, transparent 0 2px, rgba(0, 0, 0, .22) 2px 4px); }
+        .term-panel { border: 2px solid var(--color-term-fg); background: rgba(255, 176, 0, .04); box-shadow: 0 0 0 4px rgba(255, 176, 0, .1); }
+        .term-title { overflow: hidden; white-space: nowrap; animation: typing 1.2s steps(28, end) both; }
+        @keyframes typing { from { max-width: 0; } to { max-width: 100%; } }
+        .term-input { width: 100%; background: #000; border: 2px solid var(--color-term-fg); border-radius: 0; color: var(--color-term-ok); text-align: center; letter-spacing: .45em; font-size: 1.05rem; padding: .9rem .5rem; caret-color: var(--color-term-ok); }
+        .term-input:focus { outline: none; box-shadow: 0 0 0 3px rgba(51, 255, 102, .25); }
+        .term-input::placeholder { color: rgba(255, 176, 0, .35); letter-spacing: .45em; }
+        .term-err { color: #FF5252; border: 1px solid var(--color-stamp); background: rgba(211, 47, 47, .12); text-transform: uppercase; letter-spacing: .1em; }
+        .cursor-blk::after { content: '█'; margin-left: .15em; animation: blink 1s steps(1) infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+        .btn-term { background: var(--color-term-fg); color: #000; border: 2px solid var(--color-term-fg); border-radius: 0; font-family: var(--font-display); text-transform: uppercase; letter-spacing: .15em; transition: transform .1s var(--ease-snap), box-shadow .1s var(--ease-snap); }
+        .btn-term:hover { transform: translate(-2px, -2px); box-shadow: 4px 4px 0 rgba(255, 176, 0, .5); }
+
+        /* White flash when the vault opens */
+        #app-screen { animation: revealFlash .5s var(--ease-snap) both; }
+        @keyframes revealFlash { 0% { opacity: 0; filter: brightness(6) contrast(2); } 35% { opacity: 1; filter: brightness(6); } 100% { filter: none; } }
+
+        /* COPIED rubber stamp feedback */
+        .stamp-pop { position: absolute; top: 38%; left: 50%; translate: -50% -50%; rotate: -14deg; z-index: 40; font-family: var(--font-display); font-size: 1.5rem; color: var(--color-stamp); border: 4px solid var(--color-stamp); padding: .05em .35em; letter-spacing: .18em; mix-blend-mode: multiply; pointer-events: none; animation: stampHit .45s var(--ease-snap) both; }
+        @keyframes stampHit { 0% { opacity: 0; scale: 2.4; } 45% { opacity: 1; scale: .92; } 65% { scale: 1.06; } 100% { scale: 1; } }
+
+        /* Field auto-fill flash (metadata) */
+        .flash-field { border-bottom-color: var(--color-stamp) !important; background: rgba(211, 47, 47, .1) !important; }
+
+        /* Status tags (metadata fetch) */
+        .tag-af { display: inline-flex; align-items: center; gap: .4rem; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; border: var(--border-mid); background: var(--bg-panel); color: var(--text-primary); padding: .35rem .75rem; }
+        .tag-ok { border-color: var(--color-ink); background: var(--color-ink); color: var(--text-invert); }
+        .tag-err { border-color: var(--color-stamp); color: var(--color-stamp); }
+
+        /* Token utilities (thay cho inline style — Contract 1) */
+        .bg-ink { background: var(--color-ink); color: var(--text-invert); }
+        .bg-stampc { background: var(--color-stamp); color: #fff; }
+        .bg-manila { background: var(--color-manila); }
+        .c-stamp { color: var(--color-stamp); }
+        .c-ink { color: var(--text-primary); }
+        .on-desk { color: var(--text-invert); }
+        .box-heavy { border: var(--border-heavy); }
+        .box-mid { border: var(--border-mid); }
+        .bd-top-mid { border-top: var(--border-mid); }
+        .dash-stamp { border: 2px dashed var(--color-stamp); }
+        .tilt-l { rotate: -1deg; }
+        .tilt-r { rotate: .6deg; }
+        .tilt-s { rotate: -3deg; }
+        .stamp-tr { top: 14px; right: 14px; }
+        .desk-header { background: var(--bg-surface); border-bottom: var(--border-heavy); }
+        /* Tab ngăn phân loại (bìa hồ sơ) */
+        .folder-tab { background: var(--bg-surface); border: var(--border-mid); border-top: 6px solid var(--accent, var(--color-ink)); border-radius: 2px 2px 0 0; color: var(--text-primary); transition: transform .1s var(--ease-snap), box-shadow .1s var(--ease-snap); }
+        .folder-tab:hover { transform: translate(-2px, -2px); box-shadow: 3px 3px 0 var(--color-redact); }
+        .folder-tab.active { background: var(--color-ink); color: var(--text-invert); box-shadow: 4px 4px 0 var(--color-stamp); }
+        .folder-tab .tab-count { background: var(--color-ink); color: var(--text-invert); }
+        .folder-tab.active .tab-count { background: var(--color-stamp); color: #fff; }
+        .tab-edit { opacity: .5; }
+        .folder-tab:hover .tab-edit, .tab-edit:focus { opacity: 1; }
+        .folder-tab-add { background: transparent; border: 2px dashed var(--color-paper); color: var(--text-invert); border-radius: 2px; transition: transform .1s var(--ease-snap); }
+        .folder-tab-add:hover { border-color: var(--color-stamp); color: #fff; transform: translate(-2px, -2px); }
+        .desk-footer { color: var(--text-invert); opacity: .55; border-top: 2px solid rgba(244, 235, 217, .2); }
+        .stamp-br { bottom: 10px; right: 10px; rotate: -8deg; }
+        .stamp-normal { mix-blend-mode: normal; }
+        .photo-frame { border-bottom: var(--border-heavy); }
+        .dossier.pinned, article.pinned { border-color: var(--color-stamp); }
+
+        .toast-af { position: fixed; bottom: 1.5rem; left: 50%; translate: -50%; z-index: 80; display: flex; align-items: center; gap: .6rem; max-width: 92vw; background: var(--color-ink); color: var(--text-invert); border: 2px solid var(--color-paper); box-shadow: 4px 4px 0 var(--color-redact); font-size: .82rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; padding: .8rem 1.3rem; }
+        .toast-warn { background: #7A5A00; }
+        .toast-err { background: var(--color-stamp); }
 
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
@@ -80,444 +218,395 @@
     </style>
 </head>
 
-<body class="min-h-screen text-gray-700 text-sm antialiased" style="background:radial-gradient(circle at 15% 10%, #fff0f7 0%, #ffe8f3 30%, #f7efff 65%, #edf3ff 100%);">
+<body class="min-h-screen antialiased text-sm">
 
-    <!-- Trang trí nền -->
-    <div class="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <div class="absolute -top-24 -left-16 w-80 h-80 bg-pink-300/30 rounded-full blur-3xl float-slow"></div>
-        <div class="absolute top-1/3 -right-20 w-96 h-96 bg-purple-300/25 rounded-full blur-3xl float-slower"></div>
-        <div class="absolute bottom-0 left-1/4 w-72 h-72 bg-rose-200/30 rounded-full blur-3xl float-slow"></div>
-        <i class="fas fa-heart absolute top-24 left-[12%] text-pink-200/70 text-2xl float-slow"></i>
-        <i class="fas fa-heart absolute top-1/2 right-[10%] text-purple-200/70 text-xl float-slower"></i>
-        <i class="fas fa-star absolute bottom-24 left-[20%] text-pink-200/70 text-lg float-slower"></i>
-    </div>
+    <!-- Boot: màn đen tách đôi như mở bìa hồ sơ -->
+    <div id="boot" aria-hidden="true"><span class="boot-label">ĐANG MỞ HỒ SƠ...</span></div>
 
-    <!-- ============ MÀN HÌNH NHẬP MẬT KHẨU CHUNG ============ -->
-    <div id="gate-screen" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background:radial-gradient(circle at center, #ffe5f1 0%, #ffd0ea 40%, #edd8ff 100%);">
-        <div class="pointer-events-none absolute inset-0 overflow-hidden">
-            <div class="absolute top-[10%] left-[15%] w-72 h-72 bg-pink-400/20 rounded-full blur-3xl float-slow"></div>
-            <div class="absolute bottom-[15%] right-[10%] w-80 h-80 bg-purple-400/20 rounded-full blur-3xl float-slower"></div>
-            <i class="fas fa-heart absolute top-[18%] left-[20%] text-pink-400/40 text-3xl float-slow"></i>
-            <i class="fas fa-sparkles absolute bottom-[22%] right-[18%] text-purple-400/50 text-2xl float-slower"></i>
-            <i class="fas fa-star absolute top-[28%] right-[25%] text-pink-400/30 text-xl float-slower"></i>
-        </div>
-        <div class="relative w-full max-w-sm glass-modal rounded-[2.5rem] p-8 sm:p-10 text-center pop-in heart-shadow border border-white/80">
-            <div class="w-24 h-24 mx-auto rounded-[2rem] bg-gradient-to-tr from-pink-500 via-rose-400 to-purple-500 flex items-center justify-center text-white text-5xl shadow-xl shadow-pink-500/30 mb-5 wiggle">
-                <i class="fas fa-heart"></i>
-            </div>
-            <h1 class="text-2xl sm:text-3xl font-bold text-gradient font-display tracking-tight">Kho link đáng yêu</h1>
-            <p class="text-gray-500 mt-1.5 mb-7 text-xs sm:text-sm font-medium">Nhập mật khẩu để mở kho link dùng chung nha 🎀</p>
-            <form id="gate-form" class="space-y-4">
+    <!-- Nhiễu giấy: SVG turbulence phủ toàn trang -->
+    <svg class="pointer-events-none fixed inset-0 z-[90] w-full h-full opacity-[0.05]" aria-hidden="true">
+        <filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" stitchTiles="stitch"/><feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.6 0"/></filter>
+        <rect width="100%" height="100%" filter="url(#noise)"/>
+    </svg>
+
+    <!-- ============ MÀN HÌNH XÁC THỰC (MILITARY TERMINAL) ============ -->
+    <dialog open id="gate-screen" class="fixed inset-0 z-50 w-full h-full flex items-center justify-center p-4">
+        <div class="relative w-full max-w-md term-panel p-6 sm:p-8 pop-in">
+            <p class="text-xs font-bold tracking-[.35em] uppercase opacity-80">// ZITTHENKNE ARCHIVE TERMINAL</p>
+            <h1 class="term-title text-xl sm:text-2xl mt-3 tracking-[.08em]">HỒ SƠ MẬT (CLASSIFIED VAULT)</h1>
+            <p class="cursor-blk text-xs mt-2 tracking-[.15em]">YÊU CẦU XÁC THỰC MẬT MÃ ĐỂ TRUY CẬP DỮ LIỆU.</p>
+            <form id="gate-form" class="mt-6 space-y-4">
                 <div class="relative">
-                    <span class="absolute inset-y-0 left-0 pl-4.5 flex items-center text-pink-400"><i class="fas fa-key text-sm"></i></span>
-                    <input type="password" id="gate-input" inputmode="numeric" autocomplete="off"
-                        class="w-full pl-11 pr-11 py-4 border-2 border-pink-200/70 rounded-2xl text-center tracking-[0.35em] text-lg font-bold bg-white/80 focus:outline-none focus:ring-4 focus:ring-pink-300/40 focus:border-pink-400 transition shadow-inner"
-                        placeholder="••••••••">
-                    <button type="button" id="gate-toggle" tabindex="-1"
-                        class="absolute inset-y-0 right-0 pr-4.5 flex items-center text-gray-400 hover:text-pink-500 transition" aria-label="Hiện/ẩn mật khẩu">
-                        <i class="fas fa-eye text-sm"></i>
-                    </button>
+                    <input type="password" id="gate-input" inputmode="numeric" autocomplete="off" class="term-input" placeholder="••••••" aria-label="Mật mã truy cập">
+                    <button type="button" id="gate-toggle" tabindex="-1" class="absolute inset-y-0 right-0 pr-4 flex items-center opacity-80 hover:opacity-100" aria-label="Hiện/ẩn mật mã"><i class="fas fa-eye text-sm"></i></button>
                 </div>
-                <p id="gate-error" class="hidden text-rose-500 font-bold text-xs bg-rose-50/80 py-2 px-3 rounded-xl border border-rose-100 flex items-center justify-center gap-1.5"><i class="fas fa-circle-exclamation"></i>Sai mật khẩu rồi, thử lại nha!</p>
-                <button type="submit"
-                    class="w-full py-4 bg-gradient-to-r from-pink-500 via-rose-400 to-purple-500 text-white font-bold rounded-2xl shadow-lg shadow-pink-500/25 hover:shadow-pink-500/40 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
-                    <i class="fas fa-unlock-keyhole"></i> Mở khóa ngay
-                </button>
+                <p id="gate-error" class="hidden term-err text-xs font-bold py-2 px-3 text-center">TỪ CHỐI TRUY CẬP. SAI MẬT MÃ.</p>
+                <button type="submit" class="btn-term w-full py-3.5 text-sm flex items-center justify-center gap-2"><i class="fas fa-unlock-keyhole"></i> MỞ KHÓA BẢO MẬT (UNLOCK)</button>
             </form>
-            <a href="../../index.html" class="inline-flex items-center gap-1.5 mt-6 text-xs text-gray-400 hover:text-pink-500 font-semibold transition group">
-                <i class="fas fa-arrow-left transition-transform group-hover:-translate-x-1"></i> Về trang chủ
-            </a>
+            <a href="../../index.html" class="inline-flex items-center gap-1.5 mt-6 text-xs font-bold uppercase tracking-[.15em] opacity-80 hover:opacity-100"><i class="fas fa-arrow-left"></i> Rời khu vực hạn chế</a>
         </div>
-    </div>
-
-    <!-- ============ NỘI DUNG CHÍNH ============ -->
+    </dialog>
+    <!-- ============ NỘI DUNG CHÍNH: BÀN LÀM VIỆC HỒ SƠ ============ -->
     <div id="app-screen" class="hidden relative z-10">
-        <header class="sticky top-0 z-30 glass-panel border-b border-pink-200/50 shadow-sm shadow-pink-500/5">
-            <div class="max-w-6xl mx-auto px-4 py-3.5 flex items-center justify-between gap-3">
+        <header class="sticky top-0 z-30 desk-header">
+            <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
                 <a href="../../index.html" class="flex items-center gap-3 min-w-0 group">
-                    <span class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-pink-500 via-rose-400 to-purple-500 flex items-center justify-center text-white text-xl shadow-md shadow-pink-500/30 group-hover:scale-105 group-hover:rotate-6 transition-all duration-300"><i class="fas fa-heart"></i></span>
-                    <div>
-                        <span class="font-bold text-lg sm:text-xl text-gradient font-display truncate block leading-tight">Kho link đáng yêu</span>
-                        <span class="text-[10px] text-gray-400 font-medium tracking-wide uppercase">Zitthenkne Vault</span>
+                    <span class="w-10 h-10 flex items-center justify-center text-lg bg-ink box-mid"><i class="fas fa-folder"></i></span>
+                    <div class="min-w-0">
+                        <span class="font-display text-lg sm:text-xl tracking-[.06em] uppercase truncate block leading-tight">TÀI LIỆU TUYỆT MẬT</span>
+                        <span class="text-xs font-bold tracking-[.25em] uppercase opacity-75">Zitthenkne // Archive Fever</span>
                     </div>
                 </a>
-                <div class="flex items-center gap-2.5">
-                    <button id="master-badge" type="button" class="hidden items-center gap-1.5 text-xs font-bold text-amber-700 bg-gradient-to-r from-amber-100 to-yellow-100 px-3.5 py-1.5 rounded-full border border-amber-300/80 shadow-sm hover:brightness-95 transition" title="Đang ở chế độ chủ — bấm để tắt">
-                        <i class="fas fa-crown text-[11px] text-amber-500 animate-bounce"></i> <span class="hidden sm:inline">Chế độ chủ</span> <i class="fas fa-xmark ml-0.5 opacity-70"></i>
+                <div class="flex items-center gap-2">
+                    <button id="master-badge" type="button" class="hidden items-center gap-1.5 text-xs font-bold uppercase tracking-[.08em] px-3 py-1.5 btn-danger" title="Đang ở chế độ chủ — bấm để tắt">
+                        <i class="fas fa-user-secret text-xs"></i> <span class="hidden sm:inline">Toàn quyền</span> <i class="fas fa-xmark ml-0.5 opacity-70"></i>
                     </button>
-                    <span id="link-count-badge" class="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold text-pink-600 bg-white/80 px-3.5 py-1.5 rounded-full border border-pink-200/80 shadow-sm"><i class="fas fa-bookmark text-pink-400 text-[11px]"></i><span id="link-count">0</span> liên kết</span>
-                    <button id="lock-vault-btn" type="button" class="flex items-center gap-1.5 text-xs font-bold text-gray-500 bg-white/80 px-2.5 sm:px-3 py-1.5 rounded-full border border-pink-200/80 shadow-sm hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition" title="Khóa lại (Đăng xuất kho link)">
-                        <i class="fas fa-lock text-[11px] text-pink-400"></i> <span class="hidden sm:inline">Khóa</span>
+                    <span id="link-count-badge" class="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[.08em] px-3 py-1.5 paper-flat"><i class="fas fa-box-archive text-xs"></i><span id="link-count">0</span> hồ sơ</span>
+                    <button id="lock-vault-btn" type="button" class="flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 btn-ink" title="ĐÓNG HỒ SƠ (LOCK VAULT)">
+                        <i class="fas fa-lock text-xs"></i> <span class="hidden sm:inline">ĐÓNG HỒ SƠ</span>
                     </button>
-                    <a href="../../index.html" class="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/80 border border-pink-100 text-pink-500 hover:bg-pink-50 hover:text-pink-600 hover:scale-105 transition shadow-sm" title="Về trang chủ"><i class="fas fa-home"></i></a>
+                    <a href="../../index.html" class="w-9 h-9 flex items-center justify-center btn-paper" title="Về trang chủ" aria-label="Về trang chủ"><i class="fas fa-home"></i></a>
                 </div>
             </div>
         </header>
 
         <main class="max-w-6xl mx-auto px-4 py-6">
-            <!-- THƯ MỤC & TÌM KIẾM NHANH -->
+            <!-- PHÂN LOẠI TÀI LIỆU & TRUY VẤN -->
             <section class="mb-6 fade-in">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
                     <div class="flex items-baseline gap-3 min-w-0">
-                        <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2 font-display shrink-0">
-                            <i class="fas fa-folder-open text-pink-500"></i> Thư mục
+                        <h2 class="text-xs font-display uppercase tracking-[.25em] flex items-center gap-2 shrink-0 on-desk">
+                            <i class="fas fa-folder-open c-stamp"></i> PHÂN LOẠI TÀI LIỆU
                         </h2>
-                        <p class="hidden md:block text-[11px] text-gray-400 font-medium truncate">bấm để lọc theo chủ đề · bấm <i class="fas fa-pen text-[9px]"></i> để sửa</p>
+                        <p class="hidden md:block text-xs font-bold uppercase tracking-[.06em] truncate on-desk opacity-75">bấm để lọc hồ sơ · bấm <i class="fas fa-pen text-xs"></i> để hiệu chỉnh</p>
                     </div>
-                    <!-- Tìm kiếm nhanh -->
-                    <div class="relative w-full sm:w-72 shrink-0">
-                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-pink-400"><i class="fas fa-magnifying-glass text-xs"></i></span>
-                        <input type="text" id="search-input" placeholder="Tìm tên, URL, ghi chú... (nhấn /)"
-                            class="w-full pl-9 pr-8 py-2 border border-pink-200/80 rounded-full bg-white/80 backdrop-blur text-xs font-medium focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition shadow-sm">
-                        <button type="button" id="search-clear" class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-gray-300 hover:text-pink-500"><i class="fas fa-circle-xmark text-xs"></i></button>
+                    <!-- Truy vấn nhanh -->
+                    <div class="relative w-full sm:w-80 shrink-0">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center z-10"><i class="fas fa-magnifying-glass text-xs"></i></span>
+                        <input type="text" id="search-input" placeholder="NHẬP TỪ KHÓA TRUY VẤN... (NHẤN /)" aria-label="Truy vấn dữ liệu"
+                            class="w-full pl-9 pr-8 py-2.5 text-xs font-bold paper-flat rounded-none">
+                        <button type="button" id="search-clear" aria-label="Xóa truy vấn" class="hidden absolute inset-y-0 right-0 pr-3 flex items-center opacity-50 hover:opacity-100"><i class="fas fa-xmark text-xs"></i></button>
                     </div>
                 </div>
-                <!-- Chip thư mục: xuống dòng tự động, thấy được toàn bộ thư mục cùng lúc -->
-                <div id="folder-bar" class="flex flex-wrap items-center gap-2 sm:gap-2.5"></div>
+                <!-- Ngăn kéo phân loại: các tab bìa hồ sơ -->
+                <div id="folder-bar" class="flex flex-wrap items-center gap-2"></div>
             </section>
 
-            <!-- ACTION BANNER / COMMAND BAR FOR ADDING LINK -->
-            <!-- Lưu ý: KHÔNG đặt .fade-in ở section này vì nó giữ transform (fill both) → tạo containing block khiến form #add-form-container (position:fixed) bị neo sai. Đặt fade-in vào banner bên trong. -->
+            <!-- BĂNG-RÔN BỔ SUNG TÀI LIỆU -->
+            <!-- Lưu ý: KHÔNG đặt animation giữ transform ở section này (containing block phá position:fixed của biểu mẫu). -->
             <section class="mb-6">
-                <div class="glass-panel fade-in rounded-[1.5rem] px-4 py-3.5 sm:px-5 flex flex-row items-center justify-between gap-3 border border-pink-200/70 shadow-xl shadow-pink-500/5">
+                <div class="paper-card fade-in px-4 py-3.5 sm:px-5 flex flex-row items-center justify-between gap-3">
+                    <span class="tape" aria-hidden="true"></span>
                     <div class="flex items-center gap-3 min-w-0">
-                        <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white text-base shadow-lg shadow-pink-500/30 shrink-0 wiggle"><i class="fas fa-sparkles"></i></span>
+                        <span class="w-10 h-10 flex items-center justify-center text-base shrink-0 bg-stampc box-mid"><i class="fas fa-file-circle-plus"></i></span>
                         <div class="min-w-0">
-                            <h2 class="text-sm sm:text-base font-bold text-gray-800 font-display truncate">Tạo liên kết mới 💕</h2>
-                            <p class="hidden sm:block text-xs text-gray-500 font-medium truncate">Lưu trữ và chia sẻ tài liệu học tập cùng mọi người</p>
+                            <h2 class="text-sm sm:text-base font-display uppercase tracking-[.08em] truncate">BỔ SUNG TÀI LIỆU</h2>
+                            <p class="hidden sm:block text-xs font-bold uppercase tracking-[.1em] opacity-75 truncate">ADD NEW CLASSIFIED LINK — lập biểu mẫu lưu trữ mới</p>
                         </div>
                     </div>
                     <button type="button" id="toggle-add-form-btn"
-                        class="shrink-0 px-4 sm:px-6 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 via-rose-500 to-purple-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-pink-500/25 hover:shadow-pink-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2 group">
-                        <i class="fas fa-plus text-xs group-hover:rotate-90 transition-transform duration-300"></i> Thêm link<span class="hidden sm:inline"> ngay</span>
+                        class="shrink-0 px-4 sm:px-6 py-2.5 btn-ink text-xs sm:text-sm font-bold flex items-center justify-center gap-2">
+                        <i class="fas fa-plus text-xs"></i> LẬP HỒ SƠ
                     </button>
                 </div>
 
-                <!-- FORM THÊM LINK (BOTTOM-SHEET trên mobile / MODAL trên desktop) -->
-                <div id="add-form-container" class="hidden fixed inset-0 z-[72] flex items-end sm:items-center justify-center">
-                    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-md" data-close-add></div>
-                    <div class="sheet-panel relative w-full sm:max-w-2xl glass-modal rounded-t-[2.5rem] sm:rounded-[2.5rem] p-6 sm:p-8 border border-white/80 shadow-2xl max-h-[92vh] overflow-y-auto">
-                        <div class="sm:hidden flex justify-center -mt-2 mb-3"><span class="w-10 h-1.5 rounded-full bg-pink-200"></span></div>
-                        <button type="button" id="close-add-form-btn" class="absolute top-5 right-5 w-8 h-8 rounded-full bg-pink-50 text-pink-400 hover:bg-pink-100 hover:text-pink-600 transition flex items-center justify-center" title="Đóng form">
+                <!-- BIỂU MẪU THÊM LINK (giấy tờ vật lý, gạch chân máy đánh chữ) -->
+                <dialog open id="add-form-container" class="hidden fixed inset-0 z-[72] w-full h-full flex items-end sm:items-center justify-center">
+                    <div class="absolute inset-0 overlay-dim" data-close-add></div>
+                    <div class="sheet-panel relative w-full sm:max-w-2xl modal-panel p-6 sm:p-8 max-h-[92vh] overflow-y-auto">
+                        <button type="button" id="close-add-form-btn" class="absolute top-4 right-4 w-8 h-8 btn-paper flex items-center justify-center" aria-label="Đóng biểu mẫu" title="Đóng biểu mẫu">
                             <i class="fas fa-xmark"></i>
                         </button>
-                        <h3 class="text-base font-bold text-gray-800 font-display flex items-center gap-2 mb-5">
-                            <span class="w-7 h-7 rounded-lg bg-pink-100 text-pink-500 flex items-center justify-center text-xs"><i class="fas fa-link"></i></span>
-                            Thông tin liên kết
-                        </h3>
-                        <form id="add-form" class="space-y-4">
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <p class="text-xs font-bold uppercase tracking-[.25em] opacity-75">MẪU SỐ 07-A // LƯU HÀNH NỘI BỘ</p>
+                        <h3 class="text-lg font-display uppercase tracking-[.08em] mt-1 mb-2">BIỂU MẪU BỔ SUNG TÀI LIỆU</h3>
+                        <span class="stamp text-xs font-bold tilt-s">Điền đầy đủ — không tẩy xóa</span>
+                        <form id="add-form" class="space-y-5 mt-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
                                 <div class="sm:col-span-2">
-                                    <label class="block text-xs font-bold text-gray-600 mb-1.5 ml-1">Đường dẫn (URL) <span class="text-rose-500">*</span></label>
+                                    <label class="field-label" for="f-url">01. Đường dẫn tài liệu (URL) <span class="c-stamp">*</span></label>
                                     <div class="relative">
-                                        <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-pink-400"><i class="fas fa-globe text-sm"></i></span>
-                                        <input type="text" id="f-url" required placeholder="dán link vào đây, ví dụ: https://docs.google.com/..."
-                                            class="w-full pl-10 pr-20 py-3 border border-pink-200/80 rounded-xl bg-white/90 focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition shadow-inner text-sm font-medium">
-                                        <button type="button" id="paste-url-btn" title="Dán link từ clipboard"
-                                            class="absolute inset-y-1.5 right-1.5 px-3 rounded-lg bg-pink-50 text-pink-500 hover:bg-pink-100 hover:text-pink-600 text-[11px] font-bold transition flex items-center gap-1.5">
+                                        <input type="text" id="f-url" required placeholder="dán liên kết cần lưu trữ vào đây" class="tw-input pr-20">
+                                        <button type="button" id="paste-url-btn" title="Dán từ clipboard"
+                                            class="absolute inset-y-1 right-0 px-3 btn-paper text-xs font-bold uppercase tracking-[.06em] flex items-center gap-1.5">
                                             <i class="fas fa-paste"></i> Dán
                                         </button>
                                     </div>
                                 </div>
-                                <!-- KHUNG PREVIEW TỰ ĐỘNG HIỂN THỊ HÌNH ẢNH & ICON WEB -->
-                                <div id="form-url-preview-box" class="hidden sm:col-span-2 mt-1 transition-all duration-300 ease-out pop-in">
-                                    <div class="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-br from-pink-50/95 via-purple-50/80 to-rose-50/95 border border-pink-200/80 shadow-md flex flex-col sm:flex-row gap-3.5 items-center">
-                                        <div class="relative w-full sm:w-36 h-28 sm:h-24 rounded-xl overflow-hidden bg-gradient-to-tr from-pink-200 to-purple-200 shrink-0 shadow-inner border border-white/80 group">
-                                            <div class="absolute inset-0 flex items-center justify-center text-pink-400 text-2xl font-display font-bold">🌐</div>
-                                            <img id="form-preview-img" class="absolute inset-0 w-full h-full object-cover object-top z-10 hidden transition-transform duration-500 hover:scale-105" alt="Preview Web" onerror="this.style.display='none'" onload="this.style.display='block'">
-                                            <div class="absolute top-2 left-2 w-7 h-7 rounded-lg bg-white/95 backdrop-blur shadow-md flex items-center justify-center z-20 border border-white/80 overflow-hidden">
-                                                <i class="fas fa-link text-pink-500 text-xs absolute"></i>
-                                                <img id="form-preview-favicon" class="w-4 h-4 relative z-10 hidden bg-white rounded-sm" alt="" onerror="this.style.display='none'" onload="this.style.display='inline-block'">
+                                <!-- KHUNG THẨM ĐỊNH: ảnh & thông tin web tự động -->
+                                <div id="form-url-preview-box" class="hidden sm:col-span-2 mt-1 pop-in">
+                                    <div class="p-3.5 sm:p-4 paper-flat flex flex-col sm:flex-row gap-3.5 items-center relative">
+                                        <span class="paperclip" aria-hidden="true"></span>
+                                        <div class="relative w-full sm:w-36 h-28 sm:h-24 overflow-hidden shrink-0 box-mid bg-manila">
+                                            <div class="absolute inset-0 flex items-center justify-center font-display text-xl opacity-40">?</div>
+                                            <img id="form-preview-img" class="absolute inset-0 w-full h-full object-cover object-top z-10 hidden grayscale contrast-125" alt="Ảnh tư liệu đính kèm" onerror="this.style.display='none'" onload="this.style.display='block'">
+                                            <div class="absolute top-1.5 left-1.5 w-7 h-7 flex items-center justify-center z-20 overflow-hidden paper-flat">
+                                                <i class="fas fa-link text-xs absolute"></i>
+                                                <img id="form-preview-favicon" class="w-4 h-4 relative z-10 hidden" alt="" onerror="this.style.display='none'" onload="this.style.display='inline-block'">
                                             </div>
                                         </div>
                                         <div class="flex-1 min-w-0 w-full flex flex-col justify-center gap-1.5">
                                             <div class="flex items-center justify-between gap-2 flex-wrap">
-                                                <span id="form-fetch-status" class="inline-flex items-center gap-1.5 text-[11px] font-bold text-pink-600 bg-white/90 px-3 py-1 rounded-full border border-pink-200/80 shadow-sm animate-pulse">
-                                                    <i class="fas fa-spinner fa-spin text-pink-500"></i> Đang tìm hình ảnh & thông tin web...
+                                                <span id="form-fetch-status" class="tag-af">
+                                                    <i class="fas fa-spinner fa-spin"></i> ĐANG TRA CỨU DỮ LIỆU NGUỒN...
                                                 </span>
-                                                <button type="button" id="refetch-meta-btn" class="hidden text-[11px] font-bold text-purple-600 hover:text-purple-700 hover:underline bg-purple-50/80 px-2.5 py-1 rounded-full border border-purple-200/60 transition flex items-center gap-1" title="Tải lại thông tin web">
-                                                    <i class="fas fa-rotate"></i> Tải lại
+                                                <button type="button" id="refetch-meta-btn" class="hidden btn-paper text-xs font-bold uppercase tracking-[.06em] px-2.5 py-1 flex items-center gap-1" title="Tra cứu lại thông tin web">
+                                                    <i class="fas fa-rotate"></i> Tra lại
                                                 </button>
                                             </div>
-                                            <p id="form-preview-title" class="text-xs font-bold text-gray-800 truncate font-display"></p>
-                                            <p id="form-preview-url" class="text-[11px] text-pink-500 font-semibold truncate flex items-center gap-1"><i class="fas fa-globe text-[10px]"></i> <span></span></p>
-                                            <p id="form-preview-desc" class="text-[11px] text-gray-500 line-clamp-2 mt-0.5 leading-relaxed font-medium"></p>
+                                            <p id="form-preview-title" class="text-xs sm:text-sm font-bold truncate"></p>
+                                            <p id="form-preview-url" class="text-xs font-bold truncate flex items-center gap-1.5 c-stamp"><i class="fas fa-globe text-xs"></i> <span></span></p>
+                                            <p id="form-preview-desc" class="text-xs sm:text-sm opacity-75 line-clamp-2 mt-1 leading-relaxed font-medium"></p>
                                         </div>
                                     </div>
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-bold text-gray-600 mb-1.5 ml-1">Tên hiển thị</label>
-                                    <input type="text" id="f-title" placeholder="vd: Nhóm Zalo lớp Y23, Slide Bài giảng..."
-                                        class="w-full px-4 py-3 border border-pink-200/80 rounded-xl bg-white/90 focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition shadow-inner text-sm font-medium">
+                                    <label class="field-label" for="f-title">02. Danh xưng hồ sơ</label>
+                                    <input type="text" id="f-title" placeholder="vd: nhóm liên lạc y23, slide bài giảng..." class="tw-input">
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-bold text-gray-600 mb-1.5 ml-1">Cho vào thư mục</label>
-                                    <select id="f-folder"
-                                        class="w-full px-4 py-3 border border-pink-200/80 rounded-xl bg-white/90 focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition shadow-inner text-sm font-medium cursor-pointer">
-                                        <option value="">— Chưa phân loại —</option>
+                                    <label class="field-label" for="f-folder">03. Phân loại lưu trữ</label>
+                                    <select id="f-folder" class="tw-input">
+                                        <option value="">— CHƯA PHÂN LOẠI —</option>
                                     </select>
                                 </div>
                                 <div class="sm:col-span-2">
-                                    <label class="block text-xs font-bold text-gray-600 mb-1.5 ml-1">Ghi chú / mô tả ngắn</label>
-                                    <input type="text" id="f-note" placeholder="mô tả ngắn, vẫn hiển thị ngay cả khi link được khóa bảo mật"
-                                        class="w-full px-4 py-3 border border-pink-200/80 rounded-xl bg-white/90 focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition shadow-inner text-sm font-medium">
+                                    <label class="field-label" for="f-note">04. Trích yếu nội dung</label>
+                                    <input type="text" id="f-note" placeholder="mô tả ngắn — hiển thị cả khi tài liệu bị niêm phong" class="tw-input">
                                 </div>
-                                <div class="sm:col-span-2 bg-pink-50/50 p-4 rounded-2xl border border-pink-100">
-                                    <label class="block text-xs font-bold text-gray-700 mb-1 flex items-center gap-1.5"><i class="fas fa-lock text-pink-500 text-xs"></i> Mật khẩu bảo vệ link (tùy chọn)</label>
-                                    <input type="password" id="f-pw" autocomplete="new-password" placeholder="để trống nếu muốn chia sẻ công khai cho tất cả mọi người"
-                                        class="w-full px-4 py-2.5 border border-pink-200 rounded-xl bg-white focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition text-sm">
-                                    <p class="text-[11px] text-gray-400 mt-1.5 flex items-center gap-1"><i class="fas fa-shield-halved text-pink-400"></i> Người khác phải nhập đúng mật khẩu mới mở hoặc chỉnh sửa được liên kết này.</p>
+                                <div class="sm:col-span-2 p-4 relative dash-stamp">
+                                    <label class="field-label c-stamp flex items-center gap-1.5" for="f-pw"><i class="fas fa-stamp text-xs"></i> 05. Niêm phong mật mã (tùy chọn)</label>
+                                    <input type="password" id="f-pw" autocomplete="new-password" placeholder="để trống = tài liệu lưu hành công khai" class="tw-input">
+                                    <p class="text-xs font-semibold uppercase tracking-[.06em] opacity-75 mt-1.5">Người tra cứu phải nhập đúng mật mã mới mở hoặc hiệu chỉnh được tài liệu này.</p>
                                 </div>
                             </div>
-                            <div class="flex items-center justify-between gap-3 pt-3 border-t border-pink-100 flex-wrap">
-                                <p id="add-status" class="text-xs text-pink-600 min-h-[16px] font-bold animate-pulse"></p>
+                            <div class="flex items-center justify-between gap-3 pt-3 flex-wrap bd-top-mid">
+                                <p id="add-status" class="text-xs uppercase tracking-[.08em] font-bold min-h-[16px] c-stamp"></p>
                                 <div class="flex gap-2.5 ml-auto">
-                                    <button type="button" id="cancel-add-btn" class="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-600 font-bold text-xs hover:bg-gray-200 transition">Hủy bỏ</button>
-                                    <button type="submit" id="add-btn"
-                                        class="px-7 py-2.5 bg-gradient-to-r from-pink-500 to-purple-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-pink-500/25 hover:shadow-pink-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-2">
-                                        <i class="fas fa-cloud-arrow-up"></i> Lưu liên kết
+                                    <button type="button" id="cancel-add-btn" class="px-5 py-2.5 btn-paper text-xs font-bold uppercase tracking-[.06em]">Hủy bỏ</button>
+                                    <button type="submit" id="add-btn" class="px-7 py-2.5 btn-ink text-xs font-bold flex items-center gap-2">
+                                        <i class="fas fa-box-archive"></i> NHẬP KHO LƯU TRỮ
                                     </button>
                                 </div>
                             </div>
                         </form>
                     </div>
-                </div>
+                </dialog>
             </section>
 
-            <!-- TOOLBAR: TIÊU ĐỀ THƯ MỤC + SẮP XẾP + CHẾ ĐỘ XEM -->
+            <!-- THANH CÔNG CỤ: TIÊU ĐỀ + SẮP XẾP + CHẾ ĐỘ XEM -->
             <div class="flex items-center justify-between gap-x-3 gap-y-2 mb-4 flex-wrap">
-                <div id="current-folder-title" class="hidden items-center gap-2 text-sm font-bold text-gray-700 font-display"></div>
+                <div id="current-folder-title" class="hidden items-center gap-2 text-xs font-bold uppercase tracking-[.1em] on-desk"></div>
                 <div id="list-toolbar" class="hidden items-center gap-2 ml-auto">
-                    <span id="result-count" class="hidden sm:inline text-[11px] font-bold text-gray-400 mr-1"></span>
+                    <span id="result-count" class="hidden sm:inline text-xs font-bold uppercase tracking-[.1em] mr-1 on-desk opacity-75"></span>
                     <div class="relative">
-                        <select id="sort-select" title="Sắp xếp danh sách"
-                            class="appearance-none text-xs font-bold text-gray-600 bg-white/90 border border-pink-200/80 rounded-full pl-8 pr-7 py-2 shadow-sm cursor-pointer focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition">
+                        <select id="sort-select" title="Sắp xếp danh mục" aria-label="Sắp xếp danh mục"
+                            class="appearance-none text-xs font-bold uppercase tracking-[.06em] paper-flat pl-7 pr-7 py-2 cursor-pointer rounded-none">
                             <option value="newest">Mới nhất</option>
                             <option value="oldest">Cũ nhất</option>
-                            <option value="az">Tên A → Z</option>
+                            <option value="az">Tên A-Z</option>
                         </select>
-                        <i class="fas fa-arrow-down-wide-short absolute left-3 top-1/2 -translate-y-1/2 text-pink-400 text-[11px] pointer-events-none"></i>
-                        <i class="fas fa-angle-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[10px] pointer-events-none"></i>
+                        <i class="fas fa-arrow-down-wide-short absolute left-2.5 top-1/2 -translate-y-1/2 text-xs pointer-events-none"></i>
+                        <i class="fas fa-angle-down absolute right-2.5 top-1/2 -translate-y-1/2 text-xs pointer-events-none"></i>
                     </div>
-                    <div class="flex items-center bg-white/90 border border-pink-200/80 rounded-full p-1 shadow-sm">
-                        <button type="button" id="view-grid-btn" class="view-btn w-8 h-7 rounded-full flex items-center justify-center text-xs text-gray-400 hover:text-pink-500 transition" title="Xem dạng lưới" aria-label="Xem dạng lưới"><i class="fas fa-table-cells-large"></i></button>
-                        <button type="button" id="view-list-btn" class="view-btn w-8 h-7 rounded-full flex items-center justify-center text-xs text-gray-400 hover:text-pink-500 transition" title="Xem dạng danh sách" aria-label="Xem dạng danh sách"><i class="fas fa-list"></i></button>
+                    <div class="flex items-center paper-flat p-0.5">
+                        <button type="button" id="view-grid-btn" class="view-btn w-8 h-7 flex items-center justify-center text-xs" title="Xem dạng chồng hồ sơ" aria-label="Xem dạng lưới"><i class="fas fa-table-cells-large"></i></button>
+                        <button type="button" id="view-list-btn" class="view-btn w-8 h-7 flex items-center justify-center text-xs" title="Xem dạng sổ ghi" aria-label="Xem dạng danh sách"><i class="fas fa-list"></i></button>
                     </div>
-                    <button type="button" id="select-mode-btn" title="Chọn nhiều link để thao tác hàng loạt" aria-label="Chọn nhiều"
-                        class="w-9 h-8 rounded-full flex items-center justify-center text-xs font-bold text-gray-500 bg-white/90 border border-pink-200/80 shadow-sm hover:text-pink-500 hover:border-pink-300 transition"><i class="fas fa-list-check"></i></button>
+                    <button type="button" id="select-mode-btn" title="Chọn nhiều hồ sơ để xử lý hàng loạt" aria-label="Chọn nhiều"
+                        class="w-9 h-8 paper-flat flex items-center justify-center text-xs font-bold"><i class="fas fa-list-check"></i></button>
                 </div>
             </div>
 
-            <!-- DANH SÁCH LINK (WITH SKELETON LOADING) -->
-            <div id="loading-state" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 py-4">
-                <div class="glass-card rounded-[2rem] h-64 overflow-hidden border border-pink-100/60 flex flex-col">
-                    <div class="h-36 bg-pink-100/40 shimmer"></div>
-                    <div class="p-5 flex flex-col gap-3 flex-1 justify-center">
-                        <div class="h-4 bg-pink-100/60 rounded-full w-3/4 shimmer"></div>
-                        <div class="h-3 bg-pink-50 rounded-full w-1/2 shimmer"></div>
-                        <div class="h-8 bg-pink-100/40 rounded-xl w-full mt-auto shimmer"></div>
-                    </div>
-                </div>
-                <div class="glass-card rounded-[2rem] h-64 overflow-hidden border border-pink-100/60 flex flex-col hidden sm:flex">
-                    <div class="h-36 bg-purple-100/40 shimmer"></div>
-                    <div class="p-5 flex flex-col gap-3 flex-1 justify-center">
-                        <div class="h-4 bg-purple-100/60 rounded-full w-2/3 shimmer"></div>
-                        <div class="h-3 bg-purple-50 rounded-full w-1/2 shimmer"></div>
-                        <div class="h-8 bg-purple-100/40 rounded-xl w-full mt-auto shimmer"></div>
-                    </div>
-                </div>
-                <div class="glass-card rounded-[2rem] h-64 overflow-hidden border border-pink-100/60 flex flex-col hidden lg:flex">
-                    <div class="h-36 bg-rose-100/40 shimmer"></div>
-                    <div class="p-5 flex flex-col gap-3 flex-1 justify-center">
-                        <div class="h-4 bg-rose-100/60 rounded-full w-4/5 shimmer"></div>
-                        <div class="h-3 bg-rose-50 rounded-full w-1/3 shimmer"></div>
-                        <div class="h-8 bg-rose-100/40 rounded-xl w-full mt-auto shimmer"></div>
-                    </div>
+            <!-- DANH MỤC HỒ SƠ (LOADING = GIẢI MÃ) -->
+            <div id="loading-state" class="py-16 flex justify-center">
+                <div class="paper-card px-8 py-6 text-center tilt-l">
+                    <span class="stamp text-xs font-bold">ĐANG XỬ LÝ</span>
+                    <p class="cursor-blk text-xs font-bold uppercase tracking-[.2em] mt-3">ĐANG GIẢI MÃ DỮ LIỆU LƯU TRỮ</p>
                 </div>
             </div>
 
-            <div id="empty-state" class="hidden text-center py-20 glass-panel rounded-[2.5rem] border border-pink-200/50 shadow-sm max-w-lg mx-auto my-6">
-                <div class="w-24 h-24 mx-auto rounded-[2rem] bg-gradient-to-tr from-pink-100 to-purple-100 flex items-center justify-center text-pink-400 text-5xl mb-5 shadow-inner wiggle"><i class="fas fa-box-open"></i></div>
-                <p class="font-bold text-gray-800 text-lg font-display">Kho liên kết đang trống trơn 🌸</p>
-                <p class="text-gray-400 text-xs sm:text-sm mt-1 max-w-xs mx-auto">Chưa có liên kết nào được lưu trong khu vực này. Hãy bấm tạo liên kết mới nhé!</p>
-                <button type="button" onclick="document.getElementById('toggle-add-form-btn').click()" class="mt-6 px-6 py-2.5 rounded-xl bg-pink-500 text-white font-bold text-xs shadow-md shadow-pink-500/20 hover:bg-pink-600 transition inline-flex items-center gap-2">
-                    <i class="fas fa-plus"></i> Thêm link đầu tiên
+            <div id="empty-state" class="hidden text-center py-16 paper-card max-w-lg mx-auto my-6 tilt-r">
+                <span class="tape" aria-hidden="true"></span>
+                <span class="stamp stamp-abs stamp-tr text-sm">HỒ SƠ TRỐNG</span>
+                <div class="w-20 h-20 mx-auto flex items-center justify-center text-4xl mb-4 box-heavy"><i class="fas fa-box-open"></i></div>
+                <p class="font-display uppercase tracking-[.1em] text-lg px-6">KHÔNG CÓ TÀI LIỆU NÀO TRONG KHO LƯU TRỮ NÀY.</p>
+                <p class="text-xs font-semibold uppercase tracking-[.06em] opacity-75 mt-2 max-w-xs mx-auto">Lập biểu mẫu bổ sung để nạp tài liệu đầu tiên.</p>
+                <button type="button" onclick="document.getElementById('toggle-add-form-btn').click()" class="mt-6 px-6 py-2.5 btn-ink text-xs font-bold inline-flex items-center gap-2">
+                    <i class="fas fa-plus"></i> BỔ SUNG TÀI LIỆU
                 </button>
             </div>
-            <div id="no-result-state" class="hidden text-center py-20 glass-panel rounded-[2.5rem] border border-pink-200/50 shadow-sm max-w-lg mx-auto my-6 text-gray-500">
-                <div class="w-20 h-20 mx-auto rounded-2xl bg-gray-50 flex items-center justify-center text-gray-300 text-4xl mb-4"><i class="fas fa-magnifying-glass"></i></div>
-                <p id="no-result-title" class="font-bold text-base font-display">Không tìm thấy liên kết phù hợp</p>
-                <p id="no-result-sub" class="text-xs text-gray-400 mt-1">Thử tìm kiếm với từ khóa khác hoặc xóa bộ lọc xem sao nha!</p>
+            <div id="no-result-state" class="hidden text-center py-16 paper-card max-w-lg mx-auto my-6 tilt-l">
+                <div class="w-16 h-16 mx-auto flex items-center justify-center text-3xl mb-4 box-mid"><i class="fas fa-magnifying-glass"></i></div>
+                <p id="no-result-title" class="font-display uppercase tracking-[.1em] text-base px-6">TRUY VẤN KHÔNG CHO KẾT QUẢ</p>
+                <p id="no-result-sub" class="text-xs font-semibold uppercase tracking-[.06em] opacity-75 mt-2">Thử từ khóa khác hoặc gỡ bộ lọc phân loại.</p>
             </div>
             <div id="links-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
         </main>
-        <footer class="text-center text-xs text-gray-400 py-8 font-medium border-t border-pink-100/60 mt-12 bg-white/40 backdrop-blur-sm">Kho link dùng chung • phát triển với tinh thần học tập <span class="text-pink-500 font-bold">🎀 Zitthenkne Vault 🐿️</span></footer>
+        <footer class="text-center text-xs font-bold uppercase tracking-[.25em] py-8 mt-12 desk-footer">KHO LƯU TRỮ NỘI BỘ • ZITTHENKNE // ARCHIVE FEVER</footer>
     </div>
-
-    <!-- MODAL: THƯ MỤC -->
-    <div id="folder-modal" class="hidden fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4">
-        <div class="absolute inset-0 bg-slate-900/30 backdrop-blur-md transition-opacity" data-close-folder></div>
-        <div class="sheet-panel relative w-full sm:max-w-md glass-modal rounded-t-[2rem] sm:rounded-[2.25rem] shadow-2xl border border-white p-7 sm:p-8 max-h-[90vh] overflow-y-auto">
-            <h3 id="folder-modal-title" class="text-lg font-bold text-gradient font-display flex items-center gap-2 mb-5"><i class="fas fa-folder-plus"></i> Thư mục mới</h3>
-            <div class="space-y-4">
+    <!-- MODAL: THƯ MỤC (PHIẾU PHÂN LOẠI) -->
+    <dialog open id="folder-modal" class="hidden fixed inset-0 z-[70] w-full h-full flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="absolute inset-0 overlay-dim" data-close-folder></div>
+        <div class="sheet-panel relative w-full sm:max-w-md modal-panel p-7 sm:p-8 max-h-[90vh] overflow-y-auto">
+            <p class="text-xs font-bold uppercase tracking-[.25em] opacity-75">MẪU SỐ 03-B // PHÂN LOẠI</p>
+            <h3 id="folder-modal-title" class="text-base font-display uppercase tracking-[.08em] flex items-center gap-2 mt-1 mb-5"><i class="fas fa-folder-plus"></i> LẬP NGĂN PHÂN LOẠI</h3>
+            <div class="space-y-5">
                 <div>
-                    <label class="block text-xs font-bold text-gray-600 mb-1.5 ml-1">Tên thư mục</label>
-                    <input type="text" id="folder-name" maxlength="40" placeholder="vd: Liên lạc, Học tập lâm sàng, Giải trí..."
-                        class="w-full px-4 py-3 border border-pink-200/80 rounded-xl bg-white focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition text-sm font-medium">
+                    <label class="field-label" for="folder-name">01. Tên ngăn phân loại</label>
+                    <input type="text" id="folder-name" maxlength="40" placeholder="vd: liên lạc, lâm sàng, nội bộ..." class="tw-input">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-gray-600 mb-2 ml-1">Chọn biểu tượng (Icon)</label>
-                    <div id="emoji-picker" class="flex flex-wrap gap-2 max-h-36 overflow-y-auto p-2 bg-pink-50/50 rounded-2xl border border-pink-100"></div>
+                    <label class="field-label">02. Ký hiệu nhận dạng</label>
+                    <div id="emoji-picker" class="flex flex-wrap gap-2 max-h-36 overflow-y-auto p-2 paper-flat"></div>
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-gray-600 mb-2 ml-1">Chọn màu sắc chủ đề</label>
+                    <label class="field-label">03. Màu tem phân loại</label>
                     <div id="color-picker" class="flex flex-wrap gap-3 p-2"></div>
                 </div>
-                <div class="bg-pink-50/50 p-4 rounded-2xl border border-pink-100">
-                    <label class="block text-xs font-bold text-gray-700 mb-1.5 ml-1 flex items-center gap-1.5"><i class="fas fa-lock text-pink-500 text-xs"></i> Mật khẩu thư mục (tùy chọn)</label>
-                    <input type="password" id="folder-pw" autocomplete="new-password" placeholder="để trống = công khai không khóa"
-                        class="w-full px-4 py-2.5 border border-pink-200 rounded-xl bg-white focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition text-sm">
-                    <button type="button" id="folder-pw-clear" class="hidden mt-2 text-xs font-bold text-rose-500 hover:underline inline-flex items-center gap-1"><i class="fas fa-unlock"></i>Bỏ mật khẩu hiện tại</button>
-                    <p id="folder-pw-hint" class="hidden text-[11px] text-amber-600 mt-1.5 font-medium"><i class="fas fa-circle-info mr-1"></i>Thư mục đang có mật khẩu. Để trống = giữ nguyên.</p>
+                <div class="p-4 dash-stamp">
+                    <label class="field-label c-stamp flex items-center gap-1.5" for="folder-pw"><i class="fas fa-stamp text-xs"></i> 04. Niêm phong ngăn (tùy chọn)</label>
+                    <input type="password" id="folder-pw" autocomplete="new-password" placeholder="để trống = công khai không khóa" class="tw-input">
+                    <button type="button" id="folder-pw-clear" class="hidden mt-2 text-xs font-bold uppercase tracking-[.06em] c-stamp underline inline-flex items-center gap-1"><i class="fas fa-unlock"></i> Gỡ niêm phong hiện tại</button>
+                    <p id="folder-pw-hint" class="hidden text-xs font-semibold uppercase tracking-[.06em] opacity-75 mt-1.5"><i class="fas fa-circle-info mr-1"></i>Ngăn đang niêm phong. Để trống = giữ nguyên.</p>
                 </div>
             </div>
-            <div class="flex items-center gap-2.5 mt-6 pt-3 border-t border-pink-100/80">
-                <button type="button" id="folder-delete-btn" class="hidden w-11 h-11 rounded-xl bg-rose-50 text-rose-500 font-bold hover:bg-rose-100 hover:scale-105 transition flex items-center justify-center" title="Xóa thư mục"><i class="fas fa-trash-can"></i></button>
+            <div class="flex items-center gap-2.5 mt-6 pt-3 bd-top-mid">
+                <button type="button" id="folder-delete-btn" class="hidden w-11 h-11 btn-danger flex items-center justify-center" title="Hủy ngăn phân loại" aria-label="Hủy ngăn phân loại"><i class="fas fa-trash-can"></i></button>
                 <div class="flex-1"></div>
-                <button type="button" data-close-folder class="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-600 font-bold text-xs hover:bg-gray-200 transition">Hủy</button>
-                <button type="button" id="folder-save-btn" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-500 text-white font-bold text-xs shadow-lg shadow-pink-500/25 hover:shadow-pink-500/40 transition flex items-center gap-2"><i class="fas fa-check"></i> Lưu thay đổi</button>
+                <button type="button" data-close-folder class="px-5 py-2.5 btn-paper text-xs font-bold uppercase tracking-[.06em]">Hủy</button>
+                <button type="button" id="folder-save-btn" class="px-6 py-2.5 btn-ink text-xs font-bold flex items-center gap-2"><i class="fas fa-check"></i> LƯU PHIẾU</button>
             </div>
         </div>
-    </div>
+    </dialog>
 
-    <!-- MODAL: SỬA LINK -->
-    <div id="link-modal" class="hidden fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4">
-        <div class="absolute inset-0 bg-slate-900/30 backdrop-blur-md transition-opacity" data-close-link></div>
-        <div class="sheet-panel relative w-full sm:max-w-md glass-modal rounded-t-[2rem] sm:rounded-[2.25rem] shadow-2xl border border-white p-7 sm:p-8 max-h-[90vh] overflow-y-auto">
-            <h3 class="text-lg font-bold text-gradient font-display flex items-center gap-2 mb-5"><i class="fas fa-pen-to-square"></i> Sửa liên kết</h3>
-            <div class="space-y-4">
+    <!-- MODAL: HIỆU CHỈNH TÀI LIỆU -->
+    <dialog open id="link-modal" class="hidden fixed inset-0 z-[70] w-full h-full flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="absolute inset-0 overlay-dim" data-close-link></div>
+        <div class="sheet-panel relative w-full sm:max-w-md modal-panel p-7 sm:p-8 max-h-[90vh] overflow-y-auto">
+            <p class="text-xs font-bold uppercase tracking-[.25em] opacity-75">MẪU SỐ 09-C // HIỆU CHỈNH</p>
+            <h3 class="text-base font-display uppercase tracking-[.08em] flex items-center gap-2 mt-1 mb-5"><i class="fas fa-pen-to-square"></i> HIỆU CHỈNH TÀI LIỆU</h3>
+            <div class="space-y-5">
                 <div>
-                    <label class="block text-xs font-bold text-gray-600 mb-1.5 ml-1">Đường dẫn URL</label>
-                    <input type="text" id="e-url" class="w-full px-4 py-3 border border-pink-200/80 rounded-xl bg-white focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition text-sm font-medium">
+                    <label class="field-label" for="e-url">01. Đường dẫn tài liệu (URL)</label>
+                    <input type="text" id="e-url" class="tw-input">
                     <button type="button" id="e-refetch-btn"
-                        class="mt-2 text-[11px] font-bold text-purple-600 hover:text-purple-700 bg-purple-50/80 hover:bg-purple-100 px-3 py-1.5 rounded-full border border-purple-200/60 transition inline-flex items-center gap-1.5">
-                        <i class="fas fa-rotate"></i> Tải lại ảnh & thông tin web
+                        class="mt-2 btn-paper text-xs font-bold uppercase tracking-[.06em] px-3 py-1.5 inline-flex items-center gap-1.5">
+                        <i class="fas fa-rotate"></i> Tra lại ảnh & thông tin nguồn
                     </button>
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-gray-600 mb-1.5 ml-1">Tên hiển thị</label>
-                    <input type="text" id="e-title" class="w-full px-4 py-3 border border-pink-200/80 rounded-xl bg-white focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition text-sm font-medium">
+                    <label class="field-label" for="e-title">02. Danh xưng hồ sơ</label>
+                    <input type="text" id="e-title" class="tw-input">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-gray-600 mb-1.5 ml-1">Thư mục lưu trữ</label>
-                    <select id="e-folder" class="w-full px-4 py-3 border border-pink-200/80 rounded-xl bg-white focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition text-sm font-medium cursor-pointer">
-                        <option value="">— Chưa phân loại —</option>
+                    <label class="field-label" for="e-folder">03. Phân loại lưu trữ</label>
+                    <select id="e-folder" class="tw-input">
+                        <option value="">— CHƯA PHÂN LOẠI —</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-gray-600 mb-1.5 ml-1">Ghi chú ngắn</label>
-                    <input type="text" id="e-note" class="w-full px-4 py-3 border border-pink-200/80 rounded-xl bg-white focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition text-sm font-medium">
+                    <label class="field-label" for="e-note">04. Trích yếu nội dung</label>
+                    <input type="text" id="e-note" class="tw-input">
                 </div>
-                <div class="bg-pink-50/50 p-4 rounded-2xl border border-pink-100">
-                    <label class="block text-xs font-bold text-gray-700 mb-1.5 ml-1 flex items-center gap-1.5"><i class="fas fa-lock text-pink-500 text-xs"></i> Mật khẩu bảo vệ</label>
-                    <input type="password" id="e-pw" autocomplete="new-password" placeholder="nhập để đặt/đổi, để trống = giữ nguyên"
-                        class="w-full px-4 py-2.5 border border-pink-200 rounded-xl bg-white focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition text-sm">
-                    <button type="button" id="e-pw-clear" class="hidden mt-2 text-xs font-bold text-rose-500 hover:underline inline-flex items-center gap-1"><i class="fas fa-unlock"></i>Bỏ mật khẩu hiện tại</button>
-                    <p id="e-pw-hint" class="hidden text-[11px] text-amber-600 mt-1.5 font-medium"><i class="fas fa-circle-info mr-1"></i>Link đang có mật khẩu. Để trống = giữ nguyên.</p>
+                <div class="p-4 dash-stamp">
+                    <label class="field-label c-stamp flex items-center gap-1.5" for="e-pw"><i class="fas fa-stamp text-xs"></i> 05. Niêm phong mật mã</label>
+                    <input type="password" id="e-pw" autocomplete="new-password" placeholder="nhập để đặt/đổi, để trống = giữ nguyên" class="tw-input">
+                    <button type="button" id="e-pw-clear" class="hidden mt-2 text-xs font-bold uppercase tracking-[.06em] c-stamp underline inline-flex items-center gap-1"><i class="fas fa-unlock"></i> Gỡ niêm phong hiện tại</button>
+                    <p id="e-pw-hint" class="hidden text-xs font-semibold uppercase tracking-[.06em] opacity-75 mt-1.5"><i class="fas fa-circle-info mr-1"></i>Tài liệu đang niêm phong. Để trống = giữ nguyên.</p>
                 </div>
             </div>
-            <div class="flex items-center gap-2.5 mt-6 pt-3 border-t border-pink-100/80">
-                <button type="button" id="link-delete-btn" class="w-11 h-11 rounded-xl bg-rose-50 text-rose-500 font-bold hover:bg-rose-100 hover:scale-105 transition flex items-center justify-center" title="Xóa link"><i class="fas fa-trash-can"></i></button>
+            <div class="flex items-center gap-2.5 mt-6 pt-3 bd-top-mid">
+                <button type="button" id="link-delete-btn" class="w-11 h-11 btn-danger flex items-center justify-center" title="Tiêu hủy tài liệu" aria-label="Tiêu hủy tài liệu"><i class="fas fa-trash-can"></i></button>
                 <div class="flex-1"></div>
-                <button type="button" data-close-link class="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-600 font-bold text-xs hover:bg-gray-200 transition">Hủy</button>
-                <button type="button" id="link-save-btn" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-500 text-white font-bold text-xs shadow-lg shadow-pink-500/25 hover:shadow-pink-500/40 transition flex items-center gap-2"><i class="fas fa-check"></i> Cập nhật</button>
+                <button type="button" data-close-link class="px-5 py-2.5 btn-paper text-xs font-bold uppercase tracking-[.06em]">Hủy</button>
+                <button type="button" id="link-save-btn" class="px-6 py-2.5 btn-ink text-xs font-bold flex items-center gap-2"><i class="fas fa-check"></i> CẬP NHẬT</button>
             </div>
         </div>
-    </div>
+    </dialog>
 
-    <!-- MODAL: NHẬP MẬT KHẨU MỞ KHÓA -->
-    <div id="pw-modal" class="hidden fixed inset-0 z-[75] flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-slate-900/35 backdrop-blur-md transition-opacity" data-close-pw></div>
-        <div class="relative w-full max-w-xs glass-modal rounded-[2.25rem] shadow-2xl border border-white p-7 text-center pop-in">
-            <div class="w-16 h-16 mx-auto rounded-[1.25rem] bg-gradient-to-tr from-pink-500 to-purple-500 flex items-center justify-center text-white text-2xl shadow-lg shadow-pink-500/30 mb-4 animate-pulse"><i class="fas fa-lock"></i></div>
-            <h3 id="pw-modal-title" class="text-base font-bold text-gray-800 font-display">Xác thực mật khẩu</h3>
-            <p id="pw-modal-sub" class="text-xs text-gray-400 font-medium mt-1 mb-5 truncate"></p>
+    <!-- MODAL: XÁC THỰC MẬT MÃ MỞ NIÊM PHONG -->
+    <dialog open id="pw-modal" class="hidden fixed inset-0 z-[75] w-full h-full flex items-center justify-center p-4">
+        <div class="absolute inset-0 overlay-dim" data-close-pw></div>
+        <div class="relative w-full max-w-xs modal-panel p-7 text-center pop-in">
+            <span class="stamp stamp-abs stamp-tr text-xs font-bold">NIÊM PHONG</span>
+            <div class="w-14 h-14 mx-auto flex items-center justify-center text-xl mb-4 bg-ink"><i class="fas fa-lock"></i></div>
+            <h3 id="pw-modal-title" class="text-sm font-display uppercase tracking-[.1em]">XÁC THỰC MẬT MÃ</h3>
+            <p id="pw-modal-sub" class="text-xs font-semibold uppercase tracking-[.06em] opacity-75 mt-1 mb-5 truncate"></p>
             <form id="pw-form" class="space-y-3.5">
                 <div class="relative">
                     <input type="password" id="pw-input" autocomplete="off" inputmode="text"
-                        class="w-full px-4 py-3.5 border border-pink-200/80 rounded-2xl text-center tracking-[0.25em] text-sm font-bold bg-white focus:outline-none focus:ring-4 focus:ring-pink-300/30 focus:border-pink-400 transition shadow-inner" placeholder="••••••">
-                    <button type="button" id="pw-toggle" tabindex="-1" class="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-pink-500 transition"><i class="fas fa-eye text-xs"></i></button>
+                        class="tw-input text-center tracking-[.3em] font-bold" placeholder="••••••" aria-label="Mật mã niêm phong">
+                    <button type="button" id="pw-toggle" tabindex="-1" class="absolute inset-y-0 right-0 pr-2 flex items-center opacity-60 hover:opacity-100" aria-label="Hiện/ẩn mật mã"><i class="fas fa-eye text-xs"></i></button>
                 </div>
-                <p id="pw-error" class="hidden text-rose-500 font-bold text-xs bg-rose-50 py-2 rounded-xl border border-rose-100"><i class="fas fa-circle-exclamation mr-1"></i>Sai mật khẩu rồi!</p>
+                <p id="pw-error" class="hidden text-xs font-bold uppercase tracking-[.08em] py-2 term-err"><i class="fas fa-circle-exclamation mr-1"></i>TỪ CHỐI TRUY CẬP. SAI MẬT MÃ.</p>
                 <div class="flex gap-2.5 pt-1">
-                    <button type="button" data-close-pw class="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-600 font-bold text-xs hover:bg-gray-200 transition">Hủy</button>
-                    <button type="submit" class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-500 text-white font-bold text-xs shadow-md shadow-pink-500/20 hover:shadow-pink-500/30 transition">Mở khóa</button>
+                    <button type="button" data-close-pw class="flex-1 py-2.5 btn-paper text-xs font-bold uppercase tracking-[.06em]">Hủy</button>
+                    <button type="submit" class="flex-1 py-2.5 btn-ink text-xs font-bold">MỞ KHÓA</button>
                 </div>
             </form>
         </div>
-    </div>
+    </dialog>
 
-    <!-- MODAL: XÁC NHẬN (thay cho confirm() mặc định) -->
-    <div id="confirm-modal" class="hidden fixed inset-0 z-[78] flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-slate-900/35 backdrop-blur-md transition-opacity" data-close-confirm></div>
-        <div class="relative w-full max-w-xs glass-modal rounded-[2.25rem] shadow-2xl border border-white p-7 text-center pop-in">
-            <div class="w-16 h-16 mx-auto rounded-[1.25rem] bg-gradient-to-tr from-rose-400 to-pink-500 flex items-center justify-center text-white text-2xl shadow-lg shadow-rose-500/30 mb-4"><i class="fas fa-trash-can"></i></div>
-            <h3 id="confirm-title" class="text-base font-bold text-gray-800 font-display">Xác nhận</h3>
-            <p id="confirm-msg" class="text-xs text-gray-500 font-medium mt-1.5 mb-6 leading-relaxed whitespace-pre-line"></p>
+    <!-- MODAL: XÁC NHẬN TIÊU HỦY -->
+    <dialog open id="confirm-modal" class="hidden fixed inset-0 z-[78] w-full h-full flex items-center justify-center p-4">
+        <div class="absolute inset-0 overlay-dim" data-close-confirm></div>
+        <div class="relative w-full max-w-xs modal-panel p-7 text-center pop-in">
+            <span class="stamp stamp-abs stamp-tr text-xs font-bold">KHÔNG HOÀN TÁC</span>
+            <div class="w-14 h-14 mx-auto flex items-center justify-center text-xl mb-4 bg-stampc box-mid"><i class="fas fa-trash-can"></i></div>
+            <h3 id="confirm-title" class="text-sm font-display uppercase tracking-[.1em]">XÁC NHẬN TIÊU HỦY</h3>
+            <p id="confirm-msg" class="text-xs sm:text-sm font-medium opacity-80 mt-2 mb-6 leading-relaxed whitespace-pre-line"></p>
             <div class="flex gap-2.5">
-                <button type="button" data-close-confirm class="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-600 font-bold text-xs hover:bg-gray-200 transition">Hủy bỏ</button>
-                <button type="button" id="confirm-ok-btn" class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 text-white font-bold text-xs shadow-md shadow-rose-500/25 hover:shadow-rose-500/40 transition flex items-center justify-center gap-1.5"><i class="fas fa-check"></i> Đồng ý xóa</button>
+                <button type="button" data-close-confirm class="flex-1 py-2.5 btn-paper text-xs font-bold uppercase tracking-[.06em]">Hủy bỏ</button>
+                <button type="button" id="confirm-ok-btn" class="flex-1 py-2.5 btn-danger text-xs font-bold flex items-center justify-center gap-1.5"><i class="fas fa-check"></i> TIÊU HỦY</button>
             </div>
         </div>
-    </div>
+    </dialog>
 
-    <!-- NÚT CUỘN LÊN ĐẦU TRANG (đặt phía trên FAB) -->
+    <!-- NÚT CUỘN LÊN ĐẦU TRANG -->
     <button type="button" id="scroll-top-btn" aria-label="Lên đầu trang" title="Lên đầu trang"
-        class="fixed bottom-[5.75rem] right-5 z-[60] w-11 h-11 rounded-full bg-white/90 backdrop-blur border border-pink-200 text-pink-500 shadow-lg shadow-pink-500/20 flex items-center justify-center hover:scale-110 active:scale-95">
+        class="fixed bottom-[5.75rem] right-5 z-[60] w-11 h-11 btn-paper flex items-center justify-center">
         <i class="fas fa-arrow-up text-sm"></i>
     </button>
 
-    <!-- FAB: THÊM LINK (nổi, dễ bấm bằng ngón cái) -->
-    <button type="button" id="fab-add" aria-label="Thêm link mới" title="Thêm link mới"
-        class="hidden fixed right-5 z-[62] h-14 w-14 rounded-2xl bg-gradient-to-tr from-pink-500 via-rose-500 to-purple-500 text-white text-xl shadow-xl shadow-pink-500/40 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform">
+    <!-- FAB: LẬP HỒ SƠ NHANH -->
+    <button type="button" id="fab-add" aria-label="Bổ sung tài liệu" title="BỔ SUNG TÀI LIỆU"
+        class="hidden fixed right-5 z-[62] h-14 w-14 btn-ink text-xl flex items-center justify-center">
         <i class="fas fa-plus"></i>
     </button>
 
-    <!-- MODAL: XEM NHANH LINK (quick view) -->
-    <div id="quick-modal" class="hidden fixed inset-0 z-[74] flex items-end sm:items-center justify-center">
-        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-md" data-close-quick></div>
-        <div id="quick-body" class="sheet-panel relative w-full sm:max-w-md glass-modal rounded-t-[2rem] sm:rounded-[2.25rem] shadow-2xl border border-white max-h-[92vh] overflow-y-auto no-scrollbar"></div>
-    </div>
+    <!-- MODAL: TRA CỨU NHANH TÀI LIỆU -->
+    <dialog open id="quick-modal" class="hidden fixed inset-0 z-[74] w-full h-full flex items-end sm:items-center justify-center">
+        <div class="absolute inset-0 overlay-dim" data-close-quick></div>
+        <div id="quick-body" class="sheet-panel relative w-full sm:max-w-md modal-panel max-h-[92vh] overflow-y-auto no-scrollbar"></div>
+    </dialog>
 
-    <!-- THANH HÀNH ĐỘNG HÀNG LOẠT (chọn nhiều) -->
-    <div id="bulk-bar" class="hide fixed bottom-4 left-1/2 z-[68] w-[min(94vw,42rem)] glass-modal rounded-2xl border border-pink-200/80 shadow-2xl px-2.5 py-2 flex items-center gap-1.5 safe-bottom">
-        <span class="flex items-center gap-1.5 text-xs font-bold text-gray-700 pl-1 shrink-0">
-            <span id="bulk-count" class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 text-white">0</span>
+    <!-- THANH XỬ LÝ HÀNG LOẠT -->
+    <div id="bulk-bar" class="hide fixed bottom-4 left-1/2 z-[68] w-[min(94vw,42rem)] modal-panel px-2.5 py-2 flex items-center gap-1.5 safe-bottom">
+        <span class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[.06em] pl-1 shrink-0">
+            <span id="bulk-count" class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 bg-stampc">0</span>
             <span class="hidden min-[420px]:inline">đã chọn</span>
         </span>
-        <button type="button" id="bulk-all" title="Chọn / bỏ chọn tất cả" class="px-2.5 py-1.5 rounded-xl bg-white border border-pink-100 text-gray-600 font-bold text-[11px] hover:bg-pink-50 transition flex items-center gap-1.5"><i class="fas fa-check-double text-pink-400"></i><span class="hidden sm:inline">Tất cả</span></button>
+        <button type="button" id="bulk-all" title="Chọn / bỏ chọn tất cả" class="px-2.5 py-1.5 btn-paper text-xs font-bold uppercase tracking-[.06em] flex items-center gap-1.5"><i class="fas fa-check-double"></i><span class="hidden sm:inline">Tất cả</span></button>
         <div class="flex-1"></div>
-        <button type="button" id="bulk-move" title="Chuyển vào thư mục" class="px-2.5 py-1.5 rounded-xl bg-white border border-pink-100 text-purple-500 font-bold text-[11px] hover:bg-purple-50 transition flex items-center gap-1.5"><i class="fas fa-folder-open"></i><span class="hidden sm:inline">Chuyển</span></button>
-        <button type="button" id="bulk-pin" title="Ghim / bỏ ghim" class="px-2.5 py-1.5 rounded-xl bg-white border border-pink-100 text-amber-500 font-bold text-[11px] hover:bg-amber-50 transition flex items-center gap-1.5"><i class="fas fa-thumbtack"></i><span class="hidden sm:inline">Ghim</span></button>
-        <button type="button" id="bulk-delete" title="Xóa các link đã chọn" class="px-2.5 py-1.5 rounded-xl bg-rose-50 border border-rose-100 text-rose-500 font-bold text-[11px] hover:bg-rose-100 transition flex items-center gap-1.5"><i class="fas fa-trash-can"></i><span class="hidden sm:inline">Xóa</span></button>
-        <button type="button" id="bulk-exit" title="Thoát chế độ chọn" class="w-8 h-8 rounded-xl bg-gray-100 text-gray-500 font-bold hover:bg-gray-200 transition flex items-center justify-center shrink-0"><i class="fas fa-xmark"></i></button>
+        <button type="button" id="bulk-move" title="Chuyển ngăn phân loại" class="px-2.5 py-1.5 btn-paper text-xs font-bold uppercase tracking-[.06em] flex items-center gap-1.5"><i class="fas fa-folder-open"></i><span class="hidden sm:inline">Chuyển</span></button>
+        <button type="button" id="bulk-pin" title="Ghim / bỏ ghim" class="px-2.5 py-1.5 btn-paper text-xs font-bold uppercase tracking-[.06em] flex items-center gap-1.5"><i class="fas fa-thumbtack"></i><span class="hidden sm:inline">Ghim</span></button>
+        <button type="button" id="bulk-delete" title="Tiêu hủy các hồ sơ đã chọn" class="px-2.5 py-1.5 btn-danger text-xs font-bold flex items-center gap-1.5"><i class="fas fa-trash-can"></i><span class="hidden sm:inline">Tiêu hủy</span></button>
+        <button type="button" id="bulk-exit" title="Thoát chế độ chọn" aria-label="Thoát chế độ chọn" class="w-8 h-8 btn-paper flex items-center justify-center shrink-0"><i class="fas fa-xmark"></i></button>
     </div>
 
-    <!-- SHEET: CHỌN THƯ MỤC ĐỂ CHUYỂN (bulk move) -->
-    <div id="move-sheet" class="hidden fixed inset-0 z-[76] flex items-end sm:items-center justify-center">
-        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-md" data-close-move></div>
-        <div class="sheet-panel relative w-full sm:max-w-sm glass-modal rounded-t-[2rem] sm:rounded-[2.25rem] shadow-2xl border border-white p-6 sm:p-7 max-h-[80vh] overflow-y-auto">
-            <div class="sm:hidden flex justify-center -mt-2 mb-3"><span class="w-10 h-1.5 rounded-full bg-pink-200"></span></div>
-            <h3 class="text-base font-bold text-gradient font-display flex items-center gap-2 mb-1"><i class="fas fa-folder-open"></i> Chuyển vào thư mục</h3>
-            <p class="text-[11px] text-gray-400 font-medium mb-4">Chọn nơi chuyển các link đang chọn tới</p>
+    <!-- SHEET: CHỌN NGĂN PHÂN LOẠI (chuyển hàng loạt) -->
+    <dialog open id="move-sheet" class="hidden fixed inset-0 z-[76] w-full h-full flex items-end sm:items-center justify-center">
+        <div class="absolute inset-0 overlay-dim" data-close-move></div>
+        <div class="sheet-panel relative w-full sm:max-w-sm modal-panel p-6 sm:p-7 max-h-[80vh] overflow-y-auto">
+            <h3 class="text-base font-display uppercase tracking-[.08em] font-bold flex items-center gap-2 mb-1"><i class="fas fa-folder-open"></i> CHUYỂN NGĂN PHÂN LOẠI</h3>
+            <p class="text-xs font-semibold uppercase tracking-[.06em] opacity-75 mb-4">Chỉ định nơi lưu trữ mới cho các hồ sơ đã chọn</p>
             <div id="move-options" class="space-y-2"></div>
-            <button type="button" data-close-move class="mt-4 w-full py-2.5 rounded-xl bg-gray-100 text-gray-600 font-bold text-xs hover:bg-gray-200 transition">Hủy</button>
+            <button type="button" data-close-move class="mt-4 w-full py-2.5 btn-paper text-xs font-bold uppercase tracking-[.08em]">Hủy</button>
         </div>
-    </div>
+    </dialog>
 
     <!-- Toast -->
-    <div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[80] px-5 py-3 rounded-2xl bg-slate-900/90 backdrop-blur-md text-white font-bold text-xs shadow-2xl border border-white/10 flex items-center gap-2.5 animate-bounce"></div>
-
+    <div id="toast" class="hidden toast-af" role="status"></div>
     <script type="module">
         import { db } from '../../core/firebase-init.js';
         import {
@@ -531,19 +620,14 @@
         const linksRef = collection(db, "shared_links");
         const foldersRef = collection(db, "shared_link_folders");
 
-        // ---------- Bảng màu thư mục ----------
+        // ---------- Tem màu phân loại ----------
+        // Key giữ nguyên (đã lưu trong Firestore ở field color); value = class accent Archive Fever (.th-*)
         const THEMES = {
-            pink:    { grad: 'from-pink-200 to-rose-200',      soft: 'bg-pink-100',    text: 'text-pink-600',    ring: 'ring-pink-300' },
-            rose:    { grad: 'from-rose-200 to-pink-200',      soft: 'bg-rose-100',    text: 'text-rose-600',    ring: 'ring-rose-300' },
-            purple:  { grad: 'from-purple-200 to-fuchsia-200', soft: 'bg-purple-100',  text: 'text-purple-600',  ring: 'ring-purple-300' },
-            violet:  { grad: 'from-violet-200 to-indigo-200',  soft: 'bg-violet-100',  text: 'text-violet-600',  ring: 'ring-violet-300' },
-            sky:     { grad: 'from-sky-200 to-cyan-200',       soft: 'bg-sky-100',     text: 'text-sky-600',     ring: 'ring-sky-300' },
-            teal:    { grad: 'from-teal-200 to-emerald-200',   soft: 'bg-teal-100',    text: 'text-teal-600',    ring: 'ring-teal-300' },
-            amber:   { grad: 'from-amber-200 to-yellow-200',   soft: 'bg-amber-100',   text: 'text-amber-600',   ring: 'ring-amber-300' },
-            emerald: { grad: 'from-emerald-200 to-lime-200',   soft: 'bg-emerald-100', text: 'text-emerald-600', ring: 'ring-emerald-300' },
+            pink: 'th-red', rose: 'th-rust', purple: 'th-plum', violet: 'th-navy',
+            sky: 'th-steel', teal: 'th-olive', amber: 'th-ochre', emerald: 'th-moss',
         };
         const COLOR_KEYS = Object.keys(THEMES);
-        const EMOJIS = ['📁', '💖', '⭐', '📚', '💊', '🩺', '🎀', '🔖', '🌸', '📌', '💬', '🎓'];
+        const EMOJIS = ['📁', '📌', '📚', '📎', '🗃️', '🗂️', '📇', '📄', '🔖', '🖇️', '📑', '🗄️'];
         const theme = (k) => THEMES[k] || THEMES.pink;
 
         // ---------- Hash mật khẩu (giấu mật khẩu thật khỏi DB) ----------
@@ -564,8 +648,7 @@
             const el = document.getElementById('toast');
             const icon = type === 'err' ? 'fa-circle-xmark' : type === 'warn' ? 'fa-triangle-exclamation' : 'fa-circle-check';
             el.innerHTML = `<i class="fas ${icon} text-sm shrink-0"></i><span>${esc(msg)}</span>`;
-            el.className = "fixed bottom-5 left-1/2 -translate-x-1/2 z-[80] px-4 py-2.5 rounded-2xl text-white font-bold text-sm shadow-xl pop-in flex items-center gap-2 max-w-[92vw] "
-                + (type === 'err' ? 'bg-rose-500' : type === 'warn' ? 'bg-amber-500' : 'bg-gradient-to-r from-pink-400 to-purple-400');
+            el.className = 'toast-af pop-in' + (type === 'err' ? ' toast-err' : type === 'warn' ? ' toast-warn' : '');
             el.classList.remove('hidden');
             clearTimeout(toastTimer);
             toastTimer = setTimeout(() => el.classList.add('hidden'), 2600);
@@ -655,7 +738,7 @@
                 linksLoaded = true; refreshAll();
             }, (err) => {
                 document.getElementById('loading-state').innerHTML =
-                    '<i class="fas fa-heart-crack text-3xl mb-3 text-rose-400"></i><p class="font-semibold text-rose-500">Không tải được dữ liệu</p><p class="text-xs mt-1">' + esc(err.message || '') + '</p>';
+                    '<div class="paper-card px-8 py-6 text-center tilt-l"><span class="stamp text-xs font-bold">SỰ CỐ</span><p class="font-display uppercase tracking-[.15em] mt-3">KHÔNG TẢI ĐƯỢC DỮ LIỆU</p><p class="text-sm mt-1 opacity-70">' + esc(err.message || '') + '</p></div>';
             });
         }
         function refreshAll() {
@@ -679,6 +762,15 @@
         function faviconOf(url) { try { return 'https://www.google.com/s2/favicons?sz=64&domain=' + new URL(url).hostname; } catch (_) { return ''; } }
         function previewOf(url) { return 'https://image.thum.io/get/width/600/noanimate/' + url; }
         function esc(s) { return (s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+        // Hiệu ứng đóng dấu "COPIED" lên thẻ hồ sơ khi sao chép
+        function stampCard(card) {
+            if (!card) return;
+            const s = document.createElement('span');
+            s.className = 'stamp-pop';
+            s.textContent = 'COPIED';
+            card.appendChild(s);
+            setTimeout(() => s.remove(), 900);
+        }
         // Thời gian tương đối kiểu "3 ngày trước"
         function timeAgo(ts) {
             const s = ts?.seconds; if (!s) return '';
@@ -723,7 +815,7 @@
         function askPassword(title, sub) {
             return new Promise(res => {
                 pwResolver = res;
-                document.getElementById('pw-modal-title').textContent = title || 'Nhập mật khẩu';
+                document.getElementById('pw-modal-title').textContent = title || 'XÁC THỰC MẬT MÃ';
                 document.getElementById('pw-modal-sub').textContent = sub || '';
                 pwInput.value = ''; pwInput.type = 'password'; pwError.classList.add('hidden');
                 document.querySelector('#pw-toggle i').className = 'fas fa-eye';
@@ -744,12 +836,12 @@
         // Trả về true nếu mở được (đúng mật khẩu của item, hoặc master key)
         async function tryUnlock(type, item) {
             const name = type === 'f' ? item.name : ((item.title || '').trim() || hostOf(item.url));
-            const input = await askPassword(type === 'f' ? '🔒 Mở khóa thư mục' : '🔒 Mở khóa link', name);
+            const input = await askPassword(type === 'f' ? 'MỞ NIÊM PHONG NGĂN' : 'MỞ NIÊM PHONG TÀI LIỆU', name);
             if (input == null || input === '') return false;
-            if (input === MASTER_KEY) { masterUnlocked = true; updateMasterBadge(); toast('Đã bật chế độ chủ 🔑'); refreshAll(); return true; }
+            if (input === MASTER_KEY) { masterUnlocked = true; updateMasterBadge(); toast('ĐÃ KÍCH HOẠT QUYỀN TRUY CẬP TOÀN PHẦN'); refreshAll(); return true; }
             const h = await hashPw(input);
-            if (h === item.pw) { unlocked.add(type + ':' + item.id); toast('Mở khóa thành công 🔓'); return true; }
-            toast('Sai mật khẩu', 'err'); return false;
+            if (h === item.pw) { unlocked.add(type + ':' + item.id); toast('XÁC THỰC THÀNH CÔNG — NIÊM PHONG ĐÃ MỞ'); return true; }
+            toast('TỪ CHỐI TRUY CẬP. SAI MẬT MÃ.', 'err'); return false;
         }
         // Đảm bảo có quyền mở 1 link (mở khóa thư mục trước nếu cần, rồi tới link)
         async function ensureLinkOpen(l) {
@@ -766,7 +858,7 @@
             document.getElementById('master-badge').classList.toggle('inline-flex', masterUnlocked);
         }
         document.getElementById('master-badge').addEventListener('click', () => {
-            masterUnlocked = false; unlocked.clear(); updateMasterBadge(); refreshAll(); toast('Đã tắt chế độ chủ');
+            masterUnlocked = false; unlocked.clear(); updateMasterBadge(); refreshAll(); toast('ĐÃ THU HỒI QUYỀN TRUY CẬP TOÀN PHẦN');
         });
 
         // ---------- Folder bar ----------
@@ -774,11 +866,11 @@
             const bar = document.getElementById('folder-bar');
             const cards = [folderCard('__all__', 'Tất cả', '🗂️', 'pink', false, false)];
             allFolders.forEach(f => cards.push(folderCard(f.id, f.name, f.icon || '📁', f.color || 'pink', true, !!(f.pw) && !folderUnlocked(f))));
-            if (countInFolder('__none__') > 0) cards.push(folderCard('__none__', 'Chưa phân loại', '🌷', 'rose', false, false));
+            if (countInFolder('__none__') > 0) cards.push(folderCard('__none__', 'Chưa phân loại', '📄', 'rose', false, false));
             cards.push(`
-            <button type="button" id="folder-bar-add" title="Tạo thư mục mới"
-                class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl border-2 border-dashed border-pink-300/80 text-pink-500 bg-pink-50/40 hover:bg-pink-100/70 hover:border-pink-400 hover:text-pink-600 font-bold text-[13px] transition-all">
-                <i class="fas fa-plus text-xs"></i> Thư mục mới
+            <button type="button" id="folder-bar-add" title="Lập ngăn phân loại mới"
+                class="inline-flex items-center gap-1.5 px-3.5 py-2 font-bold text-xs sm:text-sm uppercase tracking-[.08em] folder-tab-add">
+                <i class="fas fa-plus text-xs"></i> Ngăn mới
             </button>`);
             bar.innerHTML = cards.join('');
             bar.querySelector('#folder-bar-add').addEventListener('click', () => openFolderModal(null));
@@ -795,23 +887,19 @@
                 openFolderModal(el.dataset.editFolder);
             }));
         }
-        // Chip thư mục: gọn, xuống dòng tự động, trạng thái đang chọn tô màu gradient rõ ràng
+        // Tab bìa hồ sơ: giấy manila, tem màu accent trên đỉnh, đang chọn = tô mực đen
         function folderCard(id, name, icon, color, editable, locked) {
             const t = theme(color);
             const on = activeFolder === id;
             const cnt = countInFolder(id);
             return `
-            <button type="button" data-folder="${esc(id)}" title="${esc(name)} · ${cnt} liên kết${locked ? ' · đang khóa' : ''}"
-                class="group/chip inline-flex items-center gap-2 pl-3 ${editable ? 'pr-1.5' : 'pr-3'} py-2 rounded-2xl border max-w-full transition-all duration-200
-                ${on
-                    ? 'bg-gradient-to-r ' + t.grad + ' border-white/70 shadow-lg ring-2 ring-offset-1 ' + t.ring
-                    : 'bg-white/80 border-pink-100 shadow-sm hover:bg-white hover:border-pink-200 hover:-translate-y-0.5 hover:shadow'}">
-                <span class="text-base leading-none">${locked ? '🔒' : icon}</span>
-                <span class="font-bold text-[13px] ${on ? 'text-gray-800' : 'text-gray-600'} truncate max-w-[9rem] font-display">${esc(name)}</span>
-                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${on ? 'bg-white/80 ' + t.text : 'bg-pink-50 text-pink-500'}">${cnt}</span>
-                ${editable ? `<span data-edit-folder="${esc(id)}" role="button" tabindex="0" title="Sửa thư mục"
-                    class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] transition
-                    ${on ? 'bg-white/80 text-gray-600 hover:text-pink-600' : 'text-gray-300 hover:bg-pink-50 hover:text-pink-500'}">
+            <button type="button" data-folder="${esc(id)}" title="${esc(name)} · ${cnt} hồ sơ${locked ? ' · đang niêm phong' : ''}"
+                class="folder-tab ${t}${on ? ' active' : ''} inline-flex items-center gap-2 pl-3 ${editable ? 'pr-1.5' : 'pr-3'} py-2 max-w-full">
+                <span class="text-sm leading-none">${locked ? '🔒' : icon}</span>
+                <span class="font-bold text-xs sm:text-sm uppercase tracking-[.05em] truncate max-w-[10rem]">${esc(name)}</span>
+                <span class="tab-count text-xs font-bold px-2 py-0.5 leading-none">${cnt}</span>
+                ${editable ? `<span data-edit-folder="${esc(id)}" role="button" tabindex="0" title="Hiệu chỉnh ngăn" aria-label="Hiệu chỉnh ngăn ${esc(name)}"
+                    class="tab-edit w-6 h-6 flex items-center justify-center text-xs">
                     <i class="fas fa-pen"></i></span>` : ''}
             </button>`;
         }
@@ -839,17 +927,17 @@
             else {
                 const f = folderById(activeFolder);
                 const label = activeFolder === '__none__' ? '🌷 Chưa phân loại' : `${f ? (f.icon || '📁') : ''} ${f ? f.name : ''}`;
-                titleEl.innerHTML = `<i class="fas fa-folder-open text-pink-400"></i> Đang xem: <span class="text-gradient">${esc(label)}</span> <span class="text-gray-400 font-medium">(${list.length})</span>`;
+                titleEl.innerHTML = `<i class="fas fa-folder-open c-stamp"></i> HỒ SƠ: <span>${esc(label)}</span> <span class="opacity-60">(${list.length})</span>`;
                 titleEl.classList.remove('hidden'); titleEl.classList.add('flex');
             }
-            document.getElementById('result-count').textContent = q ? `${list.length} kết quả` : `${list.length} liên kết`;
+            document.getElementById('result-count').textContent = q ? `${list.length} kết quả` : `${list.length} hồ sơ`;
 
             document.getElementById('empty-state').classList.toggle('hidden', allLinks.length !== 0);
             const showNoRes = allLinks.length !== 0 && list.length === 0;
             document.getElementById('no-result-state').classList.toggle('hidden', !showNoRes);
             if (showNoRes) {
-                document.getElementById('no-result-title').textContent = q ? 'Không tìm thấy liên kết phù hợp' : 'Khu vực này chưa có link nào 🌷';
-                document.getElementById('no-result-sub').textContent = q ? 'Thử tìm kiếm với từ khóa khác hoặc xóa bộ lọc xem sao nha!' : 'Bấm "Thêm link ngay" phía trên để lưu liên kết đầu tiên vào đây nhé!';
+                document.getElementById('no-result-title').textContent = q ? 'TRUY VẤN KHÔNG CHO KẾT QUẢ' : 'NGĂN NÀY CHƯA CÓ TÀI LIỆU';
+                document.getElementById('no-result-sub').textContent = q ? 'Thử từ khóa khác hoặc gỡ bộ lọc phân loại.' : 'Bấm "LẬP HỒ SƠ" phía trên để nạp tài liệu đầu tiên vào ngăn này.';
             }
 
             grid.className = viewMode === 'list' ? 'flex flex-col gap-3' : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6';
@@ -865,7 +953,10 @@
                 img.addEventListener('load', () => { const fb = img.parentElement.querySelector('.preview-fallback'); if (fb) fb.style.opacity = '0'; });
             });
             grid.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => {
-                navigator.clipboard.writeText(b.dataset.copy).then(() => toast('Đã sao chép link 📋')).catch(() => toast('Không sao chép được', 'err'));
+                navigator.clipboard.writeText(b.dataset.copy).then(() => {
+                    stampCard(b.closest('[data-card]'));
+                    toast('ĐÃ SAO CHÉP ĐƯỜNG DẪN');
+                }).catch(() => toast('Không sao chép được', 'err'));
             }));
             grid.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', async () => {
                 const l = allLinks.find(x => x.id === b.dataset.edit); if (!l) return;
@@ -883,7 +974,7 @@
                 b.disabled = true;
                 try {
                     await updateDoc(doc(db, 'shared_links', l.id), { pinned: !l.pinned });
-                    toast(l.pinned ? 'Đã bỏ ghim liên kết' : 'Đã ghim lên đầu 📌');
+                    toast(l.pinned ? 'ĐÃ BỎ GHIM HỒ SƠ' : 'ĐÃ GHIM LÊN ĐẦU DANH MỤC');
                 } catch (err) { toast('Lỗi: ' + (err.message || ''), 'err'); b.disabled = false; }
             }));
             updateFab(); updateBulkBar();
@@ -893,142 +984,143 @@
             const url = l.url || '';
             const title = (l.title || '').trim() || hostOf(url);
             const f = folderById(l.folderId);
-            const t = f ? theme(f.color) : theme('pink');
+            const t = f ? theme(f.color) : '';
             const initial = (title.trim()[0] || '?').toUpperCase();
-            const folderChip = f ? `<span class="absolute top-2.5 right-2.5 ${t.soft} ${t.text} text-[10px] font-bold px-2 py-1 rounded-full shadow-sm flex items-center gap-1">${f.icon || '📁'} ${esc(f.name)}</span>` : '';
+            const folderChip = f ? `<span class="absolute top-2 right-2 z-20 accent-bg ${t} text-xs font-bold uppercase tracking-[.06em] px-2.5 py-1 flex items-center gap-1">${f.icon || '📁'} ${esc(f.name)}</span>` : '';
             const revealed = linkRevealed(l);
 
-            const pinRing = l.pinned ? 'border-amber-300/90 ring-2 ring-amber-200/70' : 'border-pink-200/70';
-            const pinChip = l.pinned ? `<span class="absolute bottom-2.5 left-2.5 bg-amber-400/95 backdrop-blur text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md flex items-center gap-1 border border-white/30"><i class="fas fa-thumbtack text-[9px]"></i> Đã ghim</span>` : '';
+            const pinCls = l.pinned ? ' pinned' : '';
+            const pinChip = l.pinned ? `<span class="absolute bottom-2 left-2 z-20 bg-ink text-xs font-bold uppercase tracking-[.06em] px-2.5 py-1 flex items-center gap-1"><i class="fas fa-thumbtack text-xs"></i> Ghim</span>` : '';
 
             if (!revealed) {
-                // ----- Thẻ KHÓA: chỉ hiện tên + mô tả, không hiện link -----
+                // ----- Hồ sơ NIÊM PHONG: chỉ hiện danh xưng + trích yếu, giấu link -----
                 return `
-                <div data-card="${esc(l.id)}" class="group glass-card rounded-[2rem] border ${pinRing} shadow-md hover:shadow-2xl hover:shadow-pink-500/15 hover:-translate-y-1.5 transition-all duration-300 ease-out overflow-hidden flex flex-col pop-in relative${selClass(l.id)}">${checkOverlay()}
-                    <div class="relative h-40 overflow-hidden bg-gradient-to-tr ${t.grad} flex items-center justify-center border-b border-white/50">
-                        <div class="absolute inset-0 bg-white/20 backdrop-blur-[2px]"></div>
-                        <div class="text-center text-white z-10 p-4">
-                            <div class="w-14 h-14 mx-auto rounded-2xl bg-white/30 backdrop-blur-md flex items-center justify-center text-2xl mb-2 shadow-inner border border-white/40 group-hover:scale-110 transition-transform duration-300"><i class="fas fa-lock"></i></div>
-                            <div class="text-xs font-bold tracking-wider uppercase drop-shadow-sm font-display">Liên kết bảo mật</div>
+                <article data-card="${esc(l.id)}" class="dossier paper-card${pinCls} overflow-hidden flex flex-col pop-in relative${selClass(l.id)}">${checkOverlay()}
+                    <div class="relative h-40 overflow-hidden bg-ink photo-frame flex items-center justify-center">
+                        <div class="text-center z-10 p-4">
+                            <div class="w-14 h-14 mx-auto flex items-center justify-center text-2xl mb-2 border-2 border-current"><i class="fas fa-lock"></i></div>
+                            <div class="text-xs font-bold tracking-[.25em] uppercase">TÀI LIỆU NIÊM PHONG</div>
                         </div>
+                        <span class="stamp stamp-normal stamp-abs stamp-br text-sm">SEALED</span>
                         ${pinChip}
                         ${folderChip}
                     </div>
-                    <div class="p-5 flex flex-col gap-2 flex-1 bg-white/60">
-                        <h3 class="font-bold text-gray-800 text-base leading-snug break-words line-clamp-2 font-display">${hi(title)}</h3>
-                        <p class="text-[11px] text-pink-500 font-bold flex items-center gap-1"><i class="fas fa-shield-halved text-[10px]"></i> Cần mật khẩu để truy cập</p>
-                        ${l.note ? `<p class="text-xs text-gray-600 bg-white/80 border border-pink-100/80 rounded-xl px-3 py-2 break-words mt-1 shadow-sm font-medium">${hi(l.note)}</p>` : ''}
+                    <div class="p-5 flex flex-col gap-2 flex-1">
+                        <h3 class="font-bold text-base sm:text-lg leading-snug break-words line-clamp-2 uppercase">${hi(title)}</h3>
+                        <p class="text-xs c-stamp font-bold uppercase tracking-[.06em] flex items-center gap-1.5"><i class="fas fa-shield-halved text-xs"></i> Cần mật mã để truy cập</p>
+                        ${l.note ? `<p class="text-sm font-medium paper-flat px-3.5 py-2.5 break-words mt-1.5 leading-relaxed">${hi(l.note)}</p>` : ''}
                         <div class="flex items-center gap-2 mt-auto pt-4">
                             <button type="button" data-open-locked="${esc(l.id)}"
-                                class="flex-1 text-center py-2.5 rounded-xl bg-gradient-to-r from-pink-500 via-rose-400 to-purple-500 text-white text-xs font-bold shadow-md shadow-pink-500/20 hover:shadow-pink-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2">
-                                <i class="fas fa-key"></i> Nhập mật khẩu để mở
+                                class="flex-1 text-center py-2.5 btn-ink text-xs sm:text-sm font-bold flex items-center justify-center gap-2">
+                                <i class="fas fa-key"></i> NHẬP MẬT MÃ
                             </button>
-                            <button type="button" data-edit="${esc(l.id)}" title="Chỉnh sửa"
-                                class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-purple-100 text-purple-500 hover:bg-purple-50 hover:scale-105 transition shadow-sm"><i class="fas fa-pen text-xs"></i></button>
+                            <button type="button" data-edit="${esc(l.id)}" title="Hiệu chỉnh" aria-label="Hiệu chỉnh"
+                                class="w-10 h-10 flex items-center justify-center btn-paper"><i class="fas fa-pen text-xs"></i></button>
                         </div>
                     </div>
-                </div>`;
+                </article>`;
             }
 
-            // ----- Thẻ MỞ (bình thường) -----
-            const protectedBadge = l.pw ? `<span class="absolute top-3 left-14 bg-emerald-500/90 backdrop-blur text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md flex items-center gap-1 border border-white/20"><i class="fas fa-lock-open text-[9px]"></i> Bảo mật</span>` : '';
+            // ----- Hồ sơ MỞ: mẩu báo cáo có ảnh đính kèm, tem MẬT, băng keo -----
+            const protectedBadge = l.pw ? `<span class="absolute top-2 left-14 z-20 bg-ink text-xs font-bold uppercase tracking-[.06em] px-2.5 py-1 flex items-center gap-1"><i class="fas fa-lock-open text-xs"></i> Mật mã</span>` : '';
             // Ưu tiên ảnh & favicon "chính chủ" đã lưu kèm link; hỏng thì rơi về ảnh chụp màn hình / favicon Google
             const cardImg = l.image || previewOf(url);
             const cardImgFb = l.image ? ` data-fb="${esc(previewOf(url))}"` : '';
             const fav = l.favicon || faviconOf(url);
-            const favFb = l.favicon ? `if(this.dataset.fb){this.src=this.dataset.fb;this.removeAttribute('data-fb');}else{this.replaceWith(Object.assign(document.createElement('i'),{className:'fas fa-link text-pink-500 text-sm'}));}` : `this.replaceWith(Object.assign(document.createElement('i'),{className:'fas fa-link text-pink-500 text-sm'}));`;
+            const favFb = l.favicon ? `if(this.dataset.fb){this.src=this.dataset.fb;this.removeAttribute('data-fb');}else{this.replaceWith(Object.assign(document.createElement('i'),{className:'fas fa-link text-xs'}));}` : `this.replaceWith(Object.assign(document.createElement('i'),{className:'fas fa-link text-xs'}));`;
             const siteLabel = (l.siteName && l.siteName.toLowerCase() !== hostOf(url).toLowerCase()) ? `${l.siteName} · ${hostOf(url)}` : hostOf(url);
             return `
-            <div class="group glass-card rounded-[2rem] border ${pinRing} shadow-md hover:shadow-2xl hover:shadow-pink-500/15 hover:-translate-y-1.5 transition-all duration-300 ease-out overflow-hidden flex flex-col pop-in relative">
-                <div class="relative h-40 overflow-hidden bg-gradient-to-tr ${t.grad} border-b border-white/50">
-                    <div class="preview-fallback absolute inset-0 flex items-center justify-center transition-opacity duration-300">
-                        <span class="text-6xl font-bold text-white/80 drop-shadow-md font-display">${esc(initial)}</span>
+            <article data-card="${esc(l.id)}" class="dossier paper-card${pinCls} overflow-visible flex flex-col pop-in relative${selClass(l.id)}">${checkOverlay()}
+                <span class="tape" aria-hidden="true"></span>
+                <div class="relative h-40 overflow-hidden bg-manila photo-frame">
+                    <div class="preview-fallback absolute inset-0 flex items-center justify-center">
+                        <span class="text-6xl font-display opacity-30">${esc(initial)}</span>
                     </div>
-                    <img class="preview-img absolute inset-0 w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500 ease-out" loading="lazy" src="${esc(cardImg)}"${cardImgFb} alt="">
-                    <div class="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    <div class="absolute top-3 left-3 w-9 h-9 rounded-xl bg-white/95 backdrop-blur shadow-md flex items-center justify-center overflow-hidden border border-white/80 group-hover:scale-110 transition-transform duration-300">
-                        <img src="${esc(fav)}"${l.favicon ? ` data-fb="${esc(faviconOf(url))}"` : ''} style="width:20px;height:20px" onerror="${favFb}">
+                    <img class="preview-img absolute inset-0 w-full h-full object-cover object-top grayscale contrast-125" loading="lazy" src="${esc(cardImg)}"${cardImgFb} alt="Ảnh tư liệu đính kèm">
+                    <span class="stamp stamp-abs stamp-br text-sm">MẬT</span>
+                    <div class="absolute top-2 left-2 w-9 h-9 paper-flat flex items-center justify-center overflow-hidden z-20">
+                        <img src="${esc(fav)}"${l.favicon ? ` data-fb="${esc(faviconOf(url))}"` : ''} class="w-5 h-5" alt="" onerror="${favFb}">
                     </div>
                     ${protectedBadge}
                     ${pinChip}
                     ${folderChip}
                 </div>
-                <div class="p-5 flex flex-col gap-2 flex-1 bg-white/60">
-                    <h3 class="font-bold text-gray-800 text-base leading-snug break-words line-clamp-2 font-display group-hover:text-pink-600 transition-colors">${hi(title)}</h3>
+                <div class="p-5 flex flex-col gap-2 flex-1">
+                    <h3 class="font-bold text-base sm:text-lg leading-snug break-words line-clamp-2 uppercase">${hi(title)}</h3>
                     <div class="flex items-center justify-between gap-2">
-                        <p class="text-xs text-pink-500 font-bold truncate flex items-center gap-1.5 min-w-0" title="${esc(url)}"><i class="fas fa-globe text-[10px] text-pink-400"></i><span class="truncate">${hi(siteLabel)}</span></p>
-                        ${l.createdAt ? `<span class="text-[10px] text-gray-400 font-semibold whitespace-nowrap shrink-0" title="Thời điểm thêm link"><i class="far fa-clock mr-1"></i>${timeAgo(l.createdAt)}</span>` : ''}
+                        <p class="text-xs sm:text-sm font-bold truncate flex items-center gap-1.5 min-w-0 font-mono" title="${esc(url)}"><i class="fas fa-globe text-xs"></i><span class="truncate redacted" tabindex="0">${hi(siteLabel)}</span></p>
+                        ${l.createdAt ? `<span class="text-xs opacity-75 font-semibold whitespace-nowrap shrink-0 font-mono" title="Thời điểm lập hồ sơ">${timeAgo(l.createdAt)}</span>` : ''}
                     </div>
-                    ${l.note ? `<p class="text-xs text-gray-600 bg-white/80 border border-pink-100/80 rounded-xl px-3 py-2 break-words mt-1 shadow-sm font-medium">${hi(l.note)}</p>` : ''}
+                    ${l.note ? `<p class="text-sm font-medium paper-flat px-3.5 py-2.5 break-words mt-1.5 leading-relaxed">${hi(l.note)}</p>` : ''}
                     <div class="flex items-center gap-2 mt-auto pt-4">
                         <a href="${esc(url)}" target="_blank" rel="noopener noreferrer"
-                            class="flex-1 text-center py-2.5 rounded-xl bg-gradient-to-r from-pink-500 via-rose-400 to-purple-500 text-white text-xs font-bold shadow-md shadow-pink-500/20 hover:shadow-pink-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2">
-                            <i class="fas fa-arrow-up-right-from-square"></i> Mở liên kết
+                            class="flex-1 text-center py-2.5 btn-ink text-xs sm:text-sm font-bold flex items-center justify-center gap-2">
+                            <i class="fas fa-arrow-up-right-from-square"></i> MỞ TÀI LIỆU
                         </a>
-                        <button type="button" data-copy="${esc(url)}" title="Sao chép URL"
-                            class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-pink-100 text-pink-500 hover:bg-pink-50 hover:scale-105 transition shadow-sm"><i class="fas fa-copy text-xs"></i></button>
-                        <button type="button" data-pin="${esc(l.id)}" title="${l.pinned ? 'Bỏ ghim' : 'Ghim lên đầu danh sách'}"
-                            class="w-10 h-10 flex items-center justify-center rounded-xl border hover:scale-105 transition shadow-sm ${l.pinned ? 'bg-amber-50 border-amber-200 text-amber-500' : 'bg-white border-pink-100 text-gray-400 hover:text-amber-500 hover:bg-amber-50'}"><i class="fas fa-thumbtack text-xs${l.pinned ? '' : ' rotate-45'}"></i></button>
-                        <button type="button" data-edit="${esc(l.id)}" title="Chỉnh sửa"
-                            class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-purple-100 text-purple-500 hover:bg-purple-50 hover:scale-105 transition shadow-sm"><i class="fas fa-pen text-xs"></i></button>
+                        <button type="button" data-copy="${esc(url)}" title="Sao chép URL" aria-label="Sao chép URL"
+                            class="w-10 h-10 flex items-center justify-center btn-paper"><i class="fas fa-copy text-xs"></i></button>
+                        <button type="button" data-pin="${esc(l.id)}" title="${l.pinned ? 'Bỏ ghim' : 'Ghim lên đầu danh mục'}" aria-label="${l.pinned ? 'Bỏ ghim' : 'Ghim lên đầu danh mục'}"
+                            class="w-10 h-10 flex items-center justify-center ${l.pinned ? 'btn-danger' : 'btn-paper'}"><i class="fas fa-thumbtack text-xs${l.pinned ? '' : ' rotate-45'}"></i></button>
+                        <button type="button" data-edit="${esc(l.id)}" title="Hiệu chỉnh" aria-label="Hiệu chỉnh"
+                            class="w-10 h-10 flex items-center justify-center btn-paper"><i class="fas fa-pen text-xs"></i></button>
                     </div>
                 </div>
-            </div>`;
+            </article>`;
         }
 
-        // ----- Chế độ xem DANH SÁCH (dòng gọn) -----
+        // ----- Chế độ xem SỔ GHI (dòng gọn trên giấy) -----
         function listRowHtml(l) {
             const url = l.url || '';
             const title = (l.title || '').trim() || hostOf(url);
             const f = folderById(l.folderId);
-            const t = f ? theme(f.color) : theme('pink');
+            const t = f ? theme(f.color) : '';
             const revealed = linkRevealed(l);
-            const rowRing = l.pinned ? 'border-amber-300/90 ring-1 ring-amber-200/70' : 'border-pink-200/70';
-            const pinIcon = l.pinned ? '<i class="fas fa-thumbtack text-amber-500 text-[10px] shrink-0" title="Đã ghim"></i>' : '';
-            const folderChip = f ? `<span class="${t.soft} ${t.text} text-[10px] font-bold px-2 py-0.5 rounded-full hidden md:inline-flex items-center gap-1 shrink-0">${f.icon || '📁'} ${esc(f.name)}</span>` : '';
+            const pinIcon = l.pinned ? '<i class="fas fa-thumbtack c-stamp text-xs shrink-0" title="Đã ghim"></i>' : '';
+            const pinCls = l.pinned ? ' pinned' : '';
+            const folderChip = f ? `<span class="accent-bg ${t} text-xs font-bold uppercase tracking-[.06em] px-2.5 py-0.5 hidden md:inline-flex items-center gap-1 shrink-0">${f.icon || '📁'} ${esc(f.name)}</span>` : '';
 
             if (!revealed) {
                 return `
-                <div data-card="${esc(l.id)}" class="glass-card rounded-2xl border ${rowRing} shadow-sm hover:shadow-md transition-all p-3 flex items-center gap-3 pop-in relative${selClass(l.id)}">${checkOverlay()}
-                    <span class="w-10 h-10 rounded-xl bg-gradient-to-tr ${t.grad} flex items-center justify-center text-white shrink-0 shadow-sm"><i class="fas fa-lock text-sm"></i></span>
+                <article data-card="${esc(l.id)}" class="paper-card${pinCls} p-3 flex items-center gap-3 pop-in relative${selClass(l.id)}">${checkOverlay()}
+                    <span class="w-10 h-10 bg-ink flex items-center justify-center shrink-0"><i class="fas fa-lock text-sm"></i></span>
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2 min-w-0">
                             ${pinIcon}
-                            <h3 class="font-bold text-gray-800 text-sm truncate font-display">${hi(title)}</h3>
+                            <h3 class="font-bold text-base sm:text-lg truncate uppercase">${hi(title)}</h3>
                             ${folderChip}
                         </div>
-                        <p class="text-[11px] text-pink-500 font-bold truncate mt-0.5"><i class="fas fa-shield-halved text-[10px] mr-1"></i>Cần mật khẩu${l.note ? ` · <span class="text-gray-500 font-medium">${hi(l.note)}</span>` : ''}</p>
+                        <p class="text-xs c-stamp font-bold uppercase tracking-[.06em] truncate mt-1"><i class="fas fa-shield-halved text-xs mr-1"></i>Niêm phong${l.note ? ` · <span class="normal-case tracking-normal c-ink font-medium">${hi(l.note)}</span>` : ''}</p>
                     </div>
-                    <button type="button" data-open-locked="${esc(l.id)}" title="Nhập mật khẩu để mở"
-                        class="shrink-0 px-3.5 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-500 text-white text-[11px] font-bold shadow-sm shadow-pink-500/20 hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center gap-1.5"><i class="fas fa-key"></i><span class="hidden sm:inline">Mở khóa</span></button>
-                    <button type="button" data-edit="${esc(l.id)}" title="Chỉnh sửa"
-                        class="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl bg-white border border-purple-100 text-purple-500 hover:bg-purple-50 transition shadow-sm"><i class="fas fa-pen text-xs"></i></button>
-                </div>`;
+                    <button type="button" data-open-locked="${esc(l.id)}" title="Nhập mật mã để mở"
+                        class="shrink-0 px-3.5 py-2 btn-ink text-xs font-bold flex items-center gap-1.5"><i class="fas fa-key"></i><span class="hidden sm:inline">MỞ KHÓA</span></button>
+                    <button type="button" data-edit="${esc(l.id)}" title="Hiệu chỉnh" aria-label="Hiệu chỉnh"
+                        class="shrink-0 w-9 h-9 flex items-center justify-center btn-paper"><i class="fas fa-pen text-xs"></i></button>
+                </article>`;
             }
             return `
-            <div data-card="${esc(l.id)}" class="glass-card rounded-2xl border ${rowRing} shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all p-3 flex items-center gap-3 pop-in relative${selClass(l.id)}">${checkOverlay()}
-                <span class="w-10 h-10 rounded-xl bg-white border border-pink-100 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
-                    <img src="${esc(l.favicon || faviconOf(url))}"${l.favicon ? ` data-fb="${esc(faviconOf(url))}"` : ''} style="width:20px;height:20px" loading="lazy" onerror="if(this.dataset.fb){this.src=this.dataset.fb;this.removeAttribute('data-fb');}else{this.replaceWith(Object.assign(document.createElement('i'),{className:'fas fa-link text-pink-400 text-sm'}));}">
+            <article data-card="${esc(l.id)}" class="paper-card${pinCls} p-3 flex items-center gap-3 pop-in relative${selClass(l.id)}">${checkOverlay()}
+                <span class="w-10 h-10 paper-flat flex items-center justify-center overflow-hidden shrink-0">
+                    <img src="${esc(l.favicon || faviconOf(url))}"${l.favicon ? ` data-fb="${esc(faviconOf(url))}"` : ''} class="w-5 h-5" loading="lazy" alt="" onerror="if(this.dataset.fb){this.src=this.dataset.fb;this.removeAttribute('data-fb');}else{this.replaceWith(Object.assign(document.createElement('i'),{className:'fas fa-link text-xs'}));}">
                 </span>
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 min-w-0">
                         ${pinIcon}
-                        <h3 class="font-bold text-gray-800 text-sm truncate font-display">${hi(title)}</h3>
+                        <h3 class="font-bold text-base sm:text-lg truncate uppercase">${hi(title)}</h3>
                         ${folderChip}
                     </div>
-                    <p class="text-[11px] text-gray-400 font-semibold truncate mt-0.5" title="${esc(url)}"><span class="text-pink-500 font-bold">${hi((l.siteName && l.siteName.toLowerCase() !== hostOf(url).toLowerCase()) ? `${l.siteName} · ${hostOf(url)}` : hostOf(url))}</span>${l.note ? ` · ${hi(l.note)}` : ''}${l.createdAt ? ` · ${timeAgo(l.createdAt)}` : ''}</p>
+                    <p class="text-xs sm:text-sm opacity-80 truncate mt-1 font-mono font-medium" title="${esc(url)}"><span class="redacted font-bold" tabindex="0">${hi((l.siteName && l.siteName.toLowerCase() !== hostOf(url).toLowerCase()) ? `${l.siteName} · ${hostOf(url)}` : hostOf(url))}</span>${l.note ? ` · ${hi(l.note)}` : ''}${l.createdAt ? ` · ${timeAgo(l.createdAt)}` : ''}</p>
                 </div>
                 <div class="flex items-center gap-1.5 shrink-0">
-                    <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" title="Mở liên kết"
-                        class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-500 text-white text-[11px] font-bold shadow-sm shadow-pink-500/20 hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center gap-1.5"><i class="fas fa-arrow-up-right-from-square"></i><span class="hidden sm:inline">Mở</span></a>
-                    <button type="button" data-copy="${esc(url)}" title="Sao chép URL"
-                        class="hidden sm:flex w-9 h-9 items-center justify-center rounded-xl bg-white border border-pink-100 text-pink-500 hover:bg-pink-50 transition shadow-sm"><i class="fas fa-copy text-xs"></i></button>
-                    <button type="button" data-pin="${esc(l.id)}" title="${l.pinned ? 'Bỏ ghim' : 'Ghim lên đầu danh sách'}"
-                        class="hidden sm:flex w-9 h-9 items-center justify-center rounded-xl border transition shadow-sm ${l.pinned ? 'bg-amber-50 border-amber-200 text-amber-500' : 'bg-white border-pink-100 text-gray-400 hover:text-amber-500 hover:bg-amber-50'}"><i class="fas fa-thumbtack text-xs${l.pinned ? '' : ' rotate-45'}"></i></button>
-                    <button type="button" data-edit="${esc(l.id)}" title="Chỉnh sửa"
-                        class="w-9 h-9 flex items-center justify-center rounded-xl bg-white border border-purple-100 text-purple-500 hover:bg-purple-50 transition shadow-sm"><i class="fas fa-pen text-xs"></i></button>
+                    <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" title="Mở tài liệu"
+                        class="px-3.5 py-2 btn-ink text-xs font-bold flex items-center gap-1.5"><i class="fas fa-arrow-up-right-from-square"></i><span class="hidden sm:inline">MỞ</span></a>
+                    <button type="button" data-copy="${esc(url)}" title="Sao chép URL" aria-label="Sao chép URL"
+                        class="hidden sm:flex w-9 h-9 items-center justify-center btn-paper"><i class="fas fa-copy text-xs"></i></button>
+                    <button type="button" data-pin="${esc(l.id)}" title="${l.pinned ? 'Bỏ ghim' : 'Ghim lên đầu danh mục'}" aria-label="${l.pinned ? 'Bỏ ghim' : 'Ghim lên đầu danh mục'}"
+                        class="hidden sm:flex w-9 h-9 items-center justify-center ${l.pinned ? 'btn-danger' : 'btn-paper'}"><i class="fas fa-thumbtack text-xs${l.pinned ? '' : ' rotate-45'}"></i></button>
+                    <button type="button" data-edit="${esc(l.id)}" title="Hiệu chỉnh" aria-label="Hiệu chỉnh"
+                        class="w-9 h-9 flex items-center justify-center btn-paper"><i class="fas fa-pen text-xs"></i></button>
                 </div>
-            </div>`;
+            </article>`;
         }
 
         // ---------- Folder selects ----------
@@ -1047,7 +1139,7 @@
         addForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const url = normalizeUrl(document.getElementById('f-url').value);
-            if (!url) { toast('Hãy nhập đường dẫn nha', 'warn'); return; }
+            if (!url) { toast('YÊU CẦU NHẬP ĐƯỜNG DẪN TÀI LIỆU', 'warn'); return; }
             const pwRaw = document.getElementById('f-pw').value;
             addBtn.disabled = true; addBtn.classList.add('opacity-60'); addStatus.textContent = 'Đang lưu...';
             try {
@@ -1080,7 +1172,7 @@
                 addForm.reset();
                 if (typeof resetFormPreview === 'function') resetFormPreview();
                 document.getElementById('f-folder').value = keepFolder;
-                addStatus.textContent = ''; toast('Đã thêm link 🎉');
+                addStatus.textContent = ''; toast('TÀI LIỆU ĐÃ NHẬP KHO LƯU TRỮ');
                 if (typeof toggleAddForm === 'function') toggleAddForm(false);
             } catch (err) { addStatus.textContent = ''; toast('Lưu thất bại: ' + (err.message || 'lỗi'), 'err'); }
             finally { addBtn.disabled = false; addBtn.classList.remove('opacity-60'); }
@@ -1237,8 +1329,8 @@
                 previewFavicon.src = faviconOf(url);
             }
             if (fetchStatus) {
-                fetchStatus.className = 'inline-flex items-center gap-1.5 text-[11px] font-bold text-pink-600 bg-white/90 px-3 py-1 rounded-full border border-pink-200/80 shadow-sm animate-pulse';
-                fetchStatus.innerHTML = '<i class="fas fa-spinner fa-spin text-pink-500"></i> Đang đọc Tên & Mô tả từ web...';
+                fetchStatus.className = 'tag-af';
+                fetchStatus.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ĐANG TRA CỨU DỮ LIỆU NGUỒN...';
             }
             if (refetchBtn) refetchBtn.classList.add('hidden');
 
@@ -1269,18 +1361,18 @@
 
                     if (fetchStatus) {
                         if (meta.exact) {
-                            fetchStatus.className = 'inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200/80 shadow-sm';
-                            fetchStatus.innerHTML = '<i class="fas fa-check-circle text-emerald-500"></i> Đã lấy đúng ảnh & thông tin của web ✨ (sẽ lưu kèm link)';
+                            fetchStatus.className = 'tag-af tag-ok';
+                            fetchStatus.innerHTML = '<i class="fas fa-check-circle"></i> ĐÃ XÁC MINH ẢNH & THÔNG TIN NGUỒN (LƯU KÈM HỒ SƠ)';
                         } else {
-                            fetchStatus.className = 'inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200/80 shadow-sm';
-                            fetchStatus.innerHTML = '<i class="fas fa-circle-info text-amber-500"></i> Web không công bố ảnh — dùng ảnh chụp màn hình thay thế';
+                            fetchStatus.className = 'tag-af';
+                            fetchStatus.innerHTML = '<i class="fas fa-circle-info"></i> NGUỒN KHÔNG CÔNG BỐ ẢNH — DÙNG ẢNH CHỤP MÀN HÌNH';
                         }
                     }
                     if (refetchBtn) refetchBtn.classList.remove('hidden');
                 } catch (err) {
                     if (fetchStatus) {
-                        fetchStatus.className = 'inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200/80 shadow-sm';
-                        fetchStatus.innerHTML = '<i class="fas fa-circle-info text-amber-500"></i> Đã tải hình ảnh preview';
+                        fetchStatus.className = 'tag-af';
+                        fetchStatus.innerHTML = '<i class="fas fa-circle-info"></i> ĐÃ TẢI ẢNH XEM TRƯỚC';
                     }
                     if (refetchBtn) refetchBtn.classList.remove('hidden');
                 }
@@ -1289,9 +1381,9 @@
 
         function highlightInput(inputEl) {
             if (!inputEl) return;
-            inputEl.classList.add('ring-4', 'ring-pink-300/60', 'bg-pink-50/70');
+            inputEl.classList.add('flash-field');
             setTimeout(() => {
-                if (inputEl) inputEl.classList.remove('ring-4', 'ring-pink-300/60', 'bg-pink-50/70');
+                if (inputEl) inputEl.classList.remove('flash-field');
             }, 1200);
         }
 
@@ -1304,7 +1396,7 @@
             isAutoFilledTitle = true;
             isAutoFilledNote = true;
             triggerUrlFetch(true);
-            toast('Đang tải lại thông tin web... 🔄');
+            toast('ĐANG TRA CỨU LẠI DỮ LIỆU NGUỒN...');
         });
 
         // ---------- Toggle Form Thêm Link (Accordion) ----------
@@ -1319,10 +1411,10 @@
             if (shouldShow) {
                 addFormContainer.classList.remove('hidden');
                 setTimeout(() => { const urlInput = document.getElementById('f-url'); if (urlInput) urlInput.focus(); }, 100);
-                if (toggleAddFormBtn) toggleAddFormBtn.innerHTML = '<i class="fas fa-angle-up text-xs"></i> Ẩn form';
+                if (toggleAddFormBtn) toggleAddFormBtn.innerHTML = '<i class="fas fa-angle-up text-xs"></i> ẨN BIỂU MẪU';
             } else {
                 addFormContainer.classList.add('hidden');
-                if (toggleAddFormBtn) toggleAddFormBtn.innerHTML = '<i class="fas fa-plus text-xs group-hover:rotate-90 transition-transform duration-300"></i> Thêm link<span class="hidden sm:inline"> ngay</span>';
+                if (toggleAddFormBtn) toggleAddFormBtn.innerHTML = '<i class="fas fa-plus text-xs"></i> LẬP HỒ SƠ';
                 if (typeof resetFormPreview === 'function') resetFormPreview();
             }
             updateFab();
@@ -1359,7 +1451,7 @@
         const eRefetchBtn = document.getElementById('e-refetch-btn');
         eRefetchBtn.addEventListener('click', async () => {
             const url = normalizeUrl(document.getElementById('e-url').value);
-            if (!url) { toast('Nhập đường dẫn trước nha', 'warn'); return; }
+            if (!url) { toast('YÊU CẦU NHẬP ĐƯỜNG DẪN TRƯỚC', 'warn'); return; }
             eRefetchBtn.disabled = true;
             eRefetchBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tra cứu thông tin web...';
             try {
@@ -1411,13 +1503,13 @@
                         siteName: m.siteName || '',
                     })).catch(() => {});
                 }
-                closeLinkModal(); toast('Đã cập nhật 💝');
+                closeLinkModal(); toast('HỒ SƠ ĐÃ ĐƯỢC CẬP NHẬT');
             } catch (err) { toast('Lỗi: ' + (err.message || ''), 'err'); }
         });
         document.getElementById('link-delete-btn').addEventListener('click', async () => {
             if (!editingLinkId) return;
             if (!await askConfirm('Xóa liên kết này?', 'Link sẽ biến mất với tất cả mọi người và không thể khôi phục lại.')) return;
-            try { await deleteDoc(doc(db, 'shared_links', editingLinkId)); closeLinkModal(); toast('Đã xóa link 🗑️'); }
+            try { await deleteDoc(doc(db, 'shared_links', editingLinkId)); closeLinkModal(); toast('TÀI LIỆU ĐÃ TIÊU HỦY'); }
             catch (err) { toast('Xóa thất bại: ' + (err.message || ''), 'err'); }
         });
 
@@ -1425,17 +1517,17 @@
         const folderModal = document.getElementById('folder-modal');
         let editingFolderId = null, pickedEmoji = '📁', pickedColor = 'pink', folderPwClear = false;
         document.getElementById('emoji-picker').innerHTML = EMOJIS.map(e =>
-            `<button type="button" data-emoji="${e}" class="w-10 h-10 rounded-xl bg-pink-50 hover:bg-pink-100 text-xl flex items-center justify-center transition">${e}</button>`).join('');
+            `<button type="button" data-emoji="${e}" aria-label="Ký hiệu ${e}" class="w-10 h-10 box-mid bg-manila text-xl flex items-center justify-center">${e}</button>`).join('');
         document.getElementById('color-picker').innerHTML = COLOR_KEYS.map(k =>
-            `<button type="button" data-color="${k}" class="w-9 h-9 rounded-full bg-gradient-to-br ${THEMES[k].grad} transition shadow-sm"></button>`).join('');
+            `<button type="button" data-color="${k}" aria-label="Tem màu ${k}" class="w-9 h-9 ${THEMES[k]} accent-bg box-mid"></button>`).join('');
         function syncPickerUI() {
             document.querySelectorAll('#emoji-picker [data-emoji]').forEach(b => {
                 const on = b.dataset.emoji === pickedEmoji;
-                b.className = `w-10 h-10 rounded-xl text-xl flex items-center justify-center transition ${on ? 'bg-pink-200 ring-2 ring-pink-400' : 'bg-pink-50 hover:bg-pink-100'}`;
+                b.className = `w-10 h-10 text-xl flex items-center justify-center ${on ? 'bg-ink box-mid' : 'box-mid bg-manila'}`;
             });
             document.querySelectorAll('#color-picker [data-color]').forEach(b => {
                 const on = b.dataset.color === pickedColor;
-                b.className = `w-9 h-9 rounded-full bg-gradient-to-br ${THEMES[b.dataset.color].grad} transition shadow-sm ${on ? 'ring-4 ring-offset-1 ' + THEMES[b.dataset.color].ring + ' scale-110' : 'hover:scale-105'}`;
+                b.className = `w-9 h-9 ${THEMES[b.dataset.color]} accent-bg box-mid${on ? ' is-selected' : ''}`;
             });
         }
         document.getElementById('emoji-picker').addEventListener('click', (e) => { const b = e.target.closest('[data-emoji]'); if (b) { pickedEmoji = b.dataset.emoji; syncPickerUI(); } });
@@ -1443,7 +1535,7 @@
         function openFolderModal(id) {
             editingFolderId = id || null; folderPwClear = false;
             const f = id ? folderById(id) : null;
-            document.getElementById('folder-modal-title').innerHTML = f ? '<i class="fas fa-pen-to-square"></i> Sửa thư mục' : '<i class="fas fa-folder-plus"></i> Thư mục mới';
+            document.getElementById('folder-modal-title').innerHTML = f ? '<i class="fas fa-pen-to-square"></i> HIỆU CHỈNH NGĂN PHÂN LOẠI' : '<i class="fas fa-folder-plus"></i> LẬP NGĂN PHÂN LOẠI';
             document.getElementById('folder-name').value = f ? f.name : '';
             document.getElementById('folder-pw').value = '';
             pickedEmoji = f ? (f.icon || '📁') : '📁';
@@ -1465,7 +1557,7 @@
         });
         document.getElementById('folder-save-btn').addEventListener('click', async () => {
             const name = document.getElementById('folder-name').value.trim();
-            if (!name) { toast('Đặt tên cho thư mục nha', 'warn'); return; }
+            if (!name) { toast('YÊU CẦU ĐẶT TÊN NGĂN PHÂN LOẠI', 'warn'); return; }
             const raw = document.getElementById('folder-pw').value;
             try {
                 if (editingFolderId) {
@@ -1473,11 +1565,11 @@
                     let pw = cur ? (cur.pw || '') : '';
                     if (raw) pw = await hashPw(raw); else if (folderPwClear) pw = '';
                     await updateDoc(doc(db, 'shared_link_folders', editingFolderId), { name, icon: pickedEmoji, color: pickedColor, pw });
-                    toast('Đã cập nhật thư mục 💕');
+                    toast('ĐÃ CẬP NHẬT NGĂN PHÂN LOẠI');
                 } else {
                     const ref = await addDoc(foldersRef, { name, icon: pickedEmoji, color: pickedColor, pw: raw ? await hashPw(raw) : '', createdAt: serverTimestamp() });
                     if (raw) unlocked.add('f:' + ref.id); // người tạo mở sẵn
-                    activeFolder = ref.id; toast('Đã tạo thư mục 🎀');
+                    activeFolder = ref.id; toast('ĐÃ LẬP NGĂN PHÂN LOẠI MỚI');
                 }
                 closeFolderModal();
             } catch (err) { toast('Lỗi: ' + (err.message || ''), 'err'); }
@@ -1492,7 +1584,7 @@
                 batch.delete(doc(db, 'shared_link_folders', editingFolderId));
                 await batch.commit();
                 if (activeFolder === editingFolderId) activeFolder = '__all__';
-                closeFolderModal(); toast('Đã xóa thư mục 🗑️');
+                closeFolderModal(); toast('ĐÃ HỦY NGĂN PHÂN LOẠI');
             } catch (err) { toast('Xóa thất bại: ' + (err.message || ''), 'err'); }
         });
 
@@ -1568,7 +1660,7 @@
                 fUrlInput.value = text;
                 fUrlInput.focus();
                 triggerUrlFetch(false);
-            } catch (_) { toast('Không đọc được clipboard — hãy dán thủ công (Ctrl+V) nha', 'warn'); }
+            } catch (_) { toast('KHÔNG ĐỌC ĐƯỢC CLIPBOARD — DÁN THỦ CÔNG (CTRL+V)', 'warn'); }
         });
 
         // ---------- Khóa kho link & Auto-unlock an toàn ----------
@@ -1582,7 +1674,7 @@
                 gateInput.focus();
                 if (selectMode) setSelectMode(false);
                 updateFab();
-                toast('Đã khóa kho link 🔒');
+                toast('HỒ SƠ ĐÃ NIÊM PHONG. PHIÊN LÀM VIỆC KẾT THÚC.');
             });
         }
 
@@ -1655,25 +1747,25 @@
         });
         document.getElementById('bulk-pin').addEventListener('click', async () => {
             const ids = [...selected];
-            if (!ids.length) { toast('Chưa chọn link nào', 'warn'); return; }
+            if (!ids.length) { toast('CHƯA CHỌN HỒ SƠ NÀO', 'warn'); return; }
             const allPinned = ids.every(id => { const l = allLinks.find(x => x.id === id); return l && l.pinned; });
             try {
                 const batch = writeBatch(db);
                 ids.forEach(id => batch.update(doc(db, 'shared_links', id), { pinned: !allPinned }));
                 await batch.commit();
-                toast(allPinned ? 'Đã bỏ ghim các link' : `Đã ghim ${ids.length} link 📌`);
+                toast(allPinned ? 'ĐÃ BỎ GHIM CÁC HỒ SƠ' : `ĐÃ GHIM ${ids.length} HỒ SƠ`);
                 setSelectMode(false);
             } catch (err) { toast('Lỗi: ' + (err.message || ''), 'err'); }
         });
         document.getElementById('bulk-delete').addEventListener('click', async () => {
             const ids = [...selected];
-            if (!ids.length) { toast('Chưa chọn link nào', 'warn'); return; }
+            if (!ids.length) { toast('CHƯA CHỌN HỒ SƠ NÀO', 'warn'); return; }
             if (!await askConfirm(`Xóa ${ids.length} liên kết?`, 'Các link đã chọn sẽ biến mất với tất cả mọi người và không thể khôi phục.')) return;
             try {
                 const batch = writeBatch(db);
                 ids.forEach(id => batch.delete(doc(db, 'shared_links', id)));
                 await batch.commit();
-                toast(`Đã xóa ${ids.length} link 🗑️`);
+                toast(`ĐÃ TIÊU HỦY ${ids.length} TÀI LIỆU`);
                 setSelectMode(false);
             } catch (err) { toast('Lỗi: ' + (err.message || ''), 'err'); }
         });
@@ -1681,18 +1773,18 @@
         // ---------- Sheet chuyển thư mục hàng loạt ----------
         const moveSheet = document.getElementById('move-sheet');
         document.getElementById('bulk-move').addEventListener('click', () => {
-            if (!selected.size) { toast('Chưa chọn link nào', 'warn'); return; }
+            if (!selected.size) { toast('CHƯA CHỌN HỒ SƠ NÀO', 'warn'); return; }
             openMoveSheet();
         });
         function openMoveSheet() {
-            const opts = [{ id: '', name: 'Chưa phân loại', icon: '🌷', color: 'rose' }]
+            const opts = [{ id: '', name: 'Chưa phân loại', icon: '📄', color: 'rose' }]
                 .concat(allFolders.map(f => ({ id: f.id, name: f.name, icon: f.icon || '📁', color: f.color || 'pink' })));
             document.getElementById('move-options').innerHTML = opts.map(o => {
                 const t = theme(o.color);
-                return `<button type="button" data-move="${esc(o.id)}" class="w-full flex items-center gap-3 p-3 rounded-2xl border border-pink-100 bg-white/80 hover:bg-pink-50 hover:border-pink-200 transition text-left">
-                    <span class="w-9 h-9 rounded-xl bg-gradient-to-tr ${t.grad} flex items-center justify-center text-white shrink-0 shadow-sm">${o.icon}</span>
-                    <span class="font-bold text-sm text-gray-700 font-display truncate flex-1">${esc(o.name)}</span>
-                    <i class="fas fa-arrow-right text-pink-300"></i></button>`;
+                return `<button type="button" data-move="${esc(o.id)}" class="w-full flex items-center gap-3 p-3 btn-paper text-left">
+                    <span class="w-9 h-9 ${t} accent-bg flex items-center justify-center shrink-0">${o.icon}</span>
+                    <span class="font-bold text-sm uppercase tracking-[.05em] truncate flex-1">${esc(o.name)}</span>
+                    <i class="fas fa-arrow-right opacity-50"></i></button>`;
             }).join('');
             document.getElementById('move-options').querySelectorAll('[data-move]').forEach(b =>
                 b.addEventListener('click', () => moveSelectedTo(b.dataset.move)));
@@ -1708,7 +1800,7 @@
                 ids.forEach(id => batch.update(doc(db, 'shared_links', id), { folderId: folderId || '' }));
                 await batch.commit();
                 closeMoveSheet();
-                toast(`Đã chuyển ${ids.length} link 📁`);
+                toast(`ĐÃ CHUYỂN ${ids.length} HỒ SƠ SANG NGĂN MỚI`);
                 setSelectMode(false);
             } catch (err) { toast('Lỗi: ' + (err.message || ''), 'err'); }
         }
@@ -1722,24 +1814,24 @@
             if (navigator.share) {
                 navigator.share({ title, url }).catch(() => {});
             } else {
-                navigator.clipboard.writeText(url).then(() => toast('Đã sao chép link để chia sẻ 📋')).catch(() => toast('Không chia sẻ được', 'err'));
+                navigator.clipboard.writeText(url).then(() => toast('ĐÃ SAO CHÉP ĐƯỜNG DẪN ĐỂ CHIA SẺ')).catch(() => toast('Không chia sẻ được', 'err'));
             }
         }
         function quickViewHtml(l, revealed) {
             const url = l.url || '';
             const title = (l.title || '').trim() || hostOf(url);
             const f = folderById(l.folderId);
-            const t = f ? theme(f.color) : theme('pink');
-            const folderChip = f ? `<span class="${t.soft} ${t.text} text-[11px] font-bold px-2.5 py-1 rounded-full inline-flex items-center gap-1">${f.icon || '📁'} ${esc(f.name)}</span>` : '';
+            const t = f ? theme(f.color) : '';
+            const folderChip = f ? `<span class="${t} accent-bg text-xs font-bold uppercase tracking-[.06em] px-2.5 py-1 inline-flex items-center gap-1">${f.icon || '📁'} ${esc(f.name)}</span>` : '';
             if (!revealed) {
-                return `<div class="p-6 sm:p-7 text-center">
-                    <div class="sm:hidden flex justify-center -mt-2 mb-4"><span class="w-10 h-1.5 rounded-full bg-pink-200"></span></div>
-                    <div class="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-tr ${t.grad} flex items-center justify-center text-white text-3xl shadow-lg mb-4"><i class="fas fa-lock"></i></div>
-                    <h3 class="text-lg font-bold text-gray-800 font-display break-words">${hi(title)}</h3>
-                    <p class="text-xs text-pink-500 font-bold mt-1"><i class="fas fa-shield-halved mr-1"></i>Liên kết cần mật khẩu</p>
-                    ${l.note ? `<p class="text-sm text-gray-600 mt-3 bg-pink-50/70 border border-pink-100 rounded-xl px-3 py-2 break-words">${hi(l.note)}</p>` : ''}
-                    <button type="button" data-qv-unlock class="mt-5 w-full py-3 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-500 text-white font-bold text-sm shadow-lg flex items-center justify-center gap-2"><i class="fas fa-key"></i> Nhập mật khẩu để mở</button>
-                    <button type="button" data-close-quick class="mt-2 w-full py-2.5 rounded-2xl bg-gray-100 text-gray-500 font-bold text-xs">Đóng</button>
+                return `<div class="p-6 sm:p-7 text-center relative">
+                    <span class="stamp stamp-abs stamp-tr text-xs font-bold">NIÊM PHONG</span>
+                    <div class="w-16 h-16 mx-auto bg-ink flex items-center justify-center text-2xl mb-4"><i class="fas fa-lock"></i></div>
+                    <h3 class="text-lg font-display uppercase tracking-[.04em] font-bold break-words">${hi(title)}</h3>
+                    <p class="text-xs c-stamp font-bold uppercase tracking-[.06em] mt-1"><i class="fas fa-shield-halved mr-1"></i>Tài liệu cần mật mã</p>
+                    ${l.note ? `<p class="text-sm font-medium mt-3 paper-flat px-3.5 py-2.5 break-words leading-relaxed">${hi(l.note)}</p>` : ''}
+                    <button type="button" data-qv-unlock class="mt-5 w-full py-3 btn-ink text-sm font-bold flex items-center justify-center gap-2"><i class="fas fa-key"></i> NHẬP MẬT MÃ ĐỂ MỞ</button>
+                    <button type="button" data-close-quick class="mt-2 w-full py-2.5 btn-paper text-xs font-bold uppercase tracking-[.08em]">Đóng</button>
                 </div>`;
             }
             const cardImg = l.image || previewOf(url);
@@ -1747,29 +1839,29 @@
             const siteLabel = (l.siteName && l.siteName.toLowerCase() !== hostOf(url).toLowerCase()) ? `${l.siteName} · ${hostOf(url)}` : hostOf(url);
             return `
             <div class="relative">
-                <div class="sm:hidden pt-2.5 flex justify-center absolute top-0 inset-x-0 z-20"><span class="w-10 h-1.5 rounded-full bg-white/80"></span></div>
-                <div class="relative h-48 sm:h-52 overflow-hidden bg-gradient-to-tr ${t.grad} rounded-t-[2rem] sm:rounded-t-[2.25rem] flex items-center justify-center">
-                    <span class="absolute text-6xl font-bold text-white/80 font-display">${esc((title[0] || '?').toUpperCase())}</span>
-                    <img class="absolute inset-0 w-full h-full object-cover object-top" src="${esc(cardImg)}"${fbAttr} alt="" onerror="if(this.dataset.fb){this.src=this.dataset.fb;this.removeAttribute('data-fb');}else{this.style.display='none';}">
-                    <button type="button" data-close-quick class="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/30 backdrop-blur text-white flex items-center justify-center hover:bg-black/50 transition"><i class="fas fa-xmark"></i></button>
+                <div class="relative h-48 sm:h-52 overflow-hidden bg-manila photo-frame flex items-center justify-center">
+                    <span class="absolute text-6xl font-display opacity-30">${esc((title[0] || '?').toUpperCase())}</span>
+                    <img class="absolute inset-0 w-full h-full object-cover object-top grayscale contrast-125" src="${esc(cardImg)}"${fbAttr} alt="Ảnh tư liệu đính kèm" onerror="if(this.dataset.fb){this.src=this.dataset.fb;this.removeAttribute('data-fb');}else{this.style.display='none';}">
+                    <span class="stamp stamp-abs stamp-br text-base">MẬT</span>
+                    <button type="button" data-close-quick aria-label="Đóng" class="absolute top-3 right-3 w-9 h-9 btn-paper flex items-center justify-center"><i class="fas fa-xmark"></i></button>
                 </div>
             </div>
             <div class="p-5 sm:p-6 flex flex-col gap-3">
                 <div class="flex items-center gap-2 flex-wrap">
                     ${folderChip}
-                    ${l.pinned ? '<span class="bg-amber-100 text-amber-600 text-[11px] font-bold px-2.5 py-1 rounded-full inline-flex items-center gap-1"><i class="fas fa-thumbtack text-[9px]"></i> Đã ghim</span>' : ''}
-                    ${l.pw ? '<span class="bg-emerald-100 text-emerald-600 text-[11px] font-bold px-2.5 py-1 rounded-full inline-flex items-center gap-1"><i class="fas fa-lock-open text-[9px]"></i> Bảo mật</span>' : ''}
+                    ${l.pinned ? '<span class="bg-ink text-xs font-bold uppercase tracking-[.06em] px-2.5 py-1 inline-flex items-center gap-1"><i class="fas fa-thumbtack text-xs"></i> Ghim</span>' : ''}
+                    ${l.pw ? '<span class="stamp text-xs font-bold"><i class="fas fa-lock-open text-xs"></i> Có mật mã</span>' : ''}
                 </div>
-                <h3 class="text-lg font-bold text-gray-800 font-display leading-snug break-words">${hi(title)}</h3>
-                <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" class="text-xs text-pink-500 font-bold break-all hover:underline flex items-start gap-1.5"><i class="fas fa-globe text-[10px] mt-0.5 shrink-0"></i><span>${hi(siteLabel)}</span></a>
-                ${l.note ? `<p class="text-sm text-gray-600 bg-white/80 border border-pink-100 rounded-xl px-3 py-2 break-words">${hi(l.note)}</p>` : ''}
-                ${l.createdAt ? `<p class="text-[11px] text-gray-400 font-semibold"><i class="far fa-clock mr-1"></i>Thêm ${timeAgo(l.createdAt)}</p>` : ''}
+                <h3 class="text-lg sm:text-xl font-display uppercase tracking-[.04em] font-bold leading-snug break-words">${hi(title)}</h3>
+                <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" class="text-sm font-bold font-mono break-all flex items-start gap-1.5"><i class="fas fa-globe text-xs mt-0.5 shrink-0"></i><span class="redacted">${hi(siteLabel)}</span></a>
+                ${l.note ? `<p class="text-sm font-medium paper-flat px-3.5 py-2.5 break-words leading-relaxed">${hi(l.note)}</p>` : ''}
+                ${l.createdAt ? `<p class="text-xs opacity-75 font-semibold uppercase tracking-[.06em] font-mono">Lập hồ sơ ${timeAgo(l.createdAt)}</p>` : ''}
                 <div class="grid grid-cols-2 gap-2.5 pt-1">
-                    <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" class="col-span-2 text-center py-3 rounded-2xl bg-gradient-to-r from-pink-500 via-rose-400 to-purple-500 text-white text-sm font-bold shadow-lg flex items-center justify-center gap-2"><i class="fas fa-arrow-up-right-from-square"></i> Mở liên kết</a>
-                    <button type="button" data-qv-copy class="py-2.5 rounded-xl bg-white border border-pink-100 text-pink-500 font-bold text-xs flex items-center justify-center gap-2 hover:bg-pink-50 transition"><i class="fas fa-copy"></i> Sao chép</button>
-                    <button type="button" data-qv-share class="py-2.5 rounded-xl bg-white border border-purple-100 text-purple-500 font-bold text-xs flex items-center justify-center gap-2 hover:bg-purple-50 transition"><i class="fas fa-share-nodes"></i> Chia sẻ</button>
-                    <button type="button" data-qv-pin class="py-2.5 rounded-xl ${l.pinned ? 'bg-amber-50 border border-amber-200 text-amber-600' : 'bg-white border border-pink-100 text-gray-500 hover:text-amber-500'} font-bold text-xs flex items-center justify-center gap-2 transition"><i class="fas fa-thumbtack text-xs${l.pinned ? '' : ' rotate-45'}"></i> ${l.pinned ? 'Bỏ ghim' : 'Ghim'}</button>
-                    <button type="button" data-qv-edit class="py-2.5 rounded-xl bg-white border border-purple-100 text-purple-500 font-bold text-xs flex items-center justify-center gap-2 hover:bg-purple-50 transition"><i class="fas fa-pen"></i> Sửa</button>
+                    <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" class="col-span-2 text-center py-3.5 btn-ink text-sm font-bold flex items-center justify-center gap-2"><i class="fas fa-arrow-up-right-from-square"></i> MỞ TÀI LIỆU</a>
+                    <button type="button" data-qv-copy class="py-2.5 btn-paper text-xs font-bold uppercase tracking-[.06em] flex items-center justify-center gap-2"><i class="fas fa-copy"></i> Sao chép</button>
+                    <button type="button" data-qv-share class="py-2.5 btn-paper text-xs font-bold uppercase tracking-[.06em] flex items-center justify-center gap-2"><i class="fas fa-share-nodes"></i> Chia sẻ</button>
+                    <button type="button" data-qv-pin class="py-2.5 ${l.pinned ? 'btn-danger' : 'btn-paper'} text-xs font-bold uppercase tracking-[.06em] flex items-center justify-center gap-2"><i class="fas fa-thumbtack text-xs${l.pinned ? '' : ' rotate-45'}"></i> ${l.pinned ? 'Bỏ ghim' : 'Ghim'}</button>
+                    <button type="button" data-qv-edit class="py-2.5 btn-paper text-xs font-bold uppercase tracking-[.06em] flex items-center justify-center gap-2"><i class="fas fa-pen"></i> Hiệu chỉnh</button>
                 </div>
             </div>`;
         }
@@ -1781,12 +1873,12 @@
             quickModal.classList.remove('hidden');
             quickBody.querySelectorAll('[data-close-quick]').forEach(b => b.addEventListener('click', closeQuick));
             const copyBtn = quickBody.querySelector('[data-qv-copy]');
-            if (copyBtn) copyBtn.addEventListener('click', () => navigator.clipboard.writeText(l.url || '').then(() => toast('Đã sao chép link 📋')).catch(() => toast('Không sao chép được', 'err')));
+            if (copyBtn) copyBtn.addEventListener('click', () => navigator.clipboard.writeText(l.url || '').then(() => { stampCard(quickBody); toast('ĐÃ SAO CHÉP ĐƯỜNG DẪN'); }).catch(() => toast('Không sao chép được', 'err')));
             const shareBtn = quickBody.querySelector('[data-qv-share]');
             if (shareBtn) shareBtn.addEventListener('click', () => shareLink(l));
             const pinBtn = quickBody.querySelector('[data-qv-pin]');
             if (pinBtn) pinBtn.addEventListener('click', async () => {
-                try { await updateDoc(doc(db, 'shared_links', l.id), { pinned: !l.pinned }); toast(l.pinned ? 'Đã bỏ ghim liên kết' : 'Đã ghim lên đầu 📌'); closeQuick(); }
+                try { await updateDoc(doc(db, 'shared_links', l.id), { pinned: !l.pinned }); toast(l.pinned ? 'ĐÃ BỎ GHIM HỒ SƠ' : 'ĐÃ GHIM LÊN ĐẦU DANH MỤC'); closeQuick(); }
                 catch (err) { toast('Lỗi: ' + (err.message || ''), 'err'); }
             });
             const editBtn = quickBody.querySelector('[data-qv-edit]');
