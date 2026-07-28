@@ -45,6 +45,22 @@ export async function editQuizSetTitle(quizId, currentTitle) {
     }
 }
 
+// Bật/tắt công khai bộ đề. isPublic=true: ai có link đều mở được (rule Firestore cho đọc);
+// false/thiếu: chỉ chủ xem được, link "Chia sẻ" sẽ báo lỗi quyền với người khác.
+export async function toggleQuizPublic(quizId, makePublic) {
+    try {
+        await updateDoc(doc(db, "quiz_sets", quizId), { isPublic: makePublic });
+        const q = S.userQuizSets.find(x => x.id === quizId);
+        if (q) q.isPublic = makePublic; // cập nhật cache để nhãn nút đổi ngay
+        showToast(makePublic
+            ? 'Đã đặt CÔNG KHAI — ai có link đều mở được.'
+            : 'Đã đặt RIÊNG TƯ — chỉ mình bạn xem được.', 'success');
+        rerenderCurrentView();
+    } catch (e) {
+        showToast("Đổi chế độ công khai thất bại: " + e.message, 'error');
+    }
+}
+
 // === QUẢN LÝ THƯ MỤC MODAL ===
 export function openFolderModal(mode = 'create', folderId = null, folderName = '') {
     S.folderModalMode = mode;

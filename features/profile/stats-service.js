@@ -58,12 +58,48 @@ const GRADE_TIERS = [
 // ===== Thang điểm mỗi bài cho card "Tính số câu cần đạt" =====
 // 'ump'    : câu đúng → hệ 10 theo công thức UMP (đồng nhất với card Quy đổi nhanh)
 // 'linear' : hệ 10 = tỉ lệ đúng × 10 (thang thẳng)
+// Từ nay thang này gắn theo TỪNG lần thi (row.scale); giá trị lưu trong localStorage
+// chỉ còn là thang mặc định cho lần thi mới / nút "áp dụng cho tất cả".
 const SCALE_MODE_KEY = 'gpaScaleMode';
 const GOAL_STATE_KEY = 'gpaGoalState_v1';
+const TARGET_MODE_KEY = 'gpaTargetMode'; // mục tiêu nhập theo hệ 4 ('gpa4') hay hệ 10 ('score10')
 
 function getScaleMode() {
     try { return localStorage.getItem(SCALE_MODE_KEY) === 'linear' ? 'linear' : 'ump'; }
     catch (e) { return 'ump'; }
+}
+
+// Điểm chữ -> mốc hệ 10 thấp nhất của mức đó (dùng cho kiểu nhập "điểm chữ / hệ 4")
+const LETTER_MIN10 = { 'A+': 9.5, 'A': 8.5, 'B+': 8.0, 'B': 7.0, 'C+': 6.5, 'C': 5.5, 'D+': 5.0, 'D': 4.0, 'F': 0 };
+
+function getTargetMode() {
+    try { return localStorage.getItem(TARGET_MODE_KEY) === 'score10' ? 'score10' : 'gpa4'; }
+    catch (e) { return 'gpa4'; }
+}
+
+/**
+ * Mục tiêu hiện tại, quy đổi qua lại giữa hệ 4 và hệ 10.
+ * - mode 'gpa4'   : chọn điểm hệ 4 -> lấy mốc hệ 10 thấp nhất đạt được mức đó
+ * - mode 'score10': nhập thẳng điểm hệ 10 -> suy ra hệ 4 / điểm chữ tương ứng
+ * @returns {{mode:string, score10:number, gpa4:number, letter:string}}
+ */
+function getTarget() {
+    if (getTargetMode() === 'score10') {
+        const v = parseFloat(document.getElementById('desired-score-10')?.value);
+        const score10 = isNaN(v) ? 8.5 : Math.max(0, Math.min(10, v));
+        const { score4, letterGrade } = calculateGPAFromPercent(score10 * 10);
+        return { mode: 'score10', score10, gpa4: score4, letter: letterGrade };
+    }
+    const g = parseFloat(document.getElementById('desired-gpa-4')?.value) || 4;
+    const tier = GRADE_TIERS.find(t => Math.abs(t.score4 - g) < 1e-9);
+    return { mode: 'gpa4', score10: minScore10ForGpa4(g), gpa4: g, letter: tier?.letter || 'A' };
+}
+
+/** Chuỗi mô tả mục tiêu, dùng chung cho kết quả & bảng tạm tính. */
+function targetText(t) {
+    return t.mode === 'score10'
+        ? `<b class="text-gray-700">${t.score10.toFixed(2)}</b> điểm hệ 10 (≈ GPA ${t.gpa4.toFixed(1)} · ${t.letter})`
+        : `<b class="text-gray-700">GPA ${t.gpa4.toFixed(1)}</b> (${t.letter}) · điểm tổng kết cần <b class="text-gray-700">≥ ${t.score10.toFixed(1)}</b> hệ 10`;
 }
 
 /** Điểm hệ 10 của một bài thi trắc nghiệm theo thang đang chọn. */
@@ -85,14 +121,36 @@ function minCorrectForScore10(target10, total, mode) {
     return Infinity;
 }
 
-// ===== Chế độ "Tùy chỉnh": cấu trúc các lần thi do người dùng tự dựng =====
-// Mỗi phần tử: { label, kind: 'ratio'|'score', weight }. Giá trị nhập vẫn nằm trong DOM,
-// nên mọi thao tác đổi cấu trúc (thêm/xoá/đổi kiểu) phải capture -> render -> apply lại giá trị.
+// ===== Cấu trúc các lần thi (mọi loại kỳ thi đều sửa được) =====
+// Mỗi phần tử: { label, kind: 'ratio'|'score'|'gpa4', scale: 'ump'|'linear', weight }.
+//   ratio = nhập câu đúng/tổng câu (quy đổi theo `scale`) · score = nhập thẳng điểm hệ 10
+//   gpa4  = nhập điểm chữ, quy về mốc hệ 10 thấp nhất của mức đó
+// Giá trị nhập vẫn nằm trong DOM, nên mọi thao tác đổi cấu trúc (thêm/xoá/đổi kiểu)
+// phải capture -> render -> apply lại giá trị.
 const MAX_ATTEMPTS = 12;
-let customRows = [
-    { label: 'Giữa kỳ', kind: 'ratio', weight: 30 },
-    { label: 'Cuối kỳ', kind: 'ratio', weight: 70 },
-];
+const DEFAULT_ROWS = {
+    pretest: [
+        { label: 'Pretest', kind: 'score', weight: 10 },
+        { label: 'Giữa kỳ', kind: 'ratio', weight: 20 },
+        { label: 'Cuối kỳ', kind: 'ratio', weight: 70 },
+    ],
+    nopretest: [
+        { label: 'Giữa kỳ', kind: 'ratio', weight: 30 },
+        { label: 'Cuối kỳ', kind: 'ratio', weight: 70 },
+    ],
+    custom: [
+        { label: 'Giữa kỳ', kind: 'ratio', weight: 30 },
+        { label: 'Cuối kỳ', kind: 'ratio', weight: 70 },
+    ],
+};
+const defaultRowsOf = (type) => (DEFAULT_ROWS[type] || DEFAULT_ROWS.custom).map(r => ({ ...r, scale: getScaleMode() }));
+let examRows = { pretest: defaultRowsOf('pretest'), nopretest: defaultRowsOf('nopretest'), custom: defaultRowsOf('custom') };
+function currentExamType() {
+    const v = document.getElementById('exam-type')?.value;
+    return DEFAULT_ROWS[v] ? v : 'pretest';
+}
+/** Cấu trúc các lần thi của loại kỳ thi đang chọn (sửa trực tiếp trên mảng này). */
+function currentRows() { return examRows[currentExamType()]; }
 
 /** Escape chuỗi người dùng nhập khi nhúng vào thuộc tính/nội dung HTML. */
 function escapeHtml(s) {
@@ -105,6 +163,7 @@ function captureAttemptValues() {
         score: el.querySelector('.attempt-score')?.value || '',
         correct: el.querySelector('.attempt-correct')?.value || '',
         total: el.querySelector('.attempt-total')?.value || '',
+        gpa4: el.querySelector('.attempt-gpa4')?.value || '',
     }));
 }
 
@@ -121,7 +180,56 @@ function applyAttemptValues(vals) {
         set('.attempt-total', v.total);
         set('.attempt-score', v.score);
         set('.attempt-correct', v.correct);
+        set('.attempt-gpa4', v.gpa4);
     });
+}
+
+/**
+ * Đọc số liệu một thẻ lần thi. Dùng chung cho cả phần tính toán lẫn bảng tạm tính
+ * để hai nơi không bao giờ hiểu số liệu khác nhau.
+ * @returns {{label,kind,scale,weight,total,correct,p,err}} p = hiệu suất 0–1, null nếu chưa nhập
+ */
+function readAttemptRow(el) {
+    const kind = el.dataset.kind || 'ratio';
+    const r = {
+        label: escapeHtml(el.dataset.label || 'Lần thi'),
+        kind,
+        scale: el.dataset.scale === 'linear' ? 'linear' : 'ump',
+        weight: parseFloat(el.querySelector('.attempt-weight')?.value),
+        total: null, correct: null, p: null, err: null,
+    };
+    if (isNaN(r.weight) || r.weight < 0 || r.weight > 100) {
+        r.err = `Trọng số của "<b>${r.label}</b>" không hợp lệ (0–100%).`;
+        r.weight = 0;
+        return r;
+    }
+
+    if (kind === 'gpa4') {
+        const letter = (el.querySelector('.attempt-gpa4')?.value || '').trim();
+        if (letter !== '' && letter in LETTER_MIN10) r.p = LETTER_MIN10[letter] / 10;
+        return r;
+    }
+    if (kind === 'score') {
+        const raw = (el.querySelector('.attempt-score')?.value || '').trim();
+        if (raw !== '') {
+            const s = parseFloat(raw);
+            if (isNaN(s) || s < 0 || s > 10) { r.err = `Điểm hệ 10 của "<b>${r.label}</b>" phải trong khoảng 0–10.`; return r; }
+            r.p = s / 10;
+        }
+        return r;
+    }
+
+    const total = parseInt((el.querySelector('.attempt-total')?.value || '').trim(), 10);
+    if (isNaN(total) || total <= 0) { r.err = `Vui lòng nhập <b>tổng số câu</b> của "<b>${r.label}</b>".`; return r; }
+    r.total = total;
+    const raw = (el.querySelector('.attempt-correct')?.value || '').trim();
+    if (raw !== '') {
+        const c = parseInt(raw, 10);
+        if (isNaN(c) || c < 0 || c > total) { r.err = `Số câu đúng của "<b>${r.label}</b>" phải trong khoảng 0–${total}.`; return r; }
+        r.correct = c;
+        r.p = rowScore10(c, total, r.scale) / 10; // hiệu suất = điểm hệ 10 / 10 theo thang của lần này
+    }
+    return r;
 }
 
 // Đã bấm tính ít nhất một lần -> cho phép kết quả tự cập nhật khi chỉnh số liệu
@@ -146,14 +254,18 @@ function saveGoalState() {
     if (!goalStateRestored) return;
     try {
         const state = {
-            examType: document.getElementById('exam-type')?.value || 'pretest',
+            examType: currentExamType(),
             desired: document.getElementById('desired-gpa-4')?.value || '4.0',
+            targetMode: getTargetMode(),
+            targetScore10: document.getElementById('desired-score-10')?.value || '8.5',
             rows: Array.from(document.querySelectorAll('#attempts-table .attempt-row')).map(el => ({
                 label: el.dataset.label || '',
                 kind: el.dataset.kind || 'ratio',
+                scale: el.dataset.scale || 'ump',
                 score: el.querySelector('.attempt-score')?.value ?? '',
                 correct: el.querySelector('.attempt-correct')?.value ?? '',
                 total: el.querySelector('.attempt-total')?.value ?? '',
+                gpa4: el.querySelector('.attempt-gpa4')?.value ?? '',
                 weight: el.querySelector('.attempt-weight')?.value ?? '',
             })),
         };
@@ -171,7 +283,9 @@ function loadGoalState() {
  * @param {object} attempt {kind, total, weight, label}
  * @param {number} otherPct Điểm đã "chốt" từ các lần khác (thang 0–100)
  */
-function milestoneTableHtml(attempt, otherPct, mode, desiredGPA) {
+function milestoneTableHtml(attempt, otherPct, target) {
+    // Mức điểm chữ đang là mục tiêu = mức thấp nhất chạm mốc hệ 10 mong muốn
+    const selTier = GRADE_TIERS.find(t => t.min10 >= target.score10 - 1e-9);
     const rows = GRADE_TIERS.map(t => {
         const needPct = t.min10 * 10 - otherPct;
         let text, state; // state: safe (chắc chắn) | ok (khả thi) | far (ngoài tầm)
@@ -179,16 +293,20 @@ function milestoneTableHtml(attempt, otherPct, mode, desiredGPA) {
         else if (attempt.weight <= 0) { text = '—'; state = 'far'; }
         else {
             const s = (needPct / attempt.weight) * 10; // điểm hệ 10 cần ở lần này
-            if (attempt.kind === 'score') {
+            if (attempt.kind === 'gpa4') {
+                const need = GRADE_TIERS.find(g => g.min10 >= s - 1e-9);
+                if (!need) { text = 'Ngoài tầm'; state = 'far'; }
+                else { text = `≥ ${need.letter}`; state = 'ok'; }
+            } else if (attempt.kind === 'score') {
                 if (s > 10 + 1e-9) { text = 'Ngoài tầm'; state = 'far'; }
                 else { text = `≥ ${(Math.ceil(s * 100) / 100).toFixed(2)}đ`; state = 'ok'; }
             } else {
-                const k = minCorrectForScore10(s, attempt.total, mode);
+                const k = minCorrectForScore10(s, attempt.total, attempt.scale);
                 if (k > attempt.total) { text = 'Ngoài tầm'; state = 'far'; }
                 else { text = `≥ ${k}/${attempt.total} câu`; state = 'ok'; }
             }
         }
-        const selected = Math.abs(t.score4 - desiredGPA) < 1e-9;
+        const selected = selTier === t;
         const stateCls = state === 'far'
             ? 'text-gray-400 bg-gray-50 border-gray-200'
             : state === 'safe'
@@ -643,16 +761,14 @@ function minScore10ForGpa4(targetGpa4) {
 /**
  * Tính số câu cần đúng ở các lần thi còn lại để đạt điểm hệ 4 mong muốn.
  *
- * Mô hình chuẩn hoá: mỗi lần thi có trọng số w_i (%) và hiệu suất p_i ∈ [0,1]
- * (lần thường: p = câu đúng / tổng câu; pretest: p = điểm hệ 10 / 10).
+ * Mô hình chuẩn hoá: mỗi lần thi có trọng số w_i (%) và hiệu suất p_i ∈ [0,1], tuỳ cách
+ * tính điểm riêng của lần đó (câu đúng theo thang UMP/tuyến tính, điểm hệ 10, hoặc điểm chữ).
  * Điểm tổng kết (thang 0–100) = Σ p_i * w_i, với Σ w_i = 100.
  */
 export function calculateRequiredCorrectAnswers(opts) {
     const silent = !!(opts && opts.silent === true);
-    const desiredGPAInput = document.getElementById('desired-gpa-4');
     const resultArea = document.getElementById('required-correct-result');
-    if (!desiredGPAInput || !resultArea) return;
-    const mode = getScaleMode();
+    if (!resultArea) return;
 
     const showError = (msg) => {
         if (silent) return; // đang gõ dở: giữ kết quả cũ, không chen lỗi vào
@@ -671,65 +787,20 @@ export function calculateRequiredCorrectAnswers(opts) {
     const rowEls = Array.from(document.querySelectorAll('#attempts-table .attempt-row'));
     if (rowEls.length === 0) { showError('Chưa có bảng các lần thi. Vui lòng chọn loại kỳ thi.'); return; }
 
-    const attempts = [];
-    let weightSum = 0;
-    for (const el of rowEls) {
-        const kind = el.dataset.kind;
-        const label = escapeHtml(el.dataset.label || 'Lần thi'); // tên do người dùng đặt -> escape trước khi nhúng vào HTML kết quả
-        const weight = parseFloat(el.querySelector('.attempt-weight')?.value);
-        if (isNaN(weight) || weight < 0 || weight > 100) {
-            showError(`Trọng số của "<b>${label}</b>" không hợp lệ (0–100%).`);
-            return;
-        }
-        weightSum += weight;
+    const attempts = rowEls.map(readAttemptRow);
+    const bad = attempts.find(a => a.err);
+    if (bad) { showError(bad.err); return; }
 
-        if (kind === 'score') {
-            const raw = (el.querySelector('.attempt-score')?.value || '').trim();
-            let p = null;
-            if (raw !== '') {
-                const s = parseFloat(raw);
-                if (isNaN(s) || s < 0 || s > 10) {
-                    showError(`Điểm pretest của "<b>${label}</b>" phải trong khoảng 0–10.`);
-                    return;
-                }
-                p = s / 10;
-            }
-            attempts.push({ label, kind, weight, total: null, p });
-        } else {
-            const total = parseInt((el.querySelector('.attempt-total')?.value || '').trim(), 10);
-            if (isNaN(total) || total <= 0) {
-                showError(`Vui lòng nhập <b>tổng số câu</b> của "<b>${label}</b>".`);
-                return;
-            }
-            const correctRaw = (el.querySelector('.attempt-correct')?.value || '').trim();
-            let p = null;
-            let correct = null;
-            if (correctRaw !== '') {
-                const c = parseInt(correctRaw, 10);
-                if (isNaN(c) || c < 0 || c > total) {
-                    showError(`Số câu đúng của "<b>${label}</b>" phải trong khoảng 0–${total}.`);
-                    return;
-                }
-                correct = c;
-                p = rowScore10(c, total, mode) / 10; // hiệu suất = điểm hệ 10 / 10 theo thang đang chọn
-            }
-            attempts.push({ label, kind, weight, total, correct, p });
-        }
-    }
-
+    const weightSum = attempts.reduce((s, a) => s + a.weight, 0);
     if (Math.round(weightSum) !== 100) {
         showError(`Tổng trọng số các lần thi phải bằng <b>100%</b> (hiện tại đang là ${Math.round(weightSum * 100) / 100}%).`);
         return;
     }
 
-    const desiredGPA = parseFloat(desiredGPAInput.value);
-    if (isNaN(desiredGPA) || desiredGPA <= 0 || desiredGPA > 4) {
-        showError('Vui lòng chọn điểm hệ 4 mong muốn hợp lệ.');
-        return;
-    }
-
-    // 2. Mục tiêu (thang 0–100, = điểm hệ 10 × 10)
-    const targetScore10 = minScore10ForGpa4(desiredGPA);
+    // 2. Mục tiêu (thang 0–100, = điểm hệ 10 × 10) — hệ 4 hoặc hệ 10 tuỳ chế độ đang chọn
+    const target = getTarget();
+    if (target.score10 <= 0) { showError('Vui lòng chọn mục tiêu lớn hơn 0.'); return; }
+    const targetScore10 = target.score10;
     const targetPct = targetScore10 * 10;
 
     const knownPct = attempts.filter(a => a.p !== null).reduce((s, a) => s + a.p * a.weight, 0);
@@ -755,7 +826,7 @@ export function calculateRequiredCorrectAnswers(opts) {
                 <div class="px-4 py-4 text-sm text-gray-700 leading-relaxed">${body}</div>
                 <div class="flex items-center gap-1.5 px-4 py-2.5 bg-white/60 border-t ${t.border} text-xs text-gray-500">
                     <i class="fas fa-bullseye text-pink-400"></i>
-                    <span>Mục tiêu <b class="text-gray-700">GPA ${desiredGPA.toFixed(1)}</b> · điểm tổng kết cần <b class="text-gray-700">≥ ${targetScore10.toFixed(1)}</b> (hệ 10)</span>
+                    <span>Mục tiêu ${targetText(target)}</span>
                 </div>
             </div>`;
         // Bấm nút tính (không phải auto-update) thì đưa kết quả vào tầm nhìn — quan trọng trên mobile
@@ -774,6 +845,8 @@ export function calculateRequiredCorrectAnswers(opts) {
         const chip = (lbl, val, hero) => `<div class="px-3 py-1.5 rounded-xl text-center ${hero ? `bg-white border-2 ${t.border} shadow-sm` : `bg-white/70 border ${t.border}`}"><span class="text-[10px] text-gray-400 font-semibold block">${lbl}</span><b class="${hero ? `text-xl ${t.head}` : 'text-base text-gray-800'}">${val}</b></div>`;
         return `<div class="flex flex-wrap items-stretch gap-2">${chip('HỆ 4', s4, true)}${chip('HỆ 10', s10)}${chip('ĐIỂM CHỮ', letter)}</div>`;
     };
+    // Lần thi nhập điểm chữ: điểm hệ 10 cần -> mức chữ thấp nhất đạt được (null = ngoài tầm)
+    const letterFor = (s10) => GRADE_TIERS.find(g => g.min10 >= s10 - 1e-9);
 
     // 3a. Đã nhập đủ tất cả -> báo kết quả tổng kết
     if (unknown.length === 0) {
@@ -800,28 +873,43 @@ export function calculateRequiredCorrectAnswers(opts) {
         const neededP = lever.weight > 0 ? neededFromLever / lever.weight : Infinity;
         const chips = statChips(finalScore10.toFixed(2), score4.toFixed(1), letterGrade, 'warn');
 
+        if (lever.kind === 'gpa4') {
+            const need = letterFor(neededP * 10);
+            if (!need) {
+                render({ tone: 'danger', icon: 'fa-circle-xmark', title: 'Ngoài tầm với 😢',
+                    body: `${chips}<p class="mt-3 text-gray-600">Dù đạt <b>A</b> ở lần "<b>${lever.label}</b>", điểm tổng kết vẫn chưa chạm mục tiêu.</p>
+                           ${milestoneTableHtml(lever, otherPct, target)}` });
+            } else {
+                render({ tone: 'info', icon: 'fa-bullseye', title: 'Để đạt mục tiêu cần',
+                    body: `${chips}<div class="mt-3">${heroNumber(need.letter, `· hệ 4 ${need.score4.toFixed(1)}`, `≥ ${need.min10.toFixed(1)} hệ 10`)}</div>
+                           <p class="mt-2 text-gray-500">Điểm chữ tối thiểu ở lần <b class="text-gray-700">${lever.label}</b>, giữ nguyên các lần khác.</p>
+                           ${milestoneTableHtml(lever, otherPct, target)}` });
+            }
+            return;
+        }
+
         if (lever.kind === 'score') {
             const needScore = Math.ceil(neededP * 10 * 100) / 100;
             const cur = lever.p * 10;
             if (needScore > 10) {
                 render({ tone: 'danger', icon: 'fa-circle-xmark', title: 'Ngoài tầm với 😢',
                     body: `${chips}<p class="mt-3 text-gray-600">Dù đạt <b>10/10</b> điểm ở lần "<b>${lever.label}</b>", điểm tổng kết vẫn chưa chạm mục tiêu.</p>
-                           ${milestoneTableHtml(lever, otherPct, mode, desiredGPA)}` });
+                           ${milestoneTableHtml(lever, otherPct, target)}` });
             } else {
                 render({ tone: 'info', icon: 'fa-bullseye', title: 'Để đạt mục tiêu cần',
                     body: `${chips}<div class="mt-3">${heroNumber(needScore.toFixed(2), '/ 10 điểm', '+' + Math.max(0, needScore - cur).toFixed(2) + 'đ nữa')}</div>
                            <p class="mt-2 text-gray-500">Ở lần <b class="text-gray-700">${lever.label}</b> cần đạt bấy nhiêu điểm (đang ${cur.toFixed(2)}/10), giữ nguyên các lần khác.</p>
-                           ${milestoneTableHtml(lever, otherPct, mode, desiredGPA)}` });
+                           ${milestoneTableHtml(lever, otherPct, target)}` });
             }
             return;
         }
 
-        const needCorrect = minCorrectForScore10(neededP * 10, lever.total, mode);
+        const needCorrect = minCorrectForScore10(neededP * 10, lever.total, lever.scale);
         const cur = lever.correct;
         if (needCorrect > lever.total) {
             render({ tone: 'danger', icon: 'fa-circle-xmark', title: 'Ngoài tầm với 😢',
                 body: `${chips}<p class="mt-3 text-gray-600">Dù đúng cả <b>${lever.total}/${lever.total}</b> câu ở lần "<b>${lever.label}</b>", điểm tổng kết vẫn chưa chạm mục tiêu.</p>
-                       ${milestoneTableHtml(lever, otherPct, mode, desiredGPA)}` });
+                       ${milestoneTableHtml(lever, otherPct, target)}` });
             return;
         }
         const acc = Math.round((needCorrect / lever.total) * 100);
@@ -830,7 +918,7 @@ export function calculateRequiredCorrectAnswers(opts) {
                    <div class="mt-3">${heroNumber(needCorrect, `/ ${lever.total} câu`, '+' + Math.max(0, needCorrect - cur) + ' câu nữa')}</div>
                    <p class="mt-2 text-gray-500">Số câu đúng tối thiểu ở lần <b class="text-gray-700">${lever.label}</b> (đang ${cur}/${lever.total} · ≈ ${acc}% bài), giữ nguyên các lần khác.</p>
                    <div class="mt-3 w-full h-2 bg-white rounded-full overflow-hidden shadow-inner"><div class="h-full bg-pink-400 rounded-full transition-all duration-500" style="width:${acc}%"></div></div>
-                   ${milestoneTableHtml(lever, otherPct, mode, desiredGPA)}` });
+                   ${milestoneTableHtml(lever, otherPct, target)}` });
         return;
     }
 
@@ -838,7 +926,7 @@ export function calculateRequiredCorrectAnswers(opts) {
     if (neededPct <= 1e-9) {
         render({
             tone: 'success', icon: 'fa-circle-check', title: 'Chắc suất đạt mục tiêu! 🎉',
-            body: `Kết quả các lần đã thi đã đủ để đạt <b>GPA ${desiredGPA.toFixed(1)}</b> — kể cả khi các lần còn lại được 0 điểm. Quá đỉnh! 🐿️`
+            body: `Kết quả các lần đã thi đã đủ để đạt mục tiêu ${targetText(target)} — kể cả khi các lần còn lại được 0 điểm. Quá đỉnh! 🐿️`
         });
         return;
     }
@@ -853,28 +941,44 @@ export function calculateRequiredCorrectAnswers(opts) {
         }
         const neededP = neededPct / a.weight; // hiệu suất cần ở lần này
 
+        if (a.kind === 'gpa4') {
+            const need = letterFor(neededP * 10);
+            if (!need) {
+                const maxScore10 = (knownPct + a.weight) / 10;
+                render({ tone: 'danger', icon: 'fa-circle-xmark', title: 'Ngoài tầm với 😢',
+                    body: `Dù đạt <b>A</b> ở lần "<b>${a.label}</b>", điểm tổng kết tối đa chỉ đạt <b>${maxScore10.toFixed(2)}</b> (hệ 10).
+                           ${milestoneTableHtml(a, knownPct, target)}` });
+            } else {
+                render({ tone: 'info', icon: 'fa-bullseye', title: 'Điểm chữ cần đạt',
+                    body: `${heroNumber(need.letter, `· hệ 4 ${need.score4.toFixed(1)}`, `≥ ${need.min10.toFixed(1)} hệ 10`)}
+                           <p class="mt-2 text-gray-500">Mức điểm chữ tối thiểu ở lần <b class="text-gray-700">${a.label}</b> để đạt mục tiêu.</p>
+                           ${milestoneTableHtml(a, knownPct, target)}` });
+            }
+            return;
+        }
+
         if (a.kind === 'score') {
             const needScore = Math.ceil(neededP * 10 * 100) / 100; // điểm hệ 10, làm tròn lên 2 số lẻ
             if (needScore > 10) {
                 const maxScore10 = (knownPct + a.weight) / 10;
                 render({ tone: 'danger', icon: 'fa-circle-xmark', title: 'Ngoài tầm với 😢',
                     body: `Dù đạt <b>10/10</b> điểm ở lần "<b>${a.label}</b>", điểm tổng kết tối đa chỉ đạt <b>${maxScore10.toFixed(2)}</b> (hệ 10).
-                           ${milestoneTableHtml(a, knownPct, mode, desiredGPA)}` });
+                           ${milestoneTableHtml(a, knownPct, target)}` });
             } else {
                 render({ tone: 'info', icon: 'fa-bullseye', title: 'Điểm cần đạt',
                     body: `${heroNumber(needScore.toFixed(2), '/ 10 điểm', null)}
                            <p class="mt-2 text-gray-500">Điểm hệ 10 tối thiểu ở lần <b class="text-gray-700">${a.label}</b> để đạt mục tiêu.</p>
-                           ${milestoneTableHtml(a, knownPct, mode, desiredGPA)}` });
+                           ${milestoneTableHtml(a, knownPct, target)}` });
             }
             return;
         }
 
-        const needCorrect = minCorrectForScore10(neededP * 10, a.total, mode);
+        const needCorrect = minCorrectForScore10(neededP * 10, a.total, a.scale);
         if (needCorrect > a.total) {
             const maxScore10 = (knownPct + a.weight) / 10;
             render({ tone: 'danger', icon: 'fa-circle-xmark', title: 'Ngoài tầm với 😢',
                 body: `Dù đúng cả <b>${a.total}/${a.total}</b> câu ở lần "<b>${a.label}</b>", điểm tổng kết tối đa chỉ đạt <b>${maxScore10.toFixed(2)}</b> (hệ 10).
-                       ${milestoneTableHtml(a, knownPct, mode, desiredGPA)}` });
+                       ${milestoneTableHtml(a, knownPct, target)}` });
             return;
         }
         const acc = Math.round((needCorrect / a.total) * 100);
@@ -882,7 +986,7 @@ export function calculateRequiredCorrectAnswers(opts) {
             body: `${heroNumber(needCorrect, `/ ${a.total} câu`, '≈ ' + acc + '%')}
                    <p class="mt-2 text-gray-500">Số câu đúng tối thiểu ở lần <b class="text-gray-700">${a.label}</b> để đạt mục tiêu.</p>
                    <div class="mt-3 w-full h-2 bg-white rounded-full overflow-hidden shadow-inner"><div class="h-full bg-pink-400 rounded-full transition-all duration-500" style="width:${acc}%"></div></div>
-                   ${milestoneTableHtml(a, knownPct, mode, desiredGPA)}` });
+                   ${milestoneTableHtml(a, knownPct, target)}` });
         return;
     }
 
@@ -905,10 +1009,13 @@ export function calculateRequiredCorrectAnswers(opts) {
     const reqScore10 = reqRatio * 10; // điểm hệ 10 cần đạt đều ở mỗi lần còn lại
     const rows = unknown.map(a => {
         let val;
-        if (a.kind === 'score') {
+        if (a.kind === 'gpa4') {
+            const need = letterFor(reqScore10);
+            val = need ? `≥ ${need.letter}` : 'A';
+        } else if (a.kind === 'score') {
             val = Math.min(10, Math.ceil(reqScore10 * 100) / 100).toFixed(2) + ' điểm';
         } else {
-            const needCorrect = Math.min(a.total, minCorrectForScore10(reqScore10, a.total, mode));
+            const needCorrect = Math.min(a.total, minCorrectForScore10(reqScore10, a.total, a.scale));
             val = `${needCorrect}/${a.total} câu`;
         }
         return `<div class="flex items-center justify-between bg-white/70 rounded-xl px-3 py-2 border border-pink-200">
@@ -923,58 +1030,37 @@ export function calculateRequiredCorrectAnswers(opts) {
                <p class="text-xs text-gray-400 mt-3">💡 Phương án cân bằng — lần này làm tốt hơn thì lần sau có thể nhẹ nhàng hơn.</p>` });
 }
 
-/**
- * Trả về cấu hình các lần thi (nhãn, kiểu nhập, trọng số) theo loại kỳ thi.
- * kind: 'ratio' = nhập câu đúng / tổng câu; 'score' = nhập thẳng điểm hệ 10 (pretest).
- * Chế độ 'custom' lấy từ `customRows` do người dùng tự dựng (thêm/xoá/đặt tên).
- */
-function getExamConfig(type) {
-    if (type === 'pretest') {
-        return [
-            { label: 'Pretest', kind: 'score', weight: 10 },
-            { label: 'Giữa kỳ', kind: 'ratio', weight: 20 },
-            { label: 'Cuối kỳ', kind: 'ratio', weight: 70 },
-        ];
-    }
-    if (type === 'nopretest') {
-        return [
-            { label: 'Giữa kỳ', kind: 'ratio', weight: 30 },
-            { label: 'Cuối kỳ', kind: 'ratio', weight: 70 },
-        ];
-    }
-    return customRows.map(r => ({ label: r.label, kind: r.kind, weight: r.weight }));
-}
-
 // Icon gợi nhớ cho từng loại bài thi
 const ATTEMPT_ICONS = { 'Pretest': 'fa-vial', 'Giữa kỳ': 'fa-pen-fancy', 'Cuối kỳ': 'fa-flag-checkered' };
+
+// Giá trị của ô chọn "cách tính điểm" (gộp kind + scale làm một lựa chọn cho gọn)
+const kindValue = (row) => (row.kind === 'ratio' ? `ratio:${row.scale === 'linear' ? 'linear' : 'ump'}` : row.kind);
 
 /**
  * Render các thẻ "lần thi" (dạng card, thân thiện mobile) trong công cụ tính điểm GPA.
  * Mỗi thẻ có thanh trượt (slider) để chọn nhanh số câu đúng / điểm, cập nhật điểm tổng kết tức thì.
  */
 export function renderAttemptsTable() {
-    const examTypeEl = document.getElementById('exam-type');
     const tableContainer = document.getElementById('attempts-table');
+    if (!tableContainer || !document.getElementById('exam-type')) return;
 
-    if (!examTypeEl || !tableContainer) return;
-
-    const examType = examTypeEl.value;
-    const isCustom = examType === 'custom';
-    const rows = getExamConfig(examType);
-
+    const rows = currentRows();
     const pillHtml = '<span class="attempt-live text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-400 shrink-0">Chưa thi</span>';
+    const totalChips = [30, 40, 50, 60, 100]
+        .map(n => `<button type="button" class="attempt-total-chip px-2 py-1 rounded-lg border border-pink-100 bg-pink-50/50 text-[11px] font-bold text-gray-500 hover:border-pink-300 hover:text-pink-500 active:scale-95 transition" data-total="${n}">${n}</button>`)
+        .join('');
 
     const cardsHtml = rows.map((row, idx) => {
         const icon = ATTEMPT_ICONS[row.label] || 'fa-layer-group';
         const safeLabel = escapeHtml(row.label);
+        const kv = kindValue(row);
+        const opt = (v, text) => `<option value="${v}" ${kv === v ? 'selected' : ''}>${text}</option>`;
+        const removeBtn = rows.length > 1
+            ? `<button type="button" class="attempt-remove w-7 h-7 shrink-0 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition" title="Xoá lần thi này" aria-label="Xoá lần thi"><i class="fas fa-trash-can text-xs"></i></button>`
+            : '';
 
-        let header;
-        if (isCustom) {
-            // Chế độ tùy chỉnh: tên sửa được, chọn kiểu nhập, chỉnh trọng số, xoá lần thi
-            const removeBtn = rows.length > 1
-                ? `<button type="button" class="attempt-remove w-7 h-7 shrink-0 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition" title="Xoá lần thi này" aria-label="Xoá lần thi"><i class="fas fa-trash-can text-xs"></i></button>`
-                : '';
-            header = `
+        // Mọi loại kỳ thi đều sửa được: tên, cách tính điểm, trọng số, thêm/xoá
+        const header = `
             <div class="flex items-center gap-2 mb-2">
                 <span class="w-7 h-7 rounded-lg bg-gradient-to-br from-pink-100 to-rose-100 text-pink-500 flex items-center justify-center text-xs shrink-0"><i class="fas ${icon}"></i></span>
                 <input type="text" maxlength="30" value="${safeLabel}" aria-label="Tên lần thi" placeholder="Tên lần thi"
@@ -983,9 +1069,16 @@ export function renderAttemptsTable() {
                 ${removeBtn}
             </div>
             <div class="flex items-center justify-between gap-2 mb-3">
-                <select class="attempt-kind text-xs font-semibold text-gray-600 bg-gray-50 border border-pink-100 rounded-lg pl-2 pr-7 py-1.5 focus:outline-none focus:ring-2 focus:ring-pink-200 cursor-pointer" aria-label="Kiểu nhập kết quả">
-                    <option value="ratio" ${row.kind === 'ratio' ? 'selected' : ''}>Nhập câu đúng</option>
-                    <option value="score" ${row.kind === 'score' ? 'selected' : ''}>Nhập điểm /10</option>
+                <select class="attempt-kind min-w-0 text-xs font-semibold text-gray-600 bg-gray-50 border border-pink-100 rounded-lg pl-2 pr-7 py-1.5 focus:outline-none focus:ring-2 focus:ring-pink-200 cursor-pointer" aria-label="Cách tính điểm của lần thi này"
+                    title="Đổi cách tính điểm riêng cho lần thi này">
+                    <optgroup label="Trắc nghiệm">
+                        ${opt('ratio:ump', 'Câu đúng · UMP')}
+                        ${opt('ratio:linear', 'Câu đúng · %×10')}
+                    </optgroup>
+                    <optgroup label="Nhập điểm">
+                        ${opt('score', 'Điểm hệ 10')}
+                        ${opt('gpa4', 'Điểm chữ · hệ 4')}
+                    </optgroup>
                 </select>
                 <div class="flex items-center gap-1.5 shrink-0">
                     <span class="text-[10px] text-gray-400 font-semibold uppercase tracking-wide">Trọng số</span>
@@ -993,79 +1086,89 @@ export function renderAttemptsTable() {
                     <span class="text-xs font-bold text-pink-400">%</span>
                 </div>
             </div>`;
-        } else {
-            header = `
-            <div class="flex items-center justify-between gap-2 mb-3">
-                <div class="flex items-center gap-2 min-w-0">
-                    <span class="w-7 h-7 rounded-lg bg-gradient-to-br from-pink-100 to-rose-100 text-pink-500 flex items-center justify-center text-xs shrink-0"><i class="fas ${icon}"></i></span>
-                    <span class="font-bold text-gray-800 text-sm truncate">${safeLabel}</span>
-                    ${pillHtml}
-                </div>
-                <div class="flex items-center gap-1.5 shrink-0"><span class="text-[10px] text-gray-400 font-semibold uppercase tracking-wide">Trọng số</span><span class="text-sm font-extrabold text-pink-600">${row.weight}%</span><input type="hidden" class="attempt-weight" value="${row.weight}"></div>
-            </div>`;
-        }
 
-        if (row.kind === 'score') {
-            return `
-            <div class="attempt-row bg-white border border-pink-100 rounded-2xl p-3.5 shadow-sm transition hover:shadow-md" data-kind="score" data-label="${safeLabel}" data-index="${idx}">
-                ${header}
+        let body;
+        if (row.kind === 'gpa4') {
+            const letters = Object.keys(LETTER_MIN10)
+                .map(l => `<option value="${l}">${l} · hệ 4 ${calculateGPAFromPercent(LETTER_MIN10[l] * 10).score4.toFixed(1)} · ≥ ${LETTER_MIN10[l].toFixed(1)}đ</option>`)
+                .join('');
+            body = `
+                <select class="attempt-gpa4 w-full px-3 py-2 border border-pink-200 rounded-xl font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-pink-200 cursor-pointer" aria-label="Điểm chữ đạt được">
+                    <option value="">— Chưa có điểm —</option>${letters}
+                </select>
+                <p class="text-[11px] text-gray-400 mt-1.5"><i class="fas fa-circle-info mr-1"></i>Điểm chữ được quy về mốc hệ 10 thấp nhất của mức đó (vd B = 7.0đ) — ước tính thận trọng.</p>`;
+        } else if (row.kind === 'score') {
+            body = `
                 <div class="flex items-center gap-3">
                     <input type="number" inputmode="decimal" class="attempt-score w-24 px-3 py-2 border border-pink-200 rounded-xl text-center font-semibold focus:outline-none focus:ring-2 focus:ring-pink-200" min="0" max="10" step="0.01" placeholder="… /10">
                     <input type="range" class="attempt-slider flex-1 accent-pink-500 cursor-pointer" min="0" max="10" step="0.1" value="0">
                 </div>
-                <p class="text-[11px] text-gray-400 mt-1.5"><i class="fas fa-circle-info mr-1"></i>Nhập thẳng điểm hệ 10 của lần thi này (vd pretest), hoặc kéo thanh trượt.</p>
-            </div>`;
+                <p class="text-[11px] text-gray-400 mt-1.5"><i class="fas fa-circle-info mr-1"></i>Nhập thẳng điểm hệ 10 của lần thi này, hoặc kéo thanh trượt.</p>`;
+        } else {
+            body = `
+                <div class="flex items-end gap-2 mb-2">
+                    <div class="flex-1">
+                        <label class="block text-[11px] font-semibold text-gray-500 mb-1">Câu đúng</label>
+                        <input type="number" inputmode="numeric" class="attempt-correct w-full px-3 py-2 border border-pink-200 rounded-xl text-center font-semibold focus:outline-none focus:ring-2 focus:ring-pink-200" min="0" placeholder="—">
+                    </div>
+                    <span class="text-gray-300 font-bold pb-2">/</span>
+                    <div class="flex-1">
+                        <label class="block text-[11px] font-semibold text-gray-500 mb-1">Tổng câu</label>
+                        <input type="number" inputmode="numeric" class="attempt-total w-full px-3 py-2 border border-pink-200 rounded-xl text-center font-semibold focus:outline-none focus:ring-2 focus:ring-pink-200" min="1" placeholder="—">
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-1 mb-2.5"><span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mr-0.5">Tổng câu</span>${totalChips}</div>
+                <input type="range" class="attempt-slider w-full accent-pink-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50" min="0" max="100" step="1" value="0" disabled>
+                <p class="attempt-hint text-[11px] text-gray-400 mt-1.5"><i class="fas fa-circle-info mr-1"></i>Nhập tổng câu để kéo thanh chọn nhanh số câu đúng.</p>`;
         }
+
         return `
-        <div class="attempt-row bg-white border border-pink-100 rounded-2xl p-3.5 shadow-sm transition hover:shadow-md" data-kind="ratio" data-label="${safeLabel}" data-index="${idx}">
-            ${header}
-            <div class="flex items-end gap-2 mb-3">
-                <div class="flex-1">
-                    <label class="block text-[11px] font-semibold text-gray-500 mb-1">Câu đúng</label>
-                    <input type="number" inputmode="numeric" class="attempt-correct w-full px-3 py-2 border border-pink-200 rounded-xl text-center font-semibold focus:outline-none focus:ring-2 focus:ring-pink-200" min="0" placeholder="—">
-                </div>
-                <span class="text-gray-300 font-bold pb-2">/</span>
-                <div class="flex-1">
-                    <label class="block text-[11px] font-semibold text-gray-500 mb-1">Tổng câu</label>
-                    <input type="number" inputmode="numeric" class="attempt-total w-full px-3 py-2 border border-pink-200 rounded-xl text-center font-semibold focus:outline-none focus:ring-2 focus:ring-pink-200" min="1" placeholder="—">
-                </div>
-            </div>
-            <input type="range" class="attempt-slider w-full accent-pink-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50" min="0" max="100" step="1" value="0" disabled>
-            <p class="attempt-hint text-[11px] text-gray-400 mt-1.5"><i class="fas fa-circle-info mr-1"></i>Nhập tổng câu để kéo thanh chọn nhanh số câu đúng.</p>
-        </div>`;
+            <div class="attempt-row bg-white border border-pink-100 rounded-2xl p-3.5 shadow-sm transition hover:shadow-md"
+                data-kind="${row.kind}" data-scale="${row.scale === 'linear' ? 'linear' : 'ump'}" data-label="${safeLabel}" data-index="${idx}">
+                ${header}
+                ${body}
+            </div>`;
     }).join('');
 
     const totalWeight = rows.reduce((a, r) => a + (parseFloat(r.weight) || 0), 0);
-    const addBtnHtml = isCustom && rows.length < MAX_ATTEMPTS
+    const addBtnHtml = rows.length < MAX_ATTEMPTS
         ? `<button type="button" id="add-attempt-btn" class="w-full mt-3 py-2.5 border-2 border-dashed border-pink-200 rounded-2xl text-sm font-bold text-pink-400 hover:text-pink-500 hover:border-pink-300 hover:bg-pink-50/50 transition flex items-center justify-center gap-1.5"><i class="fas fa-plus"></i> Thêm lần thi</button>`
-        : '';
-    const balanceBtnHtml = isCustom
-        ? `<button type="button" id="balance-weights-btn" class="text-pink-500 font-bold hover:text-pink-600 underline decoration-dotted underline-offset-2" title="Chia đều trọng số cho các lần thi">chia đều %</button>`
         : '';
     tableContainer.innerHTML = `
         <div class="space-y-3">${cardsHtml}</div>
         ${addBtnHtml}
-        <div id="attempts-weight-note" class="flex items-center justify-end gap-3 text-xs ${Math.round(totalWeight) === 100 ? 'text-gray-400' : 'text-red-500'} mt-2.5">${balanceBtnHtml}<span>Tổng trọng số: <b id="attempts-weight-sum">${Math.round(totalWeight * 100) / 100}</b>%</span></div>`;
+        <div id="attempts-weight-note" class="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs ${Math.round(totalWeight) === 100 ? 'text-gray-400' : 'text-red-500'} mt-2.5">
+            <button type="button" id="reset-structure-btn" class="text-gray-400 font-bold hover:text-pink-500 underline decoration-dotted underline-offset-2" title="Khôi phục cấu trúc mặc định của loại kỳ thi này">về mặc định</button>
+            <button type="button" id="balance-weights-btn" class="text-pink-500 font-bold hover:text-pink-600 underline decoration-dotted underline-offset-2" title="Chia đều trọng số cho các lần thi">chia đều %</button>
+            <span>Tổng trọng số: <b id="attempts-weight-sum">${Math.round(totalWeight * 100) / 100}</b>%</span>
+        </div>`;
 
-    wireAttemptInputs(isCustom);
+    wireAttemptInputs();
     updateGpaProjection();
 }
 
 /**
  * Gắn sự kiện đồng bộ ô nhập ↔ thanh trượt và cập nhật điểm tổng kết tạm tính theo thời gian thực.
  */
-function wireAttemptInputs(isCustom) {
+function wireAttemptInputs() {
     const container = document.getElementById('attempts-table');
     if (!container) return;
     const rows = Array.from(container.querySelectorAll('.attempt-row'));
 
     rows.forEach(row => {
         const slider = row.querySelector('.attempt-slider');
-        if (row.dataset.kind === 'score') {
+        if (row.dataset.kind === 'gpa4') {
+            row.querySelector('.attempt-gpa4')?.addEventListener('change', () => updateGpaProjection());
+            row.querySelector('.attempt-gpa4')?.addEventListener('input', () => updateGpaProjection());
+        } else if (row.dataset.kind === 'score') {
             const score = row.querySelector('.attempt-score');
             score?.addEventListener('input', () => {
-                const v = parseFloat(score.value);
-                if (slider && !isNaN(v)) slider.value = Math.max(0, Math.min(10, v));
+                let v = parseFloat(score.value);
+                if (!isNaN(v)) {
+                    if (v > 10) { v = 10; score.value = '10'; } // chặn nhập quá thang 10
+                    if (v < 0) { v = 0; score.value = '0'; }
+                    if (slider) slider.value = v;
+                }
                 updateGpaProjection();
             });
             slider?.addEventListener('input', () => {
@@ -1101,6 +1204,12 @@ function wireAttemptInputs(isCustom) {
                 if (correct) correct.value = slider.value;
                 updateGpaProjection();
             });
+            // Chip điền nhanh tổng số câu của riêng lần thi này
+            row.querySelectorAll('.attempt-total-chip').forEach(btn => btn.addEventListener('click', () => {
+                total.value = btn.dataset.total;
+                total.dispatchEvent(new Event('input'));
+                if (correct && correct.value.trim() === '') { correct.focus(); correct.select?.(); }
+            }));
             syncRange();
         }
     });
@@ -1117,79 +1226,92 @@ function wireAttemptInputs(isCustom) {
         });
     });
 
-    // Chế độ tùy chỉnh: trọng số, tên, kiểu nhập, thêm/xoá lần thi
-    if (isCustom) {
-        const weightInputs = Array.from(container.querySelectorAll('.attempt-weight'));
-        const note = document.getElementById('attempts-weight-note');
-        const sumEl = document.getElementById('attempts-weight-sum');
-        const updateSum = () => {
-            const sum = weightInputs.reduce((a, el) => a + (parseFloat(el.value) || 0), 0);
-            if (sumEl) sumEl.textContent = Math.round(sum * 100) / 100;
-            if (note) {
-                note.classList.toggle('text-red-500', Math.round(sum) !== 100);
-                note.classList.toggle('text-gray-400', Math.round(sum) === 100);
-            }
-            updateGpaProjection();
-        };
-        weightInputs.forEach((el, i) => el.addEventListener('input', () => {
-            if (customRows[i]) customRows[i].weight = parseFloat(el.value) || 0;
-            updateSum();
-        }));
+    // Sửa cấu trúc lần thi — nay dùng được cho MỌI loại kỳ thi
+    const cfg = currentRows();
+    const weightInputs = Array.from(container.querySelectorAll('.attempt-weight'));
+    const note = document.getElementById('attempts-weight-note');
+    const sumEl = document.getElementById('attempts-weight-sum');
+    const updateSum = () => {
+        const sum = weightInputs.reduce((a, el) => a + (parseFloat(el.value) || 0), 0);
+        if (sumEl) sumEl.textContent = Math.round(sum * 100) / 100;
+        if (note) {
+            note.classList.toggle('text-red-500', Math.round(sum) !== 100);
+            note.classList.toggle('text-gray-400', Math.round(sum) === 100);
+        }
+        updateGpaProjection();
+    };
+    weightInputs.forEach((el, i) => el.addEventListener('input', () => {
+        if (cfg[i]) cfg[i].weight = parseFloat(el.value) || 0;
+        updateSum();
+    }));
 
-        // Đổi cấu trúc (kiểu nhập/xoá) phải giữ lại giá trị đang nhập: capture -> render -> apply
-        const rebuild = (mutate, vals) => {
-            mutate();
-            renderAttemptsTable();
-            applyAttemptValues(vals);
-            updateGpaProjection();
+    // Đổi cấu trúc (cách tính điểm/xoá) phải giữ lại giá trị đang nhập: capture -> render -> apply
+    const rebuild = (mutate, vals) => {
+        mutate();
+        renderAttemptsTable();
+        applyAttemptValues(vals);
+        updateGpaProjection();
+        scheduleSaveGoalState();
+    };
+
+    rows.forEach((rowEl, i) => {
+        // Tên lần thi: sửa tại chỗ, không cần vẽ lại bảng
+        rowEl.querySelector('.attempt-label')?.addEventListener('input', (e) => {
+            const name = e.target.value.trim() || `Lần ${i + 1}`;
+            if (cfg[i]) cfg[i].label = name;
+            rowEl.dataset.label = name;
             scheduleSaveGoalState();
-        };
-
-        rows.forEach((rowEl, i) => {
-            // Tên lần thi: sửa tại chỗ, không cần vẽ lại bảng
-            rowEl.querySelector('.attempt-label')?.addEventListener('input', (e) => {
-                const name = e.target.value.trim() || `Lần ${i + 1}`;
-                if (customRows[i]) customRows[i].label = name;
-                rowEl.dataset.label = name;
-                scheduleSaveGoalState();
-                scheduleAutoRequired();
-            });
-            // Kiểu nhập: câu đúng <-> điểm hệ 10 (ô nhập của lần này đổi loại nên giá trị lần này bỏ trống)
-            rowEl.querySelector('.attempt-kind')?.addEventListener('change', (e) => {
-                const vals = captureAttemptValues();
-                vals[i] = { score: '', correct: '', total: '' };
-                rebuild(() => { if (customRows[i]) customRows[i].kind = e.target.value === 'score' ? 'score' : 'ratio'; }, vals);
-            });
-            // Xoá lần thi
-            rowEl.querySelector('.attempt-remove')?.addEventListener('click', () => {
-                const vals = captureAttemptValues();
-                vals.splice(i, 1);
-                rebuild(() => customRows.splice(i, 1), vals);
-            });
+            scheduleAutoRequired();
         });
-
-        // Thêm lần thi mới: trọng số mặc định = phần còn thiếu cho đủ 100%
-        document.getElementById('add-attempt-btn')?.addEventListener('click', () => {
+        // Cách tính điểm của riêng lần này. Đổi thang trong cùng kiểu "câu đúng" thì giữ số liệu
+        // (đây chính là chỗ quy đổi qua lại); đổi hẳn kiểu nhập thì phải bỏ trống vì ô nhập khác loại.
+        rowEl.querySelector('.attempt-kind')?.addEventListener('change', (e) => {
+            const [kind, scale] = e.target.value.split(':');
             const vals = captureAttemptValues();
-            const sum = customRows.reduce((a, r) => a + (parseFloat(r.weight) || 0), 0);
-            rebuild(() => customRows.push({
-                label: `Lần ${customRows.length + 1}`,
-                kind: 'ratio',
-                weight: Math.max(0, Math.min(100, Math.round(100 - sum))),
-            }), vals);
-            // Đưa con trỏ vào ô tên của lần vừa thêm cho tiện đặt tên
-            const rowEls = document.querySelectorAll('#attempts-table .attempt-row');
-            rowEls[rowEls.length - 1]?.querySelector('.attempt-label')?.select();
+            if (rowEl.dataset.kind !== kind) vals[i] = { score: '', correct: '', total: '', gpa4: '' };
+            rebuild(() => {
+                if (!cfg[i]) return;
+                cfg[i].kind = kind;
+                if (scale) cfg[i].scale = scale;
+            }, vals);
         });
-
-        // Chia đều trọng số (phần dư dồn vào lần cuối)
-        document.getElementById('balance-weights-btn')?.addEventListener('click', () => {
+        // Xoá lần thi
+        rowEl.querySelector('.attempt-remove')?.addEventListener('click', () => {
             const vals = captureAttemptValues();
-            const n = customRows.length;
-            const base = Math.floor(100 / n);
-            rebuild(() => customRows.forEach((r, i) => { r.weight = i === n - 1 ? 100 - base * (n - 1) : base; }), vals);
+            vals.splice(i, 1);
+            rebuild(() => cfg.splice(i, 1), vals);
         });
-    }
+    });
+
+    // Thêm lần thi mới: trọng số mặc định = phần còn thiếu cho đủ 100%
+    document.getElementById('add-attempt-btn')?.addEventListener('click', () => {
+        const vals = captureAttemptValues();
+        const sum = cfg.reduce((a, r) => a + (parseFloat(r.weight) || 0), 0);
+        rebuild(() => cfg.push({
+            label: `Lần ${cfg.length + 1}`,
+            kind: 'ratio',
+            scale: getScaleMode(),
+            weight: Math.max(0, Math.min(100, Math.round(100 - sum))),
+        }), vals);
+        // Đưa con trỏ vào ô tên của lần vừa thêm cho tiện đặt tên
+        const rowEls = document.querySelectorAll('#attempts-table .attempt-row');
+        rowEls[rowEls.length - 1]?.querySelector('.attempt-label')?.select();
+    });
+
+    // Chia đều trọng số (phần dư dồn vào lần cuối)
+    document.getElementById('balance-weights-btn')?.addEventListener('click', () => {
+        const vals = captureAttemptValues();
+        const n = cfg.length;
+        const base = Math.floor(100 / n);
+        rebuild(() => cfg.forEach((r, i) => { r.weight = i === n - 1 ? 100 - base * (n - 1) : base; }), vals);
+    });
+
+    // Khôi phục cấu trúc mặc định của loại kỳ thi đang chọn (giữ nguyên số liệu đã nhập nếu khớp vị trí)
+    document.getElementById('reset-structure-btn')?.addEventListener('click', () => {
+        const vals = captureAttemptValues();
+        rebuild(() => { examRows[currentExamType()] = defaultRowsOf(currentExamType()); }, vals);
+        showToast('Đã trả cấu trúc kỳ thi về mặc định 🔄', 'success');
+    });
 }
 
 // Confetti mini khi điểm tạm tính vừa chạm mục tiêu (không dùng thư viện).
@@ -1224,24 +1346,14 @@ function updateGpaProjection() {
     const rows = Array.from(document.querySelectorAll('#attempts-table .attempt-row'));
     if (rows.length === 0) { panel.classList.add('hidden'); return; }
 
-    const mode = getScaleMode();
     const PILL_BASE = 'attempt-live text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0';
+    const SCALE_NAMES = { ump: 'công thức UMP', linear: '% đúng × 10' };
 
     let totalPct = 0, blanks = 0, anyEntered = false;
     for (const el of rows) {
-        const weight = parseFloat(el.querySelector('.attempt-weight')?.value) || 0;
-        let p = null;
-        if (el.dataset.kind === 'score') {
-            const raw = (el.querySelector('.attempt-score')?.value || '').trim();
-            if (raw !== '') { const s = parseFloat(raw); if (!isNaN(s)) p = Math.max(0, Math.min(10, s)) / 10; }
-        } else {
-            const total = parseInt(el.querySelector('.attempt-total')?.value, 10);
-            const raw = (el.querySelector('.attempt-correct')?.value || '').trim();
-            if (!isNaN(total) && total > 0 && raw !== '') {
-                const c = parseInt(raw, 10);
-                if (!isNaN(c)) p = rowScore10(Math.max(0, Math.min(total, c)), total, mode) / 10;
-            }
-        }
+        const r = readAttemptRow(el);
+        const weight = r.weight;
+        const p = r.p;
 
         // Pill điểm hệ 10 ngay trên thẻ từng lần thi
         const pill = el.querySelector('.attempt-live');
@@ -1260,7 +1372,9 @@ function updateGpaProjection() {
                     : 'bg-red-100 text-red-500';
                 pill.textContent = `${score4.toFixed(1)} · ${s10.toFixed(2)} · ${letterGrade}`;
                 pill.className = `${PILL_BASE} ${cls}`;
-                pill.title = `Hệ 4: ${score4.toFixed(1)} · Hệ 10: ${s10.toFixed(2)} · Điểm chữ: ${letterGrade}`;
+                pill.title = `Hệ 4: ${score4.toFixed(1)} · Hệ 10: ${s10.toFixed(2)} · Điểm chữ: ${letterGrade}`
+                    + `\nĐóng góp vào điểm tổng kết: +${(p * weight / 10).toFixed(2)}đ (trọng số ${weight}%)`
+                    + (r.kind === 'ratio' ? `\nThang quy đổi: ${SCALE_NAMES[r.scale]}` : '');
             }
         }
 
@@ -1271,8 +1385,8 @@ function updateGpaProjection() {
 
     const score10 = totalPct / 10;
     const { score4, letterGrade } = calculateGPAFromPercent(totalPct);
-    const desired = parseFloat(document.getElementById('desired-gpa-4')?.value) || 0;
-    const targetScore10 = minScore10ForGpa4(desired);
+    const target = getTarget();
+    const targetScore10 = target.score10;
     const reached = score10 >= targetScore10 - 1e-9;
     const fillPct = Math.max(0, Math.min(100, score10 * 10));
     const targetPct = Math.max(0, Math.min(100, targetScore10 * 10));
@@ -1292,7 +1406,8 @@ function updateGpaProjection() {
             <div class="flex flex-col"><span class="text-[10px] text-gray-400 font-semibold">HỆ 4</span><span class="text-4xl font-extrabold leading-none ${accent} drop-shadow-sm">${score4.toFixed(1)}</span></div>
             <div class="flex flex-col"><span class="text-[10px] text-gray-400 font-semibold">HỆ 10</span><span class="text-xl font-extrabold text-gray-600">${score10.toFixed(2)}</span></div>
             <div class="flex flex-col"><span class="text-[10px] text-gray-400 font-semibold">ĐIỂM CHỮ</span><span class="text-xl font-extrabold text-gray-600">${letterGrade}</span></div>
-            <div class="ml-auto text-right"><span class="text-[10px] text-gray-400 font-semibold block">MỤC TIÊU</span><span class="text-sm font-bold ${reached ? 'text-emerald-600' : 'text-amber-600'}">${reached ? 'Đã đạt 🎉' : 'GPA ' + desired.toFixed(1)}</span></div>
+            <div class="ml-auto text-right"><span class="text-[10px] text-gray-400 font-semibold block">MỤC TIÊU</span><span class="text-sm font-bold ${reached ? 'text-emerald-600' : 'text-amber-600'}">${reached ? 'Đã đạt 🎉' : (target.mode === 'score10' ? targetScore10.toFixed(2) + ' hệ 10' : 'GPA ' + target.gpa4.toFixed(1))}</span></div>
+            <div class="w-full text-[11px] text-gray-400">Còn thiếu <b class="${reached ? 'text-emerald-600' : 'text-amber-600'}">${Math.max(0, targetScore10 - score10).toFixed(2)}</b> điểm hệ 10 để chạm mục tiêu</div>
         </div>
         <div class="relative w-full h-3 bg-white rounded-full overflow-hidden shadow-inner">
             <div class="h-full rounded-full transition-all duration-300 ${reached ? 'bg-emerald-400' : 'bg-pink-400'}" style="width:${fillPct}%"></div>
@@ -1378,12 +1493,72 @@ export function initGpaCalculator() {
             if (!btn) return;
             desiredInput.value = btn.dataset.gpa;
             styleGpaChips();
+            syncTargetHint();
             updateGpaProjection();
         });
         gpaChipsWrap.dataset.listenerAdded = 'true';
     }
 
-    // Toggle "Thang điểm mỗi bài": công thức UMP <-> % đúng × 10 (lưu lựa chọn trên máy)
+    // Mục tiêu theo hệ 4 (chips điểm chữ) hay hệ 10 (ô nhập + thanh trượt) — chuyển đổi qua lại
+    const targetToggle = document.getElementById('target-mode-toggle');
+    const score10Input = document.getElementById('desired-score-10');
+    const score10Range = document.getElementById('desired-score-10-range');
+    const score10Wrap = document.getElementById('desired-10-wrap');
+    const targetHint = document.getElementById('desired-target-hint');
+    const syncTargetHint = () => {
+        const mode = getTargetMode();
+        // đặt thẳng display: chips là .grid nên class 'hidden' dễ bị đè
+        if (gpaChipsWrap) gpaChipsWrap.style.display = mode === 'gpa4' ? '' : 'none';
+        score10Wrap?.classList.toggle('hidden', mode !== 'score10');
+        targetToggle?.querySelectorAll('.target-mode-btn').forEach(btn => {
+            const active = btn.dataset.targetMode === mode;
+            btn.classList.toggle('bg-[#FF69B4]', active);
+            btn.classList.toggle('text-white', active);
+            btn.classList.toggle('shadow-sm', active);
+            btn.classList.toggle('text-gray-500', !active);
+        });
+        if (targetHint) {
+            const t = getTarget();
+            targetHint.innerHTML = t.mode === 'score10'
+                ? `≈ hệ 4 <b class="text-pink-500">${t.gpa4.toFixed(1)}</b> · điểm chữ <b class="text-pink-500">${t.letter}</b>`
+                : `≈ cần <b class="text-pink-500">${t.score10.toFixed(1)}</b> điểm hệ 10 trở lên`;
+        }
+    };
+    if (targetToggle && !targetToggle.dataset.listenerAdded) {
+        targetToggle.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-target-mode]');
+            if (!btn || btn.dataset.targetMode === getTargetMode()) return;
+            // Chuyển hệ nào thì mang theo mục tiêu hiện tại sang hệ đó cho khỏi mất công đặt lại
+            const cur = getTarget();
+            try { localStorage.setItem(TARGET_MODE_KEY, btn.dataset.targetMode); } catch (err) { /* bỏ qua */ }
+            if (btn.dataset.targetMode === 'score10') {
+                if (score10Input) score10Input.value = cur.score10.toFixed(1);
+                if (score10Range) score10Range.value = cur.score10.toFixed(1);
+            } else if (desiredInput) {
+                desiredInput.value = cur.gpa4.toFixed(1);
+                styleGpaChips();
+            }
+            syncTargetHint();
+            updateGpaProjection();
+        });
+        targetToggle.dataset.listenerAdded = 'true';
+    }
+    if (score10Input && score10Range && !score10Input.dataset.listenerAdded) {
+        const syncScore10 = (src, dst) => {
+            let v = parseFloat(src.value);
+            if (isNaN(v)) return;
+            v = Math.max(0, Math.min(10, v));
+            src.value = v;
+            dst.value = v;
+            syncTargetHint();
+            updateGpaProjection();
+        };
+        score10Input.addEventListener('input', () => syncScore10(score10Input, score10Range));
+        score10Range.addEventListener('input', () => syncScore10(score10Range, score10Input));
+        score10Input.dataset.listenerAdded = 'true';
+    }
+
+    // Toggle "Thang điểm mặc định": áp dụng công thức UMP <-> % đúng × 10 cho TẤT CẢ lần thi trắc nghiệm
     const scaleToggle = document.getElementById('scale-mode-toggle');
     const styleScaleToggle = () => {
         if (!scaleToggle) return;
@@ -1402,6 +1577,12 @@ export function initGpaCalculator() {
             if (!btn || btn.dataset.mode === getScaleMode()) return;
             try { localStorage.setItem(SCALE_MODE_KEY, btn.dataset.mode); } catch (err) { /* bỏ qua */ }
             styleScaleToggle();
+            // Áp cho mọi lần thi đang có (số liệu giữ nguyên, chỉ đổi cách quy đổi)
+            const vals = captureAttemptValues();
+            currentRows().forEach(r => { if (r.kind === 'ratio') r.scale = btn.dataset.mode; });
+            renderAttemptsTable();
+            applyAttemptValues(vals);
+            scheduleSaveGoalState();
             updateGpaProjection();
         });
         scaleToggle.dataset.listenerAdded = 'true';
@@ -1441,6 +1622,7 @@ export function initGpaCalculator() {
     }
     styleGpaChips();
     styleScaleToggle();
+    syncTargetHint();
 }
 
 /**
@@ -1455,11 +1637,15 @@ function restoreGoalState() {
     if (st) {
         if (st.examType && examTypeEl && [...examTypeEl.options].some(o => o.value === st.examType)) examTypeEl.value = st.examType;
         if (st.desired && desiredInput) desiredInput.value = st.desired;
-        // Chế độ tùy chỉnh: dựng lại cấu trúc các lần thi (tên, kiểu nhập, trọng số) đã lưu
-        if (examTypeEl?.value === 'custom' && Array.isArray(st.rows) && st.rows.length > 0) {
-            customRows = st.rows.slice(0, MAX_ATTEMPTS).map((r, i) => ({
+        const s10 = document.getElementById('desired-score-10');
+        const s10r = document.getElementById('desired-score-10-range');
+        if (st.targetScore10 && s10) { s10.value = st.targetScore10; if (s10r) s10r.value = st.targetScore10; }
+        // Cấu trúc các lần thi đã lưu (tên, cách tính điểm, thang, trọng số) — áp cho loại kỳ thi tương ứng
+        if (Array.isArray(st.rows) && st.rows.length > 0) {
+            examRows[currentExamType()] = st.rows.slice(0, MAX_ATTEMPTS).map((r, i) => ({
                 label: (r.label || '').trim() || `Lần ${i + 1}`,
-                kind: r.kind === 'score' ? 'score' : 'ratio',
+                kind: ['score', 'gpa4', 'ratio'].includes(r.kind) ? r.kind : 'ratio',
+                scale: r.scale === 'linear' ? 'linear' : 'ump',
                 weight: Math.max(0, Math.min(100, parseFloat(r.weight) || 0)),
             }));
         }
@@ -1479,10 +1665,11 @@ function restoreGoalState() {
             setVal('.attempt-total', r.total);
             setVal('.attempt-score', r.score);
             setVal('.attempt-correct', r.correct);
+            setVal('.attempt-gpa4', r.gpa4);
         });
         // Bắn 'input' để đồng bộ slider / tổng trọng số theo giá trị vừa khôi phục
         rowEls.forEach(el => {
-            el.querySelectorAll('.attempt-total, .attempt-correct, .attempt-score').forEach(inp => {
+            el.querySelectorAll('.attempt-total, .attempt-correct, .attempt-score, .attempt-gpa4').forEach(inp => {
                 if (inp.value !== '') inp.dispatchEvent(new Event('input'));
             });
         });

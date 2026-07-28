@@ -904,6 +904,37 @@ body {
     z-index: 50;
 }
 
+/* Nhấn giữ: thẻ lún nhẹ + vòng viền hồng "chạy" đủ 600ms để báo sắp vào chế độ chọn.
+   Không animation/transition khi vừa nhả (class bị gỡ) → về ngay, không giật. */
+.quiz-grid-card.is-holding,
+.quiz-list-card.is-holding {
+    transform: scale(0.96);
+    transition: transform 0.15s ease;
+    overflow: hidden;
+}
+.quiz-grid-card.is-holding::after,
+.quiz-list-card.is-holding::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 20;
+    background: conic-gradient(rgba(236, 72, 153, 0.28) 0turn, rgba(236, 72, 153, 0.28) var(--hold-progress, 0turn), transparent var(--hold-progress, 0turn));
+    -webkit-mask: radial-gradient(transparent calc(100% - 3px), #000 calc(100% - 3px));
+            mask: radial-gradient(transparent calc(100% - 3px), #000 calc(100% - 3px));
+    animation: holdProgress 0.6s linear forwards;
+}
+@keyframes holdProgress {
+    from { --hold-progress: 0turn; }
+    to { --hold-progress: 1turn; }
+}
+@property --hold-progress {
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: 0turn;
+}
+
 /* Chip thông tin (số câu hỏi / ngày tạo) */
 .quiz-chip {
     display: inline-flex;
@@ -921,14 +952,72 @@ body {
     opacity: 0.8;
 }
 .quiz-chip-count {
-    color: #be185d; /* pink-700 */
-    background: #fce7f3; /* pink-100 */
+    color: #4f46e5; /* indigo-600 — dịu mắt, không "áp lực" như hồng đậm */
+    background: #eef2ff; /* indigo-50 */
+}
+.quiz-chip-count b {
+    font-weight: 800;
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
 }
 /* Chip tiến độ học: kết quả lần làm gần nhất, tô màu theo mức điểm */
 .quiz-chip-attempt-good { color: #047857; background: #d1fae5; } /* ≥80%: emerald */
 .quiz-chip-attempt-mid  { color: #b45309; background: #fef3c7; } /* 50–79%: amber */
 .quiz-chip-attempt-low  { color: #b91c1c; background: #fee2e2; } /* <50%: red */
 .quiz-chip-unattempted  { color: #6b7280; background: #f9fafb; border: 1px dashed #d1d5db; }
+
+/* Tag "MỚI": cờ bookmark (đuôi cá) treo ở góc trên-PHẢI thẻ, không đè chữ/tag.
+   Menu "..." được đẩy tránh chỗ khi có cờ (JS thêm class .has-new-ribbon). */
+.quiz-new-ribbon {
+    position: absolute;
+    z-index: 16;
+    pointer-events: none;
+    filter: drop-shadow(0 4px 6px rgba(225, 29, 72, 0.4));
+}
+.quiz-grid-card .quiz-new-ribbon { top: 0; right: 4px; }
+.quiz-list-card .quiz-new-ribbon { top: 0; right: 6px; }
+.quiz-new-ribbon span {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 2.15rem;
+    padding-bottom: 0.5rem;
+    background: linear-gradient(160deg, #fb7185 0%, #f43f5e 55%, #e11d48 100%);
+    color: #fff;
+    font-size: 0.54rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.22);
+    /* Đuôi cá (swallowtail) ở đáy cờ */
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
+    overflow: hidden;
+}
+.quiz-list-card .quiz-new-ribbon span {
+    width: 1.6rem;
+    height: 1.95rem;
+    font-size: 0.5rem;
+}
+/* Vệt sáng lướt qua cờ (hiệu ứng "mới") */
+.quiz-new-ribbon span::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.5) 50%, transparent 70%);
+    transform: translateX(-110%);
+    animation: quizRibbonShine 2.8s ease-in-out infinite;
+}
+@keyframes quizRibbonShine {
+    0%, 55% { transform: translateX(-110%); }
+    100%    { transform: translateX(110%); }
+}
+/* List: đẩy menu "..." xuống đáy để cờ ở góc trên không che */
+.quiz-list-card.has-new-ribbon .quiz-list-menu-wrap { align-self: flex-end; }
+@media (prefers-reduced-motion: reduce) {
+    .quiz-new-ribbon span::after { display: none; }
+}
 
 /* ===== Khối "Học tiếp" (các bộ đề vừa mở / vừa làm gần nhất) ===== */
 .continue-strip {

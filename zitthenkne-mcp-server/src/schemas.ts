@@ -107,7 +107,12 @@ const QuestionInputSchema = z
       .number()
       .int()
       .min(0)
-      .describe("Chỉ số (0-based) của đáp án đúng trong mảng answers"),
+      .describe("Chỉ số (0-based) của đáp án đúng (câu nhiều đáp án: để index đúng ĐẦU TIÊN)"),
+    correct_answer_indexes: z
+      .array(z.number().int().min(0))
+      .min(2)
+      .optional()
+      .describe("Câu NHIỀU đáp án đúng: mảng chỉ số (0-based) tất cả đáp án đúng (≥2). Câu 1 đáp án thì BỎ trường này."),
     option_explanations: z
       .array(z.string())
       .optional()
@@ -133,7 +138,13 @@ const QuestionInputSchema = z
   .refine((q) => q.correct_answer_index < q.answers.length, {
     message: "correct_answer_index phải nhỏ hơn số lượng đáp án",
     path: ["correct_answer_index"],
-  });
+  })
+  .refine(
+    (q) =>
+      !q.correct_answer_indexes ||
+      q.correct_answer_indexes.every((i) => i < q.answers.length),
+    { message: "correct_answer_indexes có index vượt số lượng đáp án", path: ["correct_answer_indexes"] },
+  );
 
 export const CreateQuizSetSchema = z
   .object({

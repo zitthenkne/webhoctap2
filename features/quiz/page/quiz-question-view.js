@@ -105,6 +105,17 @@ function setupAnswerInteractions() {
         let pressTimer = null;
         let longPressed = false;
         let pStartX = 0, pStartY = 0;
+        // Kích hoạt gạch bỏ MỘT lần cho mỗi cú giữ (khóa longPressed chống double-toggle:
+        // trên Android timer 380ms + sự kiện contextmenu có thể cùng bắn -> nếu toggle 2 lần
+        // sẽ hòa nhau = như chưa làm gì. Ở đây cái nào tới trước thì làm, cái sau bị chặn).
+        const triggerLong = () => {
+            if (longPressed) return;
+            longPressed = true;
+            if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+            btn.classList.remove('answer-holding');
+            if (getVibrate() && navigator.vibrate) navigator.vibrate(18);
+            toggleEliminate(idx);
+        };
         const startPress = (e) => {
             // Bỏ chuột phải (đã có contextmenu lo) và câu đã trả lời (không cho gạch nữa)
             if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -115,12 +126,7 @@ function setupAnswerInteractions() {
             // Phản hồi ngay khi bắt đầu giữ: vòng đỏ lớn dần trong 380ms -> biết là đang gạch
             btn.classList.add('answer-holding');
             if (getVibrate() && navigator.vibrate) navigator.vibrate(6);
-            pressTimer = setTimeout(() => {
-                longPressed = true;
-                btn.classList.remove('answer-holding');
-                if (getVibrate() && navigator.vibrate) navigator.vibrate(18);
-                toggleEliminate(idx);
-            }, 380);
+            pressTimer = setTimeout(triggerLong, 380);
         };
         const cancelPress = () => {
             if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
@@ -135,8 +141,9 @@ function setupAnswerInteractions() {
         btn.addEventListener('pointermove', movePress);
         btn.addEventListener('pointercancel', cancelPress);
         btn.addEventListener('pointerleave', cancelPress);
-        // Chuột phải (desktop) = loại trừ nhanh
-        btn.addEventListener('contextmenu', (e) => { e.preventDefault(); toggleEliminate(idx); });
+        // Giữ lâu trên cảm ứng (Android) / chuột phải (desktop) đều bắn contextmenu -> gạch bỏ.
+        // Có khóa longPressed nên không đụng với timer 380ms.
+        btn.addEventListener('contextmenu', (e) => { e.preventDefault(); triggerLong(); });
         btn.addEventListener('click', (e) => {
             // Vừa giữ lâu -> đã loại trừ, không tính là chọn
             if (longPressed) { e.preventDefault(); e.stopImmediatePropagation(); longPressed = false; return; }

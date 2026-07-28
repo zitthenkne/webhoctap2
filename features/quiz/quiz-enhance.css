@@ -399,6 +399,18 @@ html.theme-dark .qs-marked-unmark { color: #8a7fa3; }
 @media (prefers-reduced-motion: reduce) {
     #quizSection .answer-btn.answer-holding { animation: none; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.5); }
 }
+/* MẤU CHỐT để "giữ lâu để gạch" chạy được trên điện thoại:
+   ô đáp án CHƯA trả lời không cho chọn-chữ / callout -> OS không cướp cú chạm để bôi đen
+   (vốn bắn pointercancel làm hỏng timer). Ô ĐÃ trả lời (answer-locked) vẫn chọn được để ghi chú.
+   Chỉ áp trên màn cảm ứng để chuột/kéo-chọn trên desktop không bị ảnh hưởng. */
+@media (pointer: coarse) {
+    #quizSection .answer-btn:not(.answer-locked) {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+    }
+}
+#quizSection .answer-btn { touch-action: manipulation; }
 
 /* Mũi tên lóe khi CHẠM RÌA chuyển câu (mobile) — chỉ để phản hồi, không chặn chạm */
 .edge-tap-hint {

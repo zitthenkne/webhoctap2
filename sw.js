@@ -1,5 +1,5 @@
 // Service Worker for PWA - Offline Support & Caching
-const CACHE_NAME = 'zitthenkne-v16';
+const CACHE_NAME = 'zitthenkne-v18';
 
 // App shell (cùng origin) — nạp sẵn khi cài để mở offline được ngay.
 const urlsToCache = [

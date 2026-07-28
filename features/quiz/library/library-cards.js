@@ -17,7 +17,8 @@ import { renderLibrary, renderBreadcrumb, rerenderCurrentView } from './library-
 import { loadAndDisplayLibrary } from './library-data.js';
 import {
     toggleFolderPin, openFolderModal, quickSetFolderColor, confirmDeleteFolder,
-    reorderFolders, openMoveQuizModal, openShareQuizModal, updateBulkActionsToolbar
+    reorderFolders, openMoveQuizModal, openShareQuizModal, updateBulkActionsToolbar,
+    toggleQuizPublic
 } from './library-actions.js';
 import { getLastAttempt, hasAttemptData, markQuizOpened } from './library-attempts.js';
 
@@ -325,8 +326,11 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
     const isSelected = S.selectedQuizIds.includes(quizSet.id);
     const pinned = isPinned(quizSet.id);
     const isNew = isNewQuiz(quizSet);
-    const newBadge = isNew
-        ? `<span class="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center">Mới</span>`
+    // Cờ "MỚI" kiểu bookmark treo ở góc trên-PHẢI thẻ. Khi có cờ, đẩy menu "..." tránh chỗ
+    // (ribbonPush) để không đè lên nhau. Ẩn ở chế độ chọn nhiều (góc đó có thao tác khác).
+    const ribbonPush = isNew && !S.isSelectionMode;
+    const newRibbon = ribbonPush
+        ? `<div class="quiz-new-ribbon" aria-hidden="true"><span>MỚI</span></div>`
         : '';
     const offlineSaved = isOfflineSavedSync(quizSet.id);
     // Huy hiệu "Đã tải" hiển thị cạnh số câu hỏi khi bộ đề đã được lưu để làm offline
@@ -359,6 +363,7 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
         <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 edit-quiz-content-btn" data-id="${quizSet.id}"><i class="fas fa-pen-alt mr-2.5 text-blue-400"></i>Sửa câu hỏi</button>
         <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 edit-quiz-btn" data-id="${quizSet.id}" data-title="${quizSet.title}"><i class="fas fa-edit mr-2.5 text-amber-400"></i>Sửa tên</button>
         <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 share-quiz-btn" data-id="${quizSet.id}"><i class="fas fa-share-alt mr-2.5 text-green-500"></i>Chia sẻ</button>
+        <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 toggle-public-btn" data-id="${quizSet.id}" data-public="${quizSet.isPublic === true}" title="${quizSet.isPublic === true ? 'Đang công khai — bấm để chuyển riêng tư (chỉ mình bạn xem)' : 'Đang riêng tư — bấm để công khai (ai có link đều mở được)'}"><i class="fas ${quizSet.isPublic === true ? 'fa-globe text-green-500' : 'fa-lock text-gray-400'} mr-2.5"></i>${quizSet.isPublic === true ? 'Công khai' : 'Riêng tư'}</button>
         <div class="border-t border-gray-100 my-1"></div>
         <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 quiz-history-btn" data-id="${quizSet.id}"><i class="fas fa-history mr-2.5 text-pink-400"></i>Xem lịch sử làm bài</button>
         <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 move-quiz-btn" data-id="${quizSet.id}"><i class="fas fa-folder-open mr-2.5 text-yellow-500"></i>Di chuyển</button>
@@ -367,6 +372,7 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
         <button class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 delete-quiz-btn" data-id="${quizSet.id}"><i class="fas fa-trash-alt mr-2.5 text-red-500"></i>Xóa bộ đề</button>`;
 
     card.className = getQuizCardClassName(isSelected);
+    if (ribbonPush) card.classList.add('has-new-ribbon');
     card.setAttribute('data-id', quizSet.id);
 
     let dateStr = 'N/A';
@@ -397,7 +403,7 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
         let menuHTML = '';
         if (!S.isSelectionMode) {
             menuHTML = `
-                <div class="relative flex-shrink-0">
+                <div class="relative flex-shrink-0 quiz-list-menu-wrap">
                     <button class="quiz-menu-btn w-8 h-8 flex items-center justify-center text-gray-400 hover:text-pink-500 hover:bg-pink-50 rounded-full focus:outline-none transition-colors" data-id="${quizSet.id}" title="Tùy chọn" aria-label="Tùy chọn bộ đề" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v text-xs"></i></button>
                     <div class="quiz-menu hidden absolute right-0 top-9 bg-white rounded-xl shadow-xl border border-gray-100 z-20 min-w-[175px] py-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
                         ${quizMenuInnerHTML}
@@ -407,6 +413,7 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
         }
 
         card.innerHTML = `
+            ${newRibbon}
             ${checkboxHTML}
             <span class="quiz-card-icon quiz-card-icon-sm flex-shrink-0" style="${accentStyle}" aria-hidden="true">
                 <i class="fas ${accent.icon}"></i>
@@ -419,7 +426,7 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
                         </a>
                     </h3>
                     <div class="flex flex-wrap gap-1.5 mt-1 items-center">
-                        ${newBadge}${offlineBadge}
+                        ${offlineBadge}
                         <span class="quiz-chip quiz-chip-count">
                             <i class="fas fa-circle-question"></i>${quizSet.questionCount} câu
                         </span>
@@ -450,7 +457,7 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
             `;
         } else {
             menuHTML = `
-                <div class="absolute top-4 right-4">
+                <div class="absolute top-4 ${ribbonPush ? 'right-8' : 'right-4'}">
                     <button class="quiz-menu-btn w-8 h-8 flex items-center justify-center text-gray-400 hover:text-pink-500 hover:bg-pink-50 rounded-full focus:outline-none transition-colors" data-id="${quizSet.id}" title="Tùy chọn" aria-label="Tùy chọn bộ đề" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v"></i></button>
                     <div class="quiz-menu hidden absolute right-0 top-9 bg-white rounded-xl shadow-xl border border-gray-100 z-20 min-w-[175px] py-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
                         ${quizMenuInnerHTML}
@@ -460,9 +467,10 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
         }
 
         card.innerHTML = `
+            ${newRibbon}
             ${checkboxHTML}
             <div class="flex-grow ${S.isSelectionMode ? 'pl-8' : ''}">
-                <div class="flex items-start gap-3 mb-3 pr-8">
+                <div class="flex items-start gap-3 mb-3 ${ribbonPush ? 'pr-16' : 'pr-8'}">
                     <span class="quiz-card-icon flex-shrink-0" style="${accentStyle}" aria-hidden="true">
                         <i class="fas ${accent.icon}"></i>
                     </span>
@@ -473,9 +481,9 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
                             </a>
                         </h3>
                         <div class="flex flex-wrap gap-1.5 mt-2">
-                            ${newBadge}${offlineBadge}
+                            ${offlineBadge}
                             <span class="quiz-chip quiz-chip-count">
-                                <i class="fas fa-circle-question"></i>${quizSet.questionCount} câu
+                                <i class="fas fa-list-ol"></i><span><b>${quizSet.questionCount}</b> câu</span>
                             </span>
                             ${attemptChip}
                             <span class="quiz-chip quiz-chip-date hidden sm:inline-flex">
@@ -547,15 +555,23 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
         window.location.href = `features/quiz/quiz.html?id=${quizSet.id}`;
     });
 
-    // Long Press detection
+    // Nhấn giữ để vào chế độ chọn nhiều. Thêm phản hồi thị giác (thẻ lún + vòng tiến trình 600ms)
+    // để cảm giác chủ đích, và dung sai di chuyển ~10px để rung tay/lướt nhẹ không huỷ oan.
     let longPressTimer = null;
     let isLongPressTriggered = false;
+    let pressStartX = 0, pressStartY = 0;
+    const MOVE_TOLERANCE = 10;
 
     const startPress = (e) => {
         if (S.isSelectionMode || e.target.closest('a') || e.target.closest('.quiz-menu-btn') || e.target.closest('.quiz-menu')) return;
+        const pt = e.touches ? e.touches[0] : e;
+        pressStartX = pt.clientX;
+        pressStartY = pt.clientY;
         isLongPressTriggered = false;
+        card.classList.add('is-holding');
         longPressTimer = setTimeout(() => {
             isLongPressTriggered = true;
+            card.classList.remove('is-holding');
             S.isSelectionMode = true;
             S.selectedQuizIds = [quizSet.id];
             if (navigator.vibrate) navigator.vibrate(50);
@@ -571,9 +587,20 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
     };
 
     const cancelPress = () => {
+        card.classList.remove('is-holding');
         if (longPressTimer) {
             clearTimeout(longPressTimer);
             longPressTimer = null;
+        }
+    };
+
+    // Chỉ huỷ khi ngón tay đi quá ngưỡng (thực sự cuộn/kéo), không huỷ vì rung tay vài px.
+    const onMove = (e) => {
+        if (!longPressTimer) return;
+        const pt = e.touches ? e.touches[0] : e;
+        if (Math.abs(pt.clientX - pressStartX) > MOVE_TOLERANCE ||
+            Math.abs(pt.clientY - pressStartY) > MOVE_TOLERANCE) {
+            cancelPress();
         }
     };
 
@@ -596,7 +623,8 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
     });
 
     card.addEventListener('mouseleave', cancelPress);
-    card.addEventListener('touchmove', cancelPress, { passive: true });
+    card.addEventListener('mousemove', onMove);
+    card.addEventListener('touchmove', onMove, { passive: true });
     card.addEventListener('touchcancel', cancelPress);
 
     // Gán listener phụ
@@ -630,6 +658,16 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
                 e.stopPropagation();
                 const quizId = this.getAttribute('data-id');
                 openShareQuizModal(quizId, quizSet.title);
+            });
+        }
+
+        const publicBtn = card.querySelector('.toggle-public-btn');
+        if (publicBtn) {
+            publicBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const qId = this.getAttribute('data-id');
+                const makePublic = this.getAttribute('data-public') !== 'true';
+                toggleQuizPublic(qId, makePublic);
             });
         }
 

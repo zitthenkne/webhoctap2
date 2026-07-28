@@ -25,6 +25,7 @@ type QuestionInput = {
   question: string;
   answers: string[];
   correct_answer_index: number;
+  correct_answer_indexes?: number[];
   option_explanations?: string[];
   explanation?: string;
   note?: string;
@@ -42,6 +43,9 @@ function toStoredQuestion(q: QuestionInput): Record<string, unknown> {
     answers: q.answers,
     correctAnswerIndex: q.correct_answer_index,
   };
+  if (q.correct_answer_indexes && q.correct_answer_indexes.length > 0) {
+    stored.correctAnswerIndexes = q.correct_answer_indexes;
+  }
   if (q.option_explanations) stored.optionExplanations = q.option_explanations;
   if (q.explanation) stored.explanation = q.explanation;
   if (q.note) stored.note = q.note;
@@ -74,7 +78,7 @@ export function registerWriteTools(server: McpServer): void {
 Args:
   - title (string, bắt buộc)
   - user_id (string, bắt buộc): UID chủ sở hữu
-  - questions (array, >=1): mỗi câu gồm { question, answers[>=2], correct_answer_index, option_explanations?, explanation? }
+  - questions (array, >=1): mỗi câu gồm { question, answers[>=2], correct_answer_index, correct_answer_indexes?(câu nhiều đáp án, ≥2), option_explanations?, explanation? }
     Ca lâm sàng (case chùm): để nhiều câu dùng chung một tình huống, đặt cùng case_id cho các câu đó và truyền case_text (nội dung ca) + case_title (tùy chọn) giống nhau ở các câu cùng nhóm. Các câu cùng case_id sẽ được nhóm liền nhau khi làm bài.
   - is_public (boolean, mặc định true)
   - folder_id (string | null, mặc định null)
@@ -160,7 +164,7 @@ Lỗi: "Không tìm thấy bộ đề" nếu quiz_id sai.`,
 
 Args:
   - quiz_id (string, bắt buộc)
-  - question (object): { question, answers[>=2], correct_answer_index, option_explanations?, explanation? }
+  - question (object): { question, answers[>=2], correct_answer_index, correct_answer_indexes?(câu nhiều đáp án, ≥2), option_explanations?, explanation? }
   - response_format ('markdown' | 'json')
 
 Returns (JSON): { success: true, id, questionCount }`,
