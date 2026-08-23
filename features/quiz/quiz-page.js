@@ -19,7 +19,7 @@ import { auth } from '../../core/firebase-init.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
 import { showConfirm } from '../../core/utils.js';
 import { setupQuestionEditor } from './quiz-editor.js';
-import { state, clearQuizState, saveQuizState } from './quiz-state.js';
+import { state, clearQuizState, saveQuizState, readQuizState } from './quiz-state.js';
 import { ensureMermaidInit } from './quiz-helpers.js';
 import { showSubmitQuizBtn } from './quiz-ui.js';
 
@@ -96,9 +96,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // đúng lúc người dùng chủ động bấm "Bắt đầu ngay" / "Ôn ngay".
     const getPendingSavedState = () => {
         try {
-            const savedState = JSON.parse(localStorage.getItem('quizState') || 'null');
-            const quizId = (new URLSearchParams(window.location.search)).get('id');
-            if (savedState && savedState.quizId === quizId && savedState.userAnswers
+            const savedState = readQuizState();
+            if (savedState && savedState.userAnswers
                 && savedState.userAnswers.length === savedState.questionsLength && !savedState.finished) {
                 return savedState;
             }
@@ -141,10 +140,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const startBtn = document.getElementById('start-now-btn');
         if (startBtn && !document.getElementById('resume-hint')) {
             const answered = pendingAtLoad.userAnswers.filter(a => a !== null).length;
-            const hint = document.createElement('p');
+            const total = pendingAtLoad.questionsLength || 0;
+            const percent = total ? Math.round(answered / total * 100) : 0;
+            const ago = formatTimeAgo(pendingAtLoad.savedAt);
+            // Bấm thẳng vào thẻ là vào tiếp đúng câu đang dở (không phải qua modal hỏi lại)
+            const hint = document.createElement('button');
+            hint.type = 'button';
             hint.id = 'resume-hint';
-            hint.className = 'text-xs font-semibold text-pink-500 flex items-center gap-1.5';
-            hint.innerHTML = `<i class="fas fa-circle-pause"></i> Đang làm dở ${answered}/${pendingAtLoad.questionsLength} câu — bấm Bắt đầu để làm tiếp`;
+            hint.className = 'resume-chip';
+            hint.innerHTML = `
+                <span class="resume-chip-icon"><i class="fas fa-play"></i></span>
+                <span class="resume-chip-body">
+                    <span class="resume-chip-title">Làm tiếp câu ${(pendingAtLoad.currentIndex || 0) + 1}/${total}</span>
+                    <span class="resume-chip-sub">Đã trả lời ${answered}/${total} câu${ago ? ' · ' + ago : ''}</span>
+                    <span class="resume-chip-bar"><i style="width:${percent}%"></i></span>
+                </span>
+                <i class="fas fa-chevron-right resume-chip-go"></i>`;
+            hint.addEventListener('click', () => restoreSavedSession(pendingAtLoad));
             startBtn.insertAdjacentElement('afterend', hint);
         }
     }

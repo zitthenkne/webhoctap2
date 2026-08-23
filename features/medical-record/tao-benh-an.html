@@ -156,6 +156,130 @@
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        /* ====== Ô máy tự tính (gói·năm, đơn vị cồn, PARA) ====== */
+        .calc-box, .para-box {
+            border: 1px dashed #f9a8d4; background: #fff5f9;
+            border-radius: 12px; padding: 10px 12px; margin-bottom: 8px;
+        }
+        .calc-title { font-size: 12px; font-weight: 700; color: #db2777; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+        .calc-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+        .calc-grid label { font-size: 11px; color: #6b7280; font-weight: 600; display: flex; flex-direction: column; gap: 3px; }
+        .calc-in, .para-in {
+            border: 1px solid #fbcfe8; border-radius: 8px; padding: 6px 8px; font-size: 14px;
+            background: #fff; width: 100%; min-height: 38px;
+        }
+        .calc-out {
+            margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+            font-size: 13px; font-weight: 700; color: #7c3aed;
+        }
+        .calc-out.is-warn { color: #dc2626; }
+        .para-box { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+        .para-label { font-weight: 800; color: #db2777; font-size: 13px; }
+        .para-in { width: 52px; text-align: center; font-weight: 700; }
+        .para-btn {
+            border: 0; background: #ec4899; color: #fff; border-radius: 9999px;
+            padding: 6px 12px; font-size: 12px; font-weight: 700; cursor: pointer;
+        }
+        .para-btn:hover { background: #db2777; }
+        .para-help { font-size: 11px; color: #9ca3af; flex-basis: 100%; }
+        /* Nhắc hỏi PARA khi bệnh nhân là nữ */
+        .ob-flag {
+            display: inline-flex; align-items: center; gap: 5px; margin-left: 6px;
+            background: #fdf2f8; color: #db2777; border: 1px solid #f9a8d4;
+            border-radius: 9999px; padding: 2px 10px; font-size: 11px; font-weight: 700;
+            animation: obPulse 1.6s ease-in-out infinite;
+        }
+        @keyframes obPulse { 0%, 100% { box-shadow: 0 0 0 0 #f9a8d4aa; } 50% { box-shadow: 0 0 0 5px #f9a8d400; } }
+        #obgyne-box.is-female { background: #fff5f9; border-left: 3px solid #ec4899; padding: 10px 12px; border-radius: 12px; }
+        #obgyne-box.is-male .para-box, #obgyne-box.is-male textarea { opacity: .55; }
+
+        /* ====== Phiếu cận lâm sàng ====== */
+        .cls-toolbar { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+        .cls-quick { display: flex; flex-wrap: wrap; gap: 6px; }
+        .cls-quick-b {
+            border: 1px solid #ddd6fe; background: #f5f3ff; color: #6d28d9;
+            border-radius: 9999px; padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer;
+        }
+        .cls-quick-b:hover { background: #ede9fe; }
+        .cls-pick { display: flex; gap: 8px; flex-wrap: wrap; }
+        .cls-select { flex: 1 1 200px; border: 1px solid #fbcfe8; border-radius: 10px; padding: 8px 10px; background: #fff; min-height: 44px; }
+        .cls-add {
+            border: 0; background: #ec4899; color: #fff; border-radius: 10px;
+            padding: 8px 16px; font-weight: 700; cursor: pointer; white-space: nowrap;
+        }
+        .cls-add:hover { background: #db2777; }
+
+        .cls-list { display: flex; flex-direction: column; gap: 14px; }
+        .cls-empty { text-align: center; color: #9ca3af; padding: 26px 10px; border: 2px dashed #fbcfe8; border-radius: 14px; }
+        .cls-empty i { font-size: 26px; color: #f9a8d4; margin-bottom: 8px; display: block; }
+        .cls-empty-sub { font-size: 12px; margin-top: 4px; }
+
+        .cls-c { border: 1px solid #fbcfe8; border-radius: 14px; padding: 12px; background: #fff; }
+        .cls-c.is-drop { border-color: #a78bfa; background: #f5f3ff; }
+        .cls-c-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+        .cls-c-ico { color: #ec4899; }
+        .cls-c-name { flex: 1 1 160px; border: 0; border-bottom: 1px solid #fbcfe8; font-weight: 700; padding: 4px 2px; background: transparent; min-height: 36px; }
+        .cls-c-dt { border: 1px solid #fbcfe8; border-radius: 8px; padding: 4px 6px; font-size: 12px; background: #fff; }
+        .cls-c-x, .cls-x, .cls-thumb-x { border: 0; background: transparent; color: #f472b6; cursor: pointer; padding: 4px 6px; }
+        .cls-c-x:hover, .cls-x:hover, .cls-thumb-x:hover { color: #dc2626; }
+
+        .cls-rows { display: flex; flex-direction: column; gap: 4px; }
+        .cls-row {
+            display: grid; grid-template-columns: minmax(90px, 1.4fr) minmax(64px, .9fr) minmax(56px, .8fr) auto 26px 28px;
+            gap: 6px; align-items: center;
+        }
+        .cls-row-h { font-size: 10px; color: #9ca3af; font-weight: 700; text-transform: uppercase; padding: 0 2px; }
+        .cls-in { border: 1px solid #fce7f3; border-radius: 8px; padding: 6px 8px; font-size: 13px; background: #fff; min-width: 0; min-height: 38px; }
+        .cls-in-val { font-weight: 700; text-align: center; }
+        .cls-in-val.is-auto { background: #f5f3ff; color: #6d28d9; }
+        .cls-ref { font-size: 11px; color: #9ca3af; white-space: nowrap; }
+        .cls-badge { font-weight: 800; text-align: center; font-size: 13px; }
+        .cls-auto-ico { color: #a78bfa; font-size: 10px; margin-left: 2px; }
+        .cls-row.is-high .cls-in-val { border-color: #fca5a5; background: #fef2f2; color: #dc2626; }
+        .cls-row.is-high .cls-badge { color: #dc2626; }
+        .cls-row.is-low .cls-in-val { border-color: #93c5fd; background: #eff6ff; color: #2563eb; }
+        .cls-row.is-low .cls-badge { color: #2563eb; }
+
+        .cls-c-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 6px; }
+        .cls-mini {
+            border: 1px solid #fbcfe8; background: #fdf2f8; color: #db2777; border-radius: 9999px;
+            padding: 5px 12px; font-size: 12px; font-weight: 600; cursor: pointer;
+        }
+        .cls-mini:hover { background: #fbcfe8; }
+        .cls-hint { font-size: 11px; color: #9ca3af; }
+        .cls-note { width: 100%; border: 1px solid #fce7f3; border-radius: 10px; padding: 8px 10px; font-size: 13px; background: #fff; }
+
+        .cls-thumbs { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+        .cls-thumb { width: 116px; position: relative; margin: 0; }
+        .cls-thumb-img {
+            width: 116px; height: 116px; object-fit: cover; border-radius: 10px;
+            border: 1px solid #fbcfe8; background: #fdf2f8; display: block;
+        }
+        .cls-thumb-load { display: flex; align-items: center; justify-content: center; color: #f472b6; }
+        .cls-cap { width: 116px; border: 1px solid #fce7f3; border-radius: 8px; padding: 4px 6px; font-size: 11px; margin-top: 4px; }
+        .cls-thumb-x {
+            position: absolute; top: 2px; right: 2px; background: #fff; border-radius: 9999px;
+            width: 26px; height: 26px; line-height: 1; box-shadow: 0 1px 4px #0002;
+        }
+        .cls-legacy { margin-top: 12px; }
+        .cls-legacy summary { cursor: pointer; font-size: 12px; color: #9ca3af; font-weight: 600; }
+
+        @media (max-width: 640px) {
+            .calc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .cls-row {
+                grid-template-columns: 1fr 84px 28px;
+                grid-template-areas: "name val x" "unit ref badge";
+                row-gap: 2px; padding-bottom: 6px; border-bottom: 1px dashed #fce7f3;
+            }
+            .cls-row-h { display: none; }
+            .cls-in-name { grid-area: name; }
+            .cls-in-val { grid-area: val; }
+            .cls-in-unit { grid-area: unit; font-size: 11px; min-height: 30px; }
+            .cls-ref { grid-area: ref; text-align: right; }
+            .cls-badge { grid-area: badge; }
+            .cls-x { grid-area: x; }
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-[#FCE4EC] via-[#FDF2F8] to-[#EDE9FE] min-h-screen flex flex-col items-center p-2 sm:p-6 md:py-10">
@@ -178,8 +302,9 @@
             <ul id="tab-nav">
                 <li><a class="tab-link active" data-tab="hanh-chinh"><span class="tab-top"><i class="fas fa-user"></i><span class="tab-progress is-empty">0%</span></span><span class="tab-text"><span class="hidden sm:inline">I. </span>Hành chính</span></a></li>
                 <li><a class="tab-link" data-tab="lydo-tiensu"><span class="tab-top"><i class="fas fa-notes-medical"></i><span class="tab-progress is-empty">0%</span></span><span class="tab-text"><span class="hidden sm:inline">II–IV. Lý do & </span>Tiền sử</span></a></li>
-                <li><a class="tab-link" data-tab="kham-benh"><span class="tab-top"><i class="fas fa-stethoscope"></i><span class="tab-progress is-empty">0%</span></span><span class="tab-text"><span class="hidden sm:inline">V, VIII–IX. </span>Khám<span class="hidden sm:inline"> &amp; CLS</span></span></a></li>
-                <li><a class="tab-link" data-tab="chan-doan-dieu-tri"><span class="tab-top"><i class="fas fa-diagnoses"></i><span class="tab-progress is-empty">0%</span></span><span class="tab-text">Chẩn đoán<span class="hidden sm:inline"> &amp; Điều trị</span></span></a></li>
+                <li><a class="tab-link" data-tab="kham-benh"><span class="tab-top"><i class="fas fa-stethoscope"></i><span class="tab-progress is-empty">0%</span></span><span class="tab-text"><span class="hidden sm:inline">V. </span>Khám bệnh</span></a></li>
+                <li><a class="tab-link" data-tab="can-lam-sang"><span class="tab-top"><i class="fas fa-vials"></i><span class="tab-progress is-empty">0%</span></span><span class="tab-text"><span class="hidden sm:inline">XI–XIII. </span>Cận lâm sàng</span></a></li>
+                <li><a class="tab-link" data-tab="chan-doan-dieu-tri"><span class="tab-top"><i class="fas fa-diagnoses"></i><span class="tab-progress is-empty">0%</span></span><span class="tab-text">Biện luận<span class="hidden sm:inline"> &amp; Điều trị</span></span></a></li>
             </ul>
         </div>
 
@@ -233,6 +358,7 @@
                             <div class="col-span-2 lg:col-span-1 tooltip">
                                 <label for="record-datetime" class="block font-semibold mb-1">Ngày giờ làm bệnh án</label>
                                 <input type="datetime-local" id="record-datetime" class="w-full border rounded-lg px-3 py-2">
+                                <span id="stay-tag" class="text-xs font-semibold mt-1 block text-purple-500"></span>
                                 <span class="tooltiptext">Tự động lấy thời gian hiện tại</span>
                             </div>
                         </div>
@@ -266,8 +392,17 @@
                             <label for="history-surgery" class="block font-semibold mb-1">Ngoại khoa</label>
                             <textarea id="history-surgery" rows="2" class="w-full border rounded-lg px-3 py-2" placeholder="Phẫu thuật, tai nạn, chấn thương..."></textarea>
                         </div>
-                        <div>
-                            <label for="history-obgyne" class="block font-semibold mb-1">Sản phụ khoa (nữ)</label>
+                        <div id="obgyne-box">
+                            <label for="history-obgyne" class="block font-semibold mb-1">Sản phụ khoa <span id="obgyne-flag" class="ob-flag hidden"><i class="fas fa-triangle-exclamation"></i> Bệnh nhân nữ — nhớ hỏi PARA</span></label>
+                            <div class="para-box" data-nocount>
+                                <span class="para-label">PARA</span>
+                                <input type="number" min="0" id="para-1" class="para-in" placeholder="0" title="Số lần sinh đủ tháng" aria-label="Số lần sinh đủ tháng">
+                                <input type="number" min="0" id="para-2" class="para-in" placeholder="0" title="Số lần sinh thiếu tháng" aria-label="Số lần sinh thiếu tháng">
+                                <input type="number" min="0" id="para-3" class="para-in" placeholder="0" title="Số lần sảy thai / phá thai" aria-label="Số lần sảy thai">
+                                <input type="number" min="0" id="para-4" class="para-in" placeholder="0" title="Số con hiện sống" aria-label="Số con hiện sống">
+                                <button type="button" id="para-apply" class="para-btn"><i class="fas fa-arrow-down"></i> Ghi vào tiền sử</button>
+                                <span class="para-help">đủ tháng · thiếu tháng · sảy · con sống</span>
+                            </div>
                             <textarea id="history-obgyne" rows="2" class="w-full border rounded-lg px-3 py-2" placeholder="Kinh nguyệt, PARA, bệnh phụ khoa..."></textarea>
                         </div>
                         <div>
@@ -276,6 +411,28 @@
                         </div>
                         <div>
                             <label for="history-habit" class="block font-semibold mb-1">Thói quen</label>
+                            <div class="calc-box" data-nocount>
+                                <div class="calc-title"><i class="fas fa-smoking"></i> Hút thuốc lá — tính gói·năm</div>
+                                <div class="calc-grid">
+                                    <label>Số điếu/ngày<input type="number" min="0" id="smoke-cpd" class="calc-in" placeholder="vd 20"></label>
+                                    <label>Hút từ tuổi<input type="number" min="0" id="smoke-from" class="calc-in" placeholder="vd 18"></label>
+                                    <label>Đến tuổi<input type="number" min="0" id="smoke-to" class="calc-in" placeholder="bỏ trống = còn hút"></label>
+                                </div>
+                                <div class="calc-out"><span id="smoke-out">Nhập số điếu/ngày và tuổi bắt đầu để tính</span>
+                                    <button type="button" id="smoke-apply" class="para-btn"><i class="fas fa-arrow-down"></i> Ghi vào tiền sử</button>
+                                </div>
+                            </div>
+                            <div class="calc-box" data-nocount>
+                                <div class="calc-title"><i class="fas fa-wine-glass"></i> Rượu bia — quy ra đơn vị cồn</div>
+                                <div class="calc-grid">
+                                    <label>Lượng/ngày (ml)<input type="number" min="0" id="alc-ml" class="calc-in" placeholder="vd 500"></label>
+                                    <label>Độ cồn (%)<input type="number" min="0" step="0.1" id="alc-abv" class="calc-in" placeholder="vd 5"></label>
+                                    <label>Uống bao nhiêu năm<input type="number" min="0" id="alc-years" class="calc-in" placeholder="vd 10"></label>
+                                </div>
+                                <div class="calc-out"><span id="alc-out">Nhập lượng và độ cồn để quy đổi</span>
+                                    <button type="button" id="alc-apply" class="para-btn"><i class="fas fa-arrow-down"></i> Ghi vào tiền sử</button>
+                                </div>
+                            </div>
                             <textarea id="history-habit" rows="2" class="w-full border rounded-lg px-3 py-2" placeholder="Hút thuốc, rượu bia, chất gây nghiện..."></textarea>
                         </div>
                         <div>
@@ -295,12 +452,13 @@
                     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-2">
                         <div><label class="block font-semibold mb-1">Mạch (l/p)</label><input type="number" id="vital-pulse" class="w-full border rounded-lg p-2" placeholder="Nhập mạch"></div>
                         <div><label class="block font-semibold mb-1">Nhiệt độ (°C)</label><input type="number" step="0.1" id="vital-temp" class="w-full border rounded-lg p-2" placeholder="Nhập nhiệt độ"></div>
-                        <div><label class="block font-semibold mb-1">Huyết áp (mmHg)</label><input type="text" id="vital-bp" class="w-full border rounded-lg p-2" placeholder="120/80"></div>
+                        <div><label class="block font-semibold mb-1">Huyết áp (mmHg)</label><input type="text" id="vital-bp" class="w-full border rounded-lg p-2" placeholder="120/80"><span id="bp-tag" class="text-xs font-semibold mt-1 block"></span></div>
                         <div><label class="block font-semibold mb-1">Nhịp thở (l/p)</label><input type="number" id="vital-resp" class="w-full border rounded-lg p-2" placeholder="Nhập nhịp thở"></div>
                         <div><label class="block font-semibold mb-1">SpO2 (%)</label><input type="number" id="vital-spo2" class="w-full border rounded-lg p-2" placeholder="Nhập SpO2"></div>
                         <div><label class="block font-semibold mb-1">Chiều cao (cm)</label><input type="number" id="vital-height" class="w-full border rounded-lg p-2" placeholder="Nhập chiều cao"></div>
                         <div><label class="block font-semibold mb-1">Cân nặng (kg)</label><input type="number" id="vital-weight" class="w-full border rounded-lg p-2" placeholder="Nhập cân nặng"></div>
                         <div><label class="block font-semibold mb-1">BMI (kg/m²)</label><input type="text" id="vital-bmi" class="w-full bg-gray-100 border rounded-lg p-2" readonly><span id="bmi-tag" class="text-xs font-semibold mt-1 block"></span></div>
+                        <div><label class="block font-semibold mb-1">BSA (m²)</label><input type="text" id="vital-bsa" class="w-full bg-gray-100 border rounded-lg p-2" readonly placeholder="Tự tính"><span class="text-xs text-gray-400 mt-1 block">Du Bois · từ cao &amp; nặng</span></div>
                     </div>
                     <div class="flex flex-col gap-4 mt-4">
                         <div><label class="block font-semibold mb-1">Toàn thân</label><textarea id="exam-general" rows="3" class="w-full border rounded-lg p-2" placeholder="Mô tả khám toàn thân"></textarea></div>
@@ -327,10 +485,33 @@
                         </fieldset>
                     </div>
                 </fieldset>
-                <div class="mt-4"><label for="labs-proposed" class="block font-semibold mb-1 text-pink-500">VIII. CẬN LÂM SÀNG ĐỀ NGHỊ</label><textarea id="labs-proposed" rows="4" class="w-full border rounded-lg px-3 py-2" placeholder="Ghi rõ các CLS cần làm"></textarea></div>
-                <div class="mt-4"><label for="labs-results" class="block font-semibold mb-1 text-pink-500">IX. KẾT QUẢ CẬN LÂM SÀNG ĐÃ CÓ</label><textarea id="labs-results" rows="4" class="w-full border rounded-lg px-3 py-2" placeholder="Ghi rõ kết quả CLS đã có"></textarea></div>
             </div>
-            
+
+            <div id="can-lam-sang" class="tab-content">
+                <fieldset class="border-2 border-pink-200 p-4 rounded-lg shadow-sm mb-6">
+                    <legend class="text-lg font-semibold text-pink-500 px-2 flex items-center gap-2"><i class="fas fa-clipboard-list"></i> XI. CẬN LÂM SÀNG ĐỀ NGHỊ</legend>
+                    <label for="labs-proposed" class="block font-semibold mb-1">Danh sách đề nghị</label>
+                    <textarea id="labs-proposed" rows="3" class="w-full border rounded-lg px-3 py-2" placeholder="Ghi rõ các CLS cần làm"></textarea>
+                    <label for="labs-rationale" class="block font-semibold mb-1 mt-4">Biện luận đề nghị cận lâm sàng</label>
+                    <textarea id="labs-rationale" rows="3" class="w-full border rounded-lg px-3 py-2" placeholder="Vì sao đề nghị từng xét nghiệm: chẩn đoán xác định, chẩn đoán phân biệt, đánh giá biến chứng, theo dõi điều trị..."></textarea>
+                </fieldset>
+
+                <fieldset class="border-2 border-pink-200 p-4 rounded-lg shadow-sm mb-6">
+                    <legend class="text-lg font-semibold text-pink-500 px-2 flex items-center gap-2"><i class="fas fa-microscope"></i> XII. KẾT QUẢ CẬN LÂM SÀNG</legend>
+                    <div id="cls-toolbar" class="cls-toolbar" data-nocount></div>
+                    <div id="cls-list" class="cls-list" data-nocount></div>
+                    <details class="cls-legacy">
+                        <summary>Ghi thêm kết quả dạng chữ (không theo phiếu)</summary>
+                        <textarea id="labs-results" rows="3" class="w-full border rounded-lg px-3 py-2 mt-2" placeholder="Dán kết quả dạng chữ, hoặc ghi các kết quả không có trong phiếu mẫu"></textarea>
+                    </details>
+                </fieldset>
+
+                <div>
+                    <label for="labs-interpretation" class="block font-semibold mb-1 text-pink-500">XIII. BIỆN LUẬN KẾT QUẢ CẬN LÂM SÀNG</label>
+                    <textarea id="labs-interpretation" rows="4" class="w-full border rounded-lg px-3 py-2" placeholder="Kết quả nào ủng hộ / loại trừ chẩn đoán nào, mức độ nặng, biến chứng..."></textarea>
+                </div>
+            </div>
+
             <div id="chan-doan-dieu-tri" class="tab-content">
                 <div class="flex flex-col gap-4">
                     <div class="flex items-center gap-2">
@@ -338,11 +519,29 @@
                         <button type="button" id="auto-summary-btn" class="ml-2 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"><i class="fas fa-magic"></i> Tự động tóm tắt</button>
                     </div>
                     <textarea id="summary" rows="4" class="w-full border rounded-lg p-2" placeholder="Tóm tắt tự động hoặc nhập tay"></textarea>
-                    <div><label class="block font-semibold mb-1 text-pink-500">VII. CHẨN ĐOÁN SƠ BỘ</label><textarea id="provisional-diagnosis" rows="2" class="w-full border rounded-lg p-2" placeholder="Nhập chẩn đoán sơ bộ"></textarea></div>
-                    <div><label class="block font-semibold mb-1 text-pink-500">X. CHẨN ĐOÁN XÁC ĐỊNH</label><textarea id="final-diagnosis" rows="2" class="w-full border rounded-lg p-2" placeholder="Nhập chẩn đoán xác định"></textarea></div>
-                    <div><label class="block font-semibold mb-1 text-pink-500">XI. HƯỚNG ĐIỀU TRỊ</label><textarea id="treatment-plan" rows="4" class="w-full border rounded-lg p-2" placeholder="Nhập hướng điều trị"></textarea></div>
-                    <div><label class="block font-semibold mb-1 text-pink-500">XII. TIÊN LƯỢNG</label><textarea id="prognosis" rows="2" class="w-full border rounded-lg p-2" placeholder="Nhập tiên lượng"></textarea></div>
-                    <div><label class="block font-semibold mb-1 text-pink-500">XIII. DỰ PHÒNG</label><textarea id="prevention" rows="2" class="w-full border rounded-lg p-2" placeholder="Nhập dự phòng"></textarea></div>
+
+                    <div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <label class="block font-semibold mb-1 text-pink-500" for="problem-list">VII. ĐẶT VẤN ĐỀ</label>
+                            <button type="button" id="auto-problem-btn" class="mb-1 px-3 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 text-sm"><i class="fas fa-list-check"></i> Gợi ý từ dữ liệu đã nhập</button>
+                        </div>
+                        <textarea id="problem-list" rows="4" class="w-full border rounded-lg p-2" placeholder="Liệt kê các vấn đề / hội chứng, mỗi dòng một vấn đề. Ví dụ:&#10;1. Hội chứng nhiễm trùng&#10;2. Hội chứng đông đặc phổi phải&#10;3. Tăng huyết áp"></textarea>
+                    </div>
+
+                    <div><label class="block font-semibold mb-1 text-pink-500" for="provisional-diagnosis">VIII. CHẨN ĐOÁN SƠ BỘ</label><textarea id="provisional-diagnosis" rows="2" class="w-full border rounded-lg p-2" placeholder="Bệnh chính – Bệnh kèm – Biến chứng"></textarea></div>
+
+                    <div><label class="block font-semibold mb-1 text-pink-500" for="differential-diagnosis">IX. CHẨN ĐOÁN PHÂN BIỆT</label><textarea id="differential-diagnosis" rows="3" class="w-full border rounded-lg p-2" placeholder="Mỗi dòng một chẩn đoán cần phân biệt, kèm lý do nghĩ tới"></textarea></div>
+
+                    <div><label class="block font-semibold mb-1 text-pink-500" for="diagnosis-reasoning">X. BIỆN LUẬN CHẨN ĐOÁN</label><textarea id="diagnosis-reasoning" rows="6" class="w-full border rounded-lg p-2" placeholder="Nghĩ nhiều tới… vì (triệu chứng cơ năng, thực thể, tiền sử, yếu tố nguy cơ) ủng hộ…&#10;Ít nghĩ tới… vì…&#10;Chưa loại trừ… nên đề nghị…"></textarea></div>
+
+                    <div><label class="block font-semibold mb-1 text-pink-500" for="final-diagnosis">XIV. CHẨN ĐOÁN XÁC ĐỊNH</label><textarea id="final-diagnosis" rows="2" class="w-full border rounded-lg p-2" placeholder="Bệnh chính – Bệnh kèm – Biến chứng (sau khi có cận lâm sàng)"></textarea></div>
+
+                    <div><label class="block font-semibold mb-1 text-pink-500" for="treatment-plan">XV. HƯỚNG ĐIỀU TRỊ</label><textarea id="treatment-plan" rows="3" class="w-full border rounded-lg p-2" placeholder="Nguyên tắc điều trị"></textarea></div>
+
+                    <div><label class="block font-semibold mb-1 text-pink-500" for="treatment-detail">XV.b. ĐIỀU TRỊ CỤ THỂ</label><textarea id="treatment-detail" rows="4" class="w-full border rounded-lg p-2" placeholder="Thuốc – hàm lượng – liều – đường dùng – thời điểm. Ví dụ: Ceftriaxone 1g 1 lọ x 2 (TMC) 8h – 20h"></textarea></div>
+
+                    <div><label class="block font-semibold mb-1 text-pink-500" for="prognosis">XVI. TIÊN LƯỢNG</label><textarea id="prognosis" rows="2" class="w-full border rounded-lg p-2" placeholder="Tiên lượng gần / tiên lượng xa, kèm lý do"></textarea></div>
+                    <div><label class="block font-semibold mb-1 text-pink-500" for="prevention">XVII. DỰ PHÒNG</label><textarea id="prevention" rows="2" class="w-full border rounded-lg p-2" placeholder="Dự phòng cấp 1 / cấp 2, giáo dục sức khỏe"></textarea></div>
                 </div>
             </div>
 

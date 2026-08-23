@@ -7,7 +7,7 @@ import { showToast, showConfirm } from '../../../core/utils.js';
 import { openQuestionEditor } from '../quiz-editor.js';
 import { state, saveQuizState } from '../quiz-state.js';
 import { renderMath, triggerConfetti, parseMarkdown, stripOptionLabels, isMultiAnswer, getCorrectIndexes, isAnswerCorrect } from '../quiz-helpers.js';
-import { updateProgressBar, renderQuizProgressBar } from '../quiz-ui.js';
+import { updateProgressBar, renderQuizProgressBar, syncQuizNavPanel } from '../quiz-ui.js';
 import { feedback, getVibrate, scrollQuizToTop } from './quiz-page-prefs.js';
 import { hideCatMeme, preloadCurrentMemes, showCatMeme } from './quiz-cat-meme.js';
 import { renderMarkControl, setupMarkControl, refreshMarkedPanel, applyMark } from './quiz-marks.js';
@@ -385,7 +385,7 @@ export function showQuestion() {
     }
 
     quizSection.innerHTML = `
-    <div class="bg-white rounded-2xl shadow-lg p-6 fade-in">
+    <div class="bg-white rounded-2xl shadow-lg p-6 quiz-card">
         <div class="flex justify-between items-start gap-3 mb-4">
             <div class="min-w-0 flex-1">
                 ${setNameSafe ? `<div class="quiz-setname focus-hide" title="${setNameSafe}"><i class="fas fa-book-open"></i><span class="quiz-setname-text">${setNameSafe}</span></div>` : ''}
@@ -476,7 +476,13 @@ export function showQuestion() {
     // Màn hẹp / chế độ tập trung sẽ tự xếp lại 1 cột (xem quiz-enhance.css).
     const navPanel = document.getElementById('quiz-nav-panel');
     if (navPanel) {
-        navPanel.innerHTML = renderQuizProgressBar();
+        if (navPanel.querySelectorAll('.quiz-nav-btn').length !== state.questions.length) {
+            navPanel.innerHTML = renderQuizProgressBar();
+        }
+        syncQuizNavPanel();
+        // Gắn ở ĐÂY (trước các return sớm bên dưới) để bảng số câu luôn bấm được,
+        // kể cả khi xem lại câu đã trả lời ở chế độ không hiện đáp án ngay.
+        setupNavPanelJump();
         navPanel.classList.remove('hidden');
     }
     const notePanel = document.getElementById('quiz-note-panel');
@@ -680,17 +686,26 @@ export function showQuestion() {
         document.getElementById('prevBtn').addEventListener('click', showPreviousQuestion);
     }
     setupMarkControl();
-    document.querySelectorAll('.quiz-nav-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const idx = parseInt(e.target.getAttribute('data-qidx'));
-            if (!isNaN(idx)) {
-                state.currentIndex = idx;
-                showQuestion();
-            }
-        });
-    });
     // #9: áp dụng ghi chú trực quan cho mọi vùng (đề, đáp án, giải thích, mở rộng, ghi chú)
     applyAnnotationsAll();
+}
+
+// Gắn MỘT lần cho cả bảng: bấm ô số nào thì nhảy tới câu đó (kể cả bấm trúng chấm đánh dấu).
+let _navJumpWired = false;
+function setupNavPanelJump() {
+    if (_navJumpWired) return;
+    const panel = document.getElementById('quiz-nav-panel');
+    if (!panel) return;
+    panel.addEventListener('click', (e) => {
+        const btn = e.target.closest('.quiz-nav-btn');
+        if (!btn) return;
+        const idx = parseInt(btn.dataset.qidx, 10);
+        if (!isNaN(idx) && idx !== state.currentIndex) {
+            state.currentIndex = idx;
+            showQuestion();
+        }
+    });
+    _navJumpWired = true;
 }
 
 export function showPreviousQuestion() {

@@ -5,9 +5,9 @@
 
 import { auth, db } from '../../core/firebase-init.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js';
-import {
-    collection, query, where, getDocs, doc, setDoc, deleteDoc
-} from 'https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js';
+import { collection, query, where, getDocs, doc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+// Ghi không treo khi mất mạng (xem core/offline-write.js)
+import { setDocQ as setDoc, deleteDocQ as deleteDoc } from "../../core/offline-write.js";
 
 const KEY = 'medicalRecords';
 const COL = 'medical_records';

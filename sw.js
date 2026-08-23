@@ -1,5 +1,5 @@
 // Service Worker for PWA - Offline Support & Caching
-const CACHE_NAME = 'zitthenkne-v28';
+const CACHE_NAME = 'zitthenkne-v31';
 
 // App shell (cùng origin) — nạp sẵn khi cài để mở offline được ngay.
 const urlsToCache = [
@@ -49,6 +49,7 @@ const urlsToCache = [
   'features/flashcard/flashcard.js',
   'core/firebase-init.js',
   'core/utils.js',
+  'core/offline-write.js',
   'core/achievements.js',
   'core/file-parser.js',
   'core/quiz-autofix.js',
@@ -68,10 +69,31 @@ const urlsToCache = [
   'features/medical-record/tao-benh-an.html',
   'features/medical-record/tao-benh-an.js',
   'features/medical-record/record-store.js',
+  'features/medical-record/cls-shared.js',
+  'features/medical-record/cls-editor.js',
   'features/study-room/waiting-room.html',
   'features/study-room/waiting-room.js',
   'features/medical-record/xem-benh-an.html',
   'features/medical-record/xem-benh-an.js',
+  'features/quiz/quiz-history.html',
+  'features/quiz/quiz-history.js',
+  'features/quiz/quiz-library-menu.js',
+  'features/quiz/library/library-attempts.js',
+  'features/quiz/trash.html',
+  'features/quiz/trash.js',
+  'features/quiz/quiz-ceramic.html',
+  'features/quiz/quiz-ceramic.js',
+  'features/quiz/quiz-ceramic.css',
+  'features/checklist/checklist-run.html',
+  'features/checklist/checklist-run.js',
+  'features/link-vault/link-vault.html',
+  'features/profile/stats-service.js',
+  'features/profile/stats-insights.js',
+  'features/study-room/whiteboard.js',
+  'core/dashboard-ui.js',
+  'core/libs/mermaid.min.js',
+  'index-user-avatar.js',
+  'bg-random.js',
   'offline.html',
   'pwa-install.js',
   'manifest.json',
@@ -172,9 +194,16 @@ async function cacheFirst(request) {
 // rơi về offline.html cho điều hướng trang.
 async function staleWhileRevalidate(request) {
   const cache = await caches.open(CACHE_NAME);
-  const cached = await cache.match(request);
+  // Điều hướng thường kèm query (quiz.html?id=...): cache chỉ có bản không query,
+  // nên phải bỏ qua query khi dò, không thì offline sẽ rơi oan vào offline.html.
+  const cached = await cache.match(request) ||
+    (request.mode === 'navigate' ? await cache.match(request, { ignoreSearch: true }) : undefined);
   const network = fetch(request).then((res) => {
-    if (res && res.status === 200 && res.type === 'basic') cache.put(request, res.clone());
+    if (res && res.status === 200 && res.type === 'basic') {
+      // Lưu theo URL đã bỏ query để mỗi id không đẻ ra một bản HTML riêng trong cache.
+      const key = request.mode === 'navigate' ? new Request(new URL(request.url).origin + new URL(request.url).pathname) : request;
+      cache.put(key, res.clone());
+    }
     return res;
   }).catch(() => undefined);
 

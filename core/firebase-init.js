@@ -2,7 +2,12 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
-import { getFirestore, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import {
+    initializeFirestore,
+    enableMultiTabIndexedDbPersistence,
+    enableIndexedDbPersistence,
+    CACHE_SIZE_UNLIMITED
+} from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { getStorage } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-storage.js";
 
 const firebaseConfig = {
@@ -17,10 +22,14 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+// cacheSizeBytes không giới hạn: mặc định 40MB sẽ tự dọn (LRU) bộ đề cũ khỏi cache
+// offline. Học liệu là text nên để nguyên, mất mạng vẫn còn đủ dữ liệu cũ.
+export const db = initializeFirestore(app, { cacheSizeBytes: CACHE_SIZE_UNLIMITED });
 export const storage = getStorage(app);
 
 // Bật cache offline (IndexedDB): dữ liệu đã đọc vẫn xem được khi mất mạng,
-// thao tác ghi được xếp hàng và tự đồng bộ khi có mạng lại. Lỗi (nhiều tab mở /
-// trình duyệt không hỗ trợ) chỉ tắt tính năng, không ảnh hưởng phần còn lại.
-enableIndexedDbPersistence(db).catch(() => {});
+// thao tác ghi được xếp hàng và tự đồng bộ khi có mạng lại.
+// Bản đa-tab (multi-tab) để mở nhiều tab/cửa sổ vẫn còn offline — bản 1 tab sẽ
+// TẮT hẳn cache ở các tab sau. Trình duyệt quá cũ mới rơi về bản 1 tab.
+enableMultiTabIndexedDbPersistence(db)
+    .catch(() => enableIndexedDbPersistence(db).catch(() => {}));

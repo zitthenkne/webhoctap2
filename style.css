@@ -930,6 +930,11 @@ body {
 .bulk-btn-danger:hover { color: #fff; background: #ef4444; }
 .bulk-btn-quiet { flex: 0 0 auto; color: #64748b; background: transparent; }
 .bulk-btn-quiet:hover { background: #f1f5f9; color: #334155; }
+/* Điện thoại: 3 nút một hàng là chật, cho phép xuống hàng và thu chữ lại */
+@media (max-width: 520px) {
+    .bulk-btn { flex: 1 1 8rem; font-size: 0.78rem; padding: 0 0.7rem; }
+    .bulk-btn-quiet { flex: 0 0 auto; }
+}
 
 /* Chip lọc nhanh */
 .library-filter-chip {
@@ -1580,10 +1585,10 @@ body {
 }
 /* Lần mở gần nhất: hàng riêng bên dưới số liệu, LUÔN chiếm chỗ (kể cả khi rỗng)
    → mọi thẻ thư mục cao bằng nhau, tên thư mục trong cả dải thẳng hàng. */
+/* display:block chứ KHÔNG phải flex — text-overflow:ellipsis không có tác dụng với
+   chữ nằm trong flex container, chữ sẽ bị cắt cụt giữa từ thay vì hiện dấu "…". */
 .folder-meta-time {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
+    display: block;
     min-height: 0.9rem;
     margin-top: 0.3rem;
     font-size: 0.62rem;
@@ -1593,12 +1598,8 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.folder-meta-time i { font-size: 0.58rem; opacity: 0.7; }
-/* Thẻ thư mục trên điện thoại chỉ rộng 210px: bỏ chip "số câu" (thông tin phụ) để
-   "N bộ đề" hiện trọn vẹn, thay vì cắt cụt còn mỗi cái icon. */
-@media (max-width: 640px) {
-    .folder-meta-row .folder-meta-chip { display: none; }
-}
+.folder-meta-time i { font-size: 0.58rem; opacity: 0.7; margin-right: 0.25rem; }
+
 
 /* ===== Đang kéo một bộ đề: chỉ rõ có thể thả vào đâu =====
    Không có tín hiệu này thì người dùng kéo xong không biết thả chỗ nào cho trúng. */

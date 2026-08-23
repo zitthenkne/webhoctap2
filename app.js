@@ -835,7 +835,8 @@ function setupEventListeners() {
     // Thùng rác giờ là trang riêng (features/quiz/trash.html) — nút "#open-trash-btn" là thẻ <a> điều hướng trực tiếp
     
     const refreshStatsBtn = document.getElementById('refresh-stats-btn');
-    if (refreshStatsBtn) refreshStatsBtn.addEventListener('click', loadAndDisplayStats);
+    // Nút tải lại: xóa cache lượt làm bài rồi kéo lại toàn bộ lịch sử từ Firestore
+    if (refreshStatsBtn) refreshStatsBtn.addEventListener('click', () => loadAndDisplayStats(true));
 
     // Danh sách "Bộ đề đã đánh dấu & ghi chú" chỉ tải khi người dùng bấm (không tự tải để trang nhẹ hơn)
     const loadMarkedQuizzesBtn = document.getElementById('load-marked-quizzes-btn');

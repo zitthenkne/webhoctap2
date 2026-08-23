@@ -1,6 +1,8 @@
 // tao-benh-an.js — Trang viết bệnh án
 import { showToast } from '../../core/utils.js';
 import { getRecord, saveRecord, syncFromCloud, authReady } from './record-store.js';
+import { initCls, getCls, setCls } from './cls-editor.js';
+import { abnormalItems, flagOf } from './cls-shared.js';
 
 /* =====================================================================
    1. BẢN ĐỒ TRƯỜNG: dùng chung cho cả nạp và lưu, khỏi viết 2 lần
@@ -29,6 +31,17 @@ const FIELDS = {
     'tienSu.diUng': 'history-allergy',
     'tienSu.thoiQuen': 'history-habit',
     'tienSu.giaDinh': 'history-family',
+    // Ô phụ để máy tự tính — lưu lại để mở bệnh án cũ vẫn còn số đã nhập
+    'tienSu.para.duThang': 'para-1',
+    'tienSu.para.thieuThang': 'para-2',
+    'tienSu.para.say': 'para-3',
+    'tienSu.para.conSong': 'para-4',
+    'tienSu.thuocLa.dieuMoiNgay': 'smoke-cpd',
+    'tienSu.thuocLa.tuTuoi': 'smoke-from',
+    'tienSu.thuocLa.denTuoi': 'smoke-to',
+    'tienSu.ruou.mlMoiNgay': 'alc-ml',
+    'tienSu.ruou.doCon': 'alc-abv',
+    'tienSu.ruou.soNam': 'alc-years',
     'khamBenh.sinhTon.mach': 'vital-pulse',
     'khamBenh.sinhTon.nhietDo': 'vital-temp',
     'khamBenh.sinhTon.huyetAp': 'vital-bp',
@@ -37,6 +50,7 @@ const FIELDS = {
     'khamBenh.sinhTon.chieuCao': 'vital-height',
     'khamBenh.sinhTon.canNang': 'vital-weight',
     'khamBenh.sinhTon.bmi': 'vital-bmi',
+    'khamBenh.sinhTon.bsa': 'vital-bsa',
     'khamBenh.toanThan': 'exam-general',
     'khamBenh.theTrang': 'exam-physical',
     'khamBenh.daNiemMac': 'exam-skin-mucosa',
@@ -53,11 +67,17 @@ const FIELDS = {
     'khamBenh.dental': 'exam-dental',
     'khamBenh.eye': 'exam-eye',
     'tomTatBenhAn': 'summary',
+    'datVanDe': 'problem-list',
     'chanDoanSoBo': 'provisional-diagnosis',
+    'chanDoanPhanBiet': 'differential-diagnosis',
+    'bienLuanChanDoan': 'diagnosis-reasoning',
     'canLamSangDeNghi': 'labs-proposed',
+    'bienLuanDeNghiCLS': 'labs-rationale',
     'ketQuaCanLamSang': 'labs-results',
+    'bienLuanKetQuaCLS': 'labs-interpretation',
     'chanDoanXacDinh': 'final-diagnosis',
     'huongDieuTri': 'treatment-plan',
+    'dieuTriCuThe': 'treatment-detail',
     'tienLuong': 'prognosis',
     'duPhong': 'prevention'
 };
@@ -86,6 +106,7 @@ function collectRecord() {
     for (const [path, id] of Object.entries(FIELDS)) {
         setPath(rec, path, $(id)?.value ?? '');
     }
+    rec.canLamSang = getCls();
     return rec;
 }
 
@@ -101,6 +122,7 @@ function fillForm(rec) {
         if (el.type === 'date') v = toDateInput(v);
         el.value = v;
     }
+    setCls(rec.canLamSang);
 }
 
 /* =====================================================================
@@ -212,7 +234,7 @@ makeCollapsible(document.querySelector('#lydo-tiensu fieldset'), false);
 /** Đếm ô đã điền trong một vùng (bỏ ô ẩn, ô chỉ đọc, ô có sẵn giá trị mặc định) */
 function countFilled(root) {
     const els = [...root.querySelectorAll('input:not([type=hidden]):not([readonly]), textarea, select')]
-        .filter(el => !el.closest('.sticky-actions'));
+        .filter(el => !el.closest('.sticky-actions') && !el.closest('[data-nocount]'));
     return { total: els.length, filled: els.filter(el => String(el.value || '').trim()).length };
 }
 
@@ -283,12 +305,19 @@ function scheduleSave() {
 /* =====================================================================
    4. TÍNH TOÁN TỰ ĐỘNG
    ===================================================================== */
+const THIS_YEAR = new Date().getFullYear();
+
+/* Năm sinh <-> tuổi: điền ô nào máy cũng suy ra ô còn lại */
 function calcAge() {
     const raw = $('patient-yob').value.trim();
     if (!raw) { $('patient-age').value = ''; return; }
     const yob = parseInt(raw);
-    const year = new Date().getFullYear();
-    if (yob > 1900 && yob <= year) $('patient-age').value = year - yob;
+    if (yob > 1900 && yob <= THIS_YEAR) $('patient-age').value = THIS_YEAR - yob;
+}
+function calcYob() {
+    const age = parseInt($('patient-age').value.trim());
+    if (!isNaN(age) && age >= 0 && age <= 120) $('patient-yob').value = THIS_YEAR - age;
+    else if (!$('patient-age').value.trim()) $('patient-yob').value = '';
 }
 
 const BMI_TAGS = [
@@ -298,7 +327,8 @@ const BMI_TAGS = [
     [Infinity, 'Béo phì', 'text-red-500']
 ];
 function calcBmi() {
-    const h = parseFloat($('vital-height').value) / 100;
+    const cm = parseFloat($('vital-height').value);
+    const h = cm / 100;
     const w = parseFloat($('vital-weight').value);
     const tag = $('bmi-tag');
     if (h > 0 && w > 0) {
@@ -306,10 +336,113 @@ function calcBmi() {
         $('vital-bmi').value = bmi.toFixed(1);
         const hit = BMI_TAGS.find(([max]) => bmi < max);
         if (tag) { tag.textContent = hit[1]; tag.className = 'text-xs font-semibold mt-1 block ' + hit[2]; }
+        // Diện tích da theo Du Bois — dùng để tính liều thuốc, chỉ số tim
+        $('vital-bsa').value = (0.007184 * Math.pow(cm, 0.725) * Math.pow(w, 0.425)).toFixed(2);
     } else {
         $('vital-bmi').value = '';
+        $('vital-bsa').value = '';
         if (tag) tag.textContent = '';
     }
+}
+
+/* Huyết áp: máy tự tính huyết áp trung bình, hiệu áp và phân độ THA */
+const BP_STAGES = [
+    [90, 60, 'Tụt huyết áp', 'text-red-500'],
+    [120, 80, 'Tối ưu', 'text-green-600'],
+    [130, 85, 'Bình thường', 'text-green-600'],
+    [140, 90, 'Bình thường cao', 'text-amber-500'],
+    [160, 100, 'Tăng huyết áp độ 1', 'text-orange-500'],
+    [180, 110, 'Tăng huyết áp độ 2', 'text-red-500'],
+    [Infinity, Infinity, 'Tăng huyết áp độ 3', 'text-red-600']
+];
+function calcBp() {
+    const tag = $('bp-tag');
+    if (!tag) return;
+    const m = String($('vital-bp').value).match(/(\d{2,3})\s*[\/\-]\s*(\d{2,3})/);
+    if (!m) { tag.textContent = ''; return; }
+    const sys = +m[1], dia = +m[2];
+    const map = Math.round((sys + 2 * dia) / 3);
+    let stage = BP_STAGES.at(-1);
+    if (sys < 90 || dia < 60) stage = BP_STAGES[0];
+    else stage = BP_STAGES.find(([s, d]) => sys < s && dia < d) || BP_STAGES.at(-1);
+    tag.textContent = `HATB ${map} mmHg · Hiệu áp ${sys - dia} · ${stage[2]}`;
+    tag.className = 'text-xs font-semibold mt-1 block ' + stage[3];
+}
+
+/* Ngày điều trị thứ mấy = ngày làm bệnh án - ngày vào viện + 1 */
+function calcStay() {
+    const tag = $('stay-tag');
+    if (!tag) return;
+    const from = $('admission-date').value;
+    const to = String($('record-datetime').value).slice(0, 10);
+    if (!from || !to) { tag.textContent = ''; return; }
+    const days = Math.round((new Date(to) - new Date(from)) / 86400000);
+    tag.textContent = isNaN(days) || days < 0 ? '' : `Ngày điều trị thứ ${days + 1}`;
+}
+
+/* Hút thuốc lá: gói·năm = (số điếu/ngày ÷ 20) × số năm hút */
+function calcSmoke() {
+    const out = $('smoke-out');
+    if (!out) return null;
+    const cpd = parseFloat($('smoke-cpd').value);
+    const from = parseFloat($('smoke-from').value);
+    const ageNow = parseFloat($('patient-age').value) || (THIS_YEAR - parseFloat($('patient-yob').value));
+    const toRaw = $('smoke-to').value.trim();
+    const to = toRaw ? parseFloat(toRaw) : ageNow;
+    if (!(cpd > 0) || !(from >= 0) || !(to > from)) {
+        out.textContent = 'Nhập số điếu/ngày và tuổi bắt đầu để tính';
+        out.parentElement.classList.remove('is-warn');
+        return null;
+    }
+    const years = to - from;
+    const py = (cpd / 20) * years;
+    const text = `${cpd} điếu/ngày × ${years} năm = ${py.toFixed(1)} gói·năm`
+        + (toRaw ? ` (đã ngưng lúc ${to} tuổi)` : ' (còn đang hút)');
+    out.textContent = text + (py >= 20 ? ' — nguy cơ cao (≥20 gói·năm)' : '');
+    out.parentElement.classList.toggle('is-warn', py >= 20);
+    return { py, years, cpd, from, to, stopped: !!toRaw };
+}
+
+/* Rượu bia: g cồn/ngày = ml × %ABV × 0,789; 1 đơn vị cồn = 10 g */
+function calcAlcohol() {
+    const out = $('alc-out');
+    if (!out) return null;
+    const ml = parseFloat($('alc-ml').value);
+    const abv = parseFloat($('alc-abv').value);
+    const years = parseFloat($('alc-years').value);
+    if (!(ml > 0) || !(abv > 0)) {
+        out.textContent = 'Nhập lượng và độ cồn để quy đổi';
+        out.parentElement.classList.remove('is-warn');
+        return null;
+    }
+    const grams = ml * (abv / 100) * 0.789;
+    const units = grams / 10;
+    const male = $('patient-gender').value !== 'Nữ';
+    const risky = units > (male ? 2 : 1);
+    out.textContent = `${grams.toFixed(0)} g cồn/ngày ≈ ${units.toFixed(1)} đơn vị cồn/ngày`
+        + (years > 0 ? ` × ${years} năm` : '') + (risky ? ' — vượt ngưỡng khuyến cáo' : '');
+    out.parentElement.classList.toggle('is-warn', risky);
+    return { grams, units, years };
+}
+
+/** Thêm một dòng vào ô nhiều dòng, thay dòng cũ cùng chủ đề nếu có */
+function upsertLine(id, prefixRe, line) {
+    const el = $(id);
+    if (!el) return;
+    const kept = el.value.split('\n').filter(l => l.trim() && !prefixRe.test(l.trim()));
+    el.value = [...kept, line].join('\n');
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    autoGrow(el);
+}
+
+/* Bệnh nhân nữ: làm nổi phần sản phụ khoa để không quên hỏi PARA */
+function syncGenderUi() {
+    const female = $('patient-gender').value === 'Nữ';
+    const box = $('obgyne-box');
+    if (!box) return;
+    box.classList.toggle('is-female', female);
+    box.classList.toggle('is-male', !female);
+    $('obgyne-flag')?.classList.toggle('hidden', !female);
 }
 
 // Cảnh báo sinh hiệu bất thường (viền cam, không chặn nhập)
@@ -451,7 +584,84 @@ function buildSummary() {
         out += '\n\nTiền sử:';
         history.forEach(([k, val]) => { out += `\n- ${k}: ${val}`; });
     }
+
+    const abn = abnormalItems(getCls());
+    if (abn.length) {
+        out += '\n\nCận lâm sàng bất thường: ' + abn
+            .map(i => `${i.n} ${i.v}${i.u ? ' ' + i.u : ''} ${i.flag === 'high' ? '↑' : '↓'}`).join(', ') + '.';
+    }
     return out.trim();
+}
+
+/* =====================================================================
+   6b. ĐẶT VẤN ĐỀ TỰ ĐỘNG — gom bất thường thành danh sách vấn đề
+   ===================================================================== */
+const CLS_PROBLEM = [
+    ['HGB', 'low', 'Thiếu máu'],
+    ['HCT', 'low', 'Thiếu máu'],
+    ['WBC', 'high', 'Tăng bạch cầu'],
+    ['WBC', 'low', 'Giảm bạch cầu'],
+    ['NEU', 'high', 'Tăng bạch cầu đa nhân trung tính'],
+    ['PLT', 'low', 'Giảm tiểu cầu'],
+    ['CRP', 'high', 'Hội chứng viêm (CRP tăng)'],
+    ['eGFR', 'low', 'Giảm độ lọc cầu thận'],
+    ['Creatinine', 'high', 'Tăng creatinine máu'],
+    ['Ure', 'high', 'Tăng ure máu'],
+    ['K+', 'high', 'Tăng kali máu'],
+    ['K+', 'low', 'Hạ kali máu'],
+    ['Na+', 'high', 'Tăng natri máu'],
+    ['Na+', 'low', 'Hạ natri máu'],
+    ['Glucose', 'high', 'Tăng đường huyết'],
+    ['Glucose', 'low', 'Hạ đường huyết'],
+    ['HbA1c', 'high', 'HbA1c tăng'],
+    ['AST', 'high', 'Tăng men gan'],
+    ['ALT', 'high', 'Tăng men gan'],
+    ['Bilirubin toàn phần', 'high', 'Tăng bilirubin máu'],
+    ['Albumin', 'low', 'Giảm albumin máu'],
+    ['Troponin T hs', 'high', 'Tăng troponin'],
+    ['NT-proBNP', 'high', 'NT-proBNP tăng'],
+    ['LDL-C', 'high', 'Rối loạn lipid máu'],
+    ['Triglyceride', 'high', 'Rối loạn lipid máu'],
+    ['INR', 'high', 'Rối loạn đông máu'],
+    ['pH', 'low', 'Toan máu'],
+    ['pH', 'high', 'Kiềm máu'],
+    ['PaO2', 'low', 'Giảm oxy máu'],
+    ['Lactate', 'high', 'Tăng lactate máu']
+];
+
+function buildProblems() {
+    const v = (id) => ($(id)?.value || '').trim();
+    const items = [];
+    const add = (t) => { if (t && !items.includes(t)) items.push(t); };
+
+    if (v('reason-for-admission')) add(v('reason-for-admission').replace(/\.$/, ''));
+
+    // Sinh hiệu
+    const num = (id) => parseFloat(v(id));
+    if (num('vital-temp') > 37.5) add('Sốt');
+    if (num('vital-temp') < 36) add('Hạ thân nhiệt');
+    if (num('vital-pulse') > 100) add('Nhịp tim nhanh');
+    if (num('vital-pulse') < 60) add('Nhịp tim chậm');
+    if (num('vital-resp') > 20) add('Thở nhanh');
+    if (num('vital-spo2') < 95) add('Giảm SpO2');
+    const bp = v('vital-bp').match(/(\d{2,3})\s*[\/\-]\s*(\d{2,3})/);
+    if (bp && (+bp[1] >= 140 || +bp[2] >= 90)) add('Tăng huyết áp');
+    if (bp && (+bp[1] < 90 || +bp[2] < 60)) add('Tụt huyết áp');
+    const bmi = parseFloat(v('vital-bmi'));
+    if (bmi >= 25) add('Thừa cân – béo phì');
+    if (bmi && bmi < 18.5) add('Suy dinh dưỡng / gầy');
+
+    // Cận lâm sàng
+    abnormalItems(getCls()).forEach(i => {
+        const hit = CLS_PROBLEM.find(([n, f]) => n.toLowerCase() === i.n.toLowerCase() && f === i.flag);
+        add(hit ? hit[2] : `${i.n} ${i.flag === 'high' ? 'tăng' : 'giảm'} (${i.v}${i.u ? ' ' + i.u : ''})`);
+    });
+
+    // Bệnh nền đã biết
+    v('history-internal').split(/[\n,;]/).map(s => s.trim())
+        .filter(s => s && !/^chưa ghi nhận/i.test(s)).forEach(add);
+
+    return items.map((t, i) => `${i + 1}. ${t}`).join('\n');
 }
 
 /* =====================================================================

@@ -13,7 +13,7 @@ import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-f
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
 import { showToast, showConfirm } from '../../core/utils.js';
 import { parseMarkdown, parseInlineMarkdown, renderMath } from '../quiz/quiz-helpers.js';
-import { getOfflineQuiz } from '../quiz/quiz-offline-store.js';
+import { getOfflineQuiz, autoCacheQuiz } from '../quiz/quiz-offline-store.js';
 import { studyKeys, syncPullStudy, scheduleCloudPush } from '../quiz/quiz-study-store.js';
 
 const params = new URLSearchParams(window.location.search);
@@ -159,7 +159,7 @@ async function loadData() {
         if (!navigator.onLine) data = await getOfflineQuiz(quizId);
         if (!data) {
             const snap = await getDoc(doc(db, 'quiz_sets', quizId));
-            if (snap.exists()) data = snap.data();
+            if (snap.exists()) { data = snap.data(); autoCacheQuiz(quizId, data); }
         }
         if (!data) data = await getOfflineQuiz(quizId); // dự phòng: server không có nhưng máy đã tải
     } catch (e) {

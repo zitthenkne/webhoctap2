@@ -149,11 +149,14 @@ export function createFolderCard(folder) {
         `<button type="button" class="folder-color-dot ${s.key === colorVal ? 'is-active' : ''}" data-color="${s.key}" style="background:${s.hex}" title="${s.label}" aria-label="${s.label}"></button>`
     ).join('');
 
-    // Dòng thông tin phụ. Số liệu (bộ đề · câu) nằm chung một hàng KHÔNG xuống dòng;
-    // lần mở gần nhất tách xuống hàng riêng và LUÔN render (rỗng thì vẫn giữ chỗ) —
-    // nhờ vậy mọi thẻ thư mục cao bằng nhau, cả dải nhìn thẳng hàng.
-    const totalQHTML = `<span class="folder-meta-chip"><i class="fas fa-circle-question text-[9px] opacity-70"></i>${totalQuestions} câu</span>`;
-    const lastOpenedHTML = `<p class="folder-meta-time">${lastOpenedText ? `<i class="fas fa-clock"></i>${lastOpenedText}` : ''}</p>`;
+    // Dòng thông tin phụ.
+    // Hàng 1: CHỈ huy hiệu "N bộ đề" — trước đây nhét thêm chip "N câu" cạnh nó, ở bề ngang
+    // tầm 768–1100px là chip thứ hai bị cắt cụt giữa chữ ("840", "512 c") vì hàng không
+    // được xuống dòng. Số câu chuyển xuống hàng 2 dạng chữ thường, chật thì cắt có "…".
+    // Hàng 2 LUÔN render (kể cả rỗng) để mọi thẻ thư mục cao bằng nhau, cả dải thẳng hàng.
+    const subParts = [`${totalQuestions} câu`];
+    if (lastOpenedText) subParts.push(lastOpenedText);
+    const lastOpenedHTML = `<p class="folder-meta-time"><i class="fas fa-clock"></i>${subParts.join(' · ')}</p>`;
 
     // Xem nhanh khi hover: liệt kê tối đa 5 bộ đề trong thư mục
     const previewItems = folderQuizzes.slice(0, 5)
@@ -174,7 +177,6 @@ export function createFolderCard(folder) {
                 <h4 class="font-bold text-gray-800 text-sm truncate" title="${folder.name}">${folder.name}</h4>
                 <div class="folder-meta-row">
                     <span class="folder-count-badge"><i class="fas fa-file-alt text-[9px] opacity-70"></i>${count} bộ đề</span>
-                    ${totalQHTML}
                 </div>
                 ${lastOpenedHTML}
             </div>

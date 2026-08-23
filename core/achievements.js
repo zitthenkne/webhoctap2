@@ -1,5 +1,7 @@
 // File: achievements.js
-import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+// Ghi không treo khi mất mạng (xem core/offline-write.js)
+import { setDocQ as setDoc } from "./offline-write.js";
 import { db } from './firebase-init.js';
 import { showToast } from './utils.js';
 

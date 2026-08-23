@@ -19,58 +19,75 @@ export function updateProgressBar() {
     }
 }
 
+// Ô số câu dùng CHUNG bộ lớp trạng thái với bảng nhảy câu mobile (.qjs-cell):
+// is-current / is-correct / is-wrong / is-answered / (không lớp = chưa làm).
+function navStateClass(i) {
+    const ans = state.userAnswers[i];
+    const answered = ans !== null && ans !== undefined;
+    if (i === state.currentIndex) return answered ? 'is-current is-done' : 'is-current';
+    if (!answered) return '';
+    if (!state.quizOptions.showAnswerImmediately) return 'is-answered';
+    return isAnswerCorrect(state.questions[i], ans) ? 'is-correct' : 'is-wrong';
+}
+function navMarkKey(i) {
+    return state.markedQuestions.includes(i)
+        ? ((state.markedReasons && state.markedReasons[i]) || 'review')
+        : '';
+}
+function navMarkHtml(rk) {
+    if (!rk) return '';
+    const mc = (MARK_REASONS[rk] && MARK_REASONS[rk].color) || '#eab308';
+    return `<span class="quiz-nav-flag" style="background:${mc}"></span>`;
+}
+function navCellHtml(i, rk) {
+    return `<span class="quiz-nav-num">${i + 1}</span>${navMarkHtml(rk)}`;
+}
+
+// Dựng lại toàn bộ bảng — chỉ gọi khi SỐ câu thay đổi (vào phiên mới).
 export function renderQuizProgressBar() {
-    const answeredCount = state.userAnswers.filter(a => a !== null).length;
     const total = state.questions.length;
-    const percent = total > 0 ? Math.round((answeredCount / total) * 100) : 0;
     let navHtml = '';
     for (let i = 0; i < total; i++) {
-        const isAnswered = state.userAnswers[i] !== null;
-        const isMarked = state.markedQuestions.includes(i);
-        
-        let btnClass = '';
-        let markerHtml = '';
-        
-        if (isMarked) {
-            const rk = (state.markedReasons && state.markedReasons[i]) || 'review';
-            const mc = (MARK_REASONS[rk] && MARK_REASONS[rk].color) || '#eab308';
-            markerHtml = `<span class="absolute -top-1 -right-1 flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style="background:${mc}"></span><span class="relative inline-flex rounded-full h-3 w-3" style="background:${mc}"></span></span>`;
-        }
-
-        if (i === state.currentIndex) {
-            btnClass = 'bg-[#FF69B4] text-white shadow-md ring-2 ring-pink-300 transform scale-110 z-10';
-        } else if (isAnswered) {
-            if (state.quizOptions.showAnswerImmediately) {
-                const isCorrect = isAnswerCorrect(state.questions[i], state.userAnswers[i]);
-                if (isCorrect) {
-                    btnClass = 'bg-green-500 text-white border border-green-600 shadow-sm';
-                } else {
-                    btnClass = 'bg-red-500 text-white border border-red-600 shadow-sm';
-                }
-            } else {
-                btnClass = 'bg-blue-400 text-white shadow-sm';
-            }
-        } else {
-            btnClass = 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200';
-        }
-        
-        navHtml += `
-            <button type="button" class="quiz-nav-btn relative rounded-full w-8 h-8 text-sm font-bold focus:outline-none transition-all ${btnClass}" data-qidx="${i}" title="Câu ${i+1}${isMarked ? ' (Đánh dấu)' : ''}">
-                ${i+1}
-                ${markerHtml}
-            </button>
-        `;
+        const rk = navMarkKey(i);
+        navHtml += `<button type="button" class="quiz-nav-btn ${navStateClass(i)}" data-qidx="${i}" data-mark="${rk}" title="Câu ${i + 1}${rk ? ' (Đánh dấu)' : ''}">${navCellHtml(i, rk)}</button>`;
     }
     return `
         <div class="quiz-panel-drag focus-hide" data-panel="nav" role="separator" aria-label="Kéo để xích bảng số câu lên/xuống" title="Kéo để xích bảng lên/xuống • bấm đúp để trả về"><i class="fas fa-grip-lines"></i></div>
         <div class="mb-4">
             <div class="flex justify-between items-center text-xs text-gray-600 mb-2 px-1 focus-hide">
-                <span class="font-medium">Đã trả lời: ${answeredCount}/${total} (${percent}%)</span>
-                <span class="font-medium">Còn lại: ${total - answeredCount}</span>
+                <span class="font-medium" id="quiz-nav-answered"></span>
+                <span class="font-medium" id="quiz-nav-left"></span>
             </div>
             <div id="question-nav-wrapper" class="quiz-nav-grid mt-3 bg-gray-50/50 rounded-xl border border-gray-100 focus-hide">${navHtml}</div>
         </div>
     `;
+}
+
+// Cập nhật TẠI CHỖ: giữ nguyên DOM nên transition CSS mới chạy được (ô cũ mờ đi, ô mới
+// phồng lên) và không phải dựng lại hàng trăm nút mỗi lần chuyển câu.
+export function syncQuizNavPanel() {
+    const wrap = document.getElementById('question-nav-wrapper');
+    if (!wrap) return;
+    const total = state.questions.length;
+    const answered = state.userAnswers.filter(a => a !== null && a !== undefined).length;
+    const percent = total > 0 ? Math.round((answered / total) * 100) : 0;
+    const answeredEl = document.getElementById('quiz-nav-answered');
+    const leftEl = document.getElementById('quiz-nav-left');
+    if (answeredEl) answeredEl.textContent = `Đã trả lời: ${answered}/${total} (${percent}%)`;
+    if (leftEl) leftEl.textContent = `Còn lại: ${total - answered}`;
+    wrap.querySelectorAll('.quiz-nav-btn').forEach(btn => {
+        const i = parseInt(btn.dataset.qidx, 10);
+        if (isNaN(i)) return;
+        const cls = `quiz-nav-btn ${navStateClass(i)}`.trim();
+        if (btn.className !== cls) btn.className = cls;
+        // Chỉ vẽ lại phần trong khi ĐÁNH DẤU đổi -> chấm nhấp nháy không bị khởi động lại
+        const rk = navMarkKey(i);
+        if (btn.dataset.mark !== rk) {
+            btn.dataset.mark = rk;
+            btn.innerHTML = navCellHtml(i, rk);
+            btn.title = `Câu ${i + 1}${rk ? ' (Đánh dấu)' : ''}`;
+        }
+    });
 }
 
 export function renderPreviewQuestions() {

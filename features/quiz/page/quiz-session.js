@@ -7,8 +7,8 @@ import { db } from '../../../core/firebase-init.js';
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { showToast } from '../../../core/utils.js';
 import { applyLocalQuestionEdits } from '../quiz-editor.js';
-import { getOfflineQuiz, refreshOfflineQuizIfSaved } from '../quiz-offline-store.js';
-import { state, saveQuizState, clearQuizState, saveQuizResult } from '../quiz-state.js';
+import { getOfflineQuiz, autoCacheQuiz } from '../quiz-offline-store.js';
+import { state, saveQuizState, clearQuizState, saveQuizResult, markQuizStateFinished } from '../quiz-state.js';
 import { shuffleArray, shuffleQuestionOptions, isAnswerCorrect } from '../quiz-helpers.js';
 import { showSubmitQuizBtn, loadQuizDetails, showResults, toggleFocusMode } from '../quiz-ui.js';
 import { getVibrate } from './quiz-page-prefs.js';
@@ -86,8 +86,8 @@ export async function loadQuizData() {
             applyLocalQuestionEdits();
             state.originalQuestions = state.quizData.questions;
             loadQuizDetails();
-            // Nếu bộ đề này đã được tải về máy, cập nhật lại bản offline để giữ dữ liệu mới nhất.
-            refreshOfflineQuizIfSaved(quizId, docSnap.data());
+            // Lưu luôn bộ đề vừa mở xuống máy: lần sau mất mạng vẫn làm được ngay.
+            autoCacheQuiz(quizId, docSnap.data());
             // Kéo ghi chú / đánh dấu / bôi vàng đã sao lưu trên cloud về máy này.
             // Hợp nhất vào localStorage trước khi người dùng bắt đầu làm bài.
             pullStudyFromCloud(quizId);
@@ -139,6 +139,11 @@ export function startQuizMode(questionsArray, mode = 'normal', restoreState = nu
         state.confidence = restoreState.confidence || {};
         state.questionTimes = restoreState.questionTimes || new Array(state.questions.length).fill(0);
         state.quizStartTime = restoreState.quizStartTime ? new Date(restoreState.quizStartTime) : new Date();
+        // Khôi phục cả trợ giúp 50:50, chuỗi đúng và lựa chọn tạm của câu nhiều đáp án
+        // -> quay lại đúng hiện trạng, không "hoàn lại" 50:50 đã dùng.
+        state.used5050Questions = restoreState.used5050Questions || {};
+        state.multiSelections = restoreState.multiSelections || {};
+        state.streak = restoreState.streak || 0;
     } else {
         state.currentIndex = 0;
         state.userAnswers = new Array(state.questions.length).fill(null);
@@ -215,14 +220,7 @@ export function endQuiz() {
         if (isAnswerCorrect(state.questions[i], state.userAnswers[i])) state.score++;
     }
 
-    try {
-        const savedStateStr = localStorage.getItem('quizState');
-        if (savedStateStr) {
-            const savedState = JSON.parse(savedStateStr);
-            savedState.finished = true;
-            localStorage.setItem('quizState', JSON.stringify(savedState));
-        }
-    } catch (e) {}
+    markQuizStateFinished();
 
     let totalTime = 0;
     if (state.quizStartTime) {

@@ -3,9 +3,10 @@
 // và liệt kê các bộ đề người dùng đã đánh dấu / ghi chú (tải theo yêu cầu).
 
 import { auth, db } from '../../core/firebase-init.js';
-import { collection, query, where, getDocs, orderBy, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { collection, query, where, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { showToast, showConfirm } from '../../core/utils.js';
 import { achievements } from '../../core/achievements.js';
+import { readRowsCache, syncRows, clearRowsCache, renderInsights, renderInsightsSkeleton } from './stats-insights.js';
 
 
 /**
@@ -587,31 +588,40 @@ function formatStudyTime(totalSeconds) {
     return minutes ? `${hours}g ${minutes}p` : `${hours}g`;
 }
 
+/** Điền 4 thẻ tổng quan + các khối trực quan từ danh sách lượt làm bài. */
+function paintStats(rows) {
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    set('stat-unique-quizzes', new Set(rows.map(r => r.q).filter(Boolean)).size);
+    set('stat-total-attempts', rows.length);
+    set('stat-total-questions', rows.reduce((s, r) => s + (Number(r.t) || 0), 0).toLocaleString('vi-VN'));
+    set('stat-total-time', formatStudyTime(rows.reduce((s, r) => s + (Number(r.d) || 0), 0)));
+    renderInsights(rows);
+}
+
 /**
- * Tải và hiển thị toàn bộ trang thống kê (hoạt động ôn tập & thành tựu) của người dùng
+ * Tải và hiển thị toàn bộ trang thống kê (hoạt động ôn tập & thành tựu) của người dùng.
+ *
+ * Vẽ NGAY từ cache localStorage rồi mới đồng bộ phần mới từ Firestore — mở tab
+ * là thấy số liệu, không phải chờ mạng. Xem features/profile/stats-insights.js.
+ * @param {boolean} force true = xóa cache, kéo lại toàn bộ lịch sử (nút "Tải lại")
  */
-export async function loadAndDisplayStats() {
+export async function loadAndDisplayStats(force = false) {
     const user = auth.currentUser;
     const achievementsContainer = document.getElementById('achievements-container');
-
-    // Reset các thẻ Stats Cards (tập trung vào hoạt động ôn tập)
-    const uniqueQuizzesEl = document.getElementById('stat-unique-quizzes');
-    const totalAttemptsEl = document.getElementById('stat-total-attempts');
-    const totalQuestionsEl = document.getElementById('stat-total-questions');
-    const totalTimeEl = document.getElementById('stat-total-time');
-
-    if (uniqueQuizzesEl) uniqueQuizzesEl.textContent = '0';
-    if (totalAttemptsEl) totalAttemptsEl.textContent = '0';
-    if (totalQuestionsEl) totalQuestionsEl.textContent = '0';
-    if (totalTimeEl) totalTimeEl.textContent = '0p';
 
     // Reset giao diện thành tựu
     if (achievementsContainer) achievementsContainer.innerHTML = '';
 
     if (!user) {
+        paintStats([]);
         if (achievementsContainer) achievementsContainer.innerHTML = '<p class="text-gray-500 col-span-full text-center py-6">Vui lòng đăng nhập để xem thành tựu.</p>';
         return;
     }
+
+    if (force === true) clearRowsCache();
+    const cached = readRowsCache();
+    if (cached.rows.length) paintStats(cached.rows);
+    else renderInsightsSkeleton();
 
     try {
         // 1. Tải và hiển thị thành tựu
@@ -656,30 +666,14 @@ export async function loadAndDisplayStats() {
             });
         }
         
-        // 2. Tải lịch sử làm bài để tính các chỉ số tổng quan (thẻ Stats Cards)
-        const resultsQuery = query(collection(db, "quiz_results"), where("userId", "==", user.uid), orderBy("completedAt", "asc"));
-        const resultsSnapshot = await getDocs(resultsQuery);
-        const results = resultsSnapshot.docs.map(docSnap => docSnap.data());
-
-        if (results.length > 0) {
-            const totalAttempts = results.length;
-            const uniqueQuizzes = new Set(results.map(r => r.quizId).filter(Boolean)).size;
-            let totalQuestions = 0;
-            let totalSeconds = 0;
-
-            results.forEach(result => {
-                totalQuestions += Number(result.totalQuestions) || 0;
-                totalSeconds += Number(result.timeTaken) || 0;
-            });
-
-            if (uniqueQuizzesEl) uniqueQuizzesEl.textContent = uniqueQuizzes;
-            if (totalAttemptsEl) totalAttemptsEl.textContent = totalAttempts;
-            if (totalQuestionsEl) totalQuestionsEl.textContent = totalQuestions.toLocaleString('vi-VN');
-            if (totalTimeEl) totalTimeEl.textContent = formatStudyTime(totalSeconds);
-        }
+        // 2. Đồng bộ TĂNG DẦN lịch sử làm bài rồi vẽ lại (cache đã vẽ ở trên)
+        const { rows, changed } = await syncRows();
+        if (changed || !cached.rows.length) paintStats(rows);
     } catch (e) {
         console.error("Lỗi tải trang thống kê: ", e);
         if (achievementsContainer) achievementsContainer.innerHTML = '<p class="text-red-500 col-span-full py-6">Lỗi tải thành tựu.</p>';
+        // Không có cache để vẽ thì gỡ skeleton kẻo nó nhấp nháy mãi
+        if (!cached.rows.length) paintStats([]);
     }
 }
 

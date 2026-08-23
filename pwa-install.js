@@ -223,3 +223,37 @@ window.addEventListener('DOMContentLoaded', () => {
     showPwaInstallPrompts(); // nút sẽ mở hướng dẫn "Thêm vào MH chính"
   }
 });
+
+// --- Bộ nhớ bền: iOS/Safari và Android xoá dữ liệu web khi máy thiếu chỗ hoặc app
+// lâu không mở. Xin "persistent storage" để bài đã tải offline không bị bốc hơi.
+// Trình duyệt tự quyết định, gọi 1 lần là đủ; không hỗ trợ thì bỏ qua.
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persisted()
+    .then((granted) => granted || navigator.storage.persist())
+    .catch(() => {});
+}
+
+// --- Báo trạng thái mạng: mất mạng vẫn dùng được nhưng phải cho người dùng biết
+// dữ liệu đang lưu trên máy và sẽ tự đồng bộ khi có mạng lại.
+(function netStatusBanner() {
+  let el = null;
+  const show = (text, tone) => {
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'net-status-banner';
+      el.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));z-index:9999;padding:8px 16px;border-radius:999px;font:600 13px/1.4 system-ui,sans-serif;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.2);transition:opacity .3s;pointer-events:none';
+      document.body.appendChild(el);
+    }
+    el.textContent = text;
+    el.style.background = tone === 'ok' ? '#16a34a' : '#64748b';
+    el.style.opacity = '1';
+  };
+  const hide = () => { if (el) el.style.opacity = '0'; };
+
+  const onOffline = () => show('Ngoại tuyến — thay đổi lưu trên máy, sẽ tự đồng bộ khi có mạng.');
+  const onOnline = () => { show('Đã có mạng — đang đồng bộ lên đám mây.', 'ok'); setTimeout(hide, 2500); };
+
+  window.addEventListener('offline', onOffline);
+  window.addEventListener('online', onOnline);
+  window.addEventListener('DOMContentLoaded', () => { if (!navigator.onLine) onOffline(); });
+})();

@@ -11,7 +11,9 @@
 // quiz-page.js cung cấp hàm render lại (showQuestion) qua setupQuestionEditor().
 
 import { db, auth } from '../../core/firebase-init.js';
-import { doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { doc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+// Ghi không treo khi mất mạng (xem core/offline-write.js)
+import { updateDocQ as updateDoc } from "../../core/offline-write.js";
 import { showToast } from '../../core/utils.js';
 import { state, saveQuizState } from './quiz-state.js';
 import { tagCaseSequence } from './page/quiz-cases.js';

@@ -66,11 +66,12 @@ export function getOfflineIdsSync() {
  * Lưu một bộ đề để làm offline. `data` là toàn bộ dữ liệu doc quiz_sets (kèm `questions`).
  * Trả về Promise.
  */
-export async function saveOfflineQuiz(id, data) {
+export async function saveOfflineQuiz(id, data, { auto = false } = {}) {
     const record = {
         ...data,
         id,
         _offlineSavedAt: Date.now(),
+        _auto: auto,   // true = tự lưu khi mở bài (có thể bị dọn), false = người dùng tải tay
     };
     await new Promise((resolve, reject) => {
         txStore('readwrite').then((store) => {
@@ -112,13 +113,27 @@ export async function deleteOfflineQuiz(id) {
     writeIds(readIds().filter((x) => x !== id));
 }
 
+// Số bộ đề TỰ lưu giữ lại (bộ người dùng tải tay không tính, không bị dọn).
+const AUTO_LIMIT = 40;
+
 /**
- * Cập nhật lại bản offline NẾU bộ đề này đang được lưu offline (giữ dữ liệu mới nhất).
- * Không làm gì nếu bộ đề chưa được tải offline. An toàn để gọi mỗi lần mở bài online.
+ * Gọi mỗi lần mở bài khi ONLINE: lưu luôn bộ đề xuống máy để lần sau mất mạng vẫn
+ * làm được mà không phải bấm tải. Bộ đã tải tay thì chỉ cập nhật, giữ nguyên nhãn.
  */
-export async function refreshOfflineQuizIfSaved(id, data) {
-    if (!isOfflineSavedSync(id)) return;
-    try { await saveOfflineQuiz(id, data); } catch (e) { /* bỏ qua */ }
+export async function autoCacheQuiz(id, data) {
+    try {
+        const existing = await getOfflineQuiz(id);
+        const auto = existing ? !!existing._auto : true;
+        await saveOfflineQuiz(id, data, { auto });
+        await pruneAutoCached();
+    } catch (e) { /* hết dung lượng / lỗi IDB: bỏ qua, không chặn làm bài */ }
+}
+
+/** Dọn bớt các bộ TỰ lưu cũ nhất khi vượt AUTO_LIMIT. */
+async function pruneAutoCached() {
+    const all = await listOfflineQuizzes();
+    const autos = all.filter((q) => q._auto).sort((a, b) => (b._offlineSavedAt || 0) - (a._offlineSavedAt || 0));
+    for (const q of autos.slice(AUTO_LIMIT)) await deleteOfflineQuiz(q.id);
 }
 
 /** Danh sách metadata các bộ đề đã tải offline (để màn hình quản lý nếu cần). */
