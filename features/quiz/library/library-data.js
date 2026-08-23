@@ -16,6 +16,7 @@ import { purgeExpiredTrash, sortUserFolders, loadPinnedQuizIds } from './library
 import { renderLibrary, renderLibrarySkeleton, renderBreadcrumb, rerenderCurrentView } from './library-render.js';
 import { loadAttemptCache, syncAttemptsFromServer } from './library-attempts.js';
 import { invalidateQuestionIndex } from './library-search.js';
+import { fetchAllQuizMeta, readMetaCache, writeMetaCache, readFoldersCache, writeFoldersCache, clearMetaCache } from './library-meta.js';
 
 /**
  * Lưu bộ đề và chuyển sang màn hình làm quiz
@@ -173,7 +174,17 @@ export async function loadAndDisplayLibrary(page = 1) {
     // Đây là một lần nạp lại thật sự (lần đầu hoặc sau khi dữ liệu đổi) → chỉ mục câu hỏi có thể đã cũ
     invalidateQuestionIndex();
 
-    if (page === 1) {
+    // Vẽ NGAY từ cache cục bộ nếu có: mở thư viện là thấy nội dung, không phải nhìn khung chờ
+    // chờ hết một vòng gọi mạng. Dữ liệu tươi từ server về sau sẽ vẽ đè.
+    const cachedQuizzes = readMetaCache(user.uid);
+    const paintedFromCache = !!(cachedQuizzes && cachedQuizzes.length);
+    if (paintedFromCache) {
+        S.userFolders = readFoldersCache(user.uid) || [];
+        sortUserFolders();
+        applyQuizMeta(cachedQuizzes, false);
+        renderBreadcrumb();
+        renderLibrary(S.userQuizSets, page);
+    } else if (page === 1) {
         renderLibrarySkeleton(quizListContainer);
     }
 
@@ -184,8 +195,11 @@ export async function loadAndDisplayLibrary(page = 1) {
         purgeExpiredTrash(allFolders, "quiz_folders"); // dọn thư mục quá hạn 30 ngày
         S.userFolders = allFolders.filter(f => !f.deleted); // ẩn thư mục đang trong thùng rác
         sortUserFolders();
+        writeFoldersCache(user.uid, S.userFolders);
 
-        if (canUseRollingLibrary()) {
+        // Đã vẽ từ cache thì trong RAM đã có sẵn cả thư viện → đi thẳng đường tải-đầy-đủ
+        // (chỉ còn một lượt làm tươi rất nhẹ), không cần cuốn chiếu.
+        if (canUseRollingLibrary() && !paintedFromCache) {
             // CUỐN CHIẾU: chỉ tải cụm đầu (36 = 12 hiển thị + prefetch 2 trang), tải thêm khi sang trang.
             S.libraryCursor = null;
             S.serverHasMore = true;
@@ -194,27 +208,13 @@ export async function loadAndDisplayLibrary(page = 1) {
             renderBreadcrumb();
             renderLibrary(S.userQuizSets, page);
         } else {
-            // Đường tải-đầy-đủ (có thư mục / sắp xếp khác / lọc / tìm kiếm): hiển thị nhanh trang đầu rồi nạp toàn bộ ở nền.
-            const q = query(
-                collection(db, "quiz_sets"),
-                where("userId", "==", user.uid),
-                orderBy("createdAt", "desc"),
-                limit(13)
-            );
-
-            const querySnapshot = await getDocs(q);
-            const pageQuizzes = querySnapshot.docs
-                .map(docSnap => {
-                    const { questions, ...meta } = docSnap.data(); // không giữ câu hỏi trong RAM
-                    return { id: docSnap.id, ...meta };
-                })
-                .filter(q => !q.deleted); // ẩn bộ đề đang trong thùng rác
-
-            S.lastLibrarySyncAt = Date.now(); // đánh dấu vừa nạp tươi từ server
-            renderBreadcrumb();
-            renderLibrary(pageQuizzes, 1);
-
-            loadAllLibraryInBackground(user.uid);
+            // Đường tải-đầy-đủ (có thư mục / sắp xếp khác / lọc / tìm kiếm):
+            // một lượt tải metadata (không kèm câu hỏi) là có trọn thư viện.
+            if (paintedFromCache) {
+                loadAllLibraryInBackground(user.uid); // làm tươi ở nền, không chặn màn hình
+            } else {
+                await loadAllLibraryInBackground(user.uid);
+            }
         }
     } catch (e) {
         console.error("Lỗi tải thư viện: ", e);
@@ -222,33 +222,56 @@ export async function loadAndDisplayLibrary(page = 1) {
     }
 }
 
+// Nạp danh sách bộ đề vào bộ nhớ: lọc thùng rác, sắp xếp mới-trước, đánh dấu đã tải xong.
+// purge=true (dữ liệu tươi từ server) mới dọn thùng rác quá hạn — dữ liệu cache thì bỏ qua
+// cho khỏi gọi xóa trùng lặp mỗi lần mở thư viện.
+function applyQuizMeta(list, purge = true) {
+    if (purge) purgeExpiredTrash(list, "quiz_sets"); // dọn bộ đề quá hạn 30 ngày
+    S.userQuizSets = list
+        .filter(q => !q.deleted)                     // ẩn bộ đề đang trong thùng rác
+        .map(q => (q.folderId === undefined ? { ...q, folderId: null } : q));
+
+    S.userQuizSets.sort((a, b) => {
+        const timeA = a.createdAt && typeof a.createdAt.toDate === 'function' ? a.createdAt.toDate().getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+        const timeB = b.createdAt && typeof b.createdAt.toDate === 'function' ? b.createdAt.toDate().getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+        return timeB - timeA;
+    });
+
+    S.isLibraryFullyLoaded = true;
+    S.serverHasMore = false;          // đã có toàn bộ; cuốn chiếu không cần tải thêm
+}
+
+/**
+ * Ghi ảnh chụp thư viện trong RAM xuống cache localStorage.
+ * PHẢI gọi sau mỗi thay đổi tại chỗ (di chuyển/xoá/đổi tên/công khai...), nếu không lần mở
+ * thư viện kế tiếp sẽ vẽ lại dữ liệu CŨ từ cache và trông như thao tác vừa rồi không ăn.
+ */
+export function persistLibraryCache() {
+    const user = auth.currentUser;
+    if (!user || !S.isLibraryFullyLoaded) return;
+    S.libraryMutationSeq++;
+    writeMetaCache(user.uid, S.userQuizSets);
+}
+
 export async function loadAllLibraryInBackground(userId) {
     try {
-        const q = query(collection(db, "quiz_sets"), where("userId", "==", userId));
-        const querySnapshot = await getDocs(q);
-        const allQuizzes = querySnapshot.docs.map(docSnap => {
-            // Loại bỏ mảng `questions` (chiếm ~99% dung lượng) khỏi cache để giảm mạnh RAM.
-            // Thư viện chỉ cần metadata; nội dung câu hỏi được tải riêng khi mở bộ đề hoặc khi tìm theo câu hỏi.
-            const { questions, ...meta } = docSnap.data();
-            if (meta.folderId === undefined) {
-                updateDoc(docSnap.ref, { folderId: null }).catch(err => {
-                    console.warn(`Lỗi tự động cập nhật folderId cho bộ đề ${docSnap.id}:`, err);
-                });
-                return { id: docSnap.id, ...meta, folderId: null };
+        // Chốt số thay đổi TRƯỚC khi gọi mạng: nếu trong lúc chờ mà người dùng vừa sửa gì đó
+        // thì kết quả trả về đã lạc hậu, đè vào là thao tác của họ bị nuốt mất.
+        const seqAtStart = S.libraryMutationSeq;
+        // Chỉ tải metadata (không kèm mảng `questions`) — xem library-meta.js
+        const allQuizzes = await fetchAllQuizMeta(userId);
+        if (S.libraryMutationSeq !== seqAtStart) return;
+        applyQuizMeta(allQuizzes, true);
+        writeMetaCache(userId, allQuizzes);
+
+        // Vá dữ liệu cũ thiếu folderId để các truy vấn theo thư mục hoạt động đúng
+        allQuizzes.forEach(q => {
+            if (q.folderId === undefined) {
+                updateDoc(doc(db, "quiz_sets", q.id), { folderId: null })
+                    .catch(err => console.warn(`Lỗi tự động cập nhật folderId cho bộ đề ${q.id}:`, err));
             }
-            return { id: docSnap.id, ...meta };
-        });
-        purgeExpiredTrash(allQuizzes, "quiz_sets"); // dọn bộ đề quá hạn 30 ngày
-        S.userQuizSets = allQuizzes.filter(q => !q.deleted); // ẩn bộ đề đang trong thùng rác
-
-        S.userQuizSets.sort((a, b) => {
-            const timeA = a.createdAt && typeof a.createdAt.toDate === 'function' ? a.createdAt.toDate().getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
-            const timeB = b.createdAt && typeof b.createdAt.toDate === 'function' ? b.createdAt.toDate().getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
-            return timeB - timeA;
         });
 
-        S.isLibraryFullyLoaded = true;
-        S.serverHasMore = false;          // đã có toàn bộ; cuốn chiếu không cần tải thêm
         S.lastLibrarySyncAt = Date.now(); // toàn bộ thư viện đã đồng bộ xong
         renderLibrary(S.userQuizSets, S.currentLibraryPage);
     } catch (err) {
@@ -351,8 +374,11 @@ function refreshLibraryOnResume() {
 // Khác với loadAndDisplayLibrary() (chỉ vẽ lại từ cache RAM khi đã nạp đầy đủ),
 // hàm này bỏ cache để BUỘC lấy dữ liệu mới từ server. Trả về Promise để UI hiện trạng thái đang tải.
 export async function forceReloadLibrary() {
-    if (!auth.currentUser) return;
-    S.isLibraryFullyLoaded = false; // bỏ cache RAM → lần nạp tới lấy dữ liệu mới từ server
+    const user = auth.currentUser;
+    if (!user) return;
+    S.isLibraryFullyLoaded = false;   // bỏ cache RAM
+    clearMetaCache(user.uid);         // và cả cache đĩa — bấm "Tải lại" là muốn dữ liệu mới thật,
+                                      // vẽ lại đúng cái cache cũ thì nút này thành vô nghĩa
     await loadAndDisplayLibrary(S.currentLibraryPage);
 }
 

@@ -20,7 +20,10 @@ service cloud.firestore {
 
     // QUIZ FOLDERS (THƯ MỤC ĐỀ TRẮC NGHIỆM)
     match /quiz_folders/{folderId} {
-      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      // isPublic == true: ai có link thư mục cũng xem được danh sách bộ đề bên trong
+      // (các bộ đề vẫn tự kiểm tra isPublic của riêng nó ở rule quiz_sets bên trên).
+      allow read: if resource.data.isPublic == true
+                  || (request.auth != null && request.auth.uid == resource.data.userId);
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
       allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
@@ -33,6 +36,14 @@ service cloud.firestore {
 
     // QUIZ STUDY DATA (GHI CHÚ / ĐÁNH DẤU / BÔI VÀNG CỦA NGƯỜI HỌC)
     match /quiz_study/{docId} {
+      allow read, update, delete: if request.auth != null
+                                  && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null
+                    && request.auth.uid == request.resource.data.userId;
+    }
+
+    // BỆNH ÁN (MEDICAL RECORDS) — riêng tư theo từng người dùng
+    match /medical_records/{recordId} {
       allow read, update, delete: if request.auth != null
                                   && request.auth.uid == resource.data.userId;
       allow create: if request.auth != null

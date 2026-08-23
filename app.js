@@ -9,6 +9,8 @@ import { showToast, showConfirm } from './core/utils.js';
 
 // Import các Module chức năng
 import { parseFile, downloadTemplate } from './core/file-parser.js';
+import { autofixQuestions } from './core/quiz-autofix.js';
+import { renderAutofixReport } from './core/quiz-autofix-report.js';
 import { loadAndDisplayStats, loadMarkedNotedQuizzes, initGpaCalculator, calculateGPA } from './features/profile/stats-service.js';
 import { initDashboardUI } from './core/dashboard-ui.js';
 import {
@@ -59,7 +61,8 @@ import {
     handleBulkMove,
     handleBulkDelete,
     handleBulkShare,
-    updateBulkActionsToolbar
+    updateBulkActionsToolbar,
+    downloadWholeLibraryOffline
 } from './features/quiz/quiz-library-controller.js';
 
 // --- Khai báo DOM Elements ---
@@ -278,13 +281,19 @@ async function handleFileSelect(e) {
     if (processBtn) processBtn.classList.add('hidden'); 
     if (saveBtnPreQuiz) saveBtnPreQuiz.classList.add('hidden'); 
     
-    try { 
-        const parsedQuestions = await parseFile(file);
-        if (parsedQuestions.length === 0) { 
-            if (questionCountInfo) questionCountInfo.textContent = 'Lỗi: Không tìm thấy câu hỏi.'; 
-            return; 
-        } 
-        
+    const autofixBox = document.getElementById('autofix-report');
+    if (autofixBox) autofixBox.innerHTML = '';
+
+    try {
+        const { questions: parsedQuestions, report } = await parseFile(file);
+        if (parsedQuestions.length === 0) {
+            if (questionCountInfo) questionCountInfo.textContent = 'Lỗi: Không tìm thấy câu hỏi.';
+            renderAutofixReport(autofixBox, report);
+            return;
+        }
+        // Báo cho người dùng biết web đã tự sửa/dọn những gì trong file vừa tải lên
+        renderAutofixReport(autofixBox, report);
+
         const topics = parsedQuestions.map(q => q.topic); 
         const uniqueTopics = new Set(topics); 
         
@@ -326,7 +335,7 @@ function handleJsonInput() {
             raw = [raw];
         }
 
-        const parsedQuestions = raw.map((item, idx) => {
+        let parsedQuestions = raw.map((item, idx) => {
             if (!item.question) {
                 throw new Error(`Câu hỏi thứ ${idx + 1} thiếu trường "question".`);
             }
@@ -352,9 +361,9 @@ function handleJsonInput() {
                 }
             }
 
-            if (correctIdx === null || correctIdx < 0 || correctIdx >= rawOptions.length) {
-                throw new Error(`Câu hỏi thứ ${idx + 1} thiếu hoặc sai chỉ mục đáp án đúng.`);
-            }
+            // Thiếu/sai chỉ mục đáp án KHÔNG còn là lỗi chặn: để null cho autofix suy ra
+            // từ giải thích; câu nào thật sự không cứu được sẽ bị loại kèm lý do trong báo cáo.
+            if (correctIdx !== null && (correctIdx < 0 || correctIdx >= rawOptions.length)) correctIdx = null;
 
             return {
                 question: String(item.question),
@@ -369,6 +378,11 @@ function handleJsonInput() {
                 optionExplanations: Array.isArray(item.optionExplanations) ? item.optionExplanations.map(exp => String(exp || '')) : []
             };
         });
+
+        // Cùng một bộ máy tự chữa lỗi như luồng Excel/CSV
+        const { questions: fixedQuestions, report: jsonReport } = autofixQuestions(parsedQuestions);
+        renderAutofixReport(document.getElementById('autofix-report'), jsonReport);
+        parsedQuestions = fixedQuestions;
 
         if (parsedQuestions.length === 0) {
             showToast('Không tìm thấy câu hỏi nào trong JSON.', 'warning');
@@ -847,6 +861,12 @@ function setupEventListeners() {
 
     const confirmMoveQuizBtn = document.getElementById('confirmMoveQuizBtn');
     if (confirmMoveQuizBtn) confirmMoveQuizBtn.addEventListener('click', confirmMoveQuiz);
+
+    // Tải toàn bộ thư viện về máy để làm offline
+    const downloadAllOfflineBtn = document.getElementById('download-all-offline-btn');
+    if (downloadAllOfflineBtn) {
+        downloadAllOfflineBtn.addEventListener('click', () => downloadWholeLibraryOffline());
+    }
 
     // Chọn nhiều bộ đề (Bulk operations)
     const bulkSelectToggleBtn = document.getElementById('bulk-select-toggle-btn');

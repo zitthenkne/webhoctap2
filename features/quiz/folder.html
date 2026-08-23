@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thư mục đề - Zitthenkne</title>
+    <link rel="icon" type="image/png" href="../../assets/logo.png">
+
+    <!-- Thẻ xem trước khi dán link vào Messenger/Zalo/Facebook.
+         Trình quét link không chạy JS nên để nội dung chung, không phụ thuộc dữ liệu. -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Zitthenkne">
+    <meta property="og:locale" content="vi_VN">
+    <meta property="og:title" content="Thư mục đề trắc nghiệm trên Zitthenkne">
+    <meta property="og:description" content="Mở thư mục để xem và làm các bộ đề bên trong.">
+    <meta property="og:image" content="/assets/og_squirrel_study.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="../../style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Quicksand', 'Outfit', sans-serif;
+            background: linear-gradient(135deg, #FCE4EC 0%, #F3E5F5 55%, #E8EAF6 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body class="text-gray-700">
+    <div class="max-w-5xl mx-auto px-4 py-6 sm:py-10">
+        <!-- Đầu trang: icon + tên thư mục + số liệu -->
+        <header id="folder-header" class="mb-6">
+            <div class="flex items-center gap-3 sm:gap-4">
+                <span id="folder-icon" class="quiz-card-icon" style="background-image:linear-gradient(135deg,#fbbf24,#f59e0b)">
+                    <i class="fas fa-folder-open"></i>
+                </span>
+                <div class="min-w-0 flex-1">
+                    <h1 id="folder-name" class="text-xl sm:text-2xl font-extrabold text-gray-800 truncate">Đang mở thư mục…</h1>
+                    <p id="folder-meta" class="text-xs sm:text-sm text-gray-500 font-semibold mt-0.5">Zitthenkne · thư mục được chia sẻ</p>
+                </div>
+            </div>
+        </header>
+
+        <!-- Danh sách bộ đề bên trong -->
+        <div id="folder-quiz-list" class="quiz-grid"></div>
+
+        <!-- Báo lỗi / thư mục trống -->
+        <div id="folder-message" class="hidden text-center py-16 px-4">
+            <div class="w-20 h-20 rounded-full bg-white/70 flex items-center justify-center mb-4 mx-auto shadow-sm">
+                <i id="folder-message-icon" class="fas fa-folder-open text-3xl text-pink-300"></i>
+            </div>
+            <h2 id="folder-message-title" class="text-lg font-bold text-gray-700"></h2>
+            <p id="folder-message-desc" class="text-sm text-gray-500 mt-1 max-w-sm mx-auto"></p>
+        </div>
+
+        <footer class="mt-10 text-center">
+            <a href="../../index.html" class="inline-flex items-center gap-2 text-xs font-bold text-pink-600 bg-white/70 hover:bg-white px-4 py-2 rounded-xl shadow-sm transition">
+                <i class="fas fa-house"></i> Về trang chủ Zitthenkne
+            </a>
+        </footer>
+    </div>
+
+    <script type="module" src="folder.js"></script>
+</body>
+</html>

@@ -100,21 +100,38 @@
             // vẽ nền trắng gương đè lên .quiz-launch-card-back nên KHÔNG thấy mặt sau (chỉ Safari/iPad đúng).
             '  backface-visibility:hidden;-webkit-backface-visibility:hidden;',
             '  transition:transform .7s cubic-bezier(.5,0,.55,1), box-shadow .5s ease, opacity .45s ease;',
-            '  box-shadow:0 40px 90px rgba(255,105,180,0.40), 0 12px 30px rgba(0,0,0,0.22);}',
+            '  box-shadow:0 40px 90px rgba(255,105,180,0.40), 0 12px 30px rgba(0,0,0,0.22),',
+            '    inset 0 0 0 1px rgba(255,255,255,0.55);}',
 
-            // Mặt sau lá bài: gradient + hoạ tiết chéo + viền trong + huy hiệu ✦ ở tâm
+            // Mặt sau lá bài: gradient + hoạ tiết chéo + viền trong + huy hiệu ở tâm
             '.quiz-launch-card-back{position:absolute;inset:0;z-index:5;border-radius:inherit;',
             '  transform:rotateY(180deg);backface-visibility:hidden;-webkit-backface-visibility:hidden;',
             '  background:linear-gradient(150deg,#f9a8d4,#ec4899 32%,#a855f7 66%,#6366f1);',
             '  display:flex;align-items:center;justify-content:center;overflow:hidden;}',
+            // Mặt sau mang đúng MÀU DANH TÍNH của bộ đề vừa bấm: ghost là bản sao của thẻ nên
+            // đã sẵn --qc-from/--qc-to. Lật ra là thấy đúng "màu quen" của bộ đề đó, thay vì
+            // một mặt lưng hồng-tím dùng chung cho mọi bộ. Trình duyệt cũ giữ nguyên dòng trên.
+            '@supports (background: color-mix(in srgb, red 50%, blue)){',
+            '  .quiz-launch-card-back{background:',
+            '    radial-gradient(130% 100% at 18% 0%, rgba(255,255,255,0.30), transparent 62%),',
+            '    linear-gradient(150deg, var(--qc-to,#fb7185), var(--qc-from,#ec4899) 52%,',
+            '      color-mix(in srgb, var(--qc-from,#ec4899) 40%, #2a1150) 100%);}}',
             '.quiz-launch-card-back::before{content:"";position:absolute;inset:12px;',
             '  border:2px solid rgba(255,255,255,0.6);border-radius:16px;',
             '  background:radial-gradient(circle, rgba(255,255,255,0.16) 0 5px, transparent 6px) 0 0/32px 32px,',
             '    repeating-linear-gradient(45deg, rgba(255,255,255,0.07) 0 10px, transparent 10px 20px);}',
-            '.quiz-launch-card-back::after{content:"✦";position:relative;z-index:1;color:#fff;',
-            '  font-size:2.6rem;width:5rem;height:5rem;display:flex;align-items:center;justify-content:center;',
-            '  border:2px solid rgba(255,255,255,0.75);border-radius:50%;background:rgba(255,255,255,0.14);',
-            '  text-shadow:0 0 16px rgba(255,255,255,0.85);}',
+            // Vệt bóng loáng quét qua mặt sau khi lật -> cảm giác mặt bài có độ bóng
+            '.quiz-launch-card-back::after{content:"";position:absolute;top:-40%;left:-60%;',
+            '  width:50%;height:180%;pointer-events:none;',
+            '  background:linear-gradient(115deg, transparent, rgba(255,255,255,0.42), transparent);',
+            '  transform:rotate(9deg);animation:quiz-launch-sweep 1.05s .35s ease-in-out 2;}',
+            // Huy hiệu ở tâm mặt sau: đeo đúng icon của bộ đề (lấy từ ô icon trên thẻ)
+            '.quiz-launch-back-badge{position:relative;z-index:1;width:5.4rem;height:5.4rem;',
+            '  display:flex;align-items:center;justify-content:center;border-radius:50%;',
+            '  color:#fff;font-size:2.1rem;border:2px solid rgba(255,255,255,0.75);',
+            '  background:rgba(255,255,255,0.16);',
+            '  box-shadow:0 0 24px rgba(255,255,255,0.38), inset 0 0 18px rgba(255,255,255,0.22);',
+            '  text-shadow:0 2px 10px rgba(0,0,0,0.25);}',
             // Một mạch duy nhất (2 mốc) để trình duyệt nội suy liên tục -> xoay đều,
             // không bị khựng ở các mốc giữa. Easing đặt ở JS (giảm tốc dần khi về đích).
             '@keyframes quiz-launch-fly{',
@@ -331,6 +348,12 @@
         // Mặt sau lá bài (chỉ hiện khi rotateY quay quá 90°)
         var cardBack = document.createElement('div');
         cardBack.className = 'quiz-launch-card-back';
+        // Huy hiệu giữa mặt sau đeo đúng icon của bộ đề này (thẻ nào lật ra cũng khác nhau)
+        var backBadge = document.createElement('div');
+        backBadge.className = 'quiz-launch-back-badge';
+        var srcIcon = card.querySelector('.quiz-card-icon i');
+        backBadge.innerHTML = '<i class="' + (srcIcon ? srcIcon.className : 'fas fa-star') + '"></i>';
+        cardBack.appendChild(backBadge);
         ghost.appendChild(cardBack);
         // Nội dung mặt trước phải ẩn khi xoay ra sau (không thì thấy chữ bị soi gương)
         Array.prototype.forEach.call(ghost.children, function (el) {
@@ -392,8 +415,10 @@
                     'translate(0px,0px) perspective(1300px) rotateZ(-8deg) rotateY(0deg) scale(1.04)';
                 setTimeout(function () {
                     // Bắt đầu nhanh rồi giảm tốc mượt về đích (decelerate) -> xoay & phóng liền mạch
+                    // Vọt nhanh rồi vượt qua đích một chút và lắc về (cubic-bezier y>1)
+                    // -> lá bài "đầm" xuống như vật thật, thay vì trôi đều rồi đứng khựng.
                     ghost.style.animation = 'quiz-launch-fly ' + (FLY_MS / 1000) +
-                        's cubic-bezier(.12,.66,.18,1) forwards';
+                        's cubic-bezier(.12,.72,.16,1.035) forwards';
                 }, STRETCH_MS);
             });
         });

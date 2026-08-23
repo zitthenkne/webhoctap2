@@ -12,6 +12,7 @@ import {
 } from './quiz-page-prefs.js';
 import { getCatMemeEnabled, setMemeEnabled } from './quiz-cat-meme.js';
 import { showQuestion, showNextQuestion, showPreviousQuestion } from './quiz-question-view.js';
+import { isAutoNextOn, setAutoNext, setupAutoNextGuards } from './quiz-auto-next.js';
 
 let navVisible = true;
 
@@ -89,17 +90,20 @@ export function setupSettings() {
     const rowSound = document.getElementById('qs-sound');
     const rowVibrate = document.getElementById('qs-vibrate');
     const rowMeme = document.getElementById('qs-meme');
+    const rowAutoNext = document.getElementById('qs-auto-next');
     const rowTimed = document.getElementById('qs-timed');
     const rowShowAns = document.getElementById('qs-show-answer');
     const bgOpacityInput = document.getElementById('qs-bg-opacity');
     const rowShuffleBg = document.getElementById('qs-shuffle-bg');
     if (!fab || !pop) return;
+    setupAutoNextGuards(); // chạm/cuộn/gõ phím ở bất kỳ đâu đều hủy đếm ngược tự chuyển câu
 
     const sync = () => {
         if (rowDark) rowDark.setAttribute('aria-checked', getTheme() === 'dark');
         if (rowSound) rowSound.setAttribute('aria-checked', getSound());
         if (rowVibrate) rowVibrate.setAttribute('aria-checked', getVibrate());
         if (rowMeme) rowMeme.setAttribute('aria-checked', getCatMemeEnabled());
+        if (rowAutoNext) rowAutoNext.setAttribute('aria-checked', isAutoNextOn());
         if (rowTimed) rowTimed.setAttribute('aria-checked', !!state.quizOptions.isTimed);
         if (rowShowAns) rowShowAns.setAttribute('aria-checked', !!state.quizOptions.showAnswerImmediately);
         if (bgOpacityInput) bgOpacityInput.value = getBgOpacity();
@@ -138,6 +142,14 @@ export function setupSettings() {
     if (rowMeme) rowMeme.addEventListener('click', () => {
         setMemeEnabled(!getCatMemeEnabled()); // lưu cục bộ + đồng bộ ô gạt ở trang thiết lập
         showToast(getCatMemeEnabled() ? '🤡 Đã bật chế độ meme' : '🤡 Đã tắt chế độ meme');
+        sync();
+    });
+    if (rowAutoNext) rowAutoNext.addEventListener('click', () => {
+        const on = !isAutoNextOn();
+        setAutoNext(on);
+        showToast(on
+            ? '⏭️ Trả lời đúng sẽ tự sang câu sau — chạm bất kỳ đâu để ở lại'
+            : 'Đã tắt tự chuyển câu');
         sync();
     });
 

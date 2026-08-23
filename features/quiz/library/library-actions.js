@@ -5,13 +5,13 @@
 
 import { auth, db } from '../../../core/firebase-init.js';
 import {
-    doc, collection, addDoc, query, where, getDocs, updateDoc
+    doc, collection, addDoc, query, where, getDoc, getDocs, updateDoc
 } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { showToast, showConfirm } from '../../../core/utils.js';
 import { S } from './library-state.js';
-import { sortUserFolders, parseFontAwesomeIcon } from './library-helpers.js';
+import { sortUserFolders, parseFontAwesomeIcon, escapeHtml } from './library-helpers.js';
 import { renderLibrary, renderBreadcrumb, rerenderCurrentView, getFilteredQuizzesForView } from './library-render.js';
-import { loadAndDisplayLibrary, ensureFullLibraryLoaded } from './library-data.js';
+import { loadAndDisplayLibrary, ensureFullLibraryLoaded, persistLibraryCache } from './library-data.js';
 
 export async function deleteQuizSet(quizId) {
     const ok = await showConfirm(
@@ -22,6 +22,7 @@ export async function deleteQuizSet(quizId) {
     try {
         await updateDoc(doc(db, "quiz_sets", quizId), { deleted: true, deletedAt: new Date() });
         S.userQuizSets = S.userQuizSets.filter(q => q.id !== quizId); // cập nhật cache để ẩn ngay
+        persistLibraryCache();
         showToast('Đã chuyển bộ đề vào thùng rác.', 'success');
         renderLibrary(S.userQuizSets, S.currentLibraryPage);
     } catch (e) {
@@ -34,11 +35,13 @@ export async function editQuizSetTitle(quizId, currentTitle) {
     const newTitle = prompt("Nhập tên mới cho bộ đề:", currentTitle);
     if (newTitle && newTitle.trim() !== '') {
         try {
-            const docRef = doc(db, "quiz_sets", quizId);
-            S.isLibraryFullyLoaded = false;
-            await updateDoc(docRef, { title: newTitle.trim() });
+            const title = newTitle.trim();
+            await updateDoc(doc(db, "quiz_sets", quizId), { title });
+            const q = S.userQuizSets.find(x => x.id === quizId);
+            if (q) q.title = title;          // sửa tại chỗ, khỏi nạp lại cả thư viện
+            persistLibraryCache();
+            rerenderCurrentView();
             showToast('Đã cập nhật tên bộ đề!', 'success');
-            loadAndDisplayLibrary();
         } catch (e) {
             showToast("Đổi tên thất bại: " + e.message, 'error');
         }
@@ -52,12 +55,96 @@ export async function toggleQuizPublic(quizId, makePublic) {
         await updateDoc(doc(db, "quiz_sets", quizId), { isPublic: makePublic });
         const q = S.userQuizSets.find(x => x.id === quizId);
         if (q) q.isPublic = makePublic; // cập nhật cache để nhãn nút đổi ngay
+        persistLibraryCache();
         showToast(makePublic
             ? 'Đã đặt CÔNG KHAI — ai có link đều mở được.'
             : 'Đã đặt RIÊNG TƯ — chỉ mình bạn xem được.', 'success');
         rerenderCurrentView();
     } catch (e) {
         showToast("Đổi chế độ công khai thất bại: " + e.message, 'error');
+    }
+}
+
+/**
+ * Nhân bản một bộ đề: chép nguyên câu hỏi sang một bộ mới cùng thư mục.
+ * Dùng khi muốn cắt/sửa một phiên bản khác mà vẫn giữ nguyên bản gốc.
+ * Phải đọc lại từ Firestore vì cache trong RAM đã lược bỏ mảng `questions`.
+ */
+export async function duplicateQuizSet(quizId, quizTitle) {
+    const user = auth.currentUser;
+    if (!user) { showToast('Vui lòng đăng nhập.', 'info'); return; }
+    try {
+        showToast('Đang nhân bản…', 'info');
+        const snap = await getDoc(doc(db, "quiz_sets", quizId));
+        if (!snap.exists()) { showToast('Không tìm thấy bộ đề trên máy chủ.', 'error'); return; }
+        const src = snap.data();
+        const newTitle = `${src.title || quizTitle || 'Không tên'} (bản sao)`;
+        await addDoc(collection(db, "quiz_sets"), {
+            userId: user.uid,
+            title: newTitle,
+            questions: src.questions || [],
+            questionCount: src.questionCount || (src.questions ? src.questions.length : 0),
+            folderId: src.folderId ?? null,
+            isPublic: src.isPublic === true,
+            createdAt: new Date()
+        });
+        showToast(`Đã tạo "${newTitle}".`, 'success');
+        S.isLibraryFullyLoaded = false;   // buộc nạp lại để bộ mới xuất hiện
+        await loadAndDisplayLibrary();
+    } catch (e) {
+        console.error('Lỗi nhân bản bộ đề:', e);
+        showToast('Nhân bản thất bại: ' + e.message, 'error');
+    }
+}
+
+/**
+ * Chuyển một bộ đề sang thư mục khác (folderId = null nghĩa là về Thư viện gốc).
+ *
+ * Cập nhật giao diện TRƯỚC rồi mới ghi Firestore. Kéo-thả mà phải chờ mạng xong mới thấy
+ * kết quả thì cảm giác như treo máy — nhất là bản cũ còn ép nạp lại toàn bộ thư viện sau
+ * mỗi lần thả. Ghi hỏng thì trả lại chỗ cũ và báo rõ.
+ *
+ * @param {string} quizId
+ * @param {string|null} folderId
+ * @param {string} [folderName] tên thư mục đích, để hiện trong thông báo
+ */
+export async function moveQuizToFolder(quizId, folderId, folderName) {
+    const where = folderName ? `"${folderName}"` : 'Thư viện gốc';
+    const quiz = S.userQuizSets.find(q => q.id === quizId);
+
+    // Không có trong cache (đang cuốn chiếu) → đi đường cũ: ghi xong rồi nạp lại
+    if (!quiz) {
+        try {
+            S.isLibraryFullyLoaded = false;
+            await updateDoc(doc(db, "quiz_sets", quizId), { folderId });
+            showToast(`Đã chuyển bộ đề vào ${where}.`, 'success');
+            await loadAndDisplayLibrary();
+        } catch (err) {
+            console.error("Lỗi di chuyển bộ đề:", err);
+            showToast('Có lỗi xảy ra khi di chuyển bộ đề!', 'error');
+        }
+        return;
+    }
+
+    const prevFolderId = quiz.folderId ?? null;
+    if (prevFolderId === folderId) {
+        showToast(`Bộ đề đã nằm trong ${where} rồi.`, 'info');
+        return;
+    }
+
+    quiz.folderId = folderId;
+    rerenderCurrentView();          // thấy kết quả ngay lập tức
+
+    try {
+        await updateDoc(doc(db, "quiz_sets", quizId), { folderId });
+        persistLibraryCache();   // cache phải khớp RAM, nếu không lần mở sau lại thấy chỗ cũ
+        showToast(`Đã chuyển "${quiz.title || 'bộ đề'}" vào ${where}.`, 'success');
+    } catch (err) {
+        console.error("Lỗi di chuyển bộ đề:", err);
+        quiz.folderId = prevFolderId; // hoàn tác
+        rerenderCurrentView();
+        persistLibraryCache();
+        showToast('Không chuyển được bộ đề — đã trả về chỗ cũ.', 'error');
     }
 }
 
@@ -389,19 +476,26 @@ export async function confirmMoveQuiz() {
         confirmBtn.textContent = 'Đang di chuyển...';
     }
 
+    const targetName = targetFolderId
+        ? (S.userFolders.find(f => f.id === targetFolderId) || {}).name
+        : null;
+
     try {
-        S.isLibraryFullyLoaded = false;
         if (S.isBulkMoving) {
-            const promises = S.selectedQuizIds.map(id => updateDoc(doc(db, "quiz_sets", id), { folderId: targetFolderId }));
-            await Promise.all(promises);
-            showToast(`Đã di chuyển ${S.selectedQuizIds.length} bộ đề!`, 'success');
-            exitSelectionMode();
+            const ids = [...S.selectedQuizIds];
+            await Promise.all(ids.map(id => updateDoc(doc(db, "quiz_sets", id), { folderId: targetFolderId })));
+            // Cập nhật thẳng trong RAM thay vì nạp lại cả thư viện từ server
+            ids.forEach(id => {
+                const q = S.userQuizSets.find(x => x.id === id);
+                if (q) q.folderId = targetFolderId;
+            });
+            persistLibraryCache();
+            showToast(`Đã di chuyển ${ids.length} bộ đề!`, 'success');
+            exitSelectionMode();   // đã tự vẽ lại từ RAM
         } else {
-            await updateDoc(doc(db, "quiz_sets", S.movingQuizId), { folderId: targetFolderId });
-            showToast('Đã di chuyển bộ đề thành công!', 'success');
+            await moveQuizToFolder(S.movingQuizId, targetFolderId, targetName);
         }
         closeMoveQuizModal();
-        await loadAndDisplayLibrary();
     } catch (err) {
         console.error("Lỗi di chuyển bộ đề:", err);
         showToast('Có lỗi xảy ra khi di chuyển!', 'error');
@@ -546,12 +640,17 @@ export function updateBulkActionsToolbar() {
 // === CHIA SẺ BỘ ĐỀ (SHARE QUIZ) ===
 export function openShareQuizModal(quizId, quizTitle) {
     const modal = document.getElementById('shareQuizModal');
+    const heading = document.querySelector('#share-modal-heading span');
     const titleEl = document.getElementById('share-quiz-title');
     const linkInput = document.getElementById('share-link-input');
     const embedInput = document.getElementById('share-embed-input');
+    const embedSection = document.getElementById('share-embed-section');
 
     if (!modal || !titleEl || !linkInput || !embedInput) return;
 
+    // Modal dùng chung với chia sẻ thư mục → trả lại nguyên trạng cho chế độ bộ đề
+    if (heading) heading.textContent = 'Chia sẻ bộ đề';
+    if (embedSection) embedSection.classList.remove('hidden');
     titleEl.textContent = quizTitle;
 
     const quizUrl = new URL(`api/share-quiz?id=${quizId}&t=${Date.now()}`, window.location.origin).href;
@@ -564,40 +663,7 @@ export function openShareQuizModal(quizId, quizTitle) {
         qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(quizUrl)}`;
     }
 
-    // Gán sự kiện click cho các nút chia sẻ nhanh
-    const messengerBtn = document.getElementById('share-messenger-btn');
-    const facebookBtn = document.getElementById('share-facebook-btn');
-    const systemBtn = document.getElementById('share-system-btn');
-
-    if (messengerBtn) {
-        messengerBtn.onclick = () => {
-            const fbSendUrl = `https://www.facebook.com/dialog/send?app_id=966242223397117&link=${encodeURIComponent(quizUrl)}&redirect_uri=${encodeURIComponent(quizUrl)}`;
-            window.open(fbSendUrl, '_blank', 'width=600,height=500');
-        };
-    }
-
-    if (facebookBtn) {
-        facebookBtn.onclick = () => {
-            const fbShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(quizUrl)}`;
-            window.open(fbShareUrl, '_blank', 'width=600,height=500');
-        };
-    }
-
-    if (systemBtn) {
-        if (navigator.share) {
-            systemBtn.classList.remove('hidden');
-            systemBtn.onclick = () => {
-                navigator.share({
-                    title: quizTitle,
-                    text: `Hãy cùng làm bài kiểm tra "${quizTitle}" trên Zitthenkne nhé!`,
-                    url: quizUrl
-                }).catch(err => console.error('Lỗi chia sẻ hệ thống:', err));
-            };
-        } else {
-            systemBtn.classList.add('hidden');
-        }
-    }
-
+    bindQuickShareButtons(quizUrl, quizTitle, `Hãy cùng làm bài kiểm tra "${quizTitle}" trên Zitthenkne nhé!`);
     modal.classList.remove('hidden');
 }
 
@@ -606,7 +672,48 @@ export function closeShareQuizModal() {
     if (modal) modal.classList.add('hidden');
 }
 
+// Dải thư mục cuộn ngang: đang kéo bộ đề mà đích nằm ngoài khung nhìn thì không thả tới được.
+// Rê con trỏ sát mép trái/phải của dải → tự cuộn để với tới thư mục ở xa.
+function initFolderStripAutoScroll() {
+    const strip = document.getElementById('folders-container');
+    if (!strip || strip.dataset.autoscrollBound) return;
+    strip.dataset.autoscrollBound = '1';
+
+    const EDGE = 70;   // vùng nhạy ở mỗi mép (px)
+    const SPEED = 18;  // px mỗi lần dragover bắn ra
+
+    strip.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const r = strip.getBoundingClientRect();
+        if (e.clientX < r.left + EDGE) strip.scrollLeft -= SPEED;
+        else if (e.clientX > r.right - EDGE) strip.scrollLeft += SPEED;
+    });
+}
+
+// Dải thư mục nằm ở ĐẦU trang, còn bộ đề trải dài xuống dưới: cầm một thẻ ở cuối danh sách
+// thì đích thả nằm ngoài khung nhìn. Kéo native không tự cuộn trang trên mọi trình duyệt,
+// nên tự cuộn khi con trỏ áp sát mép trên/dưới.
+function initPageAutoScrollWhileDragging() {
+    if (document.body.dataset.pageAutoscrollBound) return;
+    document.body.dataset.pageAutoscrollBound = '1';
+
+    const EDGE = 90;
+    const SPEED = 22;
+
+    document.addEventListener('dragover', (e) => {
+        if (!document.body.classList.contains('is-dragging-quiz')) return;
+        if (e.clientY < EDGE) window.scrollBy(0, -SPEED);
+        else if (e.clientY > window.innerHeight - EDGE) window.scrollBy(0, SPEED);
+    });
+
+    // Thả ra ngoài vùng hợp lệ (hoặc bấm Esc) vẫn phải tắt trạng thái "đang kéo"
+    document.addEventListener('dragend', () => document.body.classList.remove('is-dragging-quiz'));
+    document.addEventListener('drop', () => document.body.classList.remove('is-dragging-quiz'));
+}
+
 export function initDragAndDropBreadcrumb() {
+    initFolderStripAutoScroll();
+    initPageAutoScrollWhileDragging();
     const folderBreadcrumb = document.getElementById('folder-breadcrumb');
     if (folderBreadcrumb) {
         folderBreadcrumb.addEventListener('dragover', (e) => {
@@ -623,19 +730,167 @@ export function initDragAndDropBreadcrumb() {
         folderBreadcrumb.addEventListener('drop', async (e) => {
             e.preventDefault();
             folderBreadcrumb.classList.remove('border-pink-500', 'bg-pink-50/50');
+            document.body.classList.remove('is-dragging-quiz');
             const quizId = e.dataTransfer.getData('text/plain');
             if (!quizId) return;
-
-            try {
-                S.isLibraryFullyLoaded = false;
-                const quizDocRef = doc(db, "quiz_sets", quizId);
-                await updateDoc(quizDocRef, { folderId: null });
-                showToast('Đã chuyển bộ đề về Thư viện gốc!', 'success');
-                await loadAndDisplayLibrary();
-            } catch (err) {
-                console.error("Lỗi kéo thả di chuyển bộ đề về gốc:", err);
-                showToast('Có lỗi xảy ra khi di chuyển về gốc!', 'error');
-            }
+            await moveQuizToFolder(quizId, null);
         });
+    }
+}
+
+// === THAO TÁC TRÊN CẢ THƯ MỤC (chia sẻ / công khai / dọn thư mục) ===
+
+// Lấy toàn bộ bộ đề thuộc một thư mục. Thư viện có thể đang tải cuốn chiếu nên phải
+// bảo đảm đã nạp đủ, nếu không sẽ thao tác thiếu bộ đề mà người dùng không hay biết.
+async function getQuizzesInFolder(folderId) {
+    if (!S.isLibraryFullyLoaded) await ensureFullLibraryLoaded();
+    return S.userQuizSets.filter(q => q.folderId === folderId);
+}
+
+// Đường dẫn chia sẻ của một thư mục
+function folderShareUrl(folderId) {
+    return new URL(`features/quiz/folder.html?id=${folderId}`, window.location.origin).href;
+}
+
+/**
+ * Công khai / riêng tư CẢ THƯ MỤC.
+ * Đặt cờ isPublic lên chính thư mục VÀ lên mọi bộ đề bên trong — link thư mục sẽ vô nghĩa
+ * nếu bộ đề bên trong vẫn riêng tư (người nhận mở ra chỉ thấy thư mục trống).
+ */
+export async function toggleFolderPublic(folderId, makePublic, { skipConfirm = false } = {}) {
+    const folder = S.userFolders.find(f => f.id === folderId);
+    const name = folder ? folder.name : 'thư mục';
+    const quizzes = await getQuizzesInFolder(folderId);
+
+    if (!skipConfirm) {
+        const ok = await showConfirm(
+            makePublic
+                ? `Thư mục "${name}" và ${quizzes.length} bộ đề bên trong sẽ CÔNG KHAI: ai có link đều mở và làm được.`
+                : `Thư mục "${name}" và ${quizzes.length} bộ đề bên trong sẽ về RIÊNG TƯ: link đã chia sẻ trước đó sẽ không mở được nữa.`,
+            {
+                title: makePublic ? 'Công khai cả thư mục?' : 'Chuyển về riêng tư?',
+                confirmText: makePublic ? 'Công khai' : 'Riêng tư',
+                cancelText: 'Hủy',
+                tone: makePublic ? 'primary' : 'danger'
+            }
+        );
+        if (!ok) return false;
+    }
+
+    try {
+        await updateDoc(doc(db, "quiz_folders", folderId), { isPublic: makePublic });
+        if (folder) folder.isPublic = makePublic;
+
+        // Đồng bộ trạng thái cho từng bộ đề bên trong (bỏ qua cái đã đúng trạng thái)
+        const needUpdate = quizzes.filter(q => (q.isPublic === true) !== makePublic);
+        await Promise.all(needUpdate.map(q => updateDoc(doc(db, "quiz_sets", q.id), { isPublic: makePublic })));
+        needUpdate.forEach(q => { q.isPublic = makePublic; });
+        persistLibraryCache();
+
+        showToast(makePublic
+            ? `Đã công khai "${name}" cùng ${quizzes.length} bộ đề bên trong.`
+            : `Đã chuyển "${name}" về riêng tư.`, 'success');
+        rerenderCurrentView();
+        return true;
+    } catch (e) {
+        console.error("Lỗi đổi chế độ công khai thư mục:", e);
+        showToast("Đổi chế độ công khai thất bại: " + e.message, 'error');
+        return false;
+    }
+}
+
+/**
+ * Mở hộp chia sẻ cho CẢ THƯ MỤC (dùng chung modal với chia sẻ bộ đề).
+ * Thư mục còn riêng tư thì hỏi công khai trước — chia sẻ link của thư mục riêng tư
+ * chỉ làm người nhận thấy trang báo lỗi.
+ */
+export async function openShareFolderModal(folderId, folderName) {
+    const folder = S.userFolders.find(f => f.id === folderId);
+    if (folder && folder.isPublic !== true) {
+        const ok = await toggleFolderPublic(folderId, true);
+        if (!ok) return;
+    }
+
+    const modal = document.getElementById('shareQuizModal');
+    const heading = document.querySelector('#share-modal-heading span');
+    const titleEl = document.getElementById('share-quiz-title');
+    const linkInput = document.getElementById('share-link-input');
+    const embedSection = document.getElementById('share-embed-section');
+    if (!modal || !titleEl || !linkInput) return;
+
+    const quizzes = await getQuizzesInFolder(folderId);
+    const url = folderShareUrl(folderId);
+
+    if (heading) heading.textContent = 'Chia sẻ thư mục';
+    titleEl.innerHTML = `<i class="fas fa-folder-open text-amber-400 mr-1.5"></i>${escapeHtml(folderName)}
+        <span class="block text-[11px] font-semibold text-gray-400 mt-0.5">${quizzes.length} bộ đề bên trong</span>`;
+    linkInput.value = url;
+    if (embedSection) embedSection.classList.add('hidden'); // nhúng iframe chỉ hợp với bộ đề
+
+    const qrImg = document.getElementById('share-qr-img');
+    if (qrImg) qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(url)}`;
+
+    bindQuickShareButtons(url, folderName, `Mình chia sẻ thư mục đề "${folderName}" trên Zitthenkne nhé!`);
+    modal.classList.remove('hidden');
+}
+
+/**
+ * Đưa toàn bộ bộ đề trong thư mục ra Thư viện gốc (thư mục vẫn còn, chỉ trống đi).
+ * Khác với xóa thư mục: không có gì vào thùng rác.
+ */
+export async function moveAllQuizzesOutOfFolder(folderId) {
+    const folder = S.userFolders.find(f => f.id === folderId);
+    const name = folder ? folder.name : 'thư mục';
+    const quizzes = await getQuizzesInFolder(folderId);
+    if (!quizzes.length) {
+        showToast(`Thư mục "${name}" đang trống.`, 'info');
+        return;
+    }
+
+    const ok = await showConfirm(
+        `${quizzes.length} bộ đề trong "${name}" sẽ chuyển ra Thư viện gốc. Thư mục vẫn giữ nguyên, chỉ trống đi.`,
+        { title: 'Đưa hết bộ đề ra ngoài?', confirmText: 'Đưa ra ngoài', cancelText: 'Hủy' }
+    );
+    if (!ok) return;
+
+    try {
+        await Promise.all(quizzes.map(q => updateDoc(doc(db, "quiz_sets", q.id), { folderId: null })));
+        quizzes.forEach(q => { q.folderId = null; });
+        persistLibraryCache();
+        showToast(`Đã đưa ${quizzes.length} bộ đề ra Thư viện gốc.`, 'success');
+        rerenderCurrentView();
+    } catch (e) {
+        console.error("Lỗi đưa bộ đề ra khỏi thư mục:", e);
+        showToast("Không thể đưa bộ đề ra ngoài: " + e.message, 'error');
+    }
+}
+
+// Gán 3 nút chia sẻ nhanh (Messenger / Facebook / app hệ thống) cho một đường dẫn bất kỳ.
+// Tách riêng để chia sẻ bộ đề và chia sẻ thư mục dùng chung.
+function bindQuickShareButtons(url, title, text) {
+    const messengerBtn = document.getElementById('share-messenger-btn');
+    const facebookBtn = document.getElementById('share-facebook-btn');
+    const systemBtn = document.getElementById('share-system-btn');
+
+    if (messengerBtn) {
+        messengerBtn.onclick = () => {
+            const fbSendUrl = `https://www.facebook.com/dialog/send?app_id=966242223397117&link=${encodeURIComponent(url)}&redirect_uri=${encodeURIComponent(url)}`;
+            window.open(fbSendUrl, '_blank', 'width=600,height=500');
+        };
+    }
+    if (facebookBtn) {
+        facebookBtn.onclick = () => {
+            window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank', 'width=600,height=500');
+        };
+    }
+    if (systemBtn) {
+        if (navigator.share) {
+            systemBtn.classList.remove('hidden');
+            systemBtn.onclick = () => {
+                navigator.share({ title, text, url }).catch(err => console.error('Lỗi chia sẻ hệ thống:', err));
+            };
+        } else {
+            systemBtn.classList.add('hidden');
+        }
     }
 }

@@ -280,6 +280,8 @@
                             <span id="fileName" class="font-medium text-gray-700"></span>
                         </div>
                         <p id="question-count-info" class="text-sm my-2 font-medium text-gray-600"></p>
+                        <!-- Báo cáo "tự chữa lỗi" sau khi đọc file (core/quiz-autofix-report.js) -->
+                        <div id="autofix-report"></div>
                         <div class="flex justify-center flex-wrap gap-4 mt-2">
                             <button type="button" id="processBtn"
                                 class="px-6 py-2 bg-[#FF69B4] text-white rounded-lg hover:bg-opacity-80 transition shadow-md"><i
@@ -390,16 +392,20 @@
                     </section>
 
                     <!-- CARD 2: Tính số câu cần đạt cho từng kỳ thi -->
+                    <!-- Không dùng overflow-hidden ở section: sẽ chặn mất position:sticky của thanh tóm tắt.
+                         Đốm trang trí được cắt bằng lớp bọc riêng bên dưới. -->
                     <section id="required-correct-section"
-                        class="relative overflow-hidden bg-white rounded-3xl shadow-xl shadow-pink-100/50 border border-pink-100 p-4 sm:p-8 mb-10">
-                        <div class="pointer-events-none absolute -bottom-12 -right-12 w-44 h-44 rounded-full bg-gradient-to-br from-purple-100/60 to-pink-100/70 blur-2xl"></div>
-                        <div class="flex items-center gap-3 mb-6">
+                        class="relative bg-white rounded-3xl shadow-xl shadow-pink-100/50 border border-pink-100 p-4 sm:p-8 mb-10">
+                        <div class="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
+                            <div class="absolute -bottom-12 -right-12 w-44 h-44 rounded-full bg-gradient-to-br from-purple-100/60 to-pink-100/70 blur-2xl"></div>
+                        </div>
+                        <div class="flex items-center gap-3 mb-5">
                             <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#FF69B4] to-[#D8BFD8] flex items-center justify-center text-white shadow-md shrink-0">
                                 <i class="fas fa-bullseye"></i>
                             </div>
                             <div class="min-w-0">
                                 <h3 class="text-base sm:text-lg font-extrabold text-gray-800 leading-snug">Tính số câu cần đạt cho từng kỳ thi</h3>
-                                <p class="text-xs text-gray-400">Đặt mục tiêu theo hệ 4 hoặc hệ 10, mỗi đợt thi một cách tính điểm riêng</p>
+                                <p class="text-xs text-gray-400">Đặt mục tiêu → nhập điểm đã có → biết còn phải đúng bao nhiêu câu</p>
                             </div>
                             <button type="button" id="reset-goal-btn"
                                 class="ml-auto w-10 h-10 sm:w-9 sm:h-9 shrink-0 flex items-center justify-center bg-gray-100 text-gray-500 rounded-xl hover:bg-pink-100 hover:text-pink-500 active:scale-90 transition shadow-sm touch-manipulation"
@@ -408,11 +414,46 @@
                             </button>
                         </div>
 
+                        <!-- Chọn môn học — mỗi môn giữ số liệu riêng, cuộn ngang được trên điện thoại -->
                         <div class="mb-5">
-                            <label for="exam-type" class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-1.5">
-                                <i class="fas fa-clipboard-list text-pink-400"></i> Loại kỳ thi
-                            </label>
-                            <select id="exam-type"
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="text-[11px] font-bold text-gray-400 uppercase tracking-wide flex items-center gap-1.5 shrink-0">
+                                    <i class="fas fa-book text-pink-400"></i> Môn học
+                                </span>
+                                <span class="h-px flex-1 bg-pink-100"></span>
+                                <button type="button" id="rename-subject-btn"
+                                    class="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg text-gray-400 hover:text-pink-500 hover:bg-pink-50 transition touch-manipulation"
+                                    title="Đổi tên môn đang chọn" aria-label="Đổi tên môn đang chọn"><i class="fas fa-pen text-xs"></i></button>
+                                <button type="button" id="delete-subject-btn"
+                                    class="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition touch-manipulation"
+                                    title="Xoá môn đang chọn" aria-label="Xoá môn đang chọn"><i class="fas fa-trash-can text-xs"></i></button>
+                            </div>
+                            <div id="subject-chips" class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                                <!-- chip từng môn (render bằng JS) -->
+                            </div>
+                        </div>
+
+                        <!-- GPA cả học kỳ: cộng điểm hệ 4 các môn theo tín chỉ -->
+                        <details id="semester-gpa" class="group mb-5 rounded-2xl border border-pink-100 bg-pink-50/40">
+                            <summary class="cursor-pointer list-none flex items-center gap-2 px-3.5 py-2.5 select-none touch-manipulation">
+                                <i class="fas fa-chevron-right text-[10px] text-pink-400 transition-transform group-open:rotate-90"></i>
+                                <span class="text-xs font-bold text-gray-500">GPA học kỳ (tạm tính)</span>
+                                <span id="semester-gpa-value" class="ml-auto text-lg font-extrabold text-gray-300 leading-none">—</span>
+                                <span id="semester-gpa-sub" class="text-[10px] font-semibold text-gray-400"></span>
+                            </summary>
+                            <div id="semester-gpa-body" class="px-3.5 pb-3.5">
+                                <!-- danh sách môn + số tín chỉ (render bằng JS) -->
+                            </div>
+                        </details>
+
+                        <!-- ===== BƯỚC 1: kỳ thi ===== -->
+                        <div class="flex items-center gap-2 mb-2.5">
+                            <span class="w-6 h-6 rounded-full bg-gradient-to-br from-[#FF69B4] to-[#FF8DC7] text-white text-[11px] font-extrabold flex items-center justify-center shrink-0 shadow-sm">1</span>
+                            <h4 class="text-sm font-extrabold text-gray-700">Kỳ thi của bạn</h4>
+                            <span class="h-px flex-1 bg-pink-100"></span>
+                        </div>
+                        <div class="mb-6">
+                            <select id="exam-type" aria-label="Loại kỳ thi"
                                 class="w-full px-4 py-3 sm:py-2.5 bg-white border border-pink-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] transition cursor-pointer">
                                 <option value="pretest">Có pretest (10 · 20 · 70)</option>
                                 <option value="nopretest">Không pretest (30 · 70)</option>
@@ -421,35 +462,18 @@
                             <p class="text-[11px] text-gray-400 mt-1.5"><i class="fas fa-pen-to-square mr-1 text-pink-300"></i>Mọi loại kỳ thi đều sửa được: tên, trọng số, thêm/xoá đợt và <b>cách tính điểm riêng từng đợt</b>.</p>
                         </div>
 
-                        <!-- Thang điểm mỗi bài: cách quy đổi câu đúng → hệ 10 trước khi nhân trọng số -->
-                        <div class="flex flex-wrap items-center justify-between gap-2 mb-5 bg-pink-50/60 border border-pink-100 rounded-xl px-3 py-2.5">
-                            <span class="text-xs font-semibold text-gray-500 flex items-center gap-1.5"
-                                title="Áp dụng cho tất cả các đợt nhập theo câu đúng — từng đợt vẫn đổi riêng được ở ô 'cách tính điểm'">
-                                <i class="fas fa-scale-balanced text-pink-400"></i> Thang mặc định · áp cho tất cả
-                            </span>
-                            <div id="scale-mode-toggle" class="flex w-full sm:w-auto bg-white p-0.5 rounded-lg border border-pink-100 gap-0.5">
-                                <button type="button" data-mode="ump" class="scale-mode-btn flex-1 sm:flex-none px-3 h-9 sm:h-7 rounded-md text-xs font-bold transition"
-                                    title="Câu đúng → hệ 10 theo công thức UMP (giống card Quy đổi nhanh phía trên)">Công thức UMP</button>
-                                <button type="button" data-mode="linear" class="scale-mode-btn flex-1 sm:flex-none px-3 h-9 sm:h-7 rounded-md text-xs font-bold transition"
-                                    title="Hệ 10 = tỉ lệ câu đúng × 10">% đúng × 10</button>
+                        <!-- ===== BƯỚC 2: mục tiêu ===== -->
+                        <div class="flex items-center gap-2 mb-2.5">
+                            <span class="w-6 h-6 rounded-full bg-gradient-to-br from-[#FF69B4] to-[#FF8DC7] text-white text-[11px] font-extrabold flex items-center justify-center shrink-0 shadow-sm">2</span>
+                            <h4 class="text-sm font-extrabold text-gray-700">Mục tiêu muốn đạt</h4>
+                            <span class="h-px flex-1 bg-pink-100"></span>
+                            <div id="target-mode-toggle" class="flex bg-white p-0.5 rounded-lg border border-pink-100 gap-0.5 shrink-0"
+                                title="Đặt mục tiêu theo hệ 4 hoặc hệ 10 — đổi qua lại lúc nào cũng được">
+                                <button type="button" data-target-mode="gpa4" class="target-mode-btn px-2.5 h-7 rounded-md text-[11px] font-bold transition">Hệ 4</button>
+                                <button type="button" data-target-mode="score10" class="target-mode-btn px-2.5 h-7 rounded-md text-[11px] font-bold transition">Hệ 10</button>
                             </div>
                         </div>
-
-                        <div id="attempts-table" class="mb-5">
-                            <!-- Bảng nhập câu đúng / tổng câu / trọng số từng lần (render bằng JS) -->
-                        </div>
-
-                        <div class="mb-5">
-                            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-                                <label class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                                    <i class="fas fa-star text-amber-400"></i> Mục tiêu mong muốn
-                                </label>
-                                <div id="target-mode-toggle" class="flex bg-white p-0.5 rounded-lg border border-pink-100 gap-0.5"
-                                    title="Đặt mục tiêu theo hệ 4 hoặc hệ 10 — đổi qua lại lúc nào cũng được">
-                                    <button type="button" data-target-mode="gpa4" class="target-mode-btn px-3 h-8 rounded-md text-xs font-bold transition">Hệ 4</button>
-                                    <button type="button" data-target-mode="score10" class="target-mode-btn px-3 h-8 rounded-md text-xs font-bold transition">Hệ 10</button>
-                                </div>
-                            </div>
+                        <div class="mb-6">
                             <input type="hidden" id="desired-gpa-4" value="4.0">
                             <!-- Mục tiêu theo hệ 10: nhập số hoặc kéo thanh trượt -->
                             <div id="desired-10-wrap" class="hidden">
@@ -458,7 +482,7 @@
                                         class="w-24 px-3 py-2 border border-pink-200 rounded-xl text-center text-lg font-extrabold text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-200"
                                         aria-label="Điểm hệ 10 mong muốn">
                                     <input type="range" id="desired-score-10-range" min="0" max="10" step="0.1" value="8.5"
-                                        class="flex-1 accent-pink-500 cursor-pointer" aria-label="Kéo chọn điểm hệ 10 mong muốn">
+                                        class="flex-1 accent-pink-500 cursor-pointer h-6" aria-label="Kéo chọn điểm hệ 10 mong muốn">
                                 </div>
                             </div>
                             <div id="desired-gpa-chips" class="grid grid-cols-4 sm:grid-cols-7 gap-2 sm:gap-1.5">
@@ -487,17 +511,59 @@
                             <p id="desired-target-hint" class="text-[11px] text-gray-400 mt-2 text-center"></p>
                         </div>
 
+                        <!-- ===== BƯỚC 3: điểm từng đợt ===== -->
+                        <div class="flex items-center gap-2 mb-2.5">
+                            <span class="w-6 h-6 rounded-full bg-gradient-to-br from-[#FF69B4] to-[#FF8DC7] text-white text-[11px] font-extrabold flex items-center justify-center shrink-0 shadow-sm">3</span>
+                            <h4 class="text-sm font-extrabold text-gray-700">Điểm từng đợt</h4>
+                            <span class="h-px flex-1 bg-pink-100"></span>
+                        </div>
+                        <p class="text-[11px] text-gray-400 mb-2.5 flex items-start gap-1.5">
+                            <i class="fas fa-lightbulb mt-0.5 text-amber-300"></i>
+                            <span>Đợt <b>đã thi</b> thì nhập điểm, đợt <b>chưa thi</b> cứ để trống — công cụ sẽ tính giúp bạn cần bao nhiêu.</span>
+                        </p>
+
+                        <!-- Thang điểm mỗi bài: cách quy đổi câu đúng → hệ 10 trước khi nhân trọng số -->
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-3 bg-pink-50/60 border border-pink-100 rounded-xl px-3 py-2.5">
+                            <span class="text-xs font-semibold text-gray-500 flex items-center gap-1.5"
+                                title="Áp dụng cho tất cả các đợt nhập theo câu đúng — từng đợt vẫn đổi riêng được ở ô 'cách tính điểm'">
+                                <i class="fas fa-scale-balanced text-pink-400"></i> Thang mặc định · áp cho tất cả
+                            </span>
+                            <div id="scale-mode-toggle" class="flex w-full sm:w-auto bg-white p-0.5 rounded-lg border border-pink-100 gap-0.5">
+                                <button type="button" data-mode="ump" class="scale-mode-btn flex-1 sm:flex-none px-3 h-9 sm:h-7 rounded-md text-xs font-bold transition"
+                                    title="Câu đúng → hệ 10 theo công thức UMP (giống card Quy đổi nhanh phía trên)">Công thức UMP</button>
+                                <button type="button" data-mode="linear" class="scale-mode-btn flex-1 sm:flex-none px-3 h-9 sm:h-7 rounded-md text-xs font-bold transition"
+                                    title="Hệ 10 = tỉ lệ câu đúng × 10">% đúng × 10</button>
+                            </div>
+                        </div>
+
+                        <div id="attempts-table" class="mb-5">
+                            <!-- Bảng nhập câu đúng / tổng câu / trọng số từng lần (render bằng JS) -->
+                        </div>
+
+                        <!-- ===== KẾT QUẢ ===== -->
                         <!-- Điểm tổng kết tạm tính (cập nhật theo thời gian thực khi nhập / kéo thanh trượt) -->
                         <div id="gpa-live-projection" class="hidden"></div>
 
+                        <!-- Thanh tóm tắt dính đáy (chỉ mobile): vừa nhập vừa thấy điểm tạm tính, bấm là nhảy tới kết quả -->
+                        <!-- bottom-[5.5rem]: né con sóc nổi #squirrel-floating (fixed bottom-4, cao 64px) -->
+                        <div id="gpa-sticky-bar" class="hidden sm:hidden sticky bottom-[5.5rem] z-20 mb-3 transition-opacity duration-200">
+                            <button type="button" id="gpa-sticky-btn"
+                                class="w-full flex items-center gap-2 px-3 py-2.5 rounded-2xl bg-white/95 backdrop-blur border border-pink-200 shadow-lg shadow-pink-200/50 active:scale-[0.98] transition touch-manipulation">
+                                <span class="text-[9px] font-bold text-gray-400 uppercase leading-tight text-left shrink-0">Tạm<br>tính</span>
+                                <span id="gpa-sticky-score" class="text-xl font-extrabold text-pink-500 leading-none shrink-0">—</span>
+                                <span id="gpa-sticky-gap" class="text-[11px] font-semibold text-gray-500 leading-tight text-left min-w-0"></span>
+                                <span class="ml-auto text-xs font-bold text-white bg-gradient-to-r from-[#FF69B4] to-[#FF8DC7] rounded-full px-3 py-1.5 shrink-0">Kết quả <i class="fas fa-arrow-down ml-0.5"></i></span>
+                            </button>
+                        </div>
+
                         <button type="button" id="calculate-required-btn"
-                            class="w-full px-6 py-3 bg-gradient-to-r from-[#FF69B4] to-[#FF8DC7] text-white rounded-2xl shadow-md shadow-pink-200/60 hover:shadow-lg hover:shadow-pink-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 font-bold flex items-center justify-center gap-2">
+                            class="w-full px-6 py-3.5 bg-gradient-to-r from-[#FF69B4] to-[#FF8DC7] text-white rounded-2xl shadow-md shadow-pink-200/60 hover:shadow-lg hover:shadow-pink-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 font-bold flex items-center justify-center gap-2 touch-manipulation">
                             <i class="fas fa-bullseye"></i> Tính số câu cần đạt
                         </button>
                         <div id="required-correct-result" class="mt-5"></div>
                         <div class="flex items-start gap-1.5 text-xs text-gray-400 mt-3">
                             <i class="fas fa-circle-info mt-0.5"></i>
-                            <span>Để trống ô câu đúng của các lần <b>chưa thi</b> để nhận gợi ý số câu cần đạt. Dữ liệu bạn nhập được lưu tự động trên máy; sau lần tính đầu tiên, kết quả sẽ tự cập nhật khi bạn chỉnh số liệu.</span>
+                            <span>Dữ liệu bạn nhập được lưu tự động trên máy; sau lần tính đầu tiên, kết quả sẽ tự cập nhật khi bạn chỉnh số liệu.</span>
                         </div>
                     </section>
                 </div>
@@ -505,7 +571,15 @@
 
             <div id="libraryContent" class="content-panel hidden px-5 pt-3 sm:px-0 sm:pt-0">
                 <div class="flex flex-row justify-between items-center gap-3 mb-4">
-                    <h2 class="text-on-bg text-xl sm:text-2xl font-extrabold text-[#FF69B4] tracking-wide">Thư viện</h2>
+                    <div class="min-w-0">
+                        <h2 class="text-on-bg text-xl sm:text-2xl font-extrabold text-[#FF69B4] tracking-wide">Thư viện</h2>
+                        <!-- Số liệu tổng quan: đặt ngay dưới tiêu đề nên luôn thấy, không bị thu gọn theo bộ lọc -->
+                        <div class="lib-stats">
+                            <span class="lib-stat"><i class="fas fa-file-alt text-pink-400"></i><b id="lib-stat-quizzes">…</b> bộ đề</span>
+                            <span class="lib-stat"><i class="fas fa-circle-question text-purple-400"></i><b id="lib-stat-questions">…</b> câu</span>
+                            <span class="lib-stat"><i class="fas fa-folder text-amber-400"></i><b id="lib-stat-folders">…</b> thư mục</span>
+                        </div>
+                    </div>
                     <div class="flex items-center gap-2 flex-shrink-0">
                         <!-- Nút tải lại đặt cạnh dấu "..." cho dễ bấm -->
                         <button type="button" id="refresh-library-btn" class="w-9 h-9 flex items-center justify-center bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 hover:text-pink-500 transition focus:outline-none shadow-sm" title="Tải lại thư viện" aria-label="Tải lại thư viện">
@@ -558,6 +632,9 @@
                                     <button type="button" id="bulk-select-toggle-btn" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition focus:outline-none" title="Chọn nhiều bộ đề để thao tác đồng loạt">
                                         <i class="fas fa-tasks text-xs w-4 text-center"></i> <span>Chọn nhiều</span>
                                     </button>
+                                    <button type="button" id="download-all-offline-btn" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition focus:outline-none" title="Tải mọi bộ đề về máy để làm khi không có mạng">
+                                        <i class="fas fa-cloud-arrow-down text-xs w-4 text-center"></i> <span>Tải cả thư viện về máy</span>
+                                    </button>
                                     <a href="features/quiz/trash.html" id="open-trash-btn" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition focus:outline-none" title="Xem thùng rác">
                                         <i class="fas fa-trash-can text-xs w-4 text-center"></i> <span>Thùng rác</span>
                                     </a>
@@ -609,18 +686,18 @@
                     <div class="px-2.5 sm:px-3 pb-3 pt-3 border-t border-gray-100 space-y-3">
                         <!-- Chế độ tìm (bộ đề / câu hỏi) + Sắp xếp -->
                         <div class="flex flex-col sm:flex-row sm:items-center gap-2">
-                            <div class="bg-gray-100 p-1 rounded-xl flex gap-1 flex-1 border border-gray-200/40">
-                                <button type="button" id="search-mode-quiz-btn" class="flex-1 text-center px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-200 bg-white text-pink-600 shadow-sm flex items-center justify-center gap-1.5 focus:outline-none">
+                            <div class="bg-gray-100 p-1 rounded-xl flex gap-1 flex-1 sm:flex-none border border-gray-200/40">
+                                <button type="button" id="search-mode-quiz-btn" class="flex-1 sm:flex-none text-center px-3 sm:px-4 py-1.5 text-xs font-bold rounded-lg transition-all duration-200 bg-white text-pink-600 shadow-sm flex items-center justify-center gap-1.5 focus:outline-none">
                                     <i class="fas fa-file-alt text-xs"></i> Tìm bộ đề
                                 </button>
-                                <button type="button" id="search-mode-question-btn" class="flex-1 text-center px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-200 text-gray-500 hover:text-gray-700 flex items-center justify-center gap-1.5 focus:outline-none">
+                                <button type="button" id="search-mode-question-btn" class="flex-1 sm:flex-none text-center px-3 sm:px-4 py-1.5 text-xs font-bold rounded-lg transition-all duration-200 text-gray-500 hover:text-gray-700 flex items-center justify-center gap-1.5 focus:outline-none">
                                     <i class="fas fa-question-circle text-xs"></i> Tìm câu hỏi
                                 </button>
                                 <!-- Giữ lại các radio ẩn để phục vụ code JS cũ -->
                                 <input type="radio" name="search-mode" value="quiz" id="search-mode-quiz" class="hidden" checked>
                                 <input type="radio" name="search-mode" value="question" id="search-mode-question" class="hidden">
                             </div>
-                            <div class="flex items-center gap-2 flex-shrink-0">
+                            <div class="flex items-center gap-2 flex-shrink-0 sm:ml-auto">
                                 <label for="library-sort-select" class="text-xs text-gray-400 font-medium hidden sm:inline">Sắp xếp:</label>
                                 <select id="library-sort-select" class="flex-1 sm:flex-initial text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg pl-3 pr-8 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-200 cursor-pointer">
                                     <option value="newest">Mới nhất</option>
@@ -641,12 +718,6 @@
                             <span id="library-result-count" class="hidden text-xs text-gray-400 font-medium ml-auto"></span>
                         </div>
 
-                        <!-- Số liệu tổng quan (phụ, tự cập nhật) -->
-                        <div class="flex items-center gap-3 pt-2.5 border-t border-gray-100 text-[11px] text-gray-400 font-medium">
-                            <span class="flex items-center gap-1"><i class="fas fa-file-alt text-pink-300 text-[10px]"></i><b id="lib-stat-quizzes" class="text-gray-600 font-bold tabular-nums">…</b> bộ đề</span>
-                            <span class="flex items-center gap-1"><i class="fas fa-question-circle text-purple-300 text-[10px]"></i><b id="lib-stat-questions" class="text-gray-600 font-bold tabular-nums">…</b> câu</span>
-                            <span class="flex items-center gap-1"><i class="fas fa-folder text-amber-300 text-[10px]"></i><b id="lib-stat-folders" class="text-gray-600 font-bold tabular-nums">…</b> thư mục</span>
-                        </div>
                     </div>
                     </div><!-- /#lib-panel-body -->
                 </div>
@@ -655,15 +726,16 @@
                     <h3 class="text-on-bg text-sm font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 flex-shrink-0">
                         <i class="fas fa-folder-open text-pink-400"></i> Thư mục của bạn
                     </h3>
-                    <div class="flex items-center gap-2 flex-wrap justify-end ml-auto">
+                    <!-- flex-nowrap + w-full trên mobile: ô tìm co lại chứ không đẩy nút "Tạo thư mục" xuống hàng riêng -->
+                    <div class="flex items-center gap-2 flex-nowrap justify-end ml-auto w-full sm:w-auto">
                         <!-- Ô tìm kiếm + sắp xếp (chỉ hiện khi đã có thư mục) -->
-                        <div id="folder-tools-group" class="flex items-center gap-2 hidden">
-                            <div class="relative">
+                        <div id="folder-tools-group" class="flex items-center gap-2 flex-1 min-w-0 sm:flex-none hidden">
+                            <div class="relative flex-1 min-w-0 sm:flex-none">
                                 <i class="fas fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
-                                <input type="text" id="folder-search-input" placeholder="Tìm thư mục..." class="w-32 sm:w-44 pl-7 pr-7 py-1.5 text-xs font-semibold bg-white/90 border border-pink-100 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-200 placeholder-gray-400" />
+                                <input type="text" id="folder-search-input" placeholder="Tìm thư mục..." class="w-full sm:w-44 pl-7 pr-7 py-1.5 text-xs font-semibold bg-white/90 border border-pink-100 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-200 placeholder-gray-400" />
                                 <button type="button" id="folder-search-clear" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-pink-500 focus:outline-none"><i class="fas fa-times-circle text-xs"></i></button>
                             </div>
-                            <select id="folder-sort-select" class="text-xs font-semibold text-gray-700 bg-white/90 border border-pink-100 rounded-xl pl-2.5 pr-7 py-1.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-200 cursor-pointer" title="Sắp xếp thư mục">
+                            <select id="folder-sort-select" class="flex-shrink-0 text-xs font-semibold text-gray-700 bg-white/90 border border-pink-100 rounded-xl pl-2.5 pr-7 py-1.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-200 cursor-pointer" title="Sắp xếp thư mục">
                                 <option value="manual">Thủ công</option>
                                 <option value="name">Tên A→Z</option>
                                 <option value="newest">Mới nhất</option>
@@ -671,7 +743,7 @@
                             </select>
                         </div>
                         <!-- Nút Tạo thư mục: trên điện thoại chỉ hiện icon + để tiết kiệm chỗ -->
-                        <button type="button" id="create-folder-btn" class="px-2.5 sm:px-3 py-1.5 bg-pink-100 text-pink-700 rounded-xl hover:bg-pink-200 transition font-bold flex items-center gap-1.5 text-xs focus:outline-none shadow-sm" title="Tạo thư mục mới">
+                        <button type="button" id="create-folder-btn" class="flex-shrink-0 px-2.5 sm:px-3 py-1.5 bg-pink-100 text-pink-700 rounded-xl hover:bg-pink-200 transition font-bold flex items-center gap-1.5 text-xs focus:outline-none shadow-sm" title="Tạo thư mục mới">
                             <i class="fas fa-folder-plus text-xs"></i> <span class="hidden sm:inline">Tạo thư mục</span>
                         </button>
                     </div>
@@ -693,102 +765,90 @@
                     <h3 id="quizzes-section-title" class="text-on-bg text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2 hidden">
                         <i class="fas fa-file-alt text-pink-400"></i> Bộ đề trắc nghiệm
                     </h3>
-                    <div id="quiz-list-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-                        <!-- Skeleton tĩnh: hiện ngay khi mở tab, JS sẽ thay bằng dữ liệu thật (hoặc skeleton động) khi tải xong -->
-                        <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex flex-col">
-                            <div class="skeleton-line h-4 w-3/4 mb-3"></div>
-                            <div class="skeleton-line h-4 w-1/2 mb-4"></div>
-                            <div class="flex gap-2 mb-4">
-                                <div class="skeleton-line h-6 w-20 rounded-full"></div>
-                                <div class="skeleton-line h-6 w-24 rounded-full"></div>
+                    <div id="quiz-list-container" class="quiz-grid">
+                        <!-- Khung chờ tĩnh: hiện ngay khi mở tab, JS sẽ thay bằng dữ liệu thật (hoặc khung chờ động) khi tải xong -->
+                        <div class="quiz-skeleton-card">
+                            <div class="qs-top">
+                                <div class="skeleton-line qs-icon"></div>
+                                <div class="qs-lines">
+                                    <div class="skeleton-line h-3.5 w-4/5"></div>
+                                    <div class="skeleton-line h-2.5 w-2/5"></div>
+                                </div>
                             </div>
-                            <div class="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center">
-                                <div class="skeleton-line h-7 w-24 rounded-lg"></div>
-                                <div class="skeleton-line h-8 w-24 rounded-xl"></div>
-                            </div>
-                        </div>
-                        <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex flex-col">
-                            <div class="skeleton-line h-4 w-3/4 mb-3"></div>
-                            <div class="skeleton-line h-4 w-1/2 mb-4"></div>
-                            <div class="flex gap-2 mb-4">
-                                <div class="skeleton-line h-6 w-20 rounded-full"></div>
-                                <div class="skeleton-line h-6 w-24 rounded-full"></div>
-                            </div>
-                            <div class="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center">
-                                <div class="skeleton-line h-7 w-24 rounded-lg"></div>
-                                <div class="skeleton-line h-8 w-24 rounded-xl"></div>
+                            <div class="skeleton-line h-2 w-full rounded-full"></div>
+                            <div class="qs-foot">
+                                <div class="skeleton-line h-8 w-8 rounded-xl"></div>
+                                <div class="skeleton-line h-9 flex-1 rounded-xl"></div>
                             </div>
                         </div>
-                        <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex flex-col">
-                            <div class="skeleton-line h-4 w-3/4 mb-3"></div>
-                            <div class="skeleton-line h-4 w-1/2 mb-4"></div>
-                            <div class="flex gap-2 mb-4">
-                                <div class="skeleton-line h-6 w-20 rounded-full"></div>
-                                <div class="skeleton-line h-6 w-24 rounded-full"></div>
+                        <div class="quiz-skeleton-card">
+                            <div class="qs-top">
+                                <div class="skeleton-line qs-icon"></div>
+                                <div class="qs-lines">
+                                    <div class="skeleton-line h-3.5 w-4/5"></div>
+                                    <div class="skeleton-line h-2.5 w-2/5"></div>
+                                </div>
                             </div>
-                            <div class="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center">
-                                <div class="skeleton-line h-7 w-24 rounded-lg"></div>
-                                <div class="skeleton-line h-8 w-24 rounded-xl"></div>
-                            </div>
-                        </div>
-                        <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex flex-col">
-                            <div class="skeleton-line h-4 w-3/4 mb-3"></div>
-                            <div class="skeleton-line h-4 w-1/2 mb-4"></div>
-                            <div class="flex gap-2 mb-4">
-                                <div class="skeleton-line h-6 w-20 rounded-full"></div>
-                                <div class="skeleton-line h-6 w-24 rounded-full"></div>
-                            </div>
-                            <div class="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center">
-                                <div class="skeleton-line h-7 w-24 rounded-lg"></div>
-                                <div class="skeleton-line h-8 w-24 rounded-xl"></div>
+                            <div class="skeleton-line h-2 w-full rounded-full"></div>
+                            <div class="qs-foot">
+                                <div class="skeleton-line h-8 w-8 rounded-xl"></div>
+                                <div class="skeleton-line h-9 flex-1 rounded-xl"></div>
                             </div>
                         </div>
-                        <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex-col hidden sm:flex">
-                            <div class="skeleton-line h-4 w-3/4 mb-3"></div>
-                            <div class="skeleton-line h-4 w-1/2 mb-4"></div>
-                            <div class="flex gap-2 mb-4">
-                                <div class="skeleton-line h-6 w-20 rounded-full"></div>
-                                <div class="skeleton-line h-6 w-24 rounded-full"></div>
+                        <div class="quiz-skeleton-card">
+                            <div class="qs-top">
+                                <div class="skeleton-line qs-icon"></div>
+                                <div class="qs-lines">
+                                    <div class="skeleton-line h-3.5 w-4/5"></div>
+                                    <div class="skeleton-line h-2.5 w-2/5"></div>
+                                </div>
                             </div>
-                            <div class="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center">
-                                <div class="skeleton-line h-7 w-24 rounded-lg"></div>
-                                <div class="skeleton-line h-8 w-24 rounded-xl"></div>
-                            </div>
-                        </div>
-                        <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex-col hidden sm:flex">
-                            <div class="skeleton-line h-4 w-3/4 mb-3"></div>
-                            <div class="skeleton-line h-4 w-1/2 mb-4"></div>
-                            <div class="flex gap-2 mb-4">
-                                <div class="skeleton-line h-6 w-20 rounded-full"></div>
-                                <div class="skeleton-line h-6 w-24 rounded-full"></div>
-                            </div>
-                            <div class="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center">
-                                <div class="skeleton-line h-7 w-24 rounded-lg"></div>
-                                <div class="skeleton-line h-8 w-24 rounded-xl"></div>
+                            <div class="skeleton-line h-2 w-full rounded-full"></div>
+                            <div class="qs-foot">
+                                <div class="skeleton-line h-8 w-8 rounded-xl"></div>
+                                <div class="skeleton-line h-9 flex-1 rounded-xl"></div>
                             </div>
                         </div>
-                        <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex-col hidden lg:flex">
-                            <div class="skeleton-line h-4 w-3/4 mb-3"></div>
-                            <div class="skeleton-line h-4 w-1/2 mb-4"></div>
-                            <div class="flex gap-2 mb-4">
-                                <div class="skeleton-line h-6 w-20 rounded-full"></div>
-                                <div class="skeleton-line h-6 w-24 rounded-full"></div>
+                        <div class="quiz-skeleton-card">
+                            <div class="qs-top">
+                                <div class="skeleton-line qs-icon"></div>
+                                <div class="qs-lines">
+                                    <div class="skeleton-line h-3.5 w-4/5"></div>
+                                    <div class="skeleton-line h-2.5 w-2/5"></div>
+                                </div>
                             </div>
-                            <div class="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center">
-                                <div class="skeleton-line h-7 w-24 rounded-lg"></div>
-                                <div class="skeleton-line h-8 w-24 rounded-xl"></div>
+                            <div class="skeleton-line h-2 w-full rounded-full"></div>
+                            <div class="qs-foot">
+                                <div class="skeleton-line h-8 w-8 rounded-xl"></div>
+                                <div class="skeleton-line h-9 flex-1 rounded-xl"></div>
                             </div>
                         </div>
-                        <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex-col hidden lg:flex">
-                            <div class="skeleton-line h-4 w-3/4 mb-3"></div>
-                            <div class="skeleton-line h-4 w-1/2 mb-4"></div>
-                            <div class="flex gap-2 mb-4">
-                                <div class="skeleton-line h-6 w-20 rounded-full"></div>
-                                <div class="skeleton-line h-6 w-24 rounded-full"></div>
+                        <div class="quiz-skeleton-card">
+                            <div class="qs-top">
+                                <div class="skeleton-line qs-icon"></div>
+                                <div class="qs-lines">
+                                    <div class="skeleton-line h-3.5 w-4/5"></div>
+                                    <div class="skeleton-line h-2.5 w-2/5"></div>
+                                </div>
                             </div>
-                            <div class="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center">
-                                <div class="skeleton-line h-7 w-24 rounded-lg"></div>
-                                <div class="skeleton-line h-8 w-24 rounded-xl"></div>
+                            <div class="skeleton-line h-2 w-full rounded-full"></div>
+                            <div class="qs-foot">
+                                <div class="skeleton-line h-8 w-8 rounded-xl"></div>
+                                <div class="skeleton-line h-9 flex-1 rounded-xl"></div>
+                            </div>
+                        </div>
+                        <div class="quiz-skeleton-card">
+                            <div class="qs-top">
+                                <div class="skeleton-line qs-icon"></div>
+                                <div class="qs-lines">
+                                    <div class="skeleton-line h-3.5 w-4/5"></div>
+                                    <div class="skeleton-line h-2.5 w-2/5"></div>
+                                </div>
+                            </div>
+                            <div class="skeleton-line h-2 w-full rounded-full"></div>
+                            <div class="qs-foot">
+                                <div class="skeleton-line h-8 w-8 rounded-xl"></div>
+                                <div class="skeleton-line h-9 flex-1 rounded-xl"></div>
                             </div>
                         </div>
                     </div>
@@ -1152,8 +1212,8 @@
     <!-- Modal Chia sẻ bộ đề -->
     <div id="shareQuizModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
         <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl transform transition-all mx-4 max-h-[90vh] overflow-y-auto">
-            <h3 class="text-xl font-extrabold text-[#FF69B4] mb-4 flex items-center gap-2">
-                <i class="fas fa-share-alt text-[#FF69B4]"></i> Chia sẻ bộ đề
+            <h3 id="share-modal-heading" class="text-xl font-extrabold text-[#FF69B4] mb-4 flex items-center gap-2">
+                <i class="fas fa-share-alt text-[#FF69B4]"></i> <span>Chia sẻ bộ đề</span>
             </h3>
             <div class="space-y-4">
                 <!-- Tên bộ đề -->
@@ -1187,8 +1247,8 @@
                     </div>
                 </div>
 
-                <!-- Embed Section -->
-                <div>
+                <!-- Embed Section (ẩn khi chia sẻ thư mục — nhúng iframe chỉ có nghĩa với bộ đề) -->
+                <div id="share-embed-section">
                     <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Nhúng vào Notion</label>
                     <div class="flex gap-2">
                         <input type="text" id="share-embed-input" readonly class="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-xs bg-gray-50 focus:outline-none w-full truncate font-mono text-gray-600" />
@@ -1204,19 +1264,21 @@
     </div>
 
     <!-- Thanh tác vụ đồng loạt (Bulk Actions Toolbar) -->
-    <div id="bulk-actions-toolbar" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40 bg-white bg-opacity-95 backdrop-blur-md rounded-2xl shadow-2xl border border-pink-100 py-3.5 px-6 flex flex-col md:flex-row items-center justify-between gap-4 w-[92%] max-w-3xl transition-all duration-300 translate-y-28 opacity-0 pointer-events-none">
+    <div id="bulk-actions-toolbar" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40 bg-white bg-opacity-95 backdrop-blur-md rounded-2xl shadow-2xl border border-pink-100 py-3.5 px-6 flex flex-col md:flex-row items-center justify-between gap-4 w-[92%] max-w-4xl transition-all duration-300 translate-y-28 opacity-0 pointer-events-none">
         <div class="flex items-center justify-between w-full md:w-auto gap-4">
-            <span id="bulk-select-count" class="text-sm font-bold text-gray-700 bg-pink-50 text-pink-600 px-3 py-1.5 rounded-lg border border-pink-100"><i class="fas fa-check-square mr-1.5"></i> Đã chọn: 0 bộ đề</span>
+            <span id="bulk-select-count" class="text-sm font-bold bg-pink-50 text-pink-600 px-3 py-1.5 rounded-lg border border-pink-100 whitespace-nowrap"><i class="fas fa-check-square mr-1.5"></i> Đã chọn: 0 bộ đề</span>
             <div class="flex items-center gap-2">
-                <button type="button" id="bulk-select-all-btn" class="text-xs font-bold text-pink-500 hover:text-pink-600 focus:outline-none bg-pink-50/50 hover:bg-pink-50 px-2.5 py-1.5 rounded border border-transparent transition"><i class="fas fa-check-double mr-1"></i> Chọn tất cả</button>
-                <button type="button" id="bulk-deselect-all-btn" class="text-xs font-bold text-gray-500 hover:text-gray-600 focus:outline-none bg-gray-50 hover:bg-gray-100 px-2.5 py-1.5 rounded border border-transparent transition"><i class="fas fa-times-circle mr-1"></i> Hủy chọn</button>
+                <button type="button" id="bulk-select-all-btn" class="text-xs font-bold text-pink-500 hover:text-pink-600 focus:outline-none bg-pink-50/50 hover:bg-pink-50 px-2.5 py-1.5 rounded border border-transparent transition whitespace-nowrap"><i class="fas fa-check-double mr-1"></i> Chọn tất cả</button>
+                <button type="button" id="bulk-deselect-all-btn" class="text-xs font-bold text-gray-500 hover:text-gray-600 focus:outline-none bg-gray-50 hover:bg-gray-100 px-2.5 py-1.5 rounded border border-transparent transition whitespace-nowrap"><i class="fas fa-times-circle mr-1"></i> Hủy chọn</button>
             </div>
         </div>
-        <div class="flex items-center justify-end w-full md:w-auto gap-2.5 border-t md:border-t-0 pt-3 md:pt-0 border-pink-50">
-            <button type="button" id="bulk-move-btn" class="flex-1 md:flex-none px-4 py-2 bg-amber-500 text-white rounded-xl hover:bg-opacity-90 transition font-bold text-sm shadow-sm flex items-center justify-center gap-1.5"><i class="fas fa-folder-open"></i> Di chuyển</button>
-            <button type="button" id="bulk-share-btn" class="flex-1 md:flex-none px-4 py-2 bg-green-500 text-white rounded-xl hover:bg-opacity-90 transition font-bold text-sm shadow-sm flex items-center justify-center gap-1.5"><i class="fas fa-share-alt"></i> Chia sẻ</button>
-            <button type="button" id="bulk-delete-btn" class="flex-1 md:flex-none px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-opacity-90 transition font-bold text-sm shadow-sm flex items-center justify-center gap-1.5"><i class="fas fa-trash-alt"></i> Xóa</button>
-            <button type="button" id="bulk-cancel-btn" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition font-bold text-sm shadow-sm flex items-center justify-center gap-1.5"><i class="fas fa-sign-out-alt"></i> Thoát</button>
+        <!-- Nút nền trung tính, chỉ icon mang màu: 4 nút tô đặc 4 màu (hổ phách/xanh/đỏ/xám)
+             nhìn rất rối. Riêng "Xóa" giữ sắc đỏ vì là thao tác không lấy lại được. -->
+        <div class="flex items-center justify-end w-full md:w-auto gap-2 border-t md:border-t-0 pt-3 md:pt-0 border-pink-50">
+            <button type="button" id="bulk-move-btn" class="bulk-btn"><i class="fas fa-folder-open text-amber-500"></i> <span>Di chuyển</span></button>
+            <button type="button" id="bulk-share-btn" class="bulk-btn"><i class="fas fa-share-alt text-green-500"></i> <span>Chia sẻ</span></button>
+            <button type="button" id="bulk-delete-btn" class="bulk-btn bulk-btn-danger"><i class="fas fa-trash-alt"></i> <span>Xóa</span></button>
+            <button type="button" id="bulk-cancel-btn" class="bulk-btn bulk-btn-quiet" title="Thoát chế độ chọn nhiều" aria-label="Thoát chế độ chọn nhiều"><i class="fas fa-xmark"></i> <span class="hidden sm:inline">Thoát</span></button>
         </div>
     </div>
 

@@ -14,13 +14,15 @@ import {
     isPinned, isNewQuiz, getQuizAccent, togglePinData
 } from './library-helpers.js';
 import { renderLibrary, renderBreadcrumb, rerenderCurrentView } from './library-render.js';
-import { loadAndDisplayLibrary } from './library-data.js';
+import { loadAndDisplayLibrary, ensureFullLibraryLoaded } from './library-data.js';
 import {
     toggleFolderPin, openFolderModal, quickSetFolderColor, confirmDeleteFolder,
     reorderFolders, openMoveQuizModal, openShareQuizModal, updateBulkActionsToolbar,
-    toggleQuizPublic
+    toggleQuizPublic, toggleFolderPublic, openShareFolderModal, moveAllQuizzesOutOfFolder,
+    duplicateQuizSet, moveQuizToFolder
 } from './library-actions.js';
 import { getLastAttempt, hasAttemptData, markQuizOpened } from './library-attempts.js';
+import { countDueNow } from '../quiz-srs-store.js';
 
 // Ghi nhận "lần mở bộ đề" ở pha capture trên document (đăng ký một lần khi nạp module).
 // Phải đặt ở cấp document vì quiz-launch-transition.js chặn click điều hướng
@@ -134,19 +136,24 @@ export function createFolderCard(folder) {
     // Icon nổi bật: chip màu đặc + icon trắng để tương phản trên nền đã tô màu
     const wrapperHTML = `<div class="folder-icon-wrapper" style="background-color: ${hex}; color: #fff;"><i class="fas ${iconClass}"></i></div>`;
 
+    const isPublicFolder = folder.isPublic === true;
     const pinBadge = isPinnedFolder
         ? `<span class="folder-pin-badge" title="Đã ghim"><i class="fas fa-thumbtack"></i></span>`
+        : '';
+    // Thư mục đang chia sẻ công khai → báo ngay trên thẻ để không lỡ để lộ mà không biết
+    const publicBadge = isPublicFolder
+        ? `<span class="folder-public-badge" title="Đang công khai — ai có link đều xem được"><i class="fas fa-globe"></i></span>`
         : '';
 
     const swatchHTML = FOLDER_SWATCHES.map(s =>
         `<button type="button" class="folder-color-dot ${s.key === colorVal ? 'is-active' : ''}" data-color="${s.key}" style="background:${s.hex}" title="${s.label}" aria-label="${s.label}"></button>`
     ).join('');
 
-    // Dòng thông tin phụ: số câu hỏi + lần mở gần nhất (nếu có)
+    // Dòng thông tin phụ. Số liệu (bộ đề · câu) nằm chung một hàng KHÔNG xuống dòng;
+    // lần mở gần nhất tách xuống hàng riêng và LUÔN render (rỗng thì vẫn giữ chỗ) —
+    // nhờ vậy mọi thẻ thư mục cao bằng nhau, cả dải nhìn thẳng hàng.
     const totalQHTML = `<span class="folder-meta-chip"><i class="fas fa-circle-question text-[9px] opacity-70"></i>${totalQuestions} câu</span>`;
-    const lastOpenedHTML = lastOpenedText
-        ? `<span class="folder-meta-chip folder-meta-time"><i class="fas fa-clock text-[9px] opacity-70"></i>${lastOpenedText}</span>`
-        : '';
+    const lastOpenedHTML = `<p class="folder-meta-time">${lastOpenedText ? `<i class="fas fa-clock"></i>${lastOpenedText}` : ''}</p>`;
 
     // Xem nhanh khi hover: liệt kê tối đa 5 bộ đề trong thư mục
     const previewItems = folderQuizzes.slice(0, 5)
@@ -159,6 +166,7 @@ export function createFolderCard(folder) {
 
     card.innerHTML = `
         ${pinBadge}
+        ${publicBadge}
         ${previewHTML}
         <div class="folder-mini-card-content folder-click-area">
             ${wrapperHTML}
@@ -167,20 +175,25 @@ export function createFolderCard(folder) {
                 <div class="folder-meta-row">
                     <span class="folder-count-badge"><i class="fas fa-file-alt text-[9px] opacity-70"></i>${count} bộ đề</span>
                     ${totalQHTML}
-                    ${lastOpenedHTML}
                 </div>
+                ${lastOpenedHTML}
             </div>
         </div>
         <div class="relative flex items-center">
             <button class="folder-menu-btn w-6 h-6 flex items-center justify-center text-gray-400 hover:text-pink-500 rounded-full focus:outline-none" data-id="${folder.id}" title="Tùy chọn thư mục" aria-label="Tùy chọn thư mục" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v text-xs"></i></button>
-            <div class="folder-menu hidden absolute right-0 top-7 bg-white rounded-xl shadow-xl border border-pink-100 z-30 min-w-[180px] p-1">
+            <div class="folder-menu hidden absolute right-0 top-7 bg-white rounded-xl shadow-xl border border-pink-100 z-30 min-w-[205px] p-1">
                 <button class="block w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-gray-700 hover:bg-pink-50 pin-folder-btn" data-id="${folder.id}"><i class="fas fa-thumbtack mr-2 ${isPinnedFolder ? 'text-pink-500' : 'text-gray-400'}"></i>${isPinnedFolder ? 'Bỏ ghim' : 'Ghim lên đầu'}</button>
+                <button class="block w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-gray-700 hover:bg-pink-50 share-folder-btn" data-id="${folder.id}"><i class="fas fa-share-alt mr-2 text-green-500"></i>Chia sẻ thư mục</button>
+                <button class="block w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-gray-700 hover:bg-pink-50 toggle-folder-public-btn" data-id="${folder.id}" data-public="${isPublicFolder}" title="${isPublicFolder ? 'Đang công khai — bấm để chuyển cả thư mục về riêng tư' : 'Đang riêng tư — bấm để công khai cả thư mục kèm bộ đề bên trong'}"><i class="fas ${isPublicFolder ? 'fa-globe text-green-500' : 'fa-lock text-gray-400'} mr-2"></i>${isPublicFolder ? 'Đang công khai' : 'Đang riêng tư'}</button>
+                <div class="h-px bg-gray-100 my-1"></div>
                 <button class="block w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-gray-700 hover:bg-pink-50 rename-folder-btn" data-id="${folder.id}" data-name="${folder.name}"><i class="fas fa-pen mr-2 text-blue-400"></i>Sửa tên, icon &amp; màu</button>
                 <div class="px-3 pt-2 pb-1">
                     <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Đổi màu nhanh</p>
                     <div class="folder-color-row">${swatchHTML}</div>
                 </div>
                 <div class="h-px bg-gray-100 my-1"></div>
+                <button class="block w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-gray-700 hover:bg-pink-50 download-folder-btn" data-id="${folder.id}"><i class="fas fa-cloud-arrow-down mr-2 text-sky-500"></i>Tải cả thư mục về máy</button>
+                <button class="block w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-gray-700 hover:bg-pink-50 empty-folder-btn" data-id="${folder.id}"><i class="fas fa-box-open mr-2 text-amber-500"></i>Đưa hết bộ đề ra ngoài</button>
                 <button class="block w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-red-600 hover:bg-red-50 delete-folder-btn" data-id="${folder.id}"><i class="fas fa-trash-alt mr-2 text-red-400"></i>Xóa thư mục</button>
             </div>
         </div>
@@ -226,6 +239,30 @@ export function createFolderCard(folder) {
         toggleFolderPin(folder.id, !isPinnedFolder);
     });
 
+    card.querySelector('.share-folder-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        menu.classList.add('hidden');
+        openShareFolderModal(folder.id, folder.name);
+    });
+
+    card.querySelector('.toggle-folder-public-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        menu.classList.add('hidden');
+        toggleFolderPublic(folder.id, !isPublicFolder);
+    });
+
+    card.querySelector('.download-folder-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        menu.classList.add('hidden');
+        handleDownloadFolderOffline(folder.id, folder.name);
+    });
+
+    card.querySelector('.empty-folder-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        menu.classList.add('hidden');
+        moveAllQuizzesOutOfFolder(folder.id);
+    });
+
     card.querySelector('.rename-folder-btn').addEventListener('click', (e) => {
         e.stopPropagation();
         menu.classList.add('hidden');
@@ -269,12 +306,16 @@ export function createFolderCard(folder) {
         e.preventDefault();
         card.classList.add('drop-target');
     });
-    card.addEventListener('dragleave', () => {
+    // Rê qua phần tử con cũng bắn dragleave → viền nhấp nháy liên tục.
+    // Chỉ bỏ đánh dấu khi con trỏ thật sự rời khỏi thẻ.
+    card.addEventListener('dragleave', (e) => {
+        if (e.relatedTarget && card.contains(e.relatedTarget)) return;
         card.classList.remove('drop-target');
     });
     card.addEventListener('drop', async (e) => {
         e.preventDefault();
         card.classList.remove('drop-target');
+        document.body.classList.remove('is-dragging-quiz');
 
         const draggedFolderId = e.dataTransfer.getData('application/x-folder');
         if (draggedFolderId) {
@@ -284,84 +325,121 @@ export function createFolderCard(folder) {
 
         const quizId = e.dataTransfer.getData('text/plain');
         if (!quizId) return;
-        try {
-            S.isLibraryFullyLoaded = false;
-            const quizDocRef = doc(db, "quiz_sets", quizId);
-            await updateDoc(quizDocRef, { folderId: folder.id });
-            showToast(`Đã chuyển bộ đề vào thư mục "${folder.name}"!`, 'success');
-            await loadAndDisplayLibrary();
-        } catch (err) {
-            console.error("Lỗi kéo thả di chuyển bộ đề:", err);
-            showToast('Có lỗi xảy ra khi di chuyển bộ đề!', 'error');
-        }
+        // Nảy nhẹ để xác nhận "đã nhận" ngay khi nhả chuột, không phải chờ ghi xong
+        card.classList.remove('just-received');
+        void card.offsetWidth; // ép trình duyệt chạy lại hoạt ảnh
+        card.classList.add('just-received');
+        setTimeout(() => card.classList.remove('just-received'), 700);
+        await moveQuizToFolder(quizId, folder.id, folder.name);
     });
 
     return card;
 }
 
+// Lớp CSS của thẻ bộ đề. Toàn bộ diện mạo nằm ở style.css (.quiz-grid-card / .quiz-list-card)
+// nên ở đây chỉ phát ra các "cờ" trạng thái — đổi giao diện không phải đụng vào JS.
 function getQuizCardClassName(isSelected = false) {
-    if (S.libraryLayoutMode === 'list') {
-        if (S.isSelectionMode) {
-            return isSelected
-                ? 'quiz-list-card bg-pink-50/20 rounded-xl border-2 border-pink-500 p-3 sm:p-4 shadow-md flex items-center justify-between gap-3 sm:gap-4 cursor-pointer transition-all duration-200 relative'
-                : 'quiz-list-card bg-white rounded-xl border border-pink-100 p-3 sm:p-4 shadow-sm flex items-center justify-between gap-3 sm:gap-4 cursor-pointer hover:border-pink-300 transition-all duration-200 relative';
-        } else {
-            return 'quiz-list-card bg-white rounded-xl border border-gray-100 p-3 sm:p-4 shadow-sm hover:shadow-md hover:border-pink-200 cursor-pointer transition-all duration-200 flex items-center justify-between gap-3 sm:gap-4 relative';
-        }
-    } else {
-        if (S.isSelectionMode) {
-            return isSelected
-                ? 'quiz-grid-card bg-pink-50/20 rounded-2xl border-2 border-pink-500 p-4 sm:p-5 shadow-md flex flex-col cursor-pointer transition-all duration-300 relative'
-                : 'quiz-grid-card bg-white rounded-2xl border border-pink-100 p-4 sm:p-5 shadow-sm flex flex-col cursor-pointer hover:border-pink-300 transition-all duration-300 relative';
-        } else {
-            return 'quiz-grid-card bg-white rounded-2xl border border-gray-100 p-4 sm:p-5 shadow-sm hover:-translate-y-1 hover:shadow-md hover:border-pink-200 cursor-pointer transition-all duration-300 flex flex-col relative';
-        }
+    const base = S.libraryLayoutMode === 'list' ? 'quiz-list-card' : 'quiz-grid-card';
+    if (!S.isSelectionMode) return base;
+    return `${base} is-selectable${isSelected ? ' is-selected' : ''}`;
+}
+
+// Đổi mốc thời gian (Firestore Timestamp | Date | số | chuỗi) sang mili-giây. 0 nếu không có.
+function toMillis(v) {
+    if (!v) return 0;
+    if (typeof v.toDate === 'function') return v.toDate().getTime();
+    const t = new Date(v).getTime();
+    return Number.isNaN(t) ? 0 : t;
+}
+
+// Số câu đến hạn ôn (SRS) — đọc localStorage, rẻ. Lỗi thì coi như không có lịch ôn.
+function dueCountSafe(quizId) {
+    try { return countDueNow(quizId); } catch { return 0; }
+}
+
+// Khối tiến độ trên thẻ: thanh phần trăm + nhãn. Ba trạng thái, xếp theo độ tin cậy dữ liệu:
+//   1) đã có lần làm            → điểm lần gần nhất, tô màu theo mức
+//   2) đã đồng bộ, không có lần nào → "Chưa làm lần nào"
+//   3) chưa đồng bộ             → nhãn trung tính, KHÔNG khẳng định gì (tránh dán nhãn sai)
+function buildProgressBlock(quizId, slim = false) {
+    const attempt = getLastAttempt(quizId);
+    const barClass = slim ? 'qc-bar qc-bar-slim' : 'qc-bar';
+    if (attempt && attempt.t > 0) {
+        const pct = Math.max(0, Math.min(100, Math.round((attempt.s / attempt.t) * 100)));
+        const tone = pct >= 80 ? 'is-good' : (pct >= 50 ? 'is-mid' : 'is-low');
+        const timeText = formatRelativeTime(attempt.at) || 'gần đây';
+        const title = `Lần làm gần nhất: đúng ${attempt.s}/${attempt.t} câu (${pct}%) — ${timeText}`;
+        return `
+            <div class="qc-progress ${tone}" title="${title}">
+                <div class="qc-progress-row">
+                    <span class="qc-progress-label"><i class="fas fa-rotate-left"></i>${timeText}</span>
+                    <span class="qc-progress-value"><b>${pct}%</b><em>${attempt.s}/${attempt.t}</em></span>
+                </div>
+                <div class="${barClass} ${tone}"><span style="width:${pct}%"></span></div>
+            </div>`;
     }
+    const known = hasAttemptData();
+    const label = known ? 'Chưa làm lần nào' : 'Sẵn sàng luyện tập';
+    const icon = known ? 'far fa-circle' : 'fas fa-wand-magic-sparkles';
+    return `
+        <div class="qc-progress is-empty"${known ? ' title="Bạn chưa làm bộ đề này lần nào"' : ''}>
+            <div class="qc-progress-row">
+                <span class="qc-progress-label"><i class="${icon}"></i>${label}</span>
+                <span class="qc-progress-value qc-start">Bắt đầu <i class="fas fa-arrow-right"></i></span>
+            </div>
+            <div class="${barClass} is-empty"><span style="width:0%"></span></div>
+        </div>`;
+}
+
+// Hàng huy hiệu trạng thái: chỉ hiện cái nào ĐANG đúng; không có cái nào thì cả hàng biến mất.
+function buildBadges(quizSet, offlineSaved, due, isNew = false) {
+    const out = [];
+    if (isNew) {
+        out.push(`<span class="qc-badge qc-badge-new" title="Vừa thêm vào thư viện trong 24 giờ qua"><i class="fas fa-star"></i>MỚI</span>`);
+    }
+    if (due > 0) {
+        out.push(`<span class="qc-badge qc-badge-due" title="Ôn ngắt quãng: ${due} câu đã đến hạn ôn lại"><i class="fas fa-bell"></i>${due} câu đến hạn</span>`);
+    }
+    if (offlineSaved) {
+        out.push(`<span class="qc-badge qc-badge-offline" title="Đã tải về máy — làm được khi không có mạng"><i class="fas fa-circle-down"></i>Đã tải</span>`);
+    }
+    if (quizSet.isPublic === true) {
+        out.push(`<span class="qc-badge qc-badge-public" title="Đang công khai — ai có link đều mở được"><i class="fas fa-globe"></i>Công khai</span>`);
+    }
+    return out.length ? `<div class="qc-badges">${out.join('')}</div>` : '';
 }
 
 // Dựng một thẻ bộ đề hoàn chỉnh (markup theo bố cục lưới/danh sách + toàn bộ listener).
+// Thông tin trên thẻ đi theo đúng thứ tự người dùng cần: "bộ đề gì" → "to cỡ nào, mới cũ ra sao"
+// → "đang học tới đâu" → "có gì đặc biệt" → "làm gì tiếp":
+//   icon + tên  →  số câu · tạo lúc nào  →  thanh tiến độ  →  huy hiệu  →  nút Làm bài
 // quizzesToDisplay/currentPage: danh sách & trang đang vẽ — cần cho long-press re-render đúng ngữ cảnh.
 export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
     const card = document.createElement('div');
     const isSelected = S.selectedQuizIds.includes(quizSet.id);
     const pinned = isPinned(quizSet.id);
     const isNew = isNewQuiz(quizSet);
-    // Cờ "MỚI" kiểu bookmark treo ở góc trên-PHẢI thẻ. Khi có cờ, đẩy menu "..." tránh chỗ
-    // (ribbonPush) để không đè lên nhau. Ẩn ở chế độ chọn nhiều (góc đó có thao tác khác).
-    const ribbonPush = isNew && !S.isSelectionMode;
-    const newRibbon = ribbonPush
-        ? `<div class="quiz-new-ribbon" aria-hidden="true"><span>MỚI</span></div>`
-        : '';
+    const safeTitle = escapeHtml(quizSet.title || 'Không tên');
+    const quizHref = `features/quiz/quiz.html?id=${quizSet.id}`;
     const offlineSaved = isOfflineSavedSync(quizSet.id);
-    // Huy hiệu "Đã tải" hiển thị cạnh số câu hỏi khi bộ đề đã được lưu để làm offline
-    const offlineBadge = offlineSaved
-        ? `<span class="offline-badge bg-sky-50 text-sky-600 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold inline-flex items-center gap-1" title="Đã tải về máy — làm được khi không có mạng"><i class="fas fa-circle-check text-[10px]"></i>Đã tải</span>`
-        : '';
     // Mục trong menu "..." để tải về / xóa bản offline
     const offlineMenuItem = offlineSaved
         ? `<button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 remove-offline-btn" data-id="${quizSet.id}"><i class="fas fa-trash-can mr-2.5 text-sky-400"></i>Xóa bản offline</button>`
         : `<button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 download-offline-btn" data-id="${quizSet.id}"><i class="fas fa-cloud-arrow-down mr-2.5 text-sky-500"></i>Tải về máy (offline)</button>`;
-    const pinBtnSm = `<button class="pin-quiz-btn w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${pinned ? 'text-pink-500 bg-pink-50' : 'text-gray-400 hover:text-pink-500 hover:bg-pink-50'}" data-id="${quizSet.id}" title="${pinned ? 'Bỏ ghim' : 'Ghim lên đầu'}" aria-label="${pinned ? 'Bỏ ghim bộ đề' : 'Ghim bộ đề lên đầu'}" aria-pressed="${pinned}"><i class="fas fa-thumbtack text-xs"></i></button>`;
-    const pinBtnMd = `<button class="pin-quiz-btn w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${pinned ? 'text-pink-500 bg-pink-50' : 'text-gray-400 hover:text-pink-500 hover:bg-pink-50'}" data-id="${quizSet.id}" title="${pinned ? 'Bỏ ghim' : 'Ghim lên đầu'}" aria-label="${pinned ? 'Bỏ ghim bộ đề' : 'Ghim bộ đề lên đầu'}" aria-pressed="${pinned}"><i class="fas fa-thumbtack text-sm"></i></button>`;
+    const pinBtn = (size) => `<button class="pin-quiz-btn${pinned ? ' is-pinned' : ''}${size === 'sm' ? ' pin-quiz-btn-sm' : ''}" data-id="${quizSet.id}" title="${pinned ? 'Bỏ ghim' : 'Ghim lên đầu'}" aria-label="${pinned ? 'Bỏ ghim bộ đề' : 'Ghim bộ đề lên đầu'}" aria-pressed="${pinned}"><i class="fas fa-thumbtack"></i></button>`;
 
-    // Chip tiến độ: kết quả lần làm gần nhất (tô màu theo mức điểm) hoặc "Chưa làm".
-    // Chỉ gắn nhãn "Chưa làm" khi đã đồng bộ lịch sử ít nhất một lần, tránh dán nhãn sai.
-    const attempt = getLastAttempt(quizSet.id);
-    let attemptChip = '';
-    if (attempt && attempt.t > 0) {
-        const pct = Math.round((attempt.s / attempt.t) * 100);
-        const tone = pct >= 80 ? 'quiz-chip-attempt-good' : (pct >= 50 ? 'quiz-chip-attempt-mid' : 'quiz-chip-attempt-low');
-        const timeText = formatRelativeTime(attempt.at);
-        attemptChip = `<span class="quiz-chip ${tone}" title="Lần làm gần nhất: đúng ${attempt.s}/${attempt.t} câu (${pct}%)"><i class="fas fa-circle-check"></i>${attempt.s}/${attempt.t}${timeText ? ` · ${timeText}` : ''}</span>`;
-    } else if (hasAttemptData()) {
-        attemptChip = `<span class="quiz-chip quiz-chip-unattempted" title="Bạn chưa làm bộ đề này lần nào"><i class="far fa-circle"></i>Chưa làm</span>`;
-    }
+    // "MỚI" là một huy hiệu như mọi trạng thái khác — cùng hàng, cùng hình dáng viên thuốc,
+    // chỉ khác là được tô đặc bằng đúng màu danh tính của thẻ nên nổi nhất trong hàng.
+    // (Trước đây là cờ bookmark treo góc: lạc kiểu so với phần còn lại và tranh chỗ với nút "...".)
+    const due = dueCountSafe(quizSet.id);
+    const badgesHTML = buildBadges(quizSet, offlineSaved, due, isNew && !S.isSelectionMode);
 
     // Menu "..." gom TOÀN BỘ thao tác phụ (sửa/chia sẻ/di chuyển/offline/xóa) để mặt thẻ gọn gàng:
     // trên thẻ chỉ còn Ghim + Làm bài. Dùng chung cho cả bố cục lưới và danh sách.
     const quizMenuInnerHTML = `
         <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 edit-quiz-content-btn" data-id="${quizSet.id}"><i class="fas fa-pen-alt mr-2.5 text-blue-400"></i>Sửa câu hỏi</button>
-        <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 edit-quiz-btn" data-id="${quizSet.id}" data-title="${quizSet.title}"><i class="fas fa-edit mr-2.5 text-amber-400"></i>Sửa tên</button>
+        <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 edit-quiz-btn" data-id="${quizSet.id}" data-title="${safeTitle}"><i class="fas fa-edit mr-2.5 text-amber-400"></i>Sửa tên</button>
+        <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 duplicate-quiz-btn" data-id="${quizSet.id}"><i class="fas fa-copy mr-2.5 text-indigo-400"></i>Nhân bản</button>
         <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 share-quiz-btn" data-id="${quizSet.id}"><i class="fas fa-share-alt mr-2.5 text-green-500"></i>Chia sẻ</button>
         <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 toggle-public-btn" data-id="${quizSet.id}" data-public="${quizSet.isPublic === true}" title="${quizSet.isPublic === true ? 'Đang công khai — bấm để chuyển riêng tư (chỉ mình bạn xem)' : 'Đang riêng tư — bấm để công khai (ai có link đều mở được)'}"><i class="fas ${quizSet.isPublic === true ? 'fa-globe text-green-500' : 'fa-lock text-gray-400'} mr-2.5"></i>${quizSet.isPublic === true ? 'Công khai' : 'Riêng tư'}</button>
         <div class="border-t border-gray-100 my-1"></div>
@@ -372,30 +450,40 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
         <button class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 delete-quiz-btn" data-id="${quizSet.id}"><i class="fas fa-trash-alt mr-2.5 text-red-500"></i>Xóa bộ đề</button>`;
 
     card.className = getQuizCardClassName(isSelected);
-    if (ribbonPush) card.classList.add('has-new-ribbon');
     card.setAttribute('data-id', quizSet.id);
 
-    let dateStr = 'N/A';
-    if (quizSet.createdAt) {
-        const dateObj = typeof quizSet.createdAt.toDate === 'function' ? quizSet.createdAt.toDate() : new Date(quizSet.createdAt);
-        const hours = String(dateObj.getHours()).padStart(2, '0');
-        const minutes = String(dateObj.getMinutes()).padStart(2, '0');
-        const day = String(dateObj.getDate()).padStart(2, '0');
-        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-        const year = dateObj.getFullYear();
-        dateStr = `${hours}:${minutes} ${day}/${month}/${year}`;
+    // Ngày tạo: hiện dạng "3 ngày trước" cho dễ hình dung, giữ giờ/ngày đầy đủ ở tooltip.
+    const createdMs = toMillis(quizSet.createdAt);
+    let dateStr = 'Không rõ ngày tạo';
+    let dateRel = 'Không rõ';
+    if (createdMs) {
+        const d = new Date(createdMs);
+        const p2 = (n) => String(n).padStart(2, '0');
+        dateStr = `Tạo lúc ${p2(d.getHours())}:${p2(d.getMinutes())} ${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${d.getFullYear()}`;
+        dateRel = formatRelativeTime(createdMs) || 'vừa xong';
     }
 
-    // Sắc thái màu + icon riêng cho từng bộ đề (ổn định theo id)
+    // Sắc thái màu + icon riêng cho từng bộ đề (ổn định theo id): dùng cho ô icon, vạch màu
+    // bên mép thẻ và quầng sáng khi rê chuột → mỗi bộ đề có "danh tính" riêng, dễ nhận ra.
     const accent = getQuizAccent(quizSet.id || quizSet.title);
     const accentStyle = `background-image:linear-gradient(135deg, ${accent.from}, ${accent.to});`;
+    card.style.setProperty('--qc-from', accent.from);
+    card.style.setProperty('--qc-to', accent.to);
+
+    const metaHTML = `
+        <p class="qc-meta">
+            <span class="qc-meta-item" title="${quizSet.questionCount} câu hỏi"><i class="fas fa-list-ol"></i><b>${quizSet.questionCount}</b> câu</span>
+            <span class="qc-meta-dot" aria-hidden="true"></span>
+            <span class="qc-meta-item qc-meta-time" title="${dateStr}"><i class="far fa-clock"></i>${dateRel}</span>
+        </p>`;
 
     if (S.libraryLayoutMode === 'list') {
+        const progressHTML = buildProgressBlock(quizSet.id, true);
         let checkboxHTML = '';
         if (S.isSelectionMode) {
             checkboxHTML = `
-                <div class="flex-shrink-0 z-10 mr-1">
-                    <input type="checkbox" class="bulk-quiz-checkbox w-5 h-5 rounded-full border-pink-300 text-[#FF69B4] focus:ring-pink-300 cursor-pointer pointer-events-none" ${isSelected ? 'checked' : ''} />
+                <div class="qc-check">
+                    <input type="checkbox" class="bulk-quiz-checkbox" ${isSelected ? 'checked' : ''} />
                 </div>
             `;
         }
@@ -404,7 +492,7 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
         if (!S.isSelectionMode) {
             menuHTML = `
                 <div class="relative flex-shrink-0 quiz-list-menu-wrap">
-                    <button class="quiz-menu-btn w-8 h-8 flex items-center justify-center text-gray-400 hover:text-pink-500 hover:bg-pink-50 rounded-full focus:outline-none transition-colors" data-id="${quizSet.id}" title="Tùy chọn" aria-label="Tùy chọn bộ đề" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v text-xs"></i></button>
+                    <button class="quiz-menu-btn" data-id="${quizSet.id}" title="Tùy chọn" aria-label="Tùy chọn bộ đề" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v"></i></button>
                     <div class="quiz-menu hidden absolute right-0 top-9 bg-white rounded-xl shadow-xl border border-gray-100 z-20 min-w-[175px] py-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
                         ${quizMenuInnerHTML}
                     </div>
@@ -413,52 +501,41 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
         }
 
         card.innerHTML = `
-            ${newRibbon}
+            <span class="qc-rail" aria-hidden="true"></span>
             ${checkboxHTML}
-            <span class="quiz-card-icon quiz-card-icon-sm flex-shrink-0" style="${accentStyle}" aria-hidden="true">
+            <span class="quiz-card-icon quiz-card-icon-sm" style="${accentStyle}" aria-hidden="true">
                 <i class="fas ${accent.icon}"></i>
             </span>
-            <div class="flex-grow min-w-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
-                <div class="min-w-0 flex-1">
-                    <h3 class="text-sm sm:text-base font-bold text-gray-800 truncate" title="${quizSet.title}">
-                        <a href="features/quiz/quiz.html?id=${quizSet.id}" class="hover:text-pink-600 focus:text-pink-600 transition-colors duration-150 block mr-2">
-                            ${quizSet.title}
-                        </a>
-                    </h3>
-                    <div class="flex flex-wrap gap-1.5 mt-1 items-center">
-                        ${offlineBadge}
-                        <span class="quiz-chip quiz-chip-count">
-                            <i class="fas fa-circle-question"></i>${quizSet.questionCount} câu
-                        </span>
-                        ${attemptChip}
-                        <span class="quiz-chip quiz-chip-date hidden sm:inline-flex">
-                            <i class="far fa-clock"></i>${dateStr}
-                        </span>
-                    </div>
-                </div>
-                <div class="flex items-center gap-2 mt-1 sm:mt-0 justify-between sm:justify-end ${S.isSelectionMode ? 'opacity-40 pointer-events-none' : ''}">
-                    ${pinBtnSm}
-                    <a href="features/quiz/quiz.html?id=${quizSet.id}" class="practice-btn inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-pink-50 text-pink-600 border border-pink-200 hover:bg-pink-500 hover:border-pink-500 hover:text-white hover:-translate-y-0.5 active:translate-y-0 rounded-xl transition-all duration-200 text-sm font-extrabold tracking-wide flex-shrink-0">
-                        <i class="fas fa-play text-[10px]"></i>
-                        Làm bài
-                    </a>
-                </div>
+            <div class="qcl-body">
+                <h3 class="qc-title" title="${safeTitle}">
+                    <a href="${quizHref}">${safeTitle}</a>
+                </h3>
+                ${metaHTML}
+                ${badgesHTML}
+            </div>
+            ${progressHTML}
+            <div class="qcl-actions${S.isSelectionMode ? ' is-disabled' : ''}">
+                ${pinBtn('sm')}
+                <a href="${quizHref}" class="practice-btn practice-btn-sm" title="Làm bài" aria-label="Làm bài: ${safeTitle}">
+                    <i class="fas fa-play"></i><span>Làm bài</span>
+                </a>
             </div>
             ${menuHTML}
         `;
     } else {
+        const progressHTML = buildProgressBlock(quizSet.id, false);
         let checkboxHTML = '';
         let menuHTML = '';
         if (S.isSelectionMode) {
             checkboxHTML = `
-                <div class="absolute top-4 left-4 z-10">
-                    <input type="checkbox" class="bulk-quiz-checkbox w-5 h-5 rounded-full border-pink-300 text-[#FF69B4] focus:ring-pink-300 cursor-pointer pointer-events-none" ${isSelected ? 'checked' : ''} />
+                <div class="qc-check qc-check-grid">
+                    <input type="checkbox" class="bulk-quiz-checkbox" ${isSelected ? 'checked' : ''} />
                 </div>
             `;
         } else {
             menuHTML = `
-                <div class="absolute top-4 ${ribbonPush ? 'right-8' : 'right-4'}">
-                    <button class="quiz-menu-btn w-8 h-8 flex items-center justify-center text-gray-400 hover:text-pink-500 hover:bg-pink-50 rounded-full focus:outline-none transition-colors" data-id="${quizSet.id}" title="Tùy chọn" aria-label="Tùy chọn bộ đề" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v"></i></button>
+                <div class="qc-menu-wrap">
+                    <button class="quiz-menu-btn" data-id="${quizSet.id}" title="Tùy chọn" aria-label="Tùy chọn bộ đề" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v"></i></button>
                     <div class="quiz-menu hidden absolute right-0 top-9 bg-white rounded-xl shadow-xl border border-gray-100 z-20 min-w-[175px] py-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
                         ${quizMenuInnerHTML}
                     </div>
@@ -467,38 +544,26 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
         }
 
         card.innerHTML = `
-            ${newRibbon}
+            <span class="qc-rail" aria-hidden="true"></span>
             ${checkboxHTML}
-            <div class="flex-grow ${S.isSelectionMode ? 'pl-8' : ''}">
-                <div class="flex items-start gap-3 mb-3 ${ribbonPush ? 'pr-16' : 'pr-8'}">
-                    <span class="quiz-card-icon flex-shrink-0" style="${accentStyle}" aria-hidden="true">
-                        <i class="fas ${accent.icon}"></i>
-                    </span>
-                    <div class="min-w-0 flex-1">
-                        <h3 class="text-sm sm:text-base font-bold text-gray-800 line-clamp-2 leading-snug" title="${quizSet.title}">
-                            <a href="features/quiz/quiz.html?id=${quizSet.id}" class="hover:text-pink-600 focus:text-pink-600 transition-colors duration-150 block">
-                                ${quizSet.title}
-                            </a>
-                        </h3>
-                        <div class="flex flex-wrap gap-1.5 mt-2">
-                            ${offlineBadge}
-                            <span class="quiz-chip quiz-chip-count">
-                                <i class="fas fa-list-ol"></i><span><b>${quizSet.questionCount}</b> câu</span>
-                            </span>
-                            ${attemptChip}
-                            <span class="quiz-chip quiz-chip-date hidden sm:inline-flex">
-                                <i class="far fa-clock"></i>${dateStr}
-                            </span>
-                        </div>
-                    </div>
+            ${menuHTML}
+            <div class="qc-top${S.isSelectionMode ? ' is-shifted' : ''}">
+                <span class="quiz-card-icon" style="${accentStyle}" aria-hidden="true">
+                    <i class="fas ${accent.icon}"></i>
+                </span>
+                <div class="qc-head">
+                    <h3 class="qc-title" title="${safeTitle}">
+                        <a href="${quizHref}">${safeTitle}</a>
+                    </h3>
+                    ${metaHTML}
                 </div>
-                ${menuHTML}
             </div>
-            <div class="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center gap-2 ${S.isSelectionMode ? 'opacity-40 pointer-events-none' : ''}">
-                ${pinBtnMd}
-                <a href="features/quiz/quiz.html?id=${quizSet.id}" class="practice-btn inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-pink-50 text-pink-600 border border-pink-200 hover:bg-pink-500 hover:border-pink-500 hover:text-white hover:-translate-y-0.5 active:translate-y-0 rounded-xl transition-all duration-200 text-sm font-extrabold tracking-wide">
-                    <i class="fas fa-play text-[10px]"></i>
-                    Làm bài
+            ${badgesHTML}
+            ${progressHTML}
+            <div class="qc-foot${S.isSelectionMode ? ' is-disabled' : ''}">
+                ${pinBtn('md')}
+                <a href="${quizHref}" class="practice-btn">
+                    <i class="fas fa-play"></i><span>Làm bài</span>
                 </a>
             </div>
         `;
@@ -507,12 +572,16 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
     if (!S.isSelectionMode) {
         card.setAttribute('draggable', 'true');
         card.addEventListener('dragstart', (e) => {
+            cancelPress(); // BẮT BUỘC: xem ghi chú ở cancelPress
             e.dataTransfer.setData('text/plain', quizSet.id);
             e.dataTransfer.effectAllowed = 'move';
-            setTimeout(() => card.classList.add('opacity-40'), 0);
+            // Cờ trên <body>: CSS dựa vào đó làm nổi dải thư mục lên thành đích thả rõ ràng
+            document.body.classList.add('is-dragging-quiz');
+            setTimeout(() => card.classList.add('is-dragging'), 0);
         });
         card.addEventListener('dragend', () => {
-            card.classList.remove('opacity-40');
+            card.classList.remove('is-dragging');
+            document.body.classList.remove('is-dragging-quiz');
         });
     }
 
@@ -563,7 +632,9 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
     const MOVE_TOLERANCE = 10;
 
     const startPress = (e) => {
-        if (S.isSelectionMode || e.target.closest('a') || e.target.closest('.quiz-menu-btn') || e.target.closest('.quiz-menu')) return;
+        // Bỏ qua khi bấm vào link hoặc bất kỳ nút nào trên thẻ (ghim, "...") — giữ nút
+        // để chờ nó phản hồi mà bị nhảy vào chế độ chọn nhiều thì rất khó chịu.
+        if (S.isSelectionMode || e.target.closest('a') || e.target.closest('button') || e.target.closest('.quiz-menu')) return;
         const pt = e.touches ? e.touches[0] : e;
         pressStartX = pt.clientX;
         pressStartY = pt.clientY;
@@ -586,6 +657,8 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
         }, 600);
     };
 
+    // Gọi cả từ dragstart: trong lúc kéo native, mouseup/mousemove KHÔNG bắn ra nên đây là
+    // chỗ duy nhất chặn được đồng hồ nhấn-giữ trước khi nó vẽ lại thư viện và làm hỏng cú kéo.
     const cancelPress = () => {
         card.classList.remove('is-holding');
         if (longPressTimer) {
@@ -649,6 +722,14 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
                 e.stopPropagation();
                 togglePinData(this.getAttribute('data-id'));
                 rerenderCurrentView();
+            });
+        }
+
+        const duplicateBtn = card.querySelector('.duplicate-quiz-btn');
+        if (duplicateBtn) {
+            duplicateBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                duplicateQuizSet(this.getAttribute('data-id'), quizSet.title);
             });
         }
 
@@ -746,6 +827,65 @@ async function handleDownloadOffline(quizId, quizTitle, btnEl) {
         showToast('Lỗi khi tải bộ đề: ' + (e && e.message ? e.message : e), 'error');
         if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = originalHTML; }
     }
+}
+
+/**
+ * Tải HÀNG LOẠT bộ đề về máy để làm offline (vd: trước khi lên máy bay / vào ca trực).
+ * Dùng chung cho "tải cả thư mục" và "tải cả thư viện".
+ * Tải tuần tự cho nhẹ máy và đếm được tiến độ; bộ đề đã có sẵn thì bỏ qua.
+ * @param {(q:object)=>boolean} pick  lọc bộ đề nào cần tải
+ * @param {{scope:string, title:string}} label  chữ hiển thị trong hộp thoại/thông báo
+ */
+export async function downloadQuizzesOffline(pick, label) {
+    if (!navigator.onLine) {
+        showToast('Cần có mạng để tải bộ đề về máy lần đầu.', 'warning');
+        return;
+    }
+    if (!S.isLibraryFullyLoaded) await ensureFullLibraryLoaded();
+    const quizzes = S.userQuizSets.filter(pick);
+    const pending = quizzes.filter(q => !isOfflineSavedSync(q.id));
+
+    if (!quizzes.length) { showToast(`${label.scope} đang trống.`, 'info'); return; }
+    if (!pending.length) { showToast(`Cả ${quizzes.length} bộ đề của ${label.scope} đã có sẵn trên máy.`, 'info'); return; }
+
+    const ok = await showConfirm(
+        `Sẽ tải ${pending.length} bộ đề của ${label.scope} về máy để làm được khi không có mạng.`,
+        { title: label.title, confirmText: 'Tải về', cancelText: 'Hủy' }
+    );
+    if (!ok) return;
+
+    let done = 0, failed = 0;
+    showToast(`Đang tải ${pending.length} bộ đề…`, 'info');
+    for (const q of pending) {
+        try {
+            const snap = await getDoc(doc(db, 'quiz_sets', q.id));
+            if (!snap.exists()) { failed++; continue; }
+            await saveOfflineQuiz(q.id, snap.data());
+            done++;
+        } catch (e) {
+            console.error('Lỗi tải bộ đề offline:', q.id, e);
+            failed++;
+        }
+    }
+    showToast(failed
+        ? `Đã tải ${done}/${pending.length} bộ đề, ${failed} bộ lỗi.`
+        : `Đã tải xong ${done} bộ đề của ${label.scope} về máy.`, failed ? 'warning' : 'success');
+    rerenderCurrentView();
+}
+
+function handleDownloadFolderOffline(folderId, folderName) {
+    return downloadQuizzesOffline(
+        q => q.folderId === folderId,
+        { scope: `thư mục "${folderName}"`, title: 'Tải cả thư mục về máy?' }
+    );
+}
+
+/** Tải toàn bộ thư viện về máy — gắn với mục trong menu "..." của trang Thư viện. */
+export function downloadWholeLibraryOffline() {
+    return downloadQuizzesOffline(
+        () => true,
+        { scope: 'cả thư viện', title: 'Tải toàn bộ thư viện về máy?' }
+    );
 }
 
 async function handleRemoveOffline(quizId, quizTitle) {

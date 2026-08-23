@@ -53,18 +53,5 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return;
         }
-        // Xem lịch sử làm bài
-        const editContentBtn = e.target.closest('.edit-quiz-content-btn');
-        if (editContentBtn) {
-            const quizId = editContentBtn.getAttribute('data-id');
-            window.location.href = `editor.html?id=${quizId}`;
-            return;
-        }
-        const historyBtn = e.target.closest('.quiz-history-btn');
-        if (historyBtn) {
-            const quizId = historyBtn.getAttribute('data-id');
-            window.location.href = `quiz-history.html?id=${quizId}`;
-            return;
-        }
     });
 });

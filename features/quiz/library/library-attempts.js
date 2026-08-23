@@ -2,7 +2,7 @@
 // "Dấu vết học tập" cho thư viện: lần LÀM BÀI gần nhất của từng bộ đề (đồng bộ tăng dần
 // từ Firestore `quiz_results`, cache localStorage theo tài khoản) và lần MỞ gần nhất
 // (chỉ lưu cục bộ, giống folderLastOpened). Cung cấp dữ liệu cho chip tiến độ trên thẻ,
-// bộ lọc "Chưa làm" và khối "Học tiếp" ở đầu thư viện.
+// bộ lọc "Chưa làm" và bộ lọc "Gần đây".
 
 import { auth, db } from '../../../core/firebase-init.js';
 import { collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
@@ -129,15 +129,3 @@ export function getLastTouchedAt(quizId) {
     return Math.max(opened, attempt ? attempt.at : 0);
 }
 
-// Danh sách id bộ đề dùng gần đây nhất (mở hoặc làm bài), mới nhất trước
-export function getRecentQuizIds(limitN = 8) {
-    const times = new Map();
-    Object.entries(getQuizLastOpenedMap()).forEach(([id, t]) => times.set(id, t));
-    Object.entries(S.attemptMap).forEach(([id, a]) => {
-        if (a.at > (times.get(id) || 0)) times.set(id, a.at);
-    });
-    return [...times.entries()]
-        .sort((x, y) => y[1] - x[1])
-        .slice(0, limitN)
-        .map(([id]) => id);
-}

@@ -1,5 +1,5 @@
 // Service Worker for PWA - Offline Support & Caching
-const CACHE_NAME = 'zitthenkne-v18';
+const CACHE_NAME = 'zitthenkne-v28';
 
 // App shell (cùng origin) — nạp sẵn khi cài để mở offline được ngay.
 const urlsToCache = [
@@ -21,10 +21,15 @@ const urlsToCache = [
   'features/quiz/page/quiz-cases.js',
   'features/quiz/page/quiz-question-view.js',
   'features/quiz/page/quiz-session.js',
+  'features/quiz/page/quiz-mobile-nav.js',
+  'features/quiz/page/quiz-auto-next.js',
   'features/quiz/quiz-library-controller.js',
   'features/quiz/library/library-state.js',
   'features/quiz/library/library-helpers.js',
   'features/quiz/library/library-data.js',
+  'features/quiz/library/library-meta.js',
+  'features/quiz/folder.html',
+  'features/quiz/folder.js',
   'features/quiz/library/library-search.js',
   'features/quiz/library/library-render.js',
   'features/quiz/library/library-cards.js',
@@ -44,6 +49,10 @@ const urlsToCache = [
   'features/flashcard/flashcard.js',
   'core/firebase-init.js',
   'core/utils.js',
+  'core/achievements.js',
+  'core/file-parser.js',
+  'core/quiz-autofix.js',
+  'core/quiz-autofix-report.js',
   'features/checklist/checklist.html',
   'features/checklist/checklist.js',
   'features/editor/editor.html',
@@ -58,9 +67,11 @@ const urlsToCache = [
   'features/study-room/study-room-main.js',
   'features/medical-record/tao-benh-an.html',
   'features/medical-record/tao-benh-an.js',
+  'features/medical-record/record-store.js',
   'features/study-room/waiting-room.html',
   'features/study-room/waiting-room.js',
   'features/medical-record/xem-benh-an.html',
+  'features/medical-record/xem-benh-an.js',
   'offline.html',
   'pwa-install.js',
   'manifest.json',

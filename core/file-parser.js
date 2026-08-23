@@ -1,5 +1,11 @@
 // File: core/file-parser.js
 // Module chịu trách nhiệm phân tích và xử lý định dạng file Excel/CSV (sử dụng thư viện XLSX CDN)
+//
+// Sau khi đọc thô, dữ liệu được đưa qua core/quiz-autofix.js để tự chữa các lỗi soạn file
+// thường gặp (đáp án đúng set nhầm, ô trống, nhãn A./B. thừa, câu trùng…). parseFile() vì vậy
+// trả về { questions, report } chứ không còn trả thẳng mảng câu hỏi.
+
+import { autofixQuestions, parseCorrectValue } from './quiz-autofix.js';
 
 const COLUMN_ALIASES = {
     question: ['question', 'câu hỏi', 'nội dung câu hỏi', 'nội dung', 'nội dung đề bài', 'đề bài', 'câu hỏi kiểm tra', 'câu hỏi quiz', 'question content', 'question text', 'question body', 'đề kiểm tra', 'đề quiz', 'question title', 'question name'],
@@ -16,8 +22,27 @@ const COLUMN_ALIASES = {
     expanded: ['expanded', 'mở rộng', 'mo rong', 'chi tiết mở rộng', 'extended content', 'nội dung mở rộng', 'phần mở rộng'],
     caseId: ['case id', 'caseid', 'mã ca', 'mã case', 'ma ca', 'ma case', 'nhóm ca', 'nhom ca', 'case group', 'mã ca lâm sàng', 'id ca', 'nhóm case'],
     caseText: ['case', 'ca lâm sàng', 'ca lam sang', 'tình huống', 'tinh huong', 'tình huống lâm sàng', 'tinh huong lam sang', 'bệnh án', 'benh an', 'vignette', 'nội dung ca', 'noi dung ca'],
-    caseTitle: ['case title', 'casetitle', 'tiêu đề ca', 'tieu de ca', 'tên ca', 'ten ca', 'tiêu đề case']
+    caseTitle: ['case title', 'casetitle', 'tiêu đề ca', 'tieu de ca', 'tên ca', 'ten ca', 'tiêu đề case'],
+    // Phương án 5–6 (tùy chọn) — nhiều bộ đề y khoa có 5 lựa chọn
+    option5: ['option5', 'phương án 5', 'đáp án 5', 'lựa chọn 5', 'e', 'answer5', 'option e', 'đáp án e', 'phương án e', 'lựa chọn e'],
+    option6: ['option6', 'phương án 6', 'đáp án 6', 'lựa chọn 6', 'f', 'answer6', 'option f', 'đáp án f', 'phương án f', 'lựa chọn f']
 };
+
+// Giải thích riêng cho TỪNG phương án. Đây chính là tín hiệu để quiz-autofix suy ra đáp án đúng
+// khi cột "đáp án đúng" bị set nhầm, nên nhận diện càng nhiều cách đặt tên càng tốt.
+const OPTION_EXP_ALIASES = ['a', 'b', 'c', 'd', 'e', 'f'].map((letter, i) => {
+    const n = i + 1;
+    const bases = ['giải thích', 'giai thich', 'lý do', 'ly do', 'nhận xét', 'phân tích', 'explanation', 'explain', 'exp', 'why'];
+    const targets = [
+        String(n), letter, letter.toUpperCase(),
+        'đáp án ' + n, 'đáp án ' + letter, 'dap an ' + n, 'dap an ' + letter,
+        'phương án ' + n, 'phương án ' + letter, 'phuong an ' + n, 'phuong an ' + letter,
+        'lựa chọn ' + n, 'lựa chọn ' + letter, 'option ' + n, 'option ' + letter, 'ý ' + letter
+    ];
+    const out = [];
+    for (const b of bases) for (const t of targets) out.push(b + ' ' + t);
+    return out;
+});
 
 // Hàm tìm index cột theo alias
 function findColumnIdx(headers, aliases) {
@@ -28,9 +53,9 @@ function findColumnIdx(headers, aliases) {
 }
 
 /**
- * Phân tích file Excel/CSV tải lên thành mảng câu hỏi chuẩn hóa
- * @param {File} file 
- * @returns {Promise<Array>}
+ * Phân tích file Excel/CSV tải lên thành mảng câu hỏi chuẩn hóa, đã qua bước tự chữa lỗi.
+ * @param {File} file
+ * @returns {Promise<{questions: Array, report: Object|null}>}
  */
 export function parseFile(file) {
     return new Promise((resolve, reject) => {
@@ -44,7 +69,7 @@ export function parseFile(file) {
                 const workbook = XLSX.read(data, { type: 'array' });
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                 const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-                if (!jsonData || jsonData.length < 2) return resolve([]);
+                if (!jsonData || jsonData.length < 2) return resolve({ questions: [], report: null });
                 const headers = jsonData[0].map(h => (h || '').toString().trim().toLowerCase());
                 
                 const noteIndexes = [];
@@ -66,25 +91,27 @@ export function parseFile(file) {
                 for (const key in COLUMN_ALIASES) {
                     colIdx[key] = findColumnIdx(headers, COLUMN_ALIASES[key]);
                 }
+                // Cột giải thích riêng từng phương án (nếu có) — nguồn tín hiệu chính cho autofix
+                const optExpIdx = OPTION_EXP_ALIASES.map(aliases => findColumnIdx(headers, aliases));
+                const optionCols = ['option1', 'option2', 'option3', 'option4', 'option5', 'option6']
+                    .map(k => colIdx[k]);
                 const parsedQuestions = jsonData.slice(1).map(row => {
                     const questionIdx = colIdx['question'];
                     if (!row || questionIdx === undefined || !row[questionIdx] || String(row[questionIdx]).trim() === '') return null;
-                    const option1Idx = colIdx['option1'];
-                    const option2Idx = colIdx['option2'];
-                    const option3Idx = colIdx['option3'];
-                    const option4Idx = colIdx['option4'];
                     const correctIdx = colIdx['correct'];
                     const topicIdx = colIdx['topic'];
                     const explanationIdx = colIdx['explanation'];
-                    let correctAnswerIndex = null;
-                    if (correctIdx !== undefined && row[correctIdx] != null) {
-                        let val = row[correctIdx].toString().trim();
-                        if (/^[1-4]$/.test(val)) {
-                            correctAnswerIndex = parseInt(val, 10) - 1;
-                        } else if (/^[a-dA-D]$/.test(val)) {
-                            correctAnswerIndex = val.toUpperCase().charCodeAt(0) - 65;
-                        }
-                    }
+                    // Giữ NGUYÊN vị trí các ô đáp án (kể cả ô trống) để chỉ mục đáp án đúng
+                    // không bị lệch; quiz-autofix mới là chỗ dọn ô trống và dời chỉ mục theo.
+                    const answers = optionCols.map(idx => (idx >= 0 ? row[idx] : undefined))
+                        .map(v => (v == null ? '' : String(v)));
+                    while (answers.length && answers[answers.length - 1].trim() === '') answers.pop();
+
+                    // Đáp án đúng: chấp nhận 1 hoặc NHIỀU giá trị ("1,3" / "A;C" / "AC")
+                    const { indexes: correctIndexes } = parseCorrectValue(
+                        correctIdx >= 0 ? row[correctIdx] : '', Math.max(answers.length, 6));
+                    const correctAnswerIndex = correctIndexes.length ? correctIndexes[0] : null;
+                    const correctAnswerIndexes = correctIndexes.length > 1 ? correctIndexes : null;
                     const sourceIdx = colIdx['source'];
                     const levelIdx = colIdx['level'];
                     const noteIdx = colIdx['note'];
@@ -101,10 +128,11 @@ export function parseFile(file) {
                     }
                     return {
                         question: row[questionIdx],
-                        answers: [option1Idx, option2Idx, option3Idx, option4Idx]
-                            .map(idx => idx !== undefined ? row[idx] : undefined)
-                            .filter(ans => ans != null && String(ans).trim() !== ''),
+                        answers,
                         correctAnswerIndex: correctAnswerIndex,
+                        correctAnswerIndexes: correctAnswerIndexes,
+                        optionExplanations: optExpIdx.slice(0, answers.length)
+                            .map(idx => (idx >= 0 && row[idx] != null ? String(row[idx]) : '')),
                         explanation: explanationIdx !== undefined ? (row[explanationIdx] || '') : '',
                         topic: topicIdx !== undefined ? (row[topicIdx] || 'Chung') : 'Chung',
                         source: sourceIdx !== undefined ? (row[sourceIdx] || '') : '',
@@ -116,7 +144,9 @@ export function parseFile(file) {
                         caseTitle: caseTitleIdx !== undefined && caseTitleIdx >= 0 ? String(row[caseTitleIdx] || '').trim() : ''
                     };
                 }).filter(q => q !== null);
-                resolve(normalizeCaseGroups(parsedQuestions));
+                // Tự chữa lỗi TRƯỚC khi gom nhóm ca lâm sàng (autofix có thể loại/gộp câu)
+                const { questions, report } = autofixQuestions(parsedQuestions);
+                resolve({ questions: normalizeCaseGroups(questions), report });
             } catch (error) {
                 reject(error);
             }
@@ -187,15 +217,19 @@ export function downloadTemplate() {
         'Mức độ (Level)',
         'Ghi chú (Note)',
         'Mở rộng',
+        'Giải thích đáp án 1',
+        'Giải thích đáp án 2',
+        'Giải thích đáp án 3',
+        'Giải thích đáp án 4',
         'Mã ca lâm sàng (Case ID)',
         'Tình huống lâm sàng (Case)',
         'Tiêu đề ca (Case title)'
       ],
       [
-        'Lưu ý: Các cột có dấu ★ là bắt buộc phải nhập. Các cột còn lại có thể bỏ trống.', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+        'Lưu ý: Các cột có dấu ★ là bắt buộc phải nhập. Các cột còn lại có thể bỏ trống.', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
       ],
       [
-        'Mẹo ca lâm sàng: các câu cùng "Mã ca lâm sàng" sẽ dùng chung một tình huống. Chỉ cần ghi nội dung ca ở dòng đầu, các dòng sau cùng mã sẽ tự kế thừa.', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+        'Mẹo tự chữa lỗi: nếu bạn điền "Giải thích đáp án 1..4" (ghi rõ đúng/sai cho từng phương án), web sẽ tự dò và sửa lại cột "Đáp án đúng" khi bạn set nhầm.', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
       ],
       [
         'Thủ đô của Việt Nam là gì?',
@@ -210,6 +244,10 @@ export function downloadTemplate() {
         'Nhận biết',
         'Câu hỏi cơ bản',
         'Hà Nội có diện tích khoảng 3.344 km², với dân số hơn 8 triệu người.',
+        'Sai — TP. Hồ Chí Minh là đô thị lớn nhất nhưng không phải thủ đô.',
+        'Sai — Đà Nẵng là thành phố trực thuộc trung ương.',
+        'Đúng — Hà Nội là thủ đô từ năm 1945.',
+        'Sai — Hải Phòng là thành phố cảng.',
         '', '', ''
       ],
       [
@@ -225,6 +263,10 @@ export function downloadTemplate() {
         'Vận dụng',
         'Có thể gây nhầm lẫn cho học sinh',
         'Vitamin B gồm: B1 (thiamine), B2 (riboflavin), B3 (niacin), B5 (pantothenic acid), B6 (pyridoxine), B7 (biotin), B9 (folate), B12 (cobalamine).',
+        'Sai — vitamin A tan trong dầu.',
+        'Đúng — nhóm B tan trong nước.',
+        'Sai — vitamin D tan trong dầu.',
+        'Sai — vitamin K tan trong dầu.',
         '', '', ''
       ],
       [
@@ -240,6 +282,7 @@ export function downloadTemplate() {
         'Vận dụng',
         '',
         '',
+        '', '', '', '',
         'CA01',
         'Nam 65 tuổi, tiền sử THA và hút thuốc lá 30 gói-năm, vào viện vì đau ngực sau xương ức dữ dội lan tay trái 2 giờ, vã mồ hôi. ECG: ST chênh lên ở DII, DIII, aVF.',
         'Ca 1 – Đau ngực cấp'
@@ -257,6 +300,7 @@ export function downloadTemplate() {
         'Vận dụng',
         '',
         '',
+        '', '', '', '',
         'CA01',
         '',
         ''
@@ -274,6 +318,7 @@ export function downloadTemplate() {
         'Vận dụng',
         '',
         '',
+        '', '', '', '',
         'CA01',
         '',
         ''
@@ -285,6 +330,7 @@ export function downloadTemplate() {
     worksheet['!cols'] = [
       {wch: 50}, {wch: 25}, {wch: 25}, {wch: 25}, {wch: 25},
       {wch: 30}, {wch: 25}, {wch: 50}, {wch: 30}, {wch: 20}, {wch: 30}, {wch: 50},
+      {wch: 34}, {wch: 34}, {wch: 34}, {wch: 34},
       {wch: 18}, {wch: 60}, {wch: 25}
     ];
     XLSX.writeFile(workbook, "File mẫu nè.xlsx");

@@ -234,7 +234,16 @@ export function getQuizAccent(seed) {
 
 // Hiện menu thư mục bằng position:fixed (định vị theo viewport) để menu không bị
 // container cuộn ngang hay khung thẻ cắt mất phần dưới.
+// Menu thư mục phải được ĐƯA RA THẲNG <body> trước khi định vị.
+// Lý do: .folder-mini-card:hover có `transform` — mà phần tử có transform trở thành gốc toạ độ
+// cho mọi con `position:fixed` VÀ tạo một tầng xếp chồng riêng. Để menu nằm trong thẻ thì khi
+// đang rê chuột (đúng lúc bấm nút "..."), menu vừa nhảy sai chỗ vừa bị các thẻ bộ đề đè lên.
+// Ra body là hết cả hai, không phụ thuộc transform/overflow của bất kỳ tổ tiên nào.
 export function positionFolderMenu(menu, btn) {
+    if (menu.parentElement !== document.body) {
+        menu._folderMenuHome = menu.parentElement; // nhớ chỗ cũ để trả về khi đóng
+        document.body.appendChild(menu);
+    }
     menu.style.position = 'fixed';
     menu.style.zIndex = '60';
     menu.style.right = 'auto';  // huỷ class Tailwind right-0 (nếu không menu sẽ bị kéo giãn)
@@ -264,12 +273,23 @@ export function positionFolderMenu(menu, btn) {
 
 export function resetFolderMenuPosition(menu) {
     menu.classList.add('hidden');
+    // Trả menu về đúng thẻ thư mục của nó, tránh để lại rác trong <body>
+    if (menu._folderMenuHome && menu.parentElement === document.body) {
+        menu._folderMenuHome.appendChild(menu);
+        menu._folderMenuHome = null;
+    }
     menu.style.position = '';
     menu.style.zIndex = '';
     menu.style.right = '';
     menu.style.bottom = '';
     menu.style.top = '';
     menu.style.left = '';
+}
+
+// Vẽ lại danh sách thư mục trong lúc menu đang mở sẽ bỏ lại menu mồ côi trong <body>.
+// Gọi hàm này trước mỗi lần vẽ lại dải thư mục.
+export function removeOrphanFolderMenus() {
+    document.querySelectorAll('body > .folder-menu').forEach(m => m.remove());
 }
 
 // Các token chỉ kiểu dáng (style) của FontAwesome — không phải tên icon

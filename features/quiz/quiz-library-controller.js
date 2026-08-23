@@ -39,6 +39,9 @@ export {
     updateLayoutButtons
 } from './library/library-render.js';
 
+// Tải bộ đề về máy để làm offline
+export { downloadWholeLibraryOffline } from './library/library-cards.js';
+
 // Thao tác (thư mục, di chuyển, chọn nhiều, chia sẻ...)
 export {
     deleteQuizSet,

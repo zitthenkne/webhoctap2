@@ -32,6 +32,9 @@ export const S = {
     // Phân trang & tải dữ liệu
     currentLibraryPage: 1,
     isLibraryFullyLoaded: false,
+    // Tăng 1 mỗi khi người dùng sửa dữ liệu thư viện tại chỗ (di chuyển/xoá/đổi tên...).
+    // Lượt tải nền nào bắt đầu TRƯỚC thay đổi thì kết quả đã cũ → không được đè lên RAM.
+    libraryMutationSeq: 0,
     // Thời điểm thư viện được nạp mới nhất từ server, dùng để giới hạn tần suất tự đồng bộ khi quay lại app
     lastLibrarySyncAt: 0,
 
@@ -58,7 +61,7 @@ export const S = {
     libraryFilterMode: localStorage.getItem('libraryFilterMode') || 'all', // all | recent | unattempted | pinned
     pinnedQuizIds: [],
 
-    // === LỊCH SỬ LÀM BÀI (chip tiến độ + lọc "Chưa làm" + khối "Học tiếp") ===
+    // === LỊCH SỬ LÀM BÀI (chip tiến độ + lọc "Chưa làm" / "Gần đây") ===
     // quizId -> { s: câu đúng, t: tổng câu, at: ms } — nạp từ cache localStorage, đồng bộ tăng dần từ quiz_results
     attemptMap: {},
     attemptCacheSyncedAt: 0,   // mốc completedAt muộn nhất đã kéo về (0 = chưa từng đồng bộ)

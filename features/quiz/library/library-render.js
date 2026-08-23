@@ -8,9 +8,8 @@ import { S, FOLDERS_PER_PAGE, LIB_PREFETCH_PAGES } from './library-state.js';
 import {
     applyQuizGridColumns, applyFolderGridColumns,
     applyLibraryFilter, sortQuizList, getFoldersForDisplay,
-    getQuizAccent, formatRelativeTime, escapeHtml
+    removeOrphanFolderMenus
 } from './library-helpers.js';
-import { getRecentQuizIds, getLastAttempt, markQuizOpened } from './library-attempts.js';
 import { createFolderCard, createQuizCard } from './library-cards.js';
 import { canUseRollingLibrary, loadLibraryChunk, loadAllLibraryInBackground } from './library-data.js';
 import { filterLibraryByMode } from './library-search.js';
@@ -53,63 +52,26 @@ function updateLibraryOverview() {
     if (elFolders) elFolders.textContent = fmt(S.userFolders.length);
 }
 
-// === KHỐI "HỌC TIẾP" ===
-// Hàng thẻ nhỏ hiện các bộ đề vừa mở / vừa làm gần nhất, bấm là vào làm luôn.
-// Chỉ hiện ở gốc thư viện, không tìm kiếm/lọc/chọn nhiều — tránh gây nhiễu ngữ cảnh khác.
-function renderContinueStrip(isSearching) {
-    const section = document.getElementById('library-continue-section');
-    const listEl = document.getElementById('library-continue-list');
-    if (!section || !listEl) return;
-
-    const show = !isSearching && S.currentFolderId === null
-        && !S.isSelectionMode && S.libraryFilterMode === 'all';
-    if (!show) { section.classList.add('hidden'); return; }
-
-    const byId = new Map(S.userQuizSets.map(q => [q.id, q]));
-    // Lấy dư rồi lọc theo cache đã tải (chế độ cuốn chiếu có thể chưa tải đủ metadata)
-    const items = getRecentQuizIds(12).map(id => byId.get(id)).filter(Boolean).slice(0, 4);
-    if (items.length === 0) { section.classList.add('hidden'); return; }
-
-    section.classList.remove('hidden');
-    listEl.innerHTML = items.map(q => {
-        const accent = getQuizAccent(q.id || q.title);
-        const a = getLastAttempt(q.id);
-        const sub = (a && a.t > 0)
-            ? `Lần cuối ${a.s}/${a.t} · ${formatRelativeTime(a.at)}`
-            : `${q.questionCount || 0} câu`;
-        return `<a href="features/quiz/quiz.html?id=${q.id}" class="continue-card" data-quiz-id="${q.id}" title="${escapeHtml(q.title || '')}">
-            <span class="quiz-card-icon quiz-card-icon-sm flex-shrink-0" style="background-image:linear-gradient(135deg, ${accent.from}, ${accent.to});" aria-hidden="true"><i class="fas ${accent.icon}"></i></span>
-            <span class="min-w-0 flex-1">
-                <span class="block text-xs font-bold text-gray-800 truncate">${escapeHtml(q.title || 'Không tên')}</span>
-                <span class="block text-[11px] text-gray-400 font-medium truncate">${sub}</span>
-            </span>
-            <span class="continue-card-play" aria-hidden="true"><i class="fas fa-play"></i></span>
-        </a>`;
-    }).join('');
-
-    listEl.querySelectorAll('a[data-quiz-id]').forEach(link => {
-        link.addEventListener('click', () => markQuizOpened(link.getAttribute('data-quiz-id')));
-    });
-}
-
 // === SKELETON LOADING ===
 export function renderLibrarySkeleton(container, count = 8) {
     if (!container) return;
-    container.className = 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6';
+    container.className = 'quiz-grid';
     applyQuizGridColumns(container);
     let html = '';
     for (let i = 0; i < count; i++) {
         html += `
-            <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex flex-col">
-                <div class="skeleton-line h-4 w-3/4 mb-3"></div>
-                <div class="skeleton-line h-4 w-1/2 mb-4"></div>
-                <div class="flex gap-2 mb-4">
-                    <div class="skeleton-line h-6 w-20 rounded-full"></div>
-                    <div class="skeleton-line h-6 w-24 rounded-full"></div>
+            <div class="quiz-skeleton-card">
+                <div class="qs-top">
+                    <div class="skeleton-line qs-icon"></div>
+                    <div class="qs-lines">
+                        <div class="skeleton-line h-3.5 w-4/5"></div>
+                        <div class="skeleton-line h-2.5 w-2/5"></div>
+                    </div>
                 </div>
-                <div class="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center">
-                    <div class="skeleton-line h-7 w-24 rounded-lg"></div>
-                    <div class="skeleton-line h-8 w-24 rounded-xl"></div>
+                <div class="skeleton-line h-2 w-full rounded-full"></div>
+                <div class="qs-foot">
+                    <div class="skeleton-line h-8 w-8 rounded-xl"></div>
+                    <div class="skeleton-line h-9 flex-1 rounded-xl"></div>
                 </div>
             </div>`;
     }
@@ -166,11 +128,7 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
     if (typeof page !== 'number') page = 1;
     const quizListContainer = document.getElementById('quiz-list-container');
     if (quizListContainer) {
-        if (S.libraryLayoutMode === 'list') {
-            quizListContainer.className = 'flex flex-col gap-3 w-full';
-        } else {
-            quizListContainer.className = 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6';
-        }
+        quizListContainer.className = S.libraryLayoutMode === 'list' ? 'quiz-grid is-list' : 'quiz-grid';
         applyQuizGridColumns(quizListContainer);
         quizListContainer.innerHTML = '';
     }
@@ -179,7 +137,6 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
     const isSearching = librarySearchInput && librarySearchInput.value.trim() !== '';
 
     updateLibraryOverview();
-    renderContinueStrip(isSearching);
 
     let filteredQuizzes = quizzesToDisplay;
     if (!isSearching) {
@@ -235,6 +192,7 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
     }
 
     if (foldersContainer) {
+        removeOrphanFolderMenus(); // menu đang mở đã được đưa ra <body>, xoá kẻo thành rác
         foldersContainer.innerHTML = '';
         applyFolderGridColumns(foldersContainer);
         if (!isSearching && S.currentFolderId === null) {
@@ -340,7 +298,7 @@ function renderLibraryPagination(quizzesToDisplay, currentPage, totalPages) {
     if (!paginationContainer) {
         paginationContainer = document.createElement('div');
         paginationContainer.id = 'library-pagination';
-        paginationContainer.className = 'flex justify-center items-center gap-4 mt-6 col-span-full w-full';
+        paginationContainer.className = 'flex justify-center items-center mt-6 col-span-full w-full';
         const quizListContainer = document.getElementById('quiz-list-container');
         if (quizListContainer && quizListContainer.parentNode) {
             quizListContainer.parentNode.insertBefore(paginationContainer, quizListContainer.nextSibling);
@@ -367,24 +325,28 @@ function renderLibraryPagination(quizzesToDisplay, currentPage, totalPages) {
     const totalLabel = hasMore ? `${totalPages}+` : totalPages; // "+" báo hiệu còn trang chưa tải
 
     paginationContainer.innerHTML = `
-        <button id="lib-prev-page" class="px-4 py-2 bg-pink-100 text-pink-700 rounded-lg hover:bg-pink-200 transition disabled:opacity-50 disabled:cursor-not-allowed" ${currentPage === 1 ? 'disabled' : ''}>
-            <i class="fas fa-chevron-left mr-1"></i> Trang trước
-        </button>
-        <span class="text-gray-700 font-medium">Trang ${currentPage} / ${totalLabel}</span>
-        <button id="lib-next-page" class="px-4 py-2 bg-pink-100 text-pink-700 rounded-lg hover:bg-pink-200 transition disabled:opacity-50 disabled:cursor-not-allowed" ${nextDisabled ? 'disabled' : ''}>
-            Trang sau <i class="fas fa-chevron-right ml-1"></i>
-        </button>
+        <nav class="lib-pager" aria-label="Phân trang bộ đề">
+            <button id="lib-prev-page" class="lib-pager-btn" aria-label="Trang trước" ${currentPage === 1 ? 'disabled' : ''}>
+                <i class="fas fa-chevron-left"></i><span>Trước</span>
+            </button>
+            <span class="lib-pager-info">Trang <b>${currentPage}</b> / ${totalLabel}</span>
+            <button id="lib-next-page" class="lib-pager-btn" aria-label="Trang sau" ${nextDisabled ? 'disabled' : ''}>
+                <span>Sau</span><i class="fas fa-chevron-right"></i>
+            </button>
+        </nav>
     `;
 
     document.getElementById('lib-prev-page').addEventListener('click', () => {
         if (currentPage > 1) {
             renderLibrary(quizzesToDisplay, currentPage - 1);
+            scrollToQuizzesTop();
         }
     });
 
     document.getElementById('lib-next-page').addEventListener('click', async () => {
         if (currentPage < totalPages) {
             renderLibrary(quizzesToDisplay, currentPage + 1);
+            scrollToQuizzesTop();
         } else if (hasMore && auth.currentUser) {
             // Đang ở cuối phần đã tải nhưng server còn dữ liệu → tải cụm kế rồi sang trang
             const nextBtn = document.getElementById('lib-next-page');
@@ -394,8 +356,18 @@ function renderLibraryPagination(quizzesToDisplay, currentPage, totalPages) {
             }
             await loadLibraryChunk(auth.currentUser.uid);
             renderLibrary(S.userQuizSets, currentPage + 1);
+            scrollToQuizzesTop();
         }
     });
+}
+
+// Sang trang xong mà vẫn đứng ở cuối danh sách thì phải tự cuộn lên tìm đầu trang mới.
+// Trừ hao ~84px cho bảng công cụ dính ở mép trên, nếu không tiêu đề khu vực bị nó che.
+function scrollToQuizzesTop() {
+    const section = document.getElementById('quizzes-section');
+    if (!section) return;
+    const top = section.getBoundingClientRect().top + window.scrollY - 84;
+    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
 }
 
 function clearFoldersPagination() {

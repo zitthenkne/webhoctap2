@@ -9,6 +9,18 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="../../style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .filter-chip {
+            border: 1px solid #fbcfe8; background: #fff; color: #6b7280;
+            border-radius: 9999px; padding: 6px 16px; font-size: 14px; font-weight: 600;
+            white-space: nowrap; transition: all .15s; cursor: pointer;
+        }
+        .filter-chip:hover { background: #fdf2f8; }
+        .filter-chip.active { background: #ec4899; border-color: #ec4899; color: #fff; box-shadow: 0 4px 12px #f9a8d4aa; }
+        #filter-chips::-webkit-scrollbar, .overflow-x-auto::-webkit-scrollbar { display: none; }
+        .rec-card { animation: cardIn .25s ease-out both; }
+        @keyframes cardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    </style>
 </head>
 <body class="flex h-screen bg-gray-50 text-gray-700 text-sm">
     <!-- Mobile Top Bar with Hamburger -->
@@ -62,24 +74,64 @@
             </div>
         </header>
         <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gradient-to-br from-[#FCE4EC] via-[#FDF2F8] to-[#EDE9FE] p-2 sm:p-4 md:p-8 flex flex-col items-center">
-            <!-- Danh sách bệnh án đã làm -->
-            <div class="bg-white/90 backdrop-blur rounded-3xl shadow-xl p-4 sm:p-8 max-w-5xl w-full my-4 md:my-8 border border-pink-100">
-                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-3">
-                    <div>
-                        <h2 class="text-xl sm:text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-400 flex items-center gap-2"><i class="fas fa-notes-medical text-pink-400"></i>Danh sách bệnh án</h2>
-                        <p class="text-gray-400 text-sm mt-1">Quản lý các bệnh án bạn đã viết <span id="record-count" class="font-semibold text-pink-500"></span></p>
+            <!-- Danh sách bệnh án -->
+            <div class="w-full max-w-6xl my-4 md:my-8 flex flex-col gap-4">
+
+                <!-- Thẻ tổng quan -->
+                <div class="grid grid-cols-3 gap-2 sm:gap-4">
+                    <div class="bg-white/90 backdrop-blur rounded-2xl border border-pink-100 shadow-sm p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
+                        <div class="w-8 h-8 sm:w-10 sm:h-10 text-sm sm:text-base rounded-lg sm:rounded-xl bg-pink-100 text-pink-500 flex items-center justify-center flex-shrink-0"><i class="fas fa-notes-medical"></i></div>
+                        <div class="min-w-0"><p id="stat-total" class="text-xl sm:text-2xl font-extrabold text-gray-800 leading-none">0</p><p class="text-[10px] sm:text-xs text-gray-400 mt-0.5 sm:mt-1 leading-tight">Tổng bệnh án</p></div>
                     </div>
-                    <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                        <div class="relative w-full sm:w-64">
-                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-pink-300 pointer-events-none"></i>
-                            <input id="search-record" type="search" placeholder="Tìm theo tên, phòng, chẩn đoán..." class="pl-9 pr-4 py-2.5 border-2 border-pink-100 bg-pink-50/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-pink-300 focus:bg-white w-full text-base shadow-sm transition" />
-                        </div>
-                        <button id="create-new-record" class="bg-pink-500 text-white hover:bg-pink-600 active:scale-95 transition flex items-center justify-center gap-2 shadow-lg shadow-pink-200 fixed bottom-24 right-4 z-50 rounded-full w-14 h-14 text-2xl sm:static sm:w-auto sm:h-auto sm:rounded-xl sm:px-5 sm:py-2.5 sm:text-base font-semibold" title="Tạo bệnh án mới"><i class="fas fa-plus"></i> <span class="hidden sm:inline">Tạo bệnh án</span></button>
+                    <div class="bg-white/90 backdrop-blur rounded-2xl border border-pink-100 shadow-sm p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
+                        <div class="w-8 h-8 sm:w-10 sm:h-10 text-sm sm:text-base rounded-lg sm:rounded-xl bg-green-100 text-green-600 flex items-center justify-center flex-shrink-0"><i class="fas fa-check"></i></div>
+                        <div class="min-w-0"><p id="stat-done" class="text-xl sm:text-2xl font-extrabold text-gray-800 leading-none">0</p><p class="text-[10px] sm:text-xs text-gray-400 mt-0.5 sm:mt-1 leading-tight">Hoàn thành</p></div>
+                    </div>
+                    <div class="bg-white/90 backdrop-blur rounded-2xl border border-pink-100 shadow-sm p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
+                        <div class="w-8 h-8 sm:w-10 sm:h-10 text-sm sm:text-base rounded-lg sm:rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center flex-shrink-0"><i class="fas fa-pen"></i></div>
+                        <div class="min-w-0"><p id="stat-draft" class="text-xl sm:text-2xl font-extrabold text-gray-800 leading-none">0</p><p class="text-[10px] sm:text-xs text-gray-400 mt-0.5 sm:mt-1 leading-tight">Đang viết</p></div>
                     </div>
                 </div>
-                <!-- Card view cho mọi thiết bị -->
-                <div id="medical-record-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                    <!-- JS sẽ render các card ở đây -->
+
+                <div class="bg-white/90 backdrop-blur rounded-3xl shadow-xl p-4 sm:p-6 border border-pink-100">
+                    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
+                        <div class="min-w-0">
+                            <h2 class="text-xl sm:text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-400 flex items-center gap-2"><i class="fas fa-notes-medical text-pink-400"></i>Danh sách bệnh án</h2>
+                            <p id="sync-status" class="text-xs mt-1 flex items-center gap-1.5 text-gray-400"><i class="fas fa-circle-notch fa-spin"></i> Đang tải…</p>
+                        </div>
+                        <div class="flex items-center gap-2 w-full lg:w-auto">
+                            <div class="relative flex-1 lg:w-72">
+                                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-pink-300 pointer-events-none"></i>
+                                <input id="search-record" type="search" placeholder="Tìm tên, chẩn đoán, phòng…" class="pl-9 pr-4 py-2.5 border-2 border-pink-100 bg-pink-50/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-pink-300 focus:bg-white w-full text-base shadow-sm transition" />
+                            </div>
+                            <div class="relative flex-shrink-0">
+                                <button id="more-menu-btn" class="w-11 h-11 rounded-xl border-2 border-pink-100 bg-white text-pink-500 hover:bg-pink-50 transition" title="Sao lưu / phục hồi"><i class="fas fa-ellipsis-v"></i></button>
+                                <div id="more-menu" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-pink-100 py-2 z-40">
+                                    <button id="export-json" class="w-full text-left px-4 py-2.5 hover:bg-pink-50 text-gray-700 flex items-center gap-2.5"><i class="fas fa-file-export text-pink-400 w-4"></i> Xuất file sao lưu</button>
+                                    <button id="import-json" class="w-full text-left px-4 py-2.5 hover:bg-pink-50 text-gray-700 flex items-center gap-2.5"><i class="fas fa-file-import text-pink-400 w-4"></i> Nhập file sao lưu</button>
+                                    <input id="import-file" type="file" accept="application/json,.json" class="hidden">
+                                </div>
+                            </div>
+                            <button id="create-new-record" class="bg-pink-500 text-white hover:bg-pink-600 active:scale-95 transition flex items-center justify-center gap-2 shadow-lg shadow-pink-200 fixed bottom-24 right-4 z-40 rounded-full w-14 h-14 text-2xl lg:static lg:w-auto lg:h-auto lg:rounded-xl lg:px-5 lg:py-2.5 lg:text-base font-semibold flex-shrink-0" title="Tạo bệnh án mới"><i class="fas fa-plus"></i> <span class="hidden lg:inline">Tạo bệnh án</span></button>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2 mb-4 overflow-x-auto pb-1 -mx-1 px-1" style="scrollbar-width:none">
+                        <div id="filter-chips" class="flex items-center gap-2 flex-shrink-0">
+                            <button class="filter-chip active" data-filter="all">Tất cả</button>
+                            <button class="filter-chip" data-filter="draft">Đang viết</button>
+                            <button class="filter-chip" data-filter="done">Hoàn thành</button>
+                        </div>
+                        <select id="sort-record" class="ml-auto flex-shrink-0 border-2 border-pink-100 bg-white rounded-xl px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-pink-200">
+                            <option value="new">Mới nhất</option>
+                            <option value="old">Cũ nhất</option>
+                            <option value="name">Tên A → Z</option>
+                        </select>
+                    </div>
+
+                    <div id="medical-record-cards" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-20 lg:pb-0">
+                        <!-- JS render card ở đây -->
+                    </div>
                 </div>
             </div>
             <div id="toast-container" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center space-y-2 pointer-events-none"></div>
@@ -119,6 +171,6 @@
             }
         });
     </script>
-    <script src="waiting-room.js"></script>
+    <script type="module" src="waiting-room.js"></script>
 </body>
 </html>

@@ -16,6 +16,7 @@ import { applyAnnotationsAll } from './quiz-annotations.js';
 import { caseKeyOf, caseCollapseState } from './quiz-cases.js';
 import { applyNavVisibility, attachToggleNavEvent } from './quiz-page-setup.js';
 import { updateMobileNav } from './quiz-mobile-nav.js';
+import { scheduleAutoNext, cancelAutoNext, focusExplanation } from './quiz-auto-next.js';
 import { endQuiz } from './quiz-session.js';
 import { currentQuizId, pushStudyToCloud } from './quiz-study-sync.js';
 import { gradeSrsAnswer } from '../quiz-srs-store.js';
@@ -277,6 +278,8 @@ export function showQuestion() {
     const slideDir = state.currentIndex >= _lastShownIndex ? 'next' : 'prev';
     _lastShownIndex = state.currentIndex;
     if (indexChanged) { hideCatMeme(); scrollQuizToTop(); }
+    // Vẽ lại câu = mọi đếm ngược "tự chuyển câu" của câu cũ đều hết hiệu lực
+    cancelAutoNext();
     // Tải trước meme cho câu này ngay khi đang đọc đề -> trả lời là hiện liền, không trễ
     preloadCurrentMemes();
     updateProgressBar();
@@ -936,4 +939,9 @@ export function handleAnswerClick(e) {
 
     // Đã trả lời -> cập nhật tiến trình trên thanh điều hướng đáy (mobile)
     updateMobileNav();
+
+    // Trên màn hẹp: kéo đáp án đúng + phần "Tại sao đúng" vào giữa màn hình
+    focusExplanation(question.correctAnswerIndex);
+    // Trả lời ĐÚNG thì tự sang câu sau (nếu người dùng bật) — sai thì để yên cho đọc giải thích
+    if (isCorrect && state.currentIndex < state.questions.length - 1) scheduleAutoNext(showNextQuestion);
 }

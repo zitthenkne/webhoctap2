@@ -5,192 +5,130 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Xem bệnh án</title>
     <link rel="icon" type="image/png" href="../../assets/logo.png">
+    <script src="../../pwa-install.js" defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { font-family: 'Segoe UI', 'Roboto', Arial, sans-serif; }
-        /* Custom scrollbar for better UX */
         ::-webkit-scrollbar { width: 8px; background: #ffe4ef; }
         ::-webkit-scrollbar-thumb { background: #f472b6; border-radius: 8px; }
-        .fade-in { animation: fadeIn 0.7s; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px);} to { opacity: 1; transform: none; } }
-        .fab-btn { position: fixed; bottom: calc(20px + env(safe-area-inset-bottom)); right: 16px; z-index: 50; box-shadow: 0 4px 24px 0 #f472b6a0; }
-        @media (min-width: 640px) { .fab-btn { bottom: 32px; right: 32px; } }
-        .fab-btn:active { transform: scale(0.97); }
-        /* In bệnh án: chỉ giữ nội dung, bỏ trang trí */
-        @media print {
-            header, footer, .fab-btn, .no-print { display: none !important; }
-            body { background: #fff !important; }
-            main { box-shadow: none !important; border: none !important; max-width: 100% !important; padding: 0 !important; }
-            #medical-record-view > div { box-shadow: none !important; break-inside: avoid; }
+
+        .fade-in { animation: fadeIn .4s ease-out both; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+        /* Mục lục nhảy nhanh */
+        .toc-link {
+            display: block; padding: 6px 10px; border-radius: 8px; font-size: 13px;
+            color: #6b7280; border-left: 3px solid transparent; transition: all .15s;
         }
+        .toc-link:hover { background: #fdf2f8; color: #db2777; }
+        .toc-link.active { background: #fdf2f8; color: #db2777; border-left-color: #ec4899; font-weight: 600; }
+
+        .rec-section { scroll-margin-top: 90px; }
+        /* Mục Hành chính: xếp cột cho gọn, tự xuống 1 cột trên điện thoại */
+        .sec-grid { display: grid; gap: 4px 24px; }
+        @media (min-width: 640px) { .sec-grid { grid-template-columns: 1fr 1fr; } }
+
+        /* Thanh công cụ nổi trên điện thoại */
+        .mobile-bar { padding-bottom: calc(0.5rem + env(safe-area-inset-bottom)); }
+
+        /* ============ IN / XUẤT PDF: khổ A4, chỉ giữ nội dung ============ */
+        @media print {
+            @page { size: A4; margin: 16mm 14mm; }
+            .no-print, header, footer, .mobile-bar, aside { display: none !important; }
+            html, body { background: #fff !important; }
+            main { box-shadow: none !important; border: none !important; max-width: 100% !important; padding: 0 !important; margin: 0 !important; border-radius: 0 !important; }
+            .rec-section {
+                background: #fff !important; border: none !important; box-shadow: none !important;
+                padding: 0 !important; margin: 0 0 10pt 0 !important; break-inside: avoid;
+            }
+            .rec-section h3 {
+                color: #000 !important; font-size: 11.5pt !important; border-bottom: 1px solid #000;
+                padding-bottom: 2pt; margin-bottom: 4pt !important;
+            }
+            .rec-section i { display: none !important; }
+            .print-head { display: block !important; }
+            .print-sign { display: block !important; break-inside: avoid; }
+            .field-label { color: #000 !important; }
+            .field-value { color: #000 !important; }
+            .vital-chip { border: 1px solid #666 !important; background: #fff !important; }
+            .sec-grid { grid-template-columns: 1fr 1fr; }
+            body { font-size: 11pt; color: #000; line-height: 1.45; }
+        }
+        .print-head, .print-sign { display: none; }
     </style>
 </head>
-<body class="bg-gradient-to-br from-[#FCE4EC] via-[#FDF2F8] to-[#EDE9FE] min-h-screen flex flex-col items-center py-0 px-2 sm:px-0">
-    <!-- Header -->
-    <header class="w-full max-w-3xl mx-auto flex items-center gap-3 py-4 sm:py-6 px-2 sm:px-8 flex-wrap">
-        <img src="../../assets/logo.png" alt="Logo" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-lg border-2 border-pink-200 bg-white">
-        <h1 class="text-xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-400 flex items-center gap-2 flex-1 min-w-0"><i class="fas fa-file-medical-alt text-pink-400"></i> Xem Bệnh Án</h1>
-        <div class="flex items-center gap-2">
-            <a id="edit-record-btn" href="#" class="hidden px-3 py-2 sm:px-4 bg-white border border-pink-200 text-pink-500 rounded-xl hover:bg-pink-50 transition text-sm font-semibold shadow-sm"><i class="fas fa-edit"></i> <span class="hidden sm:inline">Sửa</span></a>
-            <button onclick="window.print()" class="px-3 py-2 sm:px-4 bg-white border border-pink-200 text-pink-500 rounded-xl hover:bg-pink-50 transition text-sm font-semibold shadow-sm"><i class="fas fa-print"></i> <span class="hidden sm:inline">In / PDF</span></button>
+<body class="bg-gradient-to-br from-[#FCE4EC] via-[#FDF2F8] to-[#EDE9FE] min-h-screen">
+
+<!-- ================= Thanh trên ================= -->
+<header class="no-print sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-pink-100 shadow-sm">
+    <div class="max-w-6xl mx-auto flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-2.5">
+        <a href="../study-room/waiting-room.html" class="w-10 h-10 rounded-xl border border-pink-200 text-pink-500 hover:bg-pink-50 flex items-center justify-center transition flex-shrink-0" title="Danh sách bệnh án"><i class="fas fa-arrow-left"></i></a>
+        <div class="min-w-0 flex-1">
+            <h1 id="head-name" class="font-extrabold text-gray-800 truncate text-base sm:text-lg leading-tight">Xem bệnh án</h1>
+            <p id="head-meta" class="text-xs text-gray-400 truncate"></p>
         </div>
-    </header>
-    <main class="bg-white rounded-3xl shadow-xl p-4 sm:p-8 max-w-3xl w-full border border-pink-100 transition-all duration-300 fade-in relative">
-        <div id="medical-record-view" class="space-y-4 text-[15px] sm:text-base">
-            <!-- Nội dung bệnh án sẽ được render ở đây -->
+        <div class="hidden sm:flex items-center gap-2">
+            <a id="edit-record-btn" href="#" class="hidden px-3 py-2 border border-pink-200 text-pink-500 rounded-xl hover:bg-pink-50 transition text-sm font-semibold"><i class="fas fa-pen mr-1"></i>Sửa</a>
+            <button id="copy-btn" class="px-3 py-2 border border-pink-200 text-pink-500 rounded-xl hover:bg-pink-50 transition text-sm font-semibold"><i class="fas fa-copy mr-1"></i>Sao chép</button>
+            <button id="word-btn" class="px-3 py-2 border border-pink-200 text-pink-500 rounded-xl hover:bg-pink-50 transition text-sm font-semibold"><i class="fas fa-file-word mr-1"></i>Tải .doc</button>
+            <button id="share-btn" class="hidden px-3 py-2 border border-pink-200 text-pink-500 rounded-xl hover:bg-pink-50 transition text-sm font-semibold"><i class="fas fa-share-nodes mr-1"></i>Chia sẻ</button>
+            <button id="print-btn" class="px-4 py-2 bg-pink-500 text-white rounded-xl hover:bg-pink-600 active:scale-95 transition text-sm font-bold shadow-lg shadow-pink-200"><i class="fas fa-print mr-1"></i>In / PDF</button>
         </div>
-        <a href="../study-room/waiting-room.html" class="no-print block mt-8 text-pink-600 hover:underline hover:text-pink-700 text-center text-lg font-medium transition-all duration-200"><i class="fas fa-arrow-left"></i> Quay lại danh sách bệnh án</a>
+        <button id="mobile-more" class="sm:hidden w-10 h-10 rounded-xl bg-pink-500 text-white flex items-center justify-center flex-shrink-0"><i class="fas fa-ellipsis-v"></i></button>
+    </div>
+</header>
+
+<div class="max-w-6xl mx-auto flex gap-6 px-2 sm:px-6 py-4 sm:py-6">
+    <!-- Mục lục -->
+    <aside id="toc" class="no-print hidden lg:block w-52 flex-shrink-0">
+        <div class="sticky top-20 bg-white/80 backdrop-blur rounded-2xl border border-pink-100 p-3 shadow-sm">
+            <p class="text-[11px] font-bold text-gray-400 uppercase tracking-wide px-2 mb-2">Mục lục</p>
+            <nav id="toc-nav" class="space-y-0.5"></nav>
+        </div>
+    </aside>
+
+    <main class="bg-white rounded-3xl shadow-xl p-4 sm:p-8 flex-1 min-w-0 border border-pink-100 fade-in">
+        <!-- Tiêu đề chỉ hiện khi in -->
+        <div class="print-head" style="text-align:center;margin-bottom:14pt">
+            <div style="font-weight:700;font-size:13pt;text-transform:uppercase">Bệnh án nội khoa</div>
+            <div id="print-sub" style="font-size:10pt;margin-top:3pt"></div>
+        </div>
+        <div id="medical-record-view" class="space-y-4 text-[15px] sm:text-base"></div>
+        <div class="print-sign" style="margin-top:20pt;text-align:right">
+            <div id="sign-date" style="font-style:italic"></div>
+            <div style="font-weight:700;margin-top:4pt">Người làm bệnh án</div>
+            <div style="font-size:9pt;font-style:italic">(Ký, ghi rõ họ tên)</div>
+            <div id="sign-name" style="margin-top:40pt;font-weight:600"></div>
+        </div>
     </main>
-    <!-- Floating Copy Content Button -->
-    <button id="copy-content-btn" class="fab-btn px-4 py-3 sm:px-5 bg-pink-500 text-white rounded-full hover:bg-pink-600 text-base flex items-center gap-2 shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-pink-300" title="Sao chép toàn bộ nội dung bệnh án"><i class="fas fa-copy"></i> <span class="hidden sm:inline">Sao chép nội dung</span></button>
-    <!-- Footer -->
-    <footer class="w-full max-w-3xl mx-auto text-center text-pink-300 text-sm py-6 mt-8">© 2025 Bệnh viện Squirrel. All rights reserved.</footer>
-    <script>
-    // Lấy id từ query string
-    function getQueryParam(name) {
-        const url = new URL(window.location.href);
-        return url.searchParams.get(name);
-    }
-    const recordId = getQueryParam('id');
-    let record = null;
-    if (recordId) {
-        try {
-            const records = JSON.parse(localStorage.getItem('medicalRecords')) || [];
-            record = records.find(r => r.id == recordId);
-        } catch (e) { record = null; }
-    }
-    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    function renderField(label, value) {
-        if (!value) return '';
-        return `<div class='block'><span class='font-semibold text-pink-500'>${label}${label ? ':' : ''}</span> <span class='text-gray-700 break-words whitespace-pre-line'>${esc(value)}</span></div>`;
-    }
-    // Sinh tồn hiển thị dạng badge nằm ngang cho gọn
-    function renderVitals(pairs) {
-        const badges = pairs.filter(([, v]) => v)
-            .map(([l, v]) => `<span class='inline-flex items-baseline gap-1 bg-white border border-pink-200 rounded-lg px-2.5 py-1 text-sm'><span class='text-gray-400 text-xs'>${l}</span><b class='text-gray-700'>${esc(v)}</b></span>`)
-            .join('');
-        return badges ? `<div class='flex flex-wrap gap-2'>${badges}</div>` : '';
-    }
-    function renderSection(title, html) {
-        if (!html) return '';
-        // Thêm icon cho từng section lớn
-        let icon = '';
-        if (title.startsWith('I.')) icon = '<i class="fas fa-user"></i>';
-        else if (title.startsWith('II.')) icon = '<i class="fas fa-sign-in-alt"></i>';
-        else if (title.startsWith('III.')) icon = '<i class="fas fa-history"></i>';
-        else if (title.startsWith('IV.')) icon = '<i class="fas fa-notes-medical"></i>';
-        else if (title.startsWith('V.')) icon = '<i class="fas fa-stethoscope"></i>';
-        else if (title.startsWith('VI.')) icon = '<i class="fas fa-clipboard-list"></i>';
-        else if (title.startsWith('VII.')) icon = '<i class="fas fa-search"></i>';
-        else if (title.startsWith('VIII.')) icon = '<i class="fas fa-vials"></i>';
-        else if (title.startsWith('IX.')) icon = '<i class="fas fa-microscope"></i>';
-        else if (title.startsWith('X.')) icon = '<i class="fas fa-check-circle"></i>';
-        else if (title.startsWith('XI.')) icon = '<i class="fas fa-syringe"></i>';
-        else if (title.startsWith('XII.')) icon = '<i class="fas fa-heartbeat"></i>';
-        else if (title.startsWith('XIII.')) icon = '<i class="fas fa-shield-alt"></i>';
-        return `<div class='bg-pink-50/80 border border-pink-200 rounded-2xl shadow-sm p-4 sm:p-5 mb-2 transition-all duration-200 hover:shadow-xl hover:border-pink-400 fade-in'><h3 class='text-base sm:text-lg font-bold text-pink-600 mb-3 flex items-center gap-2'>${icon} ${title}</h3><div class='pl-1 sm:pl-2 space-y-2'>${html}</div></div>`;
-    }
-    function renderRecordView(record) {
-        if (!record) return `
-            <div class='flex flex-col items-center justify-center py-16 text-center'>
-                <div class='w-16 h-16 rounded-full bg-pink-100 flex items-center justify-center mb-3'><i class='fas fa-file-circle-question text-2xl text-pink-400'></i></div>
-                <p class='text-gray-500 font-semibold'>Không tìm thấy bệnh án</p>
-                <p class='text-gray-400 text-sm mt-1'>Bệnh án được lưu trên máy đã tạo. Liên kết mở từ máy khác sẽ không có dữ liệu.</p>
-            </div>`;
-        let html = '';
-        // Hành chính
-        const h = record.hanhChinh || {};
-        html += renderSection('I. HÀNH CHÍNH',
-            renderField('Họ và tên', h.hoTen) +
-            renderField('Năm sinh', h.namSinh) +
-            renderField('Tuổi', h.tuoi) +
-            renderField('Giới tính', h.gioiTinh) +
-            renderField('Dân tộc', h.danToc) +
-            renderField('Nghề nghiệp', h.ngheNghiep) +
-            renderField('Địa chỉ', h.diaChi) +
-            renderField('Người liên hệ', h.nguoiLienHe) +
-            renderField('SĐT liên hệ', h.sdtLienHe) +
-            renderField('Giờ vào viện', h.gioVaoVien) +
-            renderField('Ngày vào viện', h.ngayVaoVien) +
-            renderField('Ngày giờ làm bệnh án', h.ngayLamBenhAn) +
-            renderField('Số giường', h.soGiuong) +
-            renderField('Số phòng', h.soPhong) +
-            renderField('Bệnh viện', h.benhVien)
-        );
-        // Lý do, bệnh sử, tiền sử
-        html += renderSection('II. LÝ DO VÀO VIỆN', renderField('', record.lyDoVaoVien));
-        html += renderSection('III. BỆNH SỬ', renderField('', record.benhSu));
-        // Tiền sử (có mục nhỏ)
-        const t = record.tienSu || {};
-        html += renderSection('IV. TIỀN SỬ',
-            renderField('Nội khoa', t.noiKhoa) +
-            renderField('Ngoại khoa', t.ngoaiKhoa) +
-            renderField('Sản phụ khoa', t.sanPhuKhoa) +
-            renderField('Dị ứng', t.diUng) +
-            renderField('Thói quen', t.thoiQuen) +
-            renderField('Gia đình', t.giaDinh)
-        );
-        // Khám bệnh (gồm sinh tồn, toàn thân, các cơ quan)
-        const k = (record.khamBenh && record.khamBenh.sinhTon) || {};
-        let khamBenhHtml = renderVitals([
-            ['Mạch', k.mach && k.mach + ' l/p'],
-            ['Nhiệt độ', k.nhietDo && k.nhietDo + ' °C'],
-            ['HA', k.huyetAp && k.huyetAp + ' mmHg'],
-            ['Nhịp thở', k.nhipTho && k.nhipTho + ' l/p'],
-            ['SpO2', k.spo2 && k.spo2 + ' %'],
-            ['Cao', k.chieuCao && k.chieuCao + ' cm'],
-            ['Nặng', k.canNang && k.canNang + ' kg'],
-            ['BMI', k.bmi]
-        ]);
-        khamBenhHtml += renderField('Toàn thân', record.khamBenh?.toanThan);
-        khamBenhHtml += renderField('Thể trạng', record.khamBenh?.theTrang);
-        khamBenhHtml += renderField('Da, niêm mạc', record.khamBenh?.daNiemMac);
-        khamBenhHtml += renderField('Lông, tóc, móng', record.khamBenh?.longTocMong);
-        khamBenhHtml += renderField('Tuyến giáp, hạch ngoại vi', record.khamBenh?.tuyenGiapHach);
-        khamBenhHtml += renderField('Dấu hiệu phù, xuất huyết', record.khamBenh?.phuXuatHuyet);
-        khamBenhHtml += renderField('Các cơ quan', record.khamBenh?.cacCoQuan);
-        khamBenhHtml += renderField('Tuần hoàn (Tim mạch)', record.khamBenh?.circulation);
-        khamBenhHtml += renderField('Hô hấp', record.khamBenh?.respiratory);
-        khamBenhHtml += renderField('Tiêu hóa', record.khamBenh?.digestive);
-        khamBenhHtml += renderField('Thận - Tiết niệu - Sinh dục', record.khamBenh?.urinary);
-        khamBenhHtml += renderField('Thần kinh', record.khamBenh?.neuro);
-        khamBenhHtml += renderField('Cơ - Xương - Khớp', record.khamBenh?.musculoskeletal);
-        khamBenhHtml += renderField('Tai - Mũi - Họng', record.khamBenh?.ent);
-        khamBenhHtml += renderField('Răng - Hàm - Mặt', record.khamBenh?.dental);
-        khamBenhHtml += renderField('Mắt', record.khamBenh?.eye);
-        html += renderSection('V. KHÁM BỆNH', khamBenhHtml);
-        html += renderSection('VI. TÓM TẮT BỆNH ÁN', renderField('', record.tomTatBenhAn));
-        html += renderSection('VII. CHẨN ĐOÁN SƠ BỘ', renderField('', record.chanDoanSoBo));
-        html += renderSection('VIII. CẬN LÂM SÀNG ĐỀ NGHỊ', renderField('', record.canLamSangDeNghi));
-        html += renderSection('IX. KẾT QUẢ CẬN LÂM SÀNG ĐÃ CÓ', renderField('', record.ketQuaCanLamSang));
-        html += renderSection('X. CHẨN ĐOÁN XÁC ĐỊNH', renderField('', record.chanDoanXacDinh));
-        html += renderSection('XI. HƯỚNG ĐIỀU TRỊ', renderField('', record.huongDieuTri));
-        html += renderSection('XII. TIÊN LƯỢNG', renderField('', record.tienLuong));
-        html += renderSection('XIII. DỰ PHÒNG', renderField('', record.duPhong));
-        return html;
-    }
-    document.getElementById('medical-record-view').innerHTML = renderRecordView(record);
-    if (record) {
-        // Title động + nút Sửa
-        if (record.hanhChinh?.hoTen) document.title = 'Bệnh án - ' + record.hanhChinh.hoTen;
-        const editBtn = document.getElementById('edit-record-btn');
-        editBtn.href = 'tao-benh-an.html?id=' + encodeURIComponent(record.id);
-        editBtn.classList.remove('hidden');
-    }
-    // Copy toàn bộ nội dung bệnh án dạng text (dữ liệu nằm localStorage nên copy link vô nghĩa với máy khác)
-    const copyBtn = document.getElementById('copy-content-btn');
-    copyBtn.onclick = function() {
-        navigator.clipboard.writeText(document.getElementById('medical-record-view').innerText);
-        this.innerHTML = '<i class="fas fa-check"></i> <span class="hidden sm:inline">Đã sao chép!</span>';
-        this.classList.remove('bg-pink-500');
-        this.classList.add('bg-green-500');
-        setTimeout(() => {
-            this.innerHTML = '<i class="fas fa-copy"></i> <span class="hidden sm:inline">Sao chép nội dung</span>';
-            this.classList.remove('bg-green-500');
-            this.classList.add('bg-pink-500');
-        }, 1500);
-    };
-    </script>
+</div>
+
+<footer class="no-print text-center text-pink-300 text-xs py-6">© 2025 Zitthenkne · Bệnh án điện tử</footer>
+
+<!-- Thanh công cụ điện thoại -->
+<div id="mobile-actions" class="mobile-bar no-print sm:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-pink-100 px-2 pt-2 translate-y-full transition-transform duration-200">
+    <div class="grid grid-cols-4 gap-1.5">
+        <button data-act="edit" class="flex flex-col items-center gap-1 py-2 rounded-xl hover:bg-pink-50 text-pink-500 text-[11px] font-semibold"><i class="fas fa-pen text-base"></i>Sửa</button>
+        <button data-act="copy" class="flex flex-col items-center gap-1 py-2 rounded-xl hover:bg-pink-50 text-pink-500 text-[11px] font-semibold"><i class="fas fa-copy text-base"></i>Sao chép</button>
+        <button data-act="word" class="flex flex-col items-center gap-1 py-2 rounded-xl hover:bg-pink-50 text-pink-500 text-[11px] font-semibold"><i class="fas fa-file-word text-base"></i>Tải .doc</button>
+        <button data-act="print" class="flex flex-col items-center gap-1 py-2 rounded-xl bg-pink-500 text-white text-[11px] font-semibold"><i class="fas fa-print text-base"></i>In / PDF</button>
+    </div>
+</div>
+
+<!-- Mục lục dạng thẻ trượt cho điện thoại -->
+<button id="toc-fab" class="no-print lg:hidden fixed left-4 bottom-5 z-40 w-12 h-12 rounded-full bg-white border border-pink-200 text-pink-500 shadow-lg flex items-center justify-center" style="bottom:calc(1.25rem + env(safe-area-inset-bottom))" title="Mục lục"><i class="fas fa-list-ul"></i></button>
+<div id="toc-sheet" class="no-print lg:hidden fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/40" data-close></div>
+    <div id="toc-panel" class="absolute bottom-0 inset-x-0 bg-white rounded-t-3xl shadow-2xl max-h-[72vh] overflow-y-auto p-4 translate-y-full transition-transform duration-200" style="padding-bottom:calc(1.5rem + env(safe-area-inset-bottom))">
+        <div class="w-10 h-1.5 bg-gray-200 rounded-full mx-auto mb-3"></div>
+        <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2 px-1">Mục lục</p>
+        <nav id="toc-nav-mobile" class="space-y-0.5"></nav>
+    </div>
+</div>
+
+<div id="toast-container" class="fixed bottom-24 sm:bottom-6 right-4 z-50 flex flex-col items-end space-y-2 pointer-events-none"></div>
+
+<script type="module" src="xem-benh-an.js"></script>
 </body>
 </html>
