@@ -22,11 +22,14 @@ const STATES = ['tương tự', 'thuyên giảm', 'nặng hơn'];
 
 /* Ô "Triệu chứng chính" là một khối HTML có sẵn; máy chuyển nguyên khối đó vào
    đúng mốc khởi phát nên mọi ID / phần lưu trữ giữ nguyên, khỏi phải nhân đôi ô. */
-const MAIN_BOX = 'hx-main-box', MAIN_PARK = 'hx-main-park';
+/* Hai khối HTML có sẵn được dời nguyên vào mốc khởi phát: mô tả triệu chứng chính
+   và cơ chế chấn thương (bệnh án ngoại). Mọi ID / chỗ lưu giữ nguyên. */
+const EMBEDS = [['hx-trauma-box', 'hx-trauma-park'], ['hx-main-box', 'hx-main-park']];
 const mainSymName = () => ($('hx-sym-name')?.value || '').trim();
 
 let steps = [];
 let list, onChangeCb = () => { };
+let carrying = false;
 
 const isEmptyStep = (m) =>
     !(m.main && mainSymName()) &&
@@ -91,6 +94,30 @@ function missingCarry(m, i) {
 }
 
 const trimText = (x) => String(x ?? '').trim();
+const lower = (x) => trimText(x).toLowerCase();
+
+/** Triệu chứng người dùng đã cố ý xóa khỏi mốc này — đừng chép lại nữa */
+const skipped = (m) => new Set((m.skip || []).map(lower));
+
+/**
+ * Mỗi mốc phải nói lại các triệu chứng đã có từ mốc trước (còn / giảm / nặng hơn),
+ * nên máy tự điền sẵn dòng "tương tự" thay vì bắt gõ lại. Xóa dòng nào thì nhớ luôn
+ * là đã bỏ, khỏi bị chép về sau mỗi lần vẽ lại.
+ * @returns true nếu có thêm dòng mới
+ */
+function autoCarry(view) {
+    let changed = false;
+    view.forEach((m, i) => {
+        if (!i) return;                       // mốc đầu chưa có gì "từ trước"
+        const skip = skipped(m);
+        missingCarry(m, i).forEach(sym => {
+            if (skip.has(lower(sym))) return;
+            (m.refs ||= []).push({ sym, st: 'tương tự', d: '' });
+            changed = true;
+        });
+    });
+    return changed;
+}
 
 /* Triệu chứng mới của một mốc vẫn lưu chung trong chuỗi `s` (ngăn bằng dấu ;)
    để không phải đổi cấu trúc bệnh án đã lưu, nhưng giao diện bày thành từng thẻ. */
@@ -149,31 +176,32 @@ function warnHtml(m) {
 
 function stepHtml(m, i) {
     return `<div class="hx-step${m.dup || m.beforeOnset ? ' is-warn' : ''}" data-i="${i}" data-id="${esc(m.id || '')}">
-        <div class="hx-when">
-            <select class="hx-phase" data-k="phase" aria-label="Mốc thời gian">
-                <option value="truoc" ${m.phase === 'truoc' ? 'selected' : ''}>CNV (trước nhập viện)</option>
-                <option value="nv" ${m.phase === 'nv' ? 'selected' : ''}>Ngày nhập viện</option>
-                <option value="sau" ${m.phase === 'sau' ? 'selected' : ''}>Sau nhập viện</option>
-            </select>
-            ${m.phase === 'nv' ? '' : `
-            <input class="hx-n" data-k="n" type="number" min="0" value="${esc(m.n || '')}" placeholder="số" aria-label="Số">
-            <select class="hx-u" data-k="u" aria-label="Đơn vị">
-                ${UNITS.map(u => `<option ${m.u === u ? 'selected' : ''}>${u}</option>`).join('')}
-            </select>`}
+        <div class="hx-top">
             <span class="hx-label">${esc(stepLabel(m))}</span>
             ${(() => { const d = stepDate(m); return d ? `<span class="hx-date" title="Ngày dương lịch của mốc này">${esc(d)}</span>` : ''; })()}
-            <button type="button" class="hx-pin${m.main ? ' is-on' : ''}" data-act="pin"
-                title="Triệu chứng chính khởi phát ở mốc này"><i class="fas fa-star"></i></button>
-            <button type="button" class="hx-x" data-act="del-step" title="Xóa mốc"><i class="fas fa-trash"></i></button>
+            ${m.main ? '<span class="hx-mainflag"><i class="fas fa-star"></i> khởi phát</span>' : ''}
+            <span class="hx-acts">
+                <button type="button" class="hx-pin${m.main ? ' is-on' : ''}" data-act="pin"
+                    title="Triệu chứng chính khởi phát ở mốc này"><i class="fas fa-star"></i></button>
+                <button type="button" class="hx-x" data-act="del-step" title="Xóa mốc"><i class="fas fa-trash"></i></button>
+            </span>
+        </div>
+        <div class="hx-when${m.phase === 'nv' ? ' is-nv' : ''}">
+            <div class="hx-seg" role="group" aria-label="Mốc này ở đâu so với ngày nhập viện">
+                ${[['truoc', 'Trước nhập viện'], ['nv', 'Ngày nhập viện'], ['sau', 'Sau nhập viện']]
+            .map(([v, t]) => `<button type="button" class="hx-segb${m.phase === v ? ' is-on' : ''}" data-act="phase" data-v="${v}">${t}</button>`).join('')}
+            </div>
+            ${m.phase === 'nv' ? '' : `
+            <span class="hx-numwrap">
+                <input class="hx-n" data-k="n" type="number" min="0" value="${esc(m.n || '')}" placeholder="số" aria-label="Số">
+                <select class="hx-u" data-k="u" aria-label="Đơn vị">
+                    ${UNITS.map(u => `<option ${m.u === u ? 'selected' : ''}>${u}</option>`).join('')}
+                </select>
+                <span class="hx-numlab">${m.phase === 'sau' ? 'sau khi nhập viện' : 'trước khi nhập viện'}</span>
+            </span>`}
         </div>
         ${warnHtml(m)}
         ${m.main ? '<div class="hx-main-slot"></div>' : ''}
-        ${(() => {
-            const miss = missingCarry(m, i);
-            return miss.length ? `<p class="hx-carry"><i class="fas fa-rotate-left"></i>
-                Ch\u01b0a nh\u1eafc l\u1ea1i: <b>${esc(miss.join(', '))}</b>
-                <button type="button" class="hx-mini" data-act="carry">+ Th\u00eam t\u1ea5t c\u1ea3 (t\u01b0\u01a1ng t\u1ef1)</button></p>` : '';
-        })()}
         <div class="hx-newbox">
             <div class="hx-newhead"><i class="fas fa-plus-circle"></i> Triệu chứng mới xuất hiện ở mốc này</div>
             <div class="hx-tags">${(() => {
@@ -187,8 +215,20 @@ function stepHtml(m, i) {
                 <button type="button" class="hx-pick" data-act="pick-sym" title="Chọn từ thư viện và khai thác đủ đặc điểm"><i class="fas fa-notes-medical"></i> Khai thác đủ ý</button>
             </div>
         </div>
-        ${(m.refs || []).map((r, k) => refHtml(r, i, k)).join('')}
-        <button type="button" class="hx-mini" data-act="add-ref"><i class="fas fa-plus"></i> Triệu chứng đã có từ trước</button>
+        ${(() => {
+            const refs = m.refs || [];
+            const miss = missingCarry(m, i);
+            // Mốc đầu tiên chưa có gì "từ trước" — khỏi bày hộp rỗng làm rối
+            if (!i && !refs.length && !miss.length) return '';
+            return `<div class="hx-oldbox">
+                <div class="hx-oldhead"><i class="fas fa-rotate-left"></i> Triệu chứng đã có từ trước — nay còn hay hết?
+                    <span class="hx-oldtip">máy tự chép từ mốc trước, chỉ cần chọn còn / giảm / nặng hơn</span></div>
+                ${miss.length ? `<p class="hx-carry">Đã bỏ qua: <b>${esc(miss.join(', '))}</b>
+                    <button type="button" class="hx-mini" data-act="carry">+ Thêm lại</button></p>` : ''}
+                ${refs.map((r, k) => refHtml(r, i, k)).join('')}
+                <button type="button" class="hx-mini" data-act="add-ref"><i class="fas fa-plus"></i> Thêm triệu chứng cũ</button>
+            </div>`;
+        })()}
     </div>`;
 }
 
@@ -235,16 +275,23 @@ function render() {
     const view = sorted(steps);
     flagLogic(view);
     ensureMain(view);
+    const added = autoCarry(view);
     steps = view;                        // giữ mảng đúng thứ tự hiển thị, khỏi lệch chỉ số
     // Gỡ khối "Triệu chứng chính" về chỗ đậu trước khi xóa danh sách, kẻo mất luôn ô đang có dữ liệu
-    const box = $(MAIN_BOX);
-    if (box) $(MAIN_PARK)?.appendChild(box);
+    const boxes = EMBEDS.map(([id, park]) => [$(id), $(park)]);
+    boxes.forEach(([box, park]) => { if (box) park?.appendChild(box); });
     list.innerHTML = view.length
-        ? view.map(stepHtml).join('')
+        ? view.map((m, i) => (i ? gapHtml(view[i - 1], m) : '') + stepHtml(m, i)).join('')
         : `<p class="hx-empty">Chưa có mốc nào — bấm “Thêm mốc” và kể từ xa tới gần: CNV 5 ngày → CNV 2 ngày → ngày nhập viện.</p>`;
-    if (box) (list.querySelector('.hx-main-slot') || $(MAIN_PARK))?.appendChild(box);
+    const slot = list.querySelector('.hx-main-slot');
+    boxes.forEach(([box, park]) => { if (box) (slot || park)?.appendChild(box); });
     const dl = $('hx-sym-list');
     if (dl) dl.innerHTML = symbolList().map(n => `<option value="${esc(n)}">`).join('');
+    // Máy vừa tự thêm dòng thì phải báo ra ngoài để lưu, nhưng đừng để gọi vòng lại render
+    if (added && !carrying) {
+        carrying = true;
+        try { onChangeCb(); } finally { carrying = false; }
+    }
 }
 
 /** Vẽ lại danh sách mốc — dùng khi ngày nhập viện đổi (mốc phải hiện ngày mới) */
@@ -295,6 +342,20 @@ export function syncMainSymFields() {
             ? `<i class="fas fa-wand-magic-sparkles"></i> Đã đổi bộ câu hỏi cho đúng <b>${esc(sym.ten)}</b> — chạm vào ô là có sẵn lựa chọn.`
             : '';
     }
+}
+
+/** "1 ngày sau" — khoảng cách từ mốc trước tới mốc này, vẽ chèn giữa hai thẻ */
+function gapHtml(prev, cur) {
+    const rankH = (m) => {
+        const h = (parseFloat(m.n) || 0) * (UNIT_HOURS[m.u] || 24);
+        return m.phase === 'truoc' ? -h : m.phase === 'nv' ? 0 : h;
+    };
+    const d = rankH(cur) - rankH(prev);
+    if (!(d > 0)) return '';
+    const text = d < 24 ? `${Math.round(d)} giờ sau`
+        : d < 168 ? `${Math.round(d / 24)} ngày sau`
+            : d < 720 ? `${Math.round(d / 168)} tuần sau` : `${Math.round(d / 720)} tháng sau`;
+    return `<div class="hx-gap"><span><i class="fas fa-arrow-down-long"></i> ${esc(text)}</span></div>`;
 }
 
 /* ---------- ngày khởi phát ---------- */
@@ -429,7 +490,7 @@ export function initHistory(options) {
 
     const onEdit = (e) => {
         const el = e.target;
-        if (el.closest('#' + MAIN_BOX)) return;   // ô triệu chứng chính do form chính lo
+        if (el.closest('.hx-embed')) return;   // khối gắn thêm do form chính lo, không phải dữ liệu mốc
         if (!el.closest('.hx-step')) return;
         const m = stepOf(el);
         if (!m) return;
@@ -477,14 +538,26 @@ export function initHistory(options) {
     });
 
     list.addEventListener('click', (e) => {
-        if (e.target.closest('#' + MAIN_BOX)) return;
+        if (e.target.closest('.hx-embed')) return;
         const btn = e.target.closest('[data-act]');
         if (!btn) return;
         const stepEl = btn.closest('.hx-step');
         const i = +stepEl.dataset.i;
-        if (btn.dataset.act === 'pin') steps.forEach((m, k) => { m.main = k === i; });
+        if (btn.dataset.act === 'phase') {
+            if (steps[i].phase === btn.dataset.v) return;
+            steps[i].phase = btn.dataset.v;
+            const id = steps[i].id;
+            render();
+            onChangeCb();
+            list.querySelector(`.hx-step[data-id="${id}"] .hx-n`)?.focus();
+            return;
+        }
+        else if (btn.dataset.act === 'pin') steps.forEach((m, k) => { m.main = k === i; });
         else if (btn.dataset.act === 'del-step') steps.splice(i, 1);
-        else if (btn.dataset.act === 'del-ref') steps[i].refs.splice(+btn.closest('.hx-ref').dataset.k, 1);
+        else if (btn.dataset.act === 'del-ref') {
+            const [gone] = steps[i].refs.splice(+btn.closest('.hx-ref').dataset.k, 1);
+            if (gone?.sym) (steps[i].skip ||= []).push(gone.sym);
+        }
         else if (btn.dataset.act === 'add-ref') (steps[i].refs ||= []).push({ sym: '', st: 'tương tự', d: '' });
         else if (btn.dataset.act === 'del-new') {
             const ps = symParts(steps[i]);
@@ -516,9 +589,7 @@ export function initHistory(options) {
             });
             return;
         }
-        else if (btn.dataset.act === 'carry') {
-            (steps[i].refs ||= []).push(...missingCarry(steps[i], i).map(sym => ({ sym, st: 'tương tự', d: '' })));
-        }
+        else if (btn.dataset.act === 'carry') steps[i].skip = [];
         else return;
         render();
         onChangeCb();
@@ -536,8 +607,7 @@ export function initHistory(options) {
         let n = '';
         if (!truoc.length && onset != null) n = String(Math.round(onset / 24));
         else if (last && parseFloat(last.n) > 1) n = String(parseFloat(last.n) - 1);
-        const carried = symptomsBefore(steps.length).map(sym => ({ sym, st: 'tương tự', d: '' }));
-        steps.push({ id: 'm' + Date.now().toString(36), phase: 'truoc', n, u: last?.u || 'ngày', s: '', refs: carried });
+        steps.push({ id: 'm' + Date.now().toString(36), phase: 'truoc', n, u: last?.u || 'ngày', s: '', refs: [] });
         render();
         onChangeCb();
         list.querySelector('.hx-step:last-of-type .hx-n')?.focus();

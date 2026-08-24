@@ -277,11 +277,11 @@
         .hx-step { border: 1px solid #fbcfe8; border-radius: 12px; padding: 10px; background: #fff; transition: border-color .2s, background .2s; }
         .hx-step.is-warn { border-color: #fdba74; background: #fffaf5; }
         .hx-warn { font-size: 11px; color: #ea580c; font-weight: 600; margin: 2px 0 6px; display: flex; align-items: center; gap: 5px; }
-        .hx-when { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 6px; }
+        .hx-when { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 8px; }
         .hx-phase, .hx-u, .hx-st { border: 1px solid #fbcfe8; border-radius: 8px; padding: 5px 8px; font-size: 12px; background: #fff; }
         .hx-n { width: 70px; border: 1px solid #fbcfe8; border-radius: 8px; padding: 5px 8px; font-size: 13px; text-align: center; background: #fff; }
-        .hx-label { font-weight: 800; color: #db2777; font-size: 13px; }
-        .hx-when .hx-x { margin-left: auto; }
+        .hx-label { font-weight: 800; color: #db2777; font-size: 14.5px; letter-spacing: -.01em; }
+        .hx-when .hx-acts { margin-left: auto; display: inline-flex; align-items: center; gap: 2px; }
         .hx-s, .hx-sym, .hx-d {
             border: 1px solid #fce7f3; border-radius: 8px; padding: 6px 8px; font-size: 13px;
             background: #fff; min-width: 0; width: 100%;
@@ -299,10 +299,18 @@
         @media (max-width: 640px) {
             .hx-grid { grid-template-columns: 1fr; }
             /* Dòng chọn mốc: ô loại mốc chiếm trọn dòng, số + đơn vị + nhãn xuống dòng dưới */
-            .hx-when { gap: 6px 8px; }
-            .hx-when .hx-phase { flex: 1 1 100%; }
-            .hx-when .hx-n { width: 64px; }
-            .hx-when .hx-label { margin-left: 2px; }
+            /* Màn hẹp: ba nút chọn mốc trải hết bề ngang, số + đơn vị nằm dòng dưới */
+            .hx-when { flex-direction: column; align-items: stretch; gap: 8px; }
+            /* Phải nhắm cụ thể hơn, không thì luật gốc ở khối trên (viết sau) đè lại */
+            .hx-when .hx-seg { display: grid; grid-template-columns: repeat(3, 1fr); }
+            .hx-when .hx-segb { padding: 7px 4px; font-size: 11px; }
+            .hx-when .hx-numwrap {
+                display: grid; grid-template-columns: 66px 88px 1fr; gap: 6px; align-items: center;
+            }
+            .hx-when .hx-numwrap .hx-n { width: 100%; }
+            .hx-list .hx-step { margin-left: 26px; }
+            .hx-list .hx-step::before { left: -21px; }
+            .hx-gap { margin-left: 26px; }
             .hx-ref { grid-template-columns: 1fr 26px 26px; grid-template-areas: "sym pick x" "st st st" "d d d"; row-gap: 4px; }
             .hx-sym { grid-area: sym; } .hx-st { grid-area: st; } .hx-d { grid-area: d; }
             .hx-ref .hx-refpick { grid-area: pick; } .hx-ref .hx-x { grid-area: x; }
@@ -529,17 +537,60 @@
         /* ====== Timeline dọc cho diễn tiến bệnh sử ====== */
         .hx-list { position: relative; }
         .hx-list::before {
-            content: ''; position: absolute; left: 9px; top: 6px; bottom: 6px;
-            width: 2px; background: #f7d7e9;
+            content: ''; position: absolute; left: 10px; top: 10px; bottom: 10px;
+            width: 3px; border-radius: 3px;
+            background: linear-gradient(#fbcfe8, #f9a8d4 55%, #f5d0fe);
         }
-        .hx-list .hx-step { position: relative; margin-left: 26px; }
+        .hx-list .hx-step { position: relative; margin-left: 34px; }
         .hx-list .hx-step::before {
-            content: ''; position: absolute; left: -23px; top: 16px;
-            width: 11px; height: 11px; border-radius: 9999px;
-            background: #ec4899; box-shadow: 0 0 0 3px #fff, 0 0 0 5px #fce7f3;
+            content: ''; position: absolute; left: -29px; top: 18px;
+            width: 13px; height: 13px; border-radius: 9999px;
+            background: #ec4899; box-shadow: 0 0 0 3px #fff, 0 0 0 6px #fce7f3;
         }
-        .hx-list .hx-step.is-warn::before { background: #f97316; box-shadow: 0 0 0 3px #fff, 0 0 0 5px #ffedd5; }
-        .hx-empty { margin-left: 26px; }
+        .hx-list .hx-step.is-warn::before { background: #f97316; box-shadow: 0 0 0 3px #fff, 0 0 0 6px #ffedd5; }
+        .hx-empty { margin-left: 34px; }
+
+        /* Khoảng cách giữa hai mốc — nhìn là biết bệnh diễn tiến nhanh hay chậm */
+        .hx-gap { position: relative; margin-left: 34px; padding: 2px 0; }
+        .hx-gap > span {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 11px; font-weight: 700; color: #a855f7;
+            background: #faf5ff; border: 1px dashed #e9d5ff; border-radius: 9999px; padding: 2px 10px;
+        }
+
+        /* Dòng trên cùng của mốc: nhãn thời gian to, rõ, kèm ngày thật */
+        .hx-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+        .hx-top .hx-acts { margin-left: auto; display: inline-flex; align-items: center; gap: 2px; }
+        .hx-mainflag {
+            font-size: 10.5px; font-weight: 800; color: #b45309;
+            background: #fffbeb; border: 1px solid #fde68a; border-radius: 9999px; padding: 2px 9px;
+        }
+        .hx-mainflag i { color: #f59e0b; }
+
+        /* Ba nút chọn mốc thay cho ô xổ xuống — thấy ngay đang ở đâu, một chạm là đổi */
+        .hx-seg { display: inline-flex; background: #fdf2f8; border: 1px solid #fbcfe8; border-radius: 9999px; padding: 2px; }
+        .hx-segb {
+            border: 0; background: transparent; color: #9d6b86; cursor: pointer;
+            font-size: 11.5px; font-weight: 700; padding: 5px 11px; border-radius: 9999px;
+            white-space: nowrap; transition: background .15s, color .15s;
+        }
+        .hx-segb:hover { color: var(--brand-deep); }
+        .hx-segb.is-on { background: #ec4899; color: #fff; box-shadow: 0 1px 3px rgba(236,72,153,.35); }
+        .hx-numwrap { display: inline-flex; align-items: center; gap: 6px; }
+        .hx-numlab { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+
+        /* Hộp "đã có từ trước" cho cân với hộp "mới xuất hiện" */
+        .hx-oldbox {
+            border: 1px dashed #fde68a; background: #fffdf6; border-radius: 12px;
+            padding: 9px 10px; margin-top: 8px;
+        }
+        .hx-oldhead {
+            font-size: 11.5px; font-weight: 800; color: #b45309;
+            display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+        }
+        .hx-oldtip { font-weight: 500; color: #b98a3a; font-size: 10.5px; }
+        .hx-oldbox .hx-mini { border-color: #fde68a; background: #fffbeb; color: #b45309; }
+        .hx-oldbox .hx-mini:hover { background: #fef3c7; }
 
         /* ====== Danh sách CNV cho tiền căn ====== */
         .cnv-box {
@@ -821,10 +872,11 @@
 
         /* ====== Triệu chứng bám theo mốc ====== */
         .hx-carry {
-            font-size: 11.5px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a;
-            border-radius: 10px; padding: 6px 10px; margin: 4px 0 8px;
-            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+            font-size: 11.5px; color: #b45309; background: #fff7e6; border: 1px dashed #fcd34d;
+            border-radius: 10px; padding: 6px 10px; margin: 4px 0 8px; line-height: 1.55;
         }
+        .hx-carry i { margin-right: 5px; }
+        .hx-carry .hx-mini { vertical-align: middle; }
         .hx-carry b { color: #92400e; }
         .hx-carry .hx-mini { margin: 0; padding: 3px 10px; }
 
@@ -1325,15 +1377,16 @@
         .hx-pin { border: 0; background: transparent; color: #e5d3dd; cursor: pointer; padding: 4px 6px; font-size: 14px; }
         .hx-pin:hover { color: #f59e0b; }
         .hx-pin.is-on { color: #f59e0b; }
-        .hx-when .hx-pin { margin-left: auto; }
-        .hx-when .hx-pin.is-on + .hx-x, .hx-when .hx-pin + .hx-x { margin-left: 0; }
         .hx-main-slot:empty { display: none; }
         .hx-main-slot > .calc-box { margin-top: 6px; border-color: #fde68a; background: #fffdf5; }
+        .hx-main-slot > .spec-box, .hx-main-slot > .fold-panel[data-spec] { margin-top: 6px; }
+        /* Có <b> nằm giữa câu nên phải để chữ chảy bình thường — dùng flex là <b> thành
+           một cột riêng, câu bị bẻ làm ba trên màn hẹp. */
         .hx-main-note {
             font-size: 11.5px; color: #92400e; background: #fffbeb; border: 1px solid #fde68a;
-            border-radius: 8px; padding: 6px 9px; margin: 0 0 8px; display: flex; gap: 6px; align-items: flex-start;
+            border-radius: 8px; padding: 6px 9px; margin: 0 0 8px; line-height: 1.5;
         }
-        .hx-main-note .fa-star { color: #f59e0b; margin-top: 2px; }
+        .hx-main-note .fa-star { color: #f59e0b; margin-right: 5px; }
         /* Dòng nhắc dưới ô sinh hiệu: chưa nhập thì cho biết ngưỡng bình thường,
            nhập rồi thì nói thẳng con số đó là nhanh / chậm / sốt… */
         .vt-tag { display: block; margin-top: 3px; font-size: 11px; font-weight: 600; line-height: 1.35; }
@@ -1342,8 +1395,9 @@
         .vt-tag.is-warn { color: #dc2626; }
         .hx-tune {
             font-size: var(--fs-hint); color: #047857; background: #ecfdf5; border: 1px solid #a7f3d0;
-            border-radius: 8px; padding: 6px 9px; margin: 8px 0 0; display: flex; gap: 6px; align-items: center;
+            border-radius: 8px; padding: 6px 9px; margin: 8px 0 0; line-height: 1.5;
         }
+        .hx-tune i { margin-right: 5px; }
         .hx-grid > label[hidden] { display: none; }
         .hx-refpick { border: 0; background: transparent; color: #f0a3c8; cursor: pointer; }
         .hx-refpick:hover { color: var(--brand-deep); }
@@ -1605,22 +1659,22 @@
                     <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-3 sm:gap-4 mt-2">
                         <div class="col-span-2 lg:col-span-1 tooltip">
                             <label for="patient-name" class="block font-semibold mb-1">Họ và tên <span class="text-pink-500">*</span></label>
-                            <input type="text" id="patient-name" class="w-full border rounded-lg px-3 py-2" required placeholder="Nhập họ tên bệnh nhân (bắt buộc)">
+                            <input type="text" id="patient-name" class="w-full border rounded-lg px-3 py-2" required placeholder="Họ tên bệnh nhân">
                             <span class="tooltiptext">Bắt buộc nhập họ tên bệnh nhân</span>
                             <span id="patient-name-error" class="text-red-500 text-sm mt-1 hidden">Vui lòng nhập họ tên.</span>
                         </div>
                         <div>
                             <label for="patient-yob" class="block font-semibold mb-1">Năm sinh</label>
-                            <input type="number" id="patient-yob" placeholder="Ví dụ: 1980" class="w-full border rounded-lg px-3 py-2">
+                            <input type="number" id="patient-yob" placeholder="vd 1980" class="w-full border rounded-lg px-3 py-2">
                         </div>
                         <div>
                             <label for="patient-age" class="block font-semibold mb-1">Tuổi</label>
-                            <input type="number" id="patient-age" class="w-full border rounded-lg px-3 py-2" placeholder="Tự động tính từ năm sinh">
+                            <input type="number" id="patient-age" class="w-full border rounded-lg px-3 py-2" placeholder="tự tính">
                         </div>
                         <div><label for="patient-gender" class="block font-semibold mb-1">Giới tính</label><select id="patient-gender" class="w-full border rounded-lg px-3 py-2"><option>Nam</option><option>Nữ</option><option>Khác</option></select></div>
                         <div><label for="patient-ethnicity" class="block font-semibold mb-1">Dân tộc</label><input type="text" id="patient-ethnicity" value="Kinh" list="ethnicity-list" class="w-full border rounded-lg px-3 py-2"></div>
-                        <div><label for="patient-occupation" class="block font-semibold mb-1">Nghề nghiệp</label><input type="text" id="patient-occupation" list="occupation-list" class="w-full border rounded-lg px-3 py-2" placeholder="Ví dụ: Sinh viên, Công nhân..."></div>
-                        <div class="col-span-2 lg:col-span-3"><label for="patient-address" class="block font-semibold mb-1">Địa chỉ</label><input type="text" id="patient-address" class="w-full border rounded-lg px-3 py-2" placeholder="Nhập địa chỉ cụ thể"></div>
+                        <div><label for="patient-occupation" class="block font-semibold mb-1">Nghề nghiệp</label><input type="text" id="patient-occupation" list="occupation-list" class="w-full border rounded-lg px-3 py-2" placeholder="vd: Sinh viên"></div>
+                        <div class="col-span-2 lg:col-span-3"><label for="patient-address" class="block font-semibold mb-1">Địa chỉ</label><input type="text" id="patient-address" class="w-full border rounded-lg px-3 py-2" placeholder="Số nhà, phường/xã, tỉnh/thành"></div>
                         <div><label for="contact-name" class="block font-semibold mb-1">Người liên hệ</label><input type="text" id="contact-name" class="w-full border rounded-lg px-3 py-2" placeholder="Tên người thân"></div>
                         <div><label for="contact-phone" class="block font-semibold mb-1">SĐT liên hệ</label><input type="tel" id="contact-phone" inputmode="tel" enterkeyhint="next" class="w-full border rounded-lg px-3 py-2" placeholder="09xxxxxxxx"></div>
                         <div class="col-span-2 lg:col-span-3 grid grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-3 sm:gap-4">
@@ -1643,15 +1697,15 @@
                         </div>
                         <div>
                             <label for="bed-number" class="block font-semibold mb-1">Số giường</label>
-                            <input type="text" id="bed-number" inputmode="numeric" class="w-full border rounded-lg px-3 py-2" placeholder="Nhập số giường (nếu có)">
+                            <input type="text" id="bed-number" inputmode="numeric" class="w-full border rounded-lg px-3 py-2" placeholder="vd 12">
                         </div>
                         <div>
                             <label for="room-number" class="block font-semibold mb-1">Số phòng</label>
-                            <input type="text" id="room-number" inputmode="numeric" class="w-full border rounded-lg px-3 py-2" placeholder="Nhập số phòng (nếu có)">
+                            <input type="text" id="room-number" inputmode="numeric" class="w-full border rounded-lg px-3 py-2" placeholder="vd 305">
                         </div>
                         <div class="col-span-2 lg:col-span-1">
                             <label for="hospital-name" class="block font-semibold mb-1">Bệnh viện</label>
-                            <input type="text" id="hospital-name" list="hospital-list" class="w-full border rounded-lg px-3 py-2" placeholder="Nhập tên bệnh viện (nếu có)">
+                            <input type="text" id="hospital-name" list="hospital-list" class="w-full border rounded-lg px-3 py-2" placeholder="vd BV Chợ Rẫy">
                         </div>
                         <div class="col-span-2 lg:col-span-1">
                             <label for="department-name" class="block font-semibold mb-1">Khoa</label>
@@ -1705,7 +1759,7 @@
                     </div>
 
                     <div id="hx-main-park">
-                    <div class="calc-box no-fold mt-3" id="hx-main-box" data-nocount>
+                    <div class="calc-box no-fold mt-3 hx-embed" id="hx-main-box" data-nocount>
                         <div class="calc-title"><i class="fas fa-notes-medical"></i> Triệu chứng chính — mô tả đủ thuộc tính</div>
                         <p class="hx-main-note"><i class="fas fa-star"></i> Khối này tự nằm trong mốc khởi phát ở phần <b>Diễn tiến</b> bên dưới — bấm ngôi sao trên mốc khác để dời sang mốc đó.</p>
                         <div class="hx-grid">
@@ -1722,7 +1776,8 @@
                     </div>
                     </div>
 
-                    <div class="spec-box" data-spec="ngoai" data-nocount>
+                    <div id="hx-trauma-park">
+                    <div class="spec-box hx-embed" id="hx-trauma-box" data-spec="ngoai" data-nocount>
                         <div class="calc-title"><i class="fas fa-car-burst"></i> Cơ chế chấn thương</div>
                         <div class="hx-grid">
                             <label>Loại tai nạn<select id="tr-type" class="calc-in"><option value="">— chọn —</option><option>Tai nạn giao thông</option><option>Tai nạn lao động</option><option>Tai nạn sinh hoạt</option><option>Té ngã</option><option>Đả thương</option><option>Vật sắc nhọn đâm</option><option>Bỏng</option><option>Súc vật cắn</option><option>Khác</option></select></label>
@@ -1819,6 +1874,8 @@
                             <label>Cân nặng trước khi bệnh (kg)<input type="number" step="0.1" id="ped-hx-preweight" class="calc-in" placeholder="vd 12"></label>
                         </div>
                         <div class="calc-out"><span id="ped-dehyd-out">Nhập cân trước khi bệnh và cân hiện tại (phần sinh hiệu) để chấm mức mất nước</span></div>
+                    </div>
+
                     </div>
 
                     <div class="calc-box no-fold" data-nocount>

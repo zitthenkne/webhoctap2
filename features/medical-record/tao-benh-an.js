@@ -1606,6 +1606,8 @@ form.addEventListener('change', (e) => {
     if (e.target.id.startsWith('ob-hx-') || e.target.id.startsWith('ped-hx-')) syncProse();
     if (e.target.id.startsWith('tr-') || e.target.classList?.contains('burn-area')) calcTrauma();
     if (e.target.id === 'hx-onset-date' || e.target.id === 'admission-date') calcOnset();
+    // Đổi tên triệu chứng chính xong (rời ô) thì vẽ lại để các mốc sau tự chép nó xuống
+    if (e.target.id === 'hx-sym-name') refreshSteps();
     if (e.target.id === 'admission-date') refreshSteps();
     if (e.target.id === 'patient-gender') { syncGenderUi(); calcAlcohol(); }
     updateProgress(); scheduleSave();
