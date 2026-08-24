@@ -57,9 +57,12 @@ function buildModel(r) {
             ['@vitals', admVitals, 'Sinh hiệu lúc nhập viện']
         ]],
         ['IV. TIỀN CĂN', 'fa-notes-medical', [
-            ['1. Nội khoa', t.noiKhoa], ['2. Ngoại khoa', t.ngoaiKhoa], ['3. Sản khoa', t.sanPhuKhoa],
-            ['4. Dị ứng', t.diUng], ['5. Môi trường', t.moiTruong],
-            ['6. Thói quen', t.thoiQuen], ['7. Gia đình', t.giaDinh]
+            ['1. Nội khoa', t.noiKhoa], ['2. Thuốc đang dùng tại nhà', t.thuocDangDung],
+            ['3. Ngoại khoa', t.ngoaiKhoa], ['4. Sản phụ khoa', t.sanPhuKhoa],
+            ['5. Dị ứng', t.diUng], ['6. Môi trường – phơi nhiễm', t.moiTruong],
+            ['7. Thói quen', t.thoiQuen], ['8. Gia đình', t.giaDinh],
+            ['Cần hỏi trước mổ', [t.truocMo?.gayMe, t.truocMo?.chongDong,
+                t.truocMo?.anUong, t.truocMo?.rangGia].filter(Boolean).join('. ')]
         ]],
         ['V. LƯỢC QUA CÁC CƠ QUAN' + examDay, 'fa-list-ul', [
             ['Tim mạch', ros.timMach], ['Hô hấp', ros.hoHap], ['Tiêu hóa', ros.tieuHoa],

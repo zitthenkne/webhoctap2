@@ -97,6 +97,8 @@ let filter = 'all';
 let keyword = '';
 let sortMode = 'new';
 let folderId = '';   // '' = tất cả đợt thực hành
+let selectMode = false;
+const selected = new Set();   // id các bệnh án đang chọn
 
 const isDone = (r) => (r.status || 'Hoàn thành') === 'Hoàn thành';
 
@@ -146,11 +148,11 @@ function emptyState() {
 }
 
 const KINDS = {
-    noi: ['Nội khoa', 'linear-gradient(135deg,#f472b6,#a78bfa)', '#fdf2f8', '#db2777'],
-    ngoai: ['Ngoại khoa', 'linear-gradient(135deg,#60a5fa,#6366f1)', '#eff6ff', '#2563eb'],
-    san: ['Sản khoa', 'linear-gradient(135deg,#fb7185,#f472b6)', '#fff1f2', '#e11d48'],
-    nhi: ['Nhi khoa', 'linear-gradient(135deg,#fbbf24,#fb923c)', '#fffbeb', '#c2410c'],
-    cc: ['Cấp cứu', 'linear-gradient(135deg,#f87171,#ef4444)', '#fef2f2', '#dc2626']
+    noi: ['Nội khoa', '#ec4899', '#fdf2f8', '#db2777'],
+    ngoai: ['Ngoại khoa', '#3b82f6', '#eff6ff', '#2563eb'],
+    san: ['Sản khoa', '#f43f5e', '#fff1f2', '#e11d48'],
+    nhi: ['Nhi khoa', '#f59e0b', '#fffbeb', '#c2410c'],
+    cc: ['Cấp cứu', '#ef4444', '#fef2f2', '#dc2626']
 };
 
 function ringHtml(pct) {
@@ -171,9 +173,7 @@ function cardHtml(rec) {
     // Màu thẻ theo giới tính: nữ hồng, nam đỏ
     const gt = String(h.gioiTinh || '').trim();
     const isNu = /nữ/i.test(gt), isNam = /nam/i.test(gt);
-    const sexGrad = isNu ? 'linear-gradient(135deg,#f9a8d4,#ec4899)'
-        : isNam ? 'linear-gradient(135deg,#60a5fa,#2563eb)'
-            : 'linear-gradient(135deg,#c4b5fd,#a78bfa)';
+    const sexGrad = isNu ? '#ec4899' : isNam ? '#2563eb' : '#8b5cf6';
     const sexIcon = isNu ? 'venus' : isNam ? 'mars' : 'genderless';
     const sexInk = isNu ? '#db2777' : isNam ? '#2563eb' : '#7c3aed';
     const hoTen = esc(h.hoTen) || 'Chưa đặt tên';
@@ -198,8 +198,9 @@ function cardHtml(rec) {
     const benhVien = esc(h.benhVien);
 
     return `
-        <article draggable="true" class="rec-card group" data-id="${id}"
+        <article draggable="true" class="rec-card group${selected.has(String(rec.id)) ? ' selected' : ''}" data-id="${id}"
             style="--sex:${sexGrad};--sex-ink:${sexInk};--kind-soft:${kindSoft};--kind-ink:${kindInk}">
+            <span class="rc-check"><i class="fas fa-check"></i></span>
             <div class="rc-body card-open">
                 <div class="rc-top">
                     <div class="rc-avatar">${initial}</div>
@@ -252,7 +253,10 @@ function render() {
     renderStats();
     const box = document.getElementById('medical-record-cards');
     const list = visibleRecords();
+    for (const id of [...selected]) if (!records.some(r => String(r.id) === id)) selected.delete(id);
     box.innerHTML = list.length ? list.map(cardHtml).join('') : emptyState();
+    box.classList.toggle('select-mode', selectMode);
+    renderBulkBar();
     renderFolders();
     document.getElementById('empty-create')?.addEventListener('click', createNew);
 }
@@ -364,20 +368,28 @@ function setupFolders() {
     });
 }
 
-/** Chuyển một bệnh án vào thư mục (id rỗng = bỏ ra khỏi mọi thư mục) */
+/** Chuyển bệnh án vào thư mục — nhận 1 id hoặc mảng id (id thư mục rỗng = bỏ ra khỏi mọi thư mục) */
 async function moveRecord(recId, toFolderId) {
-    const rec = records.find(r => String(r.id) === String(recId));
-    if (!rec) return;
-    const before = rec.thuMuc ? { ...rec.thuMuc } : null;
+    const ids = [].concat(recId).map(String);
     const f = toFolderId ? getFolder(toFolderId) : null;
-    if (f) rec.thuMuc = { ...f }; else delete rec.thuMuc;
-    await saveRecord(rec);
+    const before = [];
+    for (const id of ids) {
+        const rec = records.find(r => String(r.id) === id);
+        if (!rec) continue;
+        before.push([id, rec.thuMuc ? { ...rec.thuMuc } : null]);
+        if (f) rec.thuMuc = { ...f }; else delete rec.thuMuc;
+        await saveRecord(rec);
+    }
+    if (!before.length) return;
     await reload();
-    undoToast(f ? `Đã chuyển vào "${f.ten}".` : 'Đã bỏ khỏi thư mục.', async () => {
-        const back = records.find(r => String(r.id) === String(recId));
-        if (!back) return;
-        if (before) back.thuMuc = before; else delete back.thuMuc;
-        await saveRecord(back);
+    const what = ids.length > 1 ? `${before.length} bệnh án ` : '';
+    undoToast(f ? `Đã chuyển ${what}vào "${f.ten}".` : `Đã bỏ ${what}khỏi thư mục.`, async () => {
+        for (const [id, old] of before) {
+            const back = records.find(r => String(r.id) === id);
+            if (!back) continue;
+            if (old) back.thuMuc = old; else delete back.thuMuc;
+            await saveRecord(back);
+        }
         await reload();
     });
 }
@@ -385,12 +397,14 @@ async function moveRecord(recId, toFolderId) {
 let movingId = null;
 function openMoveModal(recId) {
     movingId = recId;
-    const rec = records.find(r => String(r.id) === String(recId));
+    const ids = [].concat(recId).map(String);
+    const rec = records.find(r => String(r.id) === ids[0]);
     const folders = mergeFolders(records);
-    document.getElementById('move-subject').textContent =
-        (rec?.hanhChinh?.hoTen || 'Bệnh án chưa đặt tên')
+    document.getElementById('move-subject').textContent = ids.length > 1
+        ? `${ids.length} bệnh án đã chọn`
+        : (rec?.hanhChinh?.hoTen || 'Bệnh án chưa đặt tên')
         + (rec?.thuMuc?.ten ? ` · đang ở "${rec.thuMuc.ten}"` : ' · chưa xếp thư mục');
-    const cur = String(rec?.thuMuc?.id || '');
+    const cur = ids.length > 1 ? '__nhieu__' : String(rec?.thuMuc?.id || '');
     document.getElementById('move-list').innerHTML =
         folders.map(f => `<button class="move-opt${cur === String(f.id) ? ' is-current' : ''}" data-move="${esc(f.id)}">
             <i class="fas fa-folder"></i><span><b>${esc(f.ten || 'Thư mục')}</b><small>${esc(folderMeta(f)) || 'Chưa điền khoa / bệnh viện'}</small></span></button>`).join('')
@@ -434,8 +448,112 @@ function setupMove() {
         e.preventDefault();
         chip.classList.remove('is-drop');
         const id = e.dataTransfer.getData('text/plain');
-        if (id) await moveRecord(id, chip.dataset.folder);
+        if (!id) return;
+        await moveRecord(selected.has(String(id)) ? [...selected] : id, chip.dataset.folder);
     });
+}
+
+/* ================= Chọn / thao tác hàng loạt ================= */
+function renderBulkBar() {
+    const bar = document.getElementById('bulk-bar');
+    if (!bar) return;
+    const show = selectMode && selected.size > 0;
+    bar.classList.toggle('hidden', !show);
+    bar.style.display = show ? 'flex' : 'none';
+    document.getElementById('bulk-count').textContent = `${selected.size} đã chọn`;
+    const st = document.getElementById('select-toggle');
+    if (st) {
+        st.style.background = selectMode ? '#ec4899' : '';
+        st.style.color = selectMode ? '#fff' : '';
+    }
+}
+
+function toggleSelect(id) {
+    const key = String(id);
+    if (selected.has(key)) selected.delete(key); else selected.add(key);
+    document.querySelector(`.rec-card[data-id="${CSS.escape(key)}"]`)?.classList.toggle('selected', selected.has(key));
+    renderBulkBar();
+}
+
+function setSelectMode(on) {
+    selectMode = on;
+    if (!on) {
+        selected.clear();
+        document.querySelectorAll('.rec-card.selected').forEach(c => c.classList.remove('selected'));
+    }
+    document.getElementById('medical-record-cards')?.classList.toggle('select-mode', on);
+    renderBulkBar();
+}
+
+/** Đổi một trường ở tất cả bệnh án đang chọn, có hoàn tác */
+async function bulkField(key, value, label) {
+    const ids = [...selected];
+    if (!ids.length) return;
+    const before = ids.map(id => [id, records.find(r => String(r.id) === id)?.[key]]);
+    for (const id of ids) {
+        const rec = records.find(r => String(r.id) === id);
+        if (!rec) continue;
+        rec[key] = value;
+        await saveRecord(rec);
+    }
+    await reload();
+    undoToast(`Đã đổi ${label} cho ${ids.length} bệnh án.`, async () => {
+        for (const [id, old] of before) {
+            const rec = records.find(r => String(r.id) === id);
+            if (!rec) continue;
+            if (old === undefined) delete rec[key]; else rec[key] = old;
+            await saveRecord(rec);
+        }
+        await reload();
+    });
+}
+
+async function bulkDelete() {
+    const ids = [...selected];
+    if (!ids.length) return;
+    if (!confirm(`Xóa ${ids.length} bệnh án đã chọn?`)) return;
+    const backups = ids.map(id => records.find(r => String(r.id) === id))
+        .filter(Boolean).map(r => JSON.parse(JSON.stringify(r)));
+    for (const id of ids) await deleteRecord(id);
+    selected.clear();
+    await reload();
+    undoToast(`Đã xóa ${backups.length} bệnh án.`, async () => {
+        for (const b of backups) await saveRecord(b);
+        await reload();
+        showToast('Đã khôi phục bệnh án.', 'success');
+    });
+}
+
+function setupBulk() {
+    document.getElementById('select-toggle')?.addEventListener('click', () => setSelectMode(!selectMode));
+    document.getElementById('bulk-exit')?.addEventListener('click', () => setSelectMode(false));
+
+    document.getElementById('bulk-all')?.addEventListener('click', () => {
+        const ids = visibleRecords().map(r => String(r.id));
+        const all = ids.every(id => selected.has(id));
+        ids.forEach(id => all ? selected.delete(id) : selected.add(id));
+        document.querySelectorAll('.rec-card').forEach(c =>
+            c.classList.toggle('selected', selected.has(String(c.dataset.id))));
+        renderBulkBar();
+    });
+
+    document.getElementById('bulk-move')?.addEventListener('click', () => {
+        if (selected.size) openMoveModal([...selected]);
+    });
+
+    document.getElementById('bulk-status')?.addEventListener('change', async (e) => {
+        const v = e.target.value;
+        e.target.value = '';
+        if (v) await bulkField('status', v, 'trạng thái');
+    });
+
+    document.getElementById('bulk-kind')?.addEventListener('change', async (e) => {
+        const v = e.target.value;
+        e.target.value = '';
+        if (v) await bulkField('loaiBenhAn', v, 'loại bệnh án');
+    });
+
+    document.getElementById('bulk-delete')?.addEventListener('click', bulkDelete);
 }
 
 /* ================= Toast hoàn tác ================= */
@@ -532,6 +650,11 @@ function setupActions() {
 
     // Thao tác trên thẻ
     document.getElementById('medical-record-cards')?.addEventListener('click', async (e) => {
+        if (selectMode) {
+            const card = e.target.closest('.rec-card');
+            if (card) toggleSelect(card.dataset.id);
+            return;
+        }
         const btn = e.target.closest('button[data-id]');
         if (!btn) {
             const card = e.target.closest('.card-open');
@@ -588,6 +711,7 @@ setupChrome();
 setupActions();
 setupFolders();
 setupMove();
+setupBulk();
 document.addEventListener('click', (e) => {
     if (!e.target.closest('.menu-record')) {
         document.querySelectorAll('.rec-card.menu-open').forEach(c => c.classList.remove('menu-open'));

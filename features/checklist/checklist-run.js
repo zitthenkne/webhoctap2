@@ -48,13 +48,13 @@
     stepsEl.innerHTML = '';
     (node.steps || []).forEach((s, idx) => {
       const label = document.createElement('label');
-      label.className = 'step-item glass-card rounded-2xl p-4 flex gap-3 items-start cursor-pointer transition fade-in' + (prog[idx] ? ' completed' : '');
+      label.className = 'step-item riso-card p-4 flex gap-3 items-start cursor-pointer transition fade-in' + (prog[idx] ? ' completed' : '');
       label.innerHTML =
-        '<input type="checkbox" class="mt-1 w-5 h-5 accent-pink-500 shrink-0"' + (prog[idx] ? ' checked' : '') + '>' +
-        '<div class="min-w-0">' +
-          '<div class="text-[11px] font-bold text-pink-400 uppercase tracking-wide">Bước ' + esc(s.step || (idx + 1)) + '</div>' +
-          '<div class="step-content font-semibold text-gray-800 mt-0.5">' + esc(s.content || '') + '</div>' +
-          (s.note ? '<div class="text-xs text-gray-500 mt-1"><i class="fas fa-note-sticky mr-1 text-purple-300"></i>' + esc(s.note) + '</div>' : '') +
+        '<input type="checkbox" class="mt-1 w-5 h-5 accent-orange-600 shrink-0"' + (prog[idx] ? ' checked' : '') + '>' +
+        '<div class="min-w-0 flex-1">' +
+          '<div class="text-[11px] font-mono font-bold text-orange-600 uppercase tracking-wide">Bước ' + esc(s.step || (idx + 1)) + '</div>' +
+          '<div class="step-content font-bold text-stone-900 mt-0.5">' + esc(s.content || '') + '</div>' +
+          (s.note ? '<div class="text-xs text-stone-600 mt-1 font-medium bg-amber-50/70 p-2 rounded-lg border border-amber-200/60"><i class="fas fa-note-sticky mr-1 text-amber-600"></i>' + esc(s.note) + '</div>' : '') +
         '</div>';
       label.querySelector('input').addEventListener('change', e => {
         prog[idx] = e.target.checked;
@@ -164,9 +164,9 @@
     card.innerHTML =
       '<span class="stamp stamp-pass">THUỘC ✓</span>' +
       '<span class="stamp stamp-fail">CHƯA ✗</span>' +
-      '<div class="text-xs font-bold text-pink-500 uppercase tracking-wide">Bước ' + esc(s.step || (idx + 1)) + '</div>' +
+      '<div class="text-xs font-mono font-bold text-orange-600 uppercase tracking-wide">Bước ' + esc(s.step || (idx + 1)) + '</div>' +
       '<div class="text-lg sm:text-xl font-bold text-gray-800 mt-2 font-display leading-snug">' + esc(s.content || '') + '</div>' +
-      (s.note ? '<div class="text-xs text-gray-500 mt-3"><i class="fas fa-note-sticky mr-1 text-purple-300"></i>' + esc(s.note) + '</div>' : '');
+      (s.note ? '<div class="text-xs text-stone-600 mt-3 font-medium bg-amber-50 p-2 rounded-lg border border-amber-200"><i class="fas fa-note-sticky mr-1 text-amber-600"></i>' + esc(s.note) + '</div>' : '');
     stack.appendChild(card);
     attachSwipe(card);
   }

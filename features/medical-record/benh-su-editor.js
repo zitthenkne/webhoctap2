@@ -9,6 +9,8 @@
 // xuất file / trang xem không phải sửa gì.
 
 import { openSymptomPicker } from './symptom-picker.js';
+import { findSymptom } from './trieu-chung-data.js';
+import { setChips } from './goi-y-nhap.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
@@ -18,10 +20,16 @@ const UNITS = ['giờ', 'ngày', 'tuần', 'tháng'];
 const UNIT_HOURS = { 'giờ': 1, 'ngày': 24, 'tuần': 168, 'tháng': 720 };
 const STATES = ['tương tự', 'thuyên giảm', 'nặng hơn'];
 
+/* Ô "Triệu chứng chính" là một khối HTML có sẵn; máy chuyển nguyên khối đó vào
+   đúng mốc khởi phát nên mọi ID / phần lưu trữ giữ nguyên, khỏi phải nhân đôi ô. */
+const MAIN_BOX = 'hx-main-box', MAIN_PARK = 'hx-main-park';
+const mainSymName = () => ($('hx-sym-name')?.value || '').trim();
+
 let steps = [];
 let list, onChangeCb = () => { };
 
 const isEmptyStep = (m) =>
+    !(m.main && mainSymName()) &&
     !String(m.s || '').trim() && !(m.refs || []).some(r => String(r.sym || '').trim());
 
 export function getSteps() {
@@ -63,9 +71,12 @@ function sorted(arr) {
 /** Tất cả triệu chứng đã xuất hiện ở các mốc trước mốc thứ i */
 function symptomsBefore(i) {
     const names = new Set();
-    const main = ($('hx-sym-name')?.value || '').trim();
-    if (main) names.add(main);
-    sorted(steps).slice(0, i).forEach(m => {
+    const view = sorted(steps);
+    const mainIdx = view.findIndex(m => m.main);
+    const main = mainSymName();
+    // Triệu chứng chính chỉ là "đã có từ trước" với các mốc SAU mốc khởi phát của nó
+    if (main && mainIdx >= 0 && mainIdx < i) names.add(main);
+    view.slice(0, i).forEach(m => {
         String(m.s || '').split(/[,;]/).map(x => x.trim()).filter(Boolean).forEach(x => names.add(x));
         (m.refs || []).forEach(r => r.sym && names.add(r.sym.trim()));
     });
@@ -92,6 +103,23 @@ export function stepLabel(m) {
     const n = String(m.n || '').trim();
     if (m.phase === 'sau') return n ? `Sau nhập viện ${n} ${m.u}` : 'Sau nhập viện';
     return n ? `CNV ${n} ${m.u}` : 'CNV';
+}
+
+/** Triệu chứng chính chỉ neo vào đúng một mốc — mặc định mốc xa nhất (lúc khởi phát) */
+function ensureMain(view) {
+    const idx = view.findIndex(m => m.main);
+    view.forEach((m, i) => { m.main = i === (idx < 0 ? 0 : idx); });
+}
+
+/** Ngày dương lịch của mốc, tính ngược từ ngày nhập viện — khỏi phải nhẩm trong đầu */
+function stepDate(m) {
+    const admit = $('admission-date')?.value;
+    if (!admit) return '';
+    const sign = m.phase === 'truoc' ? -1 : m.phase === 'sau' ? 1 : 0;
+    if (sign && !String(m.n || '').trim()) return '';
+    const d = new Date(admit + 'T00:00:00');
+    d.setHours(d.getHours() + sign * (parseFloat(m.n) || 0) * (UNIT_HOURS[m.u] || 24));
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
 /* ---------- vẽ ---------- */
@@ -133,9 +161,13 @@ function stepHtml(m, i) {
                 ${UNITS.map(u => `<option ${m.u === u ? 'selected' : ''}>${u}</option>`).join('')}
             </select>`}
             <span class="hx-label">${esc(stepLabel(m))}</span>
+            ${(() => { const d = stepDate(m); return d ? `<span class="hx-date" title="Ngày dương lịch của mốc này">${esc(d)}</span>` : ''; })()}
+            <button type="button" class="hx-pin${m.main ? ' is-on' : ''}" data-act="pin"
+                title="Triệu chứng chính khởi phát ở mốc này"><i class="fas fa-star"></i></button>
             <button type="button" class="hx-x" data-act="del-step" title="Xóa mốc"><i class="fas fa-trash"></i></button>
         </div>
         ${warnHtml(m)}
+        ${m.main ? '<div class="hx-main-slot"></div>' : ''}
         ${(() => {
             const miss = missingCarry(m, i);
             return miss.length ? `<p class="hx-carry"><i class="fas fa-rotate-left"></i>
@@ -202,12 +234,67 @@ function render() {
     if (!list) return;
     const view = sorted(steps);
     flagLogic(view);
+    ensureMain(view);
     steps = view;                        // giữ mảng đúng thứ tự hiển thị, khỏi lệch chỉ số
+    // Gỡ khối "Triệu chứng chính" về chỗ đậu trước khi xóa danh sách, kẻo mất luôn ô đang có dữ liệu
+    const box = $(MAIN_BOX);
+    if (box) $(MAIN_PARK)?.appendChild(box);
     list.innerHTML = view.length
         ? view.map(stepHtml).join('')
         : `<p class="hx-empty">Chưa có mốc nào — bấm “Thêm mốc” và kể từ xa tới gần: CNV 5 ngày → CNV 2 ngày → ngày nhập viện.</p>`;
+    if (box) (list.querySelector('.hx-main-slot') || $(MAIN_PARK))?.appendChild(box);
     const dl = $('hx-sym-list');
     if (dl) dl.innerHTML = symbolList().map(n => `<option value="${esc(n)}">`).join('');
+}
+
+/** Vẽ lại danh sách mốc — dùng khi ngày nhập viện đổi (mốc phải hiện ngày mới) */
+export const refreshSteps = () => render();
+
+/* ---------- bộ câu hỏi của triệu chứng chính ---------- */
+/* Sáu ô thuộc tính là sáu chỗ trống dùng chung: chọn "Sốt" thì chúng thành
+   kiểu sốt / nhiệt độ / lạnh run…, chọn "Đau ngực" thì thành vị trí / tính chất / hướng lan…
+   ID và chỗ lưu giữ nguyên, chỉ đổi nhãn – gợi ý – chip, nên bệnh án cũ vẫn đọc được. */
+const SYM_SLOTS = ['hx-sym-site', 'hx-sym-char', 'hx-sym-severity',
+    'hx-sym-time', 'hx-sym-factors', 'hx-sym-assoc'];
+let symDefaults = null;   // nhãn + gợi ý gốc, để trả về khi triệu chứng không có trong thư viện
+
+const slotLabel = (id) => $(id)?.closest('label')?.querySelector('.lb');
+
+function rememberDefaults() {
+    if (symDefaults) return;
+    symDefaults = SYM_SLOTS.map(id => ({
+        label: slotLabel(id)?.textContent || '', ph: $(id)?.placeholder || ''
+    }));
+}
+
+/** Nhãn đang hiển thị của các ô thuộc tính — đoạn văn phải kể đúng tên đang thấy trên màn */
+export const mainSymLabels = () => SYM_SLOTS.map(id => ({
+    id, label: (slotLabel(id)?.textContent || '').trim(), on: !$(id)?.closest('label')?.hidden
+}));
+
+/** Số ô thuộc tính đang dùng — thang chấm "đủ ý" phải chấm theo số này, không phải luôn 6 */
+export const mainSymSlotCount = () => mainSymLabels().filter(x => x.on).length;
+
+/** Đổi bộ câu hỏi cho khớp triệu chứng chính vừa chọn */
+export function syncMainSymFields() {
+    rememberDefaults();
+    const sym = findSymptom(mainSymName());
+    SYM_SLOTS.forEach((id, i) => {
+        const el = $(id), lb = slotLabel(id), wrap = el?.closest('label');
+        if (!el || !lb || !wrap) return;
+        const f = sym?.fields?.[i];
+        wrap.hidden = !!sym && !f;
+        lb.textContent = f ? f[1] : symDefaults[i].label;
+        el.placeholder = f ? (f[3] || (f[2] ? 'vd ' + f[2][0] : '')) : symDefaults[i].ph;
+        setChips(id, f ? (f[2] || []) : null);
+    });
+    const tag = $('hx-sym-tune');
+    if (tag) {
+        tag.hidden = !sym;
+        tag.innerHTML = sym
+            ? `<i class="fas fa-wand-magic-sparkles"></i> Đã đổi bộ câu hỏi cho đúng <b>${esc(sym.ten)}</b> — chạm vào ô là có sẵn lựa chọn.`
+            : '';
+    }
 }
 
 /* ---------- ngày khởi phát ---------- */
@@ -262,27 +349,53 @@ export function buildProse() {
     const tag = $('hx-onset-tag')?.textContent;
     if (tag) out.push(tag.charAt(0).toUpperCase() + tag.slice(1) + '.');
 
-    const sym = [
-        ['vị trí', v('hx-sym-site')], ['tính chất', v('hx-sym-char')],
-        ['mức độ', v('hx-sym-severity')], ['thời gian – tần suất', v('hx-sym-time')],
-        ['yếu tố tăng / giảm', v('hx-sym-factors')], ['triệu chứng đi kèm', v('hx-sym-assoc')]
-    ].filter(([, x]) => x);
+    const sym = mainSymLabels()
+        .filter(x => x.on && v(x.id))
+        .map(x => [x.label.toLowerCase(), v(x.id)]);
     const symName = v('hx-sym-name');
-    if (symName || sym.length) {
-        out.push(`Triệu chứng chính: ${symName || '(chưa ghi)'}${sym.length ? '. ' + sym.map(([k, x]) => `${k}: ${x}`).join('; ') + '.' : '.'}`);
-    }
-    if (v('hx-sym-treated')) out.push(`Đã xử trí trước nhập viện: ${v('hx-sym-treated')}.`);
+    const attrs = sym.map(([k, x]) => `${k}: ${x}`).join('; ');
+    const symDesc = symName ? `${symName}${attrs ? ` (${attrs})` : ''}` : attrs;
 
     const timeline = getSteps();
+    const mainStep = timeline.find(m => m.main);
+    // Triệu chứng chính kể ngay tại mốc khởi phát; chỉ tách ra câu riêng khi chưa có mốc nào
+    if (symDesc && !mainStep) out.push(`Triệu chứng chính: ${symDesc}.`);
+    if (v('hx-sym-treated')) out.push(`Đã xử trí trước nhập viện: ${v('hx-sym-treated')}.`);
+
     if (timeline.length) {
         out.push('Diễn tiến:');
         timeline.forEach(m => {
             const refs = (m.refs || []).filter(r => String(r.sym || '').trim()).map(r =>
                 `${r.sym} ${r.st || 'tương tự'}${String(r.d || '').trim() ? ` (${r.d.trim()})` : ''}`);
-            const body = [String(m.s || '').trim(), ...refs].filter(Boolean).join('; ');
+            const head = m === mainStep && symDesc ? `Triệu chứng chính: ${symDesc}` : '';
+            const body = [head, String(m.s || '').trim(), ...refs].filter(Boolean).join('; ');
             out.push(`- ${stepLabel(m)}: ${body}${body.endsWith('.') ? '' : '.'}`);
         });
     }
+    // Sản khoa: theo dõi thai kỳ là một phần của bệnh sử, không phải tiền căn
+    const san = [
+        v('ob-hx-visits'), v('ob-hx-where') && `tại ${v('ob-hx-where')}`,
+        v('ob-hx-vat') && `uốn ván: ${v('ob-hx-vat')}`,
+        v('ob-hx-us') && `siêu âm gần nhất: ${v('ob-hx-us')}`,
+        v('ob-hx-tests') && `xét nghiệm: ${v('ob-hx-tests')}`,
+        v('ob-hx-abnormal') && `bất thường trong thai kỳ: ${v('ob-hx-abnormal')}`
+    ].filter(Boolean);
+    if (san.length) out.push(`Theo dõi thai kỳ: ${san.join(', ')}.`);
+    const gain = $('ob-gain-out')?.textContent || '';
+    if (san.length && /^Tăng /.test(gain)) out.push(gain + '.');
+
+    // Nhi khoa: ăn – tiểu – phân – dịch tễ là bốn ý bắt buộc hỏi
+    const nhi = [
+        v('ped-hx-who') && `người khai bệnh: ${v('ped-hx-who').toLowerCase()}`,
+        v('ped-hx-feed') && `ăn – bú: ${v('ped-hx-feed')}`,
+        v('ped-hx-urine'), v('ped-hx-stool') && `phân: ${v('ped-hx-stool')}`,
+        v('ped-hx-epi') && `dịch tễ: ${v('ped-hx-epi')}`,
+        v('ped-hx-treated') && `đã điều trị: ${v('ped-hx-treated')}`
+    ].filter(Boolean);
+    if (nhi.length) out.push(`${nhi.join('; ')}.`);
+    const dehyd = $('ped-dehyd-out')?.textContent || '';
+    if (nhi.length && /^Sụt /.test(dehyd)) out.push(dehyd + '.');
+
     if (v('hx-general')) out.push(`Trong quá trình bệnh: ${v('hx-general')}.`);
     if (v('hx-negatives')) out.push(`Bệnh nhân ${v('hx-negatives')}.`);
     const admV = [['Mạch', 'adm-pulse', 'lần/phút'], ['Huyết áp', 'adm-bp', 'mmHg'],
@@ -316,6 +429,7 @@ export function initHistory(options) {
 
     const onEdit = (e) => {
         const el = e.target;
+        if (el.closest('#' + MAIN_BOX)) return;   // ô triệu chứng chính do form chính lo
         if (!el.closest('.hx-step')) return;
         const m = stepOf(el);
         if (!m) return;
@@ -363,11 +477,13 @@ export function initHistory(options) {
     });
 
     list.addEventListener('click', (e) => {
+        if (e.target.closest('#' + MAIN_BOX)) return;
         const btn = e.target.closest('[data-act]');
         if (!btn) return;
         const stepEl = btn.closest('.hx-step');
         const i = +stepEl.dataset.i;
-        if (btn.dataset.act === 'del-step') steps.splice(i, 1);
+        if (btn.dataset.act === 'pin') steps.forEach((m, k) => { m.main = k === i; });
+        else if (btn.dataset.act === 'del-step') steps.splice(i, 1);
         else if (btn.dataset.act === 'del-ref') steps[i].refs.splice(+btn.closest('.hx-ref').dataset.k, 1);
         else if (btn.dataset.act === 'add-ref') (steps[i].refs ||= []).push({ sym: '', st: 'tương tự', d: '' });
         else if (btn.dataset.act === 'del-new') {

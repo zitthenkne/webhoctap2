@@ -2,6 +2,8 @@
 // Mẫu bệnh án ghi mốc tiền căn theo khoảng cách tới lúc nhập viện: "CNV 9 năm, mổ bắt con".
 // Mỗi danh sách tự xếp từ xa tới gần rồi ghép thành các dòng chữ vào ô textarea gốc.
 
+import { openListPicker } from './list-picker.js';
+
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -12,7 +14,7 @@ const trim = (x) => String(x ?? '').trim();
 const label = (r) => (trim(r.n) ? `CNV ${trim(r.n)} ${r.u || 'năm'}` : 'CNV');
 
 /** Một danh sách CNV gắn với một ô textarea */
-export function createCnvList({ host, addBtn, onChange }) {
+export function createCnvList({ host, addBtn, onChange, groups = null, pickTitle = 'Chọn' }) {
     let rows = [];
     const ph = host?.dataset.ph || 'Nội dung';
 
@@ -26,6 +28,7 @@ export function createCnvList({ host, addBtn, onChange }) {
             ${UNITS.map(u => `<option ${r.u === u ? 'selected' : ''}>${u}</option>`).join('')}
         </select>
         <input class="cnv-s" data-k="s" value="${esc(r.s || '')}" placeholder="${esc(ph)}" aria-label="Nội dung">
+        ${groups ? `<button type="button" class="cnv-pick" data-act="pick" title="${esc(pickTitle)}"><i class="fas fa-magnifying-glass"></i></button>` : ''}
         <button type="button" class="cnv-x" data-act="del" title="Xóa dòng"><i class="fas fa-xmark"></i></button>
     </div>`;
 
@@ -61,6 +64,19 @@ export function createCnvList({ host, addBtn, onChange }) {
     }
 
     host.addEventListener('click', (e) => {
+        const pick = e.target.closest('[data-act="pick"]');
+        if (pick) {
+            const i = +pick.closest('.cnv-row').dataset.i;
+            return openListPicker({
+                title: pickTitle, groups,
+                onPick: ([name]) => {
+                    if (!name) return;
+                    rows[i].s = name;
+                    render();
+                    onChange?.();
+                }
+            });
+        }
         if (!e.target.closest('[data-act="del"]')) return;
         rows.splice(+e.target.closest('.cnv-row').dataset.i, 1);
         render();

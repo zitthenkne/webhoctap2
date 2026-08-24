@@ -1,29 +1,389 @@
-/* Checklist — style chung 2 trang, khớp tông glass hồng pastel của app */
-* { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; box-sizing: border-box; }
-h1, h2, h3, h4, .font-display { font-family: 'Outfit', system-ui, -apple-system, sans-serif; }
-body { min-height: 100vh; background: radial-gradient(circle at 15% 10%, #fff0f7 0%, #ffe8f3 30%, #f7efff 65%, #edf3ff 100%); }
+/* ==========================================================================
+   CLINICAL CHECKLIST V4 — RISO PRINT STUDIO & MEDICAL SCRAPBOOK
+   Anti-Slop, High-Tactile, Dual-Spot Ink Aesthetics
+   ========================================================================== */
 
-.glass-card { background: rgba(255,255,255,.82); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,.9); box-shadow: 0 4px 24px -2px rgba(255,143,177,.08); }
-.glass-modal { background: rgba(255,255,255,.92); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(255,255,255,.95); box-shadow: 0 20px 50px -10px rgba(199,125,255,.25); }
-.text-gradient { background: linear-gradient(135deg, #FF5E97 0%, #C77DFF 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.btn-gradient { background: linear-gradient(135deg, #ec4899, #a855f7); color: #fff; box-shadow: 0 4px 12px -2px rgba(236,72,153,.4); transition: transform .15s, box-shadow .15s; }
-.btn-gradient:hover { transform: translateY(-1px); box-shadow: 0 8px 18px -4px rgba(236,72,153,.5); }
-.btn-gradient:active { transform: none; }
+:root {
+  /* Paper Stocks */
+  --paper-bg: #FAF7F2;
+  --paper-card: #FFFDF9;
+  --paper-darker: #F2ECE1;
+  --paper-grid: #E8E0D0;
 
-.fade-in { animation: fadeIn .45s cubic-bezier(.16,1,.3,1) both; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-.pop-in { animation: popIn .35s cubic-bezier(.34,1.56,.64,1) both; }
-@keyframes popIn { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: scale(1); } }
+  /* Riso Spot Inks */
+  --ink-coral: #FF553E;
+  --ink-coral-dark: #E03822;
+  --ink-coral-light: #FFEAE6;
 
-@keyframes floatY { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-.float-slow { animation: floatY 6s ease-in-out infinite; }
-.float-slower { animation: floatY 9s ease-in-out infinite; }
+  --ink-cobalt: #1D4ED8;
+  --ink-cobalt-dark: #1E3A8A;
+  --ink-cobalt-light: #EFF6FF;
 
-/* Bottom-sheet mobile */
-@keyframes sheetUp { from { opacity: 0; transform: translateY(48px); } to { opacity: 1; transform: none; } }
-.sheet-up { animation: sheetUp .38s cubic-bezier(.16,1,.3,1) both; }
-.safe-bottom { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + .75rem); }
+  --ink-mint: #059669;
+  --ink-mint-dark: #065F46;
+  --ink-mint-light: #ECFDF5;
 
+  --ink-honey: #D97706;
+  --ink-honey-light: #FFFBEB;
+
+  --ink-charcoal: #18181B;
+  --ink-muted: #52525B;
+  --ink-faint: #71717A;
+  --ink-border: #27272A;
+
+  /* Riso Hard-Offset Shadows (Misregistration) */
+  --shadow-riso-xs: 2px 2px 0px var(--ink-charcoal);
+  --shadow-riso-sm: 3px 3px 0px var(--ink-charcoal);
+  --shadow-riso-md: 5px 5px 0px var(--ink-charcoal);
+  --shadow-riso-lg: 7px 7px 0px var(--ink-charcoal);
+  --shadow-riso-coral: 4px 4px 0px var(--ink-coral);
+  --shadow-riso-cobalt: 4px 4px 0px var(--ink-cobalt);
+  --shadow-riso-mint: 4px 4px 0px var(--ink-mint);
+
+  /* Easing */
+  --ease-snappy: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* --------------------------------------------------------------------------
+   1. BASE RESET & TYPOGRAPHY
+   -------------------------------------------------------------------------- */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1, h2, h3, h4, .font-display {
+  font-family: 'Bricolage Grotesque', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+body {
+  min-height: 100vh;
+  background-color: var(--paper-bg);
+  background-image: radial-gradient(var(--paper-grid) 1px, transparent 1px);
+  background-size: 20px 20px;
+  color: var(--ink-charcoal);
+  font-size: clamp(0.875rem, 0.35vw + 0.78rem, 0.95rem);
+  line-height: 1.55;
+  overflow-x: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   2. RISO CARD & PAPER SYSTEM
+   -------------------------------------------------------------------------- */
+.riso-card {
+  background-color: var(--paper-card);
+  border: 2px solid var(--ink-border);
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow-riso-sm);
+  transition: transform 0.18s var(--ease-snappy), box-shadow 0.18s var(--ease-snappy);
+  position: relative;
+}
+
+.riso-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: var(--shadow-riso-md);
+}
+
+.riso-card-interactive {
+  cursor: pointer;
+}
+
+/* Washi Tape Strip Decoration */
+.washi-tape {
+  position: absolute;
+  top: -9px;
+  left: 24px;
+  width: 60px;
+  height: 18px;
+  background-color: rgba(255, 85, 62, 0.35);
+  border: 1px dashed rgba(224, 56, 34, 0.5);
+  transform: rotate(-3deg);
+  z-index: 10;
+  pointer-events: none;
+  border-radius: 2px;
+}
+
+.washi-tape-cobalt {
+  background-color: rgba(29, 78, 216, 0.3);
+  border-color: rgba(29, 78, 216, 0.45);
+  transform: rotate(2deg);
+}
+
+.washi-tape-mint {
+  background-color: rgba(5, 150, 105, 0.3);
+  border-color: rgba(5, 150, 105, 0.45);
+  transform: rotate(-2deg);
+}
+
+.washi-tape-honey {
+  background-color: rgba(217, 119, 6, 0.3);
+  border-color: rgba(217, 119, 6, 0.45);
+  transform: rotate(3deg);
+}
+
+/* --------------------------------------------------------------------------
+   3. MECHANICAL HARD-PRESSED BUTTONS & PILLS
+   -------------------------------------------------------------------------- */
+.btn-riso-primary {
+  background-color: var(--ink-coral);
+  color: #FFFFFF;
+  border: 2px solid var(--ink-border);
+  border-radius: 9999px;
+  font-weight: 700;
+  box-shadow: var(--shadow-riso-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: transform 0.1s var(--ease-snappy), box-shadow 0.1s var(--ease-snappy), background-color 0.15s;
+}
+
+.btn-riso-primary:hover {
+  background-color: var(--ink-coral-dark);
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-riso-md);
+}
+
+.btn-riso-primary:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px var(--ink-border);
+}
+
+.btn-riso-secondary {
+  background-color: var(--paper-card);
+  color: var(--ink-charcoal);
+  border: 2px solid var(--ink-border);
+  border-radius: 9999px;
+  font-weight: 700;
+  box-shadow: var(--shadow-riso-xs);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: transform 0.1s var(--ease-snappy), box-shadow 0.1s var(--ease-snappy), background-color 0.15s;
+}
+
+.btn-riso-secondary:hover {
+  background-color: var(--paper-darker);
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-riso-sm);
+}
+
+.btn-riso-secondary:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0px 0px 0px var(--ink-border);
+}
+
+.btn-riso-cobalt {
+  background-color: var(--ink-cobalt);
+  color: #FFFFFF;
+  border: 2px solid var(--ink-border);
+  border-radius: 9999px;
+  font-weight: 700;
+  box-shadow: var(--shadow-riso-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.12s var(--ease-snappy);
+}
+
+.btn-riso-cobalt:hover {
+  background-color: var(--ink-cobalt-dark);
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-riso-md);
+}
+
+.btn-riso-cobalt:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px var(--ink-border);
+}
+
+.btn-icon-riso {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--ink-border);
+  cursor: pointer;
+  background-color: var(--paper-card);
+  color: var(--ink-charcoal);
+  box-shadow: 1.5px 1.5px 0px var(--ink-border);
+  transition: all 0.12s var(--ease-snappy);
+}
+
+.btn-icon-riso:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 2.5px 2.5px 0px var(--ink-border);
+  background-color: var(--paper-darker);
+}
+
+.btn-icon-riso:active {
+  transform: translate(1.5px, 1.5px);
+  box-shadow: 0px 0px 0px var(--ink-border);
+}
+
+/* --------------------------------------------------------------------------
+   4. RISO FILTER PILLS & STAMPED BADGES
+   -------------------------------------------------------------------------- */
+.filter-pill {
+  padding: 0.45rem 1rem;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  white-space: nowrap;
+  border: 2px solid var(--ink-border);
+  background-color: var(--paper-card);
+  color: var(--ink-charcoal);
+  box-shadow: var(--shadow-riso-xs);
+  transition: all 0.14s var(--ease-snappy);
+}
+
+.filter-pill:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-riso-sm);
+  background-color: var(--paper-darker);
+}
+
+.filter-pill.active {
+  background-color: var(--ink-coral);
+  color: #FFFFFF;
+  box-shadow: var(--shadow-riso-sm);
+  transform: translate(-1px, -1px);
+}
+
+/* Rubber Stamp Badges */
+.stamp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1.5px solid currentColor;
+}
+
+.stamp-cardiology { color: var(--ink-coral); background-color: var(--ink-coral-light); }
+.stamp-pulmonology { color: var(--ink-cobalt); background-color: var(--ink-cobalt-light); }
+.stamp-gastro { color: var(--ink-honey); background-color: var(--ink-honey-light); }
+.stamp-neuro { color: #7C3AED; background-color: #F5F3FF; }
+.stamp-emergency { color: #DC2626; background-color: #FEF2F2; }
+.stamp-procedure { color: var(--ink-mint); background-color: var(--ink-mint-light); }
+.stamp-general { color: var(--ink-muted); background-color: var(--paper-darker); }
+
+/* Stamp Mark Overlay for Card Status */
+.rubber-stamp {
+  font-family: 'Bricolage Grotesque', 'Plus Jakarta Sans', sans-serif;
+  font-weight: 800;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.5rem;
+  border: 2px dashed;
+  border-radius: 4px;
+  transform: rotate(-4deg);
+  display: inline-block;
+  opacity: 0.9;
+}
+
+.rubber-stamp-pass {
+  color: var(--ink-mint);
+  border-color: var(--ink-mint);
+  background-color: var(--ink-mint-light);
+}
+
+.rubber-stamp-warn {
+  color: var(--ink-honey);
+  border-color: var(--ink-honey);
+  background-color: var(--ink-honey-light);
+}
+
+/* --------------------------------------------------------------------------
+   5. MODALS & POPUPS (RISO ZINE STYLE)
+   -------------------------------------------------------------------------- */
+.riso-modal-box {
+  background-color: var(--paper-card);
+  border: 3px solid var(--ink-border);
+  box-shadow: var(--shadow-riso-lg);
+  border-radius: 1.5rem;
+}
+
+/* Backward compatibility for checklist-run.html */
+.btn-gradient {
+  background-color: var(--ink-coral);
+  color: #FFFFFF;
+  border: 2px solid var(--ink-border);
+  box-shadow: var(--shadow-riso-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s var(--ease-snappy);
+}
+.btn-gradient:hover {
+  background-color: var(--ink-coral-dark);
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-riso-md);
+}
+
+.glass-card {
+  background-color: var(--paper-card);
+  border: 2px solid var(--ink-border);
+  box-shadow: var(--shadow-riso-sm);
+}
+
+.glass-modal {
+  background-color: var(--paper-card);
+  border: 3px solid var(--ink-border);
+  box-shadow: var(--shadow-riso-lg);
+}
+
+.text-gradient {
+  color: var(--ink-coral);
+  font-weight: 800;
+}
+
+/* Animations */
+.fade-in { animation: fadeIn 0.25s var(--ease-snappy) both; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.sheet-up { animation: sheetUp 0.3s var(--ease-snappy) both; }
+@keyframes sheetUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.safe-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--ink-border); border-radius: 4px; }
+
+/* Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

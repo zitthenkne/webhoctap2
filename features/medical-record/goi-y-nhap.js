@@ -7,12 +7,21 @@
 
 import { openListPicker } from './list-picker.js';
 import { BENH_NHOM } from './benh-data.js';
+import { CLS_DE_NGHI, HOI_CHUNG } from './de-nghi-data.js';
 
 const $ = (id) => document.getElementById(id);
 
 const nowTime = () => new Date().toTimeString().slice(0, 5);
 const todayISO = () => {
     const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+/* Ngày khởi phát: đếm ngược từ ngày nhập viện (chưa có thì từ hôm nay) — khỏi mở lịch bấm tay */
+const backFrom = (n) => () => {
+    const base = $('admission-date')?.value;
+    const d = base ? new Date(base + 'T00:00:00') : new Date();
+    d.setDate(d.getDate() - n);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
@@ -24,7 +33,9 @@ const QUICK_FILL = {
     'history-surgery': ['Chưa ghi nhận tiền căn ngoại khoa', 'Mổ lấy thai', 'Cắt ruột thừa'],
     'history-obgyne': ['Kinh nguyệt đều', 'PARA', 'Đã mãn kinh'],
     'history-allergy': ['Chưa ghi nhận dị ứng thuốc, thức ăn'],
-    'history-habit': ['Không hút thuốc lá, không uống rượu bia', 'Hút thuốc lá', 'Uống rượu bia thường xuyên'],
+    'history-habit': ['Không hút thuốc lá, không uống rượu bia', 'Hút thuốc lá', 'Uống rượu bia thường xuyên',
+        'Nhai trầu', 'Ăn mặn', 'Ăn nhiều dầu mỡ', 'Ít vận động', 'Thức khuya sau 24h',
+        'Tự mua thuốc uống khi bệnh', 'Dùng thuốc nam không rõ nguồn gốc'],
     'history-family': ['Chưa ghi nhận bệnh lý tương tự trong gia đình', 'Gia đình có người tăng huyết áp', 'Gia đình có người đái tháo đường'],
     'ros-cardio': [['Bình thường', () => 'Không hồi hộp, không đánh trống ngực, không khó thở'], 'Có khó thở khi gắng sức'],
     'ros-resp': [['Bình thường', () => 'Không ho, không khò khè, không đau ngực'], 'Ho khan', 'Ho đàm'],
@@ -49,6 +60,8 @@ const QUICK_FILL = {
     'prevention': ['Tuân thủ điều trị, tái khám đúng hẹn', 'Chế độ ăn hợp lý, tập luyện đều đặn'],
 
     /* --- Bệnh sử: triệu chứng chính, đủ 6 thuộc tính --- */
+    'hx-onset-date': [['Ngay ngày NV', backFrom(0)], ['1 ngày trước', backFrom(1)], ['3 ngày', backFrom(3)],
+        ['1 tuần', backFrom(7)], ['2 tuần', backFrom(14)], ['1 tháng', backFrom(30)]],
     'hx-relation': ['bệnh nhân tự khai', 'con gái', 'con trai', 'vợ', 'chồng', 'mẹ', 'cha', 'anh/chị em ruột'],
     'hx-sym-name': ['Sốt', 'Ho', 'Khó thở', 'Đau ngực', 'Đau bụng', 'Đau đầu', 'Nôn ói', 'Tiêu chảy', 'Phù', 'Chóng mặt'],
     'hx-sym-site': ['sau xương ức, lan tay trái', 'ngực (T)', 'thượng vị', 'hạ sườn (P)', 'hố chậu (P)', 'quanh rốn', 'vùng trán – thái dương', 'thắt lưng lan xuống bẹn'],
@@ -119,9 +132,22 @@ const CHIP_APPEND = new Set(['hx-sym-assoc', 'hx-negatives', 'hx-general', 'cc-i
     'tr-firstaid', 'dx1-comp', 'dx1-assoc', 'dx2-comp', 'dx2-assoc']);
 
 export function buildChips() {
-    for (const [id, items] of Object.entries(QUICK_FILL)) {
+    for (const [id, items] of Object.entries(QUICK_FILL)) makeChips(id, items);
+}
+
+/** Thay bộ chip gợi ý của một ô; truyền null để trả về bộ mặc định của ô đó */
+export function setChips(id, items) {
+    const el = $(id);
+    if (!el) return;
+    if (el.nextElementSibling?.classList.contains('chips')) el.nextElementSibling.remove();
+    const use = items ?? QUICK_FILL[id];
+    if (use?.length) makeChips(id, use);
+}
+
+function makeChips(id, items) {
+    {
         const el = $(id);
-        if (!el) continue;
+        if (!el) return;
         const wrap = document.createElement('div');
         // Ô trong lưới: chip chỉ bung ra khi bấm vào ô, đỡ làm trang dài trên điện thoại
         wrap.className = 'chips' + (el.classList.contains('calc-in') ? ' compact' : '');
@@ -149,11 +175,15 @@ export function buildChips() {
             wrap.appendChild(btn);
         });
         el.insertAdjacentElement('afterend', wrap);
-        // Tô sáng chip đang có mặt trong ô, để biết mình đã chọn những gì
-        const mark = () => wrap.querySelectorAll('.chip[data-text]').forEach(b =>
-            b.classList.toggle('is-on', el.value.includes(b.dataset.text)));
-        el.addEventListener('input', mark);
-        el.addEventListener('focus', mark);
+        // Tô sáng chip đang có mặt trong ô, để biết mình đã chọn những gì.
+        // Gắn một lần cho mỗi ô và tra hộp chip hiện tại lúc chạy, vì bộ chip có thể bị thay.
+        const mark = () => el.nextElementSibling?.querySelectorAll?.('.chip[data-text]')
+            .forEach(b => b.classList.toggle('is-on', el.value.includes(b.dataset.text)));
+        if (!el.dataset.chipMark) {
+            el.dataset.chipMark = '1';
+            el.addEventListener('input', mark);
+            el.addEventListener('focus', mark);
+        }
         mark();
     }
 }
@@ -202,6 +232,14 @@ export function buildPickers({ autoGrow }) {
     attachPicker('differential-diagnosis', {
         title: 'Chọn các chẩn đoán phân biệt', groups: BENH_NHOM, multi: true, autoGrow,
         label: 'Chọn nhiều bệnh cần phân biệt'
+    });
+    attachPicker('problem-list', {
+        title: 'Chọn hội chứng / vấn đề', groups: HOI_CHUNG, multi: true, autoGrow,
+        label: 'Chọn hội chứng theo hệ cơ quan'
+    });
+    attachPicker('labs-proposed', {
+        title: 'Chọn cận lâm sàng đề nghị', groups: CLS_DE_NGHI, multi: true, autoGrow,
+        label: 'Chọn cận lâm sàng theo nhóm'
     });
 }
 

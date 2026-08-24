@@ -3,110 +3,308 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Thư viện Checklist 🎀 - Zitthenkne</title>
+  <title>Sổ Tay Checklist Lâm Sàng 🏷️ - Zitthenkne Riso</title>
   <link rel="icon" type="image/png" href="../../assets/logo.png">
-  <meta name="theme-color" content="#FF8FB1">
+  <meta name="theme-color" content="#FAF7F2">
   <script src="../../pwa-install.js" defer></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800;12..96,900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="checklist.css">
 </head>
-<body class="min-h-screen text-gray-700 text-sm antialiased">
+<body class="min-h-screen antialiased selection:bg-orange-200 selection:text-orange-950 pb-20 sm:pb-12">
 
-  <!-- Trang trí nền -->
-  <div class="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-    <div class="absolute -top-24 -left-16 w-80 h-80 bg-pink-300/30 rounded-full blur-3xl float-slow"></div>
-    <div class="absolute top-1/3 -right-20 w-96 h-96 bg-purple-300/25 rounded-full blur-3xl float-slower"></div>
-    <i class="fas fa-heart absolute top-24 left-[12%] text-pink-200/70 text-2xl float-slow"></i>
-    <i class="fas fa-star absolute bottom-24 left-[20%] text-pink-200/70 text-lg float-slower"></i>
-  </div>
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 pt-5 sm:pt-8">
+    
+    <!-- Top Header (Riso Studio Masthead) -->
+    <header class="mb-8">
+      <div class="flex flex-wrap items-center justify-between gap-4 mb-5">
+        <div class="flex items-center gap-3.5">
+          <a href="../../index.html" class="btn-icon-riso w-11 h-11 text-base hover:scale-105" aria-label="Về trang chủ">
+            <i class="fas fa-arrow-left"></i>
+          </a>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded bg-amber-100 border border-amber-300 text-amber-800 text-[10px] font-mono font-bold uppercase tracking-wider">OSCE CLINICAL JOURNAL</span>
+              <span class="text-xs text-stone-400 font-mono">№ 2026.08</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight mt-0.5">Sổ Tay Checklist Lâm Sàng</h1>
+            <p class="text-xs sm:text-sm text-stone-600 font-medium">Quy trình kỹ năng y khoa & thao tác khám bệnh chuẩn mực</p>
+          </div>
+        </div>
 
-  <div class="relative z-10 max-w-5xl mx-auto p-4 sm:p-6">
-    <!-- Header -->
-    <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
-      <div class="flex items-center gap-3">
-        <a href="../../index.html" class="glass-card w-10 h-10 rounded-full flex items-center justify-center text-pink-500 hover:scale-105 transition" aria-label="Về trang chủ">
-          <i class="fas fa-arrow-left"></i>
-        </a>
-        <div>
-          <h1 class="text-xl sm:text-2xl font-bold text-gradient font-display tracking-tight">Thư viện Checklist</h1>
-          <p class="text-xs text-gray-500 mt-0.5">Tạo và thực hiện checklist ATCS từng bước 🎀</p>
+        <!-- Action Cluster -->
+        <div class="flex items-center gap-2.5">
+          <button id="btnPresets" class="btn-riso-secondary px-3.5 py-2.5 text-xs sm:text-sm" title="Khám phá mẫu OSCE có sẵn">
+            <i class="fas fa-wand-magic-sparkles text-blue-600"></i>
+            <span class="hidden sm:inline">Mẫu OSCE</span>
+          </button>
+          <button id="btnBackup" class="btn-riso-secondary px-3.5 py-2.5 text-xs sm:text-sm" title="Sao lưu & Chia sẻ JSON">
+            <i class="fas fa-file-arrow-down text-orange-600"></i>
+            <span class="hidden sm:inline">Sao lưu</span>
+          </button>
+          <button id="btnCreateChecklist" class="btn-riso-primary px-4 py-2.5 text-xs sm:text-sm">
+            <i class="fas fa-plus"></i> Tạo checklist
+          </button>
         </div>
       </div>
-      <button id="btnCreateChecklist" class="btn-gradient hidden sm:inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl font-semibold">
-        <i class="fas fa-plus"></i> Tạo checklist
-      </button>
-    </div>
 
-    <!-- Tìm kiếm -->
-    <div class="relative mb-5">
-      <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-pink-400"><i class="fas fa-magnifying-glass text-sm"></i></span>
-      <input id="searchInput" type="search" placeholder="Tìm checklist..." autocomplete="off"
-        class="glass-card w-full pl-10 pr-4 py-3 rounded-2xl text-base focus:outline-none focus:ring-4 focus:ring-pink-300/40 transition">
-    </div>
+      <!-- Field Inspection Analytics Meter -->
+      <section class="grid grid-cols-3 gap-3 p-3.5 sm:p-4 bg-amber-50/60 border-2 border-stone-800 rounded-2xl shadow-[3px_3px_0px_#18181B]" aria-label="Thống kê thực hành">
+        <div class="flex items-center gap-3 px-2 sm:px-3">
+          <div class="w-10 h-10 rounded-xl bg-orange-100 border-2 border-stone-800 text-orange-600 flex items-center justify-center text-lg font-bold shrink-0">
+            <i class="fas fa-clipboard-list"></i>
+          </div>
+          <div class="min-w-0">
+            <div class="text-[10px] sm:text-xs text-stone-500 font-bold uppercase tracking-wider">Tổng quy trình</div>
+            <div id="statTotal" class="text-lg sm:text-2xl font-black text-stone-900 font-display">0</div>
+          </div>
+        </div>
 
-    <!-- Danh sách -->
-    <div id="cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        <div class="flex items-center gap-3 px-2 sm:px-3 border-x-2 border-stone-300">
+          <div class="w-10 h-10 rounded-xl bg-emerald-100 border-2 border-stone-800 text-emerald-700 flex items-center justify-center text-lg font-bold shrink-0">
+            <i class="fas fa-stamp"></i>
+          </div>
+          <div class="min-w-0">
+            <div class="text-[10px] sm:text-xs text-stone-500 font-bold uppercase tracking-wider">Thuần thục (≥90%)</div>
+            <div id="statMastered" class="text-lg sm:text-2xl font-black text-emerald-700 font-display">0</div>
+          </div>
+        </div>
 
-    <!-- Trạng thái rỗng -->
-    <div id="emptyState" class="hidden glass-card rounded-3xl p-10 text-center fade-in">
-      <div class="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-tr from-pink-400 to-purple-400 flex items-center justify-center text-white text-3xl shadow-lg shadow-pink-300/40 mb-4">
-        <i class="fas fa-list-check"></i>
+        <div class="flex items-center gap-3 px-2 sm:px-3">
+          <div class="w-10 h-10 rounded-xl bg-amber-100 border-2 border-stone-800 text-amber-700 flex items-center justify-center text-lg font-bold shrink-0">
+            <i class="fas fa-triangle-exclamation"></i>
+          </div>
+          <div class="min-w-0">
+            <div class="text-[10px] sm:text-xs text-stone-500 font-bold uppercase tracking-wider">Cần ôn tập</div>
+            <div id="statNeedRev" class="text-lg sm:text-2xl font-black text-amber-700 font-display">0</div>
+          </div>
+        </div>
+      </section>
+    </header>
+
+    <!-- Search Bar & Riso Filter Pills -->
+    <section class="mb-7 space-y-3.5" aria-label="Tìm kiếm và phân loại">
+      <!-- Search Input with hard border -->
+      <div class="relative">
+        <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-stone-400 pointer-events-none">
+          <i class="fas fa-magnifying-glass text-sm"></i>
+        </span>
+        <input id="searchInput" type="search" placeholder="Tìm theo tên quy trình, dấu hiệu khám, chuyên khoa..." autocomplete="off"
+          class="w-full pl-11 pr-10 py-3 rounded-2xl border-2 border-stone-800 bg-[#FFFDF9] text-base font-semibold text-stone-900 placeholder:text-stone-400 focus:outline-none focus:bg-white shadow-[2px_2px_0px_#18181B] focus:shadow-[3px_3px_0px_#FF553E] transition">
+        <button id="searchClearBtn" class="absolute inset-y-0 right-0 pr-4 flex items-center text-stone-400 hover:text-orange-600 transition hidden" aria-label="Xóa tìm kiếm">
+          <i class="fas fa-circle-xmark"></i>
+        </button>
       </div>
-      <h3 class="font-bold text-gray-800 text-base font-display">Chưa có checklist nào</h3>
-      <p class="text-xs text-gray-500 mt-1 mb-5">Bấm "Tạo checklist" để thêm checklist đầu tiên nha ✨</p>
-      <button id="emptyCreateBtn" class="btn-gradient inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl font-semibold">
-        <i class="fas fa-plus"></i> Tạo checklist
-      </button>
-    </div>
+
+      <!-- Specialty Filter Pills (Horizontal Scroll) -->
+      <div class="flex items-center gap-2 overflow-x-auto pb-1.5 no-scrollbar" role="tablist" aria-label="Bộ lọc chuyên khoa">
+        <button class="filter-pill active" data-category="all" role="tab" aria-selected="true">Tất cả</button>
+        <button class="filter-pill" data-category="cardiology" role="tab" aria-selected="false">🫀 Tim mạch</button>
+        <button class="filter-pill" data-category="pulmonology" role="tab" aria-selected="false">🫁 Hô hấp</button>
+        <button class="filter-pill" data-category="gastro" role="tab" aria-selected="false">🩺 Tiêu hóa & Bụng</button>
+        <button class="filter-pill" data-category="neuro" role="tab" aria-selected="false">🧠 Thần kinh</button>
+        <button class="filter-pill" data-category="emergency" role="tab" aria-selected="false">⚡ Cấp cứu</button>
+        <button class="filter-pill" data-category="procedure" role="tab" aria-selected="false">🩹 Thủ thuật</button>
+        <button class="filter-pill" data-category="pinned" role="tab" aria-selected="false">⭐ Đã ghim</button>
+      </div>
+    </section>
+
+    <!-- Cards Grid -->
+    <main>
+      <div id="cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5" aria-live="polite"></div>
+
+      <!-- Empty State -->
+      <div id="emptyState" class="hidden riso-card p-8 sm:p-12 text-center max-w-lg mx-auto mt-8">
+        <div class="w-16 h-16 mx-auto rounded-2xl bg-amber-100 border-2 border-stone-800 flex items-center justify-center text-orange-600 text-2xl shadow-[3px_3px_0px_#18181B] mb-4">
+          <i class="fas fa-folder-open"></i>
+        </div>
+        <h3 class="font-bold text-stone-900 text-lg font-display">Không tìm thấy checklist nào</h3>
+        <p class="text-xs sm:text-sm text-stone-500 mt-1.5 mb-6 leading-relaxed">Bà có thể tự tạo một checklist mới hoặc nạp nhanh bộ mẫu khám chuẩn OSCE chỉ bằng 1 click ✨</p>
+        <div class="flex flex-wrap items-center justify-center gap-3">
+          <button id="emptyPresetBtn" class="btn-riso-secondary px-4 py-2.5 text-xs sm:text-sm font-bold">
+            <i class="fas fa-wand-magic-sparkles text-blue-600"></i> Nạp mẫu OSCE có sẵn
+          </button>
+          <button id="emptyCreateBtn" class="btn-riso-primary px-5 py-2.5 text-xs sm:text-sm">
+            <i class="fas fa-plus"></i> Tạo mới
+          </button>
+        </div>
+      </div>
+    </main>
   </div>
 
-  <!-- FAB tạo checklist (mobile) -->
-  <button id="fabCreate" aria-label="Tạo checklist"
-    class="sm:hidden fixed right-5 z-40 w-14 h-14 rounded-full btn-gradient text-xl flex items-center justify-center"
+  <!-- Mobile FAB -->
+  <button id="fabCreate" aria-label="Tạo checklist mới"
+    class="sm:hidden fixed right-5 z-40 w-14 h-14 rounded-full btn-riso-primary text-xl flex items-center justify-center shadow-[3px_3px_0px_#18181B]"
     style="bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px))">
     <i class="fas fa-plus"></i>
   </button>
 
-  <!-- Modal: Tạo / Sửa checklist (bottom-sheet trên mobile) -->
-  <div id="modalChecklist" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm sm:p-4">
-    <div class="glass-modal rounded-t-3xl sm:rounded-3xl w-full max-w-lg max-h-[88vh] overflow-y-auto p-5 sm:p-6 sheet-up safe-bottom">
-      <div class="w-10 h-1.5 rounded-full bg-pink-200 mx-auto mb-3 sm:hidden"></div>
-      <div class="flex items-center justify-between mb-4">
-        <h3 id="modalTitle" class="text-lg font-bold text-gray-800 font-display">Tạo checklist</h3>
-        <button id="closeChecklist" class="w-9 h-9 rounded-full bg-pink-50 text-pink-400 hover:bg-pink-100 transition" aria-label="Đóng"><i class="fas fa-xmark"></i></button>
+  <!-- =========================================================================
+       MODAL 1: TẠO / SỬA CHECKLIST
+       ========================================================================= -->
+  <dialog id="modalChecklist" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-stone-900/60 backdrop-blur-xs sm:p-4 w-full h-full border-0 p-0 m-0">
+    <div class="riso-modal-box w-full max-w-xl max-h-[90vh] flex flex-col p-5 sm:p-6 sheet-up safe-bottom overflow-hidden">
+      <!-- Drag pill for mobile -->
+      <div class="w-12 h-1.5 rounded-full bg-stone-300 mx-auto mb-3 sm:hidden shrink-0"></div>
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between mb-4 shrink-0 pb-3 border-b-2 border-stone-200">
+        <h3 id="modalTitle" class="text-lg sm:text-xl font-extrabold text-stone-900 font-display flex items-center gap-2">
+          <i class="fas fa-pen-nib text-orange-600"></i> <span>Tạo Checklist</span>
+        </h3>
+        <button id="closeChecklist" class="btn-icon-riso w-8 h-8 text-xs" aria-label="Đóng"><i class="fas fa-xmark"></i></button>
       </div>
 
-      <label class="block font-semibold text-gray-700 text-xs mb-1.5">Tên checklist</label>
-      <input id="checklistName" type="text" placeholder="VD: Khám hô hấp" autocomplete="off"
-        class="w-full px-4 py-3 rounded-2xl border-2 border-pink-100 bg-white/80 text-base focus:outline-none focus:ring-4 focus:ring-pink-300/40 focus:border-pink-300 transition">
+      <div class="overflow-y-auto pr-1 space-y-4 flex-1">
+        <!-- Name & Category -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="sm:col-span-2">
+            <label class="block font-bold text-stone-800 text-xs mb-1">Tên quy trình / Kỹ năng <span class="text-orange-600">*</span></label>
+            <input id="checklistName" type="text" placeholder="VD: Khám tim mạch toàn diện" autocomplete="off"
+              class="w-full px-3.5 py-2.5 rounded-xl border-2 border-stone-800 bg-[#FFFDF9] text-sm font-semibold text-stone-900 focus:outline-none focus:bg-white shadow-[2px_2px_0px_#18181B]">
+          </div>
+          <div>
+            <label class="block font-bold text-stone-800 text-xs mb-1">Chuyên khoa</label>
+            <select id="checklistCategory" class="w-full px-3 py-2.5 rounded-xl border-2 border-stone-800 bg-[#FFFDF9] text-sm font-semibold text-stone-800 focus:outline-none shadow-[2px_2px_0px_#18181B]">
+              <option value="general">📋 Tổng quát</option>
+              <option value="cardiology">🫀 Tim mạch</option>
+              <option value="pulmonology">🫁 Hô hấp</option>
+              <option value="gastro">🩺 Tiêu hóa</option>
+              <option value="neuro">🧠 Thần kinh</option>
+              <option value="emergency">⚡ Cấp cứu</option>
+              <option value="procedure">🩹 Thủ thuật</option>
+            </select>
+          </div>
+        </div>
 
-      <div class="flex gap-2 mt-4 p-1 bg-pink-50/80 rounded-2xl">
-        <button id="methodManual" class="method-tab flex-1 py-2 rounded-xl font-semibold text-gray-500 transition"><i class="fas fa-pen mr-1.5"></i>Nhập tay</button>
-        <button id="methodCsv" class="method-tab flex-1 py-2 rounded-xl font-semibold text-gray-500 transition"><i class="fas fa-file-csv mr-1.5"></i>File CSV</button>
+        <!-- Target Timer -->
+        <div>
+          <label class="block font-bold text-stone-800 text-xs mb-1">Thời gian mục tiêu trạm thi OSCE</label>
+          <div class="flex items-center gap-2">
+            <input id="checklistTargetTime" type="number" min="1" max="60" value="6"
+              class="w-20 px-3 py-2 rounded-xl border-2 border-stone-800 bg-[#FFFDF9] text-sm font-mono font-bold text-center text-stone-900 shadow-[2px_2px_0px_#18181B]">
+            <span class="text-xs text-stone-600 font-semibold">phút (chuẩn OSCE)</span>
+          </div>
+        </div>
+
+        <!-- 3 Input Tabs -->
+        <div class="flex gap-1.5 p-1.5 bg-stone-200/70 rounded-xl border-2 border-stone-800">
+          <button id="methodManual" class="method-tab flex-1 py-1.5 rounded-lg font-bold text-xs bg-white text-stone-900 border border-stone-800 shadow-[1px_1px_0px_#18181B]"><i class="fas fa-pen mr-1"></i>Nhập tay</button>
+          <button id="methodSmartPaste" class="method-tab flex-1 py-1.5 rounded-lg font-bold text-xs text-stone-600 hover:text-stone-900"><i class="fas fa-wand-magic-sparkles mr-1 text-blue-600"></i>Dán nhanh</button>
+          <button id="methodCsv" class="method-tab flex-1 py-1.5 rounded-lg font-bold text-xs text-stone-600 hover:text-stone-900"><i class="fas fa-file-csv mr-1 text-emerald-600"></i>File CSV</button>
+        </div>
+
+        <!-- Pane 1: Manual Step Editor -->
+        <div id="manualPane" class="space-y-2.5">
+          <div id="stepsContainer" class="space-y-2.5"></div>
+          <button id="addStep" class="w-full py-2.5 rounded-xl border-2 border-dashed border-stone-400 bg-amber-50/50 text-stone-700 text-xs font-bold hover:bg-amber-100/60 transition flex items-center justify-center gap-1.5">
+            <i class="fas fa-plus"></i> Thêm bước thực hiện
+          </button>
+        </div>
+
+        <!-- Pane 2: Smart Paste Parser -->
+        <div id="smartPastePane" class="hidden space-y-3">
+          <div class="p-3 bg-blue-50 border-2 border-blue-200 rounded-xl text-xs text-blue-900 leading-relaxed font-medium">
+            <i class="fas fa-lightbulb text-blue-600 mr-1"></i>
+            Dán thẳng danh sách các bước từ tài liệu hoặc bài giảng. Hệ thống sẽ tự động tách từng dòng thành các bước riêng!
+          </div>
+          <textarea id="smartPasteInput" rows="6" placeholder="Ví dụ:
+1. Chào hỏi và giải thích quy trình khám
+2. Bộc lộ lồng ngực đúng cách
+3. Quan sát hình dạng lồng ngực và nhịp thở
+4. Sờ rung thanh đối xứng 2 bên..."
+            class="w-full p-3 rounded-xl border-2 border-stone-800 bg-white text-xs sm:text-sm font-medium focus:outline-none shadow-[2px_2px_0px_#18181B]"></textarea>
+          <button id="btnParseSmartText" class="btn-riso-secondary w-full py-2 text-xs font-bold">
+            <i class="fas fa-wand-magic-sparkles text-blue-600 mr-1.5"></i> Chuyển đổi thành các bước
+          </button>
+        </div>
+
+        <!-- Pane 3: CSV File -->
+        <div id="csvPane" class="hidden space-y-2">
+          <p class="text-xs text-stone-600">File CSV gồm 3 cột: <b>buoc</b>, <b>noidung</b>, <b>ghichu</b>.</p>
+          <input id="csvFile" type="file" accept=".csv" class="w-full text-xs file:mr-3 file:px-4 file:py-2 file:rounded-xl file:border-2 file:border-stone-800 file:bg-amber-100 file:text-stone-800 file:font-bold file:cursor-pointer">
+          <p id="csvStatus" class="text-xs font-bold text-orange-600"></p>
+        </div>
       </div>
 
-      <div id="manualPane" class="mt-4 hidden">
-        <div id="stepsContainer" class="space-y-2"></div>
-        <button id="addStep" class="mt-3 w-full py-2.5 rounded-2xl border-2 border-dashed border-pink-200 text-pink-500 font-semibold hover:bg-pink-50 transition">
-          <i class="fas fa-plus mr-1.5"></i>Thêm bước
-        </button>
-      </div>
-
-      <div id="csvPane" class="mt-4 hidden">
-        <p class="text-xs text-gray-500 leading-relaxed">Chọn file CSV (Excel xuất ra CSV) gồm 3 cột: <b>bước</b>, <b>nội dung</b>, <b>ghi chú</b> (ghi chú không bắt buộc).</p>
-        <input id="csvFile" type="file" accept=".csv" class="mt-2 w-full text-xs file:mr-3 file:px-4 file:py-2 file:rounded-xl file:border-0 file:bg-pink-100 file:text-pink-600 file:font-semibold file:cursor-pointer">
-        <p id="csvStatus" class="text-xs font-semibold text-pink-500 mt-2"></p>
-      </div>
-
-      <div class="flex justify-end gap-2 mt-5">
-        <button id="cancelChecklist" class="px-4 py-2.5 rounded-2xl bg-gray-100 text-gray-600 font-semibold hover:bg-gray-200 transition">Hủy</button>
-        <button id="saveChecklist" class="btn-gradient px-5 py-2.5 rounded-2xl font-semibold"><i class="fas fa-check mr-1.5"></i>Lưu checklist</button>
+      <!-- Modal Footer -->
+      <div class="flex items-center justify-end gap-2.5 pt-4 mt-2 border-t-2 border-stone-200 shrink-0">
+        <button id="cancelChecklist" class="btn-riso-secondary px-4 py-2 text-xs sm:text-sm">Hủy</button>
+        <button id="saveChecklist" class="btn-riso-primary px-5 py-2 text-xs sm:text-sm font-bold"><i class="fas fa-check"></i> Lưu checklist</button>
       </div>
     </div>
+  </dialog>
+
+  <!-- =========================================================================
+       MODAL 2: OSCE PRESETS HUB
+       ========================================================================= -->
+  <dialog id="modalPresets" class="fixed inset-0 z-50 hidden items-center justify-center bg-stone-900/60 backdrop-blur-xs p-4 w-full h-full border-0">
+    <div class="riso-modal-box w-full max-w-xl max-h-[85vh] flex flex-col p-5 sm:p-6">
+      <div class="flex items-center justify-between mb-4 pb-3 border-b-2 border-stone-200 shrink-0">
+        <div>
+          <div class="text-[10px] font-mono font-bold text-blue-700 uppercase">UMP MEDICAL ARCHIVES</div>
+          <h3 class="text-lg font-extrabold text-stone-900 font-display">Kho mẫu quy trình OSCE chuẩn</h3>
+        </div>
+        <button id="closePresets" class="btn-icon-riso w-8 h-8 text-xs"><i class="fas fa-xmark"></i></button>
+      </div>
+
+      <div id="presetsList" class="overflow-y-auto space-y-3 flex-1 pr-1"></div>
+
+      <div class="flex justify-end pt-3 mt-3 border-t-2 border-stone-200 shrink-0">
+        <button id="btnLoadAllPresets" class="btn-riso-primary px-4 py-2 text-xs sm:text-sm font-bold">
+          <i class="fas fa-cloud-arrow-down mr-1"></i> Nạp cả 5 mẫu vào sổ tay
+        </button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- =========================================================================
+       MODAL 3: JSON BACKUP & SHARE
+       ========================================================================= -->
+  <dialog id="modalBackup" class="fixed inset-0 z-50 hidden items-center justify-center bg-stone-900/60 backdrop-blur-xs p-4 w-full h-full border-0">
+    <div class="riso-modal-box w-full max-w-lg max-h-[85vh] flex flex-col p-5 sm:p-6">
+      <div class="flex items-center justify-between mb-3 pb-3 border-b-2 border-stone-200 shrink-0">
+        <h3 class="text-lg font-extrabold text-stone-900 font-display flex items-center gap-2">
+          <i class="fas fa-file-export text-orange-600"></i> <span>Sao Lưu & Chia Sẻ</span>
+        </h3>
+        <button id="closeBackup" class="btn-icon-riso w-8 h-8 text-xs"><i class="fas fa-xmark"></i></button>
+      </div>
+
+      <div class="space-y-4 text-xs flex-1 overflow-y-auto pr-1">
+        <!-- Export Section -->
+        <div class="p-3.5 bg-orange-50/70 rounded-xl border-2 border-orange-200">
+          <h4 class="font-bold text-stone-900 text-sm mb-1"><i class="fas fa-download text-orange-600 mr-1.5"></i>Xuất dữ liệu (Export)</h4>
+          <p class="text-stone-600 mb-2.5 leading-relaxed">Tải toàn bộ checklist thành file JSON để lưu trữ hoặc gửi cho bạn bè.</p>
+          <div class="flex gap-2">
+            <button id="btnExportJson" class="btn-riso-primary flex-1 py-1.5 text-xs font-bold"><i class="fas fa-file-arrow-down"></i> Tải file .json</button>
+            <button id="btnCopyJson" class="btn-riso-secondary px-3.5 py-1.5 text-xs"><i class="fas fa-copy"></i> Sao chép</button>
+          </div>
+        </div>
+
+        <!-- Import Section -->
+        <div class="p-3.5 bg-blue-50/70 rounded-xl border-2 border-blue-200">
+          <h4 class="font-bold text-stone-900 text-sm mb-1"><i class="fas fa-upload text-blue-600 mr-1.5"></i>Nhập dữ liệu (Import)</h4>
+          <p class="text-stone-600 mb-2 leading-relaxed">Chọn file JSON hoặc dán chuỗi JSON để nạp thêm vào sổ tay.</p>
+          <input id="importJsonFile" type="file" accept=".json" class="w-full text-xs file:mr-2 file:px-3 file:py-1 file:rounded-lg file:border-2 file:border-stone-800 file:bg-blue-100 file:text-blue-900 file:font-bold">
+          <textarea id="importJsonText" rows="3" placeholder="Hoặc dán chuỗi JSON vào đây..." class="w-full mt-2 p-2 rounded-xl border-2 border-stone-800 bg-white text-xs"></textarea>
+          <button id="btnImportJson" class="btn-riso-secondary w-full py-2 mt-2 text-xs font-bold">
+            <i class="fas fa-file-import mr-1"></i> Nạp dữ liệu vào thư viện
+          </button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- =========================================================================
+       5-SECOND UNDO TOAST
+       ========================================================================= -->
+  <div id="undoToast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 hidden items-center gap-3 px-4 py-3 bg-stone-900 text-white rounded-2xl border-2 border-stone-700 shadow-[4px_4px_0px_#FF553E] text-xs sm:text-sm font-semibold fade-in">
+    <i class="fas fa-trash-can text-orange-400"></i>
+    <span id="undoToastText">Đã xóa checklist</span>
+    <button id="btnUndoDelete" class="px-3 py-1 bg-orange-600 hover:bg-orange-500 text-white rounded-xl font-bold transition">Hoàn tác</button>
   </div>
 
   <script src="checklist.js"></script>
