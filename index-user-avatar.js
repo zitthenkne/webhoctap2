@@ -1,6 +1,7 @@
 // index-user-avatar.js
 // Hiển thị avatar động vật + màu nền từ Firestore lên index.html
 import { auth, db } from './core/firebase-init.js';
+import { onSessionUser } from './core/auth-session.js';
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
 
@@ -15,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('user-name')
   ];
 
-  onAuthStateChanged(auth, async user => {
+  onSessionUser(async user => {
     if (user) {
       let displayName = user.displayName || user.email.split('@')[0] || 'Khách';
       let avatarBgColor = '#D8BFD8';

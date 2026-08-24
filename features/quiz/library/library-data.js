@@ -4,6 +4,7 @@
 // Tách từ quiz-library-controller.js — logic giữ nguyên, chỉ đổi truy cập trạng thái sang S.xxx.
 
 import { auth, db } from '../../../core/firebase-init.js';
+import { sessionUser } from '../../../core/auth-session.js';
 import {
     doc, collection, addDoc, query, where, getDocs,
     orderBy, limit, startAfter, updateDoc, runTransaction
@@ -133,7 +134,7 @@ const authReadyPromise = new Promise(resolve => {
 // === TẢI VÀ RENDER THƯ VIỆN ===
 export async function loadAndDisplayLibrary(page = 1) {
     if (typeof page !== 'number') page = 1;
-    let user = auth.currentUser;
+    let user = sessionUser();
     const quizListContainer = document.getElementById('quiz-list-container');
     if (!quizListContainer) return;
 
@@ -141,7 +142,7 @@ export async function loadAndDisplayLibrary(page = 1) {
         // Auth chưa xác định xong → hiện skeleton trong lúc chờ, rồi kiểm tra lại
         renderLibrarySkeleton(quizListContainer);
         await authReadyPromise;
-        user = auth.currentUser;
+        user = sessionUser();
     }
 
     if (!user) {
@@ -247,7 +248,7 @@ function applyQuizMeta(list, purge = true) {
  * thư viện kế tiếp sẽ vẽ lại dữ liệu CŨ từ cache và trông như thao tác vừa rồi không ăn.
  */
 export function persistLibraryCache() {
-    const user = auth.currentUser;
+    const user = sessionUser();
     if (!user || !S.isLibraryFullyLoaded) return;
     S.libraryMutationSeq++;
     writeMetaCache(user.uid, S.userQuizSets);
@@ -341,7 +342,7 @@ export function loadLibraryChunk(userId) {
 // những thao tác cần dữ liệu đầy đủ trong khi cuốn chiếu mới chỉ tải vài cụm).
 export async function ensureFullLibraryLoaded() {
     if (S.isLibraryFullyLoaded) return;
-    const user = auth.currentUser;
+    const user = sessionUser();
     if (!user) return;
     await loadAllLibraryInBackground(user.uid); // tải toàn bộ metadata + set cờ + render lại
 }

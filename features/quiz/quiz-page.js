@@ -16,6 +16,7 @@
 //   quiz-session.js       — tải bộ đề, bắt đầu/khôi phục phiên, đếm giờ, nộp bài, luyện tập lại
 
 import { auth } from '../../core/firebase-init.js';
+import { onSessionUser } from '../../core/auth-session.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
 import { showConfirm } from '../../core/utils.js';
 import { setupQuestionEditor } from './quiz-editor.js';
@@ -60,7 +61,7 @@ function setupLastAttemptStat() {
     const subEl = document.getElementById('stat-last-attempt-sub');
     if (!valueEl) return;
     const quizId = new URLSearchParams(window.location.search).get('id');
-    onAuthStateChanged(auth, (user) => {
+    onSessionUser((user) => {
         valueEl.classList.remove('skeleton-line');
         if (!user || !quizId) {
             valueEl.textContent = '—';

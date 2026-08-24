@@ -164,7 +164,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
 export function fmtDt(v) {
     const m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/);
     if (!m) return '';
-    return (m[4] ? `${m[4]}:${m[5]} ` : '') + `${m[3]}/${m[2]}/${m[1]}`;
+    return `${m[3]}/${m[2]}/${m[1]}` + (m[4] ? ` ${m[4]}:${m[5]}` : '');
 }
 
 /* ---------- hiển thị trên trang xem / in ---------- */
@@ -175,7 +175,7 @@ function cardHtml(c) {
     const rows = (c.items || []).filter(i => String(i.v ?? '').trim()).map(i => {
         const f = flagOf(i);
         const ref = refText(i.lo, i.hi);
-        return `<tr class="${f ? 'cls-abn' : ''}">
+        return `<tr class="${f ? 'cls-abn is-' + f : ''}">
             <td class="cls-n">${esc(i.n)}</td>
             <td class="cls-v"><b>${esc(i.v)}</b>${f ? ` <span class="cls-flag cls-${f}">${FLAG_MARK[f]}</span>` : ''}</td>
             <td class="cls-u">${esc(i.u || '')}</td>
@@ -210,18 +210,25 @@ export function clsToHtml(list) {
     return cards.length ? cards.map(cardHtml).join('') : '';
 }
 
+/** Ban chu cua cac phieu - theo mau benh an: ten phieu, ngay lay mau, roi tung chi so */
 export function clsToText(list) {
-    return (list || []).filter(c => !clsIsEmpty(c)).map(c => {
-        const lines = [`* ${c.name || 'Phiếu cận lâm sàng'}${c.dt ? ' (' + fmtDt(c.dt) + ')' : ''}`];
+    const cards = (list || []).filter(c => !clsIsEmpty(c));
+    return cards.map((c, idx) => {
+        const lines = [`${idx + 1}. ${c.name || 'Phiếu cận lâm sàng'}`];
+        if (c.dt) lines.push(`Ngày lấy mẫu: ${fmtDt(c.dt)}`);
         (c.items || []).filter(i => String(i.v ?? '').trim()).forEach(i => {
             const f = flagOf(i);
             const ref = refText(i.lo, i.hi);
-            lines.push(`  - ${i.n}: ${i.v}${i.u ? ' ' + i.u : ''}${f ? ' ' + FLAG_MARK[f] : ''}${ref ? ` (TC: ${ref})` : ''}`);
+            lines.push(`* ${i.n}: ${i.v}${i.u ? ' ' + i.u : ''}`
+                + (ref ? `  (tham chiếu ${ref})` : '') + (f ? '  ' + FLAG_MARK[f] : ''));
         });
-        if (String(c.note || '').trim()) lines.push('  ' + String(c.note).trim().replace(/\n/g, '\n  '));
-        (c.images || []).forEach(im => im.url && lines.push(`  [Ảnh] ${im.caption || ''} ${im.url}`.trimEnd()));
+        String(c.note || '').trim().split('\n').map(x => x.trim()).filter(Boolean)
+            .forEach((x, k) => lines.push(k === 0 ? `* Mô tả / Kết luận: ${x}` : `   ${x}`));
+        (c.images || []).filter(im => im.url).forEach((im, k) => {
+            lines.push(`* Hình ${k + 1}${im.caption ? ' — ' + im.caption : ''}: ${im.url}`);
+        });
         return lines.join('\n');
-    }).join('\n');
+    }).join('\n\n');
 }
 
 /** Bảng + ảnh cho file Word (thẻ đơn giản để Word đọc được) */

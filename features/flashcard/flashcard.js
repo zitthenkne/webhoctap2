@@ -9,6 +9,7 @@
 //   khóa theo text câu hỏi) và tự đồng bộ lên cloud khi đã đăng nhập.
 
 import { db, auth } from '../../core/firebase-init.js';
+import { onSessionUser } from '../../core/auth-session.js';
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
 import { showToast, showConfirm } from '../../core/utils.js';
@@ -1043,7 +1044,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('pagehide', stopSpeak);
     document.addEventListener('visibilitychange', () => { if (document.hidden) stopSpeak(); });
 
-    onAuthStateChanged(auth, async (user) => {
+    onSessionUser(async (user) => {
         S.uid = user ? user.uid : null;
         if (S.uid && quizId) {
             try { await syncPullStudy(S.uid, quizId, { preferCloud: false }); } catch (e) {}

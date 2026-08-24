@@ -11,6 +11,7 @@
 // dữ liệu mới từ server về sau sẽ vẽ đè.
 
 import { auth, db } from '../../../core/firebase-init.js';
+import { sessionUser } from '../../../core/auth-session.js';
 import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 
 // Các trường thư viện thật sự dùng tới (KHÔNG có `questions`)
@@ -94,7 +95,7 @@ async function fetchViaSdk(uid) {
  * @returns {Promise<Array>} danh sách metadata (chưa lọc `deleted`)
  */
 export async function fetchAllQuizMeta(uid) {
-    const user = auth.currentUser;
+    const user = sessionUser();
     const projectId = db && db.app && db.app.options ? db.app.options.projectId : null;
     if (!user || !projectId || typeof fetch !== 'function') return fetchViaSdk(uid);
 

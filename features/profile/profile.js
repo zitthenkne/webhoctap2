@@ -1,4 +1,5 @@
 import { auth, db } from '../../core/firebase-init.js';
+import { forgetSession } from '../../core/auth-session.js';
 import { updateProfile, updatePassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
 import { doc, updateDoc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { showConfirm } from '../../core/utils.js';
@@ -317,5 +318,6 @@ logoutBtn.onclick = async () => {
     });
     if (!ok) return;
     await signOut(auth);
+    forgetSession();
     window.location.href = '../../index.html';
 };

@@ -3,6 +3,7 @@
 // Điều phối SPA tab navigation, quản lý Auth state và kết nối các module chức năng
 
 import { auth, db } from './core/firebase-init.js';
+import { onSessionUser, forgetSession } from './core/auth-session.js';
 import { onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
 import { doc, setDoc, collection, query, where, getDocs, getDoc, deleteDoc, serverTimestamp, orderBy } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { showToast, showConfirm } from './core/utils.js';
@@ -134,7 +135,7 @@ function showContent(targetId, title = 'Dashboard') {
 }
 
 // --- QUẢN LÝ THÀNH VIÊN & AUTH STATE ---
-onAuthStateChanged(auth, user => {
+onSessionUser(user => {
     if (user) {
         const displayName = user.displayName || user.email.split('@')[0];
         const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=FF69B4&color=fff`;
@@ -193,6 +194,7 @@ async function handleLogout() {
     });
     if (ok) {
         await signOut(auth);
+        forgetSession();
         showToast('Đã đăng xuất!', 'info');
     }
 }

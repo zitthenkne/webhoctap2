@@ -18,9 +18,110 @@
         .filter-chip:hover { background: #fdf2f8; }
         .filter-chip.active { background: #ec4899; border-color: #ec4899; color: #fff; box-shadow: 0 4px 12px #f9a8d4aa; }
         #filter-chips::-webkit-scrollbar, .overflow-x-auto::-webkit-scrollbar { display: none; }
-        .rec-card { animation: cardIn .25s ease-out both; }
-        @keyframes cardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-    </style>
+        .rec-card {
+            position: relative; display: flex; flex-direction: column;
+            background: #fff; border: 1px solid #f1f0f4; border-radius: 20px; overflow: visible;
+            box-shadow: 0 1px 3px rgba(17, 24, 39, .05);
+            transition: transform .18s, box-shadow .18s, border-color .18s;
+        }
+        .rec-card:hover { transform: translateY(-3px); border-color: #e9e7ef; box-shadow: 0 14px 30px rgba(17, 24, 39, .1); }
+        .rc-body { padding: 16px 16px 12px; display: flex; flex-direction: column; gap: 10px; flex: 1; cursor: pointer; }
+        .rc-top { display: flex; align-items: flex-start; gap: 11px; }
+        .rc-avatar {
+            width: 48px; height: 48px; border-radius: 16px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-weight: 800; font-size: 19px; letter-spacing: .5px;
+            background: var(--sex, linear-gradient(135deg,#c4b5fd,#a78bfa));
+            box-shadow: 0 5px 14px color-mix(in srgb, var(--sex-ink, #a78bfa) 35%, transparent);
+        }
+        .rc-meta i { margin-right: 5px; color: var(--sex-ink, #9ca3af); font-size: 11px; }
+        .rc-chip.kind { background: #f6f6f9; color: var(--kind-ink, #6b7280); border-color: transparent; }
+        .rc-id { min-width: 0; flex: 1; }
+        .rc-name {
+            font-weight: 800; color: #1f2937; font-size: 15px; line-height: 1.3;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .rc-meta { font-size: 12px; color: #9ca3af; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rc-state {
+            flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+            font-size: 10px; font-weight: 800; border-radius: 9999px; padding: 3px 8px;
+        }
+        .rc-state.done { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
+        .rc-state.draft { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+
+        .rc-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+        .rc-chip {
+            display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700;
+            border-radius: 9999px; padding: 3px 9px; background: #f9fafb; color: #6b7280; border: 1px solid #f0f1f3;
+        }
+        .rc-chip.kind { background: var(--kind-soft, #fdf2f8); color: var(--kind-ink, #db2777); border-color: transparent; }
+        .rc-chip.folder { background: #f5f3ff; color: #6d28d9; border-color: transparent; }
+
+        .rc-lines { display: flex; flex-direction: column; gap: 5px; }
+        .rc-line {
+            font-size: 12.5px; color: #4b5563; line-height: 1.45;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .rc-line .lbl {
+            display: inline-block; font-size: 9.5px; font-weight: 800; letter-spacing: .02em;
+            border-radius: 6px; padding: 1px 6px; margin-right: 6px; vertical-align: 1px;
+        }
+        .rc-line .lbl.ldvv { background: #eff6ff; color: #2563eb; }
+        .rc-line .lbl.cd { background: #fdf2f8; color: #db2777; }
+        .rc-line.empty { color: #d1d5db; font-style: italic; }
+        .rc-chip.hosp { background: #ecfeff; color: #0e7490; border-color: transparent; }
+        .rc-foot { display: flex; align-items: center; gap: 10px; margin-top: auto; }
+        .rc-ring { position: relative; width: 38px; height: 38px; flex-shrink: 0; }
+        .rc-ring svg { transform: rotate(-90deg); }
+        .rc-ring .track { stroke: #fce7f3; }
+        .rc-ring .bar { stroke: var(--pct-color, #f472b6); stroke-linecap: round; transition: stroke-dashoffset .6s ease; }
+        .rc-ring span {
+            position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+            font-size: 10px; font-weight: 800; color: var(--pct-color, #db2777);
+        }
+        .rc-time { font-size: 11px; color: #9ca3af; margin-left: auto; white-space: nowrap; }
+        .rc-track-count { font-size: 11px; color: #7c3aed; font-weight: 700; }
+
+        .rc-actions { display: flex; align-items: stretch; border-top: 1px solid #fdf2f8; }
+        .rc-btn {
+            flex: 1; padding: 11px 2px; font-size: 12px; font-weight: 700; background: none; border: 0;
+            cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+            transition: background .15s; color: #6b7280; white-space: nowrap;
+        }
+        .rc-btn i { font-size: 11px; }
+        .rc-btn:hover { background: #fdf2f8; }
+        .rc-btn.view { color: #2563eb; } .rc-btn.view:hover { background: #eff6ff; }
+        .rc-btn.edit { color: #db2777; }
+        .rc-btn.track { color: #7c3aed; } .rc-btn.track:hover { background: #f5f3ff; }
+        .rc-btn.more { flex: 0 0 46px; color: #9ca3af; }
+        .rc-menu {
+            position: absolute; right: 10px; bottom: 46px; z-index: 20; min-width: 190px;
+            background: #fff; border: 1px solid #f3e8f1; border-radius: 14px; padding: 6px;
+            box-shadow: 0 14px 34px rgba(31, 41, 55, .16); display: none;
+        }
+        .rec-card.menu-open .rc-menu { display: block; }
+        .rc-menu button {
+            width: 100%; text-align: left; padding: 9px 11px; border: 0; background: none; cursor: pointer;
+            border-radius: 10px; font-size: 13px; color: #4b5563; display: flex; align-items: center; gap: 9px;
+        }
+        .rc-menu button:hover { background: #fdf2f8; color: #db2777; }
+        .rc-menu button.danger:hover { background: #fef2f2; color: #dc2626; }
+        .rc-menu i { width: 15px; text-align: center; }
+        .folder-chip {
+            display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+            border: 1px solid #eceaf2; background: #fff; color: #6b7280;
+            border-radius: 9999px; padding: 7px 15px; font-size: 13px; font-weight: 700;
+            cursor: pointer; transition: all .15s; flex-shrink: 0;
+        }
+        .folder-chip:hover { border-color: #f9a8d4; color: #db2777; }
+        .folder-chip.active { background: #ec4899; border-color: #ec4899; color: #fff; box-shadow: 0 4px 12px rgba(236,72,153,.28); }
+        .folder-chip .fc-count {
+            font-size: 10px; font-weight: 800; background: #f6f6f9; color: #6b7280;
+            border-radius: 9999px; padding: 1px 7px;
+        }
+        .folder-chip.active .fc-count { background: rgba(255,255,255,.25); color: #fff; }
+        .folder-chip.is-drop { background: #7c3aed; border-color: #7c3aed; color: #fff; transform: scale(1.05); }
+</style>
 </head>
 <body class="flex h-screen bg-gray-50 text-gray-700 text-sm">
     <!-- Mobile Top Bar with Hamburger -->
@@ -116,6 +217,15 @@
                         </div>
                     </div>
 
+                    <div class="mb-4">
+                        <div class="flex items-center justify-between gap-2 mb-2">
+                            <span class="text-xs font-bold text-gray-500 uppercase tracking-wide"><i class="fas fa-folder-open text-pink-400 mr-1"></i> Đợt thực hành</span>
+                            <button id="folder-new" class="text-xs font-semibold text-pink-600 hover:text-pink-700 flex items-center gap-1"><i class="fas fa-plus"></i> Thư mục mới</button>
+                        </div>
+                        <div id="folder-chips" class="flex items-center gap-2 overflow-x-auto pb-1" style="scrollbar-width:none"></div>
+                        <div id="folder-info" class="hidden mt-2 text-xs text-gray-500 bg-pink-50/70 border border-pink-100 rounded-xl px-3 py-2 flex items-center gap-2 flex-wrap"></div>
+                    </div>
+
                     <div class="flex items-center gap-2 mb-4 overflow-x-auto pb-1 -mx-1 px-1" style="scrollbar-width:none">
                         <div id="filter-chips" class="flex items-center gap-2 flex-shrink-0">
                             <button class="filter-chip active" data-filter="all">Tất cả</button>
@@ -134,7 +244,50 @@
                     </div>
                 </div>
             </div>
-            <div id="toast-container" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center space-y-2 pointer-events-none"></div>
+            <div id="move-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="absolute inset-0 bg-black/40" data-move-close></div>
+        <div class="relative bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl border border-pink-100 p-5 max-h-[85vh] overflow-y-auto">
+            <h3 class="text-lg font-extrabold text-pink-600 mb-1 flex items-center gap-2"><i class="fas fa-folder-tree"></i> Chuyển vào thư mục</h3>
+            <p id="move-subject" class="text-xs text-gray-400 mb-3"></p>
+            <div id="move-list" class="flex flex-col gap-2"></div>
+            <div class="flex items-center gap-2 mt-4">
+                <button id="move-new" class="mr-auto text-sm font-semibold text-pink-600 hover:text-pink-700"><i class="fas fa-plus mr-1"></i>Thư mục mới</button>
+                <button class="px-4 py-2.5 rounded-xl border-2 border-pink-100 text-gray-500 font-semibold" data-move-close>Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="folder-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="absolute inset-0 bg-black/40" data-folder-close></div>
+        <div class="relative bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl border border-pink-100 p-5 max-h-[90vh] overflow-y-auto">
+            <h3 class="text-lg font-extrabold text-pink-600 mb-3 flex items-center gap-2"><i class="fas fa-folder-plus"></i> <span id="folder-modal-title">Thư mục đợt thực hành</span></h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label class="text-xs font-semibold text-gray-500 sm:col-span-2">Tên đợt
+                    <input id="folder-name" type="text" class="mt-1 w-full border-2 border-pink-100 rounded-xl px-3 py-2 text-base text-gray-700 focus:outline-none focus:ring-2 focus:ring-pink-200" placeholder="vd: Lâm sàng Nội 1 – đợt 2">
+                </label>
+                <label class="text-xs font-semibold text-gray-500">Khoa
+                    <input id="folder-dept" type="text" class="mt-1 w-full border-2 border-pink-100 rounded-xl px-3 py-2 text-base text-gray-700 focus:outline-none focus:ring-2 focus:ring-pink-200" placeholder="vd: Khoa Nội tiêu hóa">
+                </label>
+                <label class="text-xs font-semibold text-gray-500">Bệnh viện
+                    <input id="folder-hospital" type="text" class="mt-1 w-full border-2 border-pink-100 rounded-xl px-3 py-2 text-base text-gray-700 focus:outline-none focus:ring-2 focus:ring-pink-200" placeholder="vd: BV Chợ Rẫy">
+                </label>
+                <label class="text-xs font-semibold text-gray-500">Từ ngày
+                    <input id="folder-from" type="date" class="mt-1 w-full border-2 border-pink-100 rounded-xl px-3 py-2 text-base text-gray-700 focus:outline-none focus:ring-2 focus:ring-pink-200">
+                </label>
+                <label class="text-xs font-semibold text-gray-500">Đến ngày
+                    <input id="folder-to" type="date" class="mt-1 w-full border-2 border-pink-100 rounded-xl px-3 py-2 text-base text-gray-700 focus:outline-none focus:ring-2 focus:ring-pink-200">
+                </label>
+            </div>
+            <p class="text-[11px] text-gray-400 mt-2">Bệnh án tạo trong thư mục này sẽ tự điền sẵn khoa và bệnh viện.</p>
+            <div class="flex items-center gap-2 mt-4">
+                <button id="folder-delete" class="hidden mr-auto text-sm font-semibold text-red-500 hover:text-red-600"><i class="fas fa-trash mr-1"></i>Xóa thư mục</button>
+                <button class="px-4 py-2.5 rounded-xl border-2 border-pink-100 text-gray-500 font-semibold" data-folder-close>Hủy</button>
+                <button id="folder-save" class="px-5 py-2.5 rounded-xl bg-pink-500 text-white font-bold shadow-lg shadow-pink-200 hover:bg-pink-600">Lưu</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center space-y-2 pointer-events-none"></div>
         </main>
         <footer class="bg-white/80 backdrop-blur-lg text-gray-600 text-center p-3 border-t border-pink-100 flex-shrink-0 rounded-t-2xl shadow-inner text-xs md:text-base">
             <p>&copy; 2025 Zitthenk - Y23C - UMP.</p>

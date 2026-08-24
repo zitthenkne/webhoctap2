@@ -3,6 +3,7 @@
 // Tách từ quiz-page.js — logic giữ nguyên.
 
 import { auth } from '../../../core/firebase-init.js';
+import { sessionUser, onSessionUser } from '../../../core/auth-session.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
 import { studyKeys, syncPullStudy, scheduleCloudPush } from '../quiz-study-store.js';
 import { state } from '../quiz-state.js';
@@ -13,7 +14,8 @@ export function currentQuizId() {
 }
 // Gọi sau mỗi lần ghi chú / đánh dấu / annotation thay đổi localStorage.
 export function pushStudyToCloud() {
-    const uid = auth.currentUser && auth.currentUser.uid;
+    const u = sessionUser();
+    const uid = u && u.uid;
     if (uid) scheduleCloudPush(uid, currentQuizId());
 }
 // Lưu/bỏ đánh dấu BỀN theo nội dung câu hỏi (để trang Lịch sử đọc lại được).
@@ -77,6 +79,7 @@ export function pullStudyFromCloud(quizId) {
             document.dispatchEvent(new CustomEvent('quiz-study-pulled'));
         });
     };
-    if (auth.currentUser) run(auth.currentUser.uid);
-    else onAuthStateChanged(auth, (u) => { if (u) run(u.uid); });
+    const u = sessionUser();
+    if (u) run(u.uid);
+    else onSessionUser((x) => { if (x) run(x.uid); });
 }

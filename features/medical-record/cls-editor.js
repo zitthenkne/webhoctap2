@@ -171,7 +171,11 @@ function refreshCard(i) {
         const keep = focus?.closest?.('.cls-row');
         const j = keep?.dataset.j, k = focus?.dataset?.k;
         el.outerHTML = cardHtml(c, i);
-        if (j != null) list.querySelector(`.cls-c[data-i="${i}"] .cls-row[data-j="${j}"] [data-k="${k}"]`)?.focus();
+        if (j == null) return;
+        const back = list.querySelector(`.cls-c[data-i="${i}"] .cls-row[data-j="${j}"] [data-k="${k}"]`);
+        if (!back) return;
+        back.focus();
+        back.setSelectionRange?.(back.value.length, back.value.length);   // giữ con trỏ ở cuối, khỏi nhảy về đầu
     }
 }
 

@@ -4,6 +4,9 @@ import {
     listLocal, sortRecords, syncFromCloud, deleteRecord, saveRecord,
     isSignedIn, exportJson, importJson
 } from '../medical-record/record-store.js';
+import {
+    listFolders, saveFolder, deleteFolder, getFolder, newFolderId, mergeFolders, folderMeta
+} from '../medical-record/folder-store.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -49,18 +52,28 @@ function setupChrome() {
     });
 }
 
-/* ================= Tính % hoàn thiện ================= */
-const SKIP_KEYS = new Set(['id', 'lastUpdated', 'status', '_synced']);
+/* ================= Tính % hoàn thiện =================
+   Đếm theo danh sách mục bắt buộc của một bệnh án học thuật, không đếm theo
+   số trường có sẵn trong dữ liệu — bản ghi thưa mà vẫn 100% là vô nghĩa. */
+const SCORE_PATHS = [
+    'hanhChinh.hoTen', 'hanhChinh.gioiTinh', 'hanhChinh.ngheNghiep', 'hanhChinh.diaChi',
+    'hanhChinh.ngayVaoVien', 'hanhChinh.ngayLamBenhAn', 'hanhChinh.benhVien',
+    'lyDoVaoVien', 'benhSu',
+    'tienSu.noiKhoa', 'tienSu.ngoaiKhoa', 'tienSu.diUng', 'tienSu.thoiQuen', 'tienSu.giaDinh',
+    'khamBenh.sinhTon.mach', 'khamBenh.sinhTon.huyetAp', 'khamBenh.sinhTon.nhietDo', 'khamBenh.sinhTon.nhipTho',
+    'khamBenh.tongTrang', 'khamBenh.tim', 'khamBenh.phoi', 'khamBenh.bung', 'khamBenh.thanKinhCoXuongKhop',
+    'tomTatBenhAn', 'datVanDe', 'chanDoanSoBo', 'chanDoanPhanBiet', 'bienLuanChanDoan',
+    'canLamSangDeNghi', 'chanDoanXacDinh', 'huongDieuTri', 'tienLuong'
+];
+const getPath = (o, p) => p.split('.').reduce((x, k) => (x == null ? undefined : x[k]), o);
+
 function completeness(rec) {
-    let total = 0, filled = 0;
-    (function walk(o) {
-        for (const [k, v] of Object.entries(o || {})) {
-            if (SKIP_KEYS.has(k)) continue;
-            if (v && typeof v === 'object') walk(v);
-            else { total++; if (String(v ?? '').trim()) filled++; }
-        }
-    })(rec);
-    return total ? Math.round(filled / total * 100) : 0;
+    let filled = SCORE_PATHS.filter(p => String(getPath(rec, p) ?? '').trim()).length;
+    let total = SCORE_PATHS.length + 3;                       // + tuổi, lược qua cơ quan, cận lâm sàng
+    if (String(rec.hanhChinh?.tuoi ?? rec.hanhChinh?.namSinh ?? '').trim()) filled++;
+    if (Object.values(rec.luocQuaCoQuan || {}).some(v => String(v ?? '').trim())) filled++;
+    if ((rec.canLamSang || []).length) filled++;
+    return Math.min(100, Math.round(filled / total * 100));
 }
 
 /* ================= Thời gian tương đối ================= */
@@ -83,11 +96,13 @@ let records = [];
 let filter = 'all';
 let keyword = '';
 let sortMode = 'new';
+let folderId = '';   // '' = tất cả đợt thực hành
 
 const isDone = (r) => (r.status || 'Hoàn thành') === 'Hoàn thành';
 
 function visibleRecords() {
     let out = records.filter(r => {
+        if (folderId && String(r.thuMuc?.id || '') !== String(folderId)) return false;
         if (filter === 'done' && !isDone(r)) return false;
         if (filter === 'draft' && isDone(r)) return false;
         if (!keyword) return true;
@@ -130,52 +145,105 @@ function emptyState() {
         </div>`;
 }
 
+const KINDS = {
+    noi: ['Nội khoa', 'linear-gradient(135deg,#f472b6,#a78bfa)', '#fdf2f8', '#db2777'],
+    ngoai: ['Ngoại khoa', 'linear-gradient(135deg,#60a5fa,#6366f1)', '#eff6ff', '#2563eb'],
+    san: ['Sản khoa', 'linear-gradient(135deg,#fb7185,#f472b6)', '#fff1f2', '#e11d48'],
+    nhi: ['Nhi khoa', 'linear-gradient(135deg,#fbbf24,#fb923c)', '#fffbeb', '#c2410c'],
+    cc: ['Cấp cứu', 'linear-gradient(135deg,#f87171,#ef4444)', '#fef2f2', '#dc2626']
+};
+
+function ringHtml(pct) {
+    const color = pct >= 80 ? '#10b981' : pct >= 40 ? '#f59e0b' : '#f472b6';
+    const r = 16, c = 2 * Math.PI * r;
+    return `<span class="rc-ring" style="--pct-color:${color}" title="Mức độ hoàn thiện">
+        <svg width="38" height="38" viewBox="0 0 38 38">
+            <circle class="track" cx="19" cy="19" r="${r}" fill="none" stroke-width="4"></circle>
+            <circle class="bar" cx="19" cy="19" r="${r}" fill="none" stroke-width="4"
+                stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${(c * (1 - pct / 100)).toFixed(1)}"></circle>
+        </svg><span>${pct}%</span></span>`;
+}
+
 function cardHtml(rec) {
-    const pct = completeness(rec);
-    const tone = pct >= 80 ? 'green' : pct >= 40 ? 'amber' : 'pink';
-    const pctText = tone === 'green' ? 'text-green-500' : tone === 'amber' ? 'text-amber-500' : 'text-pink-400';
-    const pctBar = tone === 'green' ? 'bg-green-400' : tone === 'amber' ? 'bg-amber-400' : 'bg-pink-400';
-    const badge = isDone(rec)
-        ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 text-green-600 border border-green-200 flex-shrink-0"><i class="fas fa-check-circle text-[10px]"></i>Hoàn thành</span>`
-        : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-600 border border-amber-200 flex-shrink-0"><i class="fas fa-pen text-[10px]"></i>Đang viết</span>`;
-    const hoTen = esc(rec.hanhChinh?.hoTen) || 'Chưa đặt tên';
-    const meta = [esc(rec.hanhChinh?.tuoi) && esc(rec.hanhChinh?.tuoi) + ' tuổi', esc(rec.hanhChinh?.gioiTinh)].filter(Boolean).join(' · ');
-    const chanDoan = esc(rec.chanDoanXacDinh || rec.chanDoanSoBo || rec.lyDoVaoVien);
-    const phong = esc(rec.hanhChinh?.soPhong || rec.hanhChinh?.roomNumber);
-    const giuong = esc(rec.hanhChinh?.soGiuong || rec.hanhChinh?.bedNumber);
-    const initial = esc((rec.hanhChinh?.hoTen || '?').trim().charAt(0).toUpperCase() || '?');
     const id = esc(rec.id);
+    const h = rec.hanhChinh || {};
+    const [kindName, , kindSoft, kindInk] = KINDS[rec.loaiBenhAn] || KINDS.noi;
+    // Màu thẻ theo giới tính: nữ hồng, nam đỏ
+    const gt = String(h.gioiTinh || '').trim();
+    const isNu = /nữ/i.test(gt), isNam = /nam/i.test(gt);
+    const sexGrad = isNu ? 'linear-gradient(135deg,#f9a8d4,#ec4899)'
+        : isNam ? 'linear-gradient(135deg,#60a5fa,#2563eb)'
+            : 'linear-gradient(135deg,#c4b5fd,#a78bfa)';
+    const sexIcon = isNu ? 'venus' : isNam ? 'mars' : 'genderless';
+    const sexInk = isNu ? '#db2777' : isNam ? '#2563eb' : '#7c3aed';
+    const hoTen = esc(h.hoTen) || 'Chưa đặt tên';
+    const initial = esc((h.hoTen || '?').trim().charAt(0).toUpperCase() || '?');
+
+    const tuoi = esc(h.tuoi) || (h.namSinh ? String(new Date().getFullYear() - parseInt(h.namSinh)) : '');
+    const meta = [tuoi && tuoi + ' tuổi', esc(h.gioiTinh)].filter(Boolean).join(' · ');
+
+    const phong = esc(h.soPhong || h.roomNumber);
+    const giuong = esc(h.soGiuong || h.bedNumber);
+    const noiNam = [phong && 'P.' + phong, giuong && 'G.' + giuong].filter(Boolean).join(' · ');
+
+    const lyDo = esc(rec.lyDoVaoVien);
+    const chanDoan = esc(rec.chanDoanXacDinh || rec.chanDoanSoBo);
+    const track = (rec.theoDoi || []).length;
+    const admit = (() => {
+        const m = String(h.ngayVaoVien || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+        return m ? `${m[3]}/${m[2]}` : '';
+    })();
+    // Bệnh án nằm ngoài thư mục thì phải tự nói rõ ở bệnh viện nào
+    const inFolder = !!rec.thuMuc?.id;
+    const benhVien = esc(h.benhVien);
+
     return `
-        <article class="rec-card group bg-white border border-pink-100 rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-pink-300 transition-all duration-200 flex flex-col overflow-hidden" data-id="${id}">
-            <div class="p-4 flex flex-col gap-3 flex-1 cursor-pointer card-open">
-                <div class="flex items-start gap-3">
-                    <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-pink-400 to-purple-400 text-white font-bold text-lg flex items-center justify-center flex-shrink-0 shadow">${initial}</div>
-                    <div class="min-w-0 flex-1">
-                        <p class="font-bold text-gray-800 truncate leading-tight" title="${hoTen}">${hoTen}</p>
-                        <p class="text-xs text-gray-400 truncate">${meta || '—'}</p>
+        <article draggable="true" class="rec-card group" data-id="${id}"
+            style="--sex:${sexGrad};--sex-ink:${sexInk};--kind-soft:${kindSoft};--kind-ink:${kindInk}">
+            <div class="rc-body card-open">
+                <div class="rc-top">
+                    <div class="rc-avatar">${initial}</div>
+                    <div class="rc-id">
+                        <p class="rc-name" title="${hoTen}">${hoTen}</p>
+                        <p class="rc-meta"><i class="fas fa-${sexIcon}"></i>${meta || '—'}</p>
                     </div>
-                    ${badge}
+                    <span class="rc-state ${isDone(rec) ? 'done' : 'draft'}">
+                        <i class="fas fa-${isDone(rec) ? 'circle-check' : 'pen'}"></i>${isDone(rec) ? 'Hoàn thành' : 'Đang viết'}</span>
                 </div>
-                <p class="text-sm text-gray-600 line-clamp-2 min-h-[2.5rem]" title="${chanDoan}">${chanDoan || '<span class="text-gray-300">Chưa có chẩn đoán</span>'}</p>
-                <div class="mt-auto">
-                    <div class="flex items-center justify-between text-[11px] text-gray-400 mb-1">
-                        <span>Hoàn thiện</span><span class="font-semibold ${pctText}">${pct}%</span>
-                    </div>
-                    <div class="h-1.5 bg-pink-50 rounded-full overflow-hidden">
-                        <div class="h-full rounded-full transition-all duration-500 ${pctBar}" style="width:${pct}%"></div>
-                    </div>
+
+                <div class="rc-chips">
+                    <span class="rc-chip kind"><i class="fas fa-stethoscope"></i>${esc(kindName)}</span>
+                    ${inFolder
+            ? `<span class="rc-chip folder"><i class="fas fa-folder"></i>${esc(rec.thuMuc.ten)}</span>`
+            : (benhVien ? `<span class="rc-chip hosp"><i class="fas fa-hospital"></i>${benhVien}</span>` : '')}
+                    ${noiNam ? `<span class="rc-chip"><i class="fas fa-bed"></i>${noiNam}</span>` : ''}
+                    ${admit ? `<span class="rc-chip"><i class="fas fa-right-to-bracket"></i>Vào viện ${admit}</span>` : ''}
                 </div>
-                <div class="flex items-center gap-3 text-gray-400 text-[11px] flex-wrap">
-                    ${phong ? `<span><i class="fas fa-door-open mr-1"></i>P.${phong}</span>` : ''}
-                    ${giuong ? `<span><i class="fas fa-bed mr-1"></i>G.${giuong}</span>` : ''}
-                    <span class="ml-auto"><i class="far fa-clock mr-1"></i>${timeAgo(rec.lastUpdated)}</span>
+
+                <div class="rc-lines">
+                    <p class="rc-line ${lyDo ? '' : 'empty'}" title="${lyDo}">
+                        <span class="lbl ldvv">Lý do</span>${lyDo || 'Chưa ghi lý do vào viện'}</p>
+                    <p class="rc-line ${chanDoan ? '' : 'empty'}" title="${chanDoan}">
+                        <span class="lbl cd">Chẩn đoán</span>${chanDoan || 'Chưa có chẩn đoán'}</p>
+                </div>
+
+                <div class="rc-foot">
+                    ${ringHtml(completeness(rec))}
+                    ${track ? `<span class="rc-track-count"><i class="fas fa-clipboard-list mr-1"></i>${track} lần theo dõi</span>` : ''}
+                    <span class="rc-time"><i class="far fa-clock mr-1"></i>${timeAgo(rec.lastUpdated)}</span>
                 </div>
             </div>
-            <div class="flex border-t border-pink-50 divide-x divide-pink-50">
-                <button class="view-record flex-1 py-2.5 text-sm font-medium text-blue-600 hover:bg-blue-50 active:scale-95 transition" data-id="${id}"><i class="fas fa-eye mr-1"></i>Xem</button>
-                <button class="edit-record flex-1 py-2.5 text-sm font-medium text-pink-600 hover:bg-pink-50 active:scale-95 transition" data-id="${id}"><i class="fas fa-pen mr-1"></i>Sửa</button>
-                <button class="dup-record px-4 py-2.5 text-sm text-gray-400 hover:bg-gray-50 hover:text-gray-600 active:scale-95 transition" data-id="${id}" title="Nhân bản"><i class="fas fa-copy"></i></button>
-                <button class="delete-record px-4 py-2.5 text-sm text-red-400 hover:bg-red-50 hover:text-red-600 active:scale-95 transition" data-id="${id}" title="Xóa"><i class="fas fa-trash"></i></button>
+
+            <div class="rc-actions">
+                <button class="rc-btn view view-record" data-id="${id}"><i class="fas fa-eye"></i>Xem</button>
+                <button class="rc-btn edit edit-record" data-id="${id}"><i class="fas fa-pen"></i>Sửa</button>
+                <button class="rc-btn track track-record" data-id="${id}"><i class="fas fa-clipboard-list"></i>Theo dõi</button>
+                <button class="rc-btn more menu-record" data-id="${id}" title="Thêm"><i class="fas fa-ellipsis-v"></i></button>
+            </div>
+            <div class="rc-menu">
+                <button class="move-record" data-id="${id}"><i class="fas fa-folder-tree"></i>Chuyển thư mục</button>
+                <button class="dup-record" data-id="${id}"><i class="fas fa-copy"></i>Nhân bản</button>
+                <button class="delete-record danger" data-id="${id}"><i class="fas fa-trash"></i>Xóa bệnh án</button>
             </div>
         </article>`;
 }
@@ -185,7 +253,189 @@ function render() {
     const box = document.getElementById('medical-record-cards');
     const list = visibleRecords();
     box.innerHTML = list.length ? list.map(cardHtml).join('') : emptyState();
+    renderFolders();
     document.getElementById('empty-create')?.addEventListener('click', createNew);
+}
+
+/* ================= Thư mục đợt thực hành ================= */
+function countIn(id) {
+    return records.filter(r => String(r.thuMuc?.id || '') === String(id)).length;
+}
+
+function renderFolders() {
+    const box = document.getElementById('folder-chips');
+    if (!box) return;
+    const folders = mergeFolders(records);
+    const loose = records.filter(r => !r.thuMuc?.id).length;
+    const chip = (id, label, count) =>
+        `<button class="folder-chip${String(folderId) === String(id) ? ' active' : ''}" data-folder="${esc(id)}">
+            <i class="fas fa-${id ? 'folder' : 'layer-group'}"></i>${esc(label)}
+            <span class="fc-count">${count}</span></button>`;
+
+    box.innerHTML = chip('', 'Tất cả', records.length)
+        + folders.map(f => chip(f.id, f.ten || 'Thư mục', countIn(f.id))).join('')
+        + (loose && folders.length ? chip('__none__', 'Chưa xếp', loose) : '');
+
+    const info = document.getElementById('folder-info');
+    const cur = folderId && folderId !== '__none__' ? getFolder(folderId) : null;
+    if (info) {
+        info.classList.toggle('hidden', !cur);
+        if (cur) {
+            info.innerHTML = `<i class="fas fa-circle-info text-pink-400"></i>
+                <b class="text-gray-700">${esc(cur.ten || 'Thư mục')}</b>
+                <span>${esc(folderMeta(cur)) || 'Chưa điền khoa / bệnh viện'}</span>
+                <button id="folder-edit" class="ml-auto text-pink-600 font-semibold hover:underline"><i class="fas fa-pen mr-1"></i>Sửa thư mục</button>`;
+        }
+    }
+}
+
+let editingFolder = null;
+function openFolderModal(f) {
+    editingFolder = f || null;
+    const $ = (id) => document.getElementById(id);
+    $('folder-modal-title').textContent = f ? 'Sửa thư mục đợt thực hành' : 'Thư mục đợt thực hành mới';
+    $('folder-name').value = f?.ten || '';
+    $('folder-dept').value = f?.khoa || '';
+    $('folder-hospital').value = f?.benhVien || '';
+    $('folder-from').value = f?.tuNgay || '';
+    $('folder-to').value = f?.denNgay || '';
+    $('folder-delete').classList.toggle('hidden', !f);
+    $('folder-modal').classList.remove('hidden');
+    $('folder-name').focus();
+}
+const closeFolderModal = () => document.getElementById('folder-modal')?.classList.add('hidden');
+
+function setupFolders() {
+    document.getElementById('folder-new')?.addEventListener('click', () => openFolderModal(null));
+
+    document.getElementById('folder-chips')?.addEventListener('click', (e) => {
+        const chip = e.target.closest('[data-folder]');
+        if (!chip) return;
+        folderId = chip.dataset.folder;
+        renderFolders();
+        render();
+    });
+
+    document.getElementById('folder-info')?.addEventListener('click', (e) => {
+        if (e.target.closest('#folder-edit')) openFolderModal(getFolder(folderId));
+    });
+
+    document.getElementById('folder-modal')?.addEventListener('click', (e) => {
+        if (e.target.closest('[data-folder-close]')) closeFolderModal();
+    });
+
+    document.getElementById('folder-save')?.addEventListener('click', async () => {
+        const $ = (id) => document.getElementById(id);
+        const ten = $('folder-name').value.trim();
+        if (!ten) return showToast('Nhập tên đợt thực hành trước.', 'warning');
+        const f = {
+            id: editingFolder?.id || newFolderId(), ten,
+            khoa: $('folder-dept').value.trim(),
+            benhVien: $('folder-hospital').value.trim(),
+            tuNgay: $('folder-from').value,
+            denNgay: $('folder-to').value
+        };
+        saveFolder(f);
+        if (editingFolder) {
+            for (const r of records.filter(x => String(x.thuMuc?.id) === String(f.id))) {
+                r.thuMuc = { ...f };
+                await saveRecord(r);
+            }
+        }
+        closeFolderModal();
+        folderId = f.id;
+        await reload();
+        showToast(editingFolder ? 'Đã cập nhật thư mục.' : 'Đã tạo thư mục — bệnh án tạo trong đây sẽ tự điền khoa và bệnh viện.', 'success');
+    });
+
+    document.getElementById('folder-delete')?.addEventListener('click', async () => {
+        if (!editingFolder) return;
+        const n = countIn(editingFolder.id);
+        if (n && !confirm(`Thư mục này còn ${n} bệnh án. Xóa thư mục thì bệnh án vẫn còn nhưng không thuộc đợt nào. Tiếp tục?`)) return;
+        for (const r of records.filter(x => String(x.thuMuc?.id) === String(editingFolder.id))) {
+            delete r.thuMuc;
+            await saveRecord(r);
+        }
+        deleteFolder(editingFolder.id);
+        closeFolderModal();
+        folderId = '';
+        await reload();
+        showToast('Đã xóa thư mục.', 'success');
+    });
+}
+
+/** Chuyển một bệnh án vào thư mục (id rỗng = bỏ ra khỏi mọi thư mục) */
+async function moveRecord(recId, toFolderId) {
+    const rec = records.find(r => String(r.id) === String(recId));
+    if (!rec) return;
+    const before = rec.thuMuc ? { ...rec.thuMuc } : null;
+    const f = toFolderId ? getFolder(toFolderId) : null;
+    if (f) rec.thuMuc = { ...f }; else delete rec.thuMuc;
+    await saveRecord(rec);
+    await reload();
+    undoToast(f ? `Đã chuyển vào "${f.ten}".` : 'Đã bỏ khỏi thư mục.', async () => {
+        const back = records.find(r => String(r.id) === String(recId));
+        if (!back) return;
+        if (before) back.thuMuc = before; else delete back.thuMuc;
+        await saveRecord(back);
+        await reload();
+    });
+}
+
+let movingId = null;
+function openMoveModal(recId) {
+    movingId = recId;
+    const rec = records.find(r => String(r.id) === String(recId));
+    const folders = mergeFolders(records);
+    document.getElementById('move-subject').textContent =
+        (rec?.hanhChinh?.hoTen || 'Bệnh án chưa đặt tên')
+        + (rec?.thuMuc?.ten ? ` · đang ở "${rec.thuMuc.ten}"` : ' · chưa xếp thư mục');
+    const cur = String(rec?.thuMuc?.id || '');
+    document.getElementById('move-list').innerHTML =
+        folders.map(f => `<button class="move-opt${cur === String(f.id) ? ' is-current' : ''}" data-move="${esc(f.id)}">
+            <i class="fas fa-folder"></i><span><b>${esc(f.ten || 'Thư mục')}</b><small>${esc(folderMeta(f)) || 'Chưa điền khoa / bệnh viện'}</small></span></button>`).join('')
+        + `<button class="move-opt${cur ? '' : ' is-current'}" data-move="">
+            <i class="fas fa-inbox"></i><span><b>Không thuộc thư mục nào</b><small>Để riêng, không thuộc đợt thực hành</small></span></button>`;
+    document.getElementById('move-modal').classList.remove('hidden');
+}
+const closeMoveModal = () => document.getElementById('move-modal')?.classList.add('hidden');
+
+function setupMove() {
+    document.getElementById('move-modal')?.addEventListener('click', async (e) => {
+        if (e.target.closest('[data-move-close]')) return closeMoveModal();
+        if (e.target.closest('#move-new')) { closeMoveModal(); return openFolderModal(null); }
+        const opt = e.target.closest('[data-move]');
+        if (!opt) return;
+        closeMoveModal();
+        await moveRecord(movingId, opt.dataset.move);
+    });
+
+    const cards = document.getElementById('medical-record-cards');
+    cards?.addEventListener('dragstart', (e) => {
+        const card = e.target.closest('.rec-card');
+        if (!card) return;
+        e.dataTransfer.setData('text/plain', card.dataset.id);
+        e.dataTransfer.effectAllowed = 'move';
+        card.classList.add('is-dragging');
+    });
+    cards?.addEventListener('dragend', (e) => e.target.closest('.rec-card')?.classList.remove('is-dragging'));
+
+    const chips = document.getElementById('folder-chips');
+    chips?.addEventListener('dragover', (e) => {
+        const chip = e.target.closest('[data-folder]');
+        if (!chip || chip.dataset.folder === '__none__') return;
+        e.preventDefault();
+        chip.classList.add('is-drop');
+    });
+    chips?.addEventListener('dragleave', (e) => e.target.closest('[data-folder]')?.classList.remove('is-drop'));
+    chips?.addEventListener('drop', async (e) => {
+        const chip = e.target.closest('[data-folder]');
+        if (!chip || chip.dataset.folder === '__none__') return;
+        e.preventDefault();
+        chip.classList.remove('is-drop');
+        const id = e.dataTransfer.getData('text/plain');
+        if (id) await moveRecord(id, chip.dataset.folder);
+    });
 }
 
 /* ================= Toast hoàn tác ================= */
@@ -206,7 +456,8 @@ function undoToast(message, onUndo, ms = 6000) {
 
 /* ================= Hành động ================= */
 function createNew() {
-    location.href = '../medical-record/tao-benh-an.html?id=' + encodeURIComponent('BA-' + Date.now());
+    const q = folderId && folderId !== '__none__' ? '&folder=' + encodeURIComponent(folderId) : '';
+    location.href = '../medical-record/tao-benh-an.html?id=' + encodeURIComponent('BA-' + Date.now()) + q;
 }
 
 function updateSyncStatus() {
@@ -289,10 +540,23 @@ function setupActions() {
         }
         const id = btn.dataset.id;
 
+        if (btn.classList.contains('menu-record')) {
+            const card = btn.closest('.rec-card');
+            const wasOpen = card.classList.contains('menu-open');
+            document.querySelectorAll('.rec-card.menu-open').forEach(c => c.classList.remove('menu-open'));
+            card.classList.toggle('menu-open', !wasOpen);
+            return;
+        }
+        btn.closest('.rec-card')?.classList.remove('menu-open');
+
         if (btn.classList.contains('view-record')) {
             location.href = '../medical-record/xem-benh-an.html?id=' + encodeURIComponent(id);
         } else if (btn.classList.contains('edit-record')) {
             location.href = '../medical-record/tao-benh-an.html?id=' + encodeURIComponent(id);
+        } else if (btn.classList.contains('move-record')) {
+            openMoveModal(id);
+        } else if (btn.classList.contains('track-record')) {
+            location.href = '../medical-record/tao-benh-an.html?tab=theo-doi&id=' + encodeURIComponent(id);
         } else if (btn.classList.contains('dup-record')) {
             const src = records.find(r => String(r.id) === String(id));
             if (!src) return;
@@ -322,4 +586,11 @@ function setupActions() {
 /* ================= Khởi động ================= */
 setupChrome();
 setupActions();
+setupFolders();
+setupMove();
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.menu-record')) {
+        document.querySelectorAll('.rec-card.menu-open').forEach(c => c.classList.remove('menu-open'));
+    }
+});
 reload({ cloud: true });

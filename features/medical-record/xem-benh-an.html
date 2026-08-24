@@ -56,6 +56,62 @@
             body { font-size: 11pt; color: #000; line-height: 1.45; }
         }
         .print-head, .print-sign { display: none; }
+
+        /* ====== Phiếu cận lâm sàng ====== */
+        .cls-card {
+            background: #fff; border: 1px solid #fbcfe8; border-radius: 14px;
+            padding: 12px 14px; margin-bottom: 12px;
+        }
+        .cls-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+        .cls-title { font-weight: 800; color: #be185d; }
+        .cls-group { font-size: 11px; font-weight: 700; color: #7c3aed; background: #f5f3ff; border-radius: 9999px; padding: 2px 9px; }
+        .cls-date { font-size: 12px; color: #9ca3af; margin-left: auto; }
+        .cls-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .cls-table th {
+            text-align: left; font-size: 10px; text-transform: uppercase; color: #9ca3af;
+            font-weight: 700; padding: 2px 6px; border-bottom: 1px solid #fce7f3;
+        }
+        .cls-table td { padding: 4px 6px; border-bottom: 1px solid #fdf2f8; }
+        .cls-table .cls-v { white-space: nowrap; }
+        .cls-table .cls-u, .cls-table .cls-r { color: #9ca3af; font-size: 12px; white-space: nowrap; }
+        .cls-abn .cls-v b, .cls-flag { font-weight: 800; }
+        tr.cls-abn.is-high .cls-v b, tr.cls-abn.is-high .cls-flag { color: #dc2626; }
+        tr.cls-abn.is-low .cls-v b, tr.cls-abn.is-low .cls-flag { color: #2563eb; }
+        tr.cls-abn.is-high { background: #fff7f7; }
+        tr.cls-abn.is-low { background: #f7faff; }
+        .cls-note { margin-top: 8px; font-size: 13px; color: #374151; white-space: pre-line; }
+        .cls-imgs { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+        .cls-fig { margin: 0; width: 160px; }
+        .cls-img {
+            width: 160px; height: 120px; object-fit: cover; border-radius: 10px;
+            border: 1px solid #fbcfe8; cursor: zoom-in; display: block;
+        }
+        .cls-fig figcaption { font-size: 11px; color: #6b7280; margin-top: 3px; text-align: center; }
+
+        /* Xem ảnh phóng to */
+        .lightbox {
+            position: fixed; inset: 0; z-index: 70; background: #000000e6;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 20px;
+        }
+        .lightbox.hidden { display: none; }
+        .lightbox img { max-width: 100%; max-height: 85vh; object-fit: contain; border-radius: 8px; }
+        .lightbox-cap { color: #fff; font-size: 13px; text-align: center; }
+        .lightbox-x {
+            position: absolute; top: 14px; right: 16px; background: #ffffff22; color: #fff;
+            border: 0; border-radius: 9999px; width: 40px; height: 40px; font-size: 18px; cursor: pointer;
+        }
+
+        @media print {
+            .cls-card { border: 1px solid #999 !important; background: #fff !important; break-inside: avoid; padding: 6pt 8pt !important; }
+            .cls-title { color: #000 !important; }
+            .cls-group { display: none; }
+            .cls-table th, .cls-table td { border-bottom: 1px solid #ccc !important; }
+            .cls-abn .cls-v b { color: #000 !important; text-decoration: underline; }
+            tr.cls-abn { background: #f2f2f2 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .cls-fig { width: 46%; }
+            .cls-img { width: 100%; height: auto; max-height: 80mm; object-fit: contain; break-inside: avoid; }
+            .lightbox { display: none !important; }
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-[#FCE4EC] via-[#FDF2F8] to-[#EDE9FE] min-h-screen">
@@ -71,6 +127,7 @@
         <div class="hidden sm:flex items-center gap-2">
             <a id="edit-record-btn" href="#" class="hidden px-3 py-2 border border-pink-200 text-pink-500 rounded-xl hover:bg-pink-50 transition text-sm font-semibold"><i class="fas fa-pen mr-1"></i>Sửa</a>
             <button id="copy-btn" class="px-3 py-2 border border-pink-200 text-pink-500 rounded-xl hover:bg-pink-50 transition text-sm font-semibold"><i class="fas fa-copy mr-1"></i>Sao chép</button>
+            <button id="txt-btn" class="px-3 py-2 border border-pink-200 text-pink-500 rounded-xl hover:bg-pink-50 transition text-sm font-semibold" title="Bản chữ đầy đủ, dán thẳng vào Google Docs"><i class="fas fa-file-lines mr-1"></i>Tải .txt</button>
             <button id="word-btn" class="px-3 py-2 border border-pink-200 text-pink-500 rounded-xl hover:bg-pink-50 transition text-sm font-semibold"><i class="fas fa-file-word mr-1"></i>Tải .doc</button>
             <button id="share-btn" class="hidden px-3 py-2 border border-pink-200 text-pink-500 rounded-xl hover:bg-pink-50 transition text-sm font-semibold"><i class="fas fa-share-nodes mr-1"></i>Chia sẻ</button>
             <button id="print-btn" class="px-4 py-2 bg-pink-500 text-white rounded-xl hover:bg-pink-600 active:scale-95 transition text-sm font-bold shadow-lg shadow-pink-200"><i class="fas fa-print mr-1"></i>In / PDF</button>
@@ -108,9 +165,10 @@
 
 <!-- Thanh công cụ điện thoại -->
 <div id="mobile-actions" class="mobile-bar no-print sm:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-pink-100 px-2 pt-2 translate-y-full transition-transform duration-200">
-    <div class="grid grid-cols-4 gap-1.5">
+    <div class="grid grid-cols-5 gap-1.5">
         <button data-act="edit" class="flex flex-col items-center gap-1 py-2 rounded-xl hover:bg-pink-50 text-pink-500 text-[11px] font-semibold"><i class="fas fa-pen text-base"></i>Sửa</button>
         <button data-act="copy" class="flex flex-col items-center gap-1 py-2 rounded-xl hover:bg-pink-50 text-pink-500 text-[11px] font-semibold"><i class="fas fa-copy text-base"></i>Sao chép</button>
+        <button data-act="txt" class="flex flex-col items-center gap-1 py-2 rounded-xl hover:bg-pink-50 text-pink-500 text-[11px] font-semibold"><i class="fas fa-file-lines text-base"></i>Tải .txt</button>
         <button data-act="word" class="flex flex-col items-center gap-1 py-2 rounded-xl hover:bg-pink-50 text-pink-500 text-[11px] font-semibold"><i class="fas fa-file-word text-base"></i>Tải .doc</button>
         <button data-act="print" class="flex flex-col items-center gap-1 py-2 rounded-xl bg-pink-500 text-white text-[11px] font-semibold"><i class="fas fa-print text-base"></i>In / PDF</button>
     </div>

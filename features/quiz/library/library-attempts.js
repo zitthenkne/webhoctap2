@@ -5,6 +5,7 @@
 // bộ lọc "Chưa làm" và bộ lọc "Gần đây".
 
 import { auth, db } from '../../../core/firebase-init.js';
+import { sessionUser } from '../../../core/auth-session.js';
 import { collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { S } from './library-state.js';
 
@@ -12,7 +13,7 @@ import { S } from './library-state.js';
 const ATTEMPT_SYNC_MIN_INTERVAL = 5 * 60 * 1000;
 
 function attemptCacheKey() {
-    const uid = auth.currentUser ? auth.currentUser.uid : 'anon';
+    const uid = sessionUser() ? sessionUser().uid : 'anon';
     return `quizAttemptCache_${uid}`;
 }
 
@@ -51,7 +52,7 @@ export function getLastAttempt(quizId) {
 // Đồng bộ TĂNG DẦN: chỉ kéo các kết quả mới hơn lần đồng bộ trước (lần đầu kéo toàn bộ,
 // tương đương một lần mở tab Thống kê). Trả về true nếu có dữ liệu mới.
 export function syncAttemptsFromServer() {
-    const user = auth.currentUser;
+    const user = sessionUser();
     if (!user) return Promise.resolve(false);
     if (S.attemptSyncPromise) return S.attemptSyncPromise;
     if (Date.now() - S.attemptLastSyncTry < ATTEMPT_SYNC_MIN_INTERVAL) return Promise.resolve(false);

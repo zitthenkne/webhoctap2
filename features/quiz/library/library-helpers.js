@@ -3,6 +3,7 @@
 // Tách từ quiz-library-controller.js — logic giữ nguyên, chỉ đổi truy cập trạng thái sang S.xxx.
 
 import { db } from '../../../core/firebase-init.js';
+import { sessionUser } from '../../../core/auth-session.js';
 import { doc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { auth } from '../../../core/firebase-init.js';
 import { S, TRASH_RETENTION_MS } from './library-state.js';
@@ -156,7 +157,7 @@ export function applyFolderGridColumns(container) {
 
 // === GHIM BỘ ĐỀ (PIN) — lưu cục bộ theo từng tài khoản ===
 function pinnedStorageKey() {
-    const uid = auth.currentUser ? auth.currentUser.uid : 'anon';
+    const uid = sessionUser() ? sessionUser().uid : 'anon';
     return `pinnedQuizIds_${uid}`;
 }
 export function loadPinnedQuizIds() {

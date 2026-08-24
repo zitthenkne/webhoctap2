@@ -1,6 +1,7 @@
 // features/quiz/quiz-state.js
 
 import { db, auth } from '../../core/firebase-init.js';
+import { sessionUser } from '../../core/auth-session.js';
 import { doc, getDoc, collection, addDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 // Ghi không treo khi mất mạng (xem core/offline-write.js)
 import { queued } from "../../core/offline-write.js";
@@ -146,7 +147,7 @@ export function clearQuizState(quizId) {
 }
 
 export async function saveQuizResult(finalScore, totalQuestions, percentage, timeTaken) {
-    const user = auth.currentUser;
+    const user = sessionUser();
     if (!user) return; // Không lưu kết quả cho khách
 
     try {

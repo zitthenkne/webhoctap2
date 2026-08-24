@@ -24,6 +24,7 @@ import {
 } from './quiz-srs-store.js';
 import { syncPullStudy, pushCloudStudy, readLocalStudy } from './quiz-study-store.js';
 import { auth, db } from '../../core/firebase-init.js';
+import { sessionUser, onSessionUser } from '../../core/auth-session.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
 import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 
@@ -248,7 +249,7 @@ function togglePanel(mount) {
 
 // ----- Tạm dừng / hoàn tác từ chuông (đẩy cloud best-effort như dashboard) -----
 async function pushPauseToCloud(quizId) {
-    const user = auth.currentUser;
+    const user = sessionUser();
     if (!user) return;
     try {
         await syncPullStudy(user.uid, quizId);
@@ -443,7 +444,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Firestore là nguồn chính: có người dùng → kéo lịch từ cloud rồi báo cho
     // cả chuông lẫn dashboard thống kê (cùng lắng nghe 'srs-data-changed') vẽ lại
-    onAuthStateChanged(auth, (u) => {
+    onSessionUser((u) => {
         if (u) syncSrsFromCloud(u.uid).then((changed) => {
             if (changed) document.dispatchEvent(new CustomEvent('srs-data-changed'));
         });

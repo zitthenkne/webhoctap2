@@ -4,6 +4,7 @@
 // Tách từ quiz-library-controller.js — logic giữ nguyên, chỉ đổi truy cập trạng thái sang S.xxx.
 
 import { auth } from '../../../core/firebase-init.js';
+import { sessionUser } from '../../../core/auth-session.js';
 import { S, FOLDERS_PER_PAGE, LIB_PREFETCH_PAGES } from './library-state.js';
 import {
     applyQuizGridColumns, applyFolderGridColumns,
@@ -270,8 +271,8 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
         filteredQuizzes = filteredQuizzes.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
         // Prefetch: sắp chạm cuối phần đã tải mà server còn dữ liệu → tải sẵn cụm kế (làm ấm cache, không re-render)
-        if (S.serverHasMore && !S.chunkLoadingPromise && auth.currentUser && (totalPages - currentPage) < LIB_PREFETCH_PAGES) {
-            loadLibraryChunk(auth.currentUser.uid);
+        if (S.serverHasMore && !S.chunkLoadingPromise && sessionUser() && (totalPages - currentPage) < LIB_PREFETCH_PAGES) {
+            loadLibraryChunk(sessionUser().uid);
         }
     } else {
         totalPages = 1;
@@ -347,14 +348,14 @@ function renderLibraryPagination(quizzesToDisplay, currentPage, totalPages) {
         if (currentPage < totalPages) {
             renderLibrary(quizzesToDisplay, currentPage + 1);
             scrollToQuizzesTop();
-        } else if (hasMore && auth.currentUser) {
+        } else if (hasMore && sessionUser()) {
             // Đang ở cuối phần đã tải nhưng server còn dữ liệu → tải cụm kế rồi sang trang
             const nextBtn = document.getElementById('lib-next-page');
             if (nextBtn) {
                 nextBtn.disabled = true;
                 nextBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
             }
-            await loadLibraryChunk(auth.currentUser.uid);
+            await loadLibraryChunk(sessionUser().uid);
             renderLibrary(S.userQuizSets, currentPage + 1);
             scrollToQuizzesTop();
         }
@@ -528,8 +529,8 @@ export function rerenderCurrentView() {
     const keyword = librarySearchInput ? librarySearchInput.value.trim() : '';
     // Chế độ hiện tại cần toàn bộ dữ liệu (sắp xếp khác/lọc/chọn nhiều) nhưng đang cuốn chiếu chưa tải hết
     // → nạp đầy đủ rồi tự render; tránh sắp xếp/lọc sai trên phần dữ liệu mới tải một phần.
-    if (!S.isLibraryFullyLoaded && !keyword && !canUseRollingLibrary() && auth.currentUser) {
-        loadAllLibraryInBackground(auth.currentUser.uid);
+    if (!S.isLibraryFullyLoaded && !keyword && !canUseRollingLibrary() && sessionUser()) {
+        loadAllLibraryInBackground(sessionUser().uid);
         return;
     }
     if (keyword) {

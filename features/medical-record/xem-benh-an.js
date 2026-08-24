@@ -1,6 +1,8 @@
 import { showToast } from '../../core/utils.js';
 import { getRecord, syncFromCloud, authReady, isSignedIn } from './record-store.js';
 import { auth } from '../../core/firebase-init.js';
+import { clsToHtml, clsToText, clsToWordHtml } from './cls-shared.js';
+import { theoDoiToText } from './theo-doi-editor.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -24,48 +26,82 @@ const VITAL_RANGE = { 'Mạch': [60, 100], 'Nhiệt độ': [36, 37.5], 'Nhịp 
 
 function buildModel(r) {
     const h = r.hanhChinh || {}, t = r.tienSu || {}, k = r.khamBenh || {}, s = k.sinhTon || {};
+    const ros = r.luocQuaCoQuan || {};
+    const bs = r.benhSuChiTiet || {};
+    const av = bs.sinhHieuNhapVien || {};
+    const examDay = (() => {
+        const m = String(h.ngayLamBenhAn || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+        return m ? ` (khám ngày ${+m[3]}/${+m[2]}/${m[1]})` : '';
+    })();
+    const admVitals = [
+        ['Mạch', av.mach, 'lần/phút'], ['Huyết áp', av.huyetAp, 'mmHg'],
+        ['Nhiệt độ', av.nhietDo, '°C'], ['Nhịp thở', av.nhipTho, 'lần/phút'],
+        ['SpO2', av.spo2, '%'], ['Ghi chú', av.ghiChu, '']
+    ];
+
     return [
         ['I. HÀNH CHÍNH', 'fa-user', [
-            ['Họ và tên', h.hoTen], ['Năm sinh', h.namSinh], ['Tuổi', h.tuoi],
+            ['Họ và tên bệnh nhân', h.hoTen],
+            ['Tuổi', h.tuoi ? `${h.tuoi}${h.namSinh ? ' (Năm sinh: ' + h.namSinh + ')' : ''}` : h.namSinh],
             ['Giới tính', h.gioiTinh], ['Dân tộc', h.danToc], ['Nghề nghiệp', h.ngheNghiep],
-            ['Địa chỉ', h.diaChi], ['Người liên hệ', h.nguoiLienHe], ['SĐT liên hệ', h.sdtLienHe],
-            ['Giờ vào viện', h.gioVaoVien], ['Ngày vào viện', fmtDate(h.ngayVaoVien)],
+            ['Địa chỉ', h.diaChi],
+            ['Ngày giờ nhập viện', [h.gioVaoVien, fmtDate(h.ngayVaoVien)].filter(Boolean).join(' ngày ')],
             ['Ngày giờ làm bệnh án', fmtDateTime(h.ngayLamBenhAn)],
-            ['Bệnh viện', h.benhVien], ['Số phòng', h.soPhong || h.roomNumber], ['Số giường', h.soGiuong || h.bedNumber]
+            ['Khoa – Bệnh viện', [h.khoa, h.benhVien].filter(Boolean).join(' - ')],
+            ['Phòng – Giường', [h.soPhong && 'Phòng ' + h.soPhong, (h.soGiuong || h.bedNumber) && 'Giường ' + (h.soGiuong || h.bedNumber)].filter(Boolean).join(' - ')],
+            ['Người liên hệ', h.nguoiLienHe], ['SĐT liên hệ', h.sdtLienHe]
         ]],
         ['II. LÝ DO VÀO VIỆN', 'fa-sign-in-alt', [['', r.lyDoVaoVien]]],
-        ['III. BỆNH SỬ', 'fa-history', [['', r.benhSu]]],
-        ['IV. TIỀN SỬ', 'fa-notes-medical', [
-            ['Nội khoa', t.noiKhoa], ['Ngoại khoa', t.ngoaiKhoa], ['Sản phụ khoa', t.sanPhuKhoa],
-            ['Dị ứng', t.diUng], ['Thói quen', t.thoiQuen], ['Gia đình', t.giaDinh]
+        ['III. BỆNH SỬ', 'fa-history', [
+            ['', r.benhSu],
+            ['@vitals', admVitals, 'Sinh hiệu lúc nhập viện']
         ]],
-        ['V. KHÁM BỆNH', 'fa-stethoscope', [
+        ['IV. TIỀN CĂN', 'fa-notes-medical', [
+            ['1. Nội khoa', t.noiKhoa], ['2. Ngoại khoa', t.ngoaiKhoa], ['3. Sản khoa', t.sanPhuKhoa],
+            ['4. Dị ứng', t.diUng], ['5. Môi trường', t.moiTruong],
+            ['6. Thói quen', t.thoiQuen], ['7. Gia đình', t.giaDinh]
+        ]],
+        ['V. LƯỢC QUA CÁC CƠ QUAN' + examDay, 'fa-list-ul', [
+            ['Tim mạch', ros.timMach], ['Hô hấp', ros.hoHap], ['Tiêu hóa', ros.tieuHoa],
+            ['Thần kinh', ros.thanKinh], ['Cơ xương khớp', ros.coXuongKhop], ['Thận – Tiết niệu', ros.thanNieu]
+        ]],
+        ['VI. KHÁM LÂM SÀNG' + examDay, 'fa-stethoscope', [
+            ['1. Tổng trạng', k.tongTrang],
             ['@vitals', [
-                ['Mạch', s.mach, 'l/p'], ['Nhiệt độ', s.nhietDo, '°C'], ['Huyết áp', s.huyetAp, 'mmHg'],
-                ['Nhịp thở', s.nhipTho, 'l/p'], ['SpO2', s.spo2, '%'],
-                ['Chiều cao', s.chieuCao, 'cm'], ['Cân nặng', s.canNang, 'kg'], ['BMI', s.bmi, '']
+                ['Mạch', s.mach, 'lần/phút'], ['Nhiệt độ', s.nhietDo, '°C'], ['Huyết áp', s.huyetAp, 'mmHg'],
+                ['Nhịp thở', s.nhipTho, 'lần/phút'], ['SpO2', s.spo2, '%'],
+                ['Chiều cao', s.chieuCao, 'cm'], ['Cân nặng', s.canNang, 'kg'],
+                ['BMI', s.bmi, 'kg/m²'], ['BSA', s.bsa, 'm²'],
+                ['Glasgow', k.glasgow && k.glasgow.e && k.glasgow.v && k.glasgow.m
+                    ? `${+k.glasgow.e + +k.glasgow.v + +k.glasgow.m}/15 (E${k.glasgow.e} V${k.glasgow.v} M${k.glasgow.m})` : '', '']
             ]],
-            ['Toàn thân', k.toanThan], ['Thể trạng', k.theTrang], ['Da, niêm mạc', k.daNiemMac],
-            ['Lông, tóc, móng', k.longTocMong], ['Tuyến giáp, hạch ngoại vi', k.tuyenGiapHach],
-            ['Dấu hiệu phù, xuất huyết', k.phuXuatHuyet],
-            ['Tuần hoàn (Tim mạch)', k.circulation], ['Hô hấp', k.respiratory], ['Tiêu hóa', k.digestive],
-            ['Thận - Tiết niệu - Sinh dục', k.urinary], ['Thần kinh', k.neuro],
-            ['Cơ - Xương - Khớp', k.musculoskeletal], ['Tai - Mũi - Họng', k.ent],
-            ['Răng - Hàm - Mặt', k.dental], ['Mắt', k.eye]
+            ['2. Đầu – mặt – cổ', k.dauMatCo], ['3. Ngực', k.nguc], ['4. Tim', k.tim],
+            ['5. Phổi', k.phoi], ['6. Bụng', k.bung], ['7. Thần kinh – Cơ xương khớp', k.thanKinhCoXuongKhop]
         ]],
-        ['VI. TÓM TẮT BỆNH ÁN', 'fa-clipboard-list', [['', r.tomTatBenhAn]]],
-        ['VII. CHẨN ĐOÁN SƠ BỘ', 'fa-search', [['', r.chanDoanSoBo]]],
-        ['VIII. CẬN LÂM SÀNG ĐỀ NGHỊ', 'fa-vials', [['', r.canLamSangDeNghi]]],
-        ['IX. KẾT QUẢ CẬN LÂM SÀNG ĐÃ CÓ', 'fa-microscope', [['', r.ketQuaCanLamSang]]],
-        ['X. CHẨN ĐOÁN XÁC ĐỊNH', 'fa-check-circle', [['', r.chanDoanXacDinh]]],
-        ['XI. HƯỚNG ĐIỀU TRỊ', 'fa-syringe', [['', r.huongDieuTri]]],
-        ['XII. TIÊN LƯỢNG', 'fa-heartbeat', [['', r.tienLuong]]],
-        ['XIII. DỰ PHÒNG', 'fa-shield-halved', [['', r.duPhong]]]
+        ['VII. TÓM TẮT BỆNH ÁN', 'fa-clipboard-list', [['', r.tomTatBenhAn]]],
+        ['VIII. ĐẶT VẤN ĐỀ', 'fa-list-check', [['', r.datVanDe]]],
+        ['IX. CHẨN ĐOÁN', 'fa-search', [
+            ['Chẩn đoán sơ bộ', r.chanDoanSoBo], ['Chẩn đoán phân biệt', r.chanDoanPhanBiet]
+        ]],
+        ['X. BIỆN LUẬN LÂM SÀNG', 'fa-comments', [['', r.bienLuanChanDoan]]],
+        ['XI. ĐỀ NGHỊ CẬN LÂM SÀNG', 'fa-vials', [
+            ['', r.canLamSangDeNghi, 'bullet'], ['Biện luận đề nghị', r.bienLuanDeNghiCLS]
+        ]],
+        ['XII. KẾT QUẢ CẬN LÂM SÀNG', 'fa-microscope', [
+            ['@cls', r.canLamSang], ['', r.ketQuaCanLamSang], ['', r.bienLuanKetQuaCLS]
+        ]],
+        ['XIII. CHẨN ĐOÁN XÁC ĐỊNH', 'fa-check-circle', [['', r.chanDoanXacDinh]]],
+        ['XIV. ĐIỀU TRỊ', 'fa-syringe', [
+            ['1. Điều trị đặc hiệu / nguyên tắc', r.huongDieuTri],
+            ['2. Điều trị triệu chứng & biến chứng', r.dieuTriCuThe]
+        ]],
+        ['XV. TIÊN LƯỢNG', 'fa-heartbeat', [['', r.tienLuong], ['Dự phòng', r.duPhong]]],
+        ['THEO DÕI DIỄN TIẾN', 'fa-clipboard-list', [['', theoDoiToText(r.theoDoi), 'bullet']]]
     ];
 }
 
 /* ---------- render ---------- */
-function vitalsHtml(items) {
+function vitalsHtml(items, caption) {
     const chips = items.filter(([, v]) => String(v ?? '').trim()).map(([label, v, unit]) => {
         const range = VITAL_RANGE[label];
         const num = parseFloat(v);
@@ -76,7 +112,9 @@ function vitalsHtml(items) {
             ${warn ? '<i class="fas fa-triangle-exclamation text-orange-400 text-[10px]"></i>' : ''}
         </span>`;
     }).join('');
-    return chips ? `<div class="flex flex-wrap gap-2 mb-1">${chips}</div>` : '';
+    if (!chips) return '';
+    return (caption ? `<div class="text-xs font-semibold text-pink-500 mt-1">${esc(caption)}</div>` : '')
+        + `<div class="flex flex-wrap gap-2 mb-1">${chips}</div>`;
 }
 
 function fieldHtml(label, value) {
@@ -90,8 +128,10 @@ function fieldHtml(label, value) {
 }
 
 function sectionHtml(title, icon, rows, index) {
-    const body = rows.map(([label, value]) =>
-        label === '@vitals' ? vitalsHtml(value) : fieldHtml(label, value)).join('');
+    const body = rows.map(([label, value, extra]) =>
+        label === '@vitals' ? vitalsHtml(value, extra)
+            : label === '@cls' ? clsToHtml(value)
+                : fieldHtml(label, value)).join('');
     if (!body) return '';
     // Hành chính toàn là dòng ngắn -> xếp 2 cột cho đỡ dài
     const cls = index === 0 ? 'sec-grid' : 'space-y-2';
@@ -112,23 +152,76 @@ function notFoundHtml() {
     </div>`;
 }
 
-/* ---------- xuất text ---------- */
+/* ---------- xuất text ----------
+   Bám đúng mẫu bệnh án của trường: dòng đầu là thông tin sinh viên, tiêu đề BỆNH ÁN,
+   rồi 15 mục La Mã; ô một dòng in "* Nhãn: giá trị", ô nhiều dòng in nhãn rồi bullet. */
 function toPlainText(record, model) {
-    const lines = ['BỆNH ÁN NỘI KHOA', ''];
+    const h = record.hanhChinh || {};
+    const sv = record.sinhVien || {};
+    const lines = [];
+
+    const head = [sv.hoTen, sv.mssv, sv.lop, sv.stt].map(x => String(x || '').trim()).filter(Boolean);
+    if (head.length) lines.push(head.join(' - '));
+    lines.push('BỆNH ÁN');
+
+    const mark = (x, indent) => (/^[*\-•]|^\d+[.)]/.test(x) ? indent + x : indent + '* ' + x);
+    const bullet = (label, value, mode) => {
+        const text = String(value ?? '').trim();
+        if (!text) return;
+        const parts = text.split('\n').map(x => x.trim()).filter(Boolean);
+        if (!label) {
+            // Van xuoi giu nguyen; danh sach (de nghi CLS...) thi gach dau dong
+            parts.forEach(x => lines.push(mode === 'bullet' ? mark(x, '') : x));
+            return;
+        }
+        // Nhan da danh so nhu mau ("1. Noi khoa") -> xuong dong roi liet ke
+        if (/^\d+\./.test(label)) {
+            lines.push(label + ':');
+            parts.forEach(x => lines.push(mark(x, '')));
+            return;
+        }
+        if (parts.length === 1) { lines.push('* ' + label + ': ' + parts[0]); return; }
+        lines.push('* ' + label + ':');
+        parts.forEach(x => lines.push(mark(x, '   ')));
+    };
+
     for (const [title, , rows] of model) {
+        const before = lines.length;
         const body = [];
-        for (const [label, value] of rows) {
+        for (const [label, value, extra] of rows) {
             if (label === '@vitals') {
-                const v = value.filter(([, x]) => String(x ?? '').trim())
-                    .map(([l, x, u]) => `${l}: ${x}${u ? ' ' + u : ''}`).join(' · ');
-                if (v) body.push(v);
+                const shown = value.filter(([, x]) => String(x ?? '').trim());
+                if (!shown.length) continue;
+                body.push(() => {
+                    if (extra) lines.push(`${extra}:`);
+                    shown.forEach(([l, x, u]) => lines.push(`* ${l}: ${x}${u ? ' ' + u : ''}`));
+                });
+            } else if (label === '@cls') {
+                const v = clsToText(value);
+                if (v) body.push(() => lines.push(v));
             } else if (String(value ?? '').trim()) {
-                body.push(label ? `${label}: ${value}` : String(value));
+                body.push(() => bullet(label, value, extra));
             }
         }
-        if (body.length) { lines.push(title, ...body, ''); }
+        if (!body.length) continue;
+        lines.push(title);
+        body.forEach(fn => fn());
+        if (lines.length > before) lines.push('');
     }
-    return lines.join('\n').trim();
+
+    const dm = String(h.ngayLamBenhAn || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+    const pad = ' '.repeat(40);
+    lines.push('',
+        pad + (dm ? `Ngày ${dm[3]} tháng ${dm[2]} năm ${dm[1]}` : 'Ngày ...... tháng ...... năm ..........'),
+        pad + 'Người làm bệnh án',
+        pad + (head[0] || '(Ký, ghi rõ họ tên)'), '');
+
+    return lines.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd();
+}
+
+function slugName(s) {
+    return String(s || 'khong-ten').normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/đ/gi, 'd').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
 }
 
 /* ---------- chạy ---------- */
@@ -211,13 +304,23 @@ if (!record) {
                 showToast('Trình duyệt chặn sao chép. Hãy chọn và copy thủ công.', 'error');
             }
         },
+        txt: () => {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob(['﻿' + plain()], { type: 'text/plain;charset=utf-8' }));
+            a.download = `benh-an-${slugName(h.hoTen)}.txt`;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+            showToast('Đã tải file .txt — mở file, chọn tất cả rồi dán vào Google Docs.', 'success');
+        },
         word: () => {
             const html = `<html xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8">
                 <style>body{font-family:'Times New Roman',serif;font-size:13pt;line-height:1.5}
                 h2{text-align:center;font-size:14pt;text-transform:uppercase}
                 h3{font-size:13pt;border-bottom:1px solid #000;margin:14pt 0 6pt}
                 p{margin:0 0 4pt}</style></head><body>
-                <h2>Bệnh án nội khoa</h2>` +
+                ${[record.sinhVien?.hoTen, record.sinhVien?.mssv, record.sinhVien?.lop, record.sinhVien?.stt]
+                    .filter(Boolean).length ? `<p>${esc([record.sinhVien?.hoTen, record.sinhVien?.mssv, record.sinhVien?.lop, record.sinhVien?.stt].filter(Boolean).join(' - '))}</p>` : ''}
+                <h2>Bệnh án</h2>` +
                 model.map(([title, , rows]) => {
                     const body = rows.map(([label, value]) => {
                         if (label === '@vitals') {
@@ -225,6 +328,7 @@ if (!record) {
                                 .map(([l, x, u]) => `${l}: ${x}${u ? ' ' + u : ''}`).join(' · ');
                             return v ? `<p>${esc(v)}</p>` : '';
                         }
+                        if (label === '@cls') return clsToWordHtml(value);
                         if (!String(value ?? '').trim()) return '';
                         return `<p>${label ? '<b>' + esc(label) + ':</b> ' : ''}${esc(value).replace(/\n/g, '<br>')}</p>`;
                     }).join('');
@@ -232,7 +336,7 @@ if (!record) {
                 }).join('') + '<\/body><\/html>';
             const a = document.createElement('a');
             a.href = URL.createObjectURL(new Blob(['﻿' + html], { type: 'application/msword' }));
-            a.download = `benh-an-${(h.hoTen || 'khong-ten').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()}.doc`;
+            a.download = `benh-an-${slugName(h.hoTen)}.doc`;
             a.click();
             setTimeout(() => URL.revokeObjectURL(a.href), 1000);
             showToast('Đã tải file Word.', 'success');
@@ -243,7 +347,7 @@ if (!record) {
         }
     };
 
-    ['print', 'copy', 'word', 'share'].forEach(act => {
+    ['print', 'copy', 'txt', 'word', 'share'].forEach(act => {
         document.getElementById(act + '-btn')?.addEventListener('click', actions[act]);
     });
     if (navigator.share) document.getElementById('share-btn').classList.remove('hidden');
@@ -278,3 +382,23 @@ sheet.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
 
 // Ctrl/Cmd + P dùng bố cục in A4 sẵn có
+
+/* Ảnh cận lâm sàng: bấm để xem to, phóng to bằng cử chỉ sẵn có của trình duyệt */
+const lightbox = document.createElement('div');
+lightbox.className = 'lightbox hidden no-print';
+lightbox.innerHTML = `<button class="lightbox-x" aria-label="Đóng"><i class="fas fa-xmark"></i></button>
+    <img alt="Ảnh cận lâm sàng"><p class="lightbox-cap"></p>`;
+document.body.appendChild(lightbox);
+
+const closeBox = () => lightbox.classList.add('hidden');
+view.addEventListener('click', (e) => {
+    const img = e.target.closest('.cls-img');
+    if (!img) return;
+    e.preventDefault();
+    lightbox.querySelector('img').src = img.src;
+    lightbox.querySelector('.lightbox-cap').textContent =
+        img.closest('.cls-fig')?.querySelector('figcaption')?.textContent || '';
+    lightbox.classList.remove('hidden');
+});
+lightbox.addEventListener('click', closeBox);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeBox(); });
