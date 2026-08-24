@@ -8,6 +8,8 @@
 // Máy ghép các mốc thành đoạn văn rồi ghi vào ô `illness-history` cũ, nên phần
 // xuất file / trang xem không phải sửa gì.
 
+import { openSymptomPicker } from './symptom-picker.js';
+
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -58,6 +60,32 @@ function sorted(arr) {
     return arr.map((m, i) => [m, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(x => x[0]);
 }
 
+/** Tất cả triệu chứng đã xuất hiện ở các mốc trước mốc thứ i */
+function symptomsBefore(i) {
+    const names = new Set();
+    const main = ($('hx-sym-name')?.value || '').trim();
+    if (main) names.add(main);
+    sorted(steps).slice(0, i).forEach(m => {
+        String(m.s || '').split(/[,;]/).map(x => x.trim()).filter(Boolean).forEach(x => names.add(x));
+        (m.refs || []).forEach(r => r.sym && names.add(r.sym.trim()));
+    });
+    return [...names];
+}
+
+/** Triệu chứng cũ mà mốc này chưa nhắc tới — người đọc sẽ không biết còn hay hết */
+function missingCarry(m, i) {
+    const said = new Set([...(m.refs || []).map(r => trimText(r.sym)),
+    ...String(m.s || '').split(/[,;]/).map(x => x.trim())].filter(Boolean).map(x => x.toLowerCase()));
+    return symptomsBefore(i).filter(x => !said.has(x.toLowerCase()));
+}
+
+const trimText = (x) => String(x ?? '').trim();
+
+/* Triệu chứng mới của một mốc vẫn lưu chung trong chuỗi `s` (ngăn bằng dấu ;)
+   để không phải đổi cấu trúc bệnh án đã lưu, nhưng giao diện bày thành từng thẻ. */
+const symParts = (m) => String(m.s || '').split(';').map(trimText).filter(Boolean);
+const setSymParts = (m, arr) => { m.s = arr.join('; '); };
+
 /** Nhãn mốc: "CNV 4 ngày" / "Ngày nhập viện" / "Sau nhập viện 2 ngày" */
 export function stepLabel(m) {
     if (m.phase === 'nv') return 'Ngày nhập viện';
@@ -72,6 +100,7 @@ function refHtml(r, i, k) {
     const needDetail = (r.st === 'thuyên giảm' || r.st === 'nặng hơn') && !String(r.d || '').trim();
     return `<div class="hx-ref ${needDetail ? 'is-warn' : ''}" data-i="${i}" data-k="${k}">
         <input class="hx-sym" data-f="sym" list="hx-sym-list" value="${esc(r.sym || '')}" placeholder="Triệu chứng cũ" aria-label="Triệu chứng cũ">
+        <button type="button" class="hx-refpick" data-act="pick-ref" title="Chọn từ thư viện triệu chứng"><i class="fas fa-magnifying-glass"></i></button>
         <select class="hx-st" data-f="st" aria-label="Diễn biến của triệu chứng">
             ${STATES.map(s => `<option ${r.st === s ? 'selected' : ''}>${s}</option>`).join('')}
         </select>
@@ -107,7 +136,25 @@ function stepHtml(m, i) {
             <button type="button" class="hx-x" data-act="del-step" title="Xóa mốc"><i class="fas fa-trash"></i></button>
         </div>
         ${warnHtml(m)}
-        <input class="hx-s" data-k="s" value="${esc(m.s || '')}" placeholder="Triệu chứng mới xuất hiện ở mốc này" aria-label="Triệu chứng mới">
+        ${(() => {
+            const miss = missingCarry(m, i);
+            return miss.length ? `<p class="hx-carry"><i class="fas fa-rotate-left"></i>
+                Ch\u01b0a nh\u1eafc l\u1ea1i: <b>${esc(miss.join(', '))}</b>
+                <button type="button" class="hx-mini" data-act="carry">+ Th\u00eam t\u1ea5t c\u1ea3 (t\u01b0\u01a1ng t\u1ef1)</button></p>` : '';
+        })()}
+        <div class="hx-newbox">
+            <div class="hx-newhead"><i class="fas fa-plus-circle"></i> Triệu chứng mới xuất hiện ở mốc này</div>
+            <div class="hx-tags">${(() => {
+                const ps = symParts(m);
+                return ps.length ? ps.map((t, j) =>
+                    `<span class="hx-tag">${esc(t)}<button type="button" data-act="del-new" data-j="${j}" aria-label="Bỏ"><i class="fas fa-xmark"></i></button></span>`
+                ).join('') : '<span class="hx-newempty">Chưa có — bấm “Khai thác đủ ý” để mô tả cho chuẩn</span>';
+            })()}</div>
+            <div class="hx-new">
+                <input class="hx-s" data-k="quick" value="" placeholder="Gõ nhanh rồi Enter" aria-label="Thêm nhanh triệu chứng">
+                <button type="button" class="hx-pick" data-act="pick-sym" title="Chọn từ thư viện và khai thác đủ đặc điểm"><i class="fas fa-notes-medical"></i> Khai thác đủ ý</button>
+            </div>
+        </div>
         ${(m.refs || []).map((r, k) => refHtml(r, i, k)).join('')}
         <button type="button" class="hx-mini" data-act="add-ref"><i class="fas fa-plus"></i> Triệu chứng đã có từ trước</button>
     </div>`;
@@ -278,6 +325,10 @@ export function initHistory(options) {
             if (el.dataset.f === 'st') render();     // đổi trạng thái -> đổi lời nhắc + cảnh báo
             else refEl.classList.toggle('is-warn',
                 (m.refs[+refEl.dataset.k].st !== 'tương tự') && !el.value.trim() && el.dataset.f === 'd');
+        } else if (el.dataset.k === 'quick') {
+            // Ô gõ nhanh không thuộc dữ liệu mốc — chỉ chốt khi Enter hoặc rời ô
+            if (e.type === 'change') commitQuick(el, m);
+            return;
         } else {
             m[el.dataset.k] = el.value;
             const timeKey = el.dataset.k === 'n' || el.dataset.k === 'u' || el.dataset.k === 'phase';
@@ -290,6 +341,27 @@ export function initHistory(options) {
     list.addEventListener('input', onEdit);
     list.addEventListener('change', onEdit);
 
+    /** Chốt nội dung ô gõ nhanh thành một thẻ triệu chứng mới */
+    function commitQuick(el, m) {
+        const t = el.value.trim();
+        el.value = '';
+        if (!t) return;
+        setSymParts(m, [...symParts(m), t]);
+        const id = m.id;
+        render();
+        onChangeCb();
+        list.querySelector(`.hx-step[data-id="${id}"] [data-k="quick"]`)?.focus();
+    }
+
+    // Enter ở ô gõ nhanh = thêm thẻ, không để form hiểu nhầm là nhảy ô kế
+    list.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' || e.target.dataset.k !== 'quick' || e.isComposing) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const m = stepOf(e.target);
+        if (m) commitQuick(e.target, m);
+    });
+
     list.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-act]');
         if (!btn) return;
@@ -298,6 +370,39 @@ export function initHistory(options) {
         if (btn.dataset.act === 'del-step') steps.splice(i, 1);
         else if (btn.dataset.act === 'del-ref') steps[i].refs.splice(+btn.closest('.hx-ref').dataset.k, 1);
         else if (btn.dataset.act === 'add-ref') (steps[i].refs ||= []).push({ sym: '', st: 'tương tự', d: '' });
+        else if (btn.dataset.act === 'del-new') {
+            const ps = symParts(steps[i]);
+            ps.splice(+btn.dataset.j, 1);
+            setSymParts(steps[i], ps);
+        }
+        else if (btn.dataset.act === 'pick-ref') {
+            const k = +btn.closest('.hx-ref').dataset.k;
+            openSymptomPicker({
+                title: 'Triệu chứng đã có từ trước',
+                initial: steps[i].refs[k]?.sym || '',
+                onPick: (text, ten) => {
+                    // Ô này chỉ cần tên triệu chứng; phần mô tả để ở ô "rõ là như thế nào"
+                    steps[i].refs[k].sym = ten || text;
+                    render();
+                    onChangeCb();
+                }
+            });
+            return;
+        }
+        else if (btn.dataset.act === 'pick-sym') {
+            openSymptomPicker({
+                title: 'Triệu chứng mới ở ' + stepLabel(steps[i]),
+                onPick: (text) => {
+                    setSymParts(steps[i], [...symParts(steps[i]), text]);
+                    render();
+                    onChangeCb();
+                }
+            });
+            return;
+        }
+        else if (btn.dataset.act === 'carry') {
+            (steps[i].refs ||= []).push(...missingCarry(steps[i], i).map(sym => ({ sym, st: 'tương tự', d: '' })));
+        }
         else return;
         render();
         onChangeCb();
@@ -315,7 +420,8 @@ export function initHistory(options) {
         let n = '';
         if (!truoc.length && onset != null) n = String(Math.round(onset / 24));
         else if (last && parseFloat(last.n) > 1) n = String(parseFloat(last.n) - 1);
-        steps.push({ id: 'm' + Date.now().toString(36), phase: 'truoc', n, u: last?.u || 'ngày', s: '', refs: [] });
+        const carried = symptomsBefore(steps.length).map(sym => ({ sym, st: 'tương tự', d: '' }));
+        steps.push({ id: 'm' + Date.now().toString(36), phase: 'truoc', n, u: last?.u || 'ngày', s: '', refs: carried });
         render();
         onChangeCb();
         list.querySelector('.hx-step:last-of-type .hx-n')?.focus();

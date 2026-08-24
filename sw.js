@@ -1,5 +1,5 @@
 // Service Worker for PWA - Offline Support & Caching
-const CACHE_NAME = 'zitthenkne-v45';
+const CACHE_NAME = 'zitthenkne-v53';
 
 // App shell (cùng origin) — nạp sẵn khi cài để mở offline được ngay.
 const urlsToCache = [
@@ -81,6 +81,17 @@ const urlsToCache = [
   'features/medical-record/theo-doi-editor.js',
   'features/medical-record/image-upload.js',
   'features/medical-record/rx-editor.js',
+  'features/medical-record/bien-luan-data.js',
+  'features/medical-record/bien-luan-map.js',
+  'features/medical-record/trieu-chung-data.js',
+  'features/medical-record/symptom-picker.js',
+  'features/medical-record/auto-grade.js',
+  'features/medical-record/benh-data.js',
+  'features/medical-record/list-picker.js',
+  'features/medical-record/benh-kem-list.js',
+  'features/medical-record/goi-y-nhap.js',
+  'features/medical-record/muc-do-benh-kem.js',
+  'features/medical-record/chi-so-chuan.js',
   'features/study-room/waiting-room.html',
   'features/study-room/waiting-room.js',
   'features/medical-record/xem-benh-an.html',

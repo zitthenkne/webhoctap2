@@ -4,14 +4,19 @@ import { getRecord, saveRecord, syncFromCloud, authReady } from './record-store.
 import { initCls, getCls, setCls } from './cls-editor.js';
 import { abnormalItems } from './cls-shared.js';
 import { initHistory, getSteps, setSteps, calcOnset, buildProse, missingDetails } from './benh-su-editor.js';
-import { initBienLuan, getBienLuan, setBienLuan, buildProse as buildBienLuan, derivedDiagnosis, syncFromProblems } from './bien-luan-editor.js';
+import { initBienLuan, getBienLuan, setBienLuan, buildProse as buildBienLuan, derivedDiagnosis, derivedCls, syncFromProblems } from './bien-luan-editor.js';
 import { createCnvList } from './cnv-list.js';
+import { createBenhKemList } from './benh-kem-list.js';
+import { BMI_TAGS, BP_STAGES } from './chi-so-chuan.js';
+import { buildChips, buildPickers, NORMAL_EXAM } from './goi-y-nhap.js';
+import { suggestStage, pastDiseases } from './muc-do-benh-kem.js';
 import { initFindings } from './findings-editor.js';
 import { getFolder, folderMeta } from './folder-store.js';
 import { initFold, openSpec } from './ui-fold.js';
 import { initTheoDoi, getTheoDoi, setTheoDoi } from './theo-doi-editor.js';
 import { createImageBox } from './image-upload.js';
 import { initRx, getRx, setRx, rxToText } from './rx-editor.js';
+import { gradeAll, gradeToText } from './auto-grade.js';
 
 /* =====================================================================
    1. BẢN ĐỒ TRƯỜNG: dùng chung cho cả nạp và lưu, khỏi viết 2 lần
@@ -283,9 +288,61 @@ function showTab(tabId) {
     link?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
     try { sessionStorage.setItem('benhAnTab', tabId); } catch { }
+    syncSecPicker?.();
 }
 
 tabLinks.forEach(link => link.addEventListener('click', () => showTab(link.dataset.tab)));
+
+/* Điện thoại: thay 7 tab bằng một nút mở danh sách mục cho đỡ chật */
+const secSheet = document.getElementById('sec-sheet');
+function tabTitle(link) {
+    return link.querySelector('.tab-text')?.textContent.trim() || '';
+}
+function renderSecSheet() {
+    const box = document.getElementById('sec-sheet-list');
+    if (!box) return;
+    box.innerHTML = tabLinks.map(l => {
+        const pct = l.querySelector('.tab-progress')?.textContent || '0%';
+        const n = parseInt(pct) || 0;
+        const icon = l.querySelector('.tab-top i')?.className || 'fas fa-circle';
+        return `<button type="button" class="sec-item ${l.classList.contains('active') ? 'active' : ''}" data-go="${l.dataset.tab}">
+            <i class="${icon}"></i><b>${tabTitle(l)}</b>
+            <span class="pct ${n >= 80 ? 'full' : n > 0 ? 'part' : ''}">${pct}</span></button>`;
+    }).join('');
+}
+function syncSecPicker() {
+    const cur = tabLinks.find(l => l.classList.contains('active'));
+    if (!cur) return;
+    const name = document.getElementById('sec-picker-name');
+    const pct = document.getElementById('sec-picker-pct');
+    if (name) name.textContent = tabTitle(cur);
+    if (pct) pct.textContent = cur.querySelector('.tab-progress')?.textContent || '0%';
+}
+/* Mở bảng chọn mục có đẩy một mốc lịch sử: nút Back của điện thoại đóng bảng
+   thay vì thoát khỏi trang đang soạn dở. */
+function openSecSheet() {
+    if (!secSheet) return;
+    renderSecSheet();
+    secSheet.classList.remove('hidden');
+    try { history.pushState({ secSheet: 1 }, ''); } catch { }
+}
+function closeSecSheet(fromBack) {
+    if (!secSheet || secSheet.classList.contains('hidden')) return;
+    secSheet.classList.add('hidden');
+    if (!fromBack && history.state?.secSheet) { try { history.back(); } catch { } }
+}
+window.addEventListener('popstate', () => closeSecSheet(true));
+
+document.getElementById('sec-picker')?.addEventListener('click', openSecSheet);
+secSheet?.addEventListener('click', (e) => {
+    if (e.target.closest('[data-sec-close]') || e.target.classList.contains('sec-sheet-bg')) {
+        return closeSecSheet();
+    }
+    const go = e.target.closest('[data-go]');
+    if (!go) return;
+    closeSecSheet();
+    showTab(go.dataset.go);
+});
 
 // Nút Trước / Tiếp ở cuối mỗi tab
 tabContents.forEach(content => {
@@ -314,8 +371,10 @@ const isTouch = window.matchMedia('(hover: none)').matches;
 if (isTouch) {
     let sx = 0, sy = 0, tracking = false;
     const zone = document.querySelector('.page-card') || document.body;
+    // Không cướp cú vuốt của ô đang gõ, sơ đồ cuộn ngang hay bảng đang mở
+    const NO_SWIPE = 'input, textarea, select, .bl-map-wrap, .cls-thumbs, .img-grid, [data-noswipe]';
     zone.addEventListener('touchstart', (e) => {
-        if (e.touches.length !== 1) { tracking = false; return; }
+        if (e.touches.length !== 1 || e.target.closest(NO_SWIPE)) { tracking = false; return; }
         sx = e.touches[0].clientX; sy = e.touches[0].clientY; tracking = true;
     }, { passive: true });
     zone.addEventListener('touchend', (e) => {
@@ -383,7 +442,15 @@ function countFilled(root) {
     return { total: els.length, filled: els.filter(el => String(el.value || '').trim()).length };
 }
 
+/* Gõ một chữ là đếm lại toàn bộ ô của 7 tab -> dồn về 1 lần mỗi khung hình
+   cho khỏi khựng khi gõ trên điện thoại. */
+let progressRaf = 0;
 function updateProgress() {
+    if (progressRaf) return;
+    progressRaf = requestAnimationFrame(() => { progressRaf = 0; updateProgressNow(); });
+}
+
+function updateProgressNow() {
     let total = 0, filled = 0;
     tabContents.forEach(content => {
         const c = countFilled(content);
@@ -406,6 +473,10 @@ function updateProgress() {
     if (bar) bar.style.width = pct + '%';
     const label = $('overall-pct');
     if (label) label.textContent = pct + '%';
+    // Ô sinh ra sau (mốc bệnh sử, y lệnh, phiếu CLS…) cũng cần phím Enter = "ô kế"
+    document.querySelectorAll('#medical-record-form input:not([type=hidden]):not([enterkeyhint])')
+        .forEach(el => el.setAttribute('enterkeyhint', 'next'));
+    syncSecPicker?.();
 }
 
 /* =====================================================================
@@ -466,12 +537,6 @@ function calcYob() {
     else if (!$('patient-age').value.trim()) $('patient-yob').value = '';
 }
 
-const BMI_TAGS = [
-    [18.5, 'Gầy', 'text-blue-500'],
-    [23, 'Bình thường', 'text-green-600'],
-    [25, 'Thừa cân', 'text-amber-500'],
-    [Infinity, 'Béo phì', 'text-red-500']
-];
 function calcBmi() {
     const cm = parseFloat($('vital-height').value);
     const h = cm / 100;
@@ -492,15 +557,6 @@ function calcBmi() {
 }
 
 /* Huyết áp: máy tự tính huyết áp trung bình, hiệu áp và phân độ THA */
-const BP_STAGES = [
-    [90, 60, 'Tụt huyết áp', 'text-red-500'],
-    [120, 80, 'Tối ưu', 'text-green-600'],
-    [130, 85, 'Bình thường', 'text-green-600'],
-    [140, 90, 'Bình thường cao', 'text-amber-500'],
-    [160, 100, 'Tăng huyết áp độ 1', 'text-orange-500'],
-    [180, 110, 'Tăng huyết áp độ 2', 'text-red-500'],
-    [Infinity, Infinity, 'Tăng huyết áp độ 3', 'text-red-600']
-];
 function calcBp() {
     const tag = $('bp-tag');
     if (!tag) return;
@@ -867,7 +923,40 @@ function traumaProse() {
     return lines.join('\n');
 }
 
-function calcSpecialty() { calcObstetric(); calcPediatric(); calcSurgery(); calcQsofa(); calcTrauma(); }
+/* Tự chấm mức độ: góp sinh hiệu + Glasgow + các chỉ số cận lâm sàng đã nhập */
+function gradeContext() {
+    const labs = {};
+    getCls().forEach(c => (c.items || []).forEach(i => {
+        if (String(i.v ?? '').trim()) labs[i.n] = i.v;
+    }));
+    const e = parseInt($('gcs-e')?.value), v = parseInt($('gcs-v')?.value), m = parseInt($('gcs-m')?.value);
+    return {
+        pulse: $('vital-pulse').value, bp: $('vital-bp').value, temp: $('vital-temp').value,
+        resp: $('vital-resp').value, spo2: $('vital-spo2').value, weight: $('vital-weight').value,
+        gcs: (e && v && m) ? e + v + m : null,
+        gender: $('patient-gender').value, age: $('patient-age').value,
+        painText: [$('hx-sym-severity')?.value, $('hx-sym-name')?.value].filter(Boolean).join(' '),
+        labs
+    };
+}
+
+let lastGrades = [];
+function renderGrades() {
+    const box = $('grade-list');
+    if (!box) return;
+    lastGrades = gradeAll(gradeContext());
+    box.innerHTML = lastGrades.length
+        ? lastGrades.map(g => `<div class="grade-row ${g.muc || ''}">
+                <span class="grade-dot"></span>
+                <span class="grade-name">${g.ten}</span>
+                <span class="grade-val">${g.ketQua}
+                    ${g.dua ? `<span class="grade-src">d\u1ef1a v\u00e0o: ${g.dua}</span>` : ''}
+                    ${g.thieu ? `<span class="grade-src">c\u00f2n thi\u1ebfu: ${g.thieu}</span>` : ''}</span>
+            </div>`).join('')
+        : '<p class="grade-empty">Nh\u1eadp sinh hi\u1ec7u ho\u1eb7c k\u1ebft qu\u1ea3 c\u1eadn l\u00e2m s\u00e0ng, m\u00e1y s\u1ebd t\u1ef1 ch\u1ea5m \u0111\u1ed9 cho b\u1ea1n.</p>';
+}
+
+function calcSpecialty() { calcObstetric(); calcPediatric(); calcSurgery(); calcQsofa(); calcTrauma(); renderGrades(); }
 
 function syncGenderUi() {
     const female = $('patient-gender').value === 'Nữ';
@@ -889,92 +978,6 @@ function flagVital(el) {
     const v = parseFloat(el.value);
     el.classList.toggle('vital-warn', !isNaN(v) && (v < range[0] || v > range[1]));
 }
-
-/* =====================================================================
-   5. CHIP GỢI Ý NHANH
-   ===================================================================== */
-const nowTime = () => new Date().toTimeString().slice(0, 5);
-const todayISO = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
-
-const QUICK_FILL = {
-    'admission-time': [['Bây giờ', nowTime]],
-    'admission-date': [['Hôm nay', todayISO]],
-    'reason-for-admission': ['Sốt', 'Ho', 'Khó thở', 'Đau ngực', 'Đau bụng', 'Đau đầu', 'Chóng mặt', 'Nôn ói', 'Tiêu chảy', 'Phù', 'Mệt mỏi'],
-    'history-internal': ['Chưa ghi nhận bệnh lý nội khoa', 'Tăng huyết áp', 'Đái tháo đường type 2', 'Rối loạn lipid máu', 'Viêm dạ dày'],
-    'history-surgery': ['Chưa ghi nhận tiền căn ngoại khoa', 'Mổ lấy thai', 'Cắt ruột thừa'],
-    'history-obgyne': ['Kinh nguyệt đều', 'PARA', 'Đã mãn kinh'],
-    'history-allergy': ['Chưa ghi nhận dị ứng thuốc, thức ăn'],
-    'history-habit': ['Không hút thuốc lá, không uống rượu bia', 'Hút thuốc lá', 'Uống rượu bia thường xuyên'],
-    'history-family': ['Chưa ghi nhận bệnh lý tương tự trong gia đình', 'Gia đình có người tăng huyết áp', 'Gia đình có người đái tháo đường'],
-    'ros-cardio': [['Bình thường', () => 'Không hồi hộp, không đánh trống ngực, không khó thở'], 'Có khó thở khi gắng sức'],
-    'ros-resp': [['Bình thường', () => 'Không ho, không khò khè, không đau ngực'], 'Ho khan', 'Ho đàm'],
-    'ros-gi': [['Bình thường', () => 'Không đau bụng, không buồn nôn, đi phân vàng đóng khuôn'], 'Chán ăn', 'Sụt cân'],
-    'ros-neuro': [['Bình thường', () => 'Không đau đầu, không chóng mặt'], 'Mất ngủ'],
-    'ros-msk': [['Bình thường', () => 'Không đau khớp, không yếu liệt cơ, không giới hạn vận động'], 'Đau mỏi cơ'],
-    'ros-uro': [['Bình thường', () => 'Nước tiểu vàng trong, không tiểu gắt buốt, không tiểu máu'], 'Tiểu đêm'],
-    'exam-general': ['Bệnh nhân tỉnh, tiếp xúc tốt', 'Da niêm hồng', 'Da niêm nhạt', 'Chi ấm, mạch quay rõ, CRT < 2s', 'Không phù', 'Hạch ngoại vi sờ không chạm', 'Môi khô, lưỡi dơ'],
-    'exam-head': ['Cân đối, không biến dạng', 'Họng sạch', 'Tuyến giáp không to, khí quản không lệch', 'Không âm thổi động mạch cảnh', 'Kết mạc mắt nhạt'],
-    'exam-chest': ['Lồng ngực cân đối, không sang thương, di động đều theo nhịp thở', 'Không co kéo cơ hô hấp phụ', 'Có sẹo mổ cũ'],
-    'exam-heart': ['Mỏm tim khoang liên sườn V đường trung đòn trái', 'T1 T2 đều rõ, không âm thổi', 'Tim nhanh đều', 'Dấu Harzer (-)'],
-    'exam-lung': ['Rung thanh đều 2 bên', 'Gõ trong khắp phổi', 'Rì rào phế nang êm dịu 2 phế trường, không ran', 'Ran nổ đáy phổi (P)', 'Ran ẩm 2 đáy phổi'],
-    'exam-abdomen': ['Bụng mềm, không điểm đau khu trú', 'Nhu động ruột 5 lần/phút', 'Gan lách sờ không chạm', 'Gõ đục vùng thấp (-), sóng vỗ (-)', 'Chạm thận (-), bập bềnh thận (-)'],
-    'exam-neuro-msk': ['Cổ mềm, không dấu thần kinh định vị', 'Không yếu liệt chi, không giới hạn vận động', 'Không biến dạng chi, không gù vẹo cột sống'],
-    'labs-proposed': ['Công thức máu', 'Sinh hóa máu: ure, creatinine, AST, ALT, ion đồ', 'Đường huyết', 'CRP', 'Tổng phân tích nước tiểu', 'X-quang ngực thẳng', 'ECG', 'Siêu âm bụng tổng quát'],
-    'labs-rationale': ['Để chẩn đoán xác định:', 'Để chẩn đoán phân biệt:', 'Để đánh giá mức độ nặng:', 'Để tìm biến chứng:', 'Để tìm nguyên nhân / yếu tố thúc đẩy:', 'Để theo dõi điều trị:', 'Xét nghiệm thường quy:'],
-    'labs-interpretation': ['Kết quả phù hợp với chẩn đoán sơ bộ vì:', 'Kết quả không ủng hộ chẩn đoán… vì:', 'Đã loại trừ… vì:', 'Đề nghị làm thêm… vì:'],
-    'diagnosis-reasoning': ['Nghĩ nhiều đến… vì:', 'Ít nghĩ đến… vì:', 'Chưa loại trừ… nên đề nghị:', 'Yếu tố nguy cơ:', 'Biến chứng cần tìm:'],
-    'differential-diagnosis': ['Cùng triệu chứng nhưng khác cơ chế:', 'Bệnh cảnh nặng cần loại trừ trước:'],
-    'treatment-plan': ['Điều trị nguyên nhân', 'Điều trị triệu chứng', 'Điều trị hỗ trợ, nâng tổng trạng', 'Điều trị bệnh nền đi kèm', 'Theo dõi sinh hiệu, biến chứng', 'Chế độ ăn – vận động'],
-    'prognosis': ['Tiên lượng gần: khá', 'Tiên lượng xa: dè dặt'],
-    'prevention': ['Tuân thủ điều trị, tái khám đúng hẹn', 'Chế độ ăn hợp lý, tập luyện đều đặn']
-};
-
-function buildChips() {
-    for (const [id, items] of Object.entries(QUICK_FILL)) {
-        const el = $(id);
-        if (!el) continue;
-        const wrap = document.createElement('div');
-        wrap.className = 'chips';
-        items.forEach(item => {
-            const [label, getValue] = Array.isArray(item) ? item : [item, () => item];
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'chip';
-            btn.textContent = label;
-            btn.addEventListener('click', () => {
-                const text = getValue();
-                if (el.tagName === 'TEXTAREA' && el.value.trim()) {
-                    el.value = el.value.replace(/\s+$/, '') + '\n' + text;
-                } else {
-                    el.value = text;
-                }
-                el.dispatchEvent(new Event('input', { bubbles: true }));
-            });
-            wrap.appendChild(btn);
-        });
-        el.insertAdjacentElement('afterend', wrap);
-    }
-}
-
-/* Mẫu "khám bình thường": điền một lượt các mục khám không bất thường */
-const NORMAL_EXAM = {
-    'ros-cardio': 'Không hồi hộp, không đánh trống ngực, không khó thở',
-    'ros-resp': 'Không ho, không khò khè, không đau ngực',
-    'ros-gi': 'Không đau bụng, không buồn nôn, không nôn, đi phân vàng đóng khuôn',
-    'ros-neuro': 'Không đau đầu, không chóng mặt',
-    'ros-msk': 'Không đau khớp, không yếu liệt cơ, không giới hạn vận động',
-    'ros-uro': 'Nước tiểu vàng trong, không tiểu gắt buốt, không tiểu máu',
-    'exam-general': 'Bệnh nhân tỉnh, tiếp xúc tốt. Da niêm hồng. Chi ấm, mạch quay rõ, CRT < 2s. Không phù, không xuất huyết da niêm. Hạch ngoại vi sờ không chạm',
-    'exam-head': 'Cân đối, không biến dạng. Họng sạch. Tuyến giáp không to, khí quản không lệch. Không âm thổi động mạch cảnh',
-    'exam-chest': 'Lồng ngực cân đối, không sang thương, di động đều theo nhịp thở',
-    'exam-heart': 'Mỏm tim khoang liên sườn V đường trung đòn trái, T1 T2 đều rõ, không âm thổi',
-    'exam-lung': 'Rung thanh đều 2 bên, gõ trong, rì rào phế nang êm dịu 2 phế trường, không ran',
-    'exam-abdomen': 'Bụng mềm, cân đối, di động theo nhịp thở, không điểm đau khu trú. Gan lách sờ không chạm. Chạm thận (-)',
-    'exam-neuro-msk': 'Cổ mềm, không dấu thần kinh định vị, không yếu liệt chi, không giới hạn vận động khớp'
-};
 
 /* =====================================================================
    6. TÓM TẮT TỰ ĐỘNG
@@ -1125,6 +1128,7 @@ const form = $('medical-record-form');
 $('medical-record-id').value = recordId;
 
 buildChips();
+buildPickers({ autoGrow });
 
 /* Thông tin sinh viên giống nhau ở mọi bệnh án -> nhớ lại cho lần sau */
 const STU_KEY = 'benhAnSinhVien';
@@ -1147,7 +1151,7 @@ initCls({
     recordId,
     getGender: () => $('patient-gender').value,
     getAge: () => $('patient-age').value || (THIS_YEAR - parseFloat($('patient-yob').value)),
-    onChange: () => { calcScores(); updateProgress(); scheduleSave(); }
+    onChange: () => { calcScores(); renderGrades(); benhKem.forEach(l => l.regrade()); updateProgress(); scheduleSave(); }
 });
 
 initHistory({ onChange: () => { syncProse(); hxChecklist(); updateProgress(); scheduleSave(); } });
@@ -1193,6 +1197,21 @@ const imgHoSo = createImageBox({
     onChange: () => { updateProgress(); scheduleSave(); }
 });
 
+/* Bệnh kèm: chẩn đoán sơ bộ (bk1) và chẩn đoán xác định (bk2) */
+const benhKem = [1, 2].map(n => $(`bk${n}-list`) && createBenhKemList({
+    host: $(`bk${n}-list`), addBtn: $(`bk${n}-add`), pullBtn: $(`bk${n}-pull`),
+    field: $(`dx${n}-assoc`), suggest: suggestStage, getPast: pastDiseases,
+    onChange: () => { dxBinder[`dx${n}`].sync(); updateProgress(); scheduleSave(); }
+})).filter(Boolean);
+
+const syncBenhKem = () => benhKem.forEach(l => l.sync());
+[1, 2].forEach(n => $(`bk${n}-pull`)?.addEventListener('bk-pulled', (e) => {
+    showToast(e.detail.n
+        ? `Đã chép ${e.detail.n} bệnh nền từ tiền căn sang mục bệnh kèm.`
+        : 'Không có bệnh nền nào mới trong tiền căn nội khoa.',
+        e.detail.n ? 'success' : 'info');
+}));
+
 initRx({ onChange: () => { rxBinder.sync(); updateProgress(); scheduleSave(); } });
 
 initTheoDoi({ onChange: () => { updateProgress(); scheduleSave(); } });
@@ -1232,6 +1251,7 @@ initFold();
     restoreStudent();
     showExamDate();
     hxChecklist();
+    syncBenhKem();
     syncGenderUi();
     Object.keys(VITAL_RANGE).forEach(id => $(id) && flagVital($(id)));
     growAll();
@@ -1267,6 +1287,8 @@ form.addEventListener('input', (e) => {
     if (['smoke-cpd', 'smoke-from', 'smoke-to', 'patient-yob', 'patient-age'].includes(el.id)) calcSmoke();
     if (el.id.startsWith('alc-')) calcAlcohol();
     if (['vital-resp', 'vital-bp', 'patient-age', 'patient-yob'].includes(el.id)) calcScores();
+    if (el.id.startsWith('vital-') || el.id.startsWith('gcs-') || el.id.startsWith('hx-sym-')) renderGrades();
+    if (el.id === 'vital-bp' || el.id === 'vital-bmi') benhKem.forEach(l => l.regrade());
     if (el.id.startsWith('tr-')) calcTrauma();
     if (el.id.startsWith('ob-') || el.id.startsWith('ped-') || el.id.startsWith('sx-')
         || el.id.startsWith('cc-') || ['vital-weight', 'vital-resp', 'vital-bp', 'record-datetime'].includes(el.id)) calcSpecialty();
@@ -1389,6 +1411,29 @@ $('bl-build')?.addEventListener('click', () => {
     showToast(text ? 'Đã ghép đoạn biện luận.' : 'Chưa có nội dung biện luận để ghép.', text ? 'success' : 'warning');
 });
 
+$('grade-insert')?.addEventListener('click', () => {
+    const text = gradeToText(lastGrades);
+    if (!text) return showToast('Chưa có dữ liệu để chấm độ.', 'warning');
+    const el = $('summary');
+    const cur = el.value.trim();
+    el.value = cur ? cur + '\n\nĐánh giá mức độ:\n' + text : 'Đánh giá mức độ:\n' + text;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    autoGrow(el);
+    showToast('Đã chèn các đánh giá mức độ vào tóm tắt.', 'success');
+});
+
+$('bl-to-cls')?.addEventListener('click', () => {
+    const list = derivedCls();
+    if (!list.length) return showToast('Chưa ghi cận lâm sàng ở nhánh nào trong sơ đồ biện luận.', 'warning');
+    const el = $('labs-proposed');
+    const co = el.value.split('\n').map(x => x.trim()).filter(Boolean);
+    list.forEach(x => { if (!co.some(y => y.toLowerCase() === x.toLowerCase())) co.push(x); });
+    el.value = co.join('\n');
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    autoGrow(el);
+    showToast(`Đã đổ ${list.length} cận lâm sàng sang mục XI.`, 'success');
+});
+
 $('bl-to-dx')?.addEventListener('click', () => {
     const { soBo, phanBiet } = derivedDiagnosis();
     if (!soBo && !phanBiet) return showToast('Chưa phân định chẩn đoán nào ở bảng biện luận.', 'warning');
@@ -1425,6 +1470,22 @@ $('auto-problem-btn')?.addEventListener('click', () => {
     autoGrow($('problem-list'));
     syncFromProblems();
     showToast('Đã gợi ý các vấn đề và tạo khung biện luận tương ứng.', 'success');
+});
+
+/* Bàn phím điện thoại: phím Enter/Go nhảy sang ô kế thay vì submit form
+   (submit = lưu rồi rời trang — lỡ tay là mất mạch nhập liệu). */
+form.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.shiftKey || e.ctrlKey || e.metaKey || e.isComposing) return;
+    const el = e.target;
+    if (el.tagName === 'TEXTAREA' || el.tagName === 'BUTTON' || el.closest('.sticky-actions')) return;
+    e.preventDefault();
+    const fields = [...form.querySelectorAll('input:not([type=hidden]):not([readonly]), select, textarea')]
+        .filter(f => f.offsetParent !== null && !f.closest('.sticky-actions'));
+    const next = fields[fields.indexOf(el) + 1];
+    if (!next) return el.blur();
+    next.focus({ preventScroll: true });
+    next.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    if (next.tagName === 'INPUT' && next.type !== 'date' && next.type !== 'time') next.select?.();
 });
 
 // Mobile: ẩn thanh nút khi bàn phím mở
@@ -1520,3 +1581,5 @@ document.addEventListener('keydown', (e) => {
 const saveOnLeave = () => { if (dirty) doSave(); };
 window.addEventListener('beforeunload', saveOnLeave);
 window.addEventListener('pagehide', saveOnLeave);
+
+

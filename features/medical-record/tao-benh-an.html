@@ -8,6 +8,9 @@
     <script src="../../pwa-install.js" defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
     <style>
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: fadeIn 0.25s; }
@@ -259,7 +262,7 @@
             border: 1px solid #fce7f3; border-radius: 8px; padding: 6px 8px; font-size: 13px;
             background: #fff; min-width: 0; width: 100%;
         }
-        .hx-ref { display: grid; grid-template-columns: minmax(90px, 1fr) 130px minmax(120px, 1.4fr) 26px; gap: 6px; align-items: center; margin-top: 6px; }
+        .hx-ref { display: grid; grid-template-columns: minmax(90px, 1fr) 26px 130px minmax(120px, 1.4fr) 26px; gap: 6px; align-items: center; margin-top: 6px; }
         .hx-ref.is-warn .hx-d { border-color: #fb923c; background: #fff7ed; }
         .hx-mini {
             margin-top: 8px; border: 1px dashed #fbcfe8; background: #fdf2f8; color: #db2777;
@@ -271,8 +274,14 @@
         .hx-empty { font-size: 12px; color: #9ca3af; padding: 8px 2px; }
         @media (max-width: 640px) {
             .hx-grid { grid-template-columns: 1fr; }
-            .hx-ref { grid-template-columns: 1fr 26px; grid-template-areas: "sym x" "st st" "d d"; row-gap: 4px; }
-            .hx-sym { grid-area: sym; } .hx-st { grid-area: st; } .hx-d { grid-area: d; } .hx-ref .hx-x { grid-area: x; }
+            /* Dòng chọn mốc: ô loại mốc chiếm trọn dòng, số + đơn vị + nhãn xuống dòng dưới */
+            .hx-when { gap: 6px 8px; }
+            .hx-when .hx-phase { flex: 1 1 100%; }
+            .hx-when .hx-n { width: 64px; }
+            .hx-when .hx-label { margin-left: 2px; }
+            .hx-ref { grid-template-columns: 1fr 26px 26px; grid-template-areas: "sym pick x" "st st st" "d d d"; row-gap: 4px; }
+            .hx-sym { grid-area: sym; } .hx-st { grid-area: st; } .hx-d { grid-area: d; }
+            .hx-ref .hx-refpick { grid-area: pick; } .hx-ref .hx-x { grid-area: x; }
         }
 
         /* ====== Thang điểm tự cộng ====== */
@@ -509,44 +518,339 @@
         .cnv-x:hover { color: #dc2626; }
         .cnv-empty { font-size: 11px; color: #9ca3af; }
 
-        /* ====== Khối biện luận theo từng vấn đề ====== */
+        /* ====== Sơ đồ cây biện luận ====== */
         .bl-host { display: flex; flex-direction: column; gap: 14px; }
-        .bl-block { border: 1px solid #ede9fe; background: #fcfbff; border-radius: 14px; padding: 10px 12px; }
-        .bl-block-head {
-            display: flex; align-items: center; justify-content: space-between; gap: 8px;
-            flex-wrap: wrap; font-size: 13px; font-weight: 800; color: #6d28d9; margin-bottom: 8px;
-        }
-        .bl-tools { display: flex; gap: 6px; flex-wrap: wrap; }
+        .tr-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .tr-hint { font-size: 11px; color: #9ca3af; }
         .bl-mini {
             border: 1px solid #ddd6fe; background: #f5f3ff; color: #6d28d9; border-radius: 9999px;
-            padding: 4px 12px; font-size: 11px; font-weight: 700; cursor: pointer;
+            padding: 5px 13px; font-size: 12px; font-weight: 700; cursor: pointer;
         }
         .bl-mini:hover { background: #ede9fe; }
-        .bl-note { font-size: 11px; color: #9ca3af; margin-bottom: 8px; }
-        .bl-empty { font-size: 12px; color: #9ca3af; padding: 4px 2px; }
-        .bl-card { border: 1px solid #fbcfe8; background: #fff; border-radius: 12px; padding: 10px; margin-bottom: 10px; }
-        .bl-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
-        .bl-no {
-            font-size: 11px; font-weight: 800; color: #fff; background: #a78bfa;
-            border-radius: 9999px; padding: 2px 10px; white-space: nowrap;
+
+        .tr-card { border: 1px solid #eee9f6; background: #fff; border-radius: 16px; padding: 12px 14px; }
+        .tr-root { display: flex; align-items: center; gap: 9px; margin-bottom: 6px; }
+        .tr-no {
+            width: 26px; height: 26px; border-radius: 9999px; flex-shrink: 0;
+            background: linear-gradient(135deg, #a78bfa, #f472b6); color: #fff;
+            font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center;
         }
-        .bl-title { flex: 1 1 160px; border: 0; border-bottom: 1px solid #fbcfe8; font-weight: 700; padding: 4px 2px; background: transparent; min-height: 34px; }
-        .bl-field { display: block; margin-bottom: 6px; }
-        .bl-label { display: block; font-size: 11px; font-weight: 700; color: #db2777; margin-bottom: 2px; }
-        .bl-in, .bl-in-s {
-            width: 100%; border: 1px solid #fce7f3; border-radius: 8px; padding: 6px 8px;
-            font-size: 13px; background: #fff; min-width: 0;
+        .tr-title {
+            flex: 1; border: 0; border-bottom: 1px solid #ede9fe; background: transparent;
+            font-weight: 800; font-size: 14px; color: #4c1d95; padding: 5px 2px; min-height: 34px;
         }
-        .bl-row { display: grid; grid-template-columns: minmax(120px, 1fr) 150px minmax(140px, 1.6fr) 26px; gap: 6px; align-items: center; margin-bottom: 6px; }
-        .bl-row-2 { grid-template-columns: minmax(120px, 1fr) minmax(160px, 2fr) 26px; }
-        .bl-lv { border: 1px solid #ddd6fe; border-radius: 8px; padding: 6px 8px; font-size: 12px; font-weight: 700; background: #f5f3ff; color: #6d28d9; }
-        .bl-lv.is-0 { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
-        .bl-lv.is-2 { background: #fffbeb; border-color: #fde68a; color: #b45309; }
-        .bl-lv.is-3 { background: #f3f4f6; border-color: #e5e7eb; color: #6b7280; }
-        .bl-x { border: 0; background: transparent; color: #f472b6; cursor: pointer; }
-        .bl-x:hover { color: #dc2626; }
+
+        /* Nhánh: vẽ đường dọc nối xuống từng ý */
+        .tr-branch { position: relative; margin-left: 12px; padding: 6px 0 6px 20px; border-left: 2px solid #ede9fe; }
+        .tr-branch.last { border-left-color: transparent; }
+        .tr-branch::before {
+            content: ''; position: absolute; left: -2px; top: 18px; width: 16px; height: 2px; background: #ede9fe;
+        }
+        .tr-branch.last::before { background: #ede9fe; box-shadow: -2px -12px 0 0 #ede9fe; }
+        .tr-label {
+            display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 800;
+            color: #6d28d9; margin-bottom: 6px;
+        }
+        .tr-label i { color: #a78bfa; }
+        .tr-mini {
+            margin-left: auto; border: 1px dashed #ddd6fe; background: #faf8ff; color: #6d28d9;
+            border-radius: 9999px; padding: 3px 10px; font-size: 11px; font-weight: 700; cursor: pointer;
+        }
+        .tr-mini:hover { background: #ede9fe; }
+
+        .tr-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .tr-tag {
+            display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+            background: #eff6ff; color: #1d4ed8; border-radius: 9999px; padding: 4px 6px 4px 12px;
+        }
+        .tr-tag button { border: 0; background: transparent; color: #93c5fd; cursor: pointer; font-size: 10px; padding: 0 2px; }
+        .tr-tag button:hover { color: #dc2626; }
+        .tr-tag-in {
+            border: 1px dashed #c7d2fe; border-radius: 9999px; padding: 5px 12px; font-size: 12px;
+            background: #fff; min-width: 190px; flex: 1;
+        }
+
+        .tr-leaf {
+            display: grid; grid-template-columns: 10px minmax(110px, 1.2fr) 130px minmax(120px, 1.6fr) 24px;
+            gap: 7px; align-items: center; margin-bottom: 6px;
+        }
+        .tr-leaf .tr-dot { width: 8px; height: 8px; border-radius: 9999px; background: #c4b5fd; }
+        .tr-leaf.lv-0 .tr-dot { background: #10b981; }
+        .tr-leaf.lv-2 .tr-dot { background: #f59e0b; }
+        .tr-leaf.lv-3 .tr-dot { background: #d1d5db; }
+        .tr-leaf.lv-warn { grid-template-columns: 10px minmax(110px, 1fr) minmax(140px, 2fr) 24px; }
+        .tr-leaf.lv-warn .tr-dot { background: #fb923c; }
+        .tr-in {
+            border: 1px solid #f0eefa; border-radius: 9px; padding: 6px 9px; font-size: 13px;
+            background: #fffdfe; min-width: 0; width: 100%;
+        }
+        .tr-in.name { font-weight: 700; }
+        .tr-in.wide { grid-column: span 1; }
+        .tr-lv {
+            border: 1px solid #ddd6fe; border-radius: 9px; padding: 6px 8px; font-size: 11.5px;
+            font-weight: 700; background: #f5f3ff; color: #6d28d9;
+        }
+        .tr-leaf.lv-0 .tr-lv { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+        .tr-leaf.lv-2 .tr-lv { background: #fffbeb; border-color: #fde68a; color: #b45309; }
+        .tr-leaf.lv-3 .tr-lv { background: #f6f6f9; border-color: #e5e7eb; color: #6b7280; }
+        .tr-x { border: 0; background: transparent; color: #d8b4fe; cursor: pointer; }
+        .tr-x:hover { color: #dc2626; }
+        .tr-empty { font-size: 12px; color: #b6b3c2; }
+        .tr-empty.big { padding: 14px 2px; }
+
+        .tr-sugg { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin-top: 6px; }
+        .tr-sugg > span { font-size: 11px; color: #9ca3af; font-weight: 700; }
+        .tr-sugg-b {
+            border: 1px dashed #e9d5ff; background: #fdfaff; color: #7c3aed;
+            border-radius: 9999px; padding: 3px 10px; font-size: 11px; font-weight: 600; cursor: pointer;
+        }
+        .tr-sugg-b:hover { background: #f3e8ff; }
+
+        .tr-tools { display: flex; gap: 2px; margin-left: auto; }
+        .tr-search {
+            flex: 1 1 220px; min-width: 180px; border: 1px solid #ede9fe; border-radius: 9999px;
+            padding: 6px 14px; font-size: 12px; background: #fff;
+        }
+        .tr-search-res { display: flex; flex-wrap: wrap; gap: 6px; }
+        .tr-found {
+            display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+            border: 1px solid #e9d5ff; background: #fdfaff; border-radius: 12px;
+            padding: 7px 12px; cursor: pointer; text-align: left; max-width: 260px;
+        }
+        .tr-found:hover { background: #f3e8ff; }
+        .tr-found b { font-size: 12.5px; color: #6d28d9; }
+        .tr-found small { font-size: 10.5px; color: #9ca3af; }
+        .tr-tag.red { background: #fff1f2; color: #be123c; }
+        .tr-tag.red button { color: #fda4af; }
+        .tr-sugg-b.red { border-color: #fecdd3; background: #fff5f6; color: #be123c; }
+        .tr-sugg-b.red:hover { background: #ffe4e6; }
+        .tr-sugg-b.cls { border-color: #bae6fd; background: #f0f9ff; color: #0369a1; }
+        .tr-sugg-b.cls:hover { background: #e0f2fe; }
+        .tr-sugg.cls > span { color: #0369a1; }
+        .tr-in.sub {
+            grid-column: 2 / -1; font-size: 12px; background: #fbfaff; border-style: dashed;
+        }
+        /* ====== Điện thoại: thanh chọn mục gọn thay cho 7 tab ====== */
+        .sec-picker {
+            display: none; width: 100%; align-items: center; justify-content: space-between; gap: 10px;
+            border: 1px solid #f6e7f1; background: #fff; border-radius: 14px; padding: 11px 14px;
+            font-weight: 800; color: #db2777; font-size: 14px; margin-bottom: 10px;
+            box-shadow: 0 1px 3px rgba(236,72,153,.06);
+        }
+        .sec-picker .sp-left { display: inline-flex; align-items: center; gap: 9px; min-width: 0; }
+        .sec-picker .sp-left i { color: #f472b6; }
+        .sec-picker #sec-picker-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .sec-picker .sp-right { display: inline-flex; align-items: center; gap: 8px; color: #9ca3af; font-size: 12px; }
+        .sec-picker #sec-picker-pct {
+            background: #fdf2f8; color: #db2777; border-radius: 9999px; padding: 2px 9px; font-size: 11px; font-weight: 800;
+        }
+
+        .sec-sheet { position: fixed; inset: 0; z-index: 60; }
+        .sec-sheet.hidden { display: none; }
+        .sec-sheet-bg { position: absolute; inset: 0; background: rgba(17,24,39,.4); }
+        .sec-sheet-panel {
+            position: absolute; left: 0; right: 0; bottom: 0; background: #fff;
+            border-radius: 22px 22px 0 0; padding: 14px 14px calc(18px + env(safe-area-inset-bottom));
+            max-height: 76vh; overflow-y: auto; animation: sheetUp .22s ease-out;
+        }
+        @keyframes sheetUp { from { transform: translateY(24px); opacity: .6; } to { transform: none; opacity: 1; } }
+        .sec-sheet-head {
+            display: flex; align-items: center; justify-content: space-between;
+            font-weight: 800; color: #db2777; font-size: 14px; margin-bottom: 10px;
+        }
+        .sec-sheet-head button { border: 0; background: #fdf2f8; color: #db2777; border-radius: 9999px; width: 32px; height: 32px; }
+        .sec-sheet-list { display: flex; flex-direction: column; gap: 6px; }
+        .sec-item {
+            display: flex; align-items: center; gap: 11px; border: 1px solid #f6e7f1; background: #fff;
+            border-radius: 14px; padding: 11px 13px; text-align: left; cursor: pointer; width: 100%;
+        }
+        .sec-item.active { border-color: #ec4899; background: #fff5fa; }
+        .sec-item i { width: 30px; height: 30px; border-radius: 9999px; background: #fdf2f8; color: #db2777;
+            display: inline-flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+        .sec-item b { font-size: 13.5px; color: #374151; font-weight: 700; flex: 1; }
+        .sec-item .pct { font-size: 11px; font-weight: 800; border-radius: 9999px; padding: 2px 9px; background: #f3f4f6; color: #9ca3af; }
+        .sec-item .pct.part { background: #fef3c7; color: #b45309; }
+        .sec-item .pct.full { background: #dcfce7; color: #16a34a; }
+
+        @media (max-width: 640px) {
+            .sec-picker { display: flex; }
+            .sticky-tabs { display: none; }
+            /* Thoáng hơn: bớt viền, giãn dòng, chữ dễ đọc */
+            #medical-record-form fieldset { border-width: 1px; border-radius: 16px; padding: 12px 12px 14px; }
+            #medical-record-form legend { font-size: 15px; }
+            .calc-box, .spec-box, .score-box, .cnv-box, .td-card, .tr-card { padding: 12px; border-radius: 14px; }
+            .tab-content { padding-bottom: 8px; }
+            label, .hx-grid label, .calc-grid label { font-size: 12px; }
+            #medical-record-form textarea, #medical-record-form input, #medical-record-form select { font-size: 15px; }
+            .bl-map-wrap canvas { min-width: 680px; }
+            .bl-map-wrap { overflow-x: auto; }
+            .bl-modes { gap: 6px; }
+            .seg button { padding: 7px 12px; }
+        }
+
+        /* ====== Bảng chọn & khai thác triệu chứng ====== */
+        .hx-new { display: flex; gap: 6px; align-items: center; }
+        .hx-new .hx-s { flex: 1; }
+        .hx-pick {
+            border: 1px solid #ddd6fe; background: #f5f3ff; color: #6d28d9; white-space: nowrap;
+            border-radius: 9px; padding: 6px 11px; font-size: 11.5px; font-weight: 700; cursor: pointer;
+        }
+        .hx-pick:hover { background: #ede9fe; }
+
+        .sp-modal { position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-end; justify-content: center; }
+        .sp-modal.hidden { display: none; }
+        .sp-bg { position: absolute; inset: 0; background: rgba(17,24,39,.45); }
+        .sp-panel {
+            position: relative; width: 100%; max-width: 720px; background: #fff;
+            border-radius: 22px 22px 0 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+            max-height: 88vh; display: flex; flex-direction: column; gap: 10px;
+            animation: sheetUp .2s ease-out;
+        }
+        @media (min-width: 700px) {
+            .sp-modal { align-items: center; }
+            .sp-panel { border-radius: 22px; max-height: 82vh; }
+        }
+        .sp-head { display: flex; align-items: center; justify-content: space-between; }
+        .sp-head b { font-size: 15px; color: #db2777; }
+        .sp-x { border: 0; background: #fdf2f8; color: #db2777; border-radius: 9999px; width: 34px; height: 34px; cursor: pointer; }
+        .sp-search {
+            border: 1px solid #f0e4ee; border-radius: 12px; padding: 10px 14px; font-size: 14px;
+            background: #fffdfe; width: 100%;
+        }
+        .sp-body { overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 12px; }
+        .sp-group-name { font-size: 11px; font-weight: 800; color: #9ca3af; margin-bottom: 6px; text-transform: uppercase; }
+        .sp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        .sp-chip {
+            border: 1px solid #f6e7f1; background: #fff; color: #4b5563; border-radius: 9999px;
+            padding: 7px 13px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+        }
+        .sp-chip:hover { border-color: #f9a8d4; color: #db2777; background: #fff8fb; }
+        .sp-chip.active { background: #ec4899; border-color: #ec4899; color: #fff; }
+        .sp-chosen { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .sp-back { border: 0; background: none; color: #7c3aed; font-size: 12px; font-weight: 700; cursor: pointer; text-decoration: underline; }
+        .sp-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+        .sp-f { display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 700; color: #6b7280; }
+        .sp-f input {
+            border: 1px solid #f0e4ee; border-radius: 10px; padding: 9px 11px; font-size: 14px;
+            background: #fffdfe; width: 100%;
+        }
+        .sp-empty { font-size: 12.5px; color: #9ca3af; }
+        .sp-foot { display: flex; align-items: center; gap: 10px; border-top: 1px solid #fdf2f8; padding-top: 10px; flex-wrap: wrap; }
+        .sp-preview { flex: 1; font-size: 12.5px; color: #4c1d95; font-style: italic; min-width: 200px; }
+        .sp-preview i { color: #c4b5fd; margin-right: 5px; font-size: 10px; }
+        .sp-ok {
+            border: 0; background: linear-gradient(135deg,#a78bfa,#ec4899); color: #fff; border-radius: 9999px;
+            padding: 10px 18px; font-size: 13px; font-weight: 800; cursor: pointer;
+            box-shadow: 0 4px 14px rgba(236,72,153,.3);
+        }
+        @media (max-width: 640px) { .sp-grid { grid-template-columns: 1fr; } }
+
+        /* ====== Bảng tự chấm mức độ ====== */
+        .grade-box {
+            border: 1px solid #e8eaf8; background: #fbfcff; border-radius: 16px;
+            padding: 12px 14px; margin-bottom: 10px;
+        }
+        .grade-box .calc-title { color: #4338ca; }
+        .grade-box .calc-title i { background: #eef2ff; }
+        .grade-box .cls-mini { margin-left: auto; border-color: #c7d2fe; background: #eef2ff; color: #4338ca; }
+        .grade-list { display: flex; flex-direction: column; gap: 6px; }
+        .grade-row {
+            display: grid; grid-template-columns: 8px minmax(120px, 1fr) minmax(150px, 1.6fr);
+            gap: 9px; align-items: center; background: #fff; border: 1px solid #eef1f8;
+            border-radius: 11px; padding: 8px 11px;
+        }
+        .grade-dot { width: 8px; height: 8px; border-radius: 9999px; background: #d1d5db; }
+        .grade-row.nhe .grade-dot { background: #fbbf24; }
+        .grade-row.vua .grade-dot { background: #fb923c; }
+        .grade-row.nang .grade-dot { background: #ef4444; }
+        .grade-row.ok .grade-dot { background: #34d399; }
+        .grade-name { font-size: 12px; font-weight: 700; color: #4b5563; }
+        .grade-val { font-size: 13px; font-weight: 700; color: #1f2937; }
+        .grade-row.nang .grade-val { color: #dc2626; }
+        .grade-row.vua .grade-val { color: #c2410c; }
+        .grade-row.ok .grade-val { color: #059669; font-weight: 600; }
+        .grade-src { display: block; font-size: 10.5px; color: #9ca3af; font-weight: 500; margin-top: 1px; }
+        .grade-empty { font-size: 12px; color: #9ca3af; }
+        @media (max-width: 640px) {
+            .grade-row { grid-template-columns: 8px 1fr; }
+            .grade-row > .grade-val { grid-column: 2 / 3; }
+        }
+
+        /* ====== Triệu chứng bám theo mốc ====== */
+        .hx-carry {
+            font-size: 11.5px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a;
+            border-radius: 10px; padding: 6px 10px; margin: 4px 0 8px;
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+        }
+        .hx-carry b { color: #92400e; }
+        .hx-carry .hx-mini { margin: 0; padding: 3px 10px; }
+
+        .td-sym { border: 1px dashed #f3e8f1; border-radius: 12px; padding: 9px 10px; margin-bottom: 8px; background: #fffdfe; }
+        .td-sym-head {
+            display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 800;
+            color: #db2777; margin-bottom: 7px;
+        }
+        .td-mini {
+            margin-left: auto; border: 1px solid #fbcfe8; background: #fff; color: #db2777;
+            border-radius: 9999px; padding: 3px 10px; font-size: 11px; font-weight: 700; cursor: pointer;
+        }
+        .td-sym-row { display: grid; grid-template-columns: minmax(90px,1fr) 128px minmax(110px,1.4fr) 22px; gap: 6px; align-items: center; margin-bottom: 5px; }
+        .td-sym-name, .td-sym-note, .td-sym-tt {
+            border: 1px solid #f3e8f1; border-radius: 8px; padding: 5px 8px; font-size: 12.5px; background: #fff; width: 100%;
+        }
+        .td-sym-name { font-weight: 700; }
+        .td-sym-tt { font-weight: 700; }
+        .td-sym-tt.tt-0 { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+        .td-sym-tt.tt-1 { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+        .td-sym-tt.tt-2 { background: #f6f6f9; border-color: #e5e7eb; color: #6b7280; }
+        .td-sym-tt.tt-3 { background: #fff7ed; border-color: #fed7aa; color: #c2410c; }
+        .td-sym-tt.tt-4 { background: #fef2f2; border-color: #fecaca; color: #dc2626; }
+        .td-sym-empty { font-size: 11px; color: #b6b3c2; }
+        @media (max-width: 640px) { .td-sym-row { grid-template-columns: 1fr 22px; } .td-sym-row > *:nth-child(2), .td-sym-row > *:nth-child(3) { grid-column: 1 / 2; } }
+
+        /* ====== Chế độ xem sơ đồ / bảng ====== */
+        .bl-host.is-hidden { display: none; }
+        .bl-modes { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+        .seg {
+            display: inline-flex; background: #f5f3ff; border: 1px solid #ede9fe;
+            border-radius: 9999px; padding: 3px; gap: 2px;
+        }
+        .seg button {
+            border: 0; background: transparent; color: #7c3aed; cursor: pointer;
+            border-radius: 9999px; padding: 6px 14px; font-size: 12px; font-weight: 700;
+            display: inline-flex; align-items: center; gap: 6px; transition: all .15s;
+        }
+        .seg button.active { background: #7c3aed; color: #fff; box-shadow: 0 3px 10px rgba(124,58,237,.28); }
+        .bl-map-wrap {
+            border: 1px solid #ede9fe; border-radius: 16px; overflow: hidden; background: #fff;
+            box-shadow: 0 2px 10px rgba(124,58,237,.06);
+        }
+        .bl-map-wrap.is-hidden { display: none; }
+        .bl-map-wrap canvas { display: block; width: 100%; cursor: pointer; }
+        .bl-map-hint { font-size: 11px; color: #9ca3af; padding: 8px 12px; border-top: 1px solid #f5f3ff; }
+
+        .map-overlay {
+            position: fixed; inset: 0; z-index: 70; background: #0f172ae6;
+            display: flex; flex-direction: column;
+        }
+        .map-overlay.hidden { display: none; }
+        .map-overlay-bar {
+            display: flex; align-items: center; gap: 10px; padding: 12px 16px; color: #fff;
+            font-weight: 700; font-size: 14px; background: #1e1b3a;
+        }
+        .map-overlay-bar .bl-mini { margin-left: 0; }
+        .map-overlay-bar span { margin-right: auto; display: inline-flex; align-items: center; gap: 8px; }
+        .map-overlay-body { flex: 1; overflow: auto; padding: 16px; background: #f8fafc; }
+        .map-overlay-body canvas { width: 100%; background: #fff; border-radius: 14px; box-shadow: 0 10px 30px rgba(15,23,42,.18); }
+
         .bl-raw { margin-top: 10px; }
         .bl-raw summary { cursor: pointer; font-size: 12px; color: #9ca3af; font-weight: 600; }
+
+        @media (max-width: 640px) {
+            .tr-leaf, .tr-leaf.lv-warn { grid-template-columns: 10px 1fr 24px; }
+            .tr-leaf > .tr-lv, .tr-leaf > .tr-in:not(.name) { grid-column: 2 / 3; }
+            .tr-branch { margin-left: 4px; padding-left: 14px; }
+        }
 
         @media (max-width: 640px) {
             .cnv-row { grid-template-columns: 34px 60px 76px 1fr 24px; }
@@ -645,6 +949,326 @@
             .cls-badge { grid-area: badge; }
             .cls-x { grid-area: x; }
         }
+        /* ====== Điện thoại: gõ mượt, không bị Safari phóng to ======
+           iOS Safari tự zoom trang khi ô nhập có font < 16px -> ép 16px cho mọi ô. */
+        @media (max-width: 640px) {
+            #medical-record-form input:not([type=hidden]),
+            #medical-record-form select,
+            #medical-record-form textarea,
+            .sp-panel input, .sp-search, .sec-sheet input {
+                font-size: 16px;
+            }
+            #medical-record-form .cls-in-unit { min-height: 30px; max-width: 104px; }
+            /* Ô nhảy tới / ô đang gõ không bị thanh chọn mục dính che mất */
+            #medical-record-form input, #medical-record-form select,
+            #medical-record-form textarea, #medical-record-form fieldset { scroll-margin-top: 70px; }
+            /* Đổi mục: chỉ mờ dần, bỏ trượt dọc cho đỡ giật trên máy yếu */
+            .tab-content.active { animation: fadeInLite .18s ease-out; }
+            /* Thanh chọn mục dính trên đầu: cuộn tới đâu cũng nhảy mục được */
+            .sec-picker {
+                position: sticky; top: 0; z-index: 25;
+                margin: 0 -12px 10px; border-radius: 0; border-left: 0; border-right: 0;
+                padding-left: 14px; padding-right: 14px;
+                box-shadow: 0 3px 10px rgba(236, 72, 153, .08);
+            }
+        }
+        @keyframes fadeInLite { from { opacity: 0; } to { opacity: 1; } }
+
+        /* =====================================================================
+           HỆ GIAO DIỆN CHUNG — gom mọi kiểu nút / thẻ / ô nhập về một mối.
+           Khối này đặt cuối nên đè được các lớp tiện ích của Tailwind.
+           ===================================================================== */
+        :root {
+            --brand: #ec4899;
+            --brand-deep: #db2777;
+            --brand-2: #8b5cf6;
+            --ink: #3f3a4a;
+            --muted: #8b8496;
+            --line: #f1e6ef;
+            --line-2: #e9e3f5;
+            --field: #fffcfe;
+            --surface: #ffffff;
+            --r: 16px;
+            --shadow-sm: 0 1px 2px rgba(236, 72, 153, .05);
+            --shadow-md: 0 10px 30px -20px rgba(124, 58, 237, .45), 0 1px 2px rgba(236, 72, 153, .05);
+        }
+        body {
+            font-family: 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            color: var(--ink);
+            -webkit-font-smoothing: antialiased;
+        }
+        .page-card { box-shadow: 0 24px 60px -34px rgba(124, 58, 237, .38); }
+
+        /* ---------- Thẻ nhóm (fieldset) ---------- */
+        #medical-record-form fieldset {
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            background: var(--surface);
+            box-shadow: var(--shadow-md);
+            padding: 8px 16px 18px;
+        }
+        #medical-record-form legend {
+            font-size: 14px;
+            font-weight: 800;
+            letter-spacing: .01em;
+            color: var(--brand-deep);
+            background: linear-gradient(135deg, #fff4fa, #f4f1ff);
+            border: 1px solid var(--line);
+            border-radius: 9999px;
+            padding: 7px 15px;
+            margin-left: 4px;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 4px 8px;
+            line-height: 1.35;
+            max-width: calc(100% - 8px);
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* ---------- Ô nhập: một kiểu duy nhất cho cả trang ---------- */
+        #medical-record-form input:not([type=hidden]),
+        #medical-record-form select,
+        #medical-record-form textarea {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: var(--field);
+            color: var(--ink);
+        }
+        #medical-record-form input:not([type=hidden]):focus,
+        #medical-record-form select:focus,
+        #medical-record-form textarea:focus {
+            border-color: var(--brand);
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(236, 72, 153, .14);
+        }
+        #medical-record-form input[readonly] { background: #f8f6fb; color: var(--muted); }
+        #medical-record-form label { color: var(--ink); }
+
+        /* ---------- Hai hạng nút dùng chung ---------- */
+        .btn-act, .btn-soft,
+        .para-btn, .cls-add, .fd-ok, .sp-ok, .img-add,
+        .cls-mini, .bl-mini, .hx-mini, .td-mini, .hx-pick, .tr-mini, .fd-cancel {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            border-radius: 9999px;
+            font-weight: 700;
+            font-size: 12.5px;
+            line-height: 1.2;
+            padding: 9px 15px;
+            min-height: 38px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: transform .12s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease;
+        }
+        .btn-act, .para-btn, .cls-add, .fd-ok, .sp-ok, .img-add {
+            border: 0;
+            color: #fff;
+            background: linear-gradient(135deg, var(--brand-2), var(--brand));
+            box-shadow: 0 8px 18px -8px rgba(236, 72, 153, .75);
+        }
+        .btn-soft, .cls-mini, .bl-mini, .hx-mini, .td-mini, .hx-pick, .tr-mini, .fd-cancel {
+            border: 1px solid var(--line);
+            background: var(--surface);
+            color: var(--brand-deep);
+            box-shadow: var(--shadow-sm);
+        }
+        .btn-act:hover, .para-btn:hover, .cls-add:hover, .fd-ok:hover, .sp-ok:hover, .img-add:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 22px -8px rgba(236, 72, 153, .8);
+        }
+        .btn-soft:hover, .cls-mini:hover, .bl-mini:hover, .hx-mini:hover,
+        .td-mini:hover, .hx-pick:hover, .tr-mini:hover, .fd-cancel:hover {
+            background: #fff5fa;
+            border-color: #f9c9e2;
+        }
+        .btn-act:active, .btn-soft:active, .para-btn:active, .cls-add:active, .fd-ok:active,
+        .sp-ok:active, .img-add:active, .cls-mini:active, .bl-mini:active, .hx-mini:active,
+        .td-mini:active, .hx-pick:active, .tr-mini:active { transform: scale(.97); }
+
+        /* Chip: cùng một nhịp bo tròn và phản hồi khi chạm */
+        .chip, .type-chip, .sp-chip, .fd-chip, .tr-sugg-b, .cls-quick-b {
+            border-radius: 9999px;
+            transition: transform .12s ease, background .15s, border-color .15s, color .15s;
+        }
+        .chip:active, .type-chip:active, .sp-chip:active,
+        .fd-chip:active, .tr-sugg-b:active, .cls-quick-b:active { transform: scale(.95); }
+        .chip { border-color: #f7d7e9; }
+        /* Ý đang có trong ô: chạm lần nữa để bỏ ra */
+        .chip.is-on {
+            background: linear-gradient(135deg, var(--brand-2), var(--brand));
+            border-color: transparent;
+            color: #fff;
+            box-shadow: 0 6px 14px -6px rgba(236, 72, 153, .8);
+        }
+        .chip.is-on::after { content: '\00d7'; margin-left: 6px; opacity: .8; font-weight: 700; }
+
+        /* ---------- Thanh tiến độ & tab ---------- */
+        .overall-track { height: 8px; background: #f6edf6; }
+        .overall-fill { background: linear-gradient(90deg, var(--brand), var(--brand-2)); }
+        .tab-link.active { background: linear-gradient(180deg, #fff6fb, #fdf2f8); }
+
+        /* ---------- Thanh lưu dính đáy ---------- */
+        .sticky-actions { box-shadow: 0 -12px 28px -22px rgba(124, 58, 237, .55); }
+
+        @media (max-width: 640px) {
+            #medical-record-form fieldset { padding: 6px 12px 14px; border-radius: 18px; }
+            #medical-record-form legend { font-size: 13.5px; padding: 6px 13px; }
+            /* Ngón tay chạm: nút không nhỏ hơn 40px */
+            .btn-act, .btn-soft, .para-btn, .cls-add, .fd-ok, .sp-ok, .img-add,
+            .cls-mini, .bl-mini, .hx-mini, .td-mini, .hx-pick, .tr-mini { min-height: 40px; }
+        }
+
+        /* ====== Bảng chọn dùng chung: tìm kiếm + gấp theo nhóm ====== */
+        .lp-modal { position: fixed; inset: 0; z-index: 85; display: flex; align-items: flex-end; justify-content: center; }
+        .lp-modal.hidden { display: none; }
+        @media (min-width: 700px) { .lp-modal { align-items: center; } }
+        body.lp-locked { overflow: hidden; }
+
+        .lp-group { border-bottom: 1px solid #faf5fa; }
+        .lp-ghead {
+            display: flex; align-items: center; gap: 10px; width: 100%;
+            border: 0; background: transparent; cursor: pointer;
+            padding: 11px 4px; text-align: left; color: var(--ink);
+        }
+        .lp-ghead .lead {
+            width: 30px; height: 30px; border-radius: 9999px; flex-shrink: 0;
+            background: linear-gradient(135deg, #f6f2ff, #fff2f8); color: var(--brand-deep);
+            display: inline-flex; align-items: center; justify-content: center; font-size: 12px;
+        }
+        .lp-ghead b { flex: 1; font-size: 13.5px; font-weight: 700; }
+        .lp-ghead .lp-n { font-size: 11px; color: var(--muted); font-weight: 700; }
+        .lp-ghead .lp-badge {
+            font-size: 11px; font-weight: 800; color: #fff; border-radius: 9999px;
+            padding: 1px 8px; background: linear-gradient(135deg, var(--brand-2), var(--brand));
+        }
+        .lp-ghead .caret { font-size: 11px; color: #c9c2d6; transition: transform .2s; }
+        .lp-ghead.is-open .caret { transform: rotate(180deg); }
+        .lp-ghead.is-open b { color: var(--brand-deep); }
+
+        .lp-items { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 2px 12px; }
+        .lp-item {
+            display: inline-flex; align-items: center; gap: 7px;
+            border: 1px solid var(--line); background: #fff; color: var(--ink);
+            border-radius: 9999px; padding: 8px 14px; font-size: 13px; font-weight: 600;
+            cursor: pointer; text-align: left; min-height: 38px;
+            transition: transform .12s, background .15s, border-color .15s, color .15s;
+        }
+        .lp-item i { font-size: 11px; color: #d8cfe6; }
+        .lp-item:hover { border-color: #f9c9e2; background: #fff8fc; color: var(--brand-deep); }
+        .lp-item:active { transform: scale(.96); }
+        .lp-item.is-on {
+            background: linear-gradient(135deg, var(--brand-2), var(--brand));
+            border-color: transparent; color: #fff;
+            box-shadow: 0 6px 14px -6px rgba(236, 72, 153, .8);
+        }
+        .lp-item.is-on i { color: #fff; }
+
+        .lp-free {
+            display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 10px;
+            border: 1px dashed #d9cff0; background: #fbfaff; color: var(--brand-2);
+            border-radius: 14px; padding: 11px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+        }
+        .lp-free:hover { background: #f5f1ff; }
+        .lp-free b { color: var(--ink); }
+
+        /* ---------- Mốc diễn tiến: triệu chứng mới thành từng thẻ ---------- */
+        .hx-newbox {
+            margin-top: 8px; border: 1px dashed #f3d9ea; background: #fffdfe;
+            border-radius: 12px; padding: 9px 10px;
+        }
+        .hx-newhead {
+            font-size: 11px; font-weight: 800; color: var(--brand-deep);
+            display: flex; align-items: center; gap: 6px; margin-bottom: 7px;
+        }
+        .hx-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+        .hx-tag {
+            display: inline-flex; align-items: center; gap: 7px;
+            background: linear-gradient(135deg, #f6f2ff, #fff2f8); color: var(--ink);
+            border: 1px solid var(--line); border-radius: 9999px;
+            padding: 5px 6px 5px 13px; font-size: 12.5px; font-weight: 600; max-width: 100%;
+        }
+        .hx-tag > button {
+            border: 0; background: transparent; color: #e0aecb; cursor: pointer;
+            font-size: 11px; padding: 2px 5px; border-radius: 9999px;
+        }
+        .hx-tag > button:hover { color: #dc2626; background: #fff1f4; }
+        .hx-newempty { font-size: 11.5px; color: var(--muted); }
+        .hx-refpick { border: 0; background: transparent; color: #c4b5fd; cursor: pointer; }
+        .hx-refpick:hover { color: var(--brand-2); }
+
+        /* Đặc điểm triệu chứng: bày sẵn lựa chọn để chạm */
+        .sp-opts { display: flex; flex-wrap: wrap; gap: 5px; margin: 2px 0 4px; }
+        .sp-opt {
+            border: 1px solid var(--line); background: #fff; color: var(--ink);
+            border-radius: 9999px; padding: 6px 12px; font-size: 12px; font-weight: 600;
+            cursor: pointer; min-height: 34px;
+            transition: transform .12s, background .15s, border-color .15s, color .15s;
+        }
+        .sp-opt:hover { border-color: #f9c9e2; background: #fff8fc; color: var(--brand-deep); }
+        .sp-opt:active { transform: scale(.95); }
+        .sp-opt.is-on {
+            background: linear-gradient(135deg, var(--brand-2), var(--brand));
+            border-color: transparent; color: #fff;
+            box-shadow: 0 6px 14px -6px rgba(236, 72, 153, .8);
+        }
+        .sp-f input { margin-top: 2px; }
+        .sp-opt.sp-other { border-style: dashed; color: var(--brand-2); border-color: #d9cff0; background: #fbfaff; }
+        .sp-opt.sp-other.is-open { background: #ede9fe; border-style: solid; color: #6d28d9; }
+        .sp-opt.sp-other i { font-size: 10px; margin-right: 4px; }
+
+        /* Nút mở bảng chọn, nằm ngay dưới ô nhập */
+        .pick-btn {
+            align-self: flex-start; margin-top: 6px;
+            display: inline-flex; align-items: center; gap: 7px;
+            border: 1px dashed #d9cff0; background: #fbfaff; color: var(--brand-2);
+            border-radius: 9999px; padding: 6px 13px; font-size: 11.5px; font-weight: 700;
+            cursor: pointer; min-height: 34px;
+            transition: transform .12s, background .15s, border-color .15s;
+        }
+        .pick-btn:hover { background: #f3efff; border-color: #c4b5fd; }
+        .pick-btn:active { transform: scale(.96); }
+
+        /* ---------- Danh sách bệnh kèm: mỗi dòng một bệnh + mức độ riêng ---------- */
+        .bk-box { border-style: solid; border-color: var(--line-2); background: #fbfaff; }
+        .bk-tools { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+        .bk-list { display: flex; flex-direction: column; gap: 6px; }
+        .bk-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) 30px 30px; gap: 6px; align-items: center; }
+        .bk-pick { border: 0; background: transparent; color: #a78bfa; cursor: pointer; }
+        .bk-pick:hover { color: var(--brand-2); }
+        #medical-record-form .bk-row .bk-ten { font-weight: 700; }
+        .bk-x { border: 0; background: transparent; color: #f472b6; cursor: pointer; }
+        .bk-x:hover { color: #dc2626; }
+        .bk-hint { font-size: 11px; color: var(--muted); margin-top: 8px; display: flex; align-items: center; gap: 6px; }
+        .lb-sub { font-weight: 500; color: var(--muted); font-size: 10.5px; }
+        @media (max-width: 640px) {
+            .bk-row { grid-template-columns: 1fr 30px 30px; grid-template-areas: "ten pick x" "gd gd gd"; row-gap: 4px; }
+            .bk-ten { grid-area: ten; } .bk-gd { grid-area: gd; }
+            .bk-row .bk-pick { grid-area: pick; } .bk-row .bk-x { grid-area: x; }
+        }
+
+        /* Chip gợi ý của ô trong lưới: chỉ bung ra khi đang đứng ở ô đó.
+           Giữ lưới gọn ở mọi khổ màn, mà vẫn có sẵn lựa chọn để chạm thay vì gõ. */
+        .chips.compact { display: none; }
+        label:focus-within > .chips.compact,
+        div:focus-within > .chips.compact { display: flex; }
+        /* Ô có gợi ý: chấm nhỏ báo cho biết bấm vào là có sẵn lựa chọn */
+        #medical-record-form label:has(> .chips.compact) > .calc-in {
+            background-image: radial-gradient(circle, #f9a8d4 2.5px, transparent 3px);
+            background-repeat: no-repeat;
+            background-position: right 11px center;
+            padding-right: 24px;
+        }
+        #medical-record-form label:focus-within:has(> .chips.compact) > .calc-in { background-image: none; }
+        /* Bỏ độ trễ 300ms khi chạm nút */
+        button, .chip, .tab-link, .sec-item, .type-chip, summary { touch-action: manipulation; }
+        /* Máy đặt "giảm chuyển động" thì tắt hẳn hiệu ứng */
+        @media (prefers-reduced-motion: reduce) {
+            .tab-content.active, .sec-sheet-panel, .sp-panel { animation: none; }
+            * { scroll-behavior: auto !important; }
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-[#FCE4EC] via-[#FDF2F8] to-[#EDE9FE] min-h-screen flex flex-col items-center p-2 sm:p-6 md:py-10">
@@ -662,6 +1286,11 @@
             </div>
             <p id="save-state" class="text-xs text-gray-400 flex items-center gap-1.5 whitespace-nowrap basis-full sm:basis-auto"><i class="fas fa-cloud text-gray-300"></i> <span>Tự động lưu</span></p>
         </div>
+
+        <button type="button" id="sec-picker" class="sec-picker sm:hidden">
+            <span class="sp-left"><i class="fas fa-list"></i><span id="sec-picker-name">I. Hành chính</span></span>
+            <span class="sp-right"><span id="sec-picker-pct">0%</span><i class="fas fa-chevron-down"></i></span>
+        </button>
 
         <div class="border-b border-pink-100 mb-5 sm:mb-6 sticky-tabs">
             <ul id="tab-nav">
@@ -682,6 +1311,15 @@
             </datalist>
             <datalist id="occupation-list">
                 <option>Học sinh</option><option>Sinh viên</option><option>Công nhân</option><option>Nông dân</option><option>Nhân viên văn phòng</option><option>Buôn bán</option><option>Nội trợ</option><option>Tài xế</option><option>Giáo viên</option><option>Hưu trí</option>
+            </datalist>
+            <datalist id="bk-dis-list">
+                <option>Tăng huyết áp</option><option>Đái tháo đường type 2</option><option>Đái tháo đường type 1</option><option>Rối loạn lipid máu</option><option>Bệnh thận mạn</option><option>Suy tim mạn</option><option>Bệnh mạch vành mạn</option><option>Rung nhĩ</option><option>COPD</option><option>Hen phế quản</option><option>Xơ gan</option><option>Viêm gan B mạn</option><option>Viêm gan C mạn</option><option>Lao phổi cũ</option><option>Gout</option><option>Thoái hóa khớp</option><option>Béo phì</option><option>Thừa cân</option><option>Nhiễm HIV</option><option>Di chứng tai biến mạch máu não</option><option>Suy giáp</option><option>Cường giáp</option><option>Loét dạ dày – tá tràng</option>
+            </datalist>
+            <datalist id="bk-stage-list">
+                <option>độ 1</option><option>độ 2</option><option>độ 3</option><option>giai đoạn 1</option><option>giai đoạn 2</option><option>giai đoạn 3</option><option>giai đoạn 4</option><option>kiểm soát tốt</option><option>kiểm soát chưa đạt</option><option>chưa có biến chứng</option><option>đã có biến chứng</option><option>ổn định</option><option>đang điều trị</option><option>chưa điều trị</option><option>mức độ nhẹ</option><option>mức độ trung bình</option><option>mức độ nặng</option>
+            </datalist>
+            <datalist id="department-list">
+                <option>Khoa Nội tổng hợp</option><option>Khoa Nội tim mạch</option><option>Khoa Nội hô hấp</option><option>Khoa Nội tiêu hóa</option><option>Khoa Nội thận</option><option>Khoa Nội tiết</option><option>Khoa Nội thần kinh</option><option>Khoa Nhiễm</option><option>Khoa Cấp cứu</option><option>Khoa Hồi sức tích cực</option><option>Khoa Ngoại tổng quát</option><option>Khoa Ngoại chấn thương chỉnh hình</option><option>Khoa Ngoại thần kinh</option><option>Khoa Ngoại tiết niệu</option><option>Khoa Sản</option><option>Khoa Nhi</option><option>Khoa Lão</option>
             </datalist>
             <datalist id="hospital-list">
                 <option>BV Chợ Rẫy</option><option>BV Đại học Y Dược TP.HCM</option><option>BV Nhân dân Gia Định</option><option>BV Nhân dân 115</option><option>BV Nguyễn Tri Phương</option><option>BV Nguyễn Trãi</option><option>BV Bình Dân</option><option>BV Trưng Vương</option><option>BV Thống Nhất</option>
@@ -733,7 +1371,7 @@
                         <div><label for="patient-occupation" class="block font-semibold mb-1">Nghề nghiệp</label><input type="text" id="patient-occupation" list="occupation-list" class="w-full border rounded-lg px-3 py-2" placeholder="Ví dụ: Sinh viên, Công nhân..."></div>
                         <div class="col-span-2 lg:col-span-3"><label for="patient-address" class="block font-semibold mb-1">Địa chỉ</label><input type="text" id="patient-address" class="w-full border rounded-lg px-3 py-2" placeholder="Nhập địa chỉ cụ thể"></div>
                         <div><label for="contact-name" class="block font-semibold mb-1">Người liên hệ</label><input type="text" id="contact-name" class="w-full border rounded-lg px-3 py-2" placeholder="Tên người thân"></div>
-                        <div><label for="contact-phone" class="block font-semibold mb-1">SĐT liên hệ</label><input type="tel" id="contact-phone" class="w-full border rounded-lg px-3 py-2" placeholder="09xxxxxxxx"></div>
+                        <div><label for="contact-phone" class="block font-semibold mb-1">SĐT liên hệ</label><input type="tel" id="contact-phone" inputmode="tel" enterkeyhint="next" class="w-full border rounded-lg px-3 py-2" placeholder="09xxxxxxxx"></div>
                         <div class="col-span-2 lg:col-span-3 grid grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-3 sm:gap-4">
                             <div class="tooltip">
                                 <label for="admission-time" class="block font-semibold mb-1">Giờ vào viện</label>
@@ -754,11 +1392,11 @@
                         </div>
                         <div>
                             <label for="bed-number" class="block font-semibold mb-1">Số giường</label>
-                            <input type="text" id="bed-number" class="w-full border rounded-lg px-3 py-2" placeholder="Nhập số giường (nếu có)">
+                            <input type="text" id="bed-number" inputmode="numeric" class="w-full border rounded-lg px-3 py-2" placeholder="Nhập số giường (nếu có)">
                         </div>
                         <div>
                             <label for="room-number" class="block font-semibold mb-1">Số phòng</label>
-                            <input type="text" id="room-number" class="w-full border rounded-lg px-3 py-2" placeholder="Nhập số phòng (nếu có)">
+                            <input type="text" id="room-number" inputmode="numeric" class="w-full border rounded-lg px-3 py-2" placeholder="Nhập số phòng (nếu có)">
                         </div>
                         <div class="col-span-2 lg:col-span-1">
                             <label for="hospital-name" class="block font-semibold mb-1">Bệnh viện</label>
@@ -766,7 +1404,7 @@
                         </div>
                         <div class="col-span-2 lg:col-span-1">
                             <label for="department-name" class="block font-semibold mb-1">Khoa</label>
-                            <input type="text" id="department-name" class="w-full border rounded-lg px-3 py-2" placeholder="vd: Khoa Cấp cứu">
+                            <input type="text" id="department-name" list="department-list" class="w-full border rounded-lg px-3 py-2" placeholder="vd: Khoa Cấp cứu">
                         </div>
                     </div>
                 </fieldset>
@@ -818,7 +1456,7 @@
                     <div class="calc-box mt-3" data-nocount>
                         <div class="calc-title"><i class="fas fa-notes-medical"></i> Triệu chứng chính — mô tả đủ thuộc tính</div>
                         <div class="hx-grid">
-                            <label>Triệu chứng<input type="text" id="hx-sym-name" class="calc-in" placeholder="vd: đau ngực"></label>
+                            <label>Triệu chứng<input type="text" id="hx-sym-name" list="hx-sym-list" class="calc-in" placeholder="vd: đau ngực"></label>
                             <label>Vị trí – hướng lan<input type="text" id="hx-sym-site" class="calc-in" placeholder="vd: sau xương ức, lan tay trái"></label>
                             <label>Tính chất<input type="text" id="hx-sym-char" class="calc-in" placeholder="vd: đè nặng, bóp nghẹt"></label>
                             <label>Mức độ<input type="text" id="hx-sym-severity" class="calc-in" placeholder="vd: 7/10, ảnh hưởng sinh hoạt"></label>
@@ -889,7 +1527,7 @@
                         <div class="calc-title"><i class="fas fa-heart-pulse"></i> Sinh hiệu lúc nhập viện</div>
                         <div class="hx-grid">
                             <label>Mạch (l/p)<input type="number" id="adm-pulse" class="calc-in" placeholder="vd 104"></label>
-                            <label>Huyết áp (mmHg)<input type="text" id="adm-bp" class="calc-in" placeholder="vd 114/70"></label>
+                            <label>Huyết áp (mmHg)<input type="text" id="adm-bp" inputmode="numeric" enterkeyhint="next" class="calc-in" placeholder="vd 114/70"></label>
                             <label>Nhiệt độ (°C)<input type="number" step="0.1" id="adm-temp" class="calc-in" placeholder="vd 37.0"></label>
                             <label>Nhịp thở (l/p)<input type="number" id="adm-resp" class="calc-in" placeholder="vd 20"></label>
                             <label>SpO2 (%)<input type="number" id="adm-spo2" class="calc-in" placeholder="vd 99"></label>
@@ -904,7 +1542,7 @@
 
                     <div class="flex items-center gap-2 flex-wrap mt-4">
                         <label for="illness-history" class="block font-semibold">Đoạn văn bệnh sử</label>
-                        <button type="button" id="hx-build" class="px-3 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 text-sm"><i class="fas fa-wand-magic-sparkles"></i> Ghép từ các ô trên</button>
+                        <button type="button" id="hx-build" class="btn-act"><i class="fas fa-wand-magic-sparkles"></i> Ghép từ các ô trên</button>
                     </div>
                     <textarea id="illness-history" rows="6" class="w-full border rounded-lg px-3 py-2" placeholder="Mô tả diễn tiến bệnh — hoặc điền các ô trên rồi bấm “Ghép từ các ô trên”"></textarea>
                 </fieldset>
@@ -1046,12 +1684,12 @@
                         <div class="calc-out"><span id="qsofa-out">Nhập nhịp thở, huyết áp, Glasgow để tính qSOFA</span></div>
                     </div>
                     <div class="flex justify-end -mt-1 mb-1">
-                        <button type="button" id="normal-exam-btn" class="px-3 py-1.5 rounded-lg bg-purple-50 text-purple-600 border border-purple-200 hover:bg-purple-100 text-xs sm:text-sm font-semibold transition"><i class="fas fa-wand-magic-sparkles mr-1"></i> Điền mẫu khám bình thường</button>
+                        <button type="button" id="normal-exam-btn" class="btn-soft"><i class="fas fa-wand-magic-sparkles mr-1"></i> Điền mẫu khám bình thường</button>
                     </div>
                     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-2">
                         <div><label class="block font-semibold mb-1">Mạch (l/p)</label><input type="number" id="vital-pulse" class="w-full border rounded-lg p-2" placeholder="Nhập mạch"></div>
                         <div><label class="block font-semibold mb-1">Nhiệt độ (°C)</label><input type="number" step="0.1" id="vital-temp" class="w-full border rounded-lg p-2" placeholder="Nhập nhiệt độ"></div>
-                        <div><label class="block font-semibold mb-1">Huyết áp (mmHg)</label><input type="text" id="vital-bp" class="w-full border rounded-lg p-2" placeholder="120/80"><span id="bp-tag" class="text-xs font-semibold mt-1 block"></span></div>
+                        <div><label class="block font-semibold mb-1">Huyết áp (mmHg)</label><input type="text" id="vital-bp" inputmode="numeric" enterkeyhint="next" class="w-full border rounded-lg p-2" placeholder="120/80"><span id="bp-tag" class="text-xs font-semibold mt-1 block"></span></div>
                         <div><label class="block font-semibold mb-1">Nhịp thở (l/p)</label><input type="number" id="vital-resp" class="w-full border rounded-lg p-2" placeholder="Nhập nhịp thở"></div>
                         <div><label class="block font-semibold mb-1">SpO2 (%)</label><input type="number" id="vital-spo2" class="w-full border rounded-lg p-2" placeholder="Nhập SpO2"></div>
                         <div><label class="block font-semibold mb-1">Chiều cao (cm)</label><input type="number" id="vital-height" class="w-full border rounded-lg p-2" placeholder="Nhập chiều cao"></div>
@@ -1059,6 +1697,13 @@
                         <div><label class="block font-semibold mb-1">BMI (kg/m²)</label><input type="text" id="vital-bmi" class="w-full bg-gray-100 border rounded-lg p-2" readonly><span id="bmi-tag" class="text-xs font-semibold mt-1 block"></span></div>
                         <div><label class="block font-semibold mb-1">BSA (m²)</label><input type="text" id="vital-bsa" class="w-full bg-gray-100 border rounded-lg p-2" readonly placeholder="Tự tính"><span class="text-xs text-gray-400 mt-1 block">Du Bois · từ cao &amp; nặng</span></div>
                     </div>
+                    <div class="grade-box" data-nocount>
+                        <div class="calc-title"><i class="fas fa-gauge-high"></i> Đánh giá mức độ — máy tự chấm từ dữ liệu đã ghi
+                            <button type="button" id="grade-insert" class="cls-mini"><i class="fas fa-arrow-down"></i> Chèn vào tóm tắt</button>
+                        </div>
+                        <div id="grade-list" class="grade-list"></div>
+                    </div>
+
                     <div class="score-box" data-nocount>
                         <div class="calc-title"><i class="fas fa-calculator"></i> Thang điểm — máy tự cộng</div>
                         <div class="score-grid">
@@ -1132,14 +1777,14 @@
                 <div class="flex flex-col gap-4">
                     <div class="flex items-center gap-2">
                         <label class="block font-semibold mb-1 text-pink-500" for="summary">VII. TÓM TẮT BỆNH ÁN</label>
-                        <button type="button" id="auto-summary-btn" class="ml-2 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"><i class="fas fa-magic"></i> Tự động tóm tắt</button>
+                        <button type="button" id="auto-summary-btn" class="btn-act"><i class="fas fa-magic"></i> Tự động tóm tắt</button>
                     </div>
                     <textarea id="summary" rows="4" class="w-full border rounded-lg p-2" placeholder="Tóm tắt tự động hoặc nhập tay"></textarea>
 
                     <div>
                         <div class="flex items-center gap-2 flex-wrap">
                             <label class="block font-semibold mb-1 text-pink-500" for="problem-list">VIII. ĐẶT VẤN ĐỀ</label>
-                            <button type="button" id="auto-problem-btn" class="mb-1 px-3 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 text-sm"><i class="fas fa-list-check"></i> Gợi ý từ dữ liệu đã nhập</button>
+                            <button type="button" id="auto-problem-btn" class="btn-act"><i class="fas fa-list-check"></i> Gợi ý từ dữ liệu đã nhập</button>
                         </div>
                         <textarea id="problem-list" rows="4" class="w-full border rounded-lg p-2" placeholder="Mỗi dòng một vấn đề / hội chứng — vd: 1. Hội chứng nhiễm trùng · 2. Hội chứng đông đặc phổi phải"></textarea>
                     </div>
@@ -1149,16 +1794,27 @@
                         <div class="dx-grid" data-nocount>
                             <label>Bệnh chính<input type="text" id="dx1-main" class="calc-in" placeholder="vd: Viêm phổi cộng đồng thùy dưới phải"></label>
                             <label>Biến chứng<input type="text" id="dx1-comp" class="calc-in" placeholder="vd: chưa ghi nhận biến chứng"></label>
-                            <label>Bệnh kèm<input type="text" id="dx1-assoc" class="calc-in" placeholder="vd: Tăng huyết áp độ 1"></label>
-                            <label>Mức độ / giai đoạn<input type="text" id="dx1-stage" class="calc-in" placeholder="vd: CURB-65 = 2, nguy cơ trung bình"></label>
+                            <label>Mức độ / giai đoạn <span class="lb-sub">của bệnh chính</span><input type="text" id="dx1-stage" class="calc-in" placeholder="vd: CURB-65 = 2, nguy cơ trung bình"></label>
                         </div>
+                        <div class="cnv-box bk-box" data-nocount>
+                            <div class="cnv-head">
+                                <span class="calc-title mb-0"><i class="fas fa-notes-medical"></i> Bệnh kèm — mỗi bệnh một mức độ / giai đoạn riêng</span>
+                                <span class="bk-tools">
+                                    <button type="button" id="bk1-pull" class="cls-mini"><i class="fas fa-wand-magic-sparkles"></i> Lấy từ tiền căn</button>
+                                    <button type="button" id="bk1-add" class="cls-mini"><i class="fas fa-plus"></i> Thêm bệnh</button>
+                                </span>
+                            </div>
+                            <div id="bk1-list" class="bk-list"></div>
+                            <p class="bk-hint"><i class="fas fa-circle-info"></i> Máy tự đề nghị mức độ khi đã có sinh hiệu / cận lâm sàng tương ứng (huyết áp, HbA1c, eGFR, BMI).</p>
+                        </div>
+                        <details class="bl-raw"><summary>Dòng bệnh kèm (bản máy ghép)</summary><input type="text" id="dx1-assoc" class="calc-in mt-2" placeholder="Máy ghép từ danh sách bệnh kèm ở trên"></details>
                         <details class="bl-raw"><summary>Câu chẩn đoán sơ bộ (bản máy ghép)</summary><textarea id="provisional-diagnosis" rows="2" class="w-full border rounded-lg p-2 mt-2" placeholder="Máy tự ghép từ 4 ô trên — sửa tay lúc nào cũng được"></textarea></details>
                     </div>
 
                     <div><label class="block font-semibold mb-1 text-pink-500" for="differential-diagnosis">Chẩn đoán phân biệt</label><textarea id="differential-diagnosis" rows="3" class="w-full border rounded-lg p-2" placeholder="Mỗi dòng một chẩn đoán cần phân biệt, kèm lý do nghĩ tới"></textarea></div>
 
                     <div>
-                        <label class="block font-semibold mb-1 text-pink-500">X. BIỆN LUẮN LÂM SÀNG</label>
+                        <label class="block font-semibold mb-1 text-pink-500">X. BIỆN LUẬN LÂM SÀNG</label>
                         <details class="tip-box">
                             <summary><i class="fas fa-lightbulb"></i> Cách viết một đoạn biện luận đạt</summary>
                             <ol class="tip-list">
@@ -1170,12 +1826,25 @@
                                 <li><b>Biện luận biến chứng</b>: biến chứng nào đe dọa tính mạng thì bàn trước, kèm xét nghiệm cần làm.</li>
                             </ol>
                         </details>
+                        <div class="bl-modes" data-nocount>
+                            <div class="seg" id="bl-mode">
+                                <button type="button" class="active" data-mode="table"><i class="fas fa-list-ul"></i> Bảng nhập</button>
+                                <button type="button" data-mode="map"><i class="fas fa-diagram-project"></i> Sơ đồ</button>
+                            </div>
+                            <button type="button" id="bl-zoom" class="bl-mini"><i class="fas fa-expand"></i> Phóng to</button>
+                            <button type="button" id="bl-png" class="bl-mini"><i class="fas fa-image"></i> Tải ảnh PNG</button>
+                        </div>
+                        <div id="bl-map-wrap" class="bl-map-wrap is-hidden" data-nocount>
+                            <canvas id="bl-map"></canvas>
+                            <p class="bl-map-hint"><i class="fas fa-hand-pointer"></i> Bấm vào một vấn đề trong sơ đồ để nhảy tới ô nhập của nó.</p>
+                        </div>
                         <div id="bl-host" class="bl-host" data-nocount></div>
                         <details class="bl-raw">
                             <summary>Xem / sửa đoạn văn biện luận (bản máy ghép)</summary>
                             <div class="flex items-center gap-2 flex-wrap mt-2">
                                 <button type="button" id="bl-build" class="para-btn"><i class="fas fa-wand-magic-sparkles"></i> Ghép lại từ các ô trên</button>
                                 <button type="button" id="bl-to-dx" class="para-btn"><i class="fas fa-arrow-down"></i> Đổ vào chẩn đoán sơ bộ / phân biệt</button>
+                                <button type="button" id="bl-to-cls" class="para-btn"><i class="fas fa-vials"></i> Đổ cận lâm sàng sang mục XI</button>
                             </div>
                             <textarea id="diagnosis-reasoning" rows="6" class="w-full border rounded-lg p-2 mt-2" placeholder="Máy tự ghép từ các ô bên trên — sửa tay lúc nào cũng được"></textarea>
                         </details>
@@ -1228,9 +1897,20 @@
                         <div class="dx-grid" data-nocount>
                             <label>Bệnh chính<input type="text" id="dx2-main" class="calc-in" placeholder="Sau khi có cận lâm sàng"></label>
                             <label>Biến chứng<input type="text" id="dx2-comp" class="calc-in" placeholder="vd: suy hô hấp cấp"></label>
-                            <label>Bệnh kèm<input type="text" id="dx2-assoc" class="calc-in" placeholder="vd: Đái tháo đường type 2"></label>
-                            <label>Mức độ / giai đoạn<input type="text" id="dx2-stage" class="calc-in" placeholder="vd: giai đoạn 3, mức độ nặng"></label>
+                            <label>Mức độ / giai đoạn <span class="lb-sub">của bệnh chính</span><input type="text" id="dx2-stage" class="calc-in" placeholder="vd: giai đoạn 3, mức độ nặng"></label>
                         </div>
+                        <div class="cnv-box bk-box" data-nocount>
+                            <div class="cnv-head">
+                                <span class="calc-title mb-0"><i class="fas fa-notes-medical"></i> Bệnh kèm — mỗi bệnh một mức độ / giai đoạn riêng</span>
+                                <span class="bk-tools">
+                                    <button type="button" id="bk2-pull" class="cls-mini"><i class="fas fa-wand-magic-sparkles"></i> Lấy từ tiền căn</button>
+                                    <button type="button" id="bk2-add" class="cls-mini"><i class="fas fa-plus"></i> Thêm bệnh</button>
+                                </span>
+                            </div>
+                            <div id="bk2-list" class="bk-list"></div>
+                            <p class="bk-hint"><i class="fas fa-circle-info"></i> Máy tự đề nghị mức độ khi đã có sinh hiệu / cận lâm sàng tương ứng (huyết áp, HbA1c, eGFR, BMI).</p>
+                        </div>
+                        <details class="bl-raw"><summary>Dòng bệnh kèm (bản máy ghép)</summary><input type="text" id="dx2-assoc" class="calc-in mt-2" placeholder="Máy ghép từ danh sách bệnh kèm ở trên"></details>
                         <button type="button" id="dx-copy" class="para-btn mt-2"><i class="fas fa-clone"></i> Chép từ chẩn đoán sơ bộ</button>
                         <details class="bl-raw"><summary>Câu chẩn đoán xác định (bản máy ghép)</summary><textarea id="final-diagnosis" rows="2" class="w-full border rounded-lg p-2 mt-2" placeholder="Máy tự ghép từ 4 ô trên — sửa tay lúc nào cũng được"></textarea></details>
                     </div>
@@ -1285,6 +1965,23 @@
             </div>
         </form>
     </div>
+    <div id="map-overlay" class="map-overlay hidden">
+        <div class="map-overlay-bar">
+            <span><i class="fas fa-diagram-project"></i> Sơ đồ biện luận</span>
+            <button type="button" id="map-overlay-png" class="bl-mini"><i class="fas fa-image"></i> Tải PNG</button>
+            <button type="button" id="map-overlay-close" class="bl-mini"><i class="fas fa-xmark"></i> Đóng</button>
+        </div>
+        <div class="map-overlay-body"><canvas id="map-overlay-canvas"></canvas></div>
+    </div>
+
+    <div id="sec-sheet" class="sec-sheet hidden">
+        <div class="sec-sheet-bg" data-sec-close></div>
+        <div class="sec-sheet-panel">
+            <div class="sec-sheet-head">Mục của bệnh án <button type="button" data-sec-close aria-label="Đóng"><i class="fas fa-xmark"></i></button></div>
+            <div id="sec-sheet-list" class="sec-sheet-list"></div>
+        </div>
+    </div>
+
     <div id="toast-container" class="fixed bottom-6 right-4 z-[60] flex flex-col items-end space-y-2 pointer-events-none"></div>
     <script type="module" src="tao-benh-an.js"></script>
 </body>

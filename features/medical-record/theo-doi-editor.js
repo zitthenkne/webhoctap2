@@ -5,15 +5,19 @@
 //
 // Lưu ở record.theoDoi = [{ id, dt, m, ha, t, nt, spo2, dienTien, xuTri }]
 
+import { openSymptomPicker } from './symptom-picker.js';
+
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const trim = (x) => String(x ?? '').trim();
+
+const TT = ['hết', 'giảm', 'như cũ', 'tăng', 'mới xuất hiện'];
 let logs = [];
 let host, onChangeCb = () => { };
 
-const isEmpty = (e) => !trim(e.dienTien) && !trim(e.xuTri)
+const isEmpty = (e) => !trim(e.dienTien) && !trim(e.xuTri) && !(e.trieuChung || []).some(x => trim(x.ten))
     && !['m', 'ha', 't', 'nt', 'spo2'].some(k => trim(e[k]));
 
 export function getTheoDoi() {
@@ -56,6 +60,20 @@ function entryHtml(e, i) {
             ${vitals.map(([k, label, unit]) => `<label><span>${label}</span>
                 <input class="td-v" data-k="${k}" value="${esc(e[k] || '')}" placeholder="${unit}" aria-label="${label}"></label>`).join('')}
         </div>
+        <div class="td-sym">
+            <div class="td-sym-head"><i class="fas fa-wave-square"></i> Triệu chứng đang theo
+                <button type="button" class="td-mini" data-act="add-sym"><i class="fas fa-plus"></i> Thêm triệu chứng</button>
+            </div>
+            ${(e.trieuChung || []).map((x, k) => `<div class="td-sym-row" data-k2="${k}">
+                <input class="td-sym-name" data-f="ten" value="${esc(x.ten || '')}" placeholder="Tên triệu chứng" aria-label="Triệu chứng">
+                <select class="td-sym-tt tt-${TT.indexOf(x.tt || 'như cũ')}" data-f="tt" aria-label="Thay đổi">
+                    ${TT.map(o => `<option ${x.tt === o ? 'selected' : ''}>${o}</option>`).join('')}
+                </select>
+                <input class="td-sym-note" data-f="note" value="${esc(x.note || '')}" placeholder="rõ hơn: còn 2 cơn/ngày, sốt 38°C…" aria-label="Ghi chú">
+                <button type="button" class="td-x" data-act="pick-sym" title="Khai thác đặc điểm"><i class="fas fa-notes-medical"></i></button>
+                <button type="button" class="td-x" data-act="del-sym" title="Xóa"><i class="fas fa-xmark"></i></button>
+            </div>`).join('') || '<p class="td-sym-empty">Chưa theo triệu chứng nào — lần sau sẽ tự mang danh sách này sang.</p>'}
+        </div>
         <textarea class="td-in" data-k="dienTien" rows="2" placeholder="Diễn tiến: bệnh nhân tỉnh, hết sốt, còn ho ít, ăn uống được…">${esc(e.dienTien || '')}</textarea>
         <textarea class="td-in" data-k="xuTri" rows="2" placeholder="Xử trí / thay đổi y lệnh: tiếp tục kháng sinh ngày thứ 3, giảm liều…">${esc(e.xuTri || '')}</textarea>
     </div>`;
@@ -82,7 +100,10 @@ export function theoDoiToText(list) {
         ['NT', e.nt, 'l/p'], ['SpO2', e.spo2, '%']]
             .filter(([, x]) => trim(x)).map(([l, x, u]) => `${l} ${x}${u ? ' ' + u : ''}`).join(', ');
         const head = fmtDt(e.dt).replace(' · ', ' ');
+        const sym = (e.trieuChung || []).filter(x => trim(x.ten))
+            .map(x => `${x.ten}: ${x.tt || 'như cũ'}${trim(x.note) ? ` (${trim(x.note)})` : ''}`).join(' · ');
         return [`* ${head}${v ? ' — ' + v : ''}`,
+        sym && `   Triệu chứng: ${sym}`,
         trim(e.dienTien) && `   Diễn tiến: ${trim(e.dienTien)}`,
         trim(e.xuTri) && `   Xử trí: ${trim(e.xuTri)}`].filter(Boolean).join('\n');
     }).join('\n');
@@ -96,9 +117,17 @@ export function initTheoDoi(options) {
 
     const onEdit = (e) => {
         const card = e.target.closest('.td-card');
-        if (!card || !e.target.dataset.k) return;
+        if (!card || (!e.target.dataset.k && !e.target.dataset.f)) return;
         const item = logs[+card.dataset.i];
         if (!item) return;
+        const symRow = e.target.closest('.td-sym-row');
+        if (symRow && e.target.dataset.f) {
+            item.trieuChung[+symRow.dataset.k2][e.target.dataset.f] = e.target.value;
+            if (e.target.dataset.f === 'tt') render();
+            onChangeCb();
+            return;
+        }
+        if (!e.target.dataset.k) return;
         item[e.target.dataset.k] = e.target.value;
         if (e.target.tagName === 'TEXTAREA') autoGrow(e.target);
         if (e.target.dataset.k === 'dt') {
@@ -117,8 +146,32 @@ export function initTheoDoi(options) {
     host.addEventListener('change', onEdit);
 
     host.addEventListener('click', (e) => {
-        if (!e.target.closest('[data-act="del"]')) return;
-        logs.splice(+e.target.closest('.td-card').dataset.i, 1);
+        const card = e.target.closest('.td-card');
+        if (!card) return;
+        const item = logs[+card.dataset.i];
+        if (e.target.closest('[data-act="pick-sym"]')) {
+            const row = e.target.closest('.td-sym-row');
+            const k = +row.dataset.k2;
+            openSymptomPicker({
+                title: 'Khai thác đặc điểm triệu chứng',
+                initial: item.trieuChung[k]?.ten || '',
+                onPick: (text, ten) => {
+                    item.trieuChung[k].ten = ten || item.trieuChung[k].ten;
+                    // phần sau dấu hai chấm là các đặc điểm vừa khai thác
+                    item.trieuChung[k].note = text.includes(':') ? text.split(':').slice(1).join(':').trim() : text;
+                    render();
+                    onChangeCb();
+                }
+            });
+            return;
+        }
+        if (e.target.closest('[data-act="add-sym"]')) {
+            (item.trieuChung ||= []).push({ ten: '', tt: 'như cũ', note: '' });
+        } else if (e.target.closest('[data-act="del-sym"]')) {
+            item.trieuChung.splice(+e.target.closest('.td-sym-row').dataset.k2, 1);
+        } else if (e.target.closest('[data-act="del"]')) {
+            logs.splice(+card.dataset.i, 1);
+        } else return;
         render();
         onChangeCb();
     });
@@ -131,6 +184,9 @@ export function initTheoDoi(options) {
         logs.push({
             id: newId(), dt: now.toISOString().slice(0, 16),
             m: last.m || '', ha: last.ha || '', t: '', nt: last.nt || '', spo2: '',
+            // Mang theo danh sách triệu chứng đang theo để chỉ cập nhật thay đổi
+            trieuChung: (last.trieuChung || []).filter(x => trim(x.ten) && x.tt !== 'hết')
+                .map(x => ({ ten: x.ten, tt: 'như cũ', note: '' })),
             dienTien: '', xuTri: ''
         });
         render();
