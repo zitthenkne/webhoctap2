@@ -8,6 +8,7 @@
 // `history-family` cũ nên trang xem / bản xuất không phải sửa gì.
 
 import { openListPicker } from './list-picker.js';
+import { laCauPhuDinh } from './tim-kiem.js';
 import { QUAN_HE } from './tien-can-data.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
@@ -34,7 +35,7 @@ export function giaDinhLine(r) {
 
 /** Đọc ngược dòng chữ của bản cũ ("Cha — Tăng huyết áp; Mẹ — Đái tháo đường") */
 export function parseGiaDinh(text) {
-    return String(text || '').split(/[;\n]+/).map(trim).filter(Boolean).map(part => {
+    return String(text || '').split(/[;\n]+/).map(trim).filter(x => x && !laCauPhuDinh(x)).map(part => {
         const i = part.indexOf(' — ');
         const qh = i < 0 ? '' : trim(part.slice(0, i));
         const rest = i < 0 ? part : trim(part.slice(i + 3));

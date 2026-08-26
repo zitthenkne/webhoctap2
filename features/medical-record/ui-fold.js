@@ -19,13 +19,18 @@ function foldOne(box) {
     det.className = box.className + ' fold-panel';
     det.dataset.folded = '1';
     if (box.dataset.spec) det.dataset.spec = box.dataset.spec;
+    // Câu hỏi "có cần mục này không" phải theo lên thẻ mới (xem ui-ask.js)
+    ['ask', 'askKey', 'askNo'].forEach(k => { if (box.dataset[k] != null) det.dataset[k] = box.dataset[k]; });
     if (box.hasAttribute('data-nocount')) det.setAttribute('data-nocount', '');
     if (box.id) { det.id = box.id; box.removeAttribute('id'); }
 
     const summary = document.createElement('summary');
     const icon = title.querySelector('i');
-    summary.innerHTML = (icon ? `<i class="${icon.className} lead"></i>` : '')
-        + `<span>${title.textContent.trim()}</span>`
+    // Hộp các bước hỏi bệnh dùng huy hiệu số thay cho icon — giữ nguyên khi gấp lại
+    const step = title.querySelector('.hx-no');
+    summary.innerHTML = (step ? `<span class="hx-no">${step.textContent}</span>`
+        : icon ? `<i class="${icon.className} lead"></i>` : '')
+        + `<span>${title.textContent.replace(step ? step.textContent : '', '').trim()}</span>`
         + `<span class="filled-dot" hidden></span><i class="fas fa-chevron-down caret"></i>`;
 
     const body = document.createElement('div');

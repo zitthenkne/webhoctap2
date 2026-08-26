@@ -5,11 +5,20 @@
 // Dùng chung cho bệnh sử (triệu chứng mới ở mỗi mốc) và theo dõi diễn tiến.
 
 import { SYMPTOMS, NHOM, describe, findSymptom, searchSymptoms } from './trieu-chung-data.js';
+import { highlight } from './tim-kiem.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-let el, state = { sym: null, values: {}, onPick: null, custom: '', open: new Set(), other: new Set() };
+const newState = (over = {}) => ({
+    sym: null, values: {}, onPick: null, custom: '',
+    open: new Set(), other: new Set(),
+    extras: new Set(),   // triệu chứng đi kèm chọn thêm — chèn luôn vào cùng mốc
+    negs: new Set(),     // triệu chứng âm tính có giá trị đã tick
+    ...over
+});
+
+let el, state = newState();
 
 function ensureDom() {
     if (el) return el;
@@ -53,17 +62,32 @@ function ensureDom() {
             state.values[f] = state.values[f] === v ? '' : v;
             return renderBody();
         }
+        const co = e.target.closest('[data-co]');
+        if (co) {
+            const k = co.dataset.co;
+            state.extras.has(k) ? state.extras.delete(k) : state.extras.add(k);
+            return renderBody();
+        }
+        const neg = e.target.closest('[data-neg]');
+        if (neg) {
+            const k = neg.dataset.neg;
+            state.negs.has(k) ? state.negs.delete(k) : state.negs.add(k);
+            return renderBody();
+        }
         const pick = e.target.closest('[data-sym]');
         if (pick) {
             state.sym = SYMPTOMS.find(s => s.ten === pick.dataset.sym) || null;
             state.values = {};
+            state.extras = new Set();
+            state.negs = new Set();
             renderBody();
             return;
         }
         if (e.target.closest('#sp-ok')) {
             const text = currentText();
             if (!text) return;
-            state.onPick?.(text, state.sym?.ten || state.custom);
+            state.onPick?.(text, state.sym?.ten || state.custom,
+                { extras: [...state.extras], negatives: [...state.negs] });
             close();
         }
     });
@@ -88,6 +112,20 @@ function ensureDom() {
         if (e.target.dataset.f) { state.values[e.target.dataset.f] = e.target.value; updatePreview(); }
     });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+
+    // Enter ở ô tìm: chọn luôn triệu chứng khớp nhất, khỏi rời tay đi bấm chip
+    el.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' || e.target.id !== 'sp-search' || e.isComposing) return;
+        e.preventDefault();
+        if (state.sym) return;
+        const first = searchSymptoms(state.custom)[0];
+        if (!first) return;
+        state.sym = first;
+        state.values = {};
+        state.extras = new Set();
+        state.negs = new Set();
+        renderBody();
+    });
     return el;
 }
 
@@ -99,7 +137,11 @@ function currentText() {
 function updatePreview() {
     const p = el.querySelector('#sp-preview');
     const t = currentText();
-    p.innerHTML = t ? `<i class="fas fa-quote-left"></i> ${esc(t)}` : 'Chọn triệu chứng để bắt đầu';
+    const more = [state.extras.size && `+${state.extras.size} triệu chứng kèm`,
+        state.negs.size && `+${state.negs.size} âm tính`].filter(Boolean).join(' · ');
+    p.innerHTML = t
+        ? `<i class="fas fa-quote-left"></i> ${esc(t)}${more ? ` <b class="sp-more">${esc(more)}</b>` : ''}`
+        : 'Chọn triệu chứng để bắt đầu';
 }
 
 function fieldHtml([k, label, opts, ph]) {
@@ -123,6 +165,27 @@ function fieldHtml([k, label, opts, ph]) {
         ${showInput ? `<input data-f="${k}" value="${esc(val)}" placeholder="tự gõ ý khác">` : ''}</label>`;
 }
 
+/* Hai khối phụ dưới bộ thuộc tính: chùm triệu chứng hay đi kèm và các câu âm tính
+   có giá trị. Chọn ở đây rồi bấm "Chèn" là máy tự thêm vào mốc, khỏi mở lại bảng. */
+function contextHtml(sym) {
+    const co = sym.coOccurring || [], neg = sym.pertinentNegatives || [];
+    if (!co.length && !neg.length) return '';
+    const coBox = co.length ? `<div class="sp-ctx">
+        <div class="sp-ctxhead"><i class="fas fa-diagram-project"></i> Triệu chứng đi kèm hay gặp
+            <span>chạm để thêm luôn vào mốc này</span></div>
+        <div class="sp-opts">${co.map(x => `<button type="button" class="sp-opt${state.extras.has(x) ? ' is-on' : ''}"
+            data-co="${esc(x)}">${state.extras.has(x) ? '<i class="fas fa-check"></i> ' : '+ '}${esc(x)}</button>`).join('')}</div>
+    </div>` : '';
+    const negBox = neg.length ? `<div class="sp-ctx">
+        <div class="sp-ctxhead"><i class="fas fa-circle-minus"></i> Triệu chứng âm tính có giá trị
+            <span>tick để loại trừ, máy ghép thành câu và đưa vào ô âm tính</span></div>
+        <div class="sp-negs">${neg.map(([val, why]) => `<button type="button" class="sp-neg${state.negs.has(val) ? ' is-on' : ''}"
+            data-neg="${esc(val)}"><i class="${state.negs.has(val) ? 'fa-solid fa-square-check' : 'fa-regular fa-square'}"></i>
+            <b>${esc(val)}</b><small>loại trừ ${esc(why)}</small></button>`).join('')}</div>
+    </div>` : '';
+    return coBox + negBox;
+}
+
 function renderBody() {
     const body = el.querySelector('#sp-body');
     const q = el.querySelector('#sp-search').value;
@@ -132,19 +195,22 @@ function renderBody() {
                 <span class="sp-chip active"><i class="fas fa-check"></i> ${esc(state.sym.ten)}</span>
                 <button type="button" class="sp-back" data-sym="">Chọn triệu chứng khác</button>
             </div>
-            <div class="sp-grid">${state.sym.fields.map(fieldHtml).join('')}</div>`;
+            <div class="sp-grid">${state.sym.fields.map(fieldHtml).join('')}</div>
+            ${contextHtml(state.sym)}`;
         // nút "chọn khác" dùng data-sym rỗng
         body.querySelector('.sp-back')?.addEventListener('click', () => {
             state.sym = null; state.values = {}; renderBody();
         });
     } else {
         const list = searchSymptoms(q);
-        const chip = (s) => `<button type="button" class="sp-chip" data-sym="${esc(s.ten)}">${esc(s.ten)}</button>`;
+        const chip = (s, i) => `<button type="button" class="sp-chip${q.trim() && !i ? ' is-first' : ''}"
+            data-sym="${esc(s.ten)}" title="${esc(s.nhom)}">${q.trim() ? highlight(s.ten, q) : esc(s.ten)}</button>`;
 
         if (q.trim()) {
             // Đang tìm: bỏ nhóm cho nhanh mắt
             body.innerHTML = list.length
-                ? `<div class="sp-chips">${list.map(chip).join('')}</div>`
+                ? `<p class="sp-hint">${list.length} triệu chứng khớp — Enter để chọn cái đầu tiên</p>
+                   <div class="sp-chips">${list.map(chip).join('')}</div>`
                 : `<p class="sp-empty">Không có sẵn triệu chứng này — cứ gõ tên rồi bấm “Chèn vào bệnh án”.</p>`;
         } else {
             const groups = NHOM.filter(g => list.some(s => s.nhom === g));
@@ -169,10 +235,7 @@ function close() { el?.classList.add('hidden'); }
 
 export function openSymptomPicker({ title, initial, onPick } = {}) {
     ensureDom();
-    state = {
-        sym: initial ? findSymptom(initial) : null, values: {}, onPick, custom: initial || '',
-        open: new Set(), other: new Set()
-    };
+    state = newState({ sym: initial ? findSymptom(initial) : null, onPick, custom: initial || '' });
     el.querySelector('#sp-title').textContent = title || 'Thêm triệu chứng';
     el.querySelector('#sp-search').value = initial || '';
     renderBody();

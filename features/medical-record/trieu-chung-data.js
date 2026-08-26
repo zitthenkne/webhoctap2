@@ -5,6 +5,8 @@
 //   ['key', 'Nhãn', null, 'gợi ý']     -> ô chữ tự do
 // tpl(f) ghép các ý đã điền thành một câu mô tả hoàn chỉnh.
 
+import { searchList, fold } from './tim-kiem.js';
+
 const join = (parts) => parts.filter(Boolean).join(', ');
 
 /** Câu mô tả mặc định: "<tên>: ý 1, ý 2…" */
@@ -642,6 +644,267 @@ export const SYMPTOMS = [
     }
 ];
 
+/* =====================================================================
+   Quan hệ ngữ cảnh — bốn trường tri thức gắn thêm cho triệu chứng hay gặp.
+   Khai báo tách riêng cho khỏi phình bảng SYMPTOMS ở trên, rồi trộn vào:
+     coOccurring        chùm triệu chứng dương tính hay đi kèm (bấm 1 chạm là thêm)
+     pertinentNegatives [câu âm tính, hỏi để loại trừ cái gì]
+     examTargets        khám gì cho trúng, gom theo đúng ô khám ở mục VI
+     redFlags           bệnh cảnh nguy hiểm phải loại trừ
+   ===================================================================== */
+const CONTEXT = {
+    'Đau ngực': {
+        coOccurring: ['Khó thở', 'Vã mồ hôi đêm', 'Hồi hộp – đánh trống ngực', 'Nôn ói', 'Ngất', 'Ho ra máu'],
+        pertinentNegatives: [
+            ['không đau lan sau lưng kiểu rách xé', 'bóc tách động mạch chủ'],
+            ['không ho ra máu, không đau tăng khi hít sâu', 'thuyên tắc phổi, viêm màng phổi'],
+            ['không khó thở khi nằm, không khó thở kịch phát về đêm', 'suy tim cấp'],
+            ['không sốt', 'viêm màng ngoài tim, viêm phổi'],
+            ['không ợ chua, không liên quan bữa ăn', 'trào ngược, loét dạ dày']
+        ],
+        examTargets: {
+            'exam-heart': ['Âm thổi tâm thu / tâm trương', 'Tiếng T3, T4 (gallop)', 'Tiếng cọ màng ngoài tim', 'Mỏm tim lệch ngoài đường trung đòn', 'Dấu Harzer (-)'],
+            'exam-lung': ['Ran ẩm đáy phổi', 'Rì rào phế nang giảm', 'Ran nổ'],
+            'exam-general': ['Tĩnh mạch cổ nổi (JVP)', 'Phù 2 chi dưới', 'Chi lạnh, vã mồ hôi (dấu sốc)', 'Mạch 2 tay không đều nhau']
+        },
+        redFlags: ['Hội chứng vành cấp', 'Bóc tách động mạch chủ', 'Thuyên tắc phổi', 'Tràn khí màng phổi áp lực', 'Chèn ép tim cấp']
+    },
+    'Khó thở': {
+        coOccurring: ['Ho', 'Đau ngực', 'Khò khè', 'Phù', 'Khó thở khi nằm', 'Tím tái'],
+        pertinentNegatives: [
+            ['không sốt, không ho đàm mủ', 'viêm phổi'],
+            ['không đau ngực kiểu màng phổi, không ho ra máu', 'thuyên tắc phổi'],
+            ['không phù chân, không tiểu ít', 'suy tim mất bù'],
+            ['không khò khè, không tiền căn hen – COPD', 'co thắt phế quản'],
+            ['không sặc, không hội chứng xâm nhập', 'dị vật đường thở']
+        ],
+        examTargets: {
+            'exam-lung': ['Ran ẩm 2 đáy phổi', 'Ran rít, ran ngáy', 'Rì rào phế nang giảm 1 bên', 'Gõ vang / gõ đục 1 bên'],
+            'exam-heart': ['T1 T2 đều rõ, không âm thổi', 'Tiếng T3 (gallop)', 'Tim nhanh đều'],
+            'exam-chest': ['Co kéo cơ hô hấp phụ', 'Lồng ngực di động không đều 2 bên'],
+            'exam-general': ['Tĩnh mạch cổ nổi (JVP)', 'Tím môi và đầu chi', 'Phù 2 chi dưới']
+        },
+        redFlags: ['Suy hô hấp cấp', 'Phù phổi cấp', 'Thuyên tắc phổi', 'Tràn khí màng phổi áp lực', 'Cơn hen nặng / dọa ngưng thở']
+    },
+    'Ho': {
+        coOccurring: ['Sốt', 'Khạc đàm', 'Khó thở', 'Đau ngực kiểu màng phổi', 'Sụt cân', 'Vã mồ hôi đêm'],
+        pertinentNegatives: [
+            ['không ho ra máu', 'lao phổi, ung thư phổi'],
+            ['không sụt cân, không vã mồ hôi đêm', 'lao phổi, bệnh ác tính'],
+            ['không khó thở khi nằm', 'suy tim'],
+            ['không ợ chua, không ho sau ăn', 'trào ngược dạ dày – thực quản']
+        ],
+        examTargets: {
+            'exam-lung': ['Ran nổ đáy phổi (P)', 'Ran ẩm 2 đáy phổi', 'Rung thanh tăng khu trú', 'Gõ đục vùng đáy'],
+            'exam-head': ['Họng đỏ, amidan sưng', 'Chảy mũi sau'],
+            'exam-general': ['Hạch cổ, hạch thượng đòn', 'Ngón tay dùi trống']
+        },
+        redFlags: ['Viêm phổi nặng', 'Lao phổi', 'Ung thư phổi', 'Dị vật đường thở']
+    },
+    'Sốt': {
+        coOccurring: ['Ớn lạnh – lạnh run', 'Ho', 'Tiểu gắt buốt', 'Tiêu chảy', 'Đau đầu', 'Ban da'],
+        pertinentNegatives: [
+            ['không đau đầu, không cổ gượng, không nôn vọt', 'viêm màng não'],
+            ['không tiểu gắt buốt, không đau hông lưng', 'nhiễm trùng tiểu – viêm đài bể thận'],
+            ['không ho đàm, không đau ngực', 'viêm phổi'],
+            ['không đau bụng khu trú, không tiêu chảy', 'nhiễm trùng ổ bụng'],
+            ['không ban da, không xuất huyết da niêm', 'sốt xuất huyết, nhiễm trùng huyết']
+        ],
+        examTargets: {
+            'exam-general': ['Da niêm hồng, không xuất huyết da niêm', 'Chi ấm, mạch quay rõ, CRT < 2s', 'Hạch ngoại vi sờ không chạm', 'Dấu véo da mất nhanh'],
+            'exam-neuro-msk': ['Cổ mềm, không dấu màng não', 'Không dấu thần kinh định vị'],
+            'exam-lung': ['Rì rào phế nang êm dịu, không ran'],
+            'exam-abdomen': ['Bụng mềm, không điểm đau khu trú', 'Chạm thận (-), rung thận (-)']
+        },
+        redFlags: ['Nhiễm trùng huyết – sốc nhiễm trùng', 'Viêm màng não', 'Sốt xuất huyết Dengue nặng', 'Sốt rét ác tính']
+    },
+    'Đau bụng': {
+        coOccurring: ['Nôn ói', 'Sốt', 'Tiêu chảy', 'Táo bón', 'Tiêu phân đen', 'Vàng da – vàng mắt'],
+        pertinentNegatives: [
+            ['không nôn ra máu, không tiêu phân đen', 'xuất huyết tiêu hóa'],
+            ['không bí trung đại tiện, không bụng chướng', 'tắc ruột'],
+            ['không sốt, không vàng da', 'viêm túi mật – viêm đường mật'],
+            ['không tiểu gắt, không đau lan xuống bẹn', 'cơn đau quặn thận'],
+            ['không trễ kinh, không ra huyết âm đạo', 'thai ngoài tử cung (nữ tuổi sinh đẻ)']
+        ],
+        examTargets: {
+            'exam-abdomen': ['Bụng mềm, không điểm đau khu trú', 'Đề kháng thành bụng, phản ứng dội', 'Điểm McBurney (+)', 'Murphy (+)', 'Nhu động ruột tăng / mất', 'Gõ đục vùng thấp, sóng vỗ'],
+            'exam-general': ['Chi lạnh, vã mồ hôi (dấu sốc)', 'Da niêm nhạt', 'Vàng da vàng mắt']
+        },
+        redFlags: ['Viêm phúc mạc / thủng tạng rỗng', 'Tắc ruột', 'Viêm tụy cấp nặng', 'Phình bóc tách động mạch chủ bụng', 'Thai ngoài tử cung vỡ']
+    },
+    'Đau đầu': {
+        coOccurring: ['Nôn ói', 'Sốt', 'Chóng mặt', 'Nhìn mờ', 'Yếu liệt chi', 'Co giật'],
+        pertinentNegatives: [
+            ['không đau đầu dữ dội đột ngột kiểu sét đánh', 'xuất huyết dưới nhện'],
+            ['không sốt, không cổ gượng', 'viêm màng não'],
+            ['không yếu liệt chi, không nói khó, không nhìn đôi', 'đột quỵ, u não'],
+            ['không nôn vọt, không nhìn mờ tăng dần', 'tăng áp lực nội sọ']
+        ],
+        examTargets: {
+            'exam-neuro-msk': ['Cổ mềm, không dấu màng não', 'Không dấu thần kinh định vị', 'Đồng tử 2 bên đều, phản xạ ánh sáng (+)', 'Sức cơ tứ chi 5/5'],
+            'exam-head': ['Ấn đau xoang trán – xoang hàm', 'Động mạch thái dương không dày cứng']
+        },
+        redFlags: ['Xuất huyết dưới nhện', 'Viêm màng não', 'Tăng áp lực nội sọ / u não', 'Đột quỵ', 'Tăng huyết áp ác tính']
+    },
+    'Ho ra máu': {
+        coOccurring: ['Ho', 'Sốt', 'Sụt cân', 'Vã mồ hôi đêm', 'Khó thở', 'Đau ngực kiểu màng phổi'],
+        pertinentNegatives: [
+            ['không nôn ra máu, máu không lẫn thức ăn', 'xuất huyết tiêu hóa nhầm lẫn'],
+            ['không chảy máu mũi, không chảy máu răng', 'nguồn chảy máu đường hô hấp trên'],
+            ['không sụt cân, không sốt về chiều', 'lao phổi, ung thư phổi'],
+            ['không đau ngực kiểu màng phổi, không sưng đau bắp chân', 'thuyên tắc phổi']
+        ],
+        examTargets: {
+            'exam-lung': ['Ran nổ khu trú', 'Rì rào phế nang giảm khu trú', 'Gõ đục vùng đỉnh'],
+            'exam-general': ['Da niêm nhạt', 'Ngón tay dùi trống', 'Hạch thượng đòn']
+        },
+        redFlags: ['Ho ra máu sét đánh', 'Lao phổi tiến triển', 'Ung thư phế quản', 'Thuyên tắc phổi', 'Giãn phế quản bội nhiễm']
+    },
+    'Phù': {
+        coOccurring: ['Khó thở', 'Khó thở khi nằm', 'Thay đổi lượng nước tiểu', 'Bụng to dần', 'Vàng da – vàng mắt'],
+        pertinentNegatives: [
+            ['không khó thở khi nằm, không khó thở kịch phát về đêm', 'suy tim'],
+            ['không tiểu bọt, không tiểu ít', 'hội chứng thận hư, suy thận'],
+            ['không vàng da, không bụng to dần', 'xơ gan mất bù'],
+            ['phù 2 bên cân xứng, không sưng nóng đỏ 1 chân', 'huyết khối tĩnh mạch sâu']
+        ],
+        examTargets: {
+            'exam-general': ['Phù 2 chi dưới ấn lõm', 'Tĩnh mạch cổ nổi (JVP)', 'Da niêm nhạt'],
+            'exam-heart': ['Tiếng T3 (gallop)', 'Âm thổi tâm thu'],
+            'exam-lung': ['Ran ẩm 2 đáy phổi', 'Hội chứng 3 giảm đáy phổi'],
+            'exam-abdomen': ['Gõ đục vùng thấp, sóng vỗ (+)', 'Gan to, phản hồi gan – tĩnh mạch cổ (+)']
+        },
+        redFlags: ['Suy tim mất bù / phù phổi cấp', 'Hội chứng thận hư', 'Suy thận cấp', 'Huyết khối tĩnh mạch sâu']
+    },
+    'Nôn ói': {
+        coOccurring: ['Đau bụng', 'Tiêu chảy', 'Sốt', 'Đau đầu', 'Chóng mặt'],
+        pertinentNegatives: [
+            ['không nôn ra máu', 'xuất huyết tiêu hóa trên'],
+            ['không nôn vọt, không đau đầu tăng dần', 'tăng áp lực nội sọ'],
+            ['không bí trung đại tiện, không bụng chướng', 'tắc ruột'],
+            ['không trễ kinh', 'thai nghén (nữ tuổi sinh đẻ)']
+        ],
+        examTargets: {
+            'exam-abdomen': ['Bụng mềm, nhu động ruột bình thường', 'Bụng chướng, nhu động tăng (dấu tắc ruột)', 'Điểm đau thượng vị'],
+            'exam-general': ['Dấu véo da mất chậm', 'Môi khô, lưỡi dơ', 'Mắt trũng']
+        },
+        redFlags: ['Tắc ruột', 'Xuất huyết tiêu hóa', 'Tăng áp lực nội sọ', 'Mất nước – rối loạn điện giải nặng']
+    },
+    'Tiêu chảy': {
+        coOccurring: ['Sốt', 'Đau bụng', 'Nôn ói', 'Sụt cân', 'Tiêu máu đỏ'],
+        pertinentNegatives: [
+            ['không tiêu đàm máu, không mót rặn', 'lỵ, viêm đại tràng nhiễm trùng'],
+            ['không sốt cao, không đau bụng dữ dội', 'nhiễm trùng xâm lấn'],
+            ['không sụt cân, không tiêu chảy về đêm', 'bệnh lý ác tính, viêm ruột mạn'],
+            ['không dùng kháng sinh gần đây', 'viêm đại tràng do C. difficile']
+        ],
+        examTargets: {
+            'exam-general': ['Dấu véo da mất chậm', 'Mắt trũng, môi khô', 'Chi lạnh, CRT > 2s'],
+            'exam-abdomen': ['Bụng mềm, nhu động ruột tăng', 'Không điểm đau khu trú']
+        },
+        redFlags: ['Mất nước nặng – sốc giảm thể tích', 'Lỵ trực trùng', 'Tả', 'Viêm đại tràng giả mạc']
+    },
+    'Tiêu phân đen': {
+        coOccurring: ['Nôn ói', 'Đau bụng', 'Chóng mặt', 'Mệt mỏi – suy nhược', 'Ngất'],
+        pertinentNegatives: [
+            ['không uống sắt, không ăn tiết canh – huyết', 'phân đen giả'],
+            ['không nôn ra máu', 'xuất huyết tiêu hóa trên lượng nhiều'],
+            ['không vàng da, không bụng to dần', 'vỡ giãn tĩnh mạch thực quản do xơ gan'],
+            ['không dùng NSAID, không dùng kháng đông', 'loét do thuốc']
+        ],
+        examTargets: {
+            'exam-general': ['Da niêm nhạt', 'Mạch nhanh, huyết áp tụt tư thế', 'Chi lạnh, CRT > 2s'],
+            'exam-abdomen': ['Ấn đau thượng vị', 'Gan lách sờ chạm', 'Tuần hoàn bàng hệ, báng bụng']
+        },
+        redFlags: ['Sốc mất máu', 'Vỡ giãn tĩnh mạch thực quản', 'Loét dạ dày – tá tràng đang chảy máu']
+    },
+    'Ngất': {
+        coOccurring: ['Hồi hộp – đánh trống ngực', 'Đau ngực', 'Khó thở', 'Chóng mặt', 'Co giật'],
+        pertinentNegatives: [
+            ['không ngất khi gắng sức', 'hẹp van động mạch chủ, bệnh cơ tim phì đại'],
+            ['không hồi hộp trước ngất', 'loạn nhịp'],
+            ['không co giật, không tiêu tiểu không tự chủ, không lú lẫn sau cơn', 'động kinh'],
+            ['không tiêu phân đen, không xuất huyết', 'ngất do giảm thể tích']
+        ],
+        examTargets: {
+            'exam-heart': ['Âm thổi tâm thu ổ van động mạch chủ', 'Nhịp tim đều / không đều', 'Mạch chậm'],
+            'exam-general': ['Huyết áp tư thế (nằm – đứng)', 'Da niêm nhạt'],
+            'exam-neuro-msk': ['Không dấu thần kinh định vị']
+        },
+        redFlags: ['Loạn nhịp nguy hiểm', 'Hẹp van động mạch chủ nặng', 'Thuyên tắc phổi', 'Xuất huyết nội', 'Đột quỵ hố sau']
+    },
+    'Yếu liệt chi': {
+        coOccurring: ['Nói khó', 'Đau đầu', 'Tê bì – dị cảm', 'Rối loạn tri giác', 'Co giật'],
+        pertinentNegatives: [
+            ['không đau đầu dữ dội, không nôn vọt', 'xuất huyết não'],
+            ['không sốt, không cổ gượng', 'nhiễm trùng thần kinh trung ương'],
+            ['không chấn thương đầu – cột sống gần đây', 'tổn thương do chấn thương'],
+            ['không rối loạn cơ vòng', 'chèn ép tủy']
+        ],
+        examTargets: {
+            'exam-neuro-msk': ['Sức cơ từng nhóm (thang 0–5)', 'Phản xạ gân xương, Babinski', 'Trương lực cơ', 'Dấu thần kinh sọ', 'Cảm giác nông – sâu'],
+            'exam-general': ['Huyết áp 2 tay', 'Loạn nhịp hoàn toàn (rung nhĩ)']
+        },
+        redFlags: ['Đột quỵ trong cửa sổ điều trị', 'Xuất huyết não', 'Chèn ép tủy cấp', 'Hội chứng Guillain–Barré']
+    },
+    'Tiểu máu': {
+        coOccurring: ['Tiểu gắt buốt', 'Đau quặn thận', 'Sốt', 'Sụt cân', 'Phù'],
+        pertinentNegatives: [
+            ['không sốt, không đau hông lưng', 'viêm đài bể thận'],
+            ['không sụt cân, không tiểu máu không đau', 'ung thư đường niệu'],
+            ['không phù, không tăng huyết áp', 'viêm cầu thận'],
+            ['không đang hành kinh, không chấn thương', 'tiểu máu giả']
+        ],
+        examTargets: {
+            'exam-abdomen': ['Chạm thận (-), bập bềnh thận (-)', 'Rung thận (+)', 'Cầu bàng quang'],
+            'exam-general': ['Da niêm nhạt', 'Phù mi mắt, phù chi dưới']
+        },
+        redFlags: ['Ung thư đường niệu', 'Viêm cầu thận tiến triển nhanh', 'Nhiễm trùng đường tiểu có tắc nghẽn']
+    },
+    'Xuất huyết da niêm': {
+        coOccurring: ['Sốt', 'Chảy máu răng', 'Chảy máu mũi', 'Mệt mỏi – suy nhược', 'Tiêu phân đen'],
+        pertinentNegatives: [
+            ['không đau đầu, không rối loạn tri giác', 'xuất huyết nội sọ'],
+            ['không tiêu phân đen, không nôn ra máu', 'xuất huyết tiêu hóa'],
+            ['không sốt, không đau cơ khớp vùng dịch tễ', 'sốt xuất huyết Dengue'],
+            ['không dùng kháng đông, không dùng thuốc mới', 'xuất huyết do thuốc']
+        ],
+        examTargets: {
+            'exam-general': ['Chấm – mảng xuất huyết, dấu dây thắt', 'Da niêm nhạt', 'Hạch ngoại vi', 'Chi lạnh, CRT > 2s'],
+            'exam-abdomen': ['Gan lách sờ chạm']
+        },
+        redFlags: ['Sốt xuất huyết Dengue nặng', 'Xuất huyết nội sọ do giảm tiểu cầu', 'Bạch cầu cấp', 'Đông máu nội mạch lan tỏa (DIC)']
+    },
+    'Thở nhanh – rút lõm ngực': {
+        coOccurring: ['Sốt', 'Ho', 'Bú kém – bỏ bú', 'Quấy khóc – li bì', 'Tím tái'],
+        pertinentNegatives: [
+            ['không tím tái, không cơn ngưng thở', 'suy hô hấp nặng'],
+            ['không bỏ bú, không co giật, không li bì', 'dấu hiệu nguy hiểm toàn thân'],
+            ['không sặc, không hội chứng xâm nhập', 'dị vật đường thở'],
+            ['không khò khè tái đi tái lại', 'hen phế quản']
+        ],
+        examTargets: {
+            'exam-lung': ['Ran ẩm nhỏ hạt 2 phế trường', 'Rì rào phế nang giảm', 'Ran rít, ran ngáy'],
+            'exam-chest': ['Rút lõm lồng ngực', 'Phập phồng cánh mũi, thở rên'],
+            'exam-general': ['Tím quanh môi', 'Dấu véo da mất chậm', 'Li bì, khó đánh thức']
+        },
+        redFlags: ['Viêm phổi nặng', 'Suy hô hấp cấp', 'Dị vật đường thở', 'Viêm tiểu phế quản nặng']
+    }
+};
+
+SYMPTOMS.forEach(s => Object.assign(s, CONTEXT[s.ten]));
+
+/** Nhóm triệu chứng ↔ ô "Lược qua các cơ quan" ở mục IV */
+export const ROS_BY_NHOM = {
+    'Tim mạch': 'ros-cardio',
+    'Hô hấp': 'ros-resp',
+    'Tiêu hóa': 'ros-gi',
+    'Thần kinh': 'ros-neuro',
+    'Cơ xương khớp': 'ros-msk',
+    'Tiết niệu – sinh dục': 'ros-uro'
+};
+
 /** Ghép các ý đã điền thành câu mô tả */
 export function describe(sym, values) {
     const f = (k) => String(values?.[k] ?? '').trim();
@@ -649,9 +912,7 @@ export function describe(sym, values) {
     return parts.length ? `${sym.ten}: ${parts.join(', ')}` : sym.ten;
 }
 
-/** Bỏ dấu để gõ "kho tho" vẫn ra "Khó thở" */
-export const fold = (x) => String(x || '').toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u0111/g, 'd');
+export { fold };
 
 export function findSymptom(ten) {
     const s = fold(ten).trim();
@@ -661,7 +922,10 @@ export function findSymptom(ten) {
 }
 
 export function searchSymptoms(q) {
-    const s = fold(q).trim();
-    if (!s) return SYMPTOMS;
-    return SYMPTOMS.filter(x => fold(x.ten).includes(s) || fold(x.nhom).includes(s));
+    // Tìm cả theo nhóm và theo bệnh cảnh nguy hiểm: gõ "vành cấp" vẫn ra "Đau ngực"
+    return searchList(SYMPTOMS, q, {
+        key: (x) => x.ten,
+        alias: (x) => [x.nhom, ...(x.redFlags || []), ...(x.coOccurring || [])],
+        limit: 60
+    });
 }

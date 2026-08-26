@@ -1,5 +1,6 @@
 // waiting-room.js — Trang chờ: danh sách bệnh án
 import { showToast } from '../../core/utils.js';
+import { guideOn, setGuide } from '../../core/guide.js';
 import {
     listLocal, sortRecords, syncFromCloud, deleteRecord, saveRecord,
     isSignedIn, exportJson, importJson
@@ -624,6 +625,26 @@ function setupActions() {
     menuBtn?.addEventListener('click', (e) => { e.stopPropagation(); menu.classList.toggle('hidden'); });
     document.addEventListener('click', () => menu?.classList.add('hidden'));
     menu?.addEventListener('click', (e) => e.stopPropagation());
+
+    /* Chế độ hướng dẫn: một công tắc cho toàn bộ app, mọi bệnh án dùng chung.
+       Tắt đi thì trang viết bệnh án bỏ hết câu chỉ dẫn, chỉ còn ô nhập. */
+    const guideBtn = document.getElementById('toggle-guide');
+    const guideTag = document.getElementById('guide-state');
+    const paintGuide = () => {
+        if (!guideTag) return;
+        const on = guideOn();
+        guideTag.textContent = on ? 'Bật' : 'Tắt';
+        guideTag.className = 'text-[11px] font-bold px-2 py-0.5 rounded-full '
+            + (on ? 'bg-pink-100 text-pink-600' : 'bg-gray-100 text-gray-500');
+    };
+    paintGuide();
+    guideBtn?.addEventListener('click', () => {
+        const on = setGuide(!guideOn());
+        paintGuide();
+        showToast(on
+            ? 'Đã bật hướng dẫn — các câu chỉ dẫn sẽ hiện lại trong bệnh án.'
+            : 'Đã tắt hướng dẫn — trang viết bệnh án chỉ còn ô nhập.', 'success');
+    });
 
     document.getElementById('export-json')?.addEventListener('click', () => {
         menu.classList.add('hidden');

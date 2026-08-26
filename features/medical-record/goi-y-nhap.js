@@ -8,6 +8,11 @@
 import { openListPicker } from './list-picker.js';
 import { BENH_NHOM } from './benh-data.js';
 import { CLS_DE_NGHI, HOI_CHUNG } from './de-nghi-data.js';
+import { ROS_BY_NHOM, SYMPTOMS } from './trieu-chung-data.js';
+import { attachTypeahead, CLS_PURPOSES } from './goi-y-go.js';
+import { suggestFor, hallmarksFor } from './bien-luan-data.js';
+import { requirementsFor } from './clinical-validator.js';
+import { fold } from './tim-kiem.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -28,7 +33,6 @@ const backFrom = (n) => () => {
 const QUICK_FILL = {
     'admission-time': [['Bây giờ', nowTime]],
     'admission-date': [['Hôm nay', todayISO]],
-    'reason-for-admission': ['Sốt', 'Ho', 'Khó thở', 'Đau ngực', 'Đau bụng', 'Đau đầu', 'Chóng mặt', 'Nôn ói', 'Tiêu chảy', 'Phù', 'Mệt mỏi'],
     'history-internal': ['Chưa ghi nhận bệnh lý nội khoa', 'Tăng huyết áp', 'Đái tháo đường type 2', 'Rối loạn lipid máu', 'Viêm dạ dày'],
     'history-surgery': ['Chưa ghi nhận tiền căn ngoại khoa', 'Mổ lấy thai', 'Cắt ruột thừa'],
     'history-obgyne': ['Kinh nguyệt đều', 'PARA', 'Đã mãn kinh'],
@@ -121,6 +125,12 @@ const QUICK_FILL = {
     'dx2-stage': ['mức độ nhẹ', 'mức độ trung bình', 'mức độ nặng', 'giai đoạn ổn định'],
 
     'tr-burn-agent': ['nước sôi', 'lửa xăng', 'dầu ăn nóng', 'điện', 'hóa chất', 'bô xe máy'],
+    'env-job': ['không có phơi nhiễm nghề nghiệp', 'phun thuốc trừ sâu', 'làm ruộng, tiếp xúc bùn đất', 'thợ hàn – khói kim loại', 'công nhân dệt – bụi bông', 'lái xe đường dài', 'làm việc trong môi trường lạnh'],
+    'env-area': ['không sống / đi vùng dịch tễ', 'vùng lưu hành sốt xuất huyết', 'vùng lưu hành sốt rét', 'vùng có dịch tay chân miệng', 'khu vực đang có dịch cúm'],
+    'env-contact': ['chưa ghi nhận tiếp xúc người bệnh', 'nhà có người ho kéo dài', 'nhà có người đang điều trị lao', 'lớp học có bạn bị tay chân miệng', 'tiếp xúc người sốt phát ban'],
+    'env-animal': ['không nuôi, không tiếp xúc động vật', 'nuôi gà, vịt', 'nuôi chó, mèo', 'bị chó cắn', 'bị mèo cào', 'giết mổ gia cầm'],
+    'env-water': ['dùng nước máy, ăn chín uống sôi', 'dùng nước giếng khoan', 'hay ăn gỏi cá – thịt tái', 'hay ăn rau sống', 'uống nước chưa đun sôi'],
+    'env-travel': ['không đi đâu xa trong 1 tháng nay', 'về quê 2 tuần trước', 'đi nước ngoài trong 1 tháng nay', 'đi vùng rừng núi'],
     'history-environment': ['Chưa ghi nhận yếu tố phơi nhiễm đặc biệt', 'Tiếp xúc khói bụi nghề nghiệp', 'Tiếp xúc thuốc bảo vệ thực vật', 'Tiếp xúc hóa chất công nghiệp', 'Sống vùng dịch tễ sốt xuất huyết', 'Nuôi gia súc, gia cầm'],
     'sx-pre-dx': ['Viêm ruột thừa cấp', 'Viêm túi mật cấp do sỏi', 'Thủng tạng rỗng', 'Tắc ruột cơ học', 'Gãy xương kín'],
     'sx-post-dx': ['Chẩn đoán sau mổ phù hợp chẩn đoán trước mổ', 'Viêm ruột thừa cấp đã vỡ mủ', 'Viêm túi mật hoại tử', 'Thủng ổ loét hành tá tràng'],
@@ -152,14 +162,18 @@ function makeChips(id, items) {
         // Ô trong lưới: chip chỉ bung ra khi bấm vào ô, đỡ làm trang dài trên điện thoại
         wrap.className = 'chips' + (el.classList.contains('calc-in') ? ' compact' : '');
         items.forEach(item => {
-            const [label, getValue] = Array.isArray(item) ? item : [item, () => item];
+            // 3 dạng: 'chữ' | ['nhãn', hàm lấy giá trị] | { text, tag } (chip theo bệnh cảnh)
+            const ctx = item && typeof item === 'object' && !Array.isArray(item) ? item : null;
+            const [label, getValue] = ctx ? [`${ctx.tag || ''} ${ctx.text}`.trim(), () => ctx.text]
+                : Array.isArray(item) ? item : [item, () => item];
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'chip';
+            btn.className = 'chip' + (ctx ? ' is-ctx' : '');
             btn.textContent = label;
+            if (ctx?.title) btn.title = ctx.title;
             // Chip cố định (không phải "Bây giờ" / "Hôm nay") thì bật tắt được
             const fixed = !Array.isArray(item);
-            if (fixed) btn.dataset.text = item;
+            if (fixed) btn.dataset.text = ctx ? ctx.text : item;
             // Giữ con trỏ ở lại ô: chip hiện theo :focus-within, mất focus là chip
             // biến mất ngay giữa cú chạm (iOS không focus nút khi chạm).
             btn.addEventListener('mousedown', (e) => e.preventDefault());
@@ -186,6 +200,152 @@ function makeChips(id, items) {
         }
         mark();
     }
+}
+
+/* =====================================================================
+   Gợi ý bám theo bệnh cảnh: triệu chứng đã khai thác ở bệnh sử quyết định
+   khám gì trước và lược qua cơ quan nào. Chip 🎯 nhảy lên đầu, ô liên quan
+   được làm nổi để không lướt qua.
+   ===================================================================== */
+const CTX_EXAM_IDS = ['exam-general', 'exam-head', 'exam-chest', 'exam-heart',
+    'exam-lung', 'exam-abdomen', 'exam-neuro-msk'];
+let ctxKey = '';
+
+/* Dấu chứng kinh điển thuộc về ô khám nào — để chip rơi đúng chỗ thay vì dồn
+   hết vào "khám tổng quát". Mẫu đầu tiên khớp là lấy. */
+const EXAM_ROUTE = [
+    [/ph[ổo]i|ran |r[ìi] r[àa]o|g[õo] đ[ụu]c|rung thanh|kh[òo] kh[èe]|th[ởo] ra|ba gi[ảa]m|đ[ôo]ng đ[ặa]c/i, 'exam-lung'],
+    [/tim|m[ỏo]m|[âa]m th[ổo]i|t[ĩi]nh m[ạa]ch c[ổo]|ph[ảa]n h[ồo]i gan|nh[ịi]p|m[ạa]ch nhanh/i, 'exam-heart'],
+    [/b[ụu]ng|gan |l[áa]ch|b[áa]ng|ph[úu]c m[ạa]c|nhu đ[ộo]ng|tr[ựư]c tr[àa]ng|đ[ềe] kh[áa]ng/i, 'exam-abdomen'],
+    [/c[ổo] g[ượư]{1,2}ng|kernig|brudzinski|li[ệe]t|babinski|tri gi[áa]c|th[ầa]n kinh|kh[ớo]p|n[óo]i (đ[ớơ]|kh[óo])|m[ée]o mi[ệe]ng|co gi[ậa]t|c[ứư]ng kh[ớo]p/i, 'exam-neuro-msk'],
+    [/l[ồo]ng ng[ựư]c|co k[ée]o|r[úu]t l[õo]m|s[ẹe]o m[ổo]/i, 'exam-chest'],
+    [/h[ọo]ng|tuy[ếe]n gi[áa]p|kh[íi] qu[ảa]n|h[ạa]ch|m[ắa]t tr[ũu]ng|đ[ồo]ng t[ửư]|k[ếe]t m[ạa]c/i, 'exam-head']
+];
+const examFieldFor = (t) => (EXAM_ROUTE.find(([re]) => re.test(t)) || [, 'exam-general'])[1];
+
+/** Đọc một ô nhiều dòng thành mảng tên, bỏ số thứ tự và phần giải thích sau dấu — */
+const lines = (id) => String($(id)?.value || '').split('\n')
+    .map(l => l.replace(/^\s*\d+[.)]\s*/, '').replace(/\s+—\s+.*$/, '').trim()).filter(Boolean);
+
+const DX_IDS = ['dx1-main', 'dx2-main', 'differential-diagnosis'];
+
+/**
+ * Nối lại toàn bộ mạng gợi ý sau mỗi lần bệnh án đổi. Ba chiều:
+ *
+ *   bệnh sử   → ô khám, lược qua cơ quan, triệu chứng đi kèm / âm tính
+ *   vấn đề    → chip chẩn đoán nên nghĩ tới và bệnh cảnh phải loại trừ
+ *   chẩn đoán → dấu chứng kinh điển phải mô tả + cận lâm sàng bắt buộc
+ *
+ * @param {Array} syms mảng triệu chứng (từ getClinicalContext)
+ */
+export function applyClinicalContext(syms) {
+    const problems = lines('problem-list');
+    const dxLines = [...new Set(DX_IDS.flatMap(lines))];
+    const dxText = dxLines.join('\n');
+    const key = [syms.map(s => s.ten).join('|'), problems.join('|'), dxText].join('#');
+    if (key === ctxKey) return;            // gõ từng chữ mà dựng lại chip cả trang thì phí
+    ctxKey = key;
+
+    /* --- 1. Chẩn đoán đang ghi kéo ngược về phần khám --- */
+    const hallByField = {};
+    [...new Set([...dxLines, ...problems].flatMap(hallmarksFor))]
+        .forEach(t => (hallByField[examFieldFor(t)] ||= []).push(t));
+    const { labs: mustLabs, needs } = requirementsFor(dxText);
+    const needByField = {};
+    needs.forEach(n => (needByField[n.field] ||= []).push(n));
+
+    CTX_EXAM_IDS.forEach(id => {
+        const fromSym = new Set(syms.flatMap(s => s.examTargets?.[id] || []));
+        const hits = [...new Set([...fromSym, ...(hallByField[id] || [])])];
+        const base = QUICK_FILL[id] || [];
+        setChips(id, hits.length
+            ? [...hits.map(t => ({
+                text: t, tag: '🎯',
+                title: fromSym.has(t) ? 'Liên quan bệnh sử — nên khám và mô tả rõ'
+                    : 'Dấu chứng kinh điển của chẩn đoán đang ghi — mô tả để chứng minh'
+            })), ...base.filter(x => typeof x !== 'string' || !hits.includes(x))]
+            : null);
+        markHot(id, hits.length);
+    });
+
+    /* Ô nào bị chẩn đoán "đòi" dấu chứng thì nói thẳng: đòi cái gì, cho bệnh nào */
+    NEED_HINT_IDS.forEach(id => setNeedHint(id, needByField[id]));
+
+    /* --- 2. Vấn đề đã đặt kéo sang chip chẩn đoán --- */
+    const seen = new Set();
+    const cand = [];
+    problems.forEach(p => {
+        const g = suggestFor(p);
+        const push = (t, tag, title) => {
+            const k = String(t || '').toLowerCase();
+            if (!k || seen.has(k)) return;
+            seen.add(k);
+            cand.push({ text: t, tag, title });
+        };
+        (g.red || []).forEach(t => push(t, '🚨', `Nguy hiểm — phải loại trừ trước khi chốt "${p}"`));
+        (g.nn || []).forEach(t => push(t, '🎯', `Nguyên nhân thường gặp của "${p}"`));
+    });
+    DX_IDS.forEach(id => setChips(id, cand.length ? [...cand, ...(QUICK_FILL[id] || [])] : null));
+
+    /* --- 3. Chẩn đoán kéo sang cận lâm sàng bắt buộc --- */
+    const co = fold(String($('labs-proposed')?.value || ''));
+    const thieu = mustLabs.filter(l => !co.includes(fold(l.ten)));
+    setChips('labs-proposed', thieu.length
+        ? [...thieu.map(l => ({ text: l.ten, tag: '🎯', title: `Bắt buộc cho chẩn đoán ${l.benh} — mục XI chưa có` })),
+            ...(QUICK_FILL['labs-proposed'] || [])]
+        : null);
+    markHot('labs-proposed', thieu.length);
+
+    /* --- 4. Hai ô hay bí nhất của triệu chứng chính --- */
+    const kem = [...new Set(syms.flatMap(s => s.coOccurring || []))];
+    setChips('hx-sym-assoc', kem.length
+        ? [...kem.map(t => ({ text: t, tag: '🎯', title: 'Thường đi kèm bệnh cảnh này — hỏi cho đủ' })),
+            ...(QUICK_FILL['hx-sym-assoc'] || [])]
+        : null);
+    markHot('hx-sym-assoc', kem.length);
+
+    const negs = [...new Map(syms.flatMap(s => s.pertinentNegatives || [])
+        .map(([cau, viCo]) => [cau, viCo])).entries()];
+    setChips('hx-negatives', negs.length
+        ? [...negs.map(([cau, viCo]) => ({ text: cau, tag: '🎯', title: `Âm tính có giá trị — giúp loại trừ ${viCo}` })),
+            ...(QUICK_FILL['hx-negatives'] || [])]
+        : null);
+    markHot('hx-negatives', negs.length);
+
+    Object.entries(ROS_BY_NHOM).forEach(([nhom, id]) => {
+        const names = syms.filter(s => s.nhom === nhom).map(s => s.ten.toLowerCase());
+        setChips(id, names.length
+            ? [{ text: `Ghi nhận ${names.join(', ')} (chi tiết ở bệnh sử)`, tag: '🎯', title: 'Cơ quan đang có triệu chứng — phải mô tả, không được ghi "bình thường"' },
+                ...(QUICK_FILL[id] || [])]
+            : null);
+        markHot(id, names.length);
+    });
+}
+
+/** Làm nổi ô đang liên quan bệnh cảnh để mắt bắt được ngay khi đổi tab */
+function markHot(id, on) {
+    const el = $(id);
+    if (el) el.classList.toggle('is-ctx-hot', !!on);
+}
+
+/* Dòng nhắc ngay dưới ô: chẩn đoán đang ghi đòi dấu chứng gì ở chính ô này.
+   Nối mục IX ngược về mục II–VI mà trước đây phải đợi bảng rà soát mới biết. */
+const NEED_HINT_IDS = [...CTX_EXAM_IDS, 'illness-history', 'hx-sym-char', 'hx-onset-date', 'dx1-stage'];
+
+function setNeedHint(id, list) {
+    const el = $(id);
+    if (!el) return;
+    const anchor = el.nextElementSibling?.classList.contains('chips') ? el.nextElementSibling : el;
+    const next = anchor.nextElementSibling;
+    let hint = next?.classList.contains('ctx-need') ? next : null;
+    if (!list?.length) { hint?.remove(); return; }
+    if (!hint) {
+        hint = document.createElement('p');
+        hint.className = 'ctx-need';
+        anchor.insertAdjacentElement('afterend', hint);
+    }
+    hint.innerHTML = list.map(n =>
+        `<span><i class="fas fa-link"></i> <b>${n.benh}</b> cần: ${n.label}</span>`).join('');
 }
 
 /** Gỡ một ý đã chọn ra khỏi ô, dọn luôn dấu phân cách thừa */
@@ -222,7 +382,10 @@ function attachPicker(id, { title, groups, multi = false, label = 'Chọn từ d
         ? el.nextElementSibling : el).insertAdjacentElement('afterend', btn);
 }
 
-export function buildPickers({ autoGrow }) {
+/** Gom một danh mục nhiều nhóm thành mảng tên phẳng để dò khi gõ */
+const flatNames = (groups) => [...new Set(groups.flatMap(g => g.items || []))];
+
+export function buildPickers({ autoGrow, clsTargets }) {
     const benh = { title: 'Chọn chẩn đoán', groups: BENH_NHOM };
     const benhP = { ...benh, autoGrow };
     attachPicker('dx1-main', { ...benhP, label: 'Chọn bệnh theo chuyên khoa' });
@@ -241,6 +404,19 @@ export function buildPickers({ autoGrow }) {
         title: 'Chọn cận lâm sàng đề nghị', groups: CLS_DE_NGHI, multi: true, autoGrow,
         label: 'Chọn cận lâm sàng theo nhóm'
     });
+
+    /* Gõ tay cũng không phải nhớ đủ tên: gõ vài chữ là hiện gợi ý ngay dưới ô.
+       Riêng cận lâm sàng thì hỏi luôn "đề nghị để làm gì" — chỗ hay bị bỏ trống. */
+    attachTypeahead($('labs-proposed'), {
+        items: flatNames(CLS_DE_NGHI), purposes: CLS_PURPOSES, targets: clsTargets, autoGrow
+    });
+    const benhNames = flatNames(BENH_NHOM);
+    ['dx1-main', 'dx2-main', 'sx-pre-dx', 'sx-post-dx', 'differential-diagnosis']
+        .forEach(id => attachTypeahead($(id), { items: benhNames, autoGrow }));
+    attachTypeahead($('problem-list'), { items: flatNames(HOI_CHUNG), autoGrow });
+    const symNames = SYMPTOMS.map(s => s.ten);
+    // Ô lý do vào viện có bảng chọn riêng (ly-do-list.js) nên không gắn typeahead nữa
+    attachTypeahead($('hx-sym-name'), { items: symNames, autoGrow });
 }
 
 /* Mẫu "khám bình thường": điền một lượt các mục khám không bất thường */

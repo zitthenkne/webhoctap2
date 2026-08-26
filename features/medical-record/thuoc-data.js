@@ -4,6 +4,8 @@
 // theo cách kê phổ biến nhất, sinh viên chỉ sửa lại con số cho đúng bệnh nhân.
 // Liều ở đây là liều người lớn tham khảo, KHÔNG thay cho tra cứu và chỉ định của thầy.
 
+import { fold } from './tim-kiem.js';
+
 /** [tên, hàm lượng, liều mỗi lần, số lần/ngày, đường dùng, giờ dùng] */
 const t = (ten, hamLuong = '', lieu = '', soLan = '', duong = '', gio = '') =>
     ({ ten, hamLuong, lieu, soLan, duong, gio });
@@ -195,3 +197,192 @@ export function findThuoc(ten) {
 export const THUOC_GROUPS = THUOC_NHOM.map(g => ({
     ten: g.ten, icon: g.icon, items: g.items.map(x => x.ten)
 }));
+
+/* =====================================================================
+   Ghi chú an toàn thuốc — chống chỉ định, thận trọng theo eGFR, dị ứng.
+   Đây là thông tin TĨNH của bản thân thuốc (đúng với mọi bệnh nhân), hiện
+   ngay dưới dòng y lệnh để nhớ mà tra. Phần đối chiếu với tiền căn / eGFR
+   của chính bệnh nhân do clinical-validator.js lo, không lặp ở đây.
+   ===================================================================== */
+/** [regex tên thuốc, { ccd, than, diUng }] */
+export const THUOC_CANH_BAO = [
+    [/amoxicillin|ampicillin|penicillin|piperacillin|oxacillin|cloxacillin|unasyn|augmentin/i, {
+        diUng: 'Dị ứng nhóm Penicillin / beta-lactam — hỏi kỹ tiền căn nổi mề đay, phù mạch, phản vệ.',
+        ccd: 'Tiền căn phản vệ với beta-lactam.',
+        than: 'Giảm liều hoặc giãn khoảng cách khi eGFR < 30.'
+    }],
+    [/cefazolin|cephalexin|cefadroxil|cefuroxime/i, {
+        diUng: 'Dị ứng chéo với Penicillin khoảng 1–3% (cao hơn ở thế hệ 1 do chuỗi bên tương tự).',
+        than: 'Chỉnh liều khi eGFR < 30.'
+    }],
+    [/ceftriaxone|cefotaxime|ceftazidime|cefepime/i, {
+        diUng: 'Dị ứng chéo Penicillin thấp; vẫn tránh nếu tiền căn phản vệ.',
+        ccd: 'Ceftriaxone: không dùng chung đường truyền với dung dịch chứa canxi ở trẻ sơ sinh.',
+        than: 'Ceftriaxone thải chủ yếu qua mật, ít cần chỉnh; Cefotaxime/Ceftazidime chỉnh theo eGFR.'
+    }],
+    [/levofloxacin|ciprofloxacin|moxifloxacin/i, {
+        ccd: 'Trẻ em đang lớn, thai kỳ, tiền căn viêm gân do quinolone, nhược cơ.',
+        than: 'Kéo dài QT; chỉnh liều khi eGFR < 50 (trừ Moxifloxacin).'
+    }],
+    [/gentamicin|amikacin|tobramycin/i, {
+        ccd: 'Nhược cơ, tiền căn độc tai do aminoglycoside.',
+        than: 'Độc thận và độc tai — chỉnh liều theo eGFR, theo dõi creatinin và nồng độ đáy.'
+    }],
+    [/vancomycin/i, {
+        than: 'Chỉnh liều theo eGFR, theo dõi nồng độ đáy 15–20 µg/mL; truyền chậm tránh hội chứng người đỏ.'
+    }],
+    [/metronidazole/i, {
+        ccd: 'Ba tháng đầu thai kỳ (cân nhắc).',
+        than: 'Kiêng rượu trong và 48 giờ sau dùng (phản ứng kiểu disulfiram).'
+    }],
+    [/ibuprofen|diclofenac|meloxicam|naproxen|ketorolac|piroxicam|celecoxib/i, {
+        ccd: 'Loét dạ dày – tá tràng đang hoạt động, xuất huyết tiêu hóa, suy tim mất bù, ba tháng cuối thai kỳ, hen do aspirin.',
+        than: 'Chống chỉ định khi eGFR < 30; tránh khi eGFR < 60 hoặc đang dùng lợi tiểu + ƯCMC.',
+        diUng: 'Dị ứng chéo trong nhóm NSAID và với aspirin.'
+    }],
+    [/aspirin/i, {
+        ccd: 'Xuất huyết đang tiến triển, trẻ < 16 tuổi đang nhiễm siêu vi (hội chứng Reye).',
+        than: 'Tránh liều kháng viêm khi eGFR < 30.'
+    }],
+    [/paracetamol|acetaminophen/i, {
+        ccd: 'Suy gan nặng.',
+        than: 'Không quá 3 g/ngày ở người suy gan, nghiện rượu hoặc suy kiệt.'
+    }],
+    [/methylprednisolon|prednisolon|prednison|dexamethason|hydrocortison/i, {
+        ccd: 'Nhiễm nấm toàn thân, nhiễm trùng chưa kiểm soát, loét dạ dày đang hoạt động (nếu buộc dùng phải kèm PPI).',
+        than: 'Tăng đường huyết, giữ muối nước, loãng xương khi dùng kéo dài; giảm liều dần khi ngưng.'
+    }],
+    [/metformin/i, {
+        ccd: 'eGFR < 30, toan chuyển hóa cấp, suy gan nặng, tình trạng giảm tưới máu mô.',
+        than: 'Ngưng trước chụp cản quang 48 giờ; giảm liều khi eGFR 30–45.'
+    }],
+    [/insulin/i, {
+        than: 'Nguy cơ hạ đường huyết tăng khi eGFR giảm — cần giảm liều và theo dõi đường huyết sát.'
+    }],
+    [/gliclazid|glimepirid|glibenclamid/i, {
+        ccd: 'Đái tháo đường type 1, nhiễm toan ceton, suy gan – suy thận nặng.',
+        than: 'Nguy cơ hạ đường huyết kéo dài ở người già và khi eGFR < 30.'
+    }],
+    [/enalapril|captopril|lisinopril|perindopril|ramipril/i, {
+        ccd: 'Thai kỳ, tiền căn phù mạch do ƯCMC, hẹp động mạch thận hai bên, Kali > 5,5 mmol/L.',
+        than: 'Kiểm tra creatinin và Kali sau 1–2 tuần; creatinin tăng > 30% thì ngưng.'
+    }],
+    [/losartan|valsartan|telmisartan|irbesartan/i, {
+        ccd: 'Thai kỳ, hẹp động mạch thận hai bên, tăng Kali máu.',
+        than: 'Không phối hợp cùng lúc với ƯCMC; theo dõi Kali và creatinin.'
+    }],
+    [/propranolol|nadolol/i, {
+        ccd: 'Hen phế quản, COPD co thắt, block nhĩ thất độ 2–3, nhịp chậm < 50, sốc tim.',
+        than: 'Không ngưng đột ngột (nguy cơ cơn đau thắt ngực dội ngược).'
+    }],
+    [/bisoprolol|metoprolol|nebivolol|carvedilol/i, {
+        ccd: 'Block nhĩ thất độ 2–3, nhịp chậm nặng, suy tim mất bù đang sung huyết nặng.',
+        than: 'Chọn lọc β1 nên dùng được ở COPD nếu liều thấp, vẫn theo dõi co thắt phế quản.'
+    }],
+    [/amlodipin|nifedipin|felodipin/i, {
+        than: 'Phù mắt cá chân phụ thuộc liều; Nifedipine tác dụng nhanh không dùng cho cơn tăng huyết áp.'
+    }],
+    [/furosemid|spironolacton|hydrochlorothiazid|indapamid/i, {
+        ccd: 'Spironolactone: Kali > 5,5 mmol/L, suy thận nặng.',
+        than: 'Theo dõi ion đồ và chức năng thận; Thiazide kém hiệu quả khi eGFR < 30.'
+    }],
+    [/warfarin|acenocoumarol|sintrom/i, {
+        ccd: 'Xuất huyết đang tiến triển, thai kỳ, tuân thủ kém không theo dõi được INR.',
+        than: 'Rất nhiều tương tác (kháng sinh, NSAID, thức ăn nhiều vitamin K) — theo dõi INR.'
+    }],
+    [/rivaroxaban|apixaban|dabigatran/i, {
+        ccd: 'Xuất huyết đang tiến triển, van tim cơ học, hội chứng kháng phospholipid.',
+        than: 'Chỉnh liều theo eGFR; Dabigatran chống chỉ định khi eGFR < 30.'
+    }],
+    [/clopidogrel|ticagrelor/i, {
+        ccd: 'Xuất huyết đang tiến triển, xuất huyết nội sọ.',
+        than: 'Ngưng trước phẫu thuật chương trình 5–7 ngày.'
+    }],
+    [/omeprazol|pantoprazol|esomeprazol|rabeprazol|lansoprazol/i, {
+        than: 'Dùng kéo dài gây thiếu B12, hạ magie, tăng nguy cơ nhiễm C. difficile và gãy xương.'
+    }],
+    [/tramadol|morphin|fentanyl|pethidin/i, {
+        ccd: 'Suy hô hấp chưa kiểm soát, đang dùng IMAO (Tramadol), tăng áp lực nội sọ chưa đánh giá.',
+        than: 'Giảm liều khi eGFR < 30 và ở người già; theo dõi tri giác – nhịp thở.'
+    }],
+    [/allopurinol|colchicin/i, {
+        ccd: 'Colchicine: suy gan và suy thận nặng phối hợp.',
+        than: 'Cả hai đều phải giảm liều theo eGFR; Allopurinol có nguy cơ hội chứng quá mẫn (HLA-B*58:01).'
+    }],
+    [/statin|atorvastatin|rosuvastatin|simvastatin/i, {
+        ccd: 'Bệnh gan hoạt động, thai kỳ và cho con bú.',
+        than: 'Theo dõi men gan và CK khi có đau cơ; giảm liều Rosuvastatin khi eGFR < 30.'
+    }],
+    [/salbutamol|terbutalin/i, {
+        than: 'Gây run tay, nhịp nhanh, hạ Kali máu khi dùng liều cao lặp lại.'
+    }],
+    [/adrenaline|epinephrin/i, {
+        than: 'Trong phản vệ không có chống chỉ định tuyệt đối — tiêm bắp mặt trước ngoài đùi 0,5 mg ngay.'
+    }]
+];
+
+/** Ghi chú an toàn của một thuốc: { ccd, than, diUng } — rỗng nếu chưa có trong bảng */
+export function canhBaoThuoc(ten) {
+    const hit = THUOC_CANH_BAO.find(([re]) => re.test(String(ten || '')));
+    return hit ? hit[1] : null;
+}
+
+/* =====================================================================
+   Bệnh nền ↔ thuốc đang dùng ở nhà.
+   Bệnh án là một thể thống nhất: đã khai "tăng huyết áp 10 năm" thì phải có
+   thuốc huyết áp; ngược lại thấy Metformin trong toa cũ mà tiền căn trống
+   là đã bỏ sót một bệnh nền. Bảng này chạy cả hai chiều:
+     thuocTheoBenh(tên bệnh) -> gợi thuốc để bấm thêm
+     benhCuaThuoc(tên thuốc) -> bệnh mà thuốc đó ám chỉ
+   Tên thuốc trùng với THUOC_NHOM ở trên thì findThuoc() điền luôn liều.
+   ===================================================================== */
+/** { benh: nhãn hiện ra, re: dò tên bệnh đã khai (chữ không dấu), thuoc: [tên thuốc] } */
+export const THUOC_THEO_BENH = [
+    { benh: 'Tăng huyết áp', re: /tang huyet ap|\btha\b|cao huyet ap/, thuoc: ['Amlodipine', 'Losartan', 'Telmisartan', 'Perindopril', 'Bisoprolol', 'Hydrochlorothiazide'] },
+    { benh: 'Đái tháo đường type 2', re: /dai thao duong type 2|dai thao duong typ 2|\bdtd\b type 2|tieu duong/, thuoc: ['Metformin', 'Gliclazide MR', 'Insulin Mixtard 30/70', 'Insulin Glargine'] },
+    { benh: 'Đái tháo đường type 1', re: /dai thao duong type 1|dai thao duong typ 1/, thuoc: ['Insulin Glargine', 'Insulin Regular'] },
+    { benh: 'Rối loạn lipid máu', re: /roi loan lipid|roi loan mo mau|tang cholesterol|tang mo mau/, thuoc: ['Atorvastatin', 'Rosuvastatin'] },
+    { benh: 'Bệnh mạch vành', re: /mach vanh|nhoi mau co tim|dat stent|dau that nguc|bac cau mach vanh/, thuoc: ['Aspirin', 'Clopidogrel', 'Atorvastatin', 'Bisoprolol', 'Isosorbide mononitrate'] },
+    { benh: 'Suy tim', re: /suy tim|benh co tim gian/, thuoc: ['Furosemide', 'Spironolactone', 'Bisoprolol', 'Perindopril', 'Digoxin'] },
+    { benh: 'Rung nhĩ', re: /rung nhi|cuong nhi/, thuoc: ['Rivaroxaban', 'Warfarin', 'Bisoprolol', 'Digoxin'] },
+    { benh: 'Van tim nhân tạo', re: /thay van tim|van tim co hoc|van tim hau thap/, thuoc: ['Warfarin'] },
+    { benh: 'Huyết khối tĩnh mạch – thuyên tắc phổi', re: /huyet khoi tinh mach|thuyen tac phoi/, thuoc: ['Rivaroxaban', 'Enoxaparin'] },
+    { benh: 'Di chứng tai biến mạch máu não', re: /tai bien mach mau nao|nhoi mau nao|dot quy|di chung liet/, thuoc: ['Aspirin', 'Clopidogrel', 'Atorvastatin'] },
+    { benh: 'Bệnh phổi tắc nghẽn mạn tính (COPD)', re: /copd|phoi tac nghen/, thuoc: ['Seretide xịt', 'Salbutamol xịt', 'Ipratropium khí dung', 'N-Acetylcystein'] },
+    { benh: 'Hen phế quản', re: /hen phe quan|\bhen\b/, thuoc: ['Seretide xịt', 'Salbutamol xịt', 'Budesonide khí dung'] },
+    { benh: 'Lao phổi', re: /\blao\b|lao phoi|lao mang phoi/, thuoc: ['Thuốc chống lao phác đồ RHZE', 'Vitamin B1 – B6 – B12'] },
+    { benh: 'Loét dạ dày – tá tràng / trào ngược', re: /loet da day|loet ta trang|trao nguoc|viem da day/, thuoc: ['Pantoprazole', 'Domperidone'] },
+    { benh: 'Xơ gan', re: /xo gan|co truong/, thuoc: ['Spironolactone', 'Furosemide', 'Lactulose', 'Silymarin'] },
+    { benh: 'Viêm gan B – C mạn', re: /viem gan b|viem gan c/, thuoc: ['Tenofovir 300 mg', 'Entecavir 0,5 mg'] },
+    { benh: 'Bệnh thận mạn', re: /benh than man|suy than|chay than|loc mau/, thuoc: ['Furosemide', 'Calci carbonat + Vitamin D3', 'Sắt + Acid folic', 'Erythropoietin (tiêm dưới da)'] },
+    { benh: 'Gout', re: /\bgout\b|gut\b|tang acid uric/, thuoc: ['Allopurinol', 'Colchicine'] },
+    { benh: 'Suy giáp', re: /suy giap/, thuoc: ['Levothyroxine'] },
+    { benh: 'Cường giáp – Basedow', re: /cuong giap|basedow/, thuoc: ['Thiamazole', 'Bisoprolol'] },
+    { benh: 'Động kinh', re: /dong kinh/, thuoc: ['Levetiracetam', 'Valproat natri', 'Phenytoin'] },
+    { benh: 'Bệnh Parkinson', re: /parkinson/, thuoc: ['Levodopa + Carbidopa'] },
+    { benh: 'Loãng xương', re: /loang xuong/, thuoc: ['Calci carbonat + Vitamin D3', 'Alendronat 70 mg (uống mỗi tuần)'] },
+    { benh: 'Thiếu máu thiếu sắt', re: /thieu mau thieu sat|thieu mau man/, thuoc: ['Sắt + Acid folic'] },
+    { benh: 'Viêm khớp dạng thấp – lupus', re: /viem khop dang thap|lupus|thoai hoa khop/, thuoc: ['Methotrexat 2,5 mg (uống mỗi tuần)', 'Prednisolone', 'Meloxicam'] },
+    { benh: 'Tăng sinh lành tính tuyến tiền liệt', re: /tuyen tien liet/, thuoc: ['Tamsulosin 0,4 mg', 'Dutasteride 0,5 mg'] },
+    { benh: 'Bệnh thần kinh ngoại biên do đái tháo đường', re: /than kinh ngoai bien|dau than kinh/, thuoc: ['Gabapentin', 'Vitamin B1 – B6 – B12'] },
+    { benh: 'Hội chứng thận hư', re: /thanh hu|than hu/, thuoc: ['Prednisolone', 'Furosemide'] },
+    { benh: 'Mày đay – viêm mũi dị ứng', re: /may day|viem mui di ung|di ung man/, thuoc: ['Loratadine', 'Chlorpheniramine'] }
+];
+
+/** Thuốc thường dùng cho một bệnh nền đã khai — [] nếu chưa có trong bảng */
+export function thuocTheoBenh(tenBenh) {
+    const s = fold(tenBenh);
+    if (!s) return [];
+    const hit = THUOC_THEO_BENH.find(x => x.re.test(s));
+    return hit ? hit.thuoc.slice() : [];
+}
+
+/** Các bệnh nền mà một thuốc ám chỉ — nhãn đầu tiên là khả năng thường gặp nhất */
+export function benhCuaThuoc(tenThuoc) {
+    // So bằng chữ đầu tiên: người dùng hay gõ kèm hàm lượng ("Amlodipin 5mg")
+    const s = fold(tenThuoc).replace(/[^a-z0-9 ]/g, ' ').trim().split(' ')[0];
+    if (s.length < 4) return [];
+    return THUOC_THEO_BENH
+        .filter(x => x.thuoc.some(t => fold(t).startsWith(s) || s.startsWith(fold(t).split(' ')[0])))
+        .map(x => x.benh);
+}

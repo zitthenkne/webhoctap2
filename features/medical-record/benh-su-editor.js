@@ -9,7 +9,10 @@
 // xuất file / trang xem không phải sửa gì.
 
 import { openSymptomPicker } from './symptom-picker.js';
-import { findSymptom } from './trieu-chung-data.js';
+import { openListPicker } from './list-picker.js';
+import { BENH_NHOM } from './benh-data.js';
+import { careHtml, careLine, hasCare, emptyCare } from './tuyen-truoc-list.js';
+import { findSymptom, SYMPTOMS, fold } from './trieu-chung-data.js';
 import { setChips } from './goi-y-nhap.js';
 
 const $ = (id) => document.getElementById(id);
@@ -24,7 +27,12 @@ const STATES = ['tương tự', 'thuyên giảm', 'nặng hơn'];
    đúng mốc khởi phát nên mọi ID / phần lưu trữ giữ nguyên, khỏi phải nhân đôi ô. */
 /* Hai khối HTML có sẵn được dời nguyên vào mốc khởi phát: mô tả triệu chứng chính
    và cơ chế chấn thương (bệnh án ngoại). Mọi ID / chỗ lưu giữ nguyên. */
-const EMBEDS = [['hx-trauma-box', 'hx-trauma-park'], ['hx-main-box', 'hx-main-park']];
+const EMBEDS = [
+    ['hx-trauma-box', 'hx-trauma-park'],   // ngoại: cơ chế chấn thương
+    ['hx-san-box', 'hx-san-park'],         // sản: bệnh sử thai kỳ
+    ['hx-nhi-box', 'hx-nhi-park'],         // nhi: hỏi người nuôi trẻ
+    ['hx-main-box', 'hx-main-park']
+];
 const mainSymName = () => ($('hx-sym-name')?.value || '').trim();
 
 let steps = [];
@@ -32,7 +40,7 @@ let list, onChangeCb = () => { };
 let carrying = false;
 
 const isEmptyStep = (m) =>
-    !(m.main && mainSymName()) &&
+    !(m.main && mainSymName()) && !hasCare(m.care) &&
     !String(m.s || '').trim() && !(m.refs || []).some(r => String(r.sym || '').trim());
 
 export function getSteps() {
@@ -215,6 +223,7 @@ function stepHtml(m, i) {
                 <button type="button" class="hx-pick" data-act="pick-sym" title="Chọn từ thư viện và khai thác đủ đặc điểm"><i class="fas fa-notes-medical"></i> Khai thác đủ ý</button>
             </div>
         </div>
+        ${careHtml(m.care)}
         ${(() => {
             const refs = m.refs || [];
             const miss = missingCarry(m, i);
@@ -380,6 +389,46 @@ export function calcOnset() {
     tag.textContent = parts.join(' · ');
 }
 
+/** Ghép các câu âm tính vừa tick trong bảng chọn vào ô "triệu chứng âm tính" */
+export function addNegatives(list) {
+    const el = $('hx-negatives');
+    if (!el || !list?.length) return;
+    const cur = el.value.split(/[,;]/).map(trimText).filter(Boolean);
+    list.forEach(x => { if (!cur.some(c => lower(c) === lower(x))) cur.push(trimText(x)); });
+    el.value = cur.join(', ');
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+/**
+ * Bệnh cảnh đang khai thác: tên triệu chứng chính + triệu chứng ở mọi mốc.
+ * Các tab sau (lược qua cơ quan, khám, biện luận) dựa vào đây để gợi ý đúng trọng tâm.
+ */
+export function getClinicalContext() {
+    const names = new Set();
+    const main = mainSymName();
+    if (main) names.add(main);
+    // Lý do vào viện tính luôn: mới mở bệnh án, chưa kịp khai bệnh sử thì các tab
+    // sau vẫn phải biết đang đi theo bệnh cảnh nào mà gợi ý cho trúng.
+    String($('reason-for-admission')?.value || '').split(/[,;\n]+/)
+        .map(trimText).filter(Boolean).forEach(t => names.add(t));
+    steps.forEach(m => {
+        symParts(m).forEach(t => names.add(t));
+        (m.refs || []).forEach(r => r.sym && names.add(trimText(r.sym)));
+    });
+    // Chuỗi mô tả dài ("Đau ngực: sau xương ức, đè nặng") vẫn dò ra được triệu chứng gốc
+    return [...new Set([...names].map(resolveSymptom).filter(Boolean))];
+}
+
+/* Dò triệu chứng trong một câu mô tả. Phải so theo *nguyên chữ*: bắt kiểu
+   "chứa chuỗi con" thì "khó thở" lại khớp trúng "Ho" — sai bét bộ gợi ý. */
+function resolveSymptom(text) {
+    const head = fold(String(text).split(':')[0]).trim();
+    if (!head) return null;
+    return SYMPTOMS.find(s => fold(s.ten) === head)
+        || SYMPTOMS.find(s => new RegExp(`(^|[^a-z0-9])${fold(s.ten).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z0-9]|$)`).test(head))
+        || null;
+}
+
 /** Mốc nào đang thiếu mô tả cho triệu chứng giảm/nặng hơn */
 export function missingDetails() {
     const out = [];
@@ -421,7 +470,7 @@ export function buildProse() {
     const mainStep = timeline.find(m => m.main);
     // Triệu chứng chính kể ngay tại mốc khởi phát; chỉ tách ra câu riêng khi chưa có mốc nào
     if (symDesc && !mainStep) out.push(`Triệu chứng chính: ${symDesc}.`);
-    if (v('hx-sym-treated')) out.push(`Đã xử trí trước nhập viện: ${v('hx-sym-treated')}.`);
+    if (v('hx-sym-treated')) out.push(`Tự xử trí tại nhà: ${v('hx-sym-treated')}.`);
 
     if (timeline.length) {
         out.push('Diễn tiến:');
@@ -429,7 +478,8 @@ export function buildProse() {
             const refs = (m.refs || []).filter(r => String(r.sym || '').trim()).map(r =>
                 `${r.sym} ${r.st || 'tương tự'}${String(r.d || '').trim() ? ` (${r.d.trim()})` : ''}`);
             const head = m === mainStep && symDesc ? `Triệu chứng chính: ${symDesc}` : '';
-            const body = [head, String(m.s || '').trim(), ...refs].filter(Boolean).join('; ');
+            const care = careLine(m.care);
+            const body = [head, String(m.s || '').trim(), ...refs, care].filter(Boolean).join('; ');
             out.push(`- ${stepLabel(m)}: ${body}${body.endsWith('.') ? '' : '.'}`);
         });
     }
@@ -457,7 +507,10 @@ export function buildProse() {
     const dehyd = $('ped-dehyd-out')?.textContent || '';
     if (nhi.length && /^Sụt /.test(dehyd)) out.push(dehyd + '.');
 
-    if (v('hx-general')) out.push(`Trong quá trình bệnh: ${v('hx-general')}.`);
+    const daily = [['ăn uống', v('hx-eat')], ['giấc ngủ', v('hx-sleep')],
+    ['tiêu', v('hx-stool')], ['tiểu', v('hx-urine')]].filter(([, x]) => x);
+    const chung = [v('hx-general'), ...daily.map(([k, x]) => `${k} ${x}`)].filter(Boolean).join('; ');
+    if (chung) out.push(`Trong quá trình bệnh: ${chung}.`);
     if (v('hx-negatives')) out.push(`Bệnh nhân ${v('hx-negatives')}.`);
     const admV = [['Mạch', 'adm-pulse', 'lần/phút'], ['Huyết áp', 'adm-bp', 'mmHg'],
     ['Nhiệt độ', 'adm-temp', '°C'], ['Nhịp thở', 'adm-resp', 'lần/phút'],
@@ -500,6 +553,14 @@ export function initHistory(options) {
             if (el.dataset.f === 'st') render();     // đổi trạng thái -> đổi lời nhắc + cảnh báo
             else refEl.classList.toggle('is-warn',
                 (m.refs[+refEl.dataset.k].st !== 'tương tự') && !el.value.trim() && el.dataset.f === 'd');
+        } else if (el.dataset.c) {
+            (m.care ||= emptyCare())[el.dataset.c] = el.value;
+            // Đổi hình thức thì hiện / ẩn ô "nằm bao nhiêu ngày"
+            if (el.dataset.c === 'hinhThuc') render();
+            else {
+                const box = el.closest('.tt-card')?.querySelector('.tt-preview');
+                if (box) box.textContent = careLine(m.care); else render();
+            }
         } else if (el.dataset.k === 'quick') {
             // Ô gõ nhanh không thuộc dữ liệu mốc — chỉ chốt khi Enter hoặc rời ô
             if (e.type === 'change') commitQuick(el, m);
@@ -543,7 +604,21 @@ export function initHistory(options) {
         if (!btn) return;
         const stepEl = btn.closest('.hx-step');
         const i = +stepEl.dataset.i;
-        if (btn.dataset.act === 'phase') {
+        if (btn.dataset.act === 'care-add') steps[i].care = emptyCare();
+        else if (btn.dataset.act === 'care-del') delete steps[i].care;
+        else if (btn.dataset.act === 'care-pick') {
+            openListPicker({
+                title: 'Chẩn đoán của tuyến trước', groups: BENH_NHOM, value: steps[i].care?.chanDoan || '',
+                onPick: ([name]) => {
+                    if (!name) return;
+                    (steps[i].care ||= emptyCare()).chanDoan = name;
+                    render();
+                    onChangeCb();
+                }
+            });
+            return;
+        }
+        else if (btn.dataset.act === 'phase') {
             if (steps[i].phase === btn.dataset.v) return;
             steps[i].phase = btn.dataset.v;
             const id = steps[i].id;
@@ -581,8 +656,9 @@ export function initHistory(options) {
         else if (btn.dataset.act === 'pick-sym') {
             openSymptomPicker({
                 title: 'Triệu chứng mới ở ' + stepLabel(steps[i]),
-                onPick: (text) => {
-                    setSymParts(steps[i], [...symParts(steps[i]), text]);
+                onPick: (text, ten, extra) => {
+                    setSymParts(steps[i], [...symParts(steps[i]), text, ...(extra?.extras || [])]);
+                    addNegatives(extra?.negatives);
                     render();
                     onChangeCb();
                 }
