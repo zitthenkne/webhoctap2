@@ -87,7 +87,9 @@ function ensureDom() {
             const text = currentText();
             if (!text) return;
             state.onPick?.(text, state.sym?.ten || state.custom,
-                { extras: [...state.extras], negatives: [...state.negs] });
+                // `values` để nơi gọi đổ thẳng vào các ô thuộc tính có sẵn của mình,
+                // khỏi phải tách lại từ câu mô tả đã ghép.
+                { extras: [...state.extras], negatives: [...state.negs], values: { ...state.values } });
             close();
         }
     });

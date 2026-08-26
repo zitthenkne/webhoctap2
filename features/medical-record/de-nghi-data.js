@@ -1,7 +1,8 @@
 // de-nghi-data.js — hai danh mục cho phần biện luận:
 //   CLS_DE_NGHI  : cận lâm sàng đề nghị (mục XI) — rộng hơn danh mục phiếu ở cls-shared,
 //                  vì đề nghị thì có cả những thăm dò chưa có phiếu kết quả mẫu.
-//   HOI_CHUNG    : hội chứng / vấn đề thường đặt ở mục VIII, để không phải nghĩ ra từ đầu.
+// Danh mục hội chứng / vấn đề của mục VIII nằm ở `VAN_DE_NHOM` (bien-luan-data.js) —
+// một danh mục duy nhất dùng chung cho mục VIII và mục X, đừng dựng bản thứ hai ở đây.
 
 export const CLS_DE_NGHI = [
     {
@@ -64,60 +65,6 @@ export const CLS_DE_NGHI = [
             'Sinh thiết tổn thương', 'Sinh thiết hạch', 'Tế bào học FNA',
             'Giải phẫu bệnh bệnh phẩm sau mổ', 'Xét nghiệm tiền phẫu',
             'Nghiệm pháp dung nạp glucose 75 g', 'Test hơi thở H. pylori'
-        ]
-    }
-];
-
-export const HOI_CHUNG = [
-    {
-        ten: 'Toàn thân – nhiễm', icon: 'fa-temperature-high', items: [
-            'Hội chứng nhiễm trùng', 'Hội chứng nhiễm siêu vi',
-            'Hội chứng đáp ứng viêm toàn thân', 'Sốt kéo dài chưa rõ nguyên nhân',
-            'Hội chứng suy kiệt', 'Hội chứng thiếu máu'
-        ]
-    },
-    {
-        ten: 'Hô hấp', icon: 'fa-lungs', items: [
-            'Hội chứng đông đặc phổi', 'Hội chứng ba giảm',
-            'Hội chứng tràn khí màng phổi', 'Hội chứng tắc nghẽn đường thở',
-            'Hội chứng suy hô hấp', 'Hội chứng trung thất', 'Ho ra máu'
-        ]
-    },
-    {
-        ten: 'Tim mạch', icon: 'fa-heart-pulse', items: [
-            'Hội chứng suy tim trái', 'Hội chứng suy tim phải', 'Hội chứng suy tim toàn bộ',
-            'Hội chứng vành cấp', 'Hội chứng đau thắt ngực',
-            'Rối loạn nhịp tim', 'Tăng huyết áp chưa kiểm soát', 'Hội chứng sốc'
-        ]
-    },
-    {
-        ten: 'Tiêu hóa – gan mật', icon: 'fa-bowl-food', items: [
-            'Hội chứng tăng áp lực tĩnh mạch cửa', 'Hội chứng suy tế bào gan',
-            'Hội chứng vàng da tắc mật', 'Hội chứng báng bụng',
-            'Hội chứng xuất huyết tiêu hóa', 'Hội chứng tắc ruột',
-            'Hội chứng nhiễm trùng đường mật', 'Bụng ngoại khoa'
-        ]
-    },
-    {
-        ten: 'Thận – tiết niệu', icon: 'fa-droplet', items: [
-            'Hội chứng thận hư', 'Hội chứng viêm cầu thận cấp',
-            'Hội chứng urê huyết cao', 'Hội chứng nhiễm trùng tiểu',
-            'Hội chứng bế tắc đường tiểu', 'Rối loạn nước – điện giải'
-        ]
-    },
-    {
-        ten: 'Thần kinh – cơ xương khớp', icon: 'fa-brain', items: [
-            'Hội chứng màng não', 'Hội chứng tăng áp lực nội sọ',
-            'Hội chứng liệt nửa người', 'Hội chứng tiểu não',
-            'Hội chứng tháp', 'Hội chứng ngoại tháp',
-            'Hội chứng chèn ép tủy', 'Hội chứng viêm khớp'
-        ]
-    },
-    {
-        ten: 'Nội tiết – chuyển hóa', icon: 'fa-vial', items: [
-            'Hội chứng tăng đường huyết', 'Hội chứng hạ đường huyết',
-            'Hội chứng cường giáp', 'Hội chứng suy giáp',
-            'Hội chứng Cushing', 'Rối loạn lipid máu', 'Toan chuyển hóa'
         ]
     }
 ];

@@ -3,6 +3,12 @@
 // Mỗi danh sách tự xếp từ xa tới gần rồi ghép thành các dòng chữ vào ô textarea gốc.
 
 import { openListPicker } from './list-picker.js';
+import { attachTypeahead } from './goi-y-go.js';
+/* Gõ là gợi ý ngay, không phải mở bảng chọn mới tìm được tên. Tìm không dấu nên
+   gõ "dai thao duong" vẫn ra "Đái tháo đường". attachTypeahead tự bỏ qua ô đã gắn
+   nên gọi lại sau mỗi lần vẽ cũng không sao. */
+const flatNames = (groups) => [...new Set((groups || []).flatMap(g => g.items || []))];
+const goiY = (items) => (el) => attachTypeahead(el, { items });
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -22,12 +28,14 @@ const label = (r) => (trim(r.n) ? `CNV ${trim(r.n)} ${r.u || 'năm'}` : 'CNV');
    "cách nhập viện mấy tháng" là vô lý. Gõ 121023 / 12-10-23 / 12/10/2023 đều hiểu,
    rồi máy tự đổi thành CNV bao lâu tính từ ngày nhập viện. */
 const pad = (n) => String(n).padStart(2, '0');
-const fmtDate = (iso) => {
+export const fmtDate = (iso) => {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
     return m ? `${m[3]}/${m[2]}/${m[1]}` : String(iso || '');
 };
 
-/** "121023" | "12/10/23" | "12-10-2023" | "2019" -> "yyyy-mm-dd" (rỗng nếu không hiểu) */
+/** "1210" | "121023" | "12/10/23" | "12-10-2023" | "2019" -> "yyyy-mm-dd" (rỗng nếu không hiểu)
+ *  Gõ ngày-tháng không kèm năm thì mặc định năm nay; nhưng ngày đó chưa tới thì
+ *  chắc chắn là năm ngoái (bệnh sử chỉ kể chuyện đã xảy ra). */
 export function parseNgay(raw) {
     const s = trim(raw);
     if (!s) return '';
@@ -38,13 +46,19 @@ export function parseNgay(raw) {
         return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d
             ? `${y}-${pad(m)}-${pad(d)}` : '';
     };
+    const homNay = new Date(); homNay.setHours(0, 0, 0, 0);
+    const okKhongNam = (m, d) => {
+        const nay = ok(nowY, m, d);
+        if (!nay) return ok(nowY - 1, m, d);          // 29/02 của năm không nhuận
+        return new Date(nay + 'T00:00:00') > homNay ? ok(nowY - 1, m, d) : nay;
+    };
     const parts = s.split(/[^\d]+/).filter(Boolean);
     if (parts.length >= 3) return ok(yFix(+parts[2]), +parts[1], +parts[0]);
-    if (parts.length === 2) return ok(nowY, +parts[1], +parts[0]);          // dd/mm năm nay
+    if (parts.length === 2) return okKhongNam(+parts[1], +parts[0]);        // dd/mm
     const d = parts[0] || '';
     if (d.length === 8) return ok(+d.slice(4), +d.slice(2, 4), +d.slice(0, 2));
     if (d.length === 6) return ok(yFix(+d.slice(4)), +d.slice(2, 4), +d.slice(0, 2));
-    if (d.length === 4) return +d >= 1900 ? `${d}-01-01` : ok(nowY, +d.slice(2), +d.slice(0, 2));
+    if (d.length === 4) return +d >= 1900 ? `${d}-01-01` : okKhongNam(+d.slice(2), +d.slice(0, 2));
     return '';
 }
 
@@ -114,6 +128,7 @@ export function createCnvList({ host, addBtn, onChange, groups = null, pickTitle
         rows = sorted();
         host.innerHTML = rows.length ? rows.map(rowHtml).join('')
             : `<p class="cnv-empty">Chưa có dòng nào — bấm “Thêm dòng” để ghi mốc thời gian.</p>`;
+        host.querySelectorAll('.cnv-s').forEach(goiY(flatNames(groups)));
     }
 
     function get() {

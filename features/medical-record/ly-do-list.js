@@ -172,11 +172,13 @@ export function initLyDo({ field, host, onChange }) {
         flush();
     });
 
-    // Người dùng sửa thẳng trong ô chữ (bản máy ghép) thì các viên phải theo kịp
+    // Người dùng sửa thẳng trong ô chữ (bản máy ghép) thì các viên phải theo kịp —
+    // và phải báo ra ngoài, không thì triệu chứng chính của bệnh sử đứng im.
     field.addEventListener('input', () => {
         if (writing) return;
         rows = parse(field.value);
         renderChips();
+        onChange?.();
     });
 
     renderChips();

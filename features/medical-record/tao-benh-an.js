@@ -1,11 +1,12 @@
 // tao-benh-an.js — Trang viết bệnh án
 import { showToast } from '../../core/utils.js';
-import { applyGuide } from '../../core/guide.js';
+import { applyGuide, guideOn, setGuide } from '../../core/guide.js';
 import { getRecord, saveRecord, syncFromCloud, authReady } from './record-store.js';
 import { initCls, getCls, setCls } from './cls-editor.js';
 import { abnormalItems } from './cls-shared.js';
 import { initHistory, getSteps, setSteps, calcOnset, buildProse, missingDetails, refreshSteps,
-    syncMainSymFields, mainSymSlotCount, mainSymLabels, getClinicalContext } from './benh-su-editor.js';
+    syncMainSymFields, mainSymSlotCount, mainSymLabels, getClinicalContext,
+    syncSeveritySlot, severityValue } from './benh-su-editor.js';
 import { initBienLuan, getBienLuan, setBienLuan, buildProse as buildBienLuan, derivedDiagnosis, derivedClsDetail, syncFromProblems, listRedFlags, toggleRedFlag } from './bien-luan-editor.js';
 import { createCnvList } from './cnv-list.js';
 import { createBenhKemList } from './benh-kem-list.js';
@@ -25,7 +26,7 @@ import {
     KINH_NGUYET, NGUA_THAI, KET_CUC_THAI
 } from './tien-can-data.js';
 import { BMI_TAGS, BP_STAGES } from './chi-so-chuan.js';
-import { buildChips, buildPickers, NORMAL_EXAM, applyClinicalContext } from './goi-y-nhap.js';
+import { buildChips, buildPickers, NORMAL_EXAM, applyClinicalContext, labsCanCo } from './goi-y-nhap.js';
 import { suggestStage, pastDiseases } from './muc-do-benh-kem.js';
 import { initFindings } from './findings-editor.js';
 import { getFolder, folderMeta } from './folder-store.js';
@@ -236,7 +237,6 @@ const FIELDS = {
     'chanDoanPhanBiet': 'differential-diagnosis',
     'bienLuanChanDoan': 'diagnosis-reasoning',
     'canLamSangDeNghi': 'labs-proposed',
-    'bienLuanDeNghiCLS': 'labs-rationale',
     'ketQuaCanLamSang': 'labs-results',
     'chanDoanXacDinh': 'final-diagnosis',
     'chanDoanXacDinhChiTiet.benhChinh': 'dx2-main',
@@ -283,6 +283,7 @@ function collectRecord() {
     setPath(rec, 'tienSu.noiKhoaMoc', cnvInternal ? cnvInternal.get() : []);
     setPath(rec, 'tienSu.ngoaiKhoaMoc', cnvSurgery ? cnvSurgery.get() : []);
     setPath(rec, 'chanThuong.xuongGay', gayXuong.filter(x => x.ten));
+    setPath(rec, 'chanThuong.bongVung', burnGet());
     setPath(rec, 'tienSu.giaDinhChiTiet', dsGiaDinh ? dsGiaDinh.get() : []);
     setPath(rec, 'tienSu.diUngChiTiet', dsDiUng ? dsDiUng.get() : []);
     rec.hoiCo = getAsk();
@@ -292,6 +293,7 @@ function collectRecord() {
 
 function fillForm(rec) {
     if (rec.status) $('record-status').value = rec.status;
+    refreshSettingsSummary?.();
     for (const [path, id] of Object.entries(FIELDS)) {
         const el = $(id);
         if (!el) continue;
@@ -316,6 +318,7 @@ function fillForm(rec) {
     dsDiUng?.set(rec.tienSu?.diUngChiTiet);
     gayXuong = rec.chanThuong?.xuongGay || [];
     gxRender();
+    burnSet(rec.chanThuong?.bongVung);   // calcTrauma() chạy sau, ở loadExisting -> calcSpecialty()
     setAsk(rec.hoiCo);
     setPhanDo(rec.phanDo);
 }
@@ -510,10 +513,21 @@ const smallScreen = window.matchMedia('(max-width: 640px)').matches;
         .forEach((fs, i) => makeCollapsible(fs, smallScreen && i > 0));
 });
 
+/* Ô nằm trong vùng data-nocount nhưng VẪN phải tính vào tiến độ. Không thể bỏ
+   data-nocount của cả vùng: phiếu cận lâm sàng in sẵn tên chỉ số và đơn vị, mỗi
+   lần theo dõi chép sẵn sinh hiệu lần trước — đếm hết thì % tự nhảy lên mà chưa
+   ai điền gì. Chỉ nhặt đúng những ô người viết phải tự điền. */
+const DEM_THEM = [
+    '#cls-list .cls-in-val',              // kết quả của từng chỉ số trong phiếu
+    '#td-list .td-in',                    // diễn tiến + xử trí của mỗi lần theo dõi
+    '#hx-main-box > .hx-grid .calc-in'    // 8 thuộc tính triệu chứng chính (khối này bị dời vào #hx-list)
+].join(', ');
+
 /** Đếm ô đã điền trong một vùng (bỏ ô ẩn, ô chỉ đọc, ô có sẵn giá trị mặc định) */
 function countFilled(root) {
     const els = [...root.querySelectorAll('input:not([type=hidden]):not([readonly]), textarea, select')]
         .filter(el => !el.closest('.sticky-actions') && !el.closest('[data-nocount]'));
+    els.push(...root.querySelectorAll(DEM_THEM));
     return { total: els.length, filled: els.filter(el => String(el.value || '').trim()).length };
 }
 
@@ -548,9 +562,6 @@ function updateProgressNow() {
     if (bar) bar.style.width = pct + '%';
     const label = $('overall-pct');
     if (label) label.textContent = pct + '%';
-    // Ô sinh ra sau (mốc bệnh sử, y lệnh, phiếu CLS…) cũng cần phím Enter = "ô kế"
-    document.querySelectorAll('#medical-record-form input:not([type=hidden]):not([enterkeyhint])')
-        .forEach(el => el.setAttribute('enterkeyhint', 'next'));
     syncSecPicker?.();
 }
 
@@ -569,22 +580,42 @@ function setSaveState(state, text) {
         saving: '<i class="fas fa-circle-notch fa-spin text-pink-400"></i>',
         saved: '<i class="fas fa-check-circle text-green-500"></i>',
         idle: '<i class="fas fa-cloud text-gray-300"></i>',
-        local: '<i class="fas fa-hdd text-amber-400"></i>'
+        local: '<i class="fas fa-hdd text-amber-400"></i>',
+        error: '<i class="fas fa-triangle-exclamation text-red-500"></i>'
     };
     el.innerHTML = (icons[state] || '') + ' <span>' + text + '</span>';
 }
+
+/* Ghi hỏng (bộ nhớ trình duyệt đầy, quota…) thì phải nói ra: trước đây lỗi ném ra
+   ngoài, `dirty` không bao giờ về false, thanh trạng thái kẹt ở "Đang lưu…" nên
+   người viết tưởng đã lưu xong. Nay giữ `dirty` để lần gõ sau tự thử lại, báo đỏ
+   ngay trên thanh, và chỉ nhắc bằng toast MỘT lần cho mỗi đợt hỏng.
+   Trả về null khi hỏng — nơi nào định rời trang sau khi lưu thì đừng rời. */
+let saveLoi = false;
 
 async function doSave({ silent = true, force = false } = {}) {
     if (!dirty && !force) return getRecord(recordId);
     setSaveState('saving', 'Đang lưu…');
     const rec = collectRecord();
-    const res = await saveRecord(rec);
-    dirty = false;
-    const time = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-    setSaveState(res.cloud ? 'saved' : 'local',
-        res.cloud ? `Đã lưu ${time}` : `Đã lưu trên máy ${time}`);
-    if (!silent) showToast('Đã lưu bệnh án.', 'success');
-    return rec;
+    try {
+        const res = await saveRecord(rec);
+        dirty = false;
+        saveLoi = false;
+        const time = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        setSaveState(res.cloud ? 'saved' : 'local',
+            res.cloud ? `Đã lưu ${time}` : `Đã lưu trên máy ${time}`);
+        if (!silent) showToast('Đã lưu bệnh án.', 'success');
+        return rec;
+    } catch (err) {
+        console.warn('Lưu bệnh án lỗi:', err);
+        setSaveState('error', 'CHƯA LƯU ĐƯỢC — đừng đóng tab');
+        if (!saveLoi || !silent) {
+            showToast('Chưa lưu được bệnh án. Bộ nhớ trình duyệt có thể đã đầy — '
+                + 'xóa bớt bệnh án cũ hoặc xuất file sao lưu, rồi bấm “Lưu bệnh án”.', 'error', 8000);
+        }
+        saveLoi = true;
+        return null;
+    }
 }
 
 function scheduleSave() {
@@ -677,6 +708,18 @@ function markFlaggedFields() {
    ===================================================================== */
 let netModel = { nodes: [], edges: [], breaks: [] };
 
+/* Cùng một lỗi thì chỉ được báo ở MỘT chỗ, không thì hai tab của cùng một bảng đếm
+   hai con số cho cùng một chuyện. Chỗ nào nói kỹ hơn thì chỗ đó giữ:
+   · "chưa tạo thẻ biện luận" -> luật MISSING_BRANCH ở tab Logic (có nút bổ sung nhanh)
+   · "chưa gắn mục đích"      -> ngay trên dòng đề nghị ở mục XI (sửa được tại chỗ)
+   Node vẫn mang cảnh báo trên bản đồ, chỉ không liệt kê lại ở danh sách chỗ đứt. */
+const netTrungChoKhac = (b) => {
+    const w = String(b.warn || '');
+    if (w.startsWith('chưa gắn mục đích')) return true;
+    return w.startsWith('chưa tạo thẻ biện luận')
+        && liAlerts.some(a => a.type === 'MISSING_BRANCH');
+};
+
 /** Vẽ tóm tắt liên kết vào bảng nổi, trả về số chỗ đứt */
 function renderNetBrief() {
     const box = $('net-brief');
@@ -687,7 +730,8 @@ function renderNetBrief() {
         console.warn('Dựng mạng liên kết lỗi:', err);
         netModel = { nodes: [], edges: [], breaks: [] };
     }
-    const { nodes, edges, breaks } = netModel;
+    const { nodes, edges } = netModel;
+    const breaks = netModel.breaks.filter(b => !netTrungChoKhac(b));
     box.innerHTML = `<p class="net-sum"><b>${nodes.length}</b> mảnh thông tin ·
         <b>${edges.length}</b> mối nối · <b>${breaks.length}</b> chỗ đứt</p>
         ${breaks.slice(0, 8).map((b, i) => `<button type="button" class="net-break" data-b="${i}">
@@ -717,7 +761,9 @@ function openNetOverlay() {
 $('net-brief')?.addEventListener('click', (e) => {
     if (e.target.closest('#net-open')) return openNetOverlay();
     const b = e.target.closest('[data-b]');
-    if (b) gotoAlert({ targetTab: netModel.breaks[+b.dataset.b]?.tab, targetField: netModel.breaks[+b.dataset.b]?.field });
+    if (!b) return;
+    const hien = netModel.breaks.filter(x => !netTrungChoKhac(x))[+b.dataset.b];
+    if (hien) gotoAlert({ targetTab: hien.tab, targetField: hien.field });
 });
 $('net-close')?.addEventListener('click', () => $('net-overlay').classList.add('hidden'));
 window.addEventListener('resize', () => {
@@ -814,20 +860,30 @@ function calcBmi() {
     }
 }
 
-/* Huyết áp: máy tự tính huyết áp trung bình, hiệu áp và phân độ THA */
-function calcBp() {
-    const tag = $('bp-tag');
+/* Đọc "114/70" — trước đây bốn chỗ mỗi chỗ chép lại một bản regex riêng */
+function docHuyetAp(v) {
+    const m = String(v || '').match(/(\d{2,3})\s*[\/\-]\s*(\d{2,3})/);
+    return m ? { sys: +m[1], dia: +m[2] } : null;
+}
+/* Tụt huyết áp theo định nghĩa chung. Lưu ý CURB-65 KHÔNG dùng hàm này: tiêu chuẩn
+   của thang đó là HATTr ≤ 60 (chứ không phải < 60), cố ý để khác — xem calcScores. */
+const tutHuyetAp = (bp) => !!bp && (bp.sys < 90 || bp.dia < 60);
+
+/* Huyết áp: máy tự tính huyết áp trung bình, hiệu áp và phân độ THA.
+   Dùng chung cho sinh hiệu lúc khám và sinh hiệu lúc nhập viện. */
+function calcBp(oId = 'vital-bp', tagId = 'bp-tag') {
+    const tag = $(tagId);
     if (!tag) return;
-    const m = String($('vital-bp').value).match(/(\d{2,3})\s*[\/\-]\s*(\d{2,3})/);
-    if (!m) { tag.textContent = ''; return; }
-    const sys = +m[1], dia = +m[2];
+    const bp = docHuyetAp($(oId)?.value);
+    if (!bp) { tag.textContent = ''; return; }
+    const { sys, dia } = bp;
     const map = Math.round((sys + 2 * dia) / 3);
-    let stage = BP_STAGES.at(-1);
-    if (sys < 90 || dia < 60) stage = BP_STAGES[0];
-    else stage = BP_STAGES.find(([s, d]) => sys < s && dia < d) || BP_STAGES.at(-1);
+    const stage = tutHuyetAp(bp) ? BP_STAGES[0]
+        : (BP_STAGES.find(([s, d]) => sys < s && dia < d) || BP_STAGES.at(-1));
     tag.textContent = `HATB ${map} mmHg · Hiệu áp ${sys - dia} · ${stage[2]}`;
     tag.className = 'text-xs font-semibold mt-1 block ' + stage[3];
 }
+const calcBpAll = () => { calcBp(); calcBp('adm-bp', 'adm-bp-tag'); };
 
 /* Thang điểm: Glasgow tự cộng, CURB-65 tự gom từ dữ liệu đã nhập */
 function calcScores() {
@@ -850,7 +906,7 @@ function calcScores() {
     if (!cOut) return;
     const age = parseFloat($('patient-age').value) || (THIS_YEAR - parseFloat($('patient-yob').value));
     const resp = parseFloat($('vital-resp').value);
-    const bp = String($('vital-bp').value).match(/(\d{2,3})\s*[\/\-]\s*(\d{2,3})/);
+    const bp = docHuyetAp($('vital-bp').value);
     const ure = getCls().flatMap(c => c.items || []).find(i => /^ure$/i.test(i.n));
     const ureVal = ure ? parseFloat(String(ure.v).replace(',', '.')) : NaN;
     const confusion = $('curb-confusion').value === 'Có' || (gcs != null && gcs < 15);
@@ -861,7 +917,8 @@ function calcScores() {
 
     if (!isNaN(ureVal)) { if (ureVal > 7) hit.push('ure > 7'); } else missing.push('ure máu');
     if (!isNaN(resp)) { if (resp >= 30) hit.push('nhịp thở ≥ 30'); } else missing.push('nhịp thở');
-    if (bp) { if (+bp[1] < 90 || +bp[2] <= 60) hit.push('tụt huyết áp'); } else missing.push('huyết áp');
+    // Tiêu chuẩn của CURB-65 là HATT < 90 HOẶC HATTr ≤ 60 — khác định nghĩa tụt huyết áp chung
+    if (bp) { if (bp.sys < 90 || bp.dia <= 60) hit.push('tụt huyết áp'); } else missing.push('huyết áp');
     if (!isNaN(age)) { if (age >= 65) hit.push('tuổi ≥ 65'); } else missing.push('tuổi');
 
     if (missing.length === 5) {
@@ -1020,6 +1077,7 @@ function hxChecklist() {
     // Bệnh cảnh vừa đổi thì tab khám, lược qua cơ quan và bảng phân độ chỉnh lại cho trúng
     applyClinicalContext(getClinicalContext());
     refreshPhanDo();
+    syncSeveritySlot();     // thang một-câu-hỏi nằm ngay ở ô "Mức độ", đổi bệnh cảnh là đổi theo
     refreshAmTinh();
 }
 
@@ -1160,12 +1218,12 @@ function calcQsofa() {
     const out = $('qsofa-out');
     if (!out) return;
     const resp = parseFloat($('vital-resp').value);
-    const bp = String($('vital-bp').value).match(/(\d{2,3})\s*[\/\-]\s*(\d{2,3})/);
+    const bp = docHuyetAp($('vital-bp').value);
     const e = parseInt($('gcs-e')?.value), v = parseInt($('gcs-v')?.value), m = parseInt($('gcs-m')?.value);
     const gcs = (e && v && m) ? e + v + m : null;
     const hit = [], miss = [];
     if (!isNaN(resp)) { if (resp >= 22) hit.push('nhịp thở ≥ 22'); } else miss.push('nhịp thở');
-    if (bp) { if (+bp[1] <= 100) hit.push('HA tâm thu ≤ 100'); } else miss.push('huyết áp');
+    if (bp) { if (bp.sys <= 100) hit.push('HA tâm thu ≤ 100'); } else miss.push('huyết áp');
     if (gcs != null) { if (gcs < 15) hit.push('Glasgow < 15'); } else miss.push('Glasgow');
     if (miss.length === 3) { out.textContent = 'Nhập nhịp thở, huyết áp, Glasgow để tính qSOFA'; return; }
     out.textContent = `qSOFA = ${hit.length}/3${hit.length ? ' (' + hit.join(', ') + ')' : ''}`
@@ -1178,6 +1236,16 @@ function calcQsofa() {
 function burnPercent() {
     return [...document.querySelectorAll('.burn-area:checked')]
         .reduce((sum, el) => sum + (parseFloat(el.dataset.pct) || 0), 0);
+}
+
+/* Vùng bỏng đã tick: lưu theo data-vung chứ không theo thứ tự ô — nhiều vùng trùng
+   data-pct (9% và 18% mỗi thứ mấy vùng) nên phần trăm không dùng làm khóa được. */
+function burnGet() {
+    return [...document.querySelectorAll('.burn-area:checked')].map(el => el.dataset.vung);
+}
+function burnSet(list) {
+    const co = new Set(list || []);
+    document.querySelectorAll('.burn-area').forEach(el => { el.checked = co.has(el.dataset.vung); });
 }
 
 function calcTrauma() {
@@ -1225,13 +1293,13 @@ function traumaProse() {
     if (!v('tr-type') && !when) return '';
 
     const lines = [];
-    const co = [v('tr-energy'), v('tr-impact') && 'va đập đầu tiên: ' + v('tr-impact'),
-    v('tr-object') && 'vật gây thương tích: ' + v('tr-object'), v('tr-protect')].filter(Boolean);
+    const co = [v('tr-energy'), v('tr-impact') && 'va đập đầu tiên vào ' + v('tr-impact'),
+    v('tr-object') && 'vật gây thương tích là ' + v('tr-object'), v('tr-protect')].filter(Boolean);
     lines.push(`Bệnh nhân bị ${(v('tr-type') || 'chấn thương').toLowerCase()}${when ? ' ' + when : ''}`
-        + (co.length ? `. Cơ chế: ${co.join(', ')}` : '') + '.');
+        + (co.length ? `, cơ chế ${co.join(', ')}` : '') + '.');
 
     const sau = [v('tr-loc'), v('tr-amnesia'), v('tr-vomit'), v('tr-walk')].filter(Boolean);
-    if (sau.length) lines.push(`Sau tai nạn: ${sau.join(', ').toLowerCase()}.`);
+    if (sau.length) lines.push(`Sau tai nạn, bệnh nhân ${sau.join(', ').toLowerCase()}.`);
 
     const pct = burnPercent();
     if (pct) {
@@ -1408,10 +1476,12 @@ function buildSummary() {
         `${reason ? ', vào viện vì ' + reason.replace(/\.$/, '') : ''}` +
         `${dayNo ? ', bệnh ngày thứ ' + dayNo[1] : ''}.`];
 
-    lines.push('', 'Qua hỏi bệnh sử, tiền căn, thăm khám lâm sàng và các cận lâm sàng đã có, ghi nhận:');
+    lines.push('', 'Qua hỏi bệnh sử, tiền căn, thăm khám lâm sàng và các cận lâm sàng đã có, ghi nhận');
 
     let n = 0;
-    const group = (title, body) => { if (body) lines.push(`${++n}. ${title}: ${body}`); };
+    // Tóm tắt trình bày theo số thứ tự cho dễ theo dõi, nhưng nối bằng gạch "—"
+    // chứ không phải dấu hai chấm — đọc lên vẫn xuôi như một câu.
+    const group = (title, body) => { if (body) lines.push(`${++n}. ${title} — ${body}`); };
 
     // Cơ năng: lấy mốc diễn tiến, không có thì lấy đoạn bệnh sử
     const timeline = getSteps().map(m =>
@@ -1455,10 +1525,10 @@ function buildSummary() {
         ['sản phụ khoa', v('history-obgyne')], ['dị ứng', v('history-allergy')],
         ['môi trường', v('history-environment')], ['thói quen', v('history-habit')], ['gia đình', v('history-family')]
     ].filter(([, val]) => val && !/^chưa ghi nhận/i.test(val))
-        .map(([k, val]) => `${k}: ${val}`).join('; ');
+        .map(([k, val]) => `${k} ${val}`).join('; ');
     group('Tiền căn', history);
 
-    if (v('provisional-diagnosis')) lines.push('', 'Chẩn đoán sơ bộ: ' + v('provisional-diagnosis'));
+    if (v('provisional-diagnosis')) lines.push('', '→ Chẩn đoán sơ bộ ' + v('provisional-diagnosis'));
     return lines.join('\n').trim();
 }
 
@@ -1513,9 +1583,9 @@ function buildProblems() {
     if (num('vital-pulse') < 60) add('Nhịp tim chậm');
     if (num('vital-resp') > 20) add('Thở nhanh');
     if (num('vital-spo2') < 95) add('Giảm SpO2');
-    const bp = v('vital-bp').match(/(\d{2,3})\s*[\/\-]\s*(\d{2,3})/);
-    if (bp && (+bp[1] >= 140 || +bp[2] >= 90)) add('Tăng huyết áp');
-    if (bp && (+bp[1] < 90 || +bp[2] < 60)) add('Tụt huyết áp');
+    const bp = docHuyetAp(v('vital-bp'));
+    if (bp && (bp.sys >= 140 || bp.dia >= 90)) add('Tăng huyết áp');
+    if (tutHuyetAp(bp)) add('Tụt huyết áp');
     const bmi = parseFloat(v('vital-bmi'));
     if (bmi >= 25) add('Thừa cân – béo phì');
     if (bmi && bmi < 18.5) add('Suy dinh dưỡng / gầy');
@@ -1539,7 +1609,55 @@ function buildProblems() {
 const form = $('medical-record-form');
 $('medical-record-id').value = recordId;
 
+/* Ô sinh ra sau (mốc bệnh sử, y lệnh, phiếu CLS, lần theo dõi…) cũng cần phím
+   Enter = "ô kế". Trước đây quét lại cả form (~400 ô) mỗi khung hình lúc đếm tiến
+   độ; nay chỉ chạm vào đúng cụm vừa được thêm vào DOM. */
+const O_MOI = 'input:not([type=hidden]):not([enterkeyhint])';
+function datEnterKey(node) {
+    if (node.nodeType !== 1) return;
+    if (node.matches?.(O_MOI)) node.setAttribute('enterkeyhint', 'next');
+    node.querySelectorAll?.(O_MOI).forEach(el => el.setAttribute('enterkeyhint', 'next'));
+}
+new MutationObserver(recs => recs.forEach(r => r.addedNodes.forEach(datEnterKey)))
+    .observe(form, { childList: true, subtree: true });
+datEnterKey(form);   // các ô có sẵn trong HTML
+
 applyGuide();          // chế độ hướng dẫn bật/tắt ở trang chờ
+
+/* ---- Cài đặt bệnh án: loại · sinh viên · trạng thái · chữ hướng dẫn ----
+   Đây là cài đặt của người viết chứ không phải dữ liệu bệnh án, nên gom vào một
+   hộp thu gọn mở được ở mọi tab, thay vì nằm lẫn trong mục I và thanh lưu. */
+const setBox = $('ba-settings');
+$('open-settings')?.addEventListener('click', () => {
+    setBox.open = true;
+    setBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
+
+const TYPE_TEN = { noi: 'Nội khoa', ngoai: 'Ngoại khoa', san: 'Sản khoa', nhi: 'Nhi khoa', cc: 'Cấp cứu' };
+function refreshSettingsSummary() {
+    const loai = TYPE_TEN[$('type-chips')?.querySelector('.type-chip.active')?.dataset.type] || '';
+    const sv = ($('stu-name')?.value || '').trim();
+    const tt = $('record-status')?.value === 'Hoàn thành' ? 'Hoàn thành' : 'Đang viết';
+    const sum = $('ba-set-sum');
+    if (sum) sum.textContent = [loai, sv, tt].filter(Boolean).join(' · ');
+    const pill = $('status-pill');
+    if (pill) {
+        pill.textContent = tt;
+        pill.classList.toggle('is-done', tt === 'Hoàn thành');
+    }
+}
+setBox?.addEventListener('input', refreshSettingsSummary);
+setBox?.addEventListener('change', refreshSettingsSummary);
+$('type-chips')?.addEventListener('click', () => setTimeout(refreshSettingsSummary, 0));
+refreshSettingsSummary();
+
+/* Công tắc chữ hướng dẫn: dùng chung khóa với trang chờ nên bật ở đâu cũng như nhau */
+const guideSel = $('ba-guide');
+if (guideSel) {
+    guideSel.value = guideOn() ? '1' : '0';
+    guideSel.addEventListener('change', () => setGuide(guideSel.value === '1'));
+}
+
 buildChips();
 const splitLines = (v) => String(v || '').split(/\n+/).map(x => x.trim()).filter(Boolean);
 
@@ -1552,14 +1670,14 @@ const clsTargets = () => [
     ...derivedClsDetail().map(d => d.dich)
 ].filter(Boolean);
 
-buildPickers({ autoGrow, clsTargets });
+buildPickers({ autoGrow });
 
 /* Mục XI: mỗi đề nghị một dòng, mục đích bám theo nhánh biện luận ở mục X */
 const clsDeNghi = initClsDeNghi({
-    field: $('labs-proposed'), rationale: $('labs-rationale'),
-    host: $('cls-dn-list'), addBtn: $('cls-dn-add'),
-    blHost: $('cls-dn-bl'), buildBtn: $('cls-dn-build'),
-    derived: derivedClsDetail, targets: clsTargets, autoGrow, toast: showToast,
+    field: $('labs-proposed'),
+    host: $('cls-dn-list'), addBtn: $('cls-dn-add'), blHost: $('cls-dn-bl'),
+    derived: derivedClsDetail, required: labsCanCo, targets: clsTargets,
+    autoGrow, toast: showToast,
     onChange: () => { updateProgress(); scheduleSave(); }
 });
 
@@ -1717,7 +1835,7 @@ const ENV_FIELDS = [['nghề nghiệp', 'env-job'], ['dịch tễ', 'env-area'],
 
 function envText() {
     const parts = ENV_FIELDS
-        .map(([k, id]) => ($(id)?.value || '').trim() && `${k}: ${($(id).value).trim()}`)
+        .map(([k, id]) => ($(id)?.value || '').trim() && `${k} ${($(id).value).trim()}`)
         .filter(Boolean);
     return parts.join('; ');
 }
@@ -1740,15 +1858,6 @@ ENV_FIELDS.forEach(([, id]) => $(id)?.addEventListener('change', () => {
     el.dispatchEvent(new Event('input', { bubbles: true }));
     autoGrow(el);
 }));
-$('env-apply')?.addEventListener('click', () => {
-    const t = envText();
-    const el = $('history-environment');
-    if (!el) return;
-    el.value = t || 'Chưa ghi nhận yếu tố phơi nhiễm đặc biệt';
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-    autoGrow(el);
-    showToast('Đã ghi phơi nhiễm vào tiền căn');
-});
 
 /* Tiền căn nội / ngoại khoa: danh sách "CNV bao lâu, nội dung" -> ghép vào ô chữ.
    Bệnh nền và thuốc đang dùng là một cặp: dòng bệnh soi thẳng vào danh sách thuốc
@@ -2092,7 +2201,7 @@ function mensesText() {
         v('ob-cycle-type') && `chu kỳ ${v('ob-cycle-type')}`,
         v('ob-days') && `hành kinh ${v('ob-days')}`,
         v('ob-amount'), v('ob-dysmenorrhea'),
-        v('ob-contraception') && `ngừa thai: ${v('ob-contraception')}`
+        v('ob-contraception') && `ngừa thai bằng ${v('ob-contraception')}`
     ].filter(Boolean);
     return parts.length ? 'Kinh nguyệt: ' + parts.join(', ') : '';
 }
@@ -2103,12 +2212,10 @@ function calcMenses() {
     out.textContent = t || 'Điền để máy ghép thành câu tiền căn phụ khoa';
     return t;
 }
-$('ob-menses-apply')?.addEventListener('click', () => {
+function applyMenses() {
     const t = calcMenses();
-    if (!t) return notify('Chưa có thông tin kinh nguyệt để ghi.', 'warning');
-    upsertLine('history-obgyne', /^kinh nguyệt/i, t);
-    notify('Đã ghi tiền căn kinh nguyệt.', 'success');
-});
+    if (t) upsertLine('history-obgyne', /^kinh nguyệt/i, t);
+}
 
 initRx({ onChange: () => { rxBinder.sync(); refreshRxSuggest(); updateProgress(); scheduleSave(); } });
 
@@ -2146,6 +2253,7 @@ function scheduleCtx() {
     clearTimeout(ctxTimer);
     ctxTimer = setTimeout(() => {
         applyClinicalContext(getClinicalContext());
+        clsDeNghi?.refresh();     // chip "CLS bắt buộc" của mục XI bám theo chẩn đoán
         refreshRxSuggest();
     }, 500);
 }
@@ -2171,6 +2279,7 @@ initPhanDo({
         ($('hx-sym-name')?.value || ''), ($('reason-for-admission')?.value || ''),
         ($('dx1-main')?.value || ''), ($('history-internal')?.value || '')
     ],
+    severity: severityValue,
     onChange: () => { updateProgress(); scheduleSave(); },
     // Chọn tới đâu ghi tới đó: câu phân độ cũ của chính thang đó bị thay, chữ người
     // dùng tự gõ không bị đụng tới.
@@ -2248,7 +2357,7 @@ initAsk({
     calcSpecialty();
     calcGayXuong();
     calcBmi();
-    calcBp();
+    calcBpAll();
     calcStay();
     calcSmoke();
     calcAlcohol();
@@ -2295,7 +2404,7 @@ form.addEventListener('input', (e) => {
     if (el.id === 'vital-weight') calcGayXuong();
     if (el.id.startsWith('ob-hx-') || el.id === 'vital-height') calcThaiGain();
     if (el.id.startsWith('ped-hx-') || el.id === 'vital-weight') calcMatNuoc();
-    if (el.id === 'vital-bp') calcBp();
+    if (el.id === 'vital-bp' || el.id === 'adm-bp') calcBpAll();
     if (el.id === 'admission-date' || el.id === 'record-datetime') { calcStay(); calcOnset(); showExamDate(); }
     if (el.id === 'admission-date') refreshSteps();   // mốc hiện ngày dương lịch tính từ ngày nhập viện
     if (el.id === 'hx-onset-date') calcOnset();
@@ -2343,18 +2452,21 @@ form.addEventListener('change', (e) => {
     updateProgress(); scheduleSave();
 });
 
-/* Nút "Ghi vào tiền căn" của các ô máy tự tính */
-$('smoke-apply')?.addEventListener('click', () => {
+/* Các ô máy tự tính (gói·năm, đơn vị cồn, PARA, kinh nguyệt) tự ghi thẳng xuống ô
+   tiền căn khi rời ô. Trước đây mỗi khối còn một nút "Ghi vào tiền căn" — nhưng nút
+   đó lúc nào cũng bị máy bấm hộ, để lại chỉ tổ rối mắt nên đã bỏ.
+   `upsertLine` chỉ thay đúng dòng của nó, không đụng chữ người dùng tự viết. */
+function applySmoke() {
     const s = calcSmoke();
-    if (!s) return notify('Nhập số điếu/ngày và tuổi bắt đầu hút trước.', 'warning');
+    if (!s) return;
     upsertLine('history-habit', /^hút thuốc lá/i,
         `Hút thuốc lá ${s.cpd} điếu/ngày từ ${s.from} tuổi đến ${s.stopped ? s.to + ' tuổi (đã ngưng)' : 'nay'}` +
         ` — ${s.py.toFixed(1)} gói·năm`);
-    notify('Đã ghi tiền căn hút thuốc.', 'success');
-});
-$('alc-apply')?.addEventListener('click', () => {
+}
+
+function applyAlcohol() {
     const a = calcAlcohol();
-    if (!a) return notify('Chưa đủ dữ liệu — chọn thức uống, số lượng và tần suất.', 'warning');
+    if (!a) return;
     const drink = $('alc-drink').value || 'rượu bia';
     // Bệnh nhân khai "mấy lon", "mấy chai", "mấy ly" — giữ đúng chữ đó
     const unitWord = /lon/i.test(drink) ? 'lon' : /chai/i.test(drink) ? 'chai' : /ly/i.test(drink) ? 'ly' : 'phần';
@@ -2366,35 +2478,22 @@ $('alc-apply')?.addEventListener('click', () => {
     upsertLine('history-habit', /^uống /i,
         `Uống ${drink}, ${$('alc-qty').value} ${unitWord}/lần, ${freq.toLowerCase()}`
         + ` ≈ ${vn(a.unitsPerDay)} đơn vị cồn/ngày (${Math.round(a.gPerTime)} g cồn mỗi lần)${when}`);
-    notify('Đã ghi tiền căn rượu bia.', 'success');
-});
-$('para-apply')?.addEventListener('click', () => {
+}
+
+function applyPara() {
+    if (![1, 2, 3, 4].some(i => String($('para-' + i).value).trim())) return;
     const n = [1, 2, 3, 4].map(i => String(parseInt($('para-' + i).value) || 0));
     upsertLine('history-obgyne', /^para/i,
         `PARA ${n.join('')} (${n[0]} đủ tháng, ${n[1]} thiếu tháng, ${n[2]} sảy/phá, ${n[3]} con sống)`);
-    notify('Đã ghi PARA vào tiền căn sản phụ khoa.', 'success');
-});
+}
 
-/* Điền xong mà quên bấm "Ghi vào tiền căn" là công tính gói·năm, đơn vị cồn, PARA
-   đổ sông đổ biển. Rời ô là máy ghi luôn — upsertLine chỉ thay đúng dòng của nó,
-   không đụng tới chữ người dùng tự viết. */
-let quietApply = false;
-/** Máy tự ghi thì im lặng; người bấm nút thì mới báo */
-const notify = (...a) => { if (!quietApply) showToast(...a); };
-const autoApply = (ids, run) => ids.forEach(id =>
-    $(id)?.addEventListener('change', () => {
-        quietApply = true;
-        try { run(); } finally { quietApply = false; }
-    }));
+const autoApply = (ids, run) => ids.forEach(id => $(id)?.addEventListener('change', run));
 
-autoApply(['smoke-cpd', 'smoke-from', 'smoke-to'], () => { if (calcSmoke()) $('smoke-apply')?.click(); });
-autoApply(['alc-drink', 'alc-qty', 'alc-freq', 'alc-vol', 'alc-abv', 'alc-from', 'alc-to'],
-    () => { if (calcAlcohol()) $('alc-apply')?.click(); });
-autoApply(['para-1', 'para-2', 'para-3', 'para-4'], () => {
-    if ([1, 2, 3, 4].some(i => String($('para-' + i).value).trim())) $('para-apply')?.click();
-});
+autoApply(['smoke-cpd', 'smoke-from', 'smoke-to'], applySmoke);
+autoApply(['alc-drink', 'alc-qty', 'alc-freq', 'alc-vol', 'alc-abv', 'alc-from', 'alc-to'], applyAlcohol);
+autoApply(['para-1', 'para-2', 'para-3', 'para-4'], applyPara);
 autoApply(['ob-menarche', 'ob-cycle-type', 'ob-days', 'ob-amount', 'ob-dysmenorrhea', 'ob-contraception'],
-    () => { if (mensesText()) $('ob-menses-apply')?.click(); });
+    applyMenses);
 
 /* Ô chữ máy ghép từ các ô đã chia nhỏ: chỉ ghi đè khi ô còn trống hoặc nội dung vẫn
    đúng bản máy ghép lần trước — người dùng sửa tay một chữ là máy thôi đụng vào. */
@@ -2462,12 +2561,17 @@ $('bl-build')?.addEventListener('click', () => {
     showToast(text ? 'Đã ghép đoạn biện luận.' : 'Chưa có nội dung biện luận để ghép.', text ? 'success' : 'warning');
 });
 
+/* Khối "Đánh giá mức độ" luôn nằm cuối ô tóm tắt — nhận diện được thì hai nút
+   "Tự động tóm tắt" và "Chèn vào tóm tắt" mới không xóa việc của nhau. */
+const GRADE_BLOCK = /\n*Đánh giá mức độ:\n[\s\S]*$/;
+
 $('grade-insert')?.addEventListener('click', () => {
     // Gộp cả phân độ hỏi bệnh (NYHA, CCS, thang đau…) với phân độ máy chấm từ số đo
     const text = [gradeToText(lastGrades), ...phanDoLines()].filter(Boolean).join('\n');
     if (!text) return showToast('Chưa có dữ liệu để chấm độ.', 'warning');
+    // Bấm lại lần nữa thì thay khối cũ, đừng nối thêm một khối trùng phía dưới
     const el = $('summary');
-    const cur = el.value.trim();
+    const cur = el.value.replace(GRADE_BLOCK, '').trim();
     el.value = cur ? cur + '\n\nĐánh giá mức độ:\n' + text : 'Đánh giá mức độ:\n' + text;
     el.dispatchEvent(new Event('input', { bubbles: true }));
     autoGrow(el);
@@ -2484,8 +2588,8 @@ $('bl-to-cls')?.addEventListener('click', () => {
     if (!list.length) return showToast('Chưa ghi cận lâm sàng ở nhánh nào trong sơ đồ biện luận.', 'warning');
     list.forEach(d => clsDeNghi?.add(d));
     CLS_THUONG_QUY.forEach(ten => clsDeNghi?.add({ ten, mucDich: 'xét nghiệm thường quy', dich: '' }));
-    $('cls-dn-build')?.click();
-    showToast(`Đã đổ ${list.length} cận lâm sàng sang mục XI, mỗi cái kèm mục đích của nhánh.`, 'success');
+    showToast(`Đã đổ ${list.length} cận lâm sàng sang mục XI, mỗi cái kèm mục đích của nhánh — `
+        + 'còn phải ghi thêm mong tìm thấy gì ở từng dòng.', 'success');
 });
 
 $('bl-to-dx')?.addEventListener('click', () => {
@@ -2602,10 +2706,14 @@ form.addEventListener('focusout', () => setTimeout(() => {
 
 // Tóm tắt tự động
 $('auto-summary-btn')?.addEventListener('click', () => {
-    $('summary').value = buildSummary();
-    $('summary').dispatchEvent(new Event('input', { bubbles: true }));
-    autoGrow($('summary'));
-    showToast('Đã tạo tóm tắt từ dữ liệu đã nhập.', 'success');
+    const el = $('summary');
+    const grade = el.value.match(GRADE_BLOCK)?.[0] || '';   // giữ lại khối đánh giá mức độ
+    el.value = buildSummary() + grade;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    autoGrow(el);
+    showToast(grade
+        ? 'Đã tạo tóm tắt từ dữ liệu đã nhập — khối đánh giá mức độ vẫn giữ nguyên.'
+        : 'Đã tạo tóm tắt từ dữ liệu đã nhập.', 'success');
 });
 
 // Mẫu khám bình thường
@@ -2626,7 +2734,7 @@ $('preview-btn')?.addEventListener('click', async () => {
         showToast('Nhập họ tên bệnh nhân trước khi xem trước.', 'warning');
         return;
     }
-    await doSave({ force: true });
+    if (!await doSave({ force: true })) return;   // lưu hỏng thì ở lại, đừng rời trang
     location.href = 'xem-benh-an.html?id=' + encodeURIComponent(recordId);
 });
 
@@ -2664,7 +2772,12 @@ Vẫn lưu là "Hoàn thành"?`)) {
     btn.disabled = true;
     btn.querySelector('.button-text').classList.add('hidden');
     btn.querySelector('.button-spinner').classList.remove('hidden');
-    await doSave({ force: true });
+    if (!await doSave({ force: true })) {
+        btn.disabled = false;
+        btn.querySelector('.button-text').classList.remove('hidden');
+        btn.querySelector('.button-spinner').classList.add('hidden');
+        return;
+    }
     location.href = '../study-room/waiting-room.html';
 });
 

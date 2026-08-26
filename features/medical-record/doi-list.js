@@ -9,6 +9,12 @@
 
 import { openListPicker } from './list-picker.js';
 import { fold, laCauPhuDinh } from './tim-kiem.js';
+import { attachTypeahead } from './goi-y-go.js';
+/* Gõ là gợi ý ngay, không phải mở bảng chọn mới tìm được tên. Tìm không dấu nên
+   gõ "dai thao duong" vẫn ra "Đái tháo đường". attachTypeahead tự bỏ qua ô đã gắn
+   nên gọi lại sau mỗi lần vẽ cũng không sao. */
+const flatNames = (groups) => [...new Set((groups || []).flatMap(g => g.items || []))];
+const goiY = (items) => (el) => attachTypeahead(el, { items });
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -87,6 +93,7 @@ export function createDoiList({
         host.innerHTML = rows.length
             ? rows.map(rowHtml).join('')
             : `<p class="dl-empty">${esc(empty)}</p>`;
+        host.querySelectorAll('.dl-a').forEach(goiY(flatNames(groupsA)));
     }
 
     /** Ghi ngược vào ô chữ gốc rồi báo cho trang biết để lưu */

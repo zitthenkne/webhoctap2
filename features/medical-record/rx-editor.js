@@ -6,6 +6,10 @@
 
 import { openListPicker } from './list-picker.js';
 import { THUOC_GROUPS, findThuoc, canhBaoThuoc } from './thuoc-data.js';
+import { attachTypeahead } from './goi-y-go.js';
+
+/** Toàn bộ tên thuốc trong thư viện — để gõ tới đâu gợi ý tới đó */
+const THUOC_TEN = [...new Set(THUOC_GROUPS.flatMap(g => g.items || []))];
 import { checkRxRows } from './clinical-validator.js';
 
 const $ = (id) => document.getElementById(id);
@@ -71,7 +75,7 @@ function rxWarnHtml(r, canhBao) {
 
 function rowHtml(r, i, canhBao) {
     return `<div class="rx-row" data-i="${i}">
-        <input class="rx-in name" data-k="ten" list="rx-names" value="${esc(r.ten)}" placeholder="Tên thuốc" aria-label="Tên thuốc">
+        <input class="rx-in name" data-k="ten" value="${esc(r.ten)}" placeholder="Tên thuốc — gõ vài chữ là có gợi ý" aria-label="Tên thuốc">
         <button type="button" class="rx-pick" data-act="pick" title="Chọn thuốc theo nhóm — máy điền sẵn hàm lượng, liều, đường dùng, giờ"><i class="fas fa-magnifying-glass"></i></button>
         <input class="rx-in rx-ham" data-k="hamLuong" value="${esc(r.hamLuong)}" placeholder="1g" aria-label="Hàm lượng">
         <input class="rx-in rx-lieu" data-k="lieu" value="${esc(r.lieu)}" placeholder="1 lọ" aria-label="Liều mỗi lần">
@@ -101,8 +105,11 @@ function render() {
         : `<p class="rx-empty">Chưa có thuốc nào — bấm “Thêm thuốc”, mỗi cột một ý, máy ghép thành y lệnh chuẩn.</p>`)
         + (rows.some(r => trim(r.ten))
             ? `<div class="rx-preview">${esc(rxToText(rows))}</div>` : '')
-        + `<datalist id="rx-routes">${ROUTES.map(x => `<option value="${esc(x)}">`).join('')}</datalist>`
-        + `<datalist id="rx-names">${THUOC_GROUPS.flatMap(g => g.items).map(x => `<option value="${esc(x)}">`).join('')}</datalist>`;
+        + `<datalist id="rx-routes">${ROUTES.map(x => `<option value="${esc(x)}">`).join('')}</datalist>`;
+
+    /* Tên thuốc bỏ <datalist> để dùng bảng gợi ý riêng: tìm không dấu nên gõ "amlo"
+       hay "khang sinh" đều ra, còn <datalist> thì bắt gõ đúng dấu. */
+    host.querySelectorAll('.rx-in.name').forEach(el => attachTypeahead(el, { items: THUOC_TEN }));
 }
 
 /** Điền hàm lượng – liều – số lần – đường – giờ theo thư viện; trả về true nếu có điền gì */
@@ -127,9 +134,15 @@ export function initRx(options) {
         if (!row || !e.target.dataset.k) return;
         const r = rows[+row.dataset.i];
         r[e.target.dataset.k] = e.target.value;
-        // Gõ (hoặc chọn từ datalist) trúng tên thuốc có sẵn thì điền nốt các cột còn trống,
-        // không đè lên con số người dùng đã tự sửa.
-        if (e.target.dataset.k === 'ten' && fillFrom(r)) return render(), onChangeCb();
+        // Gõ (hoặc chọn từ bảng gợi ý) trúng tên thuốc có sẵn thì điền nốt các cột còn
+        // trống, không đè lên con số người dùng đã tự sửa. Vẽ lại là mất con trỏ nên
+        // phải trả nó về đúng ô tên vừa gõ.
+        if (e.target.dataset.k === 'ten' && fillFrom(r)) {
+            const i = +row.dataset.i;
+            render();
+            host.querySelector(`.rx-row[data-i="${i}"] .rx-in.name`)?.focus();
+            return onChangeCb();
+        }
         if (e.target.dataset.k === 'ten') refreshWarn(row, r, +row.dataset.i);
         const prev = host.querySelector('.rx-preview');
         if (prev) prev.textContent = rxToText(rows); else render();

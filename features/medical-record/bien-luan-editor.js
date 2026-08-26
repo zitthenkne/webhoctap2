@@ -130,7 +130,9 @@ export function collectEvidence() {
     const name = v('hx-sym-name');
     if (name) {
         const attrs = mainSymLabels().filter(x => x.on && v(x.id)).map(x => v(x.id));
-        out.push(attrs.length ? `${name}: ${attrs.join(', ')}` : name);
+        // Dấu chứng này sẽ được chép vào câu "lâm sàng ghi nhận …" nên phải là cụm
+        // văn xuôi sẵn, không phải "Tên: thuộc tính".
+        out.push(attrs.length ? [`${name} ${attrs[0]}`, ...attrs.slice(1)].join(', ') : name);
     }
     getSteps().forEach(m => {
         trim(m.s).split(';').map(trim).filter(Boolean).forEach(t => out.push(t));
@@ -149,7 +151,7 @@ export function collectEvidence() {
 
     // Tiền căn liên quan — phần làm nên "yếu tố nguy cơ" của vấn đề
     const tc = [v('history-internal'), v('history-habit')].filter(Boolean).join('; ');
-    if (tc) out.push(`Tiền căn: ${tc}`);
+    if (tc) out.push(`tiền căn có ${tc}`);
 
     const seen = new Set();
     return out.filter(x => x && !seen.has(x.toLowerCase()) && seen.add(x.toLowerCase())).slice(0, 25);
@@ -508,50 +510,46 @@ function nhomTheoMuc(v, lv) {
     return v.nguyenNhan.filter(n => fixLevel(n.muc) === lv);
 }
 
-/** Một câu "Bệnh X vì lý do, phân định bằng CLS" */
+/** Một câu "Bệnh X vì lý do → phân định bằng CLS".
+ *  Mũi tên tách phần LẬP LUẬN với phần LÀM GÌ TIẾP, đọc tới đó là biết bước sau. */
 function cauNguyenNhan(n) {
     const ly = trim(n.lyDo) ? ` vì ${trim(n.lyDo)}` : '';
-    const cls = trim(n.cls) ? `, phân định bằng ${trim(n.cls)}` : '';
+    const cls = trim(n.cls) ? ` → phân định bằng ${trim(n.cls)}` : '';
     return `${trim(n.ten)}${ly}${cls}`;
 }
 
+/* Biện luận trình bày theo gạch đầu dòng, mỗi vấn đề một khối, mỗi mức nghĩ một
+   dòng. Mũi tên "→" tách LẬP LUẬN với BƯỚC TIẾP THEO. Tiêu đề dùng dấu gạch "—"
+   thay dấu hai chấm cho đỡ giống bảng biểu. */
 export function buildProse() {
     const out = [];
-    getBienLuan().vanDe.forEach((v, i) => {
-        out.push(`${i + 1}. Vấn đề ${i + 1}: ${trim(v.ten) || '(chưa đặt tên)'}`);
+    const vanDe = getBienLuan().vanDe;
+    vanDe.forEach((v, i) => {
+        out.push(`VẤN ĐỀ ${i + 1} — ${trim(v.ten) || '(chưa đặt tên)'}`);
 
         const cau = [];
-        if (v.lamSang.length) cau.push(`Lâm sàng ghi nhận các dấu chứng ủng hộ gồm ${joinList(v.lamSang)}`);
-        if (v.amTinh.length) cau.push(`các dấu chứng âm tính có giá trị gồm ${joinList(v.amTinh)}`);
-        if (trim(v.yeuTo)) cau.push(`trên bệnh nhân có yếu tố nguy cơ ${trim(v.yeuTo)}`);
-        if (cau.length) out.push(cau.join(', ') + '.');
+        if (v.lamSang.length) cau.push(`lâm sàng ghi nhận ${joinList(v.lamSang)}`);
+        if (v.amTinh.length) cau.push(`âm tính có giá trị gồm ${joinList(v.amTinh)}`);
+        if (trim(v.yeuTo)) cau.push(`yếu tố nguy cơ ${trim(v.yeuTo)}`);
+        if (cau.length) out.push(`Trên bệnh nhân này, ${cau.join('; ')}.`);
 
-        const nhieu = nhomTheoMuc(v, LEVELS[0]);
-        const toi = nhomTheoMuc(v, LEVELS[1]);
-        const it = nhomTheoMuc(v, LEVELS[2]);
-        const tru = nhomTheoMuc(v, LEVELS[3]);
-        if (nhieu.length || toi.length || it.length || tru.length || v.redFlags.length) {
-            const ve = [];
-            if (nhieu.length) ve.push(`Nghĩ nhiều nhất đến ${nhieu.map(cauNguyenNhan).join('; ')}`);
-            if (toi.length) ve.push(`Cần phân biệt với ${toi.map(cauNguyenNhan).join('; ')}`);
-            if (it.length) ve.push(`Ít nghĩ đến ${it.map(cauNguyenNhan).join('; ')}`);
-            const truTen = [...tru.map(cauNguyenNhan), ...v.redFlags.map(trim)].filter(Boolean);
-            if (truTen.length) ve.push(`Cần loại trừ bệnh cảnh cấp cứu ${truTen.join('; ')}`);
-            out.push(`→ Về nguyên nhân: ${ve.join('. ')}.`);
-        }
-
-        if (v.bienChung.length) {
-            out.push(`→ Về biến chứng: theo dõi ${v.bienChung
-                .map(b => `${trim(b.ten)}${trim(b.lapLuan) ? ` (${trim(b.lapLuan)})` : ''}`).join('; ')}.`);
-        }
+        const dong = (nhan, xs) => xs.length && out.push(`- ${nhan} → ${xs.join('; ')}.`);
+        dong('Nghĩ nhiều nhất', nhomTheoMuc(v, LEVELS[0]).map(cauNguyenNhan));
+        dong('Cần phân biệt', nhomTheoMuc(v, LEVELS[1]).map(cauNguyenNhan));
+        dong('Ít nghĩ đến', nhomTheoMuc(v, LEVELS[2]).map(cauNguyenNhan));
+        dong('Cần loại trừ khẩn', [...nhomTheoMuc(v, LEVELS[3]).map(cauNguyenNhan),
+        ...v.redFlags.map(trim)].filter(Boolean));
+        dong('Biến chứng cần theo dõi', v.bienChung
+            .map(b => `${trim(b.ten)}${trim(b.lapLuan) ? ` vì ${trim(b.lapLuan)}` : ''}`)
+            .filter(Boolean));
         out.push('');
     });
 
     const { soBo, phanBiet } = derivedDiagnosis();
     if (soBo || phanBiet) {
-        out.push('Tổng hợp các vấn đề trên:');
-        if (soBo) out.push(`→ Nghĩ nhiều nhất đến ${soBo} (chẩn đoán sơ bộ).`);
-        if (phanBiet) out.push(`→ Cần phân biệt với: ${phanBiet.split('\n').join('; ')}.`);
+        out.push('TỔNG HỢP');
+        if (soBo) out.push(`- Chẩn đoán sơ bộ → ${soBo}.`);
+        if (phanBiet) out.push(`- Cần phân biệt → ${phanBiet.split('\n').join('; ')}.`);
     }
     return out.join('\n').trim();
 }
@@ -867,6 +865,8 @@ function setupMapUi() {
     const wrap = $('bl-map-wrap');
     if (!seg || !wrap) return;
 
+    /* Nút phóng to chỉ có nghĩa khi đang xem sơ đồ — ở chế độ Bảng nhập thì không có
+       hình nào để phóng, bày ra chỉ tổ rối. */
     seg.addEventListener('click', (e) => {
         const b = e.target.closest('[data-mode]');
         if (!b) return;
@@ -874,6 +874,8 @@ function setupMapUi() {
         seg.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
         wrap.classList.toggle('is-hidden', !mapMode);
         host.classList.toggle('is-hidden', mapMode);
+        const zoom = $('bl-zoom');
+        if (zoom) zoom.hidden = !mapMode;
         refreshMap();
     });
 
@@ -895,8 +897,8 @@ function setupMapUi() {
         target?.focus();
     });
 
-    $('bl-png')?.addEventListener('click', () => downloadMapPng(getBienLuan().vanDe));
-
+    /* Chỉ còn một chỗ tải ảnh: mở sơ đồ lớn rồi tải ngay trong đó. Trước đây có hai
+       nút "Tải PNG" (một ngoài thanh chế độ, một trong khung phóng to) làm cùng việc. */
     const ov = $('map-overlay');
     $('bl-zoom')?.addEventListener('click', () => {
         ov.classList.remove('hidden');

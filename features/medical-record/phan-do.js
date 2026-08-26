@@ -10,6 +10,13 @@
 // triệu chứng ở lý do vào viện, chẩn đoán sơ bộ) — không bày cả mớ cho rối.
 //
 // Lưu ở record.phanDo = { nyha: { gangSuc: 'khi gắng sức nhẹ…' }, … }
+//
+// Thang chỉ có MỘT câu hỏi (NYHA, mMRC, CCS, độ trĩ) thì câu hỏi đó chính là ô
+// "Mức độ" của triệu chứng chính — bày thêm một hộp riêng để hỏi lại là thừa.
+// Những thang đó mang cờ `oMucDo`: lựa chọn của chúng trở thành chip của ô Mức độ,
+// người dùng chạm một cái là máy suy ra phân độ và ghi ngay vào ô đó.
+// Hộp `.pd-box` chỉ còn giữ các thang cần NHIỀU câu hỏi (đau, GINA, phù), và tự
+// ẩn hẳn khi bệnh cảnh đang khai thác không có thang nào.
 
 import { fold } from './tim-kiem.js';
 
@@ -25,6 +32,7 @@ const idx = (v, k, list) => list.indexOf(v[k]);
 export const SCALES = [
     {
         id: 'nyha', ten: 'NYHA — khó thở do tim', re: /kho tho|suy tim|phu phoi|kho tho khi nam/,
+        oMucDo: true, nhan: 'Khó thở xuất hiện khi nào',
         hoi: [['gs', 'Khó thở xuất hiện khi nào', [
             'không khó thở khi gắng sức thường ngày',
             'gắng sức nặng (leo hơn 1 tầng lầu, mang vác nặng)',
@@ -38,7 +46,8 @@ export const SCALES = [
         }
     },
     {
-        id: 'mmrc', ten: 'mMRC — khó thở mạn (COPD)', re: /kho tho|copd|phoi tac nghen|hen phe quan/,
+        id: 'mmrc', ten: 'mMRC — khó thở mạn (COPD)', re: /copd|phoi tac nghen/,
+        oMucDo: true, nhan: 'Mức khó thở trong sinh hoạt',
         hoi: [['gs', 'Mức khó thở trong sinh hoạt', [
             'chỉ khó thở khi gắng sức mạnh',
             'khó thở khi đi nhanh đường phẳng hoặc lên dốc nhẹ',
@@ -52,7 +61,8 @@ export const SCALES = [
         }
     },
     {
-        id: 'ccs', ten: 'CCS — đau thắt ngực', re: /dau nguc|dau that nguc|mach vanh|nhoi mau co tim/,
+        id: 'ccs', ten: 'CCS — đau thắt ngực', re: /dau that nguc|mach vanh|nhoi mau co tim|thieu mau co tim/,
+        oMucDo: true, nhan: 'Đau ngực xuất hiện khi',
         hoi: [['gs', 'Đau ngực xuất hiện khi', [
             'gắng sức mạnh, kéo dài; sinh hoạt thường ngày không đau',
             'đi bộ nhanh, leo hơn 1 tầng lầu, đi sau ăn hoặc trời lạnh',
@@ -65,17 +75,25 @@ export const SCALES = [
         }
     },
     {
-        id: 'dau', ten: 'Thang điểm đau (NRS)', re: /dau/,
-        hoi: [
-            ['diem', 'Bệnh nhân tự chấm đau mấy điểm trên 10', ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']],
-            ['anhHuong', 'Ảnh hưởng sinh hoạt', ['vẫn sinh hoạt bình thường', 'ảnh hưởng sinh hoạt', 'phải nằm nghỉ', 'mất ngủ vì đau']]
-        ],
+        /* Ô "Mức độ" của mọi triệu chứng đau trong thư viện vốn là ô chữ trống trơn.
+           Gộp "mấy điểm trên 10" với "ảnh hưởng sinh hoạt" thành MỘT câu bệnh nhân trả
+           lời được, để thang chiếm luôn ô đó — hỏi một lần, ra cả điểm lẫn mức. */
+        id: 'dau', ten: 'NRS — thang điểm đau', re: /dau/,
+        oMucDo: true, nhan: 'Đau tới mức nào',
+        hoi: [['muc', 'Đau tới mức nào', [
+            '1–3/10 — khó chịu nhưng vẫn sinh hoạt bình thường',
+            '4–6/10 — ảnh hưởng sinh hoạt, khó tập trung làm việc',
+            '7–8/10 — phải nằm nghỉ, không làm việc được',
+            '9–10/10 — dữ dội, mất ngủ vì đau']]],
         cham(v) {
-            const n = parseInt(v.diem, 10);
-            if (!(n > 0)) return null;
-            const muc = n >= 7 ? 'nang' : n >= 4 ? 'vua' : 'nhe';
-            const ten = n >= 7 ? 'đau nhiều' : n >= 4 ? 'đau vừa' : 'đau nhẹ';
-            return { ket: `${n}/10 — ${ten}${v.anhHuong ? ', ' + v.anhHuong : ''}`, muc, dua: `bệnh nhân tự chấm ${n}/10` };
+            const i = idx(v, 'muc', this.hoi[0][2]);
+            if (i < 0) return null;
+            const diem = ['2/10', '5/10', '7/10', '9/10'][i];
+            const ten = ['đau nhẹ', 'đau vừa', 'đau nhiều', 'đau rất dữ dội'][i];
+            return {
+                ket: `${diem} — ${ten}`, muc: i >= 2 ? 'nang' : i === 1 ? 'vua' : 'nhe',
+                dua: this.hoi[0][2][i]
+            };
         }
     },
     {
@@ -95,7 +113,9 @@ export const SCALES = [
         }
     },
     {
-        id: 'tri', ten: 'Phân độ trĩ nội', re: /\btri\b|di cau ra mau|tieu ra mau|sa bui tri/,
+        // "\btri\b" từng khớp cả "rối loạn TRI giác" -> bệnh nhân hôn mê bị hỏi búi trĩ
+        id: 'tri', ten: 'Phân độ trĩ nội', re: /tri noi|bui tri|sa bui tri|di cau ra mau|tieu ra mau/,
+        oMucDo: true, nhan: 'Búi trĩ sa thế nào',
         hoi: [['sa', 'Búi trĩ sa thế nào', [
             'chỉ chảy máu, chưa sa ra ngoài',
             'sa khi rặn, tự co lên được',
@@ -126,6 +146,9 @@ export const SCALES = [
 
 /* ---------------------------------------------------------------- giao diện */
 let host, data = {}, ctxFn = () => [], applyFn = null, onChangeCb = () => { };
+/* Câu trả lời của thang một-câu-hỏi nằm ở một ô thuộc tính của triệu chứng chính;
+   ô nào là do benh-su-editor quyết (đổi theo từng triệu chứng) nên nhận qua tham số. */
+let sevFn = () => '';
 
 export const getPhanDo = () => JSON.parse(JSON.stringify(data));
 export function setPhanDo(obj) {
@@ -137,6 +160,29 @@ export function setPhanDo(obj) {
 function activeScales() {
     const text = fold(ctxFn().join(' · '));
     return SCALES.filter(s => s.re.test(text) || data[s.id] && Object.keys(data[s.id]).length);
+}
+
+/** Thang một-câu-hỏi hợp bệnh cảnh — câu hỏi của nó thay luôn ô "Mức độ".
+ *  Bệnh cảnh khớp nhiều thang thì lấy thang đặc hiệu nhất (khai báo trước là ưu tiên). */
+export function scaleForSeverity() {
+    const text = fold(ctxFn().join(' · '));
+    return SCALES.find(s => s.oMucDo && s.re.test(text)) || null;
+}
+
+/** Bỏ phần phân độ máy đã gắn ở đuôi để so lại với danh sách lựa chọn */
+export const boPhanDo = (t) => String(t ?? '')
+    .replace(/\s+—\s+(NYHA|mMRC|CCS|Trĩ nội độ)\b.*$/i, '').trim();
+
+/** Câu trả lời ở ô Mức độ -> phân độ. Chỉ nhận khi trùng đúng một lựa chọn của thang,
+ *  người dùng gõ tay câu của riêng họ thì máy không đoán bừa. */
+export function gradeFromSeverity(sc, text) {
+    if (!sc) return null;
+    const [k, , opts] = sc.hoi[0];
+    const sach = fold(boPhanDo(text));
+    const hit = opts.find(o => fold(o) === sach);
+    if (!hit) return null;
+    data[sc.id] = { ...(data[sc.id] || {}), [k]: hit };
+    return sc.cham(data[sc.id]);
 }
 
 function cardHtml(s) {
@@ -158,10 +204,12 @@ function cardHtml(s) {
 
 function render() {
     if (!host) return;
-    const list = activeScales();
-    host.innerHTML = list.length
-        ? list.map(cardHtml).join('')
-        : `<p class="pd-empty">Chưa rõ bệnh cảnh — ghi triệu chứng ở mục II hoặc triệu chứng chính, máy sẽ bày đúng thang phân độ cần hỏi.</p>`;
+    // Thang một-câu-hỏi đã nằm ngay ở ô "Mức độ" của triệu chứng chính, đừng hỏi lại
+    const list = activeScales().filter(s => !s.oMucDo);
+    host.innerHTML = list.map(cardHtml).join('');
+    // Không có thang nào cần nhiều câu hỏi thì giấu hẳn cả hộp, khỏi bày hộp rỗng
+    const box = host.closest('.pd-box') || host.parentElement;
+    if (box) box.hidden = !list.length;
 }
 
 /**
@@ -173,6 +221,7 @@ export function initPhanDo(opt = {}) {
     host = $('pd-list');
     if (!host) return;
     ctxFn = opt.context || ctxFn;
+    sevFn = opt.severity || sevFn;
     applyFn = opt.apply || null;
     onChangeCb = opt.onChange || onChangeCb;
 
@@ -197,6 +246,9 @@ export function initPhanDo(opt = {}) {
         if (kq) applyFn?.(kq.ket, s);
     });
     render();
+    // ui-fold.js bọc .calc-box thành <details> SAU khi module này chạy, nên lần vẽ
+    // đầu tiên đặt `hidden` lên phần tử sắp bị thay. Vẽ lại một nhịp sau cho chắc.
+    setTimeout(render, 0);
 }
 
 /** Vẽ lại khi bệnh cảnh đổi (chọn triệu chứng chính khác, thêm chẩn đoán…) */
@@ -204,6 +256,10 @@ export const refreshPhanDo = render;
 
 /** Câu phân độ đã chấm được — cho phần tóm tắt dùng lại */
 export function phanDoLines() {
+    // Thang gắn ở ô Mức độ: lấy đúng câu đang có trong ô đó rồi chấm lại,
+    // không dựa vào bản nhớ trong `data` (người dùng có thể vừa sửa tay).
+    const sc = scaleForSeverity();
+    if (sc) gradeFromSeverity(sc, sevFn());
     return SCALES.map(s => {
         const kq = s.cham(data[s.id] || {});
         return kq ? kq.ket : '';

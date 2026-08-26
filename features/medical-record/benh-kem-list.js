@@ -9,6 +9,12 @@
 
 import { openListPicker } from './list-picker.js';
 import { BENH_NHOM } from './benh-data.js';
+import { attachTypeahead } from './goi-y-go.js';
+/* Gõ là gợi ý ngay, không phải mở bảng chọn mới tìm được tên. Tìm không dấu nên
+   gõ "dai thao duong" vẫn ra "Đái tháo đường". attachTypeahead tự bỏ qua ô đã gắn
+   nên gọi lại sau mỗi lần vẽ cũng không sao. */
+const flatNames = (groups) => [...new Set((groups || []).flatMap(g => g.items || []))];
+const goiY = (items) => (el) => attachTypeahead(el, { items });
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -42,8 +48,8 @@ export function createBenhKemList({ host, addBtn, pullBtn, field, suggest, getPa
     let rows = parseAssoc(field.value);
 
     const rowHtml = (r, i) => `<div class="bk-row" data-i="${i}">
-        <input class="bk-ten" data-k="ten" list="bk-dis-list" value="${esc(r.ten)}"
-               placeholder="Tên bệnh kèm" aria-label="Tên bệnh kèm">
+        <input class="bk-ten" data-k="ten" value="${esc(r.ten)}"
+               placeholder="Tên bệnh kèm — gõ vài chữ là có gợi ý" aria-label="Tên bệnh kèm">
         <input class="bk-gd" data-k="gd" list="bk-stage-list" value="${esc(r.gd)}"
                placeholder="Mức độ / giai đoạn" aria-label="Mức độ hoặc giai đoạn">
         <button type="button" class="bk-pick" data-act="pick" title="Chọn bệnh theo chuyên khoa"><i class="fas fa-magnifying-glass"></i></button>
@@ -54,6 +60,7 @@ export function createBenhKemList({ host, addBtn, pullBtn, field, suggest, getPa
         host.innerHTML = rows.length
             ? rows.map(rowHtml).join('')
             : `<p class="cnv-empty">Chưa có bệnh kèm — bấm “Lấy từ tiền căn” để máy chép sang, hoặc “Thêm bệnh”.</p>`;
+        host.querySelectorAll('.bk-ten').forEach(goiY(flatNames(BENH_NHOM)));
     }
 
     /** Ghi ngược vào ô chữ gốc rồi báo cho trang biết để lưu */

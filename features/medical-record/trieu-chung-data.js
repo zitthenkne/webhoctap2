@@ -912,13 +912,120 @@ export function describe(sym, values) {
     return parts.length ? `${sym.ten}: ${parts.join(', ')}` : sym.ten;
 }
 
+/* ---------------------------------------------------------------- đổi ra sao
+   Mỗi triệu chứng nặng lên / nhẹ đi theo một kiểu riêng: sốt thì đổi ngưỡng nhiệt và
+   kiểu sốt, đau thì đổi điểm đau và tần suất cơn, khó thở thì đổi ngưỡng gắng sức,
+   phù thì đổi mức lan. Bày sẵn đúng những câu đó ở ô "rõ là như thế nào" của mục
+   "triệu chứng đã có từ trước", để không phải nghĩ ra từ đầu mỗi lần.
+   Triệu chứng không có ở đây thì benh-su-editor tự sinh gợi ý từ nhãn các ô đã hỏi. */
+export const DOI_TRIEU_CHUNG = {
+    'Sốt': {
+        nang: ['sốt cao hơn, từ 38 lên 39,5°C', 'sốt liên tục thay vì từng cơn',
+            'nay kèm lạnh run', 'không còn đáp ứng thuốc hạ sốt', 'cơn sốt dày hơn trong ngày'],
+        giam: ['chỉ còn sốt nhẹ 37,5–38°C', 'giãn cơn, 1 cơn/ngày',
+            'hạ sốt sau uống paracetamol và không tái phát', 'hết lạnh run']
+    },
+    'Ho': {
+        nang: ['ho nhiều hơn, thành từng cơn kéo dài', 'ho tăng về đêm gây mất ngủ',
+            'đàm nhiều hơn và đổi sang màu đục', 'ho kèm đau ngực khi ho'],
+        giam: ['ho thưa hơn, chỉ vài lần trong ngày', 'ho khan nhẹ, không còn đàm',
+            'không còn ho về đêm']
+    },
+    'Khó thở': {
+        nang: ['khó thở khi gắng sức nhẹ hơn trước (đi trong nhà đã mệt)',
+            'khó thở cả khi nghỉ', 'phải nằm đầu cao mới thở được',
+            'thức giấc về đêm vì khó thở', 'nay kèm tím môi'],
+        giam: ['chỉ khó thở khi gắng sức nặng', 'nằm đầu bằng vẫn thở được',
+            'đỡ sau khi dùng thuốc giãn phế quản']
+    },
+    'Đau ngực': {
+        nang: ['đau tăng từ 5/10 lên 8/10', 'cơn dày hơn, 3–4 cơn/ngày',
+            'mỗi cơn kéo dài hơn 20 phút', 'lan thêm ra tay trái và hàm',
+            'đau cả khi nghỉ, không cần gắng sức', 'nay kèm vã mồ hôi, khó thở'],
+        giam: ['giảm còn 2/10', 'cơn thưa hơn, 1 cơn/ngày',
+            'chỉ đau khi gắng sức mạnh', 'đỡ sau khi ngậm nitrat']
+    },
+    'Đau bụng': {
+        nang: ['đau tăng từ 4/10 lên 8/10', 'đau liên tục thay vì từng cơn',
+            'đau khu trú lại một điểm rõ', 'lan ra sau lưng', 'nay kèm nôn ói, bí trung đại tiện'],
+        giam: ['giảm còn 2/10', 'cơn thưa và ngắn lại',
+            'đỡ sau khi dùng thuốc giảm co thắt', 'chỉ còn âm ỉ']
+    },
+    'Phù': {
+        nang: ['phù lan lên tới đùi và bụng', 'phù cả mặt, thấy rõ lúc sáng ngủ dậy',
+            'ấn lõm sâu hơn, lâu hồi phục', 'tăng cân nhanh trong vài ngày'],
+        giam: ['chỉ còn phù mắt cá chân', 'hết phù mặt', 'giảm sau khi dùng lợi tiểu']
+    },
+    'Tiêu chảy': {
+        nang: ['đi nhiều lần hơn, trên 10 lần/ngày', 'phân toàn nước, lượng nhiều',
+            'nay có nhầy máu', 'nay kèm đau quặn bụng và mót rặn'],
+        giam: ['giảm còn 2–3 lần/ngày', 'phân sệt lại, không còn toàn nước',
+            'đỡ sau khi bù dịch và uống men vi sinh']
+    },
+    'Nôn ói': {
+        nang: ['nôn nhiều lần hơn, trên 5 lần/ngày', 'nôn ra dịch xanh vàng',
+            'nôn vọt, không liên quan bữa ăn', 'không ăn uống được gì'],
+        giam: ['chỉ còn buồn nôn, không nôn nữa', 'ăn uống lại được ít một']
+    },
+    'Đau đầu': {
+        nang: ['đau tăng từ 4/10 lên 8/10', 'đau liên tục cả ngày',
+            'đau tăng khi ho, khi cúi', 'nay kèm nôn vọt và nhìn mờ'],
+        giam: ['giảm còn 2/10', 'chỉ đau thoáng qua', 'đỡ sau khi dùng thuốc giảm đau']
+    },
+    'Tiểu máu': {
+        nang: ['nước tiểu đỏ sẫm hơn, có máu cục', 'tiểu máu cả bãi thay vì cuối bãi',
+            'nay kèm đau hông lưng', 'lượng nước tiểu giảm dần'],
+        giam: ['nước tiểu chỉ còn hồng nhạt', 'hết máu cục', 'nước tiểu trong trở lại']
+    },
+    'Ho ra máu': {
+        nang: ['lượng máu nhiều hơn, trên 100 ml/ngày', 'máu đỏ tươi thay vì dây máu',
+            'ho ra máu liên tục nhiều lần trong ngày'],
+        giam: ['chỉ còn dây máu trong đàm', 'ngưng ho ra máu']
+    },
+    'Chóng mặt': {
+        nang: ['chóng mặt cả khi nằm yên', 'không tự đi lại được vì mất thăng bằng',
+            'nay kèm nôn ói và ù tai'],
+        giam: ['chỉ chóng mặt thoáng qua khi đổi tư thế', 'đi lại được bình thường']
+    }
+};
+
 export { fold };
+
+/* Dò tên triệu chứng phải CHẶT, không thì cả hệ thống lệch theo.
+   Luật cũ là "chứa nhau ở bất kỳ đâu, cái nào khai báo trước thì thắng" nên:
+     · "Khó thở: khi nằm"        -> Ho   (vì "kho tho" có chữ "ho")
+     · "Chóng mặt: kèm buồn nôn" -> Ho   (chữ "ho" nằm trong "chong")
+     · "Tiểu máu: đỏ tươi, sốt"  -> Sốt  (bắt chữ "sốt" ở giữa câu)
+   và người dùng lãnh nguyên bộ câu hỏi của triệu chứng khác.
+   Luật mới: chỉ nhận khi tên nằm ở ĐẦU chuỗi và kết thúc đúng ranh giới từ; khớp
+   nhiều thì lấy tên DÀI nhất (để "ho ra máu" không rơi về "Ho"). */
+const chuCai = /[a-z0-9]/;
+const khopDau = (chuoi, ten) =>
+    chuoi === ten || (chuoi.startsWith(ten) && !chuCai.test(chuoi[ten.length] || ' '));
+
+const thuong = (x) => String(x ?? '').trim().toLowerCase();
+
+/* Bỏ dấu xong thì "tiểu" (đi tiểu) và "tiêu" (đi cầu) thành cùng một chuỗi — hai hệ
+   cơ quan ngược nhau. Khớp được nhiều thì ưu tiên cái còn đúng cả DẤU, hết cách mới
+   lấy bản bỏ dấu; trong cùng nhóm thì tên dài hơn thắng. */
+const chonKhop = (ds, sRaw, dai = true) => {
+    const coDau = ds.filter(x => khopDau(thuong(sRaw), thuong(x.ten)) || khopDau(thuong(x.ten), thuong(sRaw)));
+    const nhom = coDau.length ? coDau : ds;
+    return nhom.sort((a, b) => dai
+        ? fold(b.ten).length - fold(a.ten).length
+        : fold(a.ten).length - fold(b.ten).length)[0];
+};
 
 export function findSymptom(ten) {
     const s = fold(ten).trim();
     if (!s) return null;
-    return SYMPTOMS.find(x => fold(x.ten) === s)
-        || SYMPTOMS.find(x => s.includes(fold(x.ten)) || fold(x.ten).includes(s));
+    const eq = SYMPTOMS.find(x => fold(x.ten) === s);
+    if (eq) return eq;
+    // "tiểu máu đỏ tươi" -> Tiểu máu · "ho ra máu" -> Ho ra máu (dài hơn thì thắng)
+    const dau = chonKhop(SYMPTOMS.filter(x => khopDau(s, fold(x.ten))), ten);
+    if (dau) return dau;
+    // Người dùng gõ thiếu đuôi: "vàng da" -> "Vàng da – vàng mắt"
+    return chonKhop(SYMPTOMS.filter(x => khopDau(fold(x.ten), s)), ten, false) || null;
 }
 
 export function searchSymptoms(q) {

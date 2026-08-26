@@ -24,11 +24,37 @@ function fmtDateTime(v) {
 /* ---------- khung dữ liệu để render + xuất text ---------- */
 const VITAL_RANGE = { 'Mạch': [60, 100], 'Nhiệt độ': [36, 37.5], 'Nhịp thở': [12, 20], 'SpO2': [95, 100] };
 
+/** Nối các mảnh có nội dung thành một dòng, bỏ mảnh trống */
+const gop = (...xs) => xs.map(x => String(x ?? '').trim()).filter(Boolean).join(' · ');
+
+/* Khớp với data-vung của các ô bỏng bên tao-benh-an.html — sửa bên đó thì sửa cả đây */
+const BONG_VUNG = {
+    'dau-mat-co': ['Đầu – mặt – cổ', 9], 'chi-tren-p': ['Chi trên phải', 9],
+    'chi-tren-t': ['Chi trên trái', 9], 'than-truoc': ['Thân trước', 18],
+    'than-sau': ['Thân sau', 18], 'chi-duoi-p': ['Chi dưới phải', 18],
+    'chi-duoi-t': ['Chi dưới trái', 18], 'sinh-duc': ['Sinh dục – tầng sinh môn', 1]
+};
+function bongText(list) {
+    const co = (list || []).map(k => BONG_VUNG[k]).filter(Boolean);
+    if (!co.length) return '';
+    return `${co.reduce((t, [, pct]) => t + pct, 0)}% diện tích da `
+        + `(${co.map(([ten]) => ten.toLowerCase()).join(', ')})`;
+}
+function xuongGayText(list) {
+    return (list || []).filter(x => x && x.ten)
+        .map(x => x.ten + (x.n > 1 ? ` ×${x.n}` : '')).join(', ');
+}
+
 function buildModel(r) {
     const h = r.hanhChinh || {}, t = r.tienSu || {}, k = r.khamBenh || {}, s = k.sinhTon || {};
     const ros = r.luocQuaCoQuan || {};
     const bs = r.benhSuChiTiet || {};
     const av = bs.sinhHieuNhapVien || {};
+    // Các khối chuyên khoa: bày ra khi CÓ dữ liệu, không khóa theo r.loaiBenhAn — đổi
+    // loại bệnh án giữa chừng thì phần đã ghi vẫn phải in ra, không được nuốt mất.
+    const px = r.phauThuat || {}, sk = r.sanKhoa || {}, nk = r.nhiKhoa || {};
+    const cc = r.capCuu || {}, ct = r.chanThuong || {};
+    const bsn = bs.san || {}, bnh = bs.nhi || {};
     const examDay = (() => {
         const m = String(h.ngayLamBenhAn || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
         return m ? ` (khám ngày ${+m[3]}/${+m[2]}/${m[1]})` : '';
@@ -54,7 +80,21 @@ function buildModel(r) {
         ['II. LÝ DO VÀO VIỆN', 'fa-sign-in-alt', [['', r.lyDoVaoVien]]],
         ['III. BỆNH SỬ', 'fa-history', [
             ['', r.benhSu],
-            ['@vitals', admVitals, 'Sinh hiệu lúc nhập viện']
+            ['Cơ chế chấn thương', gop(ct.loai, fmtDateTime(ct.thoiDiem), ct.vanTocDoCao,
+                ct.viTriVaDap && 'va đập đầu tiên vào ' + ct.viTriVaDap,
+                ct.vatGayThuongTich && 'vật gây thương tích ' + ct.vatGayThuongTich, ct.baoHo)],
+            ['Ngay sau chấn thương', gop(ct.batTinh, ct.quenSuViec, ct.non, ct.vanDong,
+                ct.soCuu && 'sơ cứu ' + ct.soCuu, ct.chuyenVien && 'chuyển viện ' + ct.chuyenVien)],
+            ['Xương gãy', xuongGayText(ct.xuongGay)],
+            ['Bỏng', gop(bongText(ct.bongVung), ct.bongDoSau, ct.bongTacNhan && 'tác nhân ' + ct.bongTacNhan)],
+            ['Thai kỳ lần này', gop(bsn.soLanKhamThai, bsn.noiKhamThai && 'khám tại ' + bsn.noiKhamThai,
+                bsn.sieuAm && 'siêu âm ' + bsn.sieuAm, bsn.xetNghiem, bsn.uonVan && 'uốn ván ' + bsn.uonVan,
+                bsn.batThuong, bsn.canTruocMangThai && `cân trước mang thai ${bsn.canTruocMangThai} kg`,
+                bsn.canHienTai && `cân hiện tại ${bsn.canHienTai} kg`)],
+            ['Bệnh sử nhi khoa', gop(bnh.nguoiNuoi && 'người khai ' + bnh.nguoiNuoi, bnh.anBu, bnh.nuocTieu,
+                bnh.phan, bnh.dichTe, bnh.daDieuTri, bnh.canTruocBenh && `cân trước khi bệnh ${bnh.canTruocBenh} kg`)],
+            ['@vitals', admVitals, 'Sinh hiệu lúc nhập viện'],
+            ['@anh', r.anhHoSo, 'Ảnh hồ sơ tuyến trước']
         ]],
         ['IV. TIỀN CĂN', 'fa-notes-medical', [
             ['1. Nội khoa', t.noiKhoa], ['2. Thuốc đang dùng tại nhà', t.thuocDangDung],
@@ -69,6 +109,10 @@ function buildModel(r) {
             ['Thần kinh', ros.thanKinh], ['Cơ xương khớp', ros.coXuongKhop], ['Thận – Tiết niệu', ros.thanNieu]
         ]],
         ['VI. KHÁM LÂM SÀNG' + examDay, 'fa-stethoscope', [
+            ['Tiếp nhận cấp cứu', gop(cc.uuTien && 'mức ưu tiên ' + cc.uuTien, fmtDateTime(cc.thoiDiem))],
+            ['Đánh giá ABCDE', gop(cc.a && 'A: ' + cc.a, cc.b && 'B: ' + cc.b, cc.c && 'C: ' + cc.c,
+                cc.d && 'D: ' + cc.d, cc.e && 'E: ' + cc.e)],
+            ['Xử trí ban đầu', cc.xuTriBanDau],
             ['1. Tổng trạng', k.tongTrang],
             ['@vitals', [
                 ['Mạch', s.mach, 'lần/phút'], ['Nhiệt độ', s.nhietDo, '°C'], ['Huyết áp', s.huyetAp, 'mmHg'],
@@ -79,7 +123,14 @@ function buildModel(r) {
                     ? `${+k.glasgow.e + +k.glasgow.v + +k.glasgow.m}/15 (E${k.glasgow.e} V${k.glasgow.v} M${k.glasgow.m})` : '', '']
             ]],
             ['2. Đầu – mặt – cổ', k.dauMatCo], ['3. Ngực', k.nguc], ['4. Tim', k.tim],
-            ['5. Phổi', k.phoi], ['6. Bụng', k.bung], ['7. Thần kinh – Cơ xương khớp', k.thanKinhCoXuongKhop]
+            ['5. Phổi', k.phoi], ['6. Bụng', k.bung],
+            ['Khám sản', gop(sk.bcTC && `bề cao tử cung ${sk.bcTC} cm`, sk.vongBung && `vòng bụng ${sk.vongBung} cm`,
+                sk.timThai && `tim thai ${sk.timThai} l/p`, sk.conCo && 'cơn co ' + sk.conCo,
+                sk.coTuCung && 'cổ tử cung ' + sk.coTuCung, sk.ngoiThai, sk.oi, sk.khungChau && 'khung chậu ' + sk.khungChau)],
+            ['Nhi khoa', gop(nk.tuoiThang && `${nk.tuoiThang} tháng tuổi`, nk.lieuMgKg && `liều thuốc ${nk.lieuMgKg} mg/kg/lần`,
+                nk.sanKhoaLucSinh && 'lúc sinh: ' + nk.sanKhoaLucSinh, nk.dinhDuong, nk.chungNgua, nk.phatTrien)],
+            ['7. Thần kinh – Cơ xương khớp', k.thanKinhCoXuongKhop],
+            ['@anh', r.anhKham, 'Ảnh lâm sàng']
         ]],
         ['VII. TÓM TẮT BỆNH ÁN', 'fa-clipboard-list', [['', r.tomTatBenhAn]]],
         ['VIII. ĐẶT VẤN ĐỀ', 'fa-list-check', [['', r.datVanDe]]],
@@ -87,11 +138,20 @@ function buildModel(r) {
             ['Chẩn đoán sơ bộ', r.chanDoanSoBo], ['Chẩn đoán phân biệt', r.chanDoanPhanBiet]
         ]],
         ['X. BIỆN LUẬN LÂM SÀNG', 'fa-comments', [['', r.bienLuanChanDoan]]],
+        // Mỗi dòng đề nghị đã tự mang mục đích + dấu hiệu mong tìm, nên không còn
+        // đoạn biện luận riêng. Dòng dưới chỉ để bệnh án cũ mở lên vẫn đọc được.
         ['XI. ĐỀ NGHỊ CẬN LÂM SÀNG', 'fa-vials', [
-            ['', r.canLamSangDeNghi, 'bullet'], ['Biện luận đề nghị', r.bienLuanDeNghiCLS]
+            ['', r.canLamSangDeNghi, 'bullet'], ['Biện luận đề nghị (bản cũ)', r.bienLuanDeNghiCLS]
         ]],
         ['XII. KẾT QUẢ CẬN LÂM SÀNG', 'fa-microscope', [
             ['@cls', r.canLamSang], ['', r.ketQuaCanLamSang], ['', r.bienLuanKetQuaCLS]
+        ]],
+        ['PHẪU THUẬT', 'fa-scissors', [
+            ['Ngày giờ mổ', fmtDateTime(px.ngayGio)],
+            ['Phương pháp phẫu thuật', px.phuongPhap], ['Phương pháp vô cảm', px.voCam],
+            ['Dẫn lưu – vết mổ', px.danLuu],
+            ['Chẩn đoán trước mổ', px.chanDoanTruocMo], ['Chẩn đoán sau mổ', px.chanDoanSauMo],
+            ['Tường trình phẫu thuật', px.tuongTrinh]
         ]],
         ['XIII. CHẨN ĐOÁN XÁC ĐỊNH', 'fa-check-circle', [['', r.chanDoanXacDinh]]],
         ['XIV. ĐIỀU TRỊ', 'fa-syringe', [
@@ -120,6 +180,16 @@ function vitalsHtml(items, caption) {
         + `<div class="flex flex-wrap gap-2 mb-1">${chips}</div>`;
 }
 
+/** Ảnh lâm sàng / ảnh hồ sơ — dùng lại class của phiếu CLS nên bấm vào cũng phóng to được */
+function anhHtml(list, caption) {
+    const imgs = (list || []).filter(im => im && im.url).map(im => `<figure class="cls-fig">
+        <img class="cls-img" src="${esc(im.url)}" alt="${esc(im.caption || caption)}" loading="lazy">
+        ${im.caption ? `<figcaption>${esc(im.caption)}</figcaption>` : ''}</figure>`).join('');
+    if (!imgs) return '';
+    return `<div class="text-xs font-semibold text-pink-500 mt-1">${esc(caption)}</div>`
+        + `<div class="cls-imgs">${imgs}</div>`;
+}
+
 function fieldHtml(label, value) {
     if (!String(value ?? '').trim()) return '';
     // Số điện thoại: bấm là gọi được luôn trên điện thoại
@@ -134,7 +204,8 @@ function sectionHtml(title, icon, rows, index) {
     const body = rows.map(([label, value, extra]) =>
         label === '@vitals' ? vitalsHtml(value, extra)
             : label === '@cls' ? clsToHtml(value)
-                : fieldHtml(label, value)).join('');
+                : label === '@anh' ? anhHtml(value, extra)
+                    : fieldHtml(label, value)).join('');
     if (!body) return '';
     // Hành chính toàn là dòng ngắn -> xếp 2 cột cho đỡ dài
     const cls = index === 0 ? 'sec-grid' : 'space-y-2';
@@ -202,6 +273,11 @@ function toPlainText(record, model) {
             } else if (label === '@cls') {
                 const v = clsToText(value);
                 if (v) body.push(() => lines.push(v));
+            } else if (label === '@anh') {
+                // File text không mang được ảnh — ghi lại số lượng và chú thích để không ai quên
+                const co = (value || []).filter(im => im && im.url);
+                if (co.length) body.push(() => lines.push(`* ${extra}: ${co.length} ảnh`
+                    + (co.some(im => im.caption) ? ' — ' + co.map(im => im.caption).filter(Boolean).join('; ') : '')));
             } else if (String(value ?? '').trim()) {
                 body.push(() => bullet(label, value, extra));
             }
@@ -332,6 +408,11 @@ if (!record) {
                             return v ? `<p>${esc(v)}</p>` : '';
                         }
                         if (label === '@cls') return clsToWordHtml(value);
+                        if (label === '@anh') {
+                            const co = (value || []).filter(im => im && im.url);
+                            return co.length ? co.map(im => `<p><img src="${esc(im.url)}" width="420">`
+                                + (im.caption ? `<br><i>${esc(im.caption)}</i>` : '') + '</p>').join('') : '';
+                        }
                         if (!String(value ?? '').trim()) return '';
                         return `<p>${label ? '<b>' + esc(label) + ':</b> ' : ''}${esc(value).replace(/\n/g, '<br>')}</p>`;
                     }).join('');

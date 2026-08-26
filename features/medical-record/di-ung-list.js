@@ -9,6 +9,12 @@
 
 import { openListPicker } from './list-picker.js';
 import { laCauPhuDinh } from './tim-kiem.js';
+import { attachTypeahead } from './goi-y-go.js';
+/* Gõ là gợi ý ngay, không phải mở bảng chọn mới tìm được tên. Tìm không dấu nên
+   gõ "dai thao duong" vẫn ra "Đái tháo đường". attachTypeahead tự bỏ qua ô đã gắn
+   nên gọi lại sau mỗi lần vẽ cũng không sao. */
+const flatNames = (groups) => [...new Set((groups || []).flatMap(g => g.items || []))];
+const goiY = (items) => (el) => attachTypeahead(el, { items });
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -75,6 +81,7 @@ export function createDiUngList({ host, field, addBtn, groups, listB, onChange }
         host.innerHTML = rows.length
             ? rows.map(rowHtml).join('')
             : `<p class="dl-empty">Chưa ghi dị ứng nào — bấm “Thêm dị ứng”, hoặc ghi “Chưa ghi nhận” ở ô chữ bên dưới.</p>`;
+        host.querySelectorAll('.du-tn').forEach(goiY(flatNames(groups)));
     }
 
     const get = () => rows.filter(r => trim(r.tacNhan));

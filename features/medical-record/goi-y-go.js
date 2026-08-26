@@ -158,11 +158,11 @@ export function attachTypeahead(el, cfg = {}) {
     ensurePop();
     const minLen = cfg.minLen ?? 2;
 
-    el.addEventListener('input', (e) => {
+    const doGoiY = (e) => {
         if (cur?.skip) { cur.skip = false; return; }
         // Máy tự điền ô (lý do vào viện đổ xuống triệu chứng chính, chip gợi ý…) thì
         // đừng bung bảng gợi ý đè lên màn hình — chỉ bung khi người thật đang gõ.
-        if (e && e.isTrusted === false) return hide();
+        if (e && e.type === 'input' && e.isTrusted === false) return hide();
         const q = curLine(el).trim();
         // Đã ghi mục đích rồi thì thôi, đừng nhảy ra gợi ý đè lên
         if (q.length < minLen || q.includes('—')) return hide();
@@ -170,7 +170,12 @@ export function attachTypeahead(el, cfg = {}) {
         if (!list.length || (list.length === 1 && list[0] === q)) return hide();
         cur = { el, cfg, mode: 'items', list, active: 0, q, skip: false };
         render();
-    });
+    };
+    el.addEventListener('input', doGoiY);
+    /* Ô có sẵn một bộ câu trả lời ngắn (vd "rõ là như thế nào" của triệu chứng cũ)
+       thì chạm vào là bày ra luôn, khỏi bắt gõ mới thấy — dùng chung một bảng gợi ý,
+       không phải bày thêm hàng chip riêng cho gọn màn hình. */
+    if (cfg.moKhiFocus) el.addEventListener('focus', doGoiY);
 
     el.addEventListener('keydown', (e) => {
         if (!cur || cur.el !== el || !cur.mode || pop.classList.contains('hidden')) return;

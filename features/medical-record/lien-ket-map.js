@@ -17,6 +17,7 @@ import { getCls } from './cls-editor.js';
 import { getRx, rxLine } from './rx-editor.js';
 import { benhCuaThuoc } from './thuoc-data.js';
 import { NORMAL_EXAM } from './goi-y-nhap.js';
+import { parseCls } from './cls-de-nghi.js';
 import { fold } from './tim-kiem.js';
 
 const $ = (id) => document.getElementById(id);
@@ -156,12 +157,18 @@ export function buildNetwork() {
         if (dx) link(dx, node); else node.warn = 'chưa rõ phân định cho hướng nào';
         clsNodes.push(node);
     });
+    // Đề nghị gõ tay, không sinh ra từ nhánh nào: vẫn vẽ, nhưng chỉ kêu thiếu khi
+    // chính dòng đó chưa nói được đề nghị để làm gì.
     splitLines(val('labs-proposed'))
         .filter(t => !clsNodes.some(c => near(c.text, t)))
-        .forEach(t => clsNodes.push(mk('cls', {
-            text: t, tab: 'chan-doan-dieu-tri', field: 'labs-proposed',
-            warn: 'chưa gắn mục đích — đề nghị để làm gì?'
-        })));
+        .forEach(t => {
+            const r = parseCls(t);
+            clsNodes.push(mk('cls', {
+                text: r.ten || t, sub: [r.mucDich, r.dich].filter(Boolean).join(' '),
+                tab: 'chan-doan-dieu-tri', field: 'labs-proposed',
+                warn: r.mucDich ? '' : 'chưa gắn mục đích — đề nghị để làm gì?'
+            }));
+        });
 
     /* cột 5 — điều trị, nối về chẩn đoán qua thư viện thuốc theo bệnh */
     getRx().forEach(r => {

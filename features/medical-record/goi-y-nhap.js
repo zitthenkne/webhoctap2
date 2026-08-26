@@ -7,10 +7,10 @@
 
 import { openListPicker } from './list-picker.js';
 import { BENH_NHOM } from './benh-data.js';
-import { CLS_DE_NGHI, HOI_CHUNG } from './de-nghi-data.js';
+import { CLS_DE_NGHI } from './de-nghi-data.js';
 import { ROS_BY_NHOM, SYMPTOMS } from './trieu-chung-data.js';
-import { attachTypeahead, CLS_PURPOSES } from './goi-y-go.js';
-import { suggestFor, hallmarksFor } from './bien-luan-data.js';
+import { attachTypeahead } from './goi-y-go.js';
+import { suggestFor, hallmarksFor, TEN_VAN_DE } from './bien-luan-data.js';
 import { requirementsFor } from './clinical-validator.js';
 import { fold } from './tim-kiem.js';
 
@@ -37,8 +37,9 @@ const QUICK_FILL = {
     'history-surgery': ['Chưa ghi nhận tiền căn ngoại khoa', 'Mổ lấy thai', 'Cắt ruột thừa'],
     'history-obgyne': ['Kinh nguyệt đều', 'PARA', 'Đã mãn kinh'],
     'history-allergy': ['Chưa ghi nhận dị ứng thuốc, thức ăn'],
-    'history-habit': ['Không hút thuốc lá, không uống rượu bia', 'Hút thuốc lá', 'Uống rượu bia thường xuyên',
-        'Nhai trầu', 'Ăn mặn', 'Ăn nhiều dầu mỡ', 'Ít vận động', 'Thức khuya sau 24h',
+    // Hút thuốc / rượu bia đã có hộp tính gói·năm và đơn vị cồn ở trên (kèm nút Có/Không),
+    // chip nhắc lại chỉ cho ra câu nghèo hơn. Chỉ giữ những thói quen KHÔNG có hộp riêng.
+    'history-habit': ['Nhai trầu', 'Ăn mặn', 'Ăn nhiều dầu mỡ', 'Ít vận động', 'Thức khuya sau 24h',
         'Tự mua thuốc uống khi bệnh', 'Dùng thuốc nam không rõ nguồn gốc'],
     'history-family': ['Chưa ghi nhận bệnh lý tương tự trong gia đình', 'Gia đình có người tăng huyết áp', 'Gia đình có người đái tháo đường'],
     'ros-cardio': [['Bình thường', () => 'Không hồi hộp, không đánh trống ngực, không khó thở'], 'Có khó thở khi gắng sức'],
@@ -47,21 +48,16 @@ const QUICK_FILL = {
     'ros-neuro': [['Bình thường', () => 'Không đau đầu, không chóng mặt'], 'Mất ngủ'],
     'ros-msk': [['Bình thường', () => 'Không đau khớp, không yếu liệt cơ, không giới hạn vận động'], 'Đau mỏi cơ'],
     'ros-uro': [['Bình thường', () => 'Nước tiểu vàng trong, không tiểu gắt buốt, không tiểu máu'], 'Tiểu đêm'],
-    'exam-general': ['Bệnh nhân tỉnh, tiếp xúc tốt', 'Da niêm hồng', 'Da niêm nhạt', 'Chi ấm, mạch quay rõ, CRT < 2s', 'Không phù', 'Hạch ngoại vi sờ không chạm', 'Môi khô, lưỡi dơ'],
-    'exam-head': ['Cân đối, không biến dạng', 'Họng sạch', 'Tuyến giáp không to, khí quản không lệch', 'Không âm thổi động mạch cảnh', 'Kết mạc mắt nhạt'],
-    'exam-chest': ['Lồng ngực cân đối, không sang thương, di động đều theo nhịp thở', 'Không co kéo cơ hô hấp phụ', 'Có sẹo mổ cũ'],
-    'exam-heart': ['Mỏm tim khoang liên sườn V đường trung đòn trái', 'T1 T2 đều rõ, không âm thổi', 'Tim nhanh đều', 'Dấu Harzer (-)'],
-    'exam-lung': ['Rung thanh đều 2 bên', 'Gõ trong khắp phổi', 'Rì rào phế nang êm dịu 2 phế trường, không ran', 'Ran nổ đáy phổi (P)', 'Ran ẩm 2 đáy phổi'],
+    'exam-general': ['Bệnh nhân tỉnh, tiếp xúc tốt', 'Da niêm hồng', 'Chi ấm, mạch quay rõ, CRT < 2s', 'Không phù', 'Hạch ngoại vi sờ không chạm', 'Môi khô, lưỡi dơ'],
+    'exam-head': ['Cân đối, không biến dạng', 'Họng sạch', 'Tuyến giáp không to, khí quản không lệch', 'Không âm thổi động mạch cảnh', 'Kết mạc mắt hồng'],
+    'exam-chest': ['Lồng ngực cân đối, không sang thương, di động đều theo nhịp thở', 'Không co kéo cơ hô hấp phụ'],
+    'exam-heart': ['Mỏm tim khoang liên sườn V đường trung đòn trái', 'T1 T2 đều rõ, không âm thổi', 'Dấu Harzer (-)'],
+    'exam-lung': ['Rung thanh đều 2 bên', 'Gõ trong khắp phổi', 'Rì rào phế nang êm dịu 2 phế trường, không ran'],
     'exam-abdomen': ['Bụng mềm, không điểm đau khu trú', 'Nhu động ruột 5 lần/phút', 'Gan lách sờ không chạm', 'Gõ đục vùng thấp (-), sóng vỗ (-)', 'Chạm thận (-), bập bềnh thận (-)'],
     'exam-neuro-msk': ['Cổ mềm, không dấu thần kinh định vị', 'Không yếu liệt chi, không giới hạn vận động', 'Không biến dạng chi, không gù vẹo cột sống'],
-    'labs-proposed': ['Công thức máu', 'Sinh hóa máu: ure, creatinine, AST, ALT, ion đồ', 'Đường huyết', 'CRP', 'Tổng phân tích nước tiểu', 'X-quang ngực thẳng', 'ECG', 'Siêu âm bụng tổng quát'],
-    'labs-rationale': ['Để chẩn đoán xác định:', 'Để chẩn đoán phân biệt:', 'Để đánh giá mức độ nặng:', 'Để tìm biến chứng:', 'Để tìm nguyên nhân / yếu tố thúc đẩy:', 'Để theo dõi điều trị:', 'Xét nghiệm thường quy:'],
-    'labs-interpretation': ['Kết quả phù hợp với chẩn đoán sơ bộ vì:', 'Kết quả không ủng hộ chẩn đoán… vì:', 'Đã loại trừ… vì:', 'Đề nghị làm thêm… vì:'],
     'diagnosis-reasoning': ['Nghĩ nhiều đến… vì:', 'Ít nghĩ đến… vì:', 'Chưa loại trừ… nên đề nghị:', 'Yếu tố nguy cơ:', 'Biến chứng cần tìm:'],
-    'differential-diagnosis': ['Cùng triệu chứng nhưng khác cơ chế:', 'Bệnh cảnh nặng cần loại trừ trước:'],
     'treatment-plan': ['Điều trị nguyên nhân', 'Điều trị triệu chứng', 'Điều trị hỗ trợ, nâng tổng trạng', 'Điều trị bệnh nền đi kèm', 'Theo dõi sinh hiệu, biến chứng', 'Chế độ ăn – vận động'],
     'prognosis': ['Tiên lượng gần: khá', 'Tiên lượng xa: dè dặt'],
-    'prevention': ['Tuân thủ điều trị, tái khám đúng hẹn', 'Chế độ ăn hợp lý, tập luyện đều đặn'],
 
     /* --- Bệnh sử: triệu chứng chính, đủ 6 thuộc tính --- */
     'hx-onset-date': [['Ngay ngày NV', backFrom(0)], ['1 ngày trước', backFrom(1)], ['3 ngày', backFrom(3)],
@@ -83,6 +79,13 @@ const QUICK_FILL = {
     'hx-negatives': ['không sốt, không lạnh run', 'không khó thở, không đau ngực', 'không nôn ói, không tiêu chảy', 'không tiêu phân đen, không tiểu máu', 'không sụt cân, không vã mồ hôi đêm'],
     'adm-note': ['thở khí trời', 'đang thở oxy qua canula', 'đang truyền dịch', 'tri giác tỉnh táo, GCS 15'],
 
+    /* --- Bốn chức năng thường quy: ăn – ngủ – tiêu – tiểu ---
+       Bệnh án nào cũng phải ghi bốn ô này nên trước giờ là bốn ô gõ tay nhiều nhất. */
+    'hx-eat': ['ăn uống bình thường', 'ăn kém, khoảng nửa khẩu phần', 'chỉ ăn được cháo loãng', 'chán ăn, ăn không ngon miệng', 'nhịn ăn chờ mổ', 'nuôi ăn qua sonde dạ dày'],
+    'hx-sleep': ['ngủ được 6–8 giờ mỗi đêm', 'ngủ kém vì đau', 'khó vào giấc, hay thức giấc giữa đêm', 'phải ngồi mới ngủ được', 'mất ngủ gần như cả đêm'],
+    'hx-stool': ['tiêu phân vàng đóng khuôn 1 lần/ngày', 'táo bón, 3 ngày chưa đi tiêu', 'tiêu lỏng nhiều lần trong ngày', 'tiêu phân đen sệt', 'tiêu ra máu đỏ tươi', 'chưa trung tiện được sau mổ'],
+    'hx-urine': ['tiểu vàng trong, khoảng 1,5 lít/ngày', 'tiểu ít, dưới 500 ml/ngày', 'tiểu nhiều lần, tiểu gắt buốt', 'tiểu đêm 2–3 lần', 'tiểu máu đại thể', 'đang đặt thông tiểu'],
+
     /* --- Ngoại khoa: cơ chế chấn thương --- */
     'tr-energy': ['xe máy ~40–50 km/h', 'xe máy tốc độ chậm trong khu dân cư', 'ô tô ~60 km/h', 'té từ độ cao ~2 m', 'té từ độ cao > 3 m', 'té ngã ngang tầm đứng'],
     'tr-impact': ['đập vùng chỏm đầu xuống mặt đường', 'đập vùng chẩm xuống nền cứng', 'đập vai và hông (P)', 'ngực đập vào tay lái', 'không rõ vị trí va đập đầu tiên'],
@@ -99,6 +102,10 @@ const QUICK_FILL = {
     'cc-initial': ['thở oxy qua canula 3 l/phút', 'lập 2 đường truyền tĩnh mạch lớn', 'truyền NaCl 0,9% 500 ml nhanh', 'cố định cột sống cổ, bất động', 'giảm đau đường tĩnh mạch'],
 
     /* --- Sản khoa --- */
+    'ob-hx-where': ['trạm y tế phường / xã', 'phòng khám tư', 'bệnh viện quận / huyện', 'bệnh viện tỉnh', 'BV Từ Dũ', 'BV Hùng Vương'],
+    'ob-hx-us': ['một thai sống trong tử cung, ngôi chỏm', 'ối bình thường, bánh nhau bám đáy', 'thai chậm tăng trưởng trong tử cung', 'nhau tiền đạo', 'chưa siêu âm lần nào'],
+    'ob-hx-tests': ['double test nguy cơ thấp', 'triple test nguy cơ thấp', 'NIPT nguy cơ thấp', 'dung nạp glucose bình thường', 'đái tháo đường thai kỳ', 'chưa làm xét nghiệm nào'],
+    'ob-hx-abnormal': ['chưa ghi nhận bất thường trong thai kỳ', 'nghén nhiều 3 tháng đầu', 'dọa sinh non', 'tăng huyết áp thai kỳ', 'thiếu máu thiếu sắt', 'ra huyết âm đạo'],
     'ob-contraction': ['chưa có cơn co tử cung', 'cơn co thưa 1–2 cơn/10 phút', '3 cơn/10 phút, mỗi cơn 30 giây', '4–5 cơn/10 phút, cường độ mạnh'],
     'ob-cervix': ['cổ tử cung đóng, chưa xóa', 'xóa 30%, mở 1 cm', 'xóa 60%, mở 3 cm', 'xóa hết, mở 6 cm', 'mở trọn 10 cm'],
     'ob-position': ['ngôi chỏm', 'ngôi mông', 'ngôi ngang', 'chưa xác định được ngôi'],
@@ -106,12 +113,16 @@ const QUICK_FILL = {
     'ob-pelvis': ['khung chậu bình thường', 'khung chậu giới hạn', 'khung chậu hẹp'],
 
     /* --- Nhi khoa --- */
+    'ped-hx-stool': ['phân vàng sệt như mọi ngày', 'phân lỏng toàn nước, nhiều lần/ngày', 'phân nhầy có máu', 'phân sống, có bọt', 'chưa đi tiêu 2 ngày nay'],
+    'ped-hx-epi': ['chưa ghi nhận dịch tễ bất thường', 'lớp học có bạn mắc bệnh tương tự', 'nhà có người bệnh giống trẻ', 'khu vực đang có dịch sốt xuất huyết', 'gần đây gia đình có đi xa'],
+    'ped-hx-treated': ['chưa điều trị gì', 'uống hạ sốt tại nhà', 'bù oresol tại nhà', 'đã khám phòng khám tư, có toa thuốc', 'đã truyền dịch ở tuyến trước'],
     'ped-birth': ['sinh thường đủ tháng 39 tuần, 3200 g', 'sinh mổ đủ tháng, 3000 g', 'sinh non 34 tuần, 2000 g', 'khóc ngay sau sinh, không ngạt'],
     'ped-nutrition': ['bú mẹ hoàn toàn 6 tháng đầu', 'bú mẹ kết hợp sữa công thức', 'ăn dặm từ 6 tháng', 'hiện ăn cơm cùng gia đình'],
     'ped-vaccine': ['tiêm chủng đủ theo lịch quốc gia', 'tiêm chủng chưa đủ', 'chưa tiêm chủng', 'không rõ tiền căn chủng ngừa'],
     'ped-development': ['phát triển tâm vận bình thường theo tuổi', 'biết lật 4 tháng, ngồi 6 tháng', 'biết đi lúc 12 tháng', 'chậm phát triển so với tuổi'],
 
     /* --- Phẫu thuật --- */
+    'sx-hx-fasting': ['nhịn ăn uống hoàn toàn từ tối hôm qua', 'ăn cháo lúc 6 giờ sáng', 'uống nước lọc cách đây 2 giờ', 'bữa ăn cuối cách đây trên 8 giờ', 'vừa ăn xong, chưa đủ thời gian nhịn'],
     'sx-method': ['cắt túi mật nội soi', 'cắt ruột thừa nội soi', 'khâu lỗ thủng dạ dày', 'mổ lấy thai ngang đoạn dưới', 'kết hợp xương nẹp vít'],
     'sx-anesthesia': ['mê nội khí quản', 'tê tủy sống', 'tê tại chỗ', 'mê tĩnh mạch'],
     'sx-drain': ['không đặt dẫn lưu', 'dẫn lưu dưới gan ra 50 ml dịch vàng trong', 'dẫn lưu Douglas ra dịch hồng loãng', 'vết mổ khô, không chảy dịch', 'vết mổ tấy đỏ, có dịch đục'],
@@ -131,7 +142,9 @@ const QUICK_FILL = {
     'env-animal': ['không nuôi, không tiếp xúc động vật', 'nuôi gà, vịt', 'nuôi chó, mèo', 'bị chó cắn', 'bị mèo cào', 'giết mổ gia cầm'],
     'env-water': ['dùng nước máy, ăn chín uống sôi', 'dùng nước giếng khoan', 'hay ăn gỏi cá – thịt tái', 'hay ăn rau sống', 'uống nước chưa đun sôi'],
     'env-travel': ['không đi đâu xa trong 1 tháng nay', 'về quê 2 tuần trước', 'đi nước ngoài trong 1 tháng nay', 'đi vùng rừng núi'],
-    'history-environment': ['Chưa ghi nhận yếu tố phơi nhiễm đặc biệt', 'Tiếp xúc khói bụi nghề nghiệp', 'Tiếp xúc thuốc bảo vệ thực vật', 'Tiếp xúc hóa chất công nghiệp', 'Sống vùng dịch tễ sốt xuất huyết', 'Nuôi gia súc, gia cầm'],
+    // Sáu ô phơi nhiễm ở trên đã hỏi đúng từng nguồn (nghề nghiệp, vùng dịch tễ, tiếp xúc
+    // người bệnh / động vật, nguồn nước, đi lại) — chip ở đây chỉ là bản gộp một câu, bỏ.
+    // Câu "chưa ghi nhận" đã có nút Không của khối `data-ask` lo.
     'sx-pre-dx': ['Viêm ruột thừa cấp', 'Viêm túi mật cấp do sỏi', 'Thủng tạng rỗng', 'Tắc ruột cơ học', 'Gãy xương kín'],
     'sx-post-dx': ['Chẩn đoán sau mổ phù hợp chẩn đoán trước mổ', 'Viêm ruột thừa cấp đã vỡ mủ', 'Viêm túi mật hoại tử', 'Thủng ổ loét hành tá tràng'],
     'sx-report': ['Tổn thương ghi nhận:', 'Các thì mổ chính:', 'Lượng máu mất ước tính:', 'Không tai biến trong mổ', 'Dẫn lưu đặt tại:']
@@ -238,6 +251,12 @@ const DX_IDS = ['dx1-main', 'dx2-main', 'differential-diagnosis'];
  *
  * @param {Array} syms mảng triệu chứng (từ getClinicalContext)
  */
+/* Chẩn đoán đang ghi lần gần nhất — mục XI hỏi lại để vẽ chip "CLS bắt buộc". */
+let mustDx = '';
+
+/** Cận lâm sàng bắt buộc của chẩn đoán đang ghi -> [{ten, benh}] */
+export const labsCanCo = () => requirementsFor(mustDx).labs;
+
 export function applyClinicalContext(syms) {
     const problems = lines('problem-list');
     const dxLines = [...new Set(DX_IDS.flatMap(lines))];
@@ -250,7 +269,7 @@ export function applyClinicalContext(syms) {
     const hallByField = {};
     [...new Set([...dxLines, ...problems].flatMap(hallmarksFor))]
         .forEach(t => (hallByField[examFieldFor(t)] ||= []).push(t));
-    const { labs: mustLabs, needs } = requirementsFor(dxText);
+    const { needs } = requirementsFor(dxText);
     const needByField = {};
     needs.forEach(n => (needByField[n.field] ||= []).push(n));
 
@@ -287,14 +306,8 @@ export function applyClinicalContext(syms) {
     });
     DX_IDS.forEach(id => setChips(id, cand.length ? [...cand, ...(QUICK_FILL[id] || [])] : null));
 
-    /* --- 3. Chẩn đoán kéo sang cận lâm sàng bắt buộc --- */
-    const co = fold(String($('labs-proposed')?.value || ''));
-    const thieu = mustLabs.filter(l => !co.includes(fold(l.ten)));
-    setChips('labs-proposed', thieu.length
-        ? [...thieu.map(l => ({ text: l.ten, tag: '🎯', title: `Bắt buộc cho chẩn đoán ${l.benh} — mục XI chưa có` })),
-            ...(QUICK_FILL['labs-proposed'] || [])]
-        : null);
-    markHot('labs-proposed', thieu.length);
+    /* --- 3. Cận lâm sàng bắt buộc: xem `labsCanCo()`, chip do mục XI tự vẽ --- */
+    mustDx = dxText;
 
     /* --- 4. Hai ô hay bí nhất của triệu chứng chính --- */
     const kem = [...new Set(syms.flatMap(s => s.coOccurring || []))];
@@ -385,7 +398,7 @@ function attachPicker(id, { title, groups, multi = false, label = 'Chọn từ d
 /** Gom một danh mục nhiều nhóm thành mảng tên phẳng để dò khi gõ */
 const flatNames = (groups) => [...new Set(groups.flatMap(g => g.items || []))];
 
-export function buildPickers({ autoGrow, clsTargets }) {
+export function buildPickers({ autoGrow }) {
     const benh = { title: 'Chọn chẩn đoán', groups: BENH_NHOM };
     const benhP = { ...benh, autoGrow };
     attachPicker('dx1-main', { ...benhP, label: 'Chọn bệnh theo chuyên khoa' });
@@ -396,24 +409,17 @@ export function buildPickers({ autoGrow, clsTargets }) {
         title: 'Chọn các chẩn đoán phân biệt', groups: BENH_NHOM, multi: true, autoGrow,
         label: 'Chọn nhiều bệnh cần phân biệt'
     });
-    attachPicker('problem-list', {
-        title: 'Chọn hội chứng / vấn đề', groups: HOI_CHUNG, multi: true, autoGrow,
-        label: 'Chọn hội chứng theo hệ cơ quan'
-    });
-    attachPicker('labs-proposed', {
-        title: 'Chọn cận lâm sàng đề nghị', groups: CLS_DE_NGHI, multi: true, autoGrow,
-        label: 'Chọn cận lâm sàng theo nhóm'
-    });
+    /* Mục XI không gắn picker / typeahead ở đây: ô `#labs-proposed` chỉ là bản máy
+       ghép nằm trong <details>, còn chỗ nhập thật là từng dòng của cls-de-nghi.js
+       (mỗi dòng đã có kính lúp + gợi ý khi gõ + ô mục đích riêng). */
 
-    /* Gõ tay cũng không phải nhớ đủ tên: gõ vài chữ là hiện gợi ý ngay dưới ô.
-       Riêng cận lâm sàng thì hỏi luôn "đề nghị để làm gì" — chỗ hay bị bỏ trống. */
-    attachTypeahead($('labs-proposed'), {
-        items: flatNames(CLS_DE_NGHI), purposes: CLS_PURPOSES, targets: clsTargets, autoGrow
-    });
+    /* Gõ tay cũng không phải nhớ đủ tên: gõ vài chữ là hiện gợi ý ngay dưới ô. */
     const benhNames = flatNames(BENH_NHOM);
     ['dx1-main', 'dx2-main', 'sx-pre-dx', 'sx-post-dx', 'differential-diagnosis']
         .forEach(id => attachTypeahead($(id), { items: benhNames, autoGrow }));
-    attachTypeahead($('problem-list'), { items: flatNames(HOI_CHUNG), autoGrow });
+    // Mục VIII đã có nút "Chọn vấn đề từ danh mục" (đi qua setProblems nên mục X mọc
+    // thẻ biện luận theo) — ở đây chỉ gắn thêm gợi ý khi gõ, cùng một danh mục.
+    attachTypeahead($('problem-list'), { items: TEN_VAN_DE, autoGrow });
     const symNames = SYMPTOMS.map(s => s.ten);
     // Ô lý do vào viện có bảng chọn riêng (ly-do-list.js) nên không gắn typeahead nữa
     attachTypeahead($('hx-sym-name'), { items: symNames, autoGrow });

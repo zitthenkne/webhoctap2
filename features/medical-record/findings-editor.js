@@ -236,7 +236,11 @@ function panelHtml(target, finding) {
 function render(box) {
     const target = box.dataset.fdFor;
     const list = FINDINGS[target] || [];
+    /* Hàng chip phía trên (QUICK_FILL) là câu bình thường / âm tính, chèn thẳng.
+       Hàng này là dấu chứng BẤT THƯỜNG: bấm không chèn ngay mà mở bảng hỏi chi tiết
+       rồi mới ghép câu. Không ghi rõ ra thì nhìn như hai hàng bày trùng nhau. */
     box.innerHTML = `<div class="fd-chips">
+            <span class="fd-lead"><i class="fas fa-circle-exclamation"></i> Bất thường — bấm để khai thác cho đủ ý:</span>
             ${list.map(f => `<button type="button" class="fd-chip${openKey === target + '|' + f.k ? ' is-open' : ''}"
                 data-fd-key="${f.k}"><i class="fas fa-plus-circle"></i> ${esc(f.label)}</button>`).join('')}
         </div>`

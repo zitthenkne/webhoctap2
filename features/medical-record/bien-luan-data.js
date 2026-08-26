@@ -588,7 +588,8 @@ CAUSE_CLS.push(
 export const VAN_DE_NHOM = [
     {
         ten: 'Toàn thân', icon: 'fa-person', items: [
-            'Hội chứng nhiễm trùng', 'Sốt kéo dài chưa rõ nguyên nhân', 'Hội chứng đáp ứng viêm toàn thân (SIRS)',
+            'Hội chứng nhiễm trùng', 'Hội chứng nhiễm siêu vi', 'Sốt kéo dài chưa rõ nguyên nhân',
+            'Hội chứng đáp ứng viêm toàn thân (SIRS)',
             'Sụt cân – triệu chứng B', 'Suy kiệt – suy dinh dưỡng', 'Thừa cân – béo phì',
             'Hội chứng phù toàn thân', 'Mệt mỏi kéo dài', 'Hội chứng lão suy']
     },
@@ -601,7 +602,8 @@ export const VAN_DE_NHOM = [
     },
     {
         ten: 'Tim mạch', icon: 'fa-heart-pulse', items: [
-            'Hội chứng suy tim ứ huyết', 'Đợt mất bù suy tim', 'Đau ngực cấp',
+            'Hội chứng suy tim ứ huyết', 'Hội chứng suy tim trái', 'Hội chứng suy tim phải',
+            'Hội chứng suy tim toàn bộ', 'Đợt mất bù suy tim', 'Đau ngực cấp',
             'Cơn đau thắt ngực ổn định', 'Hội chứng vành cấp', 'Tăng huyết áp',
             'Cơn tăng huyết áp cấp cứu', 'Hội chứng van tim (hẹp – hở)', 'Rối loạn nhịp tim',
             'Hồi hộp – đánh trống ngực', 'Ngất', 'Hội chứng tĩnh mạch chủ trên',
@@ -612,21 +614,23 @@ export const VAN_DE_NHOM = [
             'Đau bụng cấp', 'Đau bụng mạn', 'Hội chứng xuất huyết tiêu hóa trên',
             'Hội chứng xuất huyết tiêu hóa dưới', 'Hội chứng vàng da tắc mật',
             'Hội chứng suy tế bào gan', 'Hội chứng tăng áp tĩnh mạch cửa', 'Cổ trướng',
-            'Hội chứng lỵ', 'Tiêu chảy cấp', 'Tiêu chảy mạn', 'Táo bón kéo dài',
+            'Hội chứng nhiễm trùng đường mật', 'Hội chứng lỵ', 'Tiêu chảy cấp', 'Tiêu chảy mạn',
+            'Táo bón kéo dài',
             'Hội chứng kém hấp thu', 'Hội chứng não gan', 'Khối u vùng bụng']
     },
     {
         ten: 'Thận – tiết niệu', icon: 'fa-droplet', items: [
             'Hội chứng thận hư', 'Hội chứng viêm cầu thận cấp', 'Tổn thương thận cấp',
             'Bệnh thận mạn', 'Hội chứng ure huyết cao', 'Nhiễm trùng đường tiểu',
-            'Cơn đau quặn thận', 'Tiểu máu', 'Bí tiểu cấp', 'Rối loạn điện giải',
+            'Cơn đau quặn thận', 'Tiểu máu', 'Hội chứng bế tắc đường tiểu', 'Bí tiểu cấp',
+            'Rối loạn điện giải',
             'Toan – kiềm chuyển hóa']
     },
     {
         ten: 'Thần kinh', icon: 'fa-brain', items: [
             'Hội chứng liệt nửa người', 'Hội chứng tăng áp lực nội sọ', 'Hội chứng màng não',
             'Rối loạn tri giác – hôn mê', 'Đau đầu cấp', 'Đau đầu mạn', 'Cơn co giật',
-            'Hội chứng tiểu não', 'Hội chứng ngoại tháp', 'Hội chứng chèn ép tủy',
+            'Hội chứng tiểu não', 'Hội chứng tháp', 'Hội chứng ngoại tháp', 'Hội chứng chèn ép tủy',
             'Bệnh lý đa dây thần kinh', 'Chóng mặt – rối loạn tiền đình']
     },
     {

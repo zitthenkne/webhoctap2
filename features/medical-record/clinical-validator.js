@@ -35,7 +35,7 @@ const PAST_IDS = ['history-internal', 'history-surgery', 'history-obgyne', 'hist
     'history-environment', 'history-drugs', 'history-habit', 'history-family'];
 const DX_IDS = ['dx1-main', 'dx1-comp', 'dx1-stage', 'dx1-assoc', 'provisional-diagnosis'];
 const FINAL_IDS = ['dx2-main', 'dx2-comp', 'dx2-stage', 'dx2-assoc', 'final-diagnosis'];
-const LAB_IDS = ['labs-proposed', 'labs-rationale'];
+const LAB_IDS = ['labs-proposed'];
 
 /** Gom mọi con số / chữ trong các phiếu cận lâm sàng đã nhập */
 function clsText() {
@@ -80,7 +80,9 @@ export function collectContext(extra = {}) {
         ddx: fold(val('differential-diagnosis')),
         labs: pool(LAB_IDS),
         labsProposed: fold(val('labs-proposed')),
-        rationale: fold(val('labs-rationale')),
+        // Mỗi dòng đề nghị tự mang mục đích + dấu hiệu mong tìm, nên lý do nằm ngay
+        // trên dòng đó chứ không còn ô "biện luận đề nghị" riêng.
+        labsLines: val('labs-proposed').split('\n').map(x => x.trim()).filter(Boolean),
         final: pool(FINAL_IDS),
         results: fold(val('labs-results')) + '\n' + clsText(),
         problems: fold(val('problem-list')),
@@ -745,13 +747,15 @@ function runStructureRules(c) {
     }
 
     INVASIVE.forEach(([re, ten]) => {
-        if (!has(c.labsProposed, re)) return;
-        if (has(c.rationale, re) || has(c.blText, re)) return;
+        const line = c.labsLines.find(l => re.test(fold(l)));
+        // Đủ lý do khi chính dòng đó đã ghi "để làm gì" và "tìm: dấu hiệu nào"
+        if (!line || (line.includes(' — ') && /—\s*tìm:/i.test(line))) return;
+        if (has(c.blText, re) && line.includes(' — ')) return;
         out.push(mk({
             type: 'UNJUSTIFIED_LAB', severity: 'LOW',
-            title: `${ten} chưa có lý do biện luận`,
-            message: `Mục XI đề nghị ${ten} — đây là thăm dò xâm lấn / chi phí cao nên cần nêu rõ dùng để xác định hay loại trừ chẩn đoán nào.`,
-            actionText: 'Viết lý do đề nghị', targetTab: 'chan-doan-dieu-tri', targetField: 'labs-rationale'
+            title: `${ten} chưa nói rõ đề nghị để làm gì`,
+            message: `Mục XI đề nghị ${ten} — đây là thăm dò xâm lấn / chi phí cao nên ngay trên dòng đó phải ghi dùng để xác định hay loại trừ bệnh cảnh nào, và mong tìm thấy dấu hiệu gì.`,
+            actionText: 'Bổ sung mục đích', targetTab: 'chan-doan-dieu-tri', targetField: 'labs-proposed'
         }));
     });
 
