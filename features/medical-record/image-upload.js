@@ -46,6 +46,42 @@ export function deleteImage(im) {
 }
 
 /* =====================================================================
+   Chọn ảnh / chụp tại chỗ
+   Điện thoại và iPad có camera: bày thẳng nút "Chụp ảnh" thay vì bắt người
+   dùng bấm "Thêm ảnh" rồi mới tìm mục camera trong bảng chọn tệp.
+   ===================================================================== */
+
+/** Máy đang dùng là thiết bị cảm ứng (điện thoại / máy tính bảng) */
+export const coCamera = () => {
+    try { return window.matchMedia('(pointer: coarse)').matches; }
+    catch { return false; }
+};
+
+/**
+ * Mở hộp chọn ảnh.
+ * @param {{multiple?:boolean, capture?:boolean, onFiles:(FileList)=>void}} o
+ *   capture = true -> mở thẳng camera sau (mỗi lần một tấm, đúng cách iOS/Android
+ *   xử lý thuộc tính capture; bỏ multiple để máy không quay lại thư viện ảnh).
+ */
+export function openPicker({ multiple = true, capture = false, onFiles }) {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'image/*';
+    // Phải dùng setAttribute: `inp.capture = ...` chỉ tạo thuộc tính JS trên
+    // trình duyệt máy tính, attribute không bao giờ xuất hiện nên máy điện thoại
+    // đọc không ra và mở thư viện ảnh thay vì camera.
+    if (capture) inp.setAttribute('capture', 'environment');
+    else if (multiple) inp.multiple = true;
+    inp.addEventListener('change', () => onFiles(inp.files));
+    inp.click();
+}
+
+/** Nút "Chụp ảnh" — chỉ hiện trên máy có camera, khỏi làm rối màn hình máy tính */
+export const shootBtnHtml = (cls = 'img-add is-cam') => coCamera()
+    ? `<button type="button" class="${cls}" data-act="shoot"><i class="fas fa-camera-retro"></i> Chụp ảnh</button>`
+    : '';
+
+/* =====================================================================
    Khối ảnh gắn vào một mục bất kỳ
    ===================================================================== */
 export function createImageBox({ host, recordId, folder = 'anh', onChange, label }) {
@@ -62,8 +98,11 @@ export function createImageBox({ host, recordId, folder = 'anh', onChange, label
 
     function render() {
         host.innerHTML = `<div class="img-bar">
-                <button type="button" class="img-add" data-act="pick"><i class="fas fa-camera"></i> ${esc(label || 'Thêm ảnh')}</button>
-                <span class="img-hint"><i class="fas fa-paste"></i> Dán (Ctrl+V) hoặc kéo ảnh thả vào đây</span>
+                ${shootBtnHtml()}
+                <button type="button" class="img-add${coCamera() ? ' is-alt' : ''}" data-act="pick"><i class="fas fa-images"></i> ${esc(coCamera() ? 'Chọn từ máy' : (label || 'Thêm ảnh'))}</button>
+                <span class="img-hint"><i class="fas fa-paste"></i> ${coCamera()
+                ? 'Chụp thẳng phiếu xét nghiệm, phim, sang thương — ảnh tự nén trước khi tải lên'
+                : 'Dán (Ctrl+V) hoặc kéo ảnh thả vào đây'}</span>
             </div>
             ${images.length ? `<div class="img-grid">${images.map(thumbHtml).join('')}</div>` : ''}`;
     }
@@ -92,11 +131,9 @@ export function createImageBox({ host, recordId, folder = 'anh', onChange, label
     }
 
     host.addEventListener('click', (e) => {
-        if (e.target.closest('[data-act="pick"]')) {
-            const inp = document.createElement('input');
-            inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
-            inp.addEventListener('change', () => add(inp.files));
-            inp.click();
+        const cam = e.target.closest('[data-act="shoot"]');
+        if (cam || e.target.closest('[data-act="pick"]')) {
+            openPicker({ capture: !!cam, onFiles: add });
             return;
         }
         const del = e.target.closest('[data-act="del"]');

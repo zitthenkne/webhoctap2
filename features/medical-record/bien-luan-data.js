@@ -847,3 +847,683 @@ export function searchLibrary(q) {
     // Gõ không dấu ("kho tho") hay gõ tên một nguyên nhân đều ra đúng mẫu
     return searchList(LIBRARY, q, { key: (x) => x.k, alias: (x) => [...x.nn, ...(x.red || [])], limit: 6 });
 }
+
+/* =====================================================================
+   Biến chứng cần bàn của từng vấn đề / bệnh — khối ④ trước đây hoàn toàn
+   phải gõ tay, giờ bấm chip là có, kèm sẵn cách theo dõi.
+   Mỗi mục: [mẫu tên, [ [biến chứng, lập luận / theo dõi], … ]]
+   ===================================================================== */
+export const BIEN_CHUNG = [
+    [/vi[êe]m ph[ổo]i|đ[ôo]ng đ[ặa]c/i, [
+        ['Suy hô hấp cấp', 'theo dõi SpO2, nhịp thở, khí máu động mạch khi SpO2 < 92%'],
+        ['Nhiễm trùng huyết – sốc nhiễm trùng', 'theo dõi qSOFA, lactat, cấy máu trước kháng sinh'],
+        ['Tràn dịch – tràn mủ màng phổi', 'siêu âm màng phổi, chọc dò khi dịch nhiều'],
+        ['Áp xe phổi', 'X-quang / CT ngực kiểm tra khi sốt kéo dài > 72 giờ dùng kháng sinh']
+    ]],
+    [/suy tim|[ứu] huy[ếe]t|ph[ùu] ph[ổo]i/i, [
+        ['Phù phổi cấp', 'theo dõi khó thở khi nằm, ran ẩm dâng cao, SpO2'],
+        ['Sốc tim', 'theo dõi huyết áp, tưới máu ngoại biên, lactat'],
+        ['Suy thận cấp trước thận (hội chứng tim – thận)', 'theo dõi creatinin, nước tiểu 24 giờ khi dùng lợi tiểu'],
+        ['Rối loạn nhịp – rung nhĩ', 'ECG mỗi ngày, theo dõi ion đồ khi lợi tiểu'],
+        ['Huyết khối thuyên tắc', 'cân nhắc kháng đông nếu rung nhĩ hoặc EF rất thấp']
+    ]],
+    [/v[àa]nh c[ấa]p|nh[ồo]i m[áa]u c[ơo] tim/i, [
+        ['Rối loạn nhịp thất – rung thất', 'monitor liên tục 48 giờ đầu'],
+        ['Sốc tim', 'theo dõi huyết áp, nước tiểu, siêu âm tim đánh giá EF'],
+        ['Suy tim cấp sau nhồi máu', 'khám dấu ứ trệ, NT-proBNP, siêu âm tim'],
+        ['Biến chứng cơ học (hở van hai lá cấp, thủng vách liên thất)', 'nghe tim mỗi ngày tìm âm thổi mới']
+    ]],
+    [/copd|hen|t[ắa]c ngh[ẽe]n/i, [
+        ['Suy hô hấp tăng CO2', 'khí máu động mạch, theo dõi tri giác'],
+        ['Tràn khí màng phổi', 'X-quang ngực khi đau ngực đột ngột, khó thở tăng'],
+        ['Tâm phế mạn', 'siêu âm tim đánh giá áp lực động mạch phổi']
+    ]],
+    [/nhi[ễe]m tr[ùu]ng|s[ốo]t/i, [
+        ['Nhiễm trùng huyết – sốc nhiễm trùng', 'qSOFA, lactat, cấy máu, theo dõi huyết áp'],
+        ['Rối loạn nước – điện giải', 'ion đồ, bilan dịch vào ra'],
+        ['Suy đa cơ quan', 'theo dõi creatinin, men gan, đông máu, tri giác']
+    ]],
+    [/x[ơo] gan|t[ăa]ng [áa]p (c[ửư]a|t[ĩi]nh m[ạa]ch)/i, [
+        ['Xuất huyết tiêu hóa do vỡ giãn tĩnh mạch thực quản', 'nội soi tiêu hóa trên, theo dõi Hb'],
+        ['Bệnh não gan', 'theo dõi tri giác, NH3 máu, tìm yếu tố thúc đẩy'],
+        ['Viêm phúc mạc nhiễm khuẩn nguyên phát', 'chọc dịch báng đếm neutrophil > 250/mm³'],
+        ['Hội chứng gan – thận', 'creatinin, natri niệu, ngưng lợi tiểu thử'],
+        ['Ung thư biểu mô tế bào gan', 'AFP, siêu âm bụng mỗi 6 tháng']
+    ]],
+    [/xu[ấa]t huy[ếe]t ti[êe]u h[óo]a/i, [
+        ['Sốc mất máu', 'mạch, huyết áp tư thế, Hb mỗi 6 giờ'],
+        ['Chảy máu tái phát', 'nội soi kiểm tra, phân loại Forrest'],
+        ['Bệnh não gan (trên nền xơ gan)', 'theo dõi tri giác sau xuất huyết']
+    ]],
+    [/đ[áa]i th[áa]o đ[ườơ]{1,2}ng/i, [
+        ['Nhiễm toan ceton / tăng áp lực thẩm thấu', 'đường huyết mao mạch, ceton, khí máu'],
+        ['Hạ đường huyết do điều trị', 'đo đường huyết trước ăn và lúc 3 giờ sáng'],
+        ['Biến chứng mạch máu nhỏ (võng mạc, thận, thần kinh)', 'soi đáy mắt, đạm niệu vi lượng, khám bàn chân'],
+        ['Nhiễm trùng bàn chân', 'khám bàn chân mỗi ngày, cấy mủ nếu có loét']
+    ]],
+    [/t[ăa]ng huy[ếe]t [áa]p/i, [
+        ['Cơn tăng huyết áp cấp cứu', 'theo dõi huyết áp, dấu tổn thương cơ quan đích'],
+        ['Phì đại thất trái – suy tim', 'ECG, siêu âm tim'],
+        ['Bệnh thận do tăng huyết áp', 'creatinin, đạm niệu'],
+        ['Đột quỵ', 'khám thần kinh mỗi ngày']
+    ]],
+    [/đ[ộo]t qu[ỵy]|nh[ồo]i m[áa]u n[ãa]o|xu[ấa]t huy[ếe]t n[ãa]o/i, [
+        ['Phù não – tăng áp lực nội sọ', 'theo dõi tri giác, đồng tử, CT kiểm tra'],
+        ['Viêm phổi hít', 'test nuốt trước khi cho ăn đường miệng'],
+        ['Huyết khối tĩnh mạch sâu', 'vận động sớm, tất áp lực'],
+        ['Loét tì đè', 'xoay trở mỗi 2 giờ']
+    ]],
+    [/suy th[ậa]n|th[ậa]n m[ạa]n|t[ổo]n th[ươư]{1,2}ng th[ậa]n/i, [
+        ['Tăng kali máu', 'ion đồ, ECG tìm sóng T cao nhọn'],
+        ['Toan chuyển hóa', 'khí máu động mạch, HCO3⁻'],
+        ['Quá tải dịch – phù phổi', 'cân mỗi ngày, bilan dịch'],
+        ['Thiếu máu do bệnh thận mạn', 'Hb, ferritin, cân nhắc EPO']
+    ]],
+    [/thi[ếe]u m[áa]u/i, [
+        ['Thiếu máu cơ tim do thiếu máu nặng', 'ECG, troponin nếu đau ngực'],
+        ['Suy tim cung lượng cao', 'khám dấu ứ trệ khi Hb rất thấp']
+    ]],
+    [/vi[êe]m t[ụu]y c[ấa]p/i, [
+        ['Hoại tử tụy nhiễm trùng', 'CT bụng cản quang sau 72 giờ nếu nặng lên'],
+        ['Suy hô hấp – ARDS', 'SpO2, khí máu, X-quang ngực'],
+        ['Nang giả tụy', 'siêu âm bụng theo dõi'],
+        ['Hạ canxi máu', 'ion đồ, canxi máu']
+    ]],
+    [/vi[êe]m ru[ộo]t th[ừu]a|vi[êe]m ph[úu]c m[ạa]c|th[ủu]ng t[ạa]ng/i, [
+        ['Viêm phúc mạc toàn thể', 'khám bụng mỗi 6 giờ, bạch cầu, CRP'],
+        ['Áp xe tồn lưu sau mổ', 'siêu âm bụng khi còn sốt sau mổ'],
+        ['Nhiễm trùng vết mổ', 'thay băng, quan sát vết mổ mỗi ngày'],
+        ['Tắc ruột do dính', 'theo dõi trung tiện, bụng chướng']
+    ]],
+    [/s[ốo]t xu[ấa]t huy[ếe]t|dengue/i, [
+        ['Sốc sốt xuất huyết Dengue', 'theo dõi mạch, huyết áp, Hct mỗi 4–6 giờ ngày 4–6'],
+        ['Xuất huyết nặng', 'theo dõi tiểu cầu, dấu xuất huyết niêm mạc'],
+        ['Tổn thương gan – suy gan cấp', 'AST, ALT, đông máu']
+    ]],
+    [/ti[ềe]n s[ảa]n gi[ậa]t/i, [
+        ['Sản giật', 'theo dõi phản xạ gân xương, magie sulfat dự phòng'],
+        ['Hội chứng HELLP', 'tiểu cầu, men gan, LDH'],
+        ['Nhau bong non', 'theo dõi tim thai, cơn gò, ra huyết âm đạo']
+    ]],
+    [/s[ốo]c/i, [
+        ['Suy đa cơ quan', 'lactat, creatinin, men gan, đông máu'],
+        ['Tổn thương thận cấp', 'nước tiểu theo giờ'],
+        ['Rối loạn đông máu nội mạch lan tỏa', 'PT, aPTT, fibrinogen, D-dimer']
+    ]]
+];
+
+/** Biến chứng gợi ý cho một tên vấn đề / bệnh */
+export function bienChungFor(ten) {
+    const hit = BIEN_CHUNG.find(([re]) => re.test(ten || ''));
+    return hit ? hit[1] : [];
+}
+
+/* =====================================================================
+   Yếu tố nguy cơ / thúc đẩy kinh điển của từng bệnh cảnh — chip bấm là xong,
+   khỏi nghĩ xem "còn thiếu yếu tố nào".
+   ===================================================================== */
+export const YEU_TO = [
+    [/suy tim|v[àa]nh c[ấa]p|nh[ồo]i m[áa]u c[ơo] tim|t[ăa]ng huy[ếe]t [áa]p/i,
+        ['tăng huyết áp nhiều năm', 'đái tháo đường type 2', 'rối loạn lipid máu', 'hút thuốc lá',
+            'tiền căn gia đình bệnh mạch vành sớm', 'bỏ thuốc điều trị', 'ăn mặn', 'béo phì']],
+    [/vi[êe]m ph[ổo]i|nhi[ễe]m tr[ùu]ng h[ôo] h[ấa]p/i,
+        ['lớn tuổi', 'hút thuốc lá', 'COPD nền', 'đái tháo đường', 'nằm lâu – hạn chế vận động',
+            'sặc – rối loạn nuốt', 'suy giảm miễn dịch']],
+    [/copd|hen|t[ắa]c ngh[ẽe]n/i,
+        ['hút thuốc lá nhiều năm', 'tiếp xúc khói bụi nghề nghiệp', 'nhiễm siêu vi hô hấp',
+            'ngưng thuốc hít', 'dùng bình xịt sai kỹ thuật', 'thời tiết lạnh']],
+    [/x[ơo] gan|gan m[ậa]t|vi[êe]m gan/i,
+        ['uống rượu bia nhiều năm', 'viêm gan B mạn', 'viêm gan C mạn', 'gan nhiễm mỡ',
+            'dùng thuốc nam không rõ nguồn gốc']],
+    [/xu[ấa]t huy[ếe]t ti[êe]u h[óo]a|lo[ée]t d[ạa] d[àa]y/i,
+        ['dùng NSAID kéo dài', 'dùng corticoid', 'nhiễm H. pylori', 'uống rượu bia',
+            'dùng thuốc kháng đông – kháng kết tập', 'stress nặng']],
+    [/đ[áa]i th[áa]o đ[ườơ]{1,2}ng/i,
+        ['thừa cân – béo phì', 'ít vận động', 'tiền căn gia đình đái tháo đường', 'ăn nhiều tinh bột – đường',
+            'tự ý ngưng thuốc', 'nhiễm trùng đi kèm']],
+    [/th[ậa]n|ni[ệe]u/i,
+        ['đái tháo đường', 'tăng huyết áp', 'dùng thuốc độc thận (NSAID, aminoglycoside)',
+            'sỏi niệu tái phát', 'mất nước – giảm thể tích']],
+    [/nhi[ễe]m tr[ùu]ng|s[ốo]t/i,
+        ['đái tháo đường', 'suy giảm miễn dịch – dùng corticoid', 'lớn tuổi', 'nằm viện dài ngày',
+            'có catheter – sonde tiểu', 'vết thương hở']],
+    [/đ[ộo]t qu[ỵy]|th[ầa]n kinh/i,
+        ['tăng huyết áp', 'rung nhĩ', 'đái tháo đường', 'rối loạn lipid máu', 'hút thuốc lá',
+            'tiền căn đột quỵ cũ', 'ngưng thuốc kháng đông']],
+    [/thuy[êe]n t[ắa]c|huy[ếe]t kh[ốo]i/i,
+        ['bất động kéo dài', 'sau phẫu thuật lớn', 'ung thư đang điều trị', 'dùng thuốc ngừa thai',
+            'thai kỳ – hậu sản', 'tiền căn huyết khối']],
+    [/thi[ếe]u m[áa]u/i,
+        ['rong kinh kéo dài', 'chế độ ăn thiếu sắt', 'xuất huyết tiêu hóa mạn', 'bệnh thận mạn',
+            'nhiễm giun móc']]
+];
+
+/** Yếu tố nguy cơ gợi ý cho một tên vấn đề / bệnh */
+export function yeuToFor(ten) {
+    const hit = YEU_TO.find(([re]) => re.test(ten || ''));
+    return hit ? hit[1] : [];
+}
+
+/* Mẫu câu cho ô "vì…" — dùng khi bệnh án chưa có sẵn dấu chứng để bấm */
+export const LY_DO_MAU = [
+    'phù hợp bệnh cảnh lâm sàng', 'có đủ tiêu chuẩn chẩn đoán', 'yếu tố nguy cơ rõ',
+    'diễn tiến phù hợp', 'đáp ứng điều trị thử', 'thiếu dấu chứng đặc hiệu',
+    'không có yếu tố nguy cơ', 'đã loại trừ bằng cận lâm sàng', 'cần cận lâm sàng mới kết luận được',
+    'hiếm gặp ở lứa tuổi này'
+];
+
+
+/* =====================================================================
+   Đợt bổ sung: phủ nốt các hội chứng có trong danh mục VAN_DE_NHOM mà thư
+   viện chưa có mẫu — trước đây chọn xong là không gợi ý được nguyên nhân nào.
+   Đặt cuối nên không đè lên các mẫu hẹp hơn ở trên (find lấy mẫu đầu tiên).
+   ===================================================================== */
+LIBRARY.push(
+    /* ---------------- Toàn thân ---------------- */
+    {
+        k: 'Hội chứng đáp ứng viêm toàn thân (SIRS)', re: /\bsirs\b|đ[áa]p [ứu]ng vi[êe]m to[àa]n th[âa]n/i,
+        nn: ['Nhiễm trùng khu trú', 'Viêm tụy cấp', 'Chấn thương lớn – sau mổ', 'Bỏng nặng', 'Thuyên tắc phổi', 'Bệnh tự miễn đang hoạt động'],
+        red: ['Nhiễm trùng huyết – sốc nhiễm trùng'],
+        cls: ['Công thức máu', 'CRP – procalcitonin', 'Lactat máu', 'Cấy máu 2 mẫu', 'Khí máu động mạch']
+    },
+    {
+        k: 'Suy kiệt – suy dinh dưỡng', re: /suy ki[ệe]t|suy dinh d[ưu]{1,2}[ỡo]ng/i,
+        nn: ['Bệnh ác tính', 'Lao', 'Hội chứng kém hấp thu', 'Bệnh mạn giai đoạn cuối (suy tim, COPD)', 'Trầm cảm – chán ăn', 'Nghiện rượu', 'Cường giáp'],
+        red: ['Ác tính tiến triển', 'Hội chứng nuôi ăn lại (refeeding)'],
+        cls: ['Albumin – prealbumin', 'Công thức máu', 'Đường huyết – HbA1c', 'TSH – FT4', 'X-quang ngực', 'Nội soi tiêu hóa']
+    },
+    {
+        k: 'Thừa cân – béo phì', re: /th[ừu]a c[âa]n|b[ée]o ph[ìi]/i,
+        nn: ['Mất cân bằng năng lượng – ít vận động', 'Hội chứng chuyển hóa', 'Suy giáp', 'Hội chứng Cushing', 'Do thuốc (corticoid, chống loạn thần)', 'Yếu tố di truyền'],
+        red: ['Ngưng thở khi ngủ nặng', 'Bệnh mạch vành'],
+        cls: ['BMI – vòng eo', 'Đường huyết – HbA1c', 'Bộ mỡ máu', 'TSH – FT4', 'Men gan – siêu âm bụng']
+    },
+    {
+        k: 'Mệt mỏi kéo dài', re: /m[ệe]t m[ỏo]i k[ée]o d[àa]i|su[ỵy] nh[ượơ]{1,2}c/i,
+        nn: ['Thiếu máu', 'Suy giáp', 'Đái tháo đường', 'Trầm cảm – rối loạn giấc ngủ', 'Nhiễm trùng mạn (lao, HIV)', 'Bệnh ác tính', 'Suy thượng thận', 'Do thuốc'],
+        red: ['Bệnh ác tính', 'Suy thượng thận cấp'],
+        cls: ['Công thức máu', 'TSH – FT4', 'Đường huyết – HbA1c', 'Chức năng gan thận', 'Ion đồ', 'X-quang ngực']
+    },
+    {
+        k: 'Hội chứng lão suy', re: /l[ãa]o suy|frailty/i,
+        nn: ['Đa bệnh nền', 'Suy dinh dưỡng – thiểu cơ', 'Đa thuốc', 'Sa sút trí tuệ', 'Trầm cảm', 'Giảm vận động kéo dài'],
+        red: ['Té ngã – gãy cổ xương đùi', 'Mê sảng cấp'],
+        cls: ['Đánh giá lão khoa toàn diện', 'Albumin', 'Công thức máu', 'Vitamin D – canxi', 'Trắc nghiệm MMSE']
+    },
+
+    /* ---------------- Hô hấp ---------------- */
+    {
+        k: 'Hội chứng tràn khí màng phổi', re: /tr[àa]n kh[íi] m[àa]ng ph[ổo]i|\btkmp\b|pneumothorax/i,
+        nn: ['Tràn khí nguyên phát tự phát', 'Tràn khí thứ phát (COPD, lao, kén khí)', 'Do chấn thương ngực', 'Do thủ thuật (chọc dò, đặt catheter)', 'Vỡ bóng khí phổi'],
+        red: ['Tràn khí màng phổi áp lực'],
+        cls: ['X-quang ngực thẳng đứng', 'CT ngực', 'Siêu âm màng phổi', 'Khí máu động mạch']
+    },
+    {
+        k: 'Hội chứng tắc nghẽn đường thở', re: /t[ắa]c ngh[ẽe]n đ[ườơ]{1,2}ng th[ởo]/i,
+        nn: ['COPD', 'Hen phế quản', 'Giãn phế quản', 'Dị vật đường thở', 'U chèn ép khí – phế quản', 'Viêm tiểu phế quản'],
+        red: ['Dị vật đường thở', 'Cơn hen nguy kịch'],
+        cls: ['Hô hấp ký có test giãn phế quản', 'X-quang ngực', 'CT ngực', 'Khí máu động mạch', 'Nội soi phế quản']
+    },
+    {
+        k: 'Suy hô hấp cấp', re: /suy h[ôo] h[ấa]p c[ấa]p/i,
+        nn: ['Viêm phổi', 'Phù phổi cấp do tim', 'Đợt cấp COPD', 'Cơn hen nặng', 'Thuyên tắc phổi', 'ARDS', 'Tràn khí – tràn dịch màng phổi', 'Nguyên nhân thần kinh cơ'],
+        red: ['ARDS', 'Thuyên tắc phổi lớn', 'Tràn khí màng phổi áp lực'],
+        cls: ['Khí máu động mạch', 'X-quang ngực', 'ECG', 'D-dimer', 'Siêu âm tim', 'CT ngực']
+    },
+    {
+        k: 'Suy hô hấp mạn', re: /suy h[ôo] h[ấa]p m[ạa]n/i,
+        nn: ['COPD giai đoạn nặng', 'Bệnh phổi mô kẽ', 'Giãn phế quản', 'Gù vẹo cột sống – béo phì giảm thông khí', 'Bệnh thần kinh cơ', 'Tăng áp động mạch phổi'],
+        red: ['Đợt cấp mất bù', 'Tâm phế mạn'],
+        cls: ['Khí máu động mạch', 'Hô hấp ký', 'CT ngực độ phân giải cao', 'Siêu âm tim', 'Đo SpO2 qua đêm']
+    },
+    {
+        k: 'Ho kéo dài', re: /ho k[ée]o d[àa]i|ho m[ạa]n/i,
+        nn: ['Chảy dịch mũi sau', 'Hen – ho biến thể hen', 'Trào ngược dạ dày – thực quản', 'Do thuốc ức chế men chuyển', 'Lao phổi', 'Giãn phế quản', 'Ung thư phổi', 'Hút thuốc lá'],
+        red: ['Lao phổi', 'Ung thư phổi'],
+        cls: ['X-quang ngực', 'Hô hấp ký', 'AFB đàm – GeneXpert', 'CT ngực', 'Nội soi tai mũi họng']
+    },
+    {
+        k: 'Hội chứng xẹp phổi', re: /x[ẹe]p ph[ổo]i|atelectasis/i,
+        nn: ['Nút đàm bít phế quản', 'U nội phế quản', 'Dị vật', 'Chèn ép từ ngoài (tràn dịch, hạch)', 'Giảm thông khí sau mổ'],
+        red: ['Ung thư phế quản'],
+        cls: ['X-quang ngực', 'CT ngực', 'Nội soi phế quản']
+    },
+    {
+        k: 'Hội chứng trung thất', re: /trung th[ấa]t/i,
+        nn: ['U lympho', 'U tuyến ức', 'Ung thư phổi di căn hạch', 'Lao hạch trung thất', 'Bướu giáp thòng', 'U tế bào mầm'],
+        red: ['Hội chứng tĩnh mạch chủ trên', 'Chèn ép khí quản'],
+        cls: ['X-quang ngực', 'CT ngực có cản quang', 'Sinh thiết hạch – u', 'LDH – beta hCG – AFP']
+    },
+    {
+        k: 'Ngưng thở khi ngủ', re: /ng[ưu]ng th[ởo] khi ng[ủu]|\bosa\b/i,
+        nn: ['Ngưng thở tắc nghẽn do béo phì', 'Bất thường giải phẫu hầu họng', 'Ngưng thở trung ương', 'Suy tim', 'Suy giáp'],
+        red: ['Tăng áp động mạch phổi', 'Rối loạn nhịp về đêm'],
+        cls: ['Đa ký giấc ngủ', 'BMI – vòng cổ', 'TSH – FT4', 'Siêu âm tim', 'Khí máu động mạch']
+    },
+
+    /* ---------------- Tim mạch ---------------- */
+    {
+        k: 'Hội chứng suy tim ứ huyết', re: /suy tim|[ứu] huy[ếe]t|m[ấa]t b[ùu] tim/i,
+        nn: ['Bệnh mạch vành – nhồi máu cơ tim cũ', 'Tăng huyết áp lâu ngày', 'Bệnh van tim', 'Bệnh cơ tim giãn', 'Rối loạn nhịp (rung nhĩ nhanh)', 'Bệnh cơ tim do rượu', 'Cường giáp', 'Thiếu máu nặng'],
+        red: ['Phù phổi cấp', 'Sốc tim', 'Hội chứng vành cấp'],
+        cls: ['NT-proBNP', 'Siêu âm tim (EF)', 'ECG', 'X-quang ngực', 'Ion đồ – chức năng thận', 'Troponin hs']
+    },
+    {
+        k: 'Cơn đau thắt ngực ổn định', re: /đau th[ắa]t ng[ựư]c [ổo]n đ[ịi]nh|đau th[ắa]t ng[ựư]c/i,
+        nn: ['Hẹp mạch vành ổn định', 'Co thắt mạch vành', 'Hẹp van động mạch chủ', 'Bệnh cơ tim phì đại', 'Thiếu máu', 'Cường giáp'],
+        red: ['Hội chứng vành cấp'],
+        cls: ['ECG gắng sức', 'Siêu âm tim', 'CT mạch vành – chụp mạch vành', 'Bộ mỡ – đường huyết']
+    },
+    {
+        k: 'Hội chứng vành cấp', re: /v[àa]nh c[ấa]p|\bacs\b/i,
+        nn: ['Nhồi máu cơ tim ST chênh lên', 'Nhồi máu cơ tim không ST chênh lên', 'Đau thắt ngực không ổn định', 'Co thắt mạch vành (Prinzmetal)', 'Bóc tách mạch vành tự phát', 'MINOCA'],
+        red: ['Sốc tim', 'Rối loạn nhịp thất', 'Bóc tách động mạch chủ'],
+        cls: ['ECG 12 chuyển đạo khẩn', 'Troponin hs theo thời điểm', 'Siêu âm tim', 'Chụp mạch vành', 'Bộ mỡ – HbA1c']
+    },
+    {
+        k: 'Hội chứng tĩnh mạch chủ trên', re: /t[ĩi]nh m[ạa]ch ch[ủu] tr[êe]n/i,
+        nn: ['Ung thư phổi', 'U lympho', 'Huyết khối do catheter tĩnh mạch trung tâm', 'Xơ hóa trung thất', 'Bướu giáp thòng'],
+        red: ['Phù não – phù thanh quản'],
+        cls: ['CT ngực có cản quang', 'X-quang ngực', 'Sinh thiết u', 'Siêu âm Doppler mạch máu']
+    },
+    {
+        k: 'Bệnh động mạch chi dưới', re: /đ[ộo]ng m[ạa]ch chi d[ướơ]{1,2}i|đau c[áa]ch h[ồo]i/i,
+        nn: ['Xơ vữa động mạch', 'Đái tháo đường', 'Viêm tắc mạch máu (Buerger)', 'Thuyên tắc từ huyết khối tim', 'Hẹp eo động mạch chủ'],
+        red: ['Thiếu máu chi cấp tính'],
+        cls: ['Chỉ số ABI', 'Siêu âm Doppler động mạch chi', 'CT / MR mạch máu', 'Bộ mỡ – HbA1c']
+    },
+    {
+        k: 'Huyết khối tĩnh mạch sâu', re: /huy[ếe]t kh[ốo]i t[ĩi]nh m[ạa]ch s[âa]u|\bdvt\b/i,
+        nn: ['Bất động – sau phẫu thuật', 'Ung thư đang tiến triển', 'Thai kỳ – thuốc ngừa thai', 'Bệnh lý tăng đông', 'Chấn thương chi', 'Nhiễm trùng nặng'],
+        red: ['Thuyên tắc phổi'],
+        cls: ['Siêu âm Doppler tĩnh mạch chi', 'D-dimer', 'Bilan tăng đông', 'CT động mạch phổi']
+    },
+
+    /* ---------------- Tiêu hóa – gan mật ---------------- */
+    {
+        k: 'Hội chứng suy tế bào gan', re: /suy t[ếe] b[àa]o gan/i,
+        nn: ['Xơ gan do rượu', 'Viêm gan B mạn', 'Viêm gan C mạn', 'Gan nhiễm mỡ không do rượu', 'Viêm gan do thuốc', 'Viêm gan tự miễn', 'Bệnh Wilson – ứ sắt'],
+        red: ['Suy gan cấp', 'Bệnh não gan'],
+        cls: ['AST – ALT – Bilirubin', 'Albumin – PT/INR', 'Siêu âm bụng', 'HBsAg – anti-HCV', 'AFP']
+    },
+    {
+        k: 'Hội chứng tăng áp tĩnh mạch cửa', re: /t[ăa]ng [áa]p (t[ĩi]nh m[ạa]ch )?c[ửư]a/i,
+        nn: ['Xơ gan', 'Huyết khối tĩnh mạch cửa', 'Hội chứng Budd–Chiari', 'Sán máng', 'Xơ hóa gan bẩm sinh'],
+        red: ['Vỡ giãn tĩnh mạch thực quản'],
+        cls: ['Siêu âm Doppler hệ cửa', 'Nội soi tiêu hóa trên', 'Công thức máu – tiểu cầu', 'Albumin – PT']
+    },
+    {
+        k: 'Hội chứng lỵ', re: /h[ộo]i ch[ứu]ng l[ỵy]|\bl[ỵy]\b/i,
+        nn: ['Lỵ trực trùng (Shigella)', 'Lỵ amip', 'Campylobacter – Salmonella', 'Viêm đại tràng do C. difficile', 'Bệnh viêm ruột mạn (IBD)', 'Ung thư đại trực tràng'],
+        red: ['Nhiễm trùng huyết', 'Phình đại tràng nhiễm độc'],
+        cls: ['Soi phân – cấy phân', 'Công thức máu – CRP', 'Nội soi đại tràng', 'Ion đồ']
+    },
+    {
+        k: 'Táo bón kéo dài', re: /t[áa]o b[óo]n/i,
+        nn: ['Táo bón chức năng', 'Chế độ ăn ít chất xơ – ít vận động', 'Do thuốc (opioid, kháng cholinergic)', 'Suy giáp', 'Bệnh thần kinh tự chủ do đái tháo đường', 'Ung thư đại trực tràng', 'Tắc nghẽn cơ học'],
+        red: ['Ung thư đại trực tràng', 'Tắc ruột'],
+        cls: ['Nội soi đại tràng', 'TSH', 'Ion đồ – canxi máu', 'X-quang bụng không sửa soạn']
+    },
+    {
+        k: 'Hội chứng kém hấp thu', re: /k[ée]m h[ấa]p thu/i,
+        nn: ['Bệnh celiac', 'Suy tụy ngoại tiết', 'Nhiễm giun sán', 'Loạn khuẩn ruột non', 'Bệnh Crohn', 'Sau cắt đoạn ruột'],
+        red: ['Suy dinh dưỡng nặng'],
+        cls: ['Mỡ phân', 'Albumin – vitamin tan trong mỡ', 'Nội soi sinh thiết ruột non', 'Elastase phân', 'Kháng thể celiac']
+    },
+    {
+        k: 'Hội chứng não gan', re: /n[ãa]o gan/i,
+        nn: ['Xơ gan mất bù', 'Xuất huyết tiêu hóa', 'Nhiễm trùng (viêm phúc mạc nguyên phát)', 'Táo bón', 'Rối loạn điện giải', 'Dùng thuốc an thần'],
+        red: ['Hôn mê gan', 'Phù não'],
+        cls: ['NH3 máu', 'Ion đồ', 'Công thức máu – CRP', 'Chọc dịch báng', 'CT sọ não']
+    },
+    {
+        k: 'Khối u vùng bụng', re: /kh[ốo]i u v[ùu]ng b[ụu]ng|u [ổo] b[ụu]ng/i,
+        nn: ['U gan', 'U đại tràng', 'U dạ dày', 'U buồng trứng', 'U thận', 'Lách to', 'Phình động mạch chủ bụng', 'Áp xe trong ổ bụng'],
+        red: ['Phình bóc tách động mạch chủ bụng', 'Bệnh lý ác tính'],
+        cls: ['Siêu âm bụng', 'CT bụng có cản quang', 'Nội soi tiêu hóa', 'Dấu ấn ung thư (CEA, CA 19-9, AFP)']
+    },
+
+    /* ---------------- Thận – tiết niệu ---------------- */
+    {
+        k: 'Hội chứng viêm cầu thận cấp', re: /vi[êe]m c[ầa]u th[ậa]n/i,
+        nn: ['Viêm cầu thận hậu nhiễm liên cầu', 'Bệnh thận IgA', 'Lupus ban đỏ hệ thống', 'Viêm mạch ANCA', 'Bệnh kháng màng đáy (Goodpasture)', 'Viêm cầu thận màng tăng sinh'],
+        red: ['Viêm cầu thận tiến triển nhanh', 'Phù phổi cấp – tăng huyết áp ác tính'],
+        cls: ['Tổng phân tích nước tiểu – cặn lắng', 'Đạm niệu 24 giờ', 'Bổ thể C3 – C4', 'ANA – ANCA – anti-GBM', 'ASO', 'Sinh thiết thận']
+    },
+    {
+        k: 'Tổn thương thận cấp', re: /t[ổo]n th[ươư]{1,2}ng th[ậa]n c[ấa]p|suy th[ậa]n c[ấa]p/i,
+        nn: ['Trước thận (giảm thể tích, suy tim)', 'Hoại tử ống thận cấp', 'Viêm thận mô kẽ do thuốc', 'Viêm cầu thận', 'Sau thận – tắc nghẽn đường niệu', 'Hội chứng gan – thận'],
+        red: ['Tăng kali máu', 'Phù phổi cấp', 'Toan chuyển hóa nặng'],
+        cls: ['Creatinin – ure', 'Ion đồ', 'Khí máu động mạch', 'Tổng phân tích nước tiểu', 'Siêu âm hệ niệu', 'Natri niệu – FeNa']
+    },
+    {
+        k: 'Bệnh thận mạn', re: /b[ệe]nh th[ậa]n m[ạa]n/i,
+        nn: ['Đái tháo đường', 'Tăng huyết áp', 'Viêm cầu thận mạn', 'Thận đa nang', 'Bệnh thận tắc nghẽn', 'Do thuốc độc thận'],
+        red: ['Hội chứng ure huyết cao', 'Tăng kali máu'],
+        cls: ['eGFR – creatinin', 'Đạm niệu / creatinin niệu', 'Siêu âm thận', 'Công thức máu – ferritin', 'PTH – canxi – phospho']
+    },
+    {
+        k: 'Hội chứng ure huyết cao', re: /ure huy[ếe]t cao|h[ộo]i ch[ứu]ng ure/i,
+        nn: ['Bệnh thận mạn giai đoạn cuối', 'Tổn thương thận cấp', 'Xuất huyết tiêu hóa', 'Tăng dị hóa đạm'],
+        red: ['Viêm màng ngoài tim do ure', 'Bệnh não do ure'],
+        cls: ['Ure – creatinin', 'Ion đồ – khí máu', 'ECG', 'Siêu âm tim', 'Công thức máu']
+    },
+    {
+        k: 'Cơn đau quặn thận', re: /đau qu[ặa]n th[ậa]n/i,
+        nn: ['Sỏi niệu quản', 'Cục máu đông đường niệu', 'Hẹp khúc nối bể thận – niệu quản', 'Chèn ép niệu quản từ ngoài'],
+        red: ['Nhiễm trùng đường tiểu có tắc nghẽn', 'Vô niệu do tắc thận độc nhất'],
+        cls: ['Siêu âm hệ niệu', 'CT bụng không cản quang', 'Tổng phân tích nước tiểu', 'Creatinin']
+    },
+    {
+        k: 'Tiểu máu', re: /ti[ểe]u m[áa]u/i,
+        nn: ['Sỏi niệu', 'Nhiễm trùng đường tiểu', 'Viêm cầu thận', 'Ung thư đường niệu', 'Phì đại tuyến tiền liệt', 'Do thuốc kháng đông', 'Lao niệu'],
+        red: ['Ung thư đường niệu'],
+        cls: ['Tổng phân tích nước tiểu – cặn lắng', 'Siêu âm hệ niệu', 'CT hệ niệu', 'Tế bào học nước tiểu', 'Nội soi bàng quang']
+    },
+    {
+        k: 'Rối loạn toan – kiềm', re: /toan|ki[ềe]m chuy[ểe]n h[óo]a/i,
+        nn: ['Toan ceton đái tháo đường', 'Toan lactic', 'Toan do suy thận', 'Mất bicarbonate qua tiêu hóa', 'Ngộ độc (methanol, salicylate)', 'Kiềm chuyển hóa do nôn – lợi tiểu'],
+        red: ['Toan lactic nặng', 'Ngộ độc rượu độc'],
+        cls: ['Khí máu động mạch', 'Ion đồ – khoảng trống anion', 'Lactat máu', 'Ceton máu', 'Áp lực thẩm thấu máu']
+    },
+
+    /* ---------------- Thần kinh ---------------- */
+    {
+        k: 'Hội chứng màng não', re: /h[ộo]i ch[ứu]ng m[àa]ng n[ãa]o|d[ấa]u m[àa]ng n[ãa]o/i,
+        nn: ['Viêm màng não mủ', 'Viêm màng não lao', 'Viêm màng não siêu vi', 'Viêm màng não do nấm Cryptococcus', 'Xuất huyết dưới nhện', 'Di căn màng não'],
+        red: ['Viêm màng não mủ', 'Xuất huyết dưới nhện'],
+        cls: ['Chọc dò dịch não tủy', 'CT sọ não trước chọc dò', 'Công thức máu – CRP', 'Cấy máu', 'Kháng nguyên nấm']
+    },
+    {
+        k: 'Hội chứng tiểu não', re: /ti[ểe]u n[ãa]o/i,
+        nn: ['Đột quỵ tiểu não', 'U tiểu não', 'Thoái hóa tiểu não do rượu', 'Xơ cứng rải rác', 'Ngộ độc thuốc (phenytoin)', 'Thất điều di truyền'],
+        red: ['Nhồi máu – xuất huyết tiểu não gây chèn ép'],
+        cls: ['MRI sọ não', 'CT sọ não', 'Vitamin B1 – B12', 'Định lượng thuốc trong máu']
+    },
+    {
+        k: 'Hội chứng ngoại tháp', re: /ngo[ạa]i th[áa]p|parkinson/i,
+        nn: ['Bệnh Parkinson', 'Hội chứng Parkinson do thuốc chống loạn thần', 'Teo đa hệ thống', 'Liệt trên nhân tiến triển', 'Bệnh Wilson', 'Di chứng sau viêm não'],
+        red: ['Hội chứng ác tính do thuốc an thần kinh'],
+        cls: ['MRI sọ não', 'Đồng huyết thanh – ceruloplasmin', 'Rà soát thuốc đang dùng', 'DAT-scan']
+    },
+    {
+        k: 'Hội chứng chèn ép tủy', re: /ch[èe]n [ée]p t[ủu]y/i,
+        nn: ['Di căn cột sống', 'U tủy nguyên phát', 'Áp xe ngoài màng cứng', 'Thoát vị đĩa đệm lớn', 'Lao cột sống (bệnh Pott)', 'Chấn thương cột sống'],
+        red: ['Chèn ép tủy cấp', 'Hội chứng chùm đuôi ngựa'],
+        cls: ['MRI cột sống khẩn', 'X-quang cột sống', 'Công thức máu – CRP', 'Sinh thiết tổn thương']
+    },
+    {
+        k: 'Bệnh lý đa dây thần kinh', re: /đa d[âa]y th[ầa]n kinh|polyneuropathy/i,
+        nn: ['Đái tháo đường', 'Thiếu vitamin B12', 'Nghiện rượu', 'Do thuốc (isoniazid, hóa trị)', 'Suy thận mạn', 'Hội chứng Guillain–Barré', 'Bệnh lý đơn dòng'],
+        red: ['Hội chứng Guillain–Barré'],
+        cls: ['Điện cơ – đo dẫn truyền thần kinh', 'HbA1c', 'Vitamin B12', 'Chức năng gan thận', 'Điện di đạm máu']
+    },
+    {
+        k: 'Chóng mặt – rối loạn tiền đình', re: /ch[óo]ng m[ặa]t|ti[ềe]n đ[ìi]nh/i,
+        nn: ['Chóng mặt tư thế kịch phát lành tính', 'Viêm thần kinh tiền đình', 'Bệnh Ménière', 'Đột quỵ hố sau', 'Hạ huyết áp tư thế', 'Do thuốc'],
+        red: ['Đột quỵ hố sau'],
+        cls: ['Nghiệm pháp Dix–Hallpike', 'Khám HINTS', 'MRI sọ não', 'Huyết áp tư thế', 'Thính lực đồ']
+    },
+
+    /* ---------------- Nhiễm ---------------- */
+    {
+        k: 'Lao phổi', re: /lao ph[ổo]i/i,
+        nn: ['Lao phổi mới', 'Lao tái phát', 'Lao kháng thuốc', 'Lao trên nền nhiễm HIV'],
+        red: ['Ho ra máu sét đánh', 'Lao kê'],
+        cls: ['AFB đàm – GeneXpert', 'X-quang ngực', 'CT ngực', 'Xét nghiệm HIV', 'Cấy đàm – kháng sinh đồ']
+    },
+    {
+        k: 'Lao ngoài phổi', re: /lao ngo[àa]i ph[ổo]i|lao h[ạa]ch|lao m[àa]ng|lao c[ộo]t s[ốo]ng/i,
+        nn: ['Lao hạch', 'Lao màng phổi', 'Lao màng bụng', 'Lao màng não', 'Lao cột sống', 'Lao niệu – sinh dục'],
+        red: ['Lao màng não', 'Lao kê'],
+        cls: ['Sinh thiết – GeneXpert bệnh phẩm', 'ADA dịch màng', 'X-quang – CT', 'Xét nghiệm HIV']
+    },
+    {
+        k: 'Nhiễm HIV/AIDS', re: /\bhiv\b|\baids\b/i,
+        nn: ['Nhiễm HIV cấp', 'Nhiễm HIV mạn chưa điều trị', 'Thất bại điều trị ARV', 'Nhiễm trùng cơ hội kèm theo'],
+        red: ['Viêm màng não do Cryptococcus', 'Lao lan tỏa', 'Viêm phổi do Pneumocystis'],
+        cls: ['Test nhanh HIV – xét nghiệm khẳng định', 'CD4', 'Tải lượng virus', 'X-quang ngực', 'Soi đáy mắt']
+    },
+    {
+        k: 'Viêm gan siêu vi cấp', re: /vi[êe]m gan si[êe]u vi|vi[êe]m gan c[ấa]p/i,
+        nn: ['Viêm gan A', 'Viêm gan B cấp', 'Viêm gan C cấp', 'Viêm gan E', 'EBV – CMV', 'Viêm gan do thuốc'],
+        red: ['Suy gan cấp'],
+        cls: ['AST – ALT – Bilirubin', 'PT/INR', 'IgM anti-HAV', 'HBsAg – IgM anti-HBc', 'anti-HCV', 'Siêu âm bụng']
+    },
+    {
+        k: 'Uốn ván', re: /u[ốo]n v[áa]n|tetanus/i,
+        nn: ['Vết thương bẩn không tiêm phòng', 'Uốn ván rốn sơ sinh', 'Sau thủ thuật không vô trùng'],
+        red: ['Co thắt thanh quản', 'Rối loạn thần kinh tự chủ'],
+        cls: ['Chẩn đoán lâm sàng', 'Công thức máu – CRP', 'Khí máu động mạch', 'Cấy vết thương']
+    },
+    {
+        k: 'Tay chân miệng', re: /tay ch[âa]n mi[ệe]ng/i,
+        nn: ['Enterovirus 71', 'Coxsackie A16', 'Enterovirus khác'],
+        red: ['Viêm não thân não do EV71', 'Phù phổi cấp do EV71'],
+        cls: ['PCR EV71', 'Công thức máu – CRP', 'Đường huyết', 'Siêu âm tim khi độ nặng ≥ 2b']
+    },
+
+    /* ---------------- Huyết học ---------------- */
+    {
+        k: 'Hội chứng tăng sinh tủy', re: /t[ăa]ng sinh t[ủu]y/i,
+        nn: ['Đa hồng cầu nguyên phát', 'Tăng tiểu cầu tiên phát', 'Xơ tủy nguyên phát', 'Bạch cầu mạn dòng tủy'],
+        red: ['Huyết khối động – tĩnh mạch', 'Chuyển dạng cấp'],
+        cls: ['Công thức máu – phết máu', 'JAK2 V617F', 'BCR-ABL', 'Tủy đồ – sinh thiết tủy', 'Erythropoietin huyết thanh']
+    },
+    {
+        k: 'Lách to', re: /l[áa]ch to/i,
+        nn: ['Tăng áp cửa do xơ gan', 'Nhiễm trùng (sốt rét, EBV, nhiễm trùng huyết)', 'Bệnh máu ác tính', 'Tan máu mạn', 'Bệnh dự trữ (Gaucher)', 'Lupus'],
+        red: ['Vỡ lách'],
+        cls: ['Siêu âm bụng', 'Công thức máu – phết máu', 'Chức năng gan', 'Phết máu tìm ký sinh trùng sốt rét', 'Tủy đồ']
+    },
+    {
+        k: 'Rối loạn đông máu', re: /r[ốo]i lo[ạa]n đ[ôo]ng m[áa]u/i,
+        nn: ['Bệnh gan', 'Thiếu vitamin K', 'Đông máu nội mạch lan tỏa (DIC)', 'Hemophilia', 'Do thuốc kháng đông', 'Kháng thể kháng phospholipid'],
+        red: ['DIC', 'Xuất huyết nội sọ'],
+        cls: ['PT – aPTT – fibrinogen', 'D-dimer', 'Định lượng yếu tố đông máu', 'Mixing test', 'Chức năng gan']
+    },
+    {
+        k: 'Giảm tiểu cầu', re: /gi[ảa]m ti[ểe]u c[ầa]u/i,
+        nn: ['Giảm tiểu cầu miễn dịch (ITP)', 'Do thuốc – heparin', 'Sốt xuất huyết Dengue', 'Nhiễm trùng huyết – DIC', 'Cường lách', 'Bệnh lý tủy xương', 'Giả giảm tiểu cầu do EDTA'],
+        red: ['Xuất huyết nội sọ', 'TTP – HUS'],
+        cls: ['Công thức máu lặp lại + phết máu', 'Đông máu toàn bộ', 'HIV – HCV', 'Tủy đồ', 'LDH – haptoglobin']
+    },
+    {
+        k: 'Tăng bạch cầu bất thường', re: /t[ăa]ng b[ạa]ch c[ầa]u/i,
+        nn: ['Nhiễm trùng', 'Bạch cầu cấp', 'Bạch cầu mạn dòng tủy', 'Phản ứng giả bạch cầu (leukemoid)', 'Do corticoid', 'Stress – sau phẫu thuật'],
+        red: ['Bạch cầu cấp', 'Tăng bạch cầu gây ứ trệ (leukostasis)'],
+        cls: ['Công thức máu – phết máu ngoại vi', 'Tủy đồ', 'Dấu ấn miễn dịch tế bào', 'CRP – cấy máu', 'LDH – acid uric']
+    },
+
+    /* ---------------- Nội tiết – chuyển hóa ---------------- */
+    {
+        k: 'Hạ đường huyết', re: /h[ạa] đ[ườơ]{1,2}ng huy[ếe]t/i,
+        nn: ['Quá liều insulin – sulfonylurea', 'Bỏ bữa – uống rượu', 'Suy gan – suy thận', 'Suy thượng thận', 'U tiết insulin (insulinoma)', 'Nhiễm trùng nặng'],
+        red: ['Hôn mê hạ đường huyết', 'Tổn thương não do hạ đường huyết kéo dài'],
+        cls: ['Đường huyết mao mạch và tĩnh mạch', 'Insulin – C-peptide', 'Cortisol máu', 'Chức năng gan thận']
+    },
+    {
+        k: 'Bướu giáp', re: /b[ướơ]{1,2}u gi[áa]p|nh[âa]n gi[áa]p/i,
+        nn: ['Bướu giáp đơn thuần do thiếu iod', 'Bệnh Basedow', 'Viêm giáp Hashimoto', 'Bướu giáp đa nhân', 'Ung thư tuyến giáp', 'Viêm giáp bán cấp'],
+        red: ['Ung thư tuyến giáp', 'Chèn ép khí quản'],
+        cls: ['TSH – FT4', 'Siêu âm tuyến giáp', 'FNA nhân giáp', 'TRAb – anti-TPO', 'Xạ hình tuyến giáp']
+    },
+    {
+        k: 'Hội chứng Cushing', re: /cushing/i,
+        nn: ['Do dùng corticoid kéo dài', 'U tuyến yên tiết ACTH', 'U thượng thận', 'Tiết ACTH lạc chỗ'],
+        red: ['Cơn suy thượng thận khi ngưng thuốc đột ngột', 'Loãng xương – gãy xương bệnh lý'],
+        cls: ['Cortisol niệu 24 giờ', 'Nghiệm pháp ức chế dexamethasone', 'ACTH máu', 'MRI tuyến yên – CT thượng thận']
+    },
+    {
+        k: 'Suy thượng thận cấp', re: /suy th[ượơ]{1,2}ng th[ậa]n/i,
+        nn: ['Ngưng corticoid đột ngột', 'Bệnh Addison', 'Xuất huyết thượng thận', 'Suy tuyến yên', 'Nhiễm trùng nặng trên nền suy thượng thận mạn'],
+        red: ['Sốc do suy thượng thận cấp'],
+        cls: ['Cortisol máu 8 giờ', 'ACTH', 'Ion đồ (Na thấp – K cao)', 'Đường huyết', 'CT thượng thận']
+    },
+    {
+        k: 'Rối loạn lipid máu', re: /r[ốo]i lo[ạa]n lipid|t[ăa]ng cholesterol|t[ăa]ng triglyceride/i,
+        nn: ['Rối loạn lipid nguyên phát – gia đình', 'Chế độ ăn – béo phì', 'Đái tháo đường', 'Suy giáp', 'Hội chứng thận hư', 'Do thuốc', 'Rượu'],
+        red: ['Viêm tụy cấp do tăng triglyceride', 'Bệnh mạch vành sớm'],
+        cls: ['Bộ mỡ máu lúc đói', 'HbA1c', 'TSH', 'Đạm niệu', 'Men gan']
+    },
+    {
+        k: 'Loãng xương', re: /lo[ãa]ng x[ươư]{1,2}ng/i,
+        nn: ['Loãng xương sau mãn kinh', 'Loãng xương tuổi cao', 'Do corticoid', 'Cường giáp – cường cận giáp', 'Kém hấp thu – thiếu vitamin D', 'Bất động kéo dài'],
+        red: ['Gãy cổ xương đùi', 'Gãy lún đốt sống'],
+        cls: ['Đo mật độ xương (DXA)', 'Canxi – phospho – PTH', 'Vitamin D', 'X-quang cột sống']
+    },
+
+    /* ---------------- Cơ xương khớp ---------------- */
+    {
+        k: 'Hội chứng chèn ép rễ thần kinh', re: /ch[èe]n [ée]p r[ễe]|th[ầa]n kinh t[ọo]a/i,
+        nn: ['Thoát vị đĩa đệm', 'Thoái hóa – hẹp ống sống', 'Trượt đốt sống', 'U chèn ép rễ', 'Lao cột sống', 'Zona thần kinh'],
+        red: ['Hội chứng chùm đuôi ngựa'],
+        cls: ['MRI cột sống', 'X-quang cột sống', 'Điện cơ', 'CRP – VS']
+    },
+    {
+        k: 'Gout cấp', re: /\bgout\b|g[úu]t/i,
+        nn: ['Tăng acid uric nguyên phát', 'Do thuốc lợi tiểu', 'Suy thận', 'Chế độ ăn nhiều đạm – bia rượu', 'Bệnh tăng sinh tủy'],
+        red: ['Viêm khớp nhiễm trùng'],
+        cls: ['Acid uric máu', 'Dịch khớp tìm tinh thể urat', 'Công thức máu – CRP', 'Chức năng thận', 'Siêu âm khớp']
+    },
+    {
+        k: 'Thoái hóa khớp', re: /tho[áa]i h[óo]a kh[ớo]p/i,
+        nn: ['Thoái hóa nguyên phát do tuổi', 'Sau chấn thương khớp', 'Béo phì – quá tải khớp', 'Sau viêm khớp', 'Bệnh khớp do chuyển hóa'],
+        red: ['Viêm khớp nhiễm trùng', 'Hoại tử vô mạch chỏm xương'],
+        cls: ['X-quang khớp', 'CRP – VS', 'Chọc dịch khớp khi cần', 'MRI khớp']
+    },
+    {
+        k: 'Viêm cơ – yếu cơ gốc chi', re: /vi[êe]m đa c[ơo]|y[ếe]u c[ơo] g[ốo]c chi/i,
+        nn: ['Viêm đa cơ – viêm da cơ', 'Bệnh cơ do statin', 'Suy giáp', 'Bệnh cơ do corticoid', 'Loạn dưỡng cơ', 'Rối loạn điện giải'],
+        red: ['Tiêu cơ vân – suy thận cấp', 'Ác tính đi kèm viêm da cơ'],
+        cls: ['CK – LDH', 'Điện cơ', 'Kháng thể đặc hiệu viêm cơ (anti-Jo1)', 'TSH', 'Sinh thiết cơ', 'Ion đồ']
+    },
+
+    /* ---------------- Ngoại khoa – chấn thương ---------------- */
+    {
+        k: 'Hội chứng chảy máu trong ổ bụng', re: /ch[ảa]y m[áa]u trong [ổo] b[ụu]ng|xu[ấa]t huy[ếe]t n[ộo]i/i,
+        nn: ['Vỡ lách', 'Vỡ gan', 'Rách mạc treo', 'Thai ngoài tử cung vỡ', 'Vỡ phình động mạch chủ bụng', 'Vỡ nang buồng trứng'],
+        red: ['Sốc mất máu'],
+        cls: ['Siêu âm FAST', 'CT bụng có cản quang', 'Công thức máu – nhóm máu', 'Beta hCG']
+    },
+    {
+        k: 'Viêm ruột thừa cấp', re: /vi[êe]m ru[ộo]t th[ừu]a/i,
+        nn: ['Viêm ruột thừa cấp chưa biến chứng', 'Viêm ruột thừa hoại tử – vỡ', 'Đám quánh ruột thừa'],
+        red: ['Viêm phúc mạc ruột thừa'],
+        cls: ['Công thức máu – CRP', 'Siêu âm bụng', 'CT bụng', 'Beta hCG (nữ tuổi sinh đẻ)']
+    },
+    {
+        k: 'Chấn thương ngực kín', re: /ch[ấa]n th[ươư]{1,2}ng ng[ựư]c/i,
+        nn: ['Gãy xương sườn', 'Dập phổi', 'Tràn máu – tràn khí màng phổi', 'Mảng sườn di động', 'Dập cơ tim', 'Vỡ động mạch chủ ngực'],
+        red: ['Tràn khí màng phổi áp lực', 'Chèn ép tim cấp', 'Vỡ động mạch chủ'],
+        cls: ['X-quang ngực', 'CT ngực', 'Siêu âm FAST', 'ECG – troponin', 'Khí máu động mạch']
+    },
+    {
+        k: 'Gãy xương', re: /g[ãa]y x[ươư]{1,2}ng/i,
+        nn: ['Chấn thương năng lượng cao', 'Té ngã trên nền loãng xương', 'Gãy bệnh lý do u – di căn', 'Gãy do mỏi'],
+        red: ['Hội chứng chèn ép khoang', 'Tổn thương mạch – thần kinh kèm theo', 'Thuyên tắc mỡ'],
+        cls: ['X-quang 2 bình diện', 'CT dựng hình xương', 'Đo mật độ xương', 'Công thức máu – đông máu trước mổ']
+    },
+    {
+        k: 'Bỏng', re: /b[ỏo]ng/i,
+        nn: ['Bỏng nhiệt', 'Bỏng điện', 'Bỏng hóa chất', 'Bỏng do bức xạ'],
+        red: ['Bỏng đường hô hấp', 'Sốc bỏng'],
+        cls: ['Ước lượng diện tích – độ sâu bỏng', 'Khí máu – HbCO', 'Ion đồ – chức năng thận', 'Công thức máu', 'Cấy dịch vết bỏng']
+    },
+
+    /* ---------------- Sản – phụ khoa ---------------- */
+    {
+        k: 'Dọa sẩy thai', re: /d[ọo]a s[ẩa]y thai|s[ẩa]y thai/i,
+        nn: ['Bất thường nhiễm sắc thể phôi', 'Thiếu hoàng thể', 'Bất thường tử cung', 'Nhiễm trùng', 'Hội chứng kháng phospholipid', 'Bệnh nội tiết của mẹ'],
+        red: ['Thai ngoài tử cung', 'Thai trứng', 'Sẩy thai băng huyết'],
+        cls: ['Beta hCG định lượng', 'Siêu âm đầu dò âm đạo', 'Progesterone', 'Công thức máu – nhóm máu Rh']
+    },
+    {
+        k: 'Sản giật', re: /s[ảa]n gi[ậa]t/i,
+        nn: ['Tiền sản giật nặng tiến triển', 'Tăng huyết áp mạn trong thai kỳ', 'Bệnh thận nền', 'Đa thai – thai trứng'],
+        red: ['Xuất huyết não', 'Hội chứng HELLP', 'Nhau bong non'],
+        cls: ['Huyết áp – đạm niệu', 'Công thức máu – tiểu cầu', 'AST – ALT – LDH', 'Chức năng thận', 'Monitor tim thai']
+    }
+);
+
+
+LIBRARY.push(
+    {
+        k: 'Thai ngoài tử cung', re: /thai ngo[àa]i t[ửư] cung|ch[ửư]a ngo[àa]i t[ửư] cung/i,
+        nn: ['Thai ở vòi trứng', 'Tiền căn viêm nhiễm vùng chậu', 'Sau phẫu thuật vòi trứng', 'Mang dụng cụ tử cung', 'Sau hỗ trợ sinh sản'],
+        red: ['Thai ngoài tử cung vỡ – sốc mất máu'],
+        cls: ['Beta hCG định lượng lặp lại', 'Siêu âm đầu dò âm đạo', 'Công thức máu – nhóm máu', 'Siêu âm FAST tìm dịch ổ bụng']
+    },
+    {
+        k: 'Băng huyết sau sinh', re: /b[ăa]ng huy[ếe]t sau sinh/i,
+        nn: ['Đờ tử cung', 'Sót nhau – sót màng', 'Rách đường sinh dục', 'Rối loạn đông máu', 'Vỡ tử cung', 'Lộn tử cung'],
+        red: ['Sốc mất máu', 'Đông máu nội mạch lan tỏa'],
+        cls: ['Công thức máu – nhóm máu', 'Đông máu toàn bộ', 'Siêu âm tử cung tìm sót nhau', 'Fibrinogen']
+    },
+    {
+        k: 'Khối u phần phụ', re: /kh[ốo]i u ph[ầa]n ph[ụu]|u bu[ồo]ng tr[ứu]ng/i,
+        nn: ['Nang cơ năng buồng trứng', 'U lạc nội mạc tử cung', 'U bì buồng trứng', 'Ung thư buồng trứng', 'Ứ dịch – ứ mủ vòi trứng', 'Thai ngoài tử cung'],
+        red: ['Xoắn phần phụ', 'Ung thư buồng trứng', 'Thai ngoài tử cung vỡ'],
+        cls: ['Siêu âm đầu dò âm đạo', 'CA-125 – HE4', 'Beta hCG', 'CT / MRI vùng chậu']
+    },
+    {
+        k: 'Rong kinh – rong huyết', re: /rong kinh|rong huy[ếe]t/i,
+        nn: ['U xơ tử cung', 'Lạc nội mạc trong cơ tử cung', 'Polyp buồng tử cung', 'Rối loạn phóng noãn', 'Rối loạn đông máu', 'Do thuốc nội tiết', 'Ung thư nội mạc tử cung'],
+        red: ['Ung thư nội mạc tử cung', 'Thiếu máu nặng do mất máu'],
+        cls: ['Siêu âm đầu dò âm đạo', 'Công thức máu – ferritin', 'Beta hCG', 'Nội soi buồng tử cung – sinh thiết nội mạc', 'Đông máu toàn bộ']
+    },
+    {
+        k: 'Hen phế quản trẻ em', re: /hen ph[ếe] qu[ảa]n tr[ẻe] em|hen tr[ẻe] em/i,
+        nn: ['Hen dị ứng', 'Khởi phát do nhiễm siêu vi hô hấp', 'Do gắng sức', 'Do dị nguyên trong nhà (bụi nhà, lông thú)', 'Trào ngược dạ dày thực quản'],
+        red: ['Cơn hen nguy kịch', 'Dị vật đường thở'],
+        cls: ['Hô hấp ký (trẻ ≥ 6 tuổi)', 'X-quang ngực', 'SpO2 – khí máu khi nặng', 'Test dị nguyên', 'Công thức máu – IgE']
+    },
+    {
+        k: 'Chậm phát triển tâm vận', re: /ch[ậa]m ph[áa]t tri[ểe]n t[âa]m v[ậa]n/i,
+        nn: ['Bại não', 'Bất thường nhiễm sắc thể', 'Suy giáp bẩm sinh', 'Di chứng ngạt – nhiễm trùng sơ sinh', 'Rối loạn phổ tự kỷ', 'Suy dinh dưỡng nặng', 'Bệnh chuyển hóa bẩm sinh'],
+        red: ['Suy giáp bẩm sinh bỏ sót', 'Bệnh chuyển hóa mất bù'],
+        cls: ['TSH – FT4', 'MRI sọ não', 'Nhiễm sắc thể đồ', 'Sàng lọc chuyển hóa', 'Đánh giá thính lực – thị lực']
+    },
+    {
+        k: 'Ngưng hô hấp tuần hoàn', re: /ng[ưu]ng h[ôo] h[ấa]p tu[ầa]n ho[àa]n|ng[ưu]ng tim/i,
+        nn: ['Rung thất – nhịp nhanh thất vô mạch', 'Vô tâm thu', 'Hoạt động điện vô mạch', 'Thiếu oxy', 'Tăng kali máu', 'Sốc mất máu', 'Chèn ép tim', 'Thuyên tắc phổi lớn'],
+        red: ['Các nguyên nhân hồi phục được: 5H – 5T'],
+        cls: ['ECG – monitor liên tục', 'Khí máu động mạch', 'Ion đồ – kali máu', 'Siêu âm tim tại giường', 'Đường huyết mao mạch']
+    },
+    {
+        k: 'Đuối nước', re: /đu[ốo]i n[ướơ]{1,2}c|ng[ạa]t n[ướơ]{1,2}c/i,
+        nn: ['Ngạt nước ngọt', 'Ngạt nước mặn', 'Kèm chấn thương cột sống cổ khi nhảy', 'Cơn động kinh – ngất khi bơi', 'Ngộ độc rượu'],
+        red: ['ARDS sau đuối nước', 'Tổn thương não do thiếu oxy', 'Hạ thân nhiệt'],
+        cls: ['Khí máu động mạch', 'X-quang ngực', 'Ion đồ', 'CT sọ – cột sống cổ', 'Đo thân nhiệt trung tâm']
+    },
+    {
+        k: 'Điện giật', re: /đi[ệe]n gi[ậa]t|b[ỏo]ng đi[ệe]n/i,
+        nn: ['Điện hạ thế trong sinh hoạt', 'Điện cao thế', 'Sét đánh'],
+        red: ['Rối loạn nhịp – ngưng tim', 'Tiêu cơ vân – suy thận cấp', 'Bỏng sâu tổn thương mô ẩn'],
+        cls: ['ECG – monitor 24 giờ', 'CK – CK-MB – myoglobin niệu', 'Ion đồ – chức năng thận', 'Khí máu', 'Đánh giá vết bỏng vào – ra']
+    },
+    {
+        k: 'Say nắng – sốc nhiệt', re: /say n[ắa]ng|s[ốo]c nhi[ệe]t|heat stroke/i,
+        nn: ['Sốc nhiệt do gắng sức', 'Sốc nhiệt cổ điển ở người già', 'Mất nước – mất muối', 'Do thuốc (kháng cholinergic, lợi tiểu)'],
+        red: ['Suy đa cơ quan', 'Tiêu cơ vân', 'Đông máu nội mạch lan tỏa'],
+        cls: ['Thân nhiệt trung tâm', 'Ion đồ – chức năng thận', 'CK', 'Đông máu toàn bộ', 'Men gan']
+    },
+    {
+        k: 'Rắn cắn', re: /r[ắa]n c[ắa]n/i,
+        nn: ['Rắn lục (hội chứng chảy máu)', 'Rắn hổ (hội chứng liệt)', 'Rắn biển (tiêu cơ vân)', 'Rắn không độc – vết cắn khô'],
+        red: ['Suy hô hấp do liệt cơ', 'Rối loạn đông máu nặng', 'Suy thận cấp do tiêu cơ vân'],
+        cls: ['Đông máu toàn bộ – 20WBCT', 'Công thức máu – tiểu cầu', 'CK – myoglobin niệu', 'Chức năng thận', 'Theo dõi sinh hiệu – hô hấp']
+    }
+);
+
+/** Toàn bộ tên vấn đề / hội chứng để dò khi gõ */
+export const TEN_VAN_DE = [...new Set([
+    ...VAN_DE_NHOM.flatMap(g => g.items || []),
+    ...LIBRARY.map(x => x.k)
+])];
+
+/** Toàn bộ tên nguyên nhân có trong thư viện để dò khi gõ */
+export const TEN_NGUYEN_NHAN = [...new Set(LIBRARY.flatMap(x => [...(x.nn || []), ...(x.red || [])]))];
+
+/** Toàn bộ tên cận lâm sàng có trong thư viện biện luận */
+export const TEN_CLS = [...new Set(LIBRARY.flatMap(x => x.cls || []))];

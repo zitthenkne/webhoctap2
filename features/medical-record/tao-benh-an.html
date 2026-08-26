@@ -7310,6 +7310,168 @@
 
             .net-body { padding: 10px; }
         }
+
+        /* =============================================================
+           Biện luận: hộp gợi ý của từng nhánh, thanh đủ ý, chip đã chọn
+           ============================================================= */
+        .tr-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 2px 0 8px 34px;
+        }
+
+        .tr-dots {
+            display: inline-flex;
+            gap: 4px;
+        }
+
+        .tr-dots i {
+            width: 8px;
+            height: 8px;
+            border-radius: 9999px;
+            background: #ece9f5;
+            display: block;
+        }
+
+        .tr-dots i.is-on {
+            background: linear-gradient(135deg, #a78bfa, #f472b6);
+        }
+
+        .tr-metatxt {
+            font-size: 11px;
+            color: #9ca3af;
+            font-weight: 700;
+        }
+
+        .tr-mini.go {
+            margin-left: auto;
+            border-color: #f9a8d4;
+            background: linear-gradient(135deg, #fdf2f8, #f5f3ff);
+            color: #be185d;
+        }
+
+        /* Gõ chưa khớp mẫu nào thì máy dò mờ và nói rõ đang mượn mẫu nào */
+        .tr-near {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            flex-wrap: wrap;
+            margin: 0 0 8px 34px;
+            font-size: 11.5px;
+            color: #6d28d9;
+            background: #faf5ff;
+            border: 1px dashed #e9d5ff;
+            border-radius: 10px;
+            padding: 5px 10px;
+        }
+
+        .tr-near b { color: #7c3aed; }
+
+        /* Một nhánh nguyên nhân = hàng nhập + hộp chip gợi ý bung khi đang nhập */
+        .tr-leafwrap {
+            border-radius: 12px;
+            padding: 2px;
+            margin-bottom: 6px;
+            transition: background .15s;
+        }
+
+        .tr-leafwrap:focus-within {
+            background: #fbf8ff;
+            box-shadow: inset 0 0 0 1px #ece5fb;
+        }
+
+        .tr-leafwrap .tr-leaf { margin-bottom: 0; }
+
+        .tr-leafx {
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+            padding: 6px 4px 4px 20px;
+        }
+
+        .tr-leafwrap:focus-within .tr-leafx { display: flex; }
+
+        .tr-leafx .tr-sugg { margin-top: 0; }
+
+        /* Chip đã có mặt trong ô -> tô đậm để biết mình đã chọn những gì */
+        .tr-sugg-b.is-on {
+            background: #ede9fe;
+            border-style: solid;
+            border-color: #c4b5fd;
+            color: #5b21b6;
+        }
+
+        .tr-sugg-b.is-on::before {
+            content: "✓ ";
+            font-weight: 800;
+        }
+
+        .tr-sugg-b.red {
+            border-color: #fecdd3;
+            background: #fff5f6;
+            color: #be123c;
+        }
+
+        .tr-sugg-b.red:hover { background: #ffe4e6; }
+
+        .tr-sugg-b.cls {
+            border-color: #bae6fd;
+            background: #f5fbff;
+            color: #0369a1;
+        }
+
+        .tr-sugg.cls>span { color: #0891b2; }
+
+        @media (max-width: 640px) {
+            .tr-meta, .tr-near { margin-left: 0; }
+
+            .tr-leafx { padding-left: 6px; }
+
+            /* Điện thoại: chip trượt ngang thay vì xuống dòng thành cả rừng */
+            .tr-leafx .tr-sugg {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                scrollbar-width: none;
+                padding-bottom: 2px;
+            }
+
+            .tr-leafx .tr-sugg::-webkit-scrollbar { display: none; }
+
+            .tr-leafx .tr-sugg > * { flex: 0 0 auto; }
+        }
+
+        /* =============================================================
+           Nút chụp ảnh tại chỗ — chỉ hiện trên máy cảm ứng (điện thoại, iPad)
+           ============================================================= */
+        .img-add.is-cam {
+            background: linear-gradient(135deg, #7c3aed, #ec4899);
+        }
+
+        .img-add.is-alt {
+            background: #fff;
+            color: #be185d;
+            border: 1px solid #f9a8d4;
+            box-shadow: none;
+        }
+
+        .cls-mini.is-cam {
+            border-color: #d8b4fe;
+            background: linear-gradient(135deg, #f5f3ff, #fdf2f8);
+            color: #7c3aed;
+            font-weight: 700;
+        }
+
+        /* Ngón tay bấm: nút chụp phải đủ lớn để không bấm trượt */
+        @media (pointer: coarse) {
+            .img-add, .img-add.is-alt {
+                padding: 10px 18px;
+                font-size: 13px;
+            }
+
+            .cls-mini.is-cam { padding: 8px 12px; }
+        }
     </style>
 </head>
 

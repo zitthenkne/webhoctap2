@@ -19,9 +19,16 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
 const trim = (x) => String(x ?? '').trim();
 const newId = () => 'b' + Math.random().toString(36).slice(2, 8);
 
-import { suggestFor, searchLibrary, clsForCause } from './bien-luan-data.js';
+import {
+    suggestFor, searchLibrary, clsForCause, bienChungFor, yeuToFor, BIEN_CHUNG, LIBRARY,
+    LY_DO_MAU, TEN_VAN_DE, TEN_NGUYEN_NHAN, VAN_DE_NHOM
+} from './bien-luan-data.js';
 import { drawMap, downloadMapPng } from './bien-luan-map.js';
 import { getSteps, mainSymLabels } from './benh-su-editor.js';
+import { BENH_NHOM } from './benh-data.js';
+import { openListPicker } from './list-picker.js';
+import { attachTypeahead } from './goi-y-go.js';
+import { fold } from './tim-kiem.js';
 
 /** 4 mức phân tầng — thứ tự này quyết định màu badge và thứ tự trình bày */
 export const LEVELS = ['Nghĩ nhiều nhất', 'Nghĩ tới', 'Ít nghĩ', 'Cần loại trừ'];
@@ -193,19 +200,81 @@ export function syncFromProblems() {
     return added;
 }
 
+/* =====================================================================
+   Nguồn gợi ý cho một thẻ vấn đề
+   ===================================================================== */
+
+/** Thư viện của một vấn đề; gõ chưa khớp mẫu thì dò mờ để vẫn có gợi ý */
+function libFor(ten) {
+    const direct = suggestFor(ten);
+    if (direct.nn.length || direct.red.length) return direct;
+    const t = trim(ten);
+    if (t.length < 3) return direct;
+    /* Dò mờ phải ưu tiên mẫu trùng TÊN. Nếu chỉ so cả danh sách nguyên nhân thì
+       gõ "Suy tim" lại vớ phải mẫu "Phù" (vì suy tim là một nguyên nhân gây phù). */
+    const f = fold(t);
+    const hit = LIBRARY.find(x => fold(x.k).includes(f) || f.includes(fold(x.k)))
+        || searchLibrary(t)[0];
+    return hit ? { ...suggestFor(hit.k), gan: hit.k } : direct;
+}
+
+const lowerFirst = (t) => trim(t).charAt(0).toLowerCase() + trim(t).slice(1);
+const splitCsv = (t) => String(t || '').split(/[;,]/).map(trim).filter(Boolean);
+const has = (cur, t) => fold(cur).includes(fold(t));
+
+/** Các dòng tiền căn đã nhập — dùng làm chip yếu tố nguy cơ, khỏi gõ lại */
+function tienCanLines() {
+    return ['history-internal', 'history-habit', 'history-environment', 'history-family']
+        .flatMap(id => String($(id)?.value || '').split(/[\n;]/))
+        .map(trim)
+        .filter(t => t && !/^ch[ưu]a ghi nh[ậa]n/i.test(t) && t.length < 60)
+        .slice(0, 8);
+}
+
+/** Đủ ý tới đâu: 4 chấm cho 4 khối tư duy */
+function cardScore(v) {
+    const nn = v.nguyenNhan.filter(n => trim(n.ten));
+    return [
+        !!trim(v.ten),
+        v.lamSang.length > 0,
+        nn.some(n => fixLevel(n.muc) === LEVELS[0]),
+        nn.length > 0 && nn.every(n => trim(n.lyDo))
+    ];
+}
+
 /* ---------- Khối 3: một nhánh nguyên nhân ---------- */
-function nguyenNhanHtml(n, vi, ni) {
+function nguyenNhanHtml(n, vi, ni, ctx) {
     const lv = fixLevel(n.muc);
     const li = LEVELS.indexOf(lv);
-    return `<div class="tr-leaf lv-${li}" data-v="${vi}" data-n="${ni}">
-        <span class="tr-dot" title="${esc(LEVEL_META[li].hint)}">${LEVEL_META[li].ico}</span>
-        <input class="tr-in name" data-k="ten" value="${esc(n.ten)}" placeholder="Nguyên nhân / chẩn đoán" aria-label="Nguyên nhân">
-        <select class="tr-lv" data-k="muc" aria-label="Mức độ nghĩ tới">
-            ${LEVELS.map((l, i) => `<option ${lv === l ? 'selected' : ''}>${LEVEL_META[i].ico} ${l}</option>`).join('')}
-        </select>
-        <input class="tr-in" data-k="lyDo" value="${esc(n.lyDo)}" placeholder="vì… (ủng hộ / thiếu / âm tính giá trị)" aria-label="Lý do">
-        <button type="button" class="tr-x" data-act="del-nn" title="Xóa nhánh"><i class="fas fa-xmark"></i></button>
-        <input class="tr-in sub" data-k="cls" value="${esc(n.cls)}" placeholder="Cận lâm sàng để phân định nhánh này" aria-label="Cận lâm sàng">
+    const lyDo = trim(n.lyDo), cls = trim(n.cls);
+
+    /* Chip "vì…": chính các dấu chứng vừa nhập ở khối ② — bấm là ghép câu,
+       đây là chỗ trước đây phải gõ tay nhiều nhất. */
+    const lyChips = ctx.lyGoi.map(t =>
+        `<button type="button" class="tr-sugg-b${has(lyDo, t) ? ' is-on' : ''}"
+            data-act="ly" data-n="${ni}" data-text="${esc(t)}">${esc(t)}</button>`).join('');
+
+    const clsGoi = [...new Set([...splitCsv(clsForCause(n.ten)), ...ctx.libCls])].slice(0, 8);
+    const clsChips = clsGoi.map(t =>
+        `<button type="button" class="tr-sugg-b cls${has(cls, t) ? ' is-on' : ''}"
+            data-act="cls-leaf" data-n="${ni}" data-text="${esc(t)}">${esc(t)}</button>`).join('');
+
+    return `<div class="tr-leafwrap" data-v="${vi}">
+        <div class="tr-leaf lv-${li}" data-v="${vi}" data-n="${ni}">
+            <span class="tr-dot" title="${esc(LEVEL_META[li].hint)}">${LEVEL_META[li].ico}</span>
+            <input class="tr-in name" data-k="ten" value="${esc(n.ten)}" placeholder="Nguyên nhân / chẩn đoán — gõ 2 chữ là có gợi ý" aria-label="Nguyên nhân">
+            <select class="tr-lv" data-k="muc" aria-label="Mức độ nghĩ tới">
+                ${LEVELS.map((l, i) => `<option ${lv === l ? 'selected' : ''}>${LEVEL_META[i].ico} ${l}</option>`).join('')}
+            </select>
+            <input class="tr-in" data-k="lyDo" value="${esc(n.lyDo)}" placeholder="vì… (bấm chip bên dưới)" aria-label="Lý do">
+            <button type="button" class="tr-x" data-act="del-nn" title="Xóa nhánh"><i class="fas fa-xmark"></i></button>
+            <input class="tr-in sub" data-k="cls" value="${esc(n.cls)}" placeholder="Cận lâm sàng để phân định nhánh này" aria-label="Cận lâm sàng">
+        </div>
+        <div class="tr-leafx">
+            ${lyChips ? `<div class="tr-sugg"><span>vì:</span>${lyChips}</div>` : ''}
+            ${clsChips ? `<div class="tr-sugg cls"><span>phân định bằng:</span>${clsChips}</div>` : ''}
+            ${!lyChips && !clsChips ? '<p class="tr-empty">Gõ tên bệnh vào ô trên, gợi ý sẽ hiện ở đây.</p>' : ''}
+        </div>
     </div>`;
 }
 
@@ -224,44 +293,77 @@ function tagsHtml(list, vi, key, cls = '') {
         <button type="button" data-act="del-${key}" aria-label="Xóa"><i class="fas fa-xmark"></i></button></span>`).join('');
 }
 
+/** Một hàng chip gợi ý */
+function suggRow(label, items, act, cls = '') {
+    if (!items.length) return '';
+    return `<div class="tr-sugg ${cls}"><span>${label}</span>${items.map(x =>
+        `<button type="button" class="tr-sugg-b ${cls}" data-act="${act}" data-text="${esc(x)}">+ ${esc(x)}</button>`).join('')}</div>`;
+}
+
 function vanDeHtml(v, vi) {
-    const lib = suggestFor(v.ten);
+    const lib = libFor(v.ten);
     const daCo = (t) => v.nguyenNhan.some(n => trim(n.ten).toLowerCase() === t.toLowerCase());
-    const goiY = lib.nn.filter(x => !daCo(x)).slice(0, 8);
-    const goiRed = (lib.red || []).filter(x => !v.redFlags.includes(x) && !daCo(x)).slice(0, 4);
-    const goiHall = (lib.hall || []).filter(x => !v.lamSang.some(y => trim(y).toLowerCase() === x.toLowerCase())).slice(0, 6);
-    const goiCls = (lib.cls || []).slice(0, 6);
+    const goiY = lib.nn.filter(x => !daCo(x)).slice(0, 10);
+    const goiRed = (lib.red || []).filter(x => !v.redFlags.includes(x) && !daCo(x)).slice(0, 5);
+    const goiHall = (lib.hall || []).filter(x => !v.lamSang.some(y => trim(y).toLowerCase() === x.toLowerCase())).slice(0, 8);
+
+    /* Yếu tố nguy cơ: thư viện của bệnh cảnh + chính tiền căn đã nhập ở mục IV */
+    const goiYt = [...new Set([...yeuToFor(v.ten || lib.gan || ''), ...tienCanLines()])]
+        .filter(x => !has(v.yeuTo, x)).slice(0, 10);
+
+    /* Biến chứng: theo tên vấn đề và theo nhánh đang nghĩ nhiều nhất */
+    const nnTop = v.nguyenNhan.filter(n => trim(n.ten)).map(n => n.ten);
+    const goiBc = [...new Map([...bienChungFor(v.ten || lib.gan || ''),
+        ...nnTop.flatMap(t => bienChungFor(t))].map(x => [x[0], x])).values()]
+        .filter(([ten]) => !v.bienChung.some(b => trim(b.ten).toLowerCase() === ten.toLowerCase()))
+        .slice(0, 6);
+
+    const ctx = { lyGoi: lyGoiCua(v), libCls: (lib.cls || []).slice(0, 6) };
 
     // Nhánh nguyên nhân xếp theo mức để mắt đọc được ngay thứ tự ưu tiên
     const byLevel = LEVELS.map((lv, li) => ({
         lv, li, rows: v.nguyenNhan.map((n, ni) => ({ n, ni })).filter(x => fixLevel(x.n.muc) === lv)
     })).filter(g => g.rows.length);
 
+    const sc = cardScore(v);
+    const scLab = ['đặt tên vấn đề', 'có dấu chứng ủng hộ', 'chốt hướng nghĩ nhiều nhất', 'nhánh nào cũng có lý do'];
+
     return `<div class="tr-card" data-v="${vi}">
         <div class="tr-root">
             <span class="tr-no">${vi + 1}</span>
-            <input class="tr-title" data-k="ten" value="${esc(v.ten)}" placeholder="Tên hội chứng / vấn đề (gõ để app gợi nhánh)" aria-label="Tên vấn đề">
+            <input class="tr-title" data-k="ten" value="${esc(v.ten)}" placeholder="Tên hội chứng / vấn đề — gõ 2 chữ là có gợi ý" aria-label="Tên vấn đề">
             <span class="tr-tools">
+                <button type="button" class="tr-x" data-act="pick-vd" title="Chọn hội chứng từ danh mục"><i class="fas fa-folder-open"></i></button>
                 <button type="button" class="tr-x" data-act="up" title="Lên trên"><i class="fas fa-arrow-up"></i></button>
                 <button type="button" class="tr-x" data-act="down" title="Xuống dưới"><i class="fas fa-arrow-down"></i></button>
                 <button type="button" class="tr-x" data-act="dup-vd" title="Nhân bản"><i class="fas fa-copy"></i></button>
                 <button type="button" class="tr-x" data-act="del-vd" title="Xóa vấn đề"><i class="fas fa-trash"></i></button>
             </span>
         </div>
+
+        <div class="tr-meta">
+            <span class="tr-dots" title="Đủ ý tới đâu">${sc.map((ok, i) =>
+                `<i class="${ok ? 'is-on' : ''}" title="${scLab[i]}"></i>`).join('')}</span>
+            <span class="tr-metatxt">${sc.filter(Boolean).length}/4 khối đã đủ ý</span>
+            <button type="button" class="tr-mini go" data-act="quick"
+                title="Đổ sẵn dấu chứng, âm tính và các nhánh nguyên nhân kinh điển của bệnh cảnh này"><i class="fas fa-bolt"></i> Dựng nhanh cả thẻ</button>
+        </div>
+        ${lib.gan && trim(v.ten) && fold(lib.gan) !== fold(v.ten)
+            ? `<div class="tr-near"><i class="fas fa-wand-magic-sparkles"></i> Đang lấy gợi ý theo mẫu
+                <b>${esc(lib.gan)}</b> <button type="button" class="tr-mini" data-act="use-lib" data-text="${esc(lib.gan)}">Đổi tên vấn đề thành mẫu này</button></div>` : ''}
         ${lib.tieuChuan ? `<div class="tr-crit"><i class="fas fa-clipboard-check"></i>
             <span><b>Tiêu chuẩn chẩn đoán tối thiểu:</b> ${esc(lib.tieuChuan)}</span></div>` : ''}
 
         <div class="tr-branch">
             <div class="tr-label"><i class="fas fa-magnifying-glass"></i> ② Dấu chứng lâm sàng ủng hộ
                 <button type="button" class="tr-mini" data-act="harvest"
-                    title="Quét bệnh sử và phần khám, đổ sẵn dấu chứng vào đây"><i class="fas fa-wand-magic-sparkles"></i> Quét tự động từ bệnh án</button>
+                    title="Quét bệnh sử và phần khám, đổ sẵn dấu chứng vào đây"><i class="fas fa-wand-magic-sparkles"></i> Quét từ bệnh án</button>
             </div>
             <div class="tr-tags">
                 ${tagsHtml(v.lamSang, vi, 's')}
                 <input class="tr-tag-in" data-act="add-ls" data-v="${vi}" placeholder="+ thêm dấu chứng rồi Enter" aria-label="Thêm dấu chứng">
             </div>
-            ${goiHall.length ? `<div class="tr-sugg"><span>Dấu hiệu then chốt của hội chứng này:</span>
-                ${goiHall.map(x => `<button type="button" class="tr-sugg-b" data-act="add-hall" data-text="${esc(x)}">+ ${esc(x)}</button>`).join('')}</div>` : ''}
+            ${suggRow('Dấu hiệu then chốt của hội chứng này:', goiHall, 'add-hall')}
         </div>
 
         <div class="tr-branch">
@@ -278,26 +380,24 @@ function vanDeHtml(v, vi) {
         <div class="tr-branch">
             <div class="tr-label"><i class="fas fa-fire-flame-curved"></i> Yếu tố nguy cơ / thúc đẩy</div>
             <input class="tr-in wide" data-k="yeuTo" data-v="${vi}" value="${esc(v.yeuTo)}"
-                placeholder="vd hút thuốc 40 gói·năm, đái tháo đường, dùng corticoid kéo dài" aria-label="Yếu tố nguy cơ">
+                placeholder="bấm chip bên dưới hoặc gõ tay" aria-label="Yếu tố nguy cơ">
+            ${suggRow('Thường gặp / đã có trong tiền căn:', goiYt, 'add-yt')}
         </div>
 
         <div class="tr-branch">
             <div class="tr-label"><i class="fas fa-code-branch"></i> ③ Phân tầng nguyên nhân &amp; chẩn đoán phân biệt
+                <button type="button" class="tr-mini" data-act="pick-nn"><i class="fas fa-folder-open"></i> Chọn bệnh từ danh mục</button>
                 <button type="button" class="tr-mini" data-act="add-nn"><i class="fas fa-plus"></i> Thêm nhánh</button>
             </div>
             ${byLevel.map(g => `<div class="tr-tier">
                 <div class="tr-tier-h lv-${g.li}">${LEVEL_META[g.li].ico} ${g.lv}
                     <small>${esc(LEVEL_META[g.li].hint)}</small></div>
-                ${g.rows.map(x => nguyenNhanHtml(x.n, vi, x.ni)).join('')}
+                ${g.rows.map(x => nguyenNhanHtml(x.n, vi, x.ni, ctx)).join('')}
             </div>`).join('')
-        || '<p class="tr-empty">Chưa có nhánh nguyên nhân nào — bấm một chip gợi ý bên dưới là xong.</p>'}
-            ${goiY.length ? `<div class="tr-sugg"><span>Gợi ý nguyên nhân:</span>
-                ${goiY.map(x => `<button type="button" class="tr-sugg-b" data-act="sugg" data-text="${esc(x)}">+ ${esc(x)}</button>`).join('')}</div>` : ''}
-            ${goiRed.length ? `<div class="tr-sugg"><span>🚨 Cần loại trừ khẩn:</span>
-                ${goiRed.map(x => `<button type="button" class="tr-sugg-b red" data-act="sugg-red" data-text="${esc(x)}">+ ${esc(x)}</button>`).join('')}</div>` : ''}
+        || '<p class="tr-empty">Chưa có nhánh nào — bấm một chip gợi ý bên dưới, hoặc “Dựng nhanh cả thẻ”.</p>'}
+            ${suggRow('Nguyên nhân nên nghĩ:', goiY, 'sugg')}
+            ${suggRow('🚨 Cần loại trừ khẩn:', goiRed, 'sugg-red', 'red')}
             ${v.redFlags.length ? `<div class="tr-tags">${tagsHtml(v.redFlags, vi, 'r', 'red')}</div>` : ''}
-            ${goiCls.length ? `<div class="tr-sugg cls"><span>CLS hay dùng:</span>
-                ${goiCls.map(x => `<button type="button" class="tr-sugg-b cls" data-act="sugg-cls" data-text="${esc(x)}">+ ${esc(x)}</button>`).join('')}</div>` : ''}
         </div>
 
         <div class="tr-branch last">
@@ -306,8 +406,21 @@ function vanDeHtml(v, vi) {
             </div>
             ${v.bienChung.map((b, bi) => bienChungHtml(b, vi, bi)).join('')
         || '<p class="tr-empty">Chưa ghi biến chứng nào.</p>'}
+            ${goiBc.length ? `<div class="tr-sugg"><span>Biến chứng thường gặp:</span>${goiBc.map(([ten, lap]) =>
+                `<button type="button" class="tr-sugg-b" data-act="add-bc-goi" data-text="${esc(ten)}" data-lap="${esc(lap)}"
+                    title="${esc(lap)}">+ ${esc(ten)}</button>`).join('')}</div>` : ''}
         </div>
     </div>`;
+}
+
+/** Chip cho ô "vì…" — ưu tiên chính những gì đã nhập trong thẻ này */
+function lyGoiCua(v) {
+    return [...new Set([
+        ...v.lamSang.map(lowerFirst),
+        ...v.amTinh.map(lowerFirst),
+        ...(trim(v.yeuTo) ? splitCsv(v.yeuTo).map(lowerFirst) : []),
+        ...LY_DO_MAU
+    ])].filter(Boolean).slice(0, 16);
 }
 
 let mapMode = false;
@@ -370,9 +483,23 @@ function render() {
         <div id="tr-search-res" class="tr-search-res"></div>`
         + (data.vanDe.length ? data.vanDe.map(vanDeHtml).join('')
             : `<p class="tr-empty big">Chưa có vấn đề nào — điền mục VIII rồi bấm “Lấy vấn đề từ mục VIII”.</p>`);
+    attachHelpers();
     restoreFocus(keep);
     refreshMap();
 }
+
+/* Ô nào cũng gõ vài chữ là ra danh sách. Khối HTML bị dựng lại sau mỗi thay đổi
+   nên phải gắn lại; attachTypeahead tự bỏ qua ô đã gắn rồi. */
+function attachHelpers() {
+    host.querySelectorAll('.tr-title').forEach(el =>
+        attachTypeahead(el, { items: TEN_VAN_DE }));
+    host.querySelectorAll('.tr-leaf .tr-in.name').forEach(el =>
+        attachTypeahead(el, { items: el.closest('.lv-warn') ? BIEN_CHUNG_TEN : TEN_BENH }));
+}
+
+/** Tên bệnh để dò khi gõ nhánh nguyên nhân: thư viện biện luận + danh mục bệnh */
+const TEN_BENH = [...new Set([...TEN_NGUYEN_NHAN, ...BENH_NHOM.flatMap(g => g.items || [])])];
+const BIEN_CHUNG_TEN = [...new Set(BIEN_CHUNG.flatMap(x => x[1].map(y => y[0])))];
 
 /* ---------- chuyển cây thành văn xuôi ---------- */
 const joinList = (xs) => xs.map(trim).filter(Boolean).join('; ');
@@ -496,9 +623,22 @@ export function initBienLuan(options) {
         if (el.dataset.k === 'muc') render();
         else if (el.dataset.k === 'ten' && !leaf) laterRender();
         else if (leaf) refreshMap();
+        // Gõ xong tên bệnh (rời ô) mà ô CLS còn trống -> điền bộ phân định chuẩn
+        if (e.type === 'change' && el.dataset.k === 'ten' && leaf && leaf.dataset.n !== undefined) {
+            const n = v.nguyenNhan[+leaf.dataset.n];
+            const goi = clsForCause(n.ten);
+            if (goi && !trim(n.cls)) { n.cls = goi; render(); onChangeCb(); }
+            else laterRender();
+        }
     };
     host.addEventListener('input', onEdit);
     host.addEventListener('change', onEdit);
+
+    /* Chip của một nhánh chỉ hiện khi ô trong nhánh đó đang được focus, nên
+       bấm chip không được phép cướp focus — nhấn xuống là chặn ngay. */
+    host.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.tr-leafx .tr-sugg-b')) e.preventDefault();
+    });
 
     /* Enter ở ô tên một nhánh nguyên nhân -> mở luôn nhánh trống kế tiếp,
        gõ liên tục được cả chuỗi chẩn đoán phân biệt mà không phải rê chuột. */
@@ -578,6 +718,62 @@ export function initBienLuan(options) {
         const v = data.vanDe[+box.dataset.v];
         const act = btn.dataset.act;
 
+        /* Chip "vì…" và chip cận lâm sàng của một nhánh: ghi thẳng vào ô,
+           KHÔNG vẽ lại — vẽ lại là mất con trỏ và hộp chip đóng sập ngay. */
+        if (act === 'ly' || act === 'cls-leaf') {
+            const ni = +btn.dataset.n;
+            const key = act === 'ly' ? 'lyDo' : 'cls';
+            const n = v.nguyenNhan[ni];
+            if (!n) return;
+            const t = btn.dataset.text;
+            const cur = trim(n[key]);
+            const co = fold(cur).includes(fold(t));
+            n[key] = co
+                ? splitCsv(cur).filter(x => fold(x) !== fold(t)).join(key === 'ly' ? ', ' : '; ')
+                : [cur, t].filter(Boolean).join(key === 'lyDo' ? ', ' : '; ');
+            const inp = box.querySelector(`.tr-leaf[data-n="${ni}"] [data-k="${key}"]`);
+            if (inp) inp.value = n[key];
+            btn.classList.toggle('is-on', !co);
+            onChangeCb();
+            refreshMap();
+            return;
+        }
+
+        /* Chọn hội chứng / bệnh từ danh mục — khỏi nhớ tên, khỏi gõ */
+        if (act === 'pick-vd') {
+            openListPicker({
+                title: 'Chọn hội chứng / vấn đề', groups: VAN_DE_NHOM, value: v.ten,
+                onPick: (names) => {
+                    if (!names.length) return;
+                    v.ten = names[0];
+                    render();
+                    onChangeCb();
+                }
+            });
+            return;
+        }
+        if (act === 'pick-nn') {
+            openListPicker({
+                title: `Chọn nguyên nhân cần bàn cho “${trim(v.ten) || 'vấn đề này'}”`,
+                groups: BENH_NHOM, multi: true,
+                value: v.nguyenNhan.map(n => trim(n.ten)).filter(Boolean).join('\n'),
+                onPick: (names) => {
+                    if (!names.length) return;
+                    names.forEach(ten => {
+                        if (v.nguyenNhan.some(n => trim(n.ten).toLowerCase() === ten.toLowerCase())) return;
+                        v.nguyenNhan.push({
+                            id: newId(), ten,
+                            muc: v.nguyenNhan.some(n => fixLevel(n.muc) === LEVELS[0]) ? LEVELS[1] : LEVELS[0],
+                            lyDo: '', cls: clsForCause(ten)
+                        });
+                    });
+                    render();
+                    onChangeCb();
+                }
+            });
+            return;
+        }
+
         if (act === 'del-vd') data.vanDe.splice(+box.dataset.v, 1);
         else if (act === 'del-s') v.lamSang.splice(+btn.closest('.tr-tag').dataset.s, 1);
         else if (act === 'del-a') v.amTinh.splice(+btn.closest('.tr-tag').dataset.a, 1);
@@ -597,6 +793,42 @@ export function initBienLuan(options) {
             options?.onHarvest?.(add.length);
         }
         else if (act === 'add-hall') { if (!v.lamSang.includes(btn.dataset.text)) v.lamSang.push(btn.dataset.text); }
+        else if (act === 'add-yt') {
+            const t = btn.dataset.text;
+            v.yeuTo = fold(v.yeuTo).includes(fold(t)) ? v.yeuTo
+                : [trim(v.yeuTo), t].filter(Boolean).join(', ');
+        }
+        else if (act === 'add-bc-goi') v.bienChung.push({ id: newId(), ten: btn.dataset.text, lapLuan: btn.dataset.lap || '' });
+        else if (act === 'use-lib') v.ten = btn.dataset.text;
+        /* Dựng nhanh cả thẻ: đổ dấu chứng, âm tính, các nhánh kinh điển và
+           bệnh cảnh phải loại trừ — sinh viên chỉ còn việc xóa bớt và sửa lý do. */
+        else if (act === 'quick') {
+            const lib = libFor(v.ten);
+            const truoc = v.lamSang.length + v.amTinh.length + v.nguyenNhan.length + v.bienChung.length;
+            const co = new Set(v.lamSang.map(x => x.toLowerCase()));
+            collectEvidence().filter(x => !co.has(x.toLowerCase())).forEach(x => v.lamSang.push(x));
+            const coAm = new Set(v.amTinh.map(x => x.toLowerCase()));
+            collectNegatives().filter(x => !coAm.has(x.toLowerCase())).forEach(x => v.amTinh.push(x));
+            if (!trim(v.yeuTo)) v.yeuTo = yeuToFor(v.ten || lib.gan || '').slice(0, 3).join(', ');
+            lib.nn.slice(0, 4).forEach((ten, i) => {
+                if (v.nguyenNhan.some(n => trim(n.ten).toLowerCase() === ten.toLowerCase())) return;
+                v.nguyenNhan.push({
+                    id: newId(), ten,
+                    muc: i === 0 && !v.nguyenNhan.some(n => fixLevel(n.muc) === LEVELS[0]) ? LEVELS[0] : LEVELS[1],
+                    lyDo: '', cls: clsForCause(ten)
+                });
+            });
+            (lib.red || []).slice(0, 2).forEach(ten => {
+                if (v.nguyenNhan.some(n => trim(n.ten).toLowerCase() === ten.toLowerCase())) return;
+                v.nguyenNhan.push({ id: newId(), ten, muc: LEVELS[3], lyDo: '', cls: clsForCause(ten) });
+            });
+            bienChungFor(v.ten || lib.gan || '').slice(0, 2).forEach(([ten, lap]) => {
+                if (v.bienChung.some(b => trim(b.ten).toLowerCase() === ten.toLowerCase())) return;
+                v.bienChung.push({ id: newId(), ten, lapLuan: lap });
+            });
+            options?.onHarvest?.(v.lamSang.length + v.amTinh.length
+                + v.nguyenNhan.length + v.bienChung.length - truoc);
+        }
         else if (act === 'add-nn') v.nguyenNhan.push({ id: newId(), ten: '', muc: LEVELS[1], lyDo: '', cls: '' });
         else if (act === 'add-bc') v.bienChung.push({ id: newId(), ten: '', lapLuan: '' });
         // Bấm chip nguyên nhân là kéo luôn bộ CLS phân định chuẩn của bệnh đó theo

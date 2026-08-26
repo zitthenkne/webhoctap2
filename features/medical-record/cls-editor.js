@@ -8,6 +8,7 @@ import { PANELS, resolveRef, flagOf, refText, toNum, FLAG_MARK } from './cls-sha
 import { showToast } from '../../core/utils.js';
 import { storage } from '../../core/firebase-init.js';
 import { authReady } from './record-store.js';
+import { openPicker, coCamera } from './image-upload.js';
 import {
     ref as storageRef, uploadBytes, getDownloadURL, deleteObject
 } from 'https://www.gstatic.com/firebasejs/9.6.0/firebase-storage.js';
@@ -124,7 +125,8 @@ function cardHtml(c, i) {
             ${rows}</div>` : ''}
         <div class="cls-c-tools">
             <button type="button" class="cls-mini" data-act="add-item"><i class="fas fa-plus"></i> Thêm chỉ số</button>
-            <button type="button" class="cls-mini" data-act="add-img"><i class="fas fa-image"></i> Thêm ảnh</button>
+            ${coCamera() ? '<button type="button" class="cls-mini is-cam" data-act="shoot-img"><i class="fas fa-camera-retro"></i> Chụp phiếu</button>' : ''}
+            <button type="button" class="cls-mini" data-act="add-img"><i class="fas fa-image"></i> ${coCamera() ? 'Chọn ảnh' : 'Thêm ảnh'}</button>
             <span class="cls-hint"><i class="fas fa-paste"></i> Dán ảnh (Ctrl+V) hoặc kéo thả vào đây</span>
         </div>
         <textarea class="cls-note" data-k="note" rows="2" placeholder="Mô tả / Kết luận của phiếu (vd: Bóng tim to, chỉ số tim ngực 0,55 — Kết luận: tim to)">${esc(c.note || '')}</textarea>
@@ -280,13 +282,8 @@ async function addImages(i, files) {
     }
 }
 
-function pickFiles(i) {
-    const inp = document.createElement('input');
-    inp.type = 'file';
-    inp.accept = 'image/*';
-    inp.multiple = true;
-    inp.addEventListener('change', () => addImages(i, inp.files));
-    inp.click();
+function pickFiles(i, capture = false) {
+    openPicker({ capture, onFiles: (files) => addImages(i, files) });
 }
 
 /** Phiếu đang thao tác: nơi con trỏ đang đứng, không thì phiếu cuối */
@@ -356,6 +353,8 @@ export function initCls(options) {
             c.items.push({ n: '', v: '', u: '', lo: null, hi: null });
         } else if (act === 'add-img') {
             return pickFiles(i);
+        } else if (act === 'shoot-img') {
+            return pickFiles(i, true);
         } else if (act === 'del-img') {
             const k = +btn.closest('.cls-thumb').dataset.k;
             const im = c.images[k];
