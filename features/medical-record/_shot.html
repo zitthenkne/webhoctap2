@@ -9976,6 +9976,24 @@
     <div id="toast-container"
         class="fixed bottom-6 right-4 z-[60] flex flex-col items-end space-y-2 pointer-events-none"></div>
     <script type="module" src="tao-benh-an.js"></script>
+
+<style id="narrow">html,body{width:400px!important;max-width:400px!important;overflow-x:hidden}</style>
+<script>
+addEventListener('load',()=>{setTimeout(()=>{
+ const set=(id,v)=>{const e=document.getElementById(id);if(e){e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));}};
+ document.querySelector('.tab-link[data-tab="kham-benh"]').click();
+ set('ros-cardio','Không hồi hộp, không đánh trống ngực, không khó thở');
+ set('ros-resp','ho đàm, khó thở khi gắng sức, ho ra máu');
+ set('ros-gi','bình thường, tiêu phân đen 2 ngày nay');
+ set('ros-neuro','không đau đầu, không chóng mặt');
+ set('ros-msk','đau khớp gối hai bên, cứng khớp buổi sáng khoảng 30 phút');
+ setTimeout(()=>{
+   const r=[...document.querySelectorAll('.ros-flag')].map(p=>p.previousElementSibling?.previousElementSibling?.id+' >> '+p.textContent.trim());
+   const p=document.createElement('pre');p.id='RPT';p.textContent='@@'+document.getElementById('ros-flag').textContent+'~~'+r.join('~~')+'@@';
+   document.body.appendChild(p);
+ },500);
+},1500);});
+</script>
 </body>
 
 </html>

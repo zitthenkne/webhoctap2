@@ -16,6 +16,7 @@ import { initClsDeNghi, parseCls } from './cls-de-nghi.js';
 import { initLyDo } from './ly-do-list.js';
 import { initPhanDo, getPhanDo, setPhanDo, refreshPhanDo, phanDoLines } from './phan-do.js';
 import { initAmTinh, refreshAmTinh } from './am-tinh.js';
+import { initRos, refreshRos } from './ros-editor.js';
 import { openSymptomPicker } from './symptom-picker.js';
 import { createGiaDinhList } from './gia-dinh-list.js';
 import { createDiUngList } from './di-ung-list.js';
@@ -1083,6 +1084,7 @@ function hxChecklist() {
 
     // Bệnh cảnh vừa đổi thì tab khám, lược qua cơ quan và bảng phân độ chỉnh lại cho trúng
     applyClinicalContext(getClinicalContext());
+    refreshRos();           // ô mục V vừa được tô nổi / dựng lại chip -> soi lại một lượt
     refreshPhanDo();
     syncSeveritySlot();     // thang một-câu-hỏi nằm ngay ở ô "Mức độ", đổi bệnh cảnh là đổi theo
     refreshAmTinh();
@@ -2423,6 +2425,7 @@ function scheduleCtx() {
     clearTimeout(ctxTimer);
     ctxTimer = setTimeout(() => {
         applyClinicalContext(getClinicalContext());
+        refreshRos();
         clsDeNghi?.refresh();     // chip "CLS bắt buộc" của mục XI bám theo chẩn đoán
         refreshRxSuggest();
     }, 500);
@@ -2492,6 +2495,10 @@ initAmTinh({
         }
     })
 });
+
+/* Mục V: chạm nhiều chip cho một cơ quan, máy đọc lại câu vừa ghi để biết
+   hệ đó bình thường hay đang có triệu chứng (xem ros-editor.js). */
+initRos();
 
 initFold();
 
@@ -2596,6 +2603,7 @@ form.addEventListener('input', (e) => {
     if (['vital-resp', 'vital-bp', 'patient-age', 'patient-yob'].includes(el.id)) calcScores();
     if (el.id.startsWith('vital-') || el.id.startsWith('gcs-') || el.id.startsWith('hx-sym-')) renderGrades();
     if (el.id === 'vital-bp' || el.id === 'vital-bmi') benhKem.forEach(l => l.regrade());
+    if (el.id.startsWith('ros-')) refreshRos(el.id);   // mục V: soi bất thường ngay trong lúc gõ
     if (el.id.startsWith('tr-')) calcTrauma();
     if (el.id.startsWith('env-')) calcEnv();
     if (el.id.startsWith('ob-') || el.id.startsWith('ped-') || el.id.startsWith('sx-')

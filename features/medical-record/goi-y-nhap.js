@@ -42,12 +42,27 @@ const QUICK_FILL = {
     'history-habit': ['Nhai trầu', 'Ăn mặn', 'Ăn nhiều dầu mỡ', 'Ít vận động', 'Thức khuya sau 24h',
         'Tự mua thuốc uống khi bệnh', 'Dùng thuốc nam không rõ nguồn gốc'],
     'history-family': ['Chưa ghi nhận bệnh lý tương tự trong gia đình', 'Gia đình có người tăng huyết áp', 'Gia đình có người đái tháo đường'],
-    'ros-cardio': [['Bình thường', () => 'Không hồi hộp, không đánh trống ngực, không khó thở'], 'Có khó thở khi gắng sức'],
-    'ros-resp': [['Bình thường', () => 'Không ho, không khò khè, không đau ngực'], 'Ho khan', 'Ho đàm'],
-    'ros-gi': [['Bình thường', () => 'Không đau bụng, không buồn nôn, đi phân vàng đóng khuôn'], 'Chán ăn', 'Sụt cân'],
-    'ros-neuro': [['Bình thường', () => 'Không đau đầu, không chóng mặt'], 'Mất ngủ'],
-    'ros-msk': [['Bình thường', () => 'Không đau khớp, không yếu liệt cơ, không giới hạn vận động'], 'Đau mỏi cơ'],
-    'ros-uro': [['Bình thường', () => 'Nước tiểu vàng trong, không tiểu gắt buốt, không tiểu máu'], 'Tiểu đêm'],
+    /* Mục V — mỗi hệ cơ quan bày đủ triệu chứng cơ năng của chính hệ đó.
+       Chạm nhiều chip là nối bằng dấu phẩy (xem CHIP_JOIN_COMMA), chạm lại là gỡ ra,
+       nên khai thác được cả cơ quan mà không phải gõ chữ nào. */
+    'ros-cardio': [['Bình thường', () => 'Không hồi hộp, không đánh trống ngực, không khó thở'],
+        'đau ngực', 'hồi hộp', 'đánh trống ngực', 'khó thở khi gắng sức', 'khó thở phải ngồi',
+        'cơn khó thở kịch phát về đêm', 'phù hai chân', 'đau cách hồi', 'ngất', 'tím tái'],
+    'ros-resp': [['Bình thường', () => 'Không ho, không khò khè, không đau ngực'],
+        'ho khan', 'ho đàm', 'ho ra máu', 'khó thở', 'khò khè', 'đau ngực khi hít sâu',
+        'đau ngực kiểu màng phổi', 'thở nhanh'],
+    'ros-gi': [['Bình thường', () => 'Không đau bụng, không buồn nôn, đi phân vàng đóng khuôn'],
+        'đau bụng', 'buồn nôn', 'nôn ói', 'chán ăn', 'đầy bụng', 'ợ hơi', 'ợ chua', 'nuốt khó',
+        'tiêu chảy', 'táo bón', 'tiêu phân đen', 'tiêu máu đỏ', 'vàng da', 'sụt cân'],
+    'ros-neuro': [['Bình thường', () => 'Không đau đầu, không chóng mặt'],
+        'đau đầu', 'chóng mặt', 'yếu liệt chi', 'tê bì', 'co giật', 'rối loạn tri giác',
+        'nói khó', 'nhìn đôi', 'run tay', 'mất ngủ'],
+    'ros-msk': [['Bình thường', () => 'Không đau khớp, không yếu liệt cơ, không giới hạn vận động'],
+        'đau khớp', 'sưng khớp', 'cứng khớp buổi sáng', 'yếu mỏi cơ', 'đau cột sống thắt lưng',
+        'đau vai gáy', 'chuột rút', 'giới hạn vận động'],
+    'ros-uro': [['Bình thường', () => 'Nước tiểu vàng trong, không tiểu gắt buốt, không tiểu máu'],
+        'tiểu gắt buốt', 'tiểu máu', 'tiểu đêm', 'tiểu khó', 'tia nước tiểu yếu', 'tiểu ít',
+        'tiểu nhiều', 'nước tiểu đục', 'đau quặn thận', 'phù mặt'],
     'exam-general': ['Bệnh nhân tỉnh, tiếp xúc tốt', 'Da niêm hồng', 'Chi ấm, mạch quay rõ, CRT < 2s', 'Không phù', 'Hạch ngoại vi sờ không chạm', 'Môi khô, lưỡi dơ'],
     'exam-head': ['Cân đối, không biến dạng', 'Họng sạch', 'Tuyến giáp không to, khí quản không lệch', 'Không âm thổi động mạch cảnh', 'Kết mạc mắt hồng'],
     'exam-chest': ['Lồng ngực cân đối, không sang thương, di động đều theo nhịp thở', 'Không co kéo cơ hô hấp phụ'],
@@ -154,6 +169,11 @@ const QUICK_FILL = {
 const CHIP_APPEND = new Set(['hx-sym-assoc', 'hx-negatives', 'hx-general', 'cc-initial',
     'tr-firstaid', 'dx1-comp', 'dx1-assoc', 'dx2-comp', 'dx2-assoc']);
 
+/* Lược qua cơ quan: tuy là ô nhiều dòng nhưng mỗi hệ phải gói trong ĐÚNG MỘT câu
+   ("ho đàm, khó thở khi gắng sức"), nên chạm nhiều chip thì nối bằng dấu phẩy chứ
+   không xuống dòng như các ô nhiều dòng khác. */
+const CHIP_JOIN_COMMA = new Set(['ros-cardio', 'ros-resp', 'ros-gi', 'ros-neuro', 'ros-msk', 'ros-uro']);
+
 export function buildChips() {
     for (const [id, items] of Object.entries(QUICK_FILL)) makeChips(id, items);
 }
@@ -190,12 +210,13 @@ function makeChips(id, items) {
             // Giữ con trỏ ở lại ô: chip hiện theo :focus-within, mất focus là chip
             // biến mất ngay giữa cú chạm (iOS không focus nút khi chạm).
             btn.addEventListener('mousedown', (e) => e.preventDefault());
+            const noiPhay = CHIP_JOIN_COMMA.has(id);
             btn.addEventListener('click', () => {
                 const text = getValue();
                 const cur = el.value.trim();
-                if (fixed && cur.includes(text)) el.value = dropChip(cur, text, el.tagName);
+                if (fixed && cur.includes(text)) el.value = dropChip(cur, text, noiPhay ? 'INPUT' : el.tagName);
+                else if (cur && (noiPhay || CHIP_APPEND.has(id))) el.value = cur.replace(/[,;\s]+$/, '') + ', ' + text;
                 else if (el.tagName === 'TEXTAREA' && cur) el.value = cur + '\n' + text;
-                else if (cur && CHIP_APPEND.has(id)) el.value = cur.replace(/[,;\s]+$/, '') + ', ' + text;
                 else el.value = text;
                 el.dispatchEvent(new Event('input', { bubbles: true }));
             });

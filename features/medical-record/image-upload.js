@@ -16,9 +16,9 @@ import {
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-const MAX_SIDE = 1200;
+const MAX_SIDE = 960;
 
-/** Nén ảnh về cạnh dài tối đa 1200px, JPEG 0.78 — siêu nhẹ (~80-150KB), tải lên cực nhanh mà chữ vẫn sắc nét */
+/** Nén ảnh về cạnh dài tối đa 960px, JPEG 0.72 — dung lượng siêu nhẹ (~30-60KB), nét rõ từng chỉ số xét nghiệm */
 export async function compressImage(file) {
     let bmp;
     try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
@@ -29,71 +29,18 @@ export async function compressImage(file) {
     cv.height = Math.round(bmp.height * scale);
     cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
     bmp.close?.();
-    return (await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.78))) || file;
-}
-
-/** Tải ảnh lên máy chủ lưu ảnh miễn phí (Freeimage.host / Cloud CDN) có báo % tiến độ */
-function uploadToFreeHost(blob, onProgress) {
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', 'https://freeimage.host/api/1/upload');
-        xhr.timeout = 25000;
-
-        xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-                const pct = Math.round((e.loaded / e.total) * 100);
-                onProgress?.(pct);
-            }
-        };
-
-        xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-                try {
-                    const data = JSON.parse(xhr.responseText);
-                    const url = data.image?.url || data.image?.display_url || data.image?.url_viewer;
-                    if (url) resolve(url);
-                    else reject(new Error('Không tìm thấy link ảnh trong phản hồi'));
-                } catch (err) {
-                    reject(err);
-                }
-            } else {
-                reject(new Error(`Upload HTTP ${xhr.status}`));
-            }
-        };
-
-        xhr.onerror = () => reject(new Error('Lỗi kết nối mạng khi tải ảnh'));
-        xhr.ontimeout = () => reject(new Error('Quá thời gian tải ảnh (timeout)'));
-
-        const formData = new FormData();
-        formData.append('key', '6d207e02198a847aa98d0a2a901485a5');
-        formData.append('action', 'upload');
-        formData.append('source', blob, 'image.jpg');
-        formData.append('format', 'json');
-        xhr.send(formData);
-    });
+    return cv.toDataURL('image/jpeg', 0.72);
 }
 
 export async function uploadImage(file, recordId, folder = 'anh', onProgress) {
-    onProgress?.(5); // Bắt đầu nén
-    const blob = await compressImage(file);
-    onProgress?.(15); // Nén xong, bắt đầu đẩy dữ liệu
-    try {
-        const url = await uploadToFreeHost(blob, (pct) => {
-            // Ánh xạ tiến trình upload từ 15% -> 95%
-            const mapped = Math.round(15 + (pct * 0.8));
-            onProgress?.(mapped);
-        });
-        onProgress?.(100);
-        return { url, path: '', caption: '' };
-    } catch (err) {
-        console.warn('Upload free host lỗi, thử fallback Firebase Storage:', err);
-        const uid = await authReady();
-        if (!uid) throw Object.assign(new Error('need-auth'), { code: 'need-auth' });
-        const path = `medical_records/${uid}/${recordId}/${folder}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`;
-        await uploadBytes(storageRef(storage, path), blob, { contentType: 'image/jpeg' });
-        onProgress?.(100);
-        return { url: await getDownloadURL(storageRef(storage, path)), path, caption: '' };
-    }
+    onProgress?.(20);
+    // Nén ảnh siêu nhanh tại thiết bị
+    const dataUrl = await compressImage(file);
+    onProgress?.(60);
+    // Nhấp nháy hoàn tất mượt mà
+    await new Promise(r => setTimeout(r, 60));
+    onProgress?.(100);
+    return { url: dataUrl, path: '', caption: '' };
 }
 
 export function deleteImage(im) {
