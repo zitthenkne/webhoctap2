@@ -336,8 +336,37 @@ export function canhBaoThuoc(ten) {
      benhCuaThuoc(tên thuốc) -> bệnh mà thuốc đó ám chỉ
    Tên thuốc trùng với THUOC_NHOM ở trên thì findThuoc() điền luôn liều.
    ===================================================================== */
-/** { benh: nhãn hiện ra, re: dò tên bệnh đã khai (chữ không dấu), thuoc: [tên thuốc] } */
+/** { benh: nhãn hiện ra, re: dò tên bệnh đã khai (chữ không dấu), thuoc: [tên thuốc],
+      capTinh: bộ y lệnh của một mặt bệnh cấp — chỉ gợi ý xuôi (bệnh -> thuốc),
+      không dùng để đoán ngược (thuốc -> bệnh nền), vì Ceftriaxone trong toa
+      không có nghĩa bệnh nhân "có tiền căn viêm phổi". } */
 export const THUOC_THEO_BENH = [
+    /* ---------- Mặt bệnh cấp: bộ y lệnh mẫu cho chẩn đoán đợt này ----------
+       Xếp trước nhóm bệnh mạn vì dò theo thứ tự, cái khớp đầu tiên thắng.
+       Trong nhóm này cũng xếp cái hẹp trước cái rộng (viêm phổi bệnh viện
+       trước viêm phổi cộng đồng). Liều lấy từ THUOC_NHOM — vẫn phải tra lại. */
+    { benh: 'Viêm phổi bệnh viện – thở máy', capTinh: 1, re: /viem phoi benh vien|viem phoi tho may|\bvap\b|\bhap\b/, thuoc: ['Piperacillin + Tazobactam', 'Meropenem', 'Vancomycin', 'Levofloxacin', 'Oxy liệu pháp'] },
+    { benh: 'Viêm phổi cộng đồng', capTinh: 1, re: /viem phoi cong dong|\bvpcd\b|viem phoi thuy|viem phe quan phoi|viem phoi/, thuoc: ['Ceftriaxone', 'Azithromycin', 'Paracetamol', 'N-Acetylcystein', 'Oxy liệu pháp', 'NaCl 0,9%'] },
+    { benh: 'Đợt cấp COPD', capTinh: 1, re: /dot cap copd|copd dot cap|dot cap benh phoi tac nghen/, thuoc: ['Salbutamol khí dung', 'Ipratropium khí dung', 'Methylprednisolone', 'Ceftriaxone', 'Oxy liệu pháp', 'N-Acetylcystein'] },
+    { benh: 'Cơn hen phế quản cấp', capTinh: 1, re: /con hen|hen cap|con kich phat hen/, thuoc: ['Salbutamol khí dung', 'Ipratropium khí dung', 'Methylprednisolone', 'Oxy liệu pháp'] },
+    { benh: 'Hội chứng vành cấp – nhồi máu cơ tim cấp', capTinh: 1, re: /hoi chung vanh cap|nhoi mau co tim cap|\bstemi\b|\bnstemi\b|dau that nguc khong on dinh/, thuoc: ['Aspirin', 'Clopidogrel', 'Enoxaparin', 'Atorvastatin', 'Bisoprolol', 'Nitroglycerin', 'Morphin'] },
+    { benh: 'Suy tim cấp – phù phổi cấp', capTinh: 1, re: /suy tim cap|phu phoi cap|dot cap suy tim|suy tim mat bu/, thuoc: ['Furosemide tiêm', 'Nitroglycerin', 'Oxy liệu pháp', 'Dobutamine'] },
+    { benh: 'Nhồi máu não cấp', capTinh: 1, re: /nhoi mau nao cap|dot quy nhoi mau|dot quy thieu mau/, thuoc: ['Aspirin', 'Atorvastatin', 'Citicoline', 'NaCl 0,9%'] },
+    { benh: 'Xuất huyết não', capTinh: 1, re: /xuat huyet nao|xuat huyet noi so/, thuoc: ['Mannitol 20%', 'Paracetamol', 'NaCl 0,9%', 'Oxy liệu pháp'] },
+    { benh: 'Nhiễm khuẩn huyết – sốc nhiễm khuẩn', capTinh: 1, re: /soc nhiem khuan|nhiem khuan huyet|nhiem trung huyet|\bsepsis\b/, thuoc: ['Lactate Ringer', 'Noradrenaline', 'Meropenem', 'Vancomycin', 'Paracetamol'] },
+    { benh: 'Nhiễm khuẩn tiết niệu – viêm đài bể thận', capTinh: 1, re: /nhiem trung tieu|nhiem khuan tiet nieu|viem dai be than|viem bang quang/, thuoc: ['Ceftriaxone', 'Ciprofloxacin', 'Paracetamol', 'NaCl 0,9%'] },
+    { benh: 'Viêm ruột thừa cấp', capTinh: 1, re: /viem ruot thua/, thuoc: ['Ceftriaxone', 'Metronidazole', 'Paracetamol', 'Lactate Ringer'] },
+    { benh: 'Viêm tụy cấp', capTinh: 1, re: /viem tuy cap/, thuoc: ['Lactate Ringer', 'Paracetamol', 'Pantoprazole', 'Ondansetron', 'Hyoscine butylbromide'] },
+    { benh: 'Xuất huyết tiêu hóa trên', capTinh: 1, re: /xuat huyet tieu hoa|\bxhth\b|non ra mau|di cau phan den/, thuoc: ['Esomeprazole', 'NaCl 0,9%', 'Hồng cầu lắng', 'Ondansetron'] },
+    { benh: 'Xơ gan mất bù – bệnh não gan', capTinh: 1, re: /hon me gan|benh nao gan|xo gan mat bu|nhiem trung dich bang/, thuoc: ['Lactulose', 'Albumin 20%', 'Spironolactone', 'Furosemide', 'Ceftriaxone'] },
+    { benh: 'Sốt xuất huyết Dengue', capTinh: 1, re: /sot xuat huyet|dengue/, thuoc: ['Paracetamol', 'Lactate Ringer', 'Oresol', 'NaCl 0,9%'] },
+    { benh: 'Tiêu chảy cấp – nhiễm trùng tiêu hóa', capTinh: 1, re: /tieu chay cap|nhiem trung tieu hoa|viem da day ruot/, thuoc: ['Oresol', 'Men vi sinh', 'Ciprofloxacin', 'Kẽm', 'Lactate Ringer'] },
+    { benh: 'Nhiễm toan ceton do đái tháo đường', capTinh: 1, re: /nhiem toan ceton|toan ceton|\bdka\b/, thuoc: ['NaCl 0,9%', 'Insulin Regular', 'Kali clorid 10%', 'Glucose 5%'] },
+    { benh: 'Cơn tăng huyết áp cấp cứu', capTinh: 1, re: /con tang huyet ap|tang huyet ap cap cuu|tang huyet ap khan cap/, thuoc: ['Nitroglycerin', 'Furosemide tiêm', 'Amlodipine'] },
+    { benh: 'Sốc phản vệ', capTinh: 1, re: /soc phan ve|phan ve/, thuoc: ['Adrenaline', 'Methylprednisolone', 'Chlorpheniramine', 'NaCl 0,9%', 'Oxy liệu pháp'] },
+    { benh: 'Trạng thái động kinh – cơn co giật', capTinh: 1, re: /trang thai dong kinh|con co giat/, thuoc: ['Diazepam', 'Levetiracetam', 'Phenytoin'] },
+
+    /* ---------- Bệnh nền mạn tính: dò xuôi lẫn ngược ---------- */
     { benh: 'Tăng huyết áp', re: /tang huyet ap|\btha\b|cao huyet ap/, thuoc: ['Amlodipine', 'Losartan', 'Telmisartan', 'Perindopril', 'Bisoprolol', 'Hydrochlorothiazide'] },
     { benh: 'Đái tháo đường type 2', re: /dai thao duong type 2|dai thao duong typ 2|\bdtd\b type 2|tieu duong/, thuoc: ['Metformin', 'Gliclazide MR', 'Insulin Mixtard 30/70', 'Insulin Glargine'] },
     { benh: 'Đái tháo đường type 1', re: /dai thao duong type 1|dai thao duong typ 1/, thuoc: ['Insulin Glargine', 'Insulin Regular'] },
@@ -383,6 +412,7 @@ export function benhCuaThuoc(tenThuoc) {
     const s = fold(tenThuoc).replace(/[^a-z0-9 ]/g, ' ').trim().split(' ')[0];
     if (s.length < 4) return [];
     return THUOC_THEO_BENH
+        .filter(x => !x.capTinh)
         .filter(x => x.thuoc.some(t => fold(t).startsWith(s) || s.startsWith(fold(t).split(' ')[0])))
         .map(x => x.benh);
 }

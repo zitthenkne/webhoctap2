@@ -5,6 +5,7 @@
 // (base64 sẽ làm phình localStorage và vượt giới hạn 1MB mỗi tài liệu Firestore).
 
 import { PANELS, resolveRef, flagOf, refText, toNum, FLAG_MARK } from './cls-shared.js';
+import { fold } from './tim-kiem.js';
 import { showToast } from '../../core/utils.js';
 import { storage } from '../../core/firebase-init.js';
 import { authReady } from './record-store.js';
@@ -184,14 +185,16 @@ function refreshCard(i) {
 /* =====================================================================
    Thêm phiếu
    ===================================================================== */
-function addPanel(name) {
+/** @param quiet  thêm hàng loạt: không vẽ lại / không nhảy tới từng phiếu
+ *  @param tenRieng  đặt tên khác tên phiếu mẫu (dùng cho phiếu tự nhập) */
+function addPanel(name, quiet = false, tenRieng = '') {
     const p = PANELS.find(x => x.name === name) || PANELS.at(-1);
     const gender = opts.getGender?.() || 'Nam';
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     cards.push({
-        id: 'cls-' + Date.now().toString(36),
-        name: p.name === 'Phiếu tự nhập' ? '' : p.name,
+        id: 'cls-' + Date.now().toString(36) + '-' + cards.length.toString(36),
+        name: tenRieng || (p.name === 'Phiếu tự nhập' ? '' : p.name),
         g: p.g, icon: p.icon,
         dt: now.toISOString().slice(0, 16),
         items: p.items.map(([n, u, ref]) => {
@@ -200,11 +203,136 @@ function addPanel(name) {
         }),
         note: '', images: []
     });
+    if (quiet) return;
     render();
     changed();
     const el = list.querySelector(`.cls-c[data-i="${cards.length - 1}"]`);
     el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
     el?.querySelector(p.items.length ? '.cls-in-val' : '.cls-note')?.focus();
+}
+
+/* =====================================================================
+   Nối mục XI -> mục XII: đề nghị cận lâm sàng nào thì mở sẵn phiếu nhập đó
+   ---------------------------------------------------------------------
+   Trước đây hai mục trôi độc lập: biện luận đề nghị Troponin ở mục XI xong
+   sang đây vẫn phải tự đi tìm "Men tim – suy tim" trong bảng chọn. Nay tên
+   đề nghị được dò về phiếu mẫu tương ứng; dò không ra thì mở phiếu tự nhập
+   mang đúng tên đã đề nghị, chứ không bỏ rơi dòng đó.
+   ===================================================================== */
+const PANEL_ALIAS = [
+    [/cong thuc mau|huyet do|\bcbc\b|bach cau|tieu cau|hong cau|hemoglobin|\bhb\b/, 'Công thức máu'],
+    [/dong mau|\bpt\b|\binr\b|aptt|d.?dimer|fibrinogen/, 'Đông máu toàn bộ'],
+    [/mo mau|lipid|cholesterol|triglycerid|\bldl\b|\bhdl\b/, 'Bộ mỡ máu'],
+    [/hba1c|duong huyet doi/, 'Đường huyết – HbA1c'],
+    [/troponin|men tim|ck.?mb|\bck\b|probnp|\bbnp\b/, 'Men tim – suy tim'],
+    [/khi mau|\bkmdm\b|lactat|toan kiem/, 'Khí máu động mạch'],
+    [/tuyen giap|\btsh\b|\bft4\b|\bft3\b/, 'Chức năng tuyến giáp'],
+    [/nuoc tieu|tptnt|\bptnt\b|cặn lang/, 'Tổng phân tích nước tiểu'],
+    [/sinh hoa|\bure\b|creatinin|ion do|dien giai|\bast\b|\balt\b|men gan|bilirubin|albumin|\bcrp\b|glucose|duong huyet|natri|kali|\bnhu\b/, 'Sinh hóa máu cơ bản'],
+    [/x.?quang nguc|x.?quang phoi|\bxq\b nguc|phim phoi/, 'X-quang ngực thẳng'],
+    [/sieu am bung|sieu am o bung|\bsadb\b/, 'Siêu âm bụng tổng quát'],
+    [/sieu am tim|doppler tim|echo tim|\bsat\b/, 'Siêu âm tim'],
+    [/\bct\b|ct scan|cat lop|\bmsct\b|chup cat lop/, 'CT scan'],
+    [/\bmri\b|cong huong tu/, 'MRI'],
+    [/\becg\b|dien tam do|dien tim|\bekg\b/, 'ECG'],
+    [/noi soi/, 'Nội soi tiêu hóa']
+];
+
+/** Tên đề nghị ở mục XI -> tên phiếu mẫu ('' nếu không có phiếu mẫu nào hợp) */
+function panelFor(ten) {
+    const s = fold(ten);
+    const exact = PANELS.find(p => fold(p.name) === s);
+    if (exact) return exact.name;
+    return PANEL_ALIAS.find(([re]) => re.test(s))?.[1] || '';
+}
+
+function fromDeNghi() {
+    const names = (opts.getProposed?.() || []).map(x => String(x || '').trim()).filter(Boolean);
+    if (!names.length) {
+        return showToast('Mục XI chưa có đề nghị cận lâm sàng nào — quay lại đó ghi trước.', 'warning');
+    }
+    let them = 0, boQua = 0;
+    names.forEach(ten => {
+        const panel = panelFor(ten);
+        const nhan = panel || ten;
+        if (cards.some(c => fold(c.name || '') === fold(nhan))) { boQua++; return; }
+        addPanel(panel || 'Phiếu tự nhập', true, panel ? '' : ten);
+        them++;
+    });
+    render();
+    changed();
+    showToast(them
+        ? `Đã mở ${them} phiếu nhập theo đề nghị mục XI` + (boQua ? `, bỏ qua ${boQua} phiếu đã có.` : '.')
+        : 'Các phiếu theo đề nghị mục XI đều đã có sẵn.', them ? 'success' : 'info');
+}
+
+/* =====================================================================
+   Dán nguyên chuỗi kết quả từ máy xét nghiệm -> tự bóc tách vào phiếu
+   ===================================================================== */
+/** tên chỉ số (không dấu) -> { panel, n, u, ref } — dựng một lần từ PANELS */
+const ITEM_MAP = (() => {
+    const m = new Map();
+    PANELS.forEach(p => p.items.forEach(([n, u, ref]) => {
+        const k = fold(n);
+        if (!m.has(k)) m.set(k, { panel: p.name, n, u, ref });
+    }));
+    // Tên tiếng Việt hay in trên phiếu giấy, quy về đúng chỉ số của phiếu mẫu
+    [['bach cau', 'WBC'], ['so luong bach cau', 'WBC'], ['hong cau', 'RBC'], ['so luong hong cau', 'RBC'],
+    ['tieu cau', 'PLT'], ['so luong tieu cau', 'PLT'], ['huyet sac to', 'HGB'], ['hemoglobin', 'HGB'],
+    ['hb', 'HGB'], ['hematocrit', 'HCT'], ['dung tich hong cau', 'HCT'],
+    ['bach cau da nhan trung tinh', 'NEU'], ['neutrophil', 'NEU'], ['lympho', 'LYM'], ['lymphocyte', 'LYM'],
+    ['duong huyet', 'Glucose'], ['duong mau', 'Glucose'], ['creatinin', 'Creatinine'],
+    ['natri', 'Na+'], ['na', 'Na+'], ['kali', 'K+'], ['k', 'K+'], ['clo', 'Cl-'], ['cl', 'Cl-'],
+    ['ure mau', 'Ure'], ['bun', 'Ure'], ['bilirubin tp', 'Bilirubin toàn phần'],
+    ['bilirubin tt', 'Bilirubin trực tiếp'], ['sgot', 'AST'], ['sgpt', 'ALT'],
+    ['protein tp', 'Protein toàn phần'], ['calci', 'Ca toàn phần'], ['ca', 'Ca toàn phần'],
+    ['cholesterol', 'Cholesterol toàn phần'], ['ldl', 'LDL-C'], ['hdl', 'HDL-C'],
+    ['troponin t', 'Troponin T hs'], ['troponin i', 'Troponin T hs'], ['nt probnp', 'NT-proBNP'],
+    ['paco2', 'PaCO2'], ['pao2', 'PaO2'], ['sao2', 'SaO2'], ['lactat', 'Lactate']
+    // Ghi đè cả khi tên đó đã có trong bảng: phiếu nước tiểu cũng có dòng
+    // "Bạch cầu", nhưng chuỗi dán kiểu "Bạch cầu 12.3" gần như luôn là WBC máu.
+    ].forEach(([alias, name]) => {
+        const src = m.get(fold(name));
+        if (src) m.set(alias, src);
+    });
+    return m;
+})();
+
+/** "WBC: 14,5 K/uL" / "Bạch cầu 14.5" -> [{ panel, n, u, ref, v }] */
+function parsePasted(text) {
+    const out = [];
+    String(text || '').split(/[\n;|]+/).forEach(line => {
+        const m = String(line).match(/^\s*([^0-9:=]+?)\s*[:=]?\s+(-?[\d]+(?:[.,]\d+)?)\b/);
+        if (!m) return;
+        const hit = ITEM_MAP.get(fold(m[1]).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim());
+        if (!hit || out.some(o => o.n === hit.n && o.panel === hit.panel)) return;
+        out.push({ ...hit, v: m[2].replace(',', '.') });
+    });
+    return out;
+}
+
+function applyPasted(text) {
+    const hits = parsePasted(text);
+    if (!hits.length) {
+        return showToast('Không bóc tách được chỉ số nào — mỗi dòng cần dạng "Tên  giá trị", vd "WBC 14,5".', 'warning');
+    }
+    const gender = opts.getGender?.() || 'Nam';
+    hits.forEach(h => {
+        let c = cards.find(x => fold(x.name || '') === fold(h.panel));
+        if (!c) { addPanel(h.panel, true); c = cards.at(-1); }
+        let it = (c.items || []).find(i => fold(i.n) === fold(h.n));
+        if (!it) {
+            const [lo, hi] = resolveRef(h.ref, gender);
+            it = { n: h.n, v: '', u: h.u, lo, hi };
+            c.items.push(it);
+        }
+        it.v = h.v;
+        it.auto = false;
+    });
+    cards.forEach(recompute);
+    render();
+    changed();
+    showToast(`Đã điền ${hits.length} chỉ số vào phiếu — đối chiếu lại với tờ kết quả gốc.`, 'success');
 }
 
 function buildToolbar() {
@@ -220,12 +348,37 @@ function buildToolbar() {
                     .map(p => `<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('')}</optgroup>`).join('')}
             </select>
             <button type="button" class="cls-add" data-act="add-panel"><i class="fas fa-file-circle-plus"></i> Thêm phiếu</button>
+        </div>
+        <div class="cls-link">
+            <button type="button" class="cls-add is-link" data-act="from-dn"><i class="fas fa-bolt"></i> Tạo phiếu theo đề nghị mục XI</button>
+            <button type="button" class="cls-quick-b" data-act="paste-open"><i class="fas fa-paste"></i> Dán chuỗi kết quả</button>
+        </div>
+        <div class="cls-paste" hidden>
+            <textarea class="cls-paste-in" rows="4" aria-label="Chuỗi kết quả cận lâm sàng"
+                placeholder="Dán nguyên đoạn kết quả từ máy xét nghiệm — mỗi dòng một chỉ số, vd:&#10;WBC 14,5 K/uL&#10;NEU 86 %&#10;Creatinine 132 umol/L"></textarea>
+            <div class="cls-pick">
+                <button type="button" class="cls-add" data-act="paste-run"><i class="fas fa-wand-magic-sparkles"></i> Bóc tách vào phiếu</button>
+                <span class="cls-hint">Chỉ số nào có trong phiếu mẫu thì máy điền thẳng, kèm khoảng tham chiếu và cờ bất thường.</span>
+            </div>
         </div>`;
 
     toolbar.addEventListener('click', (e) => {
         const q = e.target.closest('[data-panel]');
         if (q) return addPanel(q.dataset.panel);
-        if (e.target.closest('[data-act="add-panel"]')) addPanel(toolbar.querySelector('#cls-select').value);
+        const act = e.target.closest('[data-act]')?.dataset.act;
+        if (act === 'add-panel') return addPanel(toolbar.querySelector('#cls-select').value);
+        if (act === 'from-dn') return fromDeNghi();
+        if (act === 'paste-open') {
+            const box = toolbar.querySelector('.cls-paste');
+            box.hidden = !box.hidden;
+            if (!box.hidden) box.querySelector('.cls-paste-in').focus();
+            return;
+        }
+        if (act === 'paste-run') {
+            const ta = toolbar.querySelector('.cls-paste-in');
+            applyPasted(ta.value);
+            ta.value = '';
+        }
     });
 }
 

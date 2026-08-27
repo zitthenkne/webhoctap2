@@ -17,6 +17,8 @@ import { setChips } from './goi-y-nhap.js';
 import { attachTypeahead } from './goi-y-go.js';
 import { parseNgay, fmtDate } from './cnv-list.js';
 import { scaleForSeverity, gradeFromSeverity, boPhanDo } from './phan-do.js';
+import { vungProse } from './body-map.js';
+import { initDienTien, renderDienTien, playDienTien, stopDienTien, dangPhat } from './dien-tien-view.js';
 
 /* Gõ là gợi ý ngay, khỏi phải mở thư viện mới tìm được tên. Tìm không dấu. */
 const TEN_TRIEU_CHUNG = SYMPTOMS.map(s => s.ten);
@@ -120,6 +122,10 @@ export function stepProse(m, { laKhoiPhat = false } = {}) {
        trùng tên. Và một mốc mà năm câu "vẫn còn như cũ" liên tiếp thì không ai nghe
        nổi, nên gom những cái không có mô tả riêng vào một mệnh đề "đều vẫn còn như cũ". */
     const daCo = new Set(moi.map(fold));   // đã kể ở phần "mới" thì đừng kể lại ở phần "cũ"
+    // Mốc khởi phát đã tả kỹ triệu chứng chính ở khối trên rồi; mốc trước đó cũng
+    // nhắc tên nó nên máy chép sang thành "triệu chứng cũ" -> câu hóa ra thừa
+    // ("… không giảm khi nghỉ, đau ngực vẫn còn như cũ").
+    if (chinh) daCo.add(fold(tenRef(mainSymName())));
     const cu = [], nhuCu = [];
     (m.refs || []).filter(r => trimText(r.sym)).forEach(r => {
         const key = fold(tenRef(r.sym));
@@ -135,6 +141,13 @@ export function stepProse(m, { laKhoiPhat = false } = {}) {
         : `${nhuCu[0]} vẫn còn như cũ`);
     // Trong mệnh đề đã có "và" rồi thì đừng thêm "và" thứ hai, ngăn bằng dấu phẩy
     if (cu.length) menh.push(cu.some(x => x.includes(' và ')) ? cu.join(', ') : noiLoiKe(cu));
+
+    /* Vùng đau chấm trên bản đồ giải phẫu -> câu dùng đúng tên phân khu đang dạy
+       ("hố chậu phải" chứ không phải "bụng dưới bên phải"). Mốc khởi phát đã tả vị
+       trí trong khối triệu chứng chính rồi thì không kể lại. */
+    const daTaViTri = laKhoiPhat && !!($('hx-sym-site')?.value || '').trim();
+    const vung = daTaViTri ? '' : vungProse(m.vung || [], m.lan || []);
+    if (vung) menh.push(menh.length ? vung : 'bệnh nhân ' + vung);
 
     const care = careLine(m.care);
     const cau = [];
@@ -614,10 +627,39 @@ function render() {
         carrying = true;
         try { onChangeCb(); } finally { carrying = false; }
     }
+    if (mode === 'dt') renderDienTien();   // hai chế độ xem cùng một dữ liệu, vẽ lại cả hai
 }
 
 /** Vẽ lại danh sách mốc — dùng khi ngày nhập viện đổi (mốc phải hiện ngày mới) */
 export const refreshSteps = () => render();
+
+/* =====================================================================
+   Chế độ xem thứ hai: Diễn tiến (sóng + làn + bản đồ giải phẫu)
+   Hai chế độ dùng chung đúng một mảng `steps`, nên sửa bên nào bên kia cũng đổi.
+   ===================================================================== */
+let mode = 'form';
+
+/** Bản đồ / thanh trượt sửa một mốc — chỉ mốc đó đổi, không dựng lại cả danh sách.
+ *  `nhe` = đang kéo thanh trượt: đừng vẽ lại màn (mất luôn ngón tay đang kéo). */
+export function patchStep(id, patch, { nhe = false } = {}) {
+    const m = steps.find(x => x.id === id);
+    if (!m) return;
+    Object.assign(m, patch);
+    if (!nhe) renderDienTien();
+    onChangeCb();
+}
+
+function applyHxMode(v) {
+    mode = v === 'dt' ? 'dt' : 'form';
+    if (mode !== 'dt') stopDienTien();
+    $('hx-list')?.classList.toggle('is-hidden', mode === 'dt');
+    $('hx-dt')?.classList.toggle('is-hidden', mode !== 'dt');
+    const play = $('hx-play');
+    if (play) play.hidden = mode !== 'dt';
+    $('hx-mode')?.querySelectorAll('[data-mode]')
+        .forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+    if (mode === 'dt') renderDienTien();
+}
 
 /* ---------- bộ câu hỏi của triệu chứng chính ---------- */
 /* Sáu ô thuộc tính là sáu chỗ trống dùng chung: chọn "Sốt" thì chúng thành
@@ -665,6 +707,24 @@ export const mainSymLabels = () => SYM_SLOTS.map(id => ({
 
 /** Số ô thuộc tính đang dùng — thang chấm "đủ ý" phải chấm theo số này, không phải luôn 6 */
 export const mainSymSlotCount = () => mainSymLabels().filter(x => x.on).length;
+
+/** Điền các ô thuộc tính của triệu chứng chính theo KHÓA đặc điểm (viTri, tinhChat…).
+ *  Dùng khóa chứ không dùng vị trí ô: bảng triệu chứng đổi thứ tự `fields` lúc nào
+ *  thì kịch bản vẫn rơi đúng ô đó. Gọi SAU `syncMainSymFields()` (ô phải mang nhãn
+ *  của triệu chứng mới rồi mới điền). Trả về số ô đã điền. */
+export function fillMainSym(dac = {}) {
+    const sym = findSymptom(mainSymName());
+    let n = 0;
+    (sym?.fields || []).forEach(([k], i) => {
+        const el = $(SYM_SLOTS[i]), v = trimText(dac[k]);
+        if (!el || !v) return;
+        el.value = v;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        n++;
+    });
+    markSymFilled();
+    return n;
+}
 
 /** Đổi bộ câu hỏi cho khớp triệu chứng chính vừa chọn */
 export function syncMainSymFields() {
@@ -915,6 +975,40 @@ export function initHistory(options) {
     onChangeCb = options.onChange || (() => { });
     list = $('hx-list');
     if (!list) return;
+
+    /* Chế độ Diễn tiến phải dựng TRƯỚC render() đầu tiên: render() có thể gọi
+       renderDienTien() ngay, mà lúc đó nó chưa biết lấy mốc ở đâu. */
+    initDienTien({
+        host: $('hx-dt'),
+        getSteps: () => sorted(steps),
+        onPatch: patchStep,
+        labelOf: stepLabel,
+        proseOf: (m) => stepProse(m, { laKhoiPhat: !!m.main }),
+        // Quy tên về đúng tên trong thư viện triệu chứng, để "Đau bụng âm ỉ quanh
+        // rốn…" ở mốc này và "Đau bụng" ở mốc kia vẫn là MỘT đường trên đồ thị
+        tenChuan: tenGoc,
+        mainTen: mainSymName
+    });
+    $('hx-mode')?.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-mode]');
+        if (b) applyHxMode(b.dataset.mode);
+    });
+    $('hx-play')?.addEventListener('click', (e) => {
+        const b = e.currentTarget;
+        const nhan = (dang) => {
+            b.innerHTML = dang ? '<i class="fas fa-stop"></i> Dừng'
+                : '<i class="fas fa-play"></i> Phát diễn tiến';
+        };
+        // Bấm lần nữa lúc đang chạy = dừng, trả màn về đủ mốc
+        if (dangPhat()) { stopDienTien(); renderDienTien(); return nhan(false); }
+        playDienTien((dang) => {
+            b.innerHTML = dang
+                ? '<i class="fas fa-stop"></i> Dừng'
+                : '<i class="fas fa-play"></i> Phát diễn tiến';
+        });
+    });
+    applyHxMode('form');
+
     render();
     // Ngay từ đầu, ô nào trống phải mang dấu nhắc chứ đừng đeo tick xanh
     markSymFilled();

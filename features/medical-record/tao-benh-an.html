@@ -3839,6 +3839,372 @@
             }
         }
 
+        /* ====== Chế độ xem Diễn tiến: sóng + làn + bản đồ giải phẫu ====== */
+        .hx-dt.is-hidden,
+        .hx-list.is-hidden {
+            display: none;
+        }
+
+        .dt-grid2 {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 260px;
+            gap: 12px;
+            align-items: start;
+        }
+
+        .dt-empty {
+            text-align: center;
+            color: #9ca3af;
+            padding: 26px 10px;
+            border: 2px dashed #fbcfe8;
+            border-radius: 14px;
+            font-size: 13px;
+        }
+
+        .dt-wavebox {
+            border: 1px solid #fbcfe8;
+            border-radius: 14px;
+            background: #fff;
+            padding: 8px 6px 2px;
+        }
+
+        .dt-legend {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            padding: 0 6px 4px;
+            font-size: 11px;
+            color: #6b7280;
+        }
+
+        .dt-lg {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .dt-lg i {
+            width: 14px;
+            height: 3px;
+            border-radius: 2px;
+            display: inline-block;
+        }
+
+        .dt-lg.dt-s0 i { background: #ef4444; }
+        .dt-lg.dt-s1 i { background: #f59e0b; }
+        .dt-lg.dt-s2 i { background: #0ea5e9; }
+
+        .dt-lg.dt-note {
+            color: #cbd5e1;
+            font-style: italic;
+        }
+
+        .dt-wavewrap {
+            overflow-x: auto;
+        }
+
+        .dt-wave {
+            width: 100%;
+            min-width: 460px;
+            height: 200px;
+            display: block;
+        }
+
+        .dt-grid { stroke: #f3e8ff; stroke-width: 1; }
+        .dt-line { fill: none; stroke-width: 2.4; stroke-linecap: round; }
+        .dt-line.dt-s0 { stroke: #ef4444; }
+        .dt-line.dt-s1 { stroke: #f59e0b; }
+        .dt-line.dt-s2 { stroke: #0ea5e9; }
+        .dt-dot { cursor: pointer; }
+        .dt-dot.dt-s0 { fill: #ef4444; }
+        .dt-dot.dt-s1 { fill: #f59e0b; }
+        .dt-dot.dt-s2 { fill: #0ea5e9; }
+        .dt-rx { stroke: #c4b5fd; stroke-width: 1.5; stroke-dasharray: 3 3; }
+        .dt-rxlab { fill: #7c3aed; font-size: 11px; font-weight: 700; }
+        .dt-scrub { stroke: #ec4899; stroke-width: 2; }
+
+        .dt-xlab {
+            fill: #9ca3af;
+            font-size: 10px;
+        }
+
+        .dt-xlab.is-now {
+            fill: #db2777;
+            font-weight: 700;
+        }
+
+        .dt-lanes {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 10px 2px 4px;
+            scroll-snap-type: x proximity;
+        }
+
+        .dt-card {
+            flex: 0 0 216px;
+            scroll-snap-align: start;
+            border: 1px solid rgba(236, 72, 153, .25);
+            border-radius: 14px;
+            padding: 8px 9px;
+            background: rgba(255, 255, 255, .72);
+            backdrop-filter: blur(6px);
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            cursor: pointer;
+            transition: opacity .25s, border-color .2s, box-shadow .2s;
+        }
+
+        .dt-card.is-active {
+            border-color: #ec4899;
+            box-shadow: 0 0 0 2px rgba(236, 72, 153, .18);
+        }
+
+        .dt-card.is-dim { opacity: .28; }
+        .dt-card.is-main { background: rgba(253, 242, 248, .85); }
+
+        .dt-when {
+            font-size: 12px;
+            font-weight: 700;
+            color: #9d174d;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .dt-flag {
+            font-size: 10px;
+            font-weight: 700;
+            color: #b45309;
+            background: #fffbeb;
+            border-radius: 999px;
+            padding: 1px 7px;
+        }
+
+        .dt-syms, .dt-old, .dt-tialist {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .dt-chip {
+            font-size: 11px;
+            background: #fdf2f8;
+            border: 1px solid #fbcfe8;
+            color: #9d174d;
+            border-radius: 999px;
+            padding: 1px 8px;
+        }
+
+        .dt-dyn {
+            font-size: 11px;
+            border-radius: 999px;
+            padding: 1px 8px;
+            border: 1px solid transparent;
+        }
+
+        .dt-dyn.is-up { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+        .dt-dyn.is-down { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+        .dt-dyn.is-same { background: #f9fafb; border-color: #e5e7eb; color: #6b7280; }
+
+        .dt-care, .dt-vung {
+            font-size: 11px;
+            color: #6b7280;
+            line-height: 1.4;
+        }
+
+        .dt-vung { color: #7c3aed; }
+
+        .dt-nums {
+            display: flex;
+            gap: 6px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .dt-num {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            font-size: 10px;
+            color: #9ca3af;
+            flex: 1 1 60px;
+        }
+
+        .dt-num input[type=range] { width: 100%; accent-color: #ec4899; }
+
+        .dt-in {
+            border: 1px solid #f3e8ff;
+            border-radius: 8px;
+            padding: 3px 6px;
+            font-size: 12px;
+            width: 100%;
+            min-width: 0;
+        }
+
+        .dt-val { font-size: 11px; }
+        .dt-val.is-none { color: #9ca3af; }
+        .dt-val.is-nhe { color: #10b981; }
+        .dt-val.is-vua { color: #f59e0b; }
+        .dt-val.is-nang { color: #ef4444; }
+
+        /* --- bản đồ giải phẫu --- */
+        .dt-right {
+            border: 1px solid #fbcfe8;
+            border-radius: 14px;
+            background: #fff;
+            padding: 8px;
+            position: sticky;
+            top: 96px;
+        }
+
+        .dt-maphead {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 6px;
+        }
+
+        .dt-seg button { font-size: 11px; padding: 3px 8px; }
+
+        .dt-mapfor {
+            font-size: 11px;
+            font-weight: 700;
+            color: #db2777;
+        }
+
+        .dt-mapwrap { text-align: center; }
+
+        .bm-svg {
+            width: 100%;
+            max-width: 220px;
+            height: auto;
+            touch-action: none;
+        }
+
+        .bm-body { fill: #f5f3ff; stroke: #ddd6fe; stroke-width: 1.2; }
+
+        .bm-z {
+            fill: transparent;
+            stroke: #e9d5ff;
+            stroke-width: .7;
+            stroke-dasharray: 2 2;
+            cursor: pointer;
+            transition: fill .2s;
+        }
+
+        .bm-z:hover { fill: rgba(236, 72, 153, .14); }
+        .bm-z.is-on { stroke-dasharray: none; stroke-width: 1.4; }
+        .bm-z.is-on.is-nhe { fill: rgba(16, 185, 129, .45); stroke: #10b981; }
+        .bm-z.is-on.is-vua { fill: rgba(245, 158, 11, .5); stroke: #f59e0b; }
+        .bm-z.is-on.is-nang { fill: rgba(239, 68, 68, .55); stroke: #ef4444; animation: bm-pulse 1.4s ease-in-out infinite; }
+        .bm-z.is-on.is-none { fill: rgba(148, 163, 184, .4); stroke: #94a3b8; }
+        .bm-z.is-keo { stroke: #ec4899; stroke-width: 2; stroke-dasharray: none; }
+
+        @keyframes bm-pulse {
+            50% { fill: rgba(239, 68, 68, .28); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .bm-z.is-on.is-nang { animation: none; }
+        }
+
+        .bm-tia {
+            fill: none;
+            stroke: #ec4899;
+            stroke-width: 2;
+            stroke-dasharray: 5 4;
+            animation: bm-flow 1s linear infinite;
+        }
+
+        .bm-arrowhead { fill: #ec4899; }
+
+        @keyframes bm-flow {
+            to { stroke-dashoffset: -18; }
+        }
+
+        .dt-maphint {
+            font-size: 10.5px;
+            color: #9ca3af;
+            line-height: 1.45;
+            margin-top: 4px;
+        }
+
+        .dt-tia {
+            font-size: 10.5px;
+            background: #fdf2f8;
+            border: 1px solid #fbcfe8;
+            color: #9d174d;
+            border-radius: 999px;
+            padding: 1px 4px 1px 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .dt-tia button {
+            border: 0;
+            background: transparent;
+            color: #db2777;
+            cursor: pointer;
+            padding: 0 2px;
+        }
+
+        .dt-tialist { margin-top: 6px; }
+
+        /* --- bản văn máy ghép --- */
+        .dt-prose {
+            margin-top: 12px;
+            border: 1px solid #f3e8ff;
+            border-radius: 14px;
+            background: #faf5ff;
+            padding: 9px 11px;
+        }
+
+        .dt-prosehead {
+            font-size: 11px;
+            font-weight: 700;
+            color: #7c3aed;
+            margin-bottom: 4px;
+        }
+
+        .dt-sent {
+            font-size: 13px;
+            line-height: 1.6;
+            color: #4b5563;
+            margin-bottom: 3px;
+        }
+
+        .dt-sent.is-now {
+            color: #111827;
+            font-weight: 600;
+        }
+
+        @media (max-width: 900px) {
+            .dt-grid2 { grid-template-columns: 1fr; }
+            .dt-right { position: static; }
+            .bm-svg { max-width: 260px; }
+        }
+
+        /* Nhãn nhắc dữ liệu nguồn đã đổi sau lần máy ghép gần nhất */
+        .stale-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #b45309;
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-radius: 9999px;
+            padding: 3px 10px;
+            margin-bottom: 4px;
+        }
+
         /* ====== Phiếu cận lâm sàng ====== */
         .cls-toolbar {
             display: flex;
@@ -3896,6 +4262,42 @@
 
         .cls-add:hover {
             background: #db2777;
+        }
+
+        /* Nối sang mục XI + ô dán chuỗi kết quả */
+        .cls-link {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .cls-add.is-link {
+            background: #7c3aed;
+        }
+
+        .cls-add.is-link:hover {
+            background: #6d28d9;
+        }
+
+        .cls-paste {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            border: 1px dashed #ddd6fe;
+            background: #faf5ff;
+            border-radius: 12px;
+            padding: 10px;
+        }
+
+        .cls-paste-in {
+            width: 100%;
+            border: 1px solid #e9d5ff;
+            border-radius: 10px;
+            padding: 8px 10px;
+            font-size: 13px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            resize: vertical;
         }
 
         .cls-list {
@@ -7416,6 +7818,13 @@
 
         .rx-suggest .rx-sg:active { transform: scale(.97); }
 
+        .rx-suggest .rx-sg.is-all {
+            border-style: solid;
+            background: #ec4899;
+            border-color: #ec4899;
+            color: #fff;
+        }
+
         /* =============================================================
            Bản đồ mạng lưới liên kết (#net-overlay) — 5 cột nối nhau
            ============================================================= */
@@ -8208,7 +8617,13 @@
 
                     <div id="hx-main-park">
                         <div class="calc-box no-fold mt-3 hx-embed" id="hx-main-box" data-nocount>
-                            <div class="calc-title"><span class="hx-no">2</span> Triệu chứng chính — hỏi cho đủ ý</div>
+                            <div class="hx-head" data-nocount>
+                                <span class="calc-title mb-0"><span class="hx-no">2</span> Triệu chứng chính — hỏi cho
+                                    đủ ý</span>
+                                <button type="button" id="hx-kichban" class="cls-mini"
+                                    title="Nạp sẵn một bản nháp đủ ý O-P-Q-R-S-T cho mặt bệnh thường gặp — rồi sửa lại theo lời bệnh nhân"><i
+                                        class="fas fa-bolt"></i> Nhập nhanh theo kịch bản bệnh</button>
+                            </div>
                             <p class="hx-ask">Chạm vào từng ô, máy nhắc luôn câu nên hỏi bệnh nhân.</p>
                             <p class="hx-main-note"><i class="fas fa-star"></i> Khối này tự nằm trong mốc khởi phát ở
                                 phần <b>Diễn tiến</b> bên dưới — bấm ngôi sao trên mốc khác để dời sang mốc đó.</p>
@@ -8249,7 +8664,7 @@
                     </div>
 
                     <div id="hx-trauma-park">
-                        <div class="spec-box hx-embed" id="hx-trauma-box" data-spec="ngoai" data-ask="Bệnh nhân có chấn thương / tai nạn không?" data-ask-key="chanThuong" data-nocount>
+                        <div class="spec-box hx-embed" id="hx-trauma-box" data-spec="ngoai,cc" data-ask="Bệnh nhân có chấn thương / tai nạn không?" data-ask-key="chanThuong" data-nocount>
                             <div class="calc-title"><i class="fas fa-car-burst"></i> Cơ chế chấn thương</div>
                             <div class="hx-grid">
                                 <label>Loại tai nạn<select id="tr-type" class="calc-in">
@@ -8371,7 +8786,7 @@
                         </div>
 
                         <div id="hx-san-park">
-                            <div class="spec-box hx-embed" id="hx-san-box" data-spec="san" data-nocount>
+                            <div class="spec-box hx-embed" id="hx-san-box" data-spec="san" data-when="gioi:nu" data-nocount>
                                 <div class="calc-title"><i class="fas fa-notes-medical"></i> Bệnh sử thai kỳ lần này
                                 </div>
                                 <div class="hx-grid">
@@ -8411,7 +8826,7 @@
 
                         </div>
                         <div id="hx-nhi-park">
-                            <div class="spec-box hx-embed" id="hx-nhi-box" data-spec="nhi" data-nocount>
+                            <div class="spec-box hx-embed" id="hx-nhi-box" data-when="loai:nhi|tuoi:&lt;16" data-nocount>
                                 <div class="calc-title"><i class="fas fa-baby"></i> Bệnh sử nhi khoa — hỏi người nuôi
                                     trẻ</div>
                                 <div class="hx-grid">
@@ -8465,6 +8880,17 @@
                             <button type="button" id="hx-add" class="cls-mini"><i class="fas fa-plus"></i> Thêm
                                 mốc</button>
                         </div>
+                        <div class="bl-modes" data-nocount>
+                            <div class="seg" id="hx-mode">
+                                <button type="button" class="active" data-mode="form"><i
+                                        class="fas fa-list-ul"></i> Bảng nhập</button>
+                                <button type="button" data-mode="dt"><i class="fas fa-chart-line"></i> Diễn
+                                    tiến</button>
+                            </div>
+                            <button type="button" id="hx-play" class="bl-mini" hidden><i class="fas fa-play"></i>
+                                Phát diễn tiến</button>
+                        </div>
+                        <div id="hx-dt" class="hx-dt is-hidden" data-nocount></div>
                         <div id="hx-list" class="hx-list" data-nocount></div>
                     </div>
 
@@ -8630,7 +9056,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div id="obgyne-box">
+                        <div id="obgyne-box" data-when="gioi:nu|loai:san">
                             <label for="history-obgyne" class="block font-semibold mb-1">Sản khoa <span id="obgyne-flag"
                                     class="ob-flag hidden"><i class="fas fa-triangle-exclamation"></i> Bệnh nhân nữ —
                                     nhớ hỏi PARA</span><span class="ob-na"><i class="fas fa-circle-minus"></i> Không áp dụng — bệnh nhân nam</span></label>
@@ -8724,7 +9150,7 @@
                                     placeholder="Máy ghép từ sáu ô phơi nhiễm ở trên"></textarea>
                             </details>
                         </div>
-                        <div class="spec-box" data-spec="nhi" data-nocount>
+                        <div class="spec-box" data-when="loai:nhi|tuoi:&lt;16" data-nocount>
                             <div class="calc-title"><i class="fas fa-child"></i> Tiền căn nhi khoa</div>
                             <div class="hx-grid">
                                 <label>Sản khoa lúc sinh<input type="text" id="ped-birth" class="calc-in"
@@ -8739,7 +9165,7 @@
                         </div>
                         <div>
                             <label for="history-habit" class="block font-semibold mb-1">Thói quen</label>
-                            <div class="calc-box" data-ask="Có hút thuốc lá không?" data-ask-key="hutThuoc" data-ask-no="history-habit::Không hút thuốc lá" data-nocount>
+                            <div class="calc-box" data-when="tuoi:&gt;=12" data-ask="Có hút thuốc lá không?" data-ask-key="hutThuoc" data-ask-no="history-habit::Không hút thuốc lá" data-nocount>
                                 <div class="calc-title"><i class="fas fa-smoking"></i> Hút thuốc lá — tính gói·năm</div>
                                 <div class="calc-grid">
                                     <label>Số điếu/ngày<input type="number" min="0" id="smoke-cpd" class="calc-in"
@@ -8753,7 +9179,7 @@
                                         tính</span>
                                 </div>
                             </div>
-                            <div class="calc-box" data-ask="Có uống rượu bia không?" data-ask-key="ruouBia" data-ask-no="history-habit::Không uống rượu bia" data-nocount>
+                            <div class="calc-box" data-when="tuoi:&gt;=12" data-ask="Có uống rượu bia không?" data-ask-key="ruouBia" data-ask-no="history-habit::Không uống rượu bia" data-nocount>
                                 <div class="calc-title"><i class="fas fa-wine-glass"></i> Rượu bia — ghi theo cách bệnh
                                     nhân khai</div>
                                 <div class="calc-grid">
@@ -9022,7 +9448,7 @@
                                 placeholder="Bụng mềm, nhu động ruột, gan lách, gõ đục vùng thấp, sẹo mổ…"></textarea>
                             <div class="fd-box" data-fd-for="exam-abdomen" data-nocount></div>
                         </div>
-                        <div class="spec-box" data-spec="san" data-nocount>
+                        <div class="spec-box" data-spec="san" data-when="gioi:nu" data-nocount>
                             <div class="calc-title"><i class="fas fa-baby-carriage"></i> Khám sản</div>
                             <div class="hx-grid">
                                 <label>Bề cao tử cung (cm)<input type="number" id="ob-bctc" class="calc-in"
@@ -9045,7 +9471,7 @@
                             <div class="calc-out"><span id="ob-weight-out">Nhập bề cao tử cung và vòng bụng để ước lượng
                                     cân thai</span></div>
                         </div>
-                        <div class="spec-box" data-spec="nhi" data-nocount>
+                        <div class="spec-box" data-when="loai:nhi|tuoi:&lt;16" data-nocount>
                             <div class="calc-title"><i class="fas fa-child"></i> Nhi khoa — máy tự tính dịch và liều
                                 theo cân</div>
                             <div class="hx-grid">
@@ -9077,6 +9503,8 @@
                         <label class="block font-semibold mb-1 text-pink-500" for="summary">VII. TÓM TẮT BỆNH ÁN</label>
                         <button type="button" id="auto-summary-btn" class="btn-act"><i class="fas fa-magic"></i> Tự động
                             tóm tắt</button>
+                        <span id="summary-stale" class="stale-tag" hidden><i
+                                class="fas fa-rotate"></i> Bệnh sử / khám đã đổi sau lần tóm tắt này</span>
                     </div>
                     <textarea id="summary" rows="4" class="w-full border rounded-lg p-2"
                         placeholder="Tóm tắt tự động hoặc nhập tay"></textarea>
@@ -9089,6 +9517,8 @@
                                     class="fas fa-list-check"></i> Gợi ý từ dữ liệu đã nhập</button>
                             <button type="button" id="pick-problem-btn" class="btn-act"><i
                                     class="fas fa-folder-open"></i> Chọn vấn đề từ danh mục</button>
+                            <span id="problem-stale" class="stale-tag" hidden><i
+                                    class="fas fa-rotate"></i></span>
                         </div>
                         <textarea id="problem-list" rows="4" class="w-full border rounded-lg p-2"
                             placeholder="Mỗi dòng một vấn đề / hội chứng — vd: 1. Hội chứng nhiễm trùng · 2. Hội chứng đông đặc phổi phải"></textarea>
@@ -9108,6 +9538,7 @@
                                     id="dx1-stage" class="calc-in"
                                     placeholder="vd: CURB-65 = 2, nguy cơ trung bình"></label>
                         </div>
+                        <div id="dx1-sync" class="tg-box" data-nocount></div>
                         <div class="cnv-box bk-box" data-nocount>
                             <div class="cnv-head">
                                 <span class="calc-title mb-0"><i class="fas fa-notes-medical"></i> Bệnh kèm — mỗi bệnh
@@ -9183,6 +9614,9 @@
                                 <button type="button" id="bl-to-cls" class="para-btn"
                                     title="Chip “Lấy hết” ở mục XI chỉ lấy cận lâm sàng của các nhánh; nút này lấy thêm bộ thường quy"><i
                                         class="fas fa-vials"></i> Đổ sang mục XI + bộ thường quy</button>
+                                <button type="button" id="bl-cls-in" class="para-btn"
+                                    title="Kéo các chỉ số bất thường ở mục XII xuống đây, khỏi phải đọc bảng rồi gõ lại từng con số"><i
+                                        class="fas fa-arrow-up-from-bracket"></i> Chèn kết quả CLS bất thường</button>
                             </div>
                             <textarea id="diagnosis-reasoning" rows="6" class="w-full border rounded-lg p-2 mt-2"
                                 placeholder="Máy tự ghép từ các ô bên trên — sửa tay lúc nào cũng được"></textarea>
@@ -9337,9 +9771,17 @@
                         </details>
                     </div>
 
-                    <div><label class="block font-semibold mb-1 text-pink-500" for="prognosis">XV. TIÊN
-                            LƯỢNG</label><textarea id="prognosis" rows="2" class="w-full border rounded-lg p-2"
-                            placeholder="Tiên lượng gần / tiên lượng xa, kèm lý do"></textarea></div>
+                    <div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <label class="block font-semibold mb-1 text-pink-500" for="prognosis">XV. TIÊN
+                                LƯỢNG</label>
+                            <button type="button" id="prog-suggest" class="btn-act"
+                                title="Dựng câu tiên lượng từ các thang điểm máy đã chấm (P/F, Child-Pugh, ATLS, Glasgow…) cùng biến chứng và bệnh kèm đã ghi"><i
+                                    class="fas fa-scale-balanced"></i> Gợi ý từ thang điểm đã chấm</button>
+                        </div>
+                        <textarea id="prognosis" rows="2" class="w-full border rounded-lg p-2"
+                            placeholder="Tiên lượng gần / tiên lượng xa, kèm lý do"></textarea>
+                    </div>
 
                 </div>
             </div>

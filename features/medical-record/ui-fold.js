@@ -19,6 +19,7 @@ function foldOne(box) {
     det.className = box.className + ' fold-panel';
     det.dataset.folded = '1';
     if (box.dataset.spec) det.dataset.spec = box.dataset.spec;
+    if (box.dataset.when) det.dataset.when = box.dataset.when;
     // Câu hỏi "có cần mục này không" phải theo lên thẻ mới (xem ui-ask.js)
     ['ask', 'askKey', 'askNo'].forEach(k => { if (box.dataset[k] != null) det.dataset[k] = box.dataset[k]; });
     if (box.hasAttribute('data-nocount')) det.setAttribute('data-nocount', '');
