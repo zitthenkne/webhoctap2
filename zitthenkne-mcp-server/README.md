@@ -24,6 +24,21 @@ Ghi (cần quyền ghi Firestore):
 - `quiz_create_folder` — tạo thư mục
 - `quiz_move_to_folder` — di chuyển bộ đề vào thư mục
 
+Bệnh án (collection `medical_records` — dữ liệu của `features/medical-record/tao-benh-an.html` và `features/study-room/waiting-room.html`):
+
+- `record_list` — liệt kê bệnh án của một UID (kèm % hoàn thiện, lọc theo đợt thực hành)
+- `record_search` — tìm theo họ tên / lý do vào viện / chẩn đoán (bỏ dấu, không phân biệt hoa thường)
+- `record_get` — xem nội dung bệnh án, có thể chỉ lấy vài đường dẫn (`paths`)
+- `record_create` — tạo bệnh án mới (ID dạng `BA-<timestamp>`)
+- `record_update` — ghi đè một số mục theo đường dẫn có dấu chấm
+- `record_delete` — xóa bản trên cloud (bắt buộc `confirm=true`)
+
+Lưu ý về bệnh án: web app coi **localStorage là bản chính**, Firestore chỉ là bản sao lưu. Vì vậy:
+
+- Bệnh án tạo/sửa qua MCP chỉ hiện ra sau khi máy người dùng đồng bộ từ cloud (mở lại danh sách bệnh án lúc đã đăng nhập).
+- Trang trộn local/cloud theo `lastUpdated`, bản mới hơn thắng — các tool ghi luôn đặt `lastUpdated` = hiện tại nên bản MCP sẽ thắng, trừ khi người dùng đang mở tab viết bệnh án và gõ tiếp (tab đó sẽ ghi đè lại). Nên đóng tab trước khi sửa qua MCP.
+- `record_delete` chỉ xóa bản cloud; bản trong localStorage của máy người dùng sẽ được đẩy lên lại ở lần đồng bộ sau.
+
 ## Yêu cầu
 
 - Node.js >= 18
@@ -55,9 +70,9 @@ Thêm vào file cấu hình MCP (ví dụ `claude_desktop_config.json` của Cla
   "mcpServers": {
     "zitthenkne": {
       "command": "node",
-      "args": ["C:/Users/admin/Documents/GitHub/webhoctap2/zitthenkne-mcp-server/dist/index.js"],
+      "args": ["C:/Users/admin/Documents/GitHub/webhoctap2/webhoctap2/zitthenkne-mcp-server/dist/index.js"],
       "env": {
-        "FIREBASE_SERVICE_ACCOUNT_PATH": "C:/Users/admin/Documents/GitHub/webhoctap2/zitthenkne-mcp-server/service-account.json",
+        "FIREBASE_SERVICE_ACCOUNT_PATH": "C:/Users/admin/Documents/GitHub/webhoctap2/webhoctap2/zitthenkne-mcp-server/service-account.json",
         "FIREBASE_PROJECT_ID": "zitthenkne"
       }
     }

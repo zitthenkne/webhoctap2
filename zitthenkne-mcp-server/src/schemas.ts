@@ -240,3 +240,79 @@ export const MoveToFolderSchema = z
     response_format: responseFormat,
   })
   .strict();
+
+/* ------------------------ BỆNH ÁN (medical_records) ------------------------ */
+
+const recordFields = z
+  .record(z.string(), z.unknown())
+  .describe(
+    "Map 'đường dẫn có dấu chấm' -> giá trị, ví dụ { \"hanhChinh.hoTen\": \"Nguyễn Văn A\", " +
+      "\"chanDoanSoBo\": \"Viêm phổi\" }. Chỉ các đường dẫn được truyền mới bị ghi đè.",
+  );
+
+export const ListRecordsSchema = z
+  .object({
+    user_id: z.string().min(1).describe("UID chủ sở hữu bệnh án (Firebase Auth)"),
+    folder_id: z
+      .string()
+      .optional()
+      .describe("Lọc theo đợt thực hành (record.thuMuc.id). Truyền 'root' để lấy bệnh án ngoài thư mục"),
+    limit,
+    offset,
+    response_format: responseFormat,
+  })
+  .strict();
+
+export const SearchRecordsSchema = z
+  .object({
+    user_id: z.string().min(1).describe("UID chủ sở hữu bệnh án"),
+    query: z
+      .string()
+      .min(1, "Từ khóa không được rỗng")
+      .max(200)
+      .describe("Từ khóa tìm trong họ tên, lý do vào viện, chẩn đoán (không phân biệt hoa thường/dấu)"),
+    limit,
+    response_format: responseFormat,
+  })
+  .strict();
+
+export const GetRecordSchema = z
+  .object({
+    user_id: z.string().min(1).describe("UID chủ sở hữu bệnh án"),
+    record_id: z.string().min(1).describe("ID bệnh án (dạng 'BA-1712345678901')"),
+    paths: z
+      .array(z.string())
+      .optional()
+      .describe("Chỉ lấy các đường dẫn này (vd ['hanhChinh.hoTen','benhSu']). Bỏ trống = lấy toàn bộ"),
+    response_format: responseFormat,
+  })
+  .strict();
+
+export const CreateRecordSchema = z
+  .object({
+    user_id: z.string().min(1).describe("UID chủ sở hữu bệnh án"),
+    record_id: z
+      .string()
+      .optional()
+      .describe("ID muốn đặt. Bỏ trống sẽ tự sinh dạng 'BA-<timestamp>' giống web app"),
+    fields: recordFields.optional(),
+    response_format: responseFormat,
+  })
+  .strict();
+
+export const UpdateRecordSchema = z
+  .object({
+    user_id: z.string().min(1).describe("UID chủ sở hữu bệnh án"),
+    record_id: z.string().min(1).describe("ID bệnh án cần sửa"),
+    fields: recordFields,
+    response_format: responseFormat,
+  })
+  .strict();
+
+export const DeleteRecordSchema = z
+  .object({
+    user_id: z.string().min(1).describe("UID chủ sở hữu bệnh án"),
+    record_id: z.string().min(1).describe("ID bệnh án cần xóa"),
+    confirm: z.boolean().describe("Phải là true mới thực sự xóa"),
+  })
+  .strict();

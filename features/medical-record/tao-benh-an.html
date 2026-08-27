@@ -7494,6 +7494,28 @@
             background: #eef2ff;
         }
 
+        /* Cảnh báo vừa sửa xong: xanh, mờ dần rồi tự biến mất sau vài giây */
+        .li-card.li-done {
+            border-left-color: #16a34a;
+            background: #f0fdf4;
+            animation: liDoneFade 8s ease-in forwards;
+        }
+
+        .li-card.li-done .li-t {
+            color: #15803d;
+            text-decoration: line-through;
+            text-decoration-color: #86efac;
+        }
+
+        .li-card.li-done .li-m {
+            color: #16a34a;
+        }
+
+        @keyframes liDoneFade {
+            0%, 70% { opacity: 1; }
+            100% { opacity: .35; }
+        }
+
         .li-t {
             font-weight: 700;
             color: #111827;
@@ -8333,6 +8355,19 @@
 
         /* Điện thoại: hàng chip mục V dài, cho trượt ngang thay vì xuống 4 hàng */
         @media (max-width: 640px) {
+            /* Bẫy: một hàng chip KHÔNG xuống dòng sẽ kéo phình mọi khối bọc ngoài nó
+               ra khỏi mép màn hình thay vì tự cuộn — thẻ flex mặc định min-width:auto
+               (= min-content), riêng <fieldset> còn min-inline-size: min-content.
+               Mở khóa hết chuỗi bọc từ thẻ trang xuống thì overflow-x mới ăn. */
+            .page-card,
+            #medical-record-form,
+            #kham-benh,
+            #kham-benh fieldset,
+            #kham-benh fieldset div {
+                min-inline-size: 0;
+                min-width: 0;
+            }
+
             #kham-benh .chips {
                 flex-wrap: nowrap;
                 overflow-x: auto;

@@ -14,6 +14,7 @@ export const COLLECTIONS = {
   QUIZ_FOLDERS: "quiz_folders",
   QUIZ_RESULTS: "quiz_results",
   STUDY_ROOMS: "study_rooms",
+  MEDICAL_RECORDS: "medical_records",
   USERS: "users",
 } as const;
 

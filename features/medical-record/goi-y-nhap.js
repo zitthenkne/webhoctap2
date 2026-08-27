@@ -187,10 +187,23 @@ export function setChips(id, items) {
     if (use?.length) makeChips(id, use);
 }
 
+/**
+ * Ý này đã có trong ô chưa?
+ * Ô nối bằng dấu phẩy phải so theo TỪNG VẾ: câu "Không hồi hộp, không đánh trống
+ * ngực" có chứa chuỗi "hồi hộp" nhưng đó là câu ÂM TÍNH — tô sáng chip ở đây là
+ * sai, mà bấm vào để bỏ ra thì xé nát luôn câu ("Không , không đánh trống ngực").
+ */
+const daChon = (noiPhay, cur, text) => {
+    if (!noiPhay) return cur.includes(text);
+    const t = String(text).toLowerCase();
+    return cur.split(/[,;\n]+/).some(ve => ve.trim().toLowerCase() === t);
+};
+
 function makeChips(id, items) {
     {
         const el = $(id);
         if (!el) return;
+        const noiPhayO = CHIP_JOIN_COMMA.has(id);
         const wrap = document.createElement('div');
         // Ô trong lưới: chip chỉ bung ra khi bấm vào ô, đỡ làm trang dài trên điện thoại
         wrap.className = 'chips' + (el.classList.contains('calc-in') ? ' compact' : '');
@@ -210,11 +223,11 @@ function makeChips(id, items) {
             // Giữ con trỏ ở lại ô: chip hiện theo :focus-within, mất focus là chip
             // biến mất ngay giữa cú chạm (iOS không focus nút khi chạm).
             btn.addEventListener('mousedown', (e) => e.preventDefault());
-            const noiPhay = CHIP_JOIN_COMMA.has(id);
+            const noiPhay = noiPhayO;
             btn.addEventListener('click', () => {
                 const text = getValue();
                 const cur = el.value.trim();
-                if (fixed && cur.includes(text)) el.value = dropChip(cur, text, noiPhay ? 'INPUT' : el.tagName);
+                if (fixed && daChon(noiPhay, cur, text)) el.value = dropChip(cur, text, noiPhay ? 'VE' : el.tagName);
                 else if (cur && (noiPhay || CHIP_APPEND.has(id))) el.value = cur.replace(/[,;\s]+$/, '') + ', ' + text;
                 else if (el.tagName === 'TEXTAREA' && cur) el.value = cur + '\n' + text;
                 else el.value = text;
@@ -226,7 +239,7 @@ function makeChips(id, items) {
         // Tô sáng chip đang có mặt trong ô, để biết mình đã chọn những gì.
         // Gắn một lần cho mỗi ô và tra hộp chip hiện tại lúc chạy, vì bộ chip có thể bị thay.
         const mark = () => el.nextElementSibling?.querySelectorAll?.('.chip[data-text]')
-            .forEach(b => b.classList.toggle('is-on', el.value.includes(b.dataset.text)));
+            .forEach(b => b.classList.toggle('is-on', daChon(noiPhayO, el.value.trim(), b.dataset.text)));
         if (!el.dataset.chipMark) {
             el.dataset.chipMark = '1';
             el.addEventListener('input', mark);
@@ -386,6 +399,12 @@ function setNeedHint(id, list) {
 function dropChip(cur, text, tag) {
     if (tag === 'TEXTAREA') {
         return cur.split('\n').filter(l => l.trim() !== text).join('\n').trim();
+    }
+    // Ô nối bằng dấu phẩy: bỏ nguyên vế trùng, đừng cắt chuỗi con giữa câu
+    if (tag === 'VE') {
+        const t = String(text).toLowerCase();
+        return cur.split(/[,;]+/).map(x => x.trim())
+            .filter(x => x && x.toLowerCase() !== t).join(', ');
     }
     return cur.replace(text, '').replace(/\s*,\s*,\s*/g, ', ')
         .replace(/^[,;\s]+|[,;\s]+$/g, '').trim();

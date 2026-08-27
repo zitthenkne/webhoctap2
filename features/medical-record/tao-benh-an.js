@@ -637,18 +637,41 @@ function scheduleSave() {
    ===================================================================== */
 let liTimer, liAlerts = [];
 
+/* Cảnh báo vừa được sửa xong: giữ lại một lúc rồi mới bỏ, để người dùng thấy máy
+   đã ghi nhận — thẻ tự biến mất im lặng thì không ai biết mình sửa có đúng không.
+   Khóa theo `title` vì validateRecord đã lọc trùng theo title (id chỉ là số thứ tự). */
+let liDone = [], liDoneTimer;
+const LI_DONE_MS = 8000;
+
 function scheduleValidate() {
     clearTimeout(liTimer);
     liTimer = setTimeout(runClinicalValidation, 400);
 }
 
+/** So bản cảnh báo trước với bản mới: cái nào hết thì ghi vào danh sách "đã xử lý". */
+function trackDoneAlerts(truoc) {
+    const now = Date.now();
+    const con = new Set(liAlerts.map(a => a.title));
+    const vuaXong = truoc.filter(a => !con.has(a.title)).map(a => ({ key: a.title, at: now }));
+    // Cảnh báo quay lại thì bỏ khỏi danh sách đã xử lý, khỏi vừa báo lỗi vừa báo xong
+    liDone = [...vuaXong, ...liDone.filter(d => !con.has(d.key) && !vuaXong.some(v => v.key === d.key))]
+        .filter(d => now - d.at < LI_DONE_MS);
+
+    clearTimeout(liDoneTimer);
+    if (liDone.length) {
+        liDoneTimer = setTimeout(() => { liDone = []; renderLogicInspector(); }, LI_DONE_MS);
+    }
+}
+
 function runClinicalValidation() {
+    const truoc = liAlerts;
     try {
         liAlerts = validateRecord({ bienLuan: getBienLuan(), rx: getRx() });
     } catch (err) {
         console.warn('Rà soát logic lỗi:', err);
         liAlerts = [];
     }
+    trackDoneAlerts(truoc);
     renderLogicInspector();
     // Cùng nhịp rà soát: nói ra chỗ các mục đang lệch nhau (mục IX ↔ mục X,
     // tóm tắt / đặt vấn đề ↔ bệnh sử và khám). Đều là hàm chỉ vẽ, không tự sửa.
@@ -669,21 +692,30 @@ function renderLogicInspector() {
 
     const sum = summarize(liAlerts);
     const net = renderNetBrief();
-    // Bệnh án sạch cả luật lẫn liên kết thì giấu hẳn viên đèn
-    if (!sum.total && !net) {
+    // Bệnh án sạch cả luật lẫn liên kết thì giấu hẳn viên đèn — trừ khi vừa sửa xong
+    // cảnh báo, lúc đó nán lại vài giây để báo "đã xử lý" rồi mới tắt
+    if (!sum.total && !net && !liDone.length) {
         bar.classList.add('is-hidden');
         bar.classList.remove('is-open');
         markFlaggedFields();
         return;
     }
     bar.classList.remove('is-hidden');
-    bar.dataset.level = sum.total ? sum.level : 'amber';
-    $('li-label').textContent = sum.total ? LEVEL_LABEL[sum.level] : 'Còn chỗ chưa nối';
-    $('li-count').textContent = sum.total || net;
+    bar.dataset.level = sum.total ? sum.level : (net ? 'amber' : 'green');
+    $('li-label').textContent = sum.total ? LEVEL_LABEL[sum.level]
+        : (net ? 'Còn chỗ chưa nối' : 'Vừa xử lý xong');
+    $('li-count').textContent = sum.total || net || liDone.length;
     if ($('li-n-logic')) $('li-n-logic').textContent = sum.total;
     if ($('li-n-net')) $('li-n-net').textContent = net;
 
-    box.innerHTML = liAlerts.length ? liAlerts.map((a, i) => `
+    // Cảnh báo vừa sửa xong đứng trên cùng, gạch tên + báo đã xóa khỏi danh sách
+    const doneHtml = liDone.map(d => `
+        <div class="li-card li-done">
+            <div class="li-t"><i class="fas fa-circle-check"></i> ${liEsc(d.key)}</div>
+            <div class="li-m">Đã xử lý — cảnh báo này vừa được xóa khỏi danh sách.</div>
+        </div>`).join('');
+
+    box.innerHTML = doneHtml + (liAlerts.length ? liAlerts.map((a, i) => `
         <div class="li-card sev-${a.severity}" data-i="${i}">
             <div class="li-t"><i class="fas ${SEV_ICON[a.severity]}"></i> ${liEsc(a.title)}</div>
             <div class="li-m">${liEsc(a.message)}</div>
@@ -694,7 +726,7 @@ function renderLogicInspector() {
             </div>
         </div>`).join('')
         : `<p class="li-empty"><i class="fas fa-circle-check"></i>Xong hết rồi!<br>
-            <small>Máy vẫn rà lại mỗi khi bạn sửa bệnh án.</small></p>`;
+            <small>Máy vẫn rà lại mỗi khi bạn sửa bệnh án.</small></p>`);
 
     markFlaggedFields();
 }
