@@ -14,7 +14,7 @@ const firebaseConfig = {
     apiKey: "AIzaSyBFNNeJMeDIVRcG2Xj4ZVjr2-0d9RGrURc",
     authDomain: "zitthenkne.firebaseapp.com",
     projectId: "zitthenkne",
-    storageBucket: "zitthenkne.appspot.com",
+    storageBucket: "zitthenkne.firebasestorage.app",
     messagingSenderId: "288090340109",
     appId: "1:288090340109:web:2fdf3e4117e92318ef8e44"
 };

@@ -32,13 +32,38 @@ export async function compressImage(file) {
     return (await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.85))) || file;
 }
 
+/** Tải ảnh lên máy chủ lưu ảnh miễn phí (Freeimage.host / Cloud CDN) — không tốn dung lượng Firebase */
+async function uploadToFreeHost(blob) {
+    const formData = new FormData();
+    formData.append('key', '6d207e02198a847aa98d0a2a901485a5');
+    formData.append('action', 'upload');
+    formData.append('source', blob, 'image.jpg');
+    formData.append('format', 'json');
+
+    const res = await fetch('https://freeimage.host/api/1/upload', {
+        method: 'POST',
+        body: formData
+    });
+    if (!res.ok) throw new Error('Upload HTTP ' + res.status);
+    const data = await res.json();
+    const url = data.image?.url || data.image?.display_url || data.image?.url_viewer;
+    if (!url) throw new Error('Không nhận được link ảnh');
+    return url;
+}
+
 export async function uploadImage(file, recordId, folder = 'anh') {
-    const uid = await authReady();
-    if (!uid) throw Object.assign(new Error('need-auth'), { code: 'need-auth' });
     const blob = await compressImage(file);
-    const path = `medical_records/${uid}/${recordId}/${folder}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`;
-    await uploadBytes(storageRef(storage, path), blob, { contentType: 'image/jpeg' });
-    return { url: await getDownloadURL(storageRef(storage, path)), path, caption: '' };
+    try {
+        const url = await uploadToFreeHost(blob);
+        return { url, path: '', caption: '' };
+    } catch (err) {
+        console.warn('Upload free host lỗi, thử fallback Firebase Storage:', err);
+        const uid = await authReady();
+        if (!uid) throw Object.assign(new Error('need-auth'), { code: 'need-auth' });
+        const path = `medical_records/${uid}/${recordId}/${folder}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`;
+        await uploadBytes(storageRef(storage, path), blob, { contentType: 'image/jpeg' });
+        return { url: await getDownloadURL(storageRef(storage, path)), path, caption: '' };
+    }
 }
 
 export function deleteImage(im) {

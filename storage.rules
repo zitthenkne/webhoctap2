@@ -1,0 +1,17 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Ảnh bệnh án: chỉ chủ tài khoản mới được tải lên và xem/xóa
+    match /medical_records/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    // Phòng học cộng tác
+    match /study_rooms/{roomId}/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+    // Mặc định cho người dùng đã xác thực
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

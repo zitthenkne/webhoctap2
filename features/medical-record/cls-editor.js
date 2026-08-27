@@ -9,7 +9,7 @@ import { fold } from './tim-kiem.js';
 import { showToast } from '../../core/utils.js';
 import { storage } from '../../core/firebase-init.js';
 import { authReady } from './record-store.js';
-import { openPicker, coCamera } from './image-upload.js';
+import { openPicker, coCamera, uploadImage } from './image-upload.js';
 import {
     ref as storageRef, uploadBytes, getDownloadURL, deleteObject
 } from 'https://www.gstatic.com/firebasejs/9.6.0/firebase-storage.js';
@@ -404,11 +404,6 @@ async function compress(file) {
 async function addImages(i, files) {
     const pics = [...files].filter(f => f.type.startsWith('image/'));
     if (!pics.length) return;
-    const uid = await authReady();
-    if (!uid) {
-        showToast('Đăng nhập để đính kèm ảnh — ảnh được lưu trên đám mây, không nằm trong bộ nhớ máy.', 'warning', 5000);
-        return;
-    }
     const c = cards[i];
     if (!c) return;
 
@@ -417,19 +412,15 @@ async function addImages(i, files) {
         c.images.push(slot);
         render();
         try {
-            const blob = await compress(file);
-            const path = `medical_records/${uid}/${opts.recordId}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`;
-            await uploadBytes(storageRef(storage, path), blob, { contentType: 'image/jpeg' });
-            slot.url = await getDownloadURL(storageRef(storage, path));
-            slot.path = path;
+            const res = await uploadImage(file, opts.recordId, 'cls');
+            slot.url = res.url;
+            slot.path = res.path || '';
             delete slot.pending;
             changed();
         } catch (err) {
             console.warn('[benh-an] tải ảnh lên lỗi:', err);
             c.images.splice(c.images.indexOf(slot), 1);
-            showToast(err?.code === 'storage/unauthorized'
-                ? 'Không có quyền tải ảnh lên (kiểm tra Storage Rules).'
-                : 'Tải ảnh lên thất bại — kiểm tra mạng rồi thử lại.', 'error');
+            showToast('Tải ảnh lên thất bại — kiểm tra mạng rồi thử lại.', 'error');
         }
         render();
     }
