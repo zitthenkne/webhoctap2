@@ -892,33 +892,6 @@
             </div>
         </div>
     </div>
-    <script type="module">
-        // Hiển thị trạng thái đăng nhập (app.js cũ trỏ file không tồn tại nên trang luôn hiện "Khách")
-        import { auth } from '../../core/firebase-init.js';
-        import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js';
-
-        onAuthStateChanged(auth, user => {
-            const name = user ? (user.displayName || (user.email || '').split('@')[0] || 'Bạn') : 'Đăng nhập';
-            const avatar = (user && user.photoURL) ||
-                `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=D8BFD8&color=fff`;
-            ['user-name', 'user-name-sidebar'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.textContent = name;
-            });
-            ['user-avatar', 'user-avatar-sidebar', 'user-avatar-mobile'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.src = avatar;
-            });
-            if (!user) {
-                // Chưa đăng nhập: bấm avatar/tên đưa về trang chủ (modal đăng nhập nằm ở đó)
-                const goLogin = () => { window.location.href = '../../index.html'; };
-                const menu = document.getElementById('user-menu-button');
-                if (menu) { menu.style.cursor = 'pointer'; menu.addEventListener('click', goLogin); }
-                const mob = document.getElementById('user-avatar-mobile');
-                if (mob) { mob.style.cursor = 'pointer'; mob.addEventListener('click', goLogin); }
-            }
-        });
-    </script>
     <script type="module" src="waiting-room.js"></script>
 </body>
 

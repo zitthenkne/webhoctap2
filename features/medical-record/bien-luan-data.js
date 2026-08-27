@@ -1681,14 +1681,20 @@ LIBRARY.unshift(
 );
 
 VAN_DE_NHOM.push({
-    ten: 'Ngoại lồng ngực – mạch máu', icon: 'fa-heart-circle-bolt', items: [
+    ten: 'Ngoại lồng ngực', icon: 'fa-lungs', items: [
         'Chấn thương ngực kín', 'Vết thương thấu ngực', 'Mảng sườn di động',
         'Tràn khí màng phổi áp lực', 'Tràn máu màng phổi', 'Tràn mủ màng phổi',
-        'Chèn ép tim cấp – vết thương tim', 'U trung thất', 'Ung thư phổi nguyên phát',
-        'Nhược cơ – u tuyến ức', 'Thiếu máu chi cấp (hội chứng 6P)',
-        'Chấn thương – vết thương mạch máu chi', 'Hội chứng chèn ép khoang',
-        'Phình động mạch chủ bụng', 'Bóc tách động mạch chủ',
-        'Bệnh động mạch chi dưới', 'Suy tĩnh mạch mạn chi dưới',
+        'U trung thất', 'Ung thư phổi nguyên phát', 'Nhược cơ – u tuyến ức'
+    ]
+}, {
+    ten: 'Mạch máu', icon: 'fa-heart-circle-bolt', items: [
+        'Thiếu máu chi cấp (hội chứng 6P)', 'Chấn thương – vết thương mạch máu chi',
+        'Hội chứng chèn ép khoang', 'Phình động mạch chủ bụng', 'Bóc tách động mạch chủ',
+        'Bệnh động mạch chi dưới', 'Suy tĩnh mạch mạn chi dưới', 'Huyết khối tĩnh mạch sâu'
+    ]
+}, {
+    ten: 'Phẫu thuật tim', icon: 'fa-heart-circle-plus', items: [
+        'Chèn ép tim cấp – vết thương tim', 'Hội chứng van tim (hẹp – hở)',
         'Hậu phẫu tim hở – tuần hoàn ngoài cơ thể'
     ]
 });

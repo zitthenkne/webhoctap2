@@ -130,7 +130,7 @@ export async function syncNow({ wait = false } = {}) {
 
 /** Bản cũ chỉ cần danh sách đã trộn — giữ nguyên cho các trang đang gọi. */
 export async function syncFromCloud() {
-    return (await syncNow()).merged;
+    return (await syncNow({ wait: true })).merged;
 }
 
 /** Đẩy các bệnh án cloud chưa có / đang cũ hơn. Trả về số bản đã đẩy được. */
@@ -140,9 +140,10 @@ async function pushMissing(uid, records, remoteState) {
         const onCloud = remoteState.get(String(rec.id));
         if (onCloud !== undefined && onCloud >= String(rec.lastUpdated || '')) continue;
         try {
+            const cleanRecord = JSON.parse(JSON.stringify(rec));
             await setDoc(doc(db, COL, docIdOf(uid, rec.id)), {
                 userId: uid, recordId: String(rec.id),
-                lastUpdated: rec.lastUpdated || '', record: rec
+                lastUpdated: rec.lastUpdated || '', record: cleanRecord
             });
             n++;
         } catch (e) { console.warn('[benh-an] đẩy lên cloud lỗi:', e); }
@@ -162,9 +163,10 @@ const pendingCloud = new Map();   // id -> { timer, record }
 async function writeCloud(uid, record) {
     if (!uid) return false;
     try {
+        const cleanRecord = JSON.parse(JSON.stringify(record));
         await setDoc(doc(db, COL, docIdOf(uid, record.id)), {
             userId: uid, recordId: String(record.id),
-            lastUpdated: record.lastUpdated || '', record
+            lastUpdated: record.lastUpdated || '', record: cleanRecord
         });
         return true;
     } catch (e) {

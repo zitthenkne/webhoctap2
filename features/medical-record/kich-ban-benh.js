@@ -197,7 +197,7 @@ export const KICH_BAN = [
         ]
     },
     {
-        ten: 'Chấn thương ngực kín — tràn máu tràn khí màng phổi', nhom: 'Ngoại lồng ngực – mạch máu',
+        ten: 'Chấn thương ngực kín — tràn máu tràn khí màng phổi', nhom: 'Ngoại lồng ngực',
         sym: 'Đau ngực kiểu màng phổi',
         lyDo: ['Đau ngực kiểu màng phổi', 'Khó thở', 'Ho ra máu'],
         dac: {
@@ -212,22 +212,7 @@ export const KICH_BAN = [
         ]
     },
     {
-        ten: 'Vết thương thấu ngực — nghi vết thương tim', nhom: 'Ngoại lồng ngực – mạch máu',
-        sym: 'Đau ngực',
-        lyDo: ['Đau ngực', 'Khó thở', 'Tím tái'],
-        dac: {
-            viTri: 'vùng trước tim', tinhChat: 'như dao đâm', lan: 'không lan',
-            mucDo: '8/10', thoiGian: 'liên tục từ lúc bị đâm', yeuTo: 'không đổi khi nghỉ'
-        },
-        xuTri: 'người nhà băng ép vết thương rồi đưa thẳng tới cấp cứu',
-        amTinh: 'không co giật, không nôn ói, không có vết thương nơi khác, không dùng rượu bia trước đó',
-        mocs: [
-            ['truoc', '1', 'giờ', 'Bị đâm bằng dao vào vùng ngực trái trước tim trong lúc xô xát, chảy máu ít tại chỗ', { dau: 8, nd: 36.8, spo2: 96, vung: ['nguc-t'] }],
-            ['truoc', '20', 'phút', '', true, { dau: 8, nd: 36.4, spo2: 92, vung: ['nguc-t'], refs: [{ sym: 'Khó thở', st: 'nặng hơn', d: 'vã mồ hôi, tay chân lạnh, lơ mơ dần' }] }]
-        ]
-    },
-    {
-        ten: 'Thiếu máu chi cấp — hội chứng 6P', nhom: 'Ngoại lồng ngực – mạch máu',
+        ten: 'Thiếu máu chi cấp — hội chứng 6P', nhom: 'Mạch máu',
         sym: 'Đau chi cấp – mất mạch',
         lyDo: ['Đau chi cấp – mất mạch', 'Tê bì – dị cảm'],
         dac: {
@@ -244,7 +229,7 @@ export const KICH_BAN = [
         ]
     },
     {
-        ten: 'Bệnh động mạch chi dưới mạn — đau cách hồi Fontaine IIb', nhom: 'Ngoại lồng ngực – mạch máu',
+        ten: 'Bệnh động mạch chi dưới mạn — đau cách hồi Fontaine IIb', nhom: 'Mạch máu',
         sym: 'Đau cách hồi',
         lyDo: ['Đau cách hồi', 'Tê bì – dị cảm'],
         dac: {
@@ -261,7 +246,7 @@ export const KICH_BAN = [
         ]
     },
     {
-        ten: 'Phình động mạch chủ bụng dọa vỡ', nhom: 'Ngoại lồng ngực – mạch máu',
+        ten: 'Phình động mạch chủ bụng dọa vỡ', nhom: 'Mạch máu',
         sym: 'Đau bụng',
         lyDo: ['Đau bụng', 'Khối đập theo nhịp mạch', 'Chóng mặt'],
         dac: {
@@ -277,7 +262,7 @@ export const KICH_BAN = [
         ]
     },
     {
-        ten: 'Ung thư phổi — ho kéo dài, ho ra máu, sụt cân', nhom: 'Ngoại lồng ngực – mạch máu',
+        ten: 'Ung thư phổi — ho kéo dài, ho ra máu, sụt cân', nhom: 'Ngoại lồng ngực',
         sym: 'Ho ra máu',
         lyDo: ['Ho ra máu', 'Ho', 'Sụt cân'],
         dac: {
@@ -293,7 +278,7 @@ export const KICH_BAN = [
         ]
     },
     {
-        ten: 'Suy tĩnh mạch mạn — loét cẳng chân', nhom: 'Ngoại lồng ngực – mạch máu',
+        ten: 'Suy tĩnh mạch mạn — loét cẳng chân', nhom: 'Mạch máu',
         sym: 'Nặng chân – giãn tĩnh mạch',
         lyDo: ['Nặng chân – giãn tĩnh mạch', 'Loét da'],
         dac: {
@@ -310,7 +295,22 @@ export const KICH_BAN = [
             ['truoc', '6', 'tháng', 'Da quanh mắt cá trong bên trái sạm màu, ngứa, tróc vảy', { dau: 3, vung: ['cangchan-t', 'cochan-t'] }],
             ['truoc', '1', 'tháng', '', true, { dau: 4, nd: 36.9, spo2: 98, vung: ['cochan-t'], refs: [{ sym: 'Loét da', st: 'nặng hơn', d: 'vết loét trên mắt cá trong rộng dần, đáy ẩm, ít đau' }] }]
         ]
-    }
+    },
+    {
+        ten: 'Vết thương thấu ngực — nghi vết thương tim', nhom: 'Phẫu thuật tim',
+        sym: 'Đau ngực',
+        lyDo: ['Đau ngực', 'Khó thở', 'Tím tái'],
+        dac: {
+            viTri: 'vùng trước tim', tinhChat: 'như dao đâm', lan: 'không lan',
+            mucDo: '8/10', thoiGian: 'liên tục từ lúc bị đâm', yeuTo: 'không đổi khi nghỉ'
+        },
+        xuTri: 'người nhà băng ép vết thương rồi đưa thẳng tới cấp cứu',
+        amTinh: 'không co giật, không nôn ói, không có vết thương nơi khác, không dùng rượu bia trước đó',
+        mocs: [
+            ['truoc', '1', 'giờ', 'Bị đâm bằng dao vào vùng ngực trái trước tim trong lúc xô xát, chảy máu ít tại chỗ', { dau: 8, nd: 36.8, spo2: 96, vung: ['nguc-t'] }],
+            ['truoc', '20', 'phút', '', true, { dau: 8, nd: 36.4, spo2: 92, vung: ['nguc-t'], refs: [{ sym: 'Khó thở', st: 'nặng hơn', d: 'vã mồ hôi, tay chân lạnh, lơ mơ dần' }] }]
+        ]
+    },
 ];
 
 /** Nhóm cho bảng chọn — giữ đúng thứ tự xuất hiện trong KICH_BAN */

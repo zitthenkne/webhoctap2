@@ -24,7 +24,10 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 // cacheSizeBytes không giới hạn: mặc định 40MB sẽ tự dọn (LRU) bộ đề cũ khỏi cache
 // offline. Học liệu là text nên để nguyên, mất mạng vẫn còn đủ dữ liệu cũ.
-export const db = initializeFirestore(app, { cacheSizeBytes: CACHE_SIZE_UNLIMITED });
+export const db = initializeFirestore(app, {
+    cacheSizeBytes: CACHE_SIZE_UNLIMITED,
+    ignoreUndefinedProperties: true
+});
 export const storage = getStorage(app);
 
 // Bật cache offline (IndexedDB): dữ liệu đã đọc vẫn xem được khi mất mạng,

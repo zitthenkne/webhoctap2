@@ -81,6 +81,33 @@ export const SYMPTOMS = [
         ]
     },
     {
+        ten: 'Chấn thương ngực', nhom: 'Hô hấp', fields: [
+            ['coChe', 'Cơ chế', ['tai nạn giao thông', 'té cao', 'vật nặng đè ép ngực', 'bị đánh – va đập trực tiếp', 'sóng nổ']],
+            ['viTri', 'Vùng va đập', ['ngực phải', 'ngực trái', 'xương ức', 'ngực hai bên', 'ngực – bụng']],
+            ['thoiDiem', 'Cách nhập viện bao lâu', null, 'vd 3 giờ trước nhập viện'],
+            ['triGiac', 'Tri giác sau tai nạn', ['tỉnh hoàn toàn', 'choáng váng thoáng qua', 'ngất – quên lúc tai nạn']],
+            ['soCuu', 'Xử trí tuyến trước', ['chưa xử trí gì', 'băng ép – cố định', 'thở oxy', 'đã đặt dẫn lưu màng phổi', 'truyền dịch – giảm đau']],
+            ['kemTheo', 'Kèm theo', ['khó thở tăng dần', 'ho ra máu', 'lép bép dưới da', 'chấn thương nơi khác']]
+        ]
+    },
+    {
+        ten: 'Vết thương vùng ngực', nhom: 'Hô hấp', fields: [
+            ['tacNhan', 'Tác nhân', ['dao – vật nhọn', 'mảnh kính', 'đạn – hỏa khí', 'vật nhọn đâm khi té']],
+            ['viTri', 'Vị trí vết thương', ['vùng trước tim (tam giác nguy hiểm)', 'ngực phải', 'ngực trái', 'vùng nách', 'ngực – bụng (nghi thấu cơ hoành)']],
+            ['phiPho', 'Khí ra vào phì phò', ['có, nghe rõ tiếng khí', 'không']],
+            ['chayMau', 'Chảy máu', ['rỉ ít', 'chảy nhiều thấm băng', 'phun thành tia']],
+            ['thoiDiem', 'Cách nhập viện bao lâu', null, 'vd 45 phút trước nhập viện'],
+            ['soCuu', 'Xử trí tuyến trước', ['băng kín vết thương', 'băng van 3 cạnh', 'chưa xử trí gì', 'đã dẫn lưu màng phổi']]
+        ]
+    },
+    {
+        ten: 'Lép bép khí dưới da', nhom: 'Hô hấp', fields: [
+            ['viTri', 'Vị trí', ['thành ngực bên tổn thương', 'lan lên cổ – mặt', 'lan xuống bụng']],
+            ['dienTien', 'Diễn tiến', ['lan rộng nhanh trong vài giờ', 'không đổi', 'đang giảm dần']],
+            ['kemTheo', 'Kèm theo', ['khó thở tăng', 'đau ngực', 'khàn tiếng', 'nuốt vướng']]
+        ]
+    },
+    {
         ten: 'Ho ra máu', nhom: 'Hô hấp', fields: [
             ['luong', 'Lượng', ['dây máu trong đàm', 'vài mL', 'khoảng 50 mL', 'trên 100 mL/24 giờ']],
             ['mauSac', 'Màu sắc', ['đỏ tươi', 'đỏ sẫm', 'lẫn đàm mủ']],
@@ -138,6 +165,14 @@ export const SYMPTOMS = [
             ['chuVi', 'Chênh chu vi so với bên lành', null, 'vd hơn 3 cm, đo cách lồi củ chày 10 cm'],
             ['tinhChat', 'Tính chất', ['căng tức, đau khi bóp bắp chân', 'nóng đỏ', 'phù ấn lõm', 'nổi tĩnh mạch nông bàng hệ']],
             ['yeuTo', 'Yếu tố thúc đẩy', ['nằm bất động dài ngày', 'sau phẫu thuật – bó bột', 'sau chuyến đi xa', 'đang điều trị ung thư', 'thuốc ngừa thai – thai kỳ']]
+        ]
+    },
+    {
+        ten: 'Phù áo khoác – sưng mặt cổ', nhom: 'Tim mạch', fields: [
+            ['viTri', 'Vùng sưng', ['mặt và mi mắt', 'cổ', 'nửa trên ngực và hai tay']],
+            ['thoiDiem', 'Rõ nhất khi', ['buổi sáng vừa ngủ dậy', 'khi cúi người', 'cả ngày']],
+            ['dienTien', 'Diễn tiến', ['tăng dần vài tuần', 'đột ngột vài ngày']],
+            ['kemTheo', 'Kèm theo', ['tĩnh mạch cổ nổi to', 'tuần hoàn bàng hệ ngực trước', 'nhức đầu – nặng đầu', 'khàn tiếng', 'khó thở khi nằm']]
         ]
     },
     {
@@ -239,6 +274,14 @@ export const SYMPTOMS = [
             ['khoiPhat', 'Khởi phát', ['đột ngột', 'tăng dần trong nhiều giờ', 'tăng dần trong nhiều ngày']],
             ['mucDo', 'Sức cơ', ['1/5', '2/5', '3/5', '4/5']],
             ['kemTheo', 'Kèm theo', ['méo miệng', 'nói khó', 'rối loạn cảm giác', 'rối loạn cơ vòng']]
+        ]
+    },
+    {
+        ten: 'Sụp mi – nhìn đôi', nhom: 'Thần kinh', fields: [
+            ['ben', 'Bên nào', ['mắt phải', 'mắt trái', 'hai bên']],
+            ['thoiDiem', 'Nặng nhất khi', ['cuối ngày hoặc sau khi nhìn lâu', 'buổi sáng', 'không đổi trong ngày']],
+            ['nghiNgoi', 'Nghỉ ngơi', ['đỡ hẳn sau khi nhắm mắt nghỉ', 'không đỡ']],
+            ['kemTheo', 'Kèm theo', ['nhai mỏi – nuốt sặc', 'nói giọng mũi', 'yếu tay chân về chiều', 'co đồng tử cùng bên (Horner)', 'đau vai lan xuống tay']]
         ]
     },
     {
@@ -597,6 +640,33 @@ export const SYMPTOMS = [
 
     /* ---------------- Da – niêm (bổ sung) ---------------- */
     {
+        ten: 'Hoại tử đầu ngón', nhom: 'Da – niêm', fields: [
+            ['viTri', 'Ngón nào', null, 'vd ngón I và II bàn chân trái'],
+            ['kieu', 'Kiểu hoại tử', ['khô, đen, ranh giới rõ', 'ướt, chảy dịch hôi', 'đang lan lên gốc ngón']],
+            ['dau', 'Đau', ['đau liên tục, tăng về đêm', 'đau ít', 'mất cảm giác nên không đau']],
+            ['thoiGian', 'Bao lâu', null, 'vd 3 tuần, lan dần'],
+            ['kemTheo', 'Kèm theo', ['bàn chân lạnh – mất mạch', 'sốt', 'chảy mủ hôi', 'đái tháo đường đang điều trị']]
+        ]
+    },
+    {
+        ten: 'Chảy máu vết thương', nhom: 'Da – niêm', fields: [
+            ['viTri', 'Vị trí', null, 'vd mặt trong đùi phải, 1/3 giữa'],
+            ['kieu', 'Kiểu chảy', ['phun thành tia theo nhịp mạch', 'chảy ồ ạt thấm băng', 'rỉ rả', 'đã cầm sau băng ép']],
+            ['luong', 'Lượng ước tính', null, 'vd ướt đẫm 2 cuộn băng, khoảng 500 mL'],
+            ['soCuu', 'Sơ cứu', ['băng ép', 'garrot', 'kẹp cầm máu', 'chưa xử trí gì']],
+            ['kemTheo', 'Kèm theo', ['khối máu tụ to nhanh, đập nảy', 'tê – lạnh phần chi phía dưới', 'chóng mặt, vã mồ hôi']]
+        ]
+    },
+    {
+        ten: 'Chảy dịch – hở vết mổ', nhom: 'Da – niêm', fields: [
+            ['viTri', 'Vết mổ nào', ['xương ức sau mổ tim', 'thành ngực sau mổ phổi', 'chân ống dẫn lưu', 'vết mổ lấy tĩnh mạch hiển', 'vết mổ mạch máu vùng bẹn']],
+            ['tinhChat', 'Tính chất dịch', ['huyết thanh trong', 'dịch đục – mủ', 'máu đỏ tươi', 'dịch hôi']],
+            ['luong', 'Lượng', null, 'vd thấm ướt 2 gạc mỗi ngày'],
+            ['kemTheo', 'Kèm theo', ['sốt', 'đau tăng tại vết mổ', 'xương ức lạo xạo khi ho', 'mép vết mổ hở – nề đỏ']],
+            ['thoiGian', 'Ngày hậu phẫu thứ mấy', null, 'vd hậu phẫu ngày 8']
+        ]
+    },
+    {
         ten: 'Loét da', nhom: 'Da – niêm', fields: [
             ['viTri', 'Vị trí', null, 'vd mặt lòng bàn chân phải, vùng cùng cụt'],
             ['kichThuoc', 'Kích thước', null, 'vd 3 × 4 cm, sâu tới cân cơ'],
@@ -690,6 +760,165 @@ export const SYMPTOMS = [
      redFlags           bệnh cảnh nguy hiểm phải loại trừ
    ===================================================================== */
 const CONTEXT = {
+    'Chấn thương ngực': {
+        coOccurring: ['Khó thở', 'Đau ngực kiểu màng phổi', 'Ho ra máu', 'Lép bép khí dưới da', 'Tím tái'],
+        pertinentNegatives: [
+            ['không ngất, không quên lúc tai nạn', 'chấn thương sọ não kèm theo'],
+            ['không đau bụng, không nôn ói', 'chấn thương bụng kín – vỡ tạng'],
+            ['không đau cột sống, không tê yếu chi', 'chấn thương cột sống'],
+            ['không tiểu máu', 'chấn thương thận – niệu'],
+            ['không đau ngực xé lan sau lưng', 'vỡ eo động mạch chủ do giảm tốc']
+        ],
+        examTargets: {
+            'exam-chest': ['Điểm đau chói và lạo xạo xương sườn', 'Mảng ngực di động ngược chiều khi thở',
+                'Lép bép khí dưới da', 'Vết bầm – dấu dây an toàn', 'Lồng ngực di động không đều hai bên'],
+            'exam-lung': ['Rì rào phế nang giảm / mất một bên', 'Gõ vang (tràn khí) hay gõ đục (tràn máu)', 'Rung thanh giảm'],
+            'exam-general': ['Tĩnh mạch cổ (nổi căng hay xẹp)', 'Khí quản có lệch không', 'Mạch – huyết áp – SpO2', 'Da niêm nhợt, chi lạnh']
+        },
+        redFlags: ['Tràn khí màng phổi áp lực', 'Tràn máu màng phổi lượng lớn', 'Mảng sườn di động suy hô hấp',
+            'Chèn ép tim cấp', 'Vỡ động mạch chủ ngực', 'Vỡ khí – phế quản']
+    },
+    'Vết thương vùng ngực': {
+        coOccurring: ['Khó thở', 'Đau ngực', 'Tím tái', 'Chảy máu vết thương', 'Lép bép khí dưới da'],
+        pertinentNegatives: [
+            ['không có vết thương thứ hai (tìm cả lỗ vào – lỗ ra)', 'bỏ sót đường đi vết thương'],
+            ['không đau bụng, không đề kháng thành bụng', 'vết thương thấu cơ hoành vào ổ bụng'],
+            ['không lơ mơ, không vã mồ hôi lạnh', 'sốc mất máu, chèn ép tim'],
+            ['không tê yếu tay cùng bên', 'tổn thương đám rối thần kinh cánh tay – mạch dưới đòn']
+        ],
+        examTargets: {
+            'exam-chest': ['Vị trí vết thương so với tam giác nguy hiểm trước tim', 'Khí phì phò qua vết thương',
+                'Lép bép khí dưới da', 'Tìm lỗ vào – lỗ ra'],
+            'exam-heart': ['Tiếng tim mờ xa xăm', 'Mạch nghịch', 'Huyết áp tụt kẹp'],
+            'exam-lung': ['Rì rào phế nang một bên', 'Gõ vang hay gõ đục'],
+            'exam-general': ['Tĩnh mạch cổ nổi căng (Beck) hay xẹp (mất máu)', 'Mạch – huyết áp – tri giác']
+        },
+        redFlags: ['Vết thương tim – chèn ép tim cấp', 'Vết thương ngực hở phì phò', 'Tràn khí màng phổi áp lực',
+            'Tràn máu màng phổi lượng lớn', 'Vết thương thấu cơ hoành']
+    },
+    'Phù áo khoác – sưng mặt cổ': {
+        coOccurring: ['Khó thở', 'Khàn tiếng', 'Nuốt khó', 'Đau đầu', 'Ho', 'Sụt cân'],
+        pertinentNegatives: [
+            ['không phù hai chân, không tiểu ít', 'suy tim, hội chứng thận hư'],
+            ['không đặt catheter tĩnh mạch trung tâm trước đó', 'huyết khối do catheter'],
+            ['không sốt, không đau họng', 'phù mặt do nhiễm trùng – dị ứng'],
+            ['không nổi mề đay, không khó thở thanh quản đột ngột', 'phù mạch dị ứng']
+        ],
+        examTargets: {
+            'exam-general': ['Phù mặt – cổ – nửa trên ngực, phù ấn không lõm', 'Tĩnh mạch cổ nổi to không đập',
+                'Tuần hoàn bàng hệ ngực trước', 'Hạch thượng đòn', 'Nghiệm pháp Pemberton (đỏ mặt khi giơ hai tay)'],
+            'exam-lung': ['Rì rào phế nang giảm khu trú', 'Tiếng rít thanh – khí quản'],
+            'exam-heart': ['Tiếng tim mờ', 'Mạch nghịch']
+        },
+        redFlags: ['Hội chứng chèn ép tĩnh mạch chủ trên', 'Chèn ép khí quản', 'U trung thất ác tính', 'Ung thư phổi xâm lấn']
+    },
+    'Hoại tử đầu ngón': {
+        coOccurring: ['Đau cách hồi', 'Đau chi cấp – mất mạch', 'Loét da', 'Tê bì – dị cảm', 'Sốt'],
+        pertinentNegatives: [
+            ['không sốt, không chảy mủ hôi, không lan nhanh', 'hoại tử ướt nhiễm trùng – nhiễm trùng huyết'],
+            ['không đau đột ngột dữ dội', 'thiếu máu chi cấp chồng lên nền mạn'],
+            ['không loét vùng tì đè', 'loét do tì đè – thần kinh (bàn chân đái tháo đường)'],
+            ['không hiện tượng Raynaud, không đau khớp', 'viêm mạch máu – bệnh mô liên kết']
+        ],
+        examTargets: {
+            'exam-general': ['Mạch khoeo – chày sau – mu chân hai bên', 'Ranh giới hoại tử, mùi, dịch',
+                'Nhiệt độ da so bên đối diện', 'Đo ABI (chú ý vôi hóa ở người đái tháo đường)', 'Thời gian đổ đầy mao mạch'],
+            'exam-neuro-msk': ['Cảm giác nông – rung âm thoa bàn chân', 'Biến dạng bàn chân, chai chân']
+        },
+        redFlags: ['Thiếu máu chi đe dọa đoạn chi (ABI < 0,4)', 'Hoại tử ướt – nhiễm trùng huyết', 'Bàn chân đái tháo đường nhiễm trùng sâu']
+    },
+    'Chảy máu vết thương': {
+        coOccurring: ['Đau chi cấp – mất mạch', 'Tê bì – dị cảm', 'Chóng mặt', 'Ngất', 'Yếu liệt chi'],
+        pertinentNegatives: [
+            ['không tê – lạnh phần chi phía dưới', 'tổn thương động mạch kèm thiếu máu chi'],
+            ['không khối máu tụ đập nảy to nhanh', 'giả phình – tổn thương động mạch'],
+            ['không yếu liệt, không mất cảm giác', 'tổn thương thần kinh đi kèm'],
+            ['không chóng mặt khi ngồi dậy', 'mất máu đáng kể']
+        ],
+        examTargets: {
+            'exam-general': ['Mạch hai bên chi so sánh', 'Khối máu tụ: kích thước, có đập nảy không',
+                'Sờ rung miu – nghe âm thổi tại chỗ', 'Đo ABI bên tổn thương', 'Dấu sốc mất máu'],
+            'exam-neuro-msk': ['Vận động – cảm giác phía dưới vết thương', 'Đau khi kéo căng cơ thụ động']
+        },
+        redFlags: ['Dấu hiệu chắc chắn tổn thương động mạch — mổ ngay', 'Sốc mất máu', 'Hội chứng chèn ép khoang', 'Thông động – tĩnh mạch sau chấn thương']
+    },
+    'Chảy dịch – hở vết mổ': {
+        coOccurring: ['Sốt', 'Ớn lạnh – lạnh run', 'Đau ngực', 'Mệt mỏi – suy nhược'],
+        pertinentNegatives: [
+            ['không sốt, không lạnh run', 'nhiễm trùng sâu – viêm trung thất'],
+            ['xương ức không lạo xạo khi ho', 'toác xương ức sau mổ tim'],
+            ['dịch không hôi, không đục', 'nhiễm trùng vết mổ'],
+            ['không đường huyết cao khó kiểm soát', 'yếu tố làm chậm lành vết mổ']
+        ],
+        examTargets: {
+            'exam-chest': ['Mép vết mổ: nề, đỏ, hở', 'Ấn đau dọc xương ức', 'Dấu lạo xạo xương ức khi ho', 'Tính chất dịch chảy ra'],
+            'exam-general': ['Nhiệt độ, mạch', 'Vẻ mặt nhiễm trùng', 'Chân ống dẫn lưu']
+        },
+        redFlags: ['Viêm trung thất sau mổ tim', 'Toác xương ức', 'Nhiễm trùng huyết', 'Nhiễm trùng mảnh ghép mạch máu']
+    },
+    'Sụp mi – nhìn đôi': {
+        coOccurring: ['Nuốt khó', 'Nói khó', 'Yếu mỏi cơ', 'Khó thở', 'Nhìn mờ'],
+        pertinentNegatives: [
+            ['không đau đầu dữ dội, không nôn vọt', 'phình mạch não chèn dây III, tăng áp lực nội sọ'],
+            ['không yếu nửa người, không nói đớ đột ngột', 'đột quỵ thân não'],
+            ['không sốt, không đau hốc mắt', 'viêm mô tế bào hốc mắt'],
+            ['không đau vai lan bờ trong cánh tay', 'hội chứng Pancoast – Horner']
+        ],
+        examTargets: {
+            'exam-head': ['Độ sụp mi hai bên, khe mi', 'Đồng tử (co đồng tử gợi ý Horner)', 'Vận nhãn – nhìn đôi hướng nào',
+                'Nghiệm pháp túi nước đá', 'Nhìn lên trần 60 giây xem mi có sụp thêm'],
+            'exam-neuro-msk': ['Sức cơ gốc chi trước và sau vận động lặp lại', 'Cơ hô hấp: đếm hơi, dung tích sống'],
+            'exam-general': ['Giảm tiết mồ hôi nửa mặt cùng bên']
+        },
+        redFlags: ['Cơn nhược cơ suy hô hấp', 'U tuyến ức', 'Hội chứng Pancoast – Horner', 'Phình mạch não chèn dây III']
+    },
+    'Khàn tiếng': {
+        coOccurring: ['Ho', 'Nuốt khó', 'Sụt cân', 'Ho ra máu', 'Phù áo khoác – sưng mặt cổ'],
+        pertinentNegatives: [
+            ['không sốt, không đau họng', 'viêm thanh quản cấp'],
+            ['không sụt cân, không ho ra máu', 'ung thư phổi – u trung thất chèn thần kinh quặt ngược'],
+            ['không mổ tuyến giáp hay mổ tim trước đó', 'tổn thương thần kinh quặt ngược sau mổ'],
+            ['không nuốt sặc, không nói giọng mũi', 'bệnh lý thần kinh cơ']
+        ],
+        examTargets: {
+            'exam-head': ['Nội soi thanh quản: liệt dây thanh bên nào', 'Khám tuyến giáp'],
+            'exam-general': ['Hạch cổ – hạch thượng đòn', 'Tĩnh mạch cổ nổi, tuần hoàn bàng hệ'],
+            'exam-lung': ['Rì rào phế nang giảm khu trú', 'Tiếng rít khí quản']
+        },
+        redFlags: ['Ung thư phổi chèn thần kinh quặt ngược (T4)', 'U trung thất', 'Bướu giáp thòng chèn ép', 'Phình quai động mạch chủ']
+    },
+    'Nuốt khó': {
+        coOccurring: ['Sụt cân', 'Khàn tiếng', 'Ho', 'Phù áo khoác – sưng mặt cổ', 'Đau ngực'],
+        pertinentNegatives: [
+            ['không nghẹn cả với nước ngay từ đầu', 'rối loạn vận động thực quản – bệnh thần kinh cơ'],
+            ['không sụt cân nhanh, không thiếu máu', 'ung thư thực quản'],
+            ['không ợ chua, không đau rát sau xương ức', 'trào ngược – viêm thực quản'],
+            ['không sụp mi, không yếu cơ cuối ngày', 'nhược cơ'],
+            ['không khàn tiếng, không phù mặt cổ', 'khối trung thất chèn ép']
+        ],
+        examTargets: {
+            'exam-general': ['Cân nặng, dấu mất nước', 'Hạch cổ – thượng đòn', 'Tĩnh mạch cổ, tuần hoàn bàng hệ'],
+            'exam-head': ['Khám vùng cổ tìm khối', 'Phản xạ nôn, nuốt thử ngụm nước'],
+            'exam-chest': ['Nghe rít khí quản', 'Gõ vùng trung thất']
+        },
+        redFlags: ['U trung thất chèn thực quản', 'Ung thư thực quản', 'Cơn nhược cơ (sặc – viêm phổi hít)', 'Phình động mạch chủ ngực chèn ép']
+    },
+    'Tím tái': {
+        coOccurring: ['Khó thở', 'Đau ngực', 'Ho', 'Ngất', 'Chấn thương ngực'],
+        pertinentNegatives: [
+            ['không tím chỉ khi lạnh, ấm lên thì hết', 'tím ngoại biên do co mạch'],
+            ['tím có cải thiện khi thở oxy', 'luồng thông phải – trái (tim bẩm sinh) thì không cải thiện'],
+            ['không ngón tay dùi trống', 'tím mạn tính do tim bẩm sinh'],
+            ['không dùng thuốc – hóa chất lạ', 'methemoglobin máu']
+        ],
+        examTargets: {
+            'exam-general': ['Tím trung ương (môi, lưỡi) hay ngoại biên (đầu chi)', 'SpO2 tay và chân',
+                'Ngón tay dùi trống', 'Đáp ứng sau thở oxy 100%'],
+            'exam-heart': ['Âm thổi tim', 'T2 mạnh ở ổ van động mạch phổi', 'Dấu Harzer'],
+            'exam-lung': ['Rì rào phế nang hai bên', 'Ran, gõ vang hay gõ đục']
+        },
+        redFlags: ['Suy hô hấp cấp', 'Tràn khí màng phổi áp lực', 'Chèn ép tim cấp', 'Tim bẩm sinh tím', 'Sốc']
+    },
     'Đau chi cấp – mất mạch': {
         coOccurring: ['Tê bì – dị cảm', 'Yếu liệt chi', 'Hồi hộp – đánh trống ngực', 'Đau cách hồi', 'Loét da'],
         pertinentNegatives: [
@@ -774,7 +1003,8 @@ const CONTEXT = {
         redFlags: ['Vỡ phình động mạch chủ bụng', 'Dọa vỡ phình', 'Bóc tách động mạch chủ', 'Thuyên tắc mảnh xơ vữa xuống chi']
     },
     'Đau ngực': {
-        coOccurring: ['Khó thở', 'Vã mồ hôi đêm', 'Hồi hộp – đánh trống ngực', 'Nôn ói', 'Ngất', 'Ho ra máu'],
+        coOccurring: ['Khó thở', 'Vã mồ hôi đêm', 'Hồi hộp – đánh trống ngực', 'Nôn ói', 'Ngất', 'Ho ra máu',
+            'Tím tái', 'Chấn thương ngực'],
         pertinentNegatives: [
             ['không đau lan sau lưng kiểu rách xé', 'bóc tách động mạch chủ'],
             ['không ho ra máu, không đau tăng khi hít sâu', 'thuyên tắc phổi, viêm màng phổi'],
@@ -868,7 +1098,8 @@ const CONTEXT = {
         redFlags: ['Xuất huyết dưới nhện', 'Viêm màng não', 'Tăng áp lực nội sọ / u não', 'Đột quỵ', 'Tăng huyết áp ác tính']
     },
     'Ho ra máu': {
-        coOccurring: ['Ho', 'Sốt', 'Sụt cân', 'Vã mồ hôi đêm', 'Khó thở', 'Đau ngực kiểu màng phổi'],
+        coOccurring: ['Ho', 'Sốt', 'Sụt cân', 'Vã mồ hôi đêm', 'Khó thở', 'Đau ngực kiểu màng phổi',
+            'Khàn tiếng', 'Chấn thương ngực'],
         pertinentNegatives: [
             ['không nôn ra máu, máu không lẫn thức ăn', 'xuất huyết tiêu hóa nhầm lẫn'],
             ['không chảy máu mũi, không chảy máu răng', 'nguồn chảy máu đường hô hấp trên'],

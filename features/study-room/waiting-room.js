@@ -1,6 +1,7 @@
 // waiting-room.js — Trang chờ: danh sách bệnh án
 import { showToast } from '../../core/utils.js';
 import { guideOn, setGuide } from '../../core/guide.js';
+import { onSessionUser } from '../../core/auth-session.js';
 import {
     listLocal, sortRecords, syncFromCloud, syncNow, deleteRecord, saveRecord,
     isSignedIn, exportJson, importJson
@@ -591,6 +592,8 @@ async function reload({ cloud = false } = {}) {
     records = sortRecords(listLocal());
     render();
     if (cloud) {
+        const el = document.getElementById('sync-status');
+        if (el) el.innerHTML = `<i class="fas fa-circle-notch fa-spin text-pink-400"></i> Đang đồng bộ…`;
         records = await syncFromCloud();
         render();
     }
@@ -617,7 +620,10 @@ function setupSyncButton() {
         if (!r.signedIn) {
             showToast('Chưa đăng nhập nên chưa đồng bộ được — đăng nhập rồi bấm lại.', 'warning', 6000);
         } else if (r.error) {
-            showToast('Không kết nối được đám mây. Kiểm tra mạng rồi bấm đồng bộ lại.', 'error', 6000);
+            // Kèm mã lỗi Firestore: permission-denied = rules chưa mở / chưa deploy,
+            // unavailable = mất mạng hoặc Firebase bị chặn, unauthenticated = phiên hỏng.
+            const ma = r.error?.code || r.error?.message || 'không rõ';
+            showToast(`Không đồng bộ được — lỗi "${ma}". Kiểm tra mạng, hoặc quyền Firestore chưa được deploy.`, 'error', 9000);
         } else if (!r.pulled && !r.pushed) {
             showToast('Hai bên đã giống nhau, không có bệnh án nào phải đồng bộ.', 'info');
         } else {
@@ -768,4 +774,31 @@ document.addEventListener('click', (e) => {
         document.querySelectorAll('.rec-card.menu-open').forEach(c => c.classList.remove('menu-open'));
     }
 });
-reload({ cloud: true });
+
+// Lắng nghe phiên đăng nhập: tự động cập nhật avatar, tên người dùng và đồng bộ đám mây
+onSessionUser(async (user) => {
+    const name = user ? (user.displayName || (user.email || '').split('@')[0] || 'Bạn') : 'Đăng nhập';
+    const avatar = (user && user.photoURL) ||
+        `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=D8BFD8&color=fff`;
+    ['user-name', 'user-name-sidebar'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = name;
+    });
+    ['user-avatar', 'user-avatar-sidebar', 'user-avatar-mobile'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.src = avatar;
+    });
+    if (!user) {
+        const goLogin = () => { window.location.href = '../../index.html'; };
+        const menu = document.getElementById('user-menu-button');
+        if (menu) { menu.style.cursor = 'pointer'; menu.onclick = goLogin; }
+        const mob = document.getElementById('user-avatar-mobile');
+        if (mob) { mob.style.cursor = 'pointer'; mob.onclick = goLogin; }
+    } else {
+        const menu = document.getElementById('user-menu-button');
+        if (menu) menu.onclick = null;
+        const mob = document.getElementById('user-avatar-mobile');
+        if (mob) mob.onclick = null;
+    }
+    await reload({ cloud: !!user });
+});
