@@ -86,16 +86,23 @@ const docIdOf = (uid, id) => `${uid}__${String(id).replace(/\//g, '_')}`;
 /* ---------- đồng bộ ---------- */
 
 /**
- * Trộn bệnh án trên cloud vào localStorage: bản nào lastUpdated mới hơn thì thắng.
- * Trả về danh sách đã trộn (đã sắp xếp). Không đăng nhập / lỗi mạng => trả bản local.
+ * Đồng bộ HAI CHIỀU: kéo bản trên cloud về máy, rồi đẩy bản ở máy này lên cloud —
+ * bệnh án nào `lastUpdated` mới hơn thì thắng, nên hai máy có bệnh án khác nhau
+ * thì sau khi đồng bộ cả hai đều có đủ.
+ *
+ * `wait` = chờ đẩy xong rồi mới trả về (nút "Đồng bộ" cần biết đẩy được mấy bản);
+ * lúc mở trang thì để mặc định false, đẩy chạy ngầm cho trang hiện nhanh.
+ *
+ * @returns {{merged:Array, pulled:number, pushed:number, signedIn:boolean, error:any}}
  */
-export async function syncFromCloud() {
+export async function syncNow({ wait = false } = {}) {
     const uid = await whenAuthReady();
-    if (!uid) return sortRecords(listLocal());
+    if (!uid) return { merged: sortRecords(listLocal()), pulled: 0, pushed: 0, signedIn: false, error: null };
 
     const local = listLocal();
     const byId = new Map(local.map(r => [String(r.id), r]));
     const remoteState = new Map();   // id -> lastUpdated trên cloud
+    let pulled = 0;
 
     try {
         const snap = await getDocs(query(collection(db, COL), where('userId', '==', uid)));
@@ -106,21 +113,29 @@ export async function syncFromCloud() {
             const mine = byId.get(String(remote.id));
             if (!mine || String(remote.lastUpdated || '') > String(mine.lastUpdated || '')) {
                 byId.set(String(remote.id), remote);
+                pulled++;
             }
         });
     } catch (e) {
         console.warn('[benh-an] không tải được bản cloud:', e);
-        return sortRecords(local);
+        return { merged: sortRecords(local), pulled: 0, pushed: 0, signedIn: true, error: e };
     }
 
     const merged = sortRecords([...byId.values()]);
     writeLocal(merged);
     // Chỉ đẩy lên bệnh án cloud chưa có hoặc đang cũ hơn bản ở máy này
-    pushMissing(uid, merged, remoteState);
-    return merged;
+    const pushing = pushMissing(uid, merged, remoteState);
+    return { merged, pulled, pushed: wait ? await pushing : 0, signedIn: true, error: null };
 }
 
+/** Bản cũ chỉ cần danh sách đã trộn — giữ nguyên cho các trang đang gọi. */
+export async function syncFromCloud() {
+    return (await syncNow()).merged;
+}
+
+/** Đẩy các bệnh án cloud chưa có / đang cũ hơn. Trả về số bản đã đẩy được. */
 async function pushMissing(uid, records, remoteState) {
+    let n = 0;
     for (const rec of records) {
         const onCloud = remoteState.get(String(rec.id));
         if (onCloud !== undefined && onCloud >= String(rec.lastUpdated || '')) continue;
@@ -129,8 +144,10 @@ async function pushMissing(uid, records, remoteState) {
                 userId: uid, recordId: String(rec.id),
                 lastUpdated: rec.lastUpdated || '', record: rec
             });
+            n++;
         } catch (e) { console.warn('[benh-an] đẩy lên cloud lỗi:', e); }
     }
+    return n;
 }
 
 /* ---------- CRUD ---------- */

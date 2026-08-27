@@ -2,7 +2,7 @@
 import { showToast } from '../../core/utils.js';
 import { guideOn, setGuide } from '../../core/guide.js';
 import {
-    listLocal, sortRecords, syncFromCloud, deleteRecord, saveRecord,
+    listLocal, sortRecords, syncFromCloud, syncNow, deleteRecord, saveRecord,
     isSignedIn, exportJson, importJson
 } from '../medical-record/record-store.js';
 import {
@@ -597,7 +597,37 @@ async function reload({ cloud = false } = {}) {
     updateSyncStatus();
 }
 
+/* Đồng bộ hai chiều theo yêu cầu: kéo bệnh án của máy khác về, đẩy bệnh án của
+   máy này lên, rồi nói rõ được mấy bản — chạy ngầm im lặng thì người dùng không
+   biết đã xong hay chưa mà đóng app giữa chừng. */
+function setupSyncButton() {
+    const btn = document.getElementById('sync-now');
+    if (!btn) return;
+    const icon = btn.querySelector('i');
+    btn.addEventListener('click', async () => {
+        if (btn.disabled) return;
+        btn.disabled = true;
+        icon.className = 'fas fa-circle-notch fa-spin';
+        const r = await syncNow({ wait: true });
+        records = sortRecords(r.merged);
+        render();
+        updateSyncStatus();
+        icon.className = 'fas fa-cloud-arrow-up';
+        btn.disabled = false;
+        if (!r.signedIn) {
+            showToast('Chưa đăng nhập nên chưa đồng bộ được — đăng nhập rồi bấm lại.', 'warning', 6000);
+        } else if (r.error) {
+            showToast('Không kết nối được đám mây. Kiểm tra mạng rồi bấm đồng bộ lại.', 'error', 6000);
+        } else if (!r.pulled && !r.pushed) {
+            showToast('Hai bên đã giống nhau, không có bệnh án nào phải đồng bộ.', 'info');
+        } else {
+            showToast(`Đã đồng bộ: tải về ${r.pulled} bệnh án, đẩy lên ${r.pushed} bệnh án.`, 'success', 6000);
+        }
+    });
+}
+
 function setupActions() {
+    setupSyncButton();
     document.getElementById('create-new-record')?.addEventListener('click', createNew);
 
     document.getElementById('search-record')?.addEventListener('input', (e) => {
