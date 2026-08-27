@@ -162,6 +162,45 @@ export const BENH_NHOM = [
             'Hội chứng cai rượu', 'Sảng rượu', 'Rối loạn lưỡng cực', 'Tâm thần phân liệt',
             'Suy kiệt', 'Chăm sóc giảm nhẹ'
         ]
+    },
+    {
+        ten: 'Ngoại lồng ngực – mạch máu – tim', icon: 'fa-heart-circle-bolt', items: [
+            /* chấn thương – vết thương ngực */
+            'Chấn thương ngực kín', 'Vết thương thấu ngực', 'Vết thương ngực hở',
+            'Gãy xương sườn', 'Mảng sườn di động', 'Gãy xương ức',
+            'Tràn khí màng phổi do chấn thương', 'Tràn khí màng phổi áp lực',
+            'Tràn khí màng phổi tự phát', 'Tràn máu màng phổi', 'Tràn máu – tràn khí màng phổi',
+            'Máu đông màng phổi', 'Dập phổi', 'Dập cơ tim',
+            'Vết thương tim', 'Chèn ép tim cấp', 'Vỡ cơ hoành do chấn thương',
+            'Tràn mủ màng phổi', 'Tràn dưỡng chấp màng phổi', 'Tràn khí trung thất',
+            /* bệnh lý lồng ngực */
+            'U trung thất trước', 'U tuyến ức (Thymoma)', 'U trung thất sau nguồn gốc thần kinh',
+            'Nang phế quản trung thất', 'Bướu giáp thòng trung thất', 'U tế bào mầm trung thất',
+            'Nhược cơ (Myasthenia gravis)',
+            'Ung thư phổi không tế bào nhỏ', 'Ung thư phổi tế bào nhỏ', 'U phổi di căn',
+            'Hội chứng Pancoast – Tobias', 'Hội chứng chèn ép tĩnh mạch chủ trên',
+            'Kén khí phổi', 'Áp xe phổi có chỉ định phẫu thuật', 'Dày dính màng phổi',
+            /* động mạch */
+            'Phình động mạch chủ bụng', 'Phình động mạch chủ bụng vỡ', 'Phình động mạch chủ ngực',
+            'Bóc tách động mạch chủ Stanford A', 'Bóc tách động mạch chủ Stanford B',
+            'Phình giả động mạch', 'Thông động – tĩnh mạch sau chấn thương',
+            'Bệnh động mạch chi dưới mạn tính', 'Hội chứng Leriche',
+            'Thiếu máu chi cấp tính', 'Thuyên tắc động mạch chi', 'Huyết khối động mạch chi',
+            'Chấn thương mạch máu chi', 'Vết thương động mạch chi', 'Hội chứng chèn ép khoang',
+            'Bệnh Buerger (viêm tắc mạch máu)', 'Hẹp động mạch cảnh',
+            'Bàn chân đái tháo đường có thiếu máu chi',
+            /* tĩnh mạch */
+            'Suy tĩnh mạch mạn chi dưới', 'Giãn tĩnh mạch nông chi dưới',
+            'Loét tĩnh mạch cẳng chân', 'Huyết khối tĩnh mạch sâu chi dưới',
+            'Dò động – tĩnh mạch chạy thận nhân tạo (AVF)',
+            /* phẫu thuật tim */
+            'Bệnh van hai lá hậu thấp có chỉ định phẫu thuật',
+            'Hẹp van động mạch chủ có chỉ định thay van',
+            'Bệnh mạch vành có chỉ định bắc cầu (CABG)',
+            'Viêm nội tâm mạc nhiễm trùng trên van tim',
+            'Thông liên nhĩ', 'Thông liên thất', 'Còn ống động mạch', 'Tứ chứng Fallot',
+            'Hậu phẫu tim hở có tuần hoàn ngoài cơ thể'
+        ]
     }
 ];
 

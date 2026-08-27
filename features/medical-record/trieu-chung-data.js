@@ -108,8 +108,45 @@ export const SYMPTOMS = [
     },
     {
         ten: 'Đau cách hồi', nhom: 'Tim mạch', fields: [
-            ['viTri', 'Vị trí', ['bắp chân', 'đùi', 'mông']],
-            ['quangDuong', 'Đi được bao xa', null, 'vd khoảng 200 m thì phải nghỉ']
+            ['viTri', 'Vị trí', ['bắp chân', 'đùi', 'mông', 'hai bên mông – đùi (nghi hội chứng Leriche)']],
+            ['quangDuong', 'Đi được bao xa', null, 'vd khoảng 100 m thì phải nghỉ 3–5 phút'],
+            ['dienTien', 'Diễn tiến', ['quãng đường đi được ngắn dần', 'ổn định nhiều tháng nay', 'đã đau cả khi nghỉ và về đêm (Fontaine III)']],
+            ['kemTheo', 'Kèm theo', ['lạnh – tê bàn chân', 'rụng lông, móng dày sọc', 'loét – hoại tử đầu ngón (Fontaine IV)', 'rối loạn cương (hội chứng Leriche)', 'không kèm gì khác']]
+        ]
+    },
+    {
+        ten: 'Đau chi cấp – mất mạch', nhom: 'Tim mạch', fields: [
+            ['viTri', 'Chi nào', ['cẳng – bàn chân phải', 'cẳng – bàn chân trái', 'cẳng – bàn tay phải', 'cẳng – bàn tay trái']],
+            ['khoiPhat', 'Khởi phát', ['đột ngột khi đang nghỉ', 'sau chấn thương – vết thương', 'nặng dần trên nền đau cách hồi']],
+            ['gioThu', 'Giờ thứ mấy của thiếu máu', null, 'vd giờ thứ 5 (thời gian vàng < 6 giờ)'],
+            ['dau6P', 'Dấu 6P đã có', ['đau (Pain)', 'tái nhợt (Pallor)', 'mất mạch (Pulselessness)', 'lạnh chi (Poikilothermia)', 'tê – dị cảm (Paresthesia)', 'liệt vận động (Paralysis)']],
+            ['vanDong', 'Vận động – cảm giác', ['còn cử động và cảm giác bình thường', 'tê bì nhưng còn cử động', 'mất cảm giác kèm liệt vận động — chi đe dọa nặng']]
+        ]
+    },
+    {
+        ten: 'Nặng chân – giãn tĩnh mạch', nhom: 'Tim mạch', fields: [
+            ['viTri', 'Chân nào', ['chân phải', 'chân trái', 'hai chân']],
+            ['thoiDiem', 'Nặng nhất khi nào', ['cuối ngày, sau khi đứng lâu', 'ban đêm kèm chuột rút', 'cả ngày']],
+            ['gianTM', 'Tĩnh mạch nổi', ['giãn mạng nhện', 'búi giãn ngoằn ngoèo mặt trong cẳng chân', 'giãn cả đùi và cẳng chân']],
+            ['kemTheo', 'Kèm theo', ['phù cổ chân về chiều', 'sạm da – chàm ứ trệ quanh mắt cá trong', 'loét cẳng chân đáy ẩm ít đau', 'không kèm gì khác']],
+            ['giamKhi', 'Giảm khi', ['gác chân cao', 'mang vớ áp lực', 'không giảm']]
+        ]
+    },
+    {
+        ten: 'Sưng đau bắp chân một bên', nhom: 'Tim mạch', fields: [
+            ['viTri', 'Bên nào', ['bắp chân phải', 'bắp chân trái']],
+            ['chuVi', 'Chênh chu vi so với bên lành', null, 'vd hơn 3 cm, đo cách lồi củ chày 10 cm'],
+            ['tinhChat', 'Tính chất', ['căng tức, đau khi bóp bắp chân', 'nóng đỏ', 'phù ấn lõm', 'nổi tĩnh mạch nông bàng hệ']],
+            ['yeuTo', 'Yếu tố thúc đẩy', ['nằm bất động dài ngày', 'sau phẫu thuật – bó bột', 'sau chuyến đi xa', 'đang điều trị ung thư', 'thuốc ngừa thai – thai kỳ']]
+        ]
+    },
+    {
+        ten: 'Khối đập theo nhịp mạch', nhom: 'Tim mạch', fields: [
+            ['viTri', 'Vị trí', ['quanh rốn – bụng giữa', 'vùng bẹn', 'khoeo chân', 'vùng cổ', 'ngay vết thương cũ']],
+            ['kichThuoc', 'Kích thước ước lượng', null, 'vd khoảng 6 cm, giãn nở theo hai bên'],
+            ['dau', 'Đau', ['không đau, tình cờ phát hiện', 'đau âm ỉ', 'đau dữ dội mới xuất hiện — dọa vỡ']],
+            ['dienTien', 'Diễn tiến', ['to dần nhiều tháng', 'không đổi', 'to nhanh trong vài ngày']],
+            ['kemTheo', 'Kèm theo', ['nghe âm thổi tại khối', 'sờ rung miu', 'tê – thiếu máu chi cùng bên', 'không kèm gì khác']]
         ]
     },
 
@@ -653,6 +690,89 @@ export const SYMPTOMS = [
      redFlags           bệnh cảnh nguy hiểm phải loại trừ
    ===================================================================== */
 const CONTEXT = {
+    'Đau chi cấp – mất mạch': {
+        coOccurring: ['Tê bì – dị cảm', 'Yếu liệt chi', 'Hồi hộp – đánh trống ngực', 'Đau cách hồi', 'Loét da'],
+        pertinentNegatives: [
+            ['không chấn thương, không vết thương vùng chi', 'chấn thương – vết thương động mạch'],
+            ['không sưng nóng đỏ bắp chân', 'huyết khối tĩnh mạch sâu, viêm mô tế bào'],
+            ['không đau cách hồi trước đó', 'huyết khối trên nền xơ vữa (phân biệt với thuyên tắc)'],
+            ['không đau ngực xé lan sau lưng', 'bóc tách động mạch chủ lan xuống chi'],
+            ['không hồi hộp, không tiền căn rung nhĩ', 'thuyên tắc từ tim']
+        ],
+        examTargets: {
+            'exam-general': ['Bắt mạch đối xứng 8 vị trí (cánh tay, quay, trụ, đùi, khoeo, chày sau, mu chân)',
+                'Chi lạnh, tái nhợt, ranh giới đổi màu rõ', 'Thời gian đổ đầy mao mạch kéo dài', 'Đo ABI hai bên'],
+            'exam-neuro-msk': ['Cảm giác nông đầu chi', 'Sức cơ vận động các ngón', 'Đau khi kéo căng cơ thụ động (chèn ép khoang)',
+                'Khoang cẳng chân căng cứng'],
+            'exam-heart': ['Nhịp tim không đều (rung nhĩ)', 'Âm thổi tại tim', 'Âm thổi dọc đường đi động mạch']
+        },
+        redFlags: ['Thiếu máu chi cấp mất giờ vàng (< 6 giờ)', 'Hội chứng chèn ép khoang', 'Hội chứng tái tưới máu – tăng kali',
+            'Chấn thương – vết thương động mạch', 'Bóc tách động mạch chủ']
+    },
+    'Đau cách hồi': {
+        coOccurring: ['Tê bì – dị cảm', 'Loét da', 'Đau chi cấp – mất mạch', 'Chuột rút'],
+        pertinentNegatives: [
+            ['không đau khi nghỉ, không đau về đêm', 'thiếu máu chi mạn nặng (Fontaine III)'],
+            ['không loét, không hoại tử đầu ngón', 'thiếu máu chi đe dọa (Fontaine IV)'],
+            ['không đau lan từ thắt lưng xuống chân theo rễ', 'đau cách hồi thần kinh do hẹp ống sống'],
+            ['không sưng nóng đỏ bắp chân', 'huyết khối tĩnh mạch sâu'],
+            ['không rối loạn cương, đau hai mông – đùi', 'hội chứng Leriche (tắc ngã ba chủ – chậu)']
+        ],
+        examTargets: {
+            'exam-general': ['Mạch đùi – khoeo – chày sau – mu chân hai bên', 'Rụng lông mu chân, móng dày sọc',
+                'Teo cơ cẳng chân, đo chu vi hai bên', 'Loét – hoại tử đầu ngón', 'Nghiệm pháp Buerger', 'Chỉ số ABI'],
+            'exam-heart': ['Âm thổi tâm thu dọc động mạch đùi – chậu', 'Nhịp tim đều hay không đều']
+        },
+        redFlags: ['Thiếu máu chi cấp trên nền mạn', 'Loét – hoại tử đe dọa đoạn chi', 'Bàn chân đái tháo đường nhiễm trùng']
+    },
+    'Nặng chân – giãn tĩnh mạch': {
+        coOccurring: ['Loét da', 'Phù', 'Chuột rút', 'Ngứa', 'Sưng đau bắp chân một bên'],
+        pertinentNegatives: [
+            ['không sưng đau bắp chân một bên đột ngột', 'huyết khối tĩnh mạch sâu'],
+            ['không đau cách hồi, mạch mu chân rõ', 'bệnh động mạch chi dưới đi kèm (cấm băng ép nếu ABI thấp)'],
+            ['không khó thở, không đau ngực', 'thuyên tắc phổi'],
+            ['không sốt, vùng loét không sưng nóng đỏ lan', 'viêm mô tế bào']
+        ],
+        examTargets: {
+            'exam-general': ['Búi tĩnh mạch nông ngoằn ngoèo, vị trí và mức lan', 'Sạm da – chàm ứ trệ quanh mắt cá trong',
+                'Loét: vị trí, đáy, bờ, kích thước', 'Phù ấn lõm cổ chân', 'Nghiệm pháp Trendelenburg – Perthes',
+                'Mạch mu chân – chày sau và ABI trước khi băng ép']
+        },
+        redFlags: ['Huyết khối tĩnh mạch sâu đang hoạt động', 'Loét nhiễm trùng – viêm mô tế bào', 'Chảy máu búi giãn']
+    },
+    'Sưng đau bắp chân một bên': {
+        coOccurring: ['Phù', 'Đau ngực kiểu màng phổi', 'Khó thở', 'Sốt', 'Nặng chân – giãn tĩnh mạch'],
+        pertinentNegatives: [
+            ['không khó thở, không đau ngực kiểu màng phổi, không ho ra máu', 'thuyên tắc phổi'],
+            ['không sốt, không sưng nóng đỏ lan rộng', 'viêm mô tế bào'],
+            ['không chấn thương, không vận động gắng sức trước đó', 'đứt cơ bụng chân, tụ máu trong cơ'],
+            ['không mất mạch, chi không lạnh tái', 'thiếu máu chi cấp']
+        ],
+        examTargets: {
+            'exam-general': ['Đo chu vi bắp chân hai bên cách lồi củ chày 10 cm', 'Đau khi bóp bắp chân',
+                'Phù ấn lõm, nóng đỏ vùng da', 'Tĩnh mạch nông bàng hệ nổi', 'Mạch mu chân – chày sau'],
+            'exam-lung': ['Rì rào phế nang, ran nổ khu trú', 'Tiếng cọ màng phổi'],
+            'exam-heart': ['Nhịp tim nhanh', 'T2 mạnh ở ổ van động mạch phổi']
+        },
+        redFlags: ['Thuyên tắc phổi', 'Huyết khối tĩnh mạch sâu lan lên đùi – chậu', 'Phlegmasia cerulea dolens', 'Viêm mô tế bào']
+    },
+    'Khối đập theo nhịp mạch': {
+        coOccurring: ['Đau bụng', 'Đau cột sống thắt lưng', 'Chóng mặt', 'Ngất', 'Đau chi cấp – mất mạch'],
+        pertinentNegatives: [
+            ['khối không to nhanh, không đau mới xuất hiện', 'dọa vỡ phình động mạch chủ'],
+            ['không chóng mặt khi ngồi dậy, không vã mồ hôi', 'sốc mất máu do vỡ phình'],
+            ['không đau ngực xé lan sau lưng', 'bóc tách động mạch chủ'],
+            ['không sốt kéo dài', 'phình dạng nấm (nhiễm trùng)'],
+            ['không tê lạnh bàn chân', 'thuyên tắc mảnh xơ vữa xuống chi']
+        ],
+        examTargets: {
+            'exam-abdomen': ['Sờ khối đập theo nhịp mạch, giãn nở hai bên', 'Ước lượng đường kính khối',
+                'Nghe âm thổi tâm thu tại khối', 'Đề kháng thành bụng (dấu vỡ vào phúc mạc)'],
+            'exam-general': ['Mạch đùi – khoeo – mu chân hai bên', 'Huyết áp tứ chi', 'Dấu sốc: chi lạnh, vã mồ hôi, mạch nhanh'],
+            'exam-heart': ['Âm thổi tâm trương hở van động mạch chủ', 'Chênh lệch huyết áp hai tay']
+        },
+        redFlags: ['Vỡ phình động mạch chủ bụng', 'Dọa vỡ phình', 'Bóc tách động mạch chủ', 'Thuyên tắc mảnh xơ vữa xuống chi']
+    },
     'Đau ngực': {
         coOccurring: ['Khó thở', 'Vã mồ hôi đêm', 'Hồi hộp – đánh trống ngực', 'Nôn ói', 'Ngất', 'Ho ra máu'],
         pertinentNegatives: [

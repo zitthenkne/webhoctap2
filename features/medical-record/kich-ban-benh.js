@@ -195,6 +195,121 @@ export const KICH_BAN = [
             ['truoc', '2', 'tuần', 'Phù mí mắt buổi sáng, nước tiểu nổi nhiều bọt', { dau: 0, nd: 36.8, spo2: 98 }],
             ['truoc', '3', 'ngày', '', true, { dau: 0, nd: 36.9, spo2: 97, vung: ['tran', 'cangchan-p', 'cangchan-t'] }]
         ]
+    },
+    {
+        ten: 'Chấn thương ngực kín — tràn máu tràn khí màng phổi', nhom: 'Ngoại lồng ngực – mạch máu',
+        sym: 'Đau ngực kiểu màng phổi',
+        lyDo: ['Đau ngực kiểu màng phổi', 'Khó thở', 'Ho ra máu'],
+        dac: {
+            viTri: 'ngực phải', lienQuan: 'tăng khi hít sâu và khi ho', mucDo: '7/10'
+        },
+        xuTri: 'được sơ cứu và thở oxy tại tuyến trước rồi chuyển lên',
+        amTinh: 'không ngất sau tai nạn, không nôn ói, không đau bụng, không tiểu máu, không yếu liệt chi',
+        mocs: [
+            ['truoc', '5', 'giờ', 'Tai nạn giao thông, xe máy té đập ngực phải xuống lề đường, tỉnh hoàn toàn, đau ngực phải nhiều', { dau: 7, nd: 37, spo2: 95, vung: ['nguc-p'] }],
+            ['truoc', '2', 'giờ', 'Khó thở tăng dần, ho khạc ra ít máu tươi, được đặt dẫn lưu màng phổi phải ra khoảng 600 mL máu đỏ sẫm', { dau: 7, nd: 37.2, spo2: 91, vung: ['nguc-p'], refs: [{ sym: 'Khó thở', st: 'nặng hơn', d: 'khó thở cả khi nằm yên, thở nhanh nông' }] }],
+            ['truoc', '30', 'phút', '', true, { dau: 6, nd: 37.1, spo2: 93, vung: ['nguc-p'], refs: [{ sym: 'Đau ngực kiểu màng phổi', st: 'thuyên giảm', d: 'đỡ hơn sau khi dẫn lưu và giảm đau' }] }]
+        ]
+    },
+    {
+        ten: 'Vết thương thấu ngực — nghi vết thương tim', nhom: 'Ngoại lồng ngực – mạch máu',
+        sym: 'Đau ngực',
+        lyDo: ['Đau ngực', 'Khó thở', 'Tím tái'],
+        dac: {
+            viTri: 'vùng trước tim', tinhChat: 'như dao đâm', lan: 'không lan',
+            mucDo: '8/10', thoiGian: 'liên tục từ lúc bị đâm', yeuTo: 'không đổi khi nghỉ'
+        },
+        xuTri: 'người nhà băng ép vết thương rồi đưa thẳng tới cấp cứu',
+        amTinh: 'không co giật, không nôn ói, không có vết thương nơi khác, không dùng rượu bia trước đó',
+        mocs: [
+            ['truoc', '1', 'giờ', 'Bị đâm bằng dao vào vùng ngực trái trước tim trong lúc xô xát, chảy máu ít tại chỗ', { dau: 8, nd: 36.8, spo2: 96, vung: ['nguc-t'] }],
+            ['truoc', '20', 'phút', '', true, { dau: 8, nd: 36.4, spo2: 92, vung: ['nguc-t'], refs: [{ sym: 'Khó thở', st: 'nặng hơn', d: 'vã mồ hôi, tay chân lạnh, lơ mơ dần' }] }]
+        ]
+    },
+    {
+        ten: 'Thiếu máu chi cấp — hội chứng 6P', nhom: 'Ngoại lồng ngực – mạch máu',
+        sym: 'Đau chi cấp – mất mạch',
+        lyDo: ['Đau chi cấp – mất mạch', 'Tê bì – dị cảm'],
+        dac: {
+            viTri: 'cẳng – bàn chân trái', khoiPhat: 'đột ngột khi đang nghỉ',
+            gioThu: 'giờ thứ 5 kể từ lúc đau (thời gian vàng < 6 giờ)',
+            dau6P: 'đau, tái nhợt, mất mạch, lạnh chi, tê bì',
+            vanDong: 'tê bì nhưng còn cử động được các ngón'
+        },
+        xuTri: 'xoa bóp và đắp ấm tại nhà, không đỡ nên tới bệnh viện',
+        amTinh: 'không chấn thương, không sốt, không đau ngực, không khó thở, không đau bụng',
+        mocs: [
+            ['truoc', '2', 'năm', 'Được chẩn đoán rung nhĩ, có toa thuốc kháng đông nhưng tự ngưng uống nửa năm nay', { dau: 0 }],
+            ['truoc', '5', 'giờ', '', true, { dau: 8, nd: 36.7, spo2: 97, vung: ['cangchan-t'] }]
+        ]
+    },
+    {
+        ten: 'Bệnh động mạch chi dưới mạn — đau cách hồi Fontaine IIb', nhom: 'Ngoại lồng ngực – mạch máu',
+        sym: 'Đau cách hồi',
+        lyDo: ['Đau cách hồi', 'Tê bì – dị cảm'],
+        dac: {
+            viTri: 'bắp chân trái', quangDuong: 'khoảng 100 m thì phải nghỉ 3–5 phút mới đi tiếp được',
+            dienTien: 'quãng đường đi được ngắn dần trong 6 tháng nay',
+            kemTheo: 'lạnh và tê bàn chân trái, rụng lông mu chân'
+        },
+        xuTri: 'uống thuốc giãn mạch mua ở tiệm, không cải thiện; chưa bỏ thuốc lá',
+        amTinh: 'chưa loét hay hoại tử đầu ngón, chưa đau khi nghỉ về đêm, không sốt, không sưng đỏ bắp chân',
+        mocs: [
+            ['truoc', '6', 'tháng', 'Đi bộ khoảng 500 m thì mỏi và đau bắp chân trái, nghỉ vài phút thì hết, vẫn đi làm bình thường', { dau: 3, vung: ['cangchan-t'] }],
+            ['truoc', '2', 'tháng', 'Quãng đường đi được rút xuống còn khoảng 100 m, bàn chân trái lạnh hơn bên phải', { dau: 5, vung: ['cangchan-t'], refs: [{ sym: 'Đau cách hồi', st: 'nặng hơn', d: 'đi ngắn hơn đã phải nghỉ' }] }],
+            ['truoc', '3', 'ngày', '', true, { dau: 5, nd: 36.8, spo2: 98, vung: ['cangchan-t'] }]
+        ]
+    },
+    {
+        ten: 'Phình động mạch chủ bụng dọa vỡ', nhom: 'Ngoại lồng ngực – mạch máu',
+        sym: 'Đau bụng',
+        lyDo: ['Đau bụng', 'Khối đập theo nhịp mạch', 'Chóng mặt'],
+        dac: {
+            viTri: 'quanh rốn', tinhChat: 'đau dữ dội', lan: 'lan sau lưng',
+            mucDo: '9/10', lienQuan: 'không liên quan bữa ăn',
+            kemTheo: 'chóng mặt khi ngồi dậy, vã mồ hôi'
+        },
+        xuTri: 'chưa dùng thuốc gì, được người nhà đưa vào cấp cứu ngay',
+        amTinh: 'không nôn ra máu, không tiêu phân đen, không sốt, không tiểu buốt, không chấn thương',
+        mocs: [
+            ['truoc', '1', 'năm', 'Siêu âm bụng kiểm tra sức khỏe phát hiện phình động mạch chủ bụng khoảng 4,5 cm, được hẹn theo dõi nhưng không tái khám', { dau: 0 }],
+            ['truoc', '6', 'giờ', '', true, { dau: 9, nd: 36.6, spo2: 96, vung: ['bung-ron'], lan: [['bung-ron', 'cs-tl']] }]
+        ]
+    },
+    {
+        ten: 'Ung thư phổi — ho kéo dài, ho ra máu, sụt cân', nhom: 'Ngoại lồng ngực – mạch máu',
+        sym: 'Ho ra máu',
+        lyDo: ['Ho ra máu', 'Ho', 'Sụt cân'],
+        dac: {
+            luong: 'dây máu trong đàm, mỗi lần vài mL', mauSac: 'đỏ tươi',
+            soLan: 'khoảng 5 lần trong 3 tuần nay'
+        },
+        xuTri: 'uống kháng sinh và thuốc ho hai đợt ở phòng khám tư, ho có giảm rồi tái lại',
+        amTinh: 'không sốt cao lạnh run, không tiếp xúc người lao, không khó thở khi nằm, không phù chân',
+        mocs: [
+            ['truoc', '3', 'tháng', 'Ho khan kéo dài, hút thuốc lá 30 gói·năm, nghĩ do thuốc lá nên không đi khám', { dau: 0, spo2: 97 }],
+            ['truoc', '3', 'tuần', 'Ho khạc ra dây máu đỏ tươi trong đàm, sụt 4 kg trong 2 tháng, ăn kém', { dau: 2, nd: 37.3, spo2: 96, vung: ['nguc-p'], refs: [{ sym: 'Ho', st: 'nặng hơn', d: 'ho đổi tính chất, có máu trong đàm' }] }],
+            ['truoc', '2', 'ngày', '', true, { dau: 4, nd: 37.5, spo2: 95, vung: ['nguc-p', 'vai-p'] }]
+        ]
+    },
+    {
+        ten: 'Suy tĩnh mạch mạn — loét cẳng chân', nhom: 'Ngoại lồng ngực – mạch máu',
+        sym: 'Nặng chân – giãn tĩnh mạch',
+        lyDo: ['Nặng chân – giãn tĩnh mạch', 'Loét da'],
+        dac: {
+            viTri: 'hai chân, chân trái nhiều hơn',
+            thoiDiem: 'cuối ngày, sau khi đứng lâu',
+            gianTM: 'búi giãn ngoằn ngoèo mặt trong cẳng chân',
+            kemTheo: 'sạm da – chàm ứ trệ quanh mắt cá trong, loét cẳng chân trái',
+            giamKhi: 'gác chân cao'
+        },
+        xuTri: 'bôi thuốc và đắp lá tại nhà, vết loét không lành',
+        amTinh: 'không sốt, không đau cách hồi, không tê lạnh bàn chân, không chấn thương vùng loét',
+        mocs: [
+            ['truoc', '5', 'năm', 'Nổi búi tĩnh mạch ngoằn ngoèo hai cẳng chân, chiều tối nặng chân, gác chân cao thì đỡ', { dau: 2, vung: ['cangchan-t'] }],
+            ['truoc', '6', 'tháng', 'Da quanh mắt cá trong bên trái sạm màu, ngứa, tróc vảy', { dau: 3, vung: ['cangchan-t', 'cochan-t'] }],
+            ['truoc', '1', 'tháng', '', true, { dau: 4, nd: 36.9, spo2: 98, vung: ['cochan-t'], refs: [{ sym: 'Loét da', st: 'nặng hơn', d: 'vết loét trên mắt cá trong rộng dần, đáy ẩm, ít đau' }] }]
+        ]
     }
 ];
 

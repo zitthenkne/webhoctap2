@@ -606,7 +606,7 @@ async function doSave({ silent = true, force = false } = {}) {
         saveLoi = false;
         const time = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
         setSaveState(res.cloud ? 'saved' : 'local',
-            res.cloud ? `Đã lưu ${time}` : `Đã lưu trên máy ${time}`);
+            res.cloud ? `Đã lưu ${time}` : `Chỉ lưu trên máy ${time} — chưa đăng nhập`);
         if (!silent) showToast('Đã lưu bệnh án.', 'success');
         return rec;
     } catch (err) {
@@ -3002,8 +3002,10 @@ $('preview-btn')?.addEventListener('click', async () => {
     location.href = 'xem-benh-an.html?id=' + encodeURIComponent(recordId);
 });
 
-// Lưu & đóng
-form.addEventListener('submit', async (e) => {
+/* Lưu & đóng — gắn vào nút, KHÔNG dùng submit của form: phím Enter/Go trong ô nhập
+   (nhất là khi bộ gõ tiếng Việt đang ghép dấu, keydown không báo là Enter) sẽ submit
+   ngầm, làm văng về mục Hành chính hoặc lưu rồi rời trang giữa chừng. */
+$('save-button').addEventListener('click', async (e) => {
     e.preventDefault();
     const name = $('patient-name').value.trim();
     const reason = $('reason-for-admission').value.trim();

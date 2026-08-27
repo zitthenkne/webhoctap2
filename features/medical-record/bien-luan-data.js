@@ -1520,6 +1520,307 @@ LIBRARY.push(
     }
 );
 
+/* =====================================================================
+   NGOẠI LỒNG NGỰC – MẠCH MÁU – TIM (Y4 UMP).
+   Dùng `unshift` chứ không `push`: mấy bộ ở trên khớp bằng regex rộng
+   (vd /thiếu máu/ nuốt luôn "thiếu máu chi cấp", /trung thất/ nuốt "u trung
+   thất"), đẩy lên đầu thì các bệnh cảnh chuyên khoa mới lấy đúng gợi ý của nó.
+   Regex ở đây đều là cụm nhiều chữ nên không cướp mục nào của bên dưới.
+   ===================================================================== */
+LIBRARY.unshift(
+    {
+        k: 'Tràn máu màng phổi', re: /tr[àa]n m[áa]u m[àa]ng ph[ổo]i|hemothorax/i,
+        nn: ['Chảy máu từ nhu mô phổi (80%, áp lực thấp, thường tự cầm)', 'Đứt động mạch liên sườn',
+            'Đứt động mạch vú trong', 'Rách tim – mạch máu lớn', 'Đầu xương sườn gãy cắm vào phổi',
+            'Vết thương thấu ngực'],
+        red: ['Tràn máu lượng lớn gây sốc mất máu', 'Chèn ép tim cấp đi kèm', 'Máu đông màng phổi gây xẹp phổi'],
+        cls: ['X-quang ngực (đứng nếu được)', 'Siêu âm màng phổi – E-FAST', 'CT ngực có cản quang',
+            'Công thức máu – nhóm máu, dự trù máu', 'Theo dõi lượng máu qua ống dẫn lưu mỗi giờ']
+    },
+    {
+        k: 'Tràn khí màng phổi áp lực', re: /tr[àa]n kh[íi] m[àa]ng ph[ổo]i [áa]p l[ựư]c|tension pneumo/i,
+        nn: ['Chấn thương ngực kín tạo van một chiều', 'Vết thương thấu ngực', 'Vỡ kén khí – bóng khí phổi',
+            'Biến chứng thở máy áp lực dương', 'Sau thủ thuật (chọc dò màng phổi, đặt catheter dưới đòn)'],
+        red: ['Sốc tắc nghẽn – ngưng tuần hoàn'],
+        cls: ['Chẩn đoán LÂM SÀNG — giải áp ngay, không chờ X-quang',
+            'X-quang ngực sau khi đã giải áp', 'Siêu âm màng phổi tại giường', 'Khí máu động mạch']
+    },
+    {
+        k: 'Mảng sườn di động', re: /m[ảa]ng s[ườơ]{1,2}n di đ[ộo]ng|flail chest|h[ôo] h[ấa]p đ[ảa]o ng[ượơ]{1,2}c/i,
+        nn: ['Gãy ≥ 2 điểm trên cùng một cung sườn, ở ≥ 2–3 cung sườn liên tiếp',
+            'Tai nạn giao thông năng lượng cao', 'Đè ép lồng ngực', 'Gãy xương ức kèm theo'],
+        red: ['Suy hô hấp do hô hấp đảo ngược và lắc lư trung thất (Pendelluft)', 'Dập phổi bên dưới mảng sườn',
+            'Tràn máu – tràn khí màng phổi đi kèm'],
+        cls: ['X-quang ngực', 'CT ngực dựng hình xương sườn', 'Khí máu động mạch (PaO2 < 60 mmHg là ngưỡng thở máy)',
+            'Theo dõi nhịp thở – SpO2 liên tục']
+    },
+    {
+        k: 'Chèn ép tim cấp – vết thương tim', re: /ch[èe]n [ée]p tim|tam ch[ứu]ng beck|v[ếe]t th[ươư]{1,2}ng tim|tamponade/i,
+        nn: ['Vết thương thấu vùng tam giác nguy hiểm trước tim', 'Dập – vỡ tim do chấn thương kín',
+            'Bóc tách động mạch chủ Stanford A vỡ vào màng tim', 'Tràn dịch màng ngoài tim do ung thư – lao – ure huyết cao',
+            'Biến chứng thủ thuật tim mạch'],
+        red: ['Sốc tim do chèn ép — mổ khẩn khâu vết thương tim'],
+        cls: ['Siêu âm tim tại giường / E-FAST (dịch màng ngoài tim > 5 mm)', 'ECG (điện thế thấp, so le điện học)',
+            'X-quang ngực (bóng tim to hình bầu nước)', 'Chọc giải áp màng ngoài tim đường Marfan dưới mũi ức']
+    },
+    {
+        k: 'Vết thương thấu ngực', re: /v[ếe]t th[ươư]{1,2}ng (th[ấa]u )?ng[ựư]c|ng[ựư]c h[ởo]|th[ấa]u ng[ựư]c/i,
+        nn: ['Vết thương do vật nhọn – dao đâm', 'Vết thương hỏa khí', 'Tổn thương phổi – phế quản',
+            'Tổn thương tim – mạch máu lớn', 'Tổn thương xuyên cơ hoành vào ổ bụng'],
+        red: ['Vết thương ngực hở phì phò', 'Chèn ép tim cấp', 'Tràn khí màng phổi áp lực', 'Tràn máu màng phổi lượng lớn'],
+        cls: ['X-quang ngực', 'E-FAST', 'CT ngực – bụng có cản quang khi huyết động ổn',
+            'Công thức máu – nhóm máu', 'Thăm dò đường hầm vết thương tại phòng mổ']
+    },
+    {
+        k: 'Tràn mủ màng phổi', re: /tr[àa]n m[ủu] m[àa]ng ph[ổo]i|empyema|m[ủu] m[àa]ng ph[ổo]i/i,
+        nn: ['Biến chứng viêm phổi (tràn dịch cận viêm)', 'Sau chấn thương – máu đông màng phổi bội nhiễm',
+            'Sau phẫu thuật lồng ngực', 'Áp xe phổi vỡ vào màng phổi', 'Lao màng phổi', 'Vỡ thực quản'],
+        red: ['Nhiễm trùng huyết', 'Dày dính màng phổi gây phổi bị nhốt (trapped lung)'],
+        cls: ['Siêu âm màng phổi (vách hóa?)', 'CT ngực có cản quang', 'Chọc dò dịch màng phổi — sinh hóa, tế bào, Light',
+            'Nhuộm Gram – cấy dịch màng phổi', 'Công thức máu – CRP']
+    },
+    {
+        k: 'U trung thất', re: /u trung th[ấa]t|kh[ốo]i trung th[ấa]t|4t/i,
+        nn: ['Trung thất TRƯỚC — quy tắc 4T: Thymoma, Teratoma / u tế bào mầm, Thyroid (bướu giáp thòng), Terrible lymphoma',
+            'Trung thất GIỮA: nang phế quản, nang màng ngoài tim, hạch lympho, u trung mô',
+            'Trung thất SAU: u nguồn gốc thần kinh (Schwannoma, Neurofibroma, Ganglioneuroma) — có thể dạng đồng hồ cát chui vào ống sống'],
+        red: ['Hội chứng chèn ép tĩnh mạch chủ trên', 'Chèn ép khí quản – phế quản', 'Chèn ép tủy do u đồng hồ cát',
+            'Cơn nhược cơ trên u tuyến ức'],
+        cls: ['CT ngực có cản quang (tiêu chuẩn định khu)', 'MRI ngực khi u trung thất sau',
+            'AFP – beta hCG (u tế bào mầm)', 'Anti-AChR khi nghi nhược cơ', 'PET-CT', 'Sinh thiết u – nội soi trung thất']
+    },
+    {
+        k: 'Ung thư phổi nguyên phát', re: /ung th[ưu] ph[ổo]i|kh[ốo]i u ph[ổo]i|n[ốo]t ph[ổo]i|pancoast/i,
+        nn: ['Không tế bào nhỏ: ung thư biểu mô tuyến (ngoại vi)', 'Không tế bào nhỏ: tế bào vảy (trung tâm, hay tạo hang)',
+            'Không tế bào nhỏ: tế bào lớn', 'Ung thư phổi tế bào nhỏ (trung tâm, di căn sớm)',
+            'Di căn phổi từ nơi khác', 'Lao phổi u lao – nấm phổi (chẩn đoán phân biệt)'],
+        red: ['Hội chứng chèn ép tĩnh mạch chủ trên', 'Ho ra máu sét đánh', 'Hội chứng Pancoast – Horner',
+            'Tràn dịch màng phổi ác tính (M1a)', 'Di căn não – xương'],
+        cls: ['CT ngực có cản quang', 'Nội soi phế quản sinh thiết', 'Sinh thiết xuyên thành ngực dưới CT',
+            'PET-CT phân giai đoạn TNM8', 'MRI sọ não', 'Hô hấp ký – tính ppoFEV1 trước mổ']
+    },
+    {
+        k: 'Thiếu máu chi cấp (hội chứng 6P)', re: /thi[ếe]u m[áa]u chi c[ấa]p|h[ộo]i ch[ứu]ng 6p|\b6p\b|t[ắa]c đ[ộo]ng m[ạa]ch chi/i,
+        nn: ['Thuyên tắc từ tim (rung nhĩ, huyết khối buồng tim, van nhân tạo)',
+            'Huyết khối tại chỗ trên nền xơ vữa (bệnh động mạch chi dưới mạn)',
+            'Chấn thương – vết thương động mạch', 'Bóc tách động mạch chủ lan xuống chi',
+            'Huyết khối mảnh ghép / stent cũ', 'Chèn ép ngoài lòng mạch (hội chứng khoang, garrot lâu)'],
+        red: ['Chi mất cảm giác + liệt vận động — chi đe dọa không hồi phục',
+            'Quá 6 giờ vàng — nguy cơ đoạn chi', 'Hội chứng tái tưới máu: tăng kali, toan chuyển hóa, suy thận cấp do tiêu cơ vân'],
+        cls: ['Bắt mạch đối xứng 8 vị trí + Doppler bút chì', 'Chỉ số ABI', 'Siêu âm Doppler màu động mạch chi',
+            'CTA mạch máu chi (chỉ khi huyết động ổn và không có dấu hiệu chắc chắn)',
+            'Ion đồ – CK – chức năng thận – khí máu', 'Công thức máu – đông máu, ECG tìm rung nhĩ']
+    },
+    {
+        k: 'Chấn thương – vết thương mạch máu chi', re: /(ch[ấa]n th[ươư]{1,2}ng|v[ếe]t th[ươư]{1,2}ng) m[ạa]ch m[áa]u|đ[ứu]t đ[ộo]ng m[ạa]ch/i,
+        nn: ['Vết thương do vật sắc nhọn', 'Gãy xương – trật khớp làm rách mạch (gãy trên lồi cầu, trật gối)',
+            'Vết thương hỏa khí', 'Biến chứng thủ thuật nội mạch', 'Chấn thương giằng xé gây bóc tách nội mạc'],
+        red: ['Dấu hiệu chắc chắn (máu phun thành tia, khối máu tụ đập nảy to nhanh, rung miu – âm thổi, mất mạch, 6P) — mổ ngay không chờ xét nghiệm',
+            'Hội chứng chèn ép khoang sau tái thông', 'Chi giập nát cần tính điểm MESS'],
+        cls: ['Đánh giá dấu hiệu chắc chắn / nghi ngờ trên lâm sàng', 'Chỉ số ABI (< 0,9 là bất thường)',
+            'Siêu âm Doppler màu', 'CTA mạch máu chi khi chỉ có dấu hiệu nghi ngờ',
+            'X-quang xương chi tổn thương', 'Công thức máu – nhóm máu, dự trù máu']
+    },
+    {
+        k: 'Phình động mạch chủ bụng', re: /ph[ìi]nh đ[ộo]ng m[ạa]ch ch[ủu]|\baaa\b|kh[ốo]i đ[ậa]p theo nh[ịi]p m[ạa]ch/i,
+        nn: ['Xơ vữa động mạch (đa số, > 90% dưới động mạch thận)', 'Bệnh mô liên kết (Marfan, Ehlers–Danlos)',
+            'Nhiễm trùng (phình dạng nấm)', 'Sau chấn thương – phình giả', 'Viêm động mạch takayasu – Behçet'],
+        red: ['Tam chứng vỡ phình: đau bụng – lưng dữ dội + khối đập theo mạch + sốc tụt huyết áp',
+            'Dọa vỡ (đau mới xuất hiện, túi phình to nhanh)', 'Thuyên tắc mảnh xơ vữa xuống chi'],
+        cls: ['Siêu âm bụng (tầm soát, theo dõi đường kính)', 'CTA động mạch chủ ngực – bụng (tiêu chuẩn trước can thiệp)',
+            'Công thức máu – nhóm máu, dự trù máu', 'Chức năng thận trước cản quang', 'ECG – siêu âm tim đánh giá tiền phẫu']
+    },
+    {
+        k: 'Bóc tách động mạch chủ', re: /b[óo]c t[áa]ch đ[ộo]ng m[ạa]ch ch[ủu]|stanford|debakey/i,
+        nn: ['Tăng huyết áp không kiểm soát (thường gặp nhất)', 'Bệnh mô liên kết (Marfan, Ehlers–Danlos)',
+            'Van động mạch chủ hai mảnh', 'Sau chấn thương giảm tốc đột ngột', 'Sau can thiệp – phẫu thuật tim mạch',
+            'Thai kỳ ba tháng cuối'],
+        red: ['Stanford A — mổ cấp cứu tối khẩn (vỡ vào màng tim, hở van ĐMC cấp, nhồi máu cơ tim)',
+            'Thiếu máu tạng – thiếu máu chi', 'Vỡ vào màng phổi – trung thất'],
+        cls: ['CTA động mạch chủ có cản quang (tiêu chuẩn vàng, độ nhạy > 98%)', 'Siêu âm tim qua thành ngực và qua thực quản',
+            'Đo huyết áp tứ chi (chênh > 20 mmHg giữa hai tay)', 'ECG – troponin (phân biệt hội chứng vành cấp)',
+            'D-dimer', 'X-quang ngực (trung thất rộng)']
+    },
+    {
+        k: 'Suy tĩnh mạch mạn chi dưới', re: /suy t[ĩi]nh m[ạa]ch|gi[ãa]n t[ĩi]nh m[ạa]ch|lo[ée]t t[ĩi]nh m[ạa]ch|n[ặa]ng ch[âa]n/i,
+        nn: ['Suy van tĩnh mạch hiển lớn – hiển bé', 'Suy van tĩnh mạch xuyên', 'Di chứng huyết khối tĩnh mạch sâu',
+            'Nghề nghiệp đứng lâu – ngồi lâu', 'Thai kỳ nhiều lần', 'Béo phì'],
+        red: ['Huyết khối tĩnh mạch sâu đang hoạt động (Perthes dương — chống chỉ định lột tĩnh mạch nông)',
+            'Loét nhiễm trùng – viêm mô tế bào', 'Chảy máu búi giãn'],
+        cls: ['Siêu âm Doppler tĩnh mạch chi dưới (đo thời gian dòng trào ngược)',
+            'Nghiệm pháp Trendelenburg – Perthes – Schwartz', 'Phân độ CEAP', 'ABI trước khi băng ép (loại trừ bệnh động mạch)']
+    },
+    {
+        k: 'Hội chứng chèn ép khoang', re: /ch[èe]n [ée]p khoang|h[ộo]i ch[ứu]ng khoang|fasciotomy|r[ạa]ch m[ạa]c khoang/i,
+        nn: ['Sau tái tưới máu chi thiếu máu kéo dài > 4 giờ', 'Gãy xương cẳng chân – cẳng tay',
+            'Chấn thương giập nát phần mềm', 'Bó bột – garrot quá chặt', 'Chảy máu trong khoang do rối loạn đông máu'],
+        red: ['Đau không tương xứng, tăng khi kéo căng cơ thụ động — mổ rạch mạc khoang khẩn',
+            'Tiêu cơ vân – suy thận cấp', 'Hoại tử cơ, mất chức năng chi vĩnh viễn'],
+        cls: ['Khám lâm sàng lặp lại (đau khi kéo căng cơ thụ động là dấu sớm nhất)',
+            'Đo áp lực khoang (chênh áp tưới máu < 30 mmHg)', 'CK – myoglobin niệu', 'Ion đồ – chức năng thận – khí máu']
+    },
+    {
+        k: 'Hậu phẫu tim hở – tuần hoàn ngoài cơ thể', re: /tu[ầa]n ho[àa]n ngo[àa]i c[ơo] th[ểe]|\bcpb\b|h[ậa]u ph[ẫa]u tim h[ởo]|m[áa]y tim ph[ổo]i/i,
+        nn: ['Thay – sửa van tim', 'Bắc cầu động mạch vành (CABG)', 'Vá thông liên nhĩ – thông liên thất',
+            'Phẫu thuật động mạch chủ ngực', 'Sửa chữa tim bẩm sinh'],
+        red: ['Chảy máu sau mổ – chèn ép tim cấp (theo dõi ống dẫn lưu trung thất)',
+            'Hội chứng cung lượng tim thấp', 'Rối loạn nhịp (rung nhĩ sau mổ)', 'Nhiễm trùng xương ức – viêm trung thất',
+            'Đột quỵ do thuyên tắc khí – mảnh xơ vữa'],
+        cls: ['ACT – đông máu toàn bộ (Heparin 300–400 UI/kg, ACT ≥ 400–480 s; Protamine 1 mg / 100 UI Heparin, ACT về < 140 s)',
+            'Ion đồ – kali máu', 'Khí máu – lactat', 'Công thức máu – tiểu cầu', 'X-quang ngực tại giường',
+            'ECG – siêu âm tim', 'Theo dõi lượng dịch ống dẫn lưu trung thất mỗi giờ']
+    },
+    {
+        k: 'Nhược cơ – u tuyến ức', re: /nh[ượơ]{1,2}c c[ơo]|myasthenia|tuy[ếe]n [ứu]c|thymoma/i,
+        nn: ['Nhược cơ tự miễn có u tuyến ức (10–15% bệnh nhân nhược cơ)', 'Nhược cơ không u (tăng sản tuyến ức)',
+            'U tuyến ức không nhược cơ (30–50% thymoma có nhược cơ)', 'Hội chứng Lambert–Eaton (chẩn đoán phân biệt)'],
+        red: ['Cơn nhược cơ suy hô hấp', 'Cơn cholinergic do quá liều thuốc kháng cholinesterase'],
+        cls: ['Anti-AChR (và anti-MuSK khi âm tính)', 'CT ngực có cản quang tìm u tuyến ức',
+            'Điện cơ kích thích lặp lại', 'Hô hấp ký – đo dung tích sống trước mổ', 'Nghiệm pháp túi nước đá / Tensilon']
+    }
+);
+
+VAN_DE_NHOM.push({
+    ten: 'Ngoại lồng ngực – mạch máu', icon: 'fa-heart-circle-bolt', items: [
+        'Chấn thương ngực kín', 'Vết thương thấu ngực', 'Mảng sườn di động',
+        'Tràn khí màng phổi áp lực', 'Tràn máu màng phổi', 'Tràn mủ màng phổi',
+        'Chèn ép tim cấp – vết thương tim', 'U trung thất', 'Ung thư phổi nguyên phát',
+        'Nhược cơ – u tuyến ức', 'Thiếu máu chi cấp (hội chứng 6P)',
+        'Chấn thương – vết thương mạch máu chi', 'Hội chứng chèn ép khoang',
+        'Phình động mạch chủ bụng', 'Bóc tách động mạch chủ',
+        'Bệnh động mạch chi dưới', 'Suy tĩnh mạch mạn chi dưới',
+        'Hậu phẫu tim hở – tuần hoàn ngoài cơ thể'
+    ]
+});
+
+HALLMARKS.unshift(
+    [/v[ếe]t th[ươư]{1,2}ng (th[ấa]u )?ng[ựư]c|ng[ựư]c h[ởo]|th[ấa]u ng[ựư]c/i, ['Vết thương thành ngực còn phì phò khí ra vào',
+        'Vết thương nằm trong tam giác nguy hiểm trước tim', 'Lép bép khí dưới da quanh vết thương',
+        'Hội chứng ba giảm hoặc gõ vang bên tổn thương', 'Mạch nhanh – huyết áp tụt', 'Máu ra theo nhịp thở qua vết thương']],
+    [/tr[àa]n m[ủu] m[àa]ng ph[ổo]i|empyema/i, ['Sốt cao dao động kèm lạnh run', 'Hội chứng ba giảm bên tổn thương',
+        'Đau ngực kiểu màng phổi', 'Dịch dẫn lưu đục như mủ, mùi hôi', 'Vẻ mặt nhiễm trùng nhiễm độc, sụt cân']],
+    [/(ch[ấa]n th[ươư]{1,2}ng|v[ếe]t th[ươư]{1,2}ng) m[ạa]ch m[áa]u|đ[ứu]t đ[ộo]ng m[ạa]ch/i, ['Máu phun thành tia theo nhịp mạch',
+        'Khối máu tụ đập nảy và to nhanh', 'Sờ rung miu – nghe âm thổi tại chỗ', 'Mất mạch dưới chỗ tổn thương',
+        'Chi lạnh, tái, tê bì (6P)', 'ABI bên tổn thương < 0,9']],
+    [/tu[ầa]n ho[àa]n ngo[àa]i c[ơo] th[ểe]|cpb|h[ậa]u ph[ẫa]u tim h[ởo]/i, ['Vết mổ xương ức khô, không chảy dịch',
+        'Lượng dịch ống dẫn lưu trung thất mỗi giờ', 'Huyết áp – nhịp tim ổn định trên thuốc vận mạch',
+        'Tưới máu ngoại biên, nước tiểu, lactat', 'Nhịp tim trên monitor (rung nhĩ sau mổ)', 'Tiếng tim, tiếng cọ màng ngoài tim']],
+    [/nh[ượơ]{1,2}c c[ơo]|myasthenia|tuy[ếe]n [ứu]c|thymoma/i, ['Sụp mi tăng dần về cuối ngày', 'Nhìn đôi',
+        'Yếu cơ tăng khi vận động, đỡ khi nghỉ', 'Nhai mỏi – nuốt sặc – nói giọng mũi',
+        'Nghiệm pháp túi nước đá dương', 'Dung tích sống giảm khi có cơn nhược cơ']],
+    [/tr[àa]n kh[íi] m[àa]ng ph[ổo]i [áa]p l[ựư]c|tension pneumo/i, ['Khó thở dữ dội – tím tái', 'Tĩnh mạch cổ nổi căng',
+        'Khí quản lệch sang đối bên', 'Gõ vang trống toàn bộ', 'Rì rào phế nang mất hoàn toàn', 'Tụt huyết áp – sốc tắc nghẽn']],
+    [/tr[àa]n m[áa]u m[àa]ng ph[ổo]i|hemothorax/i, ['Hội chứng ba giảm bên tổn thương', 'Gõ đục vùng thấp',
+        'Rung thanh giảm', 'Tĩnh mạch cổ xẹp do mất máu', 'Da niêm nhợt – mạch nhanh, huyết áp tụt',
+        'Máu ra qua ống dẫn lưu màng phổi']],
+    [/ch[èe]n [ée]p tim|tam ch[ứu]ng beck|v[ếe]t th[ươư]{1,2}ng tim/i, ['Tam chứng Beck: huyết áp tụt kẹp',
+        'Tĩnh mạch cổ nổi căng', 'Tiếng tim mờ xa xăm', 'Dấu Kussmaul (tĩnh mạch cổ nổi hơn khi hít vào)',
+        'Mạch nghịch > 10 mmHg', 'Vết thương vùng tam giác nguy hiểm trước tim']],
+    [/m[ảa]ng s[ườơ]{1,2}n di đ[ộo]ng|flail chest/i, ['Mảng ngực di động ngược chiều khi thở (hô hấp đảo ngược)',
+        'Đau chói khi thở – thở nông nhanh', 'Lép bép khí dưới da', 'Điểm đau chói và lạo xạo xương sườn', 'SpO2 giảm']],
+    [/thi[ếe]u m[áa]u chi c[ấa]p|h[ộo]i ch[ứu]ng 6p|\b6p\b/i, ['Pain — đau dữ dội đột ngột', 'Pallor — chi tái nhợt lạnh',
+        'Pulselessness — mất mạch dưới chỗ tắc', 'Poikilothermia — lạnh chi', 'Paresthesia — tê bì, dị cảm',
+        'Paralysis — liệt vận động (dấu hiệu muộn, chi đe dọa)', 'Đường ranh giới đổi màu rõ trên da']],
+    [/đ[ộo]ng m[ạa]ch chi d[ướơ]{1,2}i|đau c[áa]ch h[ồo]i/i, ['Đau bắp chân khi đi, nghỉ vài phút thì hết',
+        'Mất mạch khoeo – chày sau – mu chân', 'Rụng lông mu chân, móng dày sọc, teo cơ cẳng chân',
+        'Loét hoại tử khô đầu ngón, đáy nhợt, rất đau', 'Nghiệm pháp Buerger dương', 'ABI < 0,9']],
+    [/ph[ìi]nh đ[ộo]ng m[ạa]ch ch[ủu]|\baaa\b/i, ['Khối vùng quanh rốn đập theo nhịp mạch và giãn nở hai bên',
+        'Nghe âm thổi tâm thu tại khối', 'Đau bụng – đau lưng lan xuống đùi', 'Huyết áp tụt – sốc mất máu khi vỡ',
+        'Mạch chi dưới yếu hoặc thuyên tắc mảnh xơ vữa']],
+    [/b[óo]c t[áa]ch đ[ộo]ng m[ạa]ch ch[ủu]|stanford/i, ['Đau ngực dữ dội kiểu xé, lan ra sau lưng',
+        'Chênh lệch huyết áp hai tay > 20 mmHg', 'Mất mạch không đối xứng', 'Âm thổi tâm trương hở van động mạch chủ mới',
+        'Dấu thần kinh khu trú do bóc tách vào mạch cảnh']],
+    [/suy t[ĩi]nh m[ạa]ch|gi[ãa]n t[ĩi]nh m[ạa]ch|n[ặa]ng ch[âa]n/i, ['Búi tĩnh mạch nông ngoằn ngoèo',
+        'Nặng chân – phù cổ chân về chiều, giảm khi gác chân cao', 'Sạm da, chàm ứ trệ quanh mắt cá trong',
+        'Loét trên mắt cá trong, đáy ẩm, bờ thoai thoải, ít đau', 'Trendelenburg / Perthes dương']],
+    [/u trung th[ấa]t|t[ĩi]nh m[ạa]ch ch[ủu] tr[êe]n/i, ['Phù áo khoác (mặt, cổ, phần trên ngực)',
+        'Tĩnh mạch cổ nổi to không đập', 'Tuần hoàn bàng hệ vùng ngực trước', 'Nhức đầu tăng khi cúi người',
+        'Khàn tiếng – nuốt nghẹn – khó thở khi nằm', 'Sụp mi, co đồng tử, giảm tiết mồ hôi nửa mặt (Horner)']],
+    [/ung th[ưu] ph[ổo]i|pancoast/i, ['Ho kéo dài đổi tính chất', 'Ho ra máu dây trong đàm', 'Sụt cân – triệu chứng B',
+        'Đau vai lan bờ trong cánh tay tới ngón 4–5, teo cơ mô út (Pancoast)', 'Hội chứng Horner cùng bên',
+        'Ngón tay dùi trống', 'Hạch thượng đòn cứng, dính']],
+    [/ch[èe]n [ée]p khoang|h[ộo]i ch[ứu]ng khoang/i, ['Đau không tương xứng với tổn thương',
+        'Đau tăng dữ dội khi kéo căng cơ thụ động', 'Khoang căng cứng như gỗ', 'Tê bì – dị cảm đầu chi',
+        'Mạch ngoại vi còn bắt được (mất mạch là dấu hiệu rất muộn)']]
+);
+
+TIEU_CHUAN.unshift(
+    [/tr[àa]n m[áa]u m[àa]ng ph[ổo]i|hemothorax/i, 'Chỉ định MỞ NGỰC CẤP CỨU khi: ra ngay ≥ 1.500 mL máu; HOẶC ≥ 200 mL/giờ trong 3–4 giờ liên tiếp; HOẶC máu đỏ tươi chảy liên tục kèm huyết áp dao động dù đã bù dịch – máu; HOẶC máu đông màng phổi gây xẹp phổi. Phân độ X-quang: ít < 200 mL (mờ góc sườn hoành), vừa 700–1.000 mL (mờ dưới góc xương bả vai), nhiều > 1.000 mL.'],
+    [/d[ẫa]n l[ưu]u m[àa]ng ph[ổo]i|r[úu]t [ốo]ng d[ẫa]n l[ưu]u/i, 'Đủ 4 tiêu chuẩn mới rút ống: (1) tỉnh, hết khó thở, phế âm đều hai bên; (2) không còn sủi bọt khí ≥ 24–48 giờ kể cả khi ho; (3) dịch ra < 50–100 mL/24 giờ, dịch trong hoặc vàng chanh; (4) X-quang phổi nở sát thành ngực. Rút trong thì hít sâu nín thở hoặc thở ra hết sức (Valsalva).'],
+    [/tr[àa]n kh[íi] m[àa]ng ph[ổo]i [áa]p l[ựư]c|tension pneumo/i, 'Chẩn đoán LÂM SÀNG, không chờ X-quang: suy hô hấp cấp + tĩnh mạch cổ nổi + khí quản lệch đối bên + gõ vang trống + mất rì rào phế nang + tụt huyết áp. Xử trí ngay bằng kim lớn 14–16G ở liên sườn 2 đường trung đòn (hoặc liên sườn 4–5 nách giữa), sau đó đặt dẫn lưu màng phổi kín.'],
+    [/ch[èe]n [ée]p tim|tam ch[ứu]ng beck/i, 'Tam chứng Beck (huyết áp tụt kẹp, tĩnh mạch cổ nổi, tiếng tim mờ) + siêu âm tim tại giường có dịch màng ngoài tim > 5 mm kèm dấu đè sụp thất phải thì tâm trương. Chọc giải áp đường Marfan dưới mũi ức rồi chuyển mổ khâu vết thương tim.'],
+    [/m[ảa]ng s[ườơ]{1,2}n di đ[ộo]ng|flail chest/i, 'Gãy ≥ 2 điểm trên cùng một cung sườn, xảy ra trên ≥ 2–3 cung sườn liên tiếp, làm mảng ngực di động ngược chiều với hô hấp. Ngưỡng thở máy PEEP: nhịp thở > 40 lần/phút hoặc PaO2 < 60 mmHg.'],
+    [/thi[ếe]u m[áa]u chi c[ấa]p|h[ộo]i ch[ứu]ng 6p|\b6p\b/i, 'Hội chứng 6P (Pain, Pallor, Pulselessness, Poikilothermia, Paresthesia, Paralysis) — thời gian vàng cứu chi < 6 giờ. Dấu hiệu chắc chắn tổn thương động mạch (máu phun thành tia, khối máu tụ đập nảy to nhanh, rung miu – âm thổi, mất mạch, 6P) là chỉ định MỔ NGAY, không chờ xét nghiệm. Mất cảm giác + liệt vận động = chi đe dọa nặng.'],
+    [/đ[ộo]ng m[ạa]ch chi d[ướơ]{1,2}i|đau c[áa]ch h[ồo]i|\babi\b/i, 'ABI = HA tâm thu cổ chân cao nhất / HA tâm thu cánh tay cao nhất. 0,9–1,3 bình thường; 0,7–0,9 nhẹ; 0,4–0,69 trung bình (đau cách hồi); < 0,4 nặng đe dọa chi; > 1,3 vôi hóa không ép được. Fontaine: I không triệu chứng, IIa đi > 200 m, IIb đi < 200 m, III đau khi nghỉ, IV loét – hoại tử.'],
+    [/ph[ìi]nh đ[ộo]ng m[ạa]ch ch[ủu]|\baaa\b/i, 'Phình khi đường kính giãn > 1,5 lần đoạn liền kề (hoặc > 30 mm với động mạch chủ bụng). Chỉ định can thiệp: ≥ 5,0–5,5 cm ở nam, ≥ 4,5–5,0 cm ở nữ; hoặc tăng > 0,5 cm/6 tháng (> 1 cm/năm); hoặc có triệu chứng đau / dấu dọa vỡ bất kể kích thước. Tam chứng vỡ: đau bụng – lưng dữ dội + khối đập theo mạch + sốc.'],
+    [/b[óo]c t[áa]ch đ[ộo]ng m[ạa]ch ch[ủu]|stanford/i, 'Stanford A: có tổn thương động mạch chủ ngực LÊN → mổ cấp cứu tối khẩn. Stanford B: chỉ ở động mạch chủ ngực xuống → nội khoa hạ áp là chính, TEVAR khi có biến chứng. Đích huyết động: HA tâm thu 100–120 mmHg và nhịp tim < 60 lần/phút (ức chế beta tĩnh mạch trước, giãn mạch sau). Tiêu chuẩn vàng chẩn đoán: CTA động mạch chủ.'],
+    [/ung th[ưu] ph[ổo]i|ppofev/i, 'Chẩn đoán xác định bằng mô bệnh học; phân giai đoạn TNM 8th (T1 ≤ 3 cm, T2 > 3–5 cm, T3 > 5–7 cm hoặc xâm lấn thành ngực, T4 > 7 cm hoặc xâm lấn trung thất; N1 rốn phổi cùng bên, N2 trung thất cùng bên, N3 đối bên/thượng đòn; M1a tràn dịch ác tính, M1b một ổ, M1c nhiều ổ). Mổ cắt thùy an toàn khi ppoFEV1 > 40% (hoặc > 800 mL).'],
+    [/ch[èe]n [ée]p khoang|h[ộo]i ch[ứu]ng khoang/i, 'Chẩn đoán chủ yếu lâm sàng: đau không tương xứng, tăng khi kéo căng cơ thụ động, khoang căng cứng. Áp lực khoang > 30 mmHg hoặc chênh áp tưới máu (HA tâm trương − áp lực khoang) < 30 mmHg là chỉ định rạch mạc khoang. Rạch mạc khoang chủ động khi thiếu máu chi > 4 giờ trước tái thông.'],
+    [/tu[ầa]n ho[àa]n ngo[àa]i c[ơo] th[ểe]|\bcpb\b/i, 'Chống đông: Heparin 300–400 UI/kg trước khi đặt canuyn, ACT ≥ 400–480 giây mới chạy máy, đo lại mỗi 30–45 phút. Trung hòa: Protamine 1 mg cho mỗi 100 UI Heparin, truyền chậm 10–15 phút, ACT về < 140 giây. Liệt tim: dung dịch K+ 16–30 mEq/L, nhiệt độ 4–8°C.']
+);
+
+CAUSE_CLS.unshift(
+    [/thi[ếe]u m[áa]u chi|t[ắa]c đ[ộo]ng m[ạa]ch chi|6p/i, 'Doppler mạch máu chi, Chỉ số ABI, CTA mạch máu chi, ECG tìm rung nhĩ, CK – ion đồ'],
+    [/ph[ìi]nh đ[ộo]ng m[ạa]ch ch[ủu]|aaa/i, 'Siêu âm bụng đo đường kính, CTA động mạch chủ ngực – bụng, Nhóm máu – dự trù máu'],
+    [/tr[àa]n m[áa]u m[àa]ng ph[ổo]i/i, 'X-quang ngực, Siêu âm màng phổi – E-FAST, CT ngực cản quang, Theo dõi lượng máu qua ống dẫn lưu'],
+    [/ch[èe]n [ée]p tim|v[ếe]t th[ươư]{1,2}ng tim/i, 'Siêu âm tim tại giường (E-FAST), ECG (điện thế thấp), X-quang ngực'],
+    [/u trung th[ấa]t|tuy[ếe]n [ứu]c|nh[ượơ]{1,2}c c[ơo]/i, 'CT ngực cản quang, MRI ngực, AFP – beta hCG, Anti-AChR, Sinh thiết u'],
+    [/ung th[ưu] ph[ổo]i/i, 'CT ngực cản quang, Nội soi phế quản sinh thiết, PET-CT, MRI sọ não, Hô hấp ký – ppoFEV1'],
+    [/suy t[ĩi]nh m[ạa]ch|gi[ãa]n t[ĩi]nh m[ạa]ch/i, 'Siêu âm Doppler tĩnh mạch chi dưới, Phân độ CEAP, ABI trước khi băng ép']
+);
+
+BIEN_CHUNG.unshift(
+    [/ch[ấa]n th[ươư]{1,2}ng ng[ựư]c|v[ếe]t th[ươư]{1,2}ng ng[ựư]c|tr[àa]n m[áa]u m[àa]ng ph[ổo]i|d[ẫa]n l[ưu]u m[àa]ng ph[ổo]i/i, [
+        ['Sốc mất máu', 'theo dõi mạch – huyết áp – nước tiểu và lượng máu qua ống dẫn lưu mỗi giờ'],
+        ['Máu đông màng phổi – phổi bị nhốt', 'X-quang kiểm tra sau dẫn lưu, cân nhắc nội soi lồng ngực bóc vỏ sớm'],
+        ['Tràn mủ màng phổi', 'theo dõi sốt, bạch cầu, tính chất dịch dẫn lưu, cấy dịch'],
+        ['Xẹp phổi – viêm phổi sau chấn thương', 'tập vật lý trị liệu hô hấp, giảm đau đủ để bệnh nhân ho được'],
+        ['Tuột – tắc ống dẫn lưu, tràn khí dưới da', 'kiểm tra cột nước dao động theo nhịp thở, chân ống mỗi ngày']
+    ]],
+    [/thi[ếe]u m[áa]u chi|t[ắa]c đ[ộo]ng m[ạa]ch chi|m[ạa]ch m[áa]u chi/i, [
+        ['Hội chứng tái tưới máu', 'theo dõi kali máu, toan chuyển hóa, CK, myoglobin niệu sau khi thông mạch'],
+        ['Suy thận cấp do tiêu cơ vân', 'theo dõi nước tiểu, creatinin, bù dịch – kiềm hóa nước tiểu'],
+        ['Hội chứng chèn ép khoang', 'khám lại đau khi kéo căng cơ thụ động mỗi 2 giờ, chủ động rạch mạc khoang khi thiếu máu > 4 giờ'],
+        ['Huyết khối lại mảnh ghép – miệng nối', 'bắt mạch mu chân – chày sau mỗi giờ sau mổ, Doppler khi nghi ngờ'],
+        ['Đoạn chi', 'đánh giá điểm MESS, hội chẩn sớm khi chi giập nát hoặc thiếu máu quá 6 giờ']
+    ]],
+    [/ph[ìi]nh đ[ộo]ng m[ạa]ch ch[ủu]|b[óo]c t[áa]ch đ[ộo]ng m[ạa]ch ch[ủu]|evar|tevar/i, [
+        ['Vỡ phình – vỡ vào khoang sau phúc mạc', 'theo dõi đau, huyết áp, Hct; CTA khẩn khi đau mới xuất hiện'],
+        ['Thiếu máu tạng – thiếu máu chi do bóc tách lan', 'theo dõi đau bụng, lactat, nước tiểu, mạch chi hai bên'],
+        ['Suy thận cấp sau cản quang / sau mổ', 'creatinin trước và sau can thiệp, bù dịch đủ'],
+        ['Rò nội mạch (endoleak) sau đặt stent-graft', 'CTA kiểm tra theo lịch; type I và III phải can thiệp ngay, type II chỉ theo dõi'],
+        ['Liệt hai chi dưới do thiếu máu tủy sau TEVAR', 'khám vận động – cảm giác hai chân sau can thiệp, cân nhắc dẫn lưu dịch não tủy']
+    ]],
+    [/h[ậa]u ph[ẫa]u tim h[ởo]|tu[ầa]n ho[àa]n ngo[àa]i c[ơo] th[ểe]|\bcpb\b/i, [
+        ['Chảy máu sau mổ – chèn ép tim', 'lượng dịch ống dẫn lưu trung thất mỗi giờ, huyết áp, siêu âm tim khi nghi ngờ'],
+        ['Hội chứng cung lượng tim thấp', 'theo dõi lactat, nước tiểu, tưới máu ngoại biên, thuốc vận mạch'],
+        ['Rung nhĩ sau mổ', 'monitor liên tục, giữ kali và magie trong giới hạn'],
+        ['Viêm trung thất – nhiễm trùng xương ức', 'theo dõi sốt, đau xương ức, chảy dịch vết mổ, CRP'],
+        ['Rối loạn đông máu do Heparin tồn dư', 'ACT sau Protamine, đông máu toàn bộ, tiểu cầu']
+    ]],
+    [/u trung th[ấa]t|tuy[ếe]n [ứu]c|nh[ượơ]{1,2}c c[ơo]/i, [
+        ['Cơn nhược cơ suy hô hấp sau mổ', 'đo dung tích sống, theo dõi nuốt sặc, chuẩn bị hỗ trợ hô hấp'],
+        ['Hội chứng chèn ép tĩnh mạch chủ trên', 'theo dõi phù mặt cổ, tĩnh mạch bàng hệ, tư thế đầu cao'],
+        ['Chèn ép khí quản khi khởi mê', 'CT đánh giá đường thở trước mổ, hội chẩn gây mê'],
+        ['Tổn thương thần kinh hoành – quặt ngược thanh quản', 'theo dõi khàn tiếng, X-quang cơ hoành sau mổ']
+    ]]
+);
+
+YEU_TO.unshift(
+    [/ph[ìi]nh đ[ộo]ng m[ạa]ch ch[ủu]|b[óo]c t[áa]ch đ[ộo]ng m[ạa]ch ch[ủu]|aaa/i,
+        ['tăng huyết áp không kiểm soát', 'hút thuốc lá nhiều năm', 'nam giới trên 65 tuổi', 'xơ vữa động mạch',
+            'tiền căn gia đình phình động mạch chủ', 'bệnh mô liên kết (Marfan)', 'van động mạch chủ hai mảnh']],
+    [/thi[ếe]u m[áa]u chi|đau c[áa]ch h[ồo]i|đ[ộo]ng m[ạa]ch chi d[ướơ]{1,2}i/i,
+        ['hút thuốc lá', 'đái tháo đường', 'rối loạn lipid máu', 'tăng huyết áp', 'rung nhĩ (nguồn thuyên tắc)',
+            'bệnh thận mạn', 'tiền căn can thiệp – bắc cầu mạch máu']],
+    [/suy t[ĩi]nh m[ạa]ch|gi[ãa]n t[ĩi]nh m[ạa]ch/i,
+        ['nghề nghiệp đứng lâu – ngồi lâu', 'thai kỳ nhiều lần', 'béo phì', 'tiền căn huyết khối tĩnh mạch sâu',
+            'tiền căn gia đình giãn tĩnh mạch', 'lớn tuổi']],
+    [/ung th[ưu] ph[ổo]i|u ph[ổo]i/i,
+        ['hút thuốc lá (tính gói·năm)', 'hút thuốc lá thụ động', 'tiếp xúc amiăng – bụi nghề nghiệp',
+            'tiền căn lao phổi – COPD', 'tiền căn gia đình ung thư phổi']]
+);
+
 /** Toàn bộ tên vấn đề / hội chứng để dò khi gõ */
 export const TEN_VAN_DE = [...new Set([
     ...VAN_DE_NHOM.flatMap(g => g.items || []),

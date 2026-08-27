@@ -3,8 +3,10 @@
 // Firestore    = bản sao lưu để dùng chung nhiều máy; ghi kiểu "best-effort",
 //                lỗi mạng chỉ log chứ không chặn thao tác của người dùng.
 
-import { auth, db } from '../../core/firebase-init.js';
-import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js';
+import { db } from '../../core/firebase-init.js';
+// Phiên có nhớ: mất mạng / token hết hạn thì Firebase trả null, auth-session trả
+// lại danh tính đã lưu để bệnh án không bị coi là "khách" rồi ngưng ghi cloud.
+import { onSessionUser, sessionUser } from '../../core/auth-session.js';
 import { collection, query, where, getDocs, doc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 // Ghi không treo khi mất mạng (xem core/offline-write.js)
 import { setDocQ as setDoc, deleteDocQ as deleteDoc } from "../../core/offline-write.js";
@@ -47,10 +49,21 @@ let currentUid = null;
 const readyWaiters = [];
 let authResolved = false;
 
-onAuthStateChanged(auth, user => {
+// Bệnh án đã lưu trong lúc chưa có tài khoản: nhớ lại để đăng nhập xong đẩy lên
+// ngay, khỏi phải chờ lần syncFromCloud kế tiếp (người dùng có khi không mở lại
+// danh sách bệnh án nữa).
+const localOnly = new Set();
+
+onSessionUser(user => {
     currentUid = user ? user.uid : null;
     authResolved = true;
     while (readyWaiters.length) readyWaiters.shift()(currentUid);
+    if (currentUid && localOnly.size) {
+        const ids = [...localOnly];
+        localOnly.clear();
+        const byId = new Map(listLocal().map(r => [String(r.id), r]));
+        ids.forEach(id => { const rec = byId.get(id); if (rec) writeCloud(currentUid, rec); });
+    }
 });
 
 function whenAuthReady() {
@@ -58,8 +71,9 @@ function whenAuthReady() {
     return new Promise(res => {
         readyWaiters.push(res);
         // Mạng trường/wifi chặn Firebase thì onAuthStateChanged không bao giờ chạy.
-        // Sau 6 giây coi như chưa đăng nhập để giao diện không kẹt ở "Đang tải…".
-        setTimeout(() => { if (!authResolved) res(null); }, 6000);
+        // Sau 6 giây thôi chờ để giao diện không kẹt ở "Đang tải…" — nhưng lấy phiên
+        // đã nhớ (chỉ có khi đang offline) chứ đừng vội kết luận là chưa đăng nhập.
+        setTimeout(() => { if (!authResolved) res(sessionUser()?.uid || null); }, 6000);
     });
 }
 
@@ -172,7 +186,7 @@ export async function saveRecord(record) {
     writeLocal(records);
 
     const uid = await whenAuthReady();
-    if (!uid) return { cloud: false };
+    if (!uid) { localOnly.add(String(record.id)); return { cloud: false }; }
     queueCloud(uid, JSON.parse(JSON.stringify(record)));
     return { cloud: true };
 }
@@ -183,6 +197,7 @@ export async function deleteRecord(id) {
     clearTimeout(pendingCloud.get(key)?.timer);
     pendingCloud.delete(key);
 
+    localOnly.delete(key);
     writeLocal(listLocal().filter(r => String(r.id) !== key));
     const uid = await whenAuthReady();
     if (!uid) return;
