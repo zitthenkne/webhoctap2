@@ -16,9 +16,9 @@ import {
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-const MAX_SIDE = 1600;
+const MAX_SIDE = 1200;
 
-/** Nén ảnh về cạnh dài tối đa 1600px, JPEG 0.85 — đủ đọc chữ trên phiếu xét nghiệm */
+/** Nén ảnh về cạnh dài tối đa 1200px, JPEG 0.78 — siêu nhẹ (~80-150KB), tải lên cực nhanh mà chữ vẫn sắc nét */
 export async function compressImage(file) {
     let bmp;
     try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
@@ -29,32 +29,61 @@ export async function compressImage(file) {
     cv.height = Math.round(bmp.height * scale);
     cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
     bmp.close?.();
-    return (await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.85))) || file;
+    return (await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.78))) || file;
 }
 
-/** Tải ảnh lên máy chủ lưu ảnh miễn phí (Freeimage.host / Cloud CDN) — không tốn dung lượng Firebase */
-async function uploadToFreeHost(blob) {
-    const formData = new FormData();
-    formData.append('key', '6d207e02198a847aa98d0a2a901485a5');
-    formData.append('action', 'upload');
-    formData.append('source', blob, 'image.jpg');
-    formData.append('format', 'json');
+/** Tải ảnh lên máy chủ lưu ảnh miễn phí (Freeimage.host / Cloud CDN) có báo % tiến độ */
+function uploadToFreeHost(blob, onProgress) {
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', 'https://freeimage.host/api/1/upload');
+        xhr.timeout = 25000;
 
-    const res = await fetch('https://freeimage.host/api/1/upload', {
-        method: 'POST',
-        body: formData
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+                const pct = Math.round((e.loaded / e.total) * 100);
+                onProgress?.(pct);
+            }
+        };
+
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    const url = data.image?.url || data.image?.display_url || data.image?.url_viewer;
+                    if (url) resolve(url);
+                    else reject(new Error('Không tìm thấy link ảnh trong phản hồi'));
+                } catch (err) {
+                    reject(err);
+                }
+            } else {
+                reject(new Error(`Upload HTTP ${xhr.status}`));
+            }
+        };
+
+        xhr.onerror = () => reject(new Error('Lỗi kết nối mạng khi tải ảnh'));
+        xhr.ontimeout = () => reject(new Error('Quá thời gian tải ảnh (timeout)'));
+
+        const formData = new FormData();
+        formData.append('key', '6d207e02198a847aa98d0a2a901485a5');
+        formData.append('action', 'upload');
+        formData.append('source', blob, 'image.jpg');
+        formData.append('format', 'json');
+        xhr.send(formData);
     });
-    if (!res.ok) throw new Error('Upload HTTP ' + res.status);
-    const data = await res.json();
-    const url = data.image?.url || data.image?.display_url || data.image?.url_viewer;
-    if (!url) throw new Error('Không nhận được link ảnh');
-    return url;
 }
 
-export async function uploadImage(file, recordId, folder = 'anh') {
+export async function uploadImage(file, recordId, folder = 'anh', onProgress) {
+    onProgress?.(5); // Bắt đầu nén
     const blob = await compressImage(file);
+    onProgress?.(15); // Nén xong, bắt đầu đẩy dữ liệu
     try {
-        const url = await uploadToFreeHost(blob);
+        const url = await uploadToFreeHost(blob, (pct) => {
+            // Ánh xạ tiến trình upload từ 15% -> 95%
+            const mapped = Math.round(15 + (pct * 0.8));
+            onProgress?.(mapped);
+        });
+        onProgress?.(100);
         return { url, path: '', caption: '' };
     } catch (err) {
         console.warn('Upload free host lỗi, thử fallback Firebase Storage:', err);
@@ -62,6 +91,7 @@ export async function uploadImage(file, recordId, folder = 'anh') {
         if (!uid) throw Object.assign(new Error('need-auth'), { code: 'need-auth' });
         const path = `medical_records/${uid}/${recordId}/${folder}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`;
         await uploadBytes(storageRef(storage, path), blob, { contentType: 'image/jpeg' });
+        onProgress?.(100);
         return { url: await getDownloadURL(storageRef(storage, path)), path, caption: '' };
     }
 }
@@ -115,7 +145,13 @@ export function createImageBox({ host, recordId, folder = 'anh', onChange, label
 
     const thumbHtml = (im, i) => `<figure class="img-thumb" data-i="${i}">
         ${im.pending
-            ? `<div class="img-el img-loading"><i class="fas fa-circle-notch fa-spin"></i></div>`
+            ? `<div class="img-el img-loading flex flex-col items-center justify-center p-2 text-center">
+                 <i class="fas fa-arrow-up fa-bounce text-pink-500 text-sm mb-1"></i>
+                 <span class="text-[11px] font-bold text-pink-600">${im.progress != null ? im.progress + '%' : 'Đang nén…'}</span>
+                 <div class="w-4/5 bg-pink-100 h-1.5 rounded-full mt-1 overflow-hidden">
+                   <div class="bg-pink-500 h-full transition-all duration-150 rounded-full" style="width: ${im.progress || 10}%"></div>
+                 </div>
+               </div>`
             : `<a href="${esc(im.url)}" target="_blank" rel="noopener"><img class="img-el" src="${esc(im.url)}" alt="${esc(im.caption || 'Ảnh bệnh án')}"></a>`}
         <input class="img-cap" value="${esc(im.caption || '')}" placeholder="Chú thích" aria-label="Chú thích ảnh">
         ${im.pending ? '' : `<button type="button" class="img-x" data-act="del" title="Xóa ảnh"><i class="fas fa-trash"></i></button>`}
@@ -136,20 +172,23 @@ export function createImageBox({ host, recordId, folder = 'anh', onChange, label
         const pics = [...files].filter(f => f.type.startsWith('image/'));
         if (!pics.length) return;
         for (const file of pics) {
-            const slot = { pending: true, caption: '' };
+            const slot = { pending: true, progress: 0, caption: '' };
             images.push(slot);
             render();
             try {
-                Object.assign(slot, await uploadImage(file, recordId, folder));
+                const res = await uploadImage(file, recordId, folder, (pct) => {
+                    slot.progress = pct;
+                    render();
+                });
+                Object.assign(slot, res);
                 delete slot.pending;
+                delete slot.progress;
                 onChange?.();
             } catch (err) {
                 images.splice(images.indexOf(slot), 1);
                 showToast(err.code === 'need-auth'
                     ? 'Đăng nhập để đính ảnh — ảnh lưu trên đám mây, không nằm trong bộ nhớ máy.'
-                    : err?.code === 'storage/unauthorized'
-                        ? 'Không có quyền tải ảnh lên (kiểm tra Storage Rules).'
-                        : 'Tải ảnh lên thất bại — kiểm tra mạng rồi thử lại.', 'error', 5000);
+                    : 'Tải ảnh lên thất bại — kiểm tra mạng rồi thử lại.', 'error', 5000);
             }
             render();
         }

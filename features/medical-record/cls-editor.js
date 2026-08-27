@@ -104,7 +104,13 @@ function itemRow(it, i, j) {
 function imgHtml(im, i, k) {
     return `<figure class="cls-thumb" data-i="${i}" data-k="${k}">
         ${im.pending
-            ? `<div class="cls-thumb-img cls-thumb-load"><i class="fas fa-circle-notch fa-spin"></i></div>`
+            ? `<div class="cls-thumb-img cls-thumb-load flex flex-col items-center justify-center p-2 text-center">
+                 <i class="fas fa-arrow-up fa-bounce text-pink-500 text-sm mb-1"></i>
+                 <span class="text-[11px] font-bold text-pink-600">${im.progress != null ? im.progress + '%' : 'Đang nén…'}</span>
+                 <div class="w-4/5 bg-pink-100 h-1.5 rounded-full mt-1 overflow-hidden">
+                   <div class="bg-pink-500 h-full transition-all duration-150 rounded-full" style="width: ${im.progress || 10}%"></div>
+                 </div>
+               </div>`
             : `<a href="${esc(im.url)}" target="_blank" rel="noopener"><img class="cls-thumb-img" src="${esc(im.url)}" alt="${esc(im.caption || 'Ảnh cận lâm sàng')}"></a>`}
         <input class="cls-cap" data-act="cap" value="${esc(im.caption || '')}" placeholder="Chú thích ảnh" aria-label="Chú thích ảnh">
         ${im.pending ? '' : `<button type="button" class="cls-thumb-x" data-act="del-img" title="Xóa ảnh"><i class="fas fa-trash"></i></button>`}
@@ -408,14 +414,18 @@ async function addImages(i, files) {
     if (!c) return;
 
     for (const file of pics) {
-        const slot = { pending: true, caption: '' };
+        const slot = { pending: true, progress: 0, caption: '' };
         c.images.push(slot);
         render();
         try {
-            const res = await uploadImage(file, opts.recordId, 'cls');
+            const res = await uploadImage(file, opts.recordId, 'cls', (pct) => {
+                slot.progress = pct;
+                render();
+            });
             slot.url = res.url;
             slot.path = res.path || '';
             delete slot.pending;
+            delete slot.progress;
             changed();
         } catch (err) {
             console.warn('[benh-an] tải ảnh lên lỗi:', err);
