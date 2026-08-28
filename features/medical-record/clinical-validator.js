@@ -572,6 +572,17 @@ function runConsistencyRules(c) {
             actionText: 'Sửa ngày giờ làm bệnh án', targetTab: 'hanh-chinh', targetField: 'record-datetime'
         });
     }
+    // Ngày mổ trước cả ngày nhập viện: ô sx-out chỉ bắt được vế "mổ sau ngày làm
+    // bệnh án", còn vế này lọt — mà đây mới là lỗi hay gặp khi chép nhầm năm.
+    const ngayMo = dayOf(String(val('sx-datetime') || '').slice(0, 10));
+    if (nhapVien && ngayMo && ngayMo < nhapVien) {
+        push({
+            title: 'Ngày mổ trước ngày nhập viện',
+            message: `Ghi mổ ngày ${dayVn(val('sx-datetime'))} trong khi nhập viện ${dayVn(val('admission-date'))} — nếu là lần mổ cũ thì phải ghi ở tiền căn ngoại khoa, không phải mục phẫu thuật lần này.`,
+            actionText: 'Sửa ngày mổ', targetTab: 'can-lam-sang', targetField: 'sx-datetime'
+        });
+    }
+
     if (nhapVien && chanThuong && chanThuong > nhapVien) {
         push({
             title: 'Chấn thương xảy ra sau khi đã nhập viện',
@@ -589,6 +600,47 @@ function runConsistencyRules(c) {
             title: 'Tuổi không khớp năm sinh',
             message: `Ghi ${tuoi} tuổi nhưng năm sinh ${namSinh} ứng với ${tuoiTheoNam} tuổi.`,
             actionText: 'Sửa tuổi hoặc năm sinh', targetTab: 'hanh-chinh', targetField: 'patient-age'
+        });
+    }
+
+    // Cùng một dữ kiện ghi ở hai mục mà lệch nhau. Máy đã đổ sẵn sang ô trống nên
+    // lệch được nghĩa là sinh viên gõ tay hai con số khác nhau — hội đồng bắt ngay.
+    const canKham = parseFloat(val('vital-weight'));
+    const canThai = parseFloat(val('ob-hx-nowweight'));
+    if (canKham > 0 && canThai > 0 && Math.abs(canKham - canThai) > 0.5) {
+        push({
+            title: 'Cân nặng ghi hai nơi hai con số',
+            message: `Phần sinh hiệu ghi ${canKham} kg còn mục thai kỳ ghi cân hiện tại ${canThai} kg — mức tăng cân thai kỳ đang tính theo con số nào?`,
+            actionText: 'Thống nhất lại cân nặng', targetTab: 'kham-benh', targetField: 'vital-weight'
+        });
+    }
+
+    const ngayCT = dayOf(String(val('tr-time') || '').slice(0, 10));
+    if (ngayCT && khoiPhat && ngayCT.getTime() !== khoiPhat.getTime()) {
+        push({
+            severity: 'LOW', title: 'Ngày chấn thương khác ngày khởi phát',
+            message: `Tai nạn ghi ${dayVn(val('tr-time'))} nhưng ngày khởi phát ghi ${dayVn(val('hx-onset-date'))} — với chấn thương thì hai mốc này thường là một.`,
+            actionText: 'Xem lại hai mốc', targetTab: 'lydo-tiensu', targetField: 'hx-onset-date'
+        });
+    }
+
+    const ngayCC = dayOf(String(val('cc-time') || '').slice(0, 10));
+    if (ngayCC && nhapVien && ngayCC.getTime() !== nhapVien.getTime()) {
+        push({
+            severity: 'LOW', title: 'Giờ tiếp nhận cấp cứu khác ngày nhập viện',
+            message: `Tiếp nhận cấp cứu ghi ${dayVn(val('cc-time'))} còn ngày nhập viện ghi ${dayVn(val('admission-date'))}.`,
+            actionText: 'Xem lại hai mốc', targetTab: 'hanh-chinh', targetField: 'admission-date'
+        });
+    }
+
+    // Tuổi tháng bên mục Nhi ↔ tuổi năm bên hành chính. Hai ô này nuôi hai phép
+    // tính khác nhau (liều thuốc theo cân, mốc phát triển) nên lệch là hỏng cả hai.
+    const thang = parseFloat(val('ped-months'));
+    if (thang > 0 && tuoi > 0 && Math.abs(thang / 12 - tuoi) > 1) {
+        push({
+            title: 'Tuổi tháng không khớp tuổi năm',
+            message: `Mục Nhi ghi ${thang} tháng (≈ ${(thang / 12).toFixed(1)} tuổi) trong khi phần hành chính ghi ${tuoi} tuổi.`,
+            actionText: 'Sửa tuổi tháng hoặc tuổi', targetTab: 'hanh-chinh', targetField: 'patient-age'
         });
     }
 

@@ -1,167 +1,14 @@
 import { showToast } from '../../core/utils.js';
 import { getRecord, syncFromCloud, authReady, isSignedIn } from './record-store.js';
 import { auth } from '../../core/firebase-init.js';
-import { clsToHtml, clsToText, clsToWordHtml } from './cls-shared.js';
-import { theoDoiToText } from './theo-doi-editor.js';
+import { clsToHtml, clsToWordHtml } from './cls-shared.js';
+import { buildModel, VITAL_RANGE, toMarkdown, slugName, downloadMarkdown } from './benh-an-text.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const recordId = new URL(location.href).searchParams.get('id');
 
-/* ---------- định dạng ---------- */
-function fmtDate(v) {
-    if (!v) return '';
-    const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    return m ? `${m[3]}/${m[2]}/${m[1]}` : String(v);
-}
-function fmtDateTime(v) {
-    if (!v) return '';
-    const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-    return m ? `${m[4]}:${m[5]} ngày ${m[3]}/${m[2]}/${m[1]}` : String(v);
-}
-
-/* ---------- khung dữ liệu để render + xuất text ---------- */
-const VITAL_RANGE = { 'Mạch': [60, 100], 'Nhiệt độ': [36, 37.5], 'Nhịp thở': [12, 20], 'SpO2': [95, 100] };
-
-/** Nối các mảnh có nội dung thành một dòng, bỏ mảnh trống */
-const gop = (...xs) => xs.map(x => String(x ?? '').trim()).filter(Boolean).join(' · ');
-
-/* Khớp với data-vung của các ô bỏng bên tao-benh-an.html — sửa bên đó thì sửa cả đây */
-const BONG_VUNG = {
-    'dau-mat-co': ['Đầu – mặt – cổ', 9], 'chi-tren-p': ['Chi trên phải', 9],
-    'chi-tren-t': ['Chi trên trái', 9], 'than-truoc': ['Thân trước', 18],
-    'than-sau': ['Thân sau', 18], 'chi-duoi-p': ['Chi dưới phải', 18],
-    'chi-duoi-t': ['Chi dưới trái', 18], 'sinh-duc': ['Sinh dục – tầng sinh môn', 1]
-};
-function bongText(list) {
-    const co = (list || []).map(k => BONG_VUNG[k]).filter(Boolean);
-    if (!co.length) return '';
-    return `${co.reduce((t, [, pct]) => t + pct, 0)}% diện tích da `
-        + `(${co.map(([ten]) => ten.toLowerCase()).join(', ')})`;
-}
-function xuongGayText(list) {
-    return (list || []).filter(x => x && x.ten)
-        .map(x => x.ten + (x.n > 1 ? ` ×${x.n}` : '')).join(', ');
-}
-
-function buildModel(r) {
-    const h = r.hanhChinh || {}, t = r.tienSu || {}, k = r.khamBenh || {}, s = k.sinhTon || {};
-    const ros = r.luocQuaCoQuan || {};
-    const bs = r.benhSuChiTiet || {};
-    const av = bs.sinhHieuNhapVien || {};
-    // Các khối chuyên khoa: bày ra khi CÓ dữ liệu, không khóa theo r.loaiBenhAn — đổi
-    // loại bệnh án giữa chừng thì phần đã ghi vẫn phải in ra, không được nuốt mất.
-    const px = r.phauThuat || {}, sk = r.sanKhoa || {}, nk = r.nhiKhoa || {};
-    const cc = r.capCuu || {}, ct = r.chanThuong || {};
-    const bsn = bs.san || {}, bnh = bs.nhi || {};
-    const examDay = (() => {
-        const m = String(h.ngayLamBenhAn || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
-        return m ? ` (khám ngày ${+m[3]}/${+m[2]}/${m[1]})` : '';
-    })();
-    const admVitals = [
-        ['Mạch', av.mach, 'lần/phút'], ['Huyết áp', av.huyetAp, 'mmHg'],
-        ['Nhiệt độ', av.nhietDo, '°C'], ['Nhịp thở', av.nhipTho, 'lần/phút'],
-        ['SpO2', av.spo2, '%'], ['Ghi chú', av.ghiChu, '']
-    ];
-
-    return [
-        ['I. HÀNH CHÍNH', 'fa-user', [
-            ['Họ và tên bệnh nhân', h.hoTen],
-            ['Tuổi', h.tuoi ? `${h.tuoi}${h.namSinh ? ' (Năm sinh: ' + h.namSinh + ')' : ''}` : h.namSinh],
-            ['Giới tính', h.gioiTinh], ['Dân tộc', h.danToc], ['Nghề nghiệp', h.ngheNghiep],
-            ['Địa chỉ', h.diaChi],
-            ['Ngày giờ nhập viện', [h.gioVaoVien, fmtDate(h.ngayVaoVien)].filter(Boolean).join(' ngày ')],
-            ['Ngày giờ làm bệnh án', fmtDateTime(h.ngayLamBenhAn)],
-            ['Khoa – Bệnh viện', [h.khoa, h.benhVien].filter(Boolean).join(' - ')],
-            ['Phòng – Giường', [h.soPhong && 'Phòng ' + h.soPhong, (h.soGiuong || h.bedNumber) && 'Giường ' + (h.soGiuong || h.bedNumber)].filter(Boolean).join(' - ')],
-            ['Người liên hệ', h.nguoiLienHe], ['SĐT liên hệ', h.sdtLienHe]
-        ]],
-        ['II. LÝ DO VÀO VIỆN', 'fa-sign-in-alt', [['', r.lyDoVaoVien]]],
-        ['III. BỆNH SỬ', 'fa-history', [
-            ['', r.benhSu],
-            ['Cơ chế chấn thương', gop(ct.loai, fmtDateTime(ct.thoiDiem), ct.vanTocDoCao,
-                ct.viTriVaDap && 'va đập đầu tiên vào ' + ct.viTriVaDap,
-                ct.vatGayThuongTich && 'vật gây thương tích ' + ct.vatGayThuongTich, ct.baoHo)],
-            ['Ngay sau chấn thương', gop(ct.batTinh, ct.quenSuViec, ct.non, ct.vanDong,
-                ct.soCuu && 'sơ cứu ' + ct.soCuu, ct.chuyenVien && 'chuyển viện ' + ct.chuyenVien)],
-            ['Xương gãy', xuongGayText(ct.xuongGay)],
-            ['Bỏng', gop(bongText(ct.bongVung), ct.bongDoSau, ct.bongTacNhan && 'tác nhân ' + ct.bongTacNhan)],
-            ['Thai kỳ lần này', gop(bsn.soLanKhamThai, bsn.noiKhamThai && 'khám tại ' + bsn.noiKhamThai,
-                bsn.sieuAm && 'siêu âm ' + bsn.sieuAm, bsn.xetNghiem, bsn.uonVan && 'uốn ván ' + bsn.uonVan,
-                bsn.batThuong, bsn.canTruocMangThai && `cân trước mang thai ${bsn.canTruocMangThai} kg`,
-                bsn.canHienTai && `cân hiện tại ${bsn.canHienTai} kg`)],
-            ['Bệnh sử nhi khoa', gop(bnh.nguoiNuoi && 'người khai ' + bnh.nguoiNuoi, bnh.anBu, bnh.nuocTieu,
-                bnh.phan, bnh.dichTe, bnh.daDieuTri, bnh.canTruocBenh && `cân trước khi bệnh ${bnh.canTruocBenh} kg`)],
-            ['@vitals', admVitals, 'Sinh hiệu lúc nhập viện'],
-            ['@anh', r.anhHoSo, 'Ảnh hồ sơ tuyến trước']
-        ]],
-        ['IV. TIỀN CĂN', 'fa-notes-medical', [
-            ['1. Nội khoa', t.noiKhoa], ['2. Thuốc đang dùng tại nhà', t.thuocDangDung],
-            ['3. Ngoại khoa', t.ngoaiKhoa], ['4. Sản phụ khoa', t.sanPhuKhoa],
-            ['5. Dị ứng', t.diUng], ['6. Môi trường – phơi nhiễm', t.moiTruong],
-            ['7. Thói quen', t.thoiQuen], ['8. Gia đình', t.giaDinh],
-            ['Cần hỏi trước mổ', [t.truocMo?.gayMe, t.truocMo?.chongDong,
-                t.truocMo?.anUong, t.truocMo?.rangGia].filter(Boolean).join('. ')]
-        ]],
-        ['V. LƯỢC QUA CÁC CƠ QUAN' + examDay, 'fa-list-ul', [
-            ['Tim mạch', ros.timMach], ['Hô hấp', ros.hoHap], ['Tiêu hóa', ros.tieuHoa],
-            ['Thần kinh', ros.thanKinh], ['Cơ xương khớp', ros.coXuongKhop], ['Thận – Tiết niệu', ros.thanNieu]
-        ]],
-        ['VI. KHÁM LÂM SÀNG' + examDay, 'fa-stethoscope', [
-            ['Tiếp nhận cấp cứu', gop(cc.uuTien && 'mức ưu tiên ' + cc.uuTien, fmtDateTime(cc.thoiDiem))],
-            ['Đánh giá ABCDE', gop(cc.a && 'A: ' + cc.a, cc.b && 'B: ' + cc.b, cc.c && 'C: ' + cc.c,
-                cc.d && 'D: ' + cc.d, cc.e && 'E: ' + cc.e)],
-            ['Xử trí ban đầu', cc.xuTriBanDau],
-            ['1. Tổng trạng', k.tongTrang],
-            ['@vitals', [
-                ['Mạch', s.mach, 'lần/phút'], ['Nhiệt độ', s.nhietDo, '°C'], ['Huyết áp', s.huyetAp, 'mmHg'],
-                ['Nhịp thở', s.nhipTho, 'lần/phút'], ['SpO2', s.spo2, '%'],
-                ['Chiều cao', s.chieuCao, 'cm'], ['Cân nặng', s.canNang, 'kg'],
-                ['BMI', s.bmi, 'kg/m²'], ['BSA', s.bsa, 'm²'],
-                ['Glasgow', k.glasgow && k.glasgow.e && k.glasgow.v && k.glasgow.m
-                    ? `${+k.glasgow.e + +k.glasgow.v + +k.glasgow.m}/15 (E${k.glasgow.e} V${k.glasgow.v} M${k.glasgow.m})` : '', '']
-            ]],
-            ['2. Đầu – mặt – cổ', k.dauMatCo], ['3. Ngực', k.nguc], ['4. Tim', k.tim],
-            ['5. Phổi', k.phoi], ['6. Bụng', k.bung],
-            ['Khám sản', gop(sk.bcTC && `bề cao tử cung ${sk.bcTC} cm`, sk.vongBung && `vòng bụng ${sk.vongBung} cm`,
-                sk.timThai && `tim thai ${sk.timThai} l/p`, sk.conCo && 'cơn co ' + sk.conCo,
-                sk.coTuCung && 'cổ tử cung ' + sk.coTuCung, sk.ngoiThai, sk.oi, sk.khungChau && 'khung chậu ' + sk.khungChau)],
-            ['Nhi khoa', gop(nk.tuoiThang && `${nk.tuoiThang} tháng tuổi`, nk.lieuMgKg && `liều thuốc ${nk.lieuMgKg} mg/kg/lần`,
-                nk.sanKhoaLucSinh && 'lúc sinh: ' + nk.sanKhoaLucSinh, nk.dinhDuong, nk.chungNgua, nk.phatTrien)],
-            ['7. Thần kinh – Cơ xương khớp', k.thanKinhCoXuongKhop],
-            ['@anh', r.anhKham, 'Ảnh lâm sàng']
-        ]],
-        ['VII. TÓM TẮT BỆNH ÁN', 'fa-clipboard-list', [['', r.tomTatBenhAn]]],
-        ['VIII. ĐẶT VẤN ĐỀ', 'fa-list-check', [['', r.datVanDe]]],
-        ['IX. CHẨN ĐOÁN', 'fa-search', [
-            ['Chẩn đoán sơ bộ', r.chanDoanSoBo], ['Chẩn đoán phân biệt', r.chanDoanPhanBiet]
-        ]],
-        ['X. BIỆN LUẬN LÂM SÀNG', 'fa-comments', [['', r.bienLuanChanDoan]]],
-        // Mỗi dòng đề nghị đã tự mang mục đích + dấu hiệu mong tìm, nên không còn
-        // đoạn biện luận riêng. Dòng dưới chỉ để bệnh án cũ mở lên vẫn đọc được.
-        ['XI. ĐỀ NGHỊ CẬN LÂM SÀNG', 'fa-vials', [
-            ['', r.canLamSangDeNghi, 'bullet'], ['Biện luận đề nghị (bản cũ)', r.bienLuanDeNghiCLS]
-        ]],
-        ['XII. KẾT QUẢ CẬN LÂM SÀNG', 'fa-microscope', [
-            ['@cls', r.canLamSang], ['', r.ketQuaCanLamSang], ['', r.bienLuanKetQuaCLS]
-        ]],
-        ['PHẪU THUẬT', 'fa-scissors', [
-            ['Ngày giờ mổ', fmtDateTime(px.ngayGio)],
-            ['Phương pháp phẫu thuật', px.phuongPhap], ['Phương pháp vô cảm', px.voCam],
-            ['Dẫn lưu – vết mổ', px.danLuu],
-            ['Chẩn đoán trước mổ', px.chanDoanTruocMo], ['Chẩn đoán sau mổ', px.chanDoanSauMo],
-            ['Tường trình phẫu thuật', px.tuongTrinh]
-        ]],
-        ['XIII. CHẨN ĐOÁN XÁC ĐỊNH', 'fa-check-circle', [['', r.chanDoanXacDinh]]],
-        ['XIV. ĐIỀU TRỊ', 'fa-syringe', [
-            ['1. Điều trị đặc hiệu / nguyên tắc', r.huongDieuTri],
-            ['2. Điều trị triệu chứng & biến chứng', r.dieuTriCuThe]
-        ]],
-        ['XV. TIÊN LƯỢNG', 'fa-heartbeat', [['', r.tienLuong], ['Dự phòng', r.duPhong]]],
-        ['THEO DÕI DIỄN TIẾN', 'fa-clipboard-list', [['', theoDoiToText(r.theoDoi), 'bullet']]]
-    ];
-}
 
 /* ---------- render ---------- */
 function vitalsHtml(items, caption) {
@@ -226,82 +73,6 @@ function notFoundHtml() {
     </div>`;
 }
 
-/* ---------- xuất text ----------
-   Bám đúng mẫu bệnh án của trường: dòng đầu là thông tin sinh viên, tiêu đề BỆNH ÁN,
-   rồi 15 mục La Mã; ô một dòng in "* Nhãn: giá trị", ô nhiều dòng in nhãn rồi bullet. */
-function toPlainText(record, model) {
-    const h = record.hanhChinh || {};
-    const sv = record.sinhVien || {};
-    const lines = [];
-
-    const head = [sv.hoTen, sv.mssv, sv.lop, sv.stt].map(x => String(x || '').trim()).filter(Boolean);
-    if (head.length) lines.push(head.join(' - '));
-    lines.push('BỆNH ÁN');
-
-    const mark = (x, indent) => (/^[*\-•]|^\d+[.)]/.test(x) ? indent + x : indent + '* ' + x);
-    const bullet = (label, value, mode) => {
-        const text = String(value ?? '').trim();
-        if (!text) return;
-        const parts = text.split('\n').map(x => x.trim()).filter(Boolean);
-        if (!label) {
-            // Van xuoi giu nguyen; danh sach (de nghi CLS...) thi gach dau dong
-            parts.forEach(x => lines.push(mode === 'bullet' ? mark(x, '') : x));
-            return;
-        }
-        // Nhan da danh so nhu mau ("1. Noi khoa") -> xuong dong roi liet ke
-        if (/^\d+\./.test(label)) {
-            lines.push(label + ':');
-            parts.forEach(x => lines.push(mark(x, '')));
-            return;
-        }
-        if (parts.length === 1) { lines.push('* ' + label + ': ' + parts[0]); return; }
-        lines.push('* ' + label + ':');
-        parts.forEach(x => lines.push(mark(x, '   ')));
-    };
-
-    for (const [title, , rows] of model) {
-        const before = lines.length;
-        const body = [];
-        for (const [label, value, extra] of rows) {
-            if (label === '@vitals') {
-                const shown = value.filter(([, x]) => String(x ?? '').trim());
-                if (!shown.length) continue;
-                body.push(() => {
-                    if (extra) lines.push(`${extra}:`);
-                    shown.forEach(([l, x, u]) => lines.push(`* ${l}: ${x}${u ? ' ' + u : ''}`));
-                });
-            } else if (label === '@cls') {
-                const v = clsToText(value);
-                if (v) body.push(() => lines.push(v));
-            } else if (label === '@anh') {
-                // File text không mang được ảnh — ghi lại số lượng và chú thích để không ai quên
-                const co = (value || []).filter(im => im && im.url);
-                if (co.length) body.push(() => lines.push(`* ${extra}: ${co.length} ảnh`
-                    + (co.some(im => im.caption) ? ' — ' + co.map(im => im.caption).filter(Boolean).join('; ') : '')));
-            } else if (String(value ?? '').trim()) {
-                body.push(() => bullet(label, value, extra));
-            }
-        }
-        if (!body.length) continue;
-        lines.push(title);
-        body.forEach(fn => fn());
-        if (lines.length > before) lines.push('');
-    }
-
-    const dm = String(h.ngayLamBenhAn || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
-    const pad = ' '.repeat(40);
-    lines.push('',
-        pad + (dm ? `Ngày ${dm[3]} tháng ${dm[2]} năm ${dm[1]}` : 'Ngày ...... tháng ...... năm ..........'),
-        pad + 'Người làm bệnh án',
-        pad + (head[0] || '(Ký, ghi rõ họ tên)'), '');
-
-    return lines.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd();
-}
-
-function slugName(s) {
-    return String(s || 'khong-ten').normalize('NFD').replace(/[̀-ͯ]/g, '')
-        .replace(/đ/gi, 'd').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
-}
 
 /* ---------- chạy ---------- */
 let record = recordId ? getRecord(recordId) : null;
@@ -370,7 +141,7 @@ if (!record) {
     document.querySelectorAll('.rec-section').forEach(s => observer.observe(s));
 
     /* ---------- hành động ---------- */
-    const plain = () => toPlainText(record, model);
+    const plain = () => toMarkdown(record, model);
 
     const actions = {
         print: () => window.print(),
@@ -384,12 +155,8 @@ if (!record) {
             }
         },
         txt: () => {
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(new Blob(['﻿' + plain()], { type: 'text/plain;charset=utf-8' }));
-            a.download = `benh-an-${slugName(h.hoTen)}.txt`;
-            a.click();
-            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-            showToast('Đã tải file .txt — mở file, chọn tất cả rồi dán vào Google Docs.', 'success');
+            downloadMarkdown(record, model);
+            showToast('Đã tải file .md — kéo thẳng vào Google Drive rồi mở bằng Google Docs, heading tự lên sẵn.', 'success');
         },
         word: () => {
             const html = `<html xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8">

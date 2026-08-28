@@ -217,7 +217,13 @@ function libFor(ten) {
     const f = fold(t);
     const hit = LIBRARY.find(x => fold(x.k).includes(f) || f.includes(fold(x.k)))
         || searchLibrary(t)[0];
-    return hit ? { ...suggestFor(hit.k), gan: hit.k } : direct;
+    if (!hit) return direct;
+    /* Dò mờ chỉ mượn GỢI Ý của mẫu gần giống, và thẻ có nói rõ "đang lấy gợi ý
+       theo mẫu X". Riêng tiêu chuẩn chẩn đoán thì không: dòng đó nằm ngay dưới
+       tên bệnh sinh viên gõ và đọc như một khẳng định. Gõ "Viêm màng ngoài tim"
+       mà hiện tiêu chuẩn của "Đau ngực" là dạy sai. Tên đã gõ có tiêu chuẩn
+       riêng thì giữ nguyên; không có thì thà để trống. */
+    return { ...suggestFor(hit.k), gan: hit.k, tieuChuan: direct.tieuChuan };
 }
 
 const lowerFirst = (t) => trim(t).charAt(0).toLowerCase() + trim(t).slice(1);

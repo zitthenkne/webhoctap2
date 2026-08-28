@@ -1,0 +1,1482 @@
+# CODEGRAPH tao-benh-an.html — do thi du lieu, danh cho may doc.
+# SINH TU DONG bang `node ban-do-codegraph.mjs`. DUNG SUA TAY.
+# Doc kem: BAN-DO-DU-LIEU.md (giai thich quy tac cho nguoi).
+#
+# N|<id>|k=v|...            nut
+# E|<src>|<rel>|<dst>|k=v   canh
+#
+# khong gian ten id:
+#   f:<id>        o nhap lieu trong HTML
+#   p:<path>      duong dan trong doi tuong ban ghi
+#   s:<mucLaMa>   muc I..XV trong ban benh an xuat ra
+#   t:<tab>       tab tren trang
+#   fn:<ten>      ham ghep chu / phep tinh
+#   dl:<id>       datalist   · lib:<TEN> kho du lieu · rule:<title> luat kiem tra
+#   prefix:<x>*   nhom o cung tien to (vd vital-*)
+#
+# quan he:
+#   persists_as   o  -> duong dan (bang FIELDS, dung chung cho luu va nap)
+#   renders_in    duong dan -> muc trong ban xuat (buildModel)
+#   composes_into ham ghep -> o chu lon (upsertLine / bindAuto)
+#   feeds         o con -> ham ghep
+#   mirrors       hai o cung mot du kien, do qua lai khi o kia con trong
+#   derives_to    o nay suy ra o kia, mot chieu
+#   triggers      o doi -> chay lai phep tinh
+#   points_at     luat kiem tra -> o / tab no chi toi
+#   suggested_by  o -> datalist · fills kho -> datalist · suggests_for kho -> o
+#   on_tab        o nam o tab nao
+#   not_persisted o khong co trong FIELDS (co y)
+#
+# nut=563 canh=887
+
+N|t:hanh-chinh|kind=tab
+N|t:lydo-tiensu|kind=tab
+N|t:kham-benh|kind=tab
+N|t:chan-doan-dieu-tri|kind=tab
+N|t:can-lam-sang|kind=tab
+N|t:ket-luan|kind=tab
+N|t:theo-doi|kind=tab
+N|f:medical-record-id|kind=field|tag=input|dtype=hidden|tab=?
+N|f:record-type|kind=field|tag=input|dtype=hidden|tab=?
+N|f:stu-name|kind=field|tag=input|dtype=text|tab=?
+N|f:stu-id|kind=field|tag=input|dtype=text|tab=?
+N|f:stu-class|kind=field|tag=input|dtype=text|tab=?
+N|f:stu-no|kind=field|tag=input|dtype=text|tab=?
+N|f:record-status|kind=field|tag=select|dtype=select|tab=?
+N|f:ba-guide|kind=field|tag=select|dtype=select|tab=?
+N|f:patient-name|kind=field|tag=input|dtype=text|tab=hanh-chinh|required=true
+N|f:patient-yob|kind=field|tag=input|dtype=number|tab=hanh-chinh
+N|f:patient-age|kind=field|tag=input|dtype=number|tab=hanh-chinh
+N|f:patient-gender|kind=field|tag=select|dtype=select|tab=hanh-chinh
+N|f:patient-ethnicity|kind=field|tag=input|dtype=text|tab=hanh-chinh|list=ethnicity-list
+N|f:patient-occupation|kind=field|tag=input|dtype=text|tab=hanh-chinh|list=occupation-list
+N|f:patient-address|kind=field|tag=input|dtype=text|tab=hanh-chinh
+N|f:contact-name|kind=field|tag=input|dtype=text|tab=hanh-chinh
+N|f:contact-phone|kind=field|tag=input|dtype=tel|tab=hanh-chinh
+N|f:admission-time|kind=field|tag=input|dtype=time|tab=hanh-chinh
+N|f:admission-date|kind=field|tag=input|dtype=date|tab=hanh-chinh
+N|f:record-datetime|kind=field|tag=input|dtype=datetime-local|tab=hanh-chinh
+N|f:bed-number|kind=field|tag=input|dtype=text|tab=hanh-chinh
+N|f:room-number|kind=field|tag=input|dtype=text|tab=hanh-chinh
+N|f:hospital-name|kind=field|tag=input|dtype=text|tab=hanh-chinh|list=hospital-list
+N|f:department-name|kind=field|tag=input|dtype=text|tab=hanh-chinh|list=department-list
+N|f:reason-for-admission|kind=field|tag=textarea|dtype=multiline|tab=lydo-tiensu|required=true
+N|f:hx-informant|kind=field|tag=select|dtype=select|tab=lydo-tiensu
+N|f:hx-relation|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:hx-reliability|kind=field|tag=select|dtype=select|tab=lydo-tiensu
+N|f:hx-onset-date|kind=field|tag=input|dtype=date|tab=lydo-tiensu
+N|f:hx-sym-name|kind=field|tag=input|dtype=text|tab=lydo-tiensu|list=hx-sym-list
+N|f:hx-sym-site|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:hx-sym-char|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:hx-sym-severity|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:hx-sym-time|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:hx-sym-factors|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:hx-sym-assoc|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:hx-sym-treated|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:tr-type|kind=field|tag=select|dtype=select|tab=lydo-tiensu
+N|f:tr-time|kind=field|tag=input|dtype=datetime-local|tab=lydo-tiensu
+N|f:tr-energy|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:tr-protect|kind=field|tag=select|dtype=select|tab=lydo-tiensu
+N|f:tr-impact|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:tr-object|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:tr-loc|kind=field|tag=select|dtype=select|tab=lydo-tiensu
+N|f:tr-amnesia|kind=field|tag=select|dtype=select|tab=lydo-tiensu
+N|f:tr-vomit|kind=field|tag=select|dtype=select|tab=lydo-tiensu
+N|f:tr-walk|kind=field|tag=select|dtype=select|tab=lydo-tiensu
+N|f:tr-firstaid|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:tr-transport|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:tr-burn-depth|kind=field|tag=select|dtype=select|tab=lydo-tiensu
+N|f:tr-burn-agent|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:ob-hx-visits|kind=field|tag=select|dtype=select|tab=lydo-tiensu
+N|f:ob-hx-where|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:ob-hx-us|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:ob-hx-tests|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:ob-hx-vat|kind=field|tag=select|dtype=select|tab=lydo-tiensu
+N|f:ob-hx-abnormal|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:ob-hx-preweight|kind=field|tag=input|dtype=number|tab=lydo-tiensu
+N|f:ob-hx-nowweight|kind=field|tag=input|dtype=number|tab=lydo-tiensu
+N|f:ped-hx-who|kind=field|tag=select|dtype=select|tab=lydo-tiensu
+N|f:ped-hx-feed|kind=field|tag=select|dtype=select|tab=lydo-tiensu
+N|f:ped-hx-urine|kind=field|tag=select|dtype=select|tab=lydo-tiensu
+N|f:ped-hx-stool|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:ped-hx-epi|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:ped-hx-treated|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:ped-hx-preweight|kind=field|tag=input|dtype=number|tab=lydo-tiensu
+N|f:hx-admit-state|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:adm-pulse|kind=field|tag=input|dtype=number|tab=lydo-tiensu
+N|f:adm-bp|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:adm-temp|kind=field|tag=input|dtype=number|tab=lydo-tiensu
+N|f:adm-resp|kind=field|tag=input|dtype=number|tab=lydo-tiensu
+N|f:adm-spo2|kind=field|tag=input|dtype=number|tab=lydo-tiensu
+N|f:adm-note|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:hx-after-admit|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:hx-general|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:hx-negatives|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:hx-eat|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:hx-sleep|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:hx-stool|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:hx-urine|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:illness-history|kind=field|tag=textarea|dtype=multiline|tab=lydo-tiensu
+N|f:history-internal|kind=field|tag=textarea|dtype=multiline|tab=lydo-tiensu
+N|f:history-drugs|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:history-allergy|kind=field|tag=textarea|dtype=multiline|tab=lydo-tiensu
+N|f:history-surgery|kind=field|tag=textarea|dtype=multiline|tab=lydo-tiensu
+N|f:sx-hx-anes|kind=field|tag=input|dtype=text|tab=lydo-tiensu|list=sx-anes-list
+N|f:sx-hx-anticoag|kind=field|tag=input|dtype=text|tab=lydo-tiensu|list=sx-anticoag-list
+N|f:sx-hx-fasting|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:sx-hx-teeth|kind=field|tag=select|dtype=select|tab=lydo-tiensu
+N|f:sx-asa|kind=field|tag=input|dtype=hidden|tab=lydo-tiensu
+N|f:para-1|kind=field|tag=input|dtype=number|tab=lydo-tiensu
+N|f:para-2|kind=field|tag=input|dtype=number|tab=lydo-tiensu
+N|f:para-3|kind=field|tag=input|dtype=number|tab=lydo-tiensu
+N|f:para-4|kind=field|tag=input|dtype=number|tab=lydo-tiensu
+N|f:ob-lmp|kind=field|tag=input|dtype=date|tab=lydo-tiensu
+N|f:ob-cycle|kind=field|tag=input|dtype=number|tab=lydo-tiensu
+N|f:ob-menarche|kind=field|tag=input|dtype=number|tab=lydo-tiensu
+N|f:ob-cycle-type|kind=field|tag=input|dtype=text|tab=lydo-tiensu|list=ob-cycle-list
+N|f:ob-days|kind=field|tag=input|dtype=text|tab=lydo-tiensu|list=ob-days-list
+N|f:ob-amount|kind=field|tag=input|dtype=text|tab=lydo-tiensu|list=ob-amount-list
+N|f:ob-dysmenorrhea|kind=field|tag=input|dtype=text|tab=lydo-tiensu|list=ob-dys-list
+N|f:ob-contraception|kind=field|tag=input|dtype=text|tab=lydo-tiensu|list=ob-contra-list
+N|f:history-obgyne|kind=field|tag=textarea|dtype=multiline|tab=lydo-tiensu
+N|f:env-job|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:env-area|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:env-contact|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:env-animal|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:env-water|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:env-travel|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:history-environment|kind=field|tag=textarea|dtype=multiline|tab=lydo-tiensu
+N|f:ped-birth|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:ped-nutrition|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:ped-vaccine|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:ped-development|kind=field|tag=input|dtype=text|tab=lydo-tiensu
+N|f:smoke-cpd|kind=field|tag=input|dtype=number|tab=lydo-tiensu
+N|f:smoke-from|kind=field|tag=input|dtype=number|tab=lydo-tiensu
+N|f:smoke-to|kind=field|tag=input|dtype=number|tab=lydo-tiensu
+N|f:alc-drink|kind=field|tag=select|dtype=select|tab=lydo-tiensu
+N|f:alc-qty|kind=field|tag=input|dtype=number|tab=lydo-tiensu
+N|f:alc-freq|kind=field|tag=select|dtype=select|tab=lydo-tiensu
+N|f:alc-vol|kind=field|tag=input|dtype=number|tab=lydo-tiensu
+N|f:alc-abv|kind=field|tag=input|dtype=number|tab=lydo-tiensu
+N|f:alc-from|kind=field|tag=input|dtype=number|tab=lydo-tiensu
+N|f:alc-to|kind=field|tag=input|dtype=number|tab=lydo-tiensu
+N|f:history-habit|kind=field|tag=textarea|dtype=multiline|tab=lydo-tiensu
+N|f:history-family|kind=field|tag=textarea|dtype=multiline|tab=lydo-tiensu
+N|f:ros-cardio|kind=field|tag=textarea|dtype=multiline|tab=kham-benh
+N|f:ros-resp|kind=field|tag=textarea|dtype=multiline|tab=kham-benh
+N|f:ros-gi|kind=field|tag=textarea|dtype=multiline|tab=kham-benh
+N|f:ros-neuro|kind=field|tag=textarea|dtype=multiline|tab=kham-benh
+N|f:ros-msk|kind=field|tag=textarea|dtype=multiline|tab=kham-benh
+N|f:ros-uro|kind=field|tag=textarea|dtype=multiline|tab=kham-benh
+N|f:cc-triage|kind=field|tag=select|dtype=select|tab=kham-benh
+N|f:cc-time|kind=field|tag=input|dtype=datetime-local|tab=kham-benh
+N|f:cc-a|kind=field|tag=input|dtype=text|tab=kham-benh
+N|f:cc-b|kind=field|tag=input|dtype=text|tab=kham-benh
+N|f:cc-c|kind=field|tag=input|dtype=text|tab=kham-benh
+N|f:cc-d|kind=field|tag=input|dtype=text|tab=kham-benh
+N|f:cc-e|kind=field|tag=input|dtype=text|tab=kham-benh
+N|f:cc-initial|kind=field|tag=input|dtype=text|tab=kham-benh
+N|f:vital-pulse|kind=field|tag=input|dtype=number|tab=kham-benh
+N|f:vital-temp|kind=field|tag=input|dtype=number|tab=kham-benh
+N|f:vital-bp|kind=field|tag=input|dtype=text|tab=kham-benh
+N|f:vital-resp|kind=field|tag=input|dtype=number|tab=kham-benh
+N|f:vital-spo2|kind=field|tag=input|dtype=number|tab=kham-benh
+N|f:vital-height|kind=field|tag=input|dtype=number|tab=kham-benh
+N|f:vital-weight|kind=field|tag=input|dtype=number|tab=kham-benh
+N|f:vital-bmi|kind=field|tag=input|dtype=text|tab=kham-benh
+N|f:vital-bsa|kind=field|tag=input|dtype=text|tab=kham-benh
+N|f:gcs-e|kind=field|tag=select|dtype=select|tab=kham-benh
+N|f:gcs-v|kind=field|tag=select|dtype=select|tab=kham-benh
+N|f:gcs-m|kind=field|tag=select|dtype=select|tab=kham-benh
+N|f:curb-confusion|kind=field|tag=select|dtype=select|tab=kham-benh
+N|f:exam-general|kind=field|tag=textarea|dtype=multiline|tab=kham-benh
+N|f:exam-head|kind=field|tag=textarea|dtype=multiline|tab=kham-benh
+N|f:exam-chest|kind=field|tag=textarea|dtype=multiline|tab=kham-benh
+N|f:exam-heart|kind=field|tag=textarea|dtype=multiline|tab=kham-benh
+N|f:exam-lung|kind=field|tag=textarea|dtype=multiline|tab=kham-benh
+N|f:exam-abdomen|kind=field|tag=textarea|dtype=multiline|tab=kham-benh
+N|f:ob-bctc|kind=field|tag=input|dtype=number|tab=kham-benh
+N|f:ob-vb|kind=field|tag=input|dtype=number|tab=kham-benh
+N|f:ob-fhr|kind=field|tag=input|dtype=number|tab=kham-benh
+N|f:ob-contraction|kind=field|tag=input|dtype=text|tab=kham-benh
+N|f:ob-cervix|kind=field|tag=input|dtype=text|tab=kham-benh
+N|f:ob-position|kind=field|tag=input|dtype=text|tab=kham-benh
+N|f:ob-amniotic|kind=field|tag=input|dtype=text|tab=kham-benh
+N|f:ob-pelvis|kind=field|tag=input|dtype=text|tab=kham-benh
+N|f:ped-months|kind=field|tag=input|dtype=number|tab=kham-benh
+N|f:ped-dose|kind=field|tag=input|dtype=number|tab=kham-benh
+N|f:exam-neuro-msk|kind=field|tag=textarea|dtype=multiline|tab=kham-benh
+N|f:summary|kind=field|tag=textarea|dtype=multiline|tab=chan-doan-dieu-tri
+N|f:problem-list|kind=field|tag=textarea|dtype=multiline|tab=chan-doan-dieu-tri
+N|f:dx1-main|kind=field|tag=input|dtype=text|tab=chan-doan-dieu-tri
+N|f:dx1-comp|kind=field|tag=input|dtype=text|tab=chan-doan-dieu-tri
+N|f:dx1-stage|kind=field|tag=input|dtype=text|tab=chan-doan-dieu-tri
+N|f:dx1-assoc|kind=field|tag=input|dtype=text|tab=chan-doan-dieu-tri
+N|f:provisional-diagnosis|kind=field|tag=textarea|dtype=multiline|tab=chan-doan-dieu-tri
+N|f:differential-diagnosis|kind=field|tag=textarea|dtype=multiline|tab=chan-doan-dieu-tri
+N|f:diagnosis-reasoning|kind=field|tag=textarea|dtype=multiline|tab=chan-doan-dieu-tri
+N|f:labs-proposed|kind=field|tag=textarea|dtype=multiline|tab=chan-doan-dieu-tri
+N|f:labs-results|kind=field|tag=textarea|dtype=multiline|tab=can-lam-sang
+N|f:sx-datetime|kind=field|tag=input|dtype=datetime-local|tab=ket-luan
+N|f:sx-method|kind=field|tag=input|dtype=text|tab=ket-luan
+N|f:sx-anesthesia|kind=field|tag=input|dtype=text|tab=ket-luan
+N|f:sx-drain|kind=field|tag=input|dtype=text|tab=ket-luan
+N|f:sx-pre-dx|kind=field|tag=textarea|dtype=multiline|tab=ket-luan
+N|f:sx-post-dx|kind=field|tag=textarea|dtype=multiline|tab=ket-luan
+N|f:sx-report|kind=field|tag=textarea|dtype=multiline|tab=ket-luan
+N|f:dx2-main|kind=field|tag=input|dtype=text|tab=ket-luan
+N|f:dx2-comp|kind=field|tag=input|dtype=text|tab=ket-luan
+N|f:dx2-stage|kind=field|tag=input|dtype=text|tab=ket-luan
+N|f:dx2-assoc|kind=field|tag=input|dtype=text|tab=ket-luan
+N|f:final-diagnosis|kind=field|tag=textarea|dtype=multiline|tab=ket-luan
+N|f:treatment-plan|kind=field|tag=textarea|dtype=multiline|tab=ket-luan
+N|f:treatment-detail|kind=field|tag=textarea|dtype=multiline|tab=ket-luan
+N|f:prognosis|kind=field|tag=textarea|dtype=multiline|tab=ket-luan
+N|p:hanhChinh.hoTen|kind=recordpath
+N|p:hanhChinh.namSinh|kind=recordpath
+N|p:hanhChinh.tuoi|kind=recordpath
+N|p:hanhChinh.gioiTinh|kind=recordpath
+N|p:hanhChinh.danToc|kind=recordpath
+N|p:hanhChinh.ngheNghiep|kind=recordpath
+N|p:hanhChinh.diaChi|kind=recordpath
+N|p:hanhChinh.nguoiLienHe|kind=recordpath
+N|p:hanhChinh.sdtLienHe|kind=recordpath
+N|p:hanhChinh.gioVaoVien|kind=recordpath
+N|p:hanhChinh.ngayVaoVien|kind=recordpath
+N|p:hanhChinh.ngayLamBenhAn|kind=recordpath
+N|p:hanhChinh.soGiuong|kind=recordpath
+N|p:hanhChinh.soPhong|kind=recordpath
+N|p:hanhChinh.benhVien|kind=recordpath
+N|p:hanhChinh.khoa|kind=recordpath
+N|p:loaiBenhAn|kind=recordpath
+N|p:sinhVien.hoTen|kind=recordpath
+N|p:sinhVien.mssv|kind=recordpath
+N|p:sinhVien.lop|kind=recordpath
+N|p:sinhVien.stt|kind=recordpath
+N|p:lyDoVaoVien|kind=recordpath
+N|p:benhSu|kind=recordpath
+N|p:benhSuChiTiet.nguoiKhai|kind=recordpath
+N|p:benhSuChiTiet.quanHe|kind=recordpath
+N|p:benhSuChiTiet.doTinCay|kind=recordpath
+N|p:benhSuChiTiet.ngayKhoiPhat|kind=recordpath
+N|p:benhSuChiTiet.trieuChung.ten|kind=recordpath
+N|p:benhSuChiTiet.trieuChung.viTri|kind=recordpath
+N|p:benhSuChiTiet.trieuChung.tinhChat|kind=recordpath
+N|p:benhSuChiTiet.trieuChung.mucDo|kind=recordpath
+N|p:benhSuChiTiet.trieuChung.thoiGian|kind=recordpath
+N|p:benhSuChiTiet.trieuChung.tangGiam|kind=recordpath
+N|p:benhSuChiTiet.trieuChung.kemTheo|kind=recordpath
+N|p:benhSuChiTiet.trieuChung.daXuTri|kind=recordpath
+N|p:benhSuChiTiet.anUong|kind=recordpath
+N|p:benhSuChiTiet.giacNgu|kind=recordpath
+N|p:benhSuChiTiet.tieu|kind=recordpath
+N|p:benhSuChiTiet.tieuTien|kind=recordpath
+N|p:benhSuChiTiet.toanThan|kind=recordpath
+N|p:benhSuChiTiet.amTinh|kind=recordpath
+N|p:benhSuChiTiet.lucNhapVien|kind=recordpath
+N|p:benhSuChiTiet.sinhHieuNhapVien.mach|kind=recordpath
+N|p:benhSuChiTiet.sinhHieuNhapVien.huyetAp|kind=recordpath
+N|p:benhSuChiTiet.sinhHieuNhapVien.nhietDo|kind=recordpath
+N|p:benhSuChiTiet.sinhHieuNhapVien.nhipTho|kind=recordpath
+N|p:benhSuChiTiet.sinhHieuNhapVien.spo2|kind=recordpath
+N|p:benhSuChiTiet.sinhHieuNhapVien.ghiChu|kind=recordpath
+N|p:benhSuChiTiet.sauNhapVien|kind=recordpath
+N|p:tienSu.noiKhoa|kind=recordpath
+N|p:tienSu.phoiNhiem.ngheNghiep|kind=recordpath
+N|p:tienSu.phoiNhiem.vungDich|kind=recordpath
+N|p:tienSu.phoiNhiem.nguoiBenh|kind=recordpath
+N|p:tienSu.phoiNhiem.dongVat|kind=recordpath
+N|p:tienSu.phoiNhiem.nuocAn|kind=recordpath
+N|p:tienSu.phoiNhiem.diLai|kind=recordpath
+N|p:tienSu.ngoaiKhoa|kind=recordpath
+N|p:tienSu.sanPhuKhoa|kind=recordpath
+N|p:tienSu.diUng|kind=recordpath
+N|p:tienSu.moiTruong|kind=recordpath
+N|p:tienSu.thuocDangDung|kind=recordpath
+N|p:sanKhoa.kinhChot|kind=recordpath
+N|p:sanKhoa.vongKinh|kind=recordpath
+N|p:sanKhoa.bcTC|kind=recordpath
+N|p:sanKhoa.vongBung|kind=recordpath
+N|p:sanKhoa.timThai|kind=recordpath
+N|p:sanKhoa.conCo|kind=recordpath
+N|p:sanKhoa.coTuCung|kind=recordpath
+N|p:sanKhoa.ngoiThai|kind=recordpath
+N|p:sanKhoa.oi|kind=recordpath
+N|p:sanKhoa.khungChau|kind=recordpath
+N|p:nhiKhoa.tuoiThang|kind=recordpath
+N|p:nhiKhoa.lieuMgKg|kind=recordpath
+N|p:nhiKhoa.sanKhoaLucSinh|kind=recordpath
+N|p:nhiKhoa.dinhDuong|kind=recordpath
+N|p:nhiKhoa.chungNgua|kind=recordpath
+N|p:nhiKhoa.phatTrien|kind=recordpath
+N|p:capCuu.uuTien|kind=recordpath
+N|p:capCuu.thoiDiem|kind=recordpath
+N|p:capCuu.a|kind=recordpath
+N|p:capCuu.b|kind=recordpath
+N|p:capCuu.c|kind=recordpath
+N|p:capCuu.d|kind=recordpath
+N|p:capCuu.e|kind=recordpath
+N|p:capCuu.xuTriBanDau|kind=recordpath
+N|p:chanThuong.loai|kind=recordpath
+N|p:chanThuong.thoiDiem|kind=recordpath
+N|p:chanThuong.vanTocDoCao|kind=recordpath
+N|p:chanThuong.baoHo|kind=recordpath
+N|p:chanThuong.viTriVaDap|kind=recordpath
+N|p:chanThuong.vatGayThuongTich|kind=recordpath
+N|p:chanThuong.batTinh|kind=recordpath
+N|p:chanThuong.quenSuViec|kind=recordpath
+N|p:chanThuong.non|kind=recordpath
+N|p:chanThuong.vanDong|kind=recordpath
+N|p:chanThuong.soCuu|kind=recordpath
+N|p:chanThuong.chuyenVien|kind=recordpath
+N|p:chanThuong.bongDoSau|kind=recordpath
+N|p:chanThuong.bongTacNhan|kind=recordpath
+N|p:phauThuat.ngayGio|kind=recordpath
+N|p:phauThuat.phuongPhap|kind=recordpath
+N|p:phauThuat.voCam|kind=recordpath
+N|p:phauThuat.danLuu|kind=recordpath
+N|p:phauThuat.chanDoanTruocMo|kind=recordpath
+N|p:phauThuat.chanDoanSauMo|kind=recordpath
+N|p:phauThuat.tuongTrinh|kind=recordpath
+N|p:tienSu.thoiQuen|kind=recordpath
+N|p:tienSu.giaDinh|kind=recordpath
+N|p:tienSu.kinhNguyet.tuoiCoKinh|kind=recordpath
+N|p:tienSu.kinhNguyet.chuKy|kind=recordpath
+N|p:tienSu.kinhNguyet.soNgay|kind=recordpath
+N|p:tienSu.kinhNguyet.luong|kind=recordpath
+N|p:tienSu.kinhNguyet.dauBung|kind=recordpath
+N|p:tienSu.kinhNguyet.nguaThai|kind=recordpath
+N|p:benhSuChiTiet.san.soLanKhamThai|kind=recordpath
+N|p:benhSuChiTiet.san.noiKhamThai|kind=recordpath
+N|p:benhSuChiTiet.san.sieuAm|kind=recordpath
+N|p:benhSuChiTiet.san.xetNghiem|kind=recordpath
+N|p:benhSuChiTiet.san.uonVan|kind=recordpath
+N|p:benhSuChiTiet.san.batThuong|kind=recordpath
+N|p:benhSuChiTiet.san.canTruocMangThai|kind=recordpath
+N|p:benhSuChiTiet.san.canHienTai|kind=recordpath
+N|p:benhSuChiTiet.nhi.nguoiNuoi|kind=recordpath
+N|p:benhSuChiTiet.nhi.anBu|kind=recordpath
+N|p:benhSuChiTiet.nhi.nuocTieu|kind=recordpath
+N|p:benhSuChiTiet.nhi.phan|kind=recordpath
+N|p:benhSuChiTiet.nhi.dichTe|kind=recordpath
+N|p:benhSuChiTiet.nhi.daDieuTri|kind=recordpath
+N|p:benhSuChiTiet.nhi.canTruocBenh|kind=recordpath
+N|p:tienSu.truocMo.gayMe|kind=recordpath
+N|p:tienSu.truocMo.chongDong|kind=recordpath
+N|p:tienSu.truocMo.anUong|kind=recordpath
+N|p:tienSu.truocMo.rangGia|kind=recordpath
+N|p:tienSu.truocMo.asa|kind=recordpath
+N|p:tienSu.para.duThang|kind=recordpath
+N|p:tienSu.para.thieuThang|kind=recordpath
+N|p:tienSu.para.say|kind=recordpath
+N|p:tienSu.para.conSong|kind=recordpath
+N|p:tienSu.thuocLa.dieuMoiNgay|kind=recordpath
+N|p:tienSu.thuocLa.tuTuoi|kind=recordpath
+N|p:tienSu.thuocLa.denTuoi|kind=recordpath
+N|p:tienSu.ruou.thucUong|kind=recordpath
+N|p:tienSu.ruou.soLuongMoiLan|kind=recordpath
+N|p:tienSu.ruou.tanSuat|kind=recordpath
+N|p:tienSu.ruou.dungTich|kind=recordpath
+N|p:tienSu.ruou.doCon|kind=recordpath
+N|p:tienSu.ruou.tuTuoi|kind=recordpath
+N|p:tienSu.ruou.denTuoi|kind=recordpath
+N|p:khamBenh.sinhTon.mach|kind=recordpath
+N|p:khamBenh.sinhTon.nhietDo|kind=recordpath
+N|p:khamBenh.sinhTon.huyetAp|kind=recordpath
+N|p:khamBenh.sinhTon.nhipTho|kind=recordpath
+N|p:khamBenh.sinhTon.spo2|kind=recordpath
+N|p:khamBenh.sinhTon.chieuCao|kind=recordpath
+N|p:khamBenh.sinhTon.canNang|kind=recordpath
+N|p:khamBenh.sinhTon.bmi|kind=recordpath
+N|p:khamBenh.sinhTon.bsa|kind=recordpath
+N|p:khamBenh.glasgow.e|kind=recordpath
+N|p:khamBenh.glasgow.v|kind=recordpath
+N|p:khamBenh.glasgow.m|kind=recordpath
+N|p:khamBenh.roiLoanTriGiac|kind=recordpath
+N|p:luocQuaCoQuan.timMach|kind=recordpath
+N|p:luocQuaCoQuan.hoHap|kind=recordpath
+N|p:luocQuaCoQuan.tieuHoa|kind=recordpath
+N|p:luocQuaCoQuan.thanKinh|kind=recordpath
+N|p:luocQuaCoQuan.coXuongKhop|kind=recordpath
+N|p:luocQuaCoQuan.thanNieu|kind=recordpath
+N|p:khamBenh.tongTrang|kind=recordpath
+N|p:khamBenh.dauMatCo|kind=recordpath
+N|p:khamBenh.nguc|kind=recordpath
+N|p:khamBenh.tim|kind=recordpath
+N|p:khamBenh.phoi|kind=recordpath
+N|p:khamBenh.bung|kind=recordpath
+N|p:khamBenh.thanKinhCoXuongKhop|kind=recordpath
+N|p:tomTatBenhAn|kind=recordpath
+N|p:datVanDe|kind=recordpath
+N|p:chanDoanSoBo|kind=recordpath
+N|p:chanDoanSoBoChiTiet.benhChinh|kind=recordpath
+N|p:chanDoanSoBoChiTiet.bienChung|kind=recordpath
+N|p:chanDoanSoBoChiTiet.benhKem|kind=recordpath
+N|p:chanDoanSoBoChiTiet.mucDo|kind=recordpath
+N|p:chanDoanPhanBiet|kind=recordpath
+N|p:bienLuanChanDoan|kind=recordpath
+N|p:canLamSangDeNghi|kind=recordpath
+N|p:ketQuaCanLamSang|kind=recordpath
+N|p:chanDoanXacDinh|kind=recordpath
+N|p:chanDoanXacDinhChiTiet.benhChinh|kind=recordpath
+N|p:chanDoanXacDinhChiTiet.bienChung|kind=recordpath
+N|p:chanDoanXacDinhChiTiet.benhKem|kind=recordpath
+N|p:chanDoanXacDinhChiTiet.mucDo|kind=recordpath
+N|p:huongDieuTri|kind=recordpath
+N|p:dieuTriCuThe|kind=recordpath
+N|p:tienLuong|kind=recordpath
+N|s:I|kind=section|title=I. HÀNH CHÍNH
+N|s:II|kind=section|title=II. LÝ DO VÀO VIỆN
+N|s:III|kind=section|title=III. BỆNH SỬ
+N|s:IV|kind=section|title=IV. TIỀN CĂN
+N|s:VII|kind=section|title=VII. TÓM TẮT BỆNH ÁN
+N|s:VIII|kind=section|title=VIII. ĐẶT VẤN ĐỀ
+N|s:IX|kind=section|title=IX. CHẨN ĐOÁN
+N|s:X|kind=section|title=X. BIỆN LUẬN LÂM SÀNG
+N|s:XI|kind=section|title=XI. ĐỀ NGHỊ CẬN LÂM SÀNG
+N|s:XII|kind=section|title=XII. KẾT QUẢ CẬN LÂM SÀNG
+N|s:PHẪU THUẬT|kind=section|title=PHẪU THUẬT
+N|s:XIII|kind=section|title=XIII. CHẨN ĐOÁN XÁC ĐỊNH
+N|s:XIV|kind=section|title=XIV. ĐIỀU TRỊ
+N|s:XV|kind=section|title=XV. TIÊN LƯỢNG
+N|s:THEO DÕI DIỄN TIẾN|kind=section|title=THEO DÕI DIỄN TIẾN
+N|fn:applyMenses|kind=composer
+N|fn:applyObstetric|kind=composer
+N|fn:applySmoke|kind=composer
+N|fn:applyAlcohol|kind=composer
+N|fn:applyPara|kind=composer
+N|fn:proseBinder|kind=binder|note=phai co trong danh sach adopt() cuoi loadExisting
+N|fn:blBinder|kind=binder|note=phai co trong danh sach adopt() cuoi loadExisting
+N|fn:rxBinder|kind=binder|note=phai co trong danh sach adopt() cuoi loadExisting
+N|fn:dx1Binder|kind=binder|note=phai co trong danh sach adopt() cuoi loadExisting
+N|fn:dx2Binder|kind=binder|note=phai co trong danh sach adopt() cuoi loadExisting
+N|note:adopt|kind=note|text=loadExisting() cuoi ham goi adopt() cho moi binder
+N|fn:buildProse|kind=composer|file=benh-su-editor.js
+N|fn:envText|kind=composer
+N|s:HEADER|kind=section|title=dong ky ten dau ban Markdown
+N|p:canLamSang|kind=recordpath|source=module
+N|m:getCls|kind=module|file=cls-editor.js
+N|p:bienLuan|kind=recordpath|source=module
+N|m:getBienLuan|kind=module|file=bien-luan-editor.js
+N|p:theoDoi|kind=recordpath|source=module
+N|m:getTheoDoi|kind=module|file=theo-doi-editor.js
+N|p:anhKham|kind=recordpath|source=module
+N|m:imgExam|kind=module|file=image-upload.js
+N|p:anhHoSo|kind=recordpath|source=module
+N|m:imgHoSo|kind=module|file=image-upload.js
+N|p:yLenhThuoc|kind=recordpath|source=module
+N|m:getRx|kind=module|file=rx-editor.js
+N|p:hoiCo|kind=recordpath|source=module
+N|m:getAsk|kind=module|file=ui-ask.js
+N|p:phanDo|kind=recordpath|source=module
+N|m:getPhanDo|kind=module|file=phan-do.js
+N|p:benhSuChiTiet.mocs|kind=recordpath|source=module
+N|m:getSteps|kind=module|file=benh-su-editor.js
+N|p:tienSu.noiKhoaMoc|kind=recordpath|source=module
+N|m:cnvInternal|kind=module|file=cnv-list.js
+N|p:tienSu.ngoaiKhoaMoc|kind=recordpath|source=module
+N|m:cnvSurgery|kind=module|file=cnv-list.js
+N|p:chanThuong.xuongGay|kind=recordpath|source=module
+N|m:gayXuong|kind=module|file=chan-thuong-data.js
+N|p:chanThuong.bongVung|kind=recordpath|source=module
+N|m:burnGet|kind=module|file=body-map.js
+N|p:tienSu.giaDinhChiTiet|kind=recordpath|source=module
+N|m:dsGiaDinh|kind=module|file=gia-dinh-list.js
+N|p:tienSu.diUngChiTiet|kind=recordpath|source=module
+N|m:dsDiUng|kind=module|file=di-ung-list.js
+N|fn:applyAutoFix|kind=calc
+N|fn:syncPhuVaoMoc|kind=calc
+N|fn:applyBlToDx|kind=calc
+N|fn:calcAge|kind=calc
+N|fn:calcYob|kind=calc
+N|fn:applyContextUi|kind=calc
+N|fn:calcBmi|kind=calc
+N|fn:calcGayXuong|kind=calc
+N|fn:calcThaiGain|kind=calc
+N|prefix:ob-hx-*|kind=fieldgroup
+N|fn:calcMatNuoc|kind=calc
+N|prefix:ped-hx-*|kind=fieldgroup
+N|fn:calcBpAll|kind=calc
+N|fn:calcStay|kind=calc
+N|fn:calcOnset|kind=calc
+N|fn:refreshSteps|kind=calc
+N|fn:syncMainSymFields|kind=calc
+N|fn:syncProse|kind=calc
+N|prefix:hx-*|kind=fieldgroup
+N|prefix:adm-*|kind=fieldgroup
+N|fn:calcMenses|kind=calc
+N|prefix:ob-*|kind=fieldgroup
+N|fn:calcSmoke|kind=calc
+N|fn:calcAlcohol|kind=calc
+N|prefix:alc-*|kind=fieldgroup
+N|fn:calcScores|kind=calc
+N|fn:renderGrades|kind=calc
+N|prefix:vital-*|kind=fieldgroup
+N|prefix:gcs-*|kind=fieldgroup
+N|prefix:hx-sym-*|kind=fieldgroup
+N|fn:refreshRos|kind=calc
+N|prefix:ros-*|kind=fieldgroup
+N|fn:calcTrauma|kind=calc
+N|prefix:tr-*|kind=fieldgroup
+N|fn:calcEnv|kind=calc
+N|prefix:env-*|kind=fieldgroup
+N|fn:calcAsa|kind=calc
+N|fn:flagVital|kind=calc
+N|fn:calcSpecialty|kind=calc
+N|prefix:sx-*|kind=fieldgroup
+N|fn:syncGenderUi|kind=calc
+N|rule:Thuốc nền đang dùng ở nhà chưa thấy trong y lệnh|kind=rule|file=clinical-validator.js
+N|rule:Ngày khởi phát sau ngày nhập viện|kind=rule|file=clinical-validator.js
+N|rule:Ngày nhập viện nằm ở tương lai|kind=rule|file=clinical-validator.js
+N|rule:Làm bệnh án trước cả lúc bệnh nhân nhập viện|kind=rule|file=clinical-validator.js
+N|rule:Ngày mổ trước ngày nhập viện|kind=rule|file=clinical-validator.js
+N|rule:Chấn thương xảy ra sau khi đã nhập viện|kind=rule|file=clinical-validator.js
+N|rule:Tuổi không khớp năm sinh|kind=rule|file=clinical-validator.js
+N|rule:Cân nặng ghi hai nơi hai con số|kind=rule|file=clinical-validator.js
+N|rule:Ngày chấn thương khác ngày khởi phát|kind=rule|file=clinical-validator.js
+N|rule:Giờ tiếp nhận cấp cứu khác ngày nhập viện|kind=rule|file=clinical-validator.js
+N|rule:Tuổi tháng không khớp tuổi năm|kind=rule|file=clinical-validator.js
+N|rule:Bệnh án nhi nhưng bệnh nhân đã lớn|kind=rule|file=clinical-validator.js
+N|rule:Bệnh án sản khoa trên bệnh nhân nam|kind=rule|file=clinical-validator.js
+N|rule:Chưa chọn giới tính|kind=rule|file=clinical-validator.js
+N|rule:Tiền căn sản khoa trên bệnh nhân nam|kind=rule|file=clinical-validator.js
+N|rule:Chẩn đoán phụ khoa trên bệnh nhân nam|kind=rule|file=clinical-validator.js
+N|rule:Chẩn đoán nam khoa trên bệnh nhân nữ|kind=rule|file=clinical-validator.js
+N|rule:Chẩn đoán không hợp lứa tuổi|kind=rule|file=clinical-validator.js
+N|rule:Kết quả cận lâm sàng không ủng hộ chẩn đoán xác định|kind=rule|file=clinical-validator.js
+N|rule:Kết quả gợi ý viêm phổi|kind=rule|file=clinical-validator.js
+N|rule:Có vấn đề chưa được biện luận|kind=rule|file=clinical-validator.js
+N|rule:Chưa chốt hướng nghĩ nhiều nhất|kind=rule|file=clinical-validator.js
+N|rule:Chưa ghi chẩn đoán sơ bộ|kind=rule|file=clinical-validator.js
+N|rule:Cận lâm sàng ở mục X chưa đổ sang mục XI|kind=rule|file=clinical-validator.js
+N|rule:Chưa có triệu chứng âm tính có giá trị|kind=rule|file=clinical-validator.js
+N|dl:ethnicity-list|kind=datalist|inline_options=10
+N|dl:occupation-list|kind=datalist|inline_options=10
+N|dl:tc-reaction-list|kind=datalist|inline_options=0
+N|dl:tc-quanhe-list|kind=datalist|inline_options=0
+N|dl:ob-cycle-list|kind=datalist|inline_options=0
+N|dl:ob-days-list|kind=datalist|inline_options=0
+N|dl:ob-amount-list|kind=datalist|inline_options=0
+N|dl:ob-dys-list|kind=datalist|inline_options=0
+N|dl:ob-contra-list|kind=datalist|inline_options=0
+N|dl:ob-ketcuc-list|kind=datalist|inline_options=0
+N|dl:sx-anes-list|kind=datalist|inline_options=6
+N|dl:sx-anticoag-list|kind=datalist|inline_options=6
+N|dl:bk-stage-list|kind=datalist|inline_options=17
+N|dl:department-list|kind=datalist|inline_options=17
+N|dl:hospital-list|kind=datalist|inline_options=9
+N|dl:hx-sym-list|kind=datalist|inline_options=0
+N|dl:tc-benhnen-list|kind=datalist|inline_options=0
+N|dl:cd-dich-list|kind=datalist|inline_options=0
+N|dl:cd-ky-list|kind=datalist|inline_options=0
+N|lib:DI_UNG_BIEU_HIEN|kind=datalib|file=tao-benh-an.js imports
+N|lib:QUAN_HE|kind=datalib|file=tao-benh-an.js imports
+N|lib:KINH_NGUYET.chuKy|kind=datalib|file=tao-benh-an.js imports
+N|lib:KINH_NGUYET.soNgay|kind=datalib|file=tao-benh-an.js imports
+N|lib:KINH_NGUYET.luong|kind=datalib|file=tao-benh-an.js imports
+N|lib:KINH_NGUYET.dauBung|kind=datalib|file=tao-benh-an.js imports
+N|lib:NGUA_THAI|kind=datalib|file=tao-benh-an.js imports
+N|lib:KET_CUC_THAI|kind=datalib|file=tao-benh-an.js imports
+N|lib:KY_VONG_THEO_CLS|kind=datalib|file=de-nghi-data.js
+N|lib:QUICK_FILL|kind=datalib|file=goi-y-nhap.js
+N|lib:BENH_NHOM|kind=datalib
+N|lib:TEN_VAN_DE|kind=datalib
+N|lib:symNames|kind=datalib
+N|lib:benhNames|kind=datalib
+N|fn:benhKemList|kind=composer|file=benh-kem-list.js
+N|lib:LY_DO_NHOM|kind=datalib
+N|lib:THUOC_GROUPS|kind=datalib
+N|lib:DI_UNG_NHOM|kind=datalib
+N|lib:VAN_DE_NHOM|kind=datalib
+N|note:by_design|kind=note|text=medical-record-id/record-status gan rieng trong collectRecord; ba-guide la cong tac giao dien
+N|fn:mainSymProse|kind=composer
+N|fn:calcQsofa|kind=composer
+N|note:no_route|kind=note|text=go vao o nay xong chu khong ra ban benh an xuat — hoac la o phu tro (calc/UI), hoac la mot cho dut
+
+E|f:patient-name|on_tab|t:hanh-chinh
+E|f:patient-yob|on_tab|t:hanh-chinh
+E|f:patient-age|on_tab|t:hanh-chinh
+E|f:patient-gender|on_tab|t:hanh-chinh
+E|f:patient-ethnicity|on_tab|t:hanh-chinh
+E|f:patient-occupation|on_tab|t:hanh-chinh
+E|f:patient-address|on_tab|t:hanh-chinh
+E|f:contact-name|on_tab|t:hanh-chinh
+E|f:contact-phone|on_tab|t:hanh-chinh
+E|f:admission-time|on_tab|t:hanh-chinh
+E|f:admission-date|on_tab|t:hanh-chinh
+E|f:record-datetime|on_tab|t:hanh-chinh
+E|f:bed-number|on_tab|t:hanh-chinh
+E|f:room-number|on_tab|t:hanh-chinh
+E|f:hospital-name|on_tab|t:hanh-chinh
+E|f:department-name|on_tab|t:hanh-chinh
+E|f:reason-for-admission|on_tab|t:lydo-tiensu
+E|f:hx-informant|on_tab|t:lydo-tiensu
+E|f:hx-relation|on_tab|t:lydo-tiensu
+E|f:hx-reliability|on_tab|t:lydo-tiensu
+E|f:hx-onset-date|on_tab|t:lydo-tiensu
+E|f:hx-sym-name|on_tab|t:lydo-tiensu
+E|f:hx-sym-site|on_tab|t:lydo-tiensu
+E|f:hx-sym-char|on_tab|t:lydo-tiensu
+E|f:hx-sym-severity|on_tab|t:lydo-tiensu
+E|f:hx-sym-time|on_tab|t:lydo-tiensu
+E|f:hx-sym-factors|on_tab|t:lydo-tiensu
+E|f:hx-sym-assoc|on_tab|t:lydo-tiensu
+E|f:hx-sym-treated|on_tab|t:lydo-tiensu
+E|f:tr-type|on_tab|t:lydo-tiensu
+E|f:tr-time|on_tab|t:lydo-tiensu
+E|f:tr-energy|on_tab|t:lydo-tiensu
+E|f:tr-protect|on_tab|t:lydo-tiensu
+E|f:tr-impact|on_tab|t:lydo-tiensu
+E|f:tr-object|on_tab|t:lydo-tiensu
+E|f:tr-loc|on_tab|t:lydo-tiensu
+E|f:tr-amnesia|on_tab|t:lydo-tiensu
+E|f:tr-vomit|on_tab|t:lydo-tiensu
+E|f:tr-walk|on_tab|t:lydo-tiensu
+E|f:tr-firstaid|on_tab|t:lydo-tiensu
+E|f:tr-transport|on_tab|t:lydo-tiensu
+E|f:tr-burn-depth|on_tab|t:lydo-tiensu
+E|f:tr-burn-agent|on_tab|t:lydo-tiensu
+E|f:ob-hx-visits|on_tab|t:lydo-tiensu
+E|f:ob-hx-where|on_tab|t:lydo-tiensu
+E|f:ob-hx-us|on_tab|t:lydo-tiensu
+E|f:ob-hx-tests|on_tab|t:lydo-tiensu
+E|f:ob-hx-vat|on_tab|t:lydo-tiensu
+E|f:ob-hx-abnormal|on_tab|t:lydo-tiensu
+E|f:ob-hx-preweight|on_tab|t:lydo-tiensu
+E|f:ob-hx-nowweight|on_tab|t:lydo-tiensu
+E|f:ped-hx-who|on_tab|t:lydo-tiensu
+E|f:ped-hx-feed|on_tab|t:lydo-tiensu
+E|f:ped-hx-urine|on_tab|t:lydo-tiensu
+E|f:ped-hx-stool|on_tab|t:lydo-tiensu
+E|f:ped-hx-epi|on_tab|t:lydo-tiensu
+E|f:ped-hx-treated|on_tab|t:lydo-tiensu
+E|f:ped-hx-preweight|on_tab|t:lydo-tiensu
+E|f:hx-admit-state|on_tab|t:lydo-tiensu
+E|f:adm-pulse|on_tab|t:lydo-tiensu
+E|f:adm-bp|on_tab|t:lydo-tiensu
+E|f:adm-temp|on_tab|t:lydo-tiensu
+E|f:adm-resp|on_tab|t:lydo-tiensu
+E|f:adm-spo2|on_tab|t:lydo-tiensu
+E|f:adm-note|on_tab|t:lydo-tiensu
+E|f:hx-after-admit|on_tab|t:lydo-tiensu
+E|f:hx-general|on_tab|t:lydo-tiensu
+E|f:hx-negatives|on_tab|t:lydo-tiensu
+E|f:hx-eat|on_tab|t:lydo-tiensu
+E|f:hx-sleep|on_tab|t:lydo-tiensu
+E|f:hx-stool|on_tab|t:lydo-tiensu
+E|f:hx-urine|on_tab|t:lydo-tiensu
+E|f:illness-history|on_tab|t:lydo-tiensu
+E|f:history-internal|on_tab|t:lydo-tiensu
+E|f:history-drugs|on_tab|t:lydo-tiensu
+E|f:history-allergy|on_tab|t:lydo-tiensu
+E|f:history-surgery|on_tab|t:lydo-tiensu
+E|f:sx-hx-anes|on_tab|t:lydo-tiensu
+E|f:sx-hx-anticoag|on_tab|t:lydo-tiensu
+E|f:sx-hx-fasting|on_tab|t:lydo-tiensu
+E|f:sx-hx-teeth|on_tab|t:lydo-tiensu
+E|f:sx-asa|on_tab|t:lydo-tiensu
+E|f:para-1|on_tab|t:lydo-tiensu
+E|f:para-2|on_tab|t:lydo-tiensu
+E|f:para-3|on_tab|t:lydo-tiensu
+E|f:para-4|on_tab|t:lydo-tiensu
+E|f:ob-lmp|on_tab|t:lydo-tiensu
+E|f:ob-cycle|on_tab|t:lydo-tiensu
+E|f:ob-menarche|on_tab|t:lydo-tiensu
+E|f:ob-cycle-type|on_tab|t:lydo-tiensu
+E|f:ob-days|on_tab|t:lydo-tiensu
+E|f:ob-amount|on_tab|t:lydo-tiensu
+E|f:ob-dysmenorrhea|on_tab|t:lydo-tiensu
+E|f:ob-contraception|on_tab|t:lydo-tiensu
+E|f:history-obgyne|on_tab|t:lydo-tiensu
+E|f:env-job|on_tab|t:lydo-tiensu
+E|f:env-area|on_tab|t:lydo-tiensu
+E|f:env-contact|on_tab|t:lydo-tiensu
+E|f:env-animal|on_tab|t:lydo-tiensu
+E|f:env-water|on_tab|t:lydo-tiensu
+E|f:env-travel|on_tab|t:lydo-tiensu
+E|f:history-environment|on_tab|t:lydo-tiensu
+E|f:ped-birth|on_tab|t:lydo-tiensu
+E|f:ped-nutrition|on_tab|t:lydo-tiensu
+E|f:ped-vaccine|on_tab|t:lydo-tiensu
+E|f:ped-development|on_tab|t:lydo-tiensu
+E|f:smoke-cpd|on_tab|t:lydo-tiensu
+E|f:smoke-from|on_tab|t:lydo-tiensu
+E|f:smoke-to|on_tab|t:lydo-tiensu
+E|f:alc-drink|on_tab|t:lydo-tiensu
+E|f:alc-qty|on_tab|t:lydo-tiensu
+E|f:alc-freq|on_tab|t:lydo-tiensu
+E|f:alc-vol|on_tab|t:lydo-tiensu
+E|f:alc-abv|on_tab|t:lydo-tiensu
+E|f:alc-from|on_tab|t:lydo-tiensu
+E|f:alc-to|on_tab|t:lydo-tiensu
+E|f:history-habit|on_tab|t:lydo-tiensu
+E|f:history-family|on_tab|t:lydo-tiensu
+E|f:ros-cardio|on_tab|t:kham-benh
+E|f:ros-resp|on_tab|t:kham-benh
+E|f:ros-gi|on_tab|t:kham-benh
+E|f:ros-neuro|on_tab|t:kham-benh
+E|f:ros-msk|on_tab|t:kham-benh
+E|f:ros-uro|on_tab|t:kham-benh
+E|f:cc-triage|on_tab|t:kham-benh
+E|f:cc-time|on_tab|t:kham-benh
+E|f:cc-a|on_tab|t:kham-benh
+E|f:cc-b|on_tab|t:kham-benh
+E|f:cc-c|on_tab|t:kham-benh
+E|f:cc-d|on_tab|t:kham-benh
+E|f:cc-e|on_tab|t:kham-benh
+E|f:cc-initial|on_tab|t:kham-benh
+E|f:vital-pulse|on_tab|t:kham-benh
+E|f:vital-temp|on_tab|t:kham-benh
+E|f:vital-bp|on_tab|t:kham-benh
+E|f:vital-resp|on_tab|t:kham-benh
+E|f:vital-spo2|on_tab|t:kham-benh
+E|f:vital-height|on_tab|t:kham-benh
+E|f:vital-weight|on_tab|t:kham-benh
+E|f:vital-bmi|on_tab|t:kham-benh
+E|f:vital-bsa|on_tab|t:kham-benh
+E|f:gcs-e|on_tab|t:kham-benh
+E|f:gcs-v|on_tab|t:kham-benh
+E|f:gcs-m|on_tab|t:kham-benh
+E|f:curb-confusion|on_tab|t:kham-benh
+E|f:exam-general|on_tab|t:kham-benh
+E|f:exam-head|on_tab|t:kham-benh
+E|f:exam-chest|on_tab|t:kham-benh
+E|f:exam-heart|on_tab|t:kham-benh
+E|f:exam-lung|on_tab|t:kham-benh
+E|f:exam-abdomen|on_tab|t:kham-benh
+E|f:ob-bctc|on_tab|t:kham-benh
+E|f:ob-vb|on_tab|t:kham-benh
+E|f:ob-fhr|on_tab|t:kham-benh
+E|f:ob-contraction|on_tab|t:kham-benh
+E|f:ob-cervix|on_tab|t:kham-benh
+E|f:ob-position|on_tab|t:kham-benh
+E|f:ob-amniotic|on_tab|t:kham-benh
+E|f:ob-pelvis|on_tab|t:kham-benh
+E|f:ped-months|on_tab|t:kham-benh
+E|f:ped-dose|on_tab|t:kham-benh
+E|f:exam-neuro-msk|on_tab|t:kham-benh
+E|f:summary|on_tab|t:chan-doan-dieu-tri
+E|f:problem-list|on_tab|t:chan-doan-dieu-tri
+E|f:dx1-main|on_tab|t:chan-doan-dieu-tri
+E|f:dx1-comp|on_tab|t:chan-doan-dieu-tri
+E|f:dx1-stage|on_tab|t:chan-doan-dieu-tri
+E|f:dx1-assoc|on_tab|t:chan-doan-dieu-tri
+E|f:provisional-diagnosis|on_tab|t:chan-doan-dieu-tri
+E|f:differential-diagnosis|on_tab|t:chan-doan-dieu-tri
+E|f:diagnosis-reasoning|on_tab|t:chan-doan-dieu-tri
+E|f:labs-proposed|on_tab|t:chan-doan-dieu-tri
+E|f:labs-results|on_tab|t:can-lam-sang
+E|f:sx-datetime|on_tab|t:ket-luan
+E|f:sx-method|on_tab|t:ket-luan
+E|f:sx-anesthesia|on_tab|t:ket-luan
+E|f:sx-drain|on_tab|t:ket-luan
+E|f:sx-pre-dx|on_tab|t:ket-luan
+E|f:sx-post-dx|on_tab|t:ket-luan
+E|f:sx-report|on_tab|t:ket-luan
+E|f:dx2-main|on_tab|t:ket-luan
+E|f:dx2-comp|on_tab|t:ket-luan
+E|f:dx2-stage|on_tab|t:ket-luan
+E|f:dx2-assoc|on_tab|t:ket-luan
+E|f:final-diagnosis|on_tab|t:ket-luan
+E|f:treatment-plan|on_tab|t:ket-luan
+E|f:treatment-detail|on_tab|t:ket-luan
+E|f:prognosis|on_tab|t:ket-luan
+E|f:patient-name|persists_as|p:hanhChinh.hoTen|via=FIELDS
+E|f:patient-yob|persists_as|p:hanhChinh.namSinh|via=FIELDS
+E|f:patient-age|persists_as|p:hanhChinh.tuoi|via=FIELDS
+E|f:patient-gender|persists_as|p:hanhChinh.gioiTinh|via=FIELDS
+E|f:patient-ethnicity|persists_as|p:hanhChinh.danToc|via=FIELDS
+E|f:patient-occupation|persists_as|p:hanhChinh.ngheNghiep|via=FIELDS
+E|f:patient-address|persists_as|p:hanhChinh.diaChi|via=FIELDS
+E|f:contact-name|persists_as|p:hanhChinh.nguoiLienHe|via=FIELDS
+E|f:contact-phone|persists_as|p:hanhChinh.sdtLienHe|via=FIELDS
+E|f:admission-time|persists_as|p:hanhChinh.gioVaoVien|via=FIELDS
+E|f:admission-date|persists_as|p:hanhChinh.ngayVaoVien|via=FIELDS
+E|f:record-datetime|persists_as|p:hanhChinh.ngayLamBenhAn|via=FIELDS
+E|f:bed-number|persists_as|p:hanhChinh.soGiuong|via=FIELDS
+E|f:room-number|persists_as|p:hanhChinh.soPhong|via=FIELDS
+E|f:hospital-name|persists_as|p:hanhChinh.benhVien|via=FIELDS
+E|f:department-name|persists_as|p:hanhChinh.khoa|via=FIELDS
+E|f:record-type|persists_as|p:loaiBenhAn|via=FIELDS
+E|f:stu-name|persists_as|p:sinhVien.hoTen|via=FIELDS
+E|f:stu-id|persists_as|p:sinhVien.mssv|via=FIELDS
+E|f:stu-class|persists_as|p:sinhVien.lop|via=FIELDS
+E|f:stu-no|persists_as|p:sinhVien.stt|via=FIELDS
+E|f:reason-for-admission|persists_as|p:lyDoVaoVien|via=FIELDS
+E|f:illness-history|persists_as|p:benhSu|via=FIELDS
+E|f:hx-informant|persists_as|p:benhSuChiTiet.nguoiKhai|via=FIELDS
+E|f:hx-relation|persists_as|p:benhSuChiTiet.quanHe|via=FIELDS
+E|f:hx-reliability|persists_as|p:benhSuChiTiet.doTinCay|via=FIELDS
+E|f:hx-onset-date|persists_as|p:benhSuChiTiet.ngayKhoiPhat|via=FIELDS
+E|f:hx-sym-name|persists_as|p:benhSuChiTiet.trieuChung.ten|via=FIELDS
+E|f:hx-sym-site|persists_as|p:benhSuChiTiet.trieuChung.viTri|via=FIELDS
+E|f:hx-sym-char|persists_as|p:benhSuChiTiet.trieuChung.tinhChat|via=FIELDS
+E|f:hx-sym-severity|persists_as|p:benhSuChiTiet.trieuChung.mucDo|via=FIELDS
+E|f:hx-sym-time|persists_as|p:benhSuChiTiet.trieuChung.thoiGian|via=FIELDS
+E|f:hx-sym-factors|persists_as|p:benhSuChiTiet.trieuChung.tangGiam|via=FIELDS
+E|f:hx-sym-assoc|persists_as|p:benhSuChiTiet.trieuChung.kemTheo|via=FIELDS
+E|f:hx-sym-treated|persists_as|p:benhSuChiTiet.trieuChung.daXuTri|via=FIELDS
+E|f:hx-eat|persists_as|p:benhSuChiTiet.anUong|via=FIELDS
+E|f:hx-sleep|persists_as|p:benhSuChiTiet.giacNgu|via=FIELDS
+E|f:hx-stool|persists_as|p:benhSuChiTiet.tieu|via=FIELDS
+E|f:hx-urine|persists_as|p:benhSuChiTiet.tieuTien|via=FIELDS
+E|f:hx-general|persists_as|p:benhSuChiTiet.toanThan|via=FIELDS
+E|f:hx-negatives|persists_as|p:benhSuChiTiet.amTinh|via=FIELDS
+E|f:hx-admit-state|persists_as|p:benhSuChiTiet.lucNhapVien|via=FIELDS
+E|f:adm-pulse|persists_as|p:benhSuChiTiet.sinhHieuNhapVien.mach|via=FIELDS
+E|f:adm-bp|persists_as|p:benhSuChiTiet.sinhHieuNhapVien.huyetAp|via=FIELDS
+E|f:adm-temp|persists_as|p:benhSuChiTiet.sinhHieuNhapVien.nhietDo|via=FIELDS
+E|f:adm-resp|persists_as|p:benhSuChiTiet.sinhHieuNhapVien.nhipTho|via=FIELDS
+E|f:adm-spo2|persists_as|p:benhSuChiTiet.sinhHieuNhapVien.spo2|via=FIELDS
+E|f:adm-note|persists_as|p:benhSuChiTiet.sinhHieuNhapVien.ghiChu|via=FIELDS
+E|f:hx-after-admit|persists_as|p:benhSuChiTiet.sauNhapVien|via=FIELDS
+E|f:history-internal|persists_as|p:tienSu.noiKhoa|via=FIELDS
+E|f:env-job|persists_as|p:tienSu.phoiNhiem.ngheNghiep|via=FIELDS
+E|f:env-area|persists_as|p:tienSu.phoiNhiem.vungDich|via=FIELDS
+E|f:env-contact|persists_as|p:tienSu.phoiNhiem.nguoiBenh|via=FIELDS
+E|f:env-animal|persists_as|p:tienSu.phoiNhiem.dongVat|via=FIELDS
+E|f:env-water|persists_as|p:tienSu.phoiNhiem.nuocAn|via=FIELDS
+E|f:env-travel|persists_as|p:tienSu.phoiNhiem.diLai|via=FIELDS
+E|f:history-surgery|persists_as|p:tienSu.ngoaiKhoa|via=FIELDS
+E|f:history-obgyne|persists_as|p:tienSu.sanPhuKhoa|via=FIELDS
+E|f:history-allergy|persists_as|p:tienSu.diUng|via=FIELDS
+E|f:history-environment|persists_as|p:tienSu.moiTruong|via=FIELDS
+E|f:history-drugs|persists_as|p:tienSu.thuocDangDung|via=FIELDS
+E|f:ob-lmp|persists_as|p:sanKhoa.kinhChot|via=FIELDS
+E|f:ob-cycle|persists_as|p:sanKhoa.vongKinh|via=FIELDS
+E|f:ob-bctc|persists_as|p:sanKhoa.bcTC|via=FIELDS
+E|f:ob-vb|persists_as|p:sanKhoa.vongBung|via=FIELDS
+E|f:ob-fhr|persists_as|p:sanKhoa.timThai|via=FIELDS
+E|f:ob-contraction|persists_as|p:sanKhoa.conCo|via=FIELDS
+E|f:ob-cervix|persists_as|p:sanKhoa.coTuCung|via=FIELDS
+E|f:ob-position|persists_as|p:sanKhoa.ngoiThai|via=FIELDS
+E|f:ob-amniotic|persists_as|p:sanKhoa.oi|via=FIELDS
+E|f:ob-pelvis|persists_as|p:sanKhoa.khungChau|via=FIELDS
+E|f:ped-months|persists_as|p:nhiKhoa.tuoiThang|via=FIELDS
+E|f:ped-dose|persists_as|p:nhiKhoa.lieuMgKg|via=FIELDS
+E|f:ped-birth|persists_as|p:nhiKhoa.sanKhoaLucSinh|via=FIELDS
+E|f:ped-nutrition|persists_as|p:nhiKhoa.dinhDuong|via=FIELDS
+E|f:ped-vaccine|persists_as|p:nhiKhoa.chungNgua|via=FIELDS
+E|f:ped-development|persists_as|p:nhiKhoa.phatTrien|via=FIELDS
+E|f:cc-triage|persists_as|p:capCuu.uuTien|via=FIELDS
+E|f:cc-time|persists_as|p:capCuu.thoiDiem|via=FIELDS
+E|f:cc-a|persists_as|p:capCuu.a|via=FIELDS
+E|f:cc-b|persists_as|p:capCuu.b|via=FIELDS
+E|f:cc-c|persists_as|p:capCuu.c|via=FIELDS
+E|f:cc-d|persists_as|p:capCuu.d|via=FIELDS
+E|f:cc-e|persists_as|p:capCuu.e|via=FIELDS
+E|f:cc-initial|persists_as|p:capCuu.xuTriBanDau|via=FIELDS
+E|f:tr-type|persists_as|p:chanThuong.loai|via=FIELDS
+E|f:tr-time|persists_as|p:chanThuong.thoiDiem|via=FIELDS
+E|f:tr-energy|persists_as|p:chanThuong.vanTocDoCao|via=FIELDS
+E|f:tr-protect|persists_as|p:chanThuong.baoHo|via=FIELDS
+E|f:tr-impact|persists_as|p:chanThuong.viTriVaDap|via=FIELDS
+E|f:tr-object|persists_as|p:chanThuong.vatGayThuongTich|via=FIELDS
+E|f:tr-loc|persists_as|p:chanThuong.batTinh|via=FIELDS
+E|f:tr-amnesia|persists_as|p:chanThuong.quenSuViec|via=FIELDS
+E|f:tr-vomit|persists_as|p:chanThuong.non|via=FIELDS
+E|f:tr-walk|persists_as|p:chanThuong.vanDong|via=FIELDS
+E|f:tr-firstaid|persists_as|p:chanThuong.soCuu|via=FIELDS
+E|f:tr-transport|persists_as|p:chanThuong.chuyenVien|via=FIELDS
+E|f:tr-burn-depth|persists_as|p:chanThuong.bongDoSau|via=FIELDS
+E|f:tr-burn-agent|persists_as|p:chanThuong.bongTacNhan|via=FIELDS
+E|f:sx-datetime|persists_as|p:phauThuat.ngayGio|via=FIELDS
+E|f:sx-method|persists_as|p:phauThuat.phuongPhap|via=FIELDS
+E|f:sx-anesthesia|persists_as|p:phauThuat.voCam|via=FIELDS
+E|f:sx-drain|persists_as|p:phauThuat.danLuu|via=FIELDS
+E|f:sx-pre-dx|persists_as|p:phauThuat.chanDoanTruocMo|via=FIELDS
+E|f:sx-post-dx|persists_as|p:phauThuat.chanDoanSauMo|via=FIELDS
+E|f:sx-report|persists_as|p:phauThuat.tuongTrinh|via=FIELDS
+E|f:history-habit|persists_as|p:tienSu.thoiQuen|via=FIELDS
+E|f:history-family|persists_as|p:tienSu.giaDinh|via=FIELDS
+E|f:ob-menarche|persists_as|p:tienSu.kinhNguyet.tuoiCoKinh|via=FIELDS
+E|f:ob-cycle-type|persists_as|p:tienSu.kinhNguyet.chuKy|via=FIELDS
+E|f:ob-days|persists_as|p:tienSu.kinhNguyet.soNgay|via=FIELDS
+E|f:ob-amount|persists_as|p:tienSu.kinhNguyet.luong|via=FIELDS
+E|f:ob-dysmenorrhea|persists_as|p:tienSu.kinhNguyet.dauBung|via=FIELDS
+E|f:ob-contraception|persists_as|p:tienSu.kinhNguyet.nguaThai|via=FIELDS
+E|f:ob-hx-visits|persists_as|p:benhSuChiTiet.san.soLanKhamThai|via=FIELDS
+E|f:ob-hx-where|persists_as|p:benhSuChiTiet.san.noiKhamThai|via=FIELDS
+E|f:ob-hx-us|persists_as|p:benhSuChiTiet.san.sieuAm|via=FIELDS
+E|f:ob-hx-tests|persists_as|p:benhSuChiTiet.san.xetNghiem|via=FIELDS
+E|f:ob-hx-vat|persists_as|p:benhSuChiTiet.san.uonVan|via=FIELDS
+E|f:ob-hx-abnormal|persists_as|p:benhSuChiTiet.san.batThuong|via=FIELDS
+E|f:ob-hx-preweight|persists_as|p:benhSuChiTiet.san.canTruocMangThai|via=FIELDS
+E|f:ob-hx-nowweight|persists_as|p:benhSuChiTiet.san.canHienTai|via=FIELDS
+E|f:ped-hx-who|persists_as|p:benhSuChiTiet.nhi.nguoiNuoi|via=FIELDS
+E|f:ped-hx-feed|persists_as|p:benhSuChiTiet.nhi.anBu|via=FIELDS
+E|f:ped-hx-urine|persists_as|p:benhSuChiTiet.nhi.nuocTieu|via=FIELDS
+E|f:ped-hx-stool|persists_as|p:benhSuChiTiet.nhi.phan|via=FIELDS
+E|f:ped-hx-epi|persists_as|p:benhSuChiTiet.nhi.dichTe|via=FIELDS
+E|f:ped-hx-treated|persists_as|p:benhSuChiTiet.nhi.daDieuTri|via=FIELDS
+E|f:ped-hx-preweight|persists_as|p:benhSuChiTiet.nhi.canTruocBenh|via=FIELDS
+E|f:sx-hx-anes|persists_as|p:tienSu.truocMo.gayMe|via=FIELDS
+E|f:sx-hx-anticoag|persists_as|p:tienSu.truocMo.chongDong|via=FIELDS
+E|f:sx-hx-fasting|persists_as|p:tienSu.truocMo.anUong|via=FIELDS
+E|f:sx-hx-teeth|persists_as|p:tienSu.truocMo.rangGia|via=FIELDS
+E|f:sx-asa|persists_as|p:tienSu.truocMo.asa|via=FIELDS
+E|f:para-1|persists_as|p:tienSu.para.duThang|via=FIELDS
+E|f:para-2|persists_as|p:tienSu.para.thieuThang|via=FIELDS
+E|f:para-3|persists_as|p:tienSu.para.say|via=FIELDS
+E|f:para-4|persists_as|p:tienSu.para.conSong|via=FIELDS
+E|f:smoke-cpd|persists_as|p:tienSu.thuocLa.dieuMoiNgay|via=FIELDS
+E|f:smoke-from|persists_as|p:tienSu.thuocLa.tuTuoi|via=FIELDS
+E|f:smoke-to|persists_as|p:tienSu.thuocLa.denTuoi|via=FIELDS
+E|f:alc-drink|persists_as|p:tienSu.ruou.thucUong|via=FIELDS
+E|f:alc-qty|persists_as|p:tienSu.ruou.soLuongMoiLan|via=FIELDS
+E|f:alc-freq|persists_as|p:tienSu.ruou.tanSuat|via=FIELDS
+E|f:alc-vol|persists_as|p:tienSu.ruou.dungTich|via=FIELDS
+E|f:alc-abv|persists_as|p:tienSu.ruou.doCon|via=FIELDS
+E|f:alc-from|persists_as|p:tienSu.ruou.tuTuoi|via=FIELDS
+E|f:alc-to|persists_as|p:tienSu.ruou.denTuoi|via=FIELDS
+E|f:vital-pulse|persists_as|p:khamBenh.sinhTon.mach|via=FIELDS
+E|f:vital-temp|persists_as|p:khamBenh.sinhTon.nhietDo|via=FIELDS
+E|f:vital-bp|persists_as|p:khamBenh.sinhTon.huyetAp|via=FIELDS
+E|f:vital-resp|persists_as|p:khamBenh.sinhTon.nhipTho|via=FIELDS
+E|f:vital-spo2|persists_as|p:khamBenh.sinhTon.spo2|via=FIELDS
+E|f:vital-height|persists_as|p:khamBenh.sinhTon.chieuCao|via=FIELDS
+E|f:vital-weight|persists_as|p:khamBenh.sinhTon.canNang|via=FIELDS
+E|f:vital-bmi|persists_as|p:khamBenh.sinhTon.bmi|via=FIELDS
+E|f:vital-bsa|persists_as|p:khamBenh.sinhTon.bsa|via=FIELDS
+E|f:gcs-e|persists_as|p:khamBenh.glasgow.e|via=FIELDS
+E|f:gcs-v|persists_as|p:khamBenh.glasgow.v|via=FIELDS
+E|f:gcs-m|persists_as|p:khamBenh.glasgow.m|via=FIELDS
+E|f:curb-confusion|persists_as|p:khamBenh.roiLoanTriGiac|via=FIELDS
+E|f:ros-cardio|persists_as|p:luocQuaCoQuan.timMach|via=FIELDS
+E|f:ros-resp|persists_as|p:luocQuaCoQuan.hoHap|via=FIELDS
+E|f:ros-gi|persists_as|p:luocQuaCoQuan.tieuHoa|via=FIELDS
+E|f:ros-neuro|persists_as|p:luocQuaCoQuan.thanKinh|via=FIELDS
+E|f:ros-msk|persists_as|p:luocQuaCoQuan.coXuongKhop|via=FIELDS
+E|f:ros-uro|persists_as|p:luocQuaCoQuan.thanNieu|via=FIELDS
+E|f:exam-general|persists_as|p:khamBenh.tongTrang|via=FIELDS
+E|f:exam-head|persists_as|p:khamBenh.dauMatCo|via=FIELDS
+E|f:exam-chest|persists_as|p:khamBenh.nguc|via=FIELDS
+E|f:exam-heart|persists_as|p:khamBenh.tim|via=FIELDS
+E|f:exam-lung|persists_as|p:khamBenh.phoi|via=FIELDS
+E|f:exam-abdomen|persists_as|p:khamBenh.bung|via=FIELDS
+E|f:exam-neuro-msk|persists_as|p:khamBenh.thanKinhCoXuongKhop|via=FIELDS
+E|f:summary|persists_as|p:tomTatBenhAn|via=FIELDS
+E|f:problem-list|persists_as|p:datVanDe|via=FIELDS
+E|f:provisional-diagnosis|persists_as|p:chanDoanSoBo|via=FIELDS
+E|f:dx1-main|persists_as|p:chanDoanSoBoChiTiet.benhChinh|via=FIELDS
+E|f:dx1-comp|persists_as|p:chanDoanSoBoChiTiet.bienChung|via=FIELDS
+E|f:dx1-assoc|persists_as|p:chanDoanSoBoChiTiet.benhKem|via=FIELDS
+E|f:dx1-stage|persists_as|p:chanDoanSoBoChiTiet.mucDo|via=FIELDS
+E|f:differential-diagnosis|persists_as|p:chanDoanPhanBiet|via=FIELDS
+E|f:diagnosis-reasoning|persists_as|p:bienLuanChanDoan|via=FIELDS
+E|f:labs-proposed|persists_as|p:canLamSangDeNghi|via=FIELDS
+E|f:labs-results|persists_as|p:ketQuaCanLamSang|via=FIELDS
+E|f:final-diagnosis|persists_as|p:chanDoanXacDinh|via=FIELDS
+E|f:dx2-main|persists_as|p:chanDoanXacDinhChiTiet.benhChinh|via=FIELDS
+E|f:dx2-comp|persists_as|p:chanDoanXacDinhChiTiet.bienChung|via=FIELDS
+E|f:dx2-assoc|persists_as|p:chanDoanXacDinhChiTiet.benhKem|via=FIELDS
+E|f:dx2-stage|persists_as|p:chanDoanXacDinhChiTiet.mucDo|via=FIELDS
+E|f:treatment-plan|persists_as|p:huongDieuTri|via=FIELDS
+E|f:treatment-detail|persists_as|p:dieuTriCuThe|via=FIELDS
+E|f:prognosis|persists_as|p:tienLuong|via=FIELDS
+E|p:hanhChinh.hoTen|renders_in|s:I|via=buildModel
+E|p:hanhChinh.tuoi|renders_in|s:I|via=buildModel
+E|p:hanhChinh.namSinh|renders_in|s:I|via=buildModel
+E|p:hanhChinh.gioiTinh|renders_in|s:I|via=buildModel
+E|p:hanhChinh.danToc|renders_in|s:I|via=buildModel
+E|p:hanhChinh.ngheNghiep|renders_in|s:I|via=buildModel
+E|p:hanhChinh.diaChi|renders_in|s:I|via=buildModel
+E|p:hanhChinh.gioVaoVien|renders_in|s:I|via=buildModel
+E|p:hanhChinh.ngayVaoVien|renders_in|s:I|via=buildModel
+E|p:hanhChinh.ngayLamBenhAn|renders_in|s:I|via=buildModel
+E|p:hanhChinh.khoa|renders_in|s:I|via=buildModel
+E|p:hanhChinh.benhVien|renders_in|s:I|via=buildModel
+E|p:hanhChinh.soPhong|renders_in|s:I|via=buildModel
+E|p:hanhChinh.soGiuong|renders_in|s:I|via=buildModel
+E|p:hanhChinh.nguoiLienHe|renders_in|s:I|via=buildModel
+E|p:hanhChinh.sdtLienHe|renders_in|s:I|via=buildModel
+E|p:lyDoVaoVien|renders_in|s:II|via=buildModel
+E|p:benhSu|renders_in|s:III|via=buildModel
+E|p:chanThuong.loai|renders_in|s:III|via=buildModel
+E|p:chanThuong.thoiDiem|renders_in|s:III|via=buildModel
+E|p:chanThuong.vanTocDoCao|renders_in|s:III|via=buildModel
+E|p:chanThuong.viTriVaDap|renders_in|s:III|via=buildModel
+E|p:chanThuong.vatGayThuongTich|renders_in|s:III|via=buildModel
+E|p:chanThuong.baoHo|renders_in|s:III|via=buildModel
+E|p:chanThuong.batTinh|renders_in|s:III|via=buildModel
+E|p:chanThuong.quenSuViec|renders_in|s:III|via=buildModel
+E|p:chanThuong.non|renders_in|s:III|via=buildModel
+E|p:chanThuong.vanDong|renders_in|s:III|via=buildModel
+E|p:chanThuong.soCuu|renders_in|s:III|via=buildModel
+E|p:chanThuong.chuyenVien|renders_in|s:III|via=buildModel
+E|p:chanThuong.bongDoSau|renders_in|s:III|via=buildModel
+E|p:chanThuong.bongTacNhan|renders_in|s:III|via=buildModel
+E|p:benhSuChiTiet.san.soLanKhamThai|renders_in|s:III|via=buildModel
+E|p:benhSuChiTiet.san.noiKhamThai|renders_in|s:III|via=buildModel
+E|p:benhSuChiTiet.san.sieuAm|renders_in|s:III|via=buildModel
+E|p:benhSuChiTiet.san.xetNghiem|renders_in|s:III|via=buildModel
+E|p:benhSuChiTiet.san.uonVan|renders_in|s:III|via=buildModel
+E|p:benhSuChiTiet.san.batThuong|renders_in|s:III|via=buildModel
+E|p:benhSuChiTiet.san.canTruocMangThai|renders_in|s:III|via=buildModel
+E|p:benhSuChiTiet.san.canHienTai|renders_in|s:III|via=buildModel
+E|p:benhSuChiTiet.nhi.nguoiNuoi|renders_in|s:III|via=buildModel
+E|p:benhSuChiTiet.nhi.anBu|renders_in|s:III|via=buildModel
+E|p:benhSuChiTiet.nhi.nuocTieu|renders_in|s:III|via=buildModel
+E|p:benhSuChiTiet.nhi.phan|renders_in|s:III|via=buildModel
+E|p:benhSuChiTiet.nhi.dichTe|renders_in|s:III|via=buildModel
+E|p:benhSuChiTiet.nhi.daDieuTri|renders_in|s:III|via=buildModel
+E|p:benhSuChiTiet.nhi.canTruocBenh|renders_in|s:III|via=buildModel
+E|p:benhSuChiTiet.sinhHieuNhapVien.mach|renders_in|s:III|via=buildModel
+E|p:benhSuChiTiet.sinhHieuNhapVien.huyetAp|renders_in|s:III|via=buildModel
+E|p:benhSuChiTiet.sinhHieuNhapVien.nhietDo|renders_in|s:III|via=buildModel
+E|p:benhSuChiTiet.sinhHieuNhapVien.nhipTho|renders_in|s:III|via=buildModel
+E|p:benhSuChiTiet.sinhHieuNhapVien.spo2|renders_in|s:III|via=buildModel
+E|p:benhSuChiTiet.sinhHieuNhapVien.ghiChu|renders_in|s:III|via=buildModel
+E|p:tienSu.noiKhoa|renders_in|s:IV|via=buildModel
+E|p:tienSu.thuocDangDung|renders_in|s:IV|via=buildModel
+E|p:tienSu.ngoaiKhoa|renders_in|s:IV|via=buildModel
+E|p:tienSu.sanPhuKhoa|renders_in|s:IV|via=buildModel
+E|p:tienSu.diUng|renders_in|s:IV|via=buildModel
+E|p:tienSu.moiTruong|renders_in|s:IV|via=buildModel
+E|p:tienSu.thoiQuen|renders_in|s:IV|via=buildModel
+E|p:tienSu.giaDinh|renders_in|s:IV|via=buildModel
+E|p:tienSu.truocMo.gayMe|renders_in|s:IV|via=buildModel
+E|p:tienSu.truocMo.chongDong|renders_in|s:IV|via=buildModel
+E|p:tienSu.truocMo.anUong|renders_in|s:IV|via=buildModel
+E|p:tienSu.truocMo.rangGia|renders_in|s:IV|via=buildModel
+E|p:tienSu.truocMo.asa|renders_in|s:IV|via=buildModel
+E|p:luocQuaCoQuan.timMach|renders_in|s:IV|via=buildModel
+E|p:luocQuaCoQuan.hoHap|renders_in|s:IV|via=buildModel
+E|p:luocQuaCoQuan.tieuHoa|renders_in|s:IV|via=buildModel
+E|p:luocQuaCoQuan.thanKinh|renders_in|s:IV|via=buildModel
+E|p:luocQuaCoQuan.coXuongKhop|renders_in|s:IV|via=buildModel
+E|p:luocQuaCoQuan.thanNieu|renders_in|s:IV|via=buildModel
+E|p:capCuu.uuTien|renders_in|s:IV|via=buildModel
+E|p:capCuu.thoiDiem|renders_in|s:IV|via=buildModel
+E|p:capCuu.a|renders_in|s:IV|via=buildModel
+E|p:capCuu.b|renders_in|s:IV|via=buildModel
+E|p:capCuu.c|renders_in|s:IV|via=buildModel
+E|p:capCuu.d|renders_in|s:IV|via=buildModel
+E|p:capCuu.e|renders_in|s:IV|via=buildModel
+E|p:capCuu.xuTriBanDau|renders_in|s:IV|via=buildModel
+E|p:khamBenh.tongTrang|renders_in|s:IV|via=buildModel
+E|p:khamBenh.sinhTon.mach|renders_in|s:IV|via=buildModel
+E|p:khamBenh.sinhTon.nhietDo|renders_in|s:IV|via=buildModel
+E|p:khamBenh.sinhTon.huyetAp|renders_in|s:IV|via=buildModel
+E|p:khamBenh.sinhTon.nhipTho|renders_in|s:IV|via=buildModel
+E|p:khamBenh.sinhTon.spo2|renders_in|s:IV|via=buildModel
+E|p:khamBenh.sinhTon.chieuCao|renders_in|s:IV|via=buildModel
+E|p:khamBenh.sinhTon.canNang|renders_in|s:IV|via=buildModel
+E|p:khamBenh.sinhTon.bmi|renders_in|s:IV|via=buildModel
+E|p:khamBenh.sinhTon.bsa|renders_in|s:IV|via=buildModel
+E|p:khamBenh.glasgow.e|renders_in|s:IV|via=buildModel
+E|p:khamBenh.glasgow.v|renders_in|s:IV|via=buildModel
+E|p:khamBenh.glasgow.m|renders_in|s:IV|via=buildModel
+E|p:khamBenh.dauMatCo|renders_in|s:IV|via=buildModel
+E|p:khamBenh.nguc|renders_in|s:IV|via=buildModel
+E|p:khamBenh.tim|renders_in|s:IV|via=buildModel
+E|p:khamBenh.phoi|renders_in|s:IV|via=buildModel
+E|p:khamBenh.bung|renders_in|s:IV|via=buildModel
+E|p:sanKhoa.bcTC|renders_in|s:IV|via=buildModel
+E|p:sanKhoa.vongBung|renders_in|s:IV|via=buildModel
+E|p:sanKhoa.timThai|renders_in|s:IV|via=buildModel
+E|p:sanKhoa.conCo|renders_in|s:IV|via=buildModel
+E|p:sanKhoa.coTuCung|renders_in|s:IV|via=buildModel
+E|p:sanKhoa.ngoiThai|renders_in|s:IV|via=buildModel
+E|p:sanKhoa.oi|renders_in|s:IV|via=buildModel
+E|p:sanKhoa.khungChau|renders_in|s:IV|via=buildModel
+E|p:nhiKhoa.tuoiThang|renders_in|s:IV|via=buildModel
+E|p:nhiKhoa.lieuMgKg|renders_in|s:IV|via=buildModel
+E|p:nhiKhoa.sanKhoaLucSinh|renders_in|s:IV|via=buildModel
+E|p:nhiKhoa.dinhDuong|renders_in|s:IV|via=buildModel
+E|p:nhiKhoa.chungNgua|renders_in|s:IV|via=buildModel
+E|p:nhiKhoa.phatTrien|renders_in|s:IV|via=buildModel
+E|p:khamBenh.thanKinhCoXuongKhop|renders_in|s:IV|via=buildModel
+E|p:tomTatBenhAn|renders_in|s:VII|via=buildModel
+E|p:datVanDe|renders_in|s:VIII|via=buildModel
+E|p:chanDoanSoBo|renders_in|s:IX|via=buildModel
+E|p:chanDoanPhanBiet|renders_in|s:IX|via=buildModel
+E|p:bienLuanChanDoan|renders_in|s:X|via=buildModel
+E|p:canLamSangDeNghi|renders_in|s:XI|via=buildModel
+E|p:ketQuaCanLamSang|renders_in|s:XII|via=buildModel
+E|p:phauThuat.ngayGio|renders_in|s:PHẪU THUẬT|via=buildModel
+E|p:phauThuat.phuongPhap|renders_in|s:PHẪU THUẬT|via=buildModel
+E|p:phauThuat.voCam|renders_in|s:PHẪU THUẬT|via=buildModel
+E|p:phauThuat.danLuu|renders_in|s:PHẪU THUẬT|via=buildModel
+E|p:phauThuat.chanDoanTruocMo|renders_in|s:PHẪU THUẬT|via=buildModel
+E|p:phauThuat.chanDoanSauMo|renders_in|s:PHẪU THUẬT|via=buildModel
+E|p:phauThuat.tuongTrinh|renders_in|s:PHẪU THUẬT|via=buildModel
+E|p:chanDoanXacDinh|renders_in|s:XIII|via=buildModel
+E|p:huongDieuTri|renders_in|s:XIV|via=buildModel
+E|p:dieuTriCuThe|renders_in|s:XIV|via=buildModel
+E|p:tienLuong|renders_in|s:XV|via=buildModel
+E|fn:applyMenses|composes_into|f:history-obgyne|via=upsertLine
+E|fn:applyObstetric|composes_into|f:history-obgyne|via=upsertLine
+E|fn:applySmoke|composes_into|f:history-habit|via=upsertLine
+E|fn:applyAlcohol|composes_into|f:history-habit|via=upsertLine
+E|fn:applyPara|composes_into|f:history-obgyne|via=upsertLine
+E|f:smoke-cpd|feeds|fn:applySmoke
+E|f:smoke-from|feeds|fn:applySmoke
+E|f:smoke-to|feeds|fn:applySmoke
+E|f:alc-drink|feeds|fn:applyAlcohol
+E|f:alc-qty|feeds|fn:applyAlcohol
+E|f:alc-freq|feeds|fn:applyAlcohol
+E|f:alc-vol|feeds|fn:applyAlcohol
+E|f:alc-abv|feeds|fn:applyAlcohol
+E|f:alc-from|feeds|fn:applyAlcohol
+E|f:alc-to|feeds|fn:applyAlcohol
+E|f:para-1|feeds|fn:applyPara
+E|f:para-2|feeds|fn:applyPara
+E|f:para-3|feeds|fn:applyPara
+E|f:para-4|feeds|fn:applyPara
+E|f:ob-menarche|feeds|fn:applyMenses
+E|f:ob-cycle-type|feeds|fn:applyMenses
+E|f:ob-days|feeds|fn:applyMenses
+E|f:ob-amount|feeds|fn:applyMenses
+E|f:ob-dysmenorrhea|feeds|fn:applyMenses
+E|f:ob-contraception|feeds|fn:applyMenses
+E|f:ob-lmp|feeds|fn:applyObstetric
+E|f:ob-cycle|feeds|fn:applyObstetric
+E|f:record-datetime|feeds|fn:applyObstetric
+E|fn:proseBinder|composes_into|f:illness-history|via=bindAuto
+E|fn:blBinder|composes_into|f:diagnosis-reasoning|via=bindAuto
+E|fn:rxBinder|composes_into|f:treatment-detail|via=bindAuto
+E|fn:dx1Binder|composes_into|f:provisional-diagnosis|via=bindAuto
+E|fn:dx2Binder|composes_into|f:final-diagnosis|via=bindAuto
+E|fn:buildProse|builds_text_for|f:illness-history
+E|fn:buildDx|builds_text_for|f:provisional-diagnosis
+E|fn:buildDx|builds_text_for|f:final-diagnosis
+E|fn:buildBienLuan|builds_text_for|f:diagnosis-reasoning
+E|fn:rxToText|builds_text_for|f:treatment-detail
+E|fn:proseBinder|adopted_on_load|note:adopt|why=khong adopt thi o chu dong bang sau khi mo lai
+E|fn:dxBinder|adopted_on_load|note:adopt|why=khong adopt thi o chu dong bang sau khi mo lai
+E|fn:dxBinder|adopted_on_load|note:adopt|why=khong adopt thi o chu dong bang sau khi mo lai
+E|fn:blBinder|adopted_on_load|note:adopt|why=khong adopt thi o chu dong bang sau khi mo lai
+E|fn:rxBinder|adopted_on_load|note:adopt|why=khong adopt thi o chu dong bang sau khi mo lai
+E|f:hx-informant|feeds|fn:buildProse
+E|f:hx-relation|feeds|fn:buildProse
+E|f:hx-reliability|feeds|fn:buildProse
+E|f:hx-sym-treated|feeds|fn:buildProse
+E|f:ob-hx-visits|feeds|fn:buildProse
+E|f:ob-hx-where|feeds|fn:buildProse
+E|f:ob-hx-vat|feeds|fn:buildProse
+E|f:ob-hx-us|feeds|fn:buildProse
+E|f:ob-hx-tests|feeds|fn:buildProse
+E|f:ob-hx-abnormal|feeds|fn:buildProse
+E|f:ped-hx-feed|feeds|fn:buildProse
+E|f:ped-hx-urine|feeds|fn:buildProse
+E|f:ped-hx-stool|feeds|fn:buildProse
+E|f:ped-hx-epi|feeds|fn:buildProse
+E|f:ped-hx-treated|feeds|fn:buildProse
+E|f:ped-hx-who|feeds|fn:buildProse
+E|f:hx-eat|feeds|fn:buildProse
+E|f:hx-sleep|feeds|fn:buildProse
+E|f:hx-stool|feeds|fn:buildProse
+E|f:hx-urine|feeds|fn:buildProse
+E|f:hx-general|feeds|fn:buildProse
+E|f:hx-negatives|feeds|fn:buildProse
+E|f:hx-admit-state|feeds|fn:buildProse
+E|f:hx-after-admit|feeds|fn:buildProse
+E|f:dx1-main|feeds|fn:dx1Binder
+E|f:dx1-comp|feeds|fn:dx1Binder
+E|f:dx1-stage|feeds|fn:dx1Binder
+E|f:dx1-assoc|feeds|fn:dx1Binder
+E|f:dx2-main|feeds|fn:dx2Binder
+E|f:dx2-comp|feeds|fn:dx2Binder
+E|f:dx2-stage|feeds|fn:dx2Binder
+E|f:dx2-assoc|feeds|fn:dx2Binder
+E|fn:envText|composes_into|f:history-environment|via=change listener
+E|f:env-job|feeds|fn:envText
+E|f:env-area|feeds|fn:envText
+E|f:env-contact|feeds|fn:envText
+E|f:env-animal|feeds|fn:envText
+E|f:env-water|feeds|fn:envText
+E|f:env-travel|feeds|fn:envText
+E|p:sinhVien.hoTen|renders_in|s:HEADER|via=toMarkdown head
+E|p:sinhVien.mssv|renders_in|s:HEADER|via=toMarkdown head
+E|p:sinhVien.lop|renders_in|s:HEADER|via=toMarkdown head
+E|p:sinhVien.stt|renders_in|s:HEADER|via=toMarkdown head
+E|m:getCls|stores_as|p:canLamSang|via=collectRecord
+E|m:getBienLuan|stores_as|p:bienLuan|via=collectRecord
+E|m:getTheoDoi|stores_as|p:theoDoi|via=collectRecord
+E|m:imgExam|stores_as|p:anhKham|via=collectRecord
+E|m:imgHoSo|stores_as|p:anhHoSo|via=collectRecord
+E|m:getRx|stores_as|p:yLenhThuoc|via=collectRecord
+E|m:getAsk|stores_as|p:hoiCo|via=collectRecord
+E|m:getPhanDo|stores_as|p:phanDo|via=collectRecord
+E|m:getSteps|stores_as|p:benhSuChiTiet.mocs|via=collectRecord
+E|m:cnvInternal|stores_as|p:tienSu.noiKhoaMoc|via=collectRecord
+E|m:cnvSurgery|stores_as|p:tienSu.ngoaiKhoaMoc|via=collectRecord
+E|m:gayXuong|stores_as|p:chanThuong.xuongGay|via=collectRecord
+E|m:burnGet|stores_as|p:chanThuong.bongVung|via=collectRecord
+E|m:dsGiaDinh|stores_as|p:tienSu.giaDinhChiTiet|via=collectRecord
+E|m:dsDiUng|stores_as|p:tienSu.diUngChiTiet|via=collectRecord
+E|f:vital-weight|mirrors|f:ob-hx-nowweight|rule=fill_if_empty|on=change
+E|f:dx1-main|mirrors|f:sx-pre-dx|rule=fill_if_empty|on=change
+E|f:dx2-main|mirrors|f:sx-post-dx|rule=fill_if_empty|on=change
+E|f:tr-time|derives_to|f:hx-onset-date|rule=fill_if_empty|on=change
+E|f:cc-time|derives_to|f:admission-date|rule=fill_if_empty|on=change
+E|f:cc-time|derives_to|f:admission-time|rule=fill_if_empty|on=change
+E|f:patient-age|derives_to|f:ped-months|rule=fill_if_empty|on=change
+E|f:patient-yob|triggers|fn:calcAge
+E|f:patient-age|triggers|fn:calcYob
+E|f:patient-yob|triggers|fn:applyContextUi
+E|f:patient-age|triggers|fn:applyContextUi
+E|f:vital-height|triggers|fn:calcBmi
+E|f:vital-weight|triggers|fn:calcBmi
+E|f:vital-weight|triggers|fn:calcGayXuong
+E|f:vital-height|triggers|fn:calcThaiGain
+E|prefix:ob-hx-*|triggers|fn:calcThaiGain
+E|f:vital-weight|triggers|fn:calcMatNuoc
+E|prefix:ped-hx-*|triggers|fn:calcMatNuoc
+E|f:vital-bp|triggers|fn:calcBpAll
+E|f:adm-bp|triggers|fn:calcBpAll
+E|f:admission-date|triggers|fn:calcStay
+E|f:record-datetime|triggers|fn:calcStay
+E|f:admission-date|triggers|fn:calcOnset
+E|f:record-datetime|triggers|fn:calcOnset
+E|f:admission-date|triggers|fn:refreshSteps
+E|f:hx-onset-date|triggers|fn:calcOnset
+E|f:hx-sym-name|triggers|fn:syncMainSymFields
+E|prefix:hx-*|triggers|fn:syncProse
+E|prefix:adm-*|triggers|fn:syncProse
+E|prefix:ob-hx-*|triggers|fn:syncProse
+E|prefix:ped-hx-*|triggers|fn:syncProse
+E|f:ob-menarche|triggers|fn:calcMenses
+E|prefix:ob-*|triggers|fn:calcMenses
+E|f:smoke-cpd|triggers|fn:calcSmoke
+E|f:smoke-from|triggers|fn:calcSmoke
+E|f:smoke-to|triggers|fn:calcSmoke
+E|f:patient-yob|triggers|fn:calcSmoke
+E|f:patient-age|triggers|fn:calcSmoke
+E|prefix:alc-*|triggers|fn:calcAlcohol
+E|f:vital-resp|triggers|fn:calcScores
+E|f:vital-bp|triggers|fn:calcScores
+E|f:patient-age|triggers|fn:calcScores
+E|f:patient-yob|triggers|fn:calcScores
+E|prefix:vital-*|triggers|fn:renderGrades
+E|prefix:gcs-*|triggers|fn:renderGrades
+E|prefix:hx-sym-*|triggers|fn:renderGrades
+E|prefix:ros-*|triggers|fn:refreshRos
+E|prefix:tr-*|triggers|fn:calcTrauma
+E|prefix:env-*|triggers|fn:calcEnv
+E|f:history-internal|triggers|fn:calcAsa
+E|f:dx1-assoc|triggers|fn:calcAsa
+E|f:dx2-assoc|triggers|fn:calcAsa
+E|f:record-type|triggers|fn:calcAsa
+E|f:alc-qty|triggers|fn:calcAlcohol
+E|f:alc-freq|triggers|fn:calcAlcohol
+E|f:alc-vol|triggers|fn:calcAlcohol
+E|f:alc-abv|triggers|fn:calcAlcohol
+E|f:alc-from|triggers|fn:calcAlcohol
+E|f:alc-to|triggers|fn:calcAlcohol
+E|f:curb-confusion|triggers|fn:calcScores
+E|prefix:gcs-*|triggers|fn:calcScores
+E|prefix:gcs-*|triggers|fn:calcSpecialty
+E|prefix:ob-*|triggers|fn:calcSpecialty
+E|prefix:sx-*|triggers|fn:calcSpecialty
+E|prefix:ob-hx-*|triggers|fn:syncProse
+E|prefix:ped-hx-*|triggers|fn:syncProse
+E|prefix:tr-*|triggers|fn:calcTrauma
+E|f:hx-onset-date|triggers|fn:calcOnset
+E|f:admission-date|triggers|fn:calcOnset
+E|f:hx-sym-name|triggers|fn:refreshSteps
+E|f:admission-date|triggers|fn:refreshSteps
+E|f:patient-gender|triggers|fn:syncGenderUi
+E|f:patient-gender|triggers|fn:calcAlcohol
+E|rule:Thuốc nền đang dùng ở nhà chưa thấy trong y lệnh|points_at|f:rx-list
+E|rule:Thuốc nền đang dùng ở nhà chưa thấy trong y lệnh|points_at|t:ket-luan
+E|rule:Ngày khởi phát sau ngày nhập viện|points_at|f:hx-onset-date
+E|rule:Ngày khởi phát sau ngày nhập viện|points_at|t:lydo-tiensu
+E|rule:Ngày nhập viện nằm ở tương lai|points_at|f:admission-date
+E|rule:Ngày nhập viện nằm ở tương lai|points_at|t:hanh-chinh
+E|rule:Làm bệnh án trước cả lúc bệnh nhân nhập viện|points_at|f:record-datetime
+E|rule:Làm bệnh án trước cả lúc bệnh nhân nhập viện|points_at|t:hanh-chinh
+E|rule:Ngày mổ trước ngày nhập viện|points_at|f:sx-datetime
+E|rule:Ngày mổ trước ngày nhập viện|points_at|t:can-lam-sang
+E|rule:Chấn thương xảy ra sau khi đã nhập viện|points_at|f:tr-time
+E|rule:Chấn thương xảy ra sau khi đã nhập viện|points_at|t:lydo-tiensu
+E|rule:Tuổi không khớp năm sinh|points_at|f:patient-age
+E|rule:Tuổi không khớp năm sinh|points_at|t:hanh-chinh
+E|rule:Cân nặng ghi hai nơi hai con số|points_at|f:vital-weight
+E|rule:Cân nặng ghi hai nơi hai con số|points_at|t:kham-benh
+E|rule:Ngày chấn thương khác ngày khởi phát|points_at|f:hx-onset-date
+E|rule:Ngày chấn thương khác ngày khởi phát|points_at|t:lydo-tiensu
+E|rule:Giờ tiếp nhận cấp cứu khác ngày nhập viện|points_at|f:admission-date
+E|rule:Giờ tiếp nhận cấp cứu khác ngày nhập viện|points_at|t:hanh-chinh
+E|rule:Tuổi tháng không khớp tuổi năm|points_at|f:patient-age
+E|rule:Tuổi tháng không khớp tuổi năm|points_at|t:hanh-chinh
+E|rule:Bệnh án nhi nhưng bệnh nhân đã lớn|points_at|f:record-type
+E|rule:Bệnh án nhi nhưng bệnh nhân đã lớn|points_at|t:hanh-chinh
+E|rule:Bệnh án sản khoa trên bệnh nhân nam|points_at|f:record-type
+E|rule:Bệnh án sản khoa trên bệnh nhân nam|points_at|t:hanh-chinh
+E|rule:Chưa chọn giới tính|points_at|f:patient-gender
+E|rule:Chưa chọn giới tính|points_at|t:hanh-chinh
+E|rule:Tiền căn sản khoa trên bệnh nhân nam|points_at|f:patient-gender
+E|rule:Tiền căn sản khoa trên bệnh nhân nam|points_at|t:hanh-chinh
+E|rule:Chẩn đoán phụ khoa trên bệnh nhân nam|points_at|f:patient-gender
+E|rule:Chẩn đoán phụ khoa trên bệnh nhân nam|points_at|t:hanh-chinh
+E|rule:Chẩn đoán nam khoa trên bệnh nhân nữ|points_at|f:patient-gender
+E|rule:Chẩn đoán nam khoa trên bệnh nhân nữ|points_at|t:hanh-chinh
+E|rule:Chẩn đoán không hợp lứa tuổi|points_at|f:patient-age
+E|rule:Chẩn đoán không hợp lứa tuổi|points_at|t:hanh-chinh
+E|rule:Kết quả cận lâm sàng không ủng hộ chẩn đoán xác định|points_at|f:dx2-main
+E|rule:Kết quả cận lâm sàng không ủng hộ chẩn đoán xác định|points_at|t:ket-luan
+E|rule:Kết quả gợi ý viêm phổi|points_at|f:dx2-main
+E|rule:Kết quả gợi ý viêm phổi|points_at|t:ket-luan
+E|rule:Có vấn đề chưa được biện luận|points_at|f:bl-host
+E|rule:Có vấn đề chưa được biện luận|points_at|t:chan-doan-dieu-tri
+E|rule:Chưa chốt hướng nghĩ nhiều nhất|points_at|f:bl-host
+E|rule:Chưa chốt hướng nghĩ nhiều nhất|points_at|t:chan-doan-dieu-tri
+E|rule:Chưa ghi chẩn đoán sơ bộ|points_at|f:dx1-main
+E|rule:Chưa ghi chẩn đoán sơ bộ|points_at|t:chan-doan-dieu-tri
+E|rule:Cận lâm sàng ở mục X chưa đổ sang mục XI|points_at|f:labs-proposed
+E|rule:Cận lâm sàng ở mục X chưa đổ sang mục XI|points_at|t:chan-doan-dieu-tri
+E|rule:Chưa có triệu chứng âm tính có giá trị|points_at|f:hx-negatives
+E|rule:Chưa có triệu chứng âm tính có giá trị|points_at|t:lydo-tiensu
+E|f:patient-ethnicity|suggested_by|dl:ethnicity-list
+E|f:patient-occupation|suggested_by|dl:occupation-list
+E|f:hospital-name|suggested_by|dl:hospital-list
+E|f:department-name|suggested_by|dl:department-list
+E|f:hx-sym-name|suggested_by|dl:hx-sym-list
+E|f:sx-hx-anes|suggested_by|dl:sx-anes-list
+E|f:sx-hx-anticoag|suggested_by|dl:sx-anticoag-list
+E|f:ob-cycle-type|suggested_by|dl:ob-cycle-list
+E|f:ob-days|suggested_by|dl:ob-days-list
+E|f:ob-amount|suggested_by|dl:ob-amount-list
+E|f:ob-dysmenorrhea|suggested_by|dl:ob-dys-list
+E|f:ob-contraception|suggested_by|dl:ob-contra-list
+E|lib:DI_UNG_BIEU_HIEN|fills|dl:tc-reaction-list
+E|lib:QUAN_HE|fills|dl:tc-quanhe-list
+E|lib:KINH_NGUYET.chuKy|fills|dl:ob-cycle-list
+E|lib:KINH_NGUYET.soNgay|fills|dl:ob-days-list
+E|lib:KINH_NGUYET.luong|fills|dl:ob-amount-list
+E|lib:KINH_NGUYET.dauBung|fills|dl:ob-dys-list
+E|lib:NGUA_THAI|fills|dl:ob-contra-list
+E|lib:KET_CUC_THAI|fills|dl:ob-ketcuc-list
+E|lib:KY_VONG_THEO_CLS|fills|dl:cd-ky-list|via=cls-de-nghi.js focusin|per=row
+E|lib:QUICK_FILL|suggests_for|f:admission-time
+E|lib:QUICK_FILL|suggests_for|f:admission-date
+E|lib:QUICK_FILL|suggests_for|f:history-internal
+E|lib:QUICK_FILL|suggests_for|f:history-surgery
+E|lib:QUICK_FILL|suggests_for|f:history-obgyne
+E|lib:QUICK_FILL|suggests_for|f:history-allergy
+E|lib:QUICK_FILL|suggests_for|f:history-habit
+E|lib:QUICK_FILL|suggests_for|f:history-family
+E|lib:QUICK_FILL|suggests_for|f:ros-cardio
+E|lib:QUICK_FILL|suggests_for|f:ros-resp
+E|lib:QUICK_FILL|suggests_for|f:ros-gi
+E|lib:QUICK_FILL|suggests_for|f:ros-neuro
+E|lib:QUICK_FILL|suggests_for|f:ros-msk
+E|lib:QUICK_FILL|suggests_for|f:ros-uro
+E|lib:QUICK_FILL|suggests_for|f:exam-general
+E|lib:QUICK_FILL|suggests_for|f:exam-head
+E|lib:QUICK_FILL|suggests_for|f:exam-chest
+E|lib:QUICK_FILL|suggests_for|f:exam-heart
+E|lib:QUICK_FILL|suggests_for|f:exam-lung
+E|lib:QUICK_FILL|suggests_for|f:exam-abdomen
+E|lib:QUICK_FILL|suggests_for|f:exam-neuro-msk
+E|lib:QUICK_FILL|suggests_for|f:diagnosis-reasoning
+E|lib:QUICK_FILL|suggests_for|f:treatment-plan
+E|lib:QUICK_FILL|suggests_for|f:prognosis
+E|lib:QUICK_FILL|suggests_for|f:hx-onset-date
+E|lib:QUICK_FILL|suggests_for|f:hx-relation
+E|lib:QUICK_FILL|suggests_for|f:hx-sym-name
+E|lib:QUICK_FILL|suggests_for|f:hx-sym-site
+E|lib:QUICK_FILL|suggests_for|f:hx-sym-char
+E|lib:QUICK_FILL|suggests_for|f:hx-sym-severity
+E|lib:QUICK_FILL|suggests_for|f:hx-sym-time
+E|lib:QUICK_FILL|suggests_for|f:hx-sym-factors
+E|lib:QUICK_FILL|suggests_for|f:hx-sym-assoc
+E|lib:QUICK_FILL|suggests_for|f:hx-sym-treated
+E|lib:QUICK_FILL|suggests_for|f:hx-admit-state
+E|lib:QUICK_FILL|suggests_for|f:hx-after-admit
+E|lib:QUICK_FILL|suggests_for|f:hx-general
+E|lib:QUICK_FILL|suggests_for|f:hx-negatives
+E|lib:QUICK_FILL|suggests_for|f:adm-note
+E|lib:QUICK_FILL|suggests_for|f:hx-eat
+E|lib:QUICK_FILL|suggests_for|f:hx-sleep
+E|lib:QUICK_FILL|suggests_for|f:hx-stool
+E|lib:QUICK_FILL|suggests_for|f:hx-urine
+E|lib:QUICK_FILL|suggests_for|f:tr-energy
+E|lib:QUICK_FILL|suggests_for|f:tr-impact
+E|lib:QUICK_FILL|suggests_for|f:tr-object
+E|lib:QUICK_FILL|suggests_for|f:tr-firstaid
+E|lib:QUICK_FILL|suggests_for|f:tr-transport
+E|lib:QUICK_FILL|suggests_for|f:cc-a
+E|lib:QUICK_FILL|suggests_for|f:cc-b
+E|lib:QUICK_FILL|suggests_for|f:cc-c
+E|lib:QUICK_FILL|suggests_for|f:cc-d
+E|lib:QUICK_FILL|suggests_for|f:cc-e
+E|lib:QUICK_FILL|suggests_for|f:cc-initial
+E|lib:QUICK_FILL|suggests_for|f:ob-hx-where
+E|lib:QUICK_FILL|suggests_for|f:ob-hx-us
+E|lib:QUICK_FILL|suggests_for|f:ob-hx-tests
+E|lib:QUICK_FILL|suggests_for|f:ob-hx-abnormal
+E|lib:QUICK_FILL|suggests_for|f:ob-contraction
+E|lib:QUICK_FILL|suggests_for|f:ob-cervix
+E|lib:QUICK_FILL|suggests_for|f:ob-position
+E|lib:QUICK_FILL|suggests_for|f:ob-amniotic
+E|lib:QUICK_FILL|suggests_for|f:ob-pelvis
+E|lib:QUICK_FILL|suggests_for|f:ped-hx-stool
+E|lib:QUICK_FILL|suggests_for|f:ped-hx-epi
+E|lib:QUICK_FILL|suggests_for|f:ped-hx-treated
+E|lib:QUICK_FILL|suggests_for|f:ped-birth
+E|lib:QUICK_FILL|suggests_for|f:ped-nutrition
+E|lib:QUICK_FILL|suggests_for|f:ped-vaccine
+E|lib:QUICK_FILL|suggests_for|f:ped-development
+E|lib:QUICK_FILL|suggests_for|f:sx-hx-fasting
+E|lib:QUICK_FILL|suggests_for|f:sx-method
+E|lib:QUICK_FILL|suggests_for|f:sx-anesthesia
+E|lib:QUICK_FILL|suggests_for|f:sx-drain
+E|lib:QUICK_FILL|suggests_for|f:dx1-main
+E|lib:QUICK_FILL|suggests_for|f:dx1-comp
+E|lib:QUICK_FILL|suggests_for|f:dx1-stage
+E|lib:QUICK_FILL|suggests_for|f:dx2-main
+E|lib:QUICK_FILL|suggests_for|f:dx2-comp
+E|lib:QUICK_FILL|suggests_for|f:dx2-stage
+E|lib:QUICK_FILL|suggests_for|f:tr-burn-agent
+E|lib:QUICK_FILL|suggests_for|f:env-job
+E|lib:QUICK_FILL|suggests_for|f:env-area
+E|lib:QUICK_FILL|suggests_for|f:env-contact
+E|lib:QUICK_FILL|suggests_for|f:env-animal
+E|lib:QUICK_FILL|suggests_for|f:env-water
+E|lib:QUICK_FILL|suggests_for|f:env-travel
+E|lib:QUICK_FILL|suggests_for|f:sx-pre-dx
+E|lib:QUICK_FILL|suggests_for|f:sx-post-dx
+E|lib:QUICK_FILL|suggests_for|f:sx-report
+E|lib:BENH_NHOM|suggests_for|f:differential-diagnosis|via=attachPicker
+E|lib:TEN_VAN_DE|suggests_for|f:problem-list|via=attachTypeahead
+E|lib:symNames|suggests_for|f:hx-sym-name|via=attachTypeahead
+E|lib:benhNames|suggests_for|f:dx1-main|via=attachTypeahead
+E|lib:benhNames|suggests_for|f:dx2-main|via=attachTypeahead
+E|lib:benhNames|suggests_for|f:sx-pre-dx|via=attachTypeahead
+E|lib:benhNames|suggests_for|f:sx-post-dx|via=attachTypeahead
+E|lib:benhNames|suggests_for|f:differential-diagnosis|via=attachTypeahead
+E|fn:benhKemList|composes_into|f:dx1-assoc|via=createBenhKemList
+E|lib:BENH_NHOM|suggests_for|f:dx1-assoc|via=benh-kem-list.js
+E|fn:benhKemList|composes_into|f:dx2-assoc|via=createBenhKemList
+E|lib:BENH_NHOM|suggests_for|f:dx2-assoc|via=benh-kem-list.js
+E|lib:LY_DO_NHOM|suggests_for|f:reason-for-admission|via=ly-do-list.js
+E|lib:THUOC_GROUPS|suggests_for|f:history-drugs|via=doi-list.js
+E|lib:DI_UNG_NHOM|suggests_for|f:history-allergy|via=di-ung-list.js
+E|lib:BENH_NHOM|suggests_for|f:history-family|via=gia-dinh-list.js
+E|lib:BENH_NHOM|suggests_for|f:history-internal|via=cnv-list.js
+E|lib:BENH_NHOM|suggests_for|f:history-surgery|via=cnv-list.js
+E|lib:VAN_DE_NHOM|suggests_for|f:problem-list|via=bien-luan-data.js
+E|f:medical-record-id|not_persisted|note:by_design
+E|f:record-status|not_persisted|note:by_design
+E|f:ba-guide|not_persisted|note:by_design
+E|fn:mainSymProse|builds_text_for|fn:buildProse|manual=1|why=benh-su-editor.js: buildProse() goi mainSymProse()
+E|fn:calcOnset|builds_text_for|fn:buildProse|manual=1|why=calcOnset ghi vao #hx-onset-tag, buildProse doc textContent cua no
+E|fn:calcScores|builds_text_for|f:summary|manual=1|why=calcScores ghi #curb-out va #gcs-out, buildSummary doc textContent nhom "Thang diem"
+E|fn:calcQsofa|builds_text_for|f:summary|manual=1|why=calcQsofa ghi #qsofa-out, buildSummary doc textContent nhom "Thang diem"
+E|f:hx-sym-name|feeds|fn:mainSymProse|manual=1
+E|f:hx-sym-site|feeds|fn:mainSymProse|manual=1
+E|f:hx-sym-char|feeds|fn:mainSymProse|manual=1
+E|f:hx-sym-severity|feeds|fn:mainSymProse|manual=1
+E|f:hx-sym-time|feeds|fn:mainSymProse|manual=1
+E|f:hx-sym-factors|feeds|fn:mainSymProse|manual=1
+E|f:hx-sym-assoc|feeds|fn:mainSymProse|manual=1
+E|f:hx-sym-treated|feeds|fn:mainSymProse|manual=1
+E|f:hx-onset-date|feeds|fn:calcOnset|manual=1
+E|f:curb-confusion|feeds|fn:calcScores|manual=1
+E|f:medical-record-id|control_only|note:by_design|manual=1
+E|f:record-status|control_only|note:by_design|manual=1
+E|f:ba-guide|control_only|note:by_design|manual=1
+E|f:record-type|control_only|note:by_design|manual=1

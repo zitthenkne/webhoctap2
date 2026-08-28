@@ -10268,4 +10268,25 @@
     <script type="module" src="tao-benh-an.js"></script>
 </body>
 
-</html>
+</html><script type="module">
+window.addEventListener('load', () => setTimeout(() => {
+  // Đo lại đúng phép tính của countFilled trên cả 7 tab + các nhóm gập
+  const tabs = [...document.querySelectorAll('.tab-content')];
+  const folds = [...document.querySelectorAll('fieldset > .fs-body, fieldset')];
+  const count = (root) => {
+    const els = [...root.querySelectorAll('input:not([type=hidden]):not([readonly]), textarea, select')]
+      .filter(el => !el.closest('.sticky-actions') && !el.closest('[data-nocount]') && !el.closest('[hidden]'));
+    return els.length;
+  };
+  let n = 0; tabs.forEach(t => n += count(t));
+  const t0 = performance.now();
+  for (let i = 0; i < 20; i++) { tabs.forEach(t => count(t)); }
+  const t1 = performance.now();
+  console.log('PF soO='+n+' soTab='+tabs.length+' soFieldset='+document.querySelectorAll("#medical-record-form fieldset").length);
+  console.log('PF motLanQuet7Tab='+((t1-t0)/20).toFixed(2)+'ms');
+  const t2 = performance.now();
+  for (let i = 0; i < 20; i++) { document.querySelectorAll('#medical-record-form input, #medical-record-form textarea, #medical-record-form select'); }
+  const t3 = performance.now();
+  console.log('PF chiQuerySelectorAll='+((t3-t2)/20).toFixed(2)+'ms  tongNode='+document.getElementsByTagName('*').length);
+}, 3500));
+</script>

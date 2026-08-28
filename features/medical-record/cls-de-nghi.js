@@ -20,7 +20,8 @@
 
 import { CLS_PURPOSES, attachTypeahead } from './goi-y-go.js';
 import { openListPicker } from './list-picker.js';
-import { CLS_DE_NGHI } from './de-nghi-data.js';
+import { CLS_DE_NGHI, KY_VONG_THEO_CLS } from './de-nghi-data.js';
+import { fold } from './tim-kiem.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
@@ -53,6 +54,16 @@ const clsToLine = (r) => [
 ].filter(Boolean).join(' — ');
 
 const needTarget = (mucDich) => !!CLS_PURPOSES.find(([, t]) => t === mucDich)?.[2];
+
+/* Gợi ý cho ô "mong tìm thấy gì": lấy theo đúng tên cận lâm sàng của dòng đang gõ.
+   Datalist `cd-ky-list` dùng chung cho mọi dòng nên phải nạp lại mỗi lần con trỏ
+   nhảy sang dòng khác — nếu không thì gõ ở dòng X-quang lại hiện gợi ý của dòng
+   công thức máu. Không khớp mẫu nào thì để trống, thà không gợi ý còn hơn gợi bậy. */
+function kyVongGoiY(ten) {
+    const t = fold(ten);
+    if (!t) return [];
+    return [...new Set(KY_VONG_THEO_CLS.filter(([re]) => re.test(t)).flatMap(([, v]) => v))];
+}
 
 /* Câu hỏi của ô "mong tìm thấy gì" đổi theo mục đích: đề nghị để loại trừ thì thứ
    phải nói ra là dấu hiệu âm tính, còn đề nghị để xác định thì là dấu hiệu dương. */
@@ -194,6 +205,15 @@ export function initClsDeNghi({ field, host, addBtn, blHost,
         rows.push({ ten: trim(r.ten), mucDich: r.mucDich || '', dich: r.dich || '', kyVong: r.kyVong || '' });
         return true;
     }
+
+    host.addEventListener('focusin', (e) => {
+        if (e.target.dataset.k !== 'kyVong') return;
+        const box = e.target.closest('.cd-row');
+        const dl = $('cd-ky-list');
+        if (!box || !dl) return;
+        dl.innerHTML = kyVongGoiY(rows[+box.dataset.i]?.ten)
+            .map(x => `<option value="${esc(x)}">`).join('');
+    });
 
     host.addEventListener('input', (e) => {
         const box = e.target.closest('.cd-row');

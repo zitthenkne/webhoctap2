@@ -34,7 +34,9 @@ export const THUOC_NHOM = [
             t('Amikacin', '500 mg', '1 lọ', '1', '(TTM)', '10h'),
             t('Clindamycin', '600 mg', '1 ống', '3', '(TTM)', '6h – 14h – 22h'),
             t('Trimethoprim + Sulfamethoxazole', '480 mg', '2 viên', '2', '(u)', '8h – 20h'),
-            t('Fosfomycin', '3 g', '1 gói', '1', '(u)', '20h')
+            t('Fosfomycin', '3 g', '1 gói', '1', '(u)', '20h'),
+            t('Thuốc chống lao phác đồ RHZE', 'theo cân nặng', '1 lần/ngày', '1', '(u)', 'lúc đói buổi sáng'),
+            t('Acyclovir', '800 mg', '1 viên', '5', '(u)', 'cách 4 giờ, bỏ cữ đêm')
         ]
     },
     {
@@ -114,7 +116,9 @@ export const THUOC_NHOM = [
             t('Lactulose', '', '15 ml', '2', '(u)', '8h – 20h'),
             t('Silymarin', '140 mg', '1 viên', '3', '(u)', '8h – 14h – 20h'),
             t('Men vi sinh', '', '1 gói', '2', '(u)', '8h – 20h'),
-            t('Oresol', '', '1 gói pha 1 lít', '', '(u)', 'uống thay nước')
+            t('Oresol', '', '1 gói pha 1 lít', '', '(u)', 'uống thay nước'),
+            t('Tenofovir 300 mg', '300 mg', '1 viên', '1', '(u)', '20h'),
+            t('Entecavir 0,5 mg', '0,5 mg', '1 viên', '1', '(u)', 'xa bữa ăn 2 giờ')
         ]
     },
     {
@@ -128,7 +132,8 @@ export const THUOC_NHOM = [
             t('Levothyroxine', '50 mcg', '1 viên', '1', '(u)', 'lúc đói, trước ăn sáng 30 phút'),
             t('Thiamazole', '5 mg', '1 viên', '2', '(u)', '8h – 20h'),
             t('Allopurinol', '300 mg', '1 viên', '1', '(u)', 'sau ăn'),
-            t('Colchicine', '1 mg', '1 viên', '1', '(u)', '20h')
+            t('Colchicine', '1 mg', '1 viên', '1', '(u)', '20h'),
+            t('Alendronat 70 mg (uống mỗi tuần)', '70 mg', '1 viên', '1 lần/tuần', '(u)', 'sáng đói, đứng 30 phút sau uống')
         ]
     },
     {
@@ -154,7 +159,8 @@ export const THUOC_NHOM = [
             t('Citicoline', '1 g', '1 ống', '1', '(TTM)', '8h'),
             t('Gabapentin', '300 mg', '1 viên', '3', '(u)', '8h – 14h – 20h'),
             t('Amitriptyline', '25 mg', '1 viên', '1', '(u)', '20h'),
-            t('Mannitol 20%', '250 ml', '1 chai', '', '(TTM)', 'truyền nhanh 30 phút')
+            t('Mannitol 20%', '250 ml', '1 chai', '', '(TTM)', 'truyền nhanh 30 phút'),
+            t('Levodopa + Carbidopa', '250/25 mg', '1 viên', '3', '(u)', 'xa bữa ăn đạm')
         ]
     },
     {
@@ -177,7 +183,11 @@ export const THUOC_NHOM = [
             t('Chlorpheniramine', '4 mg', '1 viên', '2', '(u)', '8h – 20h'),
             t('Loratadine', '10 mg', '1 viên', '1', '(u)', '20h'),
             t('Adrenaline', '1 mg', '1 ống', '', '(TB)', 'phác đồ sốc phản vệ'),
-            t('Nước cất pha tiêm', '5 ml', '1 ống', '', '', 'pha thuốc')
+            t('Nước cất pha tiêm', '5 ml', '1 ống', '', '', 'pha thuốc'),
+            t('Erythropoietin (tiêm dưới da)', '2000 UI', '1 lọ', '3 lần/tuần', '(TDD)', 'theo Hb đích'),
+            t('Methotrexat 2,5 mg (uống mỗi tuần)', '2,5 mg', 'theo liều', '1 lần/tuần', '(u)', 'kèm acid folic ngày khác'),
+            t('Tamsulosin 0,4 mg', '0,4 mg', '1 viên', '1', '(u)', 'sau ăn tối'),
+            t('Dutasteride 0,5 mg', '0,5 mg', '1 viên', '1', '(u)', '8h')
         ]
     }
 ];
@@ -345,7 +355,7 @@ export const THUOC_THEO_BENH = [
        Xếp trước nhóm bệnh mạn vì dò theo thứ tự, cái khớp đầu tiên thắng.
        Trong nhóm này cũng xếp cái hẹp trước cái rộng (viêm phổi bệnh viện
        trước viêm phổi cộng đồng). Liều lấy từ THUOC_NHOM — vẫn phải tra lại. */
-    { benh: 'Viêm phổi bệnh viện – thở máy', capTinh: 1, re: /viem phoi benh vien|viem phoi tho may|\bvap\b|\bhap\b/, thuoc: ['Piperacillin + Tazobactam', 'Meropenem', 'Vancomycin', 'Levofloxacin', 'Oxy liệu pháp'] },
+    { benh: 'Viêm phổi bệnh viện – thở máy', capTinh: 1, re: /viem phoi benh vien|viem phoi tho may|\bvap\b|^(?!.*ho hap).*\bhap\b/, thuoc: ['Piperacillin + Tazobactam', 'Meropenem', 'Vancomycin', 'Levofloxacin', 'Oxy liệu pháp'] },
     { benh: 'Viêm phổi cộng đồng', capTinh: 1, re: /viem phoi cong dong|\bvpcd\b|viem phoi thuy|viem phe quan phoi|viem phoi/, thuoc: ['Ceftriaxone', 'Azithromycin', 'Paracetamol', 'N-Acetylcystein', 'Oxy liệu pháp', 'NaCl 0,9%'] },
     { benh: 'Đợt cấp COPD', capTinh: 1, re: /dot cap copd|copd dot cap|dot cap benh phoi tac nghen/, thuoc: ['Salbutamol khí dung', 'Ipratropium khí dung', 'Methylprednisolone', 'Ceftriaxone', 'Oxy liệu pháp', 'N-Acetylcystein'] },
     { benh: 'Cơn hen phế quản cấp', capTinh: 1, re: /con hen|hen cap|con kich phat hen/, thuoc: ['Salbutamol khí dung', 'Ipratropium khí dung', 'Methylprednisolone', 'Oxy liệu pháp'] },
@@ -354,7 +364,7 @@ export const THUOC_THEO_BENH = [
     { benh: 'Nhồi máu não cấp', capTinh: 1, re: /nhoi mau nao cap|dot quy nhoi mau|dot quy thieu mau/, thuoc: ['Aspirin', 'Atorvastatin', 'Citicoline', 'NaCl 0,9%'] },
     { benh: 'Xuất huyết não', capTinh: 1, re: /xuat huyet nao|xuat huyet noi so/, thuoc: ['Mannitol 20%', 'Paracetamol', 'NaCl 0,9%', 'Oxy liệu pháp'] },
     { benh: 'Nhiễm khuẩn huyết – sốc nhiễm khuẩn', capTinh: 1, re: /soc nhiem khuan|nhiem khuan huyet|nhiem trung huyet|\bsepsis\b/, thuoc: ['Lactate Ringer', 'Noradrenaline', 'Meropenem', 'Vancomycin', 'Paracetamol'] },
-    { benh: 'Nhiễm khuẩn tiết niệu – viêm đài bể thận', capTinh: 1, re: /nhiem trung tieu|nhiem khuan tiet nieu|viem dai be than|viem bang quang/, thuoc: ['Ceftriaxone', 'Ciprofloxacin', 'Paracetamol', 'NaCl 0,9%'] },
+    { benh: 'Nhiễm khuẩn tiết niệu – viêm đài bể thận', capTinh: 1, re: /nhiem trung tieu(?! hoa)|nhiem khuan tiet nieu|viem dai be than|viem bang quang/, thuoc: ['Ceftriaxone', 'Ciprofloxacin', 'Paracetamol', 'NaCl 0,9%'] },
     { benh: 'Viêm ruột thừa cấp', capTinh: 1, re: /viem ruot thua/, thuoc: ['Ceftriaxone', 'Metronidazole', 'Paracetamol', 'Lactate Ringer'] },
     { benh: 'Viêm tụy cấp', capTinh: 1, re: /viem tuy cap/, thuoc: ['Lactate Ringer', 'Paracetamol', 'Pantoprazole', 'Ondansetron', 'Hyoscine butylbromide'] },
     { benh: 'Xuất huyết tiêu hóa trên', capTinh: 1, re: /xuat huyet tieu hoa|\bxhth\b|non ra mau|di cau phan den/, thuoc: ['Esomeprazole', 'NaCl 0,9%', 'Hồng cầu lắng', 'Ondansetron'] },
@@ -379,7 +389,7 @@ export const THUOC_THEO_BENH = [
     { benh: 'Di chứng tai biến mạch máu não', re: /tai bien mach mau nao|nhoi mau nao|dot quy|di chung liet/, thuoc: ['Aspirin', 'Clopidogrel', 'Atorvastatin'] },
     { benh: 'Bệnh phổi tắc nghẽn mạn tính (COPD)', re: /copd|phoi tac nghen/, thuoc: ['Seretide xịt', 'Salbutamol xịt', 'Ipratropium khí dung', 'N-Acetylcystein'] },
     { benh: 'Hen phế quản', re: /hen phe quan|\bhen\b/, thuoc: ['Seretide xịt', 'Salbutamol xịt', 'Budesonide khí dung'] },
-    { benh: 'Lao phổi', re: /\blao\b|lao phoi|lao mang phoi/, thuoc: ['Thuốc chống lao phác đồ RHZE', 'Vitamin B1 – B6 – B12'] },
+    { benh: 'Lao phổi', re: /\blao\b(?! (suy|hoa|khoa))|lao phoi|lao mang phoi/, thuoc: ['Thuốc chống lao phác đồ RHZE', 'Vitamin B1 – B6 – B12'] },
     { benh: 'Loét dạ dày – tá tràng / trào ngược', re: /loet da day|loet ta trang|trao nguoc|viem da day/, thuoc: ['Pantoprazole', 'Domperidone'] },
     { benh: 'Xơ gan', re: /xo gan|co truong/, thuoc: ['Spironolactone', 'Furosemide', 'Lactulose', 'Silymarin'] },
     { benh: 'Viêm gan B – C mạn', re: /viem gan b|viem gan c/, thuoc: ['Tenofovir 300 mg', 'Entecavir 0,5 mg'] },
@@ -416,3 +426,97 @@ export function benhCuaThuoc(tenThuoc) {
         .filter(x => x.thuoc.some(t => fold(t).startsWith(s) || s.startsWith(fold(t).split(' ')[0])))
         .map(x => x.benh);
 }
+
+/* ---------------------------------------------------------------------------
+   Bổ sung 2026-08-28 — bộ y lệnh mẫu cho các mặt bệnh đã có tiêu chuẩn chẩn đoán
+   nhưng chưa có phác đồ, nên gõ chẩn đoán xong bảng y lệnh không gợi được gì.
+
+   Dùng `push` chứ KHÔNG `unshift`: `thuocTheoBenh()` lấy mẫu khớp ĐẦU TIÊN, nên
+   thêm vào cuối thì 49 mặt bệnh cũ vẫn giữ nguyên thứ tự ưu tiên. Trong chính
+   khối này thì vẫn xếp mẫu hẹp trước mẫu rộng.
+
+   Chỉ được dùng tên thuốc có trong THUOC_NHOM — tên lạ thì chip vẫn thêm được
+   dòng nhưng không có liều, để lại một dòng trống trong y lệnh.
+   --------------------------------------------------------------------------- */
+THUOC_THEO_BENH.push(
+    /* ---------- Gan mật – tiêu hóa ---------- */
+    { benh: 'Viêm đường mật cấp', capTinh: 1, re: /viem duong mat/, thuoc: ['Ceftriaxone', 'Metronidazole', 'Paracetamol truyền', 'Lactate Ringer', 'Ondansetron', 'Pantoprazole'] },
+    { benh: 'Viêm túi mật cấp', capTinh: 1, re: /viem tui mat/, thuoc: ['Ceftriaxone', 'Metronidazole', 'Paracetamol', 'Drotaverin (No-spa)', 'NaCl 0,9%', 'Ondansetron'] },
+    { benh: 'Áp xe gan', capTinh: 1, re: /ap xe gan/, thuoc: ['Ceftriaxone', 'Metronidazole', 'Paracetamol', 'NaCl 0,9%'] },
+    { benh: 'Đợt cấp viêm loét đại tràng – Crohn', capTinh: 1, re: /viem loet dai trang|crohn/, thuoc: ['Methylprednisolone', 'Men vi sinh', 'Paracetamol', 'NaCl 0,9%', 'Methotrexat 2,5 mg (uống mỗi tuần)'] },
+    { benh: 'Bệnh gan do rượu', capTinh: 0, re: /gan do ruou/, thuoc: ['Vitamin B1 – B6 – B12', 'Silymarin', 'Glucose 10%', 'Lactulose', 'Methylprednisolone'] },
+    { benh: 'Gan nhiễm mỡ không do rượu', capTinh: 0, re: /gan nhiem mo|nafld|masld/, thuoc: ['Atorvastatin', 'Metformin', 'Silymarin'] },
+    { benh: 'Trĩ – nứt kẽ hậu môn', capTinh: 0, re: /benh tri|tri noi|tri ngoai|nut ke hau mon/, thuoc: ['Lactulose', 'Paracetamol', 'Diclofenac'] },
+    { benh: 'Hội chứng ruột kích thích', capTinh: 0, re: /ruot kich thich|\bibs\b/, thuoc: ['Drotaverin (No-spa)', 'Hyoscine butylbromide', 'Men vi sinh'] },
+
+    /* ---------- Nhiễm ---------- */
+    { benh: 'Thương hàn', capTinh: 1, re: /thuong han/, thuoc: ['Ceftriaxone', 'Paracetamol', 'Oresol', 'NaCl 0,9%'] },
+    { benh: 'Leptospirosis', capTinh: 1, re: /leptospir|xoan khuan vang da/, thuoc: ['Ceftriaxone', 'Doxycycline', 'NaCl 0,9%', 'Paracetamol'] },
+    { benh: 'COVID-19', capTinh: 1, re: /covid/, thuoc: ['Oxy liệu pháp', 'Dexamethasone', 'Enoxaparin', 'Paracetamol'] },
+    { benh: 'Cúm mùa', capTinh: 1, re: /cum mua|\bcum a\b|\bcum b\b/, thuoc: ['Paracetamol', 'Oresol', 'N-Acetylcystein'] },
+    { benh: 'Thủy đậu', capTinh: 1, re: /thuy dau|trai ra/, thuoc: ['Acyclovir', 'Paracetamol', 'Chlorpheniramine'] },
+    { benh: 'Zona', capTinh: 1, re: /\bzona\b|gioi leo|herpes zoster/, thuoc: ['Acyclovir', 'Paracetamol', 'Gabapentin'] },
+    { benh: 'Sởi', capTinh: 1, re: /^(?!.*soi (nieu|than|mat|tui mat|ong mat|bang quang|duong mat))(?=.*\bsoi\b)/, thuoc: ['Paracetamol', 'Oresol', 'Vitamin C', 'Amoxicillin + Acid clavulanic'] },
+    { benh: 'Quai bị', capTinh: 1, re: /quai bi/, thuoc: ['Paracetamol', 'Ibuprofen'] },
+        { benh: 'Viêm mô tế bào – nhọt – áp xe phần mềm', capTinh: 1,
+      /* Chan truoc roi moi khop: "nhot" cung la "nhốt" (phoi bi nhot) va
+         "choc" cung la "chọc" (choc do) sau khi bo dau. Guard phai bao ca mau,
+         de rieng mot nhanh alternation thi cac nhanh kia van khop duoc. */
+      re: /^(?!.*bi nhot)(?!.*choc (do|hut|dich|thao))(?=.*(viem mo te bao|\bnhot\b|hau boi|ap xe phan mem|\bchoc\b))/,
+      thuoc: ['Cefazolin', 'Clindamycin', 'Paracetamol', 'NaCl 0,9%'] },
+
+    /* ---------- Hô hấp ---------- */
+    { benh: 'Áp xe phổi', capTinh: 1, re: /ap xe phoi/, thuoc: ['Ampicillin + Sulbactam', 'Clindamycin', 'Metronidazole', 'Paracetamol', 'N-Acetylcystein', 'Oxy liệu pháp'] },
+    { benh: 'Đợt bội nhiễm giãn phế quản', capTinh: 1, re: /gian phe quan/, thuoc: ['Amoxicillin + Acid clavulanic', 'N-Acetylcystein', 'Salbutamol khí dung', 'Oxy liệu pháp'] },
+    { benh: 'Viêm phế quản cấp', capTinh: 1, re: /viem phe quan cap/, thuoc: ['Paracetamol', 'N-Acetylcystein', 'Bromhexin'] },
+    { benh: 'Bệnh phổi mô kẽ – xơ phổi', capTinh: 0, re: /xo phoi mo ke|benh phoi mo ke|\bild\b/, thuoc: ['Oxy liệu pháp', 'Prednisolone', 'N-Acetylcystein'] },
+
+    /* ---------- Tim mạch – mạch máu ---------- */
+    { benh: 'Viêm màng ngoài tim', capTinh: 1, re: /viem mang ngoai tim/, thuoc: ['Ibuprofen', 'Colchicine', 'Paracetamol'] },
+    { benh: 'Bệnh van hai lá hậu thấp', capTinh: 0, re: /van hai la hau thap/, thuoc: ['Furosemide', 'Bisoprolol', 'Warfarin', 'Digoxin'] },
+    { benh: 'Thiếu máu chi cấp – huyết khối động mạch chi', capTinh: 1, re: /thieu mau chi|huyet khoi dong mach chi|thuyen tac dong mach chi/, thuoc: ['Heparin không phân đoạn', 'Morphin', 'NaCl 0,9%', 'Paracetamol'] },
+    { benh: 'Bệnh động mạch chi dưới – Buerger', capTinh: 0, re: /buerger|viem tac mach mau|dong mach chi duoi|leriche/, thuoc: ['Aspirin', 'Atorvastatin', 'Paracetamol'] },
+    { benh: 'Hẹp động mạch cảnh', capTinh: 0, re: /hep dong mach canh/, thuoc: ['Aspirin', 'Clopidogrel', 'Atorvastatin'] },
+
+    /* ---------- Thận – tiết niệu ---------- */
+    { benh: 'Cơn đau quặn thận – sỏi niệu quản', capTinh: 1, re: /soi nieu quan|con dau quan than|soi than/, thuoc: ['Diclofenac', 'Drotaverin (No-spa)', 'Tamsulosin 0,4 mg', 'NaCl 0,9%', 'Paracetamol'] },
+    { benh: 'Thận ứ nước nhiễm trùng', capTinh: 1, re: /than u nuoc|u mu than/, thuoc: ['Ceftriaxone', 'NaCl 0,9%', 'Paracetamol'] },
+    { benh: 'Sỏi bàng quang', capTinh: 0, re: /soi bang quang/, thuoc: ['Tamsulosin 0,4 mg', 'Paracetamol'] },
+
+    /* ---------- Sản – phụ khoa ---------- */
+    { benh: 'Dọa sinh non', capTinh: 1, re: /doa sinh non|sinh non/, thuoc: ['Nifedipine (giảm co)', 'Betamethasone', 'Magnesium sulfat 15%'] },
+    { benh: 'Ối vỡ non – ối vỡ sớm', capTinh: 1, re: /oi vo non|oi vo som/, thuoc: ['Ampicillin + Sulbactam', 'Azithromycin', 'Betamethasone'] },
+    { benh: 'Viêm vùng chậu', capTinh: 1, re: /viem vung chau|viem phan phu/, thuoc: ['Ceftriaxone', 'Doxycycline', 'Metronidazole', 'Paracetamol'] },
+    { benh: 'Viêm âm đạo', capTinh: 0, re: /viem am dao/, thuoc: ['Metronidazole'] },
+    { benh: 'Sảy thai – thai lưu', capTinh: 1, re: /say thai|thai luu|thai trung/, thuoc: ['Oxytocin', 'NaCl 0,9%', 'Paracetamol', 'Hồng cầu lắng'] },
+    { benh: 'Nhau tiền đạo', capTinh: 1, re: /nhau tien dao/, thuoc: ['Betamethasone', 'NaCl 0,9%', 'Hồng cầu lắng', 'Lactate Ringer'] },
+
+    /* ---------- Thần kinh – tâm thần ---------- */
+    { benh: 'Viêm não', capTinh: 1, re: /viem nao/, thuoc: ['Acyclovir', 'Ceftriaxone', 'Mannitol 20%', 'Levetiracetam', 'Paracetamol'] },
+    { benh: 'Hội chứng Guillain–Barré', capTinh: 1, re: /guillain|viem da re day than kinh/, thuoc: ['Enoxaparin', 'Paracetamol', 'Gabapentin', 'NaCl 0,9%'] },
+    { benh: 'Liệt dây VII ngoại biên', capTinh: 1, re: /liet day vii|liet mat ngoai bien|\bbell\b/, thuoc: ['Prednisolone', 'Acyclovir', 'Vitamin B1 – B6 – B12'] },
+    { benh: 'Hội chứng cai rượu – sảng rượu', capTinh: 1, re: /cai ruou|sang ruou|delirium tremens/, thuoc: ['Diazepam', 'Vitamin B1 – B6 – B12', 'Glucose 10%', 'NaCl 0,9%', 'Midazolam'] },
+    { benh: 'Sa sút trí tuệ', capTinh: 0, re: /sa sut tri tue|dementia|alzheimer/, thuoc: ['Citicoline', 'Piracetam', 'Vitamin B1 – B6 – B12'] },
+
+    /* ---------- Cơ xương khớp ---------- */
+    { benh: 'Viêm cột sống dính khớp', capTinh: 0, re: /viem cot song dinh khop/, thuoc: ['Meloxicam', 'Celecoxib', 'Methotrexat 2,5 mg (uống mỗi tuần)'] },
+    { benh: 'Viêm quanh khớp vai – viêm gân', capTinh: 0, re: /viem quanh khop vai|dong cung khop vai|viem diem bam gan/, thuoc: ['Meloxicam', 'Diclofenac', 'Paracetamol'] },
+    { benh: 'Hội chứng ống cổ tay', capTinh: 0, re: /ong co tay|carpal tunnel/, thuoc: ['Meloxicam', 'Gabapentin', 'Vitamin B1 – B6 – B12'] },
+    { benh: 'Thoái hóa cột sống', capTinh: 0, re: /thoai hoa cot song|hep ong song/, thuoc: ['Paracetamol', 'Meloxicam', 'Vitamin B1 – B6 – B12', 'Gabapentin'] },
+
+    /* ---------- Da liễu – dị ứng ---------- */
+    { benh: 'Hội chứng Stevens–Johnson', capTinh: 1, re: /stevens|\bsjs\b|hoai tu thuong bi/, thuoc: ['Methylprednisolone', 'NaCl 0,9%', 'Paracetamol', 'Albumin 20%'] },
+    { benh: 'Dị ứng thuốc – viêm da cơ địa – viêm da tiếp xúc', capTinh: 1, re: /di ung thuoc|phan ung thuoc|viem da co dia|viem da tiep xuc|cham the tang/, thuoc: ['Chlorpheniramine', 'Loratadine', 'Methylprednisolone'] },
+    { benh: 'Vảy nến', capTinh: 0, re: /vay nen|psoriasis/, thuoc: ['Methotrexat 2,5 mg (uống mỗi tuần)', 'Loratadine'] },
+
+    /* ---------- Nhi ---------- */
+    { benh: 'Viêm tiểu phế quản', capTinh: 1, re: /viem tieu phe quan/, thuoc: ['Oxy liệu pháp', 'NaCl 0,9%', 'Salbutamol khí dung', 'Paracetamol trẻ em'] },
+    { benh: 'Viêm thanh khí phế quản cấp (croup)', capTinh: 1, re: /viem thanh khi phe quan|croup/, thuoc: ['Dexamethasone', 'Adrenaline', 'Oxy liệu pháp', 'Paracetamol trẻ em'] },
+    { benh: 'Viêm tai giữa cấp', capTinh: 1, re: /viem tai giua/, thuoc: ['Amoxicillin + Acid clavulanic', 'Paracetamol trẻ em'] },
+    { benh: 'Viêm họng cấp', capTinh: 1, re: /viem hong cap/, thuoc: ['Paracetamol trẻ em', 'Amoxicillin + Acid clavulanic'] },
+
+    /* ---------- Nội tiết – huyết học ---------- */
+    { benh: 'Cơn bão giáp', capTinh: 1, re: /bao giap|con cuong giap cap/, thuoc: ['Thiamazole', 'Bisoprolol', 'Methylprednisolone', 'NaCl 0,9%', 'Paracetamol'] },
+    { benh: 'Bạch cầu cấp', capTinh: 1, re: /bach cau cap|\baml\b|\ball\b/, thuoc: ['Allopurinol', 'NaCl 0,9%', 'Piperacillin + Tazobactam', 'Hồng cầu lắng'] },
+    { benh: 'Thalassemia', capTinh: 0, re: /thalassemia|tan mau bam sinh/, thuoc: ['Hồng cầu lắng', 'Calci carbonat + Vitamin D3'] }
+);

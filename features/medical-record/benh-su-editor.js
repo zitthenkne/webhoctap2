@@ -72,18 +72,25 @@ const boHaiCham = (t) => String(t ?? '')
     .replace(/[ \t]+([,.;])/g, '$1')
     .trim();
 
+/* Câu trả lời phủ định của một ô hỏi ("không kèm triệu chứng nào khác", "chưa ghi
+   nhận sốt") không phải một triệu chứng — ghép thẳng vào câu thì ra "kèm không kèm
+   triệu chứng nào khác". Chỗ của nó là mục khám âm tính, không phải câu tả bệnh. */
+const laPhuDinh = (t) => /^(kh[oô]ng|ch[uư]a)\b/i.test(String(t ?? '').trim());
+
 const lowerDau = (t) => {
     const x = trimText(t);
     if (!x || /^[A-ZĐ]{2,}/.test(x)) return x;
     return x[0].toLowerCase() + x.slice(1);
 };
 
-/** Cụm mở đầu câu của một mốc: "Cách nhập viện 5 ngày" */
+/** Cụm mở đầu câu của một mốc: "CNV 5 ngày".
+ *  Viết tắt CNV chứ không phải "Cách nhập viện": đó là lối viết trong bệnh án, và
+ *  mỗi đoạn mở đầu bằng bốn chữ "Cách nhập viện" thì đọc rất nặng. */
 export function stepWhen(m) {
     if (m.phase === 'nv') return 'Ngày nhập viện';
     const n = String(m.n || '').trim();
     if (m.phase === 'sau') return n ? `Sau nhập viện ${n} ${m.u}` : 'Sau nhập viện';
-    return n ? `Cách nhập viện ${n} ${m.u}` : 'Trước nhập viện';
+    return n ? `CNV ${n} ${m.u}` : 'Trước nhập viện';
 }
 
 /** Triệu chứng chính thành một cụm mô tả liền mạch, bỏ hết nhãn "vị trí:", "tính chất:"
@@ -93,12 +100,19 @@ export function mainSymProse() {
     const v = (id) => ($(id)?.value || '').trim();
     const labs = mainSymLabels();
     const on = (id) => labs.find(l => l.id === id)?.on;
-    const val = (id) => (on(id) ? v(id) : '');
+    /* Mỗi ô thuộc tính là một ô nhập riêng nên chữ đầu hay bị viết hoa ("Từ chân
+       trái lên gối", "Đau nhức, âm ỉ"). Nằm giữa câu thì phải hạ xuống, không thì
+       ra "đau nhức chân Từ chân trái lên gối trái, Đau nhức, âm ỉ" — lộ ngay bản ghép. */
+    const val = (id) => (on(id) ? lowerDau(v(id)) : '');
     const ten = v('hx-sym-name');
     const ta = ['hx-sym-site', 'hx-sym-char', 'hx-sym-severity', 'hx-sym-time', 'hx-sym-factors']
         .map(val).filter(Boolean);
     const kemLab = labs.find(l => l.id === 'hx-sym-assoc');
-    const kem = kemLab?.on ? v('hx-sym-assoc') : '';
+    /* "không kèm triệu chứng nào khác" là câu TRẢ LỜI PHỦ ĐỊNH của ô hỏi, không phải
+       một triệu chứng — ghép vào thành "kèm không kèm triệu chứng nào khác". Câu phủ
+       định thuộc về mục "khám âm tính", nên ở đây bỏ hẳn. */
+    const kemRaw = kemLab?.on ? v('hx-sym-assoc') : '';
+    const kem = laPhuDinh(kemRaw) ? '' : lowerDau(kemRaw);
     if (!ten && !ta.length && !kem) return '';
     // Thuộc tính đầu (vị trí / nhiệt độ…) dính liền tên: "đau ngực sau xương ức",
     // không phải "đau ngực, sau xương ức".
@@ -309,7 +323,9 @@ function tachMoTa(t) {
 function moTaMoi(r) {
     const ten = trimText(r.ten);
     const sym = symOf(r);
-    const vals = sym ? sym.fields.map(([k]) => trimText(r.v?.[k])).filter(Boolean) : [];
+    /* Mỗi đặc điểm là một ô nhập riêng nên hay được gõ hoa chữ đầu; nằm giữa câu
+       thì ra "loét da Lòng bàn chân trái, 2×2cm, Hoại tử đen" — hạ xuống hết. */
+    const vals = sym ? sym.fields.map(([k]) => lowerDau(trimText(r.v?.[k]))).filter(Boolean) : [];
     if (!vals.length) return trimText(r.tuDo) || ten;
     // Nhiều lựa chọn đã tự mang tên triệu chứng ("sốt về chiều", "ho ra máu") —
     // dán tên vào nữa thì ra "Sốt sốt về chiều".

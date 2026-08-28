@@ -350,10 +350,10 @@ function buildToolbar() {
         </div>
         <div class="cls-pick">
             <select id="cls-select" class="cls-select" aria-label="Chọn phiếu cận lâm sàng">
+                <option value="">Phiếu khác — chọn là thêm luôn…</option>
                 ${groups.map(g => `<optgroup label="${esc(g)}">${PANELS.filter(p => p.g === g)
                     .map(p => `<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('')}</optgroup>`).join('')}
             </select>
-            <button type="button" class="cls-add" data-act="add-panel"><i class="fas fa-file-circle-plus"></i> Thêm phiếu</button>
         </div>
         <div class="cls-link">
             <button type="button" class="cls-add is-link" data-act="from-dn"><i class="fas fa-bolt"></i> Tạo phiếu theo đề nghị mục XI</button>
@@ -368,11 +368,20 @@ function buildToolbar() {
             </div>
         </div>`;
 
+    // Chọn trong danh sách là thêm phiếu luôn — trước đây phải bấm thêm nút "Thêm phiếu",
+    // mà dòng đầu của danh sách lại trông như đã chọn sẵn "Công thức máu" nên dễ hiểu nhầm.
+    // Đưa về dòng trống sau khi thêm để thêm lại đúng phiếu đó vẫn được.
+    toolbar.addEventListener('change', (e) => {
+        const sel = e.target.closest('#cls-select');
+        if (!sel || !sel.value) return;
+        addPanel(sel.value);
+        sel.value = '';
+    });
+
     toolbar.addEventListener('click', (e) => {
         const q = e.target.closest('[data-panel]');
         if (q) return addPanel(q.dataset.panel);
         const act = e.target.closest('[data-act]')?.dataset.act;
-        if (act === 'add-panel') return addPanel(toolbar.querySelector('#cls-select').value);
         if (act === 'from-dn') return fromDeNghi();
         if (act === 'paste-open') {
             const box = toolbar.querySelector('.cls-paste');

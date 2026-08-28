@@ -9,6 +9,7 @@ import { initHistory, getSteps, setSteps, calcOnset, buildProse, missingDetails,
     syncSeveritySlot, severityValue, fillMainSym } from './benh-su-editor.js';
 import { KICH_BAN_NHOM, findKichBan, kichBanSteps } from './kich-ban-benh.js';
 import { initBienLuan, getBienLuan, setBienLuan, buildProse as buildBienLuan, derivedDiagnosis, derivedClsDetail, syncFromProblems, listRedFlags, toggleRedFlag } from './bien-luan-editor.js';
+import { toMarkdown, downloadMarkdown } from './benh-an-text.js';
 import { createCnvList } from './cnv-list.js';
 import { createBenhKemList } from './benh-kem-list.js';
 import { createDoiList } from './doi-list.js';
@@ -187,6 +188,7 @@ const FIELDS = {
     'tienSu.truocMo.chongDong': 'sx-hx-anticoag',
     'tienSu.truocMo.anUong': 'sx-hx-fasting',
     'tienSu.truocMo.rangGia': 'sx-hx-teeth',
+    'tienSu.truocMo.asa': 'sx-asa',   // máy xếp, ô ẩn — xem calcAsa()
     'tienSu.para.duThang': 'para-1',
     'tienSu.para.thieuThang': 'para-2',
     'tienSu.para.say': 'para-3',
@@ -702,9 +704,12 @@ function renderLogicInspector() {
     }
     bar.classList.remove('is-hidden');
     bar.dataset.level = sum.total ? sum.level : (net ? 'amber' : 'green');
-    $('li-label').textContent = sum.total ? LEVEL_LABEL[sum.level]
+    const liText = sum.total ? LEVEL_LABEL[sum.level]
         : (net ? 'Còn chỗ chưa nối' : 'Vừa xử lý xong');
+    $('li-label').textContent = liText;
     $('li-count').textContent = sum.total || net || liDone.length;
+    // Trên điện thoại viên đèn thu lại chỉ còn biểu tượng, nên chữ phải nằm ở nhãn trợ năng.
+    $('li-toggle')?.setAttribute('aria-label', liText + ' — mở bảng rà soát bệnh án');
     if ($('li-n-logic')) $('li-n-logic').textContent = sum.total;
     if ($('li-n-net')) $('li-n-net').textContent = net;
 
@@ -1055,6 +1060,53 @@ function upsertLine(id, prefixRe, line) {
     autoGrow(el);
 }
 
+/* =====================================================================
+   Ô CÙNG MỘT DỮ KIỆN NẰM Ở HAI MỤC
+   Mẫu bệnh án của trường bắt ghi lại vài dữ kiện ở hai chỗ (cân nặng ở phần
+   khám và ở phần thai kỳ, chẩn đoán sơ bộ và chẩn đoán trước mổ…). Gõ một chỗ
+   thì chỗ kia có sẵn — nhưng CHỈ khi nó còn trống. Sinh viên đã gõ khác đi là
+   có ý, máy không đè; chỗ lệch để clinical-validator nói ra.
+   ===================================================================== */
+function fillIfEmpty(id, v) {
+    const el = $(id);
+    if (!el || !v || el.value.trim()) return;
+    el.value = v;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+const MIRRORS = [
+    ['vital-weight', 'ob-hx-nowweight'],   // cân nặng hiện tại
+    ['dx1-main', 'sx-pre-dx'],             // chẩn đoán sơ bộ  = chẩn đoán trước mổ
+    ['dx2-main', 'sx-post-dx']             // chẩn đoán xác định = chẩn đoán sau mổ
+];
+// Soi được cả hai chiều: gõ bên nào cũng đổ sang bên kia
+const MIRROR_OF = Object.fromEntries(MIRRORS.flatMap(([a, b]) => [[a, b], [b, a]]));
+
+/* Không sợ vòng lặp: bên nhận có chữ rồi thì lượt dội ngược lại thoát ngay ở
+   `to.value.trim()`. */
+function fillMirror(id) {
+    const from = $(id);
+    if (from) fillIfEmpty(MIRROR_OF[id], from.value.trim());
+}
+
+/* Dữ kiện suy ra được từ ô khác — một chiều, cũng chỉ điền khi ô đích còn trống */
+function fillDerived(id) {
+    if (id === 'tr-time') {
+        // Chấn thương: bệnh khởi phát chính là lúc tai nạn
+        fillIfEmpty('hx-onset-date', String($('tr-time').value || '').slice(0, 10));
+    }
+    if (id === 'cc-time') {
+        // Cấp cứu: giờ tiếp nhận cũng là giờ vào viện
+        const v = String($('cc-time').value || '');
+        fillIfEmpty('admission-date', v.slice(0, 10));
+        fillIfEmpty('admission-time', v.slice(11, 16));
+    }
+    if (id === 'patient-age' || id === 'patient-yob') {
+        const t = tuoiHienTai();
+        if (t != null && t < 16) fillIfEmpty('ped-months', String(Math.round(t * 12)));
+    }
+}
+
 /* Mục V và VI trong mẫu ghi rõ "khám ngày …" */
 function showExamDate() {
     const m = String($('record-datetime')?.value || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -1245,6 +1297,7 @@ function applyRecordType(type) {
     $('record-type').value = t;
     document.querySelectorAll('.type-chip').forEach(c => c.classList.toggle('active', c.dataset.type === t));
     applyContextUi();
+    calcAsa();   // đổi sang bệnh án cấp cứu là ASA thêm chữ "E"
     const head = document.querySelector('.page-card h2');
     if (head) {
         const icon = head.querySelector('i')?.outerHTML || '';
@@ -1253,22 +1306,28 @@ function applyRecordType(type) {
     updateProgress();
 }
 
+/* Tuổi thai + ngày dự sinh từ kinh chót. Tách riêng vì cả ô kết quả lẫn dòng
+   chữ ghi xuống tiền căn sản khoa đều cần con số này — tính một chỗ thôi. */
+function thaiKy() {
+    const lmp = $('ob-lmp')?.value;
+    const ref = String($('record-datetime')?.value || '').slice(0, 10);
+    if (!lmp || !ref) return null;
+    const cycle = parseFloat($('ob-cycle')?.value) || 28;
+    const adj = (cycle - 28);                       // vòng kinh dài thì rụng trứng muộn
+    const days = Math.round((new Date(ref) - new Date(lmp)) / 86400000) - adj;
+    const edd = new Date(new Date(lmp).getTime() + (280 + adj) * 86400000);
+    return { lmp, cycle, days, edd, ok: days >= 0 && days < 320 };
+}
+const dmy = (d) => `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+
 /* Sản: tuổi thai + ngày dự sinh từ kinh chót; ước lượng cân thai từ BCTC + vòng bụng */
 function calcObstetric() {
     const out = $('ob-out');
     if (out) {
-        const lmp = $('ob-lmp').value;
-        const ref = String($('record-datetime').value || '').slice(0, 10);
-        if (lmp && ref) {
-            const cycle = parseFloat($('ob-cycle').value) || 28;
-            const adj = (cycle - 28);                       // vòng kinh dài thì rụng trứng muộn
-            const days = Math.round((new Date(ref) - new Date(lmp)) / 86400000) - adj;
-            const edd = new Date(new Date(lmp).getTime() + (280 + adj) * 86400000);
-            if (days >= 0 && days < 320) {
-                out.textContent = `Tuổi thai ${Math.floor(days / 7)} tuần ${days % 7} ngày `
-                    + `· Dự sinh ${edd.getDate()}/${edd.getMonth() + 1}/${edd.getFullYear()}`;
-            } else out.textContent = 'Kiểm tra lại kinh chót — tuổi thai tính ra không hợp lý';
-        } else out.textContent = 'Nhập kinh chót để tính tuổi thai và ngày dự sinh';
+        const t = thaiKy();
+        out.textContent = !t ? 'Nhập kinh chót để tính tuổi thai và ngày dự sinh'
+            : !t.ok ? 'Kiểm tra lại kinh chót — tuổi thai tính ra không hợp lý'
+                : `Tuổi thai ${Math.floor(t.days / 7)} tuần ${t.days % 7} ngày · Dự sinh ${dmy(t.edd)}`;
     }
     const wOut = $('ob-weight-out');
     if (wOut) {
@@ -1306,6 +1365,42 @@ function calcSurgery() {
     if (!day || !ref) { out.textContent = 'Nhập ngày mổ để tính hậu phẫu ngày thứ mấy'; return; }
     const n = Math.round((new Date(ref) - new Date(day)) / 86400000);
     out.textContent = n >= 0 ? `Hậu phẫu ngày thứ ${n}` : 'Ngày mổ sau ngày làm bệnh án — xem lại';
+}
+
+/* Trước mổ: xếp ASA từ bệnh nền đã ghi ở tiền căn nội khoa + mục bệnh kèm.
+   Máy chỉ *gợi ý* — chữ "gợi ý" giữ nguyên trong câu để không ai chép thẳng vào
+   phiếu gây mê mà quên đối chiếu. Kết quả ghi xuống ô ẩn sx-asa nên lưu và xuất
+   được cùng bệnh án, chứ không nằm chết trên màn hình. */
+const ASA_NANG = /suy tim|ef\s*(giảm|<)|copd (nặng|rất nặng)|gold [34]|suy thận mạn|chạy thận|lọc máu|xơ gan|nhồi máu cơ tim|đột quỵ|nhồi máu não|xuất huyết não|ung thư|đái tháo đường .*(biến chứng|type 1)|nghiện rượu|hen (nặng|khó kiểm soát)/i;
+const ASA_DOA_TINH_MANG = /sốc|nhiễm khuẩn huyết|nhiễm trùng huyết|suy đa cơ quan|suy hô hấp cấp|hoại tử ruột|vỡ phình|dic\b/i;
+
+function calcAsa() {
+    const out = $('asa-out');
+    if (!out) return;
+    // Mục bệnh kèm đã tự ghép xuống dx1-assoc / dx2-assoc nên đọc thẳng ô chữ,
+    // khỏi phải chờ hai danh sách bk dựng xong.
+    const benhNen = [...pastDiseases(),
+    ...String($('dx1-assoc')?.value || '').split('\n'), ...String($('dx2-assoc')?.value || '').split('\n')]
+        .map(s => s.trim()).filter(Boolean);
+    const cap = $('record-type').value === 'cc' || /cấp cứu/i.test($('sx-method')?.value || '');
+    const moiText = [benhNen.join('; '), $('history-internal')?.value || '',
+    $('reason-for-admission')?.value || ''].join(' ');
+
+    let hang = 0, ly = '';
+    if (ASA_DOA_TINH_MANG.test(moiText)) { hang = 4; ly = 'bệnh nặng đe dọa tính mạng'; }
+    else if (ASA_NANG.test(moiText)) { hang = 3; ly = 'bệnh toàn thân nặng, hạn chế chức năng'; }
+    else if (benhNen.length) { hang = 2; ly = `bệnh toàn thân nhẹ (${benhNen.slice(0, 3).join(', ')})`; }
+    else if (String($('history-internal')?.value || '').trim()) { hang = 1; ly = 'chưa ghi nhận bệnh nền'; }
+
+    if (!hang) {
+        out.textContent = 'Ghi tiền căn nội khoa hoặc bệnh kèm để máy gợi ý phân loại ASA';
+        $('sx-asa').value = '';
+        return;
+    }
+    const roman = ['', 'I', 'II', 'III', 'IV'][hang] + (cap ? 'E' : '');
+    const cau = `Gợi ý ASA ${roman} — ${ly}${cap ? ', mổ cấp cứu' : ''}`;
+    out.textContent = cau + ' (đối chiếu lại trước khi ghi phiếu gây mê)';
+    $('sx-asa').value = cau;
 }
 
 /* Cấp cứu: qSOFA từ nhịp thở, huyết áp tâm thu, tri giác */
@@ -1507,7 +1602,7 @@ function calcMatNuoc() {
 }
 
 function calcSpecialty() {
-    calcObstetric(); calcPediatric(); calcSurgery(); calcQsofa(); calcTrauma();
+    calcObstetric(); calcPediatric(); calcSurgery(); calcAsa(); calcQsofa(); calcTrauma();
     calcThaiGain(); calcMatNuoc(); renderGrades();
 }
 
@@ -1615,9 +1710,14 @@ function buildSummary() {
         'exam-abdomen', 'exam-neuro-msk'].map(notable).filter(Boolean).join('; ');
     group('Dấu chứng thực thể', signs);
 
-    const gcs = ($('gcs-out')?.textContent || '').startsWith('GCS') ? $('gcs-out').textContent : '';
-    const curb = ($('curb-out')?.textContent || '').startsWith('CURB') ? $('curb-out').textContent : '';
-    group('Thang điểm', [gcs, curb].filter(Boolean).join(' · '));
+    // Ba thang điểm đều lấy nguyên câu máy đã viết, nhưng chỉ khi máy tính ra thật
+    // (ô còn câu mời "Nhập ... để tính" thì bỏ qua, đừng nhét lời mời vào tóm tắt).
+    const diem = (id, dau) => {
+        const t = ($(id)?.textContent || '').trim();
+        return t.startsWith(dau) ? t.split(' · chưa có')[0] : '';
+    };
+    group('Thang điểm', [diem('gcs-out', 'GCS'), diem('curb-out', 'CURB'), diem('qsofa-out', 'qSOFA')]
+        .filter(Boolean).join(' · '));
 
     const abn = abnormalItems(getCls())
         .map(i => `${i.n} ${i.v}${i.u ? ' ' + i.u : ''} ${i.flag === 'high' ? '↑' : '↓'}`).join(', ');
@@ -2087,14 +2187,24 @@ const cnvSurgery = $('cnv-surgery') && createCnvList({
     onChange: () => { cnvIntoField(cnvSurgery, 'history-surgery'); updateProgress(); scheduleSave(); }
 });
 
-/** Ghép các dòng CNV vào ô tiền căn, giữ lại phần người dùng tự gõ */
+/** Ghép các dòng CNV vào ô tiền căn, giữ lại phần người dùng tự gõ.
+    Dòng do máy ghép KHÔNG được nhân bản: mở lại bệnh án thì ô chữ đã sẵn bản ghép
+    của lần trước, mà cnvLast lúc đó rỗng — cứ mỗi lần mở là chồng thêm một bản y
+    hệt, tới lần thứ năm thì một mục tiền căn hiện năm dòng giống nhau. Nên loại cả
+    theo bản đang ghép lẫn bản trước, và bỏ trùng luôn cho dữ liệu cũ đã lỡ nhân bản. */
 const cnvLast = new Map();
 function cnvIntoField(list, id) {
     const el = $(id);
     if (!el || !list) return;
     const lines = list.toLines();
-    const prev = cnvLast.get(id) || '';
-    const keep = el.value.split('\n').filter(l => l.trim() && !prev.split('\n').includes(l)).join('\n');
+    const may = new Set([...lines.split('\n'), ...(cnvLast.get(id) || '').split('\n')]
+        .map(l => l.trim()).filter(Boolean));
+    const seen = new Set();
+    const keep = el.value.split('\n').map(l => l.trim()).filter(l => {
+        if (!l || may.has(l) || seen.has(l)) return false;
+        seen.add(l);
+        return true;
+    }).join('\n');
     el.value = [lines, keep].filter(Boolean).join('\n');
     cnvLast.set(id, lines);
     autoGrow(el);
@@ -2410,6 +2520,17 @@ function applyMenses() {
     if (t) upsertLine('history-obgyne', /^kinh nguyệt/i, t);
 }
 
+/* Kinh chót + tuổi thai + dự sinh phải rơi xuống dòng chữ sản phụ khoa, nếu không
+   thì cả khối "Thai kỳ hiện tại" chỉ hiện lên màn hình rồi mất khi xuất bệnh án. */
+function applyObstetric() {
+    const t = thaiKy();
+    if (!t || !t.ok) return;
+    upsertLine('history-obgyne', /^thai kỳ hiện tại/i,
+        `Thai kỳ hiện tại: kinh chót ${t.lmp.split('-').reverse().join('/')}`
+        + `${t.cycle !== 28 ? `, vòng kinh ${t.cycle} ngày` : ''}`
+        + ` — tuổi thai ${Math.floor(t.days / 7)} tuần ${t.days % 7} ngày, dự sinh ${dmy(t.edd)}`);
+}
+
 initRx({ onChange: () => { rxBinder.sync(); refreshRxSuggest(); updateProgress(); scheduleSave(); } });
 
 /* Chẩn đoán đã ghi thì thuốc kinh điển của nó bày sẵn ngay trên bảng y lệnh —
@@ -2542,6 +2663,56 @@ initAsk({
 });
 
 // Nạp bệnh án cũ (ưu tiên bản trên máy, không có thì hỏi cloud)
+/* Ô chữ máy ghép từ các ô đã chia nhỏ: chỉ ghi đè khi ô còn trống hoặc nội dung vẫn
+   đúng bản máy ghép lần trước — người dùng sửa tay một chữ là máy thôi đụng vào. */
+function bindAuto(targetId, build) {
+    let last = '';
+    const write = (text) => {
+        const el = $(targetId);
+        last = text;
+        el.value = text;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        autoGrow(el);
+    };
+    return {
+        sync() {
+            const el = $(targetId);
+            if (!el || (el.value.trim() && el.value !== last)) return;
+            last = build();
+            el.value = last;
+            autoGrow(el);
+        },
+        force() { const t = build(); if (t) write(t); return t; },
+        /* Mở lại bệnh án đã lưu: `last` bắt đầu bằng rỗng nên ô nào đang có chữ đều
+           bị coi là người dùng tự viết, và máy im luôn — thêm thuốc hay thêm mốc
+           diễn tiến sau đó không chảy xuống ô chữ nữa. Ô nào còn đúng y bản máy
+           ghép từ dữ liệu vừa nạp thì nhận lại làm mốc; khác một chữ là của người,
+           vẫn không đụng tới. */
+        adopt() {
+            const el = $(targetId);
+            if (el && el.value.trim() && el.value.trim() === build().trim()) last = el.value;
+        }
+    };
+}
+
+const proseBinder = bindAuto('illness-history', buildProse);
+const syncProse = () => proseBinder.sync();
+
+function buildDx(prefix) {
+    const v = (id) => ($(id)?.value || '').trim();
+    const parts = [v(prefix + '-main'), v(prefix + '-stage'),
+    v(prefix + '-comp') && 'Biến chứng: ' + v(prefix + '-comp'),
+    v(prefix + '-assoc') && 'Bệnh kèm: ' + v(prefix + '-assoc')].filter(Boolean);
+    return parts.join(' – ');
+}
+const dxBinder = {
+    dx1: bindAuto('provisional-diagnosis', () => buildDx('dx1')),
+    dx2: bindAuto('final-diagnosis', () => buildDx('dx2'))
+};
+
+const blBinder = bindAuto('diagnosis-reasoning', buildBienLuan);
+const rxBinder = bindAuto('treatment-detail', () => rxToText(getRx()));
+
 (async function loadExisting() {
     applyFolder();   // ap dung ngay, khong doi Firebase tra loi
     let rec = getRecord(recordId);
@@ -2583,6 +2754,7 @@ initAsk({
     refreshThuocLink();
     clsDeNghi?.sync();
     calcMenses();
+    [proseBinder, dxBinder.dx1, dxBinder.dx2, blBinder, rxBinder].forEach(b => b.adopt());
     markSummaryFresh();   // mốc so lệch của ô tóm tắt tính từ lúc mở bệnh án
     runClinicalValidation();
     refreshRxSuggest();
@@ -2640,12 +2812,18 @@ form.addEventListener('input', (e) => {
     if (el.id.startsWith('env-')) calcEnv();
     if (el.id.startsWith('ob-') || el.id.startsWith('ped-') || el.id.startsWith('sx-')
         || el.id.startsWith('cc-') || ['vital-weight', 'vital-resp', 'vital-bp', 'record-datetime'].includes(el.id)) calcSpecialty();
+    // Bệnh nền đổi -> ASA đổi theo, không thì ô ASA đứng yên với con số cũ
+    if (['history-internal', 'dx1-assoc', 'dx2-assoc', 'record-type'].includes(el.id)) calcAsa();
     if (VITAL_RANGE[el.id]) flagVital(el);
     if (el.tagName === 'TEXTAREA') autoGrow(el);
     updateProgress();
     scheduleSave();
 });
 form.addEventListener('change', (e) => {
+    // Đổ sang ô song sinh / suy ra ô khác: chỉ làm lúc rời ô, vì gõ tới đâu đổ tới
+    // đó thì "Viêm phổi" mới gõ được chữ "Viêm" đã bị chép sang rồi dính cứng.
+    if (MIRROR_OF[e.target.id]) fillMirror(e.target.id);
+    fillDerived(e.target.id);
     if (e.target.id === 'alc-drink') {
         const opt = e.target.selectedOptions[0];
         if (opt?.dataset.vol) $('alc-vol').value = opt.dataset.vol;
@@ -2707,47 +2885,9 @@ autoApply(['alc-drink', 'alc-qty', 'alc-freq', 'alc-vol', 'alc-abv', 'alc-from',
 autoApply(['para-1', 'para-2', 'para-3', 'para-4'], applyPara);
 autoApply(['ob-menarche', 'ob-cycle-type', 'ob-days', 'ob-amount', 'ob-dysmenorrhea', 'ob-contraception'],
     applyMenses);
+// record-datetime cũng nằm đây vì đổi ngày làm bệnh án là tuổi thai đổi theo
+autoApply(['ob-lmp', 'ob-cycle', 'record-datetime'], applyObstetric);
 
-/* Ô chữ máy ghép từ các ô đã chia nhỏ: chỉ ghi đè khi ô còn trống hoặc nội dung vẫn
-   đúng bản máy ghép lần trước — người dùng sửa tay một chữ là máy thôi đụng vào. */
-function bindAuto(targetId, build) {
-    let last = '';
-    const write = (text) => {
-        const el = $(targetId);
-        last = text;
-        el.value = text;
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        autoGrow(el);
-    };
-    return {
-        sync() {
-            const el = $(targetId);
-            if (!el || (el.value.trim() && el.value !== last)) return;
-            last = build();
-            el.value = last;
-            autoGrow(el);
-        },
-        force() { const t = build(); if (t) write(t); return t; }
-    };
-}
-
-const proseBinder = bindAuto('illness-history', buildProse);
-const syncProse = () => proseBinder.sync();
-
-function buildDx(prefix) {
-    const v = (id) => ($(id)?.value || '').trim();
-    const parts = [v(prefix + '-main'), v(prefix + '-stage'),
-    v(prefix + '-comp') && 'Biến chứng: ' + v(prefix + '-comp'),
-    v(prefix + '-assoc') && 'Bệnh kèm: ' + v(prefix + '-assoc')].filter(Boolean);
-    return parts.join(' – ');
-}
-const dxBinder = {
-    dx1: bindAuto('provisional-diagnosis', () => buildDx('dx1')),
-    dx2: bindAuto('final-diagnosis', () => buildDx('dx2'))
-};
-
-const blBinder = bindAuto('diagnosis-reasoning', buildBienLuan);
-const rxBinder = bindAuto('treatment-detail', () => rxToText(getRx()));
 
 $('tr-apply')?.addEventListener('click', () => {
     const text = traumaProse();
@@ -3031,16 +3171,98 @@ $('normal-exam-btn')?.addEventListener('click', () => {
     showToast(n ? `Đã điền ${n} mục khám bình thường (chỉ điền ô còn trống).` : 'Các mục khám đều đã có nội dung.', n ? 'success' : 'info');
 });
 
-// Xem trước
-$('preview-btn')?.addEventListener('click', async () => {
-    if (!$('patient-name').value.trim()) {
-        showTab('hanh-chinh'); $('patient-name').focus();
-        showToast('Nhập họ tên bệnh nhân trước khi xem trước.', 'warning');
-        return;
+/* ---------- Bản văn xuôi xem trước ----------
+   Trước đây bấm "Xem trước" là lưu rồi rời trang, muốn sửa một chữ phải quay lại —
+   nên chẳng ai xem. Giờ nó mở ngăn kéo ngay tại chỗ và dựng lại đoạn văn sau MỌI
+   thay đổi, dùng chung benh-an-text.js với file .md xuất ra: thấy sao tải về vậy. */
+const mdEsc = (t) => String(t ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+/** Markdown -> HTML, vừa đủ cho những gì toMarkdown() sinh ra (heading, đậm,
+    nghiêng, gạch đầu dòng, ảnh, đường kẻ). Không kéo thêm thư viện cho vài dòng này. */
+function mdToHtml(md) {
+    const inline = (t) => mdEsc(t)
+        .replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (_, a, u) => `<img src="${u}" alt="${a}">`)
+        .replace(/\\([*_`])/g, '$1')
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/(^|\s)\*([^*]+)\*/g, '$1<em>$2</em>');
+    const out = [];
+    let ul = false;
+    const closeUl = () => { if (ul) { out.push('</ul>'); ul = false; } };
+    for (const raw of String(md || '').split('\n')) {
+        const l = raw.trim();
+        if (!l) { closeUl(); continue; }
+        if (l === '---') { closeUl(); out.push('<hr>'); continue; }
+        const h = /^(#{1,3})\s+(.*)$/.exec(l);
+        if (h) { closeUl(); out.push(`<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`); continue; }
+        if (/^-\s+/.test(l)) {
+            if (!ul) { out.push('<ul>'); ul = true; }
+            out.push(`<li>${inline(l.replace(/^-\s+/, ''))}</li>`);
+            continue;
+        }
+        closeUl();
+        out.push(`<p>${inline(l)}</p>`);
     }
-    if (!await doSave({ force: true })) return;   // lưu hỏng thì ở lại, đừng rời trang
-    location.href = 'xem-benh-an.html?id=' + encodeURIComponent(recordId);
-});
+    closeUl();
+    return out.join('');
+}
+
+const mdBox = $('md-preview');
+let mdTimer = 0;
+const mdOpen = () => mdBox && !mdBox.classList.contains('hidden');
+
+function renderPreview() {
+    if (!mdOpen()) return;
+    const md = toMarkdown(collectRecord());
+    const body = $('mdp-body');
+    // Chưa nhập gì thì heading trơ trọi trông như lỗi — nói thẳng ra là chưa có gì
+    body.innerHTML = md.replace(/[#*\-\s]/g, '').length > 6
+        ? mdToHtml(md)
+        : '<p class="mdp-empty">Chưa có nội dung nào — điền vào biểu mẫu là đoạn văn hiện ra ngay tại đây.</p>';
+}
+/* Gõ tiếng Việt là hàng loạt sự kiện input liên tiếp; dựng lại cả bệnh án sau mỗi
+   phím thì giật. Hoãn một nhịp ngắn, mắt vẫn thấy là "hiện ra ngay". */
+const schedulePreview = () => {
+    if (!mdOpen()) return;
+    clearTimeout(mdTimer);
+    mdTimer = setTimeout(renderPreview, 180);
+};
+
+if (mdBox) {
+    // Bắt ở document: các danh sách con (CNV, thuốc, CLS…) vẽ lại DOM liên tục,
+    // gắn theo từng ô là gắn hụt. Sự kiện input/change đều nổi bọt lên tới đây.
+    document.addEventListener('input', schedulePreview);
+    document.addEventListener('change', schedulePreview);
+
+    const closePreview = () => { mdBox.classList.add('hidden'); clearTimeout(mdTimer); };
+    mdBox.addEventListener('click', (e) => { if (e.target.closest('[data-mdp-close]')) closePreview(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePreview(); });
+
+    $('preview-btn')?.addEventListener('click', () => {
+        mdBox.classList.remove('hidden');
+        renderPreview();
+    });
+    $('mdp-copy')?.addEventListener('click', async () => {
+        try {
+            await navigator.clipboard.writeText(toMarkdown(collectRecord()));
+            showToast('Đã chép bản Markdown — dán vào Google Docs (bật Công cụ ▸ Tùy chọn ▸ Markdown) là tự lên heading.', 'success');
+        } catch {
+            showToast('Trình duyệt chặn sao chép. Hãy tải file .md rồi mở bằng Google Docs.', 'error');
+        }
+    });
+    $('mdp-md')?.addEventListener('click', () => {
+        downloadMarkdown(collectRecord());
+        showToast('Đã tải file .md — kéo vào Google Drive rồi mở bằng Google Docs, heading tự lên sẵn.', 'success');
+    });
+    $('mdp-full')?.addEventListener('click', async () => {
+        if (!$('patient-name').value.trim()) {
+            showTab('hanh-chinh'); $('patient-name').focus();
+            showToast('Nhập họ tên bệnh nhân trước khi mở bản đầy đủ.', 'warning');
+            return;
+        }
+        if (!await doSave({ force: true })) return;   // lưu hỏng thì ở lại, đừng rời trang
+        location.href = 'xem-benh-an.html?id=' + encodeURIComponent(recordId);
+    });
+}
 
 /* Lưu & đóng — gắn vào nút, KHÔNG dùng submit của form: phím Enter/Go trong ô nhập
    (nhất là khi bộ gõ tiếng Việt đang ghép dấu, keydown không báo là Enter) sẽ submit

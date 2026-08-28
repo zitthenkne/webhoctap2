@@ -72,7 +72,22 @@ const QUICK_FILL = {
     'exam-neuro-msk': ['Cổ mềm, không dấu thần kinh định vị', 'Không yếu liệt chi, không giới hạn vận động', 'Không biến dạng chi, không gù vẹo cột sống'],
     'diagnosis-reasoning': ['Nghĩ nhiều đến… vì:', 'Ít nghĩ đến… vì:', 'Chưa loại trừ… nên đề nghị:', 'Yếu tố nguy cơ:', 'Biến chứng cần tìm:'],
     'treatment-plan': ['Điều trị nguyên nhân', 'Điều trị triệu chứng', 'Điều trị hỗ trợ, nâng tổng trạng', 'Điều trị bệnh nền đi kèm', 'Theo dõi sinh hiệu, biến chứng', 'Chế độ ăn – vận động'],
-    'prognosis': ['Tiên lượng gần: khá', 'Tiên lượng xa: dè dặt'],
+    /* Mục XV hay bị viết thành hai chữ "tiên lượng khá" rồi thôi. Chia sẵn ba vế —
+       gần, xa, yếu tố làm nặng — để câu trả lời buộc phải nói ra chỗ dựa. */
+    'prognosis': ['Tiên lượng gần: khá — đáp ứng điều trị, sinh hiệu ổn định',
+        'Tiên lượng gần: trung bình — còn triệu chứng, cần theo dõi sát',
+        'Tiên lượng gần: nặng — nguy cơ diễn tiến xấu trong 24–48 giờ',
+        'Tiên lượng xa: tốt nếu tuân thủ điều trị và tái khám đúng hẹn',
+        'Tiên lượng xa: dè dặt do bệnh nền chưa kiểm soát',
+        'Tiên lượng xa: xấu — bệnh tiến triển, đã có biến chứng cơ quan đích',
+        'Yếu tố làm nặng: tuổi cao, nhiều bệnh nền',
+        'Yếu tố làm nặng: đến viện muộn',
+        'Yếu tố làm nặng: chưa kiểm soát được nguyên nhân',
+        'Yếu tố thuận lợi: trẻ, không bệnh nền, đáp ứng điều trị sớm',
+        'Dự phòng: tuân thủ thuốc, tái khám đúng hẹn',
+        'Dự phòng: bỏ thuốc lá – rượu bia, chế độ ăn phù hợp',
+        'Dự phòng: chủng ngừa theo khuyến cáo',
+        'Dự phòng: tầm soát biến chứng định kỳ'],
 
     /* --- Bệnh sử: triệu chứng chính, đủ 6 thuộc tính --- */
     'hx-onset-date': [['Ngay ngày NV', backFrom(0)], ['1 ngày trước', backFrom(1)], ['3 ngày', backFrom(3)],
@@ -167,7 +182,7 @@ const QUICK_FILL = {
 
 /* Ô liệt kê nhiều ý: chạm thêm chip là nối tiếp, không đè mất ý đã chọn */
 const CHIP_APPEND = new Set(['hx-sym-assoc', 'hx-negatives', 'hx-general', 'cc-initial',
-    'tr-firstaid', 'dx1-comp', 'dx1-assoc', 'dx2-comp', 'dx2-assoc']);
+    'tr-firstaid', 'dx1-comp', 'dx1-assoc', 'dx2-comp', 'dx2-assoc', 'prognosis']);
 
 /* Lược qua cơ quan: tuy là ô nhiều dòng nhưng mỗi hệ phải gói trong ĐÚNG MỘT câu
    ("ho đàm, khó thở khi gắng sức"), nên chạm nhiều chip thì nối bằng dấu phẩy chứ

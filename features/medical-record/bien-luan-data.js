@@ -18,7 +18,7 @@ export const LIBRARY = [
         cls: ['Công thức máu', 'Phết máu ngoại vi', 'Hồng cầu lưới', 'Sắt huyết thanh – ferritin', 'Coombs', 'Nội soi tiêu hóa']
     },
     {
-        k: 'Hội chứng suy tủy', re: /suy t[ủu]y|gi[ảa]m (ba|3) d[òo]ng/i,
+        k: 'Hội chứng suy tủy', re: /suy t[ủu]y(?![ếe]n)|gi[ảa]m (ba|3) d[òo]ng/i,
         nn: ['Bạch cầu cấp', 'Lymphoma xâm lấn tủy', 'Hội chứng rối loạn sinh tủy (MDS)', 'Suy tủy vô căn',
             'Di căn tủy', 'Do thuốc / hóa chất', 'Nhiễm siêu vi (EBV, CMV, HIV)'],
         red: ['Nhiễm trùng huyết trên nền giảm bạch cầu hạt', 'Xuất huyết nội sọ do giảm tiểu cầu'],
@@ -442,7 +442,7 @@ export const CAUSE_CLS = [
     [/thalassemia/i, 'Điện di huyết sắc tố, Phết máu ngoại vi, Ferritin'],
     [/b12|folate/i, 'Vitamin B12, Folate máu, LDH, Bilirubin gián tiếp'],
     [/tan m[áa]u|t[áa]n huy[ếe]t/i, 'Hồng cầu lưới, LDH, Haptoglobin, Bilirubin gián tiếp, Coombs'],
-    [/gi[ảa]m sinh|suy t[ủu]y|b[ạa]ch c[ầa]u c[ấa]p|lo[ạa]n sinh t[ủu]y/i, 'Tủy đồ, Phết máu ngoại vi, Dấu ấn miễn dịch tế bào'],
+    [/gi[ảa]m sinh|suy t[ủu]y(?![ếe]n)|b[ạa]ch c[ầa]u c[ấa]p|lo[ạa]n sinh t[ủu]y/i, 'Tủy đồ, Phết máu ngoại vi, Dấu ấn miễn dịch tế bào'],
     [/m[ấa]t m[áa]u|xu[ấa]t huy[ếe]t ti[êe]u h[óo]a/i, 'Công thức máu, Nội soi tiêu hóa, Tìm máu ẩn trong phân'],
 
     [/vi[êe]m ph[ổo]i/i, 'X-quang ngực thẳng, Công thức máu, CRP – Procalcitonin, Cấy đàm'],
@@ -732,7 +732,7 @@ export function tieuChuanFor(ten) {
 /* Bổ sung phủ nốt các hội chứng còn lại trong LIBRARY — đặt sau nên không đè
    lên các mẫu hẹp hơn ở trên (find lấy mẫu khớp đầu tiên). */
 HALLMARKS.push(
-    [/suy t[ủu]y|gi[ảa]m (ba|3) d[òo]ng/i, ['Thiếu máu tiến triển', 'Sốt do nhiễm trùng tái đi tái lại',
+    [/suy t[ủu]y(?![ếe]n)|gi[ảa]m (ba|3) d[òo]ng/i, ['Thiếu máu tiến triển', 'Sốt do nhiễm trùng tái đi tái lại',
         'Xuất huyết da niêm', 'Không gan lách hạch to', 'Bạch cầu và tiểu cầu cùng giảm']],
     [/xu[ấa]t huy[ếe]t(?! ti[êe]u| n[ãa]o| d[ướơ]{1,2}i)/i, ['Chấm – nốt xuất huyết da', 'Bầm máu tự nhiên',
         'Chảy máu chân răng – chảy máu mũi', 'Rong kinh kéo dài', 'Dấu dây thắt (+)']],
@@ -795,7 +795,7 @@ HALLMARKS.push(
 );
 
 TIEU_CHUAN.push(
-    [/suy t[ủu]y|gi[ảa]m (ba|3) d[òo]ng/i, 'Giảm ≥ 2 dòng tế bào máu ngoại vi + tủy nghèo tế bào (< 25% mật độ theo tuổi) trên tủy đồ / sinh thiết tủy, sau khi loại trừ xâm lấn tủy và nguyên nhân ngoại vi.'],
+    [/suy t[ủu]y(?![ếe]n)|gi[ảa]m (ba|3) d[òo]ng/i, 'Giảm ≥ 2 dòng tế bào máu ngoại vi + tủy nghèo tế bào (< 25% mật độ theo tuổi) trên tủy đồ / sinh thiết tủy, sau khi loại trừ xâm lấn tủy và nguyên nhân ngoại vi.'],
     [/xu[ấa]t huy[ếe]t(?! ti[êe]u| n[ãa]o| d[ướơ]{1,2}i)/i, 'Xác định tầng rối loạn: tiểu cầu (xuất huyết da niêm, chấm nốt) hay đông máu huyết tương (bầm mảng, chảy máu khớp – cơ); đối chiếu tiểu cầu, PT, aPTT, fibrinogen.'],
     [/h[ạa]ch to|n[ổo]i h[ạa]ch/i, 'Hạch > 1 cm tồn tại > 4 tuần, hoặc hạch cứng – dính – không đau, hoặc kèm triệu chứng B: có chỉ định sinh thiết hạch trọn.'],
     [/s[ụu]t c[âa]n|tri[ệe]u ch[ứu]ng b/i, 'Sụt > 5% cân nặng trong 6–12 tháng không chủ ý. Triệu chứng B (lymphoma): sốt > 38°C, đổ mồ hôi đêm, sụt > 10% trong 6 tháng.'],
@@ -1429,7 +1429,7 @@ LIBRARY.push(
         cls: ['X-quang 2 bình diện', 'CT dựng hình xương', 'Đo mật độ xương', 'Công thức máu – đông máu trước mổ']
     },
     {
-        k: 'Bỏng', re: /b[ỏo]ng/i,
+        k: 'Bỏng', re: /bỏng/i,
         nn: ['Bỏng nhiệt', 'Bỏng điện', 'Bỏng hóa chất', 'Bỏng do bức xạ'],
         red: ['Bỏng đường hô hấp', 'Sốc bỏng'],
         cls: ['Ước lượng diện tích – độ sâu bỏng', 'Khí máu – HbCO', 'Ion đồ – chức năng thận', 'Công thức máu', 'Cấy dịch vết bỏng']
@@ -1708,7 +1708,7 @@ HALLMARKS.unshift(
     [/(ch[ấa]n th[ươư]{1,2}ng|v[ếe]t th[ươư]{1,2}ng) m[ạa]ch m[áa]u|đ[ứu]t đ[ộo]ng m[ạa]ch/i, ['Máu phun thành tia theo nhịp mạch',
         'Khối máu tụ đập nảy và to nhanh', 'Sờ rung miu – nghe âm thổi tại chỗ', 'Mất mạch dưới chỗ tổn thương',
         'Chi lạnh, tái, tê bì (6P)', 'ABI bên tổn thương < 0,9']],
-    [/tu[ầa]n ho[àa]n ngo[àa]i c[ơo] th[ểe]|cpb|h[ậa]u ph[ẫa]u tim h[ởo]/i, ['Vết mổ xương ức khô, không chảy dịch',
+    [/tu[ầa]n ho[àa]n ngo[àa]i c[ơo] th[ểe]|\bcpb\b|h[ậa]u ph[ẫa]u tim h[ởo]/i, ['Vết mổ xương ức khô, không chảy dịch',
         'Lượng dịch ống dẫn lưu trung thất mỗi giờ', 'Huyết áp – nhịp tim ổn định trên thuốc vận mạch',
         'Tưới máu ngoại biên, nước tiểu, lactat', 'Nhịp tim trên monitor (rung nhĩ sau mổ)', 'Tiếng tim, tiếng cọ màng ngoài tim']],
     [/nh[ượơ]{1,2}c c[ơo]|myasthenia|tuy[ếe]n [ứu]c|thymoma/i, ['Sụp mi tăng dần về cuối ngày', 'Nhìn đôi',
@@ -1838,3 +1838,338 @@ export const TEN_NGUYEN_NHAN = [...new Set(LIBRARY.flatMap(x => [...(x.nn || [])
 
 /** Toàn bộ tên cận lâm sàng có trong thư viện biện luận */
 export const TEN_CLS = [...new Set(LIBRARY.flatMap(x => x.cls || []))];
+
+/* ---------------------------------------------------------------------------
+   Bổ sung 2026-08-28 — các mặt bệnh thường gặp trong bệnh án sinh viên mà kho
+   chưa có gì: gõ chẩn đoán vào là mục X không gợi được tiêu chuẩn nào, mục
+   "biến chứng cần tìm" cũng trống.
+   Dùng `unshift` chứ không `push`: dò theo thứ tự, cái khớp đầu tiên thắng, nên
+   mẫu hẹp phải đứng trước mẫu rộng đã có sẵn ở trên.
+   --------------------------------------------------------------------------- */
+/* Mẫu sỏi ống mật chủ có chặn "vàng da": vấn đề "Vàng da sau gan (sỏi ống mật
+   chủ, u đầu tụy)" phải giữ tiêu chuẩn vàng da chung, không bị mẫu hẹp cướp. */
+TIEU_CHUAN.unshift(
+    [/vi[êe]m t[úu]i m[ậa]t/i, 'Tokyo Guidelines 2018. A — tại chỗ: dấu Murphy, hoặc đau / đề kháng / sờ thấy khối hạ sườn phải. B — toàn thân: sốt, CRP tăng, bạch cầu tăng. C — hình ảnh: thành túi mật dày > 3 mm, túi mật căng to, sỏi kẹt cổ, dịch quanh túi mật. Nghi ngờ khi có 1A + 1B; xác định khi có thêm C. Độ nặng: I nhẹ, II khi bạch cầu > 18.000 hoặc sờ thấy khối hoặc triệu chứng > 72 giờ hoặc viêm tại chỗ nặng, III khi đã có suy tạng.'],
+    [/vi[êe]m đ[ườơ]{1,2}ng m[ậa]t/i, 'Tokyo Guidelines 2018. A — viêm toàn thân: sốt hoặc lạnh run, bạch cầu / CRP tăng. B — ứ mật: vàng da, ALP – GGT – AST – ALT – bilirubin tăng. C — hình ảnh: giãn đường mật và thấy nguyên nhân (sỏi, hẹp, stent). Nghi ngờ khi có 1A + (1B hoặc 1C); xác định khi đủ 1A + 1B + 1C. Tam chứng Charcot (sốt – vàng da – đau hạ sườn phải) độ nhạy thấp nhưng rất gợi ý; thêm rối loạn tri giác và tụt huyết áp thành ngũ chứng Reynolds, tức đã nhiễm khuẩn huyết đường mật.'],
+    [/^(?!.*v[àa]ng da)(?=.*(s[ỏo]i [ốo]ng m[ậa]t ch[ủu]|s[ỏo]i đ[ườơ]{1,2}ng m[ậa]t))/i, 'Đau hạ sườn phải kiểu quặn gan + vàng da tắc mật (bilirubin trực tiếp, ALP – GGT tăng) + siêu âm hoặc MRCP thấy sỏi trong ống mật chủ, hoặc ống mật chủ giãn > 6 mm. Siêu âm bỏ sót sỏi đoạn thấp khá nhiều — nghi trên lâm sàng mà siêu âm âm tính thì phải MRCP hoặc siêu âm qua nội soi.'],
+    [/[áa]p xe gan/i, 'Sốt + đau hạ sườn phải + gan to đau (tam chứng Fontan), kèm siêu âm hoặc CT có ổ dịch trong nhu mô gan. Phân biệt amip (thường một ổ ở thùy phải, huyết thanh amip dương, đáp ứng metronidazole) với vi khuẩn (nhiều ổ, thường từ đường mật, cấy máu hoặc cấy mủ dương). Chọc hút vừa chẩn đoán vừa điều trị khi ổ > 5 cm hoặc dọa vỡ.'],
+    [/ung th[ưu] gan|carcinom[ae] t[ếe] b[àa]o gan/i, 'Trên nền gan xơ hoặc viêm gan B/C mạn: khối > 1 cm có kiểu ngấm thuốc điển hình trên CT hoặc MRI ba thì — ngấm mạnh thì động mạch rồi thải thuốc thì tĩnh mạch cửa hoặc thì muộn — là đủ chẩn đoán, không cần sinh thiết. AFP tăng cao ủng hộ thêm nhưng AFP bình thường không loại trừ. Ngoài nền gan xơ thì phải sinh thiết.'],
+    [/s[ỏo]i ni[ệe]u qu[ảa]n|s[ỏo]i th[ậa]n|c[ơo]n đau qu[ặa]n th[ậa]n/i, 'Cơn đau quặn thận: đau đột ngột vùng hông lưng lan xuống bẹn – sinh dục, bệnh nhân vật vã không tìm được tư thế giảm đau, kèm tiểu máu vi thể hoặc đại thể. CT bụng chậu không cản quang là tiêu chuẩn vàng (độ nhạy > 95%), cho biết vị trí, kích thước và mức độ ứ nước. Sỏi < 5 mm phần lớn tự ra; từ 10 mm trở lên hầu như phải can thiệp.'],
+    [/[áa]p xe ph[ổo]i/i, 'Hình hang có mức nước hơi trong nhu mô phổi trên X-quang hoặc CT ngực, kèm sốt kéo dài, ho khạc đàm mủ thối. Hay gặp ở người có yếu tố hít sặc (rối loạn nuốt, hôn mê, nghiện rượu, răng miệng kém), thường ở phân thùy sau thùy trên hoặc phân thùy trên thùy dưới. Hang thành dày bờ không đều ở người hút thuốc, sụt cân thì phải loại trừ ung thư hoại tử.'],
+    [/gi[ãa]n ph[ếe] qu[ảa]n/i, 'Ho khạc đàm mủ mạn tính, từng đợt bội nhiễm, có thể ho ra máu. Xác định bằng CT ngực lớp mỏng: đường kính lòng phế quản lớn hơn động mạch đi kèm (dấu vòng nhẫn), phế quản không thon nhỏ dần về ngoại vi, thấy phế quản ở vùng cách màng phổi 1 cm. Tìm luôn nguyên nhân: lao cũ, xơ nang, suy giảm miễn dịch, dị vật.'],
+    [/vi[êe]m ph[ếe] qu[ảa]n c[ấa]p/i, 'Ho cấp tính dưới 3 tuần, có hoặc không khạc đàm, ở người KHÔNG có thâm nhiễm mới trên X-quang ngực và không có bệnh phổi mạn nền. Là chẩn đoán loại trừ viêm phổi — sốt cao, thở nhanh, ran nổ khu trú, SpO2 giảm thì phải chụp phim. Phần lớn do siêu vi, không có chỉ định kháng sinh thường quy.'],
+    [/nh[ịi]p nhanh k[ịi]ch ph[áa]t tr[êe]n th[ấa]t|nhanh k[ịi]ch ph[áa]t tr[êe]n th[ấa]t/i, 'ECG: nhịp đều, tần số 150–250 lần/phút, QRS hẹp dưới 120 ms (trừ khi có dẫn truyền lệch hướng), khởi phát và kết thúc đột ngột, sóng P thường lẫn trong QRS hoặc ngay sau QRS — biểu hiện bằng giả sóng r ở V1 và giả sóng s ở DII, DIII, aVF. Nghiệm pháp phế vị hoặc adenosine cắt cơn, vừa để chẩn đoán vừa để điều trị.'],
+    [/block nh[ĩi] th[ấa]t đ[ộo] (iii|3)|block nh[ĩi] th[ấa]t ho[àa]n to[àa]n/i, 'ECG: phân ly nhĩ thất hoàn toàn — sóng P và QRS hoàn toàn độc lập, tần số nhĩ nhanh hơn tần số thất, khoảng PP đều và khoảng RR đều nhưng không liên hệ với nhau. QRS hẹp gợi ý ổ thoát bộ nối (40–60 lần/phút, ổn định hơn), QRS rộng gợi ý ổ thoát thất (20–40 lần/phút, nguy cơ ngưng tim). Có triệu chứng là chỉ định tạo nhịp.'],
+    [/vi[êe]m m[àa]ng ngo[àa]i tim/i, 'Chẩn đoán khi có ít nhất 2 trong 4: (1) đau ngực kiểu màng ngoài tim — đau nhói, tăng khi nằm ngửa và hít sâu, giảm khi ngồi cúi ra trước; (2) tiếng cọ màng ngoài tim; (3) ECG có ST chênh lên lan tỏa hình yên ngựa kèm PR chênh xuống; (4) tràn dịch màng ngoài tim mới xuất hiện hoặc tăng lên trên siêu âm tim. CRP tăng và màng ngoài tim bắt thuốc trên CT hoặc MRI là bằng chứng hỗ trợ.'],
+    [/vi[êe]m m[ôo] t[ếe] b[àa]o/i, 'Chẩn đoán lâm sàng: vùng da sưng – nóng – đỏ – đau lan tỏa, bờ không rõ (khác viêm quầng bờ gồ rõ), thường ở một bên chi dưới, có thể kèm sốt và hạch vùng. Luôn tìm đường vào (nứt kẽ ngón, vết thương, nấm da) và tầm soát đái tháo đường. Đau không tương xứng với biểu hiện ngoài da, bóng nước xuất huyết, hoại tử, tràn khí dưới da là dấu hiệu viêm cân hoại tử — mổ cấp cứu, không chờ.'],
+    [/[ốo]i v[ỡo] non|[ốo]i v[ỡo] s[ớo]m/i, 'Ối vỡ non là vỡ ối trước khi chuyển dạ; ối vỡ sớm là vỡ khi đã chuyển dạ nhưng cổ tử cung chưa trọn. Xác định bằng đặt mỏ vịt thấy nước ối chảy từ lỗ cổ tử cung, hoặc nghiệm pháp Nitrazine (dịch ối kiềm hóa giấy quỳ), hoặc siêu âm thấy chỉ số ối giảm. KHÔNG khám âm đạo bằng tay khi chưa chuyển dạ — mỗi lần khám là một lần đưa vi khuẩn lên. Theo dõi nhiễm trùng ối: sốt mẹ, tim thai nhanh, dịch ối hôi, bạch cầu và CRP tăng.'],
+    [/nhau ti[ềe]n đ[ạa]o/i, 'Bánh nhau bám ở đoạn dưới tử cung, mép bánh nhau cách lỗ trong cổ tử cung dưới 2 cm hoặc che một phần hay toàn phần lỗ trong, xác định bằng siêu âm ngã âm đạo sau tuần 32. Lâm sàng kinh điển: ra huyết âm đạo đỏ tươi, tự nhiên, không đau, tái phát nhiều lần trong ba tháng cuối. TUYỆT ĐỐI không khám âm đạo bằng tay khi chưa loại trừ — làm chảy máu ồ ạt. Có sẹo mổ lấy thai thì phải tìm thêm nhau cài răng lược.']
+);
+
+BIEN_CHUNG.unshift(
+    [/vi[êe]m t[úu]i m[ậa]t|vi[êe]m đ[ườơ]{1,2}ng m[ậa]t|s[ỏo]i [ốo]ng m[ậa]t/i, [
+        ['Nhiễm khuẩn huyết đường mật – sốc', 'theo dõi qSOFA, lactat, huyết áp; cấy máu trước khi dùng kháng sinh'],
+        ['Viêm túi mật hoại tử – thủng, viêm phúc mạc mật', 'theo dõi đề kháng thành bụng, siêu âm lại khi đau tăng'],
+        ['Viêm tụy cấp do sỏi', 'định lượng amylase – lipase khi đau lan ra sau lưng'],
+        ['Áp xe gan đường mật', 'siêu âm hoặc CT gan khi còn sốt sau 72 giờ kháng sinh']
+    ]],
+    [/s[ỏo]i ni[ệe]u qu[ảa]n|s[ỏo]i th[ậa]n|th[ậa]n [ứu] n[ướơ]{1,2}c/i, [
+        ['Thận ứ nước – ứ mủ trên đường tiết niệu tắc nghẽn', 'sốt kèm sỏi tắc là cấp cứu dẫn lưu; theo dõi sốt và bạch cầu niệu'],
+        ['Tổn thương thận cấp sau thận', 'theo dõi creatinin và nước tiểu 24 giờ, nhất là khi sỏi hai bên hoặc thận độc nhất'],
+        ['Nhiễm khuẩn huyết từ đường niệu', 'theo dõi qSOFA, cấy nước tiểu và cấy máu']
+    ]],
+    [/[áa]p xe ph[ổo]i|gi[ãa]n ph[ếe] qu[ảa]n/i, [
+        ['Tràn mủ màng phổi – dò phế quản màng phổi', 'siêu âm màng phổi khi sốt kéo dài, dịch tăng'],
+        ['Ho ra máu lượng nhiều', 'đếm lượng máu ho ra mỗi 24 giờ, đặt sẵn đường truyền và dự trù nhóm máu'],
+        ['Suy hô hấp mạn – tâm phế mạn', 'theo dõi SpO2, khí máu, siêu âm tim đánh giá áp lực động mạch phổi']
+    ]],
+    [/vi[êe]m m[àa]ng ngo[àa]i tim/i, [
+        ['Chèn ép tim cấp', 'theo dõi mạch nghịch, tĩnh mạch cổ nổi, huyết áp kẹt; siêu âm tim tại giường'],
+        ['Viêm màng ngoài tim co thắt', 'theo dõi phù, gan to, cổ trướng tái lập sau nhiều tháng'],
+        ['Tái phát', 'theo dõi CRP và triệu chứng khi giảm liều kháng viêm']
+    ]],
+    [/[ốo]i v[ỡo] non|[ốo]i v[ỡo] s[ớo]m/i, [
+        ['Nhiễm trùng ối – nhiễm khuẩn sơ sinh', 'theo dõi thân nhiệt mẹ mỗi 4 giờ, tim thai, mùi và màu dịch ối, bạch cầu – CRP'],
+        ['Sa dây rốn', 'nghe tim thai ngay sau vỡ ối, nhất là khi ngôi cao lỏng hoặc ngôi bất thường'],
+        ['Sinh non và hậu quả cho trẻ', 'cân nhắc corticoid trưởng thành phổi theo tuổi thai'],
+        ['Nhau bong non', 'theo dõi đau bụng liên tục, tử cung co cứng, ra huyết']
+    ]],
+    [/nhau ti[ềe]n đ[ạa]o/i, [
+        ['Băng huyết – choáng mất máu', 'theo dõi lượng máu mất, mạch – huyết áp, dự trù máu sẵn'],
+        ['Nhau cài răng lược', 'siêu âm Doppler hoặc MRI khi có sẹo mổ lấy thai cũ'],
+        ['Sinh non và ngôi thai bất thường', 'theo dõi cơn gò, siêu âm xác định ngôi']
+    ]]
+);
+
+/* Bổ sung đợt 2 (2026-08-28): chấn thương – nhi – thần kinh, các mặt bệnh gặp
+   nhiều nhất ở vòng trực mà kho còn trống. Vẫn `unshift` vì mẫu hẹp phải đứng
+   trước mẫu rộng. */
+TIEU_CHUAN.unshift(
+    [/m[áa]u t[ụu] ngo[àa]i m[àa]ng c[ứu]ng/i, 'CT sọ não không cản quang: khối tăng đậm độ hình thấu kính hai mặt lồi, KHÔNG vượt qua đường khớp sọ (nhưng vượt được liềm não và lều tiểu não), thường kèm vỡ xương thái dương làm rách động mạch màng não giữa. Bệnh cảnh kinh điển là mất tri giác thoáng qua rồi có "khoảng tỉnh" trước khi xấu đi nhanh — chỉ gặp ở khoảng một phần ba ca, không có khoảng tỉnh cũng không loại trừ. Chỉ định mổ lấy máu tụ khi thể tích > 30 mL bất kể điểm Glasgow, hoặc bề dày > 15 mm, hoặc đẩy lệch đường giữa > 5 mm.'],
+    [/m[áa]u t[ụu] d[ướơ]{1,2}i m[àa]ng c[ứu]ng/i, 'CT sọ não: khối hình liềm ôm theo bề mặt bán cầu, VƯỢT QUA được đường khớp sọ nhưng không vượt qua liềm não. Cấp tính dưới 3 ngày tăng đậm độ, bán cấp 3–21 ngày đồng đậm độ (dễ bỏ sót, tìm dấu xóa rãnh vỏ não và đẩy lệch đường giữa), mạn tính trên 21 ngày giảm đậm độ. Người già, nghiện rượu, đang dùng kháng đông có thể không nhớ chấn thương. Mổ khi bề dày > 10 mm hoặc đẩy lệch đường giữa > 5 mm, bất kể điểm Glasgow.'],
+    [/v[ỡo] x[ươư]{1,2}ng s[ọo]|v[ỡo] n[ềe]n s[ọo]/i, 'Vỡ nền sọ chẩn đoán trên lâm sàng, CT có thể không thấy đường vỡ: bầm quanh hai hốc mắt (mắt gấu trúc), bầm sau tai (dấu Battle), chảy dịch não tủy qua mũi hoặc tai, chảy máu tai, liệt dây VII hoặc VIII. Có dấu vỡ nền sọ thì CHỐNG CHỈ ĐỊNH đặt sonde dạ dày đường mũi. Vỡ lún có chỉ định mổ khi lún sâu hơn bề dày bản sọ, hoặc vỡ hở, hoặc chèn ép gây dấu thần kinh khu trú.'],
+    [/v[ỡo] gan|ch[ấa]n th[ươư]{1,2}ng gan/i, 'CT bụng có cản quang là tiêu chuẩn — chỉ chụp khi huyết động ổn định. Phân độ AAST I–V theo độ sâu đường vỡ, khối máu tụ dưới bao và tổn thương mạch máu. Huyết động ổn định thì điều trị bảo tồn (nằm theo dõi, Hct và siêu âm lặp lại) kể cả độ cao. Huyết động không ổn định, hoặc FAST dương kèm tụt huyết áp không đáp ứng bù dịch, là chỉ định MỔ NGAY — không chờ CT. Thấy thoát mạch thuốc cản quang thì can thiệp nội mạch hoặc mổ.'],
+    [/v[ỡo] l[áa]ch|ch[ấa]n th[ươư]{1,2}ng l[áa]ch/i, 'CT bụng có cản quang, phân độ AAST I–V. Nghĩ tới khi có chấn thương hạ sườn trái, gãy xương sườn 9–11 bên trái, đau lan lên vai trái (dấu Kehr). Bảo tồn không mổ nếu huyết động ổn định — tỉ lệ thành công cao, nhất là ở trẻ em. Cảnh giác vỡ lách hai thì: máu tụ dưới bao vỡ muộn sau vài ngày đến vài tuần, nên bệnh nhân ra viện phải được dặn dấu hiệu quay lại. Cắt lách thì phải chủng ngừa phế cầu, não mô cầu, Hib.'],
+    [/g[ãa]y c[ổo] x[ươư]{1,2}ng đ[ùu]i/i, 'Người già ngã đập mông: đau háng, không đi được, chi ngắn và xoay ngoài, không tự nhấc gót chân khỏi mặt giường. X-quang khung chậu thẳng và khớp háng nghiêng; nghi trên lâm sàng mà phim bình thường thì phải chụp MRI hoặc CT vì gãy không di lệch rất dễ bỏ sót. Phân loại Garden I–IV. Mổ sớm trong 48 giờ làm giảm tử vong và biến chứng nằm lâu — trì hoãn phải có lý do rõ ràng.'],
+    [/g[ãa]y c[ộo]t s[ốo]ng|ch[ấa]n th[ươư]{1,2}ng c[ộo]t s[ốo]ng/i, 'Đánh giá vững – mất vững theo ba cột Denis (cột trước, cột giữa, cột sau); tổn thương từ hai cột trở lên là mất vững. Cột giữa — thành sau thân đốt sống và dây chằng dọc sau — là cột quyết định. Bất động cột sống ngay từ hiện trường, lăn khúc gỗ khi di chuyển. Khám thần kinh theo thang ASIA và ghi rõ mức tổn thương; sốc thần kinh (tụt huyết áp kèm mạch chậm) khác sốc mất máu (mạch nhanh) — nhầm là bù dịch sai.'],
+    [/tr[ậa]t kh[ớo]p vai/i, 'Trật ra trước chiếm phần lớn: vai mất tròn thành vuông, sờ thấy hõm dưới mỏm cùng vai (dấu nhát rìu), tay giữ ở tư thế khép và xoay trong, mọi cử động đều đau. BẮT BUỘC khám thần kinh mũ (cảm giác vùng cơ delta) và mạch quay TRƯỚC và SAU khi nắn, ghi vào bệnh án cả hai lần. X-quang trước nắn để loại gãy kèm theo và sau nắn để xác nhận đã vào khớp.'],
+    [/d[âa]y ch[ằa]ng ch[ée]o tr[ướơ]{1,2}c|đ[ứu]t ch[ée]o tr[ướơ]{1,2}c/i, 'Chấn thương xoay gối khi đang trụ chân, nghe tiếng "bựt", gối sưng nhanh trong vòng 2 giờ (tràn máu khớp) và cảm giác lỏng gối khi đi. Nghiệm pháp Lachman nhạy nhất, kèm ngăn kéo trước và pivot shift; khám ngay lúc mới bị chính xác hơn vì chưa co cứng cơ. MRI xác định và tìm tổn thương kèm theo (sụn chêm, dây chằng bên, phù tủy xương).'],
+    [/v[ếe]t th[ươư]{1,2}ng ph[ầa]n m[ềe]m/i, 'Mô tả đủ: vị trí, kích thước, bờ mép, độ sâu, dị vật, mức độ nhiễm bẩn và THỜI GIAN từ lúc bị thương — quá 6 giờ coi như đã nhiễm, cân nhắc không khâu kín thì đầu. Luôn khám mạch, thần kinh và gân ở phía xa vết thương rồi ghi vào bệnh án trước khi xử trí. Hỏi tiền sử chủng ngừa uốn ván để quyết định tiêm nhắc hay dùng huyết thanh; vết thương do súc vật cắn thì thêm xử trí dại.'],
+    [/đa ch[ấa]n th[ươư]{1,2}ng/i, 'Tổn thương từ hai vùng cơ thể trở lên, trong đó ít nhất một tổn thương đe dọa tính mạng (tương ứng ISS > 15). Tiếp cận theo trình tự ABCDE, xử trí tới đâu ổn định tới đó, không bỏ qua bước trước để làm bước sau. Tam chứng chết người phải chặn sớm: hạ thân nhiệt – toan chuyển hóa – rối loạn đông máu. Sau khi ổn định phải khám lại toàn thân lần hai (secondary survey) để tìm tổn thương bỏ sót.'],
+    [/vi[êe]m ti[ểe]u ph[ếe] qu[ảa]n/i, 'Trẻ dưới 24 tháng, hay gặp nhất 2–6 tháng, thường vào mùa dịch RSV. Khởi đầu như viêm hô hấp trên vài ngày rồi xuất hiện khò khè, thở nhanh, co lõm lồng ngực, phổi nghe ran rít – ran ngáy lan tỏa hai bên, có thể ran ẩm nhỏ hạt. Là chẩn đoán LÂM SÀNG — không chụp X-quang và không xét nghiệm thường quy. Dấu nặng cần nhập viện: bú kém, tím, ngưng thở, SpO2 dưới 92%, co lõm nặng, trẻ dưới 3 tháng hoặc có bệnh nền.'],
+    [/vi[êe]m thanh kh[íi] ph[ếe] qu[ảa]n|croup/i, 'Trẻ 6 tháng – 3 tuổi, khởi phát về đêm: ho ông ổng, khàn tiếng, thở rít thì hít vào, có thể kèm sốt nhẹ. Đánh giá độ nặng bằng thang Westley (thở rít, co lõm, thông khí, tím, tri giác). X-quang cổ thẳng có dấu tháp chuông nhưng KHÔNG bắt buộc để chẩn đoán. Không đè lưỡi hay gây kích thích khi trẻ đang khó thở. Thở rít cả khi nằm yên là dấu nặng, cần corticoid và khí dung adrenaline.'],
+    [/vi[êe]m h[ọo]ng c[ấa]p/i, 'Phần lớn do siêu vi, không cần kháng sinh. Dùng thang Centor sửa đổi (McIsaac) để cân nhắc liên cầu nhóm A: sốt trên 38°C, KHÔNG ho, hạch cổ trước sưng đau, amidan sưng có xuất tiết, tuổi 3–14 (mỗi tiêu chí 1 điểm; từ 45 tuổi trừ 1 điểm). Từ 3 điểm trở lên mới nên test nhanh hoặc cấy họng. Ho, chảy mũi, khàn tiếng, loét miệng là dấu hiệu của siêu vi.'],
+    [/vi[êe]m tai gi[ữư]a c[ấa]p/i, 'Khởi phát cấp tính, KÈM màng nhĩ phồng (dấu quan trọng nhất, không phải chỉ đỏ) hoặc mới chảy mủ tai không do viêm ống tai ngoài, KÈM dấu viêm tai giữa (đau tai, trẻ nhỏ thì quấy khóc kéo tai). Màng nhĩ đỏ đơn thuần khi trẻ đang khóc hay sốt thì không đủ để chẩn đoán. Trẻ trên 2 tuổi, một bên, không nặng thì có thể theo dõi 48–72 giờ trước khi dùng kháng sinh.'],
+    [/guillain[\s–-]*barr[ée]|vi[êe]m đa r[ễe] d[âa]y th[ầa]n kinh/i, 'Yếu cơ tiến triển tương đối đối xứng, đi từ ngọn chi lên gốc, KÈM giảm hoặc mất phản xạ gân xương ở vùng yếu; tiến triển đạt đỉnh trong vòng 4 tuần. Dịch não tủy có phân ly đạm – tế bào (đạm tăng, bạch cầu dưới 50/mm³) nhưng tuần đầu có thể còn bình thường. Điện cơ hỗ trợ phân thể. Phải đo dung tích sống hoặc áp lực hít vào lặp lại — suy hô hấp diễn tiến âm thầm và là nguyên nhân tử vong chính; theo dõi thêm rối loạn thần kinh tự chủ.'],
+    [/li[ệe]t (d[âa]y )?(vii|7)|li[ệe]t m[ặa]t ngo[àa]i bi[êe]n|\bbell\b/i, 'Liệt ngoại biên là liệt TOÀN BỘ nửa mặt cùng bên, gồm cả nhánh trán: mất nếp nhăn trán, không nhắm kín mắt và nhãn cầu đưa lên trên khi cố nhắm (dấu Charles Bell). Liệt trung ương thì chừa nửa trên mặt vì nhân trán nhận chi phối hai bên — phân biệt được ngay tại giường và quyết định hướng xử trí hoàn toàn khác. Khởi phát dưới 72 giờ, tiến triển từ từ trên 2 tuần hoặc kèm dấu thần kinh khác thì phải tìm nguyên nhân thứ phát (u, zona hạch gối, Lyme, viêm tai giữa).'],
+    [/vi[êe]m n[ãa]o/i, 'Rối loạn tri giác hoặc thay đổi hành vi – nhân cách kéo dài trên 24 giờ, KÈM ít nhất 2 trong: sốt, co giật mới xuất hiện, dấu thần kinh khu trú, tăng bạch cầu trong dịch não tủy, bất thường trên điện não hoặc trên hình ảnh học. Khác viêm màng não ở chỗ tổn thương nhu mô nên có dấu khu trú và rối loạn tri giác nổi bật hơn dấu màng não. Nghi Herpes (tổn thương thùy thái dương, PCR dịch não tủy) thì dùng acyclovir NGAY, không chờ kết quả.']
+);
+
+BIEN_CHUNG.unshift(
+    [/m[áa]u t[ụu] (ngo[àa]i|d[ướơ]{1,2}i) m[àa]ng c[ứu]ng|ch[ấa]n th[ươư]{1,2}ng s[ọo] n[ãa]o|v[ỡo] x[ươư]{1,2}ng s[ọo]/i, [
+        ['Tụt não', 'theo dõi Glasgow mỗi giờ, đồng tử hai bên, mạch chậm – huyết áp tăng (phản xạ Cushing)'],
+        ['Phù não – tăng áp lực nội sọ', 'theo dõi tri giác, nôn vọt, CT lặp lại khi Glasgow giảm 2 điểm'],
+        ['Động kinh sau chấn thương', 'theo dõi cơn co giật, cân nhắc dự phòng tuần đầu'],
+        ['Rò dịch não tủy – viêm màng não', 'theo dõi chảy dịch mũi tai, sốt, dấu màng não']
+    ]],
+    [/v[ỡo] gan|v[ỡo] l[áa]ch|ch[ấa]n th[ươư]{1,2}ng b[ụu]ng k[íi]n/i, [
+        ['Chảy máu tái phát – vỡ hai thì', 'theo dõi mạch, huyết áp, Hct mỗi 4–6 giờ và siêu âm lặp lại'],
+        ['Sốc mất máu', 'theo dõi lượng máu truyền, lactat, nước tiểu; dự trù máu sẵn'],
+        ['Áp xe tồn lưu – rò mật', 'theo dõi sốt muộn, siêu âm hoặc CT bụng sau 5–7 ngày'],
+        ['Nhiễm khuẩn tối cấp sau cắt lách', 'chủng ngừa phế cầu – não mô cầu – Hib, dặn dấu hiệu quay lại']
+    ]],
+    [/đa ch[ấa]n th[ươư]{1,2}ng/i, [
+        ['Tam chứng chết người: hạ thân nhiệt – toan – rối loạn đông máu', 'theo dõi nhiệt độ trung tâm, khí máu, PT – aPTT – fibrinogen'],
+        ['Tổn thương bỏ sót', 'khám lại toàn thân lần hai sau khi ổn định, và lần ba trong 24 giờ'],
+        ['Hội chứng chèn ép khoang', 'theo dõi đau tăng không tương xứng, đau khi căng cơ thụ động, mạch ngoại vi'],
+        ['Thuyên tắc mỡ', 'theo dõi khó thở, chấm xuất huyết, lú lẫn sau gãy xương dài 24–72 giờ']
+    ]],
+    [/guillain[\s–-]*barr[ée]/i, [
+        ['Suy hô hấp do liệt cơ hô hấp', 'đo dung tích sống mỗi 4–6 giờ, chuẩn bị thở máy khi giảm nhanh'],
+        ['Rối loạn thần kinh tự chủ', 'theo dõi mạch – huyết áp dao động, loạn nhịp, bí tiểu'],
+        ['Huyết khối tĩnh mạch sâu do nằm lâu', 'dự phòng bằng vận động thụ động và thuốc kháng đông']
+    ]],
+    [/vi[êe]m ti[ểe]u ph[ếe] qu[ảa]n|croup|vi[êe]m thanh kh[íi] ph[ếe] qu[ảa]n/i, [
+        ['Suy hô hấp – ngưng thở', 'theo dõi SpO2 liên tục, nhịp thở, co lõm; trẻ dưới 3 tháng dễ ngưng thở'],
+        ['Mất nước do bú kém và thở nhanh', 'theo dõi lượng bú, số tã ướt, cân nặng mỗi ngày'],
+        ['Bội nhiễm vi khuẩn', 'chỉ nghĩ tới khi sốt cao trở lại hoặc diễn tiến xấu sau khi đã cải thiện']
+    ]]
+);
+
+/* Bổ sung đợt 3 (2026-08-28): sản – phụ khoa, tiêu hóa – gan mật, nhiễm.
+   Vẫn `unshift`; sau khi thêm phải chạy phép đối chiếu cướp mẫu (xem BAN-DO-DU-LIEU.md). */
+TIEU_CHUAN.unshift(
+    /* ---------------- Sản – Phụ khoa ---------------- */
+    [/^(?!.*chuy[ểe]n d[ạa])(?=.*thai k[ỳy] b[ìi]nh th[ườơ]{1,2}ng)/i, 'Gọi là thai kỳ bình thường khi: tuổi thai xác định chắc chắn (kinh chót hiệu chỉnh bằng siêu âm quý I), thai máy đều, tim thai trong giới hạn, bề cao tử cung tương xứng tuổi thai, tăng cân trong khoảng khuyến nghị theo BMI trước mang thai, huyết áp và đạm niệu bình thường, các xét nghiệm tầm soát quý I – II không bất thường, và KHÔNG có dấu hiệu nguy hiểm (ra huyết, ra nước, đau bụng, nhức đầu – hoa mắt, thai máy giảm).'],
+    [/^(?!.*d[ọo]a)(?=.*sinh non)/i, 'Chuyển dạ sinh non là chuyển dạ xảy ra từ 22 tuần 0 ngày đến 36 tuần 6 ngày: cơn gò đều đặn KÈM thay đổi cổ tử cung (xóa từ 80% hoặc mở từ 2 cm). Cơn gò đơn thuần chưa đủ để chẩn đoán. Siêu âm ngã âm đạo đo chiều dài cổ tử cung dưới 25 mm làm tăng khả năng; fibronectin bào thai âm tính có giá trị loại trừ tốt. Xác định tuổi thai chắc chắn trước khi quyết định corticoid trưởng thành phổi và chuyển tuyến.'],
+    [/thai qu[áa] ng[àa]y|thai gi[àa] th[áa]ng/i, 'Thai quá ngày khi tuổi thai từ 42 tuần 0 ngày (294 ngày) trở lên, tính theo kinh chót ĐÃ hiệu chỉnh bằng siêu âm quý I — sai tuổi thai là nguyên nhân chẩn đoán nhầm hay gặp nhất. Khoảng 41 tuần 0 ngày đến 41 tuần 6 ngày gọi là thai đủ tháng muộn, đã phải theo dõi sát. Từ 41 tuần: non-stress test và đo chỉ số ối hai lần mỗi tuần, đếm cử động thai hằng ngày.'],
+    [/d[ọo]a s[ảa]y thai/i, 'Ra huyết âm đạo trong 20 tuần đầu thai kỳ, cổ tử cung còn ĐÓNG, và siêu âm còn thấy hoạt động tim thai. Cổ tử cung đã mở thì là sảy khó tránh, không còn là dọa sảy. Phải loại trừ thai ngoài tử cung bằng beta-hCG và siêu âm đầu dò trước khi kết luận, nhất là khi chưa xác định được vị trí túi thai.'],
+    [/s[ảa]y thai/i, 'Mất thai trước 22 tuần. Phân loại theo khám và siêu âm: sảy khó tránh (cổ tử cung đã mở, còn mô thai trong buồng), sảy không trọn (còn sót mô nhau, ra huyết kéo dài, siêu âm còn hồi âm hỗn hợp trong buồng), sảy trọn (buồng tử cung sạch, nội mạc mỏng dưới 15 mm, hết đau và giảm ra huyết). Sảy thai liên tiếp là từ 2 lần trở lên, cần truy nguyên nhân.'],
+    [/thai l[ưu]u|thai ch[ếe]t l[ưu]u/i, 'Siêu âm không thấy hoạt động tim thai khi chiều dài đầu – mông từ 7 mm trở lên, HOẶC túi thai đường kính trung bình từ 25 mm trở lên mà không thấy phôi. Đây là tiêu chuẩn chắc chắn — dưới các ngưỡng đó phải siêu âm lại sau 7–14 ngày chứ không kết luận ngay. Nên có hai người xác nhận. Theo dõi rối loạn đông máu khi thai lưu để lâu (fibrinogen, tiểu cầu).'],
+    [/thai tr[ứu]ng|ch[ửư]a tr[ứu]ng/i, 'Ra huyết âm đạo bất thường trong nửa đầu thai kỳ, tử cung to hơn tuổi thai, nghén nặng bất thường, có thể kèm cường giáp và tiền sản giật sớm trước 20 tuần. Beta-hCG rất cao, thường trên 100.000 mIU/mL. Siêu âm có hình ảnh "tổ ong" hay "bão tuyết", trứng toàn phần thì không thấy phôi và không có tim thai. Giải phẫu bệnh mới xác định; sau hút phải theo dõi beta-hCG đến khi âm tính để phát hiện u nguyên bào nuôi.'],
+    [/u x[ơo] t[ửư] cung|nh[âa]n x[ơo] t[ửư] cung/i, 'Siêu âm thấy khối cơ trơn giảm âm, bờ rõ, trong hoặc trên thành tử cung; phân loại vị trí theo FIGO 0–8 vì vị trí quyết định triệu chứng và cách xử trí (dưới niêm gây rong cường kinh, dưới thanh mạc gây chèn ép). Khám thấy tử cung to, chắc, bờ không đều. Phần lớn không triệu chứng thì chỉ theo dõi. Khối lớn nhanh sau mãn kinh phải nghĩ tới sarcoma.'],
+    [/u nang bu[ồo]ng tr[ứu]ng|nang bu[ồo]ng tr[ứu]ng/i, 'Siêu âm mô tả đủ: kích thước, một hay nhiều thùy, vách, chồi nhú, phần đặc, dịch ổ bụng, tưới máu Doppler. Đánh giá nguy cơ ác tính bằng IOTA simple rules hoặc chỉ số RMI (siêu âm + CA-125 + tình trạng mãn kinh). Nang đơn thuần dưới 5 cm ở phụ nữ tuổi sinh sản phần lớn là nang cơ năng, siêu âm lại sau 2–3 chu kỳ. Đau bụng dữ dội đột ngột trên nền nang là xoắn nang — cấp cứu ngoại.'],
+    [/vi[êe]m [âa]m đ[ạa]o/i, 'Ba nguyên nhân chính, phân biệt bằng tính chất khí hư, pH và soi tươi. Nấm Candida: khí hư trắng đục vón như sữa đông, ngứa nhiều, pH dưới 4,5, soi thấy sợi tơ và bào tử nấm. Trichomonas: khí hư vàng xanh có bọt, hôi, pH trên 4,5, cổ tử cung hình trái dâu, soi tươi thấy trùng roi di động. Viêm âm đạo do vi khuẩn theo tiêu chuẩn Amsel (đủ 3 trong 4): khí hư loãng xám đồng nhất, pH trên 4,5, whiff test dương với KOH, và clue cells chiếm trên 20%.'],
+    [/vi[êe]m v[ùu]ng ch[ậa]u|vi[êe]m ph[ầa]n ph[ụu]/i, 'Phụ nữ trẻ có hoạt động tình dục, đau bụng dưới không giải thích được bằng nguyên nhân khác, KÈM ít nhất một trong ba dấu khi khám: đau khi lắc cổ tử cung, đau tử cung, đau phần phụ. Ngưỡng chẩn đoán để thấp một cách có chủ ý vì bỏ sót dẫn tới vô sinh và thai ngoài tử cung. Tiêu chí hỗ trợ: sốt trên 38,3°C, khí hư mủ, VS hoặc CRP tăng, xét nghiệm lậu hoặc Chlamydia dương. Luôn thử thai để loại thai ngoài tử cung.'],
+    [/ung th[ưu] c[ổo] t[ửư] cung/i, 'Nghi ngờ khi ra huyết âm đạo sau giao hợp, ra huyết bất thường ngoài kỳ kinh hoặc sau mãn kinh, khí hư hôi lẫn máu. Tế bào học cổ tử cung bất thường thì soi cổ tử cung, và SINH THIẾT mới là tiêu chuẩn xác định — không kết luận bằng tế bào học. Khám âm đạo – trực tràng để đánh giá xâm lấn chu cung; xếp giai đoạn theo FIGO 2018 có kèm hình ảnh học và hạch.'],
+
+    /* ---------------- Tiêu hóa – Gan mật ---------------- */
+    [/gan nhi[ễe]m m[ỡo] kh[ôo]ng do r[ượư]{1,2}u|nafld|masld/i, 'Có bằng chứng gan nhiễm mỡ trên siêu âm, CT, MRI hoặc mô học, SAU KHI loại trừ: uống rượu đáng kể (nam trên 30 g cồn/ngày, nữ trên 20 g), viêm gan virus, thuốc gây gan nhiễm mỡ, bệnh gan di truyền. Hầu như luôn đi kèm ít nhất một yếu tố chuyển hóa (béo bụng, đái tháo đường type 2, rối loạn lipid, tăng huyết áp). Phân tầng xơ hóa bằng FIB-4 hoặc NFS trước, chỉ số cao mới cần đo độ đàn hồi gan.'],
+    [/^(?!.*x[ơo] gan)(?=.*(gan do r[ượư]{1,2}u|vi[êe]m gan do r[ượư]{1,2}u))/i, 'Tiền sử uống nhiều kéo dài, kèm AST/ALT trên 2 (và AST thường dưới 300 UI/L — trên 500 phải nghĩ nguyên nhân khác), GGT tăng, MCV tăng. Viêm gan do rượu cấp: vàng da mới xuất hiện trong vòng 8 tuần trên nền uống nhiều, AST 50–400, bilirubin trên 3 mg/dL, sau khi loại trừ tắc mật và nhiễm trùng. Đánh giá độ nặng bằng điểm Maddrey hoặc MELD để quyết định corticoid.'],
+    [/s[ỏo]i t[úu]i m[ậa]t/i, 'Siêu âm bụng: cấu trúc tăng âm trong lòng túi mật, có bóng lưng, DI ĐỘNG theo tư thế — ba dấu phải đủ để phân biệt với polyp và bùn mật. Phần lớn sỏi túi mật không triệu chứng và KHÔNG có chỉ định mổ. Cơn đau quặn mật điển hình: đau thượng vị hoặc hạ sườn phải kéo dài trên 30 phút rồi tự hết, thường sau bữa ăn nhiều mỡ, lan lên vai phải; đau liên tục kèm sốt là đã sang viêm túi mật.'],
+    [/tr[ĩi] n[ộo]i|b[ệe]nh tr[ĩi]|tr[ĩi] ngo[ạa]i/i, 'Trĩ nội phân độ theo mức sa và khả năng tự co: độ I chưa sa ra ngoài, độ II sa khi rặn rồi tự co lên, độ III sa phải dùng tay đẩy vào, độ IV sa thường xuyên không đẩy vào được. Chẩn đoán bằng soi hậu môn, không phải chỉ nhìn ngoài. Chảy máu đỏ tươi thành giọt sau đi cầu là điển hình — NHƯNG bệnh nhân trên 40 tuổi, thiếu máu, sụt cân hoặc thay đổi thói quen đi cầu thì phải nội soi đại tràng loại trừ ung thư, không được đổ hết cho trĩ.'],
+    [/h[ộo]i ch[ứu]ng ru[ộo]t k[íi]ch th[íi]ch|\bibs\b/i, 'Tiêu chuẩn Rome IV: đau bụng tái diễn trung bình ít nhất 1 ngày mỗi tuần trong 3 tháng gần đây, KÈM ít nhất 2 trong 3 điểm — liên quan đến đại tiện, kèm thay đổi số lần đi cầu, kèm thay đổi tính chất phân. Triệu chứng khởi phát ít nhất 6 tháng trước. Đây là chẩn đoán DƯƠNG TÍNH chứ không phải chẩn đoán loại trừ, nhưng phải không có dấu báo động: sụt cân, thiếu máu, tiêu máu, sốt, khởi phát sau 50 tuổi, tiền căn gia đình ung thư đại tràng hoặc bệnh viêm ruột.'],
+    [/ung th[ưu] đ[ạa]i (tr[ựư]c )?tr[àa]ng|ung th[ưu] tr[ựư]c tr[àa]ng/i, 'Nội soi đại tràng KÈM sinh thiết là tiêu chuẩn xác định. Nghĩ tới khi: thay đổi thói quen đi cầu kéo dài, tiêu máu, thiếu máu thiếu sắt không giải thích được (nhất là ở nam và phụ nữ mãn kinh), sụt cân, đau bụng kèm tắc ruột. CEA chỉ dùng để theo dõi sau điều trị, KHÔNG dùng để chẩn đoán hay tầm soát. Xếp giai đoạn bằng CT ngực – bụng – chậu, riêng trực tràng thêm MRI chậu.'],
+    [/ung th[ưu] d[ạa] d[àa]y/i, 'Nội soi dạ dày kèm sinh thiết, lấy ít nhất 6 mảnh ở bờ ổ loét — loét dạ dày nào cũng phải sinh thiết và soi lại sau điều trị để chắc đã lành. Dấu báo động cần nội soi sớm: sụt cân, nuốt nghẹn, nôn ói kéo dài, xuất huyết tiêu hóa, thiếu máu, sờ thấy khối thượng vị, tuổi khởi phát muộn. Xếp giai đoạn bằng CT và siêu âm qua nội soi; tìm hạch Virchow và di căn phúc mạc.'],
+    [/crohn/i, 'Tổn thương từng đoạn, NGẮT QUÃNG (skip lesions), có thể ở bất kỳ đoạn nào từ miệng đến hậu môn nhưng hay ở hồi tràng cuối. Viêm XUYÊN THÀNH nên biến chứng đặc trưng là rò, áp xe và hẹp. Nội soi thấy loét dọc, niêm mạc hình lát đá; sinh thiết có thể thấy u hạt không hoại tử bã đậu (đặc hiệu nhưng ít gặp). Bổ sung MRI ruột non và calprotectin phân. Phải loại trừ lao ruột — rất giống nhau ở nước ta.'],
+    [/vi[êe]m lo[ée]t đ[ạa]i tr[àa]ng/i, 'Viêm LIÊN TỤC bắt đầu từ trực tràng lan lên, chỉ giới hạn ở lớp niêm mạc, không có tổn thương ngắt quãng — đó là hai điểm phân biệt với Crohn. Lâm sàng: tiêu máu nhày kéo dài, mót rặn, đau quặn trước đi cầu. Nội soi kèm sinh thiết xác định và cho biết phạm vi. Đánh giá độ nặng đợt cấp bằng tiêu chuẩn Truelove–Witts. Luôn loại trừ nhiễm trùng trước, nhất là C. difficile và CMV.'],
+    [/vi[êe]m đ[ạa]i tr[àa]ng(?! do)/i, 'Là một mô tả nội soi, chưa phải chẩn đoán cuối — phải nói rõ nguyên nhân. Ba nhóm cần phân định: nhiễm trùng (khởi phát cấp, sốt, có yếu tố dịch tễ, cấy phân và độc tố C. difficile), thiếu máu cục bộ (người lớn tuổi có bệnh mạch máu, đau đột ngột rồi tiêu máu, tổn thương ở vùng phân thủy), và bệnh viêm ruột mạn (kéo dài, tái phát, tiêu máu nhày). Nội soi kèm sinh thiết là bước quyết định.'],
+
+    /* ---------------- Nhiễm ---------------- */
+    [/th[ươư]{1,2}ng h[àa]n/i, 'Sốt kéo dài tăng dần kiểu bậc thang trong tuần đầu, kèm mạch – nhiệt phân ly (mạch chậm tương đối so với mức sốt), đau bụng, rối loạn tiêu hóa, gan lách to, có thể thấy hồng ban ở bụng. Cấy máu là tiêu chuẩn và nhạy nhất trong tuần đầu; cấy tủy xương nhạy hơn và còn dương cả khi đã dùng kháng sinh; cấy phân dương từ tuần 2–3. Phản ứng Widal độ tin cậy thấp, không dùng để kết luận một mình.'],
+    [/s[ởo]i/i, 'Ba giai đoạn điển hình: sốt cao kèm viêm long (ho, sổ mũi, viêm kết mạc — tam chứng), hạt Koplik ở niêm mạc má đối diện răng hàm trên (dấu đặc hiệu, chỉ có 1–2 ngày trước phát ban), rồi ban dát sẩn mọc theo thứ tự từ sau tai xuống mặt, thân, tứ chi và bay theo đúng thứ tự đó để lại vết thâm kiểu "vằn da hổ". Xác định bằng IgM sởi. Khai thác tiền sử chủng ngừa và báo dịch.'],
+    [/th[ủu]y đ[ậa]u|tr[áa]i r[ạa]/i, 'Ban ngứa mọc thành NHIỀU ĐỢT nên tại cùng một thời điểm thấy các sang thương ở nhiều giai đoạn khác nhau — dát, sẩn, bóng nước trong, bóng nước đục, vảy — đó là dấu phân biệt quan trọng nhất. Ban bắt đầu ở đầu và thân rồi lan ra tứ chi (hướng ly tâm), có ở cả da đầu và niêm mạc. Chẩn đoán lâm sàng. Người lớn, phụ nữ mang thai và người suy giảm miễn dịch có nguy cơ biến chứng cao hơn nhiều.'],
+    [/quai b[ịi]/i, 'Sưng đau tuyến mang tai một hoặc hai bên, khối sưng đẩy dái tai ra ngoài và lên trên, mất rãnh sau hàm, da trên không đỏ; lỗ ống Stenon đỏ nề nhưng không có mủ. Amylase máu tăng mà lipase bình thường. Chẩn đoán lâm sàng trong bối cảnh dịch tễ. Phải hỏi và khám tìm biến chứng: viêm tinh hoàn ở nam sau dậy thì, viêm màng não, viêm tụy, viêm buồng trứng.'],
+    [/c[úu]m m[ùu]a|\bcum a\b|\bcum b\b/i, 'Khởi phát ĐỘT NGỘT sốt cao, đau nhức cơ toàn thân, đau đầu, mệt lả rõ rệt, kèm triệu chứng hô hấp (ho khan, đau họng) trong mùa dịch hoặc có tiếp xúc. Mức độ mệt mỏi toàn thân nổi trội hơn triệu chứng tại chỗ là điểm phân biệt với cảm lạnh thông thường. Test nhanh kháng nguyên hoặc PCR dịch tỵ hầu xác định; test âm tính trong mùa dịch không loại trừ.'],
+    [/covid/i, 'Xác định bằng PCR hoặc test kháng nguyên nhanh dương tính với SARS-CoV-2. Phân độ theo lâm sàng và oxy: không triệu chứng, nhẹ (không viêm phổi), trung bình (có viêm phổi, SpO2 từ 94% khi thở khí trời), nặng (SpO2 dưới 94%, nhịp thở trên 30, tổn thương trên 50% phổi), nguy kịch (suy hô hấp cần thở máy, sốc, suy đa tạng). Ghi rõ tình trạng chủng ngừa và bệnh nền vì đó là yếu tố tiên lượng chính.'],
+    [/\bd[ạa]i\b|\bch[óo] c[ắa]n\b|\bph[ơo]i nhi[ễe]m d[ạa]i\b/i, 'Xử trí là DỰ PHÒNG SAU PHƠI NHIỄM, không chờ chẩn đoán — lên cơn dại thì tử vong gần như 100%, không có điều trị. Phân độ WHO quyết định: độ I (sờ, cho ăn, liếm da lành) chỉ cần rửa; độ II (vết xước nông không chảy máu, gặm da hở) rửa kỹ và tiêm vắc xin; độ III (vết cắn xuyên da chảy máu, liếm niêm mạc hoặc da trầy, dơi) thì vắc xin KÈM huyết thanh kháng dại tiêm thấm quanh vết thương. Rửa vết thương bằng xà phòng dưới vòi nước 15 phút là bước đầu quan trọng nhất.'],
+    [/leptospir|xo[ắa]n khu[ẩa]n v[àa]ng da/i, 'Sốt cao đột ngột kèm ĐAU CƠ dữ dội, nổi bật nhất ở cơ bắp chân và thắt lưng, cùng xung huyết kết mạc không có mủ — bộ ba này rất gợi ý. Khai thác dịch tễ: lội nước bẩn, lũ lụt, làm ruộng, tiếp xúc chuột hay gia súc trong vòng 2–4 tuần. Thể nặng (hội chứng Weil): vàng da đậm, suy thận cấp, xuất huyết phổi. Xác định bằng MAT hai mẫu hoặc PCR tuần đầu; nghi ngờ là điều trị ngay, không chờ huyết thanh.'],
+    [/[áa]p xe ph[ầa]n m[ềe]m|[áa]p xe d[ướơ]{1,2}i da/i, 'Khối sưng nóng đỏ đau có dấu phập phều (khối mềm, cảm giác chứa dịch khi ấn hai tay đối diện) — dấu này phân biệt với viêm mô tế bào chưa hóa mủ. Siêu âm phần mềm xác nhận ổ dịch và đo độ sâu, giúp tránh chọc mù. Điều trị chính là RẠCH DẪN LƯU; kháng sinh đơn thuần không giải quyết được ổ mủ đã thành lập. Cấy mủ khi ổ lớn, tái phát, hoặc ở người suy giảm miễn dịch.'],
+    [/n[ấa]m candida|nhi[ễe]m n[ấa]m candida/i, 'Ở miệng: mảng trắng như sữa đông bám trên niêm mạc, DỄ BÓC và để lại nền đỏ rớm máu — khác bạch sản không bóc được. Ở âm đạo: khí hư trắng vón cục kèm ngứa nhiều, pH dưới 4,5. Soi tươi với KOH thấy sợi tơ nấm giả và bào tử chồi. Candida miệng ở người lớn KHÔNG có yếu tố nguy cơ rõ (corticoid hít, kháng sinh kéo dài, răng giả) thì phải tầm soát HIV và đái tháo đường.']
+);
+
+BIEN_CHUNG.unshift(
+    [/s[ảa]y thai|thai l[ưu]u|thai tr[ứu]ng/i, [
+        ['Băng huyết – sót nhau', 'theo dõi lượng máu ra, co hồi tử cung, siêu âm kiểm tra buồng tử cung'],
+        ['Nhiễm trùng tử cung', 'theo dõi sốt, dịch âm đạo hôi, đau tử cung khi khám'],
+        ['Rối loạn đông máu khi thai lưu lâu', 'kiểm tra fibrinogen, tiểu cầu, PT – aPTT trước khi can thiệp'],
+        ['U nguyên bào nuôi sau thai trứng', 'theo dõi beta-hCG hằng tuần đến khi âm tính rồi hằng tháng']
+    ]],
+    [/vi[êe]m v[ùu]ng ch[ậa]u|vi[êe]m ph[ầa]n ph[ụu]/i, [
+        ['Áp xe vòi trứng – buồng trứng', 'siêu âm khi sốt kéo dài hoặc sờ thấy khối phần phụ'],
+        ['Vô sinh do tắc vòi trứng và thai ngoài tử cung về sau', 'giải thích cho bệnh nhân, dặn tái khám'],
+        ['Hội chứng Fitz-Hugh–Curtis (viêm quanh gan)', 'nghĩ tới khi đau hạ sườn phải kèm viêm vùng chậu']
+    ]],
+    [/ung th[ưu] d[ạa] d[àa]y|ung th[ưu] đ[ạa]i (tr[ựư]c )?tr[àa]ng/i, [
+        ['Tắc ruột do khối u', 'theo dõi bí trung đại tiện, chướng bụng, nôn'],
+        ['Xuất huyết tiêu hóa – thiếu máu mạn', 'theo dõi Hb, phân đen hoặc máu, nhu cầu truyền máu'],
+        ['Thủng và viêm phúc mạc', 'theo dõi đau đột ngột, đề kháng thành bụng'],
+        ['Di căn gan – phúc mạc', 'CT ngực bụng chậu khi xếp giai đoạn và khi theo dõi']
+    ]],
+    [/th[ươư]{1,2}ng h[àa]n/i, [
+        ['Xuất huyết tiêu hóa và thủng ruột tuần 3', 'theo dõi đau bụng đột ngột, phân đen, mạch nhanh – huyết áp tụt'],
+        ['Viêm cơ tim do độc tố', 'theo dõi mạch, ECG khi mạch nhanh không tương xứng'],
+        ['Người lành mang trùng', 'cấy phân sau điều trị, nhất là người làm nghề chế biến thực phẩm']
+    ]],
+    [/s[ởo]i|th[ủu]y đ[ậa]u|quai b[ịi]/i, [
+        ['Viêm phổi bội nhiễm', 'theo dõi sốt trở lại, thở nhanh, SpO2 sau khi ban đã bay'],
+        ['Viêm não – viêm màng não', 'theo dõi tri giác, co giật, dấu màng não'],
+        ['Viêm tinh hoàn sau quai bị', 'khám bìu ở nam sau dậy thì, dặn tái khám khi đau sưng'],
+        ['Bội nhiễm da ở thủy đậu', 'theo dõi bóng nước hóa mủ, viêm mô tế bào quanh sang thương']
+    ]]
+);
+
+/* Bổ sung đợt 4 (2026-08-28): da liễu, tâm thần, huyết học, cơ xương khớp và các
+   mục lẻ. Vẫn `unshift`; nhớ chạy phép đối chiếu cướp mẫu sau khi thêm. */
+TIEU_CHUAN.unshift(
+    /* ---------------- Da liễu – Dị ứng ---------------- */
+    [/vi[êe]m da c[ơo] đ[ịi]a|ch[àa]m th[ểe] t[ạa]ng|atopic/i, 'Tiêu chuẩn UK Working Party: BẮT BUỘC có ngứa da, KÈM ít nhất 3 trong 5 — tiền sử viêm da vùng nếp gấp (khuỷu, khoeo, cổ, quanh mắt); tiền sử bản thân hen hoặc viêm mũi dị ứng (trẻ dưới 4 tuổi thì tính tiền sử gia đình bậc một); da khô toàn thân trong năm qua; khởi phát trước 2 tuổi; viêm da vùng nếp gấp nhìn thấy được khi khám. Trẻ nhũ nhi thì tổn thương ở má và mặt duỗi chứ chưa ở nếp gấp.'],
+    [/vi[êe]m da ti[ếe]p x[úu]c/i, 'Sang thương giới hạn ĐÚNG vùng da tiếp xúc, bờ rõ, đôi khi in hình vật gây bệnh — đó là dấu quan trọng nhất. Phân hai thể: kích ứng (xuất hiện nhanh trong vài giờ, rát bỏng nhiều hơn ngứa, ai tiếp xúc đủ liều cũng bị) và dị ứng (chậm 24–72 giờ sau tiếp xúc, ngứa nổi trội, chỉ xảy ra ở người đã mẫn cảm, xác định bằng patch test). Khai thác kỹ nghề nghiệp, mỹ phẩm, thuốc bôi, trang sức.'],
+    [/d[ịi] [ứu]ng thu[ốo]c|ph[ảa]n [ứu]ng thu[ốo]c/i, 'Mấu chốt là MỐI LIÊN HỆ THỜI GIAN với thuốc mới: phát ban dạng sởi thường xuất hiện 4–14 ngày sau khi bắt đầu thuốc (sớm hơn nhiều nếu đã dùng trước đó). Ban đối xứng, lan tỏa, ngứa, thường bắt đầu ở thân. Lập bảng thời gian tất cả thuốc kể cả thuốc không kê đơn và đông dược. Dấu hiệu nặng phải tìm ngay: sốt, tổn thương niêm mạc, bóng nước, dấu Nikolsky, phù mặt, hạch to, tăng eosinophil, men gan tăng (hướng DRESS), đau da nhiều.'],
+    [/stevens|\bsjs\b|\bten\b|ho[ạa]i t[ửư] th[ượư]{1,2}ng b[ìi]/i, 'Tổn thương niêm mạc ở ít nhất hai vị trí (mắt, miệng, sinh dục) KÈM bóng nước và trợt da lan rộng, dấu Nikolsky dương. Phân theo diện tích da bong: Stevens–Johnson dưới 10% diện tích cơ thể, thể chồng lấp 10–30%, hoại tử thượng bì nhiễm độc trên 30%. Gần như luôn do thuốc trong vòng 4–28 ngày. Ngừng ngay thuốc nghi ngờ và chuyển đơn vị bỏng hoặc hồi sức; tiên lượng bằng thang SCORTEN.'],
+    [/v[ảa]y n[ếe]n|psoriasis/i, 'Mảng đỏ giới hạn rất rõ, phủ vảy trắng dày khô như sáp nến, ở mặt DUỖI (khuỷu, gối), da đầu, vùng cùng cụt, rốn. Cạo lớp vảy thấy màng mỏng rồi các chấm chảy máu li ti (dấu Auspitz). Sang thương mọc trên vết cào xước là hiện tượng Köbner. Luôn khám móng (rỗ móng, dày sừng dưới móng) và hỏi đau khớp — viêm khớp vảy nến đổi hoàn toàn hướng điều trị. Đánh giá độ nặng bằng PASI và ảnh hưởng chất lượng sống.'],
+    [/\bzona\b|gi[ờo]i leo|herpes zoster/i, 'Đau rát bỏng hoặc dị cảm xuất hiện vài ngày TRƯỚC khi nổi sang thương, rồi mụn nước mọc thành chùm trên nền da đỏ, phân bố theo MỘT KHOANH DA và không vượt qua đường giữa — đó là dấu quyết định. Chẩn đoán lâm sàng. Zona nhánh mắt (V1) có dấu Hutchinson là sang thương ở chóp mũi thì phải khám mắt ngay. Zona lan tỏa nhiều khoanh hoặc ở người trẻ không rõ lý do thì tầm soát suy giảm miễn dịch.'],
+    [/n[ấa]m da|hắc l[àa]o|\btinea\b|l[ang] ben/i, 'Mảng đỏ hình vòng hoặc cung, BỜ GỜ CAO có vảy và mụn nước nhỏ, trung tâm có xu hướng lành hơn, ngứa. Soi tươi bệnh phẩm cạo từ bờ tổn thương với KOH thấy sợi nấm phân nhánh có vách. Đã bôi corticoid trước đó thì mất hình vòng điển hình và lan rộng bất thường ("nấm da giấu mặt") — hỏi kỹ thuốc đã bôi.'],
+    [/\bghẻ|scabies/i, 'Ngứa DỮ DỘI VỀ ĐÊM và nhiều người sống chung cùng ngứa — hai điểm này gợi ý mạnh hơn cả hình thái sang thương. Vị trí đặc trưng: kẽ ngón tay, mặt gấp cổ tay, nách, quanh rốn, quanh vú, bộ phận sinh dục nam; trẻ nhỏ có thể ở lòng bàn tay chân và mặt. Tìm luống ghẻ (đường hầm ngoằn ngoèo vài mm) và soi tìm cái ghẻ hoặc trứng. Phải điều trị đồng thời cho tất cả người sống chung.'],
+    [/\bch[ốo]c\b|impetigo/i, 'Bóng nước nông rất mỏng, vỡ nhanh để lại lớp vảy tiết vàng như MẬT ONG, thường quanh mũi miệng và ở trẻ em. Lây trực tiếp nên hay thành ổ dịch trong nhà trẻ. Chẩn đoán lâm sàng. Sau chốc do liên cầu phải dặn theo dõi viêm cầu thận cấp: phù, tiểu ít, nước tiểu sẫm màu trong 1–3 tuần sau đó.'],
+    [/nh[ọo]t|h[ậa]u b[ốo]i|furuncle|carbuncle/i, 'Nhọt là viêm nang lông sâu hóa mủ tạo khối đỏ đau có ngòi; hậu bối là nhiều nhọt liền nhau thành mảng lớn nhiều lỗ chảy mủ, hay ở gáy, lưng, đùi. Gặp nhiều ở người đái tháo đường nên phải thử đường huyết. Điều trị chính là rạch dẫn lưu khi đã hóa mủ. TUYỆT ĐỐI không nặn nhọt vùng "tam giác nguy hiểm" quanh mũi – môi trên vì nguy cơ huyết khối xoang hang.'],
+
+    /* ---------------- Tâm thần ---------------- */
+    [/tr[ầa]m c[ảa]m/i, 'DSM-5: có ít nhất 5 trong 9 triệu chứng, kéo dài ít nhất 2 tuần, và BẮT BUỘC phải có ít nhất một trong hai triệu chứng lõi là khí sắc trầm hoặc mất hứng thú. Bảy triệu chứng còn lại: rối loạn giấc ngủ, thay đổi khẩu vị hoặc cân nặng, mệt mỏi mất năng lượng, chậm chạp hoặc kích thích tâm thần vận động, khó tập trung, cảm giác vô dụng hoặc tội lỗi quá mức, ý nghĩ về cái chết. Phải hỏi TRỰC TIẾP và ghi rõ ý tưởng và kế hoạch tự sát. Trước khi kết luận, phải hỏi tiền sử giai đoạn hưng cảm và loại trừ nguyên nhân cơ thể (suy giáp, thiếu B12, thuốc).'],
+    [/lo [âa]u/i, 'Rối loạn lo âu lan tỏa theo DSM-5: lo lắng quá mức, khó kiểm soát, về nhiều lĩnh vực, xảy ra hầu hết các ngày trong ít nhất 6 tháng, KÈM ít nhất 3 trong 6 triệu chứng — bồn chồn đứng ngồi không yên, dễ mệt, khó tập trung, dễ cáu gắt, căng cơ, rối loạn giấc ngủ. Phải phân biệt với cơn hoảng loạn (khởi phát đột ngột, đỉnh trong vài phút) và loại trừ cường giáp, dùng chất kích thích, hội chứng cai.'],
+    [/m[ấa]t ng[ủu]/i, 'Mất ngủ mạn tính: khó vào giấc, khó duy trì giấc, hoặc thức dậy quá sớm, xảy ra ít nhất 3 đêm mỗi tuần và kéo dài ít nhất 3 tháng, DÙ có đủ cơ hội và điều kiện để ngủ, KÈM hậu quả ban ngày (mệt, giảm chú ý, cáu gắt, buồn ngủ). Trước khi kết luận nguyên phát phải loại trừ ngưng thở khi ngủ (ngáy, ngưng thở chứng kiến, buồn ngủ ngày), hội chứng chân không yên, trầm cảm – lo âu, thuốc và chất kích thích.'],
+    [/r[ốo]i lo[ạa]n do s[ửư] d[ụu]ng r[ượư]{1,2}u|nghi[ệe]n r[ượư]{1,2}u/i, 'DSM-5: có ít nhất 2 trong 11 tiêu chí trong vòng 12 tháng — uống nhiều hơn dự định, muốn giảm mà không được, mất nhiều thời gian cho rượu, thèm rượu, bỏ bê trách nhiệm, tiếp tục uống dù có hậu quả, bỏ hoạt động khác, uống trong tình huống nguy hiểm, tiếp tục dù biết có hại, dung nạp, và hội chứng cai. Mức độ: nhẹ 2–3 tiêu chí, trung bình 4–5, nặng từ 6. Sàng lọc nhanh bằng AUDIT-C.'],
+    [/^(?!.*ng[ộo] đ[ộo]c)(?=.*(cai r[ượư]{1,2}u|h[ộo]i ch[ứu]ng cai))/i, 'Xuất hiện 6–24 giờ sau lần uống cuối ở người uống nhiều kéo dài: run tay, vã mồ hôi, mạch nhanh, tăng huyết áp, lo âu, buồn nôn, mất ngủ. Co giật kiểu cơn lớn thường trong 12–48 giờ. Lượng giá và theo dõi độ nặng bằng thang CIWA-Ar để định liều benzodiazepine. BẮT BUỘC bù thiamine TRƯỚC khi truyền glucose — truyền đường trước có thể thúc đẩy bệnh não Wernicke.'],
+    [/s[ảa]ng r[ượư]{1,2}u|delirium tremens/i, 'Thể nặng nhất của hội chứng cai, thường xuất hiện 48–96 giờ sau lần uống cuối: SẢNG (rối loạn ý thức kèm rối loạn chú ý dao động trong ngày) cộng với ảo giác thật (thường ảo thị), run rất nặng, và rối loạn thần kinh tự chủ rõ — sốt, mạch nhanh, tăng huyết áp, vã mồ hôi. Đây là cấp cứu nội khoa, tử vong đáng kể nếu không điều trị. Luôn tìm yếu tố thúc đẩy đi kèm: nhiễm trùng, chấn thương, rối loạn điện giải.'],
+    [/l[ưu][ỡo]ng c[ựư]c|bipolar/i, 'Chẩn đoán rối loạn lưỡng cực I đòi hỏi ít nhất MỘT giai đoạn hưng cảm: khí sắc tăng bất thường hoặc cáu kỉnh KÈM tăng hoạt động – năng lượng, kéo dài ít nhất 1 tuần (hoặc bất kỳ thời gian nào nếu phải nhập viện), cùng ít nhất 3 triệu chứng như tự cao, giảm nhu cầu ngủ, nói nhiều, ý tưởng dồn dập, đãng trí, làm quá nhiều việc, hành vi liều lĩnh. Vì vậy MỌI bệnh nhân trầm cảm đều phải được hỏi tiền sử hưng cảm trước khi cho thuốc chống trầm cảm.'],
+    [/t[âa]m th[ầa]n ph[âa]n li[ệe]t|schizophren/i, 'DSM-5: có ít nhất 2 trong 5 triệu chứng — hoang tưởng, ảo giác, ngôn ngữ vô tổ chức, hành vi vô tổ chức hoặc căng trương lực, triệu chứng âm tính — trong đó BẮT BUỘC có ít nhất một trong ba triệu chứng đầu. Các triệu chứng hoạt động kéo dài ít nhất 1 tháng, tổng thời gian rối loạn ít nhất 6 tháng, kèm suy giảm rõ chức năng nghề nghiệp hoặc xã hội. Phải loại trừ do chất, do bệnh cơ thể, và rối loạn khí sắc có loạn thần.'],
+    [/ch[ăa]m s[óo]c gi[ảa]m nh[ẹe]|palliative/i, 'Không phải một chẩn đoán mà là một hướng chăm sóc — bệnh án phải ghi rõ bốn phần: (1) mục tiêu chăm sóc đã thống nhất với bệnh nhân và gia đình; (2) lượng giá triệu chứng có thang điểm (đau theo thang 0–10, khó thở, buồn nôn, táo bón, mệt); (3) thang chức năng ECOG hoặc PPS; (4) trao đổi về tiên lượng và mong muốn của bệnh nhân, gồm cả quyết định hồi sức. Chăm sóc giảm nhẹ đi song song với điều trị bệnh chứ không phải chỉ ở giai đoạn cuối.'],
+
+    /* ---------------- Huyết học ---------------- */
+    [/thalassemia|tan m[áa]u b[ẩa]m sinh/i, 'Thiếu máu hồng cầu NHỎ NHƯỢC SẮC mạn tính, nhưng khác thiếu sắt ở chỗ: RDW không tăng nhiều, ferritin bình thường hoặc tăng, số lượng hồng cầu thường không giảm tương xứng với mức Hb. Chỉ số Mentzer (MCV chia số lượng hồng cầu) dưới 13 nghiêng về thalassemia, trên 13 nghiêng về thiếu sắt. Điện di huyết sắc tố xác định thể (tăng HbA2 trong beta thalassemia thể ẩn). Hỏi tiền sử gia đình và dân tộc; tư vấn di truyền trước hôn nhân.'],
+    [/b[ạa]ch c[ầa]u c[ấa]p d[òo]ng t[ủu]y|\baml\b/i, 'Blast từ 20% trở lên trong máu ngoại vi hoặc tủy xương (hoặc bất kỳ tỉ lệ nào nếu có bất thường di truyền đặc hiệu như t(15;17), t(8;21), inv(16)). Có thể thấy thể Auer trong bào tương blast. Lâm sàng là hậu quả của suy tủy: thiếu máu, xuất huyết do giảm tiểu cầu, và nhiễm trùng do giảm bạch cầu hạt. Thể tiền tủy bào cấp là cấp cứu vì đông máu nội mạch lan tỏa — nghi là điều trị ngay, không chờ di truyền.'],
+    [/b[ạa]ch c[ầa]u c[ấa]p d[òo]ng lympho|\ball\b/i, 'Blast dòng lympho từ 20% trở lên trong tủy. Là bạch cầu cấp thường gặp nhất ở trẻ em. Ngoài biểu hiện suy tủy còn hay có đau xương, hạch to, gan lách to. Phải khám và tầm soát hai vị trí trú ẩn đặc trưng: hệ thần kinh trung ương (chọc dò dịch não tủy) và tinh hoàn. Hóa mô miễn dịch và di truyền quyết định phân nhóm nguy cơ và phác đồ.'],
+    [/b[ạa]ch c[ầa]u m[ạa]n d[òo]ng t[ủu]y|\bcml\b/i, 'Bạch cầu tăng rất cao với ĐỦ CÁC GIAI ĐOẠN trưởng thành trong máu ngoại vi (khác bạch cầu cấp chỉ có blast và tế bào trưởng thành), kèm tăng basophil và eosinophil, lách to nhiều. Xác định bắt buộc bằng nhiễm sắc thể Philadelphia t(9;22) hoặc tổ hợp gen BCR-ABL1. Theo dõi đáp ứng điều trị bằng định lượng BCR-ABL1 chứ không bằng công thức máu.'],
+    [/hodgkin/i, 'Hạch to không đau, chắc, thường ở cổ hoặc trung thất, lan theo thứ tự các nhóm hạch kề nhau — đó là điểm khác u lympho không Hodgkin. Có thể có triệu chứng B (sốt, đổ mồ hôi đêm, sụt trên 10% cân nặng trong 6 tháng) và ngứa, đau hạch sau uống rượu. Xác định bằng SINH THIẾT HẠCH TRỌN thấy tế bào Reed-Sternberg — chọc hút kim nhỏ không đủ. Xếp giai đoạn Ann Arbor sửa đổi Lugano bằng PET-CT.'],
+    [/lympho kh[ôo]ng hodgkin|\bnhl\b|u lympho(?! hodgkin)/i, 'Hạch to lan tỏa, không theo thứ tự kề nhau, thường kèm tổn thương NGOÀI HẠCH (dạ dày ruột, da, thần kinh trung ương, vòng Waldeyer). Diễn tiến rất khác nhau giữa thể lười và thể tấn công nên bắt buộc phải sinh thiết trọn kèm hóa mô miễn dịch để phân thể — không điều trị theo chẩn đoán chung chung. Xếp giai đoạn bằng PET-CT và sinh thiết tủy; tính chỉ số tiên lượng IPI.'],
+    [/đa u t[ủu]y|multiple myeloma/i, 'Cần đủ ba nhóm: (1) tương bào đơn dòng trong tủy từ 10% trở lên hoặc u tương bào đã sinh thiết; (2) protein đơn dòng trong máu hoặc nước tiểu (điện di đạm kèm miễn dịch cố định và chuỗi nhẹ tự do huyết thanh); (3) tổn thương cơ quan đích theo tiêu chuẩn CRAB — tăng Canxi máu, suy thận (Renal), thiếu máu (Anemia), tổn thương xương (Bone, ổ tiêu xương trên X-quang hệ xương hoặc CT liều thấp). Đau lưng ở người lớn tuổi kèm thiếu máu và tăng đạm máu là bộ ba phải nghĩ tới.'],
+    [/^(?!.*nhi[ễe]m (tr[ùu]ng|khu[ẩa]n) huy[ếe]t)(?=.*(đ[ôo]ng m[áa]u n[ộo]i m[ạa]ch lan t[ỏo]a|\bdic\b))/i, 'Không có xét nghiệm đơn lẻ nào chẩn đoán được — dùng thang điểm ISTH gộp bốn chỉ số: tiểu cầu giảm, D-dimer hoặc FDP tăng, PT kéo dài, fibrinogen giảm. Điều kiện tiên quyết là phải có MỘT BỆNH LÝ THÚC ĐẨY rõ ràng (nhiễm khuẩn huyết, biến chứng sản khoa, ung thư, chấn thương nặng, tán huyết do truyền máu) — không có bệnh nền thì không đặt chẩn đoán này. Biểu hiện vừa chảy máu vừa huyết khối cùng lúc. Điều trị gốc là giải quyết bệnh nền.'],
+
+    /* ---------------- Cơ xương khớp – Miễn dịch ---------------- */
+    [/tho[áa]i h[óo]a c[ộo]t s[ốo]ng c[ổo]/i, 'Đau và cứng cổ mạn tính, hạn chế xoay và ngửa; X-quang cột sống cổ thẳng nghiêng và chếch thấy hẹp khe đĩa đệm, gai xương, hẹp lỗ liên hợp. Hình ảnh thoái hóa rất hay gặp ở người lớn tuổi không triệu chứng nên KHÔNG kết luận chỉ bằng phim. Có dấu chèn ép rễ (đau lan theo khoanh da, nghiệm pháp Spurling dương, yếu cơ theo rễ) hoặc dấu chèn ép tủy (đi loạng choạng, vụng tay, tăng phản xạ, dấu Hoffmann, rối loạn cơ vòng) thì phải chụp MRI.'],
+    [/x[ơo] c[ứu]ng b[ìi]|scleroderma|systemic sclerosis/i, 'Dày cứng da bắt đầu từ ngón tay lan vào gốc chi; hiện tượng Raynaud có ở gần như tất cả bệnh nhân và thường xuất hiện trước nhiều năm. Theo tiêu chuẩn ACR/EULAR 2013, chỉ riêng dày da lan qua khớp bàn – ngón ở CẢ HAI BÀN TAY đã đủ chẩn đoán; các mục còn lại tính điểm (tổn thương đầu ngón, giãn mao mạch, bất thường mao mạch giường móng, tăng áp phổi hoặc bệnh phổi mô kẽ, kháng thể đặc hiệu). Xét nghiệm ANA kèm anti-Scl-70 hoặc anti-centromere. Bắt buộc tầm soát bệnh phổi mô kẽ và tăng áp động mạch phổi.'],
+    [/vi[êe]m c[ộo]t s[ốo]ng d[íi]nh kh[ớo]p|spondylit/i, 'Đau lưng KIỂU VIÊM là mấu chốt, khác hẳn đau cơ học: khởi phát trước 45 tuổi, âm ỉ tăng dần, cứng cột sống buổi sáng trên 30 phút, ĐỠ khi vận động nhưng KHÔNG đỡ khi nghỉ, đau trội về nửa đêm gần sáng làm bệnh nhân phải dậy đi lại. Tìm viêm khớp cùng chậu trên X-quang khung chậu, hoặc MRI khi phim thường chưa thấy. HLA-B27 và CRP hỗ trợ. Khám thêm viêm điểm bám gân, viêm khớp ngoại biên, viêm màng bồ đào trước.'],
+    [/vi[êe]m quanh kh[ớo]p vai|đ[ôo]ng c[ứu]ng kh[ớo]p vai/i, 'Đau vai kèm hạn chế vận động. Dấu phân biệt then chốt là thể đông cứng hạn chế cả vận động CHỦ ĐỘNG lẫn THỤ ĐỘNG, nhất là động tác xoay ngoài — trong khi rách chóp xoay thì vận động thụ động còn tương đối bảo tồn. X-quang thường bình thường, dùng để loại trừ thoái hóa và calci hóa. Siêu âm hoặc MRI khi nghi rách chóp xoay hoặc điều trị nội thất bại. Hỏi đái tháo đường vì hay đi kèm và tiên lượng lâu hơn.'],
+    [/viêm gân|bệnh lý gân|tendinit|tendinopath/i, 'Đau khu trú ĐÚNG tại điểm bám hoặc thân gân, tăng lên khi vận động chủ động có kháng trở và khi kéo căng gân thụ động, sờ đúng điểm thì đau chói. Không có sưng nóng đỏ lan tỏa như viêm khớp nhiễm trùng. Chẩn đoán lâm sàng; siêu âm khi cần xác nhận hoặc loại trừ rách. Hỏi động tác lặp lại trong nghề nghiệp hoặc thể thao, và tiền sử dùng fluoroquinolone vì thuốc này gây bệnh lý gân và đứt gân.'],
+    [/[ốo]ng c[ổo] tay|carpal tunnel/i, 'Tê bì và dị cảm vùng chi phối của thần kinh giữa — ngón cái, trỏ, giữa và nửa ngoài ngón nhẫn — nổi bật VỀ ĐÊM làm bệnh nhân thức giấc và phải vẩy tay cho đỡ. Nghiệm pháp Phalen (gập cổ tay 60 giây) và dấu Tinel gõ trên ống cổ tay. Nặng thì teo mô cái và yếu động tác dạng ngón cái. Điện cơ xác định chẩn đoán và phân độ, cần thiết trước khi cân nhắc mổ. Tìm bệnh nền: đái tháo đường, suy giáp, thai kỳ, viêm khớp dạng thấp.'],
+    [/vi[êe]m m[ạa]ch m[áa]u h[ệe] th[ốo]ng|vasculit/i, 'Nghĩ tới khi có tổn thương NHIỀU CƠ QUAN không giải thích được bằng một bệnh cảnh thông thường, trên nền hội chứng viêm (sốt, sụt cân, VS và CRP tăng). Các dấu gợi ý mạnh: ban xuất huyết SỜ ĐƯỢC, viêm đơn dây thần kinh nhiều ổ, viêm cầu thận với cặn lắng hoạt động, xuất huyết phế nang, loét mũi – xoang phá hủy. Xét nghiệm ANCA (PR3, MPO) và bổ thể; SINH THIẾT mô tổn thương là tiêu chuẩn xác định. Luôn loại trừ nhiễm trùng và thuyên tắc cholesterol trước khi dùng ức chế miễn dịch.'],
+
+    /* ---------------- Các mục lẻ ---------------- */
+    [/b[ãa]o gi[áa]p|c[ơo]n c[ườơ]{1,2}ng gi[áa]p c[ấa]p/i, 'Là chẩn đoán LÂM SÀNG và là cấp cứu — điều trị ngay, không chờ kết quả FT4 và TSH, vì nồng độ hormone không phân biệt được bão giáp với cường giáp thông thường. Dùng thang Burch–Wartofsky cộng điểm theo: thân nhiệt, nhịp tim, rung nhĩ, suy tim, triệu chứng tiêu hóa – gan (nôn, tiêu chảy, vàng da), rối loạn thần kinh trung ương (kích động, mê sảng, hôn mê) và có yếu tố thúc đẩy hay không. Từ 45 điểm là nhiều khả năng bão giáp. Luôn tìm yếu tố thúc đẩy: nhiễm trùng, phẫu thuật, ngừng thuốc kháng giáp, dùng cản quang iod.'],
+    [/x[ơo] ph[ổo]i m[ôo] k[ẽe]|b[ệe]nh ph[ổo]i m[ôo] k[ẽe]|\bild\b/i, 'Khó thở gắng sức tiến triển nhiều tháng, ho khan dai dẳng, nghe RAN NỔ CUỐI THÌ HÍT VÀO ở hai đáy phổi kiểu tiếng dán Velcro, có thể có ngón tay dùi trống. CT ngực độ phân giải cao là then chốt: hình tổ ong và giãn phế quản co kéo ưu thế dưới màng phổi và ở đáy phổi là kiểu UIP. Hô hấp ký cho hội chứng hạn chế với DLCO giảm — DLCO giảm sớm hơn cả thể tích. Luôn truy nguyên nhân: bệnh mô liên kết, thuốc, phơi nhiễm nghề nghiệp, viêm phổi quá mẫn.'],
+    [/sa s[úu]t tr[íi] tu[ệe]|dementia|alzheimer/i, 'Suy giảm nhận thức ở ít nhất một lĩnh vực (trí nhớ, ngôn ngữ, chú ý, chức năng điều hành, thị giác – không gian, nhận thức xã hội) so với mức trước đây, và ĐỦ NẶNG để ảnh hưởng hoạt động sống hằng ngày — đó là ranh giới phân biệt với suy giảm nhận thức nhẹ. Không được chẩn đoán khi bệnh nhân đang trong tình trạng sảng. Lượng giá bằng MMSE hoặc MoCA kèm hỏi người thân về chức năng. Bắt buộc loại trừ nguyên nhân hồi phục được: thiếu B12, suy giáp, trầm cảm, tụ máu dưới màng cứng mạn, não úng thủy áp lực bình thường, thuốc.'],
+    [/h[ẹe]p [ốo]ng s[ốo]ng/i, 'Đau cách hồi THẦN KINH: đau, tê hoặc nặng hai chân xuất hiện khi đi hoặc đứng lâu, giảm khi NGỒI XUỐNG hoặc CÚI NGƯỜI RA TRƯỚC, nên bệnh nhân đi được xa hơn khi đẩy xe hoặc lên dốc. Khác đau cách hồi mạch máu ở chỗ chỉ cần đứng nghỉ là đỡ và mạch ngoại vi yếu — luôn bắt mạch chi dưới để phân biệt. MRI cột sống thắt lưng xác định mức và mức độ hẹp. Rối loạn cơ vòng hoặc mất cảm giác vùng yên ngựa là hội chứng chùm đuôi ngựa, mổ cấp cứu.'],
+    [/^(?!.*van tim)(?=.*tim b[ẩa]m sinh)/i, 'Nghĩ tới ở trẻ có âm thổi kèm bất kỳ dấu nào sau: chậm tăng cân, bú kém và vã mồ hôi khi bú, thở nhanh, nhiễm trùng hô hấp tái diễn, tím, ngất khi gắng sức. Đo SpO2 đồng thời ở tay PHẢI và ở chân để tầm soát tim bẩm sinh tím và tắc nghẽn cung động mạch chủ — chênh lệch trên 3% hoặc SpO2 dưới 95% là bất thường. X-quang ngực và ECG định hướng, nhưng SIÊU ÂM TIM mới xác định tổn thương và mức độ.']
+);
+
+BIEN_CHUNG.unshift(
+    [/stevens|\bten\b|d[ịi] [ứu]ng thu[ốo]c/i, [
+        ['Mất dịch và nhiễm trùng huyết qua da trợt', 'theo dõi diện tích da bong, nước tiểu, thân nhiệt, cấy máu'],
+        ['Di chứng mắt (dính mi, khô mắt, mù)', 'khám mắt hằng ngày ngay từ đầu, không chờ hết cấp'],
+        ['DRESS: tổn thương gan – thận – tim', 'theo dõi men gan, creatinin, eosinophil hằng tuần đến 8 tuần']
+    ]],
+    [/b[ạa]ch c[ầa]u c[ấa]p|\baml\b|\ball\b|đa u t[ủu]y|lympho/i, [
+        ['Sốt giảm bạch cầu hạt', 'cấy máu và kháng sinh phổ rộng trong 1 giờ, không chờ kết quả'],
+        ['Hội chứng ly giải u', 'theo dõi kali, phosphat, canxi, acid uric, creatinin khi bắt đầu hóa trị'],
+        ['Xuất huyết do giảm tiểu cầu', 'theo dõi tiểu cầu, xuất huyết da niêm, dấu thần kinh'],
+        ['Đông máu nội mạch lan tỏa', 'theo dõi fibrinogen, D-dimer, PT – aPTT, nhất là thể tiền tủy bào']
+    ]],
+    [/cai r[ượư]{1,2}u|s[ảa]ng r[ượư]{1,2}u/i, [
+        ['Co giật do cai', 'theo dõi 12–48 giờ đầu, lượng giá CIWA-Ar định kỳ'],
+        ['Bệnh não Wernicke', 'bù thiamine trước glucose; theo dõi lú lẫn, liệt vận nhãn, thất điều'],
+        ['Rối loạn điện giải và hạ đường huyết', 'kiểm tra magie, kali, phosphat, đường huyết'],
+        ['Yếu tố thúc đẩy bị bỏ sót', 'tìm nhiễm trùng, chấn thương sọ não, xuất huyết tiêu hóa']
+    ]],
+    [/tr[ầa]m c[ảa]m|l[ưu]{1,2}ng c[ựư]c|t[âa]m th[ầa]n ph[âa]n li[ệe]t/i, [
+        ['Ý tưởng và hành vi tự sát', 'hỏi trực tiếp mỗi lần khám, ghi rõ mức nguy cơ và biện pháp bảo vệ'],
+        ['Chuyển pha hưng cảm khi dùng chống trầm cảm', 'theo dõi giảm nhu cầu ngủ, tăng hoạt động bất thường'],
+        ['Bỏ thuốc và tái phát', 'đánh giá tuân thủ mỗi lần tái khám, tác dụng phụ khiến bệnh nhân bỏ thuốc']
+    ]]
+);
+
+/* Bổ sung đợt 5 (2026-08-28) — nốt các nhóm ngoại chuyên khoa còn trống:
+   ngoại lồng ngực, mạch máu, phẫu thuật tim, ngoại tổng quát, tiết niệu. */
+TIEU_CHUAN.unshift(
+    /* ---------------- Ngoại lồng ngực ---------------- */
+    [/m[áa]u đ[ôo]ng m[àa]ng ph[ổo]i/i, 'Máu trong khoang màng phổi đã đông nên ống dẫn lưu không ra được nữa dù phim còn mờ nhiều. CT ngực thấy khối tỉ trọng hỗn hợp không đồng nhất, phổi không nở sát thành ngực. Chỉ định mổ nội soi lồng ngực lấy máu đông SỚM trong 3–7 ngày đầu — để muộn máu đông tổ chức hóa thành dày dính màng phổi hoặc bội nhiễm thành mủ màng phổi, lúc đó phải bóc vỏ phổi.'],
+    [/d[ậa]p ph[ổo]i/i, 'Sau chấn thương ngực kín: thâm nhiễm phế nang KHÔNG theo ranh giới phân thùy, xuất hiện trong 6 giờ đầu, nặng nhất ở 24–48 giờ rồi cải thiện dần sau 3–7 ngày — diễn tiến theo thời gian này là dấu phân biệt với viêm phổi hít. CT nhạy hơn X-quang rất nhiều, phim thường có thể còn sạch ở giờ đầu. Theo dõi SpO2 và khí máu; tránh bù dịch quá tay vì làm nặng thêm phù phế nang.'],
+    [/v[ỡo] c[ơo] ho[àa]nh/i, 'Hay gặp bên TRÁI (bên phải có gan che). X-quang ngực thấy bóng hơi dạ dày hoặc quai ruột nằm trong lồng ngực, vòm hoành mất liên tục, và dấu rất gợi ý là ống sonde dạ dày cuộn lên trên cơ hoành. Rất dễ bỏ sót ở bệnh nhân đang thở máy áp lực dương vì tạng chưa thoát vị lên. CT dựng hình đa mặt phẳng, nghi nhiều mà hình ảnh chưa rõ thì nội soi hoặc mổ thăm dò.'],
+    [/d[ưu][ỡo]ng ch[ấa]p|chylothorax/i, 'Dịch màng phổi trắng đục như sữa và KHÔNG trong lại sau ly tâm (khác mủ). Xác định bằng triglyceride dịch trên 110 mg/dL hoặc tìm thấy hạt chylomicron; triglyceride dưới 50 mg/dL thì loại trừ. Nguyên nhân: tổn thương ống ngực sau mổ lồng ngực – thực quản – tim, hoặc u lympho chèn ép. Mất dịch dưỡng chấp kéo dài gây suy dinh dưỡng và suy giảm miễn dịch — phải nuôi ăn phù hợp chứ không chỉ dẫn lưu.'],
+    [/u ph[ổo]i di c[ăa]n|di c[ăa]n ph[ổo]i/i, 'Nhiều nốt tròn bờ rõ, kích thước khác nhau, ưu thế ở ngoại vi và đáy phổi (nơi tưới máu nhiều), trên nền một ung thư nguyên phát đã biết. Nốt ĐƠN ĐỘC hoặc chưa rõ ung thư nguyên phát thì không được kết luận di căn — phải sinh thiết, vì có thể là ung thư phổi nguyên phát thứ hai hoặc tổn thương lành tính. So sánh với phim cũ để đánh giá tốc độ tăng kích thước.'],
+    [/k[ée]n kh[íi] ph[ổo]i|\bbulla\b|\bbleb\b/i, 'Khoang chứa khí trong nhu mô phổi, thành rất mỏng dưới 1 mm, đường kính trên 1 cm trên CT. Phân biệt với tràn khí màng phổi khu trú (không có nhu mô phổi bên trong) và với hang áp xe (thành dày, có mức nước hơi) — nhầm mà đặt dẫn lưu vào kén thì thành rò khí kéo dài. Kén lớn chèn ép nhu mô lành, hoặc đã vỡ gây tràn khí tái phát, thì có chỉ định ngoại khoa.'],
+    [/d[àa]y d[íi]nh m[àa]ng ph[ổo]i|d[àa]y m[àa]ng ph[ổo]i/i, 'CT thấy màng phổi dày, mất góc sườn hoành, có thể vôi hóa; phổi bên đó không nở hết và lồng ngực hẹp lại, khoang liên sườn thu hẹp. Hô hấp ký cho hội chứng HẠN CHẾ. Truy nguyên nhân: lao màng phổi cũ, tràn mủ hoặc tràn máu màng phổi đã tổ chức hóa, phơi nhiễm amiăng. Dày màng phổi khu trú kèm nốt và tràn dịch tái lập thì phải loại trừ u trung biểu mô.'],
+
+    /* ---------------- Mạch máu ---------------- */
+    [/ph[ìi]nh gi[ảa] đ[ộo]ng m[ạa]ch|pseudoaneurysm/i, 'Khối đập nảy tại vị trí vừa can thiệp mạch hoặc bị chấn thương, sờ có rung miu, nghe âm thổi tâm thu. Siêu âm Doppler thấy dòng chảy "vào – ra" (to-and-fro) qua cổ túi là dấu xác định. Khác phình thật ở chỗ thành túi KHÔNG có đủ ba lớp của thành mạch mà chỉ là mô xơ và khối máu tụ bao quanh, nên nguy cơ vỡ cao hơn. Cổ hẹp và túi nhỏ thì tiêm thrombin dưới siêu âm; lớn hoặc chèn ép thì mổ.'],
+    [/leriche/i, 'Tắc chạc ba chủ – chậu, biểu hiện bằng tam chứng kinh điển: đau cách hồi ở hai mông và đùi (chứ không phải bắp chân), mất mạch bẹn hai bên, và rối loạn cương ở nam giới. Bắt mạch đùi – khoeo – chày sau – mu chân hai bên và đo ABI làm bằng chứng khách quan. CTA hoặc MRA xác định vị trí và mức độ tắc để lên kế hoạch tái thông.'],
+    [/huy[ếe]t kh[ốo]i đ[ộo]ng m[ạa]ch chi|thuy[êe]n t[ắa]c đ[ộo]ng m[ạa]ch chi/i, 'Thiếu máu chi cấp với hội chứng 6P. Phải phân biệt hai cơ chế vì hướng xử trí khác nhau: THUYÊN TẮC thì khởi phát rất đột ngột và dữ dội, có nguồn từ tim (rung nhĩ, nhồi máu cơ tim, van nhân tạo), chi đối bên mạch bình thường và không có tiền sử đau cách hồi; HUYẾT KHỐI trên nền xơ vữa thì khởi phát bớt đột ngột hơn, đã có đau cách hồi từ trước, chi đối bên cũng giảm mạch, đã có tuần hoàn bàng hệ. Phân độ Rutherford quyết định mổ ngay hay còn kịp chụp mạch.'],
+    [/v[ếe]t th[ươư]{1,2}ng đ[ộo]ng m[ạa]ch/i, 'Dấu hiệu CHẮC CHẮN (hard signs) — máu phun thành tia, khối máu tụ đập nảy to lên nhanh, rung miu hoặc âm thổi tại chỗ, mất mạch phía xa, dấu thiếu máu chi — là chỉ định MỔ NGAY, không chờ xét nghiệm hay chụp mạch. Dấu nghi ngờ (soft signs: máu tụ nhỏ ổn định, tổn thương thần kinh kèm theo, chảy máu nhiều lúc đầu đã cầm, vết thương đi sát trục mạch) thì đo chỉ số áp lực chi tổn thương so với cánh tay; dưới 0,9 thì chụp CTA.'],
+    [/th[ôo]ng đ[ộo]ng[\s–-]*t[ĩi]nh m[ạa]ch/i, 'Rung miu LIÊN TỤC và âm thổi LIÊN TỤC (nghe được cả thì tâm thu lẫn tâm trương) ngay tại vị trí thông — khác thông thường chỉ có âm thổi tâm thu. Tĩnh mạch nông vùng đó giãn to và đập theo mạch, chi có thể ấm hơn và dài hơn bên lành nếu xảy ra từ nhỏ. Nghiệm pháp Nicoladoni–Branham: ép đường thông lại thì nhịp tim CHẬM xuống. Để lâu gây suy tim tăng cung lượng. Siêu âm Doppler và CTA xác định.'],
+    [/buerger|vi[êe]m t[ắa]c m[ạa]ch m[áa]u|thromboangiitis/i, 'Nam giới trẻ dưới 45 tuổi, hút thuốc lá nhiều, có thiếu máu chi và viêm tĩnh mạch nông DI CHUYỂN. Tổn thương ở động mạch NHỎ và VỪA vùng ĐOẠN XA (bàn tay, bàn chân, cẳng chân), chụp mạch thấy tắc đoạn xa với tuần hoàn bàng hệ hình "rễ cây" hoặc "xoắn ốc". Chẩn đoán đòi hỏi LOẠI TRỪ xơ vữa, đái tháo đường, bệnh tự miễn, tăng đông và nguồn thuyên tắc từ tim. Bỏ thuốc lá hoàn toàn là điều trị quyết định, không có thuốc nào thay được.'],
+    [/h[ẹe]p đ[ộo]ng m[ạa]ch c[ảa]nh/i, 'Phát hiện qua âm thổi vùng cổ, hoặc sau một cơn thiếu máu não thoáng qua / đột quỵ cùng bên (yếu nửa người đối bên, mù thoáng qua một mắt cùng bên). Siêu âm Doppler đo vận tốc dòng để ước lượng mức hẹp, xác nhận bằng CTA hoặc MRA trước khi can thiệp. Hẹp CÓ triệu chứng từ 50–99% thì cân nhắc bóc nội mạc hoặc đặt stent sớm; hẹp không triệu chứng đòi ngưỡng cao hơn và cân nhắc kỹ hơn vì lợi ích nhỏ.'],
+
+    /* ---------------- Phẫu thuật tim ---------------- */
+    [/d[ậa]p c[ơo] tim|ch[ấa]n th[ươư]{1,2}ng c[ơo] tim/i, 'Sau chấn thương trực tiếp vùng ngực trước (vô lăng, ngã đập ngực). Không có tiêu chuẩn vàng — dựa vào bộ ba: ECG bất thường MỚI (nhịp nhanh xoang không giải thích được, ngoại tâm thu, rung nhĩ, block nhánh phải), troponin tăng, và siêu âm tim có rối loạn vận động vùng hoặc tràn dịch màng ngoài tim. ECG bình thường kèm troponin bình thường thì gần như loại trừ. Theo dõi ECG liên tục 24–48 giờ vì loạn nhịp là nguy cơ chính.'],
+    [/tr[àa]n d[ịi]ch m[àa]ng ngo[àa]i tim/i, 'Siêu âm tim là tiêu chuẩn: khoảng trống echo quanh tim, đo ở cuối tâm trương — ít dưới 10 mm, vừa 10–20 mm, nhiều trên 20 mm. Nhưng LƯỢNG dịch không quyết định bằng TỐC ĐỘ tụ dịch: 150 mL tụ nhanh có thể gây chèn ép trong khi 1 lít tụ chậm thì chưa. Dấu chèn ép phải tìm: đè sụp nhĩ phải cuối tâm trương và thất phải đầu tâm trương, biến thiên dòng qua van theo hô hấp trên 25%, tĩnh mạch chủ dưới giãn không xẹp theo hô hấp, mạch nghịch trên 10 mmHg.'],
+    [/van hai l[áa] h[ậa]u th[ấa]p/i, 'Hẹp van hai lá hậu thấp: nghe T1 đanh, clac mở van, rung tâm trương ở mỏm; siêu âm tim đo diện tích lỗ van — dưới 1,5 cm² là hẹp khít, dưới 1,0 cm² là rất khít. Chỉ định can thiệp khi hẹp khít KÈM triệu chứng, hoặc chưa triệu chứng nhưng đã tăng áp động mạch phổi. Điểm Wilkins (dày lá van, vôi hóa, di động lá van, tổn thương bộ máy dưới van) đánh giá khả năng nong van bằng bóng; hở van hai lá đáng kể đi kèm hoặc có huyết khối nhĩ trái thì phải mổ thay hoặc sửa van.'],
+    [/th[ôo]ng li[êe]n nh[ĩi]|\basd\b/i, 'Âm thổi tâm thu nhẹ ở ổ van động mạch phổi (do TĂNG LƯU LƯỢNG qua van phổi chứ không phải do luồng thông) KÈM tiếng T2 tách đôi CỐ ĐỊNH không đổi theo hô hấp — dấu đặc trưng nhất khi khám. ECG thường có block nhánh phải không hoàn toàn và trục phải. Siêu âm tim xác định vị trí lỗ thông và tính tỉ lệ lưu lượng phổi trên hệ thống; Qp/Qs từ 1,5 trở lên hoặc đã giãn buồng tim phải là chỉ định đóng.'],
+    [/th[ôo]ng li[êe]n th[ấa]t|\bvsd\b/i, 'Âm thổi TOÀN TÂM THU thô ráp ở khoang liên sườn 3–4 cạnh ức trái, lan ra xung quanh hình nan hoa, thường kèm rung miu. Nghịch lý cần nhớ: lỗ thông càng NHỎ thì âm thổi càng TO và bệnh càng nhẹ; lỗ lớn có thể âm thổi nhỏ nhưng suy tim nặng. Siêu âm tim xác định vị trí, kích thước và chênh áp. Theo dõi suy tim, chậm tăng trưởng, tăng áp động mạch phổi; khi áp lực phổi vượt hệ thống làm đảo shunt gây tím thì đã là hội chứng Eisenmenger, CHỐNG CHỈ ĐỊNH đóng lỗ.'],
+    [/c[òo]n [ốo]ng đ[ộo]ng m[ạa]ch|\bpda\b/i, 'Âm thổi LIÊN TỤC kiểu tiếng máy chạy, nghe rõ nhất ở dưới xương đòn TRÁI, kéo dài qua cả tiếng T2. Mạch ngoại vi nảy mạnh chìm sâu và hiệu áp rộng do máu bị "ăn cắp" về động mạch phổi trong thì tâm trương. Siêu âm tim Doppler xác định ống và chiều luồng thông. Ở trẻ sinh non thì cân nhắc đóng bằng thuốc; trẻ đủ tháng và lớn thì can thiệp qua da hoặc phẫu thuật.'],
+    [/fallot|t[ứu] ch[ứu]ng/i, 'Bốn thành phần: hẹp đường ra thất phải, thông liên thất, động mạch chủ cưỡi ngựa lên vách liên thất, và dày thất phải. Mức độ tím phụ thuộc chủ yếu vào độ hẹp đường ra thất phải. CƠN TÍM THIẾU OXY là biến cố phải nhận ra ngay: trẻ khóc, bú hoặc gắng sức rồi tím tăng đột ngột, thở nhanh sâu, âm thổi NHỎ ĐI hoặc mất, có thể ngất và co giật — xử trí đặt trẻ tư thế gối ép vào ngực, thở oxy, an thần. X-quang ngực có bóng tim hình chiếc giày với mỏm tim hếch lên và cung động mạch phổi lõm.'],
+
+    /* ---------------- Ngoại tổng quát ---------------- */
+    [/xo[ắa]n ru[ộo]t|volvulus/i, 'Đau bụng dữ dội khởi phát đột ngột, nôn, bí trung đại tiện, bụng chướng KHÔNG cân đối. X-quang bụng đứng có dấu "hạt cà phê" — quai ruột giãn khổng lồ hình chữ U ngược — trong xoắn đại tràng sigma. CT có cản quang thấy dấu xoáy nước của mạch mạc treo và điểm chuyển tiếp hình mỏ chim. Là cấp cứu ngoại vì mạc treo bị xoắn gây hoại tử ruột nhanh; dấu đau không tương xứng với khám bụng và toan chuyển hóa tăng lactat là dấu hiệu đã thiếu máu ruột.'],
+    [/[áa]p xe h[ậa]u m[ôo]n|[áa]p xe quanh h[ậa]u m[ôo]n/i, 'Đau vùng hậu môn LIÊN TỤC và tăng dần (khác nứt kẽ chỉ đau khi đi cầu), kèm sốt; khám thấy khối sưng nóng đỏ đau cạnh hậu môn. Áp xe sâu (gian cơ thắt, trên cơ nâng, hố ngồi trực tràng) có thể KHÔNG thấy gì bên ngoài mà chỉ đau khi thăm trực tràng — nghi ngờ thì siêu âm qua nội soi hoặc MRI vùng chậu. Điều trị là RẠCH DẪN LƯU sớm; kháng sinh đơn thuần không giải quyết được ổ mủ và làm chậm chẩn đoán.'],
+    [/r[òo] h[ậa]u m[ôo]n/i, 'Chảy dịch hoặc mủ tái đi tái lại từ một lỗ ngoài ở da cạnh hậu môn, thường có tiền sử áp xe hậu môn đã vỡ hoặc đã rạch trước đó. Định luật Goodsall giúp dự đoán hướng đường rò theo vị trí lỗ ngoài so với đường ngang qua hậu môn. Phân loại Parks theo tương quan đường rò với cơ thắt — quyết định phương pháp mổ và nguy cơ đại tiện không tự chủ; rò phức tạp hoặc tái phát thì chụp MRI vùng chậu. Rò nhiều đường hoặc tái phát dai dẳng phải tầm soát bệnh Crohn và lao.'],
+    [/n[ứu]t k[ẽe] h[ậa]u m[ôo]n|fissure/i, 'Đau DỮ DỘI trong lúc đi cầu và còn kéo dài hàng chục phút đến vài giờ sau đó — kiểu đau này gần như chỉ có ở nứt kẽ, giúp phân biệt ngay với trĩ. Kèm ít máu đỏ tươi dính giấy. Banh nhẹ hai mép hậu môn thấy vết nứt dọc; trên 90% nằm ở đường giữa SAU. Nứt ở vị trí LỆCH khỏi đường giữa, nhiều vết, hoặc bờ nham nhở thì phải nghĩ tới bệnh Crohn, lao, giang mai, HIV hoặc ung thư — phải sinh thiết.'],
+    [/ung th[ưu] v[úu]/i, 'Khối cứng chắc, bờ không đều, ít di động, thường KHÔNG đau — không đau không hề làm yên tâm. Các dấu kèm: co rút da hoặc núm vú, da vỏ cam, loét, tiết dịch máu một bên một lỗ, hạch nách cứng dính. Chẩn đoán dựa trên BỘ BA: khám lâm sàng, hình ảnh (nhũ ảnh cho phụ nữ trên 40, siêu âm cho phụ nữ trẻ, phân loại BI-RADS), và SINH THIẾT LÕI KIM. Sinh thiết là bắt buộc, vừa để xác định vừa để làm thụ thể nội tiết ER/PR và HER2 quyết định điều trị.'],
+
+    /* ---------------- Thận – Tiết niệu ---------------- */
+    [/s[ỏo]i b[àa]ng quang/i, 'Tiểu ngắt quãng đột ngột GIỮA DÒNG do sỏi bít cổ bàng quang, đau chói cuối dòng lan ra đầu dương vật, và đổi tư thế thì tiểu lại được — bộ ba rất gợi ý. Siêu âm bàng quang căng nước hoặc X-quang hệ niệu xác định. Quan trọng không kém là tìm NGUYÊN NHÂN gây ứ đọng bên dưới: tăng sinh lành tính tuyến tiền liệt, hẹp niệu đạo, bàng quang thần kinh, dị vật — lấy sỏi mà không giải quyết nguyên nhân thì sỏi tái phát.'],
+    [/ung th[ưu] b[àa]ng quang/i, 'Tiểu máu ĐẠI THỂ, KHÔNG ĐAU, toàn dòng và tái đi tái lại là dấu hiệu phải nội soi bàng quang cho tới khi loại trừ được — không được quy cho nhiễm trùng tiểu rồi thôi, nhất là ở người trên 40 tuổi hút thuốc. Nội soi bàng quang kèm cắt đốt nội soi qua niệu đạo vừa chẩn đoán vừa xác định độ xâm lấn lớp cơ (quyết định điều trị bảo tồn hay cắt bàng quang). CT niệu để khảo sát đường tiết niệu trên. Yếu tố nguy cơ: hút thuốc lá, phơi nhiễm amin thơm, nhiễm sán máng.'],
+    [/nang th[ậa]n/i, 'Siêu âm hoặc CT có cản quang; phân loại Bosniak I–IV dựa trên vách ngăn, vôi hóa, thành phần đặc và mức bắt thuốc. Bosniak I và II là lành tính, không cần theo dõi thêm; IIF cần theo dõi hình ảnh; III và IV có nguy cơ ác tính cao, thuộc về ngoại khoa. Nang đơn thuần rất hay gặp và tăng theo tuổi nên không phải cứ thấy nang là bệnh lý. Nhiều nang hai bên kèm gan cũng có nang và tiền sử gia đình thì nghĩ thận đa nang di truyền.']
+);
+
+BIEN_CHUNG.unshift(
+    [/d[ậa]p ph[ổo]i|m[áa]u đ[ôo]ng m[àa]ng ph[ổo]i|ch[ấa]n th[ươư]{1,2}ng ng[ựư]c/i, [
+        ['Suy hô hấp cấp – ARDS', 'theo dõi SpO2, nhịp thở, khí máu; hạn chế bù dịch quá mức'],
+        ['Mủ màng phổi và dày dính', 'lấy máu đông sớm; theo dõi sốt, dịch dẫn lưu đục'],
+        ['Viêm phổi do giảm thông khí vì đau', 'giảm đau đủ để bệnh nhân ho và thở sâu, tập lý liệu hô hấp']
+    ]],
+    [/thi[ếe]u m[áa]u chi|huy[ếe]t kh[ốo]i đ[ộo]ng m[ạa]ch chi|v[ếe]t th[ươư]{1,2}ng đ[ộo]ng m[ạa]ch/i, [
+        ['Hội chứng tái tưới máu', 'theo dõi kali, CK, myoglobin niệu, toan chuyển hóa sau khi thông mạch'],
+        ['Hội chứng chèn ép khoang', 'theo dõi đau tăng, căng cơ, dị cảm; cân nhắc mở cân dự phòng'],
+        ['Suy thận cấp do tiêu cơ vân', 'theo dõi creatinin, nước tiểu, bù dịch sớm'],
+        ['Mất chi', 'ghi rõ thời gian thiếu máu; trên 6 giờ là tiên lượng xấu']
+    ]],
+    [/th[ôo]ng li[êe]n th[ấa]t|th[ôo]ng li[êe]n nh[ĩi]|c[òo]n [ốo]ng đ[ộo]ng m[ạa]ch/i, [
+        ['Tăng áp động mạch phổi – hội chứng Eisenmenger', 'siêu âm tim định kỳ; đảo shunt thì chống chỉ định đóng lỗ'],
+        ['Suy tim và chậm tăng trưởng', 'theo dõi cân nặng, bú, nhịp thở, gan to'],
+        ['Viêm nội tâm mạc nhiễm khuẩn', 'dặn vệ sinh răng miệng; sốt kéo dài thì cấy máu nhiều mẫu']
+    ]],
+    [/[áa]p xe h[ậa]u m[ôo]n|r[òo] h[ậa]u m[ôo]n/i, [
+        ['Rò hậu môn sau dẫn lưu', 'dặn tái khám khi còn chảy dịch kéo dài trên 6 tuần'],
+        ['Đại tiện không tự chủ sau mổ', 'đánh giá cơ thắt trước mổ, chọn kỹ thuật theo phân loại Parks'],
+        ['Viêm mô hoại tử vùng đáy chậu (Fournier)', 'cấp cứu ở người đái tháo đường: đau dữ dội, hoại tử da, tràn khí dưới da']
+    ]]
+);
