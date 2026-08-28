@@ -10079,9 +10079,8 @@
                         </div>
                     </div>
 
-                    <div>
-                        <label class="block font-semibold mb-1 text-pink-500" for="final-diagnosis">XIII. CHẨN ĐOÁN XÁC
-                            ĐỊNH</label>
+                    <fieldset class="border-2 border-pink-200 p-4 rounded-lg shadow-sm">
+                        <legend class="text-lg font-semibold text-pink-500 px-2 flex items-center gap-2"><i class="fas fa-diagnoses"></i> XIII. CHẨN ĐOÁN XÁC ĐỊNH</legend>
                         <div class="dx-grid" data-nocount>
                             <label>Bệnh chính<input type="text" id="dx2-main" class="calc-in"
                                     placeholder="Sau khi có cận lâm sàng"></label>
@@ -10116,15 +10115,15 @@
                                 rows="2" class="w-full border rounded-lg p-2 mt-2"
                                 placeholder="Máy tự ghép từ 4 ô trên — sửa tay lúc nào cũng được"></textarea>
                         </details>
-                    </div>
+                    </fieldset>
 
-                    <div><label class="block font-semibold mb-1 text-pink-500" for="treatment-plan">XIV. ĐIỀU TRỊ — 1.
-                            Điều trị đặc hiệu / nguyên tắc</label><textarea id="treatment-plan" rows="3"
-                            class="w-full border rounded-lg p-2" placeholder="Nguyên tắc điều trị"></textarea></div>
+                    <fieldset class="border-2 border-pink-200 p-4 rounded-lg shadow-sm">
+                        <legend class="text-lg font-semibold text-pink-500 px-2 flex items-center gap-2"><i class="fas fa-prescription-bottle-medical"></i> XIV. ĐIỀU TRỊ</legend>
+                        <label class="block font-semibold mb-1 text-pink-500" for="treatment-plan">1. Điều trị đặc hiệu / nguyên tắc</label>
+                        <textarea id="treatment-plan" rows="3"
+                            class="w-full border rounded-lg p-2" placeholder="Nguyên tắc điều trị"></textarea>
 
-                    <div>
-                        <label class="block font-semibold mb-1 text-pink-500">XIV. ĐIỀU TRỊ — 2. Điều trị triệu chứng
-                            &amp; biến chứng</label>
+                        <label class="block font-semibold mb-1 mt-4 text-pink-500">2. Điều trị triệu chứng &amp; biến chứng</label>
                         <div class="calc-box no-fold" data-nocount>
                             <div class="rx-head">
                                 <span class="calc-title mb-0"><i class="fas fa-prescription-bottle-medical"></i> Y lệnh
@@ -10148,19 +10147,18 @@
                             <textarea id="treatment-detail" rows="4" class="w-full border rounded-lg p-2 mt-2"
                                 placeholder="Máy ghép từ bảng y lệnh bên trên"></textarea>
                         </details>
-                    </div>
+                    </fieldset>
 
-                    <div>
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <label class="block font-semibold mb-1 text-pink-500" for="prognosis">XV. TIÊN
-                                LƯỢNG</label>
-                            <button type="button" id="prog-suggest" class="btn-act"
+                    <fieldset class="border-2 border-pink-200 p-4 rounded-lg shadow-sm">
+                        <legend class="text-lg font-semibold text-pink-500 px-2 flex items-center gap-2"><i class="fas fa-scale-balanced"></i> XV. TIÊN LƯỢNG
+                            <button type="button" id="prog-suggest" class="cls-mini"
                                 title="Dựng câu tiên lượng từ các thang điểm máy đã chấm (P/F, Child-Pugh, ATLS, Glasgow…) cùng biến chứng và bệnh kèm đã ghi"><i
-                                    class="fas fa-scale-balanced"></i> Gợi ý từ thang điểm đã chấm</button>
-                        </div>
+                                    class="fas fa-wand-magic-sparkles"></i> Gợi ý từ thang điểm đã chấm</button>
+                        </legend>
                         <textarea id="prognosis" rows="2" class="w-full border rounded-lg p-2"
+                            aria-label="Tiên lượng"
                             placeholder="Tiên lượng gần / tiên lượng xa, kèm lý do"></textarea>
-                    </div>
+                    </fieldset>
 
                 </div>
             </div>
