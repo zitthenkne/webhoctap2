@@ -21,10 +21,13 @@ const newId = () => 'b' + Math.random().toString(36).slice(2, 8);
 
 import {
     suggestFor, searchLibrary, clsForCause, bienChungFor, yeuToFor, BIEN_CHUNG, LIBRARY,
-    LY_DO_MAU, TEN_VAN_DE, TEN_NGUYEN_NHAN, VAN_DE_NHOM
+    LY_DO_MAU, TEN_VAN_DE, TEN_NGUYEN_NHAN, VAN_DE_NHOM, hallmarksFor
 } from './bien-luan-data.js';
 import { drawMap, downloadMapPng } from './bien-luan-map.js';
 import { getSteps, mainSymLabels } from './benh-su-editor.js';
+import { rosBatThuong } from './ros-editor.js';
+import { getCls } from './cls-editor.js';
+import { abnormalItems } from './cls-shared.js';
 import { BENH_NHOM } from './benh-data.js';
 import { openListPicker } from './list-picker.js';
 import { attachTypeahead } from './goi-y-go.js';
@@ -122,7 +125,13 @@ export function setBienLuan(obj) {
 const EXAM_FIELDS = [['Khám', 'exam-general'], ['Đầu – mặt – cổ', 'exam-head'], ['Ngực', 'exam-chest'],
 ['Tim', 'exam-heart'], ['Phổi', 'exam-lung'], ['Bụng', 'exam-abdomen'], ['Thần kinh – cơ xương khớp', 'exam-neuro-msk']];
 
-export function collectEvidence() {
+/**
+ * Dấu chứng đọc được từ cả bệnh án, xếp theo mức liên quan tới `ten` (tên vấn đề
+ * của thẻ đang quét). Trước đây mọi thẻ đều nhận CÙNG một danh sách theo thứ tự
+ * các ô trên trang, nên thẻ “Hội chứng đông đặc phổi” lại mở đầu bằng dấu chứng bụng —
+ * sinh viên phải xóa nhiều hơn là giữ.
+ */
+export function collectEvidence(ten = '') {
     const v = (id) => trim($(id)?.value);
     const out = [];
 
@@ -149,13 +158,38 @@ export function collectEvidence() {
     // Thực thể: mỗi dòng đã ghi ở các ô khám là một dấu chứng
     EXAM_FIELDS.forEach(([, id]) => v(id).split('\n').map(trim).filter(Boolean).forEach(t => out.push(t)));
 
+    /* Mục V đã soi sẵn triệu chứng dương tính của từng cơ quan; bỏ qua thì thẻ
+       biện luận thiếu đúng phần cơ năng ngoài hệ đang bàn. */
+    rosBatThuong().forEach(r => r.batThuong.forEach(t => out.push(t)));
+
+    // Cận lâm sàng bất thường cũng là dấu chứng — trước đây phải gõ tay lại
+    abnormalItems(getCls()).forEach(i =>
+        out.push(`${i.n} ${i.v}${i.u ? ' ' + i.u : ''} ${i.flag === 'high' ? 'tăng' : 'giảm'}`));
+
     // Tiền căn liên quan — phần làm nên "yếu tố nguy cơ" của vấn đề
     const tc = [v('history-internal'), v('history-habit')].filter(Boolean).join('; ');
     if (tc) out.push(`tiền căn có ${tc}`);
 
     const seen = new Set();
-    return out.filter(x => x && !seen.has(x.toLowerCase()) && seen.add(x.toLowerCase())).slice(0, 25);
+    const uniq = out.filter(x => x && !seen.has(x.toLowerCase()) && seen.add(x.toLowerCase()));
+
+    /* Xếp lại theo mức liên quan: dấu chứng nào nhắc tới tên vấn đề, hoặc trùng
+       một dấu hiệu then chốt của hội chứng đó, thì lên trước. Không lọc bỏ gì cả —
+       sinh viên vẫn thấy đủ, chỉ là thứ đáng giữ nằm ở trên. */
+    const t = trim(ten);
+    if (!t) return uniq.slice(0, 25);
+    const tu = fold(t).split(/[^a-z0-9]+/).filter(w => w.length > 2 && !TU_DEM.has(w));
+    const hall = hallmarksFor(t).map(fold);
+    const diem = (x) => {
+        const f = fold(x);
+        if (hall.some(h => f.includes(h) || h.includes(f))) return 2;
+        return tu.some(w => f.includes(w)) ? 1 : 0;
+    };
+    return [...uniq].sort((a, b) => diem(b) - diem(a)).slice(0, 25);
 }
+
+/* Chữ đệm của tên hội chứng — để "hội chứng" không khớp với mọi dòng */
+const TU_DEM = new Set(['hoi', 'chung', 'cap', 'man', 'tinh', 'benh', 'dot', 'con', 'roi', 'loan']);
 
 /** Âm tính có giá trị: lấy từ ô âm tính của bệnh sử và phần lược qua cơ quan */
 export function collectNegatives() {
@@ -786,7 +820,7 @@ export function initBienLuan(options) {
         else if (act === 'del-bc') v.bienChung.splice(+btn.closest('.tr-leaf').dataset.b, 1);
         else if (act === 'harvest') {
             const have = new Set(v.lamSang.map(x => trim(x).toLowerCase()));
-            const add = collectEvidence().filter(x => !have.has(x.toLowerCase()));
+            const add = collectEvidence(v.ten).filter(x => !have.has(x.toLowerCase()));
             v.lamSang.push(...add);
             options?.onHarvest?.(add.length);
         }
@@ -810,7 +844,7 @@ export function initBienLuan(options) {
             const lib = libFor(v.ten);
             const truoc = v.lamSang.length + v.amTinh.length + v.nguyenNhan.length + v.bienChung.length;
             const co = new Set(v.lamSang.map(x => x.toLowerCase()));
-            collectEvidence().filter(x => !co.has(x.toLowerCase())).forEach(x => v.lamSang.push(x));
+            collectEvidence(v.ten).filter(x => !co.has(x.toLowerCase())).forEach(x => v.lamSang.push(x));
             const coAm = new Set(v.amTinh.map(x => x.toLowerCase()));
             collectNegatives().filter(x => !coAm.has(x.toLowerCase())).forEach(x => v.amTinh.push(x));
             if (!trim(v.yeuTo)) v.yeuTo = yeuToFor(v.ten || lib.gan || '').slice(0, 3).join(', ');

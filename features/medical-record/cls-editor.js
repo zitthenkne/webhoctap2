@@ -50,14 +50,22 @@ function setAuto(c, name, unit, value, ref) {
     it.v = isFinite(value) ? String(value) : '';
 }
 
+/** So đơn vị theo mặt chữ: "µmol/L", "umol/l", "uMol / L" là một */
+const chuanDonVi = (u) => fold(String(u || '').replace(/[µμ]/g, 'u')).replace(/[^a-z0-9/%]/g, '');
+
 function recompute(c) {
     const age = toNum(opts.getAge?.());
     const gender = opts.getGender?.() || 'Nam';
 
     // eGFR theo CKD-EPI 2021 (creatinine µmol/L)
     const cr = val(c, 'Creatinine');
-    if (isFinite(cr) && cr > 0 && isFinite(age) && age > 0) {
-        const scr = cr / 88.4;                       // mg/dL
+    /* Tờ kết quả nước ngoài hay ghi mg/dL — cùng một quả thận mà số nhỏ hơn 88 lần,
+       cứ chia 88,4 tiếp thì eGFR vọt lên vài nghìn. Đổi về µmol/L trước; đơn vị lạ
+       hơn nữa thì thôi không chấm, còn hơn chấm sai. */
+    const crU = chuanDonVi((c.items || []).find(i => fold(i.n) === 'creatinine')?.u);
+    const crUmol = crU === 'mg/dl' ? cr * 88.4 : cr;
+    if (isFinite(cr) && cr > 0 && isFinite(age) && age > 0 && ['umol/l', 'mg/dl', ''].includes(crU)) {
+        const scr = crUmol / 88.4;                   // mg/dL
         const nu = gender === 'Nữ';
         const k = nu ? 0.7 : 0.9, a = nu ? -0.241 : -0.302;
         const egfr = 142 * Math.pow(Math.min(scr / k, 1), a) * Math.pow(Math.max(scr / k, 1), -1.2)
@@ -308,11 +316,14 @@ const ITEM_MAP = (() => {
 function parsePasted(text) {
     const out = [];
     String(text || '').split(/[\n;|]+/).forEach(line => {
-        const m = String(line).match(/^\s*([^0-9:=]+?)\s*[:=]?\s+(-?[\d]+(?:[.,]\d+)?)\b/);
+        const m = String(line).match(/^\s*([^0-9:=]+?)\s*[:=]?\s+(-?[\d]+(?:[.,]\d+)?)\b\s*([^\s(),;]*)/);
         if (!m) return;
         const hit = ITEM_MAP.get(fold(m[1]).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim());
         if (!hit || out.some(o => o.n === hit.n && o.panel === hit.panel)) return;
-        out.push({ ...hit, v: m[2].replace(',', '.') });
+        // Đơn vị viết trong tờ kết quả phải giữ lại: dán "Creatinine 1,2 mg/dL" mà
+        // vẫn để đơn vị µmol/L của phiếu mẫu thì máy gắn cờ giảm cho một con số
+        // hoàn toàn bình thường.
+        out.push({ ...hit, v: m[2].replace(',', '.'), dv: m[3] || '' });
     });
     return out;
 }
@@ -323,6 +334,7 @@ function applyPasted(text) {
         return showToast('Không bóc tách được chỉ số nào — mỗi dòng cần dạng "Tên  giá trị", vd "WBC 14,5".', 'warning');
     }
     const gender = opts.getGender?.() || 'Nam';
+    const lech = [];
     hits.forEach(h => {
         let c = cards.find(x => fold(x.name || '') === fold(h.panel));
         if (!c) { addPanel(h.panel, true); c = cards.at(-1); }
@@ -334,11 +346,22 @@ function applyPasted(text) {
         }
         it.v = h.v;
         it.auto = false;
+        /* Đơn vị lệch phiếu mẫu -> khoảng tham chiếu của mẫu không còn dùng được.
+           Giữ nguyên đơn vị người dán ghi, bỏ khoảng tham chiếu (bỏ luôn cờ ↑↓)
+           thay vì gắn một cái cờ sai. */
+        if (h.dv && chuanDonVi(h.dv) !== chuanDonVi(it.u)) {
+            it.u = h.dv;
+            it.lo = it.hi = null;
+            lech.push(h.n);
+        }
     });
     cards.forEach(recompute);
     render();
     changed();
-    showToast(`Đã điền ${hits.length} chỉ số vào phiếu — đối chiếu lại với tờ kết quả gốc.`, 'success');
+    showToast(`Đã điền ${hits.length} chỉ số vào phiếu — đối chiếu lại với tờ kết quả gốc.`
+        + (lech.length ? ` ${lech.join(', ')} ghi đơn vị khác phiếu mẫu: đã giữ đơn vị bạn dán `
+            + 'và bỏ khoảng tham chiếu, tự đối chiếu giúp.' : ''),
+        lech.length ? 'warning' : 'success', lech.length ? 7000 : 3000);
 }
 
 function buildToolbar() {

@@ -340,9 +340,14 @@ export function applyClinicalContext(syms) {
     NEED_HINT_IDS.forEach(id => setNeedHint(id, needByField[id]));
 
     /* --- 2. Vấn đề đã đặt kéo sang chip chẩn đoán --- */
+    /* Mỗi vấn đề có sẵn 5–8 nguyên nhân trong thư viện, mà mục VIII nay hay có
+       hơn chục vấn đề -> đổ hết ra là một BỨC TƯỜNG ~55 viên chip dưới ô chẩn
+       đoán phân biệt, dài hơn cả phần đã nhập. Chỉ lấy phần đầu của mỗi vấn đề
+       (mục VIII đã xếp việc quan trọng lên trước); muốn đủ thư viện thì bấm nút
+       "Chọn nhiều bệnh cần phân biệt" ngay bên dưới. */
     const seen = new Set();
     const cand = [];
-    problems.forEach(p => {
+    problems.slice(0, 6).forEach(p => {
         const g = suggestFor(p);
         const push = (t, tag, title) => {
             const k = String(t || '').toLowerCase();
@@ -350,10 +355,11 @@ export function applyClinicalContext(syms) {
             seen.add(k);
             cand.push({ text: t, tag, title });
         };
-        (g.red || []).forEach(t => push(t, '🚨', `Nguy hiểm — phải loại trừ trước khi chốt "${p}"`));
-        (g.nn || []).forEach(t => push(t, '🎯', `Nguyên nhân thường gặp của "${p}"`));
+        (g.red || []).slice(0, 2).forEach(t => push(t, '🚨', `Nguy hiểm — phải loại trừ trước khi chốt "${p}"`));
+        (g.nn || []).slice(0, 3).forEach(t => push(t, '🎯', `Nguyên nhân thường gặp của "${p}"`));
     });
-    DX_IDS.forEach(id => setChips(id, cand.length ? [...cand, ...(QUICK_FILL[id] || [])] : null));
+    const candTop = cand.slice(0, 16);
+    DX_IDS.forEach(id => setChips(id, candTop.length ? [...candTop, ...(QUICK_FILL[id] || [])] : null));
 
     /* --- 3. Cận lâm sàng bắt buộc: xem `labsCanCo()`, chip do mục XI tự vẽ --- */
     mustDx = dxText;

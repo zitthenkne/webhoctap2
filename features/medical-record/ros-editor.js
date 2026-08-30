@@ -26,7 +26,8 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-const ROS_IDS = Object.values(ROS_BY_NHOM);
+/** 6 ô của mục V — nơi khác (đặt vấn đề tự động) cũng phải quét đúng bộ này */
+export const ROS_IDS = Object.values(ROS_BY_NHOM);
 
 /* Triệu chứng cơ năng của từng hệ, viết đúng kiểu sinh viên gõ vào mục V.
    Dùng cho cả chip gợi ý (bên goi-y-nhap.js) lẫn bộ dò ở đây; ai gõ tay bằng chữ

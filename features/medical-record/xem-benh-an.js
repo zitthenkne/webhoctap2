@@ -143,13 +143,79 @@ if (!record) {
     /* ---------- hành động ---------- */
     const plain = () => toMarkdown(record, model);
 
+    /* Bản HTML của bệnh án: vừa là ruột của file .doc tải về, vừa là mặt hàng
+       'text/html' đặt lên clipboard — dán thẳng vào Google Docs / Word là ra đúng
+       heading, in đậm, gạch đầu dòng, khỏi phải tải file rồi mở lại. */
+    /* Ô nhiều dòng (tóm tắt, đặt vấn đề, biện luận): dòng bắt đầu bằng "- " gom
+       thành <ul> thật. Nối bằng <br> như trước thì dán sang Google Docs / Word ra
+       một khối chữ còn nguyên dấu gạch và khoảng trắng thụt lề. */
+    const khoiHtml = (label, value) => {
+        const rows = String(value).split('\n').map(x => x.trim()).filter(Boolean);
+        let out = '', ul = [];
+        const xaUl = () => {
+            if (!ul.length) return;
+            out += `<ul>${ul.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
+            ul = [];
+        };
+        rows.forEach((x, i) => {
+            if (/^[-*•]\s+/.test(x)) return void ul.push(x.replace(/^[-*•]\s+/, ''));
+            xaUl();
+            out += `<p>${label && i === 0 ? '<b>' + esc(label) + ':</b> ' : ''}${esc(x)}</p>`;
+        });
+        xaUl();
+        return out;
+    };
+
+    const docHtml = () => {
+        const html = `<html xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8">
+            <style>body{font-family:'Times New Roman',serif;font-size:13pt;line-height:1.5}
+            h2{text-align:center;font-size:14pt;text-transform:uppercase}
+            h3{font-size:13pt;border-bottom:1px solid #000;margin:14pt 0 6pt}
+            p{margin:0 0 4pt}</style></head><body>
+            ${[record.sinhVien?.hoTen, record.sinhVien?.mssv, record.sinhVien?.lop, record.sinhVien?.stt]
+                .filter(Boolean).length ? `<p>${esc([record.sinhVien?.hoTen, record.sinhVien?.mssv, record.sinhVien?.lop, record.sinhVien?.stt].filter(Boolean).join(' - '))}</p>` : ''}
+            <h2>Bệnh án</h2>` +
+            model.map(([title, , rows]) => {
+                const body = rows.map(([label, value]) => {
+                    if (label === '@vitals') {
+                        const v = value.filter(([, x]) => String(x ?? '').trim())
+                            .map(([l, x, u]) => `${l}: ${x}${u ? ' ' + u : ''}`).join(' · ');
+                        return v ? `<p>${esc(v)}</p>` : '';
+                    }
+                    if (label === '@cls') return clsToWordHtml(value);
+                    if (label === '@anh') {
+                        const co = (value || []).filter(im => im && im.url);
+                        return co.length ? co.map(im => `<p><img src="${esc(im.url)}" width="420">`
+                            + (im.caption ? `<br><i>${esc(im.caption)}</i>` : '') + '</p>').join('') : '';
+                    }
+                    if (!String(value ?? '').trim()) return '';
+                    return khoiHtml(label, value);
+                }).join('');
+                return body ? `<h3>${esc(title)}</h3>${body}` : '';
+            }).join('') + '<\/body><\/html>';
+        return html;
+    };
+
     const actions = {
         print: () => window.print(),
         edit: () => { location.href = editBtn.href; },
         copy: async () => {
+            /* Dán vào Google Docs mà chỉ có chữ trơn thì heading, in đậm, gạch đầu
+               dòng rơi hết — phải đặt LÊN CLIPBOARD CẢ HAI mặt hàng: 'text/html' cho
+               Docs / Word ăn định dạng, 'text/plain' là bản Markdown cho ô chat, ghi
+               chú, hay trình soạn thảo chữ trơn. */
             try {
-                await navigator.clipboard.writeText(plain());
-                showToast('Đã sao chép toàn bộ bệnh án.', 'success');
+                const md = plain();
+                if (window.ClipboardItem && navigator.clipboard?.write) {
+                    await navigator.clipboard.write([new ClipboardItem({
+                        'text/html': new Blob([docHtml()], { type: 'text/html' }),
+                        'text/plain': new Blob([md], { type: 'text/plain' })
+                    })]);
+                    showToast('Đã sao chép — dán thẳng vào Google Docs / Word là giữ nguyên định dạng.', 'success', 5000);
+                    return;
+                }
+                await navigator.clipboard.writeText(md);
+                showToast('Đã sao chép bản Markdown.', 'success');
             } catch {
                 showToast('Trình duyệt chặn sao chép. Hãy chọn và copy thủ công.', 'error');
             }
@@ -159,32 +225,7 @@ if (!record) {
             showToast('Đã tải file .md — kéo thẳng vào Google Drive rồi mở bằng Google Docs, heading tự lên sẵn.', 'success');
         },
         word: () => {
-            const html = `<html xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8">
-                <style>body{font-family:'Times New Roman',serif;font-size:13pt;line-height:1.5}
-                h2{text-align:center;font-size:14pt;text-transform:uppercase}
-                h3{font-size:13pt;border-bottom:1px solid #000;margin:14pt 0 6pt}
-                p{margin:0 0 4pt}</style></head><body>
-                ${[record.sinhVien?.hoTen, record.sinhVien?.mssv, record.sinhVien?.lop, record.sinhVien?.stt]
-                    .filter(Boolean).length ? `<p>${esc([record.sinhVien?.hoTen, record.sinhVien?.mssv, record.sinhVien?.lop, record.sinhVien?.stt].filter(Boolean).join(' - '))}</p>` : ''}
-                <h2>Bệnh án</h2>` +
-                model.map(([title, , rows]) => {
-                    const body = rows.map(([label, value]) => {
-                        if (label === '@vitals') {
-                            const v = value.filter(([, x]) => String(x ?? '').trim())
-                                .map(([l, x, u]) => `${l}: ${x}${u ? ' ' + u : ''}`).join(' · ');
-                            return v ? `<p>${esc(v)}</p>` : '';
-                        }
-                        if (label === '@cls') return clsToWordHtml(value);
-                        if (label === '@anh') {
-                            const co = (value || []).filter(im => im && im.url);
-                            return co.length ? co.map(im => `<p><img src="${esc(im.url)}" width="420">`
-                                + (im.caption ? `<br><i>${esc(im.caption)}</i>` : '') + '</p>').join('') : '';
-                        }
-                        if (!String(value ?? '').trim()) return '';
-                        return `<p>${label ? '<b>' + esc(label) + ':</b> ' : ''}${esc(value).replace(/\n/g, '<br>')}</p>`;
-                    }).join('');
-                    return body ? `<h3>${esc(title)}</h3>${body}` : '';
-                }).join('') + '<\/body><\/html>';
+            const html = docHtml();
             const a = document.createElement('a');
             a.href = URL.createObjectURL(new Blob(['﻿' + html], { type: 'application/msword' }));
             a.download = `benh-an-${slugName(h.hoTen)}.doc`;

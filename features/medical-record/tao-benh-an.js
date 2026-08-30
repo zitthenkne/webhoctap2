@@ -17,7 +17,7 @@ import { initClsDeNghi, parseCls } from './cls-de-nghi.js';
 import { initLyDo } from './ly-do-list.js';
 import { initPhanDo, getPhanDo, setPhanDo, refreshPhanDo, phanDoLines } from './phan-do.js';
 import { initAmTinh, refreshAmTinh } from './am-tinh.js';
-import { initRos, refreshRos } from './ros-editor.js';
+import { initRos, refreshRos, rosBatThuong, ROS_IDS } from './ros-editor.js';
 import { openSymptomPicker } from './symptom-picker.js';
 import { createGiaDinhList } from './gia-dinh-list.js';
 import { createDiUngList } from './di-ung-list.js';
@@ -938,8 +938,10 @@ function calcScores() {
     if (gOut) {
         if (e && v && m) {
             gcs = e + v + m;
-            const lvl = gcs >= 13 ? 'nhẹ' : gcs >= 9 ? 'trung bình' : 'nặng';
-            gOut.textContent = `GCS ${gcs}/15 (E${e} V${v} M${m}) — rối loạn tri giác mức ${lvl}`;
+            // 15 điểm là tỉnh táo hoàn toàn, không phải "rối loạn tri giác mức nhẹ"
+            const lvl = gcs >= 15 ? '' : gcs >= 13 ? 'nhẹ' : gcs >= 9 ? 'trung bình' : 'nặng';
+            gOut.textContent = `GCS ${gcs}/15 (E${e} V${v} M${m})`
+                + (lvl ? ` — rối loạn tri giác mức ${lvl}` : ' — tỉnh táo hoàn toàn');
             gOut.classList.toggle('is-warn', gcs <= 12);
         } else {
             gOut.textContent = 'Chọn E, V, M để tính';
@@ -1674,20 +1676,40 @@ function buildSummary() {
         `${reason ? ', vào viện vì ' + reason.replace(/\.$/, '') : ''}` +
         `${dayNo ? ', bệnh ngày thứ ' + dayNo[1] : ''}.`];
 
-    lines.push('', 'Qua hỏi bệnh sử, tiền căn, thăm khám lâm sàng và các cận lâm sàng đã có, ghi nhận');
+    lines.push('', 'Qua hỏi bệnh sử, tiền căn và thăm khám lâm sàng, ghi nhận');
 
+    /* Đúng ba mục như tóm tắt bệnh án viết tay: cơ năng — thực thể — tiền căn.
+       Sinh hiệu và thang điểm GCS là thứ đo được lúc khám nên nằm trong THỰC THỂ,
+       không tách thành mục riêng; cận lâm sàng thì không thuộc tóm tắt (tóm tắt
+       viết xong ngay sau khi khám, kết quả nằm ở mục XII và được bàn ở mục X).
+       Mỗi ý MỘT DÒNG gạch đầu dòng: một mục cơ năng có thể gom 5–6 mốc bệnh sử,
+       nối hết bằng dấu chấm phẩy thì thành một câu dài chẳng ai đọc nổi. Bản xuất
+       Markdown cũng tách theo '\n' nên mỗi ý ra đúng một gạch đầu dòng. */
     let n = 0;
-    // Tóm tắt trình bày theo số thứ tự cho dễ theo dõi, nhưng nối bằng gạch "—"
-    // chứ không phải dấu hai chấm — đọc lên vẫn xuôi như một câu.
-    const group = (title, body) => { if (body) lines.push(`${++n}. ${title} — ${body}`); };
+    const group = (title, parts) => {
+        const y = (Array.isArray(parts) ? parts : [parts])
+            .flatMap(x => String(x ?? '').split('\n'))
+            .map(x => x.trim().replace(/[;.]+$/, '')).filter(Boolean);
+        if (!y.length) return;
+        lines.push(`${++n}. ${title}`, ...y.map(x => `   - ${hoaDau(x)}`));
+    };
 
-    // Cơ năng: lấy mốc diễn tiến, không có thì lấy đoạn bệnh sử
-    const timeline = getSteps().map(m =>
+    // 1. Cơ năng: mốc diễn tiến (không có thì lấy đoạn bệnh sử) + mục V đã soi ra
+    const timeline = getSteps().flatMap(m =>
         [String(m.s || '').trim(), ...(m.refs || []).filter(r => r.sym)
-            .map(r => `${r.sym} ${r.st}${r.d ? ' (' + r.d + ')' : ''}`)].filter(Boolean).join('; ')
-    ).filter(Boolean).join('; ');
-    group('Triệu chứng cơ năng', timeline || v('illness-history').split('\n')[0]);
+            .map(r => `${r.sym} ${r.st}${r.d ? ' (' + r.d + ')' : ''}`)]
+    ).filter(Boolean);
+    /* Mục V bù các cơ quan khác, nhưng bỏ triệu chứng nào bệnh sử đã kể rồi —
+       không thì tóm tắt vừa nói "ho khạc đàm vàng đặc" lại nối thêm "ho đàm". */
+    const coNang = timeline.length ? timeline : [v('illness-history').split('\n')[0]];
+    /* So theo TỪ chứ không theo cả cụm: bệnh sử viết "ho khạc đàm vàng đặc",
+       mục V ghi "ho đàm" — không chứa nhau nguyên chuỗi nhưng vẫn là một ý. */
+    const tuCoNang = new Set(fold(coNang.join(' ')).split(/[^a-z0-9]+/).filter(Boolean));
+    const rosSym = rosBatThuong().flatMap(r => r.batThuong)
+        .filter(t => !fold(t).split(/[^a-z0-9]+/).filter(Boolean).every(w => tuCoNang.has(w)));
+    group('Triệu chứng cơ năng', [...coNang, ...rosSym]);
 
+    // 2. Thực thể: sinh hiệu, GCS, rồi các ô khám còn khác mẫu "bình thường"
     const vitals = [
         v('vital-pulse') && `mạch ${v('vital-pulse')} l/p`,
         v('vital-temp') && `nhiệt độ ${v('vital-temp')}°C`,
@@ -1696,9 +1718,13 @@ function buildSummary() {
         v('vital-spo2') && `SpO2 ${v('vital-spo2')}%`,
         v('vital-bmi') && `BMI ${v('vital-bmi')} kg/m²`
     ].filter(Boolean).join(', ');
-    group('Sinh hiệu', vitals);
 
-    // Dấu chứng thực thể: bỏ mục còn nguyên mẫu "khám bình thường" và mục "chưa ghi nhận"
+    /* GCS chỉ vào tóm tắt khi CÓ rối loạn tri giác: tóm tắt là chỗ kể cái bất
+       thường, thêm "GCS 15/15 — tỉnh táo hoàn toàn" chỉ làm dài câu. */
+    const gcsTxt = ($('gcs-out')?.textContent || '').trim();
+    const gcs = /rối loạn tri giác/i.test(gcsTxt) ? gcsTxt.split(' · chưa có')[0] : '';
+
+    // Bỏ ô còn nguyên mẫu "khám bình thường" và ô "chưa ghi nhận"
     const notable = (id) => {
         const val = v(id);
         if (!val) return '';
@@ -1707,28 +1733,16 @@ function buildSummary() {
         return val;
     };
     const signs = ['exam-general', 'exam-head', 'exam-chest', 'exam-heart', 'exam-lung',
-        'exam-abdomen', 'exam-neuro-msk'].map(notable).filter(Boolean).join('; ');
-    group('Dấu chứng thực thể', signs);
+        'exam-abdomen', 'exam-neuro-msk'].map(notable).filter(Boolean);
+    group('Triệu chứng thực thể', [vitals, gcs, ...signs]);
 
-    // Ba thang điểm đều lấy nguyên câu máy đã viết, nhưng chỉ khi máy tính ra thật
-    // (ô còn câu mời "Nhập ... để tính" thì bỏ qua, đừng nhét lời mời vào tóm tắt).
-    const diem = (id, dau) => {
-        const t = ($(id)?.textContent || '').trim();
-        return t.startsWith(dau) ? t.split(' · chưa có')[0] : '';
-    };
-    group('Thang điểm', [diem('gcs-out', 'GCS'), diem('curb-out', 'CURB'), diem('qsofa-out', 'qSOFA')]
-        .filter(Boolean).join(' · '));
-
-    const abn = abnormalItems(getCls())
-        .map(i => `${i.n} ${i.v}${i.u ? ' ' + i.u : ''} ${i.flag === 'high' ? '↑' : '↓'}`).join(', ');
-    group('Cận lâm sàng bất thường', abn);
-
+    // 3. Tiền căn
     const history = [
         ['nội khoa', v('history-internal')], ['ngoại khoa', v('history-surgery')],
         ['sản phụ khoa', v('history-obgyne')], ['dị ứng', v('history-allergy')],
         ['môi trường', v('history-environment')], ['thói quen', v('history-habit')], ['gia đình', v('history-family')]
     ].filter(([, val]) => val && !/^chưa ghi nhận/i.test(val))
-        .map(([k, val]) => `${k} ${val}`).join('; ');
+        .map(([k, val]) => `${k}: ${val}`);
     group('Tiền căn', history);
 
     if (v('provisional-diagnosis')) lines.push('', '→ Chẩn đoán sơ bộ ' + v('provisional-diagnosis'));
@@ -1739,8 +1753,8 @@ function buildSummary() {
    6b. ĐẶT VẤN ĐỀ TỰ ĐỘNG — gom bất thường thành danh sách vấn đề
    ===================================================================== */
 const CLS_PROBLEM = [
-    ['HGB', 'low', 'Thiếu máu'],
-    ['HCT', 'low', 'Thiếu máu'],
+    ['HGB', 'low', 'Hội chứng thiếu máu'],
+    ['HCT', 'low', 'Hội chứng thiếu máu'],
     ['WBC', 'high', 'Tăng bạch cầu'],
     ['WBC', 'low', 'Giảm bạch cầu'],
     ['NEU', 'high', 'Tăng bạch cầu đa nhân trung tính'],
@@ -1771,39 +1785,177 @@ const CLS_PROBLEM = [
     ['Lactate', 'high', 'Tăng lactate máu']
 ];
 
+/* Dấu chứng thực thể (mục VI) và mục V đọc được thành TÊN HỘI CHỨNG.
+   Tên phải chép ĐÚNG danh mục VAN_DE_NHOM: thẻ biện luận mục X dò thư viện theo
+   tên vấn đề, lệch một chữ là mất luôn phần gợi ý nguyên nhân và CLS phân định.
+   Mẫu chạy trên chuỗi đã fold() nên viết bằng chữ không dấu. */
+const KHAM_HOI_CHUNG = [
+    ['ran no|rung thanh tang|am thoi phe quan|go duc.{0,14}(phoi|day nguc)', 'Hội chứng đông đặc phổi'],
+    ['ba giam|tran dich mang phoi', 'Hội chứng ba giảm (tràn dịch màng phổi)'],
+    ['tran khi mang phoi|go vang.{0,12}(nguc|phoi)', 'Hội chứng tràn khí màng phổi'],
+    ['ran ngay|ran rit|kho khe|co keo co ho hap', 'Hội chứng tắc nghẽn đường thở'],
+    ['tinh mach co noi|phan hoi gan tinh mach co|gan to.{0,14}dau', 'Hội chứng suy tim ứ huyết'],
+    ['bung bang|co truong|dau hieu song vo|dich o bung', 'Cổ trướng'],
+    ['tuan hoan bang he', 'Hội chứng tăng áp tĩnh mạch cửa'],
+    ['vang da|vang mat|cung mac vang', 'Hội chứng vàng da tắc mật'],
+    ['da niem nhat|niem nhat|long ban tay nhat', 'Hội chứng thiếu máu'],
+    ['de khang thanh bung|phan ung doi|cam ung phuc mac|bung cung nhu go', 'Hội chứng viêm phúc mạc'],
+    ['co gong|co cung gay|kernig|brudzinski|dau mang nao', 'Hội chứng màng não'],
+    ['liet nua nguoi|yeu nua nguoi|babinski', 'Hội chứng liệt nửa người'],
+    ['xuat huyet duoi da|cham xuat huyet|mang xuat huyet|chay mau chan rang', 'Hội chứng xuất huyết'],
+    ['phu toan than|phu mi mat|phu hai chi duoi|phu 2 chi duoi|phu trang mem', 'Hội chứng phù toàn thân'],
+    ['hach to|nhieu hach', 'Hạch to'],
+    ['lach to', 'Lách to'],
+    ['sung nong do dau.{0,10}khop|vien khop', 'Hội chứng viêm khớp']
+].map(([re, ten]) => [new RegExp(re), ten]);
+
+/* Ô khám hay viết kiểu "Bụng mềm, không đề kháng, không vàng da" — bắt cả câu
+   thì "không vàng da" lại đẻ ra vấn đề "Hội chứng vàng da tắc mật". Chỉ giữ các
+   vế còn mang nghĩa khẳng định, cùng luật với bộ soi mục V. */
+const veDuong = (text) => String(text || '').split(/[,;.\n]+/).map(x => x.trim())
+    .filter(x => x && !/^(kh[ôo]ng|ch[ưu]a|ph[ủu] nh[ậa]n)\b/i.test(x));
+
+const hoaDau = (t) => String(t || '').charAt(0).toUpperCase() + String(t || '').slice(1);
+
+/* Ô khám nào cũng có thể chứa dấu chứng của một hội chứng, kể cả ô "toàn thân" */
+const EXAM_IDS = ['exam-general', 'exam-head', 'exam-chest', 'exam-heart', 'exam-lung',
+    'exam-abdomen', 'exam-neuro-msk'];
+
+/**
+ * Gom cả bệnh án thành danh sách vấn đề, xếp theo đúng thứ tự phải trình bày.
+ *
+ * Bản cũ chỉ đọc 3 chỗ (lý do vào viện, sinh hiệu, cận lâm sàng) và ném NGUYÊN
+ * chuỗi lý do vào một dòng — chọn 3 viên ở mục II là ra đúng một vấn đề
+ * "Sốt, Ho, Khạc đàm", còn cả phần khám lẫn mục V thì không ai đọc tới. Nay:
+ *   · tách từng triệu chứng thành một vấn đề, triệu chứng chính kèm thời gian
+ *   · đọc dấu chứng thực thể + mục V thành tên hội chứng đúng danh mục
+ *   · ghép mảnh rời thành hội chứng khi đủ dữ kiện (sốt + bạch cầu / CRP tăng ->
+ *     hội chứng nhiễm trùng) rồi nuốt luôn các mảnh đã được nói hộ
+ *   · xếp tầng: cấp cứu trước, rồi hội chứng, cơ năng, cận lâm sàng, tiền căn
+ */
 function buildProblems() {
     const v = (id) => ($(id)?.value || '').trim();
-    const items = [];
-    const add = (t) => { if (t && !items.includes(t)) items.push(t); };
-
-    if (v('reason-for-admission')) add(v('reason-for-admission').replace(/\.$/, ''));
-
-    // Sinh hiệu
     const num = (id) => parseFloat(v(id));
-    if (num('vital-temp') > 37.5) add('Sốt');
-    if (num('vital-temp') < 36) add('Hạ thân nhiệt');
-    if (num('vital-pulse') > 100) add('Nhịp tim nhanh');
-    if (num('vital-pulse') < 60) add('Nhịp tim chậm');
-    if (num('vital-resp') > 20) add('Thở nhanh');
-    if (num('vital-spo2') < 95) add('Giảm SpO2');
-    const bp = docHuyetAp(v('vital-bp'));
-    if (bp && (bp.sys >= 140 || bp.dia >= 90)) add('Tăng huyết áp');
-    if (tutHuyetAp(bp)) add('Tụt huyết áp');
-    const bmi = parseFloat(v('vital-bmi'));
-    if (bmi >= 25) add('Thừa cân – béo phì');
-    if (bmi && bmi < 18.5) add('Suy dinh dưỡng / gầy');
 
-    // Cận lâm sàng
-    abnormalItems(getCls()).forEach(i => {
-        const hit = CLS_PROBLEM.find(([n, f]) => n.toLowerCase() === i.n.toLowerCase() && f === i.flag);
-        add(hit ? hit[2] : `${i.n} ${i.flag === 'high' ? 'tăng' : 'giảm'} (${i.v}${i.u ? ' ' + i.u : ''})`);
+    // 0 cấp cứu · 1 hội chứng · 2 cơ năng · 3 cận lâm sàng · 4 tiền căn
+    const tang = [[], [], [], [], []];
+    const daCo = new Set();
+    /** "sot" nằm gọn trong "sot 4 ngay nay" -> cùng một vấn đề */
+    const bao = (cha, con) => new RegExp(`(^| )${con}( |$)`).test(cha);
+    const add = (muc, t) => {
+        const text = String(t || '').trim().replace(/[.,;]+$/, '');
+        const key = fold(text);
+        if (!text || daCo.has(key)) return;
+        // Dòng ở tầng trên đã nói rộng hơn thì thôi, đừng kể lại phần nhỏ của nó
+        if (tang.flat().some(x => bao(fold(x), key))) return;
+        daCo.add(key);
+        tang[muc].push(text);
+    };
+    /** Ý đã có hội chứng nói hộ thì không kể lại thành một vấn đề riêng */
+    const nuot = (...ts) => ts.forEach(t => daCo.add(fold(t)));
+    /* Lý do vào viện ghi "Ho", mục V soi ra "ho đàm" — hai dòng cho cùng một
+       triệu chứng. Giữ bản nói rõ hơn, bỏ bản cụt. */
+    const addTC = (t) => {
+        const f = fold(String(t || '').trim());
+        if (!f) return;
+        const cu = tang[2].findIndex(x => bao(fold(x), f) || bao(f, fold(x)));
+        if (cu < 0) return add(2, t);
+        if (fold(tang[2][cu]).length < f.length) { daCo.add(f); tang[2][cu] = String(t).trim(); }
+    };
+
+    /* ---------- nguyên liệu ---------- */
+    const cls = abnormalItems(getCls());
+    const coCls = (ten, flag) => cls.some(i => fold(i.n) === fold(ten) && i.flag === flag);
+    const temp = num('vital-temp'), pulse = num('vital-pulse');
+    const resp = num('vital-resp'), spo2 = num('vital-spo2');
+    const bp = docHuyetAp(v('vital-bp'));
+    const gcs = ['gcs-e', 'gcs-v', 'gcs-m'].reduce((t, id) => t + (parseInt(v(id)) || 0), 0);
+    // qSOFA tính từ mốc < 15, nhưng phải xuống ≤ 13 mới đáng gọi là một VẤN ĐỀ
+    const triGiac = gcs > 0 && gcs < 15;
+    const triGiacNang = gcs > 0 && gcs <= 13;
+    const sot = temp > 37.5 || /sốt/i.test(v('reason-for-admission') + ' ' + v('hx-sym-name'));
+    const viem = coCls('WBC', 'high') || coCls('NEU', 'high') || coCls('CRP', 'high')
+        || coCls('Procalcitonin', 'high');
+
+    /* ---------- tầng 0: thứ phải xử trí trước cả khi kịp biện luận ---------- */
+    if (spo2 < 92 || coCls('PaO2', 'low') || resp >= 25) {
+        add(0, 'Suy hô hấp cấp');
+        nuot('Giảm SpO2', 'Thở nhanh', 'Giảm oxy máu');
+    }
+    if (triGiacNang) add(0, 'Rối loạn tri giác – hôn mê');
+    if (tutHuyetAp(bp)) add(0, 'Tụt huyết áp');
+    // qSOFA tính thẳng tại chỗ: ô kết quả trên trang chỉ là chữ, đọc lại dễ vỡ
+    const qsofa = (resp >= 22 ? 1 : 0) + (bp && bp.sys <= 100 ? 1 : 0) + (triGiac ? 1 : 0);
+    if (sot && viem && (qsofa >= 2 || tutHuyetAp(bp) || coCls('Lactate', 'high'))) {
+        add(0, 'Nhiễm trùng huyết');
+        nuot('Tăng lactate máu');
+    }
+
+    /* ---------- tầng 1: hội chứng đọc ra từ dữ kiện ---------- */
+    if (sot && viem) {
+        add(1, 'Hội chứng nhiễm trùng');
+        nuot('Sốt', 'Tăng bạch cầu', 'Tăng bạch cầu đa nhân trung tính', 'Hội chứng viêm (CRP tăng)');
+    }
+    [...EXAM_IDS, ...ROS_IDS].forEach(id => {
+        const raw = v(id);
+        if (!raw || raw === NORMAL_EXAM[id]) return;
+        veDuong(raw).forEach(ve => {
+            const f = fold(ve);
+            KHAM_HOI_CHUNG.forEach(([re, ten]) => { if (re.test(f)) add(1, ten); });
+        });
+    });
+    if (bp && (bp.sys >= 140 || bp.dia >= 90)) add(1, 'Tăng huyết áp');
+    if (coCls('HGB', 'low') || coCls('HCT', 'low')) add(1, 'Hội chứng thiếu máu');
+    // eGFR đã tính ra từ chính creatinine đó — kể cả hai là một vấn đề viết hai lần
+    if (coCls('eGFR', 'low')) nuot('Tăng creatinine máu');
+
+    /* ---------- tầng 2: triệu chứng cơ năng ---------- */
+    /* Lý do vào viện là các viên chip nối bằng dấu phẩy — tách ra, mỗi triệu
+       chứng một vấn đề. Riêng triệu chứng chính đã hỏi kỹ nên ghi kèm thời gian
+       ("Sốt 4 ngày nay") thay vì trơ một chữ. */
+    const chinh = v('hx-sym-name');
+    /* Sáu ô thuộc tính là chỗ trống dùng chung, mỗi triệu chứng gán một nhãn khác
+       nhau -> phải tìm ô theo NHÃN, không phải theo id cố định. */
+    const oGio = mainSymLabels().find(x => x.on && /thời gian|tần suất|kéo dài/i.test(x.label));
+    const gio = oGio ? v(oGio.id) : '';
+    const kemGio = (t) => (fold(t) === fold(chinh) && gio && gio.length <= 30) ? `${t} ${gio}` : t;
+    v('reason-for-admission').split(/[,;]+/).map(x => x.trim().replace(/\.$/, ''))
+        .filter(Boolean).forEach(t => addTC(hoaDau(kemGio(t))));
+    if (chinh) addTC(hoaDau(kemGio(chinh)));
+    // Mục V đã soi sẵn triệu chứng dương tính của từng cơ quan — đừng bỏ phí
+    rosBatThuong().forEach(r => r.batThuong.forEach(t => addTC(hoaDau(t))));
+
+    /* ---------- tầng 3: sinh hiệu và cận lâm sàng ---------- */
+    if (temp > 37.5) add(3, 'Sốt');
+    if (temp && temp < 36) add(3, 'Hạ thân nhiệt');
+    if (pulse > 100) add(3, 'Nhịp tim nhanh');
+    if (pulse && pulse < 60) add(3, 'Nhịp tim chậm');
+    if (resp > 20) add(3, 'Thở nhanh');
+    if (spo2 && spo2 < 95) add(3, 'Giảm SpO2');
+    const bmi = parseFloat(v('vital-bmi'));
+    if (bmi >= 25) add(3, 'Thừa cân – béo phì');
+    if (bmi && bmi < 18.5) add(3, 'Suy kiệt – suy dinh dưỡng');
+    cls.forEach(i => {
+        const hit = CLS_PROBLEM.find(([n, f]) => fold(n) === fold(i.n) && f === i.flag);
+        add(3, hit ? hit[2] : `${i.n} ${i.flag === 'high' ? 'tăng' : 'giảm'} (${i.v}${i.u ? ' ' + i.u : ''})`);
     });
 
-    // Bệnh nền đã biết
-    v('history-internal').split(/[\n,;]/).map(s => s.trim())
-        .filter(s => s && !/^chưa ghi nhận/i.test(s)).forEach(add);
+    /* ---------- tầng 4: nền bệnh sẵn có ---------- */
+    /* Ghi rõ "Tiền căn …" để không lẫn với vấn đề đang phải giải quyết; thư viện
+       biện luận vẫn dò ra được vì mẫu chỉ cần chứa tên bệnh. */
+    v('history-internal').split(/[\n,;]/).map(x => x.trim())
+        .filter(x => x && !/^chưa ghi nhận/i.test(x))
+        .forEach(x => {
+            // Bệnh nền đang bùng lên đã nằm ở tầng trên rồi (vd "Tăng huyết áp")
+            if (tang.flat().some(y => bao(fold(y), fold(x)))) return;
+            add(4, /^tiền căn/i.test(x) ? x : 'Tiền căn ' + x.charAt(0).toLowerCase() + x.slice(1));
+        });
 
-    return items.map((t, i) => `${i + 1}. ${t}`).join('\n');
+    // Quá 14 dòng thì không còn là "đặt vấn đề" mà là chép lại cả bệnh án
+    /* Cắt ở phần đang diễn ra chứ đừng cắt tiền căn: bệnh nền luôn phải có mặt
+       vì nó đổi cả hướng biện luận (viêm phổi trên nền đái tháo đường). */
+    return [...tang.slice(0, 4).flat().slice(0, 12), ...tang[4].slice(0, 3)]
+        .map((t, i) => `${i + 1}. ${t}`).join('\n');
 }
 
 /* =====================================================================

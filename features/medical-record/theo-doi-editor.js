@@ -84,7 +84,7 @@ function render() {
     const view = sorted();
     logs = view;
     host.innerHTML = view.length ? view.map(entryHtml).join('')
-        : `<p class="td-empty">Chưa có lần theo dõi nào — bấm “Thêm lần theo dõi” mỗi lần đi buồng, máy tự điền ngày giờ.</p>`;
+        : `<p class="td-empty">Chưa có lần theo dõi nào — bấm “Thêm lần theo dõi” sau mỗi lần đi buồng.</p>`;
     host.querySelectorAll('textarea').forEach(autoGrow);
 }
 

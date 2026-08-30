@@ -277,6 +277,18 @@
             .chip {
                 padding: 6px 14px;
             }
+
+            /* Thanh lưu dùng lề âm -mx-4 (16px) của Tailwind, nhưng phần đệm của
+               .page-card trên điện thoại chỉ có 12px -> thanh rộng hơn thẻ 8px,
+               cả trang cuộn ngang được ở MỌI tab (đo: form 457px / khung 441px).
+               Chốt lại lề âm đúng bằng phần đệm; ghi kèm #id cho chắc thắng
+               trước lớp tiện ích của Tailwind. */
+            #medical-record-form .sticky-actions {
+                margin-left: -12px;
+                margin-right: -12px;
+                padding-left: 12px;
+                padding-right: 12px;
+            }
         }
 
         /* Bàn phím mở: ẩn thanh lưu sticky để không che ô đang gõ (chỉ thiết bị touch) */
@@ -2427,6 +2439,8 @@
         .tr-label {
             display: flex;
             align-items: center;
+            flex-wrap: wrap;   /* 2 nút bên phải mà không cho xuống dòng thì chữ
+                                  tiêu đề co về min-content = mỗi dòng một từ */
             gap: 7px;
             font-size: 11.5px;
             font-weight: 800;
@@ -7055,6 +7069,13 @@
             background: #fdf2f8;
         }
 
+        /* Câu nhắc "máy tự đề nghị mức độ" chỉ có nghĩa khi đã có bệnh kèm; lúc
+           danh sách còn trống nó nằm ngay dưới câu "Chưa có bệnh kèm — bấm…",
+           thành hai dòng chữ xám chồng nhau. */
+        .bk-box:has(.cnv-empty) .bk-hint {
+            display: none;
+        }
+
         .bk-hint {
             font-size: 11px;
             color: var(--muted);
@@ -8406,19 +8427,32 @@
         @media (max-width: 640px) {
             .tr-meta, .tr-near { margin-left: 0; }
 
+            /* Thẻ vấn đề lồng 3 tầng (thẻ > nhánh > lá): mỗi tầng ăn 32px lề nên ô
+               nhập ở tầng trong cùng chỉ còn ~200px trên máy 360px. Bó lề lại,
+               đường kẻ dọc vẫn còn để thấy được thứ bậc. */
+            .tr-card { padding: 10px; }
+            .tr-branch { margin-left: 2px; padding-left: 10px; }
+            .tr-branch::before { width: 8px; }
+
             .tr-leafx { padding-left: 6px; }
 
-            /* Điện thoại: chip trượt ngang thay vì xuống dòng thành cả rừng */
-            .tr-leafx .tr-sugg {
+            /* Điện thoại: chip trượt ngang thay vì xuống dòng thành cả rừng.
+               Một thẻ vấn đề có tới 5 dải gợi ý (then chốt · yếu tố nguy cơ ·
+               nguyên nhân · loại trừ khẩn · biến chứng) — để xuống dòng thì riêng
+               chỗ gợi ý đã dài hơn cả phần đã nhập. */
+            .tr-leafx .tr-sugg,
+            .tr-branch > .tr-sugg {
                 flex-wrap: nowrap;
                 overflow-x: auto;
                 scrollbar-width: none;
                 padding-bottom: 2px;
             }
 
-            .tr-leafx .tr-sugg::-webkit-scrollbar { display: none; }
+            .tr-leafx .tr-sugg::-webkit-scrollbar,
+            .tr-branch > .tr-sugg::-webkit-scrollbar { display: none; }
 
-            .tr-leafx .tr-sugg > * { flex: 0 0 auto; }
+            .tr-leafx .tr-sugg > *,
+            .tr-branch > .tr-sugg > * { flex: 0 0 auto; }
         }
 
         /* =============================================================
@@ -8541,7 +8575,9 @@
             background: #fffdf5;
         }
 
-        /* Điện thoại: hàng chip mục V dài, cho trượt ngang thay vì xuống 4 hàng */
+        /* Điện thoại: mọi hàng chip gợi ý đều trượt ngang thay vì xuống 4–13 hàng.
+           Đo ở mục XV: 13 viên chip mẫu câu tiên lượng chiếm 13 dòng, dài hơn cả
+           ô nhập nó phục vụ; mục IX cũng vậy khi mục VIII có hơn chục vấn đề. */
         @media (max-width: 640px) {
             /* Bẫy: một hàng chip KHÔNG xuống dòng sẽ kéo phình mọi khối bọc ngoài nó
                ra khỏi mép màn hình thay vì tự cuộn — thẻ flex mặc định min-width:auto
@@ -8549,14 +8585,15 @@
                Mở khóa hết chuỗi bọc từ thẻ trang xuống thì overflow-x mới ăn. */
             .page-card,
             #medical-record-form,
-            #kham-benh,
-            #kham-benh fieldset,
-            #kham-benh fieldset div {
+            #medical-record-form .tab-content,
+            #medical-record-form fieldset,
+            #medical-record-form fieldset div,
+            #medical-record-form .tab-content > div {
                 min-inline-size: 0;
                 min-width: 0;
             }
 
-            #kham-benh .chips {
+            #medical-record-form .chips {
                 flex-wrap: nowrap;
                 overflow-x: auto;
                 scrollbar-width: none;
@@ -8565,10 +8602,38 @@
                 mask-image: linear-gradient(to right, #000 90%, transparent);
             }
 
-            #kham-benh .chips::-webkit-scrollbar { display: none; }
+            #medical-record-form .chips::-webkit-scrollbar { display: none; }
 
-            #kham-benh .chips > * { flex: 0 0 auto; }
+            #medical-record-form .chips > * { flex: 0 0 auto; }
         }
+        /* =============================================================
+           ĐIỆN THOẠI — phiếu cận lâm sàng cho gọn lại
+           Đo ở 500px: mỗi chỉ số cao ~105px (ô tên 46 + ô đơn vị 36 + lề), một
+           phiếu Công thức máu 11 chỉ số đã chiếm 1150px toàn ô trống. Ghi kèm
+           #cls-list để thắng luật chung "mọi ô nhập cao 46px" ở khối trên.
+           Cỡ chữ vẫn 16px: dưới ngưỡng đó iOS tự phóng to trang khi bấm vào ô.
+           ============================================================= */
+        @media (max-width: 640px) {
+            #medical-record-form #cls-list input.cls-in {
+                min-height: 36px;
+            }
+
+            /* Đủ chỗ cho đơn vị dài nhất đang có: "mL/ph/1.73m²" của eGFR */
+            #medical-record-form #cls-list input.cls-in-unit {
+                min-height: 28px;
+                max-width: 124px;
+                padding: 2px 8px;
+            }
+
+            #cls-list .cls-row {
+                padding-bottom: 4px;
+            }
+
+            #cls-list .cls-rows {
+                gap: 2px;
+            }
+        }
+
     </style>
     <!-- Nạp sẵn cả cây module: không có mấy dòng này trình duyệt phải dò từng lớp import
          (tao-benh-an.js -> editor -> data...) nên mất mấy vòng mạng mới bắt đầu tải hết. -->
@@ -9878,9 +9943,9 @@
 
             <div id="chan-doan-dieu-tri" class="tab-content">
                 <div class="flex flex-col gap-4">
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 flex-wrap">
                         <label class="block font-semibold mb-1 text-pink-500" for="summary">VII. TÓM TẮT BỆNH ÁN</label>
-                        <button type="button" id="auto-summary-btn" class="btn-act"><i class="fas fa-magic"></i> Tự động
+                        <button type="button" id="auto-summary-btn" class="cls-mini"><i class="fas fa-magic"></i> Tự động
                             tóm tắt</button>
                         <span id="summary-stale" class="stale-tag" hidden><i
                                 class="fas fa-rotate"></i> Bệnh sử / khám đã đổi sau lần tóm tắt này</span>
@@ -9892,10 +9957,10 @@
                         <div class="flex items-center gap-2 flex-wrap">
                             <label class="block font-semibold mb-1 text-pink-500" for="problem-list">VIII. ĐẶT VẤN
                                 ĐỀ</label>
-                            <button type="button" id="auto-problem-btn" class="btn-act"><i
-                                    class="fas fa-list-check"></i> Gợi ý từ dữ liệu đã nhập</button>
-                            <button type="button" id="pick-problem-btn" class="btn-act"><i
-                                    class="fas fa-folder-open"></i> Chọn vấn đề từ danh mục</button>
+                            <button type="button" id="auto-problem-btn" class="cls-mini"><i
+                                    class="fas fa-list-check"></i> Gợi ý từ bệnh án</button>
+                            <button type="button" id="pick-problem-btn" class="cls-mini"><i
+                                    class="fas fa-folder-open"></i> Chọn từ danh mục</button>
                             <span id="problem-stale" class="stale-tag" hidden><i
                                     class="fas fa-rotate"></i></span>
                         </div>
@@ -10164,15 +10229,14 @@
             </div>
 
             <div id="theo-doi" class="tab-content">
-                <fieldset class="border-2 border-pink-200 p-4 rounded-lg">
-                    <legend class="text-lg font-semibold text-pink-500 px-2">THEO DÕI DIỄN TIẾN</legend>
-                    <p class="text-xs text-gray-400 mb-3">Mỗi lần đi buồng ghi một dòng — sinh hiệu, diễn tiến, xử trí.
-                        Lần mới nhất nằm trên cùng.</p>
+                <fieldset class="border-2 border-pink-200 p-4 rounded-lg shadow-sm">
+                    <legend class="text-lg font-semibold text-pink-500 px-2 flex items-center gap-2"><i
+                            class="fas fa-clipboard-list"></i> THEO DÕI DIỄN TIẾN</legend>
                     <div class="td-bar">
                         <button type="button" id="td-add" class="para-btn"><i class="fas fa-plus"></i> Thêm lần theo
                             dõi</button>
-                        <span class="td-hint">Máy tự điền ngày giờ và giữ lại sinh hiệu lần trước để bạn chỉ sửa con số
-                            thay đổi.</span>
+                        <span class="td-hint">Mỗi lần đi buồng một dòng, lần mới nhất nằm trên cùng — máy tự điền ngày
+                            giờ và giữ lại sinh hiệu lần trước để bạn chỉ sửa con số thay đổi.</span>
                     </div>
                     <div id="td-list" class="td-list" data-nocount></div>
                 </fieldset>

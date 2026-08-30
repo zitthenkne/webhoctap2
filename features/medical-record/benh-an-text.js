@@ -203,7 +203,14 @@ export function toMarkdown(record, model = buildModel(record)) {
         if (!parts.length) return;
         const mark = (x) => (/^[-*•]\s|^\d+[.)]\s/.test(x) ? '- ' + x.replace(/^[-*•]\s*/, '') : '- ' + x);
         if (!label) {
-            parts.forEach(x => lines.push(mode === 'bullet' ? mark(escMd(x)) : escMd(x), ''));
+            /* Ô tóm tắt nay là "1. Mục" rồi tới các dòng "- ý": chèn dòng trống giữa
+               chúng thì Markdown cắt thành mấy danh sách rời. Chỉ xuống dòng trống khi
+               dòng sau KHÔNG còn là gạch đầu dòng / số thứ tự nữa. */
+            const laMuc = (x) => /^[-*•]\s|^\d+[.)]\s/.test(String(x || ''));
+            parts.forEach((x, i) => {
+                lines.push(mode === 'bullet' ? mark(escMd(x)) : escMd(x));
+                if (!(laMuc(x) && laMuc(parts[i + 1]))) lines.push('');
+            });
             return;
         }
         if (parts.length === 1) { lines.push(`**${escMd(label)}:** ${escMd(parts[0])}`, ''); return; }
