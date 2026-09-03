@@ -10,59 +10,538 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="../../style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
     <style>
-        .filter-chip {
-            border: 1px solid #fbcfe8;
-            background: #fff;
-            color: #6b7280;
-            border-radius: 9999px;
-            padding: 6px 16px;
-            font-size: 14px;
-            font-weight: 600;
-            white-space: nowrap;
-            transition: all .15s;
-            cursor: pointer;
+        /* =========================================================================
+           Phòng chờ bệnh án — hệ thống thiết kế cho vùng nội dung.
+           Chrome của app (sidebar, header, footer) giữ nguyên nhận diện cũ;
+           phần làm việc dùng bộ token dưới đây cho thống nhất.
+           ========================================================================= */
+        :root {
+            --wr-font: 'Be Vietnam Pro', 'Quicksand', ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
+            --bg: #fdf4fa;
+            --panel: #fff;
+            --line: #f7dcec;
+            --line-2: #fdeff7;
+            /* chữ màu mận đậm thay vì đen: đọc vẫn rõ mà không "u ám" */
+            --ink: #4a3352;
+            --ink-2: #7a6685;
+            --ink-3: #8f7fa0;   /* đậm vừa đủ để dòng phụ vẫn đọc được trên nền trắng */
+            --brand: #f472b6;
+            --brand-ink: #db2777;
+            --brand-soft: #fde9f3;
+            --sky: #58c4f7;
+            --sky-ink: #0b84c4;
+            --sky-soft: #e4f5ff;
+            --lilac: #a78bfa;
+            --lilac-soft: #f1ecff;
+            --ok: #0ea47f;
+            --ok-soft: #e6faf2;
+            --warn: #c07c10;
+            --warn-soft: #fff4e2;
+            --r1: 14px;
+            --r2: 20px;
+            --r3: 26px;
+            --sh1: 0 2px 8px rgba(244, 114, 182, .10);
+            --sh2: 0 14px 28px -16px rgba(219, 39, 119, .32);
+            --sh3: 0 18px 38px -18px rgba(219, 39, 119, .35);
         }
 
-        .filter-chip:hover {
-            background: #fdf2f8;
+        main {
+            font-family: var(--wr-font);
+            color: var(--ink-2);
+            letter-spacing: -.005em;
+            /* hồng phấn suốt từ trên xuống, không blur, không lẫn màu lạnh */
+            background-image: linear-gradient(180deg, #fff7fc 0%, #ffeff8 45%, #ffe7f4 100%);
+            background-attachment: fixed;
         }
 
-        .filter-chip.active {
-            background: #ec4899;
-            border-color: #ec4899;
-            color: #fff;
-            box-shadow: 0 4px 12px #f9a8d4aa;
-        }
-
-        #filter-chips::-webkit-scrollbar,
         .overflow-x-auto::-webkit-scrollbar {
             display: none;
         }
 
+        /* ---------------- Khung + tiêu đề ---------------- */
+        .wr-panel {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: var(--r3);
+            box-shadow: var(--sh1);
+            padding: 16px;
+        }
+
+        @media (min-width: 640px) {
+            .wr-panel {
+                padding: 22px 24px;
+            }
+        }
+
+        .wr-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--ink);
+            letter-spacing: -.02em;
+        }
+
+        .wr-title .ic {
+            width: 32px;
+            height: 32px;
+            border-radius: 11px;
+            background: var(--brand-soft);
+            color: var(--brand);
+            display: grid;
+            place-items: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .wr-sub {
+            font-size: 12px;
+            color: var(--ink-3);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 5px;
+        }
+
+        .wr-label {
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            color: var(--ink-3);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* ---------------- Nút + ô nhập ---------------- */
+        .wr-icon-btn {
+            width: 42px;
+            height: 42px;
+            border-radius: var(--r1);
+            border: 1px solid var(--line);
+            background: #fff;
+            color: var(--ink-2);
+            flex-shrink: 0;
+            transition: background .15s, color .15s, border-color .15s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .wr-icon-btn:hover {
+            background: var(--brand-soft);
+            color: var(--brand-ink);
+            border-color: var(--brand);
+        }
+
+        .wr-icon-btn:active {
+            transform: scale(.94);
+        }
+
+        .wr-icon-btn.on {
+            background: var(--brand);
+            border-color: var(--brand);
+            color: #fff;
+        }
+
+        .wr-search {
+            width: 100%;
+            padding: 11px 14px 11px 38px;
+            border-radius: var(--r1);
+            border: 1px solid var(--line);
+            background: var(--line-2);
+            color: var(--ink);
+            font-size: 15px;
+            font-family: inherit;
+            transition: background .15s, border-color .15s, box-shadow .15s;
+        }
+
+        .wr-search::placeholder {
+            color: var(--ink-3);
+        }
+
+        .wr-search:focus {
+            outline: 0;
+            background: #fff;
+            border-color: var(--brand);
+            box-shadow: 0 0 0 4px rgba(244, 114, 182, .18);
+        }
+
+        .wr-kbd {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--ink-3);
+            border: 1px solid var(--line);
+            border-bottom-width: 2px;
+            border-radius: 6px;
+            padding: 1px 6px;
+            background: #fff;
+            pointer-events: none;
+        }
+
+        .wr-select {
+            border: 1px solid var(--line);
+            background: #fff;
+            color: var(--ink-2);
+            border-radius: var(--r1);
+            padding: 9px 12px;
+            font-size: 13px;
+            font-family: inherit;
+            font-weight: 600;
+        }
+
+        .wr-select:focus {
+            outline: 0;
+            border-color: var(--brand);
+            box-shadow: 0 0 0 4px rgba(244, 114, 182, .18);
+        }
+
+        .wr-primary {
+            background: linear-gradient(135deg, #fb8fc9, #f472b6 55%, #e879c9);
+            color: #fff;
+            font-weight: 700;
+            font-family: inherit;
+            border: 0;
+            border-radius: var(--r1);
+            padding: 11px 18px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 10px 22px -10px rgba(224, 64, 126, .9);
+            transition: background .15s, transform .1s;
+            white-space: nowrap;
+        }
+
+        .wr-primary:hover {
+            background: linear-gradient(135deg, #f472b6, #db2777);
+        }
+
+        .wr-primary:active {
+            transform: scale(.97);
+        }
+
+        /* Nút tạo bệnh án: nổi ở góc phải trên điện thoại, nằm trong thanh công cụ ở máy tính */
+        @media (max-width: 1023px) {
+            #create-new-record {
+                position: fixed;
+                right: 16px;
+                bottom: calc(20px + env(safe-area-inset-bottom));
+                z-index: 40;
+                width: 58px;
+                height: 58px;
+                padding: 0;
+                border-radius: 50%;
+                justify-content: center;
+                font-size: 21px;
+                box-shadow: 0 16px 34px -12px rgba(224, 64, 126, .95);
+            }
+
+            #create-new-record span {
+                display: none;
+            }
+        }
+
+        /* ---------------- Bộ lọc = 3 thẻ tổng quan ---------------- */
+        .stat-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-align: left;
+            background: linear-gradient(160deg, #fff, color-mix(in srgb, var(--acc, #f472b6) 12%, #fff));
+            border: 1.5px solid color-mix(in srgb, var(--acc, #f472b6) 28%, #fff);
+            border-radius: var(--r2);
+            padding: 11px 12px;
+            cursor: pointer;
+            transition: border-color .15s, box-shadow .15s, transform .1s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .stat-btn:active {
+            transform: scale(.97);
+        }
+
+        .stat-btn .sb-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 11px;
+            display: grid;
+            place-items: center;
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+
+        .stat-btn[data-filter="all"] {
+            --acc: #f472b6;
+        }
+
+        .stat-btn[data-filter="done"] {
+            --acc: #4ade80;
+        }
+
+        .stat-btn[data-filter="draft"] {
+            --acc: #60a5fa;
+        }
+
+        .sb-icon.all {
+            background: var(--brand-soft);
+            color: var(--brand-ink);
+        }
+
+        .sb-icon.done {
+            background: #e6fbee;
+            color: #16a34a;
+        }
+
+        .sb-icon.draft {
+            background: var(--sky-soft);
+            color: var(--sky-ink);
+        }
+
+        .stat-btn .sb-txt {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            line-height: 1.05;
+        }
+
+        .stat-btn b {
+            font-size: 21px;
+            font-weight: 800;
+            color: var(--ink);
+            letter-spacing: -.03em;
+        }
+
+        .stat-btn small {
+            font-size: 11.5px;
+            color: var(--ink-3);
+            margin-top: 4px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sb-extra {
+            display: none;
+            margin-left: auto;
+            font-size: 11.5px;
+            font-weight: 700;
+            color: var(--ink-3);
+            background: var(--line-2);
+            padding: 5px 9px;
+            border-radius: 9px;
+            white-space: nowrap;
+        }
+
+        @media (min-width: 900px) {
+            .sb-extra {
+                display: inline-block;
+            }
+        }
+
+        .stat-btn.active .sb-extra {
+            background: color-mix(in srgb, var(--acc, #f472b6) 20%, #fff);
+            color: var(--ink);
+        }
+
+        .stat-btn.active {
+            border-color: var(--acc, var(--brand));
+            box-shadow: 0 0 0 4px color-mix(in srgb, var(--acc, #f472b6) 22%, transparent);
+        }
+
+        .stat-btn.active small {
+            color: var(--ink);
+            font-weight: 700;
+        }
+
+        @media (max-width: 430px) {
+            .stat-btn {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 6px;
+                padding: 10px;
+            }
+
+            .stat-btn b {
+                font-size: 19px;
+            }
+        }
+
+        /* ---------------- Chuyển chế độ xem: lưới / gọn ---------------- */
+        .seg {
+            display: inline-flex;
+            background: var(--line-2);
+            border: 1px solid var(--line);
+            border-radius: var(--r1);
+            padding: 3px;
+            gap: 2px;
+            flex-shrink: 0;
+        }
+
+        .seg button {
+            width: 38px;
+            height: 32px;
+            border: 0;
+            background: none;
+            color: var(--ink-3);
+            border-radius: 9px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background .15s, color .15s;
+        }
+
+        .seg button.on {
+            background: #fff;
+            color: var(--brand-ink);
+            box-shadow: var(--sh1);
+        }
+
+        /* ---------------- Thẻ "viết tiếp" ---------------- */
+        .resume-card {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            text-align: left;
+            padding: 14px 16px;
+            border-radius: var(--r2);
+            border: 1.5px solid #fadcec;
+            background: linear-gradient(120deg, #fff4fa, #ffe6f4 50%, #fbe8ff 100%);
+            cursor: pointer;
+            transition: box-shadow .18s, transform .12s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .resume-card:hover {
+            box-shadow: var(--sh2);
+        }
+
+        .resume-card:active {
+            transform: scale(.99);
+        }
+
+        .resume-card .rz-ic {
+            width: 42px;
+            height: 42px;
+            border-radius: 15px;
+            background: linear-gradient(135deg, #fb8fc9, #f472b6 55%, #a78bfa);
+            color: #fff;
+            display: grid;
+            place-items: center;
+            font-size: 16px;
+            flex-shrink: 0;
+            box-shadow: 0 10px 20px -10px rgba(224, 64, 126, .95);
+        }
+
+        .resume-card .rz-txt {
+            min-width: 0;
+            flex: 1;
+        }
+
+        .resume-card .rz-flag {
+            font-size: 10.5px;
+            font-weight: 800;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            color: var(--brand-ink);
+        }
+
+        .resume-card .rz-name {
+            display: block;
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--ink);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 1px;
+        }
+
+        .resume-card .rz-meta {
+            display: block;
+            font-size: 11.5px;
+            color: var(--ink-3);
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .resume-card .rz-cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            background: linear-gradient(135deg, #fb8fc9, #f472b6 55%, #c084fc);
+            color: #fff;
+            font-weight: 700;
+            font-size: 13.5px;
+            padding: 10px 16px;
+            border-radius: var(--r1);
+            flex-shrink: 0;
+            box-shadow: 0 10px 20px -12px rgba(224, 64, 126, .95);
+        }
+
+        @media (max-width: 560px) {
+            .resume-card {
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+
+            .resume-card .rz-cta {
+                width: 100%;
+                justify-content: center;
+                padding: 12px;
+            }
+        }
+
+        /* ---------------- Thẻ bệnh án ---------------- */
         .rec-card {
             position: relative;
             display: flex;
             flex-direction: column;
-            background: #fff;
-            border: 1px solid #f1f0f4;
-            border-radius: 20px;
+            /* màu chuyên khoa loang nhẹ ở góc trên + viền cùng tông, thay cho vạch kẻ cứng */
+            background:
+                radial-gradient(135% 85% at 100% 0%, color-mix(in srgb, var(--kind, #f472b6) 14%, #fff) 0%, var(--panel) 60%);
+            /* Tách thẻ khỏi nền bằng ĐỘ NỔI chứ không bằng nét viền dày:
+               viền chỉ 1px cho sắc nét, rồi một quầng màu rất nhạt + bóng đổ cùng tông
+               đỡ lấy thẻ. Nhìn mềm mà vẫn rõ ranh giới từng thẻ. */
+            border: 1px solid color-mix(in srgb, var(--kind, #f472b6) 34%, #fff);
+            border-radius: var(--r3);
             overflow: visible;
-            box-shadow: 0 1px 3px rgba(17, 24, 39, .05);
-            transition: transform .18s, box-shadow .18s, border-color .18s;
+            box-shadow:
+                0 0 0 4px color-mix(in srgb, var(--kind, #f472b6) 7%, transparent),
+                0 12px 26px -18px color-mix(in srgb, var(--kind, #f472b6) 75%, transparent),
+                0 2px 5px -3px rgba(74, 51, 82, .07);
+            transition: transform .18s, box-shadow .22s, border-color .18s;
         }
 
         .rec-card:hover {
             transform: translateY(-3px);
-            border-color: #e9e7ef;
-            box-shadow: 0 14px 30px rgba(17, 24, 39, .1);
+            border-color: color-mix(in srgb, var(--kind, #f472b6) 55%, #fff);
+            box-shadow:
+                0 0 0 5px color-mix(in srgb, var(--kind, #f472b6) 13%, transparent),
+                0 20px 34px -20px color-mix(in srgb, var(--kind, #f472b6) 85%, transparent),
+                0 3px 8px -4px rgba(74, 51, 82, .1);
+        }
+
+        .rec-card.is-dragging {
+            opacity: .5;
         }
 
         .rc-body {
-            padding: 16px 16px 12px;
+            padding: 20px 20px 16px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 15px;
             flex: 1;
             cursor: pointer;
         }
@@ -70,35 +549,21 @@
         .rc-top {
             display: flex;
             align-items: flex-start;
-            gap: 11px;
+            gap: 14px;
         }
 
         .rc-avatar {
-            width: 48px;
-            height: 48px;
-            border-radius: 16px;
+            width: 50px;
+            height: 50px;
+            border-radius: 17px;
             flex-shrink: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: grid;
+            place-items: center;
             color: #fff;
-            font-weight: 800;
-            font-size: 19px;
-            letter-spacing: .5px;
-            background: var(--sex, #ec4899);
-            box-shadow: 0 5px 14px color-mix(in srgb, var(--sex-ink, #a78bfa) 35%, transparent);
-        }
-
-        .rc-meta i {
-            margin-right: 5px;
-            color: var(--sex-ink, #9ca3af);
-            font-size: 11px;
-        }
-
-        .rc-chip.kind {
-            background: #f6f6f9;
-            color: var(--kind-ink, #6b7280);
-            border-color: transparent;
+            font-weight: 700;
+            font-size: 20px;
+            background: linear-gradient(140deg, color-mix(in srgb, var(--sex, #f472b6) 65%, #fff), var(--sex, #f472b6));
+            box-shadow: 0 8px 18px -8px var(--sex, var(--brand));
         }
 
         .rc-id {
@@ -107,10 +572,11 @@
         }
 
         .rc-name {
-            font-weight: 800;
-            color: #1f2937;
-            font-size: 15px;
-            line-height: 1.3;
+            font-weight: 700;
+            color: var(--ink);
+            font-size: 16.5px;
+            line-height: 1.35;
+            letter-spacing: -.015em;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
@@ -118,79 +584,108 @@
         }
 
         .rc-meta {
-            font-size: 12px;
-            color: #9ca3af;
-            margin-top: 2px;
+            font-size: 12.5px;
+            color: var(--ink-3);
+            margin-top: 5px;
+            line-height: 1.5;
+            /* thẻ hẹp thì xuống dòng, đừng cắt cụt giữa "P.31 …" */
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
             overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+        }
+
+        .rc-meta i {
+            margin-right: 5px;
+            color: var(--sex, var(--ink-3));
+            font-size: 11px;
         }
 
         .rc-state {
             flex-shrink: 0;
             display: inline-flex;
             align-items: center;
-            gap: 4px;
+            gap: 5px;
             white-space: nowrap;
-            font-size: 10px;
-            font-weight: 800;
+            font-size: 10.5px;
+            font-weight: 700;
             border-radius: 9999px;
-            padding: 3px 8px;
+            padding: 4px 9px;
+        }
+
+        .rc-state::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
         }
 
         .rc-state.done {
-            background: #ecfdf5;
-            color: #059669;
-            border: 1px solid #a7f3d0;
+            background: #e6fbee;
+            color: #16a34a;
         }
 
         .rc-state.draft {
-            background: #fffbeb;
-            color: #b45309;
-            border: 1px solid #fde68a;
+            background: var(--sky-soft);
+            color: var(--sky-ink);
         }
 
         .rc-chips {
             display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
+            gap: 6px;
+            overflow: hidden;
         }
 
         .rc-chip {
             display: inline-flex;
             align-items: center;
-            gap: 4px;
-            font-size: 10.5px;
-            font-weight: 700;
-            border-radius: 9999px;
-            padding: 3px 9px;
-            background: #f9fafb;
-            color: #6b7280;
-            border: 1px solid #f0f1f3;
+            gap: 5px;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 4px 9px;
+            background: var(--line-2);
+            color: var(--ink-2);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+
+        .rc-chip i {
+            font-size: 10px;
+            opacity: .75;
         }
 
         .rc-chip.kind {
-            background: var(--kind-soft, #fdf2f8);
-            color: var(--kind-ink, #db2777);
-            border-color: transparent;
+            background: var(--kind-soft, var(--brand-soft));
+            color: var(--kind-ink, var(--brand-ink));
+            flex-shrink: 0;
+        }
+
+        .rc-chip.kind .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--kind, var(--brand));
         }
 
         .rc-chip.folder {
-            background: #f5f3ff;
-            color: #6d28d9;
-            border-color: transparent;
+            background: var(--lilac-soft);
+            color: #7c53e8;
         }
 
         .rc-lines {
             display: flex;
             flex-direction: column;
-            gap: 5px;
+            gap: 12px;
         }
 
         .rc-line {
-            font-size: 12.5px;
-            color: #4b5563;
-            line-height: 1.45;
+            font-size: 13.5px;
+            color: var(--ink-2);
+            line-height: 1.6;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
@@ -201,140 +696,135 @@
             display: inline-block;
             font-size: 9.5px;
             font-weight: 800;
-            letter-spacing: .02em;
-            border-radius: 6px;
-            padding: 1px 6px;
-            margin-right: 6px;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            padding: 0;
+            margin-right: 8px;
             vertical-align: 1px;
-        }
-
-        .rc-line .lbl.ldvv {
-            background: #eff6ff;
-            color: #2563eb;
+            background: none;
+            color: var(--ink-3);
         }
 
         .rc-line .lbl.cd {
-            background: #fdf2f8;
-            color: #db2777;
+            color: var(--brand-ink);
         }
 
         .rc-line.empty {
-            color: #d1d5db;
+            color: #c9c4d2;
             font-style: italic;
         }
 
-        .rc-chip.hosp {
-            background: #ecfeff;
-            color: #0e7490;
-            border-color: transparent;
+        .rc-line b {
+            color: var(--ink);
+            font-weight: 600;
+        }
+
+        mark.hl {
+            background: #ffeeb0;
+            color: inherit;
+            border-radius: 3px;
+            padding: 0 1px;
         }
 
         .rc-foot {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 11px;
             margin-top: auto;
+            padding-top: 6px;
         }
 
-        .rc-ring {
+        /* Thanh hoàn thiện: đọc nhanh hơn vòng tròn nhỏ xíu ngày trước */
+        .rc-bar {
             position: relative;
-            width: 38px;
-            height: 38px;
+            width: 88px;
+            height: 7px;
+            border-radius: 9999px;
+            background: var(--line-2);
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+
+        .rc-bar i {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: var(--pct, 0%);
+            border-radius: 9999px;
+            background: linear-gradient(90deg, color-mix(in srgb, var(--pct-color, #f472b6) 55%, #fff), var(--pct-color, #f472b6));
+            transition: width .5s ease;
+        }
+
+        .rc-pct {
+            font-size: 11.5px;
+            font-weight: 700;
+            color: var(--pct-color, var(--brand));
             flex-shrink: 0;
         }
 
-        .rc-ring svg {
-            transform: rotate(-90deg);
-        }
-
-        .rc-ring .track {
-            stroke: #fce7f3;
-        }
-
-        .rc-ring .bar {
-            stroke: var(--pct-color, #f472b6);
-            stroke-linecap: round;
-            transition: stroke-dashoffset .6s ease;
-        }
-
-        .rc-ring span {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 10px;
-            font-weight: 800;
-            color: var(--pct-color, #db2777);
+        .rc-track-count {
+            font-size: 11.5px;
+            color: var(--ink-3);
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .rc-time {
-            font-size: 11px;
-            color: #9ca3af;
+            font-size: 11.5px;
+            color: var(--ink-3);
             margin-left: auto;
             white-space: nowrap;
-        }
-
-        .rc-track-count {
-            font-size: 11px;
-            color: #7c3aed;
-            font-weight: 700;
         }
 
         .rc-actions {
             display: flex;
             align-items: stretch;
-            border-top: 1px solid #fdf2f8;
+            border-top: 1px solid var(--line-2);
         }
 
         .rc-btn {
             flex: 1;
-            padding: 11px 2px;
-            font-size: 12px;
-            font-weight: 700;
+            padding: 14px 2px;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: inherit;
             background: none;
             border: 0;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 4px;
+            gap: 6px;
             transition: background .15s;
-            color: #6b7280;
+            color: var(--ink-2);
             white-space: nowrap;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .rc-btn i {
             font-size: 11px;
+            opacity: .8;
         }
 
         .rc-btn:hover {
-            background: #fdf2f8;
-        }
-
-        .rc-btn.view {
-            color: #2563eb;
-        }
-
-        .rc-btn.view:hover {
-            background: #eff6ff;
+            background: var(--line-2);
+            color: var(--ink);
         }
 
         .rc-btn.edit {
-            color: #db2777;
+            color: var(--brand-ink);
         }
 
-        .rc-btn.track {
-            color: #7c3aed;
-        }
-
-        .rc-btn.track:hover {
-            background: #f5f3ff;
+        .rc-btn.edit:hover {
+            background: var(--brand-soft);
         }
 
         .rc-btn.more {
-            flex: 0 0 46px;
-            color: #9ca3af;
+            flex: 0 0 44px;
+            color: var(--ink-3);
         }
 
         .rc-menu {
@@ -342,12 +832,12 @@
             right: 10px;
             bottom: 46px;
             z-index: 20;
-            min-width: 190px;
+            min-width: 196px;
             background: #fff;
-            border: 1px solid #f3e8f1;
-            border-radius: 14px;
+            border: 1px solid var(--line);
+            border-radius: var(--r2);
             padding: 6px;
-            box-shadow: 0 14px 34px rgba(31, 41, 55, .16);
+            box-shadow: var(--sh3);
             display: none;
         }
 
@@ -358,93 +848,196 @@
         .rc-menu button {
             width: 100%;
             text-align: left;
-            padding: 9px 11px;
+            padding: 10px 11px;
             border: 0;
             background: none;
             cursor: pointer;
             border-radius: 10px;
             font-size: 13px;
-            color: #4b5563;
+            font-family: inherit;
+            font-weight: 600;
+            color: var(--ink-2);
             display: flex;
             align-items: center;
-            gap: 9px;
+            gap: 10px;
         }
 
         .rc-menu button:hover {
-            background: #fdf2f8;
-            color: #db2777;
+            background: var(--brand-soft);
+            color: var(--brand-ink);
+        }
+
+        .rc-menu button.danger {
+            color: #d93a3a;
         }
 
         .rc-menu button.danger:hover {
-            background: #fef2f2;
-            color: #dc2626;
+            background: #fdeeee;
+            color: #c62828;
         }
 
         .rc-menu i {
             width: 15px;
             text-align: center;
+            opacity: .8;
         }
 
-        .folder-chip {
-            display: inline-flex;
+        /* ---------------- Chế độ xem gọn ---------------- */
+        #medical-record-cards.view-compact {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .view-compact .rec-card {
+            flex-direction: row;
             align-items: center;
-            gap: 6px;
-            white-space: nowrap;
-            border: 1px solid #eceaf2;
-            background: #fff;
-            color: #6b7280;
-            border-radius: 9999px;
-            padding: 7px 15px;
-            font-size: 13px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all .15s;
+            border-radius: var(--r2);
+            box-shadow:
+                0 0 0 3px color-mix(in srgb, var(--kind, #f472b6) 6%, transparent),
+                0 6px 14px -12px color-mix(in srgb, var(--kind, #f472b6) 70%, transparent);
+        }
+
+        .view-compact .rec-card:hover {
+            transform: none;
+        }
+
+        .view-compact .rc-body {
+            padding: 9px 6px 9px 12px;
+            gap: 3px;
+            min-width: 0;
+        }
+
+        .view-compact .rc-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 12px;
+            font-size: 15px;
+        }
+
+        .view-compact .rc-top {
+            align-items: center;
+            gap: 10px;
+        }
+
+        .view-compact .rc-name {
+            font-size: 13.5px;
+            -webkit-line-clamp: 1;
+        }
+
+        .view-compact .rc-meta,
+        .view-compact .rc-chips,
+        .view-compact .rc-foot,
+        .view-compact .rc-line:first-child,
+        .view-compact .rc-line .lbl {
+            display: none;
+        }
+
+        .view-compact .rc-lines {
+            margin-left: 46px;
+            margin-top: -2px;
+        }
+
+        .view-compact .rc-line {
+            font-size: 11.5px;
+            -webkit-line-clamp: 1;
+            line-height: 1.35;
+        }
+
+        .view-compact .rc-actions {
+            border-top: 0;
             flex-shrink: 0;
         }
 
+        .view-compact .rc-btn:not(.more) {
+            display: none;
+        }
+
+        /* Xem gọn + đang chọn: ô tick thay chỗ ảnh đại diện cho khỏi chồng lên nhau */
+        .view-compact.select-mode .rc-avatar {
+            display: none;
+        }
+
+        .view-compact.select-mode .rc-lines {
+            margin-left: 0;
+        }
+
+        .view-compact .rc-state {
+            font-size: 10px;
+            padding: 3px 8px;
+        }
+
+        /* ---------------- Chip thư mục ---------------- */
+        .folder-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            white-space: nowrap;
+            border: 1px solid var(--line);
+            background: #fff;
+            color: var(--ink-2);
+            border-radius: 9999px;
+            padding: 8px 15px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .15s;
+            flex-shrink: 0;
+            font-family: inherit;
+        }
+
+        .folder-chip i {
+            opacity: .7;
+            font-size: 12px;
+        }
+
         .folder-chip:hover {
-            border-color: #f9a8d4;
-            color: #db2777;
+            border-color: #f3bed6;
+            color: var(--brand-ink);
         }
 
         .folder-chip.active {
-            background: #ec4899;
-            border-color: #ec4899;
+            background: linear-gradient(135deg, #fb8fc9, #f472b6 60%, #c084fc);
+            border-color: transparent;
             color: #fff;
-            box-shadow: 0 4px 12px rgba(236, 72, 153, .28);
+            box-shadow: 0 8px 18px -10px rgba(219, 39, 119, .9);
+        }
+
+        .folder-chip.active i {
+            opacity: .9;
         }
 
         .folder-chip .fc-count {
-            font-size: 10px;
-            font-weight: 800;
-            background: #f6f6f9;
-            color: #6b7280;
+            font-size: 10.5px;
+            font-weight: 700;
+            background: var(--line-2);
+            color: var(--ink-3);
             border-radius: 9999px;
             padding: 1px 7px;
         }
 
         .folder-chip.active .fc-count {
-            background: rgba(255, 255, 255, .25);
+            background: rgba(255, 255, 255, .22);
             color: #fff;
         }
 
         .folder-chip.is-drop {
-            background: #7c3aed;
-            border-color: #7c3aed;
+            background: var(--brand);
+            border-color: var(--brand);
             color: #fff;
             transform: scale(1.05);
         }
 
-        /* ----- Chọn hàng loạt ----- */
+        /* ---------------- Chọn hàng loạt ---------------- */
         .rc-check {
             position: absolute;
-            top: 16px;
-            left: 12px;
+            top: 15px;
+            left: 11px;
             z-index: 6;
             width: 26px;
             height: 26px;
             border-radius: 9px;
-            border: 2px solid #f9a8d4;
+            border: 2px solid var(--brand);
             background: #fff;
             color: #fff;
             font-size: 12px;
@@ -466,32 +1059,35 @@
         }
 
         .rec-card.selected {
-            border-color: #ec4899;
-            box-shadow: 0 0 0 2px #f9a8d4 inset;
+            border-color: var(--brand);
+            box-shadow:
+                0 0 0 4px rgba(244, 114, 182, .28),
+                inset 0 0 0 2px rgba(244, 114, 182, .5);
         }
 
         .rec-card.selected .rc-check {
-            background: #ec4899;
-            border-color: #ec4899;
+            background: var(--brand);
+            border-color: var(--brand);
         }
 
         #bulk-bar {
             position: fixed;
             left: 50%;
             transform: translateX(-50%);
-            bottom: 16px;
+            bottom: calc(16px + env(safe-area-inset-bottom));
             z-index: 45;
             max-width: 94vw;
-            background: #1f2937;
+            background: linear-gradient(135deg, #7b53a8, #a75fb0 55%, #d264a6);
             color: #fff;
-            border-radius: 18px;
-            box-shadow: 0 18px 40px rgba(17, 24, 39, .3);
+            border-radius: 22px;
+            box-shadow: var(--sh3);
             padding: 10px 12px;
             display: flex;
             align-items: center;
             gap: 8px;
             flex-wrap: wrap;
             justify-content: center;
+            font-family: var(--wr-font);
         }
 
         #bulk-bar.hidden {
@@ -502,63 +1098,62 @@
         #bulk-bar select {
             border: 0;
             border-radius: 10px;
-            padding: 7px 11px;
+            padding: 8px 12px;
             font-size: 12.5px;
-            font-weight: 700;
-            background: rgba(255, 255, 255, .12);
+            font-weight: 600;
+            font-family: inherit;
+            background: rgba(255, 255, 255, .13);
             color: #fff;
             cursor: pointer;
             white-space: nowrap;
         }
 
-        #bulk-bar select {
-            background: rgba(255, 255, 255, .12);
-        }
-
         #bulk-bar select option {
-            color: #1f2937;
+            color: var(--ink);
         }
 
         #bulk-bar button:hover,
         #bulk-bar select:hover {
-            background: rgba(255, 255, 255, .22);
+            background: rgba(255, 255, 255, .24);
         }
 
         #bulk-bar button.danger {
-            background: #dc2626;
+            background: #d93a3a;
         }
 
         #bulk-bar button.danger:hover {
-            background: #b91c1c;
+            background: #b62d2d;
         }
 
         #bulk-count {
             font-size: 13px;
-            font-weight: 800;
+            font-weight: 700;
             padding: 0 4px;
         }
 
+        /* ---------------- Hộp thoại chuyển thư mục ---------------- */
         .move-opt {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
             width: 100%;
             text-align: left;
-            border: 2px solid #f7e6f0;
+            border: 1px solid var(--line);
             background: #fff;
-            border-radius: 14px;
-            padding: 10px 12px;
+            border-radius: var(--r2);
+            padding: 12px 13px;
             cursor: pointer;
+            font-family: inherit;
         }
 
         .move-opt:hover {
-            border-color: #f9a8d4;
-            background: #fdf2f8;
+            border-color: #f3bed6;
+            background: var(--brand-soft);
         }
 
         .move-opt.is-current {
-            border-color: #ec4899;
-            background: #fdf2f8;
+            border-color: var(--brand);
+            background: var(--brand-soft);
         }
 
         .move-opt span {
@@ -569,12 +1164,243 @@
 
         .move-opt b {
             font-size: 13.5px;
-            color: #374151;
+            color: var(--ink);
+            font-weight: 700;
         }
 
         .move-opt small {
             font-size: 11px;
-            color: #9ca3af;
+            color: var(--ink-3);
+        }
+
+        /* =========================================================================
+           Điện thoại / máy tính bảng
+           ========================================================================= */
+        @media (max-width: 1023px) {
+
+            /* Bỏ hộp của hàng tiêu đề để thanh công cụ thành con trực tiếp của khung —
+               có vậy sticky mới bám suốt chiều dài danh sách, không chỉ trong hàng tiêu đề.
+               Phải có "div" ở đầu: class .flex của Tailwind cùng độ ưu tiên nhưng nạp sau. */
+            div.wr-head {
+                display: contents;
+            }
+
+            .wr-head>div:first-child {
+                margin-bottom: 12px;
+            }
+
+            #wr-tools {
+                position: sticky;
+                /* top âm = bù đúng phần padding của <main>, không để lộ khe cho thẻ trôi qua bên trên */
+                top: -12px;
+                z-index: 26;
+                /* KHÔNG dùng backdrop-filter/filter ở đây: nó tạo containing block mới,
+                   nút '+' position:fixed bên trong sẽ bị neo vào thanh này thay vì màn hình */
+                background: #fff;
+                /* w-full của Tailwind + margin âm = hộp bị hụt 16px bên phải, hở nội dung phía sau */
+                width: auto;
+                margin: 0 -16px 14px;
+                padding: 9px 16px;
+                /* vuông cạnh: bo góc thì lúc dính sẽ hở góc cho nội dung phía sau lọt ra */
+                border-radius: 0;
+                box-shadow: 0 10px 18px -14px rgba(27, 25, 34, .6);
+            }
+
+            .wr-kbd {
+                display: none;
+            }
+        }
+
+        @media (min-width: 640px) and (max-width: 1023px) {
+            #wr-tools {
+                top: -20px;
+                margin: 0 -24px 14px;
+                padding: 9px 24px;
+            }
+        }
+
+        @media (max-width: 640px) {
+
+            /* Menu của thẻ thành bảng trượt từ đáy: nút to, có nền mờ chặn bấm nhầm */
+            body:has(.rec-card.menu-open) #squirrel-floating {
+                display: none;
+            }
+
+            .rec-card.menu-open::after {
+                content: '';
+                position: fixed;
+                inset: 0;
+                background: rgba(219, 39, 119, .22);
+                z-index: 55;
+            }
+
+            .rc-menu {
+                position: fixed;
+                left: 10px;
+                right: 10px;
+                top: auto;
+                bottom: calc(10px + env(safe-area-inset-bottom));
+                z-index: 56;
+                min-width: 0;
+                border-radius: 20px;
+                padding: 8px;
+                box-shadow: 0 -14px 34px rgba(219, 39, 119, .28);
+                animation: sheet-up .18s ease-out;
+            }
+
+            .rc-menu::before {
+                content: '';
+                display: block;
+                width: 38px;
+                height: 4px;
+                border-radius: 9999px;
+                background: var(--line);
+                margin: 3px auto 8px;
+            }
+
+            .rc-menu button {
+                padding: 14px 12px;
+                font-size: 15px;
+                gap: 12px;
+            }
+
+            .rc-menu i {
+                width: 18px;
+                font-size: 15px;
+            }
+
+            /* Thoáng hơn: thẻ bệnh án trên điện thoại giãn dòng, giãn chip */
+            .rc-body {
+                padding: 20px 18px 16px;
+                gap: 15px;
+            }
+
+            .rc-chip {
+                font-size: 11.5px;
+                padding: 5px 10px;
+            }
+
+            .rc-lines {
+                gap: 12px;
+            }
+
+            .rc-line {
+                font-size: 13.5px;
+                line-height: 1.6;
+            }
+
+            .rc-btn {
+                padding: 14px 2px;
+            }
+
+            .folder-chip {
+                padding: 9px 16px;
+            }
+
+            .view-compact .rc-body {
+                padding: 9px 4px 9px 12px;
+            }
+
+            #bulk-bar {
+                left: 0;
+                right: 0;
+                bottom: 0;
+                transform: none;
+                max-width: none;
+                border-radius: 20px 20px 0 0;
+                padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
+                gap: 8px;
+            }
+
+            #bulk-bar button,
+            #bulk-bar select {
+                flex: 1 1 46%;
+                padding: 12px 8px;
+                font-size: 13px;
+            }
+
+            #bulk-bar #bulk-count {
+                flex: 1 0 100%;
+                text-align: center;
+            }
+
+            #bulk-bar #bulk-exit {
+                flex: 0 0 48px;
+                padding: 12px 0;
+            }
+        }
+
+        @keyframes sheet-up {
+            from {
+                transform: translateY(16px);
+                opacity: 0;
+            }
+        }
+
+        /* Máy cảm ứng: bỏ hover dính, thay bằng phản hồi khi chạm */
+        @media (hover: none) {
+
+            .rec-card:hover {
+                transform: none;
+                border-color: color-mix(in srgb, var(--kind, #f472b6) 34%, #fff);
+                box-shadow:
+                    0 0 0 4px color-mix(in srgb, var(--kind, #f472b6) 7%, transparent),
+                    0 12px 26px -18px color-mix(in srgb, var(--kind, #f472b6) 75%, transparent),
+                    0 2px 5px -3px rgba(74, 51, 82, .07);
+            }
+
+            .rc-btn:hover,
+            .wr-icon-btn:hover {
+                background: none;
+                color: inherit;
+            }
+
+            .rc-body:active {
+                background: #fcfbfd;
+            }
+
+            .rc-btn:active {
+                background: var(--line-2);
+            }
+
+            .folder-chip:hover {
+                border-color: var(--line);
+                color: var(--ink-2);
+            }
+
+            .folder-chip.active:hover {
+                border-color: var(--ink);
+                color: #fff;
+            }
+
+            .move-opt:hover {
+                border-color: var(--line);
+                background: #fff;
+            }
+
+            .move-opt.is-current:hover {
+                border-color: var(--brand);
+                background: var(--brand-soft);
+            }
+        }
+
+        /* Linh vật + nút tạo: tách hai bên, chừa vùng an toàn của máy */
+        @media (max-width: 1023px) {
+            #squirrel-floating {
+                left: 12px;
+                right: auto;
+                bottom: calc(12px + env(safe-area-inset-bottom));
+            }
+
+            #squirrel-message {
+                left: 0;
+                right: auto;
+            }
+
+            body.select-on #squirrel-floating,
+            body.select-on #create-new-record {
+                display: none !important;
+            }
         }
     </style>
 </head>
@@ -582,7 +1408,7 @@
 <body class="flex h-screen bg-gray-50 text-gray-700 text-sm">
     <!-- Mobile Top Bar with Hamburger -->
     <div
-        class="md:hidden fixed top-0 left-0 w-full z-40 bg-white/95 shadow-lg flex items-center justify-between px-2 py-2 border-b border-pink-100 min-h-[54px]">
+        class="md:hidden fixed top-0 left-0 w-full z-40 bg-white flex items-center justify-between px-2 py-2 border-b-2 border-pink-100 min-h-[54px]">
         <div class="flex items-center gap-2 min-w-0">
             <button id="menu-toggle-btn" class="text-2xl text-pink-500 focus:outline-none p-1 flex-shrink-0">
                 <i class="fas fa-bars"></i>
@@ -598,9 +1424,9 @@
     </div>
     <!-- Overlay for sidebar on mobile -->
     <div id="sidebar-overlay"
-        class="fixed inset-0 bg-black bg-opacity-20 z-30 hidden md:hidden transition-opacity duration-200"></div>
+        class="fixed inset-0 bg-[#f472b6]/25 z-30 hidden md:hidden transition-opacity duration-200"></div>
     <aside id="sidebar"
-        class="w-11/12 max-w-xs bg-white/90 backdrop-blur-xl shadow-2xl fixed md:relative z-40 h-full transition-transform duration-300 ease-in-out rounded-r-3xl border-r-2 border-pink-100 top-0 left-0 md:static md:translate-x-0 -translate-x-full md:rounded-none md:block">
+        class="w-11/12 max-w-xs bg-white shadow-xl fixed md:relative z-40 h-full transition-transform duration-300 ease-in-out rounded-r-3xl border-r-2 border-pink-100 top-0 left-0 md:static md:translate-x-0 -translate-x-full md:rounded-none md:block">
         <button id="sidebar-close-btn"
             class="md:hidden absolute top-3 right-3 text-gray-400 hover:text-pink-500 text-2xl z-50 bg-white/80 rounded-full p-1 shadow"><i
                 class="fas fa-times"></i></button>
@@ -658,73 +1484,56 @@
             </div>
         </header>
         <main
-            class="flex-1 overflow-x-hidden overflow-y-auto bg-[#fdf7fa] p-2 sm:p-4 md:p-8 flex flex-col items-center">
+            class="flex-1 overflow-x-hidden overflow-y-auto bg-[#fdf4fa] p-3 sm:p-5 md:p-8 flex flex-col items-center">
             <!-- Danh sách bệnh án -->
-            <div class="w-full max-w-6xl my-4 md:my-8 flex flex-col gap-4">
+            <div class="w-full max-w-[1320px] my-4 md:my-8 flex flex-col gap-5">
 
-                <!-- Thẻ tổng quan -->
-                <div class="grid grid-cols-3 gap-2 sm:gap-4">
-                    <div
-                        class="bg-white/90 backdrop-blur rounded-2xl border border-pink-100 shadow-sm p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
-                        <div
-                            class="w-8 h-8 sm:w-10 sm:h-10 text-sm sm:text-base rounded-lg sm:rounded-xl bg-pink-100 text-pink-500 flex items-center justify-center flex-shrink-0">
-                            <i class="fas fa-notes-medical"></i></div>
-                        <div class="min-w-0">
-                            <p id="stat-total" class="text-xl sm:text-2xl font-extrabold text-gray-800 leading-none">0
-                            </p>
-                            <p class="text-[10px] sm:text-xs text-gray-400 mt-0.5 sm:mt-1 leading-tight">Tổng bệnh án
-                            </p>
-                        </div>
-                    </div>
-                    <div
-                        class="bg-white/90 backdrop-blur rounded-2xl border border-pink-100 shadow-sm p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
-                        <div
-                            class="w-8 h-8 sm:w-10 sm:h-10 text-sm sm:text-base rounded-lg sm:rounded-xl bg-green-100 text-green-600 flex items-center justify-center flex-shrink-0">
-                            <i class="fas fa-check"></i></div>
-                        <div class="min-w-0">
-                            <p id="stat-done" class="text-xl sm:text-2xl font-extrabold text-gray-800 leading-none">0
-                            </p>
-                            <p class="text-[10px] sm:text-xs text-gray-400 mt-0.5 sm:mt-1 leading-tight">Hoàn thành</p>
-                        </div>
-                    </div>
-                    <div
-                        class="bg-white/90 backdrop-blur rounded-2xl border border-pink-100 shadow-sm p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
-                        <div
-                            class="w-8 h-8 sm:w-10 sm:h-10 text-sm sm:text-base rounded-lg sm:rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center flex-shrink-0">
-                            <i class="fas fa-pen"></i></div>
-                        <div class="min-w-0">
-                            <p id="stat-draft" class="text-xl sm:text-2xl font-extrabold text-gray-800 leading-none">0
-                            </p>
-                            <p class="text-[10px] sm:text-xs text-gray-400 mt-0.5 sm:mt-1 leading-tight">Đang viết</p>
-                        </div>
-                    </div>
+                <!-- Thẻ tổng quan cũng là bộ lọc trạng thái -->
+                <div id="stat-filter" class="grid grid-cols-3 gap-2.5 sm:gap-3" role="group"
+                    aria-label="Lọc bệnh án theo trạng thái">
+                    <button type="button" class="stat-btn active" data-filter="all" aria-pressed="true">
+                        <span class="sb-icon all"><i class="fas fa-notes-medical"></i></span>
+                        <span class="sb-txt"><b id="stat-total">0</b><small>Tất cả</small></span>
+                        <span class="sb-extra" id="stat-extra-all"></span>
+                    </button>
+                    <button type="button" class="stat-btn" data-filter="done" aria-pressed="false">
+                        <span class="sb-icon done"><i class="fas fa-check"></i></span>
+                        <span class="sb-txt"><b id="stat-done">0</b><small>Hoàn thành</small></span>
+                        <span class="sb-extra" id="stat-extra-done"></span>
+                    </button>
+                    <button type="button" class="stat-btn" data-filter="draft" aria-pressed="false">
+                        <span class="sb-icon draft"><i class="fas fa-pen"></i></span>
+                        <span class="sb-txt"><b id="stat-draft">0</b><small>Đang viết</small></span>
+                        <span class="sb-extra" id="stat-extra-draft"></span>
+                    </button>
                 </div>
 
-                <div class="bg-white/90 backdrop-blur rounded-3xl shadow-xl p-4 sm:p-6 border border-pink-100">
-                    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
+                <!-- KHONG them backdrop-blur/filter o khung nay: no tao containing block moi, nut + fixed ben trong se tuot xuong cuoi danh sach -->
+                <div class="wr-panel">
+                    <div class="wr-head flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
                         <div class="min-w-0">
-                            <h2 class="text-xl sm:text-2xl font-extrabold text-pink-600 flex items-center gap-2"><i
-                                    class="fas fa-notes-medical text-pink-400"></i>Danh sách bệnh án</h2>
-                            <p id="sync-status" class="text-xs mt-1 flex items-center gap-1.5 text-gray-400"><i
-                                    class="fas fa-circle-notch fa-spin"></i> Đang tải…</p>
+                            <h2 class="wr-title"><span class="ic"><i class="fas fa-notes-medical"></i></span>Danh sách bệnh
+                                án</h2>
+                            <p id="sync-status" class="wr-sub"><i class="fas fa-circle-notch fa-spin"></i> Đang tải…</p>
                         </div>
-                        <div class="flex items-center gap-2 w-full lg:w-auto">
-                            <div class="relative flex-1 lg:w-72">
+                        <div id="wr-tools" class="flex items-center gap-2 w-full lg:w-auto">
+                            <div class="relative flex-1 lg:w-80">
                                 <i
-                                    class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-pink-300 pointer-events-none"></i>
+                                    class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-[#b3aabd] text-sm pointer-events-none"></i>
                                 <input id="search-record" type="search" placeholder="Tìm tên, chẩn đoán, phòng…"
-                                    class="pl-9 pr-4 py-2.5 border-2 border-pink-100 bg-pink-50/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-pink-300 focus:bg-white w-full text-base shadow-sm transition" />
+                                    class="wr-search" autocomplete="off" />
+                                <span class="wr-kbd">/</span>
                             </div>
-                            <button id="sync-now"
-                                class="w-11 h-11 rounded-xl border-2 border-pink-100 bg-white text-pink-500 hover:bg-pink-50 transition flex-shrink-0"
+                            <button id="sync-now" aria-label="Đồng bộ đám mây"
+                                class="wr-icon-btn"
                                 title="Đồng bộ hai chiều với đám mây — kéo bệnh án từ máy khác về và đẩy bệnh án ở máy này lên"><i
                                     class="fas fa-cloud-arrow-up"></i></button>
-                            <button id="select-toggle"
-                                class="w-11 h-11 rounded-xl border-2 border-pink-100 bg-white text-pink-500 hover:bg-pink-50 transition flex-shrink-0"
+                            <button id="select-toggle" aria-label="Chọn nhiều bệnh án" aria-pressed="false"
+                                class="wr-icon-btn"
                                 title="Chọn nhiều bệnh án"><i class="fas fa-check-double"></i></button>
                             <div class="relative flex-shrink-0">
-                                <button id="more-menu-btn"
-                                    class="w-11 h-11 rounded-xl border-2 border-pink-100 bg-white text-pink-500 hover:bg-pink-50 transition"
+                                <button id="more-menu-btn" aria-label="Sao lưu, phục hồi, chế độ hướng dẫn"
+                                    class="wr-icon-btn"
                                     title="Sao lưu / phục hồi"><i class="fas fa-ellipsis-v"></i></button>
                                 <div id="more-menu"
                                     class="hidden absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-pink-100 py-2 z-40">
@@ -746,17 +1555,16 @@
                                     </button>
                                 </div>
                             </div>
-                            <button id="create-new-record"
-                                class="bg-pink-500 text-white hover:bg-pink-600 active:scale-95 transition flex items-center justify-center gap-2 shadow-lg shadow-pink-200 fixed bottom-24 right-4 z-40 rounded-full w-14 h-14 text-2xl lg:static lg:w-auto lg:h-auto lg:rounded-xl lg:px-5 lg:py-2.5 lg:text-base font-semibold flex-shrink-0"
-                                title="Tạo bệnh án mới"><i class="fas fa-plus"></i> <span class="hidden lg:inline">Tạo
-                                    bệnh án</span></button>
+                            <button id="create-new-record" aria-label="Tạo bệnh án mới"
+                                class="wr-primary"
+                                title="Tạo bệnh án mới (phím n)"><i class="fas fa-plus"></i> <span>Tạo bệnh
+                                    án</span></button>
                         </div>
                     </div>
 
-                    <div class="mb-4">
-                        <div class="flex items-center justify-between gap-2 mb-2">
-                            <span class="text-xs font-bold text-gray-500 uppercase tracking-wide"><i
-                                    class="fas fa-folder-open text-pink-400 mr-1"></i> Đợt thực hành</span>
+                    <div class="mb-5">
+                        <div class="flex items-center justify-between gap-2 mb-2.5">
+                            <span class="wr-label"><i class="fas fa-folder-open"></i> Đợt thực hành</span>
                             <button id="folder-new"
                                 class="text-xs font-semibold text-pink-600 hover:text-pink-700 flex items-center gap-1"><i
                                     class="fas fa-plus"></i> Thư mục mới</button>
@@ -768,15 +1576,17 @@
                         </div>
                     </div>
 
-                    <div class="flex items-center gap-2 mb-4 overflow-x-auto pb-1 -mx-1 px-1"
-                        style="scrollbar-width:none">
-                        <div id="filter-chips" class="flex items-center gap-2 flex-shrink-0">
-                            <button class="filter-chip active" data-filter="all">Tất cả</button>
-                            <button class="filter-chip" data-filter="draft">Đang viết</button>
-                            <button class="filter-chip" data-filter="done">Hoàn thành</button>
+                    <div id="resume-slot" class="mb-4 empty:hidden"></div>
+
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="seg" id="view-toggle" role="group" aria-label="Chế độ xem">
+                            <button type="button" data-view="grid" class="on" aria-label="Xem dạng thẻ"
+                                title="Xem dạng thẻ (phím v)"><i class="fas fa-table-cells-large"></i></button>
+                            <button type="button" data-view="compact" aria-label="Xem dạng danh sách gọn"
+                                title="Xem gọn (phím v)"><i class="fas fa-list"></i></button>
                         </div>
-                        <select id="sort-record"
-                            class="ml-auto flex-shrink-0 border-2 border-pink-100 bg-white rounded-xl px-3 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-pink-200">
+                        <span id="result-count" class="text-xs font-semibold text-[#ab9db6] truncate"></span>
+                        <select id="sort-record" aria-label="Sắp xếp danh sách" class="ml-auto wr-select">
                             <option value="new">Mới nhất</option>
                             <option value="old">Cũ nhất</option>
                             <option value="name">Tên A → Z</option>
@@ -784,16 +1594,16 @@
                     </div>
 
                     <div id="medical-record-cards"
-                        class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-20 lg:pb-0">
+                        class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-5 md:gap-6 pb-24 lg:pb-0">
                         <!-- JS render card ở đây -->
                     </div>
                 </div>
             </div>
             <div id="move-modal"
                 class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-                <div class="absolute inset-0 bg-black/40" data-move-close></div>
+                <div class="absolute inset-0 bg-[#db2777]/25" data-move-close></div>
                 <div
-                    class="relative bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl border border-pink-100 p-5 max-h-[85vh] overflow-y-auto">
+                    class="relative bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-xl border-2 border-pink-100 p-5 max-h-[85vh] overflow-y-auto">
                     <h3 class="text-lg font-extrabold text-pink-600 mb-1 flex items-center gap-2"><i
                             class="fas fa-folder-tree"></i> Chuyển vào thư mục</h3>
                     <p id="move-subject" class="text-xs text-gray-400 mb-3"></p>
@@ -809,9 +1619,9 @@
 
             <div id="folder-modal"
                 class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-                <div class="absolute inset-0 bg-black/40" data-folder-close></div>
+                <div class="absolute inset-0 bg-[#db2777]/25" data-folder-close></div>
                 <div
-                    class="relative bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl border border-pink-100 p-5 max-h-[90vh] overflow-y-auto">
+                    class="relative bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-xl border-2 border-pink-100 p-5 max-h-[90vh] overflow-y-auto">
                     <h3 class="text-lg font-extrabold text-pink-600 mb-3 flex items-center gap-2"><i
                             class="fas fa-folder-plus"></i> <span id="folder-modal-title">Thư mục đợt thực hành</span>
                     </h3>
@@ -880,13 +1690,13 @@
             </div>
         </main>
         <footer
-            class="bg-white/80 backdrop-blur-lg text-gray-600 text-center p-3 border-t border-pink-100 flex-shrink-0 rounded-t-2xl shadow-inner text-xs md:text-base">
+            class="bg-white text-gray-500 text-center p-3 border-t-2 border-pink-100 flex-shrink-0 rounded-t-2xl text-xs md:text-base">
             <p>&copy; 2025 Zitthenk - Y23C - UMP.</p>
         </footer>
         <div id="squirrel-floating"
             class="fixed bottom-4 right-4 z-50 cursor-pointer select-none max-w-[60vw] sm:max-w-xs">
             <img src="../../assets/squirrel-pixel.png" alt="Pixel Squirrel Mascot"
-                class="w-16 h-16 rounded-2xl shadow-xl hover:scale-110 transition-transform duration-300 bg-white/80 backdrop-blur-md border-2 border-pink-200">
+                class="w-16 h-16 rounded-2xl hover:scale-110 transition-transform duration-300 bg-white border-2 border-pink-200 shadow-[0_10px_22px_-12px_rgba(219,39,119,.8)]">
             <div id="squirrel-message"
                 class="hidden absolute bottom-16 right-0 bg-white/90 text-gray-800 rounded-lg shadow-lg px-4 py-2 text-base max-w-[80vw] sm:max-w-xs z-50 border border-pink-200">
             </div>

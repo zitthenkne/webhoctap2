@@ -13,6 +13,37 @@ import {
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+/* ================= Tìm kiếm tiếng Việt không dấu =================
+   Gõ "nguyen van ba" phải ra "Nguyễn Văn Ba", gõ nhiều từ thì phải khớp đủ các từ
+   (không cần đúng thứ tự). Bỏ dấu theo TỪNG ký tự để độ dài chuỗi không đổi —
+   nhờ vậy vị trí khớp trên chuỗi đã bỏ dấu cũng là vị trí trên chuỗi gốc, tô sáng mới đúng chỗ. */
+const foldChar = (ch) => {
+    const b = ch.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return (b === 'đ' ? 'd' : b === 'Đ' ? 'd' : (b || ch)).toLowerCase();
+};
+const fold = (str) => Array.from(String(str ?? '')).map(foldChar).join('');
+
+/** Bọc <mark> vào những đoạn khớp từ khóa, đồng thời escape phần còn lại */
+function hl(text) {
+    const raw = String(text ?? '');
+    if (!raw || !qTokens.length) return esc(raw);
+    const f = fold(raw);
+    if (f.length !== raw.length) return esc(raw);           // ký tự lạ làm lệch chỉ số thì thôi, khỏi tô
+    const hits = [];
+    for (const t of qTokens) {
+        for (let i = f.indexOf(t); i >= 0; i = f.indexOf(t, i + t.length)) hits.push([i, i + t.length]);
+    }
+    if (!hits.length) return esc(raw);
+    hits.sort((a, b) => a[0] - b[0]);
+    let out = '', pos = 0;
+    for (const [a, b] of hits) {
+        if (a < pos) continue;                              // đoạn chồng nhau thì bỏ qua
+        out += esc(raw.slice(pos, a)) + '<mark class="hl">' + esc(raw.slice(a, b)) + '</mark>';
+        pos = b;
+    }
+    return out + esc(raw.slice(pos));
+}
+
 /* ================= Sidebar + linh vật (giữ nguyên hành vi cũ) ================= */
 function setupChrome() {
     const sidebar = document.getElementById('sidebar');
@@ -99,24 +130,47 @@ let filter = 'all';
 let keyword = '';
 let sortMode = 'new';
 let folderId = '';   // '' = tất cả đợt thực hành
+let viewMode = 'grid';   // 'grid' = thẻ đầy đủ, 'compact' = danh sách gọn
+let qTokens = [];        // từ khóa đã bỏ dấu, tách theo khoảng trắng
 let selectMode = false;
 const selected = new Set();   // id các bệnh án đang chọn
 
 const isDone = (r) => (r.status || 'Hoàn thành') === 'Hoàn thành';
 
-function visibleRecords() {
-    let out = records.filter(r => {
-        if (folderId && String(r.thuMuc?.id || '') !== String(folderId)) return false;
-        if (filter === 'done' && !isDone(r)) return false;
-        if (filter === 'draft' && isDone(r)) return false;
-        if (!keyword) return true;
-        const hay = [
+/* Nhớ bộ lọc / thư mục / kiểu sắp xếp. Trên điện thoại người dùng ra vào bệnh án
+   liên tục, mỗi lần quay lại phải chọn lại đợt thực hành thì rất mệt. */
+const PREF_KEY = 'waitingRoomPrefs_v1';
+function loadPrefs() {
+    try {
+        const p = JSON.parse(localStorage.getItem(PREF_KEY) || '{}');
+        if (['all', 'done', 'draft'].includes(p.filter)) filter = p.filter;
+        if (['new', 'old', 'name'].includes(p.sortMode)) sortMode = p.sortMode;
+        if (['grid', 'compact'].includes(p.viewMode)) viewMode = p.viewMode;
+        if (typeof p.folderId === 'string') folderId = p.folderId;
+    } catch { }
+}
+function savePrefs() {
+    try { localStorage.setItem(PREF_KEY, JSON.stringify({ filter, sortMode, folderId, viewMode })); } catch { }
+}
+
+/** Bệnh án lọt qua thư mục + từ khóa, chưa xét trạng thái — dùng để đếm cho 3 thẻ lọc */
+function baseRecords() {
+    return records.filter(r => {
+        if (folderId === '__none__') { if (r.thuMuc?.id) return false; }
+        else if (folderId && String(r.thuMuc?.id || '') !== String(folderId)) return false;
+        if (!qTokens.length) return true;
+        const hay = fold([
             r.hanhChinh?.hoTen, r.hanhChinh?.soPhong, r.hanhChinh?.roomNumber,
             r.hanhChinh?.soGiuong, r.hanhChinh?.bedNumber, r.hanhChinh?.benhVien,
-            r.lyDoVaoVien, r.chanDoanSoBo, r.chanDoanXacDinh
-        ].join(' ').toLowerCase();
-        return hay.includes(keyword);
+            r.hanhChinh?.ngheNghiep, r.thuMuc?.ten, r.lyDoVaoVien, r.benhSu,
+            r.chanDoanSoBo, r.chanDoanXacDinh, r.tomTatBenhAn
+        ].join(' '));
+        return qTokens.every(t => hay.includes(t));
     });
+}
+
+function visibleRecords() {
+    let out = baseRecords().filter(r => filter === 'all' || (filter === 'done' ? isDone(r) : !isDone(r)));
     if (sortMode === 'name') {
         out.sort((a, b) => (a.hanhChinh?.hoTen || '').localeCompare(b.hanhChinh?.hoTen || '', 'vi'));
     } else {
@@ -126,114 +180,126 @@ function visibleRecords() {
     return out;
 }
 
+/* 3 thẻ tổng quan cũng chính là bộ lọc: đếm theo phạm vi đang xem (thư mục + từ khóa)
+   thì con số mới khớp với danh sách bên dưới. */
 function renderStats() {
-    const done = records.filter(isDone).length;
-    document.getElementById('stat-total').textContent = records.length;
+    const base = baseRecords();
+    const done = base.filter(isDone).length;
+    document.getElementById('stat-total').textContent = base.length;
     document.getElementById('stat-done').textContent = done;
-    document.getElementById('stat-draft').textContent = records.length - done;
+    document.getElementById('stat-draft').textContent = base.length - done;
+    const drafts = base.filter(r => !isDone(r));
+    const avg = drafts.length ? Math.round(drafts.reduce((n, r) => n + completeness(r), 0) / drafts.length) : 0;
+    const nFolder = listFolders().length;
+    const extra = (id, txt) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = txt;
+    };
+    extra('stat-extra-all', nFolder ? nFolder + ' đợt' : '');
+    extra('stat-extra-done', base.length ? Math.round(done / base.length * 100) + '%' : '');
+    extra('stat-extra-draft', drafts.length ? 'TB ' + avg + '%' : '');
+    document.querySelectorAll('.stat-btn').forEach(b => {
+        const on = b.dataset.filter === filter;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
 }
 
 function emptyState() {
     if (records.length === 0) return `
-        <div class="col-span-full flex flex-col items-center justify-center py-14 text-center">
-            <div class="w-20 h-20 rounded-full bg-pink-100 flex items-center justify-center mb-4"><i class="fas fa-notes-medical text-3xl text-pink-400"></i></div>
-            <p class="text-gray-600 font-bold text-base">Chưa có bệnh án nào</p>
-            <p class="text-gray-400 text-sm mt-1 max-w-xs">Bấm <b class="text-pink-500">+ Tạo bệnh án</b> để viết bệnh án đầu tiên. Bài viết được lưu tự động khi bạn gõ.</p>
-            <button id="empty-create" class="mt-4 bg-pink-500 text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-pink-600 active:scale-95 transition shadow-lg shadow-pink-200"><i class="fas fa-plus mr-1"></i> Tạo bệnh án</button>
+        <div class="col-span-full flex flex-col items-center justify-center py-16 text-center">
+            <div class="w-20 h-20 rounded-3xl bg-gradient-to-br from-[#fde9f3] to-[#e4f5ff] flex items-center justify-center mb-4"><i class="fas fa-notes-medical text-3xl text-[#f472b6]"></i></div>
+            <p class="text-[#4a3352] font-bold text-base">Chưa có bệnh án nào</p>
+            <p class="text-[#ab9db6] text-sm mt-1.5 max-w-xs">Bấm <b class="text-[#db2777]">Tạo bệnh án</b> để viết bệnh án đầu tiên. Bài viết tự lưu ngay khi bạn gõ.</p>
+            <button id="empty-create" class="wr-primary mt-5"><i class="fas fa-plus"></i> Tạo bệnh án</button>
         </div>`;
     return `
-        <div class="col-span-full flex flex-col items-center justify-center py-12 text-center">
-            <div class="w-16 h-16 rounded-full bg-pink-100 flex items-center justify-center mb-3"><i class="fas fa-search text-2xl text-pink-400"></i></div>
-            <p class="text-gray-500 font-semibold">Không tìm thấy bệnh án phù hợp</p>
-            <p class="text-gray-400 text-sm mt-1">Thử đổi từ khóa hoặc chọn lại bộ lọc.</p>
+        <div class="col-span-full flex flex-col items-center justify-center py-14 text-center">
+            <div class="w-16 h-16 rounded-3xl bg-gradient-to-br from-[#e4f5ff] to-[#f1ecff] flex items-center justify-center mb-3"><i class="fas fa-magnifying-glass text-2xl text-[#58c4f7]"></i></div>
+            <p class="text-[#4a3352] font-bold">Không có bệnh án nào khớp</p>
+            <p class="text-[#ab9db6] text-sm mt-1">Thử bớt từ khóa, hoặc bỏ bộ lọc đang bật.</p>
+            <button id="empty-clear" class="mt-5 border-2 border-[#f7dcec] text-[#db2777] bg-white px-4 py-2.5 rounded-2xl font-semibold active:scale-95 transition"><i class="fas fa-rotate-left mr-1"></i> Bỏ mọi bộ lọc</button>
         </div>`;
 }
 
+// [tên, màu dải chuyên khoa, nền chip, chữ chip] — tông pastel
 const KINDS = {
-    noi: ['Nội khoa', '#ec4899', '#fdf2f8', '#db2777'],
-    ngoai: ['Ngoại khoa', '#3b82f6', '#eff6ff', '#2563eb'],
-    san: ['Sản khoa', '#f43f5e', '#fff1f2', '#e11d48'],
-    nhi: ['Nhi khoa', '#f59e0b', '#fffbeb', '#c2410c'],
-    cc: ['Cấp cứu', '#ef4444', '#fef2f2', '#dc2626']
+    noi: ['Nội khoa', '#f472b6', '#fde9f3', '#db2777'],
+    ngoai: ['Ngoại khoa', '#58c4f7', '#e4f5ff', '#0b84c4'],
+    san: ['Sản khoa', '#fb7fae', '#ffeef5', '#e04b86'],
+    nhi: ['Nhi khoa', '#fbbf24', '#fff5e0', '#b4740b'],
+    cc: ['Cấp cứu', '#fb8a8a', '#ffeeee', '#dc4c4c']
 };
 
-function ringHtml(pct) {
-    const color = pct >= 80 ? '#10b981' : pct >= 40 ? '#f59e0b' : '#f472b6';
-    const r = 16, c = 2 * Math.PI * r;
-    return `<span class="rc-ring" style="--pct-color:${color}" title="Mức độ hoàn thiện">
-        <svg width="38" height="38" viewBox="0 0 38 38">
-            <circle class="track" cx="19" cy="19" r="${r}" fill="none" stroke-width="4"></circle>
-            <circle class="bar" cx="19" cy="19" r="${r}" fill="none" stroke-width="4"
-                stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${(c * (1 - pct / 100)).toFixed(1)}"></circle>
-        </svg><span>${pct}%</span></span>`;
+const pctColor = (pct) => pct >= 80 ? '#22b98a' : pct >= 40 ? '#58c4f7' : '#f472b6';
+
+function barHtml(pct) {
+    return `<span class="rc-bar" style="--pct:${pct}%;--pct-color:${pctColor(pct)}" title="Mức độ hoàn thiện ${pct}%"><i></i></span>
+        <span class="rc-pct" style="--pct-color:${pctColor(pct)}">${pct}%</span>`;
 }
 
 function cardHtml(rec) {
     const id = esc(rec.id);
     const h = rec.hanhChinh || {};
-    const [kindName, , kindSoft, kindInk] = KINDS[rec.loaiBenhAn] || KINDS.noi;
-    // Màu thẻ theo giới tính: nữ hồng, nam đỏ
+    const [kindName, kindColor, kindSoft, kindInk] = KINDS[rec.loaiBenhAn] || KINDS.noi;
+    // Màu người bệnh theo giới tính: nữ hồng, nam xanh, chưa ghi thì tím
     const gt = String(h.gioiTinh || '').trim();
     const isNu = /nữ/i.test(gt), isNam = /nam/i.test(gt);
-    const sexGrad = isNu ? '#ec4899' : isNam ? '#2563eb' : '#8b5cf6';
+    const sexColor = isNu ? '#f472b6' : isNam ? '#60a5fa' : '#a78bfa';
     const sexIcon = isNu ? 'venus' : isNam ? 'mars' : 'genderless';
-    const sexInk = isNu ? '#db2777' : isNam ? '#2563eb' : '#7c3aed';
-    const hoTen = esc(h.hoTen) || 'Chưa đặt tên';
+    const hoTen = h.hoTen || 'Chưa đặt tên';
     const initial = esc((h.hoTen || '?').trim().charAt(0).toUpperCase() || '?');
 
     const tuoi = esc(h.tuoi) || (h.namSinh ? String(new Date().getFullYear() - parseInt(h.namSinh)) : '');
-    const meta = [tuoi && tuoi + ' tuổi', esc(h.gioiTinh)].filter(Boolean).join(' · ');
-
     const phong = esc(h.soPhong || h.roomNumber);
     const giuong = esc(h.soGiuong || h.bedNumber);
-    const noiNam = [phong && 'P.' + phong, giuong && 'G.' + giuong].filter(Boolean).join(' · ');
-
-    const lyDo = esc(rec.lyDoVaoVien);
-    const chanDoan = esc(rec.chanDoanXacDinh || rec.chanDoanSoBo);
-    const track = (rec.theoDoi || []).length;
-    const admit = (() => {
+    const admitMeta = (() => {
         const m = String(h.ngayVaoVien || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
-        return m ? `${m[3]}/${m[2]}` : '';
+        return m ? `vào viện ${m[3]}/${m[2]}` : '';
     })();
+    // Dồn hết thông tin hành chính vào một dòng chữ mờ: thẻ chỉ còn 2 chip màu, đỡ rối mắt
+    const meta = [esc(gt), tuoi && tuoi + ' tuổi', phong && 'P.' + phong, giuong && 'G.' + giuong, admitMeta]
+        .filter(Boolean).join(' · ');
+
+    const lyDo = rec.lyDoVaoVien || '';
+    const chanDoan = rec.chanDoanXacDinh || rec.chanDoanSoBo || '';
+    const track = (rec.theoDoi || []).length;
     // Bệnh án nằm ngoài thư mục thì phải tự nói rõ ở bệnh viện nào
-    const inFolder = !!rec.thuMuc?.id;
-    const benhVien = esc(h.benhVien);
+    const place = rec.thuMuc?.id
+        ? `<span class="rc-chip folder"><i class="fas fa-folder"></i>${hl(rec.thuMuc.ten)}</span>`
+        : (h.benhVien ? `<span class="rc-chip"><i class="fas fa-hospital"></i>${hl(h.benhVien)}</span>` : '');
+    const pct = completeness(rec);
 
     return `
         <article draggable="true" class="rec-card group${selected.has(String(rec.id)) ? ' selected' : ''}" data-id="${id}"
-            style="--sex:${sexGrad};--sex-ink:${sexInk};--kind-soft:${kindSoft};--kind-ink:${kindInk}">
+            style="--kind:${kindColor};--kind-soft:${kindSoft};--kind-ink:${kindInk};--sex:${sexColor}">
             <span class="rc-check"><i class="fas fa-check"></i></span>
             <div class="rc-body card-open">
                 <div class="rc-top">
                     <div class="rc-avatar">${initial}</div>
                     <div class="rc-id">
-                        <p class="rc-name" title="${hoTen}">${hoTen}</p>
+                        <p class="rc-name" title="${esc(hoTen)}">${hl(hoTen)}</p>
                         <p class="rc-meta"><i class="fas fa-${sexIcon}"></i>${meta || '—'}</p>
                     </div>
-                    <span class="rc-state ${isDone(rec) ? 'done' : 'draft'}">
-                        <i class="fas fa-${isDone(rec) ? 'circle-check' : 'pen'}"></i>${isDone(rec) ? 'Hoàn thành' : 'Đang viết'}</span>
+                    <span class="rc-state ${isDone(rec) ? 'done' : 'draft'}">${isDone(rec) ? 'Hoàn thành' : 'Đang viết'}</span>
                 </div>
 
                 <div class="rc-chips">
-                    <span class="rc-chip kind"><i class="fas fa-stethoscope"></i>${esc(kindName)}</span>
-                    ${inFolder
-            ? `<span class="rc-chip folder"><i class="fas fa-folder"></i>${esc(rec.thuMuc.ten)}</span>`
-            : (benhVien ? `<span class="rc-chip hosp"><i class="fas fa-hospital"></i>${benhVien}</span>` : '')}
-                    ${noiNam ? `<span class="rc-chip"><i class="fas fa-bed"></i>${noiNam}</span>` : ''}
-                    ${admit ? `<span class="rc-chip"><i class="fas fa-right-to-bracket"></i>Vào viện ${admit}</span>` : ''}
+                    <span class="rc-chip kind"><span class="dot"></span>${esc(kindName)}</span>
+                    ${place}
                 </div>
 
                 <div class="rc-lines">
-                    <p class="rc-line ${lyDo ? '' : 'empty'}" title="${lyDo}">
-                        <span class="lbl ldvv">Lý do</span>${lyDo || 'Chưa ghi lý do vào viện'}</p>
-                    <p class="rc-line ${chanDoan ? '' : 'empty'}" title="${chanDoan}">
-                        <span class="lbl cd">Chẩn đoán</span>${chanDoan || 'Chưa có chẩn đoán'}</p>
+                    <p class="rc-line ${lyDo ? '' : 'empty'}" title="${esc(lyDo)}">
+                        <span class="lbl">Lý do</span>${lyDo ? hl(lyDo) : 'Chưa ghi lý do vào viện'}</p>
+                    <p class="rc-line ${chanDoan ? '' : 'empty'}" title="${esc(chanDoan)}">
+                        <span class="lbl cd">Chẩn đoán</span>${chanDoan ? hl(chanDoan) : 'Chưa có chẩn đoán'}</p>
                 </div>
 
                 <div class="rc-foot">
-                    ${ringHtml(completeness(rec))}
+                    ${barHtml(pct)}
                     ${track ? `<span class="rc-track-count"><i class="fas fa-clipboard-list mr-1"></i>${track} lần theo dõi</span>` : ''}
-                    <span class="rc-time"><i class="far fa-clock mr-1"></i>${timeAgo(rec.lastUpdated)}</span>
+                    <span class="rc-time">${timeAgo(rec.lastUpdated)}</span>
                 </div>
             </div>
 
@@ -241,7 +307,7 @@ function cardHtml(rec) {
                 <button class="rc-btn view view-record" data-id="${id}"><i class="fas fa-eye"></i>Xem</button>
                 <button class="rc-btn edit edit-record" data-id="${id}"><i class="fas fa-pen"></i>Sửa</button>
                 <button class="rc-btn track track-record" data-id="${id}"><i class="fas fa-clipboard-list"></i>Theo dõi</button>
-                <button class="rc-btn more menu-record" data-id="${id}" title="Thêm"><i class="fas fa-ellipsis-v"></i></button>
+                <button class="rc-btn more menu-record" data-id="${id}" aria-label="Thêm lựa chọn"><i class="fas fa-ellipsis-v"></i></button>
             </div>
             <div class="rc-menu">
                 <button class="move-record" data-id="${id}"><i class="fas fa-folder-tree"></i>Chuyển thư mục</button>
@@ -251,16 +317,59 @@ function cardHtml(rec) {
         </article>`;
 }
 
+/* ================= Thẻ "viết tiếp" =================
+   Mở app lên là thấy ngay bệnh án đang viết dở gần nhất, một chạm vào thẳng chỗ đang bỏ ngang —
+   thao tác thường gặp nhất của sinh viên đi lâm sàng. */
+function renderResume() {
+    const slot = document.getElementById('resume-slot');
+    if (!slot) return;
+    const hide = selectMode || qTokens.length || filter === 'done';
+    const draft = hide ? null : sortRecords(records.filter(r => !isDone(r)))[0];
+    if (!draft) { slot.innerHTML = ''; return; }
+    const pct = completeness(draft);
+    const ten = draft.hanhChinh?.hoTen || 'Bệnh án chưa đặt tên';
+    const noi = [draft.thuMuc?.ten, draft.hanhChinh?.benhVien].filter(Boolean)[0] || '';
+    slot.innerHTML = `
+        <button class="resume-card" data-resume="${esc(draft.id)}">
+            <span class="rz-ic"><i class="fas fa-pen-nib"></i></span>
+            <span class="rz-txt">
+                <span class="rz-flag">Viết dở · ${pct}% hoàn thiện</span>
+                <b class="rz-name">${esc(ten)}</b>
+                <span class="rz-meta">${esc(noi)}${noi ? ' · ' : ''}sửa ${timeAgo(draft.lastUpdated)}</span>
+            </span>
+            <span class="rz-cta">Viết tiếp <i class="fas fa-arrow-right"></i></span>
+        </button>`;
+}
+
 function render() {
+    renderFolders();   // chạy trước: thư mục đang chọn có thể đã bị xóa, phải trả về "Tất cả" ngay
     renderStats();
     const box = document.getElementById('medical-record-cards');
     const list = visibleRecords();
     for (const id of [...selected]) if (!records.some(r => String(r.id) === id)) selected.delete(id);
     box.innerHTML = list.length ? list.map(cardHtml).join('') : emptyState();
     box.classList.toggle('select-mode', selectMode);
+    box.classList.toggle('view-compact', viewMode === 'compact');
+    document.querySelectorAll('#view-toggle button').forEach(b =>
+        b.classList.toggle('on', b.dataset.view === viewMode));
+    const count = document.getElementById('result-count');
+    if (count) count.textContent = list.length ? `${list.length} bệnh án` : '';
+    renderResume();
     renderBulkBar();
-    renderFolders();
     document.getElementById('empty-create')?.addEventListener('click', createNew);
+    document.getElementById('empty-clear')?.addEventListener('click', clearFilters);
+}
+
+/** Bỏ hết bộ lọc: trạng thái, thư mục và từ khóa */
+function clearFilters() {
+    filter = 'all';
+    folderId = '';
+    keyword = '';
+    qTokens = [];
+    const box = document.getElementById('search-record');
+    if (box) box.value = '';
+    savePrefs();
+    render();
 }
 
 /* ================= Thư mục đợt thực hành ================= */
@@ -272,6 +381,10 @@ function renderFolders() {
     const box = document.getElementById('folder-chips');
     if (!box) return;
     const folders = mergeFolders(records);
+    if (folderId && folderId !== '__none__' && !folders.some(f => String(f.id) === String(folderId))) {
+        folderId = '';        // thư mục đã bị xóa ở máy khác — đừng để danh sách trống không lý do
+        savePrefs();
+    }
     const loose = records.filter(r => !r.thuMuc?.id).length;
     const chip = (id, label, count) =>
         `<button class="folder-chip${String(folderId) === String(id) ? ' active' : ''}" data-folder="${esc(id)}">
@@ -318,7 +431,7 @@ function setupFolders() {
         const chip = e.target.closest('[data-folder]');
         if (!chip) return;
         folderId = chip.dataset.folder;
-        renderFolders();
+        savePrefs();
         render();
     });
 
@@ -350,6 +463,7 @@ function setupFolders() {
         }
         closeFolderModal();
         folderId = f.id;
+        savePrefs();
         await reload();
         showToast(editingFolder ? 'Đã cập nhật thư mục.' : 'Đã tạo thư mục — bệnh án tạo trong đây sẽ tự điền khoa và bệnh viện.', 'success');
     });
@@ -365,6 +479,7 @@ function setupFolders() {
         deleteFolder(editingFolder.id);
         closeFolderModal();
         folderId = '';
+        savePrefs();
         await reload();
         showToast('Đã xóa thư mục.', 'success');
     });
@@ -460,13 +575,12 @@ function renderBulkBar() {
     const bar = document.getElementById('bulk-bar');
     if (!bar) return;
     const show = selectMode && selected.size > 0;
-    bar.classList.toggle('hidden', !show);
-    bar.style.display = show ? 'flex' : 'none';
+    bar.classList.toggle('hidden', !show);   // để CSS lo bố cục: dàn ngang ở máy tính, lưới đáy màn ở điện thoại
     document.getElementById('bulk-count').textContent = `${selected.size} đã chọn`;
     const st = document.getElementById('select-toggle');
     if (st) {
-        st.style.background = selectMode ? '#ec4899' : '';
-        st.style.color = selectMode ? '#fff' : '';
+        st.classList.toggle('on', selectMode);
+        st.setAttribute('aria-pressed', selectMode ? 'true' : 'false');
     }
 }
 
@@ -484,6 +598,8 @@ function setSelectMode(on) {
         document.querySelectorAll('.rec-card.selected').forEach(c => c.classList.remove('selected'));
     }
     document.getElementById('medical-record-cards')?.classList.toggle('select-mode', on);
+    document.body.classList.toggle('select-on', on);   // ẩn nút tạo + linh vật để không che thanh thao tác
+    renderResume();                                    // đang chọn hàng loạt thì giấu thẻ "viết tiếp"
     renderBulkBar();
 }
 
@@ -580,9 +696,13 @@ function createNew() {
     location.href = '../medical-record/tao-benh-an.html?id=' + encodeURIComponent('BA-' + Date.now()) + q;
 }
 
+/* Trước khi Firebase trả lời thì isSignedIn() còn là false — đừng vội báo
+   "chỉ lưu trên máy này", người dùng tưởng mất đồng bộ. */
+let authReady = false;
+
 function updateSyncStatus() {
     const el = document.getElementById('sync-status');
-    if (!el) return;
+    if (!el || !authReady) return;
     el.innerHTML = isSignedIn()
         ? `<i class="fas fa-cloud text-green-400"></i> Đã đồng bộ đám mây · ${records.length} bệnh án`
         : `<i class="fas fa-hdd text-amber-400"></i> Chỉ lưu trên máy này · <a href="../../index.html" class="text-pink-500 underline font-medium">đăng nhập để đồng bộ</a>`;
@@ -637,21 +757,36 @@ function setupActions() {
     document.getElementById('create-new-record')?.addEventListener('click', createNew);
 
     document.getElementById('search-record')?.addEventListener('input', (e) => {
-        keyword = e.target.value.trim().toLowerCase();
+        keyword = e.target.value.trim();
+        qTokens = fold(keyword).split(/\s+/).filter(Boolean);
         render();
     });
 
-    document.getElementById('sort-record')?.addEventListener('change', (e) => {
+    // Đổi chế độ xem: thẻ đầy đủ ⇄ danh sách gọn (nhớ lại cho lần sau)
+    document.getElementById('view-toggle')?.addEventListener('click', (e) => {
+        const b = e.target.closest('button[data-view]');
+        if (b) setView(b.dataset.view);
+    });
+
+    document.getElementById('resume-slot')?.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-resume]');
+        if (b) location.href = '../medical-record/tao-benh-an.html?id=' + encodeURIComponent(b.dataset.resume);
+    });
+
+    const sortSel = document.getElementById('sort-record');
+    if (sortSel) sortSel.value = sortMode;
+    sortSel?.addEventListener('change', (e) => {
         sortMode = e.target.value;
+        savePrefs();
         render();
     });
 
-    document.getElementById('filter-chips')?.addEventListener('click', (e) => {
-        const chip = e.target.closest('.filter-chip');
-        if (!chip) return;
-        document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        filter = chip.dataset.filter;
+    // Bộ lọc trạng thái nằm luôn trên 3 thẻ tổng quan — vùng bấm to, vừa ngón tay
+    document.getElementById('stat-filter')?.addEventListener('click', (e) => {
+        const b = e.target.closest('.stat-btn');
+        if (!b) return;
+        filter = b.dataset.filter;
+        savePrefs();
         render();
     });
 
@@ -763,20 +898,59 @@ function setupActions() {
     });
 }
 
+function setView(mode) {
+    if (mode !== 'grid' && mode !== 'compact') return;
+    viewMode = mode;
+    savePrefs();
+    render();
+}
+
+/* ================= Phím tắt (máy tính) =================
+   / hoặc s: tìm · n: bệnh án mới · v: đổi chế độ xem · Esc: thoát/xóa tìm */
+function setupKeys() {
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        const t = e.target;
+        const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
+        const search = document.getElementById('search-record');
+
+        if (e.key === 'Escape') {
+            const modal = document.querySelector('#move-modal:not(.hidden), #folder-modal:not(.hidden)');
+            if (modal) return modal.classList.add('hidden');
+            if (document.querySelector('.rec-card.menu-open'))
+                return document.querySelectorAll('.rec-card.menu-open').forEach(c => c.classList.remove('menu-open'));
+            if (selectMode) return setSelectMode(false);
+            if (keyword) { search.value = ''; keyword = ''; qTokens = []; search.blur(); render(); }
+            return;
+        }
+        if (typing) return;
+        if (e.key === '/' || e.key === 's') { e.preventDefault(); search?.focus(); search?.select(); }
+        else if (e.key === 'n') { e.preventDefault(); createNew(); }
+        else if (e.key === 'v') { e.preventDefault(); setView(viewMode === 'grid' ? 'compact' : 'grid'); }
+    });
+}
+
 /* ================= Khởi động ================= */
+loadPrefs();
 setupChrome();
 setupActions();
 setupFolders();
 setupMove();
 setupBulk();
+setupKeys();
 document.addEventListener('click', (e) => {
     if (!e.target.closest('.menu-record')) {
         document.querySelectorAll('.rec-card.menu-open').forEach(c => c.classList.remove('menu-open'));
     }
 });
 
+/* Vẽ ngay danh sách trong máy, đừng chờ Firebase trả lời: mạng 3G mà phải đợi
+   xác thực xong mới thấy bệnh án thì tưởng app treo. */
+reload();
+
 // Lắng nghe phiên đăng nhập: tự động cập nhật avatar, tên người dùng và đồng bộ đám mây
 onSessionUser(async (user) => {
+    authReady = true;
     const name = user ? (user.displayName || (user.email || '').split('@')[0] || 'Bạn') : 'Đăng nhập';
     const avatar = (user && user.photoURL) ||
         `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=D8BFD8&color=fff`;
