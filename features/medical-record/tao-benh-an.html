@@ -11736,6 +11736,485 @@
             .dt-resume { display: none }
         }
     </style>
+
+    <!-- =====================================================================
+         TỪNG CÂU MỘT · BÀN PHÍM SINH HIỆU · CHẠM GIỮ (tao-benh-an-tungcau.js
+         và phần 11-12 của tao-benh-an-dt.js)
+         Ba lớp phủ toàn màn hình, đều là con trực tiếp của <body>.
+         ===================================================================== -->
+    <style>
+        /* ---------- Nút cái: lối vào chế độ Từng câu ---------- */
+        .pv-fab {
+            position: fixed;
+            left: var(--page-in);
+            bottom: var(--rail);
+            z-index: var(--z-rail);
+            display: none;
+            align-items: center;
+            gap: 7px;
+            padding: 9px 15px 9px 12px;
+            border: 0;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #f77fbd, #b9a9e0);
+            color: #fff;
+            font-size: 13px;
+            font-weight: 800;
+            box-shadow: 0 16px 32px -14px rgba(190, 80, 140, .75);
+        }
+
+        body.dt-on .pv-fab { display: inline-flex }
+
+        /* Đang gõ, đang mở khay / thẻ Nhìn nhanh / bảng phủ: nút cái nhường chỗ */
+        body.typing .pv-fab,
+        body.ba-tools-open .pv-fab,
+        body.nl-peek-on .pv-fab,
+        body.pv-on .pv-fab,
+        body.pad-on .pv-fab,
+        body.dt-full-on .pv-fab { display: none }
+
+        .pv-fab b {
+            min-width: 20px;
+            padding: 1px 6px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, .25);
+            font-size: 11.5px;
+        }
+
+        .pv-fab b:empty { display: none }
+
+        .pv-fab.is-done { background: linear-gradient(135deg, #86c8a8, #a8ded0) }
+
+        /* ---------- Từng câu một ---------- */
+        .pv {
+            position: fixed;
+            inset: 0;
+            z-index: 87;
+            display: none;
+            flex-direction: column;
+            background:
+                radial-gradient(700px 380px at 8% -8%, #ffeef6 0%, transparent 60%),
+                radial-gradient(620px 360px at 100% 0%, #f2eeff 0%, transparent 58%),
+                #fffdfe;
+        }
+
+        body.pv-on .pv:not(.hidden) { display: flex }
+
+        .pv-top {
+            flex: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px 6px;
+        }
+
+        .pv-x {
+            width: 36px;
+            height: 36px;
+            flex: none;
+            display: grid;
+            place-items: center;
+            border: 1px solid var(--brand-line);
+            border-radius: 12px;
+            background: #fff;
+            color: var(--brand-deep);
+        }
+
+        .pv-bar {
+            flex: 1 1 auto;
+            height: 6px;
+            border-radius: 999px;
+            background: #f6e7f1;
+            overflow: hidden;
+        }
+
+        .pv-bar i {
+            display: block;
+            height: 100%;
+            width: 0;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #f77fbd, #b9a9e0);
+            transition: width .25s ease;
+        }
+
+        .pv-n {
+            flex: none;
+            font-size: 12px;
+            font-weight: 800;
+            color: var(--brand-deep);
+        }
+
+        .pv-body {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            padding: 6px 14px 14px;
+        }
+
+        .pv-sec {
+            font-size: 11.5px;
+            font-weight: 700;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+
+        .pv-q {
+            margin: 0 0 4px;
+            font-size: 21px;
+            line-height: 1.3;
+            font-weight: 800;
+            color: var(--brand-deep);
+        }
+
+        .pv-hint {
+            margin: 0 0 12px;
+            font-size: 12.5px;
+            color: var(--muted);
+        }
+
+        .pv-field {
+            width: 100%;
+            min-height: 52px;
+            padding: 13px 14px;
+            border: 1px solid var(--brand-line);
+            border-radius: 16px;
+            background: #fff;
+            font-size: var(--fs-input);
+            line-height: 1.6;
+            resize: none;
+        }
+
+        textarea.pv-field { min-height: 150px }
+
+        .pv-chips,
+        .pv-opts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .pv-chip,
+        .pv-opt {
+            flex: 1 1 calc(50% - 8px);
+            min-height: 50px;
+            padding: 10px 14px;
+            border: 1px solid #fbcfe8;
+            border-radius: 15px;
+            background: #fdf2f8;
+            color: #db2777;
+            font-size: 13.5px;
+            font-weight: 700;
+            text-align: left;
+        }
+
+        .pv-opt {
+            flex: 1 1 calc(50% - 8px);
+            text-align: center;
+        }
+
+        .pv-chip.is-on,
+        .pv-opt.is-on {
+            background: linear-gradient(135deg, #f77fbd, #dd5f97);
+            border-color: transparent;
+            color: #fff;
+        }
+
+        .pv-more {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        .pv-foot {
+            flex: none;
+            display: flex;
+            gap: 8px;
+            padding: 8px 12px calc(10px + var(--safe-b));
+            border-top: 1px solid var(--brand-line);
+            background: rgba(255, 255, 255, .96);
+        }
+
+        .pv-foot[hidden] { display: none }
+
+        .pv-b {
+            min-height: 48px;
+            padding: 10px 16px;
+            border: 1px solid var(--brand-line);
+            border-radius: 15px;
+            background: #fff;
+            color: var(--brand-deep);
+            font-size: 13.5px;
+            font-weight: 800;
+        }
+
+        .pv-foot .pv-b { flex: 1 1 auto }
+        .pv-foot .pv-b[data-p="prev"] { flex: 0 0 54px }
+
+        .pv-b.is-key {
+            background: linear-gradient(135deg, #f77fbd, #dd5f97);
+            border-color: transparent;
+            color: #fff;
+        }
+
+        .pv-mic.is-on {
+            background: #ef4444;
+            border-color: #ef4444;
+            color: #fff;
+            animation: dtPulse 1.1s ease-in-out infinite;
+        }
+
+        .pv-end {
+            padding: 28px 6px;
+            text-align: center;
+        }
+
+        .pv-end i {
+            font-size: 46px;
+            color: #86c8a8;
+        }
+
+        .pv-end h3 {
+            margin: 14px 0 6px;
+            font-size: 19px;
+            font-weight: 800;
+            color: var(--brand-deep);
+        }
+
+        .pv-end p {
+            margin: 0 0 18px;
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .pv-end .pv-b {
+            display: block;
+            width: 100%;
+            margin-top: 8px;
+        }
+
+        /* ---------- Bàn phím sinh hiệu ---------- */
+        .pad {
+            position: fixed;
+            inset: 0;
+            z-index: 88;
+            display: none;
+            flex-direction: column;
+            padding-bottom: var(--safe-b);
+            background: #fffdfe;
+        }
+
+        body.pad-on .pad:not(.hidden) { display: flex }
+
+        .pad-head {
+            flex: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+        }
+
+        .pad-head b {
+            font-size: 15px;
+            color: var(--brand-deep);
+        }
+
+        .pad-note {
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .pad-tabs {
+            flex: none;
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            padding: 0 12px 8px;
+        }
+
+        .pad-tabs::-webkit-scrollbar { display: none }
+
+        .pad-tab {
+            flex: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            min-height: 38px;
+            padding: 6px 13px;
+            border: 1px solid var(--brand-line);
+            border-radius: 999px;
+            background: #fff;
+            color: var(--brand-deep);
+            font-size: 12.5px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .pad-tab b {
+            font-size: 12.5px;
+            color: #7c6f86;
+        }
+
+        .pad-tab.is-set { background: #f3fbf7; border-color: #b7e3cd }
+
+        .pad-tab.is-on {
+            background: linear-gradient(135deg, #f77fbd, #dd5f97);
+            border-color: transparent;
+            color: #fff;
+        }
+
+        .pad-tab.is-on b { color: rgba(255, 255, 255, .85) }
+
+        .pad-show {
+            flex: 1 1 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 10px 12px 14px;
+        }
+
+        .pad-val {
+            font-size: 40px;
+            font-weight: 800;
+            letter-spacing: .5px;
+            color: var(--brand-deep);
+        }
+
+        .pad-unit {
+            font-size: 15px;
+            color: var(--muted);
+        }
+
+        .pad-ref {
+            font-size: 11.5px;
+            font-style: normal;
+            color: #a096aa;
+        }
+
+        .pad-keys {
+            flex: none;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            padding: 0 12px 12px;
+            align-content: end;
+        }
+
+        .pad-key {
+            min-height: 56px;
+            border: 1px solid var(--brand-line);
+            border-radius: 16px;
+            background: #fff;
+            color: #514a58;
+            font-size: 21px;
+            font-weight: 700;
+            box-shadow: 0 2px 0 #f6e7f1;
+        }
+
+        .pad-key:active { transform: translateY(1px); box-shadow: none }
+
+        .pad-key:disabled { opacity: .32 }
+
+        .pad-key.is-ok,
+        .pad-key.is-key {
+            font-size: 14px;
+            font-weight: 800;
+        }
+
+        .pad-key.is-ok { color: var(--brand-deep); background: var(--brand-soft) }
+
+        .pad-key.is-key {
+            grid-column: span 2;
+            background: linear-gradient(135deg, #f77fbd, #dd5f97);
+            border-color: transparent;
+            color: #fff;
+        }
+
+        /* ---------- Chạm giữ một ô ---------- */
+        .dt-lp {
+            position: fixed;
+            inset: 0;
+            z-index: 89;
+            display: none;
+        }
+
+        body.dt-on .dt-lp:not(.hidden) { display: block }
+
+        .dt-lp-bg {
+            position: absolute;
+            inset: 0;
+            background: rgba(60, 40, 55, .32);
+        }
+
+        .dt-lp-panel {
+            position: absolute;
+            left: 10px;
+            right: 10px;
+            bottom: calc(10px + var(--safe-b));
+            padding: 10px;
+            border-radius: 22px;
+            background: #fff;
+            box-shadow: 0 24px 50px -18px rgba(120, 60, 100, .55);
+            animation: dtUp2 .18s ease-out;
+        }
+
+        @keyframes dtUp2 {
+            from { opacity: 0; transform: translateY(14px) }
+        }
+
+        .dt-lp-lab {
+            padding: 4px 10px 10px;
+            font-size: 12px;
+            font-weight: 800;
+            color: var(--muted);
+        }
+
+        .dt-lp-b {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            min-height: 50px;
+            padding: 10px 14px;
+            border: 0;
+            border-radius: 14px;
+            background: transparent;
+            color: var(--ink);
+            font-size: 14.5px;
+            font-weight: 700;
+            text-align: left;
+        }
+
+        .dt-lp-b i { width: 20px; color: var(--brand-deep) }
+        .dt-lp-b:active { background: var(--brand-soft) }
+        .dt-lp-b.is-warn { color: #d1495b }
+        .dt-lp-b.is-warn i { color: #d1495b }
+        .dt-lp-b.is-on { background: #ef4444; color: #fff }
+        .dt-lp-b.is-on i { color: #fff }
+        .dt-lp-b[hidden] { display: none }
+
+        /* ---------- Chip "Bình thường" của ô khám ---------- */
+        .chip.dt-norm {
+            border-color: #b7e3cd;
+            background: #f3fbf7;
+            color: #2f7d5b;
+            font-weight: 700;
+        }
+
+        .chip.dt-norm.is-on {
+            background: #2f7d5b;
+            border-color: #2f7d5b;
+            color: #fff;
+        }
+
+        @media (min-width: 641px) {
+            .pv-fab, .pv, .pad, .dt-lp { display: none !important }
+            .nl-vq-go.dt-only { display: none !important }
+        }
+    </style>
 </head>
 
 <body class="min-h-screen flex flex-col items-center p-2 sm:p-6 md:py-10">
@@ -13429,6 +13908,7 @@
     <script type="module" src="nhap-lien-ket.js"></script>
     <script type="module" src="toan-canh.js"></script>
     <script type="module" src="tao-benh-an-dt.js"></script>
+    <script type="module" src="tao-benh-an-tungcau.js"></script>
 </body>
 
 </html>

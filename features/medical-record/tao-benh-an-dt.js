@@ -26,6 +26,8 @@
 
 import { showToast } from '../../core/utils.js';
 import { goTo, labelOf } from './tao-benh-an-them.js';
+import { NORMAL_EXAM } from './goi-y-nhap.js';
+import { fold } from './tim-kiem.js';
 
 const $ = (id) => document.getElementById(id);
 const form = $('medical-record-form');
@@ -389,9 +391,16 @@ function initPhone() {
                 /* Nút nằm trong <label> bọc <select>: chặn để cú chạm không bị
                    nhãn chuyển tiếp thành "mở bảng chọn của máy". */
                 e.preventDefault();
+                const dau = !sel.value;          // lan chon DAU tien cua o nay
                 setVal(sel, b.dataset.v === sel.value ? '' : b.dataset.v);
                 mark();
                 navigator.vibrate?.(6);
+                /* Chon xong la nhay luon sang o sau - nhung chi o lan chon dau:
+                   nguoi ta dang sua lai lua chon cu ma bi da di cho khac thi uc. */
+                if (dau && sel.value) setTimeout(() => {
+                    const l = fieldList();
+                    l[l.indexOf(sel) + 1]?.focus({ preventScroll: true });
+                }, 260);
             });
             sel.addEventListener('change', mark);
             mark();
@@ -551,6 +560,127 @@ function initPhone() {
     });
 
     /* =================================================================
+       11. MỘT CHẠM "BÌNH THƯỜNG" CHO Ô KHÁM
+       Mục V–VI có 13 ô, khám bình thường thì cả 13 đều là một đoạn dài đọc
+       thuộc lòng. Trang đã có nút điền một lượt cả 13 ô, nhưng khám thật hay
+       là "12 ô bình thường, 1 ô có bất thường" — nút gộp không dùng được.
+       Nay mỗi ô có chip riêng, chạm lần nữa là xóa.
+       Chip được nhét vào ĐÚNG hàng .chips có sẵn nên nó theo lên cả thanh bàn
+       phím lẫn màn Từng câu, không phải viết lại chỗ nào.
+       ================================================================= */
+    function normalChips() {
+        Object.entries(NORMAL_EXAM).forEach(([id, text]) => {
+            const el = $(id);
+            if (!el || el.dataset.dtNorm) return;
+            el.dataset.dtNorm = '1';
+            let row = chipsOf(el);
+            // Ô nào sẵn có chip "Bình thường" (mấy ô lược qua cơ quan) thì thôi
+            /* fold() bỏ dấu rồi mới so: chữ "thường" có ườ, viết regex theo dấu là
+               trượt (đã dính một lần) — mà trượt thì ô mọc hai chip y hệt nhau. */
+            if (row && [...row.querySelectorAll('.chip')].some(b => fold(b.textContent).startsWith('binh thuong'))) return;
+            if (!row) {
+                row = document.createElement('div');
+                row.className = 'chips compact';
+                el.insertAdjacentElement('afterend', row);
+            }
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'chip dt-norm';
+            b.innerHTML = '<i class="fas fa-check"></i> Bình thường';
+            b.addEventListener('mousedown', (e) => e.preventDefault());
+            const mark = () => b.classList.toggle('is-on', el.value.trim() === text);
+            b.addEventListener('click', () => {
+                setVal(el, el.value.trim() === text ? '' : text);
+                mark();
+                navigator.vibrate?.(6);
+            });
+            el.addEventListener('input', mark);
+            row.prepend(b);
+            mark();
+        });
+    }
+
+    /* =================================================================
+       12. CHẠM GIỮ MỘT Ô → BẢNG VIỆC NHANH
+       Điện thoại không có chuột phải, mà mấy việc hay làm với một ô (đọc
+       chính tả, xóa sạch, chép, dán, mở rộng) đang nằm rải ở ba chỗ khác
+       nhau. Giữ ngón nửa giây trên ô là có đủ, ngay tầm ngón cái.
+       ================================================================= */
+    let lpEl = null, lpTimer = 0, lpSheet = null;
+
+    function buildLp() {
+        lpSheet = document.createElement('div');
+        lpSheet.className = 'dt-lp hidden';
+        lpSheet.innerHTML = `
+            <div class="dt-lp-bg" data-l="close"></div>
+            <div class="dt-lp-panel">
+                <div class="dt-lp-lab"></div>
+                <button type="button" class="dt-lp-b" data-l="mic"><i class="fas fa-microphone"></i> Đọc chính tả</button>
+                <button type="button" class="dt-lp-b" data-l="full"><i class="fas fa-up-right-and-down-left-from-center"></i> Mở rộng cả màn hình</button>
+                <button type="button" class="dt-lp-b" data-l="copy"><i class="fas fa-copy"></i> Chép nội dung</button>
+                <button type="button" class="dt-lp-b" data-l="paste"><i class="fas fa-paste"></i> Dán vào ô</button>
+                <button type="button" class="dt-lp-b is-warn" data-l="clear"><i class="fas fa-eraser"></i> Xóa sạch ô</button>
+            </div>`;
+        document.body.appendChild(lpSheet);
+        lpSheet.addEventListener('click', async (e) => {
+            const b = e.target.closest('[data-l]');
+            if (!b || !lpEl) return;
+            const k = b.dataset.l;
+            const el = lpEl;
+            if (k !== 'mic') closeLp();
+            if (k === 'close') return;
+            if (k === 'full') return el.tagName === 'TEXTAREA' ? openFull(el)
+                : showToast('Ô một dòng không cần mở rộng.', 'info', 1600);
+            if (k === 'copy') {
+                if (!el.value) return showToast('Ô đang trống.', 'info', 1500);
+                try { await navigator.clipboard.writeText(el.value); showToast('Đã chép.', 'success', 1500); }
+                catch { showToast('Máy không cho chép tự động — chép tay bằng bàn phím nhé.', 'warning'); }
+                return;
+            }
+            if (k === 'paste') {
+                try {
+                    const t = await navigator.clipboard.readText();
+                    if (!t) return showToast('Bộ nhớ tạm đang trống.', 'info', 1600);
+                    setVal(el, el.value ? el.value.replace(/\s+$/, '') + ' ' + t : t);
+                } catch { showToast('Máy không cho đọc bộ nhớ tạm — dán tay bằng bàn phím nhé.', 'warning'); }
+                return;
+            }
+            if (k === 'clear') {
+                if (!el.value) return;
+                setVal(el, '');
+                showToast('Đã xóa nội dung ô.', 'info', 1600);
+                return;
+            }
+            if (k === 'mic') return dictate((t) => {
+                setVal(el, el.value && !/\s$/.test(el.value) ? el.value + ' ' + t : el.value + t);
+            }, b);
+        });
+    }
+
+    function openLp(el) {
+        if (!lpSheet) buildLp();
+        lpEl = el;
+        lpSheet.querySelector('.dt-lp-lab').textContent = String(labelOf(el) || 'Ô nhập').slice(0, 46);
+        lpSheet.querySelector('[data-l="full"]').hidden = el.tagName !== 'TEXTAREA';
+        lpSheet.classList.remove('hidden');
+        navigator.vibrate?.(12);
+    }
+    function closeLp() {
+        if (rec) rec.stop();
+        lpSheet?.classList.add('hidden');
+    }
+
+    form.addEventListener('touchstart', (e) => {
+        if (!isPhone() || e.touches.length !== 1) return;
+        const el = e.target;
+        if (!el.matches?.('input[type=text], input:not([type]), textarea') || !isField(el)) return;
+        clearTimeout(lpTimer);
+        lpTimer = setTimeout(() => openLp(el), 550);
+    }, { passive: true });
+    ['touchmove', 'touchend', 'touchcancel', 'scroll'].forEach(ev =>
+        addEventListener(ev, () => clearTimeout(lpTimer), { passive: true }));
+
+    /* =================================================================
        GẮN VÀO KHAY CÔNG CỤ CÓ SẴN
        ================================================================= */
     const tools = $('ba-tools');
@@ -568,6 +698,7 @@ function initPhone() {
         if (!isPhone()) return;
         chipifySelects();
         whenChips();
+        normalChips();
     }
     const boot = () => { buildOnce(); offerResume(); };
     setTimeout(boot, 900);
