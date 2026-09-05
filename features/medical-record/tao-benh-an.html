@@ -12215,6 +12215,504 @@
             .nl-vq-go.dt-only { display: none !important }
         }
     </style>
+
+    <!-- =====================================================================
+         BÀN CÂN BIỆN LUẬN (bien-luan-them.js)
+         Ba chế độ mới của mục X (Đối chiếu · Hỏi vặn · So A–B), thanh tổng
+         quan trên đầu và màn Trình bày.
+         ===================================================================== -->
+    <style>
+        /* ---------- Thanh tổng quan ---------- */
+        .blx-bar {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 7px;
+            margin: 0 0 10px;
+            padding: 9px 11px;
+            border: 1px dashed var(--brand-line, #f3dde8);
+            border-radius: 14px;
+            background: var(--brand-soft, #fdf2f7);
+        }
+
+        .blx-sum {
+            font-size: 12.5px;
+            color: var(--muted, #a096aa);
+        }
+
+        .blx-sum b { color: var(--brand-deep, #b4657f) }
+
+        .blx-grow { flex: 1 1 auto }
+
+        .blx-chip {
+            min-height: 32px;
+            padding: 5px 11px;
+            border: 1px solid var(--brand-line, #f3dde8);
+            border-radius: 999px;
+            background: #fff;
+            color: var(--brand-deep, #b4657f);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .blx-chip.is-warn {
+            border-color: #f6c9a8;
+            background: #fff7ed;
+            color: #b45309;
+        }
+
+        .blx-chip.is-key {
+            border-color: transparent;
+            background: linear-gradient(135deg, #f77fbd, #b9a9e0);
+            color: #fff;
+        }
+
+        /* ---------- Bảng lớn ---------- */
+        .blx-panel {
+            margin-top: 4px;
+            padding: 4px 0 2px;
+        }
+
+        .blx-panel.is-hidden { display: none }
+
+        .blx-lead {
+            margin: 0 0 10px;
+            font-size: 12.5px;
+            color: var(--muted, #a096aa);
+        }
+
+        .blx-empty {
+            margin: 10px 0;
+            padding: 14px;
+            border: 1px dashed var(--brand-line, #f3dde8);
+            border-radius: 14px;
+            font-size: 13px;
+            color: var(--muted, #a096aa);
+            text-align: center;
+        }
+
+        .blx-empty.is-ok {
+            border-color: #b7e3cd;
+            background: #f3fbf7;
+            color: #2f7d5b;
+            font-weight: 700;
+        }
+
+        .blx-vd {
+            margin-bottom: 16px;
+            padding: 12px;
+            border: 1px solid var(--brand-line, #f3dde8);
+            border-radius: 16px;
+            background: #fff;
+        }
+
+        .blx-h {
+            margin: 0 0 10px;
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--brand-deep, #b4657f);
+        }
+
+        .blx-warn {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+            padding: 9px 11px;
+            border: 1px solid #f6c9a8;
+            border-radius: 13px;
+            background: #fff7ed;
+            font-size: 12.5px;
+            color: #92400e;
+        }
+
+        .blx-warn b { color: #b45309 }
+
+        /* ---------- Một nhánh trong bàn cân ---------- */
+        .blx-cause {
+            margin-top: 10px;
+            padding: 10px 11px;
+            border: 1px solid #f0e7ee;
+            border-left: 4px solid #cbd5e1;
+            border-radius: 12px;
+            background: #fffdfe;
+        }
+
+        .blx-cause.lv-0 { border-left-color: #059669 }
+        .blx-cause.lv-1 { border-left-color: #7c3aed }
+        .blx-cause.lv-2 { border-left-color: #9ca3af }
+        .blx-cause.lv-3 { border-left-color: #ea580c }
+
+        .blx-cause-h {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .blx-cause-h b {
+            font-size: 13.5px;
+            color: #514a58;
+        }
+
+        .blx-lv {
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #f5f3ff;
+            font-size: 11px;
+            font-weight: 700;
+            color: #6d5bd0;
+        }
+
+        .blx-score {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 96px;
+            height: 16px;
+            padding: 0 6px;
+            border-radius: 999px;
+            background: #f1f5f9;
+            overflow: hidden;
+        }
+
+        .blx-score i {
+            position: absolute;
+            inset: 0 auto 0 0;
+            background: linear-gradient(90deg, #86c8a8, #4fb286);
+        }
+
+        .blx-score em {
+            position: relative;
+            font-style: normal;
+            font-size: 10.5px;
+            font-weight: 800;
+            color: #334155;
+        }
+
+        .blx-feats {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .blx-f {
+            padding: 4px 10px;
+            border: 1px solid #e2e8f0;
+            border-radius: 999px;
+            background: #fff;
+            font-size: 11.5px;
+            font-weight: 600;
+            color: #64748b;
+            text-align: left;
+        }
+
+        .blx-f.is-yes {
+            border-color: #b7e3cd;
+            background: #f3fbf7;
+            color: #2f7d5b;
+        }
+
+        .blx-f.is-no {
+            border-color: #fbcfe8;
+            background: #fdf2f8;
+            color: #be185d;
+            text-decoration: line-through;
+        }
+
+        .blx-f.is-ask {
+            border-style: dashed;
+            border-color: #cbd5e1;
+        }
+
+        .blx-note {
+            margin: 4px 0;
+            font-size: 11.5px;
+            color: #a096aa;
+        }
+
+        .blx-crit {
+            margin: 8px 0 0;
+            padding: 8px 10px;
+            border-radius: 11px;
+            background: #f8fafc;
+            font-size: 11.5px;
+            line-height: 1.55;
+            color: #475569;
+        }
+
+        .blx-need,
+        .blx-labs {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 9px;
+        }
+
+        .blx-miss {
+            font-size: 11.5px;
+            color: #92400e;
+        }
+
+        .blx-need > span,
+        .blx-labs > span {
+            font-size: 11.5px;
+            font-weight: 700;
+            color: var(--brand-deep, #b4657f);
+        }
+
+        .blx-b {
+            min-height: 34px;
+            padding: 6px 12px;
+            border: 1px solid var(--brand-line, #f3dde8);
+            border-radius: 11px;
+            background: #fff;
+            color: var(--brand-deep, #b4657f);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .blx-b.sm {
+            min-height: 30px;
+            padding: 4px 10px;
+            font-size: 11.5px;
+        }
+
+        .blx-b.is-key {
+            border-color: transparent;
+            background: linear-gradient(135deg, #f77fbd, #dd5f97);
+            color: #fff;
+        }
+
+        .blx-b.up { border-color: #fca5a5; color: #b91c1c }
+        .blx-b.down { border-color: #93c5fd; color: #1d4ed8 }
+
+        /* ---------- Thầy sẽ hỏi gì ---------- */
+        .blx-q {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 8px;
+            padding: 10px 12px;
+            border: 1px solid var(--brand-line, #f3dde8);
+            border-radius: 14px;
+            background: #fff;
+        }
+
+        .blx-qn {
+            flex: none;
+            width: 22px;
+            height: 22px;
+            display: grid;
+            place-items: center;
+            border-radius: 999px;
+            background: var(--brand-soft, #fdf2f7);
+            font-size: 11px;
+            font-weight: 800;
+            color: var(--brand-deep, #b4657f);
+        }
+
+        .blx-q > div { flex: 1 1 auto; min-width: 0 }
+
+        .blx-q b {
+            display: block;
+            font-size: 13px;
+            line-height: 1.45;
+            color: #514a58;
+        }
+
+        .blx-q em {
+            display: block;
+            margin-top: 3px;
+            font-style: normal;
+            font-size: 11.5px;
+            line-height: 1.5;
+            color: #a096aa;
+        }
+
+        /* ---------- So A – B ---------- */
+        .blx-vs-head {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            font-size: 12px;
+            color: var(--muted, #a096aa);
+        }
+
+        .blx-sel {
+            flex: 1 1 0;
+            min-width: 0;
+            min-height: 38px;
+            padding: 6px 10px;
+            border: 1px solid var(--brand-line, #f3dde8);
+            border-radius: 11px;
+            background: #fff;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--brand-deep, #b4657f);
+        }
+
+        .blx-vs {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .blx-vs-col {
+            padding: 10px;
+            border: 1px solid var(--brand-line, #f3dde8);
+            border-radius: 14px;
+            background: #fff;
+        }
+
+        .blx-vs-col.mid { background: #f8fafc }
+
+        .blx-vs-col h5 {
+            margin: 0 0 8px;
+            font-size: 11.5px;
+            font-weight: 800;
+            color: var(--brand-deep, #b4657f);
+        }
+
+        .blx-vs-col .blx-f {
+            display: block;
+            width: 100%;
+            margin-bottom: 5px;
+        }
+
+        .blx-vs-cls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 12px;
+            font-size: 11.5px;
+        }
+
+        .blx-vs-cls > div {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* ---------- Màn Trình bày ---------- */
+        .blx-slide {
+            position: fixed;
+            inset: 0;
+            z-index: 87;
+            display: flex;
+            flex-direction: column;
+            padding: 12px 16px calc(12px + var(--safe-b, 0px));
+            background:
+                radial-gradient(700px 380px at 8% -8%, #ffeef6 0%, transparent 60%),
+                #fffdfe;
+        }
+
+        .blx-slide.hidden { display: none }
+        body.blx-slide-on { overflow: hidden }
+
+        .blx-s-top {
+            flex: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding-bottom: 10px;
+        }
+
+        .blx-s-n {
+            font-size: 12px;
+            font-weight: 800;
+            color: var(--brand-deep, #b4657f);
+        }
+
+        .blx-s-body {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            font-size: 17px;
+            line-height: 1.7;
+            color: #3f3946;
+        }
+
+        .blx-s-k {
+            display: inline-block;
+            margin-bottom: 6px;
+            padding: 3px 11px;
+            border-radius: 999px;
+            background: var(--brand-soft, #fdf2f7);
+            font-size: 12px;
+            font-weight: 800;
+            color: var(--brand-deep, #b4657f);
+        }
+
+        .blx-s-body h3 {
+            margin: 4px 0 14px;
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--brand-deep, #b4657f);
+        }
+
+        .blx-s-body p { margin: 0 0 10px }
+
+        .blx-s-foot {
+            flex: none;
+            display: flex;
+            gap: 8px;
+            padding-top: 10px;
+        }
+
+        .blx-s-foot .pv-b { flex: 1 1 auto }
+        .blx-s-foot .pv-b[data-s="prev"] { flex: 0 0 64px }
+
+        /* ---------- Thẻ biện luận gấp theo bước (điện thoại) ---------- */
+        .blx-steps { display: none }
+
+        @media (max-width: 640px) {
+            body.dt-on .blx-steps {
+                display: flex;
+                gap: 6px;
+                margin: 8px 0 4px;
+                overflow-x: auto;
+                scrollbar-width: none;
+            }
+
+            .blx-steps::-webkit-scrollbar { display: none }
+
+            .blx-steps button {
+                flex: 1 1 0;
+                min-height: 36px;
+                padding: 6px 8px;
+                border: 1px solid var(--brand-line, #f3dde8);
+                border-radius: 11px;
+                background: #fff;
+                color: var(--brand-deep, #b4657f);
+                font-size: 11.5px;
+                font-weight: 800;
+                white-space: nowrap;
+            }
+
+            .blx-steps button.is-on {
+                border-color: transparent;
+                background: linear-gradient(135deg, #f77fbd, #dd5f97);
+                color: #fff;
+            }
+
+            /* Ba cột so sánh xếp dọc, không thì chữ vỡ thành từng chữ cái */
+            .blx-vs,
+            .blx-vs-cls { grid-template-columns: 1fr }
+
+            .blx-vs-head { flex-wrap: wrap }
+
+            .blx-s-body { font-size: 16px }
+            .blx-s-body h3 { font-size: 20px }
+        }
+    </style>
 </head>
 
 <body class="min-h-screen flex flex-col items-center p-2 sm:p-6 md:py-10">
@@ -13909,6 +14407,7 @@
     <script type="module" src="toan-canh.js"></script>
     <script type="module" src="tao-benh-an-dt.js"></script>
     <script type="module" src="tao-benh-an-tungcau.js"></script>
+    <script type="module" src="bien-luan-them.js"></script>
 </body>
 
 </html>
