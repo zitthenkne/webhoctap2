@@ -1,7 +1,7 @@
 # Bản đồ dữ liệu — `tao-benh-an.html`
 
-**Đồ thị nằm ở [`BAN-DO-DU-LIEU.codegraph`](BAN-DO-DU-LIEU.codegraph)** — 563 nút,
-887 cạnh, sinh tự động bằng `node ban-do-codegraph.mjs`. Đó mới là nguồn tra cứu.
+**Đồ thị nằm ở [`BAN-DO-DU-LIEU.codegraph`](BAN-DO-DU-LIEU.codegraph)** — 564 nút,
+890 cạnh, sinh tự động bằng `node ban-do-codegraph.mjs`. Đó mới là nguồn tra cứu.
 File này chỉ giữ những quy tắc không diễn tả được bằng một cạnh.
 
 **Chạy lại bộ sinh sau mỗi lần thêm/bớt ô nhập liệu.** Nó tự kiểm luôn: ô nào gõ xong
@@ -31,7 +31,166 @@ trong `buildModel` — khi đó bỏ qua bước 3, và bộ sinh sẽ thấy đ
 
 Xong thì chạy `node ban-do-codegraph.mjs` và kiểm `no_route_to_output` vẫn rỗng.
 
+**Ô chỉ để bấm/tìm, không phải nội dung bệnh án** (như `cmdk-q`, các ô do JS dựng ra
+lúc chạy) thì khai vào danh sách `control_only` trong `ban-do-codegraph.mjs`, đừng để
+nó nằm im thành `no_route_to_output` giả.
+
+## Bốn lớp mã của trang này
+
+| File | Việc | Được phép đụng vào |
+|---|---|---|
+| `tao-benh-an.js` | mạch nhập liệu, tự lưu, tính toán | tất cả |
+| `tao-benh-an-them.js` | lối tắt giao diện (tìm mục, ô trống, tập trung, mục lục nổi, đọc đêm…) | chỉ đọc DOM |
+| `nhap-lien-ket.js` | nhập nhanh & liên kết dữ kiện | chỉ đọc DOM + ghi vào ô có sẵn |
+| `toan-canh.js` | màn Toàn cảnh: sơ đồ cơ thể · lưới hệ cơ quan · bảng đối chiếu chẩn đoán | chỉ đọc DOM và các editor |
+
+Ba file sau nạp **sau** `tao-benh-an.js` nên mọi nút đã gắn xong sự kiện, và chúng
+KHÔNG thêm ô nội dung nào — nên không phải đụng `FIELDS`/`buildModel`. Ghi vào ô thì
+phải dispatch **cả `input` lẫn `change`** (`setField()` trong `nhap-lien-ket.js`), thiếu
+`change` là `MIRRORS` và `bindAuto` không chạy.
+
+`toan-canh.js` chỉ ĐỌC, không ghi vào ô nào — nó vẽ lại những gì đã nhập. Thêm khung
+mới thì lấy dữ liệu qua hàm `export` của các editor (`getSteps`, `docRos`, `getBienLuan`)
+chứ đừng đọc thẳng state riêng của chúng.
+
+## Thang lớp nổi (đáy màn hình)
+
+Khai một chỗ duy nhất trong `<style>`, mục "THANG LỚP NỔI". **Thêm lớp nổi mới thì
+bám vào biến, đừng đặt `bottom` bằng số.**
+
+```
+--dock-h  chỗ thanh Lưu chiếm (đã cộng 10px hở)   82px điện thoại · 94px máy tính
+--rail    mép trên thanh đáy = --dock-h + safe-area
+--z-rail 45 · --z-badge 55 · --z-flash 58
+```
+
+Ba tầng, mỗi tầng **một** thứ:
+
+| Tầng | Ở đâu | Ai đứng |
+|---|---|---|
+| 0 | đáy | thanh Lưu — hoặc thanh trợ nhập lúc đang gõ (`body.typing`) |
+| 1 | `--rail` | khay công cụ **hoặc** thẻ Nhìn nhanh; góc phải: viên đèn logic |
+| 2 | `--rail + 56px` | toast và nút hoàn tác (lớp chớp, cố ý nổi lên trên) |
+
+Loại trừ lẫn nhau bằng class trên `<body>`: `typing`, `ba-tools-open`, `nl-peek-on`,
+`nl-undo-on`. Mọi thứ ở thang này đều **dưới 60** nên bảng chọn mục (60), xem trước
+(65), sơ đồ (70), bảng chọn danh sách (85), tìm nhanh (90) luôn phủ được lên trên.
+
+Đo lại bằng máy chứ đừng nhìn ảnh: dựng `_shot.html` có đoạn đọc
+`getBoundingClientRect()` của từng lớp rồi in ra cặp nào chồng nhau, chụp ở 400 / 500 /
+768 / 1280 px với các trạng thái nghỉ · đang gõ · mở thẻ · mở khay.
+
 ## Footgun
+
+**Bản đồ cơ thể có HAI đường dữ liệu, đừng gộp.** Đau đi đường cũ `m.vung` + `m.dau`
+(một mốc một điểm đau chung); năm loại còn lại — chấn thương, dấu da – niêm, phù,
+khối – hạch, sẹo mổ – dẫn lưu — đi `m.dh = [{z, k, t}]`. Tách ra để bệnh án đã lưu mở
+lên không mất chỗ đau nào. Thêm loại mới thì thêm hàng vào `LOAI_DAU`, thêm luật màu
+`.bm-z.is-on.is-k-<id>` và `.bm-k-<id>` trong `<style>`, và thêm cụm mở đầu câu vào
+`MO_DAU` của `dauHieuProse()` — thiếu cái cuối là dấu không ra được bệnh án.
+
+**Mỗi khu chi tiết là một "mặt", không phải một hàm vẽ riêng.** `MAT` giữ nền + khung
+nhìn; `REGIONS` cột 3 mang tên mặt. Thêm khu = thêm một hàng `MAT` + các hàng `REGIONS`
+mang tên mặt đó, `bodyMapSvg()` không phải sửa. Id vùng của khu phải có tiền tố riêng
+(`dm- nc- bu- bt- bc- lu-`): trùng id với vùng toàn thân thì `BY_ID` lấy hàng sau cùng,
+và `regionMat()` trả sai khu nên tia hướng lan bắc cầu sang khu khác.
+
+**`doiXung()` trong `body-map.js` đòi nửa đường viền kết thúc trên trục x = 100.** Nhánh
+quay về bắt đầu ngay từ điểm cuối; lệch trục là nó nhảy sang toạ độ đã lật và vẽ ra một
+cái nêm to bằng nửa hình — hỏng hẳn chứ không phải xấu.
+
+**Ba khu ngực / bụng / lưng là PHÓNG TO của hình người, không có hình riêng.** `nen:
+NGUOI` + `vb` cắt vào đúng khu, và vùng của chúng dùng hệ toạ độ TOÀN THÂN (không phải
+0–200 như các khu khác). Vẽ tay ba hình đó chỉ ra mấy quả trứng; cắt hình người thì vừa
+đúng giải phẫu vừa luôn khớp với bản toàn thân.
+
+**Ô lớn khai SAU sẽ phủ lên ô nhỏ và cướp cú chạm.** Thứ tự trong `REGIONS` là thứ tự
+vẽ, sau = nằm trên. `nc-uc` (thân xương ức) từng khai sau 5 ổ van nên hai ổ LS2 bấm
+không trúng. Mảng nền rộng phải khai TRƯỚC các điểm nhỏ nằm trên nó; kiểm bằng
+`document.elementFromPoint(tâm ô)`.
+
+**Cửa sổ bản đồ dời nguyên `#hx-dt` ra `<body>`, không dựng bản sao.** Sự kiện gắn trên
+chính `host` nên dời node đi vẫn còn nguyên; và `.page-card` có `backdrop-filter` nên
+`position:fixed` để yên trong đó sẽ neo vào thẻ chứ không vào màn hình. Đóng thì
+`neoCu` (một comment node để lại đúng chỗ) đưa khối về nguyên vị.
+
+**Vùng mới vẽ xong phải soi bằng ảnh, đừng tin toạ độ.** Dựng một trang tạm render mọi
+`MAT_LIST` với tất cả vùng bật sáng rồi chụp — đợt này bắt được 22 vùng thò ra ngoài
+bóng nền (bờ sườn, mông, mắt cá, hố thượng đòn…), không cái nào tự báo lỗi.
+
+**Bảng đối chiếu chẩn đoán (`toan-canh.js`) so chữ CÓ DẤU, khác mọi chỗ khác.** Cả trang
+dùng `fold()` bỏ dấu cho dễ khớp, riêng bảng này thì không được: bỏ dấu xong "đau" và
+"đầu" thành một, nên vế "không đau đầu" biến dấu chứng "Gan to đau" thành *đã ghi âm
+tính* — sai hẳn nghĩa, mà lại nằm ngay dưới tên chẩn đoán nên đọc như một khẳng định.
+Luật khớp cũng phải đòi **đủ mọi từ chính**, không phải "trùng vài từ": lỏng hơn thì
+"khó thở khi gắng sức" tick xanh vào ô "Khó thở khi nằm". Thà để *chưa hỏi tới*.
+
+**`display:flex` trong media query thắng thuộc tính `[hidden]`.** `[hidden]{display:none}`
+chỉ nằm trong UA sheet nên thua bất kỳ luật lớp nào. Dải mục lục nổi `.ol-rail` từng hiện
+ra một khối rỗng ở mục không có tiêu đề nào; phải viết thêm `.ol-rail[hidden]{display:none
+!important}`.
+
+**Thêm span vào `.cmdk-item` phải cho nó xuống hàng riêng.** `.cmdk-item span` có sẵn
+`flex:none`; một span rộng 100% sẽ chiếm trọn hàng và bóp `<b>` tên ô còn 0px. Dùng
+`flex: 1 0 100%` + `flex-wrap: wrap` trên thẻ cha.
+
+**Nhãn cắt bằng ellipsis phải đặt trên chính THẺ CHỮ.** Đặt `text-overflow: ellipsis` lên
+một khối `display:flex` (như `.ol-item`) thì chữ tràn ra ngoài chứ không cắt — phải bọc
+chữ trong `<span>` riêng.
+
+**Lớp nổi phải neo vào THẺ NỘI DUNG, không neo vào mép màn hình.** Dùng `--page-in`
+(khai cùng chỗ với thang lớp). Màn 1280px thì thẻ chỉ rộng 1152px và nằm giữa — neo
+`right: 14px` là thanh thò ra ngoài thẻ 33px, nhìn đúng như bị kéo lệch sang phải.
+`--page-in` viết bằng `%` chứ không `vw`: phần trăm của khối `fixed` tính theo bề ngang
+đã trừ thanh cuộn, còn `100vw` tính cả (lệch thêm ~16px).
+
+**Chỗ tràn ngang gần như luôn là một trong ba thứ này.** Đã bắt được cả ba trên trang
+này, không cái nào tự báo lỗi:
+1. **Ô con của flex/grid không co được.** Mặc định `min-width: auto` = rộng bằng nội
+   dung nhỏ nhất, nên một dải chip dài không cuộn bên trong mà đội nguyên cái hộp ra
+   ngoài thẻ (hộp "Đủ ý n/8" thừa 82px). Chữa: `min-width: 0` cho ô con; lưới thì
+   `repeat(3, minmax(0, 1fr))` chứ `1fr` vẫn không hẹp hơn chữ dài nhất được.
+   **Dải cuộn ngang chỉ cuộn được khi CẢ chuỗi tổ tiên chịu co.**
+2. **`white-space: nowrap` trên nút nhãn dài** (`.hx-mini` với "Mốc này có đi khám /
+   nhập viện ở đâu không?"). Máy hẹp phải cho `white-space: normal` + `max-width: 100%`.
+3. **`<select>` lấy bề ngang theo dòng option dài nhất** — phải chặn `max-width: 100%`.
+
+**Thanh đáy phải co được.** Ba nút biểu tượng + Xem trước + "Lưu bệnh án" (nowrap) cộng
+lại rộng hơn máy 390px, mà không món nào co nên cả hàng đội ra ngoài mép phải. Chữa:
+bỏ thanh đệm `.flex-1`, cho nút Lưu `flex: 1 1 auto; min-width: 0`, và ≤480px bỏ hai nút
+đã có đường khác (đổi mục = dải chip dính đầu trang, tìm mục = trong khay ⋯).
+
+**Vuốt ngang đổi mục phải nhường mọi dải cuộn ngang.** Trang có ~91 dải chip; liệt kê
+tên lớp trong `NO_SWIPE` thì chắc chắn sót, sót cái nào là kéo chip cái đó lại nhảy sang
+mục khác. Phải dò bằng khả năng cuộn thật (`scrollWidth > clientWidth` + `overflow-x`
+auto/scroll trên cả chuỗi tổ tiên), và chặn luôn cú vuốt bắt đầu từ một `button`.
+
+**Cách đo máy hẹp khi headless kẹp ở 500px:** bơm `.page-card{max-width:374px}` (giả lập
+máy 390px) hay `304px` (máy 320px) rồi liệt kê phần tử nào có mép phải vượt mép thẻ.
+Media query `≤640` vẫn đúng, chỉ chỗ trống hẹp lại — đủ để bắt cả ba loại tràn ở trên.
+Muốn kiểm luật `≤480` thì bơm thêm chính khai báo đó vào.
+
+**Chrome headless KHÔNG giả lập được `hover: none`** — nó luôn báo `hover: hover`, nên
+mọi luật `@media (hover: none)` không bao giờ chạy khi chụp ảnh kiểm tra. Luật bố cục
+điện thoại vì vậy viết theo `max-width: 640px`; chỉ để `hover` cho thứ thật sự phụ
+thuộc con trỏ.
+
+**Đặt `style.bottom` bằng JS là đè chết cả thang lớp trong CSS.** `placeAssist()` từng
+ghim `bottom = 0px` mỗi lần `visualViewport` báo về, kể cả trên máy tính — thanh trợ
+nhập nằm chồng lên thanh Lưu. Chỉ đặt inline khi bàn phím thật sự đang che
+(`innerHeight - (vv.height + vv.offsetTop) > 40`), còn lại phải **xóa** (`= ''`) để trả
+quyền cho CSS.
+
+**Tên ô đọc được (`labelOf` trong `tao-benh-an-them.js`) phải dò tới thẻ đứng NGAY
+TRƯỚC.** Nhiều ô ở đây có nhãn là anh em chứ không bọc ngoài (ô sinh hiệu) hoặc nằm
+trong `<details>` (ô lý do vào viện). Chỉ dò `closest('label')` + `label[for]` là rơi
+xuống `placeholder`, bảng dán thông tin hiện ra những cái tên như "Nhập mạch" hay
+nguyên câu hướng dẫn dài. Thứ tự đúng: nhãn bọc ngoài → `label[for]` → anh em ngay
+trước (`label, summary, .hx-sub, .calc-title`) → placeholder → aria-label → id.
+
+**Thanh trợ nhập / bảng dán phải `preventDefault` ở `mousedown`.** Bấm một nút trên
+thanh nổi mà không chặn `mousedown` là ô đang gõ mất con trỏ trước khi `click` chạy —
+chèn chữ vào không còn biết chèn ở đâu.
 
 **`bindAuto` đóng băng khi mở lại bệnh án cũ.** `bindAuto` giữ biến `last` = chữ máy
 ghi lần trước, chỉ nằm trong bộ nhớ. Nạp lại bệnh án đã lưu thì `last` rỗng còn ô đầy
@@ -143,3 +302,11 @@ thật và `targetField` khớp một `id` có thật — sai là bấm "đi t�
 | 2026-08-28 | 9 thuốc được `THUOC_THEO_BENH` gợi ý nhưng `THUOC_NHOM` chưa định nghĩa → chip chèn vào y lệnh thành dòng trống không có liều | bổ sung 9 thuốc + Acyclovir; ràng buộc nay về 0 |
 | 2026-08-28 | kho phác đồ chỉ phủ 90/387 mặt bệnh | thêm 54 bộ y lệnh mẫu → **174/387** |
 | 2026-08-28 | mục XV Tiên lượng chỉ có 2 chip gợi ý | mở thành 14 chip: tiên lượng gần / xa / yếu tố làm nặng / dự phòng, và cho nối tiếp thay vì đè |
+| 2026-09-04 | nhập liệu vẫn là gõ tay từng ô; dữ kiện đã khám ra không ai kiểm có được dùng lại không | thêm `nhap-lien-ket.js`: đọc chính tả, dán khối chữ, gõ cả dòng sinh hiệu, gõ tắt, kho chữ đã gõ, hoàn tác cả loạt; chèn dữ kiện bằng `@`, thẻ Nhìn nhanh, soi dữ kiện chưa dùng và số chép lệch |
+| 2026-09-04 | `cmdk-q` (ô tìm Ctrl+K của bản pastel) chưa khai, bộ sinh báo `no_route_to_output` giả | thêm vào danh sách `control_only` |
+| 2026-09-04 | `/\bn[ữu]\b/` không khớp "Nữ" nên dán "Tuổi: 47 — Giới: Nữ" mất vế giới tính | bỏ dấu trước rồi mới dò (`fold(v)` + `\bnu\b`) — lại đúng bẫy `\b` chỉ hiểu ASCII |
+| 2026-09-05 | đáy màn hình điện thoại có 6 lớp tự neo trong dải 40px (thanh lưu 8, thẻ Nhìn nhanh 78, khay công cụ 80, đèn logic 88, toast 92, hoàn tác 118) — lúc nghỉ đã chồng 2 cặp, mở khay là 5 cặp | gom về thang 3 tầng theo `--rail`, loại trừ nhau bằng class trên body; đo lại 4 bề ngang × 4 trạng thái: chỉ còn lớp chớp cố ý đè lên bảng |
+| 2026-09-05 | `placeAssist()` ghim `style.bottom=0` nên thanh trợ nhập đè lên thanh Lưu ở máy tính | chỉ đặt inline khi bàn phím thật sự che, còn lại xóa style |
+| 2026-09-05 | máy 390px: nút "Lưu bệnh án" và nút "Mốc này có đi khám…" đội ra ngoài mép thẻ; hộp "Đủ ý n/8" thừa 82px | thanh đáy cho co + bỏ 2 nút trùng ở ≤480px; `min-width:0` cho ô con flex; `minmax(0,1fr)` cho lưới; nút nhãn dài được xuống dòng — quét lại 7 mục × 2 bề ngang: 0 chỗ tràn |
+| 2026-09-05 | lớp nổi neo vào mép màn hình nên thò ra ngoài thẻ nội dung 33px ở màn rộng | thêm `--page-in`, mọi lớp nổi neo theo thẻ |
+| 2026-09-05 | kéo dải chip gợi ý là bị nhảy sang mục khác | `NO_SWIPE` dò khả năng cuộn thật thay vì liệt kê tên lớp, chặn cả cú vuốt bắt đầu từ `button` |

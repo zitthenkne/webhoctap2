@@ -35,21 +35,46 @@ export const ROS_IDS = Object.values(ROS_BY_NHOM);
 const TU_KHOA = {
     'ros-cardio': ['đau ngực', 'hồi hộp', 'đánh trống ngực', 'khó thở khi gắng sức', 'khó thở phải ngồi',
         'khó thở kịch phát về đêm', 'khó thở về đêm', 'phù chân', 'phù hai chân', 'đau cách hồi',
-        'ngất', 'xỉu', 'tím tái', 'mạch nhanh'],
+        'ngất', 'xỉu', 'tím tái', 'mạch nhanh',
+        'hụt nhịp', 'nhịp không đều', 'tim đập nhanh', 'choáng váng khi đứng dậy',
+        'nặng ngực', 'khó thở khi nằm', 'phù mi mắt', 'lạnh đầu chi', 'tê đầu chi'],
     'ros-resp': ['ho', 'ho khan', 'ho đàm', 'khạc đàm', 'ho ra máu', 'khó thở', 'khò khè',
-        'đau ngực khi hít sâu', 'đau ngực kiểu màng phổi', 'thở nhanh', 'thở mệt'],
+        'đau ngực khi hít sâu', 'đau ngực kiểu màng phổi', 'thở nhanh', 'thở mệt',
+        'ho kéo dài', 'ho về đêm', 'đàm đục', 'đàm vàng', 'thở rít', 'ngáy', 'ngưng thở khi ngủ',
+        'nấc cụt', 'đau họng', 'khàn tiếng', 'nghẹt mũi', 'chảy mũi'],
     'ros-gi': ['đau bụng', 'buồn nôn', 'nôn', 'nôn ói', 'ói', 'chán ăn', 'đầy bụng', 'ợ hơi', 'ợ chua',
         'nuốt khó', 'nuốt nghẹn', 'tiêu chảy', 'táo bón', 'tiêu phân đen', 'tiêu máu', 'tiêu máu đỏ',
-        'vàng da', 'vàng mắt', 'sụt cân', 'bụng to dần'],
+        'vàng da', 'vàng mắt', 'sụt cân', 'bụng to dần',
+        'nôn ra máu', 'sôi bụng', 'chướng bụng', 'bí trung đại tiện', 'mót rặn',
+        'phân nhầy máu', 'phân bạc màu', 'trĩ', 'sa hậu môn', 'nóng rát sau xương ức'],
     'ros-neuro': ['đau đầu', 'chóng mặt', 'yếu liệt chi', 'yếu liệt', 'liệt', 'tê bì', 'dị cảm',
         'co giật', 'rối loạn tri giác', 'lơ mơ', 'nói khó', 'nói đớ', 'nhìn đôi', 'sụp mi',
-        'run tay', 'mất ngủ'],
+        'run tay', 'mất ngủ',
+        'hay quên', 'mất thăng bằng', 'đi loạng choạng', 'cứng gáy', 'sợ ánh sáng',
+        'nôn vọt', 'ù tai', 'nhìn mờ', 'mất thị lực', 'đau nhức mắt', 'lo âu', 'trầm cảm'],
     'ros-msk': ['đau khớp', 'sưng khớp', 'cứng khớp buổi sáng', 'cứng khớp', 'yếu mỏi cơ', 'đau mỏi cơ',
         'đau cột sống thắt lưng', 'đau lưng', 'đau vai gáy', 'chuột rút', 'giới hạn vận động',
-        'biến dạng khớp'],
+        'biến dạng khớp',
+        'đau gót chân', 'sưng nóng đỏ khớp', 'hạn chế vận động', 'đau xương',
+        'teo cơ', 'yếu cơ gốc chi', 'ban da', 'ngứa', 'nổi mề đay', 'rụng tóc'],
     'ros-uro': ['tiểu gắt buốt', 'tiểu buốt', 'tiểu gắt', 'tiểu máu', 'tiểu đêm', 'tiểu khó',
         'tia nước tiểu yếu', 'tiểu ít', 'tiểu nhiều', 'nước tiểu đục', 'đau quặn thận',
-        'đau hông lưng', 'phù mặt', 'bí tiểu']
+        'đau hông lưng', 'phù mặt', 'bí tiểu',
+        'tiểu lắt nhắt', 'tiểu gấp', 'tiểu đục', 'tiểu mủ', 'tiểu bọt', 'tiểu són',
+        'tiểu không tự chủ', 'nước tiểu sẫm màu', 'sưng bìu', 'đau tinh hoàn', 'huyết trắng']
+};
+
+/* Các hệ có trong thư viện triệu chứng nhưng KHÔNG có ô riêng ở mục V. Sinh viên
+   vẫn hay ghi chúng vào ô gần nhất ("sợ nóng, sụt cân" ghi ở Tim mạch, "hay quên"
+   ghi ở Thần kinh) — gán kèm vào đó để bộ dò không bỏ sót, thay vì im lặng coi
+   như câu bình thường. */
+const NHOM_PHU = {
+    'ros-cardio': ['Toàn thân'],
+    'ros-resp': ['Tai – mũi – họng'],
+    'ros-gi': ['Nội tiết – chuyển hóa'],
+    'ros-neuro': ['Tâm thần', 'Mắt'],
+    'ros-msk': ['Da – niêm'],
+    'ros-uro': ['Sản phụ khoa', 'Huyết học']
 };
 
 /* Bắt được cái nào trong đây là phải dừng lại: không thể để nằm trong một câu
@@ -57,7 +82,10 @@ const TU_KHOA = {
 const CAN_CHU_Y = new Set(['ho ra máu', 'khó thở', 'khó thở phải ngồi', 'khó thở kịch phát về đêm',
     'đau ngực', 'ngất', 'xỉu', 'tím tái', 'tiêu phân đen', 'tiêu máu', 'tiêu máu đỏ', 'vàng da',
     'vàng mắt', 'sụt cân', 'nuốt nghẹn', 'yếu liệt chi', 'yếu liệt', 'liệt', 'co giật',
-    'rối loạn tri giác', 'nói khó', 'tiểu máu', 'bí tiểu']);
+    'rối loạn tri giác', 'nói khó', 'tiểu máu', 'bí tiểu',
+    'nôn ra máu', 'phân nhầy máu', 'cứng gáy', 'mất thị lực', 'hay quên', 'co giật do sốt',
+    'thở rít', 'ngưng thở khi ngủ', 'đau ngực xé lan sau lưng', 'ý tưởng tự sát',
+    'hạch to', 'sốt kéo dài', 'ho kéo dài', 'nuốt vướng', 'khối u vú']);
 
 /** Tên triệu chứng trong thư viện, tách các vế "A – B" thành hai cách gọi riêng */
 const TU_THU_VIEN = (nhom) => SYMPTOMS.filter(s => s.nhom === nhom)
@@ -68,7 +96,8 @@ const TU_THU_VIEN = (nhom) => SYMPTOMS.filter(s => s.nhom === nhom)
    Dò theo biên chữ để "ho" không khớp nhầm bên trong "khó thở". */
 const BO_DO = {};
 for (const [nhom, id] of Object.entries(ROS_BY_NHOM)) {
-    const ten = [...new Set([...(TU_KHOA[id] || []), ...TU_THU_VIEN(nhom)])]
+    const phu = (NHOM_PHU[id] || []).flatMap(TU_THU_VIEN);
+    const ten = [...new Set([...(TU_KHOA[id] || []), ...TU_THU_VIEN(nhom), ...phu])]
         .sort((a, b) => b.length - a.length);   // cụm dài khớp trước, khỏi ra "ho" thay vì "ho ra máu"
     BO_DO[id] = ten.map(t => ({
         ten: t,

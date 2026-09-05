@@ -16,7 +16,8 @@
 // Module không tự giữ mốc nào: `getSteps()` trả mảng mốc đang có, mọi thay đổi báo
 // ngược ra bằng `onPatch(id, patch)` để benh-su-editor còn ghi vào bệnh án.
 
-import { bodyMapSvg, regionTen, regionMat, mucDau, vungProse } from './body-map.js';
+import { bodyMapSvg, regionTen, regionMat, mucDau, vungProse, MAT_LIST, matTen,
+    LOAI_DAU, loaiTen, loaiIcon, loaiMau } from './body-map.js';
 import { careLine, hasCare } from './tuyen-truoc-list.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
@@ -50,11 +51,14 @@ let host, getSteps = () => [], onPatch = () => { }, labelOf = () => '', proseOf 
 let tenChuan = (x) => String(x || '').trim();   // quy tên triệu chứng về tên trong thư viện
 let mainTen = () => '';                          // triệu chứng chính (nằm ở khối riêng)
 let activeId = '';     // mốc đang chọn trên bản đồ
-let mat = 'truoc';     // mặt trước / mặt sau
+let mat = 'truoc';     // khung nhìn đang mở: toàn thân trước/sau hoặc một khu chi tiết
+let loai = 'dau';      // loại dấu đang đánh: đau / chấn thương / dấu da / phù / khối / sẹo
 let keo = '';          // vùng đang giữ để kéo tia hướng lan
 let playing = 0;       // id của setTimeout đang phát
 const an = new Set();  // đường đang bị tắt ở chú giải
 let dangKeo = null;    // { key, i, id } — đang kéo một điểm trên đồ thị
+let moRong = false;    // bản đồ đang mở thành cửa sổ riêng
+let neoCu = null;      // chỗ cũ của #hx-dt trong trang, để trả về khi đóng
 
 const stepsView = () => getSteps().filter(Boolean);
 const active = () => stepsView().find(m => m.id === activeId) || stepsView().at(-1) || null;
@@ -216,6 +220,88 @@ const DONG_HOC = { 'nặng hơn': ['↑', 'up'], 'thuyên giảm': ['↓', 'down
 
 const careText = (care) => careLine(care);
 
+/**
+ * Mở bản đồ cơ thể thành cửa sổ riêng giữa màn hình.
+ *
+ * Trước đây bản đồ nằm ở cột phải của chế độ Diễn tiến — phải vào đúng mục III,
+ * bấm đúng nút "Diễn tiến", rồi cuộn qua đồ thị và các thẻ mốc mới thấy. Không ai
+ * tìm ra. Nay có nút mở thẳng, và mở ra thì hình chiếm cả màn cho dễ chấm.
+ *
+ * Cách làm: DI CHUYỂN nguyên khối #hx-dt ra thẳng <body> chứ không dựng lại một
+ * bản sao. Hai lý do:
+ *   · mọi sự kiện đều gắn trên chính `host` nên dời node đi đâu cũng còn nguyên,
+ *     không phải gắn lại bộ nghe thứ hai;
+ *   · `.page-card` có `backdrop-filter`, mà thẻ nào có backdrop-filter thì mọi
+ *     `position: fixed` bên trong nó neo vào THẺ chứ không vào màn hình — để yên
+ *     tại chỗ thì cửa sổ bị lệch và không phủ hết được.
+ * Đóng lại thì `neoCu` (một nút chú thích để lại đúng chỗ) đưa khối về nguyên vị.
+ */
+export function openMapModal(on = true) {
+    if (!host) return;
+    moRong = !!on;
+    if (moRong && !neoCu) {
+        neoCu = document.createComment('hx-dt');
+        host.before(neoCu);
+        document.body.appendChild(host);
+    } else if (!moRong && neoCu) {
+        neoCu.replaceWith(host);
+        neoCu = null;
+    }
+    host.classList.toggle('is-map-modal', moRong);
+    document.body.classList.toggle('dt-map-open', moRong);
+    renderDienTien();
+    if (moRong) host.querySelector('.bm-svg')?.scrollIntoView({ block: 'nearest' });
+}
+
+export const dangMoBanDo = () => moRong;
+
+/* ---------------------------------------------------------------- bản đồ khu
+
+   Hình người cả thân chỉ đủ nói "đau hạ sườn phải". Muốn ghi cho đúng chỗ —
+   ổ van hai lá, điểm McBurney, khớp bàn – ngón cái, mỏm gai L4 — thì phải mở
+   bản đồ phóng to của khu đó. Dải này là chỗ đổi qua lại; vùng đã đánh ở khu
+   nào vẫn nằm nguyên ở khu đó, đổi khung nhìn không mất gì.                   */
+function khuBar() {
+    /* Liệt kê thẳng cả tám khung nhìn, kể cả "toàn thân trước / sau". Trước đây
+       mặt trước–sau là một nút bập bênh riêng ở đầu khối: đang xem bản đồ Ổ bụng
+       mà vẫn thấy nút "Mặt trước / Mặt sau" thì không đoán được nó đổi cái gì. */
+    return `<div class="dt-khu" role="tablist" aria-label="Chọn phần cơ thể để chấm">
+        ${MAT_LIST.map(([id, nhan, ic, , ten]) => `<button type="button" class="dt-khu-b${mat === id ? ' is-on' : ''}"
+            data-mat="${id}" title="${esc(ten)}"><i class="fas ${ic}"></i> ${esc(nhan)}</button>`).join('')}
+    </div>`;
+}
+
+/* ---------------------------------------------------------------- loại dấu
+   Cùng một hình người phải nói được nhiều thứ chứ không chỉ chỗ đau: vết
+   thương, ban da, phù, khối sờ được, sẹo mổ cũ. Chọn loại ở đây rồi chạm
+   vùng — mỗi loại một màu nên nhìn hình là đọc ra ngay.                     */
+function loaiBar() {
+    return `<div class="dt-loai" role="tablist" aria-label="Loại dấu muốn đánh">
+        ${LOAI_DAU.map(([k, ten, ic, mau, mo]) =>
+        `<button type="button" class="dt-loai-b${loai === k ? ' is-on' : ''}" data-loai="${k}"
+            style="--k:${mau}" title="${esc(mo)}"><i class="fas ${ic}"></i> ${esc(ten)}</button>`).join('')}
+    </div>`;
+}
+
+/* Danh sách dấu đã đánh ở mốc này. Mỗi dấu có một ô ghi chú tự do — đó là chỗ
+   tả cho cụ thể ("rách 3 cm bờ nham nhở", "ban dát sẩn không tẩy trắng"), và
+   chữ đó được chép nguyên vào đoạn bệnh sử máy ghép. */
+function dauHieuList(m) {
+    const dh = (m?.dh || []).filter(d => d?.z && d?.k);
+    if (!dh.length) return '';
+    return `<div class="dt-dhlist">
+        ${dh.map((d, i) => `<div class="dt-dh" style="--k:${loaiMau(d.k)}">
+            <i class="fas ${loaiIcon(d.k)}"></i>
+            <b>${esc(regionTen(d.z))}</b>
+            <span class="dt-dh-mat">${esc(matTen(regionMat(d.z)))}</span>
+            <input class="dt-dh-in" data-dh="${i}" value="${esc(d.t || '')}"
+                placeholder="tả rõ hơn — vd rách 3 cm, ban dát sẩn, phù tới gối"
+                aria-label="Ghi chú cho ${esc(loaiTen(d.k))} ở ${esc(regionTen(d.z))}">
+            <button type="button" data-del-dh="${i}" title="Xóa dấu này"><i class="fas fa-xmark"></i></button>
+        </div>`).join('')}
+    </div>`;
+}
+
 function laneCard(m, i, upto, mucTai) {
     const moi = String(m.s || '').split(';').map(x => x.trim()).filter(Boolean);
     const cu = (m.refs || []).filter(r => String(r.sym || '').trim());
@@ -243,8 +329,8 @@ function laneCard(m, i, upto, mucTai) {
                 <input type="number" step="1" min="50" max="100" class="dt-in" value="${esc(m.spo2 ?? '')}" data-k="spo2" placeholder="%" aria-label="SpO2">
             </label>
         </div>
-        ${(m.vung || []).length || (m.lan || []).length
-            ? `<div class="dt-vung"><i class="fas fa-crosshairs"></i> ${esc(vungProse(m.vung || [], m.lan || []))}</div>` : ''}
+        ${(m.vung || []).length || (m.lan || []).length || (m.dh || []).length
+            ? `<div class="dt-vung"><i class="fas fa-crosshairs"></i> ${esc(vungProse(m.vung || [], m.lan || [], m.dh || []))}</div>` : ''}
     </div>`;
 }
 
@@ -290,20 +376,30 @@ export function renderDienTien() {
             </div>
             <div class="dt-right">
                 <div class="dt-maphead">
-                    <div class="seg dt-seg">
-                        <button type="button" class="${mat === 'truoc' ? 'active' : ''}" data-mat="truoc">Mặt trước</button>
-                        <button type="button" class="${mat === 'sau' ? 'active' : ''}" data-mat="sau">Mặt sau</button>
-                    </div>
+                    <b class="dt-maptitle"><i class="fas fa-person-rays"></i> Bản đồ cơ thể</b>
                     <span class="dt-mapfor">${esc(labelOf(m))}</span>
+                    ${moRong
+        ? `<button type="button" class="dt-mapx" data-map-close aria-label="Đóng bản đồ"><i class="fas fa-xmark"></i></button>`
+        : `<button type="button" class="dt-mapzoom" data-map-open><i class="fas fa-expand"></i> Phóng to</button>`}
                 </div>
+                <p class="dt-mapguide">
+                    <span><b>1</b> Chọn phần cơ thể</span>
+                    <span><b>2</b> Chọn loại dấu</span>
+                    <span><b>3</b> Chạm vào vùng trên hình</span></p>
+                <div class="dt-maplb">Phần cơ thể</div>
+                ${khuBar()}
+                <div class="dt-maplb">Loại dấu muốn đánh</div>
+                ${loaiBar()}
                 <div class="dt-mapwrap">${bodyMapSvg({
-        mat, vung: m?.vung || [], lan: m?.lan || [], dau: m?.dau, keo
+        mat, vung: m?.vung || [], lan: m?.lan || [], dau: m?.dau, keo, marks: m?.dh || []
     })}</div>
-                <p class="dt-maphint"><i class="fas fa-hand-pointer"></i> Chạm một vùng để đánh dấu đau ·
-                    <b>giữ rồi kéo</b> sang vùng khác để vẽ hướng lan · chạm lại để bỏ.</p>
+                <p class="dt-maphint"><i class="fas fa-hand-pointer"></i>
+                    Chạm một vùng để đánh dấu <b style="color:${loaiMau(loai)}">${esc(loaiTen(loai).toLowerCase())}</b> ·
+                    chạm lại để bỏ${loai === 'dau' ? ' · <b>giữ rồi kéo</b> sang vùng khác để vẽ hướng lan' : ''}.</p>
                 ${(m?.lan || []).length ? `<div class="dt-tialist">${m.lan.map((x, k) =>
         `<span class="dt-tia">${esc(regionTen(x[0]))} → ${esc(regionTen(x[1]))}
             <button type="button" data-del-lan="${k}" title="Xóa tia"><i class="fas fa-xmark"></i></button></span>`).join('')}</div>` : ''}
+                ${dauHieuList(m)}
             </div>
         </div>
         <div class="dt-prose"><div class="dt-prosehead"><i class="fas fa-align-left"></i> Đoạn bệnh sử máy ghép</div>
@@ -365,6 +461,20 @@ export function initDienTien(o) {
             const k = tg.dataset.toggle;
             an.has(k) ? an.delete(k) : an.add(k);
             return renderDienTien();
+        }
+
+        if (e.target.closest('[data-map-open]')) return openMapModal(true);
+        if (e.target.closest('[data-map-close]')) return openMapModal(false);
+
+        const lo = e.target.closest('[data-loai]');
+        if (lo) { loai = lo.dataset.loai; return renderDienTien(); }
+
+        const delDh = e.target.closest('[data-del-dh]');
+        if (delDh) {
+            const m = active();
+            const dh = (m?.dh || []).slice();
+            dh.splice(+delDh.dataset.delDh, 1);
+            return patch({ dh });
         }
 
         const del = e.target.closest('[data-del-lan]');
@@ -457,12 +567,27 @@ export function initDienTien(o) {
         if (!m) return;
 
         if (!toi || toi === tu) {
+            /* Loại khác đau thì ghi vào m.dh chứ không đụng m.vung — giữ nguyên
+               đường cũ để bệnh án đã lưu mở lên vẫn đọc đúng chỗ đau. */
+            if (loai !== 'dau') {
+                const dh = (m.dh || []).slice();
+                const k = dh.findIndex(d => d.z === tu && d.k === loai);
+                if (k < 0) dh.push({ z: tu, k: loai, t: '' }); else dh.splice(k, 1);
+                return onPatch(m.id, { dh });
+            }
             const vung = (m.vung || []).slice();
             const k = vung.indexOf(tu);
             if (k < 0) vung.push(tu); else vung.splice(k, 1);
             return onPatch(m.id, { vung });
         }
-        if (regionMat(tu) !== regionMat(toi)) return renderDienTien();   // hai mặt khác nhau, bỏ qua
+        // Kéo tia chỉ có nghĩa với đau; loại khác thì nhát kéo tính như một nhát chạm
+        if (loai !== 'dau') {
+            const dh = (m.dh || []).slice();
+            const k = dh.findIndex(d => d.z === toi && d.k === loai);
+            if (k < 0) dh.push({ z: toi, k: loai, t: '' }); else dh.splice(k, 1);
+            return onPatch(m.id, { dh });
+        }
+        if (regionMat(tu) !== regionMat(toi)) return renderDienTien();   // khác khung nhìn, bỏ qua
         const lan = (m.lan || []).slice();
         if (!lan.some(x => x[0] === tu && x[1] === toi)) lan.push([tu, toi]);
         const vung = (m.vung || []).slice();
@@ -471,6 +596,17 @@ export function initDienTien(o) {
     });
 
     host.addEventListener('input', (e) => {
+        /* Ô ghi chú của một dấu: ghi `nhẹ` để không vẽ lại cả màn — vẽ lại là
+           mất con trỏ giữa chừng câu đang gõ. */
+        if (e.target.dataset.dh != null) {
+            const m = active();
+            if (!m) return;
+            const dh = (m.dh || []).slice();
+            const i = +e.target.dataset.dh;
+            if (!dh[i]) return;
+            dh[i] = { ...dh[i], t: e.target.value };
+            return onPatch(m.id, { dh }, { nhe: true });
+        }
         const k = e.target.dataset.k;
         if (!k) return;
         const card = e.target.closest('.dt-card');
@@ -483,6 +619,15 @@ export function initDienTien(o) {
         }
         onPatch(m.id, { [k]: e.target.value }, { nhe: true });
     });
+
+    /* Chạm ra ngoài khối hoặc bấm Esc là đóng cửa sổ bản đồ — nền mờ là chính
+       #hx-dt nên click trúng nó (không phải con nó) tức là click ra ngoài. */
+    host.addEventListener('click', (e) => {
+        if (moRong && e.target === host) openMapModal(false);
+    });
+    addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && moRong) { e.stopPropagation(); openMapModal(false); }
+    }, true);
 
     renderDienTien();
 }

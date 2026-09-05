@@ -298,7 +298,7 @@ edge('f:hx-onset-date', 'feeds', 'fn:calcOnset', { manual: 1 });
 edge('f:curb-confusion', 'feeds', 'fn:calcScores', { manual: 1 });
 
 /* O co y khong ra ban benh an: cong tac giao dien / khoa ban ghi */
-for (const id of ['medical-record-id', 'record-status', 'ba-guide', 'record-type'])
+for (const id of ['medical-record-id', 'record-status', 'ba-guide', 'record-type', 'cmdk-q'])
     if (fields.has(id)) edge(`f:${id}`, 'control_only', 'note:by_design', { manual: 1 });
 
 /* ---------- 11. tu kiem: o nao khong co duong ra ban benh an ----------

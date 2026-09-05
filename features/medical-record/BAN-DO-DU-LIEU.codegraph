@@ -27,7 +27,7 @@
 #   on_tab        o nam o tab nao
 #   not_persisted o khong co trong FIELDS (co y)
 #
-# nut=563 canh=887
+# nut=564 canh=890
 
 N|t:hanh-chinh|kind=tab
 N|t:lydo-tiensu|kind=tab
@@ -232,6 +232,7 @@ N|f:final-diagnosis|kind=field|tag=textarea|dtype=multiline|tab=ket-luan
 N|f:treatment-plan|kind=field|tag=textarea|dtype=multiline|tab=ket-luan
 N|f:treatment-detail|kind=field|tag=textarea|dtype=multiline|tab=ket-luan
 N|f:prognosis|kind=field|tag=textarea|dtype=multiline|tab=ket-luan
+N|f:cmdk-q|kind=field|tag=input|dtype=search|tab=theo-doi
 N|p:hanhChinh.hoTen|kind=recordpath
 N|p:hanhChinh.namSinh|kind=recordpath
 N|p:hanhChinh.tuoi|kind=recordpath
@@ -781,6 +782,7 @@ E|f:final-diagnosis|on_tab|t:ket-luan
 E|f:treatment-plan|on_tab|t:ket-luan
 E|f:treatment-detail|on_tab|t:ket-luan
 E|f:prognosis|on_tab|t:ket-luan
+E|f:cmdk-q|on_tab|t:theo-doi
 E|f:patient-name|persists_as|p:hanhChinh.hoTen|via=FIELDS
 E|f:patient-yob|persists_as|p:hanhChinh.namSinh|via=FIELDS
 E|f:patient-age|persists_as|p:hanhChinh.tuoi|via=FIELDS
@@ -1462,6 +1464,7 @@ E|lib:VAN_DE_NHOM|suggests_for|f:problem-list|via=bien-luan-data.js
 E|f:medical-record-id|not_persisted|note:by_design
 E|f:record-status|not_persisted|note:by_design
 E|f:ba-guide|not_persisted|note:by_design
+E|f:cmdk-q|not_persisted|note:by_design
 E|fn:mainSymProse|builds_text_for|fn:buildProse|manual=1|why=benh-su-editor.js: buildProse() goi mainSymProse()
 E|fn:calcOnset|builds_text_for|fn:buildProse|manual=1|why=calcOnset ghi vao #hx-onset-tag, buildProse doc textContent cua no
 E|fn:calcScores|builds_text_for|f:summary|manual=1|why=calcScores ghi #curb-out va #gcs-out, buildSummary doc textContent nhom "Thang diem"
@@ -1480,3 +1483,4 @@ E|f:medical-record-id|control_only|note:by_design|manual=1
 E|f:record-status|control_only|note:by_design|manual=1
 E|f:ba-guide|control_only|note:by_design|manual=1
 E|f:record-type|control_only|note:by_design|manual=1
+E|f:cmdk-q|control_only|note:by_design|manual=1

@@ -449,9 +449,31 @@ if (isTouch) {
     let sx = 0, sy = 0, tracking = false;
     const zone = document.querySelector('.page-card') || document.body;
     // Không cướp cú vuốt của ô đang gõ, sơ đồ cuộn ngang hay bảng đang mở
-    const NO_SWIPE = 'input, textarea, select, .bl-map-wrap, .cls-thumbs, .img-grid, [data-noswipe]';
+    // Vuốt bắt đầu từ một nút / dải chip là thao tác với chính nó, đừng hiểu
+    // thành lệnh đổi mục — kể cả khi dải đó ngắn, chưa cần cuộn.
+    const NO_SWIPE = 'input, textarea, select, button, .chips, .ld-scroll, .tg-line, .hx-check,'
+        + ' .bl-map-wrap, .cls-thumbs, .img-grid, [data-noswipe]';
+
+    /* Cú vuốt bắt đầu trong một dải cuộn ngang là của DẢI ĐÓ, không phải của
+       trang. Dò bằng khả năng cuộn thật chứ không liệt kê tên lớp: trang này có
+       hàng chục dải chip gợi ý (.chips, .ld-scroll, .hx-check .hx-row, .tg-line,
+       thanh mục, khay công cụ…) và liệt kê tay thì chắc chắn sót — sót cái nào
+       là kéo chip cái đó lại nhảy sang mục khác. */
+    function inScrollerX(el) {
+        for (let n = el; n && n !== document.body; n = n.parentElement) {
+            if (n.scrollWidth > n.clientWidth + 2) {
+                const ox = getComputedStyle(n).overflowX;
+                if (ox === 'auto' || ox === 'scroll') return true;
+            }
+        }
+        return false;
+    }
+
     zone.addEventListener('touchstart', (e) => {
-        if (e.touches.length !== 1 || e.target.closest(NO_SWIPE)) { tracking = false; return; }
+        if (e.touches.length !== 1 || e.target.closest(NO_SWIPE) || inScrollerX(e.target)) {
+            tracking = false;
+            return;
+        }
         sx = e.touches[0].clientX; sy = e.touches[0].clientY; tracking = true;
     }, { passive: true });
     zone.addEventListener('touchend', (e) => {

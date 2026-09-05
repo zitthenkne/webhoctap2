@@ -4,7 +4,7 @@
 // trong thư viện (hoặc tự gõ), điền các ô đặc điểm, xem trước câu mô tả rồi chèn.
 // Dùng chung cho bệnh sử (triệu chứng mới ở mỗi mốc) và theo dõi diễn tiến.
 
-import { SYMPTOMS, NHOM, describe, findSymptom, searchSymptoms } from './trieu-chung-data.js';
+import { SYMPTOMS, NHOM, describe, findSymptom, searchSymptoms, heIcon, heMau } from './trieu-chung-data.js';
 import { highlight } from './tim-kiem.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
@@ -205,8 +205,11 @@ function renderBody() {
         });
     } else {
         const list = searchSymptoms(q);
+        /* Chip mang màu + biểu tượng của hệ cơ quan: đang tìm giữa 180 triệu chứng
+           thì mắt lọc theo màu nhanh hơn đọc từng chữ. */
         const chip = (s, i) => `<button type="button" class="sp-chip${q.trim() && !i ? ' is-first' : ''}"
-            data-sym="${esc(s.ten)}" title="${esc(s.nhom)}">${q.trim() ? highlight(s.ten, q) : esc(s.ten)}</button>`;
+            data-sym="${esc(s.ten)}" title="${esc(s.nhom)}" style="--he:${heMau(s.nhom)}"><i
+            class="fas ${heIcon(s.nhom)} sp-he"></i>${q.trim() ? highlight(s.ten, q) : esc(s.ten)}</button>`;
 
         if (q.trim()) {
             // Đang tìm: bỏ nhóm cho nhanh mắt
@@ -219,9 +222,9 @@ function renderBody() {
             body.innerHTML = groups.map(g => {
                 const items = list.filter(s => s.nhom === g);
                 const open = state.open.has(g);
-                return `<section class="lp-group">
+                return `<section class="lp-group" style="--he:${heMau(g)}">
                     <button type="button" class="lp-ghead${open ? ' is-open' : ''}" data-g="${esc(g)}">
-                        <i class="fas fa-notes-medical lead"></i><b>${esc(g)}</b>
+                        <i class="fas ${heIcon(g)} lead" style="color:${heMau(g)}"></i><b>${esc(g)}</b>
                         <span class="lp-n">${items.length}</span>
                         <i class="fas fa-chevron-down caret"></i>
                     </button>

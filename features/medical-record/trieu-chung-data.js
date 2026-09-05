@@ -17,6 +17,29 @@ export const NHOM = ['Toàn thân', 'Hô hấp', 'Tim mạch', 'Tiêu hóa', 'Ti
     'Thần kinh', 'Cơ xương khớp', 'Da – niêm', 'Tai – mũi – họng', 'Mắt',
     'Nội tiết – chuyển hóa', 'Huyết học', 'Tâm thần', 'Sản phụ khoa', 'Nhi khoa'];
 
+/* Biểu tượng + màu của từng hệ cơ quan. Khai ở module lá này (nó không import
+   thứ gì của trang) để bảng chọn triệu chứng, lưới hệ cơ quan ở màn Toàn cảnh và
+   mọi chip gợi ý cùng lấy một bộ — "Tim mạch" ở đâu cũng là quả tim đỏ. */
+export const HE = {
+    'Toàn thân': ['fa-person', '#8b5cf6'],
+    'Hô hấp': ['fa-lungs', '#0ea5e9'],
+    'Tim mạch': ['fa-heart-pulse', '#ef4444'],
+    'Tiêu hóa': ['fa-bowl-food', '#f59e0b'],
+    'Tiết niệu – sinh dục': ['fa-droplet', '#06b6d4'],
+    'Thần kinh': ['fa-brain', '#a855f7'],
+    'Cơ xương khớp': ['fa-bone', '#64748b'],
+    'Da – niêm': ['fa-hand-dots', '#f472b6'],
+    'Tai – mũi – họng': ['fa-ear-listen', '#14b8a6'],
+    'Mắt': ['fa-eye', '#3b82f6'],
+    'Nội tiết – chuyển hóa': ['fa-flask', '#10b981'],
+    'Huyết học': ['fa-vial', '#dc2626'],
+    'Tâm thần': ['fa-face-meh', '#7c3aed'],
+    'Sản phụ khoa': ['fa-baby', '#ec4899'],
+    'Nhi khoa': ['fa-child-reaching', '#f97316']
+};
+export const heIcon = (nhom) => HE[nhom]?.[0] || 'fa-notes-medical';
+export const heMau = (nhom) => HE[nhom]?.[1] || '#8b8496';
+
 export const SYMPTOMS = [
     /* ---------------- Toàn thân ---------------- */
     {
@@ -748,7 +771,751 @@ export const SYMPTOMS = [
             ['tim', 'Tím', ['tím quanh môi', 'không tím']],
             ['buOn', 'Bú', ['bú kém', 'bỏ bú', 'bú được']]
         ]
-    }
+    },
+
+    /* ================================================================
+       BỔ SUNG ĐỢT 2 — lấp những hệ cơ quan còn mỏng (Mắt, Nội tiết,
+       Huyết học, Tâm thần, TMH) và thêm các triệu chứng cơ năng hay
+       gặp ở buồng bệnh mà bảng trên chưa có. Cùng khuôn: mỗi mục là
+       một triệu chứng + đúng những câu phải hỏi để tả cho đủ ý.
+       ================================================================ */
+
+    /* ---------------- Toàn thân (bổ sung) ---------------- */
+    {
+        ten: 'Sốt kéo dài chưa rõ nguyên nhân', nhom: 'Toàn thân', fields: [
+            ['thoiGian', 'Sốt bao lâu', null, 'vd 3 tuần nay'],
+            ['kieu', 'Kiểu sốt', ['sốt về chiều', 'sốt liên tục', 'sốt dao động', 'sốt từng đợt cách quãng']],
+            ['daDieuTri', 'Đã điều trị gì', null, 'vd đã uống 2 đợt kháng sinh, không giảm'],
+            ['kemTheo', 'Kèm theo', ['sụt cân', 'vã mồ hôi đêm', 'hạch to', 'đau khớp', 'ban da']],
+            ['dichTe', 'Yếu tố dịch tễ', null, 'vd đi vùng sốt rét, tiếp xúc lao, nuôi mèo']
+        ]
+    },
+    {
+        ten: 'Tăng cân nhanh', nhom: 'Toàn thân', fields: [
+            ['soKg', 'Tăng bao nhiêu', null, 'vd 6 kg trong 1 tháng'],
+            ['viTri', 'Tăng ở đâu', ['toàn thân', 'chủ yếu bụng', 'mặt và thân, chi teo nhỏ']],
+            ['phuKem', 'Có phù kèm không', ['có phù chân', 'có bụng to', 'không phù']],
+            ['thuoc', 'Thuốc đang dùng', null, 'vd corticoid kéo dài']
+        ]
+    },
+    {
+        ten: 'Giảm khả năng gắng sức', nhom: 'Toàn thân', fields: [
+            ['truoc', 'Trước đây làm được', null, 'vd leo 3 tầng lầu không mệt'],
+            ['nay', 'Nay chỉ còn', null, 'vd đi 50 m phải dừng nghỉ'],
+            ['dienTien', 'Diễn tiến', ['giảm dần trong nhiều tháng', 'giảm nhanh vài tuần', 'đột ngột']],
+            ['kemTheo', 'Kèm theo', ['khó thở', 'đau ngực', 'hồi hộp', 'chóng mặt']]
+        ]
+    },
+    {
+        ten: 'Đau mỏi cơ toàn thân', nhom: 'Toàn thân', fields: [
+            ['viTri', 'Rõ nhất ở', ['cơ vai gáy', 'cơ đùi cẳng chân', 'khắp người']],
+            ['thoiDiem', 'Thời điểm', ['suốt ngày', 'sau vận động', 'buổi sáng']],
+            ['kemTheo', 'Kèm theo', ['sốt', 'nước tiểu sẫm màu', 'yếu cơ', 'không kèm gì']],
+            ['thuoc', 'Thuốc đang dùng', null, 'vd statin, thuốc lao']
+        ]
+    },
+    {
+        ten: 'Buồn ngủ ban ngày quá mức', nhom: 'Toàn thân', fields: [
+            ['mucDo', 'Mức độ', ['ngủ gật khi ngồi yên', 'ngủ gật khi đang nói chuyện', 'ngủ gật khi lái xe']],
+            ['nguDem', 'Ngủ đêm', ['ngáy to, ngưng thở', 'ngủ đủ vẫn buồn ngủ', 'mất ngủ ban đêm']],
+            ['thoiGian', 'Bao lâu nay', null, 'vd vài tháng nay']
+        ]
+    },
+
+    /* ---------------- Hô hấp (bổ sung) ---------------- */
+    {
+        ten: 'Thở rít thanh quản', nhom: 'Hô hấp', fields: [
+            ['thi', 'Thì nào', ['thì hít vào', 'thì thở ra', 'cả hai thì']],
+            ['khoiPhat', 'Khởi phát', ['đột ngột sau sặc', 'tăng dần vài ngày', 'sau đặt nội khí quản']],
+            ['kemTheo', 'Kèm theo', ['khàn tiếng', 'khó nuốt', 'rút lõm', 'tím tái']],
+            ['tuThe', 'Tư thế dễ chịu', null, 'vd phải ngồi cúi ra trước']
+        ]
+    },
+    {
+        ten: 'Ngáy – ngưng thở khi ngủ', nhom: 'Hô hấp', fields: [
+            ['nguoiNha', 'Người nhà kể', ['ngáy to hằng đêm', 'thấy ngưng thở từng lúc', 'giật mình thức giấc']],
+            ['banNgay', 'Ban ngày', ['buồn ngủ nhiều', 'đau đầu buổi sáng', 'giảm tập trung']],
+            ['yeuTo', 'Yếu tố', null, 'vd BMI 32, amidan to, uống rượu buổi tối']
+        ]
+    },
+    {
+        ten: 'Khó thở kịch phát về đêm', nhom: 'Hô hấp', fields: [
+            ['tanSuat', 'Mấy lần mỗi đêm', null, 'vd 1–2 lần, 3 đêm nay'],
+            ['xuTri', 'Phải làm gì cho đỡ', ['ngồi dậy', 'ra cửa sổ hít thở', 'xịt thuốc']],
+            ['thoiGian', 'Bao lâu thì hết', null, 'vd 15–20 phút'],
+            ['kemTheo', 'Kèm theo', ['ho khan', 'khò khè', 'khạc bọt hồng', 'hồi hộp']]
+        ]
+    },
+    {
+        ten: 'Nấc cụt kéo dài', nhom: 'Hô hấp', fields: [
+            ['thoiGian', 'Kéo dài bao lâu', null, 'vd liên tục 3 ngày'],
+            ['anhHuong', 'Ảnh hưởng', ['mất ngủ', 'không ăn được', 'chỉ khó chịu']],
+            ['kemTheo', 'Kèm theo', ['nôn ói', 'đau ngực', 'sau mổ bụng', 'không kèm gì']]
+        ]
+    },
+    {
+        ten: 'Sặc – hội chứng xâm nhập', nhom: 'Hô hấp', fields: [
+            ['hoanCanh', 'Đang làm gì', null, 'vd đang ăn đậu phộng, trẻ chơi hạt nhựa'],
+            ['bieuHien', 'Lúc đó', ['ho sặc sụa dữ dội', 'tím tái', 'ngưng thở thoáng qua']],
+            ['sauDo', 'Sau đó', ['hết hẳn', 'còn ho, khò khè kéo dài', 'khó thở tăng dần']]
+        ]
+    },
+
+    /* ---------------- Tim mạch (bổ sung) ---------------- */
+    {
+        ten: 'Hụt nhịp – nhịp không đều', nhom: 'Tim mạch', fields: [
+            ['camGiac', 'Cảm giác', ['hẫng một nhịp', 'tim đập loạn xạ', 'tim đập rất nhanh rồi ngưng']],
+            ['khoiPhat', 'Khởi phát – kết thúc', ['đột ngột cả hai đầu', 'tăng giảm từ từ']],
+            ['thoiGian', 'Kéo dài', null, 'vd vài giây tới vài phút'],
+            ['yeuTo', 'Yếu tố khởi phát', ['cà phê, rượu', 'gắng sức', 'lo lắng', 'không rõ']],
+            ['kemTheo', 'Kèm theo', ['choáng váng', 'ngất', 'đau ngực', 'khó thở']]
+        ]
+    },
+    {
+        ten: 'Cơn tăng huyết áp', nhom: 'Tim mạch', fields: [
+            ['soDo', 'Huyết áp đo được', null, 'vd 200/110 mmHg'],
+            ['trieuChung', 'Lúc đó có', ['nhức đầu', 'nhìn mờ', 'đau ngực', 'khó thở', 'không triệu chứng']],
+            ['thuoc', 'Thuốc huyết áp', ['uống đều', 'tự bỏ thuốc', 'chưa từng điều trị']],
+            ['tanSuat', 'Đã mấy lần như vậy', null, 'vd lần thứ 3 trong 2 tháng']
+        ]
+    },
+    {
+        ten: 'Đau ngực xé lan sau lưng', nhom: 'Tim mạch', fields: [
+            ['khoiPhat', 'Khởi phát', ['đột ngột, dữ dội ngay từ đầu', 'tăng dần']],
+            ['huongLan', 'Lan tới', ['giữa hai xương bả vai', 'bụng', 'cổ', 'hông lưng']],
+            ['tinhChat', 'Tính chất', ['như xé', 'như dao đâm', 'đè nặng']],
+            ['kemTheo', 'Kèm theo', ['yếu nửa người', 'chênh huyết áp hai tay', 'ngất', 'đau bụng']]
+        ]
+    },
+    {
+        ten: 'Lạnh – tê đầu chi từng cơn', nhom: 'Tim mạch', fields: [
+            ['doiMau', 'Đổi màu', ['trắng rồi tím rồi đỏ', 'chỉ trắng nhợt', 'chỉ tím']],
+            ['yeuTo', 'Khởi phát khi', ['gặp lạnh', 'xúc động', 'không rõ']],
+            ['viTri', 'Vị trí', ['các ngón tay', 'ngón chân', 'mũi, vành tai']],
+            ['kemTheo', 'Kèm theo', ['loét đầu ngón', 'đau khớp', 'khô mắt khô miệng']]
+        ]
+    },
+
+    /* ---------------- Tiêu hóa (bổ sung) ---------------- */
+    {
+        ten: 'Buồn nôn', nhom: 'Tiêu hóa', fields: [
+            ['thoiDiem', 'Thời điểm', ['buổi sáng', 'sau ăn', 'suốt ngày', 'khi thay đổi tư thế']],
+            ['nonKhong', 'Có nôn ra không', ['có nôn', 'chỉ buồn nôn']],
+            ['kemTheo', 'Kèm theo', ['đau bụng', 'chóng mặt', 'đau đầu', 'thai kỳ']]
+        ]
+    },
+    {
+        ten: 'Nôn ra máu', nhom: 'Tiêu hóa', fields: [
+            ['luong', 'Lượng', null, 'vd khoảng 200 ml, đầy một chén'],
+            ['tinhChat', 'Tính chất', ['máu đỏ tươi', 'máu bầm lợn cợn', 'như bã cà phê']],
+            ['soLan', 'Số lần', null, 'vd 3 lần trong 6 giờ'],
+            ['hoanCanh', 'Trước đó', ['nôn nhiều rồi mới ra máu', 'sau uống rượu', 'sau uống thuốc giảm đau']],
+            ['kemTheo', 'Kèm theo', ['tiêu phân đen', 'choáng váng', 'vã mồ hôi', 'đau thượng vị']]
+        ]
+    },
+    {
+        ten: 'Cơn đau quặn mật', nhom: 'Tiêu hóa', fields: [
+            ['viTri', 'Vị trí', ['hạ sườn phải', 'thượng vị']],
+            ['huongLan', 'Lan tới', ['bả vai phải', 'sau lưng', 'không lan']],
+            ['hoanCanh', 'Khởi phát sau', ['bữa ăn nhiều dầu mỡ', 'ban đêm', 'không rõ']],
+            ['thoiGian', 'Kéo dài', null, 'vd 2–4 giờ rồi tự hết'],
+            ['kemTheo', 'Kèm theo', ['nôn ói', 'sốt lạnh run', 'vàng da', 'tiểu sẫm màu']]
+        ]
+    },
+    {
+        ten: 'Tiêu phân nhầy máu', nhom: 'Tiêu hóa', fields: [
+            ['soLan', 'Số lần/ngày', null, 'vd 8–10 lần'],
+            ['tinhChat', 'Tính chất', ['nhầy lẫn máu', 'toàn nhầy', 'máu tươi cuối bãi']],
+            ['motRan', 'Mót rặn', ['có mót rặn, đau quặn', 'không mót rặn']],
+            ['kemTheo', 'Kèm theo', ['sốt', 'đau bụng quặn', 'sụt cân', 'đau khớp']]
+        ]
+    },
+    {
+        ten: 'Sôi bụng – chướng hơi', nhom: 'Tiêu hóa', fields: [
+            ['thoiDiem', 'Thời điểm', ['sau ăn', 'suốt ngày', 'về chiều']],
+            ['trungTien', 'Trung tiện', ['nhiều hơi, đỡ chướng', 'không trung tiện được']],
+            ['kemTheo', 'Kèm theo', ['đau bụng từng cơn', 'nôn ói', 'tiêu chảy', 'táo bón']]
+        ]
+    },
+    {
+        ten: 'Bí trung đại tiện', nhom: 'Tiêu hóa', fields: [
+            ['thoiGian', 'Từ bao lâu', null, 'vd 2 ngày nay'],
+            ['bung', 'Bụng', ['chướng căng', 'thấy quai ruột nổi', 'mềm']],
+            ['kemTheo', 'Kèm theo', ['đau bụng cơn', 'nôn ra dịch xanh', 'nôn ra phân']],
+            ['tienCan', 'Tiền căn', ['đã mổ bụng', 'thoát vị bẹn', 'chưa mổ lần nào']]
+        ]
+    },
+    {
+        ten: 'Thay đổi thói quen đi cầu', nhom: 'Tiêu hóa', fields: [
+            ['kieu', 'Thay đổi kiểu', ['táo bón tăng dần', 'táo lỏng xen kẽ', 'phân dẹt nhỏ lại']],
+            ['thoiGian', 'Từ khi nào', null, 'vd 3 tháng nay'],
+            ['kemTheo', 'Kèm theo', ['sụt cân', 'tiêu máu', 'thiếu máu', 'đau bụng']]
+        ]
+    },
+    {
+        ten: 'Khối sa hậu môn', nhom: 'Tiêu hóa', fields: [
+            ['khiNao', 'Sa khi nào', ['khi rặn, tự lên', 'khi rặn, phải đẩy lên', 'sa thường xuyên']],
+            ['chayMau', 'Chảy máu', ['máu đỏ tươi nhỏ giọt sau phân', 'dính giấy', 'không chảy máu']],
+            ['dau', 'Đau', ['đau nhiều, sờ thấy khối cứng', 'không đau']]
+        ]
+    },
+
+    /* ---------------- Tiết niệu – sinh dục (bổ sung) ---------------- */
+    {
+        ten: 'Tiểu lắt nhắt – tiểu gấp', nhom: 'Tiết niệu – sinh dục', fields: [
+            ['soLan', 'Số lần/ngày', null, 'vd trên 12 lần'],
+            ['luongMoiLan', 'Mỗi lần', ['rất ít', 'bình thường']],
+            ['tieuGap', 'Tiểu gấp', ['phải đi ngay, có khi không kịp', 'nhịn được']],
+            ['kemTheo', 'Kèm theo', ['tiểu buốt', 'tiểu máu', 'đau hạ vị', 'sốt']]
+        ]
+    },
+    {
+        ten: 'Tiểu đục – tiểu mủ', nhom: 'Tiết niệu – sinh dục', fields: [
+            ['tinhChat', 'Tính chất', ['đục như nước vo gạo', 'có cặn lắng', 'lợn cợn mủ']],
+            ['mui', 'Mùi', ['hôi', 'không hôi']],
+            ['kemTheo', 'Kèm theo', ['sốt lạnh run', 'đau hông lưng', 'tiểu buốt']]
+        ]
+    },
+    {
+        ten: 'Tiểu bọt', nhom: 'Tiết niệu – sinh dục', fields: [
+            ['mucDo', 'Mức độ', ['bọt lâu tan', 'bọt nhiều như xà phòng']],
+            ['thoiGian', 'Bao lâu nay', null, 'vd 2 tháng'],
+            ['kemTheo', 'Kèm theo', ['phù mi mắt buổi sáng', 'phù chân', 'tăng huyết áp']]
+        ]
+    },
+    {
+        ten: 'Bí tiểu cấp', nhom: 'Tiết niệu – sinh dục', fields: [
+            ['thoiGian', 'Từ bao lâu', null, 'vd 8 giờ không đi tiểu được'],
+            ['camGiac', 'Cảm giác', ['căng tức, mắc tiểu dữ dội', 'đau vùng hạ vị']],
+            ['truocDo', 'Trước đó', ['tiểu khó, tia yếu nhiều tháng', 'bình thường', 'sau mổ, sau sinh']],
+            ['xuTri', 'Đã xử trí', ['đặt thông tiểu', 'chưa xử trí']]
+        ]
+    },
+    {
+        ten: 'Đau tinh hoàn – sưng bìu', nhom: 'Tiết niệu – sinh dục', fields: [
+            ['ben', 'Bên nào', ['phải', 'trái', 'hai bên']],
+            ['khoiPhat', 'Khởi phát', ['đột ngột dữ dội', 'tăng dần vài ngày']],
+            ['kemTheo', 'Kèm theo', ['sốt', 'nôn ói', 'tiểu buốt', 'sau chấn thương']],
+            ['dacDiem', 'Đặc điểm', ['bìu đỏ nóng', 'tinh hoàn treo cao', 'sờ thấy khối riêng']]
+        ]
+    },
+    {
+        ten: 'Rối loạn cương', nhom: 'Tiết niệu – sinh dục', fields: [
+            ['mucDo', 'Mức độ', ['cương không đủ cứng', 'không cương được', 'mất cương buổi sáng']],
+            ['thoiGian', 'Bao lâu nay', null, 'vd 1 năm'],
+            ['benhNen', 'Bệnh nền', ['đái tháo đường', 'tăng huyết áp', 'trầm cảm', 'không có']]
+        ]
+    },
+
+    /* ---------------- Thần kinh (bổ sung) ---------------- */
+    {
+        ten: 'Đau đầu kiểu sét đánh', nhom: 'Thần kinh', fields: [
+            ['khoiPhat', 'Đạt đỉnh trong', ['dưới 1 phút', 'vài phút']],
+            ['mucDo', 'Mức độ', null, 'vd đau nhất từ trước tới nay, 10/10'],
+            ['hoanCanh', 'Đang làm gì', ['gắng sức', 'đi cầu rặn', 'quan hệ', 'nghỉ ngơi']],
+            ['kemTheo', 'Kèm theo', ['nôn vọt', 'cứng gáy', 'rối loạn tri giác', 'yếu liệt']]
+        ]
+    },
+    {
+        ten: 'Mất thăng bằng – đi loạng choạng', nhom: 'Thần kinh', fields: [
+            ['kieu', 'Kiểu', ['loạng choạng như say rượu', 'ngã về một bên', 'không đi trên đường thẳng được']],
+            ['nhamMat', 'Khi nhắm mắt', ['nặng hơn rõ', 'không đổi']],
+            ['kemTheo', 'Kèm theo', ['chóng mặt xoay', 'nhìn đôi', 'nói khó', 'run tay khi với']],
+            ['dienTien', 'Diễn tiến', ['đột ngột', 'tăng dần vài tuần', 'từng cơn']]
+        ]
+    },
+    {
+        ten: 'Hay quên – sa sút trí tuệ', nhom: 'Thần kinh', fields: [
+            ['kieu', 'Quên kiểu gì', ['quên chuyện vừa xảy ra', 'quên đường về nhà', 'quên tên người thân']],
+            ['dienTien', 'Diễn tiến', ['tăng dần nhiều tháng', 'nặng lên từng bậc sau mỗi lần yếu liệt']],
+            ['sinhHoat', 'Sinh hoạt', ['tự làm được', 'cần nhắc nhở', 'phụ thuộc hoàn toàn']],
+            ['kemTheo', 'Kèm theo', ['thay đổi tính tình', 'ảo giác', 'đi lại chậm chạp', 'tiểu không tự chủ']]
+        ]
+    },
+    {
+        ten: 'Đau thần kinh tọa', nhom: 'Thần kinh', fields: [
+            ['duongLan', 'Đường lan', ['thắt lưng xuống mặt sau đùi, cẳng chân', 'tới bàn chân, ngón cái', 'tới ngón út']],
+            ['tangKhi', 'Tăng khi', ['ho, hắt hơi, rặn', 'đi lại', 'ngồi lâu']],
+            ['teYeu', 'Tê – yếu', ['tê theo đường lan', 'yếu bàn chân', 'không tê yếu']],
+            ['coVong', 'Rối loạn cơ vòng', ['có bí tiểu hoặc són phân', 'không']]
+        ]
+    },
+    {
+        ten: 'Rối loạn cơ vòng', nhom: 'Thần kinh', fields: [
+            ['kieu', 'Kiểu', ['bí tiểu', 'tiểu không tự chủ', 'són phân', 'táo bón do mất cảm giác']],
+            ['khoiPhat', 'Khởi phát', ['đột ngột', 'tăng dần']],
+            ['kemTheo', 'Kèm theo', ['yếu hai chân', 'tê vùng yên ngựa', 'đau lưng dữ dội']]
+        ]
+    },
+    {
+        ten: 'Đau nửa đầu có tiền triệu', nhom: 'Thần kinh', fields: [
+            ['tienTrieu', 'Tiền triệu', ['ám điểm chớp sáng', 'tê nửa mặt bàn tay', 'nói khó thoáng qua']],
+            ['dacDiem', 'Cơn đau', ['một bên, mạch đập', 'sợ ánh sáng, sợ tiếng động', 'buồn nôn, nôn']],
+            ['thoiGian', 'Kéo dài', null, 'vd 4–24 giờ'],
+            ['tanSuat', 'Tần suất', null, 'vd 2–3 cơn mỗi tháng']
+        ]
+    },
+    {
+        ten: 'Cứng gáy – sợ ánh sáng', nhom: 'Thần kinh', fields: [
+            ['khoiPhat', 'Từ khi nào', null, 'vd 1 ngày nay'],
+            ['kemTheo', 'Kèm theo', ['sốt cao', 'đau đầu dữ dội', 'nôn vọt', 'lơ mơ', 'ban xuất huyết']],
+            ['coGiat', 'Co giật', ['có', 'không']]
+        ]
+    },
+
+    /* ---------------- Cơ xương khớp (bổ sung) ---------------- */
+    {
+        ten: 'Cứng khớp buổi sáng', nhom: 'Cơ xương khớp', fields: [
+            ['thoiGian', 'Cứng bao lâu', ['dưới 30 phút', 'trên 1 giờ']],
+            ['viTri', 'Khớp nào', ['bàn ngón tay hai bên', 'cổ tay', 'gối', 'cột sống thắt lưng']],
+            ['giamKhi', 'Giảm khi', ['vận động', 'nghỉ ngơi', 'không giảm']]
+        ]
+    },
+    {
+        ten: 'Sưng nóng đỏ khớp cấp', nhom: 'Cơ xương khớp', fields: [
+            ['viTri', 'Khớp', ['bàn ngón chân cái', 'cổ chân', 'gối', 'cổ tay']],
+            ['khoiPhat', 'Khởi phát', ['đột ngột ban đêm', 'tăng dần vài ngày']],
+            ['yeuTo', 'Sau khi', ['nhậu, ăn hải sản', 'dùng lợi tiểu', 'chấn thương', 'không rõ']],
+            ['tienCan', 'Đã từng', null, 'vd cơn thứ 4 trong năm, có hạt tophi']
+        ]
+    },
+    {
+        ten: 'Hạn chế vận động khớp', nhom: 'Cơ xương khớp', fields: [
+            ['khop', 'Khớp nào', ['vai', 'gối', 'háng', 'khuỷu', 'cột sống']],
+            ['dongTac', 'Không làm được', null, 'vd không chải tóc, không ngồi xổm được'],
+            ['dau', 'Đau kèm', ['đau khi vận động', 'đau cả khi nghỉ', 'không đau']]
+        ]
+    },
+    {
+        ten: 'Biến dạng khớp', nhom: 'Cơ xương khớp', fields: [
+            ['kieu', 'Kiểu biến dạng', ['bàn tay gió thổi', 'ngón hình cổ cò', 'gối vẹo', 'gù vẹo cột sống']],
+            ['thoiGian', 'Từ bao lâu', null, 'vd nhiều năm, nặng dần'],
+            ['chucNang', 'Ảnh hưởng', ['cầm nắm khó', 'đi lại khó', 'chưa ảnh hưởng']]
+        ]
+    },
+    {
+        ten: 'Đau xương về đêm', nhom: 'Cơ xương khớp', fields: [
+            ['viTri', 'Vị trí', ['cột sống', 'xương chậu', 'xương dài chi dưới', 'nhiều nơi']],
+            ['dacDiem', 'Đặc điểm', ['đau tăng về đêm', 'không giảm khi nghỉ', 'thuốc giảm đau thường không đỡ']],
+            ['kemTheo', 'Kèm theo', ['sụt cân', 'gãy xương tự nhiên', 'thiếu máu', 'sốt']]
+        ]
+    },
+    {
+        ten: 'Đau gót chân', nhom: 'Cơ xương khớp', fields: [
+            ['thoiDiem', 'Đau nhất khi', ['bước chân đầu tiên buổi sáng', 'sau đứng lâu', 'cả ngày']],
+            ['viTri', 'Vị trí', ['mặt dưới gót', 'sau gót, chỗ bám gân gót']],
+            ['kemTheo', 'Kèm theo', ['đau lưng, viêm khớp cùng chậu', 'không kèm gì']]
+        ]
+    },
+
+    /* ---------------- Da – niêm (bổ sung) ---------------- */
+    {
+        ten: 'Mụn nước – bóng nước', nhom: 'Da – niêm', fields: [
+            ['viTri', 'Vị trí', ['thành chùm một bên theo khoanh da', 'quanh miệng', 'lòng bàn tay chân', 'toàn thân']],
+            ['dacDiem', 'Đặc điểm', ['căng, dịch trong', 'dịch đục', 'dễ vỡ để lại trợt']],
+            ['camGiac', 'Cảm giác', ['đau rát nhiều', 'ngứa', 'không đau']],
+            ['niemMac', 'Niêm mạc', ['có tổn thương miệng, mắt, sinh dục', 'không']]
+        ]
+    },
+    {
+        ten: 'Mề đay – phù mạch', nhom: 'Da – niêm', fields: [
+            ['thoiGian', 'Mỗi đợt kéo dài', ['dưới 24 giờ rồi mất', 'trên 24 giờ, để lại vết thâm']],
+            ['yeuTo', 'Sau khi', ['ăn thức ăn lạ', 'uống thuốc', 'côn trùng đốt', 'không rõ']],
+            ['phuMach', 'Phù mạch', ['sưng môi, mi mắt', 'khàn tiếng, khó thở', 'không']],
+            ['dienTien', 'Diễn tiến', null, 'vd tái phát hằng ngày trên 6 tuần']
+        ]
+    },
+    {
+        ten: 'Sạm da – tăng sắc tố', nhom: 'Da – niêm', fields: [
+            ['viTri', 'Rõ nhất ở', ['vùng hở, mặt', 'nếp gấp, sẹo cũ', 'niêm mạc miệng', 'toàn thân']],
+            ['thoiGian', 'Từ khi nào', null, 'vd 6 tháng nay'],
+            ['kemTheo', 'Kèm theo', ['sụt cân, mệt mỏi', 'huyết áp thấp', 'thèm ăn mặn', 'không kèm gì']]
+        ]
+    },
+    {
+        ten: 'Rụng tóc', nhom: 'Da – niêm', fields: [
+            ['kieu', 'Kiểu rụng', ['rụng lan tỏa', 'từng mảng tròn', 'rụng vùng đỉnh trán']],
+            ['thoiGian', 'Từ khi nào', null, 'vd 3 tháng sau sinh'],
+            ['kemTheo', 'Kèm theo', ['ban cánh bướm', 'đau khớp', 'sụt cân', 'sau hóa trị', 'không kèm gì']]
+        ]
+    },
+    {
+        ten: 'Móng dùi trống', nhom: 'Da – niêm', fields: [
+            ['thoiGian', 'Từ khi nào', null, 'vd nhiều năm nay'],
+            ['kemTheo', 'Kèm theo', ['ho kéo dài', 'khó thở', 'tím môi', 'tiêu chảy mạn']]
+        ]
+    },
+    {
+        ten: 'Vảy da – bong tróc', nhom: 'Da – niêm', fields: [
+            ['viTri', 'Vị trí', ['mặt duỗi khuỷu, gối', 'da đầu', 'nếp gấp', 'toàn thân']],
+            ['dacDiem', 'Đặc điểm', ['vảy trắng dày, cạo ra như nến', 'vảy mỡ vàng', 'da đỏ bong toàn thân']],
+            ['kemTheo', 'Kèm theo', ['ngứa', 'đau khớp', 'tổn thương móng']]
+        ]
+    },
+
+    /* ---------------- Tai – mũi – họng (bổ sung) ---------------- */
+    {
+        ten: 'Chảy mủ tai', nhom: 'Tai – mũi – họng', fields: [
+            ['ben', 'Bên', ['phải', 'trái', 'hai bên']],
+            ['tinhChat', 'Tính chất', ['mủ vàng đặc, hôi', 'dịch trong', 'lẫn máu']],
+            ['thoiGian', 'Bao lâu', null, 'vd chảy tái đi tái lại 2 năm'],
+            ['kemTheo', 'Kèm theo', ['nghe kém', 'đau tai', 'chóng mặt', 'liệt mặt', 'sốt']]
+        ]
+    },
+    {
+        ten: 'Đau tai', nhom: 'Tai – mũi – họng', fields: [
+            ['ben', 'Bên', ['phải', 'trái', 'hai bên']],
+            ['tinhChat', 'Tính chất', ['đau nhói từng cơn', 'đau âm ỉ', 'đau tăng khi kéo vành tai']],
+            ['kemTheo', 'Kèm theo', ['sốt', 'chảy dịch tai', 'nghe kém', 'sau viêm mũi họng']]
+        ]
+    },
+    {
+        ten: 'Nuốt vướng – cảm giác dị vật họng', nhom: 'Tai – mũi – họng', fields: [
+            ['viTri', 'Cảm giác vướng ở', ['ngang cổ', 'sau xương ức']],
+            ['thoiGian', 'Bao lâu', null, 'vd 2 tháng nay'],
+            ['kemTheo', 'Kèm theo', ['khàn tiếng', 'sụt cân', 'ợ chua', 'hạch cổ', 'không kèm gì']]
+        ]
+    },
+    {
+        ten: 'Đau nhức vùng mặt – xoang', nhom: 'Tai – mũi – họng', fields: [
+            ['viTri', 'Vị trí', ['trán', 'gò má', 'quanh hốc mắt', 'sau gáy']],
+            ['tangKhi', 'Tăng khi', ['cúi đầu', 'buổi sáng', 'thay đổi thời tiết']],
+            ['kemTheo', 'Kèm theo', ['nghẹt mũi', 'chảy mũi đục', 'chảy mũi sau', 'giảm khứu giác', 'sốt']]
+        ]
+    },
+    {
+        ten: 'Mất mùi – giảm khứu giác', nhom: 'Tai – mũi – họng', fields: [
+            ['mucDo', 'Mức độ', ['giảm', 'mất hẳn']],
+            ['khoiPhat', 'Khởi phát', ['đột ngột sau nhiễm siêu vi', 'tăng dần', 'sau chấn thương đầu']],
+            ['kemTheo', 'Kèm theo', ['nghẹt mũi', 'polyp mũi', 'không kèm gì']]
+        ]
+    },
+    {
+        ten: 'Sưng hạch vùng cổ', nhom: 'Tai – mũi – họng', fields: [
+            ['viTri', 'Vị trí', ['dưới hàm', 'cảnh máng cổ', 'thượng đòn', 'sau tai']],
+            ['kichThuoc', 'Kích thước', null, 'vd 2 cm, một khối'],
+            ['tinhChat', 'Tính chất', ['mềm, di động, đau', 'chắc, dính, không đau', 'hóa mủ vỡ ra']],
+            ['kemTheo', 'Kèm theo', ['sốt', 'viêm họng', 'sụt cân', 'nghẹt mũi một bên, ù tai']]
+        ]
+    },
+
+    /* ---------------- Mắt (bổ sung) ---------------- */
+    {
+        ten: 'Đau nhức mắt', nhom: 'Mắt', fields: [
+            ['ben', 'Bên', ['phải', 'trái', 'hai bên']],
+            ['tinhChat', 'Tính chất', ['nhức sâu trong hốc mắt', 'cộm như có cát', 'đau khi liếc mắt']],
+            ['kemTheo', 'Kèm theo', ['nhìn mờ', 'thấy quầng xanh đỏ quanh đèn', 'buồn nôn, nôn', 'đỏ mắt']],
+            ['khoiPhat', 'Khởi phát', ['đột ngột dữ dội', 'tăng dần']]
+        ]
+    },
+    {
+        ten: 'Mất thị lực đột ngột', nhom: 'Mắt', fields: [
+            ['ben', 'Bên', ['một mắt', 'hai mắt', 'nửa thị trường']],
+            ['thoiGian', 'Kéo dài', ['thoáng qua vài phút rồi hồi phục', 'kéo dài, chưa hồi phục']],
+            ['dau', 'Đau kèm', ['có đau nhức', 'không đau']],
+            ['kemTheo', 'Kèm theo', ['ruồi bay, chớp sáng', 'như màn che kéo xuống', 'yếu nửa người', 'đau thái dương']]
+        ]
+    },
+    {
+        ten: 'Ruồi bay – chớp sáng', nhom: 'Mắt', fields: [
+            ['khoiPhat', 'Từ khi nào', null, 'vd 3 ngày nay, tăng nhiều'],
+            ['mucDo', 'Mức độ', ['vài chấm đen', 'như mưa bồ hóng']],
+            ['kemTheo', 'Kèm theo', ['thấy màn che một phần thị trường', 'giảm thị lực', 'không kèm gì']],
+            ['yeuTo', 'Yếu tố', ['cận thị nặng', 'sau chấn thương', 'sau mổ thể thủy tinh']]
+        ]
+    },
+    {
+        ten: 'Chảy nước mắt sống', nhom: 'Mắt', fields: [
+            ['ben', 'Bên', ['phải', 'trái', 'hai bên']],
+            ['thoiDiem', 'Khi nào', ['thường xuyên', 'ra gió, ra nắng']],
+            ['kemTheo', 'Kèm theo', ['ghèn nhiều', 'sưng đau góc trong mắt', 'cộm mắt']]
+        ]
+    },
+    {
+        ten: 'Sợ ánh sáng – cộm mắt', nhom: 'Mắt', fields: [
+            ['mucDo', 'Mức độ', ['nheo mắt khi ra sáng', 'không mở mắt được']],
+            ['kemTheo', 'Kèm theo', ['đỏ quanh rìa giác mạc', 'chảy nước mắt', 'nhìn mờ', 'đau nhức']],
+            ['yeuTo', 'Sau khi', ['hàn điện, ra nắng gắt', 'đeo kính tiếp xúc', 'dị vật bay vào', 'không rõ']]
+        ]
+    },
+    {
+        ten: 'Lồi mắt', nhom: 'Mắt', fields: [
+            ['ben', 'Bên', ['một bên', 'hai bên']],
+            ['dienTien', 'Diễn tiến', ['tăng dần nhiều tháng', 'nhanh trong vài tuần']],
+            ['kemTheo', 'Kèm theo', ['nhìn đôi', 'co kéo mi trên', 'sụt cân, hồi hộp', 'đau nhức, đỏ mắt']]
+        ]
+    },
+    {
+        ten: 'Quáng gà – nhìn kém ban đêm', nhom: 'Mắt', fields: [
+            ['thoiGian', 'Từ khi nào', null, 'vd từ nhỏ, nặng dần'],
+            ['thiTruong', 'Thị trường', ['thu hẹp dần hai bên', 'bình thường']],
+            ['tienCan', 'Tiền căn', ['gia đình có người tương tự', 'suy dinh dưỡng', 'không rõ']]
+        ]
+    },
+
+    /* ---------------- Nội tiết – chuyển hóa (bổ sung) ---------------- */
+    {
+        ten: 'Sợ nóng – vã mồ hôi nhiều', nhom: 'Nội tiết – chuyển hóa', fields: [
+            ['mucDo', 'Mức độ', ['phải bật quạt liên tục', 'ướt áo cả ngày']],
+            ['kemTheo', 'Kèm theo', ['sụt cân dù ăn nhiều', 'hồi hộp', 'run tay', 'tiêu lỏng', 'mất ngủ']],
+            ['thoiGian', 'Bao lâu nay', null, 'vd 4 tháng']
+        ]
+    },
+    {
+        ten: 'Sợ lạnh – da khô', nhom: 'Nội tiết – chuyển hóa', fields: [
+            ['kemTheo', 'Kèm theo', ['tăng cân', 'táo bón', 'ngủ nhiều, chậm chạp', 'rụng tóc', 'phù mặt']],
+            ['thoiGian', 'Bao lâu nay', null, 'vd 6 tháng'],
+            ['tienCan', 'Tiền căn', ['đã mổ tuyến giáp', 'đã uống iốt phóng xạ', 'không']]
+        ]
+    },
+    {
+        ten: 'Cơn hạ đường huyết', nhom: 'Nội tiết – chuyển hóa', fields: [
+            ['bieuHien', 'Biểu hiện', ['vã mồ hôi, run tay, đói cồn cào', 'lơ mơ, nói nhảm', 'hôn mê, co giật']],
+            ['thoiDiem', 'Thời điểm', ['xa bữa ăn', 'ban đêm', 'sau tiêm insulin', 'sau gắng sức']],
+            ['duongHuyet', 'Đường huyết đo được', null, 'vd 45 mg/dL'],
+            ['xuTri', 'Xử trí', ['ăn ngọt là hết', 'phải truyền đường']]
+        ]
+    },
+    {
+        ten: 'Mặt tròn – rạn da đỏ', nhom: 'Nội tiết – chuyển hóa', fields: [
+            ['dacDiem', 'Đặc điểm', ['mặt tròn đỏ', 'gáy trâu', 'bụng to, chi teo', 'rạn da tím rộng']],
+            ['thuoc', 'Thuốc', null, 'vd uống thuốc bắc tán có corticoid nhiều tháng'],
+            ['kemTheo', 'Kèm theo', ['tăng huyết áp', 'đường huyết cao', 'yếu cơ gốc chi', 'dễ bầm da']]
+        ]
+    },
+    {
+        ten: 'Rậm lông – nam hóa', nhom: 'Nội tiết – chuyển hóa', fields: [
+            ['viTri', 'Vị trí', ['mặt, cằm', 'ngực bụng', 'quanh rốn']],
+            ['kemTheo', 'Kèm theo', ['kinh thưa, vô kinh', 'mụn nhiều', 'giọng trầm', 'hói trán']],
+            ['dienTien', 'Diễn tiến', ['tăng chậm nhiều năm', 'tăng nhanh vài tháng']]
+        ]
+    },
+    {
+        ten: 'Chậm phát triển chiều cao', nhom: 'Nội tiết – chuyển hóa', fields: [
+            ['chieuCao', 'Chiều cao hiện tại', null, 'vd 118 cm lúc 11 tuổi'],
+            ['tocDo', 'Tốc độ', null, 'vd chỉ cao thêm 2 cm trong 1 năm'],
+            ['dayThi', 'Dấu dậy thì', ['chưa có', 'đã có']],
+            ['giaDinh', 'Chiều cao cha mẹ', null, 'vd cha 168 cm, mẹ 155 cm']
+        ]
+    },
+
+    /* ---------------- Huyết học (bổ sung) ---------------- */
+    {
+        ten: 'Da niêm nhợt', nhom: 'Huyết học', fields: [
+            ['thoiGian', 'Từ khi nào', null, 'vd 3 tháng, nhợt dần'],
+            ['kemTheo', 'Kèm theo', ['mệt khi gắng sức', 'chóng mặt', 'hồi hộp', 'ăn kém']],
+            ['nguonMat', 'Có mất máu không', ['rong kinh', 'tiêu phân đen', 'trĩ chảy máu', 'không rõ']],
+            ['anUong', 'Ăn uống', ['ăn chay trường', 'kiêng khem', 'bình thường']]
+        ]
+    },
+    {
+        ten: 'Sốt khi đang giảm bạch cầu hạt', nhom: 'Huyết học', fields: [
+            ['hoaTri', 'Sau hóa trị', null, 'vd ngày 10 sau đợt hóa trị thứ 2'],
+            ['nhietDo', 'Nhiệt độ', null, 'vd 38,8°C'],
+            ['oNhiem', 'Ổ nhiễm nghi ngờ', ['miệng họng', 'phổi', 'hậu môn', 'chỗ đặt catheter', 'chưa rõ']],
+            ['bachCau', 'Bạch cầu hạt', null, 'vd neutrophil 0,3 K/µL']
+        ]
+    },
+    {
+        ten: 'Rong kinh – cường kinh', nhom: 'Huyết học', fields: [
+            ['soNgay', 'Số ngày hành kinh', null, 'vd 10 ngày'],
+            ['luong', 'Lượng', null, 'vd thay 6–8 băng mỗi ngày, có cục máu đông'],
+            ['thoiGian', 'Từ bao lâu', null, 'vd 6 tháng nay'],
+            ['kemTheo', 'Kèm theo', ['mệt, da xanh', 'bầm da', 'chảy máu răng', 'không kèm gì']]
+        ]
+    },
+    {
+        ten: 'Huyết khối tái phát', nhom: 'Huyết học', fields: [
+            ['viTri', 'Vị trí các lần', null, 'vd huyết khối tĩnh mạch sâu chân trái, thuyên tắc phổi'],
+            ['soLan', 'Số lần', null, 'vd lần thứ 3 trong 2 năm'],
+            ['hoanCanh', 'Hoàn cảnh', ['sau bất động, sau mổ', 'tự nhiên', 'đang dùng thuốc ngừa thai']],
+            ['giaDinh', 'Gia đình', ['có người bị huyết khối trẻ tuổi', 'không']]
+        ]
+    },
+    {
+        ten: 'Ngứa sau tắm nước nóng', nhom: 'Huyết học', fields: [
+            ['thoiGian', 'Từ khi nào', null, 'vd 1 năm nay'],
+            ['kemTheo', 'Kèm theo', ['mặt đỏ bừng', 'đau rát đầu chi', 'nhức đầu', 'lách to']]
+        ]
+    },
+    {
+        ten: 'Phụ thuộc truyền máu', nhom: 'Huyết học', fields: [
+            ['tanSuat', 'Bao lâu truyền một lần', null, 'vd mỗi 4 tuần'],
+            ['tuKhi', 'Từ khi nào', null, 'vd từ 2 tuổi'],
+            ['kemTheo', 'Kèm theo', ['bụng to, lách to', 'biến dạng xương mặt', 'da sạm', 'chậm lớn']]
+        ]
+    },
+
+    /* ---------------- Tâm thần (bổ sung) ---------------- */
+    {
+        ten: 'Hoang tưởng – ảo giác', nhom: 'Tâm thần', fields: [
+            ['noiDung', 'Nội dung', ['nghe tiếng nói trong đầu', 'nghĩ có người hại mình', 'nhìn thấy hình ảnh lạ']],
+            ['thoiGian', 'Từ bao lâu', null, 'vd 3 tháng nay'],
+            ['hanhVi', 'Hành vi kèm', ['thu mình, không tiếp xúc', 'kích động', 'bỏ ăn, bỏ ngủ']],
+            ['chatKichThich', 'Rượu – chất', ['đang uống rượu nhiều', 'dùng chất kích thích', 'không']]
+        ]
+    },
+    {
+        ten: 'Kích động – hành vi gây hại', nhom: 'Tâm thần', fields: [
+            ['bieuHien', 'Biểu hiện', ['la hét, đập phá', 'đe dọa người khác', 'tự làm đau mình']],
+            ['khoiPhat', 'Khởi phát', ['đột ngột', 'tăng dần vài ngày']],
+            ['yeuTo', 'Yếu tố', ['ngưng rượu đột ngột', 'bỏ thuốc điều trị', 'sau sang chấn', 'không rõ']],
+            ['anToan', 'An toàn', null, 'vd cần người nhà giữ, đã có gây thương tích']
+        ]
+    },
+    {
+        ten: 'Cơn hoảng loạn', nhom: 'Tâm thần', fields: [
+            ['bieuHien', 'Trong cơn', ['hồi hộp, khó thở', 'tê tay chân', 'sợ chết, sợ phát điên', 'vã mồ hôi']],
+            ['thoiGian', 'Đạt đỉnh trong', null, 'vd vài phút, kéo dài 20 phút'],
+            ['tanSuat', 'Tần suất', null, 'vd 2–3 cơn mỗi tuần'],
+            ['neTranh', 'Né tránh', ['sợ ra khỏi nhà một mình', 'sợ chỗ đông người', 'không né tránh']]
+        ]
+    },
+    {
+        ten: 'Ý tưởng tự sát', nhom: 'Tâm thần', fields: [
+            ['mucDo', 'Mức độ', ['chán sống, không muốn tiếp tục', 'có nghĩ tới cách làm', 'đã có kế hoạch cụ thể', 'đã từng thực hiện']],
+            ['thoiGian', 'Từ khi nào', null, 'vd 2 tuần nay, dày lên'],
+            ['nguyCo', 'Yếu tố nguy cơ', ['sống một mình', 'mất mát gần đây', 'đang có sẵn phương tiện', 'lạm dụng rượu']],
+            ['hoTro', 'Chỗ dựa', null, 'vd có gia đình bên cạnh, đã báo người thân']
+        ]
+    },
+    {
+        ten: 'Lạm dụng rượu – hội chứng cai', nhom: 'Tâm thần', fields: [
+            ['luong', 'Lượng uống', null, 'vd 500 ml rượu 40 độ mỗi ngày, 15 năm'],
+            ['lanCuoi', 'Lần uống cuối', null, 'vd 36 giờ trước'],
+            ['trieuChung', 'Triệu chứng cai', ['run tay, vã mồ hôi', 'lo âu, mất ngủ', 'ảo giác', 'co giật']],
+            ['tienCan', 'Đã từng', ['sảng rượu', 'co giật khi cai', 'chưa từng']]
+        ]
+    },
+    {
+        ten: 'Thay đổi nhân cách – hành vi bất thường', nhom: 'Tâm thần', fields: [
+            ['moTa', 'Người nhà mô tả', null, 'vd trước hiền, nay dễ nổi nóng, nói tục'],
+            ['thoiGian', 'Từ khi nào', null, 'vd 6 tháng nay'],
+            ['kemTheo', 'Kèm theo', ['hay quên', 'ăn uống thay đổi', 'mất kiểm soát hành vi', 'động kinh']]
+        ]
+    },
+
+    /* ---------------- Sản phụ khoa (bổ sung) ---------------- */
+    {
+        ten: 'Nghén nặng – nôn nhiều khi có thai', nhom: 'Sản phụ khoa', fields: [
+            ['tuoiThai', 'Tuổi thai', null, 'vd 9 tuần'],
+            ['soLan', 'Số lần nôn', null, 'vd trên 10 lần mỗi ngày'],
+            ['anUong', 'Ăn uống', ['không giữ được thức ăn nước uống', 'ăn ít vẫn giữ được']],
+            ['sutCan', 'Sụt cân', null, 'vd sụt 4 kg so với trước mang thai'],
+            ['kemTheo', 'Kèm theo', ['tiểu ít, nước tiểu sẫm', 'chóng mặt', 'không kèm gì']]
+        ]
+    },
+    {
+        ten: 'Đau bụng dưới ở phụ nữ', nhom: 'Sản phụ khoa', fields: [
+            ['viTri', 'Vị trí', ['hạ vị', 'hố chậu phải', 'hố chậu trái', 'hai bên']],
+            ['lienQuanKinh', 'Liên quan kinh nguyệt', ['đau trước và trong hành kinh', 'đau giữa chu kỳ', 'không liên quan']],
+            ['thoiGian', 'Kéo dài', null, 'vd âm ỉ 6 tháng nay'],
+            ['kemTheo', 'Kèm theo', ['ra huyết bất thường', 'huyết trắng hôi', 'đau khi giao hợp', 'sốt']]
+        ]
+    },
+    {
+        ten: 'Rối loạn kinh nguyệt', nhom: 'Sản phụ khoa', fields: [
+            ['kieu', 'Kiểu rối loạn', ['kinh thưa, trên 35 ngày', 'kinh mau, dưới 21 ngày', 'vô kinh', 'ra huyết giữa kỳ']],
+            ['thoiGian', 'Từ bao lâu', null, 'vd 1 năm nay'],
+            ['kemTheo', 'Kèm theo', ['tăng cân, rậm lông', 'tiết sữa ngoài thai kỳ', 'bốc hỏa', 'sụt cân nhiều']],
+            ['kinhChot', 'Kinh chót', null, 'vd 20/5']
+        ]
+    },
+    {
+        ten: 'Thống kinh', nhom: 'Sản phụ khoa', fields: [
+            ['mucDo', 'Mức độ', ['chịu được', 'phải uống thuốc giảm đau', 'phải nghỉ học nghỉ làm']],
+            ['thoiDiem', 'Thời điểm', ['ngay ngày đầu hành kinh', 'trước hành kinh vài ngày']],
+            ['dienTien', 'Diễn tiến', ['có từ lần hành kinh đầu tiên', 'mới xuất hiện, nặng dần']],
+            ['kemTheo', 'Kèm theo', ['đau khi giao hợp', 'khó có thai', 'tiêu chảy khi hành kinh']]
+        ]
+    },
+    {
+        ten: 'Khối u vú – tiết dịch núm vú', nhom: 'Sản phụ khoa', fields: [
+            ['viTri', 'Vị trí', ['vú phải', 'vú trái', 'hai bên']],
+            ['kichThuoc', 'Kích thước', null, 'vd 2 cm, góc phần tư trên ngoài'],
+            ['tinhChat', 'Tính chất', ['chắc, không đau, dính', 'mềm, di động, đau theo chu kỳ']],
+            ['tietDich', 'Tiết dịch', ['máu', 'dịch trong', 'sữa', 'không tiết dịch']],
+            ['daHach', 'Da – hạch', ['da sần vỏ cam, tụt núm vú', 'hạch nách', 'bình thường']]
+        ]
+    },
+    {
+        ten: 'Phù – tăng huyết áp thai kỳ', nhom: 'Sản phụ khoa', fields: [
+            ['tuoiThai', 'Tuổi thai', null, 'vd 34 tuần'],
+            ['huyetAp', 'Huyết áp', null, 'vd 160/100 mmHg'],
+            ['phu', 'Phù', ['hai chân', 'mặt và tay', 'toàn thân, tăng cân nhanh']],
+            ['dauHieuNang', 'Dấu hiệu nặng', ['nhức đầu', 'nhìn mờ', 'đau thượng vị', 'thiểu niệu', 'không có']]
+        ]
+    },
+    {
+        ten: 'Cơn co tử cung dọa sinh non', nhom: 'Sản phụ khoa', fields: [
+            ['tuoiThai', 'Tuổi thai', null, 'vd 30 tuần'],
+            ['tanSuat', 'Cơn co', null, 'vd 3 cơn trong 10 phút, mỗi cơn 30 giây'],
+            ['raHuyet', 'Ra huyết – ra nhớt hồng', ['có', 'không']],
+            ['raNuoc', 'Ra nước', ['có', 'không']],
+            ['xuTri', 'Đã xử trí', null, 'vd đã tiêm 1 liều corticoid trưởng thành phổi']
+        ]
+    },
+
+    /* ---------------- Nhi khoa (bổ sung) ---------------- */
+    {
+        ten: 'Co giật do sốt', nhom: 'Nhi khoa', fields: [
+            ['tuoi', 'Tuổi', null, 'vd 18 tháng'],
+            ['kieuGiat', 'Kiểu giật', ['toàn thân', 'cục bộ một bên']],
+            ['thoiGian', 'Kéo dài', null, 'vd 2 phút'],
+            ['soCon', 'Số cơn trong đợt sốt', null, 'vd 1 cơn'],
+            ['sauCon', 'Sau cơn', ['tỉnh lại ngay', 'lơ mơ kéo dài', 'yếu liệt sau cơn']]
+        ]
+    },
+    {
+        ten: 'Vàng da sơ sinh', nhom: 'Nhi khoa', fields: [
+            ['ngayTuoi', 'Ngày tuổi xuất hiện', null, 'vd ngày thứ 3'],
+            ['vungVang', 'Vàng tới đâu', ['mặt', 'tới ngực bụng', 'tới đùi', 'tới lòng bàn tay chân']],
+            ['bu', 'Bú', ['bú tốt', 'bú kém', 'bỏ bú']],
+            ['kemTheo', 'Kèm theo', ['li bì', 'gồng ưỡn người', 'phân bạc màu', 'tiểu sẫm']],
+            ['nhomMau', 'Nhóm máu mẹ con', null, 'vd mẹ O, con A']
+        ]
+    },
+    {
+        ten: 'Chậm phát triển tâm thần vận động', nhom: 'Nhi khoa', fields: [
+            ['moc', 'Mốc chưa đạt', null, 'vd 14 tháng chưa tự ngồi, chưa nói từ đơn'],
+            ['linhVuc', 'Lĩnh vực', ['vận động thô', 'vận động tinh', 'ngôn ngữ', 'giao tiếp xã hội']],
+            ['dienTien', 'Diễn tiến', ['chậm từ đầu', 'từng đạt rồi mất kỹ năng']],
+            ['tienCan', 'Tiền căn', ['sinh non, ngạt', 'vàng da nặng', 'co giật', 'không']]
+        ]
+    },
+    {
+        ten: 'Khóc cơn – khóc dạ đề', nhom: 'Nhi khoa', fields: [
+            ['thoiDiem', 'Thời điểm', ['chiều tối', 'ban đêm', 'bất kỳ lúc nào']],
+            ['thoiGian', 'Mỗi cơn', null, 'vd trên 3 giờ, 4 ngày mỗi tuần'],
+            ['duDo', 'Dỗ có nín không', ['dỗ được', 'dỗ không nín']],
+            ['kemTheo', 'Kèm theo', ['ưỡn người, co chân', 'nôn trớ', 'tiêu máu', 'sốt', 'không kèm gì']]
+        ]
+    },
+    {
+        ten: 'Sốt phát ban ở trẻ', nhom: 'Nhi khoa', fields: [
+            ['thuTu', 'Ban xuất hiện', ['sau khi hết sốt', 'trong lúc còn sốt']],
+            ['viTri', 'Ban bắt đầu từ', ['mặt rồi lan xuống', 'thân mình', 'toàn thân cùng lúc']],
+            ['dacDiem', 'Đặc điểm ban', ['dát sẩn đỏ', 'ban xuất huyết ấn không mất', 'mụn nước']],
+            ['kemTheo', 'Kèm theo', ['ho, chảy mũi, đỏ mắt', 'hạch sau tai', 'loét miệng', 'sưng đau khớp']],
+            ['chungNgua', 'Chủng ngừa', null, 'vd chưa tiêm sởi']
+        ]
+    },
+    {
+        ten: 'Ho cơn kéo dài ở trẻ', nhom: 'Nhi khoa', fields: [
+            ['kieuCon', 'Kiểu cơn', ['ho rũ rượi từng chuỗi', 'ho tới nôn ói', 'ho có tiếng rít cuối cơn']],
+            ['thoiDiem', 'Thời điểm', ['về đêm', 'suốt ngày']],
+            ['giuaCon', 'Giữa các cơn', ['trẻ vẫn chơi bình thường', 'mệt, tím môi']],
+            ['chungNgua', 'Chủng ngừa', null, 'vd chưa tiêm đủ mũi ho gà']
+        ]
+    },
+    {
+        ten: 'Suy dinh dưỡng – phù dinh dưỡng', nhom: 'Nhi khoa', fields: [
+            ['canNang', 'Cân nặng – chiều cao', null, 'vd 8 kg / 82 cm lúc 2 tuổi'],
+            ['dacDiem', 'Đặc điểm', ['gầy đét, mất lớp mỡ', 'phù hai mu bàn chân', 'tóc thưa dễ rụng', 'da bong mảng']],
+            ['anUong', 'Chế độ ăn', null, 'vd chỉ ăn cháo trắng với nước mắm'],
+            ['kemTheo', 'Kèm theo', ['tiêu chảy kéo dài', 'nhiễm trùng tái đi tái lại', 'chậm phát triển']]
+        ]
+    },
 ];
 
 /* =====================================================================

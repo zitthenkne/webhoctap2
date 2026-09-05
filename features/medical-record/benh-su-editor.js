@@ -18,7 +18,8 @@ import { attachTypeahead } from './goi-y-go.js';
 import { parseNgay, fmtDate } from './cnv-list.js';
 import { scaleForSeverity, gradeFromSeverity, boPhanDo } from './phan-do.js';
 import { vungProse } from './body-map.js';
-import { initDienTien, renderDienTien, playDienTien, stopDienTien, dangPhat } from './dien-tien-view.js';
+import { initDienTien, renderDienTien, playDienTien, stopDienTien, dangPhat,
+    openMapModal, dangMoBanDo } from './dien-tien-view.js';
 
 /* Gõ là gợi ý ngay, khỏi phải mở thư viện mới tìm được tên. Tìm không dấu. */
 const TEN_TRIEU_CHUNG = SYMPTOMS.map(s => s.ten);
@@ -160,7 +161,10 @@ export function stepProse(m, { laKhoiPhat = false } = {}) {
        ("hố chậu phải" chứ không phải "bụng dưới bên phải"). Mốc khởi phát đã tả vị
        trí trong khối triệu chứng chính rồi thì không kể lại. */
     const daTaViTri = laKhoiPhat && !!($('hx-sym-site')?.value || '').trim();
-    const vung = daTaViTri ? '' : vungProse(m.vung || [], m.lan || []);
+    /* Dấu khác đau (vết thương, ban da, phù, khối, sẹo mổ) luôn kể, kể cả khi vị
+       trí đau đã tả ở khối triệu chứng chính — đó là dữ kiện riêng, không trùng. */
+    const vung = daTaViTri ? vungProse([], [], m.dh || [])
+        : vungProse(m.vung || [], m.lan || [], m.dh || []);
     if (vung) menh.push(menh.length ? vung : 'bệnh nhân ' + vung);
 
     const care = careLine(m.care);
@@ -192,7 +196,9 @@ let carrying = false;
 
 const isEmptyStep = (m) =>
     !(m.main && mainSymName()) && !hasCare(m.care) &&
-    !String(m.s || '').trim() && !(m.refs || []).some(r => String(r.sym || '').trim());
+    !String(m.s || '').trim() && !(m.refs || []).some(r => String(r.sym || '').trim())
+    // Mốc chỉ có dấu chấm trên bản đồ (vết thương, ban da…) vẫn là mốc CÓ nội dung
+    && !(m.vung || []).length && !(m.dh || []).length;
 
 export function getSteps() {
     return sorted(steps).filter(m => !isEmptyStep(m));
@@ -667,7 +673,7 @@ export function patchStep(id, patch, { nhe = false } = {}) {
 
 function applyHxMode(v) {
     mode = v === 'dt' ? 'dt' : 'form';
-    if (mode !== 'dt') stopDienTien();
+    if (mode !== 'dt') { stopDienTien(); if (dangMoBanDo()) openMapModal(false); }
     $('hx-list')?.classList.toggle('is-hidden', mode === 'dt');
     $('hx-dt')?.classList.toggle('is-hidden', mode !== 'dt');
     const play = $('hx-play');
@@ -1009,6 +1015,24 @@ export function initHistory(options) {
         const b = e.target.closest('[data-mode]');
         if (b) applyHxMode(b.dataset.mode);
     });
+
+    /* Mở bản đồ cơ thể từ bất kỳ đâu. Ba việc phải làm đủ, thiếu cái nào cũng ra
+       màn trống: có ít nhất một mốc (không thì chế độ Diễn tiến báo "chưa có mốc
+       nào"), chuyển sang chế độ Diễn tiến, rồi mới bung cửa sổ. */
+    function moBanDo() {
+        if (!steps.length) {
+            steps.push({
+                id: 'm' + Date.now().toString(36), phase: 'truoc',
+                n: '', u: 'ngày', s: '', refs: []
+            });
+            render();
+            onChangeCb();
+        }
+        applyHxMode('dt');
+        openMapModal(true);
+    }
+    $('hx-map')?.addEventListener('click', moBanDo);
+    $('hx-sym-map')?.addEventListener('click', moBanDo);
     $('hx-play')?.addEventListener('click', (e) => {
         const b = e.currentTarget;
         const nhan = (dang) => {
