@@ -35,19 +35,25 @@ Xong thì chạy `node ban-do-codegraph.mjs` và kiểm `no_route_to_output` v�
 lúc chạy) thì khai vào danh sách `control_only` trong `ban-do-codegraph.mjs`, đừng để
 nó nằm im thành `no_route_to_output` giả.
 
-## Bốn lớp mã của trang này
+## Sáu lớp mã của trang này
 
 | File | Việc | Được phép đụng vào |
 |---|---|---|
 | `tao-benh-an.js` | mạch nhập liệu, tự lưu, tính toán | tất cả |
-| `tao-benh-an-them.js` | lối tắt giao diện (tìm mục, ô trống, tập trung, mục lục nổi, đọc đêm…) | chỉ đọc DOM |
+| `tao-benh-an-them.js` | lối tắt giao diện (tìm mục, ô trống, tập trung, mục lục nổi, đọc đêm…) + **ô tìm Ctrl+K** | chỉ đọc DOM |
 | `nhap-lien-ket.js` | nhập nhanh & liên kết dữ kiện | chỉ đọc DOM + ghi vào ô có sẵn |
 | `toan-canh.js` | màn Toàn cảnh: sơ đồ cơ thể · lưới hệ cơ quan · bảng đối chiếu chẩn đoán | chỉ đọc DOM và các editor |
+| `mach-benh-an.js` | Trạm liên kết (việc tiếp theo · dòng thời gian · câu hỏi bảo vệ · tìm & thay), sợi dữ kiện, bản văn xuôi bấm được | chỉ đọc DOM + ghi vào ô có sẵn |
+| `thuan-tay.js` | bảng lệnh, trình bệnh, lịch sử phiên bản, ghim đôi mục, phím tắt, quay lại chỗ cũ | chỉ đọc DOM; ghi bệnh án CHỈ qua `saveRecord` |
 
-Ba file sau nạp **sau** `tao-benh-an.js` nên mọi nút đã gắn xong sự kiện, và chúng
+Năm file sau nạp **sau** `tao-benh-an.js` nên mọi nút đã gắn xong sự kiện, và chúng
 KHÔNG thêm ô nội dung nào — nên không phải đụng `FIELDS`/`buildModel`. Ghi vào ô thì
-phải dispatch **cả `input` lẫn `change`** (`setField()` trong `nhap-lien-ket.js`), thiếu
-`change` là `MIRRORS` và `bindAuto` không chạy.
+phải dispatch **cả `input` lẫn `change`** (`setField()` trong `nhap-lien-ket.js`, `fire()`
+trong `mach-benh-an.js`), thiếu `change` là `MIRRORS` và `bindAuto` không chạy.
+
+**Thêm lệnh vào Ctrl+K thì gọi `addCmdSource()`** của `tao-benh-an-them.js`, đừng dựng
+bảng tìm thứ hai. Mỗi nguồn trả `[{ text, group, icon, hint, run }]`; có `run` thì Enter
+chạy hàm đó thay vì cuộn tới một ô, và lệnh luôn đứng trước danh sách ô.
 
 `toan-canh.js` chỉ ĐỌC, không ghi vào ô nào — nó vẽ lại những gì đã nhập. Thêm khung
 mới thì lấy dữ liệu qua hàm `export` của các editor (`getSteps`, `docRos`, `getBienLuan`)
@@ -71,6 +77,17 @@ Ba tầng, mỗi tầng **một** thứ:
 | 0 | đáy | thanh Lưu — hoặc thanh trợ nhập lúc đang gõ (`body.typing`) |
 | 1 | `--rail` | khay công cụ **hoặc** thẻ Nhìn nhanh; góc phải: viên đèn logic |
 | 2 | `--rail + 56px` | toast và nút hoàn tác (lớp chớp, cố ý nổi lên trên) |
+
+Các lớp thêm sau (2026-09-06) bám đúng thang này, khai cùng chỗ trong `<style>`:
+
+| z | Ai |
+|---|---|
+| 30 | khay **Ghim đôi mục** — là bố cục, phải nằm dưới mọi bảng |
+| 58 | viên "Tiếp tục ở…" (tầng chớp, tự tắt sau 12 giây) |
+| 59 | nút "Soi sợi" nổi cạnh ô đang bôi đen |
+| 62 | bảng **Sợi dữ kiện** (dưới bảng tìm nhanh 90) |
+| 88 | **Trạm liên kết** / Lịch sử phiên bản / Phím tắt |
+| 95 | **Chế độ trình bệnh** — phủ lên tất cả, đang đứng trình thì không gì được chen |
 
 Loại trừ lẫn nhau bằng class trên `<body>`: `typing`, `ba-tools-open`, `nl-peek-on`,
 `nl-undo-on`. Mọi thứ ở thang này đều **dưới 60** nên bảng chọn mục (60), xem trước
@@ -280,8 +297,69 @@ Nên chạy thêm một phép quét: với mỗi tên bệnh, so tập từ củ
 đồ được gán; không chung từ nào thì soi tay. Phép này đã bắt được hai lỗi thật (xem bảng
 dưới) mà không lỗi nào tự báo.
 
-**Luật mới trong `clinical-validator.js`** phải mang `targetTab` khớp một `data-tab` có
-thật và `targetField` khớp một `id` có thật — sai là bấm "đi tới" không nhảy đi đâu cả.
+**Mọi chỗ trỏ tới một ô đều phải trỏ vào `id` CÓ THẬT.** Luật trong
+`clinical-validator.js` phải mang `targetTab` khớp một `data-tab` có thật và
+`targetField` khớp một `id` có thật; `lien-ket-map.js`, `mach-benh-an.js`,
+`thuan-tay.js` cũng vậy. Sai là bấm "đi tới" / "Bổ sung ngay" / "Làm ngay" **tuyệt đối
+không có gì xảy ra** — không nhảy, không báo, nút trông như hỏng.
+
+Hai cái bẫy hay dính nhất, vì tên nghe rất hợp lý mà không tồn tại:
+`hx-steps` (danh sách mốc bệnh sử thật ra là **`hx-list`**, ô văn xuôi là **`hx-general`**)
+và `cls-host` (khối cận lâm sàng thật ra là **`cls-list`**). Cả hai từng nằm trong
+`duKien()` của `lien-ket-map.js` từ đầu, nên "đi tới" của bản đồ mạng chết lặng suốt.
+
+Chặn một chỗ: `diToi(field)` trong `mach-benh-an.js` là cửa DUY NHẤT để nhảy từ bảng
+Trạm — không có id thì nói ra kèm tên id, có id nhưng đang ẩn (mục đặc thù của loại bệnh
+án khác) cũng nói ra. Thêm nút nhảy mới thì gọi `diToi()`, đừng gọi `goTo()` thẳng.
+Kiểm nhanh: `for id in $(grep -o "field: .[a-z0-9-]*." *.js); do grep -c "id=\"$id\"" tao-benh-an.html; done`
+
+**Khôi phục bản cũ phải ép trang lưu nốt TRƯỚC.** `saveOnLeave` của `tao-benh-an.js`
+ghi lại toàn bộ biểu mẫu khi rời trang *nếu còn `dirty`*. Ghi bản khôi phục rồi
+`location.reload()` ngay là bản vừa khôi phục bị chính cú ghi lúc rời trang đè lên —
+mất công khôi phục mà không có lỗi nào hiện ra. `khoiPhuc()` bắn một sự kiện Ctrl+S giả
+rồi đợi 600ms cho `dirty` về false, sau đó mới ghi và mở lại trang.
+
+**Bản chụp phiên bản đọc BẢN ĐÃ LƯU, không đọc ô đang gõ.** `chup()` lấy
+`getRecord(id)` — chữ vừa gõ chưa qua nhịp tự lưu thì không có trong đó, nên nút
+"Chụp bản lúc này" phải ép lưu trước y như trên. Và **phải bỏ ảnh ra khỏi bản chụp**
+(`anhKham`, `anhHoSo`, `canLamSang[].images`): ảnh base64 làm đầy localStorage chỉ sau
+vài bản, mà `writeLocal` hết chỗ là bật `alert()` chặn cả trang.
+
+**Ghim đôi mục dời node THẬT, không dựng bản sao.** Bản sao thì mọi sự kiện đã gắn
+mất sạch và gõ bên khay không chảy về bệnh án. Dời đi thì để lại một comment làm neo
+(`neo-ghim`) như cách `#hx-dt` làm. Hai thứ bắt buộc đi kèm: luật
+`#pin-body .tab-content { display:block !important }` — mục được ghim KHÔNG mang class
+`.active` nên mặc định `display:none`; và một `MutationObserver` trả nó về cột chính khi
+người dùng bấm đúng mục đó ở thanh tab, không thì cột chính trống trơn.
+
+**Quét ô ngày cho dòng thời gian phải loại `admission-date`.** Mốc "NHẬP VIỆN" đã được
+dựng riêng (có kèm giờ); để `admission-date` lọt vào phép quét chung là trục mọc hai
+hàng trùng nhau trong cùng một ngày.
+
+**Câu hỏi bảo vệ là THẺ, không phải một dòng chữ.** Bản đầu nhét cả câu hỏi, lý do và
+mấy ý hỏi vặn vào một chuỗi — đọc ra một đoạn văn chứ không ra được "thầy hỏi gì". Mỗi
+mục nay có ba tầng: `hoi` (một câu ngắn, đọc lên thành tiếng được), `vi` (chỗ hở nào đẻ
+ra câu đó) và `them[]` (ý hỏi vặn), cộng `nhom` để lọc theo mục. Thêm câu hỏi mới thì
+giữ đúng ba tầng đó, đừng viết câu ghép hai ba vế.
+
+**Đừng nhét cảnh báo thô của `clinical-validator` vào bảng câu hỏi.** Chúng là chữ máy
+báo lỗi ("Thiếu cận lâm sàng bắt buộc — …"), ép thành câu hỏi thì đọc không ra câu hỏi;
+mà chúng đã nằm nguyên ở khung Việc tiếp theo rồi, để cả hai chỗ là đọc hai lần cùng một
+thứ. Bảng câu hỏi chỉ để một dòng chân trang trỏ sang khung kia.
+
+**Bốn luật `KHAI_THAC` dò trên chữ ĐÃ BỎ DẤU nên phải né đồng âm.** `ho` ăn luôn
+vào "hô hấp" (phải thêm `(?! hap)`), `dau` ăn vào "dấu chứng" (nên "đau" bắt buộc đi
+kèm tên bộ phận). Xem thêm ba bẫy regex tiếng Việt ở trên.
+
+**Câu hỏi bảo vệ phải gộp nắm dữ kiện rơi.** `buildNetwork()` thường trả về 5–8 dữ kiện
+`chưa được dùng cho vấn đề nào` cùng lúc (đủ bộ sinh hiệu bất thường), mà câu hỏi cho
+từng cái giống hệt nhau — bảng đọc thành một bức tường chữ lặp. Từ 3 cái trở lên thì gộp
+thành một câu liệt kê.
+
+**Lớp mới muốn Đọc đêm chạy theo thì đổi biến hồng NGAY TRÊN khung của mình**
+(`body.ba-night .mach { --brand-soft: … }`), đừng sửa `:root`: sửa `:root` là mọi khối
+cũ đang dùng `--brand-soft` cũng đổi màu lây. Chỉ mấy chỗ chôn màu cứng (xanh "đã xong",
+đỏ "còn thiếu") là phải khai lại tay.
 
 ## Đã sửa
 
@@ -310,3 +388,6 @@ thật và `targetField` khớp một `id` có thật — sai là bấm "đi t�
 | 2026-09-05 | máy 390px: nút "Lưu bệnh án" và nút "Mốc này có đi khám…" đội ra ngoài mép thẻ; hộp "Đủ ý n/8" thừa 82px | thanh đáy cho co + bỏ 2 nút trùng ở ≤480px; `min-width:0` cho ô con flex; `minmax(0,1fr)` cho lưới; nút nhãn dài được xuống dòng — quét lại 7 mục × 2 bề ngang: 0 chỗ tràn |
 | 2026-09-05 | lớp nổi neo vào mép màn hình nên thò ra ngoài thẻ nội dung 33px ở màn rộng | thêm `--page-in`, mọi lớp nổi neo theo thẻ |
 | 2026-09-05 | kéo dải chip gợi ý là bị nhảy sang mục khác | `NO_SWIPE` dò khả năng cuộn thật thay vì liệt kê tên lớp, chặn cả cú vuốt bắt đầu từ `button` |
+| 2026-09-06 | dữ kiện đi được vào bệnh án nhưng không ai theo được nó ĐI TỚI ĐÂU; không có trục thời gian chung; việc cần làm xếp theo thứ tự ô chứ không theo mức quan trọng | thêm `mach-benh-an.js`: sợi dữ kiện, dòng thời gian hợp nhất + soi lệch ngày, việc tiếp theo xếp theo trọng số lâm sàng, bộ câu hỏi bảo vệ, tìm & thay thế toàn bệnh án, bản văn xuôi bấm ngược về ô gốc |
+| 2026-09-06 | Ctrl+K chỉ nhảy tới ô, không chạy được việc; không có đường trình ca, không có đường quay lui khi xóa nhầm; không xem được hai mục cùng lúc | thêm `thuan-tay.js` + `addCmdSource()` trong `tao-benh-an-them.js`: bảng lệnh, chế độ trình bệnh, lịch sử phiên bản (15 bản, so + khôi phục), ghim đôi mục, bảng phím tắt, nhật ký chỗ đã đi (Alt ←/→) |
+| 2026-09-06 | bấm "Bổ sung ngay" ở Câu hỏi bảo vệ không nhảy đi đâu: 5 câu trỏ vào `hx-steps` và thẻ trình bệnh trỏ vào `cls-host` — hai id KHÔNG tồn tại, mà nhánh xử lý lại im lặng khi không tìm thấy ô | sửa về `hx-list` / `hx-sym-char` / `hx-sym-severity` / `cls-list` (kể cả hai chỗ hỏng sẵn trong `duKien()` của `lien-ket-map.js`), dồn mọi cú nhảy qua `diToi()` — thiếu id hay ô đang ẩn đều báo ra; kiểm lại 14/14 nút Bổ sung đều tới đúng tab và cuộn tới nơi |

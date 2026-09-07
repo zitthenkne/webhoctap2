@@ -110,6 +110,14 @@ export function labelOf(ctl) {
         || ctl.placeholder || ctl.getAttribute('aria-label') || ctl.id;
 }
 
+/* Nguồn LỆNH gắn thêm từ ngoài (thuan-tay.js). Trước đây Ctrl+K chỉ nhảy tới
+   ô — nhưng thứ hay phải làm nhất lại là *chạy* một việc (lưu, xem trước, mở
+   toàn cảnh, bật chế độ trình bệnh). Mỗi nguồn trả về
+   [{ text, group, icon, hint, run }]; có `run` thì Enter chạy hàm đó thay vì
+   cuộn tới một ô. Khai ở đây để khỏi dựng thêm một bảng tìm thứ hai. */
+const cmdSources = [];
+export function addCmdSource(fn) { if (typeof fn === 'function') cmdSources.push(fn); }
+
 function buildIndex() {
     const out = [];
     const seen = new Set();
@@ -139,7 +147,19 @@ function buildIndex() {
             : String(ctl.value || '').replace(/\s+/g, ' ').trim();
         add(labelOf(ctl), ctl, groupOf(ctl), v ? 'fa-pen-to-square' : 'fa-pen', v.slice(0, 90));
     });
-    return out;
+    /* Lệnh đứng TRƯỚC danh sách ô: gõ "luu" hay "trinh benh" thì thứ muốn chạy
+       phải nằm ngay dòng đầu, không lẫn giữa 300 ô cùng chứa chữ đó. */
+    const lenh = [];
+    cmdSources.forEach(fn => {
+        let list = [];
+        try { list = fn() || []; } catch (err) { console.warn('Nguồn lệnh lỗi:', err); }
+        list.forEach(o => o?.text && lenh.push({
+            text: o.text, el: null, run: o.run, group: o.group || 'Lệnh',
+            icon: o.icon || 'fa-bolt', val: o.hint || '',
+            f: fold(`${o.text} ${o.group || 'lệnh'} ${o.hint || ''}`)
+        }));
+    });
+    return [...lenh, ...out];
 }
 
 function render() {
@@ -154,7 +174,9 @@ function render() {
 function search() {
     const q = fold(cmdQ.value);
     hits = !q ? index.slice(0, 14)
-        : index.filter(i => i.f.includes(q)).sort((a, b) => a.f.indexOf(q) - b.f.indexOf(q)).slice(0, 30);
+        : index.filter(i => i.f.includes(q))
+            .sort((a, b) => (a.f.indexOf(q) - b.f.indexOf(q)) || ((b.run ? 1 : 0) - (a.run ? 1 : 0)))
+            .slice(0, 30);
     cur = 0;
     render();
 }
@@ -174,8 +196,14 @@ cmdQ?.addEventListener('input', search);
 cmd?.addEventListener('click', e => {
     if (e.target.closest('[data-cmd-close]') || e.target.classList.contains('cmdk-bg')) return closeCmd();
     const it = e.target.closest('[data-i]');
-    if (it) { closeCmd(); goTo(hits[+it.dataset.i]?.el); }
+    if (it) { closeCmd(); chay(hits[+it.dataset.i]); }
 });
+
+/** Một dòng trong bảng tìm: có `run` thì chạy việc, không thì cuộn tới ô */
+function chay(h) {
+    if (!h) return;
+    if (h.run) h.run(); else goTo(h.el);
+}
 cmdQ?.addEventListener('keydown', e => {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
@@ -184,7 +212,7 @@ cmdQ?.addEventListener('keydown', e => {
     } else if (e.key === 'Enter') {
         e.preventDefault();
         closeCmd();
-        goTo(hits[cur]?.el);
+        chay(hits[cur]);
     } else if (e.key === 'Escape') closeCmd();
 });
 

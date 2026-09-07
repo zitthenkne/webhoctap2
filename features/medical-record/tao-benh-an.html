@@ -10484,6 +10484,8 @@
     <link rel="modulepreload" href="tuyen-truoc-list.js">
     <link rel="modulepreload" href="ui-ask.js">
     <link rel="modulepreload" href="ui-fold.js">
+    <link rel="modulepreload" href="mach-benh-an.js">
+    <link rel="modulepreload" href="thuan-tay.js">
     <!-- ==================================================================
          MÀN "TOÀN CẢNH CA BỆNH" (toan-canh.js) + các lối tắt sắp xếp
          Đặt sau khối <style> chính để khỏi phải chen vào giữa 5.500 dòng
@@ -12712,7 +12714,1971 @@
             .blx-s-body { font-size: 16px }
             .blx-s-body h3 { font-size: 20px }
         }
+
+        /* =====================================================================
+           MẠCH LIÊN KẾT & TAY THUẬN (mach-benh-an.js, thuan-tay.js) — 2026-09-06
+
+           Mọi màu ở đây đi qua bộ biến chung (--surface / --ink / --muted /
+           --line / --field / --brand-*) nên chế độ Đọc đêm tự đổi theo, khỏi
+           viết thêm một bộ luật body.ba-night thứ hai.
+
+           Chỗ đứng trong THANG LỚP NỔI (xem phần khai biến ở trên):
+             30  khay ghim đôi mục   (là bố cục, nằm dưới mọi bảng)
+             58  viên "Tiếp tục ở…"  (tầng chớp, tự tắt sau 12 giây)
+             59  nút "Soi sợi" nổi cạnh ô đang bôi đen
+             62  bảng Sợi dữ kiện    (dưới bảng tìm nhanh 90)
+             88  Trạm liên kết / Lịch sử / Phím tắt (bảng phủ toàn màn hình)
+             95  Chế độ trình bệnh   (phủ lên tất cả — đang đứng trình)
+           ===================================================================== */
+        :root { --surface: #fff; --pin-w: 40vw; }
+
+        /* ---------------------------------------------- nút Trạm có việc gấp */
+        .ba-tool.is-key { border-color: var(--brand-line); color: var(--brand-deep); background: var(--brand-soft); }
+
+        #ba-tram.has-gap { position: relative; }
+
+        #ba-tram.has-gap::after {
+            content: attr(data-gap);
+            position: absolute;
+            top: -4px;
+            right: -2px;
+            min-width: 17px;
+            height: 17px;
+            padding: 0 4px;
+            border-radius: 999px;
+            background: #ef4444;
+            color: #fff;
+            font-size: 10.5px;
+            line-height: 17px;
+            font-weight: 800;
+        }
+
+        /* =====================================================================
+           BẢNG DÙNG CHUNG — Trạm liên kết, Lịch sử phiên bản, Phím tắt
+           ===================================================================== */
+        .mach {
+            position: fixed;
+            inset: 0;
+            z-index: 88;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 18px;
+        }
+
+        .mach.hidden { display: none !important; }
+
+        .mach-bg {
+            position: absolute;
+            inset: 0;
+            background: rgba(60, 42, 55, .38);
+            backdrop-filter: blur(2px);
+        }
+
+        .mach-panel {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            width: min(1060px, 96vw);
+            max-height: min(88vh, 860px);
+            min-height: 0;
+            border-radius: 22px;
+            border: 1px solid var(--line);
+            background: var(--surface);
+            box-shadow: 0 24px 60px rgba(120, 70, 100, .22);
+            overflow: hidden;
+            animation: mach-in .18s ease;
+        }
+
+        .mach-panel.is-narrow { width: min(560px, 94vw); }
+
+        @keyframes mach-in {
+            from { transform: translateY(10px) scale(.99); opacity: .4 }
+            to { transform: none; opacity: 1 }
+        }
+
+        .mach-head {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--line);
+            background: var(--brand-soft);
+            color: var(--brand-deep);
+            font-size: 14px;
+        }
+
+        .mach-head > b { font-size: 15px; }
+        .mach-grow { flex: 1 }
+
+        .mach-tabs {
+            display: flex;
+            gap: 6px;
+            flex: 1 1 320px;
+            min-width: 0;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .mach-tabs::-webkit-scrollbar { display: none }
+
+        .mach-tabs button {
+            flex: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 13px;
+            border-radius: 999px;
+            border: 1px solid var(--brand-line);
+            background: var(--surface);
+            color: var(--muted);
+            font-size: 12.5px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .mach-tabs button.is-on {
+            background: var(--brand-deep);
+            border-color: transparent;
+            color: #fff;
+        }
+
+        .mach-n {
+            min-width: 16px;
+            padding: 0 4px;
+            border-radius: 999px;
+            background: #eee;
+            color: #888;
+            font-size: 10.5px;
+            line-height: 16px;
+            font-weight: 800;
+        }
+
+        .mach-n:empty { display: none }
+        .mach-n.is-on { background: #ef4444; color: #fff }
+        .mach-tabs button.is-on .mach-n { background: rgba(255, 255, 255, .28); color: #fff }
+
+        .mach-x {
+            flex: none;
+            width: 34px;
+            height: 34px;
+            border-radius: 12px;
+            border: 1px solid var(--brand-line);
+            background: var(--surface);
+            color: var(--muted);
+        }
+
+        .mach-body {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            padding: 14px 16px 22px;
+            color: var(--ink);
+            font-size: 13.5px;
+            line-height: 1.55;
+        }
+
+        .mach-lead {
+            margin: 0 0 12px;
+            color: var(--muted);
+            font-size: 12.5px;
+        }
+
+        .mach-sec {
+            margin: 16px 0 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11.5px;
+            font-weight: 800;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .mach-sec::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--line);
+        }
+
+        .mach-sec.u0, .mach-sec.u1 { color: #dc2626 }
+        .mach-sec.u2, .mach-sec.u3 { color: #c2410c }
+        .mach-sec.u4 { color: #a16207 }
+
+        .mach-ok,
+        .mach-empty {
+            margin: 10px 0;
+            padding: 14px 16px;
+            border-radius: 16px;
+            border: 1px dashed var(--line);
+            background: var(--brand-soft);
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .mach-ok { color: #15803d; border-color: #bbf7d0; background: #f0fdf4 }
+
+        .mach-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 13px;
+            border-radius: 999px;
+            border: 1px solid var(--brand-line);
+            background: var(--surface);
+            color: var(--brand-deep);
+            font-size: 12.5px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .mach-btn.is-do { background: var(--brand-deep); border-color: transparent; color: #fff }
+        .mach-btn:active { transform: scale(.97) }
+
+        .mach-warn {
+            margin-bottom: 14px;
+            padding: 12px 14px;
+            border-radius: 16px;
+            border: 1px solid #fde68a;
+            background: #fffbeb;
+        }
+
+        .mach-warn > b {
+            display: block;
+            margin-bottom: 6px;
+            color: #b45309;
+            font-size: 13px;
+        }
+
+        .mach-warn-row {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 6px 8px;
+            border-radius: 10px;
+            border: 0;
+            background: transparent;
+            color: #92400e;
+            font-size: 12.5px;
+            line-height: 1.45;
+        }
+
+        .mach-warn-row:hover { background: #fef3c7 }
+
+        /* ------------------------------------------------ Việc tiếp theo */
+        .viec {
+            display: flex;
+            align-items: flex-start;
+            gap: 11px;
+            width: 100%;
+            text-align: left;
+            margin-bottom: 7px;
+            padding: 11px 13px;
+            border-radius: 15px;
+            border: 1px solid var(--line);
+            background: var(--field);
+            color: var(--ink);
+        }
+
+        .viec:hover { border-color: var(--brand-line); background: var(--brand-soft) }
+        .viec > i { margin-top: 3px; color: var(--brand-deep); font-size: 13px; flex: none }
+
+        .viec-txt { flex: 1; min-width: 0 }
+        .viec-txt b { display: block; font-size: 13.5px }
+
+        .viec-txt small {
+            display: block;
+            margin-top: 2px;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        .viec-go {
+            flex: none;
+            align-self: center;
+            padding: 5px 10px;
+            border-radius: 999px;
+            background: var(--brand-soft);
+            color: var(--brand-deep);
+            font-size: 11.5px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        /* -------------------------------------------------- Dòng thời gian */
+        .tl { position: relative; padding-left: 18px }
+
+        .tl::before {
+            content: '';
+            position: absolute;
+            left: 6px;
+            top: 6px;
+            bottom: 6px;
+            width: 2px;
+            border-radius: 2px;
+            background: var(--brand-line);
+        }
+
+        .tl-day {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 14px 0 6px -18px;
+            padding-left: 18px;
+            font-size: 12px;
+            font-weight: 800;
+            color: var(--brand-deep);
+        }
+
+        .tl-day span {
+            padding: 3px 10px;
+            border-radius: 999px;
+            background: var(--brand-soft);
+        }
+
+        .tl-row {
+            position: relative;
+            display: flex;
+            align-items: baseline;
+            gap: 9px;
+            flex-wrap: wrap;
+            width: 100%;
+            text-align: left;
+            margin-bottom: 5px;
+            padding: 8px 12px;
+            border-radius: 13px;
+            border: 1px solid var(--line);
+            background: var(--field);
+            color: var(--ink);
+            font-size: 13px;
+        }
+
+        .tl-row::before {
+            content: '';
+            position: absolute;
+            left: -16px;
+            top: 15px;
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--brand);
+            box-shadow: 0 0 0 3px var(--surface);
+        }
+
+        .tl-row:hover { border-color: var(--brand-line); background: var(--brand-soft) }
+        .tl-row > i { color: var(--muted); font-size: 12px }
+        .tl-time { color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums }
+
+        .tl-sub {
+            flex: 1 0 100%;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        .tl-nv { border-color: var(--brand-line); background: var(--brand-soft); font-weight: 800 }
+        .tl-nv::before { background: var(--brand-deep) }
+        .tl-cls::before { background: #60a5fa }
+        .tl-td::before { background: #34d399 }
+        .tl-moc::before { background: #c084fc }
+
+        /* ------------------------------------------------ Câu hỏi bảo vệ
+           Một câu hỏi là một THẺ, không phải một dòng chữ: nhãn nhóm + câu hỏi
+           cỡ lớn + dòng "vì sao bị hỏi" + mấy ý hỏi vặn. Màu viền trái lấy đúng
+           bảy màu mục của trang để nhìn phát biết câu này thuộc mục nào. */
+        .hq-top {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        .hq-prog {
+            flex: 1 1 240px;
+            min-width: 0;
+            color: var(--muted);
+            font-size: 12.5px;
+        }
+
+        .hq-prog b { color: var(--brand-deep); font-size: 15px }
+
+        .hq-bar {
+            display: block;
+            height: 6px;
+            margin-top: 5px;
+            border-radius: 999px;
+            background: var(--line);
+            overflow: hidden;
+        }
+
+        .hq-bar i {
+            display: block;
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, var(--brand), var(--brand-deep));
+            transition: width .25s ease;
+        }
+
+        .hq-filters {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 4px;
+        }
+
+        .hq-f {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 11px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: var(--field);
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .hq-f.is-on {
+            border-color: transparent;
+            background: var(--brand-deep);
+            color: #fff;
+        }
+
+        .hq {
+            position: relative;
+            margin-bottom: 9px;
+            padding: 13px 15px 11px 17px;
+            border-radius: 16px;
+            border: 1px solid var(--line);
+            border-left: 4px solid var(--hq-c, var(--brand));
+            background: var(--field);
+        }
+
+        .hq.is-chac { box-shadow: 0 2px 10px rgba(190, 90, 130, .07) }
+
+        .hq-head {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 7px;
+        }
+
+        .hq-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 10px;
+            border-radius: 999px;
+            background: var(--hq-c, var(--brand));
+            color: #4a3a44;
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .hq-lv {
+            padding: 2px 9px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            color: var(--muted);
+            font-size: 10.5px;
+            font-weight: 800;
+            letter-spacing: .03em;
+            text-transform: uppercase;
+        }
+
+        .hq.is-chac .hq-lv { border-color: #fca5a5; color: #b91c1c; background: #fef2f2 }
+
+        .hq h4 {
+            margin: 0 0 6px;
+            color: var(--ink);
+            font-size: 16px;
+            font-weight: 800;
+            line-height: 1.4;
+        }
+
+        .hq-vi {
+            display: flex;
+            align-items: flex-start;
+            gap: 7px;
+            margin: 0 0 8px;
+            color: var(--muted);
+            font-size: 12.5px;
+            line-height: 1.5;
+        }
+
+        .hq-vi > i { margin-top: 3px; flex: none; font-size: 11px }
+
+        .hq-them {
+            margin: 0 0 9px;
+            padding: 0;
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .hq-them li {
+            position: relative;
+            padding-left: 16px;
+            color: var(--ink);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .hq-them li::before {
+            content: '';
+            position: absolute;
+            left: 3px;
+            top: .65em;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--hq-c, var(--brand));
+        }
+
+        .hq-foot {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .hq-go,
+        .hq-done {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--brand-line);
+            background: var(--surface);
+            color: var(--brand-deep);
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .hq-done { border-color: var(--line); color: var(--muted) }
+        .hq-go:active, .hq-done:active { transform: scale(.97) }
+
+        .hq.is-done { opacity: .5 }
+        .hq.is-done h4 { text-decoration: line-through }
+        .hq.is-done .hq-done { border-color: #86efac; color: #15803d; background: #f0fdf4 }
+
+        /* Bảy màu mục — cùng bảng với thanh tab của trang */
+        .hq.n-benhsu, .hq-f.n-benhsu { --hq-c: #cdc2f5 }
+        .hq.n-kham, .hq-f.n-kham { --hq-c: #a8ded0 }
+        .hq.n-vande, .hq-f.n-vande { --hq-c: #fbc9b4 }
+        .hq.n-chandoan, .hq-f.n-chandoan { --hq-c: #f6b8d4 }
+        .hq.n-cls, .hq-f.n-cls { --hq-c: #b6dcf2 }
+        .hq.n-dieutri, .hq-f.n-dieutri { --hq-c: #f7dda4 }
+        .hq.n-tienluong, .hq-f.n-tienluong { --hq-c: #f6bbbb }
+        /* Biểu tượng chip lọc mang luôn màu của mục — nhìn phát biết nhóm nào,
+           và pastel thì đứng được trên cả nền sáng lẫn nền đọc đêm. */
+        .hq-f[class*="n-"] > i { color: var(--hq-c) }
+
+        .hq-cuoi {
+            margin: 18px 0 0;
+            padding: 11px 13px;
+            border-radius: 14px;
+            border: 1px dashed var(--line);
+            color: var(--muted);
+            font-size: 12.5px;
+            line-height: 1.5;
+        }
+
+        .hq-link {
+            padding: 0;
+            border: 0;
+            background: none;
+            color: var(--brand-deep);
+            font: inherit;
+            font-weight: 800;
+            text-decoration: underline;
+        }
+
+        @media (max-width: 640px) {
+            .hq h4 { font-size: 15px }
+            .hq-foot { flex-direction: column; align-items: stretch }
+            .hq-go, .hq-done { justify-content: center }
+        }
+
+        /* -------------------------------------------------- Tìm & thay thế */
+        .thay-bar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            margin-bottom: 12px;
+        }
+
+        .thay-bar label {
+            flex: 1 1 200px;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--muted);
+        }
+
+        .thay-bar input[type=search],
+        .thay-bar input[type=text] {
+            min-height: 40px;
+            padding: 7px 11px;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+            background: var(--field);
+            color: var(--ink);
+            font-size: var(--fs-input, 16px);
+        }
+
+        .thay-chk {
+            flex: 0 0 auto !important;
+            flex-direction: row !important;
+            align-items: center;
+            gap: 6px !important;
+            min-height: 40px;
+        }
+
+        .thay-act {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        .thay-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .thay-go {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            text-align: left;
+            padding: 8px 12px;
+            border-radius: 13px;
+            border: 1px solid var(--line);
+            background: var(--field);
+            color: var(--ink);
+            font-size: 13px;
+        }
+
+        .thay-go:hover { border-color: var(--brand-line); background: var(--brand-soft) }
+
+        .thay-n {
+            flex: none;
+            min-width: 24px;
+            text-align: center;
+            padding: 3px 7px;
+            border-radius: 999px;
+            background: var(--brand-soft);
+            color: var(--brand-deep);
+            font-size: 11.5px;
+            font-weight: 800;
+        }
+
+        .thay-one {
+            flex: none;
+            padding: 7px 11px;
+            border-radius: 999px;
+            border: 1px solid var(--brand-line);
+            background: var(--surface);
+            color: var(--brand-deep);
+            font-size: 11.5px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        /* =====================================================================
+           SỢI DỮ KIỆN
+           ===================================================================== */
+        .soi-btn {
+            position: fixed;
+            z-index: 59;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 0;
+            background: var(--brand-deep);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 800;
+            box-shadow: 0 6px 18px rgba(180, 101, 127, .35);
+            animation: mach-in .14s ease;
+        }
+
+        .soi-btn.hidden { display: none !important }
+
+        .soi {
+            position: fixed;
+            z-index: 62;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: min(390px, 92vw);
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid var(--line);
+            background: var(--surface);
+            box-shadow: -14px 0 40px rgba(120, 70, 100, .14);
+        }
+
+        .soi.hidden { display: none !important }
+
+        .soi-head {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 11px 12px;
+            border-bottom: 1px solid var(--line);
+            background: var(--brand-soft);
+            color: var(--brand-deep);
+        }
+
+        .soi-head input {
+            flex: 1;
+            min-width: 0;
+            min-height: 38px;
+            padding: 6px 11px;
+            border-radius: 12px;
+            border: 1px solid var(--brand-line);
+            background: var(--surface);
+            color: var(--ink);
+            font-size: var(--fs-input, 16px);
+        }
+
+        .soi-head button {
+            flex: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 11px;
+            border: 1px solid var(--brand-line);
+            background: var(--surface);
+            color: var(--muted);
+        }
+
+        .soi-body {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            padding: 12px;
+            color: var(--ink);
+        }
+
+        .soi-sum {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            padding: 11px 13px;
+            border-radius: 15px;
+            background: var(--brand-soft);
+            border: 1px solid var(--brand-line);
+        }
+
+        .soi-sum b { font-size: 14.5px; color: var(--brand-deep); line-height: 1.35 }
+        .soi-sum span { color: var(--muted); font-size: 12px }
+
+        .soi-sec {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            margin: 14px 0 7px;
+            font-size: 11.5px;
+            font-weight: 800;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .soi-n {
+            padding: 0 6px;
+            border-radius: 999px;
+            background: #fee2e2;
+            color: #b91c1c;
+            font-size: 10.5px;
+            line-height: 16px;
+        }
+
+        .soi-row {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            width: 100%;
+            text-align: left;
+            margin-bottom: 6px;
+            padding: 9px 11px;
+            border-radius: 13px;
+            border: 1px solid var(--line);
+            background: var(--field);
+            color: var(--ink);
+        }
+
+        .soi-row:hover { border-color: var(--brand-line); background: var(--brand-soft) }
+        .soi-row b { font-size: 13px }
+
+        .soi-tab {
+            align-self: flex-start;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: var(--brand-soft);
+            color: var(--brand-deep);
+            font-size: 10.5px;
+            font-weight: 800;
+        }
+
+        .soi-trich {
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.45;
+            overflow-wrap: anywhere;
+        }
+
+        .soi-gap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+            padding: 8px 11px;
+            border-radius: 13px;
+            border: 1px dashed #fca5a5;
+            background: #fef2f2;
+            font-size: 12.5px;
+        }
+
+        .soi-gap > span { flex: 1; min-width: 0; color: #b91c1c; font-weight: 700 }
+
+        .soi-add {
+            flex: none;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 0;
+            background: var(--brand-deep);
+            color: #fff;
+            font-size: 11.5px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .soi-empty,
+        .soi-ok {
+            margin: 8px 0;
+            padding: 12px;
+            border-radius: 14px;
+            border: 1px dashed var(--line);
+            color: var(--muted);
+            font-size: 12.5px;
+            line-height: 1.5;
+        }
+
+        .soi-ok { color: #15803d; border-color: #bbf7d0; background: #f0fdf4 }
+
+        /* =====================================================================
+           BẢN VĂN XUÔI BẤM ĐƯỢC
+           ===================================================================== */
+        .mdp-clickable p,
+        .mdp-clickable li {
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background .12s;
+        }
+
+        .mdp-clickable p:hover,
+        .mdp-clickable li:hover {
+            background: var(--brand-soft);
+            box-shadow: -6px 0 0 var(--brand-soft), inset 2px 0 0 var(--brand);
+        }
+
+        /* =====================================================================
+           CHẾ ĐỘ TRÌNH BỆNH
+           ===================================================================== */
+        .tb {
+            position: fixed;
+            inset: 0;
+            z-index: 95;
+            display: flex;
+            flex-direction: column;
+            background: #1b1524;
+            color: #f4eef8;
+        }
+
+        .tb.hidden { display: none !important }
+
+        .tb-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-bottom: 1px solid #3a3350;
+        }
+
+        .tb-grow { flex: 1 }
+
+        .tb-clock {
+            padding: 4px 12px;
+            border-radius: 999px;
+            background: #2a2338;
+            color: #c9c1dd;
+            font-size: 15px;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .tb-clock.is-warn { background: #78350f; color: #fde68a }
+        .tb-clock.is-late { background: #7f1d1d; color: #fecaca }
+
+        .tb-pos { color: #a29bb4; font-size: 13px; font-weight: 700 }
+
+        .tb-mini {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            border: 1px solid #3a3350;
+            background: #241e31;
+            color: #c9c1dd;
+        }
+
+        .tb-mini:hover { background: #2f2740 }
+
+        .tb-stage {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 24px 18px;
+        }
+
+        .tb-card {
+            width: min(900px, 100%);
+            padding: 26px 30px;
+            border-radius: 24px;
+            background: #241e31;
+            border: 1px solid #3a3350;
+        }
+
+        .tb-card h2 {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 0 0 18px;
+            color: #f9a8d4;
+            font-size: clamp(20px, 3.4vw, 30px);
+            font-weight: 800;
+        }
+
+        .tb-card ul { margin: 0; padding: 0; list-style: none }
+
+        .tb-card li {
+            position: relative;
+            margin-bottom: 14px;
+            padding-left: 22px;
+            font-size: clamp(17px, 2.5vw, 24px);
+            line-height: 1.5;
+        }
+
+        .tb-card li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: .62em;
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #f472b6;
+        }
+
+        .tb-foot {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 16px calc(12px + var(--safe-b));
+            border-top: 1px solid #3a3350;
+        }
+
+        .tb-nav {
+            width: 46px;
+            height: 46px;
+            border-radius: 15px;
+            border: 1px solid #3a3350;
+            background: #241e31;
+            color: #e8e4f0;
+            font-size: 16px;
+        }
+
+        .tb-nav:hover { background: #2f2740 }
+
+        .tb-dots {
+            flex: 1;
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .tb-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            border: 0;
+            background: #443c5c;
+        }
+
+        .tb-dot.is-on { background: #f472b6; transform: scale(1.35) }
+
+        /* =====================================================================
+           LỊCH SỬ PHIÊN BẢN
+           ===================================================================== */
+        .ls-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+            gap: 14px;
+            align-items: start;
+        }
+
+        .ls-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 58vh;
+            overflow: auto;
+        }
+
+        .ls-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            text-align: left;
+            padding: 9px 12px;
+            border-radius: 13px;
+            border: 1px solid var(--line);
+            background: var(--field);
+            color: var(--ink);
+        }
+
+        .ls-item b { font-size: 13px }
+        .ls-item span { color: var(--muted); font-size: 11.5px }
+        .ls-item.is-on { border-color: var(--brand-deep); background: var(--brand-soft) }
+
+        .ls-diff { min-width: 0 }
+
+        .ls-act {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        .ls-row {
+            display: grid;
+            grid-template-columns: minmax(0, 130px) minmax(0, 1fr) minmax(0, 1fr);
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+            background: var(--field);
+            margin-bottom: 5px;
+            font-size: 12.5px;
+            line-height: 1.45;
+        }
+
+        .ls-muc { color: var(--brand-deep); font-weight: 800; overflow-wrap: anywhere }
+        .ls-cu { color: #b91c1c; text-decoration: line-through; overflow-wrap: anywhere }
+        .ls-moi { color: #15803d; overflow-wrap: anywhere }
+
+        /* =====================================================================
+           GHIM ĐÔI MỤC
+           ===================================================================== */
+        .pin {
+            position: fixed;
+            z-index: 30;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: var(--pin-w);
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid var(--line);
+            background: var(--surface);
+            box-shadow: -14px 0 40px rgba(120, 70, 100, .12);
+        }
+
+        .pin.hidden { display: none !important }
+
+        .pin-head {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 11px 14px;
+            border-bottom: 1px solid var(--line);
+            background: var(--brand-soft);
+            color: var(--brand-deep);
+            font-size: 13.5px;
+        }
+
+        .pin-head b { flex: 1; min-width: 0 }
+
+        .pin-head button {
+            width: 32px;
+            height: 32px;
+            border-radius: 11px;
+            border: 1px solid var(--brand-line);
+            background: var(--surface);
+            color: var(--muted);
+        }
+
+        .pin-body {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            padding: 14px;
+        }
+
+        /* Mục được ghim KHÔNG mang class .active nên mặc định display:none —
+           luật này là thứ duy nhất giữ nó hiện ra trong khay. */
+        #pin-body .tab-content { display: block !important }
+
+        .pin-pick p { margin: 0 0 10px; color: var(--muted); font-size: 13px }
+
+        .pin-pick button {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            width: 100%;
+            text-align: left;
+            margin-bottom: 6px;
+            padding: 11px 13px;
+            border-radius: 14px;
+            border: 1px solid var(--line);
+            background: var(--field);
+            color: var(--ink);
+            font-size: 13.5px;
+            font-weight: 700;
+        }
+
+        .pin-pick button:hover { border-color: var(--brand-line); background: var(--brand-soft) }
+
+        body.pin-on { padding-right: var(--pin-w) }
+
+        /* Lớp nổi neo theo mép phải phải lùi vào, không thì chui xuống dưới khay */
+        body.pin-on div#toast-container,
+        body.pin-on .li-bar { right: calc(var(--pin-w) + 14px) }
+
+        /* =====================================================================
+           BẢNG PHÍM TẮT
+           ===================================================================== */
+        .pt-list { display: flex; flex-direction: column; gap: 4px }
+
+        .pt-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 7px 10px;
+            border-radius: 11px;
+        }
+
+        .pt-row:nth-child(odd) { background: var(--brand-soft) }
+
+        .pt-row kbd {
+            flex: none;
+            min-width: 92px;
+            text-align: center;
+            padding: 4px 8px;
+            border-radius: 8px;
+            border: 1px solid var(--line);
+            background: var(--surface);
+            color: var(--brand-deep);
+            font-family: inherit;
+            font-size: 11.5px;
+            font-weight: 800;
+        }
+
+        .pt-row span { font-size: 13px; color: var(--ink) }
+
+        /* =====================================================================
+           VIÊN "TIẾP TỤC Ở…" — tầng chớp, tự tắt
+           ===================================================================== */
+        .tt-pill {
+            position: fixed;
+            z-index: 58;
+            left: var(--page-in);
+            bottom: calc(var(--rail) + 56px);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            max-width: min(320px, 82vw);
+            padding: 9px 14px;
+            border-radius: 999px;
+            border: 1px solid var(--brand-line);
+            background: var(--surface);
+            color: var(--ink);
+            font-size: 12.5px;
+            box-shadow: 0 8px 24px rgba(120, 70, 100, .18);
+            animation: mach-in .2s ease;
+        }
+
+        .tt-pill b {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--brand-deep);
+        }
+
+        .tt-pill > i { color: var(--brand-deep) }
+
+        /* =====================================================================
+           MÁY HẸP
+           ===================================================================== */
+        @media (max-width: 900px) {
+            .ls-grid { grid-template-columns: minmax(0, 1fr) }
+            .ls-list { max-height: 30vh }
+            .ls-row { grid-template-columns: minmax(0, 1fr) }
+            .pin, body.pin-on { display: none; padding-right: 0 }
+        }
+
+        @media (max-width: 640px) {
+            .mach { padding: 0 }
+
+            .mach-panel {
+                width: 100%;
+                max-width: none;
+                max-height: 100%;
+                height: 100%;
+                border-radius: 0;
+                border: 0;
+            }
+
+            /* Đầu bảng phải nằm gọn MỘT hàng: cho xuống dòng thì nút đóng
+               rơi xuống hàng riêng, ăn mất 48px chiều cao trên máy hẹp. */
+            .mach-head { position: sticky; top: 0; z-index: 2; flex-wrap: nowrap }
+            .mach-head > b { display: none }
+            .mach-body { padding: 12px 12px calc(24px + var(--safe-b)) }
+
+            /* Bảng sợi thành khay trượt từ đáy — với ngón cái dễ với hơn */
+            .soi {
+                top: auto;
+                left: 0;
+                right: 0;
+                width: auto;
+                height: 64vh;
+                border-left: 0;
+                border-top: 1px solid var(--line);
+                border-radius: 22px 22px 0 0;
+                box-shadow: 0 -14px 40px rgba(120, 70, 100, .18);
+            }
+
+            .soi-body { padding-bottom: calc(18px + var(--safe-b)) }
+            .viec-go { display: none }
+            .tb-card { padding: 18px 16px }
+            .pt-row kbd { min-width: 76px }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .mach-panel, .soi-btn, .tt-pill { animation: none }
+        }
+
+        /* ---------------------------------------------- Đọc đêm cho các lớp mới
+           Đổi bộ biến hồng NGAY TRÊN khung của mình chứ không sửa :root — biến
+           tự chảy xuống mọi thứ bên trong, mà các khối cũ của trang không bị
+           đổi màu lây. Chỉ còn mấy chỗ chôn màu cứng (xanh/đỏ) là phải khai lại. */
+        body.ba-night .mach,
+        body.ba-night .soi,
+        body.ba-night .pin,
+        body.ba-night .tt-pill,
+        body.ba-night .soi-btn {
+            --brand-soft: #2a2338;
+            --brand-line: #3f3654;
+            --brand-deep: #f0abc9;
+        }
+
+        body.ba-night .mach-btn.is-do,
+        body.ba-night .soi-add,
+        body.ba-night .soi-btn { background: #a84f74; color: #fff }
+
+        body.ba-night .mach-ok { background: #16281d; border-color: #2f5340; color: #86efac }
+        body.ba-night .mach-warn { background: #2e2718; border-color: #6b5320 }
+        body.ba-night .mach-warn > b { color: #fcd34d }
+        body.ba-night .mach-warn-row { color: #fde68a }
+        body.ba-night .mach-warn-row:hover { background: #3a3350 }
+        body.ba-night .soi-ok { background: #16281d; border-color: #2f5340; color: #86efac }
+        body.ba-night .soi-gap { background: #2e1f24; border-color: #7f3a3a }
+        body.ba-night .soi-gap > span { color: #fca5a5 }
+        body.ba-night .soi-n { background: #7f1d1d; color: #fecaca }
+        body.ba-night .mach-n { background: #3a3350; color: #c9c1dd }
+        body.ba-night .mach-n.is-on { background: #b91c1c; color: #fff }
+        body.ba-night .ls-cu { color: #fca5a5 }
+        body.ba-night .ls-moi { color: #86efac }
+        body.ba-night .mach-sec.u0, body.ba-night .mach-sec.u1 { color: #fca5a5 }
+        body.ba-night .mach-sec.u2, body.ba-night .mach-sec.u3 { color: #fdba74 }
+        body.ba-night .mach-sec.u4 { color: #fde047 }
+        body.ba-night #ba-tram.has-gap::after { background: #dc2626 }
+        body.ba-night .hq-chip { color: #241e31 }
+        body.ba-night .hq.is-chac .hq-lv { background: #2e1f24; border-color: #7f3a3a; color: #fca5a5 }
+        body.ba-night .hq.is-done .hq-done { background: #16281d; border-color: #2f5340; color: #86efac }
+
+    
+        /* Còn lớp phủ nào mở thì nền không cuộn theo — lop-noi.js bật/tắt class này */
+        body.co-lop-noi { overflow: hidden }
     </style>
+
+    <!-- =====================================================================
+         TẦM TAY (tam-tay.js) — thanh ngữ cảnh dính đầu · mục lục hai tầng ·
+         chân mục · viên Hoàn tác.
+         Chỉ sống ở màn hình ≤640px; body.tt-on do JS bật. Máy tính không đổi.
+         ===================================================================== -->
+    <style>
+        /* ---------- 1. Thanh ngữ cảnh ----------
+           Thay đúng chỗ dải mục vừa thu lại khi cuộn xuống, nên hai thứ không
+           bao giờ đứng chồng nhau: nó đi theo class body.dt-hide-top. */
+        .tt-bar {
+            position: fixed;
+            left: 0;
+            right: 0;
+            top: 0;
+            z-index: 26;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: calc(6px + env(safe-area-inset-top, 0px)) 10px 6px;
+            background: rgba(255, 251, 253, .97);
+            border-bottom: 1px solid var(--brand-line);
+            box-shadow: 0 8px 18px -14px rgba(190, 90, 140, .6);
+            transform: translateY(-125%);
+            transition: transform .22s ease;
+        }
+
+        body.tt-on .tt-bar { display: flex }
+        body.tt-on.dt-hide-top .tt-bar { transform: none }
+
+        .tt-bar .tt-b {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            min-height: 34px;
+            padding: 6px 11px;
+            border: 1px solid var(--brand-line);
+            border-radius: 999px;
+            background: #fff;
+            color: var(--ink);
+            font-size: 12.5px;
+            font-weight: 700;
+        }
+
+        .tt-bar .tt-sec {
+            flex: 1 1 auto;
+            min-width: 0;
+            background: var(--brand-soft);
+        }
+
+        .tt-bar .tt-name {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            text-align: left;
+        }
+
+        .tt-bar .tt-pct {
+            padding: 1px 7px;
+            border-radius: 999px;
+            background: #fff;
+            color: var(--brand-deep);
+            font-size: 11px;
+        }
+
+        .tt-bar .tt-car { font-size: 10px; color: var(--muted) }
+        .tt-bar .tt-sec i:first-child { color: var(--brand-deep) }
+
+        .tt-bar .tt-gap {
+            flex: none;
+            color: var(--brand-deep);
+            white-space: nowrap;
+        }
+
+        .tt-bar .tt-gap.is-done {
+            border-color: #bfe4d0;
+            background: #f2fbf6;
+            color: #3f8b63;
+        }
+
+        /* ---------- 2. Mục lục hai tầng (chèn vào bảng chọn mục có sẵn) ---------- */
+        .tt-subs {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin: 2px 0 8px;
+            padding: 6px 0 6px 14px;
+            border-left: 2px dashed var(--brand-line);
+        }
+
+        .tt-sub {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            width: 100%;
+            padding: 9px 10px;
+            border: 0;
+            border-radius: 10px;
+            background: transparent;
+            color: var(--ink);
+            font-size: 12.5px;
+            font-weight: 600;
+            text-align: left;
+        }
+
+        .tt-sub:active { background: var(--brand-soft) }
+
+        .tt-sub .tt-sub-dot {
+            flex: none;
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            border: 1.5px solid var(--brand-line);
+            background: #fff;
+        }
+
+        .tt-sub.is-part .tt-sub-dot { background: #f6c56b; border-color: #edb04a }
+        .tt-sub.is-full .tt-sub-dot { background: #86c8a8; border-color: #5fae8a }
+
+        .tt-sub .tt-sub-lb {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .tt-sub em {
+            flex: none;
+            font-style: normal;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--muted);
+        }
+
+        /* ---------- 3 + 4. Hàng "Trước / Tiếp" cuối mục ----------
+           Lề dưới 96px là phần đệm để nút nổi (Từng câu, huy hiệu Logic) và
+           thanh Lưu dính đáy không còn che hàng cuối cùng của mục.
+           body.tt-clear: hàng Trước/Tiếp đang trong tầm nhìn thì hai nút nổi
+           tắt hẳn — chỗ đó đã có nút thật, để lại chỉ tổ bấm trượt. */
+        body.tt-on .tt-pager {
+            margin-bottom: 96px;
+            flex-wrap: wrap;
+        }
+
+        body.tt-on .tt-pager .tt-pn { display: none }
+
+        body.tt-clear .pv-fab,
+        body.tt-clear #logic-inspector-bar {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .tt-pgap {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            flex: 1 1 auto;
+            min-width: 0;
+            min-height: 44px;
+            padding: 8px 12px;
+            border: 1px dashed var(--brand-line);
+            border-radius: 14px;
+            background: var(--brand-soft);
+            color: var(--brand-deep);
+            font-size: 12.5px;
+            font-weight: 800;
+        }
+
+        body.tt-on .tt-pgap { display: flex }
+
+        .tt-pgap.is-done {
+            border-style: solid;
+            border-color: #bfe4d0;
+            background: #f2fbf6;
+            color: #3f8b63;
+        }
+
+        .tt-pgap b {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* ---------- 5. Viên Hoàn tác ---------- */
+        .tt-undo {
+            position: fixed;
+            left: 50%;
+            bottom: calc(var(--rail) + 56px);
+            transform: translateX(-50%);
+            z-index: var(--z-badge);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            max-width: calc(100% - 32px);
+            padding: 10px 16px;
+            border: 1px solid #f0c9d9;
+            border-radius: 999px;
+            background: #fff;
+            color: var(--brand-deep);
+            font-size: 12.5px;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            box-shadow: 0 18px 38px -18px rgba(190, 80, 140, .6);
+            animation: ttUp .2s ease-out;
+        }
+
+        .tt-undo b {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--ink);
+        }
+
+        @keyframes ttUp {
+            from { opacity: 0; transform: translate(-50%, 10px) }
+            to { opacity: 1; transform: translate(-50%, 0) }
+        }
+
+        /* Máy tính và bản in không có mấy thứ này (mục lục hai tầng thì có —
+           nó nằm trong bảng chọn mục, dùng chung được). */
+        /* Viên Hoàn tác của lần điền hàng loạt (nhap-lien-ket.js) đứng đúng chỗ
+           này và lo việc lớn hơn — nó hiện thì mình nhường. */
+        body.nl-undo-on .tt-undo { display: none }
+
+        @media (min-width: 641px) {
+            .tt-bar, .tt-undo { display: none !important }
+        }
+
+        @media print {
+            .tt-bar, .tt-undo, .tt-pgap { display: none !important }
+        }
+    </style>
+
+
+    <!-- =====================================================================
+         MỘT TAY (mot-tay.js) — nút cái + cung quạt · thanh mép lướt khối ·
+         đổi tay · kéo xuống mở mục lục. Chỉ sống ở màn hình ≤640px.
+         VĂN XUÔI (benh-an-vanxuoi.js) — hàng công tắc bốn mức trong bảng
+         xem trước và kiểu chữ của bản văn xuôi.
+         ===================================================================== -->
+    <style>
+        /* ---------- Nút cái ---------- */
+        .oh-fab {
+            position: fixed;
+            bottom: calc(var(--rail) + 4px);
+            z-index: 57;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 46px;
+            height: 46px;
+            border: 0;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #f77fbd, #b9a9e0);
+            color: #fff;
+            font-size: 16px;
+            opacity: .94;
+            box-shadow: 0 18px 34px -14px rgba(190, 80, 140, .8);
+            touch-action: none;
+        }
+
+        body.oh-on .oh-fab { display: flex }
+        body.oh-phai .oh-fab { right: var(--page-in) }
+        body.oh-trai .oh-fab { left: var(--page-in) }
+        .oh-fab:active { transform: scale(.94) }
+
+        /* Nút cái này gánh luôn việc của .pv-fab (Từng câu nay nằm trong cung),
+           bớt một thứ nổi che nội dung. */
+        body.oh-on .pv-fab { display: none !important }
+
+        /* Huy hiệu Logic neo cùng một góc với nút cái — đẩy nó qua một bên,
+           không thì hai vòng tròn chồng lên nhau. */
+        body.oh-on.oh-phai #logic-inspector-bar { right: calc(var(--page-in) + 54px) }
+        body.oh-on.oh-trai #logic-inspector-bar { right: var(--page-in) }
+
+        body.typing .oh-fab,
+        body.co-lop-noi .oh-fab,
+        body.pv-on .oh-fab,
+        body.pad-on .oh-fab,
+        body.dt-full-on .oh-fab { display: none }
+
+        /* ---------- Cung quạt ---------- */
+        .oh-arc {
+            position: fixed;
+            inset: 0;
+            z-index: 56;
+            display: block;
+            background: rgba(60, 40, 60, .18);
+        }
+
+        .oh-arc.hidden { display: none }
+
+        .oh-item {
+            position: absolute;
+            bottom: calc(var(--rail) + 12px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            width: 50px;
+            height: 50px;
+            padding: 3px;
+            border: 1px solid var(--brand-line);
+            border-radius: 999px;
+            background: #fff;
+            color: var(--brand-deep);
+            font-size: 14px;
+            box-shadow: 0 14px 28px -14px rgba(120, 70, 110, .6);
+            /* Chỗ đứng của từng việc trên cung tròn do JS tính rồi đặt vào
+               --tx / --ty. Đã thử tính bằng cos()/sin() của CSS — cả cụm
+               transform hỏng im lặng và sáu nút chồng lên nhau một chỗ. */
+            transform: translate(var(--tx, 0px), var(--ty, 0px));
+            animation: ohBung .16s ease-out;
+        }
+
+        body.oh-phai .oh-item { right: var(--page-in) }
+        body.oh-trai .oh-item { left: var(--page-in) }
+
+        .oh-item b {
+            font-size: 8px;
+            font-weight: 800;
+            line-height: 1.1;
+            text-align: center;
+            color: var(--ink);
+        }
+
+        .oh-item.is-on {
+            border-color: transparent;
+            background: linear-gradient(135deg, #f77fbd, #b9a9e0);
+            color: #fff;
+            transform: translate(var(--tx, 0px), var(--ty, 0px)) scale(1.14);
+        }
+
+        .oh-item.is-on b { color: #fff }
+
+        /* Hiệu ứng bung ra CHỈ mờ dần, không đụng transform: trong lúc animation
+           còn chạy, keyframe thắng cả style nội tuyến — sáu nút sẽ nằm im một chỗ
+           cho tới khi animation kết thúc (đã dính, tưởng hỏng cả cung quạt). */
+        @keyframes ohBung {
+            from { opacity: 0 }
+        }
+
+        /* ---------- Thanh mép lướt khối ---------- */
+        .oh-rail {
+            position: fixed;
+            /* Neo bằng top + bottom chứ không phải chiều cao cố định: đuôi thanh
+               phải dừng HẲN TRÊN nút cái (nút cao 46px, cộng 14px hở), không thì
+               đoạn cuối thanh nằm dưới nút và vuốt tới đó là trúng nút. */
+            top: 34%;
+            bottom: calc(var(--rail) + 64px);
+            width: 22px;
+            z-index: 46;
+            display: none;
+            border-radius: 999px;
+            background: linear-gradient(180deg, rgba(247, 127, 189, .26), rgba(185, 169, 224, .26));
+            border: 1px solid var(--brand-line);
+            touch-action: none;
+        }
+
+        body.oh-on .oh-rail { display: block }
+        /* Chừa 8px khỏi mép thật, vì vuốt sát mép là cử chỉ lùi lại của máy. */
+        body.oh-phai .oh-rail { right: 8px }
+        body.oh-trai .oh-rail { left: 8px }
+        body.typing .oh-rail,
+        body.co-lop-noi .oh-rail,
+        /* Cung quạt đang mở thì cất thanh mép đi — hai thứ cùng nằm ở mép bên
+           tay thuận, để chung là chồng hình lên nhau. */
+        body.oh-arc-on .oh-rail { display: none }
+
+        .oh-rail::after {
+            content: "";
+            position: absolute;
+            inset: 8px 10px;
+            border-radius: 999px;
+            background: repeating-linear-gradient(180deg, var(--brand) 0 2px, transparent 2px 11px);
+            opacity: .55;
+        }
+
+        .oh-rail.is-on {
+            background: linear-gradient(180deg, rgba(247, 127, 189, .4), rgba(185, 169, 224, .4));
+        }
+
+        /* Hai nút chữ giữa màn khi cung đang mở */
+        .oh-bar {
+            position: absolute;
+            left: 50%;
+            /* Phải nằm CAO HƠN đỉnh cung: việc trên cùng ở khoảng rail + 161px,
+               để 92px là hai nút chữ đè lên giữa cung (đã dính). */
+            bottom: calc(var(--rail) + 196px);
+            transform: translateX(-50%);
+            display: flex;
+            gap: 8px;
+        }
+
+        .oh-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 38px;
+            padding: 8px 15px;
+            border: 1px solid var(--brand-line);
+            border-radius: 999px;
+            background: #fff;
+            color: var(--brand-deep);
+            font-size: 12px;
+            font-weight: 800;
+            box-shadow: 0 12px 24px -14px rgba(120, 70, 110, .6);
+        }
+
+        .oh-tip {
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 59;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            max-width: min(78vw, 320px);
+            padding: 14px 20px;
+            border-radius: 18px;
+            background: rgba(63, 58, 74, .95);
+            color: #fff;
+            text-align: center;
+            box-shadow: 0 24px 48px -20px rgba(0, 0, 0, .6);
+        }
+
+        .oh-tip.hidden { display: none }
+        .oh-tip b { font-size: 15px; font-weight: 800 }
+        .oh-tip span { font-size: 11.5px; opacity: .8 }
+        .oh-tip em { font-style: normal; font-size: 10.5px; opacity: .6 }
+
+        /* ---------- Kéo xuống không còn tải lại trang ---------- */
+        @media (max-width: 640px) {
+            html, body { overscroll-behavior-y: contain }
+        }
+
+        @media (min-width: 641px) {
+            .oh-fab, .oh-arc, .oh-rail, .oh-tip { display: none !important }
+        }
+
+        @media print {
+            .oh-fab, .oh-arc, .oh-rail, .oh-tip { display: none !important }
+        }
+
+        /* ---------- Công tắc bốn mức của bảng xem trước ---------- */
+        .mdp-modes {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            padding: 8px 14px;
+            border-bottom: 1px solid var(--brand-line);
+            background: var(--brand-soft);
+        }
+
+        .mdp-mode {
+            padding: 6px 12px;
+            border: 1px solid var(--brand-line);
+            border-radius: 999px;
+            background: #fff;
+            color: var(--ink);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .mdp-mode.is-on {
+            border-color: transparent;
+            background: linear-gradient(135deg, #f77fbd, #b9a9e0);
+            color: #fff;
+        }
+
+        .mdp-len {
+            margin-left: auto;
+            font-size: 11.5px;
+            font-weight: 700;
+            color: var(--muted);
+        }
+
+        /* ---------- Kiểu chữ bản văn xuôi ----------
+           Bản này để đọc thành tiếng và để nộp, nên dòng thưa hơn, đoạn thụt
+           đầu dòng và căn đều hai bên như một bài viết. */
+        .mdp-prose p {
+            margin: 0 0 10px;
+            text-indent: 1.6em;
+            text-align: justify;
+            line-height: 1.85;
+            font-size: 14.5px;
+        }
+
+        .mdp-prose h2 {
+            margin: 18px 0 8px;
+            font-size: 13px;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+
+        .mdp-prose h1 + p,
+        .mdp-prose h2 + p { text-indent: 0 }
+    </style>
+
+
+    <!-- =====================================================================
+         GỌN MÁY TÍNH (gon-may-tinh.js) — chỉ ở màn hình ≥641px.
+         Hàng 15 nút công cụ thu vào một nút "Công cụ" ở hàng tiêu đề, bảy thẻ
+         mục về một hàng, đầu trang bớt đệm. Điện thoại không đổi pixel nào.
+         ===================================================================== -->
+    <style>
+        @media (min-width: 641px) {
+
+            /* ---------- Nút Công cụ ở hàng tiêu đề ---------- */
+            .ba-tools-btn {
+                flex: none;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                min-height: 38px;
+                padding: 8px 14px;
+                border: 1px solid var(--brand-line);
+                border-radius: 999px;
+                background: #fff;
+                color: var(--ink);
+                font-size: 13px;
+                font-weight: 700;
+                transition: background .15s ease, border-color .15s ease;
+            }
+
+            .ba-tools-btn:hover { background: var(--brand-soft) }
+            .ba-tools-btn i.fa-chevron-down { font-size: 10px; color: var(--muted) }
+
+            body.ba-menu-on .ba-tools-btn {
+                border-color: transparent;
+                background: linear-gradient(135deg, #f77fbd, #b9a9e0);
+                color: #fff;
+            }
+
+            body.ba-menu-on .ba-tools-btn i { color: #fff }
+
+            /* ---------- Hàng công cụ thành bảng xổ ----------
+               Chỗ đứng do JS đo theo nút rồi đặt vào top/right. */
+            .ba-tools {
+                position: fixed;
+                z-index: 62;
+                display: none;
+                flex-wrap: wrap;
+                gap: 6px;
+                width: min(520px, calc(100vw - 32px));
+                max-height: 72vh;
+                overflow-y: auto;
+                overflow-x: hidden;
+                margin: 0;
+                padding: 12px;
+                border: 1px solid var(--brand-line);
+                border-radius: 18px;
+                background: #fff;
+                box-shadow: 0 30px 60px -28px rgba(120, 70, 110, .7);
+            }
+
+            body.ba-menu-on .ba-tools { display: flex }
+
+            /* ---------- Bảy thẻ mục về một hàng ----------
+               Viên phần trăm là thứ duy nhất làm bảy thẻ không đủ chỗ (28px mỗi
+               viên, cộng khoảng cách là gần 250px). Giấu chữ đi nhưng GIỮ node —
+               thanh ngữ cảnh và bảng chọn mục của điện thoại đọc textContent
+               của chính nó. */
+            .tab-link {
+                position: relative;
+                padding: 7px 12px 10px;
+                gap: 7px;
+            }
+
+            /* Số La Mã trên thẻ mục ("XIII–XV. ") ngốn khoảng 300px của cả hàng,
+               đủ để bảy thẻ tràn xuống hàng thứ hai. Bỏ ở đây thôi — số vẫn còn
+               trong tiêu đề từng mục, trong mục lục và trên điện thoại. */
+            .tab-link .tab-num { display: none }
+
+            .tab-link .tab-progress {
+                width: 0;
+                margin: 0;
+                padding: 0;
+                border: 0;
+                font-size: 0;
+                overflow: hidden;
+            }
+
+            /* ::before là máng, ::after là phần đã điền — thứ tự vẽ của hai lớp
+               giả là before trước, after sau, nên after mới nằm trên. */
+            .tab-link::before,
+            .tab-link::after {
+                content: "";
+                position: absolute;
+                left: 12px;
+                bottom: 5px;
+                height: 3px;
+                border-radius: 999px;
+            }
+
+            .tab-link::before {
+                right: 12px;
+                background: rgba(120, 100, 120, .13);
+            }
+
+            .tab-link::after {
+                width: calc((100% - 24px) * var(--p, 0) / 100);
+                background: var(--brand);
+                transition: width .25s ease;
+            }
+
+            .tab-link.active::before { background: rgba(255, 255, 255, .5) }
+            .tab-link.active::after { background: #fff }
+
+            /* ---------- Đầu trang bớt đệm ----------
+               Phải có `body` ở đầu: class p-8 của Tailwind nạp SAU khối <style>
+               này nên cùng độ ưu tiên là nó thắng. */
+            body .page-card { padding-top: 22px }
+            .ba-hero { margin-bottom: 8px }
+            div.sticky-tabs { margin-bottom: 12px }
+
+            details.ba-set > summary {
+                padding-top: 7px;
+                padding-bottom: 7px;
+                font-size: 13px;
+            }
+        }
+
+        /* Điện thoại giữ nguyên khay trượt ngang cũ — nút Công cụ là chuyện của
+           màn hình lớn, ở đây đã có khay ⋯ trong thanh dưới. */
+        @media (max-width: 640px) {
+            .ba-tools-btn { display: none }
+        }
+    </style>
+
 </head>
 
 <body class="min-h-screen flex flex-col items-center p-2 sm:p-6 md:py-10">
@@ -12728,6 +14694,10 @@
                 <h2 class="page-title">Bệnh án điện tử</h2>
                 <p id="save-state" class="ba-save"><i class="fas fa-cloud"></i> <span>Tự động lưu</span></p>
             </div>
+            <button type="button" id="ba-tools-btn" class="ba-tools-btn"
+                title="Mở bảng công cụ (tìm mục, trạm liên kết, trình bệnh, đọc đêm…)">
+                <i class="fas fa-sliders"></i> Công cụ <i class="fas fa-chevron-down"></i>
+            </button>
             <button type="button" id="ba-ring" class="ba-ring"
                 title="Mức độ hoàn thiện — bấm để nhảy tới ô còn trống">
                 <svg viewBox="0 0 40 40" aria-hidden="true">
@@ -12745,10 +14715,16 @@
         <div class="ba-tools" id="ba-tools" role="toolbar" aria-label="Công cụ nhanh">
             <button type="button" class="ba-tool" id="ba-search"><i class="fas fa-magnifying-glass"></i> Tìm mục
                 <kbd>Ctrl K</kbd></button>
+            <button type="button" class="ba-tool is-key" id="ba-tram"><i class="fas fa-diagram-project"></i> Trạm liên
+                kết <kbd>Ctrl ⇧ J</kbd></button>
             <button type="button" class="ba-tool" id="ba-gap"><i class="fas fa-location-crosshairs"></i> Ô còn
                 trống</button>
+            <button type="button" class="ba-tool" id="ba-trinh"><i class="fas fa-chalkboard-user"></i> Trình bệnh
+                <kbd>Ctrl ⇧ P</kbd></button>
             <button type="button" class="ba-tool" id="ba-overview"><i class="fas fa-panorama"></i> Toàn cảnh
                 <kbd>Ctrl ⇧ O</kbd></button>
+            <button type="button" class="ba-tool" id="ba-ghim"><i class="fas fa-thumbtack"></i> Ghim mục</button>
+            <button type="button" class="ba-tool" id="ba-ls"><i class="fas fa-clock-rotate-left"></i> Lịch sử</button>
             <button type="button" class="ba-tool" id="ba-fold"><i class="fas fa-compress"></i> Thu gọn hết</button>
             <button type="button" class="ba-tool" id="ba-night"><i class="fas fa-moon"></i> Đọc đêm</button>
             <button type="button" class="ba-tool" id="ba-zen"><i class="fas fa-mug-saucer"></i> Tập trung</button>
@@ -14401,13 +16377,22 @@
 
     <div class="ba-scroll" aria-hidden="true"><i></i></div>
 
+    <!-- lop-noi.js phai nap TRUOC: no gan keydown o window pha capture, ma
+         toan-canh.js / tao-benh-an-them.js / dien-tien-view.js cung gan kieu do.
+         Cung pha thi ai dang ky truoc chay truoc, nen thu tu the nay la bat buoc. -->
+    <script type="module" src="lop-noi.js"></script>
     <script type="module" src="tao-benh-an.js"></script>
     <script type="module" src="tao-benh-an-them.js"></script>
     <script type="module" src="nhap-lien-ket.js"></script>
     <script type="module" src="toan-canh.js"></script>
     <script type="module" src="tao-benh-an-dt.js"></script>
     <script type="module" src="tao-benh-an-tungcau.js"></script>
+    <script type="module" src="tam-tay.js"></script>
+    <script type="module" src="mot-tay.js"></script>
+    <script type="module" src="gon-may-tinh.js"></script>
     <script type="module" src="bien-luan-them.js"></script>
+    <script type="module" src="mach-benh-an.js"></script>
+    <script type="module" src="thuan-tay.js"></script>
 </body>
 
 </html>

@@ -454,7 +454,6 @@ const dong = () => {
 /* GẮN NÚT MỞ                                                          */
 /* ------------------------------------------------------------------ */
 $('ba-overview')?.addEventListener('click', () => moToanCanh());
-$('dock-overview')?.addEventListener('click', () => moToanCanh());
 
 addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && sheet && !sheet.classList.contains('hidden')) return dong();

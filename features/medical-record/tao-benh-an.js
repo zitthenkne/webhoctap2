@@ -10,6 +10,7 @@ import { initHistory, getSteps, setSteps, calcOnset, buildProse, missingDetails,
 import { KICH_BAN_NHOM, findKichBan, kichBanSteps } from './kich-ban-benh.js';
 import { initBienLuan, getBienLuan, setBienLuan, buildProse as buildBienLuan, derivedDiagnosis, derivedClsDetail, syncFromProblems, listRedFlags, toggleRedFlag } from './bien-luan-editor.js';
 import { toMarkdown, downloadMarkdown } from './benh-an-text.js';
+import { toProse, downloadProse, doDai, proseMode, setProseMode, setProseSource } from './benh-an-vanxuoi.js';
 import { createCnvList } from './cnv-list.js';
 import { createBenhKemList } from './benh-kem-list.js';
 import { createDoiList } from './doi-list.js';
@@ -271,7 +272,7 @@ function toDateInput(v) {
     return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : String(v);
 }
 
-function collectRecord() {
+export function collectRecord() {
     const rec = { id: recordId, status: $('record-status').value };
     for (const [path, id] of Object.entries(FIELDS)) {
         setPath(rec, path, $(id)?.value ?? '');
@@ -3384,14 +3385,26 @@ const mdBox = $('md-preview');
 let mdTimer = 0;
 const mdOpen = () => mdBox && !mdBox.classList.contains('hidden');
 
+function banHienTai() {
+    const rec = collectRecord();
+    const m = proseMode();
+    return m ? toProse(rec, m) : toMarkdown(rec);
+}
+
 function renderPreview() {
     if (!mdOpen()) return;
-    const md = toMarkdown(collectRecord());
+    const md = banHienTai();
     const body = $('mdp-body');
     // Chưa nhập gì thì heading trơ trọi trông như lỗi — nói thẳng ra là chưa có gì
     body.innerHTML = md.replace(/[#*\-\s]/g, '').length > 6
         ? mdToHtml(md)
         : '<p class="mdp-empty">Chưa có nội dung nào — điền vào biểu mẫu là đoạn văn hiện ra ngay tại đây.</p>';
+    body.classList.toggle('mdp-prose', !!proseMode());
+    const len = $('mdp-len');
+    if (len) {
+        const { chu, doc } = doDai(md);
+        len.textContent = chu ? `${chu} chữ · đọc ${doc}` : '';
+    }
 }
 /* Gõ tiếng Việt là hàng loạt sự kiện input liên tiếp; dựng lại cả bệnh án sau mỗi
    phím thì giật. Hoãn một nhịp ngắn, mắt vẫn thấy là "hiện ra ngay". */
@@ -3415,15 +3428,57 @@ if (mdBox) {
         mdBox.classList.remove('hidden');
         renderPreview();
     });
+
+    /* ---------- Công tắc bản văn xuôi ----------
+       Bốn mức của cùng một bệnh án. 'Biểu mẫu' là bản Markdown nhãn — giá trị
+       cũ, giữ lại cho ai quen nó. Ba mức kia do benh-an-vanxuoi.js dựng. */
+    setProseSource(collectRecord);
+    const MUC = [['day-du', 'Đầy đủ', 'Bản nộp, đủ mười lăm mục'],
+    ['trinh', 'Trình bệnh', 'Bỏ phần rườm rà, gộp cơ quan bình thường'],
+    ['tom-tat', 'Tóm tắt', 'Mười dòng, đọc trong một phút'],
+    ['', 'Biểu mẫu', 'Bản Markdown nhãn — giá trị như trước']];
+    const modeRow = document.createElement('div');
+    modeRow.className = 'mdp-modes';
+    modeRow.innerHTML = MUC.map(([v, ten, mo]) =>
+        `<button type="button" class="mdp-mode" data-muc="${v}" title="${mo}">${ten}</button>`).join('')
+        + '<span class="mdp-len" id="mdp-len"></span>';
+    mdBox.querySelector('.mdp-head')?.after(modeRow);
+    const markMode = () => modeRow.querySelectorAll('.mdp-mode')
+        .forEach(b => b.classList.toggle('is-on', b.dataset.muc === proseMode()));
+    markMode();
+    modeRow.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-muc]');
+        if (!b) return;
+        setProseMode(b.dataset.muc);
+        markMode();
+        renderPreview();
+    });
+    /* Nút tải phải nói đúng thứ nó sắp tải — bản văn xuôi ra .txt, bản biểu
+       mẫu ra .md. Nhãn sai là người dùng bấm rồi mới biết. */
+    function markMode2() {
+        const nut = $('mdp-md');
+        if (nut) nut.innerHTML = proseMode()
+            ? '<i class="fas fa-download"></i> Tải .txt'
+            : '<i class="fas fa-download"></i> Tải .md';
+    }
+    modeRow.addEventListener('click', markMode2);
+    markMode2();
     $('mdp-copy')?.addEventListener('click', async () => {
         try {
-            await navigator.clipboard.writeText(toMarkdown(collectRecord()));
-            showToast('Đã chép bản Markdown — dán vào Google Docs (bật Công cụ ▸ Tùy chọn ▸ Markdown) là tự lên heading.', 'success');
+            await navigator.clipboard.writeText(banHienTai());
+            showToast(proseMode()
+                ? 'Đã chép bản văn xuôi — dán thẳng vào Word hay Google Docs là đọc được ngay.'
+                : 'Đã chép bản Markdown — dán vào Google Docs (bật Công cụ ▸ Tùy chọn ▸ Markdown) là tự lên heading.', 'success');
         } catch {
-            showToast('Trình duyệt chặn sao chép. Hãy tải file .md rồi mở bằng Google Docs.', 'error');
+            showToast('Trình duyệt chặn sao chép. Hãy tải file rồi mở bằng Google Docs.', 'error');
         }
     });
     $('mdp-md')?.addEventListener('click', () => {
+        if (proseMode()) {
+            downloadProse(collectRecord(), proseMode());
+            showToast('Đã tải bản văn xuôi (.txt) — mở bằng Word hay Google Docs đều được.', 'success');
+            return;
+        }
         downloadMarkdown(collectRecord());
         showToast('Đã tải file .md — kéo vào Google Drive rồi mở bằng Google Docs, heading tự lên sẵn.', 'success');
     });

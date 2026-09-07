@@ -63,7 +63,7 @@ function duKien() {
 
     getClinicalContext().forEach(s => add(s.ten, 'lydo-tiensu', 'hx-sym-name', 'cơ năng'));
     getSteps().forEach(m => String(m.s || '').split(';').map(x => x.trim()).filter(Boolean)
-        .forEach(t => add(t, 'lydo-tiensu', 'hx-steps', 'diễn tiến')));
+        .forEach(t => add(t, 'lydo-tiensu', 'hx-list', 'diễn tiến')));
 
     VITALS.forEach(([lab, id, bad, u]) => {
         const n = parseFloat(val(id));
@@ -82,7 +82,7 @@ function duKien() {
 
     abnormalItems(getCls()).forEach(i => add(
         `${i.n} ${i.v}${i.u ? ' ' + i.u : ''} ${i.flag === 'high' ? '↑' : '↓'}`,
-        'can-lam-sang', 'cls-host', 'cận lâm sàng'));
+        'can-lam-sang', 'cls-list', 'cận lâm sàng'));
 
     splitLines(val('history-internal')).filter(t => !/^ch[ưu]a ghi nh[ậa]n/i.test(t))
         .forEach(t => add(t, 'lydo-tiensu', 'history-internal', 'tiền căn'));

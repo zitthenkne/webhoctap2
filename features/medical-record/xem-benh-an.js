@@ -3,6 +3,7 @@ import { getRecord, syncFromCloud, authReady, isSignedIn } from './record-store.
 import { auth } from '../../core/firebase-init.js';
 import { clsToHtml, clsToWordHtml, abnormalItems, refText, FLAG_MARK } from './cls-shared.js';
 import { buildModel, VITAL_RANGE, toMarkdown, slugName, downloadMarkdown } from './benh-an-text.js';
+import { toProse, downloadProse } from './benh-an-vanxuoi.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -357,6 +358,21 @@ if (!record) {
             } catch {
                 showToast('Trình duyệt chặn sao chép. Hãy chọn và copy thủ công.', 'error');
             }
+        },
+        /* Bản văn xuôi học thuật — cùng dữ liệu, nhưng là đoạn văn liền mạch và
+           tuyệt đối không có dấu chấm phẩy hay dấu hai chấm. Xem benh-an-vanxuoi.js */
+        vanxuoi: async () => {
+            try {
+                await navigator.clipboard.writeText(toProse(record, 'day-du'));
+                showToast('Đã chép bản văn xuôi — dán thẳng vào Word hay Google Docs.', 'success', 4000);
+            } catch {
+                downloadProse(record, 'day-du');
+                showToast('Trình duyệt chặn sao chép nên đã tải về file .txt.', 'info', 4000);
+            }
+        },
+        vanxuoitrinh: () => {
+            downloadProse(record, 'trinh');
+            showToast('Đã tải bản trình bệnh — bản rút gọn, các cơ quan bình thường gộp thành một câu.', 'success', 4500);
         },
         txt: () => {
             downloadMarkdown(record, model);
