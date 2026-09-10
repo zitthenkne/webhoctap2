@@ -272,6 +272,32 @@ function toDateInput(v) {
     return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : String(v);
 }
 
+/* ---------------------------------------------------------------------
+   Ô của các khối đặc thù chuyên khoa (khám bụng ngoại khoa, Bishop, chủng
+   ngừa nhi…) chỉ cần gắn data-luu trên HTML là tự lưu — khỏi khai thêm một
+   dòng vào FIELDS cho mỗi ô. Tất cả gom vào rec.dacThu theo chính id của ô.
+   --------------------------------------------------------------------- */
+const oDacThu = () => document.querySelectorAll('[data-luu]');
+
+function getDacThu() {
+    const o = {};
+    oDacThu().forEach(el => {
+        if (!el.id) return;
+        o[el.id] = el.type === 'checkbox' ? (el.checked ? 1 : 0) : el.value;
+    });
+    return o;
+}
+
+function setDacThu(d) {
+    const o = d || {};
+    oDacThu().forEach(el => {
+        if (!el.id) return;
+        const v = o[el.id];
+        if (el.type === 'checkbox') el.checked = !!v;
+        else el.value = v ?? '';
+    });
+}
+
 export function collectRecord() {
     const rec = { id: recordId, status: $('record-status').value };
     for (const [path, id] of Object.entries(FIELDS)) {
@@ -293,6 +319,7 @@ export function collectRecord() {
     setPath(rec, 'tienSu.diUngChiTiet', dsDiUng ? dsDiUng.get() : []);
     rec.hoiCo = getAsk();
     rec.phanDo = getPhanDo();
+    rec.dacThu = getDacThu();
     return rec;
 }
 
@@ -326,6 +353,7 @@ function fillForm(rec) {
     burnSet(rec.chanThuong?.bongVung);   // calcTrauma() chạy sau, ở loadExisting -> calcSpecialty()
     setAsk(rec.hoiCo);
     setPhanDo(rec.phanDo);
+    setDacThu(rec.dacThu);
 }
 
 /* Bản cũ khám theo hệ cơ quan (tuần hoàn / hô hấp / tiêu hóa…), mẫu mới khám theo
@@ -1281,12 +1309,14 @@ function tuoiHienTai() {
     return isFinite(yob) && yob > 1900 ? THIS_YEAR - yob : null;
 }
 
+/* Ba trạng thái, không phải hai: true (khớp) · false (không khớp) · null (chưa
+   đủ dữ kiện để xét). Phân biệt được null mới xử lý đúng vế `loai:` bên dưới. */
 function ctxMatch(cond) {
     const i = cond.indexOf(':');
     const k = cond.slice(0, i).trim(), v = cond.slice(i + 1).trim();
     if (k === 'gioi') {
         const g = $('patient-gender')?.value || '';
-        if (!g) return true;                       // chưa chọn -> chưa giấu gì cả
+        if (!g) return null;                       // chưa chọn giới tính
         return v.split(',').some(x => x.trim() === (g === 'Nữ' ? 'nu' : g === 'Nam' ? 'nam' : g));
     }
     if (k === 'loai') {
@@ -1295,7 +1325,7 @@ function ctxMatch(cond) {
     }
     if (k === 'tuoi') {
         const tuoi = tuoiHienTai();
-        if (tuoi == null) return true;             // chưa có tuổi -> chưa giấu
+        if (tuoi == null) return null;             // chưa có tuổi
         const m = v.match(/^(<=|>=|<|>)\s*(\d+)$/);
         if (!m) return true;
         const n = +m[2];
@@ -1305,12 +1335,27 @@ function ctxMatch(cond) {
     return true;
 }
 
+/* Ghép các vế của data-when.
+   Luật "thiếu dữ kiện thì cứ hiện" vẫn giữ, NHƯNG chỉ cho khối không khai mình
+   thuộc khoa nào. Khối đã có vế `loai:` mà loại bệnh án không khớp thì phải giấu:
+   trước đây `loai:nhi|tuoi:<16` gặp bệnh án ngoại chưa nhập tuổi vẫn hiện, nên
+   bệnh án ngoại khoa mọc ra nguyên bộ tiền căn nhi. Loại bệnh án thì lúc nào cũng
+   biết (cổng chọn khoa bắt chọn trước), nên không có gì để "chưa đủ dữ kiện" cả. */
+function whenMatch(when) {
+    if (!when) return true;
+    const ve = when.split('|');
+    const kq = ve.map(ctxMatch);
+    if (kq.some(x => x === true)) return true;
+    const coLoai = ve.some(c => c.trim().startsWith('loai:'));
+    return !coLoai && kq.some(x => x === null);
+}
+
 function applyContextUi() {
     const t = $('record-type')?.value || 'noi';
     document.querySelectorAll('[data-spec], [data-when]').forEach(el => {
         const spec = el.dataset.spec;
         const ok = (!spec || spec.split(',').some(x => x.trim() === t))
-            && (!el.dataset.when || el.dataset.when.split('|').some(ctxMatch));
+            && whenMatch(el.dataset.when);
         el.classList.toggle('is-hidden', !ok);
         el.hidden = !ok;
     });
@@ -2937,6 +2982,14 @@ const rxBinder = bindAuto('treatment-detail', () => rxToText(getRx()));
     Object.keys(VITAL_RANGE).forEach(id => $(id) && flagVital($(id)));
     growAll();
     updateProgress();
+
+    /* Bệnh án mới hay bệnh án cũ — dac-thu-khoa.js cần biết để quyết định có
+       bật cổng chọn chuyên khoa hay không. Vừa để dấu trên <html> vừa bắn sự
+       kiện: nếu bệnh án đã nằm sẵn trong máy thì hàm này chạy xong trước khi
+       file kia được nạp, lúc đó chỉ còn cái dấu là đọc được. */
+    document.documentElement.dataset.baMoi = rec ? '0' : '1';
+    document.dispatchEvent(new CustomEvent('ba:mo', { detail: { moi: !rec } }));
+
     // Mở lại tab đang xem dở — chỉ khi sửa bệnh án cũ, bệnh án mới luôn bắt đầu ở tab I
     try {
         const wanted = new URL(location.href).searchParams.get('tab');

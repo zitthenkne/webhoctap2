@@ -94,6 +94,8 @@ function buildTree(vanDe) {
                     text: trim(n.ten),
                     sub: [trim(n.lyDo) && `vì ${trim(n.lyDo)}`, trim(n.cls) && `CLS: ${trim(n.cls)}`]
                         .filter(Boolean).join('\n'),
+                    // Nhánh chưa nói được VÌ SAO thì bản SVG cho nhấp nháy
+                    thieu: !trim(n.lyDo),
                     tone: LEVEL_TONE[li], kind: 'leaf', hit: { index: i, nn: ni }, kids: []
                 }))
             });
@@ -309,6 +311,108 @@ export function drawMap(canvas, vanDe, opts = {}) {
     }));
 
     return { width: CW, height: H, hits };
+}
+
+/* =====================================================================
+   BẢN SVG — cùng bố cục, khác chỗ vẽ
+
+   Canvas là một tấm ảnh: muốn bấm phải tự tính toạ độ, muốn tô sáng một
+   nhánh phải vẽ lại cả tấm, và chữ không chọn được. Bản SVG dùng LẠI nguyên
+   buildTree / measure / place ở trên (đo chữ bằng một canvas ẩn) rồi nhả ra
+   DOM thật, nhờ vậy có được ba thứ canvas không cho:
+     · mỗi hộp là một phần tử — bấm, hover, tô sáng, kéo thả đều là CSS
+     · độ dày cành vẽ theo điểm khớp của nhánh (opts.diem)
+     · nhánh chưa có lý do thì nhấp nháy để đập vào mắt
+   Canvas vẫn giữ nguyên, nhưng từ nay chỉ còn dùng để xuất PNG.
+   ===================================================================== */
+
+/** Cùng hình học với elbow() nhưng nhả ra chuỗi path của SVG */
+function elbowPath(p, c) {
+    const x1 = p.x + p.w, y1 = p.y + p.h / 2;
+    const x2 = c.x, y2 = c.y + c.h / 2;
+    const mx = x1 + Math.min(26, (x2 - x1) / 2);
+    const r = Math.min(9, Math.abs(y2 - y1) / 2, Math.abs(x2 - mx));
+    if (r < 1.5 || Math.abs(y2 - y1) < 1.5) return `M${x1} ${y1}L${x2} ${y2}`;
+    const dir = y2 > y1 ? 1 : -1;
+    return `M${x1} ${y1}L${mx - r} ${y1}Q${mx} ${y1} ${mx} ${y1 + r * dir}`
+        + `L${mx} ${y2 - r * dir}Q${mx} ${y2} ${mx + r} ${y2}L${x2} ${y2}`;
+}
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/**
+ * Vẽ lưu đồ tương tác vào một phần tử.
+ * @param {HTMLElement} box  chỗ chứa (sẽ bị thay ruột)
+ * @param {Array} vanDe
+ * @param {{width?:number, diem?:(ten:string)=>number|null}} opts
+ */
+export function drawMapSvg(box, vanDe, opts = {}) {
+    const W = opts.width || 1100;
+    const do2d = document.createElement('canvas').getContext('2d');
+
+    const wRoot = 200, wGroup = 168;
+    const wLeaf = Math.max(200, Math.min(430, W - PAD * 2 - wRoot - wGroup - GAP_X * 2));
+    const widths = [wRoot, wGroup, wLeaf];
+    const CW = Math.min(W, PAD * 2 + wRoot + wGroup + wLeaf + GAP_X * 2);
+
+    const roots = buildTree(vanDe);
+    let total = PAD;
+    roots.forEach(r => {
+        measure(do2d, r, 0, widths);
+        place(r, PAD, total, widths);
+        total += r.treeH + GAP_ROOT;
+    });
+    const H = Math.max(total - GAP_ROOT + PAD, 180);
+
+    if (!roots.length) {
+        box.innerHTML = '<p class="bl-map-empty">Chưa có vấn đề nào — thêm vấn đề ở bảng để lưu đồ mọc nhánh.</p>';
+        return { width: CW, height: H };
+    }
+
+    const day = [], hop = [];
+    roots.forEach(r => walk(r, (n) => {
+        const [ink] = TONE[n.tone] || TONE.nn1;
+
+        n.kids.forEach(k => {
+            /* Cành dày mỏng theo điểm khớp: nhìn từ xa đã biết hướng nào đang
+               có bằng chứng đỡ, hướng nào mới chỉ là tên bệnh viết ra. */
+            const pct = k.hit?.nn != null && opts.diem ? opts.diem(k.text) : null;
+            const dai = pct == null ? 1.7 : 1.2 + pct / 100 * 3.4;
+            const mau = (TONE[k.tone] || TONE.nn1)[0];
+            day.push(`<path d="${elbowPath(n, k)}" stroke="${mau}" stroke-opacity=".5"
+                stroke-width="${dai.toFixed(1)}" fill="none"/>`);
+        });
+
+        const root = n.kind === 'root';
+        const lines = n.lines.map((l, i) =>
+            `<tspan x="${n.x + 14}" y="${n.y + (n.badge ? 15 : 0) + 24 + i * LINE_H}">${esc(l)}</tspan>`).join('');
+        const subs = n.subLines.map((l, i) =>
+            `<tspan x="${n.x + 14}" y="${n.y + (n.badge ? 15 : 0) + 25 + n.lines.length * LINE_H + i * 14}">${esc(l)}</tspan>`).join('');
+
+        hop.push(`<g class="mp-n mp-${n.kind}${n.thieu ? ' is-thieu' : ''}"
+            ${n.hit?.index != null ? `data-index="${n.hit.index}"` : ''}
+            ${n.hit?.nn != null ? `data-nn="${n.hit.nn}"` : ''}
+            tabindex="${n.kind === 'group' ? -1 : 0}">
+            <rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="${root ? 14 : 11}"
+                fill="${root ? 'url(#mpRoot)' : (TONE[n.tone] || TONE.nn1)[1]}"
+                stroke="${root ? 'none' : ink}" stroke-opacity="${n.kind === 'group' ? .34 : .2}"/>
+            ${root ? '' : `<rect x="${n.x}" y="${n.y + 6}" width="3.5" height="${Math.max(2, n.h - 12)}" rx="2" fill="${ink}"/>`}
+            ${n.badge ? `<text class="mp-badge" x="${n.x + 14}" y="${n.y + 16}">${esc(n.badge)}</text>` : ''}
+            <text class="mp-t" fill="${root ? '#fff' : '#1f2937'}">${lines}</text>
+            ${subs ? `<text class="mp-s">${subs}</text>` : ''}
+            <title>${esc(n.text)}${n.sub ? '\n' + esc(n.sub) : ''}</title>
+        </g>`);
+    }));
+
+    box.innerHTML = `<svg class="mp-svg" viewBox="0 0 ${CW} ${H}" width="100%"
+        preserveAspectRatio="xMinYMin meet" role="img" aria-label="Lưu đồ biện luận">
+        <defs><linearGradient id="mpRoot" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#a78bfa"/><stop offset="1" stop-color="#f472b6"/>
+        </linearGradient></defs>
+        <g class="mp-day">${day.join('')}</g>${hop.join('')}
+    </svg>`;
+    return { width: CW, height: H };
 }
 
 /** Xuất lưu đồ ra file PNG để dán vào bài trình bày */

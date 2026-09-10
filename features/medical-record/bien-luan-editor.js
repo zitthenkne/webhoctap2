@@ -9,6 +9,13 @@
 // (sinh viên ghi hội chứng ở đó rồi ghi lại ở nhánh nguyên nhân). Ô đó đã bỏ;
 // nội dung cũ được chuyển thành một nhánh nguyên nhân mức "Nghĩ nhiều nhất".
 //
+// Bản nâng cấp thêm, không đổi chỗ lưu:
+//   · thanh điểm khớp + ô ✓ ✗ ? ngay trên từng nhánh (bien-luan-diem.js)
+//   · bốn làn kéo thả để đổi mức nghĩ, kéo thẻ dấu chứng vào nhánh là thành lý do
+//   · gợi ý xếp theo tuổi / giới bệnh nhân, câu âm tính lấy từ trieu-chung-data.js
+//   · thang điểm tự cộng (qSOFA, CURB-65, Wells, Alvarado…) đọc sẵn sinh hiệu & CLS
+//   · sửa một thẻ thì chỉ vẽ lại thẻ đó, không đập cả khối đi dựng lại
+//
 // Lưu ở record.bienLuan =
 //   { vanDe:[{ id, ten, lamSang:[], amTinh:[], yeuTo, redFlags:[],
 //              nguyenNhan:[{id,ten,muc,lyDo,cls}], bienChung:[{id,ten,lapLuan}] }] }
@@ -23,7 +30,16 @@ import {
     suggestFor, searchLibrary, clsForCause, bienChungFor, yeuToFor, BIEN_CHUNG, LIBRARY,
     LY_DO_MAU, TEN_VAN_DE, TEN_NGUYEN_NHAN, VAN_DE_NHOM, hallmarksFor
 } from './bien-luan-data.js';
-import { drawMap, downloadMapPng } from './bien-luan-map.js';
+import {
+    amTinhTheoTrieuChung, redFlagTheoTrieuChung, keoTheoTrieuChung,
+    hopBenhNhan, xepTheoBenhNhan
+} from './bien-luan-phanbiet.js';
+/* Vòng import: diem.js đọc ngược collectEvidence / collectNegatives của file này.
+   An toàn vì hai bên chỉ gọi nhau lúc CHẠY, còn khai báo là `export function`
+   nên đã được kéo lên trước khi thân module chạy. */
+import { pools, checkCause, scoreOf } from './bien-luan-diem.js';
+import { thangCho, cham, datTay } from './bien-luan-thang-diem.js';
+import { drawMap, drawMapSvg, downloadMapPng } from './bien-luan-map.js';
 import { getSteps, mainSymLabels } from './benh-su-editor.js';
 import { rosBatThuong } from './ros-editor.js';
 import { getCls } from './cls-editor.js';
@@ -32,6 +48,7 @@ import { BENH_NHOM } from './benh-data.js';
 import { openListPicker } from './list-picker.js';
 import { attachTypeahead } from './goi-y-go.js';
 import { fold } from './tim-kiem.js';
+import { showToast } from '../../core/utils.js';
 
 /** 4 mức phân tầng — thứ tự này quyết định màu badge và thứ tự trình bày */
 export const LEVELS = ['Nghĩ nhiều nhất', 'Nghĩ tới', 'Ít nghĩ', 'Cần loại trừ'];
@@ -284,11 +301,76 @@ function cardScore(v) {
     ];
 }
 
+/* =====================================================================
+   Thanh điểm khớp của một nhánh — trước đây chỉ tab "Đối chiếu" mới có.
+   Đặt ngay dưới ô tên nhánh để sinh viên biết NGAY LÚC GÕ là nhánh này
+   đang đứng vững hay đang trống, khỏi phải bấm sang màn hình khác.
+   ===================================================================== */
+const ST_ICO = { yes: '✓', no: '✗', ask: '?' };
+const ST_HINT = {
+    yes: 'bệnh án đã có dấu hiệu này — bấm để ghi vào ô “vì…”',
+    no: 'bệnh án đã ghi âm tính — bấm để ghi thành bằng chứng chống lại nhánh này',
+    ask: 'chưa hỏi tới — bấm để ghi nhận đã hỏi và không có'
+};
+
+function diemHtml(n, vi, ni, ctx) {
+    if (!ctx.pool || !trim(n.ten)) return '';
+    const ck = checkCause(n.ten, ctx.pool);
+    const sc = scoreOf(ck);
+    if (!sc.tot) return '';
+
+    const feats = ck.map((f, fi) => `<button type="button" class="tr-f is-${f.st}${f.huong === '-' ? ' is-nghich' : ''}"
+        data-act="feat" data-n="${ni}" data-fi="${fi}" data-st="${f.st}" data-text="${esc(f.t)}"
+        title="${esc(ST_HINT[f.st])}${f.src ? ' — bệnh án ghi: ' + esc(f.src) : ''}">
+        ${ST_ICO[f.st]} ${esc(f.t)}</button>`).join('');
+
+    const manh = sc.pct == null ? '' : sc.pct >= 60 ? ' is-manh' : sc.pct <= 25 ? ' is-yeu' : '';
+    return `<div class="tr-sc${manh}">
+        <span class="tr-sc-bar" title="điểm khớp có trọng số: ${sc.diem}/${sc.max}">
+            <i style="width:${sc.pct ?? 0}%"></i></span>
+        <b class="tr-sc-pct">${sc.pct ?? 0}%</b>
+        <span class="tr-sc-txt">✓ ${sc.yes} · ✗ ${sc.no} · ? ${sc.ask}</span>
+        ${sc.ask ? `<button type="button" class="tr-mini" data-act="hoi-het" data-n="${ni}"
+            title="Ghi tất cả dấu hiệu chưa hỏi thành âm tính">Đánh dấu đã hỏi</button>` : ''}
+    </div>
+    <div class="tr-feats">${feats}</div>`;
+}
+
+/* ---------- Thang điểm tự cộng (qSOFA, CURB-65, Wells, Alvarado…) ---------- */
+function thangHtml(n, ni) {
+    const list = thangCho(n.ten);
+    if (!list.length) return '';
+    return list.map(th => {
+        const r = cham(th, n.ten);
+        return `<div class="tr-thang" data-k="${esc(th.k)}" data-n="${ni}">
+            <div class="tr-thang-h">
+                <i class="fas fa-calculator"></i> <b>${esc(th.ten)}</b>
+                <span class="tr-thang-diem">${r.diem} / ${th.max}</span>
+                <small>${esc(th.vi)}</small>
+                <button type="button" class="tr-mini go" data-act="thang-ghi" data-n="${ni}" data-k="${esc(th.k)}"
+                    title="Ghi kết luận của thang này vào ô “vì…” của nhánh"><i class="fas fa-arrow-down"></i> Ghi vào “vì…”</button>
+            </div>
+            <div class="tr-thang-y">${r.y.map((m, i) => `
+                <button type="button" class="tr-th-y${m.on ? ' is-on' : ''}${m.tuMay ? ' is-may' : ''}"
+                    data-act="thang-y" data-n="${ni}" data-k="${esc(th.k)}" data-i="${i}"
+                    title="${m.tuMay ? 'máy đọc được từ bệnh án' : 'tự tick'} — ${m.d} điểm">
+                    ${m.on ? '✓' : '○'} ${esc(m.t)} <em>${m.d}đ</em>
+                    ${m.vi ? `<small>${esc(m.vi)}</small>` : ''}</button>`).join('')}
+            </div>
+            <p class="tr-thang-ket">${esc(r.ket)}${r.thieu
+                ? ` · còn ${r.thieu} mục máy chưa đọc được, tự tick giúp` : ''}</p>
+        </div>`;
+    }).join('');
+}
+
 /* ---------- Khối 3: một nhánh nguyên nhân ---------- */
 function nguyenNhanHtml(n, vi, ni, ctx) {
     const lv = fixLevel(n.muc);
     const li = LEVELS.indexOf(lv);
     const lyDo = trim(n.lyDo), cls = trim(n.cls);
+    /* Tuổi / giới của bệnh nhân có chống lại nhánh này không — nói thẳng chứ
+       đừng để sinh viên bàn thai ngoài tử cung trên một bệnh nhân nam. */
+    const dk = hopBenhNhan(n.ten);
 
     /* Chip "vì…": chính các dấu chứng vừa nhập ở khối ② — bấm là ghép câu,
        đây là chỗ trước đây phải gõ tay nhiều nhất. */
@@ -301,8 +383,9 @@ function nguyenNhanHtml(n, vi, ni, ctx) {
         `<button type="button" class="tr-sugg-b cls${has(cls, t) ? ' is-on' : ''}"
             data-act="cls-leaf" data-n="${ni}" data-text="${esc(t)}">${esc(t)}</button>`).join('');
 
-    return `<div class="tr-leafwrap" data-v="${vi}">
+    return `<div class="tr-leafwrap" data-v="${vi}" data-n="${ni}" draggable="true">
         <div class="tr-leaf lv-${li}" data-v="${vi}" data-n="${ni}">
+            <span class="tr-grip" title="Kéo sang làn khác để đổi mức nghĩ"><i class="fas fa-grip-vertical"></i></span>
             <span class="tr-dot" title="${esc(LEVEL_META[li].hint)}">${LEVEL_META[li].ico}</span>
             <input class="tr-in name" data-k="ten" value="${esc(n.ten)}" placeholder="Nguyên nhân / chẩn đoán — gõ 2 chữ là có gợi ý" aria-label="Nguyên nhân">
             <select class="tr-lv" data-k="muc" aria-label="Mức độ nghĩ tới">
@@ -312,6 +395,12 @@ function nguyenNhanHtml(n, vi, ni, ctx) {
             <button type="button" class="tr-x" data-act="del-nn" title="Xóa nhánh"><i class="fas fa-xmark"></i></button>
             <input class="tr-in sub" data-k="cls" value="${esc(n.cls)}" placeholder="Cận lâm sàng để phân định nhánh này" aria-label="Cận lâm sàng">
         </div>
+        ${dk && !dk.hop ? `<p class="tr-dk"><i class="fas fa-triangle-exclamation"></i>
+            Lệch dịch tễ: ${esc(dk.vi)}.</p>` : ''}
+        ${dk && dk.hop ? `<p class="tr-dk is-ok"><i class="fas fa-user-check"></i>
+            Hợp dịch tễ: ${esc(dk.vi)}.</p>` : ''}
+        ${diemHtml(n, vi, ni, ctx)}
+        ${thangHtml(n, ni)}
         <div class="tr-leafx">
             ${lyChips ? `<div class="tr-sugg"><span>vì:</span>${lyChips}</div>` : ''}
             ${clsChips ? `<div class="tr-sugg cls"><span>phân định bằng:</span>${clsChips}</div>` : ''}
@@ -329,9 +418,12 @@ function bienChungHtml(b, vi, bi) {
     </div>`;
 }
 
-/** Danh sách thẻ chữ có nút xóa (dùng cho lâm sàng ủng hộ và âm tính giá trị) */
+/** Danh sách thẻ chữ có nút xóa (dùng cho lâm sàng ủng hộ và âm tính giá trị).
+ *  Thẻ kéo được: thả lên một nhánh nguyên nhân là câu chữ rơi thẳng vào ô "vì…"
+ *  của nhánh đó — chỗ trước đây phải gõ tay nhiều nhất. */
 function tagsHtml(list, vi, key, cls = '') {
-    return list.map((x, i) => `<span class="tr-tag ${cls}" data-v="${vi}" data-${key}="${i}">${esc(x)}
+    return list.map((x, i) => `<span class="tr-tag ${cls}" data-v="${vi}" data-${key}="${i}"
+        draggable="true" data-drag="${esc(x)}" title="Kéo thả lên một nhánh để ghi thành lý do">${esc(x)}
         <button type="button" data-act="del-${key}" aria-label="Xóa"><i class="fas fa-xmark"></i></button></span>`).join('');
 }
 
@@ -345,9 +437,21 @@ function suggRow(label, items, act, cls = '') {
 function vanDeHtml(v, vi) {
     const lib = libFor(v.ten);
     const daCo = (t) => v.nguyenNhan.some(n => trim(n.ten).toLowerCase() === t.toLowerCase());
-    const goiY = lib.nn.filter(x => !daCo(x)).slice(0, 10);
-    const goiRed = (lib.red || []).filter(x => !v.redFlags.includes(x) && !daCo(x)).slice(0, 5);
-    const goiHall = (lib.hall || []).filter(x => !v.lamSang.some(y => trim(y).toLowerCase() === x.toLowerCase())).slice(0, 8);
+    /* Gợi ý nguyên nhân xếp lại theo tuổi / giới của chính bệnh nhân này:
+       nữ 25 tuổi đau hố chậu phải thì thai ngoài tử cung phải nằm trên đầu. */
+    const goiY = xepTheoBenhNhan(lib.nn.filter(x => !daCo(x))).slice(0, 10);
+    /* Bệnh cảnh nguy hiểm: thư viện hội chứng CỘNG redFlags của chính triệu chứng
+       đó trong trieu-chung-data.js — nguồn thứ hai này trước nay chỉ am-tinh.js dùng. */
+    const goiRed = xepTheoBenhNhan([...new Set([...(lib.red || []), ...redFlagTheoTrieuChung(v.ten)])]
+        .filter(x => !v.redFlags.includes(x) && !daCo(x))).slice(0, 6);
+    const daLs = (x) => v.lamSang.some(y => trim(y).toLowerCase() === x.toLowerCase());
+    // Dấu hiệu then chốt + chùm triệu chứng hay đi kèm của triệu chứng đó
+    const goiHall = [...new Set([...(lib.hall || []), ...keoTheoTrieuChung(v.ten)])]
+        .filter(x => !daLs(x)).slice(0, 10);
+    /* Âm tính có giá trị lấy thẳng từ pertinentNegatives — mỗi câu KÈM nó dùng
+       để loại trừ bệnh gì, nên vừa tick vừa hiểu chứ không phải gõ mò. */
+    const goiAm = amTinhTheoTrieuChung(v.ten)
+        .filter(x => !v.amTinh.some(y => fold(y) === fold(x.cau))).slice(0, 8);
 
     /* Yếu tố nguy cơ: thư viện của bệnh cảnh + chính tiền căn đã nhập ở mục IV */
     const goiYt = [...new Set([...yeuToFor(v.ten || lib.gan || ''), ...tienCanLines()])]
@@ -360,12 +464,15 @@ function vanDeHtml(v, vi) {
         .filter(([ten]) => !v.bienChung.some(b => trim(b.ten).toLowerCase() === ten.toLowerCase()))
         .slice(0, 6);
 
-    const ctx = { lyGoi: lyGoiCua(v), libCls: (lib.cls || []).slice(0, 6) };
+    /* Kho dữ kiện của cả bệnh án — tính MỘT lần cho cả thẻ rồi dùng lại cho
+       mọi nhánh, vì mỗi lần tính là một lượt quét hàng chục ô. */
+    const ctx = { lyGoi: lyGoiCua(v), libCls: (lib.cls || []).slice(0, 6), pool: pools(v) };
 
-    // Nhánh nguyên nhân xếp theo mức để mắt đọc được ngay thứ tự ưu tiên
+    /* Bốn làn luôn hiện đủ, kể cả làn trống: đó mới là bảng kanban — kéo một
+       nhánh thả sang làn khác là đổi mức nghĩ, khỏi mở ô chọn. */
     const byLevel = LEVELS.map((lv, li) => ({
         lv, li, rows: v.nguyenNhan.map((n, ni) => ({ n, ni })).filter(x => fixLevel(x.n.muc) === lv)
-    })).filter(g => g.rows.length);
+    }));
 
     const sc = cardScore(v);
     const scLab = ['đặt tên vấn đề', 'có dấu chứng ủng hộ', 'chốt hướng nghĩ nhiều nhất', 'nhánh nào cũng có lý do'];
@@ -417,6 +524,12 @@ function vanDeHtml(v, vi) {
                 ${tagsHtml(v.amTinh, vi, 'a', 'neg')}
                 <input class="tr-tag-in" data-act="add-am" data-v="${vi}" placeholder="+ vd: không sốt về chiều, không sụt cân" aria-label="Thêm âm tính">
             </div>
+            ${goiAm.length ? `<div class="tr-sugg am">
+                <span>Nên hỏi ngược để loại trừ:</span>
+                ${goiAm.map(x => `<button type="button" class="tr-sugg-b am" data-act="add-am-goi"
+                    data-text="${esc(x.cau)}" title="Ghi nhận âm tính này để bớt nghĩ tới ${esc(x.loaiTru)}">
+                    + ${esc(x.cau)} <em>→ ${esc(x.loaiTru)}</em></button>`).join('')}
+            </div>` : ''}
         </div>
 
         <div class="tr-branch">
@@ -431,12 +544,15 @@ function vanDeHtml(v, vi) {
                 <button type="button" class="tr-mini" data-act="pick-nn"><i class="fas fa-folder-open"></i> Chọn bệnh từ danh mục</button>
                 <button type="button" class="tr-mini" data-act="add-nn"><i class="fas fa-plus"></i> Thêm nhánh</button>
             </div>
-            ${byLevel.map(g => `<div class="tr-tier">
+            ${v.nguyenNhan.length
+            ? byLevel.map(g => `<div class="tr-tier" data-lane="${g.li}" data-v="${vi}">
                 <div class="tr-tier-h lv-${g.li}">${LEVEL_META[g.li].ico} ${g.lv}
+                    <span class="tr-tier-n">${g.rows.length}</span>
                     <small>${esc(LEVEL_META[g.li].hint)}</small></div>
-                ${g.rows.map(x => nguyenNhanHtml(x.n, vi, x.ni, ctx)).join('')}
+                ${g.rows.map(x => nguyenNhanHtml(x.n, vi, x.ni, ctx)).join('')
+                || '<p class="tr-lane-empty">Kéo một nhánh vào đây</p>'}
             </div>`).join('')
-        || '<p class="tr-empty">Chưa có nhánh nào — bấm một chip gợi ý bên dưới, hoặc “Dựng nhanh cả thẻ”.</p>'}
+            : '<p class="tr-empty">Chưa có nhánh nào — bấm một chip gợi ý bên dưới, hoặc “Dựng nhanh cả thẻ”.</p>'}
             ${suggRow('Nguyên nhân nên nghĩ:', goiY, 'sugg')}
             ${suggRow('🚨 Cần loại trừ khẩn:', goiRed, 'sugg-red', 'red')}
             ${v.redFlags.length ? `<div class="tr-tags">${tagsHtml(v.redFlags, vi, 'r', 'red')}</div>` : ''}
@@ -466,15 +582,21 @@ function lyGoiCua(v) {
 }
 
 let mapMode = false;
-let mapHits = [];
 
-/** Vẽ lại sơ đồ khi đang ở chế độ xem bản đồ */
+/** Vẽ lại sơ đồ khi đang ở chế độ xem bản đồ.
+ *  Bản SVG nên mỗi hộp là một phần tử thật — bấm được, tô sáng được, và cành
+ *  dày mỏng theo điểm khớp của nhánh. */
 function refreshMap() {
-    const cv = $('bl-map');
-    if (!cv || !mapMode) return;
+    const box = $('bl-map');
+    if (!box || !mapMode) return;
     const wrap = $('bl-map-wrap');
     const w = Math.max(760, wrap.clientWidth || 900);
-    mapHits = drawMap(cv, getBienLuan().vanDe, { width: w }).hits;
+    // Kho dữ kiện tính MỘT lần cho cả sơ đồ, đừng quét lại theo từng nhánh
+    const pool = pools(null);
+    drawMapSvg(box, getBienLuan().vanDe, {
+        width: w,
+        diem: (ten) => scoreOf(checkCause(ten, pool)).pct
+    });
 }
 
 /* Ô tìm mẫu nằm trong khối bị vẽ lại, nên phải nhớ chữ đang gõ ở ngoài */
@@ -525,6 +647,27 @@ function render() {
         <div id="tr-search-res" class="tr-search-res"></div>`
         + (data.vanDe.length ? data.vanDe.map(vanDeHtml).join('')
             : `<p class="tr-empty big">Chưa có vấn đề nào — điền mục VIII rồi bấm “Lấy vấn đề từ mục VIII”.</p>`);
+    attachHelpers();
+    restoreFocus(keep);
+    refreshMap();
+}
+
+/* =====================================================================
+   VẼ LẠI MỘT THẺ THÔI
+   render() dựng lại TOÀN BỘ khối, nên mỗi lần gõ là mọi thẻ, mọi chip, mọi
+   thanh điểm đều bị đập đi làm lại — vừa chậm vừa là gốc của lỗi mất dấu
+   tiếng Việt (phải chống chế bằng snapshotFocus + hoãn 600ms). Sửa một thẻ
+   thì chỉ thay đúng thẻ đó, nhờ vậy chip và thanh điểm cập nhật được NGAY
+   mà con trỏ vẫn nằm im.
+   ===================================================================== */
+function renderCard(vi) {
+    if (!host) return;
+    const old = host.querySelector(`.tr-card[data-v="${vi}"]`);
+    const v = data.vanDe[vi];
+    // Số thẻ đổi (thêm / xóa / đảo chỗ) thì không vá được, phải dựng lại cả khối
+    if (!old || !v) return render();
+    const keep = snapshotFocus();
+    old.outerHTML = vanDeHtml(v, vi);
     attachHelpers();
     restoreFocus(keep);
     refreshMap();
@@ -625,12 +768,13 @@ export function derivedDiagnosis() {
 }
 
 /* ---------- khởi động ---------- */
-/* Hoãn 600ms rồi mới vẽ lại — đủ để gõ hết một cụm chữ mà bộ gợi ý vẫn
-   bám kịp theo tên vấn đề vừa nhập. */
+/* Hoãn rồi mới vẽ lại — đủ để gõ hết một cụm chữ mà bộ gợi ý vẫn bám kịp theo
+   tên vừa nhập. Nay chỉ vẽ lại MỘT thẻ nên rút xuống 320ms: gợi ý bám sát hơn
+   gấp đôi mà vẫn không cắt ngang bộ gõ tiếng Việt. */
 let laterTimer;
-function laterRender() {
+function laterCard(vi) {
     clearTimeout(laterTimer);
-    laterTimer = setTimeout(render, 600);
+    laterTimer = setTimeout(() => renderCard(vi), 320);
 }
 
 export function initBienLuan(options) {
@@ -656,17 +800,18 @@ export function initBienLuan(options) {
         else if (leaf && leaf.dataset.b !== undefined) v.bienChung[+leaf.dataset.b][el.dataset.k] = el.value;
         else v[el.dataset.k] = el.value;
         onChangeCb();
-        // Đổi mức nghĩ tới thì phải xếp lại tầng ngay; còn tên vấn đề thì đợi
-        // gõ xong hẵng vẽ lại, vì vẽ lại giữa chừng là mất dấu tiếng Việt.
-        if (el.dataset.k === 'muc') render();
-        else if (el.dataset.k === 'ten' && !leaf) laterRender();
+        const vi = +el.closest('[data-v]').dataset.v;
+        // Đổi mức nghĩ tới thì phải xếp lại làn ngay; còn tên thì đợi gõ xong
+        // hẵng vẽ lại, vì vẽ lại giữa chừng là mất dấu tiếng Việt.
+        if (el.dataset.k === 'muc') renderCard(vi);
+        else if (el.dataset.k === 'ten') laterCard(vi);
         else if (leaf) refreshMap();
         // Gõ xong tên bệnh (rời ô) mà ô CLS còn trống -> điền bộ phân định chuẩn
         if (e.type === 'change' && el.dataset.k === 'ten' && leaf && leaf.dataset.n !== undefined) {
             const n = v.nguyenNhan[+leaf.dataset.n];
             const goi = clsForCause(n.ten);
-            if (goi && !trim(n.cls)) { n.cls = goi; render(); onChangeCb(); }
-            else laterRender();
+            if (goi && !trim(n.cls)) { n.cls = goi; onChangeCb(); }
+            renderCard(vi);
         }
     };
     host.addEventListener('input', onEdit);
@@ -774,6 +919,71 @@ export function initBienLuan(options) {
             btn.classList.toggle('is-on', !co);
             onChangeCb();
             refreshMap();
+            return;
+        }
+
+        /* =============================================================
+           Bấm một ô đối chiếu ✓ ✗ ? — mỗi kiểu ghi một thứ khác nhau,
+           nhưng kiểu nào cũng là GHI, không phải chỉ để xem.
+           ============================================================= */
+        if (act === 'feat') {
+            const n = v.nguyenNhan[+btn.dataset.n];
+            const t = btn.dataset.text;
+            if (!n || !t) return;
+            if (btn.dataset.st === 'ask') {
+                // Chưa hỏi -> ghi nhận đã hỏi và không có, thành âm tính có giá trị
+                const cau = /^kh[ôo]ng|^ch[ưu]a/i.test(t) ? t : 'không ' + lowerFirst(t);
+                if (!v.amTinh.some(x => fold(x) === fold(cau))) v.amTinh.push(cau);
+            } else {
+                const cum = btn.dataset.st === 'no' ? 'không ' + lowerFirst(t) : lowerFirst(t);
+                if (!has(n.lyDo, cum)) n.lyDo = [trim(n.lyDo), cum].filter(Boolean).join(', ');
+            }
+            renderCard(+box.dataset.v);
+            onChangeCb();
+            return;
+        }
+        /* Cả loạt dấu hiệu chưa hỏi -> ghi một lượt thành âm tính */
+        if (act === 'hoi-het') {
+            const n = v.nguyenNhan[+btn.dataset.n];
+            if (!n) return;
+            let them = 0;
+            checkCause(n.ten, pools(v)).filter(f => f.st === 'ask').forEach(f => {
+                const cau = /^kh[ôo]ng|^ch[ưu]a/i.test(f.t) ? f.t : 'không ' + lowerFirst(f.t);
+                if (v.amTinh.some(x => fold(x) === fold(cau))) return;
+                v.amTinh.push(cau);
+                them++;
+            });
+            /* Nút này ghi ÂM TÍNH, không phải dấu chứng — dùng onHarvest thì
+               lời nhắn ra sai hẳn nghĩa ("không có dấu chứng mới để đổ vào"). */
+            showToast(them
+                ? `Đã ghi ${them} dấu hiệu thành âm tính có giá trị.`
+                : 'Các dấu hiệu chưa hỏi đều đã được ghi âm tính rồi.', them ? 'success' : 'info', 2200);
+            renderCard(+box.dataset.v);
+            onChangeCb();
+            return;
+        }
+        /* Thang điểm: tick một mục, hoặc ghi kết luận xuống ô "vì…" */
+        if (act === 'thang-y' || act === 'thang-ghi') {
+            const n = v.nguyenNhan[+btn.dataset.n];
+            const th = thangCho(n?.ten).find(x => x.k === btn.dataset.k);
+            if (!n || !th) return;
+            if (act === 'thang-y') {
+                const i = +btn.dataset.i;
+                datTay(th.k, n.ten, i, !cham(th, n.ten).y[i].on);
+            } else {
+                const ket = cham(th, n.ten).ket;
+                if (!has(n.lyDo, ket)) n.lyDo = [trim(n.lyDo), ket].filter(Boolean).join(', ');
+            }
+            renderCard(+box.dataset.v);
+            onChangeCb();
+            return;
+        }
+        /* Câu âm tính lấy từ thư viện triệu chứng — kèm sẵn nó loại trừ bệnh gì */
+        if (act === 'add-am-goi') {
+            const t = btn.dataset.text;
+            if (t && !v.amTinh.some(x => fold(x) === fold(t))) v.amTinh.push(t);
+            renderCard(+box.dataset.v);
+            onChangeCb();
             return;
         }
 
@@ -894,7 +1104,71 @@ export function initBienLuan(options) {
         }
         else return;
 
-        render();
+        /* Chỉ bốn thao tác dưới đây đụng vào DANH SÁCH thẻ; còn lại sửa trong
+           lòng một thẻ nên vá đúng thẻ đó, khỏi đập cả khối đi dựng lại. */
+        if (['del-vd', 'dup-vd', 'up', 'down'].includes(act)) render();
+        else renderCard(+box.dataset.v);
+        onChangeCb();
+    });
+
+    /* =================================================================
+       KÉO – THẢ
+       (a) kéo một nhánh sang làn khác  -> đổi mức nghĩ tới
+       (b) kéo một thẻ dấu chứng lên một nhánh -> ghi thẳng vào ô "vì…"
+       Chỉ chạy trên máy có chuột; điện thoại vẫn dùng ô chọn mức như cũ.
+       ================================================================= */
+    let keo = null;
+
+    host.addEventListener('dragstart', (e) => {
+        const tag = e.target.closest?.('.tr-tag[data-drag]');
+        const leaf = e.target.closest?.('.tr-leafwrap');
+        if (tag) keo = { kieu: 'tag', text: tag.dataset.drag };
+        else if (leaf) keo = { kieu: 'nn', v: +leaf.dataset.v, n: +leaf.dataset.n };
+        else return;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', keo.text || 'nhanh');
+        (tag || leaf).classList.add('is-keo');
+    });
+
+    host.addEventListener('dragend', () => {
+        keo = null;
+        host.querySelectorAll('.is-keo, .is-tha').forEach(x => x.classList.remove('is-keo', 'is-tha'));
+    });
+
+    host.addEventListener('dragover', (e) => {
+        if (!keo) return;
+        const dich = keo.kieu === 'tag' ? e.target.closest?.('.tr-leafwrap') : e.target.closest?.('.tr-tier');
+        if (!dich) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        host.querySelectorAll('.is-tha').forEach(x => x !== dich && x.classList.remove('is-tha'));
+        dich.classList.add('is-tha');
+    });
+
+    host.addEventListener('drop', (e) => {
+        if (!keo) return;
+        e.preventDefault();
+
+        if (keo.kieu === 'nn') {
+            const lane = e.target.closest?.('.tr-tier');
+            if (!lane) return;
+            const v = data.vanDe[+lane.dataset.v];
+            const n = data.vanDe[keo.v]?.nguyenNhan[keo.n];
+            if (!v || !n || +lane.dataset.v !== keo.v) return;   // chưa cho kéo qua vấn đề khác
+            n.muc = LEVELS[+lane.dataset.lane];
+            renderCard(keo.v);
+            onChangeCb();
+            return;
+        }
+
+        const leaf = e.target.closest?.('.tr-leafwrap');
+        if (!leaf) return;
+        const v = data.vanDe[+leaf.dataset.v];
+        const n = v?.nguyenNhan[+leaf.dataset.n];
+        if (!n) return;
+        const cum = lowerFirst(keo.text);
+        if (!has(n.lyDo, cum)) n.lyDo = [trim(n.lyDo), cum].filter(Boolean).join(', ');
+        renderCard(+leaf.dataset.v);
         onChangeCb();
     });
 }
@@ -919,20 +1193,18 @@ function setupMapUi() {
         refreshMap();
     });
 
-    // Bấm vào node trên sơ đồ -> quay về bảng, con trỏ nhảy đúng ô của node đó
+    /* Bấm vào node trên sơ đồ -> quay về bảng, con trỏ nhảy đúng ô của node đó.
+       Bản SVG là DOM thật nên chỉ cần hỏi phần tử gần nhất, không phải quy đổi
+       toạ độ chuột sang toạ độ canvas như trước. */
     $('bl-map')?.addEventListener('click', (e) => {
-        const cv = e.currentTarget;
-        const r = cv.getBoundingClientRect();
-        const sx = (e.clientX - r.left) * (cv.width / (window.devicePixelRatio || 1) / r.width);
-        const sy = (e.clientY - r.top) * (cv.height / (window.devicePixelRatio || 1) / r.height);
-        const hit = mapHits.find(h => sx >= h.x && sx <= h.x + h.w && sy >= h.y && sy <= h.y + h.h);
-        if (!hit) return;
+        const g = e.target.closest?.('.mp-n[data-index]');
+        if (!g) return;
         seg.querySelector('[data-mode="table"]').click();
-        const card = host.querySelector(`.tr-card[data-v="${hit.index}"]`);
+        const card = host.querySelector(`.tr-card[data-v="${g.dataset.index}"]`);
         card?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         // Node nguyên nhân thì nhảy thẳng vào ô tên nhánh, còn lại vào tên vấn đề
-        const target = hit.nn != null
-            ? card?.querySelector(`.tr-leaf[data-n="${hit.nn}"] .name`)
+        const target = g.dataset.nn != null
+            ? card?.querySelector(`.tr-leaf[data-n="${g.dataset.nn}"] .name`)
             : card?.querySelector('.tr-title');
         target?.focus();
     });

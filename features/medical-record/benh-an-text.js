@@ -56,6 +56,13 @@ export function buildModel(r) {
     const px = r.phauThuat || {}, sk = r.sanKhoa || {}, nk = r.nhiKhoa || {};
     const cc = r.capCuu || {}, ct = r.chanThuong || {};
     const bsn = bs.san || {}, bnh = bs.nhi || {};
+    // Các ô đánh dấu data-luu của khối đặc thù chuyên khoa (xem dac-thu-khoa.js)
+    const d = r.dacThu || {};
+    const o = (id, truoc = '', sau = '') => (d[id] ? truoc + d[id] + sau : '');
+    const bishop = (() => {
+        const n = ['ob-bs-mo', 'ob-bs-xoa', 'ob-bs-lot', 'ob-bs-mat', 'ob-bs-huong'].map(k => parseFloat(d[k]));
+        return n.every(x => isFinite(x)) ? `${n.reduce((a, b) => a + b, 0)}/13 điểm` : '';
+    })();
     const examDay = (() => {
         const m = String(h.ngayLamBenhAn || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
         return m ? ` (khám ngày ${+m[3]}/${+m[2]}/${m[1]})` : '';
@@ -103,7 +110,14 @@ export function buildModel(r) {
             ['5. Dị ứng', t.diUng], ['6. Môi trường – phơi nhiễm', t.moiTruong],
             ['7. Thói quen', t.thoiQuen], ['8. Gia đình', t.giaDinh],
             ['Cần hỏi trước mổ', [t.truocMo?.gayMe, t.truocMo?.chongDong,
-                t.truocMo?.anUong, t.truocMo?.rangGia, t.truocMo?.asa].filter(Boolean).join('. ')]
+                t.truocMo?.anUong, t.truocMo?.rangGia, t.truocMo?.asa].filter(Boolean).join('. ')],
+            ['Bệnh mạn tính – mức kiểm soát', gop(o('noi-benh'), o('noi-nam', 'phát hiện năm '),
+                o('noi-noikham', 'theo dõi tại '), o('noi-tuanthu', 'tuân thủ thuốc: '), o('noi-kiemsoat'),
+                o('noi-nhapvien', '', ' lần nhập viện trong 12 tháng'),
+                o('noi-bienchung', 'biến chứng cơ quan đích: '), o('noi-yeuto', 'yếu tố nguy cơ: '))],
+            ['9. Nhi khoa – sinh, dinh dưỡng, chủng ngừa, phát triển',
+                gop(nk.sanKhoaLucSinh, nk.dinhDuong && 'dinh dưỡng ' + nk.dinhDuong,
+                    nk.chungNgua && 'chủng ngừa ' + nk.chungNgua, nk.phatTrien && 'phát triển ' + nk.phatTrien)]
         ]],
         ['V. LƯỢC QUA CÁC CƠ QUAN' + examDay, 'fa-list-ul', [
             ['Tim mạch', ros.timMach], ['Hô hấp', ros.hoHap], ['Tiêu hóa', ros.tieuHoa],
@@ -128,8 +142,29 @@ export function buildModel(r) {
             ['Khám sản', gop(sk.bcTC && `bề cao tử cung ${sk.bcTC} cm`, sk.vongBung && `vòng bụng ${sk.vongBung} cm`,
                 sk.timThai && `tim thai ${sk.timThai} l/p`, sk.conCo && 'cơn co ' + sk.conCo,
                 sk.coTuCung && 'cổ tử cung ' + sk.coTuCung, sk.ngoiThai, sk.oi, sk.khungChau && 'khung chậu ' + sk.khungChau)],
-            ['Nhi khoa', gop(nk.tuoiThang && `${nk.tuoiThang} tháng tuổi`, nk.lieuMgKg && `liều thuốc ${nk.lieuMgKg} mg/kg/lần`,
-                nk.sanKhoaLucSinh && 'lúc sinh: ' + nk.sanKhoaLucSinh, nk.dinhDuong, nk.chungNgua, nk.phatTrien)],
+            ['Nhi khoa – tính theo cân', gop(nk.tuoiThang && `${nk.tuoiThang} tháng tuổi`,
+                nk.lieuMgKg && `liều thuốc ${nk.lieuMgKg} mg/kg/lần`)],
+            ['Khám bụng ngoại khoa', gop(o('sxk-nhin'), o('sxk-diem', 'đau khu trú '), o('sxk-phanung'),
+                o('sxk-dekhang'), o('sxk-phucmac', 'cảm ứng phúc mạc '), o('sxk-nghiem'),
+                o('sxk-khoiu', 'sờ được khối '), o('sxk-go'), o('sxk-nhudong'),
+                o('sxk-tructrang', 'thăm trực tràng: '), o('sxk-thoatvi', 'thoát vị: '),
+                o('sxk-vetmo', 'vết mổ: '), o('sxk-danluu'))],
+            ['Leopold – ngôi thai', gop(o('ob-leo1', 'đáy tử cung '), o('ob-leo2'), o('ob-leo3', 'đoạn dưới '),
+                o('ob-leo4', 'độ lọt '), o('ob-the', 'thế '), o('ob-sothai'))],
+            ['Chỉ số Bishop', bishop],
+            ['Chuyển dạ – ối – tim thai', gop(o('ob-cd-gd'), fmtDateTime(d['ob-cd-batdau']) && 'bắt đầu chuyển dạ ' + fmtDateTime(d['ob-cd-batdau']),
+                o('ob-oi-tt'), fmtDateTime(d['ob-oi-gio']) && 'vỡ ối lúc ' + fmtDateTime(d['ob-oi-gio']),
+                o('ob-oi-mau', 'ối '), o('ob-go-tan', 'cơn gò ', ' cơn/10 phút'), o('ob-go-cuong'),
+                o('ob-tt-cb', 'tim thai đường cơ bản ', ' l/p'), o('ob-tt-dd', 'dao động nội tại '),
+                o('ob-tt-giam'), o('ob-tt-nhom', 'biểu đồ tim thai '))],
+            ['Tăng huyết áp thai kỳ – tiền sản giật', gop(o('ob-tsg-dam', 'đạm niệu '), o('ob-tsg-phu'),
+                o('ob-tsg-dau'), o('ob-tsg-bung', 'đau thượng vị – hạ sườn phải: '),
+                o('ob-tsg-pxgx', 'phản xạ gân xương '), o('ob-tsg-nt', 'nước tiểu 24 giờ ', ' ml'))],
+            ['Số đo tăng trưởng (nhi khoa)', gop(o('ped-hc', 'vòng đầu ', ' cm'), o('ped-muac', 'MUAC ', ' cm'))],
+            ['Đánh giá mất nước', gop(o('ped-mn-trigiac', 'tri giác '), o('ped-mn-mat', 'mắt '),
+                o('ped-mn-uong'), o('ped-mn-veoda', 'nếp véo da '))],
+            ['Đồng hồ vàng (cấp cứu)', gop(fmtDateTime(d['cc-onset']) && 'khởi phát lúc ' + fmtDateTime(d['cc-onset']),
+                o('cc-canh'), o('cc-canthiep', 'can thiệp: '), o('cc-duongtruyen'), o('cc-huong', 'hướng xử trí: '))],
             ['7. Thần kinh – Cơ xương khớp', k.thanKinhCoXuongKhop],
             ['@anh', r.anhKham, 'Ảnh lâm sàng']
         ]],
@@ -152,7 +187,20 @@ export function buildModel(r) {
             ['Phương pháp phẫu thuật', px.phuongPhap], ['Phương pháp vô cảm', px.voCam],
             ['Dẫn lưu – vết mổ', px.danLuu],
             ['Chẩn đoán trước mổ', px.chanDoanTruocMo], ['Chẩn đoán sau mổ', px.chanDoanSauMo],
-            ['Tường trình phẫu thuật', px.tuongTrinh]
+            ['Chỉ định – chuẩn bị mổ', gop(o('sx-tinhchat'), o('sx-chidinh', 'chỉ định vì '),
+                o('sx-phanloai', 'vết mổ '), o('sx-ksdp', 'kháng sinh dự phòng '), o('sx-mau'),
+                o('sx-chuanbi'), o('sx-camket'))],
+            ['Tường trình phẫu thuật', px.tuongTrinh],
+            ['Hậu phẫu', gop(o('hp-vas', 'đau vết mổ VAS ', '/10'), o('hp-trungtien'), o('hp-anuong'),
+                o('hp-danluu', 'dẫn lưu 24 giờ: '), o('hp-vetmo', 'vết mổ '), o('hp-clavien', 'biến chứng '),
+                o('hp-rut'), o('hp-khangsinh', 'kháng sinh sau mổ: '))]
+        ]],
+        ['CUỘC SINH & HẬU SẢN', 'fa-baby', [
+            ['Ngày giờ sinh', fmtDateTime(d['ob-hs-gio'])],
+            ['Cách sinh', gop(o('ob-hs-cach'), o('ob-hs-lydo', 'vì '))],
+            ['Trẻ sơ sinh', gop(o('ob-hs-be'), o('ob-hs-apgar', 'Apgar '))],
+            ['Theo dõi hậu sản', gop(o('ob-hs-mau', 'mất ', ' ml máu'), o('ob-hs-tsm'),
+                o('ob-hs-cohoi'), o('ob-hs-vu'))]
         ]],
         ['XIII. CHẨN ĐOÁN XÁC ĐỊNH', 'fa-check-circle', [['', r.chanDoanXacDinh]]],
         ['XIV. ĐIỀU TRỊ', 'fa-syringe', [

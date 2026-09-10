@@ -415,6 +415,7 @@ function openFolderModal(f) {
     $('folder-modal-title').textContent = f ? 'Sửa thư mục đợt thực hành' : 'Thư mục đợt thực hành mới';
     $('folder-name').value = f?.ten || '';
     $('folder-dept').value = f?.khoa || '';
+    $('folder-kind').value = f?.loai || '';
     $('folder-hospital').value = f?.benhVien || '';
     $('folder-from').value = f?.tuNgay || '';
     $('folder-to').value = f?.denNgay || '';
@@ -450,6 +451,7 @@ function setupFolders() {
         const f = {
             id: editingFolder?.id || newFolderId(), ten,
             khoa: $('folder-dept').value.trim(),
+            loai: $('folder-kind').value,
             benhVien: $('folder-hospital').value.trim(),
             tuNgay: $('folder-from').value,
             denNgay: $('folder-to').value

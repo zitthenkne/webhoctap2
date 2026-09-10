@@ -1,5 +1,5 @@
 // Service Worker for PWA - Offline Support & Caching
-const CACHE_NAME = 'zitthenkne-v78';
+const CACHE_NAME = 'zitthenkne-v90';
 
 // App shell (cùng origin) — nạp sẵn khi cài để mở offline được ngay.
 const urlsToCache = [
@@ -9,7 +9,6 @@ const urlsToCache = [
   'features/checklist/checklist.css',
   'features/quiz/quiz-preview.css',
   'app.js',
-  'features/quiz/quiz.js',
   'features/quiz/quiz-page.js',
   'features/quiz/page/quiz-page-prefs.js',
   'features/quiz/page/quiz-cat-meme.js',
@@ -45,7 +44,6 @@ const urlsToCache = [
   'features/quiz/quiz-srs-dashboard.js',
   'features/quiz/quiz-editor.js',
   'features/quiz/quiz-enhance.css',
-  'features/study-room/study-room.js',
   'features/flashcard/flashcard.js',
   'core/firebase-init.js',
   'core/utils.js',
@@ -67,6 +65,19 @@ const urlsToCache = [
   'features/quiz/quiz.html',
   'features/study-room/study-room.html',
   'features/study-room/study-room-main.js',
+  'features/study-room/study-room.css',
+  'features/study-room/room-state.js',
+  'features/study-room/room-ui.js',
+  'features/study-room/room-members.js',
+  'features/study-room/room-chat.js',
+  'features/study-room/room-quiz.js',
+  'features/study-room/room-quiz-stage.js',
+  'features/study-room/room-scoreboard.js',
+  'features/study-room/room-study.js',
+  'features/study-room/room-editor.js',
+  'features/study-room/room-lobby.js',
+  'features/study-room/room-mobile.js',
+  'features/medical-record/dac-thu-khoa.js',
   'features/medical-record/tao-benh-an.css',
   'features/medical-record/tailwind-benh-an.css',
   'features/medical-record/tao-benh-an.html',
@@ -86,6 +97,9 @@ const urlsToCache = [
   'features/medical-record/rx-editor.js',
   'features/medical-record/bien-luan-data.js',
   'features/medical-record/bien-luan-map.js',
+  'features/medical-record/bien-luan-phanbiet.js',
+  'features/medical-record/bien-luan-diem.js',
+  'features/medical-record/bien-luan-thang-diem.js',
   'features/medical-record/trieu-chung-data.js',
   'features/medical-record/symptom-picker.js',
   'features/medical-record/auto-grade.js',

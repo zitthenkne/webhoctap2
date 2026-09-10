@@ -50,30 +50,31 @@ service cloud.firestore {
                     && request.auth.uid == request.resource.data.userId;
     }
 
-    // STUDY ROOMS
+    // STUDY ROOMS — phòng đánh đề chung.
+    // Khách CHƯA đăng nhập vào được bằng link (mã phòng do người tạo đặt, chỉ chia sẻ
+    // trong nhóm) — cùng kiểu "ai có link thì vào" như kho link chung ở cuối file.
+    // Đánh đổi: ai đoán được mã phòng cũng đọc/ghi được nội dung phòng đó.
+    // Nếu bật Anonymous sign-in trên Firebase console thì có thể siết lại thành
+    // `request.auth != null` như trước — client vẫn chạy đúng.
+    // Xóa phòng vẫn phải là chủ phòng đã đăng nhập.
     match /study_rooms/{roomId} {
-      allow read, create: if request.auth != null;
-      allow update: if request.auth != null;
+      allow read, create, update: if true;
       allow delete: if request.auth != null && resource.data.owner == request.auth.uid;
 
       match /drawings/{drawingId} {
-        allow read, create, update: if request.auth != null;
-        allow delete: if request.auth != null && get(/databases/$(database)/documents/study_rooms/$(roomId)).data.owner == request.auth.uid;
+        allow read, create, update, delete: if true;
       }
       match /members/{memberId} {
-        allow read, create, update, delete: if request.auth != null;
+        allow read, create, update, delete: if true;
       }
       match /messages/{messageId} {
-        allow read, create: if request.auth != null;
+        allow read, create: if true;
       }
       match /progress/{progressId} {
-        allow read, create, update: if request.auth != null;
-        allow delete: if request.auth != null && get(/databases/$(database)/documents/study_rooms/$(roomId)).data.owner == request.auth.uid;
+        allow read, create, update, delete: if true;
       }
       match /quizSession/{sessionId} {
-        allow read: if request.auth != null;
-        allow create, update: if request.auth != null;
-        allow delete: if request.auth != null && resource.data.hostId == request.auth.uid;
+        allow read, create, update, delete: if true;
       }
     }
 

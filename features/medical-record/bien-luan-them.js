@@ -1,5 +1,5 @@
 /* =====================================================================
-   bien-luan-them.js — MƯỜI THỨ LÀM CHO MỤC X BIẾT NGHĨ CÙNG SINH VIÊN
+   bien-luan-them.js — MƯỜI BỐN THỨ LÀM CHO MỤC X BIẾT NGHĨ CÙNG SINH VIÊN
 
    bien-luan-editor.js đã lo phần NHẬP (4 khối tư duy, chip gợi ý, sơ đồ).
    File này lo phần ĐỐI CHIẾU: lấy đúng dữ kiện đã có trong bệnh án, đặt cạnh
@@ -25,12 +25,28 @@
    8. Thanh tổng quan  đếm chỗ hổng ngay trên đầu mục X, chạm là tới.
    9. Trình bày        màn hình lớn từng vấn đề để đọc trước thầy.
   10. Điện thoại       thẻ biện luận gấp lại theo 3 bước, hết cuộn dọc dài.
+  11. Ma trận          bảng nhánh × dấu chứng, mỗi ô bấm được: ✓ ✗ ghi thành lý
+                       do của đúng cột, ? ghi thành âm tính. Đây là cách thầy
+                       dạy phân biệt trên bảng, trước nay chưa có ở đâu.
+  12. Hỏi vặn từng câu ba mươi câu bày một lúc thì đọc xong là nản; nay một câu
+                       một lúc, có thanh tiến độ và nút nhảy thẳng tới chỗ sửa.
+  13. Ống nhòm         bấm một thẻ dấu chứng là thấy nó ủng hộ nhánh nào, chống
+                       nhánh nào, nhánh nào chưa dùng tới — gắn ngay tại chỗ.
+  14. Chia đôi màn     màn ≥1280px: gõ bên trái, bàn cân bên phải, hết bấm qua
+                       lại giữa hai tab.
+
+   Điểm khớp không còn tính ở đây: đã tách sang bien-luan-diem.js để bảng nhập
+   và ma trận cùng đọc MỘT con số.
    ===================================================================== */
 
 import { showToast } from '../../core/utils.js';
 import { goTo } from './tao-benh-an-them.js';
-import { getBienLuan, collectEvidence, collectNegatives, LEVELS } from './bien-luan-editor.js';
-import { hallmarksFor, clsForCause, tieuChuanFor } from './bien-luan-data.js';
+import { getBienLuan, LEVELS } from './bien-luan-editor.js';
+import { clsForCause, tieuChuanFor } from './bien-luan-data.js';
+/* Bộ chấm điểm đã tách ra file riêng để bảng nhập, ma trận và bàn cân cùng
+   dùng MỘT con số — trước đây nó nằm kín trong closure này nên chỉ tab
+   "Đối chiếu" mới thấy được nhánh nào đang đứng vững. */
+import { pools, checkCause, scoreOf, findIn, featuresOf } from './bien-luan-diem.js';
 import { requirementsFor } from './clinical-validator.js';
 import { getCls } from './cls-editor.js';
 import { abnormalItems } from './cls-shared.js';
@@ -48,77 +64,10 @@ if (host && form) init();
 
 function init() {
 
-    /* =================================================================
-       BỘ DÒ: một dấu hiệu có mặt trong bệnh án chưa?
-       So theo TỪ, không so cả câu: "Ran nổ cuối thì hít vào" phải khớp được
-       với dòng khám "phổi ran nổ đáy phải". Ngưỡng 0.6 là chỗ cân giữa bắt
-       sót và bắt bừa (0.5 thì "đau ngực" khớp cả "đau bụng").
-       ================================================================= */
-    const STOP = new Set(['hoi', 'cua', 'khi', 'the', 'mot', 'hai', 'cac', 'cho', 'den', 'tai',
-        'voi', 'vao', 'nhu', 'sau', 'truoc', 'moi', 'thi', 'lam', 'nhieu', 'kieu', 'dang']);
-    const W = (t) => fold(t).split(/[^a-z0-9]+/).filter(w => w.length > 2 && !STOP.has(w));
-
-    function findIn(feature, pool) {
-        const w = W(feature);
-        if (!w.length) return null;
-        let best = null, bestN = 0;
-        for (const p of pool) {
-            const f = fold(p);
-            const n = w.filter(x => f.includes(x)).length;
-            if (n > bestN) { bestN = n; best = p; }
-        }
-        return bestN / w.length >= 0.6 ? best : null;
-    }
-
     const splitCsv = (t) => String(t || '').split(/[;,]/).map(trim).filter(Boolean);
     const hasTxt = (hay, needle) => fold(hay).includes(fold(needle));
 
-    /* =================================================================
-       ĐỌC TRẠNG THÁI
-       ================================================================= */
     const problems = () => getBienLuan().vanDe;
-
-    /* collectEvidence() của editor chỉ lấy dữ kiện đã được CẤU TRÚC HÓA (mốc
-       bệnh sử, ô khám, sinh hiệu, CLS bất thường). Đối chiếu thì phải đọc cả
-       mấy ô văn xuôi — sinh viên hay kể "sốt cao lạnh run, ho khạc đàm vàng"
-       thẳng vào ô Bệnh sử, không tách thành mốc. Thiếu chỗ này là dấu hiệu nào
-       cũng ra "chưa hỏi", bảng đối chiếu thành vô dụng. */
-    const VAN_XUOI = ['illness-history', 'reason-for-admission', 'hx-main-symptom',
-        'ros-cardio', 'ros-resp', 'ros-gi', 'ros-neuro', 'ros-msk', 'ros-uro',
-        'exam-general', 'exam-head', 'exam-chest', 'exam-heart', 'exam-lung',
-        'exam-abdomen', 'exam-neuro-msk', 'history-internal', 'history-habit',
-        'history-family', 'labs-results', 'summary'];
-
-    const cauCua = (id) => String($(id)?.value || '')
-        .split(/[,;.\n]/).map(trim).filter(t => t.length > 2);
-
-    /** Kho dữ kiện dương / âm của cả bệnh án, tính một lần cho mỗi lượt vẽ */
-    function pools(v) {
-        const raw = VAN_XUOI.flatMap(cauCua);
-        const amTinh = raw.filter(t => /^(kh[ôo]ng|ch[ưu]a|ph[ủu] nh[ậa]n)/i.test(t));
-        return {
-            yes: [...collectEvidence(v?.ten || ''), ...(v?.lamSang || []),
-                ...raw.filter(t => !amTinh.includes(t))],
-            no: [...collectNegatives(), ...(v?.amTinh || []), ...amTinh]
-        };
-    }
-
-    /** Đối chiếu một nhánh với bệnh án → [{t, st:'yes'|'no'|'ask', src}] */
-    function checkCause(ten, pool) {
-        return hallmarksFor(ten).map(t => {
-            const y = findIn(t, pool.yes);
-            if (y) return { t, st: 'yes', src: y };
-            const n = findIn(t, pool.no);
-            return n ? { t, st: 'no', src: n } : { t, st: 'ask' };
-        });
-    }
-
-    const scoreOf = (rows) => {
-        const tot = rows.length;
-        const yes = rows.filter(r => r.st === 'yes').length;
-        const no = rows.filter(r => r.st === 'no').length;
-        return { yes, no, ask: tot - yes - no, tot, pct: tot ? Math.round(yes / tot * 100) : null };
-    };
 
     /** Cận lâm sàng ca này đã có (đã đặt ở mục XII hoặc đã ghi trong nhánh) */
     const labsHave = () => [...getCls().map(i => i.n), ...splitCsv($('labs-proposed')?.value || '')];
@@ -249,6 +198,7 @@ function init() {
     const seg = $('bl-mode');
     seg?.insertAdjacentHTML('beforeend',
         '<button type="button" data-mode="can"><i class="fas fa-scale-balanced"></i> Đối chiếu</button>'
+        + '<button type="button" data-mode="ma"><i class="fas fa-table-cells"></i> Ma trận</button>'
         + '<button type="button" data-mode="hoi"><i class="fas fa-comments"></i> Hỏi vặn</button>'
         + '<button type="button" data-mode="vs"><i class="fas fa-code-compare"></i> So A–B</button>');
 
@@ -256,6 +206,35 @@ function init() {
     panel.className = 'blx-panel is-hidden';
     panel.setAttribute('data-nocount', '');
     host.after(panel);
+
+    /* =================================================================
+       9. CHIA ĐÔI MÀN HÌNH
+       Trước đây bốn màn đối chiếu nằm ở tab khác, muốn xem thì phải rời chỗ
+       đang gõ. Trên màn ≥1280px thì đặt cạnh nhau: gõ bên trái, bàn cân bên
+       phải tự cập nhật theo. Nút chỉ hiện khi màn đủ rộng.
+       ================================================================= */
+    const wrap = host.parentElement;
+    let chiaDoi = false;
+    const nutChia = document.createElement('button');
+    nutChia.type = 'button';
+    nutChia.className = 'bl-mini blx-split-b';
+    nutChia.innerHTML = '<i class="fas fa-table-columns"></i> Chia đôi màn hình';
+    seg?.parentElement?.appendChild(nutChia);
+    nutChia.addEventListener('click', () => {
+        chiaDoi = !chiaDoi;
+        wrap?.classList.toggle('blx-split', chiaDoi);
+        nutChia.classList.toggle('is-on', chiaDoi);
+        nutChia.innerHTML = chiaDoi
+            ? '<i class="fas fa-xmark"></i> Bỏ chia đôi'
+            : '<i class="fas fa-table-columns"></i> Chia đôi màn hình';
+        if (chiaDoi) {
+            host.classList.remove('is-hidden');
+            if (!laMine(mode)) openMode('can');
+            else { panel.classList.remove('is-hidden'); draw(); }
+        } else if (laMine(mode)) host.classList.add('is-hidden');
+    });
+
+    const laMine = (m) => ['can', 'ma', 'hoi', 'vs'].includes(m);
 
     let mode = 'table';
     function openMode(m) {
@@ -265,9 +244,10 @@ function init() {
         const b = e.target.closest('[data-mode]');
         if (!b) return;
         mode = b.dataset.mode;
-        const mine = mode === 'can' || mode === 'hoi' || mode === 'vs';
+        const mine = laMine(mode);
         panel.classList.toggle('is-hidden', !mine);
-        host.classList.toggle('is-hidden', mine || mode === 'map');
+        // Chia đôi thì bảng nhập ở lại bên trái, không giấu đi nữa
+        host.classList.toggle('is-hidden', (mine && !chiaDoi) || mode === 'map');
         if (mine) draw();
     });
 
@@ -412,13 +392,124 @@ function init() {
 
         if (!q.length) return '<p class="blx-empty is-ok"><i class="fas fa-circle-check"></i> Không còn chỗ hổng nào lộ ra — phần biện luận đang kín.</p>';
 
-        return `<p class="blx-lead">${q.length} câu thầy có thể vặn, sinh ra từ chính chỗ còn trống trong bài của em.</p>`
-            + q.slice(0, 30).map((x, i) => `<div class="blx-q">
-                <span class="blx-qn">${i + 1}</span>
-                <div><b>${esc(x.t)}</b><em>${esc(x.why)}</em></div>
-                <button type="button" class="blx-b sm" data-act="go-q" data-vd="${esc(x.vd || '')}"
-                    data-nn="${esc(x.nn || '')}" data-f="${esc(x.f || '')}" data-field="${esc(x.field || '')}">Tới chỗ đó</button>
-            </div>`).join('');
+        const list = q.slice(0, 30);
+        const dong = (x, i) => `<div class="blx-q">
+            <span class="blx-qn">${i + 1}</span>
+            <div><b>${esc(x.t)}</b><em>${esc(x.why)}</em></div>
+            <button type="button" class="blx-b sm" data-act="go-q" data-vd="${esc(x.vd || '')}"
+                data-nn="${esc(x.nn || '')}" data-f="${esc(x.f || '')}" data-field="${esc(x.field || '')}">Tới chỗ đó</button>
+        </div>`;
+
+        if (qAll) {
+            return `<div class="blx-q-top"><p class="blx-lead">${list.length} câu thầy có thể vặn,
+                    sinh ra từ chính chỗ còn trống trong bài của em.</p>
+                <button type="button" class="blx-b sm" data-act="q-all"><i class="fas fa-list-check"></i> Hỏi từng câu</button></div>`
+                + list.map(dong).join('');
+        }
+
+        /* Một câu một lúc. Ba mươi câu bày ra cùng lúc thì đọc xong là nản và
+           không sửa câu nào; từng câu một thì mỗi câu là một việc làm được ngay. */
+        qi = Math.max(0, Math.min(qi, list.length - 1));
+        const x = list[qi];
+        return `<div class="blx-wiz">
+            <div class="blx-wiz-top">
+                <span class="blx-wiz-n">Câu ${qi + 1} / ${list.length}</span>
+                <span class="blx-wiz-bar"><i style="width:${Math.round((qi + 1) / list.length * 100)}%"></i></span>
+                <button type="button" class="blx-b sm" data-act="q-all"><i class="fas fa-list-ul"></i> Xem cả danh sách</button>
+            </div>
+            <p class="blx-wiz-q">${esc(x.t)}</p>
+            <p class="blx-wiz-why"><i class="fas fa-circle-info"></i> ${esc(x.why)}</p>
+            <div class="blx-wiz-nav">
+                <button type="button" class="blx-b" data-act="q-di" data-d="-1" ${qi === 0 ? 'disabled' : ''}>
+                    <i class="fas fa-arrow-left"></i> Câu trước</button>
+                <button type="button" class="blx-b is-key" data-act="go-q" data-vd="${esc(x.vd || '')}"
+                    data-nn="${esc(x.nn || '')}" data-f="${esc(x.f || '')}" data-field="${esc(x.field || '')}">
+                    <i class="fas fa-pen"></i> Trả lời ngay tại chỗ đó</button>
+                <button type="button" class="blx-b" data-act="q-di" data-d="1" ${qi >= list.length - 1 ? 'disabled' : ''}>
+                    Câu sau <i class="fas fa-arrow-right"></i></button>
+            </div>
+        </div>`;
+    }
+    let qi = 0, qAll = false;
+
+    /* =================================================================
+       MA TRẬN PHÂN BIỆT — hàng là dấu chứng, cột là nhánh chẩn đoán.
+       Đây là cách thầy dạy phân biệt trên bảng: nhìn một ô là biết dấu hiệu
+       đó ủng hộ nhánh nào, chống nhánh nào, và chỗ nào cả hàng còn bỏ trống.
+       Mỗi ô BẤM ĐƯỢC: ✓ ✗ ghi thẳng vào ô "vì…" của đúng cột, ? ghi thành
+       âm tính — không phải gõ lại câu nào.
+       ================================================================= */
+    const O_ICO = { yes: '✓', no: '✗', ask: '?' };
+
+    function drawMa() {
+        const vs = problems();
+        if (!vs.length) return '<p class="blx-empty">Chưa có vấn đề nào để dựng ma trận.</p>';
+
+        return vs.map(v => {
+            const cot = v.nguyenNhan.filter(n => trim(n.ten)).slice(0, 5);
+            if (!cot.length) return `<section class="blx-vd"><h4 class="blx-h">${esc(v.ten || 'Vấn đề chưa đặt tên')}</h4>
+                <p class="blx-empty">Vấn đề này chưa có nhánh nguyên nhân nào.</p></section>`;
+
+            const pool = pools(v);
+            const ck = cot.map(n => checkCause(n.ten, pool));
+            const sc = ck.map(scoreOf);
+
+            /* Hàng = hợp của mọi đặc điểm các cột đòi hỏi, gộp trùng theo chữ
+               đã bỏ dấu — nếu không thì "Ran nổ" của cột A và cột B thành hai hàng. */
+            const hang = [];
+            ck.forEach(rows => rows.forEach(f => {
+                const k = fold(f.t);
+                if (!hang.some(h => h.k === k)) hang.push({ k, t: f.t });
+            }));
+            if (hang.length > 18) hang.length = 18;
+            if (!hang.length) return `<section class="blx-vd"><h4 class="blx-h">${esc(v.ten)}</h4>
+                <p class="blx-note">Thư viện chưa có đặc điểm phân biệt cho các nhánh đang ghi.</p></section>`;
+
+        const oCua = (j, k) => ck[j].find(f => fold(f.t) === k) || null;
+
+            /* Ô mà bệnh của cột đó KHÔNG đòi hỏi: vẫn phải trả lời "bệnh nhân
+               có cái này không", nếu không thì bảng thành đường chéo — cột nào
+               cũng chỉ có dấu hiệu của riêng nó, đặt cạnh nhau chẳng so được gì.
+               Ô loại này để mờ, chỉ soi chứ không ghi vào nhánh. */
+            const oMo = (t) => findIn(t, pool.yes) ? 'yes' : findIn(t, pool.no) ? 'no' : 'ask';
+
+            const thead = `<tr><th class="blx-m-first">Dấu chứng</th>${cot.map((n, j) =>
+                `<th class="lv-${LEVELS.indexOf(n.muc)}"><b>${esc(n.ten)}</b>
+                    <span class="blx-m-sc">${sc[j].pct ?? 0}%</span></th>`).join('')}</tr>`;
+
+            const tbody = hang.map(h => `<tr>
+                <th class="blx-m-first" title="Bấm để tìm chỗ đã ghi dấu chứng này trong bệnh án">
+                    <button type="button" class="blx-m-lab" data-act="soi" data-text="${esc(h.t)}">${esc(h.t)}</button></th>
+                ${cot.map((n, j) => {
+                const f = oCua(j, h.k);
+                if (!f) {
+                    const st = oMo(h.t);
+                    return `<td class="blx-m-o is-${st} is-mo">
+                        <button type="button" data-act="soi" data-text="${esc(h.t)}"
+                            title="${esc(n.ten)} không đòi dấu hiệu này — ${st === 'yes' ? 'nhưng bệnh nhân có'
+                        : st === 'no' ? 'bệnh án đã ghi âm tính' : 'bệnh án chưa nhắc tới'}">
+                            ${O_ICO[st]}</button></td>`;
+                }
+                return `<td class="blx-m-o is-${f.st}${f.huong === '-' ? ' is-nghich' : ''}">
+                        <button type="button" data-act="o" data-st="${f.st}" data-huong="${f.huong}"
+                            data-vd="${esc(v.ten)}" data-nn="${esc(n.ten)}" data-text="${esc(f.t)}"
+                            title="${f.huong === '-' ? 'có dấu hiệu này thì BỚT nghĩ tới ' : 'ủng hộ '}${esc(n.ten)}${f.src ? ' — bệnh án ghi: ' + esc(f.src) : ''}">
+                            ${O_ICO[f.st]}</button></td>`;
+            }).join('')}
+            </tr>`).join('');
+
+            const tfoot = `<tr class="blx-m-foot"><th class="blx-m-first">Khớp</th>${sc.map(s =>
+                `<td>✓ ${s.yes} · ✗ ${s.no} · ? ${s.ask}</td>`).join('')}</tr>`;
+
+            return `<section class="blx-vd">
+                <h4 class="blx-h"><i class="fas fa-table-cells"></i> ${esc(v.ten || 'Vấn đề chưa đặt tên')}</h4>
+                <p class="blx-lead">Bấm một ô: <b>✓</b> ghi thành lý do ủng hộ · <b>✗</b> ghi thành bằng chứng chống
+                    · <b>?</b> ghi nhận đã hỏi và không có. Cột nào cả cột toàn <b>?</b> là nhánh chưa hỏi gì tới.</p>
+                <div class="blx-m-wrap"><table class="blx-m">
+                    <thead>${thead}</thead><tbody>${tbody}</tbody><tfoot>${tfoot}</tfoot>
+                </table></div>
+            </section>`;
+        }).join('');
     }
 
     /* =================================================================
@@ -474,8 +565,23 @@ function init() {
     function draw() {
         drawBar();
         if (panel.classList.contains('is-hidden')) return;
-        panel.innerHTML = mode === 'hoi' ? drawHoi() : mode === 'vs' ? drawVs() : drawCan();
+        panel.innerHTML = mode === 'hoi' ? drawHoi() : mode === 'vs' ? drawVs()
+            : mode === 'ma' ? drawMa() : drawCan();
     }
+
+    /** Ghi một câu âm tính vào đúng thẻ vấn đề — mượn chính ô "+ thêm" của editor
+     *  để dây chuyền onChange (chẩn đoán, mục XI, tự lưu) vẫn chạy đủ. */
+    function themAmTinh(tenVd, cau) {
+        const inp = cardOf(tenVd)?.querySelector('.tr-tag-in[data-act="add-am"]');
+        if (!inp) return showToast('Không tìm thấy thẻ vấn đề đó nữa.', 'warning');
+        inp.value = cau;
+        inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        showToast('Đã ghi vào âm tính có giá trị.', 'success', 1800);
+        draw();
+    }
+
+    const chuThuong = (t) => trim(t).charAt(0).toLowerCase() + trim(t).slice(1);
+    const cauAmTinh = (t) => /^kh[ôo]ng|^ch[ưu]a/i.test(trim(t)) ? trim(t) : 'không ' + chuThuong(t);
 
     panel.addEventListener('change', (e) => {
         const s = e.target.closest('[data-sel]');
@@ -492,6 +598,18 @@ function init() {
             if (d.st === 'ask') return showToast('Chưa có trong bệnh án — hỏi / khám rồi ghi vào bệnh sử hoặc phần khám.', 'info', 3000);
             return goToText(d.text);
         }
+        /* Ô trong ma trận: ba trạng thái, ba chỗ ghi khác nhau */
+        if (d.act === 'o') {
+            if (d.st === 'ask') return themAmTinh(d.vd, cauAmTinh(d.text));
+            const nghich = d.huong === '-';
+            // ✓ của một đặc điểm NGHỊCH là bằng chứng chống lại, phải nói rõ ra
+            const cum = d.st === 'no' ? 'không ' + chuThuong(d.text)
+                : nghich ? `có ${chuThuong(d.text)} — điểm không hợp` : chuThuong(d.text);
+            return writeLeaf(d.vd, d.nn, 'lyDo', cum);
+        }
+        if (d.act === 'soi') return goToText(d.text);
+        if (d.act === 'q-di') { qi += +d.d; return draw(); }
+        if (d.act === 'q-all') { qAll = !qAll; qi = 0; return draw(); }
         if (d.act === 'add-cls' || d.act === 'add-cls-all') return writeLeaf(d.vd, d.nn, 'cls', d.text);
         if (d.act === 'to-cls') {
             $('bl-to-cls')?.click();
@@ -658,6 +776,79 @@ function init() {
         cancelAnimationFrame(raf);
         raf = requestAnimationFrame(() => { applyFold(); drawBar(); });
     }).observe(host, { childList: true, subtree: false });
+
+    /* =================================================================
+       ỐNG NHÒM BẰNG CHỨNG
+       Bấm một thẻ dấu chứng ở khối ② là thấy ngay nó ĐANG LÀM VIỆC CHO AI:
+       ủng hộ nhánh nào, chống nhánh nào, nhánh nào chưa dùng tới. Trả lời
+       đúng câu sinh viên hay bí — "cái này em ghi vào đâu bây giờ".
+       ================================================================= */
+    const soi = document.createElement('div');
+    soi.className = 'blx-soi hidden';
+    soi.setAttribute('data-nocount', '');
+    document.body.appendChild(soi);
+
+    function soiCua(text) {
+        const ung = [], chong = [], chua = [];
+        problems().forEach(v => v.nguyenNhan.forEach(n => {
+            if (!trim(n.ten)) return;
+            const f = featuresOf(n.ten).find(x => findIn(x.t, [text]));
+            const daGhi = hasTxt(n.lyDo, text);
+            if (!f) { if (!daGhi) chua.push({ v, n }); return; }
+            (f.huong === '-' ? chong : ung).push({ v, n, f, daGhi });
+        }));
+        return { ung, chong, chua };
+    }
+
+    function moSoi(text, neo) {
+        const r = soiCua(text);
+        const nut = (x, nhan) => `<button type="button" class="blx-b sm" data-act="soi-ghi"
+            data-vd="${esc(x.v.ten)}" data-nn="${esc(x.n.ten)}" data-text="${esc(nhan)}"
+            ${x.daGhi ? 'disabled' : ''}>${x.daGhi ? '✓ đã ghi' : '+ ghi vào “vì…”'}</button>`;
+        const nhom = (ten, list, cls, nhan) => list.length
+            ? `<div class="blx-soi-g ${cls}"><h6>${ten}</h6>${list.map(x => `<div class="blx-soi-r">
+                <b>${esc(x.n.ten)}</b><small>${esc(x.v.ten)}</small>${nut(x, nhan(x))}</div>`).join('')}</div>`
+            : '';
+
+        soi.innerHTML = `<div class="blx-soi-h"><b>${esc(text)}</b>
+                <button type="button" class="blx-soi-x" data-act="soi-dong" aria-label="Đóng"><i class="fas fa-xmark"></i></button></div>
+            ${nhom('Ủng hộ', r.ung, 'is-ung', () => chuThuong(text))}
+            ${nhom('Càng có càng bớt nghĩ', r.chong, 'is-chong', () => `có ${chuThuong(text)} — điểm không hợp`)}
+            ${r.chua.length ? `<div class="blx-soi-g is-chua"><h6>Chưa dùng ở ${r.chua.length} nhánh</h6>
+                ${r.chua.slice(0, 6).map(x => `<div class="blx-soi-r"><b>${esc(x.n.ten)}</b>
+                    <small>${esc(x.v.ten)}</small>${nut(x, chuThuong(text))}</div>`).join('')}</div>` : ''}
+            ${!r.ung.length && !r.chong.length && !r.chua.length
+                ? '<p class="blx-note">Chưa có nhánh nào để gắn dấu chứng này vào.</p>' : ''}`;
+
+        soi.classList.remove('hidden');
+        const b = neo.getBoundingClientRect();
+        soi.style.top = (scrollY + b.bottom + 6) + 'px';
+        soi.style.left = Math.max(8, Math.min(b.left, innerWidth - soi.offsetWidth - 8)) + 'px';
+    }
+
+    const dongSoi = () => soi.classList.add('hidden');
+
+    host.addEventListener('click', (e) => {
+        if (e.target.closest('button')) return;             // nút xóa thẻ vẫn là nút xóa
+        const tag = e.target.closest('.tr-tag[data-drag]');
+        if (!tag) return dongSoi();
+        moSoi(tag.dataset.drag, tag);
+    });
+
+    soi.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-act]');
+        if (!b) return;
+        if (b.dataset.act === 'soi-dong') return dongSoi();
+        if (b.dataset.act === 'soi-ghi') {
+            writeLeaf(b.dataset.vd, b.dataset.nn, 'lyDo', b.dataset.text);
+            dongSoi();
+        }
+    });
+
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') dongSoi(); });
+    document.addEventListener('click', (e) => {
+        if (!soi.contains(e.target) && !e.target.closest('.tr-tag')) dongSoi();
+    });
 
     let t = 0;
     form.addEventListener('input', () => { clearTimeout(t); t = setTimeout(draw, 900); });

@@ -24,6 +24,7 @@
          (tao-benh-an.js -> editor -> data...) nên mất mấy vòng mạng mới bắt đầu tải hết. -->
     <link rel="modulepreload" href="tao-benh-an.js">
     <link rel="modulepreload" href="tao-benh-an-them.js">
+    <link rel="modulepreload" href="dac-thu-khoa.js">
     <link rel="modulepreload" href="nhap-lien-ket.js">
     <link rel="modulepreload" href="../../core/firebase-init.js">
     <link rel="modulepreload" href="../../core/utils.js">
@@ -37,6 +38,9 @@
     <link rel="modulepreload" href="benh-kem-list.js">
     <link rel="modulepreload" href="benh-su-editor.js">
     <link rel="modulepreload" href="bien-luan-data.js">
+    <link rel="modulepreload" href="bien-luan-phanbiet.js">
+    <link rel="modulepreload" href="bien-luan-diem.js">
+    <link rel="modulepreload" href="bien-luan-thang-diem.js">
     <link rel="modulepreload" href="bien-luan-editor.js">
     <link rel="modulepreload" href="bien-luan-map.js">
     <link rel="modulepreload" href="body-map.js">
@@ -85,7 +89,7 @@
          ================================================================== -->
 
     <!-- =====================================================================
-         MƯỜI NÂNG CẤP CHO ĐIỆN THOẠI (tao-benh-an-dt.js)
+         CHÍN NÂNG CẤP CHO ĐIỆN THOẠI (tao-benh-an-dt.js)
          Mọi luật ở đây chỉ chạy khi thân trang có lớp `dt-on` — JS bật lớp này
          khi màn hình ≤640px. Máy tính không đổi một pixel nào.
          Khối này để RIÊNG và đặt CUỐI <head>: mấy lớp nổi bên dưới đều là con
@@ -888,6 +892,42 @@
                                     id="history-internal" rows="2" class="w-full border rounded-lg px-3 py-2 mt-2"
                                     placeholder="Máy ghép từ danh sách trên"></textarea>
                             </details>
+                            <div class="spec-box" data-spec="noi" data-ask="Có bệnh mạn tính đang điều trị không?" data-ask-key="benhMan" data-nocount>
+                                <div class="calc-title"><i class="fas fa-heart-pulse"></i> Bệnh mạn tính — mức kiểm soát &amp; tuân thủ (thứ bệnh án nội khoa luôn bị hỏi)</div>
+                                <div class="hx-grid">
+                                    <label>Bệnh mạn chính<input type="text" id="noi-benh" data-luu class="calc-in" placeholder="vd tăng huyết áp, đái tháo đường típ 2"></label>
+                                    <label>Phát hiện năm<input type="number" id="noi-nam" data-luu class="calc-in" placeholder="vd 2018"></label>
+                                    <label>Nơi khám — theo dõi<input type="text" id="noi-noikham" data-luu class="calc-in" placeholder="vd trạm y tế phường, tái khám mỗi tháng"></label>
+                                    <label>Tuân thủ thuốc
+                                        <select id="noi-tuanthu" data-luu class="calc-in">
+                                            <option value="">— chọn —</option>
+                                            <option>uống đều mỗi ngày, đúng giờ</option>
+                                            <option>quên 1 – 2 lần mỗi tuần</option>
+                                            <option>uống không đều, khi nhớ khi quên</option>
+                                            <option>tự ngưng thuốc</option>
+                                            <option>chưa từng điều trị</option>
+                                        </select></label>
+                                    <label>Mức kiểm soát gần nhất<input type="text" id="noi-kiemsoat" data-luu class="calc-in"
+                                            placeholder="vd huyết áp tại nhà 150/90 mmHg, HbA1c 9,2%"></label>
+                                    <label>Số lần nhập viện vì bệnh này trong 12 tháng<input type="number" id="noi-nhapvien" data-luu class="calc-in" placeholder="vd 2"></label>
+                                    <label>Biến chứng cơ quan đích đã có<input type="text" id="noi-bienchung" data-luu class="calc-in"
+                                            placeholder="vd bệnh thận mạn giai đoạn 3, biến chứng thần kinh ngoại biên"></label>
+                                    <label>Yếu tố nguy cơ tim mạch — chuyển hóa<input type="text" id="noi-yeuto" data-luu list="noi-yeuto-list" class="calc-in"
+                                            placeholder="vd hút thuốc lá, rối loạn lipid máu"></label>
+                                </div>
+                                <datalist id="noi-yeuto-list">
+                                    <option value="tăng huyết áp"></option>
+                                    <option value="đái tháo đường típ 2"></option>
+                                    <option value="rối loạn lipid máu"></option>
+                                    <option value="hút thuốc lá"></option>
+                                    <option value="béo phì"></option>
+                                    <option value="ít vận động"></option>
+                                    <option value="gia đình có bệnh mạch vành sớm"></option>
+                                    <option value="bệnh thận mạn"></option>
+                                </datalist>
+                                <div class="calc-out"><span id="noi-out">Chọn mức tuân thủ để máy nhận xét — đợt bệnh này có phải do bỏ thuốc hay không</span></div>
+                            </div>
+
                         </div>
                         <div>
                             <label class="block font-semibold mb-1">Thuốc đang dùng tại nhà</label>
@@ -969,6 +1009,7 @@
                                 </div>
                                 <input type="hidden" id="sx-asa">
                             </div>
+                            
                         </div>
                         <div id="obgyne-box" data-when="gioi:nu|loai:san">
                             <label for="history-obgyne" class="block font-semibold mb-1">Sản khoa <span id="obgyne-flag"
@@ -1065,21 +1106,143 @@
                             </details>
                         </div>
                         <div class="spec-box" data-when="loai:nhi|tuoi:&lt;16" data-nocount>
-                            <div class="calc-title"><i class="fas fa-child"></i> Tiền căn nhi khoa</div>
+                            <div class="calc-title"><i class="fas fa-child"></i> Bốn dòng tiền căn nhi khoa — bản máy ghép
+                                <span class="lb-sub">điền ở ba khối bên dưới rồi bấm “Ghi vào ô…”, hoặc tự gõ thẳng vào đây</span>
+                            </div>
                             <div class="hx-grid">
                                 <label>Sản khoa lúc sinh<input type="text" id="ped-birth" class="calc-in"
-                                        placeholder="vd sinh thường 39 tuần, 3200 g"></label>
+                                        placeholder="máy ghép từ khối “Sản khoa lúc sinh”"></label>
                                 <label>Dinh dưỡng<input type="text" id="ped-nutrition" class="calc-in"
-                                        placeholder="vd bú mẹ hoàn toàn 6 tháng"></label>
+                                        placeholder="máy ghép từ khối “Tăng trưởng &amp; dinh dưỡng”"></label>
                                 <label>Chủng ngừa<input type="text" id="ped-vaccine" class="calc-in"
-                                        placeholder="vd tiêm chủng đủ theo lịch"></label>
+                                        placeholder="máy ghép từ khối “Chủng ngừa”"></label>
                                 <label>Phát triển tâm vận<input type="text" id="ped-development" class="calc-in"
-                                        placeholder="vd biết đi lúc 12 tháng"></label>
+                                        placeholder="máy ghép từ khối “Phát triển tâm thần vận động”"></label>
                             </div>
+                        </div>
+                        <div class="spec-box" data-when="loai:nhi|tuoi:&lt;16" data-nocount>
+                            <div class="calc-title"><i class="fas fa-baby-carriage"></i> Sản khoa lúc sinh — hỏi kỹ, đây là tiền căn riêng của bệnh án nhi</div>
+                            <div class="hx-grid">
+                                <label>PARA của mẹ<input type="text" id="ped-para" data-luu class="calc-in" placeholder="vd 2002"></label>
+                                <label>Tuổi mẹ lúc sinh bé<input type="number" id="ped-tuoime" data-luu class="calc-in" placeholder="vd 28"></label>
+                                <label>Bệnh lý mẹ trong thai kỳ<input type="text" id="ped-benhme" data-luu class="calc-in"
+                                        placeholder="vd đái tháo đường thai kỳ, không dùng thuốc gì"></label>
+                                <label>Tuổi thai lúc sinh (tuần)<input type="number" id="ped-tuoithai" data-luu class="calc-in" placeholder="vd 39"></label>
+                                <label>Cách sinh
+                                    <select id="ped-cachsinh" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>sinh thường ngả âm đạo</option>
+                                        <option>sinh giúp (forceps / giác hút)</option>
+                                        <option>mổ lấy thai</option>
+                                    </select></label>
+                                <label>Cân nặng lúc sinh (g)<input type="number" id="ped-cansinh" data-luu class="calc-in" placeholder="vd 3200"></label>
+                                <label>Khóc ngay sau sinh
+                                    <select id="ped-khoc" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>khóc ngay, hồng hào</option>
+                                        <option>khóc yếu, phải hồi sức</option>
+                                        <option>không rõ</option>
+                                    </select></label>
+                                <label>Vàng da sơ sinh
+                                    <select id="ped-vangda" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>không vàng da</option>
+                                        <option>vàng da sinh lý, tự hết</option>
+                                        <option>vàng da phải chiếu đèn</option>
+                                        <option>vàng da phải thay máu</option>
+                                    </select></label>
+                                <label>Nằm dưỡng nhi<input type="text" id="ped-duongnhi" data-luu class="calc-in"
+                                        placeholder="vd nằm dưỡng nhi 5 ngày vì suy hô hấp"></label>
+                            </div>
+                            <div class="spec-act">
+                                <button type="button" id="ped-sinh-apply" class="cls-mini"><i class="fas fa-arrow-down"></i> Ghi vào ô Sản khoa lúc sinh</button>
+                            </div>
+                            <div class="calc-out"><span id="ped-sinh-out">Nhập tuổi thai và cân nặng lúc sinh để máy xếp non tháng — nhẹ cân</span></div>
+                        </div>
+                        <div class="spec-box" data-when="loai:nhi|tuoi:&lt;16" data-nocount>
+                            <div class="calc-title"><i class="fas fa-syringe"></i> Chủng ngừa — đối chiếu lịch Tiêm chủng mở rộng</div>
+                            <div class="hx-grid">
+                                <label>Nguồn thông tin
+                                    <select id="ped-vx-nguon" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>theo sổ tiêm chủng</option>
+                                        <option>theo lời kể của người nuôi</option>
+                                        <option>không có sổ, người nuôi không nhớ rõ</option>
+                                    </select></label>
+                            </div>
+                            <div class="vx-list">
+                                <label class="vx-item"><input type="checkbox" id="vx-bcg" data-luu data-thang="0">
+                                    <span>Lao (BCG) — sơ sinh</span></label>
+                                <label class="vx-item"><input type="checkbox" id="vx-vgb0" data-luu data-thang="0">
+                                    <span>Viêm gan B — trong 24 giờ đầu</span></label>
+                                <label class="vx-item"><input type="checkbox" id="vx-m1" data-luu data-thang="2">
+                                    <span>Bạch hầu – ho gà – uốn ván – VGB – Hib mũi 1 (2 tháng)</span></label>
+                                <label class="vx-item"><input type="checkbox" id="vx-m2" data-luu data-thang="3">
+                                    <span>Mũi 2 (3 tháng)</span></label>
+                                <label class="vx-item"><input type="checkbox" id="vx-m3" data-luu data-thang="4">
+                                    <span>Mũi 3 (4 tháng)</span></label>
+                                <label class="vx-item"><input type="checkbox" id="vx-opv" data-luu data-thang="4">
+                                    <span>Bại liệt uống bOPV đủ 3 liều</span></label>
+                                <label class="vx-item"><input type="checkbox" id="vx-ipv" data-luu data-thang="5">
+                                    <span>Bại liệt tiêm IPV (5 tháng)</span></label>
+                                <label class="vx-item"><input type="checkbox" id="vx-soi9" data-luu data-thang="9">
+                                    <span>Sởi (9 tháng)</span></label>
+                                <label class="vx-item"><input type="checkbox" id="vx-dpt18" data-luu data-thang="18">
+                                    <span>Bạch hầu – ho gà – uốn ván nhắc (18 tháng)</span></label>
+                                <label class="vx-item"><input type="checkbox" id="vx-mr18" data-luu data-thang="18">
+                                    <span>Sởi – Rubella (18 tháng)</span></label>
+                                <label class="vx-item"><input type="checkbox" id="vx-vnnb" data-luu data-thang="24">
+                                    <span>Viêm não Nhật Bản đủ 3 mũi</span></label>
+                                <label class="vx-item"><input type="checkbox" id="vx-rota" data-luu data-thang="6">
+                                    <span>Rota vi rút (dịch vụ)</span></label>
+                                <label class="vx-item"><input type="checkbox" id="vx-phecau" data-luu data-thang="6">
+                                    <span>Phế cầu (dịch vụ)</span></label>
+                                <label class="vx-item"><input type="checkbox" id="vx-cum" data-luu data-thang="12">
+                                    <span>Cúm mùa (dịch vụ)</span></label>
+                                <label class="vx-item"><input type="checkbox" id="vx-thuydau" data-luu data-thang="12">
+                                    <span>Thủy đậu (dịch vụ)</span></label>
+                            </div>
+                            <div class="spec-act">
+                                <button type="button" id="ped-vx-apply" class="cls-mini"><i class="fas fa-arrow-down"></i> Ghi vào ô Chủng ngừa</button>
+                            </div>
+                            <div class="calc-out"><span id="ped-vx-out">Nhập tuổi (tháng) ở khối nhi khoa để máy đối chiếu bé còn thiếu mũi nào</span></div>
+                        </div>
+                        <div class="spec-box" data-when="loai:nhi|tuoi:&lt;16" data-nocount>
+                            <div class="calc-title"><i class="fas fa-shoe-prints"></i> Phát triển tâm thần vận động — tích những mốc bé đã đạt</div>
+                            <div class="vx-list">
+                                <label class="vx-item"><input type="checkbox" id="pt-cuoi" data-luu data-thang="2">
+                                    <span>Cười đáp ứng <small>(2 tháng)</small></span></label>
+                                <label class="vx-item"><input type="checkbox" id="pt-lay" data-luu data-thang="4">
+                                    <span>Lẫy (lật) <small>(4 tháng)</small></span></label>
+                                <label class="vx-item"><input type="checkbox" id="pt-ngoi" data-luu data-thang="7">
+                                    <span>Ngồi vững không cần đỡ <small>(7 tháng)</small></span></label>
+                                <label class="vx-item"><input type="checkbox" id="pt-bo" data-luu data-thang="9">
+                                    <span>Bò <small>(9 tháng)</small></span></label>
+                                <label class="vx-item"><input type="checkbox" id="pt-dungvin" data-luu data-thang="9">
+                                    <span>Đứng vịn <small>(9 tháng)</small></span></label>
+                                <label class="vx-item"><input type="checkbox" id="pt-di" data-luu data-thang="12">
+                                    <span>Đi một mình <small>(12 tháng)</small></span></label>
+                                <label class="vx-item"><input type="checkbox" id="pt-tudon" data-luu data-thang="12">
+                                    <span>Nói từ đơn có nghĩa <small>(12 tháng)</small></span></label>
+                                <label class="vx-item"><input type="checkbox" id="pt-haitu" data-luu data-thang="24">
+                                    <span>Nói câu hai từ <small>(24 tháng)</small></span></label>
+                                <label class="vx-item"><input type="checkbox" id="pt-chay" data-luu data-thang="24">
+                                    <span>Chạy được <small>(24 tháng)</small></span></label>
+                                <label class="vx-item"><input type="checkbox" id="pt-xucan" data-luu data-thang="24">
+                                    <span>Tự xúc ăn <small>(24 tháng)</small></span></label>
+                                <label class="vx-item"><input type="checkbox" id="pt-vehinh" data-luu data-thang="36">
+                                    <span>Vẽ được đường thẳng <small>(36 tháng)</small></span></label>
+                                <label class="vx-item"><input type="checkbox" id="pt-kechuyen" data-luu data-thang="48">
+                                    <span>Kể lại chuyện ngắn <small>(48 tháng)</small></span></label>
+                            </div>
+                            <div class="spec-act">
+                                <button type="button" id="ped-pt-apply" class="cls-mini"><i class="fas fa-arrow-down"></i> Ghi vào ô Phát triển tâm vận</button>
+                            </div>
+                            <div class="calc-out"><span id="ped-pt-out">Máy so mốc đã đạt với tuổi hiện tại để nhận xét chậm phát triển hay không</span></div>
                         </div>
                         <div>
                             <label for="history-habit" class="block font-semibold mb-1">Thói quen</label>
-                            <div class="calc-box" data-when="tuoi:&gt;=12" data-ask="Có hút thuốc lá không?" data-ask-key="hutThuoc" data-ask-no="history-habit::Không hút thuốc lá" data-nocount>
+                            <div class="calc-box" data-spec="noi,ngoai,san,cc" data-when="tuoi:&gt;=12" data-ask="Có hút thuốc lá không?" data-ask-key="hutThuoc" data-ask-no="history-habit::Không hút thuốc lá" data-nocount>
                                 <div class="calc-title"><i class="fas fa-smoking"></i> Hút thuốc lá — tính gói·năm</div>
                                 <div class="calc-grid">
                                     <label>Số điếu/ngày<input type="number" min="0" id="smoke-cpd" class="calc-in"
@@ -1093,7 +1256,7 @@
                                         tính</span>
                                 </div>
                             </div>
-                            <div class="calc-box" data-when="tuoi:&gt;=12" data-ask="Có uống rượu bia không?" data-ask-key="ruouBia" data-ask-no="history-habit::Không uống rượu bia" data-nocount>
+                            <div class="calc-box" data-spec="noi,ngoai,san,cc" data-when="tuoi:&gt;=12" data-ask="Có uống rượu bia không?" data-ask-key="ruouBia" data-ask-no="history-habit::Không uống rượu bia" data-nocount>
                                 <div class="calc-title"><i class="fas fa-wine-glass"></i> Rượu bia — ghi theo cách bệnh
                                     nhân khai</div>
                                 <div class="calc-grid">
@@ -1239,7 +1402,38 @@
                         <div class="calc-out"><span id="qsofa-out">Nhập nhịp thở, huyết áp, Glasgow để tính qSOFA</span>
                         </div>
                     </div>
-                    <div class="flex justify-end -mt-1 mb-1 gap-2 flex-wrap">
+<div class="spec-box" data-spec="cc" data-nocount>
+                        <div class="calc-title"><i class="fas fa-stopwatch-20"></i> Đồng hồ vàng — máy tự tính thời gian từ lúc khởi phát</div>
+                        <div class="hx-grid">
+                            <label>Giờ khởi phát triệu chứng<input type="datetime-local" id="cc-onset" data-luu class="calc-in"></label>
+                            <label>Bệnh cảnh cần tính giờ
+                                <select id="cc-canh" data-luu class="calc-in">
+                                    <option value="">— chọn —</option>
+                                    <option>đột quỵ thiếu máu não</option>
+                                    <option>nhồi máu cơ tim ST chênh lên</option>
+                                    <option>chấn thương nặng — giờ vàng</option>
+                                    <option>sốc nhiễm khuẩn — giờ đầu</option>
+                                    <option>ngộ độc cấp</option>
+                                    <option>khác</option>
+                                </select></label>
+                            <label>Can thiệp đã làm — kèm mốc giờ<input type="text" id="cc-canthiep" data-luu class="calc-in"
+                                    placeholder="vd 8h10 thở oxy, 8h20 lập 2 đường truyền, 8h35 chụp CT"></label>
+                            <label>Đường truyền — theo dõi<input type="text" id="cc-duongtruyen" data-luu class="calc-in"
+                                    placeholder="vd 2 đường truyền 18G, monitor liên tục, sonde tiểu"></label>
+                            <label>Hướng xử trí
+                                <select id="cc-huong" data-luu class="calc-in">
+                                    <option value="">— chọn —</option>
+                                    <option>hồi sức tại phòng cấp cứu</option>
+                                    <option>chuyển mổ cấp cứu</option>
+                                    <option>nhập hồi sức tích cực</option>
+                                    <option>nhập khoa nội trú</option>
+                                    <option>chuyển viện</option>
+                                    <option>cho về, hẹn tái khám</option>
+                                </select></label>
+                        </div>
+                        <div class="calc-out"><span id="cc-clock-out">Nhập giờ khởi phát và thời điểm tiếp nhận để máy tính đã trôi qua bao lâu</span></div>
+                    </div>
+                                        <div class="flex justify-end -mt-1 mb-1 gap-2 flex-wrap">
                         <button type="button" id="vital-copy-adm" class="btn-soft"><i class="fas fa-copy mr-1"></i> Chép
                             sinh hiệu lúc nhập viện</button>
                         <button type="button" id="normal-exam-btn" class="btn-soft"><i
@@ -1363,7 +1557,94 @@
                                 placeholder="Bụng mềm, nhu động ruột, gan lách, gõ đục vùng thấp, sẹo mổ…"></textarea>
                             <div class="fd-box" data-fd-for="exam-abdomen" data-nocount></div>
                         </div>
-                        <div class="spec-box" data-spec="san" data-when="gioi:nu" data-nocount>
+<div class="spec-box" data-spec="ngoai" data-nocount>
+                            <div class="calc-title"><i class="fas fa-hand-dots"></i> Khám bụng ngoại khoa — nhìn · sờ · gõ · nghe</div>
+                            <div class="hx-grid">
+                                <label>Nhìn — thành bụng<input type="text" id="sxk-nhin" data-luu class="calc-in"
+                                        placeholder="vd bụng chướng đều, di động theo nhịp thở, sẹo mổ cũ đường giữa dưới rốn"></label>
+                                <label>Điểm đau khu trú
+                                    <select id="sxk-diem" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>không có điểm đau khu trú</option>
+                                        <option>thượng vị</option>
+                                        <option>hạ sườn phải</option>
+                                        <option>hạ sườn trái</option>
+                                        <option>quanh rốn</option>
+                                        <option>hố chậu phải (điểm McBurney)</option>
+                                        <option>hố chậu trái</option>
+                                        <option>hạ vị</option>
+                                        <option>mạn sườn phải</option>
+                                        <option>mạn sườn trái</option>
+                                        <option>đau khắp bụng</option>
+                                    </select></label>
+                                <label>Phản ứng thành bụng
+                                    <select id="sxk-phanung" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>không có phản ứng thành bụng</option>
+                                        <option>phản ứng khu trú</option>
+                                        <option>phản ứng lan tỏa khắp bụng</option>
+                                    </select></label>
+                                <label>Đề kháng thành bụng
+                                    <select id="sxk-dekhang" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>không đề kháng</option>
+                                        <option>đề kháng khu trú</option>
+                                        <option>co cứng thành bụng như gỗ</option>
+                                    </select></label>
+                                <label>Cảm ứng phúc mạc
+                                    <select id="sxk-phucmac" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>âm tính</option>
+                                        <option>dương tính</option>
+                                    </select></label>
+                                <label>Nghiệm pháp dương tính<input type="text" id="sxk-nghiem" data-luu list="sxk-nghiem-list" class="calc-in"
+                                        placeholder="vd Murphy (+), Blumberg (+)"></label>
+                                <label>Khối u sờ được<input type="text" id="sxk-khoiu" data-luu class="calc-in"
+                                        placeholder="vị trí – kích thước – mật độ – di động – đau"></label>
+                                <label>Gõ bụng
+                                    <select id="sxk-go" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>gõ trong đều</option>
+                                        <option>gõ vang trống (chướng hơi)</option>
+                                        <option>gõ đục vùng thấp</option>
+                                        <option>mất vùng đục trước gan</option>
+                                        <option>đục toàn bụng</option>
+                                    </select></label>
+                                <label>Nhu động ruột
+                                    <select id="sxk-nhudong" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>nhu động ruột bình thường 5 – 10 lần/phút</option>
+                                        <option>nhu động tăng, có dấu rắn bò</option>
+                                        <option>nhu động giảm</option>
+                                        <option>mất nhu động ruột</option>
+                                    </select></label>
+                                <label>Thăm trực tràng – âm đạo<input type="text" id="sxk-tructrang" data-luu class="calc-in"
+                                        placeholder="vd bóng trực tràng rỗng, túi cùng Douglas không đau, không máu theo găng"></label>
+                                <label>Thoát vị<input type="text" id="sxk-thoatvi" data-luu class="calc-in"
+                                        placeholder="vd khối vùng bẹn phải, đẩy lên được, không nghẹt"></label>
+                                <label>Vết mổ / vết thương<input type="text" id="sxk-vetmo" data-luu class="calc-in"
+                                        placeholder="vị trí, kích thước, bờ, dịch, tình trạng liền"></label>
+                                <label>Dẫn lưu tại chỗ<input type="text" id="sxk-danluu" data-luu class="calc-in"
+                                        placeholder="vd dẫn lưu dưới gan ra 50 ml dịch hồng loãng/24 giờ"></label>
+                            </div>
+                            <datalist id="sxk-nghiem-list">
+                                <option value="Murphy (+)"></option>
+                                <option value="Blumberg (+)"></option>
+                                <option value="Rovsing (+)"></option>
+                                <option value="dấu cơ thắt lưng chậu (psoas) (+)"></option>
+                                <option value="dấu cơ bịt (+)"></option>
+                                <option value="rung gan (+)"></option>
+                                <option value="ấn kẽ sườn (+)"></option>
+                                <option value="sóng vỗ (+)"></option>
+                                <option value="bập bềnh thận (+)"></option>
+                                <option value="chạm thận (+)"></option>
+                            </datalist>
+                            <div class="spec-act">
+                                <button type="button" id="sxk-apply" class="cls-mini"><i class="fas fa-arrow-down"></i> Ghi vào mục Bụng</button>
+                            </div>
+                            <div class="calc-out"><span id="sxk-out">Chọn các dấu chứng để máy soi hội chứng ngoại khoa (viêm phúc mạc, tắc ruột, xuất huyết nội…)</span></div>
+                        </div>
+                                                <div class="spec-box" data-spec="san" data-when="gioi:nu" data-nocount>
                             <div class="calc-title"><i class="fas fa-baby-carriage"></i> Khám sản</div>
                             <div class="hx-grid">
                                 <label>Bề cao tử cung (cm)<input type="number" id="ob-bctc" class="calc-in"
@@ -1386,7 +1667,237 @@
                             <div class="calc-out"><span id="ob-weight-out">Nhập bề cao tử cung và vòng bụng để ước lượng
                                     cân thai</span></div>
                         </div>
-                        <div class="spec-box" data-when="loai:nhi|tuoi:&lt;16" data-nocount>
+<div class="spec-box" data-spec="san" data-when="gioi:nu" data-nocount>
+                            <div class="calc-title"><i class="fas fa-hands"></i> Bốn thủ thuật Leopold — ngôi · thế · độ lọt</div>
+                            <div class="hx-grid">
+                                <label>TT1 — cực ở đáy tử cung
+                                    <select id="ob-leo1" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>mông (mềm, không đều, không bập bềnh)</option>
+                                        <option>đầu (tròn, cứng, bập bềnh)</option>
+                                        <option>không sờ được cực nào — nghĩ ngôi ngang</option>
+                                    </select></label>
+                                <label>TT2 — lưng thai
+                                    <select id="ob-leo2" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>lưng bên trái</option>
+                                        <option>lưng bên phải</option>
+                                        <option>lưng ra trước</option>
+                                        <option>lưng ra sau</option>
+                                        <option>sờ thấy chi ở phía trước</option>
+                                    </select></label>
+                                <label>TT3 — cực ở đoạn dưới
+                                    <select id="ob-leo3" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>đầu, còn di động trên vệ</option>
+                                        <option>đầu, đã cố định</option>
+                                        <option>mông</option>
+                                        <option>không có cực — ngôi ngang</option>
+                                    </select></label>
+                                <label>TT4 — độ lọt
+                                    <select id="ob-leo4" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>cao lỏng</option>
+                                        <option>chúc</option>
+                                        <option>chặt</option>
+                                        <option>lọt</option>
+                                        <option>lọt thấp</option>
+                                    </select></label>
+                                <label>Thế — kiểu thế<input type="text" id="ob-the" data-luu class="calc-in"
+                                        placeholder="vd chẩm chậu trái trước (CCTT)"></label>
+                                <label>Số thai
+                                    <select id="ob-sothai" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>một thai sống</option>
+                                        <option>song thai</option>
+                                        <option>đa thai</option>
+                                    </select></label>
+                            </div>
+                            <div class="spec-act">
+                                <button type="button" id="ob-leo-apply" class="cls-mini"><i class="fas fa-arrow-down"></i> Ghi vào mục Bụng</button>
+                            </div>
+                            <div class="calc-out"><span id="ob-leo-out">Chọn đủ bốn thủ thuật để máy ghép thành câu khám bụng sản khoa</span></div>
+                        </div>
+                        <div class="spec-box" data-spec="san" data-when="gioi:nu" data-nocount>
+                            <div class="calc-title"><i class="fas fa-calculator"></i> Chỉ số Bishop — máy tự cộng, tiên lượng khởi phát chuyển dạ</div>
+                            <div class="hx-grid">
+                                <label>Độ mở cổ tử cung
+                                    <select id="ob-bs-mo" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option value="0">0 cm — 0 điểm</option>
+                                        <option value="1">1 – 2 cm — 1 điểm</option>
+                                        <option value="2">3 – 4 cm — 2 điểm</option>
+                                        <option value="3">≥ 5 cm — 3 điểm</option>
+                                    </select></label>
+                                <label>Độ xóa cổ tử cung
+                                    <select id="ob-bs-xoa" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option value="0">0 – 30% — 0 điểm</option>
+                                        <option value="1">40 – 50% — 1 điểm</option>
+                                        <option value="2">60 – 70% — 2 điểm</option>
+                                        <option value="3">≥ 80% — 3 điểm</option>
+                                    </select></label>
+                                <label>Độ lọt của ngôi
+                                    <select id="ob-bs-lot" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option value="0">−3 — 0 điểm</option>
+                                        <option value="1">−2 — 1 điểm</option>
+                                        <option value="2">−1 hoặc 0 — 2 điểm</option>
+                                        <option value="3">+1 hoặc +2 — 3 điểm</option>
+                                    </select></label>
+                                <label>Mật độ cổ tử cung
+                                    <select id="ob-bs-mat" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option value="0">chắc — 0 điểm</option>
+                                        <option value="1">trung bình — 1 điểm</option>
+                                        <option value="2">mềm — 2 điểm</option>
+                                    </select></label>
+                                <label>Hướng cổ tử cung
+                                    <select id="ob-bs-huong" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option value="0">ngả sau — 0 điểm</option>
+                                        <option value="1">trung gian — 1 điểm</option>
+                                        <option value="2">ngả trước — 2 điểm</option>
+                                    </select></label>
+                            </div>
+                            <div class="calc-out"><span id="ob-bishop-out">Chọn đủ năm mục để máy tính điểm Bishop</span></div>
+                        </div>
+                        <div class="spec-box" data-spec="san" data-when="gioi:nu" data-nocount>
+                            <div class="calc-title"><i class="fas fa-stopwatch"></i> Chuyển dạ · ối · tim thai</div>
+                            <div class="hx-grid">
+                                <label>Giai đoạn chuyển dạ
+                                    <select id="ob-cd-gd" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>chưa chuyển dạ</option>
+                                        <option>chuyển dạ giai đoạn tiềm thời</option>
+                                        <option>chuyển dạ giai đoạn hoạt động</option>
+                                        <option>giai đoạn sổ thai</option>
+                                        <option>giai đoạn sổ nhau</option>
+                                        <option>hậu sản</option>
+                                    </select></label>
+                                <label>Bắt đầu chuyển dạ lúc<input type="datetime-local" id="ob-cd-batdau" data-luu class="calc-in"></label>
+                                <label>Tình trạng ối
+                                    <select id="ob-oi-tt" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>ối còn</option>
+                                        <option>ối vỡ tự nhiên</option>
+                                        <option>ối vỡ non</option>
+                                        <option>rỉ ối</option>
+                                        <option>đã bấm ối</option>
+                                    </select></label>
+                                <label>Thời điểm vỡ ối<input type="datetime-local" id="ob-oi-gio" data-luu class="calc-in"></label>
+                                <label>Màu — mùi ối
+                                    <select id="ob-oi-mau" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>trong, không hôi</option>
+                                        <option>trắng đục lợn cợn</option>
+                                        <option>xanh lẫn phân su</option>
+                                        <option>vàng sậm</option>
+                                        <option>lẫn máu</option>
+                                        <option>hôi</option>
+                                    </select></label>
+                                <label>Cơn gò — số cơn/10 phút<input type="number" id="ob-go-tan" data-luu class="calc-in" placeholder="vd 3"></label>
+                                <label>Cơn gò — cường độ · thời gian<input type="text" id="ob-go-cuong" data-luu class="calc-in"
+                                        placeholder="vd trung bình, mỗi cơn 40 giây, trương lực cơ bản bình thường"></label>
+                                <label>Tim thai — đường cơ bản (l/p)<input type="number" id="ob-tt-cb" data-luu class="calc-in" placeholder="vd 140"></label>
+                                <label>Dao động nội tại
+                                    <select id="ob-tt-dd" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>trung bình 6 – 25 nhịp</option>
+                                        <option>tối thiểu ≤ 5 nhịp</option>
+                                        <option>không dao động</option>
+                                        <option>tăng &gt; 25 nhịp</option>
+                                    </select></label>
+                                <label>Nhịp giảm
+                                    <select id="ob-tt-giam" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>không có nhịp giảm</option>
+                                        <option>nhịp giảm sớm</option>
+                                        <option>nhịp giảm muộn</option>
+                                        <option>nhịp giảm bất định</option>
+                                        <option>nhịp giảm kéo dài</option>
+                                    </select></label>
+                                <label>Phân nhóm biểu đồ tim thai
+                                    <select id="ob-tt-nhom" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>nhóm I — bình thường</option>
+                                        <option>nhóm II — chưa xác định</option>
+                                        <option>nhóm III — bệnh lý</option>
+                                    </select></label>
+                            </div>
+                            <div class="calc-out"><span id="ob-labor-out">Nhập thời điểm vỡ ối để máy tính ối đã vỡ bao lâu</span></div>
+                        </div>
+                        <div class="spec-box" data-spec="san" data-when="gioi:nu" data-nocount>
+                            <div class="calc-title"><i class="fas fa-triangle-exclamation"></i> Tăng huyết áp thai kỳ — máy soi dấu hiệu nặng của tiền sản giật</div>
+                            <div class="hx-grid">
+                                <label>Đạm niệu
+                                    <select id="ob-tsg-dam" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>âm tính</option>
+                                        <option>vết</option>
+                                        <option>1+</option>
+                                        <option>2+</option>
+                                        <option>3+</option>
+                                        <option>định lượng ≥ 300 mg/24 giờ</option>
+                                    </select></label>
+                                <label>Phù
+                                    <select id="ob-tsg-phu" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>không phù</option>
+                                        <option>phù hai chân, ấn lõm</option>
+                                        <option>phù toàn thân</option>
+                                        <option>phù mặt — mi mắt</option>
+                                    </select></label>
+                                <label>Nhức đầu — mờ mắt
+                                    <select id="ob-tsg-dau" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>không</option>
+                                        <option>nhức đầu</option>
+                                        <option>mờ mắt — hoa mắt</option>
+                                        <option>vừa nhức đầu vừa mờ mắt</option>
+                                    </select></label>
+                                <label>Đau thượng vị — hạ sườn phải
+                                    <select id="ob-tsg-bung" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>không</option>
+                                        <option>có</option>
+                                    </select></label>
+                                <label>Phản xạ gân xương
+                                    <select id="ob-tsg-pxgx" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>bình thường</option>
+                                        <option>tăng</option>
+                                        <option>tăng, có rung giật bàn chân</option>
+                                    </select></label>
+                                <label>Nước tiểu 24 giờ (ml)<input type="number" id="ob-tsg-nt" data-luu class="calc-in" placeholder="vd 1200"></label>
+                            </div>
+                            <div class="calc-out"><span id="ob-tsg-out">Máy lấy huyết áp ở phần sinh hiệu, cộng với các dấu hiệu trên để soi tiền sản giật có dấu hiệu nặng</span></div>
+                        </div>
+                        <div class="spec-box" data-spec="san" data-when="gioi:nu" data-nocount>
+                            <div class="calc-title"><i class="fas fa-baby"></i> Cuộc sinh &amp; hậu sản — điền khi sản phụ đã sinh</div>
+                            <div class="hx-grid">
+                                <label>Ngày giờ sinh<input type="datetime-local" id="ob-hs-gio" data-luu class="calc-in"></label>
+                                <label>Cách sinh
+                                    <select id="ob-hs-cach" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>sinh thường ngả âm đạo</option>
+                                        <option>sinh giúp bằng forceps</option>
+                                        <option>sinh giúp bằng giác hút</option>
+                                        <option>mổ lấy thai chương trình</option>
+                                        <option>mổ lấy thai cấp cứu</option>
+                                    </select></label>
+                                <label>Lý do can thiệp / mổ<input type="text" id="ob-hs-lydo" data-luu class="calc-in" placeholder="vd thai suy, bất xứng đầu chậu"></label>
+                                <label>Bé — giới · cân nặng (g)<input type="text" id="ob-hs-be" data-luu class="calc-in" placeholder="vd bé trai 3100 g"></label>
+                                <label>Apgar 1 phút / 5 phút<input type="text" id="ob-hs-apgar" data-luu class="calc-in" placeholder="vd 8/9"></label>
+                                <label>Lượng máu mất (ml)<input type="number" id="ob-hs-mau" data-luu class="calc-in" placeholder="vd 250"></label>
+                                <label>Tầng sinh môn<input type="text" id="ob-hs-tsm" data-luu class="calc-in" placeholder="vd cắt — may tầng sinh môn, vết may khô"></label>
+                                <label>Co hồi tử cung — sản dịch<input type="text" id="ob-hs-cohoi" data-luu class="calc-in"
+                                        placeholder="vd tử cung co hồi tốt, trên vệ 2 khoát, sản dịch đỏ sậm không hôi"></label>
+                                <label>Vú — sữa<input type="text" id="ob-hs-vu" data-luu class="calc-in" placeholder="vd hai vú mềm, đã có sữa, bé bú được"></label>
+                            </div>
+                            <div class="calc-out"><span id="ob-hausan-out">Nhập ngày giờ sinh để máy tính hậu sản ngày thứ mấy</span></div>
+                        </div>
+                                                <div class="spec-box" data-when="loai:nhi|tuoi:&lt;16" data-nocount>
                             <div class="calc-title"><i class="fas fa-child"></i> Nhi khoa — máy tự tính dịch và liều
                                 theo cân</div>
                             <div class="hx-grid">
@@ -1398,7 +1909,63 @@
                             <div class="calc-out"><span id="ped-out">Nhập cân nặng ở phần sinh hiệu để tính dịch duy trì
                                     và liều thuốc</span></div>
                         </div>
-                        <div class="calc-box no-fold" data-nocount>
+<div class="spec-box" data-when="loai:nhi|tuoi:&lt;16" data-nocount>
+                            <div class="calc-title"><i class="fas fa-ruler-vertical"></i> Tăng trưởng &amp; dinh dưỡng — máy chấm theo tuổi</div>
+                            <div class="hx-grid">
+                                <label>Vòng đầu (cm)<input type="number" step="0.1" id="ped-hc" data-luu class="calc-in" placeholder="vd 46"></label>
+                                <label>Vòng cánh tay MUAC (cm)<input type="number" step="0.1" id="ped-muac" data-luu class="calc-in" placeholder="vd 13"></label>
+                                <label>Nuôi dưỡng hiện tại
+                                    <select id="ped-feed-now" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>bú mẹ hoàn toàn</option>
+                                        <option>bú mẹ kèm sữa công thức</option>
+                                        <option>sữa công thức hoàn toàn</option>
+                                        <option>bú mẹ kèm ăn dặm</option>
+                                        <option>ăn cơm như người lớn</option>
+                                    </select></label>
+                                <label>Bắt đầu ăn dặm lúc (tháng)<input type="number" id="ped-anduam" data-luu class="calc-in" placeholder="vd 6"></label>
+                                <label>Khẩu phần một ngày<input type="text" id="ped-khaupan" data-luu class="calc-in" placeholder="vd 3 chén cháo, 500 ml sữa"></label>
+                            </div>
+                            <div class="spec-act">
+                                <button type="button" id="ped-dd-apply" class="cls-mini"><i class="fas fa-arrow-down"></i> Ghi vào ô Dinh dưỡng</button>
+                            </div>
+                            <div class="calc-out"><span id="ped-grow-out">Nhập tuổi (tháng) cùng cân nặng — chiều cao ở phần sinh hiệu để máy chấm mức tăng trưởng</span></div>
+                        </div>
+                        <div class="spec-box" data-when="loai:nhi|tuoi:&lt;16" data-nocount>
+                            <div class="calc-title"><i class="fas fa-droplet"></i> Đánh giá mất nước — bốn dấu của phác đồ</div>
+                            <div class="hx-grid">
+                                <label>Tri giác
+                                    <select id="ped-mn-trigiac" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>tỉnh táo, chơi bình thường</option>
+                                        <option>kích thích, vật vã</option>
+                                        <option>li bì hoặc khó đánh thức</option>
+                                    </select></label>
+                                <label>Mắt
+                                    <select id="ped-mn-mat" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>bình thường</option>
+                                        <option>trũng</option>
+                                        <option>rất trũng và khô</option>
+                                    </select></label>
+                                <label>Khát — uống nước
+                                    <select id="ped-mn-uong" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>uống bình thường, không khát</option>
+                                        <option>khát, uống háo hức</option>
+                                        <option>uống kém hoặc không uống được</option>
+                                    </select></label>
+                                <label>Nếp véo da
+                                    <select id="ped-mn-veoda" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>mất nhanh</option>
+                                        <option>mất chậm dưới 2 giây</option>
+                                        <option>mất rất chậm trên 2 giây</option>
+                                    </select></label>
+                            </div>
+                            <div class="calc-out"><span id="ped-mn-out">Chọn bốn dấu trên để máy xếp loại mất nước</span></div>
+                        </div>
+                                                <div class="calc-box no-fold" data-nocount>
                             <div class="calc-title"><i class="fas fa-camera-retro"></i> Ảnh lâm sàng (tổn thương, vết
                                 mổ, ban da…)</div>
                             <div id="img-exam" class="img-box"></div>
@@ -1514,7 +2081,7 @@
                                     class="fas fa-expand"></i> Phóng to sơ đồ</button>
                         </div>
                         <div id="bl-map-wrap" class="bl-map-wrap is-hidden" data-nocount>
-                            <canvas id="bl-map"></canvas>
+                            <div id="bl-map" class="bl-map-svg"></div>
                             <p class="bl-map-hint"><i class="fas fa-hand-pointer"></i> Bấm vào một vấn đề trong sơ đồ để
                                 nhảy tới ô nhập của nó.</p>
                         </div>
@@ -1588,6 +2155,40 @@
 
             <div id="ket-luan" class="tab-content">
                 <div class="flex flex-col gap-4">
+                    <div class="spec-box" data-spec="ngoai" data-nocount>
+                        <div class="calc-title"><i class="fas fa-clipboard-check"></i> Chỉ định &amp; chuẩn bị cuộc mổ</div>
+                        <div class="hx-grid">
+                            <label>Tính chất cuộc mổ
+                                <select id="sx-tinhchat" data-luu class="calc-in">
+                                    <option value="">— chọn —</option>
+                                    <option>mổ cấp cứu</option>
+                                    <option>mổ bán khẩn</option>
+                                    <option>mổ chương trình</option>
+                                    <option>chưa có chỉ định mổ — điều trị nội</option>
+                                </select></label>
+                            <label>Chỉ định mổ vì<input type="text" id="sx-chidinh" data-luu class="calc-in"
+                                    placeholder="vd viêm ruột thừa cấp chưa biến chứng"></label>
+                            <label>Phân loại vết mổ dự kiến
+                                <select id="sx-phanloai" data-luu class="calc-in">
+                                    <option value="">— chọn —</option>
+                                    <option>sạch</option>
+                                    <option>sạch – nhiễm</option>
+                                    <option>nhiễm</option>
+                                    <option>bẩn</option>
+                                </select></label>
+                            <label>Kháng sinh dự phòng<input type="text" id="sx-ksdp" data-luu class="calc-in"
+                                    placeholder="vd cefazolin 2 g tĩnh mạch, 30 phút trước rạch da"></label>
+                            <label>Nhóm máu — dự trù máu<input type="text" id="sx-mau" data-luu class="calc-in" placeholder="vd O Rh(+), dự trù 2 đơn vị hồng cầu lắng"></label>
+                            <label>Nhịn ăn — chuẩn bị ruột<input type="text" id="sx-chuanbi" data-luu class="calc-in" placeholder="vd nhịn ăn từ 22 giờ, thụt tháo tối trước mổ"></label>
+                            <label>Cam kết phẫu thuật
+                                <select id="sx-camket" data-luu class="calc-in">
+                                    <option value="">— chọn —</option>
+                                    <option>thân nhân đã ký cam kết</option>
+                                    <option>chưa ký</option>
+                                </select></label>
+                        </div>
+                        <div class="calc-out"><span id="sx-cb-out">Chọn tính chất cuộc mổ và phân loại vết mổ để máy nhắc kháng sinh dự phòng</span></div>
+                    </div>
                     <div class="spec-box" data-spec="ngoai" data-ask="Bệnh nhân đã / sắp mổ trong đợt này?" data-ask-key="daMo" data-nocount>
                         <div class="calc-title"><i class="fas fa-scissors"></i> Phẫu thuật</div>
                         <div class="hx-grid">
@@ -1614,6 +2215,55 @@
                             </div>
                         </div>
                     </div>
+                    <div class="spec-box" data-spec="ngoai" data-nocount>
+                        <div class="calc-title"><i class="fas fa-bed-pulse"></i> Hậu phẫu — theo dõi từng ngày</div>
+                        <div class="hx-grid">
+                            <label>Đau vết mổ (VAS 0 – 10)<input type="number" min="0" max="10" id="hp-vas" data-luu class="calc-in" placeholder="vd 4"></label>
+                            <label>Trung tiện
+                                <select id="hp-trungtien" data-luu class="calc-in">
+                                    <option value="">— chọn —</option>
+                                    <option>chưa trung tiện</option>
+                                    <option>đã trung tiện hậu phẫu ngày 1</option>
+                                    <option>đã trung tiện hậu phẫu ngày 2</option>
+                                    <option>đã trung tiện hậu phẫu ngày 3 trở đi</option>
+                                </select></label>
+                            <label>Ăn uống lại
+                                <select id="hp-anuong" data-luu class="calc-in">
+                                    <option value="">— chọn —</option>
+                                    <option>còn nhịn ăn uống</option>
+                                    <option>uống nước đường</option>
+                                    <option>ăn cháo loãng</option>
+                                    <option>ăn cơm bình thường</option>
+                                </select></label>
+                            <label>Dẫn lưu 24 giờ qua<input type="text" id="hp-danluu" data-luu class="calc-in" placeholder="vd 30 ml dịch hồng loãng, đã rút"></label>
+                            <label>Tình trạng vết mổ
+                                <select id="hp-vetmo" data-luu class="calc-in">
+                                    <option value="">— chọn —</option>
+                                    <option>khô, liền tốt</option>
+                                    <option>thấm dịch băng</option>
+                                    <option>nề đỏ quanh vết mổ</option>
+                                    <option>chảy mủ — nhiễm trùng vết mổ</option>
+                                    <option>hở vết mổ</option>
+                                    <option>toác vết mổ, lộ mạc nối</option>
+                                </select></label>
+                            <label>Biến chứng — phân độ Clavien – Dindo
+                                <select id="hp-clavien" data-luu class="calc-in">
+                                    <option value="">— chọn —</option>
+                                    <option>không biến chứng</option>
+                                    <option>độ I — lệch diễn tiến bình thường, không cần điều trị gì thêm</option>
+                                    <option>độ II — cần thuốc (kháng sinh, truyền máu…)</option>
+                                    <option>độ IIIa — can thiệp, không gây mê toàn thân</option>
+                                    <option>độ IIIb — can thiệp có gây mê toàn thân</option>
+                                    <option>độ IVa — suy một cơ quan, phải hồi sức</option>
+                                    <option>độ IVb — suy đa cơ quan</option>
+                                    <option>độ V — tử vong</option>
+                                </select></label>
+                            <label>Rút dẫn lưu — cắt chỉ<input type="text" id="hp-rut" data-luu class="calc-in" placeholder="vd rút dẫn lưu ngày 3, cắt chỉ ngày 7"></label>
+                            <label>Kháng sinh sau mổ<input type="text" id="hp-khangsinh" data-luu class="calc-in" placeholder="vd ceftriaxon 2 g/ngày, đã dùng 3 ngày"></label>
+                        </div>
+                        <div class="calc-out"><span id="hp-out">Nhập ngày giờ mổ ở khối trên để máy tính hậu phẫu ngày thứ mấy</span></div>
+                    </div>
+
 
                     <fieldset class="border-2 border-pink-200 p-4 rounded-lg shadow-sm">
                         <legend class="text-lg font-semibold text-pink-500 px-2 flex items-center gap-2"><i class="fas fa-diagnoses"></i> XIII. CHẨN ĐOÁN XÁC ĐỊNH</legend>
@@ -1828,6 +2478,7 @@
          Cung pha thi ai dang ky truoc chay truoc, nen thu tu the nay la bat buoc. -->
     <script type="module" src="lop-noi.js"></script>
     <script type="module" src="tao-benh-an.js"></script>
+    <script type="module" src="dac-thu-khoa.js"></script>
     <script type="module" src="tao-benh-an-them.js"></script>
     <script type="module" src="nhap-lien-ket.js"></script>
     <script type="module" src="toan-canh.js"></script>

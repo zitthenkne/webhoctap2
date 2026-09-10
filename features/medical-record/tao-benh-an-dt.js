@@ -1,5 +1,5 @@
 /* =====================================================================
-   tao-benh-an-dt.js — MƯỜI NÂNG CẤP RIÊNG CHO ĐIỆN THOẠI
+   tao-benh-an-dt.js — CHÍN NÂNG CẤP RIÊNG CHO ĐIỆN THOẠI
 
    Vì sao tách file: tao-benh-an.js giữ mạch lưu/xuất bản, tao-benh-an-them.js
    giữ lối tắt giao diện, nhap-lien-ket.js giữ nhập nhanh & liên kết. File này
@@ -19,8 +19,7 @@
    6. <select> ngắn → hàng chip một chạm (bỏ hẳn thao tác mở bảng chọn của máy).
    7. "Chỉ hiện ô còn trống": giấu ô đã điền, màn hình chỉ còn việc chưa làm.
    8. Ô ngày/giờ có chip Hôm nay · Hôm qua · Bây giờ… — khỏi vật lộn với lịch.
-   9. "Về chỗ đang gõ": mở lại bệnh án là có nút nhảy thẳng về ô bỏ dở.
-  10. Cuộn xuống thì dải chip mục tự thu lại, trả màn hình cho ô nhập.
+   9. Cuộn xuống thì dải chip mục tự thu lại, trả màn hình cho ô nhập.
   (+) Rời ô là tự dọn khoảng trắng thừa và viết hoa đầu câu.
    ===================================================================== */
 
@@ -113,6 +112,10 @@ function initPhone() {
        nên hai thanh không tranh chỗ; vị trí lấy theo hình chữ nhật thật của
        thanh kia chứ không đoán, vì nó tự bám bàn phím bằng visualViewport.
        ================================================================= */
+    /* Người dùng thích xổ hay thích thu — nhớ lại, đừng bắt bấm lại từng ô */
+    const XO_KEY = 'baChipXo';
+    const kbXo = () => { try { return !!localStorage.getItem(XO_KEY); } catch { return false; } };
+
     const kbar = document.createElement('div');
     kbar.className = 'dt-kb hidden';
     kbar.setAttribute('role', 'toolbar');
@@ -138,10 +141,39 @@ function initPhone() {
            nhập ngay dưới đã ghi tên ô rồi, ghi lại lần nữa là hai dòng chữ giống
            hệt nhau nằm chồng lên nhau. */
         kbar.classList.toggle('is-bare', !list.length);
-        const row = list.map((b, i) =>
-            `<button type="button" class="dt-k-chip${b.classList.contains('is-on') ? ' is-on' : ''}" data-i="${i}">${esc(b.textContent.trim())}</button>`).join('');
-        kbar.innerHTML = `<div class="dt-k-fix">${nav}</div>`
-            + (list.length ? `<div class="dt-k-row">${row}</div>` : '');
+
+        /* Nút xổ: thanh một dòng phải kéo ngang mãi mới hết. Xổ ra là hàng chip
+           tự xuống dòng, chia đúng các mục của khối gợi ý dưới ô, cuộn DỌC.
+           Nhớ lựa chọn nên lần sau bấm vào ô khác là nó đã xổ sẵn. */
+        const xo = kbXo() && list.length > 4;
+        kbar.classList.toggle('is-xo', xo);
+        const nutXo = list.length > 4
+            ? `<button type="button" class="dt-k-nav is-xo" data-k="xo"
+                aria-label="${xo ? 'Thu gọn gợi ý' : 'Xổ hết gợi ý'}" aria-pressed="${xo}">
+                <i class="fas fa-${xo ? 'chevron-down' : 'table-cells-large'}"></i></button>` : '';
+
+        const nut = (b) => `<button type="button" class="dt-k-chip${b.classList.contains('is-on') ? ' is-on' : ''}"
+            data-i="${list.indexOf(b)}">${esc(b.textContent.trim())}</button>`;
+
+        let than = '';
+        if (xo) {
+            // Có mục thì giữ nguyên mục; ô ít gợi ý không chia mục thì bày một khối
+            const secs = chips ? [...chips.querySelectorAll('.chips-muc')] : [];
+            than = secs.length
+                ? secs.map(sec => {
+                    const bs = [...sec.querySelectorAll('.chip')];
+                    if (!bs.length) return '';
+                    const h = sec.querySelector('.chips-h')?.textContent.trim();
+                    return `${h ? `<div class="dt-k-h">${esc(h)}</div>` : ''}
+                        <div class="dt-k-grid">${bs.map(nut).join('')}</div>`;
+                }).join('')
+                : `<div class="dt-k-grid">${list.map(nut).join('')}</div>`;
+            than = `<div class="dt-k-xo">${than}</div>`;
+        } else if (list.length) {
+            than = `<div class="dt-k-row">${list.map(nut).join('')}</div>`;
+        }
+
+        kbar.innerHTML = `<div class="dt-k-fix">${nav}${nutXo}</div>` + than;
     }
 
     /* Thanh trợ nhập kia đặt bottom bằng JS mỗi khi bàn phím đổi cỡ; đo lại từ
@@ -195,7 +227,6 @@ function initPhone() {
         const el = e.target;
         if (!isField(el)) return hideKbar();
         showKbar(el);
-        remember(el);
     });
     form.addEventListener('focusout', () => setTimeout(() => {
         const a = document.activeElement;
@@ -219,6 +250,10 @@ function initPhone() {
             return setTimeout(renderKbar, 0);
         }
         const k = b.dataset.k;
+        if (k === 'xo') {
+            try { localStorage.setItem(XO_KEY, kbXo() ? '' : '1'); } catch { }
+            return renderKbar();
+        }
         if (k === 'full') return openFull(cur);
         if (k === 'gap') return $('ba-gap')?.click();
         const list = fieldList();
@@ -491,42 +526,7 @@ function initPhone() {
     }
 
     /* =================================================================
-       9. VỀ CHỖ ĐANG GÕ
-       Viết bệnh án trên điện thoại hay bị đứt quãng (đi buồng, hết pin, chuyển
-       app). Mở lại là nhảy đúng về ô bỏ dở, không phải cuộn tìm.
-       ================================================================= */
-    const LAST = 'baLastField';
-    let rmT = 0;
-    function remember(el) {
-        if (!el.id) return;
-        clearTimeout(rmT);
-        rmT = setTimeout(() => {
-            try { localStorage.setItem(LAST, JSON.stringify({ id: el.id, t: Date.now() })); } catch { }
-        }, 400);
-    }
-
-    function offerResume() {
-        if (!isPhone()) return;
-        let s = null;
-        try { s = JSON.parse(localStorage.getItem(LAST) || 'null'); } catch { }
-        if (!s?.id || Date.now() - s.t > 7 * 864e5) return;
-        const el = $(s.id);
-        if (!el || !isField(el)) return;
-        // Bệnh án trắng tinh thì lời mời vô nghĩa
-        if (!countable().some(f => String(f.value || '').trim())) return;
-
-        const pill = document.createElement('button');
-        pill.type = 'button';
-        pill.className = 'dt-resume';
-        pill.innerHTML = `<i class="fas fa-clock-rotate-left"></i> Về chỗ đang gõ: <b>${esc(String(labelOf(el) || '').slice(0, 26))}</b>`;
-        document.body.appendChild(pill);
-        const kill = () => pill.remove();
-        pill.addEventListener('click', () => { kill(); goTo(el); });
-        setTimeout(kill, 9000);
-    }
-
-    /* =================================================================
-       10. CUỘN XUỐNG → THU DẢI CHIP MỤC
+       9. CUỘN XUỐNG → THU DẢI CHIP MỤC
        Dải chip mục dính trên đầu ăn ~46px. Lúc đang gõ thì cần màn hình hơn
        cần thanh điều hướng; cuộn ngược lên là nó về ngay.
        ================================================================= */
@@ -700,8 +700,7 @@ function initPhone() {
         whenChips();
         normalChips();
     }
-    const boot = () => { buildOnce(); offerResume(); };
-    setTimeout(boot, 900);
+    setTimeout(buildOnce, 900);
     setTimeout(buildOnce, 2500);
     document.querySelectorAll('.tab-link').forEach(l =>
         l.addEventListener('click', () => setTimeout(buildOnce, 350)));

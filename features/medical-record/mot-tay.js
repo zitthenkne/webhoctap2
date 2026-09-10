@@ -77,10 +77,12 @@ function init() {
         el.click();
     }
 
+    /* Dùng chung khóa với viên "Tiếp tục ở…" của thuan-tay.js — trước đây đọc
+       'baLastField' của một bản ghi nhớ thứ hai, nay đã bỏ vì trùng tính năng. */
     function veChoDangGo() {
-        let s = null;
-        try { s = JSON.parse(localStorage.getItem('baLastField') || 'null'); } catch { }
-        const el = s?.id && $(s.id);
+        let id = '';
+        try { id = localStorage.getItem('baOCu_' + ($('medical-record-id')?.value || 'BA-tam')) || ''; } catch { }
+        const el = id && $(id);
         if (!el) return showToast('Chưa có chỗ nào đang gõ dở.', 'info', 1600);
         goTo(el);
         showToast('Về ' + String(labelOf(el) || 'ô đang gõ').slice(0, 30), 'info', 1400);

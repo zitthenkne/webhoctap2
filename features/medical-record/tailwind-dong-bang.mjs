@@ -51,7 +51,14 @@ function gomChu(noiDung) {
     return out;
 }
 
-const nguon = [TRANG, ...readdirSync(HERE).filter(f => f.endsWith('.js')).map(f => join(HERE, f))];
+/* Phải quét cả core/ dù nó nằm ngoài thư mục này: showToast() ở core/utils.js
+   DỰNG class Tailwind bằng JS (bg-yellow-500, text-white, opacity-100,
+   translate-x-0…). Bỏ sót nó thì toast ra hộp TRONG SUỐT — chữ trắng trên nền
+   không tồn tại, đè lên nội dung và gần như không đọc được. */
+const CORE = join(HERE, '..', '..', 'core');
+const jsCua = (d) => existsSync(d)
+    ? readdirSync(d).filter(f => f.endsWith('.js')).map(f => join(d, f)) : [];
+const nguon = [TRANG, ...jsCua(HERE), ...jsCua(CORE)];
 const chu = new Set();
 for (const f of nguon) gomChu(readFileSync(f, 'utf8')).forEach(t => chu.add(t));
 

@@ -214,6 +214,87 @@ const daChon = (noiPhay, cur, text) => {
     return cur.split(/[,;\n]+/).some(ve => ve.trim().toLowerCase() === t);
 };
 
+/* =====================================================================
+   XẾP CHIP THÀNH TỪNG MỤC
+
+   Trước đây mọi chip đổ thành MỘT hàng phẳng. Ô nào nhiều lựa chọn (lược qua
+   cơ quan, khám, cận lâm sàng) thì hàng đó dài lê thê: trên máy tính là một
+   mảng chữ không có điểm tựa, trên điện thoại thành thanh phải kéo ngang mãi
+   mới hết. Nay chia mục, có ô lọc, và bó chiều cao lại để cuộn DỌC.
+
+   Ba mục, không cần thêm dữ liệu nào:
+     🎯 Theo bệnh cảnh này  chip ngữ cảnh (.is-ctx) do bệnh sử sinh ra
+     ⭐ Hay dùng            6 chip đầu — mảng QUICK_FILL vốn viết theo thứ tự
+                            ưu tiên, cái hay chọn nhất nằm trước
+     Còn lại                phần đuôi
+
+   Ít chip thì giữ nguyên hàng phẳng: bày tiêu đề cho 4 lựa chọn là rối thêm.
+
+   Chip vẫn là ĐÚNG những nút cũ, chỉ được chuyển chỗ — mọi listener đã gắn
+   trong makeChips còn nguyên, và mark() / thanh chip điện thoại vẫn tìm thấy
+   chúng bằng querySelectorAll('.chip') như trước.
+   ===================================================================== */
+const NGUONG_MUC = 12;      // dưới ngưỡng này thì không chia mục
+const SO_HAY_DUNG = 6;
+
+function xepMuc(wrap, gom) {
+    const ctxs = gom.filter(x => x.ctx).map(x => x.btn);
+    const thuong = gom.filter(x => !x.ctx).map(x => x.btn);
+
+    if (!ctxs.length && thuong.length <= NGUONG_MUC) {
+        thuong.forEach(b => wrap.appendChild(b));
+        return;
+    }
+
+    const muc = [];
+    if (ctxs.length) muc.push(['🎯', 'Theo bệnh cảnh này', ctxs]);
+    if (thuong.length > NGUONG_MUC) {
+        muc.push(['⭐', 'Hay dùng', thuong.slice(0, SO_HAY_DUNG)]);
+        muc.push(['', 'Còn lại', thuong.slice(SO_HAY_DUNG)]);
+    } else if (thuong.length) {
+        muc.push(['', ctxs.length ? 'Lựa chọn khác' : '', thuong]);
+    }
+
+    wrap.classList.add('has-muc');
+
+    // Ô lọc: với danh sách dài thì gõ hai chữ nhanh hơn mọi cách cuộn
+    if (gom.length > NGUONG_MUC) {
+        const loc = document.createElement('input');
+        loc.className = 'chips-loc';
+        loc.type = 'search';
+        loc.placeholder = 'Lọc trong ' + gom.length + ' gợi ý — gõ không dấu cũng ra';
+        loc.setAttribute('aria-label', 'Lọc gợi ý');
+        /* Ô lọc nằm TRONG .chips nên bấm vào nó, thẻ cha vẫn :focus-within —
+           bộ chip dạng compact không bị sập giữa chừng. */
+        loc.addEventListener('input', () => {
+            const q = fold(loc.value.trim());
+            wrap.querySelectorAll('.chip').forEach(b => {
+                b.hidden = !!q && !fold(b.textContent).includes(q);
+            });
+            wrap.querySelectorAll('.chips-muc').forEach(sec => {
+                sec.hidden = ![...sec.querySelectorAll('.chip')].some(b => !b.hidden);
+            });
+        });
+        wrap.appendChild(loc);
+    }
+
+    muc.forEach(([ico, ten, list]) => {
+        const sec = document.createElement('div');
+        sec.className = 'chips-muc';
+        if (ten) {
+            const h = document.createElement('h6');
+            h.className = 'chips-h';
+            h.innerHTML = (ico ? ico + ' ' : '') + ten + ' <span>' + list.length + '</span>';
+            sec.appendChild(h);
+        }
+        const row = document.createElement('div');
+        row.className = 'chips-row';
+        list.forEach(b => row.appendChild(b));
+        sec.appendChild(row);
+        wrap.appendChild(sec);
+    });
+}
+
 function makeChips(id, items) {
     {
         const el = $(id);
@@ -222,6 +303,7 @@ function makeChips(id, items) {
         const wrap = document.createElement('div');
         // Ô trong lưới: chip chỉ bung ra khi bấm vào ô, đỡ làm trang dài trên điện thoại
         wrap.className = 'chips' + (el.classList.contains('calc-in') ? ' compact' : '');
+        const gom = [];
         items.forEach(item => {
             // 3 dạng: 'chữ' | ['nhãn', hàm lấy giá trị] | { text, tag } (chip theo bệnh cảnh)
             const ctx = item && typeof item === 'object' && !Array.isArray(item) ? item : null;
@@ -248,8 +330,9 @@ function makeChips(id, items) {
                 else el.value = text;
                 el.dispatchEvent(new Event('input', { bubbles: true }));
             });
-            wrap.appendChild(btn);
+            gom.push({ btn, ctx: !!ctx });
         });
+        xepMuc(wrap, gom);
         el.insertAdjacentElement('afterend', wrap);
         // Tô sáng chip đang có mặt trong ô, để biết mình đã chọn những gì.
         // Gắn một lần cho mỗi ô và tra hộp chip hiện tại lúc chạy, vì bộ chip có thể bị thay.
