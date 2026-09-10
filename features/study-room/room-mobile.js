@@ -158,13 +158,10 @@ export function initMobile() {
         if (k === 'board' || k === 'quiz') return void document.querySelector(`#stage-tabs [data-stage="${k}"]`)?.click();
         if (k === 'members' || k === 'rank') return void window.dispatchEvent(new CustomEvent('room:panel', { detail: k }));
         if (k === 'invite') return void el('share-room-btn')?.click();
+        if (k === 'find' || k === 'sound') return void window.dispatchEvent(new CustomEvent('room:tool', { detail: k }));
         if (k === 'text') return void el('text-size-btn')?.click();
         if (k === 'theme') return void el('theme-btn')?.click();
-        if (k === 'race') {
-            const r = el('race');
-            r?.classList.toggle('is-off');
-            try { localStorage.setItem('roomRaceOff', r?.classList.contains('is-off') ? '1' : '0'); } catch (err) {}
-        }
+        if (k === 'race') return void window.dispatchEvent(new CustomEvent('room:tool', { detail: 'race' }));
     });
 
     el('stage-tabs')?.addEventListener('click', () => setTimeout(paintDock, 0));

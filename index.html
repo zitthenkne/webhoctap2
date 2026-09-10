@@ -23,6 +23,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Zitthenkne">
     <link rel="stylesheet" href="style.css?v=11">
+    <link rel="stylesheet" href="features/study-room/rooms-hub.css?v=1">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* Thanh cuộn hồng pastel dễ thương cho toàn trang chủ
@@ -955,42 +956,10 @@
             </div>
 
             <div id="myStudyRoomsContent" class="content-panel hidden p-4 sm:p-6">
-                <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
-                    <div>
-                        <h2 class="text-on-bg text-2xl font-extrabold text-gray-800 flex items-center gap-2">
-                            <i class="fas fa-chalkboard-user text-blue-400"></i>Phòng học của tôi
-                        </h2>
-                        <p class="text-on-bg text-sm text-gray-500 mt-1">Tạo phòng, chia sẻ mã và cùng nhau giải đề trên bảng trắng 🐿️</p>
-                    </div>
-                    <div class="flex gap-2 shrink-0">
-                        <button id="join-room-by-code-btn"
-                            class="flex-1 sm:flex-none px-4 sm:px-5 py-2.5 bg-white text-blue-600 border-2 border-blue-200 rounded-xl hover:bg-blue-50 transition font-bold text-sm shadow-sm">
-                            <i class="fas fa-key mr-1.5"></i>Vào bằng mã
-                        </button>
-                        <button id="create-new-study-room-btn"
-                            class="flex-1 sm:flex-none px-4 sm:px-5 py-2.5 bg-[#FF69B4] text-white rounded-xl hover:bg-pink-400 transition font-bold text-sm shadow-md">
-                            <i class="fas fa-plus-circle mr-1.5"></i>Tạo phòng mới
-                        </button>
-                    </div>
-                </div>
-                <div id="my-study-rooms-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <!-- Các phòng học của bạn sẽ được tải vào đây -->
-                </div>
-                <!-- Modal sửa ID phòng học -->
-                <div id="editRoomIdModal"
-                    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden px-2">
-                    <div class="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 w-full max-w-md relative">
-                        <button type="button" id="closeEditRoomIdModalBtn"
-                            class="absolute top-4 right-4 text-gray-400 hover:text-gray-700"><i
-                                class="fas fa-times text-2xl"></i></button>
-                        <h2 class="text-2xl font-bold text-center mb-6 text-[#FF69B4]">Sửa mã phòng học</h2>
-                        <input type="text" id="editRoomIdInput" placeholder="Nhập mã phòng mới"
-                            class="w-full px-4 py-2 border border-pink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF69B4] mb-4 transition-all duration-200">
-                        <button type="button" id="saveEditRoomIdBtn"
-                            class="w-full px-6 py-2 bg-[#FF69B4] text-white rounded-lg hover:bg-opacity-80 transition">Lưu
-                            thay đổi</button>
-                    </div>
-                </div>
+                <!-- Khu "Phòng học của tôi": băng-rôn + bộ lọc + thẻ phòng TRỰC TIẾP.
+                     Toàn bộ giao diện do features/study-room/rooms-hub.js dựng lên,
+                     kể cả các lớp nổi (tạo phòng / vào bằng mã / mời bạn / hẹn giờ). -->
+                <div id="rooms-hub"></div>
             </div>
         </main>
         <footer
@@ -1107,21 +1076,6 @@
     </div>
 
     <div id="toast-container"></div>
-
-    <div id="joinRoomModal"
-        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden px-2">
-        <div class="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 w-full max-w-md relative">
-            <button type="button" id="closeJoinRoomModalBtn"
-                class="absolute top-4 right-4 text-gray-400 hover:text-gray-700"><i
-                    class="fas fa-times text-2xl"></i></button>
-            <h2 class="text-2xl font-bold text-center mb-6 text-[#FF69B4]">Vào phòng học</h2>
-            <input type="text" id="joinRoomIdInput" placeholder="Nhập mã phòng (Room ID)"
-                class="w-full px-4 py-2 border border-pink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF69B4] mb-4 transition-all duration-200">
-            <button type="button" id="joinRoomBtn"
-                class="w-full px-6 py-2 bg-[#FF69B4] text-white rounded-lg hover:bg-opacity-80 transition">Vào
-                phòng</button>
-        </div>
-    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script type="module" src="app.js?v=6"></script>

@@ -13,9 +13,11 @@ import {
 } from './room-state.js';
 import { escapeHtml } from './room-ui.js';
 import { answerCurrent, effectiveIndex, setViewIndex, followHost } from './room-quiz-stage.js';
-import { questionStats } from './room-scoreboard.js';
+import { questionStats, computeScores } from './room-scoreboard.js';
 import { systemMessage } from './room-chat.js';
 import { renderLobby } from './room-lobby.js';
+import { ensureXlsx } from './room-boost.js';
+import { reviewIndexes } from './room-game.js';
 
 let draft = null;           // bộ đề vừa nạp, chưa phát cho phòng
 const TIMER_STEPS = [0, 15, 30, 45, 60, 90];
@@ -34,6 +36,7 @@ async function handleQuizFile(file) {
     el('start-quiz-collaboration-btn').disabled = true;
     renderLobby();
     try {
+        await ensureXlsx();                      // 269KB, chỉ tải lúc thật sự mở đề
         const { questions, report } = await parseFile(file);
         if (!questions.length) {
             el('quiz-question-count-info').textContent = 'Không có câu hợp lệ';
@@ -111,7 +114,7 @@ async function startSession() {
     try {
         // Xóa đáp án phiên trước của mọi người để bảng điểm bắt đầu từ 0
         await Promise.all(room.members.map(m => updateDoc(refs.member(m.uid),
-            { answers: {}, flags: {}, marks: {}, ready: {}, unclear: {}, diff: {}, cursor: 0, hand: null }).catch(() => {})));
+            { answers: {}, flags: {}, marks: {}, ready: {}, unclear: {}, diff: {}, cursor: 0, hand: null, team: null }).catch(() => {})));
         await setDoc(refs.session(), {
             questions,
             quizTitle: draft.title,
@@ -126,6 +129,7 @@ async function startSession() {
             qStarts: { q0: Date.now() },
             deadline: timerSec ? Date.now() + timerSec * 1000 : null,
             chosen: {}, shown: {}, notes: {}, optNotes: {}, notesBy: {}, editing: {}, edits: {}, issues: {}, explainer: {},
+            teamOn: false, buzzOn: false, buzz: {}, blind: {}, spotlight: {}, thanks: {},
             locked: false, ended: false,
             pinnedNote: '',
             fromLibrary: !!draft.fromLibrary,
@@ -134,6 +138,11 @@ async function startSession() {
             startedAt: serverTimestamp(),
             startedAtMs: Date.now(),
         });
+        // Tóm tắt cho khu "Phòng học của tôi" ở trang chủ: thẻ phòng đọc field này nên
+        // không phải tải cả bộ đề (doc quizSession có thể vài trăm KB) chỉ để hiện trạng thái.
+        updateDoc(refs.room(), {
+            live: { title: draft.title, qCount: questions.length, startedAt: Date.now(), ended: false, people: room.members.length },
+        }).catch(() => {});
         systemMessage(`${hostName()} đã mở phiên đánh đề "${draft.title}" (${questions.length} câu).`);
         showToast('Đã bắt đầu cho cả phòng!', 'success');
     } catch (err) {
@@ -314,6 +323,13 @@ async function cycleTimer() {
 async function endSession() {
     if (!await showConfirm('Kết thúc phiên và xem tổng kết cho cả phòng?', { confirmText: 'Kết thúc', tone: 'warning' })) return;
     await updateDoc(refs.session(), { ended: true, locked: true }).catch(() => {});
+    // Chốt tóm tắt buổi học cho thẻ phòng ở trang chủ (độ chính xác tính lại từ dữ liệu, không lưu sẵn)
+    const rows = computeScores().filter(r => r.answered > 0);
+    const avg = rows.length ? Math.round(rows.reduce((a, r) => a + r.correct / r.answered * 100, 0) / rows.length) : null;
+    updateDoc(refs.room(), {
+        'live.ended': true, 'live.endedAt': Date.now(), 'live.people': rows.length,
+        ...(avg === null ? {} : { 'live.avg': avg }),
+    }).catch(() => {});
     systemMessage('Phiên đánh đề đã kết thúc — xem tổng kết nhé!');
 }
 
@@ -332,6 +348,57 @@ async function closeSession() {
     if (!await showConfirm('Đóng phiên và quay về màn chọn đề?', { confirmText: 'Đóng phiên' })) return;
     await setDoc(refs.session(), { questions: [] });
 }
+
+/** Gom những câu đáng ôn (mình chọn trật / bỏ trống / nhóm bấm cần bàn / mình đánh dấu)
+ *  thành MỘT BỘ ĐỀ MỚI trong thư viện — học lại đúng chỗ mình hổng. */
+async function saveReviewQuiz() {
+    const s = room.session;
+    if (!s?.questions?.length) return;
+    if (!room.user || room.user.isAnonymous || room.user.isGuest) {
+        return showToast('Đăng nhập để lưu đề ôn vào thư viện của bạn.', 'warning');
+    }
+    const idx = reviewIndexes();
+    if (!idx.length) return showToast('Không có câu nào cần ôn — bạn làm tốt quá!', 'success');
+    if (!await showConfirm(`Tạo bộ đề ôn gồm ${idx.length} câu (sai / bỏ trống / cần bàn)?`, { confirmText: 'Tạo đề ôn' })) return;
+
+    el('loading-overlay').classList.remove('hidden');
+    try {
+        const questions = idx.map(i => {
+            const q = questionAt(i);
+            const opts = optsOf(q);
+            const optExp = opts.map((_, k) => optNoteOf(i, k) || (q.optionExplanations && q.optionExplanations[k]) || '');
+            return {
+                ...q,
+                question: q.question,
+                answers: opts,
+                correctAnswerIndex: correctIdxOf(q, i) ?? refIdxOf(q),
+                explanation: noteOf(i) || q.explanation || q.explain || '',
+                ...(optExp.some(t => t) ? { optionExplanations: optExp } : {}),
+            };
+        });
+        const d = new Date();
+        const stamp = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const title = `${s.quizTitle || 'Đề nhóm'} — ôn câu sai ${stamp}`;
+        const ref = await addDoc(collection(db, 'quiz_sets'), {
+            title,
+            questionCount: questions.length,
+            questions,
+            userId: uid(),
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            isPublic: false,
+            folderId: null,
+        });
+        showToast(`Đã tạo "${title}" — mở ở thư viện để ôn lại.`, 'success', 3600);
+        window.open(`../quiz/quiz.html?id=${ref.id}`, '_blank', 'noopener');
+    } catch (err) {
+        console.error('Lỗi tạo đề ôn:', err);
+        showToast('Không tạo được đề ôn. Thử lại nhé.', 'error');
+    } finally {
+        el('loading-overlay').classList.add('hidden');
+    }
+}
+window.addEventListener('room:save-review', saveReviewQuiz);
 
 async function saveToLibrary() {
     const s = room.session;

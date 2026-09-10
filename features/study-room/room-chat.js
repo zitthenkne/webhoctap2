@@ -5,7 +5,7 @@ import { showToast } from '../../core/utils.js';
 import { room, refs, uid, canControl, hasSession } from './room-state.js';
 // Mỗi người đang ở một câu khác nhau -> gắn thẻ theo câu NGƯỜI GỬI đang xem
 import { effectiveIndex } from './room-quiz-stage.js';
-import { avatarHtml, escapeHtml, shortName } from './room-ui.js';
+import { avatarHtml, escapeHtml, shortName, changed } from './room-ui.js';
 
 let messages = [];
 let unread = 0;
@@ -51,6 +51,7 @@ export function renderChat() {
     const box = document.getElementById('chat-messages');
     if (!box) return;
     const qi = effectiveIndex();
+    if (!changed('chat', [qi, scope, messages.map(m => [m.id, m.text, m.likes, m.pinned])])) return;
     const num = document.getElementById('chat-scope-num');
     if (num) num.textContent = hasSession() ? qi + 1 : '–';
     const list = scope === 'q' && hasSession()

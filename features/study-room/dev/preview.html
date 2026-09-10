@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Phòng đánh đề — Zitthenkne</title>
-    <link rel="icon" type="image/png" href="../../assets/logo.png">
+    <link rel="icon" type="image/png" href="../../assets/opt/logo-32.png">
     <!-- Chế độ tối dùng chung khoá với trang làm bài (đặt sớm để không nháy sáng) -->
     <script>
         try { if (localStorage.getItem('quiz_theme') === 'dark') document.documentElement.classList.add('theme-dark'); } catch (e) {}
@@ -13,12 +13,12 @@
     <script>
         (function () {
             try {
-                var L = ['A_dreamy_campsite_next_to_202606231955.jpeg','Apartment_balcony_with_flowers_202606231955.jpeg','Attic_bedroom_corner_pixel_art_202606231955.jpeg','Bakery_shopfront_pixel_art_style_202606231955.jpeg','Bus_stop_in_Japan_spring_202606231955.jpeg','Hot_chocolate_station_in_winter_202606231955.jpeg','Riverside_cafe_veranda_pixel_art_202606231955.jpeg','Study_desk_by_rain_window_202606231955.jpeg','Train_carriage_interior_pixel_art_202606231955.jpeg'];
-                var D = ['Apartment_balcony_on_rainy_night_202606232010.jpeg','Bedroom_interior_at_night_202606232010.jpeg','Florist_shop_window_at_midnight_202606232010.jpeg','Forest_pond_with_glowing_lotus_202606232010.jpeg','Greenhouse_at_night_aurora_borealis_202606232010.jpeg','Library_corner_at_night_202606232010.jpeg','Rooftop_at_midnight_dark_mode_202606232010.jpeg','Underwater_scene_viewed_from_window_202606232010.jpeg'];
+                var L = ['A_dreamy_campsite_next_to_202606231955.webp','Apartment_balcony_with_flowers_202606231955.webp','Attic_bedroom_corner_pixel_art_202606231955.webp','Bakery_shopfront_pixel_art_style_202606231955.webp','Bus_stop_in_Japan_spring_202606231955.webp','Hot_chocolate_station_in_winter_202606231955.webp','Riverside_cafe_veranda_pixel_art_202606231955.webp','Study_desk_by_rain_window_202606231955.webp','Train_carriage_interior_pixel_art_202606231955.webp'];
+                var D = ['Apartment_balcony_on_rainy_night_202606232010.webp','Bedroom_interior_at_night_202606232010.webp','Florist_shop_window_at_midnight_202606232010.webp','Forest_pond_with_glowing_lotus_202606232010.webp','Greenhouse_at_night_aurora_borealis_202606232010.webp','Library_corner_at_night_202606232010.webp','Rooftop_at_midnight_dark_mode_202606232010.webp','Underwater_scene_viewed_from_window_202606232010.webp'];
                 var pick = function (a) { return a[Math.floor(Math.random() * a.length)]; };
                 var r = document.documentElement;
-                r.style.setProperty('--quiz-bg-light', 'url("' + encodeURI('../../assets/bg quiz page/' + pick(L)) + '")');
-                r.style.setProperty('--quiz-bg-dark', 'url("' + encodeURI('../../assets/bg quiz page dark/' + pick(D)) + '")');
+                r.style.setProperty('--quiz-bg-light', 'url("' + encodeURI('../../assets/opt/bg/' + pick(L)) + '")');
+                r.style.setProperty('--quiz-bg-dark', 'url("' + encodeURI('../../assets/opt/bg-dark/' + pick(D)) + '")');
                 var pct = parseInt(localStorage.getItem('quiz_bg_opacity'), 10);
                 if (isNaN(pct)) pct = 14;
                 r.style.setProperty('--quiz-bg-opacity', Math.max(0, Math.min(60, pct)) / 100);
@@ -34,15 +34,29 @@
       "../../core/firebase-init.js":"./dev/stub-init.js"
     }}
     </script>
-    <script defer src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Be+Vietnam+Pro:wght@500;600;700;800&family=Cormorant+Upright:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../../style.css">
-    <link rel="stylesheet" href="../quiz/quiz-enhance.css">
     <link rel="stylesheet" href="study-room.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="tailwind-phong.css">
+    <!-- Nạp song song cây module (khỏi chờ phát hiện từng tầng) -->
+    <link rel="modulepreload" href="room-state.js">
+    <link rel="modulepreload" href="room-ui.js">
+    <link rel="modulepreload" href="room-quiz-stage.js">
+    <link rel="modulepreload" href="room-quiz.js">
+    <link rel="modulepreload" href="room-members.js">
+    <link rel="modulepreload" href="room-lobby.js">
+    <link rel="modulepreload" href="room-chat.js">
+    <link rel="modulepreload" href="room-mobile.js">
+    <link rel="modulepreload" href="room-editor.js">
+    <link rel="modulepreload" href="room-boost.js">
+    <link rel="modulepreload" href="room-scoreboard.js">
+    <link rel="modulepreload" href="room-study.js">
+    <link rel="modulepreload" href="../quiz/quiz-helpers.js">
+    <link rel="modulepreload" href="../../core/utils.js">
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 </head>
 <body class="h-[100dvh] flex flex-col text-sm overflow-hidden">
 
@@ -50,7 +64,7 @@
 <header class="rm-bar px-2 sm:px-4 py-2 flex items-center gap-2 shrink-0 z-30">
     <a href="../../index.html" class="rm-brand" title="Về trang chủ Zitthenkne">
         <i class="fas fa-arrow-left"></i>
-        <img src="../../assets/logo.png" alt="" class="rm-brand-logo">
+        <img src="../../assets/opt/logo-96.webp" alt="" width="96" height="96" class="rm-brand-logo">
         <span class="rm-brand-name">Zitthenkne</span>
     </a>
     <button id="room-id-display" class="rm-room-chip" title="Bấm để sao chép mã phòng">
@@ -60,6 +74,8 @@
         <span class="rm-live-dot"></span><span id="session-badge-text" class="truncate max-w-[22vw]"></span>
     </span>
 
+    <span id="net-chip" class="rm-net hidden"><i class="fas fa-cloud-arrow-up"></i><span id="net-text">Mất mạng</span></span>
+
     <div class="flex-1"></div>
 
     <button id="online-pill" class="rm-ghost-btn hidden sm:inline-flex" data-nav="members" title="Thành viên trong phòng">
@@ -68,6 +84,17 @@
     <button id="text-size-btn" class="rm-icon-btn" title="Cỡ chữ (vừa / lớn / rất lớn)"><i class="fas fa-text-height"></i></button>
     <button id="theme-btn" class="rm-icon-btn" title="Sáng / tối"><i class="fas fa-moon"></i></button>
     <button id="present-btn" class="rm-icon-btn hidden md:inline-flex" title="Trình chiếu (phím F)"><i class="fas fa-display"></i></button>
+    <div class="relative shrink-0 hidden sm:block">
+        <button id="room-menu-btn" class="rm-icon-btn" title="Công cụ khác"><i class="fas fa-ellipsis-vertical"></i></button>
+        <div id="room-menu" class="rm-dropdown hidden">
+            <button class="rm-menu-item" data-tool="find"><i class="fas fa-magnifying-glass w-4"></i>Tìm câu<kbd class="rm-kbd">Ctrl K</kbd></button>
+            <button class="rm-menu-item" data-tool="zen"><i class="fas fa-feather w-4"></i>Chế độ tập trung<kbd class="rm-kbd">Z</kbd></button>
+            <button class="rm-menu-item" data-tool="sound"><i class="fas fa-volume-high w-4"></i><span id="sound-label">Âm thanh: bật</span><kbd class="rm-kbd">M</kbd></button>
+            <button class="rm-menu-item" data-tool="autonext"><i class="fas fa-forward-step w-4"></i><span id="auto-label">Tự chuyển câu: tắt</span></button>
+            <button class="rm-menu-item" data-tool="race"><i class="fas fa-flag-checkered w-4"></i>Ẩn / hiện dải tiến độ</button>
+            <button class="rm-menu-item" data-tool="help"><i class="fas fa-keyboard w-4"></i>Bảng phím tắt<kbd class="rm-kbd">?</kbd></button>
+        </div>
+    </div>
     <button id="share-room-btn" class="rm-ghost-btn"><i class="fas fa-user-plus"></i><span class="hidden sm:inline">Mời</span></button>
     <button id="start-collaborative-quiz-btn" class="rm-cta rm-solid-btn"><i class="fas fa-bolt"></i><span class="hidden xs:inline sm:inline">Đề</span></button>
 </header>
@@ -87,8 +114,19 @@
         <!-- ===== TAB: ĐỀ ===== -->
         <section id="stage-quiz" class="flex-1 min-h-0 overflow-y-auto rm-scroll">
 
+            <!-- (0) Màn chờ: giữ tới khi Firestore trả phiên đầu tiên -> hết nháy sảnh chờ -->
+            <div id="quiz-boot" class="rm-boot">
+                <div class="rm-boot-card">
+                    <div class="rm-boot-row"><span class="rm-sk rm-sk-pill"></span><span class="rm-sk rm-sk-pill w-24"></span><span class="flex-1"></span><span class="rm-sk rm-sk-dot"></span></div>
+                    <span class="rm-sk rm-sk-line w-3/4"></span>
+                    <span class="rm-sk rm-sk-line w-1/2"></span>
+                    <div class="rm-boot-opts"><span class="rm-sk rm-sk-opt"></span><span class="rm-sk rm-sk-opt"></span><span class="rm-sk rm-sk-opt"></span><span class="rm-sk rm-sk-opt"></span></div>
+                    <p class="rm-boot-text"><i class="fas fa-circle-notch fa-spin mr-1.5"></i>Đang mở phòng…</p>
+                </div>
+            </div>
+
             <!-- (A) Sảnh chờ -->
-            <div id="quiz-lobby" class="rm-lobby">
+            <div id="quiz-lobby" class="rm-lobby hidden">
                 <div class="rm-bubbles" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
 
                 <!-- Băng-rôn: thanh sẵn sàng + nút to -->
@@ -98,7 +136,7 @@
                         <div class="flex-1"></div>
                         <button id="lobby-invite-btn" class="rm-ghost-btn"><i class="fas fa-user-plus"></i>Rủ bạn vào</button>
                     </div>
-                    <img src="../../assets/squirrel_group.png" alt="" class="rm-hero-mascot rm-bobbing">
+                    <img src="../../assets/opt/squirrel_group-256.webp" alt="" width="256" height="256" decoding="async" class="rm-hero-mascot rm-bobbing">
                     <h1 class="rm-hero-title">Cùng nhau đánh đề</h1>
                     <p class="rm-hero-sub">Mỗi người một máy, tự làm rồi bàn với nhau. Đáp án trong file chỉ là tham khảo.</p>
 
@@ -268,6 +306,7 @@
                         </div>
                         <span id="phase-chip" class="rm-state">Chưa chốt</span>
                         <span id="explainer-chip" class="rm-talk hidden"></span>
+                        <button id="left-chip" class="rm-leftchip hidden" title="Nhảy tới câu chưa chọn tiếp theo (phím J)"><i class="fas fa-forward"></i><span id="left-text"></span></button>
                         <div class="flex-1 min-w-0 hidden sm:block">
                             <p id="quiz-session-title" class="text-xs font-bold truncate"></p>
                             <p id="quiz-session-host" class="text-[11px] text-muted truncate"></p>
@@ -290,6 +329,8 @@
                             <div id="case-box" class="hidden rm-case"></div>
                             <div id="question-text"></div>
                         </article>
+
+                        <div id="game-bar" class="rm-gamebar hidden"></div>
 
                         <div id="options-area" class="rm-opts"></div>
 
@@ -351,6 +392,7 @@
             <button id="host-show" class="rm-host-btn is-show"><i class="fas fa-eye"></i><span>Hiện đáp án</span></button>
             <button id="host-lock-answer" class="rm-host-btn is-lock"><i class="fas fa-gavel"></i><span>Chốt đáp án</span></button>
             <button id="host-next" class="rm-host-btn is-next"><span>Câu tiếp</span><i class="fas fa-arrow-right"></i></button>
+            <button id="host-game" class="rm-host-btn" title="Trò chơi & tiện ích cho cả phòng"><i class="fas fa-dice"></i><span class="hidden lg:inline">Trò chơi</span></button>
             <button id="host-talk" class="rm-host-btn" title="Hẹn giờ bàn luận cho cả nhóm"><i class="fas fa-comments"></i><span id="host-talk-label">Bàn 2'</span></button>
             <button id="host-focus" class="rm-host-btn" title="Rủ cả phòng bàn câu bạn đang xem (phím G)"><i class="fas fa-bullseye"></i><span class="hidden lg:inline">Bàn câu này</span></button>
             <button id="host-lock" class="rm-host-btn hidden" title="Khóa/mở nộp (phím L)"><i class="fas fa-lock"></i><span class="hidden lg:inline">Khóa</span></button>
@@ -434,6 +476,8 @@
         <button data-more="rank"><i class="fas fa-trophy"></i>BXH</button>
         <button data-more="race"><i class="fas fa-flag-checkered"></i>Đường đua</button>
         <button data-more="invite"><i class="fas fa-user-plus"></i>Mời bạn</button>
+        <button data-more="find"><i class="fas fa-magnifying-glass"></i>Tìm câu</button>
+        <button data-more="sound"><i class="fas fa-volume-high"></i>Âm thanh</button>
         <button data-more="text"><i class="fas fa-text-height"></i>Cỡ chữ</button>
         <button data-more="theme"><i class="fas fa-moon"></i>Sáng / tối</button>
     </div>
@@ -459,6 +503,18 @@
 
 <!-- Menu chốt đáp án (đặt ngoài thanh chủ trì để không bị cắt) -->
 <div id="chot-menu" class="rm-menu hidden"></div>
+
+<!-- Menu trò chơi của chủ trì (để ngoài thanh chủ trì cho khỏi bị cắt) -->
+<div id="game-menu" class="rm-menu hidden"></div>
+
+<!-- Bánh xe quay chọn người -->
+<div id="wheel-overlay" class="rm-wheel hidden">
+    <div class="rm-wheel-box">
+        <p class="rm-label">Chọn người giảng câu này</p>
+        <div id="wheel-face" class="rm-wheel-face">🎲</div>
+        <p id="wheel-name" class="rm-wheel-name">Đang quay…</p>
+    </div>
+</div>
 
 <!-- Mời -->
 <div id="share-modal" class="rm-modal hidden">
@@ -498,6 +554,28 @@
     </div>
 </div>
 
+<!-- Tìm nhanh câu hỏi (Ctrl+K) -->
+<div id="find-modal" class="rm-modal rm-find hidden">
+    <div class="rm-find-box">
+        <div class="rm-find-head">
+            <i class="fas fa-magnifying-glass"></i>
+            <input id="find-input" class="rm-find-input" placeholder="Gõ để tìm câu hỏi hoặc số câu…" autocomplete="off">
+            <kbd class="rm-kbd">Esc</kbd>
+        </div>
+        <div id="find-list" class="rm-find-list"></div>
+    </div>
+</div>
+
+<!-- Bảng phím tắt -->
+<div id="help-modal" class="rm-modal hidden">
+    <div class="rm-modal-box">
+        <button data-close-help class="rm-modal-x"><i class="fas fa-times"></i></button>
+        <h3 class="text-lg font-extrabold mb-1">Phím tắt</h3>
+        <p class="text-xs text-muted mb-4">Bấm <kbd class="rm-kbd">?</kbd> bất cứ lúc nào để mở lại bảng này.</p>
+        <div id="help-list" class="rm-help-grid"></div>
+    </div>
+</div>
+
 <!-- Thao tác thành viên -->
 <div id="member-sheet" class="rm-modal rm-sheet hidden">
     <div class="rm-modal-box">
@@ -513,7 +591,6 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script type="module" src="study-room-main.js"></script>
 </body>
 </html>

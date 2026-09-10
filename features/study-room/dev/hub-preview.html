@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xem trước: Phòng học của tôi</title>
+    <base href="../">
+    <script type="importmap">
+    {"imports":{
+      "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js":"./dev/stub-firestore.js",
+      "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js":"./dev/stub-auth.js",
+      "../../core/firebase-init.js":"./dev/stub-init.js",
+      "./firebase-init.js":"./dev/stub-init.js"
+    }}
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="./rooms-hub.css">
+    <style>
+        body { margin: 0; background: #f7f4f9; font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: #3f3a46; }
+        .wrap { max-width: 72rem; margin: 0 auto; padding: 1.5rem 1rem; }
+        #toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 90; }
+    </style>
+</head>
+<body>
+    <!-- Bộ xem trước khu "Phòng học của tôi" (index.html) — chạy với Firestore giả, không cần mạng.
+         Mở qua HTTP (python -m http.server) chứ không mở bằng file:// vì trang dùng ES module.
+         ?w=<px> để bó chiều rộng mà thử bố cục điện thoại. -->
+    <div class="wrap"><div id="rooms-hub"></div></div>
+    <div id="toast-container"></div>
+
+    <script type="module">
+        import { doc, setDoc } from './dev/stub-firestore.js';
+
+        const now = Date.now();
+        const ts = (ms) => ({ toMillis: () => ms, toDate: () => new Date(ms) });
+        const D = (...p) => doc({}, ...p);
+
+        // Phòng 1: ĐANG có phiên chạy (dữ liệu members đã có sẵn trong stub-firestore)
+        await setDoc(D('study_rooms', 'demo'), {
+            owner: 'u1', createdAt: ts(now - 86400000 * 3),
+            title: 'Ôn Sinh lý tim mạch', emoji: '🫀', theme: 5,
+            live: { title: 'Sinh lý học — Hệ tuần hoàn', qCount: 40, startedAt: now - 900000, ended: false },
+        }, { merge: true });
+
+        // Phòng 2: buổi học đã xong, còn tóm tắt
+        await setDoc(D('study_rooms', 'giaiphau-77'), {
+            owner: 'u1', createdAt: ts(now - 86400000 * 9),
+            title: 'Giải phẫu chi trên', emoji: '🦴', theme: 2,
+            live: { title: 'Giải phẫu — Chi trên', qCount: 25, startedAt: now - 86400000, endedAt: now - 82800000, ended: true, avg: 78, people: 5 },
+        });
+        await setDoc(D('study_rooms', 'giaiphau-77', 'members', 'u1'),
+            { uid: 'u1', displayName: 'Việt Thành', emoji: '🦊', online: false, lastSeen: now - 82800000 });
+        await setDoc(D('study_rooms', 'giaiphau-77', 'members', 'u5'),
+            { uid: 'u5', displayName: 'Thu Hà', emoji: '🐰', online: false, lastSeen: now - 82900000 });
+
+        // Phòng 3: mới tạo, có hẹn giờ buổi học
+        await setDoc(D('study_rooms', 'duoc-ly-t3'), {
+            owner: 'u1', createdAt: ts(now - 3600000),
+            title: 'Dược lý — kháng sinh', emoji: '💊', theme: 1,
+            scheduledAt: now + 5400000,
+        });
+
+        // Phòng 4: của người khác, mình chỉ từng vào (đến từ localStorage roomRecents)
+        await setDoc(D('study_rooms', 'nhom-y23c'), {
+            owner: 'u9', createdAt: ts(now - 86400000 * 20), title: 'Nhóm Y23C — cày đề chung', emoji: '🐿️', theme: 3,
+        });
+        await setDoc(D('study_rooms', 'nhom-y23c', 'members', 'u9'),
+            { uid: 'u9', displayName: 'Gia Bảo', emoji: '🐯', online: true, lastSeen: now, cursor: 3 });
+        await setDoc(D('study_rooms', 'nhom-y23c', 'members', 'u1'),
+            { uid: 'u1', displayName: 'Việt Thành', emoji: '🦊', online: false, lastSeen: now - 400000 });
+        localStorage.setItem('roomRecents', JSON.stringify([{ id: 'nhom-y23c', at: now - 7200000 }]));
+        localStorage.setItem('roomPins', JSON.stringify(['giaiphau-77']));
+
+        const view = new URLSearchParams(location.search).get('view');
+        if (view) localStorage.setItem('roomHubPrefs', JSON.stringify({ view, filter: 'all', sort: 'active' }));
+
+        const w = new URLSearchParams(location.search).get('w');
+        if (w) document.querySelector('.wrap').style.maxWidth = w + 'px';
+
+        const { openRoomsHub } = await import('./rooms-hub.js');
+        openRoomsHub();
+
+        // ?open=create|join|invite|menu — bật sẵn lớp nổi để chụp ảnh kiểm tra
+        const open = new URLSearchParams(location.search).get('open');
+        if (open) setTimeout(() => {
+            if (open === 'create') document.getElementById('rh-create').click();
+            if (open === 'join') document.getElementById('rh-join').click();
+            if (open === 'invite') document.querySelector('.rh-card [data-act="invite"]').click();
+            if (open === 'menu') document.querySelector('.rh-card [data-act="menu"]').click();
+        }, 400);
+    </script>
+</body>
+</html>

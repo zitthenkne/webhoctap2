@@ -10,6 +10,7 @@ export const room = {
     roomDoc: null,
     members: [],         // [{uid, displayName, online, answers, hand, reaction, ...}]
     session: null,       // study_rooms/{id}/quizSession/current
+    ready: false,        // đã nhận snapshot phiên đầu tiên chưa (chưa thì giữ màn chờ)
 };
 
 const subs = new Set();
@@ -117,5 +118,22 @@ export const noteAuthorOf = (i) => room.session?.notesBy?.[qKey(i)] || null;
 // Đồng hồ "bàn luận" của cả nhóm (khác đồng hồ làm bài) + kết quả vòng bầu trước
 export const talkUntil = () => room.session?.talkUntil || 0;
 export const prevVoteOf = (i) => room.session?.prevVote?.[qKey(i)] || null;
+// --- Bộ tiện ích "chơi mà học" (room-game.js) ---
+// Đội: chỉ bật khi chủ trì chia đội; mỗi thành viên giữ chữ 'A' | 'B' ở members/{uid}.team
+export const teamOn = () => !!room.session?.teamOn;
+export const teamOf = (member) => (teamOn() ? (member?.team || null) : null);
+// Chuông giành lượt: ai bấm trước được ghi vào session.buzz.q<i>
+export const buzzOn = () => !!room.session?.buzzOn;
+export const buzzOf = (i) => room.session?.buzz?.[qKey(i)] || null;
+// Cược tự tin: x1 (an toàn) / x2 / x3 — nhân điểm khi trúng, trừ khi trật
+export const betOf = (member, i) => Math.min(3, Math.max(1, Number(answerOf(member, i)?.bet) || 1));
+// Phiếu kín: giấu lựa chọn của cả phòng cho tới khi chủ trì "lật bài"
+export const isBlind = (i) => !!room.session?.blind?.[qKey(i)] && !isAnnounced(i);
+// Bánh xe chọn người giảng
+export const spotlightOf = (i) => room.session?.spotlight?.[qKey(i)] || null;
+// Cảm ơn người giảng: session.thanks.q<i>.<uid người cảm ơn> = true
+export const thanksOf = (i) => Object.keys(room.session?.thanks?.[qKey(i)] || {});
+export const explainerOf = (i) => room.session?.explainer?.[qKey(i)] || null;
+
 // Khóa dữ liệu học tập cá nhân: dùng chung với trang làm bài nếu đề lấy từ thư viện
 export const studyQuizId = () => room.session?.sourceQuizId || `room_${room.roomId}`;

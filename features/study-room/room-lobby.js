@@ -7,6 +7,7 @@ import { room, refs, uid, canControl } from './room-state.js';
 import { avatarHtml, escapeHtml, shortName } from './room-ui.js';
 import { isOnline, roleOf, sendReaction, openSheet } from './room-members.js';
 import { sendChat, systemMessage } from './room-chat.js';
+import { ensureConfetti } from './room-boost.js';
 
 const el = (id) => document.getElementById(id);
 const MIN_SEATS = 6;                 // luôn chừa vài ghế trống cho đỡ trống trải
@@ -96,7 +97,7 @@ export function renderLobby() {
     }
     if (allReady && !cheered) {
         cheered = true;
-        if (typeof confetti === 'function') confetti({ particleCount: 90, spread: 70, origin: { y: .35 } });
+        ensureConfetti().then(() => window.confetti?.({ particleCount: 90, spread: 70, origin: { y: .35 } }));
     }
     if (!allReady) cheered = false;
 

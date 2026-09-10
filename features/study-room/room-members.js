@@ -3,7 +3,7 @@
 import { updateDoc, deleteDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { showToast, showConfirm } from '../../core/utils.js';
 import { room, refs, uid, isHost, canControl, currentIndex, answerOf, readyOf, hasSession } from './room-state.js';
-import { avatarHtml, escapeHtml, shortName } from './room-ui.js';
+import { avatarHtml, escapeHtml, shortName, changed } from './room-ui.js';
 import { computeScores } from './room-scoreboard.js';
 import { renderLobby, pushLobbyLog } from './room-lobby.js';
 
@@ -37,8 +37,15 @@ export const toggleHand = () => {
 export function renderMembers() {
     const list = document.getElementById('member-list');
     if (!list) return;
-    const scores = new Map(computeScores().map(r => [r.uid, r]));
+    renderLobby();                       // sảnh chờ tự lo phần của nó
     const qi = currentIndex();
+    // Dùng isOnline() (đã quy ra true/false) thay cho lastSeen: nhịp tim 30s của
+    // từng người không còn kéo cả danh sách vẽ lại.
+    if (!changed('members', [qi, room.session?.chosen, room.session?.questions?.length,
+        room.session?.hostId, room.session?.cohosts, room.isOwner,
+        room.members.map(m => [m.uid, m.displayName, m.emoji, isOnline(m), m.hand,
+            m.cursor, m.answers, m.ready, m.marks])])) return;
+    const scores = new Map(computeScores().map(r => [r.uid, r]));
     const sorted = room.members.slice().sort((a, b) => {
         const w = (m) => (roleOf(m) === 'host' ? 0 : roleOf(m) === 'cohost' ? 1 : 2) + (isOnline(m) ? 0 : 10);
         return w(a) - w(b) || String(a.displayName || '').localeCompare(String(b.displayName || ''));
@@ -79,7 +86,6 @@ export function renderMembers() {
     if (cnt) cnt.textContent = online;
 
     renderHandQueue();
-    renderLobby();
 }
 
 function renderHandQueue() {

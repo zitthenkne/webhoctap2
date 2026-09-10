@@ -13,26 +13,67 @@ import { initMobile, paintDock } from './room-mobile.js';
 import { initChat, renderChat, clearUnread, isChatOpen, systemMessage } from './room-chat.js';
 import { initQuizControl, syncHostBar } from './room-quiz.js';
 import { initStage, renderQuiz } from './room-quiz-stage.js';
+import { renderRankPanel } from './room-scoreboard.js';
 import { initInlineEdit } from './room-editor.js';
-import { initWhiteboard } from './whiteboard.js';
+import { initBoost } from './room-boost.js';
+import { initGame } from './room-game.js';
 
 const el = (id) => document.getElementById(id);
 const unsubs = [];
 let firstMemberSnap = true;
 
+// Chờ snapshot phiên ĐẦU TIÊN rồi mới cho vẽ màn — nếu không, sảnh chờ sẽ hiện
+// chớp nhoáng trước khi Firestore kịp trả về phiên đang chạy.
+let markReady = () => {};
+const firstSession = new Promise(res => { markReady = res; });
+
 // ---------------- Điều hướng giao diện ----------------
+// Bảng trắng: 26KB + một listener Firestore riêng. Đa số buổi học không mở tới,
+// nên chỉ nạp khi bấm vào tab (import động).
+let wbReady = null;
+function ensureWhiteboard() {
+    if (wbReady) return wbReady;
+    wbReady = import('./whiteboard.js').then(({ initWhiteboard }) => {
+        const canvas = el('whiteboard');
+        const un = initWhiteboard({
+            canvas, ctx: canvas?.getContext('2d'),
+            roomId: room.roomId, user: room.user,
+            loadingOverlay: el('loading-overlay'),
+            toolBtns: document.querySelectorAll('.tool-btn'),
+            colorPicker: el('color-picker'),
+            lineWidth: el('line-width'),
+            clearCanvasBtn: el('clear-canvas-btn'),
+            undoBtn: el('undo-btn'),
+            redoBtn: el('redo-btn'),
+            uploadImageObjectBtn: el('upload-image-object-btn'),
+            imageObjectFileInput: el('image-object-file-input'),
+        });
+        if (un) unsubs.push(un);
+        requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+    }).catch(err => {
+        wbReady = null;
+        console.error('Không nạp được bảng trắng:', err);
+        showToast('Không mở được bảng trắng.', 'error');
+    });
+    return wbReady;
+}
+
 function showStage(name) {
     el('stage-quiz')?.classList.toggle('hidden', name !== 'quiz');
     el('stage-board')?.classList.toggle('hidden', name !== 'board');
     document.querySelectorAll('#stage-tabs .rm-tab').forEach(b => b.classList.toggle('active', b.dataset.stage === name));
     // Canvas bị ẩn thì kích thước = 0 -> phải báo vẽ lại khi quay lại bảng trắng
-    if (name === 'board') requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+    if (name === 'board') {
+        ensureWhiteboard();
+        requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+    }
 }
 
 function showPanel(name) {
     ['discuss', 'members', 'rank'].forEach(k => el('panel-' + k)?.classList.toggle('hidden', k !== name));
     document.querySelectorAll('#side-panel .rm-tab').forEach(b => b.classList.toggle('active', b.dataset.panel === name));
     if (name === 'discuss') { clearUnread(); renderChat(); }
+    if (name === 'rank') renderRankPanel();
 }
 
 function openPanelMobile(name) {
@@ -350,7 +391,7 @@ function showBlocked(title, desc) {
     const o = document.createElement('div');
     o.className = 'fixed inset-0 z-[90] bg-white/95 backdrop-blur flex items-center justify-center p-6 text-center';
     o.innerHTML = `<div class="max-w-sm">
-        <img src="../../assets/squirrel_group.png" alt="" class="w-24 h-24 mx-auto mb-4 rounded-2xl shadow-md ring-4 ring-pink-100/70 bg-white">
+        <img src="../../assets/opt/squirrel_group-256.webp" alt="" class="w-24 h-24 mx-auto mb-4 rounded-2xl shadow-md ring-4 ring-pink-100/70 bg-white">
         <h2 class="text-xl font-extrabold text-gray-800 mb-2">${title}</h2>
         <p class="text-sm text-gray-500 mb-5">${desc}</p>
         <a href="../../index.html" class="inline-flex items-center gap-2 px-6 py-2.5 bg-[#FF69B4] text-white rounded-xl font-bold text-sm shadow-md hover:bg-pink-400 transition">
@@ -359,6 +400,18 @@ function showBlocked(title, desc) {
 }
 
 // ---------------- Vào phòng ----------------
+/** Nhật ký "phòng tôi từng vào" cho khu Phòng học ở trang chủ (rooms-hub.js đọc khóa này).
+ *  Firestore không truy ngược được "phòng nào có member là tôi" nếu không mở collectionGroup index,
+ *  nên ghi thẳng ở máy — chạy cho cả khách chưa đăng nhập. */
+function rememberRoomVisit(id) {
+    if (!id) return;
+    try {
+        const list = (JSON.parse(localStorage.getItem('roomRecents') || '[]') || []).filter(r => r && r.id !== id);
+        list.unshift({ id, at: Date.now() });
+        localStorage.setItem('roomRecents', JSON.stringify(list.slice(0, 24)));
+    } catch (e) { /* hết dung lượng: chỉ mất tiện lợi */ }
+}
+
 async function joinRoom() {
     // setDoc merge: vào lại phòng KHÔNG xóa đáp án/điểm đã có
     await setDoc(refs.member(), {
@@ -371,6 +424,7 @@ async function joinRoom() {
         joinedAt: Date.now(),
     }, { merge: true });
     systemMessage(`${room.user.displayName || 'Một bạn'} đã vào phòng.`);
+    rememberRoomVisit(room.roomId);
 
     // Nhịp tim: 30s/lần để cả phòng biết ai còn online
     const beat = setInterval(() => updateDoc(refs.member(), { lastSeen: Date.now(), online: true }).catch(() => {}), 30000);
@@ -393,6 +447,13 @@ function listenAll() {
             return;
         }
         setState({ roomDoc: data, isOwner: data.owner === uid() });
+        // Tên + biểu tượng phòng đặt ở trang chủ (rooms-hub.js) — hiện luôn trên đầu phòng.
+        // Mã phòng lùi vào tooltip; bấm chip vẫn chép MÃ chứ không chép tên.
+        const chip = el('room-id-text');
+        if (chip && data.title) {
+            chip.textContent = `${data.emoji || ''} ${data.title}`.trim();
+            el('room-id-display')?.setAttribute('title', `Mã phòng: ${room.roomId} — bấm để sao chép`);
+        }
     }));
 
     unsubs.push(onSnapshot(refs.members(), (snap) => {
@@ -406,7 +467,8 @@ function listenAll() {
 
     unsubs.push(onSnapshot(refs.session(), (snap) => {
         const data = snap.exists() ? snap.data() : null;
-        setState({ session: data?.questions?.length ? data : null });
+        setState({ session: data?.questions?.length ? data : null, ready: true });
+        markReady();
     }));
 
     unsubs.push(initChat());
@@ -444,14 +506,24 @@ function maybeCountdown() {
     }, 800);
 }
 
-// Mỗi lần state đổi -> vẽ lại các phần phụ thuộc
-subscribe(() => {
+// Mỗi lần state đổi -> vẽ lại các phần phụ thuộc.
+// Gộp theo KHUNG HÌNH: một loạt snapshot về cùng lúc (phòng · thành viên · phiên · chat)
+// trước đây vẽ lại 4 lần liên tiếp trong một nhịp -> nhìn như giật.
+let paintPending = false;
+function paintAll() {
+    paintPending = false;
     maybeCountdown();
     renderQuiz();
     paintDock();
     renderMembers();
     if (canControl()) syncHostBar();
     if (isChatOpen()) renderChat();
+    window.dispatchEvent(new Event('room:paint'));
+}
+subscribe(() => {
+    if (paintPending) return;
+    paintPending = true;
+    requestAnimationFrame(paintAll);
 });
 
 async function initRoom() {
@@ -484,25 +556,15 @@ async function initRoom() {
         initLobby();
         initQuizControl();
         initStage();
+        initBoost();
+        initGame();
         initInlineEdit();
         showPanel('discuss');
 
-        const canvas = el('whiteboard');
-        const wbUnsub = initWhiteboard({
-            canvas, ctx: canvas?.getContext('2d'),
-            roomId, user: room.user,
-            loadingOverlay: el('loading-overlay'),
-            toolBtns: document.querySelectorAll('.tool-btn'),
-            colorPicker: el('color-picker'),
-            lineWidth: el('line-width'),
-            clearCanvasBtn: el('clear-canvas-btn'),
-            undoBtn: el('undo-btn'),
-            redoBtn: el('redo-btn'),
-            uploadImageObjectBtn: el('upload-image-object-btn'),
-            imageObjectFileInput: el('image-object-file-input'),
-        });
-        if (wbUnsub) unsubs.push(wbUnsub);
-
+        // Đợi phiên đầu tiên (hoặc 4 giây) rồi mới bỏ màn chờ -> không còn nháy sảnh chờ
+        el('loading-overlay').classList.add('hidden');   // màn chờ xương cá lo phần chờ, khỏi phủ trắng cho đục
+        await Promise.race([firstSession, new Promise(r => setTimeout(r, 4000))]);
+        setState({ ready: true });
         renderQuiz();
         renderMembers();
     } catch (err) {

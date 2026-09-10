@@ -9,6 +9,16 @@ export const AVATAR_EMOJIS = [
 ];
 export const randomEmoji = () => AVATAR_EMOJIS[Math.floor(Math.random() * AVATAR_EMOJIS.length)];
 
+// Chữ ký dữ liệu: bỏ vẽ lại khi phần dữ liệu liên quan không đổi.
+// (Firestore bắn snapshot cho cả nhịp tim / chat / reaction — vẽ lại hết thì giật.)
+const sigs = Object.create(null);
+export function changed(key, value) {
+    const sig = JSON.stringify(value);
+    if (sigs[key] === sig) return false;
+    sigs[key] = sig;
+    return true;
+}
+
 export function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
         { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
