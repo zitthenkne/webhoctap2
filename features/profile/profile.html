@@ -216,5 +216,10 @@
 
     <!-- Script chính -->
     <script type="module" src="profile.js"></script>
+  <!-- Bắt buộc đăng nhập: khách sẽ thấy lớp chặn thay vì làm rồi mất dữ liệu -->
+  <script type="module">
+    import { guardPage } from '../../core/require-login.js';
+    guardPage('Thông tin cá nhân');
+  </script>
 </body>
 </html>

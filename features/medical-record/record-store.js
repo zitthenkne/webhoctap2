@@ -13,6 +13,10 @@ import { setDocQ as setDoc, deleteDocQ as deleteDoc } from "../../core/offline-w
 
 const KEY = 'medicalRecords';
 const COL = 'medical_records';
+/* Id của bệnh án mẫu. Chép chữ thay vì import benh-an-mau.js: file đó nặng 30KB
+   dữ liệu, mà record-store thì trang nào cũng nạp — phòng chờ, trang xem, trang
+   viết. Đổi id thì đổi ở cả hai nơi. */
+const MAU_ID = 'BA-MAU';
 
 /* ---------- localStorage ----------
 
@@ -300,6 +304,10 @@ document.addEventListener('visibilitychange', () => {
 });
 
 export async function saveRecord(record) {
+    // Bệnh án mẫu là hằng số trong mã nguồn (benh-an-mau.js): người dùng gõ thử
+    // lên đó bao nhiêu cũng được, nhưng không được rơi vào kho bệnh án thật —
+    // chặn ở đây một lần thay vì rải điều kiện ra từng nơi gọi saveRecord.
+    if (String(record?.id) === MAU_ID) return { cloud: false, mau: true };
     record.lastUpdated = new Date().toISOString();
     saveOne(record);
 

@@ -1,4 +1,6 @@
 // File: core/dashboard-ui.js
+import { requireLogin } from './require-login.js';
+
 // Module chịu trách nhiệm quản lý các tương tác giao diện (UI) trang chủ, sidebar mobile, mascot và modal sửa phòng học local
 
 const squirrelMessages = [
@@ -132,7 +134,8 @@ export function initDashboardUI() {
     // 5. Viết bệnh án button routing
     const selectWriteMedicalRecord = document.getElementById('selectWriteMedicalRecord');
     if (selectWriteMedicalRecord) {
-        selectWriteMedicalRecord.addEventListener('click', () => {
+        selectWriteMedicalRecord.addEventListener('click', async () => {
+            if (!await requireLogin('Viết bệnh án')) return;
             window.location.href = 'features/medical-record/tao-benh-an.html';
         });
     }
@@ -140,7 +143,8 @@ export function initDashboardUI() {
     // 6. Tạo Checklist button routing
     const selectChecklist = document.getElementById('selectChecklist');
     if (selectChecklist) {
-        selectChecklist.addEventListener('click', () => {
+        selectChecklist.addEventListener('click', async () => {
+            if (!await requireLogin('Tạo Checklist')) return;
             window.location.href = 'features/checklist/checklist.html';
         });
     }

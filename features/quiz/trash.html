@@ -56,5 +56,10 @@
     <div id="toast-container" class="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none"></div>
 
     <script type="module" src="trash.js"></script>
+  <!-- Bắt buộc đăng nhập: khách sẽ thấy lớp chặn thay vì làm rồi mất dữ liệu -->
+  <script type="module">
+    import { guardPage } from '../../core/require-login.js';
+    guardPage('Thùng rác bộ đề');
+  </script>
 </body>
 </html>

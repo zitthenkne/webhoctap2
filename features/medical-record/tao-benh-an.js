@@ -2,6 +2,7 @@
 import { showToast } from '../../core/utils.js';
 import { applyGuide, guideOn, setGuide } from '../../core/guide.js';
 import { getRecord, saveRecord, syncFromCloud, authReady } from './record-store.js';
+import { MAU_ID, benhAnMau } from './benh-an-mau.js';
 import { initCls, getCls, setCls } from './cls-editor.js';
 import { abnormalItems, refText } from './cls-shared.js';
 import { initHistory, getSteps, setSteps, calcOnset, buildProse, missingDetails, refreshSteps,
@@ -626,6 +627,9 @@ function updateProgressNow() {
    3. TỰ ĐỘNG LƯU
    ===================================================================== */
 let recordId = new URL(location.href).searchParams.get('id') || 'BA-' + Date.now();
+/* Bệnh án mẫu (?id=BA-MAU): nạp từ benh-an-mau.js chứ không từ kho, và KHÔNG
+   bao giờ lưu — người xem cứ sửa thoải mái, tải lại là về nguyên bản. */
+const LA_MAU = recordId === MAU_ID;
 let currentFolder = null;   // đợt thực hành của bệnh án này
 let dirty = false;
 let saveTimer = null;
@@ -651,6 +655,12 @@ function setSaveState(state, text) {
 let saveLoi = false;
 
 async function doSave({ silent = true, force = false } = {}) {
+    if (LA_MAU) {
+        dirty = false;
+        setSaveState('idle', 'Bệnh án mẫu — thay đổi không được lưu');
+        if (!silent) showToast('Đây là bệnh án mẫu nên không lưu. Bấm "Chép thành bệnh án của tôi" nếu muốn giữ lại.', 'info', 6000);
+        return null;
+    }
     if (!dirty && !force) return getRecord(recordId);
     setSaveState('saving', 'Đang lưu…');
     const rec = collectRecord();
@@ -676,6 +686,7 @@ async function doSave({ silent = true, force = false } = {}) {
 }
 
 function scheduleSave() {
+    if (LA_MAU) { scheduleValidate(); return; }
     if (!dirty) setSaveState('saving', 'Đang soạn…');
     dirty = true;
     clearTimeout(saveTimer);
@@ -2933,9 +2944,25 @@ const dxBinder = {
 const blBinder = bindAuto('diagnosis-reasoning', buildBienLuan);
 const rxBinder = bindAuto('treatment-detail', () => rxToText(getRx()));
 
+/* Chép bản mẫu thành bệnh án thật: gom đúng những gì đang hiện trên màn hình
+   (kể cả chỗ người xem vừa sửa thử), đổi id rồi lưu như một bệnh án bình thường
+   và nhảy sang chính nó — từ đó trở đi mọi thứ tự động lưu như thường. */
+$('mau-chep')?.addEventListener('click', async () => {
+    const rec = collectRecord();
+    rec.id = 'BA-' + Date.now();
+    rec.status = 'Đang chỉnh sửa';
+    rec.hanhChinh = { ...rec.hanhChinh, hoTen: 'CHÉP TỪ BỆNH ÁN MẪU' };
+    try {
+        await saveRecord(rec);
+        location.href = `tao-benh-an.html?id=${encodeURIComponent(rec.id)}`;
+    } catch {
+        showToast('Chưa chép được — bộ nhớ trình duyệt có thể đã đầy.', 'error');
+    }
+});
+
 (async function loadExisting() {
     applyFolder();   // ap dung ngay, khong doi Firebase tra loi
-    let rec = getRecord(recordId);
+    let rec = LA_MAU ? benhAnMau() : getRecord(recordId);
     if (!rec && await authReady()) {
         // Bệnh án có thể được tạo ở máy khác
         await syncFromCloud();
@@ -2944,7 +2971,7 @@ const rxBinder = bindAuto('treatment-detail', () => rxToText(getRx()));
     if (rec) {
         fillForm(rec);
         currentFolder = rec.thuMuc || null;
-        setSaveState('idle', 'Đã mở bệnh án đã lưu');
+        setSaveState('idle', LA_MAU ? 'Bệnh án mẫu — thay đổi không được lưu' : 'Đã mở bệnh án đã lưu');
     } else {
         // Bệnh án mới: điền sẵn ngày giờ làm bệnh án
         const now = new Date();

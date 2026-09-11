@@ -615,5 +615,10 @@
 <div id="toast-container" class="fixed bottom-28 sm:bottom-6 right-4 z-[90] flex flex-col items-end space-y-2 pointer-events-none"></div>
 
 <script type="module" src="xem-benh-an.js"></script>
+  <!-- Bắt buộc đăng nhập: khách sẽ thấy lớp chặn thay vì làm rồi mất dữ liệu -->
+  <script type="module">
+    import { guardPage } from '../../core/require-login.js';
+    guardPage('Xem bệnh án');
+  </script>
 </body>
 </html>

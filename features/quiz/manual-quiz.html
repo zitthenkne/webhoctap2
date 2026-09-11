@@ -330,5 +330,10 @@
     <div id="toast-container" role="region" aria-live="polite" class="fixed z-[9999] inset-x-4 bottom-4 sm:inset-x-auto sm:right-6 sm:bottom-6 flex flex-col gap-3 pointer-events-none sm:max-w-[360px]"></div>
 
     <script src="manual-quiz.js"></script>
+  <!-- Bắt buộc đăng nhập: khách sẽ thấy lớp chặn thay vì làm rồi mất dữ liệu -->
+  <script type="module">
+    import { guardPage } from '../../core/require-login.js';
+    guardPage('Soạn đề thủ công');
+  </script>
 </body>
 </html>

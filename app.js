@@ -7,6 +7,7 @@ import { onSessionUser, forgetSession } from './core/auth-session.js';
 import { onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
 import { doc, setDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { showToast, showConfirm } from './core/utils.js';
+import { requireLogin } from './core/require-login.js';
 
 // Import các Module chức năng
 import { parseFile, downloadTemplate } from './core/file-parser.js';
@@ -207,6 +208,28 @@ function toggleAuthModal() {
     if (authModal) authModal.classList.toggle('hidden'); 
 }
 
+// core/require-login.js gọi vào đây khi khách bấm một tính năng bị khoá.
+window.openAuthModal = function (feature) {
+    const sub = document.getElementById('auth-subtitle');
+    if (sub && feature) sub.textContent = feature + ' cần tài khoản — đăng nhập để mở khoá 🔒';
+    if (authModal) authModal.classList.remove('hidden');
+    document.getElementById('emailInput')?.focus();
+};
+
+// Sau khi đăng nhập xong thì quay lại đúng trang đã bị chặn (?next=...).
+function goNextAfterLogin() {
+    const next = new URLSearchParams(location.search).get('next');
+    if (!next) return false;
+    // Chỉ nhận đường dẫn cùng nguồn, tránh bị lợi dụng để chuyển hướng ra ngoài
+    try {
+        const url = new URL(next, location.href);
+        if (url.origin !== location.origin) return false;
+        location.href = url.href;
+        return true;
+    } catch (e) { return false; }
+}
+
+
 async function handleLogin() {
     const identifier = document.getElementById('emailInput').value.trim();
     const password = document.getElementById('passwordInput').value;
@@ -231,6 +254,7 @@ async function handleLogin() {
         await signInWithEmailAndPassword(auth, email, password);
         toggleAuthModal();
         showToast('Đăng nhập thành công!', 'success');
+        goNextAfterLogin();
     } catch (error) {
         showToast('Đăng nhập thất bại: ' + error.message, 'error');
     }
@@ -438,7 +462,10 @@ function setupEventListeners() {
     if (fileInput) fileInput.addEventListener('change', handleFileSelect);
     if (processBtn) processBtn.addEventListener('click', saveAndStartQuiz);
     if (saveBtnPreQuiz) saveBtnPreQuiz.addEventListener('click', saveOnly);
-    if (selectCreateQuizBtn) selectCreateQuizBtn.addEventListener('click', () => showContent('createQuizContent', 'Tạo trắc nghiệm'));
+    if (selectCreateQuizBtn) selectCreateQuizBtn.addEventListener('click', async () => {
+        if (!await requireLogin('Tạo trắc nghiệm')) return;
+        showContent('createQuizContent', 'Tạo trắc nghiệm');
+    });
 
     // Chuyển đổi tab tạo trắc nghiệm (Tải file / Nhập JSON)
     const tabUploadFile = document.getElementById('tab-upload-file');
@@ -599,12 +626,14 @@ function setupEventListeners() {
     if (calculateGpaBtn) calculateGpaBtn.addEventListener('click', calculateGPA);
     if (downloadTemplateBtn) downloadTemplateBtn.addEventListener('click', downloadTemplate);
     
+    const LOCKED_TABS = ['createQuizContent'];   // các tab bắt buộc đăng nhập
     navLinks.forEach(link => {
-        link.addEventListener('click', (event) => {
+        link.addEventListener('click', async (event) => {
             const targetId = link.getAttribute('data-target');
             if (targetId) {
                 event.preventDefault();
                 const title = link.querySelector('span').textContent;
+                if (LOCKED_TABS.includes(targetId) && !await requireLogin(title)) return;
                 showContent(targetId, title);
             }
         });
@@ -913,4 +942,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     setupEventListeners();
     initDashboardUI();
+
+    // Bị trang khác đá về vì chưa đăng nhập → mở sẵn ô đăng nhập cho đỡ phải bấm
+    if (new URLSearchParams(location.search).get('next')) {
+        onSessionUser(u => { if (u) goNextAfterLogin(); else window.openAuthModal('Tính năng bạn vừa mở'); });
+    }
 });

@@ -126,5 +126,10 @@
   </div>
 
   <script src="checklist-run.js"></script>
+  <!-- Bắt buộc đăng nhập: khách sẽ thấy lớp chặn thay vì làm rồi mất dữ liệu -->
+  <script type="module">
+    import { guardPage } from '../../core/require-login.js';
+    guardPage('Checklist ATCS');
+  </script>
 </body>
 </html>

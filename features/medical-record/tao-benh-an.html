@@ -12,6 +12,12 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=Quicksand:wght@500;600;700&display=swap">
+    <!-- Dải băng "BỆNH ÁN MẪU" và viền vàng quanh trang bật bằng CSS theo dấu này.
+         Đặt ngay trong <head> chứ không đợi module: để trang không kịp nháy một
+         lần dải băng thường rồi mới đổi sang dải băng mẫu. -->
+    <script>
+        if (new URL(location.href).searchParams.get('id') === 'BA-MAU') document.documentElement.dataset.mau = '1';
+    </script>
     <link rel="stylesheet" href="tao-benh-an.css">
     <!-- Tailwind đóng băng sẵn (tailwind-dong-bang.mjs) thay cho Play CDN: CDN tải
          ~400KB JS rồi sinh CSS ngay trong máy người dùng mỗi lần mở trang — đo được
@@ -36,6 +42,7 @@
     <link rel="modulepreload" href="benh-an-text.js">
     <link rel="modulepreload" href="benh-data.js">
     <link rel="modulepreload" href="benh-kem-list.js">
+    <link rel="modulepreload" href="benh-an-mau.js">
     <link rel="modulepreload" href="benh-su-editor.js">
     <link rel="modulepreload" href="bien-luan-data.js">
     <link rel="modulepreload" href="bien-luan-phanbiet.js">
@@ -160,6 +167,30 @@
 
         <div class="overall-track" aria-hidden="true">
             <div id="overall-bar" class="overall-fill" style="width:0%"></div>
+        </div>
+
+        <!-- BỆNH ÁN MẪU (benh-an-mau.js). Một dải băng, hai mặt: bình thường thì
+             mời xem bản mẫu, đang mở bản mẫu thì báo rõ "sửa gì cũng không lưu".
+             Đổi mặt bằng CSS theo <html data-mau="1"> do đoạn script trong <head>
+             gắn, nên không cần thêm dòng JS nào cho riêng dải này. -->
+        <div class="mau-bar" id="mau-bar">
+            <p class="mau-moi">
+                <i class="fas fa-book-open-reader"></i>
+                <span>Chưa hình dung một bệnh án viết đủ trông ra sao?</span>
+                <a class="mau-go" href="tao-benh-an.html?id=BA-MAU">Mở bệnh án mẫu <i
+                        class="fas fa-arrow-right"></i></a>
+            </p>
+            <p class="mau-dang">
+                <span class="mau-tag"><i class="fas fa-star"></i> BỆNH ÁN MẪU</span>
+                <span class="mau-txt">Ca minh họa có sẵn — viêm phổi cộng đồng trên nền đái tháo đường típ 2.
+                    Bạn cứ bấm và sửa thử thoải mái: <b>không có gì được lưu lại</b>, tải lại trang là về nguyên bản.</span>
+                <span class="mau-act">
+                    <button type="button" id="mau-chep" class="mau-btn is-key"><i class="fas fa-copy"></i> Chép thành
+                        bệnh án của tôi</button>
+                    <a class="mau-btn" href="tao-benh-an.html"><i class="fas fa-pen-to-square"></i> Viết bệnh án
+                        mới</a>
+                </span>
+            </p>
         </div>
 
         <div class="ba-tools" id="ba-tools" role="toolbar" aria-label="Công cụ nhanh">
@@ -2499,6 +2530,11 @@
         nap();
         dt.addEventListener('change', nap);
     </script>
+  <!-- Bắt buộc đăng nhập: khách sẽ thấy lớp chặn thay vì làm rồi mất dữ liệu -->
+  <script type="module">
+    import { guardPage } from '../../core/require-login.js';
+    guardPage('Viết bệnh án');
+  </script>
 </body>
 
 </html>

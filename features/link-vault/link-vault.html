@@ -125,6 +125,14 @@
         .overlay-dim { background: rgba(10, 10, 10, .72); }
 
         mark.hl { background: var(--color-stamp); color: #fff; border-radius: 0; padding: 0 2px; }
+        /* ==== NANG CAP TIEN DUNG ==== */
+        .folder-tab.drop-on { outline: 3px dashed var(--color-stamp); outline-offset: 3px; }
+        .dossier.dragging, .paper-card.dragging { opacity: .4; }
+        #toast-undo { border: 2px solid var(--color-paper); background: var(--color-stamp); color: #fff; padding: .2rem .6rem; font-weight: 800; letter-spacing: .08em; margin-left: .3rem; white-space: nowrap; }
+        .util-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; min-width: 15.5rem; background: var(--bg-panel); border: var(--border-heavy); box-shadow: var(--shadow-card); padding: .3rem; }
+        .util-menu button { display: flex; width: 100%; align-items: center; gap: .6rem; padding: .55rem .7rem; font-weight: 700; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; text-align: left; }
+        .util-menu button:hover { background: var(--color-ink); color: var(--text-invert); }
+        kbd.k { display: inline-flex; align-items: center; justify-content: center; min-width: 1.7rem; padding: .12rem .4rem; border: 2px solid var(--color-ink); background: var(--color-paper); font-family: var(--font-mono); font-weight: 700; font-size: .72rem; box-shadow: 2px 2px 0 var(--color-redact); }
 
         #scroll-top-btn { opacity: 0; pointer-events: none; transform: translateY(12px); transition: opacity .1s var(--ease-snap), transform .1s var(--ease-snap); }
         #scroll-top-btn.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
@@ -333,6 +341,10 @@
                                         </button>
                                     </div>
                                 </div>
+                                <p id="dup-warn" class="hidden sm:col-span-2 -mt-2 items-center gap-2 text-xs font-bold uppercase tracking-[.06em] c-stamp">
+                                    <i class="fas fa-triangle-exclamation"></i> ĐƯỜNG DẪN NÀY ĐÃ CÓ TRONG KHO
+                                    <button type="button" id="dup-open" class="underline">XEM HỒ SƠ CŨ</button>
+                                </p>
                                 <!-- KHUNG THẨM ĐỊNH: ảnh & thông tin web tự động -->
                                 <div id="form-url-preview-box" class="hidden sm:col-span-2 mt-1 pop-in">
                                     <div class="p-3.5 sm:p-4 paper-flat flex flex-col sm:flex-row gap-3.5 items-center relative">
@@ -405,6 +417,8 @@
                             <option value="newest">Mới nhất</option>
                             <option value="oldest">Cũ nhất</option>
                             <option value="az">Tên A-Z</option>
+                            <option value="popular">Hay mở nhất</option>
+                            <option value="recent">Mở gần đây</option>
                         </select>
                         <i class="fas fa-arrow-down-wide-short absolute left-2.5 top-1/2 -translate-y-1/2 text-xs pointer-events-none"></i>
                         <i class="fas fa-angle-down absolute right-2.5 top-1/2 -translate-y-1/2 text-xs pointer-events-none"></i>
@@ -415,6 +429,15 @@
                     </div>
                     <button type="button" id="select-mode-btn" title="Chọn nhiều hồ sơ để xử lý hàng loạt" aria-label="Chọn nhiều"
                         class="w-9 h-8 paper-flat flex items-center justify-center text-xs font-bold"><i class="fas fa-list-check"></i></button>
+                    <div class="relative">
+                        <button type="button" id="util-btn" title="Tiện ích kho lưu trữ" aria-label="Tiện ích kho lưu trữ"
+                            class="w-9 h-8 paper-flat flex items-center justify-center text-xs font-bold"><i class="fas fa-ellipsis"></i></button>
+                        <div id="util-menu" class="util-menu hidden">
+                            <button type="button" id="util-copy-all"><i class="fas fa-clipboard-list w-4"></i> Chép danh sách đang xem</button>
+                            <button type="button" id="util-export"><i class="fas fa-file-arrow-down w-4"></i> Xuất sao lưu (.json)</button>
+                            <button type="button" id="util-keys"><i class="fas fa-keyboard w-4"></i> Bảng phím tắt (?)</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -589,6 +612,8 @@
         </span>
         <button type="button" id="bulk-all" title="Chọn / bỏ chọn tất cả" class="px-2.5 py-1.5 btn-paper text-xs font-bold uppercase tracking-[.06em] flex items-center gap-1.5"><i class="fas fa-check-double"></i><span class="hidden sm:inline">Tất cả</span></button>
         <div class="flex-1"></div>
+        <button type="button" id="bulk-copy" title="Chép URL các hồ sơ đã chọn" class="px-2.5 py-1.5 btn-paper text-xs font-bold uppercase tracking-[.06em] flex items-center gap-1.5"><i class="fas fa-copy"></i><span class="hidden sm:inline">Chép</span></button>
+        <button type="button" id="bulk-open" title="Mở tất cả hồ sơ đã chọn" class="px-2.5 py-1.5 btn-paper text-xs font-bold uppercase tracking-[.06em] flex items-center gap-1.5"><i class="fas fa-arrow-up-right-from-square"></i><span class="hidden sm:inline">Mở</span></button>
         <button type="button" id="bulk-move" title="Chuyển ngăn phân loại" class="px-2.5 py-1.5 btn-paper text-xs font-bold uppercase tracking-[.06em] flex items-center gap-1.5"><i class="fas fa-folder-open"></i><span class="hidden sm:inline">Chuyển</span></button>
         <button type="button" id="bulk-pin" title="Ghim / bỏ ghim" class="px-2.5 py-1.5 btn-paper text-xs font-bold uppercase tracking-[.06em] flex items-center gap-1.5"><i class="fas fa-thumbtack"></i><span class="hidden sm:inline">Ghim</span></button>
         <button type="button" id="bulk-delete" title="Tiêu hủy các hồ sơ đã chọn" class="px-2.5 py-1.5 btn-danger text-xs font-bold flex items-center gap-1.5"><i class="fas fa-trash-can"></i><span class="hidden sm:inline">Tiêu hủy</span></button>
@@ -603,6 +628,31 @@
             <p class="text-xs font-semibold uppercase tracking-[.06em] opacity-75 mb-4">Chỉ định nơi lưu trữ mới cho các hồ sơ đã chọn</p>
             <div id="move-options" class="space-y-2"></div>
             <button type="button" data-close-move class="mt-4 w-full py-2.5 btn-paper text-xs font-bold uppercase tracking-[.08em]">Hủy</button>
+        </div>
+    </dialog>
+
+    <!-- MODAL: BẢNG PHÍM TẮT & MẸO DÙNG -->
+    <dialog open id="keys-modal" class="hidden fixed inset-0 z-[78] w-full h-full flex items-end sm:items-center justify-center">
+        <div class="absolute inset-0 overlay-dim" data-close-keys></div>
+        <div class="sheet-panel relative w-full sm:max-w-md modal-panel p-6 sm:p-7 max-h-[88vh] overflow-y-auto">
+            <p class="text-xs font-bold uppercase tracking-[.25em] opacity-75">MẪU SỐ 09-K // HƯỚNG DẪN THAO TÁC</p>
+            <h3 class="text-base font-display uppercase tracking-[.08em] mt-1 mb-4 flex items-center gap-2"><i class="fas fa-keyboard"></i> PHÍM TẮT &amp; MẸO DÙNG</h3>
+            <ul class="space-y-2.5 text-xs font-bold uppercase tracking-[.04em]">
+                <li class="flex items-center gap-2.5"><kbd class="k">/</kbd><kbd class="k">Ctrl K</kbd><span class="flex-1 normal-case tracking-normal">Nhảy tới ô truy vấn</span></li>
+                <li class="flex items-center gap-2.5"><kbd class="k">Enter</kbd><span class="flex-1 normal-case tracking-normal">Mở ngay hồ sơ đầu tiên trong kết quả</span></li>
+                <li class="flex items-center gap-2.5"><kbd class="k">Ctrl V</kbd><span class="flex-1 normal-case tracking-normal">Dán link ở bất kỳ đâu → tự mở biểu mẫu</span></li>
+                <li class="flex items-center gap-2.5"><kbd class="k">◀</kbd><kbd class="k">▶</kbd><span class="flex-1 normal-case tracking-normal">Lật hồ sơ trước / sau khi đang xem nhanh</span></li>
+                <li class="flex items-center gap-2.5"><kbd class="k">Esc</kbd><span class="flex-1 normal-case tracking-normal">Đóng lớp đang mở / xóa truy vấn</span></li>
+                <li class="flex items-center gap-2.5"><kbd class="k">?</kbd><span class="flex-1 normal-case tracking-normal">Mở đúng bảng này</span></li>
+            </ul>
+            <p class="text-xs font-bold uppercase tracking-[.15em] mt-5 mb-2 c-stamp">MẸO KHÔNG CẦN BÀN PHÍM</p>
+            <ul class="space-y-2 text-xs font-medium leading-relaxed">
+                <li><i class="fas fa-hand-pointer c-stamp mr-1.5"></i> Nhấn giữ một thẻ (điện thoại) để bật chế độ chọn nhiều.</li>
+                <li><i class="fas fa-arrows-up-down-left-right c-stamp mr-1.5"></i> Kéo thẻ thả vào tab ngăn (máy tính) để đổi phân loại.</li>
+                <li><i class="fas fa-list-ul c-stamp mr-1.5"></i> Dán nhiều link một lần vào ô 01 → lưu hàng loạt.</li>
+                <li><i class="fas fa-qrcode c-stamp mr-1.5"></i> Xem nhanh có mã QR để mở tài liệu trên điện thoại.</li>
+            </ul>
+            <button type="button" data-close-keys class="mt-6 w-full py-2.5 btn-paper text-xs font-bold uppercase tracking-[.08em]">Đóng</button>
         </div>
     </dialog>
 
@@ -645,14 +695,16 @@
 
         // ---------- Toast ----------
         let toastTimer;
-        function toast(msg, type = 'ok') {
+        function toast(msg, type = 'ok', undo = null) {
             const el = document.getElementById('toast');
             const icon = type === 'err' ? 'fa-circle-xmark' : type === 'warn' ? 'fa-triangle-exclamation' : 'fa-circle-check';
-            el.innerHTML = `<i class="fas ${icon} text-sm shrink-0"></i><span>${esc(msg)}</span>`;
+            el.innerHTML = `<i class="fas ${icon} text-sm shrink-0"></i><span>${esc(msg)}</span>` +
+                (undo ? '<button type="button" id="toast-undo"><i class="fas fa-rotate-left"></i> HOÀN TÁC</button>' : '');
             el.className = 'toast-af pop-in' + (type === 'err' ? ' toast-err' : type === 'warn' ? ' toast-warn' : '');
             el.classList.remove('hidden');
+            if (undo) el.querySelector('#toast-undo').addEventListener('click', () => { el.classList.add('hidden'); undo(); });
             clearTimeout(toastTimer);
-            toastTimer = setTimeout(() => el.classList.add('hidden'), 2600);
+            toastTimer = setTimeout(() => el.classList.add('hidden'), undo ? 8000 : 2600);
         }
 
         // ---------- Cổng mật khẩu chung ----------
@@ -713,6 +765,16 @@
         } catch (_) {}
         function savePref(k, v) { try { localStorage.setItem(k, v); } catch (_) {} }
 
+        // Lượt mở từng hồ sơ (lưu cục bộ trên máy này) — phục vụ sắp xếp "Hay mở / Mở gần đây"
+        let openStats = {};
+        try { openStats = JSON.parse(localStorage.getItem('lv_opens') || '{}'); } catch (_) {}
+        function bumpOpen(id) {
+            if (!id) return;
+            const st = openStats[id] || { n: 0, t: 0 };
+            openStats[id] = { n: st.n + 1, t: Date.now() };
+            savePref('lv_opens', JSON.stringify(openStats));
+        }
+
         const grid = document.getElementById('links-grid');
         const searchInput = document.getElementById('search-input');
 
@@ -763,6 +825,11 @@
         function faviconOf(url) { try { return 'https://www.google.com/s2/favicons?sz=64&domain=' + new URL(url).hostname; } catch (_) { return ''; } }
         function previewOf(url) { return 'https://image.thum.io/get/width/600/noanimate/' + url; }
         function esc(s) { return (s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+        // Bỏ dấu tiếng Việt để gõ không dấu vẫn tìm ra (vd: "lam sang" → "lâm sàng")
+        function fold(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd'); }
+        // Khóa so trùng URL: bỏ http(s)://, www., dấu / cuối
+        function urlKey(u) { return normalizeUrl(u).replace(/^https?:\/\/(www\.)?/i, '').replace(/\/+$/, '').toLowerCase(); }
+        function findDuplicate(u) { const k = urlKey(u); return k ? allLinks.find(l => urlKey(l.url || '') === k) : null; }
         // Hiệu ứng đóng dấu "COPIED" lên thẻ hồ sơ khi sao chép
         function stampCard(card) {
             if (!card) return;
@@ -786,8 +853,9 @@
         // Escape + tô sáng từ khóa đang tìm kiếm
         function hi(s) {
             s = s || '';
-            if (!currentQuery) return esc(s);
-            const q = currentQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const terms = (currentQuery || '').trim().split(/\s+/).filter(Boolean);
+            if (!terms.length) return esc(s);
+            const q = terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
             try {
                 return s.split(new RegExp('(' + q + ')', 'gi'))
                     .map((part, i) => i % 2 === 1 ? '<mark class="hl">' + esc(part) + '</mark>' : esc(part)).join('');
@@ -875,6 +943,21 @@
             </button>`);
             bar.innerHTML = cards.join('');
             bar.querySelector('#folder-bar-add').addEventListener('click', () => openFolderModal(null));
+            // Kéo một hồ sơ thả vào tab ngăn → đổi phân loại (máy tính)
+            bar.querySelectorAll('[data-folder]').forEach(el => {
+                if (el.dataset.folder === '__all__') return;
+                el.addEventListener('dragover', (e) => { if (!draggingId) return; e.preventDefault(); el.classList.add('drop-on'); });
+                el.addEventListener('dragleave', () => el.classList.remove('drop-on'));
+                el.addEventListener('drop', async (e) => {
+                    e.preventDefault(); el.classList.remove('drop-on');
+                    const id = draggingId; draggingId = null;
+                    if (!id) return;
+                    try {
+                        await updateDoc(doc(db, 'shared_links', id), { folderId: el.dataset.folder === '__none__' ? '' : el.dataset.folder });
+                        toast('ĐÃ CHUYỂN HỒ SƠ SANG NGĂN MỚI');
+                    } catch (err) { toast('Lỗi: ' + (err.message || ''), 'err'); }
+                });
+            });
             bar.querySelectorAll('[data-folder]').forEach(el => el.addEventListener('click', async () => {
                 const id = el.dataset.folder;
                 const f = folderById(id);
@@ -914,13 +997,21 @@
             let list = allLinks;
             if (activeFolder === '__none__') list = list.filter(l => !l.folderId || !folderById(l.folderId));
             else if (activeFolder !== '__all__') list = list.filter(l => l.folderId === activeFolder);
-            if (q) list = list.filter(l => [(l.title || ''), (l.url || ''), (l.note || ''), (l.siteName || '')].join(' ').toLowerCase().includes(q));
+            // Không dấu + nhiều từ khóa (mọi từ đều phải khớp) + tìm cả trong tên ngăn phân loại
+            const terms = fold(rawQ).split(/\s+/).filter(Boolean);
+            if (terms.length) list = list.filter(l => {
+                const fd = folderById(l.folderId);
+                const hay = fold([l.title, l.url, l.note, l.siteName, fd && fd.name].filter(Boolean).join(' '));
+                return terms.every(t => hay.includes(t));
+            });
 
             // Sắp xếp theo lựa chọn, link được ghim luôn nổi lên đầu
             list = [...list];
             if (sortMode === 'oldest') list.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
             else if (sortMode === 'az') list.sort((a, b) =>
                 ((a.title || '').trim() || hostOf(a.url || '')).localeCompare((b.title || '').trim() || hostOf(b.url || ''), 'vi', { sensitivity: 'base' }));
+            else if (sortMode === 'popular') list.sort((a, b) => ((openStats[b.id] || {}).n || 0) - ((openStats[a.id] || {}).n || 0));
+            else if (sortMode === 'recent') list.sort((a, b) => ((openStats[b.id] || {}).t || 0) - ((openStats[a.id] || {}).t || 0));
             list.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
 
             const titleEl = document.getElementById('current-folder-title');
@@ -968,6 +1059,7 @@
                 const l = allLinks.find(x => x.id === b.dataset.openLocked); if (!l) return;
                 if (!await ensureLinkOpen(l)) return;
                 render();
+                bumpOpen(l.id);
                 window.open(l.url, '_blank', 'noopener');
             }));
             grid.querySelectorAll('[data-pin]').forEach(b => b.addEventListener('click', async () => {
@@ -996,7 +1088,7 @@
             if (!revealed) {
                 // ----- Hồ sơ NIÊM PHONG: chỉ hiện danh xưng + trích yếu, giấu link -----
                 return `
-                <article data-card="${esc(l.id)}" class="dossier paper-card${pinCls} overflow-hidden flex flex-col pop-in relative${selClass(l.id)}">${checkOverlay()}
+                <article draggable="true" data-card="${esc(l.id)}" class="dossier paper-card${pinCls} overflow-hidden flex flex-col pop-in relative${selClass(l.id)}">${checkOverlay()}
                     <div class="relative h-40 overflow-hidden bg-ink photo-frame flex items-center justify-center">
                         <div class="text-center z-10 p-4">
                             <div class="w-14 h-14 mx-auto flex items-center justify-center text-2xl mb-2 border-2 border-current"><i class="fas fa-lock"></i></div>
@@ -1031,7 +1123,7 @@
             const favFb = l.favicon ? `if(this.dataset.fb){this.src=this.dataset.fb;this.removeAttribute('data-fb');}else{this.replaceWith(Object.assign(document.createElement('i'),{className:'fas fa-link text-xs'}));}` : `this.replaceWith(Object.assign(document.createElement('i'),{className:'fas fa-link text-xs'}));`;
             const siteLabel = (l.siteName && l.siteName.toLowerCase() !== hostOf(url).toLowerCase()) ? `${l.siteName} · ${hostOf(url)}` : hostOf(url);
             return `
-            <article data-card="${esc(l.id)}" class="dossier paper-card${pinCls} overflow-visible flex flex-col pop-in relative${selClass(l.id)}">${checkOverlay()}
+            <article draggable="true" data-card="${esc(l.id)}" class="dossier paper-card${pinCls} overflow-visible flex flex-col pop-in relative${selClass(l.id)}">${checkOverlay()}
                 <span class="tape" aria-hidden="true"></span>
                 <div class="relative h-40 overflow-hidden bg-manila photo-frame">
                     <div class="preview-fallback absolute inset-0 flex items-center justify-center">
@@ -1082,7 +1174,7 @@
 
             if (!revealed) {
                 return `
-                <article data-card="${esc(l.id)}" class="paper-card${pinCls} p-3 flex items-center gap-3 pop-in relative${selClass(l.id)}">${checkOverlay()}
+                <article draggable="true" data-card="${esc(l.id)}" class="paper-card${pinCls} p-3 flex items-center gap-3 pop-in relative${selClass(l.id)}">${checkOverlay()}
                     <span class="w-10 h-10 bg-ink flex items-center justify-center shrink-0"><i class="fas fa-lock text-sm"></i></span>
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2 min-w-0">
@@ -1099,7 +1191,7 @@
                 </article>`;
             }
             return `
-            <article data-card="${esc(l.id)}" class="paper-card${pinCls} p-3 flex items-center gap-3 pop-in relative${selClass(l.id)}">${checkOverlay()}
+            <article draggable="true" data-card="${esc(l.id)}" class="paper-card${pinCls} p-3 flex items-center gap-3 pop-in relative${selClass(l.id)}">${checkOverlay()}
                 <span class="w-10 h-10 paper-flat flex items-center justify-center overflow-hidden shrink-0">
                     <img src="${esc(l.favicon || faviconOf(url))}"${l.favicon ? ` data-fb="${esc(faviconOf(url))}"` : ''} class="w-5 h-5" loading="lazy" alt="" onerror="if(this.dataset.fb){this.src=this.dataset.fb;this.removeAttribute('data-fb');}else{this.replaceWith(Object.assign(document.createElement('i'),{className:'fas fa-link text-xs'}));}">
                 </span>
@@ -1139,42 +1231,46 @@
         const addStatus = document.getElementById('add-status');
         addForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const url = normalizeUrl(document.getElementById('f-url').value);
-            if (!url) { toast('YÊU CẦU NHẬP ĐƯỜNG DẪN TÀI LIỆU', 'warn'); return; }
+            const raw = document.getElementById('f-url').value.trim();
+            // Dán một lúc nhiều đường dẫn → lập nhiều hồ sơ trong một lần
+            const many = [...new Set(raw.match(/https?:\/\/\S+/gi) || [])];
+            const urls = many.length > 1 ? many : [normalizeUrl(raw)].filter(Boolean);
+            if (!urls.length) { toast('YÊU CẦU NHẬP ĐƯỜNG DẪN TÀI LIỆU', 'warn'); return; }
+            const bulk = urls.length > 1;
             const pwRaw = document.getElementById('f-pw').value;
-            addBtn.disabled = true; addBtn.classList.add('opacity-60'); addStatus.textContent = 'Đang lưu...';
+            const pw = pwRaw ? await hashPw(pwRaw) : '';
+            const folderId = document.getElementById('f-folder').value || '';
+            const title = bulk ? '' : document.getElementById('f-title').value.trim();
+            const note = bulk ? '' : document.getElementById('f-note').value.trim();
+            addBtn.disabled = true; addBtn.classList.add('opacity-60');
             try {
-                // Metadata đã lấy được cho đúng URL này → lưu kèm để thẻ link hiển thị đúng ảnh/tên web
-                const meta = (fetchedMeta && fetchedMeta.forUrl === url) ? fetchedMeta : null;
-                const ref = await addDoc(linksRef, {
-                    url,
-                    title: document.getElementById('f-title').value.trim(),
-                    folderId: document.getElementById('f-folder').value || '',
-                    note: document.getElementById('f-note').value.trim(),
-                    pw: pwRaw ? await hashPw(pwRaw) : '',
-                    image: (meta && meta.exact) ? meta.image : '',
-                    favicon: meta ? (meta.icon || '') : '',
-                    siteName: meta ? (meta.siteName || '') : '',
-                    createdAt: serverTimestamp(),
-                });
-                // Người dùng lưu trước khi kịp tra cứu → tự bổ sung ảnh/tên web ngầm sau khi lưu
-                if (!meta) {
-                    const savedTitle = document.getElementById('f-title').value.trim();
-                    const savedNote = document.getElementById('f-note').value.trim();
-                    fetchUrlMetadata(url).then(m => updateDoc(doc(db, 'shared_links', ref.id), {
+                for (let i = 0; i < urls.length; i++) {
+                    const url = urls[i];
+                    addStatus.textContent = bulk ? `Đang lưu ${i + 1}/${urls.length}...` : 'Đang lưu...';
+                    // Metadata đã lấy được cho đúng URL này → lưu kèm để thẻ link hiển thị đúng ảnh/tên web
+                    const meta = (!bulk && fetchedMeta && fetchedMeta.forUrl === url) ? fetchedMeta : null;
+                    const ref = await addDoc(linksRef, {
+                        url, title, folderId, note, pw,
+                        image: (meta && meta.exact) ? meta.image : '',
+                        favicon: meta ? (meta.icon || '') : '',
+                        siteName: meta ? (meta.siteName || '') : '',
+                        createdAt: serverTimestamp(),
+                    });
+                    // Chưa kịp tra cứu (hoặc nhập hàng loạt) → tự bổ sung ảnh/tên/mô tả ngầm sau khi lưu
+                    if (!meta) fetchUrlMetadata(url).then(m => updateDoc(doc(db, 'shared_links', ref.id), {
                         image: m.exact ? m.image : '',
                         favicon: m.icon || '',
                         siteName: m.siteName || '',
-                        ...(savedTitle ? {} : { title: m.title || '' }),
-                        ...(savedNote ? {} : { note: m.description || '' }),
+                        ...(title ? {} : { title: m.title || '' }),
+                        ...(note ? {} : { note: m.description || '' }),
                     })).catch(() => {});
                 }
-                const keepFolder = document.getElementById('f-folder').value;
                 addForm.reset();
-                if (typeof resetFormPreview === 'function') resetFormPreview();
-                document.getElementById('f-folder').value = keepFolder;
-                addStatus.textContent = ''; toast('TÀI LIỆU ĐÃ NHẬP KHO LƯU TRỮ');
-                if (typeof toggleAddForm === 'function') toggleAddForm(false);
+                resetFormPreview();
+                document.getElementById('f-folder').value = folderId;
+                addStatus.textContent = '';
+                toast(bulk ? `ĐÃ NHẬP KHO ${urls.length} TÀI LIỆU` : 'TÀI LIỆU ĐÃ NHẬP KHO LƯU TRỮ');
+                toggleAddForm(false);
             } catch (err) { addStatus.textContent = ''; toast('Lưu thất bại: ' + (err.message || 'lỗi'), 'err'); }
             finally { addBtn.disabled = false; addBtn.classList.remove('opacity-60'); }
         });
@@ -1203,6 +1299,7 @@
 
         function resetFormPreview() {
             if (previewBox) previewBox.classList.add('hidden');
+            document.getElementById('dup-warn').classList.add('hidden');
             lastFetchedUrl = '';
             fetchedMeta = null;
             isAutoFilledTitle = false;
@@ -1308,11 +1405,33 @@
         async function triggerUrlFetch(force = false) {
             if (!fUrlInput) return;
             let url = (fUrlInput.value || '').trim();
+            // Nhiều đường dẫn trong một ô → chế độ nhập hàng loạt: bỏ qua tra cứu từng cái
+            const multi = [...new Set(url.match(/https?:\/\/\S+/gi) || [])];
+            if (multi.length > 1) {
+                lastFetchedUrl = ''; fetchedMeta = null;
+                document.getElementById('dup-warn').classList.add('hidden');
+                if (previewBox) previewBox.classList.remove('hidden');
+                if (previewImg) previewImg.style.display = 'none';
+                if (previewTitle) previewTitle.textContent = `NHẬP HÀNG LOẠT — ${multi.length} ĐƯỜNG DẪN`;
+                if (previewUrlSpan) previewUrlSpan.textContent = multi.slice(0, 4).map(u => hostOf(u)).join(', ') + (multi.length > 4 ? '…' : '');
+                if (previewDesc) previewDesc.textContent = 'Ảnh, tên trang và mô tả sẽ tự tra cứu ngay sau khi lưu. Ô danh xưng và trích yếu sẽ bỏ qua.';
+                if (fetchStatus) { fetchStatus.className = 'tag-af tag-ok'; fetchStatus.innerHTML = '<i class="fas fa-layer-group"></i> CHẾ ĐỘ NHẬP HÀNG LOẠT'; }
+                if (refetchBtn) refetchBtn.classList.add('hidden');
+                if (fetchMetaTimeout) clearTimeout(fetchMetaTimeout);
+                return;
+            }
             if (!url || !/^https?:\/\/.+/i.test(url) && !/^[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,5}(:[0-9]{1,5})?(\/.*)?$/i.test(url)) {
                 if (previewBox) previewBox.classList.add('hidden');
+                document.getElementById('dup-warn').classList.add('hidden');
                 return;
             }
             url = normalizeUrl(url);
+            // Đã có hồ sơ cho đúng đường dẫn này? → cảnh báo + lối tắt xem hồ sơ cũ
+            const dup = findDuplicate(url);
+            const dupWarn = document.getElementById('dup-warn');
+            dupWarn.classList.toggle('hidden', !dup);
+            dupWarn.classList.toggle('flex', !!dup);
+            if (dup) dupWarn.querySelector('#dup-open').onclick = () => { toggleAddForm(false); openQuickView(dup.id); };
             if (!force && url === lastFetchedUrl) return;
             lastFetchedUrl = url;
 
@@ -1509,8 +1628,10 @@
         });
         document.getElementById('link-delete-btn').addEventListener('click', async () => {
             if (!editingLinkId) return;
-            if (!await askConfirm('Xóa liên kết này?', 'Link sẽ biến mất với tất cả mọi người và không thể khôi phục lại.')) return;
-            try { await deleteDoc(doc(db, 'shared_links', editingLinkId)); closeLinkModal(); toast('TÀI LIỆU ĐÃ TIÊU HỦY'); }
+            if (!await askConfirm('Xóa liên kết này?', 'Link sẽ biến mất với tất cả mọi người — vẫn kịp bấm HOÀN TÁC ngay sau đó.')) return;
+            const id = editingLinkId;
+            const snap = snapshotOf(allLinks.find(x => x.id === id));
+            try { await deleteDoc(doc(db, 'shared_links', id)); closeLinkModal(); toast('TÀI LIỆU ĐÃ TIÊU HỦY', 'ok', snap ? () => restoreLinks([snap]) : null); }
             catch (err) { toast('Xóa thất bại: ' + (err.message || ''), 'err'); }
         });
 
@@ -1607,6 +1728,7 @@
         // ---------- Phím tắt ----------
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
+                if (!keysModal.classList.contains('hidden')) { keysModal.classList.add('hidden'); return; }
                 if (!confirmModal.classList.contains('hidden')) { closeConfirm(false); return; }
                 if (!pwModal.classList.contains('hidden')) closePw(null);
                 if (!document.getElementById('move-sheet').classList.contains('hidden')) { closeMoveSheet(); return; }
@@ -1616,9 +1738,20 @@
                 closeFolderModal(); closeLinkModal();
                 return;
             }
+            // ◀ ▶ khi đang xem nhanh: lật sang hồ sơ trước / sau trong danh sách đang hiển thị
+            if (!quickModal.classList.contains('hidden') && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+                const i = currentList.findIndex(x => x.id === quickId);
+                if (i >= 0 && currentList.length > 1) {
+                    e.preventDefault();
+                    openQuickView(currentList[(i + (e.key === 'ArrowRight' ? 1 : -1) + currentList.length) % currentList.length].id);
+                }
+                return;
+            }
             // "/" hoặc Ctrl+K: nhảy tới ô tìm kiếm
             const tag = (document.activeElement?.tagName || '').toUpperCase();
             const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+            // "?": bảng phím tắt
+            if (e.key === '?' && !typing) { e.preventDefault(); keysModal.classList.remove('hidden'); return; }
             if (((e.key === '/' && !typing) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) && !appScreen.classList.contains('hidden')) {
                 e.preventDefault();
                 searchInput.focus(); searchInput.select();
@@ -1630,6 +1763,17 @@
         searchInput.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(render, 120); });
         searchInput.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && searchInput.value) { e.stopPropagation(); searchInput.value = ''; render(); }
+            // Enter: mở ngay hồ sơ đầu tiên trong kết quả (hồ sơ niêm phong thì mở khung xem nhanh)
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(searchTimer); render();
+                const l = currentList[0];
+                if (!l) { toast('KHÔNG CÓ HỒ SƠ NÀO KHỚP TRUY VẤN', 'warn'); return; }
+                if (!linkRevealed(l)) { openQuickView(l.id); return; }
+                bumpOpen(l.id);
+                window.open(l.url, '_blank', 'noopener');
+                toast('ĐANG MỞ: ' + (((l.title || '').trim() || hostOf(l.url || '')).toUpperCase()));
+            }
         });
         document.getElementById('search-clear').addEventListener('click', () => { searchInput.value = ''; render(); searchInput.focus(); });
 
@@ -1723,6 +1867,7 @@
 
         // Bấm thẻ khi đang chọn nhiều → tick chọn (chặn hẳn mọi hành vi khác bằng capture)
         grid.addEventListener('click', (e) => {
+            if (pressFired) { pressFired = false; e.preventDefault(); e.stopPropagation(); return; }
             if (!selectMode) return;
             const card = e.target.closest('[data-card]');
             if (!card || !grid.contains(card)) return;
@@ -1761,12 +1906,13 @@
         document.getElementById('bulk-delete').addEventListener('click', async () => {
             const ids = [...selected];
             if (!ids.length) { toast('CHƯA CHỌN HỒ SƠ NÀO', 'warn'); return; }
-            if (!await askConfirm(`Xóa ${ids.length} liên kết?`, 'Các link đã chọn sẽ biến mất với tất cả mọi người và không thể khôi phục.')) return;
+            if (!await askConfirm(`Xóa ${ids.length} liên kết?`, 'Các link đã chọn sẽ biến mất với tất cả mọi người — vẫn kịp bấm HOÀN TÁC ngay sau đó.')) return;
+            const snaps = ids.map(id => snapshotOf(allLinks.find(x => x.id === id))).filter(Boolean);
             try {
                 const batch = writeBatch(db);
                 ids.forEach(id => batch.delete(doc(db, 'shared_links', id)));
                 await batch.commit();
-                toast(`ĐÃ TIÊU HỦY ${ids.length} TÀI LIỆU`);
+                toast(`ĐÃ TIÊU HỦY ${ids.length} TÀI LIỆU`, 'ok', snaps.length ? () => restoreLinks(snaps) : null);
                 setSelectMode(false);
             } catch (err) { toast('Lỗi: ' + (err.message || ''), 'err'); }
         });
@@ -1845,6 +1991,9 @@
                     <img class="absolute inset-0 w-full h-full object-cover object-top grayscale contrast-125" src="${esc(cardImg)}"${fbAttr} alt="Ảnh tư liệu đính kèm" onerror="if(this.dataset.fb){this.src=this.dataset.fb;this.removeAttribute('data-fb');}else{this.style.display='none';}">
                     <span class="stamp stamp-abs stamp-br text-base">MẬT</span>
                     <button type="button" data-close-quick aria-label="Đóng" class="absolute top-3 right-3 w-9 h-9 btn-paper flex items-center justify-center"><i class="fas fa-xmark"></i></button>
+                    ${currentList.length > 1 ? `
+                    <button type="button" data-qv-nav="-1" aria-label="Hồ sơ trước" title="Hồ sơ trước (◀)" class="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 btn-paper flex items-center justify-center"><i class="fas fa-angle-left"></i></button>
+                    <button type="button" data-qv-nav="1" aria-label="Hồ sơ sau" title="Hồ sơ sau (▶)" class="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 btn-paper flex items-center justify-center"><i class="fas fa-angle-right"></i></button>` : ''}
                 </div>
             </div>
             <div class="p-5 sm:p-6 flex flex-col gap-3">
@@ -1863,6 +2012,11 @@
                     <button type="button" data-qv-share class="py-2.5 btn-paper text-xs font-bold uppercase tracking-[.06em] flex items-center justify-center gap-2"><i class="fas fa-share-nodes"></i> Chia sẻ</button>
                     <button type="button" data-qv-pin class="py-2.5 ${l.pinned ? 'btn-danger' : 'btn-paper'} text-xs font-bold uppercase tracking-[.06em] flex items-center justify-center gap-2"><i class="fas fa-thumbtack text-xs${l.pinned ? '' : ' rotate-45'}"></i> ${l.pinned ? 'Bỏ ghim' : 'Ghim'}</button>
                     <button type="button" data-qv-edit class="py-2.5 btn-paper text-xs font-bold uppercase tracking-[.06em] flex items-center justify-center gap-2"><i class="fas fa-pen"></i> Hiệu chỉnh</button>
+                    <button type="button" data-qv-qr class="col-span-2 py-2.5 btn-paper text-xs font-bold uppercase tracking-[.06em] flex items-center justify-center gap-2"><i class="fas fa-qrcode"></i> Mã QR mở trên điện thoại</button>
+                </div>
+                <div id="qv-qr-box" class="hidden text-center pt-1">
+                    <span class="inline-block p-2.5 paper-flat"><img class="w-40 h-40" alt="Mã QR mở tài liệu"></span>
+                    <p class="text-xs font-bold uppercase tracking-[.06em] opacity-75 mt-2">Quét bằng máy khác để mở đúng tài liệu này</p>
                 </div>
             </div>`;
         }
@@ -1884,11 +2038,148 @@
             });
             const editBtn = quickBody.querySelector('[data-qv-edit]');
             if (editBtn) editBtn.addEventListener('click', () => { closeQuick(); openLinkModal(l.id); });
+            quickBody.querySelectorAll('a[href]').forEach(a => a.addEventListener('click', () => bumpOpen(l.id)));
+            quickBody.querySelectorAll('[data-qv-nav]').forEach(b => b.addEventListener('click', () => {
+                const i = currentList.findIndex(x => x.id === quickId);
+                if (i < 0 || currentList.length < 2) return;
+                openQuickView(currentList[(i + Number(b.dataset.qvNav) + currentList.length) % currentList.length].id);
+            }));
+            const qrBtn = quickBody.querySelector('[data-qv-qr]');
+            if (qrBtn) qrBtn.addEventListener('click', () => {
+                const box = quickBody.querySelector('#qv-qr-box'), img = box.querySelector('img');
+                if (!img.getAttribute('src')) img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=8&data=' + encodeURIComponent(l.url || '');
+                box.classList.toggle('hidden');
+                if (!box.classList.contains('hidden')) box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            });
             const unlockBtn = quickBody.querySelector('[data-qv-unlock]');
             if (unlockBtn) unlockBtn.addEventListener('click', async () => { if (await ensureLinkOpen(l)) { render(); openQuickView(l.id); } });
         }
         function closeQuick() { quickModal.classList.add('hidden'); quickId = null; }
         quickModal.addEventListener('click', (e) => { if (e.target === quickModal.firstElementChild) closeQuick(); });
+
+        // ================= NÂNG CẤP TIỆN DỤNG: DÁN NHANH · KÉO THẢ · NHẤN GIỮ · TIỆN ÍCH =================
+
+        // ---------- Đếm lượt mở khi bấm "MỞ TÀI LIỆU" trên thẻ ----------
+        grid.addEventListener('click', (e) => {
+            const a = e.target.closest('a[href]');
+            if (a) bumpOpen((a.closest('[data-card]') || {}).dataset?.card);
+        });
+
+        // ---------- Hoàn tác tiêu hủy: ghi lại bản sao hồ sơ vừa xóa ----------
+        function snapshotOf(l) { if (!l) return null; const { id, ...rest } = l; return rest; }
+        async function restoreLinks(docs) {
+            try {
+                const batch = writeBatch(db);
+                docs.forEach(d => batch.set(doc(linksRef), d));
+                await batch.commit();
+                toast(`ĐÃ KHÔI PHỤC ${docs.length} TÀI LIỆU`);
+            } catch (err) { toast('Khôi phục thất bại: ' + (err.message || ''), 'err'); }
+        }
+
+        // ---------- Dán / thả đường dẫn ở bất kỳ đâu → mở biểu mẫu điền sẵn ----------
+        function quickAddFromText(text) {
+            const t = (text || '').trim().split(/\s+/)[0];
+            if (!t || !/^https?:\/\/\S+$/i.test(t) && !/^[\w-]+(\.[\w-]+)+(\/\S*)?$/i.test(t)) return false;
+            toggleAddForm(true);
+            fUrlInput.value = (text || '').trim();
+            triggerUrlFetch(true);
+            toast('ĐÃ NHẬN ĐƯỜNG DẪN — KIỂM TRA RỒI NHẬP KHO');
+            return true;
+        }
+        document.addEventListener('paste', (e) => {
+            if (appScreen.classList.contains('hidden') || !addFormContainer.classList.contains('hidden')) return;
+            const tag = (document.activeElement?.tagName || '').toUpperCase();
+            if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+            if (quickAddFromText(e.clipboardData?.getData('text'))) e.preventDefault();
+        });
+        window.addEventListener('dragover', (e) => { if (!draggingId && e.dataTransfer?.types?.includes('text/uri-list')) e.preventDefault(); });
+        window.addEventListener('drop', (e) => {
+            if (draggingId || appScreen.classList.contains('hidden') || !addFormContainer.classList.contains('hidden')) return;
+            const txt = e.dataTransfer?.getData('text/uri-list') || e.dataTransfer?.getData('text/plain');
+            if (txt && quickAddFromText(txt)) e.preventDefault();
+        });
+
+        // ---------- Kéo thẻ hồ sơ (máy tính): thả vào tab ngăn ở renderFolderBar ----------
+        let draggingId = null;
+        grid.addEventListener('dragstart', (e) => {
+            const card = e.target.closest('[data-card]');
+            if (!card) return;
+            cancelPress();
+            draggingId = card.dataset.card;
+            card.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', 'lv:' + draggingId);
+        });
+        grid.addEventListener('dragend', () => {
+            draggingId = null;
+            grid.querySelectorAll('.dragging').forEach(c => c.classList.remove('dragging'));
+            document.querySelectorAll('.drop-on').forEach(c => c.classList.remove('drop-on'));
+        });
+
+        // ---------- Nhấn giữ thẻ (điện thoại) → bật chế độ chọn nhiều ----------
+        let pressTimer = null, pressFired = false;
+        function cancelPress() { clearTimeout(pressTimer); pressTimer = null; }
+        grid.addEventListener('touchstart', (e) => {
+            const card = e.target.closest('[data-card]');
+            if (!card || selectMode || e.target.closest('a, button, [role="button"]')) return;
+            cancelPress();
+            pressTimer = setTimeout(() => {
+                pressTimer = null; pressFired = true;
+                setTimeout(() => { pressFired = false; }, 600);   // thẻ bị vẽ lại → cú click ảo có thể không tới, tự nhả chốt
+                setSelectMode(true);
+                toggleSelect(card.dataset.card);
+                if (navigator.vibrate) navigator.vibrate(15);
+            }, 500);
+        }, { passive: true });
+        ['touchend', 'touchmove', 'touchcancel'].forEach(ev => grid.addEventListener(ev, cancelPress, { passive: true }));
+        window.addEventListener('scroll', cancelPress, { passive: true });
+
+        // ---------- Hàng loạt: chép URL & mở tất cả ----------
+        document.getElementById('bulk-copy').addEventListener('click', () => {
+            const urls = [...selected].map(id => (allLinks.find(x => x.id === id) || {}).url || '').filter(Boolean);
+            if (!urls.length) { toast('CHƯA CHỌN HỒ SƠ NÀO', 'warn'); return; }
+            navigator.clipboard.writeText(urls.join('\n'))
+                .then(() => toast(`ĐÃ CHÉP ${urls.length} ĐƯỜNG DẪN`))
+                .catch(() => toast('Không sao chép được', 'err'));
+        });
+        document.getElementById('bulk-open').addEventListener('click', () => {
+            const links = [...selected].map(id => allLinks.find(x => x.id === id)).filter(l => l && linkRevealed(l));
+            if (!links.length) { toast('CHƯA CHỌN HỒ SƠ MỞ ĐƯỢC NÀO', 'warn'); return; }
+            links.forEach(l => { bumpOpen(l.id); window.open(l.url, '_blank', 'noopener'); });
+            toast(links.length > 5 ? `ĐANG MỞ ${links.length} TÀI LIỆU — TRÌNH DUYỆT CÓ THỂ CHẶN BỚT` : `ĐANG MỞ ${links.length} TÀI LIỆU`);
+            setSelectMode(false);
+        });
+
+        // ---------- Menu tiện ích: chép danh sách · xuất sao lưu · phím tắt ----------
+        const utilMenu = document.getElementById('util-menu');
+        document.getElementById('util-btn').addEventListener('click', (e) => { e.stopPropagation(); utilMenu.classList.toggle('hidden'); });
+        document.addEventListener('click', () => utilMenu.classList.add('hidden'));
+        document.getElementById('util-copy-all').addEventListener('click', () => {
+            if (!currentList.length) { toast('KHÔNG CÓ HỒ SƠ NÀO ĐANG HIỂN THỊ', 'warn'); return; }
+            const txt = currentList.map(l => `- [${(l.title || '').trim() || hostOf(l.url || '')}](${l.url || ''})`).join('\n');
+            navigator.clipboard.writeText(txt)
+                .then(() => toast(`ĐÃ CHÉP ${currentList.length} HỒ SƠ (DẠNG MARKDOWN)`))
+                .catch(() => toast('Không sao chép được', 'err'));
+        });
+        document.getElementById('util-export').addEventListener('click', () => {
+            // Sao lưu nội dung hồ sơ — KHÔNG kèm mật mã đã băm
+            const data = allLinks.map(l => ({
+                url: l.url || '', title: l.title || '', note: l.note || '',
+                folder: (folderById(l.folderId) || {}).name || '', pinned: !!l.pinned,
+                createdAt: l.createdAt?.seconds ? new Date(l.createdAt.seconds * 1000).toISOString() : ''
+            }));
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+            a.download = 'ho-so-mat-' + new Date().toISOString().slice(0, 10) + '.json';
+            a.click();
+            URL.revokeObjectURL(a.href);
+            toast(`ĐÃ XUẤT ${data.length} HỒ SƠ RA TỆP SAO LƯU`);
+        });
+
+        // ---------- Bảng phím tắt ----------
+        const keysModal = document.getElementById('keys-modal');
+        keysModal.querySelectorAll('[data-close-keys]').forEach(el => el.addEventListener('click', () => keysModal.classList.add('hidden')));
+        document.getElementById('util-keys').addEventListener('click', () => keysModal.classList.remove('hidden'));
 
         // Kích hoạt unlock SAU KHI toàn bộ hàm, biến DOM và sự kiện đã được khởi tạo hoàn tất (tránh lỗi TDZ ReferenceError)
         try {

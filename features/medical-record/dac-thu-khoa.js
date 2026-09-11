@@ -216,6 +216,8 @@ function dungCong() {
                     <ul class="kc-net">${h.net.map(n => `<li>${esc(n)}</li>`).join('')}</ul>
                 </button>`;
     }).join('')}</div>
+            <p class="kc-foot"><a class="kc-mau" href="tao-benh-an.html?id=BA-MAU"><i
+                class="fas fa-book-open-reader"></i> Chưa biết bắt đầu từ đâu? Xem bệnh án mẫu đã viết xong</a></p>
             <p class="kc-foot"><i class="fas fa-keyboard"></i> Bấm phím 1 – 5 để chọn nhanh.
                 Thư mục đợt thực hành có ghi chuyên khoa thì lần sau trang tự chuyển, không hỏi nữa.</p>
         </div>`;

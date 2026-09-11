@@ -15314,3 +15314,161 @@
             justify-content: flex-end;
             margin: 6px 0 2px;
         }
+
+
+        /* =====================================================================
+           BỆNH ÁN MẪU (benh-an-mau.js) — dải băng hai mặt.
+           Mặt "mời xem" luôn hiện ở mọi bệnh án; mặt "đang xem bản mẫu" chỉ hiện
+           khi <html data-mau="1">. Dùng hai khối cứng trong HTML rồi ẩn/hiện
+           bằng CSS thay vì dựng bằng JS: không có dòng nào chạy khi trang mở.
+           ===================================================================== */
+        .mau-bar {
+            margin: 10px 0 4px;
+        }
+
+        html[data-mau="1"] .mau-moi,
+        html:not([data-mau="1"]) .mau-dang {
+            display: none;
+        }
+
+        /* ---- Mặt 1: lời mời, nhạt và nhỏ, không giành chỗ của biểu mẫu ---- */
+        .mau-moi {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 0;
+            padding: 7px 12px;
+            border: 1px dashed #f5c6dc;
+            border-radius: 14px;
+            background: #fffafc;
+            font-size: var(--fs-hint);
+            color: var(--muted);
+        }
+
+        .mau-moi>i {
+            color: #ec4899;
+        }
+
+        .mau-go {
+            font-weight: 700;
+            color: #be185d;
+            text-decoration: none;
+            border-bottom: 1px solid currentColor;
+        }
+
+        .mau-go:hover {
+            color: #9d174d;
+        }
+
+        /* ---- Mặt 2: đang mở bản mẫu — phải nhìn là biết ngay ---- */
+        .mau-dang {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 0;
+            padding: 11px 14px;
+            border-radius: 16px;
+            color: #7c3f00;
+            font-size: var(--fs-hint);
+            line-height: 1.45;
+            border: 1.5px solid #f0b429;
+            /* Vạch chéo: dấu hiệu quy ước của "bản demo, không phải hồ sơ thật" */
+            background:
+                repeating-linear-gradient(135deg, rgba(240, 180, 41, .13) 0 10px, rgba(240, 180, 41, 0) 10px 20px),
+                #fffbeb;
+        }
+
+        .mau-tag {
+            flex: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 11px;
+            border-radius: 999px;
+            background: #f0b429;
+            color: #4a2600;
+            font-weight: 800;
+            font-size: 12px;
+            letter-spacing: .04em;
+            white-space: nowrap;
+        }
+
+        .mau-txt {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .mau-act {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .mau-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 13px;
+            border-radius: 12px;
+            border: 1px solid #f0b429;
+            background: #fff;
+            color: #7c3f00;
+            font-weight: 700;
+            font-size: 13px;
+            white-space: nowrap;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .mau-btn.is-key {
+            background: #f0b429;
+            border-color: #d99e10;
+            color: #3d2000;
+        }
+
+        .mau-btn:active {
+            transform: scale(.96);
+        }
+
+        /* Viền vàng quanh cả trang: cuộn xuống giữa bệnh án vẫn biết đang xem bản mẫu */
+        html[data-mau="1"] .page-card {
+            border-color: #f0b429;
+            box-shadow: 0 0 0 3px rgba(240, 180, 41, .18), 0 20px 40px -24px rgba(124, 63, 0, .35);
+        }
+
+        @media (max-width: 640px) {
+            .mau-dang {
+                padding: 10px 12px;
+                gap: 8px;
+            }
+
+            .mau-act {
+                width: 100%;
+            }
+
+            .mau-btn {
+                flex: 1;
+                justify-content: center;
+            }
+        }
+
+        /* Lối vào bệnh án mẫu ngay trên cổng chọn khoa — chỗ người mới nhìn
+           thấy đầu tiên, lúc chưa hình dung được trang này viết ra cái gì. */
+        .kc-mau {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 6px 13px;
+            border-radius: 999px;
+            border: 1px solid #f0b429;
+            background: #fffbeb;
+            color: #7c3f00;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        .kc-mau:hover {
+            background: #fef3c7;
+        }
