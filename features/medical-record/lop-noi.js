@@ -22,13 +22,13 @@
    (.ba-scroll, .ol-rail, #toast-container, .pv-fab, #logic-inspector-bar)
    và không gồm bong bóng gợi ý (.ta-pop, .nl-assist, .dt-kb, .nl-peek). */
 const LOP = ['#mach-tram', '#ls-box', '#pt-box', '#tc-sheet', '#ba-cmd', '#soi-panel',
-    '#sec-sheet', '#md-preview', '#map-overlay', '#net-overlay', '#tb',
+    '#sec-sheet', '#md-preview', '#map-overlay', '#net-overlay', '#tb', '#gg-sheet',
     '.nl-modal', '.pv', '.pad', '.dt-full', '.dt-lp', '.blx-slide',
     '.sp-modal', '.lp-modal'].join(',');
 
 /* Nút đóng sẵn có của từng lớp. Escape bấm hộ nút này chứ không tự ẩn lớp —
    để hàm đóng thật của module còn chạy (nó còn gỡ body.tb-on, clearInterval…). */
-const NUT_DONG = ['[data-mach-close]', '[data-tc-close]', '[data-cmd-close]', '[data-ls-close]',
+const NUT_DONG = ['[data-gg-close]', '[data-mach-close]', '[data-tc-close]', '[data-cmd-close]', '[data-ls-close]',
     '[data-pt-close]', '[data-sec-close]', '[data-mdp-close]', '[data-map-close]',
     '[data-nl-close]', '[data-sp-close]', '[data-lp-close]',
     '[data-p="close"]', '[data-k="close"]', '[data-s="close"]', '[data-f="close"]',

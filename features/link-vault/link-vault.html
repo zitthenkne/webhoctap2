@@ -216,6 +216,23 @@
         .photo-frame { border-bottom: var(--border-heavy); }
         .dossier.pinned, article.pinned { border-color: var(--color-stamp); }
 
+        /* ===== Hồ sơ NIÊM PHONG — nhìn từ xa là biết không mở được ===== */
+        .sealed { background: #E1D6BF; border-color: var(--color-redact); box-shadow: 6px 6px 0 var(--color-stamp); }
+        .sealed:hover { box-shadow: 10px 10px 0 var(--color-stamp); }
+        .sealed.pinned { border-color: var(--color-stamp); }
+        /* dải cảnh báo kẻ chéo chạy suốt mép trên — dấu hiệu nhận ra nhanh nhất */
+        .seal-hazard { height: 12px; flex: none; border-bottom: var(--border-heavy);
+            background: repeating-linear-gradient(45deg, var(--color-ink) 0 9px, var(--color-stamp) 9px 18px); }
+        /* khung ảnh thành khối mực đen có kẻ chéo mờ thay cho ảnh xem trước */
+        .sealed .photo-frame { background: var(--color-redact); color: var(--text-invert);
+            background-image: repeating-linear-gradient(-45deg, rgba(244, 235, 217, .06) 0 6px, transparent 6px 15px); }
+        /* băng niêm phong đỏ vắt chéo qua khung ảnh */
+        .seal-band { position: absolute; left: -14%; right: -14%; top: 60%; rotate: -8deg; z-index: 15;
+            background: var(--color-stamp); color: #fff; text-align: center; padding: 5px 0;
+            font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: .34em;
+            border-top: 2px solid rgba(10, 10, 10, .45); border-bottom: 2px solid rgba(10, 10, 10, .45); }
+        .seal-code { font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: .12em; opacity: .75; }
+
         .toast-af { position: fixed; bottom: 1.5rem; left: 50%; translate: -50%; z-index: 80; display: flex; align-items: center; gap: .6rem; max-width: 92vw; background: var(--color-ink); color: var(--text-invert); border: 2px solid var(--color-paper); box-shadow: 4px 4px 0 var(--color-redact); font-size: .82rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; padding: .8rem 1.3rem; }
         .toast-warn { background: #7A5A00; }
         .toast-err { background: var(--color-stamp); }
@@ -750,6 +767,31 @@
         });
         gateInput.addEventListener('input', () => gateError.classList.add('hidden'));
 
+        // Lối tắt cho chủ kho: giữ Shift bấm Z rồi bấm T (trong 2 giây).
+        // Dùng được ở HAI chỗ: cổng vào kho, và ô hỏi mật mã của từng link/ngăn
+        // (ở đó nó tương đương gõ đúng mã quyền năng → mở toàn bộ).
+        // Gõ NỐI TIẾP chứ không bắt giữ cả 3 phím cùng lúc — giữ cùng lúc rất khó bấm,
+        // gõ lần lượt thì chỉ ra chữ 'ZT' trong ô mật mã chứ không mở được kho.
+        // Dùng e.code vì khi giữ Shift thì e.key thành 'Z'/'T' (hoa).
+        let shiftZAt = 0;
+        document.addEventListener('keydown', (e) => {
+            const oCong = !gateScreen.classList.contains('hidden');
+            const oHoiMa = !pwModal.classList.contains('hidden');
+            if (!oCong && !oHoiMa) return;
+            if (e.code === 'KeyZ' && e.shiftKey) { shiftZAt = Date.now(); return; }
+            if (e.code !== 'KeyT' || Date.now() - shiftZAt > 2000) { shiftZAt = 0; return; }
+            e.preventDefault();                   // chặn chữ 't' lọt vào ô
+            shiftZAt = 0;
+            if (oCong) {
+                gateInput.value = '';             // xoá chữ 'Z' vừa lọt vào trước đó
+                try { sessionStorage.setItem(UNLOCK_KEY, '1'); } catch (_) {}
+                unlock();
+            } else {
+                pwInput.value = '';
+                closePw(MASTER_KEY);              // đi đúng đường cũ: tryUnlock bật quyền toàn phần
+            }
+        });
+
         // ---------- Trạng thái ----------
         let allLinks = [], allFolders = [];
         let activeFolder = '__all__';
@@ -1088,23 +1130,28 @@
             if (!revealed) {
                 // ----- Hồ sơ NIÊM PHONG: chỉ hiện danh xưng + trích yếu, giấu link -----
                 return `
-                <article draggable="true" data-card="${esc(l.id)}" class="dossier paper-card${pinCls} overflow-hidden flex flex-col pop-in relative${selClass(l.id)}">${checkOverlay()}
-                    <div class="relative h-40 overflow-hidden bg-ink photo-frame flex items-center justify-center">
+                <article draggable="true" data-card="${esc(l.id)}" class="dossier paper-card sealed${pinCls} overflow-hidden flex flex-col pop-in relative${selClass(l.id)}">${checkOverlay()}
+                    <div class="seal-hazard" aria-hidden="true"></div>
+                    <div class="relative h-40 overflow-hidden photo-frame flex items-center justify-center">
                         <div class="text-center z-10 p-4">
-                            <div class="w-14 h-14 mx-auto flex items-center justify-center text-2xl mb-2 border-2 border-current"><i class="fas fa-lock"></i></div>
-                            <div class="text-xs font-bold tracking-[.25em] uppercase">TÀI LIỆU NIÊM PHONG</div>
+                            <div class="w-14 h-14 mx-auto flex items-center justify-center text-2xl border-2 border-current"><i class="fas fa-lock"></i></div>
                         </div>
+                        <div class="seal-band" aria-hidden="true">NIÊM PHONG · KHÔNG PHẬN SỰ MIỄN VÀO</div>
                         <span class="stamp stamp-normal stamp-abs stamp-br text-sm">SEALED</span>
                         ${pinChip}
                         ${folderChip}
                     </div>
                     <div class="p-5 flex flex-col gap-2 flex-1">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="seal-code">HỒ SƠ ${esc(String(l.id).slice(-5).toUpperCase())}</span>
+                            <span class="seal-code">MỨC 2 · HẠN CHẾ</span>
+                        </div>
                         <h3 class="font-bold text-base sm:text-lg leading-snug break-words line-clamp-2 uppercase">${hi(title)}</h3>
                         <p class="text-xs c-stamp font-bold uppercase tracking-[.06em] flex items-center gap-1.5"><i class="fas fa-shield-halved text-xs"></i> Cần mật mã để truy cập</p>
                         ${l.note ? `<p class="text-sm font-medium paper-flat px-3.5 py-2.5 break-words mt-1.5 leading-relaxed">${hi(l.note)}</p>` : ''}
                         <div class="flex items-center gap-2 mt-auto pt-4">
                             <button type="button" data-open-locked="${esc(l.id)}"
-                                class="flex-1 text-center py-2.5 btn-ink text-xs sm:text-sm font-bold flex items-center justify-center gap-2">
+                                class="flex-1 text-center py-2.5 btn-danger text-xs sm:text-sm font-bold flex items-center justify-center gap-2">
                                 <i class="fas fa-key"></i> NHẬP MẬT MÃ
                             </button>
                             <button type="button" data-edit="${esc(l.id)}" title="Hiệu chỉnh" aria-label="Hiệu chỉnh"

@@ -2,7 +2,10 @@
 import { showToast } from '../../core/utils.js';
 import { applyGuide, guideOn, setGuide } from '../../core/guide.js';
 import { getRecord, saveRecord, syncFromCloud, authReady } from './record-store.js';
-import { MAU_ID, benhAnMau } from './benh-an-mau.js';
+/* benh-an-mau.js nặng 44KB toàn chữ của MỘT ca minh họa, mà chỉ dùng khi mở
+   ?id=BA-MAU. Chép hằng số id ra đây rồi import() lúc cần — record-store.js
+   đã làm y hệt vì đúng lý do này. */
+const MAU_ID = 'BA-MAU';
 import { initCls, getCls, setCls } from './cls-editor.js';
 import { abnormalItems, refText } from './cls-shared.js';
 import { initHistory, getSteps, setSteps, calcOnset, buildProse, missingDetails, refreshSteps,
@@ -2962,7 +2965,7 @@ $('mau-chep')?.addEventListener('click', async () => {
 
 (async function loadExisting() {
     applyFolder();   // ap dung ngay, khong doi Firebase tra loi
-    let rec = LA_MAU ? benhAnMau() : getRecord(recordId);
+    let rec = LA_MAU ? (await import('./benh-an-mau.js')).benhAnMau() : getRecord(recordId);
     if (!rec && await authReady()) {
         // Bệnh án có thể được tạo ở máy khác
         await syncFromCloud();

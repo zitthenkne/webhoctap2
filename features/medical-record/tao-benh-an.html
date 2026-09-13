@@ -7,11 +7,23 @@
     <title>Bệnh án điện tử chi tiết</title>
     <link rel="icon" type="image/png" href="../../assets/logo.png">
     <script src="../../pwa-install.js" defer></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Bắt tay sẵn với ba máy chủ ngoài. Không có mấy dòng này thì phông chữ
+         biểu tượng phải đợi: mở kết nối cdnjs (DNS + TCP + TLS) rồi mới tải
+         CSS, đọc xong CSS mới biết cần tệp .woff2 nào rồi lại đợi kết nối
+         fonts.gstatic. Đo trên mạng 4G: ~380ms chỉ để chờ bắt tay.
+         Riêng tệp phông fa-solid-900 thì tải LUÔN, khỏi đợi đọc xong CSS —
+         561 biểu tượng của trang đều nằm trong tệp này. -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" as="font" type="font/woff2" crossorigin
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Bỏ nét 500 của cả hai phông: trang có 14 chỗ dùng, mà Nunito/Quicksand
+         nét 400 và 600 kề ngay hai bên nên mắt không phân biệt được. 8 tệp
+         phông còn 6 — bớt hai lượt tải ngay lúc trang đang bận nhất. -->
     <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=Quicksand:wght@500;600;700&display=swap">
+        href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Quicksand:wght@600;700&display=swap">
     <!-- Dải băng "BỆNH ÁN MẪU" và viền vàng quanh trang bật bằng CSS theo dấu này.
          Đặt ngay trong <head> chứ không đợi module: để trang không kịp nháy một
          lần dải băng thường rồi mới đổi sang dải băng mẫu. -->
@@ -26,10 +38,14 @@
          tiên; đảo thứ tự là đổi giao diện. Thêm class Tailwind mới thì chạy lại:
          node tailwind-dong-bang.mjs -->
     <link rel="stylesheet" href="tailwind-benh-an.css">
+    <!-- DỌN GỌN GIAO DIỆN (gon-giao-dien.css + .js). Phải đứng SAU hai tệp trên:
+         nó đè luật của cả tao-benh-an.css lẫn class Tailwind. -->
+    <link rel="stylesheet" href="gon-giao-dien.css">
     <!-- Nạp sẵn cả cây module: không có mấy dòng này trình duyệt phải dò từng lớp import
          (tao-benh-an.js -> editor -> data...) nên mất mấy vòng mạng mới bắt đầu tải hết. -->
     <link rel="modulepreload" href="tao-benh-an.js">
     <link rel="modulepreload" href="tao-benh-an-them.js">
+    <link rel="modulepreload" href="gon-giao-dien.js">
     <link rel="modulepreload" href="dac-thu-khoa.js">
     <link rel="modulepreload" href="nhap-lien-ket.js">
     <link rel="modulepreload" href="../../core/firebase-init.js">
@@ -42,7 +58,6 @@
     <link rel="modulepreload" href="benh-an-text.js">
     <link rel="modulepreload" href="benh-data.js">
     <link rel="modulepreload" href="benh-kem-list.js">
-    <link rel="modulepreload" href="benh-an-mau.js">
     <link rel="modulepreload" href="benh-su-editor.js">
     <link rel="modulepreload" href="bien-luan-data.js">
     <link rel="modulepreload" href="bien-luan-phanbiet.js">
@@ -86,8 +101,10 @@
     <link rel="modulepreload" href="tuyen-truoc-list.js">
     <link rel="modulepreload" href="ui-ask.js">
     <link rel="modulepreload" href="ui-fold.js">
-    <link rel="modulepreload" href="mach-benh-an.js">
-    <link rel="modulepreload" href="thuan-tay.js">
+    <!-- benh-an-mau.js (44KB), toan-canh.js, bien-luan-them.js, mach-benh-an.js
+         và thuan-tay.js KHÔNG nạp sẵn nữa — xem hai khối <script> ở cuối trang.
+         Cộng lại 196KB, tức 12% toàn bộ JS của trang, mà không dòng nào chạy
+         trước khi người viết mở một lớp nổi hoặc mở bệnh án mẫu. -->
     <!-- ==================================================================
          MÀN "TOÀN CẢNH CA BỆNH" (toan-canh.js) + các lối tắt sắp xếp
          Đặt sau khối <style> chính để khỏi phải chen vào giữa 5.500 dòng
@@ -131,9 +148,11 @@
 
 
     <!-- =====================================================================
-         GỌN MÁY TÍNH (gon-may-tinh.js) — chỉ ở màn hình ≥641px.
-         Hàng 15 nút công cụ thu vào một nút "Công cụ" ở hàng tiêu đề, bảy thẻ
-         mục về một hàng, đầu trang bớt đệm. Điện thoại không đổi pixel nào.
+         DỌN GỌN GIAO DIỆN (gon-giao-dien.css + gon-giao-dien.js) — mọi cỡ màn.
+         Thay gon-may-tinh.js (file đó chỉ lo màn ≥641px). Năm dải ngang ở đầu
+         trang gom còn hai, 19 nút công cụ vào một sổ chia bốn nhóm có ô lọc,
+         hộp Cài đặt và viên trạng thái dọn về đúng chỗ của chúng.
+         Không nút nào mất: mọi thứ chỉ đổi chỗ, node giữ nguyên id.
          ===================================================================== -->
 
 </head>
@@ -2512,21 +2531,47 @@
     <script type="module" src="dac-thu-khoa.js"></script>
     <script type="module" src="tao-benh-an-them.js"></script>
     <script type="module" src="nhap-lien-ket.js"></script>
-    <script type="module" src="toan-canh.js"></script>
-    <script type="module" src="bien-luan-them.js"></script>
-    <script type="module" src="mach-benh-an.js"></script>
-    <script type="module" src="thuan-tay.js"></script>
+    <!-- Dọn gọn giao diện: phải đứng SAU tao-benh-an-them.js (nó dời node của
+         file đó và thay listener của nút ⋯) và SAU tao-benh-an.js (nó dời
+         #ba-settings, #status-pill mà hai thứ này được gắn ở đó). -->
+    <script type="module" src="gon-giao-dien.js"></script>
+
+    <!-- =====================================================================
+         BỐN MODULE LỚP NỔI NẠP TRỄ — 152KB
+         toan-canh · bien-luan-them · mach-benh-an · thuan-tay đều chỉ sống
+         bên trong một bảng phủ mà người viết phải tự mở. Nạp sớm thì vừa tải
+         152KB lúc trang đang bận nhất, vừa tốn thêm bốn lượt quét cả cây DOM
+         2.500 node để gắn listener — trong khi phần lớn phiên viết bệnh án
+         không mở lớp nào cả.
+         Nạp khi nào: chạm/gõ lần ĐẦU tiên, hoặc lúc trình duyệt rảnh, cái nào
+         đến trước. Sổ Công cụ còn `await window.napLopNoi()` trước khi mở, nên
+         dù người viết bấm ngay giây đầu cũng không bấm trúng nút chưa có chủ.
+         Bốn file này là NGỌN (không file nào import chúng) nên nạp trễ không
+         làm đứt cây import của ai.
+         ===================================================================== -->
+    <script type="module">
+        const NGON = ['./toan-canh.js', './bien-luan-them.js', './mach-benh-an.js', './thuan-tay.js'];
+        let loiHua = null;
+        const nap = () => (loiHua ||= Promise.all(
+            NGON.map(f => import(f).catch(e => console.warn('Không nạp được', f, e)))));
+        window.napLopNoi = nap;
+        addEventListener('pointerdown', nap, { once: true, capture: true, passive: true });
+        addEventListener('keydown', nap, { once: true, capture: true });
+        if (window.requestIdleCallback) requestIdleCallback(nap, { timeout: 2500 });
+        else setTimeout(nap, 1800);
+    </script>
 
     <!-- Nạp theo ĐÚNG loại màn hình đang dùng. Bốn file điện thoại cộng lại 90KB,
-         máy tính không bao giờ chạy tới một dòng nào của chúng; gon-may-tinh.js thì
-         ngược lại. Xoay máy / kéo hẹp cửa sổ thì nạp nốt phần còn thiếu — import()
-         nhớ sẵn module đã nạp nên bấm bao nhiêu lần cũng chỉ tải một lần.
-         Bốn file này là NGỌN (không file nào import chúng) nên nạp trễ không hỏng gì. -->
+         máy tính không bao giờ chạy tới một dòng nào của chúng. Xoay máy / kéo hẹp
+         cửa sổ thì nạp nốt phần còn thiếu — import() nhớ sẵn module đã nạp nên bấm
+         bao nhiêu lần cũng chỉ tải một lần.
+         Bốn file này là NGỌN (không file nào import chúng) nên nạp trễ không hỏng gì.
+         gon-may-tinh.js đã nghỉ: gon-giao-dien.js làm cả hai việc của nó (sổ công
+         cụ, vạch % trên thẻ mục) và làm cho MỌI cỡ màn hình chứ không riêng ≥641px. -->
     <script type="module">
         const dt = matchMedia('(max-width: 640px)');
-        const nap = () => (dt.matches
-            ? ['./tao-benh-an-dt.js', './tao-benh-an-tungcau.js', './tam-tay.js', './mot-tay.js']
-            : ['./gon-may-tinh.js']).forEach(f => import(f).catch(e => console.warn('Không nạp được', f, e)));
+        const nap = () => { if (dt.matches) ['./tao-benh-an-dt.js', './tao-benh-an-tungcau.js', './tam-tay.js', './mot-tay.js']
+            .forEach(f => import(f).catch(e => console.warn('Không nạp được', f, e))); };
         nap();
         dt.addEventListener('change', nap);
     </script>

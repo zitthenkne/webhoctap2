@@ -1,4 +1,9 @@
 /* =====================================================================
+   ĐÃ NGHỈ — KHÔNG TRANG NÀO NẠP FILE NÀY NỮA.
+   gon-giao-dien.js làm cả hai việc dưới đây, và làm cho MỌI cỡ màn hình
+   chứ không riêng ≥641px. Giữ lại để đối chiếu; xoá được bất cứ lúc nào.
+   =====================================================================
+
    gon-may-tinh.js — DỌN GỌN ĐẦU TRANG TRÊN MÁY TÍNH (≥641px)
 
    Đo trước khi sửa (Chrome 1440×900, mục I):

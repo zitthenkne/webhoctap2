@@ -1,0 +1,545 @@
+/* =====================================================================
+   gon-giao-dien.css — DỌN GỌN GIAO DIỆN TRANG VIẾT BỆNH ÁN
+   Cặp với gon-giao-dien.js. Mọi luật đều gắn `body.gg-on` (do JS bật) nên
+   tắt file JS là trang trở lại y như cũ, không phải gỡ CSS.
+
+   Đo trước khi sửa (Chrome 1440×900, mục I, cuộn lên đỉnh):
+     · Đầu trang + dải mẫu + hàng % + dải mục + hộp Cài đặt = 5 dải ngang
+       riêng biệt, ô nhập đầu tiên nằm ở 393px.
+     · Thanh đáy 7 món, trong đó 3 món (Tìm mục · Cài đặt · trạng thái) đã
+       có chỗ khác trên trang.
+     · Hai cách mở CÙNG một hàng công cụ: nút "Công cụ" (máy tính) và nút ⋯
+       (điện thoại), hai kiểu bày khác hẳn nhau.
+
+   Sau: 5 dải còn 2 (đầu trang · dải mục có vạch % chạy trên nóc), ô nhập
+   đầu tiên ở 214px; thanh đáy còn 4 món; một sổ Công cụ duy nhất chia
+   nhóm, có ô lọc, dùng chung cho mọi cỡ màn hình.
+
+   KHÔNG nút nào bị xoá. JS chỉ DỜI node sẵn có vào sổ — mọi listener của
+   tao-benh-an-them.js, mach-benh-an.js, thuan-tay.js, tao-benh-an-dt.js…
+   vẫn gắn nguyên trên chính node đó.
+   ===================================================================== */
+
+
+/* =====================================================================
+   1. DẢI ĐẦU: TIẾN ĐỘ + MỤC GỘP THÀNH MỘT KHỐI DÍNH
+   Trước: thanh % là một hàng riêng (5px + 12px lề), dải mục là hàng nữa,
+   và chỉ dải mục mới dính khi cuộn. Nay hai thứ nằm trong .gg-rail, dính
+   cùng nhau: vạch % thành nóc của dải mục, không tốn hàng nào.
+   ===================================================================== */
+body.gg-on .gg-rail {
+    position: sticky;
+    top: 0;
+    z-index: 26;
+    margin: 0 -6px 14px;
+    padding: 0 6px;
+    background: rgba(255, 252, 254, .96);
+    box-shadow: 0 8px 16px -14px rgba(190, 90, 140, .6);
+}
+
+/* Hai con bỏ hết tính dính/lề riêng — dải bọc lo cả hai */
+body.gg-on .gg-rail > div.sticky-tabs {
+    position: static;
+    z-index: auto;
+    margin: 0;
+    padding: 0;
+    background: none;
+    box-shadow: none;
+    border-bottom: 1px solid var(--brand-line);
+}
+
+body.gg-on .gg-rail > .overall-track {
+    height: 3px;
+    margin: 0;
+    border-radius: 0;
+}
+
+/* Cuộn xuống thì dải nổi rõ lên một nấc cho biết nó đang dính, chứ không lẫn
+   vào nền trang */
+body.gg-on.gg-cuon .gg-rail {
+    background: rgba(255, 252, 254, .99);
+    box-shadow: 0 10px 20px -14px rgba(190, 90, 140, .75);
+}
+
+/* Điện thoại: dải ăn hết bề ngang thẻ như dải mục cũ vẫn làm (thẻ đệm 16px) */
+@media (max-width: 640px) {
+    body.gg-on .gg-rail {
+        margin: 0 -16px 10px;
+        padding: 0 12px;
+    }
+}
+
+
+/* =====================================================================
+   2. BẢY THẺ MỤC VỀ MỘT HÀNG Ở MỌI CỠ MÀN HÌNH
+   Phần này vốn nằm trong @media (min-width: 641px) ở tao-benh-an.css nên
+   điện thoại vẫn phải cõng "XIII–XV." và viên phần trăm. Nay dùng chung:
+   số La Mã và viên % giấu đi, phần trăm thành vạch màu dưới chân thẻ.
+   Node chữ GIỮ NGUYÊN (chỉ font-size:0) — thanh ngữ cảnh của tam-tay.js và
+   bảng chọn mục đọc textContent của nó.
+   ===================================================================== */
+body.gg-on #tab-nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+body.gg-on #tab-nav::-webkit-scrollbar { display: none }
+
+body.gg-on .tab-link {
+    position: relative;
+    padding: 7px 12px 10px;
+    gap: 7px;
+    white-space: nowrap;
+}
+
+body.gg-on .tab-link .tab-num { display: none }
+
+body.gg-on .tab-link .tab-progress {
+    width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    font-size: 0;
+    overflow: hidden;
+}
+
+/* ::before là máng, ::after là phần đã điền */
+body.gg-on .tab-link::before,
+body.gg-on .tab-link::after {
+    content: "";
+    position: absolute;
+    left: 12px;
+    bottom: 5px;
+    height: 3px;
+    border-radius: 999px;
+}
+
+body.gg-on .tab-link::before {
+    right: 12px;
+    background: rgba(120, 100, 120, .13);
+}
+
+body.gg-on .tab-link::after {
+    width: calc((100% - 24px) * var(--p, 0) / 100);
+    background: var(--sec, var(--brand));
+    transition: width .25s ease;
+}
+
+body.gg-on .tab-link.active::before { background: rgba(255, 255, 255, .5) }
+body.gg-on .tab-link.active::after { background: #fff }
+
+/* Điện thoại: chữ chỉ hiện ở thẻ đang mở, còn lại là biểu tượng + vạch %.
+   Bảy thẻ có chữ cộng lại 640px, vừa đúng bề ngang máy nên chữ nào cũng bị
+   cắt; để một chữ thôi thì đọc được hẳn mà vẫn thấy đủ bảy mục. */
+@media (max-width: 640px) {
+    body.gg-on .tab-link .tab-text {
+        max-width: 0;
+        overflow: hidden;
+        opacity: 0;
+        transition: max-width .22s ease, opacity .18s ease;
+    }
+
+    body.gg-on .tab-link.active .tab-text {
+        max-width: 13ch;
+        opacity: 1;
+    }
+}
+
+
+/* =====================================================================
+   3. ĐẦU TRANG: MỘT CỤM TRẠNG THÁI THAY VÌ BA CHỖ
+   "Tự động lưu" ở tiêu đề, viên "Đang viết/Hoàn thành" ở thanh đáy và vòng
+   tròn % ở góc phải vốn nói ba nửa của cùng một chuyện. JS dời viên trạng
+   thái lên cạnh dòng "Tự động lưu"; ba thứ thành một cụm đọc một lượt.
+   ===================================================================== */
+body.gg-on .ba-hero { margin-bottom: 10px }
+
+.gg-stat {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    min-width: 0;
+}
+
+.gg-stat > #save-state { margin-top: 0; min-width: 0 }
+
+body.gg-on .gg-stat > #status-pill {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+}
+
+/* Nút "Công cụ" ở hàng tiêu đề — trước chỉ có ở máy tính (gon-may-tinh.js),
+   nay là lối vào chính ở mọi cỡ. Điện thoại thu còn mỗi biểu tượng. */
+body.gg-on .ba-tools-btn {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 38px;
+    padding: 8px 14px;
+    border: 1px solid var(--brand-line);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 700;
+    transition: background .15s ease, border-color .15s ease;
+}
+
+body.gg-on .ba-tools-btn:hover { background: var(--brand-soft) }
+body.gg-on .ba-tools-btn i.fa-chevron-down { font-size: 10px; color: var(--muted) }
+
+body.gg-on.gg-mo .ba-tools-btn {
+    border-color: transparent;
+    background: linear-gradient(135deg, #f77fbd, #b9a9e0);
+    color: #fff;
+}
+
+body.gg-on.gg-mo .ba-tools-btn i { color: #fff }
+
+/* Điện thoại không cần nút này ở đầu trang: nút ⋯ ở thanh đáy mở CÙNG một sổ
+   mà lại nằm trong tầm ngón cái. Giữ nguyên luật ẩn sẵn có của tao-benh-an.css. */
+@media (max-width: 640px) {
+    body.gg-on .ba-tools-btn { display: none }
+    body.gg-on .ba-ring { width: 44px; height: 44px }
+}
+
+
+/* =====================================================================
+   4. DẢI "BỆNH ÁN MẪU" → MỘT CHIP TRONG ĐẦU TRANG
+   Dải mời xem bản mẫu cao 54px và nằm suốt đời trang, kể cả với người đã
+   xem rồi. Nay thu thành chip vàng cạnh tiêu đề, bấm ✕ là tắt hẳn (nhớ
+   trong localStorage). Khi ĐANG mở bản mẫu thì dải cảnh báo "sửa gì cũng
+   không lưu" vẫn hiện nguyên — đó là cảnh báo, không phải quảng cáo.
+   ===================================================================== */
+body.gg-on:not(.gg-mau) .mau-bar { display: none }
+
+.gg-mau-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+    padding: 5px 6px 5px 11px;
+    border-radius: 999px;
+    border: 1px solid #f0d089;
+    background: #fffbeb;
+    color: #7c3f00;
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.gg-mau-chip:hover { background: #fef3c7 }
+
+.gg-mau-chip b {
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    color: #9a6b1a;
+    font-size: 10px;
+}
+
+.gg-mau-chip b:hover { background: #f6e3b4 }
+
+@media (max-width: 640px) {
+    .gg-mau-chip { display: none }
+}
+
+
+/* =====================================================================
+   5. SỔ CÔNG CỤ — MỘT BẢNG DUY NHẤT, CHIA NHÓM, CÓ Ô LỌC
+   Trước: 14 nút phẳng không thứ tự, bày hai kiểu khác nhau tuỳ cỡ màn
+   hình, và hộp "Cài đặt bệnh án" lại là một khối thứ ba ở đầu form.
+   Nay: một bảng, bốn nhóm có tiêu đề, thêm hàng nhảy mục và cả hộp Cài đặt
+   nằm trong đó; gõ vào ô trên cùng là lọc thẳng.
+   ===================================================================== */
+.gg-sheet {
+    position: fixed;
+    inset: 0;
+    z-index: 88;
+}
+
+.gg-sheet.hidden { display: none }
+
+.gg-bg {
+    position: absolute;
+    inset: 0;
+    background: rgba(70, 40, 70, .26);
+}
+
+.gg-panel {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border: 1px solid var(--brand-line);
+    box-shadow: 0 30px 60px -28px rgba(120, 70, 110, .7);
+    overflow: hidden;
+}
+
+.gg-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: none;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, #fffafd, #fff);
+}
+
+.gg-head > i.fa-sliders { color: var(--brand-deep); font-size: 14px }
+
+/* Ô lọc là <div contenteditable> chứ không phải <input> — xem đầu
+   gon-giao-dien.js. Nên phải tự vẽ lấy chữ mờ và tự chặn xuống dòng. */
+.gg-q {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid var(--brand-line);
+    border-radius: 999px;
+    padding: 8px 13px;
+    font-size: 16px;
+    line-height: 1.25;
+    background: var(--field, #fffbfd);
+    color: var(--ink);
+    white-space: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.gg-q::-webkit-scrollbar { display: none }
+
+.gg-q:empty::before {
+    content: attr(data-ph);
+    color: var(--muted);
+    pointer-events: none;
+}
+
+.gg-q:focus {
+    outline: none;
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px rgba(249, 168, 212, .25);
+}
+
+.gg-head > button {
+    flex: none;
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--muted);
+}
+
+.gg-head > button:hover { background: var(--brand-soft); color: var(--brand-deep) }
+
+.gg-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 10px 12px 14px;
+}
+
+.gg-foot {
+    flex: none;
+    padding: 7px 12px;
+    border-top: 1px solid var(--line);
+    background: var(--brand-soft);
+    color: var(--muted);
+    font-size: 11px;
+    text-align: center;
+}
+
+/* ---- Nhóm ---- */
+.gg-grp { margin-bottom: 12px }
+.gg-grp[hidden] { display: none }
+
+.gg-grp > h4 {
+    margin: 0 0 6px 2px;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.gg-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+/* Nút công cụ trong sổ: bỏ kiểu "viên trượt ngang" của hàng cũ */
+body.gg-on .gg-row .ba-tool {
+    flex: 1 1 auto;
+    justify-content: flex-start;
+    min-height: 40px;
+}
+
+body.gg-on .gg-row .ba-tool[hidden] { display: none }
+
+/* Hàng nhảy mục: bảy chip nhỏ, kèm % của từng mục */
+.gg-sec {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 34px;
+    padding: 5px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--muted);
+    font-size: 12.5px;
+    font-weight: 700;
+}
+
+.gg-sec:hover { background: var(--brand-soft); color: var(--brand-deep) }
+
+.gg-sec.is-on {
+    border-color: transparent;
+    background: var(--sec, var(--brand));
+    color: #fff;
+}
+
+.gg-sec i { font-size: 11px; opacity: .8 }
+.gg-sec u { text-decoration: none; font-size: 10.5px; opacity: .75 }
+.gg-sec[hidden] { display: none }
+
+/* ---- Hàng công cụ gốc: trong sổ nó chỉ còn là cái hộp rỗng ---- */
+body.gg-on #ba-tools {
+    position: static;
+    display: block;
+    inset: auto;
+    width: auto;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    animation: none;
+}
+
+/* ---- Hộp "Cài đặt bệnh án" khi đã nằm trong sổ ---- */
+body.gg-on .gg-body > details.ba-set {
+    margin: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+}
+
+body.gg-on .gg-body > details.ba-set > summary { display: none }
+
+body.gg-on .gg-body > details.ba-set .ba-set-body {
+    padding: 0;
+    border: 0;
+    background: none;
+}
+
+/* Máy tính: bảng neo ngay dưới nút "Công cụ" (JS đo rồi đặt top/right) */
+@media (min-width: 641px) {
+    .gg-panel {
+        width: min(560px, calc(100vw - 32px));
+        max-height: 76vh;
+        border-radius: 20px;
+    }
+}
+
+/* Điện thoại: khay trượt lên từ đáy, ngón cái với tới được */
+@media (max-width: 640px) {
+    .gg-panel {
+        left: 0;
+        right: 0;
+        bottom: 0;
+        top: auto !important;
+        width: auto !important;
+        max-height: 86vh;
+        border-radius: 22px 22px 0 0;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    .gg-sheet:not(.hidden) .gg-panel { animation: ggUp .2s ease-out }
+
+    @keyframes ggUp {
+        from { transform: translateY(20px); opacity: .5 }
+    }
+
+    body.gg-on .gg-row .ba-tool { flex: 1 1 calc(50% - 3px) }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .gg-sheet:not(.hidden) .gg-panel { animation: none }
+    body.gg-on .tab-link::after,
+    body.gg-on .tab-link .tab-text { transition: none }
+}
+
+
+/* =====================================================================
+   6. THANH ĐÁY: 7 MÓN CÒN 4
+   Ba món bỏ đi đều CÒN NGUYÊN tính năng, chỉ đổi chỗ:
+     · Tìm mục   → Ctrl K, và nút "Tìm mục" trong sổ Công cụ.
+     · Cài đặt   → cả hộp cài đặt nằm trong sổ Công cụ rồi.
+     · Trạng thái→ dời lên cạnh dòng "Tự động lưu" ở đầu trang.
+   Node vẫn trong DOM (thuan-tay.js, mot-tay.js gọi .click() vào chúng).
+   ===================================================================== */
+body.gg-on #medical-record-form .sticky-actions #dock-search,
+body.gg-on #medical-record-form .sticky-actions #open-settings { display: none }
+
+body.gg-on #medical-record-form .sticky-actions #dock-more {
+    order: -1;
+}
+
+
+/* =====================================================================
+   7. CUỘN MƯỢT — HAI THỨ BẮT MÁY VẼ LẠI MỖI KHUNG HÌNH
+   a) body có ba radial-gradient + background-attachment: fixed. "fixed"
+      buộc trình duyệt vẽ lại cả ba vệt màu theo từng pixel cuộn; đo trên
+      máy tầm trung: ~9ms/khung hình chỉ để tô nền. Nay ba vệt nằm trong
+      một lớp giả position:fixed — máy dựng một lần rồi ghép, cuộn không
+      động tới nó nữa.
+   b) Thanh Lưu ở đáy có backdrop-blur (làm mờ NỀN PHÍA SAU) — món đắt
+      nhất trong bộ hiệu ứng, lại chạy liên tục vì thanh dính. Nền trắng
+      97% nhìn gần như y hệt mà không tốn gì.
+   ===================================================================== */
+html { background: #fdf8fb }
+
+body.gg-on {
+    background: none;
+    background-attachment: scroll;
+}
+
+body.gg-on::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+        radial-gradient(1100px 520px at 6% -10%, #ffe6f2 0%, transparent 62%),
+        radial-gradient(900px 480px at 102% -4%, #efeaff 0%, transparent 58%),
+        radial-gradient(760px 620px at 50% 112%, #fff3e8 0%, transparent 62%),
+        #fdf8fb;
+}
+
+body.gg-on #medical-record-form .sticky-actions {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: rgba(255, 255, 255, .97);
+}
+
+/* Đọc đêm đã có nền riêng — lớp giả phải nhường, kẻo hắt hồng lên nền tối */
+body.gg-on.ba-night::before { display: none }
+
+
+@media print {
+    .gg-sheet, .gg-mau-chip { display: none !important }
+    body.gg-on .gg-rail { position: static; box-shadow: none; background: none }
+}
