@@ -56,6 +56,14 @@ const XN_TIEN_SAN = [['obxn-nhommau', 'nhóm máu – Rhesus'], ['obxn-hbsag', '
 ['obxn-st3', 'siêu âm sinh trắc quý III'], ['obxn-ogtt', 'dung nạp glucose 75 g'],
 ['obxn-gbs', 'cấy GBS']];
 
+const GD_NHAN = [['obgd-ditruyen', 'bệnh di truyền (đái tháo đường, tim mạch, cao huyết áp, thiếu máu)'],
+['obgd-laycheo', 'người sống chung mắc bệnh truyền nhiễm'], ['obgd-ditat', 'dị tật bẩm sinh — chậm phát triển ở người thân trực hệ'],
+['obgd-ungthu', 'ung thư vú — buồng trứng ở người thân trực hệ'], ['obgd-dathai', 'gia đình có người sinh đa thai']];
+const NK_NHAN = [['obnk-nointiet', 'nội tiết'], ['obnk-timmach', 'tim mạch'], ['obnk-hohap', 'hô hấp'],
+['obnk-ganmat', 'gan – mật'], ['obnk-than', 'thận – tiết niệu'], ['obnk-tumien', 'tự miễn'],
+['obnk-thankinh', 'tâm thần – thần kinh'], ['obnk-hiv', 'HIV'], ['obnk-truyenmau', 'truyền máu gần đây'],
+['obnk-thuoc', 'thuốc đang dùng — thuốc lá']];
+
 export function buildModel(r) {
     const h = r.hanhChinh || {}, t = r.tienSu || {}, k = r.khamBenh || {}, s = k.sinhTon || {};
     const ros = r.luocQuaCoQuan || {};
@@ -70,6 +78,8 @@ export function buildModel(r) {
     const d = r.dacThu || {};
     const o = (id, truoc = '', sau = '') => (d[id] ? truoc + d[id] + sau : '');
     const xnTienSan = XN_TIEN_SAN.filter(([id]) => +d[id]).map(([, ten]) => ten).join(', ');
+    const kiemGd = GD_NHAN.filter(([id]) => +d[id]).map(([, t]) => t).join(', ');
+    const kiemNk = NK_NHAN.filter(([id]) => +d[id]).map(([, t]) => t).join(', ');
     const bishop = (() => {
         const n = ['ob-bs-mo', 'ob-bs-xoa', 'ob-bs-lot', 'ob-bs-mat', 'ob-bs-huong'].map(k => parseFloat(d[k]));
         return n.every(x => isFinite(x)) ? `${n.reduce((a, b) => a + b, 0)}/13 điểm` : '';
@@ -84,10 +94,20 @@ export function buildModel(r) {
         ['SpO2', av.spo2, '%'], ['Ghi chú', av.ghiChu, '']
     ];
 
-    return [
+    const pr = r.tienSu?.para || {};
+    const paraSo = [pr.duThang, pr.thieuThang, pr.say, pr.conSong];
+    // PARA đứng ngay dòng hành chính của bệnh án sản khoa, cạnh tuổi sản phụ
+    const paraText = paraSo.some(x => x !== '' && x != null)
+        ? 'PARA ' + paraSo.map(x => x || 0).join('')
+        + ` (${pr.duThang || 0} đủ tháng, ${pr.thieuThang || 0} thiếu tháng, ${pr.say || 0} sảy – bỏ – thai ngoài tử cung, ${pr.conSong || 0} con sống)`
+        : '';
+
+    const muc = [
         ['I. HÀNH CHÍNH', 'fa-user', [
             ['Họ và tên bệnh nhân', h.hoTen],
             ['Tuổi', h.tuoi ? `${h.tuoi}${h.namSinh ? ' (Năm sinh: ' + h.namSinh + ')' : ''}` : h.namSinh],
+            // Mẫu của bộ môn ghi PARA ngay dòng đầu, liền sau tuổi sản phụ
+            ['PARA', r.loaiBenhAn === 'san' ? paraText : ''],
             ['Giới tính', h.gioiTinh], ['Dân tộc', h.danToc], ['Nghề nghiệp', h.ngheNghiep],
             ['Địa chỉ', h.diaChi],
             ['Ngày giờ nhập viện', [h.gioVaoVien, fmtDate(h.ngayVaoVien)].filter(Boolean).join(' ngày ')],
@@ -122,14 +142,29 @@ export function buildModel(r) {
             ['1. Nội khoa', t.noiKhoa], ['2. Thuốc đang dùng tại nhà', t.thuocDangDung],
             ['3. Ngoại khoa', t.ngoaiKhoa], ['4. Sản phụ khoa', t.sanPhuKhoa],
             ['Định tuổi thai', gop(fmtDate(d['ob-lmp2']) && 'kinh áp chót ' + fmtDate(d['ob-lmp2']),
+                o('ob-lmp-songay', 'lần ra huyết gần nhất kéo dài '), o('ob-lmp-luong'),
+                o('ob-lmp-mau'), o('ob-lmp-kemtheo', 'kèm '),
                 o('ob-lmp-tc', 'kỳ kinh chót '),
+                o('ob-tiemchung-truoc', 'tiêm chủng trước mang thai: '),
+                d['ob-us2-hc'] && `HC ${d['ob-us2-hc']} mm`,
                 d['ob-us1-crl'] && `siêu âm quý I ${fmtDate(d['ob-us1-ngay'])} CRL ${d['ob-us1-crl']} mm`,
                 d['ob-us2-bpd'] && `siêu âm ${fmtDate(d['ob-us2-ngay'])} BPD ${d['ob-us2-bpd']} mm`,
                 d['ob-phoi'] && `${d['ob-phoi']} ngày ${fmtDate(d['ob-phoi-ngay'])}`)],
-            ['Tiền căn sản khoa – kế hoạch', gop(o('ob-tc-kethon', 'lập gia đình năm '),
-                o('ob-tc-mongcon'), o('ob-tc-thuthai'), o('ob-tc-solan'),
-                o('ob-tc-kehoach', 'thai lần này '), o('ob-tc-phukhoa', 'bệnh phụ khoa: '),
-                o('ob-tc-mophukhoa'), o('ob-tc-mobung'))],
+            ['Kế hoạch gia đình', gop(o('ob-kh-tranhthai-tg', 'tránh thai: '), o('ob-kh-phathai'),
+                o('ob-kh-tuoithai', 'tuổi thai lúc bỏ '), o('ob-kh-pp'), o('ob-kh-lydo', 'lý do '),
+                o('ob-kh-noi', 'thực hiện tại '), o('ob-kh-bienchung'))],
+            ['Kinh nguyệt – chi tiết', gop(o('ob-mau-tinhchat', 'tính chất máu kinh: '),
+                o('ob-kem-theo', 'triệu chứng kèm theo: '))],
+            ['Tiền căn sản khoa – kế hoạch', gop(o('ob-tc-gravida', 'tổng ', ' lần mang thai'),
+                o('ob-tc-kethon', 'lập gia đình năm '), o('ob-tc-mongcon'), o('ob-tc-thuthai'),
+                o('ob-tc-solan'), o('ob-tc-kehoach', 'thai lần này '),
+                o('ob-tc-phukhoa', 'bệnh phụ khoa: '), o('ob-tc-mophukhoa', 'phẫu thuật cổ tử cung: '),
+                o('ob-tc-mothan', 'phẫu thuật thân tử cung: '),
+                o('ob-tc-mophanphu', 'phẫu thuật buồng trứng – tai vòi: '), o('ob-tc-mobung'))],
+            ['Bảng kiểm tiền sử gia đình', gop(kiemGd && 'ghi nhận ' + kiemGd,
+                +d['obgd-dahoi'] ? 'đã hỏi đủ năm ý, các bệnh còn lại không ghi nhận' : '')],
+            ['Bảng kiểm tiền sử nội khoa', gop(kiemNk && 'ghi nhận bệnh lý ' + kiemNk,
+                +d['obnk-dahoi'] ? 'đã hỏi đủ mười nhóm, các nhóm còn lại không ghi nhận' : '')],
             ['5. Dị ứng', t.diUng], ['6. Môi trường – phơi nhiễm', t.moiTruong],
             ['7. Thói quen', t.thoiQuen], ['8. Gia đình', t.giaDinh],
             ['Cần hỏi trước mổ', [t.truocMo?.gayMe, t.truocMo?.chongDong,
@@ -172,6 +207,9 @@ export function buildModel(r) {
                 o('sxk-khoiu', 'sờ được khối '), o('sxk-go'), o('sxk-nhudong'),
                 o('sxk-tructrang', 'thăm trực tràng: '), o('sxk-thoatvi', 'thoát vị: '),
                 o('sxk-vetmo', 'vết mổ: '), o('sxk-danluu'))],
+            ['Khám bụng sản khoa – nhìn · sờ · nghe', gop(o('ob-nhin'), o('ob-randa'), o('ob-seo'),
+                o('ob-seo-mota'), o('ob-seo-dinh'), o('ob-tt-vitri', 'nghe tim thai rõ nhất ở '),
+                o('ob-tt-nhipdieu', 'nhịp điệu '))],
             ['Leopold – ngôi thai', gop(o('ob-leo1', 'đáy tử cung '), o('ob-leo2'), o('ob-leo3', 'đoạn dưới '),
                 o('ob-leo4', 'độ lọt '), o('ob-the', 'thế '), o('ob-sothai'))],
             ['Chỉ số Bishop', bishop],
@@ -182,7 +220,9 @@ export function buildModel(r) {
             ['Tiên lượng sản khoa (ba chữ P)', gop(o('ob-conso'), o('ob-ga-nguon', 'tuổi thai theo '),
                 o('ob-3p-power', 'Power: '), o('ob-3p-passage', 'Passage: '),
                 o('ob-3p-passenger', 'Passenger: '), o('ob-ts-thai', 'tiên lượng cho thai: '),
-                o('ob-ts-huong', 'hướng xử trí: '), o('ob-ts-dieutri', 'điều trị kèm: '))],
+                o('ob-ts-huong', 'hướng xử trí: '), o('ob-dt-ks', 'kháng sinh: '),
+                o('ob-dt-go', 'thuốc cơn gò: '), o('ob-dt-cort', 'corticoid: '),
+                o('ob-ts-dieutri', 'điều trị khác: '), o('ob-ts-danho', 'dặn dò sản phụ: '))],
             ['Chuyển dạ – ối – tim thai', gop(o('ob-cd-gd'), fmtDateTime(d['ob-cd-batdau']) && 'bắt đầu chuyển dạ ' + fmtDateTime(d['ob-cd-batdau']),
                 o('ob-oi-tt'), fmtDateTime(d['ob-oi-gio']) && 'vỡ ối lúc ' + fmtDateTime(d['ob-oi-gio']),
                 o('ob-oi-mau', 'ối '), o('ob-go-tan', 'cơn gò ', ' cơn/10 phút'), o('ob-go-cuong'),
@@ -242,6 +282,36 @@ export function buildModel(r) {
         ['XV. TIÊN LƯỢNG', 'fa-heartbeat', [['', r.tienLuong], ['Dự phòng', r.duPhong]]],
         ['THEO DÕI DIỄN TIẾN', 'fa-clipboard-list', [['', theoDoiToText(r.theoDoi), 'bullet']]]
     ];
+
+    /* Bệnh án sản khoa hỏi tiền căn trước rồi mới tới bệnh sử, nên bản in cũng
+       phải đảo hai mục này — nếu không, bản in lại khác hẳn thứ tự lúc gõ. */
+    if (r.loaiBenhAn === 'san') {
+        const i = muc.findIndex(m => m[0].startsWith('III.'));
+        const j = muc.findIndex(m => m[0].startsWith('IV.'));
+        if (i >= 0 && j >= 0) {
+            const benhSu = muc[i], tienCan = muc[j];
+            benhSu[0] = 'IV. BỆNH SỬ';
+            tienCan[0] = 'III. TIỀN CĂN';
+
+            /* Định tuổi thai từ kinh chót là BỆNH SỬ chứ không phải tiền căn */
+            const k = tienCan[2].findIndex(d => d[0] === 'Định tuổi thai');
+            if (k >= 0) benhSu[2].unshift(tienCan[2].splice(k, 1)[0]);
+
+            /* Thứ tự tiền căn sản khoa: sản → phụ → kế hoạch gia đình →
+               nội – ngoại (thuốc, dị ứng, xã hội) → gia đình */
+            const UU = ['4. Sản phụ khoa', 'Tiền căn sản khoa', 'Kinh nguyệt', 'Kế hoạch gia đình',
+                '1. Nội khoa', '2. Thuốc', '3. Ngoại khoa', '5. Dị ứng'];
+            const diem = (nhan) => {
+                const n = UU.findIndex(x => String(nhan).startsWith(x));
+                return n < 0 ? UU.length : n;
+            };
+            tienCan[2] = tienCan[2].slice().sort((a, b) => diem(a[0]) - diem(b[0]));
+
+            muc[i] = tienCan;
+            muc[j] = benhSu;
+        }
+    }
+    return muc;
 }
 
 /* ---------- xuất Markdown ----------

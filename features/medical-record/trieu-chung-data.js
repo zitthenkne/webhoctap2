@@ -746,6 +746,43 @@ export const SYMPTOMS = [
             ['kemTheo', 'Kèm theo', ['ngứa âm hộ', 'tiểu gắt', 'đau khi giao hợp']]
         ]
     },
+    {
+        ten: 'Ra nhớt hồng', nhom: 'Sản phụ khoa', fields: [
+            ['thoiDiem', 'Từ lúc nào', null, 'vd 4 giờ trước nhập viện'],
+            ['luong', 'Lượng', ['ít, dính quần lót', 'nhiều, nhầy lẫn máu']],
+            ['kemTheo', 'Kèm theo', ['đau bụng từng cơn', 'ra nước âm đạo', 'chưa kèm gì']]
+        ]
+    },
+    {
+        ten: 'Thai quá ngày dự sinh', nhom: 'Sản phụ khoa', fields: [
+            ['quaBaoLau', 'Quá bao lâu', null, 'vd quá 5 ngày so với ngày dự sinh'],
+            ['cachTinh', 'Tính theo', ['kinh chót', 'siêu âm quý I', 'ngày chuyển phôi']],
+            ['theoDoi', 'Đã theo dõi', ['non-stress test', 'siêu âm chỉ số ối', 'chưa theo dõi gì']],
+            ['thaiMay', 'Thai máy', ['thai máy tốt', 'thai máy giảm']]
+        ]
+    },
+    {
+        ten: 'Nhức đầu – phù trong thai kỳ', nhom: 'Sản phụ khoa', fields: [
+            ['vitriPhu', 'Phù', ['phù hai chân', 'phù mặt và tay', 'phù toàn thân', 'không phù']],
+            ['thiGiac', 'Rối loạn thị giác', ['nhìn mờ', 'thấy đốm sáng', 'không']],
+            ['dauBung', 'Đau thượng vị – hạ sườn phải', ['có', 'không']],
+            ['huyetAp', 'Huyết áp đo được', null, 'vd 160/100 mmHg tại trạm y tế']
+        ]
+    },
+    {
+        ten: 'Đau lưng khi mang thai', nhom: 'Sản phụ khoa', fields: [
+            ['viTri', 'Vị trí', ['thắt lưng', 'lan xuống mông – đùi', 'vùng xương cùng']],
+            ['tinhChat', 'Tính chất', ['âm ỉ liên tục', 'từng cơn theo cơn gò']],
+            ['kemTheo', 'Kèm theo', ['ra nhớt hồng', 'ra nước âm đạo', 'tiểu gắt buốt', 'không kèm gì']]
+        ]
+    },
+    {
+        ten: 'Thai không cử động', nhom: 'Sản phụ khoa', fields: [
+            ['thoiGian', 'Từ khi nào', null, 'vd không thấy máy từ sáng nay'],
+            ['truocDo', 'Trước đó', ['thai máy đều', 'thai máy đã giảm vài ngày']],
+            ['kemTheo', 'Kèm theo', ['ra huyết', 'ra nước', 'đau bụng', 'không kèm gì']]
+        ]
+    },
 
     /* ---------------- Nhi khoa (bổ sung) ---------------- */
     {

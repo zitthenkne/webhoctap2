@@ -97,23 +97,36 @@ export const THOI_QUEN = [
 
 /* ---------------------------------------------------------------- Sản phụ khoa */
 export const KINH_NGUYET = {
-    chuKy: ['đều 28–30 ngày', 'đều 30–32 ngày', 'không đều', 'thưa (> 35 ngày)', 'đã mãn kinh'],
-    luong: ['lượng vừa', 'lượng ít', 'lượng nhiều, phải thay băng nhiều lần'],
-    dauBung: ['không đau bụng kinh', 'đau bụng kinh nhẹ', 'đau bụng kinh nhiều, phải uống thuốc'],
-    soNgay: ['3 ngày', '4 ngày', '5 ngày', '6 – 7 ngày']
+    chuKy: ['đều 28–30 ngày', 'đều 26–28 ngày', 'đều 30–32 ngày', 'không đều',
+        'không đều, 2 – 3 tháng mới có kinh một lần', 'vòng kinh ngắn (< 24 ngày)',
+        'thưa (> 35 ngày)', 'đã mãn kinh'],
+    luong: ['lượng vừa', 'lượng ít', 'lượng ít dần vài tháng nay',
+        'lượng nhiều, phải thay băng nhiều lần', 'lượng nhiều kèm máu cục'],
+    dauBung: ['không đau bụng kinh', 'đau bụng kinh nhẹ', 'đau bụng kinh nhiều, phải uống thuốc',
+        'đau dữ dội phải nghỉ học – nghỉ làm', 'đau kèm buồn nôn, nôn'],
+    soNgay: ['2 ngày', '3 ngày', '4 ngày', '5 ngày', '6 – 7 ngày', 'trên 7 ngày (rong kinh)'],
+    tinhChat: ['máu đỏ sẫm, loãng', 'máu đỏ tươi', 'có máu cục', 'máu đen sẫm, lợn cợn'],
+    kemTheo: ['không triệu chứng kèm theo', 'căng ngực trước hành kinh', 'đau lưng',
+        'nhức đầu', 'thay đổi khí sắc, dễ cáu']
 };
 
 export const NGUA_THAI = [
     'không dùng biện pháp ngừa thai', 'thuốc viên ngừa thai hằng ngày',
     'thuốc ngừa thai khẩn cấp', 'đặt vòng', 'que cấy tránh thai',
-    'thuốc tiêm ngừa thai', 'bao cao su', 'triệt sản', 'xuất tinh ngoài'
+    'thuốc tiêm ngừa thai', 'vòng tránh thai nội tiết', 'bao cao su',
+    'màng phim – thuốc diệt tinh trùng', 'tính vòng kinh', 'cho bú vô kinh',
+    'triệt sản (thắt vòi tử cung)', 'chồng đã thắt ống dẫn tinh', 'xuất tinh ngoài'
 ];
 
 /** Cách kết thúc của một lần mang thai trước — cho danh sách PARA chi tiết */
 export const KET_CUC_THAI = [
     'sinh thường đủ tháng', 'sinh mổ đủ tháng', 'sinh thường thiếu tháng',
-    'sinh mổ thiếu tháng', 'sinh hút – sinh kềm', 'sảy thai', 'thai lưu',
-    'phá thai', 'thai ngoài tử cung', 'thai trứng'
+    'sinh mổ thiếu tháng', 'sinh non 32 – 36 tuần', 'sinh cực non dưới 32 tuần',
+    'sinh hút – sinh kềm', 'sinh ngôi mông', 'song thai',
+    'sảy thai tự nhiên', 'sảy thai phải nạo', 'thai lưu dưới 22 tuần',
+    'thai lưu từ 22 tuần', 'phá thai nội khoa', 'phá thai ngoại khoa',
+    'thai ngoài tử cung điều trị nội', 'thai ngoài tử cung mổ', 'thai trứng',
+    'bé mất trong thời kỳ sơ sinh'
 ];
 
 /* ---------------------------------------------------------------- Nhi khoa */

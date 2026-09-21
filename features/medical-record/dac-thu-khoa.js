@@ -87,9 +87,14 @@ const HO_SO = {
             'Tiền sản giật, cuộc sinh và theo dõi hậu sản'
         ],
         nhan: {
-            'legend:tiencan': 'IV. TIỀN CĂN — PARA, tiền thai, phụ khoa',
+            // Bệnh án sản khoa hỏi TIỀN CĂN trước rồi mới tới BỆNH SỬ (Text 1.2)
+            'legend:tiencan': 'III. TIỀN CĂN — sản khoa, phụ khoa, kế hoạch gia đình',
+            'legend:benhsu': 'IV. BỆNH SỬ — kinh chót, tuổi thai, thai kỳ lần này',
             'legend:kham': 'VI. KHÁM LÂM SÀNG — toàn thân và khám sản',
-            'label:exam-abdomen': '6. Bụng — tử cung, ngôi thai'
+            'label:exam-abdomen': '6. Bụng — tử cung, ngôi thai',
+            // Bệnh án sản khoa hỏi tên và số điện thoại CHỒNG, không phải "người liên hệ"
+            'label:contact-name': 'Họ tên chồng',
+            'label:contact-phone': 'SĐT chồng'
         },
         ph: {
             'reason-for-admission': 'vd: Thai 39 tuần, đau bụng từng cơn',
@@ -151,16 +156,13 @@ function datPh(id, v) {
     el.placeholder = v || phGoc.get(id);
 }
 
-/* Tìm <legend> theo chữ đầu dòng, tìm một lần rồi nhớ luôn */
-const legendCache = {};
+/* Tìm <legend> theo id — trước đây dò theo chữ đầu dòng, nhưng chữ đó chính là
+   thứ file này sửa, nên đổi số mục một lần là lần sau không tìm ra nữa. */
+const LEGEND_ID = { 'legend:benhsu': 'lg-benhsu', 'legend:tiencan': 'lg-tiencan', 'legend:kham': 'lg-kham' };
+const NHAN_KHOA = Object.keys(LEGEND_ID).concat(['label:exam-abdomen', 'label:contact-name', 'label:contact-phone']);
 function timNhan(khoa) {
     if (khoa.startsWith('label:')) return document.querySelector(`label[for="${khoa.slice(6)}"]`);
-    if (legendCache[khoa]) return legendCache[khoa];
-    const dau = khoa === 'legend:tiencan' ? 'IV. TIỀN CĂN' : 'VI. KHÁM LÂM SÀNG';
-    const el = [...document.querySelectorAll('legend')]
-        .find(l => l.textContent.trim().startsWith(dau));
-    if (el) legendCache[khoa] = el;
-    return el;
+    return $(LEGEND_ID[khoa]);
 }
 
 /* Nhãn gốc — cùng lý do với gợi ý gõ */
@@ -178,15 +180,79 @@ function datNhan(khoa, chuMoi) {
 /* =====================================================================
    2. ÁP HỒ SƠ KHOA LÊN TRANG
    ===================================================================== */
+/* ---------------------------------------------------------------------
+   Bệnh án sản khoa xếp mục khác hẳn các khoa còn lại (Text 1.2):
+     · TIỀN CĂN hỏi trước, BỆNH SỬ hỏi sau — vì phải biết PARA và tiền thai
+       thì mới hỏi được thai kỳ lần này
+     · PARA đứng ngay dòng hành chính, cạnh tuổi, không nằm dưới tiền căn
+     · trong tiền căn thì tiền căn gia đình đứng đầu
+   Chỉ DỜI node, không chép lại HTML: ô nào cũng giữ nguyên giá trị, sự kiện
+   và id, nên phần lưu — chấm điểm — bản in không phải biết gì về chuyện này.
+   --------------------------------------------------------------------- */
+/* Thứ tự tiền căn của bệnh án sản khoa (Text 1.1):
+   sản khoa → phụ khoa → kế hoạch gia đình → nội – ngoại khoa (kèm thuốc đang
+   dùng, dị ứng, yếu tố xã hội – nhân khẩu) → gia đình.
+   Ba mục sản – phụ – kế hoạch nằm chung trong #obgyne-box và đã xếp sẵn đúng
+   thứ tự bên trong, nên ở đây chỉ cần xếp các hộp lớn. */
+const TU_SAN = ['obgyne-box', 'tc-giadinh-box', 'tc-noikhoa-box', 'tc-thuoc-box',
+    'tc-thoiquen-box', 'tc-diung-box', 'tc-ngoaikhoa-box', 'tc-moitruong-box'];
+/* Bệnh sử sản khoa cũng có thứ tự riêng: kinh chót → định tuổi thai → tổng kết
+   sổ khám thai, rồi mới tới lý do nhập viện lần này và diễn tiến khi nằm viện. */
+const BS_SAN = ['bs-thaiky-box', 'bs-dinhtuoi-box', 'hx-san-park'];
+
+const NOI_CU = new Map();
+const nho = (el) => {
+    if (el && !NOI_CU.has(el)) NOI_CU.set(el, { cha: el.parentNode, sau: el.nextSibling, thu: NOI_CU.size });
+};
+/* Trả về chỗ cũ theo thứ tự NGƯỢC: node đứng sau về trước thì cái mốc
+   (nextSibling) của node đứng trước chắc chắn đã nằm đúng chỗ. */
+function traVeHet() {
+    [...NOI_CU.entries()].sort((a, b) => b[1].thu - a[1].thu)
+        .forEach(([el, v]) => { if (v.cha) v.cha.insertBefore(el, v.sau); });
+}
+
+function sapXepMuc(laSan) {
+    const benhSu = $('sec-benhsu'), tienCan = $('sec-tiencan'), para = $('para-box'),
+        grid = $('hc-grid');
+    [benhSu, tienCan, para, ...TU_SAN.map($), ...BS_SAN.map($)].forEach(nho);
+    if (!laSan) {
+        para?.classList.remove('col-span-2');
+        traVeHet();
+        return;
+    }
+    if (tienCan && benhSu && benhSu.parentNode) benhSu.parentNode.insertBefore(tienCan, benhSu);
+    if (tienCan) {
+        // Phải xếp BÊN TRONG cái hộp .flex.flex-col của mục, không phải ngay dưới
+        // <legend> — nhấc ra ngoài hộp là mất luôn khoảng cách giữa các khối.
+        const khung = tienCan.querySelector(':scope > div') || tienCan;
+        let moc = null;
+        TU_SAN.forEach(id => {
+            const el = $(id);
+            if (!el) return;
+            if (moc) moc.after(el); else khung.insertBefore(el, khung.firstChild);
+            moc = el;
+        });
+    }
+    if (benhSu) {
+        let m = $('hx-check') || benhSu.querySelector('legend');
+        BS_SAN.forEach(id => { const el = $(id); if (el && m) { m.after(el); m = el; } });
+    }
+    if (para && grid) {
+        para.classList.add('col-span-2');
+        grid.insertBefore(para, $('patient-ethnicity')?.closest('div') || null);
+    }
+}
+
 function apHoSo() {
     const t = loaiHienTai();
     const hs = HO_SO[t] || HO_SO.noi;
 
     document.body.dataset.khoa = t;
+    sapXepMuc(t === 'san');
     document.documentElement.style.setProperty('--khoa-mau', hs.mau);
 
     // Nhãn và gợi ý gõ: trả tất cả về gốc trước, rồi mới đắp của khoa hiện tại
-    ['legend:tiencan', 'legend:kham', 'label:exam-abdomen'].forEach(k => datNhan(k, hs.nhan[k]));
+    NHAN_KHOA.forEach(k => datNhan(k, hs.nhan[k]));
     const moiPh = new Set(Object.keys(hs.ph));
     phGoc.forEach((_, id) => { if (!moiPh.has(id)) datPh(id, ''); });
     Object.entries(hs.ph).forEach(([id, v]) => datPh(id, v));
@@ -421,6 +487,9 @@ function tinhSan() {
 
     tinhTuoiThai();
     tinhTienCanSan();
+    tinhKeHoach();
+    tinhBangKiem();
+    tinhLanMangThai();
     tinhXetNghiem();
     tinhKhungChau();
     tinhChanDoanSan();
@@ -440,58 +509,123 @@ const tuanNgay = (d) => `${Math.floor(d / 7)} tuần ${d % 7} ngày`;
 const cachNgay = (a, b) => Math.round((b - a) / NGAY);
 const ngayO = (id) => gio(String($(id)?.value || '').slice(0, 10));
 
+/* Mỗi nguồn trả về: ngày dự sinh (mốc 40 tuần) + tuổi thai LÚC LÀM siêu âm —
+   con số sau dùng để biết được phép hiệu chỉnh trong ngưỡng mấy ngày. */
 function nguonTuoiThai() {
     const ref = ngayO('record-datetime') || new Date();
     const ds = [];
     const lmp = ngayO('ob-lmp');
     if (lmp) {
         const vong = so('ob-cycle') || 28;              // vòng kinh dài thì rụng trứng muộn
-        ds.push({ ten: 'kinh chót', edd: new Date(lmp.getTime() + (280 + vong - 28) * NGAY), uu: 2 });
+        ds.push({ loai: 'lmp', ten: 'kinh chót', edd: new Date(lmp.getTime() + (280 + vong - 28) * NGAY) });
     }
     const n1 = ngayO('ob-us1-ngay'), crl = so('ob-us1-crl');
     if (n1 && crl !== null) {
-        if (crl < 10 || crl > 84) ds.push({ loi: `CRL ${crl} mm ngoài khoảng 10 – 84 mm nên không dùng định tuổi thai — đo đường kính lưỡng đỉnh thay` });
-        // Tuổi thai (ngày) = 42 + CRL (mm)
-        else ds.push({ ten: 'siêu âm quý I (CRL)', edd: new Date(n1.getTime() + (280 - (42 + crl)) * NGAY), uu: 3 });
+        if (crl < 10 || crl > 84) {
+            ds.push({ loi: `CRL ${crl} mm ngoài khoảng 10 – 84 mm nên không dùng để định tuổi thai` });
+        } else {
+            // Tuổi thai (ngày vô kinh) = 42 + CRL (mm)
+            const gaLuc = 42 + crl;
+            ds.push({
+                loai: 'crl', ten: 'siêu âm quý I (CRL)', ngay: n1, gaLuc,
+                edd: new Date(n1.getTime() + (280 - gaLuc) * NGAY)
+            });
+            if (crl > 30) ds.push({ loi: 'CRL trên 30 mm: công thức 42 + CRL chỉ là tạm tính, nên tra bảng của Fetal Medicine Foundation cho chính xác' });
+        }
     }
     const n2 = ngayO('ob-us2-ngay'), bpd = so('ob-us2-bpd');
-    // Tuổi thai (tuần) = ⅓ × (BPD – 17) + 11
-    if (n2 && bpd !== null) ds.push({
-        ten: 'siêu âm sau (BPD)',
-        edd: new Date(n2.getTime() + (280 - Math.round(((bpd - 17) / 3 + 11) * 7)) * NGAY), uu: 1
-    });
+    if (n2 && bpd !== null) {
+        // Tuổi thai (tuần vô kinh) = ⅓ × (BPD – 17) + 11
+        const gaLuc = Math.round(((bpd - 17) / 3 + 11) * 7);
+        ds.push({
+            loai: 'bpd', ten: 'siêu âm sau (BPD)', ngay: n2, gaLuc,
+            edd: new Date(n2.getTime() + (280 - gaLuc) * NGAY)
+        });
+        if (gaLuc < 77 || gaLuc > 182) ds.push({ loi: `BPD ${bpd} mm cho tuổi thai ${tuanNgay(gaLuc)} — ngoài khoảng 11 – 26 tuần nên công thức BPD không còn đáng tin` });
+    }
+    if (so('ob-us2-hc') !== null) ds.push({ loi: 'Có số đo vòng đầu HC: máy không tự tính, tra bảng FMF (fetalmedicine.org) khi HC 100 – 280 mm' });
+
     const moc = chu('ob-phoi'), nMoc = ngayO('ob-phoi-ngay');
     if (moc && nMoc) {
         // phôi ngày 3 lúc chuyển đã 2 tuần 3 ngày, phôi ngày 5 là 2 tuần 5 ngày
         const tuoiLuc = moc.includes('ngày 3') ? 17 : moc.includes('ngày 5') ? 19 : 14;
-        ds.push({ ten: moc, edd: new Date(nMoc.getTime() + (280 - tuoiLuc) * NGAY), uu: 4 });
+        ds.push({
+            loai: moc.includes('chuyển phôi') ? 'ivf' : 'noan', ten: moc, gaLuc: tuoiLuc,
+            edd: new Date(nMoc.getTime() + (280 - tuoiLuc) * NGAY)
+        });
     }
     return { ref, ds };
+}
+
+/* Kinh chót chỉ được dùng làm mốc "0" khi thai phụ nhớ rõ ngày, chu kỳ đều và
+   dài 26 – 30 ngày, lần hành kinh cuối giống hệt các kỳ bình thường, không dùng
+   nội tiết trong chu kỳ có thai. Không thỏa thì phải đi tìm "ngày kinh cuối lí
+   thuyết" từ siêu âm. */
+function kinhChotTinCay() {
+    if (!$('ob-lmp')?.value) return { ok: false, ly: ['chưa có ngày kinh chót'] };
+    const ly = [];
+    const vong = so('ob-cycle'), kieu = chu('ob-cycle-type'), tc = chu('ob-lmp-tc');
+    if (vong !== null && (vong < 26 || vong > 30)) ly.push(`vòng kinh ${vong} ngày, ngoài khoảng 26 – 30 ngày`);
+    if (/không đều|thưa|ngắn/i.test(kieu)) ly.push('chu kỳ kinh không đều');
+    if (tc && tc !== 'giống hệt các kỳ kinh bình thường') ly.push(`kỳ kinh chót ${tc}`);
+    if (/kích thích phóng noãn|IVF|IUI/i.test(chu('ob-tc-thuthai'))) ly.push('chu kỳ có can thiệp nội tiết — hỗ trợ sinh sản');
+    return { ok: !ly.length, ly };
 }
 
 function chotTuoiThai() {
     const { ref, ds } = nguonTuoiThai();
     const co = ds.filter(x => x.edd);
     const loi = ds.filter(x => x.loi).map(x => x.loi);
+    const ket = (chon, vi) => ({ ref, co, loi, chon, vi, days: 280 + cachNgay(chon.edd, ref) });
     if (!co.length) return { ref, co, loi, chon: null };
-    const lmp = co.find(x => x.ten === 'kinh chót');
-    const us1 = co.find(x => x.ten.startsWith('siêu âm quý I'));
-    let chon = co.reduce((a, b) => (b.uu > a.uu ? b : a));
-    let vi = '';
-    // Sinh viên chọn tay ở ô "Tuổi thai tính theo" thì nghe theo, máy chỉ gợi ý
+
+    const lmp = co.find(x => x.loai === 'lmp');
+    const crl = co.find(x => x.loai === 'crl');
+    const bpd = co.find(x => x.loai === 'bpd');
+    const ivf = co.find(x => x.loai === 'ivf');
+    const noan = co.find(x => x.loai === 'noan');
+
+    // Sinh viên chốt tay ở ô "Tuổi thai tính theo" thì nghe theo
     const tay = chu('ob-ga-nguon');
-    const theoTay = tay && co.find(x => tay === 'kinh chót' ? x.ten === 'kinh chót'
-        : tay === 'siêu âm quý I' ? x.ten.startsWith('siêu âm quý I')
-            : /chuyển phôi|phóng noãn/.test(x.ten));
-    if (theoTay) return { ref, co, loi, chon: theoTay, vi: 'nguồn do người làm bệnh án chọn', days: 280 + cachNgay(theoTay.edd, ref) };
-    if (lmp && us1) {
-        const lech = Math.abs(cachNgay(lmp.edd, us1.edd));
-        chon = lech <= 5 ? lmp : us1;
-        vi = lech <= 5
-            ? `siêu âm quý I lệch ${lech} ngày so với kinh chót, trong vòng 5 ngày — giữ ngày dự sinh theo kinh chót`
-            : `siêu âm quý I lệch ${lech} ngày so với kinh chót, quá 5 ngày — lấy theo siêu âm sớm nhất`;
+    const theoTay = tay && co.find(x => tay === 'kinh chót' ? x.loai === 'lmp'
+        : tay === 'siêu âm quý I' ? x.loai === 'crl' : (x.loai === 'ivf' || x.loai === 'noan'));
+    if (theoTay) return ket(theoTay, 'nguồn do người làm bệnh án tự chốt');
+
+    // 1. Chuyển phôi IVF: tuổi thai đã khẳng định, KHÔNG hiệu chỉnh bằng gì khác
+    if (ivf) {
+        const sa = crl || bpd;
+        const lech = sa ? Math.abs(cachNgay(ivf.edd, sa.edd)) : 0;
+        return ket(ivf, 'thai từ chuyển phôi IVF nên tuổi thai đã được khẳng định, không hiệu chỉnh bằng siêu âm hay kinh chót'
+            + (lech > 7 ? ` · siêu âm lệch ${lech} ngày — nghĩ tới thai phát triển bất thường chứ không sửa tuổi thai` : ''));
     }
-    return { ref, co, loi, chon, vi, days: 280 + cachNgay(chon.edd, ref) };
+    // 2. Canh ngày phóng noãn: quy về kinh chót, mốc phóng noãn là 2 tuần tuổi thai
+    const mocLam = lmp || noan;
+    if (!mocLam) {
+        const sa = crl || bpd;
+        return ket(sa, 'không có kinh chót — lấy ngày kinh cuối lí thuyết từ siêu âm');
+    }
+    const tin = lmp ? kinhChotTinCay() : { ok: true, ly: [] };
+
+    // 3. Kinh chót không tin cậy: bắt buộc lấy mốc "0" giả định từ siêu âm
+    if (!tin.ok) {
+        const sa = crl || bpd;
+        if (!sa) return ket(mocLam, `kinh chót kém tin cậy (${tin.ly.join(', ')}) mà chưa có siêu âm định tuổi thai — cần siêu âm để lấy ngày kinh cuối lí thuyết`);
+        return ket(sa, `kinh chót kém tin cậy (${tin.ly.join(', ')}) — định tuổi thai theo siêu âm, lấy ngày kinh cuối lí thuyết`);
+    }
+
+    // 4. Kinh chót tin cậy: siêu âm chỉ để KIỂM CHỨNG, ngưỡng hiệu chỉnh tùy
+    //    tuổi thai lúc làm siêu âm — dưới 9 tuần lệch quá 5 ngày, từ 9 tuần đến
+    //    13 tuần 6 ngày lệch quá 7 ngày thì mới đổi sang siêu âm.
+    if (crl) {
+        const lech = Math.abs(cachNgay(mocLam.edd, crl.edd));
+        if (crl.gaLuc > 97) return ket(mocLam, `siêu âm làm lúc thai ${tuanNgay(crl.gaLuc)}, đã qua 13 tuần 6 ngày nên không dùng để hiệu chỉnh — giữ tuổi thai theo kinh chót (lệch ${lech} ngày)`);
+        const nguong = crl.gaLuc < 63 ? 5 : 7;
+        return lech <= nguong
+            ? ket(mocLam, `siêu âm lúc thai ${tuanNgay(crl.gaLuc)} lệch ${lech} ngày, trong ngưỡng ${nguong} ngày — giữ tuổi thai theo kinh chót`)
+            : ket(crl, `siêu âm lúc thai ${tuanNgay(crl.gaLuc)} lệch ${lech} ngày, quá ngưỡng ${nguong} ngày — hiệu chỉnh theo siêu âm`);
+    }
+    if (bpd) return ket(mocLam, 'chỉ có BPD: đường kính lưỡng đỉnh chỉ dùng khi không có CRL hợp lệ, nên vẫn giữ tuổi thai theo kinh chót');
+    return ket(mocLam, 'chưa có siêu âm quý I để kiểm chứng — tuổi thai đang là số tạm tính theo kinh chót');
 }
 
 function cauTuoiThai(ngan) {
@@ -505,26 +639,103 @@ function cauTuoiThai(ngan) {
 
 function tinhTuoiThai() {
     const t = chotTuoiThai();
-    const y = [...t.loi];
+    const y = [];
     if (t.chon) {
-        y.unshift(`Tuổi thai ${tuanNgay(t.days)} — dự sinh ${dmy(t.chon.edd)} (theo ${t.chon.ten})`);
+        y.push(`Tuổi thai ${tuanNgay(t.days)} — dự sinh ${dmy(t.chon.edd)} (theo ${t.chon.ten})`);
+        if (t.chon.loai !== 'lmp') {
+            const ly = new Date(t.chon.edd.getTime() - 280 * NGAY);
+            y.push(`ngày kinh cuối lí thuyết ${dmy(ly)}`);
+        }
         if (t.vi) y.push(t.vi);
         const khac = t.co.filter(x => x !== t.chon).map(x => `${x.ten} → ${dmy(x.edd)}`);
         if (khac.length) y.push('các nguồn còn lại: ' + khac.join(', '));
-        if (t.days > 294) y.push('THAI QUÁ NGÀY DỰ SINH trên 42 tuần — phải xem lại cách tính và có hướng chấm dứt thai kỳ');
+        if (t.days > 294) y.push('THAI QUÁ NGÀY DỰ SINH trên 42 tuần — xem lại cách tính và có hướng chấm dứt thai kỳ');
+        if (t.days > 97 && !t.co.some(x => x.loai === 'crl' || x.loai === 'ivf'))
+            y.push('đã qua tam cá nguyệt I mà chưa có mốc tin cậy nào — theo bộ môn thì việc định tuổi thai lẽ ra phải hoàn tất trước 13 tuần 6 ngày');
     }
-    const tc = chu('ob-lmp-tc');
-    if (tc && tc !== 'giống hệt các kỳ kinh bình thường')
-        y.push(`kỳ kinh chót ${tc} — kinh chót kém tin cậy, ưu tiên định tuổi thai theo siêu âm sớm`);
+    y.push(...t.loi);
     if ($('ob-lmp')?.value && !$('ob-lmp2')?.value)
         y.push('chưa ghi kinh áp chót — hỏi thêm để chắc lần ra huyết vừa rồi đúng là kinh chót');
     ra('ob-ga-out', y.length ? y.join(' · ')
         : 'Nhập CRL, BPD hoặc ngày chuyển phôi để máy đối chiếu với kinh chót rồi chốt ngày dự sinh');
 }
 
+/* ---- Kế hoạch gia đình: tránh thai, bỏ thai -------------------------- */
+function tinhKeHoach() {
+    const pt = chu('ob-kh-phathai'), pp = chu('ob-kh-pp'), bc = chu('ob-kh-bienchung');
+    const y = [];
+    if (/2 lần|3 lần trở lên/.test(pt))
+        y.push('bỏ thai nhiều lần — hỏi kỹ có can thiệp buồng tử cung không, nguy cơ dính buồng tử cung và nhau bám bất thường');
+    if (/nạo|hút thai/.test(pp)) y.push('có can thiệp lòng tử cung — coi chừng nhau tiền đạo, nhau cài răng lược ở thai kỳ này');
+    if (bc && !bc.startsWith('không')) y.push('lần trước có tai biến: ' + bc + ' — phải chuẩn bị trước cho cuộc sinh lần này');
+    if (chu('ob-kh-lydo').match(/dị tật/i)) y.push('từng chấm dứt thai kỳ vì dị tật — nhớ soi lại sàng lọc quý I và hình thái học lần này');
+    ra('ob-kh-out', y.length ? y.join(' · ')
+        : 'Điền để máy ghép câu kế hoạch gia đình và soi nguy cơ của các lần can thiệp buồng tử cung');
+}
+
+/* ---- Khám bụng sản khoa: nhìn · sờ · nghe ---------------------------- */
+function cauKhamBung() {
+    const p = [];
+    const g = (id, truoc = '', sau = '') => { const v = chu(id); if (v) p.push(truoc + v + sau); };
+    g('ob-nhin'); g('ob-randa'); g('ob-seo'); g('ob-seo-mota'); g('ob-seo-dinh');
+    const bc = so('ob-bctc'), vb = so('ob-vb');
+    if (bc !== null) p.push(`bề cao tử cung ${bc} cm`);
+    if (vb !== null) p.push(`vòng bụng ${vb} cm`);
+    if (bc !== null && vb !== null) p.push(`ước lượng cân thai ${Math.round((bc + vb) * 100 / 4)} g`);
+    g('ob-contraction', 'cơn gò ');
+    const co = so('ob-go-co'), nghiGiay = so('ob-go-nghi');
+    if (co !== null && nghiGiay !== null) p.push(`bắt 3 cơn liên tiếp: co ${co} giây, nghỉ ${nghiGiay} giây`);
+    const tt = so('ob-fhr');
+    if (tt !== null) p.push(`tim thai ${tt} lần/phút`);
+    g('ob-tt-vitri', 'nghe rõ nhất ở '); g('ob-tt-nhipdieu');
+    return p.length ? 'Khám bụng sản khoa: ' + p.join(', ') + '.' : '';
+}
+
+/* ---- Tóm tắt bệnh án sản khoa theo mẫu bộ môn ------------------------ */
+function cauTomTat() {
+    const tuoi = so('patient-age');
+    const para = ['para-1', 'para-2', 'para-3', 'para-4'].map(id => so(id) ?? 0);
+    const coPara = ['para-1', 'para-2', 'para-3', 'para-4'].some(id => chu(id));
+    const lyDo = chu('reason-for-admission');
+    const mo = [`Sản phụ${tuoi !== null ? ' ' + tuoi + ' tuổi' : ''}`,
+    coPara ? 'PARA ' + para.join('') : '', conSoRa()].filter(Boolean).join(', ');
+    const cau = [mo + (lyDo ? `, nhập viện vì ${lyDo.toLowerCase()}` : '') + '.'];
+
+    const kham = [cauTuoiThai(true), chu('ob-sothai'),
+    chu('ob-position') && 'ngôi ' + chu('ob-position').replace(/^ngôi\s+/i, ''),
+    chu('ob-the') && 'kiểu thế ' + chu('ob-the'), chu('ob-cd-gd')].filter(Boolean);
+    if (kham.length) cau.push('Qua hỏi bệnh và thăm khám ghi nhận: ' + kham.join(', ') + '.');
+
+    const quan = [];
+    const vo = gio($('ob-oi-gio')?.value);
+    if (vo) quan.push(`ối vỡ giờ thứ ${Math.max(0, Math.round(cachGio(vo, mocBenhAn())))}`);
+    if (chu('ob-oi-mau').includes('phân su')) quan.push('ối lẫn phân su');
+    // Mấy ô kết quả khi chưa có dữ liệu vẫn in một dòng gợi ý — dòng đó cũng chứa
+    // chữ "hẹp", "tiền sản giật". Chỉ nhận khi ĐÚNG là câu kết luận máy chấm ra.
+    const kc = $('ob-kc-out')?.textContent || '';
+    if (/^Có dấu hiệu hẹp/.test(kc)) quan.push('khung chậu nghi hẹp');
+    else if (/^Ba eo không có/.test(kc)) quan.push('khung chậu bình thường');
+    const tsg = $('ob-tsg-out')?.textContent || '';
+    if (/^(Tăng huyết áp|Có dấu hiệu nặng)/.test(tsg)) quan.push(tsg.split('.')[0].toLowerCase());
+    if (chu('ob-tt-nhom').startsWith('nhóm III')) quan.push('biểu đồ tim thai nhóm III');
+    const noi = chu('history-internal');
+    if (noi && !/chưa ghi nhận/i.test(noi)) quan.push('tiền căn nội khoa: ' + noi.split('\n')[0]);
+    if (quan.length) cau.push('Triệu chứng — vấn đề quan trọng kèm theo: ' + quan.join(', ') + '.');
+    return cau.join(' ');
+}
+
 /* ---- Tiền căn sản khoa: hiếm muộn, vết mổ cũ ------------------------- */
 function tinhTienCanSan() {
     const y = [];
+    /* Tổng số lần mang thai (gravida) phải khớp T + P + A, cộng thêm thai lần
+       này nếu đang mang thai — lệch là dấu hiệu khai sót một lần thai. */
+    const g = so('ob-tc-gravida');
+    if (g !== null) {
+        const tpa = ['para-1', 'para-2', 'para-3'].reduce((t, id) => t + (so(id) || 0), 0);
+        const dangThai = !!$('ob-lmp')?.value || !!chu('ob-cd-gd') || !!chu('ob-sothai');
+        const canCo = tpa + (dangThai ? 1 : 0);
+        if (g !== canCo) y.push(`tổng ${g} lần mang thai nhưng PARA cộng lại${dangThai ? ' kèm thai lần này' : ''} chỉ ${canCo} — còn lần thai nào chưa khai?`);
+    }
     const nam = so('ob-tc-kethon'), thu = chu('ob-tc-thuthai'), kh = chu('ob-tc-kehoach');
     const daSinh = ['para-1', 'para-2', 'para-3'].reduce((a, id) => a + (so(id) || 0), 0);
     if (nam && !daSinh) {
@@ -540,6 +751,57 @@ function tinhTienCanSan() {
     if (/chấn thương|gãy khung chậu|bại liệt/i.test(mo)) y.push('có chấn thương khung chậu — phải khám khung chậu kỹ trước khi tiên lượng sinh ngả âm đạo');
     ra('ob-tc-out', y.length ? y.join(' · ')
         : 'Điền để máy ghép câu tiền căn và soi các yếu tố nguy cơ: hiếm muộn, vết mổ cũ, khung chậu');
+}
+
+/* ---- Bảng kiểm tiền sử gia đình & nội khoa (NK 2019) ------------------ */
+const GD_KIEM = [['obgd-ditruyen', 'bệnh di truyền (đái tháo đường, tim mạch, cao huyết áp, thiếu máu, chuyển hóa)'],
+['obgd-laycheo', 'người sống chung mắc bệnh truyền nhiễm (lao, cúm)'],
+['obgd-ditat', 'người thân trực hệ dị tật bẩm sinh — chậm phát triển'],
+['obgd-ungthu', 'ung thư vú — ung thư buồng trứng ở người thân trực hệ'],
+['obgd-dathai', 'gia đình có người sinh đa thai']];
+
+const NK_KIEM = [['obnk-nointiet', 'nội tiết'], ['obnk-timmach', 'tim mạch'], ['obnk-hohap', 'hô hấp'],
+['obnk-ganmat', 'gan – mật'], ['obnk-than', 'thận – tiết niệu'], ['obnk-tumien', 'tự miễn'],
+['obnk-thankinh', 'tâm thần – thần kinh'], ['obnk-hiv', 'HIV'], ['obnk-truyenmau', 'truyền máu gần đây'],
+['obnk-thuoc', 'thuốc đang dùng — thuốc lá']];
+
+const daTich = (ds) => ds.filter(([id]) => $(id)?.checked).map(([, t]) => t);
+
+function soiKiem(ds, idDaHoi, idOut, ten) {
+    const co = daTich(ds);
+    const daHoi = $(idDaHoi)?.checked;
+    const y = [];
+    if (co.length) y.push('Ghi nhận: ' + co.join(', '));
+    if (daHoi) y.push(`đã hỏi đủ ${ds.length} ý của bảng kiểm, các ý còn lại không ghi nhận`);
+    else y.push(`chưa xác nhận đã hỏi đủ — bảng kiểm ${ten} có ${ds.length} ý, tích dòng cuối khi hỏi xong`);
+    ra(idOut, y.join(' · '));
+}
+
+function tinhBangKiem() {
+    soiKiem(GD_KIEM, 'obgd-dahoi', 'ob-gd-out', 'tiền sử gia đình');
+    soiKiem(NK_KIEM, 'obnk-dahoi', 'ob-nk-out', 'tiền sử nội khoa');
+}
+
+/* ---- Chi tiết một lần mang thai trước -------------------------------- */
+const O_MOT_LAN = ['ob-lan-nam', 'ob-lan-ketcuc', 'ob-lan-tuoithai', 'ob-lan-sothai', 'ob-lan-noi',
+    'ob-lan-cachsinh', 'ob-lan-lydo', 'ob-lan-can', 'ob-lan-hinhthai', 'ob-lan-taibien',
+    'ob-lan-hausan', 'ob-lan-connay'];
+
+function cauLanMangThai() {
+    const p = [];
+    const g = (id, truoc = '', sau = '') => { const v = chu(id); if (v) p.push(truoc + v + sau); };
+    g('ob-lan-ketcuc'); g('ob-lan-tuoithai', 'tuổi thai '); g('ob-lan-sothai');
+    g('ob-lan-noi', 'tại '); g('ob-lan-cachsinh'); g('ob-lan-lydo', 'lý do ');
+    g('ob-lan-can', 'bé cân nặng ', ' g'); g('ob-lan-hinhthai');
+    g('ob-lan-taibien', 'tai biến: '); g('ob-lan-hausan'); g('ob-lan-connay', 'hiện nay ');
+    const nam = chu('ob-lan-nam');
+    if (!nam && !p.length) return '';
+    return (nam || 'không rõ năm') + ' — ' + (p.length ? p.join(', ') : 'chưa ghi chi tiết');
+}
+
+function tinhLanMangThai() {
+    const cau = cauLanMangThai();
+    ra('ob-lan-out', cau || 'Điền các ô trên — máy ghép thành một dòng đúng thứ tự bảng kiểm rồi thêm vào danh sách phía trên');
 }
 
 /* ---- Xét nghiệm tiền sản: tới tuổi thai này còn thiếu gì -------------- */
@@ -568,15 +830,17 @@ function tinhXetNghiem() {
 }
 
 /* ---- Khung chậu ba eo ------------------------------------------------ */
+/* So KHỚP CHÍNH XÁC cả chuỗi, đừng dùng includes: "không sờ đụng mỏm nhô"
+   chứa nguyên cụm "sờ đụng mỏm nhô" nên khám bình thường lại bị kết là hẹp. */
 const KC_HEP = [
     ['ob-kc-momnho', 'sờ đụng mỏm nhô', 'eo trên'],
-    ['ob-kc-govodanh', 'quá 2/3', 'eo trên'],
-    ['ob-kc-govodanh', 'sờ trọn', 'eo trên'],
-    ['ob-kc-gaihong', 'nhọn', 'eo giữa'],
-    ['ob-kc-vachchau', 'hội tụ', 'eo giữa'],
-    ['ob-kc-xuongcung', 'phẳng', 'eo giữa'],
-    ['ob-kc-xuongcung', 'gập góc', 'eo giữa'],
-    ['ob-kc-vomve', 'nhọn', 'eo dưới']
+    ['ob-kc-govodanh', 'sờ quá 2/3 gờ vô danh', 'eo trên'],
+    ['ob-kc-govodanh', 'sờ trọn gờ vô danh', 'eo trên'],
+    ['ob-kc-gaihong', 'gai hông nhọn, nhô vào lòng chậu', 'eo giữa'],
+    ['ob-kc-vachchau', 'hai vách chậu hội tụ', 'eo giữa'],
+    ['ob-kc-xuongcung', 'xương cùng phẳng', 'eo giữa'],
+    ['ob-kc-xuongcung', 'xương cùng gập góc', 'eo giữa'],
+    ['ob-kc-vomve', 'góc vòm vệ nhọn, dưới 90°', 'eo dưới']
 ];
 
 function cauKhungChau() {
@@ -590,7 +854,7 @@ function cauKhungChau() {
 }
 
 function tinhKhungChau() {
-    const bat = KC_HEP.filter(([id, chuoi]) => chu(id).includes(chuoi)).map(([, , eo]) => eo);
+    const bat = KC_HEP.filter(([id, chuoi]) => chu(id) === chuoi).map(([, , eo]) => eo);
     const un = so('ob-kc-ungoi');
     if (un !== null && un < 8) bat.push('eo dưới');
     const daChon = KC_HEP.some(([id]) => chu(id)) || un !== null;
@@ -821,8 +1085,14 @@ document.addEventListener('click', (e) => {
     if (e.target.closest('#ob-ga-apply')) {
         const t = chotTuoiThai();
         if (!t.chon) return;
-        const them = [chu('ob-lmp-tc') && `kỳ kinh chót ${chu('ob-lmp-tc')}`,
-        $('ob-lmp2')?.value && `kinh áp chót ${$('ob-lmp2').value.split('-').reverse().join('/')}`].filter(Boolean);
+        const them = [
+            $('ob-lmp2')?.value && `kinh áp chót ${$('ob-lmp2').value.split('-').reverse().join('/')}`,
+            chu('ob-lmp-songay') && `ra huyết ${chu('ob-lmp-songay')}`,
+            chu('ob-lmp-luong'), chu('ob-lmp-mau'),
+            chu('ob-lmp-kemtheo') && `kèm ${chu('ob-lmp-kemtheo')}`,
+            chu('ob-lmp-tc') && `kỳ kinh chót ${chu('ob-lmp-tc')}`,
+            chu('ob-tiemchung-truoc') && `tiêm chủng trước mang thai: ${chu('ob-tiemchung-truoc')}`
+        ].filter(Boolean);
         ghiVao('history-obgyne', /^Định tuổi thai:/i,
             `Định tuổi thai: ${cauTuoiThai()}${them.length ? ' (' + them.join(', ') + ')' : ''}.`);
     }
@@ -848,6 +1118,49 @@ document.addEventListener('click', (e) => {
         const kc = cauKhungChau();
         if (kc) datO('ob-pelvis', kc.replace(/^Khung chậu:\s*/, '').replace(/\.$/, ''));
     }
+    if (e.target.closest('#ob-bung-apply')) {
+        const cau = cauKhamBung();
+        if (cau) ghiVao('exam-abdomen', /^Khám bụng sản khoa:/i, cau);
+    }
+    if (e.target.closest('#ob-gd-apply')) {
+        const co = daTich(GD_KIEM);
+        const cau = co.length ? 'Gia đình ghi nhận ' + co.join(', ') : 'Gia đình chưa ghi nhận bệnh lý nào trong bảng kiểm';
+        ghiVao('history-family', /^Gia đình (ghi nhận|chưa ghi nhận)/i,
+            cau + ($('obgd-dahoi')?.checked ? '; các bệnh còn lại trong bảng kiểm đều không ghi nhận' : '') + '.');
+    }
+    if (e.target.closest('#ob-nk-apply')) {
+        const co = daTich(NK_KIEM);
+        const cau = co.length ? 'Ghi nhận bệnh lý ' + co.join(', ') : 'Chưa ghi nhận bệnh lý nội khoa nào trong bảng kiểm';
+        ghiVao('history-internal', /^(Ghi nhận bệnh lý|Chưa ghi nhận bệnh lý nội khoa)/i,
+            cau + ($('obnk-dahoi')?.checked ? '; các nhóm còn lại trong bảng kiểm đều không ghi nhận' : '') + '.');
+    }
+    if (e.target.closest('#ob-lan-add')) {
+        const cau = cauLanMangThai();
+        const el = $('history-obgyne');
+        if (!cau || !el) return;
+        const cu = el.value.split('\n').map(x => x.trim());
+        if (!cu.includes(cau)) {
+            el.value = (el.value.trimEnd() + '\n' + cau).trim();
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }
+    if (e.target.closest('#ob-lan-clear')) {
+        O_MOT_LAN.forEach(id => { const el = $(id); if (el) el.value = ''; });
+        tinh();
+    }
+    if (e.target.closest('#ob-kh-apply')) {
+        const p = [];
+        const g = (id, truoc = '') => { const v = chu(id); if (v) p.push(truoc + v); };
+        g('ob-kh-tranhthai-tg', 'tránh thai: '); g('ob-kh-phathai');
+        g('ob-kh-tuoithai', 'tuổi thai lúc bỏ '); g('ob-kh-pp'); g('ob-kh-lydo', 'lý do ');
+        g('ob-kh-noi', 'thực hiện tại '); g('ob-kh-bienchung');
+        if (!p.length) return;
+        ghiVao('history-obgyne', /^Kế hoạch gia đình:/i, 'Kế hoạch gia đình: ' + p.join(', ') + '.');
+    }
+    if (e.target.closest('#ob-tt-apply')) {
+        const cau = cauTomTat();
+        if (cau) datO('summary', cau);
+    }
     if (e.target.closest('#ob-dx-apply')) {
         const cau = cauChanDoanSan();
         if (cau) datO('dx1-main', cau.charAt(0).toUpperCase() + cau.slice(1));
@@ -855,8 +1168,11 @@ document.addEventListener('click', (e) => {
     if (e.target.closest('#ob-ts-apply')) {
         const t = $('ob-3p-out')?.textContent || '';
         if (!t || t.startsWith('Chọn đủ')) return;
-        const them = chu('ob-ts-dieutri');
-        datO('prognosis', t + (them ? ' · điều trị kèm: ' + them : '') + '.');
+        const dt = [chu('ob-dt-ks'), chu('ob-dt-go'), chu('ob-dt-cort'), chu('ob-ts-dieutri')]
+            .filter(v => v && !/^không|^chưa dùng/.test(v));
+        const dan = chu('ob-ts-danho');
+        datO('prognosis', t + (dt.length ? ' · điều trị: ' + dt.join(', ') : '')
+            + (dan ? ' · dặn dò sản phụ: ' + dan : '') + '.');
     }
     if (e.target.closest('#ped-sinh-apply')) {
         const p = [];

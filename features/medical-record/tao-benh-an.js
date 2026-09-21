@@ -2559,6 +2559,8 @@ fillDatalist('ob-amount-list', KINH_NGUYET.luong);
 fillDatalist('ob-dys-list', KINH_NGUYET.dauBung);
 fillDatalist('ob-contra-list', NGUA_THAI);
 fillDatalist('ob-ketcuc-list', KET_CUC_THAI);
+fillDatalist('ob-mautc-list', KINH_NGUYET.tinhChat);
+fillDatalist('ob-kemtheo-list', KINH_NGUYET.kemTheo);
 
 const tcOnChange = () => { updateProgress(); scheduleSave(); };
 
@@ -2737,7 +2739,7 @@ function mensesText() {
         v('ob-menarche') && `có kinh lần đầu năm ${v('ob-menarche')} tuổi`,
         v('ob-cycle-type') && `chu kỳ ${v('ob-cycle-type')}`,
         v('ob-days') && `hành kinh ${v('ob-days')}`,
-        v('ob-amount'), v('ob-dysmenorrhea'),
+        v('ob-amount'), v('ob-mau-tinhchat'), v('ob-dysmenorrhea'), v('ob-kem-theo'),
         v('ob-contraception') && `ngừa thai bằng ${v('ob-contraception')}`
     ].filter(Boolean);
     return parts.length ? 'Kinh nguyệt: ' + parts.join(', ') : '';
@@ -3141,7 +3143,8 @@ const autoApply = (ids, run) => ids.forEach(id => $(id)?.addEventListener('chang
 autoApply(['smoke-cpd', 'smoke-from', 'smoke-to'], applySmoke);
 autoApply(['alc-drink', 'alc-qty', 'alc-freq', 'alc-vol', 'alc-abv', 'alc-from', 'alc-to'], applyAlcohol);
 autoApply(['para-1', 'para-2', 'para-3', 'para-4'], applyPara);
-autoApply(['ob-menarche', 'ob-cycle-type', 'ob-days', 'ob-amount', 'ob-dysmenorrhea', 'ob-contraception'],
+autoApply(['ob-menarche', 'ob-cycle-type', 'ob-days', 'ob-amount', 'ob-mau-tinhchat',
+    'ob-dysmenorrhea', 'ob-kem-theo', 'ob-contraception'],
     applyMenses);
 // record-datetime cũng nằm đây vì đổi ngày làm bệnh án là tuổi thai đổi theo
 autoApply(['ob-lmp', 'ob-cycle', 'record-datetime'], applyObstetric);
