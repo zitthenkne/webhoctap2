@@ -13,6 +13,11 @@ Thêm **`&big=1`** để dựng phòng ĐÔNG + đề DÀI (60 câu, 14 người
 `&people=<số người>`) — bắt buộc dùng khi chỉnh dải câu, bản đồ câu, dải tiến độ, bảng phiếu:
 mấy thứ đó chỉ vỡ khi nhiều dữ liệu.
 
+Bộ đề giả của `big` cố tình gài 2 ca xấu nhất của **dòng thông tin câu + cỡ chữ đề**: cứ 3 câu
+có 1 câu mang đường dẫn nguồn dài 3 nhánh `›` (soi `.rm-qsrc` cắt còn nhánh cuối, bấm xổ hết),
+và cứ 7 câu có 1 câu dài ~420 ký tự (soi `#question-text[data-len="xl"]` tự thu cỡ chữ).
+Vài câu có `expanded` / `note` để thấy chip 📖 mở rộng · 📌 ghi nhớ.
+
 Thêm **`&slow=<ms>`** để hoãn snapshot phiên đầu tiên — dùng để thử MÀN CHỜ xương cá (`#quiz-boot`)
 và kiểm tra không còn cảnh "nháy sảnh chờ" trước khi vào màn làm bài.
 

@@ -84,8 +84,15 @@ if (bigParam) {
     const TOPICS = ['Điện sinh lý tim', 'Huyết động', 'Hô hấp', 'Thận – tiết niệu', 'Nội tiết'];
     const LEVELS = ['Nhận biết', 'Thông hiểu', 'Vận dụng'];
 
+    // Đường dẫn nguồn kiểu thật: dài 2-3 dòng, nhiều nhánh `›` — dùng để soi dòng thông tin câu.
+    const LONG_SRC = 'Giáo trình(text) › "Chương 2: Tiếp Cận Sốc và Huyết Động" › Bảng Phân Độ Sốc Mất Máu Theo ATLS, dòng Xử trí dịch/máu';
+    // Đề dài kiểu ca lâm sàng nhiều dữ kiện — dùng để soi cỡ chữ tự co (`#question-text[data-len]`).
+    const LONG_Q = (k) => `Câu ${k + 1}: Bệnh nhân nam ${40 + (k % 30)} tuổi bị đứt gần lìa cổ tay phải sau tai nạn lao động, đã được băng ép và hiện không chảy máu thêm, không có dấu hiệu chấn thương bên ngoài nào khác. Khám thấy da lạnh ẩm, niêm nhạt, mạch quay nhanh nhỏ 118 lần/phút, huyết áp 90/60 mmHg, nhịp thở 25 lần/phút, SpO2 94% khí trời, nước tiểu 20 ml trong giờ vừa rồi. Cận lâm sàng nào sau đây là thích hợp nhất cần thực hiện ngay tại thời điểm này?`;
+
     sess0.questions = Array.from({ length: N }, (_, k) => ({
-        question: k % 7 === 3
+        question: k % 7 === 5
+            ? LONG_Q(k)
+            : k % 7 === 3
             ? `Câu ${k + 1}: Một bệnh nhân nam ${40 + (k % 30)} tuổi vào viện vì khó thở tăng dần ba ngày nay, kèm phù hai chi dưới và tĩnh mạch cổ nổi. Cơ chế nào sau đây giải thích tốt nhất tình trạng ứ dịch của bệnh nhân này?`
             : `Câu ${k + 1}: ${['Nút xoang nhĩ nằm ở đâu', 'Cung lượng tim tính bằng công thức nào', 'Pha bình nguyên do dòng ion nào', 'Yếu tố nào làm tăng tiền gánh', 'Thuốc nào giảm hậu gánh mạnh nhất'][k % 5]}?`,
         options: [
@@ -97,8 +104,10 @@ if (bigParam) {
         answer: (k % 4) + 1,
         topic: TOPICS[k % TOPICS.length],
         level: LEVELS[k % LEVELS.length],
-        source: k % 3 === 0 ? 'Guyton & Hall, ch. 10' : '',
+        source: k % 3 === 0 ? LONG_SRC : (k % 3 === 1 ? 'Guyton & Hall, ch. 10' : ''),
         explanation: 'Giải thích mẫu cho câu ' + (k + 1) + '.',
+        ...(k % 4 === 1 ? { expanded: 'Phần mở rộng mẫu cho câu ' + (k + 1) + '.' } : {}),
+        ...(k % 5 === 2 ? { note: 'Mẹo ghi nhớ mẫu cho câu ' + (k + 1) + '.' } : {}),
         ...(k % 7 === 3 ? { caseTitle: 'Ca lâm sàng ' + (1 + Math.floor(k / 7)), caseText: 'Nam ' + (40 + (k % 30)) + ' tuổi, khó thở khi gắng sức, phù hai chi dưới, tĩnh mạch cổ nổi.' } : {}),
     }));
     sess0.currentQuestionIndex = Math.floor(N / 3);

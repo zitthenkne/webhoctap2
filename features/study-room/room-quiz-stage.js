@@ -271,22 +271,36 @@ function renderLive() {
     const map = el('question-map');
     if (map && !map.classList.contains('hidden')) map.innerHTML = questionMapHtml(i);
 
-    // --- Dòng thông tin câu: một dòng chữ xám, không chip màu loạn ---
+    // --- Dòng thông tin câu ---
+    // Trước đây tất cả nối bằng dấu `·` thành một dải chữ xám dài 3 dòng: đường dẫn nguồn
+    // (thứ ít cần nhất) nuốt mất mấy chip thật sự đáng liếc (có người muốn bàn, đề bị báo lỗi).
+    // Nay tách 2 tầng: chip có nghĩa ở trên, nguồn thu về 1 dòng mờ bấm mới xổ.
     const meta = el('q-meta');
-    const bits = [];
-    if (q.topic && String(q.topic).trim().toLowerCase() !== 'chung') bits.push(escapeHtml(q.topic));
-    if (q.level) bits.push(escapeHtml(q.level));
-    if (q.source) bits.push('Nguồn: ' + escapeHtml(q.source));
+    const chips = [];
+    const addChip = (cls, html) => chips.push(`<span class="rm-qchip${cls ? ' ' + cls : ''}">${html}</span>`);
     const marked = room.members.filter(m => m.marks?.['q' + i]).length;
     const flagged = room.members.filter(m => flagOf(m, i)).length;
-    if (marked) bits.push(`${marked} người đánh dấu`);
-    if (flagged) bits.push(`<span class="warn">🗣 ${flagged} người muốn bàn</span>`);
-    if (issueOf(i)) bits.push(`<span class="warn">⚠ ${escapeHtml(issueOf(i))}</span>`);
-    if (editOf(i)) bits.push('nội dung đã được nhóm sửa');
-    if (q.expanded) bits.push('📖 có phần mở rộng');
-    if (q.note) bits.push('📌 có ghi nhớ');
-    meta.innerHTML = bits.join('<span class="sep">·</span>');
-    meta.classList.toggle('hidden', !bits.length);
+    if (flagged) addChip('is-warn', `🗣 ${flagged} người muốn bàn`);
+    if (issueOf(i)) addChip('is-warn', `⚠ ${escapeHtml(issueOf(i))}`);
+    if (editOf(i)) addChip('is-edit', '✏ nhóm đã sửa');
+    if (marked) addChip('', `🔖 ${marked} người đánh dấu`);
+    if (q.topic && String(q.topic).trim().toLowerCase() !== 'chung') addChip('', escapeHtml(q.topic));
+    if (q.level) addChip('', escapeHtml(q.level));
+    if (q.expanded) addChip('is-info', '📖 mở rộng');
+    if (q.note) addChip('is-info', '📌 ghi nhớ');
+    let metaHtml = chips.length ? `<span class="rm-qchips">${chips.join('')}</span>` : '';
+    if (q.source) {
+        const full = String(q.source).trim();
+        // Chỉ hiện NHÁNH CUỐI (phần cụ thể nhất); cắt theo `›`/`>` thôi — đừng cắt theo `/`
+        // kẻo "Xử trí dịch/máu" bị xén mất một nửa.
+        const leaf = full.split(/\s*[›>]\s*/).filter(Boolean).pop() || full;
+        metaHtml += `<button type="button" class="rm-qsrc" data-qsrc title="${escapeHtml(full)}">`
+            + `<i class="fas fa-book-open"></i>`
+            + `<span class="rm-qsrc-short">${escapeHtml(leaf)}</span>`
+            + `<span class="rm-qsrc-full">${escapeHtml(full)}</span></button>`;
+    }
+    meta.innerHTML = metaHtml;
+    meta.classList.toggle('hidden', !metaHtml);
 
     // --- Ca lâm sàng ---
     const caseBox = el('case-box');
@@ -307,6 +321,10 @@ function renderLive() {
         qt.innerHTML = renderRich(q.question || '');
         renderMath(qt);
     }
+    // Đề dài (ca lâm sàng nhiều dữ kiện) thì tự thu chữ lại theo bậc, kẻo riêng câu hỏi
+    // đã chiếm hết màn và phương án bị đẩy xuống dưới. Cỡ chữ thật nằm ở CSS `[data-len]`.
+    const qLen = (qt.textContent || '').trim().length;
+    qt.dataset.len = qLen > 340 ? 'xl' : qLen > 200 ? 'lg' : qLen > 110 ? 'md' : 'sm';
 
     renderOptions(i, q, opts, mine, chosen, announced, shown, refIdx, stats, showStats);
     renderConsensus(i, stats, mine, chosen, announced);
@@ -971,6 +989,8 @@ export function initStage() {
         }
         if (e.target.closest('#left-chip')) return jumpToUnanswered();
         if (e.target.closest('[data-race-toggle]')) return toggleRace(true);
+        const src = e.target.closest('[data-qsrc]');
+        if (src) return void src.classList.toggle('is-open');
     });
     document.addEventListener('click', (e) => {
         if (!e.target.closest('#question-pill') && !e.target.closest('#question-map')) el('question-map')?.classList.add('hidden');

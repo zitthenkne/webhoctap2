@@ -356,10 +356,44 @@ textarea.rm-input { line-height: 1.6; resize: vertical; }
     box-shadow: var(--rm-shadow);
     animation: rm-fade-up .4s var(--rm-spring) both;
 }
-.rm-qmeta { font-size: .72rem; font-weight: 700; color: var(--rm-muted); margin-bottom: .7rem; }
-.rm-qmeta .sep { opacity: .4; margin: 0 .4rem; }
-.rm-qmeta .warn { color: var(--rm-warn); font-weight: 800; }
-#question-text { font-size: calc(clamp(1.15rem, 1rem + .8vw, 1.7rem) * var(--rm-scale)); font-weight: 700; line-height: 1.55; }
+/* ---- Dòng thông tin câu: 2 tầng, chip có nghĩa ở trên, nguồn mờ ở dưới ----
+   Bản cũ nối hết bằng dấu `·` nên đường dẫn nguồn (dài 2-3 dòng, ít cần nhất) nuốt mất
+   mấy chip đáng liếc. Nay chip đứng riêng một hàng, nguồn tụt xuống 1 dòng mảnh. */
+.rm-qmeta { display: flex; flex-direction: column; align-items: flex-start; gap: .38rem; margin-bottom: .75rem; max-width: 100%; }
+.rm-qchips { display: flex; flex-wrap: wrap; gap: .3rem; }
+.rm-qchip {
+    display: inline-flex; align-items: center; gap: .25rem;
+    padding: .14rem .55rem; border-radius: 999px;
+    font-size: calc(.68rem * var(--rm-scale)); font-weight: 800; line-height: 1.5;
+    color: var(--rm-muted); background: var(--rm-surface-2); border: 1px solid var(--rm-line-soft);
+}
+.rm-qchip.is-warn { color: var(--rm-warn); background: var(--rm-warn-bg); border-color: color-mix(in srgb, var(--rm-warn) 32%, transparent); }
+.rm-qchip.is-info { color: #7B61C4; background: var(--rm-lav-soft); border-color: color-mix(in srgb, var(--rm-lav) 45%, transparent); }
+.rm-qchip.is-edit { color: var(--rm-accent-deep); background: var(--rm-accent-soft); border-color: var(--rm-line); }
+/* Nguồn: mặc định chỉ nhánh cuối, 1 dòng cắt đuôi; bấm thì xổ hết đường dẫn */
+.rm-qsrc {
+    display: flex; align-items: baseline; gap: .35rem; max-width: 100%; text-align: left;
+    font-size: calc(.66rem * var(--rm-scale)); font-weight: 700; color: var(--rm-muted);
+    transition: color .2s;
+}
+.rm-qsrc i { flex: 0 0 auto; align-self: center; opacity: .5; }
+.rm-qsrc-short { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rm-qsrc-full { display: none; line-height: 1.55; }
+.rm-qsrc.is-open .rm-qsrc-short { display: none; }
+.rm-qsrc.is-open .rm-qsrc-full { display: block; }
+.rm-qsrc:hover { color: var(--rm-accent-deep); }
+
+/* ---- Cỡ chữ đề tự co theo độ dài ----
+   `data-len` do `renderQuestion` đặt theo số ký tự (sm/md/lg/xl). Đề 300-400 chữ mà giữ
+   nguyên cỡ lớn thì riêng câu hỏi đã hết một màn, phương án bị đẩy khuất — mỗi bậc rút cả
+   cỡ chữ lẫn giãn dòng. Vẫn dùng clamp nên máy tính to chữ hơn điện thoại như cũ. */
+#question-text {
+    font-size: calc(var(--rm-q-fs, clamp(1.15rem, 1rem + .8vw, 1.7rem)) * var(--rm-scale));
+    font-weight: 700; line-height: var(--rm-q-lh, 1.55);
+}
+#question-text[data-len="md"] { --rm-q-fs: clamp(1.08rem, .96rem + .6vw, 1.42rem); --rm-q-lh: 1.5; }
+#question-text[data-len="lg"] { --rm-q-fs: clamp(1rem, .92rem + .42vw, 1.2rem); --rm-q-lh: 1.48; }
+#question-text[data-len="xl"] { --rm-q-fs: clamp(.92rem, .87rem + .26vw, 1.05rem); --rm-q-lh: 1.45; }
 .rm-case {
     margin-bottom: 1rem; padding: .9rem 1rem; border-radius: var(--rm-r);
     background: var(--rm-peach-soft); border: 1px solid color-mix(in srgb, var(--rm-peach) 45%, transparent);
@@ -1284,11 +1318,22 @@ html.theme-dark .rm-hero-title { background: linear-gradient(120deg, #FFB9D6, #D
 .rm-sk-line { height: .95rem; margin: .5rem 0; }
 .rm-sk-opt { height: 3.2rem; border-radius: var(--rm-r); }
 
-/* --- (2) Vào màn / đổi câu: hoạt ảnh che nốt phần giật còn lại --- */
-.rm-fade-in { animation: rm-soft-in .34s var(--rm-spring) both; }
+/* --- (2) Vào màn / đổi câu: hoạt ảnh che nốt phần giật còn lại ---
+   TRIỆU CHỨNG NẾU LÀM SAI: trên điện thoại bấm "Ghi chú" thì cả màn tối mờ đi mà KHÔNG
+   thấy khay đâu (khay rơi xuống dưới mép màn). Đã đo: `.rm-col-side` nằm ở top=950 trong
+   màn cao 754. Thủ phạm không phải `container-type` của `.rm-live` (đã thử bật lại, khay
+   vẫn đúng chỗ) mà là 3 class ngay dưới đây.
+   FILL-MODE PHẢI LÀ `backwards`, ĐỪNG ĐỔI LẠI `both`: 3 class này do JS gắn vào
+   `#quiz-live` / `.rm-col-main` rồi KHÔNG BAO GIỜ gỡ. Với `both`, hoạt ảnh vẫn "còn hiệu lực"
+   sau khi chạy xong nên `transform` đọng lại ở ma trận đơn vị thay vì `none` — mà transform
+   khác `none` biến phần tử thành KHUNG CHỨA của mọi con `position: fixed`. Hậu quả: khay
+   "Ghi chú" trên điện thoại bám đáy `#quiz-live` chứ không bám đáy màn hình, cuộn lên là khay
+   rơi khỏi màn, người dùng chỉ thấy lớp mờ. `backwards` chỉ giữ khung ĐẦU (trước khi chạy),
+   chạy xong là trả về style thường — mà style thường đúng bằng khung `to`, nên nhìn y hệt. */
+.rm-fade-in { animation: rm-soft-in .34s var(--rm-spring) backwards; }
 @keyframes rm-soft-in { from { opacity: 0; transform: translateY(10px) scale(.99); } to { opacity: 1; transform: none; } }
-.rm-slide-next { animation: rm-sl-next .24s ease both; }
-.rm-slide-prev { animation: rm-sl-prev .24s ease both; }
+.rm-slide-next { animation: rm-sl-next .24s ease backwards; }
+.rm-slide-prev { animation: rm-sl-prev .24s ease backwards; }
 @keyframes rm-sl-next { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: none; } }
 @keyframes rm-sl-prev { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: none; } }
 
@@ -1498,12 +1543,39 @@ body.zen .rm-zen-chip { display: inline-flex; }
 @media (max-width: 767px) {
     /* --- Chạm cho dễ --- */
     .rm-mini, .rm-host-btn, .rm-ghost-btn, .rm-seg { min-height: 2.5rem; }
-    .rm-option { padding: .95rem 1rem; }
+
+    /* ═══ ƯU TIÊN THỊ GIÁC TRÊN ĐIỆN THOẠI ═══
+       Màn điện thoại chỉ cao ~700px dùng được. Trước đây phần "khung" phía trên
+       (đầu trang · ghim · thanh trên · dải tiến độ) ăn mất 291px -> câu hỏi bắt đầu
+       ở giữa màn, chỉ thấy 2 phương án, phải cuộn mới chọn được. Cả khối dưới đây
+       làm một việc: TRẢ CHỖ LẠI CHO CÂU HỎI + PHƯƠNG ÁN (lớp 1), bóp mọi thứ phụ
+       trợ (lớp 2) và làm mờ những thứ chỉ để tham khảo (lớp 3). */
+
+    /* --- Lớp 1: câu hỏi & phương án --- */
+    .rm-question { padding: .95rem 1.05rem; }
+    .rm-opts { gap: .5rem; }
+    .rm-option {
+        padding: .8rem .9rem; gap: .65rem;
+        border-width: 2px; border-color: var(--rm-line);
+    }
+    .rm-option .rm-voters { padding-top: .25rem; }
+    /* Ý MÌNH ĐANG CHỌN phải nhìn phát ra ngay: viền đậm + quầng, không chỉ nền hồng nhạt */
+    .rm-option.picked {
+        border-color: var(--rm-accent-deep);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--rm-accent) 26%, transparent);
+    }
 
     .rm-stab { padding: .5rem .5rem; font-size: .7rem; }
     #quiz-live { padding-bottom: 1rem; }
-    .rm-race { padding: .45rem .6rem .2rem; }
-    .rm-race-lane { height: 3.3rem; margin: 0 1.1rem; }
+    /* --- Lớp 3: dải tiến độ nhóm mặc định GẬP còn 1 dòng (104px -> ~49px).
+       Nó chỉ để liếc xem ai tới đâu, không đáng chiếm chỗ ngay trên đầu câu hỏi.
+       Chạm vào dòng tóm tắt thì xổ đường đua ra (body.race-open, xem room-mobile.js). --- */
+    .rm-race { padding: .3rem .55rem; }
+    .rm-race-top { margin-bottom: 0; cursor: pointer; }
+    .rm-race-label::after { content: ' \25BE '; font-size: .85rem; opacity: .55; }
+    .rm-race-lane { display: none; }
+    body.race-open .rm-race-label::after { content: ' \25B4 '; }
+    body.race-open .rm-race-lane { display: block; height: 3.3rem; margin: .35rem 1.1rem 0; }
     .rm-rfaces .rm-avatar { width: 1.5rem; height: 1.5rem; font-size: .85rem; }
     .rm-rmore { min-width: 1.3rem; height: 1.3rem; font-size: .55rem; }
     .rm-rcount { display: none; }
@@ -1515,7 +1587,7 @@ body.zen .rm-zen-chip { display: inline-flex; }
 
     /* --- Đầu trang gọn: bỏ hàng tab (đã có trong menu Thêm), chỉ chừa dòng ghim --- */
     #stage-tabs { display: none; }
-    #stage-tabs:has(#pinned-note:not(.hidden)) { display: flex; justify-content: center; }
+    #stage-tabs:has(#pinned-note:not(.hidden)) { display: flex; justify-content: center; padding: .2rem .5rem; }
     #stage-tabs .rm-tab, #stage-tabs > .flex-1 { display: none; }
     .rm-pin { max-width: 100%; justify-content: center; }
     /* Cỡ chữ · sáng tối · mời: đã nằm trong menu Thêm, đầu trang khỏi chật */
@@ -1552,6 +1624,13 @@ body.zen .rm-zen-chip { display: inline-flex; }
     .rm-dock-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
     .rm-dock-btn:active { transform: scale(.92); }
     .rm-dock-btn.is-on { color: var(--rm-accent-deep); background: var(--rm-accent-soft); }
+    /* --- Lớp ưu tiên trong dock: đi câu là việc làm liên tục -> nổi nhất sau viên Câu x/y;
+       Ghi chú / Chủ trì vừa phải; Thảo luận / Thêm chỉ thỉnh thoảng mới dùng -> nhạt đi. --- */
+    .rm-dock-btn[data-m="prev"], .rm-dock-btn[data-m="next"] { color: var(--rm-accent-deep); }
+    .rm-dock-btn[data-m="prev"] i, .rm-dock-btn[data-m="next"] i { font-size: 1.25rem; }
+    .rm-dock-btn[data-m="chat"], .rm-dock-btn[data-m="more"] { flex: .8 1 0; opacity: .72; }
+    .rm-dock-btn[data-m="chat"] i, .rm-dock-btn[data-m="more"] i { font-size: .95rem; }
+    .rm-dock-btn.is-on { opacity: 1; }
     .rm-dock-main {
         flex: 1.6 1 0; min-width: 4.6rem; border-radius: 999px;
         display: flex; align-items: center; justify-content: center;
@@ -1621,6 +1700,9 @@ body.zen .rm-zen-chip { display: inline-flex; }
     #host-bar { display: none !important; }
     body.sheet-host #host-bar { display: flex !important; }
     body.sheet-host #host-bar .rm-host-btn span { display: inline !important; }
+    /* Thanh chủ trì là flex-wrap -> tay nắm thành một ô nằm cạnh nút, vạch kéo lệch hẳn sang trái.
+       Ép nó chiếm trọn một hàng thì vạch mới nằm giữa mép trên như 3 khay kia. */
+    body.sheet-host #host-bar .rm-sheet-grip { flex: 1 0 100%; }
 
     /* Bảng bên (Thảo luận / Nhóm / BXH) cũng là khay, không chiếm cả màn nữa */
     .rm-side { width: 100%; height: var(--rm-sheet-h, 70vh); max-width: none; border-left: 0; }

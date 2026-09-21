@@ -3,7 +3,7 @@
 // thảo luận, thanh chủ trì và menu đều nằm trong khay, mở ra mới thấy.
 // Khay không hề dời DOM — chỉ bật/tắt class trên <body> rồi CSS lo phần trượt lên,
 // nhờ vậy mọi listener sẵn có của các module khác vẫn chạy nguyên.
-import { room, hasSession, canControl } from './room-state.js';
+import { room, hasSession, canControl, isShown } from './room-state.js';
 import { effectiveIndex, setViewIndex } from './room-quiz-stage.js';
 
 const el = (id) => document.getElementById(id);
@@ -107,6 +107,15 @@ export function paintDock() {
     document.body.classList.toggle('is-host', canControl());
     const c = el('dock-counter');
     if (c && hasSession()) c.textContent = `Câu ${effectiveIndex() + 1}/${room.session.questions.length}`;
+    // Đáp án đã hiện/chốt thì thứ đáng đọc nhất (giải thích) nằm trong khay này.
+    // Để nguyên nhãn "Ghi chú" là người ta tưởng chỉ để ghi chép rồi bỏ qua phần giải thích.
+    const tools = document.querySelector('#mobile-nav [data-m="tools"]');
+    if (tools && hasSession()) {
+        const shown = isShown(effectiveIndex());
+        tools.querySelector('span:not(.rm-dotmark)').textContent = shown ? 'Giải thích' : 'Ghi chú';
+        tools.querySelector('i').className = shown ? 'fas fa-lightbulb' : 'fas fa-pen-to-square';
+        el('nav-tools-dot')?.classList.toggle('hidden', !shown || openSheet === 'tools');
+    }
     document.querySelectorAll('#mobile-nav [data-m]').forEach(b => {
         const k = b.dataset.m;
         const on = (k === 'tools' && openSheet === 'tools')
@@ -162,6 +171,13 @@ export function initMobile() {
         if (k === 'text') return void el('text-size-btn')?.click();
         if (k === 'theme') return void el('theme-btn')?.click();
         if (k === 'race') return void window.dispatchEvent(new CustomEvent('room:tool', { detail: 'race' }));
+    });
+
+    // Dải tiến độ nhóm trên điện thoại mặc định gập còn 1 dòng -> chạm dòng đó để xổ ra.
+    // (Nút con mắt bên trong vẫn là "ẩn hẳn dải", đừng nuốt mất cú bấm của nó.)
+    document.addEventListener('click', (e) => {
+        if (!isPhone() || !e.target.closest('.rm-race-top') || e.target.closest('[data-race-toggle]')) return;
+        document.body.classList.toggle('race-open');
     });
 
     el('stage-tabs')?.addEventListener('click', () => setTimeout(paintDock, 0));

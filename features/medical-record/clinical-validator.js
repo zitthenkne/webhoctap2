@@ -661,6 +661,41 @@ function runConsistencyRules(c) {
             actionText: 'Kiểm tra lại giới tính / loại bệnh án', targetTab: 'hanh-chinh', targetField: 'record-type'
         });
     }
+    /* Bảng kiểm theo rubric hỏi bệnh sử sản khoa của Bộ môn Phụ Sản: gom hết
+       những ý rubric đòi mà bệnh án chưa có vào MỘT cảnh báo, kẻo mỗi ý một
+       dòng thì bảng cảnh báo dài hơn cả bệnh án. */
+    if (loai === 'san') {
+        const o = (id) => String($(id)?.value || '').trim();
+        const thieuRubric = [];
+        if (!['para-1', 'para-2', 'para-3', 'para-4'].some(o)) thieuRubric.push('PARA bốn số');
+        const daMangThai = ['para-1', 'para-2', 'para-3'].reduce((t, id) => t + (+o(id) || 0), 0);
+        if (daMangThai > 0 && !/\b(19|20)\d{2}\b/.test(c.past))
+            thieuRubric.push('chi tiết từng lần mang thai trước — năm nào, sinh cách nào, cân nặng bé, tai biến, con hiện ra sao');
+        if (['ob-menarche', 'ob-cycle-type', 'ob-days', 'ob-amount', 'ob-dysmenorrhea'].some(id => !o(id)))
+            thieuRubric.push('đủ các ý của chu kỳ kinh — tuổi có kinh lần đầu, tính đều, số ngày hành kinh, lượng, tính chất, triệu chứng kèm');
+        if (!o('ob-contraception') && !o('ob-tc-kehoach'))
+            thieuRubric.push('tiền căn tránh thai và thai lần này trong hay ngoài kế hoạch');
+        const noi = fold(val('history-internal') + ' ' + val('history-drugs') + ' ' + val('history-surgery'));
+        const chuaHoiNoi = [['tieu duong|dai thao duong', 'đái tháo đường'], ['tuyen giap', 'tuyến giáp'],
+        ['tim |huyet ap|tim mach', 'tim mạch – huyết áp'], ['thieu mau|dong mau', 'thiếu máu – đông máu'],
+        ['hen |lao |ho hap', 'hô hấp mạn'], ['viem gan', 'viêm gan'], ['mo |phau thuat', 'phẫu thuật bụng – chậu']]
+            .filter(([re]) => !new RegExp(re).test(noi)).map(([, t]) => t);
+        if (chuaHoiNoi.length) thieuRubric.push('tiền căn nội – ngoại khoa chưa thấy hỏi: ' + chuaHoiNoi.join(', '));
+        const chuaHoiGd = [['tieu duong|dai thao duong', 'đái tháo đường'],
+        ['tim |huyet ap|tim mach', 'tim mạch – tăng huyết áp'], ['thieu mau|dong mau', 'thiếu máu – đông máu']]
+            .filter(([re]) => !new RegExp(re).test(fold(val('history-family')))).map(([, t]) => t);
+        if (chuaHoiGd.length) thieuRubric.push('tiền căn gia đình chưa thấy hỏi: ' + chuaHoiGd.join(', '));
+        if (o('ob-lmp') && !o('ob-lmp2'))
+            thieuRubric.push('kinh áp chót và tính chất kỳ kinh chót — để biết ngày kinh chót có tin cậy không');
+        if (thieuRubric.length) push({
+            type: 'MISSING', severity: 'LOW',
+            title: `Rubric hỏi bệnh sử sản khoa — còn ${thieuRubric.length} ý chưa khai thác`,
+            message: 'Theo bảng chấm của Bộ môn Phụ Sản, bệnh án còn thiếu: ' + thieuRubric.join('; ') + '.',
+            actionText: 'Bổ sung tiền căn sản phụ khoa',
+            targetTab: 'lydo-tiensu', targetField: 'history-obgyne'
+        });
+    }
+
     if (!c.gender.trim()) {
         push({
             severity: 'LOW', title: 'Chưa chọn giới tính',

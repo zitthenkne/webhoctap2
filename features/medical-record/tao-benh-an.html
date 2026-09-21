@@ -784,7 +784,50 @@
                                             id="ob-hx-preweight" class="calc-in" placeholder="vd 52"></label>
                                     <label>Cân nặng hiện tại (kg)<input type="number" step="0.1" id="ob-hx-nowweight"
                                             class="calc-in" placeholder="vd 63"></label>
+                                    <label>Ba tháng đầu<input type="text" id="ob-hx-tcn1" data-luu class="calc-in"
+                                            placeholder="vd nghén nhẹ, siêu âm 8 tuần khớp kinh chót, hình thái học quý I bình thường"></label>
+                                    <label>Ba tháng giữa<input type="text" id="ob-hx-tcn2" data-luu class="calc-in"
+                                            placeholder="vd hình thái học quý II không dị tật, không phù, không nhức đầu, thai máy từ 20 tuần"></label>
+                                    <label>Ba tháng cuối<input type="text" id="ob-hx-tcn3" data-luu class="calc-in"
+                                            placeholder="vd siêu âm sinh trắc 36 tuần ước 2900 g, tăng trưởng phù hợp tuổi thai"></label>
                                 </div>
+                                <p class="bk-hint" data-nocount><i class="fas fa-vial"></i> Xét nghiệm — siêu âm đã làm trong thai kỳ này:</p>
+                                <div class="vx-list">
+                                    <label class="vx-item"><input type="checkbox" id="obxn-nhommau" data-luu>
+                                        <span>Nhóm máu — Rhesus</span></label>
+                                    <label class="vx-item"><input type="checkbox" id="obxn-hbsag" data-luu>
+                                        <span>HBsAg</span></label>
+                                    <label class="vx-item"><input type="checkbox" id="obxn-hiv" data-luu>
+                                        <span>HIV</span></label>
+                                    <label class="vx-item"><input type="checkbox" id="obxn-giangmai" data-luu>
+                                        <span>Giang mai (VDRL / TPHA)</span></label>
+                                    <label class="vx-item"><input type="checkbox" id="obxn-rubella" data-luu>
+                                        <span>Rubella IgM – IgG</span></label>
+                                    <label class="vx-item"><input type="checkbox" id="obxn-cmv" data-luu>
+                                        <span>CMV</span></label>
+                                    <label class="vx-item"><input type="checkbox" id="obxn-ctm" data-luu>
+                                        <span>Công thức máu — Hb</span></label>
+                                    <label class="vx-item"><input type="checkbox" id="obxn-nuoctieu" data-luu>
+                                        <span>Tổng phân tích nước tiểu</span></label>
+                                    <label class="vx-item"><input type="checkbox" id="obxn-sanloc" data-luu>
+                                        <span>Sàng lọc quý I (double test / NIPT)</span></label>
+                                    <label class="vx-item"><input type="checkbox" id="obxn-sanloc2" data-luu>
+                                        <span>Sàng lọc quý II (triple test)</span></label>
+                                    <label class="vx-item"><input type="checkbox" id="obxn-ht1" data-luu>
+                                        <span>Siêu âm hình thái học quý I</span></label>
+                                    <label class="vx-item"><input type="checkbox" id="obxn-ht2" data-luu>
+                                        <span>Siêu âm hình thái học quý II</span></label>
+                                    <label class="vx-item"><input type="checkbox" id="obxn-st3" data-luu>
+                                        <span>Siêu âm sinh trắc quý III</span></label>
+                                    <label class="vx-item"><input type="checkbox" id="obxn-ogtt" data-luu>
+                                        <span>Dung nạp glucose 75 g (24 – 28 tuần)</span></label>
+                                    <label class="vx-item"><input type="checkbox" id="obxn-gbs" data-luu>
+                                        <span>Cấy GBS âm đạo — hậu môn (36 tuần)</span></label>
+                                </div>
+                                <div class="spec-act">
+                                    <button type="button" id="ob-xn-apply" class="cls-mini"><i class="fas fa-arrow-down"></i> Ghi vào ô “Xét nghiệm đã làm”</button>
+                                </div>
+                                <div class="calc-out"><span id="ob-xn-out">Tích các mục đã làm — máy nhắc những xét nghiệm còn thiếu theo tuổi thai</span></div>
                                 <div class="calc-out"><span id="ob-gain-out">Nhập cân nặng trước và hiện tại để máy chấm
                                         mức tăng cân thai kỳ</span></div>
                             </div>
@@ -1068,14 +1111,14 @@
                             <div class="para-box" data-nocount>
                                 <span class="para-label">PARA</span>
                                 <input type="number" min="0" id="para-1" class="para-in" placeholder="0"
-                                    title="Số lần sinh đủ tháng" aria-label="Số lần sinh đủ tháng">
+                                    title="Số lần sinh từ đủ 37 tuần 0 ngày trở lên, kể cả thai chết lưu; đa thai vẫn tính một lần" aria-label="Số lần sinh đủ tháng">
                                 <input type="number" min="0" id="para-2" class="para-in" placeholder="0"
-                                    title="Số lần sinh thiếu tháng" aria-label="Số lần sinh thiếu tháng">
+                                    title="Số lần sinh từ đủ 22 tuần đến 36 tuần 6 ngày" aria-label="Số lần sinh thiếu tháng">
                                 <input type="number" min="0" id="para-3" class="para-in" placeholder="0"
-                                    title="Số lần sảy thai / phá thai" aria-label="Số lần sảy thai">
+                                    title="Số lần sảy thai, bỏ thai, thai ngoài tử cung, thai trứng — tuổi thai dưới 22 tuần" aria-label="Số lần sảy thai">
                                 <input type="number" min="0" id="para-4" class="para-in" placeholder="0"
                                     title="Số con hiện sống" aria-label="Số con hiện sống">
-                                <span class="para-help">đủ tháng · thiếu tháng · sảy · con sống</span>
+                                <span class="para-help">đủ tháng ≥ 37 tuần · thiếu tháng 22 – 36<sup>6/7</sup> tuần · sảy – bỏ – thai ngoài tử cung – thai trứng &lt; 22 tuần · con hiện sống</span>
                             </div>
                             <div class="spec-box" data-spec="san" data-ask="Đang mang thai?" data-ask-key="thaiKy" data-nocount>
                                 <div class="calc-title"><i class="fas fa-baby"></i> Thai kỳ hiện tại — máy tự tính tuổi
@@ -1087,6 +1130,37 @@
                                 </div>
                                 <div class="calc-out"><span id="ob-out">Nhập kinh chót để tính tuổi thai và ngày dự
                                         sinh</span></div>
+                            </div>
+                            <div class="spec-box" data-spec="san" data-when="gioi:nu" data-nocount>
+                                <div class="calc-title"><i class="fas fa-scale-balanced"></i> Định tuổi thai — đối chiếu kinh chót · siêu âm · hỗ trợ sinh sản</div>
+                                <div class="hx-grid">
+                                    <label>Kinh áp chót<input type="date" id="ob-lmp2" data-luu class="calc-in"></label>
+                                    <label>Tính chất kỳ kinh chót
+                                        <select id="ob-lmp-tc" data-luu class="calc-in">
+                                            <option value="">— chọn —</option>
+                                            <option>giống hệt các kỳ kinh bình thường</option>
+                                            <option>lượng ít hơn bình thường</option>
+                                            <option>số ngày ngắn hơn bình thường</option>
+                                            <option>ra lắt nhắt, không giống kỳ kinh</option>
+                                            <option>không nhớ rõ ngày đầu</option>
+                                        </select></label>
+                                    <label>Siêu âm quý I — ngày làm<input type="date" id="ob-us1-ngay" data-luu class="calc-in"></label>
+                                    <label>Siêu âm quý I — CRL (mm)<input type="number" step="0.1" id="ob-us1-crl" data-luu class="calc-in" placeholder="vd 45"></label>
+                                    <label>Siêu âm sau đó — ngày làm<input type="date" id="ob-us2-ngay" data-luu class="calc-in"></label>
+                                    <label>Siêu âm sau đó — BPD (mm)<input type="number" step="0.1" id="ob-us2-bpd" data-luu class="calc-in" placeholder="vd 88"></label>
+                                    <label>Mốc hỗ trợ sinh sản
+                                        <select id="ob-phoi" data-luu class="calc-in">
+                                            <option value="">— không có —</option>
+                                            <option>ngày phóng noãn / thụ tinh</option>
+                                            <option>chuyển phôi ngày 3</option>
+                                            <option>chuyển phôi ngày 5</option>
+                                        </select></label>
+                                    <label>Ngày của mốc đó<input type="date" id="ob-phoi-ngay" data-luu class="calc-in"></label>
+                                </div>
+                                <div class="spec-act">
+                                    <button type="button" id="ob-ga-apply" class="cls-mini"><i class="fas fa-arrow-down"></i> Ghi vào tiền căn sản phụ khoa</button>
+                                </div>
+                                <div class="calc-out"><span id="ob-ga-out">Nhập CRL, BPD hoặc ngày chuyển phôi để máy đối chiếu với kinh chót rồi chốt ngày dự sinh</span></div>
                             </div>
                             <div class="calc-box" data-ask="Còn kinh nguyệt?" data-ask-key="kinhNguyet" data-ask-no="history-obgyne::Đã mãn kinh" data-nocount>
                                 <div class="calc-title"><i class="fas fa-calendar-days"></i> Kinh nguyệt &amp; ngừa thai
@@ -1108,6 +1182,36 @@
                                 <div class="calc-out"><span id="ob-menses-out">Điền để máy ghép thành câu tiền căn phụ
                                         khoa</span>
                                 </div>
+                            </div>
+                            <div class="spec-box" data-spec="san" data-when="gioi:nu" data-nocount>
+                                <div class="calc-title"><i class="fas fa-people-roof"></i> Tiền căn sản khoa — lập gia đình · cách thụ thai · kế hoạch</div>
+                                <div class="hx-grid">
+                                    <label>Năm lập gia đình<input type="number" id="ob-tc-kethon" data-luu class="calc-in" placeholder="vd 2019"></label>
+                                    <label>Bao lâu thì có thai lần đầu<input type="text" id="ob-tc-mongcon" data-luu class="calc-in" placeholder="vd có thai sau 6 tháng"></label>
+                                    <label>Cách có thai lần này
+                                        <select id="ob-tc-thuthai" data-luu class="calc-in">
+                                            <option value="">— chọn —</option>
+                                            <option>mang thai tự nhiên</option>
+                                            <option>có dùng thuốc kích thích phóng noãn</option>
+                                            <option>bơm tinh trùng vào buồng tử cung (IUI)</option>
+                                            <option>thụ tinh trong ống nghiệm (IVF)</option>
+                                        </select></label>
+                                    <label>Số lần can thiệp hỗ trợ sinh sản<input type="text" id="ob-tc-solan" data-luu class="calc-in" placeholder="vd IUI 2 lần thất bại, IVF lần đầu"></label>
+                                    <label>Thai lần này
+                                        <select id="ob-tc-kehoach" data-luu class="calc-in">
+                                            <option value="">— chọn —</option>
+                                            <option>trong kế hoạch</option>
+                                            <option>ngoài kế hoạch</option>
+                                            <option>sau thời gian dài điều trị hiếm muộn</option>
+                                        </select></label>
+                                    <label>Bệnh phụ khoa đã / đang mắc<input type="text" id="ob-tc-phukhoa" data-luu class="calc-in" placeholder="vd viêm sinh dục dưới đã điều trị, u xơ tử cung"></label>
+                                    <label>Phẫu thuật — thủ thuật phụ khoa<input type="text" id="ob-tc-mophukhoa" data-luu class="calc-in" placeholder="vd khoét chóp cổ tử cung 2021, bóc u nang buồng trứng trái"></label>
+                                    <label>Mổ bụng — chậu, chấn thương khung chậu<input type="text" id="ob-tc-mobung" data-luu class="calc-in" placeholder="vd mổ ruột thừa 2015; chưa chấn thương khung chậu"></label>
+                                </div>
+                                <div class="spec-act">
+                                    <button type="button" id="ob-tc-apply" class="cls-mini"><i class="fas fa-arrow-down"></i> Ghi vào tiền căn sản phụ khoa</button>
+                                </div>
+                                <div class="calc-out"><span id="ob-tc-out">Điền để máy ghép câu tiền căn và soi các yếu tố nguy cơ: hiếm muộn, vết mổ cũ, khung chậu</span></div>
                             </div>
                             <div class="cnv-box bk-box" data-ask="Đã từng mang thai lần nào chưa?" data-ask-key="paraTruoc" data-nocount>
                                 <div class="cnv-head">
@@ -1717,6 +1821,86 @@
                             <div class="calc-out"><span id="ob-weight-out">Nhập bề cao tử cung và vòng bụng để ước lượng
                                     cân thai</span></div>
                         </div>
+                        <div class="spec-box" data-spec="san" data-when="gioi:nu" data-nocount>
+                            <div class="calc-title"><i class="fas fa-stethoscope"></i> Khám âm đạo — mỏ vịt · ngôi · ối · khung chậu ba eo</div>
+                            <div class="hx-grid">
+                                <label>Đặt mỏ vịt ghi nhận<input type="text" id="ob-movit" data-luu class="calc-in"
+                                        placeholder="vd nước ối trong chảy ra từ lỗ cổ tử cung, không máu"></label>
+                                <label>Nitrazine test
+                                    <select id="ob-nitrazine" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>không làm</option>
+                                        <option>dương tính — giấy đổi xanh</option>
+                                        <option>âm tính</option>
+                                    </select></label>
+                                <label>Đầu ối
+                                    <select id="ob-dauoi" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>đầu ối phồng</option>
+                                        <option>đầu ối dẹt</option>
+                                        <option>đầu ối hình quả lê</option>
+                                        <option>màng ối đã vỡ hoàn toàn</option>
+                                        <option>vỡ ối còn màng</option>
+                                    </select></label>
+                                <label>Chồng khớp sọ (ngôi chỏm)
+                                    <select id="ob-chongxuong" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>các xương sọ không chồng</option>
+                                        <option>chồng nhẹ, đẩy ra được</option>
+                                        <option>chồng khít, không đẩy ra được</option>
+                                    </select></label>
+                                <label>Bướu huyết thanh
+                                    <select id="ob-buou" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>không có bướu huyết thanh</option>
+                                        <option>bướu huyết thanh nhỏ</option>
+                                        <option>bướu huyết thanh to</option>
+                                    </select></label>
+                                <label>Eo trên — mỏm nhô
+                                    <select id="ob-kc-momnho" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>không sờ đụng mỏm nhô</option>
+                                        <option>sờ đụng mỏm nhô</option>
+                                    </select></label>
+                                <label>Eo trên — gờ vô danh
+                                    <select id="ob-kc-govodanh" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>sờ được dưới 2/3 gờ vô danh</option>
+                                        <option>sờ quá 2/3 gờ vô danh</option>
+                                        <option>sờ trọn gờ vô danh</option>
+                                    </select></label>
+                                <label>Eo giữa — gai hông
+                                    <select id="ob-kc-gaihong" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>gai hông tù</option>
+                                        <option>gai hông nhọn, nhô vào lòng chậu</option>
+                                    </select></label>
+                                <label>Eo giữa — vách chậu
+                                    <select id="ob-kc-vachchau" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>hai vách chậu song song</option>
+                                        <option>hai vách chậu hội tụ</option>
+                                    </select></label>
+                                <label>Eo giữa — độ cong xương cùng
+                                    <select id="ob-kc-xuongcung" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>xương cùng cong đều</option>
+                                        <option>xương cùng phẳng</option>
+                                        <option>xương cùng gập góc</option>
+                                    </select></label>
+                                <label>Eo dưới — góc vòm vệ
+                                    <select id="ob-kc-vomve" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>góc vòm vệ tù, khoảng 90°</option>
+                                        <option>góc vòm vệ nhọn, dưới 90°</option>
+                                    </select></label>
+                                <label>Eo dưới — khoảng cách hai ụ ngồi (cm)<input type="number" step="0.5" id="ob-kc-ungoi" data-luu class="calc-in" placeholder="vd 10"></label>
+                            </div>
+                            <div class="spec-act">
+                                <button type="button" id="ob-vag-apply" class="cls-mini"><i class="fas fa-arrow-down"></i> Ghi vào mục Bụng &amp; ô Khung chậu</button>
+                            </div>
+                            <div class="calc-out"><span id="ob-kc-out">Chọn các mốc của ba eo để máy kết luận khung chậu bình thường hay nghi hẹp</span></div>
+                        </div>
 <div class="spec-box" data-spec="san" data-when="gioi:nu" data-nocount>
                             <div class="calc-title"><i class="fas fa-hands"></i> Bốn thủ thuật Leopold — ngôi · thế · độ lọt</div>
                             <div class="hx-grid">
@@ -1847,6 +2031,8 @@
                                         <option>hôi</option>
                                     </select></label>
                                 <label>Cơn gò — số cơn/10 phút<input type="number" id="ob-go-tan" data-luu class="calc-in" placeholder="vd 3"></label>
+                                <label>Bắt 3 cơn — thời gian co (giây)<input type="number" id="ob-go-co" data-luu class="calc-in" placeholder="vd 40"></label>
+                                <label>Bắt 3 cơn — thời gian nghỉ (giây)<input type="number" id="ob-go-nghi" data-luu class="calc-in" placeholder="vd 180"></label>
                                 <label>Cơn gò — cường độ · thời gian<input type="text" id="ob-go-cuong" data-luu class="calc-in"
                                         placeholder="vd trung bình, mỗi cơn 40 giây, trương lực cơ bản bình thường"></label>
                                 <label>Tim thai — đường cơ bản (l/p)<input type="number" id="ob-tt-cb" data-luu class="calc-in" placeholder="vd 140"></label>
@@ -1946,6 +2132,73 @@
                                 <label>Vú — sữa<input type="text" id="ob-hs-vu" data-luu class="calc-in" placeholder="vd hai vú mềm, đã có sữa, bé bú được"></label>
                             </div>
                             <div class="calc-out"><span id="ob-hausan-out">Nhập ngày giờ sinh để máy tính hậu sản ngày thứ mấy</span></div>
+                        </div>
+                        <div class="spec-box" data-spec="san" data-when="gioi:nu" data-nocount>
+                            <div class="calc-title"><i class="fas fa-clipboard-check"></i> Chẩn đoán &amp; tiên lượng sản khoa — ba chữ P</div>
+                            <p class="bk-hint" data-nocount><i class="fas fa-circle-info"></i> Máy lấy sẵn tuổi thai, ngôi thai, giai đoạn chuyển dạ và giờ vỡ ối ở các khối trên để dựng câu chẩn đoán theo mẫu của bộ môn.</p>
+                            <div class="hx-grid">
+                                <label>Con so hay con rạ
+                                    <select id="ob-conso" data-luu class="calc-in">
+                                        <option value="">— máy tự suy từ PARA —</option>
+                                        <option>con so</option>
+                                        <option>con rạ</option>
+                                    </select></label>
+                                <label>Tuổi thai tính theo
+                                    <select id="ob-ga-nguon" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>kinh chót</option>
+                                        <option>siêu âm quý I</option>
+                                        <option>ngày chuyển phôi</option>
+                                    </select></label>
+                                <label>Power — cơn gò tử cung
+                                    <select id="ob-3p-power" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>cơn gò phù hợp giai đoạn chuyển dạ, hiệu quả</option>
+                                        <option>cơn gò thưa yếu — cần tăng co</option>
+                                        <option>cơn gò cường tính — cần giảm co</option>
+                                        <option>chưa có cơn gò chuyển dạ</option>
+                                    </select></label>
+                                <label>Passage — khung chậu
+                                    <select id="ob-3p-passage" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>khung chậu bình thường trên lâm sàng</option>
+                                        <option>khung chậu nghi hẹp — cần theo dõi sát</option>
+                                        <option>khung chậu hẹp rõ</option>
+                                        <option>có vết mổ lấy thai cũ</option>
+                                    </select></label>
+                                <label>Passenger — thai nhi
+                                    <select id="ob-3p-passenger" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>cân thai ước lượng tương xứng khung chậu</option>
+                                        <option>thai to, nghi bất xứng đầu chậu</option>
+                                        <option>ngôi bất thường — không sinh ngả âm đạo được</option>
+                                        <option>đa thai</option>
+                                    </select></label>
+                                <label>Tiên lượng cho thai
+                                    <select id="ob-ts-thai" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>thai khỏe, tim thai nhóm I</option>
+                                        <option>cần theo dõi tim thai sát</option>
+                                        <option>nguy cơ suy thai — chấm dứt thai kỳ sớm</option>
+                                    </select></label>
+                                <label>Hướng xử trí
+                                    <select id="ob-ts-huong" data-luu class="calc-in">
+                                        <option value="">— chọn —</option>
+                                        <option>theo dõi sinh ngả âm đạo</option>
+                                        <option>khởi phát chuyển dạ</option>
+                                        <option>mổ lấy thai chương trình</option>
+                                        <option>mổ lấy thai cấp cứu</option>
+                                        <option>dưỡng thai, theo dõi tiếp</option>
+                                    </select></label>
+                                <label>Điều trị kèm — dặn dò<input type="text" id="ob-ts-dieutri" data-luu class="calc-in"
+                                        placeholder="vd kháng sinh dự phòng ampicillin, corticoid trưởng thành phổi, thuốc giảm gò"></label>
+                            </div>
+                            <div class="spec-act">
+                                <button type="button" id="ob-dx-apply" class="cls-mini"><i class="fas fa-arrow-down"></i> Ghi vào Chẩn đoán sơ bộ</button>
+                                <button type="button" id="ob-ts-apply" class="cls-mini"><i class="fas fa-arrow-down"></i> Ghi vào Tiên lượng</button>
+                            </div>
+                            <div class="calc-out"><span id="ob-dx-out">Máy dựng câu: con so / con rạ, thai … tuần, ngôi …, chuyển dạ giai đoạn …</span></div>
+                            <div class="calc-out"><span id="ob-3p-out">Chọn đủ ba chữ P để máy nhận xét khả năng sinh ngả âm đạo</span></div>
                         </div>
                                                 <div class="spec-box" data-when="loai:nhi|tuoi:&lt;16" data-nocount>
                             <div class="calc-title"><i class="fas fa-child"></i> Nhi khoa — máy tự tính dịch và liều

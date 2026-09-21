@@ -962,6 +962,9 @@ export function buildProse() {
     if (san.length) out.push(`Trong thai kỳ, bệnh nhân ${san.join(', ')}.`);
     const gain = $('ob-gain-out')?.textContent || '';
     if (san.length && /^Tăng /.test(gain)) out.push(gain + '.');
+    // Ba tam cá nguyệt kể riêng từng đoạn — đó là cách bộ môn Sản đòi hỏi bệnh sử
+    [['Ba tháng đầu', 'ob-hx-tcn1'], ['Ba tháng giữa', 'ob-hx-tcn2'], ['Ba tháng cuối', 'ob-hx-tcn3']]
+        .forEach(([nhan, id]) => { if (v(id)) out.push(`${nhan} của thai kỳ, bệnh nhân ${v(id)}.`); });
 
     // Nhi khoa: ăn – tiểu – phân – dịch tễ là bốn ý bắt buộc hỏi
     const nhi = [

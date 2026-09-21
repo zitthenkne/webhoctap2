@@ -46,6 +46,16 @@ function xuongGayText(list) {
         .map(x => x.ten + (x.n > 1 ? ` ×${x.n}` : '')).join(', ');
 }
 
+/* Xét nghiệm tiền sản: ô tích trên trang lưu thành 1/0 nên bản in phải có sẵn
+   tên của từng mục, không đọc lại được từ DOM. */
+const XN_TIEN_SAN = [['obxn-nhommau', 'nhóm máu – Rhesus'], ['obxn-hbsag', 'HBsAg'],
+['obxn-hiv', 'HIV'], ['obxn-giangmai', 'giang mai'], ['obxn-rubella', 'Rubella'],
+['obxn-cmv', 'CMV'], ['obxn-ctm', 'công thức máu'], ['obxn-nuoctieu', 'tổng phân tích nước tiểu'],
+['obxn-sanloc', 'sàng lọc quý I'], ['obxn-sanloc2', 'sàng lọc quý II'],
+['obxn-ht1', 'siêu âm hình thái học quý I'], ['obxn-ht2', 'siêu âm hình thái học quý II'],
+['obxn-st3', 'siêu âm sinh trắc quý III'], ['obxn-ogtt', 'dung nạp glucose 75 g'],
+['obxn-gbs', 'cấy GBS']];
+
 export function buildModel(r) {
     const h = r.hanhChinh || {}, t = r.tienSu || {}, k = r.khamBenh || {}, s = k.sinhTon || {};
     const ros = r.luocQuaCoQuan || {};
@@ -59,6 +69,7 @@ export function buildModel(r) {
     // Các ô đánh dấu data-luu của khối đặc thù chuyên khoa (xem dac-thu-khoa.js)
     const d = r.dacThu || {};
     const o = (id, truoc = '', sau = '') => (d[id] ? truoc + d[id] + sau : '');
+    const xnTienSan = XN_TIEN_SAN.filter(([id]) => +d[id]).map(([, ten]) => ten).join(', ');
     const bishop = (() => {
         const n = ['ob-bs-mo', 'ob-bs-xoa', 'ob-bs-lot', 'ob-bs-mat', 'ob-bs-huong'].map(k => parseFloat(d[k]));
         return n.every(x => isFinite(x)) ? `${n.reduce((a, b) => a + b, 0)}/13 điểm` : '';
@@ -99,6 +110,9 @@ export function buildModel(r) {
                 bsn.sieuAm && 'siêu âm ' + bsn.sieuAm, bsn.xetNghiem, bsn.uonVan && 'uốn ván ' + bsn.uonVan,
                 bsn.batThuong, bsn.canTruocMangThai && `cân trước mang thai ${bsn.canTruocMangThai} kg`,
                 bsn.canHienTai && `cân hiện tại ${bsn.canHienTai} kg`)],
+            ['Diễn tiến thai kỳ theo tam cá nguyệt', gop(o('ob-hx-tcn1', 'ba tháng đầu: '),
+                o('ob-hx-tcn2', 'ba tháng giữa: '), o('ob-hx-tcn3', 'ba tháng cuối: '))],
+            ['Xét nghiệm – siêu âm tiền sản đã làm', xnTienSan],
             ['Bệnh sử nhi khoa', gop(bnh.nguoiNuoi && 'người khai ' + bnh.nguoiNuoi, bnh.anBu, bnh.nuocTieu,
                 bnh.phan, bnh.dichTe, bnh.daDieuTri, bnh.canTruocBenh && `cân trước khi bệnh ${bnh.canTruocBenh} kg`)],
             ['@vitals', admVitals, 'Sinh hiệu lúc nhập viện'],
@@ -107,6 +121,15 @@ export function buildModel(r) {
         ['IV. TIỀN CĂN', 'fa-notes-medical', [
             ['1. Nội khoa', t.noiKhoa], ['2. Thuốc đang dùng tại nhà', t.thuocDangDung],
             ['3. Ngoại khoa', t.ngoaiKhoa], ['4. Sản phụ khoa', t.sanPhuKhoa],
+            ['Định tuổi thai', gop(fmtDate(d['ob-lmp2']) && 'kinh áp chót ' + fmtDate(d['ob-lmp2']),
+                o('ob-lmp-tc', 'kỳ kinh chót '),
+                d['ob-us1-crl'] && `siêu âm quý I ${fmtDate(d['ob-us1-ngay'])} CRL ${d['ob-us1-crl']} mm`,
+                d['ob-us2-bpd'] && `siêu âm ${fmtDate(d['ob-us2-ngay'])} BPD ${d['ob-us2-bpd']} mm`,
+                d['ob-phoi'] && `${d['ob-phoi']} ngày ${fmtDate(d['ob-phoi-ngay'])}`)],
+            ['Tiền căn sản khoa – kế hoạch', gop(o('ob-tc-kethon', 'lập gia đình năm '),
+                o('ob-tc-mongcon'), o('ob-tc-thuthai'), o('ob-tc-solan'),
+                o('ob-tc-kehoach', 'thai lần này '), o('ob-tc-phukhoa', 'bệnh phụ khoa: '),
+                o('ob-tc-mophukhoa'), o('ob-tc-mobung'))],
             ['5. Dị ứng', t.diUng], ['6. Môi trường – phơi nhiễm', t.moiTruong],
             ['7. Thói quen', t.thoiQuen], ['8. Gia đình', t.giaDinh],
             ['Cần hỏi trước mổ', [t.truocMo?.gayMe, t.truocMo?.chongDong,
@@ -152,9 +175,18 @@ export function buildModel(r) {
             ['Leopold – ngôi thai', gop(o('ob-leo1', 'đáy tử cung '), o('ob-leo2'), o('ob-leo3', 'đoạn dưới '),
                 o('ob-leo4', 'độ lọt '), o('ob-the', 'thế '), o('ob-sothai'))],
             ['Chỉ số Bishop', bishop],
+            ['Khám âm đạo – khung chậu ba eo', gop(o('ob-movit', 'đặt mỏ vịt: '),
+                o('ob-nitrazine', 'Nitrazine test '), o('ob-dauoi'), o('ob-chongxuong'), o('ob-buou'),
+                o('ob-kc-momnho'), o('ob-kc-govodanh'), o('ob-kc-gaihong'), o('ob-kc-vachchau'),
+                o('ob-kc-xuongcung'), o('ob-kc-vomve'), o('ob-kc-ungoi', 'hai ụ ngồi ', ' cm'))],
+            ['Tiên lượng sản khoa (ba chữ P)', gop(o('ob-conso'), o('ob-ga-nguon', 'tuổi thai theo '),
+                o('ob-3p-power', 'Power: '), o('ob-3p-passage', 'Passage: '),
+                o('ob-3p-passenger', 'Passenger: '), o('ob-ts-thai', 'tiên lượng cho thai: '),
+                o('ob-ts-huong', 'hướng xử trí: '), o('ob-ts-dieutri', 'điều trị kèm: '))],
             ['Chuyển dạ – ối – tim thai', gop(o('ob-cd-gd'), fmtDateTime(d['ob-cd-batdau']) && 'bắt đầu chuyển dạ ' + fmtDateTime(d['ob-cd-batdau']),
                 o('ob-oi-tt'), fmtDateTime(d['ob-oi-gio']) && 'vỡ ối lúc ' + fmtDateTime(d['ob-oi-gio']),
                 o('ob-oi-mau', 'ối '), o('ob-go-tan', 'cơn gò ', ' cơn/10 phút'), o('ob-go-cuong'),
+                o('ob-go-co', 'mỗi cơn co ', ' giây'), o('ob-go-nghi', 'nghỉ ', ' giây'),
                 o('ob-tt-cb', 'tim thai đường cơ bản ', ' l/p'), o('ob-tt-dd', 'dao động nội tại '),
                 o('ob-tt-giam'), o('ob-tt-nhom', 'biểu đồ tim thai '))],
             ['Tăng huyết áp thai kỳ – tiền sản giật', gop(o('ob-tsg-dam', 'đạm niệu '), o('ob-tsg-phu'),
