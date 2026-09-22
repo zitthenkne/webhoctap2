@@ -64,6 +64,52 @@ const NK_NHAN = [['obnk-nointiet', 'nội tiết'], ['obnk-timmach', 'tim mạch
 ['obnk-thankinh', 'tâm thần – thần kinh'], ['obnk-hiv', 'HIV'], ['obnk-truyenmau', 'truyền máu gần đây'],
 ['obnk-thuoc', 'thuốc đang dùng — thuốc lá']];
 
+/* Sổ khám thai: thứ tự các trường trên MỘT dòng của ô ob-sokham. Phải khớp
+   đúng mảng SK_F trong dac-thu-khoa.js — đổi bên đó thì đổi cả bên này. */
+const SK_IN = ['ngay', 'can', 'ha', 'bctc', 'tt', 'efw', 'bpv', 'uapi', 'mcapi', 'nhandinh',
+    'noi', 'ac', 'acbpv', 'afi', 'sdp', 'cl', 'nhau', 'uabpv', 'cpr', 'cprbpv', 'utapi', 'ctt', 'xn'];
+
+/** Mỗi lần khám thành một câu; tuổi thai lúc đó không tính lại ở đây vì bản in
+    không có ngày dự sinh đã chốt — ngày khám là đủ để đối chiếu với bệnh sử. */
+function soKhamThaiText(raw) {
+    return String(raw || '').split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+        const p = l.split('|').map(x => x.trim());
+        const r = {};
+        SK_IN.forEach((k, i) => { r[k] = p[i] || ''; });
+        const me = [], thai = [], dop = [], cuoi = [];
+        const g = (kho, k, truoc = '', sau = '') => { if (r[k]) kho.push(truoc + r[k] + sau); };
+        g(me, 'can', 'cân nặng mẹ ', ' kg'); g(me, 'ha', 'huyết áp ', ' mmHg');
+        g(me, 'bctc', 'bề cao tử cung ', ' cm');
+        g(thai, 'tt', 'tim thai ', ' l/p');
+        if (r.efw) thai.push(`ước lượng cân nặng ${r.efw} g` + (r.bpv ? ` (bách phân vị ${r.bpv})` : ''));
+        else if (r.bpv) thai.push(`ước lượng cân nặng ở bách phân vị ${r.bpv}`);
+        if (r.ac) thai.push(`chu vi bụng ${r.ac} mm` + (r.acbpv ? ` (bách phân vị ${r.acbpv})` : ''));
+        g(thai, 'afi', 'AFI ', ' cm'); g(thai, 'sdp', 'xoang ối lớn nhất ', ' cm');
+        g(thai, 'nhau', 'nhau '); g(thai, 'cl', 'chiều dài kênh cổ tử cung ', ' mm');
+        g(dop, 'uapi', 'UA PI '); g(dop, 'mcapi', 'MCA PI ');
+        if (r.cpr) dop.push(`CPR ${r.cpr}` + (r.cprbpv ? ` (bách phân vị ${r.cprbpv})` : ''));
+        g(dop, 'utapi', 'UtA PI ');
+        if (r.ctt && r.ctt !== 'còn sóng cuối tâm trương') dop.push(r.ctt);
+        g(cuoi, 'xn'); g(cuoi, 'nhandinh', '→ ');
+        const than = [me.join(', '), thai.join(', '), dop.length ? 'Doppler: ' + dop.join(', ') : '',
+            cuoi.join(' ')].filter(Boolean);
+        const dau = [fmtDate(r.ngay), r.noi].filter(Boolean).join(' — ');
+        if (!dau && !than.length) return '';
+        return (dau || 'không rõ ngày') + ': ' + (than.length ? than.join('; ') : 'chưa ghi chi tiết');
+    }).filter(Boolean).join('\n');
+}
+
+/* Sáu bước biện luận sản khoa — mười ô tích dự phòng ở bước cuối */
+const BL_DUPHONG_NHAN = [['obbl-cort', 'corticosteroid trưởng thành phổi'],
+['obbl-mgbaove', 'MgSO4 bảo vệ thần kinh thai'],
+['obbl-mgcogiat', 'MgSO4 phòng sản giật duy trì tới 24 giờ sau sinh'],
+['obbl-haap', 'hạ áp khi huyết áp ≥ 160/110 mmHg'],
+['obbl-ksoi', 'kháng sinh dự phòng khi ối vỡ non'],
+['obbl-ksgbs', 'kháng sinh dự phòng GBS trong chuyển dạ'],
+['obbl-antid', 'anti-D cho mẹ Rh âm'], ['obbl-bhss', 'dự phòng băng huyết sau sinh'],
+['obbl-sosinh', 'báo nhi sơ sinh chuẩn bị hồi sức'],
+['obbl-theodoisau', 'hẹn theo dõi sau sinh']];
+
 export function buildModel(r) {
     const h = r.hanhChinh || {}, t = r.tienSu || {}, k = r.khamBenh || {}, s = k.sinhTon || {};
     const ros = r.luocQuaCoQuan || {};
@@ -80,6 +126,15 @@ export function buildModel(r) {
     const xnTienSan = XN_TIEN_SAN.filter(([id]) => +d[id]).map(([, ten]) => ten).join(', ');
     const kiemGd = GD_NHAN.filter(([id]) => +d[id]).map(([, t]) => t).join(', ');
     const kiemNk = NK_NHAN.filter(([id]) => +d[id]).map(([, t]) => t).join(', ');
+    const duPhongSan = BL_DUPHONG_NHAN.filter(([id]) => +d[id]).map(([, t]) => t).join(', ');
+    const ogttText = (() => {
+        const v = [['ob-ts-ogtt0', 'đói'], ['ob-ts-ogtt1', '1 giờ'], ['ob-ts-ogtt2', '2 giờ']]
+            .map(([k, ten]) => (d[k] ? `${ten} ${d[k]}` : '')).filter(Boolean);
+        if (!v.length) return '';
+        return `nghiệm pháp dung nạp glucose 75 g`
+            + (d['ob-ts-ogtt-tuan'] ? ` lúc ${d['ob-ts-ogtt-tuan']}` : '')
+            + ` (${v.join(', ')} mmol/L)`;
+    })();
     const bishop = (() => {
         const n = ['ob-bs-mo', 'ob-bs-xoa', 'ob-bs-lot', 'ob-bs-mat', 'ob-bs-huong'].map(k => parseFloat(d[k]));
         return n.every(x => isFinite(x)) ? `${n.reduce((a, b) => a + b, 0)}/13 điểm` : '';
@@ -132,6 +187,22 @@ export function buildModel(r) {
                 bsn.canHienTai && `cân hiện tại ${bsn.canHienTai} kg`)],
             ['Diễn tiến thai kỳ theo tam cá nguyệt', gop(o('ob-hx-tcn1', 'ba tháng đầu: '),
                 o('ob-hx-tcn2', 'ba tháng giữa: '), o('ob-hx-tcn3', 'ba tháng cuối: '))],
+            // Sổ khám thai lưu mỗi lần khám một dòng, các trường ngăn bằng "|"
+            // theo thứ tự SK_IN; bản in ghép lại thành câu, mỗi lần khám một dòng.
+            ['Tổng kết sổ khám thai', soKhamThaiText(d['ob-sokham'])],
+            ['Tầm soát tam cá nguyệt I', gop(
+                d['ob-ts-nt'] && `độ mờ da gáy ${d['ob-ts-nt']} mm`
+                + (d['ob-ts-ntcrl'] ? ` lúc CRL ${d['ob-ts-ntcrl']} mm` : ''),
+                o('ob-ts-lechboi'), o('ob-ts-lechboi-kq', 'kết quả '),
+                o('ob-ts-nhommau', 'nhóm máu '), o('ob-ts-huyethoc'), o('ob-ts-nhiemtrung'),
+                o('ob-ts-tsg', 'sàng lọc tiền sản giật '), o('ob-ts-aspirin', 'aspirin '),
+                o('ob-ts-ht1', 'siêu âm hình thái học quý I: '))],
+            ['Tầm soát tam cá nguyệt II', gop(o('ob-ts-ht2', 'siêu âm hình thái học quý II '),
+                d['ob-ts-cl'] && `chiều dài kênh cổ tử cung ${d['ob-ts-cl']} mm`,
+                o('ob-ts-clhinh'), ogttText,
+                o('ob-ts-dtd-dt', 'điều trị đái tháo đường thai kỳ: '))],
+            ['Tầm soát tam cá nguyệt III', gop(o('ob-ts-gbs', 'cấy GBS '), o('ob-ts-vat'),
+                o('ob-ts-cort'), o('ob-ts-skthai'))],
             ['Xét nghiệm – siêu âm tiền sản đã làm', xnTienSan],
             ['Bệnh sử nhi khoa', gop(bnh.nguoiNuoi && 'người khai ' + bnh.nguoiNuoi, bnh.anBu, bnh.nuocTieu,
                 bnh.phan, bnh.dichTe, bnh.daDieuTri, bnh.canTruocBenh && `cân trước khi bệnh ${bnh.canTruocBenh} kg`)],
@@ -245,7 +316,19 @@ export function buildModel(r) {
         ['IX. CHẨN ĐOÁN', 'fa-search', [
             ['Chẩn đoán sơ bộ', r.chanDoanSoBo], ['Chẩn đoán phân biệt', r.chanDoanPhanBiet]
         ]],
-        ['X. BIỆN LUẬN LÂM SÀNG', 'fa-comments', [['', r.bienLuanChanDoan]]],
+        ['X. BIỆN LUẬN LÂM SÀNG', 'fa-comments', [
+            ['', r.bienLuanChanDoan],
+            // Sáu bước biện luận sản khoa: in thành các dòng riêng đúng trình tự
+            // bộ môn chấm, kể cả khi người làm bệnh án chưa bấm "Ghi vào mục X".
+            ['Tuổi thai', gop(o('ob-bl-lmp'), o('ob-bl-nguon', 'chốt tuổi thai theo '))],
+            ['Chuyển dạ', gop(o('ob-bl-cd'), o('ob-bl-cd-them', 'còn theo dõi thêm '))],
+            ['Vấn đề chính', gop(o('ob-bl-vande'), o('ob-bl-vi', 'vì '),
+                o('ob-bl-loaitru', 'đã loại trừ '), o('ob-bl-bienchung', 'biến chứng theo dõi: '))],
+            ['Sức khỏe thai', gop(o('ob-bl-skthai'), o('ob-bl-skthai-vi', 'căn cứ '))],
+            ['Hướng xử trí', gop(o('ob-bl-xutri'), o('ob-bl-thoidiem', 'thời điểm: '),
+                o('ob-bl-duong'), o('ob-bl-duong-vi', 'vì '))],
+            ['Dự phòng kèm theo', duPhongSan]
+        ]],
         // Mỗi dòng đề nghị đã tự mang mục đích + dấu hiệu mong tìm, nên không còn
         // đoạn biện luận riêng. Dòng dưới chỉ để bệnh án cũ mở lên vẫn đọc được.
         ['XI. ĐỀ NGHỊ CẬN LÂM SÀNG', 'fa-vials', [

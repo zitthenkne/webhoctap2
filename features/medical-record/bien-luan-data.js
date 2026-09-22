@@ -256,7 +256,100 @@ export const LIBRARY = [
         cls: ['Siêu âm bụng – bìu Doppler', 'Tổng phân tích nước tiểu', 'PSA', 'Chức năng thận']
     },
 
-    /* ---------------- Sản khoa ---------------- */
+    /* ---------------- Sản khoa ----------------
+       Các mẫu ĐẶC HIỆU phải đứng trước mẫu chung "Ra huyết âm đạo khi có
+       thai": suggestFor() lấy mẫu KHỚP ĐẦU TIÊN, nên đảo thứ tự là mất hết
+       nhánh riêng của từng tam cá nguyệt. */
+    {
+        k: 'Ra huyết âm đạo ba tháng đầu',
+        re: /ra huy[ếe]t.*(ba th[áa]ng đ[ầa]u|tam c[áa] nguy[ệe]t (1|i\b)|qu[ýy] (1|i\b))|xu[ấa]t huy[ếe]t.*ba th[áa]ng đ[ầa]u/i,
+        nn: ['Thai ngoài tử cung', 'Thai chưa xác định vị trí (PUL)', 'Thai nghén thất bại sớm (dọa sẩy – sẩy thai)',
+            'Thai trứng', 'Xuất huyết do phôi làm tổ', 'Bệnh lý cổ tử cung – âm đạo (polyp, viêm, tổn thương)',
+            'Rối loạn đông máu'],
+        red: ['Thai ngoài tử cung vỡ', 'Sẩy thai băng huyết', 'Sốc mất máu'],
+        cls: ['Beta-hCG định lượng (lặp sau 48 giờ)', 'Siêu âm đầu dò âm đạo (TVS)',
+            'Công thức máu – nhóm máu Rh', 'Đông máu toàn bộ', 'Khám mỏ vịt xác định nguồn chảy máu']
+    },
+    {
+        k: 'Ra huyết âm đạo ba tháng cuối',
+        re: /ra huy[ếe]t.*(ba th[áa]ng cu[ốo]i|tam c[áa] nguy[ệe]t (3|iii)|qu[ýy] (3|iii))|xu[ấa]t huy[ếe]t.*ba th[áa]ng cu[ốo]i/i,
+        nn: ['Tống xuất nút nhầy cổ tử cung khi vào chuyển dạ', 'Nhau tiền đạo', 'Nhau bong non',
+            'Vỡ tử cung', 'Mạch máu tiền đạo', 'Tổn thương cổ tử cung – âm đạo'],
+        red: ['Nhau bong non', 'Vỡ tử cung', 'Mạch máu tiền đạo vỡ', 'Sốc mất máu – băng huyết'],
+        cls: ['Siêu âm xác định vị trí nhau (KHÔNG khám âm đạo trước khi loại nhau tiền đạo)',
+            'Khám mỏ vịt xác định nguồn chảy máu', 'CTG', 'Công thức máu – nhóm máu Rh', 'Đông máu toàn bộ']
+    },
+    {
+        k: 'Thai nhỏ so với tuổi thai – thai giới hạn tăng trưởng (FGR)',
+        re: /fgr|thai (nh[ỏo]|ch[ậa]m|gi[ớo]i h[ạa]n) t[ăa]ng tr[ưu][ởo]ng|sga|nh[ẹe] c[âa]n so v[ớo]i tu[ổo]i thai/i,
+        nn: ['Thai nhỏ thể tạng (SGA đơn thuần)', 'Suy tuần hoàn tử cung – nhau (bệnh lý bánh nhau)',
+            'Bệnh lý mẹ gây thiếu oxy trường diễn (tim, phổi, thiếu máu, hút thuốc)',
+            'Bệnh lý mẹ gây rối loạn trao đổi tử cung – nhau (tiền sản giật, tăng huyết áp mạn, lupus, kháng phospholipid)',
+            'Mẹ dinh dưỡng kém – BMI thấp – tăng cân không đủ', 'Bất thường di truyền hoặc cấu trúc thai',
+            'Nhiễm trùng bào thai (TORCH)', 'Bất thường bánh nhau – dây rốn (một động mạch rốn, nhồi máu nhau)',
+            'Sai tuổi thai'],
+        red: ['Thai suy trường diễn – mất sóng / đảo ngược cuối tâm trương động mạch rốn', 'Thai lưu'],
+        cls: ['Siêu âm sinh trắc – EFW và bách phân vị', 'Doppler động mạch rốn (UA PI)',
+            'Doppler động mạch não giữa (MCA PI) – tỉ số não/rốn CPR', 'Doppler động mạch tử cung (UtA PI)',
+            'Chỉ số ối AFI – xoang ối lớn nhất', 'CTG – trắc đồ sinh vật lý', 'Bilan tiền sản giật',
+            'Chọc ối tìm lệch bội – nhiễm trùng bào thai (khi FGR sớm)']
+    },
+    {
+        k: 'Ối vỡ non – ối vỡ sớm',
+        re: /[ốo]i v[ỡo] (non|s[ớo]m)|v[ỡo] [ốo]i|r[ỉi] [ốo]i|pprom|ra n[ướơ]{1,2}c [âa]m đ[ạa]o/i,
+        nn: ['Ối vỡ non', 'Ối vỡ sớm', 'Rỉ ối', 'Són tiểu', 'Khí hư – huyết trắng lượng nhiều',
+            'Tống xuất nút nhầy'],
+        red: ['Nhiễm trùng ối', 'Sa dây rốn', 'Nhau bong non', 'Chuyển dạ sinh non'],
+        cls: ['Nitrazine test', 'Đặt mỏ vịt thấy nước ối đọng cùng đồ', 'Siêu âm đo chỉ số ối',
+            'Công thức máu – CRP', 'CTG', 'Cấy dịch âm đạo – cấy GBS']
+    },
+    {
+        k: 'Nhiễm trùng ối',
+        re: /nhi[ễe]m tr[ùu]ng [ốo]i|vi[êe]m m[àa]ng [ốo]i|chorioamnionitis/i,
+        nn: ['Nhiễm trùng ối', 'Nhiễm trùng tiểu', 'Viêm phổi – nhiễm siêu vi hô hấp',
+            'Nhiễm trùng vết mổ – nhiễm trùng da mô mềm', 'Sốt do thuốc – do mất nước'],
+        red: ['Nhiễm trùng huyết', 'Sốc nhiễm trùng', 'Suy thai cấp'],
+        cls: ['Công thức máu – CRP – procalcitonin', 'Cấy máu trước kháng sinh', 'Lactat máu',
+            'Tổng phân tích nước tiểu – cấy nước tiểu', 'CTG', 'Cấy dịch ối – dịch âm đạo']
+    },
+    {
+        k: 'Dọa sinh non – cổ tử cung ngắn',
+        re: /d[ọo]a sinh non|chuy[ểe]n d[ạa] sinh non|c[ổo] t[ửư] cung ng[ắa]n|c[ổo] t[ửư] cung h[ởo]/i,
+        nn: ['Chuyển dạ sinh non thật sự', 'Cơn gò Braxton-Hicks', 'Hở eo tử cung',
+            'Nhiễm trùng ối – nhiễm trùng đường sinh dục dưới', 'Nhiễm trùng tiểu',
+            'Đa thai – đa ối làm căng tử cung', 'Nhau bong non', 'Bất thường tử cung – u xơ tử cung'],
+        red: ['Nhiễm trùng ối', 'Nhau bong non', 'Sa dây rốn'],
+        cls: ['Siêu âm đầu dò đo chiều dài kênh cổ tử cung – hình dạng lỗ trong',
+            'CTG theo dõi cơn gò – tim thai', 'Fibronectin bào thai', 'Công thức máu – CRP',
+            'Tổng phân tích nước tiểu – cấy', 'Cấy dịch âm đạo']
+    },
+    {
+        k: 'Đái tháo đường thai kỳ',
+        re: /đ[áa]i th[áa]o đ[ườơ]{1,2}ng thai k[ỳy]|đtđ thai k[ỳy]|ogtt/i,
+        nn: ['Đái tháo đường thai kỳ', 'Đái tháo đường có từ trước không được chẩn đoán',
+            'Rối loạn dung nạp glucose thoáng qua'],
+        red: ['Thai to – bất xứng đầu chậu', 'Thai lưu', 'Nhiễm toan ceton trên thai kỳ'],
+        cls: ['Nghiệm pháp dung nạp glucose 75 g (đói – 1 giờ – 2 giờ)', 'HbA1c – đường huyết đói',
+            'Đường huyết mao mạch nhiều thời điểm', 'Siêu âm sinh trắc – chỉ số ối', 'CTG']
+    },
+    {
+        k: 'Vết mổ cũ – nhau cài răng lược',
+        re: /v[ếe]t m[ổo] c[ũu]|nhau c[àa]i r[ăa]ng l[ượơ]{1,2}c|accreta|percreta|nhau b[áa]m s[ẹe]o m[ổo]/i,
+        nn: ['Nhau tiền đạo trên vết mổ cũ', 'Nhau cài răng lược (accreta – increta – percreta)',
+            'Thai bám sẹo mổ lấy thai', 'Vỡ tử cung trên vết mổ cũ'],
+        red: ['Vỡ tử cung', 'Băng huyết sau sinh ồ ạt', 'Tổn thương bàng quang khi mổ'],
+        cls: ['Siêu âm Doppler khảo sát bánh nhau – cơ tử cung – thành bàng quang',
+            'MRI vùng chậu khi siêu âm chưa rõ', 'Công thức máu – nhóm máu – dự trù máu', 'Đông máu toàn bộ']
+    },
+    {
+        k: 'Giảm cử động thai',
+        re: /gi[ảa]m c[ửư] đ[ộo]ng thai|thai [íi]t m[áa]y|kh[ôo]ng th[ấa]y thai m[áa]y/i,
+        nn: ['Thai ngủ sinh lý', 'Suy tuần hoàn tử cung – nhau', 'Thiểu ối', 'Thai giới hạn tăng trưởng',
+            'Nhau bong non', 'Thai lưu', 'Mẹ dùng thuốc an thần – hạ đường huyết'],
+        red: ['Thai lưu', 'Suy thai cấp', 'Nhau bong non'],
+        cls: ['CTG – non-stress test', 'Siêu âm sinh trắc – chỉ số ối', 'Doppler động mạch rốn',
+            'Trắc đồ sinh vật lý']
+    },
     {
         k: 'Ra huyết âm đạo khi có thai', re: /ra huy[ếe]t [âa]m đ[ạa]o|xu[ấa]t huy[ếe]t thai/i,
         nn: ['Dọa sẩy thai', 'Thai ngoài tử cung', 'Thai trứng', 'Nhau tiền đạo', 'Nhau bong non'],
@@ -270,10 +363,14 @@ export const LIBRARY = [
         cls: ['Monitoring sản khoa (CTG)', 'Siêu âm thai', 'Công thức máu – đông máu', 'Tổng phân tích nước tiểu']
     },
     {
-        k: 'Tiền sản giật', re: /ti[ềe]n s[ảa]n gi[ậa]t|cao huy[ếe]t [áa]p thai k[ỳy]/i,
-        nn: ['Tiền sản giật', 'Tăng huyết áp mạn trên thai kỳ', 'Tăng huyết áp thai kỳ đơn thuần', 'Hội chứng HELLP'],
-        red: ['Sản giật', 'Hội chứng HELLP', 'Nhau bong non'],
-        cls: ['Đạm niệu', 'Công thức máu – tiểu cầu', 'AST – ALT – LDH', 'Chức năng thận', 'CTG – siêu âm Doppler']
+        k: 'Tiền sản giật', re: /ti[ềe]n s[ảa]n gi[ậa]t|cao huy[ếe]t [áa]p thai k[ỳy]|t[ăa]ng huy[ếe]t [áa]p.*thai/i,
+        nn: ['Tiền sản giật', 'Tiền sản giật ghép trên tăng huyết áp mạn', 'Tăng huyết áp mạn trên thai kỳ',
+            'Tăng huyết áp thai kỳ đơn thuần', 'Hội chứng HELLP', 'Tăng huyết áp thứ phát (hẹp động mạch thận, u tủy thượng thận)',
+            'Tăng huyết áp áo choàng trắng'],
+        red: ['Sản giật', 'Hội chứng HELLP', 'Nhau bong non', 'Phù phổi cấp', 'Xuất huyết não'],
+        cls: ['Đạm niệu 24 giờ hoặc tỉ số đạm/creatinin niệu', 'Công thức máu – tiểu cầu',
+            'AST – ALT – LDH – bilirubin', 'Creatinin – acid uric huyết thanh', 'Đông máu toàn bộ',
+            'sFlt-1/PlGF', 'CTG – siêu âm sinh trắc – chỉ số ối – Doppler']
     },
 
     /* ---------------- Nhi khoa ---------------- */
@@ -387,6 +484,33 @@ export const LIBRARY = [
    rơi thẳng vào khối "Dấu chứng lâm sàng ủng hộ" ở mục X.
    ===================================================================== */
 export const HALLMARKS = [
+    /* Sản khoa đặt lên đầu: nhiều tên bệnh sản có chứa "đau bụng", "phù",
+       "thiếu máu" nên nếu để sau sẽ bị các mẫu nội khoa nuốt mất. */
+    [/ti[ềe]n s[ảa]n gi[ậa]t|s[ảa]n gi[ậa]t|hellp/i, ['Huyết áp ≥ 140/90 mmHg đo 2 lần cách 4 giờ',
+        'Nhức đầu không giảm khi nghỉ', 'Nhìn mờ – hoa mắt – ám điểm', 'Đau thượng vị – hạ sườn phải',
+        'Phù mặt và hai tay xuất hiện nhanh', 'Tăng cân đột ngột', 'Thiểu niệu',
+        'Phản xạ gân xương tăng', 'Đạm niệu dương tính']],
+    [/fgr|thai nh[ỏo]|thai gi[ớo]i h[ạa]n t[ăa]ng tr[ưu][ởo]ng|sga/i, ['Bề cao tử cung nhỏ hơn tuổi thai ≥ 3 cm',
+        'Mẹ tăng cân không đủ trong thai kỳ', 'EFW dưới bách phân vị 10 trên siêu âm',
+        'Vòng bụng thai (AC) tụt bách phân vị qua các lần đo', 'Chỉ số ối giảm',
+        'UA PI tăng – MCA PI giảm – CPR giảm', 'Giảm cử động thai']],
+    [/[ốo]i v[ỡo]|r[ỉi] [ốo]i|ra n[ướơ]{1,2}c [âa]m đ[ạa]o/i, ['Ra nước âm đạo đột ngột rồi rỉ rả',
+        'Nước trong, không nhầy, không mùi hôi', 'Ướt băng vệ sinh liên tục, không tự cầm',
+        'Thấy nước ối đọng cùng đồ khi đặt mỏ vịt', 'Nitrazine test dương', 'Chỉ số ối giảm trên siêu âm']],
+    [/nhi[ễe]m tr[ùu]ng [ốo]i/i, ['Sốt mẹ ≥ 38°C', 'Tim thai nhanh kéo dài > 160 l/p', 'Mạch mẹ nhanh',
+        'Tử cung ấn đau ngoài cơn gò', 'Dịch âm đạo đục, hôi', 'Bạch cầu mẹ tăng']],
+    [/chuy[ểe]n d[ạa]/i, ['Cơn gò tử cung đều, tăng dần về tần số và cường độ, gây đau',
+        'Ra nhầy hồng (tống xuất nút nhầy)', 'Cổ tử cung xóa và mở tiến triển',
+        'Thành lập đầu ối', 'Ngôi thai tiến triển trong đường sinh']],
+    [/nhau ti[ềe]n đ[ạa]o/i, ['Ra huyết đỏ tươi tự nhiên, tái phát', 'Ra huyết KHÔNG kèm đau bụng',
+        'Tử cung mềm, trương lực cơ bản bình thường', 'Ngôi thai bất thường hoặc cao lỏng',
+        'Siêu âm thấy bánh nhau che lỗ trong cổ tử cung']],
+    [/nhau bong non/i, ['Đau bụng liên tục, khởi phát đột ngột', 'Tử cung co cứng như gỗ, tăng trương lực cơ bản',
+        'Ra huyết âm đạo sậm màu, lượng không tương xứng mức độ sốc', 'Tim thai bất thường hoặc mất',
+        'Sinh hiệu mẹ xấu nhanh', 'Rối loạn đông máu']],
+    [/v[ỡo] t[ửư] cung/i, ['Tiền căn mổ lấy thai – mổ trên thân tử cung', 'Vòng Bandl, dây chằng tròn căng',
+        'Đau chói rồi gò giảm đột ngột', 'Mất tim thai', 'Ngôi thai đẩy lên cao – sờ được phần thai dưới da bụng',
+        'Sốc mẹ không tương xứng máu mất ra ngoài']],
     [/thi[ếe]u m[áa]u/i, ['Da niêm nhạt', 'Chóng mặt khi thay đổi tư thế', 'Hồi hộp – đánh trống ngực',
         'Khó thở khi gắng sức', 'Móng tay khô dễ gãy', 'Âm thổi tâm thu cơ năng']],
     [/nhi[ễe]m tr[ùu]ng|s[ốo]t/i, ['Sốt cao kèm lạnh run', 'Môi khô lưỡi dơ', 'Vẻ mặt nhiễm trùng',
@@ -491,7 +615,20 @@ export const CAUSE_CLS = [
     [/s[ốo]t r[ée]t/i, 'Phết máu tìm ký sinh trùng sốt rét, Test nhanh sốt rét'],
     [/nhi[ễe]m tr[ùu]ng huy[ếe]t|sepsis/i, 'Cấy máu 2 mẫu, Lactat máu, Procalcitonin, Khí máu động mạch'],
     [/ph[ảa]n v[ệe]/i, 'Tryptase máu, theo dõi sinh hiệu liên tục'],
-    [/thai ngo[àa]i t[ửư] cung/i, 'Beta hCG định lượng, Siêu âm đầu dò âm đạo'],
+    [/thai ngo[àa]i t[ửư] cung|pul|ch[ưu]a x[áa]c đ[ịi]nh v[ịi] tr[íi]/i, 'Beta hCG định lượng lặp sau 48 giờ, Siêu âm đầu dò âm đạo, Công thức máu – nhóm máu Rh'],
+    [/thai tr[ứư]ng/i, 'Beta hCG định lượng, Siêu âm đầu dò âm đạo, X-quang ngực, Chức năng tuyến giáp'],
+    [/thai ngh[ée]n th[ấa]t b[ạa]i s[ớo]m|d[ọo]a s[ẩa]y|s[ẩa]y thai/i, 'Beta hCG định lượng lặp sau 48 giờ, Siêu âm đầu dò âm đạo, Nhóm máu Rh (dự phòng anti-D)'],
+    [/nhau ti[ềe]n đ[ạa]o/i, 'Siêu âm xác định vị trí bánh nhau (ngả bụng và ngả âm đạo), Công thức máu – nhóm máu, Đông máu toàn bộ'],
+    [/nhau bong non/i, 'Công thức máu, Đông máu toàn bộ – fibrinogen, CTG, Siêu âm (bình thường không loại trừ)'],
+    [/nhau c[àa]i r[ăa]ng l[ượơ]{1,2}c|accreta|percreta/i, 'Siêu âm Doppler bánh nhau – cơ tử cung – bàng quang, MRI vùng chậu, Nhóm máu – dự trù máu'],
+    [/v[ỡo] t[ửư] cung/i, 'CTG, Công thức máu – nhóm máu, Siêu âm bụng tìm dịch tự do'],
+    [/ti[ềe]n s[ảa]n gi[ậa]t|s[ảa]n gi[ậa]t/i, 'Đạm niệu 24 giờ hoặc đạm/creatinin niệu, Công thức máu – tiểu cầu, AST – ALT – LDH – bilirubin, Creatinin – acid uric, Đông máu toàn bộ, sFlt-1/PlGF, CTG – siêu âm Doppler'],
+    [/hellp/i, 'Công thức máu – tiểu cầu, Phết máu ngoại vi tìm mảnh vỡ hồng cầu, LDH, AST – ALT, Bilirubin toàn phần – gián tiếp, Đông máu toàn bộ'],
+    [/fgr|thai gi[ớo]i h[ạa]n t[ăa]ng tr[ưu][ởo]ng|thai nh[ỏo]|sga/i, 'Siêu âm sinh trắc – EFW và bách phân vị, Doppler động mạch rốn – não giữa – CPR, Doppler động mạch tử cung, Chỉ số ối, CTG – trắc đồ sinh vật lý'],
+    [/[ốo]i v[ỡo]|r[ỉi] [ốo]i|pprom/i, 'Nitrazine test, Đặt mỏ vịt, Siêu âm chỉ số ối, Công thức máu – CRP, Cấy dịch âm đạo – GBS, CTG'],
+    [/nhi[ễe]m tr[ùu]ng [ốo]i/i, 'Công thức máu – CRP – procalcitonin, Cấy máu, Lactat máu, Tổng phân tích nước tiểu – cấy, CTG'],
+    [/sinh non|c[ổo] t[ửư] cung ng[ắa]n|h[ởo] eo t[ửư] cung/i, 'Siêu âm đầu dò đo chiều dài kênh cổ tử cung, Fibronectin bào thai, CTG, Công thức máu – CRP, Tổng phân tích nước tiểu – cấy'],
+    [/đ[áa]i th[áa]o đ[ườơ]{1,2}ng thai k[ỳy]/i, 'Nghiệm pháp dung nạp glucose 75 g (đói – 1 giờ – 2 giờ), HbA1c – đường huyết đói, Đường huyết mao mạch nhiều thời điểm, Siêu âm sinh trắc – chỉ số ối'],
     [/ti[ềe]n s[ảa]n gi[ậa]t|hellp/i, 'Đạm niệu, Công thức máu – tiểu cầu, AST – ALT – LDH, Chức năng thận']
 ];
 
@@ -666,10 +803,16 @@ export const VAN_DE_NHOM = [
     },
     {
         ten: 'Sản – phụ khoa', icon: 'fa-baby', items: [
-            'Thai kỳ bình thường theo dõi chuyển dạ', 'Dọa sinh non', 'Dọa sẩy thai',
-            'Ra huyết âm đạo trong thai kỳ', 'Tiền sản giật', 'Sản giật',
-            'Đái tháo đường thai kỳ', 'Thai ngoài tử cung', 'Nhiễm trùng hậu sản',
-            'Băng huyết sau sinh', 'Khối u phần phụ', 'Rong kinh – rong huyết']
+            'Thai kỳ bình thường theo dõi chuyển dạ', 'Chuyển dạ giai đoạn tiềm thời',
+            'Dọa sinh non – cổ tử cung ngắn', 'Dọa sẩy thai',
+            'Ra huyết âm đạo ba tháng đầu', 'Ra huyết âm đạo ba tháng cuối',
+            'Tiền sản giật', 'Tiền sản giật có dấu hiệu nặng', 'Sản giật', 'Hội chứng HELLP',
+            'Thai nhỏ so với tuổi thai – thai giới hạn tăng trưởng (FGR)',
+            'Ối vỡ non – ối vỡ sớm', 'Nhiễm trùng ối', 'Giảm cử động thai',
+            'Đái tháo đường thai kỳ', 'Thai ngoài tử cung', 'Thai chưa xác định vị trí (PUL)',
+            'Nhau tiền đạo', 'Nhau bong non', 'Vết mổ cũ – nhau cài răng lược', 'Vỡ tử cung',
+            'Thai quá ngày dự sinh', 'Ngôi thai bất thường', 'Đa thai', 'Đa ối – thiểu ối',
+            'Nhiễm trùng hậu sản', 'Băng huyết sau sinh', 'Khối u phần phụ', 'Rong kinh – rong huyết']
     },
     {
         ten: 'Nhi khoa', icon: 'fa-child', items: [
@@ -708,8 +851,19 @@ export const TIEU_CHUAN = [
     [/nhi[ễe]m toan ceton/i, 'Đường huyết > 250 mg/dL + pH < 7,3 hoặc HCO3⁻ < 18 mmol/L + ceton máu / niệu dương tính.'],
     [/đ[ộo]t qu[ỵy]|nh[ồo]i m[áa]u n[ãa]o|xu[ấa]t huy[ếe]t n[ãa]o/i, 'Khiếm khuyết thần kinh khu trú khởi phát đột ngột kéo dài > 24 giờ (hoặc tử vong sớm), có nguồn gốc mạch máu; phân định nhồi máu / xuất huyết bằng CT hoặc MRI sọ não.'],
     [/vi[êe]m m[àa]ng n[ãa]o/i, 'Hội chứng nhiễm trùng + hội chứng màng não, xác định bằng dịch não tủy: tế bào tăng, protein tăng, glucose DNT/máu giảm, nhuộm Gram – cấy hoặc PCR dương.'],
-    [/ti[ềe]n s[ảa]n gi[ậa]t/i, 'Thai ≥ 20 tuần: huyết áp ≥ 140/90 mmHg đo 2 lần cách 4 giờ + đạm niệu ≥ 300 mg/24 giờ (hoặc dấu hiệu nặng cơ quan đích khi không có đạm niệu).'],
+    [/d[ấa]u hi[ệe]u n[ặa]ng.*ti[ềe]n s[ảa]n gi[ậa]t|ti[ềe]n s[ảa]n gi[ậa]t.*n[ặa]ng/i, 'Tiền sản giật có dấu hiệu nặng khi có ≥ 1: huyết áp ≥ 160/110 mmHg; tiểu cầu < 100.000/µL; AST/ALT tăng > 2 lần giới hạn trên hoặc đau hạ sườn phải – thượng vị dai dẳng; creatinin > 1,1 mg/dL hoặc gấp đôi giá trị nền; phù phổi; rối loạn thị giác hoặc thần kinh trung ương mới xuất hiện. LƯU Ý: lượng đạm niệu nhiều KHÔNG còn là tiêu chuẩn nặng.'],
+    [/ti[ềe]n s[ảa]n gi[ậa]t/i, 'Thai ≥ 20 tuần: huyết áp ≥ 140/90 mmHg đo 2 lần cách 4 giờ + đạm niệu ≥ 300 mg/24 giờ (hoặc đạm/creatinin niệu ≥ 0,3, hoặc dipstick 2+) — hoặc khi không có đạm niệu thì cần một dấu hiệu tổn thương cơ quan đích. Trước 20 tuần mà tăng huyết áp là tăng huyết áp mạn; tăng huyết áp mạn nay xuất hiện đạm niệu hoặc dấu cơ quan đích là tiền sản giật ghép.'],
+    [/h[ộo]i ch[ứư]ng hellp/i, 'Tán huyết (LDH ≥ 600 U/L, bilirubin gián tiếp tăng, mảnh vỡ hồng cầu trên phết máu) + men gan tăng (AST hoặc ALT > 2 lần giới hạn trên) + tiểu cầu < 100.000/µL. Có thể xuất hiện khi huyết áp chưa cao.'],
+    [/s[ảa]n gi[ậa]t/i, 'Cơn co giật toàn thân mới xuất hiện trên nền tiền sản giật, không giải thích được bằng nguyên nhân khác (động kinh, xuất huyết não, hạ đường huyết, hạ natri). Là cấp cứu sản khoa: cắt cơn bằng magnesium sulfat rồi chấm dứt thai kỳ.'],
     [/d[ọo]a sinh non/i, 'Thai 22–36 tuần 6 ngày: cơn gò tử cung đều ≥ 4 cơn/20 phút + biến đổi cổ tử cung (xóa ≥ 80% hoặc mở ≥ 2 cm) hoặc chiều dài cổ tử cung < 25 mm trên siêu âm.'],
+    [/fgr|thai gi[ớo]i h[ạa]n t[ăa]ng tr[ưu][ởo]ng/i, 'Đồng thuận Delphi – FIGO. FGR SỚM (< 32 tuần): AC hoặc EFW < bách phân vị 3, hoặc mất/đảo ngược sóng cuối tâm trương động mạch rốn; hoặc AC/EFW < bách phân vị 10 KÈM UtA PI > bách phân vị 95 hoặc UA PI > bách phân vị 95. FGR MUỘN (≥ 32 tuần): AC hoặc EFW < bách phân vị 3; hoặc ≥ 2 trong ba: AC/EFW < bách phân vị 10, AC/EFW rơi quá 2 tứ phân vị trên biểu đồ tăng trưởng, CPR < bách phân vị 5 hoặc UA PI > bách phân vị 95. Chưa đủ các mốc này mà thai chỉ nhỏ thì gọi là SGA — theo dõi chứ không chấm dứt thai kỳ sớm.'],
+    [/[ốo]i v[ỡo]|r[ỉi] [ốo]i/i, 'Chẩn đoán dựa vào đặt mỏ vịt thấy nước ối chảy ra từ lỗ cổ tử cung hoặc đọng ở cùng đồ sau; Nitrazine test dương (bẫy dương giả khi có máu, tinh dịch, nước tiểu, dung dịch sát khuẩn); siêu âm chỉ số ối giảm là gợi ý chứ không thay thế. Ối vỡ NON là vỡ khi chưa chuyển dạ, ối vỡ SỚM là vỡ khi đã chuyển dạ nhưng cổ tử cung chưa mở trọn.'],
+    [/nhi[ễe]m tr[ùu]ng [ốo]i|vi[êe]m m[àa]ng [ốo]i/i, 'Sốt mẹ ≥ 39°C một lần, hoặc 38–38,9°C kéo dài, KÈM ≥ 1: bạch cầu mẹ > 15.000/µL, tim thai nhanh > 160 l/p kéo dài, dịch ối đục hôi, tử cung ấn đau. Bắt buộc loại trừ ổ nhiễm trùng khác (hô hấp, tiểu, da mô mềm) TRƯỚC khi quy cho ối.'],
+    [/đ[áa]i th[áa]o đ[ườơ]{1,2}ng thai k[ỳy]/i, 'Nghiệm pháp dung nạp glucose 75 g lúc 24–28 tuần, chẩn đoán khi có ≥ 1 giá trị vượt ngưỡng: đói ≥ 5,1 mmol/L (92 mg/dL), 1 giờ ≥ 10,0 mmol/L (180 mg/dL), 2 giờ ≥ 8,5 mmol/L (153 mg/dL). Nếu ngay lần khám đầu thai kỳ đã có đường huyết đói ≥ 7,0 mmol/L hoặc HbA1c ≥ 6,5% thì là đái tháo đường có từ trước, không gọi là đái tháo đường thai kỳ.'],
+    [/nhau ti[ềe]n đ[ạa]o/i, 'Siêu âm sau 28 tuần thấy bờ dưới bánh nhau che lấp hoặc cách lỗ trong cổ tử cung < 20 mm. Trước 28 tuần chỉ gọi là nhau bám thấp vì đoạn dưới còn thành lập. Ra huyết đỏ tươi, tái phát, KHÔNG đau — và tuyệt đối không khám âm đạo bằng tay trước khi loại trừ.'],
+    [/nhau bong non/i, 'Chẩn đoán chủ yếu trên lâm sàng: ra huyết âm đạo (có thể ít hoặc không có nếu máu tụ sau nhau) + đau bụng liên tục + tử cung tăng trương lực cơ bản, gò cường tính + bất thường tim thai. Siêu âm bình thường KHÔNG loại trừ được nhau bong non.'],
+    [/v[ỡo] t[ửư] cung/i, 'Diễn tiến điển hình: chuyển dạ bất thường → hội chứng vượt trở ngại (vòng Bandl, dây chằng tròn căng) → dọa vỡ → vỡ. Khi vỡ: đau chói rồi giảm gò đột ngột, mất tim thai, sốc mẹ, ngôi thai đẩy lên cao. Nghĩ tới ngay khi có vết mổ cũ.'],
+    [/nhau c[àa]i r[ăa]ng l[ượơ]{1,2}c/i, 'Dấu hiệu siêu âm: mất đường echo kém giữa bánh nhau và cơ tử cung, hồ mạch máu trong bánh nhau, cơ tử cung vùng vết mổ mỏng hoặc mất, tăng sinh mạch máu ở mặt phân cách nhau – bàng quang, mất liên tục thành bàng quang (thể percreta). Nguy cơ tăng theo số lần mổ lấy thai kèm nhau tiền đạo.'],
     [/vi[êe]m kh[ớo]p d[ạa]ng th[ấa]p/i, 'ACR/EULAR 2010 ≥ 6/10 điểm: số khớp viêm, RF / anti-CCP, CRP / VS, thời gian triệu chứng ≥ 6 tuần.'],
     [/gout/i, 'Viêm khớp cấp một khớp (thường ngón cái) + acid uric máu tăng; tiêu chuẩn vàng là tìm thấy tinh thể urat hình kim lưỡng chiết âm trong dịch khớp.'],
     [/thi[ếe]u m[áa]u/i, 'WHO: Hb < 130 g/L ở nam, < 120 g/L ở nữ, < 110 g/L ở phụ nữ mang thai. Phân loại tiếp theo MCV và hồng cầu lưới.'],
@@ -945,9 +1099,45 @@ export const BIEN_CHUNG = [
         ['Tổn thương gan – suy gan cấp', 'AST, ALT, đông máu']
     ]],
     [/ti[ềe]n s[ảa]n gi[ậa]t/i, [
-        ['Sản giật', 'theo dõi phản xạ gân xương, magie sulfat dự phòng'],
-        ['Hội chứng HELLP', 'tiểu cầu, men gan, LDH'],
-        ['Nhau bong non', 'theo dõi tim thai, cơn gò, ra huyết âm đạo']
+        ['Sản giật', 'theo dõi phản xạ gân xương, nhức đầu – nhìn mờ; magnesium sulfat dự phòng'],
+        ['Hội chứng HELLP', 'tiểu cầu, men gan, LDH, bilirubin, phết máu ngoại vi'],
+        ['Nhau bong non', 'theo dõi tim thai, cơn gò, trương lực cơ bản, ra huyết âm đạo'],
+        ['Phù phổi cấp', 'hạn chế dịch, theo dõi SpO2, ran ẩm, nước xuất nhập'],
+        ['Tổn thương thận cấp', 'creatinin, nước tiểu theo giờ qua sonde'],
+        ['Xuất huyết não – mù vỏ não', 'theo dõi tri giác, thị lực; hạ áp khi HA ≥ 160/110'],
+        ['Băng huyết sau sinh', 'dự phòng tích cực giai đoạn 3, theo dõi co hồi tử cung'],
+        ['Thai giới hạn tăng trưởng – thai suy', 'siêu âm sinh trắc, Doppler động mạch rốn, CTG'],
+        ['Sinh non do chỉ định chấm dứt thai kỳ', 'corticosteroid trưởng thành phổi nếu < 34 tuần']
+    ]],
+    [/[ốo]i v[ỡo]|r[ỉi] [ốo]i|pprom/i, [
+        ['Nhiễm trùng ối', 'theo dõi nhiệt độ mẹ mỗi 4 giờ, mạch, tim thai, bạch cầu – CRP, tính chất dịch ối'],
+        ['Chuyển dạ sinh non', 'theo dõi cơn gò, biến đổi cổ tử cung'],
+        ['Sa dây rốn', 'khám ngay khi vỡ ối, nhất là khi ngôi cao hoặc ngôi bất thường'],
+        ['Nhau bong non', 'theo dõi đau bụng, trương lực tử cung, tim thai'],
+        ['Thiểu ối – thiểu sản phổi thai (ối vỡ rất sớm)', 'siêu âm chỉ số ối định kỳ'],
+        ['Nhiễm trùng hậu sản – viêm nội mạc tử cung', 'theo dõi sản dịch, co hồi tử cung, sốt sau sinh']
+    ]],
+    [/fgr|thai gi[ớo]i h[ạa]n t[ăa]ng tr[ưu][ởo]ng|thai nh[ỏo]/i, [
+        ['Thai suy trường diễn – toan hóa máu thai', 'Doppler động mạch rốn – ống tĩnh mạch, CTG, trắc đồ sinh vật lý'],
+        ['Thai lưu', 'đếm cử động thai mỗi ngày, theo dõi Doppler theo mức độ'],
+        ['Suy thai cấp trong chuyển dạ', 'CTG liên tục khi vào chuyển dạ'],
+        ['Ngạt – hạ đường huyết – hạ thân nhiệt sơ sinh', 'báo nhi sơ sinh trước sinh, chuẩn bị hồi sức'],
+        ['Sinh non do chấm dứt thai kỳ sớm', 'corticosteroid nếu < 34 tuần, MgSO4 bảo vệ thần kinh nếu < 32 tuần']
+    ]],
+    [/nhau ti[ềe]n đ[ạa]o|nhau c[àa]i r[ăa]ng l[ượơ]{1,2}c/i, [
+        ['Băng huyết ồ ạt trong và sau mổ', 'dự trù máu và chế phẩm, đường truyền lớn, chuẩn bị cắt tử cung'],
+        ['Tổn thương bàng quang – niệu quản', 'hội chẩn niệu, cân nhắc đặt thông niệu quản trước mổ'],
+        ['Sinh non do ra huyết phải chấm dứt thai kỳ', 'corticosteroid trưởng thành phổi khi < 34 tuần'],
+        ['Thiếu máu mẹ', 'công thức máu định kỳ, bổ sung sắt'],
+        ['Rối loạn đông máu do truyền máu khối lượng lớn', 'đông máu toàn bộ, fibrinogen']
+    ]],
+    [/đ[áa]i th[áa]o đ[ườơ]{1,2}ng thai k[ỳy]/i, [
+        ['Thai to – bất xứng đầu chậu – kẹt vai', 'siêu âm ước lượng cân nặng cuối thai kỳ'],
+        ['Đa ối', 'siêu âm chỉ số ối'],
+        ['Tiền sản giật', 'theo dõi huyết áp, đạm niệu'],
+        ['Thai lưu cuối thai kỳ', 'CTG – đếm cử động thai từ 32 tuần'],
+        ['Hạ đường huyết – hạ canxi – vàng da sơ sinh', 'báo nhi sơ sinh, theo dõi đường huyết bé sau sinh'],
+        ['Đái tháo đường type 2 về sau ở mẹ', 'hẹn nghiệm pháp dung nạp glucose lại 4–12 tuần sau sinh']
     ]],
     [/s[ốo]c/i, [
         ['Suy đa cơ quan', 'lactat, creatinin, men gan, đông máu'],
@@ -967,6 +1157,34 @@ export function bienChungFor(ten) {
    khỏi nghĩ xem "còn thiếu yếu tố nào".
    ===================================================================== */
 export const YEU_TO = [
+    /* Sản khoa lên trước: "tăng huyết áp thai kỳ" mà để sau sẽ rơi vào mẫu
+       tăng huyết áp nội khoa và ra toàn yếu tố nguy cơ mạch vành. */
+    [/ti[ềe]n s[ảa]n gi[ậa]t|s[ảa]n gi[ậa]t|hellp|t[ăa]ng huy[ếe]t [áa]p.*thai/i,
+        ['con so', 'mẹ ≥ 35 tuổi hoặc ≤ 18 tuổi', 'tiền căn tiền sản giật ở lần mang thai trước',
+            'tiền căn gia đình có tiền sản giật', 'tăng huyết áp mạn', 'bệnh thận mạn',
+            'đái tháo đường trước mang thai', 'lupus ban đỏ – hội chứng kháng phospholipid',
+            'BMI trước mang thai ≥ 30', 'đa thai', 'thai do hỗ trợ sinh sản',
+            'khoảng cách hai lần mang thai > 10 năm', 'không dùng aspirin dự phòng dù có chỉ định']],
+    [/fgr|thai gi[ớo]i h[ạa]n t[ăa]ng tr[ưu][ởo]ng|thai nh[ỏo]|sga/i,
+        ['mẹ BMI thấp – tăng cân không đủ trong thai kỳ', 'tiền căn sinh con nhẹ cân',
+            'tiền sản giật – tăng huyết áp mạn', 'hút thuốc lá – tiếp xúc khói thuốc',
+            'bệnh tự miễn (lupus, kháng phospholipid)', 'bệnh tim – phổi mạn gây thiếu oxy trường diễn',
+            'thiếu máu mạn', 'đa thai', 'nhiễm trùng bào thai', 'bất thường bánh nhau – một động mạch rốn',
+            'mẹ ≥ 40 tuổi', 'khoảng cách sinh ngắn']],
+    [/sinh non|[ốo]i v[ỡo]|c[ổo] t[ửư] cung ng[ắa]n/i,
+        ['tiền căn sinh non', 'tiền căn ối vỡ non', 'cổ tử cung ngắn trên siêu âm',
+            'tiền căn khoét chóp – phẫu thuật cổ tử cung', 'hở eo tử cung', 'đa thai – đa ối',
+            'nhiễm trùng đường sinh dục dưới – nhiễm trùng tiểu', 'ra huyết âm đạo trong thai kỳ',
+            'hút thuốc lá', 'mẹ nhẹ cân – dinh dưỡng kém', 'khoảng cách hai lần mang thai < 18 tháng']],
+    [/đ[áa]i th[áa]o đ[ườơ]{1,2}ng thai k[ỳy]/i,
+        ['BMI trước mang thai ≥ 25', 'mẹ ≥ 35 tuổi', 'tiền căn đái tháo đường thai kỳ',
+            'tiền căn sinh con ≥ 4000 g', 'tiền căn thai lưu – sinh con dị tật',
+            'tiền căn gia đình đái tháo đường thế hệ một', 'hội chứng buồng trứng đa nang',
+            'tăng cân quá mức trong thai kỳ']],
+    [/nhau ti[ềe]n đ[ạa]o|nhau c[àa]i r[ăa]ng l[ượơ]{1,2}c|v[ỡo] t[ửư] cung/i,
+        ['tiền căn mổ lấy thai (nguy cơ tăng theo số lần)', 'tiền căn nạo hút buồng tử cung',
+            'tiền căn bóc u xơ – phẫu thuật trên thân tử cung', 'nhau tiền đạo lần mang thai này',
+            'mẹ lớn tuổi – sinh nhiều lần', 'thai do hỗ trợ sinh sản', 'hút thuốc lá']],
     [/suy tim|v[àa]nh c[ấa]p|nh[ồo]i m[áa]u c[ơo] tim|t[ăa]ng huy[ếe]t [áa]p/i,
         ['tăng huyết áp nhiều năm', 'đái tháo đường type 2', 'rối loạn lipid máu', 'hút thuốc lá',
             'tiền căn gia đình bệnh mạch vành sớm', 'bỏ thuốc điều trị', 'ăn mặn', 'béo phì']],

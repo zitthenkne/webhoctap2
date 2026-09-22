@@ -3439,6 +3439,66 @@
     import { guardPage } from '../../core/require-login.js';
     guardPage('Viết bệnh án');
   </script>
+
+<script type="module">
+const out = [];
+const done = () => { document.title = 'R: ' + out.join(' ||| '); };
+window.addEventListener('load', () => setTimeout(() => {
+
+  const $ = (i) => document.getElementById(i);
+  document.getElementById('login-gate')?.remove();
+  document.querySelector('.type-chip[data-type="san"]')?.click();
+  document.getElementById('khoa-cong')?.remove();
+  document.body.classList.remove('khoa-cong-mo');
+  const set = (i,v) => { const e=$(i); if(e){ e.value=v; e.dispatchEvent(new Event('input',{bubbles:true})); e.dispatchEvent(new Event('change',{bubbles:true})); } };
+  set('record-datetime','2025-10-20T13:00');
+  set('ob-us1-ngay','2025-04-20'); set('ob-us1-crl','51');
+  const rows = [
+    ['2025-09-08','60','94/60','27','147','1538','6','1.04','2.36','thai nhỏ so với tuổi thai'],
+    ['2025-10-06','62','90/60','28','155','2290','9','0.8','1.43','CPR sụt mạnh, Doppler 2 lần mỗi tuần'],
+    ['2025-10-20','62','110/70','29','135','2655','9','0.89','1.99','cân nhắc chấm dứt thai kỳ']];
+  const keys = ['ngay','can','ha','bctc','tt','efw','bpv','uapi','mcapi','nhandinh'];
+  const ta = $('ob-sokham');
+  ta.value = rows.map(r => r.join(' | ')).join(String.fromCharCode(10));
+  ta.dispatchEvent(new Event('input', {bubbles:true}));
+
+  setTimeout(() => {
+    out.push('ROWS=' + document.querySelectorAll('#ob-sk-wrap tr.sk-row').length);
+    out.push('HEAD=' + [...document.querySelectorAll('#ob-sk-wrap thead th')].map(t=>t.textContent).join('/'));
+    out.push('GA1=' + (document.querySelector('#ob-sk-wrap .sk-ga')?.textContent||''));
+    out.push('SOI=' + [...document.querySelectorAll('#ob-sk-wrap tr.sk-soi')].map(t=>t.textContent.trim()).join(' // ').slice(0,200));
+    out.push('XU=' + ($('ob-kt-xu')?.textContent||'').slice(0,140));
+    // gõ thẳng vào một ô của bảng
+    const o = document.querySelector('#ob-sk-wrap tr.sk-row .sk-in[data-k="bpv"]');
+    o.focus(); o.value = '2'; o.dispatchEvent(new Event('input',{bubbles:true}));
+    setTimeout(() => {
+      out.push('SAU_GO_FOCUS=' + (document.activeElement === o ? 'giu duoc' : 'MAT'));
+      o.dispatchEvent(new Event('change',{bubbles:true})); o.blur();
+      setTimeout(() => {
+        out.push('SOI_MOI=' + (document.querySelector('#ob-sk-wrap tr.sk-soi')?.textContent||'').trim().slice(0,90));
+        // mở hàng chi tiết
+        document.querySelector('#ob-sk-wrap .sk-more')?.click();
+        setTimeout(() => {
+          out.push('CHITIET=' + document.querySelectorAll('#ob-sk-wrap tr.sk-chitiet .sk-in').length + ' o');
+          $('ob-sk-add')?.click();
+          setTimeout(() => {
+            out.push('ROWS_SAU_THEM=' + document.querySelectorAll('#ob-sk-wrap tr.sk-row').length);
+            document.querySelector('#ob-sk-wrap .sk-del')?.click();
+            setTimeout(() => {
+              out.push('ROWS_SAU_XOA=' + document.querySelectorAll('#ob-sk-wrap tr.sk-row').length);
+              $('ob-kt-apply')?.click();
+              setTimeout(() => {
+                out.push('TCN3=' + ($('ob-hx-tcn3')?.value||'(rong)').slice(0,120));
+                done();
+              }, 300);
+            }, 400);
+          }, 400);
+        }, 300);
+      }, 400);
+    }, 400);
+  }, 900);
+}, 1500));
+</script>
 </body>
 
 </html>

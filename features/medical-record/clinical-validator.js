@@ -713,6 +713,56 @@ function runConsistencyRules(c) {
             actionText: 'Bổ sung tiền căn sản phụ khoa',
             targetTab: 'lydo-tiensu', targetField: 'history-obgyne'
         });
+
+        /* Bảng kiểm thứ hai: phần THAI KỲ LẦN NÀY — sổ khám thai, tầm soát ba
+           tam cá nguyệt và sáu bước biện luận. Tách khỏi bảng trên vì nó thuộc
+           bệnh sử chứ không phải tiền căn, và bấm vào phải nhảy tới chỗ khác. */
+        const thieuThaiKy = [];
+        const soKham = o('ob-sokham').split('\n').filter(x => x.trim()).length;
+        if (!soKham && !o('ob-hx-tcn1') && !o('ob-hx-tcn2') && !o('ob-hx-tcn3'))
+            thieuThaiKy.push('tổng kết sổ khám thai — chưa có lần khám nào');
+        else if (soKham === 1)
+            thieuThaiKy.push('sổ khám thai mới có một lần khám, chưa đủ để nhận xét xu hướng tăng trưởng của thai');
+
+        if (!o('ob-ts-nt') && !o('ob-ts-lechboi'))
+            thieuThaiKy.push('sàng lọc lệch bội quý I — độ mờ da gáy kèm CRL lúc đo, loại xét nghiệm và kết quả');
+        if (o('ob-ts-nt') && !o('ob-ts-ntcrl'))
+            thieuThaiKy.push('CRL tại thời điểm đo độ mờ da gáy — không có CRL thì con số NT không đọc được');
+        if (!o('ob-ts-nhommau')) thieuThaiKy.push('nhóm máu và yếu tố Rhesus');
+        if (!o('ob-ts-huyethoc')) thieuThaiKy.push('tầm soát thiếu máu kèm MCV – MCH, không chỉ ghi "không thiếu máu"');
+        if (!o('ob-ts-nhiemtrung')) thieuThaiKy.push('tầm soát nhiễm trùng — HBsAg, HIV, giang mai, Rubella IgM – IgG');
+        if (!o('ob-ts-tsg')) thieuThaiKy.push('kết quả sàng lọc tiền sản giật quý I và có dùng aspirin dự phòng hay không');
+        if (!o('ob-ts-ht2')) thieuThaiKy.push('siêu âm hình thái học quý II (mốc 20 – 24 tuần)');
+        if (!['ob-ts-ogtt0', 'ob-ts-ogtt1', 'ob-ts-ogtt2'].some(o))
+            thieuThaiKy.push('nghiệm pháp dung nạp glucose 75 g với đủ ba giá trị đói – 1 giờ – 2 giờ');
+
+        if (thieuThaiKy.length) push({
+            type: 'MISSING', severity: 'LOW',
+            title: `Sổ khám thai và tầm soát thai kỳ — còn ${thieuThaiKy.length} ý chưa có`,
+            message: 'Phần thai kỳ lần này còn thiếu: ' + thieuThaiKy.join('; ') + '.',
+            actionText: 'Bổ sung sổ khám thai',
+            targetTab: 'benhsu', targetField: 'ob-sokham'
+        });
+
+        const BUOC_BL = [['ob-bl-lmp', 'kết luận kinh chót có tin cậy hay không'],
+        ['ob-bl-nguon', 'nguồn chốt tuổi thai và lý do không (hoặc phải) hiệu chỉnh'],
+        ['ob-bl-cd', 'đã vào chuyển dạ chưa và đang ở giai đoạn nào'],
+        ['ob-bl-vande', 'vấn đề chính của ca'], ['ob-bl-vi', 'các dữ kiện dẫn tới vấn đề chính'],
+        ['ob-bl-loaitru', 'những chẩn đoán cùng bệnh cảnh đã loại trừ và loại trừ bằng gì'],
+        ['ob-bl-skthai', 'lượng giá sức khỏe thai trước khi quyết định'],
+        ['ob-bl-xutri', 'quyết định dưỡng thai hay chấm dứt thai kỳ'],
+        ['ob-bl-thoidiem', 'thời điểm chấm dứt thai kỳ và lý do chọn thời điểm đó'],
+        ['ob-bl-duong', 'đường chấm dứt thai kỳ'],
+        ['ob-bl-duong-vi', 'lý do chọn đường đó, kèm chống chỉ định đã cân nhắc']];
+        const thieuBl = BUOC_BL.filter(([id]) => !o(id)).map(([, t]) => t);
+        // Chỉ nhắc khi đã bắt đầu biện luận — bệnh án mới tinh thì im lặng
+        if (thieuBl.length && thieuBl.length < BUOC_BL.length) push({
+            type: 'MISSING', severity: 'LOW',
+            title: `Biện luận sản khoa — còn ${thieuBl.length}/${BUOC_BL.length} bước bỏ trống`,
+            message: 'Trình tự biện luận của bệnh án sản còn thiếu: ' + thieuBl.join('; ') + '.',
+            actionText: 'Bổ sung biện luận sản khoa',
+            targetTab: 'bienluan', targetField: 'ob-bl-vande'
+        });
     }
 
     if (!c.gender.trim()) {

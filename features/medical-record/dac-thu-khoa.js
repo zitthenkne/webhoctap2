@@ -20,6 +20,7 @@
    applyRecordType / openSpec / scheduleSave.
    ===================================================================== */
 import { getFolder, folderSpec, folderMeta } from './folder-store.js';
+import { showToast } from '../../core/utils.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -493,6 +494,11 @@ function tinhSan() {
     tinhXetNghiem();
     tinhKhungChau();
     tinhChanDoanSan();
+    tinhSoKhamThai();
+    tinhLichKhamThai();
+    tinhOgtt();
+    tinhTamSoat();
+    tinhBienLuanSan();
 }
 
 /* ---------------------------------------------------------------------
@@ -802,6 +808,422 @@ function cauLanMangThai() {
 function tinhLanMangThai() {
     const cau = cauLanMangThai();
     ra('ob-lan-out', cau || 'Điền các ô trên — máy ghép thành một dòng đúng thứ tự bảng kiểm rồi thêm vào danh sách phía trên');
+}
+
+/* =====================================================================
+   SỔ KHÁM THAI — tổng kết theo mốc khám
+   ---------------------------------------------------------------------
+   Bảng tổng kết sổ khám thai là thứ bộ môn chấm nặng nhất ở bệnh án sản:
+   nhìn một dòng phải thấy được thai lúc đó bao nhiêu tuần, mẹ thế nào, thai
+   thế nào, lần khám đó kết luận gì. Người làm bệnh án chỉ nhập NGÀY KHÁM —
+   tuổi thai lúc đó máy quy ngược từ ngày dự sinh đã chốt, nên không còn cảnh
+   mỗi dòng một cách tính.
+   ===================================================================== */
+/* Một lần khám = một dòng, các trường ngăn nhau bằng "|" theo ĐÚNG thứ tự
+   dưới đây. Lưu từng trường riêng (chứ không phải câu văn ghép sẵn) để bảng
+   sửa lại được và để máy còn tính bách phân vị, Doppler. */
+const SK_F = [
+    ['ngay', 'Ngày khám', 'date', ''],
+    ['can', 'Cân nặng (kg)', 'number', '60'],
+    ['ha', 'Huyết áp', 'text', '110/70'],
+    ['bctc', 'BCTC (cm)', 'number', '29'],
+    ['tt', 'Tim thai', 'number', '145'],
+    ['efw', 'EFW (g)', 'number', '1538'],
+    ['bpv', 'EFW bách phân vị', 'number', '6'],
+    ['uapi', 'UA PI', 'number', '1.04'],
+    ['mcapi', 'MCA PI', 'number', '2.36'],
+    ['nhandinh', 'Nhận định – xử trí', 'text', 'thai nhỏ so với tuổi thai'],
+    /* --- các trường dưới đây nằm trong hàng chi tiết (bấm ⌄ mới hiện) --- */
+    ['noi', 'Nơi khám', 'text', 'BV Từ Dũ'],
+    ['ac', 'AC (mm)', 'number', '244'],
+    ['acbpv', 'AC bách phân vị', 'number', '11'],
+    ['afi', 'AFI (cm)', 'number', '12'],
+    ['sdp', 'Xoang ối lớn nhất (cm)', 'number', '4.3'],
+    ['cl', 'Kênh cổ tử cung (mm)', 'number', '37'],
+    ['nhau', 'Vị trí nhau – độ trưởng thành', 'text', 'mặt sau nhóm II'],
+    ['uabpv', 'UA PI bách phân vị', 'number', '70'],
+    ['cpr', 'CPR', 'number', '2.6'],
+    ['cprbpv', 'CPR bách phân vị', 'number', '92'],
+    ['utapi', 'UtA PI trung bình', 'number', '0.8'],
+    ['ctt', 'Sóng cuối tâm trương ĐM rốn', 'select', ''],
+    ['xn', 'Xét nghiệm – tầm soát lần này', 'text', 'OGTT 75 g âm tính']
+];
+const SK_CHINH = 10;                       // mười trường đầu nằm trên hàng chính
+const SK_CTT = ['', 'còn sóng cuối tâm trương', 'mất sóng cuối tâm trương (AEDF)',
+    'đảo ngược sóng cuối tâm trương (REDF)'];
+
+/** Đọc sổ khám thai từ ô lưu thành mảng đối tượng */
+function docSo() {
+    return String($('ob-sokham')?.value || '').split('\n').map(l => l.trim()).filter(Boolean)
+        .map(l => {
+            const p = l.split('|').map(x => x.trim());
+            const r = {};
+            SK_F.forEach(([k], i) => { r[k] = p[i] || ''; });
+            return r;
+        });
+}
+
+/** Một lần khám thành một dòng. Hàng chưa điền gì vẫn phải để lại dấu "|",
+    không thì dòng rỗng và docSo() lọc mất ngay hàng vừa thêm. */
+const dongSo = (r) => (SK_F.map(([k]) => r[k] || '').join(' | ').replace(/[\s|]+$/, '') || '|');
+
+/** Ghi mảng trở lại ô lưu, xếp theo ngày khám */
+function ghiSo(ds) {
+    const el = $('ob-sokham');
+    if (!el) return;
+    ds.sort((a, b) => (a.ngay || '9999').localeCompare(b.ngay || '9999'));
+    el.value = ds.map(dongSo).join('\n');
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+/** Tuổi thai (ngày) tại một mốc bất kỳ, suy ngược từ ngày dự sinh đã chốt */
+function tuoiThaiLuc(d) {
+    const t = chotTuoiThai();
+    if (!t.chon || !d) return null;
+    const ngay = 280 - cachNgay(d, t.chon.edd);
+    return (ngay >= 0 && ngay <= 320) ? ngay : null;
+}
+
+/** Tỉ số não/rốn: nhập tay thì lấy tay, không thì tự chia MCA PI cho UA PI */
+function cprCua(r) {
+    const tay = parseFloat(r.cpr);
+    if (isFinite(tay)) return tay;
+    const mca = parseFloat(r.mcapi), ua = parseFloat(r.uapi);
+    return (isFinite(mca) && isFinite(ua) && ua) ? mca / ua : null;
+}
+
+/**
+ * Soi một lần khám theo đồng thuận Delphi – FIGO.
+ * Ngưỡng đổi theo tuổi thai: dưới 32 tuần là FGR sớm, từ 32 tuần là FGR muộn.
+ * Chưa đủ tiêu chuẩn mà thai vẫn nhỏ thì chỉ được gọi SGA — đây đúng là chỗ
+ * sinh viên hay kết luận vội và bị hỏi vặn.
+ */
+function soiTangTruong(r, ngayGA) {
+    const num = (k) => { const v = parseFloat(r[k]); return isFinite(v) ? v : null; };
+    const nho = [num('bpv'), num('acbpv')].filter(v => v !== null);
+    if (!nho.length) return '';
+    const min = Math.min(...nho);
+    const ctt = r.ctt || '';
+    const uabpv = num('uabpv'), cprbpv = num('cprbpv'), utapi = num('utapi');
+    const som = ngayGA === null ? null : ngayGA < 224;   // 32 tuần = 224 ngày
+    const ten = som === null ? '' : som ? ' sớm' : ' muộn';
+
+    if (ctt.includes('mất sóng') || ctt.includes('đảo ngược')) return `FGR${ten} — ${ctt}`;
+    if (min < 3) return `FGR${ten} — bách phân vị ${min} dưới ngưỡng 3`;
+    if (min >= 10) return `bách phân vị ${min} — trong giới hạn bình thường`;
+
+    // Bách phân vị 3 – 10: phải có thêm bằng chứng huyết động mới được gọi FGR
+    const them = [];
+    if (uabpv !== null && uabpv > 95) them.push('UA PI trên bách phân vị 95');
+    if (cprbpv !== null && cprbpv < 5) them.push('CPR dưới bách phân vị 5');
+    if (som && utapi !== null && utapi > 1.5) them.push('UtA PI tăng trở kháng');
+    return them.length
+        ? `FGR${ten} — bách phân vị ${min} kèm ${them.join(', ')}`
+        : `SGA — bách phân vị ${min}, Doppler chưa thỏa tiêu chuẩn FGR`;
+}
+
+/* ---- Bảng nhập trực tiếp -------------------------------------------- */
+const skMo = new Set();                    // chỉ số các hàng đang mở chi tiết
+let skDaVe = null;
+let skDangGo = false;                      // đang gõ trong bảng -> cấm vẽ lại
+
+function oNhap(i, k, v, ph, kieu) {
+    const at = `data-i="${i}" data-k="${k}" class="sk-in"`;
+    if (kieu === 'select')
+        return `<select ${at}>${SK_CTT.map(o =>
+            `<option${o === v ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+    return `<input type="${kieu}" ${at} value="${esc(v)}"`
+        + (kieu === 'number' ? ' step="any"' : '') + ` placeholder="${esc(ph)}">`;
+}
+
+/**
+ * Vẽ lại bảng từ chính ô lưu — không giữ mảng riêng, nên sửa tay trong ô thô
+ * là bảng đổi theo và không phải đồng bộ hai nguồn dữ liệu.
+ */
+function veBangSoKham() {
+    const hop = $('ob-sk-wrap');
+    if (!hop) return;
+    // Đang gõ trong chính bảng thì tuyệt đối không dựng lại: innerHTML mới là
+    // mất con trỏ giữa chừng. Dùng cờ chứ không dùng document.activeElement —
+    // trong khung không được focus (và khi chụp ảnh tự động) activeElement trả
+    // về body, guard coi như không có.
+    if (skDangGo) return;
+    const raw = String($('ob-sokham')?.value || '');
+    // tinh() chạy mỗi lần gõ phím; dựng lại bảng khi nội dung không đổi là phí.
+    const dau = raw + '#' + [...skMo].sort().join(',');
+    if (dau === skDaVe) return;
+    skDaVe = dau;
+
+    const ds = docSo();
+    if (!ds.length) {
+        hop.innerHTML = '<p class="sk-trong">Chưa có lần khám nào — bấm “Thêm lần khám” để mở hàng đầu tiên.</p>';
+        return;
+    }
+    const dong = ds.map((r, i) => {
+        const ga = tuoiThaiLuc(gio(r.ngay));
+        const soi = soiTangTruong(r, ga);
+        const o = SK_F.slice(0, SK_CHINH).map(([k, , kieu, ph]) =>
+            `<td class="sk-c-${k}">${oNhap(i, k, r[k], ph, kieu)}</td>`).join('');
+        const mo = skMo.has(i);
+        const chinh = `<tr class="sk-row"><td class="sk-ga">${ga === null ? '—' : tuanNgay(ga)}</td>${o}`
+            + `<td class="sk-x"><button type="button" class="sk-more" data-i="${i}" title="Thông số chi tiết">`
+            + `<i class="fas fa-chevron-${mo ? 'up' : 'down'}"></i></button>`
+            + `<button type="button" class="sk-del" data-i="${i}" title="Xóa lần khám này"><i class="fas fa-xmark"></i></button></td></tr>`;
+        const soiTr = soi ? `<tr class="sk-soi"><td></td><td colspan="${SK_CHINH + 1}">⟶ ${esc(soi)}</td></tr>` : '';
+        if (!mo) return chinh + soiTr;
+        const phu = SK_F.slice(SK_CHINH).map(([k, nhan, kieu, ph]) =>
+            `<label class="sk-ph"><span>${esc(nhan)}</span>${oNhap(i, k, r[k], ph, kieu)}</label>`).join('');
+        return chinh + soiTr
+            + `<tr class="sk-chitiet"><td></td><td colspan="${SK_CHINH + 1}"><div class="sk-ph-grid">${phu}</div></td></tr>`;
+    }).join('');
+
+    hop.innerHTML = '<div class="sk-scroll"><table class="sk-tb"><thead><tr><th>Tuổi thai</th>'
+        + SK_F.slice(0, SK_CHINH).map(([, nhan]) => `<th>${esc(nhan)}</th>`).join('')
+        + '<th></th></tr></thead><tbody>' + dong + '</tbody></table></div>';
+}
+
+/** Xu hướng tăng trưởng qua các lần khám */
+function tinhSoKhamThai() {
+    veBangSoKham();
+    const ds = docSo();
+    const moc = ds.map(r => ({ ga: tuoiThaiLuc(gio(r.ngay)), bpv: parseFloat(r.bpv) }))
+        .filter(x => x.ga !== null && isFinite(x.bpv));
+    if (moc.length < 2) {
+        ra('ob-kt-xu', ds.length
+            ? `Sổ khám thai đang có ${ds.length} lần khám — cần từ hai lần có bách phân vị trở lên để máy nhận xét xu hướng tăng trưởng`
+            : 'Thêm từ hai lần khám có bách phân vị trở lên để máy nhận xét xu hướng tăng trưởng của thai');
+        return;
+    }
+    moc.sort((a, b) => a.ga - b.ga);
+    const d0 = moc[0], dn = moc[moc.length - 1];
+    const lech = dn.bpv - d0.bpv;
+    // Ngưỡng 10 điểm bách phân vị chỉ hợp ở vùng giữa. Thai đang nằm dưới bách
+    // phân vị 10 thì tụt 2 điểm cũng đáng nói, nên xét riêng vùng thấp.
+    const y = lech <= -10 ? 'biểu đồ đi xuống rõ — thai đang tụt bách phân vị, phải phân định thai nhỏ thể tạng với thai giới hạn tăng trưởng'
+        : lech >= 10 ? 'biểu đồ đi lên — thai bắt kịp đà tăng trưởng'
+            : 'biểu đồ đi ngang — thai giữ nguyên đường bách phân vị của nó';
+    const them = dn.bpv < 3 ? ' ⚠ lần gần nhất dưới bách phân vị 3 — đủ tiêu chuẩn thai giới hạn tăng trưởng, không còn là thai nhỏ đơn thuần'
+        : dn.bpv < 10 ? ' ⚠ lần gần nhất vẫn dưới bách phân vị 10 — phải có Doppler động mạch rốn và não giữa mới phân định được thai nhỏ thể tạng với thai giới hạn tăng trưởng'
+            : '';
+    ra('ob-kt-xu', `${ds.length} lần khám · bách phân vị ${d0.bpv} lúc ${tuanNgay(d0.ga)} → ${dn.bpv} lúc ${tuanNgay(dn.ga)}: ${y}${them}`);
+}
+
+/** Một lần khám ghép thành câu văn — dùng cho ô tam cá nguyệt và bản in */
+function cauLanKham(r) {
+    const d = gio(r.ngay);
+    const ga = tuoiThaiLuc(d);
+    const me = [], thai = [], dop = [], cuoi = [];
+    const g = (kho, k, truoc = '', sau = '') => { if (r[k]) kho.push(truoc + r[k] + sau); };
+    g(me, 'can', 'cân nặng mẹ ', ' kg'); g(me, 'ha', 'huyết áp ', ' mmHg');
+    g(me, 'bctc', 'bề cao tử cung ', ' cm');
+    g(thai, 'tt', 'tim thai ', ' l/p');
+    if (r.efw) thai.push(`ước lượng cân nặng ${r.efw} g` + (r.bpv ? ` (bách phân vị ${r.bpv})` : ''));
+    else if (r.bpv) thai.push(`ước lượng cân nặng ở bách phân vị ${r.bpv}`);
+    if (r.ac) thai.push(`chu vi bụng ${r.ac} mm` + (r.acbpv ? ` (bách phân vị ${r.acbpv})` : ''));
+    g(thai, 'afi', 'AFI ', ' cm'); g(thai, 'sdp', 'xoang ối lớn nhất ', ' cm');
+    g(thai, 'nhau', 'nhau '); g(thai, 'cl', 'chiều dài kênh cổ tử cung ', ' mm');
+    g(dop, 'uapi', 'UA PI '); g(dop, 'mcapi', 'MCA PI ');
+    const cpr = cprCua(r);
+    if (cpr !== null) dop.push(`CPR ${cpr.toFixed(2)}` + (r.cprbpv ? ` (bách phân vị ${r.cprbpv})` : ''));
+    g(dop, 'utapi', 'UtA PI ');
+    if (r.ctt && r.ctt !== 'còn sóng cuối tâm trương') dop.push(r.ctt);
+    g(cuoi, 'xn'); g(cuoi, 'nhandinh', '→ ');
+    const than = [me.join(', '), thai.join(', '), dop.length ? 'Doppler: ' + dop.join(', ') : '',
+        cuoi.join(' ')].filter(Boolean);
+    const dauCau = [d ? dmy(d) : '', ga !== null ? `thai ${tuanNgay(ga)}` : '', r.noi]
+        .filter(Boolean).join(' — ');
+    if (!dauCau && !than.length) return '';
+    return (dauCau || 'không rõ ngày') + ': ' + (than.length ? than.join('; ') : 'chưa ghi chi tiết');
+}
+
+/** Gom các lần khám về ba ô tam cá nguyệt (mốc 14 và 28 tuần) */
+function gomTheoTamCaNguyet() {
+    const gom = ['', '', ''];
+    docSo().forEach(r => {
+        const ga = tuoiThaiLuc(gio(r.ngay));
+        const tuan = ga === null ? null : Math.floor(ga / 7);
+        const i = tuan === null ? 0 : tuan < 14 ? 0 : tuan < 28 ? 1 : 2;
+        const cau = cauLanKham(r);
+        if (cau) gom[i] = gom[i] ? gom[i] + ' | ' + cau : cau;
+    });
+    return gom;
+}
+
+/** Câu độ mờ da gáy — NT luôn phải đi kèm CRL lúc đo mới có nghĩa */
+function ntCau() {
+    const nt = chu('ob-ts-nt'), crl = chu('ob-ts-ntcrl');
+    if (!nt) return '';
+    return `độ mờ da gáy ${nt} mm` + (crl ? ` lúc CRL ${crl} mm` : ' (chưa ghi CRL lúc đo)');
+}
+
+/** Câu nghiệm pháp dung nạp glucose cho ô tam cá nguyệt II */
+function cauOgtt() {
+    const v = NGUONG_OGTT.map(([id, , ten]) => { const x = so(id); return x === null ? '' : `${ten} ${x}`; })
+        .filter(Boolean);
+    if (!v.length) return '';
+    const tuan = chu('ob-ts-ogtt-tuan');
+    const duong = NGUONG_OGTT.some(([id, nguong]) => { const x = so(id); return x !== null && x >= nguong; });
+    return `nghiệm pháp dung nạp glucose 75 g${tuan ? ' lúc ' + tuan : ''} (${v.join(', ')} mmol/L) — `
+        + (duong ? 'chẩn đoán đái tháo đường thai kỳ' : 'âm tính');
+}
+
+/* Lịch khám thai tối thiểu của bộ môn: mốc (tuần) — việc phải làm ở mốc đó */
+const LICH_KHAM = [
+    [8, 'khám thai lần đầu — định tuổi thai, siêu âm xác định thai trong tử cung'],
+    [12, 'sàng lọc lệch bội quý I và đo độ mờ da gáy (11 – 13 tuần 6 ngày)'],
+    [16, 'đo chiều dài kênh cổ tử cung tầm soát sinh non (16 – 18 tuần)'],
+    [22, 'siêu âm hình thái học quý II (20 – 24 tuần)'],
+    [28, 'nghiệm pháp dung nạp glucose 75 g (24 – 28 tuần)'],
+    [32, 'siêu âm sinh trắc quý III — đánh giá tăng trưởng thai'],
+    [36, 'cấy GBS âm đạo – hậu môn, đánh giá ngôi thai và khung chậu'],
+    [38, 'khám mỗi tuần — theo dõi sức khỏe thai, bàn kế hoạch sinh']
+];
+
+function tinhLichKhamThai() {
+    const t = chotTuoiThai();
+    if (!t.chon) {
+        ra('ob-kt-lich', 'Chốt ngày dự sinh ở khối định tuổi thai để máy đối chiếu lịch khám thai');
+        return;
+    }
+    // Ngày làm bệnh án bỏ trống thì mốc so sánh là hôm nay, gặp bệnh án cũ sẽ
+    // ra những con số như "thai 87 tuần" — chặn ở đây thay vì in ra cho hoảng.
+    if (t.days < 0 || t.days > 320) {
+        ra('ob-kt-lich', `Tuổi thai tính ra ${tuanNgay(t.days)} — vô lý. Kiểm tra lại ngày làm bệnh án ở mục hành chính và ngày dự sinh.`);
+        return;
+    }
+    const tuan = Math.floor(t.days / 7);
+    const noiDung = String($('ob-sokham')?.value || '') + ' ' + chu('ob-hx-tcn1') + ' '
+        + chu('ob-hx-tcn2') + ' ' + chu('ob-hx-tcn3');
+    const daTuan = [...noiDung.matchAll(/thai\s+(\d+)\s+tu[ầa]n/gi)].map(m => +m[1]);
+    // Một mốc coi như đã khám nếu sổ có lần khám nào rơi trong khoảng ±3 tuần
+    const thieu = LICH_KHAM.filter(([moc]) => tuan >= moc && !daTuan.some(x => Math.abs(x - moc) <= 3))
+        .map(([moc, viec]) => `${moc} tuần (${viec})`);
+    ra('ob-kt-lich', thieu.length
+        ? `Thai ${tuan} tuần · sổ khám thai chưa có mốc: ${thieu.join('; ')}`
+        : `Thai ${tuan} tuần · sổ khám thai đã có đủ các mốc bắt buộc tới thời điểm này`);
+}
+
+/* ---- Nghiệm pháp dung nạp glucose 75 g -------------------------------- */
+const NGUONG_OGTT = [['ob-ts-ogtt0', 5.1, 'đói'], ['ob-ts-ogtt1', 10.0, '1 giờ'], ['ob-ts-ogtt2', 8.5, '2 giờ']];
+
+function tinhOgtt() {
+    const co = NGUONG_OGTT.map(([id, nguong, ten]) => ({ v: so(id), nguong, ten })).filter(x => x.v !== null);
+    if (!co.length) {
+        ra('ob-ogtt-out', 'Nhập ba giá trị để máy đối chiếu ngưỡng 5,1 – 10,0 – 8,5 mmol/L và kết luận đái tháo đường thai kỳ');
+        return;
+    }
+    const vuot = co.filter(x => x.v >= x.nguong);
+    const y = [`Đã nhập ${co.length}/3 giá trị`];
+    if (vuot.length) y.push(`vượt ngưỡng ở ${vuot.map(x => `${x.ten} (${x.v} ≥ ${x.nguong})`).join(', ')} — đủ chẩn đoán đái tháo đường thai kỳ`);
+    else if (co.length === 3) y.push('cả ba giá trị dưới ngưỡng — nghiệm pháp âm tính');
+    else y.push('các giá trị đã có đều dưới ngưỡng, còn thiếu giá trị để kết luận');
+    const doi = so('ob-ts-ogtt0');
+    if (doi !== null && doi >= 7) y.push('đường huyết đói ≥ 7,0 mmol/L — nghĩ tới đái tháo đường có từ trước chứ không phải đái tháo đường thai kỳ');
+    const tuan = chu('ob-ts-ogtt-tuan');
+    const n = tuan.match(/(\d+)/);
+    if (n && (+n[1] < 24 || +n[1] > 28)) y.push(`làm lúc ${tuan} — lệch mốc chuẩn 24 – 28 tuần, phải nói được vì sao làm sớm hoặc trễ`);
+    ra('ob-ogtt-out', y.join(' · '));
+}
+
+/* ---- Tầm soát ba tam cá nguyệt: mốc nào sai thời điểm, mốc nào bỏ trống -- */
+function tinhTamSoat() {
+    const t = chotTuoiThai();
+    const tuan = t.chon ? Math.floor(t.days / 7) : null;
+    const y = [], nhac = [];
+
+    const nt = so('ob-ts-nt'), ntcrl = so('ob-ts-ntcrl');
+    if (nt !== null && ntcrl === null) nhac.push('có độ mờ da gáy mà thiếu CRL lúc đo — NT không kèm CRL thì không đọc được');
+    if (ntcrl !== null && (ntcrl < 45 || ntcrl > 84)) nhac.push(`CRL ${ntcrl} mm ngoài khoảng 45 – 84 mm nên đo độ mờ da gáy lúc đó chưa đạt chuẩn`);
+    if (nt !== null && nt >= 3) y.push(`độ mờ da gáy ${nt} mm dày — cần tư vấn chẩn đoán trước sinh dù sàng lọc nguy cơ thấp`);
+
+    const hh = chu('ob-ts-huyethoc');
+    if (hh && !/mcv|mch/i.test(hh)) nhac.push('phần huyết học mới ghi Hb — bộ môn đòi có MCV và MCH để loại thiếu máu hồng cầu nhỏ nhược sắc');
+
+    const asp = chu('ob-ts-aspirin');
+    if (asp.includes('sau 16 tuần')) y.push('aspirin bắt đầu sau 16 tuần — hiệu quả dự phòng tiền sản giật giảm nhiều');
+    if (asp.includes('không dùng')) nhac.push('có chỉ định aspirin mà không dùng — phải nêu lý do trong bệnh sử');
+
+    const cl = so('ob-ts-cl'), clh = chu('ob-ts-clhinh');
+    if (cl !== null && cl < 25) y.push(`chiều dài kênh cổ tử cung ${cl} mm dưới 25 mm — nguy cơ sinh non, bàn progesterone đặt âm đạo hoặc vòng nâng`);
+    if (clh && !clh.includes('chữ T')) y.push(`lỗ trong cổ tử cung ${clh} — kênh cổ tử cung đã biến đổi`);
+
+    if (tuan !== null) {
+        if (tuan >= 30 && !chu('ob-ts-ht2')) nhac.push('chưa ghi siêu âm hình thái học quý II (mốc 20 – 24 tuần)');
+        if (tuan >= 30 && !NGUONG_OGTT.some(([id]) => so(id) !== null)) nhac.push('chưa ghi nghiệm pháp dung nạp glucose (mốc 24 – 28 tuần)');
+        if (tuan >= 37 && chu('ob-ts-gbs') === 'chưa làm') nhac.push('thai đã ≥ 37 tuần mà chưa cấy GBS');
+        if (tuan < 34 && tuan >= 24 && !chu('ob-ts-cort')) nhac.push('thai trong khoảng 24 – 34 tuần — nếu có nguy cơ sinh non phải nói tới corticosteroid trưởng thành phổi');
+    }
+    const ket = [...y, ...nhac.map(x => '⚠ ' + x)];
+    ra('ob-ts-out', ket.length ? ket.join(' · ')
+        : 'Máy soi các mốc tầm soát bắt buộc, nhắc mốc làm sai thời điểm hoặc còn bỏ trống');
+}
+
+/* =====================================================================
+   BIỆN LUẬN SẢN KHOA — sáu bước bắt buộc
+   ---------------------------------------------------------------------
+   Không chấm điểm hộ, chỉ ghép đúng trình tự và chỉ ra bước nào đang trống
+   kèm câu thầy sẽ hỏi ở chỗ đó. Câu hỏi lấy thẳng từ các buổi trình bệnh án
+   giao ban, nên đọc xong là biết mình hổng ở đâu.
+   ===================================================================== */
+const BL_BUOC = [
+    ['ob-bl-lmp', 'độ tin cậy của kinh chót', 'Kinh chót này có tin được không — nhớ rõ ngày chưa, chu kỳ có đều không, kỳ cuối có giống mọi kỳ không?'],
+    ['ob-bl-nguon', 'nguồn chốt tuổi thai', 'Em chốt tuổi thai theo nguồn nào, vì sao không hiệu chỉnh theo siêu âm — hoặc vì sao phải hiệu chỉnh?'],
+    ['ob-bl-cd', 'kết luận chuyển dạ', 'Sản phụ đã vào chuyển dạ chưa, dựa vào cơn gò nào, cổ tử cung thế nào?'],
+    ['ob-bl-vande', 'vấn đề chính', 'Vấn đề chính của ca này là gì, và em đặt nó ở vị trí nào trong chẩn đoán?'],
+    ['ob-bl-vi', 'căn cứ của vấn đề chính', 'Em nghĩ chẩn đoán đó vì những dữ kiện nào — đọc đúng con số trong bệnh án ra.'],
+    ['ob-bl-loaitru', 'nhánh đã loại trừ', 'Còn những chẩn đoán nào cùng bệnh cảnh, em loại trừ chúng bằng gì?'],
+    ['ob-bl-skthai', 'lượng giá sức khỏe thai', 'Trước khi quyết định, em đã lượng giá sức khỏe thai bằng gì — tim thai, cử động thai, CTG, siêu âm hay Doppler?'],
+    ['ob-bl-xutri', 'quyết định xử trí', 'Ca này dưỡng thai tiếp hay chấm dứt thai kỳ, vì sao?'],
+    ['ob-bl-thoidiem', 'thời điểm chấm dứt thai kỳ', 'Chấm dứt thai kỳ ở tuổi thai nào là hợp lý, có cần corticosteroid trưởng thành phổi không?'],
+    ['ob-bl-duong', 'đường chấm dứt thai kỳ', 'Chấm dứt thai kỳ bằng đường nào — khởi phát chuyển dạ hay mổ lấy thai, và bằng phương tiện gì?'],
+    ['ob-bl-duong-vi', 'lý do chọn đường đó', 'Vì sao chọn phương tiện đó — Bishop bao nhiêu, có vết mổ cũ không, có ối vỡ không?']
+];
+
+const BL_DUPHONG = [['obbl-cort', 'corticosteroid trưởng thành phổi'], ['obbl-mgbaove', 'MgSO4 bảo vệ thần kinh thai'],
+['obbl-mgcogiat', 'MgSO4 phòng sản giật duy trì tới 24 giờ sau sinh'], ['obbl-haap', 'hạ áp khi huyết áp ≥ 160/110 mmHg'],
+['obbl-ksoi', 'kháng sinh dự phòng khi ối vỡ non'], ['obbl-ksgbs', 'kháng sinh dự phòng GBS trong chuyển dạ'],
+['obbl-antid', 'anti-D cho mẹ Rh âm'], ['obbl-bhss', 'dự phòng băng huyết sau sinh'],
+['obbl-sosinh', 'báo nhi sơ sinh chuẩn bị hồi sức'],
+['obbl-theodoisau', 'hẹn theo dõi sau sinh']];
+
+/** Đoạn biện luận sáu bước, mỗi bước một dòng để dán thẳng vào mục X */
+function cauBienLuanSan() {
+    const d = [];
+    const lmp = chu('ob-bl-lmp'), nguon = chu('ob-bl-nguon');
+    if (lmp || nguon) {
+        d.push('Tuổi thai: ' + [lmp, nguon ? 'chốt tuổi thai theo ' + nguon : ''].filter(Boolean).join('; ') + '.');
+    }
+    const cd = chu('ob-bl-cd'), cdThem = chu('ob-bl-cd-them');
+    if (cd) d.push('Chuyển dạ: ' + cd + (cdThem ? '; còn phải theo dõi thêm ' + cdThem : '') + '.');
+    const vd = chu('ob-bl-vande'), vi = chu('ob-bl-vi'), lt = chu('ob-bl-loaitru'), bc = chu('ob-bl-bienchung');
+    if (vd || vi) {
+        d.push('Nghĩ ' + (vd || 'vấn đề chính') + (vi ? ' vì ' + vi : '')
+            + (lt ? '. Đã loại trừ ' + lt : '') + (bc ? '. Biến chứng đang theo dõi gồm ' + bc : '') + '.');
+    }
+    const sk = chu('ob-bl-skthai'), skVi = chu('ob-bl-skthai-vi');
+    if (sk) d.push('Sức khỏe thai: ' + sk + (skVi ? ' — căn cứ ' + skVi : '') + '.');
+    const xt = chu('ob-bl-xutri'), td = chu('ob-bl-thoidiem');
+    if (xt || td) d.push('Hướng xử trí: ' + [xt, td].filter(Boolean).join(', vì ') + '.');
+    const du = chu('ob-bl-duong'), duVi = chu('ob-bl-duong-vi');
+    if (du) d.push('Đường chấm dứt thai kỳ: ' + du + (duVi ? ' — ' + duVi : '') + '.');
+    const dp = daTich(BL_DUPHONG);
+    if (dp.length) d.push('Dự phòng kèm theo: ' + dp.join(', ') + '.');
+    return d.join('\n');
+}
+
+function tinhBienLuanSan() {
+    const cau = cauBienLuanSan();
+    ra('ob-bl-out', cau ? cau.split('\n')[0] + (cau.includes('\n') ? ` · và ${cau.split('\n').length - 1} đoạn nữa` : '')
+        : 'Chọn các bước để máy ghép thành đoạn biện luận đúng trình tự bộ môn');
+
+    const thieu = BL_BUOC.filter(([id]) => !chu(id));
+    if (!thieu.length) {
+        ra('ob-bl-thieu', `Đủ cả ${BL_BUOC.length} bước — đọc lại một lượt xem các con số có khớp phần khám và cận lâm sàng không`);
+        return;
+    }
+    // Gom hết vào MỘT dòng, mỗi ý một dòng thì lấp kín màn hình mà không ai đọc
+    ra('ob-bl-thieu', `Còn trống ${thieu.length}/${BL_BUOC.length} bước — ${thieu[0][2]}`
+        + (thieu.length > 1 ? ` (còn thiếu cả: ${thieu.slice(1).map(x => x[1]).join(', ')})` : ''));
 }
 
 /* ---- Xét nghiệm tiền sản: tới tuổi thai này còn thiếu gì -------------- */
@@ -1148,6 +1570,73 @@ document.addEventListener('click', (e) => {
         O_MOT_LAN.forEach(id => { const el = $(id); if (el) el.value = ''; });
         tinh();
     }
+    if (e.target.closest('#ob-sk-add')) {
+        const ds = docSo();
+        // Hàng mới để trống ngày: ghiSo() xếp nó xuống cuối cho tới khi có ngày
+        ds.push(Object.fromEntries(SK_F.map(([k]) => [k, ''])));
+        skMo.clear();
+        ghiSo(ds);
+        tinh();
+        // Con trỏ vào thẳng ô ngày của hàng vừa thêm, khỏi phải rê chuột
+        $('ob-sk-wrap')?.querySelector('tbody tr:last-of-type .sk-in')?.focus();
+    }
+    const more = e.target.closest('.sk-more');
+    if (more) {
+        const i = +more.dataset.i;
+        if (skMo.has(i)) skMo.delete(i); else skMo.add(i);
+        skDaVe = null;                     // buộc vẽ lại dù nội dung sổ không đổi
+        veBangSoKham();
+    }
+    const xoa = e.target.closest('.sk-del');
+    if (xoa) {
+        const ds = docSo();
+        ds.splice(+xoa.dataset.i, 1);
+        skMo.clear();
+        ghiSo(ds);
+        tinh();
+    }
+    if (e.target.closest('#ob-kt-apply')) {
+        const gom = gomTheoTamCaNguyet();
+        let co = false;
+        [['ob-hx-tcn1', gom[0]], ['ob-hx-tcn2', gom[1]], ['ob-hx-tcn3', gom[2]]]
+            .forEach(([id, v]) => { if (v) { datO(id, v); co = true; } });
+        if (!co) showToast('Sổ khám thai chưa có lần khám nào để tóm tắt');
+    }
+    if (e.target.closest('#ob-ts-apply-hx')) {
+        const t1 = [chu('ob-ts-ht1'), ntCau(), chu('ob-ts-lechboi') && `${chu('ob-ts-lechboi')}: ${chu('ob-ts-lechboi-kq') || 'chưa có kết quả'}`,
+        chu('ob-ts-nhommau') && 'nhóm máu ' + chu('ob-ts-nhommau'), chu('ob-ts-huyethoc'),
+        chu('ob-ts-nhiemtrung'), chu('ob-ts-tsg') && 'sàng lọc tiền sản giật ' + chu('ob-ts-tsg'),
+        chu('ob-ts-aspirin') && 'aspirin ' + chu('ob-ts-aspirin')].filter(Boolean).join('; ');
+        const t2 = [chu('ob-ts-ht2') && 'siêu âm hình thái học quý II ' + chu('ob-ts-ht2'),
+        chu('ob-ts-cl') && `chiều dài kênh cổ tử cung ${chu('ob-ts-cl')} mm`
+        + (chu('ob-ts-clhinh') ? ', ' + chu('ob-ts-clhinh') : ''),
+        cauOgtt(), chu('ob-ts-dtd-dt') && 'điều trị ' + chu('ob-ts-dtd-dt')].filter(Boolean).join('; ');
+        const t3 = [chu('ob-ts-gbs') && 'cấy GBS ' + chu('ob-ts-gbs'), chu('ob-ts-vat'),
+        chu('ob-ts-cort'), chu('ob-ts-skthai')].filter(Boolean).join('; ');
+        let co = false;
+        [['ob-hx-tcn1', t1], ['ob-hx-tcn2', t2], ['ob-hx-tcn3', t3]]
+            .forEach(([id, v]) => { if (v) { datO(id, v); co = true; } });
+        if (!co) showToast('Chưa nhập mục tầm soát nào để ghi xuống');
+    }
+    if (e.target.closest('#ob-bl-apply')) {
+        const cau = cauBienLuanSan();
+        if (!cau) { showToast('Chọn ít nhất một bước biện luận trước đã'); return; }
+        const el = $('diagnosis-reasoning');
+        if (!el) return;
+        el.value = [cau, el.value.trim()].filter(Boolean).join('\n');
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        showToast('Đã ghi đoạn biện luận sản khoa vào mục Biện luận');
+    }
+    if (e.target.closest('#ob-bl-xutri-apply')) {
+        const p = [];
+        const g = (id, truoc = '') => { const v = chu(id); if (v) p.push(truoc + v); };
+        g('ob-bl-xutri'); g('ob-bl-thoidiem', 'thời điểm: '); g('ob-bl-duong');
+        g('ob-bl-duong-vi', 'vì ');
+        const dp = daTich(BL_DUPHONG);
+        if (dp.length) p.push('dự phòng: ' + dp.join(', '));
+        if (!p.length) { showToast('Chưa chọn hướng xử trí nào'); return; }
+        datO('treatment-plan', p.join('. ') + '.');
+    }
     if (e.target.closest('#ob-kh-apply')) {
         const p = [];
         const g = (id, truoc = '') => { const v = chu(id); if (v) p.push(truoc + v); };
@@ -1206,8 +1695,42 @@ document.addEventListener('click', (e) => {
 /* =====================================================================
    6. KHỞI ĐỘNG
    ===================================================================== */
-document.addEventListener('input', tinh);
-document.addEventListener('change', tinh);
+/* Gõ thẳng trong bảng sổ khám thai: ô của bảng không phải ô của bệnh án, nên
+   phải gom lại rồi ghi ngược vào #ob-sokham — chỗ duy nhất được lưu.
+   Bắt ở pha capture và chặn lan để tinh() không vẽ lại bảng giữa lúc đang gõ
+   (vẽ lại là mất con trỏ); ghiSo() sẽ tự phát input trên ô lưu. */
+function nhapTrongBang(e) {
+    const o = e.target.closest?.('.sk-in');
+    if (!o) return false;
+    const ds = docSo();
+    const r = ds[+o.dataset.i];
+    if (!r) return false;
+    r[o.dataset.k] = o.value.trim();
+    e.stopPropagation();
+    skDangGo = true;
+    // Giữ nguyên thứ tự đang hiện trong lúc gõ: ghiSo() xếp theo ngày, mà xếp
+    // lại giữa chừng thì hàng nhảy đi chỗ khác ngay dưới tay người dùng.
+    const el = $('ob-sokham');
+    if (el) {
+        el.value = ds.map(dongSo).join('\n');
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    return true;
+}
+document.addEventListener('input', (e) => { nhapTrongBang(e); tinh(); }, true);
+document.addEventListener('change', (e) => {
+    // Rời ô rồi mới xếp lại theo ngày và vẽ lại
+    if (e.target.closest?.('.sk-in')) { skDangGo = false; skDaVe = null; ghiSo(docSo()); }
+    tinh();
+}, true);
+/* Bỏ ô mà không đổi gì thì 'change' không bắn — vẫn phải hạ cờ, kẻo bảng đứng
+   im cho tới lần gõ sau. */
+document.addEventListener('focusout', (e) => {
+    if (!e.target.closest?.('.sk-in')) return;
+    skDangGo = false;
+    skDaVe = null;
+    tinh();
+}, true);
 $('type-chips')?.addEventListener('click', () => { apHoSo(); tinh(); });
 
 function batDau(moi) {

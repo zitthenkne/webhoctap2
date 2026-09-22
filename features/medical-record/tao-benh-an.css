@@ -15315,6 +15315,191 @@
             margin: 6px 0 2px;
         }
 
+        /* ---------- Sổ khám thai (dac-thu-khoa.js) ----------
+           Bảng năm cột đúng như bảng tổng kết sổ khám thai của bộ môn. Cuộn
+           ngang trong khung riêng để điện thoại không đẩy cả trang lệch. */
+        .sk-wrap {
+            margin: 8px 0 4px;
+        }
+
+        .sk-scroll {
+            overflow-x: auto;
+            border: 1px solid #f0e4ee;
+            border-radius: 12px;
+            background: #fffdfe;
+        }
+
+        .sk-tb {
+            border-collapse: separate;
+            border-spacing: 0;
+            width: 100%;
+            min-width: 640px;
+            font-size: 12px;
+        }
+
+        .sk-tb th,
+        .sk-tb td {
+            padding: 4px 5px;
+            text-align: left;
+            vertical-align: middle;
+            line-height: 1.45;
+        }
+
+        .sk-tb thead th {
+            background: #fdf4fa;
+            font-size: 10.5px;
+            font-weight: 700;
+            color: #9d5c86;
+            white-space: nowrap;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            border-bottom: 1px solid #f3dfeb;
+        }
+
+        .sk-tb tr.sk-row td {
+            border-top: 1px solid #f7edf5;
+        }
+
+        .sk-tb tr.sk-row:first-child td {
+            border-top: 0;
+        }
+
+        /* Ô nhập nằm ngay trong ô bảng: viền mảnh, chỉ rõ lên khi chạm vào */
+        .sk-in {
+            width: 100%;
+            min-width: 62px;
+            border: 1px solid transparent;
+            border-radius: 7px;
+            padding: 5px 6px;
+            font-size: 12px;
+            background: transparent;
+            color: #374151;
+            font-family: inherit;
+        }
+
+        .sk-in:hover {
+            border-color: #f3e0ee;
+            background: #fffdfe;
+        }
+
+        .sk-in:focus {
+            outline: 0;
+            border-color: #e9a8cf;
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(233, 168, 207, .18);
+        }
+
+        .sk-c-ngay .sk-in {
+            min-width: 124px;
+        }
+
+        .sk-c-nhandinh .sk-in {
+            min-width: 190px;
+        }
+
+        .sk-c-ha .sk-in,
+        .sk-c-can .sk-in,
+        .sk-c-bctc .sk-in,
+        .sk-c-tt .sk-in,
+        .sk-c-bpv .sk-in,
+        .sk-c-uapi .sk-in,
+        .sk-c-mcapi .sk-in {
+            min-width: 58px;
+        }
+
+        .sk-ga {
+            font-weight: 700;
+            color: #9d5c86;
+            white-space: nowrap;
+            font-size: 11.5px;
+            background: #fffafd;
+        }
+
+        /* Dòng kết luận của máy nằm ngay dưới hàng nhập, thụt vào cho dễ nhận */
+        .sk-tb tr.sk-soi td {
+            padding: 0 6px 6px;
+            font-size: 11.5px;
+            color: #b45309;
+            background: #fffdf7;
+        }
+
+        .sk-tb tr.sk-chitiet td {
+            padding: 2px 6px 10px;
+            background: #fffafd;
+        }
+
+        .sk-ph-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+            gap: 6px 10px;
+        }
+
+        .sk-ph {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            font-size: 10.5px;
+            font-weight: 600;
+            color: #6b7280;
+        }
+
+        .sk-ph .sk-in {
+            border-color: #f0e4ee;
+            background: #fff;
+        }
+
+        .sk-tb .sk-x {
+            width: 56px;
+            white-space: nowrap;
+            text-align: right;
+        }
+
+        .sk-act {
+            display: flex;
+            justify-content: flex-start;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 8px 0 2px;
+        }
+
+        .sk-more {
+            border: 0;
+            background: transparent;
+            color: #c79ab8;
+            cursor: pointer;
+            padding: 4px 5px;
+            border-radius: 8px;
+            line-height: 1;
+        }
+
+        .sk-more:hover {
+            background: #fdeaf4;
+            color: #9d5c86;
+        }
+
+        .sk-del {
+            border: 0;
+            background: transparent;
+            color: #d1a8c4;
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: 8px;
+            line-height: 1;
+        }
+
+        .sk-del:hover {
+            background: #fdeaf4;
+            color: #c2410c;
+        }
+
+        .sk-trong {
+            font-size: 12px;
+            color: #9ca3af;
+            padding: 10px 2px;
+            margin: 0;
+        }
+
 
         /* =====================================================================
            BỆNH ÁN MẪU (benh-an-mau.js) — dải băng hai mặt.
