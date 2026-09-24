@@ -6,8 +6,9 @@ import { updateDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-fir
 import { showToast } from '../../core/utils.js';
 import {
     room, refs, uid, canControl, hasSession, isAnnounced, currentIndex, answerOf,
-    teamOn, teamOf, buzzOn, buzzOf, betOf, isBlind, spotlightOf, thanksOf, explainerOf,
+    teamOn, teamOf, buzzOn, buzzOf, isBlind, spotlightOf, thanksOf, explainerOf,
     questionAt, optsOf, chosenOf, noteOf, markOf, flagOf, qKey,
+    isAccepted, isEssay, doneOf,
 } from './room-state.js';
 import { escapeHtml, shortName, avatarHtml, changed } from './room-ui.js';
 import { effectiveIndex } from './room-quiz-stage.js';
@@ -23,7 +24,7 @@ export const TEAM_NAMES = { A: 'Đội Hồng', B: 'Đội Tím' };
 export function renderGameBar(i) {
     const bar = el('game-bar');
     if (!bar || !hasSession()) return;
-    const mine = answerOf(me(), i);
+    const mine = isEssay(questionAt(i)) ? null : answerOf(me(), i);   // tự luận không cược
     const announced = isAnnounced(i);
     const blind = isBlind(i);
     const buzz = buzzOf(i);
@@ -33,7 +34,8 @@ export function renderGameBar(i) {
     const spot = spotlightOf(i);
 
     // Không bật gì thì giấu luôn cho gọn
-    const active = teamOn() || buzzOn() || blind || (mine && !announced) || (ex && ex.uid !== uid()) || spot;
+    // (Cược ×1/×2/×3 đã về khay dưới ô mình chọn — room-answer.js · CONF — gộp với "Chắc/Đoán")
+    const active = teamOn() || buzzOn() || blind || (ex && ex.uid !== uid()) || spot;
     bar.classList.toggle('hidden', !active);
     if (!active) return;
     if (!changed('gamebar', [i, team, teamOn(), buzzOn(), buzz, blind, announced, ex, spot,
@@ -59,17 +61,6 @@ export function renderGameBar(i) {
                     ? `<span class="rm-buzz-win">🔔 <b>${escapeHtml(shortName(buzz.name || 'Ai đó', 14))}</b> nhanh tay nhất</span>
                        ${canControl() ? '<button class="rm-mini" data-buzz-clear>Mở chuông lại</button>' : ''}`
                     : '<button class="rm-buzz-btn" data-buzz>🔔 Giành lượt trả lời</button>'}
-            </div>
-        </div>`);
-    }
-
-    if (mine && !announced) {
-        bits.push(`<div class="rm-grow">
-            <span class="rm-label"><i class="fas fa-coins"></i> Bạn chắc tới mức nào?</span>
-            <div class="rm-gline">
-                ${[1, 2, 3].map(b => `<button class="rm-bet b${b} ${betOf(me(), i) === b ? 'on' : ''}" data-bet="${b}"
-                    title="${b === 1 ? 'Trúng +điểm thường, trật không mất gì' : `Trúng ×${b} điểm, trật mất ${5 * (b - 1)}`}">×${b}</button>`).join('')}
-                <span class="rm-hint">${betOf(me(), i) > 1 ? `mạo hiểm — trật mất ${5 * (betOf(me(), i) - 1)} điểm` : 'an toàn'}</span>
             </div>
         </div>`);
     }
@@ -112,7 +103,6 @@ async function pressBuzz(i) {
     }).catch(() => {});
 }
 
-const setBet = (i, b) => updateDoc(refs.member(), { [`answers.${qKey(i)}.bet`]: b }).catch(() => {});
 
 async function sayThanks(i) {
     const has = thanksOf(i).includes(uid());
@@ -213,11 +203,12 @@ export function reviewIndexes() {
     s.questions.forEach((_, i) => {
         const c = chosenOf(i);
         const a = answerOf(my, i);
-        const sai = c !== null && a && a.i !== c;
-        const bo = c !== null && !a;
+        const sai = c !== null && a && !isAccepted(i, a.i);
+        const bo = c !== null && !doneOf(my, i);
+        const split = !!room.session?.split?.['q' + i] && c === null;   // nhóm chưa thống nhất -> nên tra cứu
         const canBan = room.members.some(m => flagOf(m, i));
         const danhDau = !!markOf(my, i);
-        if (sai || bo || canBan || danhDau) out.push(i);
+        if (sai || bo || canBan || danhDau || split) out.push(i);
     });
     return out;
 }
@@ -240,7 +231,7 @@ export function downloadMyNotes() {
         const c = chosenOf(i);
         const a = answerOf(my, i);
         lines.push(`## Câu ${i + 1}. ${String(q.question || '').replace(/<[^>]*>/g, ' ').trim()}`);
-        opts.forEach((o, k) => lines.push(`- ${L(k)}. ${String(o).replace(/<[^>]*>/g, ' ').trim()}${c === k ? '  ← nhóm chốt' : ''}${a?.i === k ? '  ← bạn chọn' : ''}`));
+        opts.forEach((o, k) => lines.push(`- ${L(k)}. ${String(o).replace(/<[^>]*>/g, ' ').trim()}${isAccepted(i, k) ? '  ← nhóm chốt' : ''}${a?.i === k ? '  ← bạn chọn' : ''}`));
         const note = noteOf(i);
         if (note) lines.push('', `**Giải thích của nhóm:** ${String(note).replace(/<[^>]*>/g, ' ').trim()}`);
         const mine = getNote(q.question);
@@ -262,7 +253,7 @@ export function participationHtml() {
     if (!s?.questions?.length) return '';
     const total = s.questions.length;
     const rows = room.members.map(m => {
-        const ans = Object.values(m.answers || {});
+        const ans = Object.keys(m.answers || {}).filter(k => doneOf(m, Number(k.slice(1)))).map(k => m.answers[k]);
         const guess = ans.filter(a => a?.guess).length;
         const why = ans.filter(a => a?.why).length;
         const flags = Object.keys(m.flags || {}).length;
@@ -318,8 +309,6 @@ export function initGame() {
         if (t) return joinTeam(t.dataset.team);
         if (e.target.closest('[data-buzz]')) return pressBuzz(i);
         if (e.target.closest('[data-buzz-clear]')) return clearBuzz(i);
-        const b = e.target.closest('[data-bet]');
-        if (b) return setBet(i, Number(b.dataset.bet));
         if (e.target.closest('[data-reveal]')) return setBlind(i, false);
         if (e.target.closest('[data-thank]')) return sayThanks(i);
     });

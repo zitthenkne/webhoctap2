@@ -8,7 +8,6 @@ import {
     enableIndexedDbPersistence,
     CACHE_SIZE_UNLIMITED
 } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
-import { getStorage } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-storage.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBFNNeJMeDIVRcG2Xj4ZVjr2-0d9RGrURc",
@@ -28,7 +27,8 @@ export const db = initializeFirestore(app, {
     cacheSizeBytes: CACHE_SIZE_UNLIMITED,
     ignoreUndefinedProperties: true
 });
-export const storage = getStorage(app);
+// Storage KHÔNG khởi tạo ở đây: firebase-storage.js (28KB) chỉ bảng trắng + ảnh bệnh án cần,
+// nên trang nào cũng phải tải kèm là phí. Cần thì tự `getStorage()` (app mặc định đã có ở trên).
 
 // Bật cache offline (IndexedDB): dữ liệu đã đọc vẫn xem được khi mất mạng,
 // thao tác ghi được xếp hàng và tự đồng bộ khi có mạng lại.

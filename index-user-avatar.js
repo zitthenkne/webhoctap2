@@ -48,6 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
         avatarDiv.innerText = avatarAnimal;
         avatarDiv.title = displayName;
         avatarDiv.className = el.className;
+        avatarDiv.id = el.id; // giữ id để app.js/pwa-install.js còn tìm thấy sau khi thay thế
         // Click vào AVATAR: sang trang thông tin cá nhân (chưa đăng nhập thì mở modal đăng nhập)
         avatarDiv.style.cursor = 'pointer';
         avatarDiv.title = user ? 'Thông tin cá nhân' : 'Đăng nhập';

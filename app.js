@@ -183,6 +183,16 @@ onSessionUser(user => {
         if (userAvatarSidebar) userAvatarSidebar.src = `https://ui-avatars.com/api/?name=?&background=D8BFD8&color=fff`;
         if (userAvatarMobile) userAvatarMobile.src = `https://ui-avatars.com/api/?name=?&background=D8BFD8&color=fff`;
         if (userMenuButton) userMenuButton.onclick = toggleAuthModal;
+        // Điện thoại không thấy #user-menu-button (hidden md:block) -> avatar/tên ở thanh trên + sidebar mở modal đăng nhập.
+        // Tra lại theo id vì index-user-avatar.js có thể đã thay <img> bằng <div>.
+        const openLogin = (e) => { if (e) e.stopPropagation(); window.openAuthModal(); };
+        ['user-avatar-mobile', 'user-avatar-sidebar', 'user-name-sidebar'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.style.cursor = 'pointer';
+            el.title = 'Đăng nhập';
+            el.onclick = openLogin;
+        });
     }
 });
 

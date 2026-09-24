@@ -7,11 +7,13 @@
 // Người dùng có thể bấm chọn ảnh, chụp bằng camera điện thoại, dán (Ctrl+V) hoặc kéo thả.
 
 import { showToast } from '../../core/utils.js';
-import { storage } from '../../core/firebase-init.js';
+import '../../core/firebase-init.js'; // khởi tạo app trước khi getStorage()
 import { authReady } from './record-store.js';
 import {
-    ref as storageRef, uploadBytes, getDownloadURL, deleteObject
+    getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject
 } from 'https://www.gstatic.com/firebasejs/9.6.0/firebase-storage.js';
+
+const storage = getStorage();
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

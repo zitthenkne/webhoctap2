@@ -15,8 +15,9 @@ import { initQuizControl, syncHostBar } from './room-quiz.js';
 import { initStage, renderQuiz } from './room-quiz-stage.js';
 import { renderRankPanel } from './room-scoreboard.js';
 import { initInlineEdit } from './room-editor.js';
-import { initBoost } from './room-boost.js';
+import { initBoost, openMinutes } from './room-boost.js';
 import { initGame } from './room-game.js';
+import { initMedia } from './room-media.js';
 
 const el = (id) => document.getElementById(id);
 const unsubs = [];
@@ -76,7 +77,21 @@ function showPanel(name) {
     if (name === 'rank') renderRankPanel();
 }
 
+// Máy tính: bảng bên thu thành THANH RAY (chỉ 3 biểu tượng) để sân khấu rộng ra.
+// Chưa chọn lần nào thì màn < 1600px mặc định thu gọn — bảng bên cũ ăn mất 344px,
+// ép cột câu hỏi còn ~600px dù màn 1440px.
+const RAIL_KEY = 'roomSideRail';
+const isRail = () => document.body.classList.contains('side-rail') && window.matchMedia('(min-width: 768px)').matches;
+function setRail(on, remember = true) {
+    document.body.classList.toggle('side-rail', on);
+    const i = el('side-toggle')?.querySelector('i');
+    if (i) i.className = on ? 'fas fa-angles-left' : 'fas fa-angles-right';
+    if (remember) { try { localStorage.setItem(RAIL_KEY, on ? '1' : '0'); } catch (e) {} }
+    window.dispatchEvent(new Event('resize'));        // canvas bảng trắng vẽ lại theo khổ mới
+}
+
 function openPanelMobile(name) {
+    if (isRail()) setRail(false);
     showPanel(name);
     const p = el('side-panel');
     p.classList.remove('hidden');
@@ -84,15 +99,27 @@ function openPanelMobile(name) {
 }
 
 function initLayout() {
+    let saved = null;
+    try { saved = localStorage.getItem(RAIL_KEY); } catch (e) {}
+    setRail(saved === null ? window.innerWidth < 1600 : saved === '1', false);
+    el('side-toggle')?.addEventListener('click', () => setRail(!document.body.classList.contains('side-rail')));
+
     el('stage-tabs')?.addEventListener('click', (e) => {
         const b = e.target.closest('[data-stage]');
         if (b) showStage(b.dataset.stage);
     });
     el('side-panel')?.addEventListener('click', (e) => {
         const b = e.target.closest('[data-panel]');
-        if (b) showPanel(b.dataset.panel);
+        if (!b) return;
+        if (isRail()) setRail(false);                  // bấm biểu tượng trên ray = bung đúng tab đó
+        showPanel(b.dataset.panel);
     });
-    el('online-pill')?.addEventListener('click', () => openPanelMobile('members'));
+    // Điện thoại: đi qua dock để bảng bên thành khay (có lớp mờ, vuốt/Esc đóng được)
+    el('online-pill')?.addEventListener('click', () => {
+        const dockBtn = document.querySelector('#mobile-nav [data-m="members"]');
+        if (dockBtn && window.matchMedia('(max-width: 767px)').matches) dockBtn.click();
+        else openPanelMobile('members');
+    });
     el('lobby-avatar-btn')?.addEventListener('click', changeIdentity);
     el('close-panel-btn')?.addEventListener('click', () => {
         el('side-panel').classList.add('hidden');
@@ -115,6 +142,8 @@ function initLayout() {
     const SCALES = [1, 1.12, 1.28];
     const applyScale = (v) => {
         document.documentElement.style.setProperty('--rm-scale', v);
+        const lb = el('text-size-label');
+        if (lb) lb.textContent = ['vừa', 'lớn', 'rất lớn'][Math.max(0, SCALES.indexOf(v))];
         try { localStorage.setItem('roomTextScale', String(v)); } catch (e) {}
     };
     let scaleIdx = SCALES.indexOf(Number(localStorage.getItem('roomTextScale')) || 1);
@@ -209,12 +238,6 @@ function initLayout() {
     };
     document.querySelectorAll('input[name="room-mode"]').forEach(r => r.addEventListener('change', syncModeFields));
     syncModeFields();
-
-    el('start-collaborative-quiz-btn')?.addEventListener('click', () => {
-        showStage('quiz');
-        el('side-panel').classList.add('hidden');
-        el('stage-quiz')?.scrollTo({ top: 0, behavior: 'smooth' });
-    });
 }
 
 
@@ -510,8 +533,25 @@ function maybeCountdown() {
 // Gộp theo KHUNG HÌNH: một loạt snapshot về cùng lúc (phòng · thành viên · phiên · chat)
 // trước đây vẽ lại 4 lần liên tiếp trong một nhịp -> nhìn như giật.
 let paintPending = false;
+// Sảnh chờ đã có ghế (= tab Nhóm) và khung trò chuyện (= tab Chat) -> bảng bên máy tính chỉ lặp lại.
+// Vào sảnh thì thu thành ray (KHÔNG ghi nhớ); vào phiên thì trả lại đúng lựa chọn đã lưu của người dùng.
+// Chỉ đổi lúc chuyển sảnh <-> phiên, nên người dùng tự mở bảng trong sảnh vẫn được tôn trọng.
+let lastLobby = null;
+function syncLobbyRail() {
+    if (!room.ready) return;
+    const lobby = !hasSession();
+    if (lobby === lastLobby) return;
+    lastLobby = lobby;
+    if (!window.matchMedia('(min-width: 768px)').matches) return;
+    if (lobby) return setRail(true, false);
+    let saved = null;
+    try { saved = localStorage.getItem(RAIL_KEY); } catch (e) {}
+    setRail(saved === null ? window.innerWidth < 1600 : saved === '1', false);
+}
+
 function paintAll() {
     paintPending = false;
+    syncLobbyRail();
     maybeCountdown();
     renderQuiz();
     paintDock();
@@ -559,6 +599,8 @@ async function initRoom() {
         initBoost();
         initGame();
         initInlineEdit();
+        initMedia();
+        window.addEventListener('room:minutes', openMinutes);   // room-minutes.js nạp lười ở lần mở đầu
         showPanel('discuss');
 
         // Đợi phiên đầu tiên (hoặc 4 giây) rồi mới bỏ màn chờ -> không còn nháy sảnh chờ

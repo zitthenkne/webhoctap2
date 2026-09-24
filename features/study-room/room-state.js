@@ -135,5 +135,46 @@ export const spotlightOf = (i) => room.session?.spotlight?.[qKey(i)] || null;
 export const thanksOf = (i) => Object.keys(room.session?.thanks?.[qKey(i)] || {});
 export const explainerOf = (i) => room.session?.explainer?.[qKey(i)] || null;
 
+// --- Câu tự luận: câu KHÔNG có phương án ---
+// Cả nhóm viết MỘT bài làm chung ngay ô "giải thích chung" (notes.q<i>) — thường một người gõ,
+// mọi người xem cùng lúc và nhận xét bên dưới. Bài giải gợi ý của file: q.modelAnswer.
+export const isEssay = (q) => !!q && optsOf(q).length === 0;
+const hasText = (v) => !!String(v || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() || /<img/i.test(String(v || ''));
+// "Đã làm câu này": trắc nghiệm = đã chọn; tự luận = nhóm đã có bài làm chung.
+// Cũng lọc giá trị null do "Bầu lại" để lại (trước đây Object.keys đếm cả chúng).
+export const doneOf = (member, i) => {
+    if (isEssay(room.session?.questions?.[i])) return hasText(noteOf(i));
+    return typeof answerOf(member, i)?.i === 'number';
+};
+export const doneCount = (member) => Object.keys(member?.answers || {}).filter(k => doneOf(member, Number(k.slice(1)))).length;
+
+// --- Kết luận của nhóm: KHÔNG ép về một đáp án ---
+// chosen.q<i> = đáp án chính; alsoOk.q<i> = [k…] những đáp án nhóm CŨNG chấp nhận (đều chấm đúng).
+export const alsoOkOf = (i) => {
+    const a = room.session?.alsoOk?.[qKey(i)];
+    return Array.isArray(a) ? a.filter(n => typeof n === 'number') : [];
+};
+export const acceptedOf = (i) => {
+    const c = chosenOf(i);
+    return c === null ? [] : [c, ...alsoOkOf(i).filter(k => k !== c)];
+};
+export const isAccepted = (i, k) => typeof k === 'number' && acceptedOf(i).includes(k);
+// "Chưa thống nhất — ghi nhận các quan điểm": không chấm điểm, mọi phe được lưu vào biên bản.
+export const isSplit = (i) => !!room.session?.split?.[qKey(i)] && !isAnnounced(i);
+export const acceptedText = (i) => acceptedOf(i).map(k => String.fromCharCode(65 + k)).join(' + ');
+
+// --- Bàn tròn: lập luận có lập trường ---
+// members/{uid}.args.q<i>.<aid> = { t, o: số phương án | null, s: 'pro'|'con'|'ask'|'src', at }
+// Đồng tình: members/{uid}.agree.<aid> = true. Lưu ở doc của TỪNG NGƯỜI -> không tranh ghi,
+// ai cũng sửa/xoá được lập luận của mình, và members đã được nghe sẵn (không thêm listener).
+export function argsOf(i) {
+    const out = [];
+    room.members.forEach(m => Object.entries(m.args?.[qKey(i)] || {}).forEach(([id, a]) => {
+        if (a && String(a.t || '').trim()) out.push({ id, ...a, uid: m.uid, member: m });
+    }));
+    return out;
+}
+export const agreeCount = (aid) => room.members.filter(m => m.agree?.[aid]).length;
+
 // Khóa dữ liệu học tập cá nhân: dùng chung với trang làm bài nếu đề lấy từ thư viện
 export const studyQuizId = () => room.session?.sourceQuizId || `room_${room.roomId}`;

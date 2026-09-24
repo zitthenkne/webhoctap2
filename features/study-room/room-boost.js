@@ -2,9 +2,10 @@
 // Gom những thứ không dính tới dữ liệu Firestore: âm thanh phản hồi, rung nhẹ,
 // gợn sóng khi bấm, chế độ tập trung, tìm nhanh câu hỏi, bảng phím tắt, chip mất mạng.
 // Tách riêng để các module chính (state/members/quiz) không phình thêm.
-import { room, hasSession } from './room-state.js';
+import { room, hasSession, doneOf, questionAt, isEssay } from './room-state.js';
 import { showToast } from '../../core/utils.js';
 import { effectiveIndex, setViewIndex, toggleRace } from './room-quiz-stage.js';
+import { focusHub } from './room-answer.js';
 import { escapeHtml } from './room-ui.js';
 
 const el = (id) => document.getElementById(id);
@@ -71,6 +72,15 @@ export function loadScript(src) {
 export const ensureConfetti = () => (window.confetti
     ? Promise.resolve()
     : loadScript('https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js')).catch(() => {});
+/** Biên bản buổi học (room-minutes.js 57KB): chỉ nạp khi có người mở hộp xuất. */
+let minutesMod = null;
+export function openMinutes() {
+    minutesMod ||= import('./room-minutes.js').then(m => { m.initMinutes(); return m; });
+    minutesMod.then(m => m.openMinutes()).catch(() => {
+        minutesMod = null;
+        showToast('Không tải được phần biên bản — kiểm tra mạng rồi thử lại.', 'error');
+    });
+}
 /** Đọc Excel: 269KB, chỉ chủ trì mở đề mới cần. */
 export const ensureXlsx = () => (window.XLSX
     ? Promise.resolve()
@@ -152,6 +162,8 @@ function initNetChip() {
 // ---------------- Bảng phím tắt ----------------
 const KEYS = [
     ['1–9 · A–D', 'Chọn phương án'],
+    ['D', 'Tới khối Đáp án & bàn luận (nhận xét)'],
+    ['W', 'Câu tự luận: gõ vào bài làm chung'],
     ['← →', 'Câu trước / câu sau (của riêng bạn)'],
     ['J', 'Nhảy tới câu chưa chọn tiếp theo'],
     ['Home / End', 'Về câu đầu / câu cuối'],
@@ -160,6 +172,9 @@ const KEYS = [
     ['M', 'Bật / tắt âm thanh'],
     ['F', 'Trình chiếu'],
     ['?', 'Bảng phím tắt này'],
+    ['R', 'Sảnh chờ: bật / tắt "Tôi sẵn sàng"'],
+    ['I', 'Sảnh chờ: mời bạn (link + QR)'],
+    ['Enter', 'Sảnh chờ — chủ trì: bắt đầu cho cả phòng'],
     ['S', 'Chủ trì: hiện đáp án tham khảo'],
     ['Space', 'Chủ trì: chốt theo đa số'],
     ['N', 'Chủ trì: câu tiếp'],
@@ -204,7 +219,7 @@ function paintFind() {
     }
     findPick = Math.max(0, Math.min(findPick, rows.length - 1));
     list.innerHTML = rows.map((i, k) => {
-        const done = !!me?.answers?.['q' + i];
+        const done = doneOf(me, i);
         const chosen = typeof room.session?.chosen?.['q' + i] === 'number';
         return `<button class="rm-find-item ${k === findPick ? 'on' : ''} ${done ? 'done' : ''}" data-find="${i}">
             <span class="rm-find-num">${i + 1}</span>
@@ -263,10 +278,11 @@ export function initBoost() {
         if (!e.target.closest('#room-menu') && !e.target.closest('#room-menu-btn')) menu?.classList.add('hidden');
     });
     menu?.addEventListener('click', (e) => {
-        const b = e.target.closest('[data-tool]');
+        const b = e.target.closest('.rm-menu-item');
         if (!b) return;
         menu.classList.add('hidden');
-        runTool(b.dataset.tool);
+        // Cỡ chữ / sáng tối / trình chiếu có listener riêng theo id (study-room-main.js)
+        if (b.dataset.tool) runTool(b.dataset.tool);
     });
 
     // Hộp tìm câu
@@ -298,6 +314,12 @@ export function initBoost() {
         if (k === 'z') return toggleZen();
         if (k === 'm') return toggleSound();
         if (k === 'j') return jumpToUnanswered();
+        if (k === 'd' && hasSession()) { e.preventDefault(); return void focusHub(); }
+        if (k === 'w' && hasSession() && isEssay(questionAt(effectiveIndex()))) {
+            const n = document.querySelector('#answer-block [data-live-edit="explain"]');
+            if (n) { e.preventDefault(); n.scrollIntoView({ block: 'center', behavior: 'smooth' }); n.focus(); }
+            return;
+        }
         if (hasSession() && (e.key === 'Home' || e.key === 'End')) {
             e.preventDefault();
             return setViewIndex(e.key === 'Home' ? 0 : room.session.questions.length - 1);
@@ -328,6 +350,7 @@ export function runTool(name) {
     if (name === 'sound') return toggleSound();
     if (name === 'autonext') return toggleAutoNext();
     if (name === 'race') return toggleRace();
+    if (name === 'minutes') return void window.dispatchEvent(new Event('room:minutes'));
 }
 
 /** Câu chưa chọn tiếp theo (vòng lại từ đầu). Dùng cho phím J và chip "còn N câu". */
@@ -338,7 +361,7 @@ export function jumpToUnanswered() {
     const cur = effectiveIndex();
     for (let s = 1; s <= total; s++) {
         const i = (cur + s) % total;
-        if (!me?.answers?.['q' + i]) {
+        if (!doneOf(me, i)) {
             setViewIndex(i);
             el('stage-quiz')?.scrollTo({ top: 0, behavior: 'smooth' });
             return;

@@ -18,6 +18,8 @@ export function changed(key, value) {
     sigs[key] = sig;
     return true;
 }
+/** Quên chữ ký của một khối (khối đó bị module khác vẽ đè, lần sau phải vẽ lại). */
+export const forget = (key) => { delete sigs[key]; };
 
 export function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => (

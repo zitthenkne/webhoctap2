@@ -3,6 +3,9 @@
 `preview.html` là bản sao `study-room.html` + import map trỏ Firebase sang các file `stub-*.js`
 (dữ liệu giả trong `stub-firestore.js`: 4 thành viên, 3 câu hỏi, chủ trì là bạn).
 
+**Đừng sửa tay `preview.html`** — sửa `study-room.html` rồi chạy `node dev/sinh-preview.mjs`
+(chép nguyên trang thật, chỉ chèn import map + bỏ modulepreload của Firebase thật).
+
 Chạy: mở một static server ở thư mục `webhoctap2/` rồi vào
 `/features/study-room/dev/preview.html?id=demo`
 
@@ -33,3 +36,22 @@ Xem trước panel `#rooms-hub` (do `rooms-hub.js` dựng, nhúng trong `index.h
 với phòng chỉ từng vào — điều kiện khác `==` vẫn bị bỏ qua như trước.
 
 Chỉ dùng để chỉnh giao diện — KHÔNG deploy, không nằm trong danh sách cache của `sw.js`.
+
+## Thảo luận có ảnh / tài liệu + biên bản
+
+`stub-firestore.js` gài sẵn ở câu 1: một tin trả lời có thẻ "chọn B" + ảnh nhúng, một thẻ 📚 tài liệu.
+`orderBy` của bộ giả nay sắp thật theo `createdAt` (trước đây tin mới nằm trên cùng).
+Bộ xem trước KHÔNG tải ảnh lên mạng thật chỉ khi bạn không dán ảnh — dán ảnh sẽ gọi sxcu.net thật.
+Muốn thử mà không đẩy ảnh đi đâu: chặn request bằng Playwright `context.route('https://sxcu.net/api/files/create', …)`.
+
+## Khối "Đáp án & bàn luận" · câu tự luận (bản 19b)
+
+Câu 1 có sẵn lý do có tên, nhận xét ✚/✖/❓ gắn từng phương án, đồng tình, và bạn đã **đổi ý** từ C sang B.
+**Câu 4 là câu tự luận**: một bài làm chung (Minh Anh gõ, nằm ở `notes.q3`) + 2 nhận xét bên dưới
+(một cái có trích đoạn). Màn ≥1040px khối nằm cột phải; hẹp hơn nằm ngay dưới phương án.
+
+- `&state=multi` — câu 1 chốt nhiều đáp án (B + C, `alsoOk`)
+- `&state=split` — câu 1 "chưa thống nhất" (`split`)
+
+Kiểm thử thao tác: `e2e2.mjs` (Playwright, 48 mục) trong scratchpad phiên 2026-09-24;
+bộ tách "Dán đề" có test thuần Node: `npm test` (features/study-room/tests/room-paste.test.js).

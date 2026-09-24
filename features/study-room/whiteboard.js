@@ -1,8 +1,10 @@
 // whiteboard.js
-import { db, storage } from '../../core/firebase-init.js';
+import { db } from '../../core/firebase-init.js';
 import { doc, onSnapshot, collection, addDoc, query, orderBy, serverTimestamp, deleteDoc, getDocs, updateDoc, writeBatch } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
-import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-storage.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-storage.js";
 import { showToast } from '../../core/utils.js';
+
+const storage = getStorage();
 
 // Hàm khởi tạo, nhận các phần tử DOM và trạng thái cần thiết từ file chính
 export function initWhiteboard(params) {

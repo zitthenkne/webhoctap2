@@ -2,7 +2,7 @@
 // giơ tay, phản ứng emoji và bảng thao tác của chủ trì (trao quyền / mời ra).
 import { updateDoc, deleteDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { showToast, showConfirm } from '../../core/utils.js';
-import { room, refs, uid, isHost, canControl, currentIndex, answerOf, readyOf, hasSession } from './room-state.js';
+import { room, refs, uid, isHost, canControl, currentIndex, answerOf, readyOf, hasSession, doneCount } from './room-state.js';
 import { avatarHtml, escapeHtml, shortName, changed } from './room-ui.js';
 import { computeScores } from './room-scoreboard.js';
 import { renderLobby, pushLobbyLog } from './room-lobby.js';
@@ -41,7 +41,7 @@ export function renderMembers() {
     const qi = currentIndex();
     // Dùng isOnline() (đã quy ra true/false) thay cho lastSeen: nhịp tim 30s của
     // từng người không còn kéo cả danh sách vẽ lại.
-    if (!changed('members', [qi, room.session?.chosen, room.session?.questions?.length,
+    if (!changed('members', [qi, room.session?.chosen, room.session?.alsoOk, room.session?.questions?.length,
         room.session?.hostId, room.session?.cohosts, room.isOwner,
         room.members.map(m => [m.uid, m.displayName, m.emoji, isOnline(m), m.hand,
             m.cursor, m.answers, m.ready, m.marks])])) return;
@@ -54,7 +54,7 @@ export function renderMembers() {
     const totalQ = room.session?.questions?.length || 0;
     list.innerHTML = sorted.map(m => {
         const me = m.uid === uid();
-        const done = Object.keys(m.answers || {}).length;
+        const done = doneCount(m);
         const cursor = typeof m.cursor === 'number' ? m.cursor + 1 : null;
         const isGuest = String(m.uid || '').startsWith('guest_');
         const sc = scores.get(m.uid);
@@ -119,7 +119,7 @@ export function flushJoins() {
     if (knownUids === null) { knownUids = now; return; }     // lần đầu thì im lặng
     room.members.forEach(m => {
         if (!isOnline(m) || knownUids.has(m.uid) || m.uid === uid()) return;
-        pushLobbyLog(`${m.displayName || 'Một bạn'} vừa vào phòng 👋`);
+        pushLobbyLog(`${m.displayName || 'Một bạn'} vừa vào phòng 👋`, 'join');
         showToast(`${m.displayName || 'Một bạn'} vừa vào phòng!`, 'success', 2200);
         if (layer) {
             const el = document.createElement('div');

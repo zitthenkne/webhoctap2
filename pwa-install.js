@@ -41,10 +41,14 @@ if ('serviceWorker' in navigator) {
       });
   });
 
-  // Tự động tải lại trang khi Service Worker mới kích hoạt thành công (claim clients)
+  // Tự động tải lại trang khi Service Worker mới kích hoạt thành công (claim clients).
+  // CHỈ khi nó THAY một bản cũ đang điều khiển trang. Lần mở đầu tiên (chưa có SW) trang vốn
+  // đã lấy thẳng từ mạng -> tải lại là thừa: trước đây mọi người mới vào đều bị reload ~1-2 giây
+  // sau khi mở (tải mọi thứ 2 lần, đang gõ tên vào phòng thì mất).
+  const hadController = !!navigator.serviceWorker.controller;
   let refreshing = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!refreshing) {
+    if (hadController && !refreshing) {
       refreshing = true;
       console.log('Service Worker mới đã kích hoạt. Đang tải lại trang để cập nhật giao diện...');
       window.location.reload();

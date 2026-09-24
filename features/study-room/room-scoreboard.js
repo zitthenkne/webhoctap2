@@ -1,7 +1,7 @@
 // room-scoreboard.js — chấm điểm, bảng xếp hạng realtime và màn tổng kết phiên.
 // Điểm được TÍNH LẠI từ dữ liệu (đáp án của từng người + mốc mở câu), không lưu riêng
 // -> ai vào sau, ai F5, ai mất mạng rồi vào lại đều thấy đúng cùng một bảng.
-import { room, correctIdxOf, optsOf, answerOf, canControl, isAnnounced, betOf, teamOn, teamOf } from './room-state.js';
+import { room, correctIdxOf, optsOf, answerOf, canControl, isAnnounced, betOf, teamOn, teamOf, acceptedOf, isSplit } from './room-state.js';
 import { TEAM_NAMES, participationHtml } from './room-game.js';
 import { avatarHtml, escapeHtml, shortName, changed } from './room-ui.js';
 
@@ -34,10 +34,11 @@ export function computeScores() {
             const a = answerOf(m, i);
             if (!a) { streak = 0; return; }
             answered++;
-            const c = correctIdxOf(q, i);
-            if (c === null || c === undefined) return;
+            // Nhóm có thể chấp nhận NHIỀU đáp án (chosen + alsoOk) -> trúng bất kỳ ý nào cũng đúng
+            const ok = acceptedOf(i);
+            if (!ok.length) return;
             const bet = betOf(m, i);                 // cược tự tin ×1 / ×2 / ×3
-            if (a.i === c) {
+            if (ok.includes(a.i)) {
                 correct++;
                 streak++;
                 best = Math.max(best, streak);
@@ -73,7 +74,8 @@ export function questionStats(i) {
         if (a && typeof a.i === 'number' && a.i < counts.length) { counts[a.i]++; total++; }
     });
     const c = correctIdxOf(q, i);
-    return { counts, total, correctIdx: c, correctCount: (c === null || c === undefined) ? 0 : counts[c] || 0 };
+    const ok = acceptedOf(i);
+    return { counts, total, correctIdx: c, accepted: ok, correctCount: ok.reduce((n, k) => n + (counts[k] || 0), 0) };
 }
 
 let showAllStats = false;
@@ -104,7 +106,7 @@ export function renderRankPanel() {
     if (!el) return;
     // Đóng thì thôi — computeScores() quét cả phòng × cả đề, không nên chạy nền.
     if (el.classList.contains('hidden')) return;
-    if (!changed('rank', [room.session?.chosen, room.session?.questions?.length,
+    if (!changed('rank', [room.session?.chosen, room.session?.alsoOk, room.session?.questions?.length,
         room.members.map(m => [m.uid, m.displayName, m.emoji, m.answers])])) return;
     if (!room.session?.questions?.length) {
         el.innerHTML = `<div class="text-center text-muted py-10">
@@ -139,7 +141,11 @@ export function renderResults() {
     const podium = rows.slice(0, 3);
     const stats = questions.map((q, i) => ({ i, q, ...questionStats(i) }));
     const graded = stats.filter(s => s.total > 0 && s.correctIdx !== null && s.correctIdx !== undefined);
-    const hardest = graded.slice().sort((a, b) => (a.correctCount / a.total) - (b.correctCount / b.total))[0];
+    // Câu nên bàn lại: có người bấm "cần bàn", có người đánh dấu, cả phòng đúng dưới 50%, hoặc chưa thống nhất
+    const flagsOf = (i) => room.members.filter(m => m.flags?.['q' + i]).length;
+    const needOf = (st) => flagsOf(st.i) || room.members.some(m => m.marks?.['q' + st.i])
+        || (st.total > 0 && st.correctIdx !== null && (st.correctCount / st.total) < 0.5) || isSplit(st.i);
+    const rest = rows.slice(podium.length);          // bục đã có top 3 -> bảng chỉ còn người ngoài bục
     const roomAcc = graded.length
         ? Math.round(100 * graded.reduce((s, x) => s + x.correctCount / x.total, 0) / graded.length) : 0;
 
@@ -185,73 +191,62 @@ export function renderResults() {
             </div>`;
         })()}
 
-        <div class="rm-panel overflow-hidden mb-5">
+        ${rest.length ? `<div class="rm-panel overflow-hidden mb-5">
             <table class="rm-table">
                 <thead>
                     <tr><th class="py-2 px-3 text-left">#</th><th class="text-left">Thành viên</th><th class="text-center">Đúng</th><th class="text-center">Chuỗi</th><th class="text-right px-3">Điểm</th></tr>
                 </thead>
-                <tbody>${rows.map(r => `
+                <tbody>${rest.map(r => `
                     <tr>
                         <td class="font-bold text-muted">${r.rank}</td>
                         <td class="font-bold truncate">${escapeHtml(shortName(r.name, 22))}</td>
                         <td class="text-center tabular-nums">${r.correct}/${questions.length}</td>
                         <td class="text-center tabular-nums">${r.best}</td>
                         <td class="text-right font-black tabular-nums" style="color:var(--rm-accent)">${r.points}</td>
-                    </tr>`).join('') || '<tr><td colspan="5" class="py-4 text-center text-muted">Chưa có câu nào được chốt.</td></tr>'}
+                    </tr>`).join('')}
                 </tbody>
             </table>
-        </div>
-
-        ${hardest ? `<div class="mb-4 p-3.5 rounded-2xl" style="background:var(--rm-warn-bg)">
-            <p class="rm-label mb-1" style="color:var(--rm-warn)"><i class="fas fa-triangle-exclamation"></i> Câu khó nhất</p>
-            <p class="text-sm font-semibold line-clamp-2">Câu ${hardest.i + 1}: ${escapeHtml(String(hardest.q.question || '').slice(0, 140))}</p>
-            <p class="text-xs text-muted mt-1">Chỉ ${Math.round(100 * hardest.correctCount / hardest.total)}% chọn đúng — nên xem lại câu này.</p>
         </div>` : ''}
 
-        <p class="rm-label mb-2">Tỉ lệ chọn trúng đáp án nhóm chốt${
-            stats.length > 12 && !showAllStats ? ` <span class="text-muted font-normal">· 10 câu cả phòng sai nhiều nhất</span>` : ''}</p>
-        <div class="space-y-1.5 mb-2">${(stats.length > 12 && !showAllStats
-            ? graded.slice().sort((a, b) => (a.correctCount / a.total) - (b.correctCount / b.total)).slice(0, 10).sort((a, b) => a.i - b.i)
-            : stats).map(s => {
-            const pct = s.total ? Math.round(100 * s.correctCount / s.total) : 0;
-            const tone = !s.total ? 'bg-gray-200' : pct >= 70 ? 'bg-green-400' : pct >= 40 ? 'bg-amber-400' : 'bg-red-400';
-            return `<div class="flex items-center gap-2">
-                <span class="w-9 shrink-0 text-[11px] font-bold text-muted tabular-nums">C${s.i + 1}</span>
-                <div class="flex-1 h-2 rounded-full overflow-hidden" style="background:var(--rm-line-soft)"><div class="${tone} h-full rounded-full" style="width:${pct}%"></div></div>
-                <span class="w-16 shrink-0 text-right text-[11px] font-bold text-muted tabular-nums">${s.total ? pct + '%' : '—'} · ${s.total}</span>
-            </div>`;
-        }).join('')}</div>
-        ${stats.length > 12 ? `<button id="result-allstats" class="rm-ghost-btn mb-6"><i class="fas fa-list"></i>${showAllStats ? 'Thu gọn' : `Xem tất cả ${stats.length} câu`}</button>` : '<div class="mb-4"></div>'}
-
         ${(() => {
-            // Câu nên xem lại: có người bấm "cần bàn", có người đánh dấu, hoặc cả phòng đúng dưới 50%
-            const need = stats.filter(st => {
-                const flags = room.members.filter(m => m.flags?.['q' + st.i]).length;
-                const doubts = room.members.filter(m => m.marks?.['q' + st.i]).length;
-                const low = st.total > 0 && st.correctIdx !== null && (st.correctCount / st.total) < 0.5;
-                return flags || doubts || low;
-            });
-            if (!need.length) return '';
-            return `<p class="rm-label mb-2">Nên bàn lại sau buổi học</p>
-            <div class="space-y-1.5 mb-6">${need.map(st => {
-                const flags = room.members.filter(m => m.flags?.['q' + st.i]).length;
-                return `<div class="p-2.5 rounded-xl flex items-start gap-2" style="background:var(--rm-surface);border:1px solid var(--rm-line)">
-                    <span class="rm-chip warn shrink-0">C${st.i + 1}</span>
-                    <span class="text-xs flex-1 min-w-0 line-clamp-2">${escapeHtml(String(st.q.question || '').slice(0, 120))}</span>
-                    ${flags ? `<span class="rm-chip warn shrink-0">🗣 ${flags}</span>` : ''}
-                    ${st.total ? `<span class="rm-chip shrink-0">${Math.round(100 * st.correctCount / st.total)}%</span>` : ''}
+            // TỪNG CÂU: một danh sách duy nhất — thanh % chọn trúng cho mọi câu, câu nên bàn lại thì tô
+            // vàng + kèm đề. (Trước đây có 3 khối nói lặp cùng một câu: "Câu khó nhất", dải tỉ lệ và
+            // "Nên bàn lại sau buổi học".) Đề dài: gọn còn 10 câu sai nhiều nhất + mọi câu cần bàn.
+            const worst = new Set(graded.slice().sort((a, b) => (a.correctCount / a.total) - (b.correctCount / b.total)).slice(0, 10).map(st => st.i));
+            const brief = stats.length > 12 && !showAllStats;
+            const list = brief ? stats.filter(st => worst.has(st.i) || needOf(st)) : stats;
+            const needN = stats.filter(needOf).length;
+            return `<p class="rm-label mb-2">Từng câu · tỉ lệ chọn trúng${needN ? ` <span class="rm-chip warn">${needN} câu nên bàn lại</span>` : ''}${
+                brief ? ' <span class="text-muted font-normal">· câu sai nhiều nhất + câu cần bàn</span>' : ''}</p>
+            <div class="rm-qstats mb-2">${list.map(st => {
+                const pct = st.total ? Math.round(100 * st.correctCount / st.total) : 0;
+                const tone = !st.total ? 'bg-gray-200' : pct >= 70 ? 'bg-green-400' : pct >= 40 ? 'bg-amber-400' : 'bg-red-400';
+                const need = needOf(st);
+                const flags = flagsOf(st.i);
+                return `<div class="rm-qstat ${need ? 'is-need' : ''}">
+                    <div class="rm-qstat-row">
+                        <span class="rm-qstat-no">C${st.i + 1}</span>
+                        <div class="rm-qstat-bar"><div class="${tone}" style="width:${pct}%"></div></div>
+                        <span class="rm-qstat-pct">${st.total ? pct + '%' : '—'} · ${st.total}</span>
+                    </div>
+                    ${need ? `<div class="rm-qstat-why">
+                        <span class="min-w-0 flex-1 line-clamp-2">${escapeHtml(String(st.q.question || '').replace(/<[^>]*>/g, ' ').slice(0, 120))}</span>
+                        ${isSplit(st.i) ? '<span class="rm-chip lav shrink-0">🤝 chưa thống nhất</span>' : ''}
+                        ${flags ? `<span class="rm-chip warn shrink-0">🗣 ${flags}</span>` : ''}
+                    </div>` : ''}
                 </div>`;
-            }).join('')}</div>`;
+            }).join('')}</div>
+            ${stats.length > 12 ? `<button id="result-allstats" class="rm-ghost-btn mb-6"><i class="fas fa-list"></i>${showAllStats ? 'Thu gọn' : `Xem tất cả ${stats.length} câu`}</button>` : '<div class="mb-5"></div>'}`;
         })()}
 
         ${participationHtml()}
 
         <div class="flex flex-wrap gap-2 justify-center pb-4">
+            <button id="result-minutes-btn" class="rm-cta rm-solid-btn"><i class="fas fa-file-pdf"></i>Biên bản buổi học (PDF / MD)</button>
             <button id="result-notes-btn" class="rm-ghost-btn"><i class="fas fa-file-arrow-down"></i>Tải ghi chú của tôi</button>
             ${room.session.sourceQuizId ? `<a href="../quiz/quiz.html?id=${encodeURIComponent(room.session.sourceQuizId)}" target="_blank" rel="noopener"
                 class="rm-ghost-btn"><i class="fas fa-rotate-left"></i>Ôn lại đề này một mình</a>` : ''}
             ${canControl() ? `
-                <button id="result-minutes-btn" class="rm-ghost-btn"><i class="fas fa-file-arrow-down"></i>Tải biên bản</button>
                 <button id="result-review-btn" class="rm-ghost-btn"><i class="fas fa-rotate-left"></i>Tạo đề ôn từ câu sai</button>
                 <button id="result-save-btn" class="rm-cta rm-solid-btn"><i class="fas fa-floppy-disk"></i>Lưu bộ đề vào thư viện</button>
                 <button id="result-again-btn" class="rm-ghost-btn"><i class="fas fa-rotate-right"></i>Làm lại từ câu 1</button>

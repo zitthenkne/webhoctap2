@@ -9,31 +9,47 @@
     <script>
         try { if (localStorage.getItem('quiz_theme') === 'dark') document.documentElement.classList.add('theme-dark'); } catch (e) {}
     </script>
-    <!-- Nền pixel-art mờ, chọn ngẫu nhiên như trang làm bài -->
+    <!-- Nền pixel-art mờ, chọn ngẫu nhiên như trang làm bài — gắn SAU khi trang tải xong:
+         ảnh ~80KB chỉ là lớp trang trí 14% độ đục, không được giành băng thông với CSS/JS -->
     <script>
-        (function () {
-            try {
-                var L = ['A_dreamy_campsite_next_to_202606231955.webp','Apartment_balcony_with_flowers_202606231955.webp','Attic_bedroom_corner_pixel_art_202606231955.webp','Bakery_shopfront_pixel_art_style_202606231955.webp','Bus_stop_in_Japan_spring_202606231955.webp','Hot_chocolate_station_in_winter_202606231955.webp','Riverside_cafe_veranda_pixel_art_202606231955.webp','Study_desk_by_rain_window_202606231955.webp','Train_carriage_interior_pixel_art_202606231955.webp'];
-                var D = ['Apartment_balcony_on_rainy_night_202606232010.webp','Bedroom_interior_at_night_202606232010.webp','Florist_shop_window_at_midnight_202606232010.webp','Forest_pond_with_glowing_lotus_202606232010.webp','Greenhouse_at_night_aurora_borealis_202606232010.webp','Library_corner_at_night_202606232010.webp','Rooftop_at_midnight_dark_mode_202606232010.webp','Underwater_scene_viewed_from_window_202606232010.webp'];
-                var pick = function (a) { return a[Math.floor(Math.random() * a.length)]; };
-                var r = document.documentElement;
-                r.style.setProperty('--quiz-bg-light', 'url("' + encodeURI('../../assets/opt/bg/' + pick(L)) + '")');
-                r.style.setProperty('--quiz-bg-dark', 'url("' + encodeURI('../../assets/opt/bg-dark/' + pick(D)) + '")');
-                var pct = parseInt(localStorage.getItem('quiz_bg_opacity'), 10);
-                if (isNaN(pct)) pct = 14;
-                r.style.setProperty('--quiz-bg-opacity', Math.max(0, Math.min(60, pct)) / 100);
-            } catch (e) {}
-        })();
+        addEventListener('load', function () {
+            setTimeout(function () {
+                try {
+                    var L = ['A_dreamy_campsite_next_to_202606231955.webp','Apartment_balcony_with_flowers_202606231955.webp','Attic_bedroom_corner_pixel_art_202606231955.webp','Bakery_shopfront_pixel_art_style_202606231955.webp','Bus_stop_in_Japan_spring_202606231955.webp','Hot_chocolate_station_in_winter_202606231955.webp','Riverside_cafe_veranda_pixel_art_202606231955.webp','Study_desk_by_rain_window_202606231955.webp','Train_carriage_interior_pixel_art_202606231955.webp'];
+                    var D = ['Apartment_balcony_on_rainy_night_202606232010.webp','Bedroom_interior_at_night_202606232010.webp','Florist_shop_window_at_midnight_202606232010.webp','Forest_pond_with_glowing_lotus_202606232010.webp','Greenhouse_at_night_aurora_borealis_202606232010.webp','Library_corner_at_night_202606232010.webp','Rooftop_at_midnight_dark_mode_202606232010.webp','Underwater_scene_viewed_from_window_202606232010.webp'];
+                    var pick = function (a) { return a[Math.floor(Math.random() * a.length)]; };
+                    var r = document.documentElement;
+                    r.style.setProperty('--quiz-bg-light', 'url("' + encodeURI('../../assets/opt/bg/' + pick(L)) + '")');
+                    r.style.setProperty('--quiz-bg-dark', 'url("' + encodeURI('../../assets/opt/bg-dark/' + pick(D)) + '")');
+                    var pct = parseInt(localStorage.getItem('quiz_bg_opacity'), 10);
+                    if (isNaN(pct)) pct = 14;
+                    r.style.setProperty('--quiz-bg-opacity', Math.max(0, Math.min(60, pct)) / 100);
+                } catch (e) {}
+            }, 300);
+        });
     </script>
     <script src="../../pwa-install.js" defer></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <!-- Mở sẵn kết nối tới Firebase (SDK + Firestore + đăng nhập) — đường găng của màn đầu tiên -->
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Be+Vietnam+Pro:wght@500;600;700;800&family=Cormorant+Upright:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="../../style.css">
+    <!-- Font chữ KHÔNG chặn vẽ trang: tải kiểu "preload rồi mới áp" (display=swap lo phần đổi chữ) -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Be+Vietnam+Pro:wght@500;600;700;800&family=Cormorant+Upright:wght@700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Be+Vietnam+Pro:wght@500;600;700;800&family=Cormorant+Upright:wght@700&display=swap"></noscript>
+    <!-- Font Awesome tự host, chỉ còn icon phòng dùng (sinh bởi fa-dong-bang.mjs): 249KB -> ~21KB -->
+    <link rel="preload" as="font" type="font/woff2" href="fa-phong/solid.woff2" crossorigin>
     <link rel="stylesheet" href="study-room.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="fa-phong/fa-phong.css">
     <link rel="stylesheet" href="tailwind-phong.css">
-    <!-- Nạp song song cây module (khỏi chờ phát hiện từng tầng) -->
+    <!-- Nạp song song CẢ cây module, kể cả Firebase SDK (trước đây gstatic chỉ lộ ra sau
+         3 tầng import: main -> room-state -> firebase-init -> gstatic). Biên bản, dán đề,
+         đọc file Excel, bảng trắng nạp lười — không có ở đây. -->
+    <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/9.6.0/firebase-app.js">
+    <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js">
+    <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js">
+    <link rel="modulepreload" href="../../core/firebase-init.js">
+    <link rel="modulepreload" href="study-room-main.js">
     <link rel="modulepreload" href="room-state.js">
     <link rel="modulepreload" href="room-ui.js">
     <link rel="modulepreload" href="room-quiz-stage.js">
@@ -46,13 +62,20 @@
     <link rel="modulepreload" href="room-boost.js">
     <link rel="modulepreload" href="room-scoreboard.js">
     <link rel="modulepreload" href="room-study.js">
+    <link rel="modulepreload" href="room-media.js">
+    <link rel="modulepreload" href="room-answer.js">
+    <link rel="modulepreload" href="room-game.js">
     <link rel="modulepreload" href="../quiz/quiz-helpers.js">
+    <link rel="modulepreload" href="../quiz/quiz-study-store.js">
+    <link rel="modulepreload" href="../quiz/quiz-srs-store.js">
+    <link rel="modulepreload" href="../../core/offline-write.js">
     <link rel="modulepreload" href="../../core/utils.js">
-    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 </head>
 <body class="h-[100dvh] flex flex-col text-sm overflow-hidden">
 
-<!-- ================= HEADER ================= -->
+<!-- ================= HEADER: MỘT HÀNG DUY NHẤT =================
+     Công tắc Đề / Bảng trắng nằm luôn trên đầu (trước đây chiếm nguyên một hàng riêng);
+     cỡ chữ · sáng tối · trình chiếu gom vào menu ⋮ cho đầu trang thoáng. -->
 <header class="rm-bar px-2 sm:px-4 py-2 flex items-center gap-2 shrink-0 z-30">
     <a href="../../index.html" class="rm-brand" title="Về trang chủ Zitthenkne">
         <i class="fas fa-arrow-left"></i>
@@ -62,46 +85,52 @@
     <button id="room-id-display" class="rm-room-chip" title="Bấm để sao chép mã phòng">
         <i class="fas fa-door-open"></i><span id="room-id-text" class="truncate max-w-[32vw] sm:max-w-[14rem]">…</span>
     </button>
-    <span id="session-badge" class="hidden sm:flex items-center gap-1.5 min-w-0 text-xs text-muted">
-        <span class="rm-live-dot"></span><span id="session-badge-text" class="truncate max-w-[22vw]"></span>
+    <nav id="stage-tabs" class="rm-switch" aria-label="Chọn màn">
+        <button class="rm-tab active" data-stage="quiz" title="Màn làm đề"><i class="fas fa-list-check"></i><span>Đề</span></button>
+        <button class="rm-tab" data-stage="board" title="Bảng trắng vẽ chung"><i class="fas fa-chalkboard"></i><span>Bảng trắng</span></button>
+    </nav>
+    <span id="session-badge" class="hidden sm:flex items-center gap-2 min-w-0 rm-sbadge">
+        <span class="rm-live-dot"></span>
+        <span class="rm-sbadge-txt">
+            <span id="session-badge-text" class="truncate"></span>
+            <span id="quiz-session-host" class="truncate"></span>
+        </span>
     </span>
 
     <span id="net-chip" class="rm-net hidden"><i class="fas fa-cloud-arrow-up"></i><span id="net-text">Mất mạng</span></span>
 
     <div class="flex-1"></div>
 
-    <button id="online-pill" class="rm-ghost-btn hidden sm:inline-flex" data-nav="members" title="Thành viên trong phòng">
+    <button id="online-pill" class="rm-ghost-btn rm-online" data-nav="members" title="Thành viên trong phòng">
         <i class="fas fa-users"></i><span id="online-count">0</span>
     </button>
-    <button id="text-size-btn" class="rm-icon-btn" title="Cỡ chữ (vừa / lớn / rất lớn)"><i class="fas fa-text-height"></i></button>
-    <button id="theme-btn" class="rm-icon-btn" title="Sáng / tối"><i class="fas fa-moon"></i></button>
-    <button id="present-btn" class="rm-icon-btn hidden md:inline-flex" title="Trình chiếu (phím F)"><i class="fas fa-display"></i></button>
+    <button id="share-room-btn" class="rm-ghost-btn" title="Mời bạn vào phòng"><i class="fas fa-user-plus"></i><span class="hidden sm:inline">Mời</span></button>
     <div class="relative shrink-0 hidden sm:block">
-        <button id="room-menu-btn" class="rm-icon-btn" title="Công cụ khác"><i class="fas fa-ellipsis-vertical"></i></button>
+        <button id="room-menu-btn" class="rm-icon-btn" title="Công cụ · cỡ chữ · sáng tối · trình chiếu"><i class="fas fa-ellipsis-vertical"></i></button>
         <div id="room-menu" class="rm-dropdown hidden">
-            <button class="rm-menu-item" data-tool="find"><i class="fas fa-magnifying-glass w-4"></i>Tìm câu<kbd class="rm-kbd">Ctrl K</kbd></button>
-            <button class="rm-menu-item" data-tool="zen"><i class="fas fa-feather w-4"></i>Chế độ tập trung<kbd class="rm-kbd">Z</kbd></button>
-            <button class="rm-menu-item" data-tool="sound"><i class="fas fa-volume-high w-4"></i><span id="sound-label">Âm thanh: bật</span><kbd class="rm-kbd">M</kbd></button>
-            <button class="rm-menu-item" data-tool="autonext"><i class="fas fa-forward-step w-4"></i><span id="auto-label">Tự chuyển câu: tắt</span></button>
-            <button class="rm-menu-item" data-tool="race"><i class="fas fa-flag-checkered w-4"></i>Ẩn / hiện dải tiến độ</button>
-            <button class="rm-menu-item" data-tool="help"><i class="fas fa-keyboard w-4"></i>Bảng phím tắt<kbd class="rm-kbd">?</kbd></button>
+            <p class="rm-menu-cap">Công cụ</p>
+            <button class="rm-menu-item" data-tool="find"><i class="fas fa-magnifying-glass"></i>Tìm câu<kbd class="rm-kbd">Ctrl K</kbd></button>
+            <button class="rm-menu-item" data-tool="zen"><i class="fas fa-feather"></i>Chế độ tập trung<kbd class="rm-kbd">Z</kbd></button>
+            <button class="rm-menu-item" data-tool="sound"><i class="fas fa-volume-high"></i><span id="sound-label">Âm thanh: bật</span><kbd class="rm-kbd">M</kbd></button>
+            <button class="rm-menu-item" data-tool="autonext"><i class="fas fa-forward-step"></i><span id="auto-label">Tự chuyển câu: tắt</span></button>
+            <button class="rm-menu-item" data-tool="race"><i class="fas fa-flag-checkered"></i>Ẩn / hiện dải tiến độ</button>
+            <button class="rm-menu-item" data-tool="minutes"><i class="fas fa-file-pdf"></i>Biên bản buổi học (PDF / MD)</button>
+            <button class="rm-menu-item" data-tool="help"><i class="fas fa-keyboard"></i>Bảng phím tắt<kbd class="rm-kbd">?</kbd></button>
+            <p class="rm-menu-cap">Hiển thị</p>
+            <button id="text-size-btn" class="rm-menu-item"><i class="fas fa-text-height"></i>Cỡ chữ<span id="text-size-label" class="rm-kbd">vừa</span></button>
+            <button id="theme-btn" class="rm-menu-item"><i class="fas fa-moon"></i>Sáng / tối</button>
+            <button id="present-btn" class="rm-menu-item"><i class="fas fa-display"></i>Trình chiếu<kbd class="rm-kbd">F</kbd></button>
         </div>
     </div>
-    <button id="share-room-btn" class="rm-ghost-btn"><i class="fas fa-user-plus"></i><span class="hidden sm:inline">Mời</span></button>
-    <button id="start-collaborative-quiz-btn" class="rm-cta rm-solid-btn"><i class="fas fa-bolt"></i><span class="hidden xs:inline sm:inline">Đề</span></button>
 </header>
 
 <!-- ================= BODY ================= -->
 <div class="flex-1 flex min-h-0 relative">
 
     <!-- ---------- SÂN KHẤU ---------- -->
-    <main id="stage" class="flex-1 flex flex-col min-w-0 min-h-0">
-        <nav id="stage-tabs" class="rm-subbar shrink-0">
-            <button class="rm-tab active" data-stage="quiz"><i class="fas fa-list-check"></i>Đề</button>
-            <button class="rm-tab" data-stage="board"><i class="fas fa-chalkboard"></i>Bảng trắng</button>
-            <div class="flex-1"></div>
-            <div id="pinned-note" class="hidden rm-pin"><i class="fas fa-thumbtack"></i><span id="pinned-note-text" class="truncate"></span></div>
-        </nav>
+    <main id="stage" class="flex-1 flex flex-col min-w-0 min-h-0 relative">
+        <!-- Lời ghim của chủ trì: băng mảnh, chỉ hiện khi có -->
+        <div id="pinned-note" class="hidden rm-pin"><i class="fas fa-thumbtack"></i><span id="pinned-note-text" class="truncate"></span><button id="pinned-note-x" class="rm-pin-x" title="Ẩn lời ghim này (ghim mới sẽ hiện lại)" aria-label="Ẩn lời ghim"><i class="fas fa-times"></i></button></div>
 
         <!-- ===== TAB: ĐỀ ===== -->
         <section id="stage-quiz" class="flex-1 min-h-0 overflow-y-auto rm-scroll">
@@ -121,65 +150,49 @@
             <div id="quiz-lobby" class="rm-lobby hidden">
                 <div class="rm-bubbles" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
 
-                <!-- Băng-rôn: thanh sẵn sàng + nút to -->
+                <!-- Băng-rôn GỌN MỘT HÀNG: linh vật · tên buổi · thanh sẵn sàng + nút.
+                     Bản cũ cao ~350px, đẩy khối chủ trì (việc chính) xuống tận đáy trang. -->
                 <section class="rm-hero">
-                    <div class="rm-hero-row">
+                    <img src="../../assets/opt/squirrel_group-256.webp" alt="" width="256" height="256" loading="lazy" decoding="async" class="rm-hero-mascot rm-bobbing">
+                    <div class="rm-hero-main">
                         <span class="rm-hero-tag"><span class="rm-live-dot"></span> Zitthenkne · Sảnh chờ</span>
-                        <div class="flex-1"></div>
-                        <button id="lobby-invite-btn" class="rm-ghost-btn"><i class="fas fa-user-plus"></i>Rủ bạn vào</button>
+                        <h1 id="lobby-title" class="rm-hero-title">Cùng nhau đánh đề</h1>
+                        <p class="rm-hero-sub">Mỗi người một máy, tự làm rồi bàn với nhau. Đáp án trong file chỉ là tham khảo.</p>
                     </div>
-                    <img src="../../assets/opt/squirrel_group-256.webp" alt="" width="256" height="256" decoding="async" class="rm-hero-mascot rm-bobbing">
-                    <h1 class="rm-hero-title">Cùng nhau đánh đề</h1>
-                    <p class="rm-hero-sub">Mỗi người một máy, tự làm rồi bàn với nhau. Đáp án trong file chỉ là tham khảo.</p>
-
-                    <div class="rm-ready-track">
-                        <div id="lobby-ready-fill" class="rm-ready-fill" style="width:0%"></div>
-                        <span id="lobby-ready-label" class="rm-ready-label">Đang chờ mọi người…</span>
+                    <div class="rm-hero-side">
+                        <div class="rm-hero-actions">
+                            <button id="lobby-ready-btn" class="rm-cta rm-big-btn" title="Phím tắt: R"><i class="fas fa-hand-sparkles"></i>Tôi sẵn sàng</button>
+                            <button id="lobby-avatar-btn" class="rm-ghost-btn" title="Đổi mặt đại diện / tên"><i class="fas fa-face-smile"></i><span>Đổi mặt</span></button>
+                        </div>
                     </div>
 
-                    <div class="rm-hero-actions">
-                        <button id="lobby-ready-btn" class="rm-cta rm-big-btn"><i class="fas fa-hand-sparkles"></i>Tôi sẵn sàng</button>
-                        <button id="lobby-avatar-btn" class="rm-ghost-btn"><i class="fas fa-face-smile"></i>Đổi mặt / tên</button>
-                    </div>
+                    <!-- Buổi học đang ở bước nào: 1 Tập hợp → 2 Chọn đề → 3 Bắt đầu (ai cũng thấy như nhau) -->
+                    <ol class="rm-steps" aria-label="Tiến trình buổi học">
+                        <li id="step-gather" class="rm-stp">
+                            <span class="rm-stp-no">1</span>
+                            <div class="rm-stp-body">
+                                <b>Tập hợp</b>
+                                <div class="rm-ready-track">
+                                    <div id="lobby-ready-fill" class="rm-ready-fill" style="width:0%"></div>
+                                    <span id="lobby-ready-label" class="rm-ready-label">Đang chờ mọi người…</span>
+                                </div>
+                            </div>
+                        </li>
+                        <li id="step-quiz" class="rm-stp">
+                            <span class="rm-stp-no">2</span>
+                            <div class="rm-stp-body"><b>Chọn đề</b><span id="step-quiz-text">Chủ trì đang chọn…</span></div>
+                        </li>
+                        <li id="step-start" class="rm-stp">
+                            <span class="rm-stp-no">3</span>
+                            <div class="rm-stp-body"><b>Bắt đầu</b><span id="step-start-text">khi chủ trì bấm</span></div>
+                        </li>
+                    </ol>
                 </section>
 
-                <!-- Bàn học: ai đang ngồi đâu, ghế trống mời bạn -->
-                <section class="rm-panel rm-seats-panel">
-                    <div class="rm-panel-head">
-                        <span class="rm-label"><i class="fas fa-users"></i> Trong phòng</span>
-                        <span id="lobby-count" class="rm-chip accent">0</span>
-                        <span id="lobby-ready-count" class="rm-chip ok hidden">0 sẵn sàng</span>
-                        <div class="flex-1"></div>
-                        <span class="rm-live-hint">bấm vào bạn để xem thao tác</span>
-                    </div>
-                    <div id="lobby-members" class="rm-seats"></div>
-
-                    <div class="rm-lobby-bars">
-                        <div id="lobby-emoji" class="rm-emoji-bar"></div>
-                        <div id="lobby-quick" class="rm-quick-bar"></div>
-                    </div>
-                </section>
-
-                <!-- Mục tiêu buổi học · Chuyện trong sảnh -->
-                <div class="rm-lobby-cols">
-                    <section class="rm-panel p-4 sm:p-5" data-live-wrap>
-                        <div class="rm-panel-head">
-                            <span class="rm-label"><i class="fas fa-bullseye"></i> Mục tiêu buổi học</span>
-                            <span data-live-status></span>
-                            <span class="rm-live-hint">ai cũng sửa được</span>
-                        </div>
-                        <div class="rm-md rm-goal" contenteditable="true" data-live-edit="goal"
-                             data-placeholder="Ví dụ: làm 30 câu Sinh lý tim mạch, câu nào sai thì bàn kỹ…"></div>
-                        <div id="goal-presets" class="rm-quick-bar mt-2"></div>
-                    </section>
-
-                    <section class="rm-panel p-4 sm:p-5">
-                        <div class="rm-panel-head">
-                            <span class="rm-label"><i class="fas fa-scroll"></i> Chuyện trong sảnh</span>
-                        </div>
-                        <div id="lobby-log" class="rm-lobby-log"></div>
-                    </section>
-                </div>
+                <!-- Lưới 2 cột (máy tính): TRÁI = việc chính (mở đề / chờ mở đề) · PHẢI = phòng.
+                     Màn hẹp xếp dọc theo đúng thứ tự đó -> việc chính luôn nằm ngay dưới băng-rôn. -->
+                <div class="rm-lobby-grid">
+                <div class="rm-lobby-main">
 
                 <!-- Chủ trì mở đề: 3 bước -->
                 <div id="lobby-host-setup" class="hidden rm-panel rm-setup">
@@ -197,8 +210,10 @@
                             <p class="rm-step-title">Chọn bộ đề</p>
                             <div id="upload-quiz-file-area" class="rm-drop">
                                 <div class="rm-drop-ic"><i class="fas fa-file-arrow-up"></i></div>
-                                <div class="font-bold" style="color:var(--rm-accent-deep)">Thả file đề vào đây hoặc bấm để chọn</div>
-                                <p class="text-xs text-muted mt-1">Excel/CSV — đọc theo TÊN cột như trang chủ: câu hỏi · đáp án · đáp án đúng · giải thích · mở rộng · ghi chú · chủ đề · mức độ · nguồn · ca lâm sàng</p>
+                                <div class="rm-drop-txt">
+                                    <div class="font-bold" style="color:var(--rm-accent-deep)">Thả file đề vào đây hoặc bấm để chọn</div>
+                                    <p class="text-xs text-muted mt-1">Excel/CSV — đọc theo TÊN cột như trang chủ. Câu để trống phương án = <b>câu tự luận</b> (ô đáp án ghi bài giải gợi ý).</p>
+                                </div>
                                 <input type="file" id="quizFileInput" accept=".xlsx,.xls,.csv" class="hidden">
                             </div>
                             <div id="quizFileInfo" class="hidden mt-3">
@@ -208,10 +223,13 @@
                                     <span id="quiz-question-count-info" class="text-xs font-bold whitespace-nowrap" style="color:var(--rm-accent-deep)"></span>
                                 </div>
                             </div>
+                            <div id="draft-preview" class="hidden"></div>
                             <div class="flex flex-wrap gap-2 mt-3">
+                                <button id="paste-quiz-btn" type="button" class="rm-ghost-btn" title="Dán đề trắc nghiệm hoặc tự luận — không cần file Excel"><i class="fas fa-paste"></i> Dán đề</button>
                                 <button id="library-quiz-btn" type="button" class="rm-ghost-btn"><i class="fas fa-book"></i> Đề trong thư viện</button>
                                 <button id="download-quiz-template-btn" type="button" class="rm-ghost-btn"><i class="fas fa-download"></i> File mẫu</button>
                             </div>
+                            <div id="recent-quizzes" class="rm-recent hidden"></div>
                             <div id="library-quiz-list" class="mt-3"></div>
                         </div>
                     </div>
@@ -220,6 +238,11 @@
                         <span class="rm-step-no">2</span>
                         <div class="rm-step-body">
                             <p class="rm-step-title">Kiểu buổi học</p>
+                            <!-- Cấu hình nhanh: 1 chạm đặt cả kiểu buổi + hẹn giờ + phiếu + xáo câu.
+                                 Thẻ kiểu chơi dài dòng + tùy chọn lẻ gập vào "Chỉnh tay" (ít ai cần). -->
+                            <div id="setup-presets" class="rm-presets"></div>
+                            <details class="rm-fine">
+                            <summary><i class="fas fa-sliders"></i>Chỉnh tay<span>kiểu chơi · hẹn giờ mỗi câu · phiếu · xáo câu</span></summary>
                             <div class="rm-mode-grid">
                                 <label class="rm-choice rm-mode">
                                     <input type="radio" name="room-mode" value="coop" checked class="rm-sr">
@@ -238,13 +261,6 @@
                                     </span>
                                 </label>
                             </div>
-                        </div>
-                    </div>
-
-                    <div class="rm-step">
-                        <span class="rm-step-no">3</span>
-                        <div class="rm-step-body">
-                            <p class="rm-step-title">Tùy chọn</p>
                             <div class="rm-opt-grid">
                                 <label id="setup-timer-wrap" class="hidden flex-col gap-1">
                                     <span class="rm-label">Hẹn giờ mỗi câu</span>
@@ -261,53 +277,135 @@
                                 <label id="setup-free-roam-wrap" class="rm-check hidden"><input type="checkbox" id="setup-free-roam" class="accent-[#FF69B4]"><span>🧭 Cho tự do xem câu khác</span></label>
                                 <label class="rm-check"><input type="checkbox" id="setup-shuffle" class="accent-[#FF69B4]"><span>🎲 Xáo trộn thứ tự câu</span></label>
                             </div>
+                            </details>
+                        </div>
+                    </div>
+
+                    <div class="rm-step">
+                        <span class="rm-step-no">3</span>
+                        <div class="rm-step-body">
+                            <p class="rm-step-title">Hẹn giờ bắt đầu <span class="rm-step-opt">không bắt buộc</span></p>
+                            <div id="sched-row" class="rm-sched">
+                                <button type="button" class="rm-quick" data-sched="5">+5 phút</button>
+                                <button type="button" class="rm-quick" data-sched="10">+10 phút</button>
+                                <button type="button" class="rm-quick" data-sched="15">+15 phút</button>
+                                <label class="rm-sched-at"><i class="fas fa-clock"></i><input id="sched-time" type="time" aria-label="Giờ bắt đầu"></label>
+                                <button type="button" id="sched-clear" class="rm-quick hidden" data-sched="0"><i class="fas fa-xmark"></i> Bỏ hẹn</button>
+                            </div>
+                            <p class="rm-hint mt-1.5">Cả phòng thấy đồng hồ đếm ngược; đến giờ bạn vẫn là người bấm bắt đầu.</p>
                         </div>
                     </div>
 
                     <div class="rm-setup-foot">
                         <p id="start-ready-hint" class="rm-setup-hint">Chọn đề để mở nút bắt đầu.</p>
-                        <button id="start-quiz-collaboration-btn" disabled class="rm-cta rm-big-btn"><i class="fas fa-play"></i> Bắt đầu cho cả phòng</button>
+                        <button id="rollcall-btn" type="button" class="rm-ghost-btn" title="Hỏi cả phòng: có mặt chưa?"><i class="fas fa-bell"></i>Điểm danh</button>
+                        <button id="start-quiz-collaboration-btn" disabled class="rm-cta rm-big-btn" title="Enter"><i class="fas fa-play"></i> Bắt đầu cho cả phòng</button>
                     </div>
                 </div>
 
                 <!-- Không phải chủ trì: chờ mở đề -->
                 <div id="lobby-waiting" class="hidden rm-panel rm-wait">
                     <div class="rm-wait-ic">⏳</div>
-                    <p class="rm-wait-title">Đang chờ chủ trì mở đề…</p>
-                    <p class="rm-wait-sub">Trong lúc chờ, làm gì đó cho vui nhé:</p>
-                    <div class="rm-wait-acts">
-                        <button class="rm-ghost-btn" data-wait="board"><i class="fas fa-chalkboard"></i>Vẽ bảng trắng</button>
-                        <button class="rm-ghost-btn" data-wait="chat"><i class="fas fa-comments"></i>Tán gẫu</button>
-                        <button class="rm-ghost-btn" data-wait="poke"><i class="fas fa-bell"></i>Nhắc chủ trì</button>
+                    <div class="rm-wait-body">
+                        <p id="wait-title" class="rm-wait-title">Đang chờ chủ trì mở đề…</p>
+                        <p id="wait-sub" class="rm-wait-sub">Trong lúc chờ, làm gì đó cho vui nhé:</p>
+                        <div id="next-preview" class="hidden"></div>
+                        <div class="rm-wait-acts">
+                            <button class="rm-ghost-btn" data-wait="board"><i class="fas fa-chalkboard"></i>Vẽ bảng trắng</button>
+                            <button class="rm-ghost-btn" data-wait="chat"><i class="fas fa-comments"></i>Tán gẫu</button>
+                            <button class="rm-ghost-btn" data-wait="poke"><i class="fas fa-bell"></i>Nhắc chủ trì</button>
+                        </div>
                     </div>
                 </div>
+
+                <!-- Mục tiêu buổi học: ngay dưới việc chính (đặt mục tiêu TRƯỚC khi mở đề) -->
+                <section class="rm-panel rm-goal-panel" data-live-wrap>
+                    <div class="rm-panel-head">
+                        <span class="rm-label"><i class="fas fa-bullseye"></i> Mục tiêu buổi học</span>
+                        <span data-live-status></span>
+                        <div class="flex-1"></div>
+                        <span class="rm-live-hint">ai cũng sửa được</span>
+                    </div>
+                    <div class="rm-md rm-goal" contenteditable="true" data-live-edit="goal"
+                         data-placeholder="Ví dụ: làm 30 câu Sinh lý tim mạch, câu nào sai thì bàn kỹ…"></div>
+                    <div id="goal-presets" class="rm-quick-bar mt-2"></div>
+                </section>
+
+                <!-- Buổi trước của phòng này (từ doc phòng: live) -->
+                <section id="lobby-recap" class="rm-panel rm-recap hidden"></section>
+                </div><!-- /rm-lobby-main -->
+
+                <div class="rm-lobby-aside">
+                    <!-- Bàn học: ai đang ngồi đâu + 1 ghế "Mời bạn" -->
+                    <section class="rm-panel rm-seats-panel">
+                        <div class="rm-panel-head">
+                            <span class="rm-label"><i class="fas fa-users"></i> Trong phòng</span>
+                            <span id="lobby-count" class="rm-chip accent">0</span>
+                            <div class="flex-1"></div>
+                            <span class="rm-live-hint">bấm vào bạn để xem thao tác</span>
+                        </div>
+                        <div id="lobby-members" class="rm-seats"></div>
+
+                        <!-- Lối mời DUY NHẤT trong sảnh: mã phòng + chép link + QR (đã bỏ nút "Rủ bạn" ở băng-rôn
+                             và ghế trống "Mời bạn" — cùng việc với hàng này và nút Mời trên đầu trang) -->
+                        <div class="rm-invite-row">
+                            <div class="rm-invite-code"><span>Mã phòng</span><b id="lobby-code">…</b></div>
+                            <button id="lobby-copy-link" type="button" class="rm-ghost-btn"><i class="fas fa-link"></i>Chép link</button>
+                            <button id="lobby-qr-btn" type="button" class="rm-ghost-btn" title="Mã QR để quét bằng điện thoại"><i class="fas fa-qrcode"></i><span>QR</span></button>
+                        </div>
+                    </section>
+
+                    <!-- Trò chuyện NGAY TRONG SẢNH: tin nhắn + ai vào/ra/sẵn sàng gộp một dòng thời gian -->
+                    <section class="rm-panel rm-log-panel">
+                        <div class="rm-panel-head">
+                            <span class="rm-label"><i class="fas fa-comments"></i> Trò chuyện trong sảnh</span>
+                            <div class="flex-1"></div>
+                            <span id="lobby-feed-count" class="rm-live-hint"></span>
+                        </div>
+                        <div id="lobby-log" class="rm-lobby-log rm-feed"></div>
+                        <form id="lobby-chat-form" class="rm-feed-form" autocomplete="off">
+                            <input id="lobby-chat-input" class="rm-input" maxlength="500" placeholder="Nhắn cả phòng…">
+                            <button type="submit" class="rm-cta rm-solid-btn" title="Gửi"><i class="fas fa-paper-plane"></i></button>
+                        </form>
+                        <!-- Cảm xúc + câu chào: MỘT hàng cuộn ngang -->
+                        <div class="rm-lobby-bars">
+                            <div id="lobby-emoji" class="rm-emoji-bar"></div>
+                            <div id="lobby-quick" class="rm-quick-bar"></div>
+                        </div>
+                    </section>
+                </div><!-- /rm-lobby-aside -->
+                </div><!-- /rm-lobby-grid -->
             </div>
 
             <!-- (B) Đang làm bài -->
             <div id="quiz-live" class="hidden rm-live">
 
-                <!-- Thanh trên dính: đi câu · trạng thái · đồng hồ · dải câu -->
+                <!-- Thanh HUD dính — MỘT hàng: [‹ Câu x/y ›] · dải câu · trạng thái · đồng hồ.
+                     Chip nào không có việc thì ẩn; chật quá thì tự xuống dòng chứ không đè nhau. -->
                 <div class="rm-topbar">
                     <div class="rm-topbar-row">
-                        <button data-nav="prev" class="rm-icon-btn" title="Câu trước (←)"><i class="fas fa-chevron-left"></i></button>
-                        <div class="relative shrink-0">
-                            <button id="question-pill" class="rm-qpill">
-                                <span id="question-counter">Câu 1/1</span><i class="fas fa-chevron-down text-[10px] opacity-60"></i>
-                            </button>
-                            <div id="question-map" class="rm-qmap hidden"></div>
+                        <div class="rm-qnav">
+                            <button data-nav="prev" class="rm-icon-btn" title="Câu trước (←)"><i class="fas fa-chevron-left"></i></button>
+                            <div class="relative shrink-0">
+                                <button id="question-pill" class="rm-qpill" title="Bản đồ câu hỏi">
+                                    <span id="question-counter">Câu 1/1</span><i class="fas fa-chevron-down text-[10px] opacity-60"></i>
+                                </button>
+                                <div id="question-map" class="rm-qmap hidden"></div>
+                            </div>
+                            <button data-nav="next" class="rm-icon-btn" title="Câu sau (→)"><i class="fas fa-chevron-right"></i></button>
                         </div>
-                        <span id="phase-chip" class="rm-state">Chưa chốt</span>
-                        <span id="explainer-chip" class="rm-talk hidden"></span>
-                        <button id="left-chip" class="rm-leftchip hidden" title="Nhảy tới câu chưa chọn tiếp theo (phím J)"><i class="fas fa-forward"></i><span id="left-text"></span></button>
-                        <div class="flex-1 min-w-0 hidden sm:block">
-                            <p id="quiz-session-title" class="text-xs font-bold truncate"></p>
-                            <p id="quiz-session-host" class="text-[11px] text-muted truncate"></p>
+                        <div id="q-track" class="rm-qtrack"></div>
+                        <div class="rm-hudchips">
+                            <!-- Cả nhóm tới đâu: 1 chip (người dẫn đầu) thay cho cả hàng dải tiến độ; bấm mới xổ đường đua -->
+                            <button id="race-chip" class="rm-racechip hidden" data-race-open title="Cả nhóm tới đâu rồi — bấm để xem đường đua"></button>
+                            <button id="focus-chip" class="rm-focuschip hidden" data-nav="focus" title="Về câu cả nhóm đang bàn"><i class="fas fa-location-arrow"></i><span id="focus-text"></span></button>
+                            <span id="phase-chip" class="rm-state">Chưa chốt</span>
+                            <span id="explainer-chip" class="rm-talk hidden"></span>
+                            <button id="left-chip" class="rm-leftchip hidden" title="Nhảy tới câu chưa chọn tiếp theo (phím J)"><i class="fas fa-forward"></i><span id="left-text"></span></button>
+                            <span id="talk-chip" class="rm-talk hidden"><i class="fas fa-comments"></i><span id="talk-left">2:00</span></span>
+                            <div id="timer-ring" class="rm-ring hidden" style="--p:100"><span>–</span></div>
                         </div>
-                        <span id="talk-chip" class="rm-talk hidden"><i class="fas fa-comments"></i><span id="talk-left">2:00</span></span>
-                        <div id="timer-ring" class="rm-ring hidden" style="--p:100"><span>–</span></div>
-                        <button data-nav="next" class="rm-icon-btn" title="Câu sau (→)"><i class="fas fa-chevron-right"></i></button>
                     </div>
-                    <div id="q-track" class="rm-qtrack"></div>
                 </div>
 
                 <!-- Đường đua: ai đang làm tới đâu -->
@@ -316,35 +414,42 @@
                 <div class="rm-live-grid">
                     <!-- Cột chính: câu hỏi · phương án · bảng phiếu -->
                     <div class="rm-col-main">
+                        <!-- Đọc ĐỀ trước: chip chủ đề/mức độ/người muốn bàn xuống DƯỚI câu hỏi, 1 hàng -->
                         <article class="rm-question">
-                            <p id="q-meta" class="rm-qmeta hidden"></p>
                             <div id="case-box" class="hidden rm-case"></div>
                             <div id="question-text"></div>
+                            <p id="q-meta" class="rm-qmeta hidden"></p>
                         </article>
-
-                        <div id="game-bar" class="rm-gamebar hidden"></div>
 
                         <div id="options-area" class="rm-opts"></div>
 
-                        <div id="consensus-bar" class="rm-vote"></div>
+                        <!-- KHAY CỦA CÂU HỎI (room-answer.js · renderAnswerHub): ngay sau các ô, cùng kiểu khay dưới
+                             từng ô — lộ đáp án là giải thích hiện thẳng ở đây, sửa/nhận xét tại chỗ. Câu tự luận =
+                             bài làm chung. (Trước đây là khối "Đáp án & bàn luận" ở cột phải -> lặp y hệt khay ABCD.) -->
+                        <section id="answer-block" class="rm-hub" aria-label="Giải thích và bàn luận câu này"></section>
+
+                        <!-- Chuông · cược · phiếu kín: DƯỚI phương án — bấm chọn xong thanh cược hiện ra
+                             không còn đẩy cả 4 phương án tụt xuống ngay dưới ngón tay -->
+                        <div id="game-bar" class="rm-gamebar hidden"></div>
+
+                        <!-- MỘT thẻ trạng thái: bảng phiếu (x/N đã chọn · % trúng · huy hiệu · độ khó) + hàng
+                             "việc của tôi" (Xong · Cần bàn · Giảng · Đánh dấu) — trước là 2 thẻ mỏng liền nhau -->
+                        <div class="rm-statuscard">
+                            <div id="consensus-bar" class="rm-vote"></div>
+                            <div id="self-bar" class="rm-selfcard"></div>
+                        </div>
+
                     </div>
 
-                    <!-- Cột phụ: việc của tôi · kiến thức -->
+                    <!-- Ghi chú riêng của tôi (máy tính: xếp dưới đề, gập sẵn · điện thoại: khay "Ghi chú") -->
                     <div class="rm-col-side">
                         <div id="split-live" class="rm-split rm-split-live" title="Kéo để đổi độ rộng 2 cột · bấm đúp để trả về mặc định"></div>
                         <div class="rm-sheet-grip md:hidden"></div>
-                        <div id="self-bar" class="rm-selfcard"></div>
 
-                        <div class="rm-studytabs">
-                            <div class="rm-stabs">
-                                <button data-study="answer" class="rm-stab active"><i class="fas fa-lightbulb"></i><span>Giải thích</span></button>
-                                <button data-study="my" class="rm-stab"><i class="fas fa-pen-to-square"></i><span>Ghi chú</span></button>
-                                <button data-study="who" class="rm-stab"><i class="fas fa-people-arrows"></i><span>Ai chọn gì</span></button>
-                            </div>
-                            <section id="answer-block" class="rm-spane"></section>
-                            <section id="my-block" class="rm-spane hidden"></section>
-                            <div id="opinion-board" class="rm-spane hidden"></div>
-                        </div>
+                        <details class="rm-studytabs rm-notes" open>
+                            <summary class="rm-notes-cap"><i class="fas fa-pen-to-square"></i>Ghi chú của tôi · báo lỗi đề</summary>
+                            <section id="my-block" class="rm-spane"></section>
+                        </details>
                     </div>
                 </div>
             </div>
@@ -377,23 +482,29 @@
             </div>
         </section>
 
-        <!-- ===== THANH CHỦ TRÌ (3 quyền) ===== -->
+        <!-- ===== BẢNG ĐIỀU KHIỂN CHỦ TRÌ: viên nổi giữa đáy sân khấu =====
+             3 nút chính có chữ, nút phụ chỉ còn biểu tượng (rê chuột xem tên) và chia nhóm
+             bằng vạch mảnh — trước đây 12 nút cùng cỡ xếp một hàng, tràn khỏi màn.
+             Điện thoại: vẫn là khay trượt (body.sheet-host), mọi nhãn hiện đủ. -->
         <div id="host-bar" class="hidden rm-hostbar shrink-0">
             <div class="rm-sheet-grip md:hidden"></div>
             <button id="host-mode-btn" class="rm-host-chip" title="Đổi kiểu buổi học"><i class="fas fa-crown"></i><span id="host-mode">Cùng làm</span></button>
-            <button id="host-show" class="rm-host-btn is-show"><i class="fas fa-eye"></i><span>Hiện đáp án</span></button>
-            <button id="host-lock-answer" class="rm-host-btn is-lock"><i class="fas fa-gavel"></i><span>Chốt đáp án</span></button>
-            <button id="host-next" class="rm-host-btn is-next"><span>Câu tiếp</span><i class="fas fa-arrow-right"></i></button>
-            <button id="host-game" class="rm-host-btn" title="Trò chơi & tiện ích cho cả phòng"><i class="fas fa-dice"></i><span class="hidden lg:inline">Trò chơi</span></button>
-            <button id="host-talk" class="rm-host-btn" title="Hẹn giờ bàn luận cho cả nhóm"><i class="fas fa-comments"></i><span id="host-talk-label">Bàn 2'</span></button>
-            <button id="host-focus" class="rm-host-btn" title="Rủ cả phòng bàn câu bạn đang xem (phím G)"><i class="fas fa-bullseye"></i><span class="hidden lg:inline">Bàn câu này</span></button>
-            <button id="host-lock" class="rm-host-btn hidden" title="Khóa/mở nộp (phím L)"><i class="fas fa-lock"></i><span class="hidden lg:inline">Khóa</span></button>
-            <button id="host-timer" class="rm-host-btn hidden" title="Hẹn giờ (phím T)"><i class="fas fa-stopwatch"></i><span id="host-timer-label">30s</span></button>
-            <button id="host-hands" class="rm-host-btn hidden"><span class="rm-hand">✋</span><span id="host-hands-count">0</span></button>
-            <div class="flex-1"></div>
-            <button id="host-minutes" class="rm-host-btn" title="Tải biên bản buổi học"><i class="fas fa-file-arrow-down"></i><span class="hidden lg:inline">Biên bản</span></button>
-            <button id="host-save" class="rm-host-btn" title="Lưu bộ đề (kèm giải thích cả nhóm vừa viết)"><i class="fas fa-floppy-disk"></i><span class="hidden lg:inline">Lưu đề</span></button>
-            <button id="host-end" class="rm-host-btn is-end" title="Kết thúc phiên"><i class="fas fa-flag-checkered"></i><span class="hidden lg:inline">Kết thúc</span></button>
+            <span class="rm-host-sep" aria-hidden="true"></span>
+            <button id="host-show" class="rm-host-btn is-show" title="Hiện đáp án tham khảo trong file (phím S)"><i class="fas fa-eye"></i><span>Hiện đáp án</span></button>
+            <button id="host-lock-answer" class="rm-host-btn is-lock" title="Chốt đáp án (Space = theo đa số)"><i class="fas fa-gavel"></i><span>Chốt đáp án</span></button>
+            <button id="host-next" class="rm-host-btn is-next" title="Câu tiếp (phím N)"><span>Câu tiếp</span><i class="fas fa-arrow-right"></i></button>
+            <span class="rm-host-sep" aria-hidden="true"></span>
+            <button id="host-add" class="rm-host-btn is-sec" title="Thêm câu (trắc nghiệm / tự luận) vào cuối đề"><i class="fas fa-square-plus"></i><span>Thêm câu</span></button>
+            <button id="host-game" class="rm-host-btn is-sec" title="Trò chơi & tiện ích cho cả phòng"><i class="fas fa-dice"></i><span>Trò chơi</span></button>
+            <button id="host-talk" class="rm-host-btn is-sec" title="Hẹn giờ bàn luận cho cả nhóm"><i class="fas fa-comments"></i><span id="host-talk-label">Bàn 2'</span></button>
+            <button id="host-focus" class="rm-host-btn is-sec" title="Rủ cả phòng bàn câu bạn đang xem (phím G)"><i class="fas fa-bullseye"></i><span>Bàn câu này</span></button>
+            <button id="host-lock" class="rm-host-btn is-sec hidden" title="Khóa/mở nộp (phím L)"><i class="fas fa-lock"></i><span>Khóa</span></button>
+            <button id="host-timer" class="rm-host-btn is-sec hidden" title="Hẹn giờ (phím T)"><i class="fas fa-stopwatch"></i><span id="host-timer-label">30s</span></button>
+            <button id="host-hands" class="rm-host-btn is-sec hidden" title="Người đang giơ tay"><span class="rm-hand">✋</span><span id="host-hands-count">0</span></button>
+            <span class="rm-host-sep" aria-hidden="true"></span>
+            <button id="host-minutes" class="rm-host-btn is-sec" title="Biên bản buổi học — xuất PDF / Markdown"><i class="fas fa-file-arrow-down"></i><span>Biên bản</span></button>
+            <button id="host-save" class="rm-host-btn is-sec" title="Lưu bộ đề (kèm giải thích cả nhóm vừa viết)"><i class="fas fa-floppy-disk"></i><span>Lưu đề</span></button>
+            <button id="host-end" class="rm-host-btn is-sec is-end" title="Kết thúc phiên"><i class="fas fa-flag-checkered"></i><span>Kết thúc</span></button>
         </div>
     </main>
 
@@ -403,26 +514,39 @@
     <!-- ---------- BẢNG BÊN ---------- -->
     <aside id="side-panel" class="rm-side flex flex-col hidden md:flex">
         <div class="rm-sheet-grip md:hidden"></div>
+        <!-- Máy tính: nút mũi tên thu bảng bên thành THANH RAY 3 biểu tượng (nhớ theo máy)
+             -> sân khấu rộng ra. Bấm biểu tượng trên ray là bung lại đúng tab đó. -->
         <div class="rm-subbar shrink-0">
-            <button class="rm-tab active" data-panel="discuss"><i class="fas fa-comments"></i>Thảo luận <span id="tab-chat-badge" class="rm-badge"></span></button>
-            <button class="rm-tab" data-panel="members"><i class="fas fa-users"></i>Nhóm</button>
-            <button class="rm-tab" data-panel="rank"><i class="fas fa-trophy"></i>BXH</button>
+            <button class="rm-tab active" data-panel="discuss" title="Chat cả phòng · tài liệu (bàn từng câu: ngay dưới câu đó)"><i class="fas fa-comments"></i>Chat <span id="tab-chat-badge" class="rm-badge"></span></button>
+            <button class="rm-tab" data-panel="members" title="Nhóm"><i class="fas fa-users"></i>Nhóm</button>
+            <button class="rm-tab" data-panel="rank" title="Bảng xếp hạng"><i class="fas fa-trophy"></i>BXH</button>
             <div class="flex-1"></div>
+            <button id="side-toggle" class="rm-icon-btn rm-side-toggle hidden md:inline-flex" title="Thu gọn / mở rộng bảng bên"><i class="fas fa-angles-right"></i></button>
             <button id="close-panel-btn" class="md:hidden rm-icon-btn"><i class="fas fa-times"></i></button>
         </div>
 
-        <!-- Thảo luận: lọc theo câu đang xem hoặc cả phòng -->
+        <!-- Chat cả phòng + tài liệu. Bàn RIÊNG TỪNG CÂU nằm ngay trong khối "Đáp án & bàn luận" của câu đó
+             (trước đây có thêm tab "Câu N" ở đây -> hai chỗ bàn cùng một câu). -->
         <div id="panel-discuss" class="flex-1 min-h-0 flex flex-col">
             <div class="rm-filter shrink-0">
-                <button id="chat-scope-q" class="rm-seg active" data-scope="q">Câu <span id="chat-scope-num">1</span></button>
-                <button id="chat-scope-all" class="rm-seg" data-scope="all">Cả phòng</button>
+                <button id="chat-scope-all" class="rm-seg active" data-scope="all">Cả phòng</button>
+                <button id="chat-scope-doc" class="rm-seg" data-scope="doc" title="Tài liệu & ảnh cả nhóm đã chia sẻ"><i class="fas fa-book-medical"></i> Tài liệu</button>
                 <div class="flex-1"></div>
                 <span id="chat-hint" class="text-[11px] text-muted"></span>
             </div>
             <div id="chat-messages" class="flex-1 overflow-y-auto rm-scroll p-3 space-y-2"></div>
+            <!-- Ô soạn: nhiều dòng · Ctrl+V / kéo thả / 🖼 đính ảnh (tải lên host ngoài) · 📚 trích tài liệu · trả lời tin -->
             <form id="chat-form" class="rm-composer shrink-0">
-                <input id="chat-input" type="text" maxlength="500" placeholder="Nêu ý kiến về câu này…" class="rm-input flex-1 min-w-0">
-                <button type="submit" class="rm-cta rm-solid-btn"><i class="fas fa-paper-plane"></i></button>
+                <div id="chat-reply" class="rm-replybar hidden"></div>
+                <div id="chat-attach" class="rm-attach hidden"></div>
+                <div class="rm-composer-row">
+                    <button type="button" id="chat-img-btn" class="rm-icon-btn" title="Đính ảnh — hoặc Ctrl+V / kéo thả ảnh vào đây"><i class="fas fa-image"></i></button>
+                    <button type="button" id="chat-doc-btn" class="rm-icon-btn" title="Trích dẫn tài liệu (sách, bài giảng, link)"><i class="fas fa-book-medical"></i></button>
+                    <textarea id="chat-input" rows="1" maxlength="2000" placeholder="Nhắn cho cả phòng…" class="rm-input rm-chat-input"></textarea>
+                    <button type="submit" class="rm-cta rm-solid-btn rm-send" title="Gửi (Enter)"><i class="fas fa-paper-plane"></i></button>
+                </div>
+                <p class="rm-composer-hint">Enter gửi · Shift+Enter xuống dòng · Ctrl+V dán ảnh · 💡 trên tin = đưa vào giải thích</p>
+                <input type="file" id="chat-file" accept="image/*" multiple class="hidden">
             </form>
         </div>
 
@@ -441,14 +565,18 @@
 </div>
 
 <!-- ================= DOCK ĐÁY (ĐIỆN THOẠI) ================= -->
+<!-- 5 ô: Thảo luận · Ghi chú · [‹ Câu x/y ›] · Chủ trì · Thêm — cụm đi câu gộp thành MỘT viên
+     (trước đây 7 ô rời, nhãn bị cắt "Thảo l…"). -->
 <nav id="mobile-nav" class="md:hidden shrink-0 rm-dock">
-    <button data-m="chat" class="rm-dock-btn"><i class="fas fa-comments"></i><span>Thảo luận</span><span id="nav-chat-dot" class="rm-dotmark hidden"></span></button>
-    <button data-m="prev" class="rm-dock-btn rm-only-live"><i class="fas fa-chevron-left"></i><span>Trước</span></button>
-    <button data-m="jump" class="rm-dock-main rm-only-live"><span id="dock-counter">Câu 1/1</span></button>
-    <button data-m="next" class="rm-dock-btn rm-only-live"><i class="fas fa-chevron-right"></i><span>Sau</span></button>
+    <button data-m="chat" class="rm-dock-btn"><i class="fas fa-people-group"></i><span>Bàn luận</span><span id="nav-chat-dot" class="rm-dotmark hidden"></span></button>
+    <button data-m="tools" class="rm-dock-btn rm-only-live"><i class="fas fa-pen-to-square"></i><span>Ghi chú</span><span id="nav-tools-dot" class="rm-dotmark hidden"></span></button>
+    <div class="rm-dock-nav rm-only-live">
+        <button data-m="prev" class="rm-dock-arrow" aria-label="Câu trước"><i class="fas fa-chevron-left"></i></button>
+        <button data-m="jump" class="rm-dock-count" aria-label="Bản đồ câu hỏi"><span id="dock-counter">Câu 1/1</span></button>
+        <button data-m="next" class="rm-dock-arrow" aria-label="Câu sau"><i class="fas fa-chevron-right"></i></button>
+    </div>
     <button data-m="members" class="rm-dock-btn rm-only-lobby"><i class="fas fa-users"></i><span>Nhóm</span></button>
     <button data-m="rank" class="rm-dock-btn rm-only-lobby"><i class="fas fa-trophy"></i><span>BXH</span></button>
-    <button data-m="tools" class="rm-dock-btn rm-only-live"><i class="fas fa-pen-to-square"></i><span>Ghi chú</span><span id="nav-tools-dot" class="rm-dotmark hidden"></span></button>
     <button data-m="host" class="rm-dock-btn rm-only-host"><i class="fas fa-crown"></i><span>Chủ trì</span></button>
     <button data-m="toquiz" class="rm-dock-main rm-only-board"><span>Về đề</span></button>
     <button data-m="more" class="rm-dock-btn"><i class="fas fa-ellipsis"></i><span>Thêm</span></button>
@@ -464,6 +592,7 @@
     <div class="rm-more-grid">
         <button data-more="board"><i class="fas fa-chalkboard"></i>Bảng trắng</button>
         <button data-more="quiz"><i class="fas fa-list-check"></i>Về đề</button>
+        <button data-more="chat"><i class="fas fa-comments"></i>Chat cả phòng</button>
         <button data-more="members"><i class="fas fa-users"></i>Nhóm</button>
         <button data-more="rank"><i class="fas fa-trophy"></i>BXH</button>
         <button data-more="race"><i class="fas fa-flag-checkered"></i>Đường đua</button>
@@ -472,6 +601,7 @@
         <button data-more="sound"><i class="fas fa-volume-high"></i>Âm thanh</button>
         <button data-more="text"><i class="fas fa-text-height"></i>Cỡ chữ</button>
         <button data-more="theme"><i class="fas fa-moon"></i>Sáng / tối</button>
+        <button data-more="minutes"><i class="fas fa-file-pdf"></i>Biên bản</button>
     </div>
 </div>
 
@@ -482,6 +612,19 @@
     <p class="rm-countdown-text">Chuẩn bị nào!</p>
 </div>
 <div id="toast-container"></div>
+
+<!-- Chủ trì điểm danh: hiện cho người CHƯA sẵn sàng -->
+<div id="rollcall" class="rm-rollcall hidden" role="alertdialog" aria-live="assertive">
+    <span class="rm-rollcall-ic">🔔</span>
+    <div class="min-w-0"><b id="rollcall-text">Chủ trì đang điểm danh</b><span>Bấm để báo bạn có mặt &amp; sẵn sàng</span></div>
+    <button id="rollcall-yes" class="rm-cta rm-solid-btn"><i class="fas fa-hand"></i>Có mặt!</button>
+    <button id="rollcall-x" class="rm-icon-btn" title="Để sau"><i class="fas fa-times"></i></button>
+</div>
+
+<!-- Chủ trì kéo file đề vào BẤT KỲ đâu trên sảnh -->
+<div id="drop-all" class="rm-dropall hidden">
+    <div class="rm-dropall-box"><i class="fas fa-file-arrow-up"></i><b>Thả file đề vào đây</b><span>Excel / CSV — mở cho cả phòng</span></div>
+</div>
 
 <div id="loading-overlay" class="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-[70] hidden">
     <div class="flex flex-col items-center gap-3">
@@ -505,6 +648,78 @@
         <p class="rm-label">Chọn người giảng câu này</p>
         <div id="wheel-face" class="rm-wheel-face">🎲</div>
         <p id="wheel-name" class="rm-wheel-name">Đang quay…</p>
+    </div>
+</div>
+
+<!-- Trích dẫn tài liệu vào Thảo luận -->
+<div id="doc-modal" class="rm-modal hidden">
+    <form id="doc-form" class="rm-modal-box rm-doc-box" autocomplete="off">
+        <button type="button" data-close-doc class="rm-modal-x"><i class="fas fa-times"></i></button>
+        <p class="rm-label"><i class="fas fa-book-medical"></i> Trích dẫn tài liệu</p>
+        <h3 class="text-lg font-extrabold mb-1">Chia sẻ nguồn cho cả nhóm</h3>
+        <p class="text-xs text-muted mb-3">Gắn vào <b id="doc-target">câu này</b> — hiện trong Thảo luận, tab Tài liệu và biên bản buổi học.</p>
+        <label class="rm-field"><span>Tên tài liệu <em>*</em></span>
+            <input id="doc-title" class="rm-input" maxlength="160" placeholder="VD: Guyton & Hall — Sinh lý học y khoa"></label>
+        <div class="rm-field-row">
+            <label class="rm-field"><span>Vị trí</span><input id="doc-src" class="rm-input" maxlength="160" placeholder="Chương 10 · trang 123"></label>
+            <label class="rm-field"><span>Link</span><input id="doc-link" class="rm-input" inputmode="url" maxlength="500" placeholder="https://…"></label>
+        </div>
+        <label class="rm-field"><span>Trích đoạn / tóm ý</span>
+            <textarea id="doc-text" class="rm-input" rows="4" maxlength="3000" placeholder="Dán đoạn quan trọng… Ctrl+V ảnh chụp trang sách cũng được"></textarea></label>
+        <div id="doc-attach" class="rm-attach hidden"></div>
+        <div class="rm-doc-row">
+            <button type="button" id="doc-img-btn" class="rm-ghost-btn"><i class="fas fa-image"></i>Thêm ảnh</button>
+            <label id="doc-explain-row" class="rm-check"><input type="checkbox" id="doc-to-explain" class="accent-[#FF69B4]"><span>Đưa luôn vào giải thích chung</span></label>
+        </div>
+        <button type="submit" class="rm-cta rm-solid-btn rm-solid-lg w-full justify-center mt-3"><i class="fas fa-paper-plane"></i>Gửi tài liệu</button>
+        <input type="file" id="doc-file" accept="image/*" multiple class="hidden">
+    </form>
+</div>
+
+<!-- Dán đề: trắc nghiệm (A. B. C. D.) hoặc tự luận — không cần file Excel (room-quiz.js + room-paste.js) -->
+<div id="paste-modal" class="rm-modal hidden">
+    <div class="rm-modal-box rm-paste-box">
+        <button type="button" data-close-paste class="rm-modal-x"><i class="fas fa-times"></i></button>
+        <p class="rm-label"><i class="fas fa-paste"></i> Dán đề</p>
+        <h3 id="paste-head" class="text-lg font-extrabold mb-1">Dán đề trắc nghiệm / tự luận</h3>
+        <p class="text-xs text-muted mb-3">Mỗi câu bắt đầu bằng <b>Câu 1:</b> (hoặc cách nhau một dòng trống). Phương án viết <b>A. B. C. D.</b> — không có phương án thì thành <b>câu tự luận</b>. Dòng <b>Đáp án: B</b> (hoặc "A, C", hoặc bài giải) và <b>Giải thích: …</b> là tùy chọn.</p>
+        <label id="paste-name-row" class="rm-field"><span>Tên đề</span><input id="paste-name" class="rm-input" maxlength="120" placeholder="VD: Đề tự luận Sinh lý — giữa kỳ"></label>
+        <textarea id="paste-text" class="rm-input rm-paste-text" rows="9" spellcheck="false" placeholder="Câu 1: Nút xoang nhĩ nằm ở đâu?
+A. Vách liên thất
+B. Thành sau nhĩ phải
+C. Đỉnh thất trái
+D. Van hai lá
+Đáp án: B
+
+Câu 2: Trình bày cơ chế điều hòa huyết áp ngắn hạn.
+Đáp án: phản xạ áp cảm thụ quan…"></textarea>
+        <div id="paste-preview" class="rm-paste-preview"></div>
+        <button type="button" id="paste-go" class="rm-cta rm-solid-btn rm-solid-lg w-full justify-center mt-3" disabled><i class="fas fa-check"></i>Dùng đề này</button>
+    </div>
+</div>
+
+<!-- Xuất biên bản buổi học -->
+<div id="minutes-modal" class="rm-modal hidden">
+    <div class="rm-modal-box rm-minutes-box">
+        <button data-close-min class="rm-modal-x"><i class="fas fa-times"></i></button>
+        <p class="rm-label"><i class="fas fa-file-signature"></i> Biên bản buổi học</p>
+        <h3 class="text-lg font-extrabold mb-1">Xuất biên bản</h3>
+        <p class="text-xs text-muted mb-3">Thông tin chung · tóm tắt · bảng xếp hạng · mức độ tham gia · việc cần làm · chi tiết từng câu (đáp án, giải thích, lý do, thảo luận, tài liệu).</p>
+        <div id="min-summary" class="rm-min-sum"></div>
+        <p class="rm-label mt-3 mb-1.5">Kèm theo</p>
+        <div class="rm-min-opts">
+            <label class="rm-check"><input type="checkbox" id="min-chat" checked class="accent-[#FF69B4]"><span>💬 Thảo luận &amp; tài liệu từng câu</span></label>
+            <label class="rm-check"><input type="checkbox" id="min-reasons" checked class="accent-[#FF69B4]"><span>🗣 Ai chọn gì &amp; lý do</span></label>
+            <label class="rm-check"><input type="checkbox" id="min-images" checked class="accent-[#FF69B4]"><span>🖼 Ảnh minh họa</span></label>
+            <label class="rm-check"><input type="checkbox" id="min-only" class="accent-[#FF69B4]"><span>🎯 Chỉ những câu cần ôn</span></label>
+        </div>
+        <div class="rm-min-acts">
+            <button id="min-pdf" data-min="pdf" class="rm-cta rm-solid-btn rm-solid-lg"><i class="fas fa-file-pdf"></i>Xuất PDF</button>
+            <button id="min-view" data-min="view" class="rm-ghost-btn"><i class="fas fa-eye"></i>Xem trước</button>
+            <button id="min-md" data-min="md" class="rm-ghost-btn"><i class="fab fa-markdown"></i>Tải .md</button>
+            <button id="min-copy" data-min="copy" class="rm-ghost-btn"><i class="fas fa-copy"></i>Chép Markdown</button>
+        </div>
+        <p class="rm-min-tip"><i class="fas fa-circle-info"></i> PDF: hộp in hiện ra thì chọn <b>Lưu dưới dạng PDF</b>, khổ A4, bật <b>Đồ họa nền</b> để giữ màu.</p>
     </div>
 </div>
 

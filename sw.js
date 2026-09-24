@@ -1,11 +1,12 @@
 // Service Worker for PWA - Offline Support & Caching
-const CACHE_NAME = 'zitthenkne-v100';
+const CACHE_NAME = 'zitthenkne-v111';
 
 // App shell (cùng origin) — nạp sẵn khi cài để mở offline được ngay.
 const urlsToCache = [
   '/',
   'index.html',
   'style.css',
+  'tailwind-index.css',
   'features/checklist/checklist.css',
   'features/quiz/quiz-preview.css',
   'app.js',
@@ -80,9 +81,17 @@ const urlsToCache = [
   'features/study-room/room-mobile.js',
   'features/study-room/room-boost.js',
   'features/study-room/room-game.js',
+  'features/study-room/room-media.js',
+  'features/study-room/room-minutes.js',
+  'features/study-room/room-answer.js',
+  'features/study-room/room-paste.js',
   'features/study-room/rooms-hub.js',
   'features/study-room/rooms-hub.css',
   'features/study-room/tailwind-phong.css',
+  'features/study-room/fa-phong/fa-phong.css',
+  'features/study-room/fa-phong/solid.woff2',
+  'features/study-room/fa-phong/regular.woff2',
+  'features/study-room/fa-phong/brands.woff2',
   'assets/opt/logo-32.png',
   'assets/opt/logo-96.webp',
   'assets/opt/squirrel_group-256.webp',
@@ -185,6 +194,7 @@ const cdnToCache = [
   'https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&display=swap',
   'https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@600;700;800&family=Cormorant+Upright:wght@500;600;700&display=swap',
   'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Quicksand:wght@400;500;600;700&display=swap',
+  'https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Be+Vietnam+Pro:wght@500;600;700;800&family=Cormorant+Upright:wght@700&display=swap',
   'https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap',
   'https://www.gstatic.com/firebasejs/9.6.0/firebase-app.js',
   'https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js',

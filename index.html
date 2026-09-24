@@ -6,9 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Zitthenkne - Công cụ học tập</title>
     <script src="pwa-install.js" defer></script>
-    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
-    <script src="core/libs/mermaid.min.js"></script>
     <!-- PWA manifest & theme -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#FF69B4">
@@ -42,6 +40,8 @@
         ::-webkit-scrollbar-thumb:hover { background-image: linear-gradient(#f9a8d4, #f472b6); }
         ::-webkit-scrollbar-corner { background: transparent; }
     </style>
+    <!-- Tailwind đóng băng (thay Play CDN) — sinh bằng: node tailwind-dong-bang.mjs -->
+    <link rel="stylesheet" href="tailwind-index.css">
 </head>
 
 <body class="flex h-screen bg-gray-50 text-gray-700 text-sm">
@@ -1077,8 +1077,7 @@
 
     <div id="toast-container"></div>
 
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script type="module" src="app.js?v=6"></script>
+    <script type="module" src="app.js?v=7"></script>
     <script src="features/quiz/quiz-library-menu.js"></script>
     <!-- Hoạt ảnh mở thẻ bộ đề + nạp ngầm trang làm bài khi bấm "Làm bài" -->
     <script src="features/quiz/quiz-launch-transition.js" defer></script>

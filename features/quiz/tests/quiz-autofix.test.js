@@ -217,3 +217,21 @@ test('summarizeReport: bộ đề sạch cho ra tone info', () => {
     assert.equal(sum.tone, 'info');
     assert.equal(sum.lines.length, 0);
 });
+
+// --- Phòng đánh đề: giữ câu tự luận + câu thiếu đáp án --------------------------
+test('keepEssay: câu 0 phương án thành câu tự luận thay vì bị loại', () => {
+    const essay = { question: 'Trình bày cơ chế phù', answers: [], explanation: '' };
+    assert.equal(autofixQuestions([essay]).questions.length, 0, 'mặc định (trang chủ) vẫn loại như cũ');
+    const { questions } = autofixQuestions([essay], { keepEssay: true });
+    assert.equal(questions.length, 1);
+    assert.equal(questions[0].type, 'essay');
+    assert.equal(questions[0].__essay, undefined, 'field tạm đã dọn');
+});
+
+test('keepUnanswered: câu không suy ra được đáp án vẫn giữ với correctAnswerIndex null', () => {
+    const q = { question: 'Câu không rõ đáp án', answers: ['a', 'b', 'c'], correctAnswerIndex: null };
+    assert.equal(autofixQuestions([q]).questions.length, 0);
+    const { questions } = autofixQuestions([q], { keepUnanswered: true });
+    assert.equal(questions.length, 1);
+    assert.equal(questions[0].correctAnswerIndex, null);
+});

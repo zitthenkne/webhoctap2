@@ -10,18 +10,20 @@ import {
     room, refs, uid, canControl, hasSession, optsOf, refIdxOf, chosenOf, isAnnounced, isShown, isBlind,
     noteOf, optNoteOf, answerOf, flagOf, readyOf, unclearOf, currentIndex, isCoop, canRoam,
     questionAt, editOf, issueOf, editorOf, noteAuthorOf, whyOf, dissentOf, talkUntil, prevVoteOf,
+    isEssay, doneOf, doneCount, isAccepted, isSplit, acceptedText, acceptedOf,
 } from './room-state.js';
-import { escapeHtml, shortName, toggle, avatarStack, avatarHtml } from './room-ui.js';
+import { escapeHtml, shortName, toggle, avatarStack, avatarHtml, forget } from './room-ui.js';
 import { renderRankPanel, renderResults, questionStats, toggleAllStats } from './room-scoreboard.js';
 import { MARK_REASONS, getNote, setNote, getMark, setMark } from './room-study.js';
-import { renderRich, currentEditKey, renderRichMath } from './room-editor.js';
+import { renderRich, currentEditKey, renderRichMath, sanitizeHtml } from './room-editor.js';
+import { chatCountFor, openDiscussion } from './room-chat.js';
 import { beep, haptic, jumpToUnanswered, autoNextOn, ensureConfetti } from './room-boost.js';
 import { renderGameBar, downloadMyNotes } from './room-game.js';
+import { renderAnswerHub, initAnswerHub, renderOptionTalk } from './room-answer.js';
 
 let viewIndex = null;            // câu MÌNH đang xem
 let lastFocus = null;
 let lastAnnounceKey = '';
-let studyTab = 'answer';         // tab đang mở ở khối kiến thức
 let mapFilter = 'all';           // bộ lọc của bản đồ câu
 let raceOff = false;             // ẩn đường đua (nhớ theo máy)
 const popped = new Set();        // câu nào đã bắn hiệu ứng điểm rồi
@@ -46,6 +48,8 @@ function changed(key, value) {
     return true;
 }
 export function resetRenderCache() { for (const k in sigs) delete sigs[k]; }
+/** Vẽ lại ô đáp án ngay (vd. vừa rời ô gõ trong khay — số phiếu có thể đã đổi trong lúc gõ). */
+export function repaintOptions() { delete sigs.live; delete sigs.opts; renderLive(); }
 
 const el = (id) => document.getElementById(id);
 const debounce = (key, fn, ms = 600) => { clearTimeout(saveTimers[key]); saveTimers[key] = setTimeout(fn, ms); };
@@ -87,15 +91,19 @@ const myAnswer = (i) => {
 const canAnswer = (i) => hasSession() && !room.session.ended && !isAnnounced(i) && (isCoop() || !room.session.locked);
 
 async function submitAnswer(i, idx) {
-    if (!canAnswer(i)) return;
+    if (!canAnswer(i) || isEssay(questionAt(i))) return;
     const cur = myAnswer(i);
+    if (cur?.i === idx) return;
+    // Đổi ý: giữ dấu vết "từ ý nào sang" (bàn tròn hiện "đổi từ B") — ai thuyết phục được ai.
+    // Lý do cũ viết cho ý cũ nên không mang sang.
+    const moved = typeof cur?.i === 'number' ? { from: cur.i, n: (cur.n || 0) + 1 } : {};
     // Sơn ngay tại máy mình rồi mới gửi Firestore — không đợi mạng quay về nữa.
-    optimistic['q' + i] = { i: idx, at: Date.now(), guess: !!cur?.guess, why: cur?.why || '' };
+    optimistic['q' + i] = { i: idx, at: Date.now(), guess: !!cur?.guess, why: '', ...moved };
     haptic(8);
     beep('tap');
     renderQuiz();
     await updateDoc(refs.member(), {
-        [`answers.q${i}`]: { i: idx, at: Date.now(), guess: !!cur?.guess },
+        [`answers.q${i}`]: { i: idx, at: Date.now(), guess: !!cur?.guess, ...moved },
         cursor: i,
     }).catch(err => console.error('Lỗi gửi đáp án:', err));
 
@@ -166,7 +174,8 @@ export function renderQuiz() {
 
     const pin = el('pinned-note');
     if (pin) {
-        pin.classList.toggle('hidden', !s?.pinnedNote);
+        // Đã bấm ✕ với ĐÚNG lời ghim này thì thôi; chủ trì ghim câu khác là hiện lại
+        pin.classList.toggle('hidden', !s?.pinnedNote || s.pinnedNote === pinDismissed());
         const pt = el('pinned-note-text');
         if (pt) pt.textContent = s?.pinnedNote || '';
     }
@@ -198,15 +207,17 @@ function renderLive() {
     // Không có gì liên quan đổi thì thôi, khỏi vẽ. (Nhịp tim / chat / reaction của
     // người khác vẫn bắn snapshot liên tục.)
     if (!changed('live', [
-        i, studyTab, editingOpt, raceOff, currentEditKey(),
+        i, editingOpt, raceOff, currentEditKey(), chatCountFor(i),
         s.currentQuestionIndex, s.chosen, s.shown, s.notes, s.notesBy, s.optNotes, s.edits, s.issues,
         s.explainer, s.locked, s.mode, s.liveStats, s.freeRoam, s.qStarts, s.prevVote,
         s.teamOn, s.buzzOn, s.buzz, s.blind, s.spotlight, s.thanks,   // bộ tiện ích trò chơi
+        s.alsoOk, s.split,                                            // kết luận nhiều đáp án / chưa thống nhất
         s.quizTitle, s.hostId, s.hostName, s.cohosts, s.questions.length, s.ended,
         editorOf(i) ? Math.floor(Date.now() / 2000) : 0,
         Object.entries(optimistic).map(([k, v]) => k + ':' + v.i),
         room.members.map(m => [m.uid, m.displayName, m.emoji, m.online, m.answers, m.flags,
-            m.marks, m.ready, m.unclear, m.dissent, m.diff, m.cursor, m.team]),
+            m.marks, m.ready, m.unclear, m.dissent, m.diff, m.cursor, m.team,
+            m.args, m.agree]),                                        // nhận xét trong khối đáp án
     ])) return;
 
     // Đổi câu -> trượt theo hướng đi + cho phép phương án chạy hoạt ảnh vào một lần
@@ -241,16 +252,26 @@ function renderLive() {
     el('question-counter').textContent = `Câu ${i + 1}/${total}`;
     const dc = el('dock-counter');
     if (dc) dc.textContent = `Câu ${i + 1}/${total}`;
-    el('quiz-session-title').textContent = s.quizTitle || 'Đề trắc nghiệm';
+    // Tên đề nằm ở huy hiệu đầu trang (#session-badge-text); dòng phụ ngay dưới nó
     el('quiz-session-host').textContent =
-        (isCoop() ? 'Cùng làm · ai cũng sửa được giải thích' : 'Chủ trì cầm trịch') +
-        ` · chủ trì: ${canControl() ? 'bạn' : (s.hostName || 'ẩn danh')}` +
-        (i !== currentIndex() ? ` · nhóm đang bàn câu ${currentIndex() + 1}` : '');
+        (isCoop() ? 'Cùng làm' : 'Chủ trì cầm trịch') +
+        ` · chủ trì: ${canControl() ? 'bạn' : (s.hostName || 'ẩn danh')}`;
+    // Đang xem câu khác câu cả nhóm bàn -> chip bấm một phát là về
+    const fc = el('focus-chip');
+    if (fc) {
+        fc.classList.toggle('hidden', i === currentIndex());
+        el('focus-text').innerHTML = `<span class="rm-hide-sm">Nhóm ở </span>câu ${currentIndex() + 1}`;
+    }
 
+    const essay = isEssay(q);
     const chip = el('phase-chip');
     if (chip) {
-        chip.className = 'rm-state' + (announced ? ' is-locked' : shown ? ' is-shown' : '');
-        chip.textContent = announced ? `Đã chốt ${L(chosen)}`
+        const split = isSplit(i);
+        chip.className = 'rm-state' + (announced ? ' is-locked' : split ? ' is-split' : shown ? ' is-shown' : '');
+        chip.textContent = essay
+            ? (shown ? 'Tự luận · đã hiện bài giải' : doneOf(null, i) ? 'Tự luận · đang viết chung' : 'Tự luận · chưa có bài')
+            : announced ? `Đã chốt ${acceptedText(i)}`
+            : split ? 'Chưa thống nhất'
             : shown ? 'Đã hiện đáp án'
             : (!isCoop() && s.locked) ? 'Đã khóa nộp' : 'Chưa chốt';
     }
@@ -258,10 +279,11 @@ function renderLive() {
     if (lc) {
         const meNow = myMember();
         let left = 0;
-        for (let k = 0; k < total; k++) if (!meNow?.answers?.['q' + k] && !optimistic['q' + k]) left++;
+        for (let k = 0; k < total; k++) if (!doneOf(meNow, k) && !optimistic['q' + k]) left++;
         lc.classList.remove('hidden');
         lc.classList.toggle('is-done', left === 0);
-        el('left-text').textContent = left ? `Còn ${left} câu` : 'Xong hết';
+        // điện thoại chỉ còn "Còn N" cho dải câu cùng hàng khỏi xuống dòng
+        el('left-text').innerHTML = left ? `Còn ${left}<span class="rm-hide-sm"> câu</span>` : 'Xong hết';
     }
 
     el('q-track').innerHTML = questionTrackHtml(i);
@@ -326,22 +348,29 @@ function renderLive() {
     const qLen = (qt.textContent || '').trim().length;
     qt.dataset.len = qLen > 340 ? 'xl' : qLen > 200 ? 'lg' : qLen > 110 ? 'md' : 'sm';
 
-    renderOptions(i, q, opts, mine, chosen, announced, shown, refIdx, stats, showStats);
-    renderConsensus(i, stats, mine, chosen, announced);
+    // Câu tự luận: không có phương án / bảng phiếu — bài làm chung nằm ngay ô chung của khối đáp án
+    el('options-area').classList.toggle('hidden', essay);
+    el('consensus-bar')?.classList.toggle('hidden', essay);
+    if (essay) { el('options-area').innerHTML = ''; delete sigs.opts; }
+    else {
+        renderOptions(i, q, opts, mine, chosen, announced, shown, refIdx, stats, showStats);
+        renderOptionTalk(i);                 // khay dưới từng ô: tự chặn khi không có gì đổi
+        renderConsensus(i, stats, mine, chosen, announced);
+    }
     renderGameBar(i);
     renderSelfBar(i, mine, q);
-    renderAnswerBlock(i, q, opts, chosen, announced, shown, refIdx);
+    renderAnswerHub(i);
     renderMyBlock(i, q, opts);
-    renderOpinionBoard(i, opts, chosen, announced);
-    paintStudyTabs(i, q);
     tickTalk();
 
-    const key = `${i}:${chosen}`;
+    if (firstLive) maybeLateJoin();
+
+    const key = `${i}:${acceptedText(i)}`;
     if (announced && mine && lastAnnounceKey !== key && !popped.has(key)) {
         lastAnnounceKey = key;
         if (firstLive) {
             // vừa vào phòng, câu này đã chốt từ trước -> im lặng
-        } else if (mine.i === chosen) {
+        } else if (isAccepted(i, mine.i)) {
             ensureConfetti().then(() => { try { triggerConfetti(); } catch (e) {} });
             popScore(i);
             beep('good');
@@ -355,12 +384,42 @@ function renderLive() {
     firstLive = false;
 }
 
+// ---------- Vào giữa buổi: nói rõ nhóm đang ở đâu + 2 lối tắt ----------
+// Chỉ hiện 1 lần cho mỗi phiên (localStorage), và chỉ khi mình chưa làm câu nào mà nhóm đã đi xa.
+function maybeLateJoin() {
+    const s = room.session;
+    const answered = doneCount(myMember());
+    const chosenN = s.questions.filter((_, k) => chosenOf(k) !== null).length;
+    const cur = currentIndex();
+    if (answered || (!chosenN && cur === 0) || s.ended) return;
+    const key = `roomLate_${room.roomId}_${s.startedAtMs || 0}`;
+    try { if (localStorage.getItem(key)) return; localStorage.setItem(key, '1'); } catch (e) { /* vẫn hiện */ }
+    const firstOpen = s.questions.findIndex((_, k) => chosenOf(k) === null);
+    const box = document.createElement('div');
+    box.className = 'rm-late';
+    box.innerHTML = `<span class="rm-late-ic">👋</span>
+        <div class="min-w-0 flex-1"><b>Bạn vào giữa buổi</b>
+            <span>Nhóm đã chốt ${chosenN}/${s.questions.length} câu và đang bàn câu ${cur + 1}.</span></div>
+        <button type="button" class="rm-cta rm-solid-btn" data-late="focus"><i class="fas fa-location-arrow"></i>Tới câu ${cur + 1}</button>
+        ${firstOpen >= 0 && firstOpen !== cur ? `<button type="button" class="rm-ghost-btn" data-late="open">Câu chưa chốt đầu tiên (${firstOpen + 1})</button>` : ''}
+        <button type="button" class="rm-icon-btn" data-late="x" title="Đóng"><i class="fas fa-times"></i></button>`;
+    box.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-late]');
+        if (!b) return;
+        if (b.dataset.late === 'focus') followHost();
+        if (b.dataset.late === 'open') setViewIndex(firstOpen);
+        box.remove();
+    });
+    document.querySelector('#quiz-live .rm-topbar')?.after(box);
+}
+
 // Trạng thái một câu, dùng chung cho dải câu và bản đồ câu
 function qStateOf(k) {
     const a = myAnswer(k);
     const c = chosenOf(k);
-    if (a && c !== null) return a.i === c ? 'good' : 'bad';
-    if (a) return 'done';
+    const done = !!optimistic['q' + k] || doneOf(myMember(), k);
+    if (done && c !== null) return isAccepted(k, a.i) ? 'good' : 'bad';
+    if (done) return 'done';
     if (c !== null) return 'miss';
     return 'todo';
 }
@@ -430,10 +489,14 @@ function questionMapHtml(cur) {
 
 function renderOptions(i, q, opts, mine, chosen, announced, shown, refIdx, stats, showStats) {
     const area = el('options-area');
+    area.classList.remove('is-essay');
     // Phương án ngắn thì xếp 2 cột cho đỡ dài; phương án dài luôn 1 cột cho dễ đọc
     area.classList.toggle('is-short', opts.every(o => String(o).replace(/<[^>]*>/g, '').trim().length <= 46));
     const ek = currentEditKey() || '';
-    if (ek.startsWith('opttext:') || ek.startsWith('optexp:')) return;   // đang gõ thì đừng vẽ lại
+    // Đang gõ (chữ phương án · giải thích · lý do · ô nhận xét trong khay) thì đừng vẽ lại, kẻo mất con trỏ.
+    // Rời ô là khay tự gọi repaintOptions().
+    if (ek.startsWith('opttext:') || ek.startsWith('optexp:') || ek === 'why') return;
+    if (area.contains(document.activeElement) && document.activeElement.matches?.('input, textarea')) return;
     const voters = (k) => room.members.filter(m => answerOf(m, i)?.i === k);
     const topN = Math.max(0, ...stats.counts);      // ý đang dẫn đầu, để đánh dấu ngay trên ô
     const soloLead = topN > 0 && stats.counts.filter(n => n === topN).length === 1;
@@ -442,12 +505,12 @@ function renderOptions(i, q, opts, mine, chosen, announced, shown, refIdx, stats
         i, opts, mine, chosen, announced, shown, refIdx, editingOpt, canAnswer(i), ek,
         showStats ? [stats, room.members.map(m => [m.uid, m.displayName, m.emoji, answerOf(m, i)?.i])] : 0,
         optimistic['q' + i] ? optimistic['q' + i].i : null,
-        room.session?.optNotes?.['q' + i], q.optionExplanations,
+        room.session?.optNotes?.['q' + i], q.optionExplanations, room.session?.alsoOk?.['q' + i],
     ])) return;
     area.innerHTML = opts.map((opt, idx) => {
         const picked = mine?.i === idx;
-        const isCorrect = announced && chosen === idx;
-        const isWrong = announced && picked && chosen !== idx;
+        const isCorrect = announced && isAccepted(i, idx);
+        const isWrong = announced && picked && !isAccepted(i, idx);
         const isRef = shown && !announced && refIdx === idx;
         const pct = stats.total ? Math.round(100 * stats.counts[idx] / stats.total) : 0;
         const cls = ['rm-option'];
@@ -459,27 +522,36 @@ function renderOptions(i, q, opts, mine, chosen, announced, shown, refIdx, stats
         if (editingOpt === idx) cls.push('is-editing');
         if (optimistic['q' + i] && optimistic['q' + i].i === idx) cls.push('is-sending');
         const names = showStats ? voters(idx) : [];
-        const exp = (announced || shown) ? (optNoteOf(i, idx) || (q.optionExplanations && q.optionExplanations[idx]) || '') : '';
         const textHtml = editingOpt === idx
             ? `<span class="rm-md" contenteditable="true" data-live-edit="opttext:${idx}" data-placeholder="Nội dung phương án ${L(idx)}…">${renderRich(opt)}</span>`
             : renderRich(opt);
-        return `<button type="button" data-opt="${idx}" class="${cls.join(' ')}">
+        // Số phiếu + mặt người chọn dồn về MỘT cột bên phải (trước đây avatar chiếm
+        // riêng một dòng dưới chữ -> mỗi ô cao thêm ~30px, điện thoại chỉ thấy 2-3 ô).
+        // 0 phiếu thì khỏi ghi "0 · 0%" — 4 ô cùng lặp số 0 chỉ làm rối mắt
+        const side = showStats && stats.counts[idx]
+            ? `<span class="rm-oside">
+                <span class="rm-pct ${soloLead && stats.counts[idx] === topN && !announced ? 'is-lead' : ''}"
+                      title="${stats.counts[idx]}/${stats.total} người trong phòng chọn ý này">${stats.counts[idx]} · ${pct}%</span>
+                ${names.length ? `<span class="rm-voters">${avatarStack(names, 3)}</span>` : ''}
+               </span>`
+            : '';
+        // Thẻ = ô chọn + KHAY gắn ngay dưới (giải thích · lý do · ai chọn gì · nhận xét, do
+        // room-answer.js · renderOptionTalk đổ vào). Khay nằm NGOÀI <button> vì có ô gõ bên trong.
+        const card = ['rm-ocard', 'o' + (idx % 4)];
+        if (isCorrect) card.push('is-correct'); else if (isWrong) card.push('is-wrong'); else if (picked) card.push('is-picked');
+        return `<div class="${card.join(' ')}" data-card="${idx}"><button type="button" data-opt="${idx}" class="${cls.join(' ')}">
             ${showStats ? `<span class="rm-fill" style="width:${pct}%"></span>` : ''}
             <span class="rm-opt-edit" data-edit-opt-text="${idx}" title="Sửa nội dung phương án ${L(idx)}"><i class="fas fa-pen"></i></span>
             <span class="rm-letter">${L(idx)}</span>
             <span class="rm-otext">
                 ${textHtml}
                 ${isRef ? '<span class="rm-chip warn">đáp án trong file</span>' : ''}
-                ${names.length ? `<span class="rm-voters">${avatarStack(names, 8)}</span>` : ''}
-                ${exp ? `<span class="rm-oexp">${renderRich(exp)}</span>` : ''}
             </span>
-            ${showStats && stats.total
-            ? `<span class="rm-pct ${soloLead && stats.counts[idx] === topN && !announced ? 'is-lead' : ''}"
-                     title="${stats.counts[idx]}/${stats.total} người trong phòng chọn ý này">${stats.counts[idx]} · ${pct}%</span>`
-            : ''}
-        </button>`;
+            ${side}
+        </button><div class="rm-odisc hidden" data-odisc="${idx}"></div></div>`;
     }).join('');
     renderMath(area);
+    renderOptionTalk(i, true);
     if (editingOpt !== null) {
         const node = area.querySelector(`[data-live-edit="opttext:${editingOpt}"]`);
         if (node) { node.focus(); document.getSelection()?.selectAllChildren(node); }
@@ -496,12 +568,12 @@ function questionTrackHtml(cur) {
     let out = '';
     for (let k = 0; k < total; k++) {
         if (k && k % 10 === 0) out += `<span class="rm-pip-sep"><i>${k}</i></span>`;
-        const a = myAnswer(k);
+        const st = qStateOf(k);
+        const a = st !== 'todo' && st !== 'miss';
         const c = chosenOf(k);
         let cls = 'rm-pip';
-        if (a && c !== null) cls += a.i === c ? ' good' : ' bad';
-        else if (a) cls += ' done';
-        else if (c !== null) cls += ' miss';           // nhóm chốt rồi mà mình chưa chọn
+        if (st !== 'todo') cls += ' ' + st;             // miss = nhóm chốt rồi mà mình chưa chọn
+        if (isEssay(questionAt(k))) cls += ' essay';
         if (flagOf(me, k)) cls += ' flag';
         if (k === cur) cls += ' now';
         if (k === currentIndex()) cls += ' focus';
@@ -526,14 +598,20 @@ function renderRace() {
     const box = el('race');
     if (!box) return;
     box.classList.toggle('is-off', raceOff);
+    const chip = el('race-chip');
+    chip?.classList.toggle('hidden', raceOff);
     if (raceOff) return;
     const total = room.session?.questions?.length || 1;
-    const done = (m) => Object.keys(m.answers || {}).length;
+    const done = (m) => doneCount(m);
     const runners = room.members.filter(m => m.online !== false).sort((a, b) => done(b) - done(a));
     if (!runners.length) { box.innerHTML = ''; return; }
     const best = done(runners[0]);
     const leader = best > 0 ? runners[0] : null;
     const meNow = myMember();
+    // Chip trên thanh HUD: chỉ người dẫn đầu (tiến độ của MÌNH đã có ở chip "Còn N" + dải câu)
+    if (chip) chip.innerHTML = leader
+        ? `<span class="rm-rcrown-sm">👑</span><span class="rm-hide-sm">${escapeHtml(shortName(leader.displayName || 'Khách', 10))}</span> <b>${best}/${total}</b>`
+        : `🏁 <span class="rm-hide-sm">Cả nhóm </span><b>0/${total}</b>`;
 
     // Gom người đứng gần nhau vào cùng một mốc -> hết cảnh avatar chồng thành đống
     const STEP = 5;                                   // mỗi mốc rộng 5%
@@ -560,10 +638,9 @@ function renderRace() {
     }).join('');
 
     box.innerHTML = `
-        <div class="rm-race-top">
+        <div class="rm-race-top" title="Bấm để xem / gập đường đua">
             <span class="rm-race-label">🏁 Cả nhóm tới đâu rồi</span>
-            ${leader ? `<span class="rm-rlead">👑 ${escapeHtml(shortName(leader.displayName || 'Khách', 10))} · ${best}/${total}</span>` : ''}
-            <span class="rm-rcount">${runners.length} người đang làm</span>
+            <span class="flex-1"></span>
             <button class="rm-icon-btn rm-race-toggle" data-race-toggle title="Ẩn dải tiến độ"><i class="fas fa-eye-slash"></i></button>
         </div>
         <div class="rm-race-lane">
@@ -596,11 +673,11 @@ function popScore(i) {
         const c = chosenOf(k);
         const a = myAnswer(k);
         if (c === null || !a) break;
-        if (a.i !== c) break;
+        if (!isAccepted(k, a.i)) break;
         streak++;
     }
     const st = questionStats(i);
-    const all = st.total >= 2 && st.counts[chosenOf(i)] === st.total;
+    const all = st.total >= 2 && st.correctCount === st.total;
     const node = document.createElement('div');
     node.className = 'rm-pop';
     node.innerHTML = `<b>+10</b><span>${all ? '🎯 Cả phòng ăn trọn!' : streak >= 2 ? `🔥 Chuỗi ${streak} câu` : '✨ Chuẩn luôn!'}</span>`;
@@ -624,6 +701,15 @@ function renderConsensus(i, stats, mine, chosen, announced) {
     const dissent = room.members.filter(m => dissentOf(m, i));
     const showWho = announced || isShown(i) || !!room.session?.liveStats;
 
+    // Đáp án nhóm chốt có khớp đáp án trong file không (trước ở khối kết luận — đã bỏ vì lặp ô xanh + chip)
+    const fileNote = () => {
+        const ref = refIdxOf(questionAt(i));
+        if (ref === null) return '';
+        if (isSplit(i)) return ` · file ghi <b>${L(ref)}</b>`;
+        return acceptedOf(i).includes(ref) ? ' · <span class="rm-vok">✓ khớp đáp án file</span>'
+            : ` · <span class="rm-vwarn">file ghi <b>${L(ref)}</b> — nên kiểm lại nguồn</span>`;
+    };
+
     // Số phiếu từng phương án nằm NGAY TRONG ô phương án (xem renderOptions),
     // ở đây chỉ còn thứ ô phương án không nói được: tóm tắt, trạng thái nhóm, huy hiệu, độ khó.
 
@@ -631,7 +717,7 @@ function renderConsensus(i, stats, mine, chosen, announced) {
     const badges = [];
     if (announced) {
         const start = startOf(i);
-        const winners = room.members.filter(m => answerOf(m, i)?.i === chosen);
+        const winners = room.members.filter(m => isAccepted(i, answerOf(m, i)?.i));
         if (start) {
             const fast = winners.filter(m => answerOf(m, i)?.at > start)
                 .sort((a, b) => answerOf(a, i).at - answerOf(b, i).at)[0];
@@ -661,16 +747,17 @@ function renderConsensus(i, stats, mine, chosen, announced) {
         <div class="rm-vprog" title="${answered}/${totalMembers} người đã chọn"><span style="width:${Math.round(100 * answered / totalMembers)}%"></span></div>
         <div class="rm-vote-head">
             <span><b>${answered}</b>/${totalMembers} đã chọn</span>
-            <span>·</span>
-            ${isBlind(i)
-                ? '<span>🙈 Đang giấu phiếu — chờ chủ trì lật bài</span>'
-                : answered
-                ? (announced
-                    ? `<span>Nhóm chốt <b>${L(chosen)}</b>${stats.counts[chosen] ? ` · ${Math.round(100 * stats.counts[chosen] / answered)}% chọn trúng` : ''}</span>`
-                    : tied.length > 1
-                        ? `<span>Đang chia đều <b>${tied.map(L).join(' / ')}</b> · ${pct}% mỗi ý</span>`
-                        : `<span>${unanimous ? 'Cả nhóm cùng chọn' : 'Đang nghiêng về'} <b>${L(top)}</b> · ${pct}%</span>`)
-                : '<span>Chưa ai chọn</span>'}
+            ${(() => {
+                // Chỉ nói điều Ô ĐÁP ÁN chưa nói: "đang nghiêng về B 75%" thì ô B đã tô sẵn "3 · 75%",
+                // "nhóm chốt B" thì chip trạng thái + ô xanh + kết luận đã nói -> bỏ, tránh lặp.
+                const note = isBlind(i) ? '🙈 Đang giấu phiếu — chờ chủ trì lật bài'
+                    : !answered ? ''
+                    : announced ? `<b>${Math.round(100 * stats.correctCount / answered)}%</b> chọn trúng${fileNote()}`
+                    : isSplit(i) ? `🤝 Nhóm <b>chưa thống nhất</b> — không tính điểm, mọi quan điểm được ghi nhận${fileNote()}`
+                    : unanimous ? `Cả nhóm cùng chọn <b>${L(top)}</b>`
+                    : tied.length > 1 ? `Đang hoà <b>${tied.map(L).join(' / ')}</b>` : '';
+                return note ? `<span>·</span><span>${note}</span>` : '';
+            })()}
             <div class="flex-1"></div>
             ${ready ? `<span class="rm-chip ok"><i class="fas fa-check"></i>${ready} báo xong</span>` : ''}
             ${dissent.length ? `<span class="rm-chip warn" title="${escapeHtml(dissent.map(m => m.displayName || '').join(', '))}">✋ ${dissent.length} bảo lưu</span>` : ''}
@@ -682,41 +769,30 @@ function renderConsensus(i, stats, mine, chosen, announced) {
         ${diffBar}`;
 }
 
-// ---------- Thẻ "Việc của tôi": gom nút theo nhóm cho dễ hiểu ----------
+// ---------- "Việc của tôi": MỘT hàng chip ngay dưới phương án ----------
+// Trước đây là thẻ 2 hàng có nhãn nằm ở cột phụ -> trên điện thoại bị giấu trong khay
+// "Ghi chú", muốn bấm "Cần bàn" phải mở khay. Nay luôn thấy, và ô "Vì sao" chỉ bung
+// khi bấm chip 💬 (hoặc khi đã có lý do).
 function renderSelfBar(i, mine, q) {
     const bar = el('self-bar');
-    const ek = currentEditKey() || '';
-    if (ek === 'why') return;                       // đang gõ lý do thì đừng vẽ lại
     const me = myMember();
     const mark = getMark(q.question);
     const r = mark ? MARK_REASONS[mark] : null;
     const announced = isAnnounced(i);
-    const differ = announced && mine && mine.i !== chosenOf(i);
     const ex = explainerOf(i);
     const iExplain = ex?.uid === uid();
     bar.innerHTML = `
-        <div class="rm-selfrow">
-            <span class="rm-label"><i class="fas fa-user-check"></i> Câu trả lời của tôi</span>
-            <button data-guess class="rm-mini ${mine?.guess ? 'is-guess' : ''}" ${mine ? '' : 'disabled'} title="Đánh dấu là bạn chỉ đoán">
-                <i class="fas ${mine?.guess ? 'fa-dice' : 'fa-circle-check'}"></i>${mine?.guess ? 'Chỉ đoán' : 'Chắc chắn'}
-            </button>
+        <div class="rm-selfchips">
             <button data-ready class="rm-mini ${readyOf(me, i) ? 'is-ready' : ''}" title="Báo cho chủ trì là bạn xong câu này">
-                <i class="fas fa-flag-checkered"></i>${readyOf(me, i) ? 'Đã báo xong' : 'Tôi xong rồi'}
+                <i class="fas fa-flag-checkered"></i>${readyOf(me, i) ? 'Đã báo xong' : 'Xong'}
             </button>
-            ${i !== currentIndex() ? `<button data-nav="focus" class="rm-mini is-on"><i class="fas fa-location-arrow"></i>Về câu nhóm đang bàn (${currentIndex() + 1})</button>` : ''}
-        </div>
-
-        <div class="rm-selfrow">
-            <span class="rm-label"><i class="fas fa-hand-sparkles"></i> Nhờ cả nhóm</span>
             <button data-flag class="rm-mini ${flagOf(me, i) ? 'is-flag' : ''}" title="Báo cho cả nhóm: câu này cần bàn thêm">🗣 Cần bàn</button>
-            ${announced ? `<button data-unclear class="rm-mini ${unclearOf(me, i) ? 'is-flag' : ''}">🤔 Chưa hiểu</button>` : ''}
+            ${announced ? `<button data-unclear class="rm-mini ${unclearOf(me, i) ? 'is-flag' : ''}" title="Chốt rồi mà vẫn chưa hiểu">🤔 Chưa hiểu</button>` : ''}
             <button data-explain-me class="rm-mini ${iExplain ? 'is-on' : ''}" title="Nhận giảng câu này cho cả nhóm">
-                🎙 ${iExplain ? 'Mình đang nhận giảng' : ex ? `${escapeHtml(shortName(ex.name || 'Ai đó', 8))} đang giảng` : 'Mình giảng câu này'}
+                🎙 ${iExplain ? 'Mình giảng' : ex ? `${escapeHtml(shortName(ex.name || 'Ai đó', 8))} giảng` : 'Giảng'}
             </button>
-            ${differ ? `<button data-dissent class="rm-mini ${dissentOf(me, i) ? 'is-flag' : ''}" title="Ý kiến của bạn vẫn được ghi vào biên bản">
-                ✋ ${dissentOf(me, i) ? 'Đang bảo lưu' : 'Vẫn giữ ' + L(mine.i)}</button>` : ''}
             <div class="relative">
-                <button data-mark-toggle class="rm-mini ${r ? 'is-on' : ''}"><i class="fas ${r ? r.icon : 'fa-flag'}"></i>${r ? r.short : 'Đánh dấu'}</button>
+                <button data-mark-toggle class="rm-mini ${r ? 'is-on' : ''}" title="Đánh dấu để ôn lại"><i class="fas ${r ? r.icon : 'fa-bookmark'}"></i>${r ? r.short : 'Đánh dấu'}</button>
                 <div id="mark-menu" class="rm-menu hidden">
                     ${Object.entries(MARK_REASONS).map(([k, m]) => `
                         <button data-mark="${k}" class="rm-menu-item ${mark === k ? 'is-active' : ''}">
@@ -724,89 +800,7 @@ function renderSelfBar(i, mine, q) {
                     ${mark ? '<button data-mark="__unmark" class="rm-menu-item"><span class="rm-menu-ic" style="background:#fee2e2;color:#ef4444"><i class="fas fa-flag-checkered"></i></span>Bỏ đánh dấu</button>' : ''}
                 </div>
             </div>
-        </div>
-
-        <div class="rm-whywrap" data-live-wrap>
-            <div class="rm-whyhead">
-                <span class="rm-label"><i class="fas fa-comment-dots"></i> Vì sao bạn chọn${mine ? ' ' + L(mine.i) : ''}?</span>
-                <span data-live-status></span>
-                <div class="flex-1"></div>
-                <span class="rm-live-hint">cả nhóm sẽ thấy khi bàn</span>
-            </div>
-            <div class="rm-md rm-why" contenteditable="true" data-live-edit="why"
-                 data-placeholder="${mine ? 'Ghi ngắn gọn lý do…' : 'Chọn một phương án trước đã…'}">${renderRich(whyOf(me, i))}</div>
         </div>`;
-    markEmpty(bar);
-}
-
-// ---------- Khối "Đáp án & giải thích" — CẢ NHÓM cùng viết ----------
-function renderAnswerBlock(i, q, opts, chosen, announced, shown, refIdx) {
-    const box = el('answer-block');
-    const ek = currentEditKey() || '';
-    if (box.dataset.qi === String(i) && (ek === 'explain' || ek.startsWith('optexp:'))) {
-        updateTypingHint(i);
-        return;                                   // đang gõ thì giữ nguyên, khỏi nhảy con trỏ
-    }
-    box.dataset.qi = String(i);
-    if (!changed('answer', [i, chosen, announced, shown, refIdx, studyTab, ek,
-        noteOf(i), noteAuthorOf(i), room.session?.optNotes?.['q' + i],
-        q.explanation || q.explain || '', q.expanded || '', q.note || '', opts])) {
-        return updateTypingHint(i);
-    }
-
-    const author = noteAuthorOf(i);
-    const fileExp = q.explanation || q.explain || '';
-    const note = noteOf(i);
-    const state = announced
-        ? `<div class="rm-verdict ${refIdx !== null && refIdx !== chosen ? 'diff' : ''}">
-                <span><i class="fas fa-gavel"></i> Nhóm chốt: <b>${L(chosen)}</b></span>
-                ${refIdx !== null
-                    ? `<span>·</span><span><i class="fas fa-file-lines"></i> File: <b>${L(refIdx)}</b></span>
-                       ${refIdx === chosen ? '<span class="rm-chip ok">khớp</span>' : '<span class="rm-chip warn">khác file — nên kiểm lại</span>'}`
-                    : '<span class="rm-chip">file không có đáp án</span>'}
-           </div>`
-        : shown
-            ? `<div class="rm-verdict diff"><i class="fas fa-eye"></i> Đáp án tham khảo trong file: <b>${refIdx !== null ? L(refIdx) : 'không có'}</b> — bàn xong rồi chủ trì mới chốt.</div>`
-            : '<p class="text-xs text-muted mb-1"><i class="fas fa-lock mr-1"></i>Đáp án trong file đang giấu. Cả nhóm cứ ghi lý lẽ vào đây trước.</p>';
-
-    box.className = 'rm-spane' + (studyTab === 'answer' ? '' : ' hidden');
-    box.innerHTML = `
-        <div data-live-wrap>
-            <div class="flex items-center gap-2 mb-2 flex-wrap">
-                ${announced ? '<span class="rm-chip ok">đã chốt</span>' : shown ? '<span class="rm-chip warn">đã hiện đáp án file</span>' : '<span class="rm-chip">chưa chốt</span>'}
-                <span id="typing-hint" class="rm-typing"></span>
-            </div>
-            ${state}
-            <div class="flex items-center gap-2 mt-3 mb-1.5 flex-wrap">
-                <span class="rm-label">Giải thích chung</span>
-                <span class="rm-live-hint"><i class="fas fa-pen"></i>bấm vào là sửa · bôi đen để in đậm</span>
-                <span data-live-status></span>
-                ${author ? `<span class="text-[11px] text-muted">${escapeHtml(author.name || '')} sửa lần cuối</span>` : ''}
-                <div class="flex-1"></div>
-                ${fileExp && !note && (announced || shown) ? '<button data-usefileexp class="rm-chip accent"><i class="fas fa-file-import"></i>Lấy giải thích trong file</button>' : ''}
-            </div>
-            <div class="rm-md" contenteditable="true" data-live-edit="explain"
-                 data-placeholder="Ghi cách suy luận, mẹo nhớ, dẫn chứng… (cả nhóm cùng thấy)">${renderRich(note)}</div>
-
-            <details class="mt-3" ${opts.some((_, k) => optNoteOf(i, k)) ? 'open' : ''}>
-                <summary class="rm-label cursor-pointer">Giải thích riêng từng phương án</summary>
-                <div class="mt-2 space-y-2">
-                    ${opts.map((_, k) => {
-                        const t = optNoteOf(i, k) || ((announced || shown) && q.optionExplanations && q.optionExplanations[k]) || '';
-                        return `<div class="flex items-start gap-2">
-                            <span class="rm-letter mt-1">${L(k)}</span>
-                            <div class="rm-md flex-1" contenteditable="true" data-live-edit="optexp:${k}"
-                                 data-placeholder="Vì sao ${L(k)} đúng/sai…">${renderRich(t)}</div>
-                        </div>`;
-                    }).join('')}
-                </div>
-            </details>
-            ${(announced || shown) && q.expanded ? `<div class="rm-note-callout indigo mt-3"><b><i class="fas fa-expand mr-1"></i>Mở rộng:</b> <div class="rm-md">${renderRich(q.expanded)}</div></div>` : ''}
-            ${(announced || shown) && q.note ? `<div class="rm-note-callout mt-2"><b><i class="fas fa-thumbtack mr-1"></i>Ghi nhớ:</b> <div class="rm-md">${renderRich(q.note)}</div></div>` : ''}
-        </div>`;
-    updateTypingHint(i);
-    markEmpty(box);
-    renderMath(box);
 }
 
 // Ô trống thì hiện chữ gợi ý mờ
@@ -814,12 +808,6 @@ function markEmpty(root) {
     root.querySelectorAll('[data-live-edit]').forEach(n => {
         n.dataset.empty = n.textContent.trim() ? '0' : '1';
     });
-}
-
-function updateTypingHint(i) {
-    const e = editorOf(i);
-    const hint = el('typing-hint');
-    if (hint) hint.textContent = e ? `✍️ ${e.name} đang gõ…` : '';
 }
 
 // ---------- Khối "Ghi chú của tôi & sửa đề" ----------
@@ -830,9 +818,8 @@ function renderMyBlock(i, q, opts) {
     box.dataset.qi = String(i);
     const edited = editOf(i);
     const note = getNote(q.question);
-    if (!changed('my', [i, studyTab, ek, note, getMark(q.question), issueOf(i), edited, opts])) return;
+    if (!changed('my', [i, ek, note, getMark(q.question), issueOf(i), edited, opts])) return;
     const issue = issueOf(i);
-    box.className = 'rm-spane' + (studyTab === 'my' ? '' : ' hidden');
     box.innerHTML = `
         <div data-live-wrap>
             ${edited || issue ? `<div class="flex items-center gap-2 mb-2 flex-wrap">
@@ -846,7 +833,7 @@ function renderMyBlock(i, q, opts) {
                 <span class="text-[10px] text-muted">đồng bộ với trang làm bài</span>
             </div>
             <div class="rm-md" contenteditable="true" data-live-edit="note"
-                 data-placeholder="Ghi lại điều cần nhớ ở câu này…">${renderRich(note)}</div>
+                 data-placeholder="Ghi lại điều cần nhớ ở câu này… (Ctrl+V dán ảnh)">${renderRich(note)}</div>
 
             <div class="flex items-center gap-2 mt-4 mb-1.5 flex-wrap">
                 <span class="rm-label">Báo lỗi đề — cả nhóm cùng thấy</span>
@@ -862,57 +849,6 @@ function renderMyBlock(i, q, opts) {
         </div>`;
     markEmpty(box);
     renderMath(box);
-}
-
-// ---------- Bảng ý kiến: ai chọn gì, vì sao ----------
-function renderOpinionBoard(i, opts, chosen, announced) {
-    const box = el('opinion-board');
-    if (!box) return;
-    const rows = opts.map((opt, k) => {
-        const people = room.members.filter(m => answerOf(m, i)?.i === k);
-        return { k, opt, people };
-    }).filter(r => r.people.length);
-    box.className = 'rm-spane' + (studyTab === 'who' ? '' : ' hidden');
-    if (!rows.length) {
-        box.innerHTML = '<p class="rm-notice py-4">Chưa ai chọn phương án nào ở câu này.</p>';
-        return;
-    }
-    box.innerHTML = `
-        <p class="rm-label mb-1.5"><i class="fas fa-people-arrows"></i> Ai chọn gì · câu ${i + 1}</p>
-        <div class="space-y-1.5 mb-2">
-            ${rows.map(r => `
-                <div class="rm-opinion ${announced && chosen === r.k ? 'is-chosen' : ''}">
-                    <span class="rm-letter">${L(r.k)}</span>
-                    <div class="min-w-0 flex-1">
-                        <p class="text-[11px] font-bold truncate">${escapeHtml(String(r.opt).replace(/<[^>]*>/g, '').slice(0, 60))}</p>
-                        ${r.people.map(m => {
-                            const why = whyOf(m, i);
-                            return `<p class="text-[11px] text-muted mt-0.5">
-                                <b>${escapeHtml(shortName(m.displayName || 'Khách', 12))}</b>${dissentOf(m, i) ? ' <span class="rm-chip warn">bảo lưu</span>' : ''}${why ? ': ' + why.replace(/<[^>]*>/g, '') : ''}</p>`;
-                        }).join('')}
-                    </div>
-                    <span class="rm-chip">${r.people.length}</span>
-                </div>`).join('')}
-        </div>`;
-}
-
-// ---------- Nhãn 3 tab kiến thức: chấm hồng khi có nội dung ----------
-function paintStudyTabs(i, q) {
-    const flags = {
-        answer: !!noteOf(i),
-        my: !!getNote(q.question) || !!issueOf(i),
-        who: room.members.some(m => answerOf(m, i)),
-    };
-    document.querySelectorAll('#quiz-live [data-study]').forEach(b => {
-        const k = b.dataset.study;
-        b.classList.toggle('active', studyTab === k);
-        b.querySelector('.rm-dotmark-tab')?.remove();
-        if (flags[k] && studyTab !== k) {
-            const d = document.createElement('span');
-            d.className = 'rm-dotmark-tab';
-            b.appendChild(d);
-        }
-    });
 }
 
 // ---------- Đồng hồ bàn luận của cả nhóm ----------
@@ -943,7 +879,16 @@ export function tickTimer() {
 }
 
 // ---------- Sự kiện ----------
+// Lời ghim đã ẩn (theo phòng, chỉ trong phiên trình duyệt này)
+const pinKey = () => 'roomPinX_' + room.roomId;
+const pinDismissed = () => { try { return sessionStorage.getItem(pinKey()) || ''; } catch (e) { return ''; } };
+
 export function initStage() {
+    initAnswerHub();
+    el('pinned-note-x')?.addEventListener('click', () => {
+        try { sessionStorage.setItem(pinKey(), room.session?.pinnedNote || ''); } catch (e) {}
+        el('pinned-note')?.classList.add('hidden');
+    });
     el('options-area')?.addEventListener('click', (e) => {
         if (e.target.closest('[contenteditable]') || e.target.closest('[data-edit-opt-text]')) return;
         const btn = e.target.closest('[data-opt]');
@@ -982,11 +927,6 @@ export function initStage() {
             el('question-map').classList.add('hidden');
             return setViewIndex(Number(jump.dataset.jump));
         }
-        const tab = e.target.closest('[data-study]');
-        if (tab) {
-            studyTab = tab.dataset.study;
-            return renderQuiz();
-        }
         if (e.target.closest('#left-chip')) return jumpToUnanswered();
         if (e.target.closest('[data-race-toggle]')) return toggleRace(true);
         const src = e.target.closest('[data-qsrc]');
@@ -997,14 +937,10 @@ export function initStage() {
         if (!e.target.closest('[data-mark-toggle]') && !e.target.closest('#mark-menu')) el('mark-menu')?.classList.add('hidden');
     });
 
-    el('self-bar')?.addEventListener('click', (e) => {
+    const bar = el('self-bar');
+    bar?.addEventListener('click', (e) => {
         const i = effectiveIndex();
         const me = myMember();
-        if (e.target.closest('[data-guess]')) {
-            const mine = myAnswer(i);
-            if (mine) updateDoc(refs.member(), { [`answers.q${i}.guess`]: !mine.guess }).catch(() => {});
-            return;
-        }
         if (e.target.closest('[data-mark-toggle]')) return void el('mark-menu')?.classList.toggle('hidden');
         const mk = e.target.closest('[data-mark]');
         if (mk) {
@@ -1017,7 +953,6 @@ export function initStage() {
         if (e.target.closest('[data-flag]')) return void updateDoc(refs.member(), { [`flags.q${i}`]: !flagOf(me, i) }).catch(() => {});
         if (e.target.closest('[data-ready]')) return void updateDoc(refs.member(), { [`ready.q${i}`]: !readyOf(me, i) }).catch(() => {});
         if (e.target.closest('[data-unclear]')) return void updateDoc(refs.member(), { [`unclear.q${i}`]: !unclearOf(me, i) }).catch(() => {});
-        if (e.target.closest('[data-dissent]')) return void updateDoc(refs.member(), { [`dissent.q${i}`]: !dissentOf(me, i) }).catch(() => {});
         if (e.target.closest('[data-explain-me]')) {
             const ex = explainerOf(i);
             const mineNow = ex?.uid === uid();
@@ -1064,10 +999,28 @@ export function initStage() {
         [`notesBy.q${i}`]: { name: myMember()?.displayName || 'Ai đó', at: Date.now() },
     }).catch(() => {});
 
+    // Nội dung ĐANG LƯU của một ô sửa ở câu i — để nối ảnh vào cuối khi ô đó không còn trên màn
+    const storedOf = (key, i) => {
+        const q = questionAt(i);
+        if (key === 'goal') return room.roomDoc?.goal || '';
+        if (key === 'explain') return noteOf(i);
+        if (key === 'note') return q ? getNote(q.question) : '';
+        if (key === 'issue') return issueOf(i);
+        if (key === 'why') return whyOf(myMember(), i);
+        if (key === 'question') return q?.question || '';
+        if (key.startsWith('optexp:')) return optNoteOf(i, Number(key.split(':')[1]));
+        return null;                                   // chữ phương án: không nối ảnh kiểu này
+    };
+
     window.addEventListener('room:edit', (e) => {
-        const { key, html } = e.detail || {};
+        let { key, html, qi, appendHtml } = e.detail || {};
+        const i = typeof qi === 'number' ? qi : effectiveIndex();
+        if (appendHtml) {
+            const cur = storedOf(key, i);
+            if (cur === null) return;
+            html = sanitizeHtml((cur ? renderRich(cur) : '') + appendHtml);
+        }
         if (key === 'goal') return void updateDoc(refs.room(), { goal: html }).catch(() => {});
-        const i = effectiveIndex();
         const q = questionAt(i);
         if (!q || !hasSession()) return;
         pingTyping(i);
@@ -1111,14 +1064,17 @@ export function initStage() {
         const i = effectiveIndex();
         const q = questionAt(i);
         if (!q) return;
-        if (e.target.closest('[data-usefileexp]')) return void saveNote(i, q.explanation || q.explain || '');
+        if (e.target.closest('[data-open-chat]')) return void openDiscussion();
         if (e.target.closest('[data-reset-edit]')) return void updateDoc(refs.session(), { [`edits.q${i}`]: null }).catch(() => {});
     };
     el('answer-block')?.addEventListener('click', blockClicks);
     el('my-block')?.addEventListener('click', blockClicks);
+    window.addEventListener('room:view', (e) => { if (hasSession()) setViewIndex(Number(e.detail) || 0); });
+    window.addEventListener('room:chat', () => { if (hasSession()) renderQuiz(); });
     el('race')?.addEventListener('click', (e) => {
         const av = e.target.closest('[title]');
-        if (av && !e.target.closest('[data-race-toggle]')) window.dispatchEvent(new CustomEvent('room:panel', { detail: 'members' }));
+        // dòng tóm tắt là nút gập/xổ (room-mobile.js), chỉ mặt người trên đường đua mới mở bảng Nhóm
+        if (av && !e.target.closest('[data-race-toggle]') && !e.target.closest('.rm-race-top')) window.dispatchEvent(new CustomEvent('room:panel', { detail: 'members' }));
     });
 
     // Một vòng duy nhất, tự co giãn: 250ms khi đang có đồng hồ chạy, 1s lúc bình

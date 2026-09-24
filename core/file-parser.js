@@ -57,7 +57,22 @@ function findColumnIdx(headers, aliases) {
  * @param {File} file
  * @returns {Promise<{questions: Array, report: Object|null}>}
  */
-export function parseFile(file) {
+// XLSX ~900KB: không nạp sẵn ở trang chủ (chặn trang lúc mở), chỉ tải khi đọc/xuất Excel.
+let _xlsxPromise = null;
+function loadXlsx() {
+    if (typeof XLSX !== 'undefined') return Promise.resolve();
+    return _xlsxPromise ||= new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+        s.onload = () => resolve();
+        s.onerror = () => { _xlsxPromise = null; reject(new Error('Thư viện XLSX chưa được tải!')); };
+        document.head.appendChild(s);
+    });
+}
+
+// opts (tùy chọn, chỉ phòng đánh đề dùng): { keepEssay, keepUnanswered } — xem autofixQuestions.
+export async function parseFile(file, opts = {}) {
+    await loadXlsx();
     return new Promise((resolve, reject) => {
         if (typeof XLSX === 'undefined') {
             return reject(new Error('Thư viện XLSX chưa được tải!'));
@@ -108,7 +123,9 @@ export function parseFile(file) {
                     while (answers.length && answers[answers.length - 1].trim() === '') answers.pop();
 
                     // Đáp án đúng: chấp nhận 1 hoặc NHIỀU giá trị ("1,3" / "A;C" / "AC")
-                    const { indexes: correctIndexes } = parseCorrectValue(
+                    // Câu KHÔNG phương án (tự luận): ô "đáp án" là chữ -> bài giải gợi ý, đừng đọc thành chỉ mục
+                    const essay = answers.length === 0;
+                    const { indexes: correctIndexes } = essay ? { indexes: [] } : parseCorrectValue(
                         correctIdx >= 0 ? row[correctIdx] : '', Math.max(answers.length, 6));
                     const correctAnswerIndex = correctIndexes.length ? correctIndexes[0] : null;
                     const correctAnswerIndexes = correctIndexes.length > 1 ? correctIndexes : null;
@@ -141,11 +158,12 @@ export function parseFile(file) {
                         expanded: expandedIdx !== undefined ? (row[expandedIdx] || '') : '',
                         caseId: caseIdIdx !== undefined && caseIdIdx >= 0 ? String(row[caseIdIdx] || '').trim() : '',
                         caseText: caseTextIdx !== undefined && caseTextIdx >= 0 ? String(row[caseTextIdx] || '').trim() : '',
-                        caseTitle: caseTitleIdx !== undefined && caseTitleIdx >= 0 ? String(row[caseTitleIdx] || '').trim() : ''
+                        caseTitle: caseTitleIdx !== undefined && caseTitleIdx >= 0 ? String(row[caseTitleIdx] || '').trim() : '',
+                        ...(essay && correctIdx >= 0 && String(row[correctIdx] ?? '').trim() ? { modelAnswer: String(row[correctIdx]).trim() } : {})
                     };
                 }).filter(q => q !== null);
                 // Tự chữa lỗi TRƯỚC khi gom nhóm ca lâm sàng (autofix có thể loại/gộp câu)
-                const { questions, report } = autofixQuestions(parsedQuestions);
+                const { questions, report } = autofixQuestions(parsedQuestions, opts);
                 resolve({ questions: normalizeCaseGroups(questions), report });
             } catch (error) {
                 reject(error);
@@ -198,8 +216,8 @@ function normalizeCaseGroups(questions) {
 /**
  * Tải file Excel mẫu về máy người dùng
  */
-export function downloadTemplate() {
-    if (typeof XLSX === 'undefined') {
+export async function downloadTemplate() {
+    try { await loadXlsx(); } catch (e) {
         alert('Thư viện XLSX chưa được tải!');
         return;
     }

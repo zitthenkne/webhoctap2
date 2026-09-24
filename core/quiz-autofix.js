@@ -217,7 +217,9 @@ export function parseCorrectValue(value, optionCount = 4) {
  * Kiểm tra & chữa một bộ câu hỏi đã parse.
  *
  * @param {Array} questions mảng { question, answers, correctAnswerIndex, explanation, optionExplanations, ... }
- * @param {{threshold?:number}} [opts]
+ * @param {{threshold?:number, keepEssay?:boolean, keepUnanswered?:boolean}} [opts]
+ *        keepEssay: giữ câu 0 phương án (tự luận, type:'essay') · keepUnanswered: giữ câu không suy ra được đáp án
+ *        (cả hai chỉ phòng đánh đề dùng — ở đó đáp án file chỉ là tham khảo)
  * @returns {{questions:Array, report:Object}}
  */
 export function autofixQuestions(questions, opts = {}) {
@@ -277,7 +279,14 @@ export function autofixQuestions(questions, opts = {}) {
         q.options = options;
         q.optionExplanations = optExps;
 
-        // A4. Loại câu không dùng được
+        // A4. Loại câu không dùng được.
+        // Phòng đánh đề (opts.keepEssay) giữ câu KHÔNG phương án = câu tự luận; bỏ qua mọi suy luận đáp án.
+        if (q.question && options.length === 0 && opts.keepEssay) {
+            q.type = 'essay';
+            q.__essay = true;
+            kept.push(q);
+            return;
+        }
         if (!q.question || options.length < 2) {
             report.dropped.push({
                 row: q.__row, question: q.question.slice(0, 60),
@@ -322,8 +331,8 @@ export function autofixQuestions(questions, opts = {}) {
     // Ưu tiên: dấu đánh trong file > giải thích từng phương án > giải thích chung
     const inferred = kept.map(q => {
         const n = q.answers.length;
-        // Câu "chọn nhiều đáp án" — mọi suy luận dưới đây đều giả định 1 đáp án nên bỏ qua
-        if (Array.isArray(q.correctAnswerIndexes) && q.correctAnswerIndexes.length > 1) {
+        // Câu "chọn nhiều đáp án" / câu tự luận — mọi suy luận dưới đây đều giả định 1 đáp án nên bỏ qua
+        if (q.__essay || (Array.isArray(q.correctAnswerIndexes) && q.correctAnswerIndexes.length > 1)) {
             return { index: -1, confidence: 'none', reason: '' };
         }
         if (q.__markerIndex >= 0) {
@@ -338,7 +347,7 @@ export function autofixQuestions(questions, opts = {}) {
 
     // --- C. Vá câu THIẾU đáp án (luôn làm — không có gì để mất) --------------
     kept.forEach((q, i) => {
-        if (q.correctAnswerIndex != null) return;
+        if (q.correctAnswerIndex != null || q.__essay) return;
         const inf = inferred[i];
         if (inf && inf.index >= 0 && inf.confidence === 'high') {
             q.correctAnswerIndex = inf.index;
@@ -346,6 +355,8 @@ export function autofixQuestions(questions, opts = {}) {
                 row: q.__row, question: q.question.slice(0, 70),
                 from: null, to: inf.index, reason: inf.reason
             });
+        } else if (opts.keepUnanswered) {
+            // Phòng đánh đề: đáp án file chỉ là tham khảo -> câu thiếu đáp án vẫn bàn được
         } else {
             report.dropped.push({ row: q.__row, question: q.question.slice(0, 60), why: 'không xác định được đáp án đúng' });
             q.__drop = true;
@@ -393,7 +404,7 @@ export function autofixQuestions(questions, opts = {}) {
 
     // --- E. Dọn field tạm & trả về ------------------------------------------
     const out = kept.filter(q => !q.__drop).map(q => {
-        delete q.__row; delete q.__markerIndex; delete q.__drop;
+        delete q.__row; delete q.__markerIndex; delete q.__drop; delete q.__essay;
         if (!q.optionExplanations.some(e => e)) delete q.optionExplanations;
         // Chỉ giữ correctAnswerIndexes khi thực sự là câu nhiều đáp án (xem quiz-helpers.isMultiAnswer)
         if (!Array.isArray(q.correctAnswerIndexes) || q.correctAnswerIndexes.length < 2) delete q.correctAnswerIndexes;

@@ -85,8 +85,8 @@ let _mermaidPromise = null;
 export function ensureMermaidLoaded() {
     if (window.mermaid) return Promise.resolve();
     if (_mermaidPromise) return _mermaidPromise;
-    // Đường dẫn tương đối tính theo trang HTML (features/quiz/*.html) -> core/libs
-    _mermaidPromise = _loadScriptOnce('../../core/libs/mermaid.min.js')
+    // Tính theo vị trí file này (features/quiz/) chứ không theo trang -> index.html ở gốc cũng đúng
+    _mermaidPromise = _loadScriptOnce(new URL('../../core/libs/mermaid.min.js', import.meta.url).href)
         .catch((e) => { console.error('Không tải được Mermaid:', e); });
     return _mermaidPromise;
 }

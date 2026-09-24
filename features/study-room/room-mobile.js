@@ -5,6 +5,7 @@
 // nhờ vậy mọi listener sẵn có của các module khác vẫn chạy nguyên.
 import { room, hasSession, canControl, isShown } from './room-state.js';
 import { effectiveIndex, setViewIndex } from './room-quiz-stage.js';
+import { focusHub } from './room-answer.js';
 
 const el = (id) => document.getElementById(id);
 const isPhone = () => window.matchMedia('(max-width: 767px)').matches;
@@ -107,15 +108,8 @@ export function paintDock() {
     document.body.classList.toggle('is-host', canControl());
     const c = el('dock-counter');
     if (c && hasSession()) c.textContent = `Câu ${effectiveIndex() + 1}/${room.session.questions.length}`;
-    // Đáp án đã hiện/chốt thì thứ đáng đọc nhất (giải thích) nằm trong khay này.
-    // Để nguyên nhãn "Ghi chú" là người ta tưởng chỉ để ghi chép rồi bỏ qua phần giải thích.
-    const tools = document.querySelector('#mobile-nav [data-m="tools"]');
-    if (tools && hasSession()) {
-        const shown = isShown(effectiveIndex());
-        tools.querySelector('span:not(.rm-dotmark)').textContent = shown ? 'Giải thích' : 'Ghi chú';
-        tools.querySelector('i').className = shown ? 'fas fa-lightbulb' : 'fas fa-pen-to-square';
-        el('nav-tools-dot')?.classList.toggle('hidden', !shown || openSheet === 'tools');
-    }
+    // Khay "Ghi chú" nay chỉ còn ghi chú riêng + báo lỗi đề: phần đáp án & bàn luận đã nằm
+    // ngay dưới phương án (room-answer.js) nên khỏi đổi nhãn "Giải thích" như trước.
     document.querySelectorAll('#mobile-nav [data-m]').forEach(b => {
         const k = b.dataset.m;
         const on = (k === 'tools' && openSheet === 'tools')
@@ -126,7 +120,17 @@ export function paintDock() {
     });
 }
 
+function openPanelSheet(name) {
+    if (openSheet === 'panel' && !el('side-panel').classList.contains('hidden')) return closeSheet();
+    closeSheet();
+    openSheet = 'panel';
+    el('m-scrim')?.classList.remove('hidden');
+    window.dispatchEvent(new CustomEvent('room:panel', { detail: name }));
+    paintDock();
+}
+
 export function initMobile() {
+    window.addEventListener('room:chat-sheet', () => openPanelSheet('discuss'));
     // --- Dock ---
     el('mobile-nav')?.addEventListener('click', (e) => {
         const b = e.target.closest('[data-m]');
@@ -137,20 +141,19 @@ export function initMobile() {
             return setViewIndex(effectiveIndex() + (k === 'next' ? 1 : -1));
         }
         if (k === 'jump') {
+            // Chặn cú bấm nổi lên document: bộ đóng-khi-bấm-ra-ngoài (room-quiz-stage.js)
+            // thấy đích là nút dock -> đóng ngay bản đồ vừa mở (lỗi cũ: bấm "Câu x/y" không lên gì).
+            e.stopPropagation();
             closeSheet();
-            el('stage-quiz')?.scrollTo({ top: 0, behavior: 'smooth' });
             return void el('question-pill')?.click();
         }
-        if (k === 'chat' || k === 'members' || k === 'rank') {
-            const name = { chat: 'discuss', members: 'members', rank: 'rank' }[k];
-            if (openSheet === 'panel' && !el('side-panel').classList.contains('hidden')) return closeSheet();
+        // Đang làm bài: "Bàn luận" đưa thẳng tới khối Đáp án & bàn luận ngay dưới đề (chỗ bàn chính),
+        // chat tự do vẫn mở được từ nút "Chat" trong khối đó. Ở sảnh chờ vẫn là khay chat.
+        if (k === 'chat' && document.body.classList.contains('has-quiz') && el('stage-quiz') && !el('stage-quiz').classList.contains('hidden')) {
             closeSheet();
-            openSheet = 'panel';
-            el('m-scrim')?.classList.remove('hidden');
-            window.dispatchEvent(new CustomEvent('room:panel', { detail: name }));
-            paintDock();
-            return;
+            if (focusHub()) return;
         }
+        if (k === 'chat' || k === 'members' || k === 'rank') return openPanelSheet({ chat: 'discuss', members: 'members', rank: 'rank' }[k]);
         if (k === 'toquiz') {
             closeSheet();
             return void document.querySelector('#stage-tabs [data-stage="quiz"]')?.click();
@@ -165,19 +168,22 @@ export function initMobile() {
         const k = b.dataset.more;
         closeSheet();
         if (k === 'board' || k === 'quiz') return void document.querySelector(`#stage-tabs [data-stage="${k}"]`)?.click();
+        if (k === 'chat') return void openPanelSheet('discuss');
         if (k === 'members' || k === 'rank') return void window.dispatchEvent(new CustomEvent('room:panel', { detail: k }));
         if (k === 'invite') return void el('share-room-btn')?.click();
-        if (k === 'find' || k === 'sound') return void window.dispatchEvent(new CustomEvent('room:tool', { detail: k }));
+        if (k === 'find' || k === 'sound' || k === 'minutes') return void window.dispatchEvent(new CustomEvent('room:tool', { detail: k }));
         if (k === 'text') return void el('text-size-btn')?.click();
         if (k === 'theme') return void el('theme-btn')?.click();
         if (k === 'race') return void window.dispatchEvent(new CustomEvent('room:tool', { detail: 'race' }));
     });
 
-    // Dải tiến độ nhóm trên điện thoại mặc định gập còn 1 dòng -> chạm dòng đó để xổ ra.
-    // (Nút con mắt bên trong vẫn là "ẩn hẳn dải", đừng nuốt mất cú bấm của nó.)
+    // Dải tiến độ nhóm mặc định gập còn 1 dòng (cả máy tính lẫn điện thoại) -> chạm dòng đó
+    // để xổ đường đua ra; nhớ theo máy. (Nút con mắt bên trong vẫn là "ẩn hẳn dải".)
+    try { document.body.classList.toggle('race-open', localStorage.getItem('roomRaceOpen') === '1'); } catch (e) {}
     document.addEventListener('click', (e) => {
-        if (!isPhone() || !e.target.closest('.rm-race-top') || e.target.closest('[data-race-toggle]')) return;
-        document.body.classList.toggle('race-open');
+        if (!(e.target.closest('.rm-race-top') || e.target.closest('[data-race-open]')) || e.target.closest('[data-race-toggle]')) return;
+        const open = document.body.classList.toggle('race-open');
+        try { localStorage.setItem('roomRaceOpen', open ? '1' : '0'); } catch (err) {}
     });
 
     el('stage-tabs')?.addEventListener('click', () => setTimeout(paintDock, 0));

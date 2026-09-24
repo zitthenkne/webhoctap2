@@ -1,24 +1,34 @@
 // CHỈ DÙNG ĐỂ XEM TRƯỚC GIAO DIỆN — giả lập Firestore bằng dữ liệu trong bộ nhớ.
 const A = (i, at, guess) => ({ i, at, guess: !!guess });
 const now = Date.now();
+const at = (k) => { const t = now - 600000 + k * 1000; return { toDate: () => new Date(t), toMillis: () => t }; };
 
 const store = {
     'study_rooms/demo': { owner: 'u1', banned: [], goal: 'Làm 3 câu Sinh lý tim mạch, câu nào lệch ý thì bàn kỹ.' },
     'study_rooms/demo/members/u1': {
         uid: 'u1', displayName: 'Việt Thành', emoji: '🦊', online: true, lastSeen: now, cursor: 0, lobbyReady: true,
-        answers: { q0: A(1, now - 4000) }, marks: {}, flags: {}, ready: {}, unclear: {}, likes: {},
+        answers: { q0: { ...A(1, now - 4000), from: 2, n: 1 } }, marks: {}, flags: {}, ready: {}, unclear: {}, likes: {},
+        // Nhận xét trong khối đáp án (đã ĐỔI Ý từ C sang B)
+        args: { q0: { a1: { t: 'Đỉnh thất trái chỉ có mạng Purkinje, không có mô nút phát nhịp — nên B hợp lý nhất.', o: 1, s: 'pro', at: now - 3000 } },
+                q3: { a4: { t: 'Thiếu cơ chế hóa cảm thụ quan khi huyết áp tụt sâu.', qt: 'phản xạ áp cảm thụ quan ở xoang cảnh và quai động mạch chủ', o: null, s: 'cmt', at: now - 1500 } } },
+        agree: { a2: true },
     },
     'study_rooms/demo/members/u2': {
         uid: 'u2', displayName: 'Minh Anh', emoji: '🐼', online: true, lastSeen: now, cursor: 1, hand: now - 2000, lobbyReady: true,
-        answers: { q0: A(1, now - 9000), q1: A(0, now - 3000) }, marks: { q0: 'doubt' }, flags: { q0: true }, ready: { q0: true },
+        answers: { q0: { ...A(1, now - 9000), why: 'Guyton ch.10: nút xoang nằm ở <b>thành sau trên nhĩ phải</b>, sát lỗ đổ tĩnh mạch chủ trên.' }, q1: A(0, now - 3000) },
+        marks: { q0: 'doubt' }, flags: { q0: true }, ready: { q0: true },
+        args: { q0: { a2: { t: 'C sai: nếu nút xoang ở đỉnh thất thì sóng P phải đi sau QRS.', o: 2, s: 'con', at: now - 2500 } } },
+        agree: { a1: true },
     },
     'study_rooms/demo/members/u3': {
         uid: 'u3', displayName: 'Bảo Ngọc', emoji: '🐨', online: true, lastSeen: now, cursor: 0,
-        answers: { q0: A(2, now - 12000, true) }, marks: {}, flags: {},
+        answers: { q0: { ...A(2, now - 12000, true), why: 'Mình nhớ mang máng là ở đỉnh tim, chưa chắc lắm.' } }, marks: {}, flags: {},
+        args: { q0: { a3: { t: 'Có tài liệu nào ghi chính xác vị trí nút xoang không mọi người?', o: null, s: 'ask', at: now - 1000 } },
+                q3: { a5: { t: 'Nên thêm ý thận điều hòa qua bài niệu áp lực.', o: null, s: 'cmt', at: now - 800 } } },
     },
     'study_rooms/demo/members/guest_ab12cd': {
         uid: 'guest_ab12cd', displayName: 'Hoàng Long', emoji: '🦄', online: true, lastSeen: now, cursor: 2,
-        answers: { q0: A(1, now - 20000) }, marks: {}, flags: {},
+        answers: { q0: A(1, now - 20000) }, marks: {}, flags: {}, agree: { a1: true, a2: true },
     },
     'study_rooms/demo/quizSession/current': {
         quizTitle: 'Sinh lý học — Hệ tuần hoàn',
@@ -53,21 +63,40 @@ const store = {
                 answer: 3,
                 source: 'Bài giảng Sinh lý ĐHYD',
             },
+            // Câu TỰ LUẬN (không phương án) — MỘT bài làm chung (notes.q3) + nhận xét song song
+            {
+                question: 'Trình bày cơ chế điều hòa huyết áp:\na) ngắn hạn\nb) dài hạn',
+                options: [], type: 'essay', topic: 'Huyết động', level: 'Vận dụng',
+                modelAnswer: 'Ngắn hạn: phản xạ áp cảm thụ quan, hóa cảm thụ quan, thiếu máu não. Dài hạn: thận – dịch cơ thể, hệ renin–angiotensin–aldosteron.',
+            },
         ],
         timerSec: 0, liveStats: true, freeRoam: true,
         hostId: 'u1', hostName: 'Việt Thành', cohosts: ['u2'],
         currentQuestionIndex: 0,
         qStarts: { q0: now - 20000 },
         deadline: null,
-        chosen: {}, shown: {}, notes: {}, optNotes: {}, notesBy: {}, editing: {}, edits: {}, issues: {},
+        chosen: {}, shown: {}, optNotes: {}, editing: {}, edits: {}, issues: {},
+        notes: { q3: '<p><b>Ngắn hạn:</b> phản xạ áp cảm thụ quan ở xoang cảnh và quai động mạch chủ → hành não → điều chỉnh giao cảm/phó giao cảm.</p><p><b>Dài hạn:</b> thận điều hòa thể tích dịch.</p>' },
+        notesBy: { q3: { name: 'Minh Anh', at: now - 5000 } },
+        alsoOk: {}, split: {},
         locked: false, ended: false,
         pinnedNote: 'Ai xong câu nào thì giơ tay bàn câu đó nha!',
         sourceQuizId: null,
         startedAtMs: now - 60000,
     },
-    'study_rooms/demo/messages/m1': { type: 'notice', text: 'Việt Thành đã mở phiên đánh đề (3 câu).', createdAt: { toDate: () => new Date() } },
-    'study_rooms/demo/messages/m2': { type: 'chat', uid: 'u2', displayName: 'Minh Anh', text: 'Câu 1 mình phân vân B với C', qIdx: 0, createdAt: { toDate: () => new Date() } },
-    'study_rooms/demo/messages/m3': { type: 'chat', uid: 'u1', displayName: 'Việt Thành', text: 'Ai chọn C giơ tay giải thích thử nha', qIdx: 0, createdAt: { toDate: () => new Date() } },
+    // (at(k) = mốc cố định k giây sau 10 phút trước — xem hàm at bên dưới)
+    'study_rooms/demo/messages/m1': { type: 'notice', text: 'Việt Thành đã mở phiên đánh đề (3 câu).', createdAt: at(1) },
+    'study_rooms/demo/messages/m2': { type: 'chat', uid: 'u2', displayName: 'Minh Anh', text: 'Câu 1 mình phân vân B với C', qIdx: 0, createdAt: at(2) },
+    'study_rooms/demo/messages/m3': { type: 'chat', uid: 'u1', displayName: 'Việt Thành', text: 'Ai chọn C giơ tay giải thích thử nha', qIdx: 0, createdAt: at(3) },
+    // Tin mẫu cho bản nâng cấp bàn bạc: trả lời + thẻ "chọn B" + ảnh nhúng + thẻ tài liệu
+    'study_rooms/demo/messages/m4': { type: 'chat', uid: 'u3', displayName: 'Bảo Ngọc', ans: 1, qIdx: 0,
+        text: 'Mình chọn **B** vì nút xoang nằm ở thành sau nhĩ phải, sát lỗ đổ TMC trên.\n> Guyton ch.10: "SA node … near the opening of the superior vena cava"',
+        reply: { id: 'm2', name: 'Minh Anh', text: 'Câu 1 mình phân vân B với C' },
+        images: [{ u: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAABQCAIAAABd+SbeAAAA2ElEQVR4nO3QMQ2AUBAFQfxLQQAaQBA1eKD4yS2TXL/vZruO+/M9+/n5/tbd/vYw6HgXNOhWFzToVhc06FYXNOhWFzToVhc06FYXNOhWFzToVhf0KuiJoyd2QYNudUGDbnVBg251QYNudUGDbnVBg251QYNudUGDbnVBg251Qa+Cnjh6Yhc06FYXNOhWFzToVhc06FYXNOhWFzToVhc06FYXNOhWFzToVhf0KuiJoyd2QYNudUGDbnVBg251QYNudUGDbnVBg251QYNudUGDbnVBg251QS/qvvb2yxZdnJfUAAAAAElFTkSuQmCC' }], createdAt: at(4) },
+    'study_rooms/demo/messages/m5': { type: 'doc', uid: 'u2', displayName: 'Minh Anh', qIdx: 0,
+        title: 'Guyton & Hall — Textbook of Medical Physiology', src: 'Chương 10 · trang 123', link: 'https://example.com/guyton-ch10',
+        text: 'The sinus node is located in the superior posterolateral wall of the right atrium immediately below and slightly lateral to the opening of the superior vena cava.',
+        createdAt: at(5) },
 };
 
 // ---- Phòng ĐÔNG + đề DÀI: ?big=1 (mặc định 60 câu, 14 người) hoặc ?big=<số câu> ----
@@ -136,6 +165,38 @@ if (bigParam) {
 const view = new URLSearchParams(location.search).get('state') || '';
 const sess = store['study_rooms/demo/quizSession/current'];
 if (view === 'lobby') sess.questions = [];
+// &rich=1 (kèm state=lobby): sảnh chờ đầy đủ — đề sắp làm, hẹn giờ 4 phút nữa, buổi trước, tin nhắn chung
+if (view === 'lobby' && new URLSearchParams(location.search).get('rich')) {
+    Object.assign(store['study_rooms/demo'], {
+        title: 'Nhóm Y4 ôn nội trú', emoji: '🫀',
+        scheduledAt: now + 4 * 60000 + 12000,
+        next: {
+            title: 'Sinh lý tim mạch — đề ôn tập 2', qCount: 40, cases: 6, withExp: 32, by: 'Việt Thành', at: now - 60000,
+            topics: [{ n: 'Điện sinh lý tim', c: 12 }, { n: 'Huyết động', c: 9 }, { n: 'Cung lượng tim', c: 7 }, { n: 'Mạch vành', c: 6 }, { n: 'Điều hòa huyết áp', c: 6 }],
+            levels: [{ n: 'Nhận biết', c: 14 }, { n: 'Thông hiểu', c: 16 }, { n: 'Vận dụng', c: 10 }],
+        },
+        live: { title: 'Thận — tiết niệu (đề 1)', qCount: 30, ended: true, endedAt: now - 26 * 3600000, avg: 64, people: 5, sourceQuizId: 'quiz_than_1' },
+        rollCall: { at: now - 5000, by: 'Minh Anh', byUid: 'u2' },
+    });
+    // bộ đề trong "thư viện" để thử nút "Làm lại đề này" ở thẻ Buổi trước
+    store['quiz_sets/quiz_than_1'] = {
+        title: 'Thận — tiết niệu (đề 1)', userId: 'u1',
+        questions: [
+            { question: 'Đơn vị chức năng của thận là gì?', answers: ['Nephron', 'Tiểu cầu', 'Ống góp', 'Bể thận'], correct: 0, topic: 'Giải phẫu thận', level: 'Nhận biết' },
+            { question: 'GFR bình thường khoảng bao nhiêu?', answers: ['60', '125 mL/phút', '200', '20'], correct: 1, topic: 'Lọc cầu thận', level: 'Thông hiểu' },
+            { question: 'ADH tác động chủ yếu ở đâu?', answers: ['Ống lượn gần', 'Quai Henle', 'Ống góp', 'Cầu thận'], correct: 2, topic: 'Lọc cầu thận', level: 'Thông hiểu' },
+        ],
+    };
+    store['study_rooms/demo/messages/l1'] = { type: 'chat', uid: 'u2', displayName: 'Minh Anh', text: 'Mọi người ơi 8h mình bắt đầu nha 🙌', createdAt: at(30) };
+    store['study_rooms/demo/messages/l2'] = { type: 'chat', uid: 'u3', displayName: 'Bảo Ngọc', text: 'Ok, mình ôn lại **điện thế hoạt động** trước đã', createdAt: at(40) };
+    store['study_rooms/demo/messages/l3'] = { type: 'chat', uid: 'u1', displayName: 'Việt Thành', text: 'Đề 40 câu, có 6 ca lâm sàng nha', createdAt: at(50) };
+    // bong bóng cảm xúc trên ghế (mốc ở tương lai để còn hiện lúc chụp ảnh)
+    Object.keys(store).filter(k => k.startsWith('study_rooms/demo/members/') && store[k].displayName === 'Hoàng Long')
+        .forEach(k => { store[k].reaction = { e: '🔥', at: Date.now() + 60000 }; });
+}
+// &state=multi: chốt nhiều đáp án (B + C) · &state=split: nhóm chưa thống nhất
+if (view === 'multi') { sess.shown = { q0: true }; sess.chosen = { q0: 1 }; sess.alsoOk = { q0: [2] }; }
+if (view === 'split') { sess.shown = { q0: true }; sess.split = { q0: { at: now, by: 'Việt Thành' } }; }
 if (view === 'lead') { sess.mode = 'lead'; sess.timerSec = 30; sess.deadline = now + 22000; sess.freeRoam = false; }
 if (view === 'shown') { sess.shown = { q0: true }; sess.notes = { q0: 'Mình nghĩ B vì nút xoang nằm sát lỗ tĩnh mạch chủ trên.' }; sess.notesBy = { q0: { name: 'Minh Anh', at: now } }; }
 if (view === 'announced') {
@@ -178,11 +239,11 @@ export const doc = (_db, ...p) => ({ path: p.join('/') });
 export const collection = (_db, ...p) => ({ path: p.join('/'), isCol: true });
 // query/where có lọc thật (chỉ toán tử '=='), đủ để bộ xem trước phân biệt
 // "phòng mình tạo" với "phòng chỉ từng vào"; điều kiện lạ thì bỏ qua như trước.
-export const query = (ref, ...cs) => ({ ...ref, __w: cs.filter(c => c && c.__w).map(c => c.__w) });
+export const query = (ref, ...cs) => ({ ...ref, __w: cs.filter(c => c && c.__w).map(c => c.__w), __o: cs.find(c => c && c.__o)?.__o });
 export const where = (field, op, value) => ({ __w: [field, op, value] });
-export const orderBy = () => ({});
+export const orderBy = (field, dir = 'asc') => ({ __o: [field, dir] });
 export const limit = () => ({});
-export const serverTimestamp = () => ({ toDate: () => new Date(), toMillis: () => Date.now() });
+export const serverTimestamp = () => { const t = Date.now(); return { toDate: () => new Date(t), toMillis: () => t }; };
 export const arrayUnion = (v) => ({ __union: v });
 export const arrayRemove = (v) => ({ __remove: v });
 export const deleteField = () => ({ __delete: true });
@@ -224,21 +285,27 @@ export async function getDoc(ref) {
     const d = store[pathOf(ref)];
     return { exists: () => !!d, data: () => d, id: pathOf(ref).split('/').pop() };
 }
-function docsIn(colPath, wheres) {
-    return Object.keys(store)
+// orderBy thật (chỉ cho mốc thời gian / số) để khung Thảo luận xếp tin đúng thứ tự như Firestore
+const msOf = (v) => (typeof v === 'number' ? v : v?.toMillis?.() ?? v?.toDate?.()?.getTime?.() ?? 0);
+function docsIn(colPath, wheres, order) {
+    const list = Object.keys(store)
         .filter(k => k.startsWith(colPath + '/') && k.slice(colPath.length + 1).indexOf('/') === -1)
-        .filter(k => (wheres || []).every(([f, op, v]) => op !== '==' || store[k]?.[f] === v))
-        .map(k => ({ id: k.split('/').pop(), data: () => store[k] }));
+        .filter(k => (wheres || []).every(([f, op, v]) => op !== '==' || store[k]?.[f] === v));
+    if (order) {
+        const [f, dir] = order;
+        list.sort((a, b) => (msOf(store[a]?.[f]) - msOf(store[b]?.[f])) * (dir === 'desc' ? -1 : 1));
+    }
+    return list.map(k => ({ id: k.split('/').pop(), data: () => store[k] }));
 }
 export async function getDocs(q) {
-    const docs = docsIn(pathOf(q), q.__w);
+    const docs = docsIn(pathOf(q), q.__w, q.__o);
     return { empty: !docs.length, docs, size: docs.length, forEach: (f) => docs.forEach(f) };
 }
 export function onSnapshot(refOrQuery, cb) {
     const path = pathOf(refOrQuery);
     const emit = () => {
         if (refOrQuery.isCol) {
-            const docs = docsIn(path, refOrQuery.__w);
+            const docs = docsIn(path, refOrQuery.__w, refOrQuery.__o);
             cb({ forEach: (f) => docs.forEach(f), size: docs.length, docs, metadata: { hasPendingWrites: false } });
         } else {
             const d = store[path];
