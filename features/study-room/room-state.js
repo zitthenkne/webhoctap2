@@ -94,12 +94,20 @@ export const isShown = (i) => !!room.session?.shown?.[qKey(i)] || isAnnounced(i)
 // --- Nội dung câu hỏi có thể được CẢ NHÓM sửa ngay trong phòng ---
 // Bản sửa nằm ở session.edits.q<i> = { question, options:[…] }, không đụng mảng questions gốc.
 export const editOf = (i) => room.session?.edits?.[qKey(i)] || null;
+// "Mở rộng" / "Ghi nhớ" nhóm tự viết hoặc sửa từ bản file: session.extra.q<i> = { expanded, note }
+// (chuỗi rỗng = nhóm đã xoá). Để riêng với edits -> không bật chip "nhóm đã sửa đề", và "Trả câu về
+// bản gốc" chỉ trả CÂU HỎI + phương án, không xoá ghi chú nhóm đã viết.
+export const extraOf = (i) => room.session?.extra?.[qKey(i)] || null;
+export const extraByOf = (i, f) => room.session?.extraBy?.[qKey(i)]?.[f] || null;
 export function questionAt(i) {
     const base = room.session?.questions?.[i] || null;
     if (!base) return null;
     const e = editOf(i);
-    if (!e) return base;
+    const x = extraOf(i);
+    if (!e && !x) return base;
     const merged = { ...base };
+    if (x) ['expanded', 'note'].forEach(f => { if (typeof x[f] === 'string') merged[f] = x[f]; });
+    if (!e) return merged;
     if (typeof e.question === 'string' && e.question.trim()) merged.question = e.question;
     if (Array.isArray(e.options) && e.options.length) {
         if (Array.isArray(base.answers)) merged.answers = e.options; else merged.options = e.options;
@@ -170,7 +178,7 @@ export const acceptedText = (i) => acceptedOf(i).map(k => String.fromCharCode(65
 export function argsOf(i) {
     const out = [];
     room.members.forEach(m => Object.entries(m.args?.[qKey(i)] || {}).forEach(([id, a]) => {
-        if (a && String(a.t || '').trim()) out.push({ id, ...a, uid: m.uid, member: m });
+        if (a && (String(a.t || '').trim() || a.im?.length)) out.push({ id, ...a, uid: m.uid, member: m });   // im = ảnh đính kèm
     }));
     return out;
 }

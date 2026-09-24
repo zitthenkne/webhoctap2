@@ -35,8 +35,8 @@
     <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <!-- Font chữ KHÔNG chặn vẽ trang: tải kiểu "preload rồi mới áp" (display=swap lo phần đổi chữ) -->
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Be+Vietnam+Pro:wght@500;600;700;800&family=Cormorant+Upright:wght@700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Be+Vietnam+Pro:wght@500;600;700;800&family=Cormorant+Upright:wght@700&display=swap"></noscript>
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Cormorant+Upright:wght@700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Cormorant+Upright:wght@700&display=swap"></noscript>
     <!-- Font Awesome tự host, chỉ còn icon phòng dùng (sinh bởi fa-dong-bang.mjs): 249KB -> ~21KB -->
     <link rel="preload" as="font" type="font/woff2" href="fa-phong/solid.woff2" crossorigin>
     <link rel="stylesheet" href="study-room.css">
@@ -64,6 +64,9 @@
     <link rel="modulepreload" href="room-study.js">
     <link rel="modulepreload" href="room-media.js">
     <link rel="modulepreload" href="room-answer.js">
+    <link rel="modulepreload" href="room-presence.js">
+    <link rel="modulepreload" href="room-richtools.js">
+    <link rel="modulepreload" href="room-sparkle.js">
     <link rel="modulepreload" href="room-game.js">
     <link rel="modulepreload" href="../quiz/quiz-helpers.js">
     <link rel="modulepreload" href="../quiz/quiz-study-store.js">
@@ -101,6 +104,8 @@
 
     <div class="flex-1"></div>
 
+    <!-- Ai đang xem (kiểu Google Docs): mặt người online · số = câu đang xem · ✍️ đang sửa · bấm = tới chỗ họ -->
+    <div id="presence" class="rm-presence hidden" aria-label="Ai đang xem"></div>
     <button id="online-pill" class="rm-ghost-btn rm-online" data-nav="members" title="Thành viên trong phòng">
         <i class="fas fa-users"></i><span id="online-count">0</span>
     </button>
@@ -395,7 +400,10 @@
                             <button data-nav="next" class="rm-icon-btn" title="Câu sau (→)"><i class="fas fa-chevron-right"></i></button>
                         </div>
                         <div id="q-track" class="rm-qtrack"></div>
+                        <!-- Bản 32: ô đáp án cuộn khuất thì hiện A B C D mini ở đây (room-sparkle.js) -->
+                        <div id="hud-opts" class="rm-hudopts hidden" role="group" aria-label="Đáp án câu này"></div>
                         <div class="rm-hudchips">
+                            <span id="streak-chip" class="rm-streak hidden"></span>
                             <!-- Cả nhóm tới đâu: 1 chip (người dẫn đầu) thay cho cả hàng dải tiến độ; bấm mới xổ đường đua -->
                             <button id="race-chip" class="rm-racechip hidden" data-race-open title="Cả nhóm tới đâu rồi — bấm để xem đường đua"></button>
                             <button id="focus-chip" class="rm-focuschip hidden" data-nav="focus" title="Về câu cả nhóm đang bàn"><i class="fas fa-location-arrow"></i><span id="focus-text"></span></button>
@@ -423,33 +431,51 @@
 
                         <div id="options-area" class="rm-opts"></div>
 
-                        <!-- KHAY CỦA CÂU HỎI (room-answer.js · renderAnswerHub): ngay sau các ô, cùng kiểu khay dưới
-                             từng ô — lộ đáp án là giải thích hiện thẳng ở đây, sửa/nhận xét tại chỗ. Câu tự luận =
-                             bài làm chung. (Trước đây là khối "Đáp án & bàn luận" ở cột phải -> lặp y hệt khay ABCD.) -->
-                        <section id="answer-block" class="rm-hub" aria-label="Giải thích và bàn luận câu này"></section>
-
                         <!-- Chuông · cược · phiếu kín: DƯỚI phương án — bấm chọn xong thanh cược hiện ra
                              không còn đẩy cả 4 phương án tụt xuống ngay dưới ngón tay -->
                         <div id="game-bar" class="rm-gamebar hidden"></div>
 
                         <!-- MỘT thẻ trạng thái: bảng phiếu (x/N đã chọn · % trúng · huy hiệu · độ khó) + hàng
-                             "việc của tôi" (Xong · Cần bàn · Giảng · Đánh dấu) — trước là 2 thẻ mỏng liền nhau -->
+                             "việc của tôi" (Xong · Cần bàn · Giảng · Đánh dấu). Bản 27: NGAY SAU phương án — chọn
+                             xong là thấy cả nhóm tới đâu + nút việc của mình, không phải cuộn qua cả luồng bàn luận -->
                         <div class="rm-statuscard">
                             <div id="consensus-bar" class="rm-vote"></div>
                             <div id="self-bar" class="rm-selfcard"></div>
                         </div>
 
+                        <!-- (màn hẹp / điện thoại: #notebook được JS dời vào ĐÂY — ngay trước luồng bàn luận) -->
+
+                        <!-- LUỒNG BÀN LUẬN CỦA CÂU (room-answer.js · renderAnswerHub): nhận xét + tin chat gắn câu.
+                             Câu tự luận: bài làm chung cũng nằm ở đây (là phần làm bài chính). -->
+                        <section id="answer-block" class="rm-hub" aria-label="Bàn luận câu này"></section>
+
                     </div>
 
-                    <!-- Ghi chú riêng của tôi (máy tính: xếp dưới đề, gập sẵn · điện thoại: khay "Ghi chú") -->
+                    <!-- CỘT SỔ TAY (bản 27, máy tính rộng): giải thích · mở rộng · ghi nhớ · ghi chú của tôi nằm
+                         CẠNH phần làm bài, dính theo khi cuộn, tự cuộn riêng — khỏi kéo lên kéo xuống.
+                         Màn hẹp: #notebook về cột chính; điện thoại: phần còn lại là khay "Ghi chú". -->
                     <div class="rm-col-side">
                         <div id="split-live" class="rm-split rm-split-live" title="Kéo để đổi độ rộng 2 cột · bấm đúp để trả về mặc định"></div>
                         <div class="rm-sheet-grip md:hidden"></div>
-
-                        <details class="rm-studytabs rm-notes" open>
-                            <summary class="rm-notes-cap"><i class="fas fa-pen-to-square"></i>Ghi chú của tôi · báo lỗi đề</summary>
-                            <section id="my-block" class="rm-spane"></section>
-                        </details>
+                        <button type="button" class="rm-nb-railbtn" title="Mở sổ tay (phím O)"><span>📒</span><b>Sổ tay</b></button>
+                        <!-- Bản 28: cột CAO HẾT MÀN (JS đặt --rm-side-h), 2 thẻ: sổ tay câu đang xem · mục lục cả đề -->
+                        <div class="rm-side-scroll">
+                            <div class="rm-side-tabs" role="tablist" aria-label="Sổ tay">
+                                <button type="button" class="rm-side-tab on" data-side-tab="q" role="tab">📒 Câu này</button>
+                                <button type="button" class="rm-side-tab" data-side-tab="all" role="tab">📚 Cả đề<b id="nb-all-count"></b></button>
+                                <span class="flex-1"></span>
+                                <button type="button" class="rm-side-tool" data-nb-wide title="Nới rộng / thu hẹp cột sổ tay">⤢</button>
+                                <button type="button" class="rm-side-tool" data-nb-rail title="Thu gọn sổ tay (phím O)">⇥</button>
+                            </div>
+                            <div class="rm-side-pane" data-pane="q">
+                                <section id="notebook" class="rm-notebook" aria-label="Sổ tay câu này"></section>
+                                <details id="my-notes" class="rm-studytabs rm-notes" open>
+                                    <summary class="rm-notes-cap"><i class="fas fa-pen-to-square"></i>Ghi chú của tôi · báo lỗi đề</summary>
+                                    <section id="my-block" class="rm-spane"></section>
+                                </details>
+                            </div>
+                            <div class="rm-side-pane hidden" data-pane="all" id="nb-all"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -704,14 +730,13 @@ Câu 2: Trình bày cơ chế điều hòa huyết áp ngắn hạn.
         <button data-close-min class="rm-modal-x"><i class="fas fa-times"></i></button>
         <p class="rm-label"><i class="fas fa-file-signature"></i> Biên bản buổi học</p>
         <h3 class="text-lg font-extrabold mb-1">Xuất biên bản</h3>
-        <p class="text-xs text-muted mb-3">Thông tin chung · tóm tắt · bảng xếp hạng · mức độ tham gia · việc cần làm · chi tiết từng câu (đáp án, giải thích, lý do, thảo luận, tài liệu).</p>
+        <p class="text-xs text-muted mb-3">Bản gọn để ôn: câu cần ôn · đáp án + giải thích từng câu · mở rộng, ghi nhớ · ý chính khi bàn · nguồn tài liệu.</p>
         <div id="min-summary" class="rm-min-sum"></div>
         <p class="rm-label mt-3 mb-1.5">Kèm theo</p>
         <div class="rm-min-opts">
-            <label class="rm-check"><input type="checkbox" id="min-chat" checked class="accent-[#FF69B4]"><span>💬 Thảo luận &amp; tài liệu từng câu</span></label>
-            <label class="rm-check"><input type="checkbox" id="min-reasons" checked class="accent-[#FF69B4]"><span>🗣 Ai chọn gì &amp; lý do</span></label>
-            <label class="rm-check"><input type="checkbox" id="min-images" checked class="accent-[#FF69B4]"><span>🖼 Ảnh minh họa</span></label>
             <label class="rm-check"><input type="checkbox" id="min-only" class="accent-[#FF69B4]"><span>🎯 Chỉ những câu cần ôn</span></label>
+            <label class="rm-check"><input type="checkbox" id="min-images" checked class="accent-[#FF69B4]"><span>🖼 Ảnh minh họa</span></label>
+            <label class="rm-check"><input type="checkbox" id="min-full" class="accent-[#FF69B4]"><span>🗂 Bản đầy đủ — ai chọn gì, toàn bộ chat, mức độ tham gia</span></label>
         </div>
         <div class="rm-min-acts">
             <button id="min-pdf" data-min="pdf" class="rm-cta rm-solid-btn rm-solid-lg"><i class="fas fa-file-pdf"></i>Xuất PDF</button>

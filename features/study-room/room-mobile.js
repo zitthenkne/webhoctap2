@@ -4,6 +4,7 @@
 // Khay không hề dời DOM — chỉ bật/tắt class trên <body> rồi CSS lo phần trượt lên,
 // nhờ vậy mọi listener sẵn có của các module khác vẫn chạy nguyên.
 import { room, hasSession, canControl, isShown } from './room-state.js';
+import { haptic } from './room-boost.js';
 import { effectiveIndex, setViewIndex } from './room-quiz-stage.js';
 import { focusHub } from './room-answer.js';
 
@@ -193,8 +194,44 @@ export function initMobile() {
     el('close-panel-btn')?.addEventListener('click', closeSheet);
 
     // --- Vuốt ngang để đổi câu ---
-    let x0 = null, y0 = null, skip = false;
+    // Bản 32: có phản hồi ngay khi kéo — viên "Câu N ›" trồi ra ở mép màn theo ngón tay, đủ xa thì
+    // đổi màu + rung nhẹ = thả tay là sang câu (trước đây vuốt mù, không biết đã đủ xa chưa).
+    let x0 = null, y0 = null, skip = false, armed = false;
     const stage = el('stage-quiz');
+    const TRIP = 65;
+    const hint = () => {
+        let h = el('swipe-hint');
+        if (!h) {
+            h = document.createElement('div');
+            h.id = 'swipe-hint';
+            h.className = 'rm-swipe';
+            h.setAttribute('aria-hidden', 'true');
+            document.body.appendChild(h);
+        }
+        return h;
+    };
+    const hideHint = () => { armed = false; el('swipe-hint')?.classList.remove('is-on', 'is-armed'); };
+    stage?.addEventListener('touchmove', (e) => {
+        if (x0 === null || skip || e.touches.length !== 1) return;
+        const dx = e.touches[0].clientX - x0;
+        const dy = e.touches[0].clientY - y0;
+        if (Math.abs(dx) < 14 || Math.abs(dx) < Math.abs(dy) * 1.6) { hideHint(); return; }
+        const total = room.session?.questions?.length || 0;
+        const to = effectiveIndex() + (dx < 0 ? 1 : -1);
+        const ok = to >= 0 && to < total;
+        const h = hint();
+        const txt = ok ? (dx < 0 ? `Câu ${to + 1} ›` : `‹ Câu ${to + 1}`) : (dx < 0 ? 'Hết đề rồi' : 'Câu đầu rồi');
+        if (h.textContent !== txt) h.textContent = txt;
+        h.classList.toggle('is-left', dx > 0);
+        h.classList.toggle('is-end', !ok);
+        h.style.setProperty('--p', Math.min(1, Math.abs(dx) / TRIP).toFixed(3));
+        h.classList.add('is-on');
+        const now = ok && Math.abs(dx) >= TRIP;
+        if (now && !armed) haptic(6);
+        armed = now;
+        h.classList.toggle('is-armed', now);
+    }, { passive: true });
+    stage?.addEventListener('touchcancel', () => { x0 = null; hideHint(); }, { passive: true });
     stage?.addEventListener('touchstart', (e) => {
         if (e.touches.length !== 1 || !hasSession()) return;
         const t = e.target;
@@ -204,12 +241,13 @@ export function initMobile() {
         y0 = e.touches[0].clientY;
     }, { passive: true });
     stage?.addEventListener('touchend', (e) => {
+        hideHint();
         if (x0 === null || skip) { x0 = null; return; }
         const t = e.changedTouches[0];
         const dx = t.clientX - x0;
         const dy = t.clientY - y0;
         x0 = null;
-        if (Math.abs(dx) < 65 || Math.abs(dx) < Math.abs(dy) * 1.6) return;
+        if (Math.abs(dx) < TRIP || Math.abs(dx) < Math.abs(dy) * 1.6) return;
         setViewIndex(effectiveIndex() + (dx < 0 ? 1 : -1));
     }, { passive: true });
 

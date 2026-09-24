@@ -1,0 +1,1230 @@
+/* features/quiz/quiz-stationery.css — giao diện "Sổ tay kẹo pastel" cho quiz.html
+   Nạp SAU quiz-enhance.css (giữ tách riêng để gỡ/đổi giao diện chỉ bằng một thẻ <link>).
+   Muốn bỏ giao diện này: gỡ thẻ <link> trong quiz.html.
+
+   MỘT công thức "kẹo" cho mọi khối: mỗi khối chỉ khai báo tông --h (màu) + --hi (mực),
+   nền = --h pha nhạt vào giấy, viền = --h nửa trong, bóng đáy = --h (nổi khối như viên kẹo).
+   Bảng tông lấy chung với phòng đánh đề (study-room.css bản 31) để cả web đồng bộ.
+   Quy ước của web: KHÔNG gradient trang trí (chỉ hoạ tiết chấm/sọc điểm dừng cứng),
+   font Quicksand, đúng = xanh lá · sai = đỏ · đang chọn = xanh dương, tối = ca cao ấm. */
+
+/* ============================================================
+   1) TOKEN
+   ============================================================ */
+:root {
+    /* Tông kẹo (màu) + mực (chữ đậm một bậc) */
+    --hue-blossom: #FF8FB8; --ink-blossom: #C8487A;
+    --hue-peach:   #F79A5E; --ink-peach:   #B0551C;
+    --hue-butter:  #F2BE2E; --ink-butter:  #8C6500;
+    --hue-latte:   #C8A07A; --ink-latte:   #83603F;
+    --hue-vanilla: #E3BF72; --ink-vanilla: #7A5E1E;
+    --hue-mint:    #6FD1AE; --ink-mint:    #23805F;
+    --hue-sky:     #7EC0EE; --ink-sky:     #2D6FA3;
+    --hue-lav:     #B9A2F0; --ink-lav:     #6A4FB8;
+
+    /* Trạng thái đáp án (pastel nhưng giữ nghĩa) */
+    --ok-bg: #DDF6E8;   --ok-line: #7ED3A4;   --ok-solid: #3DB37A;   --ok-ink: #1E7A4C;
+    --bad-bg: #FFE4E4;  --bad-line: #F4A0A0;  --bad-solid: #E4646C;  --bad-ink: #A33A42;
+    --pick-bg: #E3F1FD; --pick-line: #8DC3EF; --pick-solid: #4B9EDB; --pick-ink: #2A6A9C;
+
+    /* Giấy & mực */
+    --bg-desk: #FBF0EC;
+    --paper: #FFFCF8;
+    --surface-card: #FFFFFF;
+    --ink: #5A4640;
+    --ink-muted: #9A8780;
+    --ink-faint: #C9B8B0;
+    --line: #F2DED6;
+    --dot: rgba(236, 160, 165, 0.34);
+    --fill: 12%;               /* độ đậm nền kẹo */
+    --fill-strong: 22%;
+
+    --shadow-page: 0 22px 44px -22px rgba(214, 140, 130, 0.5), 0 3px 10px rgba(214, 150, 140, 0.1);
+    --shadow-sticky: 0 8px 16px -8px rgba(190, 130, 115, 0.38);
+    --shadow-washi: 0 2px 4px rgba(190, 140, 120, 0.18);
+
+    /* Phụ kiện */
+    --washi-blossom: rgba(255, 190, 210, 0.9);
+    --washi-mint: rgba(170, 232, 205, 0.9);
+    --washi-butter: rgba(255, 228, 140, 0.92);
+    --washi-sky: rgba(180, 220, 250, 0.9);
+    --washi-lav: rgba(214, 200, 250, 0.9);
+    --washi-dot: rgba(255, 255, 255, 0.75);
+    --washi-stripe: rgba(255, 255, 255, 0.5);
+    --marker: rgba(255, 226, 120, 0.75);
+    --marker-mint: rgba(160, 230, 200, 0.75);
+    --hole: var(--bg-desk);
+    --hole-shadow: rgba(190, 120, 110, 0.3);
+    --ring-body: #F5B3C8;
+    --ring-shine: #FFE3EE;
+    --pencil: rgba(122, 96, 88, 0.55);
+    --spring: cubic-bezier(.34, 1.56, .64, 1);
+}
+
+html.theme-dark {
+    --ink-blossom: #FFB9D6; --ink-peach: #FFC098; --ink-butter: #FFD972; --ink-latte: #E6C7A6;
+    --ink-vanilla: #F0D59A; --ink-mint: #9EE8CB; --ink-sky: #A9D8FA; --ink-lav: #D5C6FF;
+    --ok-bg: #1f3a2c;   --ok-line: #4a9a72;   --ok-solid: #5FD49B;   --ok-ink: #BBF7D0;
+    --bad-bg: #46221f;  --bad-line: #b85a5a;  --bad-solid: #FF8A8A;  --bad-ink: #FECACA;
+    --pick-bg: #1c3140; --pick-line: #4d8fb8; --pick-solid: #6BB8F0; --pick-ink: #BAE6FD;
+    --bg-desk: #1d1819;
+    --paper: #2b2527;
+    --surface-card: #342d2f;
+    --ink: #F3E9E4;
+    --ink-muted: #C4B5AE;
+    --ink-faint: #8a7c77;
+    --line: rgba(255, 255, 255, 0.09);
+    --dot: rgba(255, 185, 214, 0.12);
+    --fill: 15%;
+    --fill-strong: 26%;
+    --shadow-page: 0 22px 44px -18px rgba(0, 0, 0, 0.7);
+    --shadow-sticky: 0 8px 18px -8px rgba(0, 0, 0, 0.6);
+    --shadow-washi: 0 2px 5px rgba(0, 0, 0, 0.35);
+    --washi-blossom: rgba(255, 143, 184, 0.38);
+    --washi-mint: rgba(111, 209, 174, 0.34);
+    --washi-butter: rgba(242, 190, 46, 0.32);
+    --washi-sky: rgba(126, 192, 238, 0.32);
+    --washi-lav: rgba(185, 162, 240, 0.32);
+    --washi-dot: rgba(255, 255, 255, 0.14);
+    --washi-stripe: rgba(255, 255, 255, 0.1);
+    --marker: rgba(242, 190, 46, 0.3);
+    --marker-mint: rgba(111, 209, 174, 0.3);
+    --hole-shadow: rgba(0, 0, 0, 0.55);
+    --ring-body: #8a5f6d;
+    --ring-shine: #b98597;
+    --pencil: rgba(243, 233, 228, 0.5);
+}
+
+/* ============================================================
+   2) NỀN BÀN HỌC + HOẠ TIẾT DÙNG CHUNG
+   ============================================================ */
+html body { background-color: var(--bg-desk); color: var(--ink); }
+html.theme-dark body { background: var(--bg-desk) !important; color: var(--ink); }
+/* Phủ một lớp giấy chấm bi mờ lên ảnh nền -> ảnh dịu thành tông pastel, hợp với sổ */
+body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+        radial-gradient(circle, var(--dot) 1.2px, transparent 1.7px) 0 0 / 24px 24px,
+        color-mix(in srgb, var(--bg-desk) 38%, transparent);
+}
+
+/* Băng keo washi có hoa văn (chấm / sọc) */
+.washi-tape {
+    position: absolute;
+    height: 18px;
+    min-width: 56px;
+    box-shadow: var(--shadow-washi);
+    clip-path: polygon(3% 0%, 97% 0%, 100% 50%, 97% 100%, 3% 100%, 0% 50%);
+    pointer-events: none;
+    z-index: 15;
+}
+.washi-peach, .washi-blossom { background: radial-gradient(circle, var(--washi-dot) 1.1px, transparent 1.5px) 0 0 / 7px 7px, var(--washi-blossom); }
+.washi-mint   { background: repeating-linear-gradient(90deg, var(--washi-stripe) 0 3px, transparent 3px 8px), var(--washi-mint); }
+.washi-butter { background: repeating-linear-gradient(45deg, var(--washi-stripe) 0 3px, transparent 3px 7px), var(--washi-butter); }
+.washi-sky    { background: radial-gradient(circle, var(--washi-dot) 1.1px, transparent 1.5px) 0 0 / 7px 7px, var(--washi-sky); }
+.washi-lav    { background: repeating-linear-gradient(90deg, var(--washi-stripe) 0 3px, transparent 3px 8px), var(--washi-lav); }
+
+/* Vạch bút dạ: gạch chân dày lùi lên đè nửa dưới chữ (chạy cả trên thẻ block, tự xuống dòng) */
+#quiz-title,
+#quizSection .quiz-question-heading,
+.marker-highlight {
+    text-decoration-line: underline;
+    text-decoration-color: var(--marker);
+    text-decoration-thickness: 0.42em;
+    text-underline-offset: -0.24em;
+    text-decoration-skip-ink: none;
+}
+
+/* Gáy sổ: lỗ đục + khoen nhựa hồng vắt qua mép giấy (hoạ tiết lặp trên pseudo-element) */
+.nb-binder,
+#quizSection .quiz-card { position: relative; }
+.nb-binder::before,
+#quizSection .quiz-card::before {
+    content: "";
+    position: absolute;
+    top: 1.4rem;
+    bottom: 1.4rem;
+    left: -0.55rem;
+    width: 36px;
+    pointer-events: none;
+    z-index: 2;
+    background-image:
+        radial-gradient(10px 1.5px at 14px 21.6px, var(--ring-shine) 95%, transparent 100%),
+        radial-gradient(12px 3.6px at 14px 23px, var(--ring-body) 95%, transparent 100%),
+        radial-gradient(circle 6.2px at 24.8px 23.8px, var(--hole) 96%, transparent 100%),
+        radial-gradient(circle 7px at 24px 23px, var(--hole-shadow) 96%, transparent 100%);
+    background-size: 36px 48px;
+    background-repeat: repeat-y;
+}
+
+/* Hình vẽ tay nhỏ (tim / sao) */
+.nb-doodle {
+    position: absolute;
+    width: 22px; height: 22px;
+    pointer-events: none;
+    background: center / contain no-repeat;
+    animation: nb-twinkle 3.2s ease-in-out infinite;
+}
+.nb-doodle-heart { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z' fill='%23FFC2D4' stroke='%23F2709C' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+.nb-doodle-star  { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.5l2.3 6.6 6.9.2-5.5 4.2 2 6.7L12 16.2l-5.7 4 2-6.7-5.5-4.2 6.9-.2z' fill='%23FFE39A' stroke='%23E0AE2E' stroke-width='1.4' stroke-linejoin='round'/%3E%3C/svg%3E"); animation-delay: -1.6s; }
+@keyframes nb-twinkle { 0%, 100% { transform: scale(1) rotate(-8deg); } 50% { transform: scale(1.15) rotate(8deg); } }
+
+/* Bong bóng lời thoại của linh vật */
+.nb-bubble {
+    position: absolute;
+    white-space: nowrap;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink-blossom);
+    background: var(--surface-card);
+    border: 2px solid color-mix(in srgb, var(--hue-blossom) 45%, transparent);
+    box-shadow: 0 2px 0 color-mix(in srgb, var(--hue-blossom) 35%, transparent);
+    pointer-events: none;
+}
+
+:focus-visible { outline: 2.5px dashed var(--hue-blossom); outline-offset: 3px; }
+#quizSection .answer-btn:focus-visible,
+#question-nav-wrapper .quiz-nav-btn:focus-visible { outline: 2.5px dashed var(--hue-blossom); outline-offset: 3px; }
+
+html .obsidian-bold { color: var(--ink-blossom) !important; }
+html.theme-dark .obsidian-bold { color: var(--ink-blossom) !important; }
+
+/* ============================================================
+   3) CÔNG THỨC KẸO — dùng chung cho mọi nút/thẻ bên dưới
+   Mỗi phần tử chỉ cần đặt --h (tông) và --hi (mực); muốn nền khác (đang chọn,
+   nút chính) thì đặt --bg. Nền để !important vì bản tối của quiz-enhance tô
+   bg-*-50 bằng !important.
+   ============================================================ */
+.nb-cta,
+.nb-stat,
+.mode-preset,
+.chip-preset,
+#show-preview-btn,
+#flashcard-link-btn,
+#start-srs-btn,
+#srs-entry-banner,
+#quiz-landing .nb-foot > *,
+#resume-hint.resume-chip,
+#quizSection .quiz-meta-chips > span,
+#quizSection #edit-question-btn,
+#quizSection #help-5050-btn,
+#quizSection #confidence-toggle,
+#quizSection #case-toggle-btn,
+#quizSection #prevBtn,
+#quizSection #nextBtn,
+#quizSection #multi-confirm-btn,
+#submit-quiz-btn,
+#quiz-mobile-nav .qmn-arrow,
+#quiz-mobile-nav .qmn-act,
+#resultsSection .result-filter-btn,
+#resultsSection #toggle-all-results,
+#resultsSection #practiceIncorrectBtn,
+#resultsSection .pt-6.border-t > :is(a, button) {
+    background-color: var(--bg, color-mix(in srgb, var(--h, var(--hue-latte)) var(--fill), var(--surface-card))) !important;
+    border: 2px solid color-mix(in srgb, var(--h, var(--hue-latte)) 40%, transparent);
+    color: var(--hi, var(--ink-latte));
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--h, var(--hue-latte)) 32%, transparent),
+                0 10px 20px -16px color-mix(in srgb, var(--h, var(--hue-latte)) 80%, transparent);
+    background-image: none;
+    transition: transform .28s var(--spring), box-shadow .18s ease, background-color .2s ease, border-color .2s ease;
+}
+/* Nút bấm: nhún lên khi rê, lún xuống khi nhấn */
+:is(.nb-cta, .mode-preset, .chip-preset, #show-preview-btn, #flashcard-link-btn, #start-srs-btn, #quiz-landing .nb-foot > *,
+    #resume-hint, #quizSection #edit-question-btn, #quizSection #help-5050-btn,
+    #quizSection #prevBtn, #quizSection #nextBtn, #quizSection #multi-confirm-btn, #submit-quiz-btn,
+    #resultsSection #practiceIncorrectBtn, #resultsSection .pt-6.border-t > :is(a, button)):not(:disabled):hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--h, var(--hue-latte)) 70%, transparent);
+    box-shadow: 0 5px 0 color-mix(in srgb, var(--h, var(--hue-latte)) 36%, transparent),
+                0 14px 24px -16px color-mix(in srgb, var(--h, var(--hue-latte)) 85%, transparent);
+}
+:is(.nb-cta, .mode-preset, .chip-preset, #show-preview-btn, #flashcard-link-btn, #start-srs-btn, #quiz-landing .nb-foot > *,
+    #resume-hint, #quizSection #edit-question-btn, #quizSection #help-5050-btn,
+    #quizSection #prevBtn, #quizSection #nextBtn, #quizSection #multi-confirm-btn, #submit-quiz-btn,
+    #quiz-mobile-nav .qmn-arrow, #quiz-mobile-nav .qmn-act,
+    #resultsSection #practiceIncorrectBtn, #resultsSection .pt-6.border-t > :is(a, button)):not(:disabled):active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 color-mix(in srgb, var(--h, var(--hue-latte)) 36%, transparent);
+}
+/* Nút hành động chính: kẹo đậm hơn (nền đặc pastel) */
+.nb-cta,
+#quizSection #nextBtn,
+#quizSection #multi-confirm-btn,
+#submit-quiz-btn,
+#quiz-mobile-nav .qmn-arrow-next {
+    --h: var(--hue-blossom); --hi: #8E2A55;
+    --bg: color-mix(in srgb, var(--hue-blossom) 55%, #fff);
+    font-weight: 800;
+}
+html.theme-dark :is(.nb-cta, #quizSection #nextBtn, #quizSection #multi-confirm-btn, #submit-quiz-btn, #quiz-mobile-nav .qmn-arrow-next) {
+    --hi: #3a1422;
+    --bg: #F4A3C1;
+}
+html.theme-dark :is(#start-now-btn, #quizSection #nextBtn, #submit-quiz-btn, #resultsSection #restartQuizBtn) { color: var(--hi) !important; }
+
+/* ============================================================
+   4) TRANG CHỜ (#quiz-landing)
+   ============================================================ */
+#quiz-landing.nb-landing {
+    background-color: var(--paper);
+    background-image: radial-gradient(circle, var(--dot) 1.25px, transparent 1.6px);
+    background-size: 20px 20px;
+    border: 2px solid var(--line);
+    border-radius: 2rem;
+    /* giấy hai lớp: một tờ lót lệch nhẹ phía sau */
+    box-shadow: 8px 8px 0 -2px var(--surface-card), 8px 8px 0 0 var(--line), var(--shadow-page);
+    padding-left: 2.3rem;
+}
+@media (min-width: 640px) {
+    #quiz-landing.nb-landing { padding-left: 3.4rem; }
+}
+
+
+/* Linh vật sticker (giữ id cho hiệu ứng mở đề) */
+#quiz-hero-btn { background: transparent; border: 0; border-radius: 1.5rem; overflow: visible; }
+#quiz-hero-btn .washi-tape { top: -2px; left: 50%; min-width: 54px; width: 54px; height: 15px; transform: translateX(-50%) rotate(-6deg); }
+#quiz-hero-btn .nb-bubble { bottom: -14px; left: 50%; z-index: 3; transform: translateX(-50%) rotate(-3deg); }
+#quiz-hero-img { filter: drop-shadow(0 8px 10px rgba(214, 140, 130, 0.35)); }
+html.theme-dark #quiz-hero-img { filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.5)); }
+#quiz-hero-btn .nb-doodle-heart { top: 6px; right: -10px; }
+#quiz-hero-btn .nb-doodle-star { top: 30px; left: -12px; width: 18px; height: 18px; }
+
+#quiz-title { color: var(--ink); }
+#quiz-info { color: var(--ink-muted); }
+
+/* Mẹo ôn tập = giấy note vàng bơ dán nghiêng */
+#quiz-tip.nb-memo {
+    position: relative;
+    margin-top: 0.6rem;
+    background: color-mix(in srgb, var(--hue-butter) 24%, var(--surface-card)) !important;
+    border: 0 !important;
+    border-radius: 6px 6px 18px 6px;
+    box-shadow: var(--shadow-sticky);
+    transform: rotate(-1deg);
+}
+#quiz-tip.nb-memo .washi-tape { top: -9px; left: 1.2rem; min-width: 50px; width: 50px; height: 14px; transform: rotate(-4deg); }
+#quiz-tip.nb-memo #quiz-tip-text { color: var(--ink-butter) !important; }
+#quiz-tip.nb-memo > div:first-of-type { background: color-mix(in srgb, var(--hue-butter) 30%, var(--surface-card)); color: var(--ink-butter); }
+#quiz-tip.nb-memo #quiz-tip-next {
+    background: var(--surface-card) !important;
+    border: 2px solid color-mix(in srgb, var(--hue-butter) 45%, transparent) !important;
+    color: var(--ink-butter) !important;
+}
+
+/* Thẻ thống kê: 3 viên kẹo đào / trời / bạc hà */
+.nb-stat {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 0.75rem 0.4rem 0.65rem;
+    border-radius: 1.2rem;
+}
+.nb-stat:nth-child(1) { --h: var(--hue-peach); --hi: var(--ink-peach); transform: rotate(-1deg); }
+.nb-stat:nth-child(2) { --h: var(--hue-sky);   --hi: var(--ink-sky);   transform: rotate(0.6deg); }
+.nb-stat:nth-child(3) { --h: var(--hue-mint);  --hi: var(--ink-mint);  transform: rotate(-0.5deg); }
+.nb-stat:hover { transform: translateY(-2px) rotate(0deg); }
+.nb-stat > i { color: var(--hi); margin-bottom: 0.15rem; }
+#quiz-landing .nb-stat > .text-gray-400,
+#quiz-landing .nb-stat .nb-stat-sub { color: var(--ink-muted); }
+#quiz-landing .nb-stat > .font-bold { color: var(--hi); }
+
+#show-preview-btn { --h: var(--hue-sky); --hi: var(--ink-sky); border-radius: 999px; }
+#quiz-preview {
+    background: var(--paper) !important;
+    border: 2px dashed color-mix(in srgb, var(--hue-sky) 55%, transparent) !important;
+    border-radius: 1.2rem !important;
+}
+
+/* Tiêu đề mục = nhãn băng keo */
+#quiz-landing .nb-label {
+    display: flex;
+    width: fit-content;
+    padding: 0.28rem 0.95rem 0.28rem 0.75rem;
+    color: var(--ink);
+    clip-path: polygon(2% 0%, 98% 0%, 100% 50%, 98% 100%, 2% 100%, 0% 50%);
+    transform: rotate(-1.2deg);
+    box-shadow: var(--shadow-washi);
+}
+#quiz-landing .nb-label { background: radial-gradient(circle, var(--washi-dot) 1.1px, transparent 1.5px) 0 0 / 7px 7px, var(--washi-lav); }
+#quiz-landing .nb-label.nb-label-sky { background: radial-gradient(circle, var(--washi-dot) 1.1px, transparent 1.5px) 0 0 / 7px 7px, var(--washi-sky); transform: rotate(0.8deg); }
+#quiz-landing .nb-label > i.fas { color: var(--ink-lav); }
+#quiz-landing .nb-label.nb-label-sky > i.fas { color: var(--ink-sky); }
+
+/* --- Chọn nhanh chế độ: 3 viên kẹo có sticker --- */
+.mode-preset {
+    position: relative;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    min-height: 44px;
+    padding: 12px 6px 10px;
+    border-radius: 1.2rem;
+    cursor: pointer;
+    text-align: center;
+}
+.mode-preset[data-mode="exam"]   { --h: var(--hue-peach);  --hi: var(--ink-peach); }
+.mode-preset[data-mode="study"]  { --h: var(--hue-mint);   --hi: var(--ink-mint); }
+.mode-preset[data-mode="sprint"] { --h: var(--hue-butter); --hi: var(--ink-butter); }
+.mode-preset .mp-ic { display: block; width: 38px; height: 38px; }
+.mode-preset .mp-ic img { width: 38px; height: 38px; object-fit: contain; transition: transform .35s var(--spring); }
+.mode-preset:hover .mp-ic img { transform: scale(1.14) rotate(-7deg); }
+.mode-preset .mp-name { font-size: 12.5px; font-weight: 800; color: var(--hi); }
+.mode-preset .mp-desc { font-size: 10px; color: var(--ink-muted); font-weight: 600; line-height: 1.35; }
+.mode-preset.mp-active {
+    --bg: color-mix(in srgb, var(--h) var(--fill-strong), var(--surface-card));
+    border-color: color-mix(in srgb, var(--h) 80%, transparent);
+}
+/* mẩu washi + huy hiệu ✓ trên chế độ đang chọn */
+.mode-preset.mp-active::before {
+    content: "";
+    position: absolute;
+    top: -8px; left: 50%;
+    width: 44px; height: 13px;
+    transform: translateX(-50%) rotate(-3deg);
+    background: radial-gradient(circle, var(--washi-dot) 1.1px, transparent 1.5px) 0 0 / 7px 7px, var(--washi-blossom);
+    clip-path: polygon(4% 0%, 96% 0%, 100% 50%, 96% 100%, 4% 100%, 0% 50%);
+    box-shadow: var(--shadow-washi);
+}
+.mode-preset.mp-active::after {
+    content: "✓";
+    position: absolute;
+    top: -7px; right: -6px;
+    width: 20px; height: 20px;
+    display: grid; place-items: center;
+    border-radius: 999px;
+    font-size: 11px; font-weight: 900;
+    color: #fff;
+    background: var(--h);
+    box-shadow: 0 2px 0 color-mix(in srgb, var(--h) 75%, #000), 0 0 0 2px var(--surface-card);
+    animation: nb-pop-in .35s var(--spring);
+}
+@keyframes nb-pop-in { from { transform: scale(0); } }
+
+/* --- Lưới tùy chỉnh: mỗi thẻ một viên kẹo, công tắc bật cùng tông với thẻ --- */
+#quiz-options-grid > :nth-child(6n+1) { --h: var(--hue-peach);   --hi: var(--ink-peach); }
+#quiz-options-grid > :nth-child(6n+2) { --h: var(--hue-lav);     --hi: var(--ink-lav); }
+#quiz-options-grid > :nth-child(6n+3) { --h: var(--hue-sky);     --hi: var(--ink-sky); }
+#quiz-options-grid > :nth-child(6n+4) { --h: var(--hue-mint);    --hi: var(--ink-mint); }
+#quiz-options-grid > :nth-child(6n+5) { --h: var(--hue-butter);  --hi: var(--ink-butter); }
+#quiz-options-grid > :nth-child(6n+6) { --h: var(--hue-blossom); --hi: var(--ink-blossom); }
+#quiz-landing #quiz-options-grid > label,
+#quiz-landing #quiz-options-grid > div {
+    background-color: color-mix(in srgb, var(--h) 7%, var(--surface-card)) !important;
+    border: 2px solid color-mix(in srgb, var(--h) 30%, transparent) !important;
+    border-radius: 1.2rem !important;
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--h) 22%, transparent) !important;
+}
+#quiz-landing #quiz-options-grid > :has(input:checked) {
+    background-color: color-mix(in srgb, var(--h) var(--fill-strong), var(--surface-card)) !important;
+    border-color: color-mix(in srgb, var(--h) 65%, transparent) !important;
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--h) 40%, transparent), 0 12px 22px -18px var(--h) !important;
+}
+#quiz-options-grid .w-9 {
+    background: color-mix(in srgb, var(--h) 30%, var(--surface-card)) !important;
+    color: var(--hi) !important;
+    border: 0 !important;
+    border-radius: 0.9rem !important;
+}
+#quiz-landing #quiz-options-grid .font-bold { color: var(--ink); }
+#quiz-landing #quiz-options-grid .text-xs.text-gray-400,
+#quiz-landing #quiz-options-grid .text-xs.text-gray-500 { color: var(--ink-muted); }
+/* Công tắc: tắt = tông nhạt, bật = đúng tông của thẻ (đè cả màu riêng từng công tắc của quiz-enhance) */
+#quiz-options-grid .peer + div { background-color: color-mix(in srgb, var(--h) 22%, var(--surface-card)) !important; }
+#quiz-landing #quiz-options-grid .peer:checked + div { background-color: var(--h) !important; }
+#quiz-landing input[type="number"] {
+    border: 2px solid color-mix(in srgb, var(--hue-sky) 45%, transparent);
+    border-radius: 0.7rem;
+    background: var(--surface-card);
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Chip chọn nhanh: phút = trời, số câu = bạc hà; đang chọn = hồng kẹo */
+.chip-preset {
+    --h: var(--hue-sky); --hi: var(--ink-sky);
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 12px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+}
+.chip-preset.count-preset { --h: var(--hue-mint); --hi: var(--ink-mint); }
+.chip-preset.chip-active { --h: var(--hue-blossom); --hi: #8E2A55; --bg: color-mix(in srgb, var(--hue-blossom) 50%, #fff); }
+html.theme-dark .chip-preset.chip-active { --hi: #3a1422; --bg: #F4A3C1; }
+
+/* Chip tóm tắt phiên */
+.sum-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 11px;
+    border-radius: 999px;
+    font-size: 11px; font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-muted);
+    background: var(--surface-card);
+    border: 2px dashed var(--line);
+}
+.sum-chip i { font-size: 10px; color: var(--ink-peach); }
+.sum-chip:nth-child(2) i { color: var(--ink-sky); }
+.sum-chip:nth-child(3) i { color: var(--ink-mint); }
+.sum-chip:nth-child(4) i { color: var(--ink-lav); }
+
+/* Phím tắt = nút bàn phím oải hương */
+.kbd-key {
+    padding: 1px 7px;
+    border-radius: 8px;
+    border: 1.5px solid color-mix(in srgb, var(--hue-lav) 50%, transparent);
+    border-bottom-width: 3px;
+    background: color-mix(in srgb, var(--hue-lav) 14%, var(--surface-card));
+    font-size: 10px; font-weight: 800;
+    color: var(--ink-lav);
+    font-family: inherit;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Ôn ngắt quãng = thẻ kẹo oải hương */
+#srs-entry-banner { --h: var(--hue-lav); --hi: var(--ink-lav); position: relative; border-style: dashed; border-radius: 1.4rem; }
+#srs-entry-banner .washi-tape { top: -9px; right: 1.5rem; min-width: 60px; width: 60px; height: 15px; transform: rotate(4deg); }
+#srs-section-icon { width: 46px; height: 46px; object-fit: contain; flex-shrink: 0; }
+#srs-entry-banner h3 { color: var(--ink); }
+#srs-entry-banner .nb-srs-tag {
+    background: var(--surface-card);
+    color: var(--ink-lav);
+    border: 1.5px solid color-mix(in srgb, var(--hue-lav) 55%, transparent);
+    border-radius: 999px;
+}
+#srs-entry-banner #srs-new-per-day {
+    border: 2px solid color-mix(in srgb, var(--hue-lav) 45%, transparent);
+    border-radius: 0.8rem;
+    background: var(--surface-card);
+    color: var(--ink-lav);
+}
+#srs-entry-banner .text-gray-600,
+#srs-entry-banner .text-gray-500 { color: var(--ink-muted); }
+#start-srs-btn { --h: var(--hue-lav); --hi: var(--ink-lav); --bg: color-mix(in srgb, var(--hue-lav) 30%, var(--surface-card)); border-radius: 999px; white-space: nowrap; }
+
+/* Nút chính */
+#start-now-btn.nb-cta,
+#mobile-start-btn.nb-cta { border-radius: 999px; letter-spacing: 0.01em; }
+#start-now-btn.nb-cta { box-shadow: 0 5px 0 color-mix(in srgb, var(--hue-blossom) 60%, transparent), 0 16px 30px -14px var(--hue-blossom); }
+#flashcard-link-btn { --h: var(--hue-lav); --hi: var(--ink-lav); border-radius: 999px; }
+#resume-hint.resume-chip { --h: var(--hue-butter); --hi: var(--ink-butter); border-radius: 1.2rem; }
+#resume-hint .resume-chip-icon { background: var(--hue-butter) !important; color: #fff !important; box-shadow: none !important; }
+#resume-hint .resume-chip-title { color: var(--ink-butter) !important; }
+#resume-hint .resume-chip-sub { color: var(--ink-muted) !important; }
+
+/* Hàng tiện ích cuối trang: 4 viên kẹo */
+#quiz-landing .nb-foot { border-top: 2px dashed var(--line); }
+#quiz-landing .nb-foot > * { border-radius: 999px; }
+#quiz-landing .nb-foot > :nth-child(1) { --h: var(--hue-latte);  --hi: var(--ink-latte); }
+#quiz-landing .nb-foot > :nth-child(2) { --h: var(--hue-sky);    --hi: var(--ink-sky); }
+#quiz-landing .nb-foot > :nth-child(3) { --h: var(--hue-butter); --hi: var(--ink-butter); }
+#quiz-landing .nb-foot > :nth-child(4) { --h: var(--hue-mint);   --hi: var(--ink-mint); }
+
+/* Thanh trên cùng (mobile) + ngăn kéo menu = giấy */
+.nb-topbar {
+    background-color: color-mix(in srgb, var(--paper) 90%, transparent);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    border-bottom: 2px dashed var(--line) !important;
+}
+html.theme-dark .nb-topbar { background-color: color-mix(in srgb, var(--paper) 92%, transparent) !important; }
+.nb-topbar :is(button, a, span) { color: var(--ink-blossom); }
+#quiz-mobile-menu { background: var(--paper); border-radius: 0 1.5rem 1.5rem 0; }
+
+/* ============================================================
+   5) MÀN LÀM BÀI — trang sổ còng chấm bi
+   ============================================================ */
+#quizSection .quiz-card {
+    background-color: var(--paper);
+    background-image: radial-gradient(circle, var(--dot) 1.25px, transparent 1.6px);
+    background-size: 20px 20px;
+    border: 2px solid var(--line);
+    border-radius: 1.8rem;
+    box-shadow: 0 6px 0 var(--line), var(--shadow-page);
+}
+html.theme-dark #quizSection .quiz-card { background-color: var(--paper) !important; border-color: var(--line); }
+@media (max-width: 639px) {
+    #quizSection .quiz-card::before { display: none; }
+}
+@media (min-width: 640px) {
+    #quizSection .quiz-card { padding-left: 3.4rem; }
+}
+/* băng keo bạc hà sọc dán mép trên */
+#quizSection .quiz-card::after {
+    content: "";
+    position: absolute;
+    top: -9px; right: 3.4rem;
+    width: 84px; height: 19px;
+    transform: rotate(4deg);
+    background: repeating-linear-gradient(90deg, var(--washi-stripe) 0 3px, transparent 3px 8px), var(--washi-mint);
+    clip-path: polygon(3% 0%, 97% 0%, 100% 50%, 97% 100%, 3% 100%, 0% 50%);
+    box-shadow: var(--shadow-washi);
+    pointer-events: none;
+    z-index: 15;
+}
+body.focus-mode-active #quizSection .quiz-card::before,
+body.focus-mode-active #quizSection .quiz-card::after { display: none; }
+
+#quizSection .quiz-setname { color: var(--ink-latte); }
+#quizSection .quiz-question-heading { color: var(--ink); width: fit-content; }
+#quizSection .question-text { color: var(--ink); }
+#quizSection #edit-question-btn { --h: var(--hue-lav); --hi: var(--ink-lav); border-radius: 0.9rem; }
+
+/* Nhãn Chủ đề / Mức độ / Nguồn / Chuỗi đúng = viên kẹo nhỏ */
+#quizSection .quiz-meta-chips > span { border-radius: 999px; box-shadow: 0 2px 0 color-mix(in srgb, var(--h, var(--hue-latte)) 30%, transparent); }
+#quizSection .quiz-meta-chips > .bg-blue-100   { --h: var(--hue-sky);    --hi: var(--ink-sky); }
+#quizSection .quiz-meta-chips > .bg-purple-100 { --h: var(--hue-lav);    --hi: var(--ink-lav); }
+#quizSection .quiz-meta-chips > .bg-pink-100   { --h: var(--hue-blossom); --hi: var(--ink-blossom); }
+#quizSection .quiz-meta-chips > .bg-teal-100   { --h: var(--hue-mint);   --hi: var(--ink-mint); }
+#quizSection .quiz-meta-chips > #streak-badge  { --h: var(--hue-peach);  --hi: var(--ink-peach); animation: none; }
+#quizSection .quiz-meta-chips > #streak-badge i { color: var(--hue-peach); }
+
+/* Ca lâm sàng = phiếu khám kẹp giấy vào sổ */
+#quizSection #clinical-case-panel {
+    position: relative;
+    margin-top: 0.6rem;
+    border: 2px dashed color-mix(in srgb, var(--hue-sky) 60%, transparent) !important;
+    border-radius: 1.2rem;
+    background-color: color-mix(in srgb, var(--hue-sky) 12%, var(--surface-card)) !important;
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--hue-sky) 25%, transparent);
+}
+#quizSection #clinical-case-panel::before {
+    content: "";
+    position: absolute;
+    top: -22px; right: 1.6rem;
+    width: 15px; height: 36px;
+    transform: rotate(10deg);
+    pointer-events: none;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 40' fill='none' stroke='%23F59BBB' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M11 13v17a3 3 0 0 1-6 0V8a5 5 0 0 1 10 0v24a7 7 0 0 1-14 0V13'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+#quizSection #clinical-case-panel .text-cyan-800 { color: var(--ink-sky) !important; }
+#quizSection #clinical-case-panel .case-body { color: var(--ink) !important; }
+#quizSection #case-toggle-btn { --h: var(--hue-sky); --hi: var(--ink-sky); border-radius: 999px; }
+
+/* --- Ô đáp án = viên kẹo, mỗi chữ cái một tông ẤM (giống phòng đánh đề):
+       A vàng bơ · B nâu kem sữa · C cam đào · D vàng kem vani --- */
+#quizSection #answers-container > .answer-btn:nth-child(4n+1) { --h: var(--hue-butter);  --hi: var(--ink-butter); }
+#quizSection #answers-container > .answer-btn:nth-child(4n+2) { --h: var(--hue-latte);   --hi: var(--ink-latte); }
+#quizSection #answers-container > .answer-btn:nth-child(4n+3) { --h: var(--hue-peach);   --hi: var(--ink-peach); }
+#quizSection #answers-container > .answer-btn:nth-child(4n+4) { --h: var(--hue-vanilla); --hi: var(--ink-vanilla); }
+#quizSection .answer-btn {
+    background-color: color-mix(in srgb, var(--h, var(--hue-latte)) var(--fill), var(--surface-card)) !important;
+    border: 2px solid color-mix(in srgb, var(--h, var(--hue-latte)) 38%, transparent) !important;
+    color: var(--ink) !important;
+    font-weight: 600;
+    border-radius: 1.2rem;
+    padding-right: 2.6rem;            /* chừa chỗ con dấu đúng/sai, không xô chữ khi chấm */
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--h, var(--hue-latte)) 32%, transparent),
+                0 10px 22px -18px color-mix(in srgb, var(--h, var(--hue-latte)) 70%, transparent);
+    transition: transform .3s var(--spring), background-color .2s ease, border-color .2s ease,
+                box-shadow .2s ease, opacity .25s ease, filter .25s ease;
+}
+@media (hover: hover) {
+    #quizSection .answer-btn:not(.answer-locked):not(.opacity-20):hover {
+        transform: translateY(-2px) scale(1.008);
+        box-shadow: 0 5px 0 color-mix(in srgb, var(--h, var(--hue-latte)) 36%, transparent),
+                    0 14px 26px -18px color-mix(in srgb, var(--h, var(--hue-latte)) 80%, transparent);
+    }
+    #quizSection .answer-btn:not(.answer-locked):not(.opacity-20):not(.bg-blue-100):hover {
+        border-color: color-mix(in srgb, var(--h, var(--hue-latte)) 70%, transparent) !important;
+    }
+}
+#quizSection .answer-btn:not(.answer-locked):not(.opacity-20):active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 color-mix(in srgb, var(--h, var(--hue-latte)) 36%, transparent);
+}
+
+/* Trạng thái đè lên tông chữ cái */
+#quizSection .answer-btn.bg-blue-100 {
+    background-color: var(--pick-bg) !important;
+    border-color: var(--pick-line) !important;
+    color: var(--pick-ink) !important;
+    box-shadow: 0 3px 0 var(--pick-line);
+}
+#quizSection .answer-btn.bg-green-200 {
+    background-color: var(--ok-bg) !important;
+    border-color: var(--ok-line) !important;
+    color: var(--ok-ink) !important;
+    box-shadow: 0 3px 0 var(--ok-line);
+}
+#quizSection .answer-btn.bg-red-200 {
+    background-color: var(--bad-bg) !important;
+    border-color: var(--bad-line) !important;
+    color: var(--bad-ink) !important;
+    box-shadow: 0 3px 0 var(--bad-line);
+}
+
+/* Nhãn A/B/C/D = phím kẹo cùng tông (giữ dáng tròn = 1 đáp án, vuông = nhiều đáp án) */
+html #quizSection .answer-btn .answer-letter {
+    background: color-mix(in srgb, var(--h, var(--hue-latte)) 32%, var(--surface-card)) !important;
+    color: var(--hi, var(--ink-latte)) !important;
+    border: 0 !important;
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--h, var(--hue-latte)) 50%, transparent),
+                0 2px 0 color-mix(in srgb, var(--h, var(--hue-latte)) 45%, transparent) !important;
+    text-shadow: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 800;
+}
+#quizSection .answer-btn.bg-blue-100 .answer-letter  { background: var(--pick-solid) !important; color: #fff !important; box-shadow: 0 2px 0 var(--pick-line) !important; }
+#quizSection .answer-btn.bg-green-200 .answer-letter { background: var(--ok-solid) !important;   color: #fff !important; box-shadow: 0 2px 0 var(--ok-line) !important; }
+#quizSection .answer-btn.bg-red-200 .answer-letter   { background: var(--bad-solid) !important;  color: #fff !important; box-shadow: 0 2px 0 var(--bad-line) !important; }
+html.theme-dark #quizSection .answer-btn:is(.bg-green-200, .bg-red-200, .bg-blue-100) .answer-letter { color: #1d1819 !important; }
+
+/* Con dấu ✓ / ✗ đóng lên thẻ sau khi chấm — không chỉ dựa vào màu */
+#quizSection .answer-btn.bg-green-200::after,
+#quizSection .answer-btn.bg-red-200::after {
+    content: "✓";
+    position: absolute;
+    top: 0.6rem; right: 0.55rem; left: auto;
+    width: 1.75rem; height: 1.75rem;
+    display: grid; place-items: center;
+    padding: 0;
+    border-radius: 999px;
+    border: 2px solid currentColor;
+    background: transparent;
+    color: var(--ok-solid);
+    font-size: 0.95rem; font-weight: 900; line-height: 1;
+    opacity: 0.9;
+    transform: rotate(-14deg);
+    box-shadow: inset 0 0 0 2px var(--ok-bg), inset 0 0 0 3.5px currentColor;
+    animation: nb-stamp .38s var(--spring) both;
+    pointer-events: none;
+}
+#quizSection .answer-btn.bg-red-200::after {
+    content: "✗";
+    color: var(--bad-solid);
+    box-shadow: inset 0 0 0 2px var(--bad-bg), inset 0 0 0 3.5px currentColor;
+}
+@keyframes nb-stamp {
+    0%   { opacity: 0; transform: scale(1.8) rotate(-30deg); }
+    100% { opacity: 0.9; transform: scale(1) rotate(-14deg); }
+}
+
+/* Đã gạch bỏ = vạch bút chì chéo + mờ xám */
+#quizSection .answer-btn.answer-eliminated {
+    opacity: 0.45;
+    filter: grayscale(1);
+    background-image: linear-gradient(to top right,
+        transparent calc(50% - 1px), var(--pencil) calc(50% - 1px),
+        var(--pencil) calc(50% + 0.75px), transparent calc(50% + 0.75px)) !important;
+}
+
+/* Nút phụ dưới đáp án */
+#quizSection #help-5050-btn { --h: var(--hue-sky); --hi: var(--ink-sky); border-radius: 999px; }
+#quizSection #confidence-toggle { --h: var(--hue-latte); --hi: var(--ink-latte); border-radius: 999px; }
+#quizSection #confidence-toggle.conf-guess { --h: var(--hue-butter); --hi: var(--ink-butter); }
+#quizSection #confidence-toggle.conf-helped { --h: var(--hue-sky); --hi: var(--ink-sky); }
+#quizSection #mark-question-btn { border-radius: 999px; border-width: 2px; }
+#quizSection #mark-question-btn:not([style]) {
+    background: color-mix(in srgb, var(--hue-butter) var(--fill), var(--surface-card));
+    border-color: color-mix(in srgb, var(--hue-butter) 45%, transparent);
+    color: var(--ink-butter);
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--hue-butter) 32%, transparent);
+}
+
+/* Ghi chú ghi nhớ = giấy note vàng bơ có đinh ghim */
+#quizSection #explanation-area:not(:empty) {
+    position: relative;
+    background: color-mix(in srgb, var(--hue-butter) 24%, var(--surface-card)) !important;
+    border: 0 !important;
+    border-radius: 6px 6px 20px 6px;
+    box-shadow: var(--shadow-sticky) !important;
+    transform: rotate(0.4deg);
+    padding: 1.4rem 1.25rem 1.1rem;
+}
+#quizSection #explanation-area:not(:empty)::before {
+    content: "";
+    position: absolute;
+    top: -7px; left: 50%;
+    width: 16px; height: 16px;
+    margin-left: -8px;
+    border-radius: 999px;
+    background: var(--hue-blossom);
+    box-shadow: inset -2px -3px 0 rgba(0, 0, 0, 0.12), inset 2px 2px 0 rgba(255, 255, 255, 0.6), 0 3px 4px rgba(0, 0, 0, 0.18);
+}
+#quizSection #explanation-area > div { background: transparent !important; border: 0 !important; padding: 0; }
+#quizSection #explanation-area .fa-thumbtack { color: var(--ink-butter) !important; animation: none; }
+#quizSection #explanation-area .text-pink-800 { color: var(--ink-butter) !important; }
+#quizSection #explanation-area .obsidian-bold {
+    text-decoration: underline;
+    text-decoration-color: var(--marker-mint);
+    text-decoration-thickness: 0.42em;
+    text-underline-offset: -0.22em;
+    text-decoration-skip-ink: none;
+}
+
+/* Mở rộng kiến thức = tờ giấy xanh trời kẹp thêm, lề kẻ đôi */
+#quizSection #expanded-area {
+    background: color-mix(in srgb, var(--hue-sky) 14%, var(--surface-card)) !important;
+    border: 2px solid color-mix(in srgb, var(--hue-sky) 35%, transparent) !important;
+    border-radius: 1.2rem;
+    box-shadow: inset 5px 0 0 color-mix(in srgb, var(--hue-sky) 55%, transparent), 0 3px 0 color-mix(in srgb, var(--hue-sky) 25%, transparent) !important;
+    padding-left: 1.6rem;
+}
+#quizSection #expanded-area h4 { color: var(--ink-sky) !important; }
+#quizSection #expanded-area h4 i { color: var(--hue-sky); animation: none; }
+#quizSection #expanded-area [data-annot="expand"] { color: var(--ink) !important; }
+#quizSection #expanded-area ul { list-style: disc; padding-left: 1.25rem; }
+#quizSection #expanded-area ol { list-style: decimal; padding-left: 1.4rem; }
+#quizSection #expanded-area li::marker { color: var(--hue-sky); }
+
+/* Điều hướng câu */
+#quizSection #prevBtn { --h: var(--hue-latte); --hi: var(--ink-latte); border-radius: 999px; }
+#quizSection #nextBtn,
+#submit-quiz-btn,
+#quizSection #multi-confirm-btn { border-radius: 999px; }
+#quizSection .quiz-kbd-hint { color: var(--ink-faint); }
+
+/* Đồng hồ nổi = viên kẹo hồng, số đều nhau */
+#timerDisplay,
+html.theme-dark #timerDisplay {
+    background: color-mix(in srgb, var(--hue-blossom) 14%, var(--surface-card)) !important;
+    color: var(--ink-blossom) !important;
+    border: 2px solid color-mix(in srgb, var(--hue-blossom) 40%, transparent);
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--hue-blossom) 30%, transparent);
+    font-variant-numeric: tabular-nums;
+}
+
+/* --- Bảng số câu (desktop) = tờ sticker tròn + linh vật cổ vũ --- */
+#quiz-nav-panel {
+    background: var(--paper);
+    border: 2px dashed var(--line);
+    border-radius: 1.4rem;
+    padding: 0.6rem 0.5rem 0.4rem;
+    box-shadow: var(--shadow-sticky);
+}
+#quiz-nav-panel::before {
+    content: "";
+    display: block;
+    width: 62px; height: 62px;
+    margin: 0 auto 0.1rem;
+    background: url("web_assets/mascot_stationery_squirrel.webp") center / contain no-repeat;
+    animation: mascotFloat 4s ease-in-out infinite;
+}
+@media (min-width: 1024px) {
+    #quiz-nav-panel::after {
+        content: "Cố lên nè ♡";
+        position: absolute;
+        top: 0.55rem; right: 0.4rem;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 10px; font-weight: 800;
+        color: var(--ink-blossom);
+        background: var(--surface-card);
+        border: 2px solid color-mix(in srgb, var(--hue-blossom) 45%, transparent);
+        transform: rotate(6deg);
+        pointer-events: none;
+    }
+}
+#quiz-nav-panel .text-gray-600 { color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+#question-nav-wrapper.quiz-nav-grid { background: transparent !important; border: 0 !important; }
+#question-nav-wrapper .quiz-nav-btn,
+html.theme-dark #question-nav-wrapper .quiz-nav-btn {
+    background: var(--surface-card);
+    border: 2px dashed var(--ink-faint);
+    color: var(--ink-muted);
+    font-variant-numeric: tabular-nums;
+}
+#question-nav-wrapper .quiz-nav-btn:hover { border-style: solid; }
+#question-nav-wrapper .quiz-nav-btn.is-answered,
+html.theme-dark #question-nav-wrapper .quiz-nav-btn.is-answered { background: var(--pick-bg); color: var(--pick-ink); border: 2px solid var(--pick-line); }
+#question-nav-wrapper .quiz-nav-btn.is-correct,
+html.theme-dark #question-nav-wrapper .quiz-nav-btn.is-correct { background: var(--ok-bg); color: var(--ok-ink); border: 2px solid var(--ok-line); }
+#question-nav-wrapper .quiz-nav-btn.is-wrong,
+html.theme-dark #question-nav-wrapper .quiz-nav-btn.is-wrong { background: var(--bad-bg); color: var(--bad-ink); border: 2px solid var(--bad-line); }
+#question-nav-wrapper .quiz-nav-btn.is-current,
+html.theme-dark #question-nav-wrapper .quiz-nav-btn.is-current {
+    background: color-mix(in srgb, var(--hue-blossom) 18%, var(--surface-card));
+    color: var(--ink-blossom);
+    border: 2px solid var(--hue-blossom);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--hue-blossom) 25%, transparent), 0 3px 0 color-mix(in srgb, var(--hue-blossom) 45%, transparent);
+    animation: nb-pop .45s var(--spring);
+}
+#question-nav-wrapper .quiz-nav-btn.is-current.is-done::after { background: var(--hue-blossom); }
+@keyframes nb-pop {
+    0% { transform: scale(0.8); }
+    60% { transform: scale(1.25); }
+    100% { transform: scale(1.15); }
+}
+/* Dấu đánh dấu = ngôi sao (giữ màu người dùng chọn) */
+#question-nav-wrapper .quiz-nav-flag {
+    top: -5px; right: -5px;
+    width: 0.8rem; height: 0.8rem;
+    border: 0;
+    border-radius: 0;
+    clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+
+/* --- Ghi chú cá nhân (cột phải) = giấy note oải hương kẻ dòng --- */
+.quiz-note-box,
+html.theme-dark .quiz-note-box {
+    background: color-mix(in srgb, var(--hue-lav) 14%, var(--surface-card));
+    border: 2px solid color-mix(in srgb, var(--hue-lav) 38%, transparent);
+    border-radius: 1.3rem;
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--hue-lav) 30%, transparent);
+}
+.quiz-note-box:focus-within { border-color: color-mix(in srgb, var(--hue-lav) 70%, transparent); }
+.quiz-note-header,
+.quiz-note-title,
+html.theme-dark .quiz-note-header,
+html.theme-dark .quiz-note-title { color: var(--ink-lav); }
+.quiz-note-dot { background: var(--hue-lav); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hue-lav) 30%, transparent); }
+.quiz-note-chevron { color: var(--hue-lav); }
+.quiz-note-input,
+html.theme-dark .quiz-note-input {
+    background-color: var(--surface-card);
+    background-image: repeating-linear-gradient(to bottom, transparent 0 calc(1.4rem - 1px), color-mix(in srgb, var(--hue-lav) 30%, transparent) calc(1.4rem - 1px) 1.4rem);
+    background-attachment: local;
+    background-position: 0 0.7rem;
+    line-height: 1.4rem;
+    color: var(--ink);
+    border: 2px solid color-mix(in srgb, var(--hue-lav) 30%, transparent);
+    border-radius: 0.9rem;
+}
+.quiz-note-input:focus { border-color: var(--hue-lav); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hue-lav) 25%, transparent); }
+.quiz-note-input::placeholder { color: var(--ink-faint); }
+
+/* --- Nút thiết lập nổi + bảng "Ngựa thì chỉnh" --- */
+#quiz-settings-fab,
+html.theme-dark #quiz-settings-fab {
+    background: color-mix(in srgb, var(--hue-blossom) 20%, var(--surface-card)) !important;
+    color: var(--ink-blossom);
+    border: 2px solid color-mix(in srgb, var(--hue-blossom) 45%, transparent);
+    box-shadow: 0 4px 0 color-mix(in srgb, var(--hue-blossom) 35%, transparent), 0 12px 22px -12px var(--hue-blossom);
+}
+#quiz-settings-popover,
+html.theme-dark #quiz-settings-popover {
+    background: var(--paper) !important;
+    background-image: radial-gradient(circle, var(--dot) 1.1px, transparent 1.5px) !important;
+    background-size: 18px 18px !important;
+    border: 2px solid var(--line);
+    border-radius: 1.4rem;
+    box-shadow: 0 5px 0 var(--line), var(--shadow-page);
+    color: var(--ink);
+}
+#quiz-settings-popover .qs-pop-title,
+html.theme-dark #quiz-settings-popover .qs-pop-title { color: var(--ink-blossom); background: none; -webkit-text-fill-color: currentColor; }
+#quiz-settings-popover .qs-group-title,
+html.theme-dark #quiz-settings-popover .qs-group-title { color: var(--ink-muted); }
+#quiz-settings-popover .qs-group-title i { color: var(--ink-lav); }
+#quiz-settings-popover .qs-row .qs-label,
+html.theme-dark #quiz-settings-popover .qs-row .qs-label { color: var(--ink); }
+#quiz-settings-popover .qs-row .qs-label i,
+html.theme-dark #quiz-settings-popover .qs-row .qs-label i { color: var(--ink-blossom); }
+#quiz-settings-popover .qs-row { border-radius: 0.9rem; }
+#quiz-settings-popover .qs-group,
+html.theme-dark #quiz-settings-popover .qs-group {
+    background: var(--surface-card);
+    border: 2px solid var(--line);
+    border-radius: 1.1rem;
+}
+#quiz-settings-popover .qs-row:hover,
+html.theme-dark #quiz-settings-popover .qs-row:hover { background: color-mix(in srgb, var(--hue-blossom) 12%, transparent); }
+#quiz-settings-popover .qs-switch { background: color-mix(in srgb, var(--hue-latte) 30%, var(--surface-card)); }
+#quiz-settings-popover .qs-row[aria-checked="true"] .qs-switch { background: var(--hue-blossom); }
+#quiz-settings-popover .qs-range { background: color-mix(in srgb, var(--hue-blossom) 25%, var(--surface-card)); }
+#quiz-settings-popover .qs-range::-webkit-slider-thumb { background: var(--hue-blossom); }
+#quiz-settings-popover .qs-range::-moz-range-thumb { background: var(--hue-blossom); }
+#quiz-settings-popover #font-size-normal.bg-pink-500,
+#quiz-settings-popover .qs-fontsize-group .bg-pink-500 { background: var(--hue-blossom) !important; color: #fff !important; }
+
+/* --- Thanh điều hướng đáy (mobile) + bảng nhảy câu --- */
+@media (max-width: 1023px) {
+    #quiz-mobile-nav.show,
+    html.theme-dark #quiz-mobile-nav.show {
+        background: color-mix(in srgb, var(--paper) 94%, transparent);
+        border-top: 2px dashed var(--line);
+        box-shadow: 0 -10px 24px -16px rgba(190, 130, 115, 0.5);
+    }
+}
+#quiz-mobile-nav .qmn-strip,
+html.theme-dark #quiz-mobile-nav .qmn-strip {
+    background: var(--surface-card);
+    border: 2px solid var(--line);
+    border-radius: 999px;
+}
+#quiz-mobile-nav .qmn-counter,
+html.theme-dark #quiz-mobile-nav .qmn-counter { color: var(--ink-blossom); font-variant-numeric: tabular-nums; }
+#quiz-mobile-nav .qmn-hint,
+html.theme-dark #quiz-mobile-nav .qmn-hint { color: var(--ink-sky); }
+#quiz-mobile-nav .qmn-progress,
+html.theme-dark #quiz-mobile-nav .qmn-progress { height: 9px; border-radius: 999px; background: color-mix(in srgb, var(--hue-mint) 18%, var(--surface-card)); }
+#quiz-mobile-nav .qmn-progress-fill {
+    border-radius: 999px;
+    background-color: var(--hue-mint);
+    background-image: repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.55) 0 4px, transparent 4px 8px);
+}
+#quiz-mobile-nav .qmn-arrow,
+#quiz-mobile-nav .qmn-act { --h: var(--hue-latte); --hi: var(--ink-latte); border-radius: 999px; min-height: 44px; }
+#quiz-mobile-nav .qmn-act.is-active { --h: var(--hue-lav); --hi: var(--ink-lav); --bg: color-mix(in srgb, var(--hue-lav) 30%, var(--surface-card)); }
+#quiz-jump-sheet .qjs-panel,
+html.theme-dark #quiz-jump-sheet .qjs-panel { background: var(--paper); border-radius: 1.8rem 1.8rem 0 0; }
+.qjs-cell,
+html.theme-dark .qjs-cell { background: var(--surface-card); color: var(--ink-muted); border: 2px dashed var(--ink-faint); border-radius: 999px; }
+.qjs-cell.is-answered,
+html.theme-dark .qjs-cell.is-answered { background: var(--pick-bg); color: var(--pick-ink); border: 2px solid var(--pick-line); }
+.qjs-cell.is-correct,
+html.theme-dark .qjs-cell.is-correct { background: var(--ok-bg); color: var(--ok-ink); border: 2px solid var(--ok-line); }
+.qjs-cell.is-wrong,
+html.theme-dark .qjs-cell.is-wrong { background: var(--bad-bg); color: var(--bad-ink); border: 2px solid var(--bad-line); }
+.qjs-cell.is-current,
+html.theme-dark .qjs-cell.is-current { background: color-mix(in srgb, var(--hue-blossom) 22%, var(--surface-card)); color: var(--ink-blossom); border: 2px solid var(--hue-blossom); box-shadow: 0 3px 0 color-mix(in srgb, var(--hue-blossom) 45%, transparent); }
+
+/* ============================================================
+   6) MÀN KẾT QUẢ — cùng trang giấy, bỏ hết ombre
+   ============================================================ */
+#resultsSection > .bg-white,
+html.theme-dark #resultsSection > .bg-white {
+    background-color: var(--paper) !important;
+    background-image: radial-gradient(circle, var(--dot) 1.25px, transparent 1.6px);
+    background-size: 20px 20px;
+    border: 2px solid var(--line);
+    border-radius: 1.8rem;
+    box-shadow: 0 6px 0 var(--line), var(--shadow-page);
+}
+#resultsSection [class*="bg-gradient-to"] { background-image: none !important; }
+#resultsSection div:has(> #practiceIncorrectBtn) {
+    background-color: color-mix(in srgb, var(--hue-butter) 16%, var(--surface-card)) !important;
+    border: 2px dashed color-mix(in srgb, var(--hue-butter) 55%, transparent) !important;
+    border-radius: 1.4rem;
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--hue-butter) 30%, transparent);
+}
+#resultsSection [class*="from-green-500"] {
+    background-color: var(--ok-bg) !important;
+    border: 2px dashed var(--ok-line) !important;
+    border-radius: 1.4rem;
+}
+#resultsSection [class*="from-amber-400"] { background-color: var(--hue-butter) !important; animation: none; }
+#resultsSection [class*="from-green-400"] { background-color: var(--ok-solid) !important; }
+#resultsSection .grid > div[class*="bg-"] { border-width: 2px; border-radius: 1.1rem; }
+#resultsSection :is(#practiceIncorrectBtn, .pt-6.border-t > a, .pt-6.border-t > button) { border-radius: 999px; }
+#resultsSection #restartQuizBtn,
+#resultsSection :is(a, button).bg-pink-50 { --h: var(--hue-blossom); --hi: var(--ink-blossom); }
+#resultsSection #practiceIncorrectBtn,
+#resultsSection :is(a, button).bg-amber-50 { --h: var(--hue-butter); --hi: var(--ink-butter); }
+#resultsSection :is(a, button).bg-purple-50 { --h: var(--hue-lav);  --hi: var(--ink-lav); }
+#resultsSection :is(a, button).bg-green-50  { --h: var(--hue-mint); --hi: var(--ink-mint); }
+#resultsSection :is(a, button).bg-blue-50   { --h: var(--hue-sky);  --hi: var(--ink-sky); }
+#resultsSection #practiceIncorrectBtn { --bg: color-mix(in srgb, var(--hue-butter) 40%, var(--surface-card)); }
+#resultsSection #restartQuizBtn { --bg: color-mix(in srgb, var(--hue-blossom) 45%, var(--surface-card)); font-weight: 800; }
+#resultsSection .result-filter-btn { --h: var(--hue-latte); --hi: var(--ink-latte); box-shadow: 0 2px 0 color-mix(in srgb, var(--hue-latte) 30%, transparent); }
+#resultsSection .result-filter-btn.bg-pink-500 { --h: var(--hue-blossom); --hi: #8E2A55; --bg: color-mix(in srgb, var(--hue-blossom) 50%, #fff); }
+#resultsSection #toggle-all-results { --h: var(--hue-blossom); --hi: var(--ink-blossom); }
+#resultsSection h2, #resultsSection h3 { color: var(--ink); }
+#resultsSection a.bg-clip-text { background: none !important; color: var(--ink-blossom); -webkit-text-fill-color: currentColor; }
+
+/* Modal chia sẻ cùng chất giấy */
+#shareQuizModal > div { background: var(--paper) !important; border: 2px solid var(--line); border-radius: 1.8rem !important; }
+#shareQuizModal h3 { color: var(--ink-blossom) !important; }
+
+/* Mặt phẳng tối: đưa nền trắng/xám về tông ca cao (quiz-enhance mặc định tím) */
+html.theme-dark .bg-white,
+html.theme-dark .bg-white\/95,
+html.theme-dark .bg-white\/90,
+html.theme-dark .bg-white\/80,
+html.theme-dark .bg-white\/60,
+html.theme-dark .bg-white\/50 { background-color: var(--paper) !important; }
+html.theme-dark .bg-gray-50,
+html.theme-dark .bg-gray-50\/40,
+html.theme-dark .bg-gray-50\/50,
+html.theme-dark .bg-gray-100 { background-color: var(--surface-card) !important; }
+html.theme-dark .bg-gray-200 { background-color: #3d3537 !important; }
+
+/* ============================================================
+   7) CẢM ỨNG & GIẢM CHUYỂN ĐỘNG
+   ============================================================ */
+@media (pointer: coarse) {
+    .chip-preset { min-height: 44px; padding: 0 15px; font-size: 12px; }
+    #quizSection #prevBtn,
+    #quizSection #nextBtn,
+    #quizSection .answer-btn { min-height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nb-doodle,
+    #quiz-nav-panel::before,
+    .mode-preset.mp-active::after,
+    #question-nav-wrapper .quiz-nav-btn.is-current,
+    #quizSection .answer-btn.bg-green-200::after,
+    #quizSection .answer-btn.bg-red-200::after { animation: none; }
+    #quiz-tip.nb-memo,
+    .nb-stat, .nb-stat:nth-child(n),
+    #quiz-landing .nb-label,
+    #quizSection #explanation-area:not(:empty),
+    .mode-preset:hover .mp-ic img,
+    #quizSection .answer-btn:not(.answer-locked):not(.opacity-20):hover { transform: none; }
+}
+
+/* ============================================================
+   8) TRANG CHỜ DẠNG BENTO 2 CỘT — máy tính bảng + máy tính (≥768px)
+   Mục tiêu: mọi tùy chọn + nút Bắt đầu nằm gọn trong một màn hình, không phải cuộn dài.
+   Trái: giới thiệu · thống kê · xem trước · chế độ nhanh · ôn ngắt quãng
+   Phải: tùy chỉnh phiên · xem trước · Bắt đầu + Flashcard · tiện ích
+   Điện thoại: hai cột "tan" ra (display: contents) rồi xếp lại ĐÚNG thứ tự cũ bằng order.
+   ============================================================ */
+.bt-grid { display: flex; flex-direction: column; gap: 1.25rem; }
+.bt-col { display: contents; }
+.bt-hero { order: 1; }
+.bt-stats { order: 2; }
+.bt-preview { order: 3; }
+.bt-modes { order: 4; }
+.bt-options { order: 5; }
+.bt-srs { order: 6; }
+.bt-cta { order: 7; }
+.bt-foot { order: 8; }
+#quiz-landing .bt-foot { border-top: 2px dashed var(--line); padding-top: 1.25rem; }
+
+@media (min-width: 768px) {
+    /* Trang giấy rộng ra cho 2 cột (chỉ khi có lưới — card báo lỗi vẫn giữ bề ngang cũ) */
+    #quiz-landing.nb-landing:has(.bt-grid) {
+        max-width: 76rem;
+        padding: 1.3rem 1.5rem 0.9rem 3.4rem;
+    }
+    .bt-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr);
+        gap: 1rem 1.2rem;
+        align-items: start;
+    }
+    .bt-col { display: flex; flex-direction: column; gap: 0.85rem; min-width: 0; }
+    .bt-col > * { order: 0; }                       /* order chỉ dùng để xếp lại trên điện thoại */
+
+    /* Ô bento: khung nét đứt trên giấy, nền giấy nhạt hơn một chút */
+    .bt-tile {
+        background: color-mix(in srgb, var(--surface-card) 70%, transparent);
+        border: 2px dashed var(--line);
+        border-radius: 1.4rem;
+        padding: 0.85rem 0.95rem;
+    }
+    .bt-hero { padding: 0.9rem 1rem 1.25rem; }       /* chừa chỗ bong bóng dưới chân sóc */
+    #quiz-landing .bt-hero #quiz-title { font-size: 1.45rem; line-height: 1.3; }
+    #quiz-landing .nb-label { margin-bottom: 0.65rem; }
+
+    /* Ôn ngắt quãng trong cột hẹp: tiêu đề một hàng, ô số câu + nút một hàng bên dưới */
+    #quiz-landing .bt-srs > div.flex { flex-direction: column; align-items: stretch; gap: 0.7rem; }
+    #quiz-landing .bt-srs > div.flex > div:last-child { flex-direction: row; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; width: 100%; }
+    #quiz-landing .bt-srs #start-srs-btn { width: auto; padding: 0.6rem 1.3rem; }
+
+    /* Lưới tùy chỉnh gọn lại */
+    #quiz-options-grid { gap: 0.6rem; }
+    #quiz-landing #quiz-options-grid > label,
+    #quiz-landing #quiz-options-grid > div { padding: 0.65rem 0.8rem; }
+    #quiz-options-grid .w-9 { width: 2rem; height: 2rem; }
+    #timed-minutes-input-block,
+    #question-count-input-block { margin-left: 2.75rem; margin-top: 0.5rem; }
+
+    /* Khối bắt đầu gọn */
+    #quiz-landing .bt-cta { gap: 0.55rem; padding: 0.9rem; }
+    .bt-cta #start-now-btn { max-width: none; padding-top: 0.85rem; padding-bottom: 0.85rem; }
+    .bt-cta #flashcard-link-btn { max-width: none; padding-top: 0.55rem; padding-bottom: 0.55rem; font-size: 0.9rem; }
+
+    /* Tiện ích: 4 viên kẹo nhỏ một hàng, không cần gạch ngăn */
+    #quiz-landing .bt-foot { border-top: 0; padding-top: 0; gap: 0.5rem; }
+    #quiz-landing .bt-foot > * { padding: 0.35rem 0.85rem; font-size: 0.78rem; }
+}
+/* Máy tính bảng dọc: cột hẹp -> sóc đứng trên tiêu đề, tùy chỉnh 1 cột */
+@media (min-width: 768px) and (max-width: 1023px) {
+    #quiz-landing .bt-hero { flex-direction: column; text-align: center; }
+    #quiz-options-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* --- Nén cho vừa một màn hình (đo ở 1280×800, 1366×768, 1024×768) --- */
+@media (min-width: 768px) {
+    /* Sóc nhỏ lại một chút, tiêu đề gọn */
+    #quiz-landing .bt-hero #quiz-hero-btn { width: 5.5rem; height: 5.5rem; }
+    #quiz-landing .bt-hero #quiz-title { font-size: 1.35rem; }
+
+    /* Chế độ nhanh: sticker nhỏ hơn, mô tả tối đa 2 dòng */
+    #quiz-landing .bt-modes .mode-preset { padding: 9px 6px 8px; }
+    #quiz-landing .bt-modes .mode-preset .mp-ic,
+    #quiz-landing .bt-modes .mode-preset .mp-ic img { width: 32px; height: 32px; }
+    #quiz-landing .mp-desc,
+    #quiz-landing #quiz-options-grid .text-xs.text-gray-400 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    #quiz-landing #quiz-options-grid .text-xs.text-gray-400 { font-size: 11px; line-height: 1.35; }
+
+    /* Ôn ngắt quãng gọn */
+    #quiz-landing .bt-srs { padding: 0.75rem 0.95rem; }
+    #quiz-landing .bt-srs #srs-section-icon { width: 40px; height: 40px; }
+    #quiz-landing .bt-srs h3 { font-size: 1rem; }
+
+    /* Khối bắt đầu: tóm tắt một hàng trên, [Bắt đầu ngay | Flashcard] cùng một hàng,
+       gợi ý bàn phím nằm luôn trong nút Bắt đầu. #resume-hint (JS chèn sau nút) xuống hàng riêng. */
+    #quiz-landing .bt-cta > p { display: none; }
+    #quiz-landing .bt-preview #show-preview-btn { margin: 0 auto; }
+    #quiz-landing > p:last-of-type { margin-top: 0.6rem; }
+}
+@media (min-width: 1024px) {
+    #quiz-landing .bt-cta { flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: stretch; }
+    #quiz-landing .bt-cta > #session-summary { order: 1; flex-basis: 100%; }
+    #quiz-landing .bt-cta > #start-now-btn { order: 2; flex: 1.7 1 0; min-width: 0; }
+    #quiz-landing .bt-cta > #flashcard-link-btn { order: 3; flex: 1 1 0; min-width: 0; width: auto; padding-left: 0.8rem; padding-right: 0.8rem; }
+    #quiz-landing .bt-cta > #resume-hint { order: 4; flex-basis: 100%; }
+}
+@media (min-width: 1024px) and (hover: hover) {
+    #quiz-landing .bt-cta > #start-now-btn::after {
+        content: "Enter ⏎";
+        margin-left: 0.35rem;
+        padding: 1px 7px;
+        border-radius: 7px;
+        border: 1.5px solid color-mix(in srgb, currentColor 35%, transparent);
+        font-size: 10px;
+        font-weight: 800;
+        opacity: 0.75;
+    }
+}
+@media (min-width: 1024px) {
+    .bt-grid { grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr); }
+    /* Thống kê nằm ngang: icon trái, nhãn + số phải */
+    #quiz-landing .bt-stats .nb-stat {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        column-gap: 0.6rem;
+        align-items: center;
+        justify-items: start;
+        text-align: left;
+        padding: 0.55rem 0.8rem;
+    }
+    #quiz-landing .bt-stats .nb-stat > i { grid-row: 1 / span 3; font-size: 1.3rem; margin: 0; }
+}
+/* 1024–1279: ô tùy chỉnh hẹp -> bỏ ô icon để chữ không xuống dòng */
+@media (min-width: 1024px) and (max-width: 1279px) {
+    #quiz-landing #quiz-options-grid .w-9 { display: none; }
+    #timed-minutes-input-block,
+    #question-count-input-block { margin-left: 0; }
+}
+
+/* ============================================================
+   9) ĐIỆN THOẠI: CHỮ CÁCH MÉP KHUNG XA HƠN
+   Lề ngoài màn hình giữ nguyên (p-2); nới ĐỆM TRONG của trang sổ và các thẻ nhỏ
+   (trước: thẻ chế độ / thống kê chỉ đệm ~6px -> chữ sát mép, cảm giác ngộp).
+   ============================================================ */
+@media (max-width: 639px) {
+    /* Trang sổ */
+    #quiz-landing.nb-landing { padding: 1.75rem 1.6rem 1.6rem 2.6rem; }
+    #quizSection .quiz-card { padding: 1.6rem 1.6rem 1.5rem; }
+    #resultsSection > .bg-white { padding: 1.6rem 1.5rem; }
+
+    /* Thẻ nhỏ trên trang chờ */
+    #quiz-tip.nb-memo { padding: 0.8rem 0.95rem; }
+    .nb-stat { padding: 0.85rem 0.6rem 0.8rem; }
+    .mode-preset { padding: 12px 10px 11px; }
+    #quiz-landing #quiz-options-grid > label,
+    #quiz-landing #quiz-options-grid > div { padding: 0.9rem 1rem; }
+    #quiz-landing .bt-srs { padding: 1.1rem 1.15rem; }
+    #quiz-preview { padding: 1rem 1.1rem; }
+
+    /* Thẻ trong màn làm bài */
+    #quizSection .answer-btn { padding-left: 1.05rem; padding-top: 0.95rem; padding-bottom: 0.95rem; }
+    #quizSection #clinical-case-panel { padding: 1.05rem 1.15rem; }
+    #quizSection #explanation-area:not(:empty) { padding: 1.45rem 1.3rem 1.15rem; }
+    #quizSection #expanded-area { padding: 1.25rem 1.2rem 1.25rem 1.6rem; }
+}

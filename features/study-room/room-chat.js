@@ -16,7 +16,7 @@ import { renderMath } from '../quiz/quiz-helpers.js';
 import { room, refs, uid, canControl, hasSession, myMember, answerOf, chosenOf, noteOf, questionAt, isAccepted } from './room-state.js';
 // Mỗi người đang ở một câu khác nhau -> gắn thẻ theo câu NGƯỜI GỬI đang xem
 import { effectiveIndex, renderQuiz } from './room-quiz-stage.js';
-import { avatarHtml, escapeHtml, shortName, changed } from './room-ui.js';
+import { avatarHtml, escapeHtml, shortName, changed, agoText } from './room-ui.js';
 import { uploadImage, imageFilesOf, safeImgUrl, warnIfTemp } from './room-media.js';
 import { sanitizeHtml, renderRich } from './room-editor.js';
 import { getNote, setNote } from './room-study.js';
@@ -59,12 +59,13 @@ export function sendChat(text, { withQuestion = true } = {}) {
 }
 
 /** Gửi một tin GẮN CÂU i (ảnh / chữ) — từ luồng nhận xét của khối "Đáp án & bàn luận". */
-export function sendQuestionMessage(i, text, images = []) {
+export function sendQuestionMessage(i, text, images = [], reply = null) {
     const my = answerOf(myMember(), i);
     return addDoc(refs.messages(), {
         type: 'chat', text: String(text || '').slice(0, 2000), uid: uid(), displayName: myName(), qIdx: i,
         ...(my && typeof my.i === 'number' ? { ans: my.i } : {}),
         ...(images.length ? { images } : {}),
+        ...(reply ? { reply: { id: reply.id, name: reply.name, text: String(reply.text || '').slice(0, 140) } } : {}),
         createdAt: serverTimestamp(),
     });
 }
@@ -132,8 +133,9 @@ function msgToHtml(m) {
 }
 
 // ---------- Vẽ ----------
-/** Một tin gắn câu, vẽ đúng kiểu dòng nhận xét (.rm-cmt) để trộn vào luồng của khối đáp án. */
-export function chatCmtHtml(m) {
+/** Một tin gắn câu, vẽ đúng kiểu dòng nhận xét (.rm-cmt) để trộn vào luồng của khối đáp án.
+ *  cls/acts: lớp + nút thêm của luồng (mới, ↩ trả lời, ✅); nested: đã lồng dưới tin gốc -> bỏ dòng trích "↩". */
+export function chatCmtHtml(m, { cls = '', acts = '', nested = false } = {}) {
     const member = room.members.find(x => x.uid === m.uid) || { uid: m.uid, displayName: m.displayName };
     const id = escapeHtml(m.id);
     const likes = likesOf(m.id);
@@ -142,16 +144,19 @@ export function chatCmtHtml(m) {
     const docBody = doc ? `<div class="rm-cmt-doc"><b>${escapeHtml(m.title || 'Tài liệu')}</b>${m.src ? ` · <span>${escapeHtml(m.src)}</span>` : ''}
         ${m.text ? `<div class="rm-cmt-q">${fmt(m.text)}</div>` : ''}
         ${safeLink(m.link) ? `<a class="rm-doc-link" href="${escapeHtml(m.link)}" target="_blank" rel="noopener noreferrer"><i class="fas fa-link"></i>${escapeHtml(shortUrl(m.link))}</a>` : ''}</div>` : '';
-    return `<li class="rm-cmt is-${doc ? 'src' : 'cmt'} is-chat" data-mid="${id}">
-        <span class="rm-cmt-ic" title="${doc ? 'tài liệu' : 'ý kiến'}">${doc ? '📚' : '💬'}</span>
-        <div class="min-w-0 flex-1">
-            ${m.reply ? `<div class="rm-cmt-q">↩ <b>${escapeHtml(shortName(m.reply.name || 'Khách', 14))}</b>: ${escapeHtml(String(m.reply.text || '').slice(0, 90))}</div>` : ''}
-            <p class="rm-cmt-t"><b>${name}</b>${typeof m.ans === 'number' ? ` <em>chọn ${L(m.ans)}</em>` : ''}${doc ? ' <em>chia sẻ tài liệu</em>' : ` ${fmt(m.text || '')}`}</p>
+    // Bong bóng chat (bản 26): mặt người + huy hiệu loại ở góc, tên · thời gian trên đầu bong bóng
+    return `<li class="rm-cmt is-${doc ? 'src' : 'cmt'} is-chat ${cls}" data-mid="${id}">
+        <span class="rm-cmt-av">${avatarHtml(member, 'xs')}<i class="rm-cmt-st" title="${doc ? 'tài liệu' : 'ý kiến'}">${doc ? '📚' : '💬'}</i></span>
+        <div class="rm-cmt-body min-w-0 flex-1">
+            ${m.reply && !nested ? `<div class="rm-cmt-q">↩ <b>${escapeHtml(shortName(m.reply.name || 'Khách', 14))}</b>: ${escapeHtml(String(m.reply.text || '').slice(0, 90))}</div>` : ''}
+            <p class="rm-cmt-head"><b>${name}</b>${typeof m.ans === 'number' ? ` <em class="rm-st">chọn ${L(m.ans)}</em>` : ''}${doc ? ' <em class="rm-st is-src">📚 tài liệu</em>' : ''}${likes ? `<span class="rm-cmt-n">👍 ${likes}</span>` : ''}<time class="rm-cmt-time">${agoText(msgTime(m))}</time></p>
+            ${!doc && m.text ? `<p class="rm-cmt-t">${fmt(m.text)}</p>` : ''}
             ${docBody}
             ${imagesHtml(m.images)}
         </div>
         <div class="rm-cmt-acts">
-            <button type="button" data-like="${id}" class="rm-like ${iLiked(m.id) ? 'on' : ''}" title="Đồng tình">👍${likes ? ' ' + likes : ''}</button>
+            <button type="button" data-like="${id}" class="rm-like ${iLiked(m.id) ? 'on' : ''} ${likes ? 'has-n' : ''}" title="Đồng tình">👍${likes ? ' ' + likes : ''}</button>
+            ${acts}
             <button type="button" data-toexp="${id}" class="rm-like" title="Đưa vào giải thích chung (ghi tên người viết)"><i class="fas fa-lightbulb"></i></button>
         </div>
     </li>`;

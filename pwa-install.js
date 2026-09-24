@@ -1,8 +1,30 @@
 // PWA Installation helper for Zitthenkne
 let deferredPrompt;
 
+// 0. Chạy trên MÁY (Live Server / localhost / 127.x): KHÔNG dùng Service Worker.
+// SW trả bản ĐÃ LƯU trước rồi mới ngầm lưu bản mới -> sửa file xong vẫn thấy giao diện cũ, và tệ hơn là
+// TRỘN file cũ với file mới (vd firebase-init.js mới bỏ `storage` mà file cũ còn import) -> cả cây module
+// chết, trang nào bấm cũng không ăn; tắt máy chủ thì hiện "Mất kết nối". Gỡ SW + xoá cache rồi tải lại 1 lần.
+// Muốn thử offline trên máy: localStorage.setItem('forceSW', '1').
+let isLocalDev = false;
+try {
+  isLocalDev = /^(localhost|127(\.\d+){3}|\[::1\])$/.test(location.hostname) && localStorage.getItem('forceSW') !== '1';
+} catch (e) {}
+if ('serviceWorker' in navigator && isLocalDev) {
+  const hadSW = !!navigator.serviceWorker.controller;
+  Promise.all([
+    navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.map(r => r.unregister()))),
+    window.caches ? caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))) : null,
+  ]).then(() => {
+    // Trang này vẫn do SW cũ phục vụ (có thể là bản trộn) -> tải lại một lần để lấy thẳng từ máy chủ
+    let reloaded = false;
+    try { reloaded = sessionStorage.getItem('swGone') === '1'; sessionStorage.setItem('swGone', '1'); } catch (e) {}
+    if (hadSW && !reloaded) location.reload();
+  }).catch(() => {});
+}
+
 // 1. Register Service Worker và tự động cập nhật khi có bản mới
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && !isLocalDev) {
   window.addEventListener('load', () => {
     // Tự động xác định thư mục gốc của ứng dụng (đặc biệt khi chạy trong thư mục con như trên Live Server)
     const path = window.location.pathname;

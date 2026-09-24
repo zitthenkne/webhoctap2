@@ -1,5 +1,5 @@
 // Service Worker for PWA - Offline Support & Caching
-const CACHE_NAME = 'zitthenkne-v111';
+const CACHE_NAME = 'zitthenkne-v128';
 
 // App shell (cùng origin) — nạp sẵn khi cài để mở offline được ngay.
 const urlsToCache = [
@@ -45,6 +45,12 @@ const urlsToCache = [
   'features/quiz/quiz-srs-dashboard.js',
   'features/quiz/quiz-editor.js',
   'features/quiz/quiz-enhance.css',
+  'features/quiz/quiz-stationery.css',
+  'features/quiz/web_assets/mascot_stationery_squirrel.webp',
+  'features/quiz/web_assets/badge_stationery_exam.webp',
+  'features/quiz/web_assets/badge_stationery_study.webp',
+  'features/quiz/web_assets/badge_stationery_sprint.webp',
+  'features/quiz/web_assets/badge_stationery_srs.webp',
   'features/flashcard/flashcard.js',
   'core/firebase-init.js',
   'core/utils.js',
@@ -84,6 +90,9 @@ const urlsToCache = [
   'features/study-room/room-media.js',
   'features/study-room/room-minutes.js',
   'features/study-room/room-answer.js',
+  'features/study-room/room-presence.js',
+  'features/study-room/room-richtools.js',
+  'features/study-room/room-sparkle.js',
   'features/study-room/room-paste.js',
   'features/study-room/rooms-hub.js',
   'features/study-room/rooms-hub.css',
@@ -154,9 +163,6 @@ const urlsToCache = [
   'features/quiz/library/library-attempts.js',
   'features/quiz/trash.html',
   'features/quiz/trash.js',
-  'features/quiz/quiz-ceramic.html',
-  'features/quiz/quiz-ceramic.js',
-  'features/quiz/quiz-ceramic.css',
   'features/checklist/checklist-run.html',
   'features/checklist/checklist-run.js',
   'features/link-vault/link-vault.html',

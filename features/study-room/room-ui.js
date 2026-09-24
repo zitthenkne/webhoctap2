@@ -53,7 +53,7 @@ export function avatarHtml(member, extra = '') {
     if (member?.photoURL) {
         return `<img src="${escapeHtml(member.photoURL)}" alt="" class="rm-avatar ${extra}" style="object-fit:cover" referrerpolicy="no-referrer" title="${title}">`;
     }
-    return `<div class="rm-avatar ${extra}" style="background:linear-gradient(140deg, ${colorOf(member?.uid)}, ${colorOf((member?.uid || '') + 'x')})" title="${title}">${escapeHtml(initialsOf(name))}</div>`;
+    return `<div class="rm-avatar ${extra}" style="background:${colorOf(member?.uid)}" title="${title}">${escapeHtml(initialsOf(name))}</div>`;
 }
 
 /** Dãy avatar chồng lên nhau (dùng chỗ "ai chọn phương án này"). */
@@ -67,6 +67,16 @@ export function avatarStack(members, max = 10, extra = 'sm') {
 export function shortName(name, max = 16) {
     const s = String(name || 'Khách');
     return s.length > max ? s.slice(0, max - 1) + '…' : s;
+}
+
+/** "vừa xong" · "5 phút" · "2 giờ" · "24/9" — mốc ms của một ý kiến trong luồng bàn luận. */
+export function agoText(ms) {
+    const d = (Date.now() - (Number(ms) || 0)) / 60000;
+    if (!ms || d < 1) return 'vừa xong';
+    if (d < 60) return `${Math.floor(d)} phút`;
+    if (d < 1440) return `${Math.floor(d / 60)} giờ`;
+    const t = new Date(ms);
+    return `${t.getDate()}/${t.getMonth() + 1}`;
 }
 
 export function fmtClock(sec) {

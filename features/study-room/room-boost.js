@@ -5,7 +5,7 @@
 import { room, hasSession, doneOf, questionAt, isEssay } from './room-state.js';
 import { showToast } from '../../core/utils.js';
 import { effectiveIndex, setViewIndex, toggleRace } from './room-quiz-stage.js';
-import { focusHub } from './room-answer.js';
+import { focusHub, gotoNotebook, toggleNotebookRail } from './room-answer.js';
 import { escapeHtml } from './room-ui.js';
 
 const el = (id) => document.getElementById(id);
@@ -164,6 +164,10 @@ const KEYS = [
     ['1–9 · A–D', 'Chọn phương án'],
     ['D', 'Tới khối Đáp án & bàn luận (nhận xét)'],
     ['W', 'Câu tự luận: gõ vào bài làm chung'],
+    ['E', 'Sổ tay: viết giải thích'],
+    ['R', 'Viết lý do của bạn (ô mình chọn)'],
+    ['O', 'Mở / thu gọn cột sổ tay'],
+    ['Bấm mặt người ở đầu trang', 'Tới chỗ bạn ấy đang xem / đang sửa'],
     ['← →', 'Câu trước / câu sau (của riêng bạn)'],
     ['J', 'Nhảy tới câu chưa chọn tiếp theo'],
     ['Home / End', 'Về câu đầu / câu cuối'],
@@ -315,6 +319,16 @@ export function initBoost() {
         if (k === 'm') return toggleSound();
         if (k === 'j') return jumpToUnanswered();
         if (k === 'd' && hasSession()) { e.preventDefault(); return void focusHub(); }
+        // Sổ tay (bản 27): E viết giải thích · R viết lý do của bạn · O mở / thu cột sổ tay
+        if (k === 'e' && hasSession()) { e.preventDefault(); return void gotoNotebook('exp'); }
+        if (k === 'o' && hasSession()) { e.preventDefault(); return void toggleNotebookRail(); }
+        if (k === 'r' && hasSession() && !el('quiz-live')?.classList.contains('hidden')) {
+            const w = document.querySelector('#options-area [data-live-edit="why"]');
+            if (!w) return void showToast('Chọn một đáp án trước rồi mới ghi lý do nhé.', 'info', 1600);
+            e.preventDefault();
+            w.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            return void w.focus();
+        }
         if (k === 'w' && hasSession() && isEssay(questionAt(effectiveIndex()))) {
             const n = document.querySelector('#answer-block [data-live-edit="explain"]');
             if (n) { e.preventDefault(); n.scrollIntoView({ block: 'center', behavior: 'smooth' }); n.focus(); }

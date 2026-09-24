@@ -14,12 +14,25 @@ import { effectiveIndex } from './room-quiz-stage.js';
 
 // Thẻ được phép giữ lại khi lưu (đủ để in đậm/nghiêng/gạch chân/bôi vàng/danh sách)
 // + ẢNH (chỉ giữ src https / ảnh nhúng) và LINK (chỉ giữ href http/https) cho phần tài liệu.
-const ALLOWED = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'MARK', 'CODE', 'BR', 'DIV', 'P', 'UL', 'OL', 'LI', 'SUB', 'SUP', 'SPAN', 'IMG', 'A']);
+// + BẢNG (bản 28) và tiêu đề nhỏ H4 / đường kẻ HR cho mở rộng · ghi nhớ · ghi chú.
+const ALLOWED = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'MARK', 'CODE', 'BR', 'DIV', 'P', 'UL', 'OL', 'LI', 'SUB', 'SUP', 'SPAN', 'IMG', 'A',
+    'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD', 'H4', 'HR']);
+const TABLE_TAGS = new Set(['TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD']);
+// Bỏ HẲN cả nội dung (không gỡ thẻ giữ chữ): dán từ Excel / Word có <style> — gỡ thẻ là lộ nguyên đống CSS thành chữ
+const DROP = new Set(['STYLE', 'SCRIPT', 'META', 'TITLE', 'LINK', 'HEAD', 'NOSCRIPT', 'TEMPLATE', 'IFRAME', 'OBJECT', 'EMBED', 'SVG', 'CANVAS', 'XML', 'COLGROUP', 'COL']);
+// Bút dạ pastel: 4 màu, lưu thành <mark data-c="…"> (sanitize giữ đúng 4 giá trị này, bỏ mọi style lạ)
+const HL = {
+    y: { bg: '#FFF3A8', rgb: 'rgb(255, 243, 168)', name: 'vàng chanh' },
+    p: { bg: '#FFD6E7', rgb: 'rgb(255, 214, 231)', name: 'hồng đào' },
+    g: { bg: '#CDF3E1', rgb: 'rgb(205, 243, 225)', name: 'xanh bạc hà' },
+    v: { bg: '#E4DAFF', rgb: 'rgb(228, 218, 255)', name: 'tím oải hương' },
+};
+const HL_BY_RGB = Object.fromEntries(Object.entries(HL).map(([k, v]) => [v.rgb, k]));
 const FORMAT_BTNS = [
     { cmd: 'bold', icon: 'fa-bold', title: 'In đậm (Ctrl+B)' },
     { cmd: 'italic', icon: 'fa-italic', title: 'In nghiêng (Ctrl+I)' },
     { cmd: 'underline', icon: 'fa-underline', title: 'Gạch chân (Ctrl+U)' },
-    { cmd: 'hilite', icon: 'fa-highlighter', title: 'Bôi vàng' },
+    ...Object.entries(HL).map(([k, v]) => ({ cmd: 'hl:' + k, dot: k, title: `Bút dạ ${v.name}` })),
     { cmd: 'insertUnorderedList', icon: 'fa-list-ul', title: 'Gạch đầu dòng' },
     { cmd: 'removeFormat', icon: 'fa-eraser', title: 'Xóa định dạng' },
     // Không phải định dạng: gắn đoạn đang bôi đen vào ô nhận xét (room-answer.js) — nhận xét đúng đoạn đó
@@ -41,24 +54,40 @@ export const currentEditKey = () => editingKey;
 export function sanitizeHtml(html) {
     const box = document.createElement('div');
     box.innerHTML = String(html || '');
+    const tw = document.createTreeWalker(box, NodeFilter.SHOW_COMMENT);   // <!--StartFragment--> của Word/Excel
+    const comments = [];
+    while (tw.nextNode()) comments.push(tw.currentNode);
+    comments.forEach(c => c.remove());
     box.querySelectorAll('*').forEach(node => {
+        const tag = node.tagName.toUpperCase();          // svg / o:p … có tagName chữ thường
+        if (DROP.has(tag)) { node.remove(); return; }
         // Chỗ giữ ảnh đang tải (⏳) không bao giờ được lưu lên Firestore
         if (node.hasAttribute('data-uploading')) { node.remove(); return; }
-        // Bôi vàng của trình duyệt ra <span style="background-color:…"> -> đổi thành <mark>
-        const hasBg = node.style && node.style.backgroundColor && node.style.backgroundColor !== 'transparent';
-        if (hasBg && node.tagName !== 'MARK') {
+        // Bút dạ của trình duyệt ra <span style="background-color:…"> -> đổi thành <mark data-c="màu">.
+        // DỜI chính các node con sang (append), đừng chép innerHTML: bản chép là node MỚI không nằm
+        // trong danh sách đang duyệt -> lọt qua bộ lọc (vd. <img onerror> ai đó ghi thẳng lên Firestore).
+        const bg = node.style?.backgroundColor;
+        // (chỉ thẻ chữ SPAN/FONT — ô bảng Excel tô nền mà đổi thành mark là vỡ cả bảng)
+        if (bg && bg !== 'transparent' && (tag === 'SPAN' || tag === 'FONT')) {
             const mark = document.createElement('mark');
-            mark.innerHTML = node.innerHTML;
+            if (HL_BY_RGB[bg]) mark.dataset.c = HL_BY_RGB[bg];
+            mark.append(...node.childNodes);
             node.replaceWith(mark);
             return;
         }
-        if (!ALLOWED.has(node.tagName)) {
+        const c = tag === 'MARK' ? (HL_BY_RGB[bg] || node.getAttribute('data-c')) : null;
+        if (!ALLOWED.has(tag)) {
             node.replaceWith(...node.childNodes);   // bỏ thẻ lạ, giữ chữ bên trong
             return;
         }
         const src = node.tagName === 'IMG' ? safeImgUrl(node.getAttribute('src')) : '';
         const href = node.tagName === 'A' ? node.getAttribute('href') || '' : '';
+        // Ô gộp của bảng: giữ colspan / rowspan (số nhỏ), còn lại bỏ sạch thuộc tính
+        const span = TABLE_TAGS.has(tag) ? ['colspan', 'rowspan'].map(a => [a, node.getAttribute(a)])
+            .filter(([, v]) => /^\d{1,2}$/.test(v || '') && +v > 1 && +v <= 20) : [];
         [...node.attributes].forEach(a => node.removeAttribute(a.name));
+        span.forEach(([a, v]) => node.setAttribute(a, v));
+        if (c && HL[c]) node.setAttribute('data-c', c);
         if (node.tagName === 'IMG') {
             if (!src) return void node.remove();
             node.setAttribute('src', src);
@@ -80,7 +109,7 @@ export function sanitizeHtml(html) {
 export function renderRich(text) {
     const v = String(text ?? '');
     if (!v.trim()) return '';
-    const looksHtml = /<(b|strong|i|em|u|mark|code|br|div|p|ul|ol|li|span|img|a)\b/i.test(v);
+    const looksHtml = /<(b|strong|i|em|u|mark|code|br|div|p|ul|ol|li|span|img|a|table|h4|hr)\b/i.test(v);
     return looksHtml ? sanitizeHtml(v) : parseMarkdown(v);
 }
 
@@ -98,8 +127,25 @@ async function insertImages(node, files) {
     const qi = effectiveIndex();
     for (const file of files) {
         const id = 'up' + Math.random().toString(36).slice(2, 9);
-        document.execCommand('insertHTML', false,
-            `<span class="rm-upl" data-uploading="${id}" contenteditable="false"><i class="fas fa-circle-notch fa-spin"></i><span> Đang tải ảnh…</span></span>&nbsp;`);
+        // Chèn chỗ giữ bằng Range (không qua execCommand('insertHTML')): chèn trong mục danh sách / ô bảng,
+        // Chrome làm rơi data-uploading -> ảnh tải xong không tìm được chỗ, còn "Đang tải ảnh…" bị lưu thành chữ.
+        const holder = document.createElement('span');
+        holder.className = 'rm-upl';
+        holder.dataset.uploading = id;
+        holder.contentEditable = 'false';
+        holder.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i><span> Đang tải ảnh…</span>';
+        const sel = window.getSelection();
+        let rg = sel.rangeCount ? sel.getRangeAt(0) : null;
+        if (!rg || !node.contains(rg.startContainer)) { rg = document.createRange(); rg.selectNodeContents(node); rg.collapse(false); }
+        rg.deleteContents();
+        rg.insertNode(holder);
+        const gap = document.createTextNode(' ');
+        holder.after(gap);
+        rg = document.createRange();
+        rg.setStartAfter(gap);
+        rg.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(rg);
         let res;
         try {
             res = await uploadImage(file, (x) => {
@@ -122,6 +168,36 @@ async function insertImages(node, files) {
             fire(key, null, { qi, appendHtml: `<p>${img}</p>` });
         }
     }
+}
+
+/** Ô sửa "trống" = không chữ VÀ không ảnh (lý do chỉ có một tấm ảnh vẫn là lý do — đừng đè chữ mờ lên). */
+export const isBlank = (node) => !node.textContent.trim() && !node.querySelector('img');
+
+// Đặt con trỏ ở CUỐI ô sửa nếu con trỏ đang không nằm trong ô (bấm nút ngoài ô rồi mới chèn)
+function caretIn(node) {
+    node.focus({ preventScroll: true });
+    const sel = window.getSelection();
+    if (sel.rangeCount && node.contains(sel.anchorNode)) return;
+    const r = document.createRange();
+    r.selectNodeContents(node);
+    r.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(r);
+}
+/** Nút 🖼 cạnh một ô sửa (điện thoại không có Ctrl+V): chèn ảnh vào đúng ô đó. */
+export function insertImagesInto(node, files) {
+    const list = [...(files || [])].filter(f => /^image\//.test(f.type)).slice(0, 4);
+    if (!node || !list.length) return;
+    caretIn(node);
+    insertImages(node, list);
+}
+/** Chèn một mẩu HTML (mẫu câu "🔬 Cơ chế:" …) vào ô sửa, xuống dòng nếu ô đã có chữ, rồi lưu như đang gõ. */
+export function insertHtmlInto(node, html) {
+    if (!node) return;
+    const blank = isBlank(node);
+    caretIn(node);
+    document.execCommand('insertHTML', false, (blank ? '' : '<br>') + html);
+    node.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 function saveNow(node) {
@@ -183,10 +259,9 @@ function applyCommand(cmd) {
         return;
     }
     try {
-        if (cmd === 'hilite') {
-            if (!document.execCommand('hiliteColor', false, '#FFF3A8')) {
-                document.execCommand('backColor', false, '#FFF3A8');
-            }
+        if (cmd.startsWith('hl:')) {
+            const bg = HL[cmd.slice(3)]?.bg || HL.y.bg;
+            if (!document.execCommand('hiliteColor', false, bg)) document.execCommand('backColor', false, bg);
         } else {
             document.execCommand(cmd, false, null);
         }
@@ -201,7 +276,8 @@ export function initInlineEdit() {
     const bar = el('sel-toolbar');
     if (bar) {
         bar.innerHTML = FORMAT_BTNS.map(b =>
-            `<button type="button" data-cmd="${b.cmd}" class="rm-selbtn" title="${b.title}"><i class="fas ${b.icon}"></i></button>`).join('');
+            `<button type="button" data-cmd="${b.cmd}" class="rm-selbtn" title="${b.title}">${b.dot
+                ? `<span class="rm-hl-dot" data-c="${b.dot}"></span>` : `<i class="fas ${b.icon}"></i>`}</button>`).join('');
         // mousedown + preventDefault để không mất vùng bôi đen khi bấm nút
         bar.addEventListener('mousedown', (e) => {
             const b = e.target.closest('[data-cmd]');
@@ -230,7 +306,7 @@ export function initInlineEdit() {
     document.addEventListener('input', (e) => {
         const node = e.target.closest?.('[data-live-edit]');
         if (!node) return;
-        node.dataset.empty = node.textContent.trim() ? '0' : '1';
+        node.dataset.empty = isBlank(node) ? '1' : '0';
         clearTimeout(saveTimer);
         saveTimer = setTimeout(() => saveNow(node), 400);
     });
@@ -257,6 +333,26 @@ export function initInlineEdit() {
         const text = cd.getData('text/plain');
         const imgs = imageFilesOf(cd);
         if (imgs.length && !text.trim()) return void insertImages(node, imgs);
+        // BẢNG (bản 28): Excel / Word / Google Sheets gửi kèm HTML có <table> -> giữ nguyên bảng (đã lọc sạch);
+        // chỉ có chữ phân cách bằng Tab (Excel dán dạng chữ) -> dựng bảng. Ô đơn lẻ thì vẫn dán chữ thường.
+        if (!/^(question$|opttext:)/.test(node.dataset.liveEdit || '')) {
+            const html = cd.getData('text/html');
+            if (/<table[\s>]/i.test(html)) {
+                const clean = sanitizeHtml(html);
+                if ((clean.match(/<t[dh][\s>]/gi) || []).length > 1) {
+                    document.execCommand('insertHTML', false, clean + '<p><br></p>');
+                    return;
+                }
+            }
+            const rows = text.replace(/\r/g, '').replace(/\n+$/, '').split('\n');
+            if (rows.length >= 2 && rows.every(r => r.includes('\t'))) {
+                const esc = (s) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+                const tr = (r, tag) => `<tr>${r.split('\t').map(c => `<${tag}>${esc(c.trim()) || '<br>'}</${tag}>`).join('')}</tr>`;
+                document.execCommand('insertHTML', false,
+                    `<table><thead>${tr(rows[0], 'th')}</thead><tbody>${rows.slice(1).map(r => tr(r, 'td')).join('')}</tbody></table><p><br></p>`);
+                return;
+            }
+        }
         document.execCommand('insertText', false, text);
     });
     // Kéo ảnh từ máy thả thẳng vào ô đang sửa

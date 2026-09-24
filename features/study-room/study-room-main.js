@@ -18,6 +18,9 @@ import { initInlineEdit } from './room-editor.js';
 import { initBoost, openMinutes } from './room-boost.js';
 import { initGame } from './room-game.js';
 import { initMedia } from './room-media.js';
+import { initPresence } from './room-presence.js';
+import { initRichTools } from './room-richtools.js';
+import { initSparkle } from './room-sparkle.js';
 
 const el = (id) => document.getElementById(id);
 const unsubs = [];
@@ -600,6 +603,9 @@ async function initRoom() {
         initGame();
         initInlineEdit();
         initMedia();
+        initRichTools();                                         // thanh soạn thảo: ảnh · bảng · danh sách · tiêu đề
+        initPresence();                                          // thanh ai-đang-xem + con trỏ người khác
+        initSparkle();                                           // bản 32: ABCD mini trên HUD · xem trước câu · 🔥 chuỗi · vắng mặt
         window.addEventListener('room:minutes', openMinutes);   // room-minutes.js nạp lười ở lần mở đầu
         showPanel('discuss');
 

@@ -1,7 +1,7 @@
 // room-scoreboard.js — chấm điểm, bảng xếp hạng realtime và màn tổng kết phiên.
 // Điểm được TÍNH LẠI từ dữ liệu (đáp án của từng người + mốc mở câu), không lưu riêng
 // -> ai vào sau, ai F5, ai mất mạng rồi vào lại đều thấy đúng cùng một bảng.
-import { room, correctIdxOf, optsOf, answerOf, canControl, isAnnounced, betOf, teamOn, teamOf, acceptedOf, isSplit } from './room-state.js';
+import { room, correctIdxOf, optsOf, answerOf, canControl, isAnnounced, betOf, teamOn, teamOf, acceptedOf, isSplit, argsOf, flagOf, isEssay, acceptedText } from './room-state.js';
 import { TEAM_NAMES, participationHtml } from './room-game.js';
 import { avatarHtml, escapeHtml, shortName, changed } from './room-ui.js';
 
@@ -132,6 +132,92 @@ export function renderRankPanel() {
             </div>`).join('')}</div>`;
 }
 
+// ---------- Danh hiệu vui cuối buổi (bản 32) ----------
+// Tính lại từ dữ liệu sẵn có (điểm, lý do, nhận xét, ai đổi ý theo ai) — không lưu gì thêm.
+const hasWhy = (v) => !!String(v || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() || /<img/i.test(String(v || ''));
+function awardsHtml(rows) {
+    const qs = room.session?.questions || [];
+    const per = new Map(room.members.map(m => [m.uid, { member: m, why: 0, ask: 0, cmt: 0, conv: 0 }]));
+    qs.forEach((q, i) => {
+        const args = argsOf(i);
+        args.forEach(a => { const p = per.get(a.uid); if (!p) return; p.cmt++; if (a.s === 'ask') p.ask++; });
+        room.members.forEach(m => {
+            const a = answerOf(m, i);
+            if (!a) return;
+            if (hasWhy(a.why)) per.get(m.uid).why++;
+            const by = a.by?.id;
+            if (!by) return;
+            const author = String(by).startsWith('w:') ? String(by).slice(2) : args.find(x => x.id === by)?.uid;
+            if (author && author !== m.uid && per.has(author)) per.get(author).conv++;
+        });
+    });
+    const people = [...per.values()];
+    const best = (list, val, min = 1, low = false) => list.reduce((b, x) => {
+        const v = val(x);
+        if (v === null || v === undefined || (!low && v < min)) return b;
+        return !b || (low ? v < b.v : v > b.v) ? { x, v } : b;
+    }, null);
+    const graded = qs.filter((q, i) => isAnnounced(i) && !isEssay(q)).length;
+    const out = [];
+    const add = (ic, title, b, desc) => { if (b) out.push({ ic, title, member: b.x.member, desc: desc(b.v) }); };
+    add('🔥', 'Chuỗi bất bại', best(rows, r => r.best, 3), v => `${v} câu đúng liên tiếp`);
+    add('🎯', 'Xạ thủ', best(rows.filter(r => r.answered >= Math.max(2, Math.ceil(graded / 2))), r => r.correct / r.answered, .7), v => `${Math.round(v * 100)}% chính xác`);
+    add('⚡', 'Tia chớp', best(rows.filter(r => r.avgMs !== null && r.avgMs < 30000 && r.correct >= 2), r => r.avgMs, 0, true), v => `đúng trung bình sau ${(v / 1000).toFixed(1)} giây`);
+    add('🔄', 'Nhà thuyết phục', best(people, p => p.conv), v => `${v} lần có bạn đổi ý theo`);
+    add('💭', 'Cây lý do', best(people, p => p.why, 2), v => `ghi lý do ở ${v} câu`);
+    add('❓', 'Hỏi hay', best(people, p => p.ask), v => `${v} thắc mắc cho cả nhóm`);
+    add('💬', 'Góp ý nhiệt', best(people, p => p.cmt, 3), v => `${v} nhận xét`);
+    add('🎲', 'Liều ăn nhiều', best(rows, r => r.bigWin), v => `${v} lần cược thắng`);
+    if (!out.length) return '';
+    return `<div class="rm-awards">
+        <p class="rm-label mb-2">🏅 Danh hiệu buổi này</p>
+        <div class="rm-award-grid">${out.slice(0, 6).map((a, k) => `
+            <div class="rm-award a${k % 4}" style="--d:${k * 90}ms">
+                <span class="rm-award-ic" aria-hidden="true">${a.ic}</span>
+                <div class="min-w-0">
+                    <b>${a.title}</b>
+                    <div class="rm-award-who">${avatarHtml(a.member, 'xs')}<span>${escapeHtml(shortName(a.member?.displayName || 'Khách', 14))}</span>${a.member?.uid === room.user?.uid ? '<em>bạn</em>' : ''}</div>
+                    <small>${a.desc}</small>
+                </div>
+            </div>`).join('')}</div>
+    </div>`;
+}
+
+// Dải "Hành trình" trong thẻ kết quả của mình: mỗi câu một hạt — đúng / sai / chọn mà chưa chốt / bỏ trống
+function trailHtml(member) {
+    const qs = room.session?.questions || [];
+    if (!qs.length) return '';
+    const L = (k) => String.fromCharCode(65 + k);
+    return `<div class="rm-trail" aria-label="Hành trình từng câu của bạn">
+        <span class="rm-trail-lb">Hành trình</span>
+        <div class="rm-trail-dots">${qs.map((q, i) => {
+            const a = answerOf(member, i);
+            const picked = typeof a?.i === 'number';
+            const ann = isAnnounced(i);
+            const st = isEssay(q) ? 'essay' : ann && picked ? (acceptedOf(i).includes(a.i) ? 'ok' : 'bad') : picked ? 'done' : ann ? 'miss' : 'todo';
+            const tip = `Câu ${i + 1}: ${isEssay(q) ? 'tự luận' : picked ? 'bạn chọn ' + L(a.i) : 'bỏ trống'}${ann ? ' · nhóm chốt ' + acceptedText(i) : ''}`;
+            return `<i class="is-${st}${flagOf(member, i) ? ' flag' : ''}" title="${tip}"></i>`;
+        }).join('')}</div>
+    </div>`;
+}
+
+// Đếm điểm chạy từ 0 (chỉ lần đầu mở màn tổng kết của phiên này)
+function countUp(root) {
+    root.querySelectorAll('[data-count]').forEach(n => {
+        const to = Number(n.dataset.count) || 0;
+        if (!to) return;
+        const t0 = performance.now();
+        const step = (t) => {
+            const p = Math.min(1, (t - t0) / 1100);
+            n.textContent = Math.round(to * (1 - Math.pow(1 - p, 3)));
+            if (p < 1 && n.isConnected) requestAnimationFrame(step);
+        };
+        n.textContent = '0';
+        requestAnimationFrame(step);
+    });
+}
+let enteredFor = null;
+
 /** Màn tổng kết cuối phiên (mọi người đều thấy). */
 export function renderResults() {
     const el = document.getElementById('quiz-result');
@@ -166,10 +252,12 @@ export function renderResults() {
                         <span class="rm-pod-medal">${MEDAL[r.rank - 1]}</span>
                         ${avatarHtml(r.member, 'lg')}
                     </div>
-                    <div class="rm-pod-bar"><b>${r.points}</b><span>${r.correct} câu đúng</span></div>
+                    <div class="rm-pod-bar"><b data-count="${r.points}">${r.points}</b><span>${r.correct} câu đúng</span></div>
                     <p class="rm-pod-name">${escapeHtml(shortName(r.name, 14))}</p>
                 </div>`;
             }).join('')}</div>` : ''}
+
+        ${awardsHtml(rows)}
 
         ${(() => {
             const me = rows.find(r => r.member?.uid === room.user?.uid);
@@ -188,6 +276,7 @@ export function renderResults() {
                     <div><b>${me.best}</b><span>chuỗi dài nhất</span></div>
                     <div><b>${questions.length - me.answered}</b><span>câu bỏ trống</span></div>
                 </div>
+                ${trailHtml(me.member)}
             </div>`;
         })()}
 
@@ -253,4 +342,14 @@ export function renderResults() {
                 <button id="result-close-btn" class="rm-ghost-btn">Đóng phiên</button>
             ` : `<p class="text-xs text-muted">Chờ chủ trì mở phiên tiếp theo.</p>`}
         </div>`;
+
+    // Lần đầu mở màn tổng kết của phiên này: bục mọc lên, huy hiệu dán vào, điểm đếm chạy.
+    // Snapshot sau (nhịp tim, chat) vẽ lại thì đứng yên — không diễn lại.
+    const key = `${room.roomId}:${room.session.startedAtMs || 0}`;
+    if (enteredFor !== key) {
+        enteredFor = key;
+        el.classList.add('rm-res-enter');
+        countUp(el);
+        setTimeout(() => el.classList.remove('rm-res-enter'), 2600);
+    }
 }

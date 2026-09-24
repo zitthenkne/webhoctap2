@@ -22,6 +22,8 @@ const store = {
     },
     'study_rooms/demo/members/u3': {
         uid: 'u3', displayName: 'Bảo Ngọc', emoji: '🐨', online: true, lastSeen: now, cursor: 0,
+        // Con trỏ đang sửa ô Giải thích (bản 27 — thấy cờ tên + vùng bôi đen); at ở tương lai để bản xem trước khỏi hết hạn
+        caret: { q: 0, k: 'explain', s: 4, e: 12, at: now + 36e5 },
         answers: { q0: { ...A(2, now - 12000, true), why: 'Mình nhớ mang máng là ở đỉnh tim, chưa chắc lắm.' } }, marks: {}, flags: {},
         args: { q0: { a3: { t: 'Có tài liệu nào ghi chính xác vị trí nút xoang không mọi người?', o: null, s: 'ask', at: now - 1000 } },
                 q3: { a5: { t: 'Nên thêm ý thận điều hòa qua bài niệu áp lực.', o: null, s: 'cmt', at: now - 800 } } },

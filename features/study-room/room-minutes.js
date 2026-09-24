@@ -3,8 +3,12 @@
 //            in của trình duyệt -> "Lưu dưới dạng PDF". Không dùng jsPDF: chữ tiếng Việt, ảnh và
 //            công thức đều đẹp hơn khi để trình duyệt tự dàn trang, chữ trong PDF còn bôi đen được.
 //   · Markdown (.md) — cùng bố cục, dán thẳng vào Obsidian / Notion / nhóm chat.
-// Bố cục: I. Thông tin chung · II. Tóm tắt kết quả · III. Bảng xếp hạng · IV. Mức độ tham gia ·
-//         V. Việc cần làm sau buổi học · VI. Chi tiết từng câu · VII. Phụ lục (thảo luận chung, tài liệu).
+// Bố cục GỌN (bản 33 — người dùng: "chỉ hiển thị cái thật sự cần, tránh loãng"):
+//   đầu trang (1 dòng thông tin · thành viên · 4 chỉ số · xếp hạng 1 dòng) · 🎯 Cần ôn lại · 📝 Từng câu
+//   (đề · phương án + giải thích từng ý · giải thích chung · mở rộng/ghi nhớ · ý chính khi bàn ≤3 · nguồn).
+//   Tuỳ chọn "Bản đầy đủ" thêm: ai chọn gì + lý do, toàn bộ nhận xét/chat, ghi nhận phụ, mức độ tham gia.
+//   ĐÃ BỎ khỏi bản gọn: bảng "Thông tin chung" (lặp đầu trang), "Tóm tắt kết quả" (lặp thẻ số liệu),
+//   bảng 8 cột tham gia (toàn dấu —), dòng kết luận (lặp nhãn đầu câu), cột "Ai chọn", chat từng câu.
 import { getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { showToast } from '../../core/utils.js';
 import { stripOptionLabels } from '../quiz/quiz-helpers.js';
@@ -86,12 +90,20 @@ function collect(msgs, opt) {
             explainer: explainerOf(i), thanks: thanksOf(i).length,
             issue: issueOf(i), edited: !!editOf(i), prev: prevVoteOf(i),
             note: noteOf(i) || (chosen !== null || s.shown?.['q' + i] ? (q.explanation || q.explain || '') : ''),
-            noteBy: noteOf(i) ? noteAuthorOf(i)?.name || '' : (q.explanation || q.explain ? 'đáp án file' : ''),
+            noteBy: noteOf(i) ? noteAuthorOf(i)?.name || '' : (q.explanation || q.explain ? 'theo file' : ''),
             optNotes: opts.map((_, k) => optNoteOf(i, k) || (q.optionExplanations?.[k] || '')),
             chats: talkers.filter(m => m.type === 'chat' && m.qIdx === i),
             docs: talkers.filter(m => m.type === 'doc' && m.qIdx === i),
         };
         x.status = essay ? 'essay' : split ? 'split' : !accepted.length ? 'open' : ref === null ? 'nofile' : accepted.includes(ref) ? 'match' : 'diff';
+        // Ý chính khi bàn (bản gọn): thắc mắc CHƯA giải đáp luôn giữ; còn lại lấy lập luận có lập trường
+        // (✚ ✖ 📚 ❓) hoặc nhận xét được đồng tình, nhiều 👍 lên trước. Tự luận: nhận xét chính là nội dung.
+        const openAsk = args.filter(a => a.s === 'ask' && !a.ok);
+        const rest = args.filter(a => !openAsk.includes(a) && (essay || a.s !== 'cmt' || agreeCount(a.id) > 0));
+        x.keyArgs = [...openAsk, ...rest].slice(0, Math.max(essay ? 6 : 3, openAsk.length));
+        // Chưa ai viết giải thích -> mượn tối đa 2 lý do của người chọn đúng, kẻo câu chỉ trơ đáp án
+        const hasExp = plain(x.note) || /<img/i.test(x.note) || x.optNotes.some(t => plain(t));
+        x.bestWhy = hasExp || !accepted.length ? [] : x.reasons.filter(r => accepted.includes(r.k)).slice(0, 2);
         // Lý do nên ôn lại — viết thành câu để người đọc hiểu ngay vì sao câu này nằm trong danh sách
         const why = [];
         if (split) why.push('nhóm chưa thống nhất — cần tra cứu thêm nguồn');
@@ -111,14 +123,11 @@ function collect(msgs, opt) {
     const graded = qs.filter(x => x.pctRight !== null);
     const summary = {
         total,
-        announced: qs.filter(x => x.accepted.length).length,
+        announced: qs.filter(x => !x.essay && x.accepted.length).length,   // trước đây đếm cả tự luận -> "4/3"
         essays: qs.filter(x => x.essay).length,
-        splits: qs.filter(x => x.split),
+        mcq: qs.filter(x => !x.essay).length,
         avg: graded.length ? Math.round(graded.reduce((a, x) => a + x.pctRight, 0) / graded.length) : null,
-        match: qs.filter(x => x.status === 'match').length,
         diff: qs.filter(x => x.status === 'diff'),
-        hardest: graded.filter(x => x.pctRight < 60).sort((a, b) => a.pctRight - b.pctRight)[0] || null,
-        issues: qs.filter(x => plain(x.issue)),
         people: members.filter(m => Object.keys(m.answers || {}).length).length,
         minutes: Math.max(1, Math.round((end - start) / 60000)),
     };
@@ -153,7 +162,7 @@ function collect(msgs, opt) {
 }
 
 // ================= 2. MARKDOWN =================
-const looksHtml = (v) => /<(b|strong|i|em|u|mark|code|br|div|p|ul|ol|li|span|img|a)\b/i.test(String(v || ''));
+const looksHtml = (v) => /<(b|strong|i|em|u|mark|code|br|div|p|ul|ol|li|span|img|a|table|h4|hr)\b/i.test(String(v || ''));
 function htmlToMd(html) {
     const box = document.createElement('div');
     box.innerHTML = sanitizeHtml(html);
@@ -172,6 +181,15 @@ function htmlToMd(html) {
             case 'UL': case 'OL': return '\n' + inner() + '\n';
             case 'IMG': { const u = n.getAttribute('src') || ''; return u.startsWith('data:') ? '*(ảnh nhúng — xem bản PDF)*' : `![ảnh](${u})`; }
             case 'A': return `[${inner().trim() || 'link'}](${n.getAttribute('href')})`;
+            case 'H4': return '\n#### ' + inner().trim() + '\n';
+            case 'HR': return '\n---\n';
+            case 'TABLE': {   // bảng nhóm tự tạo trong sổ tay (bản 28) -> bảng Markdown
+                const rows = [...n.querySelectorAll('tr')].map(tr => [...tr.children].map(c => [...c.childNodes].map(walk).join('').replace(/\s+/g, ' ').replace(/\|/g, '\\|').trim() || ' '));
+                if (!rows.length) return '';
+                const w = Math.max(...rows.map(r => r.length));
+                rows.forEach(r => { while (r.length < w) r.push(' '); });
+                return '\n' + [rows[0], Array(w).fill('---'), ...rows.slice(1)].map(r => `| ${r.join(' | ')} |`).join('\n') + '\n';
+            }
             default: return inner();
         }
     };
@@ -181,143 +199,152 @@ const md = (v) => { const t = String(v ?? '').trim(); return !t ? '' : looksHtml
 const cell = (v) => md(v).replace(/\|/g, '\\|').replace(/\n+/g, '<br>') || ' ';
 const quoteMd = (v) => md(v).split('\n').map(l => '> ' + l).join('\n');
 const imgsMd = (list, on) => on ? (list || []).map(im => safeImgUrl(im.u)).filter(u => u && !u.startsWith('data:')).map(u => `![ảnh](${u})`).join(' ') : '';
+const hasRich = (v) => !!plain(v) || /<img/i.test(String(v || ''));
+const IC = { pro: '✚', con: '✖', ask: '❓', src: '📚', cmt: '💬' };
+const MEDAL = ['🥇', '🥈', '🥉'];
+
+// Nhãn đầu mỗi câu — dùng chung cho MD và PDF: kết luận · % đúng · lệch file (chỉ khi lệch)
+function verdictOf(x) {
+    if (x.essay) return '✍️ tự luận';
+    if (x.split) return '🤝 chưa thống nhất';
+    if (!x.accepted.length) return '⏳ chưa chốt';
+    return `✅ ${x.accepted.map(L).join(' + ')}`;
+}
+const argText = (a) => `${a.qt ? `“${String(a.qt).replace(/\n/g, ' ')}” — ` : ''}${String(a.t || '').replace(/\n/g, ' ')}`;
 
 function buildMarkdown(d) {
     const { info, summary: S, opt } = d;
     const out = [];
     const push = (...l) => out.push(...l);
-    push(`# 📋 Biên bản buổi đánh đề — ${info.title}`, '',
-        `> **${info.room}** · ${info.date} · ${info.from}–${info.to} (${info.minutes} phút) · xuất bởi ${info.exportedBy} lúc ${info.exportedAt}`, '');
-
-    push('## I. Thông tin chung', '', '| Mục | Chi tiết |', '|---|---|',
-        `| Bộ đề | ${cell(info.title)} — ${S.total} câu |`,
-        `| Phòng | ${cell(info.room)} (mã \`${info.code}\`) |`,
-        `| Thời gian | ${info.date}, ${info.from} – ${info.to} (${info.minutes} phút)${info.ended ? '' : ' · *phiên chưa kết thúc*'} |`,
-        `| Kiểu buổi học | ${info.mode} |`,
-        `| Chủ trì | ${cell(info.host)}${info.cohosts.length ? ` · đồng chủ trì: ${cell(info.cohosts.join(', '))}` : ''} |`,
-        `| Thành viên (${d.members.length}) | ${cell(d.members.map(nm).join(', '))} |`,
-        ...(plain(info.goal) ? [`| Mục tiêu | ${cell(info.goal)} |`] : []), '');
-
-    push('## II. Tóm tắt kết quả', '',
-        `- **Đã chốt đáp án:** ${S.announced}/${S.total - S.essays} câu trắc nghiệm${S.essays ? ` · ${S.essays} câu tự luận` : ''}`,
-        ...(S.splits.length ? [`- **Chưa thống nhất (ghi nhận nhiều quan điểm):** câu ${S.splits.map(x => x.i + 1).join(', ')}`] : []),
-        `- **Cả phòng chọn đúng trung bình:** ${S.avg === null ? 'chưa có câu nào chốt' : S.avg + '%'}`,
-        `- **Khớp đáp án file:** ${S.match}/${S.announced} câu đã chốt${S.diff.length ? ` · **lệch file:** câu ${S.diff.map(x => x.i + 1).join(', ')} → nên kiểm lại nguồn` : ''}`,
-        ...(S.hardest ? [`- **Câu khó nhất:** câu ${S.hardest.i + 1} — chỉ ${S.hardest.pctRight}% chọn đúng`] : []),
-        ...(S.issues.length ? [`- **Báo lỗi đề:** câu ${S.issues.map(x => x.i + 1).join(', ')}`] : []),
-        `- **Người tham gia làm bài:** ${S.people}/${d.members.length}`, '');
-
-    push('## III. Bảng xếp hạng', '');
-    if (d.scores.length) {
-        push('| Hạng | Thành viên | Đã làm | Đúng | Chính xác | Chuỗi | Điểm |', '|:-:|---|:-:|:-:|:-:|:-:|--:|');
-        d.scores.forEach(r => push(`| ${r.rank} | ${cell(r.name)} | ${r.answered} | ${r.correct} | ${r.answered ? Math.round(100 * r.correct / r.answered) : 0}% | ${r.best} | **${r.points}** |`));
-        push('', '*Điểm chỉ tính các câu đã chốt: đúng +100, nhanh thưởng tới +60, chuỗi đúng +10/bậc, nhân hệ số cược.*', '');
-    } else push('*Chưa có câu nào được chốt nên chưa xếp hạng.*', '');
-
-    push('## IV. Mức độ tham gia', '', '| Thành viên | Đã làm | Đoán | Ghi lý do | Ý kiến thảo luận | Nhận giảng | Được cảm ơn | Muốn bàn |', '|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|');
-    d.participation.forEach(p => push(`| ${cell(nm(p.m))} | ${p.done}/${S.total} | ${p.guess} | ${p.why} | ${p.talk} | ${p.giang} | ${p.camOn} | ${p.flags} |`));
-    push('');
-
     const todo = d.qs.filter(x => x.review.length);
-    push('## V. Việc cần làm sau buổi học', '');
-    if (todo.length) todo.forEach(x => push(`- [ ] **Câu ${x.i + 1}** — ${x.review.join(' · ')}`));
-    else push('- Không có câu nào cần ôn lại. Tuyệt vời! 🎉');
+
+    // --- Đầu biên bản: 1 dòng thông tin + 1 dòng kết quả + 1 dòng xếp hạng ---
+    push(`# 📋 ${info.title}`, '',
+        `${info.room} · ${info.date} · ${info.from}–${info.to} (${info.minutes} phút) · ${d.members.length} người · ${S.total} câu · chủ trì ${info.host}${info.ended ? '' : ' · *phiên chưa kết thúc*'}`, '',
+        `**Thành viên:** ${d.members.map(nm).join(', ')}`);
+    if (plain(info.goal)) push(`**Mục tiêu:** ${md(info.goal).replace(/\n+/g, ' ')}`);
+    push('', `**Kết quả:** ${kpiLine(S, todo).join(' · ')}`);
+    if (S.announced && d.scores.length) push(`**Xếp hạng:** ${d.scores.map(r => `${MEDAL[r.rank - 1] || r.rank + '.'} ${r.name} ${r.points}`).join(' · ')}`);
     push('');
 
-    push('## VI. Chi tiết từng câu', '');
+    push(`## 🎯 Cần ôn lại (${todo.length})`, '');
+    if (todo.length) todo.forEach(x => push(`- [ ] **Câu ${x.i + 1}** — ${x.review.join(' · ')}`));
+    else push('Không có câu nào cần ôn lại 🎉');
+    push('');
+
+    push(`## 📝 Từng câu${opt.only ? ' (chỉ câu cần ôn)' : ''}`, '');
     d.qs.filter(x => !opt.only || x.review.length).forEach(x => {
         const q = x.q;
-        const badge = x.essay ? '✍️ tự luận' : x.split ? '🤝 chưa thống nhất' : !x.accepted.length ? '⏳ chưa chốt'
-            : `✅ chốt ${x.accepted.map(L).join(' + ')}${x.ref !== null ? ` · 📄 file ${L(x.ref)} ${x.status === 'match' ? '(khớp)' : '(**lệch**)'}` : ' · 📄 file không có đáp án'}`;
-        push(`### Câu ${x.i + 1} · ${badge}`);
-        const meta = [q.topic && String(q.topic).toLowerCase() !== 'chung' ? `Chủ đề: ${plain(q.topic)}` : '', q.level ? `Mức độ: ${plain(q.level)}` : '', q.source ? `Nguồn: ${plain(q.source)}` : '', x.edited ? 'nhóm đã sửa đề' : ''].filter(Boolean);
+        const head = [verdictOf(x), x.pctRight !== null ? `${x.pctRight}% đúng` : '', x.status === 'diff' ? `⚠ file ghi ${L(x.ref)}` : ''].filter(Boolean);
+        push(`### Câu ${x.i + 1} · ${head.join(' · ')}`);
+        const meta = [q.topic && String(q.topic).toLowerCase() !== 'chung' ? plain(q.topic) : '', q.source ? plain(q.source) : ''].filter(Boolean);
         if (meta.length) push(`*${meta.join(' · ')}*`);
         push('');
         const caseText = q.caseText || q.case;
         if (caseText) push(`> **${plain(q.caseTitle) || 'Ca lâm sàng'}:** ${md(caseText).replace(/\n/g, '\n> ')}`, '');
-        push(`**Đề bài:** ${md(q.question)}`, '');
+        push(md(q.question), '');
         if (!x.essay) {
-            push(`| | Phương án | Chọn | Tỉ lệ |${opt.reasons ? ' Ai chọn |' : ''}`, `|:-:|---|:-:|:-:|${opt.reasons ? '---|' : ''}`);
             x.opts.forEach((o, k) => {
+                const ok = x.accepted.includes(k);
                 const n = x.st.counts[k] || 0;
-                const pct = x.st.total ? Math.round(100 * n / x.st.total) : 0;
-                const mark = `${x.accepted.includes(k) ? ' ✅' : ''}${x.ref === k ? ' 📄' : ''}`;
-                const txt = x.accepted.includes(k) ? `**${cell(o)}**` : cell(o);
-                push(`| **${L(k)}**${mark} | ${txt} | ${n} | ${pct}% |${opt.reasons ? ` ${cell(x.votes[k].map(nm).join(', '))} |` : ''}`);
+                const tags = [!x.accepted.length && x.ref === k ? '📄 đáp án file' : '', opt.full && n ? `${n} chọn` : ''].filter(Boolean).join(' · ');
+                push(`- ${ok ? '✅ ' : ''}**${L(k)}.** ${ok ? `**${md(o).replace(/\n/g, ' ')}**` : md(o).replace(/\n/g, ' ')}${tags ? ` — ${tags}` : ''}`);
+                if (hasRich(x.optNotes[k])) push(`  - ${md(x.optNotes[k]).replace(/\n/g, ' ')}`);
             });
-            push('', '*✅ nhóm chấp nhận · 📄 đáp án trong file*', '');
-        }
-        if (x.accepted.length) push(`**Kết luận:** nhóm ${x.accepted.length > 1 ? 'chấp nhận' : 'chốt'} **${x.accepted.map(L).join(' và ')}**${x.pctRight !== null ? ` — ${x.pctRight}% cả phòng chọn đúng` : ''}${x.dissent.length ? ` · ✋ bảo lưu: ${x.dissent.map(nm).join(', ')}` : ''}.`, '');
-        if (x.split) push(`**Kết luận:** 🤝 nhóm **chưa thống nhất** — ghi nhận ${x.camps.filter(c => c.who.length).length} quan điểm, câu này không tính điểm, cần tra cứu thêm.`, '');
-
-        if (plain(x.note) || /<img/i.test(x.note)) push(`**${x.essay ? '✍️ Bài làm chung' : '💡 Giải thích chung'}**${x.noteBy ? ` *(${x.noteBy})*` : ''}`, '', quoteMd(x.note), '');
-        const on = x.optNotes.map((t, k) => (plain(t) ? `- **${L(k)}:** ${md(t).replace(/\n/g, ' ')}` : '')).filter(Boolean);
-        if (on.length) push('**Giải thích từng phương án**', ...on, '');
-        if (q.expanded) push(`**📖 Mở rộng:** ${md(q.expanded)}`, '');
-        if (q.note) push(`**📌 Ghi nhớ:** ${md(q.note)}`, '');
-        if (opt.reasons && (x.camps.length || x.looseArgs.length)) {
-            // Mọi quan điểm, có tên — kể cả phe không được chấp nhận
-            push(x.essay ? '**🗣 Nhận xét bài làm chung**' : '**🗣 Các quan điểm & nhận xét**');
-            const argMd = (a) => `${{ pro: '✚', con: '✖', ask: '❓', src: '📚', cmt: '💬' }[a.s] || '•'} **${nm(a.member)}**: ${a.qt ? `*“${String(a.qt).replace(/\n/g, ' ')}”* — ` : ''}${String(a.t).replace(/\n/g, ' ')}${agreeCount(a.id) ? ` (👍 ${agreeCount(a.id)})` : ''}`;
-            x.camps.forEach(c => {
-                push(`- **Phe ${L(c.k)}**${c.ok ? ' ✅' : ''} — ${c.who.length} người${c.who.length ? ': ' + c.who.map(m => {
-                    const a = answerOf(m, x.i);
-                    const tag = [typeof a.from === 'number' && a.from !== a.i ? `đổi từ ${L(a.from)}` : '', a.guess ? 'đoán' : '', m.dissent?.['q' + x.i] ? 'bảo lưu' : ''].filter(Boolean).join(', ');
-                    const w = md(whyOf(m, x.i)).replace(/\n/g, ' ');
-                    return `${nm(m)}${tag ? ` *(${tag})*` : ''}${w ? ` — "${w}"` : ''}`;
-                }).join('; ') : ''}`);
-                [...c.pro, ...c.con, ...c.other].forEach(a => push(`  - ${argMd(a)}`));
-            });
-            x.looseArgs.forEach(a => push(`- ${argMd(a)}`));
-            if (x.changers.length) push(`- 🔄 Đổi ý sau khi bàn: ${x.changers.map(m => { const a = answerOf(m, x.i); return `${nm(m)} (${L(a.from)} → ${L(a.i)})`; }).join(', ')}`);
             push('');
         }
-        if (opt.chat && x.docs.length) {
-            push('**📚 Tài liệu trích dẫn**');
+        if (x.dissent.length) push(`✋ **Bảo lưu:** ${x.dissent.map(m => `${nm(m)} (${L(answerOf(m, x.i)?.i ?? 0)})`).join(', ')}`, '');
+        if (hasRich(x.note)) push(`**${x.essay ? '✍️ Bài làm chung' : '💡 Giải thích'}**${x.noteBy ? ` *(${x.noteBy})*` : ''}`, quoteMd(x.note), '');
+        else if (x.bestWhy.length) push(`**💡 Lý do phe đúng:** ${x.bestWhy.map(r => `${nm(r.m)}: ${md(r.why).replace(/\n/g, ' ')}`).join(' · ')}`, '');
+        if (q.expanded) push(`**📖 Mở rộng:** ${md(q.expanded)}`, '');
+        if (q.note) push(`**📌 Ghi nhớ:** ${md(q.note)}`, '');
+        if (!opt.full && x.keyArgs.length) {
+            push(x.essay ? '**🗣 Nhận xét**' : '**🗣 Ý chính khi bàn**');
+            x.keyArgs.forEach(a => push(`- ${IC[a.s] || '•'} **${nm(a.member)}:** ${argText(a)}${agreeCount(a.id) ? ` (👍 ${agreeCount(a.id)})` : ''}${a.s === 'ask' && !a.ok ? ' — ⏳ *chưa giải đáp*' : ''}`));
+            push('');
+        }
+        if (x.docs.length) {
+            push('**📚 Nguồn**');
             x.docs.forEach(m => {
-                push(`- **${plain(m.title) || 'Tài liệu'}**${m.src ? ` — ${plain(m.src)}` : ''} *(${nm(m)} chia sẻ)*${safeLink(m.link) ? ` · [mở link](${m.link})` : ''}`);
+                push(`- ${plain(m.title) || 'Tài liệu'}${m.src ? ` — ${plain(m.src)}` : ''}${safeLink(m.link) ? ` · [link](${m.link})` : ''}`);
                 if (m.text) push(`  > ${String(m.text).replace(/\n/g, '\n  > ')}`);
                 const im = imgsMd(m.images, opt.images);
                 if (im) push(`  ${im}`);
             });
             push('');
         }
-        if (opt.chat && x.chats.length) {
-            push(`**💬 Thảo luận** (${x.chats.length} ý kiến)`);
-            x.chats.forEach(m => {
-                const im = imgsMd(m.images, opt.images);
-                push(`- **${nm(m)}**${typeof m.ans === 'number' ? ` *(chọn ${L(m.ans)})*` : ''} · ${hm(msTime(m) || Date.now())}${m.reply ? ` · ↩ trả lời ${m.reply.name || ''}` : ''}: ${String(m.text || '').replace(/\n/g, '\n  ')}${im ? '\n  ' + im : ''}`);
-            });
-            push('');
-        }
-        const notes = [
-            x.flagged.length ? `🗣 cần bàn: ${x.flagged.map(nm).join(', ')}` : '',
-            x.unclear.length ? `🤔 chưa hiểu: ${x.unclear.map(nm).join(', ')}` : '',
-            x.guess.length ? `🎲 chọn kiểu đoán: ${x.guess.map(nm).join(', ')}` : '',
-            (x.diff.easy + x.diff.ok + x.diff.hard) ? `độ khó: ${Object.entries(x.diff).filter(([, n]) => n).map(([k, n]) => `${DIFF[k]} ${n}`).join(' · ')}` : '',
-            x.explainer?.name ? `🎙 người giảng: ${x.explainer.name}${x.thanks ? ` (💖 ${x.thanks} lời cảm ơn)` : ''}` : '',
-            plain(x.issue) ? `⚠ báo lỗi đề: ${plain(x.issue)}` : '',
-            x.prev ? `🔁 đã bầu lại — vòng trước: ${x.prev.map((n, k) => `${L(k)} ${n}`).join(' · ')}` : '',
-        ].filter(Boolean);
-        if (notes.length) push(`**Ghi nhận khác:** ${notes.join(' · ')}`, '');
+        if (plain(x.issue)) push(`⚠ **Báo lỗi đề:** ${plain(x.issue)}`, '');
+        if (opt.full) fullMd(x, opt, push);
         push('---', '');
     });
 
-    if (opt.chat && (d.general.length || d.allDocs.length)) {
-        push('## VII. Phụ lục', '');
+    const loose = d.allDocs.filter(m => typeof m.qIdx !== 'number');
+    if (loose.length) {
+        push('## 📚 Tài liệu chung', '');
+        loose.forEach(m => push(`- ${plain(m.title) || 'Tài liệu'}${m.src ? ` — ${plain(m.src)}` : ''}${safeLink(m.link) ? ` · ${m.link}` : ''}`));
+        push('');
+    }
+    if (opt.full) {
+        push('## Phụ lục · Mức độ tham gia', '', '| Thành viên | Đã làm | Đoán | Ghi lý do | Ý kiến | Nhận giảng | Muốn bàn |', '|---|:-:|:-:|:-:|:-:|:-:|:-:|');
+        d.participation.forEach(p => push(`| ${cell(nm(p.m))} | ${p.done}/${S.total} | ${p.guess} | ${p.why} | ${p.talk} | ${p.giang} | ${p.flags} |`));
+        push('');
         if (d.general.length) {
-            push('### Thảo luận chung (không gắn câu nào)');
+            push('## Phụ lục · Thảo luận chung', '');
             d.general.forEach(m => push(`- **${nm(m)}** · ${hm(msTime(m) || Date.now())}: ${String(m.text || '').replace(/\n/g, ' ')} ${imgsMd(m.images, opt.images)}`.trimEnd()));
             push('');
         }
-        if (d.allDocs.length) {
-            push('### Tài liệu tham khảo của buổi học');
-            d.allDocs.forEach((m, k) => push(`${k + 1}. **${plain(m.title) || 'Tài liệu'}**${m.src ? ` — ${plain(m.src)}` : ''}${typeof m.qIdx === 'number' ? ` (câu ${m.qIdx + 1})` : ''}${safeLink(m.link) ? ` — ${m.link}` : ''}`));
-            push('');
-        }
     }
-    push(`*Biên bản tạo tự động bởi Zitthenkne · phòng ${info.code} · ${info.exportedAt}*`);
+    push(`*Zitthenkne · phòng ${info.code} · xuất bởi ${info.exportedBy} lúc ${info.exportedAt}*`);
     return out.join('\n');
+}
+
+// Bản đầy đủ: ai chọn gì + lý do, mọi nhận xét, đổi ý, chat, ghi nhận phụ
+function fullMd(x, opt, push) {
+    const argMd = (a) => `${IC[a.s] || '•'} **${nm(a.member)}**: ${argText(a)}${a.im?.length ? ` 🖼×${a.im.length}` : ''}${agreeCount(a.id) ? ` (👍 ${agreeCount(a.id)})` : ''}${a.s === 'ask' ? (a.ok ? ' ✅ đã giải đáp' : ' ⏳ chưa giải đáp') : ''}`;
+    if (x.camps.length || x.looseArgs.length) {
+        push(x.essay ? '**🗣 Nhận xét bài làm chung**' : '**🗣 Ai chọn gì & lý do**');
+        x.camps.forEach(c => {
+            push(`- **${L(c.k)}**${c.ok ? ' ✅' : ''} — ${c.who.length} người${c.who.length ? ': ' + c.who.map(m => {
+                const a = answerOf(m, x.i);
+                const tag = [typeof a.from === 'number' && a.from !== a.i ? `đổi từ ${L(a.from)}${a.by?.n ? ` nhờ ${a.by.n}` : ''}` : '', a.guess ? 'đoán' : ''].filter(Boolean).join(', ');
+                const w = md(whyOf(m, x.i)).replace(/\n/g, ' ');
+                return `${nm(m)}${tag ? ` *(${tag})*` : ''}${w ? ` — "${w}"` : ''}`;
+            }).join('; ') : ''}`);
+            [...c.pro, ...c.con, ...c.other].forEach(a => push(`  - ${argMd(a)}`));
+        });
+        x.looseArgs.forEach(a => push(`- ${argMd(a)}`));
+        if (x.changers.length) push(`- 🔄 Đổi ý sau khi bàn: ${x.changers.map(m => { const a = answerOf(m, x.i); return `${nm(m)} (${L(a.from)} → ${L(a.i)})`; }).join(', ')}`);
+        push('');
+    }
+    if (x.chats.length) {
+        push(`**💬 Thảo luận** (${x.chats.length})`);
+        x.chats.forEach(m => {
+            const im = imgsMd(m.images, opt.images);
+            push(`- **${nm(m)}**${typeof m.ans === 'number' ? ` *(chọn ${L(m.ans)})*` : ''} · ${hm(msTime(m) || Date.now())}: ${String(m.text || '').replace(/\n/g, '\n  ')}${im ? '\n  ' + im : ''}`);
+        });
+        push('');
+    }
+    const notes = extraNotes(x, (l) => l.map(nm).join(', '));
+    if (notes.length) push(`*${notes.join(' · ')}*`, '');
+}
+function extraNotes(x, names) {
+    return [
+        x.flagged.length ? `🗣 cần bàn: ${names(x.flagged)}` : '',
+        x.unclear.length ? `🤔 chưa hiểu: ${names(x.unclear)}` : '',
+        x.guess.length ? `🎲 đoán: ${names(x.guess)}` : '',
+        (x.diff.easy + x.diff.ok + x.diff.hard) ? `độ khó: ${Object.entries(x.diff).filter(([, n]) => n).map(([k, n]) => `${DIFF[k]} ${n}`).join(' · ')}` : '',
+        x.explainer?.name ? `🎙 giảng: ${x.explainer.name}${x.thanks ? ` (💖 ${x.thanks})` : ''}` : '',
+        x.prev ? `🔁 vòng bầu trước: ${x.prev.map((n, k) => `${L(k)} ${n}`).join(' · ')}` : '',
+    ].filter(Boolean);
+}
+// Dòng kết quả: chỉ số nói được điều gì mới giữ lại
+function kpiLine(S, todo) {
+    return [
+        `chốt ${S.announced}/${S.mcq} câu${S.essays ? ` + ${S.essays} tự luận` : ''}`,
+        S.avg !== null ? `đúng trung bình ${S.avg}%` : '',
+        `${todo.length} câu cần ôn`,
+        S.diff.length ? `${S.diff.length} câu lệch đáp án file` : '',
+    ].filter(Boolean);
 }
 
 // ================= 3. HTML IN ĐẸP (→ PDF) =================
@@ -345,145 +372,85 @@ function buildHtml(d) {
     const { info, summary: S, opt } = d;
     const logo = new URL('../../assets/opt/logo-96.webp', document.baseURI).href;
     const math = /\$|\\\(|\\\[/.test(JSON.stringify(d.s.questions) + JSON.stringify(d.s.notes || {}) + JSON.stringify(d.s.optNotes || {}));
-    const kpi = (v, t, cls = '') => `<div class="kpi ${cls}"><b>${v}</b><span>${t}</span></div>`;
     const todo = d.qs.filter(x => x.review.length);
     const shown = d.qs.filter(x => !opt.only || x.review.length);
-    const sec = (no, title, body) => `<section class="sec"><h2><span class="no">${no}</span>${title}</h2>${body}</section>`;
+    const sec = (title, body) => `<section class="sec"><h2>${title}</h2>${body}</section>`;
+    const kpi = (v, t, cls = '') => `<div class="kpi ${cls}"><b>${v}</b><span>${t}</span></div>`;
+    const argLi = (a) => `<li class="arg ${a.s}"><span class="aic">${IC[a.s] || '•'}</span> <b>${E(nm(a.member))}:</b> ${a.qt ? `<i class="soft">“${E(a.qt)}”</i> — ` : ''}${E(a.t || '')}${agreeCount(a.id) ? ` <span class="soft">👍 ${agreeCount(a.id)}</span>` : ''}${a.s === 'ask' ? ` <span class="mini ${a.ok ? 'ok' : ''}">${a.ok ? 'đã giải đáp' : 'chưa giải đáp'}</span>` : ''}</li>`;
 
     const qCard = (x) => {
         const q = x.q;
-        const tags = [
-            x.essay ? chipHtml('✍️ Tự luận', 'lav') : x.split ? chipHtml('🤝 Chưa thống nhất', 'warn') : !x.accepted.length ? chipHtml('⏳ chưa chốt', 'muted') : chipHtml(`✅ Nhóm chốt ${x.accepted.map(L).join(' + ')}`, 'ok'),
-            x.essay ? '' : x.ref !== null ? chipHtml(`📄 File ${L(x.ref)}${x.accepted.length ? (x.status === 'match' ? ' · khớp' : ' · LỆCH') : ''}`, x.status === 'diff' ? 'warn' : '') : chipHtml('📄 file không có đáp án', 'muted'),
-            x.pctRight !== null ? chipHtml(`${x.pctRight}% chọn đúng`, x.pctRight < 50 ? 'bad' : 'lav') : '',
-            q.topic && String(q.topic).toLowerCase() !== 'chung' ? chipHtml(E(plain(q.topic))) : '',
-            q.level ? chipHtml(E(plain(q.level))) : '',
-            x.edited ? chipHtml('✏ nhóm đã sửa đề', 'warn') : '',
-        ].join('');
         const caseText = q.caseText || q.case;
-        const rows = x.opts.map((o, k) => {
+        const head = [
+            chipHtml(verdictOf(x), x.essay ? '' : x.split ? 'warn' : x.accepted.length ? 'ok' : 'muted'),
+            x.pctRight !== null ? chipHtml(`${x.pctRight}% đúng`, x.pctRight < 50 ? 'bad' : '') : '',
+            x.status === 'diff' ? chipHtml(`⚠ file ghi ${L(x.ref)}`, 'warn') : '',
+        ].join('');
+        const meta = [q.topic && String(q.topic).toLowerCase() !== 'chung' ? plain(q.topic) : '', q.source ? plain(q.source) : ''].filter(Boolean);
+        const rows = x.essay ? '' : `<ol class="opts">${x.opts.map((o, k) => {
+            const ok = x.accepted.includes(k);
+            const ref = !x.accepted.length && x.ref === k;
             const n = x.st.counts[k] || 0;
-            const pct = x.st.total ? Math.round(100 * n / x.st.total) : 0;
-            const cls = [x.accepted.includes(k) ? 'is-chosen' : '', x.ref === k && !x.accepted.includes(k) ? 'is-ref' : ''].join(' ');
-            const exp = plain(x.optNotes[k]) || /<img/i.test(x.optNotes[k]) ? `<div class="oexp">${rich(x.optNotes[k], opt.images)}</div>` : '';
-            return `<tr class="${cls}">
-                <td class="lt"><span class="let">${L(k)}</span></td>
-                <td class="rich">${rich(o, opt.images)}${x.ref === k ? ' <span class="mini">📄 đáp án file</span>' : ''}${exp}</td>
-                <td class="vt"><span class="bar"><i style="width:${pct}%"></i></span><b>${n}</b> · ${pct}%</td>
-                ${opt.reasons ? `<td class="who">${who(x.votes[k]) || '<span class="muted">—</span>'}</td>` : ''}
-            </tr>`;
-        }).join('');
-        const verdict = x.essay ? ''
-            : x.accepted.length
-            ? `<div class="verdict ${x.status === 'diff' ? 'diff' : ''}">Kết luận: nhóm ${x.accepted.length > 1 ? 'chấp nhận' : 'chốt'} <b>${x.accepted.map(L).join(' và ')}</b>${x.pctRight !== null ? ` — ${x.pctRight}% cả phòng chọn đúng` : ''}${x.status === 'diff' ? ` · khác đáp án file <b>${L(x.ref)}</b>, nên kiểm lại nguồn` : ''}${x.dissent.length ? `<br><span class="soft">✋ Bảo lưu ý kiến: ${who(x.dissent)}</span>` : ''}</div>`
-            : x.split
-            ? `<div class="verdict diff">🤝 Nhóm chưa thống nhất — ghi nhận ${x.camps.filter(c => c.who.length).length} quan điểm (xem bên dưới). Câu này không tính điểm, cần tra cứu thêm.</div>`
-            : '<div class="verdict open">Câu này chưa được chốt đáp án trong buổi học.</div>';
+            return `<li class="${ok ? 'is-ok' : ''} ${ref ? 'is-ref' : ''}">
+                <span class="let">${L(k)}</span>
+                <div class="otx"><div class="rich">${rich(o, opt.images)}${ref ? ' <span class="mini">đáp án file</span>' : ''}</div>${hasRich(x.optNotes[k]) ? `<div class="oexp rich">${rich(x.optNotes[k], opt.images)}</div>` : ''}</div>
+                ${opt.full && n ? `<span class="cnt">${n} chọn</span>` : ''}
+            </li>`;
+        }).join('')}</ol>`;
         const blocks = [];
-
-        if (plain(x.note) || /<img/i.test(x.note)) blocks.push(`<div class="block expl"><h4>${x.essay ? '✍️ Bài làm chung' : '💡 Giải thích chung'}${x.noteBy ? ` <em>· ${E(x.noteBy)}</em>` : ''}</h4><div class="rich">${rich(x.note, opt.images)}</div></div>`);
-        if (q.expanded) blocks.push(`<div class="block call lav"><h4>📖 Mở rộng</h4><div class="rich">${rich(q.expanded, opt.images)}</div></div>`);
-        if (q.note) blocks.push(`<div class="block call pink"><h4>📌 Ghi nhớ</h4><div class="rich">${rich(q.note, opt.images)}</div></div>`);
-        if (opt.reasons && (x.camps.length || x.looseArgs.length)) {
-            const IC = { pro: '✚', con: '✖', ask: '❓', src: '📚', cmt: '💬' };
-            const argLi = (a) => `<li class="arg ${a.s}"><span class="aic">${IC[a.s] || '•'}</span> <b>${E(nm(a.member))}</b>: ${a.qt ? `<i class="soft">“${E(a.qt)}”</i> — ` : ''}${E(a.t)}${agreeCount(a.id) ? ` <span class="soft">· 👍 ${agreeCount(a.id)}</span>` : ''}</li>`;
-            blocks.push(`<div class="block"><h4>${x.essay ? '🗣 Nhận xét bài làm chung' : '🗣 Các quan điểm & nhận xét'}</h4>${x.camps.map(c => `<div class="camp ${c.ok ? 'ok' : ''}">
-                <p class="camp-h"><span class="let sm">${L(c.k)}</span> <b>Phe ${L(c.k)}</b> · ${c.who.length} người${c.ok ? ' <span class="tag ok">được chấp nhận</span>' : ''}</p>
-                ${c.who.length ? `<ul class="reasons">${c.who.map(m => {
-                    const a = answerOf(m, x.i);
-                    const tag = [typeof a.from === 'number' && a.from !== a.i ? `đổi từ ${L(a.from)}` : '', a.guess ? 'đoán' : '', m.dissent?.['q' + x.i] ? 'bảo lưu' : ''].filter(Boolean);
-                    return `<li><b>${E(nm(m))}</b>${tag.map(t => ` <span class="mini">${t}</span>`).join('')} ${plain(whyOf(m, x.i)) ? `<span class="rich inl">${rich(whyOf(m, x.i), opt.images)}</span>` : '<span class="soft">— chưa ghi lý do</span>'}</li>`;
-                }).join('')}</ul>` : ''}
-                ${[...c.pro, ...c.con, ...c.other].length ? `<ul class="args">${[...c.pro, ...c.con, ...c.other].map(argLi).join('')}</ul>` : ''}
-            </div>`).join('')}
-            ${x.looseArgs.length ? `<ul class="args">${x.looseArgs.map(argLi).join('')}</ul>` : ''}
-            ${x.changers.length ? `<p class="soft">🔄 Đổi ý sau khi bàn: ${x.changers.map(m => { const a = answerOf(m, x.i); return `${E(nm(m))} (${L(a.from)} → ${L(a.i)})`; }).join(', ')}</p>` : ''}</div>`);
-        }
-        if (opt.chat && x.docs.length) blocks.push(`<div class="block"><h4>📚 Tài liệu trích dẫn</h4>${x.docs.map(m => `<div class="docref">
-            <p><b>${E(plain(m.title) || 'Tài liệu')}</b>${m.src ? ` — ${E(plain(m.src))}` : ''} <span class="soft">· ${E(nm(m))} chia sẻ</span></p>
-            ${m.text ? `<blockquote>${E(m.text).replace(/\n/g, '<br>')}</blockquote>` : ''}
-            ${imgsHtml(m.images, opt.images)}
-            ${safeLink(m.link) ? `<p class="link">🔗 <a href="${E(m.link)}">${E(m.link)}</a></p>` : ''}</div>`).join('')}</div>`);
-        if (opt.chat && x.chats.length) blocks.push(`<div class="block"><h4>💬 Thảo luận · ${x.chats.length} ý kiến</h4><div class="chat">${x.chats.map(m => `<div class="m">
-            <p><b>${E(nm(m))}</b>${typeof m.ans === 'number' ? ` <span class="let sm">${L(m.ans)}</span>` : ''} <span class="soft">${hm(msTime(m) || Date.now())}</span>${m.reply ? ` <span class="soft">↩ trả lời ${E(m.reply.name || '')}</span>` : ''}</p>
-            ${m.text ? `<p>${talk(m.text)}</p>` : ''}${imgsHtml(m.images, opt.images)}</div>`).join('')}</div></div>`);
-        const notes = [
-            x.flagged.length ? `🗣 Cần bàn thêm: ${who(x.flagged)}` : '',
-            x.unclear.length ? `🤔 Chưa hiểu: ${who(x.unclear)}` : '',
-            x.guess.length ? `🎲 Chọn kiểu đoán: ${who(x.guess)}` : '',
-            (x.diff.easy + x.diff.ok + x.diff.hard) ? `Độ khó nhóm chấm: ${Object.entries(x.diff).filter(([, n]) => n).map(([k, n]) => `${DIFF[k]} ${n}`).join(' · ')}` : '',
-            x.explainer?.name ? `🎙 Người giảng: ${E(x.explainer.name)}${x.thanks ? ` · 💖 ${x.thanks} lời cảm ơn` : ''}` : '',
-            plain(x.issue) ? `<span class="bad">⚠ Báo lỗi đề: ${E(plain(x.issue))}</span>` : '',
-            x.prev ? `🔁 Đã bầu lại — vòng trước: ${x.prev.map((n, k) => `${L(k)} ${n}`).join(' · ')}` : '',
-        ].filter(Boolean);
+        if (x.dissent.length) blocks.push(`<p class="line">✋ <b>Bảo lưu:</b> ${x.dissent.map(m => `${E(nm(m))} (${L(answerOf(m, x.i)?.i ?? 0)})`).join(', ')}</p>`);
+        if (hasRich(x.note)) blocks.push(`<div class="block expl"><h4>${x.essay ? '✍️ Bài làm chung' : '💡 Giải thích'}${x.noteBy ? ` <em>· ${E(x.noteBy)}</em>` : ''}</h4><div class="rich">${rich(x.note, opt.images)}</div></div>`);
+        else if (x.bestWhy.length) blocks.push(`<div class="block expl"><h4>💡 Lý do phe đúng</h4>${x.bestWhy.map(r => `<p><b>${E(nm(r.m))}:</b> <span class="rich inl">${rich(r.why, opt.images)}</span></p>`).join('')}</div>`);
+        const calls = [q.expanded ? `<div class="call peach"><h4>📖 Mở rộng</h4><div class="rich">${rich(q.expanded, opt.images)}</div></div>` : '',
+            q.note ? `<div class="call pink"><h4>📌 Ghi nhớ</h4><div class="rich">${rich(q.note, opt.images)}</div></div>` : ''].filter(Boolean);
+        if (calls.length) blocks.push(`<div class="calls n${calls.length}">${calls.join('')}</div>`);
+        if (!opt.full && x.keyArgs.length) blocks.push(`<div class="block"><h4>${x.essay ? '🗣 Nhận xét' : '🗣 Ý chính khi bàn'}</h4><ul class="args">${x.keyArgs.map(argLi).join('')}</ul></div>`);
+        if (x.docs.length) blocks.push(`<div class="block"><h4>📚 Nguồn</h4>${x.docs.map(m => `<div class="docref">
+            <p><b>${E(plain(m.title) || 'Tài liệu')}</b>${m.src ? ` — ${E(plain(m.src))}` : ''}${safeLink(m.link) ? ` · <a href="${E(m.link)}">link</a>` : ''}</p>
+            ${m.text ? `<blockquote>${E(m.text).replace(/\n/g, '<br>')}</blockquote>` : ''}${imgsHtml(m.images, opt.images)}</div>`).join('')}</div>`);
+        if (plain(x.issue)) blocks.push(`<p class="line bad">⚠ <b>Báo lỗi đề:</b> ${E(plain(x.issue))}</p>`);
+        if (opt.full) blocks.push(fullHtml(x, opt, argLi));
         return `<article class="q" id="cau-${x.i + 1}">
-            <div class="q-head"><span class="q-no">Câu ${x.i + 1}</span>${tags}</div>
-            ${q.source ? `<p class="src">Nguồn: ${E(plain(q.source))}</p>` : ''}
+            <div class="q-head"><span class="q-no">Câu ${x.i + 1}</span>${head}${meta.length ? `<span class="meta">${E(meta.join(' · '))}</span>` : ''}</div>
             ${caseText ? `<div class="case"><b>${E(plain(q.caseTitle) || 'Ca lâm sàng')}</b><div class="rich">${rich(caseText, opt.images)}</div></div>` : ''}
             <div class="stem rich">${rich(q.question, opt.images)}</div>
-            ${x.essay ? '' : `<table class="opts"><thead><tr><th></th><th>Phương án</th><th>Số người chọn</th>${opt.reasons ? '<th>Ai chọn</th>' : ''}</tr></thead><tbody>${rows}</tbody></table>`}
-            ${verdict}
+            ${rows}
             ${blocks.join('')}
-            ${notes.length ? `<p class="notes">${notes.join('<span class="dot">·</span>')}</p>` : ''}
         </article>`;
     };
 
+    const loose = d.allDocs.filter(m => typeof m.qIdx !== 'number');
     const body = `
     <header class="cover">
-        <div class="cover-top"><img src="${E(logo)}" alt=""><span>Zitthenkne · Phòng đánh đề chung</span><em>${E(info.date)}</em></div>
-        <p class="kicker">Biên bản buổi đánh đề</p>
+        <div class="cover-top"><img src="${E(logo)}" alt=""><span>Biên bản buổi đánh đề</span><em>${E(info.date)} · ${info.from}–${info.to}</em></div>
         <h1>${E(info.title)}</h1>
-        <p class="sub">${E(info.room)} · ${info.from} – ${info.to} · ${info.minutes} phút · ${d.members.length} thành viên · ${S.total} câu</p>
+        <p class="sub">${E(info.room)} · ${info.minutes} phút · ${d.members.length} người · ${S.total} câu · chủ trì ${E(info.host)}${info.ended ? '' : ' · <span class="mini">phiên chưa kết thúc</span>'}</p>
+        <p class="sub2"><b>Thành viên:</b> ${who(d.members)}${plain(info.goal) ? `<br><b>Mục tiêu:</b> ${E(plain(info.goal))}` : ''}</p>
     </header>
 
     <div class="kpis">
-        ${kpi(`${S.announced}<small>/${S.total - S.essays}</small>`, S.essays ? `câu trắc nghiệm đã chốt · ${S.essays} tự luận` : 'câu đã chốt đáp án')}
-        ${kpi(S.avg === null ? '—' : S.avg + '%', 'cả phòng chọn đúng (trung bình)', S.avg !== null && S.avg < 50 ? 'bad' : 'ok')}
-        ${kpi(`${S.match}<small>/${S.announced || 0}</small>`, 'câu khớp đáp án file', S.diff.length ? 'warn' : '')}
+        ${kpi(`${S.announced}<small>/${S.mcq}</small>`, S.essays ? `câu đã chốt · ${S.essays} tự luận` : 'câu đã chốt')}
+        ${kpi(S.avg === null ? '—' : S.avg + '%', 'đúng trung bình', S.avg !== null && S.avg < 50 ? 'bad' : 'ok')}
         ${kpi(todo.length, 'câu cần ôn lại', todo.length ? 'warn' : 'ok')}
-        ${kpi(`${S.people}<small>/${d.members.length}</small>`, 'người tham gia làm bài')}
-        ${kpi(info.minutes + '′', 'thời lượng buổi học')}
+        ${S.diff.length ? kpi(S.diff.length, 'câu lệch đáp án file', 'warn') : kpi(`${S.people}<small>/${d.members.length}</small>`, 'người làm bài')}
     </div>
+    ${S.announced && d.scores.length ? `<p class="rank"><span class="rk-l">Xếp hạng</span>${d.scores.map(r => `<span class="rk ${r.rank === 1 ? 'top' : ''}">${MEDAL[r.rank - 1] || r.rank + '.'} <b>${E(r.name)}</b> ${r.points}</span>`).join('')}</p>` : ''}
+    ${S.total >= 6 ? `<div class="qmap">${d.qs.map(x => `<a href="#cau-${x.i + 1}" class="qc ${x.essay ? 'essay' : x.split || x.status === 'diff' ? 'diff' : !x.accepted.length ? 'open' : x.pctRight !== null && x.pctRight < 50 ? 'low' : 'ok'}">${x.i + 1}</a>`).join('')}</div>
+    <p class="cap">xanh: ổn · đỏ: dưới 50% đúng · vàng: lệch file / chưa thống nhất · xám: chưa chốt</p>` : ''}
 
-    ${sec('I', 'Thông tin chung', `<table class="info"><tbody>
-        <tr><td>Bộ đề</td><td><b>${E(info.title)}</b> — ${S.total} câu</td></tr>
-        <tr><td>Phòng</td><td>${E(info.room)} <span class="soft">(mã ${E(info.code)})</span></td></tr>
-        <tr><td>Thời gian</td><td>${info.date}, ${info.from} – ${info.to} (${info.minutes} phút)${info.ended ? '' : ' <span class="mini">phiên chưa kết thúc</span>'}</td></tr>
-        <tr><td>Kiểu buổi học</td><td>${E(info.mode)}</td></tr>
-        <tr><td>Chủ trì</td><td>${E(info.host)}${info.cohosts.length ? ` <span class="soft">· đồng chủ trì: ${E(info.cohosts.join(', '))}</span>` : ''}</td></tr>
-        <tr><td>Thành viên (${d.members.length})</td><td>${who(d.members)}</td></tr>
-        ${plain(info.goal) ? `<tr><td>Mục tiêu buổi học</td><td class="rich">${rich(info.goal, opt.images)}</td></tr>` : ''}
-    </tbody></table>`)}
+    ${sec(`🎯 Cần ôn lại <small>${todo.length} câu</small>`, todo.length ? `<ul class="todo">${todo.map(x => `<li><span class="box"></span><a href="#cau-${x.i + 1}"><b>Câu ${x.i + 1}</b></a> <span class="stemmini">${E(plain(x.q.question).slice(0, 110))}${plain(x.q.question).length > 110 ? '…' : ''}</span><br><span class="why">${x.review.join(' · ')}</span></li>`).join('')}</ul>`
+        : '<p class="ok-line">🎉 Không có câu nào cần ôn lại.</p>')}
 
-    ${sec('II', 'Tóm tắt kết quả', `<ul class="facts">
-        <li>Đã chốt đáp án <b>${S.announced}/${S.total - S.essays}</b> câu trắc nghiệm${S.essays ? ` (và ${S.essays} câu tự luận)` : ''}; cả phòng chọn đúng trung bình <b>${S.avg === null ? '—' : S.avg + '%'}</b>.</li>
-        ${S.splits.length ? `<li>Nhóm <b>chưa thống nhất</b> ở câu ${S.splits.map(x => `<a href="#cau-${x.i + 1}">${x.i + 1}</a>`).join(', ')} — mọi quan điểm được ghi lại để tra cứu thêm.</li>` : ''}
-        <li>Khớp đáp án file <b>${S.match}</b> câu${S.diff.length ? `; <b class="warn">lệch file ở câu ${S.diff.map(x => `<a href="#cau-${x.i + 1}">${x.i + 1}</a>`).join(', ')}</b> — nên kiểm lại nguồn trước khi học thuộc` : '; không có câu nào lệch file'}.</li>
-        ${S.hardest ? `<li>Câu khó nhất: <a href="#cau-${S.hardest.i + 1}"><b>câu ${S.hardest.i + 1}</b></a> — chỉ ${S.hardest.pctRight}% chọn đúng.</li>` : ''}
-        ${S.issues.length ? `<li>Có báo lỗi đề ở câu ${S.issues.map(x => x.i + 1).join(', ')}.</li>` : ''}
-    </ul>
-    <p class="cap">Bản đồ câu — xanh: nhóm chốt khớp file · vàng: lệch file · đỏ: dưới 50% chọn đúng · xám: chưa chốt</p>
-    <div class="qmap">${d.qs.map(x => `<a href="#cau-${x.i + 1}" class="qc ${x.essay ? 'essay' : x.split ? 'diff' : !x.accepted.length ? 'open' : x.status === 'diff' ? 'diff' : x.pctRight !== null && x.pctRight < 50 ? 'low' : 'ok'}">${x.i + 1}</a>`).join('')}</div>`)}
+    ${sec(`📝 Từng câu${opt.only ? ' <small>chỉ câu cần ôn</small>' : ''}`, shown.map(qCard).join('') || '<p class="soft">Không có câu nào.</p>')}
 
-    ${sec('III', 'Bảng xếp hạng', d.scores.length ? `<table class="grid"><thead><tr><th class="c">Hạng</th><th>Thành viên</th><th class="c">Đã làm</th><th class="c">Đúng</th><th class="c">Chính xác</th><th class="c">Chuỗi</th><th class="r">Điểm</th></tr></thead><tbody>
-        ${d.scores.map(r => `<tr class="${r.rank <= 3 ? 'top' : ''}"><td class="c">${['🥇', '🥈', '🥉'][r.rank - 1] || r.rank}</td><td><b>${E(r.name)}</b></td><td class="c">${r.answered}</td><td class="c">${r.correct}</td><td class="c">${r.answered ? Math.round(100 * r.correct / r.answered) : 0}%</td><td class="c">${r.best}</td><td class="r"><b>${r.points}</b></td></tr>`).join('')}
-        </tbody></table><p class="cap">Điểm chỉ tính các câu đã chốt: đúng +100, trả lời nhanh thưởng tới +60, mỗi câu đúng liên tiếp +10 (tối đa 5 bậc), nhân hệ số cược tự tin.</p>`
-        : '<p class="soft">Chưa có câu nào được chốt nên chưa xếp hạng.</p>')}
+    ${loose.length ? sec('📚 Tài liệu chung', `<ol class="refs">${loose.map(m => `<li><b>${E(plain(m.title) || 'Tài liệu')}</b>${m.src ? ` — ${E(plain(m.src))}` : ''}${safeLink(m.link) ? `<br><a href="${E(m.link)}">${E(m.link)}</a>` : ''}</li>`).join('')}</ol>`) : ''}
 
-    ${sec('IV', 'Mức độ tham gia', `<table class="grid"><thead><tr><th>Thành viên</th><th class="c">Đã làm</th><th class="c">Đoán</th><th class="c">Ghi lý do</th><th class="c">Ý kiến</th><th class="c">Nhận giảng</th><th class="c">Được cảm ơn</th><th class="c">Muốn bàn</th></tr></thead><tbody>
-        ${d.participation.map(p => `<tr><td><b>${E(nm(p.m))}</b></td><td class="c">${p.done}/${S.total}</td><td class="c">${p.guess || '—'}</td><td class="c">${p.why || '—'}</td><td class="c">${p.talk || '—'}</td><td class="c">${p.giang || '—'}</td><td class="c">${p.camOn || '—'}</td><td class="c">${p.flags || '—'}</td></tr>`).join('')}
-    </tbody></table>`)}
+    ${opt.full ? sec('Phụ lục · Mức độ tham gia', `<table class="grid"><thead><tr><th>Thành viên</th><th class="c">Đã làm</th><th class="c">Đoán</th><th class="c">Ghi lý do</th><th class="c">Ý kiến</th><th class="c">Nhận giảng</th><th class="c">Muốn bàn</th></tr></thead><tbody>
+        ${d.participation.map(p => `<tr><td><b>${E(nm(p.m))}</b></td><td class="c">${p.done}/${S.total}</td><td class="c">${p.guess || '—'}</td><td class="c">${p.why || '—'}</td><td class="c">${p.talk || '—'}</td><td class="c">${p.giang || '—'}</td><td class="c">${p.flags || '—'}</td></tr>`).join('')}
+        </tbody></table>`) : ''}
+    ${opt.full && d.general.length ? sec('Phụ lục · Thảo luận chung', `<div class="chat">${d.general.map(m => `<div class="m"><p><b>${E(nm(m))}</b> <span class="soft">${hm(msTime(m) || Date.now())}</span></p>${m.text ? `<p>${talk(m.text)}</p>` : ''}${imgsHtml(m.images, opt.images)}</div>`).join('')}</div>`) : ''}
 
-    ${sec('V', 'Việc cần làm sau buổi học', todo.length ? `<ul class="todo">${todo.map(x => `<li><span class="box"></span><a href="#cau-${x.i + 1}"><b>Câu ${x.i + 1}</b></a> <span class="stemmini">${E(plain(x.q.question).slice(0, 110))}${plain(x.q.question).length > 110 ? '…' : ''}</span><br><span class="why">${x.review.join(' · ')}</span></li>`).join('')}</ul>`
-        : '<p class="ok-line">🎉 Không có câu nào cần ôn lại — cả nhóm nắm chắc hết.</p>')}
-
-    ${sec('VI', `Chi tiết từng câu${opt.only ? ' <small>(chỉ những câu cần ôn)</small>' : ''}`, shown.map(qCard).join('') || '<p class="soft">Không có câu nào.</p>')}
-
-    ${opt.chat && (d.general.length || d.allDocs.length) ? sec('VII', 'Phụ lục', `
-        ${d.general.length ? `<h3>Thảo luận chung</h3><div class="chat">${d.general.map(m => `<div class="m"><p><b>${E(nm(m))}</b> <span class="soft">${hm(msTime(m) || Date.now())}</span></p>${m.text ? `<p>${talk(m.text)}</p>` : ''}${imgsHtml(m.images, opt.images)}</div>`).join('')}</div>` : ''}
-        ${d.allDocs.length ? `<h3>Tài liệu tham khảo của buổi học</h3><ol class="refs">${d.allDocs.map(m => `<li><b>${E(plain(m.title) || 'Tài liệu')}</b>${m.src ? ` — ${E(plain(m.src))}` : ''}${typeof m.qIdx === 'number' ? ` <span class="soft">(câu ${m.qIdx + 1})</span>` : ''}${safeLink(m.link) ? `<br><a href="${E(m.link)}">${E(m.link)}</a>` : ''}</li>`).join('')}</ol>` : ''}`) : ''}
-
-    <p class="endnote">Biên bản tạo tự động bởi Zitthenkne · phòng ${E(info.code)} · xuất bởi ${E(info.exportedBy)} lúc ${E(info.exportedAt)}</p>`;
+    <p class="endnote">Zitthenkne · phòng ${E(info.code)} · xuất bởi ${E(info.exportedBy)} lúc ${E(info.exportedAt)}</p>`;
 
     return `<!DOCTYPE html><html lang="vi"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -512,118 +479,135 @@ ${math ? '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8
 </body></html>`;
 }
 
+// Bản đầy đủ (PDF): ai chọn gì + lý do, mọi nhận xét, chat, ghi nhận phụ
+function fullHtml(x, opt, argLi) {
+    const out = [];
+    if (x.camps.length || x.looseArgs.length) out.push(`<div class="block"><h4>${x.essay ? '🗣 Nhận xét bài làm chung' : '🗣 Ai chọn gì & lý do'}</h4>${x.camps.map(c => `<div class="camp ${c.ok ? 'ok' : ''}">
+        <p class="camp-h"><span class="let sm">${L(c.k)}</span> ${c.who.length} người${c.ok ? ' <span class="tag ok">đúng</span>' : ''}</p>
+        ${c.who.length ? `<ul class="reasons">${c.who.map(m => {
+            const a = answerOf(m, x.i);
+            const tag = [typeof a.from === 'number' && a.from !== a.i ? `đổi từ ${L(a.from)}${a.by?.n ? ` nhờ ${E(a.by.n)}` : ''}` : '', a.guess ? 'đoán' : ''].filter(Boolean);
+            return `<li><b>${E(nm(m))}</b>${tag.map(t => ` <span class="mini">${t}</span>`).join('')} ${hasRich(whyOf(m, x.i)) ? `<span class="rich inl">${rich(whyOf(m, x.i), opt.images)}</span>` : ''}</li>`;
+        }).join('')}</ul>` : ''}
+        ${[...c.pro, ...c.con, ...c.other].length ? `<ul class="args">${[...c.pro, ...c.con, ...c.other].map(argLi).join('')}</ul>` : ''}
+    </div>`).join('')}
+    ${x.looseArgs.length ? `<ul class="args">${x.looseArgs.map(argLi).join('')}</ul>` : ''}
+    ${x.changers.length ? `<p class="soft">🔄 Đổi ý sau khi bàn: ${x.changers.map(m => { const a = answerOf(m, x.i); return `${E(nm(m))} (${L(a.from)} → ${L(a.i)})`; }).join(', ')}</p>` : ''}</div>`);
+    if (x.chats.length) out.push(`<div class="block"><h4>💬 Thảo luận · ${x.chats.length}</h4><div class="chat">${x.chats.map(m => `<div class="m">
+        <p><b>${E(nm(m))}</b>${typeof m.ans === 'number' ? ` <span class="let sm">${L(m.ans)}</span>` : ''} <span class="soft">${hm(msTime(m) || Date.now())}</span></p>
+        ${m.text ? `<p>${talk(m.text)}</p>` : ''}${imgsHtml(m.images, opt.images)}</div>`).join('')}</div></div>`);
+    const notes = extraNotes(x, (l) => l.map(nm).join(', '));
+    if (notes.length) out.push(`<p class="notes">${notes.map(E).join('<span class="dot">·</span>')}</p>`);
+    return out.join('');
+}
+
 const PRINT_CSS = `
-@page { size: A4; margin: 14mm 13mm 16mm;
+@page { size: A4; margin: 13mm 13mm 15mm;
     @bottom-left { content: "Zitthenkne · Biên bản buổi đánh đề"; font: 500 7.5pt 'Be Vietnam Pro', sans-serif; color: #a597b0; }
     @bottom-right { content: "Trang " counter(page) " / " counter(pages); font: 600 7.5pt 'Be Vietnam Pro', sans-serif; color: #a597b0; } }
-:root { --ink:#2f2438; --muted:#85788f; --line:#ece2f0; --soft:#fbf7fb; --pink:#e5689a; --pink-soft:#ffedf4;
-    --lav:#7d62cf; --lav-soft:#f3eeff; --ok:#23906a; --ok-soft:#e6f7ef; --bad:#cf3f67; --bad-soft:#ffedf2; --warn:#a96d16; --warn-soft:#fff5e5; }
+:root { --ink:#2f2438; --muted:#85788f; --line:#efe6ee; --soft:#fbf8f9; --pink:#e5689a; --pink-soft:#ffeef4;
+    --peach-soft:#fff3e8; --ok:#23906a; --ok-soft:#e6f7ef; --bad:#d23f45; --bad-soft:#fdeced; --warn:#a96d16; --warn-soft:#fff5e5; }
 * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-html { background: #f4edf3; }
-body { margin: 0; font: 400 9.6pt/1.58 'Be Vietnam Pro', system-ui, sans-serif; color: var(--ink); }
-a { color: var(--lav); text-decoration: none; }
-.page { max-width: 188mm; margin: 14px auto 40px; padding: 13mm 12mm; background: #fff; border-radius: 10px; box-shadow: 0 16px 50px -26px rgba(60,30,70,.45); }
+html { background: #f5eef2; }
+body { margin: 0; font: 400 9.6pt/1.55 'Be Vietnam Pro', system-ui, sans-serif; color: var(--ink); }
+a { color: #b0457a; text-decoration: none; }
+.page { max-width: 188mm; margin: 14px auto 40px; padding: 12mm 12mm; background: #fff; border-radius: 10px; box-shadow: 0 16px 50px -26px rgba(60,30,70,.45); }
 .bar-top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; justify-content: space-between;
     padding: 10px 16px; background: rgba(255,255,255,.94); border-bottom: 1px solid var(--line); font-size: 10pt; }
-.bar-top button { font: 700 10pt 'Be Vietnam Pro', sans-serif; color: #fff; border: 0; border-radius: 999px; padding: 9px 18px; cursor: pointer;
-    background: linear-gradient(135deg, #ff9cc4, #e5689a 55%, #b98be8); box-shadow: 0 8px 20px -10px #e5689a; }
-.cover { border-radius: 14px; padding: 16px 20px 18px; background: linear-gradient(120deg, #ffe4f0, #f0e7ff 58%, #e2f6ee); border: 1px solid var(--line); }
-.cover-top { display: flex; align-items: center; gap: 8px; font-size: 8pt; font-weight: 700; color: var(--muted); }
-.cover-top img { width: 20px; height: 20px; border-radius: 6px; }
-.cover-top em { margin-left: auto; font-style: normal; }
-.kicker { margin: 12px 0 0; font-size: 8pt; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--pink); }
-.cover h1 { margin: 3px 0 5px; font-size: 19pt; line-height: 1.2; font-weight: 800; letter-spacing: -.01em; }
+.bar-top button { font: 700 10pt 'Be Vietnam Pro', sans-serif; color: #fff; border: 0; border-radius: 999px; padding: 9px 18px; cursor: pointer; background: #ff8fb8; }
+.cover { padding: 0 0 10px; border-bottom: 2px solid var(--pink-soft); }
+.cover-top { display: flex; align-items: center; gap: 7px; font-size: 7.8pt; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--pink); }
+.cover-top img { width: 18px; height: 18px; border-radius: 5px; }
+.cover-top em { margin-left: auto; font-style: normal; letter-spacing: 0; text-transform: none; color: var(--muted); font-weight: 700; }
+.cover h1 { margin: 5px 0 3px; font-size: 17pt; line-height: 1.2; font-weight: 800; letter-spacing: -.01em; }
 .cover .sub { margin: 0; color: var(--muted); font-weight: 500; }
-.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 12px 0 4px; }
-.kpi { border: 1px solid var(--line); border-radius: 10px; padding: 8px 11px; background: var(--soft); }
-.kpi b { display: block; font-size: 15pt; font-weight: 800; line-height: 1.15; }
-.kpi b small { font-size: 9pt; color: var(--muted); font-weight: 600; }
-.kpi span { font-size: 7.8pt; color: var(--muted); font-weight: 600; }
+.cover .sub2 { margin: 4px 0 0; font-size: 8.4pt; color: var(--muted); } .cover .sub2 b { color: var(--ink); font-weight: 700; }
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 10px 0 6px; }
+.kpi { border-radius: 9px; padding: 6px 10px; background: var(--soft); border: 1px solid var(--line); }
+.kpi b { display: block; font-size: 14pt; font-weight: 800; line-height: 1.15; }
+.kpi b small { font-size: 8.5pt; color: var(--muted); font-weight: 600; }
+.kpi span { font-size: 7.6pt; color: var(--muted); font-weight: 600; }
 .kpi.ok b { color: var(--ok); } .kpi.warn b { color: var(--warn); } .kpi.bad b { color: var(--bad); }
-.sec { margin-top: 16px; }
-h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; padding-bottom: 5px; font-size: 12.5pt; font-weight: 800;
-    border-bottom: 2px solid var(--pink-soft); break-after: avoid; }
+.rank { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 6px 0 0; font-size: 8.6pt; }
+.rk-l { font-size: 7.4pt; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.rk { padding: 1px 8px; border-radius: 99px; background: var(--soft); border: 1px solid var(--line); }
+.rk.top { background: #fff6d8; border-color: #f3dc8a; }
+.sec { margin-top: 14px; }
+h2 { display: flex; align-items: baseline; gap: 8px; margin: 0 0 6px; padding-bottom: 4px; font-size: 12pt; font-weight: 800; border-bottom: 2px solid var(--pink-soft); break-after: avoid; }
 h2 small { font-size: 8.5pt; color: var(--muted); font-weight: 600; }
-h2 .no { display: inline-grid; place-items: center; min-width: 24px; height: 22px; padding: 0 5px; border-radius: 7px; background: var(--pink); color: #fff; font-size: 8.5pt; }
-h3 { font-size: 10.5pt; margin: 10px 0 5px; }
 table { width: 100%; border-collapse: collapse; }
-th { text-align: left; font-size: 7.8pt; font-weight: 800; letter-spacing: .03em; color: #8c4e6a; background: var(--pink-soft); padding: 5px 7px; }
+.rich table { margin: 4px 0; border: 1px solid var(--line); }
+.rich th, .rich td { border: 1px solid var(--line); padding: 3px 6px; text-align: left; vertical-align: top; }
+.rich th { background: var(--pink-soft); }
+.rich h4 { margin: 6px 0 2px; font-size: 10pt; }
+th { text-align: left; font-size: 7.8pt; font-weight: 800; color: #8c4e6a; background: var(--pink-soft); padding: 5px 7px; }
 td { padding: 5px 7px; border-bottom: 1px solid var(--line); vertical-align: top; }
 tr { break-inside: avoid; }
-.c { text-align: center; } .r { text-align: right; }
-table.info td:first-child { width: 30%; color: var(--muted); font-weight: 600; }
-table.grid tr.top td { background: #fffaf2; }
-.soft { color: var(--muted); } .muted { color: var(--muted); } .warn { color: var(--warn); } .bad { color: var(--bad); }
-.mini { display: inline-block; font-size: 7pt; font-weight: 700; padding: 1px 6px; border-radius: 99px; background: var(--warn-soft); color: var(--warn); }
-.cap { margin: 5px 0 0; font-size: 7.6pt; color: var(--muted); }
-.facts { margin: 0; padding-left: 16px; } .facts li { margin: 2px 0; }
-.qmap { display: grid; grid-template-columns: repeat(15, 1fr); gap: 3px; margin-top: 5px; }
-.qc { display: block; text-align: center; font-size: 7.5pt; font-weight: 800; padding: 3px 0; border-radius: 5px; color: #fff; }
-.qc.ok { background: #56c29a; } .qc.diff { background: #e6a646; } .qc.low { background: #e7708f; } .qc.open { background: #ddd3e3; color: #6d6275; }
+.c { text-align: center; }
+.soft, .muted { color: var(--muted); } .bad { color: var(--bad); }
+.mini { display: inline-block; font-size: 7pt; font-weight: 700; padding: 1px 6px; border-radius: 99px; background: var(--warn-soft); color: var(--warn); vertical-align: 1px; }
+.mini.ok { background: var(--ok-soft); color: var(--ok); }
+.cap { margin: 3px 0 0; font-size: 7.4pt; color: var(--muted); }
+.qmap { display: grid; grid-template-columns: repeat(20, 1fr); gap: 3px; margin-top: 8px; }
+.qc { display: block; text-align: center; font-size: 7.5pt; font-weight: 800; padding: 2px 0; border-radius: 5px; color: #fff; }
+.qc.ok { background: #56c29a; } .qc.diff { background: #e6a646; } .qc.low { background: #e5696d; } .qc.open { background: #e6e0e4; color: #6d6275; } .qc.essay { background: var(--peach-soft); color: var(--warn); }
 .todo { list-style: none; margin: 0; padding: 0; }
-.todo li { position: relative; padding: 6px 8px 6px 28px; border: 1px solid var(--line); border-radius: 8px; margin: 4px 0; break-inside: avoid; }
-.todo .box { position: absolute; left: 9px; top: 8px; width: 11px; height: 11px; border: 1.6px solid #c9b3d6; border-radius: 3px; }
+.todo li { position: relative; padding: 4px 6px 4px 24px; border-bottom: 1px dashed var(--line); break-inside: avoid; }
+.todo .box { position: absolute; left: 6px; top: 7px; width: 10px; height: 10px; border: 1.5px solid #cdb9c8; border-radius: 3px; }
 .todo .stemmini { color: var(--muted); } .todo .why { font-size: 8.2pt; color: var(--warn); font-weight: 600; }
 .ok-line { color: var(--ok); font-weight: 700; }
-.q { border: 1px solid var(--line); border-radius: 12px; padding: 11px 13px 10px; margin: 10px 0 12px; break-inside: avoid; }
-.src, .case { break-after: avoid; }
-.chat .ql { display: block; margin: 2px 0; padding-left: 8px; border-left: 2px solid #d9c9ee; color: #5e5468; font-style: italic; }
+.q { padding: 10px 0 8px; border-bottom: 1px solid var(--line); }
+.q:last-child { border-bottom: 0; }
 .q-head { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; break-after: avoid; }
-.q-no { font-size: 11.5pt; font-weight: 800; margin-right: 3px; }
-.tag { display: inline-block; font-size: 7.4pt; font-weight: 700; padding: 1.5px 7px; border-radius: 99px; background: var(--soft); color: var(--muted); border: 1px solid var(--line); }
+.q-no { font-size: 11pt; font-weight: 800; margin-right: 2px; }
+.meta { margin-left: auto; font-size: 7.6pt; color: var(--muted); }
+.tag { display: inline-block; font-size: 7.4pt; font-weight: 700; padding: 1px 7px; border-radius: 99px; background: var(--soft); color: var(--muted); border: 1px solid var(--line); }
 .tag.ok { background: var(--ok-soft); color: var(--ok); border-color: #bfe8d6; }
 .tag.warn { background: var(--warn-soft); color: var(--warn); border-color: #f1d9ad; }
-.tag.bad { background: var(--bad-soft); color: var(--bad); border-color: #f5c3d1; }
-.tag.lav { background: var(--lav-soft); color: var(--lav); border-color: #ddd0fb; }
-.src { margin: 4px 0 0; font-size: 7.8pt; color: var(--muted); }
-.case { margin: 7px 0; padding: 7px 10px; border-radius: 8px; background: var(--warn-soft); border-left: 3px solid #f0b66b; }
-.stem { margin: 7px 0 8px; font-size: 10.4pt; font-weight: 600; break-after: avoid; }
-table.opts { margin-top: 2px; }
-table.opts td.lt { width: 26px; } table.opts td.vt { width: 118px; white-space: nowrap; font-size: 8.4pt; } table.opts td.who { width: 26%; font-size: 8.2pt; color: var(--muted); }
-.let { display: inline-grid; place-items: center; width: 19px; height: 19px; border-radius: 99px; background: #efe8f2; color: #6f607a; font-size: 7.8pt; font-weight: 800; }
-.let.sm { width: 15px; height: 15px; font-size: 6.8pt; vertical-align: 1px; }
-tr.is-chosen td { background: var(--ok-soft); } tr.is-chosen .let { background: var(--ok); color: #fff; } tr.is-chosen td.rich { font-weight: 700; }
-tr.is-ref .let { background: #f2c56f; color: #fff; }
-.bar { display: inline-block; width: 52px; height: 6px; margin-right: 6px; vertical-align: 1px; border-radius: 99px; background: var(--line); overflow: hidden; }
-.bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--pink), var(--lav)); }
-tr.is-chosen .bar i { background: var(--ok); }
-.oexp { margin-top: 3px; font-size: 8.3pt; font-weight: 400; color: var(--muted); }
-.verdict { margin: 8px 0 2px; padding: 6px 10px; border-radius: 8px; font-weight: 600; background: var(--ok-soft); color: #1f6e53; break-inside: avoid; }
-.verdict.diff { background: var(--warn-soft); color: #87560f; } .verdict.open { background: var(--soft); color: var(--muted); }
-.verdict .soft { font-weight: 500; }
-.block { margin-top: 8px; break-inside: avoid; }
-.block h4 { margin: 0 0 3px; font-size: 7.8pt; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #8c4e6a; }
+.tag.bad { background: var(--bad-soft); color: var(--bad); border-color: #f5c3c5; }
+.case { margin: 6px 0; padding: 6px 10px; border-radius: 8px; background: var(--warn-soft); border-left: 3px solid #f0b66b; break-after: avoid; }
+.stem { margin: 6px 0 5px; font-size: 10.2pt; font-weight: 600; break-after: avoid; }
+.opts { list-style: none; margin: 0; padding: 0; break-inside: avoid; }
+.opts li { display: flex; align-items: flex-start; gap: 7px; padding: 3px 6px; border-radius: 7px; }
+.opts li.is-ok { background: var(--ok-soft); } .opts li.is-ok .otx > .rich { font-weight: 700; }
+.let { flex: 0 0 auto; display: inline-grid; place-items: center; width: 17px; height: 17px; margin-top: 1px; border-radius: 99px; background: #f1ecef; color: #6f607a; font-size: 7.4pt; font-weight: 800; }
+.let.sm { width: 14px; height: 14px; font-size: 6.6pt; vertical-align: 1px; }
+.is-ok .let { background: var(--ok); color: #fff; } .is-ref .let { background: #f2c56f; color: #fff; }
+.otx { flex: 1; min-width: 0; } .otx .rich p { margin: 0; }
+.cnt { flex: 0 0 auto; font-size: 7.6pt; color: var(--muted); white-space: nowrap; padding-top: 1px; }
+.oexp { margin-top: 1px; font-size: 8.3pt; color: var(--muted); font-weight: 400; }
+.line { margin: 5px 0 0; font-size: 8.6pt; }
+.block { margin-top: 6px; break-inside: avoid; }
+.block h4, .call h4 { margin: 0 0 2px; font-size: 7.6pt; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #8c4e6a; }
 .block h4 em { font-style: normal; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--muted); }
-.block.expl { padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: #fffdfd; }
-.call { padding: 7px 10px; border-radius: 8px; } .call.lav { background: var(--lav-soft); } .call.pink { background: var(--pink-soft); }
-.rich p { margin: 3px 0; } .rich ul, .rich ol { margin: 3px 0 3px 16px; padding: 0; } .rich img { max-width: 100%; max-height: 85mm; border-radius: 6px; border: 1px solid var(--line); margin: 3px 0; }
+.block.expl { padding: 6px 10px; border-radius: 8px; border-left: 3px solid var(--pink); background: #fffafc; }
+.block.expl p { margin: 2px 0; }
+.calls { display: grid; gap: 6px; margin-top: 6px; } .calls.n2 { grid-template-columns: 1fr 1fr; }
+.call { padding: 6px 10px; border-radius: 8px; break-inside: avoid; } .call.peach { background: var(--peach-soft); } .call.pink { background: var(--pink-soft); }
+.rich p { margin: 3px 0; } .rich ul, .rich ol { margin: 3px 0 3px 16px; padding: 0; } .rich img { max-width: 100%; max-height: 80mm; border-radius: 6px; border: 1px solid var(--line); margin: 3px 0; }
 .rich mark { background: #fff1a3; padding: 0 2px; border-radius: 3px; } .rich code { background: var(--pink-soft); padding: 0 4px; border-radius: 4px; font-size: .92em; }
-.rich table { border: 1px solid var(--line); margin: 4px 0; } .rich table td, .rich table th { border: 1px solid var(--line); }
 .rich.inl p { display: inline; margin: 0; }
-.reasons { list-style: none; margin: 0; padding: 0; } .reasons li { padding: 3px 0; border-bottom: 1px dashed var(--line); }
-.camp { margin: 5px 0; padding: 6px 9px; border-radius: 8px; background: #fff8fb; border: 1px solid var(--line); break-inside: avoid; }
-.camp.ok { background: var(--ok-soft); border-color: #bfe8d6; } .camp-h { margin: 0 0 3px; }
-.args { list-style: none; margin: 4px 0 0; padding: 0; } .args li { padding: 2px 0; font-size: 8.6pt; }
-.arg .aic { display: inline-block; width: 14px; text-align: center; font-weight: 800; } .arg.pro .aic { color: var(--ok); } .arg.con .aic { color: var(--bad); }
-.qc.essay { background: var(--lav-soft); color: var(--lav); }
-.docref { padding: 6px 9px; border-radius: 8px; background: var(--lav-soft); border: 1px solid #e3d8fb; margin: 4px 0; }
-.docref p { margin: 1px 0; } .docref blockquote { margin: 4px 0; padding: 2px 0 2px 9px; border-left: 3px solid #cbb8f6; color: #4d4458; font-style: italic; }
-.docref .link { font-size: 8pt; word-break: break-all; }
-.chat .m { padding: 4px 0 4px 9px; border-left: 2px solid #eadcf6; margin: 3px 0; break-inside: avoid; }
-.chat .m p { margin: 1px 0; }
-.imgs { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; } .imgs img { max-width: 48%; max-height: 62mm; border-radius: 6px; border: 1px solid var(--line); object-fit: contain; }
+.args { list-style: none; margin: 0; padding: 0; } .args li { padding: 1px 0; font-size: 8.8pt; }
+.arg .aic { display: inline-block; width: 15px; font-weight: 800; } .arg.pro .aic { color: var(--ok); } .arg.con .aic { color: var(--bad); } .arg.ask .aic { color: var(--warn); }
+.docref { margin: 2px 0; font-size: 8.8pt; } .docref p { margin: 0; }
+.docref blockquote { margin: 2px 0 4px; padding: 1px 0 1px 9px; border-left: 3px solid #eed4df; color: #54485c; font-style: italic; }
+.reasons { list-style: none; margin: 0; padding: 0; } .reasons li { padding: 2px 0; border-bottom: 1px dashed var(--line); }
+.camp { margin: 4px 0; padding: 5px 9px; border-radius: 8px; background: var(--soft); border: 1px solid var(--line); break-inside: avoid; }
+.camp.ok { background: var(--ok-soft); border-color: #bfe8d6; } .camp-h { margin: 0 0 2px; }
+.chat .ql { display: block; margin: 2px 0; padding-left: 8px; border-left: 2px solid #eed4df; color: #5e5468; font-style: italic; }
+.chat .m { padding: 3px 0 3px 9px; border-left: 2px solid #f1e0e8; margin: 3px 0; break-inside: avoid; } .chat .m p { margin: 1px 0; }
+.imgs { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; } .imgs img { max-width: 48%; max-height: 60mm; border-radius: 6px; border: 1px solid var(--line); object-fit: contain; }
 .noimg { color: var(--muted); font-size: 8pt; }
-.notes { margin: 8px 0 0; padding-top: 6px; border-top: 1px dashed var(--line); font-size: 8.2pt; color: var(--muted); }
-.notes .dot { margin: 0 6px; color: #d5c7dc; }
+.notes { margin: 6px 0 0; font-size: 8pt; color: var(--muted); } .notes .dot { margin: 0 6px; color: #d5c7dc; }
 .refs { margin: 0; padding-left: 18px; } .refs li { margin: 3px 0; word-break: break-word; }
-.endnote { margin: 18px 0 0; padding-top: 8px; border-top: 1px solid var(--line); text-align: center; font-size: 7.8pt; color: var(--muted); }
+.endnote { margin: 14px 0 0; padding-top: 6px; border-top: 1px solid var(--line); text-align: center; font-size: 7.6pt; color: var(--muted); }
 @media print {
     html { background: #fff; }
     .no-print { display: none !important; }
     .page { max-width: none; margin: 0; padding: 0; border-radius: 0; box-shadow: none; }
     a { color: inherit; }
 }
-@media screen and (max-width: 700px) { .page { margin: 0; border-radius: 0; padding: 16px 14px; } .kpis { grid-template-columns: repeat(2, 1fr); } .qmap { grid-template-columns: repeat(10, 1fr); } table.opts td.who { display: none; } }
+@media screen and (max-width: 700px) { .page { margin: 0; border-radius: 0; padding: 16px 14px; } .kpis { grid-template-columns: repeat(2, 1fr); } .qmap { grid-template-columns: repeat(10, 1fr); } .calls.n2 { grid-template-columns: 1fr; } .meta { margin-left: 0; width: 100%; } }
 `;
 
 // ================= 4. XUẤT =================
@@ -635,8 +619,7 @@ function fileName(d) {
 }
 
 const readOpts = () => ({
-    chat: el('min-chat')?.checked !== false,
-    reasons: el('min-reasons')?.checked !== false,
+    full: !!el('min-full')?.checked,          // mặc định GỌN
     images: el('min-images')?.checked !== false,
     only: !!el('min-only')?.checked,
 });

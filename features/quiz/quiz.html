@@ -4,15 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Sẵn sàng làm bài kiểm tra</title>
-    <!-- Định tuyến giao diện: nếu người dùng đã chọn Gốm sứ Kintsugi thì chuyển ngay (tránh nháy) -->
-    <script>
-        try {
-            var _p = new URLSearchParams(location.search);
-            if (localStorage.getItem('quiz_theme_mode') === 'ceramic' && _p.get('mode') !== 'classic') {
-                location.replace('quiz-ceramic.html' + location.search);
-            }
-        } catch (e) {}
-    </script>
     <!-- Áp dụng chế độ tối NGAY trước khi vẽ trang để tránh nháy sáng -->
     <script>
         try { if (localStorage.getItem('quiz_theme') === 'dark') document.documentElement.classList.add('theme-dark'); } catch (e) {}
@@ -96,8 +87,6 @@
                 selectedImg = images[Math.floor(Math.random() * images.length)];
             }
             
-            window.selectedOgImage = selectedImg; // Đồng bộ ảnh Hero với OG Image
-            window.quizOgImages = images;         // Cho nút "đổi linh vật" trên landing dùng lại danh sách
             try {
                 const origin = window.location.origin;
                 const path = window.location.pathname;
@@ -254,19 +243,8 @@
         .mascot-floating {
             animation: mascotFloat 4s ease-in-out infinite;
         }
-        .glass-premium {
-            background: rgba(255, 255, 255, 0.88) !important;
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.7) !important;
-            box-shadow: 0 20px 50px rgba(255, 105, 180, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
-        }
-        /* Chế độ tối: card landing chuyển nền tối (trước đây bị kẹt nền trắng) */
-        html.theme-dark .glass-premium {
-            background: rgba(30, 23, 48, 0.92) !important;
-            border-color: rgba(255, 255, 255, 0.08) !important;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
-        }
+        /* Khung trang chờ, chip chọn nhanh, thẻ chế độ, chip tóm tắt, phím tắt:
+           xem quiz-stationery.css (giao diện Sổ tay pastel). */
 
         /* Skeleton shimmer khi đang tải thông tin bộ đề (gỡ class khi có dữ liệu) */
         .skeleton-line {
@@ -286,63 +264,6 @@
             0% { background-position: 200% 0; }
             100% { background-position: -200% 0; }
         }
-
-        /* Chip chọn nhanh số câu / số phút ở phần tùy chỉnh phiên làm bài */
-        .chip-preset {
-            padding: 2px 10px;
-            border-radius: 9999px;
-            font-size: 11px;
-            font-weight: 700;
-            border: 1px solid rgba(244, 114, 182, 0.35);
-            color: #db2777;
-            background: #fff0f6;
-            cursor: pointer;
-            transition: background-color .15s ease, color .15s ease, transform .1s ease;
-        }
-        .chip-preset:hover { background: #ffdff0; }
-        .chip-preset:active { transform: scale(0.94); }
-        .chip-preset.chip-active { background: #ff69b4; border-color: #ff69b4; color: #fff; }
-        html.theme-dark .chip-preset { background: #34203a; color: #f9a8d4; border-color: rgba(249, 168, 212, 0.3); }
-        html.theme-dark .chip-preset:hover { background: #45294c; }
-        html.theme-dark .chip-preset.chip-active { background: #d65fa0; border-color: #d65fa0; color: #fff; }
-
-        /* Thẻ "Chọn nhanh chế độ" trên landing: 1 chạm gạt sẵn các tùy chọn bên dưới */
-        .mode-preset {
-            display: flex; flex-direction: column; align-items: center; gap: 2px;
-            padding: 10px 6px; border-radius: 16px; cursor: pointer; text-align: center;
-            border: 1.5px solid rgba(244, 114, 182, 0.25); background: rgba(255, 255, 255, 0.55);
-            transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease, background-color .15s ease;
-        }
-        .mode-preset:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(255, 105, 180, 0.14); border-color: rgba(244, 114, 182, 0.5); }
-        .mode-preset:active { transform: scale(0.96); }
-        .mode-preset .mp-ic { font-size: 20px; line-height: 1.2; }
-        .mode-preset .mp-name { font-size: 12.5px; font-weight: 800; color: #374151; }
-        .mode-preset .mp-desc { font-size: 10px; color: #9ca3af; font-weight: 600; line-height: 1.35; }
-        .mode-preset.mp-active { border-color: #ff69b4; background: #fff0f6; box-shadow: 0 6px 16px rgba(255, 105, 180, 0.18); }
-        .mode-preset.mp-active .mp-name { color: #db2777; }
-        html.theme-dark .mode-preset { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.1); }
-        html.theme-dark .mode-preset .mp-name { color: #ded5ee; }
-        html.theme-dark .mode-preset .mp-desc { color: #a99fc0; }
-        html.theme-dark .mode-preset.mp-active { border-color: #d65fa0; background: #34203a; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35); }
-        html.theme-dark .mode-preset.mp-active .mp-name { color: #f9a8d4; }
-
-        /* Chip tóm tắt phiên (ngay trên nút Bắt đầu) */
-        .sum-chip {
-            display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 9999px;
-            font-size: 11px; font-weight: 700; color: #6b7280;
-            background: rgba(255, 255, 255, 0.6); border: 1px solid rgba(0, 0, 0, 0.06);
-        }
-        .sum-chip i { color: #f472b6; font-size: 10px; }
-        html.theme-dark .sum-chip { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.1); color: #c9bfdd; }
-
-
-        /* Phím tắt hiển thị kiểu bàn phím */
-        .kbd-key {
-            padding: 1px 7px; border-radius: 7px; border: 1px solid rgba(0, 0, 0, 0.14);
-            border-bottom-width: 2px; background: rgba(255, 255, 255, 0.8);
-            font-size: 10px; font-weight: 800; color: #6b7280; font-family: inherit;
-        }
-        html.theme-dark .kbd-key { background: rgba(255, 255, 255, 0.07); border-color: rgba(255, 255, 255, 0.16); color: #c9bfdd; }
 
         /* Lưới tùy chọn phiên: nén lại cho gọn (đè các utility p-4 / gap-4 / icon w-9) */
         #quiz-options-grid { gap: 0.65rem; }
@@ -380,14 +301,15 @@
     </style>
     <link rel="stylesheet" href="quiz-preview.css">
     <link rel="stylesheet" href="quiz-enhance.css">
+    <link rel="stylesheet" href="quiz-stationery.css">
 </head>
-<body class="bg-[#FCE4EC] flex items-center justify-center min-h-screen p-2 sm:p-4 text-sm">
+<body class="flex items-center justify-center min-h-screen p-2 sm:p-4 text-sm">
     <!-- Floating Exit Focus Button -->
     <button id="exit-focus-btn" type="button" class="fixed top-4 right-4 z-50 p-3 bg-pink-500 text-white rounded-full shadow-lg opacity-50 hover:opacity-100 transition hidden focus:outline-none exit-focus-pulse" title="Thoát chế độ tập trung">
         <i class="fas fa-compress-arrows-alt text-lg"></i>
     </button>
     <!-- Mobile Top Bar with Hamburger -->
-    <div class="md:hidden fixed top-0 left-0 w-full z-40 bg-white/90 shadow flex items-center justify-between px-4 py-3 border-b-2 border-pink-100 focus-hide">
+    <div class="nb-topbar md:hidden fixed top-0 left-0 w-full z-40 flex items-center justify-between px-4 py-3 focus-hide">
         <button id="quiz-menu-toggle" class="text-2xl text-pink-500 focus:outline-none">
             <i class="fas fa-bars"></i>
         </button>
@@ -410,316 +332,322 @@
         </nav>
     </div>
     <div class="w-full max-w-4xl lg:max-w-[88rem] mx-auto mt-14 md:mt-0">
-        <div id="quiz-landing" class="glass-premium rounded-3xl p-6 sm:p-10 text-center fade-in max-w-2xl mx-auto transition-all duration-300">
-            <!-- Chuyển sang giao diện mới: Gốm sứ Kintsugi -->
-            <div class="flex justify-end mb-4">
-                <button type="button" onclick="try{localStorage.setItem('quiz_theme_mode','ceramic')}catch(e){};window.location.href='quiz-ceramic.html'+window.location.search;"
-                    class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs sm:text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 hover:border-amber-300 transition shadow-sm active:scale-95 focus:outline-none focus:ring-2 focus:ring-amber-300"
-                    aria-label="Chuyển sang giao diện Gốm sứ Kintsugi">
-                    <i class="fas fa-magic text-amber-500" aria-hidden="true"></i> Giao diện: Gốm sứ Kintsugi (Mới)
-                </button>
-            </div>
-            <!-- Hero: linh vật + tiêu đề + mẹo — bố cục ngang trên desktop để card gọn hơn.
-                 Bấm vào linh vật để đổi ảnh ngẫu nhiên (đồng bộ danh sách với ảnh OG). -->
-            <div class="flex flex-col sm:flex-row items-center gap-4 sm:gap-5 mb-5 text-center sm:text-left">
-                <button type="button" id="quiz-hero-btn" title="Bấm để đổi linh vật" aria-label="Đổi ảnh linh vật ngẫu nhiên"
-                    class="relative flex-shrink-0 w-28 h-28 sm:w-36 sm:h-36 rounded-3xl overflow-hidden shadow-[0_15px_35px_rgba(255,105,180,0.25)] border-4 border-white/90 hover:scale-[1.04] active:scale-[0.96] transition-all duration-300 bg-pink-50 mascot-floating group focus:outline-none focus:ring-2 focus:ring-pink-300">
-                    <img id="quiz-hero-img" src="../../assets/og_squirrel_close.jpg" alt="Zitthenkne Mascot" class="w-full h-full object-cover" />
-                    <span class="absolute bottom-1.5 right-1.5 w-7 h-7 rounded-full bg-white/90 text-pink-500 text-[11px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow" aria-hidden="true"><i class="fas fa-dice"></i></span>
-                </button>
-                <div class="flex-1 min-w-0 w-full">
-                    <h1 id="quiz-title" class="text-xl sm:text-2xl lg:text-3xl font-extrabold bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent mb-1.5 tracking-tight">Đang tải thông tin...</h1>
-                    <p id="quiz-info" class="text-gray-500 mb-3 text-xs sm:text-sm font-medium">Hãy sẵn sàng cho cuộc phiêu lưu tri thức!</p>
+        <div id="quiz-landing" class="nb-landing nb-binder rounded-3xl p-6 sm:p-10 text-center fade-in max-w-2xl mx-auto transition-all duration-300">
+            <!-- BENTO 2 CỘT (≥768px): trái = giới thiệu + chế độ nhanh + ôn ngắt quãng,
+                 phải = tùy chỉnh + xem trước + nút bắt đầu + tiện ích. Điện thoại: 2 cột tan ra
+                 (display: contents) và xếp lại đúng thứ tự cũ bằng order — xem quiz-stationery.css §8. -->
+            <div class="bt-grid">
+                <div class="bt-col bt-col-l">
+                    <!-- Hero: linh vật sticker + tiêu đề + mẹo — bố cục ngang trên desktop để card gọn hơn.
+                         Giữ id quiz-hero-btn/quiz-hero-img: quiz-launch-transition.js đo ô này làm đích morph. -->
+                    <div class="bt-tile bt-hero flex flex-col sm:flex-row items-center gap-4 sm:gap-5 text-center sm:text-left">
+                        <button type="button" id="quiz-hero-btn" title="Chào bạn sóc!" aria-label="Linh vật sóc"
+                            class="relative flex-shrink-0 w-24 h-24 sm:w-28 sm:h-28 transition-transform duration-300 mascot-floating">
+                            <span class="washi-tape washi-butter" aria-hidden="true"></span>
+                            <span class="nb-doodle nb-doodle-heart" aria-hidden="true"></span>
+                            <span class="nb-doodle nb-doodle-star" aria-hidden="true"></span>
+                            <span class="nb-bubble" aria-hidden="true">Học vui nha ♡</span>
+                            <img id="quiz-hero-img" src="web_assets/mascot_stationery_squirrel.webp" alt="Sóc Zitthenkne cầm bút chì" width="112" height="112" class="mascot-sticker w-full h-full object-contain" />
+                        </button>
+                        <div class="flex-1 min-w-0 w-full">
+                            <h1 id="quiz-title" class="text-xl sm:text-2xl lg:text-3xl font-extrabold mb-1.5 tracking-tight">Đang tải thông tin...</h1>
+                            <p id="quiz-info" class="text-gray-500 mb-3 text-xs sm:text-sm font-medium">Hãy sẵn sàng cho cuộc phiêu lưu tri thức!</p>
 
-                    <!-- Mẹo ôn tập xoay vòng -->
-                    <div id="quiz-tip" class="flex items-center gap-2.5 text-left bg-gradient-to-r from-amber-50/90 to-yellow-50/80 border border-amber-200/70 rounded-xl px-3 py-2.5 shadow-sm">
-                        <div class="w-8 h-8 flex-shrink-0 rounded-lg bg-amber-100/80 text-amber-600 flex items-center justify-center">
-                            <i class="fas fa-lightbulb text-sm"></i>
+                            <!-- Mẹo ôn tập xoay vòng (giấy note vàng bơ) -->
+                            <div id="quiz-tip" class="nb-memo flex items-center gap-2.5 text-left px-3 py-2.5">
+                                <span class="washi-tape washi-peach" aria-hidden="true"></span>
+                                <div class="w-8 h-8 flex-shrink-0 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-lightbulb text-sm"></i>
+                                </div>
+                                <p id="quiz-tip-text" class="flex-1 text-[11px] sm:text-xs font-semibold leading-snug transition-opacity duration-200">Mẹo: Hít thở sâu và tập trung — bạn làm được!</p>
+                                <button id="quiz-tip-next" type="button" title="Mẹo khác" aria-label="Mẹo khác" class="flex-shrink-0 w-7 h-7 rounded-full border flex items-center justify-center transition active:scale-90">
+                                    <i class="fas fa-rotate text-[11px]"></i>
+                                </button>
+                            </div>
                         </div>
-                        <p id="quiz-tip-text" class="flex-1 text-[11px] sm:text-xs text-amber-900 font-semibold leading-snug transition-opacity duration-200">Mẹo: Hít thở sâu và tập trung — bạn làm được!</p>
-                        <button id="quiz-tip-next" type="button" title="Mẹo khác" class="flex-shrink-0 w-7 h-7 rounded-full bg-white/90 text-amber-600 hover:bg-white hover:text-amber-700 border border-amber-300/60 flex items-center justify-center transition active:scale-90 shadow-sm">
-                            <i class="fas fa-rotate text-[11px]"></i>
+                    </div>
+
+                    <!-- Stats Summary Cards (thẻ mục lục, màu băng trên đầu theo thứ tự) -->
+                    <div class="bt-stats grid grid-cols-3 gap-2.5">
+                        <div class="nb-stat">
+                            <i class="fas fa-question-circle text-base sm:text-lg"></i>
+                            <span class="text-[10px] sm:text-[11px] text-gray-400 font-medium">Số câu hỏi</span>
+                            <span id="stat-questions-count" class="text-sm sm:text-base font-bold text-gray-700 skeleton-line">--</span>
+                        </div>
+                        <div class="nb-stat">
+                            <i class="fas fa-clock text-base sm:text-lg"></i>
+                            <span class="text-[10px] sm:text-[11px] text-gray-400 font-medium">Thời gian</span>
+                            <span id="stat-duration" class="text-sm sm:text-base font-bold text-gray-700 skeleton-line">--</span>
+                            <span id="stat-duration-est" class="nb-stat-sub text-[10px] font-medium mt-0.5"></span>
+                        </div>
+                        <div class="nb-stat">
+                            <i class="fas fa-trophy text-base sm:text-lg"></i>
+                            <span class="text-[10px] sm:text-[11px] text-gray-400 font-medium">Lần làm gần nhất</span>
+                            <span id="stat-last-attempt" class="text-sm sm:text-base font-bold text-gray-700 skeleton-line">--</span>
+                            <span id="stat-last-attempt-sub" class="nb-stat-sub text-[10px] font-medium mt-0.5"></span>
+                        </div>
+                    </div>
+
+                    <!-- Chọn nhanh chế độ: mỗi preset chỉ gạt sẵn các tùy chọn bên dưới (1 chạm là xong),
+                         người dùng vẫn tinh chỉnh tiếp được — preset sáng lên khi cấu hình hiện tại khớp. -->
+                    <div class="bt-tile bt-modes">
+                        <h3 class="nb-label text-sm sm:text-base font-bold mb-3 text-left flex items-center gap-2">
+                            <i class="fas fa-wand-magic-sparkles"></i> Chọn nhanh chế độ
+                        </h3>
+                        <div id="quiz-mode-presets" class="grid grid-cols-3 gap-2 sm:gap-2.5">
+                            <button type="button" class="mode-preset" data-mode="exam">
+                                <span class="mp-ic" aria-hidden="true"><img src="web_assets/badge_stationery_exam.webp" alt="" width="36" height="36"></span>
+                                <span class="mp-name">Thi thử</span>
+                                <span class="mp-desc">Tính giờ · trộn đề · chấm khi nộp</span>
+                            </button>
+                            <button type="button" class="mode-preset" data-mode="study">
+                                <span class="mp-ic" aria-hidden="true"><img src="web_assets/badge_stationery_study.webp" alt="" width="36" height="36"></span>
+                                <span class="mp-name">Ôn tập</span>
+                                <span class="mp-desc">Đáp án hiện ngay · không tính giờ</span>
+                            </button>
+                            <button type="button" class="mode-preset" data-mode="sprint">
+                                <span class="mp-ic" aria-hidden="true"><img src="web_assets/badge_stationery_sprint.webp" alt="" width="36" height="36"></span>
+                                <span class="mp-name">Học nhanh</span>
+                                <span class="mp-desc">20 câu ngẫu nhiên · đáp án ngay</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Ôn ngắt quãng (spaced repetition kiểu Anki) — nằm NGOÀI #quiz-options-grid
+                         để không dính vòng lưu/khôi phục quizLandingOpts_; số câu mới/ngày có kho
+                         riêng trong quiz-srs-store.js -->
+                    <div id="srs-entry-banner" class="bt-srs p-4 sm:p-5 rounded-2xl">
+                        <span class="washi-tape washi-mint" aria-hidden="true"></span>
+                        <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+                            <div class="flex items-center gap-4 text-left w-full md:w-auto">
+                                <img id="srs-section-icon" src="web_assets/badge_stationery_srs.webp" alt="" width="44" height="44" aria-hidden="true">
+                                <div>
+                                    <h3 class="font-extrabold text-gray-800 text-base sm:text-lg flex flex-wrap items-center gap-2">
+                                        <span>Ôn ngắt quãng</span>
+                                        <span class="nb-srs-tag text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wide">kiểu Anki</span>
+                                    </h3>
+                                    <p class="text-xs sm:text-sm text-gray-600 font-medium mt-0.5">
+                                        <span id="srs-due-count" class="skeleton-line inline-block min-w-[140px]">&nbsp;</span>
+                                    </p>
+                                    <p id="srs-login-hint" class="hidden text-[11px] text-gray-400 mt-0.5">Đăng nhập để đồng bộ lịch ôn giữa các thiết bị.</p>
+                                </div>
+                            </div>
+                            <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                                <label class="flex items-center gap-2 text-xs font-semibold text-gray-500" title="Để trống = không giới hạn (ôn full bộ đề)">
+                                    Câu mới/ngày
+                                    <input type="number" id="srs-new-per-day" min="0" max="999" step="5" placeholder="Tất cả"
+                                        class="w-24 px-2 py-1.5 rounded-lg text-center text-sm font-bold focus:outline-none placeholder:font-medium placeholder:text-gray-300 placeholder:text-xs">
+                                </label>
+                                <button type="button" id="start-srs-btn" disabled
+                                    class="w-full sm:w-auto px-6 py-3 rounded-xl font-extrabold text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none">
+                                    <i class="fas fa-calendar-check"></i> Ôn ngay
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bt-col bt-col-r">
+                    <!-- Tùy chỉnh phiên làm bài -->
+                    <div class="bt-tile bt-options">
+                        <h3 class="nb-label nb-label-sky text-sm sm:text-base font-bold mb-3 text-left flex items-center gap-2">
+                            <i class="fas fa-sliders-h"></i> Tùy chỉnh phiên làm bài
+                        </h3>
+                        <div id="quiz-options-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <!-- Option 1: Shuffle -->
+                            <label for="shuffle-questions-checkbox" class="flex flex-col justify-between bg-gray-50/40 hover:bg-pink-50/20 border border-gray-100 hover:border-pink-200/40 p-4 rounded-2xl cursor-pointer transition shadow-sm text-left">
+                                <div class="flex justify-between items-start w-full">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-9 h-9 rounded-xl bg-pink-50 text-pink-500 flex items-center justify-center border border-pink-100/40">
+                                            <i class="fas fa-random text-sm"></i>
+                                        </div>
+                                        <div>
+                                            <span class="font-bold text-gray-700 text-sm block">Xáo trộn câu hỏi</span>
+                                            <span class="text-xs text-gray-400">Thay đổi thứ tự câu hỏi ngẫu nhiên</span>
+                                        </div>
+                                    </div>
+                                    <div class="relative">
+                                        <input type="checkbox" id="shuffle-questions-checkbox" class="sr-only peer">
+                                        <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-pink-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#FF69B4]"></div>
+                                    </div>
+                                </div>
+                            </label>
+
+                            <!-- Option 1b: Shuffle Answers -->
+                            <label for="shuffle-answers-checkbox" class="flex flex-col justify-between bg-gray-50/40 hover:bg-pink-50/20 border border-gray-100 hover:border-pink-200/40 p-4 rounded-2xl cursor-pointer transition shadow-sm text-left">
+                                <div class="flex justify-between items-start w-full">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-9 h-9 rounded-xl bg-pink-50 text-pink-500 flex items-center justify-center border border-pink-100/40">
+                                            <i class="fas fa-shuffle text-sm"></i>
+                                        </div>
+                                        <div>
+                                            <span class="font-bold text-gray-700 text-sm block">Xáo trộn đáp án</span>
+                                            <span class="text-xs text-gray-400">Đảo vị trí A, B, C, D ở mỗi câu</span>
+                                        </div>
+                                    </div>
+                                    <div class="relative">
+                                        <input type="checkbox" id="shuffle-answers-checkbox" class="sr-only peer" checked>
+                                        <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-pink-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#FF69B4]"></div>
+                                    </div>
+                                </div>
+                            </label>
+
+                            <!-- Option 2: Timer Mode -->
+                            <div class="flex flex-col bg-gray-50/40 border border-gray-100 p-4 rounded-2xl transition shadow-sm text-left">
+                                <label for="timed-mode-checkbox" class="flex justify-between items-start w-full cursor-pointer">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-9 h-9 rounded-xl bg-pink-50 text-pink-500 flex items-center justify-center border border-pink-100/40">
+                                            <i class="fas fa-stopwatch text-sm"></i>
+                                        </div>
+                                        <div>
+                                            <span class="font-bold text-gray-700 text-sm block">Chế độ tính giờ</span>
+                                            <span class="text-xs text-gray-400">Giới hạn thời gian làm bài</span>
+                                        </div>
+                                    </div>
+                                    <div class="relative">
+                                        <input type="checkbox" id="timed-mode-checkbox" class="sr-only peer">
+                                        <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-pink-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#FF69B4]"></div>
+                                    </div>
+                                </label>
+                                <div id="timed-minutes-input-block" class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-3 ml-12 transition-all duration-300">
+                                    <span class="text-xs text-gray-500">Thời gian (phút):</span>
+                                    <input type="number" id="timed-minutes-input" min="1" max="180" value="30" class="w-16 px-2 py-1 text-xs border border-pink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-300 font-bold text-gray-700" />
+                                    <span id="timed-preset-row" class="basis-full flex flex-wrap gap-1.5 mt-1">
+                                        <button type="button" class="chip-preset timed-preset" data-minutes="15">15′</button>
+                                        <button type="button" class="chip-preset timed-preset" data-minutes="30">30′</button>
+                                        <button type="button" class="chip-preset timed-preset" data-minutes="45">45′</button>
+                                        <button type="button" class="chip-preset timed-preset" data-minutes="60">60′</button>
+                                        <button type="button" class="chip-preset timed-preset" data-minutes="suggest" title="Tự tính theo số câu"><i class="fas fa-wand-magic-sparkles"></i> Gợi ý</button>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Option 3: Question Count selection -->
+                            <div class="flex flex-col bg-gray-50/40 border border-gray-100 p-4 rounded-2xl transition shadow-sm text-left">
+                                <label for="enable-question-count-checkbox" class="flex justify-between items-start w-full cursor-pointer">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-9 h-9 rounded-xl bg-pink-50 text-pink-500 flex items-center justify-center border border-pink-100/40">
+                                            <i class="fas fa-list-ol text-sm"></i>
+                                        </div>
+                                        <div>
+                                            <span class="font-bold text-gray-700 text-sm block">Chọn số câu hỏi</span>
+                                            <span class="text-xs text-gray-400">Tùy biến số lượng câu muốn làm</span>
+                                        </div>
+                                    </div>
+                                    <div class="relative">
+                                        <input type="checkbox" id="enable-question-count-checkbox" class="sr-only peer">
+                                        <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-pink-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#FF69B4]"></div>
+                                    </div>
+                                </label>
+                                <div id="question-count-input-block" class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-3 ml-12 transition-all duration-300 hidden">
+                                    <span class="text-xs text-gray-500">Số câu:</span>
+                                    <input type="number" id="question-count-input" min="1" step="1" class="w-16 px-2 py-1 text-xs border border-pink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-300 font-bold text-gray-700" />
+                                    <span id="question-count-max" class="text-xs text-gray-400"></span>
+                                    <span id="count-preset-row" class="basis-full flex flex-wrap gap-1.5 mt-1">
+                                        <button type="button" class="chip-preset count-preset" data-count="10">10</button>
+                                        <button type="button" class="chip-preset count-preset" data-count="20">20</button>
+                                        <button type="button" class="chip-preset count-preset" data-count="50">50</button>
+                                        <button type="button" class="chip-preset count-preset" data-count="100">100</button>
+                                        <button type="button" class="chip-preset count-preset" data-count="all">Tất cả</button>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Option 4: Immediate Answers -->
+                            <label for="show-answer-immediately-checkbox" class="flex flex-col justify-between bg-gray-50/40 hover:bg-pink-50/20 border border-gray-100 hover:border-pink-200/40 p-4 rounded-2xl cursor-pointer transition shadow-sm text-left">
+                                <div class="flex justify-between items-start w-full">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-9 h-9 rounded-xl bg-pink-50 text-pink-500 flex items-center justify-center border border-pink-100/40">
+                                            <i class="fas fa-eye text-sm"></i>
+                                        </div>
+                                        <div>
+                                            <span class="font-bold text-gray-700 text-sm block">Xem đáp án ngay</span>
+                                            <span class="text-xs text-gray-400">Hiển thị giải thích sau mỗi câu trả lời</span>
+                                        </div>
+                                    </div>
+                                    <div class="relative">
+                                        <input type="checkbox" id="show-answer-immediately-checkbox" class="sr-only peer" checked>
+                                        <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-pink-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#FF69B4]"></div>
+                                    </div>
+                                </div>
+                            </label>
+
+                            <!-- Option 5: Cat Meme -->
+                            <label for="meme-enabled-checkbox" class="flex flex-col justify-between bg-gray-50/40 hover:bg-pink-50/20 border border-gray-100 hover:border-pink-200/40 p-4 rounded-2xl cursor-pointer transition shadow-sm text-left">
+                                <div class="flex justify-between items-start w-full">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-9 h-9 rounded-xl bg-pink-50 text-pink-500 flex items-center justify-center border border-pink-100/40">
+                                            <span class="text-lg leading-none" aria-hidden="true">🤡</span>
+                                        </div>
+                                        <div>
+                                            <span class="font-bold text-gray-700 text-sm block">Meme</span>
+                                            <span class="text-xs text-gray-400">Hiện meme vui/buồn sau mỗi câu trả lời</span>
+                                        </div>
+                                    </div>
+                                    <div class="relative">
+                                        <input type="checkbox" id="meme-enabled-checkbox" class="sr-only peer" checked>
+                                        <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-pink-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#FF69B4]"></div>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Preview Questions Button and Container -->
+                    <div class="bt-preview">
+                        <button id="show-preview-btn" class="nb-soft-btn px-4 py-2 font-semibold rounded-xl transition flex items-center gap-2 mx-auto text-xs sm:text-sm">
+                            <i class="fas fa-eye"></i>
+                            <span id="show-preview-label">Xem trước một số câu hỏi</span>
+                            <i id="show-preview-chevron" class="fas fa-chevron-down text-[10px] transition-transform duration-300"></i>
+                        </button>
+                        <div id="quiz-preview" class="quiz-preview-container mt-4 hidden text-left bg-pink-50/20 border border-pink-100/80 rounded-2xl p-4 max-h-[340px] overflow-y-auto">
+                            <div class="flex items-center justify-between gap-2 mb-3 border-b border-pink-100 pb-2 sticky -top-4 -mx-4 px-4 pt-1 bg-white/70 backdrop-blur-sm z-10 rounded-t-2xl">
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <div class="quiz-preview-title flex items-center gap-2 text-pink-600 font-bold text-sm whitespace-nowrap">
+                                        <i class="fas fa-eye"></i>
+                                        Xem trước
+                                    </div>
+                                    <span id="preview-count-badge"><i class="fas fa-layer-group"></i> --</span>
+                                </div>
+                                <button id="collapse-preview-btn" class="flex-shrink-0 text-pink-400 hover:text-pink-600 bg-white border border-pink-200 rounded-full w-6 h-6 flex items-center justify-center shadow transition" title="Thu gọn"><i class="fas fa-chevron-up text-xs"></i></button>
+                            </div>
+                            <div id="quiz-preview-content">
+                                <ul class="quiz-preview-list space-y-3" id="quiz-preview-list">
+                                    <li class="quiz-preview-empty text-gray-400 italic text-xs">Đang tải trước câu hỏi...</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Start Button & Flashcard practicing -->
+                    <div class="bt-tile bt-cta flex flex-col items-center gap-3">
+                        <!-- Tóm tắt phiên sắp làm: cập nhật sống theo mọi tùy chọn phía trên -->
+                        <div id="session-summary" class="flex flex-wrap justify-center gap-1.5 min-h-[24px]" aria-live="polite"></div>
+                        <button type="button" id="start-now-btn" class="nb-cta w-full max-w-xs px-8 py-4 rounded-2xl text-lg flex items-center justify-center gap-2">
+                            <i class="fas fa-play"></i> Bắt đầu ngay!
+                        </button>
+                        <p class="hidden sm:flex items-center gap-1.5 text-[11px] text-gray-400 font-medium">Nhấn <kbd class="kbd-key">Enter ⏎</kbd> để bắt đầu ngay</p>
+                        <a id="flashcard-link-btn" href="#" class="w-full max-w-xs px-8 py-3 bg-purple-50 text-purple-600 border border-purple-200/50 rounded-2xl hover:bg-purple-100/80 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-sm text-sm sm:text-base font-bold flex items-center justify-center gap-2">
+                            <i class="fas fa-clone"></i> Luyện tập Flashcard
+                        </a>
+                    </div>
+
+                    <!-- Footer Utilities -->
+                    <div class="nb-foot bt-foot flex flex-wrap gap-3 justify-center">
+                        <a href="../../index.html" class="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl transition text-xs sm:text-sm font-semibold flex items-center gap-1.5 border border-gray-200/50"><i class="fas fa-home"></i> Trang chủ</a>
+                        <a href="../../index.html#libraryContent" class="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl transition text-xs sm:text-sm font-semibold flex items-center gap-1.5 border border-blue-200/30"><i class="fas fa-book"></i> Thư viện</a>
+                        <a href="quiz-history.html" class="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-xl transition text-xs sm:text-sm font-semibold flex items-center gap-1.5 border border-amber-200/30"><i class="fas fa-clock-rotate-left"></i> Lịch sử</a>
+                        <button id="share-quiz-btn" class="px-4 py-2 bg-green-50 hover:bg-green-100 text-green-600 rounded-xl transition text-xs sm:text-sm font-semibold flex items-center gap-1.5 border border-green-200/30">
+                          <i class="fas fa-share-alt"></i> Chia sẻ
                         </button>
                     </div>
                 </div>
-            </div>
-
-            <!-- Stats Summary Cards -->
-            <div class="grid grid-cols-3 gap-2.5 mb-6">
-                <div class="bg-pink-50/50 border border-pink-100/60 px-2 py-2.5 rounded-2xl flex flex-col items-center justify-center transition-all hover:scale-[1.03] hover:bg-pink-50">
-                    <i class="fas fa-question-circle text-pink-500 text-base sm:text-lg mb-0.5"></i>
-                    <span class="text-[10px] sm:text-[11px] text-gray-400 font-medium">Số câu hỏi</span>
-                    <span id="stat-questions-count" class="text-sm sm:text-base font-bold text-gray-700 skeleton-line">--</span>
-                </div>
-                <div class="bg-purple-50/50 border border-purple-100/60 px-2 py-2.5 rounded-2xl flex flex-col items-center justify-center transition-all hover:scale-[1.03] hover:bg-purple-50">
-                    <i class="fas fa-clock text-purple-500 text-base sm:text-lg mb-0.5"></i>
-                    <span class="text-[10px] sm:text-[11px] text-gray-400 font-medium">Thời gian</span>
-                    <span id="stat-duration" class="text-sm sm:text-base font-bold text-gray-700 skeleton-line">--</span>
-                    <span id="stat-duration-est" class="text-[10px] text-purple-400 font-medium mt-0.5"></span>
-                </div>
-                <div class="bg-indigo-50/50 border border-indigo-100/60 px-2 py-2.5 rounded-2xl flex flex-col items-center justify-center transition-all hover:scale-[1.03] hover:bg-indigo-50">
-                    <i class="fas fa-trophy text-indigo-500 text-base sm:text-lg mb-0.5"></i>
-                    <span class="text-[10px] sm:text-[11px] text-gray-400 font-medium">Lần làm gần nhất</span>
-                    <span id="stat-last-attempt" class="text-sm sm:text-base font-bold text-gray-700 skeleton-line">--</span>
-                    <span id="stat-last-attempt-sub" class="text-[10px] text-indigo-400 font-medium mt-0.5"></span>
-                </div>
-            </div>
-
-            <!-- Preview Questions Button and Container -->
-            <div class="mb-6">
-                <button id="show-preview-btn" class="px-4 py-2 bg-pink-50 text-pink-600 font-semibold rounded-xl hover:bg-pink-100 hover:text-pink-700 transition flex items-center gap-2 mx-auto text-xs sm:text-sm border border-pink-200/40">
-                    <i class="fas fa-eye"></i>
-                    <span id="show-preview-label">Xem trước một số câu hỏi</span>
-                    <i id="show-preview-chevron" class="fas fa-chevron-down text-[10px] transition-transform duration-300"></i>
-                </button>
-                <div id="quiz-preview" class="quiz-preview-container mt-4 hidden text-left bg-pink-50/20 border border-pink-100/80 rounded-2xl p-4 max-h-[340px] overflow-y-auto">
-                    <div class="flex items-center justify-between gap-2 mb-3 border-b border-pink-100 pb-2 sticky -top-4 -mx-4 px-4 pt-1 bg-white/70 backdrop-blur-sm z-10 rounded-t-2xl">
-                        <div class="flex items-center gap-2 min-w-0">
-                            <div class="quiz-preview-title flex items-center gap-2 text-pink-600 font-bold text-sm whitespace-nowrap">
-                                <i class="fas fa-eye"></i>
-                                Xem trước
-                            </div>
-                            <span id="preview-count-badge"><i class="fas fa-layer-group"></i> --</span>
-                        </div>
-                        <button id="collapse-preview-btn" class="flex-shrink-0 text-pink-400 hover:text-pink-600 bg-white border border-pink-200 rounded-full w-6 h-6 flex items-center justify-center shadow transition" title="Thu gọn"><i class="fas fa-chevron-up text-xs"></i></button>
-                    </div>
-                    <div id="quiz-preview-content">
-                        <ul class="quiz-preview-list space-y-3" id="quiz-preview-list">
-                            <li class="quiz-preview-empty text-gray-400 italic text-xs">Đang tải trước câu hỏi...</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Chọn nhanh chế độ: mỗi preset chỉ gạt sẵn các tùy chọn bên dưới (1 chạm là xong),
-                 người dùng vẫn tinh chỉnh tiếp được — preset sáng lên khi cấu hình hiện tại khớp. -->
-            <div class="mt-5 border-t border-pink-100/50 pt-5">
-                <h3 class="text-sm sm:text-base font-bold text-gray-700 mb-3 text-left flex items-center gap-2">
-                    <i class="fas fa-wand-magic-sparkles text-pink-500"></i> Chọn nhanh chế độ
-                </h3>
-                <div id="quiz-mode-presets" class="grid grid-cols-3 gap-2 sm:gap-2.5 mb-5">
-                    <button type="button" class="mode-preset" data-mode="exam">
-                        <span class="mp-ic" aria-hidden="true">🎯</span>
-                        <span class="mp-name">Thi thử</span>
-                        <span class="mp-desc">Tính giờ · trộn đề · chấm khi nộp</span>
-                    </button>
-                    <button type="button" class="mode-preset" data-mode="study">
-                        <span class="mp-ic" aria-hidden="true">📖</span>
-                        <span class="mp-name">Ôn tập</span>
-                        <span class="mp-desc">Đáp án hiện ngay · không tính giờ</span>
-                    </button>
-                    <button type="button" class="mode-preset" data-mode="sprint">
-                        <span class="mp-ic" aria-hidden="true">⚡</span>
-                        <span class="mp-name">Học nhanh</span>
-                        <span class="mp-desc">20 câu ngẫu nhiên · đáp án ngay</span>
-                    </button>
-                </div>
-
-                <h3 class="text-sm sm:text-base font-bold text-gray-700 mb-3 text-left flex items-center gap-2">
-                    <i class="fas fa-sliders-h text-pink-500"></i> Tùy chỉnh phiên làm bài
-                </h3>
-                <div id="quiz-options-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <!-- Option 1: Shuffle -->
-                    <label for="shuffle-questions-checkbox" class="flex flex-col justify-between bg-gray-50/40 hover:bg-pink-50/20 border border-gray-100 hover:border-pink-200/40 p-4 rounded-2xl cursor-pointer transition shadow-sm text-left">
-                        <div class="flex justify-between items-start w-full">
-                            <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-xl bg-pink-50 text-pink-500 flex items-center justify-center border border-pink-100/40">
-                                    <i class="fas fa-random text-sm"></i>
-                                </div>
-                                <div>
-                                    <span class="font-bold text-gray-700 text-sm block">Xáo trộn câu hỏi</span>
-                                    <span class="text-xs text-gray-400">Thay đổi thứ tự câu hỏi ngẫu nhiên</span>
-                                </div>
-                            </div>
-                            <div class="relative">
-                                <input type="checkbox" id="shuffle-questions-checkbox" class="sr-only peer">
-                                <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-pink-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#FF69B4]"></div>
-                            </div>
-                        </div>
-                    </label>
-
-                    <!-- Option 1b: Shuffle Answers -->
-                    <label for="shuffle-answers-checkbox" class="flex flex-col justify-between bg-gray-50/40 hover:bg-pink-50/20 border border-gray-100 hover:border-pink-200/40 p-4 rounded-2xl cursor-pointer transition shadow-sm text-left">
-                        <div class="flex justify-between items-start w-full">
-                            <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-xl bg-pink-50 text-pink-500 flex items-center justify-center border border-pink-100/40">
-                                    <i class="fas fa-shuffle text-sm"></i>
-                                </div>
-                                <div>
-                                    <span class="font-bold text-gray-700 text-sm block">Xáo trộn đáp án</span>
-                                    <span class="text-xs text-gray-400">Đảo vị trí A, B, C, D ở mỗi câu</span>
-                                </div>
-                            </div>
-                            <div class="relative">
-                                <input type="checkbox" id="shuffle-answers-checkbox" class="sr-only peer" checked>
-                                <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-pink-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#FF69B4]"></div>
-                            </div>
-                        </div>
-                    </label>
-
-                    <!-- Option 2: Timer Mode -->
-                    <div class="flex flex-col bg-gray-50/40 border border-gray-100 p-4 rounded-2xl transition shadow-sm text-left">
-                        <label for="timed-mode-checkbox" class="flex justify-between items-start w-full cursor-pointer">
-                            <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-xl bg-pink-50 text-pink-500 flex items-center justify-center border border-pink-100/40">
-                                    <i class="fas fa-stopwatch text-sm"></i>
-                                </div>
-                                <div>
-                                    <span class="font-bold text-gray-700 text-sm block">Chế độ tính giờ</span>
-                                    <span class="text-xs text-gray-400">Giới hạn thời gian làm bài</span>
-                                </div>
-                            </div>
-                            <div class="relative">
-                                <input type="checkbox" id="timed-mode-checkbox" class="sr-only peer">
-                                <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-pink-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#FF69B4]"></div>
-                            </div>
-                        </label>
-                        <div id="timed-minutes-input-block" class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-3 ml-12 transition-all duration-300">
-                            <span class="text-xs text-gray-500">Thời gian (phút):</span>
-                            <input type="number" id="timed-minutes-input" min="1" max="180" value="30" class="w-16 px-2 py-1 text-xs border border-pink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-300 font-bold text-gray-700" />
-                            <span id="timed-preset-row" class="basis-full flex flex-wrap gap-1.5 mt-1">
-                                <button type="button" class="chip-preset timed-preset" data-minutes="15">15′</button>
-                                <button type="button" class="chip-preset timed-preset" data-minutes="30">30′</button>
-                                <button type="button" class="chip-preset timed-preset" data-minutes="45">45′</button>
-                                <button type="button" class="chip-preset timed-preset" data-minutes="60">60′</button>
-                                <button type="button" class="chip-preset timed-preset" data-minutes="suggest" title="Tự tính theo số câu"><i class="fas fa-wand-magic-sparkles"></i> Gợi ý</button>
-                            </span>
-                        </div>
-                    </div>
-
-                    <!-- Option 3: Question Count selection -->
-                    <div class="flex flex-col bg-gray-50/40 border border-gray-100 p-4 rounded-2xl transition shadow-sm text-left">
-                        <label for="enable-question-count-checkbox" class="flex justify-between items-start w-full cursor-pointer">
-                            <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-xl bg-pink-50 text-pink-500 flex items-center justify-center border border-pink-100/40">
-                                    <i class="fas fa-list-ol text-sm"></i>
-                                </div>
-                                <div>
-                                    <span class="font-bold text-gray-700 text-sm block">Chọn số câu hỏi</span>
-                                    <span class="text-xs text-gray-400">Tùy biến số lượng câu muốn làm</span>
-                                </div>
-                            </div>
-                            <div class="relative">
-                                <input type="checkbox" id="enable-question-count-checkbox" class="sr-only peer">
-                                <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-pink-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#FF69B4]"></div>
-                            </div>
-                        </label>
-                        <div id="question-count-input-block" class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-3 ml-12 transition-all duration-300 hidden">
-                            <span class="text-xs text-gray-500">Số câu:</span>
-                            <input type="number" id="question-count-input" min="1" step="1" class="w-16 px-2 py-1 text-xs border border-pink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-300 font-bold text-gray-700" />
-                            <span id="question-count-max" class="text-xs text-gray-400"></span>
-                            <span id="count-preset-row" class="basis-full flex flex-wrap gap-1.5 mt-1">
-                                <button type="button" class="chip-preset count-preset" data-count="10">10</button>
-                                <button type="button" class="chip-preset count-preset" data-count="20">20</button>
-                                <button type="button" class="chip-preset count-preset" data-count="50">50</button>
-                                <button type="button" class="chip-preset count-preset" data-count="100">100</button>
-                                <button type="button" class="chip-preset count-preset" data-count="all">Tất cả</button>
-                            </span>
-                        </div>
-                    </div>
-
-                    <!-- Option 4: Immediate Answers -->
-                    <label for="show-answer-immediately-checkbox" class="flex flex-col justify-between bg-gray-50/40 hover:bg-pink-50/20 border border-gray-100 hover:border-pink-200/40 p-4 rounded-2xl cursor-pointer transition shadow-sm text-left">
-                        <div class="flex justify-between items-start w-full">
-                            <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-xl bg-pink-50 text-pink-500 flex items-center justify-center border border-pink-100/40">
-                                    <i class="fas fa-eye text-sm"></i>
-                                </div>
-                                <div>
-                                    <span class="font-bold text-gray-700 text-sm block">Xem đáp án ngay</span>
-                                    <span class="text-xs text-gray-400">Hiển thị giải thích sau mỗi câu trả lời</span>
-                                </div>
-                            </div>
-                            <div class="relative">
-                                <input type="checkbox" id="show-answer-immediately-checkbox" class="sr-only peer" checked>
-                                <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-pink-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#FF69B4]"></div>
-                            </div>
-                        </div>
-                    </label>
-
-                    <!-- Option 5: Cat Meme -->
-                    <label for="meme-enabled-checkbox" class="flex flex-col justify-between bg-gray-50/40 hover:bg-pink-50/20 border border-gray-100 hover:border-pink-200/40 p-4 rounded-2xl cursor-pointer transition shadow-sm text-left">
-                        <div class="flex justify-between items-start w-full">
-                            <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-xl bg-pink-50 text-pink-500 flex items-center justify-center border border-pink-100/40">
-                                    <span class="text-lg leading-none" aria-hidden="true">🤡</span>
-                                </div>
-                                <div>
-                                    <span class="font-bold text-gray-700 text-sm block">Meme</span>
-                                    <span class="text-xs text-gray-400">Hiện meme vui/buồn sau mỗi câu trả lời</span>
-                                </div>
-                            </div>
-                            <div class="relative">
-                                <input type="checkbox" id="meme-enabled-checkbox" class="sr-only peer" checked>
-                                <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-pink-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#FF69B4]"></div>
-                            </div>
-                        </div>
-                    </label>
-                </div>
-            </div>
-
-            <!-- Ôn ngắt quãng (spaced repetition kiểu Anki) — nằm NGOÀI #quiz-options-grid
-                 để không dính vòng lưu/khôi phục quizLandingOpts_; số câu mới/ngày có kho
-                 riêng trong quiz-srs-store.js -->
-            <div class="mt-6 p-4 sm:p-5 bg-gradient-to-r from-indigo-500/10 to-violet-500/10 border-2 border-indigo-300/60 rounded-2xl">
-                <div class="flex flex-col md:flex-row items-center justify-between gap-4">
-                    <div class="flex items-center gap-4 text-left w-full md:w-auto">
-                        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-400 to-violet-500 text-white flex items-center justify-center shadow-lg flex-shrink-0">
-                            <i class="fas fa-brain text-xl"></i>
-                        </div>
-                        <div>
-                            <h3 class="font-extrabold text-gray-800 text-base sm:text-lg flex flex-wrap items-center gap-2">
-                                <span>Ôn ngắt quãng</span>
-                                <span class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold border border-indigo-300/60 uppercase tracking-wide">kiểu Anki</span>
-                            </h3>
-                            <p class="text-xs sm:text-sm text-gray-600 font-medium mt-0.5">
-                                <span id="srs-due-count" class="skeleton-line inline-block min-w-[140px]">&nbsp;</span>
-                            </p>
-                            <p id="srs-login-hint" class="hidden text-[11px] text-gray-400 mt-0.5">Đăng nhập để đồng bộ lịch ôn giữa các thiết bị.</p>
-                        </div>
-                    </div>
-                    <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-                        <label class="flex items-center gap-2 text-xs font-semibold text-gray-500" title="Để trống = không giới hạn (ôn full bộ đề)">
-                            Câu mới/ngày
-                            <input type="number" id="srs-new-per-day" min="0" max="999" step="5" placeholder="Tất cả"
-                                class="w-24 px-2 py-1.5 border border-indigo-200 rounded-lg text-center text-sm font-bold text-indigo-700 focus:ring-2 focus:ring-indigo-300 focus:outline-none bg-white/80 placeholder:font-medium placeholder:text-gray-300 placeholder:text-xs">
-                        </label>
-                        <button type="button" id="start-srs-btn" disabled
-                            class="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-indigo-500 to-violet-500 text-white rounded-xl shadow-[0_8px_20px_rgba(99,102,241,0.35)] hover:scale-[1.03] active:scale-[0.98] transition-all font-extrabold text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none">
-                            <i class="fas fa-calendar-check"></i> Ôn ngay
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Start Button & Flashcard practicing -->
-            <div class="mt-7 flex flex-col items-center gap-3">
-                <!-- Tóm tắt phiên sắp làm: cập nhật sống theo mọi tùy chọn phía trên -->
-                <div id="session-summary" class="flex flex-wrap justify-center gap-1.5 min-h-[24px]" aria-live="polite"></div>
-                <button type="button" id="start-now-btn" class="w-full max-w-xs px-8 py-4 bg-gradient-to-r from-pink-500 to-[#FF69B4] text-white rounded-2xl hover:shadow-[0_8px_25px_rgba(255,105,180,0.35)] hover:scale-[1.03] active:scale-[0.98] transition-all duration-250 shadow-lg text-lg font-bold flex items-center justify-center gap-2">
-                    <i class="fas fa-play"></i> Bắt đầu ngay!
-                </button>
-                <p class="hidden sm:flex items-center gap-1.5 text-[11px] text-gray-400 font-medium">Nhấn <kbd class="kbd-key">Enter ⏎</kbd> để bắt đầu ngay</p>
-                <a id="flashcard-link-btn" href="#" class="w-full max-w-xs px-8 py-3 bg-purple-50 text-purple-600 border border-purple-200/50 rounded-2xl hover:bg-purple-100/80 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-sm text-sm sm:text-base font-bold flex items-center justify-center gap-2">
-                    <i class="fas fa-clone"></i> Luyện tập Flashcard
-                </a>
-            </div>
-
-            <!-- Footer Utilities -->
-            <div class="flex flex-wrap gap-3 justify-center mt-8 pt-6 border-t border-pink-50">
-                <a href="../../index.html" class="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl transition text-xs sm:text-sm font-semibold flex items-center gap-1.5 border border-gray-200/50"><i class="fas fa-home"></i> Trang chủ</a>
-                <a href="../../index.html#libraryContent" class="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl transition text-xs sm:text-sm font-semibold flex items-center gap-1.5 border border-blue-200/30"><i class="fas fa-book"></i> Thư viện</a>
-                <a href="quiz-history.html" class="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-xl transition text-xs sm:text-sm font-semibold flex items-center gap-1.5 border border-amber-200/30"><i class="fas fa-clock-rotate-left"></i> Lịch sử</a>
-                <button id="share-quiz-btn" class="px-4 py-2 bg-green-50 hover:bg-green-100 text-green-600 rounded-xl transition text-xs sm:text-sm font-semibold flex items-center gap-1.5 border border-green-200/30">
-                  <i class="fas fa-share-alt"></i> Chia sẻ
-                </button>
             </div>
 
             <!-- Dòng nguồn tinh tế -->
-            <p class="flex flex-wrap items-center justify-center gap-1.5 mt-6 text-[11px] text-gray-400/90 tracking-wide">
+            <p class="flex flex-wrap items-center justify-center gap-1.5 mt-5 text-[11px] text-gray-400/90 tracking-wide">
                 <span>&copy; 2025</span>
                 <a href="https://fb.com/vietthanh1911" target="_blank" rel="noopener noreferrer"
-                    class="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#FF69B4] to-[#D8BFD8] hover:underline underline-offset-2 transition-all duration-200">Zitthenk</a>
+                    class="font-bold text-rose-400 hover:underline underline-offset-2 transition-all duration-200">Zitthenk</a>
                 <span class="text-pink-300/70">&bull;</span>
                 <span>Y23C</span>
                 <span class="text-pink-300/70">&bull;</span>
@@ -1364,7 +1292,7 @@
         <p class="flex flex-wrap items-center justify-center gap-1 mt-3 pt-2 text-[11px] text-gray-400/80 tracking-wide">
             <span>&copy; 2025</span>
             <a href="https://fb.com/vietthanh1911" target="_blank" rel="noopener noreferrer"
-                class="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#FF69B4] to-[#D8BFD8] hover:underline underline-offset-2 transition-all duration-200">Zitthenk</a>
+                class="font-bold text-rose-400 hover:underline underline-offset-2 transition-all duration-200">Zitthenk</a>
             <span class="text-pink-300/70">&bull;</span>
             <span>Y23C</span>
             <span class="text-pink-300/70">&bull;</span>
@@ -1376,7 +1304,7 @@
 
     <!-- Thanh "Bắt đầu ngay" nổi ở đáy màn hình (chỉ mobile, hiện khi nút chính trôi khỏi tầm nhìn) -->
     <div id="mobile-start-bar" class="sm:hidden fixed bottom-0 left-0 right-0 z-40 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-        <button type="button" id="mobile-start-btn" class="w-full py-3.5 bg-gradient-to-r from-pink-500 to-[#FF69B4] text-white rounded-2xl shadow-[0_8px_25px_rgba(255,105,180,0.45)] text-base font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition">
+        <button type="button" id="mobile-start-btn" class="nb-cta w-full py-3.5 rounded-2xl text-base flex items-center justify-center gap-2">
             <i class="fas fa-play"></i> Bắt đầu ngay!
         </button>
     </div>
@@ -1579,27 +1507,8 @@
     <script>
     // Hamburger menu logic for quiz.html
     document.addEventListener('DOMContentLoaded', function() {
-        // Gán ảnh Hero ngẫu nhiên đồng bộ với Open Graph Image
-        const heroImg = document.getElementById('quiz-hero-img');
-        if (heroImg && window.selectedOgImage) {
-            heroImg.src = '../../' + window.selectedOgImage;
-        }
-
-        // Bấm vào linh vật -> đổi sang ảnh ngẫu nhiên khác (dùng lại danh sách ảnh OG)
-        const heroBtn = document.getElementById('quiz-hero-btn');
-        if (heroBtn && heroImg && Array.isArray(window.quizOgImages) && window.quizOgImages.length > 1) {
-            heroBtn.addEventListener('click', function () {
-                const cur = heroImg.getAttribute('src') || '';
-                const pool = window.quizOgImages.filter(function (p) { return !cur.endsWith(p); });
-                const pick = pool[Math.floor(Math.random() * pool.length)];
-                heroImg.style.opacity = '0';
-                setTimeout(function () {
-                    heroImg.src = '../../' + pick;
-                    heroImg.style.transition = 'opacity .25s ease';
-                    heroImg.style.opacity = '1';
-                }, 120);
-            });
-        }
+        // Linh vật giờ là sticker cố định (web_assets/mascot_stationery_squirrel.webp);
+        // ảnh OG ngẫu nhiên vẫn chỉ dùng cho thẻ chia sẻ (og:image) ở <head>.
 
         const menuBtn = document.getElementById('quiz-menu-toggle');
         const menuDrawer = document.getElementById('quiz-mobile-menu');

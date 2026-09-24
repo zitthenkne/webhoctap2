@@ -9,8 +9,9 @@ import { shuffleArray } from '../quiz/quiz-helpers.js';
 import {
     room, refs, uid, canControl, hasSession, currentIndex, optsOf, correctIdxOf, refIdxOf,
     noteOf, optNoteOf, chosenOf, questionAt, issueOf, isCoop, isShown, whyOf, dissentOf, talkUntil,
-    isEssay, acceptedOf, alsoOkOf, isSplit, acceptedText,
+    isEssay, acceptedOf, alsoOkOf, isSplit, acceptedText, answerOf, doneOf,
 } from './room-state.js';
+import { isOnline } from './room-members.js';
 import { escapeHtml } from './room-ui.js';
 import { answerCurrent, effectiveIndex, setViewIndex, followHost } from './room-quiz-stage.js';
 import { questionStats, computeScores } from './room-scoreboard.js';
@@ -807,4 +808,58 @@ export function syncHostBar() {
     if (next) next.disabled = currentIndex() >= (s.questions?.length || 1) - 1;
     const focus = el('host-focus');
     if (focus) focus.classList.toggle('hidden', i === currentIndex());
+    paintCoach(coachOf(i, essay, shown, chosen));
+}
+
+// ---------- Gợi ý bước tiếp theo cho chủ trì (bản 32) ----------
+// Nút NÊN bấm lúc này sáng vòng nhịp thở + bong bóng nhắc (mỗi bước chỉ nhắc 1 lần, 7 giây).
+// Không tự làm gì thay chủ trì — chỉ chỉ đường.
+function coachOf(i, essay, shown, chosen) {
+    const s = room.session;
+    if (!s || s.ended) return null;
+    if (chosen !== null || isSplit(i) || (essay && shown)) {
+        if (i !== currentIndex()) return null;
+        return currentIndex() >= (s.questions?.length || 1) - 1
+            ? { id: 'host-end', tip: 'Câu cuối xong rồi — tổng kết thôi 🎉' }
+            : { id: 'host-next', tip: 'Đã chốt — sang câu tiếp nhé ➜' };
+    }
+    if (essay) return doneOf(null, i) ? { id: 'host-show', tip: 'Có bài làm chung rồi — mở bài giải file để đối chiếu?' } : null;
+    const on = room.members.filter(isOnline);
+    const n = on.filter(m => typeof answerOf(m, i)?.i === 'number').length;
+    if (!n || n < on.length) return null;
+    const all = n > 1 ? `Cả ${n} bạn chọn xong` : 'Đã có phiếu';
+    return !shown && refIdxOf(questionAt(i)) !== null
+        ? { id: 'host-show', tip: `${all} — lật đáp án file để bàn?` }
+        : { id: 'host-lock-answer', tip: `${shown ? 'Bàn xong' : all} — chốt đáp án thôi ✨` };
+}
+let coachKey = '';
+let coachTimer = 0;
+function paintCoach(c) {
+    ['host-show', 'host-lock-answer', 'host-next', 'host-end'].forEach(id => el(id)?.classList.toggle('is-suggest', c?.id === id));
+    document.querySelector('.rm-dock-btn[data-m="host"]')?.classList.toggle('has-coach', !!c);
+    const key = c ? `${effectiveIndex()}:${c.id}` : '';
+    if (key === coachKey) return;
+    coachKey = key;
+    let tip = el('host-coach');
+    clearTimeout(coachTimer);
+    tip?.classList.remove('is-on');
+    const bar = el('host-bar');
+    const stage = el('stage');
+    if (!c || !bar || !stage || bar.classList.contains('hidden') || !window.matchMedia('(min-width: 768px)').matches) return;
+    if (!tip) {
+        tip = document.createElement('div');
+        tip.id = 'host-coach';
+        tip.className = 'rm-coach';
+        tip.setAttribute('role', 'status');
+        stage.appendChild(tip);
+    }
+    tip.textContent = c.tip;
+    // Đặt ngay trên viên chủ trì (viên có thể bị JS dời tâm khi mở sổ tay rộng, hoặc 2 hàng)
+    const sr = stage.getBoundingClientRect();
+    const br = bar.getBoundingClientRect();
+    tip.style.left = Math.round(br.left + br.width / 2 - sr.left) + 'px';
+    tip.style.bottom = Math.round(sr.bottom - br.top + 10) + 'px';
+    void tip.offsetWidth;
+    tip.classList.add('is-on');
+    coachTimer = setTimeout(() => tip.classList.remove('is-on'), 7000);
 }
