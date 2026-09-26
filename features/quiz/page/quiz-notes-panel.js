@@ -27,6 +27,13 @@ export function renderPersonalNotePanel() {
                     class="quiz-note-input"
                     rows="2"
                     placeholder="Nhập ghi chú cho câu hỏi này — tự động lưu, hiển thị cả ở chế độ tập trung..."></textarea>
+                <!-- Chèn nhanh đầu dòng hay dùng khi ghi chú ôn thi -->
+                <div class="quiz-note-snips" role="group" aria-label="Chèn nhanh">
+                    <button type="button" data-note-snip="Nhớ: "><i class="fas fa-lightbulb"></i> Nhớ</button>
+                    <button type="button" data-note-snip="Dễ nhầm với: "><i class="fas fa-triangle-exclamation"></i> Dễ nhầm</button>
+                    <button type="button" data-note-snip="Hỏi lại: "><i class="fas fa-circle-question"></i> Hỏi lại</button>
+                    <button type="button" data-note-snip="Nguồn: "><i class="fas fa-book-bookmark"></i> Nguồn</button>
+                </div>
                 <div class="quiz-note-footer">
                     <span id="note-char-count" class="quiz-note-count">Chưa có ghi chú</span>
                     <button type="button" id="note-clear-btn" class="quiz-note-clear hidden">
@@ -149,6 +156,22 @@ export function setupPersonalNote(question) {
         clearTimeout(saveTimeout);
         persist(noteInput.value);
     });
+    // Chèn nhanh: thêm đầu dòng tại con trỏ (xuống dòng mới nếu ô đã có chữ) rồi đi qua luồng tự lưu
+    noteBox && noteBox.querySelectorAll('[data-note-snip]').forEach((b) => {
+        b.addEventListener('click', () => {
+            const snip = b.getAttribute('data-note-snip');
+            const v = noteInput.value;
+            const pos = typeof noteInput.selectionStart === 'number' ? noteInput.selectionStart : v.length;
+            const before = v.slice(0, pos), after = v.slice(pos);
+            const lead = before && !before.endsWith('\n') ? '\n' : '';
+            noteInput.value = before + lead + snip + after;
+            const caret = (before + lead + snip).length;
+            noteInput.focus();
+            noteInput.setSelectionRange(caret, caret);
+            noteInput.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+    });
+
     // Nút xóa nhanh ghi chú của câu hiện tại
     if (noteClearBtn) {
         noteClearBtn.addEventListener('click', () => {

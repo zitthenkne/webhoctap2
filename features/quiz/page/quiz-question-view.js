@@ -14,6 +14,7 @@ import { renderMarkControl, setupMarkControl, refreshMarkedPanel, applyMark } fr
 import { renderPersonalNotePanel, setupPersonalNote } from './quiz-notes-panel.js';
 import { applyAnnotationsAll } from './quiz-annotations.js';
 import { caseKeyOf, caseCollapseState } from './quiz-cases.js';
+import { syncCasePeek } from './quiz-case-peek.js';
 import { applyNavVisibility, attachToggleNavEvent } from './quiz-page-setup.js';
 import { updateMobileNav } from './quiz-mobile-nav.js';
 import { scheduleAutoNext, cancelAutoNext, focusExplanation } from './quiz-auto-next.js';
@@ -38,6 +39,37 @@ function answersNeedSingleColumn(options) {
         if (/```/.test(t)) return true;            // khối mã / mermaid
         if (/\$\$/.test(t)) return true;           // công thức khối
         return false;
+    });
+}
+
+// --- Gập/mở khối "Mở rộng kiến thức": nhớ lựa chọn cho các câu sau (lưu trên máy) ---
+function kbMoreFolded() {
+    try { return localStorage.getItem('quiz_kb_more_folded') === '1'; } catch (e) { return false; }
+}
+// Điện thoại: giải thích của các đáp án sai mà mình KHÔNG chọn chỉ hiện 2 dòng (CSS) — chạm để đọc hết
+let _expPeekWired = false;
+function wireExpPeek() {
+    if (_expPeekWired) return;
+    const sec = document.getElementById('quizSection');
+    if (!sec) return;
+    sec.addEventListener('click', (e) => {
+        const exp = e.target.closest('.option-explanation.exp-wrong-normal');
+        if (exp && !String(window.getSelection() || '').trim()) exp.classList.toggle('is-open');
+    });
+    _expPeekWired = true;
+}
+function setupKbFold() {
+    wireExpPeek();
+    const area = document.getElementById('expanded-area');
+    const btn = area && area.querySelector('.kb-fold');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+        const folded = !area.classList.contains('is-folded');
+        area.classList.toggle('is-folded', folded);
+        btn.setAttribute('aria-expanded', String(!folded));
+        const t = btn.querySelector('.kb-fold-txt');
+        if (t) t.textContent = folded ? 'Mở' : 'Thu gọn';
+        try { localStorage.setItem('quiz_kb_more_folded', folded ? '1' : '0'); } catch (e) {}
     });
 }
 
@@ -277,7 +309,12 @@ export function showQuestion() {
     // Hướng trượt: tiến (câu sau) trượt vào từ phải, lùi (câu trước) từ trái.
     const slideDir = state.currentIndex >= _lastShownIndex ? 'next' : 'prev';
     _lastShownIndex = state.currentIndex;
-    if (indexChanged) { hideCatMeme(); scrollQuizToTop(); }
+    // Sang câu con khác của CÙNG ca: tình huống đã đọc rồi -> không kéo về đầu trang
+    // (phải lướt qua cả ca lần nữa); sau khi vẽ sẽ cuộn thẳng tới đề bài.
+    const prevPanelEarly = indexChanged ? document.getElementById('clinical-case-panel') : null;
+    const nextCaseKey = caseKeyOf(state.questions[state.currentIndex]);
+    const stayInCase = !!(prevPanelEarly && nextCaseKey && prevPanelEarly.getAttribute('data-case-id') === nextCaseKey);
+    if (indexChanged) { hideCatMeme(); if (!stayInCase) scrollQuizToTop(); }
     // Vẽ lại câu = mọi đếm ngược "tự chuyển câu" của câu cũ đều hết hiệu lực
     cancelAutoNext();
     // Tải trước meme cho câu này ngay khi đang đọc đề -> trả lời là hiện liền, không trễ
@@ -307,7 +344,7 @@ export function showQuestion() {
         return;
     }
 
-    let title = state.quizMode === 'practice' ? 'Luyện tập lại' : `Câu hỏi ${state.currentIndex + 1}`;
+    let title = state.quizMode === 'practice' ? 'Luyện tập lại' : `Câu hỏi ${state.currentIndex + 1}<span class="q-of"> / ${state.questions.length}</span>`;
     saveQuizState();
 
     startTiming(state.currentIndex);
@@ -361,12 +398,17 @@ export function showQuestion() {
                 const cls = isCur
                     ? 'bg-cyan-600 text-white border-cyan-600 ring-2 ring-cyan-300'
                     : (answered ? 'bg-cyan-100 text-cyan-700 border-cyan-300' : 'bg-white/70 text-cyan-500 border-cyan-200 hover:bg-cyan-100');
-                dots += `<button type="button" class="case-dot w-7 h-7 rounded-full border text-xs font-bold transition ${cls}" data-case-jump="${gi}" title="Tới câu ${k + 1} của ca"${isCur ? ' aria-current="true"' : ''}>${k + 1}</button>`;
+                // Lớp trạng thái cùng ngữ nghĩa với bảng số câu (quiz-ui.js navStateClass)
+                const st = isCur ? 'is-current'
+                    : !answered ? ''
+                    : !state.quizOptions.showAnswerImmediately ? 'is-answered'
+                    : (isAnswerCorrect(state.questions[gi], state.userAnswers[gi]) ? 'is-correct' : 'is-wrong');
+                dots += `<button type="button" class="case-dot ${st} w-7 h-7 rounded-full border text-xs font-bold transition ${cls}" data-case-jump="${gi}" title="Tới câu ${k + 1} của ca"${isCur ? ' aria-current="true"' : ''}>${k + 1}</button>`;
             }
             caseDotsHtml = `<div class="case-dots mt-3 flex flex-wrap items-center gap-1.5" role="group" aria-label="Điều hướng câu trong ca">${dots}</div>`;
         }
         casePanelHtml = `
-        <div id="clinical-case-panel" class="clinical-case mb-5 rounded-xl border border-cyan-200 bg-cyan-50/70 p-4 shadow-sm" data-case-id="${caseKeySafe}">
+        <div id="clinical-case-panel" class="clinical-case mb-5 rounded-xl border border-cyan-200 bg-cyan-50/70 p-4 shadow-sm${caseSeq === 1 && caseTotal > 1 ? ' case-new' : ''}" data-case-id="${caseKeySafe}" data-case-total="${caseTotal}">
             <div class="flex items-start justify-between gap-2">
                 <div class="flex items-start gap-2 min-w-0 text-cyan-800">
                     <i class="fas fa-notes-medical flex-shrink-0 mt-0.5"></i>
@@ -384,6 +426,12 @@ export function showQuestion() {
         </div>`;
     }
 
+    // Chuyển câu mà vẫn ở CÙNG ca: nhớ vị trí cuộn của khung ca để vẽ lại không nhảy về đầu
+    const prevCasePanel = document.getElementById('clinical-case-panel');
+    const prevCaseKey = prevCasePanel ? prevCasePanel.getAttribute('data-case-id') : null;
+    const prevCaseBody = document.getElementById('case-body');
+    const prevCaseScroll = prevCasePanel ? [prevCasePanel.scrollTop, prevCaseBody ? prevCaseBody.scrollTop : 0] : null;
+
     quizSection.innerHTML = `
     <div class="bg-white rounded-2xl shadow-lg p-6 quiz-card">
         <div class="flex justify-between items-start gap-3 mb-4">
@@ -396,9 +444,9 @@ export function showQuestion() {
             </button>
         </div>
         <div class="quiz-meta-chips mb-2 flex flex-wrap items-center gap-2 focus-hide">
-            ${question.topic && String(question.topic).trim() && String(question.topic).trim().toLowerCase() !== 'chung' ? `<span class="inline-block px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold border border-blue-200"><i class="fas fa-tag mr-1"></i> Chủ đề: ${question.topic}</span>` : ''}
-            ${question.level && question.level.trim() ? `<span class="inline-block px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold border border-purple-200"><i class="fas fa-layer-group mr-1"></i> Mức độ: ${question.level}</span>` : ''}
-            ${question.source && question.source.trim() ? `<span class="inline-block px-3 py-1 rounded-full bg-pink-100 text-pink-700 text-xs font-semibold border border-pink-200"><i class="fas fa-book mr-1"></i> Nguồn: ${question.source}</span>` : ''}
+            ${question.topic && String(question.topic).trim() && String(question.topic).trim().toLowerCase() !== 'chung' ? `<span class="inline-block px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold border border-blue-200"><i class="fas fa-tag mr-1"></i> <span class="chip-k">Chủ đề: </span>${question.topic}</span>` : ''}
+            ${question.level && question.level.trim() ? `<span class="inline-block px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold border border-purple-200"><i class="fas fa-layer-group mr-1"></i> <span class="chip-k">Mức độ: </span>${question.level}</span>` : ''}
+            ${question.source && question.source.trim() ? `<span class="inline-block px-3 py-1 rounded-full bg-pink-100 text-pink-700 text-xs font-semibold border border-pink-200"><i class="fas fa-book mr-1"></i> <span class="chip-k">Nguồn: </span>${question.source}</span>` : ''}
             ${state.streak > 0 ? `<span id="streak-badge" class="inline-block px-3 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-semibold border border-orange-200 animate-pulse"><i class="fas fa-fire mr-1 text-orange-500 animate-bounce"></i> Chuỗi đúng: ${state.streak}</span>` : ''}
             ${isMulti ? `<span class="inline-block px-3 py-1 rounded-full bg-teal-100 text-teal-700 text-xs font-semibold border border-teal-200"><i class="fas fa-list-check mr-1"></i> Chọn nhiều đáp án${multiCount ? ` (chọn ${multiCount})` : ''}</span>` : ''}
         </div>
@@ -423,7 +471,7 @@ export function showQuestion() {
                 <i class="fas fa-check-double mr-2"></i>Xác nhận đáp án
             </button>
         </div>` : ''}
-        <div class="mt-4 flex flex-wrap justify-between items-center gap-2">
+        <div class="q-tools mt-4 flex flex-wrap justify-between items-center gap-2">
             <button type="button" id="confidence-toggle" class="${usedHelp ? 'conf-helped' : (isGuess ? 'conf-guess' : '')}" ${usedHelp ? 'disabled' : ''} title="${usedHelp ? 'Bạn đã dùng trợ giúp 50:50 cho câu này' : 'Đánh dấu nếu bạn chỉ đoán câu này — sẽ được gợi ý ôn lại ở phần kết quả'}">
                 <i class="fas ${usedHelp ? 'fa-life-ring' : (isGuess ? 'fa-dice' : 'fa-circle-check')}"></i> ${usedHelp ? 'Đã dùng trợ giúp' : (isGuess ? 'Đoán' : 'Chắc chắn')}
             </button>
@@ -435,20 +483,22 @@ export function showQuestion() {
             </div>
         </div>
         ${question.note && question.note.trim() ? `
-        <div id="explanation-area" class="mt-6 p-6 bg-gradient-to-r from-pink-50 to-orange-50 border-l-8 border-pink-400 rounded-xl shadow-inner hidden fade-in animate__animated animate__fadeIn">
-            <div class="flex items-start gap-3 bg-white/60 p-3 rounded-lg border border-pink-100">
-                <i class="fas fa-thumbtack text-pink-500 mt-1 animate-bounce"></i>
-                <div class="text-pink-800 text-base">
-                    <span class="font-bold">Ghi chú ghi nhớ:</span>
-                    <div class="mt-1" data-annot="note">${parseMarkdown(question.note)}</div>
-                </div>
+        <div id="explanation-area" class="kb-card kb-memo hidden">
+            <div class="kb-head">
+                <span class="kb-ic" aria-hidden="true"><i class="fas fa-lightbulb"></i></span>
+                <span class="kb-title">Ghi nhớ</span>
+                <span class="kb-sub">mẹo nhớ nhanh</span>
             </div>
+            <div class="kb-body" data-annot="note">${parseMarkdown(question.note)}</div>
         </div>` : `<div id="explanation-area" class="hidden"></div>`}
-        <div id="expanded-area" class="mt-6 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-8 border-blue-400 rounded-xl shadow-inner hidden fade-in animate__animated animate__fadeIn">
-            <h4 class="font-extrabold text-blue-800 text-xl flex items-center gap-2 mb-3">
-                <i class="fas fa-expand text-blue-500 animate-pulse"></i> Mở rộng kiến thức
-            </h4>
-            <div class="text-blue-900 leading-relaxed text-base" data-annot="expand">${question.expanded ? parseMarkdown(question.expanded) : ''}</div>
+        <div id="expanded-area" class="kb-card kb-more hidden${kbMoreFolded() ? ' is-folded' : ''}">
+            <button type="button" class="kb-head kb-fold" aria-expanded="${kbMoreFolded() ? 'false' : 'true'}" title="Gập / mở phần mở rộng (nhớ cho các câu sau)">
+                <span class="kb-ic" aria-hidden="true"><i class="fas fa-book-open"></i></span>
+                <span class="kb-title">Mở rộng kiến thức</span>
+                <span class="kb-fold-txt">${kbMoreFolded() ? 'Mở' : 'Thu gọn'}</span>
+                <i class="fas fa-chevron-down kb-chev" aria-hidden="true"></i>
+            </button>
+            <div class="kb-body" data-annot="expand">${question.expanded ? parseMarkdown(question.expanded) : ''}</div>
         </div>
         <div class="quiz-card-nav mt-8 flex justify-between">
             <button id="prevBtn" class="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition ${state.currentIndex === 0 || state.quizMode === 'practice' ? 'invisible' : ''}">
@@ -458,10 +508,12 @@ export function showQuestion() {
                 ${state.currentIndex === state.questions.length - 1 ? 'Xem kết quả' : 'Câu tiếp'} <i class="fas fa-arrow-right ml-2"></i>
             </button>
         </div>
-        <p class="quiz-kbd-hint focus-hide" aria-hidden="true">
+        <p class="quiz-kbd-hint focus-hide">
             <span><kbd class="kbd-key">A</kbd>–<kbd class="kbd-key">D</kbd> chọn đáp án</span>
             <span><kbd class="kbd-key">←</kbd><kbd class="kbd-key">→</kbd> chuyển câu</span>
             <span><kbd class="kbd-key">Enter ⏎</kbd> câu tiếp</span>
+            ${caseText ? '<span><kbd class="kbd-key">V</kbd> xem lại ca</span>' : ''}
+            <button type="button" class="q-kbd-more" data-open-kbd><kbd class="kbd-key">?</kbd> tất cả phím tắt</button>
         </p>
     </div>
     `;
@@ -471,6 +523,30 @@ export function showQuestion() {
         const card = quizSection.firstElementChild;
         if (card) card.classList.add(slideDir === 'prev' ? 'q-slide-prev' : 'q-slide-next');
     }
+    // Cùng ca với câu vừa xem: khung ca đứng yên (CSS chỉ trượt phần câu hỏi) + giữ vị trí cuộn
+    const sameCase = !!(caseText && prevCaseKey && prevCaseKey === caseKeyOf(question));
+    if (sameCase) {
+        const card = quizSection.firstElementChild;
+        if (card) card.classList.add('q-same-case');
+        const panel = document.getElementById('clinical-case-panel');
+        const body = document.getElementById('case-body');
+        if (panel) panel.scrollTop = prevCaseScroll[0];
+        if (body) body.scrollTop = prevCaseScroll[1];
+        if (stayInCase) {
+            // Ca đã đọc rồi -> cuộn thẳng tới đề bài (khung ca vẫn ngay phía trên, kéo lên là thấy)
+            const qText = quizSection.querySelector('.question-text');
+            if (!qText) scrollQuizToTop();
+            else {
+                const offset = window.innerWidth < 768 ? 72 : 16;   // chừa thanh trên cùng (mobile)
+                const y = qText.getBoundingClientRect().top + window.scrollY - offset;
+                const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                window.scrollTo({ top: Math.max(0, y), behavior: reduce ? 'auto' : 'smooth' });
+            }
+        }
+    }
+
+    // Nút nổi "Xem lại ca" theo dõi khung ca của câu vừa vẽ (ẩn nếu câu không thuộc ca nào)
+    syncCasePeek();
 
     // Đưa bảng số câu (cột trái) và ghi chú cá nhân (cột phải) ra hai bên hông trên màn rộng.
     // Màn hẹp / chế độ tập trung sẽ tự xếp lại 1 cột (xem quiz-enhance.css).
@@ -513,6 +589,7 @@ export function showQuestion() {
     // Nút "Sửa câu hỏi": mở modal chỉnh sửa đáp án/giải thích/ghi chú/mở rộng (chạy ở mọi nhánh render)
     const editBtn = document.getElementById('edit-question-btn');
     if (editBtn) editBtn.addEventListener('click', openQuestionEditor);
+    setupKbFold();
     // Nút thu gọn / mở lại khung ca lâm sàng (lưu trạng thái theo caseId trong phiên)
     const caseToggleBtn = document.getElementById('case-toggle-btn');
     if (caseToggleBtn) {
@@ -632,7 +709,7 @@ export function showQuestion() {
             const isSelectedAnswer = (idx === answeredIdx);
 
             if (isSelectedAnswer) {
-                btn.classList.add('ring-2', 'ring-[#FF69B4]');
+                btn.classList.add('ring-2', 'ring-[#FF69B4]', 'answer-picked');
             }
             if (isCorrectAnswer) {
                 btn.classList.add('bg-green-200', 'border-green-400', 'text-green-800', 'font-bold', 'hover:bg-green-200', 'hover:border-green-400');
@@ -697,6 +774,20 @@ function setupNavPanelJump() {
     const panel = document.getElementById('quiz-nav-panel');
     if (!panel) return;
     panel.addEventListener('click', (e) => {
+        // "Câu chưa làm": câu chưa trả lời kế tiếp sau câu đang xem (hết thì vòng lại từ đầu)
+        if (e.target.closest('#nav-next-unanswered')) {
+            const total = state.questions.length;
+            for (let k = 1; k <= total; k++) {
+                const i = (state.currentIndex + k) % total;
+                const a = state.userAnswers[i];
+                if (a === null || a === undefined) {
+                    if (i !== state.currentIndex) { state.currentIndex = i; showQuestion(); }
+                    return;
+                }
+            }
+            showToast('Bạn đã trả lời tất cả các câu.', 'info');
+            return;
+        }
         const btn = e.target.closest('.quiz-nav-btn');
         if (!btn) return;
         const idx = parseInt(btn.dataset.qidx, 10);
@@ -839,7 +930,7 @@ function confirmMultiAnswer() {
     const nextBtn = document.getElementById('nextBtn');
     if (nextBtn) { nextBtn.classList.remove('hidden'); nextBtn.addEventListener('click', showNextQuestion, { once: true }); }
     saveQuizState();
-    updateMobileNav();
+    updateMobileNav(); syncQuizNavPanel();
 }
 
 export function handleAnswerClick(e) {
@@ -861,7 +952,7 @@ export function handleAnswerClick(e) {
             nextBtn.classList.remove('hidden');
             nextBtn.addEventListener('click', showNextQuestion, { once: true });
         }
-        updateMobileNav();
+        updateMobileNav(); syncQuizNavPanel();
         return;
     }
 
@@ -896,6 +987,7 @@ export function handleAnswerClick(e) {
         setAnswerLock(btn, true);
         const isCorrectAnswer = (idx === question.correctAnswerIndex);
         const isSelectedAnswer = (idx === selectedIdx);
+        if (isSelectedAnswer) btn.classList.add('answer-picked');   // nhãn "Bạn chọn" (CSS)
 
         if (isCorrectAnswer) {
             btn.classList.add('bg-green-200', 'border-green-400', 'text-green-800', 'font-bold');
@@ -953,7 +1045,7 @@ export function handleAnswerClick(e) {
     }
 
     // Đã trả lời -> cập nhật tiến trình trên thanh điều hướng đáy (mobile)
-    updateMobileNav();
+    updateMobileNav(); syncQuizNavPanel();
 
     // Trên màn hẹp: kéo đáp án đúng + phần "Tại sao đúng" vào giữa màn hình
     focusExplanation(question.correctAnswerIndex);

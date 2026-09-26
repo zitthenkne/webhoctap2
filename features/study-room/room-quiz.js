@@ -1,11 +1,14 @@
 // room-quiz.js — điều khiển phiên đánh đề chung: nhập đề, bắt đầu, quyền chủ trì
 // (chuyển câu / khóa / lộ đáp án / hẹn giờ / lưu / kết thúc) và phím tắt.
 import {
-    doc, getDoc, getDocs, setDoc, updateDoc, addDoc, collection, query, where, limit, serverTimestamp,
+    doc, getDoc, setDoc, updateDoc, addDoc, collection, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { db } from '../../core/firebase-init.js';
 import { showToast, showConfirm } from '../../core/utils.js';
 import { shuffleArray } from '../quiz/quiz-helpers.js';
+import { groupQuestionsByCase } from '../quiz/page/quiz-cases.js';
+import { fetchAllQuizMeta, readMetaCache, writeMetaCache, readFoldersCache } from '../quiz/library/library-meta.js';
+import { getOfflineQuiz, getOfflineIdsSync, autoCacheQuiz } from '../quiz/quiz-offline-store.js';
 import {
     room, refs, uid, canControl, hasSession, currentIndex, optsOf, correctIdxOf, refIdxOf,
     noteOf, optNoteOf, chosenOf, questionAt, issueOf, isCoop, isShown, whyOf, dissentOf, talkUntil,
@@ -17,7 +20,7 @@ import { answerCurrent, effectiveIndex, setViewIndex, followHost } from './room-
 import { questionStats, computeScores } from './room-scoreboard.js';
 import { systemMessage } from './room-chat.js';
 import { renderLobby } from './room-lobby.js';
-import { ensureXlsx, openMinutes } from './room-boost.js';
+import { ensureXlsx, openMinutes, fold } from './room-boost.js';
 import { reviewIndexes } from './room-game.js';
 
 let draft = null;           // bộ đề vừa nạp, chưa phát cho phòng
@@ -109,6 +112,8 @@ const el = (id) => document.getElementById(id);
 // và tự chữa lỗi soạn file như trang chủ.
 async function handleQuizFile(file) {
     if (!file) return;
+    const seq = ++pickSeq;       // đề thư viện đang tải dở về muộn không được đè file này
+    fresh = null;
     el('quizFileName').textContent = file.name;
     el('quizFileInfo').classList.remove('hidden');
     el('quiz-question-count-info').textContent = 'Đang đọc…';
@@ -118,17 +123,15 @@ async function handleQuizFile(file) {
         // xlsx 269KB + bộ đọc file 20KB + tự chữa lỗi 23KB: chỉ tải lúc thật sự mở đề, tải song song
         const [{ parseFile }] = await Promise.all([import('../../core/file-parser.js'), ensureXlsx()]);
         const { questions, report } = await parseFile(file, { keepEssay: true, keepUnanswered: true });
+        if (seq !== pickSeq) return;
         if (!questions.length) {
             el('quiz-question-count-info').textContent = 'Không có câu hợp lệ';
             showToast('Không tìm thấy câu hỏi hợp lệ trong file.', 'warning');
             return;
         }
-        const extras = questions.filter(q => q.expanded || q.note).length;
-        const essays = questions.filter(isEssay).length;
-        el('quiz-question-count-info').textContent = `· ${questions.length} câu${essays ? ` · ${essays} tự luận` : ''}${extras ? ` · ${extras} câu có mở rộng/ghi nhớ` : ''}`;
         if (report?.applied) showToast('Đã tự chữa vài lỗi soạn file trước khi mở đề.', 'info', 2600);
         draft = { questions, title: file.name.replace(/\.(xlsx|xls|csv)$/i, ''), fromLibrary: false };
-        el('start-quiz-collaboration-btn').disabled = false;
+        showDraft(draft.title, questions);
         publishNext();
         renderLobby();
     } catch (err) {
@@ -138,63 +141,274 @@ async function handleQuizFile(file) {
     }
 }
 
+// ---------- Đếm từ câu hỏi THẬT: số câu · ca chùm · tự luận · thiếu đáp án file ----------
+const quizInfo = (qs) => ({
+    n: qs.length,
+    c: new Set(qs.map(q => String(q?.caseId || '').trim()).filter(Boolean)).size,
+    e: qs.filter(isEssay).length,
+    k: qs.filter(q => !isEssay(q) && refIdxOf(q) === null).length,
+});
+
+// ---------- Soát đề trước khi phát: chủ trì thấy ngay chỗ bất thường, khỏi vỡ giữa buổi ----------
+function showDraft(title, qs) {
+    const { c, e } = quizInfo(qs);
+    const noKey = qs.map((q, i) => (!isEssay(q) && refIdxOf(q) === null ? i + 1 : 0)).filter(Boolean);
+    const info = el('quiz-question-count-info');
+    el('quizFileInfo').classList.remove('hidden');
+    el('quizFileName').textContent = title;
+    info.textContent = '· ' + [`${qs.length} câu`, e && `${e} tự luận`, c && `${c} ca chùm`,
+        noKey.length && `⚠ ${noKey.length} câu chưa có đáp án file`].filter(Boolean).join(' · ');
+    info.title = noKey.length ? `Chưa có đáp án file: câu ${noKey.slice(0, 40).join(', ')}${noKey.length > 40 ? '…' : ''}` : '';
+    el('start-quiz-collaboration-btn').disabled = !qs.length;
+}
+
 // ---------- Thư viện cá nhân ----------
-async function toggleLibraryList() {
+// Danh sách chỉ cần metadata → dùng CHUNG cache + đường REST có `select` của thư viện trang chủ
+// (library-meta.js): mở ra là thấy ngay từ cache, làm tươi ở nền, không kéo mảng câu hỏi
+// của cả trăm bộ đề. Trước đây: getDocs limit(50) KHÔNG orderBy = 50 đề bất kỳ (kể cả đề
+// trong thùng rác), tải nguyên câu hỏi của cả 50.
+let lib = null;          // [{id, title, n, at, folder}] đã lọc thùng rác, mới trước
+let libAt = 0;           // lần làm tươi gần nhất
+let libHits = [];        // các dòng đang hiện (sau khi lọc)
+let libSel = 0;          // dòng đang chọn bằng phím ↑/↓
+const LIB_MAX = 80;      // vẽ tối đa ngần này dòng — gõ tìm để thu hẹp
+const canUseLib = () => room.user && !room.user.isAnonymous && !room.user.isGuest;
+const msOf = (t) => t?.toMillis?.() ?? (t?.seconds ? t.seconds * 1000 : Date.parse(t) || 0);
+
+function toRows(list) {
+    const folders = new Map((readFoldersCache(uid()) || []).map(f => [f.id, f.name || '']));
+    return list.filter(q => q && !q.deleted)
+        .map(q => ({ id: q.id, title: q.title || 'Bài test không tên', n: q.questionCount || 0, at: msOf(q.createdAt), folder: folders.get(q.folderId) || '' }))
+        .sort((a, b) => b.at - a.at);
+}
+
+let libWarm = null;
+function refreshLibrary() {
+    if (!canUseLib() || (libWarm && Date.now() - libAt < 60000)) return libWarm;
+    libAt = Date.now();
+    return (libWarm = fetchAllQuizMeta(uid()).then(list => {
+        writeMetaCache(uid(), list);      // thư viện trang chủ cũng mở nhanh hơn nhờ lượt này
+        lib = toRows(list);
+        paintLibrary();
+    }).catch(err => {
+        console.error('Lỗi tải thư viện:', err);
+        libWarm = null;
+        if (!lib && el('lib-rows')) el('lib-rows').innerHTML = '<p class="rm-lib-empty is-bad">Không tải được thư viện — kiểm tra mạng rồi mở lại.</p>';
+    }));
+}
+
+// Thông tin từng đề, đếm từ câu hỏi thật, lưu gọn ở máy: `questionCount` trong metadata THIẾU
+// ở đề soạn tay và KHÔNG được cập nhật khi sửa đề (thêm/xoá câu) → không tin được một mình.
+// Đếm lại mỗi khi có trọn bộ câu hỏi trong tay (IndexedDB, rê chuột tải trước, chọn đề).
+let infoMap = null;
+const readInfo = () => infoMap ||= (() => { try { return JSON.parse(localStorage.getItem('roomQuizInfo_' + uid()) || '{}') || {}; } catch (e) { return {}; } })();
+function noteInfo(id, data, fromServer) {
+    if (!Array.isArray(data?.questions)) return;
+    const map = readInfo();
+    const info = quizInfo(data.questions);
+    map[id] = { ...info, at: Date.now() };
+    const ids = Object.keys(map);
+    if (ids.length > 400) ids.sort((a, b) => map[a].at - map[b].at).slice(0, ids.length - 400).forEach(k => delete map[k]);
+    try { localStorage.setItem('roomQuizInfo_' + uid(), JSON.stringify(map)); } catch (e) {}
+    // Vá luôn số câu trên máy chủ khi thiếu/lệch (chỉ với dữ liệu VỪA lấy từ máy chủ — bản máy có thể cũ) → thẻ đề ở thư viện trang chủ cũng hiện đúng
+    if (fromServer && data.userId === uid() && data.questionCount !== info.n) {
+        updateDoc(doc(db, 'quiz_sets', id), { questionCount: info.n }).catch(() => {});
+    }
+    patchRow(id);
+}
+
+// Lần làm gần nhất của CHÍNH MÌNH — đọc cache chung với thư viện trang chủ (library-attempts.js)
+const readAttempts = () => { try { return JSON.parse(localStorage.getItem('quizAttemptCache_' + uid()) || 'null'); } catch (e) { return null; } };
+const day = (ms) => ms ? new Date(ms).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '';
+
+function rowInner(r, fast, att) {
+    const inf = readInfo()[r.id];
+    const n = inf?.n ?? r.n;
+    const a = att?.map?.[r.id];
+    const sub = [
+        r.folder && '📁 ' + escapeHtml(r.folder),
+        inf?.c && `<span class="is-case">${inf.c} ca chùm</span>`,
+        inf?.e && `${inf.e} tự luận`,
+        inf?.k && `<span class="is-warn">⚠ ${inf.k} câu thiếu đáp án</span>`,
+        a ? `<span class="is-ok">✓ lần trước ${a.s}/${a.t}</span>` : att?.lastSync > 0 ? 'chưa làm' : '',
+        day(r.at),
+    ].filter(Boolean).join(' · ');
+    return `<span class="rm-lib-ic">${fast.has(r.id) ? '<i class="fas fa-bolt"></i>' : '<i class="fas fa-file-lines"></i>'}</span>
+        <span class="rm-lib-main"><b>${escapeHtml(r.title)}</b><small>${sub}</small></span>
+        <span class="rm-lib-n${n ? '' : ' is-wait'}"><b>${n || '…'}</b>câu</span>`;
+}
+
+// Chỉ thay RUỘT một dòng (không thay cả nút): đang nhấn chuột xuống mà nút bị thay thì cú bấm mất
+function patchRow(id) {
+    const b = el('lib-rows')?.querySelector(`[data-quiz="${CSS.escape(id)}"]`);
+    const r = lib?.find(x => x.id === id);
+    if (b && r) b.innerHTML = rowInner(r, getOfflineIdsSync(), readAttempts());
+}
+
+function paintLibrary() {
+    const rows = el('lib-rows');
+    if (!rows || !lib) return;
+    const needle = fold(el('lib-search')?.value || '');
+    libHits = needle ? lib.filter(r => fold(r.title + ' ' + r.folder).includes(needle)) : lib;
+    libSel = Math.min(libSel, Math.max(0, libHits.length - 1));
+    el('lib-count').textContent = needle ? `${libHits.length}/${lib.length} đề` : `${lib.length} đề`;
+    const fast = getOfflineIdsSync();
+    const att = readAttempts();
+    rows.innerHTML = !lib.length ? '<p class="rm-lib-empty">Thư viện của bạn đang trống.</p>'
+        : !libHits.length ? '<p class="rm-lib-empty">Không có đề nào khớp.</p>'
+        : libHits.slice(0, LIB_MAX).map((r, k) => `<button type="button" role="option" data-quiz="${escapeHtml(r.id)}" class="rm-lib-row${k === libSel ? ' is-sel' : ''}" aria-selected="${k === libSel}"${fast.has(r.id) ? ' title="Đã lưu trên máy — mở tức thì"' : ''}>
+            ${rowInner(r, fast, att)}</button>`).join('')
+            + (libHits.length > LIB_MAX ? `<p class="rm-lib-empty">… còn ${libHits.length - LIB_MAX} đề — gõ tên để tìm.</p>` : '');
+    fillInfo();
+}
+
+// Điền nốt thông tin còn thiếu, chạy nền từng đề một, chỉ khi danh sách đang mở:
+// đề có sẵn trong máy -> đếm từ IndexedDB (không tốn mạng); đề KHÔNG có số câu -> tải về đếm
+// (không cất vào IndexedDB kẻo đẩy mất đề người dùng tự lưu). Nhờ vá questionCount ở trên,
+// mỗi đề chỉ phải tải một lần trong đời.
+let filling = false;
+const infoTried = new Set();
+async function fillInfo() {
+    if (filling) return;
+    filling = true;
+    try {
+        for (;;) {
+            const fast = getOfflineIdsSync();
+            const info = readInfo();
+            const r = libHits.slice(0, LIB_MAX).find(x => !info[x.id] && !infoTried.has(x.id) && (fast.has(x.id) || !x.n));
+            if (!r || !el('lib-rows')) break;
+            infoTried.add(r.id);
+            const net = !fast.has(r.id);
+            const data = net ? await getDoc(doc(db, 'quiz_sets', r.id)).then(s => (s.exists() ? s.data() : null)).catch(() => null)
+                : await getOfflineQuiz(r.id);
+            if (data) noteInfo(r.id, data, net);
+        }
+    } finally { filling = false; }
+}
+
+function toggleLibraryList() {
     const box = el('library-quiz-list');
     if (!box) return;
     if (box.childElementCount) { box.innerHTML = ''; return; }
-    if (!room.user || room.user.isAnonymous || room.user.isGuest) return showToast('Đăng nhập để dùng thư viện của bạn.', 'warning');
-    box.innerHTML = '<p class="text-sm text-gray-400 py-2"><i class="fas fa-spinner fa-spin mr-2"></i>Đang tải thư viện…</p>';
-    try {
-        const snap = await getDocs(query(collection(db, 'quiz_sets'), where('userId', '==', uid()), limit(50)));
-        if (snap.empty) { box.innerHTML = '<p class="text-sm text-gray-400 py-2">Thư viện của bạn đang trống.</p>'; return; }
-        const docs = snap.docs.slice().sort((a, b) => (b.data().createdAt?.toMillis?.() || 0) - (a.data().createdAt?.toMillis?.() || 0));
-        box.innerHTML = `<p class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Chọn đề cho cả phòng</p>
-            <div class="space-y-2 max-h-60 overflow-y-auto rm-scroll pr-1">${docs.map(d => {
-                const data = d.data();
-                return `<button type="button" data-quiz="${d.id}" class="w-full flex items-center gap-3 text-left px-4 py-2.5 bg-white border border-pink-100 rounded-xl hover:border-[#FFB6C1] hover:bg-pink-50/60 transition">
-                    <span class="shrink-0 w-8 h-8 rounded-lg bg-pink-50 text-[#FF69B4] grid place-items-center text-xs"><i class="fas fa-file-alt"></i></span>
-                    <span class="flex-1 min-w-0 truncate text-sm font-semibold text-gray-700">${escapeHtml(data.title || 'Bài test không tên')}</span>
-                    <span class="shrink-0 text-xs font-bold text-gray-400 tabular-nums">${data.questionCount || (data.questions || []).length} câu</span>
-                </button>`;
-            }).join('')}</div>`;
-    } catch (err) {
-        console.error('Lỗi tải thư viện:', err);
-        box.innerHTML = '<p class="text-sm text-red-500 py-2">Không tải được thư viện.</p>';
+    if (!canUseLib()) return showToast('Đăng nhập để dùng thư viện của bạn.', 'warning');
+    box.innerHTML = `<div class="rm-lib">
+        <label class="rm-lib-head"><i class="fas fa-magnifying-glass"></i>
+            <input id="lib-search" type="search" placeholder="Tìm đề hoặc thư mục…" title="Gõ không dấu cũng được · ↑↓ chọn · Enter mở" autocomplete="off" enterkeyhint="go">
+            <span id="lib-count" class="rm-lib-count"></span></label>
+        <div id="lib-rows" class="rm-lib-rows rm-scroll" role="listbox"></div></div>`;
+    libSel = 0;
+    if (!lib) { const c = readMetaCache(uid()); if (c) lib = toRows(c); }
+    if (lib) paintLibrary();
+    else el('lib-rows').innerHTML = '<span class="rm-sk rm-lib-sk"></span>'.repeat(4);
+    refreshLibrary();
+    // Chỉ tự đặt con trỏ khi có chuột — trên điện thoại sẽ bật bàn phím che mất danh sách
+    if (matchMedia('(pointer: fine)').matches) el('lib-search').focus();
+}
+
+function onLibKey(e) {
+    if (e.key === 'Escape') { el('library-quiz-list').innerHTML = ''; el('library-quiz-btn')?.focus(); return; }
+    if (e.key === 'Enter') { e.preventDefault(); if (libHits[libSel]) pickFromLibrary(libHits[libSel].id); return; }
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    e.preventDefault();
+    const max = Math.min(libHits.length, LIB_MAX) - 1;
+    libSel = Math.max(0, Math.min(max, libSel + (e.key === 'ArrowDown' ? 1 : -1)));
+    paintLibrary();
+    const row = document.querySelector('#lib-rows .is-sel');
+    row?.scrollIntoView({ block: 'nearest' });
+    if (row) intent(row.dataset.quiz);
+}
+
+// ---------- Mở đề: máy trước, mạng sau ----------
+// 1) Bản trong IndexedDB (đã mở ở trang làm bài / lần trước) -> hiện NGAY, vài ms.
+// 2) Song song hỏi máy chủ; bản mới khác bản máy thì lặng lẽ thay (stale-while-revalidate).
+// 3) Chưa bấm đã tải: rê chuột / nhấn xuống / chọn bằng phím là bắt đầu tải (tới lúc thả tay
+//    thường đã xong). Cùng một đề chỉ tải một lần.
+const inflight = new Map();      // id -> Promise<data|null>
+function fetchQuiz(id) {
+    if (!inflight.has(id)) {
+        const p = getDoc(doc(db, 'quiz_sets', id)).then(s => {
+            if (!s.exists()) return null;
+            const data = s.data();
+            autoCacheQuiz(id, data);            // lần sau mở tức thì — kể cả trang làm bài lúc mất mạng
+            noteInfo(id, data, true);           // rê chuột tới đâu, dòng đó hiện đủ ca chùm / tự luận / thiếu đáp án
+            return data;
+        });
+        // Giữ kết quả 15s (đủ cho rê chuột -> bấm), sau đó chọn lại là hỏi máy chủ lần nữa; lỗi thì bỏ ngay
+        const drop = () => { if (inflight.get(id) === p) inflight.delete(id); };
+        p.then(() => setTimeout(drop, 15000), drop);
+        inflight.set(id, p);
+        if (inflight.size > 4) inflight.delete(inflight.keys().next().value);   // đừng ôm cả thư viện trong RAM
     }
+    return inflight.get(id);
+}
+let intentTimer = 0, intentId = '';
+function intent(id, now) {
+    if (id === intentId && !now) return;           // rê trong cùng một dòng: đừng đếm lại
+    clearTimeout(intentTimer);
+    intentId = id || '';
+    if (id) intentTimer = setTimeout(() => fetchQuiz(id), now ? 0 : 140);   // lướt qua nhanh thì không tải
+}
+
+let pickSeq = 0;                  // chọn A rồi đổi sang B: kết quả về muộn của A bị bỏ
+let fresh = null;                 // bản máy chủ của đề đang chọn — startSession đợi nó
+const sameQuiz = (a, b) => a.title === b.title && JSON.stringify(a.questions) === JSON.stringify(b.questions);
+
+function useLibraryData(quizId, data) {
+    draft = { questions: data.questions || [], title: data.title || 'Đề trắc nghiệm', fromLibrary: true, quizId };
+    showDraft(draft.title, draft.questions);
+    publishNext();
+    rememberQuiz(quizId, draft.title, draft.questions.length);
+    renderLobby();
 }
 
 async function pickFromLibrary(quizId) {
-    el('loading-overlay').classList.remove('hidden');
-    try {
-        const snap = await getDoc(doc(db, 'quiz_sets', quizId));
-        if (!snap.exists()) return showToast('Không tìm thấy bộ đề này.', 'error');
-        const data = snap.data();
-        draft = { questions: data.questions || [], title: data.title || 'Đề trắc nghiệm', fromLibrary: true, quizId };
-        el('quizFileInfo').classList.remove('hidden');
-        el('quizFileName').textContent = draft.title;
-        el('quiz-question-count-info').textContent = `· ${draft.questions.length} câu`;
-        el('start-quiz-collaboration-btn').disabled = !draft.questions.length;
-        publishNext();
-        rememberQuiz(quizId, draft.title, draft.questions.length);
-        renderLobby();
-        el('library-quiz-list').innerHTML = '';
+    const seq = ++pickSeq;
+    const net = fetchQuiz(quizId);
+    el('library-quiz-list').innerHTML = '';
+    const local = await getOfflineQuiz(quizId);
+    if (seq !== pickSeq) return;
+    if (local?.questions?.length) {
+        noteInfo(quizId, local);
+        useLibraryData(quizId, local);
         showToast('Đã chọn đề. Bấm "Bắt đầu cho cả phòng" nhé!', 'success');
-    } catch (err) {
-        console.error(err);
-        showToast('Có lỗi khi mở bộ đề.', 'error');
-    } finally {
-        el('loading-overlay').classList.add('hidden');
+    } else {
+        draft = null;
+        el('quizFileInfo').classList.remove('hidden');
+        el('quizFileName').textContent = lib?.find(r => r.id === quizId)?.title || 'Đề trong thư viện';
+        el('quiz-question-count-info').textContent = '· đang tải…';
+        el('quiz-question-count-info').title = '';
+        el('start-quiz-collaboration-btn').disabled = true;
     }
+    fresh = net.then(data => {
+        if (seq !== pickSeq) return;
+        if (!data) {
+            showToast(local ? 'Bộ đề này đã bị xoá khỏi thư viện — đang dùng bản lưu trên máy.' : 'Không tìm thấy bộ đề này.', local ? 'warning' : 'error');
+            if (!local) el('quizFileInfo').classList.add('hidden');
+            return;
+        }
+        if (local?.questions?.length && sameQuiz(local, data)) return;
+        useLibraryData(quizId, data);
+        showToast(local ? 'Đề vừa được cập nhật bản mới nhất.' : 'Đã chọn đề. Bấm "Bắt đầu cho cả phòng" nhé!', local ? 'info' : 'success');
+    }).catch(err => {
+        if (seq !== pickSeq || local) return;   // có bản máy thì mất mạng vẫn dùng được
+        console.error(err);
+        showToast('Có lỗi khi mở bộ đề — kiểm tra mạng.', 'error');
+        el('quizFileInfo').classList.add('hidden');
+    });
 }
 
 // ---------- Bắt đầu phiên ----------
 async function startSession() {
+    // Đề thư viện đang hỏi lại máy chủ -> đợi tối đa 3s cho chắc phát đúng bản mới nhất
+    if (fresh) await Promise.race([fresh, new Promise(r => setTimeout(r, 3000))]);
     if (!draft?.questions?.length) return;
+    pickSeq++;                   // phát rồi thì kết quả về muộn không được đụng vào nữa
+    fresh = null;
     const mode = document.querySelector('input[name="room-mode"]:checked')?.value || 'coop';
     try { localStorage.setItem(PREFS_KEY, JSON.stringify(readForm())); } catch (e) {}
     const timerSec = mode === 'lead' ? (Number(el('setup-timer').value) || 0) : 0;
-    const questions = el('setup-shuffle').checked ? shuffleArray(draft.questions.slice()) : draft.questions;
+    // Xáo theo KHỐI ca lâm sàng: câu chùm cùng caseId luôn đứng liền nhau, không bị xé lẻ
+    const questions = el('setup-shuffle').checked ? shuffleArray(groupQuestionsByCase(draft.questions)).flat() : draft.questions;
     el('loading-overlay').classList.remove('hidden');
     try {
         // Xóa đáp án phiên trước của mọi người để bảng điểm bắt đầu từ 0
@@ -586,12 +800,10 @@ function usePasted() {
     const d = new Date();
     const title = String(el('paste-name')?.value || '').trim() || `Đề dán ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')} ${d.toLocaleDateString('vi-VN')}`;
     el('paste-name').value = '';
+    pickSeq++;
+    fresh = null;
     draft = { questions, title, fromLibrary: false };
-    el('quizFileInfo').classList.remove('hidden');
-    el('quizFileName').textContent = title;
-    const essays = questions.filter(isEssay).length;
-    el('quiz-question-count-info').textContent = `· ${questions.length} câu${essays ? ` · ${essays} tự luận` : ''}`;
-    el('start-quiz-collaboration-btn').disabled = false;
+    showDraft(title, questions);
     publishNext();
     renderLobby();
     showToast(`Đã nhận ${questions.length} câu. Bấm "Bắt đầu cho cả phòng" nhé!`, 'success');
@@ -639,15 +851,22 @@ export function initQuizControl() {
         handleQuizFile(e.dataTransfer.files[0]);
     });
     el('quizFileInput')?.addEventListener('change', (e) => handleQuizFile(e.target.files[0]));
-    el('library-quiz-btn')?.addEventListener('click', toggleLibraryList);
-    el('library-quiz-list')?.addEventListener('click', (e) => {
-        const b = e.target.closest('[data-quiz]');
-        if (b) pickFromLibrary(b.dataset.quiz);
+    const libBtn = el('library-quiz-btn');
+    libBtn?.addEventListener('click', toggleLibraryList);
+    // Rê chuột tới nút là làm tươi danh sách luôn — bấm xuống là đã có
+    ['pointerenter', 'focus'].forEach(t => libBtn?.addEventListener(t, () => refreshLibrary()));
+    ['library-quiz-list', 'recent-quizzes'].forEach(id => {
+        const box = el(id);
+        box?.addEventListener('click', (e) => {
+            const b = e.target.closest('[data-quiz]');
+            if (b) pickFromLibrary(b.dataset.quiz);
+        });
+        box?.addEventListener('pointerover', (e) => intent(e.target.closest('[data-quiz]')?.dataset.quiz));
+        box?.addEventListener('pointerdown', (e) => intent(e.target.closest('[data-quiz]')?.dataset.quiz, true));
+        box?.addEventListener('pointerleave', () => intent(null));
     });
-    el('recent-quizzes')?.addEventListener('click', (e) => {
-        const b = e.target.closest('[data-quiz]');
-        if (b) pickFromLibrary(b.dataset.quiz);
-    });
+    el('library-quiz-list')?.addEventListener('input', (e) => { if (e.target.id === 'lib-search') { libSel = 0; paintLibrary(); } });
+    el('library-quiz-list')?.addEventListener('keydown', (e) => { if (e.target.id === 'lib-search') onLibKey(e); });
     window.addEventListener('room:pick-quiz', (e) => { if (canControl() && e.detail) pickFromLibrary(e.detail); });
     renderRecent();
 

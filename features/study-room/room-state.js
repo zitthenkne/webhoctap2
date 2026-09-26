@@ -99,13 +99,39 @@ export const editOf = (i) => room.session?.edits?.[qKey(i)] || null;
 // bản gốc" chỉ trả CÂU HỎI + phương án, không xoá ghi chú nhóm đã viết.
 export const extraOf = (i) => room.session?.extra?.[qKey(i)] || null;
 export const extraByOf = (i, f) => room.session?.extraBy?.[qKey(i)]?.[f] || null;
+// Ca lâm sàng dùng CHUNG cho mọi câu trong chùm -> bản sửa lưu theo CA, không theo câu:
+// session.caseEdits.<khóa ca> = { text, title }, caseBy.<khóa ca> = { name, at }.
+// Khóa tính từ câu GỐC (caseId, thiếu thì chữ ca gốc) rồi băm cho an toàn làm field path
+// Firestore (caseId có thể chứa dấu chấm / ký tự lạ).
+const caseKeyMemo = new WeakMap();   // dải câu gọi 3 lần/viên mỗi lần vẽ — đừng băm lại chữ ca dài
+export function caseKeyOf(q) {
+    if (!q || typeof q !== 'object') return '';
+    if (caseKeyMemo.has(q)) return caseKeyMemo.get(q);
+    const raw = String(q.caseId || q.caseText || q.case || '').trim();
+    let key = '';
+    if (raw) {
+        let h = 2166136261;
+        for (let k = 0; k < raw.length; k++) h = Math.imul(h ^ raw.charCodeAt(k), 16777619);
+        key = 'c' + (h >>> 0).toString(36);
+    }
+    caseKeyMemo.set(q, key);
+    return key;
+}
+export const caseKeyAt = (i) => caseKeyOf(room.session?.questions?.[i]);
+export const caseEditAt = (i) => { const k = caseKeyAt(i); return (k && room.session?.caseEdits?.[k]) || null; };
+export const caseByAt = (i) => { const k = caseKeyAt(i); return (k && room.session?.caseBy?.[k]) || null; };
 export function questionAt(i) {
     const base = room.session?.questions?.[i] || null;
     if (!base) return null;
     const e = editOf(i);
     const x = extraOf(i);
-    if (!e && !x) return base;
+    const c = caseEditAt(i);
+    if (!e && !x && !c) return base;
     const merged = { ...base };
+    if (c) {
+        if (typeof c.text === 'string' && c.text.trim()) merged.caseText = c.text;
+        if (typeof c.title === 'string') merged.caseTitle = c.title;
+    }
     if (x) ['expanded', 'note'].forEach(f => { if (typeof x[f] === 'string') merged[f] = x[f]; });
     if (!e) return merged;
     if (typeof e.question === 'string' && e.question.trim()) merged.question = e.question;

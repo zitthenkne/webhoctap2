@@ -15,10 +15,12 @@ import { stripOptionLabels } from '../quiz/quiz-helpers.js';
 import {
     room, refs, optsOf, refIdxOf, chosenOf, noteOf, noteAuthorOf, optNoteOf, issueOf, whyOf, dissentOf,
     answerOf, questionAt, isCoop, editOf, prevVoteOf, explainerOf, thanksOf,
+    caseKeyAt,
     acceptedOf, isSplit, isEssay, argsOf, agreeCount,
 } from './room-state.js';
 import { computeScores, questionStats } from './room-scoreboard.js';
 import { renderRich, sanitizeHtml } from './room-editor.js';
+import { mermaidSvg, fixMermaidCode } from '../quiz/quiz-helpers.js';
 import { chatMessages } from './room-chat.js';
 import { escapeHtml } from './room-ui.js';
 import { safeImgUrl } from './room-media.js';
@@ -176,7 +178,11 @@ function htmlToMd(html) {
             case 'MARK': return `==${inner().trim()}==`;
             case 'CODE': return '`' + inner() + '`';
             case 'BR': return '\n';
-            case 'P': case 'DIV': return '\n' + inner().trim() + '\n';
+            case 'P': case 'DIV': {
+                const mm = n.getAttribute('data-mermaid');
+                if (mm) { let c = ''; try { c = decodeURIComponent(mm); } catch (e) {} return c ? '\n```mermaid\n' + c.trim() + '\n```\n' : ''; }
+                return '\n' + inner().trim() + '\n';
+            }
             case 'LI': return '\n- ' + inner().trim();
             case 'UL': case 'OL': return '\n' + inner() + '\n';
             case 'IMG': { const u = n.getAttribute('src') || ''; return u.startsWith('data:') ? '*(ảnh nhúng — xem bản PDF)*' : `![ảnh](${u})`; }
@@ -233,6 +239,7 @@ function buildMarkdown(d) {
     push('');
 
     push(`## 📝 Từng câu${opt.only ? ' (chỉ câu cần ôn)' : ''}`, '');
+    const caseSeen = new Map();   // ca chùm: in đầy đủ ở câu đầu tiên, các câu sau chỉ trỏ về
     d.qs.filter(x => !opt.only || x.review.length).forEach(x => {
         const q = x.q;
         const head = [verdictOf(x), x.pctRight !== null ? `${x.pctRight}% đúng` : '', x.status === 'diff' ? `⚠ file ghi ${L(x.ref)}` : ''].filter(Boolean);
@@ -241,7 +248,12 @@ function buildMarkdown(d) {
         if (meta.length) push(`*${meta.join(' · ')}*`);
         push('');
         const caseText = q.caseText || q.case;
-        if (caseText) push(`> **${plain(q.caseTitle) || 'Ca lâm sàng'}:** ${md(caseText).replace(/\n/g, '\n> ')}`, '');
+        const ck = caseKeyAt(x.i);
+        if (caseText && caseSeen.has(ck)) push(`> *${plain(q.caseTitle) || 'Ca lâm sàng'} — như câu ${caseSeen.get(ck) + 1}*`, '');
+        else if (caseText) {
+            if (ck) caseSeen.set(ck, x.i);
+            push(`> **${plain(q.caseTitle) || 'Ca lâm sàng'}:** ${md(caseText).replace(/\n/g, '\n> ')}`, '');
+        }
         push(md(q.question), '');
         if (!x.essay) {
             x.opts.forEach((o, k) => {
@@ -378,6 +390,7 @@ function buildHtml(d) {
     const kpi = (v, t, cls = '') => `<div class="kpi ${cls}"><b>${v}</b><span>${t}</span></div>`;
     const argLi = (a) => `<li class="arg ${a.s}"><span class="aic">${IC[a.s] || '•'}</span> <b>${E(nm(a.member))}:</b> ${a.qt ? `<i class="soft">“${E(a.qt)}”</i> — ` : ''}${E(a.t || '')}${agreeCount(a.id) ? ` <span class="soft">👍 ${agreeCount(a.id)}</span>` : ''}${a.s === 'ask' ? ` <span class="mini ${a.ok ? 'ok' : ''}">${a.ok ? 'đã giải đáp' : 'chưa giải đáp'}</span>` : ''}</li>`;
 
+    const caseSeen = new Map();   // ca chùm: in đầy đủ ở câu đầu tiên, các câu sau chỉ trỏ về
     const qCard = (x) => {
         const q = x.q;
         const caseText = q.caseText || q.case;
@@ -410,9 +423,18 @@ function buildHtml(d) {
             ${m.text ? `<blockquote>${E(m.text).replace(/\n/g, '<br>')}</blockquote>` : ''}${imgsHtml(m.images, opt.images)}</div>`).join('')}</div>`);
         if (plain(x.issue)) blocks.push(`<p class="line bad">⚠ <b>Báo lỗi đề:</b> ${E(plain(x.issue))}</p>`);
         if (opt.full) blocks.push(fullHtml(x, opt, argLi));
+        const ck = caseKeyAt(x.i);
+        let caseHtml = '';
+        if (caseText && caseSeen.has(ck)) {
+            const n = caseSeen.get(ck) + 1;
+            caseHtml = `<p class="case soft"><b>${E(plain(q.caseTitle) || 'Ca lâm sàng')}</b> — như <a href="#cau-${n}">câu ${n}</a></p>`;
+        } else if (caseText) {
+            if (ck) caseSeen.set(ck, x.i);
+            caseHtml = `<div class="case"><b>${E(plain(q.caseTitle) || 'Ca lâm sàng')}</b><div class="rich">${rich(caseText, opt.images)}</div></div>`;
+        }
         return `<article class="q" id="cau-${x.i + 1}">
             <div class="q-head"><span class="q-no">Câu ${x.i + 1}</span>${head}${meta.length ? `<span class="meta">${E(meta.join(' · '))}</span>` : ''}</div>
-            ${caseText ? `<div class="case"><b>${E(plain(q.caseTitle) || 'Ca lâm sàng')}</b><div class="rich">${rich(caseText, opt.images)}</div></div>` : ''}
+            ${caseHtml}
             <div class="stem rich">${rich(q.question, opt.images)}</div>
             ${rows}
             ${blocks.join('')}
@@ -502,6 +524,9 @@ function fullHtml(x, opt, argLi) {
 }
 
 const PRINT_CSS = `
+.diagram { margin: 8px 0; text-align: center; break-inside: avoid; }
+.diagram svg { max-width: 100% !important; height: auto; }
+.diagram-src { text-align: left; white-space: pre-wrap; font-size: 11px; background: #FFF6EA; border: 1px dashed #E8B27A; border-radius: 8px; padding: 8px; }
 @page { size: A4; margin: 13mm 13mm 15mm;
     @bottom-left { content: "Zitthenkne · Biên bản buổi đánh đề"; font: 500 7.5pt 'Be Vietnam Pro', sans-serif; color: #a597b0; }
     @bottom-right { content: "Trang " counter(page) " / " counter(pages); font: 600 7.5pt 'Be Vietnam Pro', sans-serif; color: #a597b0; } }
@@ -678,6 +703,23 @@ function download(text, name, type) {
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 
+/** Trang in (PDF) không nạp Mermaid: vẽ sơ đồ NGAY ở trang phòng rồi nhúng SVG vào HTML in. */
+async function inlineDiagrams(html) {
+    if (!html.includes('mermaid-viewer')) return html;
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    for (const v of doc.querySelectorAll('.mermaid-viewer[data-code]')) {
+        let code = '';
+        try { code = fixMermaidCode(decodeURIComponent(v.getAttribute('data-code'))); } catch (e) {}
+        const box = v.closest('.mermaid-container') || v;
+        const out = doc.createElement('div');
+        out.className = 'diagram';
+        try { out.innerHTML = code ? (await mermaidSvg(code)).svg : ''; }
+        catch (e) { out.innerHTML = `<pre class="diagram-src">${E(code)}</pre>`; }
+        box.replaceWith(out);
+    }
+    return '<!DOCTYPE html>' + doc.documentElement.outerHTML;
+}
+
 async function run(kind) {
     const phone = window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 900;
     const tab = (kind === 'view' || (kind === 'pdf' && phone)) ? openTab() : null;
@@ -693,11 +735,11 @@ async function run(kind) {
             await navigator.clipboard.writeText(buildMarkdown(d));
             showToast('Đã chép Markdown — dán vào Obsidian / Notion / nhóm chat.', 'success');
         } else if (tab) {
-            fillTab(tab, buildHtml(d));
+            fillTab(tab, await inlineDiagrams(buildHtml(d)));
             if (kind === 'pdf') showToast('Bấm "In / Lưu PDF" ở đầu trang vừa mở.', 'info', 4000);
         } else {
             showToast('Đang mở hộp in — chọn "Lưu dưới dạng PDF".', 'info', 3000);
-            await printViaFrame(buildHtml(d), name);
+            await printViaFrame(await inlineDiagrams(buildHtml(d)), name);
         }
     } catch (err) {
         tab?.close();

@@ -7,7 +7,7 @@
 // Cách hoạt động: vùng sửa được là phần tử có [data-live-edit="<khóa>"] và
 // contenteditable. Mỗi lần gõ (chờ 400ms cho êm) file này bắn sự kiện
 // window 'room:edit' kèm {key, html} — sân khấu bắt lấy rồi ghi lên Firestore.
-import { parseMarkdown, renderMath } from '../quiz/quiz-helpers.js';
+import { parseMarkdown, renderMath, configureMermaid } from '../quiz/quiz-helpers.js';
 import { showToast } from '../../core/utils.js';
 import { uploadImage, imageFilesOf, safeImgUrl, warnIfTemp } from './room-media.js';
 import { effectiveIndex } from './room-quiz-stage.js';
@@ -50,10 +50,56 @@ const el = (id) => document.getElementById(id);
 
 export const currentEditKey = () => editingKey;
 
+// ---------- Công thức (KaTeX) & sơ đồ (Mermaid) trong ô sửa tại chỗ ----------
+// Ô sửa là contenteditable nên công thức / sơ đồ ĐÃ VẼ nằm luôn trong innerHTML. Trước đây lưu là qua
+// sanitizeHtml: thẻ <math> bị gỡ còn chữ vụn ("x2x^2x2", mất dấu $), <svg> của sơ đồ bị xoá sạch -> sửa một
+// chữ trong ô là HỎNG công thức, MẤT sơ đồ. Nay mọi đường lưu đều đổi ngược về mã nguồn trước:
+//   công thức -> $…$ / $$…$$ (lấy từ <annotation> KaTeX cài sẵn) · sơ đồ -> <div data-mermaid="mã đã mã hoá">.
+const MM_BOX = 'mermaid-container flex justify-center my-4 overflow-x-auto w-full bg-white/50 p-4 rounded-xl border border-pink-100/30 shadow-sm';
+const MM_OK = /^[\w\-.!~*'()%]{1,20000}$/;       // đúng bộ ký tự encodeURIComponent sinh ra
+const texOf = (k) => k.querySelector('annotation[encoding="application/x-tex"]')?.textContent ?? null;
+/** Đổi công thức đã vẽ trong `root` về chữ $…$ (tại chỗ). Trả về số công thức đã đổi. */
+export function unrenderMath(root) {
+    let n = 0;
+    root.querySelectorAll('.katex-display, .katex, .katex-error').forEach(k => {
+        if (!root.contains(k)) return;                            // đã nằm trong một khối vừa đổi
+        const disp = k.classList.contains('katex-display') || !!k.closest('.katex-display');
+        let box = k.closest('.katex-display') || k;
+        // auto-render bọc thêm 1 <span> trần quanh mỗi công thức -> gỡ luôn, kẻo sửa bao nhiêu lần lồng bấy nhiêu lớp
+        while (box.parentElement && box.parentElement !== root && box.parentElement.tagName === 'SPAN'
+            && !box.parentElement.attributes.length && box.parentElement.childNodes.length === 1) box = box.parentElement;
+        const tex = k.classList.contains('katex-error') ? k.textContent : texOf(k);
+        if (tex == null) return;
+        box.replaceWith(document.createTextNode(disp ? `$$${tex}$$` : `$${tex}$`));
+        n++;
+    });
+    return n;
+}
+/** Đổi sơ đồ đã vẽ trong `root` về thẻ gọn <div data-mermaid> (tại chỗ). */
+function unrenderDiagrams(root) {
+    root.querySelectorAll('.mermaid-container, .mermaid, .mermaid-viewer').forEach(m => {
+        if (!root.contains(m)) return;
+        const src = m.matches('[data-code]') ? m : m.querySelector('[data-code]');
+        const code = src?.getAttribute('data-code') || '';
+        const box = m.closest('.mermaid-container') || m;
+        if (!code || !MM_OK.test(code)) { box.remove(); return; }
+        const d = document.createElement('div');
+        d.setAttribute('data-mermaid', code);
+        box.replaceWith(d);
+    });
+}
+/** <div data-mermaid> (dạng lưu) -> khung sơ đồ chuẩn của parseMarkdown để renderMath vẽ. */
+const expandDiagrams = (html) => html.replace(/<div data-mermaid="([^"]*)"><\/div>/g, (m, code) =>
+    MM_OK.test(code) ? `<div class="${MM_BOX}"><div class="mermaid-viewer" data-code="${code}"></div></div>` : '');
+/** Khung sơ đồ mới (chèn từ thanh soạn thảo / hộp sửa sơ đồ). */
+export const diagramHtml = (code) => `<div class="${MM_BOX}"><div class="mermaid-viewer" data-code="${encodeURIComponent(String(code || '').trim())}"></div></div>`;
+
 /** Dọn HTML người dùng dán/gõ vào: chỉ giữ thẻ định dạng, bỏ sạch thuộc tính. */
 export function sanitizeHtml(html) {
     const box = document.createElement('div');
     box.innerHTML = String(html || '');
+    unrenderMath(box);
+    unrenderDiagrams(box);
     const tw = document.createTreeWalker(box, NodeFilter.SHOW_COMMENT);   // <!--StartFragment--> của Word/Excel
     const comments = [];
     while (tw.nextNode()) comments.push(tw.currentNode);
@@ -85,7 +131,9 @@ export function sanitizeHtml(html) {
         // Ô gộp của bảng: giữ colspan / rowspan (số nhỏ), còn lại bỏ sạch thuộc tính
         const span = TABLE_TAGS.has(tag) ? ['colspan', 'rowspan'].map(a => [a, node.getAttribute(a)])
             .filter(([, v]) => /^\d{1,2}$/.test(v || '') && +v > 1 && +v <= 20) : [];
+        const mm = tag === 'DIV' ? node.getAttribute('data-mermaid') : null;
         [...node.attributes].forEach(a => node.removeAttribute(a.name));
+        if (mm && MM_OK.test(mm)) { node.setAttribute('data-mermaid', mm); node.replaceChildren(); }
         span.forEach(([a, v]) => node.setAttribute(a, v));
         if (c && HL[c]) node.setAttribute('data-c', c);
         if (node.tagName === 'IMG') {
@@ -110,7 +158,7 @@ export function renderRich(text) {
     const v = String(text ?? '');
     if (!v.trim()) return '';
     const looksHtml = /<(b|strong|i|em|u|mark|code|br|div|p|ul|ol|li|span|img|a|table|h4|hr)\b/i.test(v);
-    return looksHtml ? sanitizeHtml(v) : parseMarkdown(v);
+    return looksHtml ? expandDiagrams(sanitizeHtml(v)) : parseMarkdown(v);
 }
 
 /** extra: { qi, appendHtml } — nối thêm vào nội dung ĐANG LƯU của câu qi (dùng khi ảnh tải xong
@@ -291,7 +339,9 @@ export function initInlineEdit() {
     document.addEventListener('focusin', (e) => {
         const node = e.target.closest?.('[data-live-edit]');
         editingKey = node ? node.dataset.liveEdit : null;
-        if (node) node.dataset.lastSaved = sanitizeHtml(node.innerHTML);
+        if (!node) return;
+        node.dataset.lastSaved = sanitizeHtml(node.innerHTML);
+        showMathSource(node);
     });
     document.addEventListener('focusout', (e) => {
         const node = e.target.closest?.('[data-live-edit]');
@@ -300,7 +350,10 @@ export function initInlineEdit() {
         saveNow(node);
         editingKey = null;
         setTimeout(hideToolbar, 120);
+        // rời ô: $…$ vẽ lại thành công thức (nếu tiêu điểm chưa quay lại chính ô này — vd. bấm nút thanh công cụ)
+        setTimeout(() => { if (!node.contains(document.activeElement)) renderRichMath(node); }, 0);
     });
+    initDiagrams();
 
     // Gõ tới đâu lưu tới đó
     document.addEventListener('input', (e) => {
@@ -335,7 +388,7 @@ export function initInlineEdit() {
         if (imgs.length && !text.trim()) return void insertImages(node, imgs);
         // BẢNG (bản 28): Excel / Word / Google Sheets gửi kèm HTML có <table> -> giữ nguyên bảng (đã lọc sạch);
         // chỉ có chữ phân cách bằng Tab (Excel dán dạng chữ) -> dựng bảng. Ô đơn lẻ thì vẫn dán chữ thường.
-        if (!/^(question$|opttext:)/.test(node.dataset.liveEdit || '')) {
+        if (!/^(question$|casetitle$|opttext:)/.test(node.dataset.liveEdit || '')) {
             const html = cd.getData('text/html');
             if (/<table[\s>]/i.test(html)) {
                 const clean = sanitizeHtml(html);
@@ -391,4 +444,64 @@ export function initInlineEdit() {
 /** Vẽ lại công thức toán trong một vùng vừa được cập nhật. */
 export function renderRichMath(node) {
     try { renderMath(node); } catch (e) {}
+}
+
+/** Lưu NGAY một ô sửa (không đợi 400ms) — dùng khi đổi nội dung từ ngoài ô (hộp sửa sơ đồ). */
+export function saveNode(node) { clearTimeout(saveTimer); saveNow(node); }
+
+/** Bấm vào ô sửa: công thức đã vẽ hiện lại mã $…$ để sửa thẳng (rời ô thì vẽ lại). Giữ con trỏ gần chỗ bấm. */
+function showMathSource(node) {
+    if (!node.querySelector('.katex, .katex-error')) return;
+    const sel = window.getSelection();
+    const inK = sel?.anchorNode && (sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode)?.closest?.('.katex-display, .katex, .katex-error');
+    const holder = inK && node.contains(inK) ? inK.closest('.katex-display') || inK : null;
+    const mark = holder ? document.createComment('caret') : null;
+    if (mark) holder.after(mark);
+    unrenderMath(node);
+    if (mark?.isConnected) {                      // bấm trúng công thức -> con trỏ đứng ngay sau mã của nó
+        const r = document.createRange();
+        r.setStartBefore(mark); r.collapse(true);
+        mark.remove();
+        sel.removeAllRanges(); sel.addRange(r);
+    }
+}
+
+// ---------- Sơ đồ: khối nguyên (không gõ lẫn vào SVG) + nút phóng to / sửa mã ----------
+// Công cụ gắn vào khung sơ đồ lúc vẽ xong; không bao giờ bị lưu (unrenderDiagrams thay cả khung khi lưu).
+function decorateDiagram(div, ok) {
+    const box = div.closest('.mermaid-container') || div;
+    box.contentEditable = 'false';
+    box.classList.add('rm-mm');
+    // cỡ gốc của sơ đồ -> CSS cho vừa cột mà không phóng bè sơ đồ nhỏ, không co sơ đồ to quá mức đọc được
+    const svg = div.querySelector('svg');
+    const nat = svg && (parseFloat(svg.style.maxWidth) || svg.viewBox?.baseVal?.width);
+    if (nat) div.style.setProperty('--mm-w', Math.round(nat) + 'px');
+    box.querySelector(':scope > .rm-mm-tools')?.remove();
+    const editable = !!box.closest('[data-live-edit]');
+    const t = document.createElement('span');
+    t.className = 'rm-mm-tools';
+    t.innerHTML = (ok ? '<button type="button" data-mm-zoom title="Phóng to sơ đồ"><i class="fas fa-expand"></i></button>' : '')
+        + (editable ? '<button type="button" data-mm-edit title="Sửa mã sơ đồ"><i class="fas fa-pen"></i><span>Sửa</span></button>' : '');
+    if (t.innerHTML) box.appendChild(t);
+}
+let dgLib = null;
+const loadDiagramTools = () => (dgLib ||= import('./room-diagram.js').catch(err => { dgLib = null; throw err; }));
+function initDiagrams() {
+    // Nội dung ở phòng do NHIỀU người cùng sửa -> nhãn sơ đồ không được chạy script (mặc định trang đề là 'loose')
+    configureMermaid({ securityLevel: 'antiscript', decorate: decorateDiagram });
+    // pha capture + chặn mặc định: bấm nút trong sơ đồ không được kéo con trỏ vào ô sửa
+    document.addEventListener('mousedown', (e) => { if (e.target.closest?.('.rm-mm-tools')) e.preventDefault(); }, true);
+    document.addEventListener('click', (e) => {
+        const b = e.target.closest?.('[data-mm-zoom], [data-mm-edit]');
+        if (!b) return;
+        e.preventDefault(); e.stopPropagation();
+        const box = b.closest('.mermaid-container, .rm-mm');
+        if (!box) return;
+        loadDiagramTools().then(m => b.hasAttribute('data-mm-zoom') ? m.openDiagramViewer(box) : m.openDiagramEditor(box, box.closest('[data-live-edit]')))
+            .catch(() => showToast('Không mở được công cụ sơ đồ — kiểm tra mạng.', 'error'));
+    }, true);
+}
+/** Thanh soạn thảo: chèn sơ đồ mới vào ô đang sửa (mở luôn hộp sửa mã). */
+export function insertDiagramInto(node) {
+    loadDiagramTools().then(m => m.openDiagramEditor(null, node)).catch(() => showToast('Không mở được công cụ sơ đồ — kiểm tra mạng.', 'error'));
 }

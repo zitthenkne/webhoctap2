@@ -1,5 +1,5 @@
 /* SINH TỰ ĐỘNG — đừng sửa tay. Nguồn: fa-dong-bang.mjs (Font Awesome Free 6.4.0, CC BY 4.0 / OFL / MIT).
-   125 icon dò từ 29 file của phòng. Thêm icon mới thì chạy lại: node fa-dong-bang.mjs */
+   134 icon dò từ 37 file của phòng. Thêm icon mới thì chạy lại: node fa-dong-bang.mjs */
 .fa{font-family:var(--fa-style-family,"Font Awesome 6 Free");font-weight:var(--fa-style,900)}
 .fa,.fa-brands,.fa-classic,.fa-regular,.fa-solid,.fab,.far,.fas{-moz-osx-font-smoothing:grayscale;-webkit-font-smoothing:antialiased;display:var(--fa-display,inline-block);font-style:normal;font-variant:normal;line-height:1;text-rendering:auto}
 .fa-classic,.fa-regular,.fa-solid,.far,.fas{font-family:"Font Awesome 6 Free"}
@@ -10,7 +10,8 @@
 @keyframes fa-spin{0%{-webkit-transform:rotate(0deg);transform:rotate(0deg)}to{-webkit-transform:rotate(1turn);transform:rotate(1turn)}}
 .fa-trash-can:before{content:"\f2ed"}
 .fa-text-height:before{content:"\f034"}
-.fa-file-alt:before,.fa-file-lines:before{content:"\f15c"}
+.fa-stethoscope:before{content:"\f0f1"}
+.fa-file-lines:before{content:"\f15c"}
 .fa-door-open:before{content:"\f52b"}
 .fa-forward-step:before{content:"\f051"}
 .fa-flag-checkered:before{content:"\f11e"}
@@ -29,36 +30,41 @@
 .fa-users:before{content:"\f0c0"}
 .fa-eye-slash:before{content:"\f070"}
 .fa-hand:before{content:"\f256"}
+.fa-chevron-up:before{content:"\f077"}
 .fa-stopwatch:before{content:"\f2f2"}
 .fa-notes-medical:before{content:"\f481"}
 .fa-bookmark:before{content:"\f02e"}
 .fa-bullseye:before{content:"\f140"}
 .fa-arrow-up-from-bracket:before{content:"\e09a"}
 .fa-chart-simple:before{content:"\e473"}
+.fa-wand-magic-sparkles:before{content:"\e2ca"}
 .fa-highlighter:before{content:"\f591"}
 .fa-location-arrow:before{content:"\f124"}
 .fa-star:before{content:"\f005"}
 .fa-repeat:before{content:"\f363"}
-.fa-mouse-pointer:before{content:"\f245"}
+.fa-arrow-pointer:before{content:"\f245"}
+.fa-shapes:before{content:"\f61f"}
 .fa-shuffle:before{content:"\f074"}
 .fa-crown:before{content:"\f521"}
 .fa-microphone-lines:before{content:"\f3c9"}
 .fa-file-arrow-up:before{content:"\f574"}
 .fa-underline:before{content:"\f0cd"}
 .fa-bold:before{content:"\f032"}
+.fa-person-chalkboard:before{content:"\e53d"}
 .fa-square-plus:before{content:"\f0fe"}
 .fa-image:before{content:"\f03e"}
 .fa-rotate-left:before{content:"\f2ea"}
 .fa-angles-right:before{content:"\f101"}
 .fa-check-circle:before,.fa-circle-check:before{content:"\f058"}
-.fa-file-import:before{content:"\f56f"}
 .fa-cloud-arrow-up:before{content:"\f0ee"}
 .fa-chalkboard:before{content:"\f51b"}
+.fa-layer-group:before{content:"\f5fd"}
 .fa-square:before{content:"\f0c8"}
 .fa-italic:before{content:"\f033"}
 .fa-file-signature:before{content:"\f573"}
 .fa-file-excel:before{content:"\f1c3"}
 .fa-arrow-right:before{content:"\f061"}
+.fa-heart:before{content:"\f004"}
 .fa-lock-open:before{content:"\f3c1"}
 .fa-circle:before{content:"\f111"}
 .fa-volume-high:before{content:"\f028"}
@@ -68,15 +74,14 @@
 .fa-pen:before{content:"\f304"}
 .fa-floppy-disk:before{content:"\f0c7"}
 .fa-comment-dots:before{content:"\f4ad"}
-.fa-redo:before{content:"\f01e"}
 .fa-trash:before{content:"\f1f8"}
 .fa-book-medical:before{content:"\f7e6"}
 .fa-arrow-left:before{content:"\f060"}
 .fa-up-right-from-square:before{content:"\f35d"}
 .fa-file-pdf:before{content:"\f1c1"}
 .fa-circle-info:before,.fa-info-circle:before{content:"\f05a"}
-.fa-undo:before{content:"\f0e2"}
 .fa-dumbbell:before{content:"\f44b"}
+.fa-dna:before{content:"\f471"}
 .fa-minus:before{content:"\f068"}
 .fa-clock:before{content:"\f017"}
 .fa-keyboard:before{content:"\f11c"}
@@ -87,7 +92,9 @@
 .fa-house:before{content:"\f015"}
 .fa-rotate-right:before{content:"\f2f9"}
 .fa-file-arrow-down:before{content:"\f56d"}
+.fa-bolt:before{content:"\f0e7"}
 .fa-sun:before{content:"\f185"}
+.fa-arrow-right-long:before{content:"\f178"}
 .fa-ellipsis:before{content:"\f141"}
 .fa-bell:before{content:"\f0f3"}
 .fa-eraser:before{content:"\f12d"}
@@ -99,6 +106,7 @@
 .fa-list-ul:before{content:"\f0ca"}
 .fa-list-check:before{content:"\f0ae"}
 .fa-user-shield:before{content:"\f505"}
+.fa-diagram-project:before{content:"\f542"}
 .fa-copy:before{content:"\f0c5"}
 .fa-hand-sparkles:before{content:"\e05d"}
 .fa-plus:before{content:"\2b"}
@@ -116,8 +124,8 @@
 .fa-angles-left:before{content:"\f100"}
 .fa-qrcode:before{content:"\f029"}
 .fa-clock-rotate-left:before{content:"\f1da"}
-.fa-pen-nib:before{content:"\f5ad"}
 .fa-moon:before{content:"\f186"}
+.fa-clone:before{content:"\f24d"}
 .fa-scale-balanced:before{content:"\f24e"}
 .fa-book:before{content:"\f02d"}
 .fa-user-plus:before{content:"\f234"}
@@ -126,7 +134,9 @@
 .fa-exclamation-triangle:before,.fa-triangle-exclamation:before{content:"\f071"}
 .fa-paper-plane:before{content:"\f1d8"}
 .fa-dice:before{content:"\f522"}
+.fa-brain:before{content:"\f5dc"}
 .fa-times-circle:before{content:"\f057"}
+.fa-note-sticky:before{content:"\f249"}
 .sr-only,.sr-only-focusable:not(:focus){position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border-width:0}
 :host,:root{--fa-style-family-brands:"Font Awesome 6 Brands";--fa-font-brands:normal 400 1em/1 "Font Awesome 6 Brands"}
 @font-face{font-family:"Font Awesome 6 Brands";font-style:normal;font-weight:400;font-display:block;src:url(brands.woff2) format("woff2")}

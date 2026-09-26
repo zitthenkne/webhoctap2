@@ -11,10 +11,11 @@ import { showToast } from '../../core/utils.js';
 // Các loại lý do đánh dấu câu hỏi (dùng chung cho lúc làm bài và màn tổng kết).
 // Thứ tự khai báo cũng là thứ tự hiển thị trong menu / bộ lọc.
 export const MARK_REASONS = {
-    hard:        { label: 'Khó, quay lại làm sau', short: 'Khó',       icon: 'fa-dumbbell',        color: '#ef4444', bg: '#fee2e2', text: '#b91c1c' },
-    doubt:       { label: 'Tranh cãi đáp án',       short: 'Tranh cãi', icon: 'fa-scale-balanced',  color: '#f59e0b', bg: '#fef3c7', text: '#b45309' },
-    interesting: { label: 'Hay, để dành xem lại',   short: 'Hay',       icon: 'fa-star',            color: '#a855f7', bg: '#f3e8ff', text: '#7e22ce' },
-    review:      { label: 'Cần ôn lại',             short: 'Ôn lại',    icon: 'fa-rotate',          color: '#3b82f6', bg: '#dbeafe', text: '#1d4ed8' },
+    // Tông pastel KHÔNG trùng nghĩa đúng/sai/đang chọn (đỏ/xanh lá/xanh dương) của trang làm bài
+    hard:        { label: 'Khó, quay lại làm sau', short: 'Khó',       icon: 'fa-dumbbell',        color: '#F08A4B', bg: '#FFE8D9', text: '#A34A12' },
+    doubt:       { label: 'Tranh cãi đáp án',       short: 'Tranh cãi', icon: 'fa-scale-balanced',  color: '#E0A91A', bg: '#FFF3CC', text: '#8C6500' },
+    interesting: { label: 'Hay, để dành xem lại',   short: 'Hay',       icon: 'fa-star',            color: '#9D7FE8', bg: '#EFE9FD', text: '#6A4FB8' },
+    review:      { label: 'Cần ôn lại',             short: 'Ôn lại',    icon: 'fa-rotate',          color: '#F27BA8', bg: '#FFE3EE', text: '#B23A6C' },
 };
 
 export const state = {

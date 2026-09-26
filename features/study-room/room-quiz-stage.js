@@ -11,8 +11,9 @@ import {
     noteOf, optNoteOf, answerOf, flagOf, readyOf, unclearOf, currentIndex, isCoop, canRoam,
     questionAt, editOf, issueOf, editorOf, noteAuthorOf, whyOf, dissentOf, talkUntil, prevVoteOf,
     isEssay, doneOf, doneCount, isAccepted, isSplit, acceptedText, acceptedOf, argsOf,
+    caseKeyAt, caseEditAt, caseByAt,
 } from './room-state.js';
-import { showToast } from '../../core/utils.js';
+import { showToast, showConfirm } from '../../core/utils.js';
 import { escapeHtml, shortName, toggle, avatarStack, avatarHtml, forget } from './room-ui.js';
 import { renderRankPanel, renderResults, questionStats, toggleAllStats } from './room-scoreboard.js';
 import { MARK_REASONS, getNote, setNote, getMark, setMark } from './room-study.js';
@@ -224,6 +225,7 @@ function renderLive() {
         s.teamOn, s.buzzOn, s.buzz, s.blind, s.spotlight, s.thanks,   // bộ tiện ích trò chơi
         s.alsoOk, s.split,                                            // kết luận nhiều đáp án / chưa thống nhất
         s.extra, s.extraBy,                                           // Mở rộng / Ghi nhớ nhóm sửa
+        s.caseEdits, s.caseBy,                                        // ca lâm sàng nhóm sửa (chung cả chùm)
         s.quizTitle, s.hostId, s.hostName, s.cohosts, s.questions.length, s.ended,
         editorOf(i) ? Math.floor(Date.now() / 2000) : 0,
         Object.entries(optimistic).map(([k, v]) => k + ':' + v.i),
@@ -343,14 +345,7 @@ function renderLive() {
     meta.innerHTML = metaHtml;
     meta.classList.toggle('hidden', !metaHtml);
 
-    // --- Ca lâm sàng ---
-    const caseBox = el('case-box');
-    const caseText = q.caseText || q.case || '';
-    caseBox.classList.toggle('hidden', !caseText);
-    if (caseText) {
-        caseBox.innerHTML = `<b><i class="fas fa-notes-medical mr-1"></i>${escapeHtml(q.caseTitle || 'Ca lâm sàng')}</b><br>` + parseMarkdown(caseText);
-        renderMath(caseBox);
-    }
+    renderCase(i, q);
 
     // --- Câu hỏi: bấm vào là sửa được ngay, cả nhóm thấy liền ---
     // Tem kẹo "Câu N" dán ở góc thẻ đề (bản 29) — CSS vẽ từ data-qno
@@ -602,6 +597,74 @@ function renderOptions(i, q, opts, mine, chosen, announced, shown, refIdx, stats
     }
 }
 
+// ---------- Ca lâm sàng: MỘT phiếu dùng chung cho cả chùm, sửa tại chỗ như đề ----------
+// Khung chỉ dựng lại khi SANG CA KHÁC; đi giữa các câu cùng ca chỉ đổi chấm/nhãn -> giữ nguyên
+// trạng thái gập, con trỏ, chỗ bôi đen. Ruột chữ không bị vẽ đè lúc chính mình đang gõ.
+// Sửa ca = sửa cho MỌI câu trong chùm (session.caseEdits theo khóa ca — room-state.js).
+const caseFold = new Map();                    // khóa ca -> true khi mình gập (nhớ khi đi qua lại)
+const caseShown = { text: null, title: null }; // bản đang hiện, để khỏi vẽ lại khi không đổi
+const plainOf = (h) => String(h || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+
+function caseRange(i) {
+    const k = caseKeyAt(i);
+    const n = room.session?.questions?.length || 0;
+    let a = i, b = i;
+    while (a > 0 && caseKeyAt(a - 1) === k) a--;
+    while (b < n - 1 && caseKeyAt(b + 1) === k) b++;
+    return [a, b];
+}
+
+function renderCase(i, q) {
+    const box = el('case-box');
+    if (!box) return;
+    const text = q.caseText || q.case || '';
+    const ck = caseKeyAt(i);
+    box.classList.toggle('hidden', !text);
+    if (!text) { box.dataset.ck = ''; return; }
+    if (box.dataset.ck !== ck) {
+        box.dataset.ck = ck;
+        caseShown.text = caseShown.title = null;
+        box.innerHTML = `<div class="rm-case-head">
+            <span class="rm-case-ic" aria-hidden="true"><i class="fas fa-notes-medical"></i></span>
+            <b class="rm-case-title" contenteditable="true" spellcheck="false" data-live-edit="casetitle" title="Bấm để đổi tên ca"></b>
+            <span class="rm-case-dots"></span>
+            <span class="rm-case-by"></span>
+            <button type="button" class="rm-case-btn" data-case-reset title="Trả ca về bản gốc trong file"><i class="fas fa-rotate-left"></i></button>
+            <button type="button" class="rm-case-btn" data-case-fold aria-expanded="true" title="Gập / mở ca"><i class="fas fa-chevron-up"></i></button>
+        </div>
+        <button type="button" class="rm-case-peek" data-case-fold title="Mở lại ca"></button>
+        <div class="rm-case-body rm-md" contenteditable="true" data-live-edit="case" data-placeholder="Nội dung ca lâm sàng…"
+             title="Bấm để sửa ca — cả nhóm thấy ngay, đổi cho mọi câu trong chùm"></div>`;
+    }
+    const body = box.querySelector('[data-live-edit="case"]');
+    if (currentEditKey() !== 'case' && caseShown.text !== text) {
+        caseShown.text = text;
+        body.innerHTML = renderRich(text);
+        renderMath(body);
+    }
+    const title = plainOf(q.caseTitle) || 'Ca lâm sàng';
+    if (currentEditKey() !== 'casetitle' && caseShown.title !== title) {
+        caseShown.title = title;
+        box.querySelector('[data-live-edit="casetitle"]').textContent = title;
+    }
+    // Chấm các câu dùng chung ca: bấm là nhảy, tô câu đang xem / câu mình đã làm
+    const [a, b] = caseRange(i);
+    const me = myMember();
+    box.querySelector('.rm-case-dots').innerHTML = b > a
+        ? `<span class="rm-case-seq">câu ${i - a + 1}/${b - a + 1}</span>` + Array.from({ length: b - a + 1 }, (_, d) => a + d).map(k =>
+            `<button type="button" class="rm-case-dot${k === i ? ' is-now' : ''}${doneOf(me, k) ? ' is-done' : ''}" data-case-jump="${k}" title="Câu ${k + 1}${k === i ? ' · đang xem' : doneOf(me, k) ? ' · đã làm' : ''}">${k + 1}</button>`).join('')
+        : '';
+    const edited = !!caseEditAt(i);
+    const by = caseByAt(i);
+    box.querySelector('.rm-case-by').innerHTML = edited && by?.name ? `<i class="fas fa-pen"></i>${escapeHtml(shortName(by.name))}` : '';
+    box.querySelector('[data-case-reset]').hidden = !edited;
+    const folded = !!caseFold.get(ck);
+    box.classList.toggle('is-folded', folded);
+    box.querySelector('.rm-case-head [data-case-fold]').setAttribute('aria-expanded', String(!folded));
+    // tách theo thẻ (ô bảng không dính nhau) rồi bỏ khoảng trắng trước dấu câu (</b>, -> ",")
+    box.querySelector('.rm-case-peek').textContent = folded ? plainOf(body.innerHTML).replace(/\s+([,.;:!?)])/g, '$1').slice(0, 200) : '';
+}
+
 // ---------- Dải viên kẹo: mỗi câu một viên, luôn nhìn thấy ----------
 function questionTrackHtml(cur) {
     const s = room.session;
@@ -621,10 +684,14 @@ function questionTrackHtml(cur) {
         if (flagOf(me, k)) cls += ' flag';
         if (k === cur) cls += ' now';
         if (k === currentIndex()) cls += ' focus';
+        // Câu chùm: gạch nối trên đầu các viên cùng ca -> nhìn dải là biết ca nào gồm những câu nào
+        const ck = caseKeyAt(k);
+        const inCase = !!ck && (caseKeyAt(k - 1) === ck || caseKeyAt(k + 1) === ck);
+        if (inCase) cls += ' in-case' + (caseKeyAt(k - 1) !== ck ? ' case-a' : '') + (caseKeyAt(k + 1) !== ck ? ' case-z' : '');
         const fresh = talkNew.has(k);
         const tip = `Câu ${k + 1}` + (c !== null ? ' · nhóm đã chốt' : a ? ' · bạn đã chọn' : ' · chưa chọn')
-            + (flagOf(me, k) ? ' · cần bàn' : '') + (fresh ? ' · có bàn luận mới' : '');
-        out += `<button class="${cls}" data-jump="${k}" title="${tip}" aria-label="${tip}">${k + 1}${fresh ? '<i class="rm-pip-new" aria-hidden="true"></i>' : ''}</button>`;
+            + (flagOf(me, k) ? ' · cần bàn' : '') + (fresh ? ' · có bàn luận mới' : '') + (inCase ? ' · câu chùm' : '');
+        out += `<button class="${cls}" data-jump="${k}" title="${tip}" aria-label="${tip}">${k + 1}${fresh ? '<i class="rm-pip-new" aria-hidden="true"></i>' : ''}${inCase ? '<i class="rm-pip-case" aria-hidden="true"></i>' : ''}</button>`;
     }
     return out;
 }
@@ -1082,6 +1149,7 @@ export function initStage() {
         if (key === 'why') return whyOf(myMember(), i);
         if (key.startsWith('extra:')) return q?.[key.slice(6)] || '';
         if (key === 'question') return q?.question || '';
+        if (key === 'case') return q?.caseText || q?.case || '';
         if (key.startsWith('optexp:')) return optNoteOf(i, Number(key.split(':')[1]));
         return null;                                   // chữ phương án: không nối ảnh kiểu này
     };
@@ -1114,6 +1182,15 @@ export function initStage() {
         if (key === 'note') { setNote(q.question, html); return void renderNotebook(i); }   // đèn 📝 ở mục lục sổ tay
         if (key === 'issue') return void updateDoc(refs.session(), { [`issues.q${i}`]: html }).catch(() => {});
         if (key === 'question') return void updateDoc(refs.session(), { [`edits.q${i}.question`]: html }).catch(() => {});
+        // Ca lâm sàng: lưu theo CA -> mọi câu trong chùm đổi theo (tên ca giữ chữ trơn)
+        if (key === 'case' || key === 'casetitle') {
+            const ck = caseKeyAt(i);
+            if (!ck) return;
+            return void updateDoc(refs.session(), {
+                [`caseEdits.${ck}.${key === 'case' ? 'text' : 'title'}`]: key === 'case' ? html : plainOf(html).slice(0, 120),
+                [`caseBy.${ck}`]: { name: myMember()?.displayName || 'Ai đó', at: Date.now() },
+            }).catch(() => {});
+        }
         if (key.startsWith('optexp:')) {
             const k = key.split(':')[1];
             return void updateDoc(refs.session(), { [`optNotes.q${i}.o${k}`]: html }).catch(() => {});
@@ -1124,6 +1201,29 @@ export function initStage() {
             list[k] = html;
             return void updateDoc(refs.session(), { [`edits.q${i}.options`]: list }).catch(() => {});
         }
+    });
+
+    // Phiếu ca lâm sàng: chấm nhảy câu trong chùm · gập/mở (nhớ theo ca) · trả về bản gốc
+    el('case-box')?.addEventListener('click', async (e) => {
+        const jump = e.target.closest('[data-case-jump]');
+        if (jump) return void setViewIndex(Number(jump.dataset.caseJump));
+        const i = effectiveIndex();
+        if (e.target.closest('[data-case-fold]')) {
+            const ck = caseKeyAt(i);
+            caseFold.set(ck, !caseFold.get(ck));
+            return void renderCase(i, questionAt(i));
+        }
+        if (e.target.closest('[data-case-reset]')) {
+            const ck = caseKeyAt(i);
+            if (!ck || !await showConfirm('Trả ca lâm sàng về bản gốc trong file? Chỗ nhóm đã sửa ở ca này sẽ mất (mọi câu trong chùm).',
+                { confirmText: 'Trả về bản gốc', tone: 'warning' })) return;
+            caseShown.text = caseShown.title = null;
+            updateDoc(refs.session(), { [`caseEdits.${ck}`]: null, [`caseBy.${ck}`]: null }).catch(() => {});
+        }
+    });
+    // Tên ca một dòng: Enter = xong
+    el('case-box')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && e.target.closest?.('[data-live-edit="casetitle"]')) { e.preventDefault(); e.target.blur(); }
     });
 
     // Bút chì trên phương án -> biến chữ của phương án đó thành ô gõ

@@ -9,11 +9,13 @@ import { state, MARK_REASONS } from '../quiz-state.js';
 import { isAnswerCorrect, isMultiAnswer } from '../quiz-helpers.js';
 import { showQuestion, showNextQuestion, showPreviousQuestion, handle5050Help } from './quiz-question-view.js';
 import { applyMark } from './quiz-marks.js';
+import { caseCellClass } from './quiz-cases.js';
 import { getVibrate } from './quiz-page-prefs.js';
 
-let bar, prevBtn, nextBtn, jumpBtn, counterEl, fillEl, fiveBtn, markBtn;
+let bar, prevBtn, nextBtn, jumpBtn, counterEl, fillEl, fiveBtn, markBtn, markMenu, settingsBtn;
 let sheet, sheetGrid, sheetMeta, sheetBackdrop, sheetClose;
 let wired = false;
+let jumpFilter = 'all';   // bộ lọc bảng nhảy câu: all | todo | marked | wrong
 
 // Chỉ hiện ở màn hình hẹp (mobile / tablet dọc). ≥1024px đã có bố cục 3 cột + lưới số câu.
 function isNarrow() { return window.innerWidth < 1024; }
@@ -35,11 +37,17 @@ function renderJumpGrid() {
     const total = state.questions.length;
     const immediate = !!(state.quizOptions && state.quizOptions.showAnswerImmediately);
     let html = '';
+    const counts = { todo: 0, marked: 0, wrong: 0 };
     for (let i = 0; i < total; i++) {
         const ans = state.userAnswers[i];
         const answered = ans !== null && ans !== undefined;
         const marked = state.markedQuestions.includes(i);
-        let cls = 'qjs-cell';
+        const wrong = answered && immediate && !isAnswerCorrect(state.questions[i], ans);
+        if (!answered) counts.todo++;
+        if (marked) counts.marked++;
+        if (wrong) counts.wrong++;
+        const match = jumpFilter === 'all' || (jumpFilter === 'todo' ? !answered : jumpFilter === 'marked' ? marked : wrong);
+        let cls = 'qjs-cell' + (match ? '' : ' is-dim');
         if (i === state.currentIndex) {
             cls += ' is-current';
         } else if (answered) {
@@ -49,6 +57,8 @@ function renderJumpGrid() {
                 cls += ' is-answered';
             }
         }
+        const caseCls = caseCellClass(state.questions[i]);
+        if (caseCls) cls += ' ' + caseCls;
         let dot = '';
         if (marked) {
             const rk = (state.markedReasons && state.markedReasons[i]) || 'review';
@@ -58,10 +68,38 @@ function renderJumpGrid() {
         html += `<button type="button" class="${cls}" data-qidx="${i}" aria-label="Câu ${i + 1}">${i + 1}${dot}</button>`;
     }
     sheetGrid.innerHTML = html;
+    // Chip lọc: số đếm từng nhóm; "Sai" chỉ có nghĩa khi đang chấm từng câu
+    if (sheet) sheet.querySelectorAll('[data-qjs-filter]').forEach((b) => {
+        const k = b.getAttribute('data-qjs-filter');
+        const n = b.querySelector('b');
+        if (n) n.textContent = counts[k];
+        if (k === 'wrong') b.hidden = !immediate;
+        b.classList.toggle('is-on', k === jumpFilter);
+        b.setAttribute('aria-pressed', String(k === jumpFilter));
+    });
     if (sheetMeta) {
         const answered = state.userAnswers.filter(a => a !== null && a !== undefined).length;
         sheetMeta.textContent = `${answered}/${total}`;
     }
+}
+
+// --- Bong bóng chọn lý do đánh dấu (nút Đánh dấu ở thanh đáy) ---
+function renderMarkMenu() {
+    if (!markMenu) return;
+    const i = state.currentIndex;
+    const cur = state.markedQuestions.includes(i) ? (state.markedReasons[i] || 'review') : '';
+    markMenu.innerHTML = '<div class="qmm-title">Đánh dấu câu ' + (i + 1) + ' vì…</div>'
+        + Object.entries(MARK_REASONS).map(([k, m]) =>
+            `<button type="button" role="menuitemradio" aria-checked="${cur === k}" class="qmm-item${cur === k ? ' is-on' : ''}" data-mark-reason="${k}" style="--mk:${m.color};--mk-bg:${m.bg};--mk-ink:${m.text}">`
+            + `<span class="qmm-ic"><i class="fas ${m.icon}"></i></span><span class="qmm-label">${m.label}</span>`
+            + (cur === k ? '<i class="fas fa-check qmm-check"></i>' : '') + '</button>').join('')
+        + (cur ? '<button type="button" role="menuitem" class="qmm-item qmm-unmark" data-mark-reason="__unmark"><span class="qmm-ic"><i class="fas fa-xmark"></i></span><span class="qmm-label">Bỏ đánh dấu</span></button>' : '');
+}
+function setMarkMenu(open) {
+    if (!markMenu || !markBtn) return;
+    if (open) renderMarkMenu();
+    markMenu.classList.toggle('hidden', !open);
+    markBtn.setAttribute('aria-expanded', String(open));
 }
 
 function openJumpSheet() {
@@ -135,13 +173,35 @@ export function setupMobileNav() {
         updateMobileNav();
     });
 
-    // Đánh dấu nhanh ở thanh đáy — bật/tắt lý do mặc định "để dành xem lại".
-    // Muốn đổi lý do cụ thể thì dùng nút đánh dấu trong thẻ (có menu).
-    if (markBtn) markBtn.addEventListener('click', () => {
+    // Đánh dấu ở thanh đáy: mở bong bóng chọn lý do (giống menu trong thẻ), chọn xong tự đóng
+    markMenu = document.getElementById('qmn-mark-menu');
+    if (markBtn) markBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
         buzz();
-        const i = state.currentIndex;
-        applyMark(i, state.markedQuestions.includes(i) ? '__unmark' : 'review');
+        setMarkMenu(markMenu && markMenu.classList.contains('hidden'));
+    });
+    if (markMenu) markMenu.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const item = e.target.closest('[data-mark-reason]');
+        if (!item) return;
+        buzz(12);
+        applyMark(state.currentIndex, item.getAttribute('data-mark-reason'));
+        setMarkMenu(false);
         showQuestion(); // đồng bộ nút đánh dấu trong thẻ + bảng "Câu đã đánh dấu"
+    });
+    document.addEventListener('click', (e) => {
+        if (markMenu && !markMenu.classList.contains('hidden') && !markMenu.contains(e.target)) setMarkMenu(false);
+    });
+
+    // Thiết lập: mở bảng "Ngựa thì chỉnh" (nút ngựa nổi được ẩn khi thanh đáy đang hiện).
+    // Chặn nổi bọt để bộ "bấm ra ngoài thì đóng" của bảng không đóng ngay lại.
+    settingsBtn = document.getElementById('qmn-settings');
+    if (settingsBtn) settingsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        buzz();
+        setMarkMenu(false);
+        const fab = document.getElementById('quiz-settings-fab');
+        if (fab) fab.click();
     });
 
     if (sheetGrid) sheetGrid.addEventListener('click', (e) => {
@@ -157,10 +217,19 @@ export function setupMobileNav() {
         }
     });
 
+    if (sheet) sheet.addEventListener('click', (e) => {
+        const f = e.target.closest('[data-qjs-filter]');
+        if (!f) return;
+        buzz();
+        jumpFilter = f.getAttribute('data-qjs-filter');
+        renderJumpGrid();
+    });
     if (sheetClose) sheetClose.addEventListener('click', closeJumpSheet);
     if (sheetBackdrop) sheetBackdrop.addEventListener('click', closeJumpSheet);
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && sheet && !sheet.classList.contains('hidden')) closeJumpSheet();
+        if (e.key !== 'Escape') return;
+        if (markMenu && !markMenu.classList.contains('hidden')) setMarkMenu(false);
+        if (sheet && !sheet.classList.contains('hidden')) closeJumpSheet();
     });
 
     window.addEventListener('resize', () => {
@@ -213,14 +282,25 @@ export function updateMobileNav() {
         const off = multi || state.userAnswers[idx] != null || !!state.used5050Questions[idx];
         fiveBtn.classList.toggle('is-off', off);
     }
-    // Đánh dấu: tô đậm khi câu hiện tại đang được đánh dấu
-    if (markBtn) markBtn.classList.toggle('is-active', state.markedQuestions.includes(idx));
+    // Đánh dấu: câu đang được đánh dấu -> nút mang icon + màu của lý do
+    if (markBtn) {
+        const rk = state.markedQuestions.includes(idx) ? (state.markedReasons[idx] || 'review') : '';
+        const m = rk ? MARK_REASONS[rk] : null;
+        markBtn.classList.toggle('is-active', !!m);
+        markBtn.style.cssText = m ? `--mk:${m.color};--mk-bg:${m.bg};--mk-ink:${m.text}` : '';
+        markBtn.innerHTML = `<i class="fas ${m ? m.icon : 'fa-bookmark'}"></i>`;
+        markBtn.title = m ? `Đã đánh dấu: ${m.short} — bấm để đổi` : 'Đánh dấu câu';
+    }
+    if (markMenu && !markMenu.classList.contains('hidden')) renderMarkMenu();
+    // Câu hiện tại đã trả lời -> nút Tiếp "sẵn sàng" (sáng nhẹ) để biết bước kế tiếp
+    if (nextBtn) nextBtn.classList.toggle('is-ready', state.userAnswers[idx] != null && !isLast);
 
     // Nếu bảng nhảy câu đang mở, cập nhật lại các ô cho khớp trạng thái mới nhất
     if (sheet && !sheet.classList.contains('hidden')) renderJumpGrid();
 }
 
 export function hideMobileNav() {
+    setMarkMenu(false);
     if (bar) {
         bar.classList.remove('show');
         bar.setAttribute('aria-hidden', 'true');

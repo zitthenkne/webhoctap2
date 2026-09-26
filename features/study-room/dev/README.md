@@ -55,3 +55,10 @@ Câu 1 có sẵn lý do có tên, nhận xét ✚/✖/❓ gắn từng phương 
 
 Kiểm thử thao tác: `e2e2.mjs` (Playwright, 48 mục) trong scratchpad phiên 2026-09-24;
 bộ tách "Dán đề" có test thuần Node: `npm test` (features/study-room/tests/room-paste.test.js).
+
+## Bảng trắng (bản 39)
+
+`whiteboard.js` tự dựng cả giao diện trong `#stage-board`; mẫu nằm ở `wb-templates.js`.
+Bộ giả nay có `writeBatch` THẬT (bảng ghi theo lô) và lộ `window.__stubStore` để script kiểm thử đếm vật
+(`study_rooms/demo/drawings/*`). Giả lập người khác trình bày / chiếu laser: `import('dev/stub-firestore.js')`
+rồi `setDoc` vào doc `_present` / `laser_<uid>` — cùng một bản module với trang nên bảng nhận ngay.

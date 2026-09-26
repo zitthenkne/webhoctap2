@@ -196,7 +196,7 @@ function openHelp() {
 // ---------------- Tìm nhanh câu hỏi (Ctrl+K) ----------------
 let findPick = 0;
 const plain = (s) => String(s || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-const fold = (s) => plain(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+export const fold = (s) => plain(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
 
 function findRows(q) {
     const qs = room.session?.questions || [];

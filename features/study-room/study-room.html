@@ -65,10 +65,13 @@
     <link rel="modulepreload" href="room-media.js">
     <link rel="modulepreload" href="room-answer.js">
     <link rel="modulepreload" href="room-presence.js">
-    <link rel="modulepreload" href="room-richtools.js">
     <link rel="modulepreload" href="room-sparkle.js">
     <link rel="modulepreload" href="room-game.js">
     <link rel="modulepreload" href="../quiz/quiz-helpers.js">
+    <link rel="modulepreload" href="../quiz/page/quiz-cases.js">
+    <link rel="modulepreload" href="../quiz/library/library-meta.js">
+    <link rel="modulepreload" href="../quiz/quiz-offline-store.js">
+    <link rel="modulepreload" href="../../core/auth-session.js">
     <link rel="modulepreload" href="../quiz/quiz-study-store.js">
     <link rel="modulepreload" href="../quiz/quiz-srs-store.js">
     <link rel="modulepreload" href="../../core/offline-write.js">
@@ -423,8 +426,9 @@
                     <!-- Cột chính: câu hỏi · phương án · bảng phiếu -->
                     <div class="rm-col-main">
                         <!-- Đọc ĐỀ trước: chip chủ đề/mức độ/người muốn bàn xuống DƯỚI câu hỏi, 1 hàng -->
+                        <!-- Ca lâm sàng = phiếu riêng TRÊN thẻ đề: dùng chung cho cả chùm, sửa tại chỗ (room-quiz-stage renderCase) -->
+                        <div id="case-box" class="hidden rm-case"></div>
                         <article class="rm-question">
-                            <div id="case-box" class="hidden rm-case"></div>
                             <div id="question-text"></div>
                             <p id="q-meta" class="rm-qmeta hidden"></p>
                         </article>
@@ -485,28 +489,8 @@
         </section>
 
         <!-- ===== TAB: BẢNG TRẮNG ===== -->
-        <section id="stage-board" class="hidden flex-1 min-h-0 relative">
-            <div class="rm-tools">
-                <button data-tool="select" class="tool-btn active" title="Chọn"><i class="fas fa-mouse-pointer"></i></button>
-                <button data-tool="pen" class="tool-btn" title="Bút"><i class="fas fa-pen"></i></button>
-                <button data-tool="highlight" class="tool-btn" title="Highlight"><i class="fas fa-highlighter"></i></button>
-                <button data-tool="line" class="tool-btn" title="Đường thẳng"><i class="fas fa-minus"></i></button>
-                <button data-tool="rectangle" class="tool-btn" title="Hình chữ nhật"><i class="far fa-square"></i></button>
-                <button data-tool="circle" class="tool-btn" title="Hình tròn"><i class="far fa-circle"></i></button>
-                <button data-tool="eraser" class="tool-btn" title="Tẩy"><i class="fas fa-eraser"></i></button>
-                <input type="color" id="color-picker" value="#FF69B4" class="rm-color" title="Chọn màu">
-                <input type="range" id="line-width" min="1" max="50" value="5" class="w-20 mx-1 shrink-0" title="Độ dày nét">
-                <label class="flex items-center gap-1 px-1 cursor-pointer select-none text-[11px] shrink-0" title="Nét đứt"><input type="checkbox" id="dashed-checkbox" class="accent-pink-400"><span class="hidden md:inline">Đứt</span></label>
-                <button id="undo-btn" class="tool-btn" title="Hoàn tác"><i class="fas fa-undo"></i></button>
-                <button id="redo-btn" class="tool-btn" title="Làm lại"><i class="fas fa-redo"></i></button>
-                <button id="upload-image-object-btn" class="tool-btn" title="Chèn ảnh"><i class="fas fa-image"></i></button>
-                <button id="clear-canvas-btn" class="tool-btn text-red-500" title="Xóa bảng"><i class="fas fa-trash"></i></button>
-                <input type="file" id="image-object-file-input" accept="image/*" class="hidden">
-            </div>
-            <div id="canvas-container" class="absolute inset-0 bg-white">
-                <canvas id="whiteboard" class="w-full h-full cursor-crosshair"></canvas>
-            </div>
-        </section>
+        <!-- Bảng hội chẩn: whiteboard.js nạp lười và tự dựng toàn bộ bên trong (công cụ, mẫu, trình bày…) -->
+        <section id="stage-board" class="hidden flex-1 min-h-0 relative"></section>
 
         <!-- ===== BẢNG ĐIỀU KHIỂN CHỦ TRÌ: viên nổi giữa đáy sân khấu =====
              3 nút chính có chữ, nút phụ chỉ còn biểu tượng (rê chuột xem tên) và chia nhóm

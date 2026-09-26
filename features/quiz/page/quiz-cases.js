@@ -12,6 +12,13 @@ export function caseKeyOf(q) {
     return q && q.caseId ? String(q.caseId).trim() : '';
 }
 
+// Lớp CSS nối các ô cùng một ca trên bảng số câu / bảng nhảy câu:
+// "in-case" (+ "case-first" / "case-last" ở hai đầu). Câu độc lập -> chuỗi rỗng.
+export function caseCellClass(q) {
+    if (!q || !(q.__caseTotal > 1)) return '';
+    return 'in-case' + (q.__caseSeq === 1 ? ' case-first' : '') + (q.__caseSeq === q.__caseTotal ? ' case-last' : '');
+}
+
 // Gom mảng câu hỏi thành mảng các "khối": các câu cùng caseId vào chung một khối
 // (theo thứ tự xuất hiện đầu tiên), mỗi câu độc lập là một khối riêng kích thước 1.
 export function groupQuestionsByCase(questions) {

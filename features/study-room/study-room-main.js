@@ -19,7 +19,6 @@ import { initBoost, openMinutes } from './room-boost.js';
 import { initGame } from './room-game.js';
 import { initMedia } from './room-media.js';
 import { initPresence } from './room-presence.js';
-import { initRichTools } from './room-richtools.js';
 import { initSparkle } from './room-sparkle.js';
 
 const el = (id) => document.getElementById(id);
@@ -32,26 +31,25 @@ let markReady = () => {};
 const firstSession = new Promise(res => { markReady = res; });
 
 // ---------------- Điều hướng giao diện ----------------
-// Bảng trắng: 26KB + một listener Firestore riêng. Đa số buổi học không mở tới,
-// nên chỉ nạp khi bấm vào tab (import động).
-let wbReady = null;
+// Bảng trắng = whiteboard.js + whiteboard.css (+ wb-templates.js, còn lười hơn: chỉ khi mở hộp Mẫu) và một
+// listener Firestore riêng. Đa số buổi học không mở tới -> KHÔNG tải gì cho tới khi người dùng nhấn vào lối
+// vào bảng; tải từ lúc ấn xuống (pointerdown) cho kịp, JS và CSS song song.
+let wbLib = null, wbReady = null;
+function loadCss(href) {
+    return new Promise((res) => {
+        const l = document.createElement('link');
+        l.rel = 'stylesheet'; l.href = href;
+        l.onload = l.onerror = () => res();
+        document.head.appendChild(l);
+    });
+}
+const loadBoard = () => (wbLib ||= Promise.all([import('./whiteboard.js'), loadCss(new URL('./whiteboard.css', import.meta.url).href)])
+    .then(([m]) => m).catch(err => { wbLib = null; throw err; }));
 function ensureWhiteboard() {
     if (wbReady) return wbReady;
-    wbReady = import('./whiteboard.js').then(({ initWhiteboard }) => {
-        const canvas = el('whiteboard');
-        const un = initWhiteboard({
-            canvas, ctx: canvas?.getContext('2d'),
-            roomId: room.roomId, user: room.user,
-            loadingOverlay: el('loading-overlay'),
-            toolBtns: document.querySelectorAll('.tool-btn'),
-            colorPicker: el('color-picker'),
-            lineWidth: el('line-width'),
-            clearCanvasBtn: el('clear-canvas-btn'),
-            undoBtn: el('undo-btn'),
-            redoBtn: el('redo-btn'),
-            uploadImageObjectBtn: el('upload-image-object-btn'),
-            imageObjectFileInput: el('image-object-file-input'),
-        });
+    wbReady = loadBoard().then(({ initWhiteboard }) => {
+        // whiteboard.js tự dựng toàn bộ giao diện bảng bên trong #stage-board
+        const un = initWhiteboard({ root: el('stage-board'), roomId: room.roomId, user: room.user });
         if (un) unsubs.push(un);
         requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
     }).catch(err => {
@@ -60,6 +58,18 @@ function ensureWhiteboard() {
         showToast('Không mở được bảng trắng.', 'error');
     });
     return wbReady;
+}
+
+// Thanh soạn thảo (room-richtools.js): chỉ tải khi lần ĐẦU bấm vào một ô sửa — người chỉ xem / chọn đáp án
+// thì không bao giờ phải tải.
+function lazyRichTools() {
+    const first = (e) => {
+        const ed = e.target.closest?.('[data-live-edit]');
+        if (!ed) return;
+        document.removeEventListener('focusin', first, true);
+        import('./room-richtools.js').then(m => m.initRichTools(ed)).catch(() => document.addEventListener('focusin', first, true));
+    };
+    document.addEventListener('focusin', first, true);
 }
 
 function showStage(name) {
@@ -111,6 +121,10 @@ function initLayout() {
         const b = e.target.closest('[data-stage]');
         if (b) showStage(b.dataset.stage);
     });
+    // Ấn xuống lối vào bảng trắng (tab / sảnh chờ / khay Thêm) -> bắt đầu tải luôn, nhả tay ra là gần như có sẵn
+    document.addEventListener('pointerdown', (e) => {
+        if (e.target.closest?.('[data-stage="board"], [data-wait="board"], [data-more="board"]')) loadBoard().catch(() => {});
+    }, { passive: true });
     el('side-panel')?.addEventListener('click', (e) => {
         const b = e.target.closest('[data-panel]');
         if (!b) return;
@@ -603,7 +617,7 @@ async function initRoom() {
         initGame();
         initInlineEdit();
         initMedia();
-        initRichTools();                                         // thanh soạn thảo: ảnh · bảng · danh sách · tiêu đề
+        lazyRichTools();                                         // thanh soạn thảo: ảnh · bảng · danh sách · tiêu đề (tải lúc cần)
         initPresence();                                          // thanh ai-đang-xem + con trỏ người khác
         initSparkle();                                           // bản 32: ABCD mini trên HUD · xem trước câu · 🔥 chuỗi · vắng mặt
         window.addEventListener('room:minutes', openMinutes);   // room-minutes.js nạp lười ở lần mở đầu

@@ -23,6 +23,8 @@ const SEND_GAP = 700;
 const keyName = (k = '') => {
     if (k === 'explain') return 'giải thích';
     if (k === 'question') return 'câu hỏi';
+    if (k === 'case') return 'ca lâm sàng';
+    if (k === 'casetitle') return 'tên ca';
     if (k === 'issue') return 'báo lỗi đề';
     if (k === 'extra:expanded') return 'mở rộng';
     if (k === 'extra:note') return 'ghi nhớ';

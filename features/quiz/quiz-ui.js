@@ -3,6 +3,7 @@
 import { state, MARK_REASONS } from './quiz-state.js';
 import { parseMarkdown, renderMath, convertScoreToGPA, formatTime, triggerConfetti, stripOptionLabels, isAnswerCorrect, getCorrectIndexes } from './quiz-helpers.js';
 import { previewSrsCounts, getNewPerDay, setNewPerDay } from './quiz-srs-store.js';
+import { caseCellClass } from './page/quiz-cases.js';
 import { auth } from '../../core/firebase-init.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
 
@@ -39,6 +40,10 @@ function navMarkHtml(rk) {
     const mc = (MARK_REASONS[rk] && MARK_REASONS[rk].color) || '#eab308';
     return `<span class="quiz-nav-flag" style="background:${mc}"></span>`;
 }
+// Lớp đầy đủ của một ô: trạng thái + nối nhóm ca lâm sàng (in-case/case-first/case-last)
+function navCellClass(i) {
+    return ['quiz-nav-btn', navStateClass(i), caseCellClass(state.questions[i])].filter(Boolean).join(' ');
+}
 function navCellHtml(i, rk) {
     return `<span class="quiz-nav-num">${i + 1}</span>${navMarkHtml(rk)}`;
 }
@@ -49,16 +54,25 @@ export function renderQuizProgressBar() {
     let navHtml = '';
     for (let i = 0; i < total; i++) {
         const rk = navMarkKey(i);
-        navHtml += `<button type="button" class="quiz-nav-btn ${navStateClass(i)}" data-qidx="${i}" data-mark="${rk}" title="Câu ${i + 1}${rk ? ' (Đánh dấu)' : ''}">${navCellHtml(i, rk)}</button>`;
+        navHtml += `<button type="button" class="${navCellClass(i)}" data-qidx="${i}" data-mark="${rk}" title="Câu ${i + 1}${rk ? ' (Đánh dấu)' : ''}">${navCellHtml(i, rk)}</button>`;
     }
     return `
         <div class="quiz-panel-drag focus-hide" data-panel="nav" role="separator" aria-label="Kéo để xích bảng số câu lên/xuống" title="Kéo để xích bảng lên/xuống • bấm đúp để trả về"><i class="fas fa-grip-lines"></i></div>
         <div class="mb-4">
-            <div class="flex justify-between items-center text-xs text-gray-600 mb-2 px-1 focus-hide">
-                <span class="font-medium" id="quiz-nav-answered"></span>
-                <span class="font-medium" id="quiz-nav-left"></span>
+            <!-- Thước kẻ tiến độ: vạch bút dạ = phần đã làm, bút chì = câu đang xem -->
+            <div class="qnp-head focus-hide">
+                <div class="qnp-count"><b id="quiz-nav-answered"></b><span id="quiz-nav-left"></span></div>
+                <div class="qnp-ruler" aria-hidden="true"><span id="quiz-nav-fill" class="qnp-fill"></span><i id="quiz-nav-pin" class="fas fa-pencil qnp-pin"></i></div>
             </div>
             <div id="question-nav-wrapper" class="quiz-nav-grid mt-3 bg-gray-50/50 rounded-xl border border-gray-100 focus-hide">${navHtml}</div>
+            <button type="button" id="nav-next-unanswered" class="qnp-jump focus-hide" title="Nhảy tới câu chưa trả lời kế tiếp"><i class="fas fa-forward-step"></i> Câu chưa làm</button>
+            <div id="quiz-nav-legend" class="qnp-legend focus-hide" aria-hidden="true">
+                <span><i class="lg-cur"></i>Đang xem</span>
+                <span class="lg-when-later"><i class="lg-done"></i>Đã làm</span>
+                <span class="lg-when-now"><i class="lg-ok"></i>Đúng</span>
+                <span class="lg-when-now"><i class="lg-bad"></i>Sai</span>
+                <span><i class="lg-flag"></i>Đánh dấu</span>
+            </div>
         </div>
     `;
 }
@@ -73,12 +87,20 @@ export function syncQuizNavPanel() {
     const percent = total > 0 ? Math.round((answered / total) * 100) : 0;
     const answeredEl = document.getElementById('quiz-nav-answered');
     const leftEl = document.getElementById('quiz-nav-left');
-    if (answeredEl) answeredEl.textContent = `Đã trả lời: ${answered}/${total} (${percent}%)`;
-    if (leftEl) leftEl.textContent = `Còn lại: ${total - answered}`;
+    if (answeredEl) answeredEl.textContent = `Đã làm ${answered}/${total}`;
+    if (leftEl) leftEl.textContent = `${percent}%`;
+    const fillEl = document.getElementById('quiz-nav-fill');
+    if (fillEl) fillEl.style.width = `${percent}%`;
+    const pinEl = document.getElementById('quiz-nav-pin');
+    if (pinEl && total > 0) pinEl.style.left = `${((state.currentIndex + 0.5) / total) * 100}%`;
+    const jumpEl = document.getElementById('nav-next-unanswered');
+    if (jumpEl) jumpEl.disabled = answered >= total;
+    const legendEl = document.getElementById('quiz-nav-legend');
+    if (legendEl) legendEl.dataset.imm = state.quizOptions.showAnswerImmediately ? '1' : '0';
     wrap.querySelectorAll('.quiz-nav-btn').forEach(btn => {
         const i = parseInt(btn.dataset.qidx, 10);
         if (isNaN(i)) return;
-        const cls = `quiz-nav-btn ${navStateClass(i)}`.trim();
+        const cls = navCellClass(i);
         if (btn.className !== cls) btn.className = cls;
         // Chỉ vẽ lại phần trong khi ĐÁNH DẤU đổi -> chấm nhấp nháy không bị khởi động lại
         const rk = navMarkKey(i);
@@ -167,7 +189,7 @@ export function loadQuizDetails() {
     
     if (state.quizData) {
         quizTitle.textContent = state.quizData.title;
-        quizInfo.textContent = "Chọn nhanh một chế độ hoặc tự tùy chỉnh bên dưới, rồi bắt đầu thôi!";
+        quizInfo.textContent = "Chọn chế độ, chỉnh chi tiết nếu cần rồi bấm Bắt đầu.";
         document.title = state.quizData.title;
         
         window.quizQuestionsLength = state.originalQuestions.length;
@@ -227,8 +249,12 @@ function renderSrsLandingCard() {
         countEl.classList.remove('skeleton-line');
         countEl.innerHTML = due + newToday > 0
             ? `<b class="text-indigo-700">${due} câu đến hạn</b> · ${newToday} câu mới hôm nay`
-            : 'Hôm nay không còn câu nào cần ôn 🎉';
+            : 'Hôm nay không còn câu đến hạn';
         startBtn.disabled = due + newToday === 0;
+        // Không có gì để ôn: nút nói rõ lý do thay vì chỉ mờ đi
+        startBtn.innerHTML = startBtn.disabled
+            ? '<i class="fas fa-circle-check"></i> Chưa đến hạn'
+            : '<i class="fas fa-calendar-check"></i> Ôn ngay';
     };
 
     if (newPerDayInput) {
@@ -291,7 +317,7 @@ export function showResults(totalTime) {
                     <p class="text-xs sm:text-sm text-gray-700 font-medium mt-1">
                         <span class="text-green-600 font-bold">${correctCount} câu đúng</span> được giãn ra xa hơn,
                         <span class="text-red-500 font-bold">${wrongCount} câu sai</span> sẽ quay lại trong hôm nay${newPart}.
-                        Nhớ ghé lại khi chuông thông báo có câu đến hạn nhé!
+                        Chuông thông báo sẽ báo khi có câu đến hạn.
                     </p>
                 </div>
             </div>`;
@@ -476,8 +502,8 @@ export function showResults(totalTime) {
         <!-- Thẻ tổng kết -->
         <div class="bg-white rounded-3xl shadow-xl p-6 sm:p-8 fade-in border border-pink-100/60">
             <div class="flex flex-col md:flex-row items-center gap-6 md:gap-10">
-                <!-- Vòng tròn phần trăm -->
-                <div class="relative flex-shrink-0">
+                <!-- Con dấu chấm điểm: vòng phần trăm + điểm chữ, đóng nghiêng như dấu mực -->
+                <div class="result-stamp relative flex-shrink-0" style="--stamp:${ringColor}">
                     <svg width="150" height="150" viewBox="0 0 120 120" class="-rotate-90">
                         <circle cx="60" cy="60" r="${radius}" fill="none" stroke="${ringBg}" stroke-width="12" />
                         <circle id="result-ring" cx="60" cy="60" r="${radius}" fill="none" stroke="${ringColor}" stroke-width="12" stroke-linecap="round"
@@ -485,16 +511,17 @@ export function showResults(totalTime) {
                             style="transition: stroke-dashoffset 1.2s ease-out;" />
                     </svg>
                     <div class="absolute inset-0 flex flex-col items-center justify-center">
-                        <span id="result-pct" class="text-3xl font-extrabold" style="color:${ringColor}">0%</span>
+                        <span class="rs-grade" style="color:${ringColor}">${letterGrade}</span>
+                        <span id="result-pct" class="rs-pct font-extrabold" style="color:${ringColor}">0%</span>
                         <span class="text-xs text-gray-400 font-medium">${correctCount}/${total} câu</span>
                     </div>
                 </div>
                 <!-- Thông tin tổng kết -->
                 <div class="flex-1 text-center md:text-left w-full">
-                    <h2 class="text-2xl sm:text-3xl font-extrabold text-gray-800 mb-1">Hoàn thành! 🎉</h2>
+                    <h2 class="text-2xl sm:text-3xl font-extrabold text-gray-800 mb-1">Kết quả bài làm</h2>
                     <p class="text-pink-600 font-semibold ${deltaHtml ? 'mb-2' : 'mb-4'}">${motivation}</p>
                     ${deltaHtml ? `<div class="flex justify-center md:justify-start mb-4">${deltaHtml}</div>` : ''}
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                    <div class="res-ticket grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
                         <div class="bg-green-50 border border-green-100 rounded-xl px-3 py-2 text-center">
                             <div class="text-lg font-bold text-green-600">${correctCount}</div>
                             <div class="text-[11px] text-gray-500 font-medium">Đúng</div>
@@ -514,7 +541,6 @@ export function showResults(totalTime) {
                     </div>
                     <div class="flex flex-wrap justify-center md:justify-start gap-2">
                         <span class="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-sm font-semibold border border-blue-100">Hệ 4: <b>${gpa4}</b></span>
-                        <span class="inline-flex items-center gap-1.5 bg-pink-50 text-pink-700 px-3 py-1.5 rounded-full text-sm font-semibold border border-pink-100">Điểm chữ: <b>${letterGrade}</b></span>
                         <span class="inline-flex items-center gap-1.5 bg-green-50 text-green-700 px-3 py-1.5 rounded-full text-sm font-semibold border border-green-100">Hệ 10: <b>${score10}</b></span>
                         ${guessTotal > 0 ? `<span class="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 px-3 py-1.5 rounded-full text-sm font-semibold border border-amber-100" title="Câu bạn tự nhận là đoán — trúng nhờ may mắn thì vẫn nên ôn lại"><i class="fas fa-dice"></i> Đoán trúng <b>${guessRight}/${guessTotal}</b></span>` : ''}
                     </div>
@@ -527,19 +553,16 @@ export function showResults(totalTime) {
             ${showPracticeButton ? `
             <div class="mt-6 p-5 sm:p-6 bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-red-500/10 border-2 border-amber-400/80 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-md transition-all duration-300">
                 <div class="flex items-center gap-4 text-left">
-                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-lg flex-shrink-0 animate-bounce">
-                        <i class="fas fa-fire text-2xl"></i>
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-lg flex-shrink-0">
+                        <i class="fas fa-rotate-right text-2xl"></i>
                     </div>
                     <div>
-                        <h4 class="font-extrabold text-gray-800 text-lg sm:text-xl flex flex-wrap items-center gap-2">
-                            <span>Instant Redo Loop</span>
-                            <span class="text-xs bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full font-bold border border-amber-300/60">⚡ Khuyên dùng</span>
-                        </h4>
-                        <p class="text-xs sm:text-sm text-gray-700 font-medium mt-1">Bạn có <span class="text-red-600 font-extrabold text-base">${incorrectCount} câu</span> sai hoặc chưa trả lời. ${isSrs ? 'Học lại ngay không tính vào lịch ôn — lịch vẫn giữ nguyên hẹn của phiên vừa rồi.' : 'Ôn lại ngay lúc đang có ấn tượng mạnh để nhớ lâu nhất!'}</p>
+                        <h4 class="font-extrabold text-gray-800 text-lg sm:text-xl">Ôn lại câu sai</h4>
+                        <p class="text-xs sm:text-sm text-gray-700 font-medium mt-1">Có <span class="text-red-600 font-extrabold text-base">${incorrectCount} câu</span> sai hoặc bỏ trống. ${isSrs ? 'Học lại ngay không tính vào lịch ôn — lịch vẫn giữ nguyên hẹn của phiên vừa rồi.' : 'Làm lại riêng các câu này khi lời giải còn mới trong đầu.'}</p>
                     </div>
                 </div>
                 <button id="practiceIncorrectBtn" class="w-full md:w-auto px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl shadow-[0_8px_20px_rgba(245,158,11,0.4)] hover:scale-[1.03] active:scale-[0.98] transition-all font-extrabold text-sm sm:text-base flex items-center justify-center gap-2.5 flex-shrink-0">
-                    <i class="fas fa-redo-alt"></i> Làm lại ngay ${incorrectCount} câu sai
+                    <i class="fas fa-redo-alt"></i> Làm lại ${incorrectCount} câu sai
                 </button>
             </div>` : `
             <div class="mt-6 p-5 sm:p-6 bg-gradient-to-r from-green-500/15 to-emerald-500/15 border-2 border-green-400/80 rounded-2xl flex items-center gap-4 text-left shadow-md">
@@ -547,16 +570,17 @@ export function showResults(totalTime) {
                     <i class="fas fa-trophy text-2xl"></i>
                 </div>
                 <div>
-                    <h4 class="font-extrabold text-green-800 text-lg sm:text-xl">Hoàn hảo! 100% chính xác!</h4>
-                    <p class="text-xs sm:text-sm text-green-700 font-medium mt-1">Bạn đã trả lời đúng toàn bộ ${total} câu hỏi trong phiên này. Quá xuất sắc, không còn câu nào cần làm lại!</p>
+                    <h4 class="font-extrabold text-green-800 text-lg sm:text-xl">Đúng toàn bộ ${total} câu</h4>
+                    <p class="text-xs sm:text-sm text-green-700 font-medium mt-1">Không có câu sai hay bỏ trống trong phiên này.</p>
                 </div>
             </div>`}
 
-            <div class="mt-6 pt-6 border-t border-gray-100 flex flex-wrap justify-center gap-2.5">
+            <div class="res-nav mt-6 pt-6 border-t border-gray-100 flex flex-wrap justify-center gap-2.5">
                 ${isSrs ? '' : `
                 <button id="restartQuizBtn" class="px-5 py-2.5 bg-[#FF69B4] text-white rounded-xl hover:bg-opacity-90 hover:scale-[1.02] transition shadow-md font-semibold flex items-center gap-2">
                     <i class="fas fa-redo"></i> Làm lại toàn bộ
-                </button>`}
+                </button>
+                <span class="res-nav-sep" aria-hidden="true">Đi tiếp</span>`}
                 ${state.quizData && state.quizData.id ? `
                 <a href="quiz-history.html?id=${encodeURIComponent(state.quizData.id)}" class="px-4 py-2.5 bg-amber-50 text-amber-700 rounded-xl hover:bg-amber-100 transition shadow-sm font-semibold flex items-center gap-2 text-sm">
                     <i class="fas fa-clock-rotate-left"></i> Lịch sử

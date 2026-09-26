@@ -6,9 +6,9 @@
 // Áp cho mọi ô sửa giàu định dạng (giải thích, mở rộng, ghi nhớ, ghi chú của tôi, báo lỗi, lý do, giải thích
 // phương án, bài làm chung). Câu hỏi / chữ phương án giữ gọn -> không hiện thanh.
 // Dán bảng từ Excel / Word / Google Sheets: xem room-editor.js (paste).
-import { insertImagesInto } from './room-editor.js';
+import { insertImagesInto, insertDiagramInto } from './room-editor.js';
 
-const NO_TOOLS = /^(question$|opttext:)/;
+const NO_TOOLS = /^(question$|casetitle$|opttext:)/;
 let bar = null;
 let grid = null;
 let fileIn = null;
@@ -113,6 +113,18 @@ function act(cmd, btn) {
     if (!cur) return;
     if (cmd === 'img') return void fileIn.click();
     if (cmd === 'table') return void toggleGrid(btn);
+    if (cmd === 'diagram') { hideGrid(); return void insertDiagramInto(cur); }
+    if (cmd === 'math') {
+        // Công thức: bọc chữ đang bôi đen bằng $…$, không bôi thì chèn $$ và đặt con trỏ vào giữa để gõ luôn.
+        // Rời ô là tự vẽ thành công thức (room-editor); bấm lại vào ô thì hiện lại mã để sửa.
+        hideGrid();
+        const sel = window.getSelection();
+        const t = sel && !sel.isCollapsed && cur.contains(sel.anchorNode) ? sel.toString() : '';
+        document.execCommand('insertText', false, t ? `$${t}$` : '$$');
+        if (!t) sel?.modify?.('move', 'backward', 'character');
+        changed();
+        return void place();
+    }
     hideGrid();
     try {
         if (cmd === 'ul') document.execCommand('insertUnorderedList');
@@ -138,6 +150,8 @@ function build() {
         <button type="button" data-ed="ul" title="Gạch đầu dòng — hoặc gõ &quot;- &quot; ở đầu dòng"><i class="fas fa-list-ul"></i></button>
         <button type="button" data-ed="ol" title="Đánh số — hoặc gõ &quot;1. &quot; ở đầu dòng"><b class="rm-edtool-ic">1.</b></button>
         <button type="button" data-ed="h" title="Tiêu đề nhỏ — hoặc gõ &quot;# &quot; ở đầu dòng"><b class="rm-edtool-ic">H</b></button>
+        <button type="button" data-ed="math" title="Công thức LaTeX: gõ giữa hai dấu $ (vd. $\frac{a}{b}$, $x^2$) — rời ô là tự vẽ; bấm lại vào ô để sửa mã"><b class="rm-edtool-ic">∑</b><span>Công thức</span></button>
+        <button type="button" data-ed="diagram" title="Sơ đồ Mermaid (lưu đồ, tư duy, dòng thời gian…) — có mẫu và xem trước"><i class="fas fa-diagram-project"></i><span>Sơ đồ</span></button>
         <span class="rm-edtool-tbl">
             <i class="rm-edtool-sep"></i>
             <button type="button" data-ed="row+" title="Thêm hàng bên dưới (Tab ở ô cuối cũng thêm hàng)">+ Hàng</button>
@@ -196,7 +210,8 @@ function place() {
 }
 function hide() { bar?.classList.remove('on'); hideGrid(); }
 
-export function initRichTools() {
+/** @param {Element} [startEd] ô sửa vừa được bấm vào (module nạp lười ngay lúc đó -> gắn thanh luôn cho ô này) */
+export function initRichTools(startEd) {
     build();
     document.addEventListener('focusin', (e) => {
         const ed = e.target.closest?.('[data-live-edit]');
@@ -218,6 +233,7 @@ export function initRichTools() {
     window.addEventListener('resize', () => { if (cur) place(); });
     window.visualViewport?.addEventListener('resize', () => { if (cur) place(); });
     document.addEventListener('mousedown', (e) => { if (!e.target.closest('.rm-tgrid, [data-ed="table"]')) hideGrid(); });
+    if (startEd && !NO_TOOLS.test(startEd.dataset.liveEdit || '') && startEd.contains(document.activeElement)) { cur = last = startEd; place(); }
 
     // Tab / Shift+Tab trong bảng: đi ô; Tab ở ô cuối -> thêm hàng
     document.addEventListener('keydown', (e) => {

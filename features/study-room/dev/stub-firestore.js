@@ -52,18 +52,24 @@ const store = {
                 note: 'Nhớ: "xoang trên, nhĩ thất dưới" theo hướng dẫn truyền.',
             },
             {
-                question: 'Cung lượng tim được tính bằng công thức nào?',
+                question: 'Cung lượng tim được tính bằng công thức nào? (gợi ý: $CO = HR \\times SV$, bình thường $K<5$ L/phút là thấp)',
                 options: ['Tần số tim × thể tích nhát bóp', 'Huyết áp / sức cản', 'Thể tích cuối tâm trương − cuối tâm thu', 'Áp lực × diện tích'],
                 answer: 1,
+                // bộ xem trước: công thức inline + khối + \[ \] + sơ đồ Mermaid (và một sơ đồ SAI cú pháp) để soi hiển thị
+                explanation: 'Theo định nghĩa: $$CO = HR \\times SV$$ Huyết áp trung bình: \\[MAP \\approx DBP + \\frac{1}{3}(SBP - DBP)\\]\n\n```mermaid\nflowchart LR\n    A[Tiền tải ↑] --> B[Thể tích nhát bóp ↑]\n    C[Tần số tim ↑] --> D{Cung lượng tim}\n    B --> D\n```',
+                expanded: 'Sơ đồ lỗi để thử thẻ báo lỗi:\n\n```mermaid\nflowchart LR\n    A[[ --> \n```',
                 topic: 'Huyết động', level: 'Thông hiểu',
-                caseTitle: 'Ca lâm sàng 1',
-                caseText: 'Nam 62 tuổi, khó thở khi gắng sức, phù hai chi dưới, tĩnh mạch cổ nổi.',
+                caseId: 'ca1', caseTitle: 'Ca lâm sàng 1',
+                caseText: 'Nam 62 tuổi, khó thở khi gắng sức, phù hai chi dưới, tĩnh mạch cổ nổi.\n\n| Chỉ số | Kết quả |\n|---|---|\n| HA | 150/95 mmHg |\n| Mạch | 104 l/p |\n| NT-proBNP | 2.400 pg/mL |',
             },
             {
                 question: 'Pha nào của điện thế hoạt động cơ tim do dòng Ca²⁺ đi vào?',
                 options: ['Pha 0', 'Pha 1', 'Pha 2 (bình nguyên)', 'Pha 4'],
                 answer: 3,
                 source: 'Bài giảng Sinh lý ĐHYD',
+                // cùng chùm với câu trên (câu chùm dùng chung ca) — để thử phiếu ca + chấm nhảy câu
+                caseId: 'ca1', caseTitle: 'Ca lâm sàng 1',
+                caseText: 'Nam 62 tuổi, khó thở khi gắng sức, phù hai chi dưới, tĩnh mạch cổ nổi.\n\n| Chỉ số | Kết quả |\n|---|---|\n| HA | 150/95 mmHg |\n| Mạch | 104 l/p |\n| NT-proBNP | 2.400 pg/mL |',
             },
             // Câu TỰ LUẬN (không phương án) — MỘT bài làm chung (notes.q3) + nhận xét song song
             {
@@ -234,6 +240,7 @@ if (view === 'ended') {
 }
 
 const listeners = [];
+window.__stubStore = store;   // cho script kiểm thử đọc thẳng dữ liệu giả (vd. đếm vật trên bảng trắng)
 const notify = () => listeners.forEach(l => l());
 const pathOf = (r) => r.path;
 
@@ -249,7 +256,16 @@ export const serverTimestamp = () => { const t = Date.now(); return { toDate: ()
 export const arrayUnion = (v) => ({ __union: v });
 export const arrayRemove = (v) => ({ __remove: v });
 export const deleteField = () => ({ __delete: true });
-export const writeBatch = () => ({ set() {}, update() {}, delete() {}, commit: async () => {} });
+// Lô ghi thật (bảng trắng ghi theo lô): gom thao tác rồi áp một lượt khi commit
+export const writeBatch = () => {
+    const ops = [];
+    return {
+        set(ref, data, opts) { ops.push(() => { store[pathOf(ref)] = opts?.merge ? { ...(store[pathOf(ref)] || {}), ...data } : { ...data }; }); },
+        update(ref, patch) { ops.push(() => { store[pathOf(ref)] = store[pathOf(ref)] || {}; applyPatch(store[pathOf(ref)], patch); }); },
+        delete(ref) { ops.push(() => { delete store[pathOf(ref)]; }); },
+        commit: async () => { ops.forEach(f => f()); notify(); },
+    };
+};
 
 function applyPatch(target, patch) {
     Object.entries(patch).forEach(([k, v]) => {

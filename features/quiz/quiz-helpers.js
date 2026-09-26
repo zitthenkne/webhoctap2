@@ -13,7 +13,7 @@ export function ensureMermaidInit() {
         mermaid.initialize({
             startOnLoad: false,
             theme: 'base',
-            securityLevel: 'loose', // Cho phép nhãn HTML / ký tự đặc biệt (tiếng Việt) không bị chặn
+            securityLevel: _mmSecurity, // mặc định 'loose' (nhãn HTML); trang nhiều người cùng sửa đặt 'antiscript' qua configureMermaid
             flowchart: { useMaxWidth: true, htmlLabels: true },
             themeVariables: {
                 fontSize: '16px',
@@ -91,6 +91,76 @@ export function ensureMermaidLoaded() {
     return _mermaidPromise;
 }
 
+// --- Bộ nhớ đệm sơ đồ: mã -> { svg, id }. Khung chứa sơ đồ bị vẽ lại (mỗi lần có người bấm / gõ) chỉ cần dán
+// lại SVG cũ (đổi id cho khỏi trùng) — không gọi mermaid lần nữa, hết nháy trắng + đỡ tốn CPU.
+const _mmCache = new Map();
+let _mmSecurity = 'loose';
+let _mmDecorate = null;
+/**
+ * Trang nào cần chặt hơn (nội dung do nhiều người cùng sửa, vd. phòng đánh đề) gọi hàm này TRƯỚC sơ đồ đầu tiên.
+ * @param {{securityLevel?: 'strict'|'antiscript'|'loose', decorate?: (div: Element, ok: boolean) => void}} opt
+ *   decorate: gọi sau khi mỗi sơ đồ vẽ xong (ok) hoặc hỏng — để trang gắn nút phóng to / sửa mã.
+ */
+export function configureMermaid({ securityLevel, decorate } = {}) {
+    if (securityLevel) _mmSecurity = securityLevel;
+    if (decorate !== undefined) _mmDecorate = decorate;
+}
+
+/** Sửa sẵn vài lỗi cú pháp hay gặp trong mã Mermaid viết tay (nhãn tiếng Việt, dấu so sánh, ngoặc). */
+export function fixMermaidCode(code) {
+    return String(code || '')
+        // Nhãn liên kết thiếu nháy kép (Mermaid v10 khi có tiếng Việt, khoảng trắng hoặc +, /)
+        .replace(/([=-]+>|==>|-\.->|---)\s*\|([^"\n|]+)\|/g, (m, arrow, label) => `${arrow} |"${label.trim()}"|`)
+        // Dấu so sánh trong nhãn (vd "K < 3.3 mEq/L") -> mã ký tự #60; / #62; (không đụng mũi tên -->, <--, ==>)
+        .replace(/(?<![-=.<])<(?=\s*\d)/g, '#60;')
+        .replace(/(?<![-=.>])>(?=\s*\d)/g, '#62;')
+        // Nhãn node trong [...] có ( ) hoặc & -> bọc nháy kép (bỏ qua nhãn đã có nháy / shape lồng nhau)
+        .replace(/\[([^\[\]"]*[()&][^\[\]"]*)\]/g, (m, label) => `["${label.trim()}"]`);
+}
+
+/** Vẽ mã Mermaid (đã sửa) thành chuỗi SVG, có bộ nhớ đệm. Sai cú pháp thì ném lỗi. */
+export async function mermaidSvg(code) {
+    await ensureMermaidLoaded();
+    if (!window.mermaid) throw new Error('Không tải được thư viện Mermaid');
+    ensureMermaidInit();
+    const id = 'mmd-' + Math.random().toString(36).slice(2, 11);
+    const hit = _mmCache.get(code);
+    if (hit?.err) throw hit.err;
+    if (hit) return { svg: hit.svg.split(hit.id).join(id), bind: null };
+    try {
+        const { svg, bindFunctions } = await mermaid.render(id, code);
+        _mmCache.set(code, { svg, id });
+        if (_mmCache.size > 80) _mmCache.delete(_mmCache.keys().next().value);
+        return { svg, bind: bindFunctions };
+    } catch (err) {
+        // Mermaid 10 để lại khung tạm (#d<id>) và hình "quả bom" báo lỗi ngay trong <body> -> dọn
+        document.getElementById('d' + id)?.remove();
+        const stray = document.getElementById(id);
+        if (stray && !stray.closest('.mermaid')) stray.remove();
+        _mmCache.set(code, { err });
+        throw err;
+    }
+}
+
+// Công thức: chỉ thoát < > (không thì "$a<b$" bị hiểu là thẻ <b>). GIỮ & — nội dung phòng lưu dạng HTML
+// đã thoát sẵn ("a&lt;b") và LaTeX dùng & cho ma trận; thoát & nữa là ra chữ "&lt;" trên màn.
+const _escMath = (s) => String(s ?? '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const _escHtml = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+/** Thẻ báo lỗi dễ đọc thay cho hình "quả bom" của Mermaid (màu phẳng, tự chứa style — dùng được ở mọi trang). */
+function _mermaidErrorHtml(code, err) {
+    const line = /line (\d+)/i.exec(String(err?.message || err || ''))?.[1];
+    return `<div class="mm-err" style="text-align:left;padding:.7rem .9rem;border-radius:.85rem;background:#FFF6EA;border:1.5px dashed #E8B27A;color:#7A4B12;font-size:.85rem;line-height:1.45;width:100%;box-sizing:border-box">`
+        + `<b>⚠ Sơ đồ chưa vẽ được</b> — mã Mermaid sai cú pháp${line ? ` ở dòng ${line}` : ''}.`
+        + `<pre style="margin:.5rem 0 0;white-space:pre-wrap;word-break:break-word;font-size:.74rem;opacity:.85;max-height:10rem;overflow:auto">${_escHtml(code)}</pre></div>`;
+}
+
+function _paintMermaidError(div, code, err) {
+    div.innerHTML = _mermaidErrorHtml(code, err);
+    div.style.width = '100%';
+    const box = div.closest('.mermaid-container');
+    if (box) box.style.justifyContent = 'flex-start';
+}
+
 export async function renderMermaid(element) {
     if (!element) return;
     // Chỉ nạp Mermaid khi vùng này thật sự có sơ đồ
@@ -100,35 +170,14 @@ export async function renderMermaid(element) {
 
     ensureMermaidInit();
 
-    // Chuyển các thẻ mermaid-viewer (còn ở dạng dữ liệu) thành thẻ .mermaid sẵn sàng render
-    const viewerDivs = element.querySelectorAll('.mermaid-viewer');
-    viewerDivs.forEach(div => {
+    // Chuyển các thẻ mermaid-viewer (còn ở dạng dữ liệu) thành thẻ .mermaid sẵn sàng render.
+    // GIỮ data-code (mã gốc) trên thẻ: trang sửa tại chỗ cần nó để đổi sơ đồ đã vẽ ngược về mã khi lưu.
+    element.querySelectorAll('.mermaid-viewer').forEach(div => {
         const encodedCode = div.getAttribute('data-code');
         if (!encodedCode) return;
         try {
-            let decodedCode = decodeURIComponent(encodedCode);
-
-            // Tự động sửa lỗi nhãn liên kết thiếu nháy kép trong Mermaid v10 (khi có tiếng Việt, khoảng trắng hoặc ký tự đặc biệt +, /)
-            decodedCode = decodedCode.replace(/([=-]+>|==>|-\.->|---)\s*\|([^"\n|]+)\|/g, (match, arrow, label) => {
-                return `${arrow} |"${label.trim()}"|`;
-            });
-
-            // Tự động đổi dấu so sánh < / > trong nhãn (vd "K < 3.3 mEq/L") thành mã ký tự an toàn
-            // của Mermaid (#60; / #62;) để không bị hiểu nhầm là mũi tên hay thẻ HTML -> tránh "Syntax error".
-            // Chỉ áp dụng khi đứng cạnh chữ số, nên KHÔNG đụng tới mũi tên -->, <--, ==>, -.->
-            decodedCode = decodedCode
-                .replace(/(?<![-=.<])<(?=\s*\d)/g, '#60;')   // "< 3.3" -> "#60; 3.3"
-                .replace(/(?<![-=.>])>(?=\s*\d)/g, '#62;');  // "> 5.3" -> "#62; 5.3"
-
-            // Tự động bọc nháy kép cho nhãn node trong [...] khi chứa ký tự đặc biệt ( ) hoặc &
-            // (vd "[ACE (Men chuyển)]", "[Co mạch & Tiết Aldosterone]") -> "[\"...\"]" để Mermaid không báo lỗi cú pháp.
-            // Bỏ qua nhãn đã có sẵn nháy kép. [^\[\]"] đảm bảo không ăn lan sang node khác / shape lồng nhau.
-            decodedCode = decodedCode.replace(/\[([^\[\]"]*[()&][^\[\]"]*)\]/g, (match, label) => {
-                return `["${label.trim()}"]`;
-            });
-
             // Gán text thuần để bảo vệ các ký tự đặc biệt như <, >, & không bị trình duyệt parse nhầm
-            div.textContent = decodedCode;
+            div.textContent = fixMermaidCode(decodeURIComponent(encodedCode));
             div.classList.remove('mermaid-viewer');
             div.classList.add('mermaid');
         } catch (e) {
@@ -136,51 +185,52 @@ export async function renderMermaid(element) {
         }
     });
 
-    // Chỉ lấy các node CHƯA render (mermaid đánh dấu node đã xong bằng data-processed)
+    // Chỉ lấy các node CHƯA render (đánh dấu node đã xong bằng data-processed)
     const mermaidDivs = Array.from(element.querySelectorAll('.mermaid'))
         .filter(div => div.getAttribute('data-processed') !== 'true');
-
     if (mermaidDivs.length === 0) return mermaidRenderQueue;
+    mermaidDivs.forEach(div => { if (!div.hasAttribute('data-code')) div.setAttribute('data-code', encodeURIComponent((div.textContent || '').trim())); });
+
+    // Sơ đồ đã từng vẽ (có trong bộ nhớ đệm): dán ngay, không đợi hàng đợi / font -> không nháy
+    const pending = [];
+    for (const div of mermaidDivs) {
+        const code = (div.textContent || '').trim();
+        const hit = code && _mmCache.get(code);
+        if (!hit) { pending.push(div); continue; }
+        if (hit.err) _paintMermaidError(div, code, hit.err);
+        else div.innerHTML = hit.svg.split(hit.id).join('mmd-' + Math.random().toString(36).slice(2, 11));
+        div.setAttribute('data-processed', 'true');
+        try { _mmDecorate?.(div, !hit.err); } catch (e) {}
+    }
+    if (!pending.length) return mermaidRenderQueue;
 
     // Nối vào hàng đợi: render tuần tự, không để các lần gọi chạy đè lên nhau
     mermaidRenderQueue = mermaidRenderQueue.then(async () => {
         // QUAN TRỌNG: chờ font Quicksand tải xong rồi mới vẽ. Mermaid đo kích thước chữ theo font,
         // nếu font chưa sẵn sàng (lần đầu vào trang, chưa cache) thì sơ đồ sẽ vẽ sai/trống.
-        // Đây là lý do trước đây phải F5 mới hiện (lần 2 font đã có trong cache).
         if (document.fonts) {
-            try {
-                await document.fonts.load('1em Quicksand');
-            } catch (e) { /* bỏ qua nếu trình duyệt không hỗ trợ load() */ }
-            try {
-                await document.fonts.ready;
-            } catch (e) { /* bỏ qua */ }
+            try { await document.fonts.load('1em Quicksand'); } catch (e) { /* trình duyệt không hỗ trợ load() */ }
+            try { await document.fonts.ready; } catch (e) { /* bỏ qua */ }
         }
-
-        for (const div of mermaidDivs) {
+        for (const div of pending) {
             // Có thể node đã bị render bởi lần gọi trước khi tới lượt -> bỏ qua
             if (div.getAttribute('data-processed') === 'true') continue;
             const code = (div.textContent || '').trim();
             if (!code) continue;
             try {
-                // Ưu tiên mermaid.render(): tự dựng SVG trong vùng tạm rồi gắn vào.
-                // KHÔNG phụ thuộc phần tử có đang hiển thị / có layout hay không
-                // -> khắc phục việc sơ đồ trống ở lần đầu (phải F5 mới hiện) khi nó nằm
-                // trong vùng đang ẩn (giải thích, mở rộng kiến thức...).
-                if (typeof mermaid.render === 'function') {
-                    const renderId = 'mmd-' + Math.random().toString(36).slice(2, 11);
-                    const { svg, bindFunctions } = await mermaid.render(renderId, code);
-                    div.innerHTML = svg;
-                    if (typeof bindFunctions === 'function') bindFunctions(div);
-                    div.setAttribute('data-processed', 'true');
-                } else if (typeof mermaid.run === 'function') {
-                    await mermaid.run({ nodes: [div], suppressErrors: false });
-                } else if (typeof mermaid.init === 'function') {
-                    mermaid.init(undefined, div);
-                }
+                // mermaid.render(): tự dựng SVG trong vùng tạm rồi gắn vào — không phụ thuộc phần tử có
+                // đang hiển thị hay không (sơ đồ nằm trong vùng đang ẩn vẫn vẽ đúng).
+                const { svg, bind } = await mermaidSvg(code);
+                div.innerHTML = svg;
+                if (typeof bind === 'function') bind(div);
+                div.setAttribute('data-processed', 'true');
+                try { _mmDecorate?.(div, true); } catch (e) {}
             } catch (err) {
-                // Một sơ đồ lỗi cú pháp không được làm hỏng cả trang -> log code để dễ debug
-                console.error("Lỗi render Mermaid (code bên dưới):", err);
-                console.error(code);
+                // Một sơ đồ lỗi cú pháp không được làm hỏng cả trang -> thẻ báo lỗi kèm mã để sửa
+                console.warn("Sơ đồ Mermaid sai cú pháp:", String(err?.message || err).split('\n')[0], '\n' + code);
+                _paintMermaidError(div, code, err);
+                div.setAttribute('data-processed', 'true');
+                try { _mmDecorate?.(div, false); } catch (e) {}
             }
         }
     });
@@ -196,7 +246,7 @@ function _runKaTeX(element) {
                 {left: "$$", right: "$$", display: true},
                 {left: "$", right: "$", display: false},
                 {left: "\\(", right: "\\)", display: false},
-                {left: "\\[", right: "\\[", display: true}
+                {left: "\\[", right: "\\]", display: true}
             ],
             throwOnError: false
         });
@@ -306,7 +356,7 @@ export function parseMarkdown(text) {
         const placeholder = `<!--MATHBLOCKPLACEHOLDER${placeholders.length}-->`;
         placeholders.push({
             type: 'math_block',
-            content: `$$${formula}$$`
+            content: `$$${_escMath(formula)}$$`
         });
         return placeholder;
     });
@@ -316,7 +366,7 @@ export function parseMarkdown(text) {
         const placeholder = `<!--MATHINLINEPLACEHOLDER${placeholders.length}-->`;
         placeholders.push({
             type: 'math_inline',
-            content: `$${formula}$`
+            content: `$${_escMath(formula)}$`
         });
         return placeholder;
     });
