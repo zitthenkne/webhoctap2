@@ -4595,3 +4595,435 @@ html.theme-dark .mermaid-container { background: #FFFDF8 !important; border-colo
 html.theme-dark .mm-err { color: #7A4B12; }
 /* Công thức: khối $$…$$ dài thì cuộn ngang trong khung, không đẩy vỡ cột */
 .rm-md .katex-display, #question-text .katex-display, .rm-otext .katex-display { overflow-x: auto; overflow-y: hidden; padding: .25rem 0; }
+
+/* ═══════════════ BẢN 43 (2026-09-27): SỔ CẮT DÁN HỒNG ĐÀO — hết "thô cứng" ở khung trang ═══════════════
+   Người dùng: "đẹp mắt, dễ thương, mềm mại, pastel hơn — tông hồng đào + hường phấn, đậm chất sổ dán / cắt dán;
+   bỏ thiết kế thô cứng (thanh trượt, thanh điều hướng…)". Cùng chất liệu với quiz.html bản 6.
+   CHỈ CSS, gói trong 1 mục:  1 bàn hồng đào + vân giấy · 2 tông chủ đạo · 3 đầu trang băng giấy xé · 4 thẻ chia mục
+   Đề/Bảng trắng · 5 chip phòng = cuống vé · 6 HUD = dải giấy khâu chỉ · 7 dải câu = nhãn dán số · 8 thanh chủ trì =
+   hộp bút · 9 dock điện thoại mép xé · 10 ray bảng bên = tab đánh dấu · 11 bảng bên = trang gáy lỗ · 12 thanh cuộn
+   đường khâu · 13 thanh kéo cột = đường khâu + cúc áo · 14 toast = giấy note (điện thoại dời xuống đáy) · 15 lời
+   ghim = băng washi · 16 menu / bản đồ câu / hộp thoại = giấy khâu viền · 17 nút = sticker bế · 18 nút chính kẹo
+   hồng đào chữ mực · 19 ô nhập + ô tích · 20 lật trang khi đổi câu · 21 viền focus = đường khâu.
+   Luật màu giữ nguyên: đúng xanh lá · sai đỏ · đang chọn xanh dương · đáp án file hổ phách. Không gradient trang
+   trí — linear/conic/radial dưới đây đều là điểm dừng cứng (răng cưa, lỗ bấm, đường khâu, chấm bi). */
+
+/* ---- 1 + 2. Token: bàn hồng đào, giấy ấm, hồng đào (coral) + hường phấn (powder) ---- */
+:root {
+    --rm-desk: #FCE6EF;
+    --rm-paper: #FFFBFD;
+    --rm-coral: #FF9E8C;  --rm-coral-ink: #B5483A;  --rm-coral-soft: #FFE5DC;  --rm-coral-mid: #FFC4B6;
+    --rm-powder: #F7B3CA; --rm-powder-ink: #B04670; --rm-powder-soft: #FDE8F0; --rm-powder-mid: #FBCCDC;
+    --rm-butter-soft: #FFF2CC; --rm-butter-ink: #94640F;
+    --rm-stitch: rgba(236, 128, 165, .5);
+    --rm-tape: rgba(255, 190, 170, .8);
+    --rm-tape-2: rgba(247, 179, 202, .78);
+    --rm-dot: rgba(236, 140, 178, .22);
+    --rm-tear-shade: rgba(214, 130, 165, .28);
+    --rm-sticker: 0 0 0 2px #fff, 0 6px 14px -8px rgba(200, 110, 140, .6);
+    --rm-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .62 0 0 0 0 .34 0 0 0 0 .46 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+
+    /* tông chủ đạo: kẹo hồng -> hồng đào / hường phấn; mực tím than -> mực nâu ấm */
+    --rm-accent: #F59AAE;
+    --rm-accent-deep: #D25C7E;
+    --rm-accent-soft: #FDE8EE;
+    --rm-peach: #FFC2AE;
+    --rm-peach-soft: #FFEEE6;
+    --rm-ink: #574049;
+    --rm-muted: #A58A94;
+    --rm-surface: #FFFDFE;
+    --rm-surface-2: #FFF3F7;
+    --rm-line: rgba(236, 150, 182, .26);
+    --rm-line-soft: rgba(200, 150, 170, .15);
+    --rm-shadow-sm: 0 4px 14px -8px rgba(214, 120, 150, .45);
+    --rm-shadow: 0 10px 34px -18px rgba(214, 120, 150, .5), 0 2px 8px -4px rgba(190, 140, 160, .18);
+    --rm-shadow-lg: 0 26px 60px -30px rgba(214, 120, 150, .6);
+}
+html.theme-dark {
+    --rm-desk: #221d1f;
+    --rm-paper: #2b2527;
+    --rm-coral-ink: #FFC4B8; --rm-coral-soft: #43302c; --rm-coral-mid: #5a3a33;
+    --rm-powder-ink: #FFC6DA; --rm-powder-soft: #432d36; --rm-powder-mid: #5a3444;
+    --rm-butter-soft: #3d3423; --rm-butter-ink: #F0D08A;
+    --rm-stitch: rgba(255, 160, 170, .32);
+    --rm-tape: rgba(255, 170, 150, .34);
+    --rm-tape-2: rgba(247, 160, 190, .32);
+    --rm-dot: rgba(255, 166, 180, .08);
+    --rm-tear-shade: rgba(0, 0, 0, .35);
+    --rm-sticker: 0 0 0 2px #3a3134, 0 6px 14px -8px rgba(0, 0, 0, .7);
+    --rm-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .9 0 0 0 0 .88 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+    --rm-accent-deep: #FFB0C6;
+    --rm-ink: #F2E6E3;
+    --rm-muted: #B39F9B;
+    --rm-line: rgba(255, 170, 160, .18);
+}
+
+/* bàn: vân giấy + chấm bi + phủ hồng đào lên ảnh nền pixel-art */
+body { background: var(--rm-desk); }
+body::after {
+    background:
+        var(--rm-grain) 0 0 / 200px 200px,
+        radial-gradient(circle, var(--rm-dot) 1.2px, transparent 1.7px) 0 0 / 24px 24px,
+        color-mix(in srgb, var(--rm-desk) 68%, transparent);
+}
+html.theme-dark body { background: var(--rm-desk); }
+html.theme-dark body::after {
+    background:
+        var(--rm-grain) 0 0 / 200px 200px,
+        radial-gradient(circle, var(--rm-dot) 1.2px, transparent 1.7px) 0 0 / 24px 24px,
+        color-mix(in srgb, var(--rm-desk) 62%, transparent);
+}
+/* HUD dính: nền mờ dần theo màu BÀN mới (bản cũ là trắng hồng -> thành dải sáng lạc tông) */
+@media (min-width: 768px) {
+    .rm-topbar, html.theme-dark .rm-topbar {
+        background: linear-gradient(180deg, color-mix(in srgb, var(--rm-desk) 94%, transparent) 0 70%, transparent);
+    }
+}
+@media (max-width: 767px) {
+    .rm-topbar { background: color-mix(in srgb, var(--rm-desk) 95%, transparent); border-bottom: 0; }
+}
+
+/* ---- 3. Đầu trang = băng giấy xé: mép dưới răng cưa (nền, không mask -> menu ⋮ không bị cắt) + đường khâu ---- */
+header.rm-bar {
+    background:
+        linear-gradient(90deg, var(--rm-stitch) 0 7px, #0000 0) 0 calc(100% - 13px) / 12px 1.5px repeat-x,
+        conic-gradient(from -45deg at 50% 100%, var(--rm-paper) 90deg, #0000 0) 0 calc(100% - 2px) / 14px 7px repeat-x,
+        conic-gradient(from -45deg at 50% 100%, var(--rm-tear-shade) 90deg, #0000 0) 0 100% / 14px 7px repeat-x,
+        linear-gradient(var(--rm-paper), var(--rm-paper)) 0 0 / 100% calc(100% - 8px) no-repeat;
+    border-bottom: 0;
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    padding-bottom: calc(.5rem + 9px);
+}
+.rm-brand-logo {
+    border-radius: .3rem; rotate: -7deg;
+    box-shadow: 0 0 0 2px #fff, 0 4px 8px -3px rgba(200, 110, 140, .6);
+    transition: rotate .3s var(--rm-spring);
+}
+.rm-brand:hover .rm-brand-logo { rotate: 5deg; }
+.rm-brand-name { color: var(--rm-coral-ink); }
+
+/* ---- 4. Công tắc Đề / Bảng trắng = thẻ chia mục (index tab) có băng keo ở thẻ đang mở ---- */
+.rm-switch { background: transparent; border: 0; padding: .1rem .15rem 0; gap: .35rem; }
+.rm-switch .rm-tab {
+    border-radius: .85rem .85rem .4rem .4rem;
+    color: var(--rm-powder-ink); background: var(--rm-powder-soft);
+    box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--rm-powder) 30%, transparent);
+}
+.rm-switch .rm-tab[data-stage="board"] {
+    color: var(--rm-butter-ink); background: var(--rm-butter-soft);
+    box-shadow: inset 0 -3px 0 color-mix(in srgb, #F2C44E 30%, transparent);
+}
+.rm-switch .rm-tab.active {
+    color: var(--rm-coral-ink); background: var(--rm-coral-mid); rotate: -2deg;
+    box-shadow: var(--rm-sticker);
+}
+.rm-switch .rm-tab.active::after {
+    content: ""; position: absolute; top: -6px; left: 50%; width: 1.9rem; height: .62rem;
+    translate: -50% 0; rotate: 5deg; border-radius: 2px; pointer-events: none;
+    background: var(--rm-tape);
+}
+
+/* ---- 5. Chip mã phòng = cuống vé: 2 khuyết bán nguyệt + đường khâu ---- */
+.rm-room-chip {
+    border-radius: .5rem; padding: .42rem 1rem;
+    color: var(--rm-coral-ink); background: var(--rm-coral-soft);
+    outline: 1.5px dashed color-mix(in srgb, var(--rm-coral) 55%, transparent); outline-offset: -4px;
+    rotate: -1.5deg;
+    -webkit-mask: radial-gradient(circle at 0 50%, #0000 .36rem, #000 .38rem) 0 0 / 51% 100% no-repeat,
+                  radial-gradient(circle at 100% 50%, #0000 .36rem, #000 .38rem) 100% 0 / 51% 100% no-repeat;
+            mask: radial-gradient(circle at 0 50%, #0000 .36rem, #000 .38rem) 0 0 / 51% 100% no-repeat,
+                  radial-gradient(circle at 100% 50%, #0000 .36rem, #000 .38rem) 100% 0 / 51% 100% no-repeat;
+}
+
+/* ---- 6. HUD câu (máy tính) = dải giấy khâu chỉ, 2 mẩu băng keo 2 đầu ---- */
+@media (min-width: 768px) {
+    .rm-topbar-row {
+        position: relative; border-radius: 1.1rem; border: 0;
+        background: var(--rm-paper);
+        box-shadow: 0 12px 26px -18px rgba(200, 110, 140, .6), 0 0 0 1px color-mix(in srgb, var(--rm-coral) 12%, transparent);
+        outline: 1.5px dashed var(--rm-stitch); outline-offset: -5px;
+    }
+    html.theme-dark .rm-topbar-row { box-shadow: 0 12px 26px -18px rgba(0, 0, 0, .8); }
+    .rm-topbar-row::before, .rm-topbar-row::after {
+        content: ""; position: absolute; top: -7px; width: 2.6rem; height: .8rem; border-radius: 2px; pointer-events: none;
+        background: var(--rm-tape);
+    }
+    .rm-topbar-row::before { left: -.7rem; rotate: -24deg; }
+    .rm-topbar-row::after { right: -.7rem; rotate: 22deg; background: var(--rm-tape-2); }
+}
+/* viên "Câu x/y" = nhãn dán hường phấn; ‹ › = nút tròn sticker */
+.rm-qpill {
+    border-radius: .8rem; rotate: -1.5deg;
+    color: var(--rm-powder-ink); background: var(--rm-powder-soft);
+    box-shadow: var(--rm-sticker);
+}
+.rm-qnav [data-nav] { color: var(--rm-coral-ink); }
+.rm-qnav [data-nav]:hover { background: var(--rm-coral-soft); color: var(--rm-coral-ink); }
+
+/* ---- 7. Dải câu = hàng nhãn dán số: giấy ấm, câu đang xem nghiêng + bế viền trắng ---- */
+.rm-pip {
+    border-radius: .6rem; border-color: transparent;
+    color: color-mix(in srgb, var(--rm-powder-ink) 70%, var(--rm-paper));
+    background: color-mix(in srgb, var(--rm-powder) 16%, var(--rm-paper));
+    box-shadow: 0 3px 8px -5px rgba(200, 110, 140, .55);
+}
+/* đề ngắn (không cuộn) thì bỏ mặt nạ mờ 2 mép — viên câu 1 từng bị mờ nửa trái */
+.rm-qtrack:not(.is-long) { -webkit-mask-image: none; mask-image: none; }
+/* chip trạng thái HUD = nhãn dán nghiêng so le */
+.rm-hudchips > :nth-child(odd) { rotate: -1.2deg; }
+.rm-hudchips > :nth-child(even) { rotate: 1deg; }
+.rm-pip:hover { border-color: transparent; rotate: -4deg; }
+.rm-pip.done { color: var(--rm-pick); background: var(--rm-pick-bg); }
+.rm-pip.good { color: color-mix(in srgb, var(--rm-ok) 78%, #000); background: color-mix(in srgb, var(--rm-ok) 26%, var(--rm-paper)); }
+.rm-pip.bad { color: color-mix(in srgb, var(--rm-bad) 80%, #000); background: color-mix(in srgb, var(--rm-bad) 22%, var(--rm-paper)); }
+html.theme-dark .rm-pip.good { color: var(--rm-ok); }
+html.theme-dark .rm-pip.bad { color: var(--rm-bad); }
+.rm-pip.now {
+    color: var(--rm-coral-ink); background: var(--rm-coral-mid); rotate: -5deg;
+    box-shadow: var(--rm-sticker);
+}
+
+/* ---- 8. Thanh chủ trì = hộp bút: giấy khâu chỉ, nút sticker pastel (bỏ xanh đặc / hồng đặc chữ trắng) ---- */
+.rm-hostbar {
+    background: var(--rm-paper); border: 0;
+    box-shadow: 0 18px 40px -22px rgba(150, 80, 105, .6), 0 0 0 1px color-mix(in srgb, var(--rm-coral) 14%, transparent);
+    outline: 1.5px dashed var(--rm-stitch); outline-offset: -5px;
+    padding: .5rem .6rem;
+}
+html.theme-dark .rm-hostbar { box-shadow: 0 18px 40px -22px rgba(0, 0, 0, .85); }
+.rm-host-sep { background: none; border-left: 1.5px dashed var(--rm-stitch); }
+.rm-host-btn {
+    border-color: transparent; background: var(--rm-surface-2);
+    box-shadow: 0 4px 10px -7px rgba(200, 110, 140, .6);
+    transition: transform .25s var(--rm-spring), rotate .25s var(--rm-spring), color .2s, background .2s;
+}
+.rm-host-btn:hover:not(:disabled) { border-color: transparent; color: var(--rm-coral-ink); background: var(--rm-coral-soft); rotate: -2deg; }
+.rm-host-chip { color: var(--rm-butter-ink); background: var(--rm-butter-soft); box-shadow: var(--rm-sticker); rotate: -3deg; }
+.rm-host-btn.is-show { color: var(--rm-butter-ink); background: var(--rm-butter-soft); border-color: transparent; }
+.rm-host-btn.is-lock { color: var(--rm-coral-ink); background: var(--rm-coral-mid); box-shadow: var(--rm-sticker); }
+.rm-host-btn.is-next { color: var(--rm-powder-ink); background: var(--rm-powder-mid); box-shadow: var(--rm-sticker); }
+.rm-host-btn.is-lock:hover:not(:disabled) { background: var(--rm-coral); color: #7a2a1f; }
+.rm-host-btn.is-next:hover:not(:disabled) { background: var(--rm-powder); color: #7a2446; }
+html.theme-dark .rm-host-btn.is-lock:hover:not(:disabled), html.theme-dark .rm-host-btn.is-next:hover:not(:disabled) { color: #2b2527; }
+.rm-host-btn.is-end { color: var(--rm-bad); background: color-mix(in srgb, var(--rm-bad) 8%, var(--rm-paper)); border-color: transparent; }
+
+/* ---- 9. Dock điện thoại = băng giấy xé mép trên; viên đi câu = nhãn hường phấn khâu chỉ, chữ mực ---- */
+@media (max-width: 767px) {
+    .rm-dock {
+        border-top: 0; backdrop-filter: none; -webkit-backdrop-filter: none;
+        padding-top: calc(.3rem + 8px);
+        background:
+            conic-gradient(from 135deg at 50% 0, var(--rm-paper) 90deg, #0000 0) 0 2px / 14px 7px repeat-x,
+            conic-gradient(from 135deg at 50% 0, var(--rm-tear-shade) 90deg, #0000 0) 0 0 / 14px 7px repeat-x,
+            linear-gradient(var(--rm-paper), var(--rm-paper)) 0 100% / 100% calc(100% - 8px) no-repeat;
+    }
+    .rm-dock-btn.is-on { color: var(--rm-coral-ink); background: var(--rm-coral-soft); }
+    .rm-dock-nav {
+        background: var(--rm-powder-mid);
+        box-shadow: 0 8px 18px -10px rgba(196, 90, 120, .8);
+        outline: 1.5px dashed rgba(255, 255, 255, .9); outline-offset: -4px;
+    }
+    html.theme-dark .rm-dock-nav { outline-color: rgba(255, 255, 255, .25); }
+    .rm-dock-arrow { color: var(--rm-powder-ink); background: color-mix(in srgb, var(--rm-paper) 72%, transparent); }
+    .rm-dock-arrow:active { background: var(--rm-paper); }
+    .rm-dock-count { color: var(--rm-powder-ink); }
+    .rm-dock-count::before { background: color-mix(in srgb, var(--rm-powder-ink) 18%, transparent); }
+    .rm-dock-count::after { background: var(--rm-powder-ink); }
+    .rm-dock-main { color: var(--rm-coral-ink); background: var(--rm-coral-mid); box-shadow: 0 8px 18px -10px rgba(214, 110, 90, .8); }
+}
+
+/* ---- 10. Ray bảng bên (máy tính) = tab đánh dấu màu thò ra mép sổ; rê chuột thì kéo ra ---- */
+@media (min-width: 768px) {
+    body.side-rail #side-panel { background: transparent; border-left: 0; backdrop-filter: none; -webkit-backdrop-filter: none; padding-left: 0; }
+    body.side-rail #side-panel .rm-subbar { align-items: flex-end; gap: .6rem; padding: .8rem 0; }
+    body.side-rail #side-toggle { align-self: center; background: var(--rm-paper); box-shadow: var(--rm-sticker); }
+    body.side-rail #side-panel .rm-tab {
+        width: 3.2rem; border-radius: 1rem 0 0 1rem;
+        color: var(--rm-coral-ink); background: var(--rm-coral-mid);
+        box-shadow: -4px 5px 12px -7px rgba(200, 110, 140, .6);
+        transform: translateX(.35rem);
+        transition: transform .28s var(--rm-spring), background .2s;
+    }
+    body.side-rail #side-panel .rm-tab[data-panel="members"] { color: var(--rm-powder-ink); background: var(--rm-powder-mid); }
+    body.side-rail #side-panel .rm-tab[data-panel="rank"] { color: var(--rm-butter-ink); background: #FFE3A3; }
+    html.theme-dark body.side-rail #side-panel .rm-tab[data-panel="rank"] { background: #5a4a2a; }
+    body.side-rail #side-panel .rm-tab:hover, body.side-rail #side-panel .rm-tab.active:hover {
+        transform: translateX(-.2rem); color: var(--rm-coral-ink); background: var(--rm-coral-mid);
+    }
+    body.side-rail #side-panel .rm-tab[data-panel="members"]:hover { color: var(--rm-powder-ink); background: var(--rm-powder-mid); }
+    body.side-rail #side-panel .rm-tab[data-panel="rank"]:hover { color: var(--rm-butter-ink); background: #FFE3A3; }
+    body.side-rail #side-panel .rm-tab.active { color: var(--rm-coral-ink); background: var(--rm-coral-mid); }
+    body.side-rail #side-panel .rm-tab[data-panel="members"].active { color: var(--rm-powder-ink); background: var(--rm-powder-mid); }
+    body.side-rail #side-panel .rm-tab[data-panel="rank"].active { color: var(--rm-butter-ink); background: #FFE3A3; }
+
+    /* ---- 11. Bảng bên mở = trang giấy có hàng lỗ bấm + lề hồng (thay tấm kính mờ viền thẳng) ---- */
+    .rm-side {
+        border-left: 0; padding-left: 1.05rem;
+        background:
+            radial-gradient(circle, var(--rm-desk) 3.6px, #0000 4.1px) 2px 6px / 14px 26px repeat-y,
+            linear-gradient(90deg, #0000 1.05rem, color-mix(in srgb, var(--rm-coral) 45%, transparent) 0 calc(1.05rem + 1.5px), #0000 0) 0 0 / 100% 100% no-repeat,
+            var(--rm-paper);
+        box-shadow: -14px 0 30px -26px rgba(160, 90, 115, .8);
+    }
+}
+.rm-subbar { background: transparent; border-bottom: 1.5px dashed var(--rm-line); }
+.rm-subbar .rm-tab.active { color: var(--rm-coral-ink); background: var(--rm-coral-soft); }
+
+/* ---- 12. Thanh cuộn = viên kẹo hồng đào chạy trên đường khâu chỉ (mọi khung cuộn của trang) ---- */
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track { background: linear-gradient(var(--rm-stitch) 0 55%, #0000 0) 50% 0 / 1.5px 9px repeat-y; }
+::-webkit-scrollbar-track:horizontal { background: linear-gradient(90deg, var(--rm-stitch) 0 55%, #0000 0) 0 50% / 9px 1.5px repeat-x; }
+::-webkit-scrollbar-thumb {
+    border: 3px solid transparent; border-radius: 999px; background-clip: padding-box;
+    background-color: color-mix(in srgb, var(--rm-coral) 55%, var(--rm-paper));
+}
+::-webkit-scrollbar-thumb:hover { background-color: var(--rm-coral); }
+::-webkit-scrollbar-corner { background: transparent; }
+.rm-scroll::-webkit-scrollbar { width: 12px; height: 12px; }
+.rm-scroll::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--rm-coral) 55%, var(--rm-paper)); background-clip: padding-box; }
+.rm-scroll::-webkit-scrollbar-thumb:hover { background: var(--rm-coral); background-clip: padding-box; }
+/* Chrome ≥121: scrollbar-width khác auto là bỏ qua ::-webkit-scrollbar -> trả về auto cho khung cuộn cột sổ tay */
+.rm-side-scroll { scrollbar-width: auto; }
+@supports not selector(::-webkit-scrollbar) {
+    html { scrollbar-color: color-mix(in srgb, var(--rm-coral) 60%, var(--rm-paper)) transparent; scrollbar-width: thin; }
+}
+
+/* ---- 13. Thanh kéo đổi độ rộng cột = đường khâu dọc + cúc áo 2 lỗ ---- */
+.rm-split::before {
+    inset: 10% auto; left: calc(50% - .75px); width: 1.5px; border-radius: 0;
+    background: linear-gradient(var(--rm-stitch) 0 55%, #0000 0) 0 0 / 100% 10px repeat-y;
+}
+.rm-split::after {
+    width: 1.15rem; height: 1.15rem; border-radius: 50%;
+    background:
+        radial-gradient(circle at 36% 50%, var(--rm-coral-ink) 1.3px, #0000 1.8px),
+        radial-gradient(circle at 64% 50%, var(--rm-coral-ink) 1.3px, #0000 1.8px),
+        var(--rm-coral-mid);
+    box-shadow: 0 0 0 2px var(--rm-paper), 0 3px 8px -3px rgba(200, 110, 140, .7);
+    transition: transform .3s var(--rm-spring), background .2s;
+}
+.rm-split:hover::before, .rm-split.is-drag::before {
+    background: linear-gradient(var(--rm-coral) 0 55%, #0000 0) 0 0 / 100% 10px repeat-y;
+}
+.rm-split:hover::after, .rm-split.is-drag::after {
+    height: 1.15rem; transform: translate(-50%, -50%) scale(1.25) rotate(90deg);
+    background:
+        radial-gradient(circle at 36% 50%, var(--rm-coral-ink) 1.3px, #0000 1.8px),
+        radial-gradient(circle at 64% 50%, var(--rm-coral-ink) 1.3px, #0000 1.8px),
+        var(--rm-coral);
+}
+
+/* ---- 14. Toast = mẩu giấy note dán băng keo; điện thoại nằm TRÊN dock (bản cũ che mất dải câu) ---- */
+#toast-container .toast-notification {
+    position: relative; overflow: visible;
+    border: 0; border-radius: .35rem .35rem 1rem .35rem;
+    padding-top: .8rem; rotate: -.8deg;
+    background: var(--rm-powder-soft);
+    box-shadow: 0 14px 26px -16px rgba(160, 90, 115, .6), 0 0 0 1px color-mix(in srgb, var(--rm-coral) 10%, transparent);
+}
+#toast-container .toast-notification:nth-child(even) { rotate: .7deg; }
+#toast-container .toast-notification::before {
+    content: ""; position: absolute; top: -.42rem; left: 50%; width: 3.2rem; height: .8rem;
+    translate: -50% 0; rotate: 3deg; border-radius: 2px; pointer-events: none;
+    background: var(--rm-tape);
+}
+#toast-container .toast-notification.bg-green-500 { background: var(--rm-ok-bg); }
+#toast-container .toast-notification.bg-red-500 { background: var(--rm-bad-bg); }
+#toast-container .toast-notification.bg-yellow-500 { background: var(--rm-butter-soft); }
+#toast-container .bg-blue-500 > i { color: var(--rm-powder-ink); }
+@media (max-width: 767px) {
+    #toast-container { top: auto; bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* ---- 15. Lời ghim của chủ trì = băng washi sọc, 2 đầu xé răng cưa ---- */
+.rm-pin {
+    --z: 5px;
+    border: 0; border-radius: 0; box-shadow: none; rotate: -.6deg;
+    padding-left: calc(.95rem + var(--z)); padding-right: calc(.95rem + var(--z));
+    color: var(--rm-butter-ink);
+    background:
+        repeating-linear-gradient(-45deg, rgba(255, 255, 255, .4) 0 6px, #0000 6px 12px),
+        rgba(255, 214, 140, .78);
+    -webkit-mask:
+        conic-gradient(from 45deg at 0 50%, #000 90deg, #0000 0) 0 0 / var(--z) calc(2 * var(--z)) repeat-y,
+        conic-gradient(from 225deg at 100% 50%, #000 90deg, #0000 0) 100% 0 / var(--z) calc(2 * var(--z)) repeat-y,
+        linear-gradient(#000 0 0) 50% 0 / calc(100% - 2 * var(--z) + 2px) 100% no-repeat;
+            mask:
+        conic-gradient(from 45deg at 0 50%, #000 90deg, #0000 0) 0 0 / var(--z) calc(2 * var(--z)) repeat-y,
+        conic-gradient(from 225deg at 100% 50%, #000 90deg, #0000 0) 100% 0 / var(--z) calc(2 * var(--z)) repeat-y,
+        linear-gradient(#000 0 0) 50% 0 / calc(100% - 2 * var(--z) + 2px) 100% no-repeat;
+}
+html.theme-dark .rm-pin {
+    background: repeating-linear-gradient(-45deg, rgba(255, 255, 255, .06) 0 6px, #0000 6px 12px), #4a3d26;
+}
+
+/* ---- 16. Menu ⋮ · bản đồ câu · menu chốt · hộp thoại = tờ giấy khâu viền (bỏ viền thẳng 1px) ---- */
+.rm-dropdown, .rm-qmap, #chot-menu, .rm-modal-box {
+    border-color: transparent;
+    background-color: var(--rm-paper);
+    outline: 1.5px dashed var(--rm-stitch); outline-offset: -6px;
+    box-shadow: 0 26px 50px -26px rgba(150, 80, 105, .6), 0 0 0 1px color-mix(in srgb, var(--rm-coral) 12%, transparent);
+}
+html.theme-dark :is(.rm-dropdown, .rm-qmap, #chot-menu, .rm-modal-box) { box-shadow: 0 26px 50px -26px rgba(0, 0, 0, .9); }
+.rm-menu-item:hover, .rm-menu-item.is-active { background: var(--rm-coral-soft); color: var(--rm-coral-ink); }
+.rm-menu-item > i:first-child { color: var(--rm-coral); }
+.rm-menu-cap:not(:first-child) { border-top: 1.5px dashed var(--rm-line); }
+.rm-kbd { background: var(--rm-butter-soft); border-color: transparent; color: var(--rm-butter-ink); box-shadow: 0 2px 0 color-mix(in srgb, #F2C44E 35%, transparent); }
+
+/* ---- 17. Nút phụ = sticker bế: không viền cứng, bóng giấy mềm, rê chuột thì nghiêng nhẹ ---- */
+.rm-ghost-btn {
+    border-color: transparent; background: var(--rm-paper);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--rm-coral) 16%, transparent), 0 6px 14px -9px rgba(200, 110, 140, .6);
+    transition: transform .25s var(--rm-spring), rotate .25s var(--rm-spring), color .2s, box-shadow .2s;
+}
+.rm-ghost-btn:hover {
+    border-color: transparent; color: var(--rm-coral-ink); rotate: -1.5deg;
+    box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--rm-coral) 45%, transparent), 0 10px 18px -10px rgba(200, 110, 140, .7);
+}
+.rm-icon-btn:hover { background: var(--rm-coral-soft); color: var(--rm-coral-ink); }
+.rm-online { color: var(--rm-powder-ink); background: var(--rm-powder-soft); }
+.rm-badge { color: #fff; background: var(--rm-coral-ink); }
+html.theme-dark .rm-badge { color: #2b2527; background: var(--rm-coral-ink); }
+
+/* ---- 18. Nút chính = kẹo hồng đào chữ mực + đường khâu trắng (bỏ chữ trắng trên hồng đặc) ---- */
+html .rm-cta {
+    color: #8E3326 !important; background: var(--rm-coral-mid);
+    outline: 1.5px dashed rgba(255, 255, 255, .9); outline-offset: -5px;
+    box-shadow: 0 10px 22px -12px rgba(214, 110, 90, .85);
+}
+html .rm-cta:hover:not(:disabled) { background: var(--rm-coral); box-shadow: 0 16px 28px -14px rgba(214, 110, 90, .95); rotate: -1deg; }
+html.theme-dark .rm-cta { color: #2b2527 !important; background: #FFB3A1; outline-color: rgba(255, 255, 255, .5); }
+/* "Đã sẵn sàng" = kẹo bạc hà chữ xanh lá đậm (vẫn là màu "ổn", nhưng hết khối xanh đặc) */
+#lobby-ready-btn.is-off { background: #BDEBD2 !important; color: #1E6E48 !important; box-shadow: 0 10px 22px -12px rgba(47, 181, 122, .8); }
+html.theme-dark #lobby-ready-btn.is-off { background: #2f5a45 !important; color: #BDF2D6 !important; }
+
+/* ---- 19. Ô nhập = giấy ấm viền mềm; ô tích / nút chọn màu hồng đào ---- */
+.rm-input {
+    border-color: transparent; background: var(--rm-paper); border-radius: 1rem;
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--rm-coral) 24%, transparent);
+}
+.rm-input:focus {
+    border-color: transparent;
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--rm-coral) 65%, transparent), 0 0 0 4px color-mix(in srgb, var(--rm-coral) 16%, transparent);
+}
+.rm-input::placeholder { color: color-mix(in srgb, var(--rm-muted) 85%, transparent); }
+:is(#stage, #side-panel, .rm-modal) input:is([type="checkbox"], [type="radio"]) { accent-color: #F0899F; }
+.rm-check { border-color: transparent; background: var(--rm-surface-2); box-shadow: 0 3px 8px -6px rgba(200, 110, 140, .5); }
+.rm-check:has(:checked) { border-color: transparent; color: var(--rm-powder-ink); background: var(--rm-powder-soft); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--rm-powder) 70%, transparent); }
+
+/* ---- 20. Đổi câu = lật trang sổ (thay trượt ngang) ---- */
+.rm-col-main.rm-slide-next { animation: rm-flip-next .42s cubic-bezier(.2, .8, .2, 1) backwards; transform-origin: 0 40%; }
+.rm-col-main.rm-slide-prev { animation: rm-flip-prev .42s cubic-bezier(.2, .8, .2, 1) backwards; transform-origin: 100% 40%; }
+@keyframes rm-flip-next { from { opacity: .25; transform: perspective(1600px) rotateY(-11deg) translateX(18px); } }
+@keyframes rm-flip-prev { from { opacity: .25; transform: perspective(1600px) rotateY(11deg) translateX(-18px); } }
+
+/* ---- 21. Viền focus bàn phím = đường khâu hồng đào ---- */
+:is(.rm-host-btn, .rm-host-chip, .rm-ghost-btn, .rm-icon-btn, .rm-tab, .rm-pip, .rm-qpill, .rm-room-chip, .rm-menu-item,
+    .rm-dock-btn, .rm-dock-arrow, .rm-dock-count, .rm-brand):focus-visible {
+    outline: 2px dashed var(--rm-coral-ink); outline-offset: 3px;
+}
+html .rm-cta:focus-visible { outline: 2px dashed var(--rm-coral-ink); outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+    .rm-col-main.rm-slide-next, .rm-col-main.rm-slide-prev { animation: none !important; }
+}
