@@ -85,6 +85,14 @@ function setupLastAttemptStat() {
     });
 }
 
+// Chạm / bấm vào sơ đồ Mermaid (đề, giải thích, mở rộng, kết quả) -> xem phóng to toàn màn hình
+// (chụm 2 ngón / Ctrl + lăn / nút +−). Sơ đồ nằm TRONG ô đáp án thì bỏ qua: cú bấm đó là chọn đáp án.
+document.addEventListener('click', (e) => {
+    const box = e.target.closest('.mermaid-container');
+    if (!box || !box.querySelector('svg') || e.target.closest('a, button, .answer-btn')) return;
+    import('./diagram-viewer.js').then(m => m.openDiagramViewer(box)).catch(() => {});
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     // Khởi tạo Mermaid một lần duy nhất bằng cấu hình dùng chung trong quiz-helpers
     ensureMermaidInit();
@@ -414,25 +422,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, true); // capture: chặn trước khi link kịp điều hướng
 
-    // Lớp bảo vệ cuối cho ĐÓNG TAB / F5 / gõ URL khác — trình duyệt không cho thay
-    // hộp thoại này bằng modal tùy biến, nên đành dùng dialog mặc định.
-    window.addEventListener('beforeunload', (e) => {
-        if (allowLeaveWithoutPrompt) return;
-        if (isQuizInProgress()) {
-            saveQuizState();
-            e.preventDefault();
-            e.returnValue = '';
-        }
-    });
+    // ĐÓNG TAB / F5 / gõ URL khác: chỉ LƯU bài, không bật hộp "Tải lại trang?" của trình duyệt nữa —
+    // tải lại giờ vào thẳng câu đang làm (cờ sessionStorage 'quizLive'), đóng tab thì lần sau có chip
+    // "Làm tiếp", nên hộp thoại đó chỉ còn là một bước thừa. pagehide: iOS/Android hay bỏ qua beforeunload.
+    const saveIfInProgress = () => { if (!allowLeaveWithoutPrompt && isQuizInProgress()) saveQuizState(); };
+    window.addEventListener('beforeunload', saveIfInProgress);
+    window.addEventListener('pagehide', saveIfInProgress);
 
     // Mở từ chuông thông báo (?srs=1) → tự vào phiên ôn ngắt quãng ngay khi dữ liệu
     // sẵn sàng. Nếu đang có bài làm dở thì KHÔNG tự vào (tránh ghi đè bài dở khi chưa hỏi):
     // đứng lại ở trang thiết lập, gợi ý "đang làm dở" đã hiện và người dùng tự bấm nút.
+    const resumingAfterReload = document.documentElement.classList.contains('quiz-resuming');
     loadQuizData().then(() => {
+        if (resumingAfterReload) {
+            const saved = getPendingSavedState();
+            if (saved && state.quizData) { restoreSavedSession(saved); return; }
+            try { sessionStorage.removeItem('quizLive'); } catch (e) {}   // bài đã nộp / hết dữ liệu -> về trang chờ
+        }
         const params = new URLSearchParams(window.location.search);
         if (params.get('srs') === '1' && !getPendingSavedState()
             && Array.isArray(state.originalQuestions) && state.originalQuestions.length) {
             startSrsSession();
         }
-    });
+    }).finally(() => document.documentElement.classList.remove('quiz-resuming'));
 });

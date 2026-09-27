@@ -2367,13 +2367,7 @@ html #quizSection .kb-memo {
 }
 #quizSection .kb-memo .kb-ic { background: color-mix(in srgb, var(--hue-butter) 12%, var(--surface-card)); }
 #quizSection .kb-memo .kb-body { padding-right: 2.2rem; }
-#quizSection .kb-memo .obsidian-bold {
-    text-decoration: underline;
-    text-decoration-color: var(--marker-mint);
-    text-decoration-thickness: 0.42em;
-    text-underline-offset: -0.22em;
-    text-decoration-skip-ink: none;
-}
+/* (2026-09-27) bỏ vạch bút dạ bạc hà dưới chữ đậm trong Ghi nhớ: chồng lên màu chữ nâu cam nhìn bẩn */
 
 /* 2) Mở rộng kiến thức = thẻ tra cứu: đầu thẻ tô trời + vạch hồng, lề dọc hồng, chấm kẹo đầu dòng */
 html #quizSection .kb-more {
@@ -2620,4 +2614,472 @@ html.theme-dark #quiz-mobile-nav #qmn-mark.is-active { --hi: var(--ink); }
     #qmn-mark-menu,
     #quiz-mobile-nav .qmn-arrow-next.is-ready { animation: none !important; }
     html #quizSection .kb-memo, #quizSection .quiz-question-heading, #quizSection .kb-more::after { rotate: none; }
+}
+
+/* ============================================================
+   15) BẢN 6 — "SỔ CẮT DÁN HỒNG ĐÀO" (2026-09-27)
+   Tông chủ đạo hồng đào + hồng phấn, thêm màu kẹo cho phụ kiện (KHÔNG đổi màu nghĩa
+   đúng/sai/đang chọn, không gradient trang trí — chỉ hoạ tiết điểm dừng cứng).
+   Bố cục theo bề rộng THẬT: đáp án tự xếp 1 cột khi cột bài làm hẹp (iPad ngang / kéo cột),
+   điện thoại gọn đầu trang + chế độ 2×2, màn rộng dùng hết chỗ trống.
+   ============================================================ */
+
+/* 15.1 Token: bàn hồng đào, giấy ấm hồng, thêm tông hồng đào (coral) + hồng phấn */
+:root {
+    --bg-desk: #FCE4DC;
+    --paper: #FFFBF7;
+    --line: #F5D6CD;
+    --fill: 15%;
+    --hue-coral:  #FF9E8C; --ink-coral:  #B5483A;
+    --hue-powder: #F7B3CA; --ink-powder: #B04670;
+    --ring-body: #F7A9BC;
+    --margin-line: color-mix(in srgb, #F58FA8 42%, transparent);
+    --corner: #F4A3A8;
+}
+html.theme-dark {
+    --bg-desk: #1f1a1b;
+    --hue-coral:  #FF9E8C; --ink-coral:  #FFC4B8;
+    --hue-powder: #F7B3CA; --ink-powder: #FFC6DA;
+    --margin-line: color-mix(in srgb, #F58FA8 30%, transparent);
+    --corner: #8a5f66;
+}
+/* bàn: chấm bi như cũ (cốm màu bị chê rối) + lớp phủ MỎNG hơn (38% -> 16%) để thấy rõ ảnh nền */
+body::after {
+    background:
+        radial-gradient(circle, var(--dot) 1.2px, transparent 1.7px) 0 0 / 24px 24px,
+        color-mix(in srgb, var(--bg-desk) 16%, transparent);
+}
+/* điện thoại không tải ảnh nền (quiz.html gắn html.no-quiz-bg theo loại máy) -> giấu luôn 2 dòng chỉnh nền */
+html.no-quiz-bg body::before { display: none; }
+html.no-quiz-bg .qs-row-slider:has(#qs-bg-opacity),
+html.no-quiz-bg #qs-shuffle-bg { display: none !important; }
+/* chữ nghiêng = xanh dương, đậm = hồng đậm — màu đổi theo nền chứa nó: xem §16.1 */
+
+/* 15.2 Lề vở: hai vạch hồng dọc cạnh gáy lò xo (trang chờ + trang làm bài, từ 640px) */
+@media (min-width: 640px) {
+    #quiz-landing.nb-landing,
+    #quizSection .quiz-card {
+        background-image:
+            linear-gradient(90deg, #0000 2.45rem, var(--margin-line) 2.45rem calc(2.45rem + 1.5px),
+                #0000 calc(2.45rem + 1.5px) calc(2.45rem + 4.5px), var(--margin-line) calc(2.45rem + 4.5px) calc(2.45rem + 6px), #0000 calc(2.45rem + 6px)),
+            var(--paper-art);
+        background-size: 100% 100%, var(--paper-size);
+        background-repeat: no-repeat, repeat;
+    }
+    /* chế độ tập trung: lề trong chỉ còn 1rem -> bỏ vạch lề kẻo đè chữ */
+    body.focus-mode-active #quizSection .quiz-card { background-image: var(--paper-art); background-size: var(--paper-size); background-repeat: repeat; }
+}
+
+/* 15.3 Linh vật = ảnh polaroid dán 4 góc (khung vẽ ở ::before, KHÔNG đổi kích thước nút
+        vì quiz-launch-transition.js đo #quiz-hero-btn làm đích bay) */
+#quiz-landing #quiz-hero-btn { isolation: isolate; }
+#quiz-landing #quiz-hero-btn::before {
+    content: "";
+    position: absolute;
+    inset: -7px -7px -19px -7px;
+    z-index: -1;
+    border-radius: 5px;
+    transform: rotate(-3.5deg);
+    background:
+        linear-gradient(135deg, var(--corner) 0 11px, #0000 11px) top left / 20px 20px no-repeat,
+        linear-gradient(225deg, var(--corner) 0 11px, #0000 11px) top right / 20px 20px no-repeat,
+        linear-gradient(45deg, var(--corner) 0 11px, #0000 11px) bottom left / 20px 20px no-repeat,
+        linear-gradient(315deg, var(--corner) 0 11px, #0000 11px) bottom right / 20px 20px no-repeat,
+        linear-gradient(color-mix(in srgb, var(--hue-coral) 20%, var(--paper)), color-mix(in srgb, var(--hue-coral) 20%, var(--paper))) 6px 6px / calc(100% - 12px) calc(100% - 24px) no-repeat,
+        var(--surface-card);
+    box-shadow: 0 8px 16px -8px rgba(190, 110, 100, 0.5), 0 0 0 1px color-mix(in srgb, var(--line) 80%, transparent);
+}
+html.theme-dark #quiz-landing #quiz-hero-btn::before { box-shadow: 0 8px 16px -8px rgba(0, 0, 0, 0.7); }
+#quiz-landing #quiz-hero-btn .washi-tape { top: -12px; z-index: 2; }
+
+/* 15.4 Giấy mẹo = tờ note xé từ sổ: mép dưới răng cưa (mặt nạ vẽ ở ::before để giữ bóng + băng keo) */
+#quiz-tip.nb-memo {
+    isolation: isolate;
+    background: transparent !important;
+    box-shadow: none;
+    border-radius: 0;
+    filter: drop-shadow(0 5px 6px rgba(190, 130, 115, 0.28));
+    padding-bottom: 0.95rem !important;
+}
+#quiz-tip.nb-memo::before {
+    content: "";
+    position: absolute; inset: 0; z-index: -1;
+    border-radius: 6px 6px 0 0;
+    background:
+        linear-gradient(#0000 calc(100% - 1.5px), color-mix(in srgb, var(--hue-butter) 30%, transparent) 0) 0 0.35rem / 100% 1.35rem,
+        color-mix(in srgb, var(--hue-butter) 24%, var(--surface-card));
+    -webkit-mask:
+        linear-gradient(#000 0 0) top / 100% calc(100% - 7px) no-repeat,
+        conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 11px 7px repeat-x;
+            mask:
+        linear-gradient(#000 0 0) top / 100% calc(100% - 7px) no-repeat,
+        conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 11px 7px repeat-x;
+}
+html.theme-dark #quiz-tip.nb-memo { filter: drop-shadow(0 5px 6px rgba(0, 0, 0, 0.45)); background-color: transparent !important; }
+
+/* 15.5 Mỗi khối trang chờ một màu giấy (khớp màu băng keo nhãn bước) — nhiều màu hơn mà vẫn nhạt */
+@media (min-width: 768px) {
+    #quiz-landing .bt-hero    { --tile: var(--hue-coral); }
+    #quiz-landing .bt-modes   { --tile: var(--hue-lav); }
+    #quiz-landing .bt-options { --tile: var(--hue-sky); }
+    #quiz-landing .bt-cta     { --tile: var(--hue-mint); }
+    #quiz-landing .bt-alt     { --tile: var(--hue-powder); }
+    #quiz-landing :is(.bt-hero, .bt-modes, .bt-options, .bt-cta, .bt-alt) {
+        background: color-mix(in srgb, var(--tile) 8%, color-mix(in srgb, var(--surface-card) 80%, transparent));
+        border-color: color-mix(in srgb, var(--tile) 40%, transparent);
+    }
+}
+
+/* 15.6 Chữ cái A B C D = sticker tròn bế viền trắng, dán hơi nghiêng (KHÔNG chấm bóng: nhìn như "°C") */
+html #quizSection .answer-btn .answer-letter {
+    position: relative;
+    background:
+        color-mix(in srgb, var(--h, var(--hue-latte)) 55%, #fff) !important;
+    color: var(--hi, var(--ink-latte)) !important;
+    box-shadow: 0 0 0 2.5px var(--surface-card), 0 3px 5px -1px color-mix(in srgb, var(--h, var(--hue-latte)) 70%, transparent) !important;
+    transform: rotate(-6deg);
+    transition: transform .3s var(--spring);
+}
+html.theme-dark #quizSection .answer-btn:not(.bg-blue-100):not(.bg-green-200):not(.bg-red-200) .answer-letter {
+    background:
+        color-mix(in srgb, var(--h, var(--hue-latte)) 70%, #2b2527) !important;
+    color: #2b1d1a !important;
+}
+@media (hover: hover) {
+    #quizSection .answer-btn:not(.answer-locked):hover .answer-letter { transform: rotate(4deg) scale(1.1); }
+}
+#quizSection .answer-btn.bg-blue-100 .answer-letter  { background: var(--pick-solid) !important; box-shadow: 0 0 0 2.5px var(--surface-card), 0 3px 5px -1px var(--pick-line) !important; }
+#quizSection .answer-btn.bg-green-200 .answer-letter { background: var(--ok-solid) !important;   box-shadow: 0 0 0 2.5px var(--surface-card), 0 3px 5px -1px var(--ok-line) !important; }
+#quizSection .answer-btn.bg-red-200 .answer-letter   { background: var(--bad-solid) !important;  box-shadow: 0 0 0 2.5px var(--surface-card), 0 3px 5px -1px var(--bad-line) !important; }
+
+/* 15.7 Đánh dấu câu = băng keo mép trên biến thành DẢI RUY BĂNG đánh dấu trang, màu theo lý do */
+#quizSection .quiz-card:has(#mark-question-btn[data-mark]:not([data-mark=""]))::after {
+    width: 20px; height: 46px;
+    top: -4px; right: 0.3rem;          /* nằm trong lề phải: không đè tên đề / nút Sửa */
+    transform: none;
+    transform-origin: top center;
+    background:
+        linear-gradient(90deg, #0000 4px, rgba(255, 255, 255, 0.6) 4px 5.5px, #0000 5.5px calc(100% - 5.5px), rgba(255, 255, 255, 0.6) calc(100% - 5.5px) calc(100% - 4px), #0000 calc(100% - 4px)),
+        var(--ribbon, var(--hue-coral));
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 76%, 0 100%);
+    box-shadow: none;
+    animation: nb-ribbon .5s var(--spring) both;
+}
+#quizSection .quiz-card:has(#mark-question-btn[data-mark="hard"])        { --ribbon: #F08A4B; }
+#quizSection .quiz-card:has(#mark-question-btn[data-mark="doubt"])       { --ribbon: #E8B32A; }
+#quizSection .quiz-card:has(#mark-question-btn[data-mark="interesting"]) { --ribbon: #A98BEE; }
+#quizSection .quiz-card:has(#mark-question-btn[data-mark="review"])      { --ribbon: #F27BA8; }
+@keyframes nb-ribbon { 0% { transform: scaleY(0.2); } 100% { transform: scaleY(1); } }
+
+/* 15.8 Sang câu = lật trang sổ lò xo (xoay quanh gáy bên trái), thay kiểu trượt ngang cũ */
+#quizSection > .quiz-card.q-slide-next:not(.q-same-case) { animation: nb-page-next .46s cubic-bezier(.2, .9, .25, 1) both; transform-origin: 0 50%; }
+#quizSection > .quiz-card.q-slide-prev:not(.q-same-case) { animation: nb-page-prev .46s cubic-bezier(.2, .9, .25, 1) both; transform-origin: 0 50%; }
+@keyframes nb-page-next {
+    0%   { opacity: 0; transform: perspective(1800px) rotateY(-11deg) translateX(10px); }
+    100% { opacity: 1; transform: none; }
+}
+@keyframes nb-page-prev {
+    0%   { opacity: 0; transform: perspective(1800px) rotateY(8deg) translateX(-10px); }
+    100% { opacity: 1; transform: none; }
+}
+
+/* 15.9–15.10 (nơ trên nút Bắt đầu, sticker anh đào/hoa/mây vẽ tay) ĐÃ GỠ 2026-09-27: người dùng chê thô.
+   Trang chờ giữ 3 sticker gốc ở §11 (sao · tim · lấp lánh). */
+
+/* 15.11 ĐIỆN THOẠI + CỬA SỔ HẸP (<768) — đầu trang chờ: polaroid sóc bên trái, tên đề bên phải
+         (trước: sóc 96px đứng riêng một hàng -> nút Bắt đầu bị đẩy xuống thêm ~110px; riêng 640–767px
+         thì sm:flex-row + giấy mẹo width:100% cùng hàng ép tên đề thành cột 1 chữ) */
+@media (max-width: 767px) {
+    #quiz-landing .bt-hero {
+        display: grid;
+        grid-template-columns: 4.4rem minmax(0, 1fr);
+        align-items: center;
+        column-gap: 1.05rem;
+        row-gap: 0.2rem;
+        text-align: left;
+    }
+    #quiz-landing .bt-hero-main { display: contents; }
+    #quiz-landing .bt-hero #quiz-hero-btn { grid-column: 1; grid-row: 1 / span 2; width: 4.4rem; height: 4.4rem; margin: 0.35rem 0 0.9rem 0.2rem; }
+    #quiz-landing .bt-hero #quiz-title { grid-column: 2; grid-row: 1; align-self: end; font-size: 1.12rem; line-height: 1.35; margin: 0; }
+    #quiz-landing .bt-hero #quiz-info { grid-column: 2; grid-row: 2; align-self: start; margin: 0; font-size: 11px; }
+    #quiz-landing .bt-hero .bt-facts { grid-column: 1 / -1; margin-top: 0.35rem; }
+    #quiz-landing .bt-hero .bt-tip { grid-column: 1 / -1; }
+    #quiz-landing #quiz-hero-btn .nb-doodle-star { left: -9px; }
+    #quiz-landing #quiz-hero-btn .nb-doodle-heart { right: -12px; }
+}
+
+/* 15.12 Chế độ 2×2 khi khối hẹp (điện thoại, iPad, laptop nhỏ): icon trái, tên + mô tả phải
+         — đọc được mô tả của CẢ 4 chế độ, ô bấm to gấp đôi; bỏ dòng mô tả riêng bên dưới */
+@container (max-width: 520px) {
+    #quiz-landing #quiz-mode-presets { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
+    #quiz-landing #quiz-mode-presets .mode-preset {
+        display: grid;
+        grid-template-columns: 2.1rem minmax(0, 1fr);
+        grid-template-rows: auto auto;
+        column-gap: 0.55rem; row-gap: 1px;
+        align-items: center; justify-items: start;
+        text-align: left;
+        padding: 0.6rem 0.7rem;
+        min-height: 3.9rem;
+    }
+    #quiz-landing #quiz-mode-presets .mode-preset .mp-ic,
+    #quiz-landing #quiz-mode-presets .mode-preset .mp-ic img { grid-row: 1 / span 2; width: 2.1rem; height: 2.1rem; }
+    #quiz-landing #quiz-mode-presets .mode-preset .mp-name { align-self: end; font-size: 12.5px; }
+    #quiz-landing #quiz-mode-presets .mode-preset .mp-desc {
+        display: -webkit-box !important;
+        -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+        align-self: start;
+        font-size: 10px; line-height: 1.3;
+    }
+    #quiz-landing .bt-mode-caption { display: none; }
+}
+
+/* 15.13 Cột bài làm HẸP (iPad ngang 1024–1279 với 2 cột bên, hoặc người dùng kéo cột):
+         đáp án xếp 1 cột thay vì 2 cột ~220px làm gãy chữ kiểu "Sacubitril/vals | artan" */
+#quiz-main { container: quizmain / inline-size; }
+@container quizmain (max-width: 620px) {
+    #quizSection #answers-container.md\:grid-cols-2 { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* 15.14 Màn rộng (≥1536px): dùng bớt khoảng trống hai bên — khung rộng hơn, bảng số câu + ghi chú rộng hơn
+         (bề rộng người dùng tự kéo vẫn thắng vì nằm ở style của #quiz-workspace) */
+@media (min-width: 1536px) {
+    body > div:has(> #quiz-container) { max-width: 100rem; }
+    #quiz-workspace { --quiz-nav-w: 13rem; --quiz-note-w: 17.5rem; }
+}
+
+/* 15.15 Máy cảm ứng (điện thoại, iPad không chuột): ẩn hàng gợi ý phím tắt dưới thẻ câu hỏi */
+@media (hover: none) and (pointer: coarse) {
+    #quizSection .quiz-kbd-hint { display: none !important; }
+}
+
+/* 15.16 Thanh "Bắt đầu" nổi: không bao giờ hiện khi đã rời trang chờ (lưới an toàn cho JS) */
+body:has(#quiz-landing.hidden) #mobile-start-bar { visibility: hidden; transform: translateY(110%) !important; }
+
+/* 15.17 Viên báo mạng (pwa-install.js) = viên kẹo cùng bộ + tránh thanh đáy / thanh Bắt đầu nổi */
+html body #net-status-banner {
+    font: 700 12.5px/1.4 'Quicksand', system-ui, sans-serif !important;
+    color: var(--ink-sky) !important;
+    background: color-mix(in srgb, var(--hue-sky) 22%, var(--surface-card)) !important;
+    border: 2px solid color-mix(in srgb, var(--hue-sky) 50%, transparent);
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--hue-sky) 35%, transparent), 0 10px 20px -12px rgba(0, 0, 0, 0.3) !important;
+    width: max-content;                 /* left:50% làm khung co còn nửa màn -> chữ gãy 3 dòng */
+    max-width: calc(100vw - 24px);
+    text-align: center;
+}
+html body #net-status-banner[style*="22, 163, 74"] {
+    color: var(--ok-ink) !important;
+    background: var(--ok-bg) !important;
+    border-color: var(--ok-line);
+}
+body.has-mobile-nav #net-status-banner { bottom: calc(7.4rem + env(safe-area-inset-bottom, 0px)) !important; }
+body:has(#mobile-start-bar.show) #net-status-banner { bottom: calc(5.4rem + env(safe-area-inset-bottom, 0px)) !important; }
+
+/* 15.18 Màn kết quả trên điện thoại: sóc dán góc nhỏ lại, không chui dưới thanh đầu trang */
+@media (max-width: 639px) {
+    #resultsSection > .bg-white:first-child::after { top: -14px; right: 0.6rem; width: 58px; height: 58px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #quizSection > .quiz-card.q-slide-next,
+    #quizSection > .quiz-card.q-slide-prev,
+    #quizSection .quiz-card::after { animation: none !important; }
+    #quizSection .answer-btn .answer-letter { transition: none; }
+}
+
+/* ============================================================
+   16) BẢNG · SƠ ĐỒ MERMAID · MÀU CHỮ NHẤN THEO NỀN (2026-09-27)
+   ============================================================ */
+
+/* 16.1 Chữ đậm / nghiêng đổi màu THEO NỀN chứa nó (hồng đậm trên nền xanh ca chùm nhìn chói).
+        Mỗi loại nền chỉ đặt 2 biến --em-b (đậm) / --em-i (nghiêng); mặc định trên giấy: hồng đậm / xanh dương.
+        html:root body… (0,2,2) để thắng .exp-* của style.css và html.theme-dark… của quiz-enhance. */
+html:root body .obsidian-bold {
+    color: var(--em-b, var(--ink-blossom)) !important;
+    -webkit-text-stroke: 0 !important;   /* style.css tô viền giả 0.2–0.3px -> nét dày, nhòe */
+}
+html:root body :is(.obsidian-italic, em.quiz-annot) { color: var(--em-i, var(--ink-sky)) !important; }
+/* nền xanh trời (ca lâm sàng, khay xem lại ca): đậm = xanh than cùng tông, nghiêng = tím oải hương */
+#quizSection #clinical-case-panel, #case-peek-sheet { --em-b: #1F4C7A; --em-i: var(--ink-lav); }
+/* giấy note vàng bơ (Ghi nhớ, mẹo): đậm = nâu cam, nghiêng giữ xanh dương */
+#quizSection .kb-memo, #quiz-tip { --em-b: #9A4A12; }
+/* ô đáp án theo trạng thái: đúng (xanh lá) · sai (đỏ) · đang chọn (xanh dương) */
+#quizSection .answer-btn.bg-green-200 { --em-b: var(--ok-ink); }
+#quizSection .answer-btn.bg-red-200   { --em-b: var(--bad-ink); --em-i: #9A4A12; }
+#quizSection .answer-btn.bg-blue-100  { --em-b: var(--pick-ink); --em-i: var(--ink-lav); }
+/* mẩu giải thích trong ô: đúng / sai-đã-chọn theo màu nghĩa; sai-không-chọn về mặc định trên giấy */
+#quizSection .option-explanation.exp-correct        { --em-b: var(--ok-ink);  --em-i: var(--ink-sky); }
+#quizSection .option-explanation.exp-wrong-selected { --em-b: var(--bad-ink); --em-i: #9A4A12; }
+#quizSection .option-explanation.exp-wrong-normal   { --em-b: var(--ink-blossom); --em-i: var(--ink-lav); }
+html.theme-dark #quizSection #clinical-case-panel, html.theme-dark #case-peek-sheet { --em-b: #CFE8FF; --em-i: var(--ink-lav); }
+html.theme-dark :is(#quizSection .kb-memo, #quiz-tip) { --em-b: #FFD08A; }
+html.theme-dark #quizSection .option-explanation.exp-wrong-selected,
+html.theme-dark #quizSection .answer-btn.bg-red-200 { --em-i: #FFD08A; }
+
+/* 16.2 BẢNG: khung thẻ giấy bo tròn, đầu cột mỗi cột một màu kẹo, hàng sọc đào nhạt,
+        CỘT ĐẦU DÍNH khi vuốt ngang (bảng rộng trên điện thoại vẫn biết đang đọc hàng nào) */
+:is(#quiz-landing, #quiz-container, #case-peek-sheet) .table-responsive {
+    position: relative;
+    margin: 0.9rem 0;
+    border-radius: 1.1rem;
+    background: var(--surface-card);
+    border: 2px solid color-mix(in srgb, var(--hue-peach) 38%, transparent);
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--hue-peach) 26%, transparent);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--hue-peach) 55%, transparent) transparent;
+}
+:is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table {
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    margin: 0;
+}
+:is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table :is(th, td) {
+    min-width: 6.5rem;
+    padding: 0.62rem 0.9rem !important;
+    vertical-align: top;
+    line-height: 1.45;
+}
+:is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table thead tr { background: none !important; border: 0 !important; }
+:is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table th { --th: var(--hue-blossom); --thi: var(--ink-blossom); }
+:is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table th:nth-child(6n+2) { --th: var(--hue-peach);  --thi: var(--ink-peach); }
+:is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table th:nth-child(6n+3) { --th: var(--hue-butter); --thi: var(--ink-butter); }
+:is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table th:nth-child(6n+4) { --th: var(--hue-mint);   --thi: var(--ink-mint); }
+:is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table th:nth-child(6n+5) { --th: var(--hue-sky);    --thi: var(--ink-sky); }
+:is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table th:nth-child(6n+6) { --th: var(--hue-lav);    --thi: var(--ink-lav); }
+:is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table th {
+    --em-b: var(--thi);
+    background: color-mix(in srgb, var(--th) 30%, var(--surface-card)) !important;
+    color: var(--thi) !important;
+    border-bottom: 3px solid color-mix(in srgb, var(--th) 62%, var(--surface-card)) !important;
+    font-weight: 800;
+    text-wrap: balance;
+}
+:is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table tbody tr { border: 0 !important; }
+:is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table td {
+    background: var(--surface-card) !important;
+    color: var(--ink) !important;
+    border-bottom: 1.5px dashed var(--line) !important;
+}
+:is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--hue-peach) 7%, var(--surface-card)) !important; }
+:is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table tbody tr:last-child td { border-bottom: 0 !important; }
+@media (hover: hover) {
+    :is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table tbody tr:hover td { background: color-mix(in srgb, var(--hue-butter) 22%, var(--surface-card)) !important; }
+}
+/* cột đầu = nhãn hàng: đậm, dính mép trái khi cuộn ngang (nền phải ĐẶC để che chữ trượt dưới) */
+:is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table :is(th, td):first-child {
+    position: sticky; left: 0; z-index: 1;
+    box-shadow: 2px 0 0 color-mix(in srgb, var(--hue-peach) 30%, transparent);
+}
+:is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table td:first-child { font-weight: 700; color: var(--ink-coral) !important; }
+@media (max-width: 639px) {
+    :is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table :is(th, td) { min-width: 6.8rem; padding: 0.5rem 0.65rem !important; font-size: 0.86rem !important; }
+    :is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table :is(th, td):first-child { min-width: 4.8rem; max-width: 8.5rem; }
+}
+html.theme-dark :is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table { background: transparent !important; }
+
+/* 16.3 SƠ ĐỒ MERMAID: thẻ giấy có băng keo + nút "Phóng to" (chạm = xem toàn màn, chụm 2 ngón);
+        thu VỪA khung nhưng không phóng quá cỡ gốc (--mm-w do quiz-helpers.js ghi), tối thiểu 50% cỡ gốc
+        — nhỏ hơn nữa thì vuốt ngang (trước: style.css ép 700px -> điện thoại phải cuộn, máy tính phóng to bự) */
+:is(#quiz-landing, #quiz-container) .mermaid-container {
+    position: relative;
+    justify-content: flex-start;
+    justify-content: safe center;
+    margin: 1.1rem 0 0.9rem;
+    padding: 2.05rem 0.8rem 0.8rem !important;   /* chừa hàng trên cho nút Phóng to */
+    border-radius: 1.2rem !important;
+    background: #FFFDF8 !important;
+    border: 2px dashed color-mix(in srgb, var(--hue-sky) 50%, transparent) !important;
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--hue-sky) 22%, transparent) !important;
+    cursor: zoom-in;
+    scrollbar-width: thin;
+}
+:is(#quiz-landing, #quiz-container) .mermaid-container::before {
+    content: "";
+    position: absolute; top: -8px; left: 1.4rem;
+    width: 66px; height: 16px;
+    transform: rotate(-4deg);
+    background: radial-gradient(circle, var(--washi-dot) 1.1px, transparent 1.5px) 0 0 / 7px 7px, var(--washi-sky);
+    clip-path: polygon(3% 0%, 97% 0%, 100% 50%, 97% 100%, 3% 100%, 0% 50%);
+    pointer-events: none;
+}
+:is(#quiz-landing, #quiz-container) .mermaid-container:has(svg)::after {
+    content: "⤢ Phóng to";
+    position: absolute; top: 0.4rem; right: 0.55rem;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 10.5px; font-weight: 800;
+    color: #2D6FA3;                     /* khung sơ đồ luôn là giấy sáng (kể cả chế độ tối) -> màu cố định */
+    background: #E3F1FD;
+    border: 1.5px solid #A9D2F2;
+    pointer-events: none;
+}
+.answer-btn .mermaid-container::after { display: none; }
+.answer-btn .mermaid-container { cursor: inherit; }
+:is(#quiz-landing, #quiz-container) .mermaid {
+    display: block;
+    width: 100%;
+    min-width: min(calc(var(--mm-w, 0px) * 0.5), 36rem);
+}
+:is(#quiz-landing, #quiz-container) .mermaid svg {
+    display: block;
+    margin: 0 auto;
+    width: 100% !important;
+    max-width: var(--mm-w, 100%) !important;
+    height: auto !important;
+}
+/* chữ tiếng Việt có dấu / đuôi chữ g, y không bị cắt: khung foreignObject Mermaid đo hụt vài px */
+:is(#quiz-landing, #quiz-container, .rm-dgv) .mermaid-container foreignObject,
+.rm-dgv foreignObject { overflow: visible; }
+:is(#quiz-landing, #quiz-container) .mermaid .nodeLabel { line-height: 1.35; }
+
+/* Sơ đồ luồng: mỗi ô một màu kẹo xoay vòng 6 màu (ô tác giả tự tô bằng style/classDef thì giữ nguyên) */
+:is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.nodes > g.node { --n: var(--hue-blossom); --nt: #8E2F57; }
+:is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.nodes > g.node:nth-child(6n+2) { --n: var(--hue-peach);  --nt: #9A4A12; }
+:is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.nodes > g.node:nth-child(6n+3) { --n: var(--hue-sky);    --nt: #2A5E8C; }
+:is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.nodes > g.node:nth-child(6n+4) { --n: var(--hue-mint);   --nt: #1F6B4C; }
+:is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.nodes > g.node:nth-child(6n+5) { --n: var(--hue-lav);    --nt: #5B45A8; }
+:is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.nodes > g.node:nth-child(6n+6) { --n: var(--hue-butter); --nt: #7A5E1E; }
+:is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.node > :is(rect, polygon, circle, ellipse, path):not([style*="fill"]) {
+    fill: color-mix(in srgb, var(--n) 28%, #fff) !important;
+    stroke: color-mix(in srgb, var(--n) 78%, #fff) !important;
+    stroke-width: 2px !important;
+}
+:is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.node > rect:not([style*="fill"]) { rx: 12px; ry: 12px; }
+:is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.node .nodeLabel:not([style*="color"]) { color: var(--nt) !important; font-weight: 700; }
+/* đường nối: nét tròn đầu, nhãn trên đường = viên kẹo vàng bơ */
+:is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] .flowchart-link { stroke-width: 2px !important; stroke-linecap: round; }
+:is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] span.edgeLabel:not(:empty) {
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: #FFF3C4 !important;
+    color: #7A5E1E !important;
+    font-weight: 700;
+    box-shadow: 0 0 0 1.5px #F2CE6B;
+}
+/* nhóm (subgraph) = tờ giấy nét đứt oải hương */
+:is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.cluster > rect:not([style*="fill"]) {
+    fill: #F7F2FF !important;
+    stroke: #C9B8F5 !important;
+    stroke-width: 2px !important;
+    stroke-dasharray: 7 5;
+    rx: 16px; ry: 16px;
+}
+:is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.cluster .nodeLabel { color: #5B45A8 !important; font-weight: 800; }
+/* tối: sơ đồ vẫn nằm trên giấy sáng (màu Mermaid cố định lúc khởi tạo) nhưng dịu bớt độ chói */
+html.theme-dark :is(#quiz-landing, #quiz-container) .mermaid-container {
+    background: #F4ECE6 !important;
+    border-color: rgba(126, 192, 238, 0.35) !important;
+}
+@media (max-width: 639px) {
+    :is(#quiz-landing, #quiz-container) .mermaid-container { padding: 2.05rem 0.5rem 0.6rem !important; }
+    /* điện thoại: thấy TRỌN sơ đồ (chữ nhỏ) rồi chạm để phóng to, thay vì bị cắt phải vuốt ngang */
+    :is(#quiz-landing, #quiz-container) .mermaid { min-width: 0; }
+    :is(#quiz-landing, #quiz-container) .mermaid-container:has(svg)::after { content: "⤢ Chạm để phóng to"; }
+}
+@media print {
+    .mermaid-container::after { display: none !important; }
 }

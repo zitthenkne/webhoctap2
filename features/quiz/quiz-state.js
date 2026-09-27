@@ -120,7 +120,9 @@ export function saveQuizState() {
         // Lưu nguyên bộ câu hỏi đang làm (đã trộn câu/đáp án) để khôi phục chính xác
         questions: state.questions,
         quizMode: state.quizMode,
-        quizOptions: state.quizOptions
+        quizOptions: state.quizOptions,
+        // Giây còn lại của đồng hồ đếm ngược (null = không tính giờ)
+        timeLeft: state.quizTimerInterval ? state.timeLeft : null
     };
     const key = stateKey(quizId);
     const write = () => localStorage.setItem(key, JSON.stringify(stateObj));

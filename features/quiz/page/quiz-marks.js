@@ -38,7 +38,7 @@ export function renderMarkControl() {
     return `
         <div class="relative" id="mark-control">
             <button id="mark-question-btn" type="button" class="px-4 py-2 rounded-lg ${btnClass} transition flex items-center gap-2"
-                    ${btnStyle} aria-haspopup="true" aria-expanded="false" title="Đánh dấu câu hỏi theo lý do">
+                    ${btnStyle} data-mark="${reasonKey || ''}" aria-haspopup="true" aria-expanded="false" title="Đánh dấu câu hỏi theo lý do">
                 <i class="fas ${r ? r.icon : 'fa-flag'}"></i>
                 <span>${r ? r.short : 'Đánh dấu'}</span>
                 <i class="fas fa-chevron-down text-xs opacity-70"></i>

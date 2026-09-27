@@ -16,31 +16,48 @@ export function ensureMermaidInit() {
             securityLevel: _mmSecurity, // mặc định 'loose' (nhãn HTML); trang nhiều người cùng sửa đặt 'antiscript' qua configureMermaid
             flowchart: { useMaxWidth: true, htmlLabels: true },
             themeVariables: {
-                fontSize: '16px',
+                // Bảng màu kẹo pastel dùng chung cả web (quiz, flashcard, phòng đánh đề): nền phẳng,
+                // viền đậm hơn một bậc, chữ mực cùng tông. Ô sơ đồ luồng ở quiz.html còn được tô
+                // xoay vòng 6 màu bằng CSS (quiz-stationery.css §16).
+                fontSize: '15px',
                 fontFamily: 'Quicksand, sans-serif',
+                background: '#FFFDF8',
+                textColor: '#5A4640',
+                titleColor: '#8E2F57',
 
-                // Node tiến trình (Hình chữ nhật) màu hồng anh đào ngọt ngào
-                primaryColor: '#FFEbee',
-                primaryTextColor: '#c62828',
-                primaryBorderColor: '#FFcdd2',
+                primaryColor: '#FFE3EC', primaryTextColor: '#8E2F57', primaryBorderColor: '#F5A3BF',
+                secondaryColor: '#E9E1FF', secondaryTextColor: '#5B45A8', secondaryBorderColor: '#C3B1F5',
+                tertiaryColor: '#DDF5EA', tertiaryTextColor: '#1F6B4C', tertiaryBorderColor: '#98DDBD',
 
-                // Node quyết định (Hình thoi/Decision) màu xanh ngọc mint để cực kỳ dễ phân biệt
-                tertiaryColor: '#E0f2f1',
-                tertiaryTextColor: '#004d40',
-                tertiaryBorderColor: '#b2dfdb',
+                lineColor: '#E98BAE',
+                arrowheadColor: '#E98BAE',
+                edgeLabelBackground: '#FFF3C4',
+                clusterBkg: '#F6F1FF',
+                clusterBorder: '#C9B8F5',
 
-                // Node kết quả (hoặc trạng thái khác) màu tím Lavender thanh lịch
-                secondaryColor: '#F3e5f5',
-                secondaryTextColor: '#4a148c',
-                secondaryBorderColor: '#e1bee7',
+                // Ghi chú / sơ đồ trình tự
+                noteBkgColor: '#FFF3C4', noteTextColor: '#7A5E1E', noteBorderColor: '#F2CE6B',
+                actorBkg: '#E3F1FD', actorBorder: '#8DC3EF', actorTextColor: '#2A5E8C', actorLineColor: '#B9D8F2',
+                signalColor: '#C97A98', signalTextColor: '#5A4640',
+                labelBoxBkgColor: '#FFE3EC', labelBoxBorderColor: '#F5A3BF', labelTextColor: '#8E2F57', loopTextColor: '#8E2F57',
+                activationBkgColor: '#FFF3C4', activationBorderColor: '#F2CE6B',
 
-                // Đường nối và mũi tên màu hồng sen nổi bật
-                lineColor: '#FF69B4',
-                arrowheadColor: '#FF69B4',
+                // Biểu đồ tròn: 12 lát kẹo, viền trắng thay viền đen
+                pie1: '#FFB3C7', pie2: '#FFD0A8', pie3: '#FFE39A', pie4: '#B8E6CF', pie5: '#BCDAF6', pie6: '#D6C9FA',
+                pie7: '#F8C4DF', pie8: '#CDEBB8', pie9: '#FFCFC7', pie10: '#C4E8F0', pie11: '#EFD8C0', pie12: '#E6D3F6',
+                pieStrokeColor: '#FFFFFF', pieStrokeWidth: '2px',
+                pieOuterStrokeColor: '#F3C3D2', pieOuterStrokeWidth: '2px',
+                pieTitleTextColor: '#8E2F57', pieSectionTextColor: '#5A4640', pieLegendTextColor: '#5A4640', pieOpacity: '1',
 
-                // Nhãn chữ trên đường nối nền trắng chữ đen rõ nét
-                edgeLabelBackground: '#ffffff',
-                textColor: '#333333'
+                // Sơ đồ tư duy / dòng thời gian / hành trình: mỗi nhánh một màu kẹo, chữ mực đậm
+                cScale0: '#FFD1DE', cScale1: '#FFDDC2', cScale2: '#FFEBAF', cScale3: '#C9EEDB', cScale4: '#CBE3F9', cScale5: '#E0D6FC',
+                cScale6: '#F9D2E6', cScale7: '#D8F0C8', cScale8: '#FFD9D2', cScale9: '#D0EDF3', cScale10: '#F2E1CF', cScale11: '#ECDDF8',
+                cScaleLabel0: '#8E2F57', cScaleLabel1: '#9A4A12', cScaleLabel2: '#7A5E1E', cScaleLabel3: '#1F6B4C', cScaleLabel4: '#2A5E8C', cScaleLabel5: '#5B45A8',
+                cScaleLabel6: '#8E2F57', cScaleLabel7: '#3F6B22', cScaleLabel8: '#A33A42', cScaleLabel9: '#1F6275', cScaleLabel10: '#83603F', cScaleLabel11: '#6A4FB8',
+                // vạch dưới mỗi nhánh sơ đồ tư duy: đậm hơn nền nhánh một bậc (mặc định Mermaid là màu nghịch đảo, xanh/đỏ gắt)
+                cScaleInv0: '#F28DB0', cScaleInv1: '#F5A870', cScaleInv2: '#E8C24A', cScaleInv3: '#7FCFAE', cScaleInv4: '#7EB8EA', cScaleInv5: '#A994EE',
+                cScaleInv6: '#EFA0C8', cScaleInv7: '#9FCF7F', cScaleInv8: '#F59A8C', cScaleInv9: '#86CCD9', cScaleInv10: '#D9B48E', cScaleInv11: '#C9A8EE',
+                git0: '#F5A3BF', git1: '#F7B889', git2: '#F0CF6B', git3: '#8FD6B4', git4: '#93C4F0', git5: '#BBA5F2', git6: '#F2A5CF', git7: '#A9D98A'
             }
         });
         mermaidInitialized = true;
@@ -161,6 +178,13 @@ function _paintMermaidError(div, code, err) {
     if (box) box.style.justifyContent = 'flex-start';
 }
 
+// Bề rộng gốc của sơ đồ (viewBox) -> biến CSS --mm-w trên khung: trang dùng để "thu vừa khung nhưng
+// không phóng to quá cỡ gốc" (style.css ép svg width:100% !important nên max-width nội tuyến của Mermaid vô hiệu).
+function _noteNaturalWidth(div) {
+    const w = div.querySelector('svg')?.viewBox?.baseVal?.width;
+    if (w) div.style.setProperty('--mm-w', Math.ceil(w) + 'px');
+}
+
 export async function renderMermaid(element) {
     if (!element) return;
     // Chỉ nạp Mermaid khi vùng này thật sự có sơ đồ
@@ -199,6 +223,7 @@ export async function renderMermaid(element) {
         if (!hit) { pending.push(div); continue; }
         if (hit.err) _paintMermaidError(div, code, hit.err);
         else div.innerHTML = hit.svg.split(hit.id).join('mmd-' + Math.random().toString(36).slice(2, 11));
+        _noteNaturalWidth(div);
         div.setAttribute('data-processed', 'true');
         try { _mmDecorate?.(div, !hit.err); } catch (e) {}
     }
@@ -223,6 +248,7 @@ export async function renderMermaid(element) {
                 const { svg, bind } = await mermaidSvg(code);
                 div.innerHTML = svg;
                 if (typeof bind === 'function') bind(div);
+                _noteNaturalWidth(div);
                 div.setAttribute('data-processed', 'true');
                 try { _mmDecorate?.(div, true); } catch (e) {}
             } catch (err) {
@@ -265,14 +291,33 @@ export function renderMath(element) {
     renderMermaid(element);
 }
 
+// canvas-confetti nạp lười (không còn thẻ <script defer> trong quiz.html): tải lúc rảnh sau khi trang
+// mở xong, hoặc ngay lần bắn đầu tiên nếu chưa kịp.
+let _confettiLoad = null;
+function loadConfetti() {
+    if (typeof confetti === 'function') return Promise.resolve();
+    return _confettiLoad || (_confettiLoad = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js';
+        s.async = true;
+        s.onload = resolve;
+        s.onerror = () => { _confettiLoad = null; reject(); };
+        document.head.appendChild(s);
+    }));
+}
+if (typeof window !== 'undefined') {
+    window.addEventListener('load', () => {
+        const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
+        idle(() => loadConfetti().catch(() => {}));
+    }, { once: true });
+}
+
 export function triggerConfetti() {
-    if (typeof confetti === 'function') {
-        confetti({
-            particleCount: 80,
-            spread: 60,
-            origin: { y: 0.8 }
-        });
-    }
+    loadConfetti().then(() => confetti({
+        particleCount: 80,
+        spread: 60,
+        origin: { y: 0.8 }
+    })).catch(() => {});
 }
 
 export function parseInlineMarkdown(text) {

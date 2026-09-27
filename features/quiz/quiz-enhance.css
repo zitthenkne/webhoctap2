@@ -1970,34 +1970,16 @@ html.theme-dark .qe-opt-exp:focus { border-left-color: #ff5fae !important; }
 .qe-undo-btn:active { transform: translateY(0); }
 
 /* ============================================================
-   13) PHÔNG CHỮ ĐẶC BIỆT — tạo điểm nhấn typography cho trang làm bài
-   • IN NGHIÊNG  -> serif Cormorant Upright (vốn đứng thẳng) — ép nghiêng + làm dày nét
-   • IN ĐẬM      -> sans nét gọn, rõ ràng (Be Vietnam Pro) cho mạnh, sắc
-   Áp cho cả markdown tự sinh (.obsidian-*) lẫn chữ người dùng tự bôi (.quiz-annot).
+   13) CHỮ IN ĐẬM / NGHIÊNG — cùng họ Quicksand với cả trang (2026-09-27)
+   Đã bỏ Be Vietnam Pro + Cormorant Upright: người dùng chê "cứng", lại tốn thêm 2 lần tải phông.
+   Nhấn bằng MÀU: đậm = hồng đậm (quiz-stationery.css), nghiêng = xanh dương.
+   Áp cho markdown tự sinh (.obsidian-*) lẫn chữ người dùng tự bôi (.quiz-annot).
+   TUYỆT ĐỐI không chọn theo thẻ <i>/<em>/<strong> vì icon Font Awesome dùng thẻ <i>.
    ============================================================ */
-/* CHỈ nhắm vào class bọc chữ in đậm/nghiêng (.obsidian-* do markdown sinh ra,
-   .quiz-annot do người dùng tự bôi). TUYỆT ĐỐI không dùng selector theo thẻ
-   <i>/<em>/<strong>/<b> vì icon Font Awesome dùng thẻ <i> -> sẽ mất hết ký hiệu. */
 .obsidian-bold,
-strong.quiz-annot {
-    font-family: 'Be Vietnam Pro', 'Quicksand', sans-serif !important;
-    letter-spacing: -0.005em;
-    -webkit-text-stroke: 0 !important;   /* font đã đủ nét -> bỏ stroke giả cho sạch nét */
-}
+strong.quiz-annot { font-weight: 700 !important; }
 .obsidian-italic,
-em.quiz-annot {
-    font-family: 'Cormorant Upright', Georgia, serif !important;
-    font-weight: 700 !important;          /* dày nét hơn (mặc định serif này khá mảnh) */
-    font-style: oblique 11deg !important; /* Cormorant Upright vốn đứng thẳng -> ép nghiêng */
-    font-size: 1.14em;                    /* serif này nhỏ thị giác -> phóng nhẹ cho cân với chữ nền */
-    letter-spacing: 0.006em;
-}
-/* Bôi đậm + nghiêng lồng nhau: vẫn ưu tiên dáng serif nghiêng cho thống nhất */
-.obsidian-italic .obsidian-bold,
-.obsidian-bold .obsidian-italic {
-    font-family: 'Cormorant Upright', Georgia, serif !important;
-    font-style: oblique 11deg !important;
-}
+em.quiz-annot { font-style: italic !important; font-weight: 600; }
 
 /* ============================================================
    14) TÊN BỘ ĐỀ TRÊN MÀN LÀM BÀI — "eyebrow" nhỏ phía trên "Câu hỏi N"

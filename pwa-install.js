@@ -276,8 +276,12 @@ if (navigator.storage && navigator.storage.persist) {
   };
   const hide = () => { if (el) el.style.opacity = '0'; };
 
-  const onOffline = () => show('Ngoại tuyến — thay đổi lưu trên máy, sẽ tự đồng bộ khi có mạng.');
-  const onOnline = () => { show('Đã có mạng — đang đồng bộ lên đám mây.', 'ok'); setTimeout(hide, 2500); };
+  // Báo 6 giây rồi tự ẩn: để mãi thì viên thông báo đè thanh điều hướng đáy / nút Bắt đầu nổi
+  // của trang làm bài suốt cả buổi ngoại tuyến.
+  let hideTimer = 0;
+  const flash = (text, tone, ms) => { show(text, tone); clearTimeout(hideTimer); hideTimer = setTimeout(hide, ms); };
+  const onOffline = () => flash('Ngoại tuyến — thay đổi lưu trên máy, sẽ tự đồng bộ khi có mạng.', '', 6000);
+  const onOnline = () => flash('Đã có mạng — đang đồng bộ lên đám mây.', 'ok', 2500);
 
   window.addEventListener('offline', onOffline);
   window.addEventListener('online', onOnline);

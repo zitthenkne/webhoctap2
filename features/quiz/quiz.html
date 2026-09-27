@@ -9,35 +9,52 @@
         try { if (localStorage.getItem('quiz_theme') === 'dark') document.documentElement.classList.add('theme-dark'); } catch (e) {}
         // Kiểu giấy (kẻ ô mặc định / chấm bi / kẻ dòng / trơn) — chọn trong bảng "Ngựa thì chỉnh"
         try { var qp = localStorage.getItem('quiz_paper'); if (qp && qp !== 'grid') document.documentElement.setAttribute('data-paper', qp); } catch (e) {}
+        // Tải lại trang (F5 / kéo làm mới / Back) GIỮA LÚC đang làm bài đề này -> vào thẳng câu đang làm:
+        // giấu trang chờ ngay từ đầu (không lóe), quiz-page.js khôi phục xong thì gỡ class.
+        // Mở đề mới từ thư viện (type 'navigate') vẫn vào trang chờ + chip "Làm tiếp" như cũ.
+        try {
+            var nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+            var qid = new URLSearchParams(location.search).get('id');
+            if (qid && nav && (nav.type === 'reload' || nav.type === 'back_forward') && sessionStorage.getItem('quizLive') === qid) {
+                document.documentElement.classList.add('quiz-resuming');
+            }
+        } catch (e) {}
     </script>
     <!-- Chọn ngẫu nhiên hình nền cho chế độ sáng & tối (đặt sớm để tránh nháy nền) -->
     <script>
         (function () {
             try {
                 var lightImages = [
-                    'A_dreamy_campsite_next_to_202606231955.jpeg',
-                    'Apartment_balcony_with_flowers_202606231955.jpeg',
-                    'Attic_bedroom_corner_pixel_art_202606231955.jpeg',
-                    'Bakery_shopfront_pixel_art_style_202606231955.jpeg',
-                    'Bus_stop_in_Japan_spring_202606231955.jpeg',
-                    'Hot_chocolate_station_in_winter_202606231955.jpeg',
-                    'Riverside_cafe_veranda_pixel_art_202606231955.jpeg',
-                    'Study_desk_by_rain_window_202606231955.jpeg',
-                    'Train_carriage_interior_pixel_art_202606231955.jpeg'
+                    'A_dreamy_campsite_next_to_202606231955.webp',
+                    'Apartment_balcony_with_flowers_202606231955.webp',
+                    'Attic_bedroom_corner_pixel_art_202606231955.webp',
+                    'Bakery_shopfront_pixel_art_style_202606231955.webp',
+                    'Bus_stop_in_Japan_spring_202606231955.webp',
+                    'Hot_chocolate_station_in_winter_202606231955.webp',
+                    'Riverside_cafe_veranda_pixel_art_202606231955.webp',
+                    'Study_desk_by_rain_window_202606231955.webp',
+                    'Train_carriage_interior_pixel_art_202606231955.webp'
                 ];
                 var darkImages = [
-                    'Apartment_balcony_on_rainy_night_202606232010.jpeg',
-                    'Bedroom_interior_at_night_202606232010.jpeg',
-                    'Florist_shop_window_at_midnight_202606232010.jpeg',
-                    'Forest_pond_with_glowing_lotus_202606232010.jpeg',
-                    'Greenhouse_at_night_aurora_borealis_202606232010.jpeg',
-                    'Library_corner_at_night_202606232010.jpeg',
-                    'Rooftop_at_midnight_dark_mode_202606232010.jpeg',
-                    'Underwater_scene_viewed_from_window_202606232010.jpeg'
+                    'Apartment_balcony_on_rainy_night_202606232010.webp',
+                    'Bedroom_interior_at_night_202606232010.webp',
+                    'Florist_shop_window_at_midnight_202606232010.webp',
+                    'Forest_pond_with_glowing_lotus_202606232010.webp',
+                    'Greenhouse_at_night_aurora_borealis_202606232010.webp',
+                    'Library_corner_at_night_202606232010.webp',
+                    'Rooftop_at_midnight_dark_mode_202606232010.webp',
+                    'Underwater_scene_viewed_from_window_202606232010.webp'
                 ];
                 var pick = function (arr) { return arr[Math.floor(Math.random() * arr.length)]; };
+                // ĐIỆN THOẠI: trang sổ phủ gần hết màn nên ảnh nền gần như không thấy -> KHÔNG tải (đỡ ~50KB).
+                // Nhận theo MÁY (cảm ứng + cạnh ngắn màn hình < 600px), KHÔNG theo bề ngang cửa sổ:
+                // máy tính thu nhỏ cửa sổ / chia đôi màn / Windows phóng 150% vẫn phải có nền (lỗi 2026-09-27).
+                var noBg = false;
+                try { noBg = window.matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600; } catch (e) {}
+                if (noBg) document.documentElement.classList.add('no-quiz-bg');
                 // Chọn lại ngẫu nhiên cặp nền sáng/tối — phơi ra cho nút "Đổi nền" trong bảng thiết lập gọi
                 window.shuffleQuizBg = function () {
+                    if (noBg) return;
                     var lightUrl = encodeURI('../../assets/bg quiz page/' + pick(lightImages));
                     var darkUrl = encodeURI('../../assets/bg quiz page dark/' + pick(darkImages));
                     document.documentElement.style.setProperty('--quiz-bg-light', 'url("' + lightUrl + '")');
@@ -45,15 +62,15 @@
                 };
                 window.shuffleQuizBg();
 
-                // Độ rõ ảnh nền do người dùng tự chỉnh (lưu %, 0–60). Mặc định 28%.
+                // Độ rõ ảnh nền do người dùng tự chỉnh (lưu %, 0–60). Mặc định 40% (2026-09-27: cho thấy nền rõ hơn).
                 var pct = parseInt(localStorage.getItem('quiz_bg_opacity'), 10);
-                if (isNaN(pct)) pct = 28;
+                if (isNaN(pct)) pct = 40;
                 pct = Math.max(0, Math.min(60, pct));
                 document.documentElement.style.setProperty('--quiz-bg-opacity', pct / 100);
             } catch (e) {}
         })();
     </script>
-    <link rel="icon" type="image/png" href="../../assets/logo.png">
+    <link rel="icon" type="image/png" href="../../assets/opt/logo-32.png">
     
     <!-- Open Graph / Facebook / Zalo Share Preview -->
     <meta property="og:type" content="website">
@@ -105,7 +122,10 @@
     </script>
     
     <script src="../../pwa-install.js" defer></script>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Quicksand gọi thẳng ở đây (song song) thay vì chờ @import trong style.css mới thấy -> hết một vòng mạng chặn vẽ -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="../../style.css">
     <!-- Tăng tốc mở trang: nạp SONG SONG cả cây module thay vì chờ từng tầng import
          (quiz-page.js -> quiz-session.js -> firebase-init.js -> gstatic là 4 vòng mạng nối tiếp).
@@ -138,23 +158,11 @@
     <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/9.6.0/firebase-app.js" crossorigin>
     <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js" crossorigin>
     <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js" crossorigin>
-    <!-- Tăng tốc bắt tay tới các CDN bên thứ ba -->
-    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <!-- Font Awesome: tải bất đồng bộ để không chặn hiển thị trang (icon hiện ngay sau khi tải xong) -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
-    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
-    <!-- Phông chữ đặc biệt cho trang làm bài:
-         • Cormorant Upright (serif đứng thẳng, được ép nghiêng + làm dày nét) cho chữ IN NGHIÊNG
-         • Be Vietnam Pro (sans nét gọn, rõ) cho chữ IN ĐẬM — đều hỗ trợ tiếng Việt -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@600;700;800&family=Cormorant+Upright:wght@500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-    <noscript><link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@600;700;800&family=Cormorant+Upright:wght@500;600;700&display=swap" rel="stylesheet"></noscript>
-    <!-- KaTeX & Mermaid KHÔNG tải sẵn ở đây nữa: quiz-helpers.js tự nạp chúng theo nhu cầu
-         (chỉ khi câu hỏi thật sự có công thức / sơ đồ) -> bộ đề thuần chữ mở nhanh hơn nhiều. -->
-    <!-- Canvas Confetti (chỉ dùng ở màn kết quả → defer để không chặn tải trang) -->
-    <script defer src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Font Awesome TỰ HOST, chỉ ~120 icon trang dùng (249KB -> 20KB, cùng máy chủ):
+         thêm icon fa-… mới thì chạy `node fa-dong-bang.mjs`, quên = ô vuông trống. -->
+    <link rel="stylesheet" href="fa-quiz/fa-quiz.css">
+    <!-- KaTeX, Mermaid, pháo giấy confetti KHÔNG tải sẵn: quiz-helpers.js tự nạp khi cần. -->
     <style>
         /* Hình nền trang làm bài: lớp phủ mờ, trong suốt, đặt TRÊN nền gốc (hồng ombre ở sáng, tối ở dark). */
         body::before {
@@ -165,8 +173,8 @@
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
-            opacity: var(--quiz-bg-opacity, 0.28);  /* để lộ nền bên dưới; người dùng tự chỉnh */
-            filter: blur(3px);   /* làm mờ cho đỡ chói/đỡ mất tập trung */
+            opacity: var(--quiz-bg-opacity, 0.4);   /* để lộ nền bên dưới; người dùng tự chỉnh */
+            filter: blur(1.5px); /* mờ nhẹ cho đỡ chói, vẫn nhìn ra cảnh */
             pointer-events: none;
             transition: opacity .2s ease;
         }
@@ -223,7 +231,7 @@
         }
         /* Focus mode: vẫn hiện ảnh nền nhưng nhạt hơn nữa cho đỡ phân tâm */
         body.focus-mode-active::before {
-            opacity: calc(var(--quiz-bg-opacity, 0.28) * 0.45) !important;
+            opacity: calc(var(--quiz-bg-opacity, 0.4) * 0.45) !important;
         }
         body.focus-mode-active .focus-hide {
             display: none !important;
@@ -288,6 +296,17 @@
         }
         #mobile-start-bar.show { transform: translateY(0); }
 
+        /* Đang khôi phục bài làm sau khi tải lại: không hiện trang chờ, chỉ một dòng chờ nhỏ */
+        html.quiz-resuming #quiz-landing,
+        html.quiz-resuming #mobile-start-bar { display: none !important; }
+        .quiz-resume-wait { display: none; }
+        html.quiz-resuming .quiz-resume-wait {
+            display: flex; align-items: center; justify-content: center; gap: .5rem;
+            margin: 30vh auto 0; width: fit-content; padding: .6rem 1.1rem;
+            border-radius: 999px; font-weight: 700; font-size: .9rem;
+            color: #B04670; background: #FFF4F7; border: 2px solid #F7B3CA;
+        }
+
         /* Tôn trọng thiết lập giảm chuyển động của hệ điều hành */
         @media (prefers-reduced-motion: reduce) {
             .mascot-floating,
@@ -305,6 +324,10 @@
     <link rel="stylesheet" href="quiz-preview.css">
     <link rel="stylesheet" href="quiz-enhance.css">
     <link rel="stylesheet" href="quiz-stationery.css">
+    <!-- Tailwind ĐÓNG BĂNG (thay Play CDN ~400KB JS sinh CSS mỗi lần mở trang). Phải nằm CUỐI <head>
+         — đúng chỗ CDN từng chèn — vì nhiều luật của trang ngầm để Tailwind thắng khi cùng độ ưu tiên.
+         Thêm class Tailwind mới (quiz.html / features/quiz / core) thì chạy `node tailwind-dong-bang.mjs`. -->
+    <link rel="stylesheet" href="tailwind-quiz.css">
 </head>
 <body class="flex items-center justify-center min-h-screen p-2 sm:p-4 text-sm">
     <!-- Floating Exit Focus Button -->
@@ -317,7 +340,7 @@
             <i class="fas fa-bars"></i>
         </button>
         <span class="font-bold text-[#FF69B4] text-lg flex items-center gap-2">
-            <img src="../../assets/logo.png" alt="Zitthenkne logo" class="w-7 h-7 rounded-full object-cover">
+            <img src="../../assets/opt/logo-96.webp" width="28" height="28" alt="Zitthenkne logo" class="w-7 h-7 rounded-full object-cover">
             Zitthenkne
         </span>
         <a href="quiz-history.html" class="text-xl text-pink-400 hover:text-pink-500 transition p-1" title="Lịch sử làm bài" aria-label="Lịch sử làm bài"><i class="fas fa-clock-rotate-left"></i></a>
@@ -1230,6 +1253,7 @@
             </script>
         </div>
 
+        <p class="quiz-resume-wait" aria-live="polite"><i class="fas fa-rotate fa-spin"></i> Đang mở lại bài đang làm…</p>
         <div id="quiz-container" class="hidden">
     <!-- Đồng hồ đếm ngược nổi (chỉ hiện ở chế độ tính giờ) -->
     <div id="timerDisplay" class="hidden"></div>
@@ -1356,7 +1380,7 @@
             </div>
             <div class="qs-row qs-row-slider">
                 <span class="qs-label"><i class="fas fa-sun"></i> Độ rõ ảnh nền</span>
-                <input type="range" id="qs-bg-opacity" class="qs-range" min="0" max="60" step="2" value="28"
+                <input type="range" id="qs-bg-opacity" class="qs-range" min="0" max="60" step="2" value="40"
                        aria-label="Độ rõ ảnh nền">
             </div>
             <button type="button" class="qs-row qs-action" id="qs-shuffle-bg">

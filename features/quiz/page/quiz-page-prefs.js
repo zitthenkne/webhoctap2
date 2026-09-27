@@ -6,8 +6,8 @@
 export function getTheme()   { try { return localStorage.getItem('quiz_theme') || 'light'; } catch (e) { return 'light'; } }
 export function getSound()   { try { return localStorage.getItem('quiz_sound') === '1'; } catch (e) { return false; } }
 export function getVibrate() { try { return localStorage.getItem('quiz_vibrate') !== '0'; } catch (e) { return true; } } // mặc định BẬT
-export function getBgOpacity() { // % độ rõ ảnh nền, 0–60, mặc định 28
-    try { const v = parseInt(localStorage.getItem('quiz_bg_opacity'), 10); return isNaN(v) ? 28 : Math.max(0, Math.min(60, v)); }
+export function getBgOpacity() { // % độ rõ ảnh nền, 0–60, mặc định 40
+    try { const v = parseInt(localStorage.getItem('quiz_bg_opacity'), 10); return isNaN(v) ? 40 : Math.max(0, Math.min(60, v)); }
     catch (e) { return 28; }
 }
 export function applyBgOpacity(pct) { document.documentElement.style.setProperty('--quiz-bg-opacity', pct / 100); }

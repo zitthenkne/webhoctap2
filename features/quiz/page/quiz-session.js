@@ -166,11 +166,20 @@ export function startQuizMode(questionsArray, mode = 'normal', restoreState = nu
         if (state.quizOptions.timedMinutes && !isNaN(state.quizOptions.timedMinutes)) {
             totalSeconds = state.quizOptions.timedMinutes * 60;
         }
+        // Khôi phục bài dở: đếm tiếp phần giờ CÒN LẠI, không phát lại đủ giờ
+        if (restoreState && restoreState.timeLeft > 0) totalSeconds = restoreState.timeLeft;
         startTimer(totalSeconds);
+    } else {
+        state.timeLeft = null;
     }
 
     quizLanding.classList.add('hidden');
     quizLanding.classList.remove('quiz-landing-leaving');
+    // Thanh "Bắt đầu" nổi (điện thoại) đang hiện thì IntersectionObserver KHÔNG bắn lại khi nút gốc
+    // bị ẩn (ngoài màn -> vẫn ngoài màn) -> vào bằng "Ôn ngay"/Enter/tiếp bài dở là thanh kẹt đè bài làm.
+    document.getElementById('mobile-start-bar')?.classList.remove('show');
+    // Đánh dấu tab này đang làm bài đề này -> tải lại trang (F5) thì vào thẳng câu đang làm (quiz.html đầu trang)
+    try { sessionStorage.setItem('quizLive', (state.quizData && state.quizData.id) || new URLSearchParams(location.search).get('id') || ''); } catch (e) {}
     quizContainer.classList.remove('hidden');
     // Khởi động lại hiệu ứng "vào màn" mỗi lần bắt đầu (kể cả khi làm lại từ kết quả)
     quizContainer.classList.remove('quiz-enter');
@@ -221,12 +230,13 @@ export function endQuiz() {
     }
 
     markQuizStateFinished();
+    try { sessionStorage.removeItem('quizLive'); } catch (e) {}
 
     let totalTime = 0;
     if (state.quizStartTime) {
         totalTime = Math.floor((new Date() - state.quizStartTime) / 1000);
     }
-    if (state.quizTimerInterval) clearInterval(state.quizTimerInterval);
+    stopTimer();   // dừng + ẩn đồng hồ (trước chỉ dừng -> viên giờ đứng im trên màn kết quả)
 
     showResults(totalTime);
 
@@ -280,16 +290,19 @@ function formatTimeLocal(seconds) {
 
 export function startTimer(totalSeconds) {
     if (!totalSeconds) return;
-    let elapsed = 0;
     const timerDisplay = document.getElementById('timerDisplay');
     if (!timerDisplay) return;
     timerDisplay.classList.remove('hidden');
     timerDisplay.textContent = formatTimeLocal(totalSeconds);
     let warnedOneMin = false;
+    // Đếm theo MỐC KẾT THÚC chứ không đếm nhịp: tab chạy nền bị trình duyệt hãm setInterval vẫn đúng giờ.
+    // (Bản cũ vừa elapsed++ vừa totalSeconds-- mỗi nhịp -> đồng hồ chạy GẤP ĐÔI, 30 phút hết sau 15 phút.)
+    const endAt = Date.now() + totalSeconds * 1000;
+    state.timeLeft = totalSeconds;
     clearInterval(state.quizTimerInterval);
     state.quizTimerInterval = setInterval(() => {
-        elapsed++;
-        const remaining = totalSeconds - elapsed;
+        const remaining = Math.max(0, Math.round((endAt - Date.now()) / 1000));
+        state.timeLeft = remaining;   // saveQuizState lưu lại -> tải lại trang / làm tiếp không được cộng giờ
         timerDisplay.textContent = formatTimeLocal(remaining);
         // #5: cảnh báo sắp hết giờ (đổi màu + rung)
         if (remaining <= 10 && remaining > 0) {
@@ -313,7 +326,6 @@ export function startTimer(totalSeconds) {
             }, 1000);
             return;
         }
-        totalSeconds--;
     }, 1000);
 }
 
@@ -321,6 +333,7 @@ export function startTimer(totalSeconds) {
 export function stopTimer() {
     if (state.quizTimerInterval) clearInterval(state.quizTimerInterval);
     state.quizTimerInterval = null;
+    state.timeLeft = null;
     const timerDisplay = document.getElementById('timerDisplay');
     if (timerDisplay) {
         timerDisplay.classList.add('hidden');
