@@ -16,12 +16,13 @@ import {
 } from './room-state.js';
 import { isOnline } from './room-members.js';
 import { escapeHtml } from './room-ui.js';
-import { answerCurrent, effectiveIndex, setViewIndex, followHost } from './room-quiz-stage.js';
+import { answerCurrent, effectiveIndex, setViewIndex, followHost, slowOf } from './room-quiz-stage.js';
 import { questionStats, computeScores } from './room-scoreboard.js';
 import { systemMessage } from './room-chat.js';
 import { renderLobby } from './room-lobby.js';
 import { ensureXlsx, openMinutes, fold } from './room-boost.js';
 import { reviewIndexes } from './room-game.js';
+import { optExpFull, mergeExp } from './room-reason.js';
 
 let draft = null;           // bộ đề vừa nạp, chưa phát cho phòng
 const TIMER_STEPS = [0, 15, 30, 45, 60, 90];
@@ -413,7 +414,7 @@ async function startSession() {
     try {
         // Xóa đáp án phiên trước của mọi người để bảng điểm bắt đầu từ 0
         await Promise.all(room.members.map(m => updateDoc(refs.member(m.uid),
-            { answers: {}, flags: {}, marks: {}, ready: {}, unclear: {}, diff: {}, dissent: {}, args: {}, agree: {}, cursor: 0, hand: null, team: null }).catch(() => {})));
+            { answers: {}, flags: {}, marks: {}, ready: {}, unclear: {}, diff: {}, dissent: {}, args: {}, agree: {}, rf: {}, cursor: 0, hand: null, team: null }).catch(() => {})));
         await setDoc(refs.session(), {
             questions,
             quizTitle: draft.title,
@@ -668,14 +669,14 @@ async function saveReviewQuiz() {
         const questions = idx.map(i => {
             const q = questionAt(i);
             const opts = optsOf(q);
-            const optExp = opts.map((_, k) => optNoteOf(i, k) || (q.optionExplanations && q.optionExplanations[k]) || '');
+            const optExp = opts.map((_, k) => optExpFull(i, k, q.optionExplanations && q.optionExplanations[k]));
             return {
                 ...q,
                 question: q.question,
                 answers: opts,
                 correctAnswerIndex: correctIdxOf(q, i) ?? refIdxOf(q),
                 ...(acceptedOf(i).length > 1 ? { correctAnswerIndexes: acceptedOf(i) } : {}),
-                explanation: noteOf(i) || q.explanation || q.explain || '',
+                explanation: mergeExp(noteOf(i), q.explanation || q.explain || ''),
                 ...(optExp.some(t => t) ? { optionExplanations: optExp } : {}),
             };
         });
@@ -723,14 +724,14 @@ async function saveToLibrary() {
             questions: keep.map((i) => {
                 const q = questionAt(i);            // bản đã được nhóm sửa (nếu có)
                 const opts = optsOf(q);
-                const optExp = opts.map((_, k) => optNoteOf(i, k) || (q.optionExplanations && q.optionExplanations[k]) || '');
+                const optExp = opts.map((_, k) => optExpFull(i, k, q.optionExplanations && q.optionExplanations[k]));
                 return {
                     ...q,
                     question: q.question,
                     answers: opts,
                     correctAnswerIndex: correctIdxOf(q, i) ?? refIdxOf(q),
                     ...(acceptedOf(i).length > 1 ? { correctAnswerIndexes: acceptedOf(i) } : {}),
-                    explanation: noteOf(i) || q.explanation || q.explain || '',
+                    explanation: mergeExp(noteOf(i), q.explanation || q.explain || ''),
                     ...(optExp.some(t => t) ? { optionExplanations: optExp } : {}),
                     ...(issueOf(i) ? { note: [q.note, '⚠ ' + issueOf(i)].filter(Boolean).join(' — ') } : {}),
                 };
@@ -921,6 +922,7 @@ export function initQuizControl() {
     });
 
     // 3 quyền của chủ trì + vài nút phụ
+    initHostMore();
     el('host-show')?.addEventListener('click', showAnswer);
     el('host-next')?.addEventListener('click', nextQuestion);
     el('host-focus')?.addEventListener('click', setFocusHere);
@@ -937,8 +939,8 @@ export function initQuizControl() {
         // Thanh chủ trì cuộn ngang -> menu đặt absolute sẽ bị cắt. Neo theo màn hình.
         const r = btn.getBoundingClientRect();
         menu.style.position = 'fixed';
-        menu.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - 240))}px`;
-        menu.style.bottom = `${Math.max(8, window.innerHeight - r.top + 8)}px`;
+        menu.style.left = hostSide() ? `${r.right + 12}px` : `${Math.max(8, Math.min(r.left, window.innerWidth - 240))}px`;
+        menu.style.bottom = `${Math.max(8, window.innerHeight - (hostSide() ? r.bottom : r.top - 8))}px`;
         menu.style.zIndex = '70';
     });
     el('chot-menu')?.addEventListener('click', (e) => {
@@ -1043,6 +1045,7 @@ function coachOf(i, essay, shown, chosen) {
             : { id: 'host-next', tip: 'Đã chốt — sang câu tiếp nhé ➜' };
     }
     if (essay) return doneOf(null, i) ? { id: 'host-show', tip: 'Có bài làm chung rồi — mở bài giải file để đối chiếu?' } : null;
+    if (slowOf(i).length) return null;              // có bạn xin "⏳ đợi mình" -> khỏi giục chốt
     const on = room.members.filter(isOnline);
     const n = on.filter(m => typeof answerOf(m, i)?.i === 'number').length;
     if (!n || n < on.length) return null;
@@ -1051,10 +1054,29 @@ function coachOf(i, essay, shown, chosen) {
         ? { id: 'host-show', tip: `${all} — lật đáp án file để bàn?` }
         : { id: 'host-lock-answer', tip: `${shown ? 'Bàn xong' : all} — chốt đáp án thôi ✨` };
 }
+// Bản 45: popover "Công cụ" của thanh chủ trì (máy tính). Đóng ở pha CAPTURE trước khi nút bên trong chạy
+// -> menu Trò chơi / hộp dán đề mở ra không bị popover đè; nút bật/tắt (.is-keep) thì không có trong popover.
+function initHostMore() {
+    const btn = el('host-more-btn');
+    const pop = el('host-more');
+    if (!btn || !pop) return;
+    const set = (on) => { pop.classList.toggle('is-open', on); btn.setAttribute('aria-expanded', String(on)); btn.classList.toggle('on', on); };
+    btn.addEventListener('click', (e) => { e.stopPropagation(); set(!pop.classList.contains('is-open')); });
+    pop.addEventListener('click', (e) => { if (e.target.closest('button')) set(false); }, true);
+    document.addEventListener('click', (e) => { if (!e.target.closest('#host-more, #host-more-btn')) set(false); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && pop.classList.contains('is-open')) set(false); });
+}
+
+// Bản 46: máy tính ≥1024px thanh chủ trì là CỘT DỌC ở hông trái (CSS) -> bong bóng / menu mở sang PHẢI nút
+export const hostSide = () => window.matchMedia('(min-width: 1024px)').matches;
+
 let coachKey = '';
 let coachTimer = 0;
 function paintCoach(c) {
     ['host-show', 'host-lock-answer', 'host-next', 'host-end'].forEach(id => el(id)?.classList.toggle('is-suggest', c?.id === id));
+    // Nút được gợi ý nằm trong popover "Công cụ" (Kết thúc) -> nhấp nháy nút Công cụ thay nó
+    const shown = (n) => !!n && n.getClientRects().length > 0;
+    el('host-more-btn')?.classList.toggle('is-suggest', !!c && !shown(el(c.id)));
     document.querySelector('.rm-dock-btn[data-m="host"]')?.classList.toggle('has-coach', !!c);
     const key = c ? `${effectiveIndex()}:${c.id}` : '';
     if (key === coachKey) return;
@@ -1076,8 +1098,22 @@ function paintCoach(c) {
     // Đặt ngay trên viên chủ trì (viên có thể bị JS dời tâm khi mở sổ tay rộng, hoặc 2 hàng)
     const sr = stage.getBoundingClientRect();
     const br = bar.getBoundingClientRect();
-    tip.style.left = Math.round(br.left + br.width / 2 - sr.left) + 'px';
-    tip.style.bottom = Math.round(sr.bottom - br.top + 10) + 'px';
+    // Mũi bong bóng chỉ ĐÚNG nút được gợi ý (trước chỉ giữa cả thanh — thanh dài là lệch hẳn)
+    const target = [el(c.id), el('host-more-btn')].find(n => n && n.getClientRects().length) || bar;
+    const tr = target.getBoundingClientRect();
+    // kẹp trong khung sân khấu (nút ở sát mép thì bong bóng khỏi tràn ra ngoài)
+    const side = hostSide();
+    tip.classList.toggle('is-side', side);
+    if (side) {
+        tip.style.left = Math.round(tr.right - sr.left + 14) + 'px';
+        tip.style.top = Math.round(tr.top + tr.height / 2 - sr.top) + 'px';
+        tip.style.bottom = 'auto';
+    } else {
+        const half = tip.offsetWidth / 2 + 8;
+        tip.style.left = Math.round(Math.min(sr.width - half, Math.max(half, tr.left + tr.width / 2 - sr.left))) + 'px';
+        tip.style.top = 'auto';
+        tip.style.bottom = Math.round(sr.bottom - br.top + 10) + 'px';
+    }
     void tip.offsetWidth;
     tip.classList.add('is-on');
     coachTimer = setTimeout(() => tip.classList.remove('is-on'), 7000);

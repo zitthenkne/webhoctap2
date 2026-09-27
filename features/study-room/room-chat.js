@@ -36,10 +36,34 @@ export const isChatOpen = () =>
     // bảng bên đang thu thành thanh ray (máy tính) thì coi như đóng -> vẫn đếm tin chưa đọc
     !(document.body.classList.contains('side-rail') && window.matchMedia('(min-width: 768px)').matches);
 
+// Chưa đọc (bản 45b): trước đây lần tải ĐẦU TIÊN cộng cả lịch sử tin (đọc rồi vẫn hiện "6"), đếm luôn tin của
+// chính mình, thông báo hệ thống, và tin gắn câu (đã đọc ngay dưới đề). Nay = tin chat chung của NGƯỜI KHÁC mới hơn
+// lần cuối mở Chat — mốc nhớ theo phòng (localStorage roomChatSeen_<phòng>); lần đầu vào phòng lấy mốc = lúc vào.
+let chatSeen = null;
+const seenKey = () => 'roomChatSeen_' + room.roomId;
+function seenAt() {
+    if (chatSeen === null) {
+        try { chatSeen = Number(localStorage.getItem(seenKey())) || 0; } catch (e) { chatSeen = 0; }
+        if (!chatSeen) markChatSeen();
+    }
+    return chatSeen;
+}
+function markChatSeen() {
+    // lấy cả giờ của tin mới nhất: đồng hồ máy chậm hơn máy chủ vài giây thì tin vừa đọc vẫn bị tính "chưa đọc"
+    chatSeen = Math.max(Date.now(), ...messages.map(msgTime));
+    try { localStorage.setItem(seenKey(), String(chatSeen)); } catch (e) {}
+}
+function paintUnread() {
+    if (isChatOpen()) markChatSeen();
+    const since = seenAt();
+    unread = messages.filter(m => m.uid !== uid() && m.type !== 'notice' && typeof m.qIdx !== 'number' && msgTime(m) > since).length;
+    const badge = document.getElementById('tab-chat-badge');
+    if (badge) { badge.textContent = unread > 99 ? '99+' : String(unread); badge.classList.toggle('on', unread > 0); }
+    document.getElementById('nav-chat-dot')?.classList.toggle('hidden', !unread);
+}
 export function clearUnread() {
-    unread = 0;
-    document.getElementById('tab-chat-badge')?.classList.remove('on');
-    document.getElementById('nav-chat-dot')?.classList.add('hidden');
+    markChatSeen();
+    paintUnread();
 }
 
 /** Toàn bộ tin đã nạp (120 tin gần nhất) — biên bản tự tải đủ bằng getDocs. */
@@ -520,14 +544,8 @@ export function initChat() {
         const next = [];
         snap.forEach(d => next.push({ id: d.id, ...d.data() }));
         next.reverse();
-        const grew = next.length - messages.length;
         messages = next;
-        if (grew > 0 && !isChatOpen()) {
-            unread += grew;
-            const badge = document.getElementById('tab-chat-badge');
-            if (badge) { badge.textContent = unread > 99 ? '99+' : unread; badge.classList.add('on'); }
-            document.getElementById('nav-chat-dot')?.classList.remove('hidden');
-        }
+        paintUnread();
         renderChat();
         window.dispatchEvent(new Event('room:chat'));      // khối giải thích cập nhật số ý kiến
         const hint = document.getElementById('chat-hint');

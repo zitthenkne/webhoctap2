@@ -183,13 +183,19 @@ function gameMenuHtml(i) {
 
 function openGameMenu() {
     const menu = el('game-menu');
-    const btn = el('host-game');
+    // Nút Trò chơi nằm trong popover "Công cụ" (đã đóng lúc bấm) -> neo menu vào nút Công cụ
+    const btn = [el('host-game'), el('host-more-btn')].find(n => n && n.getClientRects().length);
     if (!menu || !btn) return;
     menu.innerHTML = gameMenuHtml(effectiveIndex());
     menu.classList.remove('hidden');
     const r = btn.getBoundingClientRect();
-    menu.style.left = Math.max(8, Math.min(window.innerWidth - menu.offsetWidth - 8, r.left)) + 'px';
-    menu.style.top = (r.top - menu.offsetHeight - 10) + 'px';
+    if (window.matchMedia('(min-width: 1024px)').matches) {     // thanh chủ trì dọc hông trái -> menu mở sang phải
+        menu.style.left = (r.right + 12) + 'px';
+        menu.style.top = Math.max(8, Math.min(window.innerHeight - menu.offsetHeight - 8, r.bottom - menu.offsetHeight)) + 'px';
+    } else {
+        menu.style.left = Math.max(8, Math.min(window.innerWidth - menu.offsetWidth - 8, r.left)) + 'px';
+        menu.style.top = (r.top - menu.offsetHeight - 10) + 'px';
+    }
     menu.style.bottom = 'auto';
 }
 
@@ -321,7 +327,7 @@ export function initGame() {
         openGameMenu();
     });
     document.addEventListener('click', (e) => {
-        if (!e.target.closest('#game-menu') && !e.target.closest('#host-game')) el('game-menu')?.classList.add('hidden');
+        if (!e.target.closest('#game-menu') && !e.target.closest('#host-game') && !e.target.closest('#host-more-btn')) el('game-menu')?.classList.add('hidden');
     });
     el('game-menu')?.addEventListener('click', (e) => {
         const b = e.target.closest('[data-game]');

@@ -96,6 +96,23 @@ function paintAutoLabel() {
     const n = el('auto-label');
     if (n) n.textContent = 'Tự chuyển câu: ' + (autoNextOn() ? 'bật' : 'tắt');
 }
+// Bám câu nhóm đang bàn (bản 45): chế độ cùng làm vẫn tự do, nhưng ai bật thì chủ trì dời câu là mình tới theo
+const FOLLOW_KEY = 'roomFollow';
+export const followOn = () => { try { return localStorage.getItem(FOLLOW_KEY) === '1'; } catch (e) { return false; } };
+function paintFollowLabel() {
+    const n = el('follow-label');
+    if (n) n.textContent = 'Bám câu nhóm đang bàn: ' + (followOn() ? 'bật' : 'tắt');
+    const m = el('follow-sub');
+    if (m) m.textContent = (followOn() ? 'bật' : 'tắt') + ' · tự tới câu đang bàn';
+    document.querySelector('[data-more="follow"]')?.classList.toggle('is-on', followOn());
+}
+function toggleFollow() {
+    try { localStorage.setItem(FOLLOW_KEY, followOn() ? '0' : '1'); } catch (e) {}
+    paintFollowLabel();
+    showToast(followOn() ? '📍 Chủ trì chuyển câu là bạn tự tới câu đó.' : 'Đã tắt bám câu — bạn tự đi câu như thường.', 'info', 2400);
+    if (followOn()) window.dispatchEvent(new CustomEvent('room:follow'));
+}
+
 function toggleAutoNext() {
     try { localStorage.setItem(AUTO_KEY, autoNextOn() ? '0' : '1'); } catch (e) {}
     paintAutoLabel();
@@ -348,9 +365,10 @@ export function initBoost() {
     // Menu "Thêm" của điện thoại gọi sang đây
     window.addEventListener('room:tool', (e) => runTool(e.detail));
 
-    // Mách nước một lần: nhiều người không biết có phím tắt
+    paintFollowLabel();
+    // Mách nước một lần: nhiều người không biết có phím tắt (máy cảm ứng không có bàn phím -> khỏi mách)
     try {
-        if (!localStorage.getItem('roomTipSeen')) {
+        if (!localStorage.getItem('roomTipSeen') && !matchMedia('(pointer: coarse)').matches) {
             localStorage.setItem('roomTipSeen', '1');
             setTimeout(() => showToast('Mẹo: bấm ? xem phím tắt · Ctrl K tìm câu · Z tập trung', 'info', 5000), 2500);
         }
@@ -363,6 +381,7 @@ export function runTool(name) {
     if (name === 'zen') return toggleZen();
     if (name === 'sound') return toggleSound();
     if (name === 'autonext') return toggleAutoNext();
+    if (name === 'follow') return toggleFollow();
     if (name === 'race') return toggleRace();
     if (name === 'minutes') return void window.dispatchEvent(new Event('room:minutes'));
 }

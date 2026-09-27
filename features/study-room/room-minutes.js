@@ -24,6 +24,7 @@ import { mermaidSvg, fixMermaidCode } from '../quiz/quiz-helpers.js';
 import { chatMessages } from './room-chat.js';
 import { escapeHtml } from './room-ui.js';
 import { safeImgUrl } from './room-media.js';
+import { optExpFull } from './room-reason.js';
 
 const el = (id) => document.getElementById(id);
 const L = (k) => String.fromCharCode(65 + k);
@@ -93,7 +94,7 @@ function collect(msgs, opt) {
             issue: issueOf(i), edited: !!editOf(i), prev: prevVoteOf(i),
             note: noteOf(i) || (chosen !== null || s.shown?.['q' + i] ? (q.explanation || q.explain || '') : ''),
             noteBy: noteOf(i) ? noteAuthorOf(i)?.name || '' : (q.explanation || q.explain ? 'theo file' : ''),
-            optNotes: opts.map((_, k) => optNoteOf(i, k) || (q.optionExplanations?.[k] || '')),
+            optNotes: opts.map((_, k) => optExpFull(i, k, q.optionExplanations?.[k] || '')),
             chats: talkers.filter(m => m.type === 'chat' && m.qIdx === i),
             docs: talkers.filter(m => m.type === 'doc' && m.qIdx === i),
         };

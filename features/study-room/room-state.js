@@ -163,6 +163,8 @@ export const buzzOf = (i) => room.session?.buzz?.[qKey(i)] || null;
 export const betOf = (member, i) => Math.min(3, Math.max(1, Number(answerOf(member, i)?.bet) || 1));
 // Phiếu kín: giấu lựa chọn của cả phòng cho tới khi chủ trì "lật bài"
 export const isBlind = (i) => !!room.session?.blind?.[qKey(i)] && !isAnnounced(i);
+// Ý kiến gắn phương án của người khác (nhận xét, lý do loại trừ) chỉ hiện khi phiếu đã mở — kẻo lộ ai chọn gì
+export const talkOpen = (i) => isAnnounced(i) || isShown(i) || (!!room.session?.liveStats && !isBlind(i));
 // Bánh xe chọn người giảng
 export const spotlightOf = (i) => room.session?.spotlight?.[qKey(i)] || null;
 // Cảm ơn người giảng: session.thanks.q<i>.<uid người cảm ơn> = true

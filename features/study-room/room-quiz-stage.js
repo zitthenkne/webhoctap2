@@ -11,7 +11,7 @@ import {
     noteOf, optNoteOf, answerOf, flagOf, readyOf, unclearOf, currentIndex, isCoop, canRoam,
     questionAt, editOf, issueOf, editorOf, noteAuthorOf, whyOf, dissentOf, talkUntil, prevVoteOf,
     isEssay, doneOf, doneCount, isAccepted, isSplit, acceptedText, acceptedOf, argsOf,
-    caseKeyAt, caseEditAt, caseByAt,
+    caseKeyAt, caseEditAt, caseByAt, talkOpen,
 } from './room-state.js';
 import { showToast, showConfirm } from '../../core/utils.js';
 import { escapeHtml, shortName, toggle, avatarStack, avatarHtml, forget } from './room-ui.js';
@@ -19,7 +19,9 @@ import { renderRankPanel, renderResults, questionStats, toggleAllStats } from '.
 import { MARK_REASONS, getNote, setNote, getMark, setMark } from './room-study.js';
 import { renderRich, currentEditKey, renderRichMath, sanitizeHtml, isBlank } from './room-editor.js';
 import { chatCountFor, openDiscussion, questionMsgs } from './room-chat.js';
-import { beep, haptic, jumpToUnanswered, autoNextOn, ensureConfetti } from './room-boost.js';
+import { beep, haptic, jumpToUnanswered, autoNextOn, ensureConfetti, followOn } from './room-boost.js';
+import { isOnline } from './room-members.js';
+import { elimsOf } from './room-reason.js';
 import { renderGameBar, downloadMyNotes } from './room-game.js';
 import { renderAnswerHub, initAnswerHub, renderOptionTalk, unreadQs, openAsksOf, renderNotebook, focusHub } from './room-answer.js';
 
@@ -132,10 +134,18 @@ function pingTyping(i) {
 }
 
 // ---------- Vẽ chính ----------
+let nudgeSeen = Date.now();       // lời nhắc cũ hơn lúc mở trang thì bỏ qua
 export function renderQuiz() {
     const s = room.session;
     const active = hasSession();
     const ended = !!(active && s.ended);
+    const nd = myMember()?.nudge;
+    if (active && !ended && nd?.at > nudgeSeen && Date.now() - nd.at < 60000) {
+        nudgeSeen = nd.at;
+        haptic();
+        beep('join');
+        showToast(`🔔 ${nd.by || 'Chủ trì'} nhắc bạn chọn đáp án câu ${Number(nd.q) + 1}`, 'warning', 5000);
+    }
 
     // Firestore chưa trả phiên đầu tiên -> giữ màn chờ xương cá. Trước đây chỗ này
     // vẽ sảnh chờ trước rồi snapshot về mới đổi sang màn làm bài => nháy một cái.
@@ -190,7 +200,9 @@ export function renderQuiz() {
     }
 
     if (active && lastFocus !== s.currentQuestionIndex) {
-        if (!isCoop() && !canRoam()) viewIndex = null;   // chế độ cầm trịch: bám theo chủ trì
+        // chế độ cầm trịch: bám theo chủ trì · chế độ cùng làm: ai bật "Bám câu nhóm đang bàn" cũng tới theo
+        const follow = lastFocus !== null && followOn() && !canControl();
+        if ((!isCoop() && !canRoam()) || follow) viewIndex = null;
         lastFocus = s.currentQuestionIndex;
     }
     if (!active) { viewIndex = null; lastFocus = null; }
@@ -231,7 +243,7 @@ function renderLive() {
         Object.entries(optimistic).map(([k, v]) => k + ':' + v.i),
         room.members.map(m => [m.uid, m.displayName, m.emoji, m.online, m.answers, m.flags,
             m.marks, m.ready, m.unclear, m.dissent, m.diff, m.cursor, m.team,
-            m.args, m.agree]),                                        // nhận xét trong khối đáp án
+            m.args, m.agree, m.slow, m.rf?.['q' + i]?.elim]),         // nhận xét · xin đợi · loại trừ (bảng phiếu)
     ])) return;
 
     // Đổi câu -> trượt theo hướng đi + cho phép phương án chạy hoạt ảnh vào một lần
@@ -350,7 +362,9 @@ function renderLive() {
     // --- Câu hỏi: bấm vào là sửa được ngay, cả nhóm thấy liền ---
     // Tem kẹo "Câu N" dán ở góc thẻ đề (bản 29) — CSS vẽ từ data-qno
     const qcard = document.querySelector('.rm-question');
-    if (qcard) qcard.dataset.qno = `Câu ${i + 1}${essay ? ' · tự luận' : ''}`;
+    // Câu chùm: tem ghi luôn "🩺 ca k/n" -> nhìn đề là biết câu này dựa vào phiếu ca phía trên
+    const [ca, cb] = caseKeyAt(i) ? caseRange(i) : [i, i];
+    if (qcard) qcard.dataset.qno = `Câu ${i + 1}${essay ? ' · tự luận' : ''}${cb > ca ? ` · 🩺 ca ${i - ca + 1}/${cb - ca + 1}` : ''}`;
     const qt = el('question-text');
     qt.setAttribute('contenteditable', 'true');
     qt.dataset.liveEdit = 'question';
@@ -432,7 +446,7 @@ function maybeLateJoin() {
 }
 
 // Trạng thái một câu, dùng chung cho dải câu và bản đồ câu
-function qStateOf(k) {
+export function qStateOf(k) {
     const a = myAnswer(k);
     const c = chosenOf(k);
     const done = !!optimistic['q' + k] || doneOf(myMember(), k);
@@ -456,6 +470,8 @@ function questionMapHtml(cur) {
     const left = count.todo + count.miss;
     const keep = (k) => {
         if (mapFilter === 'todo') return qStateOf(k) === 'todo' || qStateOf(k) === 'miss';
+        if (mapFilter === 'done') return qStateOf(k) === 'done';
+        if (mapFilter === 'good') return qStateOf(k) === 'good';
         if (mapFilter === 'flag') return flagOf(me, k);
         if (mapFilter === 'mark') return !!me?.marks?.['q' + k];
         if (mapFilter === 'wrong') return qStateOf(k) === 'bad';
@@ -464,45 +480,46 @@ function questionMapHtml(cur) {
     const shown = [];
     for (let k = 0; k < total; k++) if (keep(k)) shown.push(k);
 
-    const chip = (id, label, n) =>
-        `<button class="rm-mchip ${mapFilter === id ? 'on' : ''}" data-mapfilter="${id}" ${n === 0 && id !== 'all' ? 'disabled' : ''}>${label}${n !== undefined ? ` <b>${n}</b>` : ''}</button>`;
-
+    // Bản 45: chú giải CHÍNH LÀ bộ lọc (ô màu + số đếm) — hết cảnh chú giải nằm tít dưới đáy bị che, không biết màu nào là gì
+    const chip = (id, label, n, sw) =>
+        `<button class="rm-mchip ${mapFilter === id ? 'on' : ''}" data-mapfilter="${id}" ${n === 0 && id !== 'all' ? 'disabled' : ''}>${sw ? `<i class="rm-lg is-${sw}"></i>` : ''}${label}${n !== undefined ? ` <b>${n}</b>` : ''}</button>`;
+    const ICON = { good: '✓', bad: '✗', miss: '!' };
     const cells = shown.map(k => {
         const st = qStateOf(k);
         const f = flagOf(me, k);
         const mk = me?.marks?.['q' + k];
-        const tip = `Câu ${k + 1} · ` + ({ todo: 'chưa chọn', done: 'bạn đã chọn', good: 'bạn chọn trúng', bad: 'bạn chọn trật', miss: 'nhóm đã chốt, bạn chưa chọn' }[st]);
-        return `<button class="rm-mcell is-${st} ${k === cur ? 'now' : ''} ${k === currentIndex() ? 'focus' : ''}"
+        const a = myAnswer(k);
+        const letter = typeof a?.i === 'number' ? L(a.i) : '';
+        const view = room.members.filter(m => m.uid !== uid() && m.cursor === k && isOnline(m)).length;
+        const ck = caseKeyAt(k);
+        const inCase = !!ck && (caseKeyAt(k - 1) === ck || caseKeyAt(k + 1) === ck);
+        const tip = `Câu ${k + 1} · ` + ({ todo: 'chưa chọn', done: `bạn chọn ${letter}`, good: `bạn chọn ${letter} — trúng`, bad: `bạn chọn ${letter} — trật`, miss: 'nhóm đã chốt, bạn bỏ trống' }[st])
+            + (inCase ? ' · câu chùm' : '') + (view ? ` · ${view} bạn đang xem` : '');
+        return `<button class="rm-mcell is-${st} ${k === cur ? 'now' : ''} ${k === currentIndex() ? 'focus' : ''} ${inCase ? 'in-case' : ''} ${inCase && caseKeyAt(k - 1) !== ck ? 'case-a' : ''}"
                         data-jump="${k}" title="${tip}" aria-label="${tip}">
-            <span>${k + 1}</span>
-            ${f ? '<i class="rm-mflag">🗣</i>' : ''}${mk ? '<i class="rm-mmark"></i>' : ''}
+            <span>${k + 1}</span>${letter || ICON[st] ? `<small>${letter}${ICON[st] || ''}</small>` : ''}
+            ${f ? '<i class="rm-mflag">🗣</i>' : ''}${mk ? '<i class="rm-mmark"></i>' : ''}${view ? `<i class="rm-mview">${view}</i>` : ''}
         </button>`;
     }).join('');
 
     return `
-        <div class="rm-mhead">
-            <div class="rm-mstat">
-                <b>${total - left}/${total}</b> câu bạn đã chọn
-                ${count.bad ? `<span class="rm-chip bad">${count.bad} trật</span>` : ''}
-                ${count.miss ? `<span class="rm-chip warn">${count.miss} chốt rồi mà bạn bỏ trống</span>` : ''}
-            </div>
-            <button class="rm-mjump" data-mapjump><i class="fas fa-forward"></i>Tới câu chưa chọn</button>
+        <div class="rm-mtop">
+            <b>🗺 Bản đồ câu</b>
+            <span class="rm-mstat"><b>${total - left}/${total}</b> đã chọn${count.miss ? ` · <em>${count.miss} bỏ trống</em>` : ''}</span>
+            <button class="rm-mjump" data-mapjump title="Tới câu chưa chọn tiếp theo (phím J)"><i class="fas fa-forward"></i><span>Câu chưa chọn</span></button>
+            <button class="rm-mclose" data-mapclose title="Đóng (Esc)" aria-label="Đóng bản đồ câu"><i class="fas fa-times"></i></button>
         </div>
         <div class="rm-mfilters">
             ${chip('all', 'Tất cả', total)}
-            ${chip('todo', 'Chưa chọn', left)}
-            ${chip('wrong', 'Chọn trật', count.bad)}
+            ${chip('todo', 'Chưa chọn', left, 'todo')}
+            ${chip('done', 'Đã chọn', count.done, 'done')}
+            ${chip('good', 'Trúng', count.good, 'good')}
+            ${chip('wrong', 'Trật', count.bad, 'bad')}
             ${chip('flag', '🗣 Cần bàn', flags)}
             ${chip('mark', '🔖 Đánh dấu', marks)}
         </div>
-        <div class="rm-mgrid">${cells || '<p class="rm-mempty">Không có câu nào trong nhóm này — mừng quá!</p>'}</div>
-        <div class="rm-mlegend">
-            <span><i class="rm-lg is-todo"></i>chưa chọn</span>
-            <span><i class="rm-lg is-done"></i>đã chọn</span>
-            <span><i class="rm-lg is-good"></i>trúng</span>
-            <span><i class="rm-lg is-bad"></i>trật</span>
-            <span><i class="rm-lg is-miss"></i>bỏ trống</span>
-        </div>`;
+        <div class="rm-mgrid">${cells || '<p class="rm-mempty">Không có câu nào trong nhóm này.</p>'}</div>
+        <p class="rm-mnote">Ô ghi <b>chữ cái bạn chọn</b> · ✓ trúng · ✗ trật · ! bỏ trống · 🩺 câu chùm · số tím = bạn đang xem câu đó</p>`;
 }
 
 function renderOptions(i, q, opts, mine, chosen, announced, shown, refIdx, stats, showStats) {
@@ -650,9 +667,17 @@ function renderCase(i, q) {
     // Chấm các câu dùng chung ca: bấm là nhảy, tô câu đang xem / câu mình đã làm
     const [a, b] = caseRange(i);
     const me = myMember();
+    const pick = (k) => { const x = myAnswer(k); return typeof x?.i === 'number' ? L(x.i) : ''; };
+    const MARK = { good: '✓', bad: '✗' };
+    box.classList.toggle('is-multi', b > a);
     box.querySelector('.rm-case-dots').innerHTML = b > a
-        ? `<span class="rm-case-seq">câu ${i - a + 1}/${b - a + 1}</span>` + Array.from({ length: b - a + 1 }, (_, d) => a + d).map(k =>
-            `<button type="button" class="rm-case-dot${k === i ? ' is-now' : ''}${doneOf(me, k) ? ' is-done' : ''}" data-case-jump="${k}" title="Câu ${k + 1}${k === i ? ' · đang xem' : doneOf(me, k) ? ' · đã làm' : ''}">${k + 1}</button>`).join('')
+        ? `<span class="rm-case-seq" title="Ca này dùng chung cho câu ${a + 1}–${b + 1}">câu ${a + 1}–${b + 1} · đang ở ${i - a + 1}/${b - a + 1}</span>`
+            + `<span class="rm-case-track">${Array.from({ length: b - a + 1 }, (_, d) => a + d).map(k => {
+                const st = qStateOf(k);
+                return `<button type="button" class="rm-case-dot is-${st}${k === i ? ' is-now' : ''}" data-case-jump="${k}"
+                    title="Câu ${k + 1}${k === i ? ' · đang xem' : ''}${pick(k) ? ` · bạn chọn ${pick(k)}` : ' · chưa chọn'}">${k + 1}${pick(k) ? `<small>${pick(k)}${MARK[st] || ''}</small>` : ''}</button>`;
+            }).join('')}</span>`
+            + (i < b ? `<button type="button" class="rm-case-next" data-case-jump="${i + 1}" title="Câu tiếp trong ca">câu ${i + 2} <i class="fas fa-arrow-right"></i></button>` : '')
         : '';
     const edited = !!caseEditAt(i);
     const by = caseByAt(i);
@@ -674,7 +699,14 @@ function questionTrackHtml(cur) {
     track.classList.toggle('is-long', total > 20);
     let out = '';
     for (let k = 0; k < total; k++) {
-        if (k && k % 10 === 0) out += `<span class="rm-pip-sep"><i>${k}</i></span>`;
+        const gk = caseKeyAt(k);
+        const grouped = !!gk && (caseKeyAt(k - 1) === gk || caseKeyAt(k + 1) === gk);
+        if (k && k % 10 === 0 && !(grouped && caseKeyAt(k - 1) === gk)) out += `<span class="rm-pip-sep"><i>${k}</i></span>`;
+        // Câu chùm (bản 45): các viên cùng ca nằm chung một bao thư có 🩺 — thay vạch nối mảnh khó thấy
+        if (grouped && caseKeyAt(k - 1) !== gk) {
+            const [, b] = caseRange(k);
+            out += `<span class="rm-pip-grp${cur >= k && cur <= b ? ' is-here' : ''}" title="Câu chùm: câu ${k + 1}–${b + 1} dùng chung một ca"><i class="rm-pip-grp-ic" aria-hidden="true">🩺</i>`;
+        }
         const st = qStateOf(k);
         const a = st !== 'todo' && st !== 'miss';
         const c = chosenOf(k);
@@ -691,7 +723,8 @@ function questionTrackHtml(cur) {
         const fresh = talkNew.has(k);
         const tip = `Câu ${k + 1}` + (c !== null ? ' · nhóm đã chốt' : a ? ' · bạn đã chọn' : ' · chưa chọn')
             + (flagOf(me, k) ? ' · cần bàn' : '') + (fresh ? ' · có bàn luận mới' : '') + (inCase ? ' · câu chùm' : '');
-        out += `<button class="${cls}" data-jump="${k}" title="${tip}" aria-label="${tip}">${k + 1}${fresh ? '<i class="rm-pip-new" aria-hidden="true"></i>' : ''}${inCase ? '<i class="rm-pip-case" aria-hidden="true"></i>' : ''}</button>`;
+        out += `<button class="${cls}" data-jump="${k}" title="${tip}" aria-label="${tip}">${k + 1}${fresh ? '<i class="rm-pip-new" aria-hidden="true"></i>' : ''}</button>`;
+        if (grouped && caseKeyAt(k + 1) !== gk) out += '</span>';
     }
     return out;
 }
@@ -813,6 +846,24 @@ function renderConsensus(i, stats, mine, chosen, announced) {
     const dissent = room.members.filter(m => dissentOf(m, i));
     const asks = openAsksOf(i);        // thắc mắc ❓ chưa ai giải đáp — chủ trì nhìn là biết chốt được chưa
     const showWho = announced || isShown(i) || !!room.session?.liveStats;
+    const essay = isEssay(questionAt(i));
+    const online = room.members.filter(isOnline);
+    const missing = announced || essay ? [] : online.filter(m => typeof answerOf(m, i)?.i !== 'number');
+    const slow = slowOf(i);
+    const picked = room.members.filter(m => typeof answerOf(m, i)?.i === 'number');
+    const guessN = showWho ? picked.filter(m => answerOf(m, i).guess).length : 0;
+    const betN = showWho ? picked.filter(m => !answerOf(m, i).guess && (Number(answerOf(m, i).bet) || 1) > 1).length : 0;
+    const elimN = talkOpen(i) && !essay ? opts.map((_, k) => elimsOf(i, k).length) : [];
+    const names = (list) => escapeHtml(list.map(m => shortName(m.displayName || 'Khách', 10)).join(', '));
+    const team = [
+        missing.length && missing.length < online.length ? `<span class="rm-vt is-miss"><span class="rm-vt-lb">Chưa chọn</span>${avatarStack(missing, 4, 'xs')}${canControl()
+            ? `<button type="button" class="rm-vt-btn" data-nudge title="Gửi lời nhắc (rung + tiếng) tới: ${names(missing)}">🔔 Nhắc</button>` : ''}</span>` : '',
+        slow.length ? `<span class="rm-vt is-slow" title="${names(slow)} xin thêm chút thời gian">⏳ ${names(slow.slice(0, 2))}${slow.length > 2 ? ` +${slow.length - 2}` : ''} xin đợi</span>` : '',
+        guessN ? `<span class="rm-vt" title="Chọn rồi nhưng tự nhận là đoán">🎲 ${guessN} chỉ đoán</span>` : '',
+        betN ? `<span class="rm-vt" title="Tự tin tới mức cược ×2 / ×3">🔥 ${betN} cược mạnh</span>` : '',
+        elimN.some(n => n) ? `<span class="rm-vt is-elim"><span class="rm-vt-lb">🧩 Đã loại</span>${elimN.map((n, k) => n
+            ? `<button type="button" class="rm-vt-btn" data-goto-opt="${k}" title="${n} người đã loại ${L(k)} — bấm xem lý do">${L(k)}<b>${n}</b></button>` : '').join('')}</span>` : '',
+    ].filter(Boolean);
 
     // Đáp án nhóm chốt có khớp đáp án trong file không (trước ở khối kết luận — đã bỏ vì lặp ô xanh + chip)
     const fileNote = () => {
@@ -880,8 +931,15 @@ function renderConsensus(i, stats, mine, chosen, announced) {
             ${!mine && !announced ? '<span class="rm-chip warn">bạn chưa chọn</span>' : ''}
         </div>
 
+        ${team.length ? `<div class="rm-vote-team">${team.join('')}</div>` : ''}
         ${badges.length ? `<div class="rm-vote-badges">${badges.map(b => `<span class="rm-badge-chip">${b}</span>`).join('')}</div>` : ''}
         ${diffBar}`;
+}
+
+/** Ai đang xin "⏳ đợi mình" ở câu i (hết hạn sau 3 phút hoặc khi người đó chọn xong sau lúc xin). */
+export function slowOf(i) {
+    return room.members.filter(m => m.slow?.q === i && Date.now() - (m.slow.at || 0) < 180000
+        && !((answerOf(m, i)?.at || 0) > m.slow.at) && isOnline(m));
 }
 
 // ---------- "Việc của tôi": MỘT hàng chip ngay dưới phương án ----------
@@ -915,6 +973,7 @@ function renderSelfBar(i, mine, q) {
                 <b>${done ? '✓' : skip ? '–' : n + 1}</b><span>${ic} ${k === 'ready' && done ? 'Đã báo xong' : lb}</span>
             </button></li>`).join('')}</ol>
         <div class="rm-selfchips">
+            ${!announced ? `<button data-slow class="rm-mini ${slowOf(i).some(m => m.uid === uid()) ? 'is-on' : ''}" title="Báo chủ trì: mình cần thêm chút thời gian (tự tắt khi chọn xong / sau 3 phút)">⏳ ${slowOf(i).some(m => m.uid === uid()) ? 'Đang xin đợi' : 'Đợi mình'}</button>` : ''}
             <button data-flag class="rm-mini ${flagOf(me, i) ? 'is-flag' : ''}" title="Báo cho cả nhóm: câu này cần bàn thêm">🗣 Cần bàn</button>
             ${announced ? `<button data-unclear class="rm-mini ${unclearOf(me, i) ? 'is-flag' : ''}" title="Chốt rồi mà vẫn chưa hiểu">🤔 Chưa hiểu</button>` : ''}
             <button data-explain-me class="rm-mini ${iExplain ? 'is-on' : ''}" title="Nhận giảng câu này cho cả nhóm">
@@ -1041,6 +1100,7 @@ export function initStage() {
             if (opening) map.querySelector('.rm-mcell.now')?.scrollIntoView({ block: 'center' });
             return;
         }
+        if (e.target.closest('[data-mapclose]')) return void el('question-map').classList.add('hidden');
         const mf = e.target.closest('[data-mapfilter]');
         if (mf) {
             mapFilter = mf.dataset.mapfilter;
@@ -1091,6 +1151,10 @@ export function initStage() {
             return renderQuiz();
         }
         if (e.target.closest('[data-flag]')) return void updateDoc(refs.member(), { [`flags.q${i}`]: !flagOf(me, i) }).catch(() => {});
+        if (e.target.closest('[data-slow]')) {
+            const on = slowOf(i).some(m => m.uid === uid());
+            return void updateDoc(refs.member(), { slow: on ? null : { q: i, at: Date.now() } }).catch(() => {});
+        }
         if (e.target.closest('[data-ready]')) return void updateDoc(refs.member(), { [`ready.q${i}`]: !readyOf(me, i) }).catch(() => {});
         if (e.target.closest('[data-unclear]')) return void updateDoc(refs.member(), { [`unclear.q${i}`]: !unclearOf(me, i) }).catch(() => {});
         if (e.target.closest('[data-explain-me]')) {
@@ -1104,6 +1168,13 @@ export function initStage() {
 
     // Bình chọn độ khó (trong bảng phiếu, sau khi chốt)
     el('consensus-bar')?.addEventListener('click', (e) => {
+        if (e.target.closest('[data-nudge]') && canControl()) {
+            const i = effectiveIndex();
+            const who = room.members.filter(isOnline).filter(m => typeof answerOf(m, i)?.i !== 'number' && m.uid !== uid());
+            const by = myMember()?.displayName || 'Chủ trì';
+            who.forEach(m => updateDoc(refs.member(m.uid), { nudge: { q: i, at: Date.now(), by } }).catch(() => {}));
+            return void showToast(who.length ? `🔔 Đã nhắc ${who.length} bạn chọn câu ${i + 1}.` : 'Ai cũng chọn rồi.', 'success', 2200);
+        }
         const b = e.target.closest('[data-diff]');
         if (!b) return;
         const i = effectiveIndex();

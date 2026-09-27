@@ -172,7 +172,7 @@ export function initMobile() {
         if (k === 'chat') return void openPanelSheet('discuss');
         if (k === 'members' || k === 'rank') return void window.dispatchEvent(new CustomEvent('room:panel', { detail: k }));
         if (k === 'invite') return void el('share-room-btn')?.click();
-        if (k === 'find' || k === 'sound' || k === 'minutes') return void window.dispatchEvent(new CustomEvent('room:tool', { detail: k }));
+        if (k === 'find' || k === 'sound' || k === 'minutes' || k === 'follow') return void window.dispatchEvent(new CustomEvent('room:tool', { detail: k }));
         if (k === 'text') return void el('text-size-btn')?.click();
         if (k === 'theme') return void el('theme-btn')?.click();
         if (k === 'race') return void window.dispatchEvent(new CustomEvent('room:tool', { detail: 'race' }));
@@ -199,6 +199,19 @@ export function initMobile() {
     let x0 = null, y0 = null, skip = false, armed = false;
     const stage = el('stage-quiz');
     const TRIP = 65;
+    // Bản 47 (iPad): vuốt đổi câu NHƯỜNG mọi thao tác kéo khác. Trước đây kéo thanh chia 2 cột (#split-live nằm
+    // trong vùng làm bài; preventDefault ở pointerdown KHÔNG chặn được touch event) là nhảy câu luôn.
+    const NO_SWIPE = 'input, textarea, select, .rm-split, .rm-qtrack, .rm-emoji-bar, .rm-quick-bar, '
+        + '.rm-qmap, .rm-col-side, .rm-rf, .rm-hostbar, .mermaid-container, .katex-display, .table-responsive, .rm-sheet-grip';
+    // Chạm vào một vùng đang cuộn ngang được (bảng dài, hàng chip, công thức…) -> để vùng đó cuộn
+    const scrollsX = (n) => {
+        for (; n && n !== stage; n = n.parentElement) {
+            if (n.scrollWidth > n.clientWidth + 2 && /auto|scroll/.test(getComputedStyle(n).overflowX)) return true;
+        }
+        return false;
+    };
+    const selecting = () => !!window.getSelection?.()?.toString().trim();
+    const EDGE = 24;                     // mép màn: cử chỉ Back / Forward của Safari iPad
     const hint = () => {
         let h = el('swipe-hint');
         if (!h) {
@@ -212,7 +225,9 @@ export function initMobile() {
     };
     const hideHint = () => { armed = false; el('swipe-hint')?.classList.remove('is-on', 'is-armed'); };
     stage?.addEventListener('touchmove', (e) => {
-        if (x0 === null || skip || e.touches.length !== 1) return;
+        if (x0 !== null && e.touches.length !== 1) { skip = true; hideHint(); }     // thêm ngón thứ 2 = chụm phóng to
+        if (x0 === null || skip) return;
+        if (selecting()) { skip = true; hideHint(); return; }
         const dx = e.touches[0].clientX - x0;
         const dy = e.touches[0].clientY - y0;
         if (Math.abs(dx) < 14 || Math.abs(dx) < Math.abs(dy) * 1.6) { hideHint(); return; }
@@ -233,11 +248,16 @@ export function initMobile() {
     }, { passive: true });
     stage?.addEventListener('touchcancel', () => { x0 = null; hideHint(); }, { passive: true });
     stage?.addEventListener('touchstart', (e) => {
-        if (e.touches.length !== 1 || !hasSession()) return;
+        if (e.touches.length !== 1) { skip = true; hideHint(); return; }
+        if (!hasSession()) return;
         const t = e.target;
-        // đừng cướp thao tác của vùng cuộn ngang / ô đang gõ
-        skip = !!(t.closest?.('[contenteditable]') || t.closest?.('.rm-qtrack') || t.closest?.('.rm-emoji-bar') || t.closest?.('.rm-quick-bar'));
-        x0 = e.touches[0].clientX;
+        const x = e.touches[0].clientX;
+        // Ô sửa tại chỗ (đề, ca, giải thích…) chỉ nhường khi ĐANG gõ trong nó — đề chiếm nửa màn điện thoại, vuốt
+        // trên đề mà không đổi câu thì cử chỉ gần như vô dụng (bôi chọn chữ đã có selecting() lo)
+        const ed = t.closest?.('[contenteditable="true"]');
+        const typing = !!ed && ed.contains(document.activeElement);
+        skip = typing || !!t.closest?.(NO_SWIPE) || !!openSheet || x < EDGE || x > window.innerWidth - EDGE || scrollsX(t) || selecting();
+        x0 = x;
         y0 = e.touches[0].clientY;
     }, { passive: true });
     stage?.addEventListener('touchend', (e) => {
@@ -247,7 +267,7 @@ export function initMobile() {
         const dx = t.clientX - x0;
         const dy = t.clientY - y0;
         x0 = null;
-        if (Math.abs(dx) < TRIP || Math.abs(dx) < Math.abs(dy) * 1.6) return;
+        if (Math.abs(dx) < TRIP || Math.abs(dx) < Math.abs(dy) * 1.6 || selecting()) return;
         setViewIndex(effectiveIndex() + (dx < 0 ? 1 : -1));
     }, { passive: true });
 

@@ -18,11 +18,12 @@ import { renderMath } from '../quiz/quiz-helpers.js';
 import {
     room, refs, uid, hasSession, questionAt, answerOf, whyOf, dissentOf, qKey, canControl, memberOf,
     isAccepted, isAnnounced, isShown, isBlind, isEssay, argsOf, myMember, betOf,
-    noteOf, noteAuthorOf, optNoteOf, editorOf, extraOf, extraByOf,
+    noteOf, noteAuthorOf, optNoteOf, editorOf, extraOf, extraByOf, talkOpen, caseKeyAt,
 } from './room-state.js';
+import { reasonToolsHtml, reasonSig, initReason, elimListHtml, elimsOf, myElimSet, badgesHtml, fileLost } from './room-reason.js';
 import { escapeHtml, shortName, avatarHtml, avatarStack, changed, agoText } from './room-ui.js';
-import { effectiveIndex, repaintOptions, answerCurrent, canAnswer } from './room-quiz-stage.js';
-import { renderRich, currentEditKey, isBlank, insertImagesInto, insertHtmlInto, sanitizeHtml } from './room-editor.js';
+import { effectiveIndex, repaintOptions, answerCurrent, canAnswer, qStateOf } from './room-quiz-stage.js';
+import { renderRich, currentEditKey, isBlank, insertImagesInto, sanitizeHtml } from './room-editor.js';
 import { getNote, setNote } from './room-study.js';
 import { appendToExplain, questionMsgs, questionMsgsSig, msgTime, chatCmtHtml, chatMsgAction, sendQuestionMessage, chatMessages } from './room-chat.js';
 import { uploadImage, imageFilesOf, warnIfTemp, safeImgUrl } from './room-media.js';
@@ -61,13 +62,7 @@ const CONF = [
     ['2', '×2', 'Cược ×2: trúng gấp đôi điểm, trật mất 5'],
     ['3', '×3', 'Cược ×3: trúng gấp ba điểm, trật mất 10'],
 ];
-// Mẫu câu lập luận: bấm là chèn đầu dòng in đậm vào "Lý do của bạn" — lý do có khung, đọc lướt là hiểu
-const WHY_TPL = [
-    ['🔬', 'Cơ chế', 'Giải thích bằng cơ chế sinh lý / bệnh sinh'],
-    ['🧩', 'Loại trừ', 'Vì sao các phương án khác sai'],
-    ['📖', 'Theo', 'Trích sách / bài giảng / guideline'],
-    ['💡', 'Mẹo nhớ', 'Câu vần, sơ đồ, mẹo nhớ nhanh'],
-];
+// Mẫu lập luận 🔬🧩📖💡: bấm là mở FORM ngay dưới ô gõ (room-reason.js, bản 44)
 // Mở rộng / Ghi nhớ (bản 26): cả nhóm sửa hoặc thêm mới — session.extra.q<i>.<f>
 const XF = {
     expanded: { ic: '📖', label: 'Mở rộng', ph: 'Kiến thức mở rộng: bảng so sánh, cơ chế sâu hơn, ca kinh điển… (Ctrl+V dán ảnh)' },
@@ -142,8 +137,7 @@ function tallyOf(i) {
     return { agree, conv, score: (id) => (agree[id] || 0) + 2 * (conv[id]?.length || 0) };
 }
 
-// Trước khi mở phiếu, nhận xét về phương án của người khác bị giấu (khỏi dắt mũi) — mọi chỗ đếm theo đúng luật này
-const talkOpen = (i) => isAnnounced(i) || isShown(i) || (!!room.session?.liveStats && !isBlind(i));
+// Trước khi mở phiếu, nhận xét về phương án của người khác bị giấu (khỏi dắt mũi) — luật talkOpen ở room-state.js
 const visible = (i, a) => typeof a.o !== 'number' || talkOpen(i) || a.uid === uid();
 /** Thắc mắc ❓ chưa ai giải đáp (bảng phiếu hiện chip, bấm là tới). */
 export const openAsksOf = (i) => argsOf(i).filter(a => a.s === 'ask' && !a.ok && visible(i, a));
@@ -270,6 +264,7 @@ export function renderNotebook(i, force = false) {
     renderAllNotes();                       // số trên thẻ "Cả đề" (+ danh sách nếu đang mở) — câu khác đổi cũng cập nhật
     const ek = currentEditKey() || '';
     if (!force && nb.dataset.qi === String(i) && nb.contains(document.activeElement) && (ek === 'explain' || ek.startsWith('extra:'))) return;
+    if (!force && nb.contains(document.activeElement) && document.activeElement.closest?.('.rm-rf')) return;   // đang điền form lập luận
     const s = room.session;
     const key = qKey(i);
     const st = nbState(i);
@@ -281,7 +276,7 @@ export function renderNotebook(i, force = false) {
     if (!force && !changed('nb', [i, inline, st.revealed, fresh, st.essay, s.notes?.[key], s.notesBy?.[key], s.extra?.[key], s.extraBy?.[key],
         adding[`${i}:expanded`], adding[`${i}:note`], nbPref[i], q.question, q.explanation, q.modelAnswer, q.expanded, q.note,
         s.questions?.[i]?.expanded, s.questions?.[i]?.note, mineOn, Math.floor(Date.now() / 60000),
-        Object.keys(nbPref).filter(k => k.startsWith(i + ':'))])) return;
+        Object.keys(nbPref).filter(k => k.startsWith(i + ':')), reasonSig(i)])) return;
     nb.dataset.qi = String(i);
     if (fresh) setTimeout(() => renderNotebook(effectiveIndex()), Math.max(0, freshUntil[i] - Date.now()) + 60);
 
@@ -313,10 +308,13 @@ export function renderNotebook(i, force = false) {
 
     const author = noteAuthorOf(i);
     const more = (sec) => `<button type="button" class="rm-nb-more hidden" data-nb-more="${sec}">Xem thêm <i class="fas fa-chevron-down"></i></button>`;
-    // Mẫu viết nhanh (dùng chung với "Lý do của bạn"): hiện khi ô trống hoặc đang gõ
-    const tools = (into) => `<div class="rm-why-tools">
-        ${WHY_TPL.map(([ic, lb, tt], x) => `<button type="button" class="rm-why-tpl" data-tpl="${x}" title="${tt}">${ic} ${lb}</button>`).join('')}
-    </div>`;   // ảnh / bảng / danh sách: thanh soạn thảo nổi khi đang gõ (room-richtools.js)
+    // Nhóm viết giải thích TRƯỚC khi lộ đáp án -> lời giải trong file từng bị che mất. Nay hiện riêng + gộp 1 chạm.
+    const fileExp = q.explanation || q.explain || '';
+    const lostFile = !st.essay && st.revealed && fileLost(noteOf(i), fileExp) ? `<details class="rm-filexp">
+        <summary>📄 Lời giải trong file <span>chưa có trong giải thích nhóm</span></summary>
+        <div class="rm-md">${renderRich(fileExp)}</div>
+        <button type="button" class="rm-rf-add" data-rf-merge>⤵ Gộp vào giải thích</button>
+    </details>` : '';
     const expBox = st.essay ? '' : `<div class="rm-hub-exp ${hasRich(st.exp.html) ? '' : 'is-empty'} ${fresh && st.exp.fromFile ? 'is-fresh' : ''}" data-live-wrap data-nb-sec="exp">
         <div class="rm-hub-boxhead">
             <span class="rm-xlabel"><span class="rm-xic">💡</span>Giải thích</span>
@@ -328,7 +326,8 @@ export function renderNotebook(i, force = false) {
         ${st.exp.lock ? '<p class="rm-nb-lock">🔒 File có sẵn lời giải — tự mở khi chủ trì bấm <b>Hiện đáp án</b>. Nhóm vẫn viết trước được.</p>' : ''}
         <div class="rm-md rm-hub-editor" contenteditable="true" data-live-edit="explain"
              data-placeholder="Ai cũng gõ được: cách suy luận, mẹo nhớ, dẫn chứng… (Ctrl+V dán ảnh)">${renderRich(st.exp.html)}</div>
-        ${tools('explain')}
+        ${reasonToolsHtml(i, 'explain', st.exp.html)}
+        ${lostFile}
         ${more('exp')}
     </div>`;
     const xBox = (f) => {
@@ -527,7 +526,16 @@ let sideTab = 'q';
 let allFilter = 'all';
 let allQuery = '';
 const fold = (v) => plain(v).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd');
-const ALL_FILTERS = [['all', 'Tất cả'], ['group', '👥 Nhóm đã viết'], ['mine', '📝 Có ghi chú của tôi'], ['todo', '✏ Đã lộ mà chưa giải thích']];
+const ALL_FILTERS = [['all', 'Tất cả'], ['pick', '○ Chưa chọn'], ['wrong', '✗ Chọn trật'], ['group', '👥 Nhóm đã viết'],
+    ['mine', '📝 Ghi chú của tôi'], ['todo', '✏ Chưa có giải thích']];
+const ALL_TEST = {
+    all: () => true,
+    pick: (r) => r.st === 'todo' || r.st === 'miss',
+    wrong: (r) => r.st === 'bad',
+    group: (r) => r.group,
+    mine: (r) => r.has.mine,
+    todo: (r) => r.revealed && !r.has.exp,
+};
 function allRows() {
     return (room.session?.questions || []).map((_, k) => {
         const st = nbState(k);
@@ -542,7 +550,7 @@ function allRows() {
         const group = hasRich(noteOf(k)) || st.x.expanded.own || st.x.note.own;
         const snippet = plain(expHtml) || plain(st.x.note.html && st.x.note.shown ? st.x.note.html : '') || plain(mine);
         return {
-            k, q: st.q, has, group, snippet, revealed: st.revealed,
+            k, q: st.q, has, group, snippet, revealed: st.revealed, st: qStateOf(k), talk: argsOf(k).length,
             lock: st.exp.lock || st.x.expanded.lock || st.x.note.lock,
             hay: fold([st.q.question, expHtml, st.x.expanded.shown ? st.x.expanded.html : '', st.x.note.shown ? st.x.note.html : '', mine].join(' ')),
         };
@@ -559,24 +567,37 @@ export function renderAllNotes() {
     if (!box.firstElementChild) {
         box.innerHTML = `<div class="rm-all-head">
             <label class="rm-all-search"><i class="fas fa-magnifying-glass"></i><input type="search" data-all-q placeholder="Tìm trong giải thích, ghi nhớ, ghi chú… (không dấu cũng được)"></label>
-            <div class="rm-all-filters">${ALL_FILTERS.map(([v, lb]) => `<button type="button" class="rm-all-f ${v === allFilter ? 'on' : ''}" data-all-f="${v}">${lb}</button>`).join('')}</div>
+            <div class="rm-all-filters">${ALL_FILTERS.map(([v, lb]) => `<button type="button" class="rm-all-f ${v === allFilter ? 'on' : ''}" data-all-f="${v}">${lb}<b data-all-n="${v}"></b></button>`).join('')}</div>
         </div><div class="rm-all-list" data-all-list></div>`;
     }
     box.querySelectorAll('[data-all-f]').forEach(b => b.classList.toggle('on', b.dataset.allF === allFilter));
+    box.querySelectorAll('[data-all-n]').forEach(n => { const c = rows.filter(ALL_TEST[n.dataset.allN]).length; n.textContent = c; n.closest('button').disabled = !c && n.dataset.allN !== 'all'; });
     const needle = fold(allQuery);
     const cur = effectiveIndex();
-    const shown = rows.filter(r => (!needle || r.hay.includes(needle))
-        && (allFilter === 'all' || (allFilter === 'group' && r.group) || (allFilter === 'mine' && r.has.mine)
-            || (allFilter === 'todo' && r.revealed && !r.has.exp)));
-    const dot = (on, ic, tip) => `<i class="${on ? 'on' : ''}" title="${tip}${on ? '' : ' — chưa có'}">${ic}</i>`;
-    const html = shown.length ? shown.map(r => `<button type="button" class="rm-allrow ${r.k === cur ? 'is-now' : ''}" data-all-go="${r.k}">
+    const shown = rows.filter(r => (!needle || r.hay.includes(needle)) && ALL_TEST[allFilter](r));
+    const me = myMember();
+    const ST_LB = { todo: 'Chưa chọn', miss: 'Bỏ trống', done: 'Bạn chọn', good: 'Trúng', bad: 'Trật' };
+    const html = shown.length ? shown.map(r => {
+        const a = answerOf(me, r.k);
+        const letter = typeof a?.i === 'number' ? L(a.i) : '';
+        const ck = caseKeyAt(r.k);
+        const inCase = !!ck && (caseKeyAt(r.k - 1) === ck || caseKeyAt(r.k + 1) === ck);
+        const tags = [r.has.exp && '💡 Giải thích', r.has.expanded && '📖 Mở rộng', r.has.note && '📌 Ghi nhớ',
+            r.has.mine && '📝 Của tôi', r.talk && `💬 ${r.talk} ý kiến`, r.lock && '🔒 chờ lộ đáp án'].filter(Boolean);
+        return `<button type="button" class="rm-allrow is-${r.st} ${r.k === cur ? 'is-now' : ''} ${inCase ? 'in-case' : ''}" data-all-go="${r.k}">
             <b class="rm-allrow-no">${r.k + 1}</b>
             <span class="rm-allrow-main">
-                <span class="rm-allrow-q">${escapeHtml(plain(r.q.question).slice(0, 80))}</span>
+                <span class="rm-allrow-top">
+                    <span class="rm-allst is-${r.st}">${ST_LB[r.st]}${letter ? ` <b>${letter}</b>` : ''}${r.st === 'good' ? ' ✓' : r.st === 'bad' ? ' ✗' : ''}</span>
+                    ${inCase ? '<span class="rm-allcase">🩺 câu chùm</span>' : ''}
+                    ${r.k === cur ? '<span class="rm-allnow">● đang xem</span>' : ''}
+                </span>
+                <span class="rm-allrow-q">${escapeHtml(plain(r.q.question).slice(0, 90))}</span>
                 ${r.snippet ? `<span class="rm-allrow-s">${escapeHtml(r.snippet.slice(0, 110))}</span>` : ''}
+                ${tags.length ? `<span class="rm-alltags">${tags.map(t => `<i>${t}</i>`).join('')}</span>` : '<span class="rm-alltags is-empty"><i>chưa có ghi chép</i></span>'}
             </span>
-            <span class="rm-allrow-dots">${dot(r.has.exp, '💡', 'Giải thích')}${dot(r.has.expanded, '📖', 'Mở rộng')}${dot(r.has.note, '📌', 'Ghi nhớ')}${dot(r.has.mine, '📝', 'Ghi chú của tôi')}${r.lock ? '<i class="lock" title="Có phần trong file chờ lộ đáp án">🔒</i>' : ''}</span>
-        </button>`).join('')
+        </button>`;
+    }).join('')
         : `<p class="rm-all-empty">${needle ? 'Không thấy câu nào khớp — thử từ khác nhé.' : 'Chưa có câu nào khớp bộ lọc này.'}</p>`;
     const list = box.querySelector('[data-all-list]');
     if (list.dataset.sig !== html) { list.dataset.sig = html; list.innerHTML = html; }
@@ -733,17 +754,21 @@ export function renderOptionTalk(i, force = false) {
         room.members.map(m => [m.uid, m.displayName, m.emoji, answerOf(m, i), m.dissent?.[key]]),
         Object.keys(myMember()?.agree || {}).filter(k => myMember().agree[k]),
         Object.entries(rowPref).filter(([k]) => k.startsWith(i + ':')),
-        JSON.stringify(stance), JSON.stringify(quotes), JSON.stringify(replyTo), JSON.stringify(expOpen), slots.length];
+        JSON.stringify(stance), JSON.stringify(quotes), JSON.stringify(replyTo), JSON.stringify(expOpen), slots.length,
+        room.members.map(m => m.rf?.[key]?.elim || 0), reasonSig(i)];
     if (!changed('otalk', sig) && !force) return;
 
     const people = room.members.filter(m => typeof answerOf(m, i)?.i === 'number');
     const mineA = answerOf(myMember(), i);
+    const out = isAnnounced(i) ? new Set() : myElimSet(i);
     slots.forEach(slot => {
         const k = Number(slot.dataset.odisc);
         const html = talkHtml(i, q, k, people, args, open, revealed, mineA, t);
         slot.innerHTML = html;
         slot.classList.toggle('hidden', !html);
-        slot.closest('.rm-ocard')?.classList.toggle('has-talk', !!html);
+        const card = slot.closest('.rm-ocard');
+        card?.classList.toggle('has-talk', !!html);
+        card?.classList.toggle('is-elim', out.has(k) && mineA?.i !== k);
     });
     area.querySelectorAll('[data-live-edit]').forEach(n => { if (n.closest('[data-odisc]')) n.dataset.empty = isBlank(n) ? '1' : '0'; });
     area.querySelectorAll('[data-cinput]').forEach(n => { n.value = drafts[`${i}:${n.dataset.cinput}`] || ''; paintStance(n); });
@@ -762,9 +787,12 @@ function talkHtml(i, q, k, people, args, open, revealed, mineA, t) {
     const lines = open ? who.filter(m => said(m) && m.uid !== uid()) : [];
     const quoted = !!quotes[`${i}:${k}`] || !!replyTo[`${i}:${k}`] || !!pending[`${i}:${k}`]?.length;
     const talkN = lines.length + cm.length + hidden;
+    // Lý do loại trừ (form 🧩 của mọi người) = một phần giải thích của ô này
+    const elimBox = elimListHtml(i, k);
+    const elimN = elimsOf(i, k).filter(x => x.uid === uid() || talkOpen(i)).length;
     // Có gì để hiện? Chưa lộ đáp án thì chỉ ô mình chọn + ô đã có giải thích/bàn luận mới có khay
     const inlineExp = revealed || hasRich(note);
-    if (!mine && !inlineExp && !talkN && !quoted) return '';
+    if (!mine && !inlineExp && !talkN && !quoted && !elimBox) return '';
 
     const items = cm.map(argItem);
     const newN = items.filter(x => isNew(i, x)).length;
@@ -791,6 +819,7 @@ function talkHtml(i, q, k, people, args, open, revealed, mineA, t) {
     // Cán cân lập luận ngay trên thanh xổ: ✚ n · ✖ n · ❓ n (vàng = còn thắc mắc chưa giải đáp) · 💬 n
     const c = { pro: 0, con: 0, ask: 0, cmt: 0 };
     cm.forEach(a => { c[a.s in c ? a.s : 'cmt']++; });
+    c.con += elimN;
     const askOpen = cm.filter(a => a.s === 'ask' && !a.ok).length;
     const tally = ['pro', 'con', 'ask', 'cmt'].filter(x => c[x]).map(x =>
         `<b class="is-${x} ${x === 'ask' && askOpen ? 'is-open' : ''}" title="${c[x]} ${ST[x].label}${x === 'ask' && askOpen ? ` · ${askOpen} chưa giải đáp` : ''}">${ST[x].ic}${c[x]}</b>`).join('');
@@ -799,14 +828,15 @@ function talkHtml(i, q, k, people, args, open, revealed, mineA, t) {
     const mineBox = !mine ? '' : `<div class="rm-otalk-mine ${hasRich(myWhy) ? '' : 'is-empty'}" data-live-wrap>
         <span class="rm-otalk-me">${avatarHtml(myMember(), 'xs')}💭 Lý do của bạn${from !== null ? ` <span class="rm-tagmini is-move">đổi từ ${L(from)}${mineA.by?.n ? ` · nhờ ${escapeHtml(shortName(mineA.by.n, 10))}` : ''}</span>` : ''}</span><span data-live-status></span>
         ${confHtml}
+        <button type="button" class="rm-tagmini rm-touch-edit" data-edit-opt-text="${k}" title="Sửa chữ của phương án ${L(k)} (máy cảm ứng không có nút bút chì khi rê chuột)">✏️ Sửa chữ ${L(k)}</button>
         ${differ ? `<button type="button" class="rm-tagmini ${dissentOf(myMember(), i) ? 'is-warn' : ''}" data-dissent-here title="Ý kiến của bạn vẫn được ghi vào biên bản">✋ ${dissentOf(myMember(), i) ? 'Đang bảo lưu' : 'Bảo lưu ' + L(k)}</button>` : ''}
         <div class="rm-md rm-hub-mini rm-why" contenteditable="true" data-live-edit="why" data-placeholder="Vì sao bạn chọn ${L(k)}? Gõ, hoặc Ctrl+V dán ảnh chụp sách / sơ đồ — cả nhóm thấy kèm tên">${renderRich(myWhy)}</div>
-        <div class="rm-why-tools">
-            ${WHY_TPL.map(([ic, lb, tt], x) => `<button type="button" class="rm-why-tpl" data-tpl="${x}" title="${tt}">${ic} ${lb}</button>`).join('')}
-        </div>
+        ${reasonToolsHtml(i, 'why', myWhy, hasRich(myWhy) && !isEssay(q)
+            ? '<button type="button" class="rm-why-tpl is-share" data-rf-share title="Chép lý do của bạn (kèm tên) vào Giải thích chung của câu — bấm lại để cập nhật">📤 Góp vào giải thích</button>' : '')}
     </div>`;
     return `
         ${inlineExp ? expBox(true) : ''}
+        ${elimBox}
         ${mineBox}
         <button type="button" class="rm-otalk-tg ${isOpen ? 'is-open' : ''}" data-otalk="${k}" aria-expanded="${isOpen}">
             ${lines.length ? `<span class="rm-otalk-faces">${avatarStack(lines, 3, 'xs')}</span><span>${lines.length} lý do</span>` : ''}
@@ -840,7 +870,7 @@ function personLine(m, i, t, mineA) {
         ? `<button type="button" class="rm-theo" data-theo-why="${escapeHtml(m.uid)}" title="Lý do này thuyết phục bạn -> chọn ${L(a.i)}">🔄 Theo</button>` : '';
     return `<li>${avatarHtml(m, 'sm')}
         <div class="rm-camp-bub min-w-0 flex-1">
-            <p class="rm-camp-name"><b>${nameOf(m)}</b>${tags.join('')}</p>
+            <p class="rm-camp-name"><b>${nameOf(m)}</b>${tags.join('')}${why ? badgesHtml(whyOf(m, i)) : ''}</p>
             ${why ? `<div class="rm-camp-why rm-md">${renderRich(whyOf(m, i))}</div>` : '<p class="rm-hint">chưa ghi lý do</p>'}
         </div>
         ${theo}
@@ -1061,7 +1091,13 @@ export function initAnswerHub() {
         renderAllNotes();
     });
     const on = (type, fn, capture) => roots.forEach(r => r.addEventListener(type, fn, capture));
-    el('consensus-bar')?.addEventListener('click', (e) => { if (e.target.closest('[data-open-ask]')) gotoOpenAsk(); });
+    // Form lập luận 🔬🧩📖💡 (room-reason.js): vẽ lại đúng vùng chứa ô gõ
+    initReason(roots, (key, qi) => (key === 'why' ? renderOptionTalk(qi, true) : renderNotebook(qi, true)));
+    el('consensus-bar')?.addEventListener('click', (e) => {
+        if (e.target.closest('[data-open-ask]')) gotoOpenAsk();
+        const g = e.target.closest('[data-goto-opt]');          // chip "🧩 Đã loại A·2" -> mở khay ô A (có lý do loại)
+        if (g) openOptionTalk(Number(g.dataset.gotoOpt), false);
+    });
     on('submit', (e) => {
         const f = e.target.closest('[data-cform]');
         if (!f) return;
@@ -1092,12 +1128,6 @@ export function initAnswerHub() {
         const b = (sel) => e.target.closest(sel);
         let x;
         if ((x = b('[data-setst]'))) { e.preventDefault(); return void setStance(slotKey(x.closest('[data-cform]').dataset.cform), x.dataset.setst); }
-        if ((x = b('[data-tpl]'))) {
-            e.preventDefault();
-            const [ic, lb] = WHY_TPL[Number(x.dataset.tpl)] || [];
-            if (ic) insertHtmlInto(editorNear(x), `<b>${ic} ${lb}:</b>&nbsp;`);
-            return;
-        }
         if (b('[data-imgbtn]')) e.preventDefault();
     });
     // Ảnh: Ctrl+V vào bất kỳ ô gõ nhận xét nào (có chữ trong bộ nhớ tạm thì dán chữ như thường)
@@ -1163,7 +1193,11 @@ export function initAnswerHub() {
             return void x.classList.add('hidden');
         }
         if ((x = b('[data-xadd]'))) return void gotoNotebook(x.dataset.xadd);
-        if (b('[data-hub-doc]')) return void el('chat-doc-btn')?.click();   // hộp trích tài liệu, gắn vào câu đang xem
+        if (b('[data-hub-doc]')) return void el('chat-doc-btn')?.click();
+        if (b('[data-rf-merge]')) {
+            const q = questionAt(i);
+            return void window.dispatchEvent(new CustomEvent('room:edit', { detail: { key: 'explain', qi: i, appendHtml: '<hr>' + renderRich(q.explanation || q.explain || '') } }));
+        }   // hộp trích tài liệu, gắn vào câu đang xem
         if (b('[data-like], [data-toexp]') && chatMsgAction(e)) return;
         if ((x = b('[data-otalk]'))) {
             const k = slotKey(x.dataset.otalk);

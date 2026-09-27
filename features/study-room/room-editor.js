@@ -239,14 +239,6 @@ export function insertImagesInto(node, files) {
     caretIn(node);
     insertImages(node, list);
 }
-/** Chèn một mẩu HTML (mẫu câu "🔬 Cơ chế:" …) vào ô sửa, xuống dòng nếu ô đã có chữ, rồi lưu như đang gõ. */
-export function insertHtmlInto(node, html) {
-    if (!node) return;
-    const blank = isBlank(node);
-    caretIn(node);
-    document.execCommand('insertHTML', false, (blank ? '' : '<br>') + html);
-    node.dispatchEvent(new Event('input', { bubbles: true }));
-}
 
 function saveNow(node) {
     if (!node) return;
