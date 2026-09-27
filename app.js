@@ -276,6 +276,21 @@ async function sha256Hex(str) {
     return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// Phím tắt bí mật (bấm lần lượt, cũng chỉ lưu hash) = thay cho mật khẩu web khi đăng ký.
+let signupUnlocked = false;
+let secretKeys = [];
+document.addEventListener('keydown', async (e) => {
+    if (!e.key) return;
+    secretKeys = [...secretKeys, e.key.toLowerCase()].slice(-3);
+    if (secretKeys.length < 3 || await sha256Hex(secretKeys.join()) !== '955bcbc1a840e0548bf80d0b679629c84619310a8147235bbda1e3eb2fe2bc10') return;
+    const t = e.target;
+    // gõ phím trong ô nhập thì bỏ 2 ký tự vừa lọt vào
+    if ((t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && t.value.toLowerCase().endsWith('zt')) t.value = t.value.slice(0, -2);
+    signupUnlocked = true;
+    document.getElementById('signupCodeWrap')?.classList.add('hidden');
+    showToast('Đã mở khóa đăng ký, không cần mật khẩu web.', 'success');
+});
+
 async function handleSignup() {
     const email = document.getElementById('emailInput').value.trim();
     const password = document.getElementById('passwordInput').value;
@@ -283,13 +298,13 @@ async function handleSignup() {
     if (!email.includes('@')) return showToast('Vui lòng nhập email hợp lệ để đăng ký.', 'warning');
     const signupCodeWrap = document.getElementById('signupCodeWrap');
     const signupCode = (document.getElementById('signupCodeInput')?.value || '').trim();
-    if (!signupCode) {
+    if (!signupUnlocked && !signupCode) {
         if (signupCodeWrap) signupCodeWrap.classList.remove('hidden');
         document.getElementById('signupCodeInput')?.focus();
         return showToast('Vui lòng nhập mật khẩu web để tạo tài khoản mới.', 'warning');
     }
     // Mã đăng ký so bằng hash SHA-256, plaintext không nằm trong code.
-    if (await sha256Hex(signupCode) !== '862d3cd3eaab0767603e2bb0925e2b08d64ef4bbeac1d00b602886749f0ce195') {
+    if (!signupUnlocked && await sha256Hex(signupCode) !== '5e0d128731e26b9befa3ea41f7b40422e916c87b6cac4c542af1adf331875be2') {
         if (signupCodeWrap) signupCodeWrap.classList.remove('hidden');
         return showToast('Mật khẩu web không đúng. Bạn không thể tạo tài khoản mới.', 'error');
     }
