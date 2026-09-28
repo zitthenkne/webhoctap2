@@ -1,0 +1,1949 @@
+/* =====================================================================
+   LỚP DA "HỒNG PHẤN – HỒNG ĐÀO" (2026-09-28) — trang viết bệnh án
+   ---------------------------------------------------------------------
+   Nạp SAU CÙNG (sau gon-giao-dien.css). Chỉ đổi màu, viền, bo góc, khoảng
+   cách — KHÔNG đổi thứ tự, không giấu ô nào, không đụng id. Gác bằng
+   `body.hd:not(.ba-night)` để chế độ Đọc đêm giữ nguyên bảng màu riêng.
+
+   Vì sao cần: trang có ~140 kiểu hộp/chip với màu rời rạc (tím violet-600,
+   hồng pink-500 đặc, xanh cyan, cam…) + nền loang gradient -> nhìn rối.
+   Nay mọi màu đi qua một bộ biến:
+     · Chrome (nền, đầu trang, nút chính)  = hồng phấn + hồng đào
+     · Mỗi mục một màu pastel riêng (--sec*) để biết đang ở đâu
+     · Hộp nhắc chỉ còn 4 nghĩa: gợi ý (xanh trời) · ổn (bạc hà)
+       · cần bổ sung (vàng bơ) · bất thường/nguy hiểm (hồng đỏ)
+     · Chip: câu bình thường = hồng phấn · theo bệnh cảnh = hồng đào
+       · dấu chứng bất thường = oải hương nhạt
+   Không dùng gradient trang trí (chỉ còn hoạ tiết chấm bi và mask mờ mép).
+   ===================================================================== */
+
+@media screen {
+
+/* ---------- 1. Bộ biến ---------- */
+body.hd:not(.ba-night) {
+    --hp: #f4a9c6;        /* hồng phấn */
+    --hp-deep: #b24d75;
+    --hp-soft: #fdeef4;
+    --hp-line: #f6d3e1;
+    --hd: #f6ae94;        /* hồng đào */
+    --hd-deep: #a8573a;
+    --hd-soft: #fff1ea;
+    --hd-line: #f9d4c5;
+
+    --brand: #ee93b5;
+    --brand-deep: #b24d75;
+    --brand-soft: #fdeef4;
+    --brand-line: #f6d3e1;
+    --brand-2: #f6ae94;
+    --ink: #54414b;
+    --muted: #9d8792;
+    --line: #f1e1e8;
+    --field: #ffffff;
+
+    /* 4 nghĩa của hộp nhắc */
+    --i-bg: #f0f7fd; --i-line: #cde2f4; --i-ink: #396a93;   /* gợi ý */
+    --o-bg: #eefaf3; --o-line: #c3e7d3; --o-ink: #2e7455;   /* ổn */
+    --w-bg: #fff8e6; --w-line: #f3dfa6; --w-ink: #86560f;   /* cần bổ sung */
+    --b-bg: #fff0f0; --b-line: #f5c8c8; --b-ink: #a23a3a;   /* bất thường */
+    --l-bg: #f7f4fd; --l-line: #ddd4f4; --l-ink: #66559b;   /* oải hương */
+
+    --sec-ink: var(--hp-deep);
+}
+
+/* Bảy màu mục. Hai mục viết nhiều nhất (I và II–IV) mang đúng hai màu chủ
+   đạo; các mục sau là họ pastel đi cùng, không màu nào đậm hơn màu nào. */
+body.hd:not(.ba-night) #hanh-chinh, body.hd:not(.ba-night) #tab-nav li:nth-child(1) {
+    --sec: #f4a9c6; --sec-line: #f5d0df; --sec-tint: #fff6fa; --sec-pill: #fce3ee; --sec-ink: #a9466f;
+}
+body.hd:not(.ba-night) #lydo-tiensu, body.hd:not(.ba-night) #tab-nav li:nth-child(2) {
+    --sec: #f6b29a; --sec-line: #f8d6c8; --sec-tint: #fff8f4; --sec-pill: #fde6dc; --sec-ink: #a3553a;
+}
+body.hd:not(.ba-night) #kham-benh, body.hd:not(.ba-night) #tab-nav li:nth-child(3) {
+    --sec: #9fd8c2; --sec-line: #c9eadb; --sec-tint: #f4fbf8; --sec-pill: #dcf2e8; --sec-ink: #357a5f;
+}
+body.hd:not(.ba-night) #chan-doan-dieu-tri, body.hd:not(.ba-night) #tab-nav li:nth-child(4) {
+    --sec: #c9bcef; --sec-line: #ddd5f5; --sec-tint: #f9f7fe; --sec-pill: #ebe6fb; --sec-ink: #62529a;
+}
+body.hd:not(.ba-night) #can-lam-sang, body.hd:not(.ba-night) #tab-nav li:nth-child(5) {
+    --sec: #a8d2ef; --sec-line: #cfe3f5; --sec-tint: #f5fafe; --sec-pill: #e1eefa; --sec-ink: #37688f;
+}
+body.hd:not(.ba-night) #ket-luan, body.hd:not(.ba-night) #tab-nav li:nth-child(6) {
+    --sec: #f1d38b; --sec-line: #f5e3b6; --sec-tint: #fffcf2; --sec-pill: #fbf0d3; --sec-ink: #85600f;
+}
+body.hd:not(.ba-night) #theo-doi, body.hd:not(.ba-night) #tab-nav li:nth-child(7) {
+    --sec: #f3adad; --sec-line: #f7d1d1; --sec-tint: #fff7f7; --sec-pill: #fde5e5; --sec-ink: #9c4545;
+}
+
+/* ---------- 2. Nền trang + thẻ giấy ---------- */
+html:has(body.hd:not(.ba-night)) { background: #fce6ef }
+
+/* Thay ba vệt loang (radial-gradient) của gon-giao-dien.css bằng nền hồng
+   phấn phẳng + chấm bi nhỏ. Vẫn là lớp giả position:fixed như cũ. */
+body.hd.gg-on:not(.ba-night)::before {
+    background-color: #fce6ef;
+    background-image: radial-gradient(#f7d0df 1.1px, transparent 1.6px);
+    background-size: 22px 22px;
+}
+
+body.hd:not(.ba-night) div.page-card {
+    background: #fffdfe;
+    border: 1.5px solid #f6d3e1;
+    border-radius: 30px;
+    box-shadow: 0 22px 44px -30px rgba(178, 77, 117, .45);
+    color: var(--ink);
+}
+
+/* Bệnh án mẫu giữ viền vàng để luôn biết mình đang ở bản mẫu */
+html[data-mau="1"] body.hd:not(.ba-night) div.page-card { border-color: #f3d38a }
+
+/* ---------- 3. Đầu trang ---------- */
+body.hd:not(.ba-night) .ba-hero .page-title {
+    font-family: 'Quicksand', 'Nunito', system-ui, sans-serif;
+    font-weight: 700;
+    color: var(--hp-deep);
+    letter-spacing: -.01em;
+}
+
+body.hd:not(.ba-night) .ba-back {
+    background: var(--hd-soft);
+    border: 1.5px solid var(--hd-line);
+    color: var(--hd-deep);
+    border-radius: 14px;
+}
+body.hd:not(.ba-night) .ba-back:hover { background: #fde2d6 }
+
+body.hd:not(.ba-night) .ba-save { color: var(--muted) }
+
+body.hd:not(.ba-night) #status-pill {
+    background: var(--hp-soft);
+    border: 1px solid var(--hp-line);
+    color: var(--hp-deep);
+    border-radius: 999px;
+}
+body.hd:not(.ba-night) #status-pill.is-done {
+    background: var(--o-bg);
+    border-color: var(--o-line);
+    color: var(--o-ink);
+}
+
+body.hd.gg-on:not(.ba-night) .ba-tools-btn {
+    background: #fff;
+    border: 1.5px solid var(--hp-line);
+    color: var(--hp-deep);
+    border-radius: 999px;
+    font-weight: 700;
+}
+body.hd.gg-on:not(.ba-night) .ba-tools-btn:hover { background: var(--hp-soft) }
+body.hd.gg-on.gg-mo:not(.ba-night) .ba-tools-btn,
+body.hd.ba-menu-on:not(.ba-night) .ba-tools-btn {
+    background: var(--hp);
+    background-image: none;
+    border-color: var(--hp);
+    color: #5b1d38;
+}
+body.hd.gg-on.gg-mo:not(.ba-night) .ba-tools-btn i { color: #5b1d38 }
+
+body.hd:not(.ba-night) .ba-ring .ring-bg { stroke: #fbe3ec }
+body.hd:not(.ba-night) .ba-ring .ring-fg { stroke: var(--hp) }
+body.hd:not(.ba-night) .ba-ring span { color: var(--hp-deep) }
+
+/* Vạch % tổng + vạch cuộn: tô phẳng */
+body.hd:not(.ba-night) .overall-track { background: #fbe7ef }
+body.hd:not(.ba-night) .overall-track .overall-fill { background: var(--hp); background-image: none }
+body.hd:not(.ba-night) .ba-scroll i { background: var(--hd); background-image: none }
+
+/* Dải bọc thanh mục (dính đầu trang) */
+body.hd.gg-on:not(.ba-night) .gg-rail {
+    background: rgba(255, 253, 254, .97);
+    box-shadow: 0 10px 16px -16px rgba(178, 77, 117, .7);
+}
+
+/* ---------- 4. Thanh mục: mỗi thẻ một viên kẹo mang màu mục ---------- */
+body.hd:not(.ba-night) #tab-nav { gap: 6px }
+
+body.hd:not(.ba-night) .tab-link {
+    background: var(--sec-tint);
+    border: 1.5px solid var(--sec-line);
+    border-radius: 16px;
+    color: var(--sec-ink);
+    font-weight: 600;
+}
+body.hd:not(.ba-night) .tab-link i { color: var(--sec-ink); opacity: .9 }
+body.hd:not(.ba-night) .tab-link:hover { background: var(--sec-pill) }
+
+body.hd:not(.ba-night) .tab-link.active {
+    background: var(--sec);
+    border-color: var(--sec);
+    color: #3e2a33;
+    font-weight: 700;
+    box-shadow: 0 6px 14px -9px var(--sec-ink);
+}
+body.hd:not(.ba-night) .tab-link.active i { color: #3e2a33; opacity: 1 }
+
+/* Vạch % dưới chân thẻ: máng mờ theo màu mục, phần đã điền đậm hơn */
+body.hd.gg-on:not(.ba-night) .tab-link::before { background: var(--sec-line) }
+body.hd.gg-on:not(.ba-night) .tab-link::after { background: var(--sec-ink); opacity: .55 }
+body.hd.gg-on:not(.ba-night) .tab-link.active::before { background: rgba(255, 255, 255, .55) }
+body.hd.gg-on:not(.ba-night) .tab-link.active::after { background: #fff; opacity: 1 }
+
+/* ---------- 5. Khung mục (fieldset + legend) ---------- */
+body.hd:not(.ba-night) #medical-record-form fieldset {
+    background: var(--sec-tint);
+    border: 1.5px solid var(--sec-line);
+    border-radius: 24px;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, .8) inset, 0 10px 24px -22px var(--sec-ink);
+}
+
+body.hd:not(.ba-night) #medical-record-form legend {
+    font-family: 'Quicksand', 'Nunito', system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: .01em;
+    padding: 6px 15px;
+    background: var(--sec-pill);
+    border: 1.5px solid var(--sec-line);
+    border-radius: 999px;
+    color: var(--sec-ink);
+}
+body.hd:not(.ba-night) #medical-record-form legend > i:first-child { color: var(--sec-ink) }
+
+/* Chữ hồng tiêu đề (text-pink-500) trong form đổi theo màu mục đang đứng */
+body.hd:not(.ba-night) #medical-record-form .text-pink-500,
+body.hd:not(.ba-night) #medical-record-form .text-pink-600 { color: var(--sec-ink) }
+body.hd:not(.ba-night) #medical-record-form .text-purple-500,
+body.hd:not(.ba-night) #medical-record-form .text-purple-400 { color: var(--l-ink) }
+
+/* Mục VII–XI: tiêu đề là <label class="text-pink-500"> chứ không phải
+   legend — cho mặc cùng một bộ áo viên kẹo, và mỗi khối thành một thẻ
+   giống fieldset của các mục khác (không đổi HTML: mot-tay.js / tam-tay.js /
+   tao-benh-an-them.js dò tiêu đề mục bằng đúng bộ chọn label.text-pink-500). */
+body.hd:not(.ba-night) #medical-record-form label.text-pink-500 {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2px 8px;
+    width: auto;
+    padding: 6px 15px;
+    margin-bottom: 6px;
+    border-radius: 999px;
+    background: var(--sec-pill);
+    border: 1.5px solid var(--sec-line);
+    color: var(--sec-ink);
+    font-family: 'Quicksand', 'Nunito', system-ui, sans-serif;
+    font-size: calc(var(--fs-section, 18px) - 2px);
+    font-weight: 700;
+    letter-spacing: .01em;
+}
+body.hd:not(.ba-night) #medical-record-form label.text-pink-500 .sub-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    margin: 0;
+}
+
+body.hd:not(.ba-night) #chan-doan-dieu-tri > .flex-col > .hd-khoi,
+body.hd:not(.ba-night) #chan-doan-dieu-tri > .flex-col > div:has(> label.text-pink-500),
+body.hd:not(.ba-night) #chan-doan-dieu-tri > .flex-col > div:has(> div > label.text-pink-500) {
+    background: var(--sec-tint);
+    border: 1.5px solid var(--sec-line);
+    border-radius: 24px;
+    padding: 14px 18px 18px;
+    box-shadow: 0 10px 24px -22px var(--sec-ink);
+}
+body.hd:not(.ba-night) .hd-khoi { display: flex; flex-direction: column; gap: 10px }
+
+/* Nhưng tiêu đề CON nằm trong một khung mục (XIV-1, XIV-2…) thì chỉ là dòng
+   chữ đậm có vạch màu bên trái — không được to ngang tiêu đề mục. */
+body.hd:not(.ba-night) #medical-record-form fieldset label.text-pink-500 {
+    display: flex;
+    padding: 1px 0 1px 10px;
+    background: none;
+    border: 0;
+    border-left: 3px solid var(--sec);
+    border-radius: 0;
+    font-size: 14.5px;
+    margin: 4px 0 8px;
+}
+
+/* ---------- 6. Hộp con: một kiểu duy nhất — giấy trắng, viền màu mục ---------- */
+body.hd:not(.ba-night) #medical-record-form :is(.calc-box, .cnv-box, .spec-box, .score-box, .grade-box, .tip-box, .hx-check) {
+    background: #fff;
+    border: 1px solid var(--sec-line);
+    border-radius: 18px;
+    box-shadow: 0 1px 2px rgba(120, 60, 90, .04);
+}
+
+/* Màu nhấn của hộp (--tone: tiêu đề gập, icon) trước là hồng gắt / chàm /
+   tím violet cố định theo loại hộp -> nay theo màu mục đang đứng */
+body.hd:not(.ba-night) #medical-record-form :is(.calc-box, .para-box, .spec-box, .score-box, .cnv-box, .grade-box, .fold-panel) {
+    --tone: var(--sec-ink);
+    --tone-soft: var(--sec-pill);
+}
+
+/* Tiêu đề phụ trong khối (Ai kể bệnh, Lúc vào viện…) + dòng dẫn chuyện */
+body.hd:not(.ba-night) .hx-sub {
+    color: var(--sec-ink);
+    border-top: 1px solid var(--line);
+}
+body.hd:not(.ba-night) .hx-sub i { color: var(--sec) }
+body.hd:not(.ba-night) .hx-ask {
+    background: var(--sec-tint);
+    border-left-color: var(--sec);
+    color: #7a6070;
+}
+
+/* Hộp của ui-fold (details.fold-panel) và thanh tiêu đề gập */
+body.hd:not(.ba-night) #medical-record-form details.fold-panel {
+    background: #fff;
+    border: 1px solid var(--sec-line);
+    border-radius: 18px;
+}
+/* Tiêu đề hộp gập — kể cả hộp đặc thù khoa (.spec-box > summary trước lấy
+   --khoa-mau: Nội khoa ra xanh dương giữa mục hồng đào) */
+body.hd:not(.ba-night) #medical-record-form .fold-panel > summary,
+body.hd:not(.ba-night) #medical-record-form .spec-box > summary,
+body.hd:not(.ba-night) #medical-record-form .spec-box .calc-title { color: var(--sec-ink) }
+
+body.hd:not(.ba-night) #medical-record-form .foldable {
+    background: var(--sec-pill);
+    border-color: var(--sec-line);
+    color: var(--sec-ink);
+}
+
+body.hd:not(.ba-night) #medical-record-form .calc-title {
+    font-family: 'Quicksand', 'Nunito', system-ui, sans-serif;
+    font-weight: 700;
+    color: var(--sec-ink);
+}
+body.hd:not(.ba-night) #medical-record-form .calc-title i,
+body.hd:not(.ba-night) #medical-record-form .fold-panel > summary i.lead {
+    background: var(--sec-pill);
+    color: var(--sec-ink);
+}
+
+/* Đang gõ trong hộp nào thì hộp đó sáng viền — biết ngay mình đang ở đâu */
+body.hd:not(.ba-night) #medical-record-form :is(.calc-box, .cnv-box, .spec-box, .hx-step):focus-within {
+    border-color: var(--sec);
+    box-shadow: 0 0 0 3px var(--sec-pill);
+}
+
+/* Hai vùng của một mốc bệnh sử: triệu chứng MỚI (màu mục) / đã có từ TRƯỚC (vàng bơ) */
+body.hd:not(.ba-night) #medical-record-form .hx-newbox {
+    background: #fff;
+    border: 1px solid var(--sec-line);
+    border-radius: 16px;
+}
+body.hd:not(.ba-night) #medical-record-form .hx-oldbox {
+    background: var(--w-bg);
+    border: 1px solid var(--w-line);
+    border-radius: 16px;
+}
+body.hd:not(.ba-night) #medical-record-form .hx-preview {
+    background: var(--sec-tint);
+    border-left: 3px solid var(--sec);
+    border-radius: 4px 12px 12px 4px;
+}
+body.hd:not(.ba-night) #medical-record-form :is(.hx-row, .td-sym, .gd-row) {
+    border-style: solid;
+    border-color: var(--line);
+}
+
+/* Trục thời gian bệnh sử + huy hiệu số bước: tô phẳng */
+body.hd:not(.ba-night) .hx-list::before { background: var(--sec-line); background-image: none }
+body.hd:not(.ba-night) .hx-no {
+    background: var(--sec-pill);
+    background-image: none;
+    border: 1.5px solid var(--sec-line);
+    color: var(--sec-ink);
+    box-shadow: none;
+}
+body.hd:not(.ba-night) .hx-step.ph-nv { background: var(--sec-tint); background-image: none }
+/* Chấm pha trên trục: trước nhập viện = hồng đào · NGÀY nhập viện = hồng phấn
+   (to, có quầng) · sau nhập viện = xanh trời. Trước là hồng gắt / tím đậm. */
+body.hd:not(.ba-night) .hx-list .hx-step::before { background: #ef9a7e }
+body.hd:not(.ba-night) .hx-list .hx-step.ph-nv::before {
+    background: #e07aa3;
+    box-shadow: 0 0 0 3px #fff, 0 0 0 6px #fce3ee;
+}
+body.hd:not(.ba-night) .hx-list .hx-step.ph-sau::before {
+    background: #7fb6e3;
+    box-shadow: 0 0 0 3px #fff, 0 0 0 6px #e1eefa;
+}
+body.hd:not(.ba-night) .hx-gap > span {
+    background: var(--sec-pill);
+    border: 1px solid var(--sec-line);
+    color: var(--sec-ink);
+}
+
+/* Dòng "(bản máy ghép)" gấp sẵn: nhỏ, gọn, nhìn ra là phụ */
+body.hd:not(.ba-night) #medical-record-form details.bl-raw > summary {
+    color: var(--muted);
+    font-weight: 600;
+}
+body.hd:not(.ba-night) #medical-record-form details.bl-raw > summary:hover { color: var(--sec-ink) }
+body.hd:not(.ba-night) #medical-record-form .bk-hint { color: var(--muted) }
+
+/* ---------- 7. Ô nhập ---------- */
+body.hd:not(.ba-night) #medical-record-form :is(input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=range]):not([type=file]):not([type=color]), select, textarea) {
+    background-color: #fff;
+    border-color: #eedbe4;
+    border-radius: 12px;
+    color: var(--ink);
+    transition: border-color .15s, box-shadow .15s, background-color .15s;
+}
+
+/* Ô còn trống: nền ngả hồng rất nhạt -> lướt mắt là thấy chỗ chưa điền */
+body.hd:not(.ba-night) #medical-record-form :is(input:not([type=checkbox]):not([type=radio]):not([type=hidden]), textarea):placeholder-shown {
+    background-color: #fffafc;
+    border-color: #f2e3ea;
+}
+
+body.hd:not(.ba-night) #medical-record-form :is(input:not([type=checkbox]):not([type=radio]):not([type=hidden]), select, textarea):focus {
+    background-color: #fff;
+    border-color: var(--sec);
+    box-shadow: 0 0 0 3.5px var(--sec-pill);
+    outline: none;
+}
+
+body.hd:not(.ba-night) #medical-record-form :is(input, textarea)::placeholder { color: #c3afba }
+
+/* Ô có gợi ý "theo bệnh cảnh" (is-ctx-hot): trước viền tím -> hồng đào,
+   cùng màu với chip 🎯 bên dưới nó */
+body.hd:not(.ba-night) #medical-record-form .is-ctx-hot:not(:focus) {
+    border-color: var(--hd-line);
+    box-shadow: 0 0 0 3px rgba(246, 174, 148, .18);
+}
+
+/* Sinh hiệu lệch chuẩn: cam -> hồng đỏ nhạt (một màu cho "bất thường") */
+body.hd:not(.ba-night) #medical-record-form .vital-warn {
+    background-color: var(--b-bg);
+    border-color: var(--b-line);
+}
+
+/* Nhãn ô: Quicksand tròn mềm, nhạt hơn chữ gõ vào */
+body.hd:not(.ba-night) #medical-record-form label {
+    font-family: 'Quicksand', 'Nunito', system-ui, sans-serif;
+    color: #7a6070;
+}
+body.hd:not(.ba-night) #medical-record-form label:focus-within { color: var(--sec-ink) }
+/* Nhãn Quicksand không được lây sang chữ gõ trong ô bọc bên trong nhãn */
+body.hd:not(.ba-night) #medical-record-form :is(input, select, textarea) {
+    font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+body.hd:not(.ba-night) #medical-record-form input[type=checkbox],
+body.hd:not(.ba-night) #medical-record-form input[type=radio] { accent-color: var(--sec-ink) }
+
+/* ---------- 8. Chip: ba vai, ba màu ---------- */
+/* Câu bình thường / âm tính (QUICK_FILL) */
+body.hd:not(.ba-night) .chip {
+    background: #fff4f8;
+    border: 1px solid #f7d5e3;
+    color: #a3486f;
+    font-weight: 600;
+}
+body.hd:not(.ba-night) .chip:hover { background: #fce3ee }
+body.hd:not(.ba-night) .chip.is-on {
+    background: var(--hp);
+    border-color: var(--hp);
+    color: #561a35;
+}
+
+/* Theo bệnh cảnh 🎯 (trước là tím violet đậm) -> hồng đào */
+body.hd:not(.ba-night) .chip.is-ctx {
+    background: var(--hd-soft);
+    border-color: var(--hd-line);
+    color: var(--hd-deep);
+}
+body.hd:not(.ba-night) .chip.is-ctx:hover { background: #fde2d6 }
+body.hd:not(.ba-night) .chip.is-ctx.is-on {
+    background: var(--hd);
+    border-color: var(--hd);
+    color: #57230f;
+}
+
+/* Dấu chứng bất thường (mở bảng hỏi chi tiết) + gợi ý ở biện luận -> oải hương nhạt */
+body.hd:not(.ba-night) :is(.fd-chip, .tr-sugg-b) {
+    background: var(--l-bg);
+    border: 1px solid var(--l-line);
+    color: var(--l-ink);
+}
+body.hd:not(.ba-night) :is(.fd-chip, .tr-sugg-b):hover { background: #ede7fb }
+body.hd:not(.ba-night) .tr-sugg-b.red {
+    background: var(--b-bg);
+    border-color: var(--b-line);
+    color: var(--b-ink);
+}
+
+/* Con số đếm cạnh tiêu đề nhóm chip */
+body.hd:not(.ba-night) .chips-h > span {
+    background: var(--sec-pill);
+    color: var(--sec-ink);
+}
+
+/* ---------- 9. Nút nhỏ trong mục ---------- */
+body.hd:not(.ba-night) :is(.cls-mini, .bl-mini, .tr-mini, .pick-btn) {
+    background: #fff;
+    border: 1px solid var(--hp-line);
+    color: var(--hp-deep);
+    font-weight: 700;
+    border-radius: 999px;
+}
+body.hd:not(.ba-night) :is(.cls-mini, .bl-mini, .tr-mini, .pick-btn):hover { background: var(--hp-soft) }
+body.hd:not(.ba-night) #medical-record-form :is(.cls-mini, .bl-mini, .tr-mini, .pick-btn) {
+    border-color: var(--sec-line);
+    color: var(--sec-ink);
+}
+body.hd:not(.ba-night) #medical-record-form :is(.cls-mini, .bl-mini, .tr-mini, .pick-btn):hover { background: var(--sec-pill) }
+
+/* Các nút "đặc" trước là hồng pink-500 / tím violet-600 chữ trắng -> pastel chữ đậm */
+body.hd:not(.ba-night) :is(.hx-segb.is-on, .td-day, .tr-no, .rx-sg.is-all, .para-btn, .img-add, .btn-act, .tr-mini.go, .cls-mini.is-cam, .img-add.is-cam) {
+    background: var(--hp);
+    background-image: none;
+    border-color: var(--hp);
+    color: #561a35;
+}
+body.hd:not(.ba-night) :is(.tr-thang-diem, .cls-add.is-link, .bl-mini.is-map) {
+    background: #d9cef6;
+    background-image: none;
+    border-color: #d9cef6;
+    color: #40316f;
+}
+body.hd:not(.ba-night) #bl-mode .active,
+body.hd:not(.ba-night) .seg > .active {
+    background: var(--sec);
+    background-image: none;
+    color: #3e2a33;
+}
+body.hd:not(.ba-night) .hx-seg { background: var(--sec-tint); border-color: var(--sec-line) }
+body.hd:not(.ba-night) .tr-th-y.is-on { background: var(--l-bg); border-color: #c9bcef; color: #4f3f88 }
+body.hd:not(.ba-night) .hx-date { background: var(--sec-pill); border-color: var(--sec-line); color: var(--sec-ink) }
+
+/* Nút Có / Không: Có = bạc hà, Không = xám ấm */
+body.hd:not(.ba-night) .ask-b.is-on[data-v="co"] {
+    background: var(--o-bg);
+    border-color: var(--o-line);
+    color: var(--o-ink);
+}
+
+/* ---------- 10. Hộp nhắc: bốn nghĩa ---------- */
+body.hd:not(.ba-night) :is(.hx-q, .tr-tag, .tr-crit, .hx-mini.tt-open, .ctx-need > span) {
+    background: var(--i-bg);
+    border-color: var(--i-line);
+    color: var(--i-ink);
+}
+body.hd:not(.ba-night) :is(.tr-f.is-yes, .cd-tag.ok, .rf-ok, .hx-chk.is-ok, .hx-rf.is-on, .hx-tune, .at-chip.is-on, .fold-count.is-full) {
+    background: var(--o-bg);
+    border-color: var(--o-line);
+    color: var(--o-ink);
+}
+body.hd:not(.ba-night) :is(.tr-f.is-ask, .cd-tag.warn, .hx-mini, .hx-mainflag, .hx-main-note, .ld-rf, .rf-warn, .tg-warn, .stale-tag) {
+    background: var(--w-bg);
+    border-color: var(--w-line);
+    color: var(--w-ink);
+}
+body.hd:not(.ba-night) :is(.rf-bad, .calc-out.is-warn, .tr-tag.red) {
+    background: var(--b-bg);
+    border-color: var(--b-line);
+    color: var(--b-ink);
+}
+body.hd:not(.ba-night) :is(.hx-q, .tr-tag, .tr-f, .cd-tag, .rf-ok, .rf-warn, .rf-bad, .stale-tag, .tg-warn, .hx-mainflag, .hx-main-note) {
+    border-radius: 12px;
+}
+
+/* Ô kết quả máy tính (calc-out): nền theo màu mục thay vì hồng cố định */
+body.hd:not(.ba-night) #medical-record-form .calc-out:not(.is-warn) {
+    background: var(--sec-pill);
+    color: var(--sec-ink);
+}
+
+/* ---------- 11. Thanh Lưu dưới đáy ---------- */
+body.hd.gg-on:not(.ba-night) #medical-record-form .sticky-actions {
+    background: rgba(255, 253, 254, .98);
+    border-top: 1.5px solid var(--hp-line);
+}
+
+body.hd:not(.ba-night) #medical-record-form #save-button {
+    background: var(--hp);
+    background-image: none;
+    color: #561a35;
+    border-radius: 16px;
+    box-shadow: 0 10px 20px -14px var(--hp-deep);
+}
+body.hd:not(.ba-night) #medical-record-form #save-button:hover { background: #ef98ba }
+body.hd:not(.ba-night) #medical-record-form #save-button:disabled { background: #f7cddd }
+
+body.hd:not(.ba-night) #medical-record-form #preview-btn {
+    background: var(--hd-soft);
+    border-color: var(--hd-line);
+    color: var(--hd-deep);
+    border-radius: 16px;
+}
+body.hd:not(.ba-night) #medical-record-form #preview-btn:hover { background: #fde2d6 }
+
+body.hd:not(.ba-night) :is(#dock-nav, #dock-search, #dock-more) {
+    background: var(--hp-soft);
+    border: 1px solid var(--hp-line);
+    color: var(--hp-deep);
+}
+
+/* Hàng Trước / Tiếp cuối mục */
+body.hd:not(.ba-night) #medical-record-form .bg-pink-500:not(#save-button) {
+    background: var(--hp);
+    background-image: none;
+    color: #561a35;
+}
+
+/* ---------- 12. Lớp nổi luôn hiện: viên đèn logic, nút cái, thanh mép ---------- */
+body.hd:not(.ba-night) .li-pill {
+    background: var(--o-line);
+    color: var(--o-ink);
+    border: 1.5px solid #fff;
+    box-shadow: 0 10px 22px -12px rgba(84, 65, 75, .55);
+}
+body.hd:not(.ba-night) .li-bar[data-level="amber"] .li-pill { background: #f8dd9c; color: #6f470b }
+body.hd:not(.ba-night) .li-bar[data-level="red"] .li-pill { background: #f6bcbc; color: #7f2727 }
+body.hd:not(.ba-night) .li-pill .li-count { background: rgba(255, 255, 255, .6) }
+
+body.hd:not(.ba-night) :is(.oh-fab, .pv-fab) {
+    background: var(--hp);
+    background-image: none;
+    color: #561a35;
+    border: 2px solid #fff;
+}
+body.hd:not(.ba-night) .pv-fab.is-done { background: var(--o-line); color: var(--o-ink) }
+body.hd:not(.ba-night) .oh-item.is-on { background: var(--hp); background-image: none; color: #561a35 }
+body.hd:not(.ba-night) .oh-item.is-on b { color: #561a35 }
+
+/* Thanh mép một tay: chỉ còn một vạch mảnh, vùng chạm vẫn rộng như cũ */
+body.hd:not(.ba-night) .oh-rail {
+    background: transparent;
+    background-image: none;
+    border-color: transparent;
+}
+body.hd:not(.ba-night) .oh-rail::after { background: var(--hp-line); background-image: none; inset: 8px 8px }
+body.hd:not(.ba-night) .oh-rail.is-on::after { background: var(--hp) }
+
+/* ---------- 13. Điện thoại: rộng chỗ, ô vừa ngón tay ---------- */
+@media (max-width: 640px) {
+    /* Thẻ giấy tràn sát mép: lấy lại ~18px bề ngang cho ô nhập */
+    body.hd:not(.ba-night) { padding: 0 !important }
+    body.hd:not(.ba-night) div.page-card {
+        border-left: 0;
+        border-right: 0;
+        border-radius: 0 0 26px 26px;
+        border-top: 0;
+    }
+
+    body.hd:not(.ba-night) #medical-record-form fieldset {
+        border-radius: 20px;
+        padding: 10px 9px 14px !important;
+    }
+
+    body.hd:not(.ba-night) #chan-doan-dieu-tri > .flex-col > .hd-khoi,
+    body.hd:not(.ba-night) #chan-doan-dieu-tri > .flex-col > div:has(> label.text-pink-500),
+    body.hd:not(.ba-night) #chan-doan-dieu-tri > .flex-col > div:has(> div > label.text-pink-500) {
+        border-radius: 20px;
+        padding: 10px 9px 14px;
+    }
+
+    body.hd:not(.ba-night) #medical-record-form :is(.calc-box, .cnv-box, .spec-box, .score-box, .grade-box, .tip-box) {
+        border-radius: 16px;
+    }
+
+    /* Mục I: ô chữ dài (nghề nghiệp, người liên hệ, SĐT) chiếm trọn một hàng
+       để không bị cắt chữ; ô ngắn (năm sinh/tuổi, giới/dân tộc…) vẫn đôi. */
+    body.hd #hc-grid > div:has(> #patient-occupation),
+    body.hd #hc-grid > div:has(> #contact-name),
+    body.hd #hc-grid > div:has(> #contact-phone) {
+        grid-column: 1 / -1;
+    }
+
+    /* Chip đủ lớn cho ngón tay (≥34px) */
+    body.hd:not(.ba-night) #medical-record-form :is(.chip, .fd-chip, .tr-sugg-b) {
+        min-height: 34px;
+        display: inline-flex;
+        align-items: center;
+    }
+    body.hd:not(.ba-night) #medical-record-form :is(.cls-mini, .bl-mini, .tr-mini) { min-height: 34px }
+
+    /* Viên đèn logic: nhỏ gọn, không che chữ */
+    body.hd:not(.ba-night) .li-bar:not(.is-open) .li-pill { padding: 8px 11px }
+}
+
+/* =====================================================================
+   14. BỐ CỤC — giữ nguyên thứ tự DOM, chỉ sắp lại chỗ đứng
+   ===================================================================== */
+
+/* Mục II (lý do vào viện) cũng dùng <label> làm tiêu đề như VII–X: cho vào
+   cùng một kiểu thẻ để cả trang chỉ còn MỘT hình dạng "mục". */
+body.hd:not(.ba-night) #medical-record-form .tab-content > div:has(> label.text-pink-500) {
+    background: var(--sec-tint);
+    border: 1.5px solid var(--sec-line);
+    border-radius: 24px;
+    padding: 14px 18px 16px;
+    box-shadow: 0 10px 24px -22px var(--sec-ink);
+}
+
+/* Đánh giá mức độ: 13 dòng ngắn trải hết bề ngang -> hai cột trên màn rộng
+   (thứ tự đọc vẫn trái -> phải, trên -> dưới). Bớt ~300px chiều cao. */
+@media (min-width: 900px) {
+    body.hd:not(.ba-night) .grade-list {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px 8px;
+    }
+    body.hd:not(.ba-night) .grade-list > .grade-empty { grid-column: 1 / -1 }
+}
+body.hd:not(.ba-night) .grade-row {
+    border-color: var(--line);
+    border-radius: 12px;
+}
+body.hd:not(.ba-night) .grade-box .cls-mini {
+    background: #fff;
+    border-color: var(--sec-line);
+    color: var(--sec-ink);
+}
+
+/* Máy tính: viên đèn logic dời vào khoảng trống bên TRÁI thanh Lưu — trước
+   nó nổi ở góc phải, đè lên cột ô nhập thứ ba. */
+@media (min-width: 1024px) {
+    body.hd:not(.ba-night) .li-bar {
+        left: calc(var(--page-in) + 26px);
+        right: auto;
+        bottom: 21px;
+    }
+    body.hd:not(.ba-night) .li-bar:not(.is-open) { width: auto }
+    body.hd:not(.ba-night) .li-bar .li-pill { margin-left: 0 }
+    body.hd:not(.ba-night) .li-bar.is-open { bottom: 21px }
+}
+
+@media (max-width: 640px) {
+    /* Thẻ giấy đệm 10px (trước 16px: class p-4 của Tailwind đè mất luật 12px) */
+    body.hd:not(.ba-night) div.page-card {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+    body.hd.gg-on:not(.ba-night) .gg-rail {
+        margin-left: -10px;
+        margin-right: -10px;
+        padding: 0 8px;
+    }
+
+    body.hd:not(.ba-night) #medical-record-form .tab-content > div:has(> label.text-pink-500) {
+        border-radius: 20px;
+        padding: 10px 9px 12px;
+    }
+
+    /* Hộp con bớt đệm một nấc: 5 tầng lồng nhau x 2 bên = mất gần 100px */
+    body.hd:not(.ba-night) #medical-record-form :is(.calc-box, .cnv-box, .spec-box, .score-box, .grade-box) {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+
+    /* Bệnh sử — Diễn tiến theo mốc: hộp bọc ngoài bỏ khung (mốc đã là thẻ
+       riêng), trục thời gian thu từ 34px về 18px. Ô "Triệu chứng chính"
+       rộng thêm ~50px, hết cảnh chữ bị cắt giữa chừng. */
+    body.hd:not(.ba-night) #medical-record-form .calc-box.no-fold:has(#hx-list) {
+        background: transparent;
+        border-color: transparent;
+        box-shadow: none;
+        padding-left: 0;
+        padding-right: 0;
+    }
+    body.hd:not(.ba-night) .hx-list::before { left: 5px; width: 2px }
+    body.hd:not(.ba-night) .hx-list .hx-step {
+        margin-left: 18px;
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+    body.hd:not(.ba-night) .hx-list .hx-step::before {
+        left: -18px;
+        width: 11px;
+        height: 11px;
+    }
+    body.hd:not(.ba-night) .hx-list .hx-step.ph-nv::before {
+        left: -21px;
+        width: 15px;
+        height: 15px;
+    }
+    body.hd:not(.ba-night) .hx-list .hx-gap { margin-left: 18px }
+    body.hd:not(.ba-night) #medical-record-form #hx-main-box {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+
+    /* Dòng nhắc .tg-line (lệch cây biện luận, thiếu CLS, thuốc bệnh nền) vừa có
+       CHỮ vừa có chip. Luật cũ cho nó cuộn ngang không xuống dòng -> đoạn chữ
+       trần bị bóp còn mỗi chữ một hàng. Nay chảy như đoạn văn, chip nằm nối đuôi. */
+    body.hd .tg-line {
+        display: block;
+        overflow-x: visible;
+        line-height: 1.55;
+        padding-bottom: 0;
+    }
+    body.hd .tg-line > i:first-child { margin-right: 5px }
+    body.hd .tg-line > :is(.tg-chip, button) {
+        display: inline-flex;
+        align-items: center;
+        margin: 5px 5px 0 0;
+        vertical-align: middle;
+    }
+
+    /* Theo dõi — mỗi triệu chứng trước chiếm 5 hàng (tên / nút / diễn biến /
+       ghi chú / xóa). Nay 2 hàng: [tên | diễn biến] rồi [ghi chú | 📋 | ✕].
+       Thứ tự đọc trái -> phải vẫn đúng thứ tự trong DOM. */
+    body.hd .td-sym-row {
+        grid-template-columns: minmax(0, 1fr) 44px 44px;
+        gap: 6px;
+        padding-bottom: 8px;
+        margin-bottom: 8px;
+        border-bottom: 1px dashed var(--line);
+    }
+    body.hd .td-sym-row > :nth-child(1) { grid-column: 1; grid-row: 1 }
+    body.hd .td-sym-row > :nth-child(2) { grid-column: 2 / 4; grid-row: 1 }
+    body.hd .td-sym-row > :nth-child(3) { grid-column: 1; grid-row: 2 }
+    body.hd .td-sym-row > :nth-child(4) { grid-column: 2; grid-row: 2 }
+    body.hd .td-sym-row > :nth-child(5) { grid-column: 3; grid-row: 2 }
+    body.hd .td-sym-row > .td-x { width: 100%; height: 100%; min-height: 40px }
+}
+
+} /* @media screen */
+
+
+/* Dòng triệu chứng ở Theo dõi có 5 phần tử (tên · diễn biến · ghi chú ·
+   nút khai thác · xóa) mà lưới gốc chỉ 4 cột -> nút xóa rơi xuống hàng
+   riêng. Đủ 5 cột cho máy tính (điện thoại đã có bố cục 2 hàng ở trên). */
+@media screen and (min-width: 641px) {
+    body.hd .td-sym-row {
+        grid-template-columns: minmax(80px, 1fr) minmax(88px, 116px) minmax(100px, 1.4fr) 24px 24px;
+    }
+}
+
+
+/* <fieldset> mặc định min-inline-size: min-content -> nội dung rộng (trục mốc
+   bệnh sử) đội khung ra ngoài: màn 800px cuộn ngang 27px (lỗi có từ trước). */
+body.hd #medical-record-form fieldset { min-inline-size: 0; min-width: 0 }
+
+
+/* =====================================================================
+   15. BỐ CỤC BA VÙNG — MÀN RỘNG (bo-cuc-ben.js)
+   ---------------------------------------------------------------------
+   ≥1200px : thanh mục lục dọc bên TRÁI thay cho dải thẻ mục ngang.
+   ≥1560px : thêm bảng tiện ích bên PHẢI (thẻ bệnh nhân · ô còn trống ·
+             nháp nhanh).
+   Nội dung giữa giữ bề rộng đọc thoải mái (max 1152px) — KHÔNG kéo
+   giãn ô nhập theo màn hình.
+   Tắt khi Ghim (màn đã chia đôi) và khi Tập trung — lúc đó trả lại dải
+   thẻ mục ngang như cũ. Hai bảng là position:fixed gắn vào <body>.
+   ===================================================================== */
+.hd-side, .hd-util { display: none }
+
+@media screen and (min-width: 1200px) {
+    body.hd:not(.pin-on):not(.ba-zen) { padding-left: 304px !important }
+    body.hd:not(.pin-on):not(.ba-zen) .hd-side { display: flex }
+    /* Thanh dọc thay dải thẻ ngang + dải chấm mục lục nổi bên phải */
+    body.hd:not(.pin-on):not(.ba-zen) :is(.gg-rail, div.sticky-tabs) { display: none }
+    body.hd:not(.pin-on):not(.ba-zen) .ol-rail { display: none !important }
+
+    /* Viên đèn logic nằm ở chân thanh trái */
+    body.hd:not(.pin-on):not(.ba-zen) .li-bar {
+        left: 30px;
+        right: auto;
+        bottom: 28px;
+    }
+    body.hd:not(.pin-on):not(.ba-zen) .li-bar:not(.is-open) { width: 244px }
+    body.hd:not(.pin-on):not(.ba-zen) .li-bar:not(.is-open) .li-pill { width: 100%; justify-content: center }
+}
+
+@media screen and (min-width: 1560px) {
+    body.hd:not(.pin-on):not(.ba-zen) { padding-right: 336px !important }
+    body.hd:not(.pin-on):not(.ba-zen) .hd-util { display: flex }
+}
+
+/* ---------- Thanh trái ---------- */
+.hd-side {
+    position: fixed;
+    top: 16px;
+    bottom: 16px;
+    left: 16px;
+    width: 272px;
+    z-index: 30;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 12px 84px;
+    background: #fffdfe;
+    border: 1.5px solid #f6d3e1;
+    border-radius: 26px;
+    box-shadow: 0 22px 44px -30px rgba(178, 77, 117, .45);
+    font-family: 'Quicksand', 'Nunito', system-ui, sans-serif;
+    color: #54414b;
+}
+
+/* KHÔNG dùng `font: inherit` ở đây: nó nặng hơn .hd-it nên đè mất cỡ chữ riêng của từng nút */
+.hd-side button { font-family: inherit; cursor: pointer; border: 0; background: none; color: inherit }
+
+.hd-side-top {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 7px 8px;
+    padding: 2px 6px 11px;
+    border-bottom: 1px dashed #f1e1e8;
+}
+.hd-side-t { font-weight: 700; font-size: 15px; color: #b24d75 }
+.hd-side-t i { margin-right: 4px }
+.hd-side-pct b { font-size: 13px; font-weight: 700; color: #b24d75 }
+.hd-side-bar {
+    grid-column: 1 / -1;
+    height: 6px;
+    border-radius: 99px;
+    background: #fbe7ef;
+    overflow: hidden;
+}
+.hd-side-bar i { display: block; height: 100%; width: 0; background: #f4a9c6; transition: width .3s }
+
+.hd-nav {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-right: 2px;
+    scrollbar-width: thin;
+    scrollbar-color: #f6d3e1 transparent;
+}
+
+/* Một mục (nhóm) */
+.hd-g-h {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 3px 9px;
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 16px !important;
+    background: var(--sec-tint, #fff6fa) !important;
+    border: 1.5px solid var(--sec-line, #f6d3e1) !important;
+    color: var(--sec-ink, #a9466f) !important;
+    text-align: left;
+    font-weight: 700;
+    font-size: 13.5px;
+    line-height: 1.25;
+    transition: background .15s, box-shadow .15s;
+}
+.hd-g-h:hover { background: var(--sec-pill, #fce3ee) !important }
+.hd-g-h > i {
+    grid-row: span 2;
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    font-size: 13px;
+    background: var(--sec-pill, #fce3ee);
+}
+.hd-g-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.hd-g-t u { text-decoration: none; font-size: 10.5px; opacity: .75; margin-right: 5px }
+.hd-g-h em { font-style: normal; font-size: 11px; opacity: .85 }
+.hd-g-h em.is-full { color: #2e7455 }
+.hd-g-bar {
+    grid-column: 2 / -1;
+    height: 4px;
+    border-radius: 99px;
+    background: var(--sec-line, #f6d3e1);
+    overflow: hidden;
+}
+.hd-g-bar i { display: block; height: 100%; background: var(--sec-ink, #a9466f); opacity: .5; transition: width .3s }
+
+.hd-g.is-on .hd-g-h {
+    background: var(--sec, #f4a9c6) !important;
+    border-color: var(--sec, #f4a9c6) !important;
+    color: #3e2a33 !important;
+    box-shadow: 0 8px 16px -12px var(--sec-ink, #a9466f);
+}
+.hd-g.is-on .hd-g-h > i { background: rgba(255, 255, 255, .6); color: #3e2a33 }
+.hd-g.is-on .hd-g-bar { background: rgba(255, 255, 255, .55) }
+.hd-g.is-on .hd-g-bar i { background: #fff; opacity: 1 }
+
+/* Bảy mục LUÔN hiện đủ: mục đang mở được co lại (không giãn) và danh sách
+   khối con cuộn bên trong nó, thay vì đẩy các mục sau xuống khuất tầm nhìn */
+.hd-g { flex: none }
+.hd-g.is-on { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column }
+.hd-g.is-on > .hd-g-h { flex: none }
+
+/* Các khối nhỏ của mục đang mở */
+.hd-sub {
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--sec-line, #f6d3e1) transparent;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    margin: 6px 0 6px 15px;
+    padding-left: 9px;
+    border-left: 2px solid var(--sec-line, #f6d3e1);
+}
+.hd-it {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 5px 8px;
+    border-radius: 10px !important;
+    text-align: left;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #6f5563 !important;
+}
+.hd-it.lv1 { font-weight: 700; color: var(--sec-ink, #a9466f) !important; margin-top: 3px }
+.hd-it.lv2 { padding-left: 14px }
+.hd-it-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.hd-it small { font-size: 10.5px; color: #9d8792; font-weight: 600 }
+.hd-it:hover { background: var(--sec-tint, #fff6fa) !important }
+.hd-it.is-on { background: var(--sec-pill, #fce3ee) !important; color: var(--sec-ink, #a9466f) !important }
+
+/* Chấm tiến độ: rỗng · dở (nửa) · kín (bạc hà) */
+.hd-dot {
+    flex: none;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    border: 1.5px solid var(--sec, #f4a9c6);
+    background: #fff;
+}
+.hd-it.is-part .hd-dot { border-color: var(--sec-ink, #a9466f); background: var(--sec-pill, #fce3ee); box-shadow: inset 4.5px 0 0 var(--sec-ink, #a9466f) }
+.hd-it.is-full .hd-dot { border-color: #6cc19b; background: #9fd8c2 }
+.hd-it.no-dot .hd-dot { border-style: dotted; opacity: .55 }
+
+.hd-side-tools {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+    padding-top: 9px;
+    border-top: 1px dashed #f1e1e8;
+}
+.hd-side-tools button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 7px 2px;
+    border-radius: 13px !important;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #b24d75 !important;
+    background: #fdeef4 !important;
+}
+.hd-side-tools button:hover { background: #fce3ee !important }
+.hd-side-tools i { font-size: 13px }
+
+/* ---------- Bảng tiện ích bên phải ---------- */
+.hd-util {
+    position: fixed;
+    top: 16px;
+    bottom: 16px;
+    right: 16px;
+    width: 304px;
+    z-index: 30;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    font-family: 'Nunito', system-ui, sans-serif;
+    color: #54414b;
+}
+.hd-util button { font-family: inherit; font-size: 13px; cursor: pointer; border: 0; background: none; color: inherit; text-align: left }
+
+.hd-card {
+    flex: none;
+    background: #fffdfe;
+    border: 1.5px solid #f6d3e1;
+    border-radius: 22px;
+    padding: 12px 14px 13px;
+    box-shadow: 0 16px 34px -28px rgba(178, 77, 117, .5);
+}
+.hd-card h4 {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 0 0 9px;
+    font: 700 13.5px 'Quicksand', 'Nunito', sans-serif;
+    color: #b24d75;
+}
+
+/* Thẻ bệnh nhân — nền hồng phấn nhạt để tách khỏi hai thẻ còn lại */
+.hd-pt { background: #fff6fa }
+.hd-pt-name {
+    display: block;
+    font: 700 17px 'Quicksand', 'Nunito', sans-serif !important;
+    color: #54414b !important;
+    line-height: 1.25;
+}
+.hd-pt-sub { margin: 2px 0 0; font-size: 12px; color: #9d8792 }
+.hd-pt-vs {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+    margin: 10px 0 6px;
+}
+.hd-pt-vs button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 5px 2px;
+    border-radius: 10px !important;
+    background: #fff !important;
+    border: 1px solid #f1e1e8 !important;
+    text-align: center !important;
+}
+.hd-pt-vs span { font-size: 9.5px; font-weight: 700; color: #9d8792 }
+.hd-pt-vs b { font-size: 12.5px; font-weight: 800; color: #54414b; white-space: nowrap }
+.hd-pt-row {
+    display: block;
+    width: 100%;
+    padding: 7px 0 5px;
+    border-top: 1px dashed #f1e1e8 !important;
+}
+.hd-pt-row span {
+    display: block;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: #c07a95;
+}
+.hd-pt-row b {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+.hd-util .is-trong b { color: #c3afba; font-style: italic; font-weight: 500 }
+.hd-pt-row:hover b, .hd-pt-name:hover { text-decoration: underline dotted #f4a9c6 }
+
+/* Ô còn trống */
+.hd-gaps { flex: 0 1 auto; min-height: 140px; overflow-y: auto }
+.hd-gaps-n {
+    margin-left: auto;
+    padding: 1px 9px;
+    border-radius: 99px;
+    background: #fff1ea;
+    color: #a8573a;
+    font-size: 11px;
+}
+.hd-gaps-list { display: flex; flex-direction: column; gap: 1px }
+.hd-gaps-list button {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 5px 7px;
+    border-radius: 9px !important;
+    font-size: 12.5px;
+    line-height: 1.35;
+}
+.hd-gaps-list button:hover { background: #fff1ea !important; color: #a8573a }
+.hd-gaps-list i { font-size: 6px; color: #f6ae94; transform: translateY(-2px) }
+.hd-gaps-more, .hd-gaps-ok { margin: 6px 7px 0; font-size: 12px; color: #9d8792 }
+.hd-gaps-ok i { color: #6cc19b; margin-right: 4px }
+
+/* Nháp nhanh — giấy hồng đào, viền đứt như tờ giấy nháp */
+.hd-nhap-in {
+    display: block;
+    width: 100%;
+    min-height: 110px;
+    padding: 9px 11px;
+    border: 1.5px dashed #f9d4c5;
+    border-radius: 14px;
+    background: #fffaf6;
+    font: 13.5px/1.5 'Nunito', system-ui, sans-serif;
+    color: #54414b;
+    resize: vertical;
+    outline: none;
+}
+.hd-nhap-in:focus { border-style: solid; border-color: #f6ae94; box-shadow: 0 0 0 3px #fde6dc }
+.hd-nhap small { display: block; margin-top: 6px; font-size: 10.5px; color: #9d8792 }
+
+/* Riêng tư: làm mờ danh tính trên thẻ bệnh nhân như các ô gốc */
+body.ba-priv .hd-pt-name, body.ba-priv .hd-pt-sub { filter: blur(6px) }
+
+/* Đọc đêm: nền ca cao ấm, chữ sáng */
+body.ba-night .hd-side, body.ba-night .hd-card, body.ba-night .hd-pt {
+    background: #2b2527;
+    border-color: #3d3437;
+    color: #eadde3;
+}
+body.ba-night .hd-g-h { background: rgba(255, 255, 255, .04) !important; border-color: rgba(255, 255, 255, .08) !important; color: #eadde3 !important }
+body.ba-night .hd-it { color: #d9cdd2 !important }
+body.ba-night .hd-it.is-on, body.ba-night .hd-it:hover { background: rgba(255, 255, 255, .07) !important }
+body.ba-night :is(.hd-pt-name, .hd-pt-vs b, .hd-pt-row b) { color: #eadde3 !important }
+body.ba-night .hd-pt-vs button { background: rgba(255, 255, 255, .04) !important; border-color: #3d3437 !important }
+body.ba-night .hd-nhap-in { background: #231e20; color: #eadde3; border-color: #4a3d42 }
+body.ba-night .hd-side-tools button { background: rgba(255, 255, 255, .06) !important; color: #f0abc9 !important }
+
+@media print { .hd-side, .hd-util { display: none !important } }
+
+
+/* =====================================================================
+   16. ĐIỆN THOẠI KIỂU APP (bo-cuc-ben.js, ≤640px)
+   ---------------------------------------------------------------------
+   Ba chỗ cố định thay cho bảy lớp giành chỗ trước đây:
+     · .hd-top  : thanh trên dính đầu — tên mục đang mở (nền đổi theo màu
+                  mục) + vòng % + dải khối nhỏ trượt ngang
+     · .hd-bn   : thanh đáy 5 nút (Mục lục · Ô trống · Lưu · Xem · Thêm)
+     · .hd-side : chính thanh trái của máy tính, thành bảng mục lục trượt
+                  từ dưới lên khi bấm "Mục lục"
+   Giấu (vẫn trong DOM, vẫn được bấm hộ): đầu trang cũ, dải 7 biểu tượng,
+   thanh ngữ cảnh .tt-bar, thanh Lưu, nút tròn một tay, nút Từng câu nổi.
+   Viên đèn logic dời lên thanh trên, cạnh vòng %.
+   ===================================================================== */
+.hd-top, .hd-bn, .hd-side-bg, .hd-side-x { display: none }
+
+@media screen and (max-width: 640px) {
+    body.hd { --rail: calc(74px + env(safe-area-inset-bottom)) }
+
+    body.hd div.page-card { padding-top: 0; padding-bottom: 96px }
+    body.hd :is(.ba-hero, .gg-rail, div.sticky-tabs, #sec-picker, .tt-bar) { display: none !important }
+    body.hd #medical-record-form .sticky-actions { display: none !important }
+    body.hd :is(.oh-fab, .pv-fab, .oh-arc) { display: none !important }
+
+    /* ---------- Thanh trên ---------- */
+    body.hd .hd-top {
+        display: block;
+        position: sticky;
+        top: 0;
+        z-index: 27;
+        margin: 0 -10px 12px;
+        padding: env(safe-area-inset-top) 10px 0;
+        background: var(--sec-tint, #fff6fa);
+        border-bottom: 1.5px solid var(--sec-line, #f6d3e1);
+        box-shadow: 0 12px 20px -20px var(--sec-ink, #a9466f);
+        transition: background .25s;
+    }
+    .hd-top-bar {
+        display: grid;
+        grid-template-columns: 40px minmax(0, 1fr) 44px;
+        align-items: center;
+        gap: 10px;
+        height: 56px;
+    }
+    .hd-top-back {
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 14px;
+        background: #fff;
+        border: 1.5px solid var(--sec-line, #f6d3e1);
+        color: var(--sec-ink, #a9466f);
+    }
+    /* Chừa chỗ bên phải cho viên đèn logic (position:fixed, xem dưới) */
+    .hd-top-t {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        margin-right: 66px;
+        padding: 0;
+        border: 0;
+        background: none;
+        text-align: left;
+        cursor: pointer;
+    }
+    .hd-top-t b {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font: 700 16.5px/1.2 'Quicksand', 'Nunito', sans-serif;
+        color: var(--sec-ink, #a9466f);
+    }
+    .hd-top-t b::after {
+        content: "\f078";
+        font: 900 10px 'Font Awesome 6 Free';
+        margin-left: 6px;
+        opacity: .6;
+    }
+    .hd-top-t small {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 11px;
+        color: #9d8792;
+    }
+    .hd-top-ring {
+        position: relative;
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        border: 0;
+        background: none;
+        cursor: pointer;
+    }
+    .hd-top-ring svg { width: 100%; height: 100%; transform: rotate(-90deg) }
+    .hd-top-ring circle { fill: #fff; stroke-width: 3.5 }
+    .hd-top-ring .bg { stroke: var(--sec-line, #f6d3e1) }
+    .hd-top-ring .fg {
+        fill: none;
+        stroke: var(--sec-ink, #a9466f);
+        stroke-linecap: round;
+        stroke-dasharray: 94.25;
+        stroke-dashoffset: calc(94.25px - 94.25px * var(--p, 0));
+        transition: stroke-dashoffset .5s;
+    }
+    .hd-top-ring.is-full .fg { stroke: #6cc19b }
+    .hd-top-ring span {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        font: 700 11px 'Quicksand', 'Nunito', sans-serif;
+        color: var(--sec-ink, #a9466f);
+    }
+
+    /* Dải khối nhỏ: trượt ngang, mép phải mờ dần báo còn nữa */
+    .hd-chips {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        padding: 2px 0 10px;
+        scrollbar-width: none;
+        -webkit-mask-image: linear-gradient(to right, #000 88%, transparent);
+        mask-image: linear-gradient(to right, #000 88%, transparent);
+    }
+    .hd-chips::-webkit-scrollbar { display: none }
+    .hd-chips:empty { display: none }
+    .hd-chip {
+        flex: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 32px;
+        padding: 0 12px;
+        border-radius: 999px;
+        border: 1.5px solid var(--sec-line, #f6d3e1);
+        background: #fff;
+        color: #6f5563;
+        font: 600 12.5px 'Quicksand', 'Nunito', sans-serif;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+    .hd-chip.lv1 { font-weight: 700; color: var(--sec-ink, #a9466f) }
+    .hd-chip.is-on {
+        background: var(--sec, #f4a9c6);
+        border-color: var(--sec, #f4a9c6);
+        color: #3e2a33;
+    }
+    .hd-chip.is-on .hd-dot { border-color: #fff }
+
+    /* Viên đèn logic: lên thanh trên, cạnh vòng % */
+    body.hd .li-bar {
+        top: calc(env(safe-area-inset-top) + 10px);
+        bottom: auto;
+        right: 62px;
+        z-index: 28;
+    }
+    body.hd .li-bar:not(.is-open) .li-pill { padding: 8px 10px; box-shadow: none }
+    body.hd .li-bar.is-open { right: 10px }
+
+    /* ---------- Thanh đáy ---------- */
+    body.hd .hd-bn {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        align-items: end;
+        position: fixed;
+        left: 8px;
+        right: 8px;
+        bottom: calc(8px + env(safe-area-inset-bottom));
+        z-index: 40;
+        padding: 6px 4px;
+        background: rgba(255, 253, 254, .98);
+        border: 1.5px solid #f6d3e1;
+        border-radius: 24px;
+        box-shadow: 0 16px 34px -18px rgba(178, 77, 117, .55);
+    }
+    body.hd.typing .hd-bn,
+    body.hd.hd-muc-mo .hd-bn { display: none }
+    .hd-bn button {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        min-height: 48px;
+        padding: 4px 0 2px;
+        border: 0;
+        background: none;
+        color: #8a6b7a;
+        font: 700 10.5px 'Quicksand', 'Nunito', sans-serif;
+        cursor: pointer;
+    }
+    .hd-bn button i { font-size: 17px; color: #b24d75 }
+    .hd-bn button:active { transform: scale(.94) }
+    /* Nút Lưu: viên tròn nổi lên giữa thanh */
+    .hd-bn button.is-key i {
+        display: grid;
+        place-items: center;
+        width: 50px;
+        height: 50px;
+        margin-top: -22px;
+        border-radius: 18px;
+        background: #f4a9c6;
+        color: #561a35;
+        font-size: 19px;
+        border: 3px solid #fff;
+        box-shadow: 0 10px 18px -10px #b24d75;
+    }
+    .hd-bn button.is-key { color: #b24d75 }
+
+    /* ---------- Mục lục trượt từ dưới lên (= thanh trái của máy tính) ---------- */
+    body.hd.hd-muc-mo { overflow: hidden }
+    body.hd.hd-muc-mo .hd-side-bg {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 70;
+        background: rgba(84, 65, 75, .38);
+    }
+    body.hd.hd-muc-mo .hd-side {
+        display: flex;
+        top: auto;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: auto;
+        max-height: 86vh;
+        z-index: 71;
+        padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
+        border-radius: 26px 26px 0 0;
+        border-bottom: 0;
+        animation: hdLen .22s ease-out;
+    }
+    @keyframes hdLen { from { opacity: 0; transform: translateY(40px) } }
+    /* Tay nắm kéo ở mép trên */
+    body.hd.hd-muc-mo .hd-side::before {
+        content: "";
+        align-self: center;
+        width: 42px;
+        height: 5px;
+        border-radius: 99px;
+        background: #f6d3e1;
+        flex: none;
+    }
+    body.hd.hd-muc-mo .hd-side-top { grid-template-columns: 1fr auto auto }
+    body.hd.hd-muc-mo .hd-side-x {
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 12px;
+        background: #fdeef4;
+        color: #b24d75;
+    }
+    body.hd.hd-muc-mo .hd-side-bar { grid-column: 1 / -1 }
+    /* Trong bảng trượt: cả bảng cuộn, khối con xổ đủ (máy tính thì ép co để
+       giữ 7 mục trong tầm nhìn — ở đây màn thấp, ép co chỉ còn 3 dòng) */
+    body.hd.hd-muc-mo .hd-g.is-on { flex: none; display: block }
+    body.hd.hd-muc-mo .hd-sub { overflow: visible }
+    body.hd.hd-muc-mo .hd-g-h { padding: 11px 12px; font-size: 14.5px }
+    body.hd.hd-muc-mo .hd-it { padding: 9px 10px; font-size: 14px }
+    body.hd.hd-muc-mo .hd-side-tools button { padding: 9px 2px; font-size: 11px }
+
+    /* Đọc đêm */
+    body.hd.ba-night .hd-top { background: #2b2527; border-color: #3d3437 }
+    body.hd.ba-night .hd-top-back, body.hd.ba-night .hd-chip { background: #231e20; border-color: #4a3d42; color: #eadde3 }
+    body.hd.ba-night .hd-top-t b { color: #f0abc9 }
+    body.hd.ba-night .hd-top-ring circle { fill: #231e20 }
+    body.hd.ba-night .hd-bn { background: #2b2527; border-color: #3d3437 }
+    body.hd.ba-night .hd-bn button { color: #d9cdd2 }
+    body.hd.ba-night .hd-bn button i { color: #f0abc9 }
+    body.hd.ba-night .hd-bn button.is-key i { color: #561a35; border-color: #2b2527 }
+}
+
+@media screen and (max-width: 640px) and (prefers-reduced-motion: reduce) {
+    body.hd.hd-muc-mo .hd-side { animation: none }
+}
+
+
+/* =====================================================================
+   17. THÔNG BÁO (showToast của core/utils.js) — vị trí + giao diện mới
+   ---------------------------------------------------------------------
+   Trước: khối màu đặc (bg-green-500 / red / yellow / blue) chữ trắng,
+   trượt từ phải vào ở góc DƯỚI — đúng chỗ thanh Lưu, thanh đáy và bàn
+   phím điện thoại. Nay:
+     · giữa phía TRÊN: máy tính canh giữa cột nội dung (chừa thanh trái /
+       bảng tiện ích); điện thoại ngay dưới thanh trên
+     · thẻ giấy trắng, ô biểu tượng + viền pastel theo 4 nghĩa của trang
+     · mới nhất nằm trên cùng, tối đa 3 cái; chạm là tắt (tao-benh-an-them.js)
+   Chỉ đổi CSS: showToast vẫn gắn đúng các class Tailwind cũ, ở đây đọc
+   các class đó để biết loại thông báo.
+   ===================================================================== */
+@media screen {
+    body.hd div#toast-container {
+        position: fixed;
+        top: 18px;
+        bottom: auto;
+        left: 0;
+        right: 0;
+        z-index: 90;
+        display: flex;
+        flex-direction: column-reverse;   /* mới nhất lên đầu */
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 0 16px;
+        pointer-events: none;
+    }
+    /* Không cho thông báo nằm đè thanh trái / bảng tiện ích của màn rộng */
+    @media (min-width: 1200px) {
+        body.hd:not(.pin-on):not(.ba-zen) div#toast-container { left: 304px; right: 24px }
+    }
+    @media (min-width: 1560px) {
+        body.hd:not(.pin-on):not(.ba-zen) div#toast-container { right: 336px }
+    }
+    body.hd.pin-on div#toast-container { right: var(--pin-w, 40vw) }
+
+    body.hd #toast-container > .toast-notification {
+        --t-soft: #e1eefa; --t-ink: #37688f; --t-line: #cfe3f5;
+        pointer-events: auto;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        width: auto;
+        max-width: min(460px, 100%);
+        margin: 0 !important;
+        padding: 9px 16px 9px 9px;
+        border-radius: 18px;
+        border: 1.5px solid var(--t-line);
+        background: #fffdfe;
+        color: #54414b;
+        font: 600 13.5px/1.45 'Nunito', system-ui, sans-serif;
+        box-shadow: 0 14px 30px -16px rgba(84, 65, 75, .45);
+        transition: opacity .22s ease, transform .22s ease;
+    }
+    /* Bốn nghĩa — đọc từ class màu mà showToast gắn */
+    body.hd #toast-container > .toast-notification.bg-green-500 { --t-soft: #dcf2e8; --t-ink: #2e7455; --t-line: #c3e7d3 }
+    body.hd #toast-container > .toast-notification.bg-red-500 { --t-soft: #fde2e2; --t-ink: #a23a3a; --t-line: #f5c8c8 }
+    body.hd #toast-container > .toast-notification.bg-yellow-500 { --t-soft: #fbf0d3; --t-ink: #86560f; --t-line: #f3dfa6 }
+    body.hd #toast-container > .toast-notification.bg-gray-800 { --t-soft: #fce3ee; --t-ink: #a9466f; --t-line: #f6d3e1 }
+
+    /* Ô biểu tượng tròn mềm bên trái */
+    body.hd #toast-container > .toast-notification > i:first-child {
+        flex: none;
+        display: grid;
+        place-items: center;
+        width: 30px;
+        height: 30px;
+        margin: 0 !important;
+        border-radius: 11px;
+        background: var(--t-soft);
+        color: var(--t-ink);
+        font-size: 14px;
+    }
+    body.hd #toast-container > .toast-notification > span { min-width: 0 }
+
+    /* Vào / ra: rơi nhẹ từ trên xuống thay vì trượt ngang từ mép phải */
+    body.hd #toast-container > .toast-notification.translate-x-full { transform: translateY(-10px) scale(.97) }
+    body.hd #toast-container > .toast-notification.translate-x-0 { transform: none }
+
+    /* Tối đa 3 thông báo cùng lúc (cái cũ nhất ẩn trước) */
+    body.hd #toast-container > .toast-notification:nth-last-child(n+4) { display: none }
+
+    @media (max-width: 640px) {
+        /* Ngay dưới thanh tên mục, chữ vẫn đủ lớn để đọc lướt */
+        body.hd div#toast-container { top: calc(env(safe-area-inset-top) + 62px); padding: 0 10px }
+        body.hd #toast-container > .toast-notification { max-width: 100%; font-size: 13.5px }
+    }
+
+    /* Đọc đêm */
+    body.hd.ba-night #toast-container > .toast-notification {
+        background: #2b2527;
+        color: #eadde3;
+        border-color: #4a3d42;
+        box-shadow: 0 14px 30px -14px rgba(0, 0, 0, .7);
+    }
+    body.hd.ba-night #toast-container > .toast-notification > i:first-child { background: rgba(255, 255, 255, .08); color: #f0abc9 }
+
+    @media (prefers-reduced-motion: reduce) {
+        body.hd #toast-container > .toast-notification { transition: opacity .15s }
+        body.hd #toast-container > .toast-notification.translate-x-full { transform: none }
+    }
+}
+
+
+/* =====================================================================
+   18. HÀNG "CÁCH NHẬP VIỆN BAO LÂU" (cnv-list.js) TRÊN ĐIỆN THOẠI
+   ---------------------------------------------------------------------
+   Lưới gốc 6 cột: [CNV][số][đơn vị][tên bệnh][🔍][✕]. Trên điện thoại
+   tao-benh-an-dt.js đổi <select> đơn vị thành hàng chip và CHÈN THÊM một
+   phần tử vào hàng -> mọi thứ lệch một cột: tên bệnh bị ép vào cột 24px
+   (ô trống tí hon), nút ✕ rơi xuống hàng riêng, chip đang chọn ("năm")
+   trôi khuất. Nay đặt chỗ tường minh, hai hàng:
+     [CNV][số][ngày · tuần · tháng · năm]
+     [tên bệnh ...................][🔍][✕]
+   ===================================================================== */
+@media screen and (max-width: 640px) {
+    body.hd .cnv-row,
+    body.hd .cnv-row.is-date {
+        grid-template-columns: 42px 62px minmax(0, 1fr) 38px 38px;
+        gap: 8px 6px;
+        padding: 8px 0 10px;
+        border-bottom: 1px dashed var(--line, #f1e1e8);
+    }
+    body.hd .cnv-row > .cnv-tag { grid-column: 1; grid-row: 1 }
+    body.hd .cnv-row > :is(.cnv-n, .cnv-d) { grid-column: 2; grid-row: 1 }
+    /* <select> gốc: khi chưa có chip thì nó chiếm trọn phần còn lại của hàng 1;
+       khi đã có chip thì nó co về 0 (luật của -dt.js) và nằm chung ô với chip */
+    body.hd .cnv-row > select.cnv-u,
+    body.hd .cnv-row > .dt-sel,
+    body.hd .cnv-row > .cnv-calc { grid-column: 3 / -1; grid-row: 1 }
+    body.hd .cnv-row > .cnv-s { grid-column: 1 / 4; grid-row: 2 }
+    body.hd .cnv-row > .cnv-pick { grid-column: 4; grid-row: 2 }
+    body.hd .cnv-row > .cnv-x { grid-column: 5; grid-row: 2 }
+    body.hd .cnv-row > .cnv-more { grid-column: 1 / -1 }
+
+    /* Bốn đơn vị phải thấy hết cùng lúc — bỏ chip ✕ "bỏ chọn" (đơn vị luôn cần
+       có) và thu chip lại một nấc để khỏi phải trượt ngang tìm "năm" */
+    body.hd #medical-record-form .cnv-row > .dt-sel {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 4px;
+        overflow: visible;
+        -webkit-mask-image: none;
+        mask-image: none;
+    }
+    body.hd #medical-record-form .cnv-row > .dt-sel > .chip.dt-sel-x { display: none }
+    body.hd #medical-record-form .cnv-row > .dt-sel > .chip {
+        flex: 1 1 0;
+        min-width: 0;
+        min-height: 36px;
+        padding: 0 4px;
+        justify-content: center;
+        font-size: 12.5px;
+    }
+    body.hd .cnv-row > :is(.cnv-pick, .cnv-x) {
+        width: 38px;
+        height: 38px;
+        display: grid;
+        place-items: center;
+    }
+    body.hd .cnv-row > .cnv-tag { height: 38px }
+}
+
+/* Cùng một bệnh ở các hàng lưới khác: hàng chip (.dt-sel) do -dt.js chèn sau
+   <select> không có chỗ trong lưới nên rơi vào ô ngẫu nhiên. Cho nó đứng
+   ĐÚNG vùng của <select> gốc (select đã co về 0, hai thứ chung một ô). */
+@media screen and (max-width: 640px) {
+    /* Chip trong hàng lưới: thấy hết lựa chọn, không trượt ngang, không nút ✕ */
+    body.hd #medical-record-form :is(.hx-ref, .gd-row, .tr-leaf) > .dt-sel {
+        flex-wrap: wrap;
+        gap: 5px;
+        overflow: visible;
+        margin-top: 0;
+        -webkit-mask-image: none;
+        mask-image: none;
+    }
+    body.hd #medical-record-form :is(.hx-ref, .gd-row, .tr-leaf) > .dt-sel > .chip.dt-sel-x { display: none }
+    body.hd #medical-record-form :is(.hx-ref, .gd-row) > .dt-sel > .chip {
+        flex: 1 1 0;
+        min-width: max-content;
+        justify-content: center;
+        min-height: 36px;
+    }
+
+    /* Triệu chứng cũ trong mốc bệnh sử: [tên][🔍][✕] / [diễn biến] / [mô tả] */
+    body.hd .hx-ref > .hx-st + .dt-sel { grid-area: st }
+
+    /* Gia đình: hàng đơn vị (năm/tháng) cạnh "bao lâu"; hàng tình trạng
+       (còn sống / đã mất / không rõ) và "mất do" mỗi thứ trọn một hàng */
+    body.hd .gd-row {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) 38px 38px;
+        grid-template-areas:
+            "qh qh qh qh pick x"
+            "benh benh benh benh benh benh"
+            "tuoi tuoi n n u u"
+            "song song song song song song"
+            "do do do do do do"
+            "prev prev prev prev prev prev";
+        row-gap: 8px;
+    }
+    body.hd #medical-record-form .gd-row > .gd-u + .dt-sel > .chip { min-width: 0; padding: 0 6px }
+    body.hd .gd-row > .gd-u + .dt-sel { grid-area: u }
+    body.hd .gd-row > .gd-song + .dt-sel { grid-area: song }
+    body.hd .gd-row > .gd-qh + .dt-sel { grid-area: qh }
+    body.hd .gd-row > .gd-do + .dt-sel { grid-area: do }
+    body.hd .gd-row > :is(.gd-pick, .gd-x) { width: 38px; height: 38px; display: grid; place-items: center }
+
+    /* Nhánh biện luận: 4 mức nghĩ xếp ngay dưới tên nhánh, trọn bề ngang */
+    body.hd .tr-leaf > .tr-lv + .dt-sel { grid-column: 2 / -1 }
+}
+
+@media screen and (max-width: 640px) {
+    /* Hàng hẹp (CNV, Gia đình): chip đang chọn đã tô hồng — bỏ dấu × để bốn đơn vị vừa một hàng */
+    body.hd #medical-record-form :is(.cnv-row, .gd-row) > .dt-sel > .chip.is-on::after { content: none }
+}
+
+@media screen and (max-width: 640px) {
+    /* Mọi hàng chip thay cho <select> (tối đa 4 lựa chọn): xuống dòng thay vì trượt
+       ngang — lựa chọn khuất sau mép thì mất ý nghĩa "chạm một lần" (vd GCS mở mắt,
+       Ai kể bệnh). Dải chip GỢI Ý câu (.chips thường) vẫn trượt ngang như cũ. */
+    body.hd #medical-record-form .chips.dt-sel {
+        flex-wrap: wrap;
+        overflow: visible;
+        -webkit-mask-image: none;
+        mask-image: none;
+    }
+}
+
+@media screen and (max-width: 640px) {
+    /* Câu xem trước dưới TỪNG mốc bệnh sử (.hx-preview): trên điện thoại mỗi câu
+       chiếm 8–12 dòng, lặp lại đúng nội dung vừa nhập -> người dùng bảo bỏ, chỉ
+       cần đoạn văn bệnh sử ghép cuối mục (#illness-history). Máy tính giữ nguyên.
+       benh-su-editor.js vẫn cập nhật chữ bên trong, chỉ không hiện ra. */
+    body.hd .hx-list .hx-preview { display: none }
+}
+
+
+/* =====================================================================
+   19. MỤC KHÁM GỌN (kham-gon.js) — mọi cỡ màn hình
+   ---------------------------------------------------------------------
+   · Cơ quan chưa chạm (.kg-o không .kg-mo): chỉ còn tên + ô chữ + dòng
+     trạng thái; hàng chip gợi ý và dòng "Bất thường — bấm để khai thác"
+     ẩn (vẫn trong DOM — thanh chip trên bàn phím điện thoại bấm hộ được).
+   · Cơ quan đang ghi (.kg-mo): nổi thành thẻ trắng bằng box-shadow (KHÔNG
+     đổi padding/margin — đổi là chữ trong ô xô đi dưới ngón tay).
+   · Bảng Đánh giá mức độ: dòng "trong giới hạn" (.grade-row.ok) gói sau nút.
+   ===================================================================== */
+body.hd #kham-benh .kg-o:not(.kg-mo) > :is(.chips, .fd-box) { display: none }
+
+body.hd #kham-benh .kg-o > label[data-kg] {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+body.hd #kham-benh .kg-o > label[data-kg]::after {
+    content: attr(data-kg) " ▾";
+    margin-left: auto;
+    flex: none;
+    padding: 2px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--sec-line, #c9eadb);
+    background: var(--sec-pill, #dcf2e8);
+    color: var(--sec-ink, #357a5f);
+    font: 700 11px/1.6 'Quicksand', 'Nunito', sans-serif;
+}
+/* Đang mở: nhãn nói rõ chạm vào là đóng */
+body.hd #kham-benh .kg-o.kg-mo > label[data-kg]::after {
+    content: "Thu gọn ▴";
+    background: var(--sec, #9fd8c2);
+    border-color: var(--sec, #9fd8c2);
+    color: #3e2a33;
+}
+
+body.hd:not(.ba-night) #kham-benh .kg-o.kg-mo {
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 0 0 8px #fff, 0 0 0 9.5px var(--sec-line, #c9eadb), 0 12px 26px -14px var(--sec-ink, #357a5f);
+}
+body.hd.ba-night #kham-benh .kg-o.kg-mo {
+    border-radius: 16px;
+    box-shadow: 0 0 0 8px rgba(255, 255, 255, .03), 0 0 0 9.5px rgba(255, 255, 255, .12);
+}
+
+/* Bảng Đánh giá mức độ: mặc định chỉ chỉ số lệch chuẩn */
+body.hd .grade-box:not(.kg-het) #grade-list > .grade-row.ok { display: none }
+.kg-grade-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 8px;
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 1px dashed var(--sec-line, #c9eadb);
+    background: #fff;
+    color: var(--sec-ink, #357a5f);
+    font: 700 12.5px 'Quicksand', 'Nunito', sans-serif;
+    cursor: pointer;
+}
+.kg-grade-all[hidden] { display: none }
+.kg-grade-all:hover { background: var(--sec-pill, #dcf2e8) }
+body.ba-night .kg-grade-all { background: transparent; color: #eadde3; border-color: #4a3d42 }
+
+/* kham-gon.js tự bù cuộn khi khối cũ thu lại; Chrome cũng tự bù (scroll anchoring)
+   -> bù hai lần, ô vừa chạm xô đi ~30px. Tắt phần của trình duyệt trong mục này. */
+body.hd #kham-benh { overflow-anchor: none }
+
+
+/* =====================================================================
+   20. MỤC BIỆN LUẬN GỌN (bien-luan-gon.js) — mọi cỡ màn hình
+   ===================================================================== */
+
+/* ---------- X. Thẻ vấn đề: thẻ đóng chỉ còn đầu thẻ + dòng tiến độ ---------- */
+body.hd #bl-host > .tr-card.bl-o:not(.bl-mo) > :not(.tr-root):not(.tr-meta) { display: none !important }
+body.hd #bl-host > .tr-card.bl-o:not(.bl-mo) { padding-bottom: 10px }
+body.hd #bl-host > .tr-card.bl-o > .tr-meta { flex-wrap: wrap }
+.bl-tg {
+    margin-left: auto;
+    flex: none;
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--sec-line, #ddd5f5);
+    background: #fff;
+    color: var(--sec-ink, #62529a);
+    font: 700 12px 'Quicksand', 'Nunito', sans-serif;
+    cursor: pointer;
+}
+.tr-card.bl-mo .bl-tg { background: var(--sec-pill, #ebe6fb) }
+body.ba-night .bl-tg { background: transparent; color: #eadde3; border-color: #4a3d42 }
+
+/* ---------- XI. Dòng cận lâm sàng đề nghị: mỗi dòng một thẻ nhỏ ---------- */
+body.hd #cls-dn-list > .cd-row.cd-o {
+    grid-template-columns: minmax(0, 1.3fr) 210px minmax(0, 1fr) 30px 30px 30px;
+    grid-template-areas:
+        "ten muc dich pick x tg"
+        "ky ky ky ky ky ky"
+        "src src src src src src";
+    padding: 8px 10px;
+    border-radius: 14px;
+    border: 1px solid var(--sec-line, #ddd5f5);
+    background: #fff;
+}
+body.hd #cls-dn-list > .cd-row.cd-o.cd-mo { box-shadow: 0 0 0 3px var(--sec-pill, #ebe6fb) }
+body.hd #cls-dn-list > .cd-row.cd-o:not(.cd-mo) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr) 30px 30px 30px;
+    grid-template-areas:
+        "ten tom pick x tg"
+        "src src src src src";
+}
+body.hd #cls-dn-list > .cd-row.cd-o:not(.cd-mo) > :is(.cd-muc, .cd-dich, .cd-ky) { display: none }
+body.hd #cls-dn-list > .cd-row.cd-o.cd-mo > .cd-tom { display: none }
+body.hd #cls-dn-list > .cd-row.cd-o > .cd-src:empty { display: none }
+
+.cd-tom {
+    grid-area: tom;
+    min-width: 0;
+    padding: 4px 2px;
+    border: 0;
+    background: none;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font: 600 12.5px/1.4 'Nunito', system-ui, sans-serif;
+    color: #6f5563;
+    cursor: pointer;
+}
+.cd-tom.is-trong { color: #86560f; font-style: italic; font-weight: 500 }
+.cd-tg {
+    grid-area: tg;
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--sec-pill, #ebe6fb);
+    color: var(--sec-ink, #62529a);
+    font-size: 12px;
+    cursor: pointer;
+}
+body.ba-night .cd-tom { color: #d9cdd2 }
+body.ba-night #cls-dn-list > .cd-row.cd-o { background: transparent; border-color: #4a3d42 }
+
+@media screen and (max-width: 640px) {
+    body.hd #cls-dn-list > .cd-row.cd-o {
+        grid-template-columns: minmax(0, 1fr) 36px 36px 36px;
+        grid-template-areas:
+            "ten pick x tg"
+            "muc muc muc muc"
+            "dich dich dich dich"
+            "ky ky ky ky"
+            "src src src src";
+        row-gap: 6px;
+    }
+    /* Phải nhắc lại số cột: luật máy tính cho dòng thu gọn (5 cột) nặng hơn luật
+       điện thoại ở trên nhờ :not() -> không nhắc là ô tên bị ép còn ~70px */
+    body.hd #cls-dn-list > .cd-row.cd-o:not(.cd-mo) {
+        grid-template-columns: minmax(0, 1fr) 36px 36px 36px;
+        grid-template-areas:
+            "ten pick x tg"
+            "tom tom tom tom"
+            "src src src src";
+    }
+    /* Điện thoại: tóm tắt được xuống 2 dòng thay vì cắt cụt */
+    .cd-tom {
+        white-space: normal;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+    .cd-tg { width: 36px; height: 36px }
+    body.hd #cls-dn-list > .cd-row.cd-o > :is(.cd-pick, .cd-x) { width: 36px; height: 36px }
+}
+
+
+/* =====================================================================
+   21. KHOẢNG THỞ — lề trong thống nhất (2026-09-28)
+   ---------------------------------------------------------------------
+   Đợt trước bóp lề điện thoại để ô nhập rộng ra (thẻ trang 10px, khung
+   mục 9px, hộp con 8px) -> đo được chữ chỉ cách mép màn 20px, cách mép
+   khung chứa 9–10px: người dùng thấy ngột ngạt. Nay các lớp khung lồng
+   nhau đã gỡ bớt (trục mốc bệnh sử, hộp bọc diễn tiến) nên trả lại khoảng
+   thở theo MỘT hệ:
+       mép màn -> chữ trong khung mục   ≈ 28px
+       viền khung mục -> chữ            15px
+       viền hộp con -> chữ              13px
+   Khối này đứng CUỐI file và lặp đúng bộ chọn của luật cũ (kể cả
+   :not(.ba-night) và !important) để thắng mà không phải sửa rải rác.
+   ===================================================================== */
+@media screen and (max-width: 640px) {
+    body.hd div.page-card { padding-left: 12px; padding-right: 12px }
+    body.hd .hd-top { margin-left: -12px; margin-right: -12px; padding-left: 12px; padding-right: 12px }
+
+    /* Khung mục */
+    body.hd:not(.ba-night) #medical-record-form fieldset,
+    body.hd.ba-night #medical-record-form fieldset {
+        padding: 14px 15px 18px !important;
+    }
+    body.hd:not(.ba-night) #medical-record-form .tab-content > div:has(> label.text-pink-500),
+    body.hd:not(.ba-night) #chan-doan-dieu-tri > .flex-col > .hd-khoi,
+    body.hd:not(.ba-night) #chan-doan-dieu-tri > .flex-col > div:has(> label.text-pink-500),
+    body.hd:not(.ba-night) #chan-doan-dieu-tri > .flex-col > div:has(> div > label.text-pink-500) {
+        padding: 14px 15px 16px;
+    }
+
+    /* Hộp con trong khung mục */
+    body.hd:not(.ba-night) #medical-record-form :is(.calc-box, .cnv-box, .spec-box, .score-box, .grade-box, .tip-box, .hx-check),
+    body.hd.ba-night #medical-record-form :is(.calc-box, .cnv-box, .spec-box, .score-box, .grade-box, .tip-box, .hx-check) {
+        padding-left: 13px;
+        padding-right: 13px;
+    }
+    /* Hộp bọc "Diễn tiến theo mốc" vẫn không khung (mốc đã là thẻ riêng) */
+    body.hd:not(.ba-night) #medical-record-form .calc-box.no-fold:has(#hx-list) { padding-left: 0; padding-right: 0 }
+    body.hd .hx-list .hx-step { padding-left: 12px; padding-right: 12px }
+    body.hd:not(.ba-night) #medical-record-form #hx-main-box { padding-left: 12px; padding-right: 12px }
+    body.hd #bl-host > .tr-card { padding-left: 13px; padding-right: 13px }
+    body.hd #cls-dn-list > .cd-row.cd-o { padding: 10px 13px }
+
+    /* Nhịp dọc: nhãn cách ô một chút, các ô cách nhau rõ hơn */
+    body.hd #medical-record-form label.block { margin-bottom: 6px }
+    body.hd #hc-grid { row-gap: 16px }
+    body.hd #medical-record-form :is(.hx-grid, .dx-grid) { row-gap: 12px }
+}
+
+@media screen and (min-width: 641px) {
+    body.hd:not(.ba-night) #medical-record-form fieldset,
+    body.hd.ba-night #medical-record-form fieldset { padding: 20px 24px 24px }
+    body.hd:not(.ba-night) #medical-record-form .tab-content > div:has(> label.text-pink-500),
+    body.hd:not(.ba-night) #chan-doan-dieu-tri > .flex-col > .hd-khoi,
+    body.hd:not(.ba-night) #chan-doan-dieu-tri > .flex-col > div:has(> label.text-pink-500),
+    body.hd:not(.ba-night) #chan-doan-dieu-tri > .flex-col > div:has(> div > label.text-pink-500) {
+        padding: 18px 24px 22px;
+    }
+    body.hd #medical-record-form :is(.calc-box, .cnv-box, .spec-box, .score-box, .grade-box) {
+        padding-left: 18px;
+        padding-right: 18px;
+    }
+    body.hd #medical-record-form label.block { margin-bottom: 6px }
+}

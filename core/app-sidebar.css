@@ -1,0 +1,90 @@
+/* core/app-sidebar.css — giao diện THANH BÊN dùng chung (đi cùng core/app-sidebar.js).
+   Trang nào có <aside id="sidebar"> thì nạp file này. Luật neo bằng #sidebar nên thắng class Tailwind
+   (cả bản đóng băng lẫn Play CDN chèn cuối <head>). Màu phẳng pastel, không gradient. */
+
+/* ===================== THANH BÊN ===================== */
+#sidebar:not(.hidden) { display: flex; flex-direction: column; }
+#sidebar { background: rgba(255, 255, 255, .94); }
+@media (min-width: 768px) {
+    #sidebar { width: 15.5rem; max-width: none; flex-shrink: 0; transition: width .25s ease; }
+}
+
+#sidebar .sb-head { display: flex; align-items: center; gap: .5rem; padding: .9rem 3.2rem .55rem .9rem; }
+@media (min-width: 768px) { #sidebar .sb-head { padding-right: .7rem; } }
+#sidebar .sb-brand { display: flex; align-items: center; gap: .55rem; min-width: 0; flex: 1; }
+#sidebar .sb-logo { width: 44px; height: 44px; flex-shrink: 0; transition: transform .2s; }
+#sidebar .sb-brand:hover .sb-logo { transform: scale(1.06) rotate(-4deg); }
+#sidebar .sb-brand-name { font-weight: 800; font-size: 1.15rem; color: #ec4899; letter-spacing: .02em; white-space: nowrap; }
+
+#sidebar .sb-collapse { display: none; }
+@media (min-width: 768px) {
+    #sidebar .sb-collapse {
+        display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        width: 30px; height: 30px; border-radius: 10px; color: #d4a5bb; font-size: .8rem;
+        transition: background .15s, color .15s;
+    }
+    #sidebar .sb-collapse:hover { background: #fdf2f8; color: #ec4899; }
+    #sidebar .sb-collapse i { transition: transform .25s; }
+}
+
+#sidebar .sb-user {
+    display: flex; align-items: center; gap: .6rem; margin: 0 .75rem .35rem; padding: .45rem .6rem;
+    border-radius: 14px; background: #fdf2f8; border: 1px solid #fce7f3; min-width: 0;
+}
+#sidebar .sb-user { cursor: pointer; transition: background .15s, border-color .15s; }
+#sidebar .sb-user:hover { background: #fce7f3; border-color: #fbcfe8; }
+#sidebar .sb-user-meta { min-width: 0; flex: 1; display: flex; flex-direction: column; line-height: 1.25; }
+#sidebar .sb-user-name { font-weight: 700; color: #4b5563; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#sidebar .sb-user-sub { font-size: .7rem; font-weight: 600; color: #c0849f; }
+#sidebar .sb-user-go { font-size: .7rem; color: #e3b5ca; flex-shrink: 0; transition: transform .15s, color .15s; }
+#sidebar .sb-user:hover .sb-user-go { transform: translateX(2px); color: #ec4899; }
+
+#sidebar .sb-nav { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: .15rem .6rem .75rem; }
+#sidebar .sb-nav ul { display: flex; flex-direction: column; gap: 2px; }
+#sidebar .sb-label {
+    padding: .85rem .6rem .3rem; font-size: .66rem; font-weight: 700; letter-spacing: .09em;
+    text-transform: uppercase; color: #b98ea4;
+}
+#sidebar .nav-link {
+    position: relative; display: flex; align-items: center; gap: .7rem; padding: .42rem .55rem;
+    border-radius: 14px; color: #4b5563; font-weight: 600; font-size: .92rem; line-height: 1.2;
+    background: transparent; box-shadow: none; transition: background .15s, color .15s;
+}
+#sidebar .nav-link:hover { background: #fdf2f8; color: #be185d; }
+#sidebar .nav-link:focus-visible { outline: 2px solid #f9a8d4; outline-offset: 1px; }
+#sidebar .sb-ico {
+    width: 34px; height: 34px; border-radius: 11px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: .95rem;
+    background: var(--cb, #f3f4f6); color: var(--c, #6b7280);
+    transition: transform .2s, background .15s, color .15s;
+}
+#sidebar .sb-ico i { color: inherit; }
+#sidebar .nav-link:hover .sb-ico { transform: scale(1.07) rotate(-4deg); }
+#sidebar .nav-link.is-active { background: #fce7f3; color: #be185d; font-weight: 700; }
+#sidebar .nav-link.is-active .sb-ico { background: var(--c, #ec4899); color: #fff; }
+#sidebar .nav-link.is-active::before {
+    content: ''; position: absolute; left: -.6rem; top: 24%; bottom: 24%; width: 4px;
+    border-radius: 0 4px 4px 0; background: #ec4899;
+}
+#sidebar .sb-foot {
+    margin: 0; padding: .6rem 1rem calc(.75rem + env(safe-area-inset-bottom));
+    font-size: .7rem; font-weight: 600; color: #b98ea4; border-top: 1px dashed #fbcfe8;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* --- Thu gọn thành dải icon (chỉ máy tính) --- */
+@media (min-width: 768px) {
+    body.sb-mini #sidebar { width: 4.6rem; }
+    body.sb-mini #sidebar .sb-text { display: none; }
+    body.sb-mini #sidebar .sb-head { flex-direction: column; padding: .8rem .4rem .45rem; }
+    body.sb-mini #sidebar .sb-brand { flex: none; }
+    body.sb-mini #sidebar .sb-logo { width: 40px; height: 40px; }
+    body.sb-mini #sidebar .sb-collapse i { transform: rotate(180deg); }
+    body.sb-mini #sidebar .sb-user { justify-content: center; margin: 0 .45rem .35rem; padding: .35rem; background: none; border-color: transparent; }
+    body.sb-mini #sidebar .sb-nav { padding-inline: .55rem; }
+    body.sb-mini #sidebar .sb-label { padding: .55rem .5rem .35rem; }
+    body.sb-mini #sidebar .sb-label::after { content: ''; display: block; height: 1px; background: #fbcfe8; }
+    body.sb-mini #sidebar .nav-link { justify-content: center; padding: .38rem; }
+    body.sb-mini #sidebar .nav-link.is-active::before { left: -.55rem; }
+}
+

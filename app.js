@@ -3,10 +3,10 @@
 // Điều phối SPA tab navigation, quản lý Auth state và kết nối các module chức năng
 
 import { auth, db } from './core/firebase-init.js';
-import { onSessionUser, forgetSession } from './core/auth-session.js';
-import { onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
+import { onSessionUser } from './core/auth-session.js';
+import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
 import { doc, setDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
-import { showToast, showConfirm } from './core/utils.js';
+import { showToast } from './core/utils.js';
 import { requireLogin } from './core/require-login.js';
 
 // Import các Module chức năng
@@ -98,20 +98,27 @@ const calculateGpaBtn = document.getElementById('calculate-gpa-btn');
 const downloadTemplateBtn = document.getElementById('download-template-btn');
 
 // --- HÀM ĐIỀU PHỐI TAB (SPA) ---
-function showContent(targetId, title = 'Dashboard') {
+// fromHistory: gọi từ nút Back/Forward → không đẩy thêm mục lịch sử
+function showContent(targetId, title = 'Dashboard', { fromHistory = false } = {}) {
     contentPanels.forEach(panel => panel.classList.add('hidden'));
+    // Tô mọi lối tắt trỏ tới tab này (thanh bên + thanh tab dưới), bỏ tô phần còn lại
     navLinks.forEach(link => {
-        link.classList.remove('bg-pink-100', 'font-bold');
+        const on = link.getAttribute('data-target') === targetId;
+        link.classList.toggle('is-active', on);
+        if (on) link.setAttribute('aria-current', 'page');
+        else link.removeAttribute('aria-current');
     });
-    
+
     const targetPanel = document.getElementById(targetId);
     if (targetPanel) {
         targetPanel.classList.remove('hidden');
     }
-    
-    const activeLink = document.querySelector(`.nav-link[data-target="${targetId}"]`);
-    if (activeLink) {
-        activeLink.classList.add('bg-pink-100', 'font-bold');
+
+    // Ghi tab vào URL (#libraryContent…): F5 mở lại đúng tab, Back trên điện thoại về tab trước
+    // thay vì thoát app. Trang chủ = URL gọn không hash.
+    if (!fromHistory) {
+        const hash = targetId === 'dashboardContent' ? '' : '#' + targetId;
+        if (location.hash !== hash) history.pushState(null, '', hash || location.pathname + location.search);
     }
     if (pageTitle) {
         pageTitle.textContent = title;
@@ -131,87 +138,64 @@ function showContent(targetId, title = 'Dashboard') {
     if (targetId === 'statsContent') {
         loadAndDisplayStats();
     }
+    if (targetId === 'gpaCalculatorContent') initGpaCalculator();
     // Khu phòng học nghe Firestore theo thời gian thực → rời tab thì đóng listener cho nhẹ
     if (targetId === 'myStudyRoomsContent') openRoomsHub();
     else closeRoomsHub();
 }
+
+// Nhãn tab: data-title nếu có, không thì chữ của lối tắt
+function navTitle(link) {
+    return link.dataset.title || (link.querySelector('.sb-text') || link.querySelector('span')).textContent.trim();
+}
+
+// Back / Forward giữa các tab. Bỏ qua mục lịch sử của hoạt ảnh mở bộ đề (quiz-launch-transition.js).
+window.addEventListener('popstate', (e) => {
+    if (e.state && e.state.quizLaunch) return;
+    const id = location.hash.slice(1) || 'dashboardContent';
+    const panel = document.getElementById(id);
+    if (!panel || !panel.classList.contains('content-panel') || !panel.classList.contains('hidden')) return;
+    const link = document.querySelector(`.nav-link[data-target="${id}"]`);
+    showContent(id, link ? navTitle(link) : 'Trang chủ', { fromHistory: true });
+});
 
 // --- QUẢN LÝ THÀNH VIÊN & AUTH STATE ---
 onSessionUser(user => {
     if (user) {
         const displayName = user.displayName || user.email.split('@')[0];
         const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=FF69B4&color=fff`;
-        // Bấm vào TÊN người dùng -> hỏi đăng xuất; bấm vào AVATAR -> sang trang thông tin cá nhân
-        const goProfile = (e) => { if (e) e.stopPropagation(); window.location.href = 'features/profile/profile.html'; };
-        const askLogout = (e) => { if (e) e.stopPropagation(); handleLogout(); };
-        if (userName) {
-            userName.textContent = displayName;
-            userName.style.cursor = 'pointer';
-            userName.title = 'Bấm để đăng xuất';
-            userName.onclick = askLogout;
-        }
-        if (userAvatar) {
-            userAvatar.src = avatarUrl;
-            userAvatar.style.cursor = 'pointer';
-            userAvatar.title = 'Thông tin cá nhân';
-            userAvatar.onclick = goProfile;
-        }
-        if (userNameSidebar) {
-            userNameSidebar.textContent = displayName;
-            userNameSidebar.style.cursor = 'pointer';
-            userNameSidebar.title = 'Bấm để đăng xuất';
-            userNameSidebar.onclick = askLogout;
-        }
-        if (userAvatarSidebar) {
-            userAvatarSidebar.src = avatarUrl;
-            userAvatarSidebar.style.cursor = 'pointer';
-            userAvatarSidebar.title = 'Thông tin cá nhân';
-            userAvatarSidebar.onclick = goProfile;
-        }
-        if (userAvatarMobile) {
-            userAvatarMobile.src = avatarUrl;
-            userAvatarMobile.style.cursor = 'pointer';
-            userAvatarMobile.title = 'Thông tin cá nhân';
-            userAvatarMobile.onclick = goProfile;
-        }
-        // Phần "khung" còn lại của menu (vùng đệm quanh tên) cũng hỏi đăng xuất
-        if (userMenuButton) userMenuButton.onclick = handleLogout;
+        if (userName) userName.textContent = displayName;
+        if (userAvatar) userAvatar.src = avatarUrl;
+        if (userNameSidebar) userNameSidebar.textContent = displayName;
+        if (userAvatarSidebar) userAvatarSidebar.src = avatarUrl;
+        if (userAvatarMobile) userAvatarMobile.src = avatarUrl;
     } else {
         if (userName) userName.textContent = 'Khách';
         if (userAvatar) userAvatar.src = `https://ui-avatars.com/api/?name=?&background=D8BFD8&color=fff`;
         if (userNameSidebar) userNameSidebar.textContent = 'Khách';
         if (userAvatarSidebar) userAvatarSidebar.src = `https://ui-avatars.com/api/?name=?&background=D8BFD8&color=fff`;
         if (userAvatarMobile) userAvatarMobile.src = `https://ui-avatars.com/api/?name=?&background=D8BFD8&color=fff`;
-        if (userMenuButton) userMenuButton.onclick = toggleAuthModal;
-        // Điện thoại không thấy #user-menu-button (hidden md:block) -> avatar/tên ở thanh trên + sidebar mở modal đăng nhập.
-        // Tra lại theo id vì index-user-avatar.js có thể đã thay <img> bằng <div>.
-        const openLogin = (e) => { if (e) e.stopPropagation(); window.openAuthModal(); };
-        ['user-avatar-mobile', 'user-avatar-sidebar', 'user-name-sidebar'].forEach(id => {
-            const el = document.getElementById(id);
-            if (!el) return;
-            el.style.cursor = 'pointer';
-            el.title = 'Đăng nhập';
-            el.onclick = openLogin;
-        });
     }
+    // Bấm cụm người dùng (khung tên+avatar ở đầu trang, khối trong thanh bên, avatar thanh trên điện thoại):
+    // đã đăng nhập → trang hồ sơ (sửa thông tin, đăng xuất ở đó); khách → hộp đăng nhập.
+    // Tra theo id mỗi lần vì index-user-avatar.js có thể đã thay <img> bằng <div>.
+    const onChip = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (user) window.location.href = 'features/profile/profile.html';
+        else window.openAuthModal();
+    };
+    ['user-menu-button', 'sb-user', 'user-avatar-mobile'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.style.cursor = 'pointer';
+        el.title = user ? 'Hồ sơ cá nhân' : 'Đăng nhập';
+        el.onclick = onChip;
+    });
+    const sbSub = document.querySelector('#sb-user .sb-user-sub');
+    if (sbSub) sbSub.textContent = user ? 'Hồ sơ cá nhân' : 'Bấm để đăng nhập';
 });
 
-async function handleLogout() {
-    const ok = await showConfirm('Bạn có muốn đăng xuất khỏi tài khoản này không?', {
-        title: 'Đăng xuất',
-        confirmText: 'Đăng xuất',
-        cancelText: 'Ở lại',
-        tone: 'danger',
-        icon: 'fas fa-right-from-bracket'
-    });
-    if (ok) {
-        await signOut(auth);
-        forgetSession();
-        showToast('Đã đăng xuất!', 'info');
-    }
-}
-// Cho phép module khác (index-user-avatar.js) gọi lại đúng một luồng đăng xuất
-window.handleLogout = handleLogout;
 
 window.toggleAuthModal = toggleAuthModal;
 function toggleAuthModal() { 
@@ -644,8 +628,7 @@ function setupEventListeners() {
     }
     if (selectGpaCalculatorBtn) {
         selectGpaCalculatorBtn.addEventListener('click', () => {
-            showContent('gpaCalculatorContent', 'Tính Điểm Hệ 4');
-            initGpaCalculator();
+            showContent('gpaCalculatorContent', 'Tính điểm hệ 4');
         });
     }
     if (calculateGpaBtn) calculateGpaBtn.addEventListener('click', calculateGPA);
@@ -657,7 +640,7 @@ function setupEventListeners() {
             const targetId = link.getAttribute('data-target');
             if (targetId) {
                 event.preventDefault();
-                const title = link.querySelector('span').textContent;
+                const title = navTitle(link);
                 if (LOCKED_TABS.includes(targetId) && !await requireLogin(title)) return;
                 showContent(targetId, title);
             }
@@ -958,15 +941,16 @@ function setupEventListeners() {
 
 // --- KHỞI CHẠY ỨNG DỤNG ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Tự động chuyển tab nếu URL có hash (#libraryContent)
+    setupEventListeners();
+    initDashboardUI();
+
+    // Tự động chuyển tab nếu URL có hash (#libraryContent). Phải chạy SAU setupEventListeners:
+    // trước đây bấm hộ khi lối tắt chưa có handler → chỉ nhảy tới href="#" và mất hash.
     const hash = window.location.hash.replace('#', '');
     if (hash) {
         const navLink = document.querySelector(`.nav-link[data-target="${hash}"]`);
         if (navLink) navLink.click();
     }
-    
-    setupEventListeners();
-    initDashboardUI();
 
     // Bị trang khác đá về vì chưa đăng nhập → mở sẵn ô đăng nhập cho đỡ phải bấm
     if (new URLSearchParams(location.search).get('next')) {

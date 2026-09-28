@@ -367,12 +367,12 @@ function renderSubjectChips() {
     const chips = s.names.map(n => {
         const active = n === s.active;
         const cls = active
-            ? 'bg-gradient-to-r from-[#FF69B4] to-[#FF8DC7] text-white border-transparent shadow-md shadow-pink-200'
-            : 'bg-white text-gray-600 border-pink-100 hover:border-pink-300';
-        return `<button type="button" class="subject-chip shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold border transition touch-manipulation ${cls}" data-name="${escapeHtml(n)}">${escapeHtml(n)}</button>`;
+            ? 'bujo-tab-active font-bold px-3.5 py-1.5 rounded-2xl text-xs transition-all touch-manipulation shadow-xs'
+            : 'bujo-tab-inactive font-bold px-3.5 py-1.5 rounded-2xl text-xs transition-all touch-manipulation shadow-xs';
+        return `<button type="button" class="subject-chip shrink-0 ${cls}" data-name="${escapeHtml(n)}">${escapeHtml(n)}</button>`;
     }).join('');
     const addBtn = s.names.length < MAX_SUBJECTS
-        ? '<button type="button" id="add-subject-btn" class="shrink-0 px-3 py-2 rounded-xl text-xs font-bold border border-dashed border-pink-200 text-pink-400 hover:border-pink-400 hover:text-pink-500 transition touch-manipulation"><i class="fas fa-plus mr-1"></i>Thêm môn</button>'
+        ? '<button type="button" id="add-subject-btn" class="shrink-0 px-3.5 py-1.5 rounded-2xl text-xs font-bold border-2 border-dashed border-sky-300 bg-sky-50/70 text-sky-600 hover:bg-pink-50 hover:border-pink-300 hover:text-pink-600 transition-all touch-manipulation bujo-font-cute"><i class="fas fa-plus mr-1"></i>Thêm môn</button>'
         : '';
     host.innerHTML = chips + addBtn;
     renderSemesterGpa();
@@ -413,28 +413,28 @@ function renderSemesterGpa(headerOnly) {
 
     const { items, scored, gpa, worst } = computeSemester();
     valEl.textContent = gpa === null ? '—' : gpa.toFixed(2);
-    valEl.className = `ml-auto text-lg font-extrabold leading-none ${gpa === null ? 'text-gray-300' : gpa >= 3.2 ? 'text-emerald-600' : gpa >= 2.5 ? 'text-pink-500' : 'text-amber-600'}`;
+    valEl.className = `ml-auto text-lg sm:text-xl font-extrabold leading-none ${gpa === null ? 'text-gray-300' : gpa >= 3.2 ? 'text-emerald-600' : gpa >= 2.5 ? 'text-pink-500' : 'text-amber-600'}`;
     if (subEl) subEl.textContent = `${scored.length}/${items.length} môn`;
     if (headerOnly) return;
 
     const rows = items.map(i => {
         const isWorst = worst && scored.length > 1 && i.name === worst.name;
         const score = i.ev
-            ? `<span class="text-xs font-extrabold text-gray-700">${i.ev.score4.toFixed(1)} · ${i.ev.letter}</span>`
-            : '<span class="text-[11px] font-semibold text-gray-300">chưa nhập</span>';
-        return `<div class="flex items-center gap-2 py-1.5 border-t border-pink-100/70">
-            <span class="text-xs font-bold text-gray-700 truncate flex-1 min-w-0">${escapeHtml(i.name)}</span>
-            ${isWorst ? '<i class="fas fa-arrow-trend-down text-red-400 text-xs shrink-0" title="Môn đang kéo GPA xuống nhiều nhất"></i>' : ''}
+            ? `<span class="text-xs font-bold text-gray-700">${i.ev.score4.toFixed(1)} · ${i.ev.letter}</span>`
+            : '<span class="text-xs font-semibold text-gray-400">chưa nhập</span>';
+        return `<div class="flex items-center gap-2 py-2 border-t border-dashed border-emerald-200/80 mt-1 pt-2 bujo-font-body">
+            <span class="text-sm font-bold text-gray-800 truncate flex-1 min-w-0">${escapeHtml(i.name)}</span>
+            ${isWorst ? '<i class="fas fa-arrow-trend-down text-rose-500 text-xs shrink-0" title="Môn đang kéo GPA xuống nhiều nhất"></i>' : ''}
             <input type="number" inputmode="decimal" min="0" max="20" step="0.5" value="${i.cr}" data-name="${escapeHtml(i.name)}"
-                class="semester-credit w-12 px-1 py-1 shrink-0 text-center text-xs font-bold text-pink-600 border border-pink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-200"
+                class="semester-credit w-12 px-1.5 py-0.5 shrink-0 text-center text-xs font-bold text-gray-800 bg-white border-2 border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-300 shadow-xs"
                 aria-label="Số tín chỉ môn ${escapeHtml(i.name)}">
-            <span class="text-[10px] text-gray-400 shrink-0">tín</span>
+            <span class="text-xs text-gray-400 shrink-0 font-bold">tín</span>
             <span class="w-20 text-right shrink-0">${score}</span>
         </div>`;
     }).join('');
 
-    host.innerHTML = rows + `<p class="text-[11px] text-gray-400 mt-2 flex items-start gap-1.5">
-        <i class="fas fa-circle-info mt-0.5"></i>
+    host.innerHTML = rows + `<p class="text-xs text-gray-400 mt-2.5 flex items-start gap-1.5 bujo-font-body">
+        <i class="fas fa-circle-info mt-0.5 text-emerald-500"></i>
         <span>Sửa số tín chỉ cho đúng chương trình học thì GPA mới chuẩn. Môn chưa nhập điểm không được tính vào GPA.</span></p>`;
 }
 
@@ -544,19 +544,19 @@ function milestoneTableHtml(attempt, otherPct, target) {
         }
         const selected = selTier === t;
         const stateCls = state === 'far'
-            ? 'text-gray-400 bg-gray-50 border-gray-200'
+            ? 'text-gray-400 bg-gray-50/80 border-gray-200'
             : state === 'safe'
-                ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                : 'text-gray-700 bg-white/80 border-pink-100';
-        return `<div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-xs ${stateCls} ${selected ? 'ring-2 ring-pink-300' : ''}">
-            <span class="font-extrabold">${t.letter} <span class="font-semibold text-[10px] opacity-60">· ${t.score4.toFixed(1)}</span></span>
-            <span class="font-bold">${text}</span>
+                ? 'text-emerald-700 bg-emerald-50/90 border-emerald-200 shadow-xs'
+                : 'text-gray-700 bg-white border-pink-100 shadow-xs';
+        return `<div class="flex items-center justify-between px-3.5 py-2.5 rounded-2xl border text-xs font-bold transition-all ${stateCls} ${selected ? 'ring-2 ring-pink-300 bg-pink-50/80' : ''}">
+            <span class="font-extrabold bujo-font-cute text-sm">${t.letter} <span class="font-bold text-xs opacity-75 bujo-font-body">· ${t.score4.toFixed(1)}</span></span>
+            <span class="font-bold bujo-font-cute">${text}</span>
         </div>`;
     }).join('');
     return `
-        <div class="mt-4 pt-3 border-t border-pink-100">
-            <p class="text-[11px] font-bold text-gray-400 uppercase tracking-wide mb-2"><i class="fas fa-signal mr-1 text-pink-300"></i>Mốc từng mức điểm ở lần "${attempt.label}"</p>
-            <div class="grid grid-cols-1 min-[380px]:grid-cols-2 gap-1.5">${rows}</div>
+        <div class="mt-5 pt-4 border-t border-dashed border-pink-200">
+            <p class="text-xs font-bold text-gray-600 mb-3 bujo-font-cute flex items-center gap-1.5"><i class="fas fa-signal text-pink-400"></i> Mốc điểm ở lần "${escapeHtml(attempt.label)}"</p>
+            <div class="grid grid-cols-1 min-[380px]:grid-cols-2 gap-2">${rows}</div>
         </div>`;
 }
 
@@ -843,39 +843,39 @@ export function calculateGPA(opts) {
 
     if (score10 >= 9.5) {
         img = 'assets/squirrel_A.png';
-        motivation = "Ối dồi ôi, ối dồi ôi, trình là j mà là trình ai chấm!!! Anh chỉ biết làm ba mẹ anh tự hào, xây căn nhà thật to ở 1 mình 2 tấm";
+        motivation = "Thành tích xuất sắc! Điểm số đạt mức tối đa (A+).";
         gradeBg = 'from-yellow-50 to-amber-50'; gradeColor = 'text-amber-500'; gradeBorder = 'border-amber-300'; gradeEmoji = '🏆';
     } else if (score10 >= 8.5) {
         img = 'assets/squirrel_A.png';
-        motivation = "Dỏi dữ dị bà, trộm vía trộm víaaaaaa, xin vía 4.0 <3";
+        motivation = "Kết quả rất tốt! Đạt chuẩn điểm Giỏi (A) theo thang điểm UMP.";
         gradeBg = 'from-yellow-50 to-orange-50'; gradeColor = 'text-orange-400'; gradeBorder = 'border-orange-300'; gradeEmoji = '🌟';
     } else if (score10 >= 8.0) {
         img = 'assets/squirrel_B.png';
-        motivation = "gút chóp bây bề";
+        motivation = "Kết quả tốt! Đạt mức Khá Giỏi (B+), cận kề mức điểm A.";
         gradeBg = 'from-green-50 to-emerald-50'; gradeColor = 'text-emerald-500'; gradeBorder = 'border-emerald-300'; gradeEmoji = '✨';
     } else if (score10 >= 7.0) {
         img = 'assets/squirrel_B.png';
-        motivation = "Quaooooooo, vá là dỏi òiiiiii";
+        motivation = "Đạt chuẩn mức Khá (B). Tiếp tục duy trì phong độ.";
         gradeBg = 'from-green-50 to-teal-50'; gradeColor = 'text-teal-500'; gradeBorder = 'border-teal-300'; gradeEmoji = '💚';
     } else if (score10 >= 6.5) {
         img = 'assets/squirrel_C.png';
-        motivation = "Điểm này là cũng cũng ròi á mom, u so gud babi";
+        motivation = "Đạt mức Trung bình Khá (C+). Cần rà soát các câu sai để cải thiện.";
         gradeBg = 'from-blue-50 to-sky-50'; gradeColor = 'text-sky-500'; gradeBorder = 'border-sky-300'; gradeEmoji = '💙';
     } else if (score10 >= 5.5) {
         img = 'assets/squirrel_C.png';
-        motivation = "Cũn cũn ik, cố gắng lên nhennn";
+        motivation = "Đạt mức Trung bình (C). Cần củng cố thêm các phần lý thuyết trọng tâm.";
         gradeBg = 'from-pink-50 to-rose-50'; gradeColor = 'text-rose-400'; gradeBorder = 'border-rose-300'; gradeEmoji = '🌸';
     } else if (score10 >= 5.0) {
         img = 'assets/squirrel_D.png';
-        motivation = "Vừa đủ qua. Cần xem lại kiến thức một chút.";
+        motivation = "Đạt mức Trung bình yếu (D+). Cần xem lại các ca lâm sàng và câu hỏi lý thuyết.";
         gradeBg = 'from-purple-50 to-violet-50'; gradeColor = 'text-violet-500'; gradeBorder = 'border-violet-300'; gradeEmoji = '🔮';
     } else if (score10 >= 4.0) {
         img = 'assets/squirrel_D.png';
-        motivation = "Qua môn rồi! Chúc mừng nha bàaaaa";
+        motivation = "Đạt mức đạt chuẩn tối thiểu (D). Cần tập trung ôn luyện kỹ càng hơn.";
         gradeBg = 'from-orange-50 to-yellow-50'; gradeColor = 'text-yellow-500'; gradeBorder = 'border-yellow-300'; gradeEmoji = '🌻';
     } else {
         img = 'assets/squirrel_F.png';
-        motivation = "Hoi mò hoi mò, lần sau sẽ tốt hơn mà!";
+        motivation = "Chưa đạt yêu cầu qua môn (F). Cần rà soát lại toàn bộ kiến thức nền tảng.";
         gradeBg = 'from-gray-50 to-slate-50'; gradeColor = 'text-gray-500'; gradeBorder = 'border-gray-300'; gradeEmoji = '🐿️';
     }
 
@@ -888,12 +888,12 @@ export function calculateGPA(opts) {
         hintHtml = `
             <div class="w-full mt-1 text-center text-sm font-semibold text-gray-700 bg-white/70 rounded-xl py-2.5 px-3 shadow-sm">
                 <i class="fas fa-arrow-trend-up text-emerald-500 mr-1"></i>
-                Cố thêm <b class="text-emerald-600">${hint.need}</b> câu nữa (đúng <b>${hint.atCorrect}/${y}</b>) là lên <b>${hint.letter}</b> · hệ 4 <b>${hint.score4.toFixed(1)}</b> 🎯
+                Cần đúng thêm <b class="text-emerald-600">${hint.need}</b> câu nữa (đạt <b>${hint.atCorrect}/${y}</b>) để đạt mức <b>${hint.letter}</b> · hệ 4 <b>${hint.score4.toFixed(1)}</b>
             </div>`;
     } else if (score4 >= 4.0) {
         hintHtml = `
             <div class="w-full mt-1 text-center text-sm font-semibold text-amber-600 bg-white/70 rounded-xl py-2.5 px-3 shadow-sm">
-                🏆 Bạn đang ở mức điểm hệ 4 cao nhất (4.0) rồi!
+                🏆 Điểm số đạt mức tối đa trên thang điểm 4 (4.0).
             </div>`;
     }
 
@@ -913,46 +913,46 @@ export function calculateGPA(opts) {
     }).join('');
     const markerLeft = Math.max(0, Math.min(100, score10 * 10));
 
-    resultArea.className = `mt-6 p-4 sm:p-6 rounded-2xl border-2 bg-gradient-to-br ${gradeBg} ${gradeBorder} transition-all duration-500`;
+    resultArea.className = `mt-6 p-5 sm:p-6 rounded-3xl border-2 ${gradeBorder} bg-gradient-to-br ${gradeBg} shadow-sm transition-all duration-500 relative`;
     resultArea.innerHTML = `
         <div class="flex flex-col gap-4">
             <div class="flex items-center gap-4">
                 <div class="relative shrink-0">
-                    <img src="${img}" alt="Sóc con" class="w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-lg animate-bounce" style="animation-duration:2s">
+                    <img src="${img}" alt="Sóc con" class="w-20 h-20 sm:w-24 sm:h-24 object-contain drop-shadow-md animate-bounce" style="animation-duration:2.5s">
                     <span class="absolute -top-1 -right-1 text-2xl">${gradeEmoji}</span>
                 </div>
                 <div class="min-w-0 flex-1">
-                    <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Điểm hệ 4</span>
+                    <span class="text-xs font-bold text-gray-500 bujo-font-cute">Điểm hệ 4</span>
                     <div class="flex items-end gap-2 flex-wrap mt-0.5">
-                        <span class="${gradeColor} text-6xl font-extrabold leading-none drop-shadow-sm">${score4.toFixed(1)}</span>
-                        <span class="text-lg font-bold text-gray-400 leading-none mb-0.5">/ 4</span>
-                        <span class="${gradeColor} text-base font-extrabold bg-white/80 rounded-full px-3 py-1 shadow-sm mb-0.5">${letterGrade}</span>
+                        <span class="${gradeColor} text-5xl sm:text-6xl font-extrabold leading-none drop-shadow-xs bujo-font-cute">${score4.toFixed(1)}</span>
+                        <span class="text-base font-bold text-gray-400 leading-none mb-0.5 bujo-font-cute">/ 4.0</span>
+                        <span class="${gradeColor} text-base font-extrabold bg-white/95 rounded-full px-3 py-0.5 shadow-xs mb-0.5 border border-pink-100 bujo-font-cute">${letterGrade}</span>
                     </div>
-                    <p class="text-xs sm:text-sm font-semibold text-gray-600 italic mt-2 leading-relaxed">"${motivation}"</p>
+                    <p class="text-xs sm:text-sm font-bold text-gray-600 italic mt-2 leading-relaxed bujo-font-body">"${motivation}"</p>
                 </div>
             </div>
             <div class="grid grid-cols-3 gap-2 sm:gap-3 w-full">
-                <div class="flex flex-col items-center bg-white/80 rounded-2xl shadow px-2 py-2.5">
-                    <span class="text-[10px] text-gray-500 font-semibold mb-0.5 uppercase tracking-wide">Hệ 10</span>
-                    <span class="${gradeColor} text-2xl font-extrabold">${score10.toFixed(2)}</span>
+                <div class="flex flex-col items-center bg-white/95 rounded-2xl border border-pink-100 shadow-xs px-2 py-2.5">
+                    <span class="text-xs text-gray-500 font-bold mb-0.5 bujo-font-cute">Hệ 10</span>
+                    <span class="${gradeColor} text-xl sm:text-2xl font-extrabold bujo-font-cute">${score10.toFixed(2)}</span>
                 </div>
-                <div class="flex flex-col items-center bg-white/80 rounded-2xl shadow px-2 py-2.5">
-                    <span class="text-[10px] text-gray-500 font-semibold mb-0.5 uppercase tracking-wide">Câu đúng</span>
-                    <span class="${gradeColor} text-2xl font-extrabold">${x}/${y}</span>
+                <div class="flex flex-col items-center bg-white/95 rounded-2xl border border-pink-100 shadow-xs px-2 py-2.5">
+                    <span class="text-xs text-gray-500 font-bold mb-0.5 bujo-font-cute">Câu đúng</span>
+                    <span class="${gradeColor} text-xl sm:text-2xl font-extrabold bujo-font-cute">${x}/${y}</span>
                 </div>
-                <div class="flex flex-col items-center bg-white/80 rounded-2xl shadow px-2 py-2.5">
-                    <span class="text-[10px] text-gray-500 font-semibold mb-0.5 uppercase tracking-wide">Tỉ lệ</span>
-                    <span class="${gradeColor} text-2xl font-extrabold">${percentage}%</span>
+                <div class="flex flex-col items-center bg-white/95 rounded-2xl border border-pink-100 shadow-xs px-2 py-2.5">
+                    <span class="text-xs text-gray-500 font-bold mb-0.5 bujo-font-cute">Tỉ lệ</span>
+                    <span class="${gradeColor} text-xl sm:text-2xl font-extrabold bujo-font-cute">${percentage}%</span>
                 </div>
             </div>
             <div class="w-full">
                 <div class="relative mt-1">
-                    <div class="w-full h-5 rounded-full overflow-hidden flex shadow-inner">${zoneHtml}</div>
-                    <div class="absolute -top-1 h-7 w-1 rounded-full bg-gray-700 shadow" style="left:calc(${markerLeft}% - 2px)"></div>
+                    <div class="w-full h-4 rounded-full overflow-hidden flex shadow-inner border border-white/80">${zoneHtml}</div>
+                    <div class="absolute -top-1 h-6 w-1.5 rounded-full bg-pink-500 shadow" style="left:calc(${markerLeft}% - 3px)"></div>
                 </div>
-                <div class="flex justify-between text-[10px] text-gray-400 mt-1 font-semibold">
+                <div class="flex justify-between text-xs text-gray-400 mt-1.5 font-bold bujo-font-cute">
                     <span>0</span>
-                    <span>Điểm hệ 10 của bạn: <b class="text-gray-600">${score10.toFixed(2)}</b></span>
+                    <span>Điểm hệ 10: <b class="text-pink-600 font-extrabold">${score10.toFixed(2)}</b></span>
                     <span>10</span>
                 </div>
             </div>
@@ -1038,28 +1038,28 @@ export function calculateRequiredCorrectAnswers(opts) {
 
     // Bộ khung hiển thị kết quả: header trạng thái + nội dung + chân nhắc mục tiêu (đồng nhất mọi nhánh)
     const TONES = {
-        success: { bg: 'bg-emerald-50', border: 'border-emerald-200', head: 'text-emerald-700', iconBg: 'bg-emerald-100 text-emerald-600' },
-        info:    { bg: 'bg-pink-50',    border: 'border-pink-200',    head: 'text-pink-700',    iconBg: 'bg-pink-100 text-pink-600' },
-        warn:    { bg: 'bg-amber-50',   border: 'border-amber-200',   head: 'text-amber-700',   iconBg: 'bg-amber-100 text-amber-600' },
-        danger:  { bg: 'bg-red-50',     border: 'border-red-200',     head: 'text-red-700',     iconBg: 'bg-red-100 text-red-600' },
+        success: { bg: 'bg-emerald-50/80', border: 'border-emerald-200', head: 'text-emerald-700', iconBg: 'bg-emerald-100 text-emerald-600' },
+        info:    { bg: 'bg-pink-50/80',    border: 'border-pink-200',    head: 'text-pink-700',    iconBg: 'bg-pink-100 text-pink-600' },
+        warn:    { bg: 'bg-amber-50/80',   border: 'border-amber-200',   head: 'text-amber-700',   iconBg: 'bg-amber-100 text-amber-600' },
+        danger:  { bg: 'bg-rose-50/80',    border: 'border-rose-200',    head: 'text-rose-700',    iconBg: 'bg-rose-100 text-rose-600' },
     };
     const render = ({ tone, icon, title, body }) => {
         requiredCalcDone = true; // từ giờ kết quả sẽ tự cập nhật khi chỉnh số liệu
         const t = TONES[tone];
         resultArea.innerHTML = `
-            <div class="result-card rounded-2xl border ${t.border} ${t.bg} overflow-hidden shadow-sm">
+            <div class="result-card rounded-3xl border-2 ${t.border} ${t.bg} overflow-hidden shadow-sm">
                 <div class="flex items-center gap-2.5 px-4 py-3 border-b ${t.border}">
-                    <span class="w-8 h-8 rounded-xl ${t.iconBg} flex items-center justify-center text-sm shrink-0"><i class="fas ${icon}"></i></span>
-                    <span class="font-extrabold ${t.head} text-sm">${title}</span>
+                    <span class="w-8 h-8 rounded-xl ${t.iconBg} flex items-center justify-center text-sm shrink-0 shadow-xs"><i class="fas ${icon}"></i></span>
+                    <span class="font-bold ${t.head} text-sm bujo-font-cute">${title}</span>
                 </div>
                 <div class="px-4 py-4 text-sm text-gray-700 leading-relaxed">${body}</div>
-                <div class="flex items-center gap-1.5 px-4 py-2.5 bg-white/60 border-t ${t.border} text-xs text-gray-500">
+                <div class="flex items-center gap-2 px-4 py-2.5 bg-white/80 border-t ${t.border} text-xs text-gray-500 bujo-font-body">
                     <i class="fas fa-bullseye text-pink-400"></i>
-                    <span>Mục tiêu ${targetText(target)}</span>
+                    <span>Mục tiêu: ${targetText(target)}</span>
                 </div>
             </div>
             <button type="button" id="copy-required-btn"
-                class="mt-2 w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-pink-100 text-xs font-bold text-gray-500 hover:text-pink-500 hover:border-pink-300 active:scale-[0.98] transition touch-manipulation">
+                class="mt-3 w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-pink-200 bg-white text-xs sm:text-sm font-bold text-pink-600 hover:bg-pink-50 hover:border-pink-300 active:scale-[0.98] transition-all touch-manipulation shadow-xs bujo-font-cute">
                 <i class="fas fa-copy"></i> Sao chép kết quả
             </button>`;
         // Bấm nút tính (không phải auto-update) thì đưa kết quả vào tầm nhìn — quan trọng trên mobile
@@ -1068,15 +1068,15 @@ export function calculateRequiredCorrectAnswers(opts) {
     // Khối "số to" cho con số cần đạt
     const heroNumber = (big, unit, badge) => `
         <div class="flex items-end gap-2">
-            <span class="text-4xl font-extrabold text-pink-500 leading-none">${big}</span>
-            <span class="text-base font-bold text-gray-400 mb-0.5">${unit}</span>
-            ${badge ? `<span class="ml-auto text-sm font-bold text-pink-600 bg-pink-100 rounded-full px-2.5 py-1">${badge}</span>` : ''}
+            <span class="text-4xl sm:text-5xl font-extrabold text-pink-500 leading-none bujo-font-cute">${big}</span>
+            <span class="text-sm sm:text-base font-bold text-gray-400 mb-0.5 bujo-font-cute">${unit}</span>
+            ${badge ? `<span class="ml-auto text-xs font-bold text-pink-600 bg-pink-100 rounded-full px-3 py-1 bujo-font-cute">${badge}</span>` : ''}
         </div>`;
     // Ba ô điểm hệ 10 / hệ 4 / điểm chữ
     const statChips = (s10, s4, letter, tone) => {
         const t = TONES[tone];
-        const chip = (lbl, val, hero) => `<div class="px-3 py-1.5 rounded-xl text-center ${hero ? `bg-white border-2 ${t.border} shadow-sm` : `bg-white/70 border ${t.border}`}"><span class="text-[10px] text-gray-400 font-semibold block">${lbl}</span><b class="${hero ? `text-xl ${t.head}` : 'text-base text-gray-800'}">${val}</b></div>`;
-        return `<div class="flex flex-wrap items-stretch gap-2">${chip('HỆ 4', s4, true)}${chip('HỆ 10', s10)}${chip('ĐIỂM CHỮ', letter)}</div>`;
+        const chip = (lbl, val, hero) => `<div class="px-3 py-1.5 rounded-2xl text-center ${hero ? `bg-white border-2 ${t.border} shadow-xs` : `bg-white/90 border ${t.border}`}"><span class="text-xs text-gray-400 font-bold block bujo-font-cute">${lbl}</span><b class="${hero ? `text-xl ${t.head} bujo-font-cute` : 'text-base text-gray-800'}">${val}</b></div>`;
+        return `<div class="flex flex-wrap items-stretch gap-2">${chip('Hệ 4', s4, true)}${chip('Hệ 10', s10)}${chip('Điểm chữ', letter)}</div>`;
     };
     // Lần thi nhập điểm chữ: điểm hệ 10 cần -> mức chữ thấp nhất đạt được (null = ngoài tầm)
     const letterFor = (s10) => GRADE_TIERS.find(g => g.min10 >= s10 - 1e-9);
@@ -1089,9 +1089,9 @@ export function calculateRequiredCorrectAnswers(opts) {
 
         if (reached) {
             render({
-                tone: 'success', icon: 'fa-trophy', title: 'Đã đạt mục tiêu! 🎉',
+                tone: 'success', icon: 'fa-trophy', title: 'Đã hoàn thành mục tiêu',
                 body: `${statChips(finalScore10.toFixed(2), score4.toFixed(1), letterGrade, 'success')}
-                       <p class="mt-3 font-semibold text-emerald-600">Kết quả hiện tại đã đủ để đạt mục tiêu. Tuyệt vời! 🐿️</p>`
+                       <p class="mt-3 font-semibold text-emerald-600">Điểm tổng kết hiện tại đã đáp ứng đầy đủ yêu cầu mục tiêu đề ra.</p>`
             });
             return;
         }
@@ -1109,13 +1109,13 @@ export function calculateRequiredCorrectAnswers(opts) {
         if (lever.kind === 'gpa4') {
             const need = letterFor(neededP * 10);
             if (!need) {
-                render({ tone: 'danger', icon: 'fa-circle-xmark', title: 'Ngoài tầm với 😢',
-                    body: `${chips}<p class="mt-3 text-gray-600">Dù đạt <b>A</b> ở lần "<b>${lever.label}</b>", điểm tổng kết vẫn chưa chạm mục tiêu.</p>
+                render({ tone: 'danger', icon: 'fa-circle-xmark', title: 'Không đủ điều kiện đạt mục tiêu',
+                    body: `${chips}<p class="mt-3 text-gray-600">Dù đạt <b>A</b> ở lần "<b>${lever.label}</b>", điểm tổng kết vẫn chưa đạt ngưỡng mục tiêu.</p>
                            ${milestoneTableHtml(lever, otherPct, target)}` });
             } else {
-                render({ tone: 'info', icon: 'fa-bullseye', title: 'Để đạt mục tiêu cần',
+                render({ tone: 'info', icon: 'fa-bullseye', title: 'Yêu cầu cần đạt',
                     body: `${chips}<div class="mt-3">${heroNumber(need.letter, `· hệ 4 ${need.score4.toFixed(1)}`, `≥ ${need.min10.toFixed(1)} hệ 10`)}</div>
-                           <p class="mt-2 text-gray-500">Điểm chữ tối thiểu ở lần <b class="text-gray-700">${lever.label}</b>, giữ nguyên các lần khác.</p>
+                           <p class="mt-2 text-gray-500">Mức điểm chữ tối thiểu cần đạt ở đợt <b class="text-gray-700">${lever.label}</b> (giữ nguyên các đợt khác).</p>
                            ${milestoneTableHtml(lever, otherPct, target)}` });
             }
             return;
@@ -1125,13 +1125,13 @@ export function calculateRequiredCorrectAnswers(opts) {
             const needScore = Math.ceil(neededP * 10 * 100) / 100;
             const cur = lever.p * 10;
             if (needScore > 10) {
-                render({ tone: 'danger', icon: 'fa-circle-xmark', title: 'Ngoài tầm với 😢',
-                    body: `${chips}<p class="mt-3 text-gray-600">Dù đạt <b>10/10</b> điểm ở lần "<b>${lever.label}</b>", điểm tổng kết vẫn chưa chạm mục tiêu.</p>
+                render({ tone: 'danger', icon: 'fa-circle-xmark', title: 'Không đủ điều kiện đạt mục tiêu',
+                    body: `${chips}<p class="mt-3 text-gray-600">Dù đạt <b>10/10</b> điểm ở lần "<b>${lever.label}</b>", điểm tổng kết vẫn chưa đạt ngưỡng mục tiêu.</p>
                            ${milestoneTableHtml(lever, otherPct, target)}` });
             } else {
-                render({ tone: 'info', icon: 'fa-bullseye', title: 'Để đạt mục tiêu cần',
+                render({ tone: 'info', icon: 'fa-bullseye', title: 'Yêu cầu cần đạt',
                     body: `${chips}<div class="mt-3">${heroNumber(needScore.toFixed(2), '/ 10 điểm', '+' + Math.max(0, needScore - cur).toFixed(2) + 'đ nữa')}</div>
-                           <p class="mt-2 text-gray-500">Ở lần <b class="text-gray-700">${lever.label}</b> cần đạt bấy nhiêu điểm (đang ${cur.toFixed(2)}/10), giữ nguyên các lần khác.</p>
+                           <p class="mt-2 text-gray-500">Điểm số cần đạt ở đợt <b class="text-gray-700">${lever.label}</b> (hiện tại: ${cur.toFixed(2)}/10đ), giữ nguyên các đợt khác.</p>
                            ${milestoneTableHtml(lever, otherPct, target)}` });
             }
             return;
@@ -1140,16 +1140,16 @@ export function calculateRequiredCorrectAnswers(opts) {
         const needCorrect = minCorrectForScore10(neededP * 10, lever.total, lever.scale);
         const cur = lever.correct;
         if (needCorrect > lever.total) {
-            render({ tone: 'danger', icon: 'fa-circle-xmark', title: 'Ngoài tầm với 😢',
-                body: `${chips}<p class="mt-3 text-gray-600">Dù đúng cả <b>${lever.total}/${lever.total}</b> câu ở lần "<b>${lever.label}</b>", điểm tổng kết vẫn chưa chạm mục tiêu.</p>
+            render({ tone: 'danger', icon: 'fa-circle-xmark', title: 'Không đủ điều kiện đạt mục tiêu',
+                body: `${chips}<p class="mt-3 text-gray-600">Dù đạt điểm tối đa <b>${lever.total}/${lever.total}</b> câu ở đợt "<b>${lever.label}</b>", điểm tổng kết vẫn chưa đạt ngưỡng mục tiêu.</p>
                        ${milestoneTableHtml(lever, otherPct, target)}` });
             return;
         }
         const acc = Math.round((needCorrect / lever.total) * 100);
-        render({ tone: 'info', icon: 'fa-bullseye', title: 'Để đạt mục tiêu cần',
+        render({ tone: 'info', icon: 'fa-bullseye', title: 'Yêu cầu cần đạt',
             body: `${chips}
                    <div class="mt-3">${heroNumber(needCorrect, `/ ${lever.total} câu`, '+' + Math.max(0, needCorrect - cur) + ' câu nữa')}</div>
-                   <p class="mt-2 text-gray-500">Số câu đúng tối thiểu ở lần <b class="text-gray-700">${lever.label}</b> (đang ${cur}/${lever.total} · ≈ ${acc}% bài), giữ nguyên các lần khác.</p>
+                   <p class="mt-2 text-gray-500">Số câu đúng tối thiểu cần đạt ở đợt <b class="text-gray-700">${lever.label}</b> (hiện tại: ${cur}/${lever.total} · ≈ ${acc}% bài), giữ nguyên các đợt khác.</p>
                    <div class="mt-3 w-full h-2 bg-white rounded-full overflow-hidden shadow-inner"><div class="h-full bg-pink-400 rounded-full transition-all duration-500" style="width:${acc}%"></div></div>
                    ${milestoneTableHtml(lever, otherPct, target)}` });
         return;
@@ -1158,8 +1158,8 @@ export function calculateRequiredCorrectAnswers(opts) {
     // 3b. Đã chắc chắn đạt dù các lần còn lại được 0 điểm
     if (neededPct <= 1e-9) {
         render({
-            tone: 'success', icon: 'fa-circle-check', title: 'Chắc suất đạt mục tiêu! 🎉',
-            body: `Kết quả các lần đã thi đã đủ để đạt mục tiêu ${targetText(target)} — kể cả khi các lần còn lại được 0 điểm. Quá đỉnh! 🐿️`
+            tone: 'success', icon: 'fa-circle-check', title: 'Đã đạt điều kiện mục tiêu',
+            body: `Điểm tích lũy từ các đợt thi đã hoàn thành đã đủ để đảm bảo đạt mục tiêu ${targetText(target)}.`
         });
         return;
     }
@@ -1168,8 +1168,8 @@ export function calculateRequiredCorrectAnswers(opts) {
     if (unknown.length === 1) {
         const a = unknown[0];
         if (a.weight <= 0) {
-            render({ tone: 'warn', icon: 'fa-triangle-exclamation', title: 'Không thể bù điểm',
-                body: `Lần "<b>${a.label}</b>" có trọng số <b>0%</b> nên không ảnh hưởng tới điểm tổng kết.` });
+            render({ tone: 'warn', icon: 'fa-triangle-exclamation', title: 'Trọng số không khả dụng',
+                body: `Đợt thi "<b>${a.label}</b>" có trọng số <b>0%</b> nên không ảnh hưởng tới điểm tổng kết.` });
             return;
         }
         const neededP = neededPct / a.weight; // hiệu suất cần ở lần này
@@ -1178,13 +1178,13 @@ export function calculateRequiredCorrectAnswers(opts) {
             const need = letterFor(neededP * 10);
             if (!need) {
                 const maxScore10 = (knownPct + a.weight) / 10;
-                render({ tone: 'danger', icon: 'fa-circle-xmark', title: 'Ngoài tầm với 😢',
-                    body: `Dù đạt <b>A</b> ở lần "<b>${a.label}</b>", điểm tổng kết tối đa chỉ đạt <b>${maxScore10.toFixed(2)}</b> (hệ 10).
+                render({ tone: 'danger', icon: 'fa-circle-xmark', title: 'Không đủ điều kiện đạt mục tiêu',
+                    body: `Dù đạt <b>A</b> ở đợt "<b>${a.label}</b>", điểm tổng kết tối đa chỉ đạt <b>${maxScore10.toFixed(2)}</b> (hệ 10).
                            ${milestoneTableHtml(a, knownPct, target)}` });
             } else {
                 render({ tone: 'info', icon: 'fa-bullseye', title: 'Điểm chữ cần đạt',
                     body: `${heroNumber(need.letter, `· hệ 4 ${need.score4.toFixed(1)}`, `≥ ${need.min10.toFixed(1)} hệ 10`)}
-                           <p class="mt-2 text-gray-500">Mức điểm chữ tối thiểu ở lần <b class="text-gray-700">${a.label}</b> để đạt mục tiêu.</p>
+                           <p class="mt-2 text-gray-500">Mức điểm chữ tối thiểu cần đạt ở đợt <b class="text-gray-700">${a.label}</b> để đạt mục tiêu.</p>
                            ${milestoneTableHtml(a, knownPct, target)}` });
             }
             return;
@@ -1194,13 +1194,13 @@ export function calculateRequiredCorrectAnswers(opts) {
             const needScore = Math.ceil(neededP * 10 * 100) / 100; // điểm hệ 10, làm tròn lên 2 số lẻ
             if (needScore > 10) {
                 const maxScore10 = (knownPct + a.weight) / 10;
-                render({ tone: 'danger', icon: 'fa-circle-xmark', title: 'Ngoài tầm với 😢',
-                    body: `Dù đạt <b>10/10</b> điểm ở lần "<b>${a.label}</b>", điểm tổng kết tối đa chỉ đạt <b>${maxScore10.toFixed(2)}</b> (hệ 10).
+                render({ tone: 'danger', icon: 'fa-circle-xmark', title: 'Không đủ điều kiện đạt mục tiêu',
+                    body: `Dù đạt <b>10/10</b> điểm ở đợt "<b>${a.label}</b>", điểm tổng kết tối đa chỉ đạt <b>${maxScore10.toFixed(2)}</b> (hệ 10).
                            ${milestoneTableHtml(a, knownPct, target)}` });
             } else {
                 render({ tone: 'info', icon: 'fa-bullseye', title: 'Điểm cần đạt',
                     body: `${heroNumber(needScore.toFixed(2), '/ 10 điểm', null)}
-                           <p class="mt-2 text-gray-500">Điểm hệ 10 tối thiểu ở lần <b class="text-gray-700">${a.label}</b> để đạt mục tiêu.</p>
+                           <p class="mt-2 text-gray-500">Điểm hệ 10 tối thiểu cần đạt ở đợt <b class="text-gray-700">${a.label}</b> để đạt mục tiêu.</p>
                            ${milestoneTableHtml(a, knownPct, target)}` });
             }
             return;
@@ -1209,15 +1209,15 @@ export function calculateRequiredCorrectAnswers(opts) {
         const needCorrect = minCorrectForScore10(neededP * 10, a.total, a.scale);
         if (needCorrect > a.total) {
             const maxScore10 = (knownPct + a.weight) / 10;
-            render({ tone: 'danger', icon: 'fa-circle-xmark', title: 'Ngoài tầm với 😢',
-                body: `Dù đúng cả <b>${a.total}/${a.total}</b> câu ở lần "<b>${a.label}</b>", điểm tổng kết tối đa chỉ đạt <b>${maxScore10.toFixed(2)}</b> (hệ 10).
+            render({ tone: 'danger', icon: 'fa-circle-xmark', title: 'Không đủ điều kiện đạt mục tiêu',
+                body: `Dù đạt điểm tối đa <b>${a.total}/${a.total}</b> câu ở đợt "<b>${a.label}</b>", điểm tổng kết tối đa chỉ đạt <b>${maxScore10.toFixed(2)}</b> (hệ 10).
                        ${milestoneTableHtml(a, knownPct, target)}` });
             return;
         }
         const acc = Math.round((needCorrect / a.total) * 100);
         render({ tone: 'info', icon: 'fa-bullseye', title: 'Số câu cần đạt',
             body: `${heroNumber(needCorrect, `/ ${a.total} câu`, '≈ ' + acc + '%')}
-                   <p class="mt-2 text-gray-500">Số câu đúng tối thiểu ở lần <b class="text-gray-700">${a.label}</b> để đạt mục tiêu.</p>
+                   <p class="mt-2 text-gray-500">Số câu đúng tối thiểu cần đạt ở đợt <b class="text-gray-700">${a.label}</b> để đạt mục tiêu.</p>
                    <div class="mt-3 w-full h-2 bg-white rounded-full overflow-hidden shadow-inner"><div class="h-full bg-pink-400 rounded-full transition-all duration-500" style="width:${acc}%"></div></div>
                    ${milestoneTableHtml(a, knownPct, target)}` });
         return;
@@ -1226,7 +1226,7 @@ export function calculateRequiredCorrectAnswers(opts) {
     // 3d. Còn nhiều lần chưa nhập -> gợi ý theo mức "đúng đều" giữa các lần
     const unknownWeight = unknown.reduce((s, a) => s + a.weight, 0);
     if (unknownWeight <= 0) {
-        render({ tone: 'warn', icon: 'fa-triangle-exclamation', title: 'Không thể bù điểm',
+        render({ tone: 'warn', icon: 'fa-triangle-exclamation', title: 'Trọng số không khả dụng',
             body: 'Các lần còn lại có tổng trọng số <b>0%</b> nên không ảnh hưởng tới điểm tổng kết.' });
         return;
     }
@@ -1234,8 +1234,8 @@ export function calculateRequiredCorrectAnswers(opts) {
 
     if (reqRatio > 1 + 1e-9) {
         const maxScore10 = (knownPct + unknownWeight) / 10;
-        render({ tone: 'danger', icon: 'fa-circle-xmark', title: 'Ngoài tầm với 😢',
-            body: `Dù đạt điểm tuyệt đối ở tất cả các lần còn lại, điểm tổng kết tối đa chỉ đạt <b>${maxScore10.toFixed(2)}</b> (hệ 10).` });
+        render({ tone: 'danger', icon: 'fa-circle-xmark', title: 'Không đủ điều kiện đạt mục tiêu',
+            body: `Dù đạt điểm tuyệt đối ở tất cả các đợt thi còn lại, điểm tổng kết tối đa chỉ đạt <b>${maxScore10.toFixed(2)}</b> (hệ 10).` });
         return;
     }
 
@@ -1251,23 +1251,22 @@ export function calculateRequiredCorrectAnswers(opts) {
             const needCorrect = Math.min(a.total, minCorrectForScore10(reqScore10, a.total, a.scale));
             val = `${needCorrect}/${a.total} câu`;
         }
-        return `<div class="flex items-center justify-between bg-white/70 rounded-xl px-3 py-2 border border-pink-200">
-            <span class="font-semibold text-gray-700"><i class="fas fa-circle-dot text-pink-300 mr-1.5 text-[10px]"></i>${a.label}</span>
-            <span class="font-bold text-pink-600">${val}</span>
+        return `<div class="flex items-center justify-between bg-white/95 rounded-2xl px-4 py-2.5 border border-pink-100 shadow-xs">
+            <span class="font-bold text-gray-700 bujo-font-body"><i class="fas fa-circle-dot text-pink-400 mr-2 text-xs"></i>${escapeHtml(a.label)}</span>
+            <span class="font-bold text-pink-600 bujo-font-cute">${val}</span>
         </div>`;
     }).join('');
 
-    render({ tone: 'info', icon: 'fa-lightbulb', title: `Gợi ý cho ${unknown.length} lần còn lại`,
-        body: `<div class="inline-flex items-center gap-1.5 text-pink-600 bg-pink-100 rounded-full px-3 py-1 text-xs font-bold mb-3"><i class="fas fa-wave-square"></i> Giữ phong độ đều ≈ ${reqScore10.toFixed(1)}/10 điểm mỗi lần</div>
-               <div class="space-y-1.5">${rows}</div>
-               <p class="text-xs text-gray-400 mt-3">💡 Phương án cân bằng — lần này làm tốt hơn thì lần sau có thể nhẹ nhàng hơn.</p>` });
+    render({ tone: 'info', icon: 'fa-lightbulb', title: `Gợi ý phân bổ cho ${unknown.length} đợt còn lại`,
+        body: `<div class="inline-flex items-center gap-1.5 text-amber-900 bg-amber-100/90 border border-amber-300 rounded-2xl px-3.5 py-1.5 text-xs font-bold mb-3.5 shadow-xs bujo-font-cute"><i class="fas fa-wave-square"></i> Cần đạt ≈ ${reqScore10.toFixed(1)}/10đ mỗi đợt</div>
+               <div class="space-y-2">${rows}</div>
+               <p class="text-xs text-gray-500 font-bold mt-4 bujo-font-body">💡 Phân bổ mục tiêu: Nâng cao kết quả ở các đợt thi sớm sẽ giảm áp lực điểm số cho đợt thi cuối kỳ.</p>` });
 }
 
 // Icon gợi nhớ cho từng loại bài thi
 const ATTEMPT_ICONS = { 'Pretest': 'fa-vial', 'Giữa kỳ': 'fa-pen-fancy', 'Cuối kỳ': 'fa-flag-checkered' };
 
-// Màu các khúc trên thanh trọng số (lặp lại khi có nhiều đợt)
-const WEIGHT_SEG_COLORS = ['bg-pink-400', 'bg-rose-300', 'bg-violet-300', 'bg-sky-300', 'bg-amber-300', 'bg-emerald-300'];
+const WEIGHT_SEG_COLORS = ['bg-pink-300', 'bg-amber-200', 'bg-sky-200', 'bg-emerald-200', 'bg-purple-200', 'bg-rose-200'];
 
 /**
  * Thanh trọng số: nhìn một phát biết đợt nào "nặng" và đã đủ 100% chưa.
@@ -1281,16 +1280,16 @@ function weightBarHtml(rows) {
         if (w <= 0) return '';
         const pct = (w / denom) * 100;
         const label = escapeHtml(r.label || '');
-        return `<div class="${WEIGHT_SEG_COLORS[i % WEIGHT_SEG_COLORS.length]} flex items-center justify-center min-w-0 px-1" title="${label}: ${w}%">
-            <span class="text-[10px] font-extrabold text-white truncate">${pct >= 18 ? label + ' · ' : ''}${w}%</span>
+        return `<div class="${WEIGHT_SEG_COLORS[i % WEIGHT_SEG_COLORS.length]} border-r border-white/60 flex items-center justify-center min-w-0 px-1 py-1 transition-all" title="${label}: ${w}%">
+            <span class="text-xs font-bold text-gray-800 truncate drop-shadow-xs bujo-font-cute">${pct >= 18 ? label + ' ' : ''}${w}%</span>
         </div>`;
     }).join('');
     // Style width phải đặt riêng để không bị escapeHtml đụng vào; dùng flex-basis cho gọn
     const widths = rows.map(r => (parseFloat(r.weight) || 0) / denom * 100);
     const rest = sum < 100 - 1e-9
-        ? `<div class="flex-1 flex items-center justify-center min-w-0 px-1"><span class="text-[10px] font-bold text-gray-400 truncate">thiếu ${Math.round((100 - sum) * 100) / 100}%</span></div>`
+        ? `<div class="flex-1 flex items-center justify-center min-w-0 px-1 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiNmZmYiLz48cmVjdCB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSIjY2NjIi8+PC9zdmc+')]"><span class="text-xs font-bold text-gray-500 truncate bg-white/95 px-2 py-0.5 rounded-full bujo-font-cute">thiếu ${Math.round((100 - sum) * 100) / 100}%</span></div>`
         : '';
-    const html = `<div class="flex h-7 rounded-xl overflow-hidden bg-gray-100 border ${Math.round(sum) === 100 ? 'border-pink-100' : 'border-red-300'}">${segs}${rest}</div>`;
+    const html = `<div class="flex h-8 rounded-2xl overflow-hidden bg-white border-2 border-pink-100 shadow-xs ${Math.round(sum) === 100 ? '' : 'border-rose-400 ring-2 ring-rose-200'}">${segs}${rest}</div>`;
     return { html, widths };
 }
 
@@ -1333,9 +1332,9 @@ export function renderAttemptsTable() {
     if (!tableContainer || !document.getElementById('exam-type')) return;
 
     const rows = currentRows();
-    const pillHtml = '<span class="attempt-live text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-400 shrink-0">Chưa thi</span>';
+    const pillHtml = '<span class="attempt-live text-xs font-bold px-3 py-0.5 rounded-full border border-pink-100 bg-pink-50/80 text-pink-500 shrink-0 bujo-font-cute">Chưa thi</span>';
     const totalChips = [30, 40, 50, 60, 100]
-        .map(n => `<button type="button" class="attempt-total-chip px-2 py-1 rounded-lg border border-pink-100 bg-pink-50/50 text-[11px] font-bold text-gray-500 hover:border-pink-300 hover:text-pink-500 active:scale-95 transition" data-total="${n}">${n}</button>`)
+        .map(n => `<button type="button" class="attempt-total-chip px-3 py-1 rounded-full border border-pink-200 bg-white text-xs font-bold text-gray-700 hover:border-pink-300 hover:text-pink-600 hover:bg-pink-50 active:scale-95 transition-all shadow-xs bujo-font-cute" data-total="${n}">${n}</button>`)
         .join('');
 
     const cardsHtml = rows.map((row, idx) => {
@@ -1344,38 +1343,37 @@ export function renderAttemptsTable() {
         const kv = kindValue(row);
         const opt = (v, text) => `<option value="${v}" ${kv === v ? 'selected' : ''}>${text}</option>`;
         const removeBtn = rows.length > 1
-            ? `<button type="button" class="attempt-remove w-7 h-7 shrink-0 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition" title="Xoá lần thi này" aria-label="Xoá lần thi"><i class="fas fa-trash-can text-xs"></i></button>`
+            ? `<button type="button" class="attempt-remove w-8 h-8 shrink-0 flex items-center justify-center rounded-xl text-gray-400 hover:text-rose-500 hover:bg-rose-50 transition" title="Xoá lần thi này" aria-label="Xoá lần thi"><i class="fas fa-trash-can text-xs"></i></button>`
             : '';
 
         // Mọi loại kỳ thi đều sửa được: tên, cách tính điểm, trọng số, thêm/xoá
         const header = `
             <div class="flex items-center gap-2">
-                <span class="w-7 h-7 rounded-lg bg-gradient-to-br from-pink-100 to-rose-100 text-pink-500 flex items-center justify-center text-xs shrink-0"><i class="fas ${icon}"></i></span>
+                <span class="w-8 h-8 rounded-xl bg-pink-100 text-pink-500 flex items-center justify-center text-sm font-bold shrink-0 shadow-xs"><i class="fas ${icon}"></i></span>
                 <input type="text" maxlength="30" value="${safeLabel}" aria-label="Tên lần thi" placeholder="Tên lần thi"
-                    class="attempt-label flex-1 min-w-0 px-2 py-1 -ml-1 text-sm font-bold text-gray-800 bg-transparent border border-transparent border-b-pink-100 rounded-lg focus:bg-white focus:border-pink-200 focus:outline-none transition">
-                <span class="attempt-weight-badge hidden text-[10px] font-bold text-gray-400 shrink-0">${row.weight}%</span>
+                    class="attempt-label flex-1 min-w-0 px-2 py-1 text-sm sm:text-base font-bold text-gray-800 bg-transparent border-b-2 border-dashed border-pink-200 focus:border-pink-400 focus:bg-pink-50/40 focus:outline-none transition bujo-font-cute">
+                <span class="attempt-weight-badge hidden text-xs font-bold text-pink-600 shrink-0 bg-pink-100 px-2.5 py-0.5 rounded-full bujo-font-cute">${row.weight}%</span>
                 ${pillHtml}
-                <button type="button" class="attempt-collapse w-8 h-8 shrink-0 flex items-center justify-center rounded-lg text-gray-300 hover:text-pink-500 hover:bg-pink-50 transition touch-manipulation"
-                    title="Thu gọn / mở rộng đợt này" aria-label="Thu gọn hoặc mở rộng đợt này"><i class="fas fa-chevron-up text-xs transition-transform"></i></button>
+                <button type="button" class="attempt-collapse w-8 h-8 shrink-0 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-700 hover:bg-pink-50 transition-all"
+                    title="Thu gọn / mở rộng"><i class="fas fa-chevron-up text-xs transition-transform"></i></button>
                 ${removeBtn}
             </div>`;
         const meta = `
-            <div class="flex items-center justify-between gap-2 mb-3">
-                <select class="attempt-kind min-w-0 text-xs font-semibold text-gray-600 bg-gray-50 border border-pink-100 rounded-lg pl-2 pr-7 py-1.5 focus:outline-none focus:ring-2 focus:ring-pink-200 cursor-pointer" aria-label="Cách tính điểm của lần thi này"
-                    title="Đổi cách tính điểm riêng cho lần thi này">
+            <div class="flex items-center justify-between gap-2 mb-4 mt-2 border-t border-dashed border-pink-100 pt-3">
+                <select class="attempt-kind min-w-0 text-xs font-bold text-gray-700 bg-white border-2 border-pink-100 rounded-2xl pl-3 pr-8 py-2 focus:border-pink-400 focus:ring-2 focus:ring-pink-100 focus:outline-none cursor-pointer shadow-xs bujo-font-body" aria-label="Cách tính điểm">
                     <optgroup label="Trắc nghiệm">
-                        ${opt('ratio:ump', 'Câu đúng · UMP')}
-                        ${opt('ratio:linear', 'Câu đúng · %×10')}
+                        ${opt('ratio:ump', 'Đúng · UMP')}
+                        ${opt('ratio:linear', 'Đúng · %×10')}
                     </optgroup>
                     <optgroup label="Nhập điểm">
                         ${opt('score', 'Điểm hệ 10')}
-                        ${opt('gpa4', 'Điểm chữ · hệ 4')}
+                        ${opt('gpa4', 'Điểm chữ')}
                     </optgroup>
                 </select>
-                <div class="flex items-center gap-1.5 shrink-0">
-                    <span class="text-[10px] text-gray-400 font-semibold uppercase tracking-wide">Trọng số</span>
-                    <input type="number" inputmode="numeric" class="attempt-weight w-14 px-1.5 py-1 border border-pink-200 rounded-lg text-center text-sm font-bold text-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-200" min="0" max="100" value="${row.weight}" aria-label="Trọng số (%)">
-                    <span class="text-xs font-bold text-pink-400">%</span>
+                <div class="flex items-center gap-1.5 shrink-0 bg-amber-50/90 px-3 py-1.5 rounded-2xl border border-amber-200 shadow-xs">
+                    <span class="text-xs text-amber-800 font-bold bujo-font-cute">Trọng số</span>
+                    <input type="number" inputmode="numeric" class="attempt-weight w-12 px-1 py-0.5 border-b-2 border-amber-300 bg-transparent text-center text-sm font-bold text-amber-900 focus:outline-none focus:bg-white rounded" min="0" max="100" value="${row.weight}">
+                    <span class="text-xs font-bold text-amber-800">%</span>
                 </div>
             </div>`;
 
@@ -1386,37 +1384,37 @@ export function renderAttemptsTable() {
                 .map(l => `<option value="${l}">${l} · hệ 4 ${calculateGPAFromPercent(LETTER_MIN10[l] * 10).score4.toFixed(1)} · ≥ ${LETTER_MIN10[l].toFixed(1)}đ</option>`)
                 .join('');
             body = `
-                <select class="attempt-gpa4 w-full px-3 py-2 border border-pink-200 rounded-xl font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-pink-200 cursor-pointer" aria-label="Điểm chữ đạt được">
+                <select class="attempt-gpa4 bujo-input w-full px-4 py-3 text-sm font-bold text-gray-800 cursor-pointer" aria-label="Điểm chữ đạt được">
                     <option value="">— Chưa có điểm —</option>${letters}
                 </select>
-                <p class="text-[11px] text-gray-400 mt-1.5"><i class="fas fa-circle-info mr-1"></i>Điểm chữ được quy về mốc hệ 10 thấp nhất của mức đó (vd B = 7.0đ) — ước tính thận trọng.</p>`;
+                <p class="text-xs text-gray-500 font-medium mt-2 bujo-font-body"><i class="fas fa-arrow-right mr-1 text-pink-400"></i>Điểm chữ quy về mốc hệ 10 thấp nhất của mức đó (vd B = 7.0đ).</p>`;
         } else if (row.kind === 'score') {
             body = `
                 <div class="flex items-center gap-3">
-                    <input type="number" inputmode="decimal" class="attempt-score w-24 px-3 py-2 border border-pink-200 rounded-xl text-center font-semibold focus:outline-none focus:ring-2 focus:ring-pink-200" min="0" max="10" step="0.01" placeholder="… /10">
-                    <input type="range" class="attempt-slider flex-1 accent-pink-500 cursor-pointer" min="0" max="10" step="0.1" value="0">
+                    <input type="number" inputmode="decimal" class="attempt-score bujo-input w-28 px-3 py-2 text-center text-lg font-bold" min="0" max="10" step="0.01" placeholder="… /10">
+                    <input type="range" class="attempt-slider flex-1 cursor-pointer h-2 rounded-full" min="0" max="10" step="0.1" value="0">
                 </div>
-                <p class="text-[11px] text-gray-400 mt-1.5"><i class="fas fa-circle-info mr-1"></i>Nhập thẳng điểm hệ 10 của lần thi này, hoặc kéo thanh trượt.</p>`;
+                <p class="text-xs text-gray-500 font-medium mt-2 bujo-font-body"><i class="fas fa-arrow-right mr-1 text-pink-400"></i>Nhập thẳng điểm 10 hoặc kéo thanh trượt.</p>`;
         } else {
             body = `
-                <div class="flex items-end gap-2 mb-2">
+                <div class="flex items-end gap-3 mb-3">
                     <div class="flex-1">
-                        <label class="block text-[11px] font-semibold text-gray-500 mb-1">Câu đúng</label>
-                        <input type="number" inputmode="numeric" class="attempt-correct w-full px-3 py-2 border border-pink-200 rounded-xl text-center font-semibold focus:outline-none focus:ring-2 focus:ring-pink-200" min="0" placeholder="—">
+                        <label class="block text-xs font-bold text-gray-600 mb-1 ml-1 bujo-font-cute">Đúng</label>
+                        <input type="number" inputmode="numeric" class="attempt-correct bujo-input w-full px-3 py-2 text-center text-lg font-bold text-pink-600" min="0" placeholder="—">
                     </div>
-                    <span class="text-gray-300 font-bold pb-2">/</span>
+                    <span class="text-amber-300 font-bold pb-2 text-xl select-none">/</span>
                     <div class="flex-1">
-                        <label class="block text-[11px] font-semibold text-gray-500 mb-1">Tổng câu</label>
-                        <input type="number" inputmode="numeric" class="attempt-total w-full px-3 py-2 border border-pink-200 rounded-xl text-center font-semibold focus:outline-none focus:ring-2 focus:ring-pink-200" min="1" placeholder="—">
+                        <label class="block text-xs font-bold text-gray-600 mb-1 ml-1 bujo-font-cute">Tổng</label>
+                        <input type="number" inputmode="numeric" class="attempt-total bujo-input w-full px-3 py-2 text-center text-lg font-bold text-gray-700" min="1" placeholder="—">
                     </div>
                 </div>
-                <div class="flex flex-wrap items-center gap-1 mb-2.5"><span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mr-0.5">Tổng câu</span>${totalChips}</div>
-                <input type="range" class="attempt-slider w-full accent-pink-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50" min="0" max="100" step="1" value="0" disabled>
-                <p class="attempt-hint text-[11px] text-gray-400 mt-1.5"><i class="fas fa-circle-info mr-1"></i>Nhập tổng câu để kéo thanh chọn nhanh số câu đúng.</p>`;
+                <div class="flex flex-wrap items-center gap-2 mb-3"><span class="text-xs font-bold text-gray-400 mr-1 bujo-font-cute">T.Câu:</span>${totalChips}</div>
+                <input type="range" class="attempt-slider w-full cursor-pointer h-2 rounded-full disabled:cursor-not-allowed disabled:opacity-30" min="0" max="100" step="1" value="0" disabled>
+                <p class="attempt-hint text-xs text-gray-500 font-medium mt-2 bujo-font-body"><i class="fas fa-arrow-right mr-1 text-pink-400"></i>Nhập tổng câu để kéo thanh chọn số câu đúng.</p>`;
         }
 
         return `
-            <div class="attempt-row bg-white border border-pink-100 rounded-2xl p-3.5 shadow-sm transition hover:shadow-md"
+            <div class="attempt-row bg-white/95 rounded-3xl p-4 sm:p-5 border-2 border-pink-100/90 shadow-sm hover:shadow-md transition-all relative mt-3"
                 data-kind="${row.kind}" data-scale="${row.scale === 'linear' ? 'linear' : 'ump'}" data-label="${safeLabel}" data-index="${idx}">
                 ${header}
                 <div class="attempt-body mt-2">${meta}${body}</div>
@@ -1425,17 +1423,17 @@ export function renderAttemptsTable() {
 
     const totalWeight = rows.reduce((a, r) => a + (parseFloat(r.weight) || 0), 0);
     const addBtnHtml = rows.length < MAX_ATTEMPTS
-        ? `<button type="button" id="add-attempt-btn" class="w-full mt-3 py-2.5 border-2 border-dashed border-pink-200 rounded-2xl text-sm font-bold text-pink-400 hover:text-pink-500 hover:border-pink-300 hover:bg-pink-50/50 transition flex items-center justify-center gap-1.5"><i class="fas fa-plus"></i> Thêm lần thi</button>`
+        ? `<button type="button" id="add-attempt-btn" class="w-full mt-4 py-3.5 border-2 border-dashed border-pink-300 bg-pink-50/60 rounded-2xl text-xs sm:text-sm font-bold text-pink-600 hover:bg-pink-100/70 hover:border-pink-400 transition-all flex items-center justify-center gap-2 active:scale-[0.99] shadow-xs bujo-font-cute"><i class="fas fa-plus"></i> THÊM KỲ THI</button>`
         : '';
     tableContainer.innerHTML = `
-        <div class="space-y-3">${cardsHtml}</div>
+        <div class="space-y-3.5 pt-1">${cardsHtml}</div>
         ${addBtnHtml}
-        <div id="attempts-weight-bar" class="mt-3"></div>
-        <div id="attempts-weight-note" class="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs ${Math.round(totalWeight) === 100 ? 'text-gray-400' : 'text-red-500'} mt-2">
-            ${rows.length > 1 ? '<button type="button" id="toggle-collapse-all-btn" class="text-gray-400 font-bold hover:text-pink-500 underline decoration-dotted underline-offset-2" title="Thu gọn hoặc mở lại tất cả các đợt">thu gọn / mở tất cả</button>' : ''}
-            <button type="button" id="reset-structure-btn" class="text-gray-400 font-bold hover:text-pink-500 underline decoration-dotted underline-offset-2" title="Khôi phục cấu trúc mặc định của loại kỳ thi này">về mặc định</button>
-            <button type="button" id="balance-weights-btn" class="text-pink-500 font-bold hover:text-pink-600 underline decoration-dotted underline-offset-2" title="Chia đều trọng số cho các lần thi">chia đều %</button>
-            <span>Tổng trọng số: <b id="attempts-weight-sum">${Math.round(totalWeight * 100) / 100}</b>%</span>
+        <div id="attempts-weight-bar" class="mt-4"></div>
+        <div id="attempts-weight-note" class="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs ${Math.round(totalWeight) === 100 ? 'text-gray-500' : 'text-rose-500 font-bold'} mt-3 bujo-font-body">
+            ${rows.length > 1 ? '<button type="button" id="toggle-collapse-all-btn" class="text-gray-400 hover:text-gray-700 underline decoration-dashed underline-offset-2 transition-colors" title="Thu gọn/mở lại tất cả">thu/mở tất cả</button>' : ''}
+            <button type="button" id="reset-structure-btn" class="text-gray-400 hover:text-gray-700 underline decoration-dashed underline-offset-2 transition-colors" title="Khôi phục cấu trúc mặc định">về mặc định</button>
+            <button type="button" id="balance-weights-btn" class="text-pink-600 hover:text-pink-700 underline decoration-dashed underline-offset-2 transition-colors font-bold" title="Chia đều trọng số">chia đều %</button>
+            <span class="ml-1 border-l border-gray-300 pl-2">Tổng trọng số: <b id="attempts-weight-sum" class="font-extrabold text-sm sm:text-base bujo-font-cute">${Math.round(totalWeight * 100) / 100}</b>%</span>
         </div>`;
 
     renderWeightBar(rows);
@@ -1674,7 +1672,7 @@ function setStickyBar(data) {
     }
     if (g) {
         g.textContent = data.reached
-            ? 'Đã chạm mục tiêu 🎉'
+            ? 'Đã đạt mục tiêu'
             : `${data.score10.toFixed(2)}/10 · thiếu ${data.gap.toFixed(2)}đ`;
         g.className = `text-[11px] font-semibold leading-tight text-left min-w-0 ${data.reached ? 'text-emerald-600' : 'text-gray-500'}`;
     }
@@ -1745,26 +1743,49 @@ function updateGpaProjection() {
         ? `<span class="text-[11px] text-gray-400">${blanks} lần chưa nhập = 0đ</span>`
         : '';
 
-    panel.className = 'relative mt-1 mb-5 p-4 rounded-2xl border ' + (reached ? 'bg-emerald-50 border-emerald-200' : 'bg-pink-50/70 border-pink-200');
+    panel.className = 'relative mt-4 mb-6 p-5 sm:p-6 rounded-3xl border-2 shadow-sm transition-all overflow-hidden ' + 
+        (reached 
+            ? 'bg-gradient-to-br from-emerald-50 via-teal-50/80 to-emerald-100/70 border-emerald-300 text-emerald-950 shadow-emerald-100' 
+            : 'bg-gradient-to-br from-pink-50/90 via-rose-50 to-amber-50/60 border-pink-200 text-rose-950 shadow-pink-100');
     panel.innerHTML = `
-        <div class="flex items-center justify-between mb-3">
-            <span class="text-xs font-bold text-gray-500 uppercase tracking-wide flex items-center gap-1.5"><i class="fas fa-gauge-high text-pink-400"></i> Điểm tổng kết tạm tính</span>
+        <div class="flex items-center justify-between mb-4 border-b border-dashed border-pink-200/80 pb-3">
+            <span class="text-xs sm:text-sm font-bold flex items-center gap-2 bujo-font-cute text-pink-600">
+                <i class="fas fa-gauge-high text-pink-500 text-sm"></i> Điểm tổng kết tạm tính
+            </span>
             ${blankNote}
         </div>
-        <div class="flex items-end gap-4 mb-3 flex-wrap">
-            <div class="flex flex-col"><span class="text-[10px] text-gray-400 font-semibold">HỆ 4</span><span class="text-4xl font-extrabold leading-none ${accent} drop-shadow-sm">${score4.toFixed(1)}</span></div>
-            <div class="flex flex-col"><span class="text-[10px] text-gray-400 font-semibold">HỆ 10</span><span class="text-xl font-extrabold text-gray-600">${score10.toFixed(2)}</span></div>
-            <div class="flex flex-col"><span class="text-[10px] text-gray-400 font-semibold">ĐIỂM CHỮ</span><span class="text-xl font-extrabold text-gray-600">${letterGrade}</span></div>
-            <div class="ml-auto text-right"><span class="text-[10px] text-gray-400 font-semibold block">MỤC TIÊU</span><span class="text-sm font-bold ${reached ? 'text-emerald-600' : 'text-amber-600'}">${reached ? 'Đã đạt 🎉' : (target.mode === 'score10' ? targetScore10.toFixed(2) + ' hệ 10' : 'GPA ' + target.gpa4.toFixed(1))}</span></div>
-            <div class="w-full text-[11px] text-gray-400">Còn thiếu <b class="${reached ? 'text-emerald-600' : 'text-amber-600'}">${Math.max(0, targetScore10 - score10).toFixed(2)}</b> điểm hệ 10 để chạm mục tiêu</div>
+        <div class="flex items-end gap-4 sm:gap-6 mb-4 flex-wrap">
+            <div class="flex flex-col bg-white/80 px-3.5 py-2 rounded-2xl border border-pink-100 shadow-xs">
+                <span class="text-xs font-bold text-gray-500 bujo-font-cute">Hệ 4</span>
+                <span class="text-4xl sm:text-5xl font-extrabold leading-none ${accent} drop-shadow-xs bujo-font-cute mt-0.5">${score4.toFixed(1)}</span>
+            </div>
+            <div class="flex flex-col bg-white/80 px-3.5 py-2 rounded-2xl border border-pink-100 shadow-xs">
+                <span class="text-xs font-bold text-gray-500 bujo-font-cute">Hệ 10</span>
+                <span class="text-xl sm:text-2xl font-extrabold text-gray-800 bujo-font-cute mt-0.5">${score10.toFixed(2)}</span>
+            </div>
+            <div class="flex flex-col bg-white/80 px-3.5 py-2 rounded-2xl border border-pink-100 shadow-xs">
+                <span class="text-xs font-bold text-gray-500 bujo-font-cute">Điểm chữ</span>
+                <span class="text-xl sm:text-2xl font-extrabold text-gray-800 bujo-font-cute mt-0.5">${letterGrade}</span>
+            </div>
+            <div class="ml-auto text-right">
+                <span class="text-xs font-bold text-gray-500 block bujo-font-cute">Mục tiêu</span>
+                <span class="text-sm sm:text-base font-extrabold ${reached ? 'text-emerald-600' : 'text-pink-600'} bujo-font-cute">
+                    ${reached ? 'Đã đạt mục tiêu' : (target.mode === 'score10' ? targetScore10.toFixed(2) + ' hệ 10' : 'GPA ' + target.gpa4.toFixed(1))}
+                </span>
+            </div>
+            <div class="w-full text-xs font-bold text-gray-600 bujo-font-body mt-1">
+                ${reached 
+                    ? '<span class="text-emerald-600">Đã đáp ứng đầy đủ yêu cầu mục tiêu đề ra</span>' 
+                    : `Khoảng cách cần bù: <b class="text-pink-600 font-extrabold">${Math.max(0, targetScore10 - score10).toFixed(2)}</b> điểm hệ 10`}
+            </div>
         </div>
-        <div class="relative w-full h-3 bg-white rounded-full overflow-hidden shadow-inner">
-            <div class="h-full rounded-full transition-all duration-300 ${reached ? 'bg-emerald-400' : 'bg-pink-400'}" style="width:${fillPct}%"></div>
-            <div class="absolute top-0 bottom-0 w-0.5 bg-amber-500" style="left:${targetPct}%"></div>
+        <div class="relative w-full h-4 bg-white/90 rounded-full border border-pink-100 overflow-hidden shadow-inner mt-2">
+            <div class="h-full transition-all duration-300 rounded-full ${reached ? 'bg-gradient-to-r from-emerald-400 to-teal-400' : 'bg-gradient-to-r from-pink-400 to-rose-400'}" style="width:${fillPct}%"></div>
+            <div class="absolute top-0 bottom-0 w-1.5 bg-amber-400 shadow" style="left:${targetPct}%"></div>
         </div>
-        <div class="flex justify-between text-[10px] text-gray-400 mt-1">
+        <div class="flex justify-between text-xs text-gray-500 font-bold mt-1.5 bujo-font-cute">
             <span>0</span>
-            <span class="text-amber-500 font-semibold">▲ mốc cần đạt ${targetScore10.toFixed(1)}</span>
+            <span class="text-amber-600 font-bold">▲ Mốc cần đạt: ${targetScore10.toFixed(1)}</span>
             <span>10</span>
         </div>`;
     panel.classList.remove('hidden');
@@ -1824,16 +1845,8 @@ export function initGpaCalculator() {
         if (!gpaChipsWrap || !desiredInput) return;
         gpaChipsWrap.querySelectorAll('.gpa-chip').forEach(btn => {
             const active = btn.dataset.gpa === desiredInput.value;
-            btn.classList.toggle('bg-gradient-to-br', active);
-            btn.classList.toggle('from-[#FF69B4]', active);
-            btn.classList.toggle('to-[#FF8DC7]', active);
-            btn.classList.toggle('text-white', active);
-            btn.classList.toggle('border-transparent', active);
-            btn.classList.toggle('shadow-md', active);
-            btn.classList.toggle('shadow-pink-200', active);
-            btn.classList.toggle('bg-white', !active);
-            btn.classList.toggle('text-gray-600', !active);
-            btn.classList.toggle('border-pink-100', !active);
+            btn.classList.toggle('bujo-chip-active', active);
+            btn.classList.toggle('bujo-chip-inactive', !active);
         });
     };
     if (gpaChipsWrap && desiredInput && !gpaChipsWrap.dataset.listenerAdded) {
@@ -1861,16 +1874,14 @@ export function initGpaCalculator() {
         score10Wrap?.classList.toggle('hidden', mode !== 'score10');
         targetToggle?.querySelectorAll('.target-mode-btn').forEach(btn => {
             const active = btn.dataset.targetMode === mode;
-            btn.classList.toggle('bg-[#FF69B4]', active);
-            btn.classList.toggle('text-white', active);
-            btn.classList.toggle('shadow-sm', active);
-            btn.classList.toggle('text-gray-500', !active);
+            btn.classList.toggle('bujo-toggle-active', active);
+            btn.classList.toggle('bujo-toggle-inactive', !active);
         });
         if (targetHint) {
             const t = getTarget();
             targetHint.innerHTML = t.mode === 'score10'
-                ? `≈ hệ 4 <b class="text-pink-500">${t.gpa4.toFixed(1)}</b> · điểm chữ <b class="text-pink-500">${t.letter}</b>`
-                : `≈ cần <b class="text-pink-500">${t.score10.toFixed(1)}</b> điểm hệ 10 trở lên`;
+                ? `≈ tương đương hệ 4 <b class="text-pink-600 font-bold">${t.gpa4.toFixed(1)}</b> · điểm chữ <b class="text-pink-600 font-bold">${t.letter}</b>`
+                : `≈ cần <b class="text-pink-600 font-bold">${t.score10.toFixed(1)}</b> điểm hệ 10 trở lên`;
         }
     };
     if (targetToggle && !targetToggle.dataset.listenerAdded) {
@@ -1914,10 +1925,8 @@ export function initGpaCalculator() {
         const mode = getScaleMode();
         scaleToggle.querySelectorAll('.scale-mode-btn').forEach(btn => {
             const active = btn.dataset.mode === mode;
-            btn.classList.toggle('bg-[#FF69B4]', active);
-            btn.classList.toggle('text-white', active);
-            btn.classList.toggle('shadow-sm', active);
-            btn.classList.toggle('text-gray-500', !active);
+            btn.classList.toggle('bujo-toggle-active', active);
+            btn.classList.toggle('bujo-toggle-inactive', !active);
         });
     };
     if (scaleToggle && !scaleToggle.dataset.listenerAdded) {

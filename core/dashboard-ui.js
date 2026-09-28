@@ -1,23 +1,7 @@
 // File: core/dashboard-ui.js
 import { requireLogin } from './require-login.js';
 
-// Module chịu trách nhiệm quản lý các tương tác giao diện (UI) trang chủ, sidebar mobile, mascot và modal sửa phòng học local
-
-const squirrelMessages = [
-    'Chúc bạn học tốt! 💪',
-    'Cố lên nhé, bạn làm được mà! 🐿️',
-    'Học vui như sóc nhảy cành!',
-    '<i class="fas fa-heart text-pink-400"></i>',
-    '<i class="fas fa-book text-blue-400"></i>',
-    '<i class="fas fa-graduation-cap text-purple-400"></i>',
-    'Đừng quên uống nước nhé! 💧',
-    'Bạn là số 1! ⭐',
-    'Kiến thức là hạt dẻ, hãy tích lũy mỗi ngày!',
-    '<i class="fas fa-lightbulb text-yellow-400"></i>',
-    'Học tập chăm chỉ, thành công sẽ đến!',
-    'Tự tin lên nào! ✨',
-    'Hôm nay bạn đã cố gắng rất nhiều rồi!'
-];
+// Module chịu trách nhiệm quản lý các tương tác giao diện (UI) trang chủ, sidebar mobile và modal sửa phòng học local
 
 /**
  * Đồng bộ thông tin người dùng từ Header chính sang Sidebar và Mobile Top Bar
@@ -101,7 +85,19 @@ export function initDashboardUI() {
         sidebarLinks.forEach(el => {
             el.addEventListener('click', closeSidebarImmediately);
         });
+
+        // Nút "Thêm" ở thanh tab dưới mở thanh bên; Esc đóng thanh bên đang mở trên điện thoại
+        document.getElementById('tabbar-menu-btn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openSidebar();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && window.innerWidth < 768 && !sidebar.classList.contains('-translate-x-full')) closeSidebarImmediately();
+        });
     }
+
+    // (Nút thu gọn thanh bên do core/app-sidebar.js lo — dùng chung mọi trang)
+    initHome();
 
     // 2. Window Resize Sidebar State
     window.addEventListener('resize', updateSidebarState);
@@ -110,33 +106,13 @@ export function initDashboardUI() {
     // Đồng bộ user info trễ một chút sau khi app load
     setTimeout(syncUserInfo, 600);
 
-    // 3. Squirrel pixel mascot floating logic
-    const squirrelFloating = document.getElementById('squirrel-floating');
-    if (squirrelFloating) {
-        let msgBox = document.getElementById('squirrel-message');
-        if (!msgBox) {
-            msgBox = document.createElement('div');
-            msgBox.id = 'squirrel-message';
-            msgBox.className = 'hidden absolute bottom-16 right-0 bg-white/90 text-gray-800 rounded-lg shadow-lg px-4 py-2 text-base max-w-[80vw] sm:max-w-xs z-50 border border-pink-200';
-            squirrelFloating.appendChild(msgBox);
-        }
-
-        squirrelFloating.addEventListener('click', () => {
-            const msg = squirrelMessages[Math.floor(Math.random() * squirrelMessages.length)];
-            msgBox.innerHTML = msg;
-            msgBox.classList.remove('hidden');
-            setTimeout(() => {
-                msgBox.classList.add('hidden');
-            }, 2200);
-        });
-    }
-
     // 5. Viết bệnh án button routing
     const selectWriteMedicalRecord = document.getElementById('selectWriteMedicalRecord');
     if (selectWriteMedicalRecord) {
         selectWriteMedicalRecord.addEventListener('click', async () => {
             if (!await requireLogin('Viết bệnh án')) return;
-            window.location.href = 'features/medical-record/tao-benh-an.html';
+            // Vào danh sách bệnh án trước (tạo mới / mở lại bài cũ ở đó), không nhảy thẳng vào trang viết
+            window.location.href = 'features/study-room/waiting-room.html';
         });
     }
 
@@ -149,4 +125,52 @@ export function initDashboardUI() {
         });
     }
 
+}
+
+// ===================== BẢNG TRANG CHỦ =====================
+// Lời chào, ô tìm nhanh, phím "/".
+
+function renderHello() {
+    const el = document.getElementById('home-hello');
+    if (!el) return;
+    const h = new Date().getHours();
+    const buoi = h < 11 ? 'Chào buổi sáng' : h < 14 ? 'Chào buổi trưa' : h < 18 ? 'Chào buổi chiều' : 'Chào buổi tối';
+    const name = (document.getElementById('user-name')?.textContent || '').trim();
+    const date = new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'numeric' });
+    el.textContent = `${buoi}${name && name !== 'Khách' ? ', ' + name : ''} · ${date}`;
+}
+
+function initHome() {
+    renderHello();
+    const nameEl = document.getElementById('user-name');
+    if (nameEl) new MutationObserver(renderHello).observe(nameEl, { childList: true, characterData: true, subtree: true });
+
+    const goTab = (id) => document.querySelector(`#sidebar .nav-link[data-target="${id}"]`)?.click();
+
+    // Ô tìm nhanh: Enter → sang Thư viện, đổ từ khóa vào ô tìm của thư viện
+    const form = document.getElementById('home-search');
+    const input = document.getElementById('home-search-input');
+    form?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const q = input.value.trim();
+        goTab('libraryContent');
+        const lib = document.getElementById('library-search-input');
+        if (lib && q) { lib.value = q; lib.dispatchEvent(new Event('input')); }
+        input.value = '';
+        input.blur();
+    });
+
+    // "/" = gõ tìm kiếm ở tab đang mở (Trang chủ hoặc Thư viện)
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+        const a = document.activeElement;
+        if (a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable)) return;
+        const visible = (id) => { const p = document.getElementById(id); return p && !p.classList.contains('hidden'); };
+        const target = visible('dashboardContent') ? input
+            : visible('libraryContent') ? document.getElementById('library-search-input') : null;
+        if (!target) return;
+        e.preventDefault();
+        target.focus();
+        target.select();
+    });
 }

@@ -2050,11 +2050,22 @@ $('medical-record-id').value = recordId;
    Enter = "ô kế". Trước đây quét lại cả form (~400 ô) mỗi khung hình lúc đếm tiến
    độ; nay chỉ chạm vào đúng cụm vừa được thêm vào DOM. */
 const O_MOI = 'input:not([type=hidden]):not([enterkeyhint])';
+/* Cùng lượt đó tắt luôn khung tự điền của trình duyệt: nó bật danh bạ / địa chỉ
+   của chính người viết vào ô bệnh nhân, và nằm đè lên bảng gợi ý khi gõ. */
 function datEnterKey(node) {
     if (node.nodeType !== 1) return;
-    if (node.matches?.(O_MOI)) node.setAttribute('enterkeyhint', 'next');
-    node.querySelectorAll?.(O_MOI).forEach(el => el.setAttribute('enterkeyhint', 'next'));
+    const dat = el => {
+        el.setAttribute('enterkeyhint', 'next');
+        if (!el.hasAttribute('autocomplete')) el.setAttribute('autocomplete', 'off');
+    };
+    if (node.matches?.(O_MOI)) dat(node);
+    node.querySelectorAll?.(O_MOI).forEach(dat);
 }
+/* Ô số đang focus mà lăn chuột thì trình duyệt đổi luôn giá trị (mạch 96 -> 93)
+   trong khi người viết chỉ định cuộn trang. Nhả focus ra để cú lăn thành cuộn. */
+form.addEventListener('wheel', e => {
+    if (e.target.type === 'number' && e.target === document.activeElement) e.target.blur();
+}, { passive: true });
 new MutationObserver(recs => recs.forEach(r => r.addedNodes.forEach(datEnterKey)))
     .observe(form, { childList: true, subtree: true });
 datEnterKey(form);   // các ô có sẵn trong HTML

@@ -66,18 +66,9 @@ document.addEventListener('DOMContentLoaded', () => {
       nameEls.forEach((el, idx) => {
         if (el) {
           el.textContent = displayName;
-          el.style.cursor = 'pointer';
-          // Click vào TÊN người dùng: hỏi đăng xuất thay vì vào trang thông tin cá nhân
-          el.title = 'Bấm để đăng xuất';
-          el.onclick = (e) => {
-            if (e) e.stopPropagation();
-            if (typeof window.handleLogout === 'function') {
-              window.handleLogout();
-            } else {
-              // Dự phòng nếu app.js chưa sẵn sàng
-              window.location.href = 'features/profile/profile.html';
-            }
-          };
+          // Bấm TÊN = bấm cả cụm người dùng (app.js gắn ở khung cha) → trang hồ sơ.
+          // Đăng xuất nằm trong trang hồ sơ, không hỏi đăng xuất ngay khi bấm tên nữa.
+          el.onclick = null;
         }
       });
     }

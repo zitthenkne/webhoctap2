@@ -24,6 +24,7 @@ const logoutBtn = document.getElementById('logout-btn');
 const messageEl = document.getElementById('profile-message');
 const greetingEl = document.getElementById('greeting');
 const unsavedBadge = document.getElementById('unsaved-badge');
+const emailPreview = document.getElementById('user-email-preview');
 
 // Thẻ thống kê
 const statMemberSince = document.getElementById('stat-member-since');
@@ -88,14 +89,38 @@ function setColor(color, animate = false) {
     refreshDirty();
 }
 
+const ANIMAL_NAMES = {
+    '🐱': 'Mèo', '🐶': 'Cún', '🐰': 'Thỏ', '🦊': 'Cáo', '🐻': 'Gấu',
+    '🐼': 'Gấu trúc', '🦁': 'Sư tử', '🐸': 'Ếch', '🐵': 'Khỉ', '🦉': 'Cú mèo',
+    '🐿️': 'Sóc', '🐯': 'Hổ', '🐨': 'Koala', '🐧': 'Cánh cụt', '🐹': 'Hamster',
+    '🐮': 'Bò sữa', '🐷': 'Heo', '🦄': 'Kỳ lân', '🐳': 'Cá voi', '🦋': 'Bướm', '🐢': 'Rùa'
+};
+
+const COLOR_NAMES = {
+    '#FF69B4': 'Hồng phấn',
+    '#F472B6': 'Hồng đào',
+    '#D8BFD8': 'Tím lavender',
+    '#A78BFA': 'Tím nhạt',
+    '#8B5CF6': 'Tím thạch anh',
+    '#60A5FA': 'Xanh da trời',
+    '#38BDF8': 'Xanh thiên thanh',
+    '#34D399': 'Xanh bạc hà',
+    '#10B981': 'Xanh ngọc',
+    '#FBBF24': 'Vàng bơ',
+    '#F59E0B': 'Cam đào',
+    '#FB7185': 'Hồng san hô',
+    '#EF4444': 'Đỏ dâu',
+    '#F97316': 'Cam ấm'
+};
+
 // --- Dựng lưới linh vật ---
 ANIMALS.forEach(animal => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.dataset.animal = animal;
-    btn.className = 'animal-option aspect-square flex items-center justify-center text-2xl rounded-xl bg-white border-2 border-transparent hover:bg-pink-50 transition focus:outline-none';
+    btn.className = 'animal-option';
     btn.textContent = animal;
-    btn.title = animal;
+    btn.title = ANIMAL_NAMES[animal] || animal;
     btn.addEventListener('click', () => setAnimal(animal, true));
     animalGrid.appendChild(btn);
 });
@@ -105,9 +130,9 @@ COLORS.forEach(color => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.dataset.color = color;
-    btn.className = 'color-swatch w-8 h-8 rounded-full border-2 border-white shadow-sm hover:scale-110 transition focus:outline-none';
+    btn.className = 'color-swatch w-8 h-8 rounded-full';
     btn.style.background = color;
-    btn.title = color;
+    btn.title = COLOR_NAMES[color] || color;
     btn.addEventListener('click', () => setColor(color, true));
     colorGrid.appendChild(btn);
 });
@@ -130,7 +155,54 @@ nameInput.addEventListener('input', () => {
     namePreview.textContent = nameInput.value.trim() || 'Bạn';
     refreshDirty();
 });
-passwordInput.addEventListener('input', refreshDirty);
+
+// Tiện ích đo độ mạnh mật khẩu trực quan
+const pwStrengthBar = document.getElementById('pw-strength-bar');
+const pwStrengthText = document.getElementById('pw-strength-text');
+function updatePasswordStrength(val) {
+    if (!pwStrengthBar || !pwStrengthText) return;
+    if (!val) {
+        pwStrengthBar.style.width = '0%';
+        pwStrengthBar.className = 'h-1.5 rounded-full transition-all duration-300 bg-slate-200';
+        pwStrengthText.textContent = '';
+        return;
+    }
+    if (val.length < 6) {
+        pwStrengthBar.style.width = '33%';
+        pwStrengthBar.className = 'h-1.5 rounded-full transition-all duration-300 bg-rose-400';
+        pwStrengthText.innerHTML = '<span class="text-rose-500 font-semibold text-[11px]"><i class="fas fa-circle-exclamation mr-1"></i>Tối thiểu 6 ký tự</span>';
+    } else if (val.length < 10) {
+        pwStrengthBar.style.width = '66%';
+        pwStrengthBar.className = 'h-1.5 rounded-full transition-all duration-300 bg-amber-400';
+        pwStrengthText.innerHTML = '<span class="text-amber-600 font-semibold text-[11px]"><i class="fas fa-shield mr-1"></i>Độ bảo mật: Khá</span>';
+    } else {
+        pwStrengthBar.style.width = '100%';
+        pwStrengthBar.className = 'h-1.5 rounded-full transition-all duration-300 bg-emerald-400';
+        pwStrengthText.innerHTML = '<span class="text-emerald-600 font-semibold text-[11px]"><i class="fas fa-shield-halved mr-1"></i>Độ bảo mật: Tốt</span>';
+    }
+}
+passwordInput.addEventListener('input', () => {
+    updatePasswordStrength(passwordInput.value);
+    refreshDirty();
+});
+
+// Tiện ích 1-chạm sao chép email
+const copyEmailBtn = document.getElementById('copy-email-btn');
+if (copyEmailBtn) {
+    copyEmailBtn.addEventListener('click', () => {
+        if (!emailInput.value) return;
+        navigator.clipboard.writeText(emailInput.value);
+        const icon = document.getElementById('copy-email-icon');
+        const text = document.getElementById('user-email-preview');
+        const originalText = text ? text.textContent : '';
+        if (text) text.textContent = 'Đã sao chép';
+        if (icon) icon.className = 'fas fa-check text-emerald-500';
+        setTimeout(() => {
+            if (text) text.textContent = originalText;
+            if (icon) icon.className = 'fas fa-copy text-pink-400 group-hover:scale-115 transition-transform';
+        }, 1800);
+    });
+}
 
 // Hiện / ẩn mật khẩu
 if (togglePasswordBtn) {
@@ -225,6 +297,7 @@ onAuthStateChanged(auth, async user => {
         currentUser = user;
         let name = user.displayName || user.email.split('@')[0];
         emailInput.value = user.email;
+        if (emailPreview) emailPreview.textContent = user.email;
         setAnimal('🐱');
         setColor('#FF69B4');
 

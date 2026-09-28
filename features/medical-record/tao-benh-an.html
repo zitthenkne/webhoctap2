@@ -41,6 +41,9 @@
     <!-- DỌN GỌN GIAO DIỆN (gon-giao-dien.css + .js). Phải đứng SAU hai tệp trên:
          nó đè luật của cả tao-benh-an.css lẫn class Tailwind. -->
     <link rel="stylesheet" href="gon-giao-dien.css">
+    <!-- LỚP DA HỒNG PHẤN – HỒNG ĐÀO (2026-09-28): đứng SAU CÙNG vì nó đè màu
+         của cả ba tệp trên. Chỉ đổi màu/viền/khoảng cách, gác bằng body.hd. -->
+    <link rel="stylesheet" href="mau-hong-dao.css">
     <!-- Nạp sẵn cả cây module: không có mấy dòng này trình duyệt phải dò từng lớp import
          (tao-benh-an.js -> editor -> data...) nên mất mấy vòng mạng mới bắt đầu tải hết. -->
     <link rel="modulepreload" href="tao-benh-an.js">
@@ -157,7 +160,7 @@
 
 </head>
 
-<body class="min-h-screen flex flex-col items-center p-2 sm:p-6 md:py-10">
+<body class="hd min-h-screen flex flex-col items-center p-2 sm:p-6 md:py-10">
     <div
         class="page-card bg-white/95 rounded-3xl shadow-xl p-4 sm:p-8 max-w-6xl w-full border border-pink-100">
         <!-- ĐẦU TRANG (bản pastel 2026-09-04): gộp tiêu đề + tình trạng lưu + vòng
@@ -2890,6 +2893,8 @@
 
             <div id="chan-doan-dieu-tri" class="tab-content">
                 <div class="flex flex-col gap-4">
+                    <!-- .hd-khoi: chỉ để mục VII mặc chung khung thẻ với VIII–X (mau-hong-dao.css) -->
+                    <div class="hd-khoi">
                     <div class="flex items-center gap-2 flex-wrap">
                         <label class="block font-semibold mb-1 text-pink-500" for="summary">VII. TÓM TẮT BỆNH ÁN</label>
                         <button type="button" id="auto-summary-btn" class="cls-mini"><i class="fas fa-magic"></i> Tự động
@@ -2899,6 +2904,7 @@
                     </div>
                     <textarea id="summary" rows="4" class="w-full border rounded-lg p-2"
                         placeholder="Tóm tắt tự động hoặc nhập tay"></textarea>
+                    </div>
 
                     <div>
                         <div class="flex items-center gap-2 flex-wrap">
@@ -3394,6 +3400,10 @@
          file đó và thay listener của nút ⋯) và SAU tao-benh-an.js (nó dời
          #ba-settings, #status-pill mà hai thứ này được gắn ở đó). -->
     <script type="module" src="gon-giao-dien.js"></script>
+    <!-- Mục Khám gọn: chip gợi ý chỉ bung ở cơ quan đang ghi, bảng mức độ chỉ bày chỉ số lệch -->
+    <script type="module" src="kham-gon.js"></script>
+    <!-- Mục Biện luận gọn: mỗi lúc một thẻ vấn đề mở, dòng CLS đề nghị thu thành thẻ nhỏ có tóm tắt -->
+    <script type="module" src="bien-luan-gon.js"></script>
 
     <!-- =====================================================================
          BỐN MODULE LỚP NỔI NẠP TRỄ — 152KB
@@ -3433,6 +3443,12 @@
             .forEach(f => import(f).catch(e => console.warn('Không nạp được', f, e))); };
         nap();
         dt.addEventListener('change', nap);
+        /* Bố cục mới: màn rộng = mục lục dọc trái + tiện ích phải; điện thoại = thanh
+           trên theo mục + dải khối nhỏ + thanh đáy. Máy tính bảng giữ bố cục cũ. */
+        const ben = matchMedia('(min-width: 1200px), (max-width: 640px)');
+        const napBen = () => { if (ben.matches) import('./bo-cuc-ben.js').catch(e => console.warn('Không nạp được bo-cuc-ben.js', e)); };
+        napBen();
+        ben.addEventListener('change', napBen);
     </script>
   <!-- Bắt buộc đăng nhập: khách sẽ thấy lớp chặn thay vì làm rồi mất dữ liệu -->
   <script type="module">

@@ -1,0 +1,55 @@
+/* home-shell.css — riêng trang chủ (index.html): thanh tab dưới (điện thoại), lời chào + ô tìm nhanh.
+   Thanh bên dùng chung nằm ở core/app-sidebar.css.
+   Nạp SAU tailwind-index.css và neo luật bằng #id → thắng class Tailwind cùng phần tử.
+   Màu phẳng pastel, không gradient (xem ghi chú thiết kế của dự án). */
+
+/* ===================== THANH TAB DƯỚI (điện thoại) ===================== */
+#tabbar {
+    display: flex; align-items: stretch; height: 60px; flex-shrink: 0; position: relative; z-index: 30;
+    background: rgba(255, 255, 255, .97); border-top: 1px solid #fce7f3;
+    box-shadow: 0 -4px 18px rgba(236, 72, 153, .08);
+}
+@media (min-width: 768px) { #tabbar { display: none; } }
+#tabbar > a, #tabbar > button {
+    flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    font-size: .66rem; font-weight: 700; color: #a3a3b2; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+#tabbar > * > i { font-size: 1.12rem; transition: transform .2s; }
+#tabbar > *:active > i { transform: scale(.88); }
+#tabbar .nav-link.is-active { color: #ec4899; }
+#tabbar .nav-link.is-active > i { transform: translateY(-1px) scale(1.08); }
+#tabbar .tabbar-main > i {
+    width: 46px; height: 46px; margin-top: -24px; border-radius: 16px; border: 3px solid #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 1.15rem;
+    background: #ff69b4; color: #fff; box-shadow: 0 6px 14px rgba(255, 105, 180, .38);
+}
+#tabbar .tabbar-main.is-active > i { background: #ec4899; transform: none; }
+
+/* Lớp nổi đáy màn hình phải né thanh tab (60px) */
+@media (max-width: 767px) {
+    #bulk-actions-toolbar { bottom: calc(60px + .75rem + env(safe-area-inset-bottom)); }
+    /* viên báo mạng của pwa-install.js đặt bottom bằng style nội tuyến → cần !important */
+    #net-status-banner { bottom: calc(60px + .75rem + env(safe-area-inset-bottom)) !important; }
+}
+
+/* ===================== BẢNG TRANG CHỦ ===================== */
+/* Chỉ lời chào + ô tìm nhanh; thẻ công cụ giữ nguyên bản Tailwind gốc (+ hiệu ứng trong style.css). */
+.home-hello { font-size: .85rem; font-weight: 700; color: #9d4f75; min-height: 1.2em; margin-bottom: .2rem; }
+
+.home-search { position: relative; width: 100%; max-width: 26rem; margin: 1rem auto 0; text-align: left; }
+.home-search input {
+    width: 100%; height: 46px; padding: 0 2.8rem 0 2.6rem; border-radius: 16px;
+    border: 1.5px solid #fbcfe8; background: rgba(255, 255, 255, .96); color: #374151; font-weight: 600;
+    box-shadow: 0 4px 14px rgba(236, 72, 153, .1); outline: none; transition: border-color .15s, box-shadow .15s;
+}
+.home-search input::placeholder { color: #b8a3ae; }
+.home-search input:focus { border-color: #f472b6; box-shadow: 0 0 0 4px rgba(244, 114, 182, .18); }
+.home-search input::-webkit-search-cancel-button { display: none; }
+.home-search > i { position: absolute; left: .95rem; top: 50%; transform: translateY(-50%); color: #f472b6; pointer-events: none; }
+.home-search kbd {
+    position: absolute; right: .7rem; top: 50%; transform: translateY(-50%);
+    font: 700 .7rem/1 inherit; color: #c084a3; background: #fff;
+    border: 1px solid #fbcfe8; border-bottom-width: 2px; border-radius: 6px; padding: .22rem .42rem;
+}
+.home-search input:focus ~ kbd { display: none; }
+@media (hover: none) { .home-search kbd { display: none; } }

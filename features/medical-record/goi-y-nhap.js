@@ -264,6 +264,10 @@ function xepMuc(wrap, gom) {
         loc.type = 'search';
         loc.placeholder = 'Lọc trong ' + gom.length + ' gợi ý — gõ không dấu cũng ra';
         loc.setAttribute('aria-label', 'Lọc gợi ý');
+        /* Ô lọc không phải dữ liệu bệnh án: không có dấu này thì mọi bộ đếm
+           (% hoàn thiện, nút Ô còn trống, chấm tiến độ ở mục lục) coi nó là
+           một ô còn trống — ô khám đã điền mà vẫn hiện "1/2". */
+        loc.dataset.nocount = '';
         /* Ô lọc nằm TRONG .chips nên bấm vào nó, thẻ cha vẫn :focus-within —
            bộ chip dạng compact không bị sập giữa chừng. */
         loc.addEventListener('input', () => {

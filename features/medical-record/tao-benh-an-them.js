@@ -63,6 +63,10 @@ function flash(el) {
    Xuất ra cho nhap-lien-ket.js dùng chung — cả hai file đều cần "nhảy tới ô". */
 export function goTo(el) {
     if (!el) return;
+    /* Khối đang thu gọn chứa ô này (thẻ vấn đề ở mục X, dòng đề nghị mục XI, cơ quan
+       ở mục Khám — xem bien-luan-gon.js / kham-gon.js) nghe tín hiệu này để tự mở,
+       không thì ô đang display:none: cuộn tới chỗ trống, focus không ăn. */
+    el.dispatchEvent(new CustomEvent('ba:hien', { bubbles: true }));
     const pane = el.closest('.tab-content');
     if (pane && !pane.classList.contains('active')) {
         tabLinks.find(l => l.dataset.tab === pane.id)?.click();
@@ -235,6 +239,16 @@ function nextGap() {
 $('ba-gap')?.addEventListener('click', nextGap);
 ring?.addEventListener('click', nextGap);
 
+/* Chạm vào thông báo là tắt ngay — không phải đợi hết giờ khi nó che chỗ đang đọc.
+   Dùng đúng cặp class ẩn của showToast() để CSS chạy hiệu ứng ra như lúc tự tắt. */
+$('toast-container')?.addEventListener('click', e => {
+    const t = e.target.closest('.toast-notification');
+    if (!t) return;
+    t.classList.remove('translate-x-0', 'opacity-100');
+    t.classList.add('translate-x-full', 'opacity-0');
+    setTimeout(() => t.remove(), 250);
+});
+
 /* ------------------------------------------------------------------ */
 /* 5. CỠ CHỮ + CHẾ ĐỘ RIÊNG TƯ — dùng CHUNG khoá với trang xem bệnh án */
 /* (xbFs, xbPrivate) nên chỉnh ở đây thì mở bản xem cũng y như vậy.     */
@@ -340,8 +354,8 @@ function boxOf(h) {
     return h.parentElement;                                             // <label> tiêu đề mục
 }
 
-/** [đã điền, tổng] các ô đếm được trong một khối */
-function dayVoi(box) {
+/** [đã điền, tổng] các ô đếm được trong một khối — bo-cuc-ben.js dùng chung */
+export function dayVoi(box) {
     const os = [...box.querySelectorAll('input:not([type=hidden]), select, textarea')]
         .filter(f => !f.disabled && !f.readOnly && !f.closest('[data-nocount]')
             && f.offsetParent !== null);

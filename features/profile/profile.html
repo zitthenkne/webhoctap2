@@ -3,223 +3,562 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Thông tin cá nhân - Zitthenkne</title>
+    <title>Hồ sơ cá nhân &middot; Kẹo bông Zitthenkne</title>
     <script src="../../pwa-install.js" defer></script>
     <link rel="stylesheet" href="../../style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        :root {
+            --marshmallow-pink: #FFF0F6;
+            --marshmallow-blue: #F0F9FF;
+            --marshmallow-purple: #F5F3FF;
+            --marshmallow-yellow: #FEFCE8;
+            --accent-pink: #EC4899;
+        }
+
         body {
-            background: linear-gradient(120deg, #FCE4EC 0%, #F3E8FF 55%, #E0F2FE 100%);
+            /* Kết hợp Quicksand tròn trịa và Nunito siêu mượt */
+            font-family: 'Nunito', 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             min-height: 100vh;
+            color: #475569;
+            /* NỀN ĐÁM MÂY KẸO BÔNG: Mesh gradient mịn màng cực hạn */
+            background: 
+                radial-gradient(circle at 15% 50%, rgba(254, 215, 226, 0.4) 0%, transparent 40%),
+                radial-gradient(circle at 85% 30%, rgba(224, 231, 255, 0.45) 0%, transparent 40%),
+                radial-gradient(circle at 50% 90%, rgba(254, 240, 138, 0.3) 0%, transparent 40%),
+                #FAFAFA;
+            background-attachment: fixed;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .font-rounded { font-family: 'Quicksand', sans-serif; }
+
+        ::selection {
+            background: #FCE7F3;
+            color: #BE185D;
+        }
+        input {
+            caret-color: var(--accent-pink);
+        }
+        :focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.25);
+        }
+
+        /* Thanh cuộn kẹo ngọt */
+        html { scrollbar-width: thin; scrollbar-color: #FBCFE8 transparent; }
+        ::-webkit-scrollbar { width: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+            background: #FBCFE8;
+            border-radius: 20px;
+            border: 3px solid #FAFAFA;
+        }
+
+        /* --- MARSHMALLOW CLAYMORPHISM COMPONENTS --- */
+        /* Thẻ Bento cực tròn, bóng mây */
+        .marshmallow-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(24px);
+            border-radius: 36px;
+            /* Bóng nổi 3D đa tầng: Vừa có bóng chìm, vừa có sáng cạnh (inner highlight) */
+            box-shadow: 
+                -8px -8px 24px rgba(255, 255, 255, 0.9),
+                12px 12px 28px rgba(236, 72, 153, 0.06),
+                inset 2px 2px 6px rgba(255, 255, 255, 0.9),
+                inset -2px -2px 6px rgba(236, 72, 153, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+        }
+
+        /* Nút bấm nổi như viên kẹo */
+        .squishy-btn {
+            border-radius: 24px;
+            background: #FFFFFF;
+            box-shadow: 
+                -4px -4px 10px rgba(255, 255, 255, 0.9),
+                4px 4px 10px rgba(236, 72, 153, 0.1),
+                inset 1px 1px 2px rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .squishy-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 
+                -6px -6px 14px rgba(255, 255, 255, 1),
+                6px 6px 16px rgba(236, 72, 153, 0.12),
+                inset 1px 1px 2px rgba(255, 255, 255, 0.9);
+        }
+        .squishy-btn:active {
+            transform: translateY(2px) scale(0.97);
+            box-shadow: 
+                inset 4px 4px 8px rgba(236, 72, 153, 0.08),
+                inset -4px -4px 8px rgba(255, 255, 255, 0.9);
+        }
+
+        /* Nút bấm khối đặc (Pink Solid) */
+        .squishy-btn-primary {
+            background: linear-gradient(135deg, #F472B6, #EC4899);
+            color: white;
+            box-shadow: 
+                -4px -4px 10px rgba(255, 255, 255, 0.8),
+                4px 8px 16px rgba(236, 72, 153, 0.35),
+                inset 1px 1px 4px rgba(255, 255, 255, 0.4),
+                inset -2px -2px 6px rgba(190, 24, 93, 0.2);
+            border: none;
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .squishy-btn-primary:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 
+                -4px -4px 10px rgba(255, 255, 255, 0.9),
+                6px 12px 20px rgba(236, 72, 153, 0.4),
+                inset 1px 1px 4px rgba(255, 255, 255, 0.5);
+        }
+        .squishy-btn-primary:active {
+            transform: translateY(1px) scale(0.96);
+            box-shadow: inset 3px 3px 8px rgba(157, 23, 77, 0.3);
+        }
+
+        /* 4 Thẻ Thống kê kiểu viên kẹo dẻo màu sắc */
+        .stat-mallow {
+            border-radius: 28px;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .stat-mallow:hover { transform: translateY(-4px) scale(1.03); }
+        .stat-mallow::before {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.6) 0%, transparent 100%);
+            border-radius: inherit; pointer-events: none;
+        }
+
+        /* Ô nhập liệu âm bản chìm nhẹ */
+        .squishy-input {
+            background: #FAFAFA;
+            border: 2px solid transparent;
+            border-radius: 20px;
+            box-shadow: 
+                inset 3px 3px 8px rgba(0, 0, 0, 0.03),
+                inset -3px -3px 8px rgba(255, 255, 255, 0.9);
+            transition: all 0.2s ease;
+        }
+        .squishy-input:focus {
+            background: #FFFFFF;
+            border-color: #FBCFE8;
+            box-shadow: 
+                0 0 0 4px rgba(252, 231, 243, 0.6),
+                inset 1px 1px 3px rgba(0,0,0,0.01);
+        }
+
+        /* --- STICKER STUDIO --- */
+        .animal-option {
+            aspect-ratio: 1 / 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            border-radius: 20px;
+            background: #FFFFFF;
+            cursor: pointer;
+            user-select: none;
+            box-shadow: -2px -2px 6px #fff, 2px 2px 6px rgba(236,72,153,0.06);
+            border: 2px solid transparent;
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .animal-option:hover {
+            background: #FFF5F8;
+            transform: translateY(-4px) scale(1.1);
+            box-shadow: -4px -4px 10px #fff, 4px 8px 15px rgba(236,72,153,0.15);
         }
         .animal-option.is-active {
-            border-color: #FF69B4;
-            background: #FFF0F6;
-            box-shadow: 0 4px 12px rgba(255, 105, 180, .25);
-            transform: translateY(-2px);
+            border-color: #EC4899 !important;
+            background: #FDF2F8 !important;
+            box-shadow: 0 4px 16px rgba(236, 72, 153, 0.25), inset 2px 2px 4px rgba(255,255,255,0.8) !important;
+            transform: translateY(-2px) scale(1.15) !important;
+        }
+
+        /* Lưới 21 tem dán */
+        .mallow-grid-bg {
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 32px;
+            box-shadow: inset 2px 2px 8px rgba(236,72,153,0.04);
+            padding: 16px;
+        }
+
+        /* Bảng màu pastel - Nút màu nổi khối */
+        .color-swatch {
+            cursor: pointer;
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            box-shadow: -2px -2px 5px #fff, 2px 4px 8px rgba(0, 0, 0, 0.08);
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .color-swatch:hover {
+            transform: scale(1.25);
+            box-shadow: -3px -3px 8px #fff, 3px 6px 12px rgba(0, 0, 0, 0.12);
         }
         .color-swatch.is-active {
-            box-shadow: 0 0 0 3px #fff, 0 0 0 5px #FF69B4;
-            transform: scale(1.08);
+            box-shadow: 0 0 0 4px #fff, 0 0 0 7px #EC4899, 0 6px 16px rgba(236,72,153,0.3) !important;
+            transform: scale(1.2) !important;
         }
-        /* Hiệu ứng nảy nhẹ khi đổi avatar */
-        @keyframes avatar-pop { 0%{transform:scale(1)} 45%{transform:scale(1.14) rotate(-6deg)} 100%{transform:scale(1)} }
-        .avatar-pop { animation: avatar-pop .45s cubic-bezier(.34,1.56,.64,1); }
-        /* Confetti mừng khi lưu */
+
+        /* Hào quang Avatar (Halo Drop Shadow) */
+        .avatar-halo {
+            box-shadow: 
+                0 0 0 8px rgba(255,255,255,0.7), 
+                0 15px 35px rgba(236,72,153,0.25),
+                inset 3px 3px 10px rgba(255,255,255,0.5);
+            border: 2px solid rgba(255,255,255,0.9);
+        }
+
+        /* Hiệu ứng nảy avatar khi đổi */
+        @keyframes avatar-pop {
+            0% { transform: scale(1); }
+            40% { transform: scale(1.15) rotate(-6deg); }
+            60% { transform: scale(0.92) rotate(4deg); }
+            100% { transform: scale(1); }
+        }
+        .avatar-pop {
+            animation: avatar-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* Badge nhấp nháy nhẹ */
+        @keyframes soft-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(0.98); }
+        }
+        .dirty-pulse {
+            animation: soft-pulse 1.8s ease-in-out infinite;
+        }
+
+        /* Pháo giấy khi lưu */
         .confetti-piece {
-            position: fixed; top: -20px; width: 10px; height: 14px; z-index: 9999;
-            border-radius: 2px; pointer-events: none; will-change: transform, opacity;
+            position: fixed;
+            top: -20px;
+            width: 12px;
+            height: 12px;
+            z-index: 9999;
+            border-radius: 50%;
+            pointer-events: none;
+            will-change: transform, opacity;
             animation: confetti-fall linear forwards;
         }
         @keyframes confetti-fall {
-            to { transform: translateY(105vh) rotate(720deg); opacity: 0; }
+            to {
+                transform: translateY(105vh) translateX(30px) rotate(720deg);
+                opacity: 0;
+            }
         }
-        /* Badge thay đổi chưa lưu */
-        @keyframes soft-pulse { 0%,100%{opacity:1} 50%{opacity:.55} }
-        .dirty-pulse { animation: soft-pulse 1.4s ease-in-out infinite; }
     </style>
 </head>
-<body class="text-gray-700 flex flex-col items-center px-3 py-6 sm:py-10">
+<body class="min-h-screen px-4 py-5 sm:py-10 flex flex-col items-center">
 
-    <!-- Thanh điều hướng nhỏ phía trên -->
-    <div class="w-full max-w-lg flex items-center justify-between mb-4 px-1">
-        <a href="../../index.html"
-            class="inline-flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-[#FF69B4] bg-white/70 backdrop-blur px-3.5 py-2 rounded-xl shadow-sm border border-pink-100 transition">
-            <i class="fas fa-arrow-left"></i> Trang chủ
-        </a>
-        <div class="flex items-center gap-2">
-            <img src="../../assets/logo.png" alt="Zitthenkne" class="w-9 h-9 drop-shadow">
-            <span class="font-extrabold text-[#FF69B4] text-lg hidden sm:block">Zitthenkne</span>
+    <!-- Top Navigation Bar: Bento Pill -->
+    <header class="w-full max-w-[1040px] mb-8">
+        <div class="marshmallow-card px-5 py-4 flex items-center justify-between">
+            <a href="../../index.html"
+                class="squishy-btn px-5 py-2.5 inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-pink-600">
+                <i class="fas fa-arrow-left text-xs text-pink-400"></i> <span>Trang chủ</span>
+            </a>
+
+            <!-- Logo Y23C UMP mượt mà -->
+            <a href="../../index.html" class="flex items-center gap-3 group px-4 py-2 rounded-2xl hover:bg-white/50 transition-colors">
+                <img src="../../assets/logo.png" alt="Zitthenkne"
+                    class="w-10 h-10 rounded-2xl shadow-sm group-hover:scale-110 group-hover:rotate-[10deg] transition-all duration-300">
+                <div class="flex flex-col">
+                    <span class="font-extrabold text-pink-600 text-xl tracking-tight leading-tight group-hover:text-pink-700">
+                        Zitthenkne
+                    </span>
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
+                        Y23C &middot; UMP
+                    </span>
+                </div>
+            </a>
+
+            <!-- Lối tắt sang Thống Kê -->
+            <a href="../../index.html#statsContent"
+                class="squishy-btn px-5 py-2.5 inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-purple-600"
+                title="Xem thống kê tiến độ học tập">
+                <i class="fas fa-chart-pie text-purple-400"></i> <span class="hidden sm:inline">Thống kê</span>
+            </a>
         </div>
-    </div>
+    </header>
 
-    <!-- Thẻ thông tin cá nhân -->
-    <div class="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-pink-100 overflow-hidden fade-in">
-        <!-- Header gradient + avatar trực tiếp -->
-        <div class="relative bg-gradient-to-br from-[#FF69B4] to-[#D8BFD8] px-6 pt-8 pb-16 text-center overflow-hidden">
-            <div class="absolute -top-6 -left-6 w-24 h-24 bg-white/10 rounded-full"></div>
-            <div class="absolute -bottom-8 -right-4 w-28 h-28 bg-white/10 rounded-full"></div>
-            <p id="greeting" class="text-white/90 text-sm font-semibold relative">Xin chào 👋</p>
-            <h1 class="text-2xl font-extrabold text-white drop-shadow-sm relative">Thông tin cá nhân</h1>
-            <p class="text-white/90 text-sm mt-1 font-medium relative">Tùy chỉnh hồ sơ và diện mạo của bạn 🐿️</p>
-        </div>
+    <!-- Main Layout: BENTO GRID 2 CỘT CÂN ĐỐI -->
+    <main class="w-full max-w-[1040px] grid grid-cols-1 lg:grid-cols-12 gap-7 sm:gap-8">
 
-        <div class="px-6 sm:px-8 pb-8 -mt-12 relative">
-            <!-- Avatar lớn nổi trên header -->
-            <div class="flex flex-col items-center">
-                <div class="relative">
+        <!-- CỘT TRÁI (5 Cột trên LG): THẺ HỒ SƠ SINH VIÊN KẸO BÔNG -->
+        <div class="lg:col-span-5 flex flex-col gap-7">
+            <!-- Thẻ Thông tin cá nhân -->
+            <div class="marshmallow-card p-6 sm:p-8 flex flex-col items-center relative">
+                
+                <!-- Huy hiệu Trạng thái Chưa lưu nổi bồng bềnh -->
+                <span id="unsaved-badge"
+                    class="hidden absolute top-6 right-6 text-[11px] font-black uppercase tracking-wider text-amber-600 bg-amber-100 px-3 py-1.5 rounded-xl shadow-inner dirty-pulse">
+                    <i class="fas fa-asterisk text-[8px] mr-1.5"></i>Chưa lưu
+                </span>
+
+                <!-- Avatar Halo Drop Shadow -->
+                <div class="relative mt-2 mb-6 group">
                     <div id="profile-avatar"
-                        class="w-28 h-28 rounded-full flex items-center justify-center text-6xl shadow-xl ring-4 ring-white"
+                        class="avatar-halo w-32 h-32 rounded-[2rem] flex items-center justify-center text-[4rem] transition-all duration-300 relative z-10"
                         style="background:#FF69B4; color:#fff;">
                         <span id="avatar-icon">🐱</span>
                     </div>
-                    <!-- Nút ngẫu nhiên hoá avatar -->
-                    <button type="button" id="shuffle-avatar-btn" title="Ngẫu nhiên cho vui!"
-                        class="absolute -bottom-1 -right-1 w-10 h-10 rounded-full bg-white text-[#FF69B4] shadow-lg border border-pink-100 flex items-center justify-center hover:bg-pink-50 hover:scale-110 active:scale-95 transition">
-                        <i class="fas fa-dice"></i>
+
+                    <!-- Nút Xúc Xắc Ngẫu Nhiên bo tròn lún -->
+                    <button type="button" id="shuffle-avatar-btn" title="Ngẫu nhiên linh vật và màu sắc"
+                        class="absolute -bottom-1 -right-3 w-12 h-12 squishy-btn flex items-center justify-center text-pink-500 z-20">
+                        <i class="fas fa-dice text-lg"></i>
                     </button>
                 </div>
-                <p id="display-name-preview" class="font-extrabold text-gray-800 text-lg mt-3">Bạn</p>
-                <span id="unsaved-badge"
-                    class="hidden mt-1.5 text-[11px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full dirty-pulse">
-                    <i class="fas fa-circle text-[7px] mr-1 align-middle"></i>Có thay đổi chưa lưu
-                </span>
-            </div>
 
-            <!-- Thống kê nhanh -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-6">
-                <div class="bg-pink-50/70 rounded-2xl p-3 text-center border border-pink-100">
-                    <i class="fas fa-calendar-check text-[#FF69B4] mb-1"></i>
-                    <div id="stat-member-since" class="text-sm font-extrabold text-gray-800 leading-tight">—</div>
-                    <div class="text-[10px] text-gray-400 font-semibold uppercase tracking-wide">Thành viên</div>
-                </div>
-                <div class="bg-purple-50/70 rounded-2xl p-3 text-center border border-purple-100">
-                    <i class="fas fa-layer-group text-purple-500 mb-1"></i>
-                    <div id="stat-quiz-sets" class="text-base font-extrabold text-gray-800 leading-tight tabular-nums">—</div>
-                    <div class="text-[10px] text-gray-400 font-semibold uppercase tracking-wide">Bộ đề</div>
-                </div>
-                <div class="bg-blue-50/70 rounded-2xl p-3 text-center border border-blue-100">
-                    <i class="fas fa-pen-to-square text-blue-500 mb-1"></i>
-                    <div id="stat-attempts" class="text-base font-extrabold text-gray-800 leading-tight tabular-nums">—</div>
-                    <div class="text-[10px] text-gray-400 font-semibold uppercase tracking-wide">Lượt thi</div>
-                </div>
-                <div class="bg-amber-50/70 rounded-2xl p-3 text-center border border-amber-100">
-                    <i class="fas fa-star text-amber-500 mb-1"></i>
-                    <div id="stat-avg" class="text-base font-extrabold text-gray-800 leading-tight tabular-nums">—</div>
-                    <div class="text-[10px] text-gray-400 font-semibold uppercase tracking-wide">Điểm TB</div>
-                </div>
-            </div>
-
-            <!-- Khu chọn linh vật -->
-            <div class="mt-6">
-                <label class="block text-xs font-bold text-gray-500 mb-2 ml-1 uppercase tracking-wider">
-                    <i class="fas fa-paw text-pink-400 mr-1"></i> Linh vật
-                </label>
-                <div id="animal-grid"
-                    class="grid grid-cols-7 gap-2 bg-gray-50 p-2.5 rounded-2xl border border-pink-50">
-                    <!-- Các nút linh vật render bằng JS -->
-                </div>
-                <input type="hidden" id="avatar-animal" value="🐱">
-            </div>
-
-            <!-- Khu chọn màu nền -->
-            <div class="mt-5">
-                <label class="block text-xs font-bold text-gray-500 mb-2 ml-1 uppercase tracking-wider">
-                    <i class="fas fa-palette text-pink-400 mr-1"></i> Màu nền
-                </label>
-                <div class="bg-gray-50 p-2.5 rounded-2xl border border-pink-50 flex items-center justify-between gap-3 flex-wrap">
-                    <div id="color-grid" class="flex flex-wrap items-center gap-2">
-                        <!-- Các ô màu render bằng JS -->
-                    </div>
-                    <label for="avatar-bgcolor"
-                        class="flex items-center gap-2 text-xs font-semibold text-gray-500 cursor-pointer bg-white px-2.5 py-1.5 rounded-xl border border-gray-200 shadow-sm hover:border-pink-300 transition">
-                        <i class="fas fa-eye-dropper text-pink-400"></i> Tùy chọn
-                        <input type="color" id="avatar-bgcolor" value="#FF69B4"
-                            class="w-6 h-6 p-0 border-0 rounded cursor-pointer bg-transparent">
-                    </label>
-                </div>
-            </div>
-
-            <!-- Form thông tin -->
-            <div class="mt-6 space-y-4">
-                <!-- Tên -->
-                <div>
-                    <label for="profile-name" class="block text-xs font-bold text-gray-500 mb-1.5 ml-1">Tên người dùng</label>
-                    <div class="relative">
-                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400 pointer-events-none">
-                            <i class="fas fa-user"></i>
+                <!-- Tên & Email -->
+                <div class="text-center w-full">
+                    <p id="greeting" class="text-sm font-bold text-pink-500 mb-1">Xin chào 👋</p>
+                    <h1 id="display-name-preview" class="text-[1.75rem] font-black text-slate-800 tracking-tight leading-none mb-3">
+                        Bạn
+                    </h1>
+                    
+                    <!-- Email Pill 1-chạm sao chép -->
+                    <button type="button" id="copy-email-btn"
+                        class="squishy-btn mx-auto inline-flex items-center gap-2 px-4 py-2 text-[13px] font-bold text-slate-600 hover:text-pink-600 group">
+                        <span class="w-6 h-6 rounded-full bg-pink-50 text-pink-500 flex items-center justify-center">
+                            <i class="fas fa-envelope text-[10px]"></i>
                         </span>
-                        <input id="profile-name" type="text" maxlength="40" placeholder="Nhập tên hiển thị của bạn"
-                            class="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] focus:bg-white transition">
-                    </div>
-                </div>
-                <!-- Email -->
-                <div>
-                    <label for="profile-email" class="block text-xs font-bold text-gray-500 mb-1.5 ml-1">Email</label>
-                    <div class="relative">
-                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400 pointer-events-none">
-                            <i class="fas fa-envelope"></i>
-                        </span>
-                        <input id="profile-email" type="email" readonly
-                            class="w-full pl-11 pr-10 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed focus:outline-none">
-                        <span class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-300" title="Email không thể thay đổi">
-                            <i class="fas fa-lock text-xs"></i>
-                        </span>
-                    </div>
-                </div>
-
-                <!-- Đổi mật khẩu (thu gọn) -->
-                <div class="bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden">
-                    <button type="button" id="toggle-password-section-btn"
-                        class="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-100/60 transition">
-                        <span class="text-sm font-bold text-gray-600 flex items-center gap-2">
-                            <i class="fas fa-key text-pink-400"></i> Đổi mật khẩu
-                        </span>
-                        <i id="password-chevron" class="fas fa-chevron-down text-xs text-gray-400 transition-transform"></i>
+                        <span id="user-email-preview" class="max-w-[180px] truncate">...</span>
+                        <i id="copy-email-icon" class="fas fa-copy text-slate-400 group-hover:text-pink-400 transition-colors ml-1"></i>
                     </button>
-                    <div id="password-section" class="hidden px-4 pb-4">
-                        <div class="relative">
-                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400 pointer-events-none">
-                                <i class="fas fa-lock"></i>
-                            </span>
-                            <input id="profile-password" type="password" placeholder="Mật khẩu mới (ít nhất 6 ký tự)" autocomplete="new-password"
-                                class="w-full pl-11 pr-11 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] transition">
-                            <button type="button" id="toggle-password-btn" aria-label="Hiện/ẩn mật khẩu"
-                                class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-[#FF69B4] transition">
-                                <i class="fas fa-eye"></i>
-                            </button>
+                </div>
+
+                <!-- 4 Ô THỐNG KÊ MARSHMALLOW CHUẨN LOGIC, TRỰC QUAN -->
+                <div class="w-full grid grid-cols-2 gap-4 mt-8">
+                    <!-- Note 1: Vàng bơ (Thành viên từ) -->
+                    <div class="stat-mallow bg-[#FEF9C3] shadow-[0_8px_16px_rgba(253,224,71,0.2)] p-4 flex flex-col items-center text-center">
+                        <div class="w-10 h-10 rounded-2xl bg-white/60 shadow-sm flex items-center justify-center text-amber-500 mb-2">
+                            <i class="fas fa-calendar-check text-lg"></i>
                         </div>
-                        <p class="text-[11px] text-gray-400 mt-2 ml-1"><i class="fas fa-circle-info mr-1"></i>Để trống nếu bạn không muốn đổi mật khẩu.</p>
+                        <div id="stat-member-since" class="text-sm font-black text-slate-800 leading-none mb-1.5">—</div>
+                        <div class="text-[10px] font-black text-amber-700/70 uppercase tracking-widest">Thành viên</div>
+                    </div>
+
+                    <!-- Note 2: Tím lavender (Số bộ đề) -->
+                    <div class="stat-mallow bg-[#F3E8FF] shadow-[0_8px_16px_rgba(216,180,254,0.2)] p-4 flex flex-col items-center text-center">
+                        <div class="w-10 h-10 rounded-2xl bg-white/60 shadow-sm flex items-center justify-center text-purple-500 mb-2">
+                            <i class="fas fa-layer-group text-lg"></i>
+                        </div>
+                        <div id="stat-quiz-sets" class="text-lg font-black text-slate-800 leading-none mb-1.5 tabular-nums">—</div>
+                        <div class="text-[10px] font-black text-purple-700/70 uppercase tracking-widest">Bộ đề</div>
+                    </div>
+
+                    <!-- Note 3: Xanh thiên thanh (Lượt thi) -->
+                    <div class="stat-mallow bg-[#E0F2FE] shadow-[0_8px_16px_rgba(125,211,252,0.2)] p-4 flex flex-col items-center text-center">
+                        <div class="w-10 h-10 rounded-2xl bg-white/60 shadow-sm flex items-center justify-center text-sky-500 mb-2">
+                            <i class="fas fa-pen-to-square text-lg"></i>
+                        </div>
+                        <div id="stat-attempts" class="text-lg font-black text-slate-800 leading-none mb-1.5 tabular-nums">—</div>
+                        <div class="text-[10px] font-black text-sky-700/70 uppercase tracking-widest">Lượt thi</div>
+                    </div>
+
+                    <!-- Note 4: Hồng dâu (Điểm trung bình) -->
+                    <div class="stat-mallow bg-[#FFE4E6] shadow-[0_8px_16px_rgba(253,164,175,0.2)] p-4 flex flex-col items-center text-center">
+                        <div class="w-10 h-10 rounded-2xl bg-white/60 shadow-sm flex items-center justify-center text-rose-500 mb-2">
+                            <i class="fas fa-star text-lg"></i>
+                        </div>
+                        <div id="stat-avg" class="text-lg font-black text-slate-800 leading-none mb-1.5 tabular-nums">—</div>
+                        <div class="text-[10px] font-black text-rose-700/70 uppercase tracking-widest">Điểm TB (10)</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Vùng thông báo -->
-            <div id="profile-message" class="hidden mt-4 text-sm font-semibold rounded-xl px-4 py-2.5 text-center"></div>
-
-            <!-- Nút hành động -->
-            <div class="mt-6 space-y-3">
-                <button id="save-profile-btn"
-                    class="w-full px-6 py-3 bg-gradient-to-r from-[#FF69B4] to-[#FF8DC7] text-white rounded-xl font-bold shadow-md hover:shadow-lg hover:shadow-pink-200 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 flex items-center justify-center gap-2">
-                    <i class="fas fa-floppy-disk"></i> Lưu thay đổi
-                </button>
-                <button id="logout-btn"
-                    class="w-full px-6 py-3 bg-white text-red-500 border-2 border-red-100 rounded-xl font-bold hover:bg-red-50 hover:border-red-300 active:scale-[0.99] transition-all duration-200 flex items-center justify-center gap-2">
-                    <i class="fas fa-right-from-bracket"></i> Đăng xuất
-                </button>
-            </div>
+            <!-- Thẻ Lối tắt Bệnh án lâm sàng -->
+            <a href="../study-room/waiting-room.html"
+                class="marshmallow-card p-5 flex items-center justify-between group hover:bg-emerald-50/50 transition-colors">
+                <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 rounded-[1.25rem] bg-emerald-100 text-emerald-500 flex items-center justify-center text-xl shadow-inner group-hover:scale-110 transition-transform">
+                        <i class="fas fa-notes-medical"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-[15px] font-extrabold text-slate-800 group-hover:text-emerald-600 transition-colors">Phòng bệnh án lâm sàng</h3>
+                        <p class="text-[12px] font-bold text-slate-400 mt-0.5">Luyện thi OSCE & ca bệnh Y4</p>
+                    </div>
+                </div>
+                <div class="w-10 h-10 rounded-full squishy-btn flex items-center justify-center text-emerald-400 group-hover:text-emerald-600 group-hover:-rotate-45">
+                    <i class="fas fa-arrow-right"></i>
+                </div>
+            </a>
         </div>
-    </div>
 
-    <p class="text-xs text-gray-400 mt-5 text-center">&copy; 2025 Zitthenk · Y23C · UMP</p>
+        <!-- CỘT PHẢI (7 Cột trên LG): STUDIO TÙY CHỈNH KẸO NGỌT -->
+        <div class="lg:col-span-7 flex flex-col gap-7">
+
+            <!-- THẺ 1: KHAY STICKER LINH VẬT & BẢNG MÀU PASTEL -->
+            <section class="marshmallow-card p-6 sm:p-8">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="w-14 h-14 rounded-[1.25rem] bg-pink-100 text-pink-500 flex items-center justify-center text-xl shadow-inner">
+                        <i class="fas fa-wand-magic-sparkles"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-black text-slate-800 tracking-tight">Studio Giao Diện</h2>
+                        <p class="text-[13px] font-bold text-slate-400 mt-0.5">Định hình phong cách học tập của riêng bạn</p>
+                    </div>
+                </div>
+
+                <!-- 1. Bộ Tem Linh Vật -->
+                <div class="mb-7">
+                    <div class="flex items-center justify-between mb-3 px-1">
+                        <h3 class="text-sm font-extrabold text-slate-700 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-pink-400"></span> Linh vật đại diện
+                        </h3>
+                        <span class="text-[11px] font-black text-pink-500 uppercase tracking-widest bg-pink-50 px-2.5 py-1 rounded-lg">21 Option</span>
+                    </div>
+
+                    <!-- Lưới tem dán marshmallow -->
+                    <div class="mallow-grid-bg">
+                        <div id="animal-grid" class="grid grid-cols-7 gap-2.5">
+                            <!-- JS Renders Here -->
+                        </div>
+                    </div>
+                    <input type="hidden" id="avatar-animal" value="🐱">
+                </div>
+
+                <!-- 2. Bảng Màu Mượt Mà -->
+                <div>
+                    <div class="flex items-center justify-between mb-3 px-1">
+                        <h3 class="text-sm font-extrabold text-slate-700 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-purple-400"></span> Bảng màu yêu thích
+                        </h3>
+                        <span class="text-[11px] font-black text-purple-500 uppercase tracking-widest bg-purple-50 px-2.5 py-1 rounded-lg">14 Colors</span>
+                    </div>
+
+                    <div class="mallow-grid-bg flex flex-wrap items-center justify-between gap-4">
+                        <div id="color-grid" class="flex flex-wrap items-center gap-3">
+                            <!-- JS Renders Here -->
+                        </div>
+
+                        <!-- Bộ chọn màu tự do -->
+                        <label for="avatar-bgcolor"
+                            class="squishy-btn px-4 py-2.5 flex items-center gap-2 cursor-pointer text-sm font-bold text-slate-600 hover:text-pink-500">
+                            <i class="fas fa-eye-dropper text-pink-400"></i> <span>Tự pha màu</span>
+                            <input type="color" id="avatar-bgcolor" value="#FF69B4"
+                                class="w-0 h-0 opacity-0 pointer-events-none absolute">
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <!-- THẺ 2: THÔNG TIN & BẢO MẬT (LOGIC FORM) -->
+            <section class="marshmallow-card p-6 sm:p-8">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="w-14 h-14 rounded-[1.25rem] bg-indigo-100 text-indigo-500 flex items-center justify-center text-xl shadow-inner">
+                        <i class="fas fa-user-shield"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-black text-slate-800 tracking-tight">Hồ sơ & Bảo mật</h2>
+                        <p class="text-[13px] font-bold text-slate-400 mt-0.5">Quản lý định danh cá nhân của bạn</p>
+                    </div>
+                </div>
+
+                <div class="space-y-5">
+                    <!-- Tên người dùng -->
+                    <div>
+                        <label for="profile-name" class="block text-[13px] font-extrabold text-slate-700 mb-2 pl-1">
+                            Tên hiển thị
+                        </label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-pink-400 pointer-events-none">
+                                <i class="fas fa-signature"></i>
+                            </span>
+                            <input id="profile-name" type="text" maxlength="40" placeholder="Nhập tên của bạn"
+                                class="squishy-input w-full pl-12 pr-5 py-3.5 text-base font-bold text-slate-800">
+                        </div>
+                    </div>
+
+                    <!-- Email tài khoản -->
+                    <div>
+                        <div class="flex items-center justify-between mb-2 pl-1">
+                            <label for="profile-email" class="text-[13px] font-extrabold text-slate-700">
+                                Tài khoản Email
+                            </label>
+                            <span class="text-[11px] font-bold text-slate-400 flex items-center gap-1"><i class="fas fa-lock"></i> Định danh tĩnh</span>
+                        </div>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400 pointer-events-none">
+                                <i class="fas fa-at"></i>
+                            </span>
+                            <input id="profile-email" type="email" readonly
+                                class="w-full pl-12 pr-5 py-3.5 rounded-2xl bg-slate-100/50 border border-slate-200/50 text-slate-500 font-bold cursor-not-allowed">
+                        </div>
+                    </div>
+
+                    <!-- Đổi mật khẩu (Accordion mượt mà) -->
+                    <div class="squishy-input bg-white p-2">
+                        <button type="button" id="toggle-password-section-btn"
+                            class="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-slate-50 transition-colors">
+                            <span class="text-[13px] font-extrabold text-slate-700 flex items-center gap-2.5">
+                                <span class="w-7 h-7 rounded-lg bg-pink-100 text-pink-500 flex items-center justify-center"><i class="fas fa-key text-[11px]"></i></span>
+                                Đổi mật khẩu đăng nhập
+                            </span>
+                            <i id="password-chevron" class="fas fa-chevron-down text-sm text-slate-400 transition-transform duration-300"></i>
+                        </button>
+                        <div id="password-section" class="hidden px-2 pb-2 pt-3">
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400 pointer-events-none">
+                                    <i class="fas fa-shield"></i>
+                                </span>
+                                <input id="profile-password" type="password" placeholder="Mật khẩu mới (tối thiểu 6 ký tự)" autocomplete="new-password"
+                                    class="squishy-input w-full pl-12 pr-12 py-3 text-sm font-bold text-slate-800 bg-white">
+                                <button type="button" id="toggle-password-btn" aria-label="Hiện hoặc ẩn mật khẩu"
+                                    class="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-pink-500 transition-colors">
+                                    <i class="fas fa-eye text-sm"></i>
+                                </button>
+                            </div>
+
+                            <!-- Thanh đo độ mạnh mật khẩu dạng viên thuốc -->
+                            <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden mt-3 shadow-inner">
+                                <div id="pw-strength-bar" class="h-2.5 rounded-full transition-all duration-300 w-0 bg-rose-400"></div>
+                            </div>
+                            <p id="pw-strength-text" class="text-[11px] font-bold text-slate-500 mt-1.5 ml-1 flex items-center gap-1"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Vùng thông báo (profile.js) -->
+                <div id="profile-message" class="hidden mt-5 text-[13px] font-extrabold rounded-2xl px-5 py-3.5 text-center shadow-sm"></div>
+
+                <!-- 2 Nút hành động chính: Kẹo ngọt Bouncy -->
+                <div class="mt-8 pt-6 border-t border-slate-100 flex flex-col sm:flex-row gap-4">
+                    <button id="save-profile-btn"
+                        class="flex-1 py-4 squishy-btn-primary rounded-[1.25rem] text-[15px] font-black flex items-center justify-center gap-2 tracking-wide">
+                        <i class="fas fa-check"></i> <span>Lưu thay đổi</span>
+                    </button>
+                    <button id="logout-btn"
+                        class="px-8 py-4 squishy-btn rounded-[1.25rem] text-rose-500 hover:text-rose-600 text-[15px] font-black flex items-center justify-center gap-2 tracking-wide">
+                        <i class="fas fa-power-off"></i> <span>Đăng xuất</span>
+                    </button>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-10 mb-6 text-center">
+        <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+            &copy; 2025 Zitthenkne &middot; Y23C UMP
+        </p>
+    </footer>
 
     <!-- Script chính -->
     <script type="module" src="profile.js"></script>
-  <!-- Bắt buộc đăng nhập: khách sẽ thấy lớp chặn thay vì làm rồi mất dữ liệu -->
-  <script type="module">
-    import { guardPage } from '../../core/require-login.js';
-    guardPage('Thông tin cá nhân');
-  </script>
+    <!-- Bắt buộc đăng nhập: khách sẽ thấy lớp chặn thay vì làm rồi mất dữ liệu -->
+    <script type="module">
+        import { guardPage } from '../../core/require-login.js';
+        guardPage('Thông tin cá nhân');
+    </script>
 </body>
 </html>

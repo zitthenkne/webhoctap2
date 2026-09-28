@@ -705,39 +705,39 @@ export function convertScoreToGPA(correct, total) {
     if (score10 >= 9.5) {
         score4 = 4.0;
         letterGrade = 'A+';
-        motivation = "Ối dồi ôi, trình là j mà là trình ai chấm!!! Anh chỉ biết làm ba mẹ anh tự hào, xây căn nhà thật to ở 1 mình 2 tấm";
+        motivation = "Thành tích xuất sắc! Điểm số đạt mức tối đa (A+).";
     } else if (score10 >= 8.5) {
         score4 = 4.0;
         letterGrade = 'A';
-        motivation = "Dỏi dữ dị bà, trộm vía trộm víaaaaaa, xin vía 4.0 <3";
+        motivation = "Kết quả rất tốt! Đạt chuẩn điểm Giỏi (A) theo thang điểm UMP.";
     } else if (score10 >= 8.0) {
         score4 = 3.5;
         letterGrade = 'B+';
-        motivation = "gút chóp bây bề";
+        motivation = "Kết quả tốt! Đạt mức Khá Giỏi (B+), cận kề mức điểm A.";
     } else if (score10 >= 7.0) {
         score4 = 3.0;
         letterGrade = 'B';
-        motivation = "Quaooooooo, vá là dỏi òiiiiii";
+        motivation = "Đạt chuẩn mức Khá (B). Tiếp tục duy trì phong độ.";
     } else if (score10 >= 6.5) {
         score4 = 2.5;
         letterGrade = 'C+';
-        motivation = "Điểm này là cũng cũng ròi á mom, u so gud babi";
+        motivation = "Đạt mức Trung bình Khá (C+). Cần rà soát các câu sai để cải thiện.";
     } else if (score10 >= 5.5) {
         score4 = 2.0;
         letterGrade = 'C';
-        motivation = "Cũn cũn ik, cố gắng lên nhennn";
+        motivation = "Đạt mức Trung bình (C). Cần củng cố thêm các phần lý thuyết trọng tâm.";
     } else if (score10 >= 5.0) {
         score4 = 1.5;
         letterGrade = 'D+';
-        motivation = "Vừa đủ qua. Cần xem lại kiến thức một chút.";
+        motivation = "Đạt mức Trung bình yếu (D+). Cần xem lại các ca lâm sàng và câu hỏi lý thuyết.";
     } else if (score10 >= 4.0) {
         score4 = 1.0;
         letterGrade = 'D';
-        motivation = "Qua môn rồi! Chúc mừng nha bàaaaa";
+        motivation = "Đạt mức đạt chuẩn tối thiểu (D). Cần tập trung ôn luyện kỹ càng hơn.";
     } else {
         score4 = 0.0;
         letterGrade = 'F';
-        motivation = "Hoi mò hoi mò, lần sau sẽ tốt hơn mà!";
+        motivation = "Chưa đạt yêu cầu qua môn (F). Cần rà soát lại toàn bộ kiến thức nền tảng.";
     }
     return {
         score10: Number(score10.toFixed(2)),

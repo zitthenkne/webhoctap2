@@ -136,10 +136,10 @@ function showPwaInstallPrompts() {
     installLi.id = 'pwa-install-sidebar-li';
     // Mục nav kín đáo: chữ xám, hover nhẹ — không còn pill gradient chói mắt
     installLi.innerHTML = `
-      <a href="#" id="pwa-install-btn-sidebar"
+      <a href="#" id="pwa-install-btn-sidebar" title="Tải ứng dụng" style="--c:#64748b;--cb:#f1f5f9"
         class="nav-link flex items-center p-3 rounded-2xl text-gray-500 hover:bg-pink-50 hover:text-pink-600 transition font-medium text-base gap-3">
-        <i class="fas fa-download text-lg w-7 text-center text-gray-400"></i>
-        <span>Tải ứng dụng</span>
+        <span class="sb-ico"><i class="fas fa-download text-gray-400"></i></span>
+        <span class="sb-text">Tải ứng dụng</span>
       </a>
     `;
 

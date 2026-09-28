@@ -19,7 +19,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Zitthenkne">
+    <!-- Google Fonts hỗ trợ trọn vẹn tiếng Việt cho phong cách sổ tay & typography ứng dụng -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Comfortaa:wght@600;700&family=Nunito:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600;1,700&family=Quicksand:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=11">
     <link rel="stylesheet" href="features/study-room/rooms-hub.css?v=1">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -42,6 +45,9 @@
     </style>
     <!-- Tailwind đóng băng (thay Play CDN) — sinh bằng: node tailwind-dong-bang.mjs -->
     <link rel="stylesheet" href="tailwind-index.css">
+    <!-- Thanh bên dùng chung + riêng trang chủ (thanh tab dưới, ô tìm nhanh) — nạp SAU Tailwind -->
+    <link rel="stylesheet" href="core/app-sidebar.css?v=1">
+    <link rel="stylesheet" href="home-shell.css?v=2">
 </head>
 
 <body class="flex h-screen bg-gray-50 text-gray-700 text-sm">
@@ -57,7 +63,7 @@
             </button>
             <a href="index.html" class="flex items-center gap-1 min-w-0">
                 <img src="assets/logo.png" alt="Zitthenkne Logo"
-                    class="w-14 h-14 ml-1 hover:scale-105 transition-transform duration-200 flex-shrink-0">
+                    class="w-11 h-11 ml-1 hover:scale-105 transition-transform duration-200 flex-shrink-0">
                 <span class="font-extrabold text-[#FF69B4] text-2xl truncate block md:hidden">Zitthenkne</span>
             </a>
         </div>
@@ -70,53 +76,10 @@
     <!-- Overlay for sidebar on mobile -->
     <div id="sidebar-overlay"
         class="fixed inset-0 bg-black bg-opacity-20 z-30 hidden md:hidden opacity-0 transition-opacity duration-300"></div>
-    <aside id="sidebar"
-        class="w-11/12 max-w-xs bg-white/90 backdrop-blur-xl shadow-2xl fixed md:relative z-40 h-full transition-transform duration-300 ease-in-out rounded-r-3xl border-r-2 border-pink-100 top-0 left-0 md:static md:translate-x-0 -translate-x-full md:rounded-none md:block">
-        <!-- Nút đóng sidebar trên mobile -->
-        <button id="sidebar-close-btn"
-            class="md:hidden absolute top-3 right-3 text-gray-400 hover:text-pink-500 text-2xl z-50 bg-white/80 rounded-full p-1 shadow"><i
-                class="fas fa-times"></i></button>
-        <div class="p-4 flex flex-col items-center justify-center border-b border-pink-200 gap-1">
-            <a href="index.html" class="flex flex-col items-center group">
-                <img src="assets/logo.png" alt="Zitthenkne Logo"
-                    class="w-24 h-24 group-hover:scale-105 transition-transform duration-200">
-                <h1
-                    class="text-lg font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-[#FF69B4] to-[#D8BFD8] tracking-wider drop-shadow-lg whitespace-nowrap group-hover:underline mt-1">
-                    Zitthenkne</h1>
-            </a>
-            <a class="flex flex-col items-center group" style="cursor:pointer">
-                <img id="user-avatar-sidebar" src="https://ui-avatars.com/api/?name=?&background=D8BFD8&color=fff"
-                    class="w-9 h-9 rounded-full border-2 border-[#D8BFD8] shadow mt-1">
-                <span id="user-name-sidebar" class="text-gray-700 font-semibold text-sm mt-1">Khách</span>
-            </a>
-        </div>
-        <nav class="p-2">
-            <ul class="flex flex-col gap-2">
-                <li><a href="#" data-target="dashboardContent"
-                        class="nav-link flex items-center p-3 rounded-2xl text-gray-700 hover:bg-gradient-to-r hover:from-[#FFB6C1]/40 hover:to-[#D8BFD8]/40 transition font-bold shadow-sm active:bg-[#FF69B4]/30 text-base gap-3"><i
-                            class="fas fa-home text-xl w-7 text-center"></i><span>Trang chủ</span></a></li>
-                <li><a href="#" data-target="createQuizContent"
-                        class="nav-link flex items-center p-3 rounded-2xl text-gray-700 hover:bg-gradient-to-r hover:from-[#FFB6C1]/40 hover:to-[#D8BFD8]/40 transition font-bold shadow-sm text-base gap-3"><i
-                            class="fas fa-plus-circle text-xl w-7 text-center"></i><span>Tạo trắc nghiệm</span></a></li>
-                <li><a href="#" data-target="libraryContent"
-                        class="nav-link flex items-center p-3 rounded-2xl text-gray-700 hover:bg-gradient-to-r hover:from-[#FFB6C1]/40 hover:to-[#D8BFD8]/40 transition font-bold shadow-sm text-base gap-3"><i
-                            class="fas fa-book text-xl w-7 text-center"></i><span>Thư viện</span></a></li>
-                <li><a href="#" data-target="statsContent"
-                        class="nav-link flex items-center p-3 rounded-2xl text-gray-700 hover:bg-gradient-to-r hover:from-[#FFB6C1]/40 hover:to-[#D8BFD8]/40 transition font-bold shadow-sm text-base gap-3"><i
-                            class="fas fa-chart-bar text-xl w-7 text-center"></i><span>Thống kê</span></a></li>
-                <li><a href="features/checklist/checklist.html" id="checklist-atcs-menu"
-                        class="nav-link flex items-center p-3 rounded-2xl text-gray-700 hover:bg-gradient-to-r hover:from-blue-200/40 hover:to-blue-100/40 transition font-bold shadow-sm text-base gap-3"><i
-                            class="fas fa-tasks text-xl w-7 text-center"></i><span>Checklist ATCS</span></a></li>
-                <li><a href="features/study-room/waiting-room.html" id="medicalRecordListBtn"
-                        class="nav-link flex items-center p-3 rounded-2xl text-gray-700 hover:bg-gradient-to-r hover:from-green-200/40 hover:to-green-100/40 transition font-bold shadow-sm text-base gap-3"><i
-                            class="fas fa-notes-medical text-xl w-7 text-center"></i><span>Danh sách bệnh án</span></a>
-                </li>
-                <li><a href="station-exam.html"
-                        class="nav-link flex items-center p-3 rounded-2xl text-gray-700 hover:bg-gradient-to-r hover:from-orange-200/40 hover:to-orange-100/40 transition font-bold shadow-sm text-base gap-3"><i
-                            class="fas fa-route text-xl w-7 text-center"></i><span>Chạy trạm (OSCE)</span></a></li>
-            </ul>
-        </nav>
-    </aside>
+    <aside id="sidebar" data-spa
+        class="w-11/12 max-w-xs bg-white/90 backdrop-blur-xl shadow-2xl fixed md:relative z-40 h-full transition-transform duration-300 ease-in-out rounded-r-3xl border-r-2 border-pink-100 top-0 left-0 md:static md:translate-x-0 -translate-x-full md:rounded-none md:block"></aside>
+    <!-- Nội dung thanh bên do core/app-sidebar.js dựng (dùng chung với trang Bệnh án) -->
+    <script src="core/app-sidebar.js?v=1"></script>
     <div class="flex-1 flex flex-col overflow-hidden pt-16 md:pt-0">
         <!-- Top Bar - CẬP NHẬT CHO GIAO DIỆN DI ĐỘNG -->
         <header class="bg-white shadow-lg sticky top-0 z-30 border-b-2 border-pink-100 hidden md:block">
@@ -145,8 +108,15 @@
 
         <main class="flex-1 overflow-x-hidden overflow-y-auto bg-transparent p-2 sm:p-4 md:p-6">
             <div id="dashboardContent" class="content-panel fade-in">
-                <div class="text-center mt-10 mb-8 md:mt-16 md:mb-10">
+                <div class="text-center mt-8 mb-8 md:mt-12 md:mb-10 px-3">
+                    <p id="home-hello" class="home-hello text-on-bg">&nbsp;</p>
                     <h2 class="hero-title text-2xl md:text-3xl font-extrabold mb-2">Bạn muốn làm gì hôm nay?</h2>
+                    <!-- Ô tìm nhanh: Enter = mở Thư viện với từ khóa này; phím "/" để gõ (core/dashboard-ui.js) -->
+                    <form id="home-search" class="home-search" role="search">
+                        <i class="fas fa-magnifying-glass"></i>
+                        <input type="search" id="home-search-input" placeholder="Tìm bộ đề trong thư viện..." enterkeyhint="search" autocomplete="off" aria-label="Tìm bộ đề trong thư viện">
+                        <kbd title="Phím tắt">/</kbd>
+                    </form>
                 </div>
                 <div
                     class="grid grid-cols-2 gap-3 sm:gap-8 lg:grid-cols-3 max-w-2xl md:max-w-6xl mx-auto px-3 sm:px-6">
@@ -200,7 +170,6 @@
                     </a>
                 </div>
             </div>
-
             <div id="createQuizContent" class="content-panel hidden fade-in px-5 pt-3 sm:px-0 sm:pt-0">
                 <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
                     <!-- Tabs Navigation -->
@@ -295,276 +264,704 @@
                 </div>
             </div>
 
-            <div id="gpaCalculatorContent" class="content-panel hidden fade-in px-5 pt-3 sm:px-0 sm:pt-0">
-                <div class="max-w-2xl mx-auto">
-                    <!-- Tiêu đề trang -->
-                    <div class="text-center mb-6 sm:mb-8">
-                        <h2 class="text-on-bg text-2xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-[#FF69B4] to-[#D8BFD8] drop-shadow">
-                            <i class="fas fa-graduation-cap mr-2 text-[#FF69B4]"></i>Công cụ tính điểm Đại học Y Dược
-                        </h2>
-                        <p class="text-on-bg text-sm text-gray-500 mt-2">Quy đổi điểm và tính số câu cần đạt cho từng kỳ thi 🐿️</p>
-                        <div class="flex flex-wrap items-center justify-center gap-2 mt-3">
-                            <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-pink-500 bg-white/80 backdrop-blur border border-pink-100 rounded-full px-3 py-1 shadow-sm"><i class="fas fa-circle-check"></i> Chuẩn UMP</span>
-                            <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-violet-500 bg-white/80 backdrop-blur border border-violet-100 rounded-full px-3 py-1 shadow-sm"><i class="fas fa-floppy-disk"></i> Tự lưu trên máy</span>
-                            <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-500 bg-white/80 backdrop-blur border border-amber-100 rounded-full px-3 py-1 shadow-sm"><i class="fas fa-bolt"></i> Cập nhật tức thì</span>
+            <div id="gpaCalculatorContent" class="content-panel hidden fade-in px-3 pt-4 sm:px-0 sm:pt-4 pb-20">
+                <style id="bujo-stationery-styles">
+                    /* ============================================================
+                       KAWAII PASTEL SCRAPBOOK & CLAYMORPHISM DESIGN SYSTEM
+                       Dành riêng cho Thanh Y4: Siêu mềm mại, ngọt ngào, pastel chuẩn mực,
+                       chống vỡ font 100% tiếng Việt, hiệu ứng đất nặn kẹo dẻo 3D bồng bềnh
+                       ============================================================ */
+
+                    /* Định hình font chữ bao bọc toàn bộ module - Tuyệt đối không vỡ tiếng Việt */
+                    #gpaCalculatorContent {
+                        font-family: 'Nunito', 'Quicksand', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+                        color: #4c3f54;
+                        -webkit-font-smoothing: antialiased;
+                        -moz-osx-font-smoothing: grayscale;
+                    }
+
+                    #gpaCalculatorContent * {
+                        box-sizing: border-box;
+                    }
+
+                    /* BẢO TOÀN TUYỆT ĐỐI FONT AWESOME ICONS: Không bao giờ bị ghi đè font */
+                    #gpaCalculatorContent i,
+                    #gpaCalculatorContent .fas,
+                    #gpaCalculatorContent .far,
+                    #gpaCalculatorContent .fa,
+                    #gpaCalculatorContent [class*="fa-"],
+                    #gpaCalculatorContent .fa-solid,
+                    #gpaCalculatorContent .fa-regular {
+                        font-family: "Font Awesome 6 Free", "Font Awesome 6 Pro", "FontAwesome" !important;
+                        font-weight: 900 !important;
+                        font-style: normal !important;
+                        display: inline-block;
+                        line-height: 1;
+                    }
+
+                    #gpaCalculatorContent h1,
+                    #gpaCalculatorContent h2,
+                    #gpaCalculatorContent h3,
+                    #gpaCalculatorContent h4,
+                    #gpaCalculatorContent .bujo-font-cute,
+                    #gpaCalculatorContent .bujo-title {
+                        font-family: 'Nunito', 'Baloo 2', 'Comfortaa', cursive, sans-serif !important;
+                        font-weight: 800;
+                    }
+
+                    #gpaCalculatorContent .bujo-font-body,
+                    #gpaCalculatorContent .bujo-font-main {
+                        font-family: 'Nunito', 'Quicksand', -apple-system, sans-serif !important;
+                    }
+
+                    /* 1. Bìa sổ tay dâu sữa kẹo ngọt Caro Pastel */
+                    .bujo-notebook-cover {
+                        background-color: #fff9fc;
+                        background-image: 
+                            radial-gradient(circle, #fbcfe8 1.2px, transparent 1.2px),
+                            linear-gradient(rgba(244, 114, 182, 0.05) 1px, transparent 1px),
+                            linear-gradient(90deg, rgba(244, 114, 182, 0.05) 1px, transparent 1px);
+                        background-size: 20px 20px, 20px 20px, 20px 20px;
+                        border: 3.5px solid #ffe4e9;
+                        border-radius: 36px;
+                        box-shadow: 
+                            0 25px 60px -15px rgba(244, 114, 182, 0.25),
+                            0 8px 24px -4px rgba(251, 113, 133, 0.08),
+                            inset 0 2px 6px #ffffff;
+                        position: relative;
+                    }
+
+                    /* 2. Gáy lò xo sổ tay xoắn tròn mini */
+                    .bujo-spiral-holes {
+                        position: absolute;
+                        top: 32px;
+                        bottom: 32px;
+                        left: 14px;
+                        width: 16px;
+                        background-image: radial-gradient(circle, #f472b6 3.5px, #fce7f3 4.5px, transparent 5px);
+                        background-size: 16px 28px;
+                        background-repeat: repeat-y;
+                        opacity: 0.8;
+                        pointer-events: none;
+                    }
+
+                    /* 3. Băng dính Washi Tape pastel dán mép sổ tinh tế */
+                    .bujo-washi {
+                        position: absolute;
+                        height: 22px;
+                        width: 90px;
+                        top: -11px;
+                        background: rgba(254, 205, 211, 0.95);
+                        background-image: repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(255, 255, 255, 0.65) 6px, rgba(255, 255, 255, 0.65) 12px);
+                        backdrop-filter: blur(4px);
+                        box-shadow: 0 4px 10px rgba(244, 114, 182, 0.18);
+                        z-index: 5;
+                        pointer-events: none;
+                        clip-path: polygon(4% 0%, 100% 0%, 96% 100%, 0% 100%);
+                        border-radius: 4px;
+                    }
+                    .bujo-washi-center {
+                        left: 50% !important;
+                        right: auto !important;
+                        transform: translateX(-50%) rotate(-1deg);
+                    }
+                    .bujo-washi-left {
+                        left: 36px !important;
+                        right: auto !important;
+                        transform: rotate(-2deg);
+                    }
+                    .bujo-washi-right {
+                        right: 36px !important;
+                        left: auto !important;
+                        transform: rotate(2deg);
+                    }
+                    .bujo-washi-yellow {
+                        background: rgba(254, 240, 138, 0.92);
+                        background-image: repeating-linear-gradient(-45deg, transparent, transparent 6px, rgba(255, 255, 255, 0.65) 6px, rgba(255, 255, 255, 0.65) 12px);
+                    }
+                    .bujo-washi-blue {
+                        background: rgba(186, 230, 253, 0.92);
+                        background-image: repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(255, 255, 255, 0.65) 6px, rgba(255, 255, 255, 0.65) 12px);
+                    }
+                    .bujo-paperclip {
+                        position: absolute;
+                        top: -16px;
+                        right: 28px;
+                        width: 24px;
+                        height: 44px;
+                        pointer-events: none;
+                        z-index: 6;
+                    }
+
+                    /* 4. Thẻ Polaroid & Giấy ghi chú Claymorphism 3D */
+                    .bujo-card-polaroid {
+                        background: linear-gradient(180deg, #ffffff 0%, #fffbfc 100%);
+                        border: 2.5px solid #ffe4e9;
+                        border-radius: 30px;
+                        box-shadow: 
+                            0 18px 40px -8px rgba(244, 114, 182, 0.2),
+                            0 4px 12px rgba(0, 0, 0, 0.02),
+                            inset 0 2px 4px #ffffff;
+                    }
+
+                    .bujo-memo-yellow {
+                        background: linear-gradient(165deg, #fffef7 0%, #fffdf0 55%, #fef9c3 100%);
+                        border: 2.5px solid #fef08a;
+                        border-radius: 32px;
+                        padding-top: 28px !important;
+                        box-shadow: 
+                            0 16px 36px -8px rgba(234, 179, 8, 0.14),
+                            0 4px 12px rgba(0, 0, 0, 0.02),
+                            inset 0 2px 4px #ffffff;
+                        position: relative;
+                    }
+
+                    .bujo-memo-blue {
+                        background: linear-gradient(165deg, #f8fcff 0%, #f0fdf9 55%, #e0f2fe 100%);
+                        border: 2.5px solid #bae6fd;
+                        border-radius: 32px;
+                        padding-top: 28px !important;
+                        box-shadow: 
+                            0 16px 36px -8px rgba(56, 189, 248, 0.14),
+                            0 4px 12px rgba(0, 0, 0, 0.02),
+                            inset 0 2px 4px #ffffff;
+                        position: relative;
+                    }
+
+                    /* 5. Bong bóng thoại lời chào mascot dễ thương */
+                    .bujo-speech-bubble {
+                        position: relative;
+                        background: #ffffff;
+                        border: 2px solid #fbcfe8;
+                        border-radius: 20px;
+                        padding: 8px 16px;
+                        color: #db2777;
+                        box-shadow: 0 6px 16px rgba(244, 114, 182, 0.15);
+                    }
+                    .bujo-speech-bubble::after {
+                        content: '';
+                        position: absolute;
+                        bottom: -8px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        border-width: 8px 7px 0;
+                        border-style: solid;
+                        border-color: #ffffff transparent;
+                        display: block;
+                        width: 0;
+                    }
+                    .bujo-speech-bubble::before {
+                        content: '';
+                        position: absolute;
+                        bottom: -11px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        border-width: 10px 8px 0;
+                        border-style: solid;
+                        border-color: #fbcfe8 transparent;
+                        display: block;
+                        width: 0;
+                    }
+
+                    /* 6. Ô nhập liệu bánh pudding bo tròn êm ái */
+                    .bujo-input {
+                        background: #ffffff !important;
+                        border: 2.5px solid #fbcfe8 !important;
+                        border-radius: 20px !important;
+                        font-family: 'Baloo 2', 'Nunito', sans-serif !important;
+                        font-weight: 700 !important;
+                        color: #2e1065 !important;
+                        box-shadow: inset 0 2px 5px rgba(244, 114, 182, 0.08), 0 3px 10px rgba(244, 114, 182, 0.05) !important;
+                        transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+                    }
+                    .bujo-input:focus {
+                        border-color: #f472b6 !important;
+                        box-shadow: 0 0 0 4.5px rgba(244, 114, 182, 0.25), inset 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+                        outline: none !important;
+                        background: #fffdfd !important;
+                        transform: translateY(-1.5px);
+                    }
+
+                    /* 7. Nút bấm kẹo dẻo Marshmallow 3D nảy đàn hồi */
+                    .bujo-btn-pink {
+                        background: linear-gradient(135deg, #ff80ab 0%, #ff4081 50%, #f50057 100%);
+                        color: #ffffff !important;
+                        font-family: 'Baloo 2', 'Nunito', sans-serif;
+                        font-weight: 700;
+                        border-radius: 22px;
+                        box-shadow: 
+                            0 10px 26px -3px rgba(255, 64, 129, 0.45),
+                            inset 0 2.5px 3px rgba(255, 255, 255, 0.65),
+                            inset 0 -3px 5px rgba(173, 20, 87, 0.28);
+                        transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+                        border: none;
+                    }
+                    .bujo-btn-pink:hover {
+                        transform: translateY(-2.5px) scale(1.015);
+                        box-shadow: 0 14px 34px -3px rgba(255, 64, 129, 0.55);
+                    }
+                    .bujo-btn-pink:active {
+                        transform: translateY(1.5px) scale(0.98);
+                        box-shadow: 0 4px 12px rgba(255, 64, 129, 0.35);
+                    }
+
+                    .bujo-btn-purple {
+                        background: linear-gradient(135deg, #c084fc 0%, #a855f7 50%, #ec4899 100%);
+                        color: #ffffff !important;
+                        font-family: 'Baloo 2', 'Nunito', sans-serif;
+                        font-weight: 700;
+                        border-radius: 22px;
+                        box-shadow: 
+                            0 10px 26px -3px rgba(168, 85, 247, 0.42),
+                            inset 0 2.5px 3px rgba(255, 255, 255, 0.65),
+                            inset 0 -3px 5px rgba(126, 34, 206, 0.28);
+                        transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+                        border: none;
+                    }
+                    .bujo-btn-purple:hover {
+                        transform: translateY(-2.5px) scale(1.015);
+                        box-shadow: 0 14px 34px -3px rgba(168, 85, 247, 0.52);
+                    }
+                    .bujo-btn-purple:active {
+                        transform: translateY(1.5px) scale(0.98);
+                        box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
+                    }
+
+                    /* 8. Thanh trượt Pastel Marshmallow kẹo ngọt 3D */
+                    #gpaCalculatorContent input[type="range"] {
+                        -webkit-appearance: none;
+                        appearance: none;
+                        background: #fde8ef;
+                        height: 10px;
+                        border-radius: 9999px;
+                        box-shadow: inset 0 2px 4px rgba(244, 114, 182, 0.2);
+                        outline: none;
+                        border: 1px solid rgba(255, 255, 255, 0.8);
+                    }
+                    #gpaCalculatorContent input[type="range"]::-webkit-slider-thumb {
+                        -webkit-appearance: none;
+                        appearance: none;
+                        width: 24px;
+                        height: 24px;
+                        border-radius: 50%;
+                        background: linear-gradient(135deg, #ff80ab 0%, #f472b6 100%);
+                        border: 3.5px solid #ffffff;
+                        box-shadow: 0 4px 10px rgba(244, 114, 182, 0.55), inset 0 1px 2px rgba(255, 255, 255, 0.8);
+                        cursor: pointer;
+                        transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+                    }
+                    #gpaCalculatorContent input[type="range"]::-webkit-slider-thumb:hover {
+                        transform: scale(1.18);
+                    }
+                    #gpaCalculatorContent input[type="range"]::-webkit-slider-thumb:active {
+                        transform: scale(0.95);
+                    }
+                    #gpaCalculatorContent input[type="range"]::-moz-range-thumb {
+                        width: 24px;
+                        height: 24px;
+                        border-radius: 50%;
+                        background: linear-gradient(135deg, #ff80ab 0%, #f472b6 100%);
+                        border: 3.5px solid #ffffff;
+                        box-shadow: 0 4px 10px rgba(244, 114, 182, 0.55);
+                        cursor: pointer;
+                    }
+
+                    /* 9. Tem bưu chính Stamp & Chip mục tiêu */
+                    .bujo-sticker-badge {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 6px;
+                        background: #ffffff;
+                        border: 1.5px solid #fbcfe8;
+                        border-radius: 9999px;
+                        padding: 5px 13px;
+                        font-size: 11px;
+                        font-family: 'Baloo 2', 'Nunito', sans-serif;
+                        font-weight: 700;
+                        color: #db2777;
+                        box-shadow: 0 3px 8px rgba(244, 114, 182, 0.15);
+                    }
+
+                    .bujo-chip-active {
+                        background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%) !important;
+                        border: 2px solid #f472b6 !important;
+                        color: #be185d !important;
+                        box-shadow: 0 6px 16px rgba(244, 114, 182, 0.32), inset 0 1px 2px rgba(255,255,255,0.8) !important;
+                        transform: translateY(-2px) scale(1.04);
+                    }
+                    .bujo-chip-inactive {
+                        background: #ffffff !important;
+                        border: 1.5px solid #fed7aa !important;
+                        color: #78716c !important;
+                        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02) !important;
+                    }
+                    .bujo-chip-inactive:hover {
+                        border-color: #fbcfe8 !important;
+                        color: #db2777 !important;
+                        background: #fffdfd !important;
+                        transform: translateY(-1px);
+                    }
+
+                    /* 10. Tab môn học dán lề (Sticky Index Tabs) */
+                    .bujo-tab-active {
+                        background: linear-gradient(135deg, #f472b6, #ec4899) !important;
+                        color: #ffffff !important;
+                        border: 2px solid #db2777 !important;
+                        box-shadow: 0 4px 14px rgba(236, 72, 153, 0.38) !important;
+                        font-family: 'Baloo 2', 'Nunito', sans-serif !important;
+                        font-weight: 700 !important;
+                    }
+                    .bujo-tab-inactive {
+                        background: #ffffff !important;
+                        color: #713f12 !important;
+                        border: 1.5px solid #fed7aa !important;
+                        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03) !important;
+                        font-family: 'Baloo 2', 'Nunito', sans-serif !important;
+                        font-weight: 700 !important;
+                    }
+                    .bujo-tab-inactive:hover {
+                        background: #fff8f0 !important;
+                        color: #ea580c !important;
+                        border-color: #fdba74 !important;
+                    }
+
+                    /* 11. Switch toggle kiểu kẹo Marshmallow */
+                    .bujo-toggle-box {
+                        background: #f1f5f9;
+                        border: 1.5px solid #e2e8f0;
+                        border-radius: 16px;
+                        padding: 3px;
+                    }
+                    .bujo-toggle-active {
+                        background: linear-gradient(135deg, #f472b6, #ec4899) !important;
+                        color: #ffffff !important;
+                        box-shadow: 0 3px 8px rgba(236, 72, 153, 0.32) !important;
+                        border-radius: 13px !important;
+                        font-family: 'Baloo 2', 'Nunito', sans-serif !important;
+                        font-weight: 700 !important;
+                    }
+                    .bujo-toggle-inactive {
+                        background: transparent !important;
+                        color: #64748b !important;
+                        border-radius: 13px !important;
+                        font-family: 'Nunito', sans-serif !important;
+                        font-weight: 700 !important;
+                    }
+
+                    /* 12. Bảng quy đổi tham khảo kẻ ô caro dâu */
+                    .bujo-table th {
+                        background: #fff1f2;
+                        color: #9f1239;
+                        font-family: 'Baloo 2', 'Nunito', sans-serif;
+                        font-weight: 700;
+                        font-size: 13px;
+                        padding: 11px 10px;
+                        border-bottom: 2px solid #fecdd3;
+                    }
+                    .bujo-table td {
+                        padding: 10px 8px;
+                        border-bottom: 1px solid #ffe4e6;
+                        font-family: 'Nunito', sans-serif;
+                        font-weight: 700;
+                        font-size: 13px;
+                    }
+                    .bujo-table tr:hover td {
+                        background: #fff5f8;
+                    }
+                </style>
+                
+                <div class="max-w-2xl mx-auto bujo-notebook-cover p-4 sm:p-8 sm:pl-12 relative">
+                    <!-- Gáy xoắn sổ tay giả lập (hiện từ tablet) -->
+                    <div class="bujo-spiral-holes hidden sm:block"></div>
+                    
+                    <!-- ====================================================
+                         TIÊU ĐỀ TRANG: THIỆP POLAROID DÁN SỔ TAY SIÊU CUTE
+                         ==================================================== -->
+                    <div class="flex flex-col items-center mb-8 relative z-10">
+                        <div class="bujo-card-polaroid p-6 pb-6 text-center max-w-sm w-full relative">
+                            <div class="bujo-washi bujo-washi-center"></div>
+                            <!-- Tiêu đề phụ / Định hướng công cụ -->
+                            <div class="bujo-speech-bubble inline-block text-xs font-bold bujo-font-cute mb-3">
+                                🎯 Công cụ tính điểm & xây dựng lộ trình học tập Y Khoa
+                            </div>
+                            <!-- Mascot chú sóc tính điểm chính thức -->
+                            <div class="relative inline-block mb-2">
+                                <img src="assets/squirrel_calculator.png" alt="Sóc tính điểm GPA" 
+                                    class="w-24 h-24 sm:w-28 sm:h-28 object-contain mx-auto drop-shadow-lg transition-transform hover:scale-105 duration-200">
+                                <span class="absolute -top-1 -right-2 text-2xl animate-bounce" style="animation-duration:2.5s">🌸</span>
+                            </div>
+                            <h2 class="text-2xl sm:text-3xl font-extrabold text-gray-800 tracking-tight bujo-font-cute mb-1">
+                                Bảng Điểm <span class="text-pink-500">Y Khoa</span> 🩺
+                            </h2>
+                            <p class="text-xs sm:text-sm font-bold text-gray-500 bujo-font-body">
+                                Kế hoạch học tập, tính điểm hệ 4 và theo dõi tiến độ theo tín chỉ
+                            </p>
+                            <!-- Mini sticker tem dán -->
+                            <div class="flex items-center justify-center gap-2 mt-4 flex-wrap">
+                                <span class="bujo-sticker-badge"><i class="fas fa-stethoscope text-[10px]"></i> UMP Y4</span>
+                                <span class="bujo-sticker-badge"><i class="fas fa-star text-[10px] text-amber-400"></i> Mục tiêu 4.0</span>
+                                <span class="bujo-sticker-badge"><i class="fas fa-bolt text-[10px] text-pink-400"></i> Tự động cập nhật</span>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- CARD 1: Quy đổi điểm nhanh -->
-                    <section class="relative overflow-hidden bg-white rounded-3xl shadow-xl shadow-pink-100/50 border border-pink-100 p-4 sm:p-8 mb-6 sm:mb-8">
-                        <div class="pointer-events-none absolute -top-12 -right-12 w-44 h-44 rounded-full bg-gradient-to-br from-pink-100/80 to-purple-100/50 blur-2xl"></div>
-                        <div class="flex items-center gap-3 mb-6">
-                            <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#FF69B4] to-[#D8BFD8] flex items-center justify-center text-white shadow-md shrink-0">
-                                <i class="fas fa-wand-magic-sparkles"></i>
+                    <!-- ====================================================
+                         CARD 1: NOTE GIẤY SỮA DÂU - QUY ĐỔI ĐIỂM SIÊU TỐC
+                         ==================================================== -->
+                    <section class="bujo-memo-yellow p-5 sm:p-7 mb-8 relative">
+                        <div class="bujo-washi bujo-washi-yellow bujo-washi-center"></div>
+                        
+                        <!-- Kẹp giấy trang trí (Paperclip SVG) -->
+                        <div class="bujo-paperclip text-amber-400 opacity-90 drop-shadow-xs">
+                            <svg viewBox="0 0 24 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 4v34a6 6 0 0 0 12 0V14a10 10 0 0 0-20 0v24a14 14 0 0 0 28 0V16" />
+                            </svg>
+                        </div>
+                        
+                        <div class="flex items-center gap-3 mb-5">
+                            <div class="w-11 h-11 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-lg shadow-xs border border-amber-200">
+                                <i class="fas fa-bolt"></i>
                             </div>
                             <div>
-                                <h3 class="text-base sm:text-lg font-extrabold text-gray-800 leading-snug">Quy đổi điểm nhanh</h3>
-                                <p class="text-xs text-gray-400">Nhập kết quả một bài để xem điểm hệ 10, hệ 4 và điểm chữ</p>
+                                <h3 class="text-lg sm:text-xl font-bold text-gray-800 bujo-font-cute">Quy Đổi Điểm Nhanh</h3>
+                                <p class="text-xs text-gray-500 font-bold bujo-font-body">Nhập số câu đúng để xác định điểm hệ 10, hệ 4 và điểm chữ theo chuẩn UMP</p>
                             </div>
                         </div>
-                        <form id="gpa-form">
-                            <div class="flex items-end gap-2 sm:gap-3">
-                                <div class="flex-1 min-w-0">
-                                    <label for="correct-answers" class="flex items-center justify-center gap-1.5 text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-2">
-                                        <i class="fas fa-circle-check text-emerald-400"></i> Số câu đúng
+
+                        <form id="gpa-form" class="relative">
+                            <div class="flex items-end gap-3 sm:gap-4">
+                                <div class="flex-1">
+                                    <label for="correct-answers" class="block text-xs font-bold text-gray-600 mb-1.5 ml-1 bujo-font-cute">
+                                        <i class="fas fa-check-circle text-pink-500 mr-1"></i>Số câu đúng
                                     </label>
                                     <input type="number" id="correct-answers" min="0" inputmode="numeric"
-                                        class="block w-full px-3 py-3 text-xl font-extrabold text-center text-gray-800 bg-pink-50/50 border border-pink-200 rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] transition placeholder:text-gray-300 placeholder:font-semibold"
+                                        class="bujo-input block w-full px-4 py-3 text-2xl sm:text-3xl font-extrabold text-center text-pink-600 placeholder:text-pink-200"
                                         placeholder="35">
                                 </div>
-                                <span class="text-2xl font-extrabold text-pink-200 pb-3 select-none">/</span>
-                                <div class="flex-1 min-w-0">
-                                    <label for="total-questions" class="flex items-center justify-center gap-1.5 text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-2">
-                                        <i class="fas fa-list-ol text-pink-400"></i> Tổng số câu
+                                <div class="pb-3 text-3xl font-bold text-amber-300 select-none bujo-font-cute">/</div>
+                                <div class="flex-1">
+                                    <label for="total-questions" class="block text-xs font-bold text-gray-600 mb-1.5 ml-1 bujo-font-cute">
+                                        <i class="fas fa-list-ol text-gray-400 mr-1"></i>Tổng số câu
                                     </label>
                                     <input type="number" id="total-questions" min="1" inputmode="numeric"
-                                        class="block w-full px-3 py-3 text-xl font-extrabold text-center text-gray-800 bg-pink-50/50 border border-pink-200 rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] transition placeholder:text-gray-300 placeholder:font-semibold"
+                                        class="bujo-input block w-full px-4 py-3 text-2xl sm:text-3xl font-extrabold text-center text-gray-700 placeholder:text-gray-300"
                                         placeholder="50">
                                 </div>
                             </div>
-                            <div id="total-quick-chips" class="flex flex-wrap items-center justify-center gap-1.5 mt-3">
-                                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mr-0.5">Tổng câu:</span>
-                                <button type="button" data-total="30" class="px-3 py-1.5 rounded-full border border-pink-100 bg-pink-50/50 text-xs font-bold text-gray-500 hover:border-pink-300 hover:text-pink-500 active:scale-95 transition">30</button>
-                                <button type="button" data-total="40" class="px-3 py-1.5 rounded-full border border-pink-100 bg-pink-50/50 text-xs font-bold text-gray-500 hover:border-pink-300 hover:text-pink-500 active:scale-95 transition">40</button>
-                                <button type="button" data-total="50" class="px-3 py-1.5 rounded-full border border-pink-100 bg-pink-50/50 text-xs font-bold text-gray-500 hover:border-pink-300 hover:text-pink-500 active:scale-95 transition">50</button>
-                                <button type="button" data-total="60" class="px-3 py-1.5 rounded-full border border-pink-100 bg-pink-50/50 text-xs font-bold text-gray-500 hover:border-pink-300 hover:text-pink-500 active:scale-95 transition">60</button>
-                                <button type="button" data-total="100" class="px-3 py-1.5 rounded-full border border-pink-100 bg-pink-50/50 text-xs font-bold text-gray-500 hover:border-pink-300 hover:text-pink-500 active:scale-95 transition">100</button>
+                            
+                            <!-- Chip gợi ý tổng câu nhanh dạng viên kẹo -->
+                            <div id="total-quick-chips" class="flex flex-wrap items-center justify-center gap-2 mt-4">
+                                <span class="text-xs font-bold text-gray-400 mr-1 bujo-font-cute">Gợi ý:</span>
+                                <button type="button" data-total="30" class="px-3 py-1 rounded-full border border-amber-200 bg-white text-xs font-bold text-gray-700 hover:border-pink-300 hover:text-pink-600 hover:bg-pink-50 active:scale-95 transition-all shadow-xs bujo-font-cute">30 câu</button>
+                                <button type="button" data-total="40" class="px-3 py-1 rounded-full border border-amber-200 bg-white text-xs font-bold text-gray-700 hover:border-pink-300 hover:text-pink-600 hover:bg-pink-50 active:scale-95 transition-all shadow-xs bujo-font-cute">40 câu</button>
+                                <button type="button" data-total="50" class="px-3 py-1 rounded-full border border-amber-200 bg-white text-xs font-bold text-gray-700 hover:border-pink-300 hover:text-pink-600 hover:bg-pink-50 active:scale-95 transition-all shadow-xs bujo-font-cute">50 câu</button>
+                                <button type="button" data-total="60" class="px-3 py-1 rounded-full border border-amber-200 bg-white text-xs font-bold text-gray-700 hover:border-pink-300 hover:text-pink-600 hover:bg-pink-50 active:scale-95 transition-all shadow-xs bujo-font-cute">60 câu</button>
+                                <button type="button" data-total="100" class="px-3 py-1 rounded-full border border-amber-200 bg-white text-xs font-bold text-gray-700 hover:border-pink-300 hover:text-pink-600 hover:bg-pink-50 active:scale-95 transition-all shadow-xs bujo-font-cute">100 câu</button>
                             </div>
-                            <p class="text-[11px] text-gray-400 text-center mt-2.5"><i class="fas fa-wand-magic-sparkles mr-1 text-pink-300"></i>Kết quả tự hiện khi nhập đủ hai ô — không cần bấm nút</p>
+                            
                             <button type="button" id="calculate-gpa-btn"
-                                class="mt-4 w-full px-6 py-3 bg-gradient-to-r from-[#FF69B4] to-[#FF8DC7] text-white rounded-2xl shadow-md shadow-pink-200/60 hover:shadow-lg hover:shadow-pink-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 font-bold flex items-center justify-center gap-2">
-                                <i class="fas fa-calculator"></i> Quy đổi điểm
+                                class="bujo-btn-pink mt-5 w-full px-6 py-3.5 text-base flex items-center justify-center gap-2">
+                                <i class="fas fa-calculator"></i> Xem Kết Quả Quy Đổi
                             </button>
                         </form>
-                        <div id="gpa-result-area" class="mt-6 hidden"></div>
-
-                        <!-- Bảng quy đổi tham khảo (đóng/mở) -->
+                        <div id="gpa-result-area" class="mt-5 hidden"></div>
+                        
+                        <!-- Bảng quy đổi UMP dạng xé giấy accordion -->
                         <details class="mt-5 group">
-                            <summary class="cursor-pointer list-none flex items-center gap-1.5 text-xs font-bold text-pink-500 hover:text-pink-600 transition select-none py-2 -my-2 touch-manipulation">
-                                <i class="fas fa-chevron-right text-[10px] transition-transform group-open:rotate-90"></i>
-                                Xem bảng quy đổi hệ 10 → điểm chữ → hệ 4
+                            <summary class="cursor-pointer list-none flex items-center justify-center gap-2 text-xs font-bold text-gray-500 hover:text-pink-600 transition p-2 bujo-font-cute">
+                                <i class="fas fa-paperclip text-amber-500"></i> Xem bảng quy đổi điểm UMP
+                                <i class="fas fa-chevron-down text-[10px] transition-transform group-open:-rotate-180"></i>
                             </summary>
-                            <div class="mt-3 overflow-x-auto rounded-xl border border-pink-100">
-                                <table class="w-full text-xs text-center">
+                            <div class="mt-2 border border-amber-200 rounded-2xl overflow-hidden bg-white shadow-xs">
+                                <table class="w-full text-center bujo-table">
                                     <thead>
-                                        <tr class="bg-pink-50 text-gray-500 font-bold uppercase tracking-wide text-[10px]">
-                                            <th class="py-2 px-2">Hệ 10</th>
-                                            <th class="py-2 px-2">Điểm chữ</th>
-                                            <th class="py-2 px-2">Hệ 4</th>
+                                        <tr>
+                                            <th>Hệ 10</th>
+                                            <th>Điểm chữ</th>
+                                            <th>Hệ 4</th>
                                         </tr>
                                     </thead>
-                                    <tbody class="divide-y divide-pink-50 text-gray-700 font-semibold">
-                                        <tr class="hover:bg-pink-50/40 transition"><td class="py-1.5">9.5 – 10</td><td class="py-1.5"><span class="inline-block min-w-[34px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 font-extrabold">A+</span></td><td>4.0</td></tr>
-                                        <tr class="hover:bg-pink-50/40 transition"><td class="py-1.5">8.5 – 9.4</td><td class="py-1.5"><span class="inline-block min-w-[34px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 font-extrabold">A</span></td><td>4.0</td></tr>
-                                        <tr class="hover:bg-pink-50/40 transition"><td class="py-1.5">8.0 – 8.4</td><td class="py-1.5"><span class="inline-block min-w-[34px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600 font-extrabold">B+</span></td><td>3.5</td></tr>
-                                        <tr class="hover:bg-pink-50/40 transition"><td class="py-1.5">7.0 – 7.9</td><td class="py-1.5"><span class="inline-block min-w-[34px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600 font-extrabold">B</span></td><td>3.0</td></tr>
-                                        <tr class="hover:bg-pink-50/40 transition"><td class="py-1.5">6.5 – 6.9</td><td class="py-1.5"><span class="inline-block min-w-[34px] px-2 py-0.5 rounded-full bg-sky-100 text-sky-600 font-extrabold">C+</span></td><td>2.5</td></tr>
-                                        <tr class="hover:bg-pink-50/40 transition"><td class="py-1.5">5.5 – 6.4</td><td class="py-1.5"><span class="inline-block min-w-[34px] px-2 py-0.5 rounded-full bg-sky-100 text-sky-600 font-extrabold">C</span></td><td>2.0</td></tr>
-                                        <tr class="hover:bg-pink-50/40 transition"><td class="py-1.5">5.0 – 5.4</td><td class="py-1.5"><span class="inline-block min-w-[34px] px-2 py-0.5 rounded-full bg-violet-100 text-violet-600 font-extrabold">D+</span></td><td>1.5</td></tr>
-                                        <tr class="hover:bg-pink-50/40 transition"><td class="py-1.5">4.0 – 4.9</td><td class="py-1.5"><span class="inline-block min-w-[34px] px-2 py-0.5 rounded-full bg-violet-100 text-violet-600 font-extrabold">D</span></td><td>1.0</td></tr>
-                                        <tr class="hover:bg-pink-50/40 transition"><td class="py-1.5">&lt; 4.0</td><td class="py-1.5"><span class="inline-block min-w-[34px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-extrabold">F</span></td><td>0.0</td></tr>
+                                    <tbody class="text-gray-700 font-bold text-xs sm:text-sm">
+                                        <tr><td>9.5 – 10</td><td><span class="inline-block px-2.5 py-0.5 rounded-full bg-pink-100 text-pink-600 font-extrabold bujo-font-cute">A+</span></td><td>4.0</td></tr>
+                                        <tr><td>8.5 – 9.4</td><td><span class="inline-block px-2.5 py-0.5 rounded-full bg-pink-100 text-pink-600 font-extrabold bujo-font-cute">A</span></td><td>4.0</td></tr>
+                                        <tr><td>8.0 – 8.4</td><td><span class="inline-block px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-600 font-extrabold bujo-font-cute">B+</span></td><td>3.5</td></tr>
+                                        <tr><td>7.0 – 7.9</td><td><span class="inline-block px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-600 font-extrabold bujo-font-cute">B</span></td><td>3.0</td></tr>
+                                        <tr><td>6.5 – 6.9</td><td><span class="inline-block px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-600 font-extrabold bujo-font-cute">C+</span></td><td>2.5</td></tr>
+                                        <tr><td>5.5 – 6.4</td><td><span class="inline-block px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-600 font-extrabold bujo-font-cute">C</span></td><td>2.0</td></tr>
+                                        <tr><td>5.0 – 5.4</td><td><span class="inline-block px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-600 font-extrabold bujo-font-cute">D+</span></td><td>1.5</td></tr>
+                                        <tr><td>4.0 – 4.9</td><td><span class="inline-block px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-600 font-extrabold bujo-font-cute">D</span></td><td>1.0</td></tr>
+                                        <tr><td>&lt; 4.0</td><td><span class="inline-block px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-500 font-extrabold bujo-font-cute">F</span></td><td>0.0</td></tr>
                                     </tbody>
                                 </table>
                             </div>
-                            <p class="text-[11px] text-gray-400 mt-2 leading-relaxed">
-                                <i class="fas fa-circle-info mr-1"></i>Câu đúng → hệ 10 theo công thức UMP: dưới 50% đúng tính <b>8 × tỉ lệ đúng</b>; 50% = 4.0đ; 60% = 5.0đ; trên 60% tăng dần tới 10đ.
-                            </p>
                         </details>
                     </section>
 
-                    <!-- CARD 2: Tính số câu cần đạt cho từng kỳ thi -->
-                    <!-- Không dùng overflow-hidden ở section: sẽ chặn mất position:sticky của thanh tóm tắt.
-                         Đốm trang trí được cắt bằng lớp bọc riêng bên dưới. -->
-                    <section id="required-correct-section"
-                        class="relative bg-white rounded-3xl shadow-xl shadow-pink-100/50 border border-pink-100 p-4 sm:p-8 mb-10">
-                        <div class="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
-                            <div class="absolute -bottom-12 -right-12 w-44 h-44 rounded-full bg-gradient-to-br from-purple-100/60 to-pink-100/70 blur-2xl"></div>
-                        </div>
-                        <div class="flex items-center gap-3 mb-5">
-                            <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#FF69B4] to-[#D8BFD8] flex items-center justify-center text-white shadow-md shrink-0">
+                    <!-- ====================================================
+                         CARD 2: NOTE GIẤY XANH PHẤN - CHIẾN LƯỢC ÔN TẬP
+                         ==================================================== -->
+                    <section id="required-correct-section" class="bujo-memo-blue p-5 sm:p-7 relative">
+                        <div class="bujo-washi bujo-washi-blue bujo-washi-center"></div>
+                        
+                        <div class="flex items-center gap-3 mb-6 relative">
+                            <div class="w-11 h-11 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center font-bold text-lg shadow-xs border border-sky-200">
                                 <i class="fas fa-bullseye"></i>
                             </div>
                             <div class="min-w-0">
-                                <h3 class="text-base sm:text-lg font-extrabold text-gray-800 leading-snug">Tính số câu cần đạt cho từng kỳ thi</h3>
-                                <p class="text-xs text-gray-400">Đặt mục tiêu → nhập điểm đã có → biết còn phải đúng bao nhiêu câu</p>
+                                <h3 class="text-lg sm:text-xl font-bold text-gray-800 bujo-font-cute">Chiến Lược Ôn Tập Theo Môn</h3>
+                                <p class="text-xs text-gray-500 font-bold bujo-font-body">Đặt mục tiêu → chia đợt thi → biết ngay số câu cần đúng</p>
                             </div>
                             <button type="button" id="reset-goal-btn"
-                                class="ml-auto w-10 h-10 sm:w-9 sm:h-9 shrink-0 flex items-center justify-center bg-gray-100 text-gray-500 rounded-xl hover:bg-pink-100 hover:text-pink-500 active:scale-90 transition shadow-sm touch-manipulation"
-                                title="Xoá dữ liệu đã nhập" aria-label="Xoá dữ liệu đã nhập">
-                                <i class="fas fa-rotate-left"></i>
+                                class="ml-auto w-9 h-9 flex items-center justify-center bg-white border border-sky-200 text-gray-500 hover:text-pink-600 rounded-xl shadow-xs hover:bg-pink-50 active:scale-95 transition-all"
+                                title="Xoá dữ liệu đã nhập">
+                                <i class="fas fa-eraser text-xs"></i>
                             </button>
                         </div>
 
-                        <!-- Chọn môn học — mỗi môn giữ số liệu riêng, cuộn ngang được trên điện thoại -->
-                        <div class="mb-5">
-                            <div class="flex items-center gap-2 mb-2">
-                                <span class="text-[11px] font-bold text-gray-400 uppercase tracking-wide flex items-center gap-1.5 shrink-0">
-                                    <i class="fas fa-book text-pink-400"></i> Môn học
+                        <!-- Chọn môn học: Dải thẻ dán lề (Sticky Index Tabs) -->
+                        <div class="mb-6 bg-white/95 p-4 rounded-2xl border border-sky-100 shadow-xs">
+                            <div class="flex items-center justify-between gap-2 mb-2.5 border-b border-dashed border-sky-100 pb-2">
+                                <span class="text-xs font-bold text-gray-600 bujo-font-cute">
+                                    <i class="fas fa-bookmark text-pink-400 mr-1.5"></i> Môn học
                                 </span>
-                                <span class="h-px flex-1 bg-pink-100"></span>
-                                <button type="button" id="rename-subject-btn"
-                                    class="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg text-gray-400 hover:text-pink-500 hover:bg-pink-50 transition touch-manipulation"
-                                    title="Đổi tên môn đang chọn" aria-label="Đổi tên môn đang chọn"><i class="fas fa-pen text-xs"></i></button>
-                                <button type="button" id="delete-subject-btn"
-                                    class="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition touch-manipulation"
-                                    title="Xoá môn đang chọn" aria-label="Xoá môn đang chọn"><i class="fas fa-trash-can text-xs"></i></button>
+                                <div class="flex gap-1.5">
+                                    <button type="button" id="rename-subject-btn" class="w-7 h-7 flex items-center justify-center rounded-lg border border-sky-200 bg-white text-gray-600 hover:bg-sky-50 hover:text-sky-600 active:scale-95 transition-all shadow-xs" title="Đổi tên môn"><i class="fas fa-pen text-[10px]"></i></button>
+                                    <button type="button" id="delete-subject-btn" class="w-7 h-7 flex items-center justify-center rounded-lg border border-red-200 bg-white text-gray-600 hover:bg-red-50 hover:text-red-500 active:scale-95 transition-all shadow-xs" title="Xoá môn"><i class="fas fa-trash-can text-[10px]"></i></button>
+                                </div>
                             </div>
-                            <div id="subject-chips" class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                            <div id="subject-chips" class="flex gap-2 overflow-x-auto pb-1.5 scrollbar-none">
                                 <!-- chip từng môn (render bằng JS) -->
                             </div>
                         </div>
 
-                        <!-- GPA cả học kỳ: cộng điểm hệ 4 các môn theo tín chỉ -->
-                        <details id="semester-gpa" class="group mb-5 rounded-2xl border border-pink-100 bg-pink-50/40">
-                            <summary class="cursor-pointer list-none flex items-center gap-2 px-3.5 py-2.5 select-none touch-manipulation">
-                                <i class="fas fa-chevron-right text-[10px] text-pink-400 transition-transform group-open:rotate-90"></i>
-                                <span class="text-xs font-bold text-gray-500">GPA học kỳ (tạm tính)</span>
-                                <span id="semester-gpa-value" class="ml-auto text-lg font-extrabold text-gray-300 leading-none">—</span>
-                                <span id="semester-gpa-sub" class="text-[10px] font-semibold text-gray-400"></span>
+                        <!-- GPA cả học kỳ -->
+                        <details id="semester-gpa" class="group mb-7 rounded-2xl border border-emerald-200 bg-emerald-50/70 shadow-xs overflow-hidden">
+                            <summary class="cursor-pointer list-none flex items-center gap-3 px-4 py-3 select-none">
+                                <div class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 text-xs">
+                                    <i class="fas fa-chevron-down text-[10px] transition-transform group-open:-rotate-180"></i>
+                                </div>
+                                <span class="text-xs sm:text-sm font-bold text-emerald-900 bujo-font-cute">GPA học kỳ tạm tính</span>
+                                <span id="semester-gpa-value" class="ml-auto text-lg sm:text-xl font-extrabold text-emerald-700 leading-none bujo-font-cute">—</span>
+                                <span id="semester-gpa-sub" class="text-xs font-bold text-emerald-600 bujo-font-body"></span>
                             </summary>
-                            <div id="semester-gpa-body" class="px-3.5 pb-3.5">
-                                <!-- danh sách môn + số tín chỉ (render bằng JS) -->
+                            <div id="semester-gpa-body" class="px-4 pb-4 border-t border-dashed border-emerald-200 mt-1 pt-2">
+                                <!-- danh sách môn (render bằng JS) -->
                             </div>
                         </details>
 
-                        <!-- ===== BƯỚC 1: kỳ thi ===== -->
-                        <div class="flex items-center gap-2 mb-2.5">
-                            <span class="w-6 h-6 rounded-full bg-gradient-to-br from-[#FF69B4] to-[#FF8DC7] text-white text-[11px] font-extrabold flex items-center justify-center shrink-0 shadow-sm">1</span>
-                            <h4 class="text-sm font-extrabold text-gray-700">Kỳ thi của bạn</h4>
-                            <span class="h-px flex-1 bg-pink-100"></span>
-                        </div>
-                        <div class="mb-6">
+                        <!-- BƯỚC 1: Loại kỳ thi -->
+                        <div class="mb-7 relative pl-4 border-l-2 border-sky-300">
+                            <div class="absolute -left-[11px] top-0 w-5 h-5 rounded-full bg-sky-400 text-white flex items-center justify-center font-extrabold text-[11px] shadow-xs bujo-font-cute">1</div>
+                            <h4 class="text-sm font-bold text-gray-800 mb-2 ml-1 bujo-font-cute flex items-center gap-2">
+                                <i class="fas fa-shapes text-sky-400"></i> Loại kỳ thi
+                            </h4>
                             <select id="exam-type" aria-label="Loại kỳ thi"
-                                class="w-full px-4 py-3 sm:py-2.5 bg-white border border-pink-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] transition cursor-pointer">
+                                class="bujo-input w-full px-4 py-3 bg-white text-gray-800 font-bold cursor-pointer bujo-font-cute text-sm">
                                 <option value="pretest">Có pretest (10 · 20 · 70)</option>
                                 <option value="nopretest">Không pretest (30 · 70)</option>
-                                <option value="custom">Tùy chỉnh — nhiều đợt, tự đặt tên</option>
+                                <option value="custom">Tùy chỉnh — tự chia đợt thi</option>
                             </select>
-                            <p class="text-[11px] text-gray-400 mt-1.5"><i class="fas fa-pen-to-square mr-1 text-pink-300"></i>Mọi loại kỳ thi đều sửa được: tên, trọng số, thêm/xoá đợt và <b>cách tính điểm riêng từng đợt</b>.</p>
                         </div>
 
-                        <!-- ===== BƯỚC 2: mục tiêu ===== -->
-                        <div class="flex items-center gap-2 mb-2.5">
-                            <span class="w-6 h-6 rounded-full bg-gradient-to-br from-[#FF69B4] to-[#FF8DC7] text-white text-[11px] font-extrabold flex items-center justify-center shrink-0 shadow-sm">2</span>
-                            <h4 class="text-sm font-extrabold text-gray-700">Mục tiêu muốn đạt</h4>
-                            <span class="h-px flex-1 bg-pink-100"></span>
-                            <div id="target-mode-toggle" class="flex bg-white p-0.5 rounded-lg border border-pink-100 gap-0.5 shrink-0"
-                                title="Đặt mục tiêu theo hệ 4 hoặc hệ 10 — đổi qua lại lúc nào cũng được">
-                                <button type="button" data-target-mode="gpa4" class="target-mode-btn px-2.5 h-7 rounded-md text-[11px] font-bold transition">Hệ 4</button>
-                                <button type="button" data-target-mode="score10" class="target-mode-btn px-2.5 h-7 rounded-md text-[11px] font-bold transition">Hệ 10</button>
-                            </div>
-                        </div>
-                        <div class="mb-6">
-                            <input type="hidden" id="desired-gpa-4" value="4.0">
-                            <!-- Mục tiêu theo hệ 10: nhập số hoặc kéo thanh trượt -->
-                            <div id="desired-10-wrap" class="hidden">
-                                <div class="flex items-center gap-3">
-                                    <input type="number" id="desired-score-10" min="0" max="10" step="0.1" inputmode="decimal" value="8.5"
-                                        class="w-24 px-3 py-2 border border-pink-200 rounded-xl text-center text-lg font-extrabold text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-200"
-                                        aria-label="Điểm hệ 10 mong muốn">
-                                    <input type="range" id="desired-score-10-range" min="0" max="10" step="0.1" value="8.5"
-                                        class="flex-1 accent-pink-500 cursor-pointer h-6" aria-label="Kéo chọn điểm hệ 10 mong muốn">
+                        <!-- BƯỚC 2: Mục tiêu muốn đạt -->
+                        <div class="mb-7 relative pl-4 border-l-2 border-sky-300">
+                            <div class="absolute -left-[11px] top-0 w-5 h-5 rounded-full bg-sky-400 text-white flex items-center justify-center font-extrabold text-[11px] shadow-xs bujo-font-cute">2</div>
+                            <div class="flex items-center gap-3 mb-3 ml-1">
+                                <h4 class="text-sm font-bold text-gray-800 bujo-font-cute flex items-center gap-2">
+                                    <i class="fas fa-flag text-amber-400"></i> Mục tiêu muốn đạt
+                                </h4>
+                                <div id="target-mode-toggle" class="ml-auto flex bujo-toggle-box gap-1">
+                                    <button type="button" data-target-mode="gpa4" class="target-mode-btn px-2.5 py-1 text-xs font-bold transition-all">Hệ 4</button>
+                                    <button type="button" data-target-mode="score10" class="target-mode-btn px-2.5 py-1 text-xs font-bold transition-all">Hệ 10</button>
                                 </div>
                             </div>
-                            <div id="desired-gpa-chips" class="grid grid-cols-4 sm:grid-cols-7 gap-2 sm:gap-1.5">
-                                <button type="button" data-gpa="1.0" class="gpa-chip flex flex-col items-center justify-center py-2.5 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 hover:-translate-y-0.5 hover:shadow-sm active:scale-95 transition-all duration-150">
-                                    <span class="text-sm font-extrabold leading-none">D</span><span class="text-[10px] font-semibold opacity-70 mt-1">1.0</span>
+                            
+                            <input type="hidden" id="desired-gpa-4" value="4.0">
+                            <!-- Hệ 10 -->
+                            <div id="desired-10-wrap" class="hidden bg-white/95 border border-sky-200 rounded-2xl p-4 mb-3 shadow-xs">
+                                <div class="flex items-center gap-3">
+                                    <input type="number" id="desired-score-10" min="0" max="10" step="0.1" inputmode="decimal" value="8.5"
+                                        class="bujo-input w-24 px-3 py-2 text-center text-xl font-bold text-gray-800">
+                                    <input type="range" id="desired-score-10-range" min="0" max="10" step="0.1" value="8.5"
+                                        class="flex-1 cursor-pointer">
+                                </div>
+                            </div>
+                            
+                            <!-- Hệ 4 Chips -->
+                            <div id="desired-gpa-chips" class="grid grid-cols-4 sm:grid-cols-7 gap-2 mt-2">
+                                <button type="button" data-gpa="1.0" class="gpa-chip flex flex-col items-center justify-center py-2 rounded-xl transition-all bujo-chip-inactive">
+                                    <span class="text-base font-extrabold bujo-font-cute">D</span><span class="text-[11px] font-bold opacity-75 bujo-font-body">1.0</span>
                                 </button>
-                                <button type="button" data-gpa="1.5" class="gpa-chip flex flex-col items-center justify-center py-2.5 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 hover:-translate-y-0.5 hover:shadow-sm active:scale-95 transition-all duration-150">
-                                    <span class="text-sm font-extrabold leading-none">D+</span><span class="text-[10px] font-semibold opacity-70 mt-1">1.5</span>
+                                <button type="button" data-gpa="1.5" class="gpa-chip flex flex-col items-center justify-center py-2 rounded-xl transition-all bujo-chip-inactive">
+                                    <span class="text-base font-extrabold bujo-font-cute">D+</span><span class="text-[11px] font-bold opacity-75 bujo-font-body">1.5</span>
                                 </button>
-                                <button type="button" data-gpa="2.0" class="gpa-chip flex flex-col items-center justify-center py-2.5 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 hover:-translate-y-0.5 hover:shadow-sm active:scale-95 transition-all duration-150">
-                                    <span class="text-sm font-extrabold leading-none">C</span><span class="text-[10px] font-semibold opacity-70 mt-1">2.0</span>
+                                <button type="button" data-gpa="2.0" class="gpa-chip flex flex-col items-center justify-center py-2 rounded-xl transition-all bujo-chip-inactive">
+                                    <span class="text-base font-extrabold bujo-font-cute">C</span><span class="text-[11px] font-bold opacity-75 bujo-font-body">2.0</span>
                                 </button>
-                                <button type="button" data-gpa="2.5" class="gpa-chip flex flex-col items-center justify-center py-2.5 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 hover:-translate-y-0.5 hover:shadow-sm active:scale-95 transition-all duration-150">
-                                    <span class="text-sm font-extrabold leading-none">C+</span><span class="text-[10px] font-semibold opacity-70 mt-1">2.5</span>
+                                <button type="button" data-gpa="2.5" class="gpa-chip flex flex-col items-center justify-center py-2 rounded-xl transition-all bujo-chip-inactive">
+                                    <span class="text-base font-extrabold bujo-font-cute">C+</span><span class="text-[11px] font-bold opacity-75 bujo-font-body">2.5</span>
                                 </button>
-                                <button type="button" data-gpa="3.0" class="gpa-chip flex flex-col items-center justify-center py-2.5 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 hover:-translate-y-0.5 hover:shadow-sm active:scale-95 transition-all duration-150">
-                                    <span class="text-sm font-extrabold leading-none">B</span><span class="text-[10px] font-semibold opacity-70 mt-1">3.0</span>
+                                <button type="button" data-gpa="3.0" class="gpa-chip flex flex-col items-center justify-center py-2 rounded-xl transition-all bujo-chip-inactive">
+                                    <span class="text-base font-extrabold bujo-font-cute">B</span><span class="text-[11px] font-bold opacity-75 bujo-font-body">3.0</span>
                                 </button>
-                                <button type="button" data-gpa="3.5" class="gpa-chip flex flex-col items-center justify-center py-2.5 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 hover:-translate-y-0.5 hover:shadow-sm active:scale-95 transition-all duration-150">
-                                    <span class="text-sm font-extrabold leading-none">B+</span><span class="text-[10px] font-semibold opacity-70 mt-1">3.5</span>
+                                <button type="button" data-gpa="3.5" class="gpa-chip flex flex-col items-center justify-center py-2 rounded-xl transition-all bujo-chip-inactive">
+                                    <span class="text-base font-extrabold bujo-font-cute">B+</span><span class="text-[11px] font-bold opacity-75 bujo-font-body">3.5</span>
                                 </button>
-                                <button type="button" data-gpa="4.0" class="gpa-chip flex flex-col items-center justify-center py-2.5 rounded-xl border border-pink-100 bg-white text-gray-600 hover:border-pink-300 hover:-translate-y-0.5 hover:shadow-sm active:scale-95 transition-all duration-150">
-                                    <span class="text-sm font-extrabold leading-none">A</span><span class="text-[10px] font-semibold opacity-70 mt-1">4.0</span>
+                                <button type="button" data-gpa="4.0" class="gpa-chip flex flex-col items-center justify-center py-2 rounded-xl transition-all bujo-chip-inactive">
+                                    <span class="text-base font-extrabold bujo-font-cute">A</span><span class="text-[11px] font-bold opacity-75 bujo-font-body">4.0</span>
                                 </button>
                             </div>
-                            <p id="desired-target-hint" class="text-[11px] text-gray-400 mt-2 text-center"></p>
+                            <p id="desired-target-hint" class="text-xs font-bold text-pink-700 bg-pink-50 border border-pink-200 p-2.5 rounded-xl mt-3 text-center bujo-font-cute"></p>
                         </div>
 
-                        <!-- ===== BƯỚC 3: điểm từng đợt ===== -->
-                        <div class="flex items-center gap-2 mb-2.5">
-                            <span class="w-6 h-6 rounded-full bg-gradient-to-br from-[#FF69B4] to-[#FF8DC7] text-white text-[11px] font-extrabold flex items-center justify-center shrink-0 shadow-sm">3</span>
-                            <h4 class="text-sm font-extrabold text-gray-700">Điểm từng đợt</h4>
-                            <span class="h-px flex-1 bg-pink-100"></span>
-                        </div>
-                        <p class="text-[11px] text-gray-400 mb-2.5 flex items-start gap-1.5">
-                            <i class="fas fa-lightbulb mt-0.5 text-amber-300"></i>
-                            <span>Đợt <b>đã thi</b> thì nhập điểm, đợt <b>chưa thi</b> cứ để trống — công cụ sẽ tính giúp bạn cần bao nhiêu.</span>
-                        </p>
+                        <!-- BƯỚC 3: Điểm các đợt thi -->
+                        <div class="relative pl-4 border-l-2 border-sky-300 mb-2">
+                            <div class="absolute -left-[11px] top-0 w-5 h-5 rounded-full bg-sky-400 text-white flex items-center justify-center font-extrabold text-[11px] shadow-xs bujo-font-cute">3</div>
+                            <h4 class="text-sm font-bold text-gray-800 mb-3 ml-1 bujo-font-cute flex items-center gap-2">
+                                <i class="fas fa-layer-group text-pink-400"></i> Điểm các đợt thi
+                            </h4>
 
-                        <!-- Thang điểm mỗi bài: cách quy đổi câu đúng → hệ 10 trước khi nhân trọng số -->
-                        <div class="flex flex-wrap items-center justify-between gap-2 mb-3 bg-pink-50/60 border border-pink-100 rounded-xl px-3 py-2.5">
-                            <span class="text-xs font-semibold text-gray-500 flex items-center gap-1.5"
-                                title="Áp dụng cho tất cả các đợt nhập theo câu đúng — từng đợt vẫn đổi riêng được ở ô 'cách tính điểm'">
-                                <i class="fas fa-scale-balanced text-pink-400"></i> Thang mặc định · áp cho tất cả
-                            </span>
-                            <div id="scale-mode-toggle" class="flex w-full sm:w-auto bg-white p-0.5 rounded-lg border border-pink-100 gap-0.5">
-                                <button type="button" data-mode="ump" class="scale-mode-btn flex-1 sm:flex-none px-3 h-9 sm:h-7 rounded-md text-xs font-bold transition"
-                                    title="Câu đúng → hệ 10 theo công thức UMP (giống card Quy đổi nhanh phía trên)">Công thức UMP</button>
-                                <button type="button" data-mode="linear" class="scale-mode-btn flex-1 sm:flex-none px-3 h-9 sm:h-7 rounded-md text-xs font-bold transition"
-                                    title="Hệ 10 = tỉ lệ câu đúng × 10">% đúng × 10</button>
+                            <div class="bg-white/95 border border-sky-100 rounded-2xl p-3 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
+                                <span class="text-xs font-bold text-gray-700 bujo-font-cute">
+                                    <i class="fas fa-scale-balanced mr-1.5 text-pink-500"></i> Công thức tính
+                                </span>
+                                <div id="scale-mode-toggle" class="flex bujo-toggle-box gap-1">
+                                    <button type="button" data-mode="ump" class="scale-mode-btn px-3 py-1 text-xs font-bold transition-all">Chuẩn UMP</button>
+                                    <button type="button" data-mode="linear" class="scale-mode-btn px-3 py-1 text-xs font-bold transition-all">% đúng × 10</button>
+                                </div>
+                            </div>
+
+                            <div id="attempts-table" class="mb-5 space-y-3">
+                                <!-- Bảng nhập render bằng JS -->
                             </div>
                         </div>
 
-                        <div id="attempts-table" class="mb-5">
-                            <!-- Bảng nhập câu đúng / tổng câu / trọng số từng lần (render bằng JS) -->
-                        </div>
-
-                        <!-- ===== KẾT QUẢ ===== -->
-                        <!-- Điểm tổng kết tạm tính (cập nhật theo thời gian thực khi nhập / kéo thanh trượt) -->
+                        <!-- KẾT QUẢ TẠM TÍNH (Report Card) -->
                         <div id="gpa-live-projection" class="hidden"></div>
-
-                        <!-- Thanh tóm tắt dính đáy (chỉ mobile): vừa nhập vừa thấy điểm tạm tính, bấm là nhảy tới kết quả -->
-                        <!-- bottom-[5.5rem]: né con sóc nổi #squirrel-floating (fixed bottom-4, cao 64px) -->
-                        <div id="gpa-sticky-bar" class="hidden sm:hidden sticky bottom-[5.5rem] z-20 mb-3 transition-opacity duration-200">
+                        
+                        <!-- Thanh tóm tắt dính đáy trên mobile (Bookmark ribbon) -->
+                        <div id="gpa-sticky-bar" class="hidden sm:hidden sticky bottom-[5.5rem] z-20 mb-3 transition-all">
                             <button type="button" id="gpa-sticky-btn"
-                                class="w-full flex items-center gap-2 px-3 py-2.5 rounded-2xl bg-white/95 backdrop-blur border border-pink-200 shadow-lg shadow-pink-200/50 active:scale-[0.98] transition touch-manipulation">
-                                <span class="text-[9px] font-bold text-gray-400 uppercase leading-tight text-left shrink-0">Tạm<br>tính</span>
-                                <span id="gpa-sticky-score" class="text-xl font-extrabold text-pink-500 leading-none shrink-0">—</span>
-                                <span id="gpa-sticky-gap" class="text-[11px] font-semibold text-gray-500 leading-tight text-left min-w-0"></span>
-                                <span class="ml-auto text-xs font-bold text-white bg-gradient-to-r from-[#FF69B4] to-[#FF8DC7] rounded-full px-3 py-1.5 shrink-0">Kết quả <i class="fas fa-arrow-down ml-0.5"></i></span>
+                                class="w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white/95 backdrop-blur-md border border-pink-200 shadow-lg shadow-pink-200/50 active:scale-[0.98] transition-all">
+                                <div class="flex flex-col text-left">
+                                    <span class="text-[10px] font-bold text-gray-400 bujo-font-cute">Tạm tính</span>
+                                    <span id="gpa-sticky-score" class="text-xl font-extrabold text-pink-500 leading-none bujo-font-cute">—</span>
+                                </div>
+                                <span id="gpa-sticky-gap" class="text-xs font-bold text-gray-600 truncate flex-1 text-right bujo-font-body"></span>
+                                <span class="bg-gradient-to-r from-pink-400 to-rose-400 text-white text-xs font-bold px-3 py-1.5 rounded-xl shrink-0 shadow-xs bujo-font-cute">Xem kết quả <i class="fas fa-arrow-down ml-1"></i></span>
                             </button>
                         </div>
 
                         <button type="button" id="calculate-required-btn"
-                            class="w-full px-6 py-3.5 bg-gradient-to-r from-[#FF69B4] to-[#FF8DC7] text-white rounded-2xl shadow-md shadow-pink-200/60 hover:shadow-lg hover:shadow-pink-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 font-bold flex items-center justify-center gap-2 touch-manipulation">
-                            <i class="fas fa-bullseye"></i> Tính số câu cần đạt
+                            class="bujo-btn-purple w-full px-6 py-3.5 text-base flex items-center justify-center gap-2 mt-4">
+                            <i class="fas fa-chart-line"></i> Tính Toán Số Câu Cần Đạt
                         </button>
+                        
                         <div id="required-correct-result" class="mt-5"></div>
-                        <div class="flex items-start gap-1.5 text-xs text-gray-400 mt-3">
-                            <i class="fas fa-circle-info mt-0.5"></i>
-                            <span>Dữ liệu bạn nhập được lưu tự động trên máy; sau lần tính đầu tiên, kết quả sẽ tự cập nhật khi bạn chỉnh số liệu.</span>
+                        
+                        <div class="flex items-start gap-2 text-xs font-bold text-gray-500 mt-5 bg-white/95 p-3.5 rounded-2xl border border-sky-100 bujo-font-body">
+                            <i class="fas fa-database text-sky-400 mt-0.5"></i>
+                            <span>Dữ liệu được lưu tự động trên thiết bị. Mọi thay đổi về thông số đợt thi sẽ cập nhật tức thì vào kết quả phân tích.</span>
                         </div>
                     </section>
                 </div>
@@ -962,8 +1359,9 @@
                 <div id="rooms-hub"></div>
             </div>
         </main>
+        <!-- Điện thoại: footer nhường chỗ cho thanh tab (dòng bản quyền nằm cuối thanh bên) -->
         <footer
-            class="bg-white/80 backdrop-blur-lg text-gray-600 text-center p-3 border-t border-pink-100 flex-shrink-0 rounded-t-2xl shadow-inner text-xs md:text-base">
+            class="hidden md:block bg-white/80 backdrop-blur-lg text-gray-600 text-center py-2 px-3 border-t border-pink-100 flex-shrink-0 rounded-t-2xl shadow-inner text-xs md:text-sm">
             <p class="flex items-center justify-center gap-1.5 tracking-wide">
                 <span>&copy; 2025</span>
                 <a href="https://fb.com/vietthanh1911" target="_blank" rel="noopener noreferrer"
@@ -976,14 +1374,15 @@
                 <span>UMP</span>
             </p>
         </footer>
-        <div id="squirrel-floating"
-            class="fixed bottom-4 right-4 z-50 cursor-pointer select-none max-w-[60vw] sm:max-w-xs">
-            <img src="assets/squirrel-pixel.png" alt="Pixel Squirrel Mascot"
-                class="w-16 h-16 rounded-2xl shadow-xl hover:scale-110 transition-transform duration-300 bg-white/80 backdrop-blur-md border-2 border-pink-200">
-            <div id="squirrel-message"
-                class="hidden absolute bottom-16 right-0 bg-white/90 text-gray-800 rounded-lg shadow-lg px-4 py-2 text-base max-w-[80vw] sm:max-w-xs z-50 border border-pink-200">
-            </div>
-        </div>
+        <!-- Thanh tab dưới (chỉ điện thoại): 4 tab hay dùng + "Thêm" mở thanh bên.
+             Là .nav-link có data-target nên app.js tự gắn chuyển tab + tô tab đang mở. -->
+        <nav id="tabbar" aria-label="Lối tắt">
+            <a href="#" data-target="dashboardContent" data-title="Trang chủ" class="nav-link is-active" aria-current="page"><i class="fas fa-house"></i><span class="sb-text">Trang chủ</span></a>
+            <a href="#" data-target="libraryContent" data-title="Thư viện" class="nav-link"><i class="fas fa-book"></i><span class="sb-text">Thư viện</span></a>
+            <a href="#" data-target="createQuizContent" data-title="Tạo trắc nghiệm" class="nav-link tabbar-main"><i class="fas fa-plus"></i><span class="sb-text">Tạo đề</span></a>
+            <a href="#" data-target="statsContent" data-title="Thống kê" class="nav-link"><i class="fas fa-chart-simple"></i><span class="sb-text">Thống kê</span></a>
+            <button type="button" id="tabbar-menu-btn" aria-label="Mở thanh bên"><i class="fas fa-grip"></i><span>Thêm</span></button>
+        </nav>
     </div>
 
     <div id="authModal"
@@ -1077,7 +1476,7 @@
 
     <div id="toast-container"></div>
 
-    <script type="module" src="app.js?v=7"></script>
+    <script type="module" src="app.js?v=9"></script>
     <script src="features/quiz/quiz-library-menu.js"></script>
     <!-- Hoạt ảnh mở thẻ bộ đề + nạp ngầm trang làm bài khi bấm "Làm bài" -->
     <script src="features/quiz/quiz-launch-transition.js" defer></script>

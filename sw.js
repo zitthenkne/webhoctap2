@@ -1,5 +1,5 @@
 // Service Worker for PWA - Offline Support & Caching
-const CACHE_NAME = 'zitthenkne-v154';
+const CACHE_NAME = 'zitthenkne-v170';
 
 // App shell (cùng origin) — nạp sẵn khi cài để mở offline được ngay.
 const urlsToCache = [
@@ -7,6 +7,9 @@ const urlsToCache = [
   'index.html',
   'style.css',
   'tailwind-index.css',
+  'home-shell.css',
+  'core/app-sidebar.css',
+  'core/app-sidebar.js',
   'features/checklist/checklist.css',
   'features/quiz/quiz-preview.css',
   'app.js',
@@ -115,6 +118,10 @@ const urlsToCache = [
   'features/medical-record/tao-benh-an.css',
   'features/medical-record/tailwind-benh-an.css',
   'features/medical-record/gon-giao-dien.css',
+  'features/medical-record/mau-hong-dao.css',
+  'features/medical-record/bo-cuc-ben.js',
+  'features/medical-record/kham-gon.js',
+  'features/medical-record/bien-luan-gon.js',
   'features/medical-record/gon-giao-dien.js',
   'features/medical-record/tao-benh-an.html',
   'features/medical-record/tao-benh-an.js',
@@ -162,8 +169,10 @@ const urlsToCache = [
   'core/guide.js',
   'features/study-room/waiting-room.html',
   'features/study-room/waiting-room.js',
+  'features/study-room/waiting-room.css',
   'features/medical-record/xem-benh-an.html',
   'features/medical-record/xem-benh-an.js',
+  'features/medical-record/xem-benh-an.css',
   'features/quiz/quiz-history.html',
   'features/quiz/quiz-history.js',
   'features/quiz/quiz-library-menu.js',

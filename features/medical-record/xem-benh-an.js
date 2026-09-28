@@ -1,5 +1,5 @@
 import { showToast } from '../../core/utils.js';
-import { getRecord, syncFromCloud, authReady, isSignedIn } from './record-store.js';
+import { getRecord, syncFromCloud, authReady, isSignedIn, saveRecord } from './record-store.js';
 import { auth } from '../../core/firebase-init.js';
 import { clsToHtml, clsToWordHtml, abnormalItems, refText, FLAG_MARK } from './cls-shared.js';
 import { buildModel, VITAL_RANGE, toMarkdown, slugName, downloadMarkdown } from './benh-an-text.js';
@@ -23,8 +23,31 @@ const $ = (id) => document.getElementById(id);
 const searchBar = $('search-bar'), searchInput = $('search-input'), searchCount = $('search-count');
 let hits = [], hitIdx = -1;
 
-/* Màu pastel xoay vòng cho từng mục — hường phấn vẫn chiếm phân nửa */
-const ACCENTS = ['pink', 'mint', 'pink', 'lavender', 'pink', 'peach', 'pink', 'sky', 'pink', 'lemon'];
+/* Bệnh án chia 4 PHẦN theo trình tự làm bệnh án, mỗi phần một màu pastel (xem xem-benh-an.css).
+   Mục không đánh số (Phẫu thuật, Theo dõi diễn tiến) thuộc phần của mục đứng trước nó. */
+const ROMAN = { I: 1, V: 5, X: 10, L: 50 };
+const romanToInt = (s) => [...s].reduce((n, c, i, a) => n + (ROMAN[c] < ROMAN[a[i + 1]] ? -ROMAN[c] : ROMAN[c]), 0);
+const PARTS = [
+    { upTo: 5, name: 'Hỏi bệnh', accent: 'pink', icon: 'fa-comments' },
+    { upTo: 8, name: 'Khám & tóm tắt', accent: 'mint', icon: 'fa-stethoscope' },
+    { upTo: 13, name: 'Chẩn đoán', accent: 'lavender', icon: 'fa-magnifying-glass' },
+    { upTo: 99, name: 'Điều trị & theo dõi', accent: 'peach', icon: 'fa-syringe' }
+];
+const LOAI = { noi: 'Nội khoa', ngoai: 'Ngoại khoa', san: 'Sản khoa', nhi: 'Nhi khoa', cc: 'Cấp cứu' };
+
+/** "V. LƯỢC QUA CÁC CƠ QUAN (khám ngày 26/8)" → { num:'V', n:5, name:'Lược qua các cơ quan', note:'(khám ngày 26/8)' }.
+    Tên viết thường cho dễ đọc; bản in tự in hoa lại bằng CSS. */
+function splitTitle(t) {
+    const m = String(t).match(/^([IVXL]+)\.\s*(.+)$/);
+    const rest = m ? m[2] : String(t);
+    const i = rest.indexOf('(');
+    const head = (i > 0 ? rest.slice(0, i) : rest).trim();
+    return {
+        num: m ? m[1] : '', n: m ? romanToInt(m[1]) : 0, key: head,
+        name: head.charAt(0) + head.slice(1).toLowerCase(),
+        note: i > 0 ? rest.slice(i).trim() : ''
+    };
+}
 
 /* Nhãn thuộc diện che khi bật chế độ riêng tư */
 const PRIVATE_KIND = (label) =>
@@ -70,35 +93,176 @@ function anhHtml(list, caption) {
     return `<div class="xb-cap">${esc(caption)}</div><div class="cls-imgs">${imgs}</div>`;
 }
 
-function fieldHtml(label, value) {
+/* ============================== ĐỊNH DẠNG CHỮ ==============================
+   Chữ người dùng gõ (nhiều dòng) → HTML dễ đọc, KHÔNG đổi dữ liệu gốc:
+   - dòng trống = sang đoạn mới (cách xa); xuống dòng thường = dòng mới cùng đoạn (cách gần)
+   - dòng mở đầu bằng - * • + – ● ○ ▪ ➤ ✓ → gạch đầu dòng; 1. 2) a. b) i. → đánh số (giữ nguyên ký hiệu)
+   - thụt đầu dòng (2 dấu cách / 1 tab) = cấp con; dòng thụt dưới một mục = viết tiếp mục đó
+   - **chữ** = in đậm; "Nhãn ngắn:" ở đầu dòng được in đậm cho dễ dò */
+const RE_UL = /^([-*•+–●○◦▪■➤➢✓✔])\s+(.*)$/;
+/* Đánh số: 1. 2) ii. IV) a) — chữ cái + "." chỉ tính khi chữ sau viết hoa ("A. Chẩn đoán"),
+   để tên vi khuẩn "S. pneumoniae", "E. coli", "H. pylori" đầu dòng không bị biến thành danh sách */
+const RE_OL = /^((?:\d{1,2}|[ivxIVX]{2,4}|[a-zA-Z])\)|(?:\d{1,2}|[ivxIVX]{2,4})\.|[a-zA-Z]\.(?=\s+[\p{Lu}\d]))\s+(.*)$/u;
+
+function inlineRt(s) {
+    let x = esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+    // "Mạch: 96 l/p" → nhãn in đậm. Chỉ nhận nhãn ngắn, không dấu câu / ngoặc, để câu văn thường không bị tô
+    x = x.replace(/^([^:.,;!?()<>]{2,32}?):(?=\s|$)/, '<span class="rt-k">$1:</span>');
+    return x;
+}
+
+function richText(raw, asBullets = false) {
+    const lines = String(raw ?? '').replace(/\r/g, '').replace(/\t/g, '    ').split('\n');
+    if (lines.length === 1 && !asBullets) {
+        const m = lines[0].trim().match(RE_UL) || lines[0].trim().match(RE_OL);
+        if (!m) return inlineRt(lines[0].trim());
+    }
+    // gap: vừa gặp dòng trống → khối kế tiếp (đoạn / danh sách) mang .rt-gap = cách XA;
+    // khối nối liền không có dòng trống ở giữa thì chỉ cách GẦN như xuống dòng thường
+    let out = '', para = [], paraGap = false, gap = false;
+    const stack = [];                      // danh sách đang mở: { tag, ind }
+    const gapCls = () => { const c = gap ? ' class="rt-gap"' : ''; gap = false; return c; };
+    const flushPara = () => { if (para.length) out += `<p${paraGap ? ' class="rt-gap"' : ''}>${para.join('<br>')}</p>`; para = []; };
+    const closeTo = (ind) => {             // đóng các danh sách thụt sâu hơn ind
+        while (stack.length && stack[stack.length - 1].ind > ind) out += `</li></${stack.pop().tag}>`;
+    };
+    const closeAll = () => closeTo(-1);
+
+    lines.forEach(line => {
+        if (!line.trim()) { flushPara(); closeAll(); if (out) gap = true; return; }
+        const ind = line.length - line.trimStart().length;
+        let t = line.trim();
+        if (asBullets && !RE_UL.test(t) && !RE_OL.test(t) && !ind) t = '- ' + t;
+        const ul = t.match(RE_UL), ol = !ul && t.match(RE_OL);
+        if (ul || ol) {
+            flushPara();
+            const tag = ul ? 'ul' : 'ol';
+            closeTo(ind);
+            // cùng cấp mà đổi kiểu (gạch ↔ số) → đóng danh sách cũ, mở danh sách mới
+            if (stack.at(-1)?.ind === ind && stack.at(-1).tag !== tag) out += `</li></${stack.pop().tag}>`;
+            if (stack.at(-1)?.ind === ind) {
+                out += '</li>';                    // mục kế tiếp cùng danh sách
+            } else {
+                // danh sách mới (hoặc cấp con, nằm trong mục đang mở); chỉ danh sách ngoài cùng mới xét cách đoạn
+                out += `<${tag}${stack.length ? '' : gapCls()}>`;
+                stack.push({ tag, ind });
+            }
+            out += ol ? `<li><span class="rt-m">${esc(ol[1])}</span>${inlineRt(ol[2])}` : `<li>${inlineRt(ul[2])}`;
+            return;
+        }
+        // Dòng thường thụt vào dưới một mục danh sách → viết tiếp trong mục đó
+        if (stack.length && ind > 0 && ind >= stack.at(-1).ind) { out += '<br>' + inlineRt(t); return; }
+        closeAll();
+        if (!para.length) { paraGap = gap; gap = false; }
+        para.push(inlineRt(t));
+    });
+    flushPara();
+    closeAll();
+    return out;
+}
+
+/* ============================== SỬA NHANH ==============================
+   Ô nào sửa được ngay trong trang xem: [tên mục (không số, không "(khám ngày…)") → nhãn dòng → đường dẫn].
+   Chỉ nhận khi chữ đang hiện ĐÚNG BẰNG giá trị ở đường dẫn đó → dòng máy ghép từ nhiều ô (Tuổi,
+   Ngày giờ nhập viện, khối sản khoa…) tự bị loại, không thể ghi nhầm. Lưu bằng saveRecord nên
+   trang Sửa (tao-benh-an) mở ra là thấy bản mới; ô tự ghép ở đó (bindAuto) không đè chữ người sửa. */
+const EDIT_MAP = {
+    'HÀNH CHÍNH': {
+        'Họ và tên bệnh nhân': 'hanhChinh.hoTen', 'Giới tính': 'hanhChinh.gioiTinh', 'Dân tộc': 'hanhChinh.danToc',
+        'Nghề nghiệp': 'hanhChinh.ngheNghiep', 'Địa chỉ': 'hanhChinh.diaChi',
+        'Người liên hệ': 'hanhChinh.nguoiLienHe', 'SĐT liên hệ': 'hanhChinh.sdtLienHe'
+    },
+    'LÝ DO VÀO VIỆN': { '': 'lyDoVaoVien' },
+    'BỆNH SỬ': { '': 'benhSu' },
+    'TIỀN CĂN': {
+        '1. Nội khoa': 'tienSu.noiKhoa', '2. Thuốc đang dùng tại nhà': 'tienSu.thuocDangDung',
+        '3. Ngoại khoa': 'tienSu.ngoaiKhoa', '4. Sản phụ khoa': 'tienSu.sanPhuKhoa', '5. Dị ứng': 'tienSu.diUng',
+        '6. Môi trường – phơi nhiễm': 'tienSu.moiTruong', '7. Thói quen': 'tienSu.thoiQuen', '8. Gia đình': 'tienSu.giaDinh'
+    },
+    'LƯỢC QUA CÁC CƠ QUAN': {
+        'Tim mạch': 'luocQuaCoQuan.timMach', 'Hô hấp': 'luocQuaCoQuan.hoHap', 'Tiêu hóa': 'luocQuaCoQuan.tieuHoa',
+        'Thần kinh': 'luocQuaCoQuan.thanKinh', 'Cơ xương khớp': 'luocQuaCoQuan.coXuongKhop', 'Thận – Tiết niệu': 'luocQuaCoQuan.thanNieu'
+    },
+    'KHÁM LÂM SÀNG': {
+        'Xử trí ban đầu': 'capCuu.xuTriBanDau', '1. Tổng trạng': 'khamBenh.tongTrang', '2. Đầu – mặt – cổ': 'khamBenh.dauMatCo',
+        '3. Ngực': 'khamBenh.nguc', '4. Tim': 'khamBenh.tim', '5. Phổi': 'khamBenh.phoi', '6. Bụng': 'khamBenh.bung',
+        '7. Thần kinh – Cơ xương khớp': 'khamBenh.thanKinhCoXuongKhop'
+    },
+    'TÓM TẮT BỆNH ÁN': { '': 'tomTatBenhAn' },
+    'ĐẶT VẤN ĐỀ': { '': 'datVanDe' },
+    'CHẨN ĐOÁN': { 'Chẩn đoán sơ bộ': 'chanDoanSoBo', 'Chẩn đoán phân biệt': 'chanDoanPhanBiet' },
+    'BIỆN LUẬN LÂM SÀNG': { '': 'bienLuanChanDoan' },
+    // Không có bienLuanDeNghiCLS / bienLuanKetQuaCLS / duPhong: ô kiểu cũ, trang Sửa GỘP chúng vào
+    // Biện luận / Tiên lượng mỗi lần mở (tao-benh-an.js ~dòng 376) → sửa ở đây sẽ bị gộp trùng.
+    'ĐỀ NGHỊ CẬN LÂM SÀNG': { '': 'canLamSangDeNghi' },
+    'KẾT QUẢ CẬN LÂM SÀNG': { '': 'ketQuaCanLamSang' },
+    'PHẪU THUẬT': {
+        'Phương pháp phẫu thuật': 'phauThuat.phuongPhap', 'Phương pháp vô cảm': 'phauThuat.voCam',
+        'Dẫn lưu – vết mổ': 'phauThuat.danLuu', 'Chẩn đoán trước mổ': 'phauThuat.chanDoanTruocMo',
+        'Chẩn đoán sau mổ': 'phauThuat.chanDoanSauMo', 'Tường trình phẫu thuật': 'phauThuat.tuongTrinh'
+    },
+    'CHẨN ĐOÁN XÁC ĐỊNH': { '': 'chanDoanXacDinh' },
+    'ĐIỀU TRỊ': { '1. Điều trị đặc hiệu / nguyên tắc': 'huongDieuTri', '2. Điều trị triệu chứng & biến chứng': 'dieuTriCuThe' },
+    'TIÊN LƯỢNG': { '': 'tienLuong' }
+};
+const getPath = (o, p) => p.split('.').reduce((x, k) => (x == null ? undefined : x[k]), o);
+function setPath(o, p, v) {
+    const ks = p.split('.'), last = ks.pop();
+    ks.reduce((x, k) => (x[k] && typeof x[k] === 'object' ? x[k] : (x[k] = {})), o)[last] = v;
+}
+function pathFor(key, label, value) {
+    const c = EDIT_MAP[key]?.[label];
+    if (!c || !record) return '';
+    return [].concat(c).find(p => { const v = getPath(record, p); return v != null && String(v) === String(value); }) || '';
+}
+
+function fieldHtml(label, value, o = {}) {
     if (!String(value ?? '').trim()) return '';
     const kind = PRIVATE_KIND(label);
     // Số điện thoại: bấm là gọi được luôn trên điện thoại
     const tel = /SĐT|Điện thoại/i.test(label) && String(value).replace(/[^0-9+]/g, '');
     const inner = tel && tel.length >= 8
         ? `<a href="tel:${esc(tel)}">${esc(value)}</a>`
-        : esc(value);
-    const shown = `<span class="field-value"${kind ? ` data-private="${kind}"` : ''}>${inner}</span>`;
-    return `<div class="xb-f">${label ? `<span class="field-label">${esc(label)}:</span> ` : ''}${shown}</div>`;
+        : richText(value, o.bullet);
+    // Dấu ":" sau nhãn chỉ in ra giấy (CSS ::after) — trên màn hình nhãn đã tách cột riêng.
+    // is-long: ô Hành chính dài (địa chỉ…) chiếm cả hàng trên điện thoại
+    const cls = ['xb-f', (String(value).length > 30 || /\n/.test(value)) && 'is-long', o.path && 'is-editable']
+        .filter(Boolean).join(' ');
+    const attrs = o.path ? ` data-path="${esc(o.path)}" data-label="${esc(label)}"${o.bullet ? ' data-bullet="1"' : ''}` : '';
+    return `<div class="${cls}"${attrs}>`
+        + (label ? `<span class="field-label">${esc(label)}</span> ` : '')
+        + `<div class="field-value rt"${kind ? ` data-private="${kind}"` : ''}>${inner}</div>`
+        + (o.path ? `<button type="button" class="xb-qe no-print" data-qe title="Sửa nhanh tại đây (bấm đúp vào chữ cũng được)" aria-label="Sửa nhanh ${esc(label || 'mục này')}"><i class="fas fa-pen"></i></button>` : '')
+        + `</div>`;
 }
 
-function sectionHtml(title, icon, rows, index) {
+function sectionHtml(title, icon, rows, index, accent) {
+    const t = splitTitle(title);
     const body = rows.map(([label, value, extra]) =>
         label === '@vitals' ? vitalsHtml(value, extra)
             : label === '@cls' ? clsToHtml(value)
                 : label === '@anh' ? anhHtml(value, extra)
-                    : fieldHtml(label, value)).join('');
+                    : fieldHtml(label, value, { path: pathFor(t.key, label, value), bullet: extra === 'bullet' })).join('');
     if (!body) return '';
-    // Hành chính toàn là dòng ngắn -> xếp 2 cột cho đỡ dài
+    // Hành chính toàn là dòng ngắn -> xếp ô 2 cột như thẻ căn cước
     const cls = index === 0 ? 'xb-sec-body sec-grid' : 'xb-sec-body';
-    return `<section id="sec-${index}" class="rec-section xb-sec" data-accent="${ACCENTS[index % ACCENTS.length]}">
+    // Tem tròn: số La Mã; mục không đánh số thì dùng icon
+    const stamp = t.num ? `<span class="xb-num">${t.num}</span>` : `<span class="xb-num is-icon"><i class="fas ${icon}"></i></span>`;
+    return `<section id="sec-${index}" class="rec-section xb-sec" data-accent="${accent}">
         <button class="xb-sec-head" aria-expanded="true">
-            <span class="xb-sec-ic"><i class="fas ${icon}"></i></span>
-            <span class="xb-sec-t">${esc(title)}</span>
+            ${stamp}
+            <span class="xb-sec-t">${esc(t.name)}${t.note ? `<small>${esc(t.note)}</small>` : ''}</span>
             <i class="fas fa-chevron-down xb-chev"></i>
         </button>
         <div class="${cls}">${body}</div>
     </section>`;
+}
+
+/** Tấm bìa ngăn đầu mỗi phần: "Hỏi bệnh I–V" */
+function partHtml(p, list) {
+    const nums = list.map(s => s.st.num).filter(Boolean);
+    const range = nums.length ? `<small>${nums[0]}${nums.length > 1 ? '–' + nums[nums.length - 1] : ''}</small>` : '';
+    return `<div class="xb-part no-print" data-accent="${p.accent}"><span class="xb-part-no"><i class="fas ${p.icon}"></i>${p.name}${range}</span></div>`;
 }
 
 function emptyHtml(icon, title, text, btn) {
@@ -131,10 +295,18 @@ if (!record) {
     $('dock').hidden = true;
 } else {
     const model = buildModel(record);
-    sections = model.map(([t, i, rows], idx) => ({ title: t, html: sectionHtml(t, i, rows, idx), idx }))
-        .filter(s => s.html);
+    let partIdx = 0;
+    sections = model.map(([t, i, rows], idx) => {
+        const st = splitTitle(t);
+        if (st.n) partIdx = Math.max(partIdx, PARTS.findIndex(p => st.n <= p.upTo));
+        return { title: t, st, icon: i, part: partIdx, html: sectionHtml(t, i, rows, idx, PARTS[partIdx].accent), idx };
+    }).filter(s => s.html);
 
-    view.innerHTML = sections.length ? sections.map(s => s.html).join('')
+    // Chèn tấm bìa ngăn trước mục đầu tiên của mỗi phần
+    const withParts = sections.map((s, k) => (k === 0 || sections[k - 1].part !== s.part
+        ? partHtml(PARTS[s.part], sections.filter(x => x.part === s.part)) : '') + s.html);
+
+    view.innerHTML = sections.length ? withParts.join('')
         : emptyHtml('fa-pen-to-square', 'Bệnh án này chưa có nội dung', 'Bấm Sửa để bắt đầu điền.',
             `<a href="tao-benh-an.html?id=${encodeURIComponent(record.id)}" class="xb-btn xb-primary" style="margin-top:16px"><i class="fas fa-pen"></i>Sửa bệnh án</a>`);
 
@@ -188,28 +360,34 @@ if (!record) {
     const dayN = daysFrom(h.ngayVaoVien);
     const initials = name.trim().split(/\s+/).slice(-2).map(x => x[0]).join('').toUpperCase() || '?';
 
-    $('snapshot').innerHTML = `<div class="xb-snap">
+    const isDoneRec = (record.status || 'Hoàn thành') === 'Hoàn thành';
+    $('snapshot').innerHTML = `<div class="xb-snap" data-accent="pink">
+        <i class="fas fa-paperclip xb-clip" aria-hidden="true"></i>
         <div class="xb-snap-top">
-            <div class="xb-ava">${esc(initials)}</div>
-            <div style="min-width:0;flex:1">
+            <div class="xb-ava" aria-hidden="true"><span>${esc(initials)}</span></div>
+            <div class="xb-snap-id">
+                <p class="xb-kicker">
+                    <span class="xb-tag">${esc(LOAI[record.loaiBenhAn] || 'Bệnh án')}</span>
+                    <span class="xb-tag ${isDoneRec ? 'is-done' : 'is-draft'}">${isDoneRec ? 'Hoàn thành' : 'Đang viết'}</span>
+                </p>
                 <h2 class="xb-snap-name"><span data-private="name">${esc(name)}</span></h2>
                 <p class="xb-snap-sub">${esc([h.tuoi && h.tuoi + ' tuổi', h.gioiTinh, h.khoa, h.benhVien,
         h.soPhong && 'P.' + h.soPhong, (h.soGiuong || h.bedNumber) && 'G.' + (h.soGiuong || h.bedNumber)]
         .filter(Boolean).join(' · ') || 'Chưa có phần hành chính')}</p>
             </div>
             <div class="xb-ring" title="${done}/${total} mục đã có nội dung">
-                <svg width="52" height="52" aria-hidden="true">
+                <svg width="56" height="56" viewBox="0 0 52 52" aria-hidden="true">
                     <circle cx="26" cy="26" r="22" fill="none" stroke="#ffe0ee" stroke-width="5"></circle>
-                    <circle cx="26" cy="26" r="22" fill="none" stroke="#f2669f" stroke-width="5" stroke-linecap="round"
+                    <circle cx="26" cy="26" r="22" fill="none" stroke="#fb92c1" stroke-width="5" stroke-linecap="round"
                         stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C * (1 - pct / 100)).toFixed(1)}"></circle>
                 </svg><b>${pct}%</b>
             </div>
         </div>
 
-        ${dx ? `<div class="xb-dx"><b>${dxLabel}:</b> ${esc(dx.split('\n')[0])}</div>` : ''}
+        ${dx ? `<div class="xb-dx"><b>${dxLabel}</b>${esc(dx.split('\n')[0])}</div>` : ''}
 
         <div class="xb-pills">
-            ${dayN > 0 ? `<span class="xb-pill is-mint">Nằm viện <b>ngày ${dayN}</b></span>` : ''}
+            ${dayN > 0 ? `<span class="xb-stamp">Nằm viện<b>ngày ${dayN}</b></span>` : ''}
             ${snapVitals.map(([l, v, u]) => {
             const r = VITAL_RANGE[l === 'HA' ? 'Huyết áp' : l], x = parseFloat(v);
             const warn = r && !isNaN(x) && (x < r[0] || x > r[1]);
@@ -241,8 +419,13 @@ if (!record) {
     });
 
     /* ---------- Mục lục ---------- */
-    const tocHtml = sections.map(s =>
-        `<a href="#sec-${s.idx}" class="toc-link" data-target="sec-${s.idx}"><span class="dot"></span>${esc(s.title)}</a>`).join('');
+    const tocHtml = sections.map((s, k) => {
+        const p = PARTS[s.part];
+        const cap = k === 0 || sections[k - 1].part !== s.part
+            ? `<p class="toc-part" data-accent="${p.accent}"><i class="fas ${p.icon}"></i>${p.name}</p>` : '';
+        return cap + `<a href="#sec-${s.idx}" class="toc-link" data-accent="${p.accent}" data-target="sec-${s.idx}">`
+            + `<span class="toc-num">${s.st.num || `<i class="fas ${s.icon}"></i>`}</span>${esc(s.st.name)}</a>`;
+    }).join('');
     $('toc-nav').innerHTML = tocHtml;
     $('toc-nav-mobile').innerHTML = tocHtml;
 
@@ -553,14 +736,167 @@ $('search-close').addEventListener('click', closeSearch);
 $('search-btn').addEventListener('click', () => searchBar.classList.contains('is-open') ? closeSearch() : openSearch());
 
 
+/* ============================== 4b. SỬA NHANH TẠI CHỖ ==============================
+   Nút ✎ (hoặc bấm đúp vào chữ) trên dòng có data-path → ô soạn ngay tại chỗ. Lưu = ghi
+   vào record + saveRecord (máy + đám mây) → trang Sửa mở ra là thấy bản mới. */
+const RELOAD_PATHS = new Set(['hanhChinh.hoTen', 'chanDoanXacDinh', 'chanDoanSoBo', 'lyDoVaoVien']);  // bìa hồ sơ / đầu trang dùng
+let qe = null;   // { f: dòng đang sửa, ta: textarea, raw: chữ gốc }
+
+const grow = (ta) => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 3 + 'px'; };
+
+/** Áp fn(dòng[]) lên các dòng đang chọn (hoặc dòng có con trỏ), giữ vùng chọn */
+function qeLines(ta, fn) {
+    const v = ta.value, s = ta.selectionStart, e = ta.selectionEnd;
+    const a = v.lastIndexOf('\n', s - 1) + 1;
+    let b = v.indexOf('\n', e > s && v[e - 1] === '\n' ? e - 1 : e);
+    if (b < 0) b = v.length;
+    const next = fn(v.slice(a, b).split('\n')).join('\n');
+    ta.value = v.slice(0, a) + next + v.slice(b);
+    ta.setSelectionRange(a, a + next.length);
+    grow(ta);
+}
+const splitMark = (l) => {
+    const ind = l.match(/^\s*/)[0], t = l.trim();
+    const m = t.match(RE_UL) || t.match(RE_OL);
+    return [ind, m ? m[2] : t];
+};
+const allMarked = (ls, re) => ls.filter(l => l.trim()).every(l => re.test(l.trim()));
+const FMT = {
+    // bấm lần nữa trên các dòng đã có ký hiệu = bỏ ký hiệu
+    ul: (ls) => { const off = allMarked(ls, RE_UL); return ls.map(l => { if (!l.trim()) return l; const [i, t] = splitMark(l); return off ? i + t : i + '- ' + t; }); },
+    ol: (ls) => { const off = allMarked(ls, RE_OL); let n = 0; return ls.map(l => { if (!l.trim()) return l; const [i, t] = splitMark(l); return off ? i + t : i + (++n) + '. ' + t; }); },
+    in: (ls) => ls.map(l => (l.trim() ? '  ' + l : l)),
+    out: (ls) => ls.map(l => l.replace(/^ {1,2}/, ''))
+};
+function qeBold(ta) {
+    const s = ta.selectionStart, e = ta.selectionEnd, v = ta.value;
+    const sel = v.slice(s, e) || 'chữ đậm';
+    ta.value = v.slice(0, s) + '**' + sel + '**' + v.slice(e);
+    ta.setSelectionRange(s + 2, s + 2 + sel.length);
+}
+/** Enter trong một mục danh sách → mục mới cùng ký hiệu (số tự tăng); mục rỗng + Enter → thoát danh sách */
+function qeEnter(ta, e) {
+    const v = ta.value, s = ta.selectionStart;
+    if (s !== ta.selectionEnd) return;
+    const a = v.lastIndexOf('\n', s - 1) + 1;
+    const line = v.slice(a, s), ind = line.match(/^\s*/)[0], t = line.slice(ind.length);
+    const ul = t.match(/^([-*•+–●○◦▪■➤➢✓✔])\s+(.*)$|^([-*•+–●○◦▪■➤➢✓✔])\s*$/);
+    const ol = !ul && t.match(/^(\d{1,2}|[a-zA-Z])([.)])(?:\s+(.*))?$/);
+    if (!ul && !ol) return;
+    e.preventDefault();
+    const body = ul ? (ul[2] ?? '') : (ol[3] ?? '');
+    if (!body.trim()) {
+        ta.value = v.slice(0, a) + v.slice(s);
+        ta.setSelectionRange(a, a);
+    } else {
+        const mk = ul ? (ul[1] || ul[3]) + ' '
+            : (/\d/.test(ol[1]) ? +ol[1] + 1 : String.fromCharCode(ol[1].charCodeAt(0) + 1)) + ol[2] + ' ';
+        const ins = '\n' + ind + mk;
+        ta.value = v.slice(0, s) + ins + v.slice(s);
+        ta.setSelectionRange(s + ins.length, s + ins.length);
+    }
+    grow(ta);
+}
+
+function openQe(f) {
+    if (!f || !record) return;
+    if (qe) closeQe();
+    const raw = String(getPath(record, f.dataset.path) ?? '');
+    const box = document.createElement('div');
+    box.className = 'qe-box no-print';
+    box.innerHTML = `<div class="qe-tools">
+            <button type="button" data-qe-fmt="ul" title="Gạch đầu dòng (bấm lại để bỏ)"><i class="fas fa-list-ul"></i></button>
+            <button type="button" data-qe-fmt="ol" title="Đánh số 1. 2. 3. (bấm lại để bỏ)"><i class="fas fa-list-ol"></i></button>
+            <button type="button" data-qe-fmt="in" title="Thụt vào — thành mục con (Tab)"><i class="fas fa-indent"></i></button>
+            <button type="button" data-qe-fmt="out" title="Lùi ra (Shift+Tab)"><i class="fas fa-outdent"></i></button>
+            <button type="button" data-qe-fmt="b" title="In đậm (Ctrl+B)"><i class="fas fa-bold"></i></button>
+            <span class="qe-hint">Dòng trống = sang đoạn mới · Ctrl+Enter lưu · Esc hủy</span>
+        </div>
+        <textarea class="qe-ta" spellcheck="false" aria-label="Sửa ${esc(f.dataset.label || 'nội dung')}"></textarea>
+        <div class="qe-foot">
+            <span class="qe-note"><i class="fas fa-rotate"></i> Lưu xong trang Sửa cũng có bản mới</span>
+            <button type="button" data-qe-cancel>Hủy</button>
+            <button type="button" data-qe-save class="qe-save"><i class="fas fa-check"></i> Lưu</button>
+        </div>`;
+    f.classList.add('is-editing');
+    f.appendChild(box);
+    const ta = box.querySelector('textarea');
+    ta.value = raw;
+    qe = { f, ta, raw };
+    grow(ta);
+    ta.focus({ preventScroll: true });
+    ta.setSelectionRange(raw.length, raw.length);
+    box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+function closeQe() {
+    if (!qe) return;
+    qe.f.classList.remove('is-editing');
+    qe.f.querySelector('.qe-box')?.remove();
+    qe = null;
+}
+async function saveQe() {
+    if (!qe) return;
+    const { f, ta, raw } = qe;
+    const path = f.dataset.path;
+    const val = ta.value.replace(/\s+$/, '');
+    if (val === raw) return closeQe();
+    setPath(record, path, val);
+    const res = await saveRecord(record);
+    if (res?.mau) {
+        setPath(record, path, raw);
+        showToast('Đây là bệnh án mẫu nên không lưu thay đổi.', 'warning');
+        return closeQe();
+    }
+    if (RELOAD_PATHS.has(path)) return location.reload();   // bìa hồ sơ + đầu trang cũng phải đổi theo
+    qe = null;
+    const html = fieldHtml(f.dataset.label, val, { path, bullet: f.dataset.bullet === '1' });
+    if (html) f.outerHTML = html; else f.remove();
+    if (priv) applyPrivate(true);
+    showToast(res?.cloud ? 'Đã lưu và đồng bộ — trang Sửa đã có bản mới.' : 'Đã lưu trên máy — trang Sửa đã có bản mới.', 'success');
+}
+
+view.addEventListener('click', (e) => {
+    const pen = e.target.closest('[data-qe]');
+    if (pen) return openQe(pen.closest('.xb-f'));
+    if (!qe) return;
+    const fmt = e.target.closest('[data-qe-fmt]');
+    if (fmt) {
+        const k = fmt.dataset.qeFmt;
+        if (k === 'b') qeBold(qe.ta); else qeLines(qe.ta, FMT[k]);
+        return qe.ta.focus();
+    }
+    if (e.target.closest('[data-qe-save]')) return saveQe();
+    if (e.target.closest('[data-qe-cancel]')) return closeQe();
+});
+view.addEventListener('dblclick', (e) => {
+    const f = e.target.closest('.xb-f.is-editable');
+    if (f && !f.classList.contains('is-editing') && !e.target.closest('a, .qe-box')) openQe(f);
+});
+view.addEventListener('keydown', (e) => {
+    if (!qe || e.target !== qe.ta) return;
+    e.stopPropagation();                      // Esc / Ctrl+F của trang không được chạy khi đang gõ
+    const ta = qe.ta;
+    if (e.key === 'Escape') { e.preventDefault(); return closeQe(); }
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); return saveQe(); }
+    if (e.key === 'Enter' && !e.shiftKey) return qeEnter(ta, e);
+    if (e.key === 'Tab') { e.preventDefault(); return qeLines(ta, FMT[e.shiftKey ? 'out' : 'in']); }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') { e.preventDefault(); qeBold(ta); }
+});
+view.addEventListener('input', (e) => { if (qe && e.target === qe.ta) grow(qe.ta); });
+// Đang sửa dở mà rời trang → hỏi lại cho khỏi mất chữ
+addEventListener('beforeunload', (e) => { if (qe && qe.ta.value !== qe.raw) e.preventDefault(); });
+
+
 /* ============================== 5. CHẾ ĐỘ TRÌNH BỆNH ============================== */
 const present = $('present'), prBody = $('pr-body');
 let prIdx = 0;
 
 function renderPresent() {
     const s = sections[prIdx];
-    // Đổi id để không đụng với id của mục ngoài trang (mục lục, IntersectionObserver)
-    prBody.innerHTML = s.html.replace('id="sec-', 'id="psec-');
+    // Lấy bản ĐANG HIỆN trên trang (đã sửa nhanh thì thấy chữ mới), đổi id để không đụng
+    // với id của mục ngoài trang (mục lục, IntersectionObserver)
+    const live = document.getElementById('sec-' + s.idx);
+    prBody.innerHTML = (live ? live.outerHTML : s.html).replace('id="sec-', 'id="psec-');
     prBody.scrollTop = 0;
     $('pr-count').textContent = `${prIdx + 1} / ${sections.length}`;
     $('pr-dots').innerHTML = sections.map((_, i) => `<i class="${i === prIdx ? 'on' : ''}"></i>`).join('');

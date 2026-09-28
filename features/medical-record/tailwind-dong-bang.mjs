@@ -58,7 +58,9 @@ function gomChu(noiDung) {
 const CORE = join(HERE, '..', '..', 'core');
 const jsCua = (d) => existsSync(d)
     ? readdirSync(d).filter(f => f.endsWith('.js')).map(f => join(d, f)) : [];
-const nguon = [TRANG, ...jsCua(HERE), ...jsCua(CORE)];
+// pwa-install.js (nạp bằng <script defer>) cũng dựng hộp "Tải về máy" bằng class Tailwind
+const PWA = join(HERE, '..', '..', 'pwa-install.js');
+const nguon = [TRANG, ...jsCua(HERE), ...jsCua(CORE), ...(existsSync(PWA) ? [PWA] : [])];
 const chu = new Set();
 for (const f of nguon) gomChu(readFileSync(f, 'utf8')).forEach(t => chu.add(t));
 

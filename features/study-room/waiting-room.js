@@ -7,7 +7,7 @@ import {
     isSignedIn, exportJson, importJson
 } from '../medical-record/record-store.js';
 import {
-    listFolders, saveFolder, deleteFolder, getFolder, newFolderId, mergeFolders, folderMeta
+    listFolders, saveFolder, deleteFolder, getFolder, newFolderId, mergeFolders, folderMeta, folderSpec
 } from '../medical-record/folder-store.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
@@ -44,7 +44,7 @@ function hl(text) {
     return out + esc(raw.slice(pos));
 }
 
-/* ================= Sidebar + linh vật (giữ nguyên hành vi cũ) ================= */
+/* ================= Sidebar (giữ nguyên hành vi cũ) ================= */
 function setupChrome() {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebar-overlay');
@@ -70,19 +70,6 @@ function setupChrome() {
     window.addEventListener('resize', syncSidebarWidth);
     syncSidebarWidth();
 
-    const squirrelMessages = [
-        'Chúc bạn học tốt! 💪', 'Cố lên nhé, bạn làm được mà! 🐿️', 'Học vui như sóc nhảy cành!',
-        'Đừng quên uống nước nhé! 💧', 'Bạn là số 1! ⭐', 'Kiến thức là hạt dẻ, hãy tích lũy mỗi ngày!',
-        'Học tập chăm chỉ, thành công sẽ đến!', 'Tự tin lên nào! ✨', 'Hôm nay bạn đã cố gắng rất nhiều rồi!'
-    ];
-    const squirrel = document.getElementById('squirrel-floating');
-    const msgBox = document.getElementById('squirrel-message');
-    squirrel?.addEventListener('click', () => {
-        if (!msgBox) return;
-        msgBox.textContent = squirrelMessages[Math.floor(Math.random() * squirrelMessages.length)];
-        msgBox.classList.remove('hidden');
-        setTimeout(() => msgBox.classList.add('hidden'), 2200);
-    });
 }
 
 /* ================= Tính % hoàn thiện =================
@@ -153,7 +140,7 @@ function savePrefs() {
     try { localStorage.setItem(PREF_KEY, JSON.stringify({ filter, sortMode, folderId, viewMode })); } catch { }
 }
 
-/** Bệnh án lọt qua thư mục + từ khóa, chưa xét trạng thái — dùng để đếm cho 3 thẻ lọc */
+/** Bệnh án lọt qua đợt đang xem + từ khóa, chưa xét trạng thái — dùng để đếm cho nút lọc trạng thái */
 function baseRecords() {
     return records.filter(r => {
         if (folderId === '__none__') { if (r.thuMuc?.id) return false; }
@@ -180,45 +167,44 @@ function visibleRecords() {
     return out;
 }
 
-/* 3 thẻ tổng quan cũng chính là bộ lọc: đếm theo phạm vi đang xem (thư mục + từ khóa)
-   thì con số mới khớp với danh sách bên dưới. */
+/* Nút lọc trạng thái trên thanh công cụ kèm số đếm theo phạm vi đang xem (đợt + từ khóa)
+   → con số khớp với danh sách bên dưới. */
 function renderStats() {
     const base = baseRecords();
     const done = base.filter(isDone).length;
     document.getElementById('stat-total').textContent = base.length;
     document.getElementById('stat-done').textContent = done;
     document.getElementById('stat-draft').textContent = base.length - done;
-    const drafts = base.filter(r => !isDone(r));
-    const avg = drafts.length ? Math.round(drafts.reduce((n, r) => n + completeness(r), 0) / drafts.length) : 0;
-    const nFolder = listFolders().length;
-    const extra = (id, txt) => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = txt;
-    };
-    extra('stat-extra-all', nFolder ? nFolder + ' đợt' : '');
-    extra('stat-extra-done', base.length ? Math.round(done / base.length * 100) + '%' : '');
-    extra('stat-extra-draft', drafts.length ? 'TB ' + avg + '%' : '');
-    document.querySelectorAll('.stat-btn').forEach(b => {
+    document.querySelectorAll('#stat-filter [data-filter]').forEach(b => {
         const on = b.dataset.filter === filter;
-        b.classList.toggle('active', on);
+        b.classList.toggle('on', on);
         b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
 }
 
 function emptyState() {
-    if (records.length === 0) return `
-        <div class="col-span-full flex flex-col items-center justify-center py-16 text-center">
-            <div class="w-20 h-20 rounded-3xl bg-gradient-to-br from-[#fde9f3] to-[#e4f5ff] flex items-center justify-center mb-4"><i class="fas fa-notes-medical text-3xl text-[#f472b6]"></i></div>
-            <p class="text-[#4a3352] font-bold text-base">Chưa có bệnh án nào</p>
-            <p class="text-[#ab9db6] text-sm mt-1.5 max-w-xs">Bấm <b class="text-[#db2777]">Tạo bệnh án</b> để viết bệnh án đầu tiên. Bài viết tự lưu ngay khi bạn gõ.</p>
-            <button id="empty-create" class="wr-primary mt-5"><i class="fas fa-plus"></i> Tạo bệnh án</button>
-        </div>`;
+    const inFolder = folderId && folderId !== '__none__';
+    if (!baseRecords().length && !qTokens.length) {
+        return inFolder ? `
+            <div class="wr-empty">
+                <span class="ic"><i class="fas fa-folder-open"></i></span>
+                <b>Đợt này chưa có bệnh án</b>
+                <p>Bệnh án tạo ở đây tự điền sẵn khoa, bệnh viện và chuyên khoa của đợt.</p>
+                <button id="empty-create" class="wr-primary"><i class="fas fa-plus"></i> Tạo bệnh án trong đợt</button>
+            </div>` : `
+            <div class="wr-empty">
+                <span class="ic"><i class="fas fa-notes-medical"></i></span>
+                <b>Chưa có bệnh án nào</b>
+                <p>Bấm <b>Tạo bệnh án</b> để viết bệnh án đầu tiên. Bài viết tự lưu ngay khi bạn gõ.</p>
+                <button id="empty-create" class="wr-primary"><i class="fas fa-plus"></i> Tạo bệnh án</button>
+            </div>`;
+    }
     return `
-        <div class="col-span-full flex flex-col items-center justify-center py-14 text-center">
-            <div class="w-16 h-16 rounded-3xl bg-gradient-to-br from-[#e4f5ff] to-[#f1ecff] flex items-center justify-center mb-3"><i class="fas fa-magnifying-glass text-2xl text-[#58c4f7]"></i></div>
-            <p class="text-[#4a3352] font-bold">Không có bệnh án nào khớp</p>
-            <p class="text-[#ab9db6] text-sm mt-1">Thử bớt từ khóa, hoặc bỏ bộ lọc đang bật.</p>
-            <button id="empty-clear" class="mt-5 border-2 border-[#f7dcec] text-[#db2777] bg-white px-4 py-2.5 rounded-2xl font-semibold active:scale-95 transition"><i class="fas fa-rotate-left mr-1"></i> Bỏ mọi bộ lọc</button>
+        <div class="wr-empty">
+            <span class="ic"><i class="fas fa-magnifying-glass"></i></span>
+            <b>Không có bệnh án nào khớp</b>
+            <p>Thử bớt từ khóa, hoặc bỏ bộ lọc trạng thái đang bật.</p>
+            <button id="empty-clear" class="wr-ghost"><i class="fas fa-rotate-left"></i> Bỏ lọc</button>
         </div>`;
 }
 
@@ -234,8 +220,8 @@ const KINDS = {
 const pctColor = (pct) => pct >= 80 ? '#22b98a' : pct >= 40 ? '#58c4f7' : '#f472b6';
 
 function barHtml(pct) {
-    return `<span class="rc-bar" style="--pct:${pct}%;--pct-color:${pctColor(pct)}" title="Mức độ hoàn thiện ${pct}%"><i></i></span>
-        <span class="rc-pct" style="--pct-color:${pctColor(pct)}">${pct}%</span>`;
+    return `<span class="rc-prog" style="--pct:${pct}%;--pct-color:${pctColor(pct)}" title="Mức độ hoàn thiện ${pct}%">
+        <span class="rc-bar"><i></i></span>${pct}%</span>`;
 }
 
 function cardHtml(rec) {
@@ -264,53 +250,45 @@ function cardHtml(rec) {
     const lyDo = rec.lyDoVaoVien || '';
     const chanDoan = rec.chanDoanXacDinh || rec.chanDoanSoBo || '';
     const track = (rec.theoDoi || []).length;
-    // Bệnh án nằm ngoài thư mục thì phải tự nói rõ ở bệnh viện nào
-    const place = rec.thuMuc?.id
-        ? `<span class="rc-chip folder"><i class="fas fa-folder"></i>${hl(rec.thuMuc.ten)}</span>`
-        : (h.benhVien ? `<span class="rc-chip"><i class="fas fa-hospital"></i>${hl(h.benhVien)}</span>` : '');
+    const done = isDone(rec);
+    // Đợt thực hành đã hiện ở tiêu đề nhóm / đầu trang → thẻ chỉ ghi bệnh viện cho bệnh án chưa xếp đợt
+    const place = !rec.thuMuc?.id && h.benhVien
+        ? `<span class="rc-place"><i class="fas fa-hospital"></i>${hl(h.benhVien)}</span>` : '';
     const pct = completeness(rec);
 
     return `
-        <article draggable="true" class="rec-card group${selected.has(String(rec.id)) ? ' selected' : ''}" data-id="${id}"
+        <article draggable="true" class="rec-card${selected.has(String(rec.id)) ? ' selected' : ''}" data-id="${id}" data-done="${done ? 1 : 0}"
             style="--kind:${kindColor};--kind-soft:${kindSoft};--kind-ink:${kindInk};--sex:${sexColor}">
             <span class="rc-check"><i class="fas fa-check"></i></span>
-            <div class="rc-body card-open">
+            <div class="rc-body card-open" title="${done ? 'Bấm để xem bệnh án' : 'Bấm để viết tiếp'}">
                 <div class="rc-top">
                     <div class="rc-avatar">${initial}</div>
                     <div class="rc-id">
                         <p class="rc-name" title="${esc(hoTen)}">${hl(hoTen)}</p>
                         <p class="rc-meta"><i class="fas fa-${sexIcon}"></i>${meta || '—'}</p>
                     </div>
-                    <span class="rc-state ${isDone(rec) ? 'done' : 'draft'}">${isDone(rec) ? 'Hoàn thành' : 'Đang viết'}</span>
+                    <span class="rc-state ${done ? 'done' : 'draft'}">${done ? 'Hoàn thành' : 'Đang viết'}</span>
                 </div>
-
-                <div class="rc-chips">
-                    <span class="rc-chip kind"><span class="dot"></span>${esc(kindName)}</span>
-                    ${place}
-                </div>
-
                 <div class="rc-lines">
-                    <p class="rc-line ${lyDo ? '' : 'empty'}" title="${esc(lyDo)}">
-                        <span class="lbl">Lý do</span>${lyDo ? hl(lyDo) : 'Chưa ghi lý do vào viện'}</p>
-                    <p class="rc-line ${chanDoan ? '' : 'empty'}" title="${esc(chanDoan)}">
-                        <span class="lbl cd">Chẩn đoán</span>${chanDoan ? hl(chanDoan) : 'Chưa có chẩn đoán'}</p>
+                    <p class="rc-line cd ${chanDoan ? '' : 'empty'}" title="${esc(chanDoan)}"><span class="lbl">Chẩn đoán</span>${chanDoan ? hl(chanDoan) : 'Chưa có chẩn đoán'}</p>
+                    <p class="rc-line ld ${lyDo ? '' : 'empty'}" title="${esc(lyDo)}"><span class="lbl">Lý do</span>${lyDo ? hl(lyDo) : 'Chưa ghi lý do vào viện'}</p>
                 </div>
-
                 <div class="rc-foot">
+                    <span class="rc-kind"><span class="dot"></span>${esc(kindName)}</span>
+                    ${place}
                     ${barHtml(pct)}
-                    ${track ? `<span class="rc-track-count"><i class="fas fa-clipboard-list mr-1"></i>${track} lần theo dõi</span>` : ''}
                     <span class="rc-time">${timeAgo(rec.lastUpdated)}</span>
                 </div>
             </div>
 
             <div class="rc-actions">
-                <button class="rc-btn view view-record" data-id="${id}"><i class="fas fa-eye"></i>Xem</button>
-                <button class="rc-btn edit edit-record" data-id="${id}"><i class="fas fa-pen"></i>Sửa</button>
-                <button class="rc-btn track track-record" data-id="${id}"><i class="fas fa-clipboard-list"></i>Theo dõi</button>
+                <button class="rc-btn edit-record${done ? '' : ' primary'}" data-id="${id}"><i class="fas fa-pen"></i>${done ? 'Sửa' : 'Viết tiếp'}</button>
+                <button class="rc-btn view-record${done ? ' primary' : ''}" data-id="${id}"><i class="fas fa-eye"></i>Xem</button>
+                <button class="rc-btn track-record" data-id="${id}" title="Theo dõi diễn tiến hằng ngày"><i class="fas fa-clipboard-list"></i>Theo dõi${track ? ` (${track})` : ''}</button>
                 <button class="rc-btn more menu-record" data-id="${id}" aria-label="Thêm lựa chọn"><i class="fas fa-ellipsis-v"></i></button>
             </div>
             <div class="rc-menu">
-                <button class="move-record" data-id="${id}"><i class="fas fa-folder-tree"></i>Chuyển thư mục</button>
+                <button class="move-record" data-id="${id}"><i class="fas fa-folder-tree"></i>Chuyển sang đợt khác</button>
                 <button class="dup-record" data-id="${id}"><i class="fas fa-copy"></i>Nhân bản</button>
                 <button class="delete-record danger" data-id="${id}"><i class="fas fa-trash"></i>Xóa bệnh án</button>
             </div>
@@ -324,30 +302,66 @@ function renderResume() {
     const slot = document.getElementById('resume-slot');
     if (!slot) return;
     const hide = selectMode || qTokens.length || filter === 'done';
-    const draft = hide ? null : sortRecords(records.filter(r => !isDone(r)))[0];
+    // Chỉ xét trong đợt đang xem: đang ở đợt Nhi thì đừng mời viết tiếp bệnh án bên Nội
+    const draft = hide ? null : sortRecords(baseRecords().filter(r => !isDone(r)))[0];
     if (!draft) { slot.innerHTML = ''; return; }
     const pct = completeness(draft);
     const ten = draft.hanhChinh?.hoTen || 'Bệnh án chưa đặt tên';
-    const noi = [draft.thuMuc?.ten, draft.hanhChinh?.benhVien].filter(Boolean)[0] || '';
+    const noi = folderId ? '' : [draft.thuMuc?.ten, draft.hanhChinh?.benhVien].filter(Boolean)[0] || '';
     slot.innerHTML = `
         <button class="resume-card" data-resume="${esc(draft.id)}">
             <span class="rz-ic"><i class="fas fa-pen-nib"></i></span>
             <span class="rz-txt">
-                <span class="rz-flag">Viết dở · ${pct}% hoàn thiện</span>
+                <span class="rz-flag">Viết dở gần nhất · ${pct}%</span>
                 <b class="rz-name">${esc(ten)}</b>
                 <span class="rz-meta">${esc(noi)}${noi ? ' · ' : ''}sửa ${timeAgo(draft.lastUpdated)}</span>
             </span>
-            <span class="rz-cta">Viết tiếp <i class="fas fa-arrow-right"></i></span>
+            <span class="rz-cta"><span>Viết tiếp</span> <i class="fas fa-arrow-right"></i></span>
         </button>`;
 }
 
+/* Đang xem "Tất cả" mà có đợt thực hành → chia nhóm theo đợt (đợt đang đi / mới nhất lên đầu),
+   bệnh án chưa xếp đợt để cuối. Trong mỗi nhóm giữ thứ tự sắp xếp đang chọn. */
+function groupsHtml(list) {
+    const folders = sortedFolders();
+    const out = folders.map(f => {
+        const rs = list.filter(r => String(r.thuMuc?.id || '') === String(f.id));
+        if (!rs.length) return '';
+        const [, c, soft] = folderKind(f);
+        const meta = [f.khoa, f.benhVien, dateRange(f)].filter(Boolean).join(' · ');
+        return `<section class="wr-group">
+            <div class="wg-head" style="--fc:${c};--fc-soft:${soft}">
+                <span class="wg-ico"><i class="fas fa-folder"></i></span>
+                <div class="wg-txt">
+                    <p class="wg-name">${esc(f.ten || 'Đợt thực hành')}<small>${rs.length} bệnh án</small></p>
+                    ${meta ? `<p class="wg-meta">${esc(meta)}</p>` : ''}
+                </div>
+                <button type="button" class="wg-open" data-goto-folder="${esc(f.id)}">Mở đợt <i class="fas fa-arrow-right text-[10px]"></i></button>
+            </div>
+            <div class="wr-grid">${rs.map(cardHtml).join('')}</div>
+        </section>`;
+    }).join('');
+    const loose = list.filter(r => !r.thuMuc?.id);
+    return out + (loose.length ? `<section class="wr-group">
+            <div class="wg-head">
+                <span class="wg-ico"><i class="fas fa-inbox"></i></span>
+                <div class="wg-txt"><p class="wg-name">Chưa xếp vào đợt<small>${loose.length} bệnh án</small></p>
+                    <p class="wg-meta">Kéo thả thẻ vào một đợt ở cột trái, hoặc ⋮ → Chuyển sang đợt khác</p></div>
+            </div>
+            <div class="wr-grid">${loose.map(cardHtml).join('')}</div>
+        </section>` : '');
+}
+
 function render() {
-    renderFolders();   // chạy trước: thư mục đang chọn có thể đã bị xóa, phải trả về "Tất cả" ngay
+    renderFolders();   // chạy trước: đợt đang chọn có thể đã bị xóa, phải trả về "Tất cả" ngay
     renderStats();
     const box = document.getElementById('medical-record-cards');
     const list = visibleRecords();
     for (const id of [...selected]) if (!records.some(r => String(r.id) === id)) selected.delete(id);
-    box.innerHTML = list.length ? list.map(cardHtml).join('') : emptyState();
+    const grouped = !folderId && listFolders().length > 0;
+    box.innerHTML = !list.length ? emptyState()
+        : grouped ? groupsHtml(list)
+        : `<div class="wr-grid">${list.map(cardHtml).join('')}</div>`;
     box.classList.toggle('select-mode', selectMode);
     box.classList.toggle('view-compact', viewMode === 'compact');
     document.querySelectorAll('#view-toggle button').forEach(b =>
@@ -360,10 +374,9 @@ function render() {
     document.getElementById('empty-clear')?.addEventListener('click', clearFilters);
 }
 
-/** Bỏ hết bộ lọc: trạng thái, thư mục và từ khóa */
+/** Bỏ lọc trạng thái + từ khóa (giữ nguyên đợt đang xem — đợt là phạm vi, không phải bộ lọc) */
 function clearFilters() {
     filter = 'all';
-    folderId = '';
     keyword = '';
     qTokens = [];
     const box = document.getElementById('search-record');
@@ -377,42 +390,127 @@ function countIn(id) {
     return records.filter(r => String(r.thuMuc?.id || '') === String(id)).length;
 }
 
+// Ngày theo giờ máy (toISOString là giờ UTC — sáng sớm ở VN sẽ lùi một ngày)
+function todayIso() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+/** Hôm nay nằm trong khoảng ngày của đợt → đợt đang đi */
+const isOngoing = (f) => {
+    const t = todayIso();
+    return !!f.tuNgay && f.tuNgay <= t && (!f.denNgay || t <= f.denNgay);
+};
+/** "01/09 – 30/09" (ghi năm khi khác năm nay) */
+function dateRange(f) {
+    const y = String(new Date().getFullYear());
+    const d = (v) => {
+        const m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+        return m ? `${m[3]}/${m[2]}${m[1] !== y ? '/' + m[1] : ''}` : '';
+    };
+    return [d(f.tuNgay), d(f.denNgay)].filter(Boolean).join(' – ');
+}
+/** Màu của đợt theo chuyên khoa (chọn tay hoặc đoán từ tên khoa); không rõ thì tím nhạt */
+const folderKind = (f) => KINDS[folderSpec(f)] || ['', '#8b6fb0', '#f3eefa', '#6d4f96'];
+
+/** Đợt đang đi lên đầu, rồi đợt bắt đầu muộn hơn trước; đợt chưa ghi ngày xuống cuối */
+function sortedFolders() {
+    return mergeFolders(records).slice().sort((a, b) =>
+        (isOngoing(b) - isOngoing(a))
+        || String(b.tuNgay || '').localeCompare(String(a.tuNgay || ''))
+        || String(b.id).localeCompare(String(a.id)));
+}
+
 function renderFolders() {
-    const box = document.getElementById('folder-chips');
+    const box = document.getElementById('folder-list');
     if (!box) return;
-    const folders = mergeFolders(records);
+    const folders = sortedFolders();
     if (folderId && folderId !== '__none__' && !folders.some(f => String(f.id) === String(folderId))) {
-        folderId = '';        // thư mục đã bị xóa ở máy khác — đừng để danh sách trống không lý do
+        folderId = '';        // đợt đã bị xóa ở máy khác — đừng để danh sách trống không lý do
         savePrefs();
     }
     const loose = records.filter(r => !r.thuMuc?.id).length;
-    const chip = (id, label, count) =>
-        `<button class="folder-chip${String(folderId) === String(id) ? ' active' : ''}" data-folder="${esc(id)}">
-            <i class="fas fa-${id ? 'folder' : 'layer-group'}"></i>${esc(label)}
-            <span class="fc-count">${count}</span></button>`;
+    const row = (id, icon, name, n, o = {}) => `
+        <div class="fp-row${String(folderId) === String(id) ? ' active' : ''}" role="button" tabindex="0" data-folder="${esc(id)}"
+            ${o.c ? `style="--fc:${o.c};--fc-soft:${o.soft}"` : ''}>
+            <span class="fp-ico"><i class="fas fa-${icon}"></i></span>
+            <span class="fp-txt">
+                <span class="fp-name"><span class="fp-name-t">${esc(name)}</span>${o.now ? '<span class="fp-now">Đang đi</span>' : ''}</span>
+                ${o.meta ? `<span class="fp-meta">${esc(o.meta)}</span>` : ''}
+                ${o.sub ? `<span class="fp-meta">${esc(o.sub)}</span>` : ''}
+                ${o.pct != null ? `<span class="fp-mini" title="${o.sub}"><i style="width:${o.pct}%"></i></span>` : ''}
+            </span>
+            <span class="fp-side">
+                <span class="fp-count">${n}</span>
+                ${o.edit ? `<button type="button" class="fp-edit" data-folder-edit="${esc(id)}" title="Sửa đợt" aria-label="Sửa đợt ${esc(name)}"><i class="fas fa-pen"></i></button>` : ''}
+            </span>
+        </div>`;
 
-    box.innerHTML = chip('', 'Tất cả', records.length)
-        + folders.map(f => chip(f.id, f.ten || 'Thư mục', countIn(f.id))).join('')
-        + (loose && folders.length ? chip('__none__', 'Chưa xếp', loose) : '');
-
-    const info = document.getElementById('folder-info');
-    const cur = folderId && folderId !== '__none__' ? getFolder(folderId) : null;
-    if (info) {
-        info.classList.toggle('hidden', !cur);
-        if (cur) {
-            info.innerHTML = `<i class="fas fa-circle-info text-pink-400"></i>
-                <b class="text-gray-700">${esc(cur.ten || 'Thư mục')}</b>
-                <span>${esc(folderMeta(cur)) || 'Chưa điền khoa / bệnh viện'}</span>
-                <button id="folder-edit" class="ml-auto text-pink-600 font-semibold hover:underline"><i class="fas fa-pen mr-1"></i>Sửa thư mục</button>`;
-        }
+    let html = row('', 'layer-group', 'Tất cả bệnh án', records.length);
+    if (folders.length) {
+        html += folders.map(f => {
+            const inF = records.filter(r => String(r.thuMuc?.id || '') === String(f.id));
+            const done = inF.filter(isDone).length;
+            const [, c, soft] = folderKind(f);
+            return row(f.id, 'folder', f.ten || 'Đợt thực hành', inF.length, {
+                c, soft, now: isOngoing(f), edit: true,
+                meta: [f.khoa, f.benhVien].filter(Boolean).join(' · ') || 'Chưa ghi khoa / bệnh viện',
+                sub: [dateRange(f), inF.length ? `${done}/${inF.length} đã xong` : ''].filter(Boolean).join(' · '),
+                pct: inF.length ? Math.round(done / inF.length * 100) : null
+            });
+        }).join('');
+        if (loose) html += row('__none__', 'inbox', 'Chưa xếp vào đợt', loose);
+    } else {
+        html += `<div class="fp-empty">Gom bệnh án theo từng đợt đi lâm sàng. Bệnh án tạo trong đợt tự điền sẵn khoa, bệnh viện và chuyên khoa.
+            <button type="button" data-folder-new><i class="fas fa-plus mr-1"></i>Tạo đợt đầu tiên</button></div>`;
     }
+    box.innerHTML = html;
+    renderScope();
 }
+
+/** Đầu vùng bệnh án: tên phạm vi đang xem + thông tin đợt + nút sửa / tạo */
+function renderScope() {
+    const cur = folderId && folderId !== '__none__' ? getFolder(folderId) : null;
+    const $ = (id) => document.getElementById(id);
+    const nDot = listFolders().length;
+    const [title, icon, meta] = cur
+        ? [cur.ten || 'Đợt thực hành', 'folder-open',
+            [cur.khoa, cur.benhVien, dateRange(cur)].filter(Boolean).join(' · ') + (isOngoing(cur) ? ' · đang đi' : '') || 'Chưa ghi khoa / bệnh viện — bấm Sửa đợt để thêm']
+        : folderId === '__none__'
+            ? ['Chưa xếp vào đợt', 'inbox', 'Bệnh án không thuộc đợt thực hành nào']
+            : ['Tất cả bệnh án', 'layer-group', `${records.length} bệnh án${nDot ? ` · ${nDot} đợt thực hành` : ''}`];
+    $('scope-title').textContent = title;
+    $('scope-meta').textContent = meta;
+    const sw = $('folder-switch');
+    if (cur) {
+        const [, c, soft] = folderKind(cur);
+        sw.style.setProperty('--fc', c);
+        sw.style.setProperty('--fc-soft', soft);
+    } else {
+        sw.style.removeProperty('--fc');
+        sw.style.removeProperty('--fc-soft');
+    }
+    $('scope-ico').innerHTML = `<i class="fas fa-${icon}"></i>`;
+    $('scope-edit').classList.toggle('hidden', !cur);
+    const lbl = document.querySelector('#create-new-record span');
+    if (lbl) lbl.textContent = cur ? 'Tạo bệnh án trong đợt' : 'Tạo bệnh án';
+}
+
+/* Điện thoại: cột đợt là bảng trượt từ đáy */
+function openFolderSheet() {
+    document.getElementById('folder-pane')?.classList.add('open');
+    document.body.classList.add('fp-open');
+}
+function closeFolderSheet() {
+    document.getElementById('folder-pane')?.classList.remove('open');
+    document.body.classList.remove('fp-open');
+}
+const sheetOpen = () => document.body.classList.contains('fp-open');
 
 let editingFolder = null;
 function openFolderModal(f) {
     editingFolder = f || null;
     const $ = (id) => document.getElementById(id);
-    $('folder-modal-title').textContent = f ? 'Sửa thư mục đợt thực hành' : 'Thư mục đợt thực hành mới';
+    $('folder-modal-title').textContent = f ? 'Sửa đợt thực hành' : 'Đợt thực hành mới';
     $('folder-name').value = f?.ten || '';
     $('folder-dept').value = f?.khoa || '';
     $('folder-kind').value = f?.loai || '';
@@ -426,19 +524,41 @@ function openFolderModal(f) {
 const closeFolderModal = () => document.getElementById('folder-modal')?.classList.add('hidden');
 
 function setupFolders() {
-    document.getElementById('folder-new')?.addEventListener('click', () => openFolderModal(null));
+    document.getElementById('folder-new')?.addEventListener('click', () => { closeFolderSheet(); openFolderModal(null); });
 
-    document.getElementById('folder-chips')?.addEventListener('click', (e) => {
-        const chip = e.target.closest('[data-folder]');
-        if (!chip) return;
-        folderId = chip.dataset.folder;
+    const pick = (id) => {
+        folderId = id;
         savePrefs();
+        closeFolderSheet();
         render();
+        document.getElementById('wr-main')?.scrollTo({ top: 0 });
+    };
+    const list = document.getElementById('folder-list');
+    list?.addEventListener('click', (e) => {
+        if (e.target.closest('[data-folder-new]')) { closeFolderSheet(); return openFolderModal(null); }
+        const ed = e.target.closest('[data-folder-edit]');
+        if (ed) { closeFolderSheet(); return openFolderModal(getFolder(ed.dataset.folderEdit)); }
+        const row = e.target.closest('[data-folder]');
+        if (row) pick(row.dataset.folder);
+    });
+    list?.addEventListener('keydown', (e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-folder]')) {
+            e.preventDefault();
+            pick(e.target.dataset.folder);
+        }
+    });
+    // Nút "Mở đợt" ở tiêu đề mỗi nhóm (đang xem Tất cả)
+    document.getElementById('medical-record-cards')?.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-goto-folder]');
+        if (b) pick(b.dataset.gotoFolder);
     });
 
-    document.getElementById('folder-info')?.addEventListener('click', (e) => {
-        if (e.target.closest('#folder-edit')) openFolderModal(getFolder(folderId));
+    document.getElementById('scope-edit')?.addEventListener('click', () => openFolderModal(getFolder(folderId)));
+    // Điện thoại: bấm tên phạm vi để mở danh sách đợt (máy tính đã có cột trái)
+    document.getElementById('folder-switch')?.addEventListener('click', () => {
+        if (window.innerWidth < 1024) openFolderSheet();
     });
+    document.getElementById('fp-backdrop')?.addEventListener('click', closeFolderSheet);
 
     document.getElementById('folder-modal')?.addEventListener('click', (e) => {
         if (e.target.closest('[data-folder-close]')) closeFolderModal();
@@ -447,7 +567,7 @@ function setupFolders() {
     document.getElementById('folder-save')?.addEventListener('click', async () => {
         const $ = (id) => document.getElementById(id);
         const ten = $('folder-name').value.trim();
-        if (!ten) return showToast('Nhập tên đợt thực hành trước.', 'warning');
+        if (!ten) { $('folder-name').focus(); return showToast('Nhập tên đợt thực hành trước.', 'warning'); }
         const f = {
             id: editingFolder?.id || newFolderId(), ten,
             khoa: $('folder-dept').value.trim(),
@@ -467,13 +587,13 @@ function setupFolders() {
         folderId = f.id;
         savePrefs();
         await reload();
-        showToast(editingFolder ? 'Đã cập nhật thư mục.' : 'Đã tạo thư mục — bệnh án tạo trong đây sẽ tự điền khoa và bệnh viện.', 'success');
+        showToast(editingFolder ? 'Đã cập nhật đợt thực hành.' : 'Đã tạo đợt — bệnh án tạo trong đây sẽ tự điền khoa và bệnh viện.', 'success');
     });
 
     document.getElementById('folder-delete')?.addEventListener('click', async () => {
         if (!editingFolder) return;
         const n = countIn(editingFolder.id);
-        if (n && !confirm(`Thư mục này còn ${n} bệnh án. Xóa thư mục thì bệnh án vẫn còn nhưng không thuộc đợt nào. Tiếp tục?`)) return;
+        if (n && !confirm(`Đợt này còn ${n} bệnh án. Xóa đợt thì bệnh án vẫn còn, chỉ chuyển sang "Chưa xếp vào đợt". Tiếp tục?`)) return;
         for (const r of records.filter(x => String(x.thuMuc?.id) === String(editingFolder.id))) {
             delete r.thuMuc;
             await saveRecord(r);
@@ -483,7 +603,7 @@ function setupFolders() {
         folderId = '';
         savePrefs();
         await reload();
-        showToast('Đã xóa thư mục.', 'success');
+        showToast('Đã xóa đợt thực hành.', 'success');
     });
 }
 
@@ -502,7 +622,7 @@ async function moveRecord(recId, toFolderId) {
     if (!before.length) return;
     await reload();
     const what = ids.length > 1 ? `${before.length} bệnh án ` : '';
-    undoToast(f ? `Đã chuyển ${what}vào "${f.ten}".` : `Đã bỏ ${what}khỏi thư mục.`, async () => {
+    undoToast(f ? `Đã chuyển ${what}vào "${f.ten}".` : `Đã bỏ ${what}khỏi đợt thực hành.`, async () => {
         for (const [id, old] of before) {
             const back = records.find(r => String(r.id) === id);
             if (!back) continue;
@@ -518,17 +638,17 @@ function openMoveModal(recId) {
     movingId = recId;
     const ids = [].concat(recId).map(String);
     const rec = records.find(r => String(r.id) === ids[0]);
-    const folders = mergeFolders(records);
+    const folders = sortedFolders();
     document.getElementById('move-subject').textContent = ids.length > 1
         ? `${ids.length} bệnh án đã chọn`
         : (rec?.hanhChinh?.hoTen || 'Bệnh án chưa đặt tên')
-        + (rec?.thuMuc?.ten ? ` · đang ở "${rec.thuMuc.ten}"` : ' · chưa xếp thư mục');
+        + (rec?.thuMuc?.ten ? ` · đang ở "${rec.thuMuc.ten}"` : ' · chưa xếp vào đợt');
     const cur = ids.length > 1 ? '__nhieu__' : String(rec?.thuMuc?.id || '');
     document.getElementById('move-list').innerHTML =
-        folders.map(f => `<button class="move-opt${cur === String(f.id) ? ' is-current' : ''}" data-move="${esc(f.id)}">
-            <i class="fas fa-folder"></i><span><b>${esc(f.ten || 'Thư mục')}</b><small>${esc(folderMeta(f)) || 'Chưa điền khoa / bệnh viện'}</small></span></button>`).join('')
+        folders.map(f => `<button class="move-opt${cur === String(f.id) ? ' is-current' : ''}" data-move="${esc(f.id)}" style="--fc:${folderKind(f)[1]}">
+            <i class="fas fa-folder"></i><span><b>${esc(f.ten || 'Đợt thực hành')}</b><small>${esc(folderMeta(f)) || 'Chưa điền khoa / bệnh viện'}</small></span></button>`).join('')
         + `<button class="move-opt${cur ? '' : ' is-current'}" data-move="">
-            <i class="fas fa-inbox"></i><span><b>Không thuộc thư mục nào</b><small>Để riêng, không thuộc đợt thực hành</small></span></button>`;
+            <i class="fas fa-inbox"></i><span><b>Không thuộc đợt nào</b><small>Để riêng ở mục "Chưa xếp vào đợt"</small></span></button>`;
     document.getElementById('move-modal').classList.remove('hidden');
 }
 const closeMoveModal = () => document.getElementById('move-modal')?.classList.add('hidden');
@@ -553,7 +673,7 @@ function setupMove() {
     });
     cards?.addEventListener('dragend', (e) => e.target.closest('.rec-card')?.classList.remove('is-dragging'));
 
-    const chips = document.getElementById('folder-chips');
+    const chips = document.getElementById('folder-list');
     chips?.addEventListener('dragover', (e) => {
         const chip = e.target.closest('[data-folder]');
         if (!chip || chip.dataset.folder === '__none__') return;
@@ -600,7 +720,7 @@ function setSelectMode(on) {
         document.querySelectorAll('.rec-card.selected').forEach(c => c.classList.remove('selected'));
     }
     document.getElementById('medical-record-cards')?.classList.toggle('select-mode', on);
-    document.body.classList.toggle('select-on', on);   // ẩn nút tạo + linh vật để không che thanh thao tác
+    document.body.classList.toggle('select-on', on);   // ẩn nút tạo nổi để không che thanh thao tác
     renderResume();                                    // đang chọn hàng loạt thì giấu thẻ "viết tiếp"
     renderBulkBar();
 }
@@ -645,7 +765,10 @@ async function bulkDelete() {
 }
 
 function setupBulk() {
-    document.getElementById('select-toggle')?.addEventListener('click', () => setSelectMode(!selectMode));
+    document.getElementById('select-toggle')?.addEventListener('click', () => {
+        document.getElementById('more-menu')?.classList.add('hidden');
+        setSelectMode(!selectMode);
+    });
     document.getElementById('bulk-exit')?.addEventListener('click', () => setSelectMode(false));
 
     document.getElementById('bulk-all')?.addEventListener('click', () => {
@@ -731,6 +854,7 @@ function setupSyncButton() {
     const icon = btn.querySelector('i');
     btn.addEventListener('click', async () => {
         if (btn.disabled) return;
+        document.getElementById('more-menu')?.classList.add('hidden');
         btn.disabled = true;
         icon.className = 'fas fa-circle-notch fa-spin';
         const r = await syncNow({ wait: true });
@@ -785,7 +909,7 @@ function setupActions() {
 
     // Bộ lọc trạng thái nằm luôn trên 3 thẻ tổng quan — vùng bấm to, vừa ngón tay
     document.getElementById('stat-filter')?.addEventListener('click', (e) => {
-        const b = e.target.closest('.stat-btn');
+        const b = e.target.closest('[data-filter]');
         if (!b) return;
         filter = b.dataset.filter;
         savePrefs();
@@ -851,8 +975,10 @@ function setupActions() {
         }
         const btn = e.target.closest('button[data-id]');
         if (!btn) {
-            const card = e.target.closest('.card-open');
-            if (card) location.href = '../medical-record/xem-benh-an.html?id=' + encodeURIComponent(card.closest('article').dataset.id);
+            const card = e.target.closest('.card-open')?.closest('article');
+            if (!card) return;
+            const page = card.dataset.done === '1' ? 'xem-benh-an.html' : 'tao-benh-an.html';
+            location.href = '../medical-record/' + page + '?id=' + encodeURIComponent(card.dataset.id);
             return;
         }
         const id = btn.dataset.id;
@@ -919,6 +1045,9 @@ function setupKeys() {
         if (e.key === 'Escape') {
             const modal = document.querySelector('#move-modal:not(.hidden), #folder-modal:not(.hidden)');
             if (modal) return modal.classList.add('hidden');
+            if (sheetOpen()) return closeFolderSheet();
+            if (!document.getElementById('more-menu')?.classList.contains('hidden'))
+                return document.getElementById('more-menu').classList.add('hidden');
             if (document.querySelector('.rec-card.menu-open'))
                 return document.querySelectorAll('.rec-card.menu-open').forEach(c => c.classList.remove('menu-open'));
             if (selectMode) return setSelectMode(false);
@@ -971,10 +1100,12 @@ onSessionUser(async (user) => {
         const mob = document.getElementById('user-avatar-mobile');
         if (mob) { mob.style.cursor = 'pointer'; mob.onclick = goLogin; }
     } else {
-        const menu = document.getElementById('user-menu-button');
-        if (menu) menu.onclick = null;
-        const mob = document.getElementById('user-avatar-mobile');
-        if (mob) mob.onclick = null;
+        // Bấm tên/avatar → trang hồ sơ (giống trang chủ)
+        const goProfile = () => { window.location.href = '../profile/profile.html'; };
+        ['user-menu-button', 'user-avatar-mobile'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) { el.style.cursor = 'pointer'; el.title = 'Hồ sơ cá nhân'; el.onclick = goProfile; }
+        });
     }
     await reload({ cloud: !!user });
 });
