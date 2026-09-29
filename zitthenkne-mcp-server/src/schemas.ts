@@ -189,8 +189,8 @@ const QuestionInputSchema = z
       .optional()
       .describe("Giải thích cho từng đáp án, cùng thứ tự với answers (tùy chọn)"),
     explanation: z.string().optional().describe("Giải thích chung cho câu hỏi (tùy chọn)"),
-    note: z.string().optional().describe("Thẻ 'Ghi nhớ' (markdown): mẹo nhớ, lưu ý, bẫy hay nhầm — hiện sau khi mở đáp án, cả trắc nghiệm lẫn tự luận (tùy chọn)"),
-    expanded: z.string().optional().describe("Thẻ 'Mở rộng kiến thức' (markdown): kiến thức liên quan, bảng so sánh, phân loại — hiện sau khi mở đáp án, cả trắc nghiệm lẫn tự luận (tùy chọn)"),
+    note: z.string().optional().describe("Thẻ 'Ghi nhớ' (markdown): mẹo nhớ, lưu ý, bẫy hay nhầm — hiện sau khi mở đáp án. BẮT BUỘC với câu tự luận, tùy chọn với trắc nghiệm"),
+    expanded: z.string().optional().describe("Thẻ 'Mở rộng kiến thức' (markdown): kiến thức VƯỢT đáp án mẫu — bảng so sánh, phân loại, cơ chế, mốc số, hướng xử trí; không chép lại đáp án. BẮT BUỘC với câu tự luận, tùy chọn với trắc nghiệm"),
     source: z.string().optional().describe("Nguồn tài liệu tham khảo đối chiếu (tùy chọn)"),
     case_id: z
       .string()
@@ -237,6 +237,10 @@ const QuestionInputSchema = z
       if (q.answers?.length) ctx.addIssue({ code: "custom", path: ["answers"], message: "Câu tự luận không có answers" });
       if (!q.model_answer && !q.key_points?.length)
         ctx.addIssue({ code: "custom", path: ["model_answer"], message: "Câu tự luận cần model_answer hoặc key_points" });
+      if (!q.note?.trim())
+        ctx.addIssue({ code: "custom", path: ["note"], message: "Câu tự luận BẮT BUỘC có note (bẫy, mẹo nhớ, lỗi hay gặp)" });
+      if (!q.expanded?.trim())
+        ctx.addIssue({ code: "custom", path: ["expanded"], message: "Câu tự luận BẮT BUỘC có expanded (kiến thức vượt đáp án mẫu: bảng so sánh, phân loại, cơ chế, mốc số)" });
       let positive = 0;
       (q.key_points ?? []).forEach((kp, i) => {
         const items = "items" in kp ? kp.items : [kp];

@@ -85,7 +85,7 @@ function toStoredQuestion(q: QuestionInput): Record<string, unknown> {
   return stored;
 }
 
-const ESSAY_GUIDE = `    Tự luận / thi tình huống: { type: 'essay', question, model_answer?, key_points?, max_score?, explanation? } — KHÔNG truyền answers/correct_answer_index.
+const ESSAY_GUIDE = `    Tự luận / thi tình huống: { type: 'essay', question, model_answer?, key_points?, max_score?, explanation?, note, expanded } — KHÔNG truyền answers/correct_answer_index.
       - key_points = BAREM. Máy tự dò từ khóa trong bài làm để tick sẵn, người làm xem lại và tick thêm. Mỗi ý:
           { text, points (mặc định 1), keywords: [2-6 từ khóa/đồng nghĩa/viết tắt, có dấu, ngắn], partial_points?, critical? }
         LUÔN kèm keywords cho mọi ý (thiếu keywords máy chỉ đoán theo chữ của text, kém chính xác hơn).
@@ -105,7 +105,10 @@ const ESSAY_GUIDE = `    Tự luận / thi tình huống: { type: 'essay', quest
           · Trả lời bằng MỘT cụm ngắn (chẩn đoán xác định, tên bệnh, một con số, một thuốc) -> { kind: 'short' }.
           · Giải thích cơ chế, biện luận, trình bày, phân tích -> bỏ trống (ô văn bản dài).
           · Nhãn ô / nhãn hàng / placeholder KHÔNG được lộ đáp án (đề hỏi kể thuốc thì đừng đặt nhãn hàng "Aspirin").
-      - Câu tự luận vẫn nên có explanation (giải thích / lập luận của barem), note (Ghi nhớ: mẹo, lưu ý, bẫy hay nhầm) và expanded (Mở rộng kiến thức) giống trắc nghiệm — hiện sau khi mở đáp án.
+      - MỌI câu tự luận BẮT BUỘC có note + expanded (thiếu là bị từ chối), nên có thêm explanation (lập luận của barem):
+          · note (Ghi nhớ): bẫy hay nhầm, lỗi làm mất điểm, mẹo nhớ, đính chính quan niệm sai — ngắn, gạch đầu dòng.
+          · expanded (Mở rộng): kiến thức VƯỢT đáp án mẫu, KHÔNG chép lại model_answer — ưu tiên bảng markdown so sánh / phân biệt,
+            phân loại, cơ chế, mốc số (ngưỡng, liều, tuần thai), hướng xử trí tiếp theo, câu hỏi thầy hay hỏi thêm. Tối thiểu ~200 ký tự.
       - max_score = điểm tối đa của CÂU trong đề (trọng số; vd. đề thang 10: câu 1 = 2đ, câu 2 = 3đ). Tổng barem của câu nên bằng max_score.
       - model_answer = đáp án mẫu viết liền (markdown). Có key_points thì model_answer chỉ để đọc thêm; không có key_points thì mỗi gạch đầu dòng cấp 1 của model_answer thành 1 ý (ghi điểm cuối ý: "- Killip I (0.5đ)").
       - Đề tình huống: bối cảnh chung đặt ở case_text (lặp y hệt ở mọi câu cùng case_id), mỗi câu hỏi nhỏ là một câu riêng theo đúng thứ tự.

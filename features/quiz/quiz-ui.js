@@ -16,7 +16,7 @@ export function studyExtrasHtml(q) {
     const more = String((q && q.expanded) || '').trim();
     return (note ? `<div class="study-extra is-memo"><div class="study-extra-head"><i class="fas fa-lightbulb"></i> Ghi nhớ</div>
             <div class="study-extra-body">${parseMarkdown(note)}</div></div>` : '')
-        + (more ? `<details class="study-extra is-more"><summary class="study-extra-head"><i class="fas fa-book-open"></i> Mở rộng kiến thức</summary>
+        + (more ? `<details class="study-extra is-more" open><summary class="study-extra-head"><i class="fas fa-book-open"></i> Mở rộng kiến thức<i class="fas fa-chevron-down study-extra-chev" aria-hidden="true"></i></summary>
             <div class="study-extra-body">${parseMarkdown(more)}</div></details>` : '');
 }
 
