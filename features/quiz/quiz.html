@@ -139,6 +139,7 @@
     <link rel="modulepreload" href="page/quiz-auto-next.js">
     <link rel="modulepreload" href="page/quiz-cases.js">
     <link rel="modulepreload" href="page/quiz-case-peek.js">
+    <link rel="modulepreload" href="page/quiz-essay.js">
     <link rel="modulepreload" href="page/quiz-cat-meme.js">
     <link rel="modulepreload" href="page/quiz-marks.js">
     <link rel="modulepreload" href="page/quiz-mobile-nav.js">
@@ -149,6 +150,7 @@
     <link rel="modulepreload" href="page/quiz-session.js">
     <link rel="modulepreload" href="page/quiz-study-sync.js">
     <link rel="modulepreload" href="quiz-editor.js">
+    <link rel="modulepreload" href="quiz-essay-core.js">
     <link rel="modulepreload" href="quiz-helpers.js">
     <link rel="modulepreload" href="quiz-offline-store.js">
     <link rel="modulepreload" href="quiz-srs-store.js">
@@ -1612,7 +1614,33 @@
                         <textarea id="qe-question" rows="2" class="qe-input qe-grow" placeholder="Nhập nội dung câu hỏi…"></textarea>
                     </div>
 
-                    <div class="qe-field">
+                    <!-- Câu tự luận (modal có lớp .is-essay): thay khối phương án -->
+                    <div class="qe-field qe-essay-only">
+                        <div class="qe-label"><i class="fas fa-book-open ic-green"></i> Đáp án mẫu <span class="qe-label-hint">markdown</span></div>
+                        <textarea id="qe-model" rows="3" class="qe-input qe-grow" placeholder="Đáp án mẫu viết liền (markdown)…"></textarea>
+                    </div>
+                    <div class="qe-field qe-essay-only">
+                        <div class="qe-label"><i class="fas fa-list-check ic-amber"></i> Barem <span class="qe-label-hint">mỗi dòng một ý — để trống thì lấy gạch đầu dòng của đáp án mẫu</span></div>
+                        <textarea id="qe-rubric" rows="4" class="qe-input qe-grow qe-mono" spellcheck="false"
+                            placeholder="- Nhồi máu cơ tim cấp (1đ, bắt buộc) [NMCT; nhồi máu cơ tim]&#10;- Aspirin liều nạp (0,5đ, ½ 0,25đ) [aspirin; asa]&#10;# Nêu 2 trong 3 nguyên nhân (tối đa 1đ)&#10;  - Tăng huyết áp (0,5đ) [THA]&#10;- Dùng nitrat khi tụt HA (-0,5đ) [nitrat]"></textarea>
+                        <p class="qe-hint-line"><i class="fas fa-circle-info"></i> <span>(điểm, ½ điểm khi nêu chưa đủ, bắt buộc, ô N) · [từ khóa; ngăn bằng chấm phẩy] · điểm âm = lỗi trừ điểm · "# Nhóm (tối đa …)" rồi các ý thụt 2 dấu cách</span></p>
+                    </div>
+                    <div class="qe-field qe-essay-only">
+                        <div class="qe-label"><i class="fas fa-table-cells ic-blue"></i> Kiểu ô trả lời</div>
+                        <div class="qe-format-row">
+                            <select id="qe-format-kind" class="qe-input">
+                                <option value="text">Ô văn bản dài</option>
+                                <option value="short">Trả lời ngắn (1 dòng)</option>
+                                <option value="list">Danh sách N ô</option>
+                                <option value="fields">Nhiều ô có nhãn</option>
+                                <option value="table">Bảng</option>
+                            </select>
+                            <input id="qe-format-a" class="qe-input" />
+                            <input id="qe-format-b" class="qe-input" />
+                        </div>
+                    </div>
+
+                    <div class="qe-field qe-mcq-only">
                         <div class="qe-opt-topbar">
                             <span class="qe-label"><i class="fas fa-list-ul"></i> Phương án</span>
                             <span id="qe-correct-sum" class="qe-correct-sum"></span>
@@ -1651,6 +1679,11 @@
                             <input id="qe-case-title" class="qe-input" placeholder="Tiêu đề ca — tùy chọn" />
                         </div>
                         <textarea id="qe-case-text" rows="2" class="qe-input qe-grow" placeholder="Nội dung tình huống lâm sàng dùng chung (markdown)…"></textarea>
+                        <textarea id="qe-case-reveal" rows="1" class="qe-input qe-grow" placeholder="Thông tin bổ sung mở ra TỪ câu này (ca mở dần) — tùy chọn"></textarea>
+                    </div>
+                    <div class="qe-field">
+                        <div class="qe-label"><i class="fas fa-star ic-amber"></i> Điểm câu <span class="qe-label-hint">trọng số trong cả bài, để trống = 1</span></div>
+                        <input id="qe-max-score" type="number" min="0" step="0.25" inputmode="decimal" class="qe-input qe-score-input" placeholder="1" />
                     </div>
                 </div>
             </div>

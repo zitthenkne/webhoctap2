@@ -247,6 +247,78 @@ function resetColumnWidths() {
         ws.style.removeProperty(cfg.cssVar);
         try { localStorage.removeItem(cfg.key); } catch (e) {}
     });
+    try { localStorage.removeItem(caseHeightKey()); } catch (e) {}
+    applyCaseHeight();
+}
+
+// Chiều cao phần nội dung khung ca chùm (#case-body): kéo tay nắm ⠿ ở mép dưới khung ca.
+// Khung ca vẽ lại mỗi câu -> giá trị đặt thành biến --case-h trên <html>; lưu riêng máy tính / điện thoại
+// (điện thoại mặc định KHÔNG giới hạn chiều cao, chỉ khi người dùng kéo mới có khung cuộn).
+const CASE_MIN_H = 96;
+const caseHeightKey = () => (window.innerWidth <= 640 ? 'quiz_case_h_m' : 'quiz_case_h');
+function applyCaseHeight(px) {
+    const root = document.documentElement;
+    let v = px;
+    if (v === undefined) { try { v = parseInt(localStorage.getItem(caseHeightKey()), 10); } catch (e) { v = NaN; } }
+    if (v > 0) {
+        root.style.setProperty('--case-h', Math.max(CASE_MIN_H, Math.round(v)) + 'px');
+        root.classList.add('case-h-set');
+    } else {
+        root.style.removeProperty('--case-h');
+        root.classList.remove('case-h-set');
+    }
+}
+function setupCaseResize() {
+    applyCaseHeight();
+    let resizeTimer = null;
+    window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => applyCaseHeight(), 150); });
+    let startY = 0, startH = 0, maxH = 0, body = null;
+    const clampH = (h) => Math.max(CASE_MIN_H, Math.min(maxH, h));
+    const onMove = (e) => { if (body) applyCaseHeight(clampH(startH + (e.clientY - startY))); };
+    const onUp = () => {
+        if (body) {
+            const v = parseInt(document.documentElement.style.getPropertyValue('--case-h'), 10);
+            try { if (v > 0) localStorage.setItem(caseHeightKey(), String(v)); } catch (e) {}
+        }
+        body = null;
+        document.body.classList.remove('quiz-resizing', 'case-resizing');
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
+    };
+    document.addEventListener('pointerdown', (e) => {
+        const grip = e.target.closest && e.target.closest('.case-resize');
+        body = grip && document.getElementById('case-body');
+        if (!body || body.classList.contains('hidden')) { body = null; return; }
+        e.preventDefault();
+        startY = e.clientY;
+        startH = body.getBoundingClientRect().height;
+        // Kéo quá chiều cao nội dung thì vô nghĩa; trần là 85% màn hình
+        maxH = Math.max(CASE_MIN_H, Math.min(window.innerHeight * 0.85, body.scrollHeight));
+        document.body.classList.add('quiz-resizing', 'case-resizing');
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+        window.addEventListener('pointercancel', onUp);
+    });
+    // Bấm đúp tay nắm: về chiều cao mặc định
+    document.addEventListener('dblclick', (e) => {
+        if (!(e.target.closest && e.target.closest('.case-resize'))) return;
+        try { localStorage.removeItem(caseHeightKey()); } catch (err) {}
+        applyCaseHeight();
+    });
+    // Bàn phím: ↑/↓ chỉnh từng nấc 40px, Home về mặc định
+    document.addEventListener('keydown', (e) => {
+        const grip = e.target.closest && e.target.closest('.case-resize');
+        const b = grip && document.getElementById('case-body');
+        if (!b || !['ArrowUp', 'ArrowDown', 'Home'].includes(e.key)) return;
+        e.preventDefault();
+        e.stopPropagation();   // không để phím mũi tên / Home lọt xuống phím tắt chuyển câu
+        if (e.key === 'Home') { try { localStorage.removeItem(caseHeightKey()); } catch (err) {} applyCaseHeight(); return; }
+        const cap = Math.max(CASE_MIN_H, Math.min(window.innerHeight * 0.85, b.scrollHeight));
+        const h = Math.max(CASE_MIN_H, Math.min(cap, b.getBoundingClientRect().height + (e.key === 'ArrowDown' ? 40 : -40)));
+        applyCaseHeight(h);
+        try { localStorage.setItem(caseHeightKey(), String(Math.round(h))); } catch (err) {}
+    }, true);
 }
 
 // Kéo grip trên mỗi bảng để xích lên/xuống. Grip nằm trong HTML được vẽ lại mỗi câu
@@ -299,6 +371,7 @@ export function setupResizers() {
     if (!ws) return;
     applyStoredColumnWidths();
     setupPanelOffsetDrag();
+    setupCaseResize();
 
     ws.querySelectorAll('.quiz-resizer').forEach(handle => {
         const cfg = COLUMN_RESIZE[handle.getAttribute('data-resize')];

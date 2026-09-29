@@ -8,8 +8,9 @@ import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-f
 import { showToast } from '../../../core/utils.js';
 import { applyLocalQuestionEdits } from '../quiz-editor.js';
 import { getOfflineQuiz, autoCacheQuiz } from '../quiz-offline-store.js';
-import { state, saveQuizState, clearQuizState, saveQuizResult, markQuizStateFinished } from '../quiz-state.js';
-import { shuffleArray, shuffleQuestionOptions, isAnswerCorrect } from '../quiz-helpers.js';
+import { state, saveQuizState, clearQuizState, saveQuizResult, updateQuizResultScore, markQuizStateFinished } from '../quiz-state.js';
+import { shuffleArray, shuffleQuestionOptions, isAnswerCorrect, sessionScore } from '../quiz-helpers.js';
+import { isEssay, isPendingEssay, withAutoGrade } from '../quiz-essay-core.js';
 import { showSubmitQuizBtn, loadQuizDetails, showResults, toggleFocusMode } from '../quiz-ui.js';
 import { getVibrate } from './quiz-page-prefs.js';
 import { pullStudyFromCloud, whenStudyPulled, currentQuizId } from './quiz-study-sync.js';
@@ -144,7 +145,9 @@ export function startQuizMode(questionsArray, mode = 'normal', restoreState = nu
         state.used5050Questions = restoreState.used5050Questions || {};
         state.multiSelections = restoreState.multiSelections || {};
         state.streak = restoreState.streak || 0;
+        state.caseSeen = restoreState.caseSeen || {};
     } else {
+        state.caseSeen = {};
         state.currentIndex = 0;
         state.userAnswers = new Array(state.questions.length).fill(null);
         state.score = 0;
@@ -224,10 +227,9 @@ export function endQuiz() {
     // LUÔN chấm lại điểm từ userAnswers: "Xem đáp án ngay" giờ bật/tắt được giữa chừng
     // (bảng Ngựa thì chỉnh) nên bộ đếm dồn state.score không còn đáng tin — các câu trả
     // lời trong lúc chế độ đang tắt không được cộng điểm lúc bấm.
-    state.score = 0;
-    for (let i = 0; i < state.questions.length; i++) {
-        if (isAnswerCorrect(state.questions[i], state.userAnswers[i])) state.score++;
-    }
+    // Câu tự luận chưa chấm -> máy chấm sơ bộ theo từ khóa (người làm xem lại ở màn kết quả)
+    state.userAnswers = state.userAnswers.map((a, i) => withAutoGrade(state.questions[i], a));
+    rescore();
 
     markQuizStateFinished();
     try { sessionStorage.removeItem('quizLive'); } catch (e) {}
@@ -238,23 +240,12 @@ export function endQuiz() {
     }
     stopTimer();   // dừng + ẩn đồng hồ (trước chỉ dừng -> viên giờ đứng im trên màn kết quả)
 
-    showResults(totalTime);
-
-    // Register buttons for result actions
-    const restartBtn = document.getElementById('restartQuizBtn');
-    if (restartBtn) {
-        restartBtn.addEventListener('click', () => {
-            startQuizWithCurrentSettings();
-        });
-    }
-    const practiceBtn = document.getElementById('practiceIncorrectBtn');
-    if (practiceBtn) {
-        practiceBtn.addEventListener('click', startIncorrectPracticeMode);
-    }
+    state._resultsTime = totalTime;
+    renderResults(totalTime);
 
     if (state.quizMode === 'normal') {
-        const percentage = state.questions.length > 0 ? (state.score / state.questions.length) * 100 : 0;
-        saveQuizResult(state.score, state.questions.length, percentage, totalTime);
+        const r = savedScore();
+        saveQuizResult(r.score, r.total, r.pct, totalTime);
     }
 
     const quizSection = document.getElementById('quizSection');
@@ -273,8 +264,51 @@ export function endQuiz() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// Tổng điểm = tổng điểm từng câu × trọng số câu (tự luận tính theo tỉ lệ barem, xem quiz-essay-core.js)
+function rescore() {
+    state.score = sessionScore(state.questions, state.userAnswers).score;
+}
+// quiz_results lưu điểm QUY VỀ SỐ CÂU (score/totalQuestions = % thật) vì thống kê, chip tiến bộ,
+// thư viện đều tính % bằng score/totalQuestions — có trọng số câu thì điểm thô sẽ lệch.
+function savedScore() {
+    const total = state.questions.length;
+    const { pct } = sessionScore(state.questions, state.userAnswers);
+    return { score: Math.round(pct * total) / 100, total, pct };
+}
+
+function renderResults(totalTime, opts) {
+    showResults(totalTime, opts);
+    // Nút của màn kết quả được dựng lại mỗi lần vẽ -> gắn lại sự kiện
+    document.getElementById('restartQuizBtn')?.addEventListener('click', () => startQuizWithCurrentSettings());
+    document.getElementById('practiceIncorrectBtn')?.addEventListener('click', startIncorrectPracticeMode);
+}
+
+// Tự chấm câu tự luận ở màn kết quả -> tính lại điểm, vẽ lại tại chỗ (giữ câu đang mở, bộ lọc, vị trí cuộn)
+// rồi cập nhật bản kết quả đã lưu.
+export function refreshResults() {
+    rescore();
+    const list = document.getElementById('detailed-results-list');
+    const before = [...(list ? list.querySelectorAll('.result-item') : [])];
+    const openIdx = before.map((it, i) => (it.querySelector('.result-body:not(.hidden)') ? i : -1)).filter(i => i >= 0);
+    const shownIdx = before.map((it, i) => (it.classList.contains('hidden') ? -1 : i)).filter(i => i >= 0);
+    const filter = document.querySelector('#result-filter-tabs .result-filter-btn.bg-pink-500')?.getAttribute('data-filter');
+    const y = window.scrollY;
+    renderResults(state._resultsTime || 0, { instant: true });
+    if (filter && filter !== 'all') document.querySelector(`#result-filter-tabs [data-filter="${filter}"]`)?.click();
+    const items = document.querySelectorAll('#detailed-results-list .result-item');
+    // Câu vừa chấm xong không còn khớp bộ lọc "Chưa chấm" -> vẫn giữ trên màn để tick tiếp
+    if (filter && filter !== 'all') shownIdx.forEach(i => items[i]?.classList.remove('hidden'));
+    openIdx.forEach(i => items[i]?.querySelector('.result-header')?.click());
+    window.scrollTo(0, y);
+    if (state.quizMode === 'normal') {
+        const r = savedScore();
+        updateQuizResultScore(r.score, r.total, r.pct);
+    }
+}
+
 export function startIncorrectPracticeMode() {
-    const incorrectQuestions = state.questions.filter((q, index) => !isAnswerCorrect(q, state.userAnswers[index]));
+    // Câu tự luận chưa tự chấm không tính là sai
+    const incorrectQuestions = state.questions.filter((q, index) => !isAnswerCorrect(q, state.userAnswers[index]) && !isPendingEssay(q, state.userAnswers[index]));
     if (incorrectQuestions.length > 0) {
         startQuizMode(incorrectQuestions, 'practice');
     } else {
@@ -414,7 +448,8 @@ export async function startSrsSession() {
     state.quizOptions.timedMinutes = 0;
     state.quizOptions.showAnswerImmediately = true;
 
-    const base = state.originalQuestions.map((q, i) => ({ ...q, __origIdx: i }));
+    // Ôn ngắt quãng chấm đúng/sai ngay lúc trả lời -> không hợp câu tự luận (tự chấm theo ý)
+    const base = state.originalQuestions.map((q, i) => ({ ...q, __origIdx: i })).filter(q => !isEssay(q));
     const { queue, dueCount, newCount } = buildSrsQueue(
         currentQuizId(), base, { title: state.quizData && state.quizData.title }
     );

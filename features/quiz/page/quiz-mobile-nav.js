@@ -7,6 +7,7 @@
 
 import { state, MARK_REASONS } from '../quiz-state.js';
 import { isAnswerCorrect, isMultiAnswer } from '../quiz-helpers.js';
+import { isEssay, isPendingEssay } from '../quiz-essay-core.js';
 import { showQuestion, showNextQuestion, showPreviousQuestion, handle5050Help } from './quiz-question-view.js';
 import { applyMark } from './quiz-marks.js';
 import { caseCellClass } from './quiz-cases.js';
@@ -42,7 +43,8 @@ function renderJumpGrid() {
         const ans = state.userAnswers[i];
         const answered = ans !== null && ans !== undefined;
         const marked = state.markedQuestions.includes(i);
-        const wrong = answered && immediate && !isAnswerCorrect(state.questions[i], ans);
+        const judged = immediate && !isPendingEssay(state.questions[i], ans);
+        const wrong = answered && judged && !isAnswerCorrect(state.questions[i], ans);
         if (!answered) counts.todo++;
         if (marked) counts.marked++;
         if (wrong) counts.wrong++;
@@ -51,7 +53,7 @@ function renderJumpGrid() {
         if (i === state.currentIndex) {
             cls += ' is-current';
         } else if (answered) {
-            if (immediate) {
+            if (judged) {
                 cls += isAnswerCorrect(state.questions[i], ans) ? ' is-correct' : ' is-wrong';
             } else {
                 cls += ' is-answered';
@@ -277,7 +279,7 @@ export function updateMobileNav() {
     // 50:50: ẩn với câu nhiều đáp án; làm mờ (khóa) khi đã trả lời hoặc đã dùng
     const q = state.questions[idx];
     if (fiveBtn) {
-        const multi = isMultiAnswer(q);
+        const multi = isMultiAnswer(q) || isEssay(q);
         fiveBtn.style.display = multi ? 'none' : '';
         const off = multi || state.userAnswers[idx] != null || !!state.used5050Questions[idx];
         fiveBtn.classList.toggle('is-off', off);

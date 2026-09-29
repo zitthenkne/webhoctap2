@@ -21,6 +21,8 @@ import { scheduleAutoNext, cancelAutoNext, focusExplanation } from './quiz-auto-
 import { endQuiz } from './quiz-session.js';
 import { currentQuizId, pushStudyToCloud } from './quiz-study-sync.js';
 import { gradeSrsAnswer } from '../quiz-srs-store.js';
+import { isEssay, isPendingEssay } from '../quiz-essay-core.js';
+import { essayCardHtml, setupEssay, isEssayRevealed, caseRevealsHtml, noteCaseProgress, lockMcqIfNeeded } from './quiz-essay.js';
 
 // Câu vừa hiển thị trước đó — dùng để biết khi nào THỰC SỰ chuyển sang câu khác
 // (để cuộn lên đầu trang) so với khi chỉ vẽ lại cùng một câu (đổi cỡ chữ, ghi chú…).
@@ -338,7 +340,11 @@ export function showQuestion() {
         return;
     }
 
-    const answerOptions = stripOptionLabels(question.answers || question.options);
+    // Câu tự luận (không phương án): ô bài làm thay cho ô đáp án — xem quiz-essay.js
+    const essay = isEssay(question);
+    // Ca mở dần: ghi nhận đã xem tới câu này (có thể khóa các câu trước) TRƯỚC khi vẽ
+    noteCaseProgress(state.currentIndex);
+    const answerOptions = essay ? [] : stripOptionLabels(question.answers || question.options);
     if (!answerOptions || !Array.isArray(answerOptions)) {
         quizSection.innerHTML = `<p class="text-red-500 text-center p-6">Lỗi: Câu hỏi này không có đáp án. Dữ liệu có thể bị hỏng.</p>`;
         return;
@@ -401,7 +407,7 @@ export function showQuestion() {
                 // Lớp trạng thái cùng ngữ nghĩa với bảng số câu (quiz-ui.js navStateClass)
                 const st = isCur ? 'is-current'
                     : !answered ? ''
-                    : !state.quizOptions.showAnswerImmediately ? 'is-answered'
+                    : (!state.quizOptions.showAnswerImmediately || isPendingEssay(state.questions[gi], state.userAnswers[gi])) ? 'is-answered'
                     : (isAnswerCorrect(state.questions[gi], state.userAnswers[gi]) ? 'is-correct' : 'is-wrong');
                 dots += `<button type="button" class="case-dot ${st} w-7 h-7 rounded-full border text-xs font-bold transition ${cls}" data-case-jump="${gi}" title="Tới câu ${k + 1} của ca"${isCur ? ' aria-current="true"' : ''}>${k + 1}</button>`;
             }
@@ -421,8 +427,10 @@ export function showQuestion() {
                 </button>
             </div>
             ${seqLabel ? `<div class="sm:hidden mt-1 text-xs font-semibold text-cyan-700">${seqLabel}</div>` : ''}
-            <div id="case-body" data-annot="case" class="case-body mt-3 text-gray-800 leading-relaxed max-h-72 overflow-y-auto pr-1 ${collapsed ? 'hidden' : ''}">${parseMarkdown(caseText)}</div>
+            <div id="case-body" data-annot="case" class="case-body mt-3 text-gray-800 leading-relaxed max-h-72 overflow-y-auto pr-1 ${collapsed ? 'hidden' : ''}">${parseMarkdown(caseText)}${caseRevealsHtml(state.currentIndex)}</div>
             ${caseDotsHtml}
+            <div class="case-resize" role="separator" aria-orientation="horizontal" tabindex="0"
+                aria-label="Kéo để chỉnh chiều cao khung ca" title="Kéo để chỉnh chiều cao khung ca · bấm đúp để về mặc định"><i class="fas fa-grip-lines"></i></div>
         </div>`;
     }
 
@@ -448,6 +456,8 @@ export function showQuestion() {
             ${question.level && question.level.trim() ? `<span class="inline-block px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold border border-purple-200"><i class="fas fa-layer-group mr-1"></i> <span class="chip-k">Mức độ: </span>${question.level}</span>` : ''}
             ${question.source && question.source.trim() ? `<span class="inline-block px-3 py-1 rounded-full bg-pink-100 text-pink-700 text-xs font-semibold border border-pink-200"><i class="fas fa-book mr-1"></i> <span class="chip-k">Nguồn: </span>${question.source}</span>` : ''}
             ${state.streak > 0 ? `<span id="streak-badge" class="inline-block px-3 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-semibold border border-orange-200 animate-pulse"><i class="fas fa-fire mr-1 text-orange-500 animate-bounce"></i> Chuỗi đúng: ${state.streak}</span>` : ''}
+            ${essay ? '<span class="q-essay-chip"><i class="fas fa-pen"></i> Tự luận</span>' : ''}
+            ${Number(question.maxScore) > 0 ? `<span class="q-essay-chip is-pts">${String(question.maxScore).replace('.', ',')} điểm</span>` : ''}
             ${isMulti ? `<span class="inline-block px-3 py-1 rounded-full bg-teal-100 text-teal-700 text-xs font-semibold border border-teal-200"><i class="fas fa-list-check mr-1"></i> Chọn nhiều đáp án${multiCount ? ` (chọn ${multiCount})` : ''}</span>` : ''}
         </div>
         ${casePanelHtml}
@@ -509,7 +519,7 @@ export function showQuestion() {
             </button>
         </div>
         <p class="quiz-kbd-hint focus-hide">
-            <span><kbd class="kbd-key">A</kbd>–<kbd class="kbd-key">D</kbd> chọn đáp án</span>
+            ${essay ? '<span><kbd class="kbd-key">Esc</kbd> rời ô gõ để dùng phím tắt</span>' : '<span><kbd class="kbd-key">A</kbd>–<kbd class="kbd-key">D</kbd> chọn đáp án</span>'}
             <span><kbd class="kbd-key">←</kbd><kbd class="kbd-key">→</kbd> chuyển câu</span>
             <span><kbd class="kbd-key">Enter ⏎</kbd> câu tiếp</span>
             ${caseText ? '<span><kbd class="kbd-key">V</kbd> xem lại ca</span>' : ''}
@@ -517,6 +527,12 @@ export function showQuestion() {
         </p>
     </div>
     `;
+
+    if (essay) {
+        // Ô bài làm thay khối đáp án; 50:50 vô nghĩa với tự luận. Giữ "Chắc chắn/Đoán" + nút sửa câu (modal có chế độ tự luận)
+        document.getElementById('answers-container').outerHTML = essayCardHtml(question, state.currentIndex);
+        document.getElementById('help-5050-btn')?.remove();
+    }
 
     // Hiệu ứng trượt-vào theo hướng chuyển câu (chỉ khi thực sự đổi câu, không khi vẽ lại)
     if (indexChanged) {
@@ -543,6 +559,13 @@ export function showQuestion() {
                 window.scrollTo({ top: Math.max(0, y), behavior: reduce ? 'auto' : 'smooth' });
             }
         }
+    }
+
+    // Ca mở dần: vừa sang câu mang thông tin bổ sung -> cuộn khung ca tới đúng khối mới (khối cuối, dễ bị khuất)
+    const newReveal = indexChanged && document.querySelector('#case-body .case-reveal.is-new');
+    if (newReveal) {
+        const body = document.getElementById('case-body');
+        body.scrollTop += newReveal.getBoundingClientRect().top - body.getBoundingClientRect().top - 8;
     }
 
     // Nút nổi "Xem lại ca" theo dõi khung ca của câu vừa vẽ (ẩn nếu câu không thuộc ca nào)
@@ -634,7 +657,20 @@ export function showQuestion() {
             confBtn.innerHTML = `<i class="fas ${guess ? 'fa-dice' : 'fa-circle-check'}"></i> ${guess ? 'Đoán' : 'Chắc chắn'}`;
         });
     }
-    // #9: áp dụng ghi chú trực quan (bôi vàng/đậm/nghiêng) đã lưu cho câu hiện tại
+    if (essay) {
+        setupEssay(state.currentIndex);
+        if (isEssayRevealed(state.currentIndex)) {
+            document.getElementById('explanation-area')?.classList.remove('hidden');
+            if (question.expanded && String(question.expanded).trim()) document.getElementById('expanded-area')?.classList.remove('hidden');
+        }
+        // Tự luận: bỏ qua / quay lại lúc nào cũng được -> nút Câu tiếp luôn hiện
+        const nextBtn = document.getElementById('nextBtn');
+        if (nextBtn) { nextBtn.classList.remove('hidden'); nextBtn.addEventListener('click', showNextQuestion, { once: true }); }
+        if (state.quizMode === 'normal' && state.currentIndex > 0) document.getElementById('prevBtn').addEventListener('click', showPreviousQuestion);
+        setupMarkControl();
+        applyAnnotationsAll();
+        return;
+    }
 
     const answeredIdx = state.userAnswers[state.currentIndex];
     const btn5050 = document.getElementById('help-5050-btn');
@@ -679,7 +715,7 @@ export function showQuestion() {
             }
             const nextBtn = document.getElementById('nextBtn');
             if (nextBtn) { nextBtn.classList.remove('hidden'); nextBtn.addEventListener('click', showNextQuestion, { once: true }); }
-        } else {
+        } else if (!lockMcqIfNeeded(state.currentIndex)) {
             setupAnswerInteractions();
             applyMultiSelectionStyles();
             const confirmBtn = document.getElementById('multi-confirm-btn');
@@ -756,7 +792,7 @@ export function showQuestion() {
             nextBtn.classList.remove('hidden');
             nextBtn.addEventListener('click', showNextQuestion, { once: true });
         }
-    } else {
+    } else if (!lockMcqIfNeeded(state.currentIndex)) {
         setupAnswerInteractions();
     }
     if (state.quizMode === 'normal' && state.currentIndex > 0) {

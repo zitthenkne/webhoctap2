@@ -257,6 +257,10 @@ export const DISEASE_RULES = [
 /* =====================================================================
    2. LUẬT TRIỆU CHỨNG BÁO ĐỘNG — có dấu này thì mục X phải có nhánh loại trừ
    ===================================================================== */
+/* Mẫu nhiều điều kiện viết bằng lookahead PHẢI neo ^ : không neo thì máy thử lại
+   mẫu ở từng vị trí của cả đoạn bệnh sử + khám, mỗi lần quét tới cuối đoạn ->
+   chi phí theo bình phương độ dài (đo: ~0,8 giây mỗi lượt rà trên máy tầm trung).
+   Neo ^ cho kết quả y hệt vì [\s\S]* từ vị trí 0 đã quét cả đoạn. */
 export const RED_FLAG_RULES = [
     {
         k: 'Đau ngực cấp', re: /dau nguc/,
@@ -269,7 +273,7 @@ export const RED_FLAG_RULES = [
         keys: [/duoi nhen|\bsah\b/, /viem mang nao/]
     },
     {
-        k: 'Sốt + đau hạ sườn phải + vàng da (tam chứng Charcot)', re: /(?=[\s\S]*sot)(?=[\s\S]*(ha suon (p|phai)|hsp\b))(?=[\s\S]*vang da)/,
+        k: 'Sốt + đau hạ sườn phải + vàng da (tam chứng Charcot)', re: /^(?=[\s\S]*sot)(?=[\s\S]*(ha suon (p|phai)|hsp\b))(?=[\s\S]*vang da)/,
         musts: ['Viêm đường mật cấp do sỏi', 'Nhiễm trùng huyết đường mật'],
         keys: [/viem duong mat|nhiem trung duong mat/, /nhiem trung huyet|\bsepsis\b/]
     },
@@ -294,12 +298,12 @@ export const RED_FLAG_RULES = [
         keys: [/soc nhiem trung/, /soc (giam the tich|mat mau)/, /soc tim/, /soc phan ve|phan ve/]
     },
     {
-        k: 'Sốt kèm rối loạn tri giác hoặc cổ gượng', re: /(?=[\s\S]*sot)(?=[\s\S]*(co guong|roi loan tri giac|li bi|hon me))/,
+        k: 'Sốt kèm rối loạn tri giác hoặc cổ gượng', re: /^(?=[\s\S]*sot)(?=[\s\S]*(co guong|roi loan tri giac|li bi|hon me))/,
         musts: ['Viêm màng não', 'Viêm não'],
         keys: [/viem mang nao/, /viem nao/]
     },
     {
-        k: 'Đau bụng ở phụ nữ tuổi sinh đẻ có trễ kinh', re: /(?=[\s\S]*dau bung)(?=[\s\S]*(tre kinh|mat kinh|cham kinh|que thu thai))/,
+        k: 'Đau bụng ở phụ nữ tuổi sinh đẻ có trễ kinh', re: /^(?=[\s\S]*dau bung)(?=[\s\S]*(tre kinh|mat kinh|cham kinh|que thu thai))/,
         musts: ['Thai ngoài tử cung vỡ'],
         keys: [/thai ngoai tu cung|chua ngoai tu cung/]
     },

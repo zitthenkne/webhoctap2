@@ -38,11 +38,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Chuẩn hóa 1 câu hỏi về shape nội bộ thống nhất
+    const KEEP_FIELDS = ['note', 'expanded', 'source', 'level', 'topic'];
     function normalizeQuestion(q) {
         q = q || {};
         let options = Array.isArray(q.options) ? q.options.slice()
             : Array.isArray(q.answers) ? q.answers.slice() : [];
-        if (options.length === 0) options = ['', '', '', ''];
+        // Câu tự luận: editor chưa có giao diện sửa -> giữ nguyên các trường riêng, không đệm phương án rỗng
+        const essay = q.type === 'essay' && options.length === 0;
+        if (options.length === 0 && !essay) options = ['', '', '', ''];
 
         const optionExplanations = Array.isArray(q.optionExplanations) ? q.optionExplanations.slice() : [];
         while (optionExplanations.length < options.length) optionExplanations.push('');
@@ -61,6 +64,11 @@ document.addEventListener('DOMContentLoaded', () => {
             caseId: q.caseId || '',
             caseText: q.caseText || '',
             caseTitle: q.caseTitle || '',
+            ...(q.caseReveal ? { caseReveal: q.caseReveal } : {}),
+            ...(Number(q.maxScore) > 0 ? { maxScore: Number(q.maxScore) } : {}),
+            ...(essay ? { type: 'essay', modelAnswer: q.modelAnswer || '', keyPoints: q.keyPoints || null, answerFormat: q.answerFormat || null } : {}),
+            // Trường editor chưa có ô sửa (Ghi nhớ, Mở rộng, nguồn...) -> mang nguyên theo, trước đây lưu lại là mất
+            _keep: Object.fromEntries(KEEP_FIELDS.filter(k => q[k] != null && String(q[k]).trim()).map(k => [k, q[k]])),
             _collapsed: false
         };
     }
@@ -73,6 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Một câu hỏi được xem là "hoàn chỉnh" khi có nội dung và mọi đáp án đều có chữ
     function isComplete(q) {
         if (!q.question.trim()) return false;
+        if (q.type === 'essay') return true;
         if (!q.options.length) return false;
         return q.options.every(o => o.trim() !== '');
     }
@@ -589,6 +598,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (q.caseId && String(q.caseId).trim()) out.caseId = String(q.caseId).trim();
             if (q.caseText && String(q.caseText).trim()) out.caseText = String(q.caseText).trim();
             if (q.caseTitle && String(q.caseTitle).trim()) out.caseTitle = String(q.caseTitle).trim();
+            if (q.caseReveal && String(q.caseReveal).trim()) out.caseReveal = String(q.caseReveal).trim();
+            if (Number(q.maxScore) > 0) out.maxScore = Number(q.maxScore);
+            Object.assign(out, q._keep || {});
+            // Câu tự luận (thêm phương án trong editor thì thành câu trắc nghiệm bình thường)
+            if (q.type === 'essay' && options.length === 0) {
+                delete out.correctAnswerIndex; delete out.answer;
+                out.type = 'essay';
+                if (q.modelAnswer) out.modelAnswer = q.modelAnswer;
+                if (Array.isArray(q.keyPoints) && q.keyPoints.length) out.keyPoints = q.keyPoints;
+                if (q.answerFormat) out.answerFormat = q.answerFormat;
+            }
             return out;
         });
         return {

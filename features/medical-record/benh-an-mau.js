@@ -138,8 +138,10 @@ const rec = {
         ngoaiKhoaMoc: [],
         diUng: 'Chưa ghi nhận dị ứng thuốc, thức ăn hay thời tiết',
         diUngChiTiet: [],
-        thuocDangDung: 'Metformin 1000 mg — 1 viên x 2 lần/ngày (uống sau ăn) — điều trị đái tháo đường típ 2\n'
-            + 'Amlodipin 5 mg — 1 viên buổi sáng — điều trị tăng huyết áp',
+        /* Ô #history-drugs là <input> MỘT dòng: "\n" bị trình duyệt nuốt mất -> hai thuốc
+           dính làm một. Viết đúng dạng máy ghép: ngăn bằng "; ", cột bệnh mang "điều trị: ". */
+        thuocDangDung: 'Metformin 1000 mg — 1 viên x 2 lần/ngày (uống sau ăn) — điều trị: Đái tháo đường típ 2; '
+            + 'Amlodipin 5 mg — 1 viên buổi sáng — điều trị: Tăng huyết áp',
         thoiQuen: 'Hút thuốc lá 30 gói·năm (20 điếu/ngày từ năm 22 tuổi đến nay); '
             + 'uống bia 1–2 lần/tuần, mỗi lần 2 lon 330 ml; không dùng chất kích thích khác',
         thuocLa: { dieuMoiNgay: '20', tuTuoi: '22', denTuoi: '62' },

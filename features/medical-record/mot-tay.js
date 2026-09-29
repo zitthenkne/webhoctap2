@@ -305,7 +305,9 @@ function init() {
        ================================================================ */
     let y0 = 0, x0 = 0, rinh = false;
     form.addEventListener('touchstart', (e) => {
-        rinh = isPhone() && e.touches.length === 1 && scrollY <= 2
+        /* Giao diện điện thoại mới (bo-cuc-ben.js) có sẵn 2 nút Mục lục (thanh đáy + tên
+           mục ở thanh trên) -> tắt cử chỉ kéo này: vuốt nhanh lên đầu trang là bật nhầm */
+        rinh = isPhone() && e.touches.length === 1 && scrollY <= 2 && !document.querySelector('.hd-bn')
             && !e.target.closest('input, textarea, select, button, .chips, [data-noswipe]');
         if (rinh) { y0 = e.touches[0].clientY; x0 = e.touches[0].clientX; }
     }, { passive: true });

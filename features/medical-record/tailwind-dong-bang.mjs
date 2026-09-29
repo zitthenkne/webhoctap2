@@ -26,8 +26,12 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const TRANG = join(HERE, 'tao-benh-an.html');
-const RA = join(HERE, 'tailwind-benh-an.css');
+/* Một script cho hai trang: mặc định trang viết bệnh án; `node tailwind-dong-bang.mjs xem`
+   cho trang xem bệnh án (xem-benh-an.html -> tailwind-xem.css). */
+const XEM = process.argv.includes('xem');
+const TEN_RA = XEM ? 'tailwind-xem.css' : 'tailwind-benh-an.css';
+const TRANG = join(HERE, XEM ? 'xem-benh-an.html' : 'tao-benh-an.html');
+const RA = join(HERE, TEN_RA);
 const TAM = join(HERE, '_tw-capture.html');
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 
@@ -69,7 +73,7 @@ for (const f of nguon) gomChu(readFileSync(f, 'utf8')).forEach(t => chu.add(t));
    trong markup. JS của trang không chạy (file:// chặn module) — không sao, vì
    class do JS gắn đã gom ở bước 1 rồi. */
 const html = readFileSync(TRANG, 'utf8')
-    .replace('<link rel="stylesheet" href="tailwind-benh-an.css">', '<script src="https://cdn.tailwindcss.com"></script>')
+    .replace(`<link rel="stylesheet" href="${TEN_RA}">`, '<script src="https://cdn.tailwindcss.com"></script>')
     .replace('</body>', `<div hidden class="${[...chu].join(' ')}"></div></body>`);
 writeFileSync(TAM, html);
 
@@ -84,10 +88,16 @@ try {
     if (existsSync(TAM)) unlinkSync(TAM);
 }
 
-// Khối <style> Tailwind chèn nằm CUỐI <head>, tức là thẻ style cuối cùng của DOM.
-const het = dom.lastIndexOf('</style>');
-const dau = dom.lastIndexOf('<style', het);
-const css = dom.slice(dom.indexOf('>', dau) + 1, het).trim();
+// Khối <style> Tailwind chèn vào <head>: lấy khối CUỐI CÙNG có chứa "--tw-" (trang có thể
+// còn <style> khác chèn sau — hứng thẻ cuối cùng mù quáng là hụt, đã dính ở index.html)
+// Dò TỪ CUỐI lên từng cặp <style>…</style> (đừng dùng regex non-greedy: trong ghi chú
+// của trang có chữ "<style" làm lệch ranh giới -> từng hứng nhầm, mất luật *,::before)
+let css = '';
+for (let het = dom.lastIndexOf('</style>'); het > 0; het = dom.lastIndexOf('</style>', het - 1)) {
+    const dau = dom.lastIndexOf('<style', het);
+    const khoi = dom.slice(dom.indexOf('>', dau) + 1, het).trim();
+    if (khoi.includes('--tw-') && khoi.includes('*, ::before, ::after')) { css = khoi; break; }
+}
 
 if (!css.includes('--tw-') || css.length < 5000) {
     console.error('Hứng hụt: CSS lấy được chỉ', css.length, 'byte. Có mạng không?');
@@ -106,11 +116,11 @@ const moi = dauFile + css + '\n';
 if (process.argv.includes('--kiem')) {
     const cu = existsSync(RA) ? readFileSync(RA, 'utf8') : '';
     if (cu !== moi) {
-        console.error('tailwind-benh-an.css đã cũ — chạy: node tailwind-dong-bang.mjs');
+        console.error(`${TEN_RA} đã cũ — chạy: node tailwind-dong-bang.mjs${XEM ? ' xem' : ''}`);
         process.exit(1);
     }
-    console.log('tailwind-benh-an.css còn khớp nguồn.');
+    console.log(`${TEN_RA} còn khớp nguồn.`);
 } else {
     writeFileSync(RA, moi);
-    console.log(`Đã ghi tailwind-benh-an.css — ${(moi.length / 1024).toFixed(1)}KB, gom từ ${chu.size} chữ ứng viên.`);
+    console.log(`Đã ghi ${TEN_RA} — ${(moi.length / 1024).toFixed(1)}KB, gom từ ${chu.size} chữ ứng viên.`);
 }

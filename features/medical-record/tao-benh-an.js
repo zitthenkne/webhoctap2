@@ -485,7 +485,7 @@ if (isTouch) {
     // Vuốt bắt đầu từ một nút / dải chip là thao tác với chính nó, đừng hiểu
     // thành lệnh đổi mục — kể cả khi dải đó ngắn, chưa cần cuộn.
     const NO_SWIPE = 'input, textarea, select, button, .chips, .ld-scroll, .tg-line, .hx-check,'
-        + ' .bl-map-wrap, .cls-thumbs, .img-grid, [data-noswipe]';
+        + ' .bl-map-wrap, .cls-thumbs, .img-grid, .hd-top, [data-noswipe]';
 
     /* Cú vuốt bắt đầu trong một dải cuộn ngang là của DẢI ĐÓ, không phải của
        trang. Dò bằng khả năng cuộn thật chứ không liệt kê tên lớp: trang này có
@@ -502,33 +502,68 @@ if (isTouch) {
         return false;
     }
 
+    /* Chỉ nhận cú vuốt NGANG DỨT KHOÁT — trước đây lệch ngang 70px + dọc dưới 50px là
+       đổi mục, nên vuốt chéo lúc cuộn, vuốt từ mép màn (cử chỉ Back của máy) hay kéo
+       bôi chữ đều nhảy mục ngoài ý muốn. Nay cần đủ cả:
+         · ngang ≥ 90px và gấp 2,5 lần độ lệch dọc, trong vòng 600ms
+         · không bắt đầu trong 24px sát mép trái/phải (vùng Back của iOS/Android)
+         · trang không bị cuộn dọc giữa chừng, chỉ một ngón, không đang bôi chọn chữ */
+    let st = 0, sy0 = 0;
     zone.addEventListener('touchstart', (e) => {
-        if (e.touches.length !== 1 || e.target.closest(NO_SWIPE) || inScrollerX(e.target)) {
+        const x = e.touches[0]?.clientX ?? 0;
+        if (e.touches.length !== 1 || e.target.closest(NO_SWIPE) || inScrollerX(e.target)
+            || x < 24 || x > innerWidth - 24) {
             tracking = false;
             return;
         }
-        sx = e.touches[0].clientX; sy = e.touches[0].clientY; tracking = true;
+        sx = x; sy = e.touches[0].clientY; st = e.timeStamp; sy0 = scrollY; tracking = true;
     }, { passive: true });
+    zone.addEventListener('touchmove', (e) => { if (e.touches.length > 1) tracking = false; }, { passive: true });
     zone.addEventListener('touchend', (e) => {
         if (!tracking) return;
         tracking = false;
         const dx = e.changedTouches[0].clientX - sx;
         const dy = e.changedTouches[0].clientY - sy;
-        if (Math.abs(dx) < 70 || Math.abs(dy) > 50) return;
+        if (Math.abs(dx) < 90 || Math.abs(dx) < 2.5 * Math.abs(dy)) return;
+        if (e.timeStamp - st > 600 || Math.abs(scrollY - sy0) > 12) return;
+        if (String(getSelection?.() || '').trim()) return;
         const cur = tabLinks.findIndex(l => l.classList.contains('active'));
         const target = tabLinks[dx < 0 ? cur + 1 : cur - 1];
-        if (target) showTab(target.dataset.tab);
+        if (target) { showTab(target.dataset.tab); navigator.vibrate?.(8); }
     }, { passive: true });
 }
 
-/* Ô nhiều dòng tự cao theo nội dung: không phải cuộn bên trong ô nữa */
+/* Ô nhiều dòng tự cao theo nội dung: không phải cuộn bên trong ô nữa.
+   Gom theo lượt: mỗi lời gọi chỉ ghi tên ô vào hàng chờ, cuối tác vụ hiện tại
+   (microtask — trước khi vẽ) mới làm một lượt ghi hết -> đọc hết -> ghi hết.
+   Trước đây mỗi ô tự ghi rồi đọc ngay, ép trình duyệt tính lại bố cục CẢ TRANG một
+   lần cho mỗi ô: mở bệnh án ~350ms chỉ cho việc này (máy tốt, máy tầm trung x4). */
+const choCao = new Set();
+let henCao = false;
 function autoGrow(el) {
-    el.style.height = 'auto';
-    el.style.height = Math.max(el.scrollHeight, 44) + 'px';
+    if (!el) return;
+    choCao.add(el);
+    if (henCao) return;
+    henCao = true;
+    queueMicrotask(() => { henCao = false; const tas = [...choCao]; choCao.clear(); caoLoat(tas); });
+}
+function caoLoat(tas) {
+    /* Ô ở mục đang ẩn: đo ra 0 (trước đây bị ép còn 44px, mở mục ra thì ô dài bị
+       cụt) -> để dành, lúc mục đó được mở sẽ đo (xem tabLinks bên dưới) */
+    const hien = tas.filter(el => el.isConnected
+        && !(el.closest('.tab-content:not(.active)') && !el.closest('#pin-body')));
+    if (!hien.length) return;
+    // Trong lúc đo các ô tạm co lại nên trang có thể ngắn đi, bị kéo cuộn lên -> trả lại
+    const y = scrollY;
+    hien.forEach(el => { el.style.height = 'auto'; });
+    const cao = hien.map(el => el.scrollHeight);
+    hien.forEach((el, i) => { el.style.height = Math.max(cao[i], 44) + 'px'; });
+    if (scrollY !== y) scrollTo(0, y);
 }
 function growAll() {
     document.querySelectorAll('#medical-record-form textarea').forEach(autoGrow);
 }
+// (Mở mục nào thì showTab() đã gọi autoGrow cho ô chữ của mục đó.)
 
 /* Nhóm dài thì cho thu gọn lại, đỡ phải cuộn dài trên điện thoại */
 const foldGroups = [];   // [{ body, count }] để cập nhật số ô đã điền
@@ -2402,12 +2437,22 @@ ENV_FIELDS.forEach(([, id]) => $(id)?.addEventListener('change', () => {
    (khỏi gõ hai nơi), còn nút "+ thuốc" thì thêm dòng thuốc đã gắn sẵn bệnh đó. */
 let dsThuoc = null;           // gán ở phần "Thuốc đang dùng" bên dưới
 
+/** Tên bệnh để SO KHỚP: thư viện thuốc ghi "Đái tháo đường type 2", bệnh án hay ghi
+    "típ 2" / "tuýp II" -> trước đây coi là hai bệnh khác nhau, máy báo sai "đang dùng
+    Metformin mà tiền căn chưa có bệnh tương ứng" và không tự gắn thuốc vào bệnh. */
+function chuanBenh(s) {
+    return fold(s).replace(/\b(type|tuyp|typ)\b/g, 'tip').replace(/\bii\b/g, '2').replace(/\bi\b/g, '1')
+        .replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+const cungBenh = (x, y) => { const a = chuanBenh(x), b = chuanBenh(y); return !!a && !!b && (a === b || a.includes(b) || b.includes(a)); };
+/** Tên thuốc để so khớp: chữ đầu, bỏ hàm lượng ("Amlodipin 5mg" = "amlodipin 5 mg") */
+function tenThuoc0(s) { return fold(s).replace(/[^a-z0-9 ]/g, ' ').trim().split(' ')[0]; }
+
 /** Thuốc đang dùng đã gắn đúng một bệnh nền — ["Amlodipine 5 mg 1 viên", …] */
 function thuocCuaBenh(benh) {
-    const b = fold(benh).trim();
-    if (!dsThuoc || !b) return [];
+    if (!dsThuoc || !chuanBenh(benh)) return [];
     return dsThuoc.get()
-        .filter(r => { const c = fold(r.c).trim(); return c && (c === b || c.includes(b) || b.includes(c)); })
+        .filter(r => cungBenh(r.c, benh))
         .map(r => [r.a, r.b].map(x => String(x || '').trim()).filter(Boolean).join(' '));
 }
 
@@ -2604,7 +2649,9 @@ dsThuoc = createDoiList({
         const goi = benhCuaThuoc(ten);
         if (!goi.length) return '';
         const daKhai = benhNenList();
-        return goi.find(b => daKhai.some(k => fold(k).includes(fold(b)) || fold(b).includes(fold(k)))) || '';
+        // Trả về đúng TÊN người dùng đã khai (không phải tên thư viện) để hai nơi khớp chữ
+        for (const b of goi) { const k = daKhai.find(x => cungBenh(x, b)); if (k) return k; }
+        return '';
     },
     empty: 'Chưa ghi thuốc nào — bấm “Thêm dòng” rồi chọn tên thuốc.',
     onChange: () => { refreshThuocLink(); tcOnChange(); }
@@ -2652,7 +2699,7 @@ function refreshThuocLink() {
     // 2. Thuốc đang dùng nhưng tiền căn chưa có bệnh tương ứng -> bổ sung tiền căn
     rows.forEach(r => {
         if (String(r.c || '').trim()) return;
-        const goi = benhCuaThuoc(r.a).filter(b => !benhNen.some(k => fold(k).includes(fold(b))));
+        const goi = benhCuaThuoc(r.a).filter(b => !benhNen.some(k => cungBenh(k, b)));
         if (!goi.length) return;
         out.push(`<div class="tg-warn"><i class="fas fa-triangle-exclamation"></i>
             Đang dùng <b>${esc(r.a)}</b> mà tiền căn nội khoa chưa có bệnh tương ứng —
@@ -2673,7 +2720,69 @@ function refreshThuocLink() {
         cnvIntoField(cnvInternal, 'history-internal');   // dòng tiền căn mang theo thuốc của bệnh đó
     }
     autoFillAnticoag(rows);
+    toMauLienKet();
 }
+
+/* ---------- Bệnh nền ↔ thuốc: mỗi cặp một màu ----------
+   Hai khối nằm cách nhau cả màn hình nên dù đã nối dữ liệu, mắt vẫn không thấy thuốc
+   nào của bệnh nào. Bệnh thứ n mang màu n: vạch trái của dòng bệnh, viên thuốc trên
+   dòng đó, vạch trái + ô "Dùng cho bệnh nào" của dòng thuốc. Thuốc ghi cho một bệnh
+   KHÔNG có trong tiền căn -> vàng (lk-lac). Chỉ gắn class/biến, không vẽ lại gì. */
+const MAU_LK = [
+    ['#b9a7ec', '#f4f1fd', '#5a4a96'], ['#8fc3ea', '#eef6fd', '#2f6690'], ['#f3a98c', '#fff2ec', '#9a4b2e'],
+    ['#7fcdb8', '#ecf9f5', '#2d7560'], ['#ec9cbc', '#fdeff5', '#9c3b64'], ['#e3bf62', '#fdf7e6', '#7d5a0c']
+];
+function toMauLienKet() {
+    const benhEls = [...document.querySelectorAll('#cnv-internal .cnv-row')];
+    const ten = benhEls.map(r => r.querySelector('.cnv-s')?.value || '');
+    const dat = (el, i) => {
+        el.dataset.lk = i;
+        el.classList.toggle('lk-on', i >= 0);
+        if (i < 0) return;
+        const [m, soft, ink] = MAU_LK[i % MAU_LK.length];
+        el.style.setProperty('--lk', m);
+        el.style.setProperty('--lk-soft', soft);
+        el.style.setProperty('--lk-ink', ink);
+    };
+    benhEls.forEach((el, i) => dat(el, ten[i].trim() ? i : -1));
+    document.querySelectorAll('#tc-thuoc-list .dl-row').forEach(el => {
+        const c = el.querySelector('.dl-c')?.value.trim() || '';
+        const i = c ? ten.findIndex(t => t.trim() && cungBenh(t, c)) : -1;
+        dat(el, i);
+        el.classList.toggle('lk-lac', !!c && i < 0);
+        el.title = c && i < 0 ? `“${c}” chưa có trong mục Bệnh đã có — thêm bệnh này hoặc sửa lại tên cho khớp` : '';
+    });
+}
+
+/* Rê chuột / đặt con trỏ vào một bên -> bên kia cùng màu sáng lên */
+function sangLienKet(e) {
+    const r = e.target.closest?.('[data-lk]');
+    const k = r && r.dataset.lk !== '-1' ? r.dataset.lk : null;
+    document.querySelectorAll('#cnv-internal .cnv-row, #tc-thuoc-list .dl-row')
+        .forEach(el => el.classList.toggle('lk-sang', k !== null && el.dataset.lk === k));
+}
+['cnv-internal', 'tc-thuoc-list'].forEach(id => {
+    const h = $(id);
+    if (!h) return;
+    h.addEventListener('mouseover', sangLienKet);
+    h.addEventListener('focusin', sangLienKet);
+    h.addEventListener('mouseleave', () => sangLienKet({ target: document.body }));
+});
+
+/* Chạm viên thuốc trên dòng bệnh -> nhảy tới đúng dòng thuốc đó để sửa liều */
+$('cnv-internal')?.addEventListener('click', (e) => {
+    const pill = e.target.closest('.cnv-pill');
+    if (!pill) return;
+    const chu = pill.textContent.trim();
+    const dong = [...document.querySelectorAll('#tc-thuoc-list .dl-row')].find(el =>
+        [el.querySelector('.dl-a')?.value, el.querySelector('.dl-b')?.value].map(x => String(x || '').trim()).filter(Boolean).join(' ') === chu)
+        || [...document.querySelectorAll('#tc-thuoc-list .dl-row')].find(el => tenThuoc0(el.querySelector('.dl-a')?.value) === tenThuoc0(chu));
+    if (!dong) return;
+    dong.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    dong.classList.remove('ba-flash'); void dong.offsetWidth; dong.classList.add('ba-flash');
+    setTimeout(() => dong.classList.remove('ba-flash'), 1600);
+    (dong.querySelector('.dl-b') || dong.querySelector('.dl-a'))?.focus({ preventScroll: true });
+});
 
 /* Bấm chip: thêm thuốc cho bệnh, hoặc thêm bệnh nền mà thuốc đang ám chỉ */
 $('tc-thuoc-goi')?.addEventListener('click', (e) => {
@@ -2703,8 +2812,15 @@ function migrateThuocBenhNen() {
     const rows = cnvInternal.get();
     const cu = rows.filter(r => String(r.thuoc || '').trim());
     if (!cu.length) return;
+    /* Thuốc đó đã có sẵn trong danh sách (thường kèm cả liều) thì chỉ GẮN bệnh cho dòng
+       có sẵn — trước đây cứ thêm dòng mới nên mỗi thuốc hiện hai lần, bản sau thiếu liều. */
     cu.forEach(r => String(r.thuoc).split(/[;,]/).map(x => x.trim()).filter(Boolean)
-        .forEach(t => dsThuoc.add({ a: t, c: String(r.s || '').trim() })));
+        .forEach(t => {
+            const benh = String(r.s || '').trim();
+            const co = dsThuoc.get().find(x => tenThuoc0(x.a) === tenThuoc0(t));
+            if (co) dsThuoc.setBenh(co.a, benh);
+            else dsThuoc.add({ a: t, c: benh });
+        }));
     cnvInternal.set(rows.map(r => ({ ...r, thuoc: '' })));
     cnvIntoField(cnvInternal, 'history-internal');
 }

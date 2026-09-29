@@ -2,6 +2,7 @@
  * Các tool ĐỌC (read-only) cho Zitthenkne MCP server.
  */
 
+import type { StoredKeyPoint } from "../types.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Query } from "firebase-admin/firestore";
 import type { z } from "zod";
@@ -159,7 +160,7 @@ Lỗi: trả "Không tìm thấy bộ đề" nếu quiz_id không tồn tại.`,
         const quiz = toQuizSet(doc, true);
         const questions = quiz.questions.map((q) => {
           if (params.include_answers) return q;
-          const { correctAnswerIndex, optionExplanations, explanation, ...rest } = q;
+          const { correctAnswerIndex, optionExplanations, explanation, modelAnswer, keyPoints, ...rest } = q;
           return rest;
         });
         const output = { ...quiz, questions };
@@ -173,7 +174,22 @@ Lỗi: trả "Không tìm thấy bộ đề" nếu quiz_id không tồn tại.`,
           "",
         ];
         quiz.questions.forEach((q, i) => {
-          lines.push(`## Câu ${i + 1}. ${q.question}`);
+          if (q.caseText && q.caseText !== quiz.questions[i - 1]?.caseText) lines.push(`> **${q.caseTitle || "Ca lâm sàng"}**: ${q.caseText}`, "");
+          if (q.caseReveal) lines.push(`> *Bổ sung*: ${q.caseReveal}`, "");
+          lines.push(`## Câu ${i + 1}${q.type === "essay" ? " (tự luận)" : ""}. ${q.question}`);
+          if (params.include_answers) {
+            const kpLine = (k: StoredKeyPoint, pad = "") =>
+              `${pad}- [ ] ${k.text} (${k.points ?? 1}đ${k.partial ? `, một phần ${k.partial}đ` : ""}${k.critical ? ", BẮT BUỘC" : ""}${k.field ? `, ô ${k.field}` : ""})${k.keywords?.length ? ` — từ khóa: ${k.keywords.join(", ")}` : ""}`;
+            if (q.maxScore) lines.push(`*Điểm câu: ${q.maxScore}*`);
+            if (q.answerFormat) lines.push(`*Kiểu ô trả lời: ${JSON.stringify(q.answerFormat)}*`);
+            (q.keyPoints ?? []).forEach((k) => {
+              if ("items" in k) {
+                lines.push(`- **${k.group}**${k.max ? ` (tối đa ${k.max}đ)` : ""}`);
+                k.items.forEach((it) => lines.push(kpLine(it, "  ")));
+              } else lines.push(kpLine(k));
+            });
+            if (q.modelAnswer) lines.push(`**Đáp án mẫu:**`, q.modelAnswer);
+          }
           (q.answers ?? []).forEach((a, idx) => {
             const mark = params.include_answers && idx === q.correctAnswerIndex ? " ✅" : "";
             lines.push(`${String.fromCharCode(65 + idx)}. ${a}${mark}`);

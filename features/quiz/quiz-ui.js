@@ -1,11 +1,24 @@
 // features/quiz/quiz-ui.js
 
 import { state, MARK_REASONS } from './quiz-state.js';
-import { parseMarkdown, renderMath, convertScoreToGPA, formatTime, triggerConfetti, stripOptionLabels, isAnswerCorrect, getCorrectIndexes } from './quiz-helpers.js';
+import { parseMarkdown, renderMath, convertScoreToGPA, formatTime, triggerConfetti, stripOptionLabels, isAnswerCorrect, getCorrectIndexes, answerCredit, sessionScore } from './quiz-helpers.js';
 import { previewSrsCounts, getNewPerDay, setNewPerDay } from './quiz-srs-store.js';
 import { caseCellClass } from './page/quiz-cases.js';
+import { isEssay, isPendingEssay, isEssayGraded, needsReview, questionWeight } from './quiz-essay-core.js';
+import { essayReviewHtml } from './page/quiz-essay.js';
 import { auth } from '../../core/firebase-init.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
+
+// Ghi nhớ + Mở rộng kiến thức của một câu ở màn kết quả (trắc nghiệm lẫn tự luận) — chế độ
+// "nộp xong mới mở đáp án" không có dịp xem hai thẻ này trong lúc làm bài.
+export function studyExtrasHtml(q) {
+    const note = String((q && q.note) || '').trim();
+    const more = String((q && q.expanded) || '').trim();
+    return (note ? `<div class="study-extra is-memo"><div class="study-extra-head"><i class="fas fa-lightbulb"></i> Ghi nhớ</div>
+            <div class="study-extra-body">${parseMarkdown(note)}</div></div>` : '')
+        + (more ? `<details class="study-extra is-more"><summary class="study-extra-head"><i class="fas fa-book-open"></i> Mở rộng kiến thức</summary>
+            <div class="study-extra-body">${parseMarkdown(more)}</div></details>` : '');
+}
 
 export function showSubmitQuizBtn(show) {
     const submitQuizBtn = document.getElementById('submit-quiz-btn');
@@ -27,7 +40,7 @@ function navStateClass(i) {
     const answered = ans !== null && ans !== undefined;
     if (i === state.currentIndex) return answered ? 'is-current is-done' : 'is-current';
     if (!answered) return '';
-    if (!state.quizOptions.showAnswerImmediately) return 'is-answered';
+    if (!state.quizOptions.showAnswerImmediately || isPendingEssay(state.questions[i], ans)) return 'is-answered';
     return isAnswerCorrect(state.questions[i], ans) ? 'is-correct' : 'is-wrong';
 }
 function navMarkKey(i) {
@@ -278,27 +291,39 @@ function renderSrsLandingCard() {
     }
 }
 
-export function showResults(totalTime) {
+// opts.instant: vẽ lại sau khi tự chấm tự luận — không chạy lại hiệu ứng vòng tròn / pháo giấy
+export function showResults(totalTime, opts = {}) {
     const resultsSection = document.getElementById('resultsSection');
     if (!resultsSection) return;
 
     resultsSection.classList.remove('hidden');
 
     // --- Tính toán thống kê ---
+    // Điểm = tổng điểm từng câu (tự luận tính theo tỉ lệ ý đã tick); "Đúng" = đạt (tự luận ≥ 50%)
     const total = state.questions.length;
-    let correctCount = 0;
+    // Điểm theo trọng số câu (maxScore) — xem sessionScore; "Cần xem lại" = tự luận chưa chấm + máy chấm sơ bộ
+    let correctCount = 0, pendingCount = 0, autoCount = 0, hasEssay = false, weighted = false;
     state.questions.forEach((q, i) => {
-        if (isAnswerCorrect(q, state.userAnswers[i])) correctCount++;
+        const a = state.userAnswers[i];
+        if (isAnswerCorrect(q, a)) correctCount++;
+        if (isPendingEssay(q, a)) pendingCount++;
+        else if (needsReview(q, a)) autoCount++;
+        if (isEssay(q)) hasEssay = true;
+        if (Number(q.maxScore) > 0) weighted = true;
     });
+    const { score: scoreSum, max: scoreMax } = sessionScore(state.questions, state.userAnswers);
+    const reviewCount = pendingCount + autoCount;
+    const fmtNum = (n) => String(n).replace('.', ',');
     const answeredCount = state.userAnswers.filter(a => a !== null && a !== undefined).length;
     const unansweredCount = total - answeredCount;
-    const wrongCount = answeredCount - correctCount;
+    const wrongCount = answeredCount - correctCount - pendingCount;
 
-    const percentage = total > 0 ? (correctCount / total) * 100 : 0;
+    const percentage = scoreMax > 0 ? (scoreSum / scoreMax) * 100 : 0;
     const percentageStr = percentage.toFixed(1);
-    const gpaResult = convertScoreToGPA(correctCount, total);
+    const gpaResult = convertScoreToGPA(scoreSum, scoreMax);
     const { score4: gpa4, letterGrade, motivation, score10 } = gpaResult;
-    const incorrectCount = total - correctCount;
+    const incorrectCount = total - correctCount - pendingCount;
+    const scoreLabel = (hasEssay || weighted) ? `${fmtNum(scoreSum)}/${fmtNum(scoreMax)} điểm` : `${correctCount}/${total} câu`;
     const showPracticeButton = incorrectCount > 0;
     const isSrs = state.quizMode === 'srs';
 
@@ -407,7 +432,8 @@ export function showResults(totalTime) {
     const statusConfig = {
         correct: { wrap: 'bg-green-50/60 border-green-200', icon: 'fa-check-circle text-green-500', pill: 'bg-green-100 text-green-700', label: 'Đúng' },
         wrong: { wrap: 'bg-red-50/60 border-red-200', icon: 'fa-times-circle text-red-500', pill: 'bg-red-100 text-red-700', label: 'Sai' },
-        unanswered: { wrap: 'bg-gray-50 border-gray-200', icon: 'fa-minus-circle text-gray-400', pill: 'bg-gray-200 text-gray-600', label: 'Bỏ trống' }
+        unanswered: { wrap: 'bg-gray-50 border-gray-200', icon: 'fa-minus-circle text-gray-400', pill: 'bg-gray-200 text-gray-600', label: 'Bỏ trống' },
+        pending: { wrap: 'bg-blue-50 border-blue-200', icon: 'fa-list-check text-blue-500', pill: 'bg-blue-100 text-blue-700', label: 'Chưa chấm' }
     };
 
     // #11: xác định câu tốn nhiều thời gian nhất (chỉ xét câu có >0s) để đánh dấu tinh tế
@@ -424,10 +450,11 @@ export function showResults(totalTime) {
 
     const detailedResultsHtml = state.questions.map((q, index) => {
         const userAnswerIndex = state.userAnswers[index];
-        const answerOptions = stripOptionLabels(q.answers || q.options);
+        const essay = isEssay(q);
+        const answerOptions = essay ? [] : stripOptionLabels(q.answers || q.options);
         const isUnanswered = userAnswerIndex === null || userAnswerIndex === undefined;
         const isCorrect = !isUnanswered && isAnswerCorrect(q, userAnswerIndex);
-        const status = isCorrect ? 'correct' : (isUnanswered ? 'unanswered' : 'wrong');
+        const status = isPendingEssay(q, userAnswerIndex) ? 'pending' : isCorrect ? 'correct' : (isUnanswered ? 'unanswered' : 'wrong');
         // Câu nhiều đáp án đúng: gộp các lựa chọn của người dùng / các đáp án đúng thành chuỗi "A, C".
         const correctIdxList = getCorrectIndexes(q);
 
@@ -437,7 +464,7 @@ export function showResults(totalTime) {
                     </div>`;
         }
 
-        const userIdxList = Array.isArray(userAnswerIndex) ? userAnswerIndex.slice().sort((a, b) => a - b) : (isUnanswered ? [] : [userAnswerIndex]);
+        const userIdxList = essay ? [] : Array.isArray(userAnswerIndex) ? userAnswerIndex.slice().sort((a, b) => a - b) : (isUnanswered ? [] : [userAnswerIndex]);
         const userAnswerText = userIdxList.map(i => `${letter(i)}. ${parseMarkdown(answerOptions[i])}`).join('<br>');
         const correctAnswerText = correctIdxList.map(i => `${letter(i)}. ${parseMarkdown(answerOptions[i])}`).join('<br>');
         const cfg = statusConfig[status];
@@ -463,13 +490,16 @@ export function showResults(totalTime) {
                 </details>` : '';
 
         return `
-        <div class="result-item rounded-xl border ${cfg.wrap} overflow-hidden transition-all" data-status="${status}" data-marked="${markReasonKey}">
+        <div class="result-item rounded-xl border ${cfg.wrap} overflow-hidden transition-all" data-status="${status}" data-marked="${markReasonKey}"${essay && needsReview(q, userAnswerIndex) ? ' data-review="1"' : ''}>
             <div class="result-header flex items-start gap-2.5 p-3 cursor-pointer select-none" role="button" tabindex="0" aria-expanded="false">
                 <i class="fas ${cfg.icon} text-lg flex-shrink-0 mt-0.5"></i>
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center flex-wrap gap-2 mb-0.5">
                         <span class="text-xs font-bold text-gray-500">Câu ${index + 1}</span>
                         <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${cfg.pill}">${cfg.label}</span>
+                        ${essay ? `<span class="q-essay-chip is-sm"><i class="fas fa-pen"></i> Tự luận${isEssayGraded(q, userAnswerIndex) ? ` · ${String(Math.round(answerCredit(q, userAnswerIndex) * 100))}%` : ''}</span>` : ''}
+                        ${essay && userAnswerIndex && userAnswerIndex.auto ? '<span class="q-auto-chip"><i class="fas fa-wand-magic-sparkles"></i> Máy chấm sơ bộ</span>' : ''}
+                        ${Number(q.maxScore) > 0 ? `<span class="q-essay-chip is-sm is-pts">${fmtNum(Math.round(answerCredit(q, userAnswerIndex) * questionWeight(q) * 100) / 100)}/${fmtNum(questionWeight(q))}đ</span>` : ''}
                         ${(times[index] > 0) ? `<span class="q-time ${index === slowestIdx && slowestVal >= 5 ? 'q-slow' : ''}" title="Thời gian làm câu này"><i class="fas fa-clock"></i> ${formatTime(times[index])}${index === slowestIdx && slowestVal >= 5 ? ' · lâu nhất' : ''}</span>` : ''}
                         ${state.confidence && state.confidence[index] === 'guess' ? `<span class="q-guess-badge" title="Bạn đã đánh dấu là đoán"><i class="fas fa-dice"></i> Đoán</span>` : ''}
                         ${caseBadge}
@@ -481,6 +511,7 @@ export function showResults(totalTime) {
             </div>
             <div class="result-body hidden border-t border-gray-200/50 px-3 py-3 space-y-2 text-sm bg-white/50">
                 ${caseBlock}
+                ${essay ? essayReviewHtml(q, index, userAnswerIndex) : `
                 ${!isCorrect ? `
                 <div>
                     <span class="font-medium text-gray-500">Bạn chọn: </span>
@@ -489,11 +520,12 @@ export function showResults(totalTime) {
                 <div>
                     <span class="font-medium text-gray-500">Đáp án đúng${correctIdxList.length > 1 ? ' (chọn tất cả)' : ''}: </span>
                     <span class="text-green-600 font-medium">${correctAnswerText}</span>
-                </div>
+                </div>`}
                 ${hasExplanation ? `
                 <div class="mt-1 p-2.5 bg-amber-50/60 border border-amber-100 rounded-lg text-gray-600">
                     <span class="font-semibold text-gray-700"><i class="fas fa-lightbulb text-amber-400 mr-1"></i>Giải thích:</span> ${parseMarkdown(explanationText)}
                 </div>` : ''}
+                ${essay ? '' : studyExtrasHtml(q)}
             </div>
         </div>`;
     }).join('');
@@ -513,7 +545,7 @@ export function showResults(totalTime) {
                     <div class="absolute inset-0 flex flex-col items-center justify-center">
                         <span class="rs-grade" style="color:${ringColor}">${letterGrade}</span>
                         <span id="result-pct" class="rs-pct font-extrabold" style="color:${ringColor}">0%</span>
-                        <span class="text-xs text-gray-400 font-medium">${correctCount}/${total} câu</span>
+                        <span class="text-xs text-gray-400 font-medium">${scoreLabel}</span>
                     </div>
                 </div>
                 <!-- Thông tin tổng kết -->
@@ -549,6 +581,17 @@ export function showResults(totalTime) {
 
             ${srsSummaryHtml}
 
+            ${reviewCount > 0 ? `
+            <div class="essay-pending-card">
+                <i class="fas fa-list-check" aria-hidden="true"></i>
+                <div class="essay-pending-txt">
+                    <b>Còn ${reviewCount} câu tự luận cần xem lại</b>
+                    <span>${[autoCount ? `${autoCount} câu máy đã chấm sơ bộ theo từ khóa — điểm tạm tính, hãy kiểm tra và tick thêm ý bạn nêu bằng cách diễn đạt khác` : '',
+                        pendingCount ? `${pendingCount} câu chưa chấm (đang tính 0 điểm)` : ''].filter(Boolean).join('. ')}.</span>
+                </div>
+                <button type="button" id="essay-grade-now">Xem lại ngay</button>
+            </div>` : ''}
+
             <!-- Instant Redo Loop Banner -->
             ${showPracticeButton ? `
             <div class="mt-6 p-5 sm:p-6 bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-red-500/10 border-2 border-amber-400/80 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-md transition-all duration-300">
@@ -564,7 +607,7 @@ export function showResults(totalTime) {
                 <button id="practiceIncorrectBtn" class="w-full md:w-auto px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl shadow-[0_8px_20px_rgba(245,158,11,0.4)] hover:scale-[1.03] active:scale-[0.98] transition-all font-extrabold text-sm sm:text-base flex items-center justify-center gap-2.5 flex-shrink-0">
                     <i class="fas fa-redo-alt"></i> Làm lại ${incorrectCount} câu sai
                 </button>
-            </div>` : `
+            </div>` : reviewCount ? '' : `
             <div class="mt-6 p-5 sm:p-6 bg-gradient-to-r from-green-500/15 to-emerald-500/15 border-2 border-green-400/80 rounded-2xl flex items-center gap-4 text-left shadow-md">
                 <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-400 to-emerald-500 text-white flex items-center justify-center shadow-lg flex-shrink-0">
                     <i class="fas fa-trophy text-2xl"></i>
@@ -620,6 +663,7 @@ export function showResults(totalTime) {
                     <button data-filter="wrong" class="result-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Câu sai (${wrongCount})</button>
                     <button data-filter="unanswered" class="result-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Bỏ trống (${unansweredCount})</button>
                     <button data-filter="correct" class="result-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Đúng (${correctCount})</button>
+                    ${reviewCount > 0 ? `<button data-filter="review" class="result-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Cần xem lại (${reviewCount})</button>` : ''}
                     ${markedCount > 0 ? `<button data-filter="marked" class="result-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition"><i class="fas fa-flag mr-1 text-amber-500"></i>Đã đánh dấu (${markedCount})</button>` : ''}
                     <button id="toggle-all-results" class="px-3 py-1.5 rounded-full text-xs font-semibold bg-white text-pink-600 border border-pink-200 hover:bg-pink-50 transition flex items-center gap-1" title="Mở/thu gọn toàn bộ câu đang hiện">
                         <i class="fas fa-angles-down"></i> <span>Mở tất cả</span>
@@ -647,6 +691,8 @@ export function showResults(totalTime) {
     `;
 
     // Hiệu ứng vẽ vòng tròn phần trăm + đếm số % chạy song song
+    const ringNow = document.getElementById('result-ring');
+    if (opts.instant && ringNow) { ringNow.style.transition = 'none'; ringNow.style.strokeDashoffset = dashOffset.toFixed(2); }
     requestAnimationFrame(() => {
         const ring = document.getElementById('result-ring');
         if (ring) ring.style.strokeDashoffset = dashOffset.toFixed(2);
@@ -654,7 +700,7 @@ export function showResults(totalTime) {
         const pctEl = document.getElementById('result-pct');
         if (!pctEl) return;
         const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        if (reduce) { pctEl.textContent = `${percentageStr}%`; return; }
+        if (reduce || opts.instant) { pctEl.textContent = `${percentageStr}%`; return; }
         const DURATION = 1200; // khớp với transition 1.2s của vòng tròn
         const startAt = performance.now();
         const tick = (now) => {
@@ -678,9 +724,17 @@ export function showResults(totalTime) {
     }
 
     // Pháo giấy chúc mừng khi đạt điểm cao
-    if (percentage >= 80) {
+    if (percentage >= 80 && !opts.instant) {
         setTimeout(() => triggerConfetti(), 300);
     }
+
+    // "Xem lại ngay": lọc các câu tự luận cần xem lại, mở hết, cuộn tới danh sách
+    document.getElementById('essay-grade-now')?.addEventListener('click', () => {
+        document.querySelector('#result-filter-tabs [data-filter="review"]')?.click();
+        document.querySelectorAll('#detailed-results-list .result-item:not(.hidden) .result-body.hidden')
+            .forEach(b => b.closest('.result-item').querySelector('.result-header')?.click());
+        document.getElementById('detailed-results-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
 
     // Bộ lọc danh sách chi tiết
     const filterTabs = document.getElementById('result-filter-tabs');
@@ -701,6 +755,7 @@ export function showResults(totalTime) {
                 let match;
                 if (filter === 'all') match = true;
                 else if (filter === 'marked') match = !!item.getAttribute('data-marked');
+                else if (filter === 'review') match = !!item.getAttribute('data-review');
                 else match = item.getAttribute('data-status') === filter;
                 item.classList.toggle('hidden', !match);
                 if (match) visibleCount++;

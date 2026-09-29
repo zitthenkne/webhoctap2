@@ -14,6 +14,7 @@ import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-f
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
 import { showToast, showConfirm } from '../../core/utils.js';
 import { parseMarkdown, parseInlineMarkdown, renderMath } from '../quiz/quiz-helpers.js';
+import { keyPointsOf } from '../quiz/quiz-essay-core.js';
 import { getOfflineQuiz, autoCacheQuiz } from '../quiz/quiz-offline-store.js';
 import { studyKeys, syncPullStudy, scheduleCloudPush } from '../quiz/quiz-study-store.js';
 
@@ -91,10 +92,13 @@ function normalize(questions) {
             topic: (q.topic && String(q.topic).trim()) || '', // '' = không có chủ đề
             caseText: q.caseText || '',
             caseTitle: q.caseTitle || '',
+            // Câu tự luận: mặt sau = đáp án mẫu, không có thì các ý chấm
+            modelAnswer: q.modelAnswer || keyPointsOf(q).filter(k => !k.penalty).map(k => '- ' + k.text).join('\n'),
         };
     });
 }
 function correctText(c) {
+    if (!c.options.length) return c.modelAnswer || '';
     if (c.correctIndex == null) return c.options[0] || '';
     return c.options[c.correctIndex] || c.options[0] || '';
 }

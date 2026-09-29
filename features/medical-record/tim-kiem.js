@@ -13,9 +13,25 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
 
 /* Bỏ dấu nhưng GIỮ NGUYÊN số ký tự (mỗi chữ có dấu vẫn thành đúng 1 chữ),
    nhờ vậy chỉ số tìm được trên chuỗi đã bỏ dấu vẫn dùng được cho chuỗi gốc. */
-export const fold = (s) => String(s ?? '').toLowerCase()
+const foldTho = (s) => s.toLowerCase()
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/đ/g, 'd');
+
+/* Nhớ kết quả cho chuỗi NGẮN: cùng vài nghìn tên bệnh / triệu chứng / thuốc bị bỏ
+   dấu lại hàng chục lần mỗi lượt gợi ý — đo lúc mở trang, fold() chiếm ~260ms
+   (máy tốt; máy tầm trung gấp ~4). Chuỗi dài (đoạn bệnh sử) đổi liên tục, khỏi nhớ. */
+const foldNho = new Map();
+export const fold = (s) => {
+    const k = String(s ?? '');
+    if (k.length > 160) return foldTho(k);
+    let v = foldNho.get(k);
+    if (v === undefined) {
+        v = foldTho(k);
+        if (foldNho.size > 8000) foldNho.clear();
+        foldNho.set(k, v);
+    }
+    return v;
+};
 
 const words = (s) => fold(s).split(/[^a-z0-9]+/).filter(Boolean);
 const initials = (s) => words(s).map(w => w[0]).join('');

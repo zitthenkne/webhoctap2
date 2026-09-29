@@ -22,9 +22,10 @@ import {
 } from "../schemas.js";
 
 type QuestionInput = {
+  type?: "mcq" | "essay";
   question: string;
-  answers: string[];
-  correct_answer_index: number;
+  answers?: string[];
+  correct_answer_index?: number;
   correct_answer_indexes?: number[];
   option_explanations?: string[];
   explanation?: string;
@@ -34,15 +35,42 @@ type QuestionInput = {
   case_id?: string;
   case_text?: string;
   case_title?: string;
+  case_reveal?: string;
+  model_answer?: string;
+  key_points?: (KeyPointInput | { group: string; max_points?: number; items: KeyPointInput[] })[];
+  max_score?: number;
+  answer_format?: { kind: string; count?: number; labels?: string[]; columns?: string[]; rows?: number | string[]; placeholder?: string };
 };
+type KeyPointInput = { text: string; points?: number; keywords?: string[]; partial_points?: number; critical?: boolean; field?: number; order?: string[] };
+
+/** Ý barem snake_case -> dạng lưu (camelCase, bỏ trường rỗng) */
+function toStoredKeyPoint(k: KeyPointInput): Record<string, unknown> {
+  const out: Record<string, unknown> = { text: k.text, points: k.points ?? 1 };
+  if (k.keywords?.length) out.keywords = k.keywords;
+  if (k.partial_points) out.partial = k.partial_points;
+  if (k.critical) out.critical = true;
+  if (k.field) out.field = k.field;
+  if (k.order?.length) out.order = k.order;
+  return out;
+}
 
 /** Chuyển câu hỏi từ định dạng input (snake_case) sang định dạng lưu Firestore (giống web app). */
 function toStoredQuestion(q: QuestionInput): Record<string, unknown> {
-  const stored: Record<string, unknown> = {
-    question: q.question,
-    answers: q.answers,
-    correctAnswerIndex: q.correct_answer_index,
-  };
+  // Tự luận: answers rỗng + type 'essay' (web app nhận diện câu không phương án là tự luận)
+  const stored: Record<string, unknown> =
+    q.type === "essay"
+      ? { question: q.question, type: "essay", answers: [] }
+      : { question: q.question, answers: q.answers, correctAnswerIndex: q.correct_answer_index };
+  if (q.model_answer) stored.modelAnswer = q.model_answer;
+  if (q.key_points?.length)
+    stored.keyPoints = q.key_points.map((k) =>
+      "items" in k
+        ? { group: k.group, ...(k.max_points ? { max: k.max_points } : {}), items: k.items.map(toStoredKeyPoint) }
+        : toStoredKeyPoint(k),
+    );
+  if (q.max_score) stored.maxScore = q.max_score;
+  if (q.answer_format && q.answer_format.kind !== "text") stored.answerFormat = q.answer_format;
+  if (q.case_reveal) stored.caseReveal = q.case_reveal;
   if (q.correct_answer_indexes && q.correct_answer_indexes.length > 0) {
     stored.correctAnswerIndexes = q.correct_answer_indexes;
   }
@@ -56,6 +84,36 @@ function toStoredQuestion(q: QuestionInput): Record<string, unknown> {
   if (q.case_title) stored.caseTitle = q.case_title;
   return stored;
 }
+
+const ESSAY_GUIDE = `    Tự luận / thi tình huống: { type: 'essay', question, model_answer?, key_points?, max_score?, explanation? } — KHÔNG truyền answers/correct_answer_index.
+      - key_points = BAREM. Máy tự dò từ khóa trong bài làm để tick sẵn, người làm xem lại và tick thêm. Mỗi ý:
+          { text, points (mặc định 1), keywords: [2-6 từ khóa/đồng nghĩa/viết tắt, có dấu, ngắn], partial_points?, critical? }
+        LUÔN kèm keywords cho mọi ý (thiếu keywords máy chỉ đoán theo chữ của text, kém chính xác hơn).
+        Các kiểu barem (chỉ dùng khi barem gốc có, đừng tự bịa):
+          · ý một phần: partial_points (vd. points 0.5, partial_points 0.25 khi có tên thuốc mà thiếu liều)
+          · ý bắt buộc / điểm liệt: critical: true -> thiếu thì cả câu 0 điểm
+          · lỗi trừ điểm: points âm (vd. { text: 'Dùng nitrat khi tụt HA', points: -0.5, keywords: ['nitrat'] }) — máy KHÔNG tự tick, chỉ nhắc
+          · thứ tự bước (trạm khám / thủ thuật, "sai thứ tự 0 điểm"): { text: 'Đúng thứ tự: A → B → C', critical: true, order: ['A|viết tắt A', 'B', 'C'] }
+          · nhóm "nêu k trong n": { group: 'Nêu 2 trong 4 nguyên nhân', max_points: 1, items: [{ text, points: 0.5, keywords }, …] }
+      - answer_format = KIỂU Ô TRẢ LỜI — chọn theo cách đề hỏi (đọc kỹ câu hỏi, đừng mặc định ô dài):
+          · "Nêu / Kể N …" (N cụ thể: 3 chẩn đoán phân biệt, 4 nhóm thuốc…) -> { kind: 'list', count: N }. Barem có N ý
+            (đáp án đúng nhiều hơn N thì dùng nhóm "nêu N trong M" với max_points = điểm N ý). Không cần field (thứ tự tự do).
+          · Một câu hỏi GỒM NHIỀU PHẦN riêng (Chẩn đoán sơ bộ + phân biệt; Chẩn đoán + hướng xử trí; phân loại theo EF / NYHA / giai đoạn)
+            -> { kind: 'fields', labels: [tên từng phần] } và GẮN field (số ô, từ 1) cho mọi ý để máy không tính nhầm ý viết sai ô.
+          · Kê đơn / so sánh / điền bảng (thuốc – liều – đường dùng; so sánh A với B theo tiêu chí) -> { kind: 'table', columns: [...], rows: số hàng
+            hoặc [nhãn hàng] }. Có nhãn hàng thì field = số hàng của ý.
+          · Trả lời bằng MỘT cụm ngắn (chẩn đoán xác định, tên bệnh, một con số, một thuốc) -> { kind: 'short' }.
+          · Giải thích cơ chế, biện luận, trình bày, phân tích -> bỏ trống (ô văn bản dài).
+          · Nhãn ô / nhãn hàng / placeholder KHÔNG được lộ đáp án (đề hỏi kể thuốc thì đừng đặt nhãn hàng "Aspirin").
+      - Câu tự luận vẫn nên có explanation (giải thích / lập luận của barem), note (Ghi nhớ: mẹo, lưu ý, bẫy hay nhầm) và expanded (Mở rộng kiến thức) giống trắc nghiệm — hiện sau khi mở đáp án.
+      - max_score = điểm tối đa của CÂU trong đề (trọng số; vd. đề thang 10: câu 1 = 2đ, câu 2 = 3đ). Tổng barem của câu nên bằng max_score.
+      - model_answer = đáp án mẫu viết liền (markdown). Có key_points thì model_answer chỉ để đọc thêm; không có key_points thì mỗi gạch đầu dòng cấp 1 của model_answer thành 1 ý (ghi điểm cuối ý: "- Killip I (0.5đ)").
+      - Đề tình huống: bối cảnh chung đặt ở case_text (lặp y hệt ở mọi câu cùng case_id), mỗi câu hỏi nhỏ là một câu riêng theo đúng thứ tự.
+      - case_reveal (tùy chọn) ở câu k = thông tin mới (vd. kết quả xét nghiệm) chỉ lộ ra từ câu k; xem câu k rồi thì các câu trước của ca bị khóa, không sửa được nữa.
+      - Trộn trắc nghiệm + tự luận trong cùng bộ đề được.
+      Ví dụ: { type: 'essay', case_id: 'ca1', case_title: 'Đau ngực', case_text: 'BN nam 58t...', question: 'Chẩn đoán sơ bộ?', max_score: 1.5,
+                key_points: [{ text: 'NMCT cấp ST chênh lên', critical: true, keywords: ['nhồi máu cơ tim', 'NMCT', 'STEMI'] }, { text: 'Thành dưới', points: 0.5, keywords: ['thành dưới'] }] },
+              { type: 'essay', case_id: 'ca1', case_title: 'Đau ngực', case_text: 'BN nam 58t...', case_reveal: 'Troponin hs 850 ng/L', question: 'Xử trí ban đầu?', model_answer: '- Aspirin 300mg nhai\\n- Chụp mạch vành cấp cứu' }`;
 
 /** Trả về phản hồi thành công nhất quán cho cả markdown lẫn json. */
 function ok(
@@ -80,6 +138,7 @@ Args:
   - user_id (string, bắt buộc): UID chủ sở hữu
   - questions (array, >=1): mỗi câu gồm { question, answers[>=2], correct_answer_index, correct_answer_indexes?(câu nhiều đáp án, ≥2), option_explanations?, explanation? }
     Ca lâm sàng (case chùm): để nhiều câu dùng chung một tình huống, đặt cùng case_id cho các câu đó và truyền case_text (nội dung ca) + case_title (tùy chọn) giống nhau ở các câu cùng nhóm. Các câu cùng case_id sẽ được nhóm liền nhau khi làm bài.
+${ESSAY_GUIDE}
   - is_public (boolean, mặc định true)
   - folder_id (string | null, mặc định null)
   - response_format ('markdown' | 'json')
@@ -165,6 +224,7 @@ Lỗi: "Không tìm thấy bộ đề" nếu quiz_id sai.`,
 Args:
   - quiz_id (string, bắt buộc)
   - question (object): { question, answers[>=2], correct_answer_index, correct_answer_indexes?(câu nhiều đáp án, ≥2), option_explanations?, explanation? }
+    hoặc câu tự luận { type: 'essay', question, model_answer?, key_points?, case_* ... } — xem hướng dẫn tự luận ở quiz_create_set.
   - response_format ('markdown' | 'json')
 
 Returns (JSON): { success: true, id, questionCount }`,

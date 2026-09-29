@@ -45,6 +45,12 @@ function normalizeQuestion(raw: DocumentData): QuizQuestion {
     caseId: raw.caseId ?? undefined,
     caseText: raw.caseText ?? undefined,
     caseTitle: raw.caseTitle ?? undefined,
+    caseReveal: raw.caseReveal ?? undefined,
+    type: raw.type === "essay" ? "essay" : undefined,
+    modelAnswer: raw.modelAnswer ?? undefined,
+    keyPoints: Array.isArray(raw.keyPoints) ? raw.keyPoints : undefined,
+    maxScore: typeof raw.maxScore === "number" ? raw.maxScore : undefined,
+    answerFormat: raw.answerFormat ?? undefined,
   };
 }
 

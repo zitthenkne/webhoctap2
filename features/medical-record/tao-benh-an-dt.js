@@ -674,6 +674,9 @@ function initPhone() {
         if (!isPhone() || e.touches.length !== 1) return;
         const el = e.target;
         if (!el.matches?.('input[type=text], input:not([type]), textarea') || !isField(el)) return;
+        /* Ô ĐANG GÕ thì chạm giữ là của máy (chọn chữ, dán, dời con trỏ) — bảng này bật
+           lên đè menu của máy là thứ khó chịu nhất khi sửa chữ. Chỉ mở cho ô chưa chọn. */
+        if (el === document.activeElement) return;
         clearTimeout(lpTimer);
         lpTimer = setTimeout(() => openLp(el), 550);
     }, { passive: true });

@@ -1898,7 +1898,9 @@ body.ba-night #cls-dn-list > .cd-row.cd-o { background: transparent; border-colo
    :not(.ba-night) và !important) để thắng mà không phải sửa rải rác.
    ===================================================================== */
 @media screen and (max-width: 640px) {
-    body.hd div.page-card { padding-left: 12px; padding-right: 12px }
+    body.hd:not(.ba-night) div.page-card,
+    body.hd.ba-night div.page-card { padding-left: 12px; padding-right: 12px }
+    /* Thanh trên tràn đúng bằng lề thẻ — hai số này phải đi cùng nhau */
     body.hd .hd-top { margin-left: -12px; margin-right: -12px; padding-left: 12px; padding-right: 12px }
 
     /* Khung mục */
@@ -1947,3 +1949,272 @@ body.ba-night #cls-dn-list > .cd-row.cd-o { background: transparent; border-colo
     }
     body.hd #medical-record-form label.block { margin-bottom: 6px }
 }
+
+@media screen and (max-width: 640px) {
+    /* Chip "✕ bỏ chọn" cạnh hàng chip thay <select>: thừa — chạm lại chip đang chọn
+       (có sẵn dấu ×) là bỏ chọn (tao-benh-an-dt.js: setVal(sel, v === sel.value ? '' : v)).
+       Bỏ nó thì hàng Giới tính (Nam / Nữ / Khác) vừa một dòng trong cột đôi. */
+    body.hd #medical-record-form .chips.dt-sel > .chip.dt-sel-x { display: none }
+    /* (trừ hàng CNV / Gia đình: chip ở đó đã thu riêng còn 4–6px) */
+    body.hd #medical-record-form :not(.cnv-row):not(.gd-row) > .chips.dt-sel > .chip { padding-left: 11px; padding-right: 11px }
+}
+
+/* Vạch tiến độ cuộn: tao-benh-an-them.js nay ghi transform: scaleX() thẳng lên vạch
+   (trước ghi biến --sp lên <body> mỗi khung hình -> cả trang tính lại style).
+   Chỉ ghép lớp, không tính lại bố cục. */
+.ba-scroll i { width: 100% !important; transform: scaleX(0); transform-origin: 0 50%; will-change: transform }
+
+
+/* =====================================================================
+   22. CẢM ỨNG ĐIỆN THOẠI — bớt cử chỉ giẫm lên nhau (2026-09-29)
+   ===================================================================== */
+@media screen and (max-width: 640px) {
+    /* Thanh mép "một tay" (mot-tay.js) có touch-action:none -> đặt ngón cái sát mép
+       phải là KHÔNG cuộn được trang. Dải khối nhỏ + bảng Mục lục đã thay việc của nó. */
+    body.hd .oh-rail { display: none !important }
+
+    /* Chạm đúp nhanh vào chip/nút không còn phóng to trang (vẫn chụm 2 ngón để phóng
+       được). Phải đặt trên CHÍNH phần tử: touch-action không truyền qua dải cuộn ngang. */
+    body.hd :is(button, a, label, summary, .chip, .hd-chip, input, select, textarea) { touch-action: manipulation }
+
+    /* Bỏ ô xám nháy khi chạm — thay bằng nhún nhẹ ở nút/chip */
+    body.hd { -webkit-tap-highlight-color: transparent }
+    body.hd :is(.chip, .hd-chip, .hd-bn button, .hd-g-h, .hd-it, .cls-mini, .bl-tg, .cd-tg, .cd-tom):active {
+        transform: scale(.96);
+        transition: transform .08s;
+    }
+
+    /* Cuộn trong bảng Mục lục không kéo theo trang phía sau */
+    body.hd.hd-muc-mo .hd-side,
+    body.hd .hd-nav,
+    body.hd .hd-chips { overscroll-behavior: contain }
+}
+
+
+/* =====================================================================
+   23. DIỄN TIẾN THEO MỐC — trục thời gian đọc được (2026-09-29)
+   ---------------------------------------------------------------------
+   benh-su-editor.js: mỗi lúc MỘT mốc mở (.is-open), các mốc khác là thẻ
+   tóm tắt (.hx-sum: Chính · Mới · Diễn biến · Tuyến trước · cảnh báo).
+   Mỗi thẻ có vạch màu bên trái theo PHA — trước nhập viện hồng đào,
+   ngày nhập viện hồng phấn, sau nhập viện xanh trời — khớp chấm trên trục.
+   ===================================================================== */
+body.hd .hx-list .hx-step {
+    --ph: #ef9a7e; --ph-soft: #fff4ee; --ph-line: #f8d6c8; --ph-ink: #a3553a;
+    position: relative;
+    background: #fff;
+    border: 1.5px solid var(--ph-line);
+    border-left: 5px solid var(--ph);
+    border-radius: 16px;
+    padding: 10px 12px;
+    transition: box-shadow .15s, border-color .15s;
+}
+body.hd .hx-list .hx-step.ph-nv { --ph: #e07aa3; --ph-soft: #fff1f6; --ph-line: #f5d0df; --ph-ink: #a9466f; background: #fff }
+body.hd .hx-list .hx-step.ph-sau { --ph: #7fb6e3; --ph-soft: #f2f8fd; --ph-line: #cfe3f5; --ph-ink: #37688f }
+body.hd .hx-list .hx-step.is-warn { border-color: #f3dfa6; border-left-color: #e8b54a }
+
+/* ---- Đầu thẻ: tên mốc to, rõ; nút mở/thu ---- */
+body.hd .hx-list .hx-step > .hx-top { margin-bottom: 0; gap: 6px 8px }
+body.hd .hx-list .hx-step .hx-label {
+    font: 700 15px/1.2 'Quicksand', 'Nunito', sans-serif;
+    color: var(--ph-ink);
+}
+body.hd .hx-list .hx-step .hx-date {
+    background: var(--ph-soft);
+    border-color: var(--ph-line);
+    color: var(--ph-ink);
+}
+.hx-tog {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    margin-left: 2px;
+    border: 1px solid var(--ph-line, #f6d3e1);
+    border-radius: 10px;
+    background: var(--ph-soft, #fff6fa);
+    color: var(--ph-ink, #a9466f);
+    cursor: pointer;
+}
+.hx-tog i { transition: transform .2s }
+.hx-step.is-open .hx-tog i { transform: rotate(180deg) }
+
+/* ---- Thẻ đang THU: chỉ còn đầu thẻ + tóm tắt ---- */
+body.hd .hx-list .hx-step:not(.is-open) > :not(.hx-top):not(.hx-sum) { display: none !important }
+body.hd .hx-list .hx-step:not(.is-open) { cursor: pointer }
+body.hd .hx-list .hx-step:not(.is-open):hover { box-shadow: 0 6px 16px -12px var(--ph-ink) }
+body.hd .hx-list .hx-step:not(.is-open) .hx-top .hx-pin:not(.is-on),
+body.hd .hx-list .hx-step:not(.is-open) .hx-top .hx-x { display: none }   /* sửa/xóa khi đã mở */
+
+.hx-sum {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--ph-line, #f1e1e8);
+    outline: none;
+}
+.hx-step.is-open > .hx-sum { display: none }
+.hx-sum-l { display: flex; align-items: flex-start; gap: 8px }
+.hx-sum-k {
+    flex: none;
+    width: 74px;
+    padding-top: 3px;
+    font: 700 11px/1.3 'Quicksand', 'Nunito', sans-serif;
+    color: #9d8792;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+}
+.hx-sum-k i { color: #e8b54a }
+.hx-sum-v { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0 }
+.hx-sum-c {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--ph-line, #f1e1e8);
+    background: var(--ph-soft, #fff6fa);
+    color: #54414b;
+    font: 600 12.5px/1.35 'Nunito', system-ui, sans-serif;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.hx-sum-c.is-main { background: #fff8e6; border-color: #f3dfa6; color: #6f470b; font-weight: 700 }
+.hx-sum-c.is-thieu::before { content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; background: #e8b54a }
+.hx-sum-c > i { font-style: normal; font-weight: 800 }
+.hx-sum-c.is-up { background: #fff0f0; border-color: #f5c8c8; color: #a23a3a }
+.hx-sum-c.is-down { background: #eefaf3; border-color: #c3e7d3; color: #2e7455 }
+.hx-sum-c.is-same { background: #f7f5f6; border-color: #eae3e7; color: #6f5563 }
+.hx-sum-more { align-self: center; font: 700 11.5px 'Nunito', sans-serif; color: #9d8792 }
+.hx-sum-t { font: 600 12.5px/1.45 'Nunito', sans-serif; color: #54414b }
+.hx-sum-warn { font: 700 11.5px/1.4 'Nunito', sans-serif; color: #86560f }
+.hx-sum-warn i { color: #e8b54a }
+.hx-sum-miss { font: italic 500 12.5px 'Nunito', sans-serif; color: #b09aa6 }
+/* Nút ▾ ở góc + cả thẻ bấm được là đủ — dòng chữ "Mở mốc" riêng chỉ tốn thêm một hàng
+   (giữ trong DOM cho trình đọc màn hình) */
+.hx-sum-go {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+}
+
+/* ---- Thẻ đang MỞ: nổi lên, các khối bên trong có tiêu đề rõ ---- */
+body.hd .hx-list .hx-step.is-open {
+    border-color: var(--ph);
+    box-shadow: 0 0 0 3px var(--ph-soft), 0 14px 30px -20px var(--ph-ink);
+    padding: 12px 14px 14px;
+}
+body.hd .hx-list .hx-step.is-open > .hx-top {
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--ph-line);
+}
+body.hd .hx-list .hx-step.is-open > :is(.hx-when, .hx-main-slot, .hx-newbox, .hx-oldbox, .hx-care, .hx-carebox) { margin-top: 12px }
+body.hd .hx-list .hx-step.is-open > .hx-when:first-of-type { margin-top: 0 }
+body.hd :is(.hx-newhead, .hx-oldhead) {
+    font: 700 13px/1.3 'Quicksand', 'Nunito', sans-serif;
+}
+
+/* "Mới có tên — bấm mũi tên…" dưới TỪNG dòng -> thay bằng mũi tên vàng + chấm vàng
+   ở thẻ tóm tắt ("n triệu chứng chưa hỏi đủ"). Nội dung câu nhắc vẫn ở title nút. */
+body.hd .hx-newrow.chua-khai > .hx-newnote { display: none }
+body.hd .hx-newpick.is-warn {
+    background: #fff8e6;
+    border: 1px solid #f3dfa6;
+    color: #86560f;
+    border-radius: 10px;
+}
+body.hd .hx-newrow.chua-khai > .hx-newin { border-left: 3px solid #e8b54a }
+
+/* Khoảng giữa hai mốc ("↓ 4 ngày sau") là mắt xích của trục — cho nổi hơn chút */
+body.hd .hx-list .hx-gap > span { font-weight: 700 }
+
+/* ---- Điện thoại: hàng thời điểm gọn lại ---- */
+@media screen and (max-width: 640px) {
+    body.hd .hx-list .hx-step { padding: 10px 11px }
+    body.hd .hx-list .hx-step.is-open { padding: 11px 12px 13px }
+    /* [📅][ 7 ][giờ ngày tuần tháng] trên MỘT hàng; chữ "trước khi nhập viện" trùng
+       với nút pha đang chọn ngay phía trên -> bỏ (mốc "Ngày nhập viện" giữ chữ hướng dẫn) */
+    body.hd .hx-list .hx-when:not(.is-nv) .hx-numwrap {
+        display: grid;
+        grid-template-columns: 38px 58px minmax(0, 1fr);
+        align-items: center;
+        gap: 6px;
+        width: 100%;
+    }
+    body.hd .hx-list .hx-when:not(.is-nv) .hx-numwrap > .hx-numlab { display: none }
+    body.hd .hx-list .hx-when:not(.is-nv) .hx-numwrap > :is(.hx-u, .dt-sel, .hx-dcalc) { grid-column: 3; grid-row: 1; min-width: 0 }
+    body.hd #medical-record-form .hx-list .hx-numwrap > .dt-sel { flex-wrap: nowrap; gap: 4px; margin: 0 }
+    body.hd #medical-record-form .hx-list .hx-numwrap > .dt-sel > .chip { flex: 1 1 0; min-width: 0; padding: 0 4px; justify-content: center }
+    body.hd #medical-record-form .hx-list .hx-numwrap > .dt-sel > .chip.is-on::after { content: none }
+    body.hd .hx-list .hx-when .hx-seg { width: 100%; display: grid }
+
+    .hx-sum-l { flex-direction: column; gap: 3px }
+    .hx-sum-k { width: auto; padding-top: 0 }
+    .hx-tog { width: 36px; height: 36px }
+}
+
+/* Đọc đêm */
+body.ba-night .hx-list .hx-step { background: #2b2527 !important; --ph-soft: rgba(255, 255, 255, .05); --ph-line: #4a3d42 }
+body.ba-night .hx-sum-c { background: rgba(255, 255, 255, .06); color: #eadde3; border-color: #4a3d42 }
+body.ba-night .hx-sum-t { color: #eadde3 }
+
+
+/* =====================================================================
+   24. BỆNH NỀN ↔ THUỐC ĐANG DÙNG — mỗi cặp một màu (toMauLienKet, tao-benh-an.js)
+   ---------------------------------------------------------------------
+   Bệnh thứ n có --lk / --lk-soft / --lk-ink. Cùng màu xuất hiện ở: vạch trái
+   dòng bệnh, viên thuốc trên dòng bệnh, vạch trái dòng thuốc, ô "Dùng cho bệnh
+   nào". Rê / chạm một bên thì bên kia cùng màu sáng lên (.lk-sang).
+   ===================================================================== */
+body.hd #cnv-internal .cnv-row.lk-on,
+body.hd #tc-thuoc-list .dl-row.lk-on,
+body.hd #tc-thuoc-list .dl-row.lk-lac {
+    border-radius: 12px;
+    box-shadow: inset 4px 0 0 var(--lk, #e8b54a);
+    padding-left: 12px;
+    transition: background-color .15s;
+}
+body.hd #tc-thuoc-list .dl-row.lk-on,
+body.hd #tc-thuoc-list .dl-row.lk-lac { padding-top: 5px; padding-bottom: 5px }
+
+/* Viên thuốc trên dòng bệnh: màu của bệnh, bấm được (nhảy tới dòng thuốc) */
+body.hd #cnv-internal .cnv-row.lk-on .cnv-pill {
+    background: var(--lk-soft);
+    border-color: var(--lk);
+    color: var(--lk-ink);
+    font-weight: 700;
+    cursor: pointer;
+}
+body.hd #cnv-internal .cnv-row.lk-on .cnv-pill:hover { background: #fff }
+body.hd #cnv-internal .cnv-row.lk-on .cnv-s { border-color: var(--lk) }
+
+/* Ô "Dùng cho bệnh nào" của dòng thuốc: đổ đúng màu bệnh */
+body.hd #medical-record-form #tc-thuoc-list .dl-row.lk-on .dl-c {
+    background: var(--lk-soft);
+    border-color: var(--lk);
+    color: var(--lk-ink);
+    font-weight: 700;
+}
+/* Thuốc gắn cho một bệnh KHÔNG có trong mục Bệnh đã có -> vàng, rê chuột có lời nhắc */
+body.hd #medical-record-form #tc-thuoc-list .dl-row.lk-lac .dl-c {
+    background: #fff8e6;
+    border-color: #e8b54a;
+    color: #86560f;
+}
+
+body.hd :is(#cnv-internal .cnv-row, #tc-thuoc-list .dl-row).lk-sang { background-color: var(--lk-soft) }
+
+@media screen and (max-width: 640px) {
+    body.hd #cnv-internal .cnv-row.lk-on { padding-left: 10px }
+    body.hd #tc-thuoc-list .dl-row.lk-on,
+    body.hd #tc-thuoc-list .dl-row.lk-lac { padding: 8px 6px 8px 12px }
+}
+
+body.ba-night :is(#cnv-internal .cnv-row, #tc-thuoc-list .dl-row).lk-sang { background-color: rgba(255, 255, 255, .05) }

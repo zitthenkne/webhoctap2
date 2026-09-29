@@ -40,6 +40,9 @@ function gomChu(noiDung) {
     for (const m of noiDung.matchAll(/'([^'\n\\]{2,300})'|"([^"\n\\]{2,300})"|`([^`\\]{2,600})`/g)) {
         nhet(m[1] || m[2] || m[3] || '');
     }
+    // Gom thêm cả file tách theo dấu nháy / backtick / ${}: regex chuỗi ở trên lệch cặp khi template
+    // lồng nhau (`...${x ? 'invisible' : ''}...`) -> từng sót .invisible của nút Câu trước. Gom thừa vô hại.
+    nhet(noiDung.replace(/[`'"${}]/g, ' '));
     return out;
 }
 

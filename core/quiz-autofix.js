@@ -280,8 +280,10 @@ export function autofixQuestions(questions, opts = {}) {
         q.optionExplanations = optExps;
 
         // A4. Loại câu không dùng được.
-        // Phòng đánh đề (opts.keepEssay) giữ câu KHÔNG phương án = câu tự luận; bỏ qua mọi suy luận đáp án.
-        if (q.question && options.length === 0 && opts.keepEssay) {
+        // Câu KHÔNG phương án = tự luận: phòng đánh đề (opts.keepEssay) giữ hết; thư viện chỉ giữ câu
+        // ghi rõ là tự luận (type/đáp án mẫu/ý chấm) để dòng rác trong file không thành câu tự luận.
+        const markedEssay = q.type === 'essay' || String(q.modelAnswer || '').trim() || (Array.isArray(q.keyPoints) && q.keyPoints.length);
+        if (q.question && options.length === 0 && (opts.keepEssay || markedEssay)) {
             q.type = 'essay';
             q.__essay = true;
             kept.push(q);

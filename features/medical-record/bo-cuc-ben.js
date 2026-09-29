@@ -439,7 +439,12 @@ addEventListener('click', e => {
 
 /* ------------------------------------------------------------------ */
 let hen = 0;
-const veSau = (ms = 500) => { clearTimeout(hen); hen = setTimeout(ve, ms); };
+/* Vẽ lại lúc trình duyệt RẢNH: đếm ô đã điền cho cả chục khối mất ~55ms (máy tốt,
+   máy tầm trung x4) — chạy ngay sau khi ngừng gõ là dễ khựng đúng lúc gõ tiếp. */
+const veSau = (ms = 500) => {
+    clearTimeout(hen);
+    hen = setTimeout(() => (window.requestIdleCallback ? requestIdleCallback(ve, { timeout: 1000 }) : ve()), ms);
+};
 tabLinks.forEach(l => l.addEventListener('click', () => veSau(330)));
 ['input', 'change'].forEach(t => form.addEventListener(t, () => veSau(600)));
 form.addEventListener('click', () => veSau(700));          // thêm phiếu / thêm mốc / mở hộp gập

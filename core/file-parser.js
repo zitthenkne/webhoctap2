@@ -23,6 +23,8 @@ const COLUMN_ALIASES = {
     caseId: ['case id', 'caseid', 'mã ca', 'mã case', 'ma ca', 'ma case', 'nhóm ca', 'nhom ca', 'case group', 'mã ca lâm sàng', 'id ca', 'nhóm case'],
     caseText: ['case', 'ca lâm sàng', 'ca lam sang', 'tình huống', 'tinh huong', 'tình huống lâm sàng', 'tinh huong lam sang', 'bệnh án', 'benh an', 'vignette', 'nội dung ca', 'noi dung ca'],
     caseTitle: ['case title', 'casetitle', 'tiêu đề ca', 'tieu de ca', 'tên ca', 'ten ca', 'tiêu đề case'],
+    // Ca mở dần: thông tin mới của ca lộ ra từ câu này (xem features/quiz/page/quiz-essay.js)
+    caseReveal: ['case reveal', 'casereveal', 'thông tin bổ sung', 'thong tin bo sung', 'diễn tiến', 'dien tien', 'bổ sung ca'],
     // Phương án 5–6 (tùy chọn) — nhiều bộ đề y khoa có 5 lựa chọn
     option5: ['option5', 'phương án 5', 'đáp án 5', 'lựa chọn 5', 'e', 'answer5', 'option e', 'đáp án e', 'phương án e', 'lựa chọn e'],
     option6: ['option6', 'phương án 6', 'đáp án 6', 'lựa chọn 6', 'f', 'answer6', 'option f', 'đáp án f', 'phương án f', 'lựa chọn f']
@@ -159,6 +161,7 @@ export async function parseFile(file, opts = {}) {
                         caseId: caseIdIdx !== undefined && caseIdIdx >= 0 ? String(row[caseIdIdx] || '').trim() : '',
                         caseText: caseTextIdx !== undefined && caseTextIdx >= 0 ? String(row[caseTextIdx] || '').trim() : '',
                         caseTitle: caseTitleIdx !== undefined && caseTitleIdx >= 0 ? String(row[caseTitleIdx] || '').trim() : '',
+                        ...(colIdx['caseReveal'] >= 0 && String(row[colIdx['caseReveal']] ?? '').trim() ? { caseReveal: String(row[colIdx['caseReveal']]).trim() } : {}),
                         ...(essay && correctIdx >= 0 && String(row[correctIdx] ?? '').trim() ? { modelAnswer: String(row[correctIdx]).trim() } : {})
                     };
                 }).filter(q => q !== null);

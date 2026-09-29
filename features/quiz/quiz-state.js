@@ -2,7 +2,7 @@
 
 import { db, auth } from '../../core/firebase-init.js';
 import { sessionUser } from '../../core/auth-session.js';
-import { doc, getDoc, collection, addDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { doc, getDoc, collection, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 // Ghi không treo khi mất mạng (xem core/offline-write.js)
 import { queued } from "../../core/offline-write.js";
 import { checkAndAwardAchievement } from '../../core/achievements.js';
@@ -114,6 +114,7 @@ export function saveQuizState() {
         used5050Questions: state.used5050Questions,
         multiSelections: state.multiSelections,
         confidence: state.confidence,
+        caseSeen: state.caseSeen,     // ca mở dần: câu xa nhất đã xem của từng ca (quiz-essay.js)
         questionTimes: state.questionTimes,
         quizStartTime: state.quizStartTime ? state.quizStartTime.toISOString() : null,
         questionsLength: state.questions.length,
@@ -149,13 +150,29 @@ export function clearQuizState(quizId) {
     localStorage.removeItem(stateKey(quizId));
 }
 
+let lastResultRef = null;
+let resultUpdateTimer = null;
+// Điểm đổi sau khi đã lưu (tự chấm tự luận) -> ghi đè điểm của bản vừa lưu, gom nhiều lần tick thành 1 lần ghi
+export function updateQuizResultScore(score, totalQuestions, percentage) {
+    if (!lastResultRef) return;
+    const ref = lastResultRef;
+    clearTimeout(resultUpdateTimer);
+    resultUpdateTimer = setTimeout(() => {
+        queued(updateDoc(ref, { score, totalQuestions, percentage }))
+            .catch(err => console.error('Lỗi cập nhật điểm tự luận:', err));
+    }, 1200);
+}
+
 export async function saveQuizResult(finalScore, totalQuestions, percentage, timeTaken) {
     const user = sessionUser();
     if (!user) return; // Không lưu kết quả cho khách
 
     try {
         const quizId = new URLSearchParams(window.location.search).get('id');
-        await queued(addDoc(collection(db, "quiz_results"), {
+        // Tạo sẵn id để tự chấm tự luận ở màn kết quả còn cập nhật được đúng bản này
+        const ref = doc(collection(db, "quiz_results"));
+        lastResultRef = ref;
+        await queued(setDoc(ref, {
             userId: user.uid,
             quizId: quizId,
             quizTitle: state.quizData.title, // Use the stored title

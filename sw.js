@@ -1,5 +1,5 @@
 // Service Worker for PWA - Offline Support & Caching
-const CACHE_NAME = 'zitthenkne-v170';
+const CACHE_NAME = 'zitthenkne-v180';
 
 // App shell (cùng origin) — nạp sẵn khi cài để mở offline được ngay.
 const urlsToCache = [
@@ -23,6 +23,8 @@ const urlsToCache = [
   'features/quiz/page/quiz-page-setup.js',
   'features/quiz/page/quiz-cases.js',
   'features/quiz/page/quiz-case-peek.js',
+  'features/quiz/page/quiz-essay.js',
+  'features/quiz/quiz-essay-core.js',
   'features/quiz/page/quiz-question-view.js',
   'features/quiz/page/quiz-session.js',
   'features/quiz/page/quiz-mobile-nav.js',
@@ -117,6 +119,7 @@ const urlsToCache = [
   'features/medical-record/dac-thu-khoa.js',
   'features/medical-record/tao-benh-an.css',
   'features/medical-record/tailwind-benh-an.css',
+  'features/medical-record/tailwind-xem.css',
   'features/medical-record/gon-giao-dien.css',
   'features/medical-record/mau-hong-dao.css',
   'features/medical-record/bo-cuc-ben.js',
@@ -125,6 +128,26 @@ const urlsToCache = [
   'features/medical-record/gon-giao-dien.js',
   'features/medical-record/tao-benh-an.html',
   'features/medical-record/tao-benh-an.js',
+  'features/medical-record/benh-an-vanxuoi.js',
+  'features/medical-record/bien-luan-them.js',
+  'features/medical-record/clinical-validator.js',
+  'features/medical-record/di-ung-list.js',
+  'features/medical-record/gia-dinh-list.js',
+  'features/medical-record/goi-y-go.js',
+  'features/medical-record/lien-ket-map.js',
+  'features/medical-record/lop-noi.js',
+  'features/medical-record/mach-benh-an.js',
+  'features/medical-record/mot-tay.js',
+  'features/medical-record/nhap-lien-ket.js',
+  'features/medical-record/ros-editor.js',
+  'features/medical-record/tam-tay.js',
+  'features/medical-record/tao-benh-an-dt.js',
+  'features/medical-record/tao-benh-an-them.js',
+  'features/medical-record/tao-benh-an-tungcau.js',
+  'features/medical-record/thuan-tay.js',
+  'features/medical-record/tim-kiem.js',
+  'features/medical-record/toan-canh.js',
+  'features/medical-record/tuyen-truoc-list.js',
   'features/medical-record/benh-an-text.js',
   'features/medical-record/record-store.js',
   'features/medical-record/benh-an-mau.js',
@@ -209,6 +232,8 @@ const urlsToCache = [
 // Thư viện từ CDN — không cache thì offline app MẤT style/icon/font (trông vỡ).
 // Nạp sẵn để offline vẫn dựng đủ giao diện; nếu 1 cái lỗi cũng không chặn cài đặt.
 const cdnToCache = [
+  'https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap',
+  'https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Quicksand:wght@600;700&display=swap',
   'https://cdn.tailwindcss.com',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
   'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css',
@@ -296,8 +321,9 @@ async function staleWhileRevalidate(request) {
   const cache = await caches.open(CACHE_NAME);
   // Điều hướng thường kèm query (quiz.html?id=...): cache chỉ có bản không query,
   // nên phải bỏ qua query khi dò, không thì offline sẽ rơi oan vào offline.html.
-  const cached = await cache.match(request) ||
-    (request.mode === 'navigate' ? await cache.match(request, { ignoreSearch: true }) : undefined);
+  // Tài nguyên cùng nguồn hay kèm đuôi phá cache (xem-benh-an.css?v=2) trong khi danh sách
+  // nạp sẵn ghi tên trơn -> không bỏ query khi dò thì offline hụt, trang mất định dạng.
+  const cached = await cache.match(request) || await cache.match(request, { ignoreSearch: true });
   const network = fetch(request).then((res) => {
     if (res && res.status === 200 && res.type === 'basic') {
       // Lưu theo URL đã bỏ query để mỗi id không đẻ ra một bản HTML riêng trong cache.

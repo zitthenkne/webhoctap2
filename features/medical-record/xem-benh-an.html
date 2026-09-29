@@ -7,13 +7,17 @@
     <title>Xem bệnh án</title>
     <link rel="icon" type="image/png" href="../../assets/logo.png">
     <script src="../../pwa-install.js" defer></script>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
     <!-- Giao diện "sổ dán" (giấy, băng keo washi, kẹp ghim) — toàn bộ ở file riêng -->
     <link rel="stylesheet" href="xem-benh-an.css?v=2">
+    <!-- Tailwind ĐÓNG BĂNG thay Play CDN (tải ~400KB JS rồi dựng CSS ngay trên máy mỗi lần
+         mở, offline thì trang mất hết định dạng). Đặt CUỐI <head> — đúng chỗ bản CDN từng
+         chèn CSS — nên thứ tự ưu tiên với xem-benh-an.css giữ nguyên.
+         Thêm class Tailwind mới thì chạy lại: node tailwind-dong-bang.mjs xem -->
+    <link rel="stylesheet" href="tailwind-xem.css">
 </head>
 <body class="xb-body">
 

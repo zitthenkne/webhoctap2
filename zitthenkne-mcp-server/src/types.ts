@@ -28,6 +28,18 @@ export interface QuizQuestion {
   caseText?: string;
   /** Tiêu đề ngắn của ca lâm sàng. */
   caseTitle?: string;
+  /** Ca mở dần: thông tin bổ sung của ca, lộ ra từ câu này trở đi. */
+  caseReveal?: string;
+  /** 'essay' = câu tự luận (answers rỗng). */
+  type?: "essay";
+  /** Tự luận: đáp án mẫu (markdown). */
+  modelAnswer?: string;
+  /** Tự luận: barem — ý { text, points, keywords?, partial?, critical? } hoặc nhóm { group, max?, items }. */
+  keyPoints?: (StoredKeyPoint | { group: string; max?: number; items: StoredKeyPoint[] })[];
+  /** Điểm tối đa của câu trong bài (trọng số). */
+  maxScore?: number;
+  /** Tự luận: kiểu ô trả lời (text / short / list / fields / table). */
+  answerFormat?: { kind: string; count?: number; labels?: string[]; columns?: string[]; rows?: number | string[]; placeholder?: string };
 }
 
 /** Một bộ đề trắc nghiệm. */
@@ -80,3 +92,5 @@ export interface UserStats {
   perfectScores: number;
   quizSetsCreated: number;
 }
+
+export interface StoredKeyPoint { text: string; points?: number; keywords?: string[]; partial?: number; critical?: boolean; field?: number; order?: string[] }

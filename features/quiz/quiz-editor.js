@@ -18,15 +18,19 @@ import { showToast } from '../../core/utils.js';
 import { state, saveQuizState } from './quiz-state.js';
 import { tagCaseSequence } from './page/quiz-cases.js';
 import { isMultiAnswer, getCorrectIndexes, isAnswerCorrect } from './quiz-helpers.js';
+import { isEssay, rubricToText, textToRubric, rubricOf, withAutoGrade } from './quiz-essay-core.js';
 
 // Các trường của một câu hỏi mà trình sửa được phép thay đổi (dùng cho cả lưu lẫn hoàn tác).
-const EDIT_FIELDS = ['question', 'answers', 'options', 'correctAnswerIndex', 'correctAnswerIndexes', 'optionExplanations', 'note', 'explanation', 'expanded', 'caseId', 'caseText', 'caseTitle'];
+const EDIT_FIELDS = ['question', 'answers', 'options', 'correctAnswerIndex', 'correctAnswerIndexes', 'optionExplanations', 'note', 'explanation', 'expanded', 'caseId', 'caseText', 'caseTitle',
+    'caseReveal', 'maxScore', 'type', 'modelAnswer', 'keyPoints', 'answerFormat'];
 
 // Hàm render lại câu hỏi hiện tại (được tiêm vào từ quiz-page.js).
 let _rerender = () => {};
 
 // Bản chụp gần nhất để phục vụ "Hoàn tác".
 let _lastEditSnapshot = null;
+// Modal đang sửa câu tự luận?
+let _qeEssay = false;
 
 /* ----------------------------------------------------------------
    Lưu trữ chỉnh sửa cục bộ (localStorage), theo từng bộ đề.
@@ -103,6 +107,56 @@ function updateMultiHint() {
         : 'Bấm vào chữ cái (A, B, C…) ở phương án để chọn làm đáp án đúng.';
 }
 
+/* ---- Câu tự luận: kiểu ô trả lời (answerFormat) <-> 3 ô điều khiển ---- */
+const FORMAT_HINTS = {
+    list: ['Số ô (vd. 3) — hoặc nhãn từng ô, ngăn bằng |', ''],
+    fields: ['Nhãn các ô, ngăn bằng | (vd. Chẩn đoán | Phân biệt | Xử trí)', ''],
+    table: ['Tên cột, ngăn bằng | (vd. Thuốc | Liều | Đường dùng)', 'Số hàng (vd. 3) hoặc nhãn hàng ngăn bằng |'],
+};
+function syncFormatInputs() {
+    const kind = qeEl('qe-format-kind').value;
+    const [ha, hb] = FORMAT_HINTS[kind] || ['', ''];
+    [['qe-format-a', ha], ['qe-format-b', hb]].forEach(([id, hint]) => {
+        const el = qeEl(id);
+        el.placeholder = hint;
+        el.hidden = !hint;
+    });
+}
+function fillFormatInputs(f) {
+    f = f || {};
+    const kind = ['short', 'list', 'fields', 'table'].includes(f.kind) ? f.kind : 'text';
+    const join = (a) => (Array.isArray(a) ? a.join(' | ') : '');
+    qeEl('qe-format-kind').value = kind;
+    qeEl('qe-format-a').value = kind === 'list' ? (join(f.labels) || String(f.count || ''))
+        : kind === 'fields' ? join(f.labels) : kind === 'table' ? join(f.columns) : '';
+    qeEl('qe-format-b').value = kind === 'table' ? (Array.isArray(f.rows) ? join(f.rows) : String(f.rows || '')) : '';
+    syncFormatInputs();
+}
+// Trả về { format } (null = ô văn bản mặc định) hoặc { error }
+function readFormatInputs() {
+    const kind = qeEl('qe-format-kind').value;
+    const a = qeEl('qe-format-a').value.trim();
+    const b = qeEl('qe-format-b').value.trim();
+    const split = (s) => s.split('|').map(x => x.trim()).filter(Boolean);
+    if (kind === 'short') return { format: { kind } };
+    if (kind === 'list') {
+        if (/^\d+$/.test(a)) return { format: { kind, count: Math.min(12, Math.max(1, Number(a))) } };
+        const labels = split(a);
+        return { format: labels.length ? { kind, count: labels.length, labels } : { kind, count: 3 } };
+    }
+    if (kind === 'fields') {
+        const labels = split(a);
+        return labels.length ? { format: { kind, labels } } : { error: 'Kiểu "nhiều ô có nhãn" cần nhãn các ô (ngăn bằng |).' };
+    }
+    if (kind === 'table') {
+        const columns = split(a);
+        if (!columns.length) return { error: 'Kiểu "bảng" cần tên các cột (ngăn bằng |).' };
+        const rows = /^\d+$/.test(b) ? Math.min(12, Math.max(1, Number(b))) : (split(b).length ? split(b) : 3);
+        return { format: { kind, columns, rows } };
+    }
+    return { format: null };
+}
+
 // Tự giãn chiều cao textarea theo nội dung cho dễ nhìn.
 function autoGrow(el) {
     if (!el || el.dataset.autogrow) return;   // tránh gắn listener trùng
@@ -128,7 +182,7 @@ function showQETab(modal, name) {
 function updateMoreCount() {
     const el = qeEl('qe-more-count');
     if (!el) return;
-    const groups = [['qe-explanation'], ['qe-note'], ['qe-expanded'], ['qe-case-id', 'qe-case-title', 'qe-case-text']];
+    const groups = [['qe-explanation'], ['qe-note'], ['qe-expanded'], ['qe-case-id', 'qe-case-title', 'qe-case-text', 'qe-case-reveal'], ['qe-max-score']];
     const n = groups.filter(g => g.some(id => {
         const f = qeEl(id);
         return f && f.value.trim() !== '';
@@ -297,6 +351,14 @@ export function openQuestionEditor() {
     qeEl('qe-case-id').value = q.caseId == null ? '' : String(q.caseId);
     qeEl('qe-case-title').value = q.caseTitle == null ? '' : String(q.caseTitle);
     qeEl('qe-case-text').value = q.caseText == null ? '' : String(q.caseText);
+    qeEl('qe-case-reveal').value = q.caseReveal == null ? '' : String(q.caseReveal);
+    qeEl('qe-max-score').value = Number(q.maxScore) > 0 ? String(q.maxScore) : '';
+    // Câu tự luận: ẩn khối phương án, hiện đáp án mẫu + barem (dạng dòng chữ) + kiểu ô trả lời
+    _qeEssay = isEssay(q);
+    modal.classList.toggle('is-essay', _qeEssay);
+    qeEl('qe-model').value = q.modelAnswer == null ? '' : String(q.modelAnswer);
+    qeEl('qe-rubric').value = Array.isArray(q.keyPoints) && q.keyPoints.length ? rubricToText(q.keyPoints) : '';
+    fillFormatInputs(q.answerFormat);
 
     // Số thứ tự câu đang sửa (định hướng cho người dùng)
     const qpos = qeEl('qe-qpos');
@@ -338,7 +400,52 @@ function closeQuestionEditor() {
     _qeDirty = false;
 }
 
+function readCommonFields() {
+    const score = Number(qeEl('qe-max-score').value);
+    return {
+        question: qeEl('qe-question').value,
+        note: qeEl('qe-note').value,
+        explanation: qeEl('qe-explanation').value,
+        expanded: qeEl('qe-expanded').value,
+        caseId: qeEl('qe-case-id').value.trim(),
+        caseTitle: qeEl('qe-case-title').value.trim(),
+        caseText: qeEl('qe-case-text').value,
+        // null (không phải undefined) — Firestore từ chối giá trị undefined trong mảng câu hỏi
+        caseReveal: qeEl('qe-case-reveal').value.trim() || null,
+        maxScore: score > 0 ? score : null,
+    };
+}
+
+// Câu tự luận: đáp án mẫu + barem + kiểu ô. Trả về object sửa, hoặc null nếu dữ liệu chưa hợp lệ.
+function collectEssayEdit() {
+    const rubricText = qeEl('qe-rubric').value;
+    const keyPoints = textToRubric(rubricText);
+    if (rubricText.trim() && !keyPoints.length) {
+        showToast('Barem chưa đọc được — mỗi ý là một dòng bắt đầu bằng "- ".', 'error'); return null;
+    }
+    const modelAnswer = qeEl('qe-model').value;
+    if (keyPoints.length && !rubricOf({ keyPoints }).items.some(it => !it.penalty)) {
+        showToast('Barem cần ít nhất một ý có điểm dương.', 'error'); return null;
+    }
+    if (!modelAnswer.trim() && !keyPoints.length) {
+        showToast('Câu tự luận cần đáp án mẫu hoặc barem.', 'error'); return null;
+    }
+    const f = readFormatInputs();
+    if (f.error) { showToast(f.error, 'error'); return null; }
+    return {
+        ...readCommonFields(),
+        type: 'essay', answers: [], options: [], optionExplanations: [],
+        correctAnswerIndex: null, correctAnswerIndexes: null,
+        modelAnswer, keyPoints: keyPoints.length ? keyPoints : null, answerFormat: f.format,
+    };
+}
+
 async function saveQuestionEditor() {
+    if (_qeEssay) {
+        const edited = collectEssayEdit();
+        if (edited) await commitQuestionEdit(edited);
+        return;
+    }
     collectQEOptions();
     const cleaned = _qeOptions.map(o => ({ text: (o.text || '').trim(), exp: o.exp, correct: o.correct }))
                               .filter(o => o.text !== '');
@@ -351,20 +458,18 @@ async function saveQuestionEditor() {
     const optionExps = cleaned.map(o => (o.exp == null ? '' : String(o.exp)));
 
     const edited = {
-        question: qeEl('qe-question').value,
+        ...readCommonFields(),
         answers: optionTexts.slice(),
         options: optionTexts.slice(),
         correctAnswerIndex: correctIndices[0],
         correctAnswerIndexes: _qeMulti ? correctIndices.slice() : null,
         optionExplanations: optionExps,
-        note: qeEl('qe-note').value,
-        explanation: qeEl('qe-explanation').value,
-        expanded: qeEl('qe-expanded').value,
-        caseId: qeEl('qe-case-id').value.trim(),
-        caseTitle: qeEl('qe-case-title').value.trim(),
-        caseText: qeEl('qe-case-text').value
     };
+    await commitQuestionEdit(edited);
+}
 
+// Áp chỉnh sửa vào câu đang làm + dữ liệu gốc, lưu (đám mây / máy), chụp bản cũ để Hoàn tác
+async function commitQuestionEdit(edited) {
     const idx = state.currentIndex;
     const dq = state.questions[idx];
     const origIdx = getQuestionOrigIdx(dq);
@@ -385,8 +490,10 @@ async function saveQuestionEditor() {
         savedTo: null // 'cloud' | 'local' | 'session' — điền sau khi lưu
     };
 
+    // Câu tự luận: GIỮ bài đã viết, chỉ chấm lại theo barem mới (đã chốt thì máy chấm sơ bộ lại ngay)
+    const essayAns = !!prevAns && typeof prevAns === 'object' && !Array.isArray(prevAns);
     // Nếu trước đó đã trả lời câu này: bỏ kết quả cũ để tránh tô màu/điểm lệch sau khi sửa.
-    if (prevAns !== null && prevAns !== undefined) {
+    if (!essayAns && prevAns !== null && prevAns !== undefined) {
         if (isAnswerCorrect(dq, prevAns)) state.score = Math.max(0, state.score - 1);
         state.userAnswers[idx] = null;
         delete state.eliminatedAnswers[idx];
@@ -400,6 +507,13 @@ async function saveQuestionEditor() {
     }
     // Sửa mã ca có thể đổi nhóm ca -> gán lại thứ tự câu trong ca cho nhãn/chấm đúng.
     tagCaseSequence(state.questions);
+    if (essayAns) {
+        const kept = { ...prevAns, ticks: null, partials: [], auto: false };
+        delete kept.self;
+        // Đổi kiểu ô -> các ô cũ không còn khớp, chỉ giữ bản chữ gộp
+        if (JSON.stringify(snapshot.prevDisplayed.answerFormat || null) !== JSON.stringify(dq.answerFormat || null)) delete kept.parts;
+        state.userAnswers[idx] = kept.done ? withAutoGrade(dq, kept) : kept;
+    }
 
     saveQuizState();
     closeQuestionEditor();
@@ -544,6 +658,7 @@ export function setupQuestionEditor(rerenderFn) {
         updateMultiHint();
         renderQEOptions();
     });
+    qeEl('qe-format-kind')?.addEventListener('change', () => { syncFormatInputs(); _qeDirty = true; });
     modal.addEventListener('click', (e) => { if (e.target === modal) requestCloseEditor(); });
     modal.addEventListener('input', () => { _qeDirty = true; });
     // Ctrl/Cmd + Enter = lưu nhanh (khỏi phải cuộn xuống cuối modal)

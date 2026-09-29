@@ -353,6 +353,17 @@ async function handleFileSelect(e) {
     } 
 }
 
+// Ca lâm sàng / ca mở dần trong JSON (trước đây bị rơi mất khi nhập)
+function caseFieldsOf(item) {
+    const out = {};
+    ['caseId', 'caseText', 'caseTitle', 'caseReveal'].forEach(k => {
+        if (item[k] != null && String(item[k]).trim()) out[k] = String(item[k]).trim();
+    });
+    if (Number(item.maxScore) > 0) out.maxScore = Number(item.maxScore);   // điểm tối đa của câu (trọng số)
+    if (item.answerFormat && typeof item.answerFormat === 'object') out.answerFormat = item.answerFormat;   // kiểu ô trả lời tự luận
+    return out;
+}
+
 // --- QUẢN LÝ NHẬP VÀ PHÂN TÍCH JSON TRẮC NGHIỆM ---
 function handleJsonInput() {
     const jsonQuizTitleInput = document.getElementById('jsonQuizTitle');
@@ -377,10 +388,20 @@ function handleJsonInput() {
                 throw new Error(`Câu hỏi thứ ${idx + 1} thiếu trường "question".`);
             }
 
-            // options hoặc answers
+            // options hoặc answers — câu tự luận thì không có (type "essay" + modelAnswer/keyPoints)
             const rawOptions = item.options || item.answers || [];
-            if (!Array.isArray(rawOptions) || rawOptions.length === 0) {
-                throw new Error(`Câu hỏi thứ ${idx + 1} phải có mảng "options" hoặc "answers".`);
+            const essay = item.type === 'essay' || !!item.modelAnswer || (Array.isArray(item.keyPoints) && item.keyPoints.length > 0);
+            if (!essay && (!Array.isArray(rawOptions) || rawOptions.length === 0)) {
+                throw new Error(`Câu hỏi thứ ${idx + 1} phải có mảng "options" hoặc "answers" (câu tự luận: "type": "essay" + "modelAnswer"/"keyPoints").`);
+            }
+            if (essay) {
+                return {
+                    question: String(item.question), answers: [], type: 'essay',
+                    explanation: String(item.explanation || ''), topic: item.topic ? String(item.topic) : '',
+                    ...(item.modelAnswer ? { modelAnswer: String(item.modelAnswer) } : {}),
+                    ...(Array.isArray(item.keyPoints) && item.keyPoints.length ? { keyPoints: item.keyPoints } : {}),
+                    ...caseFieldsOf(item)
+                };
             }
 
             // Tìm correctAnswerIndex (0-based) hoặc từ answer (1-based)
@@ -412,7 +433,8 @@ function handleJsonInput() {
                 level: String(item.level || ''),
                 note: String(item.note || ''),
                 expanded: String(item.expanded || ''),
-                optionExplanations: Array.isArray(item.optionExplanations) ? item.optionExplanations.map(exp => String(exp || '')) : []
+                optionExplanations: Array.isArray(item.optionExplanations) ? item.optionExplanations.map(exp => String(exp || '')) : [],
+                ...caseFieldsOf(item)
             };
         });
 

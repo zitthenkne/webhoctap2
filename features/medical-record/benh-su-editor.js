@@ -300,6 +300,10 @@ const setSymParts = (m, arr) => { m.s = arr.join('; '); };
    đều không phải đổi gì. `m.sx` chỉ là bản có cấu trúc để sửa từng đặc điểm tại chỗ,
    tự dựng lại mỗi khi `m.s` bị nơi khác sửa. */
 let openNew = null;      // "idMốc|chỉ số" — dòng đang mở bảng đặc điểm
+/* Mốc đang MỞ (id). Mỗi lúc chỉ bung một mốc, các mốc khác thu thành thẻ tóm tắt
+   -> nhìn cả bệnh sử như một trục thời gian thay vì 6 khối 1.000px chồng nhau.
+   null = chưa chọn (mặc định mốc khởi phát), '' = người dùng đã thu hết. */
+let openStep = null;
 
 /* `findSymptom` nay khớp theo ranh giới từ ở đầu chuỗi (xem trieu-chung-data.js)
    nên tra thẳng là an toàn: "Tiểu máu: đỏ tươi, sốt" ra Tiểu máu chứ không ra Sốt. */
@@ -470,11 +474,51 @@ function newPanelInner(r) {
             <input data-nfree="1" value="${esc(r.tuDo || '')}" placeholder="vd: chóng mặt khi đứng dậy, kéo dài vài phút"></label>`;
 }
 
+/** Triệu chứng mới mới có tên, thư viện có bộ câu hỏi mà chưa hỏi câu nào */
+function chuaHoi(r) {
+    const sym = symOf(r);
+    return !!sym?.fields?.length && !sym.fields.some(([k]) => trimText(r.v?.[k]));
+}
+
+/* ---------- Thẻ tóm tắt của một mốc đang thu gọn ----------
+   Dựng từ DỮ LIỆU (không đọc lại DOM) nên luôn khớp; gọi lại mỗi khi mốc được thu. */
+const ST_ICON = { 'tương tự': ['=', 'is-same', 'như cũ'], 'thuyên giảm': ['↓', 'is-down', 'giảm'], 'nặng hơn': ['↑', 'is-up', 'nặng hơn'] };
+function sumInner(m) {
+    const cut = (t, n) => (t = trimText(t)).length > n ? t.slice(0, n - 1) + '…' : t;
+    const dong = (nhan, noi) => `<span class="hx-sum-l"><b class="hx-sum-k">${nhan}</b><span class="hx-sum-v">${noi}</span></span>`;
+    const out = [];
+    if (m.main) {
+        const t = trimText($('hx-sym-name')?.value);
+        out.push(dong('<i class="fas fa-star"></i> Chính',
+            t ? `<span class="hx-sum-c is-main">${esc(cut(t, 40))}</span>` : '<span class="hx-sum-miss">chưa ghi triệu chứng chính</span>'));
+    }
+    const rows = symRows(m).filter(r => trimText(r.ten));
+    if (rows.length) out.push(dong('Mới', rows.slice(0, 4).map(r =>
+        `<span class="hx-sum-c${chuaHoi(r) ? ' is-thieu' : ''}"${chuaHoi(r) ? ' title="Chưa hỏi đủ đặc điểm"' : ''}>${esc(cut(r.ten, 30))}</span>`).join('')
+        + (rows.length > 4 ? `<span class="hx-sum-more">+${rows.length - 4}</span>` : '')));
+    const refs = (m.refs || []).filter(r => trimText(r.sym));
+    if (refs.length) out.push(dong('Diễn biến', refs.slice(0, 5).map(r => {
+        const [ic, cls, chu] = ST_ICON[r.st] || ST_ICON['tương tự'];
+        return `<span class="hx-sum-c ${cls}" title="${esc(tenRef(r.sym))} ${chu}"><i>${ic}</i>${esc(cut(tenRef(r.sym), 22))}</span>`;
+    }).join('') + (refs.length > 5 ? `<span class="hx-sum-more">+${refs.length - 5}</span>` : '')));
+    if (hasCare(m.care)) out.push(dong('<i class="fas fa-truck-medical"></i> Tuyến trước',
+        `<span class="hx-sum-t">${esc(cut(careLine(m.care), 90))}</span>`));
+    const thieu = rows.filter(chuaHoi).length;
+    const canh = [
+        m.phase !== 'nv' && !trimText(m.n) && !m.d ? 'chưa ghi thời điểm' : '',
+        m.dup ? 'trùng mốc' : '',
+        m.beforeOnset ? 'trước ngày khởi phát' : '',
+        thieu ? `${thieu} triệu chứng chưa hỏi đủ` : ''
+    ].filter(Boolean);
+    if (canh.length) out.push(`<span class="hx-sum-warn"><i class="fas fa-circle-exclamation"></i> ${esc(canh.join(' · '))}</span>`);
+    return (out.length ? out.join('') : '<span class="hx-sum-miss">Chưa ghi gì ở mốc này — chạm để điền</span>')
+        + '<span class="hx-sum-go">Mở mốc <i class="fas fa-chevron-down"></i></span>';
+}
+
 function newRowHtml(r, j, m) {
     const sym = symOf(r);
     const mo = openNew === `${m.id}|${j}`;
-    const daHoi = (sym?.fields || []).some(([k]) => trimText(r.v?.[k]));
-    const thieu = !!sym?.fields?.length && !daHoi;
+    const thieu = chuaHoi(r);
     const cau = moTaMoi(r);
     return `<div class="hx-newrow${thieu ? ' chua-khai' : ''}${mo ? ' is-open' : ''}" data-j="${j}">
         <input class="hx-newin" data-k="new-ten" data-j="${j}" value="${esc(r.ten)}"
@@ -500,7 +544,8 @@ function warnHtml(m) {
 }
 
 function stepHtml(m, i) {
-    return `<div class="hx-step ph-${esc(m.phase || 'truoc')}${m.dup || m.beforeOnset ? ' is-warn' : ''}" data-i="${i}" data-id="${esc(m.id || '')}">
+    const mo = m.id === openStep;
+    return `<div class="hx-step ph-${esc(m.phase || 'truoc')}${m.dup || m.beforeOnset ? ' is-warn' : ''}${mo ? ' is-open' : ''}" data-i="${i}" data-id="${esc(m.id || '')}">
         <div class="hx-top">
             <span class="hx-label">${esc(stepLabel(m))}</span>
             ${(() => { const d = stepDate(m); return d ? `<span class="hx-date" title="Ngày dương lịch của mốc này">${esc(d)}</span>` : ''; })()}
@@ -509,8 +554,11 @@ function stepHtml(m, i) {
                 <button type="button" class="hx-pin${m.main ? ' is-on' : ''}" data-act="pin"
                     title="Triệu chứng chính khởi phát ở mốc này"><i class="fas fa-star"></i></button>
                 <button type="button" class="hx-x" data-act="del-step" title="Xóa mốc"><i class="fas fa-trash"></i></button>
+                <button type="button" class="hx-tog" data-act="toggle-step" aria-expanded="${mo}"
+                    title="Mở / thu gọn mốc này"><i class="fas fa-chevron-down"></i></button>
             </span>
         </div>
+        <div class="hx-sum" data-act="toggle-step" role="button" tabindex="0">${sumInner(m)}</div>
         <div class="hx-when${m.phase === 'nv' ? ' is-nv' : ''}">
             <div class="hx-seg" role="group" aria-label="Mốc này ở đâu so với ngày nhập viện">
                 ${[['truoc', 'Trước nhập viện'], ['nv', 'Ngày nhập viện'], ['sau', 'Sau nhập viện']]
@@ -616,6 +664,9 @@ function render() {
     ensureMain(view);
     const added = autoCarry(view);
     steps = view;                        // giữ mảng đúng thứ tự hiển thị, khỏi lệch chỉ số
+    // Mốc đang mở đã bị xóa / chưa chọn -> mở mốc khởi phát (nơi có Triệu chứng chính)
+    if (openStep === null || (openStep && !view.some(m => m.id === openStep)))
+        openStep = (view.find(m => m.main) || view[0])?.id ?? null;
     // Gỡ khối "Triệu chứng chính" về chỗ đậu trước khi xóa danh sách, kẻo mất luôn ô đang có dữ liệu
     const boxes = EMBEDS.map(([id, park]) => [$(id), $(park)]);
     boxes.forEach(([box, park]) => { if (box) park?.appendChild(box); });
@@ -1294,7 +1345,8 @@ export function initHistory(options) {
             list.querySelector(`.hx-step[data-id="${id}"] .hx-n`)?.focus();
             return;
         }
-        else if (btn.dataset.act === 'pin') steps.forEach((m, k) => { m.main = k === i; });
+        // Dời ngôi sao = dời cả khối Triệu chứng chính -> mở luôn mốc đó cho thấy khối vừa tới
+        else if (btn.dataset.act === 'pin') { steps.forEach((m, k) => { m.main = k === i; }); openStep = steps[i].id; }
         else if (btn.dataset.act === 'del-step') steps.splice(i, 1);
         else if (btn.dataset.act === 'del-ref') {
             const [gone] = steps[i].refs.splice(+btn.closest('.hx-ref').dataset.k, 1);
@@ -1361,9 +1413,58 @@ export function initHistory(options) {
         let n = '';
         if (!truoc.length && onset != null) n = String(Math.round(onset / 24));
         else if (last && parseFloat(last.n) > 1) n = String(parseFloat(last.n) - 1);
-        steps.push({ id: 'm' + Date.now().toString(36), phase: 'truoc', n, u: last?.u || 'ngày', s: '', refs: [] });
+        const id = 'm' + Date.now().toString(36);
+        steps.push({ id, phase: 'truoc', n, u: last?.u || 'ngày', s: '', refs: [] });
+        openStep = id;                   // mốc vừa thêm mở sẵn, các mốc khác thu lại
         render();
         onChangeCb();
-        list.querySelector('.hx-step:last-of-type .hx-n')?.focus();
+        // render() xếp lại theo thời gian -> mốc mới chưa chắc nằm cuối, tìm theo id
+        const moi = list.querySelector(`.hx-step[data-id="${id}"]`);
+        moi?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        moi?.querySelector('.hx-n')?.focus({ preventScroll: true });
+    });
+
+    /* ---------- Mở / thu gọn mốc: đổi class tại chỗ, KHÔNG vẽ lại ----------
+       Vẽ lại sẽ thay mọi ô trong danh sách bằng ô mới -> các cú "nhảy tới ô" (goTo)
+       đang cầm tham chiếu ô cũ sẽ cuộn vào hư không. */
+    function moMoc(stepEl, mo) {
+        const truoc = stepEl.getBoundingClientRect().top;
+        list.querySelectorAll(':scope > .hx-step.is-open').forEach(s => {
+            if (s === stepEl && mo) return;
+            s.classList.remove('is-open');
+            s.querySelector(':scope > .hx-top .hx-tog')?.setAttribute('aria-expanded', 'false');
+            const m = steps[+s.dataset.i];
+            const sum = s.querySelector(':scope > .hx-sum');
+            if (m && sum) sum.innerHTML = sumInner(m);     // mốc vừa sửa xong -> tóm tắt mới
+        });
+        if (mo) {
+            stepEl.classList.add('is-open');
+            stepEl.querySelector(':scope > .hx-top .hx-tog')?.setAttribute('aria-expanded', 'true');
+        }
+        openStep = mo ? stepEl.dataset.id : '';
+        // Khối phía trên thu lại thì mốc vừa chạm tụt lên — bù lại để nó đứng yên dưới ngón tay
+        const lech = stepEl.getBoundingClientRect().top - truoc;
+        if (Math.abs(lech) > 1) scrollBy(0, lech);
+    }
+    list.addEventListener('click', (e) => {
+        if (e.target.closest('.hx-embed')) return;
+        const stepEl = e.target.closest('.hx-step');
+        if (!stepEl) return;
+        const tog = e.target.closest('[data-act="toggle-step"]');
+        // Chạm vào chỗ trống trên đầu thẻ đang thu (tên mốc, ngày) cũng mở
+        const dau = !tog && !stepEl.classList.contains('is-open')
+            && e.target.closest('.hx-top') && !e.target.closest('button, input, select');
+        if (tog || dau) moMoc(stepEl, !stepEl.classList.contains('is-open'));
+    });
+    list.addEventListener('keydown', (e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.hx-sum')) {
+            e.preventDefault();
+            moMoc(e.target.closest('.hx-step'), true);
+        }
+    });
+    // goTo() (tao-benh-an-them.js) báo trước khi nhảy tới một ô -> mốc đang thu thì mở ra
+    list.addEventListener('ba:hien', (e) => {
+        const s = e.target.closest('.hx-step');
+        if (s && !s.classList.contains('is-open')) moMoc(s, true);
     });
 }

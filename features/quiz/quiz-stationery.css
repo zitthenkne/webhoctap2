@@ -3083,3 +3083,421 @@ html.theme-dark :is(#quiz-landing, #quiz-container) .mermaid-container {
 @media print {
     .mermaid-container::after { display: none !important; }
 }
+
+/* ============================================================
+   §17. CÂU TỰ LUẬN (page/quiz-essay.js) — xếp DỌC: bài làm -> đáp án mẫu -> tự chấm
+   Màu giữ nghĩa: đáp án mẫu / ý đã nêu = xanh lá (đúng), chưa chấm = vàng hổ phách,
+   "Chưa đạt" = đỏ. Không gradient. Icon (để fa-dong-bang.mjs thấy): fa-pen fa-circle-plus
+   fa-list-check fa-lock fa-book-open fa-lightbulb fa-check
+   ============================================================ */
+.q-essay-chip {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.75rem; font-weight: 700;
+    color: var(--ink-lav);
+    background: color-mix(in srgb, var(--hue-lav) 16%, var(--surface-card));
+    border: 1.5px solid color-mix(in srgb, var(--hue-lav) 45%, transparent);
+}
+.q-essay-chip.is-sm { padding: 0.05rem 0.45rem; font-size: 10px; }
+
+#quizSection .essay-area { display: flex; flex-direction: column; gap: 0.9rem; }
+
+/* Tờ bài làm: giấy kẻ dòng */
+#quizSection .essay-sheet {
+    border-radius: 1.2rem;
+    border: 2px solid color-mix(in srgb, var(--hue-latte) 40%, transparent);
+    background: var(--surface-card);
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--hue-latte) 28%, transparent);
+    overflow: hidden;
+}
+#quizSection .essay-sheet-head {
+    display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;
+    padding: 0.6rem 1rem 0.2rem;
+    font-weight: 800; font-size: 0.92rem; color: var(--ink-latte);
+    cursor: text;
+}
+#quizSection .essay-wc { font-size: 11px; font-weight: 700; color: var(--ink-muted); }
+html #quizSection .essay-input {
+    display: block; width: 100%;
+    min-height: 9rem;
+    padding: 0.25rem 1rem 0.9rem;
+    border: 0 !important;
+    outline: none;
+    resize: vertical;
+    font: inherit;
+    font-size: max(16px, 1.02rem);   /* < 16px thì iPhone tự phóng to khi gõ */
+    line-height: 1.75rem;
+    color: var(--ink) !important;
+    background-color: transparent !important;
+    background-image: repeating-linear-gradient(to bottom, transparent 0 calc(1.75rem - 1px), var(--rule) calc(1.75rem - 1px) 1.75rem);
+    background-attachment: local;
+    background-position: 0 0.25rem;
+}
+html #quizSection .essay-input::placeholder { color: var(--ink-faint) !important; }
+#quizSection .essay-sheet:focus-within { border-color: color-mix(in srgb, var(--hue-blossom) 60%, transparent); }
+#quizSection .essay-sheet.is-done { border-style: dashed; }
+#quizSection .essay-sheet.is-done .essay-input { resize: none; }
+
+#quizSection .essay-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 0.6rem 0.9rem; }
+.essay-kbd { font-size: 12px; font-weight: 600; color: var(--ink-muted); }
+@media (hover: none) and (pointer: coarse) { .essay-kbd { display: none; } }
+#quizSection .essay-done-btn {
+    display: inline-flex; align-items: center; gap: 0.45rem;
+    padding: 0.6rem 1.25rem;
+    border-radius: 999px;
+    border: 2px solid color-mix(in srgb, var(--hue-blossom) 60%, transparent);
+    background: color-mix(in srgb, var(--hue-blossom) 55%, #fff);
+    color: #8E2A55;
+    font-weight: 800;
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--hue-blossom) 40%, transparent);
+    transition: transform .15s var(--spring), box-shadow .15s;
+}
+#quizSection .essay-done-btn:hover { transform: translateY(-1px); }
+#quizSection .essay-done-btn:active { transform: translateY(2px); box-shadow: none; }
+html.theme-dark #quizSection .essay-done-btn { background: color-mix(in srgb, var(--hue-blossom) 30%, var(--surface-card)); color: var(--ink-blossom); }
+
+.essay-lock {
+    margin: 0; padding: 0.5rem 1rem 0.7rem;
+    font-size: 12.5px; font-weight: 700; color: var(--ink-latte);
+}
+.essay-lock + #answers-container { margin-top: 0.25rem; }
+
+/* Đáp án mẫu = phiếu xanh lá (nghĩa "đúng") */
+.essay-model {
+    --em-b: var(--ok-ink); --em-i: var(--ink-sky);
+    border-radius: 1.1rem;
+    border: 2px solid var(--ok-line);
+    background: var(--ok-bg);
+    color: var(--ink);
+}
+.essay-model-head, .essay-model > summary {
+    display: flex; align-items: center; gap: 0.45rem;
+    padding: 0.65rem 1rem 0.25rem;
+    font-weight: 800; font-size: 0.92rem; color: var(--ok-ink);
+    list-style: none;
+}
+.essay-model > summary { cursor: pointer; padding-bottom: 0.65rem; }
+.essay-model > summary::-webkit-details-marker { display: none; }
+.essay-model-body { padding: 0 1.05rem 0.9rem; line-height: 1.75; }
+.essay-model-body > :first-child { margin-top: 0; }
+.essay-model-body > :last-child { margin-bottom: 0; }
+
+/* Khung tự chấm */
+.essay-grade {
+    border-radius: 1.1rem;
+    border: 2px solid color-mix(in srgb, var(--hue-latte) 38%, transparent);
+    background: var(--surface-card);
+    padding: 0.7rem 0.85rem 0.85rem;
+    color: var(--ink);
+}
+.essay-grade-head { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; font-weight: 800; font-size: 0.92rem; color: var(--ink-latte); }
+.essay-score {
+    padding: 0.15rem 0.7rem; border-radius: 999px;
+    font-size: 0.82rem; white-space: nowrap;
+    color: var(--ok-ink); background: var(--ok-bg); border: 1.5px solid var(--ok-line);
+}
+.essay-score.is-pending {
+    color: var(--ink-butter);
+    background: color-mix(in srgb, var(--hue-butter) 22%, var(--surface-card));
+    border-color: color-mix(in srgb, var(--hue-butter) 60%, transparent);
+}
+.essay-grade-hint { margin: 0.35rem 0 0.1rem; font-size: 12px; font-weight: 600; color: var(--ink-muted); }
+.essay-kps { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+.essay-kp {
+    display: flex; align-items: flex-start; gap: 0.65rem;
+    width: 100%; text-align: left;
+    padding: 0.55rem 0.75rem;
+    border-radius: 0.9rem;
+    border: 2px solid var(--line);
+    background: var(--paper);
+    color: var(--ink); font: inherit; line-height: 1.55;
+}
+button.essay-kp { cursor: pointer; transition: border-color .15s, background-color .15s; }
+button.essay-kp:hover { border-color: color-mix(in srgb, var(--hue-latte) 50%, transparent); }
+.essay-kp-box {
+    display: grid; place-items: center; flex-shrink: 0;
+    width: 1.4rem; height: 1.4rem; margin-top: 0.08rem;
+    border-radius: 0.45rem;
+    border: 2px solid color-mix(in srgb, var(--hue-latte) 60%, transparent);
+    background: var(--surface-card);
+    color: transparent; font-size: 0.7rem;
+}
+.essay-kp-text { flex: 1; min-width: 0; }
+.essay-kp-text p { margin: 0; }
+.essay-kp-pts { flex-shrink: 0; font-size: 12px; font-weight: 800; color: var(--ink-muted); margin-top: 0.15rem; }
+.essay-kp.is-on { --em-b: var(--ok-ink); border-color: var(--ok-line); background: var(--ok-bg); }
+.essay-kp.is-on .essay-kp-box { border-color: var(--ok-solid); background: var(--ok-solid); color: #fff; }
+.essay-kp.is-on .essay-kp-pts { color: var(--ok-ink); }
+.essay-grade.is-readonly .essay-kp { background: var(--surface-card); }
+.essay-none {
+    margin-top: 0.55rem; padding: 0.3rem 0.8rem;
+    border-radius: 999px; border: 1.5px dashed var(--ink-faint);
+    background: none; color: var(--ink-muted); font-size: 12.5px; font-weight: 700;
+}
+.essay-self { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.6rem; }
+.essay-self-btn {
+    flex: 1 1 6rem; padding: 0.55rem 0.8rem;
+    border-radius: 999px; border: 2px solid var(--line);
+    background: var(--paper); color: var(--ink); font-weight: 800;
+}
+.essay-self-btn.is-on[data-self="1"]   { border-color: var(--ok-line);  background: var(--ok-bg);  color: var(--ok-ink); }
+.essay-self-btn.is-on[data-self="0.5"] { border-color: color-mix(in srgb, var(--hue-butter) 60%, transparent); background: color-mix(in srgb, var(--hue-butter) 22%, var(--surface-card)); color: var(--ink-butter); }
+.essay-self-btn.is-on[data-self="0"]   { border-color: var(--bad-line); background: var(--bad-bg); color: var(--bad-ink); }
+
+#quizSection .essay-reveal { display: flex; flex-direction: column; gap: 0.9rem; animation: kb-in .45s var(--spring) both; }
+.essay-exp {
+    --em-b: #9A4A12;
+    padding: 0.7rem 1rem;
+    border-radius: 1.1rem;
+    background: color-mix(in srgb, var(--hue-butter) 18%, var(--surface-card));
+    border: 2px solid color-mix(in srgb, var(--hue-butter) 45%, transparent);
+    line-height: 1.75; color: var(--ink);
+}
+.essay-exp > b { color: var(--ink-butter); }
+
+/* Ca mở dần: khối thông tin bổ sung nối dưới tình huống */
+#quizSection #clinical-case-panel .case-reveal, #case-peek-sheet .case-reveal {
+    margin-top: 0.85rem;
+    padding: 0.6rem 0.85rem;
+    border-radius: 0.9rem;
+    border: 2px dashed color-mix(in srgb, var(--hue-sky) 55%, transparent);
+    background: var(--surface-card);
+}
+.case-reveal-tag { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.3rem; font-size: 12px; font-weight: 800; color: var(--ink-sky); }
+.case-reveal.is-new .case-reveal-tag { color: var(--ink-butter); }
+#quizSection #clinical-case-panel .case-reveal.is-new, #case-peek-sheet .case-reveal.is-new { border-color: color-mix(in srgb, var(--hue-butter) 70%, transparent); }
+.case-reveal > :last-child { margin-bottom: 0; }
+
+/* Màn kết quả */
+#resultsSection .essay-review { display: flex; flex-direction: column; gap: 0.7rem; }
+.essay-mine { border-radius: 1rem; border: 2px dashed color-mix(in srgb, var(--hue-latte) 45%, transparent); background: var(--paper); }
+.essay-mine-head { padding: 0.55rem 0.9rem 0.1rem; font-weight: 800; font-size: 0.88rem; color: var(--ink-latte); }
+.essay-mine-text { padding: 0 0.9rem 0.75rem; line-height: 1.7; color: var(--ink); overflow-wrap: anywhere; }
+.essay-mine-text i { color: var(--ink-muted); }
+#resultsSection .essay-pending-card {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.8rem 1rem;
+    margin-top: 1.5rem; padding: 1rem 1.2rem;
+    border-radius: 1.2rem; text-align: left;
+    border: 2px solid color-mix(in srgb, var(--hue-butter) 60%, transparent);
+    background: color-mix(in srgb, var(--hue-butter) 18%, var(--surface-card));
+}
+#resultsSection .essay-pending-card > i { font-size: 1.4rem; color: var(--ink-butter); }
+.essay-pending-txt { flex: 1 1 14rem; display: flex; flex-direction: column; gap: 0.15rem; color: var(--ink); font-size: 0.88rem; }
+.essay-pending-txt b { font-size: 1rem; color: var(--ink-butter); }
+#essay-grade-now {
+    padding: 0.55rem 1.2rem; border-radius: 999px;
+    border: 2px solid color-mix(in srgb, var(--hue-butter) 70%, transparent);
+    background: color-mix(in srgb, var(--hue-butter) 45%, #fff);
+    color: #6B4E00; font-weight: 800;
+}
+html.theme-dark #essay-grade-now { background: color-mix(in srgb, var(--hue-butter) 28%, var(--surface-card)); color: var(--ink-butter); }
+@media (max-width: 639px) {
+    html #quizSection .essay-input { padding-inline: 0.8rem; }
+    .essay-kp { padding: 0.55rem 0.6rem; }
+}
+
+/* §17b. Barem nâng cao + máy chấm theo từ khóa (quiz-essay.js). Icon: fa-wand-magic-sparkles fa-minus
+   fa-triangle-exclamation fa-circle-exclamation. Màu: khớp = xanh lá, gần khớp / một phần / máy chấm = vàng hổ phách,
+   lỗi trừ điểm = đỏ, "bắt buộc" = cam đào (không dùng đỏ vì đỏ chỉ để nói SAI) */
+.q-essay-chip.is-pts {
+    color: var(--ink-peach);
+    background: color-mix(in srgb, var(--hue-peach) 14%, var(--surface-card));
+    border-color: color-mix(in srgb, var(--hue-peach) 45%, transparent);
+}
+.q-auto-chip {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    padding: 0.05rem 0.45rem; border-radius: 999px;
+    font-size: 10px; font-weight: 700;
+    color: var(--ink-butter);
+    background: color-mix(in srgb, var(--hue-butter) 20%, var(--surface-card));
+    border: 1.5px solid color-mix(in srgb, var(--hue-butter) 55%, transparent);
+}
+
+/* Bài làm dạng đọc (sau khi mở đáp án) + chữ máy nhận ra */
+#quizSection .essay-read { min-height: 3.5rem; }
+mark.essay-hit { color: inherit; border-radius: 0.3rem; padding: 0 0.1em; }
+mark.essay-hit.is-match { background: var(--ok-bg); box-shadow: inset 0 -2px 0 var(--ok-line); }
+mark.essay-hit.is-near  { background: color-mix(in srgb, var(--hue-butter) 22%, transparent); box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--hue-butter) 70%, transparent); }
+mark.essay-hit.is-bad   { background: var(--bad-bg); box-shadow: inset 0 -2px 0 var(--bad-line); }
+
+/* Ghi chú máy chấm sơ bộ + xác nhận */
+.essay-auto-note {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.8rem;
+    margin: 0.5rem 0 0.2rem; padding: 0.55rem 0.75rem;
+    border-radius: 0.9rem;
+    font-size: 12.5px; line-height: 1.5; color: var(--ink);
+    background: color-mix(in srgb, var(--hue-butter) 16%, var(--surface-card));
+    border: 1.5px dashed color-mix(in srgb, var(--hue-butter) 60%, transparent);
+}
+.essay-auto-note > span { flex: 1 1 16rem; }
+.essay-auto-note b, .essay-auto-note i { color: var(--ink-butter); }
+.essay-ok-btn {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0.35rem 0.85rem; border-radius: 999px;
+    border: 2px solid var(--ok-line); background: var(--ok-bg); color: var(--ok-ink);
+    font-size: 12.5px; font-weight: 800;
+}
+.essay-crit-note { margin: 0.45rem 0 0; font-size: 12.5px; font-weight: 800; color: var(--bad-ink); }
+
+/* Ý: hàng = nút tick + nút ½ (nếu ý có điểm một phần) */
+.essay-kp-row { display: flex; align-items: stretch; gap: 0.4rem; }
+.essay-kp-row > .essay-kp { flex: 1; min-width: 0; }
+.essay-kp-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+.essay-kp-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.essay-kp-tag {
+    display: inline-flex; align-items: center; gap: 0.25rem;
+    padding: 0.02rem 0.45rem; border-radius: 999px;
+    font-size: 11px; font-weight: 700; line-height: 1.5;
+    border: 1.5px solid var(--line); color: var(--ink-muted); background: var(--surface-card);
+}
+.essay-kp-tag.is-auto { color: var(--ok-ink); border-color: var(--ok-line); background: var(--ok-bg); }
+.essay-kp-tag.is-near { color: var(--ink-butter); border-color: color-mix(in srgb, var(--hue-butter) 60%, transparent); }
+.essay-kp-tag.is-bad  { color: var(--bad-ink); border-color: var(--bad-line); background: var(--bad-bg); }
+.essay-kp-tag.is-crit { color: var(--ink-peach); border-color: color-mix(in srgb, var(--hue-peach) 55%, transparent); background: color-mix(in srgb, var(--hue-peach) 12%, var(--surface-card)); }
+
+.essay-kp.is-near { border-style: dashed; border-color: color-mix(in srgb, var(--hue-butter) 65%, transparent); }
+.essay-kp.is-half { border-color: color-mix(in srgb, var(--hue-butter) 65%, transparent); background: color-mix(in srgb, var(--hue-butter) 16%, var(--surface-card)); }
+.essay-kp.is-half .essay-kp-box { border-color: var(--hue-butter); background: var(--hue-butter); color: #5c4300; font-weight: 900; font-size: 0.8rem; }
+.essay-kp.is-half .essay-kp-pts { color: var(--ink-butter); }
+.essay-kp-half {
+    flex-shrink: 0; width: 2.4rem;
+    border-radius: 0.9rem; border: 2px solid var(--line);
+    background: var(--paper); color: var(--ink-muted);
+    font-weight: 900; font-size: 1rem;
+}
+.essay-kp-half.is-on { border-color: var(--hue-butter); background: color-mix(in srgb, var(--hue-butter) 30%, var(--surface-card)); color: var(--ink-butter); }
+
+/* Lỗi trừ điểm: tick = đỏ */
+.essay-kp.is-penalty .essay-kp-pts { color: var(--bad-ink); }
+.essay-kp.is-penalty.is-on { border-color: var(--bad-line); background: var(--bad-bg); --em-b: var(--bad-ink); }
+.essay-kp.is-penalty.is-on .essay-kp-box { border-color: var(--bad-solid); background: var(--bad-solid); color: #fff; }
+.essay-pen {
+    margin-top: 0.7rem; padding: 0.55rem 0.6rem 0.65rem;
+    border-radius: 1rem; border: 2px dashed color-mix(in srgb, var(--bad-line) 70%, transparent);
+}
+.essay-pen-head { display: flex; align-items: center; gap: 0.4rem; font-size: 12.5px; font-weight: 800; color: var(--bad-ink); }
+.essay-pen .essay-kps { margin-top: 0.4rem; }
+
+/* Nhóm "nêu k trong n" */
+.essay-kp-group {
+    padding: 0.5rem 0.55rem 0.6rem;
+    border-radius: 1rem;
+    border: 2px solid color-mix(in srgb, var(--hue-sky) 35%, transparent);
+    background: color-mix(in srgb, var(--hue-sky) 7%, var(--surface-card));
+}
+.essay-kp-group-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; font-size: 12.5px; font-weight: 800; color: var(--ink-sky); }
+.essay-kp-group-head em { font-style: normal; font-weight: 700; color: var(--ink-muted); }
+.essay-kp-group .essay-kps { margin-top: 0.4rem; }
+
+/* §17c. Ghi nhớ / Mở rộng ở màn kết quả, mọi loại câu (quiz-ui.js studyExtrasHtml) */
+.study-extra { border-radius: 1rem; color: var(--ink); }
+.study-extra.is-memo {
+    --em-b: #9A4A12;
+    border: 2px solid color-mix(in srgb, var(--hue-butter) 45%, transparent);
+    background: color-mix(in srgb, var(--hue-butter) 16%, var(--surface-card));
+}
+.study-extra.is-more {
+    border: 2px solid color-mix(in srgb, var(--hue-latte) 40%, transparent);
+    background: color-mix(in srgb, var(--hue-latte) 10%, var(--surface-card));
+}
+.study-extra-head { display: flex; align-items: center; gap: 0.45rem; padding: 0.55rem 0.9rem 0.2rem; font-weight: 800; font-size: 0.88rem; list-style: none; }
+.study-extra.is-memo .study-extra-head { color: var(--ink-butter); }
+.study-extra.is-more .study-extra-head { color: var(--ink-latte); cursor: pointer; padding-bottom: 0.55rem; }
+.study-extra > summary::-webkit-details-marker { display: none; }
+.study-extra-body { padding: 0 0.95rem 0.75rem; line-height: 1.75; }
+.study-extra-body > :first-child { margin-top: 0; }
+.study-extra-body > :last-child { margin-bottom: 0; }
+
+/* §17d. Kiểu ô trả lời của câu tự luận (quiz-essay.js inputsHtml / answerReadHtml) + modal sửa câu tự luận */
+#quizSection .essay-sheet.is-list, #quizSection .essay-sheet.is-fields, #quizSection .essay-sheet.is-table { padding-bottom: 0.7rem; }
+html #quizSection .essay-input.is-short { min-height: 0; padding-bottom: 0.6rem; }
+
+/* Ô con (danh sách / ô có nhãn / ô bảng): dòng kẻ dưới, tự giãn */
+html #quizSection .essay-part, html #resultsSection .essay-part {
+    display: block; width: 100%; min-height: 2.3rem;
+    padding: 0.4rem 0.6rem; resize: none;
+    font: inherit; font-size: max(16px, 1rem); line-height: 1.55;
+    color: var(--ink) !important;
+    background-color: var(--paper) !important;
+    border: 1.5px solid var(--line) !important; border-radius: 0.7rem;
+    outline: none;
+}
+html #quizSection .essay-part:focus { border-color: color-mix(in srgb, var(--hue-blossom) 60%, transparent) !important; }
+html #quizSection .essay-part::placeholder { color: var(--ink-faint) !important; }
+
+.essay-list, .essay-read-list { margin: 0.2rem 0 0; padding: 0 1rem 0 2.6rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.essay-list > li::marker, .essay-read-list > li::marker { color: var(--ink-latte); font-weight: 800; }
+.essay-fields { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.2rem 1rem 0; }
+.essay-field { display: flex; flex-direction: column; gap: 0.25rem; }
+.essay-field-label { font-size: 12.5px; font-weight: 800; color: var(--ink-latte); }
+
+/* Bảng: cuộn ngang trong khung trên máy tính, xếp thành thẻ theo hàng trên điện thoại */
+.essay-table-wrap { overflow-x: auto; padding: 0.2rem 1rem 0; }
+.essay-table { width: 100%; border-collapse: separate; border-spacing: 0.35rem; }
+.essay-table th { font-size: 12.5px; font-weight: 800; color: var(--ink-latte); text-align: left; padding: 0 0.2rem; }
+.essay-table th.is-rowhead { width: 1%; white-space: nowrap; color: var(--ink-muted); }
+.essay-table td { vertical-align: top; min-width: 7rem; }
+@media (max-width: 639px) {
+    .essay-table, .essay-table tbody, .essay-table tr, .essay-table td, .essay-table th.is-rowhead { display: block; width: auto; }
+    .essay-table thead { display: none; }
+    .essay-table tr { padding: 0.5rem 0.55rem; margin-bottom: 0.5rem; border: 1.5px dashed var(--line); border-radius: 0.8rem; }
+    .essay-table td { min-width: 0; margin-top: 0.35rem; }
+    .essay-table td::before { content: attr(data-col); display: block; font-size: 12px; font-weight: 800; color: var(--ink-latte); margin-bottom: 0.15rem; }
+}
+
+/* Bài đọc lại theo kiểu ô */
+#quizSection .essay-read { padding: 0.25rem 0 0.4rem; }
+.essay-read-text {
+    padding: 0 1rem 0.5rem;
+    white-space: pre-wrap; overflow-wrap: anywhere;
+    font-size: max(16px, 1.02rem); line-height: 1.75rem; color: var(--ink);
+    background-image: repeating-linear-gradient(to bottom, transparent 0 calc(1.75rem - 1px), var(--rule) calc(1.75rem - 1px) 1.75rem);
+}
+#resultsSection .essay-read-text { background-image: none; padding: 0; }
+.essay-read-list > li, .essay-read-fields dd, .essay-table td { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+.essay-read-fields { margin: 0; padding: 0 1rem; display: grid; grid-template-columns: minmax(7rem, max-content) 1fr; gap: 0.35rem 0.8rem; }
+.essay-read-fields dt { font-size: 12.5px; font-weight: 800; color: var(--ink-latte); padding-top: 0.15rem; }
+.essay-read-fields dd { margin: 0; }
+#resultsSection .essay-read-list, #resultsSection .essay-read-fields, #resultsSection .essay-table-wrap { padding-left: 0; padding-right: 0; }
+#resultsSection .essay-read-list { padding-left: 1.6rem; }
+@media (max-width: 639px) { .essay-read-fields { grid-template-columns: 1fr; } }
+.essay-empty-cell { color: var(--ink-faint); }
+.essay-kp-tag.is-field { color: var(--ink-sky); border-color: color-mix(in srgb, var(--hue-sky) 50%, transparent); }
+
+/* Modal sửa câu: chế độ tự luận */
+.qe-modal.is-essay .qe-mcq-only, .qe-modal:not(.is-essay) .qe-essay-only { display: none !important; }
+.qe-mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 0.84rem !important; line-height: 1.6; }
+.qe-format-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.qe-format-row > select { flex: 0 0 auto; }
+.qe-format-row > input { flex: 1 1 12rem; min-width: 0; }
+.qe-format-row > [hidden] { display: none; }
+.qe-score-input { max-width: 8rem; }
+
+/* §17e. Kéo chỉnh chiều cao khung ca chùm (quiz-page-setup.js setupCaseResize).
+   --case-h đặt trên <html> (khung ca vẽ lại mỗi câu). Phải thắng max-h-72 (Tailwind) lẫn luật
+   "bỏ cuộn lồng" max-height:none !important của quiz-enhance trên điện thoại. Icon: fa-grip-lines */
+html.case-h-set #quizSection #case-body:not(.hidden) {
+    max-height: var(--case-h) !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+}
+#quizSection .case-resize {
+    display: flex; align-items: center; justify-content: center;
+    width: 4.5rem; height: 1.1rem;
+    margin: 0.55rem auto -0.35rem;
+    border-radius: 999px;
+    color: color-mix(in srgb, var(--hue-sky) 75%, transparent);
+    font-size: 0.8rem;
+    cursor: ns-resize;
+    touch-action: none;          /* kéo được trên điện thoại, không cuộn trang */
+    user-select: none;
+    transition: background-color .15s, color .15s;
+}
+#quizSection .case-resize:hover, #quizSection .case-resize:focus-visible, body.case-resizing #quizSection .case-resize {
+    color: var(--ink-sky);
+    background: color-mix(in srgb, var(--hue-sky) 16%, transparent);
+}
+#quizSection #clinical-case-panel:has(#case-body.hidden) .case-resize { display: none; }
+body.case-resizing { cursor: ns-resize; user-select: none; }
+@media (pointer: coarse) { #quizSection .case-resize { height: 1.6rem; width: 5.5rem; } }

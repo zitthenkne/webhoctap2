@@ -293,12 +293,17 @@ $('ba-zen')?.addEventListener('click', () => { zen = !zen; applyZen(true); });
 /* 7. THANH TIẾN ĐỘ CUỘN + PHÍM TẮT                                    */
 /* ------------------------------------------------------------------ */
 let raf = 0;
+const vachCuon = document.querySelector('.ba-scroll i');
 addEventListener('scroll', () => {
     if (raf) return;
     raf = requestAnimationFrame(() => {
         raf = 0;
         const max = document.documentElement.scrollHeight - innerHeight;
-        body.style.setProperty('--sp', max > 40 ? (scrollY / max).toFixed(3) : 0);
+        /* Ghi thẳng lên vạch, KHÔNG lên <body>: biến CSS đặt ở body bị ~2.500 phần tử
+           con thừa hưởng -> mỗi khung hình cuộn trình duyệt tính lại style cả trang.
+           Đo ở máy tầm trung (CPU x4): ~450ms/khung, 209/239 khung giật. transform
+           chỉ cần ghép lớp, không đụng style hay bố cục của phần tử nào khác. */
+        vachCuon?.style.setProperty('transform', `scaleX(${max > 40 ? (scrollY / max).toFixed(3) : 0})`);
     });
 }, { passive: true });
 
@@ -366,6 +371,9 @@ export function dayVoi(box) {
 function buildRail() {
     const pane = form?.querySelector('.tab-content.active');
     if (!pane) return;
+    // Gỡ `hidden` của chính dải trước khi xét: không thì dải rỗng tự khóa mình mãi mãi
+    rail.hidden = false;
+    if (railAn()) { railItems = []; rail.innerHTML = ''; return; }
     railItems = [...pane.querySelectorAll('legend, label.text-pink-500, .fold-panel > summary')]
         .filter(h => h.offsetParent !== null)
         .slice(0, 16)
@@ -388,8 +396,12 @@ rail.addEventListener('click', e => {
 });
 
 /* Sáng theo chỗ đang cuộn — lấy tiêu đề cuối cùng còn nằm trên giữa màn hình */
+/* Dải chấm bị ẩn ở điện thoại và khi có thanh mục lục trái (bo-cuc-ben.js) — lúc đó
+   đừng đo vị trí tiêu đề mỗi khung hình cuộn, cũng đừng dựng lại khi gõ */
+const railAn = () => rail.checkVisibility ? !rail.checkVisibility() : getComputedStyle(rail).display === 'none';
+
 function spyRail() {
-    if (!railItems.length) return;
+    if (!railItems.length || railAn()) return;
     const moc = innerHeight * 0.35;
     let at = 0;
     railItems.forEach((x, i) => { if (x.h.getBoundingClientRect().top <= moc) at = i; });
@@ -410,6 +422,9 @@ form?.addEventListener('input', () => {
     railTimer = setTimeout(buildRail, 700);
 });
 setTimeout(() => { buildRail(); spyRail(); }, 800);
+// Đổi cỡ cửa sổ có thể làm dải hiện lại (1100–1199px) -> dựng lại cho khỏi rỗng
+let railRs = 0;
+addEventListener('resize', () => { clearTimeout(railRs); railRs = setTimeout(() => { buildRail(); spyRail(); }, 300); });
 
 /* ------------------------------------------------------------------ */
 /* 9. THU GỌN HẾT / MỞ HẾT                                             */

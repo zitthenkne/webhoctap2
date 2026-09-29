@@ -1,4 +1,5 @@
 // features/quiz/quiz-helpers.js
+import { isEssay, isEssayPassed, essayCredit, questionWeight } from './quiz-essay-core.js';
 
 // Cờ đảm bảo mermaid.initialize() chỉ chạy MỘT lần duy nhất (tránh reset cấu hình giữa chừng)
 let mermaidInitialized = false;
@@ -620,6 +621,7 @@ export function getCorrectIndexes(q) {
 // Trả lời của người dùng đúng không? userAnswer là số (1 đáp án) hoặc mảng (nhiều đáp án).
 export function isAnswerCorrect(q, userAnswer) {
     if (userAnswer === null || userAnswer === undefined) return false;
+    if (isEssay(q)) return isEssayPassed(q, userAnswer);
     const correct = getCorrectIndexes(q);
     if (correct.length === 0) return false;
     if (Array.isArray(userAnswer)) {
@@ -627,6 +629,23 @@ export function isAnswerCorrect(q, userAnswer) {
         return u.length === correct.length && u.every((v, i) => v === correct[i]);
     }
     return correct.length === 1 && userAnswer === correct[0];
+}
+// Điểm của MỘT câu (0..1): trắc nghiệm 0/1, tự luận theo tỉ lệ ý đã tick. Tổng điểm bài = tổng các câu.
+export function answerCredit(q, userAnswer) {
+    if (isEssay(q)) return essayCredit(q, userAnswer);
+    return isAnswerCorrect(q, userAnswer) ? 1 : 0;
+}
+// Điểm cả bài theo trọng số câu (maxScore, mặc định 1): { score, max, pct }.
+// Không câu nào có maxScore thì score = số câu đúng như trước.
+export function sessionScore(questions, answers) {
+    let score = 0, max = 0;
+    (questions || []).forEach((q, i) => {
+        const w = questionWeight(q);
+        max += w;
+        score += answerCredit(q, answers[i]) * w;
+    });
+    score = Math.round(score * 100) / 100;
+    return { score, max, pct: max > 0 ? (score / max) * 100 : 0 };
 }
 
 /**
