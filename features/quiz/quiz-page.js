@@ -240,6 +240,13 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEdgeTap();        // Chạm rìa trái/phải màn hình để chuyển câu (mobile)
     setupMobileNav();      // Thanh điều hướng đáy + bảng nhảy câu (mobile)
 
+    // "Làm cùng nhau": mở đề sang phòng đánh đề (trang chờ + bảng thiết lập khi đang làm) — nạp lười
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#group-quiz-btn, #qs-group-room')) return;
+        document.getElementById('quiz-settings-popover')?.classList.add('hidden-pop');
+        import('./page/quiz-group.js').then(m => m.openInRoom());
+    });
+
     // Đóng menu lý do đánh dấu khi bấm ra ngoài (1 listener dùng chung cho mọi câu)
     document.addEventListener('click', (e) => {
         const menu = document.getElementById('mark-menu');

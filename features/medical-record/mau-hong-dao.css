@@ -782,9 +782,11 @@ body.hd:not(.ba-night) .grade-box .cls-mini {
         padding-bottom: 0;
     }
     body.hd .tg-line > i:first-child { margin-right: 5px }
+    /* inline-BLOCK chứ không inline-flex: chip "+ NT-proBNP <em>(Suy tim…)</em>" có hai
+       con, flex biến chúng thành hai cột chữ khi chip phải xuống dòng */
     body.hd .tg-line > :is(.tg-chip, button) {
-        display: inline-flex;
-        align-items: center;
+        display: inline-block;
+        text-align: left;
         margin: 5px 5px 0 0;
         vertical-align: middle;
     }
@@ -2218,3 +2220,341 @@ body.hd :is(#cnv-internal .cnv-row, #tc-thuoc-list .dl-row).lk-sang { background
 }
 
 body.ba-night :is(#cnv-internal .cnv-row, #tc-thuoc-list .dl-row).lk-sang { background-color: rgba(255, 255, 255, .05) }
+
+
+/* =====================================================================
+   25. MỤC X — THẺ VẤN ĐỀ THEO 3 BƯỚC (bien-luan-gon.js, 2026-09-30)
+   ===================================================================== */
+body.hd #bl-host { display: flex; flex-direction: column; gap: 14px }
+body.hd #bl-host > .tr-card.bl-o { padding: 14px 16px 16px; border-radius: 20px }
+body.hd #bl-host > .tr-card.bl-o.bl-mo {
+    border-color: var(--sec, #c9bcef);
+    box-shadow: 0 0 0 3px var(--sec-pill, #ebe6fb), 0 16px 32px -24px var(--sec-ink, #62529a);
+}
+
+/* ---- Đầu thẻ: số · tên vấn đề · công cụ ---- */
+body.hd #bl-host .tr-root { gap: 10px; margin-bottom: 8px }
+body.hd #bl-host .tr-root .tr-title { font-weight: 700; font-size: 15px }
+body.hd #bl-host .tr-tools { gap: 4px }
+body.hd #bl-host .tr-tools .tr-x {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    border: 1px solid var(--sec-line, #ddd5f5);
+    background: #fff;
+    color: var(--sec-ink, #62529a);
+}
+body.hd #bl-host .tr-tools .tr-x[data-act="del-vd"] { color: #b04a4a }
+
+/* ---- Dòng tiến độ: thẻ đủ 4/4 thì "Dựng nhanh" lùi thành nút phụ ---- */
+body.hd #bl-host .tr-meta { gap: 8px; flex-wrap: wrap }
+body.hd #bl-host .tr-card.bl-du .tr-meta .tr-mini.go[data-act="quick"] {
+    background: #fff;
+    border: 1px solid var(--sec-line, #ddd5f5);
+    color: var(--sec-ink, #62529a);
+    box-shadow: none;
+}
+
+/* ---- Thanh 3 bước ---- */
+.bl-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin: 12px 0 14px;
+}
+.bl-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 0;
+    padding: 9px 12px;
+    border: 1.5px solid var(--sec-line, #ddd5f5);
+    border-radius: 14px;
+    background: #fff;
+    text-align: left;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+}
+.bl-tab b {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font: 700 13.5px/1.25 'Quicksand', 'Nunito', sans-serif;
+    color: var(--sec-ink, #62529a);
+    white-space: nowrap;
+}
+.bl-tab b i { font-size: 12px; opacity: .85 }
+.bl-tab small {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font: 600 11.5px/1.3 'Nunito', system-ui, sans-serif;
+    color: #9d8792;
+}
+.bl-tab:hover { background: var(--sec-tint, #f9f7fe) }
+.bl-tab.is-on { background: var(--sec, #c9bcef); border-color: var(--sec, #c9bcef) }
+.bl-tab.is-on b, .bl-tab.is-on small { color: #3e2a33 }
+
+/* Chỉ hiện khối thuộc bước đang chọn. Tiêu chuẩn chẩn đoán thuộc bước Bằng chứng. */
+body.hd #bl-host > .tr-card.bl-o[data-bltab="0"] > .tr-branch:not([data-bltab="0"]),
+body.hd #bl-host > .tr-card.bl-o[data-bltab="1"] > .tr-branch:not([data-bltab="1"]),
+body.hd #bl-host > .tr-card.bl-o[data-bltab="2"] > .tr-branch:not([data-bltab="2"]) { display: none !important }
+body.hd #bl-host > .tr-card.bl-o:not([data-bltab="0"]) > .tr-crit { display: none }
+/* dạng bước cũ của điện thoại (bien-luan-them.js) đã thay bằng thanh trên */
+body.hd #bl-host .blx-steps { display: none !important }
+
+/* ---- Khối trong bước: bỏ đường nhánh cây (5 khối giờ không còn đứng chung), mỗi
+        khối một vùng rõ ràng có tiêu đề ---- */
+body.hd #bl-host > .tr-card.bl-o > .tr-branch {
+    margin-left: 0;
+    padding: 0;
+    border-left: 0;
+}
+body.hd #bl-host > .tr-card.bl-o > .tr-branch::before { display: none }
+body.hd #bl-host > .tr-card.bl-o > .tr-branch + .tr-branch {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--sec-line, #ddd5f5);
+}
+body.hd #bl-host .tr-label {
+    gap: 6px 10px;
+    margin-bottom: 10px;
+    font: 700 14px/1.3 'Quicksand', 'Nunito', sans-serif;
+    color: var(--sec-ink, #62529a);
+}
+body.hd #bl-host .tr-label > .tr-mini:first-of-type { margin-left: auto }
+body.hd #bl-host .tr-tags { gap: 6px }
+body.hd #bl-host .tr-sugg { margin-top: 10px; row-gap: 6px }
+
+/* ---- Bước Nguyên nhân: làn theo mức nghĩ + mỗi nhánh một thẻ con ---- */
+body.hd #bl-host .tr-tier { margin-bottom: 14px }
+body.hd #bl-host .tr-tier-h {
+    padding: 6px 12px;
+    border-radius: 10px;
+    font-size: 12.5px;
+    margin-bottom: 8px;
+}
+body.hd #bl-host .tr-leafwrap {
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    border: 1px solid var(--line, #f1e1e8);
+    border-radius: 14px;
+    background: #fff;
+}
+body.hd #bl-host .tr-leafwrap:focus-within,
+body.hd #bl-host .tr-leafwrap.bl-la-mo {
+    border-color: var(--sec, #c9bcef);
+    background: var(--sec-tint, #f9f7fe);
+}
+body.hd #bl-host .tr-leafwrap > .tr-leaf { margin-bottom: 0; row-gap: 8px }
+body.hd #bl-host .tr-leafwrap > .tr-sc { margin-top: 8px; flex-wrap: wrap; row-gap: 6px }
+/* Nhánh đang thu: giấu bảng tiêu chí ✓?✗ và máy tính thang điểm */
+body.hd #bl-host .tr-leafwrap.bl-la:not(.bl-la-mo) > :is(.tr-feats, .tr-thang) { display: none }
+body.hd #bl-host .tr-leafwrap > .tr-feats { margin-top: 8px }
+body.hd #bl-host .tr-leafwrap > .tr-thang { margin-top: 10px }
+.bl-la-tg {
+    margin-left: auto;
+    padding: 5px 11px;
+    border: 1px dashed var(--sec-line, #ddd5f5);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--sec-ink, #62529a);
+    font: 700 12px 'Quicksand', 'Nunito', sans-serif;
+    cursor: pointer;
+}
+.tr-leafwrap.bl-la-mo .bl-la-tg { border-style: solid; background: var(--sec-pill, #ebe6fb) }
+/* nút xem tiêu chí đứng riêng (nhánh chưa có thanh %) */
+body.hd #bl-host .tr-leafwrap > .bl-la-tg { display: block; margin: 8px 0 0 auto }
+
+/* ---- Nút "Tiếp" cuối thẻ ---- */
+.bl-next {
+    display: block;
+    margin: 18px 0 0 auto;
+    padding: 9px 18px;
+    border: 0;
+    border-radius: 14px;
+    background: var(--sec, #c9bcef);
+    color: #3e2a33;
+    font: 700 13.5px 'Quicksand', 'Nunito', sans-serif;
+    cursor: pointer;
+}
+.bl-next:hover { filter: brightness(.97) }
+
+/* ---- Dải công cụ trên đầu mục X: bớt chật ---- */
+body.hd .blx-bar { gap: 8px; padding: 10px 12px; border-radius: 14px }
+body.hd .tr-bar { gap: 8px; margin-bottom: 4px }
+
+/* ---- Điện thoại ---- */
+@media screen and (max-width: 640px) {
+    body.hd #bl-host > .tr-card.bl-o { padding: 12px 12px 14px }
+    /* Đầu thẻ: tên vấn đề trọn một hàng, 5 nút công cụ xuống hàng dưới (trước bị
+       ép tràn mép phải, bấm không trúng) */
+    body.hd #bl-host .tr-root {
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr);
+        align-items: center;
+    }
+    body.hd #bl-host .tr-root > .tr-tools { grid-column: 1 / -1; justify-content: flex-end; margin-left: 0 }
+    body.hd #bl-host .tr-tools .tr-x { width: 38px; height: 38px }
+
+    .bl-tabs { gap: 6px; margin: 10px 0 12px }
+    .bl-tab { padding: 8px 9px; align-items: center; text-align: center }
+    .bl-tab b { font-size: 12.5px; flex-direction: column; gap: 2px }
+    .bl-tab small { font-size: 10.5px; white-space: normal; text-align: center }
+
+    body.hd #bl-host .tr-leafwrap { padding: 10px }
+    .bl-next { width: 100%; padding: 12px }
+}
+
+body.ba-night .bl-tab, body.ba-night .bl-la-tg, body.ba-night #bl-host .tr-leafwrap { background: rgba(255, 255, 255, .04); border-color: #4a3d42 }
+body.ba-night .bl-tab b, body.ba-night .bl-tab small { color: #eadde3 }
+
+/* Dòng tiến độ: chữ + "Dựng nhanh" đứng liền nhau, nút Mở/Thu dạt phải */
+body.hd #bl-host .tr-card.bl-o > .tr-meta { justify-content: flex-start }
+body.hd #bl-host .tr-card.bl-o > .tr-meta > .bl-tg { margin-left: auto }
+
+@media screen and (max-width: 640px) {
+    /* Dải thống kê đầu mục X: phần tử đệm .blx-grow chiếm trọn một hàng làm dải
+       cao 121px -> bỏ đệm, ba mẩu nằm chung 1–2 hàng */
+    body.hd .blx-bar > .blx-grow { display: none }
+    body.hd .blx-bar { padding: 8px 10px; gap: 6px }
+    body.hd .blx-bar > .blx-chip.is-key { margin-left: auto }
+    /* Tab: bỏ icon (tên bước đã đủ nghĩa) cho tab thấp gọn */
+    .bl-tab b i { display: none }
+    body.hd #bl-host .tr-card.bl-o > .tr-meta { margin-left: 0 }
+}
+
+/* Hàng điểm khớp của nhánh: "Đánh dấu đã hỏi" đứng ngay sau số liệu (trước bị
+   margin-left:auto đẩy ra giữa hàng), nút xem tiêu chí dạt phải */
+body.hd #bl-host .tr-leafwrap > .tr-sc > .tr-mini { margin-left: 4px }
+
+@media screen and (max-width: 640px) {
+    /* Tiêu đề khối có 2 nút bên phải: flex-wrap làm icon đứng lẻ một dòng, chữ
+       xuống dòng dưới. Cho chảy như đoạn văn, nút xuống hàng riêng. */
+    body.hd #bl-host .tr-label { display: block }
+    body.hd #bl-host .tr-label > i:first-child { margin-right: 6px }
+    body.hd #bl-host .tr-label > .tr-mini {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        margin: 8px 6px 0 0;
+        vertical-align: middle;
+    }
+    body.hd #bl-host .tr-label > .tr-mini:first-of-type { margin-left: 0 }
+}
+
+
+/* =====================================================================
+   26. VII–XI CÒN LẠI — tóm tắt, đặt vấn đề, chẩn đoán, CLS đề nghị (2026-09-30)
+   ===================================================================== */
+
+/* ---- Ô chữ dài (VII tóm tắt, chẩn đoán phân biệt): khi không gõ thì thu còn
+        ~9 dòng, mờ dần ở đáy + nút "Xem hết". Chạm vào ô để sửa là bung đủ.
+        (bien-luan-gon.js gắn class .hd-gon và nút .hd-xemhet) ---- */
+body.hd #medical-record-form textarea.hd-gon {
+    max-height: 240px !important;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(#000 72%, transparent);
+    mask-image: linear-gradient(#000 72%, transparent);
+}
+.hd-xemhet {
+    display: inline-flex;
+    align-self: flex-start;        /* khối cha là flex dọc -> không giãn hết bề ngang */
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    padding: 6px 14px;
+    border: 1px solid var(--sec-line, #ddd5f5);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--sec-ink, #62529a);
+    font: 700 12.5px 'Quicksand', 'Nunito', sans-serif;
+    cursor: pointer;
+}
+.hd-xemhet[hidden] { display: none }
+
+/* ---- Dòng nhắc (.tg-line): thẻ nhỏ có nền, không còn là chữ trần lẫn vào ô nhập ---- */
+body.hd #chan-doan-dieu-tri .tg-box > .tg-line {
+    padding: 9px 12px;
+    border: 1px solid var(--sec-line, #ddd5f5);
+    border-radius: 12px;
+    background: #fff;
+    color: #6f5563;
+    line-height: 1.55;
+}
+body.hd #chan-doan-dieu-tri .tg-box > .tg-line .tg-benh { color: var(--sec-ink, #62529a) }
+/* Lệch với cây biện luận (IX) / CLS bắt buộc còn thiếu (XI) = cần làm -> vàng */
+body.hd #dx1-sync > .tg-line:not(.is-ok),
+body.hd #cls-dn-bl > .tg-line:has(.fa-triangle-exclamation) {
+    background: var(--w-bg, #fff8e6);
+    border-color: var(--w-line, #f3dfa6);
+    color: #6f470b;
+}
+body.hd :is(#dx1-sync, #cls-dn-bl) > .tg-line:not(.is-ok) .tg-benh { color: #86560f }
+body.hd #chan-doan-dieu-tri .tg-box > .tg-line.is-ok {
+    background: var(--o-bg, #eefaf3);
+    border-color: var(--o-line, #c3e7d3);
+    color: var(--o-ink, #2e7455);
+}
+body.hd #chan-doan-dieu-tri .tg-chip em { font-style: normal; opacity: .75; margin-left: 3px }
+
+/* ---- IX: Chẩn đoán sơ bộ + Chẩn đoán phân biệt là MỘT mục -> một khung liền,
+        "Chẩn đoán phân biệt" thành tiêu đề con. Máy tính: 3 ô chẩn đoán một hàng ---- */
+body.hd:not(.ba-night) #chan-doan-dieu-tri > .flex-col > div:has(> label[for="provisional-diagnosis"]) {
+    border-bottom: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    padding-bottom: 8px;
+}
+body.hd:not(.ba-night) #chan-doan-dieu-tri > .flex-col > div:has(> #differential-diagnosis) {
+    margin-top: -16px;             /* nuốt khoảng gap giữa hai khối */
+    border-top: 1px dashed var(--sec-line, #ddd5f5);
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    padding-top: 14px;
+}
+body.hd #medical-record-form label.text-pink-500[for="differential-diagnosis"] {
+    display: flex;
+    padding: 1px 0 1px 10px;
+    background: none;
+    border: 0;
+    border-left: 3px solid var(--sec, #c9bcef);
+    border-radius: 0;
+    font-size: 14.5px;
+    margin: 0 0 10px;
+}
+@media screen and (min-width: 900px) {
+    body.hd #chan-doan-dieu-tri .dx-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px }
+}
+body.hd #chan-doan-dieu-tri .dx-grid label { gap: 6px }
+body.hd #chan-doan-dieu-tri :is(.dx-grid, #dx1-sync, .bk-box) + :is(#dx1-sync, .bk-box, details) { margin-top: 12px }
+
+/* ---- Điện thoại: đầu mục = tiêu đề một hàng, các nút chia đều một hàng dưới ---- */
+@media screen and (max-width: 640px) {
+    body.hd #chan-doan-dieu-tri .flex.items-center.gap-2:has(> label.text-pink-500) {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        margin-bottom: 4px;
+    }
+    body.hd #chan-doan-dieu-tri .flex.items-center.gap-2:has(> label.text-pink-500) > label.text-pink-500 {
+        grid-column: 1 / -1;
+        justify-self: start;
+        margin-bottom: 0;
+    }
+    body.hd #chan-doan-dieu-tri .flex.items-center.gap-2:has(> label.text-pink-500) > .cls-mini {
+        justify-content: center;
+        min-height: 38px;
+        width: 100%;
+    }
+    /* chỉ có một nút (VII "Tự động tóm tắt") thì trọn hàng */
+    body.hd #chan-doan-dieu-tri .flex.items-center.gap-2:has(> label.text-pink-500) > .cls-mini:only-of-type,
+    body.hd #chan-doan-dieu-tri .flex.items-center.gap-2:has(> label.text-pink-500) > .stale-tag { grid-column: 1 / -1 }
+    body.hd #chan-doan-dieu-tri .flex.items-center.gap-2:has(> label.text-pink-500) > .stale-tag { justify-self: start }
+
+    body.hd #chan-doan-dieu-tri .tg-box > .tg-line { padding: 9px 10px }
+}

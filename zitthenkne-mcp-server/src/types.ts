@@ -39,7 +39,7 @@ export interface QuizQuestion {
   /** Điểm tối đa của câu trong bài (trọng số). */
   maxScore?: number;
   /** Tự luận: kiểu ô trả lời (text / short / list / fields / table). */
-  answerFormat?: { kind: string; count?: number; labels?: string[]; columns?: string[]; rows?: number | string[]; placeholder?: string };
+  answerFormat?: { kind: string; count?: number; labels?: (string | { label?: string; hint?: string; size?: string; unit?: string })[]; columns?: string[]; rows?: number | string[]; placeholder?: string };
 }
 
 /** Một bộ đề trắc nghiệm. */

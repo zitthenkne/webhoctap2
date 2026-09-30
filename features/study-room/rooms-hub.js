@@ -559,12 +559,12 @@ async function deleteRoom(r) {
 }
 
 // ---------------- Lớp nổi dùng chung ----------------
-function modal(html, onReady) {
+function modal(html, onReady, onClose) {
     const wrap = document.createElement('div');
     wrap.className = 'rh-modal';
     wrap.innerHTML = `<div class="rh-sheet"><button type="button" class="rh-x" data-close><i class="fas fa-times"></i></button>${html}</div>`;
     document.body.appendChild(wrap);
-    const close = () => { wrap.remove(); document.removeEventListener('keydown', onKey); };
+    const close = () => { wrap.remove(); document.removeEventListener('keydown', onKey); onClose?.(); };
     const onKey = (e) => { if (e.key === 'Escape') close(); };
     document.addEventListener('keydown', onKey);
     wrap.addEventListener('click', (e) => { if (e.target === wrap || e.target.closest('[data-close]')) close(); });
@@ -602,13 +602,15 @@ function wirePickers(wrap, out) {
 const WORDS = ['hong', 'soc', 'deo', 'mint', 'tim', 'nang', 'mua', 'sao', 'bien', 'gio'];
 const suggestCode = () => `${WORDS[Math.floor(Math.random() * WORDS.length)]}-${Math.floor(100 + Math.random() * 900)}`;
 
-function openCreateModal() {
+// opts (pickRoom dùng): name = tên gợi ý sẵn · onCreated(id) thay cho việc chuyển trang · onCancel()
+function openCreateModal(opts = {}) {
     if (!state.user) {
         showToast('Đăng nhập để tạo phòng nhé!', 'warning');
         window.toggleAuthModal?.();
-        return;
+        return opts.onCancel?.();
     }
     const pick = { emoji: EMOJIS[Math.floor(Math.random() * EMOJIS.length)], theme: Math.floor(Math.random() * 6) };
+    let created = false;
     modal(`
         <h3><i class="fas fa-plus-circle" style="color:#ff69b4"></i> Tạo phòng học mới</h3>
         <p class="rh-sub">Đặt tên cho dễ nhớ, mã phòng là thứ bạn gửi cho nhóm.</p>
@@ -633,6 +635,7 @@ function openCreateModal() {
         code.value = suggestCode();
         wirePickers(wrap, pick);
         name.focus();
+        if (opts.name) { name.value = String(opts.name).slice(0, 60); setTimeout(() => name.dispatchEvent(new Event('input'))); }
         wrap.querySelector('#rh-c-dice').onclick = () => { code.value = suggestCode(); code.classList.remove('bad'); };
         // Gõ tên -> gợi ý mã theo tên (chỉ khi người dùng chưa tự sửa mã)
         let codeTouched = false;
@@ -675,7 +678,9 @@ function openCreateModal() {
                     ...(when ? { scheduledAt: new Date(when).getTime() } : {}),
                 });
                 rememberRoomVisit(id);
+                created = true;
                 close();
+                if (opts.onCreated) return void opts.onCreated(id);
                 location.href = linkOf(id);
             } catch (err) {
                 showToast('Không tạo được phòng: ' + err.message, 'error');
@@ -683,6 +688,57 @@ function openCreateModal() {
                 btn.innerHTML = '<i class="fas fa-door-open"></i> Tạo & vào phòng';
             }
         };
+    }, () => { if (!created) opts.onCancel?.(); });
+}
+
+// ---------------- Chọn phòng để mở đề (quiz.html "Làm cùng nhau") ----------------
+// Phòng mình làm chủ (chỉ chủ phòng mới mở đề cho cả phòng được) hoặc tạo phòng mới với mã tự đặt
+// (dùng lại hộp Tạo phòng ở trên). choices = [{ v, label, on? }] -> một hàng chip chọn cách mở đề.
+// Trả Promise<{ id, choice } | null>. Trang ngoài trang chủ phải tự nạp rooms-hub.css.
+export function pickRoom({ user, name = '', choices = [] }) {
+    state.user = state.user || user;
+    let choice = (choices.find(c => c.on) || choices[0])?.v;
+    return new Promise((resolve) => {
+        let next = null;             // đóng hộp này để mở hộp Tạo phòng -> chưa trả kết quả
+        modal(`
+            <h3><i class="fas fa-users" style="color:#ff69b4"></i> Làm cùng nhau</h3>
+            <p class="rh-sub">Mở đề ở phòng có sẵn của bạn, hoặc tạo phòng mới với mã tự đặt.</p>
+            ${choices.length > 1 ? `<div class="rh-picks" data-choice>${choices.map(c => `<button type="button" class="rh-chip ${c.v === choice ? 'is-on' : ''}" data-v="${esc(c.v)}">${esc(c.label)}</button>`).join('')}</div>` : ''}
+            <label class="rh-label">Phòng của bạn</label>
+            <div class="rh-plist" id="rh-p-list"><p class="rh-hint">Đang tải phòng của bạn…</p></div>
+            <div class="rh-row">
+                <button type="button" class="rh-btn rh-btn-ghost" data-close>Huỷ</button>
+                <button type="button" class="rh-btn rh-btn-main" id="rh-p-new"><i class="fas fa-plus"></i> Tạo phòng mới</button>
+            </div>`, (wrap, close) => {
+            wrap.querySelector('[data-choice]')?.addEventListener('click', (e) => {
+                const b = e.target.closest('[data-v]');
+                if (!b) return;
+                choice = b.dataset.v;
+                wrap.querySelectorAll('[data-choice] .rh-chip').forEach(x => x.classList.toggle('is-on', x === b));
+            });
+            wrap.querySelector('#rh-p-new').onclick = () => {
+                next = () => openCreateModal({ name, onCreated: (id) => resolve({ id, choice }), onCancel: () => resolve(null) });
+                close();
+            };
+            wrap.querySelector('#rh-p-list').addEventListener('click', (e) => {
+                const b = e.target.closest('[data-room]');
+                if (!b) return;
+                rememberRoomVisit(b.dataset.room);
+                next = () => resolve({ id: b.dataset.room, choice });
+                close();
+            });
+            getDocs(query(collection(db, 'study_rooms'), where('owner', '==', state.user.uid))).then((snap) => {
+                const act = (d) => Math.max(d.live?.startedAt || 0, d.live?.endedAt || 0, d.createdAt?.toMillis?.() || 0);
+                const rows = snap.docs.map(d => ({ id: d.id, data: d.data() || {} })).sort((a, b) => act(b.data) - act(a.data));
+                wrap.querySelector('#rh-p-list').innerHTML = rows.length ? rows.map(r => {
+                    const busy = r.data.live?.qCount && !r.data.live.ended;
+                    return `<button type="button" class="rh-proom rh-t${themeOf(r)}" data-room="${esc(r.id)}">
+                        <span class="rh-proom-ic">${esc(r.data.emoji || '📚')}</span>
+                        <span class="rh-proom-txt"><b>${esc(nameOf(r))}</b><small>${esc(r.id)}${busy ? ` · đang làm "${esc(r.data.live.title || 'đề')}" — sẽ hỏi trước khi thay` : ''}</small></span>
+                        <i class="fas fa-arrow-right"></i></button>`;
+                }).join('') : '<p class="rh-hint">Bạn chưa có phòng nào — bấm <b>Tạo phòng mới</b>.</p>';
+            }).catch(() => { wrap.querySelector('#rh-p-list').innerHTML = '<p class="rh-hint bad">Không tải được danh sách phòng — vẫn tạo phòng mới được.</p>'; });
+        }, () => (next ? next() : resolve(null)));
     });
 }
 

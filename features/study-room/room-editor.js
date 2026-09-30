@@ -7,7 +7,7 @@
 // Cách hoạt động: vùng sửa được là phần tử có [data-live-edit="<khóa>"] và
 // contenteditable. Mỗi lần gõ (chờ 400ms cho êm) file này bắn sự kiện
 // window 'room:edit' kèm {key, html} — sân khấu bắt lấy rồi ghi lên Firestore.
-import { parseMarkdown, renderMath, configureMermaid } from '../quiz/quiz-helpers.js';
+import { parseMarkdown, renderMath, configureMermaid, svgFigureHtml, SVG_MAX } from '../quiz/quiz-helpers.js';
 import { showToast } from '../../core/utils.js';
 import { uploadImage, imageFilesOf, safeImgUrl, warnIfTemp } from './room-media.js';
 import { effectiveIndex } from './room-quiz-stage.js';
@@ -57,6 +57,7 @@ export const currentEditKey = () => editingKey;
 //   công thức -> $…$ / $$…$$ (lấy từ <annotation> KaTeX cài sẵn) · sơ đồ -> <div data-mermaid="mã đã mã hoá">.
 const MM_BOX = 'mermaid-container flex justify-center my-4 overflow-x-auto w-full bg-white/50 p-4 rounded-xl border border-pink-100/30 shadow-sm';
 const MM_OK = /^[\w\-.!~*'()%]{1,20000}$/;       // đúng bộ ký tự encodeURIComponent sinh ra
+const MM_CHARS = /^[\w\-.!~*'()%]+$/;
 const texOf = (k) => k.querySelector('annotation[encoding="application/x-tex"]')?.textContent ?? null;
 /** Đổi công thức đã vẽ trong `root` về chữ $…$ (tại chỗ). Trả về số công thức đã đổi. */
 export function unrenderMath(root) {
@@ -88,9 +89,25 @@ function unrenderDiagrams(root) {
         box.replaceWith(d);
     });
 }
-/** <div data-mermaid> (dạng lưu) -> khung sơ đồ chuẩn của parseMarkdown để renderMath vẽ. */
+/** Hình SVG (khung .svg-fig của parseMarkdown, hiện qua <img data:>) -> <div data-svg="mã đã mã hoá"> khi lưu:
+ *  sanitize bỏ ảnh data:image/svg (safeImgUrl chỉ nhận png/jpg/webp/gif) nên không đổi trước là MẤT HÌNH. */
+const SVG_OK = (c) => typeof c === 'string' && c.length <= SVG_MAX * 3 && MM_CHARS.test(c);
+function unrenderSvgs(root) {
+    root.querySelectorAll('.svg-fig').forEach(f => {
+        const code = f.getAttribute('data-svg') || '';
+        if (!SVG_OK(code)) { f.remove(); return; }
+        const d = document.createElement('div');
+        d.setAttribute('data-svg', code);
+        f.replaceWith(d);
+    });
+}
+/** <div data-mermaid> / <div data-svg> (dạng lưu) -> khung sơ đồ / khung hình chuẩn của parseMarkdown. */
 const expandDiagrams = (html) => html.replace(/<div data-mermaid="([^"]*)"><\/div>/g, (m, code) =>
-    MM_OK.test(code) ? `<div class="${MM_BOX}"><div class="mermaid-viewer" data-code="${code}"></div></div>` : '');
+    MM_OK.test(code) ? `<div class="${MM_BOX}"><div class="mermaid-viewer" data-code="${code}"></div></div>` : '')
+    .replace(/<div data-svg="([^"]*)"><\/div>/g, (m, code) => {
+        if (!SVG_OK(code)) return '';
+        try { return svgFigureHtml(decodeURIComponent(code)); } catch (e) { return ''; }
+    });
 /** Khung sơ đồ mới (chèn từ thanh soạn thảo / hộp sửa sơ đồ). */
 export const diagramHtml = (code) => `<div class="${MM_BOX}"><div class="mermaid-viewer" data-code="${encodeURIComponent(String(code || '').trim())}"></div></div>`;
 
@@ -100,6 +117,7 @@ export function sanitizeHtml(html) {
     box.innerHTML = String(html || '');
     unrenderMath(box);
     unrenderDiagrams(box);
+    unrenderSvgs(box);
     const tw = document.createTreeWalker(box, NodeFilter.SHOW_COMMENT);   // <!--StartFragment--> của Word/Excel
     const comments = [];
     while (tw.nextNode()) comments.push(tw.currentNode);
@@ -132,8 +150,10 @@ export function sanitizeHtml(html) {
         const span = TABLE_TAGS.has(tag) ? ['colspan', 'rowspan'].map(a => [a, node.getAttribute(a)])
             .filter(([, v]) => /^\d{1,2}$/.test(v || '') && +v > 1 && +v <= 20) : [];
         const mm = tag === 'DIV' ? node.getAttribute('data-mermaid') : null;
+        const sv = tag === 'DIV' ? node.getAttribute('data-svg') : null;
         [...node.attributes].forEach(a => node.removeAttribute(a.name));
         if (mm && MM_OK.test(mm)) { node.setAttribute('data-mermaid', mm); node.replaceChildren(); }
+        if (sv && SVG_OK(sv)) { node.setAttribute('data-svg', sv); node.replaceChildren(); }
         span.forEach(([a, v]) => node.setAttribute(a, v));
         if (c && HL[c]) node.setAttribute('data-c', c);
         if (node.tagName === 'IMG') {
@@ -157,7 +177,8 @@ export function sanitizeHtml(html) {
 export function renderRich(text) {
     const v = String(text ?? '');
     if (!v.trim()) return '';
-    const looksHtml = /<(b|strong|i|em|u|mark|code|br|div|p|ul|ol|li|span|img|a|table|h4|hr)\b/i.test(v);
+    // Có ```svg / <svg> (từ file) thì là Markdown -> parseMarkdown dựng khung hình; <div data-svg> là HTML đã lưu
+    const looksHtml = /<(b|strong|i|em|u|mark|code|br|div|p|ul|ol|li|span|img|a|table|h4|hr)\b/i.test(v.replace(/<svg[\s>][\s\S]*?<\/svg>/gi, ''));
     return looksHtml ? expandDiagrams(sanitizeHtml(v)) : parseMarkdown(v);
 }
 

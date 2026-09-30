@@ -67,7 +67,7 @@ export function setupLightbox() {
     if (!lb) return;
     const lbImg = lb.querySelector('img');
     document.addEventListener('click', (e) => {
-        const img = e.target.closest && e.target.closest('img.quiz-image');
+        const img = e.target.closest && e.target.closest('img.quiz-image, .svg-fig img');
         if (img) {
             lbImg.src = img.src;
             lb.classList.remove('hidden');

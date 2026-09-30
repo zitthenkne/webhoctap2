@@ -17,19 +17,19 @@
     var BG_TINT = "255, 214, 224"; // màu lớp phủ (hồng phấn #FFD6E0) -> mọi ảnh đều ánh hồng
 
     var BG_IMAGES = [
-        "Candy_wonderland_with_squirrel_202606240130.jpeg",
-        "Chibi_squirrel_stirring_potion_202606240129.jpeg",
-        "Chibi_squirrel_tea_party_lotus_202606240130.jpeg",
-        "Fairy-tale_valley_with_crystal_c…_202606240117.jpeg",
-        "Floating_island_with_windmill_202606240131.jpeg",
-        "Flower-cart_bookstore_with_squirrel_202606240131.jpeg",
-        "Hot_air_balloon_floats_among_202606240129.jpeg",
-        "Squirrel_building_acorn_sandcastle_202606240133.jpeg",
-        "Squirrel_riding_soap_bubble_202606240133.jpeg",
-        "Squirrel_rows_maple_leaf_boat_202606240132.jpeg",
-        "Wishing_well_with_squirrel_202606240132.jpeg",
+        "Candy_wonderland_with_squirrel_202606240130.webp",
+        "Chibi_squirrel_stirring_potion_202606240129.webp",
+        "Chibi_squirrel_tea_party_lotus_202606240130.webp",
+        "Fairy-tale_valley_with_crystal_c…_202606240117.webp",
+        "Floating_island_with_windmill_202606240131.webp",
+        "Flower-cart_bookstore_with_squirrel_202606240131.webp",
+        "Hot_air_balloon_floats_among_202606240129.webp",
+        "Squirrel_building_acorn_sandcastle_202606240133.webp",
+        "Squirrel_riding_soap_bubble_202606240133.webp",
+        "Squirrel_rows_maple_leaf_boat_202606240132.webp",
+        "Wishing_well_with_squirrel_202606240132.webp",
         // Thêm tên file ảnh mới ở đây, ví dụ:
-        // "Ten_anh_moi.jpeg",
+        // "Ten_anh_moi.webp",  (nên đổi sang .webp cho nhẹ: ~50–120KB thay ~700KB)
     ];
 
     if (!BG_IMAGES.length) return;

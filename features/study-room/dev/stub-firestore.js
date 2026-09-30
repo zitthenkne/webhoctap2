@@ -69,13 +69,28 @@ const store = {
                 source: 'Bài giảng Sinh lý ĐHYD',
                 // cùng chùm với câu trên (câu chùm dùng chung ca) — để thử phiếu ca + chấm nhảy câu
                 caseId: 'ca1', caseTitle: 'Ca lâm sàng 1',
+                caseReveal: '**Điện tim:** nhịp nhanh xoang 104 lần/phút, dày thất trái.',   // ca mở dần: hiện từ câu này
                 caseText: 'Nam 62 tuổi, khó thở khi gắng sức, phù hai chi dưới, tĩnh mạch cổ nổi.\n\n| Chỉ số | Kết quả |\n|---|---|\n| HA | 150/95 mmHg |\n| Mạch | 104 l/p |\n| NT-proBNP | 2.400 pg/mL |',
             },
-            // Câu TỰ LUẬN (không phương án) — MỘT bài làm chung (notes.q3) + nhận xét song song
+            // Câu TỰ LUẬN (không phương án) — MỘT bài làm chung theo ô (parts.q3) + nhận xét song song
             {
                 question: 'Trình bày cơ chế điều hòa huyết áp:\na) ngắn hạn\nb) dài hạn',
                 options: [], type: 'essay', topic: 'Huyết động', level: 'Vận dụng',
                 modelAnswer: 'Ngắn hạn: phản xạ áp cảm thụ quan, hóa cảm thụ quan, thiếu máu não. Dài hạn: thận – dịch cơ thể, hệ renin–angiotensin–aldosteron.',
+                // Đồng bộ trang làm đề (room-barem.js): kiểu ô, điểm câu, barem có ý bắt buộc / ½ / lỗi trừ điểm
+                answerFormat: { kind: 'fields', labels: ['Ngắn hạn', 'Dài hạn'] },
+                maxScore: 2,
+                keyPoints: [
+                    { text: 'Phản xạ áp cảm thụ quan (xoang cảnh, quai động mạch chủ)', points: 0.5, keywords: ['áp cảm thụ quan', 'baroreceptor'], field: 1 },
+                    { text: 'Hóa cảm thụ quan', points: 0.25, keywords: ['hóa cảm thụ quan'], field: 1 },
+                    { text: 'Đáp ứng thiếu máu não', points: 0.25, keywords: ['thiếu máu não'], field: 1 },
+                    { text: 'Thận điều hòa thể tích dịch', points: 0.5, keywords: ['thận'], field: 2, critical: true },
+                    { text: 'Hệ renin – angiotensin – aldosteron', points: 0.5, partial: 0.25, keywords: ['renin', 'RAA', 'aldosteron'], field: 2 },
+                    { text: 'Nhầm phản xạ áp cảm thụ quan là cơ chế dài hạn', points: -0.25, keywords: ['dài hạn áp cảm thụ quan'] },
+                ],
+                explanation: 'Chia theo thời gian đáp ứng: giây – phút là thần kinh, giờ – ngày là thận và nội tiết.',
+                note: 'Áp cảm thụ quan **thích nghi** sau 1–2 ngày nên không giữ huyết áp lâu dài.',
+                expanded: '| Cơ chế | Thời gian | Hiệu lực |\n|---|---|---|\n| Áp cảm thụ quan | giây | mạnh, thích nghi nhanh |\n| Thận – dịch | ngày | vô hạn |',
             },
         ],
         timerSec: 0, liveStats: true, freeRoam: true,
@@ -84,7 +99,9 @@ const store = {
         qStarts: { q0: now - 20000 },
         deadline: null,
         chosen: {}, shown: {}, optNotes: {}, editing: {}, edits: {}, issues: {},
-        notes: { q3: '<p><b>Ngắn hạn:</b> phản xạ áp cảm thụ quan ở xoang cảnh và quai động mạch chủ → hành não → điều chỉnh giao cảm/phó giao cảm.</p><p><b>Dài hạn:</b> thận điều hòa thể tích dịch.</p>' },
+        notes: {},
+        // Bài làm chung câu 4 theo Ô (answerFormat fields: Ngắn hạn | Dài hạn) — room-state partsOf / noteOf gộp
+        parts: { q3: { p0: 'phản xạ áp cảm thụ quan ở xoang cảnh và quai động mạch chủ → hành não → điều chỉnh giao cảm/phó giao cảm', p1: 'thận điều hòa thể tích dịch' } },
         notesBy: { q3: { name: 'Minh Anh', at: now - 5000 } },
         alsoOk: {}, split: {},
         locked: false, ended: false,

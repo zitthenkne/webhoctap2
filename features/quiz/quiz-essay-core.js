@@ -392,21 +392,33 @@ export function modelCoverage(q, text) {
      list   N ô đánh số ("Nêu 3 nguyên nhân")    · fields các ô có nhãn (Chẩn đoán / Phân biệt / Xử trí)
      table  bảng cột × hàng (Thuốc | Liều | Đường dùng), hàng có thể có nhãn
    Bài nhiều ô lưu ans.parts (bảng: theo hàng, trái -> phải); ans.text luôn là bản gộp để đếm/hiện.
+   Ô của list / fields đặt TỰ DO từng ô (người dùng ở bộ sửa ô, AI qua MCP): phần tử labels là chuỗi (= nhãn)
+   hoặc { label, hint (gợi ý trong ô), size: 'line' | 'para' | 'long', unit (đơn vị sau ô, vd. "lần/phút") }.
+   formatOf trả slots[] đã chuẩn hóa; labels[] (chuỗi) giữ nguyên cho mã cũ.
    ------------------------------------------------------------------ */
 const strList = (a) => (Array.isArray(a) ? a.map(x => String(x ?? '').trim()).filter(Boolean) : []);
 const clampInt = (n, lo, hi, dflt) => { const x = Math.round(Number(n)); return x >= lo ? Math.min(hi, x) : dflt; };
+export const SLOT_SIZES = ['line', 'para', 'long'];
+export function slotOf(x, size = 'line') {
+    const o = x && typeof x === 'object' ? x : { label: x };
+    const s = (v) => String(v ?? '').trim();
+    return { label: s(o.label), hint: s(o.hint ?? o.placeholder), size: SLOT_SIZES.includes(o.size) ? o.size : size, unit: s(o.unit) };
+}
+const hasSlot = (s) => !!(s.label || s.hint || s.unit);
 
 export function formatOf(q) {
     const f = (q && q.answerFormat) || {};
     const placeholder = f.placeholder ? String(f.placeholder) : '';
     if (f.kind === 'list') {
-        const labels = strList(f.labels);
-        const count = clampInt(f.count, 1, 12, labels.length || 3);
-        return { kind: 'list', count, labels, parts: count, placeholder };
+        const raw = Array.isArray(f.labels) ? f.labels.map(x => slotOf(x)) : [];
+        const count = clampInt(f.count, 1, 12, raw.length || 3);
+        const slots = Array.from({ length: count }, (_, k) => raw[k] || slotOf(''));
+        return { kind: 'list', count, slots, labels: slots.map(s => s.label), parts: count, placeholder };
     }
     if (f.kind === 'fields') {
-        const labels = strList(f.labels);
-        if (labels.length) return { kind: 'fields', labels, parts: labels.length, placeholder };
+        // Ô có nhãn mặc định là ĐOẠN (Enter xuống dòng); ô "1 dòng" thì Enter sang ô kế
+        const slots = (Array.isArray(f.labels) ? f.labels : []).map(x => slotOf(x, 'para')).filter(hasSlot).slice(0, 20);
+        if (slots.length) return { kind: 'fields', slots, labels: slots.map(s => s.label), parts: slots.length, placeholder };
     }
     if (f.kind === 'table') {
         const columns = strList(f.columns);
@@ -415,6 +427,19 @@ export function formatOf(q) {
         if (columns.length) return { kind: 'table', columns, rowLabels, rows, parts: rows * columns.length, placeholder };
     }
     return { kind: f.kind === 'short' ? 'short' : 'text', parts: 1, placeholder };
+}
+
+// Đặt lại các ô (bộ sửa ô trả order[n] = ô cũ nằm ở ô mới thứ n, null = ô mới): ý barem có field đi theo ô của
+// nó; ô bị xóa thì ý đó thôi gắn ô (dò cả bài). Nhóm "nêu k trong n" dời từng ý con.
+export function remapFields(keyPoints, order) {
+    if (!Array.isArray(keyPoints) || !Array.isArray(order)) return keyPoints;
+    const move = (it) => {
+        if (!it || typeof it !== 'object' || !Number(it.field)) return it;
+        const n = order.indexOf(Number(it.field) - 1);
+        const { field, ...rest } = it;
+        return n >= 0 ? { ...rest, field: n + 1 } : rest;
+    };
+    return keyPoints.map(kp => (kp && Array.isArray(kp.items) ? { ...kp, items: kp.items.map(move) } : move(kp)));
 }
 
 // Bài làm -> danh sách "ô" để dò (bài một ô: [text])
@@ -441,10 +466,11 @@ function fieldDocs(fmt, field, n) {
 // Gộp các ô thành một văn bản đọc được (lưu ở ans.text)
 export function partsText(fmt, parts) {
     const v = (i) => String((parts && parts[i]) || '').trim();
+    const u = (i) => (fmt.slots?.[i]?.unit ? ' ' + fmt.slots[i].unit : '');
     if (fmt.kind === 'list') {
-        return Array.from({ length: fmt.count }, (_, i) => (v(i) ? `${i + 1}. ${v(i)}` : '')).filter(Boolean).join('\n');
+        return Array.from({ length: fmt.count }, (_, i) => (v(i) ? `${i + 1}. ${v(i)}${u(i)}` : '')).filter(Boolean).join('\n');
     }
-    if (fmt.kind === 'fields') return fmt.labels.map((l, i) => (v(i) ? `${l}: ${v(i)}` : '')).filter(Boolean).join('\n');
+    if (fmt.kind === 'fields') return fmt.labels.map((l, i) => (v(i) ? `${l ? l + ': ' : ''}${v(i)}${u(i)}` : '')).filter(Boolean).join('\n');
     if (fmt.kind === 'table') {
         const cols = fmt.columns.length;
         return Array.from({ length: fmt.rows }, (_, r) => {

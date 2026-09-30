@@ -3470,10 +3470,35 @@ html #quizSection .essay-part::placeholder { color: var(--ink-faint) !important;
 /* Modal sửa câu: chế độ tự luận */
 .qe-modal.is-essay .qe-mcq-only, .qe-modal:not(.is-essay) .qe-essay-only { display: none !important; }
 .qe-mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 0.84rem !important; line-height: 1.6; }
-.qe-format-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-.qe-format-row > select { flex: 0 0 auto; }
-.qe-format-row > input { flex: 1 1 12rem; min-width: 0; }
-.qe-format-row > [hidden] { display: none; }
+/* Bộ sửa ô trả lời dùng chung (essay-format-editor.js, lớp .fe-*) — ở modal sửa câu */
+.qe-format .fe { display: flex; flex-direction: column; gap: 0.5rem; }
+.qe-format .fe [hidden] { display: none !important; }
+html .qe-modal .fe-in {
+    font: inherit; font-size: 0.86rem; min-width: 0; padding: 0.45rem 0.6rem;
+    background: var(--surface-card); border: 2px solid var(--line); border-radius: 0.8rem; color: var(--ink);
+}
+html .qe-modal .fe-in:focus { outline: none; border-color: var(--hue-blossom); }
+.qe-format .fe-kind { align-self: flex-start; }
+.qe-format .fe-slots { display: flex; flex-direction: column; gap: 0.4rem; }
+.qe-format .fe-row { display: grid; grid-template-columns: 1.4rem minmax(0, 1.2fr) minmax(0, 1.4fr) minmax(0, 0.7fr) auto auto auto; gap: 0.35rem; align-items: center; }
+.qe-format .fe-n { font-size: 0.78rem; font-weight: 800; color: var(--ink-latte); text-align: center; }
+.qe-format .fe-btn { width: 1.9rem; height: 1.9rem; border-radius: 0.6rem; border: 2px solid var(--line); background: var(--surface-card); color: var(--ink-soft, var(--ink)); cursor: pointer; font-weight: 800; }
+.qe-format .fe-btn:hover { border-color: var(--hue-blossom); }
+.qe-format .fe-add { align-self: flex-start; font: inherit; font-size: 0.82rem; font-weight: 800; padding: 0.35rem 0.8rem; border-radius: 999px; border: 2px dashed var(--line); background: transparent; color: var(--ink-latte); cursor: pointer; }
+.qe-format .fe-table { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.qe-format .fe-table > input { flex: 1 1 12rem; }
+@media (max-width: 640px) {
+    .qe-format .fe-row { grid-template-columns: 1.4rem minmax(0, 1fr) auto auto; }
+    .qe-format .fe-row .fe-hint, .qe-format .fe-row .fe-unit { grid-column: 2 / -1; }
+    .qe-format .fe-row .fe-size { grid-column: 2; }
+}
+
+/* Ô tự đặt ở trang làm bài: cỡ đoạn / dài + đơn vị đứng sau ô */
+.essay-part-wrap { display: flex; align-items: flex-start; gap: 0.45rem; }
+.essay-part-wrap > .essay-part { flex: 1; min-width: 0; }
+.essay-unit { flex-shrink: 0; padding-top: 0.45rem; font-size: 0.85rem; font-weight: 700; color: var(--ink-latte); }
+html #quizSection .essay-part.is-para { min-height: 4.6rem; }
+html #quizSection .essay-part.is-long { min-height: 8.5rem; }
 .qe-score-input { max-width: 8rem; }
 
 /* §17e. Kéo chỉnh chiều cao khung ca chùm (quiz-page-setup.js setupCaseResize).
@@ -3503,3 +3528,12 @@ html.case-h-set #quizSection #case-body:not(.hidden) {
 #quizSection #clinical-case-panel:has(#case-body.hidden) .case-resize { display: none; }
 body.case-resizing { cursor: ns-resize; user-select: none; }
 @media (pointer: coarse) { #quizSection .case-resize { height: 1.6rem; width: 5.5rem; } }
+
+/* Hình SVG vẽ bằng mã (quiz-helpers svgFigureHtml -> <img data:image/svg+xml>): thẻ giấy như sơ đồ, bấm để phóng to */
+.svg-fig {
+    margin: 1rem 0; padding: 0.9rem; border-radius: 1.2rem; text-align: center; overflow-x: auto;
+    background: #FFFDF8; border: 2px dashed color-mix(in srgb, var(--hue-mint) 55%, transparent);
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--hue-mint) 22%, transparent);
+}
+.svg-fig img { display: inline-block; min-width: min(calc(var(--svg-w, 18rem) * 0.8), 34rem); cursor: zoom-in; border-radius: 0.6rem; }
+.svg-fig-err { font-size: 0.85rem; color: var(--ink-faint); }

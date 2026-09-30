@@ -1,5 +1,5 @@
 // Service Worker for PWA - Offline Support & Caching
-const CACHE_NAME = 'zitthenkne-v181';
+const CACHE_NAME = 'zitthenkne-v190';
 
 // App shell (cùng origin) — nạp sẵn khi cài để mở offline được ngay.
 const urlsToCache = [
@@ -8,6 +8,7 @@ const urlsToCache = [
   'style.css',
   'tailwind-index.css',
   'home-shell.css',
+  'home-scrapbook.css',
   'core/app-sidebar.css',
   'core/app-sidebar.js',
   'features/checklist/checklist.css',
@@ -25,6 +26,8 @@ const urlsToCache = [
   'features/quiz/page/quiz-case-peek.js',
   'features/quiz/page/quiz-essay.js',
   'features/quiz/quiz-essay-core.js',
+  'features/quiz/essay-format-editor.js',
+  'features/quiz/page/quiz-group.js',
   'features/quiz/page/quiz-question-view.js',
   'features/quiz/page/quiz-session.js',
   'features/quiz/page/quiz-mobile-nav.js',
@@ -105,6 +108,7 @@ const urlsToCache = [
   'features/study-room/room-richtools.js',
   'features/study-room/room-sparkle.js',
   'features/study-room/room-reason.js',
+  'features/study-room/room-barem.js',
   'features/study-room/room-paste.js',
   'features/study-room/rooms-hub.js',
   'features/study-room/rooms-hub.css',

@@ -1,0 +1,299 @@
+/* home-scrapbook.css — lớp da "sổ cắt dán" cho index.html (2026-09-30).
+   CHỈ đổi màu, nền giấy, hoạ tiết (washi, kẹp giấy, đinh ghim, polaroid, đường may).
+   KHÔNG đổi kích thước/khoảng cách/vị trí: không padding/margin/width mới, viền giữ nguyên độ dày
+   (chỉ đổi màu/kiểu), trang trí đều là ::before/::after absolute hoặc box-shadow/outline.
+   Nạp CUỐI <head>, neo bằng #id → thắng class Tailwind. Màu phẳng, không ombre (họa tiết caro/chấm/sọc được phép).
+   Gỡ cả lớp da = xóa 1 thẻ <link>. */
+
+:root {
+    --sc-desk: #FCE6EF;      /* hồng phấn — màu bàn */
+    --sc-peach: #FBD3C4;     /* hồng đào — màu nhấn */
+    --sc-paper: #FFFCF8;     /* giấy kem */
+    --sc-ink: #6E3A55;       /* mực nâu hồng */
+    --sc-ink-soft: #A07086;
+    --sc-line: rgba(236, 110, 155, .13);   /* nét caro */
+    --sc-dot: rgba(214, 120, 150, .24);    /* chấm bi */
+    --sc-caro: linear-gradient(var(--sc-line) 1px, transparent 1px), linear-gradient(90deg, var(--sc-line) 1px, transparent 1px);
+    --sc-dots: radial-gradient(var(--sc-dot) 1px, transparent 1.6px);
+    /* mép răng cưa 2 đầu băng keo washi */
+    --sc-torn: conic-gradient(from 45deg at left, #000 90deg, #0000 0) left / 51% 6px repeat-y,
+               conic-gradient(from 225deg at right, #000 90deg, #0000 0) right / 51% 6px repeat-y;
+}
+
+/* ===================== NỀN: vở caro trên ảnh ===================== */
+/* Lưới caro phủ lên ảnh nền (bg-random.js). Không dùng attachment:local để cuộn vẫn mượt. */
+body > div > main {
+    background-image: var(--sc-caro);
+    background-size: 24px 24px;
+}
+
+/* Thanh cuộn: phẳng, hồng đào */
+::-webkit-scrollbar-thumb, ::-webkit-scrollbar-thumb:hover { background-image: none; }
+::-webkit-scrollbar-thumb:hover { background-color: #F4A3BF; }
+
+/* ===================== ĐẦU TRANG ===================== */
+/* Máy tính: nền kem trơn (người dùng muốn các thanh trơn cho đỡ rối), mép dưới đường may */
+body > div > header {
+    background-color: var(--sc-paper);
+    border-bottom-style: dashed;
+    border-bottom-color: #F4BCD0;
+    box-shadow: 0 8px 18px -12px rgba(190, 80, 120, .35);
+}
+/* Tiêu đề trang = nhãn dán trên băng washi */
+#pageTitle { position: relative; isolation: isolate; color: var(--sc-ink); }
+#pageTitle::before {
+    content: ''; position: absolute; z-index: -1; left: -10px; right: -12px; top: 22%; bottom: 4%;
+    background: color-mix(in srgb, var(--sc-peach) 75%, transparent);
+    -webkit-mask: var(--sc-torn); mask: var(--sc-torn);
+    rotate: -1.2deg;
+}
+/* Cụm người dùng: thẻ tên viền may */
+#user-menu-button > a { background-color: #fff; border-style: dashed; border-color: #F6C9D8; }
+#user-menu-button > a:hover { background-color: #FFF1F5; border-color: #F29CBB; }
+#user-name { color: var(--sc-ink); }
+#user-avatar, #user-avatar-mobile { border-color: #F9C6D8; }
+
+/* Điện thoại: thanh trên */
+body > .md\:hidden.fixed.top-0 {
+    background-color: rgba(255, 252, 248, .97);
+    border-bottom-style: dashed;
+    border-bottom-color: #F4BCD0;
+}
+
+/* ===================== THANH BÊN: giấy kem trơn ===================== */
+#sidebar {
+    background-color: rgba(255, 251, 247, .96);
+    border-right-style: dashed;
+    border-right-color: #F3BACE;
+}
+#sidebar .sb-brand-name { color: #E0588F; }
+/* Thẻ người dùng: nhãn dán viền may + mẩu washi góc */
+#sidebar .sb-user { position: relative; background: #FFEDF2; border-style: dashed; border-color: #F2B3C8; }
+#sidebar .sb-user:hover { background: #FFE2EA; border-color: #EE9DBA; }
+#sidebar .sb-user::before {
+    content: ''; position: absolute; top: -7px; left: 12px; width: 34px; height: 13px; rotate: -8deg;
+    background: color-mix(in srgb, var(--sc-peach) 85%, transparent);
+    -webkit-mask: var(--sc-torn); mask: var(--sc-torn); pointer-events: none;
+}
+#sidebar .sb-user-name { color: var(--sc-ink); }
+/* Nhãn nhóm = chữ trên mẩu băng keo */
+#sidebar .sb-label { position: relative; isolation: isolate; align-self: flex-start; color: #B0587F; }
+#sidebar .sb-label::before {
+    content: ''; position: absolute; z-index: -1; left: .3rem; right: .3rem; bottom: .12rem; height: 1.25em;
+    background: color-mix(in srgb, var(--tape, #F9C9D9) 80%, transparent);
+    -webkit-mask: var(--sc-torn); mask: var(--sc-torn);
+    rotate: -1.5deg;
+}
+#sidebar .sb-label ~ .sb-label { --tape: #CFE6F6; color: #4F7FA3; }
+#sidebar .sb-label ~ .sb-label::before { rotate: 1.2deg; }
+/* Icon = sticker bế viền trắng */
+#sidebar .sb-ico { box-shadow: 0 0 0 2px #fff, 0 2px 5px rgba(150, 80, 110, .16); }
+#sidebar .nav-link:hover { background: #FFEEF3; color: #C2386F; }
+/* Mục đang mở = giấy note hồng viền may + cờ washi bên trái */
+#sidebar .nav-link.is-active { background: #FFE1EA; color: #B8316A; outline: 1.5px dashed #F2A3BF; outline-offset: -4px; }
+#sidebar .nav-link.is-active::before {
+    left: -.55rem; top: 50%; bottom: auto; width: 13px; height: 22px; translate: 0 -50%; rotate: -6deg;
+    border-radius: 2px; background-color: #F7A5C2;
+    background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, .5) 0 3px, transparent 3px 6px);
+}
+#sidebar .sb-foot { border-top-color: #F4BCD0; color: #B4879B; }
+@media (min-width: 768px) {
+    body.sb-mini #sidebar .sb-user::before { display: none; }
+    body.sb-mini #sidebar .sb-label::before { display: none; }
+    body.sb-mini #sidebar .sb-label { align-self: stretch; }
+}
+
+/* ===================== LỜI CHÀO + Ô TÌM ===================== */
+#home-hello { color: var(--sc-ink-soft); }
+/* Câu hỏi lớn = chữ trên băng washi hồng đào */
+#dashboardContent .hero-title {
+    position: relative; isolation: isolate; color: #D63F7E;
+    /* quầng trắng cũ (45px) che mất băng keo → thu lại chỉ đủ tách chữ khỏi ảnh */
+    text-shadow: 0 0 2px #fff, 0 0 5px rgba(255, 255, 255, .95), 0 2px 3px rgba(219, 39, 119, .25);
+}
+#dashboardContent .hero-title::before {
+    content: ''; position: absolute; z-index: -1; left: -16px; right: -16px; top: 30%; bottom: -2%;
+    background-color: color-mix(in srgb, var(--sc-peach) 70%, transparent);
+    background-image: repeating-linear-gradient(-45deg, rgba(255, 255, 255, .38) 0 5px, transparent 5px 10px);
+    -webkit-mask: var(--sc-torn); mask: var(--sc-torn);
+    rotate: -1deg;
+}
+/* Ô tìm = thẻ mục lục: giấy trắng, viền hồng, mẩu băng keo góc trái */
+.home-search input {
+    background: #fff; border-color: #F4B6CB; border-radius: 14px;
+    box-shadow: 0 3px 0 #F9D3DF, 0 12px 22px -14px rgba(190, 80, 120, .45);
+}
+.home-search input:focus { border-color: #EC7FA6; box-shadow: 0 3px 0 #F9D3DF, 0 0 0 4px rgba(244, 140, 180, .18); }
+.home-search::before {
+    content: ''; position: absolute; z-index: 1; top: -8px; left: -12px; width: 46px; height: 16px; rotate: -32deg;
+    background: color-mix(in srgb, #BFE3D0 85%, transparent);
+    -webkit-mask: var(--sc-torn); mask: var(--sc-torn); pointer-events: none;
+}
+.home-search kbd { color: #C06E92; border-color: #F4B6CB; }
+
+/* ===================== 6 THẺ CÔNG CỤ: giấy dán sổ ===================== */
+/* Mỗi thẻ: --paper (giấy), --edge (viền), --tone (đường may / washi), --tape (băng keo), tilt nhẹ.
+   Viền vẫn 2px như cũ, chỉ đổi màu. Vệt sáng cũ (::after, gradient) thay bằng đồ trang trí. */
+#dashboardContent .grid > * {
+    --paper: #FFF4F8; --edge: #F7C4D6; --tone: #F29BBC; --tape: #F7B2CB; --tilt: -.7deg; --lines: rgba(240, 120, 165, .12);
+    background-color: var(--paper);
+    background-image: linear-gradient(var(--lines) 1px, transparent 1px), linear-gradient(90deg, var(--lines) 1px, transparent 1px);
+    background-size: 20px 20px;
+    border-color: var(--edge);
+    box-shadow: 0 3px 0 var(--edge), 0 14px 26px -14px rgba(160, 70, 105, .45);
+    outline: 1.5px dashed color-mix(in srgb, var(--tone) 65%, transparent);
+    outline-offset: -9px;
+    overflow: visible;
+    rotate: var(--tilt);
+}
+#dashboardContent .grid > *:hover {
+    border-color: var(--tone);
+    box-shadow: 0 3px 0 var(--edge), 0 22px 34px -16px rgba(160, 70, 105, .5);
+    rotate: 0deg;
+}
+#dashboardContent .grid > *:focus-visible { outline: 2.5px solid var(--tone); outline-offset: 3px; }
+#dashboardContent .grid > :nth-child(2) { --paper: #F0F7FF; --edge: #C5DDF5; --tone: #8DB8E6; --tape: #BFDAF3; --tilt: .8deg; --lines: rgba(110, 160, 220, .14); }
+#dashboardContent .grid > :nth-child(3) { --paper: #F8F3FF; --edge: #DDD0F3; --tone: #B9A2E3; --tape: #DCCBF5; --tilt: -.4deg; --lines: rgba(160, 130, 215, .13); }
+#dashboardContent .grid > :nth-child(4) { --paper: #EFFAF3; --edge: #BFE5CD; --tone: #86CDA2; --tape: #BDE6CD; --tilt: .6deg; --lines: rgba(90, 180, 125, .14); }
+#dashboardContent .grid > :nth-child(5) { --paper: #FFF9E8; --edge: #F2DFA6; --tone: #E3BF5C; --tape: #F6DD92; --tilt: -.8deg; --lines: rgba(215, 170, 60, .15); }
+#dashboardContent .grid > :nth-child(6) { --paper: #FFF2EC; --edge: #F7CBB8; --tone: #F0A184; --tape: var(--sc-peach); --tilt: .5deg; --lines: rgba(235, 140, 105, .14); }
+
+/* Trang trí: mặc định là băng washi sọc giữa mép trên */
+#dashboardContent .grid > *::before,
+#dashboardContent .grid > *::after {
+    content: ''; position: absolute; z-index: 3; pointer-events: none;
+    top: -11px; left: 50%; width: 88px; height: 24px; translate: -50% 0; rotate: -3deg;
+    transform: none; animation: none;
+    background-color: color-mix(in srgb, var(--tape) 82%, transparent);
+    background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, .45) 0 6px, transparent 6px 12px);
+    -webkit-mask: var(--sc-torn); mask: var(--sc-torn);
+}
+#dashboardContent .grid > *::after { content: none; }
+#dashboardContent .grid > *:hover::after { animation: none; }
+/* 2 & 5: kẹp giấy (icon Font Awesome) kẹp mép trên */
+#dashboardContent .grid > :nth-child(2)::before,
+#dashboardContent .grid > :nth-child(5)::before {
+    content: '\f0c6'; /* fa-paperclip */
+    font: 900 2.4rem/1 'Font Awesome 6 Free';
+    width: auto; height: auto; top: -18px; left: auto; right: 26px; translate: none; rotate: 35deg;
+    background: none; -webkit-mask: none; mask: none;
+    color: color-mix(in srgb, var(--tone) 80%, #7c8595);
+    filter: drop-shadow(0 2px 1.5px rgba(80, 60, 80, .25));
+}
+#dashboardContent .grid > :nth-child(5)::before { right: auto; left: 26px; rotate: -30deg; }
+/* 3: đinh ghim */
+#dashboardContent .grid > :nth-child(3)::before {
+    content: '\f08d'; /* fa-thumbtack */
+    font: 900 1.6rem/1 'Font Awesome 6 Free';
+    width: auto; height: auto; top: -14px; rotate: 28deg;
+    background: none; -webkit-mask: none; mask: none;
+    color: #EE6F9C;
+    filter: drop-shadow(1px 3px 2px rgba(120, 40, 70, .3));
+}
+/* 4: hai mẩu băng keo chéo góc */
+#dashboardContent .grid > :nth-child(4)::before { left: -6px; top: 4px; width: 62px; height: 20px; translate: none; rotate: -42deg; }
+#dashboardContent .grid > :nth-child(4)::after { content: ''; left: auto; right: -6px; top: 4px; width: 62px; height: 20px; translate: none; rotate: 42deg; }
+/* 6: washi chấm bi */
+#dashboardContent .grid > :nth-child(6)::before {
+    background-image: radial-gradient(rgba(255, 255, 255, .7) 1.6px, transparent 2px);
+    background-size: 9px 9px; rotate: 2.5deg;
+}
+
+/* Ảnh sóc = polaroid: khung trắng, đáy dày hơn, nghiêng lệch nhau */
+#dashboardContent .grid > * img {
+    border-radius: 4px;
+    box-shadow: 0 0 0 6px #fff, 0 6px 0 6px #fff, 0 0 0 7px var(--edge), 0 6px 0 7px var(--edge),
+        0 16px 18px -6px rgba(140, 70, 100, .3);
+    rotate: 1.4deg;
+}
+#dashboardContent .grid > :nth-child(even) img { rotate: -1.6deg; }
+/* hover: ảnh phóng 110% (Tailwind) → bỏ đáy dày kẻo khung đè lên tiêu đề */
+#dashboardContent .grid > *:hover img {
+    rotate: 0deg;
+    box-shadow: 0 0 0 5px #fff, 0 0 0 6px var(--edge), 0 16px 18px -8px rgba(140, 70, 100, .3);
+}
+#dashboardContent .grid > * h3 { color: var(--sc-ink); }
+#dashboardContent .grid > * p { color: #9A7384; }
+
+@media (max-width: 639px) {
+    /* thẻ điện thoại chỉ đệm ngang 8px → đường may sát hơn để không đè chữ */
+    #dashboardContent .grid > * { outline-offset: -5px; }
+    #dashboardContent .grid > *::before { width: 64px; height: 20px; top: -9px; }
+    #dashboardContent .grid > :nth-child(2)::before,
+    #dashboardContent .grid > :nth-child(5)::before { font-size: 1.7rem; top: -13px; right: 14px; }
+    #dashboardContent .grid > :nth-child(5)::before { right: auto; left: 14px; }
+    #dashboardContent .grid > :nth-child(3)::before { font-size: 1.35rem; top: -11px; }
+    #dashboardContent .grid > :nth-child(4)::before,
+    #dashboardContent .grid > :nth-child(4)::after { width: 46px; height: 16px; top: 2px; }
+    #dashboardContent .grid > * img {
+        box-shadow: 0 0 0 4px #fff, 0 4px 0 4px #fff, 0 0 0 5px var(--edge), 0 4px 0 5px var(--edge),
+            0 12px 14px -6px rgba(140, 70, 100, .3);
+    }
+}
+
+/* ===================== TIÊU ĐỀ CÁC TAB KHÁC (Thư viện, Thống kê) ===================== */
+.content-panel h2.text-on-bg { position: relative; isolation: isolate; width: fit-content; }
+.content-panel h2.text-on-bg::before {
+    content: ''; position: absolute; z-index: -1; left: -10px; right: -12px; top: 32%; bottom: 0;
+    background: color-mix(in srgb, var(--sc-peach) 70%, transparent);
+    -webkit-mask: var(--sc-torn); mask: var(--sc-torn);
+    rotate: -1.2deg;
+}
+
+/* ===================== TẠO TRẮC NGHIỆM: tờ giấy caro dán băng keo ===================== */
+#createQuizContent > .bg-white {
+    position: relative;
+    background-color: var(--sc-paper);
+    background-image: var(--sc-caro);
+    background-size: 22px 22px;
+    border-radius: 1rem;
+    box-shadow: 0 3px 0 #F6D2DE, 0 18px 30px -18px rgba(160, 70, 105, .45);
+    outline: 1.5px dashed #F4BCD0; outline-offset: -8px;
+}
+#createQuizContent > .bg-white::before {
+    content: ''; position: absolute; top: -11px; left: 50%; width: 110px; height: 24px; translate: -50% 0; rotate: -2deg;
+    background-color: color-mix(in srgb, #F7B2CB 82%, transparent);
+    background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, .45) 0 6px, transparent 6px 12px);
+    -webkit-mask: var(--sc-torn); mask: var(--sc-torn);
+}
+#upload-area { background-color: rgba(255, 255, 255, .7); background-image: var(--sc-dots); background-size: 14px 14px; }
+#upload-area:hover { background-color: #FFF1F5; }
+
+/* ===================== CHÂN TRANG + THANH TAB DƯỚI ===================== */
+body > div > footer {
+    background-color: rgba(255, 252, 248, .92);
+    border-top-style: dashed;
+    border-top-color: #F4BCD0;
+}
+/* tên tác giả: bỏ chữ gradient, tô phẳng */
+body > div > footer a.bg-clip-text { background: none; color: #E0588F; }
+
+#tabbar {
+    background-color: rgba(255, 252, 248, .97);
+    border-top: 1px dashed #F2B8CB;
+}
+#tabbar > a, #tabbar > button { color: #B39AA7; }
+#tabbar .nav-link { position: relative; }
+#tabbar .nav-link.is-active { color: #E0588F; }
+/* tab đang mở: mẩu washi trên đầu */
+#tabbar .nav-link.is-active:not(.tabbar-main)::before {
+    content: ''; position: absolute; top: -1px; left: 50%; width: 30px; height: 9px; translate: -50% 0; rotate: -3deg;
+    background: color-mix(in srgb, #F7A5C2 85%, transparent);
+    -webkit-mask: var(--sc-torn); mask: var(--sc-torn);
+}
+/* nút "+" giữa = tem viền may */
+#tabbar .tabbar-main > i { background: #FF7FB0; outline: 1.5px dashed rgba(255, 255, 255, .85); outline-offset: -7px; }
+#tabbar .tabbar-main.is-active > i { background: #EC5F95; }
+
+/* ===================== HỘP ĐĂNG NHẬP: bỏ ombre hồng → tím ===================== */
+#authModal .auth-card { border-color: #F6C9D8; }
+#authModal .auth-card > .bg-gradient-to-br {
+    background-color: #FFDDE7;
+    background-image: var(--sc-dots);
+    background-size: 14px 14px;
+}
+#authModal .auth-card > .bg-gradient-to-br h2 { color: var(--sc-ink); text-shadow: none; }
+#authModal #auth-subtitle { color: #9B5C79; }
+#authModal #closeModalBtn { color: #B77A95; }
+#authModal #closeModalBtn:hover { color: var(--sc-ink); background: rgba(255, 255, 255, .6); }
+#authModal .bg-gradient-to-r { background: #FF7FB0; }

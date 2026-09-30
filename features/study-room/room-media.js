@@ -159,7 +159,8 @@ export function warnIfTemp(res) {
 
 // ---------- Xem ảnh phóng to ----------
 export function openLightbox(src, caption = '') {
-    const url = safeImgUrl(src);
+    // Hình SVG vẽ bằng mã (svgFigureHtml) cũng phóng to được: hiện qua <img> nên không chạy script
+    const url = safeImgUrl(src) || (/^data:image\/svg\+xml[;,]/i.test(src || '') ? src : '');
     if (!url) return;
     let box = document.getElementById('rm-lightbox');
     if (!box) {

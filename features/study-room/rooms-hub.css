@@ -2,7 +2,7 @@
    Tự chứa, tiền tố .rh-* nên không đụng class Tailwind của trang.
    Bảng màu bám theo tông hồng pastel của Zitthenkne. */
 
-#rooms-hub {
+#rooms-hub, .rh-modal {
     --rh-ink: #3f3a46;
     --rh-muted: #8b8494;
     --rh-line: #f1e4ec;
@@ -566,3 +566,19 @@
     .rh-grid { grid-template-columns: 1fr; }
     .rh-bar .rh-select, .rh-bar .rh-icon-btn { flex-shrink: 0; }
 }
+
+/* ---------- Chọn phòng để mở đề (pickRoom — quiz.html "Làm cùng nhau") ---------- */
+.rh-sheet > .rh-picks[data-choice] { margin-bottom: .2rem; }
+.rh-plist { display: flex; flex-direction: column; gap: .4rem; max-height: 16rem; overflow-y: auto; padding: 2px; }
+.rh-proom {
+    display: flex; align-items: center; gap: .65rem; width: 100%; text-align: left; cursor: pointer;
+    font: inherit; color: var(--rh-ink); background: #fff;
+    border: 1.5px solid var(--rh-line); border-left: 5px solid var(--rh-c1, var(--rh-pink));
+    border-radius: .9rem; padding: .55rem .75rem; transition: .15s;
+}
+.rh-proom:hover, .rh-proom:focus-visible { border-color: var(--rh-c2, #ffc2d8); border-left-color: var(--rh-c1, var(--rh-pink)); background: #fffafd; outline: none; }
+.rh-proom-ic { font-size: 1.35rem; line-height: 1; }
+.rh-proom-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.rh-proom-txt b { font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rh-proom-txt small { font-size: .72rem; color: var(--rh-muted); }
+.rh-proom > i { color: var(--rh-muted); font-size: .8rem; }

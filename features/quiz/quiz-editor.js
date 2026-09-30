@@ -18,7 +18,8 @@ import { showToast } from '../../core/utils.js';
 import { state, saveQuizState } from './quiz-state.js';
 import { tagCaseSequence } from './page/quiz-cases.js';
 import { isMultiAnswer, getCorrectIndexes, isAnswerCorrect } from './quiz-helpers.js';
-import { isEssay, rubricToText, textToRubric, rubricOf, withAutoGrade } from './quiz-essay-core.js';
+import { isEssay, rubricToText, textToRubric, rubricOf, withAutoGrade, formatOf, partsText, remapFields } from './quiz-essay-core.js';
+import { formatEditorHtml, wireFormatEditor, readFormatEditor } from './essay-format-editor.js';
 
 // Các trường của một câu hỏi mà trình sửa được phép thay đổi (dùng cho cả lưu lẫn hoàn tác).
 const EDIT_FIELDS = ['question', 'answers', 'options', 'correctAnswerIndex', 'correctAnswerIndexes', 'optionExplanations', 'note', 'explanation', 'expanded', 'caseId', 'caseText', 'caseTitle',
@@ -107,55 +108,8 @@ function updateMultiHint() {
         : 'Bấm vào chữ cái (A, B, C…) ở phương án để chọn làm đáp án đúng.';
 }
 
-/* ---- Câu tự luận: kiểu ô trả lời (answerFormat) <-> 3 ô điều khiển ---- */
-const FORMAT_HINTS = {
-    list: ['Số ô (vd. 3) — hoặc nhãn từng ô, ngăn bằng |', ''],
-    fields: ['Nhãn các ô, ngăn bằng | (vd. Chẩn đoán | Phân biệt | Xử trí)', ''],
-    table: ['Tên cột, ngăn bằng | (vd. Thuốc | Liều | Đường dùng)', 'Số hàng (vd. 3) hoặc nhãn hàng ngăn bằng |'],
-};
-function syncFormatInputs() {
-    const kind = qeEl('qe-format-kind').value;
-    const [ha, hb] = FORMAT_HINTS[kind] || ['', ''];
-    [['qe-format-a', ha], ['qe-format-b', hb]].forEach(([id, hint]) => {
-        const el = qeEl(id);
-        el.placeholder = hint;
-        el.hidden = !hint;
-    });
-}
-function fillFormatInputs(f) {
-    f = f || {};
-    const kind = ['short', 'list', 'fields', 'table'].includes(f.kind) ? f.kind : 'text';
-    const join = (a) => (Array.isArray(a) ? a.join(' | ') : '');
-    qeEl('qe-format-kind').value = kind;
-    qeEl('qe-format-a').value = kind === 'list' ? (join(f.labels) || String(f.count || ''))
-        : kind === 'fields' ? join(f.labels) : kind === 'table' ? join(f.columns) : '';
-    qeEl('qe-format-b').value = kind === 'table' ? (Array.isArray(f.rows) ? join(f.rows) : String(f.rows || '')) : '';
-    syncFormatInputs();
-}
-// Trả về { format } (null = ô văn bản mặc định) hoặc { error }
-function readFormatInputs() {
-    const kind = qeEl('qe-format-kind').value;
-    const a = qeEl('qe-format-a').value.trim();
-    const b = qeEl('qe-format-b').value.trim();
-    const split = (s) => s.split('|').map(x => x.trim()).filter(Boolean);
-    if (kind === 'short') return { format: { kind } };
-    if (kind === 'list') {
-        if (/^\d+$/.test(a)) return { format: { kind, count: Math.min(12, Math.max(1, Number(a))) } };
-        const labels = split(a);
-        return { format: labels.length ? { kind, count: labels.length, labels } : { kind, count: 3 } };
-    }
-    if (kind === 'fields') {
-        const labels = split(a);
-        return labels.length ? { format: { kind, labels } } : { error: 'Kiểu "nhiều ô có nhãn" cần nhãn các ô (ngăn bằng |).' };
-    }
-    if (kind === 'table') {
-        const columns = split(a);
-        if (!columns.length) return { error: 'Kiểu "bảng" cần tên các cột (ngăn bằng |).' };
-        const rows = /^\d+$/.test(b) ? Math.min(12, Math.max(1, Number(b))) : (split(b).length ? split(b) : 3);
-        return { format: { kind, columns, rows } };
-    }
-    return { format: null };
-}
+/* ---- Câu tự luận: kiểu ô trả lời (answerFormat) -> bộ sửa ô dùng chung essay-format-editor.js ---- */
+let _qeSlotOrder = null;   // ô mới thứ n <- ô cũ nào (readFormatEditor) — dời bài đã gõ theo đúng ô
 
 // Tự giãn chiều cao textarea theo nội dung cho dễ nhìn.
 function autoGrow(el) {
@@ -358,7 +312,7 @@ export function openQuestionEditor() {
     modal.classList.toggle('is-essay', _qeEssay);
     qeEl('qe-model').value = q.modelAnswer == null ? '' : String(q.modelAnswer);
     qeEl('qe-rubric').value = Array.isArray(q.keyPoints) && q.keyPoints.length ? rubricToText(q.keyPoints) : '';
-    fillFormatInputs(q.answerFormat);
+    qeEl('qe-format').innerHTML = formatEditorHtml(q.answerFormat);
 
     // Số thứ tự câu đang sửa (định hướng cho người dùng)
     const qpos = qeEl('qe-qpos');
@@ -430,13 +384,15 @@ function collectEssayEdit() {
     if (!modelAnswer.trim() && !keyPoints.length) {
         showToast('Câu tự luận cần đáp án mẫu hoặc barem.', 'error'); return null;
     }
-    const f = readFormatInputs();
+    const f = readFormatEditor(qeEl('qe-format'));
     if (f.error) { showToast(f.error, 'error'); return null; }
+    _qeSlotOrder = f.order || null;
     return {
         ...readCommonFields(),
         type: 'essay', answers: [], options: [], optionExplanations: [],
         correctAnswerIndex: null, correctAnswerIndexes: null,
-        modelAnswer, keyPoints: keyPoints.length ? keyPoints : null, answerFormat: f.format,
+        // Đổi thứ tự / chèn / xóa ô -> ý barem gắn ô ("ô 2") đi theo đúng ô của nó
+        modelAnswer, keyPoints: keyPoints.length ? remapFields(keyPoints, f.order) : null, answerFormat: f.format,
     };
 }
 
@@ -510,8 +466,13 @@ async function commitQuestionEdit(edited) {
     if (essayAns) {
         const kept = { ...prevAns, ticks: null, partials: [], auto: false };
         delete kept.self;
-        // Đổi kiểu ô -> các ô cũ không còn khớp, chỉ giữ bản chữ gộp
-        if (JSON.stringify(snapshot.prevDisplayed.answerFormat || null) !== JSON.stringify(dq.answerFormat || null)) delete kept.parts;
+        // Đổi các ô: bài đã gõ đi theo ô (bộ sửa trả order); không dời được thì chỉ giữ bản chữ gộp
+        if (JSON.stringify(snapshot.prevDisplayed.answerFormat || null) !== JSON.stringify(dq.answerFormat || null)) {
+            if (_qeSlotOrder && Array.isArray(kept.parts)) {
+                kept.parts = _qeSlotOrder.map(o => (o == null ? '' : (kept.parts[o] || '')));
+                kept.text = partsText(formatOf(dq), kept.parts);
+            } else delete kept.parts;
+        }
         state.userAnswers[idx] = kept.done ? withAutoGrade(dq, kept) : kept;
     }
 
@@ -658,7 +619,7 @@ export function setupQuestionEditor(rerenderFn) {
         updateMultiHint();
         renderQEOptions();
     });
-    qeEl('qe-format-kind')?.addEventListener('change', () => { syncFormatInputs(); _qeDirty = true; });
+    wireFormatEditor(qeEl('qe-format'), () => { _qeDirty = true; });
     modal.addEventListener('click', (e) => { if (e.target === modal) requestCloseEditor(); });
     modal.addEventListener('input', () => { _qeDirty = true; });
     // Ctrl/Cmd + Enter = lưu nhanh (khỏi phải cuộn xuống cuối modal)

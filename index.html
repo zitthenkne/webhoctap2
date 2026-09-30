@@ -22,9 +22,9 @@
     <!-- Google Fonts hỗ trợ trọn vẹn tiếng Việt cho phong cách sổ tay & typography ứng dụng -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Comfortaa:wght@600;700&family=Nunito:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600;1,700&family=Quicksand:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Nunito:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600;1,700&family=Quicksand:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=11">
-    <link rel="stylesheet" href="features/study-room/rooms-hub.css?v=1">
+    <link rel="stylesheet" href="features/study-room/rooms-hub.css?v=2">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* Thanh cuộn hồng pastel dễ thương cho toàn trang chủ
@@ -35,12 +35,11 @@
         ::-webkit-scrollbar-track { background: rgba(255, 228, 236, 0.45); border-radius: 9999px; }
         ::-webkit-scrollbar-thumb {
             background-color: #f9a8d4;
-            background-image: linear-gradient(#fbcfe8, #f9a8d4);
             border-radius: 9999px;
             border: 2px solid transparent;
             background-clip: padding-box;
         }
-        ::-webkit-scrollbar-thumb:hover { background-image: linear-gradient(#f9a8d4, #f472b6); }
+        ::-webkit-scrollbar-thumb:hover { background-color: #f472b6; }
         ::-webkit-scrollbar-corner { background: transparent; }
     </style>
     <!-- Tailwind đóng băng (thay Play CDN) — sinh bằng: node tailwind-dong-bang.mjs -->
@@ -48,6 +47,8 @@
     <!-- Thanh bên dùng chung + riêng trang chủ (thanh tab dưới, ô tìm nhanh) — nạp SAU Tailwind -->
     <link rel="stylesheet" href="core/app-sidebar.css?v=1">
     <link rel="stylesheet" href="home-shell.css?v=2">
+    <!-- Lớp da "sổ cắt dán" (caro, washi, kẹp giấy, polaroid) — chỉ màu/hoạ tiết, không đổi bố cục -->
+    <link rel="stylesheet" href="home-scrapbook.css?v=1">
 </head>
 
 <body class="flex h-screen bg-gray-50 text-gray-700 text-sm">

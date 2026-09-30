@@ -2,7 +2,8 @@
 // giơ tay, phản ứng emoji và bảng thao tác của chủ trì (trao quyền / mời ra).
 import { updateDoc, deleteDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { showToast, showConfirm } from '../../core/utils.js';
-import { room, refs, uid, isHost, canControl, currentIndex, answerOf, readyOf, hasSession, doneCount } from './room-state.js';
+import { room, refs, uid, isHost, canControl, currentIndex, answerOf, readyOf, hasSession, doneCount, hostIdNow, subscribe } from './room-state.js';
+import { systemMessage } from './room-chat.js';
 import { avatarHtml, escapeHtml, shortName, changed } from './room-ui.js';
 import { computeScores } from './room-scoreboard.js';
 import { renderLobby, pushLobbyLog } from './room-lobby.js';
@@ -11,10 +12,11 @@ const REACTIONS = ['👍', '😂', '❤️', '😮', '🤔', '🎉'];
 const STALE_MS = 90000;   // không heartbeat quá 90s coi như offline
 const seenReaction = new Map();
 let sheetTarget = null;
+let selfTook = false;      // chủ phòng tự nhận lại quyền (chủ trì rời phòng) — khỏi báo "được trao"
 
 export const isOnline = (m) => m.online !== false && (Date.now() - (m.lastSeen || 0) < STALE_MS);
 export const roleOf = (m) => {
-    if (room.session?.hostId === m.uid) return 'host';
+    if (hostIdNow() === m.uid) return 'host';
     if ((room.session?.cohosts || []).includes(m.uid)) return 'cohost';
     if (room.roomDoc?.owner === m.uid) return 'owner';
     return 'member';
@@ -42,7 +44,7 @@ export function renderMembers() {
     // Dùng isOnline() (đã quy ra true/false) thay cho lastSeen: nhịp tim 30s của
     // từng người không còn kéo cả danh sách vẽ lại.
     if (!changed('members', [qi, room.session?.chosen, room.session?.alsoOk, room.session?.questions?.length,
-        room.session?.hostId, room.session?.cohosts, room.isOwner,
+        room.session?.hostId, room.session?.cohosts, room.isOwner, room.roomDoc?.hostId,
         room.members.map(m => [m.uid, m.displayName, m.emoji, isOnline(m), m.hand,
             m.cursor, m.answers, m.ready, m.marks])])) return;
     const scores = new Map(computeScores().map(r => [r.uid, r]));
@@ -177,8 +179,8 @@ export function openSheet(target) {
     let html = '';
     if (me) html += btn('identity', 'bg-pink-50 text-[#FF69B4] hover:bg-pink-100', 'fa-face-smile', 'Đổi mặt đại diện / tên');
     if (canControl() && !me) {
-        if (hasSession()) html += btn('makehost', 'bg-amber-50 text-amber-700 hover:bg-amber-100', 'fa-crown', 'Trao quyền chủ trì');
-        html += btn('cohost', 'bg-violet-50 text-violet-700 hover:bg-violet-100', 'fa-user-shield',
+        if (role !== 'host') html += btn('makehost', 'bg-amber-50 text-amber-700 hover:bg-amber-100', 'fa-crown', 'Trao quyền chủ trì');
+        if (hasSession()) html += btn('cohost', 'bg-violet-50 text-violet-700 hover:bg-violet-100', 'fa-user-shield',
             role === 'cohost' ? 'Bỏ quyền phó chủ trì' : 'Cho làm phó chủ trì');
         if (target.hand) html += btn('lower', 'bg-gray-50 text-gray-600 hover:bg-gray-100', 'fa-hand', 'Hạ tay giúp');
         if (room.isOwner) html += btn('kick', 'bg-red-50 text-red-600 hover:bg-red-100', 'fa-user-slash', 'Mời ra khỏi phòng');
@@ -197,6 +199,10 @@ function closeSheet() {
 }
 
 async function runSheetAction(act) {
+    if (act.startsWith('pick:')) {                 // danh sách "Trao quyền" -> bảng thao tác của người được chọn
+        const m = room.members.find(x => x.uid === act.slice(5));
+        return void (m && openSheet(m));
+    }
     const t = sheetTarget;
     if (!t) return;
     try {
@@ -205,8 +211,13 @@ async function runSheetAction(act) {
             window.dispatchEvent(new CustomEvent('room:change-identity'));
             return;
         } else if (act === 'makehost') {
-            if (!await showConfirm(`Trao quyền chủ trì cho ${t.displayName || 'thành viên này'}?`)) return;
-            await updateDoc(refs.session(), { hostId: t.uid, hostName: t.displayName || 'Chủ trì' });
+            const name = t.displayName || 'thành viên này';
+            if (!await showConfirm(`Trao quyền chủ trì cho ${name}? ${room.isOwner ? 'Bạn vẫn là chủ phòng nên vẫn điều khiển được.' : 'Bạn sẽ thành thành viên thường.'}`,
+                { title: 'Trao quyền chủ trì', confirmText: 'Trao quyền' })) return;
+            const patch = { hostId: t.uid, hostName: t.displayName || 'Chủ trì' };
+            await updateDoc(refs.room(), patch);                          // sảnh chờ + sau khi phiên kết thúc
+            if (hasSession()) await updateDoc(refs.session(), patch);
+            systemMessage(`👑 ${room.user?.displayName || 'Chủ trì'} đã trao quyền chủ trì cho ${name}.`);
             showToast('Đã trao quyền chủ trì.', 'success');
         } else if (act === 'cohost') {
             const has = roleOf(t) === 'cohost';
@@ -227,8 +238,39 @@ async function runSheetAction(act) {
     closeSheet();
 }
 
+/** Menu Công cụ -> "Trao quyền": danh sách người trong phòng (online trước), bấm một người -> bảng thao tác của họ. */
+export function openHostPicker() {
+    const sheet = document.getElementById('member-sheet');
+    if (!sheet || !canControl()) return;
+    sheetTarget = null;
+    const list = room.members.filter(m => m.uid !== uid())
+        .sort((a, b) => (isOnline(b) - isOnline(a)) || String(a.displayName).localeCompare(String(b.displayName), 'vi'));
+    document.getElementById('sheet-avatar').innerHTML = '<div class="w-full h-full grid place-items-center text-2xl">👑</div>';
+    document.getElementById('sheet-name').textContent = 'Trao quyền chủ trì';
+    document.getElementById('sheet-meta').textContent = room.isOwner
+        ? 'Chọn người điều khiển buổi học — bạn vẫn là chủ phòng' : 'Chọn người điều khiển tiếp buổi học';
+    const ROLE = { host: ' · đang chủ trì', cohost: ' · phó chủ trì', owner: ' · chủ phòng' };
+    document.getElementById('sheet-actions').innerHTML = list.length ? list.map(m =>
+        `<button data-act="pick:${escapeHtml(m.uid)}" class="w-full flex items-center gap-2.5 px-3.5 py-2 rounded-xl font-bold text-sm bg-gray-50 hover:bg-amber-50 text-gray-700">
+            <span class="w-7 h-7 shrink-0">${avatarHtml(m)}</span><span class="flex-1 text-left truncate">${escapeHtml(shortName(m.displayName || 'Khách', 22))}</span>
+            <small class="font-semibold text-gray-400">${isOnline(m) ? '' : 'ngoại tuyến'}${ROLE[roleOf(m)] || ''}</small></button>`).join('')
+        : '<p class="text-xs text-gray-400 text-center py-2">Phòng chưa có ai khác — mời bạn vào trước đã.</p>';
+    sheet.classList.remove('hidden');
+    sheet.classList.add('flex');
+}
+
 // ---------- Khởi tạo ----------
 export function initMembers() {
+    document.getElementById('host-pass')?.addEventListener('click', openHostPicker);
+    // Vừa được người khác trao quyền -> báo ngay (bỏ qua lúc mới vào phòng / tự nhận lại quyền)
+    let lastHost;
+    subscribe(() => {
+        if (!room.ready) return;
+        const h = hostIdNow();
+        if (lastHost && h !== lastHost && h === uid() && !selfTook) showToast('👑 Bạn vừa được trao quyền chủ trì — thanh điều khiển đã hiện.', 'success', 3800);
+        if (h !== lastHost) selfTook = false;
+        lastHost = h;
+    });
     const bar = document.getElementById('reaction-bar');
     if (bar) {
         bar.innerHTML = REACTIONS.map(e =>
@@ -262,6 +304,7 @@ export function initMembers() {
         if (!hasSession() || !room.isOwner || isHost()) return;
         const host = room.members.find(m => m.uid === room.session.hostId);
         if (!host || !isOnline(host)) {
+            selfTook = true;
             updateDoc(refs.session(), {
                 hostId: uid(),
                 hostName: room.user?.displayName || 'Chủ phòng',

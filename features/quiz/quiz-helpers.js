@@ -58,7 +58,14 @@ export function ensureMermaidInit() {
                 // vạch dưới mỗi nhánh sơ đồ tư duy: đậm hơn nền nhánh một bậc (mặc định Mermaid là màu nghịch đảo, xanh/đỏ gắt)
                 cScaleInv0: '#F28DB0', cScaleInv1: '#F5A870', cScaleInv2: '#E8C24A', cScaleInv3: '#7FCFAE', cScaleInv4: '#7EB8EA', cScaleInv5: '#A994EE',
                 cScaleInv6: '#EFA0C8', cScaleInv7: '#9FCF7F', cScaleInv8: '#F59A8C', cScaleInv9: '#86CCD9', cScaleInv10: '#D9B48E', cScaleInv11: '#C9A8EE',
-                git0: '#F5A3BF', git1: '#F7B889', git2: '#F0CF6B', git3: '#8FD6B4', git4: '#93C4F0', git5: '#BBA5F2', git6: '#F2A5CF', git7: '#A9D98A'
+                git0: '#F5A3BF', git1: '#F7B889', git2: '#F0CF6B', git3: '#8FD6B4', git4: '#93C4F0', git5: '#BBA5F2', git6: '#F2A5CF', git7: '#A9D98A',
+                // Biểu đồ đường / cột (xychart-beta): mặc định Mermaid tô đường vàng nhạt gần như vô hình trên nền giấy
+                xyChart: {
+                    backgroundColor: '#FFFDF8', titleColor: '#8E2F57',
+                    xAxisLabelColor: '#5A4640', xAxisTitleColor: '#5A4640', xAxisTickColor: '#E3C7D2', xAxisLineColor: '#E3C7D2',
+                    yAxisLabelColor: '#5A4640', yAxisTitleColor: '#5A4640', yAxisTickColor: '#E3C7D2', yAxisLineColor: '#E3C7D2',
+                    plotColorPalette: '#E0528A, #5B9BD5, #3FAE7F, #F08A4B, #8C6FE0, #D9A21B'
+                }
             }
         });
         mermaidInitialized = true;
@@ -371,6 +378,27 @@ export function stripOptionLabels(options) {
     return options.map(o => (typeof o === 'string' ? o.replace(re, '') : o));
 }
 
+/**
+ * Hình SVG vẽ bằng mã -> khung hình: hiện qua <img src="data:image/svg+xml"> nên trình duyệt KHÔNG chạy script,
+ * không bắt sự kiện, không tải tài nguyên ngoài trong SVG — an toàn cả ở phòng đánh đề (ai có link cũng sửa được).
+ * data-svg giữ mã gốc (encodeURIComponent) để phòng lưu / sửa / xuất biên bản mà không mất hình.
+ * Chữ trong ảnh SVG chỉ dùng font máy (không tải được Quicksand) — nên đặt font-family có sans-serif dự phòng.
+ */
+export const SVG_MAX = 200000;
+export function svgFigureHtml(code) {
+    let src = String(code || '').trim();
+    if (!/^<svg[\s>]/i.test(src)) return '';
+    if (src.length > SVG_MAX) return '<p class="svg-fig-err">⚠ Hình SVG quá lớn (tối đa 200 KB) — nên rút gọn hoặc đổi sang ảnh.</p>';
+    // SVG làm ảnh BẮT BUỘC có xmlns, thiếu là ảnh vỡ — AI hay quên
+    if (!/^<svg[^>]*\sxmlns=/i.test(src)) src = src.replace(/^<svg/i, '<svg xmlns="http://www.w3.org/2000/svg"');
+    const tag = src.match(/^<svg[^>]*>/i)[0];
+    const w = Number((tag.match(/\swidth=["']?(\d+(?:\.\d+)?)(?:px)?["'\s>]/i) || [])[1])
+        || Number((tag.match(/viewBox=["'][-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)/i) || [])[1]) || 0;
+    const title = (src.match(/<title>([^<]{1,160})<\/title>/i) || [])[1] || 'Hình vẽ';
+    return `<div class="svg-fig" data-svg="${encodeURIComponent(src)}"><img src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(src)}"`
+        + ` alt="${_escHtml(title)}" loading="lazy" decoding="async" style="width:100%;height:auto;${w ? `max-width:${Math.round(w)}px;--svg-w:${Math.round(w)}px;` : ''}"></div>`;
+}
+
 export function parseMarkdown(text) {
     if (text === null || text === undefined) return '';
     if (typeof text === 'object') {
@@ -394,6 +422,16 @@ export function parseMarkdown(text) {
             type: 'mermaid',
             content: `<div class="mermaid-container flex justify-center my-4 overflow-x-auto w-full bg-white/50 p-4 rounded-xl border border-pink-100/30 shadow-sm"><div class="mermaid-viewer" data-code="${encodedCode}"></div></div>`
         });
+        return placeholder;
+    });
+
+    // 1b. HÌNH SVG (```svg … ``` hoặc thẻ <svg>…</svg> trần): biểu đồ AI / người soạn vẽ lại (CTG, biểu đồ chuyển dạ,
+    //     đường cong tăng trưởng…) -> svgFigureHtml hiện thành ẢNH, không chèn thẳng vào trang.
+    html = html.replace(/```svg[ \t]*\n?([\s\S]*?)```|(<svg[\s>][\s\S]*?<\/svg>)/gi, (match, fenced, bare) => {
+        const code = String(fenced || bare || '').trim();
+        if (!/^<svg[\s>]/i.test(code)) return match;
+        const placeholder = `<!--SVGPLACEHOLDER${placeholders.length}-->`;
+        placeholders.push({ type: 'svg', content: svgFigureHtml(code) });
         return placeholder;
     });
 
@@ -577,7 +615,7 @@ export function parseMarkdown(text) {
     
     // 5. Khôi phục lại các khối đã bảo vệ bằng cách thay thế an toàn (dùng callback để tránh lỗi ký tự $)
     for (let i = placeholders.length - 1; i >= 0; i--) {
-        const placeholderPattern = new RegExp(`<!--(?:MERMAID|MATHBLOCK|MATHINLINE)PLACEHOLDER${i}-->`, 'g');
+        const placeholderPattern = new RegExp(`<!--(?:MERMAID|SVG|MATHBLOCK|MATHINLINE)PLACEHOLDER${i}-->`, 'g');
         html = html.replace(placeholderPattern, () => placeholders[i].content);
     }
     return html;

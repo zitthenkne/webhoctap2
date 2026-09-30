@@ -11,7 +11,7 @@ import {
     noteOf, optNoteOf, answerOf, flagOf, readyOf, unclearOf, currentIndex, isCoop, canRoam,
     questionAt, editOf, issueOf, editorOf, noteAuthorOf, whyOf, dissentOf, talkUntil, prevVoteOf,
     isEssay, doneOf, doneCount, isAccepted, isSplit, acceptedText, acceptedOf, argsOf,
-    caseKeyAt, caseEditAt, caseByAt, talkOpen,
+    caseKeyAt, caseEditAt, caseByAt, talkOpen, partsOf,
 } from './room-state.js';
 import { showToast, showConfirm } from '../../core/utils.js';
 import { escapeHtml, shortName, toggle, avatarStack, avatarHtml, forget } from './room-ui.js';
@@ -238,6 +238,7 @@ function renderLive() {
         s.alsoOk, s.split,                                            // kết luận nhiều đáp án / chưa thống nhất
         s.extra, s.extraBy,                                           // Mở rộng / Ghi nhớ nhóm sửa
         s.caseEdits, s.caseBy,                                        // ca lâm sàng nhóm sửa (chung cả chùm)
+        s.grades, s.parts,                                            // chấm barem · bài làm chung nhiều ô (tự luận)
         s.quizTitle, s.hostId, s.hostName, s.cohosts, s.questions.length, s.ended,
         editorOf(i) ? Math.floor(Date.now() / 2000) : 0,
         Object.entries(optimistic).map(([k, v]) => k + ':' + v.i),
@@ -341,6 +342,7 @@ function renderLive() {
     if (marked) addChip('', `🔖 ${marked} người đánh dấu`);
     if (q.topic && String(q.topic).trim().toLowerCase() !== 'chung') addChip('', escapeHtml(q.topic));
     if (q.level) addChip('', escapeHtml(q.level));
+    if (Number(q.maxScore) > 0) addChip('', `${String(q.maxScore).replace('.', ',')} điểm`);
     if (q.expanded) addChip('is-info', '📖 mở rộng');
     if (q.note) addChip('is-info', '📌 ghi nhớ');
     let metaHtml = chips.length ? `<span class="rm-qchips">${chips.join('')}</span>` : '';
@@ -651,7 +653,8 @@ function renderCase(i, q) {
         </div>
         <button type="button" class="rm-case-peek" data-case-fold title="Mở lại ca"></button>
         <div class="rm-case-body rm-md" contenteditable="true" data-live-edit="case" data-placeholder="Nội dung ca lâm sàng…"
-             title="Bấm để sửa ca — cả nhóm thấy ngay, đổi cho mọi câu trong chùm"></div>`;
+             title="Bấm để sửa ca — cả nhóm thấy ngay, đổi cho mọi câu trong chùm"></div>
+        <div class="rm-case-reveals"></div>`;
     }
     const body = box.querySelector('[data-live-edit="case"]');
     if (currentEditKey() !== 'case' && caseShown.text !== text) {
@@ -666,6 +669,17 @@ function renderCase(i, q) {
     }
     // Chấm các câu dùng chung ca: bấm là nhảy, tô câu đang xem / câu mình đã làm
     const [a, b] = caseRange(i);
+    // Ca MỞ DẦN (caseReveal, cùng quy ước trang làm đề): dữ kiện bổ sung của các câu từ đầu ca tới câu đang xem
+    const revs = [];
+    for (let k = a; k <= i; k++) { const r = questionAt(k)?.caseReveal; if (r && String(r).trim()) revs.push([k, String(r)]); }
+    const revBox = box.querySelector('.rm-case-reveals');
+    const revSig = JSON.stringify(revs);
+    if (revBox.dataset.sig !== revSig) {
+        revBox.dataset.sig = revSig;
+        revBox.innerHTML = revs.map(([k, r]) => `<div class="rm-case-rev${k === i ? ' is-new' : ''}">
+            <span class="rm-case-rev-tag">➕ Bổ sung từ câu ${k + 1}</span><div class="rm-md">${renderRich(r)}</div></div>`).join('');
+        renderMath(revBox);
+    }
     const me = myMember();
     const pick = (k) => { const x = myAnswer(k); return typeof x?.i === 'number' ? L(x.i) : ''; };
     const MARK = { good: '✓', bad: '✗' };
@@ -1215,6 +1229,7 @@ export function initStage() {
         const q = questionAt(i);
         if (key === 'goal') return room.roomDoc?.goal || '';
         if (key === 'explain') return noteOf(i);
+        if (key.startsWith('part:')) return partsOf(i)?.['p' + key.slice(5)] || '';
         if (key === 'note') return q ? getNote(q.question) : '';
         if (key === 'issue') return issueOf(i);
         if (key === 'why') return whyOf(myMember(), i);
@@ -1242,6 +1257,11 @@ export function initStage() {
             return void updateDoc(refs.member(), { [`answers.q${i}.why`]: html }).catch(() => {});
         }
         if (key === 'explain') return void saveNote(i, html);
+        // Bài làm chung nhiều ô (answerFormat): mỗi ô một field — hai người gõ hai ô không đè nhau
+        if (key.startsWith('part:')) return void updateDoc(refs.session(), {
+            [`parts.q${i}.p${key.slice(5)}`]: html,
+            [`notesBy.q${i}`]: { name: myMember()?.displayName || 'Ai đó', at: Date.now() },
+        }).catch(() => {});
         // Mở rộng / Ghi nhớ của nhóm (bản 26) — đè bản file, ghi tên người sửa
         if (key === 'extra:expanded' || key === 'extra:note') {
             const f = key.slice(6);

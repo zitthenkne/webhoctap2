@@ -25,6 +25,7 @@ import { chatMessages } from './room-chat.js';
 import { escapeHtml } from './room-ui.js';
 import { safeImgUrl } from './room-media.js';
 import { optExpFull } from './room-reason.js';
+import { gradeOf } from './room-barem.js';
 
 const el = (id) => document.getElementById(id);
 const L = (k) => String.fromCharCode(65 + k);
@@ -82,6 +83,7 @@ function collect(msgs, opt) {
         })).filter(c => c.who.length || c.pro.length || c.con.length || c.other.length);
         const x = {
             i, q, opts, chosen, ref, st, pctRight, diff, accepted, essay, split, camps,
+            grade: essay && plain(noteOf(i)) ? gradeOf(i) : null,     // điểm barem của bài làm chung (room-barem)
             looseArgs: args.filter(a => typeof a.o !== 'number'),
             changers: members.filter(m => { const a = answerOf(m, i); return typeof a?.from === 'number' && a.from !== a.i; }),
             votes: opts.map((_, k) => by(m => answerOf(m, i)?.i === k)),
@@ -182,6 +184,8 @@ function htmlToMd(html) {
             case 'P': case 'DIV': {
                 const mm = n.getAttribute('data-mermaid');
                 if (mm) { let c = ''; try { c = decodeURIComponent(mm); } catch (e) {} return c ? '\n```mermaid\n' + c.trim() + '\n```\n' : ''; }
+                const sv = n.getAttribute('data-svg');
+                if (sv) { let c = ''; try { c = decodeURIComponent(sv); } catch (e) {} return c ? '\n```svg\n' + c.trim() + '\n```\n' : ''; }
                 return '\n' + inner().trim() + '\n';
             }
             case 'LI': return '\n- ' + inner().trim();
@@ -212,7 +216,7 @@ const MEDAL = ['🥇', '🥈', '🥉'];
 
 // Nhãn đầu mỗi câu — dùng chung cho MD và PDF: kết luận · % đúng · lệch file (chỉ khi lệch)
 function verdictOf(x) {
-    if (x.essay) return '✍️ tự luận';
+    if (x.essay) return '✍️ tự luận' + (x.grade ? ` · barem ${String(x.grade.pts).replace('.', ',')}/${String(x.grade.max).replace('.', ',')}đ` : '');
     if (x.split) return '🤝 chưa thống nhất';
     if (!x.accepted.length) return '⏳ chưa chốt';
     return `✅ ${x.accepted.map(L).join(' + ')}`;

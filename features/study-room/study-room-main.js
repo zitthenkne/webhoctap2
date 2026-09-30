@@ -11,7 +11,7 @@ import { initMembers, renderMembers, flushReactions, flushJoins } from './room-m
 import { initLobby } from './room-lobby.js';
 import { initMobile, paintDock } from './room-mobile.js';
 import { initChat, renderChat, clearUnread, isChatOpen, systemMessage } from './room-chat.js';
-import { initQuizControl, syncHostBar } from './room-quiz.js';
+import { initQuizControl, syncHostBar, startFromSolo } from './room-quiz.js';
 import { initStage, renderQuiz } from './room-quiz-stage.js';
 import { renderRankPanel } from './room-scoreboard.js';
 import { initInlineEdit } from './room-editor.js';
@@ -629,6 +629,7 @@ async function initRoom() {
         setState({ ready: true });
         renderQuiz();
         renderMembers();
+        startFromSolo();                                         // quiz.html -> "Làm cùng nhau" (?quiz=&start=)
     } catch (err) {
         console.error('Lỗi khởi tạo phòng:', err);
         showToast('Lỗi khi tải phòng học.', 'error');

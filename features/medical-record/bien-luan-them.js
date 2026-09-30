@@ -743,8 +743,11 @@ function init() {
     const STEPS = [['② Bằng chứng', [0, 1, 2]], ['③ Nguyên nhân', [3]], ['④ Biến chứng', [4]]];
     const stepOf = new Map();
 
+    /* 2026-09-30: THAY bằng tab ② ③ ④ của bien-luan-gon.js cho MỌI cỡ màn (có số
+       đếm, nút "Tiếp", nhớ theo thẻ). Để chạy song song là hai lớp cùng giấu/hiện
+       .tr-branch, giẫm lên nhau. Giữ hàm để khỏi đụng observer bên dưới. */
     function applyFold() {
-        if (!isPhone()) return;
+        return;
         host.querySelectorAll('.tr-card').forEach(card => {
             const key = card.querySelector('.tr-title')?.value || card.dataset.v;
             const cur = stepOf.get(key) ?? 0;

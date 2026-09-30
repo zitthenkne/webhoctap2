@@ -18,7 +18,7 @@ import { renderMath } from '../quiz/quiz-helpers.js';
 import {
     room, refs, uid, hasSession, questionAt, answerOf, whyOf, dissentOf, qKey, canControl, memberOf,
     isAccepted, isAnnounced, isShown, isBlind, isEssay, argsOf, myMember, betOf,
-    noteOf, noteAuthorOf, optNoteOf, editorOf, extraOf, extraByOf, talkOpen, caseKeyAt,
+    noteOf, noteAuthorOf, optNoteOf, editorOf, extraOf, extraByOf, talkOpen, caseKeyAt, isMultiSlot, partsOf,
 } from './room-state.js';
 import { reasonToolsHtml, reasonSig, initReason, elimListHtml, elimsOf, myElimSet, badgesHtml, fileLost } from './room-reason.js';
 import { escapeHtml, shortName, avatarHtml, avatarStack, changed, agoText } from './room-ui.js';
@@ -27,6 +27,9 @@ import { renderRich, currentEditKey, isBlank, insertImagesInto, sanitizeHtml } f
 import { getNote, setNote } from './room-study.js';
 import { appendToExplain, questionMsgs, questionMsgsSig, msgTime, chatCmtHtml, chatMsgAction, sendQuestionMessage, chatMessages } from './room-chat.js';
 import { uploadImage, imageFilesOf, warnIfTemp, safeImgUrl } from './room-media.js';
+import { baremHtml, baremSig, initBarem } from './room-barem.js';
+import { formatOf, remapFields } from '../quiz/quiz-essay-core.js';
+import { formatEditorHtml, wireFormatEditor, readFormatEditor } from '../quiz/essay-format-editor.js';
 
 const el = (id) => document.getElementById(id);
 const L = (k) => String.fromCharCode(65 + k);
@@ -77,6 +80,7 @@ const pending = {};       // `${i}:${slot}` -> [{ pid, prev (blob:), u, t, busy 
 const adding = {};        // `${i}:${f}` -> vừa bấm "＋ Mở rộng / ＋ Ghi nhớ" (hiện ô trống để gõ)
 const rowPref = {};       // `${i}:${k}` -> người dùng tự mở / gập hàng
 const expOpen = {};       // `${i}:${k}` -> vừa bấm "✏️ Viết giải thích X" (ô trống thì chỉ là 1 nút gọn)
+let fmtEdit = null;       // câu đang mở bộ sửa "Ô trả lời" (khay bài làm chung không vẽ lại khi đang sửa)
 const MAX_IMG = 4;
 
 // ---------- Đã đọc tới đâu (theo máy) ----------
@@ -156,6 +160,29 @@ function imgsHtml(list) {
         ${x.t ? '<em title="Host chính lỗi lúc tải — ảnh chỉ giữ 72 giờ">tạm 72h</em>' : ''}</span>`).join('')}</div>`;
 }
 
+// ---------- Bài làm chung NHIỀU Ô (answerFormat, giống trang làm đề) ----------
+// Mỗi ô là một vùng sửa tại chỗ riêng [data-live-edit="part:k"] -> session.parts.q<i>.p<k> (room-quiz-stage).
+// list: N ô đánh số · fields: ô có nhãn · table: bảng cột × hàng (điện thoại xếp thành thẻ theo hàng).
+function slotsHtml(i, q) {
+    const f = formatOf(q);
+    const p = partsOf(i) || {};
+    // Ô tự đặt (formatOf slots): gợi ý trong ô · cỡ 1 dòng / đoạn / dài · đơn vị đứng sau ô
+    const cell = (k, ph, s = {}) => {
+        const box = `<div class="rm-md rm-slot is-${s.size || 'line'}" contenteditable="true" data-live-edit="part:${k}" data-placeholder="${escapeHtml(s.hint || ph)}">${renderRich(p['p' + k] || '')}</div>`;
+        return s.unit ? `<div class="rm-slot-wrap">${box}<span class="rm-slot-unit">${escapeHtml(s.unit)}</span></div>` : box;
+    };
+    if (f.kind === 'list') return `<ol class="rm-slots is-list">${f.slots.map((s, k) => `<li>
+        <span class="rm-slot-n">${k + 1}</span>${s.label ? `<b class="rm-slot-lb">${escapeHtml(s.label)}</b>` : ''}${cell(k, `Ý ${k + 1}…`, s)}</li>`).join('')}</ol>`;
+    if (f.kind === 'fields') return `<div class="rm-slots is-fields">${f.slots.map((s, k) => `<div class="rm-slot-row">
+        ${s.label ? `<b class="rm-slot-lb">${escapeHtml(s.label)}</b>` : ''}${cell(k, (s.label || 'Ô ' + (k + 1)) + '…', s)}</div>`).join('')}</div>`;
+    const cols = f.columns.length;
+    return `<div class="rm-slots is-table"><table class="rm-slot-table">
+        <thead><tr>${f.rowLabels.length ? '<th></th>' : ''}${f.columns.map(c => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead>
+        <tbody>${Array.from({ length: f.rows }, (_, r) => `<tr>${f.rowLabels.length ? `<th scope="row">${escapeHtml(f.rowLabels[r] || '')}</th>` : ''}${
+            f.columns.map((c, ci) => `<td data-col="${escapeHtml(c)}">${cell(r * cols + ci, c)}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table></div>`;
+}
+
 // ---------- Vẽ ----------
 // LUỒNG BÀN LUẬN CỦA CÂU (#answer-block, cột chính): "💬 n ý kiến về câu này" xổ ra luồng nhận xét +
 // tin chat/ảnh/tài liệu gắn câu, ô gõ có 🖼 📚. Câu tự luận: BÀI LÀM CHUNG nằm ở đây (là phần làm bài).
@@ -167,16 +194,17 @@ export function renderAnswerHub(i, force = false) {
     markSeen(i);
     const ek = currentEditKey() || '';
     const typingHere = box.contains(document.activeElement)
-        && (document.activeElement.matches?.('input, textarea') || ek === 'explain');
+        && (document.activeElement.matches?.('input, textarea') || ek === 'explain' || ek.startsWith('part:'));
     // Đang gõ trong khay -> đừng vẽ lại (mất con trỏ); chỉ cập nhật "ai đang gõ"
     if (!force && box.dataset.qi === String(i) && typingHere) return void paintTyping(i);
+    if (!force && box.dataset.qi === String(i) && fmtEdit === i) return void paintTyping(i);   // đang đặt lại các ô
     const s = room.session;
     const essay = isEssay(q);
     const args = argsOf(i).filter(a => typeof a.o !== 'number');
     const key = qKey(i);
     const t = tallyOf(i);
     if (!force && !changed('hub', [i, essay, questionMsgsSig(i), base[key], canControl(), Math.floor(Date.now() / 60000),
-        essay ? [s.notes?.[key], s.notesBy?.[key]] : 0,
+        essay ? [s.notes?.[key], s.notesBy?.[key], s.parts?.[key]] : 0,
         args.map(a => [a.id, a.t, a.s, a.qt, a.re, a.ok, a.im, a.at, t.agree[a.id], a.member.displayName, a.member.emoji]),
         Object.keys(myMember()?.agree || {}).filter(k => myMember().agree[k]),
         rowPref[`${i}:g`], stance[`${i}:g`], quotes[`${i}:g`], replyTo[`${i}:g`]])) return paintTyping(i);
@@ -197,9 +225,13 @@ export function renderAnswerHub(i, force = false) {
             <span id="typing-hint" class="rm-typing"></span>
             <span class="flex-1"></span>
             ${author ? `<span class="rm-hint">${escapeHtml(shortName(author.name || '', 14))} · ${agoText(author.at)}</span>` : ''}
+            <button type="button" class="rm-fe-open" data-fe-open title="Đặt lại các ô trả lời của câu này: thêm / bớt ô, nhãn, gợi ý, cỡ, đơn vị — cả phòng thấy ngay">✏️ Ô trả lời</button>
         </div>
-        <div class="rm-md rm-hub-editor is-essay" contenteditable="true" data-live-edit="explain"
-             data-placeholder="Một người gõ bài làm chung, cả phòng xem cùng lúc… bôi đen một đoạn rồi bấm 💬 để nhận xét đoạn đó">${renderRich(noteOf(i))}</div>
+        ${fmtEdit === i ? `<div class="rm-fe-panel" data-fe-host>${formatEditorHtml(q.answerFormat)}
+            <div class="rm-fe-acts"><button type="button" class="rm-rf-add" data-fe-cancel>Huỷ</button><button type="button" class="rm-rf-add is-main" data-fe-save>Lưu các ô</button></div></div>` : ''}
+        ${essay && isMultiSlot(q) && (partsOf(i) || !hasRich(s.notes?.[key])) ? slotsHtml(i, q)
+        : `<div class="rm-md rm-hub-editor is-essay" contenteditable="true" data-live-edit="explain"
+             data-placeholder="Một người gõ bài làm chung, cả phòng xem cùng lúc… bôi đen một đoạn rồi bấm 💬 để nhận xét đoạn đó">${renderRich(noteOf(i))}</div>`}
     </div>`;
 
     box.innerHTML = `
@@ -254,6 +286,9 @@ function nbState(i) {
         q, essay, revealed, x,
         exp: { html: expHtml, fromFile: !essay && !hasRich(note) && revealed && hasRich(fileExp), lock: !essay && !revealed && !hasRich(note) && hasRich(fileExp) },
         model: essay && isShown(i) ? (q.modelAnswer || q.explanation || '') : '',
+        // Tự luận có cả đáp án mẫu lẫn giải thích: giải thích từng bị nuốt mất (chỉ hiện 1 trong 2)
+        modelExp: essay && isShown(i) && q.modelAnswer ? (q.explanation || '') : '',
+        barem: essay && isShown(i),               // hộp chấm barem (vẽ sau chữ ký — autoMatch không rẻ)
     };
 }
 
@@ -261,6 +296,7 @@ export function renderNotebook(i, force = false) {
     const nb = el('notebook');
     const q = questionAt(i);
     if (!nb || !q) return;
+    initBarem(effectiveIndex);
     renderAllNotes();                       // số trên thẻ "Cả đề" (+ danh sách nếu đang mở) — câu khác đổi cũng cập nhật
     const ek = currentEditKey() || '';
     if (!force && nb.dataset.qi === String(i) && nb.contains(document.activeElement) && (ek === 'explain' || ek.startsWith('extra:'))) return;
@@ -274,13 +310,13 @@ export function renderNotebook(i, force = false) {
     const inline = nb.classList.contains('is-inline');
     const mineOn = hasRich(getNote(q.question));
     if (!force && !changed('nb', [i, inline, st.revealed, fresh, st.essay, s.notes?.[key], s.notesBy?.[key], s.extra?.[key], s.extraBy?.[key],
-        adding[`${i}:expanded`], adding[`${i}:note`], nbPref[i], q.question, q.explanation, q.modelAnswer, q.expanded, q.note,
+        adding[`${i}:expanded`], adding[`${i}:note`], nbPref[i], s.parts?.[key], q.question, q.explanation, q.modelAnswer, q.expanded, q.note,
         s.questions?.[i]?.expanded, s.questions?.[i]?.note, mineOn, Math.floor(Date.now() / 60000),
-        Object.keys(nbPref).filter(k => k.startsWith(i + ':')), reasonSig(i)])) return;
+        Object.keys(nbPref).filter(k => k.startsWith(i + ':')), reasonSig(i), st.essay ? baremSig(i) : 0])) return;
     nb.dataset.qi = String(i);
     if (fresh) setTimeout(() => renderNotebook(effectiveIndex()), Math.max(0, freshUntil[i] - Date.now()) + 60);
 
-    const has = !!hasRich(st.exp.html) || Object.values(st.x).some(v => v.shown) || !!hasRich(st.model);
+    const has = !!hasRich(st.exp.html) || Object.values(st.x).some(v => v.shown) || !!hasRich(st.model) || st.barem;
     const locks = [st.exp.lock, ...Object.values(st.x).map(v => v.lock)].filter(Boolean).length;
     // Màn hẹp, chưa có gì để đọc: gập thành 1 dòng (khỏi chèn một khung trống giữa đề và bàn luận)
     if (inline && !has && !nbPref[i]) {
@@ -360,6 +396,8 @@ export function renderNotebook(i, force = false) {
         <nav class="rm-nb-toc" aria-label="Mục lục sổ tay">${toc}</nav>
         ${fresh ? '<p class="rm-nb-fresh">✨ Chủ trì vừa hiện đáp án — phần trong file đã mở</p>' : ''}
         ${hasRich(st.model) ? `<div class="rm-xbox is-file ${fresh ? 'is-fresh' : ''}" data-nb-sec="model"><div class="rm-hub-boxhead"><span class="rm-xlabel"><span class="rm-xic">📄</span>Bài giải gợi ý trong file</span></div><div class="rm-md">${renderRich(st.model)}</div></div>` : ''}
+        ${st.barem ? baremHtml(i) : ''}
+        ${hasRich(st.modelExp) ? `<div class="rm-xbox is-file" data-nb-sec="modelexp"><div class="rm-hub-boxhead"><span class="rm-xlabel"><span class="rm-xic">💡</span>Giải thích trong file</span></div><div class="rm-md">${renderRich(st.modelExp)}</div>${more('modelexp')}</div>` : ''}
         ${expBox}
         ${Object.keys(XF).filter(f => st.x[f].shown).map(xBox).join('')}`;
     nb.querySelectorAll('[data-live-edit]').forEach(n2 => { n2.dataset.empty = isBlank(n2) ? '1' : '0'; });
@@ -390,6 +428,8 @@ function toMd(html) {
     });
     box.querySelectorAll('h4').forEach(h => h.replaceWith(`\n#### ${h.textContent.trim()}\n`));
     box.querySelectorAll('hr').forEach(h => h.replaceWith('\n---\n'));
+    // Hình SVG -> lại khối ```svg (dán sang Obsidian vẫn hiện hình)
+    box.querySelectorAll('.svg-fig').forEach(f => { let c = ''; try { c = decodeURIComponent(f.dataset.svg || ''); } catch (e) {} f.replaceWith(c ? `\n\`\`\`svg\n${c}\n\`\`\`\n` : ''); });
     box.querySelectorAll('img').forEach(im => im.replaceWith(/^https:/.test(im.getAttribute('src') || '') ? `![](${im.getAttribute('src')})` : '[ảnh]'));
     box.querySelectorAll('b, strong').forEach(b => b.replaceWith(`**${b.textContent.trim()}**`));
     box.querySelectorAll('mark').forEach(m => m.replaceWith(`==${m.textContent}==`));
@@ -402,6 +442,7 @@ function nbSections(i) {
     const st = nbState(i);
     const out = [];
     if (hasRich(st.model)) out.push(['📄 Bài giải gợi ý', st.model]);
+    if (hasRich(st.modelExp)) out.push(['💡 Giải thích trong file', st.modelExp]);
     if (st.essay && hasRich(noteOf(i))) out.push(['✍️ Bài làm chung', noteOf(i)]);
     if (hasRich(st.exp.html)) out.push(['💡 Giải thích', st.exp.html]);
     Object.keys(XF).forEach(f => { if (st.x[f].shown && hasRich(st.x[f].html)) out.push([`${XF[f].ic} ${XF[f].label}`, st.x[f].html]); });
@@ -441,7 +482,7 @@ export function gotoNotebook(sec = 'exp', focus = true) {
     if (!nb || !q) return;
     if (document.body.classList.contains('nb-rail')) toggleNotebookRail(false);
     if (sec === 'exp' && isEssay(q)) {
-        const n = document.querySelector('#answer-block [data-live-edit="explain"]');
+        const n = document.querySelector('#answer-block [data-live-edit="explain"], #answer-block [data-live-edit^="part:"]');
         n?.scrollIntoView({ block: 'center', behavior: 'smooth' });
         return void (focus && n?.focus());
     }
@@ -1090,6 +1131,7 @@ export function initAnswerHub() {
         allQuery = e.target.value;
         renderAllNotes();
     });
+    wireFormatEditor(box);                   // thêm / xóa / đổi thứ tự ô trong bộ sửa ô trả lời
     const on = (type, fn, capture) => roots.forEach(r => r.addEventListener(type, fn, capture));
     // Form lập luận 🔬🧩📖💡 (room-reason.js): vẽ lại đúng vùng chứa ô gõ
     initReason(roots, (key, qi) => (key === 'why' ? renderOptionTalk(qi, true) : renderNotebook(qi, true)));
@@ -1163,6 +1205,31 @@ export function initAnswerHub() {
         const i = effectiveIndex();
         const b = (sel) => e.target.closest(sel);
         let x;
+        // --- Đặt lại các ô trả lời của câu tự luận (bộ sửa dùng chung essay-format-editor.js) ---
+        if (b('[data-fe-open]')) { fmtEdit = fmtEdit === i ? null : i; return void renderAnswerHub(i, true); }
+        if (b('[data-fe-cancel]')) { fmtEdit = null; return void renderAnswerHub(i, true); }
+        if (b('[data-fe-save]')) {
+            const r = readFormatEditor(box.querySelector('[data-fe-host]'));
+            if (r.error) return void showToast(r.error, 'warning', 2600);
+            fmtEdit = null;
+            // Bài làm đã gõ đi theo ô (đổi thứ tự / chèn / xóa ô không làm chữ nhảy sang ô khác)
+            const old = partsOf(i);
+            const multi = isMultiSlot({ answerFormat: r.format });
+            const legacy = room.session?.notes?.[qKey(i)] || '';
+            const moved = !old ? (multi && hasRich(legacy) ? { p0: legacy } : null)          // 1 ô -> nhiều ô: bài cũ vào ô đầu
+                : !multi ? null
+                : r.order ? Object.fromEntries(r.order.map((o, n) => [`p${n}`, o == null ? '' : (old[`p${o}`] || '')])) : old;
+            updateDoc(refs.session(), {
+                [`edits.q${i}.answerFormat`]: r.format,
+                // ý barem gắn ô đi theo đúng ô của nó (chèn / xóa / đổi thứ tự ô)
+                ...(r.order && Array.isArray(questionAt(i)?.keyPoints) ? { [`edits.q${i}.keyPoints`]: remapFields(questionAt(i).keyPoints, r.order) } : {}),
+                ...(old && !multi ? { [`notes.q${i}`]: noteOf(i), [`parts.q${i}`]: null } : {}),   // nhiều ô -> 1 ô: gộp lại
+                ...(!old && moved ? { [`notes.q${i}`]: '' } : {}),
+                ...(moved ? { [`parts.q${i}`]: moved } : {}),
+                [`notesBy.q${i}`]: { name: myMember()?.displayName || 'Ai đó', at: Date.now() },
+            }).catch(() => {});
+            return void showToast('Đã đặt lại các ô trả lời — cả phòng thấy ngay.', 'success', 2000);
+        }
         if ((x = b('[data-cimg]'))) return void x.closest('form')?.querySelector('[data-cfile]')?.click();
         if ((x = b('[data-imgbtn]'))) return void x.parentElement.querySelector('[data-imgfile]')?.click();
         if ((x = b('[data-pend-x]'))) {

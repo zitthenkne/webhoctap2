@@ -123,6 +123,8 @@ let selectMode = false;
 const selected = new Set();   // id các bệnh án đang chọn
 
 const isDone = (r) => (r.status || 'Hoàn thành') === 'Hoàn thành';
+// Kéo thả thẻ vào đợt chỉ dành cho chuột; trên cảm ứng, draggable làm trình duyệt cướp cử chỉ nhấn giữ
+const CAN_DRAG = matchMedia('(hover: hover) and (pointer: fine)').matches;
 
 /* Nhớ bộ lọc / thư mục / kiểu sắp xếp. Trên điện thoại người dùng ra vào bệnh án
    liên tục, mỗi lần quay lại phải chọn lại đợt thực hành thì rất mệt. */
@@ -193,7 +195,7 @@ function emptyState() {
                 <button id="empty-create" class="wr-primary"><i class="fas fa-plus"></i> Tạo bệnh án trong đợt</button>
             </div>` : `
             <div class="wr-empty">
-                <span class="ic"><i class="fas fa-notes-medical"></i></span>
+                <img class="wr-empty-img" src="../quiz/web_assets/mascot_stationery_squirrel.webp" alt="" width="132" height="132">
                 <b>Chưa có bệnh án nào</b>
                 <p>Bấm <b>Tạo bệnh án</b> để viết bệnh án đầu tiên. Bài viết tự lưu ngay khi bạn gõ.</p>
                 <button id="empty-create" class="wr-primary"><i class="fas fa-plus"></i> Tạo bệnh án</button>
@@ -208,19 +210,18 @@ function emptyState() {
         </div>`;
 }
 
-// [tên, màu dải chuyên khoa, nền chip, chữ chip] — tông pastel
+// [tên, màu chính (băng keo, thanh tiến độ), nền nhạt, mực chữ] — tông pastel.
+// Tránh vàng bơ và bạc hà: hai màu đó dành cho trạng thái Đang viết / Hoàn thành.
 const KINDS = {
-    noi: ['Nội khoa', '#f472b6', '#fde9f3', '#db2777'],
-    ngoai: ['Ngoại khoa', '#58c4f7', '#e4f5ff', '#0b84c4'],
-    san: ['Sản khoa', '#fb7fae', '#ffeef5', '#e04b86'],
-    nhi: ['Nhi khoa', '#fbbf24', '#fff5e0', '#b4740b'],
-    cc: ['Cấp cứu', '#fb8a8a', '#ffeeee', '#dc4c4c']
+    noi: ['Nội khoa', '#f4a9c6', '#fdeef4', '#a9466f'],     // hồng phấn
+    ngoai: ['Ngoại khoa', '#8ecdf2', '#eaf6fd', '#2f6f9a'], // xanh trời
+    san: ['Sản khoa', '#f6ae94', '#fff1ea', '#a3553a'],     // hồng đào
+    nhi: ['Nhi khoa', '#c3b1f0', '#f5f1fe', '#6a52a8'],     // oải hương
+    cc: ['Cấp cứu', '#f59a9a', '#fff0f0', '#a83c3c']        // san hô
 };
 
-const pctColor = (pct) => pct >= 80 ? '#22b98a' : pct >= 40 ? '#58c4f7' : '#f472b6';
-
 function barHtml(pct) {
-    return `<span class="rc-prog" style="--pct:${pct}%;--pct-color:${pctColor(pct)}" title="Mức độ hoàn thiện ${pct}%">
+    return `<span class="rc-prog" style="--pct:${pct}%" title="Mức độ hoàn thiện ${pct}%">
         <span class="rc-bar"><i></i></span>${pct}%</span>`;
 }
 
@@ -228,7 +229,7 @@ function cardHtml(rec) {
     const id = esc(rec.id);
     const h = rec.hanhChinh || {};
     const [kindName, kindColor, kindSoft, kindInk] = KINDS[rec.loaiBenhAn] || KINDS.noi;
-    // Màu người bệnh theo giới tính: nữ hồng, nam xanh, chưa ghi thì tím
+    // Thẻ đi một họ màu theo chuyên khoa; giới tính chỉ tô icon ♀/♂ (nữ hồng, nam xanh, chưa ghi tím)
     const gt = String(h.gioiTinh || '').trim();
     const isNu = /nữ/i.test(gt), isNam = /nam/i.test(gt);
     const sexColor = isNu ? '#f472b6' : isNam ? '#60a5fa' : '#a78bfa';
@@ -257,7 +258,7 @@ function cardHtml(rec) {
     const pct = completeness(rec);
 
     return `
-        <article draggable="true" class="rec-card${selected.has(String(rec.id)) ? ' selected' : ''}" data-id="${id}" data-done="${done ? 1 : 0}"
+        <article draggable="${CAN_DRAG}" class="rec-card${selected.has(String(rec.id)) ? ' selected' : ''}" data-id="${id}" data-done="${done ? 1 : 0}"
             style="--kind:${kindColor};--kind-soft:${kindSoft};--kind-ink:${kindInk};--sex:${sexColor}">
             <span class="rc-check"><i class="fas fa-check"></i></span>
             <div class="rc-body card-open" title="${done ? 'Bấm để xem bệnh án' : 'Bấm để viết tiếp'}">
@@ -267,7 +268,7 @@ function cardHtml(rec) {
                         <p class="rc-name" title="${esc(hoTen)}">${hl(hoTen)}</p>
                         <p class="rc-meta"><i class="fas fa-${sexIcon}"></i>${meta || '—'}</p>
                     </div>
-                    <span class="rc-state ${done ? 'done' : 'draft'}">${done ? 'Hoàn thành' : 'Đang viết'}</span>
+                    <span class="rc-state ${done ? 'done' : 'draft'}"><i class="fas fa-${done ? 'check' : 'pen'}"></i>${done ? 'Hoàn thành' : 'Đang viết'}</span>
                 </div>
                 <div class="rc-lines">
                     <p class="rc-line cd ${chanDoan ? '' : 'empty'}" title="${esc(chanDoan)}"><span class="lbl">Chẩn đoán</span>${chanDoan ? hl(chanDoan) : 'Chưa có chẩn đoán'}</p>
@@ -315,6 +316,7 @@ function renderResume() {
                 <span class="rz-flag">Viết dở gần nhất · ${pct}%</span>
                 <b class="rz-name">${esc(ten)}</b>
                 <span class="rz-meta">${esc(noi)}${noi ? ' · ' : ''}sửa ${timeAgo(draft.lastUpdated)}</span>
+                <span class="rz-bar"><i style="width:${pct}%"></i></span>
             </span>
             <span class="rz-cta"><span>Viết tiếp</span> <i class="fas fa-arrow-right"></i></span>
         </button>`;
@@ -327,10 +329,10 @@ function groupsHtml(list) {
     const out = folders.map(f => {
         const rs = list.filter(r => String(r.thuMuc?.id || '') === String(f.id));
         if (!rs.length) return '';
-        const [, c, soft] = folderKind(f);
+        const [, c, soft, ink] = folderKind(f);
         const meta = [f.khoa, f.benhVien, dateRange(f)].filter(Boolean).join(' · ');
         return `<section class="wr-group">
-            <div class="wg-head" style="--fc:${c};--fc-soft:${soft}">
+            <div class="wg-head" style="--fc:${c};--fc-soft:${soft};--fc-ink:${ink}">
                 <span class="wg-ico"><i class="fas fa-folder"></i></span>
                 <div class="wg-txt">
                     <p class="wg-name">${esc(f.ten || 'Đợt thực hành')}<small>${rs.length} bệnh án</small></p>
@@ -409,8 +411,8 @@ function dateRange(f) {
     };
     return [d(f.tuNgay), d(f.denNgay)].filter(Boolean).join(' – ');
 }
-/** Màu của đợt theo chuyên khoa (chọn tay hoặc đoán từ tên khoa); không rõ thì tím nhạt */
-const folderKind = (f) => KINDS[folderSpec(f)] || ['', '#8b6fb0', '#f3eefa', '#6d4f96'];
+/** Màu của đợt theo chuyên khoa (chọn tay hoặc đoán từ tên khoa); không rõ thì kem sữa */
+const folderKind = (f) => KINDS[folderSpec(f)] || ['', '#dcc3a8', '#faf4ee', '#86684b'];
 
 /** Đợt đang đi lên đầu, rồi đợt bắt đầu muộn hơn trước; đợt chưa ghi ngày xuống cuối */
 function sortedFolders() {
@@ -431,7 +433,7 @@ function renderFolders() {
     const loose = records.filter(r => !r.thuMuc?.id).length;
     const row = (id, icon, name, n, o = {}) => `
         <div class="fp-row${String(folderId) === String(id) ? ' active' : ''}" role="button" tabindex="0" data-folder="${esc(id)}"
-            ${o.c ? `style="--fc:${o.c};--fc-soft:${o.soft}"` : ''}>
+            ${o.c ? `style="--fc:${o.c};--fc-soft:${o.soft};--fc-ink:${o.ink}"` : ''}>
             <span class="fp-ico"><i class="fas fa-${icon}"></i></span>
             <span class="fp-txt">
                 <span class="fp-name"><span class="fp-name-t">${esc(name)}</span>${o.now ? '<span class="fp-now">Đang đi</span>' : ''}</span>
@@ -450,9 +452,9 @@ function renderFolders() {
         html += folders.map(f => {
             const inF = records.filter(r => String(r.thuMuc?.id || '') === String(f.id));
             const done = inF.filter(isDone).length;
-            const [, c, soft] = folderKind(f);
+            const [, c, soft, ink] = folderKind(f);
             return row(f.id, 'folder', f.ten || 'Đợt thực hành', inF.length, {
-                c, soft, now: isOngoing(f), edit: true,
+                c, soft, ink, now: isOngoing(f), edit: true,
                 meta: [f.khoa, f.benhVien].filter(Boolean).join(' · ') || 'Chưa ghi khoa / bệnh viện',
                 sub: [dateRange(f), inF.length ? `${done}/${inF.length} đã xong` : ''].filter(Boolean).join(' · '),
                 pct: inF.length ? Math.round(done / inF.length * 100) : null
@@ -464,7 +466,29 @@ function renderFolders() {
             <button type="button" data-folder-new><i class="fas fa-plus mr-1"></i>Tạo đợt đầu tiên</button></div>`;
     }
     box.innerHTML = html;
+    renderChips(folders, loose);
     renderScope();
+}
+
+/* Điện thoại / máy tính bảng: hàng chip đổi đợt một chạm (cột đợt ở đây là bảng trượt, phải bấm 2 lần).
+   Cùng dữ liệu với cột đợt; bảng trượt vẫn giữ để xem chi tiết, sửa, thêm đợt. */
+let chipsFor = null;
+function renderChips(folders, loose) {
+    const box = document.getElementById('folder-chips');
+    if (!box) return;
+    // Hình tab thư mục + icon (không phải viên tròn chấm màu) để khỏi lẫn với nút lọc trạng thái ngay bên dưới
+    const chip = (id, name, n, o = {}) => `<button type="button" class="wc${String(folderId) === String(id) ? ' on' : ''}${o.now ? ' now' : ''}" data-chip="${esc(id)}"
+        ${o.k ? `style="--fc:${o.k[1]};--fc-soft:${o.k[2]};--fc-ink:${o.k[3]}"` : ''}${o.now ? ' title="Đang đi"' : ''}>
+        <i class="fas fa-${o.icon || 'folder'}"></i><span class="wc-t">${esc(name)}</span><b>${n}</b></button>`;
+    box.innerHTML = chip('', 'Mọi đợt', records.length, { icon: 'layer-group' })
+        + folders.map(f => chip(f.id, f.ten || 'Đợt thực hành', countIn(f.id), { k: folderKind(f), now: isOngoing(f) })).join('')
+        + (loose && folders.length ? chip('__none__', 'Chưa xếp', loose, { icon: 'inbox' }) : '')
+        + `<button type="button" class="wc wc-add" data-folder-new><i class="fas fa-plus"></i>Đợt mới</button>`;
+    if (chipsFor !== folderId) {            // chỉ cuộn khi vừa đổi đợt, đừng giật hàng chip lúc đang gõ tìm
+        chipsFor = folderId;
+        const on = box.querySelector('.wc.on');
+        if (on) box.scrollLeft = on.offsetLeft - (box.clientWidth - on.offsetWidth) / 2;
+    }
 }
 
 /** Đầu vùng bệnh án: tên phạm vi đang xem + thông tin đợt + nút sửa / tạo */
@@ -482,12 +506,12 @@ function renderScope() {
     $('scope-meta').textContent = meta;
     const sw = $('folder-switch');
     if (cur) {
-        const [, c, soft] = folderKind(cur);
+        const [, c, soft, ink] = folderKind(cur);
         sw.style.setProperty('--fc', c);
         sw.style.setProperty('--fc-soft', soft);
+        sw.style.setProperty('--fc-ink', ink);
     } else {
-        sw.style.removeProperty('--fc');
-        sw.style.removeProperty('--fc-soft');
+        ['--fc', '--fc-soft', '--fc-ink'].forEach(k => sw.style.removeProperty(k));
     }
     $('scope-ico').innerHTML = `<i class="fas fa-${icon}"></i>`;
     $('scope-edit').classList.toggle('hidden', !cur);
@@ -546,6 +570,11 @@ function setupFolders() {
             e.preventDefault();
             pick(e.target.dataset.folder);
         }
+    });
+    document.getElementById('folder-chips')?.addEventListener('click', (e) => {
+        if (e.target.closest('[data-folder-new]')) return openFolderModal(null);
+        const c = e.target.closest('[data-chip]');
+        if (c) pick(c.dataset.chip);
     });
     // Nút "Mở đợt" ở tiêu đề mỗi nhóm (đang xem Tất cả)
     document.getElementById('medical-record-cards')?.addEventListener('click', (e) => {
@@ -645,7 +674,7 @@ function openMoveModal(recId) {
         + (rec?.thuMuc?.ten ? ` · đang ở "${rec.thuMuc.ten}"` : ' · chưa xếp vào đợt');
     const cur = ids.length > 1 ? '__nhieu__' : String(rec?.thuMuc?.id || '');
     document.getElementById('move-list').innerHTML =
-        folders.map(f => `<button class="move-opt${cur === String(f.id) ? ' is-current' : ''}" data-move="${esc(f.id)}" style="--fc:${folderKind(f)[1]}">
+        folders.map(f => `<button class="move-opt${cur === String(f.id) ? ' is-current' : ''}" data-move="${esc(f.id)}" style="--fc:${folderKind(f)[1]};--fc-soft:${folderKind(f)[2]};--fc-ink:${folderKind(f)[3]}">
             <i class="fas fa-folder"></i><span><b>${esc(f.ten || 'Đợt thực hành')}</b><small>${esc(folderMeta(f)) || 'Chưa điền khoa / bệnh viện'}</small></span></button>`).join('')
         + `<button class="move-opt${cur ? '' : ' is-current'}" data-move="">
             <i class="fas fa-inbox"></i><span><b>Không thuộc đợt nào</b><small>Để riêng ở mục "Chưa xếp vào đợt"</small></span></button>`;
@@ -696,9 +725,9 @@ function setupMove() {
 function renderBulkBar() {
     const bar = document.getElementById('bulk-bar');
     if (!bar) return;
-    const show = selectMode && selected.size > 0;
-    bar.classList.toggle('hidden', !show);   // để CSS lo bố cục: dàn ngang ở máy tính, lưới đáy màn ở điện thoại
-    document.getElementById('bulk-count').textContent = `${selected.size} đã chọn`;
+    // Hiện suốt chế độ chọn (kể cả 0 thẻ) — nút × thoát luôn ở đó, bỏ chọn hết không bị kẹt lại
+    bar.classList.toggle('hidden', !selectMode);   // để CSS lo bố cục: dàn ngang ở máy tính, lưới đáy màn ở điện thoại
+    document.getElementById('bulk-count').textContent = selected.size ? `${selected.size} đã chọn` : 'Chạm vào thẻ để chọn';
     const st = document.getElementById('select-toggle');
     if (st) {
         st.classList.toggle('on', selectMode);
@@ -825,20 +854,27 @@ function createNew() {
    "chỉ lưu trên máy này", người dùng tưởng mất đồng bộ. */
 let authReady = false;
 
-function updateSyncStatus() {
+/** Viên trạng thái đồng bộ ở đầu trang: ok (bạc hà) · local (vàng bơ, mời đăng nhập) · busy (đang chạy) */
+function setSync(state, html, title = '') {
     const el = document.getElementById('sync-status');
-    if (!el || !authReady) return;
-    el.innerHTML = isSignedIn()
-        ? `<i class="fas fa-cloud text-green-400"></i> Đã đồng bộ đám mây · ${records.length} bệnh án`
-        : `<i class="fas fa-hdd text-amber-400"></i> Chỉ lưu trên máy này · <a href="../../index.html" class="text-pink-500 underline font-medium">đăng nhập để đồng bộ</a>`;
+    if (!el) return;
+    el.dataset.state = state;
+    el.innerHTML = html;
+    el.title = title;
+}
+const syncBusy = () => setSync('busy', `<i class="fas fa-circle-notch fa-spin"></i> Đang đồng bộ…`);
+
+function updateSyncStatus() {
+    if (!authReady) return;
+    if (isSignedIn()) setSync('ok', `<i class="fas fa-cloud"></i> Đã đồng bộ`, 'Bệnh án đã lưu lên đám mây · bấm để đồng bộ ngay');
+    else setSync('local', `<i class="fas fa-hdd"></i> Chỉ lưu trên máy này · <a href="../../index.html">đăng nhập để đồng bộ</a>`);
 }
 
 async function reload({ cloud = false } = {}) {
     records = sortRecords(listLocal());
     render();
     if (cloud) {
-        const el = document.getElementById('sync-status');
-        if (el) el.innerHTML = `<i class="fas fa-circle-notch fa-spin text-pink-400"></i> Đang đồng bộ…`;
+        syncBusy();
         records = await syncFromCloud();
         render();
     }
@@ -852,11 +888,16 @@ function setupSyncButton() {
     const btn = document.getElementById('sync-now');
     if (!btn) return;
     const icon = btn.querySelector('i');
+    // Bấm viên "Đã đồng bộ" ở đầu trang = Đồng bộ ngay (khỏi mở menu ⚙)
+    document.getElementById('sync-status')?.addEventListener('click', (e) => {
+        if (!e.target.closest('a') && isSignedIn()) btn.click();
+    });
     btn.addEventListener('click', async () => {
         if (btn.disabled) return;
         document.getElementById('more-menu')?.classList.add('hidden');
         btn.disabled = true;
         icon.className = 'fas fa-circle-notch fa-spin';
+        syncBusy();
         const r = await syncNow({ wait: true });
         records = sortRecords(r.merged);
         render();
@@ -1061,6 +1102,82 @@ function setupKeys() {
     });
 }
 
+/* ================= Điện thoại: cử chỉ và thanh công cụ ================= */
+function setupTouch() {
+    const main = document.getElementById('wr-main');
+    const tools = document.getElementById('wr-tools');
+    const fab = document.getElementById('create-new-record');
+    const menu = document.getElementById('more-menu');
+    const narrow = matchMedia('(max-width: 1023px)');
+
+    /* Cuộn xuống: giấu thanh tìm/lọc và thu nút tạo thành nút tròn, nhường chỗ cho danh sách.
+       Cuộn lên một chút là hiện lại. Chỉ bật/tắt class khi đổi trạng thái — không ghi style mỗi khung hình. */
+    let last = 0, raf = 0;
+    main?.addEventListener('scroll', () => {
+        if (raf) return;
+        raf = requestAnimationFrame(() => {
+            raf = 0;
+            const y = main.scrollTop, dy = y - last;
+            fab?.classList.toggle('fab-mini', y > 140);
+            if (Math.abs(dy) < 8) return;
+            last = y;
+            const busy = document.activeElement?.id === 'search-record' || !menu?.classList.contains('hidden');
+            tools?.classList.toggle('tuck', narrow.matches && dy > 0 && y > 260 && !busy);
+            tools?.classList.toggle('lifted', y > 60);
+        });
+    }, { passive: true });
+
+    // Menu ⚙ trên điện thoại là bảng trượt từ đáy: cờ trên body để hiện nền mờ và giấu nút tạo
+    if (menu) new MutationObserver(() => document.body.classList.toggle('more-open', !menu.classList.contains('hidden')))
+        .observe(menu, { attributes: true, attributeFilter: ['class'] });
+
+    /* Nhấn giữ thẻ ~0,5 giây → vào chế độ chọn nhiều với thẻ đó (chỉ cảm ứng; chuột đã có kéo thả) */
+    const cards = document.getElementById('medical-record-cards');
+    let timer = 0, x0 = 0, y0 = 0, swallow = false;
+    const stop = () => { clearTimeout(timer); timer = 0; };
+    cards?.addEventListener('pointerdown', (e) => {
+        swallow = false;
+        if (e.pointerType === 'mouse' || selectMode || e.target.closest('button')) return;
+        const card = e.target.closest('.rec-card');
+        if (!card) return;
+        x0 = e.clientX; y0 = e.clientY;
+        timer = setTimeout(() => {
+            timer = 0; swallow = true;
+            setSelectMode(true);
+            toggleSelect(card.dataset.id);
+            navigator.vibrate?.(12);
+        }, 500);
+    });
+    cards?.addEventListener('pointermove', (e) => { if (timer && Math.hypot(e.clientX - x0, e.clientY - y0) > 10) stop(); });
+    ['pointerup', 'pointercancel'].forEach(t => cards?.addEventListener(t, stop));
+    // Nhả tay sau khi giữ, trình duyệt có thể bắn thêm một click — nuốt đi kẻo bỏ chọn ngay thẻ vừa chọn
+    cards?.addEventListener('click', (e) => {
+        if (swallow) { swallow = false; e.stopImmediatePropagation(); e.preventDefault(); }
+    }, true);
+    cards?.addEventListener('contextmenu', (e) => { if (swallow || timer) e.preventDefault(); });
+
+    // Bảng đợt (trượt từ đáy): đang ở đầu danh sách mà kéo xuống quá 80px thì đóng
+    const pane = document.getElementById('folder-pane');
+    let sy = null;
+    pane?.addEventListener('touchstart', (e) => {
+        sy = narrow.matches && pane.classList.contains('open') && pane.scrollTop <= 0 ? e.touches[0].clientY : null;
+    }, { passive: true });
+    pane?.addEventListener('touchmove', (e) => {
+        if (sy == null) return;
+        const dy = e.touches[0].clientY - sy;
+        pane.classList.add('drag');
+        pane.style.transform = dy > 0 ? `translateY(${dy}px)` : '';
+    }, { passive: true });
+    pane?.addEventListener('touchend', (e) => {
+        if (sy == null) return;
+        const dy = e.changedTouches[0].clientY - sy;
+        sy = null;
+        pane.classList.remove('drag');
+        pane.style.transform = '';
+        if (dy > 80) closeFolderSheet();
+    });
+}
+
 /* ================= Khởi động ================= */
 loadPrefs();
 setupChrome();
@@ -1069,6 +1186,7 @@ setupFolders();
 setupMove();
 setupBulk();
 setupKeys();
+setupTouch();
 document.addEventListener('click', (e) => {
     if (!e.target.closest('.menu-record')) {
         document.querySelectorAll('.rec-card.menu-open').forEach(c => c.classList.remove('menu-open'));

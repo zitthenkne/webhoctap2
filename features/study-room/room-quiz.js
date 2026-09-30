@@ -23,6 +23,7 @@ import { renderLobby } from './room-lobby.js';
 import { ensureXlsx, openMinutes, fold } from './room-boost.js';
 import { reviewIndexes } from './room-game.js';
 import { optExpFull, mergeExp } from './room-reason.js';
+import { formatOf } from '../quiz/quiz-essay-core.js';
 
 let draft = null;           // bộ đề vừa nạp, chưa phát cho phòng
 const TIMER_STEPS = [0, 15, 30, 45, 60, 90];
@@ -398,8 +399,72 @@ async function pickFromLibrary(quizId) {
     });
 }
 
+// ---------- Mở đề từ trang làm bài 1 mình (quiz.html -> "Làm cùng nhau") ----------
+// study-room.html?id=<phòng>&quiz=<id đề>&start=resume|fresh&title=…  — cùng máy nên đọc thẳng bài dở
+// localStorage quizState_<id> (quiz-state.js): bộ câu ĐÚNG thứ tự đã xáo, đáp án, câu đang làm.
+// Ghi chú / đánh dấu vốn đã dùng chung kho với trang làm bài (room-study.js) nên tự theo sang.
+const htmlText = (t) => escapeHtml(String(t || '').trim()).replace(/\n/g, '<br>');
+function soloResume(saved) {
+    const qs = saved.questions;
+    const now = Date.now();
+    const answers = {}, notes = {}, notesBy = {}, shown = {}, grades = {}, parts = {};
+    const instant = saved.quizOptions?.showAnswerImmediately !== false;
+    const me = { name: hostName(), at: now };
+    (saved.userAnswers || []).forEach((a, i) => {
+        if (a == null || !qs[i]) return;
+        const k = 'q' + i;
+        if (isEssay(qs[i])) {
+            if (typeof a !== 'object') return;
+            const f = formatOf(qs[i]);
+            if (f.parts > 1 && Array.isArray(a.parts)) {          // bài nhiều ô -> đúng từng ô của phòng
+                if (a.parts.some(x => String(x || '').trim())) { parts[k] = Object.fromEntries(a.parts.map((x, n) => ['p' + n, htmlText(x)])); notesBy[k] = me; }
+            } else if (String(a.text || '').trim()) { notes[k] = htmlText(a.text); notesBy[k] = me; }
+            if (Array.isArray(a.ticks) && !a.auto) grades[k] = { ticks: a.ticks, partials: a.partials || [], by: { name: me.name }, at: now };
+            if (instant && a.done) shown[k] = true;
+            return;
+        }
+        const pick = Array.isArray(a) ? a[0] : a;            // câu nhiều đáp án: phòng ghi 1 phiếu / người
+        if (typeof pick !== 'number') return;
+        answers[k] = { i: pick, at: now, ...(saved.confidence?.[i] === 'guess' ? { guess: true } : {}) };
+        if (instant) shown[k] = true;                           // bài 1 mình đã xem đáp án câu này rồi
+    });
+    const idx = Math.min(Math.max(0, saved.currentIndex | 0), qs.length - 1);
+    return { answers, session: { currentQuestionIndex: idx, qStarts: { ['q' + idx]: now }, notes, notesBy, shown, grades, parts } };
+}
+
+export async function startFromSolo() {
+    const p = new URLSearchParams(location.search);
+    const quizId = p.get('quiz');
+    if (!quizId) return;
+    const resume = p.get('start') === 'resume';
+    const title = p.get('title') || '';
+    ['quiz', 'start', 'title'].forEach(k => p.delete(k));
+    history.replaceState(null, '', `${location.pathname}?${p}`);      // F5 không mở lại lần nữa
+    for (let k = 0; k < 40 && !room.roomDoc; k++) await new Promise(r => setTimeout(r, 100));
+    if (!canControl()) return void showToast('Chỉ chủ phòng / chủ trì mới mở đề cho cả phòng.', 'warning', 3200);
+    if (hasSession() && !room.session.ended
+        && !await showConfirm('Phòng đang có phiên làm dở — thay bằng đề này?', { confirmText: 'Thay đề' })) return;
+    let saved = null;
+    if (resume) { try { saved = JSON.parse(localStorage.getItem('quizState_' + quizId) || 'null'); } catch (e) {} }
+    let solo = null;
+    if (saved?.questions?.length) {
+        draft = { questions: saved.questions, title: title || 'Đề trắc nghiệm', fromLibrary: true, quizId };
+        solo = soloResume(saved);
+    } else {
+        if (resume) showToast('Bản lưu bài dở không còn đủ đề — mở đề từ đầu.', 'warning', 3200);
+        el('loading-overlay').classList.remove('hidden');
+        const data = (await getOfflineQuiz(quizId).catch(() => null)) || (await fetchQuiz(quizId).catch(() => null));
+        el('loading-overlay').classList.add('hidden');
+        if (!data?.questions?.length) return void showToast('Không mở được bộ đề này.', 'error');
+        draft = { questions: data.questions, title: data.title || title || 'Đề trắc nghiệm', fromLibrary: true, quizId };
+    }
+    rememberQuiz(quizId, draft.title, draft.questions.length);
+    await startSession(solo, true);
+}
+
 // ---------- Bắt đầu phiên ----------
-async function startSession() {
+// solo = { answers, session } khi đánh tiếp bài làm 1 mình (không xáo lại — chỉ số câu phải khớp bản lưu)
+async function startSession(solo = null, fromSolo = false) {
     // Đề thư viện đang hỏi lại máy chủ -> đợi tối đa 3s cho chắc phát đúng bản mới nhất
     if (fresh) await Promise.race([fresh, new Promise(r => setTimeout(r, 3000))]);
     if (!draft?.questions?.length) return;
@@ -409,7 +474,7 @@ async function startSession() {
     try { localStorage.setItem(PREFS_KEY, JSON.stringify(readForm())); } catch (e) {}
     const timerSec = mode === 'lead' ? (Number(el('setup-timer').value) || 0) : 0;
     // Xáo theo KHỐI ca lâm sàng: câu chùm cùng caseId luôn đứng liền nhau, không bị xé lẻ
-    const questions = el('setup-shuffle').checked ? shuffleArray(groupQuestionsByCase(draft.questions)).flat() : draft.questions;
+    const questions = !solo && el('setup-shuffle').checked ? shuffleArray(groupQuestionsByCase(draft.questions)).flat() : draft.questions;
     el('loading-overlay').classList.remove('hidden');
     try {
         // Xóa đáp án phiên trước của mọi người để bảng điểm bắt đầu từ 0
@@ -438,7 +503,9 @@ async function startSession() {
             savedQuizId: null,
             startedAt: serverTimestamp(),
             startedAtMs: Date.now(),
+            ...(solo?.session || {}),
         });
+        if (solo && Object.keys(solo.answers).length) await updateDoc(refs.member(), { answers: solo.answers }).catch(() => {});
         // Tóm tắt cho khu "Phòng học của tôi" ở trang chủ: thẻ phòng đọc field này nên
         // không phải tải cả bộ đề (doc quizSession có thể vài trăm KB) chỉ để hiện trạng thái.
         updateDoc(refs.room(), {
@@ -446,7 +513,8 @@ async function startSession() {
             next: null, scheduledAt: null, rollCall: null,
         }).catch(() => {});
         systemMessage(`${hostName()} đã mở phiên đánh đề "${draft.title}" (${questions.length} câu).`);
-        showToast('Đã bắt đầu cho cả phòng!', 'success');
+        showToast(solo ? `Đánh tiếp từ câu ${solo.session.currentQuestionIndex + 1}, đáp án đã chọn vẫn giữ nguyên — bấm Mời để rủ bạn vào.`
+            : fromSolo ? 'Đã mở đề — bấm Mời để rủ bạn vào làm cùng.' : 'Đã bắt đầu cho cả phòng!', 'success', fromSolo ? 4200 : 3000);
     } catch (err) {
         console.error(err);
         showToast('Không bắt đầu được phiên. Thử lại nhé.', 'error');
@@ -707,12 +775,9 @@ window.addEventListener('room:save-review', saveReviewQuiz);
 async function saveToLibrary() {
     const s = room.session;
     if (!s || !room.user || room.user.isAnonymous || room.user.isGuest) return showToast('Đăng nhập để lưu đề vào thư viện.', 'warning');
-    const keep = s.questions.map((_, i) => i).filter(i => !isEssay(questionAt(i)));
-    if (!keep.length) return showToast('Đề toàn câu tự luận — trang làm bài chưa hỗ trợ. Xuất biên bản để lưu bài giải nhé.', 'info', 3600);
-    const essays = s.questions.length - keep.length;
-    const missing = keep.filter(i => correctIdxOf(questionAt(i), i) === null && refIdxOf(questionAt(i)) === null).length;
+    const keep = s.questions.map((_, i) => i);
+    const missing = keep.filter(i => !isEssay(questionAt(i)) && correctIdxOf(questionAt(i), i) === null && refIdxOf(questionAt(i)) === null).length;
     const msg = (missing ? `Còn ${missing} câu chưa có đáp án đúng. ` : '')
-        + (essays ? `${essays} câu tự luận sẽ không lưu (trang làm bài chưa hỗ trợ — có trong biên bản). ` : '')
         + 'Lưu thành bộ đề MỚI trong thư viện của bạn? (không đụng vào bộ đề gốc)';
     if (!await showConfirm(msg, { confirmText: 'Lưu bản mới' })) return;
 
@@ -723,6 +788,24 @@ async function saveToLibrary() {
             questionCount: keep.length,
             questions: keep.map((i) => {
                 const q = questionAt(i);            // bản đã được nhóm sửa (nếu có)
+                const issue = issueOf(i) ? { note: [q.note, '⚠ ' + issueOf(i)].filter(Boolean).join(' — ') } : {};
+                // Tự luận (trang làm đề đã hỗ trợ): giữ barem / kiểu ô / điểm câu của file. Bài làm chung của nhóm
+                // thành đáp án mẫu khi file không có, có rồi thì nối vào giải thích để đối chiếu.
+                if (isEssay(q)) {
+                    const group = noteOf(i);
+                    const hasGroup = !!String(group).replace(/<[^>]*>|&nbsp;/g, '').trim();
+                    const { correctAnswerIndex, correctAnswerIndexes, ...rest } = q;
+                    return {
+                        ...rest,
+                        type: 'essay',
+                        answers: [],
+                        modelAnswer: q.modelAnswer || (hasGroup ? group : ''),
+                        explanation: q.modelAnswer && hasGroup
+                            ? mergeExp(`<p><b>✍️ Bài làm chung của nhóm</b></p>${group}`, q.explanation || '')
+                            : (q.explanation || ''),
+                        ...issue,
+                    };
+                }
                 const opts = optsOf(q);
                 const optExp = opts.map((_, k) => optExpFull(i, k, q.optionExplanations && q.optionExplanations[k]));
                 return {
@@ -733,7 +816,7 @@ async function saveToLibrary() {
                     ...(acceptedOf(i).length > 1 ? { correctAnswerIndexes: acceptedOf(i) } : {}),
                     explanation: mergeExp(noteOf(i), q.explanation || q.explain || ''),
                     ...(optExp.some(t => t) ? { optionExplanations: optExp } : {}),
-                    ...(issueOf(i) ? { note: [q.note, '⚠ ' + issueOf(i)].filter(Boolean).join(' — ') } : {}),
+                    ...issue,
                 };
             }),
             updatedAt: serverTimestamp(),
@@ -905,7 +988,7 @@ export function initQuizControl() {
         if (f) handleQuizFile(f);
         else showToast('Chỉ nhận file đề Excel / CSV.', 'warning');
     });
-    el('start-quiz-collaboration-btn')?.addEventListener('click', startSession);
+    el('start-quiz-collaboration-btn')?.addEventListener('click', () => startSession());
     el('paste-quiz-btn')?.addEventListener('click', () => openPaste('lobby'));
     el('host-add')?.addEventListener('click', () => openPaste('append'));
     const pm = el('paste-modal');

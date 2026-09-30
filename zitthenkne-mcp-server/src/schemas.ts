@@ -136,13 +136,31 @@ const KeyPointItemSchema = z
   })
   .strict();
 
+// Một ô tự đặt (list / fields): chuỗi = nhãn, hoặc object đặt tự do từng ô
+const AnswerSlotSchema = z.union([
+  z.string().min(1),
+  z
+    .object({
+      label: z.string().optional().describe("Nhãn hiện trên ô (vd. 'Mạch', 'Chẩn đoán sơ bộ') — KHÔNG lộ đáp án"),
+      hint: z.string().optional().describe("Chữ mờ gợi ý trong ô (vd. 'kèm mức độ', 'ghi số + đơn vị')"),
+      size: z.enum(["line", "para", "long"]).optional().describe("line = 1 dòng (Enter sang ô kế) · para = đoạn · long = ô dài; mặc định list = line, fields = para"),
+      unit: z.string().optional().describe("Đơn vị hiện sau ô (vd. 'lần/phút', 'mmHg', 'cm', 'tuần')"),
+    })
+    .strict()
+    .refine((o) => !!(o.label || o.hint || o.unit), { message: "Ô cần ít nhất label, hint hoặc unit" }),
+]);
+
 const AnswerFormatSchema = z
   .object({
     kind: z
       .enum(["text", "short", "list", "fields", "table"])
       .describe("text = ô văn bản dài (mặc định) · short = 1 dòng · list = N ô đánh số · fields = các ô có nhãn · table = bảng cột × hàng"),
     count: z.number().int().min(1).max(12).optional().describe("list: số ô (= số ý đề yêu cầu nêu)"),
-    labels: z.array(z.string().min(1)).max(12).optional().describe("fields: nhãn từng ô (bắt buộc) · list: nhãn gợi ý từng ô (tùy chọn)"),
+    labels: z
+      .array(AnswerSlotSchema)
+      .max(20)
+      .optional()
+      .describe("fields: các ô (bắt buộc) · list: từng ô (tùy chọn). Mỗi ô là chuỗi nhãn hoặc { label, hint, size, unit } đặt tự do"),
     columns: z.array(z.string().min(1)).min(1).max(6).optional().describe("table: tên các cột (bắt buộc)"),
     rows: z
       .union([z.number().int().min(1).max(12), z.array(z.string().min(1)).min(1).max(12)])
@@ -199,7 +217,7 @@ const QuestionInputSchema = z
     case_text: z
       .string()
       .optional()
-      .describe("Nội dung tình huống/ca lâm sàng dùng chung (markdown). Nên đặt giống nhau ở mọi câu cùng case_id (tùy chọn)"),
+      .describe("Nội dung tình huống/ca lâm sàng dùng chung (markdown; hình vẽ bằng ```mermaid / ```svg được). Nên đặt giống nhau ở mọi câu cùng case_id (tùy chọn)"),
     case_title: z
       .string()
       .optional()

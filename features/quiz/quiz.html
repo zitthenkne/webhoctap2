@@ -151,6 +151,7 @@
     <link rel="modulepreload" href="page/quiz-study-sync.js">
     <link rel="modulepreload" href="quiz-editor.js">
     <link rel="modulepreload" href="quiz-essay-core.js">
+    <link rel="modulepreload" href="essay-format-editor.js">
     <link rel="modulepreload" href="quiz-helpers.js">
     <link rel="modulepreload" href="quiz-offline-store.js">
     <link rel="modulepreload" href="quiz-srs-store.js">
@@ -674,6 +675,9 @@
                         <a href="quiz-history.html" class="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-xl transition text-xs sm:text-sm font-semibold flex items-center gap-1.5 border border-amber-200/30"><i class="fas fa-clock-rotate-left"></i> Lịch sử</a>
                         <button id="share-quiz-btn" class="px-4 py-2 bg-green-50 hover:bg-green-100 text-green-600 rounded-xl transition text-xs sm:text-sm font-semibold flex items-center gap-1.5 border border-green-200/30">
                           <i class="fas fa-share-alt"></i> Chia sẻ
+                        </button>
+                        <button type="button" id="group-quiz-btn" class="px-4 py-2 bg-pink-50 hover:bg-pink-100 text-pink-600 rounded-xl transition text-xs sm:text-sm font-semibold flex items-center gap-1.5 border border-pink-200/30" title="Mở đề sang phòng đánh đề, rủ bạn bè làm cùng — đánh tiếp bài đang làm hoặc làm lại từ đầu">
+                          <i class="fas fa-users"></i> Làm cùng nhau
                         </button>
                         <button type="button" data-open-kbd class="bt-kbd-btn px-4 py-2 rounded-xl transition text-xs sm:text-sm font-semibold flex items-center gap-1.5" title="Bảng phím tắt (phím ?)">
                           <i class="fas fa-keyboard"></i> Phím tắt
@@ -1361,6 +1365,10 @@
                     <span class="qs-label"><i class="fas fa-share-alt"></i> Chia sẻ bộ đề</span>
                     <i class="fas fa-arrow-up-right-from-square qs-action-ic"></i>
                 </button>
+                <button type="button" id="qs-group-room" class="qs-row qs-action" title="Mở đề sang phòng đánh đề — đánh tiếp từ câu đang làm, giữ đáp án đã chọn">
+                    <span class="qs-label"><i class="fas fa-users"></i> Làm cùng nhau</span>
+                    <i class="fas fa-arrow-right qs-action-ic"></i>
+                </button>
                 <button type="button" class="qs-row qs-action" data-open-kbd>
                     <span class="qs-label"><i class="fas fa-keyboard"></i> Phím tắt &amp; thao tác</span>
                     <kbd class="kbd-key">?</kbd>
@@ -1627,17 +1635,7 @@
                     </div>
                     <div class="qe-field qe-essay-only">
                         <div class="qe-label"><i class="fas fa-table-cells ic-blue"></i> Kiểu ô trả lời</div>
-                        <div class="qe-format-row">
-                            <select id="qe-format-kind" class="qe-input">
-                                <option value="text">Ô văn bản dài</option>
-                                <option value="short">Trả lời ngắn (1 dòng)</option>
-                                <option value="list">Danh sách N ô</option>
-                                <option value="fields">Nhiều ô có nhãn</option>
-                                <option value="table">Bảng</option>
-                            </select>
-                            <input id="qe-format-a" class="qe-input" />
-                            <input id="qe-format-b" class="qe-input" />
-                        </div>
+                        <div id="qe-format" class="qe-format"></div>
                     </div>
 
                     <div class="qe-field qe-mcq-only">

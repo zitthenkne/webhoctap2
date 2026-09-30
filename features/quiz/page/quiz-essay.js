@@ -144,15 +144,20 @@ function inputsHtml(q, ans, readonly) {
         return `<textarea id="essay-input" class="essay-input${short ? ' is-short' : ''}" rows="${short ? 1 : 5}" spellcheck="false" ${ro}
             placeholder="${ph(short ? 'Trả lời ngắn…' : 'Gõ câu trả lời… mỗi ý một dòng cho dễ đối chiếu')}">${escHtml((ans && ans.text) || '')}</textarea>`;
     }
-    const box = (d, placeholder) => `<textarea class="essay-part" data-part="${d}" rows="1" spellcheck="false" ${ro}
-        placeholder="${escHtml(placeholder)}">${escHtml(parts[d] || '')}</textarea>`;
+    // Ô tự đặt (formatOf slots): gợi ý trong ô · cỡ 1 dòng / đoạn / dài · đơn vị đứng sau ô
+    const ROWS = { line: 1, para: 3, long: 6 };
+    const box = (d, placeholder, s = {}) => {
+        const ta = `<textarea class="essay-part is-${s.size || 'line'}" data-part="${d}" data-size="${s.size || 'line'}" rows="${ROWS[s.size] || 1}" spellcheck="false" ${ro}
+        placeholder="${escHtml(s.hint || placeholder)}">${escHtml(parts[d] || '')}</textarea>`;
+        return s.unit ? `<span class="essay-part-wrap">${ta}<span class="essay-unit">${escHtml(s.unit)}</span></span>` : ta;
+    };
     if (format.kind === 'list') {
-        return `<ol class="essay-list">${Array.from({ length: format.count }, (_, d) =>
-            `<li>${box(d, format.labels[d] || format.placeholder || `Ý ${d + 1}`)}</li>`).join('')}</ol>`;
+        return `<ol class="essay-list">${format.slots.map((s, d) =>
+            `<li>${s.label ? `<span class="essay-field-label">${escHtml(s.label)}</span>` : ''}${box(d, format.placeholder || `Ý ${d + 1}`, s)}</li>`).join('')}</ol>`;
     }
     if (format.kind === 'fields') {
-        return `<div class="essay-fields">${format.labels.map((l, d) =>
-            `<label class="essay-field"><span class="essay-field-label">${escHtml(l)}</span>${box(d, format.placeholder || '…')}</label>`).join('')}</div>`;
+        return `<div class="essay-fields">${format.slots.map((s, d) =>
+            `<label class="essay-field">${s.label ? `<span class="essay-field-label">${escHtml(s.label)}</span>` : ''}${box(d, format.placeholder || '…', s)}</label>`).join('')}</div>`;
     }
     return tableHtml(format, (d) => box(d, ''));
 }
@@ -161,10 +166,11 @@ function inputsHtml(q, ans, readonly) {
 export function answerReadHtml(q, ans, withMarks) {
     const format = formatOf(q);
     const { docs, marks } = withMarks ? answerMarks(q, ans) : { docs: answerDocs(q, ans), marks: [] };
-    const cell = (d) => (String(docs[d] || '').trim() ? docHtml(docs[d], marks[d]) : '<span class="essay-empty-cell">—</span>');
-    if (format.kind === 'list') return `<ol class="essay-read-list">${docs.map((_, d) => `<li>${cell(d)}</li>`).join('')}</ol>`;
+    const unit = (d) => (format.slots?.[d]?.unit && String(docs[d] || '').trim() ? ` <span class="essay-unit">${escHtml(format.slots[d].unit)}</span>` : '');
+    const cell = (d) => (String(docs[d] || '').trim() ? docHtml(docs[d], marks[d]) + unit(d) : '<span class="essay-empty-cell">—</span>');
+    if (format.kind === 'list') return `<ol class="essay-read-list">${docs.map((_, d) => `<li>${format.labels[d] ? `<b>${escHtml(format.labels[d])}:</b> ` : ''}${cell(d)}</li>`).join('')}</ol>`;
     if (format.kind === 'fields') {
-        return `<dl class="essay-read-fields">${format.labels.map((l, d) => `<dt>${escHtml(l)}</dt><dd>${cell(d)}</dd>`).join('')}</dl>`;
+        return `<dl class="essay-read-fields">${format.labels.map((l, d) => `<dt>${escHtml(l || `Ô ${d + 1}`)}</dt><dd>${cell(d)}</dd>`).join('')}</dl>`;
     }
     if (format.kind === 'table') return tableHtml(format, cell);
     return `<div class="essay-read-text">${docHtml(docs[0], marks[0])}</div>`;
@@ -173,8 +179,8 @@ export function answerReadHtml(q, ans, withMarks) {
 // Ý gắn vào một ô -> nhãn ngắn của ô đó (hiện trên barem để biết máy dò ở đâu)
 function fieldLabel(format, field) {
     if (!field) return '';
-    if (format.kind === 'fields') return format.labels[field - 1] || '';
-    if (format.kind === 'list') return `ý ${field}`;
+    if (format.kind === 'fields') return format.labels[field - 1] || `ô ${field}`;
+    if (format.kind === 'list') return format.labels[field - 1] || `ý ${field}`;
     if (format.kind === 'table') return format.rowLabels[field - 1] || `hàng ${field}`;
     return '';
 }
@@ -398,8 +404,9 @@ export function setupEssay(idx) {
         el.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); finishEssay(idx); return; }
             if (e.key === 'Escape') { el.blur(); return; }   // nhả ô gõ để dùng lại phím tắt
-            // Danh sách / bảng / trả lời ngắn: Enter sang ô kế (Shift+Enter vẫn xuống dòng trong ô)
-            if (e.key === 'Enter' && !e.shiftKey && (format.kind === 'list' || format.kind === 'table' || format.kind === 'short')) {
+            // Ô 1 dòng / bảng / trả lời ngắn: Enter sang ô kế (Shift+Enter vẫn xuống dòng trong ô); ô đoạn/dài thì Enter xuống dòng
+            const oneLine = el.dataset.size ? el.dataset.size === 'line' : (format.kind === 'table' || format.kind === 'short');
+            if (e.key === 'Enter' && !e.shiftKey && oneLine) {
                 e.preventDefault();
                 if (inputs[k + 1]) inputs[k + 1].focus();
                 else finishEssay(idx);

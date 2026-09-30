@@ -39,7 +39,7 @@ type QuestionInput = {
   model_answer?: string;
   key_points?: (KeyPointInput | { group: string; max_points?: number; items: KeyPointInput[] })[];
   max_score?: number;
-  answer_format?: { kind: string; count?: number; labels?: string[]; columns?: string[]; rows?: number | string[]; placeholder?: string };
+  answer_format?: { kind: string; count?: number; labels?: (string | { label?: string; hint?: string; size?: string; unit?: string })[]; columns?: string[]; rows?: number | string[]; placeholder?: string };
 };
 type KeyPointInput = { text: string; points?: number; keywords?: string[]; partial_points?: number; critical?: boolean; field?: number; order?: string[] };
 
@@ -105,6 +105,12 @@ const ESSAY_GUIDE = `    Tự luận / thi tình huống: { type: 'essay', quest
           · Trả lời bằng MỘT cụm ngắn (chẩn đoán xác định, tên bệnh, một con số, một thuốc) -> { kind: 'short' }.
           · Giải thích cơ chế, biện luận, trình bày, phân tích -> bỏ trống (ô văn bản dài).
           · Nhãn ô / nhãn hàng / placeholder KHÔNG được lộ đáp án (đề hỏi kể thuốc thì đừng đặt nhãn hàng "Aspirin").
+          · MỖI Ô ĐẶT TỰ DO (list / fields): phần tử labels là chuỗi nhãn, hoặc { label, hint, size, unit }:
+              hint = chữ mờ hướng dẫn cách ghi ('kèm mức độ', 'ghi theo thứ tự ưu tiên') · size: line (1 dòng) | para (đoạn) | long (dài)
+              unit = đơn vị sau ô cho câu điền số ('lần/phút', 'mmHg', 'cm', 'tuần'). Ví dụ trạm OSCE đọc sinh hiệu:
+              { kind: 'fields', labels: [{ label: 'Mạch', unit: 'lần/phút', size: 'line' }, { label: 'Huyết áp', unit: 'mmHg', size: 'line' },
+                { label: 'Nhận định', hint: 'bình thường / bất thường + lý do', size: 'para' }] }
+              Chọn cỡ theo độ dài câu trả lời mong đợi; nhiều phần khác loại trong một câu thì dùng fields với từng ô riêng.
       - MỌI câu tự luận BẮT BUỘC có note + expanded (thiếu là bị từ chối), nên có thêm explanation (lập luận của barem):
           · note (Ghi nhớ): bẫy hay nhầm, lỗi làm mất điểm, mẹo nhớ, đính chính quan niệm sai — ngắn, gạch đầu dòng.
           · expanded (Mở rộng): kiến thức VƯỢT đáp án mẫu, KHÔNG chép lại model_answer — ưu tiên bảng markdown so sánh / phân biệt,
@@ -112,6 +118,10 @@ const ESSAY_GUIDE = `    Tự luận / thi tình huống: { type: 'essay', quest
       - max_score = điểm tối đa của CÂU trong đề (trọng số; vd. đề thang 10: câu 1 = 2đ, câu 2 = 3đ). Tổng barem của câu nên bằng max_score.
       - model_answer = đáp án mẫu viết liền (markdown). Có key_points thì model_answer chỉ để đọc thêm; không có key_points thì mỗi gạch đầu dòng cấp 1 của model_answer thành 1 ý (ghi điểm cuối ý: "- Killip I (0.5đ)").
       - Đề tình huống: bối cảnh chung đặt ở case_text (lặp y hệt ở mọi câu cùng case_id), mỗi câu hỏi nhỏ là một câu riêng theo đúng thứ tự.
+      - HÌNH VẼ BẰNG MÃ (mọi trường markdown, cả trắc nghiệm): khối \`\`\`mermaid (flowchart lưu đồ / xychart-beta biểu đồ đường-cột / pie)
+        hoặc khối \`\`\`svg (hình y khoa vẽ tay: băng CTG, biểu đồ chuyển dạ, đường cong tăng trưởng). SVG phải tự đủ: viewBox + width + height,
+        <title>, font-family có sans-serif, KHÔNG script / on…= / href ngoài / foreignObject, ≤ 200 KB (web hiện SVG dưới dạng ảnh).
+        Đề nhớ lại MẤT HÌNH mà còn lời tả -> tái tạo hình từ đúng lời tả (không bịa số làm đổi đáp án) và ghi note "🖌 Hình tái tạo: …".
       - case_reveal (tùy chọn) ở câu k = thông tin mới (vd. kết quả xét nghiệm) chỉ lộ ra từ câu k; xem câu k rồi thì các câu trước của ca bị khóa, không sửa được nữa.
       - Trộn trắc nghiệm + tự luận trong cùng bộ đề được.
       Ví dụ: { type: 'essay', case_id: 'ca1', case_title: 'Đau ngực', case_text: 'BN nam 58t...', question: 'Chẩn đoán sơ bộ?', max_score: 1.5,

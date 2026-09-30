@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
     isEssay, keyPointsOf, essayMaxPoints, essayCredit, isEssayGraded, isPendingEssay, isLockedByReveal,
     essayPoints, missingCritical, rubricOf, questionWeight, autoMatch, withAutoGrade, needsReview, modelCoverage,
-    formatOf, answerDocs, partsText, rubricToText, textToRubric
+    formatOf, answerDocs, partsText, rubricToText, textToRubric, remapFields
 } from '../quiz-essay-core.js';
 import { isAnswerCorrect, answerCredit } from '../quiz-helpers.js';
 
@@ -226,4 +226,43 @@ test('ý kiểm tra thứ tự: đúng trình tự mới tính, viết tắt v�
     const kp = [{ text: 'Đúng thứ tự khám', points: 0.5, critical: true, order: ['bề cao tử cung|BCTC', 'Leopold', 'khám trong'] }];
     assert.match(rubricToText(kp), /\{thứ tự: bề cao tử cung\|BCTC > Leopold > khám trong\}$/);
     assert.deepEqual(textToRubric(rubricToText(kp)), kp);
+});
+
+test('ô tự đặt: nhãn · gợi ý · cỡ · đơn vị, chuỗi cũ vẫn chạy, dò đúng ô', () => {
+    const q = essay({
+        answerFormat: { kind: 'fields', labels: ['Chẩn đoán', { label: 'Mạch', hint: '60–100', size: 'line', unit: 'lần/phút' }, { hint: 'Ghi thêm' }] },
+        keyPoints: [{ text: 'Mạch nhanh', points: 1, keywords: ['110'], field: 2 }],
+    });
+    const f = formatOf(q);
+    assert.equal(f.parts, 3);
+    assert.deepEqual(f.labels, ['Chẩn đoán', 'Mạch', '']);
+    assert.deepEqual(f.slots[0], { label: 'Chẩn đoán', hint: '', size: 'para', unit: '' });   // ô có nhãn mặc định là đoạn
+    assert.deepEqual(f.slots[1], { label: 'Mạch', hint: '60–100', size: 'line', unit: 'lần/phút' });
+    assert.equal(partsText(f, ['Tiền sản giật', '110', 'x']), 'Chẩn đoán: Tiền sản giật\nMạch: 110 lần/phút\nx');
+    assert.equal(autoMatch(q, { parts: ['110', '', ''] })[0].level, null);       // ghi ở ô khác -> không tính
+    assert.equal(autoMatch(q, { parts: ['', '110', ''] })[0].level, 'match');
+    // danh sách: nhãn giữ đúng vị trí (không dồn khi có ô trống)
+    const l = formatOf(essay({ answerFormat: { kind: 'list', labels: ['', { label: 'Thuốc 2', unit: 'mg' }] } }));
+    assert.equal(l.count, 2);
+    assert.deepEqual(l.labels, ['', 'Thuốc 2']);
+    assert.equal(partsText(l, ['a', '5']), '1. a\n2. 5 mg');
+});
+
+test('remapFields: ý barem gắn ô đi theo ô khi chèn / xóa / đổi thứ tự', () => {
+    const kp = [
+        { text: 'Mạch nhanh', points: 1, field: 1 },
+        { text: 'Tăng huyết áp', points: 1, field: 2 },
+        { group: 'Nêu 1 trong 2', max: 1, items: [{ text: 'a', points: 1, field: 3 }, { text: 'b', points: 1 }] },
+    ];
+    // Chèn ô mới lên đầu: ô cũ 0,1,2 -> 1,2,3
+    const r = remapFields(kp, [null, 0, 1, 2]);
+    assert.deepEqual(r.map(x => x.field ?? null), [2, 3, null]);
+    assert.equal(r[2].items[0].field, 4);
+    assert.equal('field' in r[2].items[1], false);
+    // Xóa ô cũ số 2 (field 2): ý đó thôi gắn ô
+    const d = remapFields(kp, [0, 2]);
+    assert.equal(d[0].field, 1);
+    assert.equal('field' in d[1], false);
+    assert.equal(d[2].items[0].field, 2);
+    assert.equal(remapFields(kp, undefined), kp);                    // không có order -> giữ nguyên
 });

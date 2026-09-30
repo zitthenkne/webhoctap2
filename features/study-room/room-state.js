@@ -2,6 +2,7 @@
 // Mọi module con đọc `room` và đăng ký `subscribe()` thay vì tự nghe Firestore lần nữa.
 import { db } from '../../core/firebase-init.js';
 import { doc, collection } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { formatOf } from '../quiz/quiz-essay-core.js';
 
 export const room = {
     roomId: null,
@@ -30,7 +31,10 @@ export const refs = {
 
 // --- Vai trò ---
 export const uid = () => room.user?.uid || null;
-export const isHost = () => !!(room.session?.hostId && room.session.hostId === uid());
+// Chủ trì hiện tại: trong phiên = session.hostId; ở sảnh (chưa có phiên) = roomDoc.hostId — chủ phòng trao
+// quyền trước khi mở đề được, và người được trao vẫn là chủ trì ở sảnh sau khi phiên kết thúc.
+export const hostIdNow = () => (room.session?.questions?.length ? room.session.hostId : room.roomDoc?.hostId) || null;
+export const isHost = () => !!uid() && hostIdNow() === uid();
 export const isCohost = () => !!(room.session?.cohosts || []).includes(uid());
 // "Chủ trì": người điều khiển phiên. Chủ phòng luôn có quyền để không bị kẹt khi host thoát.
 export const canControl = () => isHost() || isCohost() || room.isOwner;
@@ -57,7 +61,34 @@ export const chosenOf = (i) => {
     return typeof c === 'number' ? c : null;
 };
 export const isAnnounced = (i) => chosenOf(i) !== null;
-export const noteOf = (i) => room.session?.notes?.[qKey(i)] || '';
+// Tự luận NHIỀU Ô (answerFormat list / fields / table — cùng quy ước trang làm đề): bài làm chung lưu theo
+// ô session.parts.q<i>.p<k>. noteOf trả bản GỘP (HTML) nên sổ tay, biên bản, Lưu đề, barem đọc như cũ.
+export const isMultiSlot = (q) => formatOf(q).parts > 1;
+export const partsOf = (i) => room.session?.parts?.[qKey(i)] || null;
+const escLabel = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const filled = (s) => !!String(s || '').replace(/<[^>]*>|&nbsp;/g, '').trim() || /<img/i.test(String(s || ''));
+export function partsHtml(q, parts) {
+    const f = formatOf(q);
+    const v = (k) => String(parts?.['p' + k] || '').trim();
+    const u = (k) => (f.slots?.[k]?.unit ? ' ' + escLabel(f.slots[k].unit) : '');
+    if (f.kind === 'list') return Array.from({ length: f.count }, (_, k) => (filled(v(k))
+        ? `<div><b>${k + 1}.${f.labels[k] ? ' ' + escLabel(f.labels[k]) + ':' : ''}</b> ${v(k)}${u(k)}</div>` : '')).join('');
+    if (f.kind === 'fields') return f.labels.map((l, k) => (filled(v(k)) ? `<div>${l ? `<b>${escLabel(l)}:</b> ` : ''}${v(k)}${u(k)}</div>` : '')).join('');
+    if (f.kind === 'table') {
+        const cols = f.columns.length;
+        const rows = Array.from({ length: f.rows }, (_, r) => {
+            const cells = f.columns.map((_, c) => v(r * cols + c));
+            if (!cells.some(filled)) return '';
+            return `<tr>${f.rowLabels.length ? `<td><b>${escLabel(f.rowLabels[r] || '')}</b></td>` : ''}${cells.map(x => `<td>${x || '—'}</td>`).join('')}</tr>`;
+        }).join('');
+        return rows ? `<table><thead><tr>${f.rowLabels.length ? '<th></th>' : ''}${f.columns.map(c => `<th>${escLabel(c)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>` : '';
+    }
+    return v(0);
+}
+export const noteOf = (i) => {
+    const p = partsOf(i);
+    return p ? partsHtml(questionAt(i), p) : (room.session?.notes?.[qKey(i)] || '');
+};
 // Giải thích riêng cho từng phương án (như trang quiz.html): notes riêng theo câu + phương án
 export const optNoteOf = (i, k) => room.session?.optNotes?.[qKey(i)]?.['o' + k] || '';
 export const correctIdxOf = (q, i) => {
@@ -135,6 +166,8 @@ export function questionAt(i) {
     if (x) ['expanded', 'note'].forEach(f => { if (typeof x[f] === 'string') merged[f] = x[f]; });
     if (!e) return merged;
     if (typeof e.question === 'string' && e.question.trim()) merged.question = e.question;
+    if ('answerFormat' in e) merged.answerFormat = e.answerFormat;      // nhóm đặt lại các ô trả lời (room-answer)
+    if (Array.isArray(e.keyPoints)) merged.keyPoints = e.keyPoints;     // barem dời `field` theo ô mới (remapFields)
     if (Array.isArray(e.options) && e.options.length) {
         if (Array.isArray(base.answers)) merged.answers = e.options; else merged.options = e.options;
     }
