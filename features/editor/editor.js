@@ -1,7 +1,9 @@
 // File: editor.js
 import { db, auth } from '../../core/firebase-init.js';
-import { doc, getDoc, setDoc, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
+import { doc, getDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { setDocQ as setDoc } from '../../core/offline-write.js';
+import { onSessionUser, sessionUser } from '../../core/auth-session.js';
+import { getOfflineQuiz, autoCacheQuiz, isOfflineSavedSync } from '../quiz/quiz-offline-store.js';
 import { showToast, showConfirm } from '../../core/utils.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -122,8 +124,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ---------- Khởi tạo ----------
-    onAuthStateChanged(auth, user => {
+    // onSessionUser: mất mạng mà phiên đăng nhập hết hạn vẫn nhận đúng người dùng (không hiện "đăng nhập")
+    let editorStarted = false;
+    onSessionUser(user => {
         if (user) {
+            if (editorStarted) return;       // bản nhớ offline → bản thật của Firebase: chỉ khởi tạo 1 lần
+            editorStarted = true;
             initEditor();
         } else {
             editorContainer.innerHTML = `
@@ -155,12 +161,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
             } catch (e) {
-                editorContainer.innerHTML = `
-                    <div class="ed-empty">
-                        <div class="ed-empty-emoji">⚠️</div>
-                        <p class="text-red-500 font-semibold">Lỗi tải bộ đề. Vui lòng thử lại.</p>
-                    </div>`;
-                return;
+                // Mất mạng: sửa trên bản đã tải về máy (lưu xong tự đồng bộ khi có mạng)
+                const offline = await getOfflineQuiz(quizId);
+                if (!offline) {
+                    editorContainer.innerHTML = `
+                        <div class="ed-empty">
+                            <div class="ed-empty-emoji">⚠️</div>
+                            <p class="text-red-500 font-semibold">${navigator.onLine ? 'Lỗi tải bộ đề. Vui lòng thử lại.' : 'Đang ngoại tuyến và bộ đề này chưa tải về máy.'}</p>
+                        </div>`;
+                    return;
+                }
+                const { id: _id, _offlineSavedAt, _auto, ...rest } = offline;
+                quizData = rest;
+                showToast('Đang sửa bản đã tải về máy — lưu xong sẽ tự đồng bộ khi có mạng.', 'info');
             }
         }
 
@@ -636,7 +649,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function saveQuiz() {
         if (isSaving) return;
-        const user = auth.currentUser;
+        const user = sessionUser();
         if (!user) { showToast('Bạn cần đăng nhập để lưu.', 'error'); return; }
         if (!validateBeforeSave()) return;
 
@@ -649,8 +662,12 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             if (quizId) {
                 await setDoc(doc(db, "quiz_sets", quizId), { ...quizData, ...payload, userId: user.uid }, { merge: true });
+                // Bản tải về máy phải theo kịp, không thì làm bài offline vẫn ra câu hỏi cũ
+                if (isOfflineSavedSync(quizId)) autoCacheQuiz(quizId, { ...quizData, ...payload, userId: user.uid });
             } else {
-                const ref = await addDoc(collection(db, "quiz_sets"), {
+                // Tạo id ngay trên máy (thay addDoc) → lưu được cả khi mất mạng, Firestore tự đẩy lên sau
+                const ref = doc(collection(db, "quiz_sets"));
+                await setDoc(ref, {
                     ...payload, userId: user.uid, createdAt: serverTimestamp(), folderId: null
                 });
                 quizId = ref.id;

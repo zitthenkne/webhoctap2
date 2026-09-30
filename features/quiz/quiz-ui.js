@@ -6,8 +6,7 @@ import { previewSrsCounts, getNewPerDay, setNewPerDay } from './quiz-srs-store.j
 import { caseCellClass } from './page/quiz-cases.js';
 import { isEssay, isPendingEssay, isEssayGraded, needsReview, questionWeight } from './quiz-essay-core.js';
 import { essayReviewHtml } from './page/quiz-essay.js';
-import { auth } from '../../core/firebase-init.js';
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
+import { onSessionUser, sessionUser } from '../../core/auth-session.js';
 
 // Ghi nhớ + Mở rộng kiến thức của một câu ở màn kết quả (trắc nghiệm lẫn tự luận) — chế độ
 // "nộp xong mới mở đáp án" không có dịp xem hai thẻ này trong lúc làm bài.
@@ -287,7 +286,7 @@ function renderSrsLandingCard() {
     // Gợi ý đăng nhập để lịch ôn được sao lưu/đồng bộ qua quiz_study
     const loginHint = document.getElementById('srs-login-hint');
     if (loginHint) {
-        onAuthStateChanged(auth, (u) => loginHint.classList.toggle('hidden', !!u));
+        onSessionUser((u) => loginHint.classList.toggle('hidden', !!u));
     }
 }
 
@@ -358,7 +357,7 @@ export function showResults(totalTime, opts = {}) {
     let deltaHtml = '';
     if (state.quizMode === 'normal') {
         try {
-            const user = auth.currentUser;
+            const user = sessionUser();
             const qid = state.quizData && state.quizData.id;
             const cache = (user && qid) ? JSON.parse(localStorage.getItem(`quizAttemptCache_${user.uid}`) || 'null') : null;
             const prev = cache && cache.map && cache.map[qid];

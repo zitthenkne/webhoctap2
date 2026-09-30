@@ -15,7 +15,7 @@ import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/fir
 import { showToast, showConfirm } from '../../core/utils.js';
 import { parseMarkdown, parseInlineMarkdown, renderMath } from '../quiz/quiz-helpers.js';
 import { keyPointsOf } from '../quiz/quiz-essay-core.js';
-import { getOfflineQuiz, autoCacheQuiz } from '../quiz/quiz-offline-store.js';
+import { getOfflineQuiz, autoCacheQuiz, within } from '../quiz/quiz-offline-store.js';
 import { studyKeys, syncPullStudy, scheduleCloudPush } from '../quiz/quiz-study-store.js';
 
 const params = new URLSearchParams(window.location.search);
@@ -163,8 +163,15 @@ async function loadData() {
     try {
         if (!navigator.onLine) data = await getOfflineQuiz(quizId);
         if (!data) {
-            const snap = await getDoc(doc(db, 'quiz_sets', quizId));
-            if (snap.exists()) { data = snap.data(); autoCacheQuiz(quizId, data); }
+            const remote = getDoc(doc(db, 'quiz_sets', quizId));
+            let snap = await within(remote);
+            if (snap === undefined) {
+                // Mạng chập chờn: có bản trên máy thì dùng luôn, bản máy chủ về sau chỉ cập nhật bản lưu
+                data = await getOfflineQuiz(quizId);
+                if (data) remote.then((s) => { if (s.exists()) autoCacheQuiz(quizId, s.data()); }).catch(() => {});
+                else snap = await remote;
+            }
+            if (snap && snap.exists()) { data = snap.data(); autoCacheQuiz(quizId, data); }
         }
         if (!data) data = await getOfflineQuiz(quizId); // dự phòng: server không có nhưng máy đã tải
     } catch (e) {

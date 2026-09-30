@@ -7,7 +7,7 @@ import { db } from '../../../core/firebase-init.js';
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { showToast } from '../../../core/utils.js';
 import { applyLocalQuestionEdits } from '../quiz-editor.js';
-import { getOfflineQuiz, autoCacheQuiz } from '../quiz-offline-store.js';
+import { getOfflineQuiz, autoCacheQuiz, within } from '../quiz-offline-store.js';
 import { state, saveQuizState, clearQuizState, saveQuizResult, updateQuizResultScore, markQuizStateFinished } from '../quiz-state.js';
 import { shuffleArray, shuffleQuestionOptions, isAnswerCorrect, sessionScore } from '../quiz-helpers.js';
 import { isEssay, isPendingEssay, withAutoGrade } from '../quiz-essay-core.js';
@@ -78,7 +78,19 @@ export async function loadQuizData() {
 
     try {
         const docRef = doc(db, "quiz_sets", quizId);
-        const docSnap = await getDoc(docRef);
+        const remote = getDoc(docRef);
+        let docSnap = await within(remote);
+        if (docSnap === undefined) {
+            // Mạng chập chờn: máy đã có bản tải về thì làm luôn, bản máy chủ về sau chỉ cập nhật bản lưu.
+            const offline = await getOfflineQuiz(quizId);
+            if (offline) {
+                useOfflineData(offline);
+                showToast('Mạng chậm — đang dùng bản đã tải về máy.', 'info');
+                remote.then((s) => { if (s.exists()) autoCacheQuiz(quizId, s.data()); }).catch(() => {});
+                return;
+            }
+            docSnap = await remote;
+        }
 
         if (docSnap.exists()) {
             state.quizData = docSnap.data();

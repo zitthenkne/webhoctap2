@@ -3,9 +3,11 @@
 
 import { db, auth } from '../../core/firebase-init.js';
 import {
-    collection, query, where, getDocs, doc, deleteDoc, updateDoc
+    collection, query, where, getDocs, doc
 } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
+// Bản bọc: mất mạng thì coi như xong ngay (Firestore xếp hàng, có mạng tự gửi) — không treo nút
+import { deleteDocQ as deleteDoc, updateDocQ as updateDoc } from '../../core/offline-write.js';
+import { onSessionUser, sessionUser } from '../../core/auth-session.js';
 import { showToast, showConfirm } from '../../core/utils.js';
 
 const TRASH_RETENTION_DAYS = 30;
@@ -122,14 +124,14 @@ function trashRowHTML({ kind, id, title, meta, icon, deletedAt }) {
 
 // === THAO TÁC ===
 async function refresh() {
-    const user = auth.currentUser;
+    const user = sessionUser();
     if (!user) return;
     await loadTrashItems(user.uid);
     renderTrash();
 }
 
 async function restoreTrashItem(kind, id) {
-    const user = auth.currentUser;
+    const user = sessionUser();
     if (!user) return;
     try {
         if (kind === 'folder') {
@@ -163,7 +165,7 @@ async function permanentlyDeleteTrashItem(kind, id) {
         { title: 'Xóa vĩnh viễn?', confirmText: 'Xóa vĩnh viễn', cancelText: 'Hủy', tone: 'danger' }
     );
     if (!ok) return;
-    const user = auth.currentUser;
+    const user = sessionUser();
     if (!user) return;
     try {
         if (kind === 'folder') {
@@ -189,7 +191,7 @@ async function emptyTrash() {
         { title: 'Dọn sạch thùng rác?', confirmText: 'Xóa tất cả', cancelText: 'Hủy', tone: 'danger' }
     );
     if (!ok) return;
-    const user = auth.currentUser;
+    const user = sessionUser();
     if (!user) return;
     try {
         const ops = [];
@@ -207,7 +209,10 @@ async function emptyTrash() {
 if (emptyBtn) emptyBtn.addEventListener('click', emptyTrash);
 
 // === KHỞI TẠO: chờ trạng thái đăng nhập ===
-onAuthStateChanged(auth, async (user) => {
+let trashStarted = false;
+onSessionUser(async (user) => {
+    if (user && trashStarted) return;       // bản nhớ offline → bản thật: không tải lại lần 2
+    if (user) trashStarted = true;
     if (!user) {
         if (listEl) {
             listEl.innerHTML = `

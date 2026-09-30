@@ -1,7 +1,8 @@
 // quiz-history.js
 import { db, auth } from '../../core/firebase-init.js';
 import { collection, query, where, orderBy, getDocs, doc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
+import { onSessionUser } from '../../core/auth-session.js';
+import { deleteDocQ } from '../../core/offline-write.js';
 import { showToast } from '../../core/utils.js';
 import { MARK_REASONS } from './quiz-state.js';
 import { syncPullStudy, writeLocalStudy, pushCloudStudy } from './quiz-study-store.js';
@@ -61,11 +62,15 @@ if (!quizId) {
     btnPlayQuiz.href = `quiz.html?id=${quizId}`;
     
     // Kiểm tra trạng thái đăng nhập
-    onAuthStateChanged(auth, user => {
+    // onSessionUser: mất mạng mà phiên hết hạn vẫn xem được lịch sử (đọc từ cache máy)
+    let historyStarted = false;
+    onSessionUser(user => {
         if (!user) {
             showAuthError();
             return;
         }
+        if (historyStarted) return;          // chỉ khởi tạo 1 lần (tránh gắn trùng listener)
+        historyStarted = true;
         initPage(quizId, user.uid);
     });
 }
@@ -446,7 +451,7 @@ function setupEventListeners(quizId, userId) {
             'Bạn có chắc chắn muốn xóa lượt làm bài này khỏi lịch sử của mình?',
             async () => {
                 try {
-                    await deleteDoc(doc(db, "quiz_results", resultId));
+                    await deleteDocQ(doc(db, "quiz_results", resultId));
                     showToast('Đã xóa lượt làm bài thành công!', 'success');
                     // Tải lại dữ liệu
                     await loadQuizHistory(quizId, userId);

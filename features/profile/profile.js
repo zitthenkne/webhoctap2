@@ -1,7 +1,8 @@
 import { auth, db } from '../../core/firebase-init.js';
-import { forgetSession } from '../../core/auth-session.js';
-import { updateProfile, updatePassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
-import { doc, updateDoc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { forgetSession, onSessionUser } from '../../core/auth-session.js';
+import { updateProfile, updatePassword, signOut } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
+import { doc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { updateDocQ as updateDoc } from '../../core/offline-write.js';
 import { showConfirm } from '../../core/utils.js';
 
 const avatarEl = document.getElementById('profile-avatar');
@@ -254,6 +255,8 @@ async function loadQuickStats(user, userData) {
 
     // Bộ đề đã tạo (ưu tiên đếm thực tế, fallback về số đã lưu)
     statQuizSets.textContent = (userData && typeof userData.quizSetsCreated === 'number') ? userData.quizSetsCreated : '0';
+    // Ngoại tuyến: truy vấn chỉ đếm được phần có trong cache máy → ra số sai (thiếu), thà để số đã lưu / "—"
+    if (!navigator.onLine) { statAttempts.textContent = '—'; statAvg.textContent = '—'; return; }
     try {
         const qs = await getDocs(query(collection(db, 'quiz_sets'), where('userId', '==', user.uid)));
         statQuizSets.textContent = qs.size;
@@ -292,10 +295,11 @@ function celebrate() {
     }
 }
 
-onAuthStateChanged(auth, async user => {
+// onSessionUser: mất mạng mà phiên hết hạn thì Firebase trả null — trước đây trang đá ngay về trang chủ
+onSessionUser(async user => {
     if (user) {
         currentUser = user;
-        let name = user.displayName || user.email.split('@')[0];
+        let name = user.displayName || (user.email || '').split('@')[0];
         emailInput.value = user.email;
         if (emailPreview) emailPreview.textContent = user.email;
         setAnimal('🐱');
@@ -338,6 +342,9 @@ saveBtn.onclick = async () => {
     if (newPassword && newPassword.length < 6) {
         return showMessage('Mật khẩu mới phải có ít nhất 6 ký tự.', 'error');
     }
+    if (newPassword && !navigator.onLine) {
+        return showMessage('Đổi mật khẩu cần có mạng. Tên và avatar thì lưu được ngay cả khi ngoại tuyến.', 'error');
+    }
 
     saveBtn.disabled = true;
     const oldBtnHtml = saveBtn.innerHTML;
@@ -350,7 +357,8 @@ saveBtn.onclick = async () => {
             avatarBgColor: avatarBgColorInput.value,
             avatarAnimal: avatarAnimalInput.value
         });
-        try { await updateProfile(currentUser, { displayName: newName }); } catch {}
+        // Bản nhớ offline không phải đối tượng Firebase → bỏ qua; tên chính vẫn nằm ở users/{uid}
+        if (navigator.onLine) { try { await updateProfile(currentUser, { displayName: newName }); } catch {} }
 
         if (newPassword) {
             try {

@@ -5809,3 +5809,6 @@ html .svg-fig {
 /* không thu bé tí trong cột hẹp: tối thiểu 80% cỡ gốc (tối đa 34rem) — hẹp hơn thì vuốt ngang, bấm đúp để phóng to */
 html .svg-fig img { display: inline-block; min-width: min(calc(var(--svg-w, 18rem) * .8), 34rem); cursor: zoom-in; border-radius: .6rem; }
 html .svg-fig-err { font-size: .85rem; color: var(--rm-muted); }
+/* Hình nằm TRONG phương án (vd. chọn băng CTG đúng): vừa khít ô, khung gọn, bấm hình = chọn phương án */
+html .rm-option .svg-fig { margin: .35rem 0; padding: .35rem; border-width: 1.5px; box-shadow: none; overflow: hidden; }
+html .rm-option .svg-fig img { min-width: 0; cursor: inherit; }

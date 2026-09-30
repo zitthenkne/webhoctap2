@@ -1,5 +1,12 @@
 // Service Worker for PWA - Offline Support & Caching
-const CACHE_NAME = 'zitthenkne-v190';
+// 3 kho cache:
+//  - CACHE_NAME (zitthenkne-vNNN): app shell. Tăng số MỖI LẦN sửa/thêm file trong urlsToCache.
+//  - CDN_CACHE: thư viện + phông từ CDN (URL có phiên bản, gần như bất biến) → GIỮ qua các phiên bản.
+//  - IMG_CACHE: ảnh tải lúc chạy (nền, avatar, ảnh bệnh án) → giữ qua các phiên bản, tối đa IMG_MAX mục.
+const CACHE_NAME = 'zitthenkne-v193';
+const CDN_CACHE = 'zitthenkne-cdn';
+const IMG_CACHE = 'zitthenkne-img';
+const IMG_MAX = 250;
 
 // App shell (cùng origin) — nạp sẵn khi cài để mở offline được ngay.
 const urlsToCache = [
@@ -233,58 +240,162 @@ const urlsToCache = [
   'assets/hero-image.png'
 ];
 
-// Thư viện từ CDN — không cache thì offline app MẤT style/icon/font (trông vỡ).
-// Nạp sẵn để offline vẫn dựng đủ giao diện; nếu 1 cái lỗi cũng không chặn cài đặt.
+// Thư viện CDN chỉ gọi lúc chạy mà KHÔNG ghi nguyên văn URL trong trang/mã (bộ dò không thấy).
+// Mọi URL CDN còn lại được TỰ DÒ từ các file đã nạp sẵn — xem harvestCdnUrls().
 const cdnToCache = [
-  'https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap',
-  'https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Quicksand:wght@600;700&display=swap',
-  'https://cdn.tailwindcss.com',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
-  'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css',
-  'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js',
-  'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js',
-  'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js',
-  'https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js',
-  'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
-  'https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&display=swap',
-  'https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@600;700;800&family=Cormorant+Upright:wght@500;600;700&display=swap',
-  'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Quicksand:wght@400;500;600;700&display=swap',
-  'https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Be+Vietnam+Pro:wght@500;600;700;800&family=Cormorant+Upright:wght@700&display=swap',
-  'https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap',
   'https://www.gstatic.com/firebasejs/9.6.0/firebase-app.js',
   'https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js',
   'https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js',
   'https://www.gstatic.com/firebasejs/9.6.0/firebase-storage.js'
 ];
 
-// Install: nạp sẵn app shell (bắt buộc) + CDN (cố gắng, lỗi cũng bỏ qua).
-// {cache:'reload'} để không lấy bản cũ từ HTTP cache của trình duyệt khi lên version mới.
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Chạy fn cho từng phần tử, tối đa `n` việc cùng lúc (điện thoại mạng yếu mở 250 kết nối một lúc dễ rớt).
+async function pool(items, n, fn) {
+  const queue = items.slice();
+  await Promise.all(Array.from({ length: n }, async () => {
+    while (queue.length) await fn(queue.shift());
+  }));
+}
+
+// ---------- CÀI ĐẶT ----------
+// Nạp app shell. Hai điều khác bản cũ:
+// 1) cache:'no-cache' = hỏi lại máy chủ kèm ETag → file không đổi chỉ tốn một phản hồi 304 vài trăm byte,
+//    thay vì tải lại nguyên 12MB mỗi lần lên phiên bản.
+// 2) Hỏng một file (mạng chập chờn) thì CÀI THẤT BẠI → trình duyệt giữ nguyên bản cũ đang chạy tốt và thử lại
+//    lần sau. Bản cũ nuốt lỗi rồi vẫn kích hoạt → cache mới thiếu file, cache cũ bị xoá → offline mất trắng.
+//    (File 404 thật thì bỏ qua, kẻo một dòng gõ sai trong danh sách chặn cập nhật mãi mãi.)
+async function precacheShell() {
+  const cache = await caches.open(CACHE_NAME);
+  const failed = [];
+  await pool(urlsToCache, 8, async (u) => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch(new Request(u, { cache: attempt ? 'reload' : 'no-cache' }));
+        if (res.status === 404) { console.warn('SW: bỏ qua file không tồn tại', u); return; }
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        await cache.put(u, res);
+        return;
+      } catch (e) {
+        if (attempt < 2) await sleep(800 * (attempt + 1));
+      }
+    }
+    failed.push(u);
+  });
+  // Không xoá cache dở dang: lỡ quên tăng CACHE_NAME thì nó TRÙNG tên kho đang chạy.
+  if (failed.length) {
+    throw new Error('SW: chưa tải được ' + failed.length + ' file (' + failed.slice(0, 3).join(', ') + '…) — giữ bản cũ, thử lại sau');
+  }
+}
+
+// Chuyển ảnh/CDN đã lưu ở các phiên bản cũ sang kho bền (chỉ chạy lúc lên phiên bản, đọc ghi cục bộ).
+async function migrateOldCaches() {
+  const names = (await caches.keys()).filter((n) => /^zitthenkne-v\d+$/.test(n) && n !== CACHE_NAME);
+  const shell = new Set(urlsToCache.map((u) => new URL(u, self.location).href));
+  const cdn = await caches.open(CDN_CACHE);
+  const img = await caches.open(IMG_CACHE);
+  for (const name of names) {
+    const old = await caches.open(name);
+    for (const req of await old.keys()) {
+      const url = new URL(req.url);
+      if (shell.has(url.origin + url.pathname)) continue;      // đã có trong app shell mới
+      const target = isImageUrl(url) ? img : (url.origin !== self.location.origin || isFontUrl(url)) ? cdn : null;
+      if (!target || await target.match(req)) continue;
+      const res = await old.match(req);
+      if (res) await target.put(req, res);
+    }
+  }
+}
+
+// ---------- DÒ & LƯU CDN ----------
+// Dò mọi URL CDN ghi trong các trang/mã đã nạp sẵn → trang nào chưa từng mở lúc có mạng thì offline vẫn
+// đủ giao diện (trước đây: Tailwind CDN chưa lưu → trang Bệnh án của tôi, Checklist, Hồ sơ… offline trắng trơn).
+const CDN_RE = /https:\/\/(?:cdn\.tailwindcss\.com|cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com|unpkg\.com|www\.gstatic\.com\/firebasejs|fonts\.googleapis\.com\/css2?)[^\s"'`<>)\\]*/g;
+
+async function harvestCdnUrls() {
+  const shell = await caches.open(CACHE_NAME);
+  const found = new Set(cdnToCache);
+  for (const u of urlsToCache) {
+    if (!/\.(html|js|css)$/.test(u) || u.startsWith('core/libs/')) continue;
+    const res = await shell.match(u);
+    if (!res) continue;
+    const text = await res.text();
+    for (const m of text.matchAll(CDN_RE)) {
+      const url = m[0].replace(/&amp;/g, '&');
+      if (url.includes('${') || /[=&?+]$/.test(url)) continue;         // URL ghép chuỗi lúc chạy
+      const p = new URL(url);
+      const isFontCss = p.hostname === 'fonts.googleapis.com' && p.search.includes('family=');
+      const isFile = /\/[^/]+\.[a-z0-9]+$/i.test(p.pathname);
+      if (p.hostname === 'cdn.tailwindcss.com' || isFontCss || isFile) found.add(p.href);
+    }
+  }
+  return [...found];
+}
+
+// Lưu 1 URL CDN vào kho bền. Thử CORS trước (đọc được nội dung, dùng được cho module/phông);
+// máy chủ không gửi CORS (cdn.tailwindcss.com chuyển hướng 302 không kèm header) thì lưu bản "opaque".
+// CSS đọc được (Google Fonts, Font Awesome, KaTeX) → lưu luôn file phông woff2 nó trỏ tới.
+async function stashCdn(cdn, url) {
+  let res = await cdn.match(url);
+  if (!res) {
+    try { res = await fetch(url, { mode: 'cors', credentials: 'omit' }); } catch (e) {}
+    if (!res || !res.ok) {
+      try { res = await fetch(url, { mode: 'no-cors', credentials: 'omit' }); } catch (e) { return; }
+    }
+    if (!res || !(res.ok || res.type === 'opaque')) return;
+    await cdn.put(url, res.clone());
+  }
+  // CSS đã lưu từ trước vẫn đọc lại (cục bộ, rẻ) để bù file phông lần trước chưa kịp tải
+  if (res.type === 'opaque' || !/css/.test(res.headers.get('content-type') || '')) return;
+
+  const css = await res.text();
+  const fonts = new Set();
+  // Google Fonts ghi chú tên bộ ký tự trước mỗi @font-face → chỉ lấy bộ dùng cho tiếng Việt.
+  const blocks = [...css.matchAll(/(?:\/\*\s*([\w-]+)\s*\*\/\s*)?@font-face\s*{([^}]*)}/g)];
+  for (const [, subset, body] of blocks) {
+    if (subset && !/^(latin|latin-ext|vietnamese)$/.test(subset)) continue;
+    for (const f of body.matchAll(/url\(\s*['"]?([^'")]+\.woff2)['"]?\s*\)/g)) fonts.add(new URL(f[1], url).href);
+  }
+  await pool([...fonts], 4, async (f) => {
+    if (await cdn.match(f)) return;
+    try {
+      const r = await fetch(f, { mode: 'cors', credentials: 'omit' });
+      if (r.ok) await cdn.put(f, r);
+    } catch (e) {}
+  });
+}
+
+// Chỉ tải những gì CHƯA có (kho bền giữ qua các phiên bản) → sau lần đầu gần như không tốn gì.
+// Có giới hạn thời gian để không kéo dài cài đặt; phần còn thiếu trang sẽ gọi 'warm' bù sau.
+async function warmCdn(maxMs = 25000) {
+  try {
+    const cdn = await caches.open(CDN_CACHE);
+    const urls = await harvestCdnUrls();
+    await Promise.race([pool(urls, 4, (u) => stashCdn(cdn, u).catch(() => {})), sleep(maxMs)]);
+  } catch (e) {
+    console.warn('SW: lưu CDN chưa trọn', e);
+  }
+}
+
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      const shell = cache.addAll(urlsToCache.map((u) => new Request(u, { cache: 'reload' })))
-        .catch((err) => console.log('SW: một số tài nguyên app shell không cache được', err));
-      // CDN: cache từng cái riêng để một cái lỗi không kéo đổ cả mẻ.
-      const cdn = Promise.all(cdnToCache.map((u) =>
-        cache.add(new Request(u, { cache: 'reload' })).catch(() => {})
-      ));
-      return Promise.all([shell, cdn]);
-    })
-  );
+  event.waitUntil((async () => {
+    await precacheShell();          // hỏng → ném lỗi → giữ bản cũ
+    await migrateOldCaches().catch(() => {});
+    await warmCdn();
+  })());
   self.skipWaiting();
 });
 
-// Activate: dọn cache phiên bản cũ.
+// Kích hoạt: xoá app shell phiên bản cũ; GIỮ kho CDN + ảnh.
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) =>
-      Promise.all(cacheNames.map((name) => {
-        if (name !== CACHE_NAME) {
-          console.log('SW: xoá cache cũ:', name);
-          return caches.delete(name);
-        }
-      }))
-    )
+    caches.keys().then((names) => Promise.all(names.map((name) => {
+      if (name !== CACHE_NAME && name !== CDN_CACHE && name !== IMG_CACHE) {
+        console.log('SW: xoá cache cũ:', name);
+        return caches.delete(name);
+      }
+    })))
   );
   self.clients.claim();
 });
@@ -300,21 +411,65 @@ function isDynamicData(url) {
     h.includes('googletagmanager');
 }
 
-// Cache-First: có trong cache thì trả ngay; không thì lấy mạng rồi lưu lại.
-// Dùng cho ảnh/font + tài nguyên CDN (bản có version, gần như bất biến) -> nhanh & bền offline.
-async function cacheFirst(request) {
-  const cached = await caches.match(request);
+function isImageUrl(url) { return /\.(png|jpe?g|gif|svg|webp|avif|ico)$/i.test(url.pathname) || url.hostname === 'ui-avatars.com'; }
+function isFontUrl(url) { return /\.(woff2?|ttf|eot|otf)$/i.test(url.pathname); }
+
+// Giữ kho ảnh không phình mãi: quá IMG_MAX thì bỏ những mục cũ nhất (keys() theo thứ tự thêm vào).
+let trimming = false;
+async function trimImages() {
+  if (trimming) return;
+  trimming = true;
+  try {
+    const cache = await caches.open(IMG_CACHE);
+    const keys = await cache.keys();
+    for (let i = 0; i < keys.length - IMG_MAX; i++) await cache.delete(keys[i]);
+  } finally { trimming = false; }
+}
+
+// Ảnh NỀN offline: ảnh bốc ngẫu nhiên chưa từng tải thì lấy tạm ảnh khác CÙNG thư mục nền đã có trong máy
+// (trước đây: offline là mất nền, chỉ còn màu hồng trơn). Chỉ áp cho thư mục nền, không đổi nhầm ảnh nội dung.
+async function sameFolderBackground(url) {
+  const path = decodeURIComponent(url.pathname);
+  if (!/\/bg( |-|\/)/.test(path)) return undefined;
+  const folder = url.origin + url.pathname.slice(0, url.pathname.lastIndexOf('/') + 1);
+  for (const name of [IMG_CACHE, CACHE_NAME]) {
+    const cache = await caches.open(name);
+    const hit = (await cache.keys()).find((r) => r.url.startsWith(folder));
+    if (hit) return cache.match(hit);
+  }
+  return undefined;
+}
+
+// Avatar ui-avatars.com chưa từng tải (offline): tự vẽ lại bằng SVG từ chính tham số trong URL
+// (name/background/color) thay vì hiện ô ảnh vỡ.
+function avatarSvg(url) {
+  const p = url.searchParams;
+  const hex = (v, d) => (/^[0-9a-f]{3,8}$/i.test(v || '') ? '#' + v : d);
+  const words = (p.get('name') || '?').trim().split(/\s+/);
+  const initials = (words.map((w) => w[0]).join('').slice(0, 2).toUpperCase() || '?')
+    .replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="' +
+    hex(p.get('background'), '#D8BFD8') + '"/><text x="32" y="32" dy=".35em" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="600" fill="' +
+    hex(p.get('color'), '#fff') + '">' + initials + '</text></svg>';
+  return new Response(svg, { headers: { 'Content-Type': 'image/svg+xml' } });
+}
+
+// Cache-First: có trong cache thì trả ngay; không thì lấy mạng rồi lưu vào kho bền tương ứng.
+async function cacheFirst(request, url, store) {
+  const sameOrigin = url.origin === self.location.origin;
+  const cached = await caches.match(request) || (sameOrigin ? await caches.match(request, { ignoreSearch: true }) : undefined);
   if (cached) return cached;
   try {
     const res = await fetch(request);
     // Lưu cả phản hồi 'cors' (CDN) lẫn 'opaque' (no-cors) để offline vẫn có.
     if (res && (res.ok || res.type === 'opaque')) {
       const clone = res.clone();
-      caches.open(CACHE_NAME).then((c) => c.put(request, clone));
+      caches.open(store).then((c) => c.put(request, clone)).then(() => { if (store === IMG_CACHE) trimImages(); });
     }
     return res;
   } catch (e) {
-    return caches.match(request); // undefined nếu không có -> để trình duyệt xử lý
+    if (url.hostname === 'ui-avatars.com') return avatarSvg(url);
+    return (store === IMG_CACHE && await sameFolderBackground(url)) || Response.error();
   }
 }
 
@@ -341,28 +496,28 @@ async function staleWhileRevalidate(request) {
   const res = await network;
   if (res) return res;
   if (request.mode === 'navigate') return cache.match('offline.html');
-  return undefined;
+  return Response.error();
 }
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
+  const request = event.request;
+  if (request.method !== 'GET') return;
 
-  const url = new URL(event.request.url);
-  if (isDynamicData(url)) return; // để mặc định (SDK Firebase tự lo offline)
+  const url = new URL(request.url);
+  if (!/^https?:$/.test(url.protocol) || isDynamicData(url)) return; // SDK Firebase tự lo offline
 
-  const isStaticAsset = /\.(png|jpg|jpeg|gif|svg|webp|ico|woff|woff2|ttf|eot)$/i.test(url.pathname);
-  const isCrossOrigin = url.origin !== self.location.origin;
-
-  if (isStaticAsset || isCrossOrigin) {
-    event.respondWith(cacheFirst(event.request));  // ảnh/font + CDN
+  if (request.destination === 'image' || isImageUrl(url)) {
+    event.respondWith(cacheFirst(request, url, IMG_CACHE));        // ảnh
+  } else if (url.origin !== self.location.origin || isFontUrl(url)) {
+    event.respondWith(cacheFirst(request, url, CDN_CACHE));        // CDN + phông
   } else {
-    event.respondWith(staleWhileRevalidate(event.request)); // app shell cùng origin
+    event.respondWith(staleWhileRevalidate(request));              // app shell cùng origin
   }
 });
 
-// Lắng nghe lệnh từ trang để kích hoạt SW mới ngay lập tức.
+// Lệnh từ trang: kích hoạt SW mới ngay / lưu bù CDN còn thiếu (pwa-install.js gọi khi có mạng).
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.action === 'skipWaiting') {
-    self.skipWaiting();
-  }
+  const action = event.data && event.data.action;
+  if (action === 'skipWaiting') self.skipWaiting();
+  if (action === 'warm') event.waitUntil(warmCdn(60000));
 });

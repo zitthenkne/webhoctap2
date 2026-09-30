@@ -453,6 +453,7 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
 
     card.className = getQuizCardClassName(isSelected);
     card.setAttribute('data-id', quizSet.id);
+    card.dataset.offline = offlineSaved ? '1' : '0';
 
     // Ngày tạo: hiện dạng "3 ngày trước" cho dễ hình dung, giữ giờ/ngày đầy đủ ở tooltip.
     const createdMs = toMillis(quizSet.createdAt);

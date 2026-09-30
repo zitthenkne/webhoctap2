@@ -344,13 +344,17 @@ export function parseInlineMarkdown(text) {
         // Nếu là ảnh local trong thư mục uploads, tự động sửa đường dẫn cho trang quiz
         if (src.startsWith('uploads/') || src.startsWith('/uploads/')) {
             const cleanSrc = src.startsWith('/') ? src.substring(1) : src;
-            if (window.location.pathname.includes('/features/quiz/')) {
+            if (typeof window !== 'undefined' && window.location.pathname.includes('/features/quiz/')) {
                 finalSrc = `../../${cleanSrc}`;
             } else {
                 finalSrc = cleanSrc;
             }
         }
-        return `<img src="${finalSrc}" alt="${alt}" class="quiz-image max-w-full h-auto my-4 rounded-xl shadow-md border border-pink-100/30 mx-auto block" />`;
+        // Chỉ nhận https / http / ảnh nhúng data:image / đường dẫn nội bộ; thoát dấu nháy — ảnh chèn tự động
+        // (skill tìm ảnh) hay dán tay đều không nhét được thuộc tính lạ / javascript: vào thẻ
+        finalSrc = String(finalSrc).trim();
+        if (!/^(https?:\/\/|data:image\/|\.{0,2}\/|[\w-]+\/)/i.test(finalSrc) || /^javascript:/i.test(finalSrc)) return _escHtml(match);
+        return `<img src="${_escHtml(finalSrc)}" alt="${_escHtml(alt)}" loading="lazy" decoding="async" class="quiz-image max-w-full h-auto my-4 rounded-xl shadow-md border border-pink-100/30 mx-auto block" />`;
     });
 
     // Bold: **text** hoặc __text__ (in đậm nét dày hơn, phối màu hồng tím mận nổi bật)

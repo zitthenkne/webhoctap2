@@ -189,6 +189,11 @@ export async function loadAndDisplayLibrary(page = 1) {
         renderLibrarySkeleton(quizListContainer);
     }
 
+    // Ngoại tuyến mà đã vẽ từ cache máy thì dừng ở đây: đọc lại qua SDK lúc này chỉ ra bản THIẾU hơn
+    // (thư viện đọc qua REST nên cache Firestore thường không có đủ bộ đề) rồi đè mất cache tốt.
+    // Có mạng lại thì initLibraryAutoSync tự làm tươi.
+    if (!navigator.onLine && paintedFromCache) return;
+
     try {
         const qFolders = query(collection(db, "quiz_folders"), where("userId", "==", user.uid));
         const querySnapshotFolders = await getDocs(qFolders);
@@ -259,10 +264,15 @@ export async function loadAllLibraryInBackground(userId) {
         // Chốt số thay đổi TRƯỚC khi gọi mạng: nếu trong lúc chờ mà người dùng vừa sửa gì đó
         // thì kết quả trả về đã lạc hậu, đè vào là thao tác của họ bị nuốt mất.
         const seqAtStart = S.libraryMutationSeq;
+        // Ngoại tuyến: kết quả chỉ là phần có trong cache Firestore (thường thiếu) → đã có cache máy
+        // thì giữ nguyên nó; chưa có thì hiện tạm phần đọc được nhưng KHÔNG ghi đè cache/dọn thùng rác.
+        const offline = !navigator.onLine;
+        if (offline && readMetaCache(userId)) return;
         // Chỉ tải metadata (không kèm mảng `questions`) — xem library-meta.js
         const allQuizzes = await fetchAllQuizMeta(userId);
         if (S.libraryMutationSeq !== seqAtStart) return;
-        applyQuizMeta(allQuizzes, true);
+        applyQuizMeta(allQuizzes, !offline);
+        if (offline) { renderLibrary(S.userQuizSets, S.currentLibraryPage); return; }
         writeMetaCache(userId, allQuizzes);
 
         // Vá dữ liệu cũ thiếu folderId để các truy vấn theo thư mục hoạt động đúng
@@ -375,6 +385,11 @@ function refreshLibraryOnResume() {
 // Khác với loadAndDisplayLibrary() (chỉ vẽ lại từ cache RAM khi đã nạp đầy đủ),
 // hàm này bỏ cache để BUỘC lấy dữ liệu mới từ server. Trả về Promise để UI hiện trạng thái đang tải.
 export async function forceReloadLibrary() {
+    if (!navigator.onLine) {
+        // Xoá cache lúc này là mất luôn danh sách đang xem mà không có gì thay vào
+        showToast('Đang ngoại tuyến — đang hiện danh sách lưu trên máy, có mạng sẽ tự cập nhật.', 'info');
+        return;
+    }
     const user = auth.currentUser;
     if (!user) return;
     S.isLibraryFullyLoaded = false;   // bỏ cache RAM
@@ -390,4 +405,6 @@ export function initLibraryAutoSync() {
     window.addEventListener('pageshow', (e) => {
         if (e.persisted) refreshLibraryOnResume();
     });
+    // Vừa có mạng lại: lấy danh sách mới (lúc ngoại tuyến chỉ vẽ từ cache máy)
+    window.addEventListener('online', () => setTimeout(refreshLibraryOnResume, 1500));
 }

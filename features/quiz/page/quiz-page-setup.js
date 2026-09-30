@@ -68,12 +68,15 @@ export function setupLightbox() {
     const lbImg = lb.querySelector('img');
     document.addEventListener('click', (e) => {
         const img = e.target.closest && e.target.closest('img.quiz-image, .svg-fig img');
+        // Hình NẰM TRONG phương án (vd. chọn băng CTG đúng): chưa trả lời thì bấm hình = chọn đáp án, trả lời rồi mới phóng to.
+        // Nghe ở pha CAPTURE: chạy TRƯỚC nút phương án — pha nổi bọt thì nút đã tự khóa xong, lần chọn nào cũng bật phóng to.
+        if (img && img.closest('.answer-btn:not(.answer-locked)')) return;
         if (img) {
             lbImg.src = img.src;
             lb.classList.remove('hidden');
             requestAnimationFrame(() => lb.classList.add('show'));
         }
-    });
+    }, true);
     const close = () => {
         lb.classList.remove('show');
         setTimeout(() => { lb.classList.add('hidden'); lbImg.src = ''; }, 200);

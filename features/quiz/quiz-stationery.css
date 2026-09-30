@@ -3537,3 +3537,8 @@ body.case-resizing { cursor: ns-resize; user-select: none; }
 }
 .svg-fig img { display: inline-block; min-width: min(calc(var(--svg-w, 18rem) * 0.8), 34rem); cursor: zoom-in; border-radius: 0.6rem; }
 .svg-fig-err { font-size: 0.85rem; color: var(--ink-faint); }
+
+/* Hình nằm TRONG phương án (vd. chọn băng CTG đúng): vừa khít nút, khung gọn; chưa trả lời thì bấm hình = chọn */
+.answer-btn .svg-fig { margin: 0.35rem 0; padding: 0.35rem; border-width: 1.5px; box-shadow: none; overflow: hidden; }
+.answer-btn .svg-fig img { min-width: 0; cursor: inherit; }
+.answer-btn.answer-locked .svg-fig img { cursor: zoom-in; }

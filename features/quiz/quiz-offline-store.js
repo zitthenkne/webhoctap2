@@ -113,6 +113,16 @@ export async function deleteOfflineQuiz(id) {
     writeIds(readIds().filter((x) => x !== id));
 }
 
+/**
+ * Chờ `promise` tối đa `ms`; quá hạn thì trả `undefined` (promise vẫn chạy tiếp ở nền), lỗi thì ném như thường.
+ * Dành cho mạng chập chờn: máy vẫn báo "có mạng" nhưng không tới được máy chủ — Firestore phải chờ
+ * ~10 giây mới chịu lùi về cache, trong khi bản tải về máy mở được ngay.
+ */
+export const SLOW_NET_MS = 4000;
+export function within(promise, ms = SLOW_NET_MS) {
+    return Promise.race([promise, new Promise((r) => setTimeout(r, ms))]);
+}
+
 // Số bộ đề TỰ lưu giữ lại (bộ người dùng tải tay không tính, không bị dọn).
 const AUTO_LIMIT = 40;
 

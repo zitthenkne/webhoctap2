@@ -53,3 +53,9 @@
 }
 .home-search input:focus ~ kbd { display: none; }
 @media (hover: none) { .home-search kbd { display: none; } }
+
+/* ===================== NGOẠI TUYẾN ===================== */
+/* html.is-offline do pwa-install.js gắn. Bộ đề CHƯA tải về máy mờ đi để biết ngay bộ nào mở được
+   (vẫn bấm được: có thể còn trong cache Firestore). Chỉ dùng opacity — filter/transform sẽ phá
+   position:fixed của menu "..." bên trong thẻ. */
+html.is-offline #quiz-list-container [data-offline="0"] { opacity: .5; }

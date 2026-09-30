@@ -42,6 +42,19 @@ if ('serviceWorker' in navigator && !isLocalDev) {
       .then(reg => {
         console.log('Zitthenkne Service Worker registered successfully with scope: ', reg.scope);
 
+        // Nhờ SW lưu bù thư viện/phông CDN còn thiếu (lần cài trước bị cắt ngang, trang mới thêm CDN…).
+        // Chỉ tải cái CHƯA có nên rẻ; vẫn hạn 12 giờ/lần cho khỏi đọc lại mã nguồn mỗi lần mở trang.
+        const warm = () => {
+          if (!navigator.onLine) return;
+          try {
+            if (Date.now() - Number(localStorage.getItem('swWarmAt') || 0) < 12 * 3600e3) return;
+            localStorage.setItem('swWarmAt', String(Date.now()));
+          } catch (e) {}
+          navigator.serviceWorker.ready.then(r => r.active && r.active.postMessage({ action: 'warm' }));
+        };
+        setTimeout(warm, 5000);
+        window.addEventListener('online', () => setTimeout(warm, 3000));
+
         // Kiểm tra xem có SW mới đang chờ kích hoạt không
         if (reg.waiting) {
           reg.waiting.postMessage({ action: 'skipWaiting' });
@@ -283,7 +296,10 @@ if (navigator.storage && navigator.storage.persist) {
   const onOffline = () => flash('Ngoại tuyến — thay đổi lưu trên máy, sẽ tự đồng bộ khi có mạng.', '', 6000);
   const onOnline = () => flash('Đã có mạng — đang đồng bộ lên đám mây.', 'ok', 2500);
 
-  window.addEventListener('offline', onOffline);
-  window.addEventListener('online', onOnline);
+  // html.is-offline: CSS dùng để làm mờ những thứ cần mạng (vd. bộ đề chưa tải về máy trong thư viện)
+  const mark = () => document.documentElement.classList.toggle('is-offline', !navigator.onLine);
+  mark();
+  window.addEventListener('offline', () => { mark(); onOffline(); });
+  window.addEventListener('online', () => { mark(); onOnline(); });
   window.addEventListener('DOMContentLoaded', () => { if (!navigator.onLine) onOffline(); });
 })();

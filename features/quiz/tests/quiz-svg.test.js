@@ -31,3 +31,12 @@ test('không đụng khối mermaid', () => {
     assert.match(html, /mermaid-viewer/);
     assert.doesNotMatch(html, /svg-fig/);
 });
+
+test('ảnh Markdown: nhận https / data / nội bộ, chặn chèn thuộc tính và javascript:', async () => {
+    const { parseInlineMarkdown } = await import('../quiz-helpers.js');
+    const ok = parseInlineMarkdown('![Leopold](https://upload.wikimedia.org/wikipedia/commons/e/eb/Handgriffe.JPG)');
+    assert.match(ok, /<img src="https:\/\/upload\.wikimedia\.org\/[^"]+" alt="Leopold" loading="lazy"/);
+    assert.doesNotMatch(parseInlineMarkdown('![x](javascript:alert(1))'), /<img/);
+    assert.doesNotMatch(parseInlineMarkdown('![x](https://a.b/c.png" onerror="alert(1))'), /onerror="/);
+    assert.match(parseInlineMarkdown('![x](uploads/a.png)'), /<img src="uploads\/a\.png"/);
+});
