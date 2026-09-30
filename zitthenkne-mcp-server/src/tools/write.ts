@@ -122,6 +122,9 @@ const ESSAY_GUIDE = `    Tự luận / thi tình huống: { type: 'essay', quest
         hoặc khối \`\`\`svg (hình y khoa vẽ tay: băng CTG, biểu đồ chuyển dạ, đường cong tăng trưởng). SVG phải tự đủ: viewBox + width + height,
         <title>, font-family có sans-serif, KHÔNG script / on…= / href ngoài / foreignObject, ≤ 200 KB (web hiện SVG dưới dạng ảnh).
         Đề nhớ lại MẤT HÌNH mà còn lời tả -> tái tạo hình từ đúng lời tả (không bịa số làm đổi đáp án) và ghi note "🖌 Hình tái tạo: …".
+      - expanded nên có HÌNH khi hình dạy được điều chữ khó tả (thao tác khám, kiểu hình CTG/ECG/X-quang, giải phẫu): ưu tiên ảnh giấy phép mở
+        trên Wikimedia Commons — ![mô tả tiếng Việt](https://upload.wikimedia.org/…) + dòng ngay dưới *Hình: tác giả · giấy phép · [Wikimedia Commons](link)*
+        (CC BY / BY-SA bắt buộc ghi công); không có ảnh vừa ý thì VẼ (mermaid / svg). Tối đa 1–2 hình mỗi câu. Ảnh chỉ dùng https.
       - case_reveal (tùy chọn) ở câu k = thông tin mới (vd. kết quả xét nghiệm) chỉ lộ ra từ câu k; xem câu k rồi thì các câu trước của ca bị khóa, không sửa được nữa.
       - Trộn trắc nghiệm + tự luận trong cùng bộ đề được.
       Ví dụ: { type: 'essay', case_id: 'ca1', case_title: 'Đau ngực', case_text: 'BN nam 58t...', question: 'Chẩn đoán sơ bộ?', max_score: 1.5,

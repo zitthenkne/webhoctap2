@@ -40,3 +40,12 @@ test('ảnh Markdown: nhận https / data / nội bộ, chặn chèn thuộc tí
     assert.doesNotMatch(parseInlineMarkdown('![x](https://a.b/c.png" onerror="alert(1))'), /onerror="/);
     assert.match(parseInlineMarkdown('![x](uploads/a.png)'), /<img src="uploads\/a\.png"/);
 });
+
+test('link [chữ](url) + URL có dấu _ không bị luật in nghiêng phá', async () => {
+    const { parseInlineMarkdown } = await import('../quiz-helpers.js');
+    const cap = parseInlineMarkdown('*Hình: X · CC BY-SA 4.0 · [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Some_file_name.jpg)*');
+    assert.match(cap, /<a href="https:\/\/commons\.wikimedia\.org\/wiki\/File:Some_file_name\.jpg" target="_blank" rel="noopener noreferrer"/);
+    assert.match(parseInlineMarkdown('![a](https://up.org/Some_file_name.jpg) _nghiêng_'), /src="https:\/\/up\.org\/Some_file_name\.jpg".*<em class="obsidian-italic">nghiêng<\/em>/);
+    assert.doesNotMatch(parseInlineMarkdown('[x](javascript:alert(1))'), /<a /);
+    assert.doesNotMatch(parseInlineMarkdown('[y](https://a.b/c"onmouseover="z)'), /onmouseover="/);
+});

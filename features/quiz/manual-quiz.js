@@ -474,7 +474,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!quizData.title) {
             titleInput.classList.add('input-error');
             titleInput.focus();
-            showToast('⚠️ Vui lòng nhập tên bộ trắc nghiệm trước khi lưu!', { type: 'warning' });
+            showToast('⚠️ Vui lòng nhập tên bộ đề trước khi lưu!', { type: 'warning' });
             return;
         }
         if (!quizData.questions.length) {

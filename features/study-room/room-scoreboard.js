@@ -239,7 +239,7 @@ export function renderResults() {
         <div class="text-center mb-5">
             <div class="text-4xl mb-2">🎉</div>
             <h2 class="text-2xl font-extrabold">Kết thúc phiên</h2>
-            <p class="text-sm text-muted mt-1">${escapeHtml(room.session.quizTitle || 'Đề trắc nghiệm')} · ${questions.length} câu · cả phòng đúng trung bình <b class="text-[#FF69B4]">${roomAcc}%</b></p>
+            <p class="text-sm text-muted mt-1">${escapeHtml(room.session.quizTitle || 'Đề ôn tập')} · ${questions.length} câu · cả phòng đúng trung bình <b class="text-[#FF69B4]">${roomAcc}%</b></p>
         </div>
 
         ${teamStripHtml(rows)}

@@ -41,7 +41,7 @@ function summarize(questions, title) {
         return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([n, c]) => ({ n: n.slice(0, 60), c }));
     };
     return {
-        title: String(title || 'Đề trắc nghiệm').slice(0, 120), qCount: questions.length,
+        title: String(title || 'Đề ôn tập').slice(0, 120), qCount: questions.length,
         topics: tally('topic'), levels: tally('level'),
         cases: questions.filter(q => q?.caseText || q?.case).length,
         withExp: questions.filter(q => q?.explanation || q?.explain).length,
@@ -356,7 +356,7 @@ let fresh = null;                 // bản máy chủ của đề đang chọn �
 const sameQuiz = (a, b) => a.title === b.title && JSON.stringify(a.questions) === JSON.stringify(b.questions);
 
 function useLibraryData(quizId, data) {
-    draft = { questions: data.questions || [], title: data.title || 'Đề trắc nghiệm', fromLibrary: true, quizId };
+    draft = { questions: data.questions || [], title: data.title || 'Đề ôn tập', fromLibrary: true, quizId };
     showDraft(draft.title, draft.questions);
     publishNext();
     rememberQuiz(quizId, draft.title, draft.questions.length);
@@ -448,7 +448,7 @@ export async function startFromSolo() {
     if (resume) { try { saved = JSON.parse(localStorage.getItem('quizState_' + quizId) || 'null'); } catch (e) {} }
     let solo = null;
     if (saved?.questions?.length) {
-        draft = { questions: saved.questions, title: title || 'Đề trắc nghiệm', fromLibrary: true, quizId };
+        draft = { questions: saved.questions, title: title || 'Đề ôn tập', fromLibrary: true, quizId };
         solo = soloResume(saved);
     } else {
         if (resume) showToast('Bản lưu bài dở không còn đủ đề — mở đề từ đầu.', 'warning', 3200);
@@ -456,7 +456,7 @@ export async function startFromSolo() {
         const data = (await getOfflineQuiz(quizId).catch(() => null)) || (await fetchQuiz(quizId).catch(() => null));
         el('loading-overlay').classList.add('hidden');
         if (!data?.questions?.length) return void showToast('Không mở được bộ đề này.', 'error');
-        draft = { questions: data.questions, title: data.title || title || 'Đề trắc nghiệm', fromLibrary: true, quizId };
+        draft = { questions: data.questions, title: data.title || title || 'Đề ôn tập', fromLibrary: true, quizId };
     }
     rememberQuiz(quizId, draft.title, draft.questions.length);
     await startSession(solo, true);
@@ -729,7 +729,7 @@ async function saveReviewQuiz() {
         return showToast('Đăng nhập để lưu đề ôn vào thư viện của bạn.', 'warning');
     }
     const idx = reviewIndexes().filter(i => !isEssay(questionAt(i)));
-    if (!idx.length) return showToast('Không có câu trắc nghiệm nào cần ôn — bạn làm tốt quá!', 'success');
+    if (!idx.length) return showToast('Không có câu trắc nghiệm nào cần ôn lại.', 'success');
     if (!await showConfirm(`Tạo bộ đề ôn gồm ${idx.length} câu (sai / bỏ trống / cần bàn)?`, { confirmText: 'Tạo đề ôn' })) return;
 
     el('loading-overlay').classList.remove('hidden');

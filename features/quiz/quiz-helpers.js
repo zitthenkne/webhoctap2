@@ -337,6 +337,10 @@ export function parseInlineMarkdown(text) {
     }
     if (!text) return '';
     let html = text;
+    // Thẻ ảnh / link dựng xong được CẤT vào chỗ giữ tạm: URL hay có dấu _ (ảnh Wikimedia "Some_file_name.jpg")
+    // mà để luật in nghiêng _…_ / in đậm __…__ chạy qua là hỏng đường dẫn. Gắn lại ở cuối hàm.
+    const kept = [];
+    const keep = (h) => `\u0001${kept.push(h) - 1}\u0001`;
     
     // Parse Markdown Image: ![alt](src)
     html = html.replace(/!\[(.*?)\]\((.*?)\)/g, (match, alt, src) => {
@@ -354,8 +358,12 @@ export function parseInlineMarkdown(text) {
         // (skill tìm ảnh) hay dán tay đều không nhét được thuộc tính lạ / javascript: vào thẻ
         finalSrc = String(finalSrc).trim();
         if (!/^(https?:\/\/|data:image\/|\.{0,2}\/|[\w-]+\/)/i.test(finalSrc) || /^javascript:/i.test(finalSrc)) return _escHtml(match);
-        return `<img src="${_escHtml(finalSrc)}" alt="${_escHtml(alt)}" loading="lazy" decoding="async" class="quiz-image max-w-full h-auto my-4 rounded-xl shadow-md border border-pink-100/30 mx-auto block" />`;
+        return keep(`<img src="${_escHtml(finalSrc)}" alt="${_escHtml(alt)}" loading="lazy" decoding="async" class="quiz-image max-w-full h-auto my-4 rounded-xl shadow-md border border-pink-100/30 mx-auto block" />`);
     });
+
+    // Link: [chữ](https://…) — dòng ghi nguồn ảnh (Wikimedia Commons…), tài liệu tham khảo. Chỉ http/https, mở tab mới.
+    html = html.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, (m, label, url) =>
+        keep(`<a href="${_escHtml(url)}" target="_blank" rel="noopener noreferrer" class="quiz-link">${_escHtml(label)}</a>`));
 
     // Bold: **text** hoặc __text__ (in đậm nét dày hơn, phối màu hồng tím mận nổi bật)
     html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="obsidian-bold">$1</strong>');
@@ -367,7 +375,7 @@ export function parseInlineMarkdown(text) {
     
     // Code inline: `text` (đoạn mã cao hơn, co giãn cỡ chữ theo dòng [0.9em] và căn giữa dòng)
     html = html.replace(/`(.*?)`/g, '<code class="bg-gray-100 text-pink-600 px-1.5 py-0.5 rounded font-mono text-[0.9em] align-middle inline-block">$1</code>');
-    return html;
+    return html.replace(/\u0001(\d+)\u0001/g, (m, k) => kept[k] ?? '');
 }
 
 // Lột bỏ nhãn "A." / "B)" … dính đầu mỗi phương án khi nhập liệu. Vì app tự gán chữ cái

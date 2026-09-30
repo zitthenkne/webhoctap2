@@ -227,7 +227,7 @@ export function downloadMyNotes() {
     const idx = reviewIndexes();
     const L = (k) => String.fromCharCode(65 + k);
     const lines = [
-        `# Ghi chú buổi học — ${s.quizTitle || 'Đề trắc nghiệm'}`,
+        `# Ghi chú buổi học — ${s.quizTitle || 'Đề ôn tập'}`,
         `_${new Date().toLocaleString('vi-VN')} · phòng ${room.roomId} · ${idx.length}/${s.questions.length} câu cần xem lại_`,
         '',
     ];

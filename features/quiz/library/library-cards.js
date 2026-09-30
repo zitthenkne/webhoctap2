@@ -45,63 +45,40 @@ function prefersReducedMotion() {
     return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-// Làm sáng/tối một mã màu hex (amt: -100..100). Dùng để tạo màu bìa & thân thư mục hài hoà.
-function shadeHex(hex, amt) {
-    let h = String(hex || '').replace('#', '');
-    if (h.length === 3) h = h.split('').map(c => c + c).join('');
-    if (h.length !== 6 || /[^0-9a-fA-F]/.test(h)) return hex;
-    const num = parseInt(h, 16);
-    const f = amt / 100;
-    const adj = (c) => Math.max(0, Math.min(255, Math.round(c + (f < 0 ? c * f : (255 - c) * f))));
-    const r = adj((num >> 16) & 255), g = adj((num >> 8) & 255), b = adj(num & 255);
-    return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
-}
-
-// Hoạt ảnh "mở thư mục" 3D: dựng một chiếc thư mục thật ngay tại vị trí thẻ vừa bấm —
-// bìa trước lật mở (bản lề ở đáy), xấp giấy (bộ đề) bên trong trồi lên & xoè ra, rồi cả
-// khối phóng to tiến về phía người xem và tan dần vào nội dung → cảm giác "bước vào" thư mục.
+// Hoạt ảnh "mở thư mục" 3D: NHÂN BẢN chính thẻ vừa bấm rồi cho bản sao diễn — túi trước lật mở
+// (bản lề ở đáy), đúng mấy tờ giấy kẻ dòng thò lên trên thẻ trồi lên & xoè ra, rồi cả khối phóng to
+// tiến về phía người xem và tan dần → khung đầu tiên giống hệt thẻ (cùng tai, giấy, túi, màu, icon).
 // Chạy trên lớp phủ position:fixed gắn ở body nên không bị việc render lại thư viện xoá mất.
-function playFolderOpenBurst(cardEl, hex, quizCount) {
+function playFolderOpenBurst(cardEl) {
     if (prefersReducedMotion()) return;
     const rect = cardEl.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    // Scene có cỡ nội bộ cố định (150px); scale ban đầu để khớp bề rộng thẻ thư mục → liền mạch
-    const startScale = Math.max(0.8, Math.min(rect.width / 150, 1.5));
 
     const stage = document.createElement('div');
     stage.className = 'folder-open-stage';
 
     const scene = document.createElement('div');
     scene.className = 'folder-open-scene';
-    scene.style.left = cx + 'px';
-    scene.style.top = cy + 'px';
-    scene.style.setProperty('--fo-start-scale', startScale.toFixed(3));
-    scene.style.setProperty('--fo-color', hex);
-    scene.style.setProperty('--fo-color-d', shadeHex(hex, -22));
-    scene.style.setProperty('--fo-color-l', shadeHex(hex, 14));
+    scene.style.left = rect.left + 'px';
+    scene.style.top = rect.top + 'px';
+    scene.style.width = rect.width + 'px';
+    scene.style.height = rect.height + 'px';
 
-    // Xấp giấy bên trong: số tờ theo số bộ đề (3–5), xoè đối xứng
-    const n = Math.max(3, Math.min(5, quizCount || 4));
-    const mid = (n - 1) / 2;
-    let papers = '';
-    for (let i = 0; i < n; i++) {
-        const off = i - mid;
-        papers += `<span class="fo-paper" style="--fo-i:${i}; --fo-dx:${(off * 17).toFixed(1)}px; --fo-rot:${(off * 8).toFixed(1)}deg; z-index:${20 - Math.abs(off)}">`
-            + `<span class="fo-paper-bar"></span><span class="fo-paper-line"></span><span class="fo-paper-line short"></span></span>`;
-    }
+    const ghost = cardEl.cloneNode(true);
+    ghost.classList.add('fo-ghost');
+    ghost.classList.remove('drop-target', 'just-received', 'folder-dragging');
+    ghost.removeAttribute('data-id');          // không để mã thư viện nhầm bản sao là thẻ thật
+    ghost.removeAttribute('draggable');
+    ghost.querySelectorAll('.folder-preview-pop, .folder-menu').forEach(n => n.remove());
+    scene.style.setProperty('--fc', ghost.style.getPropertyValue('--fc'));
 
-    scene.innerHTML = `
-        <span class="fo-glow"></span>
-        <span class="fo-back"></span>
-        ${papers}
-        <span class="fo-flap"><span class="fo-tab"></span></span>
-    `;
+    scene.innerHTML = '<span class="fo-glow"></span>';
+    scene.appendChild(ghost);
     stage.appendChild(scene);
     document.body.appendChild(stage);
 
-    // Thẻ thư mục "nảy" nhẹ như vừa được mở ra
-    cardEl.classList.add('folder-ejecting');
+    // Bản sao đã nằm đè đúng chỗ → ẩn thẻ thật NGAY: breadcrumb hiện ra đẩy thư viện xuống,
+    // để thẻ thật mờ dần sẽ lộ hai thẻ chồng lệch nhau.
+    cardEl.style.visibility = 'hidden';
 
     setTimeout(() => stage.remove(), 1850);
 }
@@ -123,18 +100,19 @@ export function createFolderCard(folder) {
     card.setAttribute('draggable', 'true');
     if (isPinnedFolder) card.classList.add('is-pinned');
 
-    // Tô màu nguyên cả thẻ thư mục theo màu đã chọn (thay vì chỉ ô icon nhỏ)
+    // Bìa hồ sơ giấy: JS chỉ đặt MÀU GỐC --fc, CSS pha ra bìa/túi/viền/chữ pastel (màu phẳng, không ombre).
     const hex = colorVal.startsWith('#')
         ? colorVal
         : (FOLDER_COLOR_HEX[colorVal] || FOLDER_COLOR_HEX.amber);
-    // Nền kính mờ: lớp màu nhạt phủ trên nền trắng gần đặc → đậm & dễ đọc trên mọi ảnh nền
-    card.style.background = `linear-gradient(145deg, ${hex}3d, ${hex}1f), linear-gradient(0deg, rgba(255,255,255,0.9), rgba(255,255,255,0.9))`;
-    card.style.borderColor = `${hex}80`;
+    card.style.setProperty('--fc', hex);
     card.style.setProperty('--folder-shadow', `${hex}40`);
     card.style.setProperty('--folder-accent', hex);
+    // Tai hồ sơ ghi số bộ đề; xấp giấy thò lên nhiều/ít theo số bộ đề (0 = túi rỗng)
+    card.dataset.tab = count ? `${count} bộ đề` : 'Trống';
+    card.dataset.fill = count === 0 ? '0' : count === 1 ? '1' : count < 5 ? '2' : '3';
 
-    // Icon nổi bật: chip màu đặc + icon trắng để tương phản trên nền đã tô màu
-    const wrapperHTML = `<div class="folder-icon-wrapper" style="background-color: ${hex}; color: #fff;"><i class="fas ${iconClass}"></i></div>`;
+    // Icon dạng sticker bế viền trắng, nền màu gốc của thư mục (tô ở CSS)
+    const wrapperHTML = `<div class="folder-icon-wrapper"><i class="fas ${iconClass}"></i></div>`;
 
     const isPublicFolder = folder.isPublic === true;
     const pinBadge = isPinnedFolder
@@ -154,8 +132,8 @@ export function createFolderCard(folder) {
     // tầm 768–1100px là chip thứ hai bị cắt cụt giữa chữ ("840", "512 c") vì hàng không
     // được xuống dòng. Số câu chuyển xuống hàng 2 dạng chữ thường, chật thì cắt có "…".
     // Hàng 2 LUÔN render (kể cả rỗng) để mọi thẻ thư mục cao bằng nhau, cả dải thẳng hàng.
-    const subParts = [`${totalQuestions} câu`];
-    if (lastOpenedText) subParts.push(lastOpenedText);
+    const subParts = [count ? `${totalQuestions} câu` : 'Chưa có bộ đề'];
+    if (lastOpenedText) subParts.push(`mở ${lastOpenedText}`);
     const lastOpenedHTML = `<p class="folder-meta-time"><i class="fas fa-clock"></i>${subParts.join(' · ')}</p>`;
 
     // Xem nhanh khi hover: liệt kê tối đa 5 bộ đề trong thư mục
@@ -167,28 +145,27 @@ export function createFolderCard(folder) {
         ? `<div class="folder-preview-pop"><p class="folder-preview-title"><i class="fas fa-layer-group"></i> ${count} bộ đề${totalQuestions ? ` · ${totalQuestions} câu` : ''}</p><ul>${previewItems}${previewMore}</ul></div>`
         : '';
 
+    const safeName = escapeHtml(folder.name || 'Thư mục');
     card.innerHTML = `
         ${pinBadge}
         ${publicBadge}
         ${previewHTML}
+        <span class="fd-papers" aria-hidden="true"><i></i><i></i><i></i></span>
         <div class="folder-mini-card-content folder-click-area">
             ${wrapperHTML}
             <div class="min-w-0 flex-1">
-                <h4 class="font-bold text-gray-800 text-sm truncate" title="${folder.name}">${folder.name}</h4>
-                <div class="folder-meta-row">
-                    <span class="folder-count-badge"><i class="fas fa-file-alt text-[9px] opacity-70"></i>${count} bộ đề</span>
-                </div>
+                <h4 class="fd-name" title="${safeName}">${safeName}</h4>
                 ${lastOpenedHTML}
             </div>
         </div>
-        <div class="relative flex items-center">
+        <div class="fd-menu-wrap relative flex items-center">
             <button class="folder-menu-btn w-6 h-6 flex items-center justify-center text-gray-400 hover:text-pink-500 rounded-full focus:outline-none" data-id="${folder.id}" title="Tùy chọn thư mục" aria-label="Tùy chọn thư mục" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v text-xs"></i></button>
             <div class="folder-menu hidden absolute right-0 top-7 bg-white rounded-xl shadow-xl border border-pink-100 z-30 min-w-[205px] p-1">
                 <button class="block w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-gray-700 hover:bg-pink-50 pin-folder-btn" data-id="${folder.id}"><i class="fas fa-thumbtack mr-2 ${isPinnedFolder ? 'text-pink-500' : 'text-gray-400'}"></i>${isPinnedFolder ? 'Bỏ ghim' : 'Ghim lên đầu'}</button>
                 <button class="block w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-gray-700 hover:bg-pink-50 share-folder-btn" data-id="${folder.id}"><i class="fas fa-share-alt mr-2 text-green-500"></i>Chia sẻ thư mục</button>
                 <button class="block w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-gray-700 hover:bg-pink-50 toggle-folder-public-btn" data-id="${folder.id}" data-public="${isPublicFolder}" title="${isPublicFolder ? 'Đang công khai — bấm để chuyển cả thư mục về riêng tư' : 'Đang riêng tư — bấm để công khai cả thư mục kèm bộ đề bên trong'}"><i class="fas ${isPublicFolder ? 'fa-globe text-green-500' : 'fa-lock text-gray-400'} mr-2"></i>${isPublicFolder ? 'Đang công khai' : 'Đang riêng tư'}</button>
                 <div class="h-px bg-gray-100 my-1"></div>
-                <button class="block w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-gray-700 hover:bg-pink-50 rename-folder-btn" data-id="${folder.id}" data-name="${folder.name}"><i class="fas fa-pen mr-2 text-blue-400"></i>Sửa tên, icon &amp; màu</button>
+                <button class="block w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-gray-700 hover:bg-pink-50 rename-folder-btn" data-id="${folder.id}" data-name="${safeName}"><i class="fas fa-pen mr-2 text-blue-400"></i>Sửa tên, icon &amp; màu</button>
                 <div class="px-3 pt-2 pb-1">
                     <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Đổi màu nhanh</p>
                     <div class="folder-color-row">${swatchHTML}</div>
@@ -201,9 +178,10 @@ export function createFolderCard(folder) {
         </div>
     `;
 
-    card.querySelector('.folder-click-area').addEventListener('click', () => {
+    card.addEventListener('click', (e) => {
+        if (e.target.closest('.fd-menu-wrap')) return;
         markFolderOpened(folder.id); // ghi nhận lần mở gần nhất (cục bộ)
-        playFolderOpenBurst(card, hex, count); // giấy bung ra từ thư mục
+        playFolderOpenBurst(card); // bản sao của thẻ lật túi, giấy bung ra
         S.currentFolderId = folder.id;
         renderBreadcrumb();
         // Trễ nhẹ để xấp giấy kịp xoè lên từ thư mục trước khi danh sách đổi sang nội dung bên trong

@@ -3542,3 +3542,67 @@ body.case-resizing { cursor: ns-resize; user-select: none; }
 .answer-btn .svg-fig { margin: 0.35rem 0; padding: 0.35rem; border-width: 1.5px; box-shadow: none; overflow: hidden; }
 .answer-btn .svg-fig img { min-width: 0; cursor: inherit; }
 .answer-btn.answer-locked .svg-fig img { cursor: zoom-in; }
+
+/* Link trong nội dung (dòng ghi nguồn ảnh, tài liệu tham khảo) — parseInlineMarkdown [chữ](url) */
+.quiz-link { color: var(--ink-sky, #2A5E8C); text-decoration: underline; text-underline-offset: 2px; font-weight: 600; }
+.quiz-link:hover { color: var(--ink-blossom, #8E2F57); }
+
+/* Chân trang bản quyền + dấu tên web/logo nổi ở góc (luôn thấy, mờ nhẹ để không giành chú ý người làm bài) */
+.qz-foot {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.3rem;
+    width: fit-content; margin: 1.5rem auto 0.25rem; padding: 0.2rem 0.75rem; border-radius: 9999px;
+    background: color-mix(in srgb, var(--paper) 70%, transparent);
+    font-size: 11px; letter-spacing: 0.03em; color: var(--ink-muted);
+}
+.qz-foot a { font-weight: 700; color: var(--ink-blossom); text-decoration: none; }
+.qz-foot a:hover { text-decoration: underline; text-underline-offset: 2px; }
+.qz-foot .qz-dot { color: var(--ink-faint); }
+
+#qz-brand {
+    position: fixed; right: 0.85rem; bottom: 0.85rem; z-index: 44;
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0.2rem 0.6rem 0.2rem 0.2rem; border-radius: 9999px;
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0.02em; line-height: 1;
+    color: var(--ink-blossom); text-decoration: none;
+    background: color-mix(in srgb, var(--paper) 85%, transparent);
+    border: 1px solid var(--line);
+    opacity: 0.55; transition: opacity 0.2s;
+}
+#qz-brand:hover, #qz-brand:focus-visible { opacity: 1; }
+#qz-brand img { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; }
+
+/* Đang làm bài có thanh điều hướng đáy (<1024px): dấu nhấc lên trên thanh; chân trang gánh phần chừa chỗ thay khung bài */
+@media (max-width: 1023px) {
+    body.has-mobile-nav #qz-brand { bottom: calc(6.2rem + env(safe-area-inset-bottom, 0px)); }
+    body.has-mobile-nav #quiz-workspace { padding-bottom: 0; }
+    body.has-mobile-nav .qz-foot { margin-bottom: 6.8rem; }
+}
+/* Điện thoại: thanh trên cùng đã có logo + tên -> ẩn dấu nổi; chế độ tập trung giấu thanh đó -> dấu lên góc trên trái */
+@media (max-width: 767px) {
+    #qz-brand { display: none; }
+    body.focus-mode-active #qz-brand { display: inline-flex; top: 0.75rem; left: 0.75rem; right: auto; bottom: auto; }
+    body:has(#quiz-landing:not(.hidden)) .qz-foot { margin-bottom: 5rem; }   /* chừa thanh "Bắt đầu ngay!" */
+}
+
+/* 50:50 loại phương án: KHÔNG làm mờ cả ô nữa (đọc không nổi) — chỉ mờ + gạch phần đáp án,
+   còn "Tại sao sai" rõ nét để hiểu vì sao bị loại. JS: mark5050Out() trong quiz-question-view.js */
+#quizSection .answer-btn.is-5050-out { opacity: 1; border-style: dashed; }
+#quizSection .answer-btn.is-5050-out .answer-letter,
+#quizSection .answer-btn.is-5050-out .answer-content {
+    opacity: 0.4;
+    text-decoration: line-through;
+    text-decoration-color: color-mix(in srgb, var(--bad-solid) 65%, transparent);
+}
+#quizSection .option-explanation.exp-5050::before { display: none; }
+#quizSection .option-explanation.exp-5050 {
+    box-shadow: none; color: var(--ink);
+    border-color: color-mix(in srgb, var(--bad-line) 55%, transparent);
+    --em-b: var(--bad-ink); --em-i: var(--ink-lav);
+}
+#quizSection .option-explanation.exp-5050 > span:first-child { color: var(--bad-ink); background: var(--bad-bg); box-shadow: inset 0 0 0 1.5px var(--bad-line); }
+#quizSection .exp-5050-none { color: var(--ink-muted); font-style: italic; }
+/* Ô đã bị loại thì khóa (disabled) -> không chạm "Xem thêm" được: giải thích luôn mở hết */
+@media (max-width: 639px) {
+    #quizSection .answer-btn.is-5050-out .option-explanation { max-height: none; overflow: visible; cursor: auto; }
+    #quizSection .answer-btn.is-5050-out .option-explanation::after { display: none; }
+}

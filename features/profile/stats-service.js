@@ -1361,7 +1361,7 @@ export function renderAttemptsTable() {
         const meta = `
             <div class="flex items-center justify-between gap-2 mb-4 mt-2 border-t border-dashed border-pink-100 pt-3">
                 <select class="attempt-kind min-w-0 text-xs font-bold text-gray-700 bg-white border-2 border-pink-100 rounded-2xl pl-3 pr-8 py-2 focus:border-pink-400 focus:ring-2 focus:ring-pink-100 focus:outline-none cursor-pointer shadow-xs bujo-font-body" aria-label="Cách tính điểm">
-                    <optgroup label="Trắc nghiệm">
+                    <optgroup label="Tính theo câu đúng">
                         ${opt('ratio:ump', 'Đúng · UMP')}
                         ${opt('ratio:linear', 'Đúng · %×10')}
                     </optgroup>

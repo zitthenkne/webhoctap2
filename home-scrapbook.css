@@ -297,3 +297,15 @@ body > div > footer a.bg-clip-text { background: none; color: #E0588F; }
 #authModal #closeModalBtn { color: #B77A95; }
 #authModal #closeModalBtn:hover { color: var(--sc-ink); background: rgba(255, 255, 255, .6); }
 #authModal .bg-gradient-to-r { background: #FF7FB0; }
+
+/* ===================== THƯ VIỆN: nhãn mục "Thư mục của bạn" / "Bộ đề của bạn" ===================== */
+/* Chữ trên mẩu băng keo như nhãn nhóm ở thanh bên (không đổi cỡ/vị trí chữ) */
+#folders-header > h3, #quizzes-section-title { position: relative; isolation: isolate; width: fit-content; }
+#folders-header > h3::before, #quizzes-section-title::before {
+    content: ''; position: absolute; z-index: -1; left: -8px; right: -10px; top: 28%; bottom: -8%;
+    background: color-mix(in srgb, var(--tape, var(--sc-peach)) 78%, transparent);
+    -webkit-mask: var(--sc-torn); mask: var(--sc-torn);
+    rotate: -1.2deg;
+}
+#quizzes-section-title { --tape: #CFE6F6; }
+#quizzes-section-title::before { rotate: 1deg; }

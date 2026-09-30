@@ -3,6 +3,20 @@
    Nạp SAU tailwind-index.css và neo luật bằng #id → thắng class Tailwind cùng phần tử.
    Màu phẳng pastel, không gradient (xem ghi chú thiết kế của dự án). */
 
+/* ===================== ẢNH NỀN (bg-random.js đặt các biến --home-bg*) ===================== */
+/* Vẽ ở lớp riêng vì filter blur không áp được cho background của body. inset âm để mép ảnh nhoè
+   không lộ viền trong; z-index:-1 = dưới mọi nội dung, trên màu nền body (đã lan ra canvas). */
+body::before, body::after {
+    content: ''; position: fixed; z-index: -1; pointer-events: none;
+}
+body::before {
+    inset: -24px;
+    background: var(--home-bg, none) center / cover no-repeat;
+    /* saturate nhỉnh >1: làm nhạt mà không ngả xám (thử 0.92 bị xỉn) */
+    filter: blur(var(--home-bg-blur, 3px)) brightness(var(--home-bg-bright, 1.15)) saturate(1.05);
+}
+body::after { inset: 0; background: var(--home-bg-tint, transparent); } /* lớp phủ hồng nhạt, màu phẳng */
+
 /* ===================== THANH TAB DƯỚI (điện thoại) ===================== */
 #tabbar {
     display: flex; align-items: stretch; height: 60px; flex-shrink: 0; position: relative; z-index: 30;

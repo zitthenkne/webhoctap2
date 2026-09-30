@@ -21,7 +21,7 @@ export async function openInRoom() {
     if (!navigator.onLine) return showToast('Cần có mạng để mở phòng làm cùng nhau.', 'warning');
     const quizId = quizIdOf();
     if (!quizId) return;
-    const title = String((state.quizData && state.quizData.title) || 'Đề trắc nghiệm').trim();
+    const title = String((state.quizData && state.quizData.title) || 'Đề ôn tập').trim();
 
     // Đang làm bài thì ghi bản mới nhất trước (phòng đọc bản này); ở trang chờ thì dùng bài dở đã lưu
     try { if (sessionStorage.getItem('quizLive') === quizId) saveQuizState(); } catch (e) {}

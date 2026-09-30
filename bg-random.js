@@ -6,15 +6,19 @@
  *   2. Thêm đúng TÊN FILE (kèm đuôi) vào mảng BG_IMAGES bên dưới — mỗi ảnh 1 dòng.
  *   Vậy là xong, mỗi lần tải trang sẽ chọn ngẫu nhiên 1 ảnh trong danh sách.
  *
- * Muốn nền rõ hơn -> giảm BG_OVERLAY (vd 0.45). Muốn mờ hơn -> tăng (vd 0.75).
+ * Muốn nền rõ hơn -> giảm BG_OVERLAY (vd 0.4). Muốn nhạt hơn -> tăng (vd 0.7).
  * Muốn đổi tông nền -> sửa BG_TINT (mã màu RGB của lớp phủ hồng phấn).
+ * Độ nhoè / độ sáng của ảnh -> sửa BG_BLUR / BG_BRIGHT.
+ * Ảnh được vẽ ở lớp riêng body::before (xem home-shell.css) vì CSS không làm nhoè được nền của body.
  */
 (function () {
     "use strict";
 
     var BG_FOLDER = "assets/bg index/";
-    var BG_OVERLAY = 0.55; // độ phủ của lớp hồng (0 = ảnh rõ nhất, 1 = phủ kín)
-    var BG_TINT = "255, 214, 224"; // màu lớp phủ (hồng phấn #FFD6E0) -> mọi ảnh đều ánh hồng
+    var BG_OVERLAY = 0.62; // độ phủ của lớp hồng (0 = ảnh rõ nhất, 1 = phủ kín)
+    var BG_TINT = "255, 236, 242"; // màu lớp phủ: hồng phấn rất nhạt (#FFECF2) -> nền sáng, ánh hồng
+    var BG_BLUR = 3;       // px — nhoè nhẹ cho ảnh lùi ra sau, chữ/thẻ nổi hơn
+    var BG_BRIGHT = 1.15;  // >1 = sáng hơn ảnh gốc
 
     var BG_IMAGES = [
         "Candy_wonderland_with_squirrel_202606240130.webp",
@@ -38,14 +42,10 @@
     var url = encodeURI(BG_FOLDER + name); // mã hoá khoảng trắng & ký tự đặc biệt
     var overlay = "rgba(" + BG_TINT + ", " + BG_OVERLAY + ")";
 
-    function apply() {
-        document.body.style.backgroundImage =
-            "linear-gradient(" + overlay + ", " + overlay + "), url('" + url + "')";
-    }
-
-    if (document.body) {
-        apply();
-    } else {
-        document.addEventListener("DOMContentLoaded", apply);
-    }
+    // Chỉ đặt biến CSS lên <html> — chạy được ngay, không cần chờ <body>
+    var root = document.documentElement.style;
+    root.setProperty("--home-bg", "url('" + url + "')");
+    root.setProperty("--home-bg-tint", overlay);
+    root.setProperty("--home-bg-blur", BG_BLUR + "px");
+    root.setProperty("--home-bg-bright", String(BG_BRIGHT));
 })();

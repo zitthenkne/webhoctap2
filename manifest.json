@@ -1,7 +1,7 @@
 {
   "name": "Zitthenkne - Công cụ học tập",
   "short_name": "Zitthenkne",
-  "description": "Nền tảng học tập với quiz, flashcard, study room, và các công cụ học tập hiệu quả",
+  "description": "Nền tảng học tập: bộ đề trắc nghiệm và tự luận, flashcard, phòng đánh đề, viết bệnh án",
   "id": "/",
   "start_url": "index.html",
   "scope": "./",
@@ -57,10 +57,10 @@
   ],
   "shortcuts": [
     {
-      "name": "Làm Quiz",
-      "short_name": "Quiz",
-      "description": "Làm bài trắc nghiệm nhanh",
-      "url": "features/quiz/quiz.html",
+      "name": "Thư viện bộ đề",
+      "short_name": "Thư viện",
+      "description": "Mở thư viện bộ đề để làm bài",
+      "url": "index.html#libraryContent",
       "icons": [{ "src": "assets/icon-192.png", "sizes": "192x192" }]
     },
     {

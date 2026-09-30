@@ -104,7 +104,7 @@ function nextHtml(n, forHost) {
             <span class="rm-next-ic"><i class="fas fa-book-open"></i></span>
             <div class="min-w-0">
                 <p class="rm-label">${forHost ? 'Cả phòng đang thấy đề này' : 'Đề sắp làm'}</p>
-                <b>${escapeHtml(n.title || 'Đề trắc nghiệm')}</b>
+                <b>${escapeHtml(n.title || 'Đề ôn tập')}</b>
                 <span>${n.qCount || 0} câu${n.cases ? ` · ${n.cases} câu ca lâm sàng` : ''}${n.withExp ? ` · ${n.withExp} câu có giải thích sẵn` : ''}</span>
             </div>
         </div>

@@ -74,8 +74,8 @@
     
     <!-- Open Graph / Facebook / Zalo Share Preview -->
     <meta property="og:type" content="website">
-    <meta property="og:title" content="Zitthenkne - Ôn luyện trắc nghiệm hiệu quả">
-    <meta property="og:description" content="Thử thách bản thân với các bộ đề trắc nghiệm thú vị và nâng cao kiến thức mỗi ngày cùng Zitthenkne!">
+    <meta property="og:title" content="Zitthenkne - Ôn luyện bộ đề hiệu quả">
+    <meta property="og:description" content="Ôn luyện với các bộ đề trắc nghiệm và tự luận, nâng cao kiến thức mỗi ngày cùng Zitthenkne.">
     <meta property="og:image" content="https://zitthenkne.vercel.app/assets/og_squirrel_close.jpg">
 
     <script>
@@ -1179,7 +1179,7 @@
                     const titleEl = document.getElementById('quiz-title');
                     const quizTitle = (titleEl && titleEl.textContent && titleEl.textContent.trim() !== 'Đang tải thông tin...')
                         ? titleEl.textContent.trim()
-                        : (document.title || 'Bộ đề trắc nghiệm');
+                        : (document.title || 'Bộ đề ôn tập');
 
                     const titleField = document.getElementById('share-quiz-title');
                     const linkInput = document.getElementById('share-link-input');
@@ -1277,7 +1277,20 @@
         </div>
         </div><!-- /#quiz-workspace -->
             </div>
+        <footer class="qz-foot">
+            <span>&copy; 2025</span>
+            <a href="https://fb.com/vietthanh1911" target="_blank" rel="noopener noreferrer">Zitthenk</a>
+            <span class="qz-dot">&bull;</span><span>Y23C</span>
+            <span class="qz-dot">&bull;</span><span>17</span>
+            <span class="qz-dot">&bull;</span><span>UMP</span>
+        </footer>
     </div>
+
+    <!-- Dấu tên web + logo nổi ở góc (luôn thấy, mờ nhẹ để không giành chú ý). CSS: quiz-stationery.css cuối file -->
+    <a id="qz-brand" href="../../index.html" title="Zitthenkne — Trang chủ" aria-label="Zitthenkne — Trang chủ">
+        <img src="../../assets/opt/logo-96.webp" width="20" height="20" alt="">
+        <span>Zitthenkne</span>
+    </a>
 
     <!-- Nút thiết lập nổi: Chế độ tối / Âm thanh / Rung -->
     <button id="quiz-settings-fab" type="button" title="Ngựa thì chỉnh" aria-label="Ngựa thì chỉnh">

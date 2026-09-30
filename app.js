@@ -480,7 +480,7 @@ function handleJsonInput() {
         showToast(`✓ Đã phân tích thành công ${parsedQuestions.length} câu hỏi!`, 'success');
     } catch (e) {
         showToast('Lỗi phân tích JSON: ' + e.message, 'error');
-        console.error("Lỗi phân tích JSON trắc nghiệm:", e);
+        console.error("Lỗi phân tích JSON bộ đề:", e);
     }
 }
 
@@ -494,11 +494,11 @@ function setupEventListeners() {
     if (processBtn) processBtn.addEventListener('click', saveAndStartQuiz);
     if (saveBtnPreQuiz) saveBtnPreQuiz.addEventListener('click', saveOnly);
     if (selectCreateQuizBtn) selectCreateQuizBtn.addEventListener('click', async () => {
-        if (!await requireLogin('Tạo trắc nghiệm')) return;
-        showContent('createQuizContent', 'Tạo trắc nghiệm');
+        if (!await requireLogin('Tạo bộ đề')) return;
+        showContent('createQuizContent', 'Tạo bộ đề');
     });
 
-    // Chuyển đổi tab tạo trắc nghiệm (Tải file / Nhập JSON)
+    // Chuyển đổi tab tạo bộ đề (Tải file / Nhập JSON)
     const tabUploadFile = document.getElementById('tab-upload-file');
     const tabPasteJson = document.getElementById('tab-paste-json');
     const uploadFilePane = document.getElementById('upload-file-pane');

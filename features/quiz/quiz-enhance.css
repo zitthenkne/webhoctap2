@@ -503,13 +503,21 @@ html.theme-dark .qs-marked-unmark { color: #8a7fa3; }
    (vốn bắn pointercancel làm hỏng timer). Ô ĐÃ trả lời (answer-locked) vẫn chọn được để ghi chú.
    Chỉ áp trên màn cảm ứng để chuột/kéo-chọn trên desktop không bị ảnh hưởng. */
 @media (pointer: coarse) {
-    #quizSection .answer-btn:not(.answer-locked) {
+    /* Gồm cả con: .answer-content tự bật user-select:text (để ghi chú) sẽ thắng luật của nút cha
+       -> iOS vừa gạch (500ms) vừa bôi đen chữ + hiện menu hệ thống = một cú giữ thành hai việc. */
+    #quizSection .answer-btn:not(.answer-locked),
+    #quizSection .answer-btn:not(.answer-locked) * {
         -webkit-user-select: none;
         user-select: none;
         -webkit-touch-callout: none;
     }
 }
 #quizSection .answer-btn { touch-action: manipulation; }
+/* Cả khung làm bài: bỏ "chạm đúp để phóng to" (iOS) — chạm rìa/bấm Tiếp 2 lần nhanh không bị
+   hiểu thành phóng to; vẫn phóng to bằng 2 ngón. Dải tiến trình thanh đáy: vuốt lên = mở danh sách
+   câu, không kéo trang cuộn theo. */
+#quiz-container, #quiz-mobile-nav { touch-action: manipulation; }
+#qmn-jump { touch-action: none; }
 
 /* Mũi tên lóe khi CHẠM RÌA chuyển câu (mobile) — chỉ để phản hồi, không chặn chạm */
 .edge-tap-hint {

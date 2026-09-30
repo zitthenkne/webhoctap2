@@ -125,9 +125,9 @@
                         class="group bg-gradient-to-b from-white to-pink-50 rounded-3xl shadow-xl p-4 sm:p-10 text-center hover:shadow-2xl hover:shadow-pink-200/70 hover:-translate-y-2 transition-all duration-300 border-2 border-pink-100 hover:border-[#FFB6C1] flex flex-col items-center gap-2 mb-2 px-2 sm:px-4">
                         <img src="assets/squirrel_quiz.png" alt="Squirrel Quiz"
                             class="w-4/5 h-auto aspect-square sm:w-48 sm:h-48 mb-2 transition-transform group-hover:scale-110 group-hover:-rotate-3 duration-300 rounded-2xl shadow-md ring-4 ring-pink-100/70 bg-white">
-                        <h3 class="text-lg sm:text-xl font-bold text-gray-800">Tạo Trắc Nghiệm</h3>
-                        <p class="hidden sm:block text-gray-500 mt-1 text-sm sm:text-base">Biến file Excel/CSV của bạn thành một bài
-                            kiểm tra tương tác.</p>
+                        <h3 class="text-lg sm:text-xl font-bold text-gray-800">Tạo Bộ Đề</h3>
+                        <p class="hidden sm:block text-gray-500 mt-1 text-sm sm:text-base">Biến file Excel/CSV thành bộ đề ôn tập,
+                            cả trắc nghiệm lẫn tự luận.</p>
                     </button>
                     <a href="#" id="selectStudyRoom"
                         class="group bg-gradient-to-b from-white to-blue-50 rounded-3xl shadow-xl p-4 sm:p-10 text-center hover:shadow-2xl hover:shadow-blue-200/70 hover:-translate-y-2 transition-all duration-300 border-2 border-blue-100 hover:border-blue-300 flex flex-col items-center gap-2 mb-2 block px-2 sm:px-4">
@@ -142,7 +142,7 @@
                         <img src="assets/squirrel_calculator.png" alt="Squirrel Calculator"
                             class="w-4/5 h-auto aspect-square sm:w-48 sm:h-48 mb-2 transition-transform group-hover:scale-110 group-hover:-rotate-3 duration-300 rounded-2xl shadow-md ring-4 ring-purple-100/70 bg-white">
                         <h3 class="text-lg sm:text-xl font-bold text-gray-800">Tính Điểm Hệ 4</h3>
-                        <p class="hidden sm:block text-gray-500 mt-1 text-sm sm:text-base">Quy đổi nhanh điểm số trắc nghiệm của bạn
+                        <p class="hidden sm:block text-gray-500 mt-1 text-sm sm:text-base">Quy đổi nhanh điểm bài thi của bạn
                             sang thang điểm 4.0.</p>
                     </button>
                     <button type="button" id="selectWriteMedicalRecord"
@@ -187,8 +187,8 @@
                     <div id="upload-file-pane" class="space-y-4">
                         <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
                             <div>
-                                <h3 class="text-xl font-semibold text-gray-700">Tạo trắc nghiệm mới</h3>
-                                <p class="text-gray-500">Tải lên file Excel/CSV để bắt đầu</p>
+                                <h3 class="text-xl font-semibold text-gray-700">Tạo bộ đề mới</h3>
+                                <p class="text-gray-500">Tải lên file Excel/CSV — nhận cả câu trắc nghiệm lẫn tự luận</p>
                             </div>
                             <button type="button" id="download-template-btn"
                                 class="mt-4 md:mt-0 px-4 py-2 bg-white text-[#FF69B4] border border-[#FF69B4] rounded-lg hover:bg-pink-50 transition flex items-center shadow-sm">
@@ -205,7 +205,7 @@
                                 <p class="text-sm text-gray-500 mb-4">Hỗ trợ file Excel (.xlsx, .xls) hoặc CSV</p>
                             </div>
                         </div>
-                        <!-- Nút tạo trắc nghiệm thủ công -->
+                        <!-- Nút soạn đề thủ công (trình soạn này hiện CHỈ có câu trắc nghiệm → giữ đúng chữ) -->
                         <div class="flex justify-center mt-4">
                             <a href="features/quiz/manual-quiz.html" id="manualQuizBtn"
                                 class="inline-flex items-center gap-2 px-6 py-2 bg-[#FF69B4] text-white rounded-lg shadow hover:bg-pink-400 transition font-bold text-base">
@@ -217,7 +217,8 @@
                     <!-- Tab 2: Paste JSON -->
                     <div id="paste-json-pane" class="space-y-4 hidden">
                         <div>
-                            <h3 class="text-xl font-semibold text-gray-700">Nhập dữ liệu JSON trắc nghiệm</h3>
+                            <h3 class="text-xl font-semibold text-gray-700">Nhập bộ đề từ JSON</h3>
+                            <p class="text-gray-500">Câu trắc nghiệm dùng <code class="font-mono text-sm">"options"</code> + <code class="font-mono text-sm">"answer"</code>; câu tự luận dùng <code class="font-mono text-sm">"type": "essay"</code> + <code class="font-mono text-sm">"modelAnswer"</code>.</p>
                         </div>
                         <div class="space-y-4">
                             <div>
@@ -233,6 +234,11 @@
     "options": ["Captopril", "Amlodipine", "Losartan", "Metoprolol"],
     "answer": 1,
     "explanation": "Captopril là thuốc ức chế men chuyển (ACEi) gây tích tụ bradykinin gây ho khan."
+  },
+  {
+    "type": "essay",
+    "question": "Trình bày cơ chế gây ho khan của nhóm ức chế men chuyển.",
+    "modelAnswer": "Ức chế ACE làm giảm thoái giáng bradykinin, bradykinin tích tụ kích thích phản xạ ho."
   }
 ]'></textarea>
                             </div>
@@ -1164,7 +1170,7 @@
                 <!-- Khu vực hiển thị Bộ đề -->
                 <div id="quizzes-section">
                     <h3 id="quizzes-section-title" class="text-on-bg text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2 hidden">
-                        <i class="fas fa-file-alt text-pink-400"></i> Bộ đề trắc nghiệm
+                        <i class="fas fa-file-alt text-pink-400"></i> Bộ đề của bạn
                     </h3>
                     <div id="quiz-list-container" class="quiz-grid">
                         <!-- Khung chờ tĩnh: hiện ngay khi mở tab, JS sẽ thay bằng dữ liệu thật (hoặc khung chờ động) khi tải xong -->
@@ -1380,7 +1386,7 @@
         <nav id="tabbar" aria-label="Lối tắt">
             <a href="#" data-target="dashboardContent" data-title="Trang chủ" class="nav-link is-active" aria-current="page"><i class="fas fa-house"></i><span class="sb-text">Trang chủ</span></a>
             <a href="#" data-target="libraryContent" data-title="Thư viện" class="nav-link"><i class="fas fa-book"></i><span class="sb-text">Thư viện</span></a>
-            <a href="#" data-target="createQuizContent" data-title="Tạo trắc nghiệm" class="nav-link tabbar-main"><i class="fas fa-plus"></i><span class="sb-text">Tạo đề</span></a>
+            <a href="#" data-target="createQuizContent" data-title="Tạo bộ đề" class="nav-link tabbar-main"><i class="fas fa-plus"></i><span class="sb-text">Tạo đề</span></a>
             <a href="#" data-target="statsContent" data-title="Thống kê" class="nav-link"><i class="fas fa-chart-simple"></i><span class="sb-text">Thống kê</span></a>
             <button type="button" id="tabbar-menu-btn" aria-label="Mở thanh bên"><i class="fas fa-grip"></i><span>Thêm</span></button>
         </nav>
@@ -1488,6 +1494,17 @@
             <h3 id="folderModalTitle" class="text-xl font-extrabold text-[#FF69B4] mb-4 flex items-center gap-2">
                 <i class="fas fa-folder-plus"></i> Tạo thư mục mới
             </h3>
+            <!-- Xem trước thư mục: đổi tên / icon / màu là thấy ngay (library-actions.js updateFolderPreview) -->
+            <div id="folder-modal-preview" class="folder-mini-card is-preview" data-tab="Trống" data-fill="0" aria-hidden="true">
+                <span class="fd-papers"><i></i><i></i><i></i></span>
+                <div class="folder-mini-card-content">
+                    <div class="folder-icon-wrapper"><i class="fas fa-folder"></i></div>
+                    <div class="min-w-0 flex-1">
+                        <h4 class="fd-name">Tên thư mục</h4>
+                        <p class="folder-meta-time">Xem trước</p>
+                    </div>
+                </div>
+            </div>
             <div class="mb-4">
                 <label for="folderNameInput" class="block text-sm font-semibold text-gray-600 mb-2">Tên thư mục</label>
                 <input type="text" id="folderNameInput" class="w-full px-4 py-3 border border-pink-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 text-base" placeholder="Nhập tên thư mục..." />

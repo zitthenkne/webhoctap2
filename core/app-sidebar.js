@@ -23,7 +23,7 @@
         ['Học tập', [
             ['dashboardContent', 'Trang chủ', 'fa-house', '#ec4899', '#fde7f1'],
             ['libraryContent', 'Thư viện', 'fa-book', '#d97706', '#fef3c7'],
-            ['createQuizContent', 'Tạo trắc nghiệm', 'fa-plus', '#f43f5e', '#ffe4e6'],
+            ['createQuizContent', 'Tạo bộ đề', 'fa-plus', '#f43f5e', '#ffe4e6'],
             ['statsContent', 'Thống kê', 'fa-chart-simple', '#8b5cf6', '#ede9fe']
         ]],
         ['Công cụ', [

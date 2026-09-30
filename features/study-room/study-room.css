@@ -5812,3 +5812,6 @@ html .svg-fig-err { font-size: .85rem; color: var(--rm-muted); }
 /* Hình nằm TRONG phương án (vd. chọn băng CTG đúng): vừa khít ô, khung gọn, bấm hình = chọn phương án */
 html .rm-option .svg-fig { margin: .35rem 0; padding: .35rem; border-width: 1.5px; box-shadow: none; overflow: hidden; }
 html .rm-option .svg-fig img { min-width: 0; cursor: inherit; }
+/* Link trong nội dung (dòng ghi nguồn ảnh Wikimedia, tài liệu) — parseInlineMarkdown [chữ](url) */
+html .rm-md a, html .quiz-link { color: #2A5E8C; text-decoration: underline; text-underline-offset: 2px; font-weight: 600; }
+html.theme-dark .rm-md a, html.theme-dark .quiz-link { color: #9CCBF2; }

@@ -424,20 +424,47 @@ export function setupResizers() {
     });
 }
 
+// --- Luật chung cho cử chỉ chuyển câu (vuốt / chạm rìa): một cú chạm chỉ là MỘT việc ---
+// Ghi lần cuối có gì đó cuộn (capture để bắt cả khung cuộn con: bảng, ca lâm sàng...).
+let lastScrollAt = 0;
+window.addEventListener('scroll', () => { lastScrollAt = Date.now(); }, { capture: true, passive: true });
+
+// true = cú chạm này KHÔNG được hiểu là chuyển câu.
+function touchNavBlocked(target) {
+    // Đang phóng to 2 ngón: kéo 1 ngón là để dịch khung nhìn (tọa độ rìa cũng không còn đúng)
+    if (window.visualViewport && window.visualViewport.scale > 1.05) return true;
+    // Có lớp nổi đang mở -> chạm ra ngoài là để ĐÓNG nó, không phải chuyển câu
+    if (document.querySelector('#quiz-settings-popover:not(.hidden-pop), #mark-menu:not(.hidden), #qmn-mark-menu:not(.hidden), #annot-toolbar.show')) return true;
+    // Chạm trên lớp nổi (modal, thanh đáy, nút nổi, logo góc...) hoặc trong vùng cuộn ngang (bảng/hình rộng)
+    for (let el = target; el && el !== document.body; el = el.parentElement) {
+        const cs = getComputedStyle(el);
+        if (cs.position === 'fixed') return true;
+        if ((cs.overflowX === 'auto' || cs.overflowX === 'scroll') && el.scrollWidth > el.clientWidth + 1) return true;
+    }
+    return false;
+}
+
 // --- #3: vuốt trái/phải để chuyển câu (mobile) ---
 export function setupSwipe() {
     const section = document.getElementById('quizSection');
     if (!section) return;
-    let startX = 0, startY = 0, tracking = false;
+    let startX = 0, startY = 0, startT = 0, startTarget = null, tracking = false;
     section.addEventListener('touchstart', (e) => {
         if (e.touches.length !== 1) { tracking = false; return; }
         // Không cướp thao tác trên vùng cần tương tác / chọn chữ
-        if (e.target.closest('button, a, textarea, input, .answer-btn, table, .question-text, mark, .quiz-annot, .quiz-image, .mermaid')) {
+        if (e.target.closest('button, a, textarea, input, label, summary, [role="separator"], .answer-btn, table, .question-text, mark, .quiz-annot, .quiz-image, .mermaid')) {
             tracking = false; return;
         }
+        const x = e.touches[0].clientX;
+        // Bắt đầu sát mép = cử chỉ "Quay lại" của hệ điều hành/trình duyệt -> nhường nó
+        if (x < 24 || x > window.innerWidth - 24) { tracking = false; return; }
+        // Trang còn trôi quán tính: ngón chạm vào là để dừng cuộn
+        if (Date.now() - lastScrollAt < 150) { tracking = false; return; }
         tracking = true;
-        startX = e.touches[0].clientX;
+        startX = x;
         startY = e.touches[0].clientY;
+        startT = Date.now();
+        startTarget = e.target;
     }, { passive: true });
     section.addEventListener('touchend', (e) => {
         if (!tracking) return;
@@ -445,8 +472,12 @@ export function setupSwipe() {
         const t = e.changedTouches[0];
         const dx = t.clientX - startX;
         const dy = t.clientY - startY;
-        if (Math.abs(dx) < 60 || Math.abs(dy) > 45) return; // phải đủ ngang & dứt khoát
+        // Phải NGANG rõ (gấp đôi độ lệch dọc), đủ dài & dứt khoát (kéo chậm là đang đọc/kéo chọn)
+        if (Math.abs(dx) < 60 || Math.abs(dy) > 45 || Math.abs(dx) < 2 * Math.abs(dy)) return;
+        if (Date.now() - startT > 700) return;
+        if (lastScrollAt > startT) return; // trình duyệt đã hiểu là CUỘN -> không chuyển câu nữa
         if (window.getSelection && window.getSelection().toString().trim()) return; // đang chọn chữ
+        if (touchNavBlocked(startTarget)) return;
         if (dx < 0) {
             // vuốt sang trái -> câu tiếp (không nộp bài ở câu cuối)
             if (state.currentIndex < state.questions.length - 1) showNextQuestion();
@@ -497,7 +528,11 @@ export function setupEdgeTap() {
         // Chỉ chừa CHROME thật + vùng cần vuốt/gõ ngang (ảnh, bảng, ô nhập). Đáp án
         // KHÔNG còn bị chừa: chạm sát rìa luôn là chuyển câu, và ta chặn luôn cú click
         // tổng hợp bên dưới -> hết cảnh "định chuyển câu mà bấm nhầm đáp án".
-        if (e.target.closest('a, textarea, input, select, .quiz-image, .mermaid, table, #quiz-settings-popover, #quiz-settings-fab, #quiz-mobile-menu, #quiz-mobile-nav, .qjs-sheet')) return;
+        // Nút/điều khiển KHÁC đáp án nằm sát rìa (gập thẻ, ghi chú, kéo khung...) -> bấm là bấm nút đó.
+        if (e.target.closest('a, textarea, input, select, label, summary, button:not(.answer-btn), [role="separator"], .quiz-image, .mermaid, table, #quiz-settings-popover, #quiz-settings-fab, #quiz-mobile-menu, #quiz-mobile-nav, .qjs-sheet')) return;
+        // Trang còn trôi quán tính: chạm rìa là để DỪNG cuộn, không phải chuyển câu
+        if (Date.now() - lastScrollAt < 150) return;
+        if (touchNavBlocked(e.target)) return;
         tracking = true;
         side = x <= ew ? -1 : 1;
         sx = x; sy = e.touches[0].clientY; st = Date.now();
@@ -507,8 +542,10 @@ export function setupEdgeTap() {
         if (!tracking) return;
         tracking = false;
         const t = e.changedTouches[0];
-        // Cú CHẠM dứt khoát: nhanh & gần như không nhích (khỏi lẫn với vuốt/cuộn)
-        if (Date.now() - st > 400) return;
+        // Cú CHẠM dứt khoát: nhanh & gần như không nhích (khỏi lẫn với vuốt/cuộn, và luôn
+        // ngắn hơn hẳn cú giữ-để-gạch đáp án 500ms -> không bao giờ vừa gạch vừa chuyển câu)
+        if (Date.now() - st > 300) return;
+        if (lastScrollAt > st) return; // ngón có làm trang cuộn -> là cuộn
         if (Math.abs(t.clientX - sx) > 14 || Math.abs(t.clientY - sy) > 14) return;
         if (window.getSelection && window.getSelection().toString().trim()) return; // đang chọn chữ
 

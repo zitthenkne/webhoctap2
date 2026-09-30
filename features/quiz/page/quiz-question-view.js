@@ -138,6 +138,7 @@ function setupAnswerInteractions() {
     document.querySelectorAll('.answer-btn').forEach(btn => {
         const idx = parseInt(btn.getAttribute('data-index'));
         let pressTimer = null;
+        let cueTimer = null;
         let longPressed = false;
         let pStartX = 0, pStartY = 0;
         // Kích hoạt gạch bỏ MỘT lần cho mỗi cú giữ (khóa longPressed chống double-toggle:
@@ -147,6 +148,7 @@ function setupAnswerInteractions() {
             if (longPressed) return;
             longPressed = true;
             if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+            if (cueTimer) { clearTimeout(cueTimer); cueTimer = null; }
             btn.classList.remove('answer-holding');
             if (getVibrate() && navigator.vibrate) navigator.vibrate(18);
             toggleEliminate(idx);
@@ -158,13 +160,21 @@ function setupAnswerInteractions() {
             if (ans !== null && ans !== undefined) return;
             longPressed = false;
             pStartX = e.clientX; pStartY = e.clientY;
-            // Phản hồi ngay khi bắt đầu giữ: vòng đỏ lớn dần trong 380ms -> biết là đang gạch
-            btn.classList.add('answer-holding');
-            if (getVibrate() && navigator.vibrate) navigator.vibrate(6);
-            pressTimer = setTimeout(triggerLong, 380);
+            // Phản hồi khi bắt đầu giữ: vòng đỏ lớn dần trong 380ms -> biết là đang gạch.
+            // Cảm ứng: chờ 120ms mới hiện vòng + rung. Ngón đang CUỘN/CHẠM NHANH đã buông hoặc
+            // bị hủy trước đó -> hết cảnh lướt trang / chọn đáp án mà ô cứ nháy đỏ như sắp gạch.
+            const touch = e.pointerType === 'touch';
+            const cue = () => {
+                cueTimer = null;
+                btn.classList.add('answer-holding');
+                if (getVibrate() && navigator.vibrate) navigator.vibrate(6);
+            };
+            if (touch) cueTimer = setTimeout(cue, 120); else cue();
+            pressTimer = setTimeout(triggerLong, touch ? 500 : 380);
         };
         const cancelPress = () => {
             if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+            if (cueTimer) { clearTimeout(cueTimer); cueTimer = null; }
             btn.classList.remove('answer-holding');
         };
         const movePress = (e) => {
@@ -199,6 +209,22 @@ function setupAnswerInteractions() {
     });
 }
 
+// 50:50 loại một phương án: khóa + gạch mờ phần đáp án, nhưng HIỆN "Tại sao sai" ngay trong ô
+// để hiểu vì sao nó bị loại. (.opacity-20 giữ làm dấu "đã bị 50:50" cho CSS cũ; .is-5050-out trả lại độ rõ.)
+function mark5050Out(btn, idx, question) {
+    btn.disabled = true;
+    btn.classList.add('opacity-20', 'is-5050-out', 'border-gray-300', 'cursor-not-allowed');
+    btn.classList.remove('hover:bg-[#FFB6C1]/50', 'hover:border-[#FF69B4]', 'hover:scale-[1.01]', 'hover:-translate-y-0.5');
+    const expDiv = btn.querySelector('.option-explanation');
+    if (!expDiv || !expDiv.classList.contains('hidden')) return; // đã trả lời: giải thích đã vẽ sẵn
+    const why = question && question.optionExplanations && question.optionExplanations[idx]
+        && String(question.optionExplanations[idx]).trim();
+    expDiv.innerHTML = '<span class="font-semibold text-xs uppercase tracking-wider block mb-1 opacity-80"><i class="fas fa-life-ring mr-1"></i>50:50 loại · Tại sao sai:</span>'
+        + (why ? parseMarkdown(why) : '<span class="exp-5050-none">Bộ đề chưa có giải thích riêng cho phương án này.</span>');
+    expDiv.className = 'option-explanation exp-5050 mt-2 text-sm md:text-base font-normal border-t pt-1.5 transition-all duration-300';
+    if (why) renderMath(expDiv);
+}
+
 export function handle5050Help() {
     if (state.userAnswers[state.currentIndex] !== null || state.used5050Questions[state.currentIndex]) return;
 
@@ -223,12 +249,9 @@ export function handle5050Help() {
 
     const toHide = incorrectIndices.slice(0, 2);
 
+    const question = state.questions[state.currentIndex];
     answerBtns.forEach((btn, idx) => {
-        if (toHide.includes(idx)) {
-            btn.disabled = true;
-            btn.classList.add('opacity-20', 'border-gray-300', 'cursor-not-allowed');
-            btn.classList.remove('hover:bg-[#FFB6C1]/50', 'hover:border-[#FF69B4]', 'hover:scale-[1.01]', 'hover:-translate-y-0.5');
-        }
+        if (toHide.includes(idx)) mark5050Out(btn, idx, question);
     });
 
     state.used5050Questions[state.currentIndex] = toHide;
@@ -679,11 +702,7 @@ export function showQuestion() {
     if (hiddenIndices) {
         const answerBtns = document.querySelectorAll('.answer-btn');
         answerBtns.forEach((btn, idx) => {
-            if (hiddenIndices.includes(idx)) {
-                btn.disabled = true;
-                btn.classList.add('opacity-20', 'border-gray-300', 'cursor-not-allowed');
-                btn.classList.remove('hover:bg-[#FFB6C1]/50', 'hover:border-[#FF69B4]', 'hover:scale-[1.01]', 'hover:-translate-y-0.5');
-            }
+            if (hiddenIndices.includes(idx)) mark5050Out(btn, idx, question);
         });
     }
 

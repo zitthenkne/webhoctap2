@@ -9,7 +9,7 @@ import { doc, collection, addDoc, query, where, getDoc, getDocs } from "https://
 import { updateDocQ as updateDoc } from "../../../core/offline-write.js";
 import { showToast, showConfirm } from '../../../core/utils.js';
 import { S } from './library-state.js';
-import { sortUserFolders, parseFontAwesomeIcon, escapeHtml } from './library-helpers.js';
+import { sortUserFolders, parseFontAwesomeIcon, escapeHtml, FOLDER_COLOR_HEX } from './library-helpers.js';
 import { renderLibrary, renderBreadcrumb, rerenderCurrentView, getFilteredQuizzesForView } from './library-render.js';
 import { loadAndDisplayLibrary, ensureFullLibraryLoaded, persistLibraryCache } from './library-data.js';
 
@@ -174,9 +174,36 @@ export function openFolderModal(mode = 'create', folderId = null, folderName = '
         }
     }
 
+    // Xem trước: tai ghi số bộ đề THẬT của thư mục (tạo mới = trống), gõ tên là cập nhật ngay
+    const preview = document.getElementById('folder-modal-preview');
+    if (preview) {
+        const n = mode === 'edit' ? S.userQuizSets.filter(q => q.folderId === folderId).length : 0;
+        preview.dataset.tab = n ? `${n} bộ đề` : 'Trống';
+        preview.dataset.fill = n === 0 ? '0' : n === 1 ? '1' : n < 5 ? '2' : '3';
+        const folder = mode === 'edit' ? S.userFolders.find(f => f.id === folderId) : null;
+        preview.classList.toggle('is-pinned', !!(folder && folder.pinned));
+    }
+    if (!input.dataset.previewBound) {
+        input.addEventListener('input', updateFolderPreview);
+        input.dataset.previewBound = '1';
+    }
+
     updateFolderModalPickers();
     modal.classList.remove('hidden');
     input.focus();
+}
+
+// Vẽ lại thẻ xem trước trong hộp Tạo/Sửa thư mục theo tên / icon / màu đang chọn
+function updateFolderPreview() {
+    const card = document.getElementById('folder-modal-preview');
+    if (!card) return;
+    const c = S.selectedFolderColor || 'amber';
+    card.style.setProperty('--fc', c.startsWith('#') ? c : (FOLDER_COLOR_HEX[c] || FOLDER_COLOR_HEX.amber));
+    const icon = card.querySelector('.folder-icon-wrapper i');
+    if (icon) icon.className = `fas ${S.selectedFolderIcon || 'fa-folder'}`;
+    const name = card.querySelector('.fd-name');
+    const typed = (document.getElementById('folderNameInput') || {}).value;
+    if (name) name.textContent = (typed || '').trim() || 'Tên thư mục';
 }
 
 export function closeFolderModal() {
@@ -211,6 +238,7 @@ function updateFolderModalPickers() {
         if (colorInput) colorInput.value = S.selectedFolderColor;
         if (textSpan) textSpan.textContent = S.selectedFolderColor.toUpperCase();
     }
+    updateFolderPreview();
 }
 
 // Chọn icon mẫu trong lưới
@@ -228,6 +256,7 @@ export function setCustomFolderIcon(rawText) {
         document.querySelectorAll('.icon-option').forEach(btn => {
             btn.classList.remove('bg-pink-100', 'text-pink-600', 'ring-2', 'ring-pink-400');
         });
+        updateFolderPreview();
     }
     return parsed;
 }
@@ -247,6 +276,7 @@ export function setCustomFolderColor(hex) {
     document.querySelectorAll('.color-option').forEach(btn => {
         btn.classList.remove('ring-4', 'ring-offset-2', 'ring-pink-400');
     });
+    updateFolderPreview();
 }
 
 export async function saveFolder() {

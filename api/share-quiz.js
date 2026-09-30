@@ -17,8 +17,8 @@ module.exports = async function handler(req, res) {
         return res.redirect('/features/quiz/quiz.html');
     }
 
-    let title = "Zitthenkne - Ôn luyện trắc nghiệm hiệu quả";
-    let description = "Bộ đề trắc nghiệm trên Zitthenkne";
+    let title = "Zitthenkne - Ôn luyện bộ đề hiệu quả";
+    let description = "Bộ đề ôn tập trên Zitthenkne";
 
     // Danh sách 10 ảnh sóc dễ thương (đuôi .jpg cho khớp định dạng thật của ảnh,
     // tránh việc Facebook/Messenger từ chối ảnh do sai Content-Type)
@@ -60,8 +60,8 @@ module.exports = async function handler(req, res) {
                         ? data.fields.questions.arrayValue.values.length
                         : null);
                 description = questionCount
-                    ? `${questionCount} câu hỏi · Bộ đề trắc nghiệm trên Zitthenkne`
-                    : `Bộ đề trắc nghiệm trên Zitthenkne`;
+                    ? `${questionCount} câu hỏi · Bộ đề ôn tập trên Zitthenkne`
+                    : `Bộ đề ôn tập trên Zitthenkne`;
             }
         }
     } catch (error) {

@@ -9,7 +9,7 @@ import { S, FOLDERS_PER_PAGE, LIB_PREFETCH_PAGES } from './library-state.js';
 import {
     applyQuizGridColumns, applyFolderGridColumns,
     applyLibraryFilter, sortQuizList, getFoldersForDisplay,
-    removeOrphanFolderMenus
+    removeOrphanFolderMenus, FOLDER_COLOR_HEX, escapeHtml
 } from './library-helpers.js';
 import { createFolderCard, createQuizCard } from './library-cards.js';
 import { canUseRollingLibrary, loadLibraryChunk, loadAllLibraryInBackground } from './library-data.js';
@@ -477,18 +477,9 @@ export function renderBreadcrumb() {
         const folderName = currentFolder ? currentFolder.name : 'Thư mục không tên';
         const iconClass = currentFolder && currentFolder.icon ? currentFolder.icon : 'fa-folder';
         const colorName = currentFolder && currentFolder.color ? currentFolder.color : 'amber';
-
-        let breadcrumbItemHTML = '';
-        if (colorName.startsWith('#')) {
-            breadcrumbItemHTML = `<span class="font-semibold" style="color: ${colorName};"><i class="fas ${iconClass} mr-1"></i>${folderName}</span>`;
-        } else {
-            const textColors = {
-                amber: 'text-amber-600', pink: 'text-pink-600', blue: 'text-blue-600',
-                green: 'text-green-600', purple: 'text-purple-600', red: 'text-red-600', indigo: 'text-indigo-600'
-            };
-            const textClass = textColors[colorName] || 'text-amber-600';
-            breadcrumbItemHTML = `<span class="font-semibold ${textClass}"><i class="fas ${iconClass} mr-1"></i>${folderName}</span>`;
-        }
+        const hex = colorName.startsWith('#') ? colorName : (FOLDER_COLOR_HEX[colorName] || FOLDER_COLOR_HEX.amber);
+        // Thư mục đang mở = "tai hồ sơ" mini cùng màu với thẻ thư mục (style.css .fd-crumb)
+        const breadcrumbItemHTML = `<span class="fd-crumb" style="--fc:${hex}"><i class="fas ${iconClass}"></i>${escapeHtml(folderName)}</span>`;
 
         breadcrumb.innerHTML = `
             <span class="cursor-pointer hover:text-pink-500 transition" id="breadcrumb-root-btn"><i class="fas fa-home mr-1"></i>Thư viện gốc</span>
