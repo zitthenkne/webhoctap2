@@ -32,6 +32,79 @@ export const FOLDER_SWATCHES = [
 
 // Map nhanh từ tên màu sẵn có → mã hex, để tô màu toàn bộ thẻ thư mục theo một code path duy nhất
 export const FOLDER_COLOR_HEX = Object.fromEntries(FOLDER_SWATCHES.map(s => [s.key, s.hex]));
+export function folderHex(folder) {
+    const c = (folder && folder.color) || 'amber';
+    return c.startsWith('#') ? c : (FOLDER_COLOR_HEX[c] || FOLDER_COLOR_HEX.amber);
+}
+
+// === CÂY THƯ MỤC (thư mục lồng nhau, 2026-10-01) ===
+// Thư mục có thể nằm trong thư mục khác qua trường `parentId` (không có / null = ở Thư viện gốc).
+// Mọi chỗ cần biết "thư mục cha" / "bộ đề đang ở đâu" PHẢI đi qua các hàm dưới đây: chúng coi
+// cha đã xoá / không tồn tại là "ở gốc" → không có thư mục hay bộ đề nào bị mất tích khỏi giao diện.
+export function folderById(id) {
+    return id ? (S.userFolders.find(f => f.id === id) || null) : null;
+}
+/** Thư mục cha HỢP LỆ của một thư mục (null = ở gốc). */
+export function parentIdOf(folder) {
+    const p = folder && folder.parentId;
+    return p && p !== folder.id && folderById(p) ? p : null;
+}
+/** Thư mục chứa một bộ đề (null = ở gốc, kể cả khi folderId trỏ tới thư mục đã xoá). */
+export function quizFolderOf(quiz) {
+    return quiz && quiz.folderId && folderById(quiz.folderId) ? quiz.folderId : null;
+}
+/** Thư mục con trực tiếp, giữ thứ tự của S.userFolders (ghim → kéo-thả → mới nhất). */
+export function childFolders(parentId) {
+    const pid = parentId || null;
+    return S.userFolders.filter(f => parentIdOf(f) === pid);
+}
+/** Mọi thư mục con cháu (không gồm chính nó). Có chặn vòng lặp phòng dữ liệu hỏng. */
+export function descendantIds(folderId) {
+    const out = [];
+    const seen = new Set([folderId]);
+    const queue = [folderId];
+    while (queue.length) {
+        const id = queue.shift();
+        for (const c of childFolders(id)) {
+            if (seen.has(c.id)) continue;
+            seen.add(c.id);
+            out.push(c.id);
+            queue.push(c.id);
+        }
+    }
+    return out;
+}
+/** Chính thư mục + toàn bộ con cháu, dạng Set để tra nhanh. */
+export function subtreeIds(folderId) {
+    return new Set([folderId, ...descendantIds(folderId)]);
+}
+/** Đường đi từ gốc xuống thư mục (mảng thư mục, phần tử cuối là chính nó). */
+export function folderPath(folderId) {
+    const path = [];
+    const seen = new Set();
+    let f = folderById(folderId);
+    while (f && !seen.has(f.id)) {
+        seen.add(f.id);
+        path.unshift(f);
+        f = folderById(parentIdOf(f));
+    }
+    return path;
+}
+/** Số liệu gộp CẢ cây con: số bộ đề, số câu, số thư mục con trực tiếp. */
+export function folderStats(folderId) {
+    const ids = subtreeIds(folderId);
+    let quizCount = 0, questionCount = 0;
+    for (const q of S.userQuizSets) {
+        if (ids.has(quizFolderOf(q))) { quizCount++; questionCount += q.questionCount || 0; }
+    }
+    return { quizCount, questionCount, childCount: childFolders(folderId).length };
+}
+/** Chuyển thư mục vào đích này có hợp lệ không (không được vào chính nó hay con cháu của nó). */
+export function canMoveFolderInto(folderId, targetParentId) {
+    if (!targetParentId) return true;
+    if (targetParentId === folderId) return false;
+    return !descendantIds(folderId).includes(targetParentId);
+}
 
 export function tsToMillis(ts) {
     if (!ts) return 0;
@@ -104,11 +177,11 @@ export function formatRelativeTime(ms) {
 // Danh sách thư mục để hiển thị: lọc theo từ khoá tìm kiếm rồi sắp xếp theo chế độ đã chọn.
 // Thư mục đã ghim luôn nằm trên đầu ở mọi chế độ (trừ khi đang tìm kiếm).
 export function getFoldersForDisplay() {
-    let list = S.userFolders.slice();
+    // Bình thường: thư mục con của nơi đang đứng. Đang tìm: tìm xuyên mọi cấp (thẻ ghi rõ nằm trong đâu).
     const term = S.folderSearchTerm.trim().toLowerCase();
-    if (term) {
-        list = list.filter(f => (f.name || '').toLowerCase().includes(term));
-    }
+    let list = term
+        ? S.userFolders.filter(f => (f.name || '').toLowerCase().includes(term))
+        : childFolders(S.currentFolderId);
     if (S.folderSortMode === 'manual') {
         return list; // S.userFolders đã được sortUserFolders() sắp sẵn (ghim → kéo-thả → mới nhất)
     }
@@ -116,11 +189,7 @@ export function getFoldersForDisplay() {
         switch (S.folderSortMode) {
             case 'name': return (a.name || '').localeCompare(b.name || '', 'vi', { sensitivity: 'base' });
             case 'newest': return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
-            case 'count': {
-                const ca = S.userQuizSets.filter(q => q.folderId === a.id).length;
-                const cb = S.userQuizSets.filter(q => q.folderId === b.id).length;
-                return cb - ca;
-            }
+            case 'count': return folderStats(b.id).quizCount - folderStats(a.id).quizCount;
             default: return 0;
         }
     };
@@ -217,20 +286,25 @@ export function sortQuizList(list) {
 // Bảng màu gradient cho thẻ bộ đề — mỗi bộ đề mang một sắc thái + icon riêng để
 // thư viện sinh động, dễ phân biệt và "mời gọi" click hơn (đặc biệt trên điện thoại).
 const QUIZ_ACCENTS = [
-    { from: '#ec4899', to: '#fb7185', icon: 'fa-layer-group' },
-    { from: '#8b5cf6', to: '#c084fc', icon: 'fa-book-open' },
-    { from: '#0ea5e9', to: '#38bdf8', icon: 'fa-file-lines' },
-    { from: '#10b981', to: '#34d399', icon: 'fa-flask' },
-    { from: '#f59e0b', to: '#fbbf24', icon: 'fa-lightbulb' },
-    { from: '#6366f1', to: '#818cf8', icon: 'fa-brain' },
-    { from: '#f43f5e', to: '#fb7185', icon: 'fa-heart-pulse' },
-    { from: '#14b8a6', to: '#2dd4bf', icon: 'fa-microscope' },
+    { from: '#f472b6', to: '#f9a8d4', icon: 'fa-layer-group' },   // hồng phấn
+    { from: '#b9a2f0', to: '#d8ccf7', icon: 'fa-book-open' },     // oải hương nhạt
+    { from: '#5cbcef', to: '#a5dcf7', icon: 'fa-file-lines' },    // xanh trời
+    { from: '#4cc79a', to: '#9be3c7', icon: 'fa-flask' },         // bạc hà
+    { from: '#f2b53c', to: '#f8d98c', icon: 'fa-lightbulb' },     // vàng bơ
+    { from: '#f59a6e', to: '#f9c4a8', icon: 'fa-brain' },         // hồng đào
+    { from: '#f2708e', to: '#f8b0c0', icon: 'fa-heart-pulse' },   // hồng san hô
+    { from: '#3fc4b4', to: '#93e0d6', icon: 'fa-microscope' },    // ngọc lam
 ];
 export function getQuizAccent(seed) {
     const s = String(seed || '');
     let hash = 0;
     for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
-    return QUIZ_ACCENTS[hash % QUIZ_ACCENTS.length];
+    // Ổn định theo id: cùng bộ đề luôn cùng màu, cùng loại giấy (caro/chấm/kẻ dòng), cùng độ nghiêng
+    return {
+        ...QUIZ_ACCENTS[hash % QUIZ_ACCENTS.length],
+        paper: ['caro', 'dot', 'lined'][(hash >>> 3) % 3],
+        tilt: (((hash >>> 5) % 7) - 3) * 0.2   // -0.6° … 0.6°
+    };
 }
 
 // Hiện menu thư mục bằng position:fixed (định vị theo viewport) để menu không bị

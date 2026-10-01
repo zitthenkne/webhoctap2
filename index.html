@@ -1131,7 +1131,7 @@
                 <!-- Header khu vực thư mục: tiêu đề + tìm kiếm + sắp xếp + nút tạo (luôn hiện ở gốc thư viện) -->
                 <div id="folders-header" class="flex items-center justify-between gap-2 mb-3 flex-wrap hidden">
                     <h3 class="text-on-bg text-sm font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 flex-shrink-0">
-                        <i class="fas fa-folder-open text-pink-400"></i> Thư mục của bạn
+                        <i class="fas fa-folder-open text-pink-400"></i> <span id="folders-header-label">Thư mục của bạn</span>
                     </h3>
                     <!-- flex-nowrap + w-full trên mobile: ô tìm co lại chứ không đẩy nút "Tạo thư mục" xuống hàng riêng -->
                     <div class="flex items-center gap-2 flex-nowrap justify-end ml-auto w-full sm:w-auto">
@@ -1170,7 +1170,7 @@
                 <!-- Khu vực hiển thị Bộ đề -->
                 <div id="quizzes-section">
                     <h3 id="quizzes-section-title" class="text-on-bg text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2 hidden">
-                        <i class="fas fa-file-alt text-pink-400"></i> Bộ đề của bạn
+                        <i class="fas fa-file-alt text-pink-400"></i> <span id="quizzes-section-label">Bộ đề của bạn</span>
                     </h3>
                     <div id="quiz-list-container" class="quiz-grid">
                         <!-- Khung chờ tĩnh: hiện ngay khi mở tab, JS sẽ thay bằng dữ liệu thật (hoặc khung chờ động) khi tải xong -->
@@ -1569,19 +1569,18 @@
         </div>
     </div>
 
-    <!-- Modal Di chuyển bộ đề -->
+    <!-- Hộp "Chuyển đến…" dùng chung cho bộ đề lẻ / nhiều bộ đề / thư mục: cây thư mục thụt lề theo cấp,
+         CHẠM MỘT DÒNG LÀ CHUYỂN (library-actions.js openMoveDialog) -->
     <div id="moveQuizModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
         <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl transform transition-all mx-4">
-            <h3 class="text-xl font-extrabold text-[#FF69B4] mb-4 flex items-center gap-2">
-                <i class="fas fa-folder-open text-yellow-500"></i> Di chuyển bộ đề
+            <h3 class="text-xl font-extrabold text-[#FF69B4] mb-1 flex items-center gap-2">
+                <i class="fas fa-folder-open text-yellow-500"></i> <span id="move-modal-title">Chuyển bộ đề</span>
             </h3>
-            <p class="text-sm text-gray-500 mb-4">Chọn thư mục đích cho bộ đề:</p>
-            <div id="folder-list-choices" class="max-h-60 overflow-y-auto space-y-2 mb-6 pr-1 border border-pink-50 p-2 rounded-xl bg-gray-50/50">
-                <!-- Danh sách thư mục render động -->
-            </div>
-            <div class="flex justify-end gap-3">
-                <button type="button" id="closeMoveQuizModalBtn" class="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition font-bold">Hủy</button>
-                <button type="button" id="confirmMoveQuizBtn" class="px-5 py-2.5 bg-[#FF69B4] text-white rounded-xl hover:bg-opacity-80 transition font-bold shadow-md">Xác nhận</button>
+            <p id="move-modal-sub" class="text-sm text-gray-500 mb-3"></p>
+            <input type="search" id="move-modal-search" class="mv-search hidden" placeholder="Tìm thư mục..." autocomplete="off" aria-label="Tìm thư mục">
+            <div id="folder-list-choices" class="mv-tree" role="list"></div>
+            <div class="flex justify-end gap-3 mt-4">
+                <button type="button" id="closeMoveQuizModalBtn" class="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition font-bold">Đóng</button>
             </div>
         </div>
     </div>

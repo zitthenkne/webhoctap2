@@ -9,10 +9,12 @@ import { S, FOLDERS_PER_PAGE, LIB_PREFETCH_PAGES } from './library-state.js';
 import {
     applyQuizGridColumns, applyFolderGridColumns,
     applyLibraryFilter, sortQuizList, getFoldersForDisplay,
-    removeOrphanFolderMenus, FOLDER_COLOR_HEX, escapeHtml
+    removeOrphanFolderMenus, escapeHtml,
+    folderById, folderHex, folderPath, childFolders, quizFolderOf
 } from './library-helpers.js';
 import { createFolderCard, createQuizCard } from './library-cards.js';
-import { canUseRollingLibrary, loadLibraryChunk, loadAllLibraryInBackground } from './library-data.js';
+import { canUseRollingLibrary, loadLibraryChunk, loadAllLibraryInBackground, loadAndDisplayLibrary } from './library-data.js';
+import { moveQuizToFolder, moveFolder } from './library-actions.js';
 import { filterLibraryByMode } from './library-search.js';
 
 export function updateLayoutButtons() {
@@ -90,7 +92,7 @@ function renderEmptyState(container, type) {
     } else if (type === 'folder') {
         icon = 'fa-folder-open';
         title = 'Thư mục này đang trống';
-        desc = 'Kéo-thả bộ đề vào đây, hoặc dùng nút “Di chuyển” trên mỗi bộ đề.';
+        desc = 'Mở menu “...” của một bộ đề → “Chuyển đến…” để đưa vào đây, hoặc bấm “Tạo thư mục” để chia nhỏ tiếp.';
     } else if (type === 'filter') {
         icon = 'fa-filter';
         title = 'Không có bộ đề nào khớp bộ lọc';
@@ -137,13 +139,18 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
     const librarySearchInput = document.getElementById('library-search-input');
     const isSearching = librarySearchInput && librarySearchInput.value.trim() !== '';
 
+    // Thư mục đang mở vừa bị xoá (ở máy khác / vào thùng rác) → về gốc thay vì kẹt ở màn trống
+    if (S.currentFolderId && !folderById(S.currentFolderId)) {
+        S.currentFolderId = null;
+        renderBreadcrumb();
+    }
+
     updateLibraryOverview();
 
     let filteredQuizzes = quizzesToDisplay;
     if (!isSearching) {
-        filteredQuizzes = quizzesToDisplay.filter(quiz =>
-            S.currentFolderId === null ? (!quiz.folderId) : (quiz.folderId === S.currentFolderId)
-        );
+        // quizFolderOf: bộ đề trỏ tới thư mục đã xoá được coi là ở gốc (trước đây bị ẩn mất)
+        filteredQuizzes = quizzesToDisplay.filter(quiz => quizFolderOf(quiz) === S.currentFolderId);
         // Áp dụng bộ lọc nhanh (Tất cả / Gần đây / Đã ghim)
         filteredQuizzes = applyLibraryFilter(filteredQuizzes);
     }
@@ -168,17 +175,19 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
     const foldersHeader = document.getElementById('folders-header');
     const folderToolsGroup = document.getElementById('folder-tools-group');
 
-    const atRoot = !isSearching && S.currentFolderId === null;
+    // Thư mục LỒNG NHAU: ở cấp nào cũng thấy thư mục con của cấp đó + nút "Tạo thư mục" (tạo ngay tại cấp này).
+    const inFolder = S.currentFolderId !== null;
+    const levelFolders = isSearching ? [] : childFolders(S.currentFolderId);
+    const folderSearching = S.folderSearchTerm.trim() !== '';
     const hasFolders = S.userFolders.length > 0;
-    const showFolders = atRoot && hasFolders;
+    const showFolders = !isSearching && (levelFolders.length > 0 || folderSearching);
 
-    // Header (tiêu đề + nút Tạo thư mục + tìm kiếm + sắp xếp) hiển thị ở gốc thư viện,
-    // kể cả khi chưa có thư mục nào (để người dùng mới vẫn thấy nút "Tạo thư mục").
-    if (foldersHeader) {
-        if (atRoot) foldersHeader.classList.remove('hidden');
-        else foldersHeader.classList.add('hidden');
-    }
-    // Ô tìm kiếm & sắp xếp chỉ có ý nghĩa khi đã có thư mục.
+    if (foldersHeader) foldersHeader.classList.toggle('hidden', !!isSearching);
+    const foldersLabel = document.getElementById('folders-header-label');
+    if (foldersLabel) foldersLabel.textContent = inFolder ? 'Thư mục con' : 'Thư mục của bạn';
+    const quizzesLabel = document.getElementById('quizzes-section-label');
+    if (quizzesLabel) quizzesLabel.textContent = inFolder ? 'Bộ đề trong thư mục' : 'Bộ đề của bạn';
+    // Ô tìm kiếm & sắp xếp chỉ có ý nghĩa khi đã có thư mục (tìm xuyên mọi cấp).
     if (folderToolsGroup) {
         if (hasFolders) folderToolsGroup.classList.remove('hidden');
         else folderToolsGroup.classList.add('hidden');
@@ -196,8 +205,8 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
         removeOrphanFolderMenus(); // menu đang mở đã được đưa ra <body>, xoá kẻo thành rác
         foldersContainer.innerHTML = '';
         applyFolderGridColumns(foldersContainer);
-        if (!isSearching && S.currentFolderId === null) {
-            const visibleFolders = getFoldersForDisplay(); // đã lọc theo tìm kiếm + sắp xếp
+        if (!isSearching) {
+            const visibleFolders = getFoldersForDisplay(); // con của cấp hiện tại, hoặc kết quả tìm xuyên cấp
             const totalFolders = visibleFolders.length;
             const showAll = S.foldersExpanded || S.folderSearchTerm.trim() !== '' || totalFolders <= FOLDERS_PER_PAGE;
             const totalFolderPages = Math.ceil(totalFolders / FOLDERS_PER_PAGE) || 1;
@@ -238,7 +247,13 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
         }
     }
 
-    if (filteredQuizzes.length === 0 && (!S.userFolders.length || S.currentFolderId !== null || isSearching || S.libraryFilterMode !== 'all')) {
+    if (filteredQuizzes.length === 0) {
+        // Cấp này chỉ có thư mục con, chưa có bộ đề → không cần màn "trống" (dải thư mục đã đủ nói)
+        if (!isSearching && S.libraryFilterMode === 'all' && levelFolders.length > 0) {
+            if (quizzesSectionTitle) quizzesSectionTitle.classList.add('hidden');
+            renderLibraryPagination([], 1, 1);
+            return;
+        }
         let emptyType = 'root';
         if (isSearching) emptyType = 'search';
         else if (S.libraryFilterMode !== 'all') emptyType = 'filter';
@@ -469,32 +484,72 @@ export function renderBreadcrumb() {
         // Ở thư viện gốc thì ẩn breadcrumb cho gọn (đã có tiêu đề trang)
         breadcrumb.classList.add('hidden');
         breadcrumb.classList.remove('flex');
-        breadcrumb.innerHTML = `<span class="font-semibold text-pink-500"><i class="fas fa-home mr-1"></i>Thư viện gốc</span>`;
-    } else {
-        breadcrumb.classList.remove('hidden');
-        breadcrumb.classList.add('flex');
-        const currentFolder = S.userFolders.find(f => f.id === S.currentFolderId);
-        const folderName = currentFolder ? currentFolder.name : 'Thư mục không tên';
-        const iconClass = currentFolder && currentFolder.icon ? currentFolder.icon : 'fa-folder';
-        const colorName = currentFolder && currentFolder.color ? currentFolder.color : 'amber';
-        const hex = colorName.startsWith('#') ? colorName : (FOLDER_COLOR_HEX[colorName] || FOLDER_COLOR_HEX.amber);
-        // Thư mục đang mở = "tai hồ sơ" mini cùng màu với thẻ thư mục (style.css .fd-crumb)
-        const breadcrumbItemHTML = `<span class="fd-crumb" style="--fc:${hex}"><i class="fas ${iconClass}"></i>${escapeHtml(folderName)}</span>`;
-
-        breadcrumb.innerHTML = `
-            <span class="cursor-pointer hover:text-pink-500 transition" id="breadcrumb-root-btn"><i class="fas fa-home mr-1"></i>Thư viện gốc</span>
-            <i class="fas fa-chevron-right text-xs text-gray-300 mx-1"></i>
-            ${breadcrumbItemHTML}
-        `;
-        const rootBtn = document.getElementById('breadcrumb-root-btn');
-        if (rootBtn) {
-            rootBtn.addEventListener('click', () => {
-                S.currentFolderId = null;
-                renderBreadcrumb();
-                renderLibrary(S.userQuizSets);
-            });
-        }
+        breadcrumb.innerHTML = '';
+        return;
     }
+    breadcrumb.classList.remove('hidden');
+    breadcrumb.classList.add('flex');
+
+    // Đường đi nhiều cấp: ← | Thư viện gốc › A › B › [thư mục đang mở]
+    // Mỗi nấc (kể cả nút ←) vừa BẤM để đi tới, vừa là chỗ THẢ bộ đề/thư mục đang kéo vào.
+    const path = folderPath(S.currentFolderId);
+    const current = path[path.length - 1];
+    const parentId = path.length > 1 ? path[path.length - 2].id : '';
+    const sep = '<i class="fas fa-chevron-right fd-crumb-sep" aria-hidden="true"></i>';
+    const link = (f) => `<button type="button" class="fd-crumb-link" data-crumb="${f.id}" style="--fc:${folderHex(f)}" title="Mở &quot;${escapeHtml(f.name || 'Thư mục')}&quot; (thả vào đây để chuyển)"><i class="fas ${f.icon || 'fa-folder'}"></i><span>${escapeHtml(f.name || 'Thư mục')}</span></button>`;
+    breadcrumb.innerHTML = `
+        <button type="button" class="fd-crumb-up" data-crumb="${parentId}" title="Lên một cấp (thả vào đây để đưa ra ngoài)" aria-label="Lên một cấp"><i class="fas fa-arrow-left"></i></button>
+        <button type="button" class="fd-crumb-link is-root" data-crumb="" title="Về Thư viện gốc (thả vào đây để chuyển ra gốc)"><i class="fas fa-home"></i><span>Thư viện gốc</span></button>
+        ${path.slice(0, -1).map(f => sep + link(f)).join('')}
+        ${sep}<span class="fd-crumb" style="--fc:${folderHex(current)}"><i class="fas ${current.icon || 'fa-folder'}"></i>${escapeHtml(current.name || 'Thư mục')}</span>`;
+
+    breadcrumb.querySelectorAll('[data-crumb]').forEach(btn => {
+        const target = btn.dataset.crumb || null;
+        btn.addEventListener('click', () => goToFolder(target));
+        bindMoveDropZone(btn, target);
+    });
+    // Nấc cuối cùng luôn trong tầm nhìn khi đường dài (điện thoại cuộn ngang)
+    breadcrumb.scrollLeft = breadcrumb.scrollWidth;
+}
+
+/** Mở một thư mục (null = Thư viện gốc). */
+export function goToFolder(folderId) {
+    S.currentFolderId = folderId || null;
+    S.currentLibraryPage = 1;
+    renderBreadcrumb();
+    loadAndDisplayLibrary(1);
+}
+
+/**
+ * Biến một phần tử thành chỗ thả: bộ đề hoặc thư mục đang kéo thả vào đây là chuyển tới `targetFolderId`
+ * (null = Thư viện gốc). Dùng cho từng nấc breadcrumb.
+ */
+export function bindMoveDropZone(el, targetFolderId) {
+    const isLibraryDrag = (e) => {
+        const t = e.dataTransfer && e.dataTransfer.types;
+        return !!t && (Array.from(t).includes('application/x-folder')
+            || document.body.classList.contains('is-dragging-quiz'));
+    };
+    el.addEventListener('dragover', (e) => {
+        if (!isLibraryDrag(e)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        el.classList.add('is-drop');
+    });
+    el.addEventListener('dragleave', () => el.classList.remove('is-drop'));
+    el.addEventListener('drop', (e) => {
+        if (!isLibraryDrag(e)) return;
+        e.preventDefault();
+        el.classList.remove('is-drop');
+        const folderId = e.dataTransfer.getData('application/x-folder');
+        const quizId = e.dataTransfer.getData('text/plain');
+        document.body.classList.remove('is-dragging-quiz', 'is-dragging-folder');
+        if (folderId) { moveFolder(folderId, targetFolderId); return; }
+        if (quizId && S.userQuizSets.some(q => q.id === quizId)) {
+            const target = folderById(targetFolderId);
+            moveQuizToFolder(quizId, targetFolderId, target ? target.name : null);
+        }
+    });
 }
 
 /**
@@ -507,9 +562,7 @@ export function getFilteredQuizzesForView() {
     if (keyword) {
         return filterLibraryByMode(keyword, 'quiz');
     }
-    return S.userQuizSets.filter(quiz =>
-        S.currentFolderId === null ? (!quiz.folderId) : (quiz.folderId === S.currentFolderId)
-    );
+    return S.userQuizSets.filter(quiz => quizFolderOf(quiz) === S.currentFolderId);
 }
 
 /**

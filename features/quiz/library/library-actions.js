@@ -6,12 +6,17 @@
 import { auth, db } from '../../../core/firebase-init.js';
 import { doc, collection, addDoc, query, where, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 // Ghi không treo khi mất mạng (xem core/offline-write.js)
-import { updateDocQ as updateDoc } from "../../../core/offline-write.js";
+import { updateDocQ as updateDoc, setDocQ } from "../../../core/offline-write.js";
+import { sessionUser } from '../../../core/auth-session.js';
 import { showToast, showConfirm } from '../../../core/utils.js';
 import { S } from './library-state.js';
-import { sortUserFolders, parseFontAwesomeIcon, escapeHtml, FOLDER_COLOR_HEX } from './library-helpers.js';
+import {
+    sortUserFolders, parseFontAwesomeIcon, escapeHtml, FOLDER_COLOR_HEX,
+    folderById, folderHex, parentIdOf, quizFolderOf, childFolders, subtreeIds, folderPath,
+    folderStats, canMoveFolderInto
+} from './library-helpers.js';
 import { renderLibrary, renderBreadcrumb, rerenderCurrentView, getFilteredQuizzesForView } from './library-render.js';
-import { loadAndDisplayLibrary, ensureFullLibraryLoaded, persistLibraryCache } from './library-data.js';
+import { loadAndDisplayLibrary, ensureFullLibraryLoaded, persistLibraryCache, persistFoldersCache } from './library-data.js';
 
 export async function deleteQuizSet(quizId) {
     const ok = await showConfirm(
@@ -127,7 +132,7 @@ export async function moveQuizToFolder(quizId, folderId, folderName) {
     }
 
     const prevFolderId = quiz.folderId ?? null;
-    if (prevFolderId === folderId) {
+    if (quizFolderOf(quiz) === folderId) {
         showToast(`Bộ đề đã nằm trong ${where} rồi.`, 'info');
         return;
     }
@@ -149,9 +154,11 @@ export async function moveQuizToFolder(quizId, folderId, folderName) {
 }
 
 // === QUẢN LÝ THƯ MỤC MODAL ===
-export function openFolderModal(mode = 'create', folderId = null, folderName = '') {
+export function openFolderModal(mode = 'create', folderId = null, folderName = '', parentId) {
     S.folderModalMode = mode;
     S.editingFolderId = folderId;
+    // Thư mục mới nằm trong đâu: chỉ định rõ (menu "Tạo thư mục con") hoặc ngay cấp đang mở
+    S.newFolderParentId = mode === 'create' ? (parentId !== undefined ? parentId : S.currentFolderId) || null : null;
 
     const modal = document.getElementById('folderModal');
     const title = document.getElementById('folderModalTitle');
@@ -159,7 +166,10 @@ export function openFolderModal(mode = 'create', folderId = null, folderName = '
 
     if (!modal || !title || !input) return;
 
-    title.textContent = mode === 'create' ? 'Tạo thư mục mới' : 'Sửa thư mục';
+    const parentFolder = folderById(S.newFolderParentId);
+    title.textContent = mode === 'create'
+        ? (parentFolder ? `Tạo thư mục trong "${parentFolder.name}"` : 'Tạo thư mục mới')
+        : 'Sửa thư mục';
     input.value = folderName;
     input.classList.remove('border-red-400');
 
@@ -177,7 +187,7 @@ export function openFolderModal(mode = 'create', folderId = null, folderName = '
     // Xem trước: tai ghi số bộ đề THẬT của thư mục (tạo mới = trống), gõ tên là cập nhật ngay
     const preview = document.getElementById('folder-modal-preview');
     if (preview) {
-        const n = mode === 'edit' ? S.userQuizSets.filter(q => q.folderId === folderId).length : 0;
+        const n = mode === 'edit' ? folderStats(folderId).quizCount : 0;
         preview.dataset.tab = n ? `${n} bộ đề` : 'Trống';
         preview.dataset.fill = n === 0 ? '0' : n === 1 ? '1' : n < 5 ? '2' : '3';
         const folder = mode === 'edit' ? S.userFolders.find(f => f.id === folderId) : null;
@@ -280,7 +290,7 @@ export function setCustomFolderColor(hex) {
 }
 
 export async function saveFolder() {
-    const user = auth.currentUser;
+    const user = sessionUser();
     const input = document.getElementById('folderNameInput');
     if (!user || !input) return;
 
@@ -298,11 +308,14 @@ export async function saveFolder() {
 
     try {
         if (S.folderModalMode === 'create') {
-            const newDoc = await addDoc(collection(db, "quiz_folders"), {
+            const parentId = S.newFolderParentId || null;
+            const newDoc = doc(collection(db, "quiz_folders"));
+            await setDocQ(newDoc, {
                 userId: user.uid,
                 name: name,
                 icon: S.selectedFolderIcon,
                 color: S.selectedFolderColor,
+                parentId,
                 createdAt: new Date()
             });
             // Cập nhật ngay vào cache để thư mục mới hiện liền, không cần tải lại trang
@@ -312,6 +325,7 @@ export async function saveFolder() {
                 name: name,
                 icon: S.selectedFolderIcon,
                 color: S.selectedFolderColor,
+                parentId,
                 createdAt: new Date()
             });
             showToast('Đã tạo thư mục thành công!', 'success');
@@ -332,6 +346,7 @@ export async function saveFolder() {
             showToast('Đã cập nhật thư mục thành công!', 'success');
         }
         sortUserFolders();
+        persistFoldersCache();
         closeFolderModal();
         await loadAndDisplayLibrary();
     } catch (err) {
@@ -354,6 +369,7 @@ export async function toggleFolderPin(folderId, pinned) {
     renderLibrary(S.userQuizSets, S.currentLibraryPage);
     try {
         await updateDoc(doc(db, "quiz_folders", folderId), { pinned });
+        persistFoldersCache();
         showToast(pinned ? 'Đã ghim thư mục lên đầu!' : 'Đã bỏ ghim thư mục.', 'success');
     } catch (err) {
         console.error("Lỗi khi ghim thư mục:", err);
@@ -373,6 +389,7 @@ export async function quickSetFolderColor(folderId, color) {
     renderLibrary(S.userQuizSets, S.currentLibraryPage);
     try {
         await updateDoc(doc(db, "quiz_folders", folderId), { color });
+        persistFoldersCache();
     } catch (err) {
         console.error("Lỗi khi đổi màu thư mục:", err);
         folder.color = prevColor; // hoàn tác
@@ -381,27 +398,37 @@ export async function quickSetFolderColor(folderId, color) {
     }
 }
 
-// Kéo-thả sắp xếp lại thứ tự thư mục: ghi lại trường order tuần tự cho toàn bộ
-export async function reorderFolders(draggedId, targetId) {
+// Kéo-thả sắp xếp lại thứ tự thư mục: đặt `draggedId` ngay TRƯỚC/SAU `targetId`.
+// Thư mục đích ở cấp khác thì thư mục kéo theo vào đúng cấp đó. Chỉ ghi những thư mục đổi thứ tự.
+export async function reorderFolders(draggedId, targetId, place = 'before') {
     if (draggedId === targetId) return;
-    const arr = [...S.userFolders];
-    const from = arr.findIndex(f => f.id === draggedId);
-    const to = arr.findIndex(f => f.id === targetId);
-    if (from < 0 || to < 0) return;
-
-    const [moved] = arr.splice(from, 1);
-    arr.splice(to, 0, moved);
+    const moved = folderById(draggedId);
+    const targetParent = parentIdOf(folderById(targetId));
+    if (!moved || !folderById(targetId)) return;
+    const parentChanged = parentIdOf(moved) !== targetParent;
+    if (parentChanged && !canMoveFolderInto(draggedId, targetParent)) {
+        showToast('Không thể chuyển thư mục vào chính nó hoặc thư mục con của nó.', 'warning');
+        return;
+    }
+    const arr = S.userFolders.filter(f => f.id !== draggedId);
+    const t = arr.findIndex(f => f.id === targetId);
+    arr.splice(place === 'after' ? t + 1 : t, 0, moved);
 
     // Cập nhật lạc quan trên client
-    arr.forEach((f, idx) => { f.order = idx; });
+    const writes = [];
+    arr.forEach((f, idx) => {
+        const patch = {};
+        if (f.order !== idx) { f.order = idx; patch.order = idx; }
+        if (parentChanged && f.id === draggedId) { f.parentId = targetParent; patch.parentId = targetParent; }
+        if (Object.keys(patch).length) writes.push(updateDoc(doc(db, "quiz_folders", f.id), patch));
+    });
     S.userFolders = arr;
     sortUserFolders();
+    persistFoldersCache();
     renderLibrary(S.userQuizSets, S.currentLibraryPage);
 
     try {
-        await Promise.all(arr.map((f, idx) =>
-            updateDoc(doc(db, "quiz_folders", f.id), { order: idx })
-        ));
+        await Promise.all(writes);
     } catch (err) {
         console.error("Lỗi khi sắp xếp lại thư mục:", err);
         showToast('Không thể lưu thứ tự thư mục mới!', 'error');
@@ -409,12 +436,18 @@ export async function reorderFolders(draggedId, targetId) {
 }
 
 export async function confirmDeleteFolder(folderId) {
-    const folder = S.userFolders.find(f => f.id === folderId);
+    const folder = folderById(folderId);
     const name = folder ? folder.name : 'thư mục';
-    const count = S.userQuizSets.filter(q => q.folderId === folderId).length;
+    if (!S.isLibraryFullyLoaded) await ensureFullLibraryLoaded();   // đủ dữ liệu mới đếm/xoá đúng
+    const ids = subtreeIds(folderId);
+    const subIds = [...ids].filter(id => id !== folderId);
+    const inside = S.userQuizSets.filter(q => ids.has(quizFolderOf(q)));
+    const parts = [];
+    if (subIds.length) parts.push(`${subIds.length} thư mục con`);
+    if (inside.length) parts.push(`${inside.length} bộ đề`);
 
-    const msg = count > 0
-        ? `Thư mục "${name}" cùng ${count} bộ đề bên trong sẽ được chuyển vào thùng rác và tự động xóa vĩnh viễn sau 30 ngày. Bạn có thể khôi phục cả thư mục lẫn bộ đề trước đó.`
+    const msg = parts.length
+        ? `Thư mục "${name}" cùng ${parts.join(' và ')} bên trong sẽ được chuyển vào thùng rác và tự động xóa vĩnh viễn sau 30 ngày. Khôi phục thư mục là khôi phục lại tất cả.`
         : `Thư mục "${name}" sẽ được chuyển vào thùng rác và tự động xóa vĩnh viễn sau 30 ngày. Bạn có thể khôi phục bất cứ lúc nào trước đó.`;
 
     const ok = await showConfirm(msg, {
@@ -423,23 +456,19 @@ export async function confirmDeleteFolder(folderId) {
     if (!ok) return;
 
     try {
-        const user = auth.currentUser;
+        const user = sessionUser();
         if (!user) throw new Error("Người dùng chưa đăng nhập.");
         const now = new Date();
 
-        // 1. Chuyển các bộ đề bên trong vào thùng rác kèm theo (đánh dấu để khôi phục cùng thư mục)
-        const q = query(collection(db, "quiz_sets"), where("userId", "==", user.uid), where("folderId", "==", folderId));
-        const snapshot = await getDocs(q);
-        const toTrash = snapshot.docs.filter(docSnap => !docSnap.data().deleted);
-        if (toTrash.length) {
-            try {
-                await Promise.all(toTrash.map(docSnap =>
-                    updateDoc(docSnap.ref, { deleted: true, deletedAt: now, trashedWithFolder: folderId })
-                ));
-            } catch (updateErr) {
-                console.error("Lỗi khi chuyển bộ đề vào thùng rác:", updateErr);
-                throw new Error("Không thể chuyển bộ đề vào thùng rác (Lỗi phân quyền quiz_sets).");
-            }
+        // 1. Bộ đề + thư mục con trong cả nhánh vào thùng rác kèm theo (đánh dấu để khôi phục cùng thư mục)
+        try {
+            await Promise.all([
+                ...inside.map(q => updateDoc(doc(db, "quiz_sets", q.id), { deleted: true, deletedAt: now, trashedWithFolder: folderId })),
+                ...subIds.map(id => updateDoc(doc(db, "quiz_folders", id), { deleted: true, deletedAt: now, trashedWithFolder: folderId }))
+            ]);
+        } catch (updateErr) {
+            console.error("Lỗi khi chuyển nội dung thư mục vào thùng rác:", updateErr);
+            throw new Error("Không thể chuyển nội dung thư mục vào thùng rác.");
         }
 
         // 2. Chuyển thư mục vào thùng rác
@@ -450,10 +479,14 @@ export async function confirmDeleteFolder(folderId) {
             throw new Error("Lỗi phân quyền Firestore khi cập nhật thư mục (quiz_folders).");
         }
 
-        // 3. Cập nhật cache để ẩn ngay
-        S.userFolders = S.userFolders.filter(f => f.id !== folderId);
-        S.userQuizSets = S.userQuizSets.filter(q => q.folderId !== folderId);
-        if (S.currentFolderId === folderId) S.currentFolderId = null;
+        // 3. Cập nhật cache để ẩn ngay; đang đứng trong nhánh vừa xoá thì lùi về thư mục cha của nó
+        const parent = parentIdOf(folder);
+        const trashedQuizIds = new Set(inside.map(q => q.id));
+        S.userFolders = S.userFolders.filter(f => !ids.has(f.id));
+        S.userQuizSets = S.userQuizSets.filter(q => !trashedQuizIds.has(q.id));
+        if (ids.has(S.currentFolderId)) S.currentFolderId = parent;
+        persistFoldersCache();
+        persistLibraryCache();
 
         showToast('Đã chuyển thư mục vào thùng rác.', 'success');
         renderBreadcrumb();
@@ -464,77 +497,15 @@ export async function confirmDeleteFolder(folderId) {
     }
 }
 
-// === DI CHUYỂN BỘ ĐỀ (MOVE QUIZ) ===
+// === CHUYỂN ĐẾN… (bộ đề lẻ / nhiều bộ đề / cả thư mục) ===
+// Một hộp dùng chung: cây thư mục thụt lề theo cấp, CHẠM MỘT LẦN là chuyển (bỏ bước "Xác nhận").
+// Bản cũ hỏng hẳn: markup đã đổi sang #folder-list-choices nhưng JS vẫn tìm <select id="folderSelect">
+// → nút "Di chuyển" (lẻ lẫn hàng loạt) bấm không có phản ứng gì.
+let moveCtx = null; // { kind: 'quiz' | 'bulk' | 'folder', ids: string[] }
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && moveCtx) closeMoveQuizModal(); });
+
 export function openMoveQuizModal(quizId) {
-    S.movingQuizId = quizId;
-    const modal = document.getElementById('moveQuizModal');
-    const select = document.getElementById('folderSelect');
-
-    if (!modal || !select) return;
-
-    select.innerHTML = '<option value="">(Thư viện gốc - không thư mục)</option>';
-    S.userFolders.forEach(folder => {
-        const option = document.createElement('option');
-        option.value = folder.id;
-        option.textContent = folder.name;
-        select.appendChild(option);
-    });
-
-    if (!S.isBulkMoving) {
-        const quiz = S.userQuizSets.find(q => q.id === quizId);
-        if (quiz) {
-            select.value = quiz.folderId || '';
-        }
-    }
-
-    modal.classList.remove('hidden');
-}
-
-export function closeMoveQuizModal() {
-    const modal = document.getElementById('moveQuizModal');
-    if (modal) modal.classList.add('hidden');
-}
-
-export async function confirmMoveQuiz() {
-    const select = document.getElementById('folderSelect');
-    if (!select) return;
-    const targetFolderId = select.value || null;
-
-    const confirmBtn = document.getElementById('confirmMoveQuizBtn');
-    if (confirmBtn) {
-        confirmBtn.disabled = true;
-        confirmBtn.textContent = 'Đang di chuyển...';
-    }
-
-    const targetName = targetFolderId
-        ? (S.userFolders.find(f => f.id === targetFolderId) || {}).name
-        : null;
-
-    try {
-        if (S.isBulkMoving) {
-            const ids = [...S.selectedQuizIds];
-            await Promise.all(ids.map(id => updateDoc(doc(db, "quiz_sets", id), { folderId: targetFolderId })));
-            // Cập nhật thẳng trong RAM thay vì nạp lại cả thư viện từ server
-            ids.forEach(id => {
-                const q = S.userQuizSets.find(x => x.id === id);
-                if (q) q.folderId = targetFolderId;
-            });
-            persistLibraryCache();
-            showToast(`Đã di chuyển ${ids.length} bộ đề!`, 'success');
-            exitSelectionMode();   // đã tự vẽ lại từ RAM
-        } else {
-            await moveQuizToFolder(S.movingQuizId, targetFolderId, targetName);
-        }
-        closeMoveQuizModal();
-    } catch (err) {
-        console.error("Lỗi di chuyển bộ đề:", err);
-        showToast('Có lỗi xảy ra khi di chuyển!', 'error');
-    } finally {
-        if (confirmBtn) {
-            confirmBtn.disabled = false;
-            confirmBtn.textContent = 'Xác nhận';
-        }
-    }
+    openMoveDialog({ kind: 'quiz', ids: [quizId] });
 }
 
 export function handleBulkMove() {
@@ -542,8 +513,188 @@ export function handleBulkMove() {
         showToast('Vui lòng chọn ít nhất một bộ đề để di chuyển!', 'warning');
         return;
     }
-    S.isBulkMoving = true;
-    openMoveQuizModal(null);
+    openMoveDialog({ kind: 'bulk', ids: [...S.selectedQuizIds] });
+}
+
+export function openMoveFolderModal(folderId) {
+    openMoveDialog({ kind: 'folder', ids: [folderId] });
+}
+
+export function closeMoveQuizModal() {
+    const modal = document.getElementById('moveQuizModal');
+    if (modal) modal.classList.add('hidden');
+    moveCtx = null;
+}
+
+function openMoveDialog(ctx) {
+    const modal = document.getElementById('moveQuizModal');
+    if (!modal || !document.getElementById('folder-list-choices')) return;
+    moveCtx = ctx;
+    const titleEl = document.getElementById('move-modal-title');
+    const subEl = document.getElementById('move-modal-sub');
+    if (ctx.kind === 'folder') {
+        const f = folderById(ctx.ids[0]);
+        if (titleEl) titleEl.textContent = 'Chuyển thư mục';
+        if (subEl) subEl.textContent = `"${(f && f.name) || 'Thư mục'}" — chạm vào nơi muốn chuyển đến.`;
+    } else if (ctx.kind === 'bulk') {
+        if (titleEl) titleEl.textContent = `Chuyển ${ctx.ids.length} bộ đề`;
+        if (subEl) subEl.textContent = 'Chạm vào nơi muốn chuyển đến.';
+    } else {
+        const q = S.userQuizSets.find(x => x.id === ctx.ids[0]);
+        if (titleEl) titleEl.textContent = 'Chuyển bộ đề';
+        if (subEl) subEl.textContent = `"${(q && q.title) || 'Bộ đề'}" — chạm vào nơi muốn chuyển đến.`;
+    }
+    const search = document.getElementById('move-modal-search');
+    if (search) {
+        search.value = '';
+        search.classList.toggle('hidden', S.userFolders.length < 7); // ít thư mục thì khỏi ô tìm
+        search.oninput = () => renderMoveTree(search.value);
+    }
+    renderMoveTree('');
+    modal.onclick = (e) => { if (e.target === modal) closeMoveQuizModal(); };
+    modal.classList.remove('hidden');
+}
+
+// Nơi đang ở để đánh dấu "Đang ở đây" (undefined khi chọn nhiều bộ đề nằm rải rác nhiều nơi)
+function moveCurrentLocation() {
+    if (!moveCtx) return undefined;
+    if (moveCtx.kind === 'folder') return parentIdOf(folderById(moveCtx.ids[0]));
+    const locs = new Set(moveCtx.ids.map(id => quizFolderOf(S.userQuizSets.find(q => q.id === id))));
+    return locs.size === 1 ? [...locs][0] : undefined;
+}
+
+function renderMoveTree(term) {
+    const list = document.getElementById('folder-list-choices');
+    if (!list || !moveCtx) return;
+    const here = moveCurrentLocation();
+    const blocked = moveCtx.kind === 'folder' ? subtreeIds(moveCtx.ids[0]) : new Set();
+    const rootCount = S.userQuizSets.filter(q => quizFolderOf(q) === null).length;
+    const rows = [];
+    const row = (f, depth, note = '') => {
+        const id = f ? f.id : null;
+        const isHere = here !== undefined && id === here;
+        const isBlocked = !!f && blocked.has(f.id);
+        const right = isHere ? '<span class="mv-tag">Đang ở đây</span>'
+            : isBlocked ? '<span class="mv-tag is-muted">Chính nó</span>'
+            : `<span class="mv-meta">${f ? folderStats(f.id).quizCount : rootCount} bộ đề</span>`;
+        rows.push(`<button type="button" class="mv-row" data-target="${id || ''}" style="--depth:${depth};--fc:${f ? folderHex(f) : '#ec4899'}"${isHere || isBlocked ? ' disabled' : ''}>
+            <span class="mv-ico"><i class="fas ${f ? (f.icon || 'fa-folder') : 'fa-house'}"></i></span>
+            <span class="mv-name">${f ? escapeHtml(f.name || 'Thư mục') : 'Thư viện gốc'}${note ? `<small>${escapeHtml(note)}</small>` : ''}</span>
+            ${right}
+        </button>`);
+    };
+    const q = (term || '').trim().toLowerCase();
+    if (q) {
+        S.userFolders.filter(f => (f.name || '').toLowerCase().includes(q)).forEach(f => {
+            const path = folderPath(f.id).slice(0, -1).map(p => p.name).join(' › ');
+            row(f, 0, path ? `trong ${path}` : 'ở Thư viện gốc');
+        });
+        if (!rows.length) rows.push('<p class="mv-empty">Không có thư mục nào khớp tên này.</p>');
+    } else {
+        row(null, 0);
+        const seen = new Set();
+        const walk = (parentId, depth) => childFolders(parentId).forEach(f => {
+            if (seen.has(f.id)) return;
+            seen.add(f.id);
+            row(f, depth);
+            walk(f.id, depth + 1);
+        });
+        walk(null, 1);
+        if (!S.userFolders.length) rows.push('<p class="mv-empty">Chưa có thư mục nào. Bấm “Tạo thư mục” trong Thư viện để tạo.</p>');
+    }
+    list.innerHTML = rows.join('');
+    list.querySelectorAll('.mv-row:not([disabled])').forEach(btn => {
+        btn.addEventListener('click', () => performMove(btn.dataset.target || null));
+    });
+}
+
+async function performMove(targetId) {
+    const ctx = moveCtx;
+    closeMoveQuizModal();
+    if (!ctx) return;
+    if (ctx.kind === 'folder') return moveFolder(ctx.ids[0], targetId);
+    if (ctx.kind === 'quiz') {
+        const target = folderById(targetId);
+        return moveQuizToFolder(ctx.ids[0], targetId, target ? target.name : null);
+    }
+    // Hàng loạt: thoát chế độ chọn ngay để thấy kết quả, ghi nền sau
+    S.isSelectionMode = false;
+    S.selectedQuizIds = [];
+    updateBulkActionsToolbar();
+    return moveQuizzesBulk(ctx.ids, targetId);
+}
+
+/**
+ * Chuyển nhiều bộ đề cùng lúc: cập nhật giao diện trước, ghi Firestore sau; bộ nào ghi hỏng thì
+ * trả riêng bộ đó về chỗ cũ (bản cũ: một bộ lỗi là cả mẻ báo lỗi mà RAM vẫn lệch).
+ */
+async function moveQuizzesBulk(ids, targetId) {
+    const target = folderById(targetId);
+    const where = target ? `"${target.name}"` : 'Thư viện gốc';
+    const moving = ids.map(id => S.userQuizSets.find(q => q.id === id)).filter(q => q && quizFolderOf(q) !== targetId);
+    if (!moving.length) {
+        showToast(`Các bộ đề đã nằm trong ${where} rồi.`, 'info');
+        rerenderCurrentView();
+        return;
+    }
+    const prev = new Map(moving.map(q => [q.id, q.folderId ?? null]));
+    moving.forEach(q => { q.folderId = targetId; });
+    rerenderCurrentView();
+    const results = await Promise.allSettled(moving.map(q => updateDoc(doc(db, "quiz_sets", q.id), { folderId: targetId })));
+    const failed = moving.filter((q, i) => results[i].status === 'rejected');
+    failed.forEach(q => { q.folderId = prev.get(q.id); });
+    persistLibraryCache();
+    if (failed.length) {
+        rerenderCurrentView();
+        showToast(`Đã chuyển ${moving.length - failed.length}/${moving.length} bộ đề vào ${where}; ${failed.length} bộ lỗi đã trả về chỗ cũ.`, 'warning');
+    } else {
+        showToast(`Đã chuyển ${moving.length} bộ đề vào ${where}.`, 'success');
+    }
+}
+
+/** "Đưa ra ngoài": chuyển bộ đề lên thư mục cha của thư mục đang chứa nó (hoặc ra gốc). */
+export function moveQuizOut(quizId) {
+    const quiz = S.userQuizSets.find(q => q.id === quizId);
+    const from = quizFolderOf(quiz);
+    if (!from) return;
+    const parent = parentIdOf(folderById(from));
+    moveQuizToFolder(quizId, parent, parent ? folderById(parent).name : null);
+}
+
+/**
+ * Chuyển một thư mục (kèm mọi thứ bên trong) vào thư mục khác; null = ra Thư viện gốc.
+ * Chặn chuyển vào chính nó / con cháu của nó (sẽ tạo vòng lặp làm cả nhánh biến mất).
+ */
+export async function moveFolder(folderId, targetParentId) {
+    const folder = folderById(folderId);
+    if (!folder) return;
+    const target = targetParentId || null;
+    const targetFolder = folderById(target);
+    const where = targetFolder ? `"${targetFolder.name}"` : 'Thư viện gốc';
+    if (!canMoveFolderInto(folderId, target)) {
+        showToast('Không thể chuyển thư mục vào chính nó hoặc thư mục con của nó.', 'warning');
+        return;
+    }
+    const prev = parentIdOf(folder);
+    if (prev === target) {
+        showToast(`Thư mục đã nằm trong ${where} rồi.`, 'info');
+        return;
+    }
+    folder.parentId = target;
+    persistFoldersCache();
+    renderBreadcrumb();          // thư mục vừa chuyển có thể nằm trên đường đang đứng
+    rerenderCurrentView();
+    try {
+        await updateDoc(doc(db, "quiz_folders", folderId), { parentId: target });
+        showToast(`Đã chuyển thư mục "${folder.name}" vào ${where}.`, 'success');
+    } catch (err) {
+        console.error("Lỗi chuyển thư mục:", err);
+        folder.parentId = prev;
+        persistFoldersCache();
+        renderBreadcrumb();
+        rerenderCurrentView();
+        showToast('Không chuyển được thư mục — đã trả về chỗ cũ.', 'error');
+    }
 }
 
 export async function handleBulkDelete() {
@@ -742,39 +893,19 @@ function initPageAutoScrollWhileDragging() {
 }
 
 export function initDragAndDropBreadcrumb() {
+    // Chỗ thả trên breadcrumb giờ gắn cho TỪNG nấc lúc vẽ (library-render.js bindMoveDropZone)
     initFolderStripAutoScroll();
     initPageAutoScrollWhileDragging();
-    const folderBreadcrumb = document.getElementById('folder-breadcrumb');
-    if (folderBreadcrumb) {
-        folderBreadcrumb.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-        });
-        folderBreadcrumb.addEventListener('dragenter', (e) => {
-            e.preventDefault();
-            folderBreadcrumb.classList.add('border-pink-500', 'bg-pink-50/50');
-        });
-        folderBreadcrumb.addEventListener('dragleave', () => {
-            folderBreadcrumb.classList.remove('border-pink-500', 'bg-pink-50/50');
-        });
-        folderBreadcrumb.addEventListener('drop', async (e) => {
-            e.preventDefault();
-            folderBreadcrumb.classList.remove('border-pink-500', 'bg-pink-50/50');
-            document.body.classList.remove('is-dragging-quiz');
-            const quizId = e.dataTransfer.getData('text/plain');
-            if (!quizId) return;
-            await moveQuizToFolder(quizId, null);
-        });
-    }
 }
 
 // === THAO TÁC TRÊN CẢ THƯ MỤC (chia sẻ / công khai / dọn thư mục) ===
 
 // Lấy toàn bộ bộ đề thuộc một thư mục. Thư viện có thể đang tải cuốn chiếu nên phải
 // bảo đảm đã nạp đủ, nếu không sẽ thao tác thiếu bộ đề mà người dùng không hay biết.
-async function getQuizzesInFolder(folderId) {
+async function getQuizzesInFolder(folderId, deep = true) {
     if (!S.isLibraryFullyLoaded) await ensureFullLibraryLoaded();
-    return S.userQuizSets.filter(q => q.folderId === folderId);
+    const ids = deep ? subtreeIds(folderId) : new Set([folderId]);
+    return S.userQuizSets.filter(q => ids.has(quizFolderOf(q)));
 }
 
 // Đường dẫn chia sẻ của một thư mục
@@ -791,12 +922,15 @@ export async function toggleFolderPublic(folderId, makePublic, { skipConfirm = f
     const folder = S.userFolders.find(f => f.id === folderId);
     const name = folder ? folder.name : 'thư mục';
     const quizzes = await getQuizzesInFolder(folderId);
+    // Cả nhánh: thư mục con cũng phải công khai thì người nhận mới mở vào được
+    const subFolders = S.userFolders.filter(f => f.id !== folderId && subtreeIds(folderId).has(f.id));
+    const what = `${subFolders.length ? `${subFolders.length} thư mục con, ` : ''}${quizzes.length} bộ đề bên trong`;
 
     if (!skipConfirm) {
         const ok = await showConfirm(
             makePublic
-                ? `Thư mục "${name}" và ${quizzes.length} bộ đề bên trong sẽ CÔNG KHAI: ai có link đều mở và làm được.`
-                : `Thư mục "${name}" và ${quizzes.length} bộ đề bên trong sẽ về RIÊNG TƯ: link đã chia sẻ trước đó sẽ không mở được nữa.`,
+                ? `Thư mục "${name}" và ${what} sẽ CÔNG KHAI: ai có link đều mở và làm được.`
+                : `Thư mục "${name}" và ${what} sẽ về RIÊNG TƯ: link đã chia sẻ trước đó sẽ không mở được nữa.`,
             {
                 title: makePublic ? 'Công khai cả thư mục?' : 'Chuyển về riêng tư?',
                 confirmText: makePublic ? 'Công khai' : 'Riêng tư',
@@ -810,6 +944,10 @@ export async function toggleFolderPublic(folderId, makePublic, { skipConfirm = f
     try {
         await updateDoc(doc(db, "quiz_folders", folderId), { isPublic: makePublic });
         if (folder) folder.isPublic = makePublic;
+        const subNeed = subFolders.filter(f => (f.isPublic === true) !== makePublic);
+        await Promise.all(subNeed.map(f => updateDoc(doc(db, "quiz_folders", f.id), { isPublic: makePublic })));
+        subNeed.forEach(f => { f.isPublic = makePublic; });
+        persistFoldersCache();
 
         // Đồng bộ trạng thái cho từng bộ đề bên trong (bỏ qua cái đã đúng trạng thái)
         const needUpdate = quizzes.filter(q => (q.isPublic === true) !== makePublic);
@@ -869,30 +1007,22 @@ export async function openShareFolderModal(folderId, folderName) {
  * Khác với xóa thư mục: không có gì vào thùng rác.
  */
 export async function moveAllQuizzesOutOfFolder(folderId) {
-    const folder = S.userFolders.find(f => f.id === folderId);
+    const folder = folderById(folderId);
     const name = folder ? folder.name : 'thư mục';
-    const quizzes = await getQuizzesInFolder(folderId);
+    const quizzes = await getQuizzesInFolder(folderId, false);   // chỉ bộ đề nằm TRỰC TIẾP trong thư mục
     if (!quizzes.length) {
-        showToast(`Thư mục "${name}" đang trống.`, 'info');
+        showToast(`Thư mục "${name}" không có bộ đề nào nằm trực tiếp bên trong.`, 'info');
         return;
     }
+    const parent = parentIdOf(folder);
+    const where = parent ? `"${folderById(parent).name}"` : 'Thư viện gốc';
 
     const ok = await showConfirm(
-        `${quizzes.length} bộ đề trong "${name}" sẽ chuyển ra Thư viện gốc. Thư mục vẫn giữ nguyên, chỉ trống đi.`,
+        `${quizzes.length} bộ đề trong "${name}" sẽ chuyển ra ${where}. Thư mục (và thư mục con) vẫn giữ nguyên.`,
         { title: 'Đưa hết bộ đề ra ngoài?', confirmText: 'Đưa ra ngoài', cancelText: 'Hủy' }
     );
     if (!ok) return;
-
-    try {
-        await Promise.all(quizzes.map(q => updateDoc(doc(db, "quiz_sets", q.id), { folderId: null })));
-        quizzes.forEach(q => { q.folderId = null; });
-        persistLibraryCache();
-        showToast(`Đã đưa ${quizzes.length} bộ đề ra Thư viện gốc.`, 'success');
-        rerenderCurrentView();
-    } catch (e) {
-        console.error("Lỗi đưa bộ đề ra khỏi thư mục:", e);
-        showToast("Không thể đưa bộ đề ra ngoài: " + e.message, 'error');
-    }
+    await moveQuizzesBulk(quizzes.map(q => q.id), parent);
 }
 
 // Gán 3 nút chia sẻ nhanh (Messenger / Facebook / app hệ thống) cho một đường dẫn bất kỳ.

@@ -26,8 +26,8 @@ export const S = {
     // Chế độ chọn nhiều
     isSelectionMode: false,
     selectedQuizIds: [],
-    isBulkMoving: false,
-    movingQuizId: null,
+    newFolderParentId: null,
+    draggingFolderId: null,    // thư mục đang được kéo (dataTransfer không đọc được lúc dragover)   // thư mục mới sẽ nằm trong đâu (null = gốc) — đặt khi mở hộp Tạo thư mục
 
     // Phân trang & tải dữ liệu
     currentLibraryPage: 1,

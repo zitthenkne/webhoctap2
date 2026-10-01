@@ -11,7 +11,8 @@ import { S } from './library-state.js';
 import {
     FOLDER_COLOR_HEX, FOLDER_SWATCHES, escapeHtml, formatRelativeTime,
     getFolderLastOpenedMap, markFolderOpened, positionFolderMenu, resetFolderMenuPosition,
-    isPinned, isNewQuiz, getQuizAccent, togglePinData
+    isPinned, isNewQuiz, getQuizAccent, togglePinData,
+    folderById, parentIdOf, quizFolderOf, childFolders, folderStats, subtreeIds, canMoveFolderInto, folderPath
 } from './library-helpers.js';
 import { renderLibrary, renderBreadcrumb, rerenderCurrentView } from './library-render.js';
 import { loadAndDisplayLibrary, ensureFullLibraryLoaded } from './library-data.js';
@@ -19,7 +20,7 @@ import {
     toggleFolderPin, openFolderModal, quickSetFolderColor, confirmDeleteFolder,
     reorderFolders, openMoveQuizModal, openShareQuizModal, updateBulkActionsToolbar,
     toggleQuizPublic, toggleFolderPublic, openShareFolderModal, moveAllQuizzesOutOfFolder,
-    duplicateQuizSet, moveQuizToFolder
+    duplicateQuizSet, moveQuizToFolder, moveFolder, moveQuizOut, openMoveFolderModal
 } from './library-actions.js';
 import { getLastAttempt, hasAttemptData, markQuizOpened } from './library-attempts.js';
 import { countDueNow } from '../quiz-srs-store.js';
@@ -88,9 +89,10 @@ export function createFolderCard(folder) {
     const card = document.createElement('div');
     const colorVal = folder.color || 'amber';
     const iconClass = folder.icon || 'fa-folder';
-    const folderQuizzes = S.userQuizSets.filter(q => q.folderId === folder.id);
-    const count = folderQuizzes.length;
-    const totalQuestions = folderQuizzes.reduce((sum, q) => sum + (q.questionCount || 0), 0);
+    // Số liệu gộp CẢ cây con (thư mục lồng nhau); xem nhanh thì liệt kê thứ nằm trực tiếp bên trong
+    const folderQuizzes = S.userQuizSets.filter(q => quizFolderOf(q) === folder.id);
+    const subFolders = childFolders(folder.id);
+    const { quizCount: count, questionCount: totalQuestions, childCount } = folderStats(folder.id);
     const lastOpenedTs = getFolderLastOpenedMap()[folder.id];
     const lastOpenedText = formatRelativeTime(lastOpenedTs);
     const isPinnedFolder = !!folder.pinned;
@@ -107,9 +109,10 @@ export function createFolderCard(folder) {
     card.style.setProperty('--fc', hex);
     card.style.setProperty('--folder-shadow', `${hex}40`);
     card.style.setProperty('--folder-accent', hex);
-    // Tai hồ sơ ghi số bộ đề; xấp giấy thò lên nhiều/ít theo số bộ đề (0 = túi rỗng)
-    card.dataset.tab = count ? `${count} bộ đề` : 'Trống';
-    card.dataset.fill = count === 0 ? '0' : count === 1 ? '1' : count < 5 ? '2' : '3';
+    // Tai hồ sơ ghi số bộ đề (cả thư mục con); xấp giấy thò lên nhiều/ít theo lượng bên trong (0 = túi rỗng)
+    card.dataset.tab = count ? `${count} bộ đề` : childCount ? `${childCount} thư mục` : 'Trống';
+    const bulk = count + childCount;
+    card.dataset.fill = bulk === 0 ? '0' : bulk === 1 ? '1' : bulk < 5 ? '2' : '3';
 
     // Icon dạng sticker bế viền trắng, nền màu gốc của thư mục (tô ở CSS)
     const wrapperHTML = `<div class="folder-icon-wrapper"><i class="fas ${iconClass}"></i></div>`;
@@ -132,17 +135,28 @@ export function createFolderCard(folder) {
     // tầm 768–1100px là chip thứ hai bị cắt cụt giữa chữ ("840", "512 c") vì hàng không
     // được xuống dòng. Số câu chuyển xuống hàng 2 dạng chữ thường, chật thì cắt có "…".
     // Hàng 2 LUÔN render (kể cả rỗng) để mọi thẻ thư mục cao bằng nhau, cả dải thẳng hàng.
-    const subParts = [count ? `${totalQuestions} câu` : 'Chưa có bộ đề'];
+    const subParts = [];
+    // Đang tìm thư mục (xuyên mọi cấp) → ghi rõ thư mục này nằm trong đâu
+    if (S.folderSearchTerm.trim() && parentIdOf(folder)) {
+        subParts.push(`trong ${folderPath(parentIdOf(folder)).map(f => f.name).join(' › ')}`);
+    }
+    if (childCount) subParts.push(`${childCount} thư mục con`);
+    if (count) subParts.push(`${totalQuestions} câu`);
+    else if (!childCount) subParts.push('Chưa có bộ đề');
     if (lastOpenedText) subParts.push(`mở ${lastOpenedText}`);
     const lastOpenedHTML = `<p class="folder-meta-time"><i class="fas fa-clock"></i>${subParts.join(' · ')}</p>`;
 
-    // Xem nhanh khi hover: liệt kê tối đa 5 bộ đề trong thư mục
-    const previewItems = folderQuizzes.slice(0, 5)
-        .map(q => `<li><i class="fas fa-file-alt"></i><span class="truncate">${escapeHtml(q.title || 'Không tên')}</span></li>`)
-        .join('');
-    const previewMore = count > 5 ? `<li class="folder-preview-more">… và ${count - 5} bộ đề khác</li>` : '';
-    const previewHTML = count > 0
-        ? `<div class="folder-preview-pop"><p class="folder-preview-title"><i class="fas fa-layer-group"></i> ${count} bộ đề${totalQuestions ? ` · ${totalQuestions} câu` : ''}</p><ul>${previewItems}${previewMore}</ul></div>`
+    // Xem nhanh khi hover: thư mục con trước, rồi tới bộ đề nằm trực tiếp bên trong (tối đa 6 dòng)
+    const previewEntries = [
+        ...subFolders.map(f => `<li><i class="fas ${escapeHtml(f.icon || 'fa-folder')}"></i><span class="truncate">${escapeHtml(f.name || 'Thư mục')}</span></li>`),
+        ...folderQuizzes.map(q => `<li><i class="fas fa-file-alt"></i><span class="truncate">${escapeHtml(q.title || 'Không tên')}</span></li>`)
+    ];
+    const previewItems = previewEntries.slice(0, 6).join('');
+    const previewMore = previewEntries.length > 6 ? `<li class="folder-preview-more">… và ${previewEntries.length - 6} mục khác</li>` : '';
+    const previewTitle = [childCount ? `${childCount} thư mục con` : '', count ? `${count} bộ đề` : '', totalQuestions ? `${totalQuestions} câu` : '']
+        .filter(Boolean).join(' · ');
+    const previewHTML = previewEntries.length
+        ? `<div class="folder-preview-pop"><p class="folder-preview-title"><i class="fas fa-layer-group"></i> ${previewTitle}</p><ul>${previewItems}${previewMore}</ul></div>`
         : '';
 
     const safeName = escapeHtml(folder.name || 'Thư mục');
@@ -165,6 +179,8 @@ export function createFolderCard(folder) {
                 <button class="block w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-gray-700 hover:bg-pink-50 share-folder-btn" data-id="${folder.id}"><i class="fas fa-share-alt mr-2 text-green-500"></i>Chia sẻ thư mục</button>
                 <button class="block w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-gray-700 hover:bg-pink-50 toggle-folder-public-btn" data-id="${folder.id}" data-public="${isPublicFolder}" title="${isPublicFolder ? 'Đang công khai — bấm để chuyển cả thư mục về riêng tư' : 'Đang riêng tư — bấm để công khai cả thư mục kèm bộ đề bên trong'}"><i class="fas ${isPublicFolder ? 'fa-globe text-green-500' : 'fa-lock text-gray-400'} mr-2"></i>${isPublicFolder ? 'Đang công khai' : 'Đang riêng tư'}</button>
                 <div class="h-px bg-gray-100 my-1"></div>
+                <button class="block w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-gray-700 hover:bg-pink-50 create-subfolder-btn" data-id="${folder.id}"><i class="fas fa-folder-plus mr-2 text-pink-400"></i>Tạo thư mục con</button>
+                <button class="block w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-gray-700 hover:bg-pink-50 move-folder-btn" data-id="${folder.id}"><i class="fas fa-folder-open mr-2 text-amber-500"></i>Chuyển đến…</button>
                 <button class="block w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-gray-700 hover:bg-pink-50 rename-folder-btn" data-id="${folder.id}" data-name="${safeName}"><i class="fas fa-pen mr-2 text-blue-400"></i>Sửa tên, icon &amp; màu</button>
                 <div class="px-3 pt-2 pb-1">
                     <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Đổi màu nhanh</p>
@@ -243,6 +259,18 @@ export function createFolderCard(folder) {
         moveAllQuizzesOutOfFolder(folder.id);
     });
 
+    card.querySelector('.create-subfolder-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        menu.classList.add('hidden');
+        openFolderModal('create', null, '', folder.id);
+    });
+
+    card.querySelector('.move-folder-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        menu.classList.add('hidden');
+        openMoveFolderModal(folder.id);
+    });
+
     card.querySelector('.rename-folder-btn').addEventListener('click', (e) => {
         e.stopPropagation();
         menu.classList.add('hidden');
@@ -265,41 +293,70 @@ export function createFolderCard(folder) {
         confirmDeleteFolder(folder.id);
     });
 
-    // Kéo thư mục để sắp xếp lại thứ tự
+    // Kéo thư mục: thả vào GIỮA thư mục khác = cho vào trong; thả vào MÉP trái/phải = đổi thứ tự
     card.addEventListener('dragstart', (e) => {
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('application/x-folder', folder.id);
+        S.draggingFolderId = folder.id;
         card.classList.add('folder-dragging');
+        document.body.classList.add('is-dragging-folder');
     });
     card.addEventListener('dragend', () => {
+        S.draggingFolderId = null;
         card.classList.remove('folder-dragging');
-        document.querySelectorAll('.folder-mini-card.drop-target')
-            .forEach(c => c.classList.remove('drop-target'));
+        document.body.classList.remove('is-dragging-folder');
+        document.querySelectorAll('.folder-mini-card.drop-target, .folder-mini-card.drop-before, .folder-mini-card.drop-after')
+            .forEach(c => c.classList.remove('drop-target', 'drop-before', 'drop-after'));
     });
 
-    // Drag & Drop: nhận bộ đề (di chuyển) hoặc thư mục (sắp xếp lại)
+    // Con trỏ đang ở vùng nào của thẻ → thả xuống sẽ làm gì ('into' | 'before' | 'after' | 'none')
+    const dropModeOf = (e) => {
+        const types = Array.from((e.dataTransfer && e.dataTransfer.types) || []);
+        if (types.includes('application/x-folder')) {
+            const dragged = S.draggingFolderId;
+            if (!dragged || dragged === folder.id || !canMoveFolderInto(dragged, folder.id)) return 'none';
+            // Đổi thứ tự chỉ có nghĩa khi đang xếp "Thủ công" và không tìm kiếm
+            if (S.folderSortMode === 'manual' && !S.folderSearchTerm.trim()) {
+                const r = card.getBoundingClientRect();
+                const x = (e.clientX - r.left) / r.width;
+                if (x < 0.22) return 'before';
+                if (x > 0.78) return 'after';
+            }
+            return 'into';
+        }
+        return document.body.classList.contains('is-dragging-quiz') ? 'into' : 'none';
+    };
+    const markDrop = (mode) => {
+        card.classList.toggle('drop-target', mode === 'into');
+        card.classList.toggle('drop-before', mode === 'before');
+        card.classList.toggle('drop-after', mode === 'after');
+    };
+
+    // Drag & Drop: nhận bộ đề / thư mục (cho vào trong), hoặc đổi thứ tự thư mục
     card.addEventListener('dragover', (e) => {
+        const mode = dropModeOf(e);
+        if (mode === 'none') return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-    });
-    card.addEventListener('dragenter', (e) => {
-        e.preventDefault();
-        card.classList.add('drop-target');
+        markDrop(mode);
     });
     // Rê qua phần tử con cũng bắn dragleave → viền nhấp nháy liên tục.
     // Chỉ bỏ đánh dấu khi con trỏ thật sự rời khỏi thẻ.
     card.addEventListener('dragleave', (e) => {
         if (e.relatedTarget && card.contains(e.relatedTarget)) return;
-        card.classList.remove('drop-target');
+        markDrop('none');
     });
     card.addEventListener('drop', async (e) => {
+        const mode = dropModeOf(e);
+        markDrop('none');
+        if (mode === 'none') return;
         e.preventDefault();
-        card.classList.remove('drop-target');
-        document.body.classList.remove('is-dragging-quiz');
+        document.body.classList.remove('is-dragging-quiz', 'is-dragging-folder');
 
         const draggedFolderId = e.dataTransfer.getData('application/x-folder');
         if (draggedFolderId) {
-            await reorderFolders(draggedFolderId, folder.id);
+            if (mode === 'into') await moveFolder(draggedFolderId, folder.id);
+            else await reorderFolders(draggedFolderId, folder.id, mode);
             return;
         }
 
@@ -416,6 +473,12 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
 
     // Menu "..." gom TOÀN BỘ thao tác phụ (sửa/chia sẻ/di chuyển/offline/xóa) để mặt thẻ gọn gàng:
     // trên thẻ chỉ còn Ghim + Làm bài. Dùng chung cho cả bố cục lưới và danh sách.
+    // "Đưa ra ngoài": lên thư mục cha của thư mục đang chứa bộ đề (hoặc ra Thư viện gốc)
+    const homeId = quizFolderOf(quizSet);
+    const homeParent = homeId ? folderById(parentIdOf(folderById(homeId))) : null;
+    const moveOutItem = homeId
+        ? `<button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 move-out-quiz-btn" data-id="${quizSet.id}"><i class="fas fa-arrow-turn-up mr-2.5 text-amber-500"></i>${homeParent ? `Đưa ra "${escapeHtml(homeParent.name)}"` : 'Đưa ra Thư viện gốc'}</button>`
+        : '';
     const quizMenuInnerHTML = `
         <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 edit-quiz-content-btn" data-id="${quizSet.id}"><i class="fas fa-pen-alt mr-2.5 text-blue-400"></i>Sửa câu hỏi</button>
         <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 edit-quiz-btn" data-id="${quizSet.id}" data-title="${safeTitle}"><i class="fas fa-edit mr-2.5 text-amber-400"></i>Sửa tên</button>
@@ -424,7 +487,8 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
         <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 toggle-public-btn" data-id="${quizSet.id}" data-public="${quizSet.isPublic === true}" title="${quizSet.isPublic === true ? 'Đang công khai — bấm để chuyển riêng tư (chỉ mình bạn xem)' : 'Đang riêng tư — bấm để công khai (ai có link đều mở được)'}"><i class="fas ${quizSet.isPublic === true ? 'fa-globe text-green-500' : 'fa-lock text-gray-400'} mr-2.5"></i>${quizSet.isPublic === true ? 'Công khai' : 'Riêng tư'}</button>
         <div class="border-t border-gray-100 my-1"></div>
         <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 quiz-history-btn" data-id="${quizSet.id}"><i class="fas fa-history mr-2.5 text-pink-400"></i>Xem lịch sử làm bài</button>
-        <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 move-quiz-btn" data-id="${quizSet.id}"><i class="fas fa-folder-open mr-2.5 text-yellow-500"></i>Di chuyển</button>
+        <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 move-quiz-btn" data-id="${quizSet.id}"><i class="fas fa-folder-open mr-2.5 text-yellow-500"></i>Chuyển đến…</button>
+        ${moveOutItem}
         ${offlineMenuItem}
         <div class="border-t border-gray-100 my-1"></div>
         <button class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 delete-quiz-btn" data-id="${quizSet.id}"><i class="fas fa-trash-alt mr-2.5 text-red-500"></i>Xóa bộ đề</button>`;
@@ -447,9 +511,11 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
     // Sắc thái màu + icon riêng cho từng bộ đề (ổn định theo id): dùng cho ô icon, vạch màu
     // bên mép thẻ và quầng sáng khi rê chuột → mỗi bộ đề có "danh tính" riêng, dễ nhận ra.
     const accent = getQuizAccent(quizSet.id || quizSet.title);
-    const accentStyle = `background-image:linear-gradient(135deg, ${accent.from}, ${accent.to});`;
+    const accentStyle = '';   // icon tô bằng CSS từ --qc-from (sticker phẳng, không gradient)
     card.style.setProperty('--qc-from', accent.from);
     card.style.setProperty('--qc-to', accent.to);
+    card.style.setProperty('--qc-tilt', `${accent.tilt}deg`);
+    card.dataset.paper = accent.paper;
 
     const metaHTML = `
         <p class="qc-meta">
@@ -737,9 +803,15 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
         if (moveBtn) {
             moveBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
-                const quizId = this.getAttribute('data-id');
-                S.isBulkMoving = false;
-                openMoveQuizModal(quizId);
+                openMoveQuizModal(this.getAttribute('data-id'));
+            });
+        }
+
+        const moveOutBtn = card.querySelector('.move-out-quiz-btn');
+        if (moveOutBtn) {
+            moveOutBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                moveQuizOut(this.getAttribute('data-id'));
             });
         }
 
@@ -855,8 +927,9 @@ export async function downloadQuizzesOffline(pick, label) {
 }
 
 function handleDownloadFolderOffline(folderId, folderName) {
+    const ids = subtreeIds(folderId);   // gồm cả thư mục con
     return downloadQuizzesOffline(
-        q => q.folderId === folderId,
+        q => ids.has(quizFolderOf(q)),
         { scope: `thư mục "${folderName}"`, title: 'Tải cả thư mục về máy?' }
     );
 }

@@ -252,6 +252,13 @@ function applyQuizMeta(list, purge = true) {
  * PHẢI gọi sau mỗi thay đổi tại chỗ (di chuyển/xoá/đổi tên/công khai...), nếu không lần mở
  * thư viện kế tiếp sẽ vẽ lại dữ liệu CŨ từ cache và trông như thao tác vừa rồi không ăn.
  */
+export function persistFoldersCache() {
+    // Danh sách thư mục cũng phải theo kịp RAM (tạo/chuyển/xoá/ghim…), nếu không lần mở sau
+    // (hoặc lúc ngoại tuyến) lại thấy cây thư mục cũ.
+    const user = sessionUser();
+    if (user) writeFoldersCache(user.uid, S.userFolders);
+}
+
 export function persistLibraryCache() {
     const user = sessionUser();
     if (!user || !S.isLibraryFullyLoaded) return;

@@ -1,28 +1,23 @@
 /*
  * quiz-launch-transition.js
  * ---------------------------------------------------------------------------
- * Nâng cấp trải nghiệm khi bấm "Làm bài" trên thẻ bộ đề ở thư viện:
- *   1. Làm mờ + tối toàn bộ giao diện xung quanh.
- *   2. Thẻ bộ đề được chọn "nhấc" lên, DÃN tại chỗ thành tỉ lệ LÁ BÀI (63:88),
- *      rồi bay ra giữa màn hình, LẬT VÒNG VÒNG (2 vòng) rồi khựng lại — như lật
- *      một lá bài thật: mặt sau lá bài (gradient + hoạ tiết + huy hiệu ✦) lộ ra
- *      mỗi khi thẻ xoay quá 90°.
- *   3. PHA KẾT = MORPH (shared-element): thay vì thẻ phóng to rồi nhạt đi nhạt nhẽo,
- *      icon của thẻ TÁCH RA, bay + phóng to khớp đúng vào ô ảnh sóc của trang chờ rồi
- *      cross-fade thành con sóc; tên đề trượt khớp vào tiêu đề gradient. Toạ độ đích
- *      được ĐO THẲNG trong iframe (cùng origin) nên khớp pixel. Tên đề được "mồi"
- *      sẵn vào #quiz-title của iframe trước khi đo -> đích đo đúng theo cách tên
- *      thật xuống dòng, và không còn nháy "Đang tải thông tin...".
- *      Tên dài xuống dòng: bản morph giữ đúng khối chữ (width + line-clamp như thẻ)
- *      rồi CHUYỂN DẦN width/line-height sang khối của tiêu đề đích — chữ tự dàn
- *      lại dòng trong lúc bay thay vì bung thành một hàng dài tràn màn hình.
- *   4. Trong lúc hoạt ảnh, quiz.html được nạp ngầm trong iframe phủ kín (ẩn). Khi
- *      morph hạ cánh thì iframe hiện ra -> nối liền mạch, không thấy độ trễ load.
+ * Bấm vào một thẻ bộ đề ở thư viện → lá bài sổ dán xoay vòng rồi "mở thành trang" (~2,3s;
+ * làm lại 2026-10-01 theo giao diện sổ dán — người dùng THÍCH cú xoay lá bài, muốn ấn tượng,
+ * không cần vội; chỉ thay phần trang trí cũ: gradient hồng-tím, emoji ✨, mặt sau tím).
  *
- * Module này KHÔNG cần sửa quiz-library-controller.js: nó bắt sự kiện click ở
- * pha capture trên document, nên chạy trước cả listener của thẻ và mặc định của
- * thẻ <a>. Nếu trình duyệt giảm hiệu ứng (prefers-reduced-motion) hoặc môi trường
- * không phù hợp thì rơi về điều hướng thường.
+ *   1. NHẤC + XOAY (≈1,5s): nền thư viện phủ giấy hồng mờ; bản sao của thẻ nhấc lên, bay ra giữa
+ *      màn hình, lật 2 vòng rồi đầm xuống. Mặt sau lá bài = giấy CÙNG màu + loại giấy của thẻ,
+ *      viền chỉ khâu, băng washi, sticker icon ở giữa. Giấy vụn pastel bung ra lúc đang xoay.
+ *      Trang chờ quiz.html nạp ngầm trong iframe phủ kín (đang ẩn).
+ *   2. KHÂU (chỉ khi tải lâu hơn cú xoay): đường chỉ nét đứt chạy quanh lá bài — "kim chỉ" báo đang tải.
+ *   3. MỞ (≈0,7s): tờ giấy cùng màu thẻ nở ra phủ kín màn hình (clip-path), cùng lúc icon sticker
+ *      bay khớp vào ô ảnh sóc và tên đề bay khớp vào tiêu đề của trang chờ (toạ độ ĐO THẲNG trong
+ *      iframe cùng origin); trang chờ hiện dần ở nửa sau → bàn giao liền mạch.
+ *
+ * Bắt click ở pha capture trên document (chạy trước listener của thẻ & mặc định của <a>) —
+ * vì vậy side-effect khi bấm thẻ phải gắn ở document (xem library-cards.js markQuizOpened).
+ * Giảm hiệu ứng (prefers-reduced-motion) hoặc lỗi → điều hướng thường.
+ * Giữ nguyên id #quiz-hero-img / #quiz-title ở quiz.html: file này đo hai ô đó.
  * ---------------------------------------------------------------------------
  */
 (function () {
@@ -31,156 +26,89 @@
     // Chỉ chạy ở trang thư viện (index). Tránh tự kích hoạt khi nhúng trong iframe.
     if (window.top !== window.self) return;
 
-    var STRETCH_MS = 520;      // pha 0: thẻ dãn ra thành tỉ lệ lá bài (63:88) tại chỗ
-    var FLY_MS = 1350;         // thời lượng pha "bay ra giữa + lật vòng vòng + phóng to"
-    var SETTLE_MS = 260;       // nhịp khựng ngắn sau khi lật xong (spin dừng hẳn rồi mới morph)
-    var TITLE_LIFT_MS = 280;   // nhịp 1: nâng tên đề (chữ đen) lên khỏi thẻ
-    var TITLE_SWEEP_MS = 460;  // nhịp 2: quét đổi màu gradient dọc theo chiều dài tên
-    var MORPH_MS = 900;        // nhịp 3: morph icon/tên đề bay vào trang chờ
-    var TITLE_LEAD_MS = 90;    // icon nở thành sóc hơi trễ so với tên đề khi bay -> có biên đạo
-    var REVEAL_MIN_MS = STRETCH_MS + FLY_MS + SETTLE_MS; // chờ đủ rồi mới bắt đầu morph
-    var REVEAL_MAX_MS = 9000;  // chờ iframe tối đa rồi vẫn hiện (đề phòng mạng chậm)
-    var HERO_RADIUS = 24;      // bo góc ô ảnh sóc trên trang chờ (rounded-3xl ≈ 1.5rem)
+    var LIFT_MS = 240;         // nhấc lá bài khỏi trang (nằm trong cùng một mạch hoạt ảnh với cú xoay)
+    var SPIN_MS = 1250;        // bay ra giữa + lật 2 vòng + đầm xuống
+    var OPEN_AFTER_MIN = LIFT_MS + SPIN_MS + 120;  // xoay xong, khựng một nhịp rồi mới mở
+    var STITCH_AFTER = OPEN_AFTER_MIN + 200;       // tải lâu hơn cú xoay mới hiện đường chỉ chạy
+    var OPEN_MS = 700;         // tờ giấy nở thành trang + icon/tên đề bay vào chỗ
+    var REVEAL_MAX_MS = 9000;  // chờ iframe tối đa rồi vẫn mở (mạng chậm)
     var STYLE_ID = 'quiz-launch-transition-style';
+    var EASE_OPEN = 'cubic-bezier(.65,0,.25,1)';   // tăng tốc rồi hạ cánh êm
+    var EASE_FLY = 'cubic-bezier(.3,.9,.25,1)';    // bay vọt rồi lắng
 
-    var active = null;   // tham chiếu phiên hoạt ảnh đang chạy (để dọn dẹp / xử lý back)
-    var tiltCard = null; // thẻ đang được nghiêng theo con trỏ
-
+    var active = null;
     var prefersReducedMotion = window.matchMedia &&
         window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     function injectStyleOnce() {
         if (document.getElementById(STYLE_ID)) return;
         var css = [
-            // ---- Hover: thẻ to nhẹ + nghiêng 3D theo con trỏ (do JS điều khiển transform) ----
-            // Lưu ý: KHÔNG đặt transform-style/transform cố định lên thẻ, vì sẽ tạo
-            // stacking-context khiến menu "..." (z-20) bị thẻ bên dưới đè lên.
-            '.qz-tilt-on{box-shadow:0 32px 64px rgba(255,105,180,0.38), 0 12px 28px rgba(0,0,0,0.18) !important;',
-            '  border-color:rgba(255,105,180,0.55) !important;z-index:5;}',
-
-            // ---- Điện thoại: thẻ lưới cao/dày hơn (vuông vắn hơn) cho hợp hoạt ảnh phóng to ----
-            '@media (max-width:767px){',
-            '  #quiz-list-container .quiz-grid-card{min-height:172px;padding:1.15rem 1.2rem !important;',
-            '    border-radius:1.4rem !important;gap:.35rem;}',
-            '  #quiz-list-container .quiz-grid-card .quiz-card-icon{width:3.1rem;height:3.1rem;font-size:1.15rem;}',
-            '  #quiz-list-container .quiz-grid-card h3{font-size:1rem;}',
-            '}',
-
-            // ---- Lớp phủ khi mở bộ đề ----
             '#quiz-launch-overlay{position:fixed;inset:0;z-index:9998;pointer-events:none;}',
-            '#quiz-launch-backdrop{position:fixed;inset:0;z-index:9998;opacity:0;',
-            '  background:radial-gradient(120% 120% at 50% 50%, rgba(255,105,180,0.20), rgba(17,12,20,0.45) 72%);',
-            '  -webkit-backdrop-filter:blur(0px);backdrop-filter:blur(0px);',
-            '  transition:opacity .8s ease, backdrop-filter .8s ease, -webkit-backdrop-filter .8s ease;}',
-            '#quiz-launch-backdrop.is-on{opacity:1;-webkit-backdrop-filter:blur(11px) saturate(1.15);backdrop-filter:blur(11px) saturate(1.15);}',
-
-            // Quầng sáng "thở" phía sau thẻ / ô ảnh sóc
-            '#quiz-launch-glow{position:fixed;inset:0;margin:auto;width:min(85vw,660px);height:min(85vw,660px);',
-            '  z-index:9998;border-radius:50%;pointer-events:none;opacity:0;transform:scale(.7);',
-            '  background:radial-gradient(circle, rgba(255,150,205,0.55), rgba(168,139,250,0.28) 45%, transparent 70%);',
-            '  filter:blur(26px);transition:opacity .7s ease, transform .7s ease;}',
-            '#quiz-launch-glow.is-on{opacity:1;transform:scale(1);animation:quiz-launch-breathe 2.6s ease-in-out infinite;}',
-            '@keyframes quiz-launch-breathe{0%,100%{transform:scale(.92);}50%{transform:scale(1.08);}}',
-
-            // Vòng sáng bùng ra khi trang lộ diện
-            '#quiz-launch-ring{position:fixed;inset:0;margin:auto;width:44px;height:44px;border-radius:50%;',
-            '  z-index:9999;border:3px solid rgba(255,255,255,0.85);opacity:0;pointer-events:none;',
-            '  box-shadow:0 0 18px rgba(255,150,205,0.7);}',
-            '#quiz-launch-ring.is-on{animation:quiz-launch-ring .75s ease-out forwards;}',
-            '@keyframes quiz-launch-ring{0%{opacity:.9;transform:scale(.3);}100%{opacity:0;transform:scale(15);}}',
-
-            // Thẻ bay ra giữa: vừa phóng to vừa lật vòng vòng (3 vòng) rồi khựng lại.
-            // preserve-3d + backface-visibility:hidden trên con -> khi xoay quá 90° thấy
-            // MẶT SAU lá bài thật (không phải mặt trước bị soi gương).
-            '.quiz-launch-ghost{position:fixed;z-index:9999;margin:0;box-sizing:border-box;',
-            '  transform-origin:center center;will-change:transform,opacity;pointer-events:none;',
-            '  transform-style:preserve-3d;overflow:visible !important;',
-            // Ẩn cả mặt lưng CỦA CHÍNH ghost (nền trắng của thẻ): trong preserve-3d,
-            // z-index không quyết định thứ tự vẽ khi lật quá 90°. Không ẩn -> Chrome/desktop
-            // vẽ nền trắng gương đè lên .quiz-launch-card-back nên KHÔNG thấy mặt sau (chỉ Safari/iPad đúng).
-            '  backface-visibility:hidden;-webkit-backface-visibility:hidden;',
-            '  transition:transform .7s cubic-bezier(.5,0,.55,1), box-shadow .5s ease, opacity .45s ease;',
-            '  box-shadow:0 40px 90px rgba(255,105,180,0.40), 0 12px 30px rgba(0,0,0,0.22),',
-            '    inset 0 0 0 1px rgba(255,255,255,0.55);}',
-
-            // Mặt sau lá bài: gradient + hoạ tiết chéo + viền trong + huy hiệu ở tâm
-            '.quiz-launch-card-back{position:absolute;inset:0;z-index:5;border-radius:inherit;',
-            '  transform:rotateY(180deg);backface-visibility:hidden;-webkit-backface-visibility:hidden;',
-            '  background:linear-gradient(150deg,#f9a8d4,#ec4899 32%,#a855f7 66%,#6366f1);',
-            '  display:flex;align-items:center;justify-content:center;overflow:hidden;}',
-            // Mặt sau mang đúng MÀU DANH TÍNH của bộ đề vừa bấm: ghost là bản sao của thẻ nên
-            // đã sẵn --qc-from/--qc-to. Lật ra là thấy đúng "màu quen" của bộ đề đó, thay vì
-            // một mặt lưng hồng-tím dùng chung cho mọi bộ. Trình duyệt cũ giữ nguyên dòng trên.
-            '@supports (background: color-mix(in srgb, red 50%, blue)){',
-            '  .quiz-launch-card-back{background:',
-            '    radial-gradient(130% 100% at 18% 0%, rgba(255,255,255,0.30), transparent 62%),',
-            '    linear-gradient(150deg, var(--qc-to,#fb7185), var(--qc-from,#ec4899) 52%,',
-            '      color-mix(in srgb, var(--qc-from,#ec4899) 40%, #2a1150) 100%);}}',
-            '.quiz-launch-card-back::before{content:"";position:absolute;inset:12px;',
-            '  border:2px solid rgba(255,255,255,0.6);border-radius:16px;',
-            '  background:radial-gradient(circle, rgba(255,255,255,0.16) 0 5px, transparent 6px) 0 0/32px 32px,',
-            '    repeating-linear-gradient(45deg, rgba(255,255,255,0.07) 0 10px, transparent 10px 20px);}',
-            // Vệt bóng loáng quét qua mặt sau khi lật -> cảm giác mặt bài có độ bóng
-            '.quiz-launch-card-back::after{content:"";position:absolute;top:-40%;left:-60%;',
-            '  width:50%;height:180%;pointer-events:none;',
-            '  background:linear-gradient(115deg, transparent, rgba(255,255,255,0.42), transparent);',
-            '  transform:rotate(9deg);animation:quiz-launch-sweep 1.05s .35s ease-in-out 2;}',
-            // Huy hiệu ở tâm mặt sau: đeo đúng icon của bộ đề (lấy từ ô icon trên thẻ)
-            '.quiz-launch-back-badge{position:relative;z-index:1;width:5.4rem;height:5.4rem;',
-            '  display:flex;align-items:center;justify-content:center;border-radius:50%;',
-            '  color:#fff;font-size:2.1rem;border:2px solid rgba(255,255,255,0.75);',
-            '  background:rgba(255,255,255,0.16);',
-            '  box-shadow:0 0 24px rgba(255,255,255,0.38), inset 0 0 18px rgba(255,255,255,0.22);',
-            '  text-shadow:0 2px 10px rgba(0,0,0,0.25);}',
-            // Một mạch duy nhất (2 mốc) để trình duyệt nội suy liên tục -> xoay đều,
-            // không bị khựng ở các mốc giữa. Easing đặt ở JS (giảm tốc dần khi về đích).
-            '@keyframes quiz-launch-fly{',
-            '  0%{transform:translate(0px,0px) perspective(1300px) rotateZ(-8deg) rotateY(0deg) scale(1.04);}',
-            '  100%{transform:translate(var(--fx),var(--fy)) perspective(1300px) rotateZ(0deg) rotateY(720deg) scale(var(--fs));}}',
-
-            // Tia sáng quét ngang thẻ lúc bay
-            '.quiz-launch-shine{position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none;z-index:6;}',
-            '.quiz-launch-shine::before{content:"";position:absolute;top:-50%;left:-70%;width:55%;height:200%;',
-            '  background:linear-gradient(115deg, transparent, rgba(255,255,255,0.55), transparent);',
-            '  transform:rotate(9deg);animation:quiz-launch-sweep 1.15s .3s ease-in-out 1;}',
-            '@keyframes quiz-launch-sweep{0%{left:-70%;}100%{left:140%;}}',
-
-            // Vài đốm lấp lánh bay quanh thẻ
-            '.quiz-launch-spark{position:fixed;z-index:9999;pointer-events:none;font-size:18px;opacity:0;',
+            // Nền thư viện lùi ra sau dưới một lớp giấy hồng phấn mờ (màu phẳng)
+            '#quiz-launch-backdrop{position:fixed;inset:0;background:rgba(252,230,239,0);',
+            '  transition:background .32s ease,backdrop-filter .32s ease,-webkit-backdrop-filter .32s ease;}',
+            '#quiz-launch-backdrop.is-on{background:rgba(252,230,239,.74);',
+            '  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);}',
+            // Tờ giấy (bản sao của thẻ) — nhấc lên, bóng đổ dài ra
+            // Lá bài: preserve-3d + ẩn mặt lưng của CHÍNH nó (trong 3D, z-index không quyết định thứ tự
+            // vẽ khi lật quá 90° — không ẩn thì Chrome vẽ nền thẻ soi gương đè lên mặt sau)
+            '.ql-ghost{position:fixed !important;margin:0 !important;box-sizing:border-box;z-index:2;',
+            '  pointer-events:none;animation:none !important;transition:none !important;transform-origin:50% 50%;',
+            '  transform-style:preserve-3d;backface-visibility:hidden;-webkit-backface-visibility:hidden;',
+            '  will-change:transform;box-shadow:0 30px 50px -22px rgba(150,60,100,.55) !important;}',
+            // Mặt sau: giấy cùng màu + loại giấy của thẻ, viền chỉ khâu trắng, băng washi, sticker icon
+            '.ql-back{position:absolute;inset:0;border-radius:inherit;transform:rotateY(180deg);',
+            '  backface-visibility:hidden;-webkit-backface-visibility:hidden;container-type:size;',
+            '  --ql:var(--qc-from,#f472b6);--ql-line:color-mix(in srgb,var(--ql) 32%,transparent);',
+            '  background-color:color-mix(in srgb,var(--ql) 26%,#fffdfa);',
+            '  background-image:linear-gradient(var(--ql-line) 1px,transparent 1px),linear-gradient(90deg,var(--ql-line) 1px,transparent 1px);',
+            '  background-size:18px 18px;border:1.5px solid color-mix(in srgb,var(--ql) 50%,#fff);',
+            '  box-shadow:0 30px 50px -22px rgba(120,50,80,.45);display:flex;align-items:center;justify-content:center;}',
+            '.ql-ghost[data-paper="dot"] .ql-back{background-image:radial-gradient(color-mix(in srgb,var(--ql) 45%,transparent) 1.3px,transparent 1.9px);background-size:15px 15px;}',
+            '.ql-ghost[data-paper="lined"] .ql-back{background-image:linear-gradient(transparent calc(100% - 1px),var(--ql-line) 0);background-size:100% 20px;}',
+            '.ql-back::before{content:"";position:absolute;inset:8px;border-radius:12px;border:2px dashed rgba(255,255,255,.95);}',
+            '.ql-back::after{content:"";position:absolute;top:-10px;left:50%;width:84px;height:22px;translate:-50% 0;rotate:-4deg;',
+            '  background-color:color-mix(in srgb,var(--ql) 55%,#fff);',
+            '  background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.5) 0 5px,transparent 5px 10px);',
+            '  -webkit-mask:conic-gradient(from 45deg at left,#000 90deg,#0000 0) left/51% 6px repeat-y,conic-gradient(from 225deg at right,#000 90deg,#0000 0) right/51% 6px repeat-y;',
+            '  mask:conic-gradient(from 45deg at left,#000 90deg,#0000 0) left/51% 6px repeat-y,conic-gradient(from 225deg at right,#000 90deg,#0000 0) right/51% 6px repeat-y;}',
+            '.ql-back-badge{position:relative;height:min(4.6rem,58cqh);aspect-ratio:1;border-radius:24%;',
+            '  display:flex;align-items:center;justify-content:center;font-size:min(1.9rem,24cqh);background:#fff;',
+            '  color:color-mix(in srgb,var(--ql) 80%,#3a2430);rotate:-6deg;',
+            '  box-shadow:0 0 0 4px color-mix(in srgb,var(--ql) 45%,#fff),0 10px 20px -8px rgba(90,40,60,.45);}',
+            // Quầng sáng pastel cùng màu thẻ sau lưng lá bài (màu phẳng + blur, không gradient)
+            '.ql-glow{position:fixed;left:50%;top:50%;width:min(80vw,560px);aspect-ratio:1;translate:-50% -50%;',
+            '  border-radius:50%;z-index:0;opacity:0;pointer-events:none;filter:blur(46px);',
+            '  background:color-mix(in srgb,var(--qc-from,#f472b6) 38%,#fff);}',
+            // Giấy vụn pastel bung ra lúc lá bài đang xoay
+            '.ql-bit{position:fixed;left:50%;top:50%;z-index:3;pointer-events:none;opacity:0;}',
+            '.ql-bit.is-icon{font-size:15px;line-height:1;}',
+            // Đường chỉ chạy quanh tờ giấy khi đang tải ("kim chỉ")
+            '.ql-stitch{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;',
+            '  opacity:0;transition:opacity .25s ease;}',
+            '.ql-stitch.is-on{opacity:1;}',
+            '.ql-stitch rect{fill:none;stroke:var(--qc-from,#f472b6);stroke-width:2.2;stroke-linecap:round;',
+            '  stroke-dasharray:7 6;animation:ql-sew .8s linear infinite;}',
+            '@keyframes ql-sew{to{stroke-dashoffset:-26;}}',
+            // Tờ giấy nở thành trang: giấy caro hồng nhạt, nở bằng clip-path từ đúng hộp của thẻ
+            '.ql-sheet{position:fixed;inset:0;z-index:1;--ql:var(--qc-from,#f472b6);',
+            '  --ql-line:color-mix(in srgb,var(--ql) 20%,transparent);',
+            '  background-color:color-mix(in srgb,var(--ql) 9%,#fffdfa);',
+            '  background-image:linear-gradient(var(--ql-line) 1px,transparent 1px),linear-gradient(90deg,var(--ql-line) 1px,transparent 1px);',
+            '  background-size:24px 24px;}',
+            '.ql-sheet[data-paper="dot"]{background-image:radial-gradient(color-mix(in srgb,var(--ql) 34%,transparent) 1.3px,transparent 1.9px);background-size:20px 20px;}',
+            '.ql-sheet[data-paper="lined"]{background-image:linear-gradient(transparent calc(100% - 1px),var(--ql-line) 0);background-size:100% 28px;}',
+            // Icon & tên đề bay khớp vào trang chờ (trên cả iframe)
+            // Lớp bay nằm TRÊN iframe (overlay ở z 9998 thấp hơn iframe 10000 nên không chứa được nó)
+            '#quiz-launch-fly{position:fixed;inset:0;z-index:10001;pointer-events:none;}',
+            '.ql-morph{position:fixed;margin:0 !important;pointer-events:none;transform-origin:0 0;',
             '  will-change:transform,opacity;}',
-            '@keyframes quiz-launch-spark{0%{opacity:0;transform:translate(0,0) scale(.2) rotate(0deg);}',
-            '  20%{opacity:1;}100%{opacity:0;transform:translate(var(--sx),var(--sy)) scale(1.1) rotate(160deg);}}',
-
-            // ---- PHA MORPH: icon & tên đề "tách" khỏi thẻ, bay khớp vào trang chờ ----
-            '.quiz-launch-morph{position:fixed;z-index:10001;margin:0;box-sizing:border-box;pointer-events:none;',
-            '  transform-origin:center center;will-change:transform,opacity;backface-visibility:hidden;}',
-            // Tên đề khi morph: một hàng với tên ngắn; tên dài giữ KHỐI xuống dòng như thẻ
-            // (white-space/width/line-height đặt inline theo từng chế độ trong morphReveal)
-            '.quiz-launch-morph-title{display:inline-grid;place-items:center;line-height:1.15;}',
-            // Hai lớp chữ xếp chồng: lớp đen (như thẻ) + lớp gradient phủ đúng lên trên.
-            // width:100% + white-space kế thừa -> hai lớp luôn xuống dòng giống hệt nhau.
-            '.quiz-launch-morph-title .qz-mt-solid,.quiz-launch-morph-title .qz-mt-grad{',
-            '  grid-area:1/1;white-space:inherit;width:100%;}',
-            // Gradient lộ dần TỪ TRÁI SANG PHẢI (clip-path) -> màu chạy dọc theo chiều dài tên
-            '.quiz-launch-morph-title .qz-mt-grad{',
-            '  background:linear-gradient(90deg,#ec4899,#a855f7,#6366f1);',
-            '  -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;',
-            '  -webkit-clip-path:inset(0 100% 0 0);clip-path:inset(0 100% 0 0);}',
-
-            // Quầng sáng "bung" mềm khi con sóc đáp xuống (điểm nhấn tinh tế lúc morph hạ cánh)
-            '#quiz-launch-overlay .qz-bloom{position:fixed;z-index:10002;border-radius:50%;pointer-events:none;opacity:0;',
-            '  background:radial-gradient(circle, rgba(255,255,255,0.92), rgba(255,190,225,0.5) 42%, transparent 70%);',
-            '  filter:blur(5px);will-change:transform,opacity;}',
-            '@keyframes quiz-launch-bloom{0%{opacity:0;transform:scale(.45);}32%{opacity:.85;}100%{opacity:0;transform:scale(1.4);}}',
-
-            // Trang quiz lộ ra bằng cross-fade (không zoom) để khớp toạ độ morph pixel-perfect
+            '.ql-morph-title{white-space:normal;overflow:hidden;}',
+            // Trang chờ hiện dần đè lên tờ giấy
             '#quiz-launch-frame{position:fixed;inset:0;width:100%;height:100%;border:0;z-index:10000;',
-            '  opacity:0;pointer-events:none;background:#FCE4EC;transition:opacity .7s ease;}',
+            '  opacity:0;pointer-events:none;background:#FCE4EC;transition:opacity .36s ease;}',
             '#quiz-launch-frame.is-on{opacity:1;pointer-events:auto;}',
-            'html.theme-dark #quiz-launch-frame{background:#1f2430;}',
-            '@media (prefers-reduced-motion: reduce){',
-            '  #quiz-launch-backdrop,.quiz-launch-ghost,.quiz-launch-morph,#quiz-launch-frame,#quiz-launch-glow{transition-duration:.01ms !important;}',
-            '  .quiz-launch-ghost,#quiz-launch-glow.is-on,.quiz-launch-shine::before{animation:none !important;}}'
+            'html.theme-dark #quiz-launch-frame{background:#1f2430;}'
         ].join('\n');
         var style = document.createElement('style');
         style.id = STYLE_ID;
@@ -188,25 +116,22 @@
         document.head.appendChild(style);
     }
 
-    // Tìm thẻ bộ đề chứa liên kết được bấm.
     function findCard(el) {
         return el.closest && el.closest('.quiz-grid-card, .quiz-list-card');
     }
-
     // Đang ở chế độ chọn nhiều? (lúc đó thẻ render kèm checkbox .bulk-quiz-checkbox)
     function inSelectionMode() {
         return !!document.querySelector('.bulk-quiz-checkbox');
     }
-
-    // Tìm liên kết tên đề bên trong một thẻ (dùng cho cả thẻ gốc lẫn bản clone).
     function findTitleEl(root) {
         return (root.querySelector && (root.querySelector('h3 a[href*="quiz.html"]') ||
             root.querySelector('h3 a') || root.querySelector('h3'))) || null;
     }
-
-    // Hộp bao quanh CHỮ thật (union các dòng chữ, đo bằng Range) — khác với hộp của
-    // phần tử: <a>/<h1> là block chiếm trọn cột nên tâm hộp phần tử KHÔNG phải tâm chữ
-    // (đây là lý do tên đề từng bị "nhảy ngang" khi morph bắt đầu).
+    function frameDoc(frame) {
+        try { return frame.contentDocument || (frame.contentWindow && frame.contentWindow.document); }
+        catch (e) { return null; }
+    }
+    // Hộp bao quanh CHỮ thật (Range) — <a>/<h1> là block cả cột nên tâm hộp phần tử không phải tâm chữ
     function textRect(el, doc) {
         try {
             var r = (doc || document).createRange();
@@ -217,40 +142,21 @@
         return el.getBoundingClientRect();
     }
 
-    // Như textRect nhưng CẮT theo vùng nhìn thấy của khối chứa (h3 có line-clamp-2 /
-    // truncate): Range đo cả phần chữ bị clip nên phải giao với hộp h3 để lấy đúng
-    // phần đang hiện trên thẻ.
-    function visibleTextRect(el) {
-        var r = textRect(el);
-        var host = (el.closest && el.closest('h3')) || el;
-        var c = host.getBoundingClientRect();
-        var left = Math.max(r.left, c.left), top = Math.max(r.top, c.top);
-        var right = Math.min(r.right, c.right), bottom = Math.min(r.bottom, c.bottom);
-        if (right <= left || bottom <= top) return r;
-        return { left: left, top: top, width: right - left, height: bottom - top };
-    }
-
-    // Đo toạ độ ĐÍCH trong iframe trang chờ: ô ảnh sóc + tiêu đề (cùng origin nên đọc được).
-    // iframe phủ kín màn hình & không zoom -> toạ độ nội bộ trùng với toạ độ cửa sổ.
+    // Đo ĐÍCH trong iframe (cùng origin, phủ kín màn hình, không zoom → toạ độ trùng cửa sổ)
     function measureTargets(frame) {
         try {
-            var doc = frame.contentDocument || (frame.contentWindow && frame.contentWindow.document);
-            if (!doc) return null;
-            var img = doc.getElementById('quiz-hero-img');
-            var title = doc.getElementById('quiz-title');
+            var doc = frameDoc(frame);
+            var img = doc && doc.getElementById('quiz-hero-img');
+            var title = doc && doc.getElementById('quiz-title');
             if (!img || !title) return null;
-            var box = img.parentElement || img;   // ô bo tròn quanh ảnh sóc
+            var box = img.parentElement || img;
             var hr = box.getBoundingClientRect();
-            // Đo hộp CHỮ (Range) chứ không phải hộp <h1> (block full cột): tâm đích
-            // mới đúng là tâm chữ, kể cả khi tiêu đề căn trái / xuống nhiều dòng.
             var tr = textRect(title, doc);
             if (!hr.width || !tr.width) return null;
-            var win = frame.contentWindow || window;
-            var cs = win.getComputedStyle(title);
-            var tf = parseFloat(cs.fontSize) || 28;
-            var tlh = parseFloat(cs.lineHeight);
-            if (!tlh || isNaN(tlh)) tlh = tf * 1.25;
-            return { hero: hr, title: tr, titleFont: tf, titleLineH: tlh };
+            var cs = (frame.contentWindow || window).getComputedStyle(title);
+            var color = cs.color;
+            if (!color || /rgba\(0, 0, 0, 0\)|transparent/.test(color)) color = '#be185d';
+            return { hero: hr, heroImg: img, title: tr, titleEl: title, titleFont: parseFloat(cs.fontSize) || 28, titleColor: color };
         } catch (e) { return null; }
     }
 
@@ -260,537 +166,356 @@
             if (session.overlay && session.overlay.parentNode) session.overlay.parentNode.removeChild(session.overlay);
             if (session.frame && session.frame.parentNode) session.frame.parentNode.removeChild(session.frame);
         } catch (e) {}
+        if (session.fly && session.fly.parentNode) session.fly.parentNode.removeChild(session.fly);
+        if (session.card) session.card.style.visibility = '';
         document.documentElement.style.overflow = session.prevOverflow || '';
         if (active === session) active = null;
     }
 
-    // Khi người dùng bấm Back trong lúc đang xem iframe quiz: gỡ lớp phủ, trả về thư viện.
-    window.addEventListener('popstate', function () {
-        if (active) teardown(active);
-    });
+    // Back trong lúc đang xem iframe quiz: gỡ lớp phủ, trả về thư viện
+    window.addEventListener('popstate', function () { if (active) teardown(active); });
 
     function launch(card, url) {
         injectStyleOnce();
-
-        // Gỡ hiệu ứng nghiêng đang áp lên thẻ để đo & sao chép cho chuẩn
-        if (tiltCard) { resetTilt(tiltCard); tiltCard = null; }
-        card.style.transform = '';
-        card.style.transition = '';
-
+        if (tiltCard) { tiltCard.style.transition = 'none'; tiltCard.style.transform = ''; tiltCard = null; }
         var rect = card.getBoundingClientRect();
-
-        // --- Kích thước "lá bài" (tỉ lệ bài tây 63:88 ≈ 1:1.4), giữ nguyên tâm thẻ ---
-        // FLIP: ghost được đặt kích thước lá bài NGAY từ đầu (reflow đúng 1 lần), pha dãn
-        // chỉ animate transform scale(sx,sy) -> 1 nên chạy trên GPU, không giật.
-        var cardW = Math.min(rect.width, 340);
-        var cardH = Math.round(cardW * 1.4);
-        if (cardH > window.innerHeight * 0.8) {
-            cardH = Math.round(window.innerHeight * 0.8);
-            cardW = Math.round(cardH / 1.4);
-        }
-        var cx = rect.left + rect.width / 2;
-        var cy = rect.top + rect.height / 2;
-        var sx = rect.width / cardW;   // tỉ lệ nén ban đầu: lá bài bị "bóp" về đúng hộp thẻ cũ
-        var sy = rect.height / cardH;
-
-        // Đo icon & tên đề của thẻ (kích thước THẬT chưa bị scale) để morph về sau.
-        var srcIconEl = card.querySelector('.quiz-card-icon');
         var srcTitleEl = findTitleEl(card);
-        var srcIconRect = srcIconEl ? srcIconEl.getBoundingClientRect() : null;
-        var srcTitleRect = srcTitleEl ? srcTitleEl.getBoundingClientRect() : null;
-        var titleCS = srcTitleEl ? getComputedStyle(srcTitleEl) : null;
-        var srcTitleFont = titleCS ? (parseFloat(titleCS.fontSize) || 16) : 16;
-        var srcTitleWeight = titleCS ? titleCS.fontWeight : '700';
-        var srcTitleFamily = titleCS ? titleCS.fontFamily : 'inherit';
-        var srcTitleColor = titleCS ? titleCS.color : '#1f2937';
-        var srcTitleLetter = titleCS ? titleCS.letterSpacing : 'normal';
-        var srcTitleAlign = titleCS ? (titleCS.textAlign || 'left') : 'left';
-        var srcTitleLineH = titleCS ? parseFloat(titleCS.lineHeight) : 0;
-        if (!srcTitleLineH || isNaN(srcTitleLineH)) srcTitleLineH = srcTitleFont * 1.3;
         var srcTitleText = srcTitleEl ? srcTitleEl.textContent.trim() : '';
 
         var prevOverflow = document.documentElement.style.overflow;
         document.documentElement.style.overflow = 'hidden';
 
-        // --- Lớp phủ (overlay) chứa backdrop làm mờ + bản sao "bóng ma" của thẻ ---
         var overlay = document.createElement('div');
         overlay.id = 'quiz-launch-overlay';
-
         var backdrop = document.createElement('div');
         backdrop.id = 'quiz-launch-backdrop';
         overlay.appendChild(backdrop);
 
-        // Quầng sáng + vòng sáng + đốm lấp lánh cho ấn tượng
-        var glow = document.createElement('div');
-        glow.id = 'quiz-launch-glow';
-        overlay.appendChild(glow);
-
-        var ring = document.createElement('div');
-        ring.id = 'quiz-launch-ring';
-        overlay.appendChild(ring);
-
-        // Bản sao của thẻ để phóng to (giữ nguyên class -> giữ nguyên giao diện)
+        // Tờ giấy = bản sao của thẻ, đặt đúng chỗ; thẻ thật ẩn đi để không thấy hai tờ
         var ghost = card.cloneNode(true);
-        ghost.classList.add('quiz-launch-ghost');
-        ghost.classList.remove('hover:-translate-y-1', 'qz-tilt-on'); // tránh xung đột transform
-        ghost.style.left = (cx - cardW / 2) + 'px';
-        ghost.style.top = (cy - cardH / 2) + 'px';
-        ghost.style.width = cardW + 'px';
-        ghost.style.height = cardH + 'px';
-        // Tư thế ban đầu: lá bài bị nén scale(sx,sy) về đúng hộp thẻ cũ + "nhấc lên";
-        // pha dãn chỉ việc thả nén về scale(1.04) -> transform thuần, mượt.
-        ghost.style.transform = 'translate(0px,0px) perspective(1300px) rotateZ(-8deg) rotateY(0deg) ' +
-            'scale(' + (sx * 1.04).toFixed(4) + ',' + (sy * 1.04).toFixed(4) + ')';
-        // Tia sáng quét ngang
-        var shine = document.createElement('div');
-        shine.className = 'quiz-launch-shine';
-        ghost.appendChild(shine);
-        // Mặt sau lá bài (chỉ hiện khi rotateY quay quá 90°)
-        var cardBack = document.createElement('div');
-        cardBack.className = 'quiz-launch-card-back';
-        // Huy hiệu giữa mặt sau đeo đúng icon của bộ đề này (thẻ nào lật ra cũng khác nhau)
-        var backBadge = document.createElement('div');
-        backBadge.className = 'quiz-launch-back-badge';
+        ghost.classList.add('ql-ghost');
+        ghost.style.left = rect.left + 'px';
+        ghost.style.top = rect.top + 'px';
+        ghost.style.width = rect.width + 'px';
+        ghost.style.height = rect.height + 'px';
+        var back = document.createElement('div');
+        back.className = 'ql-back';
         var srcIcon = card.querySelector('.quiz-card-icon i');
-        backBadge.innerHTML = '<i class="' + (srcIcon ? srcIcon.className : 'fas fa-star') + '"></i>';
-        cardBack.appendChild(backBadge);
-        ghost.appendChild(cardBack);
-        // Nội dung mặt trước phải ẩn khi xoay ra sau (không thì thấy chữ bị soi gương)
+        back.innerHTML = '<span class="ql-back-badge"><i class="' + (srcIcon ? srcIcon.className : 'fas fa-star') + '"></i></span>';
+        // Mặt trước ẩn khi lá bài quay lưng (không thì thấy chữ bị soi gương)
         Array.prototype.forEach.call(ghost.children, function (el) {
-            if (el === cardBack) return;
             el.style.backfaceVisibility = 'hidden';
             el.style.webkitBackfaceVisibility = 'hidden';
         });
+        ghost.appendChild(back);
         overlay.appendChild(ghost);
+        card.style.visibility = 'hidden';
+
+        var glow = document.createElement('div');
+        glow.className = 'ql-glow';
+        glow.style.setProperty('--qc-from', card.style.getPropertyValue('--qc-from') || '#f472b6');
+        overlay.insertBefore(glow, ghost);
+
+        // Đường chỉ (SVG) bám theo mép tờ giấy, chỉ bật khi tải lâu
+        var svgNS = 'http://www.w3.org/2000/svg';
+        var stitch = document.createElementNS(svgNS, 'svg');
+        stitch.setAttribute('class', 'ql-stitch');
+        var r = document.createElementNS(svgNS, 'rect');
+        r.setAttribute('x', '5'); r.setAttribute('y', '5');
+        r.setAttribute('width', Math.max(0, rect.width - 10));
+        r.setAttribute('height', Math.max(0, rect.height - 10));
+        r.setAttribute('rx', card.classList.contains('quiz-list-card') ? '12' : '17');
+        stitch.appendChild(r);
+        stitch.style.backfaceVisibility = 'hidden';
+        ghost.appendChild(stitch);
 
         document.body.appendChild(overlay);
 
-        // Tạo các đốm lấp lánh bay toả ra từ giữa màn hình
-        spawnSparkles(overlay);
-
-        // --- iframe nạp ngầm nội dung quiz.html ---
+        // Trang chờ nạp ngầm
         var frame = document.createElement('iframe');
         frame.id = 'quiz-launch-frame';
         frame.setAttribute('title', 'Trang làm bài');
         frame.src = url;
         document.body.appendChild(frame);
 
+        var fly = document.createElement('div');
+        fly.id = 'quiz-launch-fly';
+        document.body.appendChild(fly);
+
         var session = {
-            overlay: overlay, frame: frame, ghost: ghost,
-            backdrop: backdrop, prevOverflow: prevOverflow,
-            revealed: false, frameReady: false, loadCount: 0
+            overlay: overlay, frame: frame, fly: fly, card: card, prevOverflow: prevOverflow,
+            opened: false, frameReady: false, loadCount: 0
         };
         active = session;
+        var startTime = Date.now();
 
-        // --- Tính đích phóng to: đưa lá bài ra giữa màn hình, to vừa phải ---
-        var targetW = Math.min(window.innerWidth * 0.92, 420);
-        var scale = targetW / cardW;
-        // Giới hạn để lá bài không tràn quá chiều cao màn hình
-        var maxScaleByH = (window.innerHeight * 0.88) / cardH;
-        scale = Math.min(scale, maxScaleByH);
-        if (!isFinite(scale) || scale <= 0) scale = 1;
-        var dx = (window.innerWidth / 2) - cx;
-        var dy = (window.innerHeight / 2) - cy;
-
-        // Trạng thái "đứng yên" sau khi lật xong (rotateY 720° ≡ 0° về mặt hình ảnh)
-        var settledTransform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + scale + ')';
-        // Hệ số phóng để thẻ phủ KÍN màn hình ở pha dự phòng (khi không đo được đích)
-        var coverScale = Math.max(window.innerWidth / cardW, window.innerHeight / cardH) * 1.08;
-
-        // Truyền đích bay/phóng cho keyframes qua biến CSS
-        ghost.style.setProperty('--fx', dx + 'px');
-        ghost.style.setProperty('--fy', dy + 'px');
-        ghost.style.setProperty('--fs', scale);
-
-        // Bật hoạt ảnh ở khung hình kế tiếp.
-        // Pha 0: thả nén scale(sx,sy) -> scale(1.04): thẻ "dãn" thành lá bài tại chỗ
-        // (transform thuần, GPU) -> rồi mới bay ra giữa, lật vòng vòng, phóng to.
+        // Đích: giữa màn hình, to vừa mắt (thẻ danh sách vốn đã rộng thì gần như giữ cỡ)
+        var W0 = window.innerWidth, H0 = window.innerHeight;
+        var isList = card.classList.contains('quiz-list-card');
+        var S = Math.max(1.04, Math.min((isList ? 0.92 * W0 : Math.min(440, 0.9 * W0)) / rect.width, 0.62 * H0 / rect.height));
+        var dx = W0 / 2 - (rect.left + rect.width / 2), dy = H0 / 2 - (rect.top + rect.height / 2);
+        var settled = 'translate(' + dx + 'px,' + dy + 'px) scale(' + S + ')';
+        var P = ' perspective(1300px) ';
+        var spin = null;
         requestAnimationFrame(function () {
             requestAnimationFrame(function () {
                 backdrop.classList.add('is-on');
-                glow.classList.add('is-on');
-                ghost.style.transition = 'transform ' + STRETCH_MS + 'ms cubic-bezier(.34,1.15,.3,1)';
-                // khớp đúng 0% của keyframes quiz-launch-fly -> nối pha không giật
-                ghost.style.transform =
-                    'translate(0px,0px) perspective(1300px) rotateZ(-8deg) rotateY(0deg) scale(1.04)';
-                setTimeout(function () {
-                    // Bắt đầu nhanh rồi giảm tốc mượt về đích (decelerate) -> xoay & phóng liền mạch
-                    // Vọt nhanh rồi vượt qua đích một chút và lắc về (cubic-bezier y>1)
-                    // -> lá bài "đầm" xuống như vật thật, thay vì trôi đều rồi đứng khựng.
-                    ghost.style.animation = 'quiz-launch-fly ' + (FLY_MS / 1000) +
-                        's cubic-bezier(.12,.72,.16,1.035) forwards';
-                }, STRETCH_MS);
+                // Một mạch duy nhất: nhấc tại chỗ → bay ra giữa + lật 2 vòng (rotateY 720°) → vượt đích
+                // một chút rồi đầm xuống như vật thật. Cùng danh sách hàm transform ở mọi mốc → nội suy
+                // từng hàm, quay đủ 2 vòng (không bị rút gọn thành 0°).
+                spin = ghost.animate([
+                    { transform: 'translate(0px,0px)' + P + 'rotateZ(0deg) rotateY(0deg) scale(1)', easing: 'cubic-bezier(.2,.9,.3,1.2)' },
+                    { offset: LIFT_MS / (LIFT_MS + SPIN_MS), transform: 'translate(0px,-12px)' + P + 'rotateZ(-5deg) rotateY(0deg) scale(1.06)', easing: 'cubic-bezier(.16,.72,.2,1.045)' },
+                    { transform: 'translate(' + dx + 'px,' + dy + 'px)' + P + 'rotateZ(0deg) rotateY(720deg) scale(' + S + ')' }
+                ], { duration: LIFT_MS + SPIN_MS, fill: 'forwards' });
+                spin.onfinish = settle;
+                glow.animate([{ opacity: 0, scale: 0.6 }, { opacity: 0.85, scale: 1 }],
+                    { duration: 700, delay: LIFT_MS + 200, easing: 'ease-out', fill: 'forwards' });
+                setTimeout(function () { burstConfetti(overlay, card); }, LIFT_MS + Math.round(SPIN_MS * 0.42));
             });
         });
+        // Chốt lá bài ở tư thế đứng yên 2D (bỏ hoạt ảnh đang giữ khung cuối) → đo/clip chuẩn
+        function settle() {
+            if (session.settled) return;
+            session.settled = true;
+            if (spin) spin.cancel();
+            ghost.style.transform = settled;
+        }
+        var stitchTimer = setTimeout(function () { if (!session.opened) stitch.classList.add('is-on'); }, STITCH_AFTER);
 
-        var startTime = Date.now();
-
-        function tryReveal() {
-            if (session.revealed) return;
-            if (!session.frameReady) return;
-            var elapsed = Date.now() - startTime;
-            if (elapsed < REVEAL_MIN_MS) {
-                setTimeout(tryReveal, REVEAL_MIN_MS - elapsed);
-                return;
-            }
-            doReveal();
+        function tryOpen() {
+            if (session.opened || !session.frameReady) return;
+            var wait = OPEN_AFTER_MIN - (Date.now() - startTime);
+            if (wait > 0) { setTimeout(tryOpen, wait); return; }
+            open();
         }
 
-        // Chốt thẻ ở tư thế "đứng yên" giữa màn hình (gỡ animation đang giữ frame 100%).
-        function settleGhost() {
-            ghost.style.transition = 'none'; // inline transition của pha dãn còn đó -> phải tắt, không thì rotateY 720->0 quay ngược
-            ghost.style.animation = 'none';
-            ghost.style.transform = settledTransform;
-            void ghost.offsetWidth; // ép reflow -> mốc kế tiếp tính từ trạng thái đứng yên
-        }
-
-        // "Mồi" tên đề từ thẻ vào #quiz-title của iframe (cùng origin) TRƯỚC khi đo:
-        // - đích đo đúng theo cách tên thật xuống dòng (không phải "Đang tải thông tin...")
-        // - người dùng không bao giờ thấy placeholder nháy qua khi trang lộ diện.
-        // loadQuizDetails của quiz-ui.js sau đó vẫn gán lại đúng tên này từ Firestore.
+        // "Mồi" tên đề vào #quiz-title của iframe trước khi đo → đích đúng cách tên thật xuống dòng,
+        // không nháy "Đang tải thông tin...". quiz-ui.js sau đó vẫn gán lại đúng tên từ dữ liệu.
         function primeFrameTitle() {
             try {
-                var doc = frame.contentDocument || (frame.contentWindow && frame.contentWindow.document);
+                var doc = frameDoc(frame);
                 var t = doc && doc.getElementById('quiz-title');
                 if (t && srcTitleText && t.textContent.indexOf('Đang tải') !== -1) {
                     t.textContent = srcTitleText;
                     doc.title = srcTitleText;
                 }
-                return t;
-            } catch (e) { return null; }
+            } catch (e) {}
         }
 
-        function doReveal() {
-            if (session.revealed) return;
-            session.revealed = true;
-
-            // Cập nhật thanh địa chỉ & lịch sử để Back quay lại thư viện đúng cách
+        function open() {
+            if (session.opened) return;
+            session.opened = true;
+            settle();
+            clearTimeout(stitchTimer);
+            stitch.classList.remove('is-on');
+            glow.animate([{ opacity: 0.85 }, { opacity: 0 }], { duration: 420, easing: 'ease-out', fill: 'forwards' });
             try { history.pushState({ quizLaunch: true }, '', url); } catch (e) {}
 
-            settleGhost();
-
-            var realTitle = primeFrameTitle();
+            primeFrameTitle();
             var targets = measureTargets(frame);
-            if (targets && srcIconRect && srcTitleRect) {
-                morphReveal(targets, realTitle);
-            } else {
-                fallbackCover();  // không đo được đích -> rơi về pha "bung kín màn hình" cũ
-            }
-        }
+            var g = ghost.getBoundingClientRect();
+            var W = window.innerWidth, H = window.innerHeight;
 
-        // ===== PHA KẾT (chính): MORPH icon -> ảnh sóc, tên đề -> tiêu đề trang chờ =====
-        function morphReveal(targets, realTitle) {
-            // Vị trí THẬT (đã scale) của icon & tên đề bên trong thẻ đang khựng giữa màn hình
-            var gIcon = ghost.querySelector('.quiz-card-icon');
-            var gTitle = findTitleEl(ghost);
-            var giR = gIcon ? gIcon.getBoundingClientRect() : null;
-            // Hộp CHỮ nhìn thấy (đã cắt theo line-clamp/truncate của h3) — không phải hộp <a>
-            var gtR = gTitle ? visibleTextRect(gTitle) : null;
-            if (!giR || !gtR) { fallbackCover(); return; }
+            // 1) Tờ giấy nở từ đúng hộp tờ đang nhấc → phủ kín màn hình
+            var sheet = document.createElement('div');
+            sheet.className = 'ql-sheet';
+            sheet.style.setProperty('--qc-from', card.style.getPropertyValue('--qc-from') || '#f472b6');
+            if (card.dataset.paper) sheet.dataset.paper = card.dataset.paper;
+            overlay.insertBefore(sheet, ghost);   // nằm DƯỚI tờ giấy: tờ giấy tan dần trên nền đang nở
+            var from = 'inset(' + g.top + 'px ' + (W - g.right) + 'px ' + (H - g.bottom) + 'px ' + g.left + 'px round 18px)';
+            sheet.animate([{ clipPath: from }, { clipPath: 'inset(0px 0px 0px 0px round 0px)' }],
+                { duration: OPEN_MS, easing: EASE_OPEN, fill: 'forwards' });
+            ghost.animate([{ opacity: 1 }, { opacity: 0 }],
+                { duration: Math.round(OPEN_MS * 0.42), easing: 'ease-out', fill: 'forwards' });
 
-            // Ẩn tiêu đề thật của trang chờ tới khi bản morph hạ cánh: tránh nhìn thấy
-            // HAI tiêu đề chồng nhau lúc iframe cross-fade vào giữa chừng chuyến bay.
-            if (realTitle) { try { realTitle.style.visibility = 'hidden'; } catch (e) {} }
+            // 2) Icon + tên đề bay khớp vào trang chờ
+            if (targets) flyParts(targets);
 
-            // Ẩn icon/tên đề GỐC trong thẻ để không bị "nhân đôi" khi bản morph tách ra
-            if (gIcon) gIcon.style.visibility = 'hidden';
-            if (gTitle) gTitle.style.visibility = 'hidden';
-
-            var easeMove = 'cubic-bezier(.22,.9,.24,1)';   // trượt mượt, giảm tốc dịu (tên đề)
-            var easeIcon = 'cubic-bezier(.34,1.06,.28,1)';  // nở ra hơi vượt đích rồi lắng (icon -> sóc)
-
-            // ---- Bản morph của ICON ----
-            // Dùng kích thước GỐC (chưa scale) + transform scale(flip) để nội dung <i> giữ
-            // đúng tỉ lệ; điểm đầu trùng khít icon đang hiện, điểm cuối khớp ô ảnh sóc.
-            var iw = srcIconRect.width, ih = srcIconRect.height;
-            var iCx = giR.left + giR.width / 2, iCy = giR.top + giR.height / 2;
-            var iScaleEnd = targets.hero.width / iw;
-            var iTx = (targets.hero.left + targets.hero.width / 2) - iCx;
-            var iTy = (targets.hero.top + targets.hero.height / 2) - iCy;
-
-            var iconGhost = gIcon.cloneNode(true);
-            iconGhost.style.visibility = 'visible';
-            iconGhost.classList.add('quiz-launch-morph');
-            iconGhost.style.left = (iCx - iw / 2) + 'px';
-            iconGhost.style.top = (iCy - ih / 2) + 'px';
-            iconGhost.style.width = iw + 'px';
-            iconGhost.style.height = ih + 'px';
-            iconGhost.style.transform = 'translate(0px,0px) scale(' + scale + ')';
-            iconGhost.style.boxShadow = '0 14px 32px rgba(255,105,180,0.34)'; // bóng nhỏ, lớn dần khi nở
-            overlay.appendChild(iconGhost);
-
-            // ---- Bản morph của TÊN ĐỀ (đổi màu đen -> gradient) ----
-            // Hai chế độ:
-            //  • simpleMode (tên ngắn, 1 dòng ở cả thẻ lẫn trang chờ): một hàng nowrap như cũ.
-            //  • khối xuống dòng (tên dài / bị line-clamp): giữ ĐÚNG khối chữ của thẻ
-            //    (width + max-height như đang hiện) rồi chuyển dần width/line-height sang
-            //    khối của tiêu đề đích — chữ tự dàn lại dòng trong lúc bay.
-            var tCx = gtR.left + gtR.width / 2, tCy = gtR.top + gtR.height / 2;
-            var tScaleEnd = targets.titleFont / srcTitleFont;
-            var oneLineSrc = gtR.height <= srcTitleLineH * scale * 1.6;
-            var oneLineDst = targets.title.height <= targets.titleLineH * 1.6;
-            var simpleMode = oneLineSrc && oneLineDst;
-
-            var titleGhost = document.createElement('div');
-            titleGhost.className = 'quiz-launch-morph quiz-launch-morph-title';
-            titleGhost.style.fontSize = srcTitleFont + 'px';
-            titleGhost.style.fontWeight = srcTitleWeight;
-            titleGhost.style.fontFamily = srcTitleFamily;
-            titleGhost.style.letterSpacing = srcTitleLetter;
-            titleGhost.style.opacity = '0';           // fade-in nhẹ để lúc "tách lớp" không bị giật
-            if (simpleMode) {
-                titleGhost.style.whiteSpace = 'nowrap';
-            } else {
-                titleGhost.style.whiteSpace = 'normal';
-                titleGhost.style.textAlign = srcTitleAlign;
-                titleGhost.style.lineHeight = srcTitleLineH + 'px';
-                // Neo chữ từ ĐỈNH khối: place-items:center của class làm nội dung tràn
-                // (5 dòng trong hộp 2 dòng) bị canh giữa -> lộ nửa dòng thừa khi clip.
-                titleGhost.style.placeItems = 'start';
-                // Khối chữ đúng như đang hiện trên thẻ (đơn vị CHƯA scale — transform lo phần phóng);
-                // clip làm tròn XUỐNG để không hở sliver của dòng kế tiếp.
-                titleGhost.style.width = Math.ceil(gtR.width / scale) + 'px';
-                titleGhost.style.maxHeight = Math.floor(gtR.height / scale) + 'px';
-                titleGhost.style.overflow = 'hidden';
-            }
-            var titleSolid = document.createElement('span');
-            titleSolid.className = 'qz-mt-solid';
-            titleSolid.textContent = srcTitleText;
-            titleSolid.style.color = srcTitleColor;
-            var titleGrad = document.createElement('span');
-            titleGrad.className = 'qz-mt-grad';
-            titleGrad.textContent = srcTitleText;
-            titleGhost.appendChild(titleSolid);
-            titleGhost.appendChild(titleGrad);
-            overlay.appendChild(titleGhost);
-
-            // Đo kích thước tự nhiên rồi canh tâm trùng khối chữ đang hiện trên thẻ.
-            var natT = titleGhost.getBoundingClientRect();
-            var tLeft = tCx - natT.width / 2;
-            var tTop = tCy - natT.height / 2;
-            titleGhost.style.left = tLeft + 'px';
-            titleGhost.style.top = tTop + 'px';
-            titleGhost.style.transform = 'translate(0px,0px) scale(' + scale + ')';
-
-            // Đích: tâm hộp CHỮ của tiêu đề trang chờ (đã mồi đúng tên thật).
-            var dstCx = targets.title.left + targets.title.width / 2;
-            var dstCy = targets.title.top + targets.title.height / 2;
-            var tTx, tTy, endW = 0, endH = 0;
-            if (simpleMode) {
-                tTx = dstCx - tCx;
-                tTy = dstCy - tCy;
-            } else {
-                // Khối đích quy về đơn vị chưa scale; width đổi làm tâm layout dịch đi,
-                // nên translate phải tính theo tâm MỚI (left + endW/2) thay vì tâm cũ.
-                endW = Math.ceil(targets.title.width / tScaleEnd);
-                endH = Math.ceil(targets.title.height / tScaleEnd);
-                tTx = dstCx - (tLeft + endW / 2);
-                tTy = dstCy - (tTop + endH / 2);
-            }
-
-            // ---- Quầng sáng "đáp" mềm phía sau ô ảnh sóc (điểm nhấn khi icon hạ cánh) ----
-            var bloomSize = targets.hero.width * 1.75;
-            var bloom = document.createElement('div');
-            bloom.className = 'qz-bloom';
-            bloom.style.width = bloomSize + 'px';
-            bloom.style.height = bloomSize + 'px';
-            bloom.style.left = (targets.hero.left + targets.hero.width / 2 - bloomSize / 2) + 'px';
-            bloom.style.top = (targets.hero.top + targets.hero.height / 2 - bloomSize / 2) + 'px';
-            overlay.appendChild(bloom);
-
-            var morphStart = TITLE_LIFT_MS + TITLE_SWEEP_MS; // tên đề: nâng -> quét màu -> rồi mới morph
-
-            // ===== NHỊP 1: nâng tên đề (chữ đen) lên khỏi thẻ =====
-            requestAnimationFrame(function () {
-                requestAnimationFrame(function () {
-                    titleGhost.style.transition = 'transform ' + TITLE_LIFT_MS + 'ms cubic-bezier(.22,1,.36,1)' +
-                        ', opacity .28s ease';
-                    titleGhost.style.opacity = '1';
-                    titleGhost.style.transform = 'translate(0px,-14px) scale(' + scale + ')'; // nhấc lên tại chỗ
-                });
-            });
-
-            // ===== NHỊP 2: quét đổi màu gradient dọc theo chiều dài tên (trái -> phải) =====
-            setTimeout(function () {
-                titleGrad.style.transition = 'clip-path ' + TITLE_SWEEP_MS + 'ms ease' +
-                    ', -webkit-clip-path ' + TITLE_SWEEP_MS + 'ms ease';
-                titleGrad.style.webkitClipPath = 'inset(0 0 0 0)';
-                titleGrad.style.clipPath = 'inset(0 0 0 0)';
-            }, TITLE_LIFT_MS);
-
-            // ===== NHỊP 3: morph icon nở thành sóc + tên đề bay khớp vào trang chờ =====
-            setTimeout(function () {
-                ring.classList.add('is-on'); // vòng sáng bùng quanh ô ảnh sóc
-
-                // ICON: nở to + trôi lên ô sóc, bóng đổ lớn dần; hơi trễ so với tên đề (so le)
-                iconGhost.style.transition =
-                    'transform ' + MORPH_MS + 'ms ' + easeIcon + ' ' + TITLE_LEAD_MS + 'ms, ' +
-                    'border-radius ' + MORPH_MS + 'ms ease ' + TITLE_LEAD_MS + 'ms, ' +
-                    'box-shadow ' + MORPH_MS + 'ms ease ' + TITLE_LEAD_MS + 'ms, opacity .55s ease';
-                iconGhost.style.borderRadius = (HERO_RADIUS / iScaleEnd) + 'px';
-                iconGhost.style.boxShadow = '0 44px 92px rgba(255,105,180,0.5), 0 18px 42px rgba(0,0,0,0.22)';
-                iconGhost.style.transform = 'translate(' + iTx + 'px,' + iTy + 'px) scale(' + iScaleEnd + ')';
-
-                // TÊN ĐỀ (giờ đã gradient): bay khớp vào tiêu đề trang chờ.
-                // Chế độ khối: width/line-height/max-height chuyển dần theo -> chữ tự
-                // dàn lại dòng giữa không trung, hạ cánh đúng khối của tiêu đề đích.
-                titleGhost.style.transition = 'transform ' + MORPH_MS + 'ms ' + easeMove + ', opacity .3s ease' +
-                    (simpleMode ? '' :
-                        ', width ' + MORPH_MS + 'ms ' + easeMove +
-                        ', max-height ' + MORPH_MS + 'ms ' + easeMove +
-                        ', line-height ' + MORPH_MS + 'ms ' + easeMove);
-                if (!simpleMode) {
-                    titleGhost.style.width = endW + 'px';
-                    titleGhost.style.maxHeight = (endH + 4) + 'px';
-                    titleGhost.style.lineHeight = (targets.titleLineH / tScaleEnd) + 'px';
-                }
-                titleGhost.style.transform = 'translate(' + tTx + 'px,' + tTy + 'px) scale(' + tScaleEnd + ')';
-
-                // Khung thẻ tan ra để nhường chỗ cho trang chờ (glow vẫn sáng sau lưng)
-                ghost.style.transition = 'opacity .5s ease';
-                ghost.style.opacity = '0';
-
-                // Mốc thời gian trong nhịp morph (giãn nhịp để mắt kịp bắt từng bước):
-                setTimeout(function () { frame.classList.add('is-on'); }, TITLE_LEAD_MS + Math.round(MORPH_MS * 0.60));
-                setTimeout(function () { bloom.style.animation = 'quiz-launch-bloom .8s ease-out forwards'; }, TITLE_LEAD_MS + Math.round(MORPH_MS * 0.80));
-                setTimeout(function () {
-                    // Hạ cánh: lộ tiêu đề thật ĐÚNG lúc bản morph tan -> bàn giao liền mạch
-                    if (realTitle) { try { realTitle.style.visibility = ''; } catch (e) {} }
-                    titleGhost.style.opacity = '0';
-                }, MORPH_MS + 40);
-                var iconFadeAt = TITLE_LEAD_MS + MORPH_MS + 140; // icon tan CHẬM -> sóc hiện ra từ trong
-                setTimeout(function () { iconGhost.style.opacity = '0'; }, iconFadeAt);
-                setTimeout(function () {
-                    // Phòng hờ: bảo đảm tiêu đề thật luôn được trả lại trước khi dọn overlay
-                    if (realTitle) { try { realTitle.style.visibility = ''; } catch (e) {} }
-                    try { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); } catch (e) {}
-                }, iconFadeAt + 660);
-            }, morphStart);
-        }
-
-        // ===== PHA KẾT (dự phòng): không đo được đích -> thẻ bung kín màn hình rồi tan =====
-        function fallbackCover() {
-            ring.classList.add('is-on');
-            glow.style.opacity = '0';
-            backdrop.style.opacity = '0';
-
-            ghost.style.transition = 'transform .5s cubic-bezier(.5,0,.55,1), ' +
-                'border-radius .45s ease, box-shadow .4s ease, opacity .32s ease';
-            ghost.style.borderRadius = '0px';
-            ghost.style.boxShadow = 'none';
-            ghost.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + coverScale + ')';
-
-            setTimeout(function () { frame.classList.add('is-on'); }, 180);
-            setTimeout(function () { ghost.style.opacity = '0'; }, 240);
+            // 3) Trang chờ hiện dần ở nửa sau chuyến bay
+            setTimeout(function () { frame.classList.add('is-on'); }, Math.round(OPEN_MS * 0.6));
             setTimeout(function () {
                 try { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); } catch (e) {}
-            }, 720);
+                try { if (fly.parentNode) fly.parentNode.removeChild(fly); } catch (e) {}
+            }, OPEN_MS + 420);
         }
 
-        // iframe đã tải xong -> sẵn sàng để lộ
+        function flyParts(t) {
+            var icon = ghost.querySelector('.quiz-card-icon');
+            var title = findTitleEl(ghost);
+            var parts = [];
+            var lift = rect.width ? ghost.getBoundingClientRect().width / rect.width : 1; // tờ giấy đang phóng 1.035
+            var HANDOFF = Math.round(OPEN_MS * 0.82);   // lúc giao ca: thật hiện dần, bản bay tan dần
+
+            if (icon) {
+                var ir = icon.getBoundingClientRect();
+                var clone = icon.cloneNode(true);
+                clone.classList.add('ql-morph');
+                // Kích thước gốc (chưa scale của cú nhấc) + transform → nội dung <i> giữ tỉ lệ
+                var iw = icon.offsetWidth || ir.width, ih = icon.offsetHeight || ir.height;
+                clone.style.left = '0px'; clone.style.top = '0px';
+                clone.style.width = iw + 'px'; clone.style.height = ih + 'px';
+                clone.style.rotate = '0deg';
+                var ics = getComputedStyle(icon);
+                clone.style.setProperty('background', ics.backgroundColor, 'important');
+                clone.style.color = ics.color;
+                clone.style.borderRadius = ics.borderRadius;
+                clone.style.boxShadow = ics.boxShadow;
+                clone.style.fontSize = ics.fontSize;
+                clone.style.display = 'flex';
+                clone.style.alignItems = 'center';
+                clone.style.justifyContent = 'center';
+                var s0 = ir.width / iw;
+                var s1 = Math.min(t.hero.width / iw, t.hero.height / ih);
+                var x1 = t.hero.left + (t.hero.width - iw * s1) / 2, y1 = t.hero.top + (t.hero.height - ih * s1) / 2;
+                fly.appendChild(clone);
+                icon.style.visibility = 'hidden';   // bản bay tách ra → ô trên tờ giấy trống, không thấy 2 cái
+                clone.animate([
+                    { transform: 'translate(' + ir.left + 'px,' + ir.top + 'px) scale(' + s0 + ') rotate(-4deg)' },
+                    { transform: 'translate(' + x1 + 'px,' + y1 + 'px) scale(' + s1 + ') rotate(0deg)' }
+                ], { duration: OPEN_MS, easing: EASE_FLY, fill: 'forwards' });
+                parts.push(clone);
+                hideUntilLanded(t.heroImg);
+            }
+
+            if (title) {
+                var tr = textRect(title);
+                var cs = getComputedStyle(title);
+                var f0 = parseFloat(cs.fontSize) || 16;
+                var tclone = document.createElement('div');
+                tclone.className = 'ql-morph ql-morph-title';
+                tclone.textContent = srcTitleText;
+                tclone.style.left = '0px'; tclone.style.top = '0px';
+                tclone.style.width = Math.ceil(tr.width / lift) + 2 + 'px';
+                tclone.style.font = cs.fontWeight + ' ' + f0 + 'px/' + cs.lineHeight + ' ' + cs.fontFamily;
+                tclone.style.letterSpacing = cs.letterSpacing;
+                tclone.style.textAlign = cs.textAlign || 'left';
+                tclone.style.maxHeight = Math.ceil(tr.height / lift) + 2 + 'px';
+                tclone.style.color = cs.color;
+                fly.appendChild(tclone);
+                title.style.visibility = 'hidden';
+                var k = t.titleFont / f0;
+                tclone.animate([
+                    { transform: 'translate(' + tr.left + 'px,' + tr.top + 'px) scale(' + lift + ')', color: cs.color,
+                      width: (Math.ceil(tr.width / lift) + 2) + 'px', maxHeight: (Math.ceil(tr.height / lift) + 2) + 'px' },
+                    // Khổ chữ đích chừa rộng 6% (phông/độ đậm khác nhau dễ đẩy chữ cuối xuống thêm dòng),
+                    // cắt đúng chiều cao khối đích → không lòi dòng thừa
+                    { transform: 'translate(' + t.title.left + 'px,' + t.title.top + 'px) scale(' + k + ')', color: t.titleColor,
+                      width: Math.ceil(t.title.width * 1.06 / k) + 'px', maxHeight: Math.ceil(t.title.height / k) + 'px' }
+                ], { duration: OPEN_MS, easing: EASE_FLY, fill: 'forwards' });
+                parts.push(tclone);
+                hideUntilLanded(t.titleEl);
+            }
+
+            // Hạ cánh = MỜ CHÉO: bản bay tan dần đúng lúc phần thật của trang chờ hiện dần tại cùng chỗ
+            setTimeout(function () {
+                parts.forEach(function (p) {
+                    p.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 260, easing: 'ease-in-out', fill: 'forwards' });
+                });
+            }, HANDOFF);
+        }
+
+        // Giấu phần thật trong trang chờ (ảnh sóc / tiêu đề) tới lúc giao ca rồi cho hiện dần
+        function hideUntilLanded(el) {
+            if (!el) return;
+            try {
+                el.style.opacity = '0';
+                setTimeout(function () {
+                    el.style.transition = 'opacity .26s ease-in-out';
+                    el.style.opacity = '';
+                    setTimeout(function () { el.style.transition = ''; }, 320);
+                }, Math.round(OPEN_MS * 0.82));
+            } catch (e) {}
+        }
+
         frame.addEventListener('load', function () {
             session.loadCount++;
             if (session.loadCount === 1) {
                 session.frameReady = true;
-                tryReveal();
+                tryOpen();
                 return;
             }
-            // Điều hướng nội bộ trong iframe (vd. bấm "Về trang chủ" / "Thư viện"):
-            // nếu quay về index.html thì thoát iframe, điều hướng cả trang cho gọn.
+            // Điều hướng nội bộ trong iframe về index.html ("Về trang chủ") → điều hướng cả trang
             try {
                 var loc = frame.contentWindow.location;
-                if (loc && /index\.html$/.test(loc.pathname)) {
-                    window.location.href = loc.href;
-                }
+                if (loc && /index\.html$/.test(loc.pathname)) window.location.href = loc.href;
             } catch (e) {}
         });
-
-        // Phòng khi iframe lỗi hoặc quá lâu: vẫn hiện sau REVEAL_MAX_MS, hoặc rơi về điều hướng thường
-        frame.addEventListener('error', function () {
-            window.location.href = url;
-        });
+        frame.addEventListener('error', function () { window.location.href = url; });
         setTimeout(function () {
-            if (!session.revealed) {
-                session.frameReady = true;
-                doReveal();
-            }
+            if (!session.opened) { session.frameReady = true; open(); }
         }, REVEAL_MAX_MS);
     }
 
-    // Tạo các đốm lấp lánh toả ra từ giữa màn hình khi mở bộ đề
-    function spawnSparkles(overlay) {
-        var emojis = ['✨', '⭐', '💫', '🌟']; // ✨ ⭐ 💫 🌟
-        var n = 10;
-        var ccx = window.innerWidth / 2;
-        var ccy = window.innerHeight / 2;
+    // Giấy vụn pastel (vuông / tròn / dải + vài ngôi sao, trái tim) bung ra từ giữa màn hình
+    function burstConfetti(overlay, card) {
+        var base = card.style.getPropertyValue('--qc-from') || '#f472b6';
+        var colors = [base, '#f9a8d4', '#fde68a', '#a7f3d0', '#bae6fd', '#fbcfe8', '#fed7aa'];
+        var icons = ['fa-star', 'fa-heart', 'fa-star', 'fa-heart'];
+        var n = 22;
         for (var i = 0; i < n; i++) {
-            var s = document.createElement('div');
-            s.className = 'quiz-launch-spark';
-            s.textContent = emojis[i % emojis.length];
-            var ang = (Math.PI * 2 * i) / n + Math.random() * 0.5;
-            var dist = 120 + Math.random() * 160;
-            s.style.left = ccx + 'px';
-            s.style.top = ccy + 'px';
-            s.style.setProperty('--sx', Math.cos(ang) * dist + 'px');
-            s.style.setProperty('--sy', Math.sin(ang) * dist + 'px');
-            s.style.animation = 'quiz-launch-spark ' + (0.9 + Math.random() * 0.6) + 's ' +
-                (0.25 + Math.random() * 0.35) + 's ease-out forwards';
-            overlay.appendChild(s);
+            var b = document.createElement('span');
+            var isIcon = i < icons.length;
+            b.className = 'ql-bit' + (isIcon ? ' is-icon' : '');
+            var c = colors[i % colors.length];
+            if (isIcon) {
+                b.innerHTML = '<i class="fas ' + icons[i] + '"></i>';
+                b.style.color = c;
+            } else {
+                var shape = i % 3;
+                b.style.width = (shape === 2 ? 5 : 9) + 'px';
+                b.style.height = (shape === 2 ? 14 : 9) + 'px';
+                b.style.borderRadius = shape === 1 ? '50%' : '2px';
+                b.style.background = c;
+            }
+            overlay.appendChild(b);
+            var ang = (Math.PI * 2 * i) / n + Math.random() * 0.4;
+            var dist = 170 + Math.random() * 170;
+            var x = Math.cos(ang) * dist, y = Math.sin(ang) * dist;
+            var spinDeg = (Math.random() < 0.5 ? -1 : 1) * (200 + Math.random() * 300);
+            b.animate([
+                { transform: 'translate(-50%,-50%) scale(.3) rotate(0deg)', opacity: 0 },
+                { offset: 0.18, opacity: 1 },
+                { transform: 'translate(calc(-50% + ' + (x * 0.85) + 'px),calc(-50% + ' + (y * 0.85) + 'px)) scale(1) rotate(' + (spinDeg * 0.7) + 'deg)', opacity: 1, offset: 0.7 },
+                { transform: 'translate(calc(-50% + ' + x + 'px),calc(-50% + ' + (y + 40) + 'px)) scale(.9) rotate(' + spinDeg + 'deg)', opacity: 0 }
+            ], { duration: 1000 + Math.random() * 500, easing: 'cubic-bezier(.2,.75,.3,1)', fill: 'forwards' });
         }
     }
 
-    // ---- Hover: thẻ to nhẹ + nghiêng 3D theo vị trí con trỏ ----
+    // ---- Rê chuột: thẻ nghiêng 3D nhẹ theo con trỏ (bản cũ 30–36° + phóng 1,11 quá gắt) ----
+    var tiltCard = null;
     function resetTilt(card) {
         if (!card) return;
-        card.style.transition = 'transform .55s cubic-bezier(.22,1,.36,1), box-shadow .3s ease';
+        card.style.transition = 'transform .5s cubic-bezier(.22,1,.36,1)';
         card.style.transform = '';
-        card.classList.remove('qz-tilt-on');
-    }
-    function applyTilt(card, e) {
-        var r = card.getBoundingClientRect();
-        var px = (e.clientX - r.left) / r.width;   // 0..1
-        var py = (e.clientY - r.top) / r.height;   // 0..1
-        var rx = (0.5 - py) * 30;                   // nghiêng trên/dưới (rất mạnh)
-        var ry = (px - 0.5) * 36;                   // nghiêng trái/phải (rất mạnh)
-        card.style.transform = 'perspective(520px) rotateX(' + rx.toFixed(2) + 'deg) rotateY(' +
-            ry.toFixed(2) + 'deg) scale(1.11)';
     }
     document.addEventListener('pointermove', function (e) {
         if (prefersReducedMotion || active) return;
-        if (e.pointerType && e.pointerType !== 'mouse') return; // chỉ áp dụng cho chuột
-        var card = (e.target.closest && e.target.closest('.quiz-grid-card, .quiz-list-card')) || null;
-        if (card && inSelectionMode()) card = null;             // đang chọn nhiều thì thôi
-        if (card && card.querySelector('.quiz-menu:not(.hidden)')) card = null; // menu "..." đang mở
+        if (e.pointerType && e.pointerType !== 'mouse') return;
+        var card = (e.target.closest && e.target.closest('.quiz-grid-card')) || null;   // chỉ thẻ lưới
+        if (card && (inSelectionMode() || card.querySelector('.quiz-menu:not(.hidden)'))) card = null;
         if (card !== tiltCard) {
             if (tiltCard) resetTilt(tiltCard);
             tiltCard = card;
-            if (card) {
-                card.style.transition = 'transform .12s ease-out, box-shadow .25s ease';
-                card.classList.add('qz-tilt-on');
-            }
+            if (card) card.style.transition = 'transform .14s ease-out';
         }
-        if (card) applyTilt(card, e);
+        if (!card) return;
+        var r = card.getBoundingClientRect();
+        var px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+        card.style.transform = 'perspective(700px) translateY(-4px) rotateX(' + ((0.5 - py) * 12).toFixed(2) +
+            'deg) rotateY(' + ((px - 0.5) * 14).toFixed(2) + 'deg) scale(1.03)';
     }, true);
-    // Con trỏ rời khỏi cửa sổ -> trả thẻ về phẳng
-    document.addEventListener('pointerleave', function () {
-        if (tiltCard) { resetTilt(tiltCard); tiltCard = null; }
-    });
-    // Mở menu "..." -> gỡ NGAY hiệu ứng nghiêng (xoá hẳn transform, không để lại
-    // stacking-context) để menu đổ xuống không bị thẻ bên dưới che mất.
+    document.addEventListener('pointerleave', function () { if (tiltCard) { resetTilt(tiltCard); tiltCard = null; } });
+    // Mở menu "..." → gỡ nghiêng ngay (transform tạo stacking context làm menu bị thẻ dưới che)
     document.addEventListener('click', function (e) {
-        if (!e.target.closest) return;
-        if (e.target.closest('.quiz-menu-btn') && tiltCard) {
+        if (e.target.closest && e.target.closest('.quiz-menu-btn') && tiltCard) {
             tiltCard.style.transition = 'none';
             tiltCard.style.transform = '';
-            tiltCard.classList.remove('qz-tilt-on');
             tiltCard = null;
         }
     }, true);
 
-    // Bắt click ở pha capture: chạy trước listener của thẻ và mặc định của <a>.
-    // Phủ TOÀN BỘ thẻ bộ đề (không chỉ nút "Làm bài"): bấm vào tên đề, biểu tượng
-    // hay vùng trống của thẻ đều cho ra cùng một hoạt ảnh — vì cả thẻ vốn dẫn sang
-    // quiz.html (xem quiz-library-controller.js).
+    // Bắt click ở pha capture: phủ TOÀN BỘ thẻ (tên đề, icon, vùng trống, nút Làm bài)
     document.addEventListener('click', function (e) {
         if (prefersReducedMotion) return;            // tôn trọng cài đặt giảm hiệu ứng
         if (active) return;                          // đang có phiên chạy rồi
@@ -798,20 +523,18 @@
         if (e.button !== 0) return;                  // chỉ chuột trái
         if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return; // mở tab mới...
         if (!e.target.closest) return;
+        if (typeof Element.prototype.animate !== 'function') return;  // không có Web Animations → điều hướng thường
 
         var card = findCard(e.target);
-        if (!card) return;                           // chỉ áp dụng cho thẻ bộ đề ở thư viện
-        if (inSelectionMode()) return;               // đang chọn nhiều -> để xử lý mặc định
+        if (!card) return;
+        if (inSelectionMode()) return;
 
         var anchor = e.target.closest('a[href*="quiz.html"]');
-        // Bấm vào các nút điều khiển (ghim, sửa, chia sẻ, menu, checkbox...) -> bỏ qua,
-        // để handler riêng của chúng chạy. Liên kết "Làm bài"/tên đề thì vẫn nhận.
+        // Nút điều khiển (ghim, menu "...", checkbox...) → để handler riêng chạy
         if (!anchor && e.target.closest('button, .quiz-menu, .quiz-menu-btn, input')) return;
-        // Có bấm vào một liên kết khác không trỏ sang quiz.html thì để mặc định.
         if (!anchor && e.target.closest('a')) return;
         if (anchor && anchor.target && anchor.target !== '' && anchor.target !== '_self') return;
 
-        // URL ưu tiên từ liên kết được bấm; nếu bấm vùng trống thì lấy từ liên kết của thẻ.
         var url = anchor ? anchor.href : null;
         if (!url) {
             var cardLink = card.querySelector('a[href*="quiz.html"]');
@@ -823,7 +546,4 @@
         e.stopPropagation();
         launch(card, url);
     }, true);
-
-    // Nạp style ngay khi tải trang để dáng thẻ (mobile) & hiệu ứng hover áp dụng từ đầu.
-    injectStyleOnce();
 })();

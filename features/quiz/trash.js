@@ -66,7 +66,7 @@ async function loadTrashItems(userId) {
 // === RENDER ===
 function renderTrash() {
     if (!listEl) return;
-    const total = trashedFolders.length + trashedQuizzes.length;
+    const total = trashedFolders.filter(f => !f.trashedWithFolder).length + trashedQuizzes.length;
     if (countEl) countEl.textContent = total ? `${total} mục` : '';
 
     if (total === 0) {
@@ -83,10 +83,16 @@ function renderTrash() {
     }
     if (emptyBtn) emptyBtn.classList.remove('hidden');
 
-    const folderRows = trashedFolders.map(f => trashRowHTML({
-        kind: 'folder', id: f.id, title: f.name || 'Thư mục không tên',
-        meta: 'Thư mục', icon: f.icon || 'fa-folder', deletedAt: f.deletedAt
-    })).join('');
+    // Thư mục con bị xoá KÈM thư mục cha thì không hiện riêng: khôi phục / xoá cha là đi cùng cả nhánh
+    const folderRows = trashedFolders.filter(f => !f.trashedWithFolder).map(f => {
+        const subN = trashedFolders.filter(x => x.trashedWithFolder === f.id).length;
+        const quizN = trashedQuizzes.filter(q => q.trashedWithFolder === f.id).length;
+        const kem = [subN ? `${subN} thư mục con` : '', quizN ? `${quizN} bộ đề` : ''].filter(Boolean).join(', ');
+        return trashRowHTML({
+            kind: 'folder', id: f.id, title: f.name || 'Thư mục không tên',
+            meta: kem ? `Thư mục · kèm ${kem}` : 'Thư mục', icon: f.icon || 'fa-folder', deletedAt: f.deletedAt
+        });
+    }).join('');
     const quizRows = trashedQuizzes.map(q => trashRowHTML({
         kind: 'quiz', id: q.id, title: q.title || 'Bộ đề không tên',
         meta: `${q.questionCount || 0} câu hỏi`, icon: 'fa-file-alt', deletedAt: q.deletedAt
@@ -135,12 +141,18 @@ async function restoreTrashItem(kind, id) {
     if (!user) return;
     try {
         if (kind === 'folder') {
-            await updateDoc(doc(db, "quiz_folders", id), { deleted: false, deletedAt: null });
-            // Khôi phục các bộ đề đã vào thùng rác cùng thư mục
+            const folder = trashedFolders.find(f => f.id === id);
+            const updates = { deleted: false, deletedAt: null, trashedWithFolder: null };
+            // Thư mục cha không còn → về Thư viện gốc, không thì thư mục khôi phục xong lại "mất tích"
+            if (folder && folder.parentId && !activeFolderIds.has(folder.parentId)) updates.parentId = null;
+            await updateDoc(doc(db, "quiz_folders", id), updates);
+            // Khôi phục các thư mục con + bộ đề đã vào thùng rác cùng thư mục
+            const cascadedFolders = trashedFolders.filter(f => f.trashedWithFolder === id);
             const cascaded = trashedQuizzes.filter(q => q.trashedWithFolder === id);
-            await Promise.all(cascaded.map(q =>
-                updateDoc(doc(db, "quiz_sets", q.id), { deleted: false, deletedAt: null, trashedWithFolder: null })
-            ));
+            await Promise.all([
+                ...cascadedFolders.map(f => updateDoc(doc(db, "quiz_folders", f.id), { deleted: false, deletedAt: null, trashedWithFolder: null })),
+                ...cascaded.map(q => updateDoc(doc(db, "quiz_sets", q.id), { deleted: false, deletedAt: null, trashedWithFolder: null }))
+            ]);
             showToast('Đã khôi phục thư mục.', 'success');
         } else {
             const quiz = trashedQuizzes.find(q => q.id === id);
@@ -170,7 +182,11 @@ async function permanentlyDeleteTrashItem(kind, id) {
     try {
         if (kind === 'folder') {
             const cascaded = trashedQuizzes.filter(q => q.trashedWithFolder === id);
-            await Promise.all(cascaded.map(q => deleteDoc(doc(db, "quiz_sets", q.id))));
+            const cascadedFolders = trashedFolders.filter(f => f.trashedWithFolder === id);
+            await Promise.all([
+                ...cascaded.map(q => deleteDoc(doc(db, "quiz_sets", q.id))),
+                ...cascadedFolders.map(f => deleteDoc(doc(db, "quiz_folders", f.id)))
+            ]);
             await deleteDoc(doc(db, "quiz_folders", id));
         } else {
             await deleteDoc(doc(db, "quiz_sets", id));

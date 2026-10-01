@@ -17,22 +17,22 @@ const FOLDER_COLOR_HEX = {
     blue: '#3b82f6', indigo: '#6366f1', purple: '#a855f7'
 };
 
-// Bảng màu + icon cho thẻ bộ đề, giữ giống thư viện để hai nơi nhìn như một
+// Bảng màu + icon cho thẻ bộ đề, GIỮ KHỚP library-helpers.js để hai nơi nhìn như một
 const QUIZ_ACCENTS = [
-    { from: '#ec4899', to: '#fb7185', icon: 'fa-layer-group' },
-    { from: '#8b5cf6', to: '#c084fc', icon: 'fa-book-open' },
-    { from: '#0ea5e9', to: '#38bdf8', icon: 'fa-file-lines' },
-    { from: '#10b981', to: '#34d399', icon: 'fa-flask' },
-    { from: '#f59e0b', to: '#fbbf24', icon: 'fa-lightbulb' },
-    { from: '#6366f1', to: '#818cf8', icon: 'fa-brain' },
-    { from: '#f43f5e', to: '#fb7185', icon: 'fa-heart-pulse' },
-    { from: '#14b8a6', to: '#2dd4bf', icon: 'fa-microscope' }
+    { from: '#f472b6', to: '#f9a8d4', icon: 'fa-layer-group' },   // hồng phấn
+    { from: '#b9a2f0', to: '#d8ccf7', icon: 'fa-book-open' },     // oải hương nhạt
+    { from: '#5cbcef', to: '#a5dcf7', icon: 'fa-file-lines' },    // xanh trời
+    { from: '#4cc79a', to: '#9be3c7', icon: 'fa-flask' },         // bạc hà
+    { from: '#f2b53c', to: '#f8d98c', icon: 'fa-lightbulb' },     // vàng bơ
+    { from: '#f59a6e', to: '#f9c4a8', icon: 'fa-brain' },         // hồng đào
+    { from: '#f2708e', to: '#f8b0c0', icon: 'fa-heart-pulse' },   // hồng san hô
+    { from: '#3fc4b4', to: '#93e0d6', icon: 'fa-microscope' },    // ngọc lam
 ];
 function accentFor(seed) {
     const s = String(seed || '');
     let hash = 0;
     for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
-    return QUIZ_ACCENTS[hash % QUIZ_ACCENTS.length];
+    return { ...QUIZ_ACCENTS[hash % QUIZ_ACCENTS.length], paper: ['caro', 'dot', 'lined'][(hash >>> 3) % 3], tilt: (((hash >>> 5) % 7) - 3) * 0.2 };
 }
 
 function escapeHtml(str) {
@@ -77,16 +77,35 @@ function renderSkeleton(n = 6) {
         </div>`).join('');
 }
 
+// Thư mục con: cùng kiểu "bìa hồ sơ giấy" với thư viện (style.css), là link mở folder.html của nó
+function renderSubFolders(folders) {
+    const box = document.getElementById('folder-sub-list');
+    if (!box || !folders.length) return;
+    box.innerHTML = folders.map((f, i) => {
+        const hex = (f.color || '').startsWith('#') ? f.color : (FOLDER_COLOR_HEX[f.color] || FOLDER_COLOR_HEX.amber);
+        const name = escapeHtml(f.name || 'Thư mục');
+        return `
+        <a class="folder-mini-card" href="folder.html?id=${encodeURIComponent(f.id)}" data-tab="Thư mục" data-fill="2" style="--fc:${hex};--card-index:${Math.min(i, 12)}">
+            <span class="fd-papers" aria-hidden="true"><i></i><i></i><i></i></span>
+            <div class="folder-mini-card-content">
+                <div class="folder-icon-wrapper"><i class="fas ${escapeHtml(f.icon || 'fa-folder')}"></i></div>
+                <div class="min-w-0 flex-1"><h4 class="fd-name" title="${name}">${name}</h4><p class="folder-meta-time">Mở thư mục</p></div>
+            </div>
+        </a>`;
+    }).join('');
+    box.classList.remove('hidden');
+}
+
 function renderQuizzes(quizzes) {
     const list = document.getElementById('folder-quiz-list');
     list.innerHTML = quizzes.map((q, i) => {
         const a = accentFor(q.id);
         const title = escapeHtml(q.title || 'Không tên');
         return `
-        <div class="quiz-grid-card" style="--qc-from:${a.from};--qc-to:${a.to};--card-index:${Math.min(i, 12)}">
+        <div class="quiz-grid-card" data-paper="${a.paper}" style="--qc-from:${a.from};--qc-to:${a.to};--qc-tilt:${a.tilt}deg;--card-index:${Math.min(i, 12)}">
             <span class="qc-rail" aria-hidden="true"></span>
             <div class="qc-top">
-                <span class="quiz-card-icon" style="background-image:linear-gradient(135deg,${a.from},${a.to})" aria-hidden="true">
+                <span class="quiz-card-icon" aria-hidden="true">
                     <i class="fas ${a.icon}"></i>
                 </span>
                 <div class="qc-head">
@@ -135,10 +154,25 @@ async function main() {
         ? folder.color
         : (FOLDER_COLOR_HEX[folder.color] || FOLDER_COLOR_HEX.amber);
     const iconEl = document.getElementById('folder-icon');
-    iconEl.style.backgroundImage = `linear-gradient(135deg, ${hex}, ${hex}bb)`;
+    iconEl.style.backgroundImage = 'none';   // màu phẳng (không gradient)
+    iconEl.style.backgroundColor = hex;
     iconEl.innerHTML = `<i class="fas ${folder.icon || 'fa-folder-open'}"></i>`;
     document.getElementById('folder-name').textContent = folder.name || 'Thư mục';
     document.title = `${folder.name || 'Thư mục'} - Zitthenkne`;
+
+    // Thư mục con công khai (bắt buộc lọc isPublic == true, như bộ đề). Lỗi thì bỏ qua, không chặn trang.
+    let subFolders = [];
+    try {
+        const fsnap = await withTimeout(getDocs(query(
+            collection(db, 'quiz_folders'),
+            where('parentId', '==', folderId),
+            where('isPublic', '==', true)
+        )));
+        subFolders = fsnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(f => !f.deleted)
+            .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi', { sensitivity: 'base' }));
+    } catch (err) {
+        console.warn('Không tải được thư mục con:', err);
+    }
 
     let quizzes = [];
     try {
@@ -166,8 +200,13 @@ async function main() {
 
     const totalQuestions = quizzes.reduce((sum, q) => sum + (q.questionCount || 0), 0);
     document.getElementById('folder-meta').textContent =
-        `${quizzes.length} bộ đề · ${totalQuestions} câu hỏi · thư mục được chia sẻ`;
+        `${subFolders.length ? `${subFolders.length} thư mục con · ` : ''}${quizzes.length} bộ đề · ${totalQuestions} câu hỏi · thư mục được chia sẻ`;
 
+    renderSubFolders(subFolders);
+    if (!quizzes.length && subFolders.length) {
+        document.getElementById('folder-quiz-list').innerHTML = '';
+        return;
+    }
     if (!quizzes.length) {
         showMessage('fa-folder-open', 'Thư mục này chưa có bộ đề công khai',
             'Chủ thư mục cần bật công khai cho các bộ đề bên trong thì người khác mới xem được.');

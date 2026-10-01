@@ -55,7 +55,6 @@ export {
     saveFolder,
     openMoveQuizModal,
     closeMoveQuizModal,
-    confirmMoveQuiz,
     handleBulkMove,
     handleBulkDelete,
     handleBulkShare,

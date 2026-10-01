@@ -1867,6 +1867,151 @@ body.is-dragging-quiz .folder-mini-card .folder-preview-pop {
     backdrop-filter: none !important;
 }
 
+/* ===== Thư mục LỒNG NHAU (2026-10-01): breadcrumb nhiều cấp, hộp "Chuyển đến…", kéo đổi thứ tự ===== */
+/* Breadcrumb: một hàng, dài thì cuộn ngang (JS cuộn sẵn tới nấc cuối) */
+#folder-breadcrumb { max-width: 100%; overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+#folder-breadcrumb::-webkit-scrollbar { display: none; }
+.fd-crumb-up,
+.fd-crumb-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-shrink: 0;
+    max-width: 11rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 8px;
+    border: 1.5px dashed transparent;
+    font-weight: 700;
+    color: #6b7280;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.15s;
+}
+.fd-crumb-link span { overflow: hidden; text-overflow: ellipsis; }
+.fd-crumb-link i { color: var(--fc, #ec4899); }
+.fd-crumb-up {
+    width: 1.75rem;
+    height: 1.75rem;
+    justify-content: center;
+    padding: 0;
+    background: #fff;
+    color: #db2777;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+.fd-crumb-up:hover,
+.fd-crumb-link:hover { background: #fff; color: #db2777; }
+.fd-crumb-sep { font-size: 0.55rem; color: #d6b4c4; flex-shrink: 0; }
+#folder-breadcrumb .fd-crumb { flex-shrink: 0; max-width: 14rem; }
+/* Đang kéo bộ đề / thư mục: mọi nấc breadcrumb là chỗ thả (viền nét đứt) */
+body.is-dragging-quiz #folder-breadcrumb [data-crumb],
+body.is-dragging-folder #folder-breadcrumb [data-crumb] {
+    border-color: #f9a8d4;
+    background: rgba(255, 255, 255, 0.75);
+}
+#folder-breadcrumb .is-drop {
+    border-style: solid !important;
+    border-color: #ec4899 !important;
+    background: #fdf2f8 !important;
+    color: #be185d !important;
+    transform: translateY(-1px);
+}
+
+/* Kéo thư mục vào MÉP thư mục khác = đổi thứ tự → vạch chèn hồng bên trái/phải */
+.folder-mini-card.drop-before::before,
+.folder-mini-card.drop-after::before {
+    content: '';
+    position: absolute;
+    top: -0.9rem;
+    bottom: -0.2rem;
+    width: 4px;
+    border-radius: 4px;
+    background: #ec4899;
+    box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.2);
+    z-index: 5;
+}
+.folder-mini-card.drop-before::before { left: -0.6rem; }
+.folder-mini-card.drop-after::before { right: -0.6rem; }
+body.is-dragging-folder .folders-scroll-container {
+    background: rgba(236, 72, 153, 0.05);
+    border-radius: 1rem;
+    outline: 2px dashed rgba(236, 72, 153, 0.28);
+    outline-offset: 4px;
+}
+body.is-dragging-folder .folder-mini-card .folder-preview-pop { display: none; }
+
+/* Hộp "Chuyển đến…": cây thư mục, mỗi dòng ≥44px cho ngón tay, chạm là chuyển */
+.mv-search {
+    width: 100%;
+    margin-bottom: 0.6rem;
+    padding: 0.55rem 0.8rem;
+    border-radius: 12px;
+    border: 1.5px solid #fbcfe8;
+    font-size: 0.85rem;
+    font-weight: 600;
+    outline: none;
+}
+.mv-search:focus { border-color: #f472b6; box-shadow: 0 0 0 3px rgba(244, 114, 182, 0.18); }
+.mv-tree {
+    max-height: min(55vh, 22rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0.35rem;
+    border-radius: 14px;
+    background: #fdf8fa;
+    border: 1px solid #fce7f3;
+}
+.mv-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    text-align: left;
+    padding: 0.45rem 0.6rem 0.45rem calc(0.6rem + var(--depth, 0) * 1.15rem);
+    border-radius: 10px;
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: #4b3a43;
+    transition: background 0.12s, box-shadow 0.12s, transform 0.08s;
+}
+.mv-row:hover:not([disabled]) { background: #fff; box-shadow: 0 1px 4px rgba(190, 80, 120, 0.14); }
+.mv-row:active:not([disabled]) { transform: scale(0.99); }
+.mv-row[disabled] { cursor: default; opacity: 0.62; }
+.mv-ico {
+    width: 1.95rem;
+    height: 1.95rem;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 0.85rem;
+    background: color-mix(in srgb, var(--fc, #ec4899) 20%, #ffffff);
+    color: var(--fc, #ec4899);
+}
+.mv-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mv-name small {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #a08792;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.mv-meta { flex-shrink: 0; font-size: 0.7rem; font-weight: 700; color: #b39aa7; }
+.mv-tag {
+    flex-shrink: 0;
+    font-size: 0.66rem;
+    font-weight: 800;
+    color: #be185d;
+    background: #fce7f3;
+    padding: 0.12rem 0.45rem;
+    border-radius: 999px;
+}
+.mv-tag.is-muted { color: #9ca3af; background: #f3f4f6; }
+.mv-empty { font-size: 0.8rem; color: #9ca3af; text-align: center; padding: 1rem 0.5rem; }
+
 /* Hàng chấm màu "đổi màu nhanh" trong menu thư mục */
 .folder-color-row {
     display: flex;
@@ -2110,3 +2255,142 @@ body.is-dragging-quiz .folder-mini-card .folder-preview-pop {
     }
 }
 
+/* =====================================================================
+   THẺ BỘ ĐỀ: TỜ GIẤY SỔ DÁN (2026-10-01) — đè lên phần "Thẻ bộ đề trong thư viện" phía trên.
+   Mỗi bộ đề có MỘT màu danh tính pastel phẳng (--qc-from, JS gán theo id) + một loại giấy
+   (data-paper: caro | dot | lined) + độ nghiêng nhẹ (--qc-tilt) → cả lưới như các tờ giấy dán
+   vào sổ: nền giấy kẻ, đường may nét đứt ("kim chỉ"), băng washi, icon sticker bế viền trắng.
+   Không gradient trang trí (vạch giấy kẻ là hoạ tiết dừng cứng). Dùng chung cho folder.html.
+   ===================================================================== */
+.quiz-grid-card,
+.quiz-list-card {
+    --qc: var(--qc-from, #f472b6);
+    --qc-line: color-mix(in srgb, var(--qc) 16%, transparent);
+    background-color: color-mix(in srgb, var(--qc) 6%, #fffdfa);
+    background-image: linear-gradient(var(--qc-line) 1px, transparent 1px),
+                      linear-gradient(90deg, var(--qc-line) 1px, transparent 1px);
+    background-size: 18px 18px;
+    border: 1.5px solid color-mix(in srgb, var(--qc) 30%, #ffffff);
+    box-shadow: 0 2px 0 color-mix(in srgb, var(--qc) 22%, #ffffff),
+                0 12px 24px -18px color-mix(in srgb, var(--qc) 70%, #4a2233);
+    /* đường may chạy viền trong — "kim chỉ" */
+    outline: 1.5px dashed color-mix(in srgb, var(--qc) 42%, #ffffff);
+    outline-offset: -7px;
+    overflow: visible;          /* để băng washi thò ra khỏi mép trên */
+    rotate: var(--qc-tilt, 0deg);
+}
+.quiz-grid-card[data-paper="dot"],
+.quiz-list-card[data-paper="dot"] {
+    background-image: radial-gradient(color-mix(in srgb, var(--qc) 30%, transparent) 1.1px, transparent 1.6px);
+    background-size: 15px 15px;
+}
+.quiz-grid-card[data-paper="lined"],
+.quiz-list-card[data-paper="lined"] {
+    background-image: linear-gradient(transparent calc(100% - 1px), var(--qc-line) 0);
+    background-size: 100% 22px;
+}
+.quiz-list-card { outline-offset: -5px; }
+
+@media (hover: hover) {
+    .quiz-grid-card:hover,
+    .quiz-list-card:hover {
+        transform: translateY(-4px);
+        rotate: 0deg;
+        border-color: color-mix(in srgb, var(--qc) 55%, #ffffff);
+        box-shadow: 0 2px 0 color-mix(in srgb, var(--qc) 28%, #ffffff),
+                    0 20px 32px -18px color-mix(in srgb, var(--qc) 75%, #4a2233);
+    }
+}
+
+/* Băng washi (thay vệt màu loang cũ): lưới = mẩu băng chéo giữa mép trên; danh sách = mẩu dọc mép trái */
+.quiz-grid-card .qc-rail,
+.quiz-list-card .qc-rail {
+    opacity: 1;
+    background-color: color-mix(in srgb, var(--qc) 38%, transparent);
+    background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.45) 0 5px, transparent 5px 10px);
+    -webkit-mask: conic-gradient(from 45deg at left, #000 90deg, #0000 0) left / 51% 6px repeat-y,
+                  conic-gradient(from 225deg at right, #000 90deg, #0000 0) right / 51% 6px repeat-y;
+    mask: conic-gradient(from 45deg at left, #000 90deg, #0000 0) left / 51% 6px repeat-y,
+          conic-gradient(from 225deg at right, #000 90deg, #0000 0) right / 51% 6px repeat-y;
+    border-radius: 0;
+    z-index: 2;
+}
+.quiz-grid-card .qc-rail {
+    top: -10px;
+    left: 50%;
+    right: auto;
+    width: 76px;
+    height: 22px;
+    translate: -50% 0;
+    rotate: -3deg;
+}
+.quiz-grid-card:hover .qc-rail { opacity: 1; }
+.quiz-list-card .qc-rail {
+    top: -7px;
+    bottom: auto;
+    left: 12px;
+    width: 34px;
+    height: 14px;
+    translate: none;
+    rotate: -8deg;
+}
+
+/* Icon = sticker bế viền trắng: nền pastel + icon đậm cùng tông (giống icon thanh bên) */
+.quiz-grid-card .quiz-card-icon,
+.quiz-list-card .quiz-card-icon {
+    background: color-mix(in srgb, var(--qc) 24%, #ffffff) !important;  /* đè style nội tuyến cũ */
+    color: color-mix(in srgb, var(--qc) 78%, #3a2430);
+    box-shadow: 0 0 0 2.5px #ffffff, 0 4px 9px -4px color-mix(in srgb, var(--qc) 70%, #4a2233);
+    rotate: -4deg;
+}
+.quiz-grid-card:hover .quiz-card-icon,
+.quiz-list-card:hover .quiz-card-icon { transform: scale(1.07); rotate: 4deg; }
+
+.quiz-grid-card .qc-title,
+.quiz-list-card .qc-title { color: #3d2733; }
+.qc-title a:hover,
+.qc-title a:focus { color: color-mix(in srgb, var(--qc) 70%, #3a2430); }
+.qc-meta { color: #9a8090; }
+
+/* Tiến độ: thước dây pastel phẳng (màu theo điểm: xanh lá / hổ phách / đỏ hồng) */
+.qc-bar { background: color-mix(in srgb, var(--qc) 12%, #f4ecef); }
+.qc-bar > span { background: #a8b3c4; }
+.qc-bar.is-good > span { background: #34c38f; }
+.qc-bar.is-mid  > span { background: #f2b53c; }
+.qc-bar.is-low  > span { background: #f2708e; }
+.qc-bar.is-empty {
+    background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--qc) 30%, #ecdfe5) 0 6px, transparent 6px 11px);
+}
+.qc-foot { border-top: 1.5px dashed color-mix(in srgb, var(--qc) 32%, #ffffff); }
+
+/* Nút "Làm bài": viên kẹo hồng phẳng, đường may trắng bên trong (bỏ gradient + vệt sáng quét) */
+.practice-btn {
+    background: #f472b6;
+    box-shadow: 0 3px 0 #e35d9f, 0 10px 18px -12px rgba(236, 72, 153, 0.9);
+    outline: 1.5px dashed rgba(255, 255, 255, 0.75);
+    outline-offset: -5px;
+}
+.practice-btn:hover { background: #ec5fa8; filter: none; box-shadow: 0 3px 0 #d94f95, 0 14px 22px -12px rgba(236, 72, 153, 0.95); }
+.practice-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #d94f95; }
+.practice-btn::after { content: none; }
+.practice-btn-sm { outline-offset: -4px; }
+
+/* Đang chọn nhiều: tờ được chọn đổi đường may sang chỉ hồng liền + nền hồng nhạt */
+.quiz-grid-card.is-selected,
+.quiz-list-card.is-selected {
+    background-color: #fff3f8;
+    border-color: #ec4899;
+    outline: 2px solid #f472b6;
+    box-shadow: 0 0 0 1px #ec4899, 0 10px 24px -16px rgba(236, 72, 153, 0.7);
+}
+
+/* Huy hiệu: tem dán nhỏ viền nét đứt; "MỚI" tô đặc tông đậm của màu danh tính (không gradient) */
+.qc-badge { border-style: dashed; }
+.qc-badge-new {
+    border-style: solid;
+    background: color-mix(in srgb, var(--qc-from, #f472b6) 78%, #5a2a40);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .quiz-grid-card, .quiz-list-card { rotate: none; }
+}

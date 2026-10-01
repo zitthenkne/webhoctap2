@@ -31,7 +31,6 @@ import {
     selectFolderColor,
     setCustomFolderColor,
     closeMoveQuizModal,
-    confirmMoveQuiz,
     exitSelectionMode,
     selectAllInView,
     deselectAllInView,
@@ -733,8 +732,6 @@ function setupEventListeners() {
     const closeMoveQuizModalBtn = document.getElementById('closeMoveQuizModalBtn');
     if (closeMoveQuizModalBtn) closeMoveQuizModalBtn.addEventListener('click', closeMoveQuizModal);
 
-    const confirmMoveQuizBtn = document.getElementById('confirmMoveQuizBtn');
-    if (confirmMoveQuizBtn) confirmMoveQuizBtn.addEventListener('click', confirmMoveQuiz);
 
     // Tải toàn bộ thư viện về máy để làm offline
     const downloadAllOfflineBtn = document.getElementById('download-all-offline-btn');
