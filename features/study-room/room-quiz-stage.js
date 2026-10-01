@@ -173,8 +173,8 @@ export function renderQuiz() {
     if (screen !== lastScreen) {
         lastScreen = screen;
         const node = el(screen === 'result' ? 'quiz-result' : screen === 'live' ? 'quiz-live' : 'quiz-lobby');
-        node?.classList.remove('rm-fade-in');
-        void node?.offsetWidth;
+        // Chỉ ép dàn trang (offsetWidth) khi cần CHẠY LẠI hoạt ảnh; lần đầu thêm class là đủ
+        if (node?.classList.contains('rm-fade-in')) { node.classList.remove('rm-fade-in'); void node.offsetWidth; }
         node?.classList.add('rm-fade-in');
         if (screen !== 'live') lastRenderIndex = null;
     }
@@ -252,7 +252,7 @@ function renderLive() {
         const main = document.querySelector('.rm-col-main');
         const area = el('options-area');
         const dir = lastRenderIndex !== null && i < lastRenderIndex ? 'rm-slide-prev' : 'rm-slide-next';
-        if (main) {
+        if (main && lastRenderIndex !== null) {      // lần vẽ đầu: không trượt, khỏi ép dàn trang
             main.classList.remove('rm-slide-next', 'rm-slide-prev');
             void main.offsetWidth;
             main.classList.add(dir);
@@ -368,7 +368,7 @@ function renderLive() {
     const [ca, cb] = caseKeyAt(i) ? caseRange(i) : [i, i];
     if (qcard) qcard.dataset.qno = `Câu ${i + 1}${essay ? ' · tự luận' : ''}${cb > ca ? ` · 🩺 ca ${i - ca + 1}/${cb - ca + 1}` : ''}`;
     const qt = el('question-text');
-    qt.setAttribute('contenteditable', 'true');
+    if (qt.contentEditable !== 'true') qt.setAttribute('contenteditable', 'true');   // đặt lại = ép dàn trang
     qt.dataset.liveEdit = 'question';
     qt.dataset.placeholder = 'Nhập nội dung câu hỏi…';
     qt.title = 'Bấm để sửa câu hỏi — bôi đen để in đậm/nghiêng';

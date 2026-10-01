@@ -528,16 +528,15 @@ function placeNotebook() {
     if (!nb || !side || !pane || !main || !hub) return;
     const mr = main.getBoundingClientRect();
     if (!mr.width) return;                                         // màn làm bài đang ẩn — chờ lần sau
+    // ĐỌC hết số đo trước rồi mới GHI vào DOM: đọc sau khi ghi là ép trình duyệt dàn lại cả màn
+    // (từng tốn ~250ms lúc mở phòng trên điện thoại). Dời sổ tay làm số đo cũ đi thì ResizeObserver gọi lại.
     const sr = side.getBoundingClientRect();
     const wide = getComputedStyle(side).display !== 'none' && sr.width > 0 && sr.left >= mr.right - 4
         && !document.body.classList.contains('present');
     const was = !nb.classList.contains('is-inline') && nb.parentElement === pane;
-    if (wide && nb.parentElement !== pane) pane.prepend(nb);
-    if (!wide && nb.nextElementSibling !== hub) hub.before(nb);
-    nb.classList.toggle('is-inline', !wide);
-    document.body.classList.toggle('nb-wide', wide);
     // Bản 28: cột sổ tay CAO HẾT MÀN (từ dưới thanh HUD tới đáy khung làm bài), không chừa chỗ thanh chủ trì nữa…
     const stage = el('stage-quiz');
+    let sideH = 0;
     if (wide && stage) {
         const top = parseFloat(getComputedStyle(side).top) || 0;
         // Trừ cả phần đệm ĐÁY dưới lưới (chừa thanh chủ trì…): cột cao hơn khoảng còn lại thì cuộn tới cuối
@@ -545,14 +544,22 @@ function placeNotebook() {
         const grid = document.querySelector('.rm-live-grid');
         const sb = stage.getBoundingClientRect();
         const below = grid ? stage.scrollHeight - (grid.getBoundingClientRect().bottom - sb.top + stage.scrollTop) : 0;
-        side.style.setProperty('--rm-side-h', `${Math.max(320, stage.clientHeight - top - Math.max(0, below) - 8)}px`);
+        sideH = Math.max(320, stage.clientHeight - top - Math.max(0, below) - 8);
     }
     // …vì thanh chủ trì (viên nổi) nay canh giữa CỘT LÀM BÀI thay vì giữa cả khung -> không đè lên sổ tay
     const hb = el('host-bar');
+    const op = hb && wide && window.matchMedia('(min-width: 768px)').matches ? hb.offsetParent : null;
+    const or = op?.getBoundingClientRect();
+
+    if (wide && nb.parentElement !== pane) pane.prepend(nb);
+    if (!wide && nb.nextElementSibling !== hub) hub.before(nb);
+    nb.classList.toggle('is-inline', !wide);
+    // Lớp nb-wide đổi đệm đáy khung làm bài -> đo lại ở khung hình sau (lúc đó DOM đã sạch, đọc rẻ)
+    if (document.body.classList.contains('nb-wide') !== wide) requestAnimationFrame(placeNotebook);
+    document.body.classList.toggle('nb-wide', wide);
+    if (sideH) side.style.setProperty('--rm-side-h', `${sideH}px`);
     if (hb) {
-        const op = hb.offsetParent;
-        if (wide && op && window.matchMedia('(min-width: 768px)').matches) {
-            const or = op.getBoundingClientRect();
+        if (or) {
             hb.style.left = `${mr.left + mr.width / 2 - or.left}px`;
             hb.style.maxWidth = `${mr.width - 16}px`;
         } else { hb.style.left = ''; hb.style.maxWidth = ''; }

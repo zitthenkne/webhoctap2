@@ -3,7 +3,7 @@
 //  - CACHE_NAME (zitthenkne-vNNN): app shell. Tăng số MỖI LẦN sửa/thêm file trong urlsToCache.
 //  - CDN_CACHE: thư viện + phông từ CDN (URL có phiên bản, gần như bất biến) → GIỮ qua các phiên bản.
 //  - IMG_CACHE: ảnh tải lúc chạy (nền, avatar, ảnh bệnh án) → giữ qua các phiên bản, tối đa IMG_MAX mục.
-const CACHE_NAME = 'zitthenkne-v199';
+const CACHE_NAME = 'zitthenkne-v213';
 const CDN_CACHE = 'zitthenkne-cdn';
 const IMG_CACHE = 'zitthenkne-img';
 const IMG_MAX = 250;
@@ -124,6 +124,9 @@ const urlsToCache = [
   'features/study-room/fa-phong/solid.woff2',
   'features/study-room/fa-phong/regular.woff2',
   'features/study-room/fa-phong/brands.woff2',
+  'features/study-room/fonts/quicksand-vi.woff2',
+  'features/study-room/fonts/quicksand-latin.woff2',
+  'features/study-room/fonts/quicksand-latin-ext.woff2',
   'assets/opt/logo-32.png',
   'assets/opt/logo-96.webp',
   'assets/opt/squirrel_group-256.webp',

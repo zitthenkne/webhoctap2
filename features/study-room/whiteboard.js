@@ -283,7 +283,7 @@ function ingest(id, d) {
 
 // ---------- Hình học ----------
 const ctr = (o) => { const b = box(o); return { x: b.x + b.w / 2, y: b.y + b.h / 2 }; };
-function textH(o) { const { fs, lines } = textGeom(mctx, o); return Math.max(fs * 1.3, lines.length * fs * 1.3) + 4; }
+function textH(o) { const { fs, lines } = textGeom(mctx, o); return Math.max(fs * LH, lines.length * fs * LH) + 4; }
 function box(o) {
     switch (o.type) {
         case 'ink': { const k = o.k || 1, p = (o.lw || 3) / 2; return { x: o.x - p, y: o.y - p, w: o.bw * k + p * 2, h: o.bh * k + p * 2 }; }
@@ -418,11 +418,12 @@ function fitLabel(c, o, ib, base, wt) {
     let fs = base, lines;
     for (;;) {
         lines = layout(c, o.txt, fs, Math.max(8, ib.w), wt);
-        if (lines.length * fs * 1.3 <= ib.h || fs <= 10) break;
+        if (lines.length * fs * LH <= ib.h || fs <= 10) break;
         fs -= 1;
     }
     return (o._lab = { key, fs, lines });
 }
+const LH = 1.42;   // giãn dòng chữ trên bảng (1.3 cũ: các dòng dính nhau)
 const baseFs = (o) => o.fs || (o.type === 'text' ? 18 : o.type === 'arrow' ? 14 : 16);
 /** Bố cục chữ của khối / note / chữ ĐÚNG như lúc vẽ — dùng chung cho vẽ, ô gõ và đặt con trỏ theo điểm bấm. */
 function textGeom(c, o) {
@@ -431,7 +432,7 @@ function textGeom(c, o) {
     else if (o.type === 'note') ib = noteBox(o);
     else ib = { x: o.x, y: o.y + 2, w: o.w, h: 1e6 };
     const { fs, lines } = fitLabel(c, o, ib, baseFs(o), wt);
-    const lh = fs * 1.3;
+    const lh = fs * LH;
     return { ib, align, wt, fs, lines, lh, top: align === 'center' ? ib.y + ib.h / 2 - lines.length * lh / 2 : ib.y };
 }
 function drawLabel(c, o, color) {
@@ -451,10 +452,11 @@ function drawLabel(c, o, color) {
 }
 function innerBox(o) {
     const k = o.kind === 'diamond' ? 0.6 : o.kind === 'ellipse' ? 0.74 : o.kind === 'pill' ? 0.86 : 1;
-    const w = Math.max(10, o.w * k - 16), h = Math.max(10, o.h * k - 12);
+    const w = Math.max(10, o.w * k - 32), h = Math.max(10, o.h * k - 22);
     return { x: o.x + (o.w - w) / 2, y: o.y + (o.h - h) / 2, w, h };
 }
-const noteBox = (o) => ({ x: o.x + 14, y: o.y + 16, w: o.w - 28, h: o.h - 40 });
+// Đệm chữ trong note: 22 hai bên + trên, 28 dưới (chừa dòng tên người viết) — bản cũ 14/16 chữ sát mép giấy
+const noteBox = (o) => ({ x: o.x + 22, y: o.y + 22, w: o.w - 44, h: o.h - 50 });
 
 // ---------- Vẽ từng vật ----------
 function shapePath(c, o) {
@@ -501,9 +503,9 @@ function drawNote(c, o, noText, forExport) {
     c.fillStyle = 'rgba(255,255,255,.35)'; for (let i = -26; i < 32; i += 12) c.fillRect(i, -9, 5, 18);
     c.restore();
     if (!noText && o.txt) drawLabel(c, o, INK0);
-    else if (!noText && !forExport) hintText(c, o, 'Bấm để ghi ý kiến…', o.x + 14, o.y + 16 + baseFs(o) * 0.65, 'left');
+    else if (!noText && !forExport) hintText(c, o, 'Bấm để ghi ý kiến…', o.x + 22, o.y + 22 + baseFs(o) * 0.65, 'left');
     c.font = font(11, 600); c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillStyle = hexA(INK0, 0.5);
-    if (o.bn) c.fillText('— ' + o.bn, o.x + 14, o.y + o.h - 13, o.w - 80);
+    if (o.bn) c.fillText('— ' + o.bn, o.x + 22, o.y + o.h - 14, o.w - 80);
     const n = Object.keys(o.votes || {}).length;
     if (n) {
         const t = '♥ ' + n; c.font = font(12, 700);
@@ -966,7 +968,7 @@ function placeEditor() {
         ib = o.type === 'text' ? { ...g.ib, h: Math.max(1, g.lines.length) * g.lh } : g.ib;
         if (align === 'center') pad = Math.max(0, g.top - g.ib.y);
     }
-    const p = toScreen(ib.x, ib.y), lh = fs * 1.3 * z, fpx = fs * z;
+    const p = toScreen(ib.x, ib.y), lh = fs * LH * z, fpx = fs * z;
     // iPhone tự phóng CẢ TRANG khi ô nhập có chữ < 16px -> máy cảm ứng: đặt 16px rồi thu lại bằng transform
     const k = TOUCH.matches && fpx < 16 ? fpx / 16 : 1;
     const rot = o.type === 'note' ? `rotate(${tiltOf(o)}rad)` : '';
@@ -979,8 +981,8 @@ function placeEditor() {
 /** Note dài ra theo chữ (không thu chữ nhỏ lại như khối lưu đồ); xoá bớt thì co về cỡ lúc đầu. */
 function growNote(o) {
     if (o.type !== 'note' || !editing) return;
-    const fs = baseFs(o), n = layout(mctx, o.txt, fs, o.w - 28, 500).length;
-    const need = Math.ceil(n * fs * 1.3 + 44);
+    const fs = baseFs(o), n = layout(mctx, o.txt, fs, noteBox(o).w, 500).length;
+    const need = Math.ceil(n * fs * LH + (o.h - noteBox(o).h));
     const h = Math.max(editing.h0 || 0, need);
     if (h !== o.h) { o.h = h; invalidate(o); }
 }

@@ -3606,3 +3606,22 @@ body.case-resizing { cursor: ns-resize; user-select: none; }
     #quizSection .answer-btn.is-5050-out .option-explanation { max-height: none; overflow: visible; cursor: auto; }
     #quizSection .answer-btn.is-5050-out .option-explanation::after { display: none; }
 }
+
+/* ============================================================
+   17) MÁY CẢM ỨNG + ĐỀ NHIỀU ẢNH: chớp tắt từng mảng sáng/tối khi sang câu hoặc chấm câu nhiều đáp án (2026-10-01)
+   GPU điện thoại cạn bộ nhớ lớp khi cả thẻ (kèm ảnh to catbox…) vừa lật 3D, các ô đúng cùng lúc phóng to + bóng
+   loang (vẽ lại mỗi khung), lại nằm dưới 2 thanh kính mờ (backdrop-filter phải làm mờ lại phần nội dung đang đổi).
+   -> Cảm ứng: lật trang thành mờ dần phẳng, ô đúng không phóng/bóng (màu xanh vẫn báo), thanh trên/đáy nền đặc.
+   ============================================================ */
+@media (hover: none) and (pointer: coarse) {
+    #quizSection > .quiz-card.q-slide-next:not(.q-same-case),
+    #quizSection > .quiz-card.q-slide-prev:not(.q-same-case) { animation: nb-fade .2s ease-out both; transform-origin: 50% 50%; }
+    #quizSection .answer-btn.correct-answer-pulse { animation: none; }
+    .nb-topbar,
+    #quiz-mobile-nav.show { -webkit-backdrop-filter: none; backdrop-filter: none; }
+    .nb-topbar,
+    html.theme-dark .nb-topbar { background-color: var(--paper) !important; }
+    #quiz-mobile-nav.show,
+    html.theme-dark #quiz-mobile-nav.show { background: var(--paper); }
+}
+@keyframes nb-fade { from { opacity: 0; } }

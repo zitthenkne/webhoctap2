@@ -5815,3 +5815,217 @@ html .rm-option .svg-fig img { min-width: 0; cursor: inherit; }
 /* Link trong nội dung (dòng ghi nguồn ảnh Wikimedia, tài liệu) — parseInlineMarkdown [chữ](url) */
 html .rm-md a, html .quiz-link { color: #2A5E8C; text-decoration: underline; text-underline-offset: 2px; font-weight: 600; }
 html.theme-dark .rm-md a, html.theme-dark .quiz-link { color: #9CCBF2; }
+
+/* ═══════════════ BẢN 50 (2026-10-01): MỘT TỜ GIẤY — LIỀN MẠCH · THOÁNG ═══════════════
+   Người dùng: "nhiều khối rời rạc quá, không có sự liên kết · chữ lúc nào cũng sát mép, gò bó · trực quan, logic hơn".
+   Trước: cột làm bài = 6 thẻ trắng nổi riêng (thẻ đề, từng khay, thẻ trạng thái, thanh bàn luận) mỗi thẻ một bóng + một
+   miếng băng keo; cột sổ tay = 3 thẻ (thanh tab, sổ tay, ghi chú) — mắt phải nhảy giữa 9 hộp.
+   Nay: 1 · cột làm bài là MỘT tờ giấy (lỗ bấm + đường lề chạy suốt mép trái tờ) — đề, phương án, trạng thái, bàn luận
+   là các MỤC trong tờ, ngăn bằng đường khâu chứ không phải hộp riêng · 2 · khay dưới ô đáp án dính liền ô (cùng bề
+   rộng, cùng màu) như ô đó mở ra · 3 · cột sổ tay là một tờ, thanh tab là đầu tờ · 4 · đệm chữ rộng ra ở mọi ô
+   (ô gõ, giải thích, ghi chú, phiếu bàn luận) · 5 · băng keo chỉ còn ở tem "Câu N". */
+
+/* ---- 1. Cột làm bài = một tờ ---- */
+html .rm-col-main {
+    gap: 1.05rem;
+    padding: 1.9rem 2rem 2.1rem 3.35rem;
+    border-radius: 1.6rem;
+    border: 1px solid color-mix(in srgb, var(--rm-accent) 14%, transparent);
+    background:
+        radial-gradient(circle at 1.1rem 50%, var(--rm-desk) .3rem, color-mix(in srgb, var(--rm-accent) 30%, transparent) .33rem, transparent .37rem) 0 .9rem / 100% 2.6rem repeat-y,
+        linear-gradient(90deg, transparent 2.15rem, color-mix(in srgb, var(--rm-accent) 26%, transparent) 2.15rem, color-mix(in srgb, var(--rm-accent) 26%, transparent) calc(2.15rem + 1.5px), transparent calc(2.15rem + 1.5px)),
+        var(--rm-surface);
+    box-shadow: 0 1px 0 color-mix(in srgb, var(--rm-accent) 10%, transparent), 0 22px 44px -30px rgba(190, 90, 125, .5);
+}
+html.theme-dark .rm-col-main { box-shadow: 0 22px 44px -30px rgba(0, 0, 0, .7); }
+
+/* Thẻ đề thôi làm hộp riêng: chữ đứng thẳng trên tờ, tem "Câu N" dán ngay trên câu hỏi */
+html .rm-col-main > .rm-question {
+    background: none; border: 0; box-shadow: none; border-radius: 0;
+    margin: 0; padding: 1.55rem 0 .15rem;
+}
+html .rm-col-main > .rm-question[data-qno]::before { left: -.15rem; top: -.35rem; }
+html .rm-question .rm-qmeta { margin-top: .9rem; }
+
+/* Phương án: thở ra một chút, chữ không sát viền ô */
+html .rm-opts { gap: .7rem; }
+html .rm-ocard > .rm-option { padding: .95rem 1.15rem; }
+html .rm-ocard > .rm-option .rm-otext { line-height: 1.55; }
+
+/* ---- 2. Khay dưới ô = phần ô mở ra: cùng bề rộng, cùng tông, liền một khối (hết khung nét đứt thụt vào) ---- */
+html .rm-ocard .rm-odisc {
+    margin: -1.35rem 0 0;
+    padding: 2.1rem 1.15rem 1.05rem;
+    border: 1px solid color-mix(in srgb, var(--h, var(--rm-accent)) 26%, transparent); border-top: 0;
+    border-radius: 0 0 1.35rem 1.35rem;
+    background: color-mix(in srgb, var(--h, var(--rm-accent)) 7%, var(--rm-surface));
+    box-shadow: none;
+}
+html .rm-ocard.is-picked .rm-odisc { border-color: color-mix(in srgb, var(--rm-pick) 26%, transparent); background: color-mix(in srgb, var(--rm-pick) 6%, var(--rm-surface)); box-shadow: none; }
+html .rm-ocard.is-correct .rm-odisc { border-color: color-mix(in srgb, var(--rm-ok) 28%, transparent); background: color-mix(in srgb, var(--rm-ok) 7%, var(--rm-surface)); }
+html .rm-ocard.is-wrong .rm-odisc { border-color: color-mix(in srgb, var(--rm-bad) 22%, transparent); background: color-mix(in srgb, var(--rm-bad) 5%, var(--rm-surface)); }
+html .rm-odisc > * + * { margin-top: .55rem; }
+/* "Lý do của bạn": ô trắng trong khay — đệm rộng, chữ cách mép */
+html .rm-odisc .rm-otalk-mine { padding: .95rem 1.1rem 1rem; border-radius: 1.15rem; box-shadow: none; }
+html .rm-odisc .rm-otalk-mine > * + * { margin-top: .5rem; }
+html .rm-odisc .rm-why, html .rm-hub-mini { padding: .6rem .8rem; line-height: 1.6; }
+
+/* Phiếu bàn luận (nhận xét, lý do người khác) */
+html .rm-cmt-t, html .rm-peek-t { line-height: 1.6; }
+html .rm-cmts { display: flex; flex-direction: column; gap: .5rem; }
+html .rm-cform-row :is(input, textarea, .rm-input) { padding: .6rem .95rem; }
+
+/* ---- 3. Trạng thái + luồng bàn luận = MỤC của tờ, ngăn bằng đường khâu ---- */
+html .rm-col-main > .rm-statuscard {
+    background: none; border: 0; box-shadow: none; border-radius: 0;
+    border-top: 1.5px dashed var(--rm-stitch);
+    margin-top: .45rem; padding-top: .5rem;
+}
+html .rm-statuscard #consensus-bar { padding: .75rem 0 .5rem; }
+html .rm-statuscard #self-bar { margin: 0; padding: .8rem 0 0; }
+html .rm-col-main > .rm-hub {
+    background: none; border: 0; border-radius: 0;
+    border-top: 1.5px dashed var(--rm-stitch);
+    padding: .85rem 0 0;
+}
+
+/* Câu tự luận: bài làm chung (trong luồng bàn luận) là VIỆC CHÍNH -> lên ngay dưới đề; hàng bước
+   "Viết bài chung → Nhận xét → Báo xong" xuống cuối tờ, đúng trình tự làm (trắc nghiệm giữ nguyên: bước ngay dưới ô) */
+html .rm-col-main:has(> #options-area.hidden) > .rm-statuscard { order: 1; }
+
+/* Ca lâm sàng nằm trong tờ: thôi bóng nổi */
+html .rm-col-main > .rm-case { box-shadow: none; }
+
+/* Sổ tay khi nằm TRONG cột làm bài (màn hẹp / điện thoại): một mục nền nhạt, không phải thẻ nổi */
+html .rm-col-main > #notebook.is-inline {
+    box-shadow: none; border-radius: 1.2rem;
+    border: 1px solid color-mix(in srgb, var(--rm-accent) 16%, transparent);
+    background: color-mix(in srgb, var(--rm-accent) 5%, var(--rm-surface));
+}
+
+/* ---- 4. Cột sổ tay (máy tính rộng) = một tờ, thanh tab là đầu tờ ---- */
+body.nb-wide .rm-side-scroll {
+    margin: 0; padding: 0;
+    border-radius: 1.6rem;
+    border: 1px solid color-mix(in srgb, var(--rm-accent) 14%, transparent);
+    background: var(--rm-surface);
+    box-shadow: 0 1px 0 color-mix(in srgb, var(--rm-accent) 10%, transparent), 0 22px 44px -30px rgba(190, 90, 125, .5);
+    gap: 0;
+}
+html.theme-dark body.nb-wide .rm-side-scroll { box-shadow: 0 22px 44px -30px rgba(0, 0, 0, .7); }
+body.nb-wide .rm-side-scroll > .rm-side-tabs {
+    position: sticky; top: 0; z-index: 4;
+    margin: 0; padding: .7rem .9rem .7rem 1rem;
+    border: 0; border-bottom: 1.5px dashed var(--rm-stitch); border-radius: 0;
+    background: var(--rm-surface); box-shadow: none;
+}
+body.nb-wide .rm-side-scroll > .rm-side-pane { padding: 1.25rem 1.4rem 1.6rem; gap: 1.1rem; }
+body.nb-wide .rm-side-pane > #notebook {
+    background: none; border: 0; box-shadow: none; border-radius: 0; padding: 0;
+    flex: none; min-height: 0;
+}
+body.nb-wide .rm-side-pane > #my-notes {
+    background: none; border: 0; box-shadow: none; border-radius: 0;
+    border-top: 1.5px dashed var(--rm-stitch); margin-top: .2rem;
+}
+html #my-notes::before { display: none; }
+body.nb-wide #my-notes > .rm-notes-cap { padding: 1.05rem 0 .3rem; }
+body.nb-wide #my-notes > #my-block { padding: .6rem 0 0; }
+
+/* Mục trong sổ tay (Giải thích · Mở rộng · Ghi nhớ): hộp nền nhạt, đệm rộng, bỏ băng keo + bóng lệch */
+html .rm-notebook .rm-hub-exp {
+    padding: 1rem 1.15rem 1.05rem; border-radius: 1.15rem;
+    box-shadow: none;
+}
+html .rm-notebook .rm-hub-exp::after { display: none; }
+html .rm-notebook .rm-hub-exp > * + * { margin-top: .45rem; }
+html .rm-notebook [data-live-edit], html #my-block [data-live-edit], html #my-block textarea {
+    padding: .7rem .9rem; line-height: 1.6;
+}
+html .rm-notebook .rm-nb-toc { margin-block: .35rem .15rem; }
+
+/* ---- 5. HUD (thanh câu): bỏ băng keo hai đầu — một dải gọn, thẳng hàng với 2 tờ bên dưới ---- */
+html .rm-topbar-row::before, html .rm-topbar-row::after { display: none; }
+html .rm-topbar-row { padding: .45rem .65rem; }
+
+/* ---- 7. Sảnh chờ: bớt mảnh rời ----
+   · cột phải (Trong phòng + Trò chuyện) = một tờ, ngăn bằng đường khâu (màn rộng; hẹp thì 2 lớp bọc là display:contents)
+   · băng keo chỉ còn ở băng-rôn: gỡ ở 4 ghế ngồi + các thẻ (mỗi thẻ một miếng = rối mắt)
+   · 3 bước nối bằng một đường khâu chạy ngang phía sau -> đọc thành MỘT tiến trình, không phải 3 hộp */
+.rm-lobby .rm-seat::before,
+.rm-lobby .rm-setup::before, .rm-lobby .rm-wait::before, .rm-lobby .rm-goal-panel::before,
+.rm-lobby .rm-seats-panel::before, .rm-lobby .rm-log-panel::before { display: none; }
+@container lobby (min-width: 860px) {
+    .rm-lobby-aside {
+        gap: 0; border-radius: 1.6rem; overflow: hidden;
+        border: 1px solid color-mix(in srgb, var(--rm-accent) 14%, transparent);
+        background: var(--rm-surface);
+        box-shadow: 0 1px 0 color-mix(in srgb, var(--rm-accent) 10%, transparent), 0 22px 44px -30px rgba(190, 90, 125, .5);
+    }
+    html .rm-lobby-aside > .rm-panel { background: none; border: 0; box-shadow: none; border-radius: 0; padding: 1.3rem 1.5rem 1.4rem; }
+    html .rm-lobby-aside > .rm-panel + .rm-panel { border-top: 1.5px dashed var(--rm-stitch); }
+}
+html.theme-dark .rm-lobby-aside { box-shadow: 0 22px 44px -30px rgba(0, 0, 0, .7); }
+.rm-lobby .rm-steps { position: relative; column-gap: 1.6rem; }
+@container lobby (max-width: 560px) { .rm-lobby .rm-steps { column-gap: .8rem; } }
+.rm-lobby .rm-steps::before {
+    content: ''; position: absolute; z-index: 0; left: 2rem; right: 2rem; top: 50%;
+    border-top: 2px dashed var(--rm-stitch); pointer-events: none;
+}
+.rm-lobby .rm-steps > .rm-stp { position: relative; z-index: 1; }
+
+/* ---- 6. Điện thoại: tờ giấy gần sát mép màn, bỏ lỗ bấm cho đỡ tốn bề ngang ---- */
+@media (max-width: 640px) {
+    html .rm-col-main {
+        padding: 1.35rem .95rem 1.5rem; border-radius: 1.3rem;
+        background: var(--rm-surface);
+    }
+    html .rm-col-main > .rm-question { padding-top: 1.45rem; }
+    html .rm-ocard > .rm-option { padding: .85rem .95rem; }
+    html .rm-ocard .rm-odisc { padding: 1.95rem .8rem .9rem; }
+    html .rm-odisc .rm-otalk-mine { padding: .85rem .9rem .9rem; }
+}
+
+/* ---- 8. BẢN 50b (cùng ngày) — người dùng: "trên điện thoại xấu, không còn dễ thương, lãng nhách, trơ trọi;
+   có thanh trượt ngang dù không kéo được" ----
+   · thanh trượt ngang: bản 50 thu lề .rm-live điện thoại còn .4rem nhưng thanh HUD vẫn kéo âm 12px ra 2 bên
+     -> tràn 6px -> khung #stage-quiz hiện thanh cuộn ngang. Trả lề cũ (bàn hồng chấm bi lại viền quanh tờ).
+   · tờ giấy có lại chất sổ dán: giấy chấm bi · 1 băng washi dán mép trên · lỗ bấm cả trên điện thoại (bản nhỏ)
+     · sao ✦ cạnh câu hỏi (bản 50 lỡ ẩn) · nút hoa ✿ / tim ♡ đính giữa mỗi đường khâu ngăn mục. */
+html .rm-col-main {
+    position: relative;
+    background:
+        radial-gradient(circle at 1.1rem 50%, var(--rm-desk) .3rem, color-mix(in srgb, var(--rm-accent) 30%, transparent) .33rem, transparent .37rem) 0 .9rem / 100% 2.6rem repeat-y,
+        linear-gradient(90deg, transparent 2.15rem, color-mix(in srgb, var(--rm-accent) 26%, transparent) 2.15rem, color-mix(in srgb, var(--rm-accent) 26%, transparent) calc(2.15rem + 1.5px), transparent calc(2.15rem + 1.5px)),
+        radial-gradient(circle, color-mix(in srgb, var(--rm-accent) 20%, transparent) 1.1px, transparent 1.6px) .6rem .6rem / 20px 20px,
+        var(--rm-surface);
+}
+/* băng washi sọc dán chéo mép trên bên phải tờ */
+html .rm-col-main::after {
+    content: ''; position: absolute; z-index: 3; top: -.6rem; right: 2.4rem; width: 5.4rem; height: 1.15rem;
+    border-radius: 2px; rotate: 5deg; pointer-events: none;
+    background: repeating-linear-gradient(45deg, var(--rm-tape-w) 0 5px, transparent 5px 10px), var(--rm-tape-2);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
+}
+/* nút đính giữa đường khâu: tờ đọc thành các mục nối nhau, không phải đường kẻ trơ */
+html .rm-col-main > .rm-statuscard, html .rm-col-main > .rm-hub { position: relative; }
+html .rm-col-main > .rm-statuscard::before, html .rm-col-main > .rm-hub::before {
+    content: '✿'; position: absolute; z-index: 2; top: -.8rem; left: 50%; display: grid; place-items: center;
+    width: 1.55rem; height: 1.55rem; border-radius: 50%; transform: translateX(-50%) rotate(-8deg);
+    font-size: .95rem; line-height: 1; color: var(--rm-accent-deep);
+    background: var(--rm-powder-soft); box-shadow: 0 0 0 3px var(--rm-surface), 0 0 0 4.5px color-mix(in srgb, var(--rm-accent) 30%, transparent);
+    pointer-events: none;
+}
+html .rm-col-main > .rm-hub::before { content: '♡'; background: var(--rm-butter-soft); color: var(--rm-coral-ink); transform: translateX(-50%) rotate(6deg); }
+@media (max-width: 640px) {
+    html .rm-col-main {
+        padding: 1.35rem .85rem 1.5rem 1.75rem;
+        background:
+            radial-gradient(circle at .8rem 50%, var(--rm-desk) .22rem, color-mix(in srgb, var(--rm-accent) 30%, transparent) .25rem, transparent .29rem) 0 .8rem / 100% 2.2rem repeat-y,
+            radial-gradient(circle, color-mix(in srgb, var(--rm-accent) 20%, transparent) 1px, transparent 1.5px) .5rem .5rem / 18px 18px,
+            var(--rm-surface);
+    }
+    html .rm-col-main::after { right: 1.3rem; width: 4.4rem; height: 1rem; }
+    /* hàng "Đợi mình · Cần bàn · Giảng · Đánh dấu": xuống dòng thay vì cuộn ngang (nút cuối bị cắt mép) */
+    html .rm-selfchips { flex-wrap: wrap; overflow: visible; padding-right: 0; }
+}

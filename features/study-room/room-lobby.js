@@ -68,8 +68,14 @@ function renderFeed() {
         ...msgs.map(m => ({ at: tOf(m), m })),
         ...joinLog.filter(l => l.kind !== 'join').map(l => ({ at: l.at, l })),
     ].sort((a, b) => a.at - b.at).slice(-40);
-    if (!changed('lobbyfeed', [items.map(x => x.m ? [x.m.id, x.m.text] : x.l.at), room.members.map(m => [m.uid, m.displayName, m.emoji])])) return;
-    const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
+    // Sảnh đang ẩn (đang làm bài) thì KHÔNG đọc scrollHeight: đọc là ép dàn trang cả màn làm bài
+    // (~700ms lúc mở phòng trên điện thoại). Lần đầu sảnh hiện lại mới kéo xuống tin cuối.
+    const vis = !el('quiz-lobby')?.classList.contains('hidden');
+    if (!changed('lobbyfeed', [items.map(x => x.m ? [x.m.id, x.m.text] : x.l.at), room.members.map(m => [m.uid, m.displayName, m.emoji])])) {
+        if (vis && box.dataset.painted === '0') { box.scrollTop = box.scrollHeight; box.dataset.painted = '1'; }
+        return;
+    }
+    const nearBottom = vis && box.dataset.painted === '1' && box.scrollHeight - box.scrollTop - box.clientHeight < 60;
     const talk = msgs.filter(m => m.type !== 'notice').length;
     const cnt = el('lobby-feed-count');
     if (cnt) cnt.textContent = talk ? `${talk} tin` : '';
@@ -90,8 +96,8 @@ function renderFeed() {
             </div>
         </div>`;
     }).join('') || '<p class="rm-fd-empty">Chưa ai nhắn gì. Chào cả phòng một câu đi! 👋</p>';
-    if (nearBottom || box.dataset.painted !== '1') box.scrollTop = box.scrollHeight;
-    box.dataset.painted = '1';
+    if (!vis) box.dataset.painted = '0';
+    else if (nearBottom || box.dataset.painted !== '1') { box.scrollTop = box.scrollHeight; box.dataset.painted = '1'; }
 }
 
 // ---------- "Đề sắp làm" (doc phòng: next) ----------
