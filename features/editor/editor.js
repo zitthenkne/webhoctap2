@@ -152,6 +152,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
                     quizData = docSnap.data();
+                    if (!Array.isArray(quizData.questions) || quizData.questions.length === 0) {
+                        try {
+                            const pSnap = await getDoc(doc(db, "quiz_payloads", quizId));
+                            if (pSnap.exists() && Array.isArray(pSnap.data().questions)) {
+                                quizData.questions = pSnap.data().questions;
+                            }
+                        } catch (_) {}
+                    }
                 } else {
                     editorContainer.innerHTML = `
                         <div class="ed-empty">
@@ -662,6 +670,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             if (quizId) {
                 await setDoc(doc(db, "quiz_sets", quizId), { ...quizData, ...payload, userId: user.uid }, { merge: true });
+                setDoc(doc(db, "quiz_payloads", quizId), { userId: user.uid, isPublic: quizData?.isPublic !== false, questions: payload.questions, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
                 // Bản tải về máy phải theo kịp, không thì làm bài offline vẫn ra câu hỏi cũ
                 if (isOfflineSavedSync(quizId)) autoCacheQuiz(quizId, { ...quizData, ...payload, userId: user.uid });
             } else {
@@ -671,6 +680,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ...payload, userId: user.uid, createdAt: serverTimestamp(), folderId: null
                 });
                 quizId = ref.id;
+                setDoc(doc(db, "quiz_payloads", quizId), { userId: user.uid, isPublic: true, questions: payload.questions, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
                 // cập nhật URL để các lần lưu sau là chỉnh sửa, không tạo mới
                 const url = new URL(window.location.href);
                 url.searchParams.set('id', quizId);

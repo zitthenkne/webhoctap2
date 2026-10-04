@@ -217,6 +217,22 @@ export async function loadQuizData() {
                 const remoteData = docSnap.data();
                 remoteData.id = quizId;
 
+                // Tách Vỏ - Ruột: nếu quiz_sets chỉ chứa metadata (hoặc questions rỗng),
+                // tải tiếp payload câu hỏi từ quiz_payloads
+                if (!Array.isArray(remoteData.questions) || remoteData.questions.length === 0) {
+                    try {
+                        const payloadSnap = await getDoc(doc(db, "quiz_payloads", quizId));
+                        if (payloadSnap && payloadSnap.exists()) {
+                            const pData = payloadSnap.data();
+                            if (Array.isArray(pData.questions)) {
+                                remoteData.questions = pData.questions;
+                            }
+                        }
+                    } catch (pErr) {
+                        console.warn("Không thể tải payload questions từ quiz_payloads:", pErr);
+                    }
+                }
+
                 // Tự động tải lưu offline hoàn chỉnh vào IndexedDB và nạp cache ảnh ngầm
                 autoSaveAndNotify(quizId, remoteData);
 

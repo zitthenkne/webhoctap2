@@ -50,12 +50,17 @@ service cloud.firestore {
                     && request.auth.uid == request.resource.data.userId;
     }
 
+    // QUIZ PAYLOADS (Nội dung câu hỏi chi tiết tách riêng để chống tràn giới hạn 1MB doc)
+    match /quiz_payloads/{setId} {
+      allow read: if resource.data.isPublic == true
+                  || (request.auth != null && request.auth.uid == resource.data.userId);
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
     // STUDY ROOMS — phòng đánh đề chung.
     // Khách CHƯA đăng nhập vào được bằng link (mã phòng do người tạo đặt, chỉ chia sẻ
     // trong nhóm) — cùng kiểu "ai có link thì vào" như kho link chung ở cuối file.
-    // Đánh đổi: ai đoán được mã phòng cũng đọc/ghi được nội dung phòng đó.
-    // Nếu bật Anonymous sign-in trên Firebase console thì có thể siết lại thành
-    // `request.auth != null` như trước — client vẫn chạy đúng.
     // Xóa phòng vẫn phải là chủ phòng đã đăng nhập.
     match /study_rooms/{roomId} {
       allow read, create, update: if true;
@@ -68,7 +73,9 @@ service cloud.firestore {
         allow read, create, update, delete: if true;
       }
       match /messages/{messageId} {
-        allow read, create: if true;
+        // Chặn tin nhắn spam vượt quá 2000 ký tự
+        allow read: if true;
+        allow create: if request.resource.data.text is string && request.resource.data.text.size() <= 2000;
       }
       match /progress/{progressId} {
         allow read, create, update, delete: if true;
@@ -87,10 +94,13 @@ service cloud.firestore {
 
     // ===== KHO LƯU TRỮ LINK (công khai cho ai có mật khẩu giao diện) =====
     match /shared_links/{linkId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create, update: if request.resource.data.url is string && request.resource.data.url.size() <= 2048;
+      allow delete: if request.auth != null;
     }
     match /shared_link_folders/{folderId} {
-      allow read, write: if true;
+      allow read, create, update: if true;
+      allow delete: if request.auth != null;
     }
 
   }

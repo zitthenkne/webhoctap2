@@ -184,12 +184,18 @@ async function permanentlyDeleteTrashItem(kind, id) {
             const cascaded = trashedQuizzes.filter(q => q.trashedWithFolder === id);
             const cascadedFolders = trashedFolders.filter(f => f.trashedWithFolder === id);
             await Promise.all([
-                ...cascaded.map(q => deleteDoc(doc(db, "quiz_sets", q.id))),
+                ...cascaded.flatMap(q => [
+                    deleteDoc(doc(db, "quiz_sets", q.id)),
+                    deleteDoc(doc(db, "quiz_payloads", q.id)).catch(() => {})
+                ]),
                 ...cascadedFolders.map(f => deleteDoc(doc(db, "quiz_folders", f.id)))
             ]);
             await deleteDoc(doc(db, "quiz_folders", id));
         } else {
-            await deleteDoc(doc(db, "quiz_sets", id));
+            await Promise.all([
+                deleteDoc(doc(db, "quiz_sets", id)),
+                deleteDoc(doc(db, "quiz_payloads", id)).catch(() => {})
+            ]);
         }
         showToast('Đã xóa vĩnh viễn.', 'success');
         await refresh();
@@ -211,7 +217,10 @@ async function emptyTrash() {
     if (!user) return;
     try {
         const ops = [];
-        trashedQuizzes.forEach(q => ops.push(deleteDoc(doc(db, "quiz_sets", q.id))));
+        trashedQuizzes.forEach(q => {
+            ops.push(deleteDoc(doc(db, "quiz_sets", q.id)));
+            ops.push(deleteDoc(doc(db, "quiz_payloads", q.id)).catch(() => {}));
+        });
         trashedFolders.forEach(f => ops.push(deleteDoc(doc(db, "quiz_folders", f.id))));
         await Promise.all(ops);
         showToast('Đã dọn sạch thùng rác.', 'success');

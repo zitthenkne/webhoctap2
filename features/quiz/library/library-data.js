@@ -6,7 +6,7 @@
 import { auth, db } from '../../../core/firebase-init.js';
 import { sessionUser } from '../../../core/auth-session.js';
 import {
-    doc, collection, addDoc, query, where, getDocs,
+    doc, collection, addDoc, setDoc, query, where, getDocs,
     orderBy, limit, startAfter, updateDoc, runTransaction
 } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
@@ -47,6 +47,13 @@ export async function saveAndStartQuiz() {
             isPublic: true,
             folderId: S.currentFolderId || null
         });
+        // Tách Vỏ - Ruột: đồng bộ mảng câu hỏi sang quiz_payloads
+        setDoc(doc(db, "quiz_payloads", docRef.id), {
+            userId: user.uid,
+            isPublic: true,
+            questions: S.questions,
+            updatedAt: new Date()
+        }).catch(() => {});
         await checkCreationAchievements(user.uid);
         window.location.href = `features/quiz/quiz.html?id=${docRef.id}`;
     } catch (e) {
@@ -78,7 +85,7 @@ export async function saveOnly() {
     }
 
     try {
-        await addDoc(collection(db, "quiz_sets"), {
+        const docRef = await addDoc(collection(db, "quiz_sets"), {
             userId: user.uid,
             title: S.currentQuizTitle,
             questionCount: S.questions.length,
@@ -87,6 +94,13 @@ export async function saveOnly() {
             isPublic: true,
             folderId: S.currentFolderId || null
         });
+        // Tách Vỏ - Ruột: đồng bộ mảng câu hỏi sang quiz_payloads
+        setDoc(doc(db, "quiz_payloads", docRef.id), {
+            userId: user.uid,
+            isPublic: true,
+            questions: S.questions,
+            updatedAt: new Date()
+        }).catch(() => {});
         await checkCreationAchievements(user.uid);
         showToast(`Đã lưu "${S.currentQuizTitle}" vào thư viện!`, 'success');
         if (saveBtnPreQuiz) saveBtnPreQuiz.innerHTML = '✓ Đã lưu';

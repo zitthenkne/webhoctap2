@@ -4,6 +4,8 @@ import { updateProfile, updatePassword, signOut } from "https://www.gstatic.com/
 import { doc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { updateDocQ as updateDoc } from '../../core/offline-write.js';
 import { showConfirm } from '../../core/utils.js';
+import { readMetaCache, fetchAllQuizMeta } from '../quiz/library/library-meta.js';
+import { readRowsCache, syncRows } from './stats-insights.js';
 
 const avatarEl = document.getElementById('profile-avatar');
 const avatarIconEl = document.getElementById('avatar-icon');
@@ -253,29 +255,57 @@ async function loadQuickStats(user, userData) {
         statMemberSince.textContent = '—';
     }
 
-    // Bộ đề đã tạo (ưu tiên đếm thực tế, fallback về số đã lưu)
-    statQuizSets.textContent = (userData && typeof userData.quizSetsCreated === 'number') ? userData.quizSetsCreated : '0';
-    // Ngoại tuyến: truy vấn chỉ đếm được phần có trong cache máy → ra số sai (thiếu), thà để số đã lưu / "—"
-    if (!navigator.onLine) { statAttempts.textContent = '—'; statAvg.textContent = '—'; return; }
-    try {
-        const qs = await getDocs(query(collection(db, 'quiz_sets'), where('userId', '==', user.uid)));
-        statQuizSets.textContent = qs.size;
-    } catch {}
+    if (!user) return;
 
-    // Lượt thi + điểm trung bình (hệ 10)
-    try {
-        const rs = await getDocs(query(collection(db, 'quiz_results'), where('userId', '==', user.uid)));
-        statAttempts.textContent = rs.size;
-        if (rs.size > 0) {
-            let sum = 0;
-            rs.forEach(d => { sum += (d.data().percentage || 0); });
-            statAvg.textContent = (sum / rs.size / 10).toFixed(1);
-        } else {
+    // 1. BỘ ĐỀ ĐÃ TẠO: Đọc từ cache metadata (0 reads Firestore, không kéo mảng questions)
+    let metaCount = null;
+    const metaCached = readMetaCache(user.uid);
+    if (Array.isArray(metaCached)) {
+        metaCount = metaCached.filter(q => !q.deleted).length;
+        statQuizSets.textContent = metaCount;
+    } else if (userData && typeof userData.quizSetsCreated === 'number') {
+        statQuizSets.textContent = userData.quizSetsCreated;
+    } else {
+        statQuizSets.textContent = '0';
+    }
+
+    // 2. LƯỢT THI + ĐIỂM TRUNG BÌNH: Đọc từ rowsCache (0 reads Firestore, tức thì)
+    const computeRowsStats = (rows) => {
+        if (!Array.isArray(rows) || rows.length === 0) {
+            statAttempts.textContent = '0';
             statAvg.textContent = '0.0';
+            return;
         }
-    } catch {
-        statAttempts.textContent = '0';
-        statAvg.textContent = '0.0';
+        statAttempts.textContent = rows.length;
+        let sumP = 0;
+        let count = 0;
+        rows.forEach(r => {
+            if (r.t > 0) {
+                sumP += (r.s / r.t) * 10;
+                count++;
+            }
+        });
+        statAvg.textContent = count > 0 ? (sumP / count).toFixed(1) : '0.0';
+    };
+
+    const cachedData = readRowsCache();
+    computeRowsStats(cachedData.rows);
+
+    // Ngoại tuyến: dừng tại đây, số liệu trên cache máy đã đủ
+    if (!navigator.onLine) return;
+
+    // Kéo ngầm ở background nếu có lượt làm mới mà không chặn UI
+    syncRows().then(res => {
+        if (res && res.changed) computeRowsStats(res.rows);
+    }).catch(() => {});
+
+    // Kéo nhẹ metadata nếu máy chưa có cache (dùng REST projection, không tải questions)
+    if (metaCount === null) {
+        fetchAllQuizMeta(user.uid).then(list => {
+            if (Array.isArray(list)) {
+                statQuizSets.textContent = list.filter(q => !q.deleted).length;
+            }
+        }).catch(() => {});
     }
 }
 

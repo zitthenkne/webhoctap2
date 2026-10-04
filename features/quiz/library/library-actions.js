@@ -83,16 +83,31 @@ export async function duplicateQuizSet(quizId, quizTitle) {
         const snap = await getDoc(doc(db, "quiz_sets", quizId));
         if (!snap.exists()) { showToast('Không tìm thấy bộ đề trên máy chủ.', 'error'); return; }
         const src = snap.data();
+        let questions = src.questions || [];
+        if (!Array.isArray(questions) || questions.length === 0) {
+            try {
+                const pSnap = await getDoc(doc(db, "quiz_payloads", quizId));
+                if (pSnap.exists() && Array.isArray(pSnap.data().questions)) {
+                    questions = pSnap.data().questions;
+                }
+            } catch (_) {}
+        }
         const newTitle = `${src.title || quizTitle || 'Không tên'} (bản sao)`;
-        await addDoc(collection(db, "quiz_sets"), {
+        const newDocRef = await addDoc(collection(db, "quiz_sets"), {
             userId: user.uid,
             title: newTitle,
-            questions: src.questions || [],
-            questionCount: src.questionCount || (src.questions ? src.questions.length : 0),
+            questions: questions,
+            questionCount: src.questionCount || (questions ? questions.length : 0),
             folderId: src.folderId ?? null,
             isPublic: src.isPublic === true,
             createdAt: new Date()
         });
+        setDocQ(doc(db, "quiz_payloads", newDocRef.id), {
+            userId: user.uid,
+            isPublic: src.isPublic === true,
+            questions: questions,
+            updatedAt: new Date()
+        }).catch(() => {});
         showToast(`Đã tạo "${newTitle}".`, 'success');
         S.isLibraryFullyLoaded = false;   // buộc nạp lại để bộ mới xuất hiện
         await loadAndDisplayLibrary();

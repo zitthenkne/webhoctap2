@@ -13,7 +13,8 @@
 import { db, auth } from '../../core/firebase-init.js';
 import { doc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 // Ghi không treo khi mất mạng (xem core/offline-write.js)
-import { updateDocQ as updateDoc } from "../../core/offline-write.js";
+import { updateDocQ as updateDoc, setDocQ } from "../../core/offline-write.js";
+import { saveOfflineQuiz, isOfflineSavedSync } from './quiz-offline-store.js';
 import { showToast } from '../../core/utils.js';
 import { state, saveQuizState } from './quiz-state.js';
 import { tagCaseSequence } from './page/quiz-cases.js';
@@ -488,6 +489,15 @@ async function commitQuestionEdit(edited) {
         try {
             const cleanQuestions = state.quizData.questions.map(stripInternalFields);
             await updateDoc(doc(db, "quiz_sets", state.quizData.id), { questions: cleanQuestions });
+            setDocQ(doc(db, "quiz_payloads", state.quizData.id), {
+                userId: user.uid,
+                isPublic: state.quizData.isPublic !== false,
+                questions: cleanQuestions,
+                updatedAt: new Date()
+            }, { merge: true }).catch(() => {});
+            if (isOfflineSavedSync(state.quizData.id)) {
+                saveOfflineQuiz(state.quizData.id, state.quizData, { auto: true }).catch(() => {});
+            }
             // Chỉnh sửa đã lên đám mây -> không cần override cục bộ cho câu này nữa.
             if (origIdx >= 0) {
                 const store = getQEdits();
@@ -556,6 +566,15 @@ async function undoLastEdit() {
         try {
             const cleanQuestions = state.quizData.questions.map(stripInternalFields);
             await updateDoc(doc(db, "quiz_sets", state.quizData.id), { questions: cleanQuestions });
+            setDocQ(doc(db, "quiz_payloads", state.quizData.id), {
+                userId: user.uid,
+                isPublic: state.quizData.isPublic !== false,
+                questions: cleanQuestions,
+                updatedAt: new Date()
+            }, { merge: true }).catch(() => {});
+            if (isOfflineSavedSync(state.quizData.id)) {
+                saveOfflineQuiz(state.quizData.id, state.quizData, { auto: true }).catch(() => {});
+            }
         } catch (e) {
             console.error('Hoàn tác trên đám mây thất bại:', e);
             showToast('Không thể hoàn tác trên đám mây. Vui lòng thử lại.', 'error');
