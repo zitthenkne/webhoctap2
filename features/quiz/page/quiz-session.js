@@ -47,6 +47,59 @@ function showLandingError(message, { showRetry = true } = {}) {
     document.title = 'Không tải được bộ đề';
 }
 
+// Tải trước hình ảnh trong câu hỏi để khi tắt mạng ảnh vẫn hiển thị
+function prefetchQuizImages(questions) {
+    if (!Array.isArray(questions)) return;
+    const urls = new Set();
+    const mdImgRegex = /!\[.*?\]\((https?:\/\/[^\s\)]+)\)/g;
+
+    questions.forEach((q) => {
+        if (q && q.image && typeof q.image === 'string' && q.image.startsWith('http')) {
+            urls.add(q.image);
+        }
+        const text = ((q && q.question) || '') + ' ' + ((q && q.explanation) || '') + ' ' + ((q && q.expanded) || '');
+        let match;
+        while ((match = mdImgRegex.exec(text)) !== null) {
+            urls.add(match[1]);
+        }
+    });
+
+    urls.forEach((url) => {
+        try {
+            fetch(url, { mode: 'no-cors' }).catch(() => {});
+        } catch (e) {}
+    });
+}
+
+// Tự động tải lưu offline hoàn chỉnh vào IndexedDB và nạp cache ảnh ngầm
+async function autoSaveAndNotify(quizId, data) {
+    if (!data || !Array.isArray(data.questions) || !data.questions.length) return;
+    const wasSaved = isOfflineSavedSync(quizId);
+
+    try {
+        await saveOfflineQuiz(quizId, data, { auto: false });
+
+        // Cập nhật giao diện nút tải offline
+        const btn = document.getElementById('offline-download-btn');
+        const icon = document.getElementById('offline-download-icon');
+        const label = document.getElementById('offline-download-label');
+        if (btn) btn.classList.add('is-saved');
+        if (icon) icon.className = 'fas fa-check text-emerald-500';
+        if (label) label.textContent = 'Đã tải offline';
+        if (btn) btn.title = 'Bộ đề đã được lưu về máy. Bấm để cập nhật bản mới nhất.';
+
+        // Nạp trước hình ảnh trong câu hỏi vào cache
+        prefetchQuizImages(data.questions);
+
+        // Báo cho người dùng biết để có thể tắt mạng/5G nếu là lần đầu tải về máy
+        if (!wasSaved) {
+            showToast('Đã tải xong bộ đề về máy! Bạn có thể tắt mạng để tiết kiệm 5G/pin nhé.', 'success', 5000);
+        }
+    } catch (e) {
+        console.warn('Lỗi tự động lưu offline bộ đề:', e);
+    }
+}
+
 function setupOfflineDownloadBtn(quizId) {
     const btn = document.getElementById('offline-download-btn');
     if (!btn) return;
@@ -91,8 +144,9 @@ function setupOfflineDownloadBtn(quizId) {
             if (icon) icon.className = 'fas fa-spinner fa-spin';
             if (label) label.textContent = 'Đang lưu...';
             await saveOfflineQuiz(quizId, state.quizData, { auto: false });
+            prefetchQuizImages(state.quizData.questions);
             updateStatus();
-            showToast(isSaved ? 'Đã cập nhật bản offline mới nhất!' : 'Đã tải bộ đề về máy! Giờ bạn có thể học kể cả khi mất mạng.', 'success');
+            showToast(isSaved ? 'Đã cập nhật bản offline mới nhất!' : 'Đã tải bộ đề về máy! Bạn có thể tắt mạng để tiết kiệm 5G/pin nhé.', 'success', 5000);
         } catch (e) {
             console.error('Lỗi lưu offline:', e);
             updateStatus();
@@ -112,8 +166,8 @@ export async function loadQuizData() {
 
     setupOfflineDownloadBtn(quizId);
 
-    // Dùng bộ đề đã tải về máy (IndexedDB) để bắt đầu làm bài.
-    const useOfflineData = (data) => {
+    // Dùng bộ đề (từ IndexedDB hoặc Firestore) để nạp vào state và hiển thị trang chờ
+    const applyQuizData = (data) => {
         state.quizData = data;
         state.quizData.id = quizId;
         applyLocalQuestionEdits();
@@ -123,58 +177,81 @@ export async function loadQuizData() {
         setupOfflineDownloadBtn(quizId);
     };
 
-    // Nếu đang ngoại tuyến, thử dùng bản đã tải về máy trước (không phải chờ mạng timeout).
-    if (!navigator.onLine) {
-        const offline = await getOfflineQuiz(quizId);
-        if (offline) {
-            useOfflineData(offline);
-            showToast('Đang dùng bản đã tải về máy (ngoại tuyến).', 'info');
-            return;
+    // 1. KIỂM TRA BẢN LƯU TRONG MÁY (INDEXEDDB) ĐẦU TIÊN (Tải tức thì ~5-15ms)
+    // Bất kể online hay offline: nếu máy đã có bản lưu, render trang chờ NGAY LẬP TỨC!
+    let localData = null;
+    try {
+        localData = await getOfflineQuiz(quizId);
+        if (localData && Array.isArray(localData.questions) && localData.questions.length > 0) {
+            applyQuizData(localData);
+            prefetchQuizImages(localData.questions);
+        } else {
+            localData = null;
         }
+    } catch (e) {
+        console.warn('Lỗi đọc bản lưu cục bộ:', e);
+        localData = null;
     }
 
-    try {
-        const docRef = doc(db, "quiz_sets", quizId);
-        const remote = getDoc(docRef);
-        let docSnap = await within(remote);
-        if (docSnap === undefined) {
-            // Mạng chập chờn: máy đã có bản tải về thì làm luôn, bản máy chủ về sau chỉ cập nhật bản lưu.
-            const offline = await getOfflineQuiz(quizId);
-            if (offline) {
-                useOfflineData(offline);
-                showToast('Mạng chậm — đang dùng bản đã tải về máy.', 'info');
-                remote.then((s) => { if (s.exists()) autoCacheQuiz(quizId, s.data()); }).catch(() => {});
-                return;
-            }
-            docSnap = await remote;
-        }
-
-        if (docSnap.exists()) {
-            state.quizData = docSnap.data();
-            state.quizData.id = quizId; // Make sure id is stored in state
-            // Áp dụng các chỉnh sửa câu hỏi đã lưu cục bộ trên thiết bị này (nếu không phải chủ bộ đề)
-            applyLocalQuestionEdits();
-            state.originalQuestions = state.quizData.questions;
-            loadQuizDetails();
-            // Lưu luôn bộ đề vừa mở xuống máy: lần sau mất mạng vẫn làm được ngay.
-            autoCacheQuiz(quizId, docSnap.data());
-            // Kéo ghi chú / đánh dấu / bôi vàng đã sao lưu trên cloud về máy này.
-            // Hợp nhất vào localStorage trước khi người dùng bắt đầu làm bài.
-            pullStudyFromCloud(quizId);
-            setupOfflineDownloadBtn(quizId);
-        } else {
-            showLandingError('Không tìm thấy bộ đề này. Có thể nó đã bị xóa hoặc đường dẫn không đúng.', { showRetry: false });
-        }
-    } catch (error) {
-        console.error("Lỗi tải dữ liệu bộ đề:", error);
-        // Mất mạng / lỗi server: thử dùng bản đã tải về máy nếu có.
-        const offline = await getOfflineQuiz(quizId);
-        if (offline) {
-            useOfflineData(offline);
-            showToast('Mất kết nối — đang dùng bản đã tải về máy.', 'info');
+    // 2. NẾU NGOẠI TUYẾN:
+    if (!navigator.onLine) {
+        if (localData) {
+            showToast('Đang học ngoại tuyến bằng bản đã tải về máy.', 'info');
             return;
         }
-        showLandingError('Có lỗi khi tải dữ liệu (mạng chập chờn hoặc máy chủ bận). Bộ đề này chưa được tải về máy để làm offline.');
+        showLandingError('Bạn đang ngoại tuyến và bộ đề này chưa được tải về máy.');
+        return;
+    }
+
+    // 3. NẾU ĐANG CÓ MẠNG (ONLINE):
+    // - Nếu ĐÃ CÓ bản local: chạy fetch ngầm (Stale-While-Revalidate) mà không chặn giao diện.
+    // - Nếu CHƯA CÓ bản local (lần đầu tiên mở bộ đề): await fetch từ Firestore để nạp lần đầu.
+    const revalidateOrFetchRemote = async () => {
+        try {
+            const docRef = doc(db, "quiz_sets", quizId);
+            const remotePromise = getDoc(docRef);
+            // Nếu chưa có dữ liệu thì chờ tối đa 5 giây; nếu đã có bản local rồi thì chờ thoải mái ở nền
+            const docSnap = localData ? await remotePromise : await within(remotePromise, 5000);
+
+            if (docSnap && docSnap.exists()) {
+                const remoteData = docSnap.data();
+                remoteData.id = quizId;
+
+                // Tự động tải lưu offline hoàn chỉnh vào IndexedDB và nạp cache ảnh ngầm
+                autoSaveAndNotify(quizId, remoteData);
+
+                // Nếu người dùng chưa bấm bắt đầu làm bài (vẫn đang ở trang landing),
+                // nhẹ nhàng cập nhật lại thông tin mới nhất từ máy chủ (đề phòng tác giả vừa sửa bài)
+                const isPlaying = document.body.classList.contains('quiz-active') ||
+                    (document.getElementById('quiz-container') && !document.getElementById('quiz-container').classList.contains('hidden'));
+
+                if (!isPlaying) {
+                    applyQuizData(remoteData);
+                }
+            } else if (!localData) {
+                showLandingError('Không tìm thấy bộ đề này. Có thể nó đã bị xóa hoặc đường dẫn không đúng.', { showRetry: false });
+            }
+        } catch (error) {
+            console.warn("Lỗi tải/cập nhật dữ liệu từ cloud:", error);
+            if (!localData) {
+                // Thử lại lần cuối xem IndexedDB có gì không
+                const fallback = await getOfflineQuiz(quizId);
+                if (fallback && Array.isArray(fallback.questions) && fallback.questions.length > 0) {
+                    applyQuizData(fallback);
+                    showToast('Mạng chậm — đang dùng bản đã tải về máy.', 'info');
+                    return;
+                }
+                showLandingError('Có lỗi khi tải dữ liệu từ máy chủ (mạng chập chờn) và bộ đề này chưa được lưu offline.');
+            }
+        }
+    };
+
+    if (localData) {
+        // Đã hiện UI tức thì từ IndexedDB rồi! Cho fetch chạy ngầm ở background, không await chặn UI
+        revalidateOrFetchRemote();
+    } else {
+        // Chưa có bản lưu nào thì mới phải await tải từ Firestore
+        await revalidateOrFetchRemote();
     }
 }
 
