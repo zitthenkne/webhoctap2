@@ -188,12 +188,78 @@ export async function pushCloudStudy(uid, quizId, data) {
             srsPaused: !!meta.paused,
             srsPausedAt: Number(meta.pausedAt) || 0,
             updatedAt: serverTimestamp(),
-        });
+        }, { merge: true });
         return true;
     } catch (e) {
         console.warn('Không lưu được dữ liệu học tập lên cloud:', e);
         return false;
     }
+}
+
+// ----- Tiến trình bài làm dở trên Cloud (đồng bộ giữa các thiết bị) -----
+
+/** Đẩy tiến trình làm bài dở lên cloud (Firestore). Payload nhẹ không chứa mảng questions. */
+export async function pushCloudProgress(uid, quizId, progressObj) {
+    if (!uid || !quizId || !progressObj) return false;
+    try {
+        const ref = doc(db, 'quiz_study', studyDocId(uid, quizId));
+        const clean = { ...progressObj };
+        delete clean.questions; // Đã có questionBlueprint, bỏ questions để payload luôn < 5KB
+        await setDoc(ref, {
+            userId: uid,
+            quizId,
+            inProgress: clean,
+            updatedAt: serverTimestamp(),
+        }, { merge: true });
+        return true;
+    } catch (e) {
+        console.warn('Không lưu được tiến trình làm bài lên cloud:', e);
+        return false;
+    }
+}
+
+/** Đánh dấu phiên làm bài đã kết thúc trên cloud để thiết bị khác không báo làm dở nữa. */
+export async function clearCloudProgress(uid, quizId) {
+    if (!uid || !quizId) return false;
+    try {
+        const ref = doc(db, 'quiz_study', studyDocId(uid, quizId));
+        await setDoc(ref, {
+            inProgress: { finished: true, savedAt: Date.now() },
+            updatedAt: serverTimestamp(),
+        }, { merge: true });
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+/** Tải tiến trình làm bài dở từ cloud (Firestore). Trả về object hoặc null. */
+export async function fetchCloudProgress(uid, quizId) {
+    if (!uid || !quizId) return null;
+    try {
+        const ref = doc(db, 'quiz_study', studyDocId(uid, quizId));
+        const snap = await getDoc(ref);
+        if (!snap.exists()) return null;
+        const d = snap.data();
+        return (d && d.inProgress) ? d.inProgress : null;
+    } catch (e) {
+        console.warn('Không tải được tiến trình làm bài từ cloud:', e);
+        return null;
+    }
+}
+
+// ----- Đẩy tiến trình cloud có giảm tần suất (debounce) -----
+const _progressTimers = {};
+export function scheduleCloudProgressPush(uid, quizId, getProgressFn, delay = 1200) {
+    if (!uid || !quizId) return;
+    const key = studyDocId(uid, quizId);
+    clearTimeout(_progressTimers[key]);
+    _progressTimers[key] = setTimeout(() => {
+        const progress = typeof getProgressFn === 'function' ? getProgressFn() : getProgressFn;
+        if (progress && !progress.finished) {
+            pushCloudProgress(uid, quizId, progress);
+        }
+    }, delay);
 }
 
 // Tải cloud (nếu có) rồi hợp nhất vào local. preferCloud quyết định bên nào
@@ -218,3 +284,4 @@ export function scheduleCloudPush(uid, quizId, delay = 1500) {
         pushCloudStudy(uid, quizId, readLocalStudy(quizId));
     }, delay);
 }
+

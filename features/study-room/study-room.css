@@ -170,11 +170,15 @@ body.present .rm-split { display: none !important; }
 .rm-brand:hover { background: var(--rm-accent-soft); color: var(--rm-accent-deep); transform: translateY(-1px); }
 .rm-brand-logo { width: 1.35rem; height: 1.35rem; border-radius: .45rem; }
 .rm-brand-name {
-    font-size: .82rem; font-weight: 600; letter-spacing: -.01em;
+    font-size: .88rem; font-weight: 700; letter-spacing: -.01em;
     color: var(--rm-accent-deep);
     background: none;
 }
-@media (max-width: 520px) { .rm-brand-name { display: none; } }
+@media (max-width: 640px) {
+    .rm-brand { padding: .25rem .45rem .25rem .35rem; gap: .35rem; }
+    .rm-brand-logo { width: 1.25rem; height: 1.25rem; }
+    .rm-brand-name { display: inline-block !important; font-size: .84rem; font-weight: 800; color: var(--rm-coral-ink); }
+}
 
 /* ---------- Nút ---------- */
 .rm-icon-btn {
@@ -406,18 +410,14 @@ textarea.rm-input { line-height: 1.6; resize: vertical; }
 .rm-qchip.is-warn { color: var(--rm-warn); background: var(--rm-warn-bg); border-color: color-mix(in srgb, var(--rm-warn) 32%, transparent); }
 .rm-qchip.is-info { color: #7B61C4; background: var(--rm-lav-soft); border-color: color-mix(in srgb, var(--rm-lav) 45%, transparent); }
 .rm-qchip.is-edit { color: var(--rm-accent-deep); background: var(--rm-accent-soft); border-color: var(--rm-line); }
-/* Nguồn: mặc định chỉ nhánh cuối, 1 dòng cắt đuôi; bấm thì xổ hết đường dẫn */
+/* Nguồn: hiện ĐẦY ĐỦ đường dẫn, tự xuống dòng; dài (>70 ký tự) thì thu chữ nhỏ hơn */
 .rm-qsrc {
-    display: flex; align-items: baseline; gap: .35rem; max-width: 100%; text-align: left;
+    display: flex; align-items: flex-start; gap: .35rem; max-width: 100%; text-align: left;
     font-size: calc(.66rem * var(--rm-scale)); font-weight: 600; color: var(--rm-muted);
-    transition: color .2s;
 }
-.rm-qsrc i { flex: 0 0 auto; align-self: center; opacity: .5; }
-.rm-qsrc-short { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rm-qsrc-full { display: none; line-height: 1.55; }
-.rm-qsrc.is-open .rm-qsrc-short { display: none; }
-.rm-qsrc.is-open .rm-qsrc-full { display: block; }
-.rm-qsrc:hover { color: var(--rm-accent-deep); }
+.rm-qsrc.is-long { font-size: calc(.58rem * var(--rm-scale)); font-weight: 500; }
+.rm-qsrc i { flex: 0 0 auto; margin-top: .22em; opacity: .5; }
+.rm-qsrc-full { display: block; min-width: 0; line-height: 1.5; overflow-wrap: anywhere; }
 
 /* ---- Cỡ chữ đề tự co theo độ dài ----
    `data-len` do `renderQuestion` đặt theo số ký tự (sm/md/lg/xl). Đề 300-400 chữ mà giữ
@@ -466,6 +466,7 @@ textarea.rm-input { line-height: 1.6; resize: vertical; }
     display: flex; flex-direction: column; align-items: flex-start;
     font-size: calc(1rem * var(--rm-scale)); font-weight: 500; line-height: 1.55;
 }
+.rm-option .rm-otext > .rm-md { display: block; width: 100%; max-width: 100%; }
 /* Cột phải của ô: số phiếu trên, mặt người chọn dưới (tối đa 3 mặt + "+n") */
 .rm-oside { z-index: 1; flex: 0 0 auto; display: flex; flex-direction: row-reverse; align-items: center; gap: .45rem; }
 .rm-oside .rm-voters { margin: 0; }
@@ -4473,13 +4474,24 @@ html.theme-dark .rm-case { box-shadow: 0 1px 0 rgba(255, 255, 255, .04), 0 14px 
     box-shadow: 0 2px 5px -2px rgba(190, 120, 60, .45);
 }
 .rm-case-title {
-    min-width: 2rem; padding: .05rem .3rem; border-radius: .4rem; outline: 0; cursor: text;
+    min-width: 2rem; padding: .05rem .25rem; border-radius: .4rem; outline: 0; cursor: text;
     font-size: calc(.92rem * var(--rm-scale)); font-weight: 600; color: var(--rm-ink);
-    background: linear-gradient(transparent 58%, color-mix(in srgb, var(--rm-peach) 60%, transparent) 58% 94%, transparent 94%);
-    transition: background-color .15s, box-shadow .15s;
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--rm-peach) 65%, transparent);
+    text-decoration-thickness: .28em;
+    text-underline-offset: .18em;
+    text-decoration-skip-ink: none;
+    transition: background-color .15s, box-shadow .15s, text-decoration-color .15s;
 }
-.rm-case-title:hover { background-color: color-mix(in srgb, var(--rm-surface) 55%, transparent); }
-.rm-case-title:focus { background: var(--rm-surface); box-shadow: 0 0 0 2px color-mix(in srgb, var(--rm-peach) 70%, transparent); }
+.rm-case-title:hover {
+    background-color: color-mix(in srgb, var(--rm-surface) 55%, transparent);
+    text-decoration-color: color-mix(in srgb, var(--rm-peach) 90%, transparent);
+}
+.rm-case-title:focus {
+    background: var(--rm-surface);
+    text-decoration: none;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--rm-peach) 70%, transparent);
+}
 .rm-case-dots { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .25rem; }
 .rm-case-dots:empty { display: none; }
 .rm-case-seq { margin-right: .1rem; font-size: .68rem; font-weight: 600; color: var(--rm-warn); font-variant-numeric: tabular-nums; }
@@ -6029,3 +6041,102 @@ html .rm-col-main > .rm-hub::before { content: '♡'; background: var(--rm-butte
     /* hàng "Đợi mình · Cần bàn · Giảng · Đánh dấu": xuống dòng thay vì cuộn ngang (nút cuối bị cắt mép) */
     html .rm-selfchips { flex-wrap: wrap; overflow: visible; padding-right: 0; }
 }
+
+/* ═══════════════ BẢN 52 (2026-10-04): ĐIỆN THOẠI / IPAD — bớt giật, bớt rối ═══════════════
+   Người dùng: "iPad dựt dựt, hở xíu là bị kéo lại / nhảy lố câu; điện thoại nhìn vẫn rối".
+   JS: vuốt đổi câu siết lại (room-mobile) · vẽ lại do snapshot hoãn khi đang chạm/cuộn (study-room-main)
+       · HUD ABCD có độ trễ (room-sparkle). CSS dưới đây: bớt việc cho GPU/CPU lúc cuộn + gọn bố cục. */
+
+/* (1) Đổi câu: lật trang 3D (perspective + rotateY trên CẢ cột chính, đang chứa ô sửa được) nặng trên iPad —
+       máy cảm ứng / điện thoại chỉ cần trượt nhẹ + mờ dần, nhanh hơn. */
+@keyframes rm-sl-lite-next { from { opacity: .35; transform: translateX(14px); } }
+@keyframes rm-sl-lite-prev { from { opacity: .35; transform: translateX(-14px); } }
+@media (hover: none), (max-width: 767px) {
+    .rm-col-main.rm-slide-next { animation: rm-sl-lite-next .18s ease-out backwards; transform-origin: 50% 0; }
+    .rm-col-main.rm-slide-prev { animation: rm-sl-lite-prev .18s ease-out backwards; transform-origin: 50% 0; }
+    /* Viền nhấp nháy của bước kế tiếp animate box-shadow = vẽ lại mỗi khung hình, mãi mãi, ngay trong vùng cuộn.
+       Máy cảm ứng: giữ vòng tĩnh, không nhấp nháy. */
+    .rm-step4.is-next { animation: none; box-shadow: 0 3px 9px -6px rgba(190, 110, 100, .65), 0 0 0 3px color-mix(in srgb, var(--rm-coral) 22%, transparent); }
+}
+
+@media (max-width: 767px) {
+    /* (2) Lời ghim: băng mảnh hơn (~42px -> ~30px) + nút ✕ có vùng chạm ~30px nhưng hình vẫn nhỏ */
+    html .rm-pin { margin-top: .25rem; padding-top: .16rem; padding-bottom: .16rem; line-height: 1.25; }
+    .rm-pin-x { width: 1.9rem; height: 1.9rem; margin: -.3rem -.7rem -.3rem -.2rem; }
+}
+
+@media (max-width: 640px) {
+    /* (3) "Việc của bạn": MỘT hàng — chỉ bước kế tiếp có chữ, các bước còn lại thu thành vòng số / ✓.
+           Trước đây 4 viên có chữ xuống 2 dòng, đứng ngay trên hàng "Đợi mình · Cần bàn…" nên nhìn như 2 hàng nút giống nhau. */
+    .rm-steps4 { flex-wrap: nowrap; margin-bottom: .45rem; }
+    .rm-step4:not(.is-next) { padding-right: .28rem; }
+    .rm-step4:not(.is-next) > span { display: none; }
+    .rm-steps4 li + li::before { width: .6rem; }
+}
+
+/* ---- Banner tên bộ đề trên điện thoại ---- */
+.rm-mobile-banner {
+    display: flex; align-items: center; gap: .45rem;
+    padding: .4rem .75rem; margin-bottom: .65rem;
+    border-radius: var(--rm-r-sm, 10px);
+    background: var(--rm-surface); border: 1px solid var(--rm-line-soft);
+    font-size: calc(.75rem * var(--rm-scale)); font-weight: 700;
+    color: var(--rm-accent-deep);
+    box-shadow: 0 1px 4px rgba(0,0,0,.03);
+}
+.rm-mobile-banner .rm-live-dot { flex-shrink: 0; width: .45rem; height: .45rem; border-radius: 999px; background: var(--rm-accent-deep); box-shadow: 0 0 0 2px var(--rm-accent-soft); }
+.rm-mobile-title { min-width: 0; flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---- Dòng chân trang bản quyền cuối trang ---- */
+.rm-quiz-footer {
+    text-align: center;
+    padding: 2.2rem 1rem 6rem;
+    color: var(--rm-muted);
+    font-size: calc(.72rem * var(--rm-scale));
+    font-weight: 600;
+    letter-spacing: .03em;
+}
+@media (min-width: 768px) {
+    .rm-quiz-footer { padding-bottom: 2.5rem; }
+}
+.rm-footer-cr {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .35rem;
+    flex-wrap: wrap;
+    margin: 0 auto;
+    line-height: 1.5;
+}
+.rm-footer-author {
+    font-weight: 800;
+    background: linear-gradient(135deg, #FF69B4 0%, #D8BFD8 50%, #FF8DA1 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: #FF69B4;
+    text-decoration: none;
+    display: inline-block;
+    padding: 0 .15rem;
+    transition: transform .25s cubic-bezier(.34, 1.56, .64, 1), filter .25s ease, text-decoration .2s ease;
+    cursor: pointer;
+    position: relative;
+}
+.rm-footer-author:hover {
+    transform: translateY(-2px) scale(1.08);
+    filter: drop-shadow(0 2px 8px rgba(255, 105, 180, .45));
+    text-decoration: underline;
+    text-decoration-color: #FF69B4;
+    text-underline-offset: 3px;
+}
+.rm-footer-author:active {
+    transform: translateY(0) scale(.96);
+}
+.rm-footer-sep {
+    color: #f472b6;
+    opacity: .6;
+    font-size: .8em;
+    user-select: none;
+}
+
+

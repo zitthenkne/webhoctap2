@@ -67,9 +67,10 @@ const CONF = [
 ];
 // Mẫu lập luận 🔬🧩📖💡: bấm là mở FORM ngay dưới ô gõ (room-reason.js, bản 44)
 // Mở rộng / Ghi nhớ (bản 26): cả nhóm sửa hoặc thêm mới — session.extra.q<i>.<f>
+// Thứ tự khóa = thứ tự hiện trong sổ tay + mục lục: Ghi nhớ đứng TRƯỚC Mở rộng.
 const XF = {
-    expanded: { ic: '📖', label: 'Mở rộng', ph: 'Kiến thức mở rộng: bảng so sánh, cơ chế sâu hơn, ca kinh điển… (Ctrl+V dán ảnh)' },
     note: { ic: '📌', label: 'Ghi nhớ', ph: 'Một câu chốt / mẹo nhớ ngắn gọn cho cả nhóm…' },
+    expanded: { ic: '📖', label: 'Mở rộng', ph: 'Kiến thức mở rộng: bảng so sánh, cơ chế sâu hơn, ca kinh điển… (Ctrl+V dán ảnh)' },
 };
 
 const stance = {};        // `${i}:${slot}` -> lập trường đang chọn (slot = 'g' ô chung | số phương án)
@@ -263,7 +264,7 @@ export function renderAnswerHub(i, force = false) {
 const nbPref = {};      // `${i}` -> mở sổ gọn (màn hẹp) · `${i}:${sec}` -> đã bấm "Xem thêm"
 const lastRev = {};     // i -> lần vẽ trước đã lộ đáp án chưa
 const freshUntil = {};  // i -> tới lúc này thì còn tô "vừa mở"
-const NB_SEC = { exp: { ic: '💡', label: 'Giải thích' }, expanded: XF.expanded, note: XF.note, mine: { ic: '📝', label: 'Của tôi' } };
+const NB_SEC = { exp: { ic: '💡', label: 'Giải thích' }, note: XF.note, expanded: XF.expanded, mine: { ic: '📝', label: 'Của tôi' } };
 
 // Nội dung đang HIỂN THỊ của sổ tay (đúng luật chống lộ đáp án) — dùng chung cho vẽ, chép, lưu
 function nbState(i) {

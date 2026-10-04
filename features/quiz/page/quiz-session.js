@@ -7,7 +7,7 @@ import { db } from '../../../core/firebase-init.js';
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { showToast } from '../../../core/utils.js';
 import { applyLocalQuestionEdits } from '../quiz-editor.js';
-import { getOfflineQuiz, autoCacheQuiz, within } from '../quiz-offline-store.js';
+import { getOfflineQuiz, autoCacheQuiz, within, isOfflineSavedSync, saveOfflineQuiz } from '../quiz-offline-store.js';
 import { state, saveQuizState, clearQuizState, saveQuizResult, updateQuizResultScore, markQuizStateFinished } from '../quiz-state.js';
 import { shuffleArray, shuffleQuestionOptions, isAnswerCorrect, sessionScore } from '../quiz-helpers.js';
 import { isEssay, isPendingEssay, withAutoGrade } from '../quiz-essay-core.js';
@@ -47,6 +47,60 @@ function showLandingError(message, { showRetry = true } = {}) {
     document.title = 'Không tải được bộ đề';
 }
 
+function setupOfflineDownloadBtn(quizId) {
+    const btn = document.getElementById('offline-download-btn');
+    if (!btn) return;
+    const icon = document.getElementById('offline-download-icon');
+    const label = document.getElementById('offline-download-label');
+
+    const updateStatus = () => {
+        const isOffline = !navigator.onLine;
+        const isSaved = isOfflineSavedSync(quizId);
+
+        btn.classList.toggle('is-saved', isSaved);
+        btn.classList.toggle('is-offline', isOffline);
+
+        if (isOffline) {
+            if (icon) icon.className = 'fas fa-plane text-amber-500';
+            if (label) label.textContent = isSaved ? 'Đang ngoại tuyến' : 'Mất mạng';
+            btn.title = isSaved ? 'Đang học ngoại tuyến bằng bản lưu trên máy.' : 'Mất mạng và chưa có bản tải về.';
+        } else if (isSaved) {
+            if (icon) icon.className = 'fas fa-check text-emerald-500';
+            if (label) label.textContent = 'Đã tải offline';
+            btn.title = 'Bộ đề đã được lưu về máy. Bấm để cập nhật bản mới nhất.';
+        } else {
+            if (icon) icon.className = 'fas fa-arrow-down';
+            if (label) label.textContent = 'Tải offline';
+            btn.title = 'Tải bộ đề về máy để làm bài khi không có mạng.';
+        }
+    };
+
+    updateStatus();
+
+    window.addEventListener('online', updateStatus);
+    window.addEventListener('offline', updateStatus);
+
+    btn.onclick = async () => {
+        if (!state.quizData || !state.quizData.questions) {
+            showToast('Dữ liệu bộ đề đang tải, vui lòng chờ chút nhé...', 'info');
+            return;
+        }
+
+        const isSaved = isOfflineSavedSync(quizId);
+        try {
+            if (icon) icon.className = 'fas fa-spinner fa-spin';
+            if (label) label.textContent = 'Đang lưu...';
+            await saveOfflineQuiz(quizId, state.quizData, { auto: false });
+            updateStatus();
+            showToast(isSaved ? 'Đã cập nhật bản offline mới nhất!' : 'Đã tải bộ đề về máy! Giờ bạn có thể học kể cả khi mất mạng.', 'success');
+        } catch (e) {
+            console.error('Lỗi lưu offline:', e);
+            updateStatus();
+            showToast('Không thể lưu offline: ' + (e.message || 'Lỗi bộ nhớ'), 'error');
+        }
+    };
+}
+
 export async function loadQuizData() {
     const urlParams = new URLSearchParams(window.location.search);
     const quizId = urlParams.get('id');
@@ -56,6 +110,8 @@ export async function loadQuizData() {
         return;
     }
 
+    setupOfflineDownloadBtn(quizId);
+
     // Dùng bộ đề đã tải về máy (IndexedDB) để bắt đầu làm bài.
     const useOfflineData = (data) => {
         state.quizData = data;
@@ -64,6 +120,7 @@ export async function loadQuizData() {
         state.originalQuestions = state.quizData.questions;
         loadQuizDetails();
         pullStudyFromCloud(quizId);
+        setupOfflineDownloadBtn(quizId);
     };
 
     // Nếu đang ngoại tuyến, thử dùng bản đã tải về máy trước (không phải chờ mạng timeout).
@@ -104,6 +161,7 @@ export async function loadQuizData() {
             // Kéo ghi chú / đánh dấu / bôi vàng đã sao lưu trên cloud về máy này.
             // Hợp nhất vào localStorage trước khi người dùng bắt đầu làm bài.
             pullStudyFromCloud(quizId);
+            setupOfflineDownloadBtn(quizId);
         } else {
             showLandingError('Không tìm thấy bộ đề này. Có thể nó đã bị xóa hoặc đường dẫn không đúng.', { showRetry: false });
         }

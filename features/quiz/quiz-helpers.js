@@ -272,9 +272,40 @@ export async function renderMermaid(element) {
     return mermaidRenderQueue;
 }
 
+// $$…$$ / \[…\] nằm GIỮA câu (cùng một dòng với chữ) -> hạ xuống inline, kẻo KaTeX dựng khối display
+// chiếm nguyên dòng làm câu đứt làm 3. Chạy trên DOM nên phủ cả nội dung HTML đã lưu (sửa tay trong phòng),
+// không chỉ đường Markdown. Công thức đứng riêng một dòng / một đoạn thì giữ nguyên là khối display.
+function _inlineMidLineMath(root) {
+    const BREAK = /^(BR|DIV|P|UL|OL|LI|TABLE|TR|H[1-6]|HR|PRE|BLOCKQUOTE|ARTICLE|SECTION)$/;
+    const re = /\$\$([^\n$]{1,80}?)\$\$|\\\[([^\n]{1,80}?)\\\]/g;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    const sib = (t, dir) => {
+        let s = '';
+        for (let n = t[dir]; n && !(n.nodeType === 1 && BREAK.test(n.nodeName)); n = n[dir]) s += n.textContent;
+        return s;
+    };
+    for (const t of nodes) {
+        const v = t.nodeValue;
+        if (!/\$\$|\\\[/.test(v)) continue;
+        const out = v.replace(re, (m, a, b, off) => {
+            const ls = v.lastIndexOf('\n', off - 1) + 1;
+            let le = v.indexOf('\n', off + m.length);
+            if (le < 0) le = v.length;
+            const line = (ls === 0 ? sib(t, 'previousSibling') : '') + v.slice(ls, off)
+                + v.slice(off + m.length, le) + (le === v.length ? sib(t, 'nextSibling') : '');
+            if (!line.replace(re, '').trim()) return m;
+            return a !== undefined ? `$${a.trim()}$` : `\\(${b.trim()}\\)`;
+        });
+        if (out !== v) t.nodeValue = out;
+    }
+}
+
 function _runKaTeX(element) {
     if (!window.renderMathInElement) return;
     try {
+        _inlineMidLineMath(element);
         window.renderMathInElement(element, {
             delimiters: [
                 {left: "$$", right: "$$", display: true},
@@ -448,11 +479,18 @@ export function parseMarkdown(text) {
     });
 
     // 2. Trích xuất và bảo vệ các khối LaTeX $$...$$ (Display Math)
-    html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula) => {
-        const placeholder = `<!--MATHBLOCKPLACEHOLDER${placeholders.length}-->`;
+    // AI hay viết $$LR^-$$ ngay GIỮA câu: KaTeX dựng thành khối display (chiếm nguyên dòng) -> câu bị đứt làm 3.
+    // Nên: công thức ngắn, một dòng, có chữ cùng dòng (trước/sau) => coi là inline; còn lại mới là khối riêng.
+    html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula, offset, str) => {
+        const ls = str.lastIndexOf('\n', offset - 1) + 1;
+        let le = str.indexOf('\n', offset + match.length);
+        if (le < 0) le = str.length;
+        const around = (str.slice(ls, offset) + str.slice(offset + match.length, le)).replace(/<!--[A-Z]+PLACEHOLDER\d+-->/g, '').trim();
+        const inline = !formula.includes('\n') && formula.length <= 80 && around.length > 0;
+        const placeholder = `<!--${inline ? 'MATHINLINE' : 'MATHBLOCK'}PLACEHOLDER${placeholders.length}-->`;
         placeholders.push({
-            type: 'math_block',
-            content: `$$${_escMath(formula)}$$`
+            type: inline ? 'math_inline' : 'math_block',
+            content: inline ? `$${_escMath(formula.trim())}$` : `$$${_escMath(formula)}$$`
         });
         return placeholder;
     });
@@ -466,6 +504,14 @@ export function parseMarkdown(text) {
         });
         return placeholder;
     });
+
+    // 3b. Công thức inline bị tách khỏi câu bằng dấu xuống dòng lẻ ("…Ratio -\n$LR^-$\n) cực…") mà parse từng dòng
+    // sẽ chèn khoảng trắng cả đoạn giữa chúng. Nối lại khi câu rõ ràng chưa hết: dòng trước không kết thúc bằng
+    // . : ; ? ! và dòng sau không phải mục danh sách / bảng / thụt lề.
+    const MI = '<!--MATHINLINEPLACEHOLDER\\d+-->';
+    const NOT_BLOCK = '(?![-*+]\\s|\\d+\\.\\s|[a-zA-Z]\\.\\s|\\||\\s{2})';
+    html = html.replace(new RegExp(`([^\\s.:;?!>])[ \\t]*\\n[ \\t]*(${MI})`, 'g'), '$1 $2')
+               .replace(new RegExp(`(${MI})[ \\t]*\\n[ \\t]*(?=[a-zà-ỹ),;.\\]])${NOT_BLOCK}`, 'g'), '$1 ');
 
     // 4. Phân tách các dòng để xử lý bảng, danh sách phân cấp và Markdown inline
     const lines = html.split('\n');
@@ -699,6 +745,68 @@ export function sessionScore(questions, answers) {
 }
 
 /**
+ * Áp dụng một thứ tự đáp án cố định (order) lên câu hỏi:
+ * - Đảo vị trí các lựa chọn theo mảng chỉ số `order`
+ * - Cập nhật lại correctAnswerIndex, correctAnswerIndexes, optionExplanations
+ * - Gắn `__optOrder` để có thể tái tạo hoặc lưu dạng blueprint siêu nhẹ
+ */
+export function applyOptionOrder(question, order) {
+    if (!Array.isArray(order) || order.length <= 1) {
+        return { ...question };
+    }
+    const answerOptions = question.answers || question.options;
+    if (!Array.isArray(answerOptions) || answerOptions.length <= 1) {
+        return { ...question };
+    }
+
+    const shuffled = { ...question, __optOrder: order };
+    const newOptions = order.map(i => answerOptions[i]);
+
+    if (Array.isArray(question.answers)) shuffled.answers = newOptions;
+    if (Array.isArray(question.options)) shuffled.options = newOptions;
+    if (!Array.isArray(question.answers) && !Array.isArray(question.options)) {
+        shuffled.options = newOptions;
+    }
+
+    if (typeof question.correctAnswerIndex === 'number' && question.correctAnswerIndex >= 0) {
+        shuffled.correctAnswerIndex = order.indexOf(question.correctAnswerIndex);
+    }
+    if (Array.isArray(question.correctAnswerIndexes) && question.correctAnswerIndexes.length > 0) {
+        shuffled.correctAnswerIndexes = question.correctAnswerIndexes
+            .map(ci => order.indexOf(ci)).filter(x => x >= 0).sort((a, b) => a - b);
+    }
+    if (Array.isArray(question.optionExplanations)) {
+        shuffled.optionExplanations = order.map(i => question.optionExplanations[i]);
+    }
+
+    return shuffled;
+}
+
+/**
+ * Tái tạo lại danh sách câu hỏi phiên làm bài từ câu hỏi gốc và blueprint nhẹ (origIdx + optOrder).
+ * Không cần lưu lại toàn bộ chuỗi đề/giải thích/ảnh cồng kềnh, tránh vượt quota localStorage và Firestore.
+ */
+export function reconstructQuestionsFromBlueprint(originalQuestions, blueprint) {
+    if (!Array.isArray(originalQuestions) || !originalQuestions.length) return [];
+    if (!Array.isArray(blueprint) || !blueprint.length) {
+        return originalQuestions.map((q, i) => ({ ...q, __origIdx: i }));
+    }
+    return blueprint.map((item, idx) => {
+        const origIdx = (typeof item.origIdx === 'number' && item.origIdx >= 0 && item.origIdx < originalQuestions.length)
+            ? item.origIdx
+            : (idx < originalQuestions.length ? idx : 0);
+        const baseQ = originalQuestions[origIdx];
+        if (!baseQ) return null;
+        let q = { ...baseQ, __origIdx: origIdx };
+        if (item.caseId) q.caseId = item.caseId;
+        if (Array.isArray(item.optOrder)) {
+            q = applyOptionOrder(q, item.optOrder);
+        }
+        return q;
+    }).filter(Boolean);
+}
+
+/**
  * Trộn thứ tự đáp án của MỘT câu hỏi một cách an toàn:
  * - Đảo vị trí các lựa chọn (answers/options)
  * - Cập nhật lại correctAnswerIndex theo vị trí mới
@@ -719,33 +827,7 @@ export function shuffleQuestionOptions(question) {
         [order[i], order[j]] = [order[j], order[i]];
     }
 
-    const shuffled = { ...question };
-    const newOptions = order.map(i => answerOptions[i]);
-
-    // Đồng bộ cả hai trường nếu cùng tồn tại (editor lưu cả answers lẫn options),
-    // để không sót mảng cũ chưa trộn ở bất kỳ nơi nào đọc dữ liệu.
-    if (Array.isArray(question.answers)) shuffled.answers = newOptions;
-    if (Array.isArray(question.options)) shuffled.options = newOptions;
-    if (!Array.isArray(question.answers) && !Array.isArray(question.options)) {
-        shuffled.options = newOptions;
-    }
-
-    // Remap đáp án đúng: vị trí mới của index đúng cũ
-    if (typeof question.correctAnswerIndex === 'number' && question.correctAnswerIndex >= 0) {
-        shuffled.correctAnswerIndex = order.indexOf(question.correctAnswerIndex);
-    }
-    // Remap cả tập đáp án đúng khi câu cho phép chọn nhiều đáp án
-    if (Array.isArray(question.correctAnswerIndexes) && question.correctAnswerIndexes.length > 0) {
-        shuffled.correctAnswerIndexes = question.correctAnswerIndexes
-            .map(ci => order.indexOf(ci)).filter(x => x >= 0).sort((a, b) => a - b);
-    }
-
-    // Remap giải thích theo từng đáp án (nếu có)
-    if (Array.isArray(question.optionExplanations)) {
-        shuffled.optionExplanations = order.map(i => question.optionExplanations[i]);
-    }
-
-    return shuffled;
+    return applyOptionOrder(question, order);
 }
 
 export function convertScoreToGPA(correct, total) {

@@ -341,7 +341,19 @@ export function renderResults() {
                 <button id="result-again-btn" class="rm-ghost-btn"><i class="fas fa-rotate-right"></i>Làm lại từ câu 1</button>
                 <button id="result-close-btn" class="rm-ghost-btn">Đóng phiên</button>
             ` : `<p class="text-xs text-muted">Chờ chủ trì mở phiên tiếp theo.</p>`}
-        </div>`;
+        </div>
+        <footer class="rm-quiz-footer">
+            <p class="rm-footer-cr">
+                <span>&copy; 2025</span>
+                <a href="https://fb.com/vietthanh1911" target="_blank" rel="noopener noreferrer" class="rm-footer-author" title="Ghé thăm Facebook của Zitthenk">Zitthenk</a>
+                <span class="rm-footer-sep">&bull;</span>
+                <span>Y23C</span>
+                <span class="rm-footer-sep">&bull;</span>
+                <span>17</span>
+                <span class="rm-footer-sep">&bull;</span>
+                <span>UMP</span>
+            </p>
+        </footer>`;
 
     // Lần đầu mở màn tổng kết của phiên này: bục mọc lên, huy hiệu dán vào, điểm đếm chạy.
     // Snapshot sau (nhịp tim, chat) vẽ lại thì đứng yên — không diễn lại.

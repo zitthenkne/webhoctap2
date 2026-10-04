@@ -7,7 +7,7 @@
 import { updateDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { parseMarkdown, renderMath, stripOptionLabels, triggerConfetti } from '../quiz/quiz-helpers.js';
 import {
-    room, refs, uid, canControl, hasSession, optsOf, refIdxOf, chosenOf, isAnnounced, isShown, isBlind,
+    room, refs, uid, canControl, hasSession, optsOf, refIdxOf, chosenOf, isAnnounced, isShown, isBlind, setState,
     noteOf, optNoteOf, answerOf, flagOf, readyOf, unclearOf, currentIndex, isCoop, canRoam,
     questionAt, editOf, issueOf, editorOf, noteAuthorOf, whyOf, dissentOf, talkUntil, prevVoteOf,
     isEssay, doneOf, doneCount, isAccepted, isSplit, acceptedText, acceptedOf, argsOf,
@@ -24,6 +24,7 @@ import { isOnline } from './room-members.js';
 import { elimsOf } from './room-reason.js';
 import { renderGameBar, downloadMyNotes } from './room-game.js';
 import { renderAnswerHub, initAnswerHub, renderOptionTalk, unreadQs, openAsksOf, renderNotebook, focusHub } from './room-answer.js';
+import { initScrollHold, resetScrollHold } from './room-scrollhold.js';
 
 let viewIndex = null;            // câu MÌNH đang xem
 let lastFocus = null;
@@ -190,6 +191,8 @@ export function renderQuiz() {
     badge?.classList.toggle('sm:flex', active);
     const bt = el('session-badge-text');
     if (bt && active) bt.textContent = s.quizTitle || 'Phiên đánh đề';
+    const mbt = el('mobile-quiz-title');
+    if (mbt && active) mbt.textContent = s.quizTitle || 'Phiên đánh đề';
 
     const pin = el('pinned-note');
     if (pin) {
@@ -261,6 +264,7 @@ function renderLive() {
         setTimeout(() => area?.classList.remove('is-new'), 600);
         const firstPaint = lastRenderIndex === null;
         lastRenderIndex = i;
+        resetScrollHold();                      // sang câu khác: nội dung thay hẳn, đừng bù cuộn theo mốc cũ
         requestAnimationFrame(() => centerTrack(!firstPaint));
     }
 
@@ -343,18 +347,14 @@ function renderLive() {
     if (q.topic && String(q.topic).trim().toLowerCase() !== 'chung') addChip('', escapeHtml(q.topic));
     if (q.level) addChip('', escapeHtml(q.level));
     if (Number(q.maxScore) > 0) addChip('', `${String(q.maxScore).replace('.', ',')} điểm`);
-    if (q.expanded) addChip('is-info', '📖 mở rộng');
-    if (q.note) addChip('is-info', '📌 ghi nhớ');
+    // (Viên "📖 mở rộng" / "📌 ghi nhớ" đã bỏ: sổ tay bên cạnh có sẵn mục lục + đèn báo.)
     let metaHtml = chips.length ? `<span class="rm-qchips">${chips.join('')}</span>` : '';
     if (q.source) {
+        // Nguồn hiện ĐẦY ĐỦ đường dẫn; dài thì chữ nhỏ hơn (class is-long) thay vì cắt đuôi
         const full = String(q.source).trim();
-        // Chỉ hiện NHÁNH CUỐI (phần cụ thể nhất); cắt theo `›`/`>` thôi — đừng cắt theo `/`
-        // kẻo "Xử trí dịch/máu" bị xén mất một nửa.
-        const leaf = full.split(/\s*[›>]\s*/).filter(Boolean).pop() || full;
-        metaHtml += `<button type="button" class="rm-qsrc" data-qsrc title="${escapeHtml(full)}">`
+        metaHtml += `<span class="rm-qsrc${full.length > 70 ? ' is-long' : ''}" title="${escapeHtml(full)}">`
             + `<i class="fas fa-book-open"></i>`
-            + `<span class="rm-qsrc-short">${escapeHtml(leaf)}</span>`
-            + `<span class="rm-qsrc-full">${escapeHtml(full)}</span></button>`;
+            + `<span class="rm-qsrc-full">${escapeHtml(full)}</span></span>`;
     }
     meta.innerHTML = metaHtml;
     meta.classList.toggle('hidden', !metaHtml);
@@ -575,7 +575,7 @@ function renderOptions(i, q, opts, mine, chosen, announced, shown, refIdx, stats
         const names = showStats ? voters(idx) : [];
         const textHtml = editingOpt === idx
             ? `<span class="rm-md" contenteditable="true" data-live-edit="opttext:${idx}" data-placeholder="Nội dung phương án ${L(idx)}…">${renderRich(opt)}</span>`
-            : renderRich(opt);
+            : `<span class="rm-md">${renderRich(opt)}</span>`;
         // Số phiếu + mặt người chọn dồn về MỘT cột bên phải (trước đây avatar chiếm
         // riêng một dòng dưới chữ -> mỗi ô cao thêm ~30px, điện thoại chỉ thấy 2-3 ô).
         // 0 phiếu thì khỏi ghi "0 · 0%" — 4 ô cùng lặp số 0 chỉ làm rối mắt
@@ -1087,6 +1087,7 @@ const pinDismissed = () => { try { return sessionStorage.getItem(pinKey()) || ''
 
 export function initStage() {
     initAnswerHub();
+    initScrollHold();
     el('pinned-note-x')?.addEventListener('click', () => {
         try { sessionStorage.setItem(pinKey(), room.session?.pinnedNote || ''); } catch (e) {}
         el('pinned-note')?.classList.add('hidden');
@@ -1343,7 +1344,9 @@ export function initStage() {
     el('answer-block')?.addEventListener('click', blockClicks);
     el('my-block')?.addEventListener('click', blockClicks);
     window.addEventListener('room:view', (e) => { if (hasSession()) setViewIndex(Number(e.detail) || 0); });
-    window.addEventListener('room:chat', () => { if (hasSession()) renderQuiz(); });
+    // Qua bộ lập lịch vẽ chung (gộp theo khung hình, hoãn khi đang chạm/cuộn) thay vì vẽ thẳng — tin chat của người khác
+    // đến lúc mình đang kéo dải câu / cuộn là thủ phạm làm cử chỉ bị ngắt (study-room-main.js · paintWhenIdle)
+    window.addEventListener('room:chat', () => { if (hasSession()) setState({}); });
     el('race')?.addEventListener('click', (e) => {
         const av = e.target.closest('[title]');
         // dòng tóm tắt là nút gập/xổ (room-mobile.js), chỉ mặt người trên đường đua mới mở bảng Nhóm

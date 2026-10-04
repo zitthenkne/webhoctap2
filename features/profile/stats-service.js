@@ -868,7 +868,7 @@ export function calculateGPA(opts) {
     } else if (score10 >= 5.0) {
         img = 'assets/squirrel_D.png';
         motivation = "Đạt mức Trung bình yếu (D+). Cần xem lại các ca lâm sàng và câu hỏi lý thuyết.";
-        gradeBg = 'from-purple-50 to-violet-50'; gradeColor = 'text-violet-500'; gradeBorder = 'border-violet-300'; gradeEmoji = '🔮';
+        gradeBg = 'from-rose-50 to-orange-50'; gradeColor = 'text-rose-500'; gradeBorder = 'border-rose-300'; gradeEmoji = '🌷';
     } else if (score10 >= 4.0) {
         img = 'assets/squirrel_D.png';
         motivation = "Đạt mức đạt chuẩn tối thiểu (D). Cần tập trung ôn luyện kỹ càng hơn.";
@@ -900,7 +900,7 @@ export function calculateGPA(opts) {
     // Thanh "thang hệ 10" chia vùng theo điểm chữ + kim chỉ vị trí hiện tại — nhìn phát biết mình đang ở đâu
     const ZONES = [
         { to: 4.0, cls: 'bg-gray-300', label: 'F' },
-        { to: 5.5, cls: 'bg-violet-300', label: 'D' },
+        { to: 5.5, cls: 'bg-rose-300', label: 'D' },
         { to: 7.0, cls: 'bg-sky-300', label: 'C' },
         { to: 8.5, cls: 'bg-emerald-300', label: 'B' },
         { to: 10, cls: 'bg-amber-300', label: 'A' },
@@ -1266,7 +1266,7 @@ export function calculateRequiredCorrectAnswers(opts) {
 // Icon gợi nhớ cho từng loại bài thi
 const ATTEMPT_ICONS = { 'Pretest': 'fa-vial', 'Giữa kỳ': 'fa-pen-fancy', 'Cuối kỳ': 'fa-flag-checkered' };
 
-const WEIGHT_SEG_COLORS = ['bg-pink-300', 'bg-amber-200', 'bg-sky-200', 'bg-emerald-200', 'bg-purple-200', 'bg-rose-200'];
+const WEIGHT_SEG_COLORS = ['bg-pink-300', 'bg-amber-200', 'bg-sky-200', 'bg-emerald-200', 'bg-teal-200', 'bg-rose-200'];
 
 /**
  * Thanh trọng số: nhìn một phát biết đợt nào "nặng" và đã đủ 100% chưa.
@@ -1714,7 +1714,7 @@ function updateGpaProjection() {
                 const cls = s10 >= 8.5 ? 'bg-amber-100 text-amber-600'
                     : s10 >= 7.0 ? 'bg-emerald-100 text-emerald-600'
                     : s10 >= 5.5 ? 'bg-sky-100 text-sky-600'
-                    : s10 >= 4.0 ? 'bg-violet-100 text-violet-600'
+                    : s10 >= 4.0 ? 'bg-rose-100 text-rose-600'
                     : 'bg-red-100 text-red-500';
                 pill.textContent = `${score4.toFixed(1)} · ${s10.toFixed(2)} · ${letterGrade}`;
                 pill.className = `${PILL_BASE} ${cls}`;

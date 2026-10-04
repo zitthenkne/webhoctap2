@@ -836,7 +836,11 @@ function setupNavPanelJump() {
                 const i = (state.currentIndex + k) % total;
                 const a = state.userAnswers[i];
                 if (a === null || a === undefined) {
-                    if (i !== state.currentIndex) { state.currentIndex = i; showQuestion(); }
+                    if (i !== state.currentIndex) {
+                        state.currentIndex = i;
+                        saveQuizState();
+                        showQuestion();
+                    }
                     return;
                 }
             }
@@ -848,6 +852,7 @@ function setupNavPanelJump() {
         const idx = parseInt(btn.dataset.qidx, 10);
         if (!isNaN(idx) && idx !== state.currentIndex) {
             state.currentIndex = idx;
+            saveQuizState();
             showQuestion();
         }
     });
@@ -857,6 +862,7 @@ function setupNavPanelJump() {
 export function showPreviousQuestion() {
     if (state.currentIndex > 0) {
         state.currentIndex--;
+        saveQuizState();
         showQuestion();
     }
 }
@@ -864,6 +870,7 @@ export function showPreviousQuestion() {
 export async function showNextQuestion() {
     if (state.currentIndex < state.questions.length - 1) {
         state.currentIndex++;
+        saveQuizState();
         showQuestion();
     } else {
         const unanswered = state.userAnswers.filter(a => a === null).length;
@@ -1008,6 +1015,7 @@ export function handleAnswerClick(e) {
             nextBtn.addEventListener('click', showNextQuestion, { once: true });
         }
         updateMobileNav(); syncQuizNavPanel();
+        saveQuizState();
         return;
     }
 
@@ -1099,8 +1107,9 @@ export function handleAnswerClick(e) {
         nextBtn.addEventListener('click', showNextQuestion, { once: true });
     }
 
-    // Đã trả lời -> cập nhật tiến trình trên thanh điều hướng đáy (mobile)
+    // Đã trả lời -> cập nhật tiến trình trên thanh điều hướng đáy (mobile) và lưu ngay lập tức
     updateMobileNav(); syncQuizNavPanel();
+    saveQuizState();
 
     // Trên màn hẹp: kéo đáp án đúng + phần "Tại sao đúng" vào giữa màn hình
     focusExplanation(question.correctAnswerIndex);

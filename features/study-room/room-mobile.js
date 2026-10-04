@@ -196,9 +196,14 @@ export function initMobile() {
     // --- Vuốt ngang để đổi câu ---
     // Bản 32: có phản hồi ngay khi kéo — viên "Câu N ›" trồi ra ở mép màn theo ngón tay, đủ xa thì
     // đổi màu + rung nhẹ = thả tay là sang câu (trước đây vuốt mù, không biết đã đủ xa chưa).
-    let x0 = null, y0 = null, skip = false, armed = false;
+    let x0 = null, y0 = null, t0 = 0, st0 = 0, skip = false, armed = false, vLock = false, lastSwipe = 0;
     const stage = el('stage-quiz');
-    const TRIP = 65;
+    // Bản 52 (iPad "dựt, nhảy lố câu"): ngưỡng 65px + dx ≥ 1,6·dy quá dễ — cuộn trang hơi chéo, hoặc ngón
+    // trượt nhẹ lúc chạm cũng thành đổi câu. Nay: phải vuốt NGANG rõ (điện thoại 90px · iPad 150px, dx ≥ 2,2·dy),
+    // đủ nhanh, không kèm cuộn dọc, và nghỉ 500ms sau mỗi lần đổi để không nhảy đôi.
+    const trip = () => (isPhone() ? 90 : 150);
+    const H_RATIO = 2.2;
+    const scrolledV = () => Math.abs((stage?.scrollTop || 0) - st0) > 6;
     // Bản 47 (iPad): vuốt đổi câu NHƯỜNG mọi thao tác kéo khác. Trước đây kéo thanh chia 2 cột (#split-live nằm
     // trong vùng làm bài; preventDefault ở pointerdown KHÔNG chặn được touch event) là nhảy câu luôn.
     const NO_SWIPE = 'input, textarea, select, .rm-split, .rm-qtrack, .rm-emoji-bar, .rm-quick-bar, '
@@ -230,7 +235,9 @@ export function initMobile() {
         if (selecting()) { skip = true; hideHint(); return; }
         const dx = e.touches[0].clientX - x0;
         const dy = e.touches[0].clientY - y0;
-        if (Math.abs(dx) < 14 || Math.abs(dx) < Math.abs(dy) * 1.6) { hideHint(); return; }
+        if (!vLock && Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) vLock = true;   // ý định là cuộn dọc
+        if (vLock || scrolledV()) { skip = true; hideHint(); return; }
+        if (Math.abs(dx) < 14 || Math.abs(dx) < Math.abs(dy) * H_RATIO) { hideHint(); return; }
         const total = room.session?.questions?.length || 0;
         const to = effectiveIndex() + (dx < 0 ? 1 : -1);
         const ok = to >= 0 && to < total;
@@ -239,9 +246,9 @@ export function initMobile() {
         if (h.textContent !== txt) h.textContent = txt;
         h.classList.toggle('is-left', dx > 0);
         h.classList.toggle('is-end', !ok);
-        h.style.setProperty('--p', Math.min(1, Math.abs(dx) / TRIP).toFixed(3));
+        h.style.setProperty('--p', Math.min(1, Math.abs(dx) / trip()).toFixed(3));
         h.classList.add('is-on');
-        const now = ok && Math.abs(dx) >= TRIP;
+        const now = ok && Math.abs(dx) >= trip();
         if (now && !armed) haptic(6);
         armed = now;
         h.classList.toggle('is-armed', now);
@@ -259,6 +266,9 @@ export function initMobile() {
         skip = typing || !!t.closest?.(NO_SWIPE) || !!openSheet || x < EDGE || x > window.innerWidth - EDGE || scrollsX(t) || selecting();
         x0 = x;
         y0 = e.touches[0].clientY;
+        t0 = Date.now();
+        st0 = stage.scrollTop;
+        vLock = false;
     }, { passive: true });
     stage?.addEventListener('touchend', (e) => {
         hideHint();
@@ -266,8 +276,11 @@ export function initMobile() {
         const t = e.changedTouches[0];
         const dx = t.clientX - x0;
         const dy = t.clientY - y0;
+        const slow = Date.now() - t0 > 800;
         x0 = null;
-        if (Math.abs(dx) < TRIP || Math.abs(dx) < Math.abs(dy) * 1.6 || selecting()) return;
+        if (Math.abs(dx) < trip() || Math.abs(dx) < Math.abs(dy) * H_RATIO || vLock || scrolledV() || slow || selecting()) return;
+        if (Date.now() - lastSwipe < 500) return;
+        lastSwipe = Date.now();
         setViewIndex(effectiveIndex() + (dx < 0 ? 1 : -1));
     }, { passive: true });
 

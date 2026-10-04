@@ -550,6 +550,22 @@ function maybeCountdown() {
 // Gộp theo KHUNG HÌNH: một loạt snapshot về cùng lúc (phòng · thành viên · phiên · chat)
 // trước đây vẽ lại 4 lần liên tiếp trong một nhịp -> nhìn như giật.
 let paintPending = false;
+// Đang chạm / đang cuộn thì HOÃN vẽ lại do snapshot (bản 52). Dải câu, ô đáp án, bảng phiếu đều dựng lại bằng
+// innerHTML: nếu việc đó rơi giữa lúc ngón tay đang kéo thì phần tử đang chạm bị thay -> iOS huỷ cử chỉ, cuộn
+// khựng, hoặc chạm trượt sang ô khác ("cứ hở xíu là bị kéo lại"). Hành động của chính mình (bấm nút, đổi câu...)
+// vẫn gọi renderQuiz() thẳng nên không bị chậm. Mốc "chạm" hết hạn sau 1s phòng khi touchend không tới được
+// document (phần tử bị gỡ khỏi DOM giữa chừng); hoãn tối đa 1,5s để không bao giờ đói.
+let touching = false, lastTouchEv = 0, lastScrollEv = 0, deferSince = 0;
+const markTouch = (on) => () => { touching = on; lastTouchEv = Date.now(); };
+document.addEventListener('touchstart', markTouch(true), { passive: true, capture: true });
+document.addEventListener('touchmove', () => { lastTouchEv = Date.now(); }, { passive: true, capture: true });
+document.addEventListener('touchend', markTouch(false), { passive: true, capture: true });
+document.addEventListener('touchcancel', markTouch(false), { passive: true, capture: true });
+document.addEventListener('scroll', () => { lastScrollEv = Date.now(); }, { passive: true, capture: true });
+const userBusy = () => {
+    const now = Date.now();
+    return (touching && now - lastTouchEv < 1000) || now - lastScrollEv < 160;
+};
 // Sảnh chờ đã có ghế (= tab Nhóm) và khung trò chuyện (= tab Chat) -> bảng bên máy tính chỉ lặp lại.
 // Vào sảnh thì thu thành ray (KHÔNG ghi nhớ); vào phiên thì trả lại đúng lựa chọn đã lưu của người dùng.
 // Chỉ đổi lúc chuyển sảnh <-> phiên, nên người dùng tự mở bảng trong sảnh vẫn được tôn trọng.
@@ -577,10 +593,18 @@ function paintAll() {
     if (isChatOpen()) renderChat();
     window.dispatchEvent(new Event('room:paint'));
 }
+function paintWhenIdle() {
+    if (userBusy()) {
+        if (!deferSince) deferSince = Date.now();
+        if (Date.now() - deferSince < 1500) return void setTimeout(paintWhenIdle, 120);
+    }
+    deferSince = 0;
+    paintAll();
+}
 subscribe(() => {
     if (paintPending) return;
     paintPending = true;
-    requestAnimationFrame(paintAll);
+    requestAnimationFrame(paintWhenIdle);
 });
 
 async function initRoom() {

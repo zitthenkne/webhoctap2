@@ -337,7 +337,9 @@ html.theme-dark #quiz-hero-img { filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.
 #quiz-landing .nb-stat .nb-stat-sub { color: var(--ink-muted); }
 #quiz-landing .nb-stat > .font-bold { color: var(--hi); }
 
-#show-preview-btn { --h: var(--hue-sky); --hi: var(--ink-sky); border-radius: 999px; }
+#show-preview-btn, #offline-download-btn { --h: var(--hue-sky); --hi: var(--ink-sky); border-radius: 999px; }
+#offline-download-btn.is-saved { --h: var(--hue-mint); --hi: var(--ink-mint); }
+#offline-download-btn.is-offline { --h: var(--hue-peach); --hi: var(--ink-peach); }
 #quiz-preview {
     background: var(--paper) !important;
     border: 2px dashed color-mix(in srgb, var(--hue-sky) 55%, transparent) !important;

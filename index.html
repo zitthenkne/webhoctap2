@@ -536,10 +536,1617 @@
                         transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
                     }
                     .gpa-range::-webkit-slider-thumb:hover { transform: scale(1.25); }
+
+                    /* Lớp giao diện study planner chỉ dành cho khu vực GPA. */
+                    #gpaCalculatorContent {
+                        isolation: isolate;
+                        overflow: visible;
+                        border-radius: 40px;
+                        background:
+                            radial-gradient(circle at 8% 12%, rgba(254, 240, 138, 0.34), transparent 19rem),
+                            radial-gradient(circle at 94% 30%, rgba(186, 230, 253, 0.42), transparent 20rem),
+                            linear-gradient(180deg, rgba(253, 242, 248, 0.8), rgba(255, 255, 255, 0.15));
+                    }
+                    #gpaCalculatorContent::before,
+                    #gpaCalculatorContent::after {
+                        content: '';
+                        position: absolute;
+                        z-index: 0;
+                        pointer-events: none;
+                        border-radius: 999px;
+                        filter: blur(2px);
+                    }
+                    #gpaCalculatorContent::before {
+                        width: 13rem;
+                        height: 13rem;
+                        top: 10rem;
+                        right: -8rem;
+                        background: rgba(252, 207, 232, 0.38);
+                    }
+                    #gpaCalculatorContent::after {
+                        width: 10rem;
+                        height: 10rem;
+                        bottom: 9rem;
+                        left: -6rem;
+                        background: rgba(186, 230, 253, 0.35);
+                    }
+                    #gpaCalculatorContent > :not(style) {
+                        position: relative;
+                        z-index: 1;
+                    }
+                    #gpaCalculatorContent .gpa-eyebrow,
+                    #gpaCalculatorContent .gpa-section-tag {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 0.45rem;
+                        font-family: 'Baloo 2', cursive;
+                        font-weight: 800;
+                        letter-spacing: 0.04em;
+                        color: #be185d;
+                        background: rgba(255, 255, 255, 0.82);
+                        border: 2px solid rgba(251, 207, 232, 0.9);
+                        box-shadow: 0 6px 16px rgba(244, 114, 182, 0.12);
+                    }
+                    #gpaCalculatorContent .gpa-eyebrow {
+                        padding: 0.32rem 0.82rem;
+                        border-radius: 999px;
+                        font-size: 0.73rem;
+                        text-transform: uppercase;
+                    }
+                    #gpaCalculatorContent .gpa-section-tag {
+                        position: absolute;
+                        right: 1.75rem;
+                        bottom: -0.85rem;
+                        padding: 0.22rem 0.68rem;
+                        border-radius: 999px;
+                        font-size: 0.68rem;
+                        transform: rotate(2deg);
+                    }
+                    #gpaCalculatorContent .gpa-card {
+                        overflow: visible;
+                    }
+                    #gpaCalculatorContent .gpa-card:focus-within {
+                        border-color: #f9a8d4;
+                        box-shadow: 0 20px 46px -14px rgba(244, 114, 182, 0.36);
+                    }
+                    #gpaCalculatorContent .attempt-row {
+                        border-color: #fbcfe8;
+                        box-shadow: 0 8px 18px rgba(244, 114, 182, 0.08);
+                    }
+                    #gpaCalculatorContent .attempt-row:hover {
+                        border-color: #f9a8d4;
+                        transform: translateY(-2px);
+                    }
+                    #gpaCalculatorContent #gpa-result-area:not(.hidden),
+                    #gpaCalculatorContent #required-correct-result:not(:empty) {
+                        animation: gpa-result-pop 0.45s cubic-bezier(0.22, 1.35, 0.36, 1) both;
+                    }
+                    @keyframes gpa-result-pop {
+                        from { opacity: 0; transform: translateY(10px) scale(0.97); }
+                        to { opacity: 1; transform: translateY(0) scale(1); }
+                    }
+                    @media (max-width: 640px) {
+                        #gpaCalculatorContent { border-radius: 28px; }
+                        #gpaCalculatorContent .gpa-section-tag { right: 1.25rem; }
+                    }
+                    @media (prefers-reduced-motion: reduce) {
+                        #gpaCalculatorContent *,
+                        #gpaCalculatorContent *::before,
+                        #gpaCalculatorContent *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+                    }
+
+                    /* Scrapbook pastel: tất cả các lớp trang trí đều bị giới hạn trong GPA. */
+                    #gpaCalculatorContent {
+                        --paper-cream: #fffdf8;
+                        --ink-plum: #9a4f67;
+                        --stitch-pink: #ef9fc9;
+                        --mint: #c8f2e2;
+                        --butter: #fff0ad;
+                        max-width: 640px !important;
+                        padding-top: clamp(2rem, 6vw, 3.25rem);
+                        background-color: #fff8fb;
+                        background-image:
+                            radial-gradient(circle at 1px 1px, rgba(244, 114, 182, 0.2) 1.15px, transparent 1.3px),
+                            linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(255, 242, 249, 0.56));
+                        background-size: 18px 18px, auto;
+                    }
+                    #gpaCalculatorContent::before {
+                        width: 12.5rem;
+                        height: 12.5rem;
+                        top: 6.5rem;
+                        right: -7rem;
+                        opacity: 0.75;
+                        background:
+                            repeating-linear-gradient(45deg, rgba(255,255,255,0.45) 0 7px, transparent 7px 14px),
+                            #d6f0ff;
+                        border: 3px dashed rgba(115, 190, 218, 0.5);
+                        transform: rotate(12deg);
+                    }
+                    #gpaCalculatorContent::after {
+                        width: 11rem;
+                        height: 11rem;
+                        bottom: 11rem;
+                        left: -6.5rem;
+                        opacity: 0.72;
+                        background:
+                            repeating-linear-gradient(0deg, rgba(255,255,255,0.48) 0 8px, transparent 8px 16px),
+                            #c9f2e4;
+                        border: 3px dashed rgba(92, 190, 157, 0.45);
+                        transform: rotate(-13deg);
+                    }
+                    #gpaCalculatorContent .gpa-eyebrow {
+                        color: var(--ink-plum);
+                        background: linear-gradient(135deg, #fff 0%, #fff3bf 100%);
+                        border-color: rgba(250, 205, 89, 0.65);
+                        box-shadow: 3px 4px 0 rgba(250, 205, 89, 0.26), 0 8px 18px rgba(125, 72, 102, 0.1);
+                        transform: rotate(-2deg);
+                    }
+                    #gpaCalculatorContent .gpa-eyebrow span {
+                        color: #f59e0b;
+                        font-size: 0.9rem;
+                    }
+                    #gpaCalculatorContent h2 {
+                        color: var(--ink-plum) !important;
+                        text-shadow: 0 2px 0 rgba(255, 255, 255, 0.95);
+                    }
+                    #gpaCalculatorContent .gpa-card {
+                        border: 3px solid rgba(255, 255, 255, 0.95);
+                        border-radius: clamp(1.65rem, 5vw, 2.5rem);
+                        box-shadow: 0 14px 0 -7px rgba(244, 172, 207, 0.36), 0 22px 36px -20px rgba(116, 48, 82, 0.35);
+                        overflow: visible;
+                        isolation: isolate;
+                    }
+                    #gpaCalculatorContent > section.gpa-card:nth-of-type(1) {
+                        background-color: var(--paper-cream);
+                        background-image:
+                            linear-gradient(rgba(255, 198, 221, 0.2) 1px, transparent 1px),
+                            linear-gradient(90deg, rgba(255, 198, 221, 0.2) 1px, transparent 1px),
+                            linear-gradient(135deg, rgba(255,255,255,0.98), rgba(255,246,251,0.92));
+                        background-size: 18px 18px, 18px 18px, auto;
+                    }
+                    #gpaCalculatorContent > section.gpa-card:nth-of-type(2) {
+                        background-color: #fcfffb;
+                        background-image:
+                            radial-gradient(rgba(95, 188, 164, 0.16) 1px, transparent 1.2px),
+                            linear-gradient(135deg, rgba(255,255,255,0.98), rgba(240,255,249,0.92));
+                        background-size: 17px 17px, auto;
+                    }
+                    #gpaCalculatorContent .gpa-card::before {
+                        inset: 9px;
+                        z-index: 0;
+                        border: 2px dashed var(--stitch-pink);
+                        border-radius: calc(clamp(1.65rem, 5vw, 2.5rem) - 0.55rem);
+                        opacity: 0.58;
+                    }
+                    #gpaCalculatorContent .gpa-card > * {
+                        position: relative;
+                        z-index: 1;
+                    }
+                    #gpaCalculatorContent .gpa-card:hover {
+                        transform: translateY(-4px) rotate(-0.15deg);
+                        box-shadow: 0 16px 0 -7px rgba(244, 172, 207, 0.4), 0 30px 42px -24px rgba(116, 48, 82, 0.4);
+                    }
+                    #gpaCalculatorContent .washi-tape {
+                        width: 124px;
+                        height: 31px;
+                        border: 1px dashed rgba(255, 255, 255, 0.95);
+                        box-shadow: 0 5px 11px rgba(116, 48, 82, 0.13);
+                        background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.32) 0 6px, transparent 6px 12px);
+                    }
+                    #gpaCalculatorContent .washi-tape-blue {
+                        background-color: #bfe9ff;
+                    }
+                    #gpaCalculatorContent .gpa-section-tag {
+                        color: #9a6a4f;
+                        background: linear-gradient(135deg, #fff 0%, #fff1ca 100%);
+                        border-color: rgba(247, 190, 108, 0.72);
+                        box-shadow: 3px 3px 0 rgba(247, 190, 108, 0.23);
+                    }
+                    #gpaCalculatorContent .gpa-input,
+                    #gpaCalculatorContent .attempt-kind,
+                    #gpaCalculatorContent .semester-credit {
+                        background-color: rgba(255, 255, 255, 0.8);
+                        background-image: radial-gradient(rgba(244, 114, 182, 0.14) 0.8px, transparent 0.9px);
+                        background-size: 12px 12px;
+                        border-color: rgba(244, 172, 207, 0.7);
+                        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 3px 0 rgba(244, 172, 207, 0.14);
+                    }
+                    #gpaCalculatorContent .gpa-input:focus,
+                    #gpaCalculatorContent .attempt-kind:focus,
+                    #gpaCalculatorContent .semester-credit:focus {
+                        border-color: #e982b7;
+                        box-shadow: 0 0 0 5px rgba(255, 211, 231, 0.65), 0 5px 0 rgba(244, 172, 207, 0.2);
+                    }
+                    #gpaCalculatorContent .gpa-btn-primary {
+                        background: linear-gradient(135deg, #ffb8d8 0%, #ee91b8 46%, #ffc09b 100%);
+                        border: 3px solid #fff;
+                        box-shadow: 0 6px 0 #cf72a8, 0 14px 22px -10px rgba(125, 72, 102, 0.65);
+                        text-shadow: 0 1px 1px rgba(116, 48, 82, 0.25);
+                    }
+                    #gpaCalculatorContent .gpa-btn-primary:hover {
+                        box-shadow: 0 8px 0 #cf72a8, 0 17px 26px -10px rgba(125, 72, 102, 0.65);
+                    }
+                    #gpaCalculatorContent .gpa-btn-primary:active {
+                        transform: translateY(4px) scale(0.99);
+                        box-shadow: 0 2px 0 #cf72a8, 0 7px 12px -10px rgba(125, 72, 102, 0.45);
+                    }
+                    #gpaCalculatorContent .gpa-chip-btn,
+                    #gpaCalculatorContent .target-gpa-box {
+                        border-color: rgba(244, 172, 207, 0.72);
+                        box-shadow: 0 3px 0 rgba(244, 172, 207, 0.2);
+                    }
+                    #gpaCalculatorContent .gpa-chip-btn:nth-child(2n),
+                    #gpaCalculatorContent .target-gpa-box:nth-child(3n) { background-color: #f2edff; }
+                    #gpaCalculatorContent .gpa-chip-btn:nth-child(3n),
+                    #gpaCalculatorContent .target-gpa-box:nth-child(2n) { background-color: #edfff8; }
+                    #gpaCalculatorContent .gpa-chip-btn.active,
+                    #gpaCalculatorContent .target-gpa-box.active {
+                        background: linear-gradient(135deg, #ffafd2, #ea95ba 55%, #ffc49c);
+                        border-color: #fff;
+                        box-shadow: 0 4px 0 #d57bae, 0 9px 16px -7px rgba(125, 72, 102, 0.6);
+                    }
+                    #gpaCalculatorContent .gpa-segmented-control {
+                        background: linear-gradient(135deg, #ffe2ef, #e2f7ec);
+                        border: 2px solid #fff;
+                        box-shadow: inset 0 1px 2px rgba(116, 48, 82, 0.1), 0 3px 0 rgba(197, 174, 238, 0.2);
+                    }
+                    #gpaCalculatorContent .gpa-segment.active {
+                        color: var(--ink-plum);
+                        box-shadow: 0 3px 0 rgba(244, 172, 207, 0.32), 0 5px 10px rgba(125, 72, 102, 0.08);
+                    }
+                    #gpaCalculatorContent .gpa-step-indicator {
+                        color: var(--ink-plum);
+                        background: linear-gradient(135deg, #fffef4, #fff0a9);
+                        border-color: #fff;
+                        outline: 2px dashed rgba(246, 190, 81, 0.68);
+                        outline-offset: 2px;
+                        box-shadow: 0 5px 0 rgba(246, 190, 81, 0.26);
+                    }
+                    #gpaCalculatorContent .attempt-row {
+                        border: 2px dashed rgba(244, 172, 207, 0.86);
+                        background: rgba(255, 255, 255, 0.8);
+                        box-shadow: 0 5px 0 rgba(244, 172, 207, 0.16), 0 10px 20px -16px rgba(116, 48, 82, 0.5);
+                    }
+                    #gpaCalculatorContent .attempt-row:hover {
+                        border-color: #e98bbe;
+                        background: rgba(255, 252, 254, 0.96);
+                    }
+                    #gpaCalculatorContent #semester-gpa {
+                        border-color: rgba(141, 202, 235, 0.7);
+                        background-image: linear-gradient(90deg, rgba(255,255,255,0.3) 50%, transparent 50%), linear-gradient(rgba(255,255,255,0.3) 50%, transparent 50%);
+                        background-size: 14px 14px;
+                    }
+                    #gpaCalculatorContent .gpa-range {
+                        height: 12px;
+                        background: linear-gradient(90deg, #ffe3f0, #e5dcff, #d1f5e6);
+                        border: 2px solid rgba(255,255,255,0.95);
+                    }
+                    #gpaCalculatorContent .gpa-range::-webkit-slider-thumb {
+                        background: linear-gradient(135deg, #fff3a8, #ffacd2 55%, #ffc39e);
+                        box-shadow: 0 3px 0 rgba(207, 114, 168, 0.48), 0 5px 10px rgba(177, 104, 117, 0.25);
+                    }
+                    #gpaCalculatorContent #gpa-result-area:not(.hidden),
+                    #gpaCalculatorContent #required-correct-result:not(:empty),
+                    #gpaCalculatorContent #gpa-live-projection:not(.hidden) {
+                        border-radius: 1.75rem;
+                    }
+                    @media (max-width: 640px) {
+                        #gpaCalculatorContent {
+                            margin-top: 0.55rem;
+                            padding-right: 0.85rem;
+                            padding-left: 0.85rem;
+                            border-radius: 1.5rem;
+                        }
+                        #gpaCalculatorContent::before { right: -9rem; top: 13rem; }
+                        #gpaCalculatorContent::after { left: -8rem; }
+                        #gpaCalculatorContent .gpa-card { border-radius: 1.65rem; }
+                        #gpaCalculatorContent .gpa-card::before { border-radius: 1.15rem; }
+                        #gpaCalculatorContent .gpa-section-tag {
+                            right: 1rem;
+                            bottom: -0.7rem;
+                            font-size: 0.62rem;
+                        }
+                        #gpaCalculatorContent .gpa-eyebrow { font-size: 0.65rem; }
+                        #gpaCalculatorContent #gpa-form > .flex { gap: 0.6rem; }
+                        #gpaCalculatorContent #gpa-form > .flex > div { min-width: 0; }
+                        #gpaCalculatorContent #gpa-form > .flex > .text-5xl { font-size: 2.2rem; }
+                        #gpaCalculatorContent .gpa-segmented-control { width: 100%; }
+                        #gpaCalculatorContent .gpa-segment { flex: 1; padding-right: 0.65rem; padding-left: 0.65rem; }
+                        #gpaCalculatorContent .target-gpa-grid { gap: 0.42rem; }
+                        #gpaCalculatorContent .target-gpa-box { min-height: 4.5rem; }
+                    }
+
+                    /* Khu vực kết quả theo bố cục phiếu điểm, không dùng tím/ombre tím. */
+                    #gpaCalculatorContent h3,
+                    #gpaCalculatorContent h4,
+                    #gpaCalculatorContent .gpa-input,
+                    #gpaCalculatorContent .gpa-segment,
+                    #gpaCalculatorContent .target-gpa-box {
+                        color: var(--ink-plum) !important;
+                    }
+                    #gpaCalculatorContent #gpa-result-area:not(.hidden) {
+                        padding: clamp(1rem, 3.5vw, 1.5rem) !important;
+                        border: 3px solid #fff !important;
+                        border-radius: clamp(1.5rem, 5vw, 2.25rem) !important;
+                        background-color: #fffdf7 !important;
+                        background-image:
+                            linear-gradient(rgba(255, 185, 211, 0.22) 1px, transparent 1px),
+                            linear-gradient(90deg, rgba(255, 185, 211, 0.22) 1px, transparent 1px),
+                            linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,248,226,0.72)) !important;
+                        background-size: 17px 17px, 17px 17px, auto !important;
+                        box-shadow: 0 8px 0 rgba(244, 172, 207, 0.3), 0 24px 34px -24px rgba(172, 84, 103, 0.55) !important;
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col {
+                        display: grid;
+                        grid-template-columns: minmax(0, 1.14fr) minmax(12.75rem, 0.86fr);
+                        grid-template-areas:
+                            'hero stats'
+                            'progress progress'
+                            'tip tip';
+                        gap: 1rem;
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(1) {
+                        grid-area: hero;
+                        min-height: 10.25rem;
+                        align-items: center;
+                        padding: 0.85rem;
+                        border: 2px dashed rgba(239, 159, 201, 0.84);
+                        border-radius: 1.5rem;
+                        background: linear-gradient(135deg, rgba(255, 232, 241, 0.92), rgba(255, 246, 198, 0.82));
+                        box-shadow: 3px 4px 0 rgba(255, 198, 144, 0.23);
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(1) img {
+                        width: clamp(4.35rem, 11vw, 5.7rem) !important;
+                        height: clamp(4.35rem, 11vw, 5.7rem) !important;
+                        padding: 0.35rem;
+                        border: 2px solid #fff;
+                        border-radius: 1.25rem;
+                        background: #fff;
+                        box-shadow: 3px 3px 0 rgba(239, 159, 201, 0.32);
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(1) > div:last-child > span:first-child {
+                        color: #9a6a4f !important;
+                        font-family: 'Baloo 2', cursive;
+                        letter-spacing: 0.04em;
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(1) > div:last-child p {
+                        color: #845464 !important;
+                        font-style: normal !important;
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(2) {
+                        grid-area: stats;
+                        gap: 0.5rem;
+                        align-content: stretch;
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(2) > div {
+                        justify-content: center;
+                        border: 2px solid rgba(255,255,255,0.98) !important;
+                        border-radius: 1.15rem !important;
+                        background: rgba(255,255,255,0.88) !important;
+                        box-shadow: 0 3px 0 rgba(244, 172, 207, 0.16) !important;
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(2) > div:nth-child(1) { background: #fff5c8 !important; }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(2) > div:nth-child(2) { background: #e7f8ff !important; }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(2) > div:nth-child(3) { background: #e8faef !important; }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(3) {
+                        grid-area: progress;
+                        padding: 0.8rem 0.95rem;
+                        border: 2px dashed rgba(122, 203, 174, 0.58);
+                        border-radius: 1.25rem;
+                        background: rgba(238, 255, 248, 0.78);
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(3) > div > div:first-child {
+                        height: 1.05rem;
+                        border: 2px solid #fff;
+                        box-shadow: 0 2px 0 rgba(122, 203, 174, 0.17);
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(4) {
+                        grid-area: tip;
+                        margin-top: 0 !important;
+                        border: 2px dashed rgba(247, 190, 108, 0.65);
+                        border-radius: 1.1rem;
+                        background: rgba(255, 250, 229, 0.92) !important;
+                        box-shadow: none !important;
+                    }
+                    #gpaCalculatorContent #gpa-live-projection:not(.hidden) {
+                        border: 3px solid #fff !important;
+                        border-radius: clamp(1.5rem, 5vw, 2.1rem) !important;
+                        background-color: #fffdf8 !important;
+                        background-image: radial-gradient(rgba(244, 172, 207, 0.2) 1px, transparent 1.15px) !important;
+                        background-size: 16px 16px !important;
+                        box-shadow: 0 7px 0 rgba(244, 172, 207, 0.22), 0 20px 30px -24px rgba(172, 84, 103, 0.5) !important;
+                    }
+                    #gpaCalculatorContent #gpa-live-projection > div:first-child {
+                        border-color: rgba(239, 159, 201, 0.72) !important;
+                    }
+                    #gpaCalculatorContent #gpa-live-projection > div:nth-child(2) > div:not(.ml-auto):not(.w-full) {
+                        border: 2px solid #fff !important;
+                        background: rgba(255,255,255,0.9) !important;
+                        box-shadow: 0 3px 0 rgba(244, 172, 207, 0.14) !important;
+                    }
+                    #gpaCalculatorContent #gpa-live-projection > div:last-child > div:first-child {
+                        border: 2px solid #fff !important;
+                        background: #ffe2ef !important;
+                    }
+                    #gpaCalculatorContent #required-correct-result .result-card {
+                        overflow: hidden;
+                        border: 3px solid #fff !important;
+                        border-radius: 1.7rem !important;
+                        background-color: #fffdf8 !important;
+                        background-image: radial-gradient(rgba(244, 172, 207, 0.17) 1px, transparent 1.15px) !important;
+                        background-size: 16px 16px !important;
+                        box-shadow: 0 6px 0 rgba(244, 172, 207, 0.22), 0 20px 30px -24px rgba(172, 84, 103, 0.5) !important;
+                    }
+                    #gpaCalculatorContent #required-correct-result .result-card > div:first-child {
+                        border-color: rgba(239, 159, 201, 0.68) !important;
+                        background: linear-gradient(90deg, rgba(255,229,240,0.88), rgba(255,248,210,0.82));
+                    }
+                    #gpaCalculatorContent #required-correct-result #copy-required-btn {
+                        border: 2px dashed rgba(239, 159, 201, 0.84) !important;
+                        border-radius: 1.15rem !important;
+                        background: #fff !important;
+                        box-shadow: 0 3px 0 rgba(244, 172, 207, 0.18);
+                    }
+                    @media (max-width: 640px) {
+                        #gpaCalculatorContent #gpa-result-area > .flex.flex-col {
+                            grid-template-columns: 1fr;
+                            grid-template-areas: 'hero' 'stats' 'progress' 'tip';
+                        }
+                        #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(1) {
+                            min-height: 0;
+                            padding: 0.72rem;
+                        }
+                        #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(2) {
+                            gap: 0.42rem;
+                        }
+                        #gpaCalculatorContent #gpa-live-projection > div:nth-child(2) {
+                            gap: 0.6rem;
+                        }
+                    }
+
+                    /* Hero GPA: tối giản hơn, mang cảm giác bìa sổ tay thay vì sticker rời rạc. */
+                    #gpaCalculatorContent > .absolute.pointer-events-none,
+                    #gpaCalculatorContent .gpa-legacy-header {
+                        display: none !important;
+                    }
+                    #gpaCalculatorContent .gpa-hero {
+                        width: min(100%, 35rem);
+                        margin: 0 auto clamp(1.4rem, 4vw, 2.2rem);
+                    }
+                    #gpaCalculatorContent .gpa-hero-paper {
+                        position: relative;
+                        display: grid;
+                        grid-template-columns: minmax(0, 1fr) auto;
+                        align-items: center;
+                        gap: 1.25rem;
+                        min-height: 10.75rem;
+                        padding: clamp(1.7rem, 5vw, 2.3rem);
+                        border: 3px solid #fff;
+                        border-radius: 2rem 2rem 1.45rem 1.45rem;
+                        background-color: #fffdf8;
+                        background-image:
+                            linear-gradient(rgba(255, 191, 214, 0.17) 1px, transparent 1px),
+                            linear-gradient(90deg, rgba(255, 191, 214, 0.17) 1px, transparent 1px),
+                            linear-gradient(135deg, rgba(255,255,255,0.88), rgba(255,246,216,0.7));
+                        background-size: 20px 20px, 20px 20px, auto;
+                        box-shadow: 0 8px 0 rgba(246, 190, 115, 0.24), 0 24px 34px -25px rgba(172, 84, 103, 0.48);
+                        overflow: hidden;
+                    }
+                    #gpaCalculatorContent .gpa-hero-paper::before {
+                        content: '';
+                        position: absolute;
+                        top: -0.7rem;
+                        left: 50%;
+                        width: 7.25rem;
+                        height: 1.5rem;
+                        transform: translateX(-50%) rotate(-1.8deg);
+                        border: 1px dashed rgba(255,255,255,0.92);
+                        background: repeating-linear-gradient(45deg, rgba(255,255,255,0.34) 0 6px, transparent 6px 12px), #ffd889;
+                        box-shadow: 0 3px 7px rgba(158, 112, 60, 0.12);
+                    }
+                    #gpaCalculatorContent .gpa-hero-paper::after {
+                        content: '';
+                        position: absolute;
+                        inset: 0.55rem;
+                        border: 2px dashed rgba(239, 159, 201, 0.56);
+                        border-radius: 1.55rem 1.55rem 1rem 1rem;
+                        pointer-events: none;
+                    }
+                    #gpaCalculatorContent .gpa-hero-copy,
+                    #gpaCalculatorContent .gpa-hero-stamp {
+                        position: relative;
+                        z-index: 1;
+                    }
+                    #gpaCalculatorContent .gpa-hero-kicker {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 0.45rem;
+                        padding: 0.34rem 0.72rem;
+                        border: 1px solid rgba(243, 174, 113, 0.54);
+                        border-radius: 999px;
+                        color: #a56649;
+                        background: rgba(255, 248, 221, 0.92);
+                        font-family: 'Baloo 2', cursive;
+                        font-size: 0.72rem;
+                        font-weight: 800;
+                        letter-spacing: 0.04em;
+                        text-transform: uppercase;
+                    }
+                    #gpaCalculatorContent .gpa-hero-kicker i { color: #ed8eb5; }
+                    #gpaCalculatorContent .gpa-hero h2 {
+                        margin: 0.6rem 0 0;
+                        color: #994e66 !important;
+                        font-family: 'Baloo 2', cursive;
+                        font-size: clamp(2.15rem, 7vw, 3.25rem);
+                        font-weight: 800;
+                        line-height: 0.98;
+                        letter-spacing: -0.045em;
+                    }
+                    #gpaCalculatorContent .gpa-hero h2 span { color: #e77ca9; }
+                    #gpaCalculatorContent .gpa-hero p {
+                        max-width: 20rem;
+                        margin: 0.7rem 0 0;
+                        color: #8d6370;
+                        font-size: 0.92rem;
+                        font-weight: 700;
+                        line-height: 1.48;
+                    }
+                    #gpaCalculatorContent .gpa-hero-stamp {
+                        display: grid;
+                        place-items: center;
+                        width: clamp(5.7rem, 17vw, 7.25rem);
+                        aspect-ratio: 1;
+                        border: 3px solid #fff;
+                        border-radius: 1.65rem;
+                        color: #67a890;
+                        background-color: #ddf6e9;
+                        background-image: radial-gradient(rgba(103, 168, 144, 0.28) 1px, transparent 1.15px);
+                        background-size: 10px 10px;
+                        box-shadow: 5px 5px 0 rgba(122, 203, 174, 0.22);
+                        transform: rotate(4deg);
+                    }
+                    #gpaCalculatorContent .gpa-hero-stamp i { font-size: clamp(1.8rem, 5vw, 2.45rem); }
+                    #gpaCalculatorContent .gpa-hero-stamp span {
+                        position: absolute;
+                        right: -0.7rem;
+                        bottom: -0.55rem;
+                        min-width: 2.1rem;
+                        padding: 0.18rem 0.38rem;
+                        border: 2px solid #fff;
+                        border-radius: 0.8rem;
+                        color: #a56649;
+                        background: #fff0a8;
+                        box-shadow: 2px 2px 0 rgba(246, 190, 115, 0.3);
+                        font-family: 'Baloo 2', cursive;
+                        font-size: 0.83rem;
+                        font-weight: 800;
+                        line-height: 1;
+                    }
+                    #gpaCalculatorContent .gpa-hero-notes {
+                        display: flex;
+                        flex-wrap: wrap;
+                        justify-content: center;
+                        gap: 0.48rem;
+                        padding: 0.8rem 0.35rem 0;
+                    }
+                    #gpaCalculatorContent .gpa-hero-notes span {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 0.42rem;
+                        padding: 0.4rem 0.7rem;
+                        border: 1px solid rgba(255,255,255,0.96);
+                        border-radius: 0.9rem;
+                        color: #8b6871;
+                        background: rgba(255,255,255,0.67);
+                        box-shadow: 0 3px 0 rgba(244, 172, 207, 0.13);
+                        font-size: 0.72rem;
+                        font-weight: 800;
+                    }
+                    #gpaCalculatorContent .gpa-hero-notes span:first-child i { color: #559fc0; }
+                    #gpaCalculatorContent .gpa-hero-notes span:last-child i { color: #e681a9; }
+                    @media (max-width: 420px) {
+                        #gpaCalculatorContent .gpa-hero-paper {
+                            grid-template-columns: 1fr;
+                            justify-items: center;
+                            padding: 1.8rem 1.1rem 1.25rem;
+                            text-align: center;
+                        }
+                        #gpaCalculatorContent .gpa-hero h2 { font-size: 2.45rem; }
+                        #gpaCalculatorContent .gpa-hero p { margin-right: auto; margin-left: auto; }
+                        #gpaCalculatorContent .gpa-hero-stamp { width: 5.1rem; border-radius: 1.35rem; }
+                        #gpaCalculatorContent .gpa-hero-notes { gap: 0.38rem; }
+                        #gpaCalculatorContent .gpa-hero-notes span { font-size: 0.66rem; }
+                    }
+
+                    /* Typography: nút thao tác và số liệu dùng Quicksand để nhẹ, rõ và đồng bộ. */
+                    #gpaCalculatorContent {
+                        font-family: 'Quicksand', sans-serif;
+                    }
+                    #gpaCalculatorContent .font-cute-title,
+                    #gpaCalculatorContent .gpa-hero h2,
+                    #gpaCalculatorContent .gpa-step-indicator {
+                        font-family: 'Baloo 2', cursive;
+                    }
+                    #gpaCalculatorContent .gpa-btn-primary,
+                    #gpaCalculatorContent #calculate-gpa-btn,
+                    #gpaCalculatorContent #calculate-required-btn {
+                        font-family: 'Quicksand', sans-serif !important;
+                        font-weight: 700 !important;
+                        letter-spacing: 0.01em !important;
+                    }
+                    #gpaCalculatorContent #calculate-gpa-btn {
+                        font-size: 1rem !important;
+                        line-height: 1.25;
+                    }
+                    #gpaCalculatorContent #calculate-required-btn {
+                        padding-top: 0.95rem !important;
+                        padding-bottom: 0.95rem !important;
+                        font-size: clamp(1rem, 3vw, 1.12rem) !important;
+                        line-height: 1.25;
+                    }
+                    #gpaCalculatorContent .gpa-chip-btn,
+                    #gpaCalculatorContent .gpa-segment,
+                    #gpaCalculatorContent .target-gpa-box,
+                    #gpaCalculatorContent input,
+                    #gpaCalculatorContent select {
+                        font-family: 'Quicksand', sans-serif;
+                    }
+
+                    /* Phiếu kết quả quy đổi: một trục thông tin, đọc tuần tự và không bị chia vụn. */
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 0.78rem;
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(1),
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(2),
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(3),
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(4) {
+                        grid-area: auto;
+                        margin: 0;
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(1) {
+                        min-height: 0;
+                        padding: 0.82rem 0.9rem;
+                        border-radius: 1.35rem;
+                        gap: 0.85rem;
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(1) img {
+                        width: 4.35rem !important;
+                        height: 4.35rem !important;
+                        flex: 0 0 4.35rem;
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(1) > div:last-child {
+                        min-width: 0;
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(1) > div:last-child > div span:first-child {
+                        font-family: 'Quicksand', sans-serif;
+                        font-size: clamp(2.85rem, 11vw, 4rem) !important;
+                        font-weight: 700 !important;
+                        letter-spacing: -0.07em;
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(1) > div:last-child > div span:last-child {
+                        font-family: 'Quicksand', sans-serif;
+                        font-weight: 700;
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(2) {
+                        display: grid;
+                        grid-template-columns: repeat(3, minmax(0, 1fr));
+                        gap: 0.5rem;
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(2) > div {
+                        min-width: 0;
+                        min-height: 4.85rem;
+                        padding: 0.58rem 0.32rem !important;
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(2) span:last-child {
+                        font-family: 'Quicksand', sans-serif;
+                        font-size: clamp(1rem, 4.6vw, 1.35rem) !important;
+                        font-weight: 700 !important;
+                        white-space: nowrap;
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(3) {
+                        padding: 0.72rem 0.82rem;
+                        border-radius: 1.05rem;
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(4) {
+                        padding: 0.65rem 0.75rem !important;
+                        font-size: 0.8rem !important;
+                        line-height: 1.45;
+                    }
+                    @media (max-width: 380px) {
+                        #gpaCalculatorContent #gpa-result-area:not(.hidden) { padding: 0.78rem !important; }
+                        #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(1) { gap: 0.65rem; }
+                        #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(1) img {
+                            width: 3.8rem !important;
+                            height: 3.8rem !important;
+                            flex-basis: 3.8rem;
+                        }
+                        #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(2) { gap: 0.35rem; }
+                        #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(2) > div { min-height: 4.4rem; }
+                    }
+
+                    /* Hoàn thiện tương tác: các nút và vùng chọn có cảm giác mềm, rõ và dễ chạm. */
+                    #gpaCalculatorContent button,
+                    #gpaCalculatorContent summary {
+                        -webkit-tap-highlight-color: transparent;
+                    }
+                    #gpaCalculatorContent button {
+                        font-family: 'Quicksand', sans-serif;
+                        transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+                    }
+                    #gpaCalculatorContent button:focus-visible,
+                    #gpaCalculatorContent summary:focus-visible,
+                    #gpaCalculatorContent input:focus-visible,
+                    #gpaCalculatorContent select:focus-visible {
+                        outline: 3px solid rgba(255, 172, 210, 0.72);
+                        outline-offset: 3px;
+                    }
+                    #gpaCalculatorContent button:not(.gpa-btn-primary):not(.target-gpa-box):not(.gpa-segment) {
+                        border-radius: 1rem;
+                    }
+                    #gpaCalculatorContent .gpa-btn-primary {
+                        min-height: 3.25rem;
+                        border-radius: 1.2rem;
+                    }
+                    #gpaCalculatorContent .gpa-btn-primary i {
+                        color: #fff6c7;
+                        transition: transform 180ms ease;
+                    }
+                    #gpaCalculatorContent .gpa-btn-primary:hover i { transform: rotate(-8deg) scale(1.12); }
+                    #gpaCalculatorContent .gpa-chip-btn {
+                        min-height: 2.35rem;
+                        color: #9a596e;
+                        border-width: 2px;
+                        border-radius: 0.9rem;
+                        background-image: radial-gradient(rgba(244, 172, 207, 0.12) 0.8px, transparent 0.95px);
+                        background-size: 10px 10px;
+                    }
+                    #gpaCalculatorContent .gpa-chip-btn:hover {
+                        color: #aa5272;
+                        border-color: #ed95bb;
+                        box-shadow: 0 4px 0 rgba(244, 172, 207, 0.2);
+                        transform: translateY(-2px) rotate(0deg);
+                    }
+                    #gpaCalculatorContent .gpa-chip-btn:active,
+                    #gpaCalculatorContent .target-gpa-box:active,
+                    #gpaCalculatorContent .gpa-segment:active {
+                        transform: translateY(2px) scale(0.98);
+                        box-shadow: none;
+                    }
+                    #gpaCalculatorContent .gpa-segmented-control {
+                        padding: 0.32rem;
+                        border-radius: 1.1rem;
+                    }
+                    #gpaCalculatorContent .gpa-segment {
+                        min-height: 2.3rem;
+                        border-radius: 0.82rem;
+                        font-size: 0.78rem;
+                        font-weight: 700;
+                    }
+                    #gpaCalculatorContent .target-gpa-box {
+                        min-height: 4.85rem;
+                        border-radius: 1.15rem;
+                        font-family: 'Quicksand', sans-serif !important;
+                    }
+                    #gpaCalculatorContent .target-gpa-box:hover {
+                        box-shadow: 0 5px 0 rgba(244, 172, 207, 0.22);
+                        transform: translateY(-3px) rotate(-0.5deg);
+                    }
+                    #gpaCalculatorContent .target-gpa-box.active {
+                        transform: translateY(-2px) rotate(0.4deg);
+                    }
+                    #gpaCalculatorContent #subject-chips {
+                        padding: 0.15rem 0.25rem 0.5rem;
+                        scroll-padding-inline: 0.3rem;
+                    }
+                    #gpaCalculatorContent .subject-chip,
+                    #gpaCalculatorContent #add-subject-btn {
+                        min-height: 2.3rem;
+                        border: 2px solid rgba(255,255,255,0.96);
+                        border-radius: 0.9rem !important;
+                        box-shadow: 0 3px 0 rgba(244, 172, 207, 0.16);
+                    }
+                    #gpaCalculatorContent .subject-chip:hover,
+                    #gpaCalculatorContent #add-subject-btn:hover {
+                        transform: translateY(-2px);
+                        box-shadow: 0 5px 0 rgba(244, 172, 207, 0.18);
+                    }
+                    #gpaCalculatorContent #rename-subject-btn,
+                    #gpaCalculatorContent #delete-subject-btn,
+                    #gpaCalculatorContent #reset-goal-btn,
+                    #gpaCalculatorContent .attempt-remove,
+                    #gpaCalculatorContent .attempt-collapse {
+                        border: 2px solid rgba(255,255,255,0.95);
+                        box-shadow: 0 3px 0 rgba(244, 172, 207, 0.15);
+                    }
+                    #gpaCalculatorContent #rename-subject-btn:hover,
+                    #gpaCalculatorContent #reset-goal-btn:hover,
+                    #gpaCalculatorContent .attempt-collapse:hover {
+                        transform: rotate(8deg) translateY(-1px);
+                    }
+                    #gpaCalculatorContent #delete-subject-btn:hover,
+                    #gpaCalculatorContent .attempt-remove:hover {
+                        transform: rotate(-8deg) translateY(-1px);
+                        box-shadow: 0 4px 0 rgba(251, 113, 133, 0.16);
+                    }
+                    #gpaCalculatorContent #add-attempt-btn,
+                    #gpaCalculatorContent #toggle-collapse-all-btn {
+                        border: 2px dashed rgba(239, 159, 201, 0.78) !important;
+                        border-radius: 1.05rem !important;
+                        background: rgba(255, 250, 252, 0.85) !important;
+                        color: #a95773 !important;
+                        box-shadow: 0 3px 0 rgba(244, 172, 207, 0.16);
+                    }
+                    #gpaCalculatorContent #add-attempt-btn:hover,
+                    #gpaCalculatorContent #toggle-collapse-all-btn:hover {
+                        border-color: #ec8fb6 !important;
+                        background: #fff0f6 !important;
+                        transform: translateY(-2px);
+                    }
+                    #gpaCalculatorContent details {
+                        border-radius: 1.45rem !important;
+                        box-shadow: 0 4px 0 rgba(244, 172, 207, 0.12);
+                    }
+                    #gpaCalculatorContent details > summary {
+                        border-radius: 1.25rem;
+                        font-family: 'Quicksand', sans-serif;
+                    }
+                    #gpaCalculatorContent details > summary:hover {
+                        background: rgba(255, 240, 246, 0.7) !important;
+                    }
+                    #gpaCalculatorContent .gpa-reference-table th {
+                        color: #9a596e;
+                        background: #fff4c9;
+                    }
+                    #gpaCalculatorContent .gpa-reference-table td {
+                        border-color: rgba(244, 172, 207, 0.28);
+                    }
+                    #gpaCalculatorContent #gpa-sticky-btn {
+                        border: 3px solid #fff !important;
+                        border-radius: 1.35rem !important;
+                        background-color: #fffdf8 !important;
+                        background-image: radial-gradient(rgba(244, 172, 207, 0.18) 1px, transparent 1.15px) !important;
+                        background-size: 13px 13px !important;
+                        box-shadow: 0 5px 0 rgba(244, 172, 207, 0.25), 0 16px 25px -18px rgba(172, 84, 103, 0.55) !important;
+                    }
+                    #gpaCalculatorContent #gpa-sticky-btn:hover { transform: translateY(-2px); }
+                    #gpaCalculatorContent #gpa-sticky-btn > span:last-child {
+                        background: #fff0b1 !important;
+                        color: #ba7463 !important;
+                    }
+                    @media (max-width: 640px) {
+                        #gpaCalculatorContent .gpa-btn-primary { min-height: 3.1rem; }
+                        #gpaCalculatorContent .gpa-chip-btn { min-height: 2.2rem; }
+                        #gpaCalculatorContent .target-gpa-box { min-height: 4.45rem; }
+                        #gpaCalculatorContent #gpa-sticky-bar { padding-right: 0; padding-left: 0; }
+                    }
+
+                    /* Các lớp bố cục mới: tạo hành trình rõ ràng thay vì một dải biểu mẫu liên tiếp. */
+                    #gpaCalculatorContent .gpa-workflow {
+                        display: grid;
+                        grid-template-columns: repeat(3, minmax(0, 1fr));
+                        gap: 0.55rem;
+                        width: min(100%, 35rem);
+                        margin: 0 auto 1.6rem;
+                    }
+                    #gpaCalculatorContent .gpa-workflow-item {
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 0.48rem;
+                        min-height: 3.45rem;
+                        padding: 0.48rem;
+                        border: 2px solid #fff;
+                        border-radius: 1.15rem;
+                        color: #8f5f6e;
+                        background: rgba(255, 255, 255, 0.72);
+                        box-shadow: 0 4px 0 rgba(244, 172, 207, 0.15);
+                        font-size: 0.7rem;
+                        font-weight: 700;
+                        line-height: 1.22;
+                        text-align: left;
+                        text-decoration: none;
+                        transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+                    }
+                    #gpaCalculatorContent .gpa-workflow-item b {
+                        display: block;
+                        color: #d778a2;
+                        font-size: 0.62rem;
+                        letter-spacing: 0.08em;
+                    }
+                    #gpaCalculatorContent .gpa-workflow-item:hover {
+                        background: #fffafc;
+                        box-shadow: 0 6px 0 rgba(244, 172, 207, 0.2);
+                        transform: translateY(-2px);
+                    }
+                    #gpaCalculatorContent .gpa-workflow-icon {
+                        display: grid;
+                        flex: 0 0 1.9rem;
+                        place-items: center;
+                        width: 1.9rem;
+                        height: 1.9rem;
+                        border: 2px solid #fff;
+                        border-radius: 0.75rem;
+                        box-shadow: 2px 2px 0 rgba(244, 172, 207, 0.13);
+                        font-size: 0.78rem;
+                    }
+                    #gpaCalculatorContent .gpa-workflow-icon--peach { color: #d77788; background: #ffe1df; }
+                    #gpaCalculatorContent .gpa-workflow-icon--butter { color: #af8753; background: #fff2b9; }
+                    #gpaCalculatorContent .gpa-workflow-icon--mint { color: #4d9d83; background: #dff5e9; }
+                    #gpaCalculatorContent .gpa-card-marker {
+                        position: absolute;
+                        top: 1.25rem;
+                        right: 1.55rem;
+                        z-index: 2;
+                        display: grid;
+                        place-items: center;
+                        width: 2.15rem;
+                        height: 2.15rem;
+                        border: 2px solid #fff;
+                        border-radius: 0.85rem;
+                        color: #bd7790;
+                        background: #fff4c7;
+                        box-shadow: 3px 3px 0 rgba(246, 190, 115, 0.24);
+                        font-size: 0.76rem;
+                        font-weight: 800;
+                        letter-spacing: 0.05em;
+                        transform: rotate(5deg);
+                    }
+                    #gpaCalculatorContent #required-correct-section .gpa-card-marker {
+                        color: #529b83;
+                        background: #dff5e9;
+                        box-shadow: 3px 3px 0 rgba(122, 203, 174, 0.2);
+                        transform: rotate(-5deg);
+                    }
+                    #gpaCalculatorContent .gpa-card h3 {
+                        display: inline-block;
+                        padding-bottom: 0.2rem;
+                        border-bottom: 3px solid rgba(255, 202, 224, 0.7);
+                    }
+                    #gpaCalculatorContent #required-correct-section h3 {
+                        border-color: rgba(176, 229, 210, 0.86);
+                    }
+                    #gpaCalculatorContent #gpa-form > .flex.flex-row {
+                        padding: 0.75rem;
+                        border: 2px dashed rgba(239, 159, 201, 0.58);
+                        border-radius: 1.55rem;
+                        background: rgba(255, 255, 255, 0.54);
+                    }
+                    #gpaCalculatorContent #gpa-form > .flex.flex-row > div:first-child::before,
+                    #gpaCalculatorContent #gpa-form > .flex.flex-row > div:last-child::before {
+                        content: '';
+                        position: absolute;
+                        top: 2.15rem;
+                        left: 0.35rem;
+                        width: 0.32rem;
+                        height: 0.32rem;
+                        border-radius: 50%;
+                        background: #f3a7c8;
+                    }
+                    #gpaCalculatorContent #gpa-form > .flex.flex-row > div:last-child::before { background: #7ecfb2; }
+                    #gpaCalculatorContent #gpa-form > .flex.flex-row > .text-5xl {
+                        display: grid;
+                        flex: 0 0 2.55rem;
+                        place-items: center;
+                        width: 2.55rem;
+                        height: 2.55rem;
+                        margin-top: 1.55rem;
+                        border: 2px solid #fff;
+                        border-radius: 0.9rem;
+                        color: #df8cae !important;
+                        background: #fff1f6;
+                        box-shadow: 2px 2px 0 rgba(244, 172, 207, 0.18);
+                        font-size: 1.6rem !important;
+                    }
+                    #gpaCalculatorContent #total-quick-chips {
+                        padding: 0.7rem;
+                        border: 1px solid rgba(255,255,255,0.92);
+                        border-radius: 1.15rem;
+                        background: rgba(255, 248, 252, 0.62);
+                    }
+                    #gpaCalculatorContent #total-quick-chips > span {
+                        width: 100%;
+                        margin-right: 0 !important;
+                        color: #b86c86;
+                        text-align: center;
+                    }
+                    #gpaCalculatorContent #required-correct-section > div.mb-8.p-4 {
+                        border-color: rgba(176, 229, 210, 0.78) !important;
+                        background-color: rgba(250, 255, 252, 0.82) !important;
+                        background-image: radial-gradient(rgba(122, 203, 174, 0.14) 0.8px, transparent 0.95px);
+                        background-size: 12px 12px;
+                        box-shadow: 0 4px 0 rgba(122, 203, 174, 0.12);
+                    }
+                    #gpaCalculatorContent #semester-gpa {
+                        box-shadow: 0 5px 0 rgba(126, 198, 231, 0.16);
+                    }
+                    #gpaCalculatorContent #semester-gpa summary {
+                        min-height: 4.8rem;
+                    }
+                    #gpaCalculatorContent #required-correct-section .gpa-step-indicator {
+                        position: relative;
+                        z-index: 1;
+                    }
+                    #gpaCalculatorContent #required-correct-section .gpa-step-indicator::after {
+                        content: '';
+                        position: absolute;
+                        top: calc(100% + 0.55rem);
+                        left: 50%;
+                        width: 2px;
+                        height: 2.1rem;
+                        transform: translateX(-50%);
+                        background: repeating-linear-gradient(to bottom, #f1a5c6 0 4px, transparent 4px 8px);
+                    }
+                    #gpaCalculatorContent #required-correct-section > .flex.mb-4 .gpa-step-indicator::after { display: none; }
+                    #gpaCalculatorContent #desired-gpa-chips {
+                        padding: 0.5rem;
+                        border: 1px solid rgba(255,255,255,0.96);
+                        border-radius: 1.45rem;
+                        background: rgba(255, 249, 252, 0.6);
+                    }
+                    #gpaCalculatorContent #desired-target-hint {
+                        border-color: rgba(246, 190, 115, 0.58) !important;
+                        background: #fff9df !important;
+                    }
+                    #gpaCalculatorContent #attempts-table {
+                        padding: 0.35rem 0.1rem 0.1rem;
+                        border-top: 2px dashed rgba(239, 159, 201, 0.52);
+                    }
+                    #gpaCalculatorContent .attempt-row {
+                        overflow: hidden;
+                        padding-left: 1.15rem !important;
+                    }
+                    #gpaCalculatorContent .attempt-row::before {
+                        content: '';
+                        position: absolute;
+                        top: 0.75rem;
+                        bottom: 0.75rem;
+                        left: 0.38rem;
+                        width: 0.34rem;
+                        border-radius: 999px;
+                        background: #f5b3cd;
+                    }
+                    #gpaCalculatorContent .attempt-row:nth-child(2n)::before { background: #9edfc7; }
+                    #gpaCalculatorContent .attempt-row:nth-child(3n)::before { background: #f3cf7d; }
+                    #gpaCalculatorContent .attempt-weight-badge,
+                    #gpaCalculatorContent .attempt-live {
+                        border: 1px solid rgba(255,255,255,0.92) !important;
+                        box-shadow: 0 2px 0 rgba(244, 172, 207, 0.13);
+                    }
+                    #gpaCalculatorContent #attempts-weight-bar {
+                        overflow: hidden;
+                        border: 2px solid #fff;
+                        border-radius: 999px;
+                        box-shadow: 0 2px 0 rgba(244, 172, 207, 0.13);
+                    }
+                    #gpaCalculatorContent .gpa-reference-table {
+                        overflow: hidden;
+                        border: 1px solid rgba(239, 159, 201, 0.36);
+                        border-radius: 1rem;
+                        border-collapse: separate;
+                        border-spacing: 0;
+                    }
+                    #gpaCalculatorContent .gpa-reference-table tbody tr:nth-child(2n) { background: rgba(255, 245, 249, 0.62); }
+                    @media (max-width: 640px) {
+                        #gpaCalculatorContent .gpa-workflow { gap: 0.38rem; margin-bottom: 1.15rem; }
+                        #gpaCalculatorContent .gpa-workflow-item { gap: 0.32rem; min-height: 3.15rem; padding: 0.38rem; font-size: 0.62rem; }
+                        #gpaCalculatorContent .gpa-workflow-icon { flex-basis: 1.65rem; width: 1.65rem; height: 1.65rem; font-size: 0.67rem; }
+                        #gpaCalculatorContent .gpa-card-marker { top: 1rem; right: 1.1rem; width: 1.9rem; height: 1.9rem; font-size: 0.68rem; }
+                        #gpaCalculatorContent #gpa-form > .flex.flex-row { padding: 0.5rem; gap: 0.42rem; }
+                        #gpaCalculatorContent #gpa-form > .flex.flex-row > .text-5xl { flex-basis: 2.1rem; width: 2.1rem; height: 2.1rem; font-size: 1.35rem !important; }
+                        #gpaCalculatorContent #required-correct-section .gpa-step-indicator::after { height: 2.4rem; }
+                    }
+
+                    /* Mobile-first: tăng vùng chạm, giảm chật ngang và ưu tiên thao tác bằng một tay. */
+                    @media (max-width: 640px) {
+                        /* 1. Khung trang và safe-area gọn, không tạo cuộn ngang. */
+                        #gpaCalculatorContent {
+                            width: 100%;
+                            max-width: none !important;
+                            padding-right: max(0.75rem, env(safe-area-inset-right));
+                            padding-bottom: calc(7.5rem + env(safe-area-inset-bottom));
+                            padding-left: max(0.75rem, env(safe-area-inset-left));
+                            overflow-x: clip;
+                        }
+                        /* 2. Hero ngắn hơn, phần nội dung quan trọng nằm trong vùng nhìn đầu tiên. */
+                        #gpaCalculatorContent .gpa-hero { margin-bottom: 0.9rem; }
+                        #gpaCalculatorContent .gpa-hero-paper { min-height: 0; }
+                        #gpaCalculatorContent .gpa-hero-notes { padding-top: 0.58rem; }
+                        /* 3. Lộ trình 3 bước chuyển thành 1 + 2 thẻ để nhãn không bị bó hẹp. */
+                        #gpaCalculatorContent .gpa-workflow {
+                            grid-template-columns: repeat(2, minmax(0, 1fr));
+                            gap: 0.45rem;
+                        }
+                        #gpaCalculatorContent .gpa-workflow-item:first-child { grid-column: 1 / -1; }
+                        #gpaCalculatorContent .gpa-workflow-item {
+                            justify-content: flex-start;
+                            min-height: 3.05rem;
+                            padding: 0.48rem 0.6rem;
+                            font-size: 0.69rem;
+                        }
+                        /* 4. Hai thẻ chính tối ưu khoảng thở và vùng thao tác. */
+                        #gpaCalculatorContent .gpa-card {
+                            padding: 1.35rem 1rem !important;
+                            border-radius: 1.5rem;
+                        }
+                        #gpaCalculatorContent .gpa-card::before { inset: 0.45rem; border-radius: 1.08rem; }
+                        #gpaCalculatorContent .gpa-card > .flex.items-center.gap-4 { padding-right: 2rem; }
+                        #gpaCalculatorContent .gpa-card h3 { font-size: 1.18rem !important; }
+                        /* 5. Cụm nhập điểm thành lưới chạm lớn, không bị nén chữ/số. */
+                        #gpaCalculatorContent #gpa-form > .flex.flex-row {
+                            display: grid;
+                            grid-template-columns: minmax(0, 1fr) 2rem minmax(0, 1fr);
+                            align-items: end;
+                            gap: 0.38rem;
+                            padding: 0.52rem;
+                        }
+                        #gpaCalculatorContent #gpa-form .gpa-input {
+                            min-height: 3.6rem;
+                            padding-right: 0.45rem !important;
+                            padding-left: 0.45rem !important;
+                            font-size: clamp(1.7rem, 9vw, 2.25rem) !important;
+                        }
+                        #gpaCalculatorContent #gpa-form label { padding-left: 0.45rem !important; font-size: 0.74rem; }
+                        #gpaCalculatorContent #gpa-form > .flex.flex-row > .text-5xl {
+                            align-self: end;
+                            margin-top: 0;
+                            margin-bottom: 0.52rem;
+                        }
+                        /* 6. Chip tổng câu thành hàng cuộn có snap, dễ thao tác bằng ngón cái. */
+                        #gpaCalculatorContent #total-quick-chips {
+                            flex-wrap: nowrap;
+                            justify-content: flex-start;
+                            gap: 0.45rem;
+                            margin-right: -0.18rem;
+                            margin-left: -0.18rem;
+                            padding: 0.62rem 0.5rem;
+                            overflow-x: auto;
+                            overscroll-behavior-inline: contain;
+                            scroll-snap-type: inline mandatory;
+                            scrollbar-width: none;
+                        }
+                        #gpaCalculatorContent #total-quick-chips::-webkit-scrollbar { display: none; }
+                        #gpaCalculatorContent #total-quick-chips > span {
+                            flex: 0 0 auto;
+                            width: auto;
+                            padding-left: 0.1rem;
+                            text-align: left;
+                        }
+                        #gpaCalculatorContent #total-quick-chips .gpa-chip-btn {
+                            flex: 0 0 auto;
+                            min-width: 4.1rem;
+                            scroll-snap-align: start;
+                        }
+                        /* 7. Mọi nút hành động chính đủ cao để chạm chính xác. */
+                        #gpaCalculatorContent .gpa-btn-primary,
+                        #gpaCalculatorContent #add-attempt-btn,
+                        #gpaCalculatorContent #copy-required-btn {
+                            min-height: 3.2rem !important;
+                        }
+                        #gpaCalculatorContent #rename-subject-btn,
+                        #gpaCalculatorContent #delete-subject-btn,
+                        #gpaCalculatorContent #reset-goal-btn,
+                        #gpaCalculatorContent .attempt-remove,
+                        #gpaCalculatorContent .attempt-collapse {
+                            width: 2.7rem !important;
+                            height: 2.7rem !important;
+                        }
+                        /* 8. Tab hệ điểm và chọn GPA dùng ô lớn, luôn cân bằng chiều ngang. */
+                        #gpaCalculatorContent .gpa-segmented-control { width: 100%; }
+                        #gpaCalculatorContent .gpa-segment { min-height: 2.7rem; font-size: 0.82rem; }
+                        #gpaCalculatorContent #desired-gpa-chips {
+                            grid-template-columns: repeat(4, minmax(0, 1fr));
+                            gap: 0.42rem;
+                            padding: 0.42rem;
+                        }
+                        #gpaCalculatorContent .target-gpa-box { min-height: 4.2rem; padding: 0.38rem 0.1rem; }
+                        #gpaCalculatorContent .target-gpa-box .text-2xl { font-size: 1.25rem; }
+                        /* 9. Chọn môn cuộn theo snap, không làm vỡ dòng hay che nút. */
+                        #gpaCalculatorContent #subject-chips {
+                            flex-wrap: nowrap;
+                            margin-right: -0.2rem;
+                            margin-left: -0.2rem;
+                            padding-right: 0.2rem;
+                            padding-left: 0.2rem;
+                            overscroll-behavior-inline: contain;
+                            scroll-snap-type: inline mandatory;
+                        }
+                        #gpaCalculatorContent .subject-chip,
+                        #gpaCalculatorContent #add-subject-btn { scroll-snap-align: start; }
+                        /* 10. Các hàng đợt thi dùng nhịp dọc dễ quét trên màn hình hẹp. */
+                        #gpaCalculatorContent #attempts-table { margin-right: -0.15rem; margin-left: -0.15rem; }
+                        #gpaCalculatorContent .attempt-row { padding: 0.85rem 0.72rem 0.9rem 1rem !important; }
+                        #gpaCalculatorContent .attempt-row > .flex:first-child {
+                            display: grid;
+                            grid-template-columns: auto minmax(0, 1fr) auto auto;
+                            gap: 0.38rem;
+                        }
+                        #gpaCalculatorContent .attempt-label { min-width: 0; font-size: 0.9rem !important; }
+                        #gpaCalculatorContent .attempt-live { max-width: 5.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                        #gpaCalculatorContent .attempt-body { margin-top: 0.65rem !important; }
+                        #gpaCalculatorContent .attempt-kind { min-height: 2.65rem; font-size: 0.75rem !important; }
+                        /* 11. Vùng kết quả tránh chữ quá nhỏ và giữ thứ tự đọc rõ ràng. */
+                        #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(1) {
+                            align-items: flex-start;
+                            padding: 0.74rem;
+                        }
+                        #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(1) > div:last-child p { font-size: 0.77rem; }
+                        #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(2) > div { min-height: 4.5rem; }
+                        #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(2) span:first-child { font-size: 0.64rem; }
+                        #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(3) { padding: 0.65rem 0.7rem; }
+                        /* 12. Thanh tạm tính ở đáy tránh vùng home indicator và đủ cao để bấm. */
+                        #gpaCalculatorContent #gpa-sticky-bar {
+                            bottom: calc(0.8rem + env(safe-area-inset-bottom));
+                            margin-bottom: 0;
+                        }
+                        #gpaCalculatorContent #gpa-sticky-btn { min-height: 4.55rem; padding: 0.7rem 0.85rem !important; }
+                        /* 13. Bảng tham chiếu giữ cột ổn định khi vuốt ngang. */
+                        #gpaCalculatorContent details > div.overflow-x-auto {
+                            margin-right: -0.15rem;
+                            margin-left: -0.15rem;
+                            padding-right: 0.15rem;
+                            padding-left: 0.15rem;
+                            -webkit-overflow-scrolling: touch;
+                        }
+                        #gpaCalculatorContent .gpa-reference-table { min-width: 19rem !important; }
+                    }
+                    @media (max-width: 360px) {
+                        /* 14. Chế độ màn hình rất hẹp: ưu tiên số liệu và nút thay vì trang trí. */
+                        #gpaCalculatorContent .gpa-hero-notes span { padding: 0.34rem 0.45rem; font-size: 0.6rem; }
+                        #gpaCalculatorContent .gpa-card { padding-right: 0.82rem !important; padding-left: 0.82rem !important; }
+                        #gpaCalculatorContent .gpa-workflow-item { font-size: 0.62rem; }
+                        #gpaCalculatorContent .gpa-workflow-icon { display: none; }
+                        #gpaCalculatorContent .attempt-row > .flex:first-child { grid-template-columns: auto minmax(0, 1fr) auto; }
+                        #gpaCalculatorContent .attempt-row .attempt-live { display: none; }
+                    }
+
+                    /* Báo cáo kết quả: nhiều tầng thông tin nhưng vẫn đọc được theo một đường mắt. */
+                    /* 1. Bỏ thanh dọc ở thẻ đợt thi, trả lại mép thẻ nhẹ và sạch. */
+                    #gpaCalculatorContent .attempt-row {
+                        padding-left: 1rem !important;
+                        border-style: solid;
+                        border-color: rgba(244, 172, 207, 0.62);
+                    }
+                    #gpaCalculatorContent .attempt-row::before { content: none !important; }
+                    #gpaCalculatorContent .attempt-row:nth-child(2n) { border-color: rgba(140, 211, 186, 0.72); }
+                    #gpaCalculatorContent .attempt-row:nth-child(3n) { border-color: rgba(247, 195, 111, 0.72); }
+                    /* 2. Phiếu quy đổi có tab giấy và góc gấp, thay cho một hộp kết quả phẳng. */
+                    #gpaCalculatorContent #gpa-result-area:not(.hidden) {
+                        position: relative;
+                        padding-top: 1.75rem !important;
+                        isolation: isolate;
+                    }
+                    #gpaCalculatorContent #gpa-result-area:not(.hidden)::before {
+                        content: 'QUY \0110\1ed4I \0110I\1ec2M';
+                        position: absolute;
+                        top: -0.66rem;
+                        left: 1.35rem;
+                        z-index: 2;
+                        padding: 0.32rem 0.7rem;
+                        border: 2px solid #fff;
+                        border-radius: 0.72rem;
+                        color: #a66754;
+                        background: #fff1ad;
+                        box-shadow: 2px 3px 0 rgba(246, 190, 115, 0.25);
+                        font-family: 'Quicksand', sans-serif;
+                        font-size: 0.62rem;
+                        font-weight: 800;
+                        letter-spacing: 0.08em;
+                    }
+                    #gpaCalculatorContent #gpa-result-area:not(.hidden)::after {
+                        content: '';
+                        position: absolute;
+                        top: 0;
+                        right: 0;
+                        width: 2.5rem;
+                        height: 2.5rem;
+                        z-index: 1;
+                        border-radius: 0 1.85rem 0 1.1rem;
+                        background: linear-gradient(135deg, transparent 49%, rgba(255, 224, 237, 0.88) 50%);
+                        pointer-events: none;
+                    }
+                    /* 3. Phần điểm chính thành spotlight, tách bạch mascot - số điểm - điểm chữ. */
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(1) {
+                        position: relative;
+                        overflow: visible;
+                        border: 2px solid #fff;
+                        box-shadow: 0 4px 0 rgba(244, 172, 207, 0.18);
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(1) > div:first-child::after {
+                        content: '';
+                        position: absolute;
+                        inset: 0.2rem;
+                        z-index: -1;
+                        border: 1px dashed rgba(239, 159, 201, 0.62);
+                        border-radius: 1.05rem;
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(1) > div:last-child > div {
+                        align-items: center;
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(1) > div:last-child > div span:last-child {
+                        display: inline-grid;
+                        place-items: center;
+                        min-width: 2.55rem;
+                        min-height: 2.55rem;
+                        padding: 0.24rem 0.44rem !important;
+                        border: 2px solid #fff;
+                        border-radius: 0.8rem 0.95rem 0.82rem 0.9rem;
+                        color: #b35c75 !important;
+                        background: #dff5e9;
+                        box-shadow: 2px 3px 0 rgba(122, 203, 174, 0.24);
+                        font-size: 1.03rem !important;
+                        transform: rotate(4deg);
+                    }
+                    /* 4. Ba chỉ số được nhận diện bằng ba màu giấy riêng và đường gấp phía trên. */
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(2) > div {
+                        position: relative;
+                        overflow: hidden;
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(2) > div::before {
+                        content: '';
+                        position: absolute;
+                        top: 0;
+                        right: 0.45rem;
+                        left: 0.45rem;
+                        height: 0.22rem;
+                        border-radius: 0 0 999px 999px;
+                        background: #f3c27c;
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(2) > div:nth-child(2)::before { background: #8dc9e5; }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(2) > div:nth-child(3)::before { background: #79c9aa; }
+                    /* 5. Thang điểm tách đoạn rõ, biến thành dải tiến độ có nhịp. */
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(3) > div > div:first-child {
+                        overflow: hidden;
+                        background: #fff !important;
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(3) > div > div:first-child > div {
+                        border-right: 2px solid rgba(255,255,255,0.82);
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(3) > div > div:first-child > div:last-child { border-right: 0; }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(3) > div > div:nth-child(2) {
+                        width: 0.5rem !important;
+                        border: 2px solid #fff;
+                        border-radius: 999px;
+                        background: #e982ae !important;
+                        box-shadow: 0 2px 0 rgba(177, 86, 114, 0.28);
+                    }
+                    /* 6. Gợi ý nâng điểm thành ghi chú cuối phiếu, không cạnh tranh với kết quả. */
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(4) {
+                        position: relative;
+                        padding-left: 2.45rem !important;
+                        text-align: left !important;
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(4)::before {
+                        content: '✦';
+                        position: absolute;
+                        top: 50%;
+                        left: 0.83rem;
+                        color: #e8a54f;
+                        font-size: 1.05rem;
+                        transform: translateY(-50%);
+                    }
+                    /* 7. Điểm tạm tính chuyển sang dashboard 3 chỉ số + mục tiêu ở hàng riêng. */
+                    #gpaCalculatorContent #gpa-live-projection > div:nth-child(2) {
+                        display: grid;
+                        grid-template-columns: repeat(3, minmax(0, 1fr));
+                        align-items: stretch;
+                        gap: 0.6rem;
+                    }
+                    #gpaCalculatorContent #gpa-live-projection > div:nth-child(2) > div:not(.ml-auto):not(.w-full) {
+                        min-width: 0;
+                        padding: 0.72rem !important;
+                        border-radius: 1rem !important;
+                    }
+                    #gpaCalculatorContent #gpa-live-projection > div:nth-child(2) > .ml-auto {
+                        grid-column: 1 / -1;
+                        margin: 0 !important;
+                        padding: 0.62rem 0.8rem;
+                        border: 1px dashed rgba(246, 190, 115, 0.76);
+                        border-radius: 0.9rem;
+                        background: #fff9df;
+                        text-align: left;
+                    }
+                    #gpaCalculatorContent #gpa-live-projection > div:nth-child(2) > .w-full {
+                        grid-column: 1 / -1;
+                        margin-top: 0 !important;
+                        padding: 0.5rem 0.1rem 0;
+                    }
+                    /* 8. Thanh mục tiêu có mốc hình ghim thay cho một vạch vuông. */
+                    #gpaCalculatorContent #gpa-live-projection > div:last-child > div:first-child > div:last-child {
+                        width: 0.7rem !important;
+                        border: 2px solid #fff;
+                        border-radius: 999px;
+                        background: #efb04f !important;
+                        box-shadow: 0 2px 0 rgba(177, 123, 59, 0.22);
+                    }
+                    /* 9. Kết quả chiến lược có header phân biệt như một ghi chú hành động. */
+                    #gpaCalculatorContent #required-correct-result .result-card {
+                        position: relative;
+                        padding-top: 0.15rem;
+                    }
+                    #gpaCalculatorContent #required-correct-result .result-card::before {
+                        content: '';
+                        position: absolute;
+                        top: 0.55rem;
+                        right: 0.75rem;
+                        width: 0.65rem;
+                        height: 0.65rem;
+                        border: 2px solid #fff;
+                        border-radius: 50%;
+                        background: #f1bc70;
+                        box-shadow: 1px 2px 0 rgba(177, 123, 59, 0.22);
+                    }
+                    #gpaCalculatorContent #required-correct-result .result-card > div:nth-child(2) {
+                        padding-top: 1.1rem !important;
+                        padding-bottom: 1.1rem !important;
+                    }
+                    /* 10. Các chỉ số trong kết quả chiến lược có dạng ticket, dễ so sánh khi quét. */
+                    #gpaCalculatorContent #required-correct-result .result-card .flex.flex-wrap.items-stretch > div {
+                        min-width: 4.5rem;
+                        border-radius: 0.85rem !important;
+                        box-shadow: 0 3px 0 rgba(244, 172, 207, 0.14);
+                    }
+                    /* 11. Nút sao chép mang tính kết thúc tác vụ, nổi bật nhưng không lấn nút chính. */
+                    #gpaCalculatorContent #copy-required-btn {
+                        min-height: 3rem;
+                        border-color: rgba(122, 203, 174, 0.72) !important;
+                        color: #4c937c !important;
+                        background: #f3fff9 !important;
+                        box-shadow: 0 3px 0 rgba(122, 203, 174, 0.2) !important;
+                    }
+                    #gpaCalculatorContent #copy-required-btn:hover {
+                        background: #e6f9ef !important;
+                        transform: translateY(-2px);
+                    }
+                    /* 12. Các bảng kết quả có animation vào riêng, giảm cảm giác "nhảy" của nội dung mới. */
+                    #gpaCalculatorContent #gpa-live-projection:not(.hidden),
+                    #gpaCalculatorContent #required-correct-result:not(:empty) {
+                        animation: gpa-report-in 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+                    }
+                    @keyframes gpa-report-in {
+                        from { opacity: 0; transform: translateY(8px); }
+                        to { opacity: 1; transform: translateY(0); }
+                    }
+                    @media (max-width: 640px) {
+                        #gpaCalculatorContent .attempt-row { padding-left: 0.78rem !important; }
+                        #gpaCalculatorContent #gpa-result-area:not(.hidden) { padding-top: 1.55rem !important; }
+                        #gpaCalculatorContent #gpa-result-area:not(.hidden)::before { left: 1rem; font-size: 0.57rem; }
+                        #gpaCalculatorContent #gpa-live-projection > div:nth-child(2) { gap: 0.42rem; }
+                        #gpaCalculatorContent #gpa-live-projection > div:nth-child(2) > div:not(.ml-auto):not(.w-full) { padding: 0.54rem !important; }
+                        #gpaCalculatorContent #gpa-live-projection > div:nth-child(2) > div:not(.ml-auto):not(.w-full) span:last-child { font-size: 1.18rem !important; }
+                    }
+
+                    /* Fine-line pass: giữ chất liệu giấy nhưng làm mọi đường viền thanh hơn. */
+                    #gpaCalculatorContent .gpa-card {
+                        border-width: 2px;
+                        box-shadow: 0 8px 0 -5px rgba(244, 172, 207, 0.3), 0 20px 32px -24px rgba(172, 84, 103, 0.3);
+                    }
+                    #gpaCalculatorContent .gpa-card::before {
+                        inset: 7px;
+                        border-width: 1.5px;
+                        opacity: 0.5;
+                    }
+                    #gpaCalculatorContent .washi-tape { border-width: 1px; }
+                    #gpaCalculatorContent .gpa-input,
+                    #gpaCalculatorContent .attempt-kind,
+                    #gpaCalculatorContent .semester-credit {
+                        border-width: 1.5px;
+                        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 0 rgba(244, 172, 207, 0.1);
+                    }
+                    #gpaCalculatorContent .gpa-input:focus,
+                    #gpaCalculatorContent .attempt-kind:focus,
+                    #gpaCalculatorContent .semester-credit:focus {
+                        box-shadow: 0 0 0 3px rgba(255, 211, 231, 0.65), 0 3px 0 rgba(244, 172, 207, 0.14);
+                    }
+                    #gpaCalculatorContent .gpa-btn-primary,
+                    #gpaCalculatorContent .gpa-segmented-control,
+                    #gpaCalculatorContent .gpa-chip-btn,
+                    #gpaCalculatorContent .target-gpa-box,
+                    #gpaCalculatorContent .subject-chip,
+                    #gpaCalculatorContent #add-subject-btn {
+                        border-width: 1.5px;
+                    }
+                    #gpaCalculatorContent .gpa-step-indicator {
+                        border-width: 2px;
+                        outline-width: 1px;
+                        outline-offset: 2px;
+                        box-shadow: 0 3px 0 rgba(246, 190, 81, 0.18);
+                    }
+                    #gpaCalculatorContent details,
+                    #gpaCalculatorContent .attempt-row,
+                    #gpaCalculatorContent #gpa-form > .flex.flex-row,
+                    #gpaCalculatorContent #desired-gpa-chips,
+                    #gpaCalculatorContent #total-quick-chips {
+                        border-width: 1.5px;
+                    }
+                    #gpaCalculatorContent .attempt-row {
+                        box-shadow: 0 3px 0 rgba(244, 172, 207, 0.1), 0 8px 16px -16px rgba(116, 48, 82, 0.32);
+                    }
+                    #gpaCalculatorContent .gpa-workflow-item,
+                    #gpaCalculatorContent .gpa-workflow-icon,
+                    #gpaCalculatorContent .gpa-card-marker,
+                    #gpaCalculatorContent .gpa-hero-paper,
+                    #gpaCalculatorContent .gpa-hero-stamp,
+                    #gpaCalculatorContent .gpa-hero-stamp span {
+                        border-width: 1.5px;
+                    }
+                    #gpaCalculatorContent .gpa-hero-paper::after { border-width: 1px; }
+                    #gpaCalculatorContent #gpa-result-area:not(.hidden),
+                    #gpaCalculatorContent #gpa-live-projection:not(.hidden),
+                    #gpaCalculatorContent #required-correct-result .result-card {
+                        border-width: 2px !important;
+                        box-shadow: 0 5px 0 rgba(244, 172, 207, 0.18), 0 18px 28px -24px rgba(172, 84, 103, 0.35) !important;
+                    }
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(1),
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(2) > div,
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(3),
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(4),
+                    #gpaCalculatorContent #gpa-live-projection > div:nth-child(2) > div:not(.ml-auto):not(.w-full) {
+                        border-width: 1.5px !important;
+                    }
+                    #gpaCalculatorContent #gpa-result-area:not(.hidden)::before,
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(1) > div:last-child > div span:last-child,
+                    #gpaCalculatorContent #gpa-result-area > .flex.flex-col > :nth-child(3) > div > div:nth-child(2),
+                    #gpaCalculatorContent #gpa-live-projection > div:last-child > div:first-child > div:last-child {
+                        border-width: 1.5px;
+                    }
+                    #gpaCalculatorContent #copy-required-btn,
+                    #gpaCalculatorContent #add-attempt-btn,
+                    #gpaCalculatorContent #toggle-collapse-all-btn,
+                    #gpaCalculatorContent #gpa-sticky-btn {
+                        border-width: 1.5px !important;
+                        box-shadow: 0 2px 0 rgba(244, 172, 207, 0.14) !important;
+                    }
+                    #gpaCalculatorContent .gpa-range {
+                        border-width: 1px;
+                        box-shadow: inset 0 1px 2px rgba(116, 48, 82, 0.08);
+                    }
+                    #gpaCalculatorContent .gpa-range::-webkit-slider-thumb { border-width: 3px; }
+                    @media (max-width: 640px) {
+                        #gpaCalculatorContent .gpa-card::before { inset: 6px; }
+                        #gpaCalculatorContent #gpa-result-area:not(.hidden),
+                        #gpaCalculatorContent #gpa-live-projection:not(.hidden),
+                        #gpaCalculatorContent #required-correct-result .result-card { border-width: 1.5px !important; }
+                    }
                 </style>
 
                 <!-- Phần Header Tròn Trịa -->
-                <div class="text-center mb-10 mt-2 relative z-10">
+                <header class="gpa-hero" aria-labelledby="gpa-hero-title">
+                    <div class="gpa-hero-paper">
+                        <div class="gpa-hero-copy">
+                            <span class="gpa-hero-kicker"><i class="fas fa-book-open" aria-hidden="true"></i> GPA planner</span>
+                            <h2 id="gpa-hero-title">B&#7843;ng &#273;i&#7875;m <span>GPA</span></h2>
+                            <p>&#272;&#7893;i &#273;i&#7875;m, ch&#7885;n m&#7909;c ti&#234;u v&#224; xem r&#245; t&#7915;ng b&#432;&#7899;c.</p>
+                        </div>
+                        <div class="gpa-hero-stamp" aria-hidden="true">
+                            <i class="fas fa-calculator"></i>
+                            <span>A+</span>
+                        </div>
+                    </div>
+                    <div class="gpa-hero-notes" aria-label="T&#237;nh n&#259;ng GPA">
+                        <span><i class="fas fa-arrows-left-right" aria-hidden="true"></i> H&#7879; 10 &rarr; H&#7879; 4</span>
+                        <span><i class="fas fa-bullseye" aria-hidden="true"></i> L&#7853;p k&#7871; ho&#7841;ch &#273;i&#7875;m</span>
+                    </div>
+                </header>
+
+                <nav class="gpa-workflow" aria-label="L&#7897; tr&#236;nh s&#7917; d&#7909;ng GPA">
+                    <a href="#gpa-form" class="gpa-workflow-item">
+                        <span class="gpa-workflow-icon gpa-workflow-icon--peach"><i class="fas fa-calculator" aria-hidden="true"></i></span>
+                        <span><b>01</b> Quy &#273;&#7893;i nhanh</span>
+                    </a>
+                    <a href="#desired-gpa-chips" class="gpa-workflow-item">
+                        <span class="gpa-workflow-icon gpa-workflow-icon--butter"><i class="fas fa-bullseye" aria-hidden="true"></i></span>
+                        <span><b>02</b> Ch&#7885;n m&#7909;c ti&#234;u</span>
+                    </a>
+                    <a href="#attempts-table" class="gpa-workflow-item">
+                        <span class="gpa-workflow-icon gpa-workflow-icon--mint"><i class="fas fa-route" aria-hidden="true"></i></span>
+                        <span><b>03</b> L&#7853;p chi&#7871;n l&#432;&#7907;c</span>
+                    </a>
+                </nav>
+
+                <div class="gpa-legacy-header text-center mb-10 mt-2 relative z-10">
+                    <div class="gpa-eyebrow mb-3"><span aria-hidden="true">✦</span> Study planner</div>
                     <div class="inline-block relative mb-4">
                         <div class="w-24 h-24 bg-white rounded-full flex items-center justify-center border-[5px] border-dashed border-[#fbcfe8] shadow-[0_10px_25px_-5px_rgba(244,114,182,0.4)] animate-float-icon">
                             <i class="fas fa-stethoscope text-5xl text-[#f9a8d4]"></i>
@@ -558,6 +2165,8 @@
                 <!-- Thẻ 1: Quy đổi nhanh -->
                 <section class="gpa-card p-6 sm:p-8 mb-12 mt-6 relative">
                     <div class="washi-tape washi-tape-blue"></div>
+                    <span class="gpa-card-marker" aria-hidden="true">01</span>
+                    <span class="gpa-section-tag" aria-hidden="true">✦ quick check</span>
                     
                     <div class="flex items-center gap-4 mb-7 pt-2">
                         <div class="w-14 h-14 rounded-full bg-gradient-to-br from-sky-100 to-sky-200 text-sky-500 flex items-center justify-center text-2xl shrink-0 border-[4px] border-white shadow-md">
@@ -639,6 +2248,8 @@
                 <!-- Thẻ 2: Chiến lược -->
                 <section id="required-correct-section" class="gpa-card p-6 sm:p-8 mb-8 mt-8 relative">
                     <div class="washi-tape"></div>
+                    <span class="gpa-card-marker" aria-hidden="true">02</span>
+                    <span class="gpa-section-tag" aria-hidden="true">♡ study plan</span>
 
                     <div class="flex items-center gap-4 mb-8 pt-2">
                         <div class="w-14 h-14 rounded-full bg-gradient-to-br from-[#fdf2f8] to-[#fbcfe8] text-[#f472b6] flex items-center justify-center text-2xl shrink-0 border-[4px] border-white shadow-md">

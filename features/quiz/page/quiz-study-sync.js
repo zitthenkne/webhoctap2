@@ -1,12 +1,8 @@
-// File: features/quiz/page/quiz-study-sync.js
-// Đồng bộ "dữ liệu học tập" (ghi chú / đánh dấu / bôi vàng) giữa localStorage và cloud.
-// Tách từ quiz-page.js — logic giữ nguyên.
-
 import { auth } from '../../../core/firebase-init.js';
 import { sessionUser, onSessionUser } from '../../../core/auth-session.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
-import { studyKeys, syncPullStudy, scheduleCloudPush } from '../quiz-study-store.js';
-import { state } from '../quiz-state.js';
+import { studyKeys, syncPullStudy, scheduleCloudPush, fetchCloudProgress, scheduleCloudProgressPush } from '../quiz-study-store.js';
+import { state, readQuizState, writeQuizState, markQuizStateFinished } from '../quiz-state.js';
 import { showQuestion } from './quiz-question-view.js';
 
 export function currentQuizId() {
@@ -77,6 +73,28 @@ export function pullStudyFromCloud(quizId) {
             }
             // Báo cho các UI đọc dữ liệu học tập (card Ôn ngắt quãng...) vẽ lại
             document.dispatchEvent(new CustomEvent('quiz-study-pulled'));
+
+            // Đồng bộ tiến trình bài làm dở giữa các thiết bị (cross-device sync)
+            fetchCloudProgress(uid, quizId).then((cloudProgress) => {
+                const local = readQuizState(quizId);
+                const localSavedAt = Number(local?.savedAt) || 0;
+                const cloudSavedAt = Number(cloudProgress?.savedAt) || 0;
+                const isPlaying = document.getElementById('quiz-container') && !document.getElementById('quiz-container').classList.contains('hidden');
+
+                if (cloudProgress?.finished) {
+                    if (cloudSavedAt >= localSavedAt && local && !local.finished) {
+                        markQuizStateFinished(quizId);
+                        document.dispatchEvent(new CustomEvent('quiz-state-synced', { detail: { finished: true } }));
+                    }
+                } else if (cloudProgress && cloudSavedAt > localSavedAt && !isPlaying) {
+                    // Cloud có bài làm dở mới hơn -> nạp vào local và báo UI
+                    writeQuizState(quizId, cloudProgress);
+                    document.dispatchEvent(new CustomEvent('quiz-state-synced', { detail: { progress: cloudProgress } }));
+                } else if (local && !local.finished && localSavedAt > cloudSavedAt) {
+                    // Local mới hơn (vừa làm lúc ngoại tuyến) -> đẩy lên cloud cập nhật
+                    scheduleCloudProgressPush(uid, quizId, () => readQuizState(quizId), 500);
+                }
+            }).catch((err) => console.warn('Không tải được tiến trình từ cloud:', err));
         });
     };
     const u = sessionUser();

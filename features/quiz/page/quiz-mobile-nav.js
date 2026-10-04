@@ -5,7 +5,7 @@
 // rất dài khi đã hiện giải thích / mở rộng). Bổ trợ cho vuốt & chạm rìa sẵn có,
 // và thay cho lưới số câu xếp dọc (đỡ chiếm chỗ trên màn hẹp).
 
-import { state, MARK_REASONS } from '../quiz-state.js';
+import { state, MARK_REASONS, saveQuizState } from '../quiz-state.js';
 import { isAnswerCorrect, isMultiAnswer } from '../quiz-helpers.js';
 import { isEssay, isPendingEssay } from '../quiz-essay-core.js';
 import { showQuestion, showNextQuestion, showPreviousQuestion, handle5050Help } from './quiz-question-view.js';
@@ -215,6 +215,7 @@ export function setupMobileNav() {
         closeJumpSheet();
         if (idx !== state.currentIndex) {
             state.currentIndex = idx;
+            saveQuizState();
             showQuestion();
         }
     });

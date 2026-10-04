@@ -404,6 +404,18 @@
                     </section>
                 </div><!-- /rm-lobby-aside -->
                 </div><!-- /rm-lobby-grid -->
+                <footer class="rm-quiz-footer">
+                    <p class="rm-footer-cr">
+                        <span>&copy; 2025</span>
+                        <a href="https://fb.com/vietthanh1911" target="_blank" rel="noopener noreferrer" class="rm-footer-author" title="Ghé thăm Facebook của Zitthenk">Zitthenk</a>
+                        <span class="rm-footer-sep">&bull;</span>
+                        <span>Y23C</span>
+                        <span class="rm-footer-sep">&bull;</span>
+                        <span>17</span>
+                        <span class="rm-footer-sep">&bull;</span>
+                        <span>UMP</span>
+                    </p>
+                </footer>
             </div>
 
             <!-- (B) Đang làm bài -->
@@ -446,6 +458,13 @@
                 <div class="rm-live-grid">
                     <!-- Cột chính: câu hỏi · phương án · bảng phiếu -->
                     <div class="rm-col-main">
+                        <!-- Banner tên bộ đề trên điện thoại (sm:hidden) -->
+                        <div id="mobile-quiz-banner" class="rm-mobile-banner sm:hidden">
+                            <span class="rm-live-dot"></span>
+                            <i class="fas fa-book-open text-xs opacity-70"></i>
+                            <span id="mobile-quiz-title" class="rm-mobile-title truncate">Phiên đánh đề</span>
+                        </div>
+
                         <!-- Đọc ĐỀ trước: chip chủ đề/mức độ/người muốn bàn xuống DƯỚI câu hỏi, 1 hàng -->
                         <!-- Ca lâm sàng = phiếu riêng TRÊN thẻ đề: dùng chung cho cả chùm, sửa tại chỗ (room-quiz-stage renderCase) -->
                         <div id="case-box" class="hidden rm-case"></div>
@@ -474,6 +493,18 @@
                              Câu tự luận: bài làm chung cũng nằm ở đây (là phần làm bài chính). -->
                         <section id="answer-block" class="rm-hub" aria-label="Bàn luận câu này"></section>
 
+                        <footer class="rm-quiz-footer">
+                            <p class="rm-footer-cr">
+                                <span>&copy; 2025</span>
+                                <a href="https://fb.com/vietthanh1911" target="_blank" rel="noopener noreferrer" class="rm-footer-author" title="Ghé thăm Facebook của Zitthenk">Zitthenk</a>
+                                <span class="rm-footer-sep">&bull;</span>
+                                <span>Y23C</span>
+                                <span class="rm-footer-sep">&bull;</span>
+                                <span>17</span>
+                                <span class="rm-footer-sep">&bull;</span>
+                                <span>UMP</span>
+                            </p>
+                        </footer>
                     </div>
 
                     <!-- CỘT SỔ TAY (bản 27, máy tính rộng): giải thích · mở rộng · ghi nhớ · ghi chú của tôi nằm

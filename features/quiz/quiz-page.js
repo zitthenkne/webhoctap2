@@ -21,7 +21,7 @@ import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/fir
 import { showConfirm } from '../../core/utils.js';
 import { setupQuestionEditor } from './quiz-editor.js';
 import { state, clearQuizState, saveQuizState, readQuizState } from './quiz-state.js';
-import { ensureMermaidInit } from './quiz-helpers.js';
+import { ensureMermaidInit, reconstructQuestionsFromBlueprint } from './quiz-helpers.js';
 import { showSubmitQuizBtn } from './quiz-ui.js';
 
 import { scrollQuizToTop } from './page/quiz-page-prefs.js';
@@ -122,15 +122,42 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Array.isArray(savedState.questions) && savedState.questions.length === savedState.questionsLength) {
             // Có sẵn bộ câu hỏi đã chơi (đã trộn câu/đáp án) -> khôi phục chính xác tuyệt đối
             startQuizMode(savedState.questions, restoreMode, savedState);
-        } else {
-            // Bản lưu cũ không kèm câu hỏi -> chờ dữ liệu gốc tải xong rồi khôi phục
-            const restoreInterval = setInterval(() => {
-                if (state.originalQuestions && state.originalQuestions.length === savedState.questionsLength) {
-                    clearInterval(restoreInterval);
-                    startQuizMode(state.originalQuestions.map((q, i) => ({ ...q, __origIdx: i })), restoreMode, savedState);
-                }
-            }, 200);
+            return;
         }
+
+        const doRestore = () => {
+            if (!state.originalQuestions || !state.originalQuestions.length) return false;
+
+            let questionsToPlay = null;
+            if (Array.isArray(savedState.questionBlueprint) && savedState.questionBlueprint.length) {
+                questionsToPlay = reconstructQuestionsFromBlueprint(state.originalQuestions, savedState.questionBlueprint);
+            }
+
+            if (!questionsToPlay || !questionsToPlay.length) {
+                // Dự phòng cho bản lưu cũ không có blueprint
+                if (state.originalQuestions.length === savedState.questionsLength) {
+                    questionsToPlay = state.originalQuestions.map((q, i) => ({ ...q, __origIdx: i }));
+                } else {
+                    questionsToPlay = state.originalQuestions.slice(0, savedState.questionsLength).map((q, i) => ({ ...q, __origIdx: i }));
+                }
+            }
+
+            startQuizMode(questionsToPlay, restoreMode, savedState);
+            return true;
+        };
+
+        if (doRestore()) return;
+
+        // Nếu dữ liệu câu hỏi gốc đang tải bất đồng bộ -> chờ tối đa 10s có timeout an toàn
+        let elapsed = 0;
+        const step = 200;
+        const maxWait = 10000;
+        const restoreTimer = setInterval(() => {
+            elapsed += step;
+            if (doRestore() || elapsed >= maxWait) {
+                clearInterval(restoreTimer);
+            }
+        }, step);
     };
 
     // Hỏi khôi phục khi người dùng CHỦ ĐỘNG bắt đầu; cancelText đổi theo ngữ cảnh nút bấm
@@ -144,31 +171,56 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Gợi ý nhỏ dưới nút Bắt đầu để người dùng biết trước là có bài dở (thay cho modal đường đột)
-    const pendingAtLoad = getPendingSavedState();
-    if (pendingAtLoad) {
+    const renderResumeHint = (savedState) => {
         const startBtn = document.getElementById('start-now-btn');
-        if (startBtn && !document.getElementById('resume-hint')) {
-            const answered = pendingAtLoad.userAnswers.filter(a => a !== null).length;
-            const total = pendingAtLoad.questionsLength || 0;
-            const percent = total ? Math.round(answered / total * 100) : 0;
-            const ago = formatTimeAgo(pendingAtLoad.savedAt);
-            // Bấm thẳng vào thẻ là vào tiếp đúng câu đang dở (không phải qua modal hỏi lại)
-            const hint = document.createElement('button');
+        let hint = document.getElementById('resume-hint');
+        if (!savedState) {
+            if (hint) hint.remove();
+            return;
+        }
+        if (!startBtn) return;
+
+        const answered = (savedState.userAnswers || []).filter(a => a !== null).length;
+        const total = savedState.questionsLength || 0;
+        const percent = total ? Math.round(answered / total * 100) : 0;
+        const ago = formatTimeAgo(savedState.savedAt);
+
+        if (!hint) {
+            hint = document.createElement('button');
             hint.type = 'button';
             hint.id = 'resume-hint';
             hint.className = 'resume-chip';
-            hint.innerHTML = `
-                <span class="resume-chip-icon"><i class="fas fa-play"></i></span>
-                <span class="resume-chip-body">
-                    <span class="resume-chip-title">Làm tiếp câu ${(pendingAtLoad.currentIndex || 0) + 1}/${total}</span>
-                    <span class="resume-chip-sub">Đã trả lời ${answered}/${total} câu${ago ? ' · ' + ago : ''}</span>
-                    <span class="resume-chip-bar"><i style="width:${percent}%"></i></span>
-                </span>
-                <i class="fas fa-chevron-right resume-chip-go"></i>`;
-            hint.addEventListener('click', () => restoreSavedSession(pendingAtLoad));
             startBtn.insertAdjacentElement('afterend', hint);
         }
-    }
+
+        hint.innerHTML = `
+            <span class="resume-chip-icon"><i class="fas fa-play"></i></span>
+            <span class="resume-chip-body">
+                <span class="resume-chip-title">Làm tiếp câu ${(savedState.currentIndex || 0) + 1}/${total}</span>
+                <span class="resume-chip-sub">Đã trả lời ${answered}/${total} câu${ago ? ' · ' + ago : ''}</span>
+                <span class="resume-chip-bar"><i style="width:${percent}%"></i></span>
+            </span>
+            <i class="fas fa-chevron-right resume-chip-go"></i>`;
+        hint.onclick = () => restoreSavedSession(savedState);
+    };
+
+    renderResumeHint(getPendingSavedState());
+
+    // Cập nhật gợi ý làm bài dở khi dữ liệu cloud đồng bộ về hoặc xóa khi đã nộp trên máy khác
+    window.addEventListener('quiz-state-synced', () => {
+        const landing = document.getElementById('quiz-landing');
+        if (landing && !landing.classList.contains('hidden')) {
+            renderResumeHint(getPendingSavedState());
+        }
+    });
+
+    // Khi có mạng trở lại trong lúc đang làm bài dở -> lưu ngay để đồng bộ lên cloud
+    window.addEventListener('online', () => {
+        const inProgress = Array.isArray(state.userAnswers) && state.userAnswers.some(a => a !== null);
+        if (inProgress) {
+            saveQuizState();
+        }
+    });
 
     const hudHomeBtn = document.getElementById('hud-home-btn');
     if (hudHomeBtn) {

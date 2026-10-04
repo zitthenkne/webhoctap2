@@ -6,7 +6,13 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { shuffleQuestionOptions, convertScoreToGPA, shuffleArray } from '../quiz-helpers.js';
+import {
+    shuffleQuestionOptions,
+    convertScoreToGPA,
+    shuffleArray,
+    applyOptionOrder,
+    reconstructQuestionsFromBlueprint
+} from '../quiz-helpers.js';
 
 function makeQuestion() {
     return {
@@ -101,3 +107,44 @@ test('convertScoreToGPA: dữ liệu không hợp lệ trả về F', () => {
     assert.equal(convertScoreToGPA(-1, 10).letterGrade, 'F');
     assert.equal(convertScoreToGPA(NaN, 10).letterGrade, 'F');
 });
+
+test('applyOptionOrder: hoán vị chính xác vị trí đáp án và đáp án đúng theo mảng thứ tự', () => {
+    const q = makeQuestion();
+    // Gốc: ['Hà Nội', 'Huế', 'Đà Nẵng', 'TP.HCM'], correctAnswerIndex = 0
+    // Thứ tự mong muốn: [3, 0, 1, 2] -> 'TP.HCM', 'Hà Nội', 'Huế', 'Đà Nẵng' -> correctAnswerIndex mới = 1
+    const reordered = applyOptionOrder(q, [3, 0, 1, 2]);
+    assert.deepEqual(reordered.options, ['TP.HCM', 'Hà Nội', 'Huế', 'Đà Nẵng']);
+    assert.equal(reordered.correctAnswerIndex, 1);
+    assert.equal(reordered.optionExplanations[1], 'Đúng: là thủ đô');
+    assert.deepEqual(reordered.__optOrder, [3, 0, 1, 2]);
+});
+
+test('reconstructQuestionsFromBlueprint: tái tạo chính xác 100% câu hỏi đã chọn và thứ tự đáp án', () => {
+    const originals = [
+        { question: 'Câu 0', options: ['A0', 'B0', 'C0'], correctAnswerIndex: 0 },
+        { question: 'Câu 1', options: ['A1', 'B1', 'C1'], correctAnswerIndex: 1 },
+        { question: 'Câu 2', options: ['A2', 'B2', 'C2'], correctAnswerIndex: 2 }
+    ];
+
+    // Blueprint: người dùng chỉ làm 2 câu (câu 2 và câu 0), câu 2 xáo thứ tự [2, 0, 1]
+    const blueprint = [
+        { origIdx: 2, optOrder: [2, 0, 1] },
+        { origIdx: 0, optOrder: [1, 2, 0] }
+    ];
+
+    const reconstructed = reconstructQuestionsFromBlueprint(originals, blueprint);
+    assert.equal(reconstructed.length, 2);
+
+    // Câu đầu: nguyên gốc là câu 2, xáo [2, 0, 1] -> ['C2', 'A2', 'B2'], correctAnswerIndex cũ là 2 -> mới là 0
+    assert.equal(reconstructed[0].question, 'Câu 2');
+    assert.equal(reconstructed[0].__origIdx, 2);
+    assert.deepEqual(reconstructed[0].options, ['C2', 'A2', 'B2']);
+    assert.equal(reconstructed[0].correctAnswerIndex, 0);
+
+    // Câu thứ hai: nguyên gốc là câu 0, xáo [1, 2, 0] -> ['B0', 'C0', 'A0'], correctAnswerIndex cũ là 0 -> mới là 2
+    assert.equal(reconstructed[1].question, 'Câu 0');
+    assert.equal(reconstructed[1].__origIdx, 0);
+    assert.deepEqual(reconstructed[1].options, ['B0', 'C0', 'A0']);
+    assert.equal(reconstructed[1].correctAnswerIndex, 2);
+});
+

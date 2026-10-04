@@ -77,9 +77,14 @@ function initHudOpts() {
     if (!('IntersectionObserver' in window)) return;
     // Khuất = đã cuộn QUA (nằm phía trên HUD) và phần còn thấy < ~110px. Khay dưới ô dài thì ô A–C khuất
     // trước cả khi hết khối, nên đo phần còn thấy chứ không chờ khuất hẳn.
+    // Bản 52: có ĐỘ TRỄ — bật ở <110px, nhưng chỉ tắt khi lộ lại ≥230px. HUD đổi chiều cao khi hiện/ẩn ABCD
+    // (iPad: xuống dòng) làm nội dung dịch ~30–60px; không có vùng đệm thì ngưỡng cũ tự bật-tắt liên tục
+    // lúc cuộn (Safari không có scroll anchoring để bù) -> nhìn như màn hình bị giật/kéo lại.
     const io = new IntersectionObserver(([e]) => {
         const top = e.rootBounds ? e.rootBounds.top : 0;
-        const away = e.boundingClientRect.top < top && e.intersectionRect.height < 110;
+        const passed = e.boundingClientRect.top < top;
+        const was = document.body.classList.contains('opts-away');
+        const away = passed && e.intersectionRect.height < (was ? 230 : 110);
         document.body.classList.toggle('opts-away', away && !area.classList.contains('hidden'));
     }, { root, rootMargin: '-72px 0px 0px 0px', threshold: Array.from({ length: 21 }, (_, k) => k / 20) });
     io.observe(area);

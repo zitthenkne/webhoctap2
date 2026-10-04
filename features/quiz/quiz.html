@@ -401,13 +401,17 @@
                                     <span id="stat-last-attempt-sub" class="nb-stat-sub text-[10px] font-medium mt-0.5"></span>
                                 </div>
                             </div>
-                            <div class="bt-preview">
-                                <button id="show-preview-btn" title="Xem trước một số câu hỏi" class="nb-soft-btn px-4 py-2 font-semibold rounded-xl transition flex items-center gap-2 mx-auto text-xs sm:text-sm">
+                            <div class="bt-preview flex flex-wrap items-center justify-center gap-2">
+                                <button id="show-preview-btn" title="Xem trước một số câu hỏi" class="nb-soft-btn px-4 py-2 font-semibold rounded-xl transition flex items-center gap-2 text-xs sm:text-sm">
                                     <i class="fas fa-eye"></i>
                                     <span id="show-preview-label">Xem trước một số câu hỏi</span>
                                     <i id="show-preview-chevron" class="fas fa-chevron-down text-[10px] transition-transform duration-300"></i>
                                 </button>
-                                <div id="quiz-preview" class="quiz-preview-container mt-4 hidden text-left bg-pink-50/20 border border-pink-100/80 rounded-2xl p-4 max-h-[340px] overflow-y-auto">
+                                <button id="offline-download-btn" type="button" title="Tải đề về máy để học khi không có mạng" class="nb-soft-btn px-3.5 py-2 font-semibold rounded-xl transition flex items-center gap-1.5 text-xs sm:text-sm">
+                                    <i id="offline-download-icon" class="fas fa-arrow-down"></i>
+                                    <span id="offline-download-label">Tải offline</span>
+                                </button>
+                                <div id="quiz-preview" class="quiz-preview-container mt-4 hidden text-left bg-pink-50/20 border border-pink-100/80 rounded-2xl p-4 max-h-[340px] overflow-y-auto w-full">
                                     <div class="flex items-center justify-between gap-2 mb-3 border-b border-pink-100 pb-2 sticky -top-4 -mx-4 px-4 pt-1 bg-white/70 backdrop-blur-sm z-10 rounded-t-2xl">
                                         <div class="flex items-center gap-2 min-w-0">
                                             <div class="quiz-preview-title flex items-center gap-2 text-pink-600 font-bold text-sm whitespace-nowrap">
