@@ -30,6 +30,7 @@ import {
 import { readLocalStudy, syncPullStudy, pushCloudStudy, writeLocalStudy } from './quiz-study-store.js';
 import { showToast, showConfirm } from '../../core/utils.js';
 import { auth } from '../../core/firebase-init.js';
+import { sessionUser } from '../../core/auth-session.js';
 
 const QUIZ_URL = 'features/quiz/quiz.html';
 const DAYS_AHEAD = 7;
@@ -410,7 +411,7 @@ async function togglePause(deck) {
     showToast(deck.paused
         ? `Đã bật ôn lại "${deck.title}" — bộ đề sẽ hiện trong chuông thông báo.`
         : `Đã tạm dừng "${deck.title}" — lịch vẫn được giữ, bật lại bất cứ lúc nào.`, 'success');
-    const user = auth.currentUser;
+    const user = sessionUser();
     if (user) { try { await pushStudyWithPull(user.uid, deck.quizId); } catch (e) {} }
 }
 
@@ -422,7 +423,7 @@ async function deleteDeck(deck) {
     if (!ok) return;
 
     let cloudOk = true;
-    const user = auth.currentUser;
+    const user = sessionUser();
     if (user) {
         // Hợp nhất cloud về trước, rồi đẩy lại doc với srs rỗng để lần sync sau
         // không hồi sinh lịch; notes/marks/annotations giữ nguyên trong doc.

@@ -13,10 +13,17 @@ import {
     deleteDoc
 } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 
-export function queued(promise) {
-    if (navigator.onLine) return promise;
-    promise.catch(() => {}); // tránh unhandled rejection nếu lúc sync bị từ chối
-    return Promise.resolve();
+export function queued(promise, timeoutMs = 2500) {
+    if (!navigator.onLine) {
+        promise.catch(() => {}); // tránh unhandled rejection nếu lúc sync bị từ chối
+        return Promise.resolve();
+    }
+    // Nếu có mạng nhưng mạng lag/treo > 2.5s: Firestore SDK đã kịp lưu vào IndexedDB cục bộ,
+    // ta resolve sớm để UI không bị đóng băng nút bấm.
+    return Promise.race([
+        promise,
+        new Promise((resolve) => setTimeout(resolve, timeoutMs))
+    ]).catch(() => {});
 }
 
 export const setDocQ = (...args) => queued(setDoc(...args));

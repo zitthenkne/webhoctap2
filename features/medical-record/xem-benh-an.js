@@ -1,6 +1,7 @@
 import { showToast } from '../../core/utils.js';
 import { getRecord, syncFromCloud, authReady, isSignedIn, saveRecord } from './record-store.js';
 import { auth } from '../../core/firebase-init.js';
+import { sessionUser } from '../../core/auth-session.js';
 import { clsToHtml, clsToWordHtml, abnormalItems, refText, FLAG_MARK } from './cls-shared.js';
 import { buildModel, VITAL_RANGE, toMarkdown, slugName, downloadMarkdown } from './benh-an-text.js';
 import { toProse, downloadProse } from './benh-an-vanxuoi.js';
@@ -447,7 +448,7 @@ if (!record) {
         ? `Ngày ${dm[3]} tháng ${dm[2]} năm ${dm[1]}`
         : 'Ngày ......  tháng ......  năm ..........';
     authReady().then(() => {
-        const u = auth.currentUser;
+        const u = sessionUser();
         $('sign-name').textContent = u ? (u.displayName || (u.email || '').split('@')[0] || '') : '';
     });
 

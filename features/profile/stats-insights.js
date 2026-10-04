@@ -11,6 +11,7 @@
 // làm MỚI kể từ lần đồng bộ trước thay vì tải lại toàn bộ lịch sử mỗi lần.
 
 import { auth, db } from '../../core/firebase-init.js';
+import { sessionUser } from '../../core/auth-session.js';
 import { collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 
 const DAY_MS = 86400000;
@@ -24,7 +25,8 @@ const QUIZ_URL = 'features/quiz/quiz.html';
 // ---------- Cache ----------
 // Mỗi lượt lưu dạng ngắn cho nhẹ: q=quizId, ti=title, s=đúng, t=tổng, d=giây, at=ms
 function cacheKey() {
-    const uid = auth.currentUser ? auth.currentUser.uid : 'anon';
+    const u = sessionUser();
+    const uid = u ? u.uid : 'anon';
     return `statsRowsCache_${uid}`;
 }
 
@@ -47,7 +49,7 @@ function writeRowsCache(rows, lastSync) {
  * @returns {Promise<{rows:Array, lastSync:number, changed:boolean}>}
  */
 export async function syncRows() {
-    const user = auth.currentUser;
+    const user = sessionUser();
     const cached = readRowsCache();
     if (!user) return { ...cached, changed: false };
 

@@ -11,6 +11,7 @@
 // quiz-page.js cung cấp hàm render lại (showQuestion) qua setupQuestionEditor().
 
 import { db, auth } from '../../core/firebase-init.js';
+import { sessionUser } from '../../core/auth-session.js';
 import { doc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 // Ghi không treo khi mất mạng (xem core/offline-write.js)
 import { updateDocQ as updateDoc, setDocQ } from "../../core/offline-write.js";
@@ -320,7 +321,7 @@ export function openQuestionEditor() {
     if (qpos) qpos.textContent = `Câu ${state.currentIndex + 1}/${state.questions.length}`;
 
     // Cho biết nơi lưu (đám mây nếu là chủ bộ đề, ngược lại lưu cục bộ)
-    const user = auth.currentUser;
+    const user = sessionUser();
     const isOwner = !!(user && state.quizData && state.quizData.userId === user.uid);
     const hint = qeEl('qe-save-hint');
     if (hint) {
@@ -482,7 +483,7 @@ async function commitQuestionEdit(edited) {
     _rerender();
 
     // Lưu lâu dài: Firestore nếu là chủ, ngược lại lưu cục bộ.
-    const user = auth.currentUser;
+    const user = sessionUser();
     const isOwner = !!(user && state.quizData && state.quizData.userId === user.uid);
     let savedMsg = 'Đã áp dụng cho phiên làm bài này.';
     if (isOwner) {

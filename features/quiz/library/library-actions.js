@@ -76,7 +76,7 @@ export async function toggleQuizPublic(quizId, makePublic) {
  * Phải đọc lại từ Firestore vì cache trong RAM đã lược bỏ mảng `questions`.
  */
 export async function duplicateQuizSet(quizId, quizTitle) {
-    const user = auth.currentUser;
+    const user = sessionUser();
     if (!user) { showToast('Vui lòng đăng nhập.', 'info'); return; }
     try {
         showToast('Đang nhân bản…', 'info');

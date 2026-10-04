@@ -36,16 +36,13 @@ function cached() {
 // null lúc offline chính là trường hợp ta muốn chữa; chỉ đăng xuất thật mới xoá.
 onAuthStateChanged(auth, (u) => { if (u) remember(u); });
 
-/** Người dùng hiện tại: bản thật của Firebase, hoặc bản đã lưu nếu đang offline. */
+/** Người dùng hiện tại: bản thật của Firebase, hoặc bản đã lưu từ trước. */
 export function sessionUser() {
-    return auth.currentUser || (navigator.onLine ? null : cached());
+    return auth.currentUser || cached();
 }
 
-/** Như onAuthStateChanged nhưng offline thì trả người dùng đã lưu thay vì null. */
+/** Như onAuthStateChanged nhưng ưu tiên báo ngay từ cache (0ms) và giữ đăng nhập khi offline. */
 export function onSessionUser(cb) {
-    // Offline: bản nhớ được báo ngay, rồi Firebase trả null → lại ra đúng bản nhớ đó. Gọi cb 2 lần là
-    // trang khởi tạo 2 lần (gắn trùng listener, hỏi khôi phục nháp 2 lần…) → chỉ gọi khi người dùng ĐỔI.
-    // Bản nhớ → bản thật của Firebase (cùng uid) vẫn báo, để nơi gọi nhận được đối tượng có getIdToken().
     let last;
     const emit = (u) => {
         const key = u ? u.uid + (u.offline ? '~offline' : '') : '';
@@ -54,8 +51,15 @@ export function onSessionUser(cb) {
         cb(u);
     };
     const off = cached();
-    if (!navigator.onLine && off) emit(off);        // đừng để giao diện nháy "Khách"
-    return onAuthStateChanged(auth, (u) => emit(u || (navigator.onLine ? null : cached())));
+    if (off) emit(off);        // Hiện ngay lập tức danh tính người dùng (0ms), không nháy "Khách"
+    return onAuthStateChanged(auth, (u) => {
+        if (u) {
+            remember(u);
+            emit(u);
+        } else {
+            emit(cached());
+        }
+    });
 }
 
 /** Gọi khi người dùng CHỦ ĐỘNG đăng xuất, nếu không lần sau offline vẫn thấy đăng nhập. */

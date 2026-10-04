@@ -3,64 +3,353 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Bạn đang ngoại tuyến - Zitthenkne</title>
+    <title>Trạm học ngoại tuyến - Zitthenkne</title>
     <link rel="icon" type="image/png" href="assets/favicons/favicon-offline.png">
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --pink-main: #FF69B4;
+            --pink-soft: #FCE4EC;
+            --pink-border: #ffd1dc;
+            --purple-sub: #D8BFD8;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #FCE4EC 0%, #FFF0F5 50%, #F3E5F5 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1.25rem;
+            color: #374151;
+        }
+        .hub-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            max-width: 520px;
+            width: 100%;
+            border-radius: 1.75rem;
+            box-shadow: 0 20px 40px -15px rgba(255, 105, 180, 0.18), 0 0 0 1px rgba(255, 182, 193, 0.4);
+            padding: 2rem 1.5rem;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        .mascot-box {
+            position: relative;
+            display: inline-block;
+            margin: 0 auto;
+        }
+        .mascot-img {
+            width: 96px;
+            height: 96px;
+            border-radius: 1.25rem;
+            border: 3px solid var(--purple-sub);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+            background: #fff;
+            padding: 4px;
+        }
+        .offline-badge {
+            position: absolute;
+            bottom: -6px;
+            right: -6px;
+            background: #ef4444;
+            color: #fff;
+            border-radius: 9999px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 3px solid #fff;
+            box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+            font-size: 0.8rem;
+        }
+        .user-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #FFF0F5;
+            border: 1px solid var(--pink-border);
+            padding: 0.35rem 0.85rem;
+            border-radius: 9999px;
+            font-size: 0.825rem;
+            font-weight: 600;
+            color: #be185d;
+            margin-top: 0.25rem;
+        }
+        .deck-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+            max-height: 280px;
+            overflow-y: auto;
+            text-align: left;
+            padding-right: 4px;
+        }
+        .deck-item {
+            background: #fff;
+            border: 1px solid #fed7e2;
+            border-radius: 1rem;
+            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .deck-item:hover {
+            transform: translateY(-1px);
+            border-color: #f472b6;
+            box-shadow: 0 4px 12px rgba(244, 114, 182, 0.15);
+        }
+        .deck-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .deck-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #1f2937;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .deck-sub {
+            font-size: 0.75rem;
+            color: #9ca3af;
+            margin-top: 2px;
+        }
+        .deck-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            flex-shrink: 0;
+        }
+        .btn-act {
+            padding: 0.45rem 0.75rem;
+            border-radius: 0.75rem;
+            font-size: 0.775rem;
+            font-weight: 700;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            transition: all 0.15s ease;
+        }
+        .btn-act-quiz {
+            background: linear-gradient(135deg, #FF69B4, #ec4899);
+            color: #fff;
+            box-shadow: 0 3px 8px rgba(236, 72, 153, 0.3);
+        }
+        .btn-act-quiz:hover { opacity: 0.95; transform: scale(1.02); }
+        .btn-act-fc {
+            background: #fdf2f8;
+            color: #be185d;
+            border: 1px solid #fbcfe8;
+        }
+        .btn-act-fc:hover { background: #fce7f3; }
+        .btn-main {
+            width: 100%;
+            padding: 0.85rem;
+            background: linear-gradient(135deg, #FF69B4, #ec4899);
+            color: #fff;
+            border: none;
+            border-radius: 1rem;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 6px 16px rgba(236, 72, 153, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+        }
+        .btn-main:active { transform: scale(0.98); }
+        .btn-sub {
+            width: 100%;
+            padding: 0.85rem;
+            background: #f3f4f6;
+            color: #4b5563;
+            border: none;
+            border-radius: 1rem;
+            font-size: 0.95rem;
+            font-weight: 700;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: background 0.2s ease;
+        }
+        .btn-sub:hover { background: #e5e7eb; }
+        .empty-hint {
+            padding: 1.5rem 1rem;
+            background: #fff5f7;
+            border: 1px dashed var(--pink-border);
+            border-radius: 1rem;
+            font-size: 0.85rem;
+            color: #6b7280;
+            line-height: 1.5;
+        }
+    </style>
 </head>
-<body class="flex flex-col items-center justify-center min-h-screen bg-[#FCE4EC] text-gray-700 p-4">
-    <div class="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 text-center border-2 border-pink-100 flex flex-col items-center gap-6">
+<body>
+    <div class="hub-card">
         <!-- Logo/Mascot -->
-        <div class="relative">
-            <img src="assets/squirrel-pixel.png" alt="Zitthenkne Mascot" class="w-32 h-32 mx-auto rounded-2xl border-4 border-[#D8BFD8] shadow-lg hover:scale-105 transition-transform duration-300 bg-white p-1">
-            <!-- Offline Badge -->
-            <span class="absolute -bottom-2 -right-2 bg-red-500 text-white rounded-full p-2 border-4 border-white shadow flex items-center justify-center w-10 h-10" title="Ngoại tuyến">
-                <i class="fas fa-wifi-slash text-sm"></i>
+        <div class="mascot-box">
+            <img src="assets/squirrel-pixel.png" alt="Zitthenkne Mascot" class="mascot-img">
+            <span class="offline-badge" title="Đang ngoại tuyến">
+                <i class="fas fa-wifi-slash"></i>
             </span>
         </div>
 
         <div>
-            <h1 class="text-2xl font-extrabold text-[#FF69B4] tracking-wide mb-2">Mất kết nối mạng rồi!</h1>
-            <p class="text-gray-500 text-base leading-relaxed">
-                Có vẻ thiết bị của bạn đã bị ngắt kết nối internet. Hãy kiểm tra lại Wi-Fi hoặc dữ liệu di động của bạn nhé!
+            <h1 style="font-size: 1.45rem; font-weight: 800; color: #db2777; margin-bottom: 0.35rem;">
+                Bạn đang ngoại tuyến
+            </h1>
+            <p style="font-size: 0.875rem; color: #6b7280; line-height: 1.45;">
+                Không có kết nối mạng internet. Các tính năng và bộ đề đã lưu trên máy vẫn hoạt động 100% trơn tru!
             </p>
+            <div id="user-badge-wrap"></div>
         </div>
 
-        <!-- Các tính năng ngoại tuyến (Nếu có) -->
-        <div class="w-full bg-pink-50/50 rounded-2xl p-4 border border-pink-100 text-left text-sm text-gray-600">
-            <h3 class="font-bold text-[#FF69B4] mb-2 flex items-center gap-2">
-                <i class="fas fa-lightbulb"></i> Bạn vẫn có thể:
-            </h3>
-            <ul class="list-disc list-inside space-y-1">
-                <li>Truy cập các nội dung học tập đã lưu cache trước đó.</li>
-                <li>Ôn tập bộ nhớ flashcard đã được tải.</li>
-                <li>Làm các bộ đề đã tải về máy.</li>
-            </ul>
+        <!-- Bộ đề đã lưu offline trên máy -->
+        <div style="text-align: left;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem;">
+                <h2 style="font-size: 0.95rem; font-weight: 800; color: #be185d; display: flex; align-items: center; gap: 0.45rem;">
+                    <i class="fas fa-box-archive" style="color: #ec4899;"></i> Bộ đề trên máy của bạn
+                </h2>
+                <span id="deck-counter" style="font-size: 0.775rem; font-weight: 700; color: #9ca3af;">Đang kiểm tra...</span>
+            </div>
+            <div id="offline-deck-list" class="deck-list">
+                <div class="empty-hint" style="text-align: center;">
+                    <i class="fas fa-spinner fa-spin" style="color: #ec4899;"></i> Đang quét các bộ đề đã lưu trong máy...
+                </div>
+            </div>
         </div>
 
-        <div class="flex flex-col gap-3 w-full">
-            <button id="retry-btn" class="w-full py-3 bg-[#FF69B4] hover:bg-pink-400 text-white rounded-2xl font-bold shadow-lg hover:shadow-pink-200 transition-all duration-300 flex items-center justify-center gap-2 text-base active:scale-95">
+        <!-- Các nút thao tác -->
+        <div style="display: flex; flex-direction: column; gap: 0.65rem; width: 100%;">
+            <button id="retry-btn" class="btn-main">
                 <i class="fas fa-sync-alt"></i> Thử kết nối lại
             </button>
-            <a href="index.html" class="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl font-bold transition duration-300 flex items-center justify-center gap-2 text-base active:scale-95">
-                <i class="fas fa-home"></i> Quay lại trang chủ
+            <a href="index.html" class="btn-sub">
+                <i class="fas fa-home"></i> Về trang chủ (Bản lưu máy)
             </a>
         </div>
     </div>
 
-    <footer class="mt-8 text-gray-500 text-xs">
-        &copy; 2025 Zitthenkne - Học tập thông minh
+    <footer style="margin-top: 1.5rem; color: #9ca3af; font-size: 0.75rem;">
+        &copy; 2026 Zitthenkne · Tự do học tập mọi lúc, mọi nơi
     </footer>
 
     <script>
-        // Nút thử kết nối lại
+        // 1. Hiển thị thông tin người dùng ngoại tuyến từ localStorage
+        try {
+            const rawUser = localStorage.getItem('lastAuthUser');
+            if (rawUser) {
+                const u = JSON.parse(rawUser);
+                if (u && (u.displayName || u.email)) {
+                    const name = u.displayName || u.email.split('@')[0];
+                    const wrap = document.getElementById('user-badge-wrap');
+                    wrap.innerHTML = `
+                        <div class="user-pill">
+                            <i class="fas fa-user-check text-pink-500"></i>
+                            <span>${name} · Đang giữ phiên đăng nhập</span>
+                        </div>
+                    `;
+                }
+            }
+        } catch (_) {}
+
+        // 2. Quét IndexedDB để lấy danh sách bộ đề đã lưu trên máy
+        async function loadLocalDecks() {
+            const listEl = document.getElementById('offline-deck-list');
+            const counterEl = document.getElementById('deck-counter');
+            
+            if (!('indexedDB' in window)) {
+                listEl.innerHTML = `<div class="empty-hint">Trình duyệt này không hỗ trợ lưu ngoại tuyến.</div>`;
+                counterEl.textContent = '0 bộ đề';
+                return;
+            }
+
+            try {
+                const req = indexedDB.open('zitthenkne-offline', 1);
+                req.onsuccess = () => {
+                    const db = req.result;
+                    if (!db.objectStoreNames.contains('quizzes')) {
+                        showEmpty();
+                        return;
+                    }
+                    const tx = db.transaction('quizzes', 'readonly');
+                    const store = tx.objectStore('quizzes');
+                    const getAllReq = store.getAll();
+
+                    getAllReq.onsuccess = () => {
+                        const items = getAllReq.result || [];
+                        if (items.length === 0) {
+                            showEmpty();
+                            return;
+                        }
+                        counterEl.textContent = `${items.length} bộ đề`;
+                        listEl.innerHTML = items.map(q => {
+                            const qCount = q.questionCount || (Array.isArray(q.questions) ? q.questions.length : 0);
+                            const title = q.title || 'Bộ đề không tên';
+                            return `
+                                <div class="deck-item">
+                                    <div class="deck-info">
+                                        <div class="deck-title" title="${escapeHtml(title)}">${escapeHtml(title)}</div>
+                                        <div class="deck-sub">${qCount} câu hỏi · Sẵn sàng làm offline</div>
+                                    </div>
+                                    <div class="deck-actions">
+                                        <a href="features/quiz/quiz.html?id=${encodeURIComponent(q.id)}" class="btn-act btn-act-quiz" title="Bắt đầu làm bộ đề này">
+                                            <i class="fas fa-play"></i> Làm
+                                        </a>
+                                        <a href="features/flashcard/flashcard.html?id=${encodeURIComponent(q.id)}" class="btn-act btn-act-fc" title="Ôn tập flashcard">
+                                            <i class="fas fa-clone"></i> Thẻ
+                                        </a>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                    };
+                    getAllReq.onerror = showEmpty;
+                };
+                req.onerror = showEmpty;
+            } catch (_) {
+                showEmpty();
+            }
+
+            function showEmpty() {
+                counterEl.textContent = '0 bộ đề';
+                listEl.innerHTML = `
+                    <div class="empty-hint">
+                        <i class="fas fa-info-circle text-pink-500"></i> Chưa có bộ đề nào được lưu về máy.<br>
+                        Khi có mạng, hãy mở các bộ đề bạn muốn ôn rồi bấm <b>"Tải offline"</b> nhé!
+                    </div>
+                `;
+            }
+        }
+
+        function escapeHtml(s) {
+            return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        loadLocalDecks();
+
+        // 3. Nút thử kết nối lại
         document.getElementById('retry-btn').addEventListener('click', () => {
             const btn = document.getElementById('retry-btn');
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner animate-spin"></i> Đang kết nối...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang kiểm tra sóng...';
             
-            // Đợi 800ms để tạo cảm giác kiểm tra kết nối
             setTimeout(() => {
                 if (navigator.onLine) {
                     window.location.reload();
@@ -68,17 +357,16 @@
                     btn.disabled = false;
                     btn.innerHTML = '<i class="fas fa-sync-alt"></i> Thử kết nối lại';
                     
-                    // Tạo một toast nhỏ báo lỗi
                     const toast = document.createElement('div');
-                    toast.className = 'fixed bottom-10 left-1/2 -translate-x-1/2 bg-red-500 text-white px-6 py-3 rounded-2xl shadow-xl z-50 text-sm font-semibold animate-bounce';
-                    toast.innerText = 'Vẫn chưa có kết nối mạng. Hãy thử lại sau nhé!';
+                    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#ef4444;color:#fff;padding:10px 20px;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,0.2);font-size:0.875rem;font-weight:700;z-index:9999;';
+                    toast.innerText = 'Vẫn chưa có kết nối mạng. Bạn cứ yên tâm học các bộ đề ở trên nhé!';
                     document.body.appendChild(toast);
                     setTimeout(() => toast.remove(), 2500);
                 }
             }, 800);
         });
 
-        // Lắng nghe sự kiện online để tự động tải lại trang
+        // Tự động reload khi có mạng lại
         window.addEventListener('online', () => {
             window.location.reload();
         });

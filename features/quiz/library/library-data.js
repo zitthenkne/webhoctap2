@@ -23,7 +23,7 @@ import { fetchAllQuizMeta, readMetaCache, writeMetaCache, readFoldersCache, writ
  * Lưu bộ đề và chuyển sang màn hình làm quiz
  */
 export async function saveAndStartQuiz() {
-    const user = auth.currentUser;
+    const user = sessionUser();
     const processBtn = document.getElementById('processBtn');
     if (!user) {
         showToast('Vui lòng đăng nhập để lưu bộ đề.', 'info');
@@ -70,7 +70,7 @@ export async function saveAndStartQuiz() {
  * Lưu bộ đề vào thư viện (không bắt đầu làm ngay)
  */
 export async function saveOnly() {
-    const user = auth.currentUser;
+    const user = sessionUser();
     const saveBtnPreQuiz = document.getElementById('saveBtn-preQuiz');
     if (!user) {
         showToast('Vui lòng đăng nhập để lưu bộ đề.', 'info');
@@ -384,7 +384,7 @@ export async function ensureFullLibraryLoaded() {
 // (visibilitychange) hoặc trang được khôi phục từ bfcache (pageshow), ta vô hiệu hoá cache và nạp lại từ server.
 function refreshLibraryOnResume() {
     if (document.visibilityState !== 'visible') return;
-    if (!auth.currentUser) return;
+    if (!sessionUser()) return;
     // Giới hạn tần suất: nếu vừa đồng bộ trong vòng 60s thì bỏ qua để khỏi tốn lượt đọc Firestore
     if (Date.now() - S.lastLibrarySyncAt < LIBRARY_AUTO_SYNC_MIN_INTERVAL) return;
     // Đang chọn nhiều bộ đề: đừng nạp lại kẻo mất lựa chọn của người dùng
@@ -411,7 +411,7 @@ export async function forceReloadLibrary() {
         showToast('Đang ngoại tuyến — đang hiện danh sách lưu trên máy, có mạng sẽ tự cập nhật.', 'info');
         return;
     }
-    const user = auth.currentUser;
+    const user = sessionUser();
     if (!user) return;
     S.isLibraryFullyLoaded = false;   // bỏ cache RAM
     clearMetaCache(user.uid);         // và cả cache đĩa — bấm "Tải lại" là muốn dữ liệu mới thật,

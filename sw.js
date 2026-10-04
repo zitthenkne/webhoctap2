@@ -3,7 +3,7 @@
 //  - CACHE_NAME (zitthenkne-vNNN): app shell. Tăng số MỖI LẦN sửa/thêm file trong urlsToCache.
 //  - CDN_CACHE: thư viện + phông từ CDN (URL có phiên bản, gần như bất biến) → GIỮ qua các phiên bản.
 //  - IMG_CACHE: ảnh tải lúc chạy (nền, avatar, ảnh bệnh án) → giữ qua các phiên bản, tối đa IMG_MAX mục.
-const CACHE_NAME = 'zitthenkne-v213';
+const CACHE_NAME = 'zitthenkne-v214';
 const CDN_CACHE = 'zitthenkne-cdn';
 const IMG_CACHE = 'zitthenkne-img';
 const IMG_MAX = 250;
@@ -12,6 +12,7 @@ const IMG_MAX = 250;
 const urlsToCache = [
   '/',
   'index.html',
+  'offline.html',
   'style.css',
   'tailwind-index.css',
   'home-shell.css',

@@ -3,6 +3,7 @@
 // và liệt kê các bộ đề người dùng đã đánh dấu / ghi chú (tải theo yêu cầu).
 
 import { auth, db } from '../../core/firebase-init.js';
+import { sessionUser } from '../../core/auth-session.js';
 import { collection, query, where, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { showToast, showConfirm } from '../../core/utils.js';
 import { achievements } from '../../core/achievements.js';
@@ -606,7 +607,7 @@ function paintStats(rows) {
  * @param {boolean} force true = xóa cache, kéo lại toàn bộ lịch sử (nút "Tải lại")
  */
 export async function loadAndDisplayStats(force = false) {
-    const user = auth.currentUser;
+    const user = sessionUser();
     const achievementsContainer = document.getElementById('achievements-container');
 
     // Reset giao diện thành tựu
@@ -728,7 +729,7 @@ export async function loadMarkedNotedQuizzes() {
     } catch (e) { /* localStorage không khả dụng */ }
 
     // 2. Quét cloud (quiz_study của người dùng hiện tại)
-    const user = auth.currentUser;
+    const user = sessionUser();
     if (user) {
         try {
             const q = query(collection(db, 'quiz_study'), where('userId', '==', user.uid));
