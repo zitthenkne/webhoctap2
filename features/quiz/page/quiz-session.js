@@ -128,7 +128,7 @@ function setupOfflineDownloadBtn(quizId) {
             if (label) label.textContent = imgUrls.length > 0 ? `Đang tải ảnh (0/${imgUrls.length})...` : 'Đang lưu...';
             btn.disabled = true;
 
-            await saveOfflineQuiz(quizId, state.quizData, {
+            const saved = await saveOfflineQuiz(quizId, state.quizData, {
                 auto: false,
                 cacheImages: true,
                 onProgress: (done, total) => {
@@ -138,8 +138,8 @@ function setupOfflineDownloadBtn(quizId) {
 
             btn.disabled = false;
             updateStatus();
-            const imgNote = imgUrls.length > 0 ? ` (kèm ${imgUrls.length} ảnh minh họa)` : '';
-            showToast(isSaved ? `Đã cập nhật bản offline mới nhất${imgNote}!` : `Đã tải bộ đề về máy${imgNote}! Bạn có thể tắt mạng để làm bài nhé.`, 'success', 5000);
+            const imgNote = saved.imgFailed ? ` (${saved.imgFailed}/${imgUrls.length} ảnh chưa tải được, bấm lại khi mạng ổn để tải nốt)` : imgUrls.length > 0 ? ` (kèm ${imgUrls.length} ảnh minh họa)` : '';
+            showToast(isSaved ? `Đã cập nhật bản offline mới nhất${imgNote}!` : `Đã tải bộ đề về máy${imgNote}! Bạn có thể tắt mạng để làm bài nhé.`, saved.imgFailed ? 'warning' : 'success', 5000);
         } catch (e) {
             console.error('Lỗi lưu offline:', e);
             btn.disabled = false;

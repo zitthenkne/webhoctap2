@@ -10,6 +10,9 @@ const DB_NAME = 'zitthenkne-offline';
 const DB_VERSION = 1;
 const STORE = 'quizzes';
 const IDS_KEY = 'zitthenkne_offline_quiz_ids';
+// Ảnh của bộ đề lưu offline nằm kho RIÊNG: service worker không dọn theo hạn IMG_MAX của kho ảnh chạy lúc (mở nhiều
+// bộ → ảnh bộ cũ bị đá khỏi kho trong khi bản đề vẫn còn). Kho này tự dọn khi bộ đề bị xóa (pruneQuizImages).
+const QUIZ_IMG_CACHE = 'zitthenkne-quiz-img';
 
 let _dbPromise = null;
 
@@ -65,24 +68,27 @@ export function getOfflineIdsSync() {
 }
 
 /**
- * Trích xuất toàn bộ URL hình ảnh từ một bộ câu hỏi (markdown ![...](url), trường image, options, feedback).
+ * Trích xuất toàn bộ URL hình ảnh từ một bộ câu hỏi: ![...](url) hoặc <img src> nằm ở BẤT KỲ trường chữ nào
+ * (câu hỏi, phương án, giải thích, giải thích từng phương án, ghi chú, mở rộng, ca lâm sàng, tự luận…) + trường image.
  */
 export function extractQuizImageUrls(questions) {
     if (!Array.isArray(questions)) return [];
     const urls = new Set();
     const mdImgRegex = /!\[.*?\]\((https?:\/\/[^\s\)]+)\)/g;
     const htmlImgRegex = /<img[^>]+src=["'](https?:\/\/[^"'\s>]+)["']/gi;
+    // Đi qua mọi chuỗi trong câu hỏi: liệt kê tay từng trường từng bỏ sót ảnh ở ghi chú / ca lâm sàng.
+    const strings = (v, out, depth = 0) => {
+        if (typeof v === 'string') out.push(v);
+        else if (v && typeof v === 'object' && depth < 4) Object.values(v).forEach((x) => strings(x, out, depth + 1));
+        return out;
+    };
 
     questions.forEach((q) => {
         if (!q) return;
         if (q.image && typeof q.image === 'string' && q.image.startsWith('http')) {
             urls.add(q.image.trim());
         }
-        const textParts = [q.question, q.explanation, q.expanded];
-        if (Array.isArray(q.options)) textParts.push(...q.options);
-        if (Array.isArray(q.answers)) textParts.push(...q.answers);
-        if (q.feedback && typeof q.feedback === 'object') textParts.push(...Object.values(q.feedback));
-        const fullText = textParts.filter(Boolean).join(' ');
+        const fullText = strings(q, []).join(' ');
 
         let m;
         while ((m = mdImgRegex.exec(fullText)) !== null) {
@@ -97,25 +103,48 @@ export function extractQuizImageUrls(questions) {
 }
 
 /**
- * Tải và lưu trước hình ảnh vào CacheStorage (kho zitthenkne-img).
+ * Tải 1 ảnh vào kho cache. Thử CORS trước; host không có CORS thì thử no-cors (ảnh đục).
+ * Mỗi lần thử có hạn riêng 60 giây (proxy lần đầu kéo ảnh từ catbox có khi mất ~40 giây) (gồm cả đọc hết thân ảnh). Trả true nếu đã cất được.
+ */
+async function fetchToCache(cache, url) {
+    for (const mode of ['cors', 'no-cors']) {
+        const ctl = new AbortController();
+        const timer = setTimeout(() => ctl.abort(), 60000);
+        try {
+            const res = await fetch(url, { mode, credentials: 'omit', signal: ctl.signal });
+            if (!res.ok && res.type !== 'opaque') return false;   // lỗi HTTP thật (404…): đừng cất trang lỗi
+            if (cache) await cache.put(url, res);
+            return true;
+        } catch (e) {
+            if (ctl.signal.aborted) return false;                 // quá giờ: khỏi thử lại
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+    return false;
+}
+
+/**
+ * Tải và lưu trước hình ảnh vào CacheStorage (kho QUIZ_IMG_CACHE).
  * Nhờ đó Service Worker và trình duyệt có thể phục vụ ảnh ngay cả khi ngoại tuyến hoàn toàn.
- * Hỗ trợ các host không có CORS như files.catbox.moe qua mode no-cors.
+ * Trả { total, cached, failed } — failed là số ảnh thật sự chưa tải được (gọi lại sẽ chỉ tải nốt những ảnh này).
  */
 export async function cacheQuizImages(questions, { onProgress } = {}) {
     // Cùng URL mà trang sẽ thật sự gọi (ảnh catbox đi qua proxy) — không thì kho offline lưu nhầm link gốc chậm.
     const urls = extractQuizImageUrls(questions).map(fastImgUrl);
-    if (!urls.length) return { total: 0, cached: 0 };
+    if (!urls.length) return { total: 0, cached: 0, failed: 0 };
 
     let cache = null;
     try {
         if ('caches' in window) {
-            cache = await caches.open('zitthenkne-img');
+            cache = await caches.open(QUIZ_IMG_CACHE);
         }
     } catch (e) {
         console.warn('CacheStorage không khả dụng:', e);
     }
 
     let done = 0;
+    let failed = 0;
     const poolLimit = 4;
     const queue = [...urls];
 
@@ -123,42 +152,10 @@ export async function cacheQuizImages(questions, { onProgress } = {}) {
         while (queue.length > 0) {
             const url = queue.shift();
             try {
-                if (cache) {
-                    const match = await cache.match(url);
-                    if (match) {
-                        done++;
-                        if (onProgress) onProgress(done, urls.length, url);
-                        continue;
-                    }
-                }
-                const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-                const timer = controller ? setTimeout(() => controller.abort(), 12000) : null;
-                let res = null;
-                try {
-                    res = await fetch(url, {
-                        mode: 'cors',
-                        credentials: 'omit',
-                        signal: controller ? controller.signal : undefined
-                    });
-                    if (!res.ok) throw new Error('CORS failed');
-                } catch (_) {
-                    try {
-                        res = await fetch(url, {
-                            mode: 'no-cors',
-                            credentials: 'omit',
-                            signal: controller ? controller.signal : undefined
-                        });
-                    } catch (e) {}
-                } finally {
-                    if (timer) clearTimeout(timer);
-                }
-
-                if (res && (res.ok || res.type === 'opaque')) {
-                    if (cache) {
-                        await cache.put(url, res.clone());
-                    }
-                }
+                const have = cache && await cache.match(url);
+                if (!have && !(await fetchToCache(cache, url))) failed++;
             } catch (err) {
+                failed++;
                 console.warn('Không tải được ảnh offline:', url, err);
             }
             done++;
@@ -169,7 +166,7 @@ export async function cacheQuizImages(questions, { onProgress } = {}) {
     const workers = Array.from({ length: Math.min(poolLimit, urls.length) }, () => worker());
     await Promise.all(workers);
 
-    return { total: urls.length, cached: done };
+    return { total: urls.length, cached: urls.length - failed, failed };
 }
 
 /**
@@ -198,7 +195,7 @@ export async function saveOfflineQuiz(id, data, { auto = false, cacheImages = tr
     // Tải và lưu trước toàn bộ hình ảnh vào CacheStorage
     if (cacheImages && Array.isArray(data.questions) && data.questions.length > 0) {
         try {
-            await cacheQuizImages(data.questions, { onProgress });
+            record.imgFailed = (await cacheQuizImages(data.questions, { onProgress })).failed;
         } catch (imgErr) {
             console.warn('Lỗi khi nạp ảnh offline:', imgErr);
         }
@@ -223,7 +220,7 @@ export async function getOfflineQuiz(id) {
 }
 
 /** Xóa bản offline của một bộ đề. */
-export async function deleteOfflineQuiz(id) {
+export async function deleteOfflineQuiz(id, { prune = true } = {}) {
     await new Promise((resolve, reject) => {
         txStore('readwrite').then((store) => {
             const req = store.delete(id);
@@ -232,6 +229,19 @@ export async function deleteOfflineQuiz(id) {
         }).catch(reject);
     });
     writeIds(readIds().filter((x) => x !== id));
+    if (prune) await pruneQuizImages();
+}
+
+/** Bỏ khỏi kho ảnh những ảnh không còn bộ đề offline nào dùng (ảnh dùng chung giữa các bộ được giữ lại). */
+async function pruneQuizImages() {
+    try {
+        const keep = new Set();
+        for (const q of await listOfflineQuizzes()) {
+            extractQuizImageUrls(q.questions).forEach((u) => keep.add(new URL(fastImgUrl(u)).href));
+        }
+        const cache = await caches.open(QUIZ_IMG_CACHE);
+        for (const req of await cache.keys()) if (!keep.has(req.url)) await cache.delete(req);
+    } catch (e) { /* dọn không được thì thôi, ảnh thừa không hại */ }
 }
 
 /**
@@ -264,7 +274,8 @@ export async function autoCacheQuiz(id, data) {
 async function pruneAutoCached() {
     const all = await listOfflineQuizzes();
     const autos = all.filter((q) => q._auto).sort((a, b) => (b._offlineSavedAt || 0) - (a._offlineSavedAt || 0));
-    for (const q of autos.slice(AUTO_LIMIT)) await deleteOfflineQuiz(q.id);
+    for (const q of autos.slice(AUTO_LIMIT)) await deleteOfflineQuiz(q.id, { prune: false });
+    if (autos.length > AUTO_LIMIT) await pruneQuizImages();
 }
 
 /** Danh sách metadata các bộ đề đã tải offline (để màn hình quản lý nếu cần). */

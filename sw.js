@@ -3,10 +3,11 @@
 //  - CACHE_NAME (zitthenkne-vNNN): app shell. Tăng số MỖI LẦN sửa/thêm file trong urlsToCache.
 //  - CDN_CACHE: thư viện + phông từ CDN (URL có phiên bản, gần như bất biến) → GIỮ qua các phiên bản.
 //  - IMG_CACHE: ảnh tải lúc chạy (nền, avatar, ảnh bệnh án) → giữ qua các phiên bản, tối đa IMG_MAX mục.
-const CACHE_NAME = 'zitthenkne-v234';
+const CACHE_NAME = 'zitthenkne-v236';
 const CDN_CACHE = 'zitthenkne-cdn';
 const IMG_CACHE = 'zitthenkne-img';
 const IMG_MAX = 600;
+const QUIZ_IMG_CACHE = 'zitthenkne-quiz-img';   // ảnh bộ đề lưu offline (quiz-offline-store.js tự dọn) — không trim theo IMG_MAX
 
 // App shell (cùng origin) — nạp sẵn khi cài để mở offline được ngay.
 const urlsToCache = [
@@ -398,7 +399,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((names) => Promise.all(names.map((name) => {
-      if (name !== CACHE_NAME && name !== CDN_CACHE && name !== IMG_CACHE) {
+      if (name !== CACHE_NAME && name !== CDN_CACHE && name !== IMG_CACHE && name !== QUIZ_IMG_CACHE) {
         console.log('SW: xoá cache cũ:', name);
         return caches.delete(name);
       }

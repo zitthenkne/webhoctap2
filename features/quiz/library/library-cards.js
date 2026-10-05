@@ -912,7 +912,7 @@ async function handleDownloadOffline(quizId, quizTitle, btnEl) {
             btnEl.innerHTML = `<i class="fas fa-spinner fa-spin mr-2.5 text-sky-500"></i>Tải ảnh (0/${imgUrls.length})...`;
         }
 
-        await saveOfflineQuiz(quizId, quizData, {
+        const saved = await saveOfflineQuiz(quizId, quizData, {
             auto: false,
             cacheImages: true,
             onProgress: (done, total) => {
@@ -922,8 +922,8 @@ async function handleDownloadOffline(quizId, quizTitle, btnEl) {
             }
         });
 
-        const imgMsg = imgUrls.length > 0 ? ` (kèm ${imgUrls.length} ảnh minh họa)` : '';
-        showToast(`Đã tải "${quizTitle}"${imgMsg} về máy. Làm được khi không có mạng!`, 'success');
+        const imgMsg = saved.imgFailed ? ` (${saved.imgFailed}/${imgUrls.length} ảnh chưa tải được, mở bộ đề rồi bấm Đã tải offline để tải nốt)` : imgUrls.length > 0 ? ` (kèm ${imgUrls.length} ảnh minh họa)` : '';
+        showToast(`Đã tải "${quizTitle}"${imgMsg} về máy. Làm được khi không có mạng!`, saved.imgFailed ? 'warning' : 'success');
         rerenderCurrentView();
     } catch (e) {
         console.error('Lỗi tải bộ đề offline:', e);
