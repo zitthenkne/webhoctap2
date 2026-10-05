@@ -1448,7 +1448,9 @@
         <!-- Tầng 1: dải tiến trình — chạm (hoặc vuốt lên) để mở danh sách câu -->
         <button type="button" id="qmn-jump" class="qmn-strip" aria-haspopup="dialog" aria-controls="quiz-jump-sheet" aria-expanded="false">
             <span id="qmn-counter" class="qmn-counter">Câu 1/1</span>
+            <span id="qmn-stats" class="qmn-stats" hidden></span>
             <span class="qmn-progress"><span id="qmn-progress-fill" class="qmn-progress-fill"></span></span>
+            <span id="qmn-timer" class="qmn-timer" hidden></span>
             <span class="qmn-hint"><i class="fas fa-table-cells-large"></i> Danh sách câu</span>
         </button>
         <!-- Tầng 2: Trước · 50:50 · Đánh dấu · Tiếp — luôn với tới bằng ngón cái -->
@@ -1463,6 +1465,9 @@
             <button type="button" id="qmn-mark" class="qmn-act" aria-label="Đánh dấu câu" title="Đánh dấu câu" aria-haspopup="menu" aria-expanded="false" aria-controls="qmn-mark-menu">
                 <i class="fas fa-bookmark"></i>
             </button>
+            <!-- Chỉ iPad/máy tính bảng: tới câu CHƯA LÀM kế tiếp + đổi vị trí thanh (giữa / phải / trái) -->
+            <button type="button" id="qmn-todo" class="qmn-act qmn-tab" aria-label="Tới câu chưa làm" title="Tới câu chưa làm kế tiếp"><i class="fas fa-forward-step"></i></button>
+            <button type="button" id="qmn-hand" class="qmn-act qmn-tab" aria-label="Đổi vị trí thanh" title="Đổi vị trí thanh: giữa / phải / trái"><i class="fas fa-arrows-left-right"></i></button>
             <!-- Bảng thiết lập (thay cho nút ngựa nổi khi đang làm bài trên điện thoại) -->
             <button type="button" id="qmn-settings" class="qmn-act" aria-label="Thiết lập" title="Thiết lập">
                 <i class="fas fa-horse"></i>
@@ -1473,6 +1478,10 @@
         </div>
         <div id="qmn-mark-menu" class="hidden" role="menu" aria-label="Lý do đánh dấu"></div>
     </nav>
+
+    <!-- iPad: mũi tên to hai bên mép (hai tay cầm máy) — chỉ hiện khi body.qz-tablet.has-mobile-nav -->
+    <button type="button" id="qmn-edge-prev" class="qmn-edge qmn-edge-prev" aria-label="Câu trước"><i class="fas fa-chevron-left"></i></button>
+    <button type="button" id="qmn-edge-next" class="qmn-edge qmn-edge-next" aria-label="Câu tiếp"><i class="fas fa-chevron-right"></i></button>
 
     <!-- Bảng "nhảy câu" (bottom-sheet, mobile): xem toàn bộ câu & chạm để nhảy nhanh -->
     <div id="quiz-jump-sheet" class="hidden" role="dialog" aria-modal="true" aria-label="Danh sách câu hỏi">

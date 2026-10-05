@@ -59,6 +59,7 @@ export function syncAttemptsFromServer() {
     S.attemptLastSyncTry = Date.now();
 
     S.attemptSyncPromise = (async () => {
+        try {
             let snap;
             try {
                 const constraints = [where('userId', '==', user.uid)];
