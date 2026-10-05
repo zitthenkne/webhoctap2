@@ -24,6 +24,7 @@ import {
 } from './library-actions.js';
 import { getLastAttempt, hasAttemptData, markQuizOpened } from './library-attempts.js';
 import { countDueNow } from '../quiz-srs-store.js';
+import { createFolderOpenFx } from './folder-open-fx.js';
 
 // Ghi nhận "lần mở bộ đề" ở pha capture trên document (đăng ký một lần khi nạp module).
 // Phải đặt ở cấp document vì quiz-launch-transition.js chặn click điều hướng
@@ -76,6 +77,9 @@ function playFolderOpenBurst(cardEl, onGo) {
     scene.innerHTML = '<span class="fo-glow"></span>';
     scene.appendChild(ghost);
     stage.appendChild(scene);
+    // Hiệu ứng thêm (vòng sóng, băng washi bay, pháo giấy, sticker icon bay vào breadcrumb): đo toạ độ
+    // NGAY BÂY GIỜ, trước khi breadcrumb hiện ra làm trang xô xuống.
+    const fx = createFolderOpenFx(stage, cardEl, rect, ghost);
     document.body.appendChild(stage);
 
     // Bản sao nằm đè đúng chỗ nhưng đang tạm dừng: chờ 2 khung cho GPU dựng + vẽ xong các lớp rồi mới
@@ -87,7 +91,8 @@ function playFolderOpenBurst(cardEl, onGo) {
         started = true;
         stage.classList.add('is-go');
         cardEl.style.visibility = 'hidden';
-        onGo();
+        onGo();                                                          // breadcrumb hiện ra → có ô đích cho sticker
+        fx.play(document.querySelector('#folder-breadcrumb .fd-crumb i'));
     };
     requestAnimationFrame(() => requestAnimationFrame(go));
     setTimeout(go, 120); // tab nền không bắn rAF → vẫn phải mở được thư mục
