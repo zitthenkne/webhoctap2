@@ -262,6 +262,16 @@ export function scheduleCloudProgressPush(uid, quizId, getProgressFn, delay = 12
     }, delay);
 }
 
+export function flushCloudProgressPush(uid, quizId, getProgressFn) {
+    if (!uid || !quizId) return;
+    const key = studyDocId(uid, quizId);
+    clearTimeout(_progressTimers[key]);
+    const progress = typeof getProgressFn === 'function' ? getProgressFn() : getProgressFn;
+    if (progress && !progress.finished) {
+        pushCloudProgress(uid, quizId, progress);
+    }
+}
+
 // Tải cloud (nếu có) rồi hợp nhất vào local. preferCloud quyết định bên nào
 // thắng khi tranh chấp. Trả về dữ liệu đã hợp nhất (map) hoặc local nếu offline.
 export async function syncPullStudy(uid, quizId, { preferCloud = false } = {}) {

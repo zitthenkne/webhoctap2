@@ -72,7 +72,8 @@ export function pullStudyFromCloud(quizId) {
                 try { showQuestion(); } catch (e) {}
             }
             // Báo cho các UI đọc dữ liệu học tập (card Ôn ngắt quãng...) vẽ lại
-            document.dispatchEvent(new CustomEvent('quiz-study-pulled'));
+            document.dispatchEvent(new CustomEvent('quiz-study-pulled', { bubbles: true }));
+            window.dispatchEvent(new CustomEvent('quiz-study-pulled'));
 
             // Đồng bộ tiến trình bài làm dở giữa các thiết bị (cross-device sync)
             fetchCloudProgress(uid, quizId).then((cloudProgress) => {
@@ -84,12 +85,16 @@ export function pullStudyFromCloud(quizId) {
                 if (cloudProgress?.finished) {
                     if (cloudSavedAt >= localSavedAt && local && !local.finished) {
                         markQuizStateFinished(quizId);
-                        document.dispatchEvent(new CustomEvent('quiz-state-synced', { detail: { finished: true } }));
+                        const ev = new CustomEvent('quiz-state-synced', { bubbles: true, detail: { finished: true } });
+                        document.dispatchEvent(ev);
+                        window.dispatchEvent(ev);
                     }
                 } else if (cloudProgress && cloudSavedAt > localSavedAt && !isPlaying) {
                     // Cloud có bài làm dở mới hơn -> nạp vào local và báo UI
                     writeQuizState(quizId, cloudProgress);
-                    document.dispatchEvent(new CustomEvent('quiz-state-synced', { detail: { progress: cloudProgress } }));
+                    const ev = new CustomEvent('quiz-state-synced', { bubbles: true, detail: { progress: cloudProgress } });
+                    document.dispatchEvent(ev);
+                    window.dispatchEvent(ev);
                 } else if (local && !local.finished && localSavedAt > cloudSavedAt) {
                     // Local mới hơn (vừa làm lúc ngoại tuyến) -> đẩy lên cloud cập nhật
                     scheduleCloudProgressPush(uid, quizId, () => readQuizState(quizId), 500);

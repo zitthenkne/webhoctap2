@@ -7,7 +7,7 @@ import { doc, getDoc, collection, setDoc, updateDoc } from "https://www.gstatic.
 import { queued } from "../../core/offline-write.js";
 import { checkAndAwardAchievement } from '../../core/achievements.js';
 import { showToast } from '../../core/utils.js';
-import { scheduleCloudProgressPush, clearCloudProgress } from './quiz-study-store.js';
+import { scheduleCloudProgressPush, flushCloudProgressPush, clearCloudProgress } from './quiz-study-store.js';
 
 // Các loại lý do đánh dấu câu hỏi (dùng chung cho lúc làm bài và màn tổng kết).
 // Thứ tự khai báo cũng là thứ tự hiển thị trong menu / bộ lọc.
@@ -117,7 +117,17 @@ function pruneSavedStates(keepKey) {
     rows.sort((a, b) => b[1] - a[1]).slice(3).forEach(([k]) => localStorage.removeItem(k));
 }
 
-export function saveQuizState() {
+export function flushQuizState() {
+    try {
+        const quizId = stateQuizId();
+        const u = sessionUser();
+        if (u && u.uid && quizId) {
+            flushCloudProgressPush(u.uid, quizId, () => readQuizState(quizId));
+        }
+    } catch (_) {}
+}
+
+export function saveQuizState({ immediate = false } = {}) {
     const quizId = stateQuizId();
     // Tạo blueprint nhẹ (chỉ số câu gốc + thứ tự đáp án đã xáo)
     // Blueprint này chỉ nặng ~1-2KB, hoàn toàn không sợ đầy bộ nhớ hay giới hạn Firestore
@@ -155,11 +165,15 @@ export function saveQuizState() {
 
     writeQuizState(quizId, stateObj);
 
-    // Tự động đồng bộ tiến trình lên Cloud nếu đã đăng nhập (chạy debounce nền)
+    // Tự động đồng bộ tiến trình lên Cloud nếu đã đăng nhập (chạy debounce nền hoặc flush ngay)
     try {
         const u = sessionUser();
         if (u && u.uid && !stateObj.finished) {
-            scheduleCloudProgressPush(u.uid, quizId, () => readQuizState(quizId));
+            if (immediate) {
+                flushCloudProgressPush(u.uid, quizId, () => readQuizState(quizId));
+            } else {
+                scheduleCloudProgressPush(u.uid, quizId, () => readQuizState(quizId));
+            }
         }
     } catch (_) {}
 }

@@ -4,6 +4,7 @@
 // Tách từ quiz-page.js — logic giữ nguyên.
 
 import { db } from '../../../core/firebase-init.js';
+import { whenAuthReady } from '../../../core/auth-session.js';
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { showToast } from '../../../core/utils.js';
 import { applyLocalQuestionEdits } from '../quiz-editor.js';
@@ -210,8 +211,19 @@ export async function loadQuizData() {
         try {
             const docRef = doc(db, "quiz_sets", quizId);
             const remotePromise = getDoc(docRef);
-            // Nếu chưa có dữ liệu thì chờ tối đa 5 giây; nếu đã có bản local rồi thì chờ thoải mái ở nền
-            const docSnap = localData ? await remotePromise : await within(remotePromise, 5000);
+            // Nếu chưa có dữ liệu thì chờ tối đa 6 giây; nếu đã có bản local rồi thì chờ thoải mái ở nền
+            let docSnap;
+            try {
+                docSnap = localData ? await remotePromise : await within(remotePromise, 6000);
+            } catch (err) {
+                if (err && (err.code === 'permission-denied' || err.message?.includes('permission-denied'))) {
+                    if (!localData) {
+                        showLandingError('Bộ đề này được đặt ở chế độ riêng tư. Vui lòng đăng nhập đúng tài khoản tác giả để làm bài.', { showRetry: true });
+                        return;
+                    }
+                }
+                throw err;
+            }
 
             if (docSnap && docSnap.exists()) {
                 const remoteData = docSnap.data();
@@ -245,11 +257,15 @@ export async function loadQuizData() {
                     applyQuizData(remoteData);
                 }
             } else if (!localData) {
-                showLandingError('Không tìm thấy bộ đề này. Có thể nó đã bị xóa hoặc đường dẫn không đúng.', { showRetry: false });
+                showLandingError('Không tìm thấy bộ đề này. Có thể nó đã bị xóa hoặc đường dẫn không đúng.', { showRetry: true });
             }
         } catch (error) {
             console.warn("Lỗi tải/cập nhật dữ liệu từ cloud:", error);
             if (!localData) {
+                if (error && (error.code === 'permission-denied' || error.message?.includes('permission-denied'))) {
+                    showLandingError('Bộ đề này được đặt ở chế độ riêng tư. Vui lòng đăng nhập đúng tài khoản tác giả để làm bài.', { showRetry: true });
+                    return;
+                }
                 // Thử lại lần cuối xem IndexedDB có gì không
                 const fallback = await getOfflineQuiz(quizId);
                 if (fallback && Array.isArray(fallback.questions) && fallback.questions.length > 0) {
@@ -257,7 +273,7 @@ export async function loadQuizData() {
                     showToast('Mạng chậm — đang dùng bản đã tải về máy.', 'info');
                     return;
                 }
-                showLandingError('Có lỗi khi tải dữ liệu từ máy chủ (mạng chập chờn) và bộ đề này chưa được lưu offline.');
+                showLandingError('Có lỗi khi tải dữ liệu từ máy chủ (mạng chập chờn) và bộ đề này chưa được lưu offline.', { showRetry: true });
             }
         }
     };
@@ -266,7 +282,8 @@ export async function loadQuizData() {
         // Đã hiện UI tức thì từ IndexedDB rồi! Cho fetch chạy ngầm ở background, không await chặn UI
         revalidateOrFetchRemote();
     } else {
-        // Chưa có bản lưu nào thì mới phải await tải từ Firestore
+        // Chưa có bản lưu nào thì cần đảm bảo Auth đã khôi phục phiên trước khi đọc bộ đề riêng tư
+        await whenAuthReady(3500);
         await revalidateOrFetchRemote();
     }
 }

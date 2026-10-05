@@ -9,8 +9,8 @@ import { sessionUser } from '../../../core/auth-session.js';
 import { collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { S } from './library-state.js';
 
-// Tối đa 1 lần hỏi server / 5 phút / phiên — tránh tốn lượt đọc khi chuyển tab qua lại
-const ATTEMPT_SYNC_MIN_INTERVAL = 5 * 60 * 1000;
+// Tối đa 1 lần hỏi server / 30 giây / phiên — tránh spam nhưng phản hồi nhanh khi chuyển máy
+const ATTEMPT_SYNC_MIN_INTERVAL = 30 * 1000;
 
 function attemptCacheKey() {
     const uid = sessionUser() ? sessionUser().uid : 'anon';
@@ -59,13 +59,19 @@ export function syncAttemptsFromServer() {
     S.attemptLastSyncTry = Date.now();
 
     S.attemptSyncPromise = (async () => {
-        try {
-            const constraints = [where('userId', '==', user.uid)];
-            if (S.attemptCacheSyncedAt > 0) {
-                constraints.push(where('completedAt', '>', new Date(S.attemptCacheSyncedAt)));
+            let snap;
+            try {
+                const constraints = [where('userId', '==', user.uid)];
+                if (S.attemptCacheSyncedAt > 0) {
+                    constraints.push(where('completedAt', '>', new Date(S.attemptCacheSyncedAt)));
+                }
+                constraints.push(orderBy('completedAt', 'asc'));
+                snap = await getDocs(query(collection(db, 'quiz_results'), ...constraints));
+            } catch (queryErr) {
+                // Fallback an toàn nếu server Firestore thiếu composite index: truy vấn theo userId rồi lọc JS
+                console.warn('Truy vấn composite quiz_results không khả dụng, dùng fallback client-side:', queryErr);
+                snap = await getDocs(query(collection(db, 'quiz_results'), where('userId', '==', user.uid)));
             }
-            constraints.push(orderBy('completedAt', 'asc'));
-            const snap = await getDocs(query(collection(db, 'quiz_results'), ...constraints));
 
             let changed = false;
             snap.forEach(d => {
@@ -74,6 +80,7 @@ export function syncAttemptsFromServer() {
                 const at = r.completedAt && typeof r.completedAt.toDate === 'function'
                     ? r.completedAt.toDate().getTime()
                     : 0;
+                if (S.attemptCacheSyncedAt > 0 && at <= S.attemptCacheSyncedAt) return;
                 const cur = S.attemptMap[r.quizId];
                 if (!cur || at >= cur.at) {
                     S.attemptMap[r.quizId] = {

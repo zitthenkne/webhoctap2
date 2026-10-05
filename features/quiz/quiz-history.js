@@ -116,17 +116,28 @@ async function loadQuizHistory(quizId, userId) {
     showLoadingState();
     
     try {
-        const q = query(
-            collection(db, "quiz_results"),
-            where("quizId", "==", quizId),
-            where("userId", "==", userId),
-            orderBy("completedAt", "desc")
-        );
-        const querySnapshot = await getDocs(q);
+        let querySnapshot;
+        try {
+            const q = query(
+                collection(db, "quiz_results"),
+                where("quizId", "==", quizId),
+                where("userId", "==", userId),
+                orderBy("completedAt", "desc")
+            );
+            querySnapshot = await getDocs(q);
+        } catch (queryErr) {
+            console.warn("Truy vấn composite quiz_results không khả dụng cho history, dùng fallback:", queryErr);
+            const fallbackQ = query(
+                collection(db, "quiz_results"),
+                where("userId", "==", userId)
+            );
+            querySnapshot = await getDocs(fallbackQ);
+        }
+
         const history = [];
-        
         querySnapshot.forEach(doc => {
             const data = doc.data();
+            if (data.quizId !== quizId) return;
             history.push({
                 id: doc.id,
                 time: data.completedAt && data.completedAt.toDate ? formatDate(data.completedAt.toDate()) : "Chưa rõ thời gian",
@@ -138,6 +149,7 @@ async function loadQuizHistory(quizId, userId) {
                 quizTitle: data.quizTitle || ""
             });
         });
+        history.sort((a, b) => b.rawDate - a.rawDate);
         
         // Cập nhật tiêu đề dự phòng nếu bước loadQuizDetails thất bại hoặc bộ đề đã bị xóa
         if (history.length > 0 && quizTitleEl.innerText.includes('skeleton')) {

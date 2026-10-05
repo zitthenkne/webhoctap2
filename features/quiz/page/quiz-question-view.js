@@ -71,7 +71,7 @@ function setupKbFold() {
         btn.setAttribute('aria-expanded', String(!folded));
         const t = btn.querySelector('.kb-fold-txt');
         if (t) t.textContent = folded ? 'Mở' : 'Thu gọn';
-        try { localStorage.setItem('quiz_kb_more_folded', folded ? '1' : '0'); } catch (e) {}
+        try { localStorage.setItem('quiz_kb_more_folded', folded ? '1' : '0'); } catch (e) { }
     });
 }
 
@@ -430,8 +430,8 @@ export function showQuestion() {
                 // Lớp trạng thái cùng ngữ nghĩa với bảng số câu (quiz-ui.js navStateClass)
                 const st = isCur ? 'is-current'
                     : !answered ? ''
-                    : (!state.quizOptions.showAnswerImmediately || isPendingEssay(state.questions[gi], state.userAnswers[gi])) ? 'is-answered'
-                    : (isAnswerCorrect(state.questions[gi], state.userAnswers[gi]) ? 'is-correct' : 'is-wrong');
+                        : (!state.quizOptions.showAnswerImmediately || isPendingEssay(state.questions[gi], state.userAnswers[gi])) ? 'is-answered'
+                            : (isAnswerCorrect(state.questions[gi], state.userAnswers[gi]) ? 'is-correct' : 'is-wrong');
                 dots += `<button type="button" class="case-dot ${st} w-7 h-7 rounded-full border text-xs font-bold transition ${cls}" data-case-jump="${gi}" title="Tới câu ${k + 1} của ca"${isCur ? ' aria-current="true"' : ''}>${k + 1}</button>`;
             }
             caseDotsHtml = `<div class="case-dots mt-3 flex flex-wrap items-center gap-1.5" role="group" aria-label="Điều hướng câu trong ca">${dots}</div>`;
@@ -779,7 +779,7 @@ export function showQuestion() {
             if (expDiv) {
                 if (isCorrectAnswer) {
                     const correctExp = (question.optionExplanations && question.optionExplanations[idx] && question.optionExplanations[idx].trim())
-                                       || (question.explanation && question.explanation.trim());
+                        || (question.explanation && question.explanation.trim());
                     if (correctExp) {
                         expDiv.innerHTML = `<span class="font-semibold text-xs uppercase tracking-wider block mb-1 opacity-80"><i class="fas fa-check-circle mr-1"></i>Tại sao đúng:</span>${parseMarkdown(correctExp)}`;
                         expDiv.classList.remove('hidden');
@@ -935,7 +935,7 @@ function revealMultiAnswer(question, selected) {
         if (expDiv) {
             if (isCorrectAnswer) {
                 const correctExp = (question.optionExplanations && question.optionExplanations[idx] && question.optionExplanations[idx].trim())
-                                   || (question.explanation && question.explanation.trim());
+                    || (question.explanation && question.explanation.trim());
                 if (correctExp) {
                     expDiv.innerHTML = `<span class="font-semibold text-xs uppercase tracking-wider block mb-1 opacity-80"><i class="fas fa-check-circle mr-1"></i>Tại sao đúng:</span>${parseMarkdown(correctExp)}`;
                     expDiv.className = "option-explanation exp-correct mt-2 text-sm md:text-base font-normal border-t pt-1.5 border-green-300/40 text-green-950 transition-all duration-300";
@@ -1071,7 +1071,7 @@ export function handleAnswerClick(e) {
         if (expDiv) {
             if (isCorrectAnswer) {
                 const correctExp = (question.optionExplanations && question.optionExplanations[idx] && question.optionExplanations[idx].trim())
-                                   || (question.explanation && question.explanation.trim());
+                    || (question.explanation && question.explanation.trim());
                 if (correctExp) {
                     expDiv.innerHTML = `<span class="font-semibold text-xs uppercase tracking-wider block mb-1 opacity-80"><i class="fas fa-check-circle mr-1"></i>Tại sao đúng:</span>${parseMarkdown(correctExp)}`;
                     expDiv.classList.remove('hidden');

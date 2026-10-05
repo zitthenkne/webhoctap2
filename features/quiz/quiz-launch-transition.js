@@ -207,7 +207,11 @@
         if (!session) return;
         try {
             if (session.overlay && session.overlay.parentNode) session.overlay.parentNode.removeChild(session.overlay);
-            if (session.frame && session.frame.parentNode) session.frame.parentNode.removeChild(session.frame);
+            if (session.frame && session.frame.parentNode) {
+                // Giải phóng kết nối mạng, Web Locks và IndexedDB của iframe trước khi gỡ khỏi DOM
+                try { session.frame.src = 'about:blank'; } catch (_) {}
+                session.frame.parentNode.removeChild(session.frame);
+            }
         } catch (e) {}
         if (session.fly && session.fly.parentNode) session.fly.parentNode.removeChild(session.fly);
         if (session.card) session.card.style.visibility = '';
@@ -803,10 +807,18 @@
                 else setTimeout(markReady, 120);
                 return;
             }
-            // Điều hướng nội bộ trong iframe về index.html ("Về trang chủ") → điều hướng cả trang
+            // Điều hướng nội bộ trong iframe về index.html ("Về trang chủ") → đóng iframe êm đềm, không reload trang mẹ
             try {
                 var loc = frame.contentWindow.location;
-                if (loc && /index\.html$/.test(loc.pathname)) window.location.href = loc.href;
+                if (loc && /index\.html$/.test(loc.pathname)) {
+                    if (history.state && history.state.quizLaunch) {
+                        history.back();
+                    } else {
+                        teardown(session);
+                        try { history.replaceState(null, '', 'index.html'); } catch (e) {}
+                    }
+                    return;
+                }
             } catch (e) {}
         });
         frame.addEventListener('error', function () { window.location.href = url; });

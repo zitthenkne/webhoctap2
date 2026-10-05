@@ -20,7 +20,7 @@ import { onSessionUser } from '../../core/auth-session.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
 import { showConfirm } from '../../core/utils.js';
 import { setupQuestionEditor } from './quiz-editor.js';
-import { state, clearQuizState, saveQuizState, readQuizState } from './quiz-state.js';
+import { state, clearQuizState, saveQuizState, readQuizState, flushQuizState } from './quiz-state.js';
 import { ensureMermaidInit, reconstructQuestionsFromBlueprint } from './quiz-helpers.js';
 import { showSubmitQuizBtn } from './quiz-ui.js';
 
@@ -218,8 +218,20 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('online', () => {
         const inProgress = Array.isArray(state.userAnswers) && state.userAnswers.some(a => a !== null);
         if (inProgress) {
-            saveQuizState();
+            saveQuizState({ immediate: true });
         }
+    });
+
+    // Khi người dùng chuyển tab hoặc ẩn trình duyệt -> flush ngay tiến trình lên cloud
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+            const inProgress = Array.isArray(state.userAnswers) && state.userAnswers.some(a => a !== null);
+            if (inProgress) flushQuizState();
+        }
+    });
+    window.addEventListener('pagehide', () => {
+        const inProgress = Array.isArray(state.userAnswers) && state.userAnswers.some(a => a !== null);
+        if (inProgress) flushQuizState();
     });
 
     const hudHomeBtn = document.getElementById('hud-home-btn');
@@ -232,11 +244,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!inProgress) return;
             // Vì là thẻ <a>, luôn chặn điều hướng mặc định rồi tự chuyển trang khi đã xác nhận
             e.preventDefault();
+            saveQuizState({ immediate: true });
             const ok = await showConfirm(
                 'Tiến trình của bạn đã được tự động lưu và có thể tiếp tục khi quay lại.',
                 { title: 'Về trang chủ?', confirmText: 'Về trang chủ', cancelText: 'Ở lại', tone: 'primary' }
             );
-            if (ok) window.location.href = hudHomeBtn.getAttribute('href');
+            if (ok) {
+                flushQuizState();
+                window.location.href = hudHomeBtn.getAttribute('href');
+            }
         });
     }
 

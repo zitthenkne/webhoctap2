@@ -198,14 +198,14 @@ export function loadQuizDetails() {
     const quizTitle = document.getElementById('quiz-title');
     const quizInfo = document.getElementById('quiz-info');
     const statQuestionsCount = document.getElementById('stat-questions-count');
-    
+
     if (state.quizData) {
         quizTitle.textContent = state.quizData.title;
         quizInfo.textContent = "Chọn chế độ, chỉnh chi tiết nếu cần rồi bấm Bắt đầu.";
         document.title = state.quizData.title;
-        
+
         window.quizQuestionsLength = state.originalQuestions.length;
-        
+
         if (statQuestionsCount) {
             statQuestionsCount.textContent = `${state.originalQuestions.length} câu`;
         }
@@ -225,7 +225,7 @@ export function loadQuizDetails() {
         // (riêng thẻ "Lần làm gần nhất" còn được quiz-page.js điền theo tài khoản)
         document.querySelectorAll('#quiz-landing .skeleton-line')
             .forEach(el => el.classList.remove('skeleton-line'));
-        
+
         const timedCheckbox = document.getElementById('timed-mode-checkbox');
         const timedInput = document.getElementById('timed-minutes-input');
         if (timedCheckbox) {
@@ -373,7 +373,7 @@ export function showResults(totalTime, opts = {}) {
                     deltaHtml = `<span class="inline-flex items-center gap-1.5 bg-gray-50 text-gray-500 border border-gray-200 px-3 py-1 rounded-full text-xs font-bold"><i class="fas fa-equals"></i> Bằng lần trước (${prevPct.toFixed(1)}%)</span>`;
                 }
             }
-        } catch (e) {}
+        } catch (e) { }
     }
 
     // --- Độ chính xác khi "đoán": tự nhận đoán mà vẫn trúng thì nên ôn lại cho chắc ---
@@ -407,11 +407,11 @@ export function showResults(totalTime, opts = {}) {
             </h3>
             <div class="space-y-3">
                 ${topicEntries.map(([topic, s]) => {
-                    const pct = s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0;
-                    let barColor = 'bg-red-400';
-                    if (pct >= 80) barColor = 'bg-green-500';
-                    else if (pct >= 50) barColor = 'bg-amber-400';
-                    return `
+            const pct = s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0;
+            let barColor = 'bg-red-400';
+            if (pct >= 80) barColor = 'bg-green-500';
+            else if (pct >= 50) barColor = 'bg-amber-400';
+            return `
                     <div>
                         <div class="flex justify-between items-center text-sm mb-1">
                             <span class="font-medium text-gray-600 truncate pr-2">${topic}</span>
@@ -421,7 +421,7 @@ export function showResults(totalTime, opts = {}) {
                             <div class="h-full ${barColor} rounded-full transition-all duration-700" style="width:${pct}%"></div>
                         </div>
                     </div>`;
-                }).join('')}
+        }).join('')}
             </div>
         </div>`;
     }
@@ -586,7 +586,7 @@ export function showResults(totalTime, opts = {}) {
                 <div class="essay-pending-txt">
                     <b>Còn ${reviewCount} câu tự luận cần xem lại</b>
                     <span>${[autoCount ? `${autoCount} câu máy đã chấm sơ bộ theo từ khóa — điểm tạm tính, hãy kiểm tra và tick thêm ý bạn nêu bằng cách diễn đạt khác` : '',
-                        pendingCount ? `${pendingCount} câu chưa chấm (đang tính 0 điểm)` : ''].filter(Boolean).join('. ')}.</span>
+            pendingCount ? `${pendingCount} câu chưa chấm (đang tính 0 điểm)` : ''].filter(Boolean).join('. ')}.</span>
                 </div>
                 <button type="button" id="essay-grade-now">Xem lại ngay</button>
             </div>` : ''}
@@ -840,7 +840,7 @@ export function showResults(totalTime, opts = {}) {
 export function toggleFocusMode() {
     state.focusMode = !state.focusMode;
     document.body.classList.toggle('focus-mode-active', state.focusMode);
-    
+
     const exitFocusBtn = document.getElementById('exit-focus-btn');
     if (exitFocusBtn) {
         exitFocusBtn.classList.toggle('hidden', !state.focusMode);

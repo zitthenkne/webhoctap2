@@ -37,7 +37,7 @@ export function applyNavVisibility() {
 export function attachToggleNavEvent() {
     const toggleBtn = document.getElementById('toggle-nav-btn');
     if (toggleBtn) {
-        toggleBtn.onclick = function() {
+        toggleBtn.onclick = function () {
             navVisible = !navVisible;
             setNavVisibility(navVisible);
         };
@@ -123,7 +123,7 @@ export function setupSettings() {
         }
     });
 
-    const setLS = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+    const setLS = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { } };
     if (rowDark) rowDark.addEventListener('click', () => {
         const dark = getTheme() !== 'dark';
         setLS('quiz_theme', dark ? 'dark' : 'light');
@@ -220,14 +220,14 @@ export function setupSettings() {
 // --- Kéo giãn độ rộng 3 cột (số câu | bài làm | ghi chú), nhớ riêng theo thiết bị ---
 // Mỗi cột bên có giới hạn min/max; bề rộng lưu vào localStorage (px) theo từng máy.
 const COLUMN_RESIZE = {
-    nav:  { min: 120, max: 320, key: 'quiz_nav_w',  cssVar: '--quiz-nav-w',  panelId: 'quiz-nav-panel' },
+    nav: { min: 120, max: 320, key: 'quiz_nav_w', cssVar: '--quiz-nav-w', panelId: 'quiz-nav-panel' },
     note: { min: 150, max: 380, key: 'quiz_note_w', cssVar: '--quiz-note-w', panelId: 'quiz-note-panel' }
 };
 
 // Xích bảng số câu / ghi chú LÊN–XUỐNG (translateY), nhớ riêng theo thiết bị (px).
 // Chỉ có tác dụng ở bố cục 3 cột (desktop) nơi hai bảng là cột sticky.
 const PANEL_OFFSET = {
-    nav:  { min: -140, max: 600, key: 'quiz_nav_y',  cssVar: '--quiz-nav-y' },
+    nav: { min: -140, max: 600, key: 'quiz_nav_y', cssVar: '--quiz-nav-y' },
     note: { min: -140, max: 600, key: 'quiz_note_y', cssVar: '--quiz-note-y' }
 };
 
@@ -248,9 +248,9 @@ function resetColumnWidths() {
     if (!ws) return;
     [...Object.values(COLUMN_RESIZE), ...Object.values(PANEL_OFFSET)].forEach(cfg => {
         ws.style.removeProperty(cfg.cssVar);
-        try { localStorage.removeItem(cfg.key); } catch (e) {}
+        try { localStorage.removeItem(cfg.key); } catch (e) { }
     });
-    try { localStorage.removeItem(caseHeightKey()); } catch (e) {}
+    try { localStorage.removeItem(caseHeightKey()); } catch (e) { }
     applyCaseHeight();
 }
 
@@ -281,7 +281,7 @@ function setupCaseResize() {
     const onUp = () => {
         if (body) {
             const v = parseInt(document.documentElement.style.getPropertyValue('--case-h'), 10);
-            try { if (v > 0) localStorage.setItem(caseHeightKey(), String(v)); } catch (e) {}
+            try { if (v > 0) localStorage.setItem(caseHeightKey(), String(v)); } catch (e) { }
         }
         body = null;
         document.body.classList.remove('quiz-resizing', 'case-resizing');
@@ -306,7 +306,7 @@ function setupCaseResize() {
     // Bấm đúp tay nắm: về chiều cao mặc định
     document.addEventListener('dblclick', (e) => {
         if (!(e.target.closest && e.target.closest('.case-resize'))) return;
-        try { localStorage.removeItem(caseHeightKey()); } catch (err) {}
+        try { localStorage.removeItem(caseHeightKey()); } catch (err) { }
         applyCaseHeight();
     });
     // Bàn phím: ↑/↓ chỉnh từng nấc 40px, Home về mặc định
@@ -316,11 +316,11 @@ function setupCaseResize() {
         if (!b || !['ArrowUp', 'ArrowDown', 'Home'].includes(e.key)) return;
         e.preventDefault();
         e.stopPropagation();   // không để phím mũi tên / Home lọt xuống phím tắt chuyển câu
-        if (e.key === 'Home') { try { localStorage.removeItem(caseHeightKey()); } catch (err) {} applyCaseHeight(); return; }
+        if (e.key === 'Home') { try { localStorage.removeItem(caseHeightKey()); } catch (err) { } applyCaseHeight(); return; }
         const cap = Math.max(CASE_MIN_H, Math.min(window.innerHeight * 0.85, b.scrollHeight));
         const h = Math.max(CASE_MIN_H, Math.min(cap, b.getBoundingClientRect().height + (e.key === 'ArrowDown' ? 40 : -40)));
         applyCaseHeight(h);
-        try { localStorage.setItem(caseHeightKey(), String(Math.round(h))); } catch (err) {}
+        try { localStorage.setItem(caseHeightKey(), String(Math.round(h))); } catch (err) { }
     }, true);
 }
 
@@ -338,7 +338,7 @@ function setupPanelOffsetDrag() {
     const onUp = () => {
         if (cfg) {
             const v = parseInt(ws.style.getPropertyValue(cfg.cssVar), 10) || 0;
-            try { localStorage.setItem(cfg.key, String(v)); } catch (e) {}
+            try { localStorage.setItem(cfg.key, String(v)); } catch (e) { }
         }
         cfg = null;
         document.body.classList.remove('quiz-resizing', 'dragging-panel-y');
@@ -365,7 +365,7 @@ function setupPanelOffsetDrag() {
         const c = PANEL_OFFSET[grip.getAttribute('data-panel')];
         if (!c) return;
         ws.style.removeProperty(c.cssVar);
-        try { localStorage.removeItem(c.key); } catch (e) {}
+        try { localStorage.removeItem(c.key); } catch (e) { }
     });
 }
 
@@ -396,7 +396,7 @@ export function setupResizers() {
             document.body.classList.remove('quiz-resizing');
             window.removeEventListener('pointermove', onPointerMove);
             window.removeEventListener('pointerup', onPointerUp);
-            try { localStorage.setItem(cfg.key, String(Math.round(panel.getBoundingClientRect().width))); } catch (e) {}
+            try { localStorage.setItem(cfg.key, String(Math.round(panel.getBoundingClientRect().width))); } catch (e) { }
         };
         handle.addEventListener('pointerdown', (e) => {
             // Chỉ kéo ở bố cục 3 cột (desktop), bỏ qua khi đang ở chế độ tập trung
@@ -412,7 +412,7 @@ export function setupResizers() {
         // Bấm đúp tay kéo: trả riêng cột này về mặc định
         handle.addEventListener('dblclick', () => {
             ws.style.removeProperty(cfg.cssVar);
-            try { localStorage.removeItem(cfg.key); } catch (e) {}
+            try { localStorage.removeItem(cfg.key); } catch (e) { }
         });
     });
 

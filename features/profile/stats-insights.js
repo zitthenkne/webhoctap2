@@ -53,17 +53,23 @@ export async function syncRows() {
     const cached = readRowsCache();
     if (!user) return { ...cached, changed: false };
 
-    const constraints = [where('userId', '==', user.uid)];
-    if (cached.lastSync > 0) constraints.push(where('completedAt', '>', new Date(cached.lastSync)));
-    constraints.push(orderBy('completedAt', 'asc'));
+    let snap;
+    try {
+        const constraints = [where('userId', '==', user.uid)];
+        if (cached.lastSync > 0) constraints.push(where('completedAt', '>', new Date(cached.lastSync)));
+        constraints.push(orderBy('completedAt', 'asc'));
+        snap = await getDocs(query(collection(db, 'quiz_results'), ...constraints));
+    } catch (queryErr) {
+        console.warn('Truy vấn composite quiz_results không khả dụng cho stats, dùng fallback:', queryErr);
+        snap = await getDocs(query(collection(db, 'quiz_results'), where('userId', '==', user.uid)));
+    }
 
-    const snap = await getDocs(query(collection(db, 'quiz_results'), ...constraints));
     let lastSync = cached.lastSync;
     const fresh = [];
     snap.forEach(d => {
         const r = d.data();
         const at = r.completedAt && typeof r.completedAt.toDate === 'function' ? r.completedAt.toDate().getTime() : 0;
-        if (!at) return;
+        if (!at || (cached.lastSync > 0 && at <= cached.lastSync)) return;
         fresh.push({
             q: r.quizId || '',
             ti: r.quizTitle || 'Bộ đề',
@@ -74,6 +80,7 @@ export async function syncRows() {
         });
         if (at > lastSync) lastSync = at;
     });
+    fresh.sort((a, b) => a.at - b.at);
     // Lần đầu mà chưa có lượt nào: vẫn ghi mốc để lần sau không quét lại từ đầu
     if (lastSync === 0) lastSync = Date.now();
 
