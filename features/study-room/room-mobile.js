@@ -172,7 +172,7 @@ export function initMobile() {
         if (k === 'chat') return void openPanelSheet('discuss');
         if (k === 'members' || k === 'rank') return void window.dispatchEvent(new CustomEvent('room:panel', { detail: k }));
         if (k === 'invite') return void el('share-room-btn')?.click();
-        if (k === 'find' || k === 'sound' || k === 'minutes' || k === 'follow') return void window.dispatchEvent(new CustomEvent('room:tool', { detail: k }));
+        if (k === 'find' || k === 'sound' || k === 'minutes' || k === 'follow' || k === 'notes') return void window.dispatchEvent(new CustomEvent('room:tool', { detail: k }));
         if (k === 'text') return void el('text-size-btn')?.click();
         if (k === 'theme') return void el('theme-btn')?.click();
         if (k === 'race') return void window.dispatchEvent(new CustomEvent('room:tool', { detail: 'race' }));

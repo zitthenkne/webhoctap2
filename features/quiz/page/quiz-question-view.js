@@ -538,7 +538,7 @@ export function showQuestion() {
                 <i class="fas fa-arrow-left mr-2"></i>Câu trước
             </button>
             <button id="nextBtn" class="px-6 py-2 bg-[#FF69B4] text-white rounded-lg hover:bg-opacity-80 transition hidden">
-                ${state.currentIndex === state.questions.length - 1 ? 'Xem kết quả' : 'Câu tiếp'} <i class="fas fa-arrow-right ml-2"></i>
+                ${state.currentIndex === state.questions.length - 1 ? 'Nộp bài' : 'Câu tiếp'} <i class="fas ${state.currentIndex === state.questions.length - 1 ? 'fa-flag-checkered' : 'fa-arrow-right'} ml-2"></i>
             </button>
         </div>
         <p class="quiz-kbd-hint focus-hide">

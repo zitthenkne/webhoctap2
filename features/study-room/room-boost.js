@@ -113,6 +113,25 @@ function toggleFollow() {
     if (followOn()) window.dispatchEvent(new CustomEvent('room:follow'));
 }
 
+// Ghi chú cụm từ (bản 53, room-notes.js): mặc định HIỆN nội dung ngay cạnh chữ; tắt thì chỉ còn bong bóng nhỏ (rê chuột / bấm để xem).
+// Lưu theo máy. Mặc định bật nên class đảo chiều (body.rm-notes-off): chưa chạy JS vẫn đúng, khỏi nháy.
+const NOTES_KEY = 'roomNotesInline';
+export const notesInlineOn = () => { try { return localStorage.getItem(NOTES_KEY) !== '0'; } catch (e) { return true; } };
+function paintNotes() {
+    const on = notesInlineOn();
+    document.body.classList.toggle('rm-notes-off', !on);
+    const n = el('notes-label');
+    if (n) n.textContent = 'Ghi chú cụm từ: ' + (on ? 'hiện' : 'ẩn');
+    const m = el('notes-sub');
+    if (m) m.textContent = on ? 'hiện cạnh chữ' : 'chỉ còn bong bóng';
+    document.querySelector('[data-more="notes"]')?.classList.toggle('is-on', on);
+}
+function toggleNotes() {
+    try { localStorage.setItem(NOTES_KEY, notesInlineOn() ? '0' : '1'); } catch (e) {}
+    paintNotes();
+    showToast(notesInlineOn() ? 'Ghi chú cụm từ hiện ngay cạnh chữ.' : 'Đã ẩn nội dung ghi chú — chỉ còn bong bóng nhỏ cạnh chữ.', 'info', 2400);
+}
+
 function toggleAutoNext() {
     try { localStorage.setItem(AUTO_KEY, autoNextOn() ? '0' : '1'); } catch (e) {}
     paintAutoLabel();
@@ -185,6 +204,7 @@ const KEYS = [
     ['R', 'Viết lý do của bạn (ô mình chọn)'],
     ['O', 'Mở / thu gọn cột sổ tay'],
     ['Bấm mặt người ở đầu trang', 'Tới chỗ bạn ấy đang xem / đang sửa'],
+    ['Bôi đen chữ → nút 📝', 'Ghi chú ngắn (≤ 10 từ) ngay cạnh cụm từ — cả phòng thấy; bấm chip để sửa / xóa'],
     ['← →', 'Câu trước / câu sau (của riêng bạn)'],
     ['J', 'Nhảy tới câu chưa chọn tiếp theo'],
     ['Home / End', 'Về câu đầu / câu cuối'],
@@ -274,6 +294,7 @@ function gotoFound(i) {
 export function initBoost() {
     paintSoundLabel();
     paintAutoLabel();
+    paintNotes();
     document.addEventListener('pointerdown', () => { if (soundOn) ctx(); }, { once: true });
     initRipple();
     initNetChip();
@@ -382,6 +403,7 @@ export function runTool(name) {
     if (name === 'sound') return toggleSound();
     if (name === 'autonext') return toggleAutoNext();
     if (name === 'follow') return toggleFollow();
+    if (name === 'notes') return toggleNotes();
     if (name === 'race') return toggleRace();
     if (name === 'minutes') return void window.dispatchEvent(new Event('room:minutes'));
 }

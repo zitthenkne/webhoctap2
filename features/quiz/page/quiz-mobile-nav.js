@@ -13,24 +13,13 @@ import { applyMark } from './quiz-marks.js';
 import { caseCellClass } from './quiz-cases.js';
 import { getVibrate } from './quiz-page-prefs.js';
 
-let todoBtn, handBtn, edgePrev, edgeNext, statsEl, timerEl, lastScrollY = 0;
 let bar, prevBtn, nextBtn, jumpBtn, counterEl, fillEl, fiveBtn, markBtn, markMenu, settingsBtn;
 let sheet, sheetGrid, sheetMeta, sheetBackdrop, sheetClose;
 let wired = false;
 let jumpFilter = 'all';   // bộ lọc bảng nhảy câu: all | todo | marked | wrong
 
 // Chỉ hiện ở màn hình hẹp (mobile / tablet dọc). ≥1024px đã có bố cục 3 cột + lưới số câu.
-// iPad / máy tính bảng cảm ứng (kể cả NGANG ≥1024): cũng dùng thanh đáy, dạng viên thuốc nổi.
-function isTablet() {
-    return window.innerWidth >= 768 && window.matchMedia('(pointer: coarse)').matches;
-}
-function isNarrow() { return window.innerWidth < 1024 || (isTablet() && window.innerWidth <= 1600); }
-
-// Vị trí thanh trên iPad: giữa | phải | trái (lưu theo máy)
-const HANDS = ['center', 'right', 'left'];
-const HAND_KEY = 'quiz_dock_hand';
-function getHand() { try { const h = localStorage.getItem(HAND_KEY); return HANDS.includes(h) ? h : 'center'; } catch (e) { return 'center'; } }
-function applyHand() { HANDS.forEach(h => document.body.classList.toggle('qz-dock-' + h, h === getHand())); }
+function isNarrow() { return window.innerWidth < 1024 && !(window.innerWidth >= 768 && window.matchMedia('(pointer: coarse)').matches); } // iPad: không dùng thanh đáy, đã có nút Câu tiếp nổi (quiz-tablet-next.js)
 
 // Đang thực sự trong lúc làm bài (không phải trang thiết lập / màn kết quả)?
 function inQuiz() {
@@ -149,54 +138,6 @@ export function setupMobileNav() {
     sheetMeta = document.getElementById('qjs-meta');
     sheetBackdrop = sheet && sheet.querySelector('.qjs-backdrop');
     sheetClose = document.getElementById('qjs-close');
-    todoBtn = document.getElementById('qmn-todo');
-    handBtn = document.getElementById('qmn-hand');
-    edgePrev = document.getElementById('qmn-edge-prev');
-    edgeNext = document.getElementById('qmn-edge-next');
-    statsEl = document.getElementById('qmn-stats');
-    timerEl = document.getElementById('qmn-timer');
-    applyHand();
-
-    // Câu chưa làm kế tiếp (vòng lại từ đầu nếu phía sau hết)
-    if (todoBtn) todoBtn.addEventListener('click', () => {
-        const n = state.questions.length;
-        for (let k = 1; k <= n; k++) {
-            const i = (state.currentIndex + k) % n;
-            if (state.userAnswers[i] == null) {
-                buzz(); state.currentIndex = i; saveQuizState(); showQuestion(); return;
-            }
-        }
-    });
-    if (handBtn) handBtn.addEventListener('click', () => {
-        buzz();
-        const next = HANDS[(HANDS.indexOf(getHand()) + 1) % HANDS.length];
-        try { localStorage.setItem(HAND_KEY, next); } catch (e) { /* bỏ qua */ }
-        applyHand();
-    });
-    // Mũi tên mép = y hệt Trước/Tiếp ở thanh
-    if (edgePrev) edgePrev.addEventListener('click', () => { if (prevBtn) prevBtn.click(); });
-    if (edgeNext) edgeNext.addEventListener('click', () => { if (nextBtn) nextBtn.click(); });
-
-    // Đồng hồ đếm ngược phản chiếu lên dải tiến trình (khỏi cuộn lên đầu trang xem giờ)
-    const td = document.getElementById('timerDisplay');
-    if (td && timerEl) {
-        const syncTimer = () => {
-            const on = !td.classList.contains('hidden') && td.textContent.trim();
-            timerEl.hidden = !on;
-            if (on) timerEl.innerHTML = '<i class="fas fa-clock"></i> ' + td.textContent.trim();
-        };
-        new MutationObserver(syncTimer).observe(td, { childList: true, characterData: true, subtree: true, attributes: true });
-        syncTimer();
-    }
-
-    // Cuộn xuống: thanh thu gọn (ẩn dải tiến trình) cho thoáng; cuộn lên: bung lại
-    window.addEventListener('scroll', () => {
-        if (!bar || !bar.classList.contains('show')) return;
-        const y = window.scrollY, d = y - lastScrollY;
-        if (Math.abs(d) < 12) return;
-        bar.classList.toggle('qmn-compact', d > 0 && y > 120);
-        lastScrollY = y;
-    }, { passive: true });
 
     if (prevBtn) prevBtn.addEventListener('click', () => {
         if (state.currentIndex > 0 && state.quizMode !== 'practice') { buzz(); showPreviousQuestion(); }
@@ -308,12 +249,9 @@ export function updateMobileNav() {
     if (!isNarrow() || !inQuiz()) {
         bar.classList.remove('show');
         bar.setAttribute('aria-hidden', 'true');
-        document.body.classList.remove('has-mobile-nav', 'qz-tablet', 'qz-tablet-dock');
+        document.body.classList.remove('has-mobile-nav');
         return;
     }
-    const tab = isTablet();
-    document.body.classList.toggle('qz-tablet', tab);
-    document.body.classList.toggle('qz-tablet-dock', tab && window.innerWidth >= 1024);
     bar.classList.add('show');
     bar.setAttribute('aria-hidden', 'false');
     document.body.classList.add('has-mobile-nav');
@@ -323,22 +261,6 @@ export function updateMobileNav() {
     const answered = state.userAnswers.filter(a => a !== null && a !== undefined).length;
 
     if (counterEl) counterEl.textContent = `Câu ${idx + 1}/${total}`;
-    // Đang chấm từng câu: hiện số đúng / sai ngay trên thanh
-    if (statsEl) {
-        const imm = !!(state.quizOptions && state.quizOptions.showAnswerImmediately);
-        let ok = 0, bad = 0;
-        if (imm) state.questions.forEach((qq, i) => {
-            const a = state.userAnswers[i];
-            if (a == null || isPendingEssay(qq, a)) return;
-            if (isAnswerCorrect(qq, a)) ok++; else bad++;
-        });
-        statsEl.hidden = !imm;
-        if (imm) statsEl.innerHTML = '<span class="qmn-ok"><i class="fas fa-check"></i>' + ok + '</span><span class="qmn-bad"><i class="fas fa-xmark"></i>' + bad + '</span>';
-    }
-    const left = state.userAnswers.some(a => a == null);
-    if (todoBtn) todoBtn.classList.toggle('is-off', !left);
-    if (edgePrev) edgePrev.classList.toggle('is-off', idx <= 0 || state.quizMode === 'practice');
-    if (edgeNext) edgeNext.classList.toggle('is-ready', state.userAnswers[idx] != null && idx < total - 1);
     if (fillEl) fillEl.style.width = (total ? Math.round((answered / total) * 100) : 0) + '%';
 
     const canPrev = idx > 0 && state.quizMode !== 'practice';
@@ -386,6 +308,6 @@ export function hideMobileNav() {
         bar.classList.remove('show');
         bar.setAttribute('aria-hidden', 'true');
     }
-    document.body.classList.remove('has-mobile-nav', 'qz-tablet', 'qz-tablet-dock');
+    document.body.classList.remove('has-mobile-nav');
     closeJumpSheet();
 }

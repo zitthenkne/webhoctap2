@@ -224,6 +224,29 @@ if (view === 'multi') { sess.shown = { q0: true }; sess.chosen = { q0: 1 }; sess
 if (view === 'split') { sess.shown = { q0: true }; sess.split = { q0: { at: now, by: 'Việt Thành' } }; }
 if (view === 'lead') { sess.mode = 'lead'; sess.timerSec = 30; sess.deadline = now + 22000; sess.freeRoam = false; }
 if (view === 'shown') { sess.shown = { q0: true }; sess.notes = { q0: 'Mình nghĩ B vì nút xoang nằm sát lỗ tĩnh mạch chủ trên.' }; sess.notesBy = { q0: { name: 'Minh Anh', at: now } }; }
+// &state=notes: soi GHI CHÚ CỤM TỪ (<span data-note>) + sơ đồ Mermaid — đang ở câu 2 (có sơ đồ trong giải thích), mọi câu đã lộ đáp án.
+// Đề có sẵn vài ghi chú ở câu hỏi (edits) và ở giải thích của nhóm (notes) để thử chip hiện ngay cạnh chữ.
+if (view === 'notes') {
+    sess.currentQuestionIndex = 1;
+    sess.shown = { q0: true, q1: true, q2: true };
+    sess.chosen = { q0: 1, q1: 0, q2: 2 };
+    sess.qStarts = { q1: now - 20000 };
+    sess.edits = {
+        q0: { question: 'Nút xoang nhĩ <span data-note="chủ nhịp tim">(SA node)</span> nằm ở đâu?' },
+        q1: { question: 'Cung lượng tim được tính bằng <span data-note="nhớ: CO = HR × SV">công thức nào</span> dưới đây? Bình thường <span data-note="4–8 L/phút">bao nhiêu</span> L/phút?' },
+    };
+    const mm = encodeURIComponent([
+        'flowchart TD',
+        '  A([Bệnh nhân khó thở]) --> B{Có phù + TM cổ nổi?}',
+        '  B -->|Có| C[Suy tim phải]',
+        '  B -->|Không| D[Tìm nguyên nhân phổi]',
+        '  C --> E{EF giảm?}',
+        '  E -->|Đúng| F[Dùng lợi tiểu]',
+        '  E -->|Sai| G[Siêu âm lại]',
+    ].join('\n'));
+    sess.notes = { q1: '<p>Cung lượng tim = <b>tần số tim × thể tích nhát bóp</b>. Tiền tải tăng thì <span data-note="định luật Starling">thể tích nhát bóp</span> tăng.</p><div data-mermaid="' + mm + '"></div>' };
+    sess.notesBy = { q1: { name: 'Minh Anh', at: now } };
+}
 if (view === 'announced') {
     sess.shown = { q0: true };
     sess.chosen = { q0: 1 };

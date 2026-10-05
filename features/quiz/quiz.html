@@ -1277,7 +1277,7 @@
         <div class="quiz-resizer" data-resize="note" title="Kéo để chỉnh độ rộng cột ghi chú" role="separator" aria-label="Kéo để chỉnh độ rộng cột ghi chú"></div>
         <aside id="quiz-note-panel" class="quiz-side-panel hidden"></aside>
         <div id="quiz-submit-row" class="flex flex-row justify-end mt-4">
-            <button id="submit-quiz-btn" class="px-6 py-3 bg-[#FF69B4] text-white rounded-lg hover:bg-pink-600 transition-transform transform hover:scale-105 shadow-lg text-lg font-bold hidden">Nộp bài</button>
+            <button id="submit-quiz-btn" class="px-6 py-3 bg-[#FF69B4] text-white rounded-lg hover:bg-pink-600 transition-transform transform hover:scale-105 shadow-lg text-lg font-bold hidden"><i class="fas fa-flag-checkered"></i> Nộp bài</button>
         </div>
         </div><!-- /#quiz-workspace -->
             </div>
@@ -1368,6 +1368,10 @@
                     <span class="qs-label"><span class="qs-emoji-ic" aria-hidden="true">🤡</span> Meme</span>
                     <span class="qs-switch"></span>
                 </div>
+                <div class="qs-row" id="qs-notes-inline" role="switch" aria-checked="true" tabindex="0" title="Hiện nội dung ghi chú cụm từ ngay cạnh chữ (tắt: chỉ còn bong bóng nhỏ, rê chuột hoặc bấm vào để xem)">
+                    <span class="qs-label"><i class="fas fa-comment-dots"></i> Hiện ghi chú cụm từ</span>
+                    <span class="qs-switch"></span>
+                </div>
                 <div id="marked-control" class="hidden">
                     <button type="button" id="marked-list-btn" class="qs-row qs-action" aria-expanded="false" aria-controls="marked-list-panel" title="Xem nhanh các câu đã đánh dấu">
                         <span class="qs-label"><i class="fas fa-flag"></i> Câu đã đánh dấu</span>
@@ -1448,9 +1452,7 @@
         <!-- Tầng 1: dải tiến trình — chạm (hoặc vuốt lên) để mở danh sách câu -->
         <button type="button" id="qmn-jump" class="qmn-strip" aria-haspopup="dialog" aria-controls="quiz-jump-sheet" aria-expanded="false">
             <span id="qmn-counter" class="qmn-counter">Câu 1/1</span>
-            <span id="qmn-stats" class="qmn-stats" hidden></span>
             <span class="qmn-progress"><span id="qmn-progress-fill" class="qmn-progress-fill"></span></span>
-            <span id="qmn-timer" class="qmn-timer" hidden></span>
             <span class="qmn-hint"><i class="fas fa-table-cells-large"></i> Danh sách câu</span>
         </button>
         <!-- Tầng 2: Trước · 50:50 · Đánh dấu · Tiếp — luôn với tới bằng ngón cái -->
@@ -1465,9 +1467,6 @@
             <button type="button" id="qmn-mark" class="qmn-act" aria-label="Đánh dấu câu" title="Đánh dấu câu" aria-haspopup="menu" aria-expanded="false" aria-controls="qmn-mark-menu">
                 <i class="fas fa-bookmark"></i>
             </button>
-            <!-- Chỉ iPad/máy tính bảng: tới câu CHƯA LÀM kế tiếp + đổi vị trí thanh (giữa / phải / trái) -->
-            <button type="button" id="qmn-todo" class="qmn-act qmn-tab" aria-label="Tới câu chưa làm" title="Tới câu chưa làm kế tiếp"><i class="fas fa-forward-step"></i></button>
-            <button type="button" id="qmn-hand" class="qmn-act qmn-tab" aria-label="Đổi vị trí thanh" title="Đổi vị trí thanh: giữa / phải / trái"><i class="fas fa-arrows-left-right"></i></button>
             <!-- Bảng thiết lập (thay cho nút ngựa nổi khi đang làm bài trên điện thoại) -->
             <button type="button" id="qmn-settings" class="qmn-act" aria-label="Thiết lập" title="Thiết lập">
                 <i class="fas fa-horse"></i>
@@ -1478,10 +1477,6 @@
         </div>
         <div id="qmn-mark-menu" class="hidden" role="menu" aria-label="Lý do đánh dấu"></div>
     </nav>
-
-    <!-- iPad: mũi tên to hai bên mép (hai tay cầm máy) — chỉ hiện khi body.qz-tablet.has-mobile-nav -->
-    <button type="button" id="qmn-edge-prev" class="qmn-edge qmn-edge-prev" aria-label="Câu trước"><i class="fas fa-chevron-left"></i></button>
-    <button type="button" id="qmn-edge-next" class="qmn-edge qmn-edge-next" aria-label="Câu tiếp"><i class="fas fa-chevron-right"></i></button>
 
     <!-- Bảng "nhảy câu" (bottom-sheet, mobile): xem toàn bộ câu & chạm để nhảy nhanh -->
     <div id="quiz-jump-sheet" class="hidden" role="dialog" aria-modal="true" aria-label="Danh sách câu hỏi">
@@ -1520,6 +1515,7 @@
         <button type="button" data-annot-action="underline" title="Gạch chân"><i class="fas fa-underline"></i></button>
         <button type="button" data-annot-action="strike" title="Gạch ngang"><i class="fas fa-strikethrough"></i></button>
         <span class="annot-sep" aria-hidden="true"></span>
+        <button type="button" data-annot-action="note" title="Ghi chú cho cụm từ này" aria-label="Ghi chú cho cụm từ"><i class="fas fa-comment-dots"></i></button>
         <button type="button" data-annot-action="erase" title="Gỡ định dạng trong vùng chọn"><i class="fas fa-eraser"></i></button>
     </div>
 

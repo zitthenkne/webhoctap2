@@ -8,7 +8,7 @@ import { state, saveQuizState } from '../quiz-state.js';
 import { toggleFocusMode } from '../quiz-ui.js';
 import { startTimer, stopTimer } from './quiz-session.js';
 import {
-    getTheme, getSound, getVibrate, getBgOpacity, applyBgOpacity, playTone
+    getTheme, getSound, getVibrate, getBgOpacity, applyBgOpacity, playTone, getNotesInline, applyNotesInline
 } from './quiz-page-prefs.js';
 import { getCatMemeEnabled, setMemeEnabled } from './quiz-cat-meme.js';
 import { showQuestion, showNextQuestion, showPreviousQuestion } from './quiz-question-view.js';
@@ -95,6 +95,7 @@ export function setupSettings() {
     const rowMeme = document.getElementById('qs-meme');
     const rowAutoNext = document.getElementById('qs-auto-next');
     const rowTimed = document.getElementById('qs-timed');
+    const rowNotes = document.getElementById('qs-notes-inline');
     const rowShowAns = document.getElementById('qs-show-answer');
     const bgOpacityInput = document.getElementById('qs-bg-opacity');
     const rowShuffleBg = document.getElementById('qs-shuffle-bg');
@@ -108,6 +109,8 @@ export function setupSettings() {
         if (rowMeme) rowMeme.setAttribute('aria-checked', getCatMemeEnabled());
         if (rowAutoNext) rowAutoNext.setAttribute('aria-checked', isAutoNextOn());
         if (rowTimed) rowTimed.setAttribute('aria-checked', !!state.quizOptions.isTimed);
+        if (rowNotes) rowNotes.setAttribute('aria-checked', getNotesInline());
+        applyNotesInline();
         if (rowShowAns) rowShowAns.setAttribute('aria-checked', !!state.quizOptions.showAnswerImmediately);
         if (bgOpacityInput) bgOpacityInput.value = getBgOpacity();
         applyBgOpacity(getBgOpacity());
@@ -140,6 +143,10 @@ export function setupSettings() {
         const on = !getVibrate();
         setLS('quiz_vibrate', on ? '1' : '0');
         if (on && navigator.vibrate) navigator.vibrate(20);
+        sync();
+    });
+    if (rowNotes) rowNotes.addEventListener('click', () => {
+        setLS('quiz_notes_inline', getNotesInline() ? '0' : '1');
         sync();
     });
     if (rowMeme) rowMeme.addEventListener('click', () => {

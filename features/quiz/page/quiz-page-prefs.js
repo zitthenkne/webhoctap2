@@ -6,6 +6,8 @@
 export function getTheme()   { try { return localStorage.getItem('quiz_theme') || 'light'; } catch (e) { return 'light'; } }
 export function getSound()   { try { return localStorage.getItem('quiz_sound') === '1'; } catch (e) { return false; } }
 export function getVibrate() { try { return localStorage.getItem('quiz_vibrate') !== '0'; } catch (e) { return true; } } // mặc định BẬT
+export function getNotesInline() { try { return localStorage.getItem('quiz_notes_inline') !== '0'; } catch (e) { return true; } } // mặc định BẬT
+export function applyNotesInline() { document.body.classList.toggle('qz-notes-inline', getNotesInline()); }
 export function getBgOpacity() { // % độ rõ ảnh nền, 0–60, mặc định 40
     try { const v = parseInt(localStorage.getItem('quiz_bg_opacity'), 10); return isNaN(v) ? 40 : Math.max(0, Math.min(60, v)); }
     catch (e) { return 28; }

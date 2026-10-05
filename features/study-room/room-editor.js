@@ -18,6 +18,11 @@ import { effectiveIndex } from './room-quiz-stage.js';
 const ALLOWED = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'MARK', 'CODE', 'BR', 'DIV', 'P', 'UL', 'OL', 'LI', 'SUB', 'SUP', 'SPAN', 'IMG', 'A',
     'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD', 'H4', 'HR']);
 const TABLE_TAGS = new Set(['TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD']);
+// Ghi chú cụm từ (bản 53): <span data-note="chữ ghi chú ngắn">cụm từ</span>. Chỉ giữ chữ trơn, bỏ ký tự điều khiển, tối đa 120 ký tự.
+const NOTE_MAX_CHARS = 120;
+// Ô nhận ghi chú cụm từ: chỉ những ô hiển thị bằng renderRich (nội dung HTML). Mục tiêu phòng / báo lỗi đề / tên ca là chữ trơn -> không.
+const NOTE_OK = /^(question$|explain$|why$|note$|case$|part:|optexp:|opttext:|extra:)/;
+const cleanNote = (v) => String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, NOTE_MAX_CHARS);
 // Bỏ HẲN cả nội dung (không gỡ thẻ giữ chữ): dán từ Excel / Word có <style> — gỡ thẻ là lộ nguyên đống CSS thành chữ
 const DROP = new Set(['STYLE', 'SCRIPT', 'META', 'TITLE', 'LINK', 'HEAD', 'NOSCRIPT', 'TEMPLATE', 'IFRAME', 'OBJECT', 'EMBED', 'SVG', 'CANVAS', 'XML', 'COLGROUP', 'COL']);
 // Bút dạ pastel: 4 màu, lưu thành <mark data-c="…"> (sanitize giữ đúng 4 giá trị này, bỏ mọi style lạ)
@@ -35,6 +40,8 @@ const FORMAT_BTNS = [
     ...Object.entries(HL).map(([k, v]) => ({ cmd: 'hl:' + k, dot: k, title: `Bút dạ ${v.name}` })),
     { cmd: 'insertUnorderedList', icon: 'fa-list-ul', title: 'Gạch đầu dòng' },
     { cmd: 'removeFormat', icon: 'fa-eraser', title: 'Xóa định dạng' },
+    // Ghi chú NGẮN gắn vào cụm từ (bản 53): lưu thẳng trong nội dung <span data-note="…">, hiện ngay cạnh chữ, cả phòng thấy
+    { cmd: 'note', icon: 'fa-note-sticky', title: 'Ghi chú cụm từ (hiện ngay cạnh chữ)' },
     // Không phải định dạng: gắn đoạn đang bôi đen vào ô nhận xét (room-answer.js) — nhận xét đúng đoạn đó
     { cmd: 'comment', icon: 'fa-comment-dots', title: 'Nhận xét đoạn này' },
 ];
@@ -149,12 +156,14 @@ export function sanitizeHtml(html) {
         // Ô gộp của bảng: giữ colspan / rowspan (số nhỏ), còn lại bỏ sạch thuộc tính
         const span = TABLE_TAGS.has(tag) ? ['colspan', 'rowspan'].map(a => [a, node.getAttribute(a)])
             .filter(([, v]) => /^\d{1,2}$/.test(v || '') && +v > 1 && +v <= 20) : [];
+        const nt = tag === 'SPAN' ? cleanNote(node.getAttribute('data-note')) : '';
         const mm = tag === 'DIV' ? node.getAttribute('data-mermaid') : null;
         const sv = tag === 'DIV' ? node.getAttribute('data-svg') : null;
         [...node.attributes].forEach(a => node.removeAttribute(a.name));
         if (mm && MM_OK.test(mm)) { node.setAttribute('data-mermaid', mm); node.replaceChildren(); }
         if (sv && SVG_OK(sv)) { node.setAttribute('data-svg', sv); node.replaceChildren(); }
         span.forEach(([a, v]) => node.setAttribute(a, v));
+        if (nt) node.setAttribute('data-note', nt);
         if (c && HL[c]) node.setAttribute('data-c', c);
         if (node.tagName === 'IMG') {
             if (!src) return void node.remove();
@@ -165,6 +174,16 @@ export function sanitizeHtml(html) {
             node.setAttribute('href', href);
             node.setAttribute('target', '_blank');
             node.setAttribute('rel', 'noopener noreferrer');
+        }
+    });
+    // Ghi chú mà cụm từ đã bị xóa hết chữ -> gỡ thẻ (không để chip mồ côi); hai thẻ liền nhau cùng ghi chú (do định dạng cắt đôi) -> gộp
+    box.querySelectorAll('span[data-note]').forEach(sp => {
+        if (!box.contains(sp)) return;                    // (box nằm ngoài tài liệu nên không dùng isConnected)
+        if (!sp.textContent.trim()) return void sp.replaceWith(...sp.childNodes);
+        const nx = sp.nextSibling;
+        if (nx && nx.nodeType === 1 && nx.tagName === 'SPAN' && nx.getAttribute('data-note') === sp.getAttribute('data-note')) {
+            sp.append(...nx.childNodes);
+            nx.remove();
         }
     });
     return box.innerHTML
@@ -282,6 +301,17 @@ function flashSaved(node) {
 
 // ---------- Thanh định dạng nổi khi bôi đen ----------
 function hideToolbar() { el('sel-toolbar')?.classList.remove('show'); }
+const isCoarse = () => !!window.matchMedia?.('(pointer: coarse)').matches;
+// Ghi chú cụm từ (room-notes.js ~6KB): chỉ nạp khi có người bấm nút Ghi chú / bấm chip ghi chú
+let notesLib = null;
+const loadNotes = () => (notesLib ||= import('./room-notes.js').catch(err => { notesLib = null; throw err; }));
+/** Chạm vào CHIP ghi chú (phần ::after, không phải DOM) = nằm trong khung span nhưng không trúng ô chữ nào của nó. */
+function onNoteChip(sp, x, y) {
+    const r = document.createRange();
+    r.selectNodeContents(sp);
+    const hit = [...r.getClientRects()].some(b => x >= b.left - 1 && x <= b.right + 1 && y >= b.top - 1 && y <= b.bottom + 1);
+    return !hit && [...sp.getClientRects()].some(b => x >= b.left - 1 && x <= b.right + 1 && y >= b.top - 1 && y <= b.bottom + 1);
+}
 
 function showToolbarFor(range) {
     const bar = el('sel-toolbar');
@@ -294,16 +324,33 @@ function showToolbarFor(range) {
     x = Math.max(8, Math.min(x, window.innerWidth - bw - 8));
     let y = rect.top - bh - 10;
     if (y < 8) y = rect.bottom + 10;              // sát mép trên thì lật xuống dưới
+    if (isCoarse()) {
+        // Máy cảm ứng: menu Sao chép / Tra cứu của hệ điều hành hiện SÁT vùng chọn (thường ở TRÊN, lật xuống khi sát mép trên)
+        // -> thanh nằm DƯỚI, cách ~44px chừa chấm kéo chọn; vùng chọn sát đáy / bị bàn phím ảo che thì nhảy lên TRÊN menu.
+        const vv = window.visualViewport;
+        const bottomLimit = (vv ? vv.offsetTop + vv.height : window.innerHeight) - 8;
+        const osAbove = rect.top >= 90;
+        if (osAbove && rect.bottom + 44 + bh < bottomLimit) y = rect.bottom + 44;
+        else if (!osAbove && rect.bottom + 100 + bh < bottomLimit) y = rect.bottom + 100;
+        else if (rect.top - 70 - bh > 58) y = rect.top - 70 - bh;
+        else y = Math.max(8, Math.min(bottomLimit - bh, rect.bottom + 44));
+    }
     bar.style.left = `${x}px`;
     bar.style.top = `${y}px`;
 }
 
+// Vạch bút dạ của ghi chú cụm từ vẽ bằng text-decoration: underline -> trình duyệt tưởng chữ ĐÃ gạch chân (nút U luôn "bật",
+// lệnh underline không làm gì). Tạm tắt vạch đó (class body.rm-nodeco) đúng lúc hỏi trạng thái / chạy lệnh.
+const noDeco = (fn) => {
+    document.body.classList.add('rm-nodeco');
+    try { return fn(); } finally { document.body.classList.remove('rm-nodeco'); }
+};
 function syncToolbarState() {
     const bar = el('sel-toolbar');
     if (!bar) return;
     ['bold', 'italic', 'underline'].forEach(cmd => {
         let on = false;
-        try { on = document.queryCommandState(cmd); } catch (e) {}
+        try { on = noDeco(() => document.queryCommandState(cmd)); } catch (e) {}
         bar.querySelector(`[data-cmd="${cmd}"]`)?.classList.toggle('on', on);
     });
 }
@@ -313,6 +360,13 @@ function applyCommand(cmd) {
     if (!sel || sel.rangeCount === 0) return;
     const node = editNodeOf(sel.anchorNode) || editNodeOf(sel.focusNode);
     if (!node) return;
+    if (cmd === 'note') {
+        if (!NOTE_OK.test(node.dataset.liveEdit || '')) return;
+        const range = sel.getRangeAt(0).cloneRange();
+        hideToolbar();
+        loadNotes().then(m => m.openNoteForSelection(node, range)).catch(() => showToast('Không mở được khung ghi chú — kiểm tra mạng.', 'error'));
+        return;
+    }
     if (cmd === 'comment') {
         const t = sel.toString().replace(/\s+/g, ' ').trim();
         hideToolbar();
@@ -324,7 +378,7 @@ function applyCommand(cmd) {
             const bg = HL[cmd.slice(3)]?.bg || HL.y.bg;
             if (!document.execCommand('hiliteColor', false, bg)) document.execCommand('backColor', false, bg);
         } else {
-            document.execCommand(cmd, false, null);
+            noDeco(() => document.execCommand(cmd, false, null));
         }
     } catch (e) { /* trình duyệt cũ thì thôi */ }
     node.dispatchEvent(new Event('input', { bubbles: true }));
@@ -442,16 +496,34 @@ export function initInlineEdit() {
         if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return hideToolbar();
         const node = editNodeOf(sel.anchorNode) || editNodeOf(sel.focusNode);
         if (!node) return hideToolbar();
+        el('sel-toolbar')?.classList.toggle('no-note', !NOTE_OK.test(node.dataset.liveEdit || ''));   // ô chữ trơn: ẩn nút Ghi chú
         showToolbarFor(sel.getRangeAt(0));
         syncToolbarState();
     };
     document.addEventListener('mouseup', () => setTimeout(onSelect, 10));
     document.addEventListener('keyup', (e) => { if (e.shiftKey || e.key.startsWith('Arrow')) onSelect(); });
+    let selTimer = 0;
     document.addEventListener('selectionchange', () => {
         const sel = window.getSelection();
-        if (!sel || sel.isCollapsed) hideToolbar();
+        if (!sel || sel.isCollapsed) return hideToolbar();
+        if (!isCoarse()) return;
+        clearTimeout(selTimer);
+        selTimer = setTimeout(onSelect, 140);      // kéo chấm chọn trên iPad / điện thoại không bắn mouseup
     });
-    window.addEventListener('scroll', hideToolbar, true);
+    document.addEventListener('touchend', () => { if (isCoarse()) setTimeout(onSelect, 30); }, { passive: true });
+    window.addEventListener('scroll', () => {
+        if (!isCoarse()) return hideToolbar();
+        if (el('sel-toolbar')?.classList.contains('show')) { clearTimeout(selTimer); selTimer = setTimeout(onSelect, 120); }   // bám theo vùng chọn khi trang trôi
+    }, true);
+
+    // Bấm vào chip ghi chú (cạnh cụm từ) -> sửa / xóa ghi chú. Bấm vào CHỮ của cụm từ vẫn là đặt con trỏ gõ như thường.
+    document.addEventListener('click', (e) => {
+        const sp = e.target.closest?.('span[data-note]');
+        if (!sp || !sp.closest('[data-live-edit]') || !window.getSelection().isCollapsed) return;
+        if (!onNoteChip(sp, e.clientX, e.clientY)) return;
+        e.preventDefault(); e.stopPropagation();
+        loadNotes().then(m => m.openNoteForSpan(sp)).catch(() => showToast('Không mở được khung ghi chú — kiểm tra mạng.', 'error'));
+    }, true);
 }
 
 /** Vẽ lại công thức toán trong một vùng vừa được cập nhật. */

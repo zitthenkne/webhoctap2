@@ -51,6 +51,9 @@ Câu 1 có sẵn lý do có tên, nhận xét ✚/✖/❓ gắn từng phương 
 (một cái có trích đoạn). Màn ≥1040px khối nằm cột phải; hẹp hơn nằm ngay dưới phương án.
 
 - `&state=multi` — câu 1 chốt nhiều đáp án (B + C, `alsoOk`)
+- `&state=notes` — soi **ghi chú cụm từ** (bản 53, `room-notes.js`) + sơ đồ Mermaid: đang ở câu 2, mọi câu đã lộ đáp án, câu hỏi
+  và giải thích của nhóm có sẵn vài `<span data-note="…">`, giải thích có sơ đồ luồng (hình thoi + nhãn Có / Không).
+  Thử tay: bôi đen chữ trong câu hỏi → nút 📝 trên thanh nổi; công tắc "Ghi chú cụm từ" ở menu ⋮ Công cụ.
 - `&state=split` — câu 1 "chưa thống nhất" (`split`)
 
 Kiểm thử thao tác: `e2e2.mjs` (Playwright, 48 mục) trong scratchpad phiên 2026-09-24;

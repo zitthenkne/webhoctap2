@@ -3052,16 +3052,8 @@ html.theme-dark :is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-tabl
 }
 :is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.node > rect:not([style*="fill"]) { rx: 12px; ry: 12px; }
 :is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.node .nodeLabel:not([style*="color"]) { color: var(--nt) !important; font-weight: 700; }
-/* đường nối: nét tròn đầu, nhãn trên đường = viên kẹo vàng bơ */
+/* đường nối: nét tròn đầu, chữ trên đường là chữ viết thẳng lên mũi tên (themeCSS trong quiz-helpers.js), không đóng khung */
 :is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] .flowchart-link { stroke-width: 2px !important; stroke-linecap: round; }
-:is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] span.edgeLabel:not(:empty) {
-    padding: 1px 7px;
-    border-radius: 999px;
-    background: #FFF3C4 !important;
-    color: #7A5E1E !important;
-    font-weight: 700;
-    box-shadow: 0 0 0 1.5px #F2CE6B;
-}
 /* nhóm (subgraph) = tờ giấy nét đứt oải hương */
 :is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.cluster > rect:not([style*="fill"]) {
     fill: #F7F2FF !important;
@@ -3071,8 +3063,21 @@ html.theme-dark :is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-tabl
     rx: 16px; ry: 16px;
 }
 :is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.cluster .nodeLabel { color: #5B45A8 !important; font-weight: 800; }
+/* Ý nghĩa bằng màu: ô QUYẾT ĐỊNH (hình thoi) vàng bơ + chữ đậm, ô tròn (mốc đầu/cuối) bạc hà -> nhìn là biết chỗ rẽ nhánh */
+:is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.nodes > g.node.node:has(> polygon) { --n: var(--hue-butter); --nt: #7A5E1E; }
+:is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.nodes > g.node.node:has(> polygon) .nodeLabel { font-weight: 800; }
+:is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.nodes > g.node.node:has(> circle) { --n: var(--hue-mint); --nt: #1F6B4C; }
+/* Nổi như nhãn dán: bóng phẳng dưới mỗi ô (chuột/bút; máy cảm ứng bỏ cho nhẹ GPU). Rê chuột vào một ô -> các ô khác mờ đi, ô đó đậm lên để lần theo logic */
+@media (pointer: fine) {
+    :is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.node > :is(rect, polygon, circle, ellipse, path):not([style*="fill"]) { filter: drop-shadow(0 2px 0 color-mix(in srgb, var(--n, #F5A3BF) 55%, transparent)); }
+    :is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.node, :is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.edgePaths, :is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.edgeLabels { transition: opacity .18s ease; }
+    :is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"]:has(g.node:hover) g.node:not(:hover) { opacity: .4; }
+    :is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"]:has(g.node:hover) g.edgePaths, :is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"]:has(g.node:hover) g.edgeLabels { opacity: .55; }
+    :is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.node:hover > :is(rect, polygon, circle, ellipse, path):not([style*="fill"]) { stroke-width: 3.2px !important; filter: drop-shadow(0 3px 0 color-mix(in srgb, var(--n, #F5A3BF) 75%, transparent)); }
+}
+@media (prefers-reduced-motion: reduce) { :is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.node, :is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.edgePaths, :is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.edgeLabels { transition: none; } }
 /* tối: sơ đồ vẫn nằm trên giấy sáng (màu Mermaid cố định lúc khởi tạo) nhưng dịu bớt độ chói */
-html.theme-dark :is(#quiz-landing, #quiz-container) .mermaid-container {
+html.theme-dark :is(#quiz-landing, #quiz-container) .mermaid-container { --mm-halo: #F4ECE6;
     background: #F4ECE6 !important;
     border-color: rgba(126, 192, 238, 0.35) !important;
 }
@@ -3571,6 +3576,17 @@ body.case-resizing { cursor: ns-resize; user-select: none; }
     opacity: 0.55; transition: opacity 0.2s;
 }
 #qz-brand:hover, #qz-brand:focus-visible { opacity: 1; }
+/* Logo + tên web nổi ở góc dưới phải hay bị nút Câu tiếp che -> dời lên ĐẦU cột ô câu (.qnp-brand, dựng trong quiz-ui.js); bản nổi chỉ còn ở chế độ tập trung */
+#qz-brand { display: none; }
+body.focus-mode-active #qz-brand { display: inline-flex; top: 0.75rem; left: 0.75rem; right: auto; bottom: auto; }
+.qnp-brand {
+    display: flex; align-items: center; justify-content: center; gap: .4rem; margin: 0 auto .7rem; width: fit-content; max-width: 100%;
+    padding: .2rem .7rem .2rem .2rem; border-radius: 999px; text-decoration: none;
+    font-size: 12px; font-weight: 800; letter-spacing: .02em; line-height: 1; color: var(--ink-blossom);
+    background: var(--surface-card); border: 2px solid var(--line);
+}
+.qnp-brand img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex: none; }
+.qnp-brand:hover { border-style: dashed; }
 #qz-brand img { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; }
 
 /* Đang làm bài có thanh điều hướng đáy (<1024px): dấu nhấc lên trên thanh; chân trang gánh phần chừa chỗ thay khung bài */
@@ -3628,81 +3644,206 @@ body.case-resizing { cursor: ns-resize; user-select: none; }
 }
 @keyframes nb-fade { from { opacity: 0; } }
 
+/* iPad: nút "Câu tiếp" nổi góc phải dưới, chỉ hiện khi nút trong thẻ nằm ngoài màn hình (page/quiz-tablet-next.js)
+   Dễ thương: nhãn dán kẹo nghiêng nhẹ, viền khâu, mũi tên trong viên tròn trắng ngoe nguẩy, bật vào kiểu lò xo. Chỉ transform/opacity. */
+#tablet-next-fab {
+    position: fixed; right: 1.4rem; bottom: calc(1.4rem + env(safe-area-inset-bottom, 0px)); z-index: 44;
+    min-height: 56px; padding: 0 .6rem 0 1.5rem; border-radius: 999px; font-size: 1.05rem; font-weight: 800;
+    display: inline-flex; align-items: center; gap: .7rem;
+    transform: rotate(-3deg); transform-origin: 90% 90%;
+    animation: tnf-pop .5s var(--spring) both;
+}
+#tablet-next-fab::before {
+    content: ''; position: absolute; inset: 4px; border-radius: inherit; pointer-events: none;
+    border: 2px dashed rgba(255, 255, 255, .7);
+}
+#tablet-next-fab i {
+    width: 2.5rem; height: 2.5rem; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+    background: #fff; color: var(--hi); font-size: .95rem; animation: tnf-wiggle 1.6s ease-in-out infinite .6s;
+}
+#tablet-next-fab:active { transform: rotate(0deg) scale(.94); }
+#tablet-next-fab[hidden] { display: none; }
+@keyframes tnf-pop { 0% { opacity: 0; transform: translateY(26px) scale(.6) rotate(8deg); } 100% { opacity: 1; transform: rotate(-3deg); } }
+@keyframes tnf-wiggle { 0%, 55%, 100% { transform: translateX(0); } 70% { transform: translateX(4px); } 85% { transform: translateX(-1px); } }
+@media (prefers-reduced-motion: reduce) { #tablet-next-fab, #tablet-next-fab i { animation: none; } }
+
+/* Nộp bài: nút trong cột ô câu bên trái (#nav-submit-btn) + nút "Câu tiếp" thành "Nộp bài" ở câu cuối. Nút lớn cũ ở đáy trang đã bỏ (ẩn hẳn; JS vẫn dùng nó làm cầu nối logic). */
+#quiz-nav-panel .qnp-submit { --h: var(--hue-mint); --hi: var(--ink-mint); }
+#submit-quiz-btn { display: none !important; }
+#quiz-submit-row { margin: 0; }
+
 /* ============================================================
-   18) iPAD / MÁY TÍNH BẢNG (body.qz-tablet = cảm ứng ≥768px; .qz-tablet-dock = ≥1024px, iPad NGANG)  (2026-10-05)
-   Thanh điều hướng đáy luôn nổi, kể cả khi xoay ngang (trước đây chỉ <1024px nên iPad ngang phải kéo xuống cuối thẻ):
-   viên thuốc nổi (giữa/phải/trái), nút to 56px, đúng/sai + đồng hồ ngay trên thanh, nút tới câu chưa làm,
-   mũi tên to hai mép, thu gọn khi cuộn xuống, bảng nhảy câu thành ngăn kéo bên phải, đáp án cao hơn.
-   JS (quiz-mobile-nav.js) gắn/gỡ class; không có class thì không đổi gì.
+   19) BÔI ĐEN TRÊN ĐIỆN THOẠI / iPAD + GHI CHÚ CHO CỤM TỪ  (page/quiz-annotations.js)
+   - Cảm ứng: menu Sao chép/Tra cứu của hệ điều hành hiện sát vùng chọn và che thanh nổi -> thanh ghim ở NỬA MÀN HÌNH ĐỐI DIỆN
+     (data-dock="bottom|top", JS chọn theo vị trí vùng chọn); nút to hơn cho ngón tay.
+   - Ghi chú riêng cho cụm từ: .annot-note (vạch bút dạ oải hương + chip bong bóng ngay sau chữ) và khung viết #annot-note-pop (giấy dán băng keo).
    ============================================================ */
-.qmn-tab, .qmn-edge, .qmn-stats, .qmn-timer { display: none; }
-body.qz-tablet .qmn-tab { display: inline-flex; }
-body.qz-tablet .qmn-stats:not([hidden]), body.qz-tablet .qmn-timer:not([hidden]) { display: inline-flex; }
-.qmn-stats { gap: .6rem; font-weight: 800; font-size: .8rem; font-variant-numeric: tabular-nums; flex: 0 0 auto; }
-.qmn-stats i { margin-right: .2rem; font-size: .7rem; }
-.qmn-ok { color: #15803d; } .qmn-bad { color: #b91c1c; }
-html.theme-dark .qmn-ok { color: #86efac; } html.theme-dark .qmn-bad { color: #fca5a5; }
-.qmn-timer { gap: .3rem; align-items: center; font-weight: 800; font-size: .8rem; color: var(--ink-sky); font-variant-numeric: tabular-nums; flex: 0 0 auto; }
-
-body.qz-tablet #quiz-mobile-nav.show {
-    display: flex; flex-direction: column; gap: .45rem;
-    position: fixed; z-index: 44;
-    left: 0; right: 0; bottom: calc(.7rem + env(safe-area-inset-bottom, 0px));
-    width: min(760px, calc(100% - 2rem)); margin-inline: auto;
-    padding: .55rem .7rem;
-    background: color-mix(in srgb, var(--paper) 96%, transparent);
-    border: 2px dashed var(--line); border-radius: 1.8rem;
-    box-shadow: 0 14px 34px -14px rgba(120, 70, 60, .5);
-    transition: width .25s ease;
+#annot-toolbar.annot-dock { transform: translateX(-50%); max-width: calc(100vw - 16px); overflow-x: auto; scrollbar-width: none; }
+#annot-toolbar.annot-dock[data-dock="bottom"] { top: auto; bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); }
+body.has-mobile-nav #annot-toolbar.annot-dock[data-dock="bottom"] { bottom: calc(6.9rem + env(safe-area-inset-bottom, 0px)); }
+#annot-toolbar.annot-dock[data-dock="top"] { bottom: auto; top: calc(4.6rem + env(safe-area-inset-top, 0px)); }
+@media (pointer: coarse) {
+    #annot-toolbar button { width: 2.3rem; height: 2.3rem; font-size: .95rem; }
+    #annot-toolbar .annot-dot::before { width: 1.05rem; height: 1.05rem; }
 }
-body.qz-tablet.qz-dock-right #quiz-mobile-nav.show { margin-left: auto; margin-right: 1rem; }
-body.qz-tablet.qz-dock-left #quiz-mobile-nav.show { margin-right: auto; margin-left: 1rem; }
-/* Nút to cho ngón tay iPad */
-body.qz-tablet #quiz-mobile-nav .qmn-row { gap: .55rem; }
-body.qz-tablet #quiz-mobile-nav .qmn-arrow,
-body.qz-tablet #quiz-mobile-nav .qmn-act { min-height: 56px; font-size: 1.05rem; }
-body.qz-tablet #quiz-mobile-nav .qmn-act { width: 3.6rem; }
-body.qz-tablet #quiz-mobile-nav .qmn-arrow { min-width: 6.2rem; }
-body.qz-tablet #quiz-mobile-nav .qmn-arrow-txt { font-size: 1rem; }
-body.qz-tablet #quiz-mobile-nav .qmn-strip { padding: .45rem 1rem; min-height: 44px; }
-body.qz-tablet #quiz-mobile-nav .qmn-counter { font-size: .95rem; }
-body.qz-tablet #quiz-mobile-nav .qmn-hint { font-size: .72rem; }
-/* Cuộn xuống: chỉ còn hàng nút */
-body.qz-tablet #quiz-mobile-nav.qmn-compact .qmn-strip { display: none; }
-
-/* Chừa chỗ cho thanh nổi (cả khi ngang, nơi trước đây không có thanh) */
-body.qz-tablet.has-mobile-nav #quiz-workspace { padding-bottom: 8.5rem; }
-body.qz-tablet.qz-tablet-dock.has-mobile-nav .quiz-card-nav { display: none; }   /* thanh đã thay hàng nút cuối thẻ */
-body.qz-tablet.qz-tablet-dock.has-mobile-nav #quiz-settings-fab { bottom: calc(6.6rem + env(safe-area-inset-bottom, 0px)); }
-body.qz-tablet.qz-tablet-dock.has-mobile-nav #quiz-settings-popover { bottom: calc(10rem + env(safe-area-inset-bottom, 0px)); }
-body.qz-tablet.has-mobile-nav #auto-next-pill { bottom: calc(7.2rem + env(safe-area-inset-bottom, 0px)); }
-body.qz-tablet.has-mobile-nav #qz-brand { bottom: calc(6.6rem + env(safe-area-inset-bottom, 0px)); }
-
-/* Mũi tên to hai mép: hai tay cầm iPad, ngón cái chạm là chuyển câu */
-body.qz-tablet.has-mobile-nav:not(.qjs-open):not(.focus-mode-active) .qmn-edge {
-    display: inline-flex; align-items: center; justify-content: center;
-    position: fixed; top: 50%; z-index: 43; width: 52px; height: 84px; margin-top: -42px;
-    border: 2px solid var(--line); background: color-mix(in srgb, var(--paper) 86%, transparent);
-    color: var(--ink-blossom); font-size: 1.2rem; opacity: .6;
-    -webkit-tap-highlight-color: transparent; transition: opacity .2s, transform .12s;
+@media (pointer: coarse) and (min-width: 768px) {
+    #annot-toolbar button { width: 2.8rem; height: 2.8rem; font-size: 1.05rem; }
+    #annot-toolbar .annot-dot::before { width: 1.2rem; height: 1.2rem; }
 }
-.qmn-edge-prev { left: 0; border-left: 0 !important; border-radius: 0 999px 999px 0; }
-.qmn-edge-next { right: 0; border-right: 0 !important; border-radius: 999px 0 0 999px; }
-.qmn-edge:active { transform: scale(.92); opacity: 1; }
-.qmn-edge.is-off { opacity: .15 !important; pointer-events: none; }
-.qmn-edge-next.is-ready { opacity: .95; color: #fff; background: var(--hue-blossom); }
-
-/* Bảng nhảy câu: ngăn kéo bên phải thay cho tấm trượt từ đáy */
-body.qz-tablet #quiz-jump-sheet .qjs-panel {
-    left: auto; top: 0; max-height: none; width: min(440px, 48vw);
-    border-radius: 1.8rem 0 0 1.8rem; transform: translateX(100%);
-    padding-top: calc(.8rem + env(safe-area-inset-top, 0px));
+/* ---- Ghi chú cụm từ: bản "kẹo giấy" (2026-10-05, làm lại cho mềm / tinh tế / đồng bộ với thẻ kẹo + giấy note của web) ----
+   Một họ màu OẢI HƯƠNG (--hue-lav / --ink-lav — màu duy nhất chưa dùng cho bôi/đậm/nghiêng) và công thức kẹo chung:
+   nền = tông pha nhạt vào giấy ĐẶC (đọc được trên ô xanh/đỏ/xanh dương/giấy vàng), viền 2px 40–50%, bóng đáy phẳng, bật lò xo.
+   Icon bong bóng vẽ bằng SVG (--an-ic) nên không phụ thuộc font icon và có bản riêng cho nền tối. */
+:root {
+    --an-ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6.5 3.8h11a3.7 3.7 0 0 1 3.7 3.7v6.2a3.7 3.7 0 0 1-3.7 3.7h-4.6l-3.6 3.2a.7.7 0 0 1-1.2-.5v-2.7H6.5a3.7 3.7 0 0 1-3.7-3.7V7.5a3.7 3.7 0 0 1 3.7-3.7z' fill='%23C9B6F7' stroke='%237F62D6' stroke-width='1.7' stroke-linejoin='round'/%3E%3Ccircle cx='8.3' cy='10.6' r='1.3' fill='%23fff'/%3E%3Ccircle cx='12' cy='10.6' r='1.3' fill='%23fff'/%3E%3Ccircle cx='15.7' cy='10.6' r='1.3' fill='%23fff'/%3E%3C/svg%3E");
 }
-body.qz-tablet #quiz-jump-sheet.show .qjs-panel { transform: translateX(0); }
-body.qz-tablet #quiz-jump-sheet .qjs-grip { display: none; }
-body.qz-tablet #quiz-jump-sheet .qjs-cell { min-height: 52px; font-size: 1rem; }
+html.theme-dark {
+    --an-ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6.5 3.8h11a3.7 3.7 0 0 1 3.7 3.7v6.2a3.7 3.7 0 0 1-3.7 3.7h-4.6l-3.6 3.2a.7.7 0 0 1-1.2-.5v-2.7H6.5a3.7 3.7 0 0 1-3.7-3.7V7.5a3.7 3.7 0 0 1 3.7-3.7z' fill='%23B9A2F0' stroke='%23E6DCFF' stroke-width='1.7' stroke-linejoin='round'/%3E%3Ccircle cx='8.3' cy='10.6' r='1.3' fill='%23342d2f'/%3E%3Ccircle cx='12' cy='10.6' r='1.3' fill='%23342d2f'/%3E%3Ccircle cx='15.7' cy='10.6' r='1.3' fill='%23342d2f'/%3E%3C/svg%3E");
+}
 
-/* Đáp án cao hơn, chữ to hơn cho ngón tay */
-body.qz-tablet #quizSection .answer-btn:not(.answer-locked) { min-height: 64px; font-size: 1.06rem; }
+/* Nút Ghi chú trên thanh bôi đen: viên oải hương nhỏ, nổi hơn các nút còn lại một chút */
+#annot-toolbar button[data-annot-action="note"] {
+    color: var(--ink-lav);
+    background: color-mix(in srgb, var(--hue-lav) 20%, transparent);
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--hue-lav) 48%, transparent);
+}
+#annot-toolbar button[data-annot-action="note"]:hover { background: color-mix(in srgb, var(--hue-lav) 36%, transparent); color: var(--ink-lav); }
+#annot-toolbar.show { animation: an-tb-in .3s var(--spring) both; }
+@keyframes an-tb-in { from { opacity: 0; scale: .88; } }
 
-@media (prefers-reduced-motion: reduce) { body.qz-tablet #quiz-mobile-nav.show { transition: none; } }
+/* Cụm từ có ghi chú: vạch bút dạ oải hương đè nửa dưới chữ — cùng kỹ thuật "vạch bút dạ" của tiêu đề (§2), màu ĐẶC để hiện rõ cả trên
+   ô xanh / đỏ / giấy vàng. Dùng text-decoration (chỉ vẽ dưới CHỮ) nên vạch không lan xuống chip hay khoảng hở giữa chữ và chip. */
+/* :is(.annot-note, [data-annot] span[data-note]): ghi chú do chính trang này tạo (.annot-note, bấm để sửa) + ghi chú CỦA NHÓM đi theo đề từ phòng đánh đề
+   (Lưu đề mang theo <span data-note>, study-room.css bản 53) — chỉ hiển thị, không tương tác. */
+:is(.annot-note, [data-annot] span[data-note]) {
+    position: relative;
+    text-decoration-line: underline;
+    text-decoration-color: color-mix(in srgb, var(--hue-lav) 52%, var(--surface-card));
+    text-decoration-thickness: .44em;
+    text-underline-offset: -.26em;
+    text-decoration-skip-ink: none;
+    transition: text-decoration-color .2s ease;
+}
+.annot-note { cursor: pointer; }
+.annot-note:hover { text-decoration-color: color-mix(in srgb, var(--hue-lav) 80%, var(--surface-card)); }
+
+/* Chip ghi chú: nằm ngay sau cụm từ như nhãn dán nhỏ — chữ rõ, nền đặc, viền + bóng đáy kiểu kẹo */
+body.qz-notes-inline :is(.annot-note, [data-annot] span[data-note]):not(.an-dup)::after {
+    content: attr(data-note);
+    display: inline-block; max-width: 100%;
+    margin: 0 .1em 0 .42em; padding: .05em .8em .1em 1.9em;
+    border-radius: 999px;
+    font-size: max(.72em, 11.5px); font-weight: 700; font-style: normal; line-height: 1.4; letter-spacing: .01em;
+    text-align: left; text-decoration: none; white-space: normal; vertical-align: .06em;
+    color: var(--ink-lav);
+    background: var(--an-ic) no-repeat .52em 50% / 1.1em auto, color-mix(in srgb, var(--hue-lav) 17%, var(--surface-card));
+    border: 1.5px solid color-mix(in srgb, var(--hue-lav) 48%, transparent);
+    box-shadow: 0 2px 0 color-mix(in srgb, var(--hue-lav) 32%, transparent);
+    rotate: -1deg;
+    transition: transform .28s var(--spring), rotate .28s var(--spring), box-shadow .18s ease;
+}
+body.qz-notes-inline .annot-note:not(.an-dup):hover::after {
+    transform: translateY(-1px);
+    rotate: 0deg;
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--hue-lav) 40%, transparent);
+}
+/* Tắt "Hiện ghi chú cụm từ": chỉ còn một bong bóng nhỏ sau chữ; máy có chuột rê vào thì hiện lời ghi chú như bóng thoại */
+body:not(.qz-notes-inline) :is(.annot-note, [data-annot] span[data-note]):not(.an-dup)::after {
+    content: "";
+    display: inline-block; width: 1.4em; height: 1.4em; margin: 0 .08em 0 .3em;
+    vertical-align: -.34em; border-radius: 50%;
+    background: var(--an-ic) no-repeat center / 74% auto, color-mix(in srgb, var(--hue-lav) 17%, var(--surface-card));
+    border: 1.5px solid color-mix(in srgb, var(--hue-lav) 48%, transparent);
+    box-shadow: 0 2px 0 color-mix(in srgb, var(--hue-lav) 30%, transparent);
+}
+@media (hover: hover) {
+    body:not(.qz-notes-inline) :is(.annot-note, [data-annot] span[data-note]):hover::before {
+        content: attr(data-note);
+        position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 6;
+        width: max-content; max-width: min(18em, 72vw);
+        padding: .28em .85em; border-radius: 1em 1em 1em .3em;
+        font-size: 12.5px; font-weight: 700; line-height: 1.4; text-align: left; white-space: normal;
+        color: var(--ink-lav); background: var(--surface-card);
+        border: 1.5px solid color-mix(in srgb, var(--hue-lav) 48%, transparent);
+        box-shadow: 0 3px 0 color-mix(in srgb, var(--hue-lav) 30%, transparent), 0 12px 20px -12px rgba(120, 90, 190, .5);
+        pointer-events: none;
+        animation: an-pop .3s var(--spring) both;
+    }
+}
+.annot-note.an-dup::after { display: none; }
+/* Vừa lưu: chip bật ra như dán nhãn */
+.annot-note.an-new::after { animation: an-pop .5s var(--spring) both; transform-origin: 0 60%; }
+@keyframes an-pop { from { opacity: 0; scale: .55; translate: 0 5px; } }
+
+/* Khung viết ghi chú = tờ giấy note dán băng keo oải hương (cùng họ Ghi nhớ / bảng Ngựa thì chỉnh) */
+#annot-note-pop {
+    position: fixed; z-index: 70; width: min(344px, calc(100vw - 16px));
+    left: 50%; top: calc(4.2rem + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
+    padding: 1.15rem .95rem .85rem;
+    display: flex; flex-direction: column; gap: .7rem;
+    border-radius: 1.5rem;
+    background: var(--paper) var(--paper-art) 0 0 / var(--paper-size);
+    border: 2px solid color-mix(in srgb, var(--hue-lav) 42%, transparent);
+    box-shadow: 0 5px 0 color-mix(in srgb, var(--hue-lav) 30%, transparent), var(--shadow-page);
+    color: var(--ink); font-family: Quicksand, sans-serif;
+    animation: anp-in .4s var(--spring) both;
+}
+#annot-note-pop.anp-near { transform: none; }
+@keyframes anp-in { from { opacity: 0; translate: 0 10px; scale: .92; } }
+#annot-note-pop .anp-tape { top: -10px; left: 50%; width: 68px; margin-left: -34px; rotate: -3deg; }
+#annot-note-pop .anp-head { display: flex; align-items: center; gap: .6rem; min-width: 0; }
+#annot-note-pop .anp-ic {
+    flex: none; width: 2.1rem; height: 2.1rem; border-radius: 50%;
+    background: var(--an-ic) no-repeat center / 62% auto, var(--surface-card);
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--hue-lav) 55%, transparent), 0 2px 0 color-mix(in srgb, var(--hue-lav) 45%, transparent);
+}
+#annot-note-pop .anp-quote {
+    min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 13px; font-weight: 700; color: var(--ink-lav);
+}
+#annot-note-pop .anp-quote span {
+    text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--hue-lav) 52%, var(--surface-card));
+    text-decoration-thickness: .44em; text-underline-offset: -.26em; text-decoration-skip-ink: none;
+}
+#annot-note-pop .anp-field { position: relative; }
+html.theme-dark #annot-note-pop .anp-ta { background-color: var(--surface-card) !important; color: var(--ink) !important; border-color: var(--line) !important; }
+html.theme-dark #annot-note-pop .anp-ta:focus { border-color: var(--hue-lav) !important; }
+html.theme-dark #annot-note-pop .anp-ta::placeholder { color: var(--ink-faint) !important; }
+#annot-note-pop .anp-ta {
+    width: 100%; min-height: 46px; padding: .55rem 4.1rem .55rem 1.05rem;
+    border-radius: 999px; border: 2px solid var(--line);
+    background: var(--surface-card); color: var(--ink);
+    font: 600 16px/1.4 Quicksand, sans-serif;   /* ≥16px: iOS không tự phóng to khi gõ */
+    transition: border-color .2s ease, box-shadow .2s ease;
+}
+#annot-note-pop .anp-ta::placeholder { color: var(--ink-faint); font-weight: 600; }
+#annot-note-pop .anp-ta:focus { outline: none; border-color: var(--hue-lav); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hue-lav) 26%, transparent); }
+#annot-note-pop .anp-count {
+    position: absolute; right: .55rem; top: 50%; translate: 0 -50%;
+    padding: .08rem .55rem; border-radius: 999px;
+    font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums; pointer-events: none;
+    color: var(--ink-muted); background: color-mix(in srgb, var(--hue-lav) 14%, var(--surface-card));
+}
+#annot-note-pop .anp-count.is-over { color: var(--bad-ink); background: var(--bad-bg); box-shadow: inset 0 0 0 1.5px var(--bad-line); }
+#annot-note-pop .anp-row { display: flex; align-items: center; gap: .5rem; }
+#annot-note-pop .anp-sp { flex: 1; }
+/* Nút = công thức kẹo chung (xem §3): Lưu = hồng chính, Hủy = cà phê sữa, Xóa = đỏ nhạt */
+#annot-note-pop .anp-row button {
+    --h: var(--hue-latte); --hi: var(--ink-latte);
+    min-height: 40px; padding: 0 1.1rem; border-radius: 999px;
+    font: 800 13px Quicksand, sans-serif;
+    background: color-mix(in srgb, var(--h) var(--fill), var(--surface-card));
+    border: 2px solid color-mix(in srgb, var(--h) 40%, transparent);
+    color: var(--hi);
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--h) 32%, transparent);
+    transition: transform .28s var(--spring), box-shadow .18s ease, opacity .2s ease;
+}
+#annot-note-pop .anp-row button:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 5px 0 color-mix(in srgb, var(--h) 36%, transparent); }
+#annot-note-pop .anp-row button:not(:disabled):active { transform: translateY(2px); box-shadow: 0 1px 0 color-mix(in srgb, var(--h) 36%, transparent); }
+#annot-note-pop .anp-row .anp-ok { --h: var(--hue-blossom); --hi: #8E2A55; background: color-mix(in srgb, var(--hue-blossom) 55%, #fff); }
+html.theme-dark #annot-note-pop .anp-row .anp-ok { --hi: #3a1422; background: #F4A3C1; }
+#annot-note-pop .anp-row .anp-ok:disabled { opacity: .45; }
+#annot-note-pop .anp-row .anp-del { --h: var(--bad-solid); --hi: var(--bad-ink); }
+@media (prefers-reduced-motion: reduce) {
+    #annot-toolbar.show, #annot-note-pop, .annot-note.an-new::after, body:not(.qz-notes-inline) :is(.annot-note, [data-annot] span[data-note]):hover::before { animation: none; }
+}

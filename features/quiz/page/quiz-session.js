@@ -8,7 +8,7 @@ import { whenAuthReady } from '../../../core/auth-session.js';
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { showToast } from '../../../core/utils.js';
 import { applyLocalQuestionEdits } from '../quiz-editor.js';
-import { getOfflineQuiz, autoCacheQuiz, within, isOfflineSavedSync, saveOfflineQuiz } from '../quiz-offline-store.js';
+import { getOfflineQuiz, autoCacheQuiz, within, isOfflineSavedSync, saveOfflineQuiz, extractQuizImageUrls, cacheQuizImages } from '../quiz-offline-store.js';
 import { state, saveQuizState, clearQuizState, saveQuizResult, updateQuizResultScore, markQuizStateFinished } from '../quiz-state.js';
 import { shuffleArray, shuffleQuestionOptions, isAnswerCorrect, sessionScore } from '../quiz-helpers.js';
 import { isEssay, isPendingEssay, withAutoGrade } from '../quiz-essay-core.js';
@@ -48,34 +48,17 @@ function showLandingError(message, { showRetry = true } = {}) {
     document.title = 'Không tải được bộ đề';
 }
 
-// Tải trước hình ảnh trong câu hỏi để khi tắt mạng ảnh vẫn hiển thị
+// Tải trước hình ảnh trong câu hỏi vào CacheStorage để khi tắt mạng ảnh vẫn hiển thị
 function prefetchQuizImages(questions) {
     if (!Array.isArray(questions)) return;
-    const urls = new Set();
-    const mdImgRegex = /!\[.*?\]\((https?:\/\/[^\s\)]+)\)/g;
-
-    questions.forEach((q) => {
-        if (q && q.image && typeof q.image === 'string' && q.image.startsWith('http')) {
-            urls.add(q.image);
-        }
-        const text = ((q && q.question) || '') + ' ' + ((q && q.explanation) || '') + ' ' + ((q && q.expanded) || '');
-        let match;
-        while ((match = mdImgRegex.exec(text)) !== null) {
-            urls.add(match[1]);
-        }
-    });
-
-    urls.forEach((url) => {
-        try {
-            fetch(url, { mode: 'no-cors' }).catch(() => {});
-        } catch (e) {}
-    });
+    cacheQuizImages(questions).catch((e) => console.warn('Lỗi prefetch ảnh:', e));
 }
 
 // Tự động tải lưu offline hoàn chỉnh vào IndexedDB và nạp cache ảnh ngầm
 async function autoSaveAndNotify(quizId, data) {
     if (!data || !Array.isArray(data.questions) || !data.questions.length) return;
     const wasSaved = isOfflineSavedSync(quizId);
+    const imgUrls = extractQuizImageUrls(data.questions);
 
     try {
         await saveOfflineQuiz(quizId, data, { auto: false });
@@ -89,12 +72,10 @@ async function autoSaveAndNotify(quizId, data) {
         if (label) label.textContent = 'Đã tải offline';
         if (btn) btn.title = 'Bộ đề đã được lưu về máy. Bấm để cập nhật bản mới nhất.';
 
-        // Nạp trước hình ảnh trong câu hỏi vào cache
-        prefetchQuizImages(data.questions);
-
         // Báo cho người dùng biết để có thể tắt mạng/5G nếu là lần đầu tải về máy
         if (!wasSaved) {
-            showToast('Đã tải xong bộ đề về máy! Bạn có thể tắt mạng để tiết kiệm 5G/pin nhé.', 'success', 5000);
+            const imgNote = imgUrls.length > 0 ? ` (kèm ${imgUrls.length} ảnh minh họa)` : '';
+            showToast(`Đã tải xong bộ đề về máy${imgNote}! Bạn có thể tắt mạng để làm bài nhé.`, 'success', 5000);
         }
     } catch (e) {
         console.warn('Lỗi tự động lưu offline bộ đề:', e);
@@ -141,15 +122,27 @@ function setupOfflineDownloadBtn(quizId) {
         }
 
         const isSaved = isOfflineSavedSync(quizId);
+        const imgUrls = extractQuizImageUrls(state.quizData.questions);
         try {
             if (icon) icon.className = 'fas fa-spinner fa-spin';
-            if (label) label.textContent = 'Đang lưu...';
-            await saveOfflineQuiz(quizId, state.quizData, { auto: false });
-            prefetchQuizImages(state.quizData.questions);
+            if (label) label.textContent = imgUrls.length > 0 ? `Đang tải ảnh (0/${imgUrls.length})...` : 'Đang lưu...';
+            btn.disabled = true;
+
+            await saveOfflineQuiz(quizId, state.quizData, {
+                auto: false,
+                cacheImages: true,
+                onProgress: (done, total) => {
+                    if (label && total > 0) label.textContent = `Tải ảnh ${done}/${total}...`;
+                }
+            });
+
+            btn.disabled = false;
             updateStatus();
-            showToast(isSaved ? 'Đã cập nhật bản offline mới nhất!' : 'Đã tải bộ đề về máy! Bạn có thể tắt mạng để tiết kiệm 5G/pin nhé.', 'success', 5000);
+            const imgNote = imgUrls.length > 0 ? ` (kèm ${imgUrls.length} ảnh minh họa)` : '';
+            showToast(isSaved ? `Đã cập nhật bản offline mới nhất${imgNote}!` : `Đã tải bộ đề về máy${imgNote}! Bạn có thể tắt mạng để làm bài nhé.`, 'success', 5000);
         } catch (e) {
             console.error('Lỗi lưu offline:', e);
+            btn.disabled = false;
             updateStatus();
             showToast('Không thể lưu offline: ' + (e.message || 'Lỗi bộ nhớ'), 'error');
         }

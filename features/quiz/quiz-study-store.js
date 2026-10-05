@@ -134,16 +134,13 @@ export function mergeStudy(localData, cloudData, preferCloud) {
         ...Object.keys(top.annotations || {}),
     ]);
     aKeys.forEach(q => {
-        const seen = new Set();
-        const list = [];
+        // Map theo (scope|text|type): bản "top" ghi đè bản "base" cùng khóa -> sửa nội dung ghi chú (note) không bị bản cũ nuốt
+        const bySig = new Map();
         [...(base.annotations?.[q] || []), ...(top.annotations?.[q] || [])].forEach(it => {
             if (!it) return;
-            const sig = `${it.scope}|${it.text}|${it.type}`;
-            if (seen.has(sig)) return;
-            seen.add(sig);
-            list.push(it);
+            bySig.set(`${it.scope}|${it.text}|${it.type}`, it);
         });
-        if (list.length) merged.annotations[q] = list;
+        if (bySig.size) merged.annotations[q] = [...bySig.values()];
     });
 
     return merged;

@@ -179,6 +179,7 @@ function htmlToMd(html) {
             case 'B': case 'STRONG': { const t = inner().trim(); return t ? `**${t}**` : ''; }
             case 'I': case 'EM': { const t = inner().trim(); return t ? `*${t}*` : ''; }
             case 'MARK': return `==${inner().trim()}==`;
+            case 'SPAN': { const nt = n.getAttribute('data-note'); const t = inner(); return nt ? `${t} *(💬 ${nt.replace(/[*_\`]/g, '')})*` : t; }   // ghi chú cụm từ (bản 53)
             case 'CODE': return '`' + inner() + '`';
             case 'BR': return '\n';
             case 'P': case 'DIV': {
@@ -615,7 +616,9 @@ tr { break-inside: avoid; }
 .calls { display: grid; gap: 6px; margin-top: 6px; } .calls.n2 { grid-template-columns: 1fr 1fr; }
 .call { padding: 6px 10px; border-radius: 8px; break-inside: avoid; } .call.peach { background: var(--peach-soft); } .call.pink { background: var(--pink-soft); }
 .rich p { margin: 3px 0; } .rich ul, .rich ol { margin: 3px 0 3px 16px; padding: 0; } .rich img { max-width: 100%; max-height: 80mm; border-radius: 6px; border: 1px solid var(--line); margin: 3px 0; }
-.rich mark { background: #fff1a3; padding: 0 2px; border-radius: 3px; } .rich code { background: var(--pink-soft); padding: 0 4px; border-radius: 4px; font-size: .92em; }
+.rich mark { background: #fff1a3; padding: 0 2px; border-radius: 3px; }
+.rich span[data-note] { text-decoration: underline; text-decoration-color: #d9ccf7; text-decoration-thickness: .42em; text-underline-offset: -.22em; text-decoration-skip-ink: none; }
+.rich span[data-note]::after { content: attr(data-note); display: inline-block; margin-left: .35em; padding: 0 .55em; border: .6pt solid #c9b6f5; border-radius: 999px; background: #f6f1ff; color: #5b45a8; font-size: .8em; font-weight: 700; line-height: 1.45; } .rich code { background: var(--pink-soft); padding: 0 4px; border-radius: 4px; font-size: .92em; }
 .rich.inl p { display: inline; margin: 0; }
 .args { list-style: none; margin: 0; padding: 0; } .args li { padding: 1px 0; font-size: 8.8pt; }
 .arg .aic { display: inline-block; width: 15px; font-weight: 800; } .arg.pro .aic { color: var(--ok); } .arg.con .aic { color: var(--bad); } .arg.ask .aic { color: var(--warn); }

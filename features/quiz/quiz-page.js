@@ -36,6 +36,7 @@ import {
     showQuestion, showNextQuestion, showPreviousQuestion, accrueTime
 } from './page/quiz-question-view.js';
 import { setupMobileNav } from './page/quiz-mobile-nav.js';
+import { setupTabletNext } from './page/quiz-tablet-next.js';
 import {
     loadQuizData, startQuizMode, startQuizWithCurrentSettings, startSrsSession, endQuiz
 } from './page/quiz-session.js';
@@ -257,6 +258,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const submitQuizBtn = document.getElementById('submit-quiz-btn');
+    // Nút Nộp bài trong cột ô câu (bảng được dựng lại nên ủy thác ở document) -> dùng chung logic nút lớn
+    document.addEventListener('click', (e) => { if (e.target.closest('#nav-submit-btn')) submitQuizBtn?.click(); });
     if (submitQuizBtn) {
         submitQuizBtn.addEventListener('click', async () => {
             const unanswered = state.userAnswers.filter(ans => ans == null).length;
@@ -307,6 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupSwipe();          // #3: vuốt chuyển câu
     setupEdgeTap();        // Chạm rìa trái/phải màn hình để chuyển câu (mobile)
     setupMobileNav();      // Thanh điều hướng đáy + bảng nhảy câu (mobile)
+    setupTabletNext();     // iPad: nút Câu tiếp nổi khi nút trong thẻ ngoài màn hình
 
     // "Làm cùng nhau": mở đề sang phòng đánh đề (trang chờ + bảng thiết lập khi đang làm) — nạp lười
     document.addEventListener('click', (e) => {

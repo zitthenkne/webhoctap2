@@ -8,6 +8,8 @@
 // nhiều định dạng lên cùng một đoạn chữ vẫn khôi phục đúng khi vẽ lại (bọc thẻ inline
 // không đổi số ký tự -> offset luôn hợp lệ). Dữ liệu cũ chỉ có `text` vẫn đọc được
 // (lui về khớp lần xuất hiện đầu).
+// type "note" = ghi chú RIÊNG cho cụm từ: thêm trường `note` (nội dung), vẽ bằng <span class="annot-note">,
+// bấm vào mở khung sửa/xóa (thay vì gỡ ngay như các định dạng khác).
 
 import { state } from '../quiz-state.js';
 import { pushStudyToCloud } from './quiz-study-sync.js';
@@ -37,7 +39,7 @@ function annotKeyFor(question, scope) {
     }
     return question ? question.question : '';
 }
-function addAnnot(qText, scope, text, type, start, end) {
+function addAnnot(qText, scope, text, type, start, end, note) {
     const store = getAnnotStore();
     const arr = Array.isArray(store[qText]) ? store[qText] : [];
     const hasPos = typeof start === 'number' && typeof end === 'number';
@@ -51,12 +53,22 @@ function addAnnot(qText, scope, text, type, start, end) {
         // id riêng cho từng ghi chú: gỡ chính xác kể cả khi đoạn bị TÁCH ĐÔI trong DOM
         // do định dạng khác chồng lấn (textContent của mảnh không còn khớp text gốc).
         id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-        arr.push(hasPos ? { scope, text, type, id, start, end } : { scope, text, type, id });
+        const item = hasPos ? { scope, text, type, id, start, end } : { scope, text, type, id };
+        if (note) item.note = note;
+        arr.push(item);
     }
     store[qText] = arr;
     saveAnnotStore(store);
     pushStudyToCloud();
     return id;
+}
+function updateAnnotNote(qText, id, note) {
+    const store = getAnnotStore();
+    const a = Array.isArray(store[qText]) && store[qText].find(x => x.id === id);
+    if (!a) return;
+    a.note = note;
+    saveAnnotStore(store);
+    pushStudyToCloud();
 }
 function removeAnnot(qText, scope, text, type) {
     const store = getAnnotStore();
@@ -95,6 +107,7 @@ function annotTag(type) {
     if (type === 'italic') return 'em';
     if (type === 'underline') return 'u';
     if (type === 'strike') return 's';
+    if (type === 'note') return 'span';
     return 'mark';
 }
 function annotClass(type) {
@@ -104,6 +117,7 @@ function annotClass(type) {
     if (type === 'italic') return 'quiz-annot obsidian-italic';
     if (type === 'underline') return 'quiz-annot annot-underline';
     if (type === 'strike') return 'quiz-annot annot-strike';
+    if (type === 'note') return 'quiz-annot annot-note';
     if (type === 'hl-green') return 'quiz-annot quiz-hl quiz-hl-green';
     if (type === 'hl-blue') return 'quiz-annot quiz-hl quiz-hl-blue';
     return 'quiz-annot quiz-hl';
@@ -151,11 +165,12 @@ function locateInNodes(nodes, globalPos, preferEnd) {
 // Bọc một Range trong thẻ định dạng. surroundContents chỉ chịu range nằm gọn trong
 // một node; range vắt qua nhiều thẻ (chữ đậm/nghiêng có sẵn của markdown) thì dùng
 // extractContents — DOM tự tách đôi các thẻ bị cắt ngang nên vẫn an toàn.
-function wrapRange(range, type, id) {
+function wrapRange(range, type, id, note) {
     const el = document.createElement(annotTag(type));
     el.className = annotClass(type);
     el.setAttribute('data-annot-type', type);
     if (id) el.setAttribute('data-annot-id', id);
+    if (note) el.setAttribute('data-note', note);
     try {
         range.surroundContents(el);
     } catch (e) {
@@ -187,7 +202,7 @@ function cleanupEmptyAnnots(scopeEl) {
 // Bọc một khoảng [from, to) ký tự của container trong thẻ định dạng.
 // Text node được gom LẠI mỗi lần gọi vì lần bọc trước có thể đã tách đôi node — nhưng
 // tổng số ký tự không đổi nên offset tuyệt đối vẫn trỏ đúng chỗ.
-function wrapOffsetRange(container, from, to, type, id) {
+function wrapOffsetRange(container, from, to, type, id, note) {
     const nodes = collectTextNodes(container);
     if (!nodes.length) return;
     const start = locateInNodes(nodes, from, false);
@@ -197,7 +212,7 @@ function wrapOffsetRange(container, from, to, type, id) {
         const range = document.createRange();
         range.setStart(start.node, start.offset);
         range.setEnd(end.node, end.offset);
-        wrapRange(range, type, id);
+        wrapRange(range, type, id, note);
     } catch (e) {}
 }
 
@@ -210,7 +225,7 @@ function applyAnnotsToContainer(container, annots) {
     if (!container || !annots || !annots.length) return;
     annots.forEach(a => {
         if (typeof a.start === 'number' && typeof a.end === 'number' && a.end > a.start) {
-            wrapOffsetRange(container, a.start, a.end, a.type, a.id);
+            wrapOffsetRange(container, a.start, a.end, a.type, a.id, a.note);
             return;
         }
         // Lui về khớp theo chữ (dữ liệu cũ): chỉ lần xuất hiện đầu tiên.
@@ -219,10 +234,16 @@ function applyAnnotsToContainer(container, annots) {
         const nodes = collectTextNodes(container);
         const pos = nodes.map(n => n.nodeValue).join('').indexOf(phrase);
         if (pos === -1) return;
-        wrapOffsetRange(container, pos, pos + phrase.length, a.type, a.id);
+        wrapOffsetRange(container, pos, pos + phrase.length, a.type, a.id, a.note);
     });
 }
 // Áp dụng ghi chú cho mọi vùng [data-annot] của câu đang hiển thị
+// Ghi chú bị tách thành nhiều mảnh (định dạng khác chồng cắt ngang) -> chỉ mảnh cuối hiện nhãn, tránh lặp
+function markLastNoteFragments(root) {
+    const last = new Map();
+    root.querySelectorAll('.annot-note[data-annot-id]').forEach(el => { el.classList.add('an-dup'); last.set(el.getAttribute('data-annot-id'), el); });
+    last.forEach(el => el.classList.remove('an-dup'));
+}
 export function applyAnnotationsAll() {
     const quizSection = document.getElementById('quizSection');
     if (!quizSection) return;
@@ -236,7 +257,103 @@ export function applyAnnotationsAll() {
         applyAnnotsToContainer(el, annots.filter(a => a.scope === scope));
         cleanupEmptyAnnots(el);
     });
+    markLastNoteFragments(quizSection);
 }
+// ---- Khung viết ghi chú cho một cụm từ (mới / sửa) ----
+const NOTE_MAX_WORDS = 10;
+const wordCount = (t) => (t.trim() ? t.trim().split(/\s+/).length : 0);
+let noteEd = null;   // { box, ta, ctx }
+function closeNoteEditor() {
+    if (!noteEd) return;
+    noteEd.box.remove();
+    noteEd = null;
+}
+function openNoteEditor(ctx) {
+    closeNoteEditor();
+    const box = document.createElement('div');
+    box.id = 'annot-note-pop';
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-label', 'Ghi chú cho cụm từ');
+    const quote = (ctx.text || '').length > 70 ? ctx.text.slice(0, 70) + '…' : (ctx.text || '');
+    box.innerHTML = '<span class="washi-tape washi-lav anp-tape" aria-hidden="true"></span>'
+        + '<div class="anp-head"><span class="anp-ic" aria-hidden="true"></span><div class="anp-quote">“<span></span>”</div></div>'
+        + '<div class="anp-field">'
+        + '<input class="anp-ta" type="text" maxlength="90" enterkeyhint="done" autocomplete="off" placeholder="Ghi chú ngắn, tối đa 10 từ…">'
+        + '<span class="anp-count"></span></div>'
+        + '<div class="anp-row">'
+        + (ctx.mode === 'edit' ? '<button type="button" class="anp-del" data-anp="del"><i class="fas fa-trash-can"></i> Xóa</button>' : '')
+        + '<span class="anp-sp"></span>'
+        + '<button type="button" data-anp="cancel">Hủy</button>'
+        + '<button type="button" class="anp-ok" data-anp="save"><i class="fas fa-check"></i> Lưu</button></div>';
+    box.querySelector('.anp-quote span').textContent = quote;
+    const ta = box.querySelector('.anp-ta');
+    ta.value = ctx.note || '';
+    const cnt = box.querySelector('.anp-count'), okBtn = box.querySelector('.anp-ok');
+    const sync = () => {
+        const n = wordCount(ta.value);
+        cnt.textContent = n + '/' + NOTE_MAX_WORDS;
+        cnt.classList.toggle('is-over', n > NOTE_MAX_WORDS);
+        okBtn.disabled = n > NOTE_MAX_WORDS;
+    };
+    ta.addEventListener('input', sync);
+    sync();
+    document.body.appendChild(box);
+    // Cảm ứng: cố định phía trên màn hình (bàn phím ảo che nửa dưới); chuột: ngay dưới cụm từ
+    const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    if (!coarse && ctx.rect) {
+        const w = box.offsetWidth;
+        box.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, ctx.rect.left + ctx.rect.width / 2 - w / 2)) + 'px';
+        const top = ctx.rect.bottom + 10;
+        box.style.top = (top + box.offsetHeight > window.innerHeight - 8 ? Math.max(8, ctx.rect.top - box.offsetHeight - 10) : top) + 'px';
+        box.classList.add('anp-near');
+    }
+    noteEd = { box, ta, ctx };
+    setTimeout(() => ta.focus(), 30);
+    box.addEventListener('mousedown', (e) => e.stopPropagation());
+    box.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-anp]');
+        if (!b) return;
+        const act = b.getAttribute('data-anp');
+        if (act === 'cancel') closeNoteEditor();
+        else if (act === 'save') saveNoteEditor();
+        else if (act === 'del') deleteNoteEditor();
+    });
+    ta.addEventListener('keydown', (e) => {
+        e.stopPropagation(); // đừng kích hoạt phím tắt A–D / mũi tên của trang làm bài
+        if (e.key === 'Escape') closeNoteEditor();
+        else if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); saveNoteEditor(); }   // Enter chốt chữ đang ghép (Telex / VNI) thì chưa lưu
+    });
+}
+function saveNoteEditor() {
+    if (!noteEd) return;
+    const { ta, ctx } = noteEd;
+    const note = ta.value.trim().replace(/\s+/g, ' ');
+    if (wordCount(note) > NOTE_MAX_WORDS) return; // ghi chú phải NGẮN: hiện thẳng cạnh chữ
+    if (ctx.mode === 'edit') {
+        if (!note) { deleteNoteEditor(); return; }
+        updateAnnotNote(ctx.qText, ctx.id, note);
+        document.querySelectorAll(`#quizSection [data-annot-id="${ctx.id}"]`).forEach(el => { el.setAttribute('data-note', note); el.classList.add('an-new'); setTimeout(() => el.classList.remove('an-new'), 700); });
+    } else if (note) {
+        const id = addAnnot(ctx.qText, ctx.scope, ctx.text, 'note', ctx.start, ctx.end, note);
+        if (ctx.scopeEl && ctx.scopeEl.isConnected) {
+            wrapOffsetRange(ctx.scopeEl, ctx.start, ctx.end, 'note', id, note);
+            cleanupEmptyAnnots(ctx.scopeEl);
+            markLastNoteFragments(ctx.scopeEl);
+            ctx.scopeEl.querySelectorAll(`[data-annot-id="${id}"]`).forEach(el => { el.classList.add('an-new'); setTimeout(() => el.classList.remove('an-new'), 700); });
+        } else showQuestion();
+    }
+    closeNoteEditor();
+}
+function deleteNoteEditor() {
+    if (!noteEd) return;
+    const { ctx } = noteEd;
+    if (ctx.mode === 'edit') {
+        removeAnnotById(ctx.qText, ctx.id);
+        document.querySelectorAll(`#quizSection [data-annot-id="${ctx.id}"]`).forEach(unwrapMark);
+    }
+    closeNoteEditor();
+}
+
 export function setupAnnotations() {
     const toolbar = document.getElementById('annot-toolbar');
     if (!toolbar) return;
@@ -245,7 +362,8 @@ export function setupAnnotations() {
     let activeScopeEl = null;  // phần tử vùng — để tìm các đoạn định dạng giao với vùng chọn
     const coarsePointer = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
 
-    const hide = () => { toolbar.classList.remove('show'); activeScope = null; activeScopeEl = null; };
+    let dockSide = null;       // cảm ứng: thanh ghim 'top' | 'bottom' (đối diện vùng chọn)
+    const hide = () => { toolbar.classList.remove('show', 'annot-dock'); activeScope = null; activeScopeEl = null; dockSide = null; };
     const scopeOf = (node) => {
         const el = node && node.nodeType === 3 ? node.parentElement : node;
         return el && el.closest ? el.closest('#quizSection [data-annot]') : null;
@@ -256,6 +374,38 @@ export function setupAnnotations() {
     // luôn kẹp trong mép ngang màn hình để không bị cắt.
     const positionToolbar = (rect) => {
         toolbar.classList.add('show'); // hiện trước để đo được kích thước thật
+        // Máy cảm ứng: menu Sao chép/Tra cứu của hệ điều hành hiện SÁT vùng chọn nên dễ che thanh nổi.
+        // -> đặt thanh NGAY CẠNH vùng chọn nhưng lệch khỏi chỗ menu đó: menu thường nằm TRÊN vùng chọn (lật xuống dưới khi
+        // vùng chọn sát mép trên) -> thanh nằm DƯỚI, cách ~44px để chừa chấm kéo chọn; vùng chọn sát đáy thì thanh nhảy lên
+        // TRÊN menu. Không còn chỗ nào hợp lý mới ghim ở nửa màn hình đối diện (dock) như phương án cuối.
+        if (coarsePointer) {
+            const tw0 = toolbar.offsetWidth, th0 = toolbar.offsetHeight, m0 = 8;
+            const bottomLimit = window.innerHeight - (document.body.classList.contains('has-mobile-nav') ? 112 : m0);
+            const osAbove = rect.top >= 90;
+            let top0 = null, below0 = true;
+            if (osAbove && rect.bottom + 44 + th0 < bottomLimit) top0 = rect.bottom + 44;
+            else if (!osAbove && rect.bottom + 100 + th0 < bottomLimit) top0 = rect.bottom + 100;
+            else if (rect.top - 70 - th0 > 58) { top0 = rect.top - 70; below0 = false; }
+            if (top0 !== null) {
+                const x0 = Math.max(tw0 / 2 + m0, Math.min(window.innerWidth - tw0 / 2 - m0, rect.left + rect.width / 2));
+                toolbar.classList.remove('annot-dock');
+                toolbar.classList.toggle('annot-below', below0);
+                toolbar.style.left = x0 + 'px';
+                toolbar.style.top = top0 + 'px';
+                return;
+            }
+            const mid = (rect.top + rect.bottom) / 2;
+            if (!dockSide || (dockSide === 'bottom' && rect.bottom > window.innerHeight - 190) || (dockSide === 'top' && rect.top < 190)) {
+                dockSide = mid < window.innerHeight / 2 ? 'bottom' : 'top';
+            }
+            toolbar.classList.remove('annot-below');
+            toolbar.classList.add('annot-dock');
+            toolbar.dataset.dock = dockSide;
+            toolbar.style.left = '50%';
+            toolbar.style.top = '';
+            return;
+        }
+        toolbar.classList.remove('annot-dock');
         const tw = toolbar.offsetWidth, th = toolbar.offsetHeight;
         const margin = 8;
         let x = rect.left + rect.width / 2;
@@ -319,12 +469,26 @@ export function setupAnnotations() {
             const selEnd = offsetInContainer(scopeEl, range.endContainer, range.endOffset);
 
             const isErase = type === 'erase';
+            if (type === 'note') {
+                // Đã có ghi chú giao với vùng chọn -> mở sửa cái đó; chưa có -> viết mới cho cụm từ đang bôi đen
+                const rectSel = range.getBoundingClientRect();
+                const existing = Array.from(scopeEl.querySelectorAll('.annot-note')).find(m => { try { return range.intersectsNode(m); } catch (e) { return false; } });
+                sel.removeAllRanges();
+                hide();
+                if (existing) {
+                    openNoteEditor({ mode: 'edit', qText, scope, id: existing.getAttribute('data-annot-id'), text: existing.textContent, note: existing.getAttribute('data-note') || '', rect: existing.getBoundingClientRect() });
+                } else if (selStart >= 0 && selEnd > selStart && text) {
+                    openNoteEditor({ mode: 'new', qText, scope, scopeEl, start: selStart, end: selEnd, text, rect: rectSel });
+                }
+                return;
+            }
             // Tẩy: gỡ MỌI định dạng giao với vùng chọn. Áp định dạng mới: chỉ gỡ đoạn
             // TRÙNG LOẠI (bôi lại cùng màu = làm mới), các loại khác giữ nguyên để
             // CHỒNG LỚP được — highlight + in đậm + in nghiêng dùng chung một đoạn chữ.
             const overlapped = Array.from(scopeEl.querySelectorAll('.quiz-annot'))
                 .filter(m => {
                     try { if (!range.intersectsNode(m)) return false; } catch (e) { return false; }
+                    if (m.classList.contains('annot-note')) return false; // tẩy KHÔNG xóa ghi chú riêng (xóa trong khung ghi chú)
                     return isErase || (m.getAttribute('data-annot-type') || 'highlight') === type;
                 });
             if (isErase && !overlapped.length) { hide(); return; } // tẩy vào vùng trắng: thôi
@@ -361,6 +525,11 @@ export function setupAnnotations() {
         e.preventDefault();
         e.stopPropagation();
         const question = state.questions[state.currentIndex];
+        if (question && mark.classList.contains('annot-note')) {
+            const scope = cont.getAttribute('data-annot');
+            openNoteEditor({ mode: 'edit', qText: annotKeyFor(question, scope), scope, id: mark.getAttribute('data-annot-id'), text: mark.textContent, note: mark.getAttribute('data-note') || '', rect: mark.getBoundingClientRect() });
+            return;
+        }
         if (question) {
             // Bấm đoạn lồng nhau: gỡ lớp TRONG CÙNG trước (closest), bấm tiếp gỡ lớp ngoài.
             // Gỡ theo id nên mọi mảnh bị tách đôi của cùng ghi chú biến mất đồng bộ.
@@ -368,4 +537,6 @@ export function setupAnnotations() {
             removeAnnotEverywhere(annotKeyFor(question, scope), scope, mark);
         }
     }, true);
+    document.addEventListener('mousedown', (e) => { if (noteEd && !noteEd.box.contains(e.target)) closeNoteEditor(); });
+    document.addEventListener('touchstart', (e) => { if (noteEd && !noteEd.box.contains(e.target)) closeNoteEditor(); }, { passive: true });
 }

@@ -3,10 +3,10 @@
 //  - CACHE_NAME (zitthenkne-vNNN): app shell. Tăng số MỖI LẦN sửa/thêm file trong urlsToCache.
 //  - CDN_CACHE: thư viện + phông từ CDN (URL có phiên bản, gần như bất biến) → GIỮ qua các phiên bản.
 //  - IMG_CACHE: ảnh tải lúc chạy (nền, avatar, ảnh bệnh án) → giữ qua các phiên bản, tối đa IMG_MAX mục.
-const CACHE_NAME = 'zitthenkne-v215';
+const CACHE_NAME = 'zitthenkne-v234';
 const CDN_CACHE = 'zitthenkne-cdn';
 const IMG_CACHE = 'zitthenkne-img';
-const IMG_MAX = 250;
+const IMG_MAX = 600;
 
 // App shell (cùng origin) — nạp sẵn khi cài để mở offline được ngay.
 const urlsToCache = [
@@ -39,6 +39,7 @@ const urlsToCache = [
   'features/quiz/page/quiz-question-view.js',
   'features/quiz/page/quiz-session.js',
   'features/quiz/page/quiz-mobile-nav.js',
+  'features/quiz/page/quiz-tablet-next.js',
   'features/quiz/page/quiz-auto-next.js',
   'features/quiz/quiz-library-controller.js',
   'features/quiz/library/library-state.js',
@@ -54,6 +55,7 @@ const urlsToCache = [
   'features/quiz/quiz-launch-transition.js',
   'features/quiz/quiz-offline-store.js',
   'features/quiz/quiz-helpers.js',
+  'features/quiz/img-proxy.js',
   'features/quiz/quiz-ui.js',
   'features/quiz/quiz-state.js',
   'features/quiz/quiz-study-store.js',
@@ -226,6 +228,7 @@ const urlsToCache = [
   'features/study-room/wb-templates.js',
   'features/study-room/whiteboard.css',
   'features/study-room/room-diagram.js',
+  'features/study-room/room-notes.js',
   'features/quiz/diagram-viewer.js',
   'core/dashboard-ui.js',
   'core/libs/mermaid.min.js',
@@ -415,7 +418,12 @@ function isDynamicData(url) {
     h.includes('googletagmanager');
 }
 
-function isImageUrl(url) { return /\.(png|jpe?g|gif|svg|webp|avif|ico)$/i.test(url.pathname) || url.hostname === 'ui-avatars.com'; }
+function isImageUrl(url) {
+  return /\.(png|jpe?g|gif|svg|webp|avif|ico)$/i.test(url.pathname) ||
+    url.hostname === 'ui-avatars.com' ||
+    url.hostname.includes('catbox.moe') ||
+    url.hostname.includes('litterbox');
+}
 function isFontUrl(url) { return /\.(woff2?|ttf|eot|otf)$/i.test(url.pathname); }
 
 // Giữ kho ảnh không phình mãi: quá IMG_MAX thì bỏ những mục cũ nhất (keys() theo thứ tự thêm vào).
@@ -458,10 +466,11 @@ function avatarSvg(url) {
   return new Response(svg, { headers: { 'Content-Type': 'image/svg+xml' } });
 }
 
-// Cache-First: có trong cache thì trả ngay; không thì lấy mạng rồi lưu vào kho bền tương ứng.
 async function cacheFirst(request, url, store) {
   const sameOrigin = url.origin === self.location.origin;
-  const cached = await caches.match(request) || (sameOrigin ? await caches.match(request, { ignoreSearch: true }) : undefined);
+  const cached = await caches.match(request) ||
+    await caches.match(url.href) ||
+    (sameOrigin ? await caches.match(request, { ignoreSearch: true }) : undefined);
   if (cached) return cached;
   try {
     const res = await fetch(request);
@@ -473,6 +482,8 @@ async function cacheFirst(request, url, store) {
     return res;
   } catch (e) {
     if (url.hostname === 'ui-avatars.com') return avatarSvg(url);
+    const fallback = await caches.match(url.href);
+    if (fallback) return fallback;
     return (store === IMG_CACHE && await sameFolderBackground(url)) || Response.error();
   }
 }

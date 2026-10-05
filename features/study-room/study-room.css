@@ -5803,10 +5803,7 @@ html svg[id^="mm"] g.node > :is(rect, polygon, circle, ellipse, path):not([style
 html svg[id^="mm"] g.node > rect:not([style*="fill"]) { rx: 12px; ry: 12px; }
 html svg[id^="mm"] g.node .nodeLabel:not([style*="color"]) { color: var(--nt) !important; font-weight: 700; }
 html svg[id^="mm"] .flowchart-link { stroke-width: 2px !important; stroke-linecap: round; }
-html svg[id^="mm"] span.edgeLabel:not(:empty) {
-    padding: 1px 8px; border-radius: 999px; font-weight: 700;
-    background: #FFF3C4 !important; color: #7A5E1E !important; box-shadow: 0 0 0 1.5px #F2CE6B;
-}
+/* nhãn trên mũi tên: bản 53 (cuối file) — chữ viết thẳng lên đường, không đóng viên */
 html svg[id^="mm"] g.cluster > rect:not([style*="fill"]) {
     fill: #F7F2FF !important; stroke: #C9B8F5 !important; stroke-width: 2px !important; stroke-dasharray: 6 5; rx: 14px; ry: 14px;
 }
@@ -6139,4 +6136,163 @@ html .rm-col-main > .rm-hub::before { content: '♡'; background: var(--rm-butte
     user-select: none;
 }
 
+/* ═══════════════ BẢN 53 (2026-10-05): GHI CHÚ CỤM TỪ + SƠ ĐỒ — ĐỒNG BỘ VỚI TRANG LÀM ĐỀ (quiz.html) ═══════════════
+   Người dùng: "cập nhật các tính năng mới vào study-room.html luôn cho đồng bộ". Bốn việc, chỉ CSS ở file này:
+   1 ghi chú cụm từ <span data-note> = vạch bút dạ oải hương + chip bong bóng ngay sau chữ (cùng kiểu quiz-stationery.css §19);
+   2 khung viết ghi chú #room-note-pop (room-notes.js) = tờ giấy khâu viền + băng keo, nút cùng bộ rm-cta / rm-ghost-btn;
+   3 nút Ghi chú trên thanh bôi đen; 4 sơ đồ Mermaid: nhãn mũi tên là CHỮ viết thẳng lên đường (không viên — bản 49 từng
+   làm viên kẹo bơ, đã gỡ), hình thoi quyết định vàng bơ, rê chuột một ô thì các ô khác mờ đi.
+   Chip là `::after` (không nằm trong DOM) nên không lẫn vào chữ đang sửa / chữ được lưu. Công tắc ẩn: body.rm-notes-off.
+   Màu: --rm-lav (oải hương) + --tb-6i (mực oải hương, có bản tối) — nền chip ĐẶC để đọc rõ trên ô pastel / ô đúng-sai. */
+:root {
+    --rm-note-ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6.5 3.8h11a3.7 3.7 0 0 1 3.7 3.7v6.2a3.7 3.7 0 0 1-3.7 3.7h-4.6l-3.6 3.2a.7.7 0 0 1-1.2-.5v-2.7H6.5a3.7 3.7 0 0 1-3.7-3.7V7.5a3.7 3.7 0 0 1 3.7-3.7z' fill='%23C9B6F7' stroke='%237F62D6' stroke-width='1.7' stroke-linejoin='round'/%3E%3Ccircle cx='8.3' cy='10.6' r='1.3' fill='%23fff'/%3E%3Ccircle cx='12' cy='10.6' r='1.3' fill='%23fff'/%3E%3Ccircle cx='15.7' cy='10.6' r='1.3' fill='%23fff'/%3E%3C/svg%3E");
+}
+html.theme-dark {
+    --rm-note-ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6.5 3.8h11a3.7 3.7 0 0 1 3.7 3.7v6.2a3.7 3.7 0 0 1-3.7 3.7h-4.6l-3.6 3.2a.7.7 0 0 1-1.2-.5v-2.7H6.5a3.7 3.7 0 0 1-3.7-3.7V7.5a3.7 3.7 0 0 1 3.7-3.7z' fill='%23B9A2F0' stroke='%23E6DCFF' stroke-width='1.7' stroke-linejoin='round'/%3E%3Ccircle cx='8.3' cy='10.6' r='1.3' fill='%232a2135'/%3E%3Ccircle cx='12' cy='10.6' r='1.3' fill='%232a2135'/%3E%3Ccircle cx='15.7' cy='10.6' r='1.3' fill='%232a2135'/%3E%3C/svg%3E");
+}
 
+/* ---- 1. Cụm từ có ghi chú ----
+   Vạch bút dạ = text-decoration (chỉ vẽ dưới CHỮ, không lan xuống chip hay khoảng hở khi chip xuống dòng); màu ĐẶC nên hiện rõ
+   cả trên ô xanh / đỏ / giấy vàng. Có tiền tố html + :is để thắng Tailwind (nạp sau file này). */
+html :is(.rm-md, [data-live-edit], .rm-case-body) span[data-note] {
+    position: relative;
+    text-decoration-line: underline;
+    text-decoration-color: color-mix(in srgb, var(--rm-lav) 62%, var(--rm-surface));
+    text-decoration-thickness: .44em; text-underline-offset: -.26em; text-decoration-skip-ink: none;
+    transition: text-decoration-color .2s ease;
+}
+html :is(.rm-md, [data-live-edit], .rm-case-body) span[data-note]:hover { text-decoration-color: color-mix(in srgb, var(--rm-lav) 90%, var(--rm-surface)); }
+/* Chip: nhãn dán nhỏ ngay sau cụm từ — nền đặc, viền mềm, bóng đáy phẳng, nghiêng nhẹ */
+html body:not(.rm-notes-off) :is(.rm-md, [data-live-edit], .rm-case-body) span[data-note]::after {
+    content: attr(data-note);
+    display: inline-block; max-width: 100%;
+    margin: 0 .1em 0 .42em; padding: .05em .8em .1em 1.9em;
+    border-radius: 999px;
+    font-size: clamp(11.5px, .72em, 15px); font-weight: 700; font-style: normal; line-height: 1.4; letter-spacing: .01em;
+    text-align: left; text-decoration: none; white-space: normal; vertical-align: .06em;
+    color: var(--tb-6i);
+    background: var(--rm-note-ic) no-repeat .52em 50% / 1.1em auto, color-mix(in srgb, var(--rm-lav) 20%, var(--rm-surface));
+    border: 1.5px solid color-mix(in srgb, var(--rm-lav) 60%, transparent);
+    box-shadow: 0 2px 0 color-mix(in srgb, var(--rm-lav) 40%, transparent);
+    rotate: -1deg; cursor: pointer;
+    transition: transform .28s var(--rm-spring), rotate .28s var(--rm-spring), box-shadow .18s ease;
+}
+html body:not(.rm-notes-off) :is(.rm-md, [data-live-edit], .rm-case-body) span[data-note]:hover::after {
+    transform: translateY(-1px); rotate: 0deg;
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--rm-lav) 50%, transparent);
+}
+/* Ẩn nội dung (menu Công cụ → "Ghi chú cụm từ: ẩn"): chỉ còn một bong bóng nhỏ; máy có chuột rê vào thì hiện lời ghi chú như bóng thoại */
+html body.rm-notes-off :is(.rm-md, [data-live-edit], .rm-case-body) span[data-note]::after {
+    content: "";
+    display: inline-block; width: 1.4em; height: 1.4em; margin: 0 .08em 0 .3em;
+    vertical-align: -.34em; border-radius: 50%; cursor: pointer;
+    background: var(--rm-note-ic) no-repeat center / 74% auto, color-mix(in srgb, var(--rm-lav) 20%, var(--rm-surface));
+    border: 1.5px solid color-mix(in srgb, var(--rm-lav) 60%, transparent);
+    box-shadow: 0 2px 0 color-mix(in srgb, var(--rm-lav) 36%, transparent);
+}
+@media (hover: hover) {
+    html body.rm-notes-off :is(.rm-md, [data-live-edit], .rm-case-body) span[data-note]:hover::before {
+        content: attr(data-note);
+        position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 6;
+        width: max-content; max-width: min(18em, 72vw);
+        padding: .28em .85em; border-radius: 1em 1em 1em .3em;
+        font-size: 12.5px; font-weight: 700; line-height: 1.4; text-align: left; white-space: normal; text-decoration: none;
+        color: var(--tb-6i); background: var(--rm-surface);
+        border: 1.5px solid color-mix(in srgb, var(--rm-lav) 60%, transparent);
+        box-shadow: 0 3px 0 color-mix(in srgb, var(--rm-lav) 36%, transparent), 0 12px 20px -12px rgba(120, 90, 190, .5);
+        pointer-events: none; animation: rm-note-pop .3s var(--rm-spring) both;
+    }
+}
+/* Đang hỏi / chạy lệnh gạch chân của trình duyệt (room-editor.js noDeco): tạm bỏ vạch bút dạ để lệnh không tưởng chữ đã gạch chân */
+html body.rm-nodeco :is(.rm-md, [data-live-edit], .rm-case-body) span[data-note] { text-decoration: none; }
+/* Vừa lưu: chip bật ra như dán nhãn */
+html :is(.rm-md, [data-live-edit], .rm-case-body) span[data-note].is-new::after { animation: rm-note-pop .5s var(--rm-spring) both; transform-origin: 0 60%; }
+@keyframes rm-note-pop { from { opacity: 0; scale: .55; translate: 0 5px; } }
+
+/* ---- 2. Khung viết ghi chú (room-notes.js) = tờ giấy khâu viền + băng keo oải hương, nút cùng bộ với cả phòng ---- */
+#room-note-pop {
+    position: fixed; z-index: 92; width: min(344px, calc(100vw - 16px));
+    left: 50%; top: 4.5rem; transform: translateX(-50%);
+    padding: 1.15rem 1rem .9rem;
+    display: flex; flex-direction: column; gap: .7rem;
+    border-radius: var(--rm-r);
+    background-color: var(--rm-paper);
+    outline: 1.5px dashed var(--rm-stitch); outline-offset: -6px;
+    box-shadow: 0 26px 50px -26px rgba(150, 80, 105, .6), 0 0 0 1px color-mix(in srgb, var(--rm-lav) 40%, transparent);
+    color: var(--rm-ink);
+    animation: rm-note-in .4s var(--rm-spring) both;
+}
+#room-note-pop.is-near { transform: none; }
+@keyframes rm-note-in { from { opacity: 0; translate: 0 10px; scale: .92; } }
+html.theme-dark #room-note-pop { box-shadow: 0 26px 50px -26px rgba(0, 0, 0, .9), 0 0 0 1px color-mix(in srgb, var(--rm-lav) 30%, transparent); }
+#room-note-pop .rnp-tape {
+    position: absolute; top: -10px; left: 50%; width: 68px; height: 18px; margin-left: -34px; rotate: -3deg; pointer-events: none;
+    background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .5) 0 3px, transparent 3px 8px), color-mix(in srgb, var(--rm-lav) 78%, #fff);
+    clip-path: polygon(3% 0%, 97% 0%, 100% 50%, 97% 100%, 3% 100%, 0% 50%);
+}
+html.theme-dark #room-note-pop .rnp-tape { background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .12) 0 3px, transparent 3px 8px), color-mix(in srgb, var(--rm-lav) 40%, transparent); }
+#room-note-pop .rnp-head { display: flex; align-items: center; gap: .6rem; min-width: 0; }
+#room-note-pop .rnp-ic {
+    flex: none; width: 2.1rem; height: 2.1rem; border-radius: 50%;
+    background: var(--rm-note-ic) no-repeat center / 62% auto, var(--rm-surface);
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--rm-lav) 60%, transparent), 0 2px 0 color-mix(in srgb, var(--rm-lav) 45%, transparent);
+}
+#room-note-pop .rnp-quote { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .82rem; font-weight: 700; color: var(--tb-6i); }
+#room-note-pop .rnp-quote span {
+    text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--rm-lav) 62%, var(--rm-surface));
+    text-decoration-thickness: .44em; text-underline-offset: -.26em; text-decoration-skip-ink: none;
+}
+#room-note-pop .rnp-field { position: relative; }
+html #room-note-pop .rnp-input {
+    width: 100%; min-height: 46px; padding: .55rem 4.1rem .55rem 1.05rem; border-radius: 999px;
+    font-size: 16px;                       /* ≥16px: iOS không tự phóng to khi gõ */
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--rm-lav) 45%, transparent);
+}
+html #room-note-pop .rnp-input:focus { box-shadow: inset 0 0 0 1.5px var(--rm-lav), 0 0 0 4px color-mix(in srgb, var(--rm-lav) 28%, transparent); }
+#room-note-pop .rnp-count {
+    position: absolute; right: .55rem; top: 50%; translate: 0 -50%; pointer-events: none;
+    padding: .08rem .55rem; border-radius: 999px;
+    font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+    color: var(--rm-muted); background: color-mix(in srgb, var(--rm-lav) 16%, var(--rm-surface));
+}
+#room-note-pop .rnp-count.is-over { color: var(--rm-bad); background: var(--rm-bad-bg); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--rm-bad) 55%, transparent); }
+#room-note-pop .rnp-row { display: flex; align-items: center; gap: .5rem; }
+#room-note-pop .rnp-sp { flex: 1; }
+#room-note-pop .rnp-row button { min-height: 40px; padding: 0 1.1rem; justify-content: center; }
+#room-note-pop .rnp-del { color: var(--rm-bad); }
+
+/* ---- 3. Thanh bôi đen: nút Ghi chú = viên oải hương nhỏ; điện thoại xếp 2 hàng (nay 12 nút), iPad nút to hơn ---- */
+.rm-selbtn[data-cmd="note"] {
+    color: var(--tb-6i);
+    background: color-mix(in srgb, var(--rm-lav) 24%, transparent);
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--rm-lav) 55%, transparent);
+}
+.rm-seltoolbar.no-note .rm-selbtn[data-cmd="note"] { display: none; }
+.rm-selbtn[data-cmd="note"]:hover { background: color-mix(in srgb, var(--rm-lav) 42%, transparent); color: var(--tb-6i); }
+@media (max-width: 520px) {
+    /* 12 nút không vừa một hàng trên điện thoại (từng cắt mất nút cuối) -> xếp 2 hàng 6 nút, không giấu nút nào */
+    .rm-seltoolbar { flex-wrap: wrap; justify-content: center; max-width: min(calc(100vw - 12px), 15.5rem); border-radius: 1.4rem; }
+    .rm-selbtn { flex: none; }
+}
+@media (pointer: coarse) and (min-width: 700px) {
+    .rm-selbtn { width: 2.6rem; height: 2.6rem; font-size: .95rem; }
+    .rm-hl-dot { width: 1.2rem; height: 1.2rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+    #room-note-pop, html :is(.rm-md, [data-live-edit], .rm-case-body) span[data-note].is-new::after,
+    html body.rm-notes-off :is(.rm-md, [data-live-edit], .rm-case-body) span[data-note]:hover::before { animation: none; }
+}
+
+/* ---- 4. Sơ đồ Mermaid (đồng bộ quiz-stationery.css §16): ý nghĩa bằng màu + nổi như nhãn dán + rê chuột để lần theo logic ----
+   (nhãn trên mũi tên: bản 49 từng vẽ viên kẹo bơ — đã gỡ; nay là chữ viết thẳng lên đường, themeCSS trong quiz-helpers.js) */
+html svg[id^="mm"] g.nodes > g.node.node:has(> polygon) { --n: var(--tb-3); --nt: #7A5E1E; }     /* hình thoi = chỗ rẽ nhánh: vàng bơ */
+html svg[id^="mm"] g.nodes > g.node.node:has(> polygon) .nodeLabel { font-weight: 800; }
+html svg[id^="mm"] g.nodes > g.node.node:has(> circle) { --n: var(--tb-4); --nt: #1F6B4C; }      /* mốc đầu / cuối tròn: bạc hà */
+@media (pointer: fine) {
+    html svg[id^="mm"] g.node > :is(rect, polygon, circle, ellipse, path):not([style*="fill"]) { filter: drop-shadow(0 2px 0 color-mix(in srgb, var(--n, #F5A3BF) 55%, transparent)); }
+    html svg[id^="mm"] :is(g.node, g.edgePaths, g.edgeLabels) { transition: opacity .18s ease; }
+    html svg[id^="mm"]:has(g.node:hover) g.node:not(:hover) { opacity: .4; }
+    html svg[id^="mm"]:has(g.node:hover) :is(g.edgePaths, g.edgeLabels) { opacity: .55; }
+    html svg[id^="mm"] g.node:hover > :is(rect, polygon, circle, ellipse, path):not([style*="fill"]) { stroke-width: 3.2px !important; filter: drop-shadow(0 3px 0 color-mix(in srgb, var(--n, #F5A3BF) 75%, transparent)); }
+}
+@media (prefers-reduced-motion: reduce) { html svg[id^="mm"] :is(g.node, g.edgePaths, g.edgeLabels) { transition: none; } }

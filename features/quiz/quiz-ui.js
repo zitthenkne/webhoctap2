@@ -70,6 +70,7 @@ export function renderQuizProgressBar() {
     }
     return `
         <div class="quiz-panel-drag focus-hide" data-panel="nav" role="separator" aria-label="Kéo để xích bảng số câu lên/xuống" title="Kéo để xích bảng lên/xuống • bấm đúp để trả về"><i class="fas fa-grip-lines"></i></div>
+        <a class="qnp-brand focus-hide" href="../../index.html" title="Zitthenkne — Trang chủ"><img src="../../assets/opt/logo-96.webp" width="20" height="20" alt=""><span>Zitthenkne</span></a>
         <div class="mb-4">
             <!-- Thước kẻ tiến độ: vạch bút dạ = phần đã làm, bút chì = câu đang xem -->
             <div class="qnp-head focus-hide">
@@ -78,6 +79,7 @@ export function renderQuizProgressBar() {
             </div>
             <div id="question-nav-wrapper" class="quiz-nav-grid mt-3 bg-gray-50/50 rounded-xl border border-gray-100 focus-hide">${navHtml}</div>
             <button type="button" id="nav-next-unanswered" class="qnp-jump focus-hide" title="Nhảy tới câu chưa trả lời kế tiếp"><i class="fas fa-forward-step"></i> Câu chưa làm</button>
+            <button type="button" id="nav-submit-btn" class="qnp-jump qnp-submit focus-hide" title="Nộp bài"><i class="fas fa-flag-checkered"></i> Nộp bài</button>
             <div id="quiz-nav-legend" class="qnp-legend focus-hide" aria-hidden="true">
                 <span><i class="lg-cur"></i>Đang xem</span>
                 <span class="lg-when-later"><i class="lg-done"></i>Đã làm</span>

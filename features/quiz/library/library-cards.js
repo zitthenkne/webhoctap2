@@ -6,7 +6,7 @@
 import { db } from '../../../core/firebase-init.js';
 import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
 import { showToast, showConfirm } from '../../../core/utils.js';
-import { isOfflineSavedSync, saveOfflineQuiz, deleteOfflineQuiz } from '../quiz-offline-store.js';
+import { isOfflineSavedSync, saveOfflineQuiz, deleteOfflineQuiz, extractQuizImageUrls } from '../quiz-offline-store.js';
 import { S } from './library-state.js';
 import {
     FOLDER_COLOR_HEX, FOLDER_SWATCHES, escapeHtml, formatRelativeTime,
@@ -50,8 +50,9 @@ function prefersReducedMotion() {
 // (bản lề ở đáy), đúng mấy tờ giấy kẻ dòng thò lên trên thẻ trồi lên & xoè ra, rồi cả khối phóng to
 // tiến về phía người xem và tan dần → khung đầu tiên giống hệt thẻ (cùng tai, giấy, túi, màu, icon).
 // Chạy trên lớp phủ position:fixed gắn ở body nên không bị việc render lại thư viện xoá mất.
-function playFolderOpenBurst(cardEl) {
-    if (prefersReducedMotion()) return;
+// onGo chạy đúng lúc hoạt ảnh bắt đầu (bản sao đã vẽ xong, thẻ thật đã ẩn) — việc làm đổi bố cục
+// trang (breadcrumb…) phải đặt ở đó, không thì thẻ thật dịch xuống trước khi bản sao kịp che.
+function playFolderOpenBurst(cardEl, onGo) {
     const rect = cardEl.getBoundingClientRect();
 
     const stage = document.createElement('div');
@@ -77,11 +78,20 @@ function playFolderOpenBurst(cardEl) {
     stage.appendChild(scene);
     document.body.appendChild(stage);
 
-    // Bản sao đã nằm đè đúng chỗ → ẩn thẻ thật NGAY: breadcrumb hiện ra đẩy thư viện xuống,
-    // để thẻ thật mờ dần sẽ lộ hai thẻ chồng lệch nhau.
-    cardEl.style.visibility = 'hidden';
-
-    setTimeout(() => stage.remove(), 1850);
+    // Bản sao nằm đè đúng chỗ nhưng đang tạm dừng: chờ 2 khung cho GPU dựng + vẽ xong các lớp rồi mới
+    // chạy và ẩn thẻ thật (ẩn cùng khung chèn bản sao → iOS chớp một nhịp vì bản sao chưa vẽ kịp).
+    // Ẩn thẻ thật là bắt buộc: breadcrumb hiện ra đẩy thư viện xuống, thẻ thật còn hiện sẽ lộ hai thẻ lệch nhau.
+    let started = false;
+    const go = () => {
+        if (started) return;
+        started = true;
+        stage.classList.add('is-go');
+        cardEl.style.visibility = 'hidden';
+        onGo();
+    };
+    requestAnimationFrame(() => requestAnimationFrame(go));
+    setTimeout(go, 120); // tab nền không bắn rAF → vẫn phải mở được thư mục
+    setTimeout(() => stage.remove(), 1950);
 }
 
 // Dựng một thẻ thư mục hoàn chỉnh (markup + toàn bộ listener: mở, menu, ghim, đổi màu, xóa, kéo-thả)
@@ -143,8 +153,10 @@ export function createFolderCard(folder) {
     if (childCount) subParts.push(`${childCount} thư mục con`);
     if (count) subParts.push(`${totalQuestions} câu`);
     else if (!childCount) subParts.push('Chưa có bộ đề');
-    if (lastOpenedText) subParts.push(`mở ${lastOpenedText}`);
-    const lastOpenedHTML = `<p class="folder-meta-time"><i class="fas fa-clock"></i>${subParts.join(' · ')}</p>`;
+    // Hai dòng có thứ bậc: số liệu (đậm hơn) / lần mở gần nhất (nhạt, kèm đồng hồ) — trước đây đồng hồ
+    // đứng trước cả "840 câu" nên vô nghĩa.
+    const lastOpenedHTML = `<p class="folder-meta-time">${subParts.join(' · ')}</p>`
+        + (lastOpenedText ? `<p class="fd-opened"><i class="fas fa-clock"></i>mở ${lastOpenedText}</p>` : '');
 
     // Xem nhanh khi hover: thư mục con trước, rồi tới bộ đề nằm trực tiếp bên trong (tối đa 6 dòng)
     const previewEntries = [
@@ -197,14 +209,20 @@ export function createFolderCard(folder) {
     card.addEventListener('click', (e) => {
         if (e.target.closest('.fd-menu-wrap')) return;
         markFolderOpened(folder.id); // ghi nhận lần mở gần nhất (cục bộ)
-        playFolderOpenBurst(card); // bản sao của thẻ lật túi, giấy bung ra
-        S.currentFolderId = folder.id;
-        renderBreadcrumb();
-        // Trễ nhẹ để xấp giấy kịp xoè lên từ thư mục trước khi danh sách đổi sang nội dung bên trong
+        const enter = () => {
+            S.currentFolderId = folder.id;
+            renderBreadcrumb();
+        };
         if (prefersReducedMotion()) {
+            enter();
             loadAndDisplayLibrary(1);
         } else {
-            setTimeout(() => loadAndDisplayLibrary(1), 900);
+            // Bản sao của thẻ lật túi, giấy bung ra. Trễ nhẹ để xấp giấy kịp xoè lên từ thư mục
+            // trước khi danh sách đổi sang nội dung bên trong.
+            playFolderOpenBurst(card, () => {
+                enter();
+                setTimeout(() => loadAndDisplayLibrary(1), 900);
+            });
         }
     });
 
@@ -872,8 +890,40 @@ async function handleDownloadOffline(quizId, quizTitle, btnEl) {
             showToast('Không tìm thấy bộ đề trên máy chủ.', 'error');
             return;
         }
-        await saveOfflineQuiz(quizId, snap.data());
-        showToast(`Đã tải "${quizTitle}" về máy. Làm được khi không có mạng!`, 'success');
+        let quizData = snap.data();
+        quizData.id = quizId;
+        // Tách Vỏ - Ruột: nạp payload nếu questions rỗng
+        if (!Array.isArray(quizData.questions) || quizData.questions.length === 0) {
+            try {
+                const payloadSnap = await getDoc(doc(db, 'quiz_payloads', quizId));
+                if (payloadSnap && payloadSnap.exists()) {
+                    const pData = payloadSnap.data();
+                    if (Array.isArray(pData.questions)) {
+                        quizData.questions = pData.questions;
+                    }
+                }
+            } catch (pErr) {
+                console.warn('Không tải được payload questions từ quiz_payloads:', pErr);
+            }
+        }
+
+        const imgUrls = extractQuizImageUrls(quizData.questions);
+        if (btnEl && imgUrls.length > 0) {
+            btnEl.innerHTML = `<i class="fas fa-spinner fa-spin mr-2.5 text-sky-500"></i>Tải ảnh (0/${imgUrls.length})...`;
+        }
+
+        await saveOfflineQuiz(quizId, quizData, {
+            auto: false,
+            cacheImages: true,
+            onProgress: (done, total) => {
+                if (btnEl && total > 0) {
+                    btnEl.innerHTML = `<i class="fas fa-spinner fa-spin mr-2.5 text-sky-500"></i>Tải ảnh (${done}/${total})...`;
+                }
+            }
+        });
+
+        const imgMsg = imgUrls.length > 0 ? ` (kèm ${imgUrls.length} ảnh minh họa)` : '';
+        showToast(`Đã tải "${quizTitle}"${imgMsg} về máy. Làm được khi không có mạng!`, 'success');
         rerenderCurrentView();
     } catch (e) {
         console.error('Lỗi tải bộ đề offline:', e);
@@ -913,7 +963,18 @@ export async function downloadQuizzesOffline(pick, label) {
         try {
             const snap = await getDoc(doc(db, 'quiz_sets', q.id));
             if (!snap.exists()) { failed++; continue; }
-            await saveOfflineQuiz(q.id, snap.data());
+            let quizData = snap.data();
+            quizData.id = q.id;
+            if (!Array.isArray(quizData.questions) || quizData.questions.length === 0) {
+                try {
+                    const payloadSnap = await getDoc(doc(db, 'quiz_payloads', q.id));
+                    if (payloadSnap && payloadSnap.exists()) {
+                        const pData = payloadSnap.data();
+                        if (Array.isArray(pData.questions)) quizData.questions = pData.questions;
+                    }
+                } catch (_) {}
+            }
+            await saveOfflineQuiz(q.id, quizData, { auto: false, cacheImages: true });
             done++;
         } catch (e) {
             console.error('Lỗi tải bộ đề offline:', q.id, e);
