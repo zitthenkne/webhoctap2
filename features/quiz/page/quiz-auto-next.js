@@ -10,6 +10,8 @@
 //
 // Lưu lựa chọn ở localStorage 'quiz_auto_next' = '0' (tắt) hoặc số GIÂY chờ.
 
+import { scrollBehaviorFor } from './quiz-page-prefs.js';
+
 const LS_KEY = 'quiz_auto_next';
 const DEFAULT_DELAY = 2.5;   // giây — đủ để liếc qua đáp án đúng
 
@@ -116,6 +118,5 @@ export function focusExplanation(correctIdx) {
     const r = btn.getBoundingClientRect();
     // Chỉ cuộn khi nó thực sự nằm ngoài (hoặc sát mép) khung nhìn — tránh giật vô cớ
     if (r.top >= 8 && r.bottom <= window.innerHeight - 96) return;
-    const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
-    btn.scrollIntoView({ behavior, block: 'center' });
+    btn.scrollIntoView({ behavior: scrollBehaviorFor(), block: 'center' });   // cảm ứng: nhảy thẳng, không cuộn mượt (xem quiz-page-prefs.js)
 }

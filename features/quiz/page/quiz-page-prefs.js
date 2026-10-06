@@ -48,9 +48,19 @@ export function feedback(isCorrect) {
 // PHẢI gọi SAU khi thẻ mới đã vẽ xong (cùng nhịp, chưa kịp tô khung hình nào).
 export function scrollQuizTo(y) {
     try {
-        const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         const far = Math.abs(window.scrollY - y) > Math.min(260, window.innerHeight * 0.3);
-        window.scrollTo({ top: y, behavior: reduce || far ? 'auto' : 'smooth' });
+        window.scrollTo({ top: y, behavior: far ? 'auto' : scrollBehaviorFor() });
     } catch (e) { try { window.scrollTo(0, y); } catch (_) {} }
+}
+
+// Cuộn mượt CHỈ khi dùng chuột. Trên máy cảm ứng (iPad/iPhone) WebKit khóa luôn thao tác kéo của người dùng trong lúc
+// một hoạt ảnh cuộn đang chạy, và có lúc kẹt nếu nội dung đổi giữa chừng (thẻ giải thích vừa bung ra) -> trang "đứng",
+// nút vẫn bấm được. Cảm ứng nhảy thẳng tới chỗ cần (nhanh hơn và không bao giờ kẹt).
+export function scrollBehaviorFor() {
+    try {
+        const mq = (q) => window.matchMedia && window.matchMedia(q).matches;
+        if (mq('(prefers-reduced-motion: reduce)') || mq('(pointer: coarse)')) return 'auto';
+    } catch (e) { }
+    return 'smooth';
 }
 export function scrollQuizToTop() { scrollQuizTo(0); }

@@ -445,7 +445,13 @@ export async function startFromSolo() {
     if (hasSession() && !room.session.ended
         && !await showConfirm('Phòng đang có phiên làm dở — thay bằng đề này?', { confirmText: 'Thay đề' })) return;
     let saved = null;
-    if (resume) { try { saved = JSON.parse(localStorage.getItem('quizState_' + quizId) || 'null'); } catch (e) {} }
+    if (resume) {
+        try { saved = JSON.parse(localStorage.getItem('quizState_' + quizId) || 'null'); } catch (e) {}
+        // Từ 2026-10-06 bộ câu hỏi nằm ở khóa riêng quizStateQ_<id> (quiz-state.js); bản cũ còn nhúng sẵn thì dùng luôn
+        if (saved && !Array.isArray(saved.questions)) {
+            try { saved.questions = JSON.parse(localStorage.getItem('quizStateQ_' + quizId) || 'null'); } catch (e) {}
+        }
+    }
     let solo = null;
     if (saved?.questions?.length) {
         draft = { questions: saved.questions, title: title || 'Đề ôn tập', fromLibrary: true, quizId };

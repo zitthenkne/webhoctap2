@@ -124,6 +124,16 @@ async function fetchToCache(cache, url) {
     return false;
 }
 
+// Mở một bộ đề chạy HAI lượt tải ảnh gần như cùng lúc (từ bản trong máy, rồi từ bản vừa hỏi Firestore): lượt sau thấy
+// ảnh chưa vào kho nên tải lại y hệt -> gấp đôi băng thông đúng lúc người dùng đang chờ ảnh câu đầu. Gộp theo URL.
+const _imgInflight = new Map();
+function fetchToCacheOnce(cache, url) {
+    if (_imgInflight.has(url)) return _imgInflight.get(url);
+    const p = fetchToCache(cache, url).finally(() => _imgInflight.delete(url));
+    _imgInflight.set(url, p);
+    return p;
+}
+
 /**
  * Tải và lưu trước hình ảnh vào CacheStorage (kho QUIZ_IMG_CACHE).
  * Nhờ đó Service Worker và trình duyệt có thể phục vụ ảnh ngay cả khi ngoại tuyến hoàn toàn.
@@ -153,7 +163,7 @@ export async function cacheQuizImages(questions, { onProgress } = {}) {
             const url = queue.shift();
             try {
                 const have = cache && await cache.match(url);
-                if (!have && !(await fetchToCache(cache, url))) failed++;
+                if (!have && !(await fetchToCacheOnce(cache, url))) failed++;
             } catch (err) {
                 failed++;
                 console.warn('Không tải được ảnh offline:', url, err);

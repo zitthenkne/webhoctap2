@@ -4027,3 +4027,18 @@ body.nb-bar-away .nb-topbar { transform: translateY(-105%); }
 @media (pointer: coarse) {
     #quiz-settings-popover .qs-select { font-size: 16px; }
 }
+
+/* ============================================================
+   20) KẸT CUỘN TRÊN IPAD (2026-10-06) — "kéo lên kéo xuống thỉnh thoảng đứng, nút vẫn bấm được"
+   Hai cái bẫy cuộn trên máy cảm ứng (iPad ngang ≥1024px là bố cục 3 cột):
+   - Khe giữa các cột (.quiz-resizer: tay kéo đổi độ rộng, ~20px × cao cả màn hình) đặt touch-action:none -> ngón rơi vào khe
+     là trang không cuộn nổi. pan-y: cuộn dọc bình thường, kéo ngang vẫn đổi được độ rộng cột.
+   - Khung cuộn lồng nhau (cột bên dính đỉnh, khung ca lâm sàng) đặt overscroll-behavior:contain -> kéo tới hết đáy khung
+     thì cử chỉ bị nuốt, trang không cuộn tiếp. auto: tới đáy khung thì trang cuộn tiếp.
+   (Thêm: pointercancel cho các tay kéo, cuộn mượt chỉ dùng cho chuột, tự gỡ khóa cuộn sót — xem quiz-page-setup.js / quiz-boost.js)
+   ============================================================ */
+@media (pointer: coarse) {
+    .quiz-resizer { touch-action: pan-y; }
+    .quiz-side-panel { overscroll-behavior: auto; }
+    html.case-h-set #quizSection #case-body:not(.hidden) { overscroll-behavior: auto; }
+}

@@ -373,11 +373,16 @@ if (typeof window !== 'undefined') {
     }, { once: true });
 }
 
+// Máy cảm ứng: ít hạt hơn + tắt sớm hơn (canvas toàn màn hình vẽ lại mỗi khung hình ngay lúc người dùng đang cuộn đọc giải thích);
+// bật 'giảm chuyển động' của hệ điều hành thì không bắn.
 export function triggerConfetti() {
+    const touch = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
     loadConfetti().then(() => confetti({
-        particleCount: 80,
+        particleCount: touch ? 36 : 80,
         spread: 60,
-        origin: { y: 0.8 }
+        origin: { y: 0.8 },
+        ticks: touch ? 110 : 200,
+        disableForReducedMotion: true
     })).catch(() => {});
 }
 

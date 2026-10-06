@@ -48,6 +48,8 @@ function showLandingError(message, { showRetry = true } = {}) {
     document.title = 'Không tải được bộ đề';
 }
 
+const LOCAL_FRESH_MS = 5 * 60 * 1000;   // bản bộ đề trong máy còn "tươi" bao lâu thì khỏi hỏi lại Firestore
+
 // Tải trước hình ảnh trong câu hỏi vào CacheStorage để khi tắt mạng ảnh vẫn hiển thị
 function prefetchQuizImages(questions) {
     if (!Array.isArray(questions)) return;
@@ -272,8 +274,12 @@ export async function loadQuizData() {
     };
 
     if (localData) {
-        // Đã hiện UI tức thì từ IndexedDB rồi! Cho fetch chạy ngầm ở background, không await chặn UI
-        revalidateOrFetchRemote();
+        // Đã hiện UI tức thì từ IndexedDB rồi! Cho fetch chạy ngầm ở background, không await chặn UI.
+        // Bản trong máy mới được lưu/làm tươi chưa tới 5 phút -> khỏi hỏi lại Firestore: mỗi lần mở lại bộ đề từng tốn
+        // 1–2 lượt đọc (cả bộ câu hỏi) + ghi lại IndexedDB + dò lại ảnh. Sửa đề trên máy này đã tự cập nhật bản trong máy
+        // (editor.js autoCacheQuiz / quiz-editor.js saveOfflineQuiz); nút "Đã tải offline" vẫn cập nhật tay được.
+        const ageMs = Date.now() - (Number(localData._offlineSavedAt) || 0);
+        if (ageMs >= LOCAL_FRESH_MS) revalidateOrFetchRemote();
     } else {
         // Chưa có bản lưu nào thì cần đảm bảo Auth đã khôi phục phiên trước khi đọc bộ đề riêng tư
         await whenAuthReady(3500);

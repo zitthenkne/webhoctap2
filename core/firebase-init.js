@@ -25,7 +25,10 @@ export const auth = getAuth(app);
 // offline. Học liệu là text nên để nguyên, mất mạng vẫn còn đủ dữ liệu cũ.
 export const db = initializeFirestore(app, {
     cacheSizeBytes: CACHE_SIZE_UNLIMITED,
-    ignoreUndefinedProperties: true
+    ignoreUndefinedProperties: true,
+    // Safari/iPad và mạng có proxy hay làm kênh WebChannel (streaming) treo im -> đọc/ghi đứng cả chục giây dù có mạng.
+    // Tự dò: thử kênh thường, không nối được thì chuyển sang long-polling. Mạng tốt thì không đổi gì.
+    experimentalAutoDetectLongPolling: true
 });
 // Storage KHÔNG khởi tạo ở đây: firebase-storage.js (28KB) chỉ bảng trắng + ảnh bệnh án cần,
 // nên trang nào cũng phải tải kèm là phí. Cần thì tự `getStorage()` (app mặc định đã có ở trên).

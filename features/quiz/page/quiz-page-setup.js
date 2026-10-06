@@ -351,6 +351,7 @@ function setupPanelOffsetDrag() {
         document.body.classList.remove('quiz-resizing', 'dragging-panel-y');
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);   // iOS hay bắn pointercancel thay vì pointerup (cuộn/cử chỉ hệ thống chen vào)
     };
     ws.addEventListener('pointerdown', (e) => {
         const grip = e.target.closest && e.target.closest('.quiz-panel-drag');
@@ -364,6 +365,7 @@ function setupPanelOffsetDrag() {
         document.body.classList.add('quiz-resizing', 'dragging-panel-y');
         window.addEventListener('pointermove', onMove);
         window.addEventListener('pointerup', onUp);
+        window.addEventListener('pointercancel', onUp);
     });
     // Bấm đúp grip: trả bảng này về vị trí mặc định
     ws.addEventListener('dblclick', (e) => {
@@ -403,6 +405,7 @@ export function setupResizers() {
             document.body.classList.remove('quiz-resizing');
             window.removeEventListener('pointermove', onPointerMove);
             window.removeEventListener('pointerup', onPointerUp);
+            window.removeEventListener('pointercancel', onPointerUp);
             try { localStorage.setItem(cfg.key, String(Math.round(panel.getBoundingClientRect().width))); } catch (e) { }
         };
         handle.addEventListener('pointerdown', (e) => {
@@ -415,6 +418,7 @@ export function setupResizers() {
             document.body.classList.add('quiz-resizing');
             window.addEventListener('pointermove', onPointerMove);
             window.addEventListener('pointerup', onPointerUp);
+            window.addEventListener('pointercancel', onPointerUp);
         });
         // Bấm đúp tay kéo: trả riêng cột này về mặc định
         handle.addEventListener('dblclick', () => {

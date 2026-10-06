@@ -82,29 +82,74 @@ try {
     }
 } catch (_) { localStorage.removeItem('quizState'); }
 
-export function readQuizState(quizId) {
+// ---- Bài làm dở = HAI khóa localStorage (2026-10-06) ----
+//  quizState_<id>  : trạng thái nhẹ (đáp án, câu đang xem, thời gian...) — ghi mỗi lần đổi câu / chọn đáp án.
+//  quizStateQ_<id> : bộ câu hỏi đang làm (hàng trăm KB–vài MB) — CHỈ ghi khi bộ câu đổi (vào phiên mới / khôi phục)
+//                    hoặc vừa được sửa (markQuestionsDirty). Trước đây mỗi lần lưu đều JSON.stringify cả bộ đề rồi ghi
+//                    localStorage đồng bộ (iPad: đứng cuộn cả trăm mili giây), và 1,2s sau lại đọc + parse đúng khối đó
+//                    chỉ để bỏ `questions` trước khi gửi Firestore.
+// Ai cần bộ câu đọc `saved.questions` như cũ: readQuizState gắn sẵn getter nạp lười (không liệt kê -> {...saved} bỏ qua).
+// Mã đọc thẳng localStorage (study-room/room-quiz.js) phải đọc thêm khóa Q.
+const Q_PREFIX = 'quizStateQ_';
+const qKey = (quizId) => Q_PREFIX + (quizId || stateQuizId());
+let _qWritten = { id: null, ref: null };   // bộ câu nào (theo tham chiếu mảng) đã nằm trong localStorage
+let _qDirty = false;
+export function markQuestionsDirty() { _qDirty = true; }
+
+function readQuestionsBlob(quizId) {
+    try { const v = JSON.parse(localStorage.getItem(qKey(quizId)) || 'null'); return Array.isArray(v) ? v : null; }
+    catch (_) { return null; }
+}
+
+/** Chỉ trạng thái nhẹ — không đụng tới bộ câu hỏi. */
+export function readQuizStateLight(quizId) {
     try { return JSON.parse(localStorage.getItem(stateKey(quizId)) || 'null'); }
     catch (_) { return null; }
 }
 
+export function readQuizState(quizId) {
+    const obj = readQuizStateLight(quizId);
+    if (!obj || Array.isArray(obj.questions)) return obj;   // null, hoặc bản lưu cũ còn nhúng sẵn questions
+    const id = quizId || stateQuizId();
+    const own = (v) => Object.defineProperty(obj, 'questions', { value: v, writable: true, configurable: true, enumerable: false });
+    Object.defineProperty(obj, 'questions', {
+        configurable: true, enumerable: false,
+        get() { const v = readQuestionsBlob(id); own(v); return v; },
+        set(v) { own(v); }
+    });
+    return obj;
+}
+
 export function writeQuizState(quizId, stateObj) {
     if (!stateObj) return;
-    const key = stateKey(quizId);
-    try {
-        localStorage.setItem(key, JSON.stringify(stateObj));
-    } catch (e) {
-        try {
-            pruneSavedStates(key);
-            localStorage.setItem(key, JSON.stringify(stateObj));
-        } catch (_) {
-            const compact = { ...stateObj };
-            delete compact.questions;
-            try { localStorage.setItem(key, JSON.stringify(compact)); } catch (_) {}
-        }
+    const id = quizId || stateQuizId();
+    const key = stateKey(id);
+    const light = { ...stateObj };   // chỉ chép trường liệt kê được -> bỏ `questions` (cả bản lười)
+    delete light.questions;
+    const questions = Object.prototype.propertyIsEnumerable.call(stateObj, 'questions') ? stateObj.questions : null;
+    const json = JSON.stringify(light);
+    try { localStorage.setItem(key, json); }
+    catch (e) { try { pruneSavedStates(key); localStorage.setItem(key, json); } catch (_) { } }
+    if (Array.isArray(questions)) writeQuestionsBlob(id, questions, key);
+    else {   // bản từ cloud / bản "đã nộp": không kèm bộ câu -> bộ câu cũ trong máy không còn khớp, bỏ để khôi phục theo blueprint
+        try { localStorage.removeItem(qKey(id)); } catch (_) { }
+        if (_qWritten.id === id) _qWritten = { id: null, ref: null };
     }
 }
 
-// Chỉ dọn khi localStorage đầy: giữ 4 bài dở mới nhất, bỏ phần còn lại.
+function writeQuestionsBlob(id, questions, keepKey) {
+    if (_qWritten.id === id && _qWritten.ref === questions && !_qDirty) return;   // bộ câu không đổi: khỏi ghi lại
+    _qWritten = { id, ref: questions };   // đặt TRƯỚC: ghi lỗi (đầy bộ nhớ) cũng không thử lại ở mỗi lần lưu
+    _qDirty = false;
+    const json = JSON.stringify(questions);
+    try { localStorage.setItem(qKey(id), json); }
+    catch (e) {
+        try { pruneSavedStates(keepKey); localStorage.setItem(qKey(id), json); }
+        catch (_) { try { localStorage.removeItem(qKey(id)); } catch (__) { } }   // không chứa nổi: khôi phục sẽ theo blueprint
+    }
+}
+
+// Chỉ dọn khi localStorage đầy: giữ 4 bài dở mới nhất, bỏ phần còn lại (kèm bộ câu hỏi của chúng).
 function pruneSavedStates(keepKey) {
     const rows = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -114,7 +159,10 @@ function pruneSavedStates(keepKey) {
         try { at = JSON.parse(localStorage.getItem(k)).savedAt || 0; } catch (_) {}
         rows.push([k, at]);
     }
-    rows.sort((a, b) => b[1] - a[1]).slice(3).forEach(([k]) => localStorage.removeItem(k));
+    rows.sort((a, b) => b[1] - a[1]).slice(3).forEach(([k]) => {
+        localStorage.removeItem(k);
+        localStorage.removeItem(Q_PREFIX + k.slice(QUIZ_STATE_PREFIX.length));
+    });
 }
 
 export function flushQuizState() {
@@ -165,14 +213,16 @@ export function saveQuizState({ immediate = false } = {}) {
 
     writeQuizState(quizId, stateObj);
 
-    // Tự động đồng bộ tiến trình lên Cloud nếu đã đăng nhập (chạy debounce nền hoặc flush ngay)
+    // Tự động đồng bộ tiến trình lên Cloud nếu đã đăng nhập (chạy debounce nền hoặc flush ngay).
+    // Đưa thẳng bản nhẹ trong bộ nhớ (không kèm questions) — khỏi đọc + parse lại localStorage lúc đẩy.
     try {
         const u = sessionUser();
         if (u && u.uid && !stateObj.finished) {
+            const { questions: _omit, ...cloudLight } = stateObj;
             if (immediate) {
-                flushCloudProgressPush(u.uid, quizId, () => readQuizState(quizId));
+                flushCloudProgressPush(u.uid, quizId, () => cloudLight);
             } else {
-                scheduleCloudProgressPush(u.uid, quizId, () => readQuizState(quizId));
+                scheduleCloudProgressPush(u.uid, quizId, () => cloudLight);
             }
         }
     } catch (_) {}
@@ -196,6 +246,8 @@ export function markQuizStateFinished(quizId) {
 export function clearQuizState(quizId) {
     const id = quizId || stateQuizId();
     localStorage.removeItem(stateKey(id));
+    localStorage.removeItem(qKey(id));
+    if (_qWritten.id === id) _qWritten = { id: null, ref: null };
     try {
         const u = sessionUser();
         if (u && u.uid) clearCloudProgress(u.uid, id);

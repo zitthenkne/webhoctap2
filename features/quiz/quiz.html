@@ -1021,8 +1021,9 @@
                             // Tự chỉnh: mở khối ② và đưa nó vào tầm mắt
                             if (optionsFold) {
                                 optionsFold.open = true;
-                                const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-                                optionsFold.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' });
+                                // cảm ứng không cuộn mượt: WebKit khóa thao tác kéo khi hoạt ảnh cuộn đang chạy (xem quiz-page-prefs.js)
+                                const calm = window.matchMedia && (window.matchMedia('(prefers-reduced-motion: reduce)').matches || window.matchMedia('(pointer: coarse)').matches);
+                                optionsFold.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'nearest' });
                             }
                             return;
                         }

@@ -8,6 +8,7 @@
 //   tắt  -> gõ tự do; nộp bài thì máy chấm sơ bộ, đáp án + barem mở ở màn kết quả (điểm cập nhật tức thì)
 
 import { showToast } from '../../../core/utils.js';
+import { scrollBehaviorFor } from './quiz-page-prefs.js';
 import { state, saveQuizState } from '../quiz-state.js';
 import { parseMarkdown, renderMath } from '../quiz-helpers.js';
 import {
@@ -430,7 +431,7 @@ function finishEssay(idx) {
     saveQuizState();
     showQuestion();   // vẽ lại cùng câu -> hiện đáp án mẫu + barem (máy đã tick sẵn)
     syncQuizNavPanel();
-    document.querySelector('#quizSection .essay-reveal')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.querySelector('#quizSection .essay-reveal')?.scrollIntoView({ behavior: scrollBehaviorFor(), block: 'start' });
 }
 
 // Tick ý / ½ / tự chấm / xác nhận — một listener ủy quyền cho cả màn làm bài lẫn màn kết quả.

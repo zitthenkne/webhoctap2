@@ -60,7 +60,8 @@ function clampKb() {
         }
         if (card.classList.contains('hidden') || card.classList.contains('is-folded')) return;   // chưa hiện / đã gập cả thẻ
         if (card.classList.contains('is-long')) return;
-        if (body.scrollHeight <= limit * 1.3) return;                                            // ngắn: để nguyên
+        if (card.dataset.kbOk === String(limit)) return;                                         // đã đo, ngắn: khỏi ép dàn lại trang
+        if (body.scrollHeight <= limit * 1.3) { card.dataset.kbOk = String(limit); return; }     // ngắn: để nguyên
         card.classList.add('is-long');
         body.style.setProperty('--kb-limit', limit + 'px');
         const btn = document.createElement('button');
@@ -373,6 +374,22 @@ function setupBarAway() {
     }, { passive: true });
 }
 
+/* ---------------------------------------------------------------- Phòng kẹt cuộn */
+// Vài trạng thái "khóa" có thể bị sót lại (kéo cột bị hệ thống ngắt giữa chừng, modal sửa câu đóng bằng đường lạ...):
+// trang không cuộn được hoặc không chọn được chữ dù nút vẫn bấm bình thường. Mỗi cú chạm MỚI, nếu không có lớp nào đang
+// thật sự mở thì gỡ các khóa đó.
+function setupScrollGuard() {
+    const editorOpen = () => { const m = $('question-editor-modal'); return !!m && !m.classList.contains('hidden'); };
+    document.addEventListener('pointerdown', (e) => {
+        const cl = document.body.classList;
+        if (cl.contains('quiz-resizing') && !(e.target.closest && e.target.closest('.quiz-resizer, .quiz-panel-drag, .case-resize'))) {
+            cl.remove('quiz-resizing', 'case-resizing', 'dragging-panel-y');
+        }
+        if (document.body.style.overflow === 'hidden' && !editorOpen()) document.body.style.overflow = '';
+        if (document.documentElement.style.overflow === 'hidden' && !$('login-gate')) document.documentElement.style.overflow = '';
+    }, true);
+}
+
 /* ---------------------------------------------------------------- Công tắc trong bảng "Ngựa thì chỉnh" */
 function setupBoostSettings() {
     const rows = [
@@ -405,6 +422,7 @@ export function setupQuizBoost() {
     setupBarAway();
     setupBoostSettings();
     setupVoiceSettings();
+    setupScrollGuard();
 
     // Bấm GIỮ nút loa (hoặc chuột phải) = mở bảng chọn giọng; bấm thường = đọc / dừng
     let lpTimer = 0, lpFired = false;
@@ -453,6 +471,6 @@ export function setupQuizBoost() {
     new MutationObserver(queue).observe(quiz, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
     new MutationObserver(queue).observe(document.body, { attributes: true, attributeFilter: ['class'] });
     window.addEventListener('resize', queue);
-    // Ảnh nạp xong làm thẻ kiến thức dài ra -> đo lại
-    quiz.addEventListener('load', queue, true);
+    // Ảnh nạp xong làm thẻ kiến thức dài ra -> bỏ dấu "đã đo" rồi đo lại
+    quiz.addEventListener('load', () => { quiz.querySelectorAll('.kb-card[data-kb-ok]').forEach(c => delete c.dataset.kbOk); queue(); }, true);
 }

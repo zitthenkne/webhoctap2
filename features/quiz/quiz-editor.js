@@ -17,7 +17,7 @@ import { doc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore
 import { updateDocQ as updateDoc, setDocQ } from "../../core/offline-write.js";
 import { saveOfflineQuiz, isOfflineSavedSync } from './quiz-offline-store.js';
 import { showToast } from '../../core/utils.js';
-import { state, saveQuizState } from './quiz-state.js';
+import { state, saveQuizState, markQuestionsDirty } from './quiz-state.js';
 import { tagCaseSequence } from './page/quiz-cases.js';
 import { isMultiAnswer, getCorrectIndexes, isAnswerCorrect } from './quiz-helpers.js';
 import { isEssay, rubricToText, textToRubric, rubricOf, withAutoGrade, formatOf, partsText, remapFields } from './quiz-essay-core.js';
@@ -478,6 +478,7 @@ async function commitQuestionEdit(edited) {
         state.userAnswers[idx] = kept.done ? withAutoGrade(dq, kept) : kept;
     }
 
+    markQuestionsDirty();   // câu hỏi vừa bị sửa tại chỗ -> bản lưu bộ câu trong máy phải ghi lại
     saveQuizState();
     closeQuestionEditor();
     _rerender();
@@ -552,6 +553,7 @@ async function undoLastEdit() {
     if (snap.prev5050 === undefined) delete state.used5050Questions[snap.idx];
     else state.used5050Questions[snap.idx] = snap.prev5050;
 
+    markQuestionsDirty();   // câu hỏi vừa bị sửa tại chỗ -> bản lưu bộ câu trong máy phải ghi lại
     saveQuizState();
 
     // 3) Khôi phục override cục bộ (nếu trước đó có)

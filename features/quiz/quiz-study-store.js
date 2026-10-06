@@ -151,14 +151,48 @@ export function studyDocId(uid, quizId) {
     return `${uid}__${quizId}`;
 }
 
+// ----- Giảm lượt đọc / ghi Firestore (2026-10-06) -----
+// 1) Mở một bộ đề: kéo ghi chú (fetchCloudStudy) rồi tới tiến trình dở (fetchCloudProgress) — CÙNG một tài liệu
+//    quiz_study/{uid}__{quizId} nên trước đây đọc 2 lần (tính 2 lượt đọc). Giờ dùng chung một lần đọc trong 15 giây;
+//    mọi lần GHI xóa bộ nhớ đệm này để lần đọc sau luôn thấy dữ liệu mới.
+const _docCache = new Map();   // docId -> { p: Promise<DocumentSnapshot>, at }
+const DOC_TTL = 15000;
+function getStudyDoc(uid, quizId) {
+    const id = studyDocId(uid, quizId);
+    const hit = _docCache.get(id);
+    if (hit && Date.now() - hit.at < DOC_TTL) return hit.p;
+    const p = getDoc(doc(db, 'quiz_study', id));
+    _docCache.set(id, { p, at: Date.now() });
+    p.catch(() => { if (_docCache.get(id) && _docCache.get(id).p === p) _docCache.delete(id); });   // lỗi thì lần sau đọc lại
+    return p;
+}
+const dropStudyDoc = (uid, quizId) => _docCache.delete(studyDocId(uid, quizId));
+
+// 2) Chữ ký nội dung lần ghi/đọc gần nhất: dữ liệu y hệt thì KHÔNG ghi lại (trước đây mỗi lần mở đề đều ghi lại bản
+//    vừa kéo về, dù không có gì đổi). Sắp xếp để thứ tự mảng khác nhau không làm lệch chữ ký.
+const _studySig = new Map();   // docId -> chữ ký ghi chú/đánh dấu/annotation/srs đã có trên cloud
+const _progSig = new Map();    // docId -> chữ ký tiến trình dở đã có trên cloud (bỏ savedAt)
+function studySig(a, meta) {
+    const by = (arr, f) => (arr || []).map(f).sort((x, y) => String(x.q).localeCompare(String(y.q)));
+    return JSON.stringify([
+        by(a.notes, x => x), by(a.marks, x => x),
+        by(a.annotations, x => ({ q: x.q, items: (x.items || []).map(i => JSON.stringify(i)).sort() })),
+        by(a.srs, x => x),
+        meta.title || '', meta.total | 0, !!meta.paused, Number(meta.pausedAt) || 0
+    ]);
+}
+function progSig(p) { const { savedAt, ...rest } = p || {}; return JSON.stringify(rest); }
+
 // Tải dữ liệu học tập từ cloud (đã chuyển về dạng map). Trả về null nếu chưa có.
 export async function fetchCloudStudy(uid, quizId) {
     if (!uid || !quizId) return null;
     try {
-        const ref = doc(db, 'quiz_study', studyDocId(uid, quizId));
-        const snap = await getDoc(ref);
+        const snap = await getStudyDoc(uid, quizId);
         if (!snap.exists()) return null;
-        return arraysToMaps(snap.data() || {});
+        const d = snap.data() || {};
+        _studySig.set(studyDocId(uid, quizId), studySig(mapsToArrays(arraysToMaps(d)),
+            { title: d.srsTitle, total: d.srsTotal, paused: d.srsPaused, pausedAt: d.srsPausedAt }));
+        return arraysToMaps(d);
     } catch (e) {
         console.warn('Không tải được dữ liệu học tập từ cloud:', e);
         return null;
@@ -169,11 +203,14 @@ export async function fetchCloudStudy(uid, quizId) {
 export async function pushCloudStudy(uid, quizId, data) {
     if (!uid || !quizId) return false;
     try {
-        const ref = doc(db, 'quiz_study', studyDocId(uid, quizId));
+        const id = studyDocId(uid, quizId);
+        const ref = doc(db, 'quiz_study', id);
         const arrays = mapsToArrays(data);
         // Kèm tên/số câu của bộ đề (từ meta SRS cục bộ) để chuông thông báo trên
         // index đọc thẳng từ cloud được — máy mới chưa từng mở bộ đề vẫn hiện đúng.
         const meta = readSrsMeta(quizId);
+        const sig = studySig(arrays, meta);
+        if (_studySig.get(id) === sig) return true;   // y hệt bản đang có trên cloud: khỏi ghi
         await setDoc(ref, {
             userId: uid,
             quizId,
@@ -186,6 +223,8 @@ export async function pushCloudStudy(uid, quizId, data) {
             srsPausedAt: Number(meta.pausedAt) || 0,
             updatedAt: serverTimestamp(),
         }, { merge: true });
+        _studySig.set(id, sig);
+        dropStudyDoc(uid, quizId);
         return true;
     } catch (e) {
         console.warn('Không lưu được dữ liệu học tập lên cloud:', e);
@@ -199,15 +238,20 @@ export async function pushCloudStudy(uid, quizId, data) {
 export async function pushCloudProgress(uid, quizId, progressObj) {
     if (!uid || !quizId || !progressObj) return false;
     try {
-        const ref = doc(db, 'quiz_study', studyDocId(uid, quizId));
+        const id = studyDocId(uid, quizId);
+        const ref = doc(db, 'quiz_study', id);
         const clean = { ...progressObj };
         delete clean.questions; // Đã có questionBlueprint, bỏ questions để payload luôn < 5KB
+        const sig = progSig(clean);
+        if (_progSig.get(id) === sig) return true;   // y hệt tiến trình đã có trên cloud (chỉ khác savedAt): khỏi ghi
         await setDoc(ref, {
             userId: uid,
             quizId,
             inProgress: clean,
             updatedAt: serverTimestamp(),
         }, { merge: true });
+        _progSig.set(id, sig);
+        dropStudyDoc(uid, quizId);
         return true;
     } catch (e) {
         console.warn('Không lưu được tiến trình làm bài lên cloud:', e);
@@ -219,11 +263,14 @@ export async function pushCloudProgress(uid, quizId, progressObj) {
 export async function clearCloudProgress(uid, quizId) {
     if (!uid || !quizId) return false;
     try {
-        const ref = doc(db, 'quiz_study', studyDocId(uid, quizId));
+        const id = studyDocId(uid, quizId);
+        const ref = doc(db, 'quiz_study', id);
         await setDoc(ref, {
             inProgress: { finished: true, savedAt: Date.now() },
             updatedAt: serverTimestamp(),
         }, { merge: true });
+        _progSig.delete(id);   // lần làm bài sau chắc chắn khác bản "đã nộp"
+        dropStudyDoc(uid, quizId);
         return true;
     } catch (e) {
         return false;
@@ -234,10 +281,10 @@ export async function clearCloudProgress(uid, quizId) {
 export async function fetchCloudProgress(uid, quizId) {
     if (!uid || !quizId) return null;
     try {
-        const ref = doc(db, 'quiz_study', studyDocId(uid, quizId));
-        const snap = await getDoc(ref);
+        const snap = await getStudyDoc(uid, quizId);
         if (!snap.exists()) return null;
         const d = snap.data();
+        if (d && d.inProgress) _progSig.set(studyDocId(uid, quizId), progSig(d.inProgress));
         return (d && d.inProgress) ? d.inProgress : null;
     } catch (e) {
         console.warn('Không tải được tiến trình làm bài từ cloud:', e);
@@ -247,7 +294,8 @@ export async function fetchCloudProgress(uid, quizId) {
 
 // ----- Đẩy tiến trình cloud có giảm tần suất (debounce) -----
 const _progressTimers = {};
-export function scheduleCloudProgressPush(uid, quizId, getProgressFn, delay = 1200) {
+// 5 giây (trước 1,2s): mỗi lần đổi câu từng là MỘT lần ghi Firestore; giờ gom lại, còn flush khi ẩn tab / rời trang.
+export function scheduleCloudProgressPush(uid, quizId, getProgressFn, delay = 5000) {
     if (!uid || !quizId) return;
     const key = studyDocId(uid, quizId);
     clearTimeout(_progressTimers[key]);

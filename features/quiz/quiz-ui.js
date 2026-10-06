@@ -1,6 +1,7 @@
 // features/quiz/quiz-ui.js
 
 import { state, MARK_REASONS } from './quiz-state.js';
+import { scrollBehaviorFor } from './page/quiz-page-prefs.js';
 import { parseMarkdown, renderMath, convertScoreToGPA, formatTime, triggerConfetti, stripOptionLabels, isAnswerCorrect, getCorrectIndexes, answerCredit, sessionScore } from './quiz-helpers.js';
 import { previewSrsCounts, getNewPerDay, setNewPerDay } from './quiz-srs-store.js';
 import { caseCellClass } from './page/quiz-cases.js';
@@ -734,7 +735,7 @@ export function showResults(totalTime, opts = {}) {
         document.querySelector('#result-filter-tabs [data-filter="review"]')?.click();
         document.querySelectorAll('#detailed-results-list .result-item:not(.hidden) .result-body.hidden')
             .forEach(b => b.closest('.result-item').querySelector('.result-header')?.click());
-        document.getElementById('detailed-results-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.getElementById('detailed-results-list')?.scrollIntoView({ behavior: scrollBehaviorFor(), block: 'start' });
     });
 
     // Bộ lọc danh sách chi tiết
