@@ -718,3 +718,170 @@ header.wr-top { position: sticky; top: 0; z-index: 30; background: #fff9fb; bord
 @media (max-width: 1023px) {
     body.select-on #create-new-record { display: none !important; }
 }
+
+/* =============================================================================
+   BẢN 2026-10-06 — "Hôm nay", dải 6 mục, thẻ đầu giường, ghim, vuốt đợt, kéo để đồng bộ
+   (nối đuôi: mục này đè mục trước). Màu phẳng; hoạ tiết chỉ điểm dừng cứng.
+   LƯU Ý: KHÔNG đặt container-type lên .wr-body (nó là layout containment → nút tạo nổi position:fixed
+   sẽ neo vào .wr-body thay vì màn hình); container query chỉ đặt trên #resume-slot (không có con fixed).
+   ============================================================================= */
+#wr-main { overscroll-behavior-y: contain; }              /* tắt kéo-làm-tươi gốc: đã có "kéo để đồng bộ" riêng */
+
+/* ---------- Bảng "Hôm nay": 2 ô — viết tiếp + đợt đang đi ---------- */
+#resume-slot { container: wrslot / inline-size; }
+.wr-today { display: grid; gap: 22px 16px; margin: 14px 0 26px; }
+.wr-today .resume-card { margin: 0; height: 100%; align-items: center; }
+/* Đủ rộng (≥820px) thì hai ô đứng cạnh nhau và nút thu thành nút tròn; hẹp hơn thì xếp chồng, nút còn đủ chữ */
+@container wrslot (min-width: 820px) {
+    .wr-today.two { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); align-items: stretch; }
+    .wr-today.two .rz-cta span, .wr-today.two .td-new span { display: none; }
+    .wr-today.two .rz-cta { width: 40px; padding: 0; justify-content: center; }
+    .wr-today.two .td-new { width: 42px; padding: 0; justify-content: center; }
+}
+.rz-next {
+    display: inline-block; margin-top: 4px; font-size: 12px; font-weight: 700; color: var(--hd-deep); line-height: 1.45;
+    background: #fff; border: 1.5px dashed var(--hd); border-radius: 9px; padding: 2px 9px; width: fit-content; max-width: 100%;
+}
+.rz-next i { font-size: 10.5px; margin-right: 6px; }
+.rz-next b { color: var(--ink); font-weight: 700; }
+
+.td-rot {
+    --fc: #86d9ae; --fc-soft: #e6f7ee; --fc-ink: #2e7d57;
+    position: relative; display: flex; align-items: center; gap: 14px; padding: 16px 16px 14px; border-radius: 20px;
+    background: var(--dots) 0 0 / 16px 16px, var(--paper);
+    border: 1.5px solid color-mix(in srgb, var(--fc) 55%, #fff);
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--fc) 45%, #fff), 0 14px 24px -18px color-mix(in srgb, var(--fc-ink) 70%, transparent);
+}
+.td-rot::before {
+    content: ''; position: absolute; z-index: 2; top: -10px; right: 24px; width: 70px; height: 20px; rotate: 4deg; pointer-events: none;
+    background: var(--tape-dots) 0 0 / 7px 7px, color-mix(in srgb, var(--fc) 70%, #fff); clip-path: var(--tape-cut); opacity: .92;
+}
+.td-ring { position: relative; width: 66px; height: 66px; flex-shrink: 0; }
+.td-ring svg { width: 100%; height: 100%; rotate: -90deg; }
+.td-ring circle { fill: none; stroke-width: 5; stroke-linecap: round; }
+.td-ring .bg { stroke: color-mix(in srgb, var(--fc) 26%, #fff); }
+.td-ring .fg { stroke: var(--fc); transition: stroke-dasharray .6s ease; }
+.td-ring b { position: absolute; inset: 0; display: grid; place-items: center; align-content: center; font-size: 16px; font-weight: 800; color: var(--fc-ink); line-height: 1; }
+.td-ring small { font-size: 10.5px; font-weight: 700; color: var(--ink-3); }
+.td-rot-txt { flex: 1; min-width: 7.5rem; display: flex; flex-direction: column; gap: 2px; }
+.td-flag { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--fc-ink); }
+.td-flag i { margin-right: 4px; font-size: 9.5px; }
+.td-rot-name { font-size: 15px; font-weight: 700; color: var(--ink); line-height: 1.3; white-space: normal; overflow-wrap: anywhere; }
+.td-rot-meta { font-size: 12px; font-weight: 600; color: var(--ink-3); line-height: 1.45; white-space: normal; overflow-wrap: anywhere; }
+.td-rot-meta b { color: var(--fc-ink); font-weight: 700; }
+.td-time { display: block; width: min(220px, 100%); height: 5px; margin-top: 5px; border-radius: 99px; background: color-mix(in srgb, var(--fc) 22%, #fff); overflow: hidden; }
+.td-time > i { display: block; height: 100%; border-radius: inherit; background: color-mix(in srgb, var(--fc) 85%, #fff); }
+.td-new {
+    flex-shrink: 0; display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 14px; border-radius: 14px;
+    font-size: 12.5px; font-weight: 700; color: var(--fc-ink); background: color-mix(in srgb, var(--fc) 40%, #fff);
+    border: 2px solid #fff; box-shadow: 0 3px 0 color-mix(in srgb, var(--fc) 70%, #fff); transition: transform .12s, background .15s;
+}
+.td-new:hover { background: color-mix(in srgb, var(--fc) 55%, #fff); }
+.td-new:active { transform: translateY(2px); box-shadow: none; }
+@container wrslot (max-width: 460px) {
+    /* điện thoại: nút thu thành nút tròn bên phải, tiết kiệm một hàng */
+    .td-new span { display: none; }
+    .td-new { width: 44px; height: 44px; padding: 0; justify-content: center; border-radius: 16px; }
+}
+
+/* ---------- Thẻ đầu giường (phòng · giường) + dải 6 mục + việc tiếp theo ---------- */
+.rc-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 0; }
+.rc-bed {
+    display: inline-flex; align-items: center; gap: 5px; margin-right: 8px; padding: 1px 9px 1px 7px; border-radius: 8px;
+    font-size: 11.5px; font-weight: 800; letter-spacing: .01em; color: var(--kind-ink); background: var(--kind-soft);
+    border: 1.5px dashed color-mix(in srgb, var(--kind) 75%, #fff); rotate: -1.5deg; white-space: nowrap;
+}
+.rc-bed i { font-size: 10px; opacity: .85; }
+.rc-meta-t i { margin-right: 4px; font-size: 10.5px; color: var(--sex, var(--ink-3)); }
+
+.rc-prog { gap: 7px; }
+.rc-pips { display: inline-flex; gap: 3px; }
+.rc-pips i { width: 10px; height: 10px; border-radius: 3.5px; border: 1.5px solid color-mix(in srgb, var(--kind) 80%, #fff); background: #fff; }
+.rc-pips i.full { background: var(--kind); }
+.rc-pips i.part { background: linear-gradient(90deg, var(--kind) 50%, #fff 50%); }   /* nửa ô: hoạ tiết điểm dừng cứng */
+
+.rc-next {
+    display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 7px 10px; border-radius: 12px;
+    font-size: 12.5px; font-weight: 600; color: var(--wip); background: var(--wip-soft); border: 1.5px dashed var(--wip-line);
+    transition: background .15s, transform .12s;
+}
+.rc-next:hover { background: #ffecb3; }
+.rc-next:active { transform: translateY(1px); }
+.rc-next > i:first-child { font-size: 11px; }
+.rc-next span { flex: 1; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.rc-next b { color: var(--ink); font-weight: 700; }
+.rc-next-go { font-size: 10px; opacity: .7; }
+
+/* ghim: đinh ghim cắm góc thẻ + viền đậm hơn */
+.rc-pin {
+    position: absolute; z-index: 3; top: -12px; right: 16px; width: 26px; height: 26px; display: grid; place-items: center;
+    font-size: 15px; color: var(--hp-deep); rotate: 28deg; filter: drop-shadow(0 2px 1px rgba(110, 36, 71, .25)); pointer-events: none;
+}
+.rec-card.pinned { border-color: color-mix(in srgb, var(--hp-deep) 45%, #fff); }
+.wr-pinned .wg-ico { color: var(--hp-deep); border-color: var(--hp); }
+.rec-card.kb { outline: 3px solid var(--hp-deep); outline-offset: 3px; }
+
+/* xem gọn: giấu hàng "tiếp theo", thu dải mục */
+.view-compact .rc-next { display: none; }
+.view-compact .rc-meta { flex-wrap: nowrap; }
+.view-compact .rc-pips i { width: 8px; height: 8px; border-radius: 3px; }
+.view-compact .rc-pin { top: -8px; right: auto; left: 10px; }
+
+/* ---------- Kéo để đồng bộ · vuốt đổi đợt ---------- */
+.wr-ptr {
+    display: none; position: fixed; z-index: 35; left: 50%; top: calc(58px + env(safe-area-inset-top) + 6px);
+    align-items: center; gap: 8px; height: 38px; padding: 0 16px; border-radius: 99px; font-size: 12.5px; font-weight: 700; color: var(--hp-deep);
+    background: #fff; border: 1.5px dashed var(--hp); box-shadow: 0 6px 16px -8px rgba(178, 77, 117, .5);
+    translate: -50% calc(var(--pull, 0px) - 64px); opacity: 0; pointer-events: none; transition: opacity .15s;
+}
+.wr-ptr i { transition: rotate .2s; }
+.wr-ptr.on { opacity: 1; }
+.wr-ptr.ready { background: var(--hp-soft); }
+.wr-ptr.ready i { rotate: 180deg; }
+.wr-ptr.ready span::after { content: " — thả tay"; }
+@media (max-width: 1023px) { .wr-ptr { display: inline-flex; } }
+
+.wr-swipe {
+    position: fixed; z-index: 36; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); translate: -50% 0;
+    opacity: 0; pointer-events: none;
+}
+.wr-swipe > span {
+    display: inline-flex; align-items: center; gap: 10px; max-width: 80vw; padding: 9px 18px; border-radius: 99px; font-size: 13.5px; font-weight: 700;
+    color: var(--btn-ink); background: var(--hp-soft); border: 2px solid #fff; box-shadow: 0 4px 0 #e9b4cb, 0 14px 24px -10px rgba(178, 77, 117, .5);
+}
+.wr-swipe i { font-size: 11px; }
+.wr-swipe.on { animation: swipe-pop 1.2s ease both; }
+@keyframes swipe-pop { 0% { opacity: 0; translate: -50% 12px; } 14%, 78% { opacity: 1; translate: -50% 0; } 100% { opacity: 0; translate: -50% -6px; } }
+#medical-record-cards.slide-l { animation: slide-in-l .26s ease-out; }
+#medical-record-cards.slide-r { animation: slide-in-r .26s ease-out; }
+@keyframes slide-in-l { from { opacity: 0; translate: 36px 0; } }
+@keyframes slide-in-r { from { opacity: 0; translate: -36px 0; } }
+
+/* ---------- Máy tính bảng: thanh bên đã tự thu gọn (JS) → cho vùng bệnh án thở ---------- */
+@media (min-width: 768px) and (max-width: 1179px) {
+    #wr-main { padding-inline: 18px; }
+    .wr-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+}
+
+/* ---------- Điện thoại: nút bấm to hơn cho ngón tay ---------- */
+@media (max-width: 640px) {
+    .rc-next { min-height: 42px; font-size: 13px; }
+    .rc-pips i { width: 11px; height: 11px; }
+    .td-rot { padding: 14px 12px 12px; gap: 12px; }
+    .td-ring { width: 58px; height: 58px; }
+    .wr-today { margin: 10px 0 22px; gap: 20px; }
+}
+
+/* ---------- Điện thoại xoay ngang / màn thấp: ít chiều cao nên bỏ thanh dính, thu nhỏ đầu trang ---------- */
+@media (max-height: 540px) and (orientation: landscape) {
+    header.wr-top .container { padding-top: 4px; padding-bottom: 4px; }
+    .wr-top-title { font-size: 18px; }
+    .wr-top-sticker { width: 30px; height: 30px; }
+    #wr-main { padding-top: 10px; padding-bottom: 84px; }
+    .wr-scope { margin-bottom: 8px; }
+    .wr-tools { position: static !important; margin-bottom: 10px; padding: 0; translate: none !important; }
+    .wr-search, .wr-icon-btn { height: 40px; }
+    #create-new-record { height: 48px; min-width: 52px; }
+    .wr-today { margin: 6px 0 16px; }
+    .wr-ptr { display: none; }
+}

@@ -1,5 +1,5 @@
 /* SINH TỰ ĐỘNG — đừng sửa tay. Nguồn: fa-dong-bang.mjs (Font Awesome Free 6.4.0, CC BY 4.0 / OFL / MIT).
-   144 icon dò từ 36 file của trang làm bài. Thêm icon mới thì chạy lại: node fa-dong-bang.mjs */
+   149 icon dò từ 40 file của trang làm bài. Thêm icon mới thì chạy lại: node fa-dong-bang.mjs */
 .fa{font-family:var(--fa-style-family,"Font Awesome 6 Free");font-weight:var(--fa-style,900)}
 .fa,.fa-brands,.fa-classic,.fa-regular,.fa-solid,.fab,.far,.fas{-moz-osx-font-smoothing:grayscale;-webkit-font-smoothing:antialiased;display:var(--fa-display,inline-block);font-style:normal;font-variant:normal;line-height:1;text-rendering:auto}
 .fa-classic,.fa-regular,.fa-solid,.far,.fas{font-family:"Font Awesome 6 Free"}
@@ -16,6 +16,7 @@
 .fa-angles-down:before{content:"\f103"}
 .fa-strikethrough:before{content:"\f0cc"}
 .fa-pencil:before{content:"\f303"}
+.fa-box-archive:before{content:"\f187"}
 .fa-bars:before{content:"\f0c9"}
 .fa-lightbulb:before{content:"\f0eb"}
 .fa-circle-exclamation:before,.fa-exclamation-circle:before{content:"\f06a"}
@@ -43,6 +44,7 @@
 .fa-fire:before{content:"\f06d"}
 .fa-underline:before{content:"\f0cd"}
 .fa-bold:before{content:"\f032"}
+.fa-mug-hot:before{content:"\f7b6"}
 .fa-square-plus:before{content:"\f0fe"}
 .fa-image:before{content:"\f03e"}
 .fa-rotate-left:before{content:"\f2ea"}
@@ -92,11 +94,13 @@
 .fa-file-circle-check:before{content:"\e5a0"}
 .fa-forward:before{content:"\f04e"}
 .fa-home:before{content:"\f015"}
+.fa-calendar-week:before{content:"\f784"}
 .fa-redo-alt:before,.fa-rotate-right:before{content:"\f2f9"}
 .fa-tower-broadcast:before{content:"\f519"}
 .fa-bolt:before{content:"\f0e7"}
 .fa-sun:before{content:"\f185"}
 .fa-grip-lines:before{content:"\f7a4"}
+.fa-arrow-down:before{content:"\f063"}
 .fa-eraser:before{content:"\f12d"}
 .fa-play:before{content:"\f04b"}
 .fa-font:before{content:"\f031"}
@@ -138,6 +142,7 @@
 .fa-brain:before{content:"\f5dc"}
 .fa-times-circle:before{content:"\f057"}
 .fa-note-sticky:before,.fa-sticky-note:before{content:"\f249"}
+.fa-plane:before{content:"\f072"}
 .sr-only,.sr-only-focusable:not(:focus){position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border-width:0}
 :host,:root{--fa-style-family-brands:"Font Awesome 6 Brands";--fa-font-brands:normal 400 1em/1 "Font Awesome 6 Brands"}
 @font-face{font-family:"Font Awesome 6 Brands";font-style:normal;font-weight:400;font-display:block;src:url(brands.woff2) format("woff2")}

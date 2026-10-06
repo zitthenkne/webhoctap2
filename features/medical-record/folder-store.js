@@ -5,9 +5,19 @@
 //
 // Metadata thư mục nằm ở localStorage, đồng thời mỗi bệnh án mang theo một bản sao
 // (record.thuMuc) — nhờ vậy mở ở máy khác, thư mục vẫn dựng lại được từ bệnh án
-// đã đồng bộ đám mây, không cần thêm collection Firestore.
+// đã đồng bộ đám mây.
+//
+// 2026-10-06: thư mục còn được đồng bộ RIÊNG (record-store.js ghi vào doc meta của người dùng):
+//  - mỗi thư mục mang `_t` (ms lần sửa cuối) để máy nào sửa sau thì thắng;
+//  - xóa thư mục ghi BIA MỘ ở `benhAnThuMucDel` {id: ms} — không có thì thư mục đã xóa ở máy này sẽ
+//    "sống lại" từ máy khác hoặc từ bản sao trong bệnh án (mergeFolders bỏ qua id đã có bia mộ);
+//  - đợt TRỐNG (chưa có bệnh án nào) cũng đi theo, vì không còn phụ thuộc bản sao trong bệnh án.
 
 const KEY = 'benhAnThuMuc';
+const DEL = 'benhAnThuMucDel';
+
+const readDel = () => { try { return JSON.parse(localStorage.getItem(DEL)) || {}; } catch { return {}; } };
+const changed = (detail) => { try { window.dispatchEvent(new CustomEvent('benhan:folders', { detail })); } catch { } };
 
 export function listFolders() {
     try {
@@ -28,12 +38,37 @@ export function getFolder(id) {
 export function saveFolder(folder) {
     const all = listFolders();
     const i = all.findIndex(f => String(f.id) === String(folder.id));
-    if (i >= 0) all[i] = { ...all[i], ...folder }; else all.push(folder);
-    return writeFolders(all);
+    // dấu thời gian đơn điệu: luôn lớn hơn lần sửa trước dù đồng hồ máy lệch
+    const t = Math.max(Date.now(), (i >= 0 ? Number(all[i]._t) || 0 : 0) + 1);
+    const next = { ...(i >= 0 ? all[i] : {}), ...folder, _t: t };
+    if (i >= 0) all[i] = next; else all.push(next);
+    const del = readDel();
+    if (del[next.id]) { delete del[next.id]; try { localStorage.setItem(DEL, JSON.stringify(del)); } catch { } }
+    const out = writeFolders(all);
+    changed({ id: next.id });
+    return out;
 }
 
 export function deleteFolder(id) {
-    return writeFolders(listFolders().filter(f => String(f.id) !== String(id)));
+    const out = writeFolders(listFolders().filter(f => String(f.id) !== String(id)));
+    const del = readDel();
+    del[id] = Date.now();
+    try { localStorage.setItem(DEL, JSON.stringify(del)); } catch { }
+    changed({ id, deleted: true });
+    return out;
+}
+
+/** Trạng thái để đồng bộ: { items: {id: thư mục}, del: {id: ms} } */
+export function folderSync() {
+    const items = {};
+    listFolders().forEach(f => { if (f && f.id) items[f.id] = f; });
+    return { items, del: readDel() };
+}
+
+/** Ghi lại trạng thái đã trộn (từ record-store). Không phát sự kiện — đây là kết quả đồng bộ, không phải sửa tay. */
+export function applyFolderSync(items, del) {
+    writeFolders(Object.values(items || {}));
+    try { localStorage.setItem(DEL, JSON.stringify(del || {})); } catch { }
 }
 
 export const newFolderId = () => 'TM-' + Date.now().toString(36);
@@ -41,10 +76,11 @@ export const newFolderId = () => 'TM-' + Date.now().toString(36);
 /** Gộp thư mục ở máy với thư mục đính kèm trong bệnh án (bệnh án tạo ở máy khác) */
 export function mergeFolders(records) {
     const byId = new Map(listFolders().map(f => [String(f.id), f]));
+    const del = readDel();
     let added = false;
     (records || []).forEach(r => {
         const t = r.thuMuc;
-        if (!t || !t.id || byId.has(String(t.id))) return;
+        if (!t || !t.id || byId.has(String(t.id)) || del[t.id]) return;
         byId.set(String(t.id), { ...t });
         added = true;
     });

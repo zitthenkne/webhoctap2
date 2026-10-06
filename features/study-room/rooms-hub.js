@@ -34,7 +34,9 @@ const state = {
     user: null,
     rooms: new Map(),        // id -> { id, data, role:'owner'|'guest' }
     live: new Map(),         // id -> { members: [], at }
-    q: '', filter: 'all', sort: 'active', view: 'grid',
+    q: '', qRaw: '', filter: 'all', sort: 'active', view: 'grid', day: null,
+    collapsed: { older: true },      // nhóm đang gập (lưu cùng prefs)
+    flash: new Map(),                // id phòng -> hạn nháy viền khi có bạn vừa vào
     loading: true, error: null, open: false, lastSig: '',
 };
 let unsubOwned = null, unsubUser = null;
@@ -89,6 +91,7 @@ export function closeRoomsHub() {
     clearInterval(tick);
     stopRoomListeners();
     if (unsubOwned) { unsubOwned(); unsubOwned = null; }
+    el('rh-note')?.remove();
 }
 
 function stopRoomListeners() {
@@ -97,25 +100,47 @@ function stopRoomListeners() {
 }
 
 // ---------------- Khung ----------------
+// Mẫu tạo nhanh: chạm là mở hộp Tạo phòng đã điền sẵn tên · biểu tượng · màu (· giờ hẹn). Emoji phải nằm trong EMOJIS.
+const PRESETS = [
+    { emoji: '🌙', name: 'Cày đề tối nay', theme: 1, label: 'Cày đề tối nay', when: () => tonightAt(20) },
+    { emoji: '📚', name: 'Ôn bài trong tuần', theme: 2, label: 'Ôn bài trong tuần' },
+    { emoji: '🎯', name: 'Thi thử cuối kỳ', theme: 5, label: 'Thi thử cuối kỳ' },
+    { emoji: '☕', name: 'Học nhóm cuối tuần', theme: 4, label: 'Học nhóm cuối tuần' },
+];
+function tonightAt(h) {
+    const d = new Date();
+    d.setHours(h, 0, 0, 0);
+    if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1);
+    return d.getTime();
+}
+
 function mount() {
     const host = el('rooms-hub');
     if (!host || host.dataset.ready) return;
     host.dataset.ready = '1';
     host.innerHTML = `
-        <section class="rh-hero">
-            <div class="rh-hero-txt">
-                <h2><i class="fas fa-chalkboard-user" style="color:#7cc0ff"></i> Phòng học của tôi</h2>
-                <p>Tạo phòng, gửi mã cho bạn bè rồi cùng nhau cày đề trên một bảng 🐿️</p>
-                <div id="rh-pulse" class="rh-pulse is-idle"><span class="rh-dot"></span> Đang xem…</div>
+        <header class="rh-top">
+            <div class="rh-ttl">
+                <span class="rh-ttl-ic"><i class="fas fa-chalkboard-user"></i></span>
+                <div class="rh-ttl-txt">
+                    <h2><span>Phòng học của tôi</span></h2>
+                    <div id="rh-sum" class="rh-sum"></div>
+                </div>
             </div>
             <div class="rh-hero-act">
                 <button type="button" id="rh-join" class="rh-btn rh-btn-ghost"><i class="fas fa-key"></i> Vào bằng mã</button>
                 <button type="button" id="rh-create" class="rh-btn rh-btn-main"><i class="fas fa-plus"></i> Tạo phòng mới</button>
             </div>
-        </section>
+        </header>
+        <div id="rh-today"></div>
+        <div class="rh-quick" id="rh-quick">
+            <span class="rh-quick-lb"><i class="fas fa-bolt"></i> Tạo nhanh</span>
+            ${PRESETS.map((p, i) => `<button type="button" class="rh-qchip" data-preset="${i}"><span>${p.emoji}</span>${esc(p.label)}</button>`).join('')}
+        </div>
+        <div id="rh-week" class="rh-week" hidden></div>
         <div class="rh-bar">
             <label class="rh-search"><i class="fas fa-magnifying-glass"></i>
-                <input type="search" id="rh-q" placeholder="Tìm phòng theo tên hoặc mã…  ( / )" autocomplete="off">
+                <input type="search" id="rh-q" placeholder="Tìm phòng, hoặc dán mã / link để vào" autocomplete="off">
             </label>
             <div class="rh-chips" id="rh-filters"></div>
             <select id="rh-sort" class="rh-select" title="Sắp xếp">
@@ -125,13 +150,17 @@ function mount() {
             </select>
             <button type="button" id="rh-view" class="rh-icon-btn" title="Đổi kiểu hiển thị"><i class="fas fa-table-cells-large"></i></button>
         </div>
+        <div id="rh-join-row"></div>
         <div id="rh-grid" class="rh-grid"></div>`;
 
     el('rh-sort').value = state.sort;
-    el('rh-q').addEventListener('input', (e) => { state.q = e.target.value.trim().toLowerCase(); render(true); });
+    el('rh-q').addEventListener('input', (e) => { state.q = e.target.value.trim().toLowerCase(); state.qRaw = e.target.value.trim(); render(true); });
     el('rh-q').addEventListener('keydown', (e) => {
         if (e.key !== 'Enter') return;
-        const first = host.querySelector('.rh-card');
+        const exact = exactRoom(e.target.value);
+        if (exact) return void (location.href = linkOf(exact.id));
+        if (host.querySelector('.rh-joinrow')) return void joinRoom(e.target.value, { bad: (m) => showToast(m, 'warning') });
+        const first = host.querySelector('.rh-card[data-id]');
         if (first) location.href = linkOf(first.dataset.id);
     });
     el('rh-sort').addEventListener('change', (e) => { state.sort = e.target.value; savePrefs(); render(true); });
@@ -142,23 +171,36 @@ function mount() {
     el('rh-filters').addEventListener('click', (e) => {
         const chip = e.target.closest('[data-f]');
         if (!chip) return;
-        state.filter = chip.dataset.f;
+        if (chip.dataset.f === 'day-off') state.day = null;
+        else { state.filter = chip.dataset.f; }
         savePrefs(); render(true);
+    });
+    el('rh-week').addEventListener('click', (e) => {
+        const d = e.target.closest('[data-day]');
+        if (!d || d.disabled) return;
+        state.day = state.day === d.dataset.day ? null : d.dataset.day;
+        render(true);
+    });
+    el('rh-quick').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-preset]');
+        if (b) openCreateModal({ preset: PRESETS[Number(b.dataset.preset)] });
     });
     el('rh-create').addEventListener('click', () => openCreateModal());
     el('rh-join').addEventListener('click', () => openJoinModal());
     el('rh-grid').addEventListener('click', onGridClick);
+    el('rh-today').addEventListener('click', onGridClick);
+    el('rh-join-row').addEventListener('click', onGridClick);
 
     document.addEventListener('keydown', (e) => {
         if (!state.open) return;
-        if (e.key === '/' && !/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName) && !document.activeElement?.isContentEditable) {
-            e.preventDefault();
-            el('rh-q')?.focus();
-        }
+        const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
+        if (typing || e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.rh-modal')) return;
+        if (e.key === '/') { e.preventDefault(); el('rh-q')?.focus(); }
+        if (e.key === 'n' || e.key === 'N') { e.preventDefault(); openCreateModal(); }
     });
 }
 
-const savePrefs = () => writeLS('roomHubPrefs', { filter: state.filter, sort: state.sort, view: state.view });
+const savePrefs = () => writeLS('roomHubPrefs', { filter: state.filter, sort: state.sort, view: state.view, collapsed: state.collapsed });
 
 // ---------------- Tải dữ liệu ----------------
 async function reload() {
@@ -235,7 +277,10 @@ function watchLiveRooms() {
     ids.forEach((id) => {
         if (roomUnsubs.has(id)) return;
         const un = onSnapshot(collection(db, 'study_rooms', id, 'members'), (snap) => {
-            state.live.set(id, { members: snap.docs.map(d => d.data() || {}), at: Date.now() });
+            const prev = state.live.get(id);
+            const members = snap.docs.map(d => ({ ...(d.data() || {}), _id: d.id }));
+            state.live.set(id, { members, at: Date.now() });
+            if (prev) announceJoins(id, prev.members, members);   // lần đầu (chưa có prev) thì không báo
             render();
         }, () => { /* phòng riêng tư / mất mạng: thẻ vẫn hiện, chỉ không có trạng thái */ });
         roomUnsubs.set(id, [un]);
@@ -275,40 +320,73 @@ function timeAgo(ms) {
     return new Date(ms).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
 }
 
-function countdown(ms) {
-    const d = ms - Date.now();
-    if (d <= 0) return d > -3600000 ? 'đang tới giờ' : '';
-    const h = Math.floor(d / 3600000), m = Math.round((d % 3600000) / 60000);
-    if (d > 86400000) return `còn ${Math.round(d / 86400000)} ngày`;
-    return h ? `còn ${h}g${String(m).padStart(2, '0')}` : `còn ${m} phút`;
-}
-
 const whenText = (ms) => {
     const d = new Date(ms);
     return `${d.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' })} · ${d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`;
 };
 
 // ---------------- Vẽ ----------------
+const DAY_MS = 86400000;
+const WEEKDAY = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const firstName = (n) => { const p = String(n || '').trim().split(/\s+/); return p[p.length - 1] || 'Bạn'; };
+const schedOf = (r) => Number(r.data.scheduledAt) || 0;
+const upcoming = (r) => schedOf(r) > Date.now() - 3600000;       // hẹn chưa qua quá 1 giờ
+const parseRoomId = (raw) => (String(raw || '').match(/[?&]id=([^&#\s]+)/)?.[1] || String(raw || '').split(/[?#\s]/)[0] || '').trim();
+const exactRoom = (raw) => {
+    const id = parseRoomId(raw).toLowerCase();
+    return id ? [...state.rooms.values()].find(r => r.id.toLowerCase() === id) : null;
+};
+
+/** Trạng thái hiển thị của một phòng: quyết định màu "đèn", nhãn, và phòng nằm ở nhóm nào. */
+function kindOf(r, s) {
+    if (s.isLive && s.running) return { k: 'live', label: 'Đang học', icon: 'fa-tower-broadcast' };
+    if (s.isLive) return { k: 'lobby', label: 'Sảnh chờ', icon: 'fa-mug-hot' };
+    if (upcoming(r)) return { k: 'soon', label: 'Sắp tới', icon: 'fa-calendar-day' };
+    if (s.running) return { k: 'paused', label: 'Bỏ dở', icon: 'fa-pause' };
+    if (s.sess?.ended) return { k: 'done', label: 'Đã xong', icon: 'fa-circle-check' };
+    return { k: 'idle', label: 'Yên tĩnh', icon: 'fa-moon' };
+}
+
+/** Đếm ngược tách số lớn + đơn vị cho cuống vé. */
+function stubParts(ms) {
+    const d = ms - Date.now();
+    if (d <= 0) return { big: 'Đến giờ', small: 'bắt đầu thôi', urgent: true };
+    if (d > DAY_MS) return { big: String(Math.round(d / DAY_MS)), small: 'ngày nữa', urgent: false };
+    const h = Math.floor(d / 3600000), m = Math.round((d % 3600000) / 60000);
+    if (h) return { big: `${h}g${String(m).padStart(2, '0')}`, small: 'nữa bắt đầu', urgent: false };
+    return { big: String(Math.max(1, m)), small: 'phút nữa', urgent: true };
+}
+
 function render(force = false) {
     const host = el('rooms-hub');
     if (!host || !host.dataset.ready) return;
     const grid = el('rh-grid');
 
+    const all = [...state.rooms.values()];
     const list = visibleRooms();
-    // Chữ ký: chặn vẽ lại vô ích (nhịp tim 30s của mỗi thành viên đều bắn snapshot)
-    const sig = JSON.stringify([state.loading, state.error, state.q, state.filter, state.sort, state.view, !!state.user,
-        list.map(r => {
+    // Chữ ký: chặn vẽ lại vô ích (nhịp tim 30s của mỗi thành viên đều bắn snapshot).
+    // Mọi thứ hero / lịch tuần / thẻ đọc phải nằm trong đây.
+    const sig = JSON.stringify([state.loading, state.error, state.q, state.qRaw, state.filter, state.sort, state.view, state.day,
+        state.collapsed, !!state.user, [...state.flash].filter(([, t]) => t > Date.now()).map(([id]) => id),
+        all.map(r => {
             const s = statusOf(r);
-            return [r.id, nameOf(r), r.data.emoji, themeOf(r), r.data.scheduledAt, s.online.length, s.step, s.running,
-                s.sess?.title, s.sess?.avg, isPinned(r.id)].join('|');
+            return [r.id, nameOf(r), r.data.emoji, themeOf(r), r.data.scheduledAt, s.online.map(m => (m.uid || m._id) + ':' + (m.cursor || 0)).join(','),
+                s.step, s.running, s.sess?.title, s.sess?.avg, s.sess?.qCount, s.sess?.ended, s.members.length, r.role, isPinned(r.id)].join('|');
         })]);
     if (!force && sig === state.lastSig) return;
     state.lastSig = sig;
 
+    // Chưa có phòng nào (hoặc chưa đăng nhập): bỏ thanh tìm/lọc/lịch cho khỏi rối, chỉ còn lời mời tạo phòng
+    host.classList.toggle('is-bare', !state.rooms.size);
+    host.classList.toggle('is-guest', !state.user);
     grid.className = 'rh-grid' + (state.view === 'list' ? ' is-list' : '');
     el('rh-view').innerHTML = `<i class="fas ${state.view === 'list' ? 'fa-list' : 'fa-table-cells-large'}"></i>`;
+    renderSummary();
+    renderToday();
+    renderWeek();
     renderFilters();
-    renderPulse();
+    renderJoinRow(list);
 
     if (state.loading && !state.rooms.size) {
         grid.innerHTML = Array(3).fill('<div class="rh-sk"></div>').join('');
@@ -323,15 +401,23 @@ function render(force = false) {
     }
     if (!list.length) return void (grid.innerHTML = emptyHtml());
 
-    const owned = list.filter(r => r.role === 'owner');
-    const guest = list.filter(r => r.role === 'guest');
-    const both = owned.length && guest.length && state.filter === 'all';
-    grid.innerHTML = [
-        both ? '<div class="rh-sec">Phòng của tôi</div>' : '',
-        owned.map(cardHtml).join(''),
-        both ? '<div class="rh-sec">Phòng tôi đã vào</div>' : '',
-        guest.map(cardHtml).join(''),
-    ].join('');
+    // Nhóm theo THỜI ĐIỂM (đang diễn ra · sắp tới · gần đây · lâu rồi) — chủ phòng/khách chỉ là huy hiệu trên thẻ.
+    // Có tìm kiếm / bộ lọc / sắp xếp khác thì phẳng, đừng chia nhóm.
+    const grouped = state.sort === 'active' && state.filter === 'all' && !state.q && !state.day;
+    let html;
+    if (grouped) {
+        const shown = groupRooms(list).filter(g => g.rooms.length);
+        const heads = shown.length > 1 || shown.some(g => g.k === 'older');
+        // Thẻ "Phòng mới" nằm cuối nhóm cuối cùng KHÔNG phải "Lâu rồi chưa vào" (nhóm đó hay gập sẵn)
+        const ghostIn = [...shown].reverse().find(g => g.k !== 'older') || shown[shown.length - 1];
+        html = shown.map(g => {
+            const closed = heads && !!state.collapsed[g.k];
+            return (heads ? secHtml(g, closed) : '') + (closed ? '' : g.rooms.map(cardHtml).join('')) + (g === ghostIn && !closed ? ghostHtml() : '');
+        }).join('');
+    } else {
+        html = list.map(cardHtml).join('') + (state.filter === 'all' && !state.q && !state.day ? ghostHtml() : '');
+    }
+    grid.innerHTML = html;
 }
 
 function visibleRooms() {
@@ -341,6 +427,7 @@ function visibleRooms() {
     if (state.filter === 'mine') list = list.filter(r => r.role === 'owner');
     if (state.filter === 'guest') list = list.filter(r => r.role === 'guest');
     if (state.filter === 'pin') list = list.filter(r => isPinned(r.id));
+    if (state.day) list = list.filter(r => schedOf(r) && dayKey(new Date(schedOf(r))) === state.day);
 
     const key = (r) => {
         const s = statusOf(r);
@@ -356,6 +443,31 @@ function visibleRooms() {
     });
     return list;
 }
+
+function groupRooms(list) {
+    const now = Date.now();
+    const g = {
+        live: { k: 'live', title: 'Đang diễn ra', icon: 'fa-tower-broadcast', rooms: [] },
+        soon: { k: 'soon', title: 'Sắp tới', icon: 'fa-calendar-day', rooms: [] },
+        recent: { k: 'recent', title: 'Gần đây', icon: 'fa-clock-rotate-left', rooms: [] },
+        older: { k: 'older', title: 'Lâu rồi chưa vào', icon: 'fa-box-archive', rooms: [] },
+    };
+    list.forEach((r) => {
+        const s = statusOf(r);
+        if (s.isLive) g.live.rooms.push(r);
+        else if (upcoming(r)) g.soon.rooms.push(r);
+        else if (isPinned(r.id) || now - s.lastActive < 14 * DAY_MS) g.recent.rooms.push(r);
+        else g.older.rooms.push(r);
+    });
+    g.soon.rooms.sort((a, b) => schedOf(a) - schedOf(b));
+    return [g.live, g.soon, g.recent, g.older];
+}
+
+const secHtml = (g, closed) => `
+    <button type="button" class="rh-sec ${closed ? 'is-closed' : ''}" data-sec="${g.k}" aria-expanded="${!closed}">
+        <span class="rh-sec-ic"><i class="fas ${g.icon}"></i></span>${g.title}<span class="rh-n">${g.rooms.length}</span>
+        <i class="fas fa-chevron-down rh-sec-chev"></i>
+    </button>`;
 
 function renderFilters() {
     const all = [...state.rooms.values()];
@@ -373,29 +485,29 @@ function renderFilters() {
         ['guest', 'Đã vào', 'fa-user-group'],
         ['pin', 'Ghim', 'fa-thumbtack'],
     ];
-    el('rh-filters').innerHTML = defs.map(([k, label, icon]) => `
+    const dayChip = state.day
+        ? `<button type="button" class="rh-chip is-on is-day" data-f="day-off" title="Bỏ lọc theo ngày"><i class="fas fa-calendar-day"></i>${state.day.slice(8)}/${state.day.slice(5, 7)}<i class="fas fa-xmark"></i></button>` : '';
+    el('rh-filters').innerHTML = dayChip + defs.map(([k, label, icon]) => `
         <button type="button" class="rh-chip ${state.filter === k ? 'is-on' : ''}" data-f="${k}">
             <i class="fas ${icon}"></i>${label}<span class="rh-n">${n[k]}</span>
         </button>`).join('');
 }
 
-function renderPulse() {
-    const box = el('rh-pulse');
+/** Dòng tóm tắt dưới tiêu đề: bao nhiêu phòng · bao nhiêu bạn đang học · bao nhiêu buổi sắp tới. */
+function renderSummary() {
+    const box = el('rh-sum');
     if (!box) return;
     const rooms = [...state.rooms.values()];
-    const liveRooms = rooms.filter(r => statusOf(r).isLive);
-    const people = liveRooms.reduce((a, r) => a + statusOf(r).online.length, 0);
-    const soon = rooms.filter(r => r.data.scheduledAt > Date.now()).sort((a, b) => a.data.scheduledAt - b.data.scheduledAt)[0];
-    if (liveRooms.length) {
-        box.className = 'rh-pulse';
-        box.innerHTML = `<span class="rh-dot"></span> ${people} bạn đang học ở ${liveRooms.length} phòng — vào cùng nhé!`;
-    } else if (soon) {
-        box.className = 'rh-pulse is-idle';
-        box.innerHTML = `<i class="fas fa-clock"></i> Buổi tới: <b>${esc(nameOf(soon))}</b> · ${whenText(soon.data.scheduledAt)} (${countdown(soon.data.scheduledAt)})`;
-    } else {
-        box.className = 'rh-pulse is-idle';
-        box.innerHTML = `<span class="rh-dot"></span> ${rooms.length ? 'Chưa có ai trong phòng — rủ bạn bè vào thôi' : 'Chưa có phòng nào'}`;
-    }
+    if (state.loading && !rooms.length) return void (box.innerHTML = '<span class="rh-sumchip">Đang tải phòng…</span>');
+    if (!rooms.length) return void (box.innerHTML = `<span class="rh-sumchip">${state.user ? 'Chưa có phòng nào' : 'Đăng nhập để tạo và giữ phòng của bạn'}</span>`);
+    const lives = rooms.filter(r => statusOf(r).isLive);
+    const people = lives.reduce((a, r) => a + statusOf(r).online.length, 0);
+    const soon = rooms.filter(upcoming).length;
+    box.innerHTML = [
+        `<span class="rh-sumchip"><i class="fas fa-door-open"></i>${rooms.length} phòng</span>`,
+        people ? `<span class="rh-sumchip is-live"><span class="rh-dot"></span>${people} bạn đang học · ${lives.length} phòng</span>` : '',
+        soon ? `<span class="rh-sumchip is-soon"><i class="fas fa-calendar-day"></i>${soon} buổi sắp tới</span>` : '',
+    ].join('');
 }
 
 function faceHtml(m) {
@@ -404,58 +516,176 @@ function faceHtml(m) {
     return `<span class="rh-face">${esc((m.displayName || 'K').trim().charAt(0).toUpperCase())}</span>`;
 }
 
-function cardHtml(r) {
-    const s = statusOf(r);
-    const pinned = isPinned(r.id);
-    const sched = Number(r.data.scheduledAt) || 0;
-    const faces = s.online.slice(0, 5).map(faceHtml).join('')
-        + (s.online.length > 5 ? `<span class="rh-face more">+${s.online.length - 5}</span>` : '');
+/** Sticker emoji dán lên giấy (viền trắng bế); đang có phiên chạy thì có vòng tiến độ ôm quanh. */
+function stickerHtml(r, s) {
+    const ring = s.running && s.isLive
+        ? `<svg class="rh-ring" viewBox="0 0 44 44" aria-hidden="true"><rect class="rh-ring-bg" x="2" y="2" width="40" height="40" rx="14"/><rect class="rh-ring-fg" x="2" y="2" width="40" height="40" rx="14" pathLength="100" stroke-dasharray="${s.pct} 100"/></svg>` : '';
+    return `<div class="rh-sticker">${ring}<span class="rh-sticker-em">${esc(r.data.emoji || '📚')}</span></div>`;
+}
 
-    let liveTop, bar = '';
-    if (s.running && s.isLive) {
-        liveTop = `<span class="rh-dot"></span> ${s.online.length} đang học · <b>câu ${s.step}/${s.sess.qCount}</b>`;
-        bar = `<div class="rh-bar-track"><div class="rh-bar-fill" style="width:${s.pct}%"></div></div>`;
-    } else if (s.isLive) {
-        liveTop = `<span class="rh-dot"></span> ${s.online.length} bạn đang ở trong phòng · sảnh chờ`;
-    } else if (s.sess?.ended) {
-        liveTop = `<span class="rh-quiet"><i class="far fa-circle-check"></i> Buổi gần nhất: <b>${esc(s.sess.title || 'bộ đề')}</b>${s.sess.qCount ? ` · ${s.sess.qCount} câu` : ''}${typeof s.sess.avg === 'number' ? ` · TB ${s.sess.avg}%` : ''}</span>`;
-    } else if (s.running) {
-        liveTop = `<span class="rh-quiet"><i class="fas fa-pause"></i> Phiên "${esc(s.sess.title || 'bộ đề')}" đang bỏ dở · ${s.sess.qCount} câu</span>`;
-    } else {
-        liveTop = `<span class="rh-quiet"><i class="far fa-moon"></i> Phòng đang yên tĩnh</span>`;
+/** Ai đang ngồi trong phòng: tên + đang ở câu mấy (không có ghế trống — chỉ người thật). */
+function seatsHtml(s) {
+    if (!s.online.length) return '';
+    const list = s.online.slice().sort((a, b) => (Number(b.cursor) || 0) - (Number(a.cursor) || 0));
+    const chips = list.slice(0, 3).map(m => `
+        <span class="rh-seat">${faceHtml(m)}<b>${esc(firstName(m.displayName))}</b>${s.running ? `<i>câu ${Math.min((Number(m.cursor) || 0) + 1, s.sess.qCount)}</i>` : ''}</span>`).join('');
+    return `<div class="rh-seats">${chips}${list.length > 3 ? `<span class="rh-seat more">+${list.length - 3}</span>` : ''}</div>`;
+}
+
+/** Dòng mô tả + (nếu có) thanh tiến độ phẳng — dùng chung thẻ và hero. */
+function infoOf(r, s, k) {
+    const title = esc(s.sess?.title || 'bộ đề');
+    if (k.k === 'live') return { text: `<b>câu ${s.step}/${s.sess.qCount}</b> · ${title}`, prog: `<div class="rh-prog"><i style="width:${s.pct}%"></i></div>` };
+    if (k.k === 'lobby') return { text: `${s.online.length} bạn đang ở trong phòng · chưa bắt đầu đề` };
+    if (k.k === 'soon') return { text: 'Đã hẹn giờ buổi học' + (s.sess?.ended ? ` · lần trước: ${title}` : '') };
+    if (k.k === 'paused') return { text: `Phiên "${title}" đang bỏ dở · ${s.sess.qCount} câu` };
+    if (k.k === 'done') return { text: `Buổi gần nhất: <b>${title}</b>${s.sess.qCount ? ` · ${s.sess.qCount} câu` : ''}` };
+    return { text: 'Chưa có buổi nào — vào phòng để bắt đầu' };
+}
+
+/** Cuống vé hẹn giờ (có đường xé) / con dấu điểm trung bình buổi gần nhất. */
+function sideHtml(r, s, k) {
+    const sched = schedOf(r);
+    if (sched && upcoming(r)) {
+        const p = stubParts(sched);
+        const d = new Date(sched);
+        return `<div class="rh-stub ${p.urgent ? 'is-urgent' : ''}">
+            <div class="rh-stub-n"><b>${p.big}</b><small>${p.small}</small></div>
+            <div class="rh-stub-d"><span>${WEEKDAY[d.getDay()]} · ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}</span><b>${d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</b></div>
+        </div>`;
     }
+    if (s.sess?.ended) {
+        const avg = typeof s.sess.avg === 'number' ? s.sess.avg : null;
+        return `<div class="rh-stamp" title="Điểm trung bình của cả phòng ở buổi gần nhất">
+            <b>${avg === null ? '<i class="fas fa-check"></i>' : avg + '%'}</b><small>${avg === null ? 'đã xong' : 'TB'}${s.sess.people ? ` · ${s.sess.people} bạn` : ''}</small></div>`;
+    }
+    return '';
+}
 
-    const pills = [
-        s.lastActive ? `<span class="rh-pill"><i class="far fa-clock"></i>${timeAgo(s.lastActive)}</span>` : '',
-        s.members.length ? `<span class="rh-pill"><i class="fas fa-user-group"></i>${s.members.length} thành viên</span>` : '',
-        sched && countdown(sched) ? `<span class="rh-pill soon"><i class="fas fa-calendar-day"></i>${whenText(sched)} · ${countdown(sched)}</span>` : '',
+function cardHtml(r) {
+    const s = statusOf(r), k = kindOf(r, s), info = infoOf(r, s, k);
+    const pinned = isPinned(r.id), owner = r.role === 'owner';
+    const fresh = (state.flash.get(r.id) || 0) > Date.now();
+    const sched = schedOf(r);
+    const side = sideHtml(r, s, k);
+    const metaBits = [
+        s.lastActive ? `<span><i class="far fa-clock"></i>${timeAgo(s.lastActive)}</span>` : '',
+        s.members.length ? `<span><i class="fas fa-user-group"></i>${s.members.length} thành viên</span>` : '',
     ].filter(Boolean).join('');
 
     return `
-    <article class="rh-card rh-t${themeOf(r)} ${s.isLive ? 'is-live' : ''}" data-id="${esc(r.id)}">
+    <article class="rh-card rh-t${themeOf(r)} is-${k.k} ${fresh ? 'is-fresh' : ''}" data-id="${esc(r.id)}">
         <div class="rh-head">
-            <div class="rh-emoji">${esc(r.data.emoji || '📚')}</div>
+            ${stickerHtml(r, s)}
             <div class="rh-name">
                 <h3 title="${esc(nameOf(r))}">${esc(nameOf(r))}</h3>
-                <div class="rh-code">${esc(r.id)}
-                    <span class="rh-tag ${r.role === 'guest' ? 'guest' : ''}">${r.role === 'guest' ? 'đã vào' : 'chủ phòng'}</span>
+                <div class="rh-sub2">
+                    <button type="button" class="rh-code" data-act="copy" title="Chép mã phòng"><span>${esc(r.id)}</span><i class="far fa-copy"></i></button>
+                    ${owner ? '<i class="fas fa-crown rh-crown" title="Bạn là chủ phòng"></i>' : '<span class="rh-tag guest">đã vào</span>'}
                 </div>
             </div>
-            <button type="button" class="rh-star ${pinned ? 'is-on' : ''}" data-act="pin" title="${pinned ? 'Bỏ ghim' : 'Ghim lên đầu'}">
-                <i class="${pinned ? 'fas' : 'far'} fa-star"></i></button>
-            <button type="button" class="rh-star" data-act="menu" title="Tùy chọn"><i class="fas fa-ellipsis-vertical"></i></button>
+            <div class="rh-acts">
+                <button type="button" class="rh-star ${pinned ? 'is-on' : ''}" data-act="pin" title="${pinned ? 'Bỏ ghim' : 'Ghim lên đầu'}"><i class="${pinned ? 'fas' : 'far'} fa-star"></i></button>
+                <button type="button" class="rh-star" data-act="menu" title="Tùy chọn"><i class="fas fa-ellipsis-vertical"></i></button>
+            </div>
         </div>
-        <div class="rh-live">
-            <div class="rh-live-top">${liveTop}</div>
-            ${bar}
-            ${faces ? `<div class="rh-faces">${faces}</div>` : ''}
+        <div class="rh-body">
+            <div class="rh-state"><span class="rh-badge is-${k.k}">${k.k === 'live' || k.k === 'lobby' ? '<span class="rh-dot"></span>' : `<i class="fas ${k.icon}"></i>`}${k.label}</span></div>
+            <p class="rh-info">${info.text}</p>
+            ${info.prog || ''}
+            ${seatsHtml(s)}
         </div>
-        ${pills ? `<div class="rh-meta">${pills}</div>` : ''}
+        ${side}
+        ${metaBits ? `<div class="rh-meta">${metaBits}</div>` : ''}
         <div class="rh-foot">
             <a class="rh-go" href="${esc(linkOf(r.id))}"><i class="fas fa-door-open"></i> ${s.isLive ? 'Vào cùng' : 'Vào phòng'}</a>
-            <button type="button" class="rh-mini" data-act="invite" title="Mời bạn bè"><i class="fas fa-user-plus"></i></button>
+            <button type="button" class="rh-mini" data-act="invite" title="Mời bạn bè / mã QR"><i class="fas fa-user-plus"></i></button>
+            ${owner && !(sched && upcoming(r)) ? '<button type="button" class="rh-mini" data-act="sched" title="Hẹn giờ buổi học"><i class="far fa-calendar-plus"></i></button>' : ''}
         </div>
     </article>`;
+}
+
+/** Hero "Hôm nay": MỘT phòng đáng vào nhất ngay lúc này — đang diễn ra > sắp tới > gần nhất. */
+function renderToday() {
+    const box = el('rh-today');
+    if (!box) return;
+    const rooms = [...state.rooms.values()];
+    if (!rooms.length) return void (box.innerHTML = '');
+
+    const pairs = rooms.map(r => [r, statusOf(r)]);
+    const live = pairs.filter(([, s]) => s.isLive).sort((a, b) => (Number(b[1].running) - Number(a[1].running)) || (b[1].online.length - a[1].online.length));
+    const soon = pairs.filter(([r]) => upcoming(r)).sort((a, b) => schedOf(a[0]) - schedOf(b[0]));
+    const last = pairs.slice().sort((a, b) => b[1].lastActive - a[1].lastActive);
+    const kind = live.length ? 'live' : soon.length ? 'soon' : 'last';
+    const [r, s] = (live[0] || soon[0] || last[0]);
+    const k = kindOf(r, s), info = infoOf(r, s, k);
+    const eyebrow = { live: 'Đang diễn ra', soon: 'Buổi sắp tới', last: 'Vào lại phòng gần nhất' }[kind];
+    const more = kind === 'live' ? live.length - 1 : 0;
+    const side = sideHtml(r, s, k);
+    const cta = kind === 'live' ? 'Vào cùng' : kind === 'soon' ? 'Mở phòng' : 'Vào lại';
+
+    box.innerHTML = `
+    <article class="rh-today rh-t${themeOf(r)} is-${kind === 'last' ? k.k : kind}" data-id="${esc(r.id)}">
+        <div class="rh-today-sticker">${stickerHtml(r, s)}</div>
+        <div class="rh-today-body">
+            <span class="rh-eyebrow ${kind === 'live' ? 'is-live' : ''}">${kind === 'live' ? '<span class="rh-dot"></span>' : `<i class="fas ${kind === 'soon' ? 'fa-calendar-day' : 'fa-clock-rotate-left'}"></i>`}${eyebrow}</span>
+            <h3>${esc(nameOf(r))}</h3>
+            <p class="rh-info">${info.text}</p>
+            ${info.prog || ''}
+            ${seatsHtml(s)}
+        </div>
+        ${side ? `<div class="rh-today-side">${side}</div>` : ''}
+        <div class="rh-today-cta">
+            <a class="rh-go rh-go-big" href="${esc(linkOf(r.id))}"><i class="fas fa-door-open"></i> ${cta}</a>
+            ${more > 0 ? `<button type="button" class="rh-linkbtn" data-act="show-live">+${more} phòng khác đang có người</button>` : ''}
+            ${kind === 'soon' && r.role === 'owner' ? '<button type="button" class="rh-linkbtn" data-act="invite"><i class="fas fa-user-plus"></i> Mời bạn bè</button>' : ''}
+        </div>
+    </article>`;
+}
+
+/** Dải lịch 7 ngày: chỉ hiện khi có buổi hẹn trong tuần; bấm một ngày để lọc phòng hẹn ngày đó. */
+function renderWeek() {
+    const box = el('rh-week');
+    if (!box) return;
+    const byDay = new Map();
+    [...state.rooms.values()].filter(upcoming).forEach((r) => {
+        const k = dayKey(new Date(schedOf(r)));
+        if (!byDay.has(k)) byDay.set(k, []);
+        byDay.get(k).push(r);
+    });
+    const start = new Date(); start.setHours(0, 0, 0, 0);
+    const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(start); d.setDate(d.getDate() + i); return d; });
+    if (!days.some(d => byDay.has(dayKey(d)))) { box.hidden = true; box.innerHTML = ''; return; }
+    box.hidden = false;
+    box.innerHTML = `<div class="rh-week-ttl"><i class="fas fa-calendar-week"></i> Lịch 7 ngày tới</div>
+        <div class="rh-days">${days.map((d, i) => {
+        const k = dayKey(d), rs = byDay.get(k) || [];
+        return `<button type="button" class="rh-day ${i === 0 ? 'is-today' : ''} ${rs.length ? 'has' : ''} ${state.day === k ? 'is-on' : ''}" data-day="${k}" ${rs.length ? '' : 'disabled'}
+            title="${rs.length ? rs.map(nameOf).join(', ') : 'Chưa có buổi hẹn'}">
+            <small>${i === 0 ? 'Nay' : WEEKDAY[d.getDay()]}</small><b>${d.getDate()}</b>
+            <span class="rh-day-em">${rs.slice(0, 2).map(r => esc(r.data.emoji || '📚')).join('')}${rs.length > 2 ? `<em>+${rs.length - 2}</em>` : ''}</span>
+        </button>`;
+    }).join('')}</div>`;
+}
+
+/** Ô tìm cũng là ô vào phòng: gõ/dán mã hoặc link mà không có phòng nào khớp → hiện dòng "Vào phòng …". */
+function renderJoinRow(list) {
+    const box = el('rh-join-row');
+    if (!box) return;
+    const raw = state.qRaw || '';
+    const id = parseRoomId(raw);
+    const looksCode = /^[a-zA-Z0-9_-]{2,40}$/.test(id) && (/[-_0-9]/.test(id) || /[?&]id=/.test(raw));
+    if (!raw || !looksCode || exactRoom(raw) || (list.length && !/[?&]id=/.test(raw))) return void (box.innerHTML = '');
+    box.innerHTML = `<button type="button" class="rh-joinrow" data-act="join-code" data-code="${esc(raw)}">
+        <i class="fas fa-door-open"></i> Vào phòng <b>${esc(id)}</b> bằng mã này <kbd>Enter</kbd></button>`;
+}
+
+function ghostHtml() {
+    return `<button type="button" class="rh-card rh-ghost" data-act="create">
+        <span class="rh-ghost-plus"><i class="fas fa-plus"></i></span>
+        <b>Phòng mới</b>
+        <small>Đặt tên, gửi mã cho nhóm — phím tắt <kbd>N</kbd></small>
+    </button>`;
 }
 
 function emptyHtml() {
@@ -469,35 +699,80 @@ function emptyHtml() {
                 <button type="button" class="rh-btn rh-btn-ghost" data-act="join"><i class="fas fa-key"></i> Vào bằng mã</button>
             </div></div>`;
     }
-    if (state.q || state.filter !== 'all') {
+    if (state.q || state.filter !== 'all' || state.day) {
         return `<div class="rh-empty">
             <b>Không có phòng nào khớp</b>
             <span>Thử xoá từ khoá hoặc chọn lại bộ lọc "Tất cả".</span>
             <button type="button" class="rh-btn rh-btn-ghost" data-act="clear"><i class="fas fa-eraser"></i> Xoá bộ lọc</button></div>`;
     }
-    return `<div class="rh-empty">
+    return `<div class="rh-empty rh-onboard">
         <img src="assets/squirrel_group.png" alt="">
         <b>Bạn chưa có phòng học nào</b>
-        <span>Tạo phòng, gửi mã (hoặc mã QR) cho nhóm — cả nhóm cùng làm một bộ đề, thấy nhau chọn gì và bàn ngay tại chỗ.</span>
+        <ol class="rh-steps">
+            <li><i>1</i><span>Tạo phòng</span><small>đặt tên, chọn biểu tượng</small></li>
+            <li><i>2</i><span>Gửi mã hoặc QR</span><small>bạn bè không cần tài khoản</small></li>
+            <li><i>3</i><span>Cùng làm một bộ đề</span><small>thấy nhau chọn gì, bàn ngay tại chỗ</small></li>
+        </ol>
         <button type="button" class="rh-btn rh-btn-main" data-act="create"><i class="fas fa-plus-circle"></i> Tạo phòng đầu tiên</button></div>`;
+}
+
+// ---------------- Báo "bạn X vừa vào phòng Y" ngay trên trang chủ ----------------
+function announceJoins(id, before, after) {
+    const r = state.rooms.get(id);
+    if (!r || !state.open) return;
+    const key = (m) => m.uid || m._id;
+    const was = new Set(before.filter(isOnline).map(key));
+    const fresh = after.filter(m => isOnline(m) && !was.has(key(m)) && key(m) !== state.user?.uid && Date.now() - (Number(m.lastSeen) || 0) < 20000);
+    if (!fresh.length) return;
+    state.flash.set(id, Date.now() + 4500);
+    setTimeout(() => state.open && render(true), 4600);       // gỡ viền nháy
+    el('rh-note')?.remove();
+    const box = document.createElement('div');
+    box.id = 'rh-note';
+    box.className = `rh-note rh-t${themeOf(r)}`;
+    box.innerHTML = `${faceHtml(fresh[0])}
+        <span class="rh-note-t"><b>${esc(firstName(fresh[0].displayName))}</b>${fresh.length > 1 ? ` và ${fresh.length - 1} bạn nữa` : ''} vừa vào <b>${esc(nameOf(r))}</b></span>
+        <a class="rh-go" href="${esc(linkOf(r.id))}">Vào cùng</a>
+        <button type="button" class="rh-note-x" aria-label="Đóng"><i class="fas fa-times"></i></button>`;
+    document.body.appendChild(box);
+    box.querySelector('.rh-note-x').onclick = () => box.remove();
+    setTimeout(() => box.remove(), 8000);
 }
 
 // ---------------- Tương tác trên lưới ----------------
 function onGridClick(e) {
+    const sec = e.target.closest('[data-sec]');
+    if (sec) {
+        state.collapsed = { ...state.collapsed, [sec.dataset.sec]: !state.collapsed[sec.dataset.sec] };
+        savePrefs();
+        return void render(true);
+    }
     const act = e.target.closest('[data-act]')?.dataset.act;
-    const card = e.target.closest('.rh-card');
+    const card = e.target.closest('[data-id]');
     const r = card ? state.rooms.get(card.dataset.id) : null;
 
     if (act === 'retry') return void reload();
-    if (act === 'clear') { state.q = ''; state.filter = 'all'; el('rh-q').value = ''; savePrefs(); return void render(true); }
+    if (act === 'clear') { state.q = ''; state.qRaw = ''; state.filter = 'all'; state.day = null; el('rh-q').value = ''; savePrefs(); return void render(true); }
     if (act === 'create') return void openCreateModal();
     if (act === 'join') return void openJoinModal();
     if (act === 'login') return void window.toggleAuthModal?.();
+    if (act === 'show-live') { state.filter = 'live'; savePrefs(); return void render(true); }
+    if (act === 'join-code') {
+        return void joinRoom(e.target.closest('[data-code]').dataset.code, { bad: (m) => showToast(m, 'warning') });
+    }
 
     if (!r) return;
     if (act === 'pin') return void togglePin(r.id);
     if (act === 'invite') return void openInviteModal(r);
+    if (act === 'sched') return void openScheduleModal(r);
     if (act === 'menu') return void openMenu(r, e.target.closest('[data-act]'));
+    if (act === 'copy') {
+        const b = e.target.closest('[data-act="copy"]');
+        copyText(r.id, 'Đã chép mã phòng!');
+        b.classList.add('is-copied');
+        b.querySelector('i').className = 'fas fa-check';
+        return void setTimeout(() => { b.classList.remove('is-copied'); b.querySelector('i').className = 'far fa-copy'; }, 1400);
+    }
     if (!e.target.closest('a, button')) location.href = linkOf(r.id);
 }
 
@@ -609,11 +884,18 @@ function openCreateModal(opts = {}) {
         window.toggleAuthModal?.();
         return opts.onCancel?.();
     }
-    const pick = { emoji: EMOJIS[Math.floor(Math.random() * EMOJIS.length)], theme: Math.floor(Math.random() * 6) };
+    const pre = opts.preset || {};
+    const pick = {
+        emoji: pre.emoji || EMOJIS[Math.floor(Math.random() * EMOJIS.length)],
+        theme: typeof pre.theme === 'number' ? pre.theme : Math.floor(Math.random() * 6),
+    };
     let created = false;
     modal(`
         <h3><i class="fas fa-plus-circle" style="color:#ff69b4"></i> Tạo phòng học mới</h3>
         <p class="rh-sub">Đặt tên cho dễ nhớ, mã phòng là thứ bạn gửi cho nhóm.</p>
+        <div class="rh-presets" id="rh-c-presets">
+            ${PRESETS.map((p, i) => `<button type="button" class="rh-qchip" data-preset="${i}"><span>${p.emoji}</span>${esc(p.label)}</button>`).join('')}
+        </div>
         <label class="rh-label" for="rh-c-name">Tên phòng</label>
         <input id="rh-c-name" class="rh-input" placeholder="VD: Ôn Sinh lý tuần 3" maxlength="60">
         <label class="rh-label" for="rh-c-code">Mã phòng (chỉ chữ, số, - và _)</label>
@@ -635,8 +917,25 @@ function openCreateModal(opts = {}) {
         code.value = suggestCode();
         wirePickers(wrap, pick);
         name.focus();
-        if (opts.name) { name.value = String(opts.name).slice(0, 60); setTimeout(() => name.dispatchEvent(new Event('input'))); }
+        const preName = opts.name || pre.name;
+        if (preName) { name.value = String(preName).slice(0, 60); setTimeout(() => name.dispatchEvent(new Event('input'))); }
+        if (pre.when) {
+            const d = new Date(pre.when() - new Date().getTimezoneOffset() * 60000);
+            wrap.querySelector('#rh-c-when').value = d.toISOString().slice(0, 16);
+        }
         wrap.querySelector('#rh-c-dice').onclick = () => { code.value = suggestCode(); code.classList.remove('bad'); };
+        // Chạm một mẫu → điền tên + biểu tượng + màu (+ giờ hẹn) một lượt
+        wrap.querySelector('#rh-c-presets').addEventListener('click', (e) => {
+            const b = e.target.closest('[data-preset]');
+            if (!b) return;
+            const p = PRESETS[Number(b.dataset.preset)];
+            name.value = p.name;
+            name.dispatchEvent(new Event('input'));
+            wrap.querySelector(`[data-picks="emoji"] [data-v="${p.emoji}"]`)?.click();
+            wrap.querySelector(`[data-picks="theme"] [data-v="${p.theme}"]`)?.click();
+            wrap.querySelector('#rh-c-when').value = p.when
+                ? new Date(p.when() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '';
+        });
         // Gõ tên -> gợi ý mã theo tên (chỉ khi người dùng chưa tự sửa mã)
         let codeTouched = false;
         code.addEventListener('input', () => { codeTouched = true; code.classList.remove('bad'); });
@@ -743,6 +1042,24 @@ export function pickRoom({ user, name = '', choices = [] }) {
 }
 
 // ---------------- Vào bằng mã ----------------
+/** Tách mã từ link/mã dán vào, kiểm tra phòng có thật rồi chuyển trang. ui = { bad(msg), busy(), done() }. */
+async function joinRoom(raw, ui = {}) {
+    const id = parseRoomId(raw);
+    if (!id) { ui.bad?.('Nhập mã phòng đã nhé.'); return false; }
+    ui.busy?.();
+    let real = id;
+    try { real = decodeURIComponent(id); } catch (e) { /* mã có % lạ: giữ nguyên */ }
+    try {
+        const snap = await getDoc(doc(db, 'study_rooms', real));
+        if (!snap.exists()) { ui.bad?.('Không tìm thấy phòng này — kiểm tra lại mã giúp mình.'); return false; }
+    } catch (e) { /* mất mạng thì cứ cho vào, trang phòng sẽ báo tiếp */ }
+    rememberRoomVisit(real);
+    ui.done?.();
+    location.href = linkOf(real);
+    return true;
+}
+
+
 function openJoinModal() {
     const last = recents().slice(0, 6);
     modal(`
@@ -764,29 +1081,12 @@ function openJoinModal() {
         wrap.querySelectorAll('[data-code]').forEach(b => b.onclick = () => { input.value = b.dataset.code; go(); });
         input.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
 
-        async function go() {
-            const raw = input.value.trim();
-            const id = (raw.match(/[?&]id=([^&#\s]+)/)?.[1] || raw.split(/[?#\s]/)[0] || '').trim();
-            if (!id) {
-                input.classList.add('bad');
-                hint.className = 'rh-hint bad';
-                hint.textContent = 'Nhập mã phòng đã nhé.';
-                return;
-            }
-            hint.className = 'rh-hint';
-            hint.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tìm phòng…';
-            try {
-                const snap = await getDoc(doc(db, 'study_rooms', decodeURIComponent(id)));
-                if (!snap.exists()) {
-                    input.classList.add('bad');
-                    hint.className = 'rh-hint bad';
-                    hint.textContent = 'Không tìm thấy phòng này — kiểm tra lại mã giúp mình.';
-                    return;
-                }
-            } catch (e) { /* mất mạng thì cứ cho vào, trang phòng sẽ báo tiếp */ }
-            rememberRoomVisit(decodeURIComponent(id));
-            close();
-            location.href = linkOf(decodeURIComponent(id));
+        function go() {
+            joinRoom(input.value, {
+                bad: (m) => { input.classList.add('bad'); hint.className = 'rh-hint bad'; hint.textContent = m; },
+                busy: () => { hint.className = 'rh-hint'; hint.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tìm phòng…'; },
+                done: close,
+            });
         }
         wrap.querySelector('#rh-j-go').onclick = go;
     });

@@ -14,7 +14,8 @@ if ('serviceWorker' in navigator && isLocalDev) {
   const hadSW = !!navigator.serviceWorker.controller;
   Promise.all([
     navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.map(r => r.unregister()))),
-    window.caches ? caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))) : null,
+    // 'zitthenkne-piper' = giọng đọc người dùng đã tải (dữ liệu của họ, không phải mã cũ) -> giữ lại
+    window.caches ? caches.keys().then(ks => Promise.all(ks.filter(k => k !== 'zitthenkne-piper').map(k => caches.delete(k)))) : null,
   ]).then(() => {
     // Trang này vẫn do SW cũ phục vụ (có thể là bản trộn) -> tải lại một lần để lấy thẳng từ máy chủ
     let reloaded = false;

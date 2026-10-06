@@ -11,7 +11,7 @@ const quizIdOf = () => (state.quizData && state.quizData.id) || new URLSearchPar
 
 function loadHubCss() {
     if (document.getElementById('rooms-hub-css')) return;
-    const link = Object.assign(document.createElement('link'), { id: 'rooms-hub-css', rel: 'stylesheet', href: '../study-room/rooms-hub.css?v=2' });
+    const link = Object.assign(document.createElement('link'), { id: 'rooms-hub-css', rel: 'stylesheet', href: '../study-room/rooms-hub.css?v=4' });
     document.head.appendChild(link);
 }
 

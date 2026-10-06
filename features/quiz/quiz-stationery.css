@@ -3847,3 +3847,183 @@ html.theme-dark #annot-note-pop .anp-row .anp-ok { --hi: #3a1422; background: #F
 @media (prefers-reduced-motion: reduce) {
     #annot-toolbar.show, #annot-note-pop, .annot-note.an-new::after, body:not(.qz-notes-inline) :is(.annot-note, [data-annot] span[data-note]):hover::before { animation: none; }
 }
+
+/* ============================================================
+   18) NÂNG CẤP LÀM BÀI (2026-10-05) — page/quiz-boost.js
+   Chỉ transform/opacity cho mọi hiệu ứng mới (máy cảm ứng cạn GPU, xem §17). Không gradient trang trí.
+   ============================================================ */
+
+/* 18.1 Chống "lớp trơn" khi chuyển câu: trình duyệt không tự bù cuộn khi thẻ thay ruột; cảm ứng không bật nảy ở đáy trang
+   (nảy ở đáy/đầu trang chính là lúc lộ nền trơn); nền ảnh bỏ blur (lớp cố định + blur làm iPad giật khi cuộn);
+   huy hiệu chuỗi đúng không chạy hiệu ứng vô hạn (vẽ lại liên tục = tốn pin). */
+#quizSection { overflow-anchor: none; }
+@media (hover: none) and (pointer: coarse) {
+    html { overscroll-behavior-y: none; }
+    body::before { filter: none; }
+    #quizSection #streak-badge, #quizSection #streak-badge i { animation: none; }
+}
+
+/* 18.2 Nút công cụ đầu thẻ: Nghe đọc · Sao chép · Sửa (công thức kẹo như nút Sửa) */
+.q-head-tools { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
+#quizSection .q-tool-btn {
+    width: 2.25rem; height: 2.25rem; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 0.9rem; cursor: pointer;
+}
+#quizSection #listen-btn { --h: var(--hue-sky);  --hi: var(--ink-sky); }
+#quizSection #copy-q-btn { --h: var(--hue-mint); --hi: var(--ink-mint); }
+#quizSection #undo-answer-btn { --h: var(--hue-butter); --hi: var(--ink-butter); }
+#quizSection .kb-more-btn { --h: var(--hue-latte); --hi: var(--ink-latte); }
+#quizSection :is(#listen-btn, #copy-q-btn, #undo-answer-btn, .kb-more-btn) {
+    background-color: color-mix(in srgb, var(--h) var(--fill), var(--surface-card)) !important;
+    background-image: none;
+    border: 2px solid color-mix(in srgb, var(--h) 40%, transparent);
+    color: var(--hi);
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--h) 32%, transparent);
+    transition: transform .28s var(--spring), box-shadow .18s ease;
+}
+#quizSection :is(#listen-btn, #copy-q-btn, #undo-answer-btn, .kb-more-btn):active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 color-mix(in srgb, var(--h) 36%, transparent);
+}
+@media (hover: hover) {
+    #quizSection :is(#listen-btn, #copy-q-btn, #undo-answer-btn, .kb-more-btn):hover {
+        transform: translateY(-2px);
+        border-color: color-mix(in srgb, var(--h) 70%, transparent);
+        box-shadow: 0 5px 0 color-mix(in srgb, var(--h) 36%, transparent);
+    }
+}
+#quizSection #listen-btn[hidden] { display: none; }
+#quizSection #listen-btn.is-speaking { --h: var(--hue-blossom); --hi: var(--ink-blossom); }
+#quizSection #listen-btn.is-speaking i { animation: qb-beat 0.9s ease-in-out infinite; }
+@keyframes qb-beat { 50% { transform: scale(1.22); } }
+@media (max-width: 639px) {
+    #quizSection .q-tool-btn { width: 2.1rem; height: 2.1rem; }
+    .q-head-tools { gap: 0.3rem; }
+}
+
+/* 18.3 Chạm 2 lần để chọn: lần 1 chỉ "nhấc" ô lên + viền xanh dương (màu = đang chọn), lần 2 mới chốt */
+#quizSection .answer-btn.is-armed {
+    box-shadow: 0 0 0 3px var(--hue-sky), 0 0 0 7px color-mix(in srgb, var(--hue-sky) 32%, transparent) !important;
+    translate: 0 -2px;
+}
+#quizSection .answer-btn.is-armed .answer-letter { background: var(--hue-sky) !important; color: #fff !important; border-color: var(--hue-sky) !important; }
+
+/* 18.4 Chọn lại / Đổi đáp án: nhãn kẹo vàng bơ, bật vào kiểu lò xo */
+#quizSection #undo-answer-btn {
+    display: inline-flex; align-items: center; gap: 0.45rem;
+    padding: 0.5rem 1rem; border-radius: 0.9rem; font-weight: 700; cursor: pointer;
+    animation: qb-pop .4s var(--spring) both;
+}
+@keyframes qb-pop { from { opacity: 0; transform: scale(.7) translateY(6px); } }
+
+/* 18.5 Thẻ Ghi nhớ / Mở rộng dài: gập thành bản xem trước (mép dưới mờ dần) + nút Mở hết */
+#quizSection .kb-card.is-long:not(.is-open) .kb-body {
+    max-height: var(--kb-limit, 22rem);
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(#000 calc(100% - 3.6rem), transparent);
+    mask-image: linear-gradient(#000 calc(100% - 3.6rem), transparent);
+}
+#quizSection .kb-more-btn {
+    display: flex; align-items: center; gap: 0.45rem;
+    margin: -0.3rem auto 1.05rem; padding: 0.45rem 1.15rem;
+    border-radius: 999px; font-size: 0.86rem; font-weight: 700; cursor: pointer;
+}
+#quizSection .kb-more-btn i { transition: transform .25s ease; font-size: 0.8rem; }
+#quizSection .kb-card.is-open .kb-more-btn i { transform: rotate(180deg); }
+#quizSection .kb-card.is-folded .kb-more-btn { display: none; }
+
+/* 18.6 Nhịp độ: nhãn băng keo nét đứt dưới thước tiến độ */
+.qnp-pace {
+    display: flex; align-items: center; gap: 0.4rem;
+    width: fit-content; max-width: 100%;
+    margin-top: 0.55rem; padding: 0.3rem 0.7rem;
+    border-radius: 999px; font-size: 0.74rem; font-weight: 700; line-height: 1.25;
+    color: var(--ink-sky);
+    background: color-mix(in srgb, var(--hue-sky) 20%, var(--surface-card));
+    border: 1.5px dashed color-mix(in srgb, var(--hue-sky) 60%, transparent);
+}
+.qnp-pace i { font-size: 0.78rem; flex-shrink: 0; }
+
+/* 18.7 Con dấu mốc tiến độ 25/50/75/100% — đóng lên góc thẻ ~2 giây rồi tan */
+.ms-stamp {
+    position: absolute; top: 0.5rem; right: 10.4rem; z-index: 20;
+    width: 4.5rem; height: 4.5rem; border-radius: 50%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    pointer-events: none;
+    color: var(--ink-butter);
+    background: color-mix(in srgb, var(--hue-butter) 30%, var(--surface-card));
+    border: 3px double color-mix(in srgb, var(--hue-butter) 85%, transparent);
+    box-shadow: 0 4px 0 color-mix(in srgb, var(--hue-butter) 35%, transparent);
+    rotate: -12deg;
+    animation: ms-stamp 2s var(--spring) both;
+}
+.ms-stamp[data-full="1"] {
+    color: var(--ink-mint);
+    background: color-mix(in srgb, var(--hue-mint) 30%, var(--surface-card));
+    border-color: color-mix(in srgb, var(--hue-mint) 85%, transparent);
+    box-shadow: 0 4px 0 color-mix(in srgb, var(--hue-mint) 35%, transparent);
+}
+.ms-stamp i { font-size: 0.95rem; color: var(--hue-butter); }
+.ms-stamp[data-full="1"] i { color: var(--hue-mint); }
+.ms-stamp b { font-size: 1.08rem; line-height: 1.1; font-weight: 800; }
+@keyframes ms-stamp {
+    0%   { opacity: 0; transform: scale(2.3); }
+    12%  { opacity: 1; transform: scale(1); }
+    80%  { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: translateY(-10px) scale(.95); }
+}
+@media (max-width: 639px) { .ms-stamp { right: 8.4rem; top: 0.3rem; width: 3.7rem; height: 3.7rem; } }
+
+/* 18.8 Thanh trên điện thoại trượt đi khi cuộn xuống, hiện lại khi cuộn lên (quiz-boost.js) */
+.nb-topbar { transition: transform .22s ease; }
+body.nb-bar-away .nb-topbar { transform: translateY(-105%); }
+
+@media (prefers-reduced-motion: reduce) {
+    #quizSection #undo-answer-btn, .ms-stamp, #quizSection #listen-btn.is-speaking i { animation: none; }
+    .nb-topbar { transition: none; }
+}
+
+/* ============================================================
+   19) GIỌNG ĐỌC (2026-10-06) — nhóm "Giọng đọc" trong bảng Ngựa thì chỉnh, page/quiz-voice.js
+   ============================================================ */
+#quiz-settings-popover .qs-row-voice { flex-direction: column; align-items: stretch; gap: 0.4rem; cursor: default; }
+#quiz-settings-popover .qs-select {
+    width: 100%; min-width: 0;
+    font: inherit; font-size: 0.82rem; font-weight: 700; color: var(--ink);
+    background-color: color-mix(in srgb, var(--hue-latte) 14%, var(--surface-card));
+    border: 2px solid color-mix(in srgb, var(--hue-latte) 42%, transparent);
+    border-radius: 0.8rem; padding: 0.45rem 0.65rem;
+    text-overflow: ellipsis;
+}
+#quiz-settings-popover .qs-select:focus { outline: none; border-color: var(--hue-sky); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hue-sky) 30%, transparent); }
+/* hộp hỏi tải giọng Piper + mẹo thêm giọng của máy: nhãn băng keo nét đứt */
+#quiz-settings-popover .qs-voice-box,
+#quiz-settings-popover .qs-voice-help {
+    margin: 0.1rem 0.3rem 0.5rem; padding: 0.6rem 0.7rem;
+    border-radius: 0.9rem; font-size: 0.74rem; line-height: 1.5; color: var(--ink);
+    background: color-mix(in srgb, var(--hue-sky) 13%, var(--surface-card));
+    border: 2px dashed color-mix(in srgb, var(--hue-sky) 55%, transparent);
+}
+#quiz-settings-popover .qs-voice-box[hidden],
+#quiz-settings-popover .qs-row[hidden] { display: none; }
+#quiz-settings-popover .qs-voice-box p,
+#quiz-settings-popover .qs-voice-help p { margin: 0.45rem 0 0; }
+#quiz-settings-popover .qs-voice-box p { margin: 0 0 0.45rem; }
+#quiz-settings-popover .qs-voice-help summary { cursor: pointer; font-weight: 800; color: var(--ink-sky); }
+#quiz-settings-popover .qs-voice-box progress { display: block; width: 100%; height: 0.55rem; margin: 0 0 0.5rem; accent-color: var(--hue-sky); }
+#quiz-settings-popover .qs-voice-box progress[hidden] { display: none; }
+#quiz-settings-popover .qs-voice-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+#quiz-settings-popover .qs-voice-actions button {
+    padding: 0.4rem 0.9rem; border-radius: 999px; font: inherit; font-size: 0.78rem; font-weight: 800; cursor: pointer;
+    color: var(--ink-sky);
+    background-color: color-mix(in srgb, var(--hue-sky) 22%, var(--surface-card));
+    border: 2px solid color-mix(in srgb, var(--hue-sky) 45%, transparent);
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--hue-sky) 32%, transparent);
+}
+#quiz-settings-popover .qs-voice-actions button:active { transform: translateY(2px); box-shadow: 0 1px 0 color-mix(in srgb, var(--hue-sky) 32%, transparent); }
+#quiz-settings-popover .qs-voice-actions button:disabled { opacity: .6; }
+/* iOS phóng to trang khi chạm ô chọn nhỏ hơn 16px */
+@media (pointer: coarse) {
+    #quiz-settings-popover .qs-select { font-size: 16px; }
+}

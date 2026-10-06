@@ -8,7 +8,7 @@ import { openQuestionEditor } from '../quiz-editor.js';
 import { state, saveQuizState } from '../quiz-state.js';
 import { renderMath, triggerConfetti, parseMarkdown, stripOptionLabels, isMultiAnswer, getCorrectIndexes, isAnswerCorrect } from '../quiz-helpers.js';
 import { updateProgressBar, renderQuizProgressBar, syncQuizNavPanel } from '../quiz-ui.js';
-import { feedback, getVibrate, scrollQuizToTop } from './quiz-page-prefs.js';
+import { feedback, getVibrate, scrollQuizTo, scrollQuizToTop } from './quiz-page-prefs.js';
 import { hideCatMeme, preloadCurrentMemes, showCatMeme } from './quiz-cat-meme.js';
 import { renderMarkControl, setupMarkControl, refreshMarkedPanel, applyMark } from './quiz-marks.js';
 import { renderPersonalNotePanel, setupPersonalNote } from './quiz-notes-panel.js';
@@ -339,7 +339,17 @@ export function showQuestion() {
     const prevPanelEarly = indexChanged ? document.getElementById('clinical-case-panel') : null;
     const nextCaseKey = caseKeyOf(state.questions[state.currentIndex]);
     const stayInCase = !!(prevPanelEarly && nextCaseKey && prevPanelEarly.getAttribute('data-case-id') === nextCaseKey);
-    if (indexChanged) { hideCatMeme(); if (!stayInCase) scrollQuizToTop(); }
+    // Đang ở XA đầu trang (cuối thẻ có Mở rộng dài): nhảy thẳng lên đầu TRƯỚC khi thay thẻ. Thẻ mới ngắn hơn hẳn nên nếu
+    // thay trước, vị trí cuộn vượt quá đáy trang -> iPad nảy/kẹp lại bằng hoạt ảnh, lộ nền trơn bên dưới kéo lên một khúc.
+    // Quãng gần thì cuộn mượt SAU khi thay (xem scrollQuizTo).
+    if (indexChanged) {
+        hideCatMeme();
+        if (window.scrollY > Math.min(260, window.innerHeight * 0.3)) {
+            // Cùng ca: khung ca đứng yên nên đề bài mới nằm đúng chỗ đề bài cũ -> đưa tới đó, khỏi vượt đáy
+            const qt = stayInCase ? document.querySelector('#quizSection .question-text') : null;
+            window.scrollTo(0, qt ? Math.max(0, qt.getBoundingClientRect().top + window.scrollY - (window.innerWidth < 768 ? 72 : 16)) : 0);
+        }
+    }
     // Vẽ lại câu = mọi đếm ngược "tự chuyển câu" của câu cũ đều hết hiệu lực
     cancelAutoNext();
     // Tải trước meme cho câu này ngay khi đang đọc đề -> trả lời là hiện liền, không trễ
@@ -470,9 +480,13 @@ export function showQuestion() {
                 ${setNameSafe ? `<div class="quiz-setname focus-hide" title="${setNameSafe}"><i class="fas fa-book-open"></i><span class="quiz-setname-text">${setNameSafe}</span></div>` : ''}
                 <h2 class="quiz-question-heading text-xl font-bold text-gray-700">${title}</h2>
             </div>
-            <button type="button" id="edit-question-btn" class="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border border-pink-300 text-[#FF69B4] bg-pink-50 hover:bg-pink-100 hover:text-pink-600 transition" title="Sửa đáp án, giải thích, ghi chú, mở rộng cho câu này" aria-label="Sửa câu hỏi">
-                <i class="fas fa-pen-to-square"></i>
-            </button>
+            <div class="q-head-tools">
+                <button type="button" id="listen-btn" class="q-tool-btn" title="Nghe đọc câu hỏi (phím R) · bấm giữ để đổi giọng" aria-label="Nghe đọc câu hỏi" aria-pressed="false"><i class="fas fa-volume-up"></i></button>
+                <button type="button" id="copy-q-btn" class="q-tool-btn" title="Sao chép câu hỏi (phím K)" aria-label="Sao chép câu hỏi"><i class="fas fa-copy"></i></button>
+                <button type="button" id="edit-question-btn" class="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border border-pink-300 text-[#FF69B4] bg-pink-50 hover:bg-pink-100 hover:text-pink-600 transition" title="Sửa đáp án, giải thích, ghi chú, mở rộng cho câu này" aria-label="Sửa câu hỏi">
+                    <i class="fas fa-pen-to-square"></i>
+                </button>
+            </div>
         </div>
         <div class="quiz-meta-chips mb-2 flex flex-wrap items-center gap-2 focus-hide">
             ${question.topic && String(question.topic).trim() && String(question.topic).trim().toLowerCase() !== 'chung' ? `<span class="inline-block px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold border border-blue-200"><i class="fas fa-tag mr-1"></i> <span class="chip-k">Chủ đề: </span>${question.topic}</span>` : ''}
@@ -561,6 +575,7 @@ export function showQuestion() {
     if (indexChanged) {
         const card = quizSection.firstElementChild;
         if (card) card.classList.add(slideDir === 'prev' ? 'q-slide-prev' : 'q-slide-next');
+        if (!stayInCase) scrollQuizToTop();
     }
     // Cùng ca với câu vừa xem: khung ca đứng yên (CSS chỉ trượt phần câu hỏi) + giữ vị trí cuộn
     const sameCase = !!(caseText && prevCaseKey && prevCaseKey === caseKeyOf(question));
@@ -577,9 +592,7 @@ export function showQuestion() {
             if (!qText) scrollQuizToTop();
             else {
                 const offset = window.innerWidth < 768 ? 72 : 16;   // chừa thanh trên cùng (mobile)
-                const y = qText.getBoundingClientRect().top + window.scrollY - offset;
-                const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-                window.scrollTo({ top: Math.max(0, y), behavior: reduce ? 'auto' : 'smooth' });
+                scrollQuizTo(Math.max(0, qText.getBoundingClientRect().top + window.scrollY - offset));
             }
         }
     }

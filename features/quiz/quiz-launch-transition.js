@@ -587,6 +587,7 @@
             if (bob) bob.cancel();
             clearTimeout(stitchTimer);
             stitch.classList.remove('is-on');
+            session.prevHref = location.href;
             try { history.pushState({ quizLaunch: true }, '', url); } catch (e) {}
 
             primeFrameTitle();
@@ -811,12 +812,10 @@
             try {
                 var loc = frame.contentWindow.location;
                 if (loc && /index\.html$/.test(loc.pathname)) {
-                    if (history.state && history.state.quizLaunch) {
-                        history.back();
-                    } else {
-                        teardown(session);
-                        try { history.replaceState(null, '', 'index.html'); } catch (e) {}
-                    }
+                    // KHÔNG history.back(): điều hướng trong iframe cũng nằm trong lịch sử chung, lùi 1 bước
+                    // chỉ quay về trang chờ của chính iframe (bấm "Trang chủ" mà hiện lại trang chờ làm bài)
+                    teardown(session);
+                    try { history.replaceState(null, '', session.prevHref || 'index.html'); } catch (e) {}
                     return;
                 }
             } catch (e) {}

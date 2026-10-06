@@ -42,10 +42,15 @@ export function feedback(isCorrect) {
     if (getSound()) playTone(isCorrect);
 }
 
-// --- Cuộn mượt lên đầu trang khi chuyển sang câu khác (nội dung câu luôn nằm gọn ở giữa màn) ---
-export function scrollQuizToTop() {
+// --- Cuộn lên đầu trang khi chuyển sang câu khác (nội dung câu luôn nằm gọn ở giữa màn) ---
+// Cuộn mượt CHỈ khi quãng ngắn. Quãng xa (đang ở cuối thẻ có Mở rộng dài) thì nhảy thẳng: thẻ mới ngắn hơn
+// nên trình duyệt đã kẹp vị trí cuộn xuống đáy trang — cuộn mượt từ đó sẽ lộ phần nền trơn bên dưới (lỗi iPad).
+// PHẢI gọi SAU khi thẻ mới đã vẽ xong (cùng nhịp, chưa kịp tô khung hình nào).
+export function scrollQuizTo(y) {
     try {
         const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
-    } catch (e) { try { window.scrollTo(0, 0); } catch (_) {} }
+        const far = Math.abs(window.scrollY - y) > Math.min(260, window.innerHeight * 0.3);
+        window.scrollTo({ top: y, behavior: reduce || far ? 'auto' : 'smooth' });
+    } catch (e) { try { window.scrollTo(0, y); } catch (_) {} }
 }
+export function scrollQuizToTop() { scrollQuizTo(0); }

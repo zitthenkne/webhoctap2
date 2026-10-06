@@ -144,6 +144,8 @@
     <link rel="modulepreload" href="page/quiz-cat-meme.js">
     <link rel="modulepreload" href="page/quiz-marks.js">
     <link rel="modulepreload" href="page/quiz-mobile-nav.js">
+    <link rel="modulepreload" href="page/quiz-boost.js">
+    <link rel="modulepreload" href="page/quiz-voice.js">
     <link rel="modulepreload" href="page/quiz-notes-panel.js">
     <link rel="modulepreload" href="page/quiz-page-prefs.js">
     <link rel="modulepreload" href="page/quiz-page-setup.js">
@@ -1373,6 +1375,18 @@
                     <span class="qs-label"><i class="fas fa-comment-dots"></i> Hiện ghi chú cụm từ</span>
                     <span class="qs-switch"></span>
                 </div>
+                <div class="qs-row" id="qs-confirm-tap" role="switch" aria-checked="false" tabindex="0" title="Chạm lần 1 chỉ đánh dấu ô, chạm lần 2 mới chốt đáp án — hết chọn nhầm trên điện thoại / iPad">
+                    <span class="qs-label"><i class="fas fa-check-double"></i> Chạm 2 lần để chọn</span>
+                    <span class="qs-switch"></span>
+                </div>
+                <div class="qs-row" id="qs-kb-clamp" role="switch" aria-checked="true" tabindex="0" title="Ghi nhớ / Mở rộng quá dài tự gập thành bản xem trước, có nút Mở hết">
+                    <span class="qs-label"><i class="fas fa-compress-arrows-alt"></i> Gập gọn mục dài</span>
+                    <span class="qs-switch"></span>
+                </div>
+                <div class="qs-row" id="qs-wake" role="switch" aria-checked="true" tabindex="0" title="Màn hình không tự tắt khi đang làm bài (iPad / điện thoại)">
+                    <span class="qs-label"><i class="fas fa-sun"></i> Giữ màn hình sáng</span>
+                    <span class="qs-switch"></span>
+                </div>
                 <div id="marked-control" class="hidden">
                     <button type="button" id="marked-list-btn" class="qs-row qs-action" aria-expanded="false" aria-controls="marked-list-panel" title="Xem nhanh các câu đã đánh dấu">
                         <span class="qs-label"><i class="fas fa-flag"></i> Câu đã đánh dấu</span>
@@ -1396,6 +1410,35 @@
                     <kbd class="kbd-key">?</kbd>
                 </button>
             </div>
+        </div>
+
+        <!-- Nhóm: Giọng đọc — chọn giọng có sẵn trong máy, hoặc Adam/ElevenLabs bằng khóa API riêng (page/quiz-voice.js) -->
+        <div class="qs-group">
+            <div class="qs-group-title"><i class="fas fa-volume-up"></i> Giọng đọc</div>
+            <label class="qs-row qs-row-voice" for="qs-voice">
+                <span class="qs-label"><i class="fas fa-volume-up"></i> Giọng</span>
+                <select id="qs-voice" class="qs-select" aria-label="Chọn giọng đọc"></select>
+            </label>
+            <div class="qs-row qs-row-slider">
+                <span class="qs-label"><i class="fas fa-forward"></i> Tốc độ</span>
+                <input type="range" id="qs-voice-rate" class="qs-range" min="0.7" max="1.4" step="0.05" value="1" aria-label="Tốc độ đọc">
+            </div>
+            <button type="button" id="qs-voice-test" class="qs-row qs-action">
+                <span class="qs-label"><i class="fas fa-play"></i> Nghe thử</span>
+            </button>
+            <!-- Giọng Piper chưa tải: hỏi trước vì nặng (28–63 MB) -->
+            <div id="qs-voice-dl" class="qs-voice-box" hidden>
+                <p id="qs-voice-dl-text"></p>
+                <progress id="qs-voice-dl-bar" max="100" hidden></progress>
+                <div class="qs-voice-actions"><button type="button" id="qs-voice-dl-go">Tải về</button></div>
+            </div>
+            <button type="button" id="qs-voice-del" class="qs-row qs-action" hidden>
+                <span class="qs-label"><i class="fas fa-trash-can"></i> Xóa giọng đã tải khỏi máy</span>
+            </button>
+            <details class="qs-voice-help">
+                <summary>Thêm giọng tiếng Việt cho máy</summary>
+                <p>Windows: Cài đặt &rarr; Thời gian &amp; ngôn ngữ &rarr; Giọng nói &rarr; Thêm giọng &rarr; Tiếng Việt. iPhone/iPad: Cài đặt &rarr; Trợ năng &rarr; Nội dung được đọc &rarr; Giọng nói &rarr; Tiếng Việt. Trình duyệt Edge có thêm giọng HoaiMy, NamMinh (Natural) nghe tự nhiên hơn. Cài xong, mở lại trang.</p>
+            </details>
         </div>
 
         <!-- Nhóm: Giấy & ảnh nền (luôn hiện) -->
@@ -1539,6 +1582,13 @@
                         <div><dt><kbd class="kbd-key">A</kbd>–<kbd class="kbd-key">D</kbd> <kbd class="kbd-key">1</kbd>–<kbd class="kbd-key">9</kbd></dt><dd>Chọn đáp án</dd></div>
                         <div><dt><kbd class="kbd-key">←</kbd> <kbd class="kbd-key">→</kbd></dt><dd>Câu trước / câu sau</dd></div>
                         <div><dt><kbd class="kbd-key">Enter ⏎</kbd></dt><dd>Sang câu tiếp khi đã chấm</dd></div>
+                        <div><dt><kbd class="kbd-key">U</kbd></dt><dd>Chọn lại / đổi đáp án</dd></div>
+                        <div><dt><kbd class="kbd-key">N</kbd></dt><dd>Nhảy tới câu chưa làm</dd></div>
+                        <div><dt><kbd class="kbd-key">M</kbd></dt><dd>Đánh dấu / bỏ đánh dấu câu</dd></div>
+                        <div><dt><kbd class="kbd-key">X</kbd></dt><dd>Trợ giúp 50:50</dd></div>
+                        <div><dt><kbd class="kbd-key">R</kbd></dt><dd>Nghe đọc câu hỏi</dd></div>
+                        <div><dt><kbd class="kbd-key">K</kbd></dt><dd>Sao chép câu hỏi</dd></div>
+                        <div><dt><kbd class="kbd-key">T</kbd></dt><dd>Chế độ tập trung</dd></div>
                         <div><dt><kbd class="kbd-key">V</kbd></dt><dd>Xem lại ca lâm sàng</dd></div>
                         <div><dt><kbd class="kbd-key">Esc</kbd></dt><dd>Đóng bảng đang mở</dd></div>
                         <div><dt><kbd class="kbd-key">?</kbd></dt><dd>Mở / đóng bảng này</dd></div>

@@ -68,6 +68,19 @@
             { uid: 'u9', displayName: 'Gia Bảo', emoji: '🐯', online: true, lastSeen: now, cursor: 3 });
         await setDoc(D('study_rooms', 'nhom-y23c', 'members', 'u1'),
             { uid: 'u1', displayName: 'Việt Thành', emoji: '🦊', online: false, lastSeen: now - 400000 });
+        // Phòng 5: hẹn giờ ngày mai (để thấy dải lịch + cuống vé "ngày nữa")
+        await setDoc(D('study_rooms', 'noi-khoa-t4'), {
+            owner: 'u1', createdAt: ts(now - 86400000 * 2),
+            title: 'Nội khoa — ôn thi cuối kỳ', emoji: '🩺', theme: 0,
+            scheduledAt: now + 86400000 + 3600000,
+            live: { title: 'Nội khoa — Tim mạch', qCount: 30, startedAt: now - 86400000 * 2, endedAt: now - 86400000 * 2 + 3000000, ended: true, avg: 64, people: 4 },
+        });
+        // Phòng 6: lâu rồi chưa vào (>14 ngày) → nhóm "Lâu rồi chưa vào" gập sẵn
+        await setDoc(D('study_rooms', 'sinh-hoa-cu'), {
+            owner: 'u1', createdAt: ts(now - 86400000 * 40), title: 'Sinh hoá — chuyển hoá lipid (phòng cũ)', emoji: '🧬', theme: 4,
+        });
+        await setDoc(D('study_rooms', 'sinh-hoa-cu', 'members', 'u1'),
+            { uid: 'u1', displayName: 'Việt Thành', emoji: '🦊', online: false, lastSeen: now - 86400000 * 30 });
         localStorage.setItem('roomRecents', JSON.stringify([{ id: 'nhom-y23c', at: now - 7200000 }]));
         localStorage.setItem('roomPins', JSON.stringify(['giaiphau-77']));
 

@@ -1,13 +1,14 @@
 // Service Worker for PWA - Offline Support & Caching
 // 3 kho cache:
-//  - CACHE_NAME (zitthenkne-vNNN): app shell. Tăng số MỖI LẦN sửa/thêm file trong urlsToCache.
+//  - CACHE_NAME (zitthenkne-v2NNN): app shell. Tăng số MỖI LẦN sửa/thêm file trong urlsToCache.
 //  - CDN_CACHE: thư viện + phông từ CDN (URL có phiên bản, gần như bất biến) → GIỮ qua các phiên bản.
 //  - IMG_CACHE: ảnh tải lúc chạy (nền, avatar, ảnh bệnh án) → giữ qua các phiên bản, tối đa IMG_MAX mục.
-const CACHE_NAME = 'zitthenkne-v237';
+const CACHE_NAME = 'zitthenkne-v249';
 const CDN_CACHE = 'zitthenkne-cdn';
 const IMG_CACHE = 'zitthenkne-img';
 const IMG_MAX = 600;
 const QUIZ_IMG_CACHE = 'zitthenkne-quiz-img';   // ảnh bộ đề lưu offline (quiz-offline-store.js tự dọn) — không trim theo IMG_MAX
+const PIPER_CACHE = 'zitthenkne-piper';         // giọng đọc Piper người dùng đã tải (page/piper-worker.js tự ghi/xóa) — chỉ GIỮ, không đụng
 
 // App shell (cùng origin) — nạp sẵn khi cài để mở offline được ngay.
 const urlsToCache = [
@@ -41,6 +42,9 @@ const urlsToCache = [
   'features/quiz/page/quiz-session.js',
   'features/quiz/page/quiz-mobile-nav.js',
   'features/quiz/page/quiz-tablet-next.js',
+  'features/quiz/page/quiz-boost.js',
+  'features/quiz/page/quiz-voice.js',
+  'features/quiz/page/piper-worker.js',
   'features/quiz/page/quiz-auto-next.js',
   'features/quiz/quiz-library-controller.js',
   'features/quiz/library/library-state.js',
@@ -169,6 +173,7 @@ const urlsToCache = [
   'features/medical-record/tuyen-truoc-list.js',
   'features/medical-record/benh-an-text.js',
   'features/medical-record/record-store.js',
+  'features/medical-record/sync-core.js',
   'features/medical-record/benh-an-mau.js',
   'features/medical-record/cls-shared.js',
   'features/medical-record/cls-editor.js',
@@ -300,7 +305,7 @@ async function precacheShell() {
 
 // Chuyển ảnh/CDN đã lưu ở các phiên bản cũ sang kho bền (chỉ chạy lúc lên phiên bản, đọc ghi cục bộ).
 async function migrateOldCaches() {
-  const names = (await caches.keys()).filter((n) => /^zitthenkne-v\d+$/.test(n) && n !== CACHE_NAME);
+  const names = (await caches.keys()).filter((n) => /^zitthenkne-v1\d+$/.test(n) && n !== CACHE_NAME);
   const shell = new Set(urlsToCache.map((u) => new URL(u, self.location).href));
   const cdn = await caches.open(CDN_CACHE);
   const img = await caches.open(IMG_CACHE);
@@ -400,7 +405,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((names) => Promise.all(names.map((name) => {
-      if (name !== CACHE_NAME && name !== CDN_CACHE && name !== IMG_CACHE && name !== QUIZ_IMG_CACHE) {
+      if (name !== CACHE_NAME && name !== CDN_CACHE && name !== IMG_CACHE && name !== QUIZ_IMG_CACHE && name !== PIPER_CACHE) {
         console.log('SW: xoá cache cũ:', name);
         return caches.delete(name);
       }
@@ -415,6 +420,7 @@ function isDynamicData(url) {
   const h = url.hostname;
   return /(firestore|identitytoolkit|securetoken|firebaseinstallations|firebasedatabase|firebaseio|fcm|firebaseremoteconfig)/.test(h) ||
     h === 'www.googleapis.com' ||
+    h === 'huggingface.co' || h.endsWith('.hf.co') ||   // model giọng Piper 28–63MB: worker tự lưu, SW mà cache nữa là nhân đôi dung lượng
     h.includes('google-analytics') ||
     h.includes('analytics.google') ||
     h.includes('googletagmanager');

@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="../../core/app-sidebar.css?v=1">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Giao diện vùng bệnh án (bố cục 2 cột: đợt thực hành | bệnh án) -->
-    <link rel="stylesheet" href="waiting-room.css?v=4">
+    <link rel="stylesheet" href="waiting-room.css?v=5">
 </head>
 
 <body class="flex h-screen text-gray-700 text-sm">
@@ -56,6 +56,9 @@
             </div>
         </header>
         <main id="wr-main" class="flex-1 overflow-x-hidden overflow-y-auto">
+            <!-- Kéo xuống ở đầu trang (cảm ứng) để đồng bộ — JS đặt --pull -->
+            <div id="wr-ptr" class="wr-ptr" aria-hidden="true"><i class="fas fa-arrow-down"></i><span>Kéo để đồng bộ</span></div>
+            <div id="wr-swipe" class="wr-swipe" aria-live="polite"></div>
             <div class="wr-wrap">
                 <!-- CỘT TRÁI: đợt thực hành. Điện thoại: bảng trượt từ đáy, mở bằng #folder-switch -->
                 <aside id="folder-pane" class="fp" aria-label="Đợt thực hành">
@@ -112,7 +115,19 @@
                                     <select id="sort-record" aria-label="Sắp xếp danh sách">
                                         <option value="new">Sửa gần nhất</option>
                                         <option value="old">Sửa lâu nhất</option>
+                                        <option value="pct">Gần xong nhất</option>
+                                        <option value="admit">Mới vào viện nhất</option>
+                                        <option value="bed">Phòng · giường</option>
                                         <option value="name">Tên A → Z</option>
+                                    </select>
+                                </div>
+                                <div class="wr-menu-sec">
+                                    <span>Nhóm theo</span>
+                                    <select id="group-by" aria-label="Nhóm danh sách theo">
+                                        <option value="folder">Đợt thực hành</option>
+                                        <option value="status">Trạng thái</option>
+                                        <option value="kind">Chuyên khoa</option>
+                                        <option value="none">Không nhóm</option>
                                     </select>
                                 </div>
                                 <div class="wr-menu-sec">
@@ -197,6 +212,11 @@
                             <input id="folder-hospital" type="text"
                                 class="mt-1 w-full border-2 border-pink-100 rounded-xl px-3 py-2 text-base text-gray-700 focus:outline-none focus:ring-2 focus:ring-pink-200"
                                 placeholder="vd: BV Chợ Rẫy">
+                        </label>
+                        <label class="text-xs font-semibold text-gray-500 sm:col-span-2">Chỉ tiêu số bệnh án của đợt <span class="font-medium text-gray-400">(không bắt buộc)</span>
+                            <input id="folder-quota" type="number" min="0" max="99" inputmode="numeric"
+                                class="mt-1 w-full border-2 border-pink-100 rounded-xl px-3 py-2 text-base text-gray-700 focus:outline-none focus:ring-2 focus:ring-pink-200"
+                                placeholder="vd: 5 — trang sẽ báo còn thiếu mấy bệnh án">
                         </label>
                         <label class="text-xs font-semibold text-gray-500">Từ ngày
                             <input id="folder-from" type="date"

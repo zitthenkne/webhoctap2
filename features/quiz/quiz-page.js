@@ -37,6 +37,7 @@ import {
 } from './page/quiz-question-view.js';
 import { setupMobileNav } from './page/quiz-mobile-nav.js';
 import { setupTabletNext } from './page/quiz-tablet-next.js';
+import { setupQuizBoost } from './page/quiz-boost.js';
 import {
     loadQuizData, startQuizMode, startQuizWithCurrentSettings, startSrsSession, endQuiz
 } from './page/quiz-session.js';
@@ -311,6 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEdgeTap();        // Chạm rìa trái/phải màn hình để chuyển câu (mobile)
     setupMobileNav();      // Thanh điều hướng đáy + bảng nhảy câu (mobile)
     setupTabletNext();     // iPad: nút Câu tiếp nổi khi nút trong thẻ ngoài màn hình
+    setupQuizBoost();      // gói nâng cấp 2026-10-05: gập thẻ dài, chọn lại, nghe đọc, phím tắt, nhịp độ...
 
     // "Làm cùng nhau": mở đề sang phòng đánh đề (trang chờ + bảng thiết lập khi đang làm) — nạp lười
     document.addEventListener('click', (e) => {
