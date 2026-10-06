@@ -11,9 +11,9 @@ const src = readFileSync(join(HERE, '..', 'study-room.html'), 'utf8');
 const MAP = `    <base href="../">
     <script type="importmap">
     {"imports":{
-      "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js":"./dev/stub-firestore.js",
-      "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js":"./dev/stub-auth.js",
-      "https://www.gstatic.com/firebasejs/9.6.0/firebase-storage.js":"./dev/stub-storage.js",
+      "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js":"./dev/stub-firestore.js",
+      "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js":"./dev/stub-auth.js",
+      "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js":"./dev/stub-storage.js",
       "../../core/firebase-init.js":"./dev/stub-init.js"
     }}
     </script>

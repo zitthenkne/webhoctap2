@@ -1,6 +1,6 @@
 // File: editor.js
 import { db, auth } from '../../core/firebase-init.js';
-import { doc, getDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { doc, getDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { setDocQ as setDoc } from '../../core/offline-write.js';
 import { onSessionUser, sessionUser } from '../../core/auth-session.js';
 import { getOfflineQuiz, autoCacheQuiz, isOfflineSavedSync } from '../quiz/quiz-offline-store.js';

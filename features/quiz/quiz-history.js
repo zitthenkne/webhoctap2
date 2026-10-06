@@ -1,6 +1,6 @@
 // quiz-history.js
 import { db, auth } from '../../core/firebase-init.js';
-import { collection, query, where, orderBy, getDocs, doc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { collection, query, where, orderBy, getDocs, doc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { onSessionUser } from '../../core/auth-session.js';
 import { deleteDocQ } from '../../core/offline-write.js';
 import { showToast } from '../../core/utils.js';

@@ -2,7 +2,7 @@
 // Gồm: chia đội · chuông giành lượt · cược tự tin · phiếu kín rồi lật bài ·
 // bánh xe chọn người giảng · cảm ơn người giảng · vài tiện ích cuối buổi.
 // Tất cả đều dựa trên doc sẵn có (members + quizSession), không thêm collection mới.
-import { updateDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { showToast } from '../../core/utils.js';
 import {
     room, refs, uid, canControl, hasSession, isAnnounced, currentIndex, answerOf,

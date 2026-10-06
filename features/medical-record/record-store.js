@@ -10,7 +10,7 @@ import { onSessionUser, sessionUser } from '../../core/auth-session.js';
 import {
     collection, query, where, getDocs, getDoc, doc, onSnapshot, writeBatch, deleteField,
     setDoc as setDocRaw, deleteDoc as deleteDocRaw
-} from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 // Ghi không treo khi mất mạng (xem core/offline-write.js)
 import { queued } from "../../core/offline-write.js";
 // Logic "ai thắng" khi trộn nhiều máy (thuần, kiểm thử được trong Node) + thư mục đợt thực hành

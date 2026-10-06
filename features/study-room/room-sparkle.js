@@ -178,7 +178,7 @@ function paintStreak() {
     if (streak === lastStreak) return;
     if (streak >= 2) {
         chip.innerHTML = `🔥<b>${streak}</b>`;
-        chip.title = `Chuỗi ${streak} câu đúng liên tiếp — giữ lửa nhé!`;
+        chip.title = `Chuỗi ${streak} câu đúng liên tiếp`;
         if (streak > lastStreak) {
             chip.classList.remove('is-bump');
             void chip.offsetWidth;

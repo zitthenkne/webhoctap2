@@ -8,6 +8,7 @@
 //
 // Nạp LƯỜI từ room-editor.js: chỉ khi có người bấm nút Ghi chú hoặc bấm vào chip.
 import { showToast } from '../../core/utils.js';
+import { showUndo } from './room-ui.js';
 
 const MAX_WORDS = 10;
 const MAX_QUOTE = 160;                         // cụm được ghi chú: chữ, không phải cả đoạn
@@ -216,12 +217,28 @@ function remove() {
         const sp = findSpan(ctx);
         if (sp) {
             const node = sp.closest('[data-live-edit]') || ctx.node;
+            // Bản 69: xóa ghi chú là xóa của CẢ PHÒNG và không hỏi lại -> có thanh Hoàn tác (dựng lại đúng cụm chữ + ghi chú cũ)
+            const keep = { raw: sp.textContent, note: sp.getAttribute('data-note') || '', start: offsetIn(node, sp, 0), key: node.dataset.liveEdit };
             sp.replaceWith(...sp.childNodes);
             node.normalize();
             fireInput(node);
+            showUndo('Đã xóa ghi chú', () => restore(node, keep));
         }
     }
     closeNoteEditor();
+}
+
+/** Hoàn tác xóa: bọc lại đúng cụm chữ (dò lại gần chỗ cũ nếu người khác vừa sửa ô). */
+function restore(node, { raw, note, start, key }) {
+    const n = node.isConnected ? node : document.querySelector(`[data-live-edit="${CSS.escape(key)}"]`);
+    if (!n || !raw || !note) return void showToast('Không khôi phục được ghi chú — ô đã đổi.', 'info', 2600);
+    const full = n.textContent;
+    let at = start;
+    if (at < 0 || full.slice(at, at + raw.length) !== raw) at = nearestIndex(full, raw, Math.max(0, start));
+    const sp = at < 0 ? null : wrapOffsets(n, at, at + raw.length, note);
+    if (!sp) return void showToast('Không khôi phục được ghi chú — chữ đã bị sửa.', 'info', 2600);
+    pulse(sp);
+    fireInput(n);
 }
 
 /** Chip vừa lưu bật ra như dán nhãn (class tự gỡ sau hoạt ảnh). */

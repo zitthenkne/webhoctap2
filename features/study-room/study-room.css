@@ -62,7 +62,7 @@ body { overscroll-behavior-y: contain; }
     --rm-ok-bg: #E8F8F1;
     --rm-bad: #F2789A;
     --rm-bad-bg: #FFEFF3;
-    --rm-warn: #D99A5B;
+    --rm-warn: #A0621A;
     --rm-warn-bg: #FFF6EA;
 
     --rm-shadow-sm: 0 4px 14px -8px rgba(242, 112, 156, .45);
@@ -704,12 +704,19 @@ textarea.rm-input { line-height: 1.6; resize: vertical; }
 }
 
 /* ---------- Trình chiếu ---------- */
-body.present #side-panel, body.present #mobile-nav, body.present #stage-tabs { display: none !important; }
+body.present #side-panel, body.present #stage-tabs { display: none !important; }       /* bản 64: dock điện thoại GIỮ LẠI — ẩn nó là hết cách chốt / câu tiếp / thoát trình chiếu trên máy không có phím F, Esc */
 body.present #question-text { font-size: clamp(1.7rem, 1.4rem + 2vw, 3rem); }
 body.present .rm-option { padding: 1.3rem 1.5rem; }
 body.present .rm-option .rm-otext { font-size: 1.25rem; }
 body.present .rm-option .rm-letter { width: 2.6rem; height: 2.6rem; font-size: 1.05rem; }
+@media (max-width: 767px) {                       /* điện thoại: phóng vừa phải, không để chữ + vòng chữ cái ăn hết chiều ngang */
+    body.present #question-text { font-size: clamp(1.3rem, 1rem + 2.4vw, 1.7rem); }
+    body.present .rm-option { padding: 1rem 1rem; }
+    body.present .rm-option .rm-otext { font-size: 1.08rem; }
+    body.present .rm-option .rm-letter { width: 2.2rem; height: 2.2rem; font-size: .95rem; }
+}
 body.present .rm-col-side, body.present .rm-race, body.present .rm-vote, body.present .rm-selfcard { display: none; }
+body.present .toast-notification:is(.bg-blue-500, .bg-green-500) { display: none !important; }      /* bản 69: máy chiếu không hiện thông báo thường / mẹo (cảnh báo + lỗi vẫn hiện) */
 body.present .rm-live-grid { grid-template-columns: 1fr; }
 
 /* ---------- Markdown đã vẽ ---------- */
@@ -742,7 +749,7 @@ body.present .rm-live-grid { grid-template-columns: 1fr; }
     transition: background .18s, border-color .18s, box-shadow .18s;
     cursor: text;
 }
-[data-live-edit]:hover { background: var(--rm-accent-soft); border-color: color-mix(in srgb, var(--rm-accent) 35%, transparent); }
+/* (bản 56: hết tô nền khi rê chuột — chỉ bấm ĐÚP mới vào chế độ sửa, xem cuối file) */
 [data-live-edit]:focus {
     outline: none; background: var(--rm-surface);
     border-color: var(--rm-accent); box-shadow: 0 0 0 4px var(--rm-accent-soft);
@@ -1417,18 +1424,7 @@ html.theme-dark .rm-hero-title { color: #FFB9D6; }
 .rm-leftchip:hover { transform: translateY(-1px); background: var(--rm-accent-soft); }
 .rm-leftchip.is-done { background: var(--rm-ok-bg); color: var(--rm-ok); }
 
-/* --- (7) Chế độ tập trung: chỉ còn câu hỏi + phương án --- */
-body.zen .rm-race, body.zen .rm-col-side, body.zen .rm-qtrack, body.zen #stage-tabs { display: none !important; }
-body.zen .rm-live-grid { grid-template-columns: 1fr !important; max-width: 50rem; margin-inline: auto; }
-body.zen .rm-vote { opacity: .5; transition: opacity .25s; }
-body.zen .rm-vote:hover { opacity: 1; }
-.rm-zen-chip {
-    position: fixed; z-index: 55; left: 50%; bottom: 1.1rem; transform: translateX(-50%);
-    display: none; align-items: center; gap: .4rem; padding: .4rem .9rem; border-radius: 999px;
-    font-size: .72rem; font-weight: 600; color: var(--rm-ink);
-    background: var(--rm-surface); border: 1px solid var(--rm-line); box-shadow: var(--rm-shadow);
-}
-body.zen .rm-zen-chip { display: inline-flex; }
+/* --- (7) Chế độ tập trung: xem "BẢN 62" cuối file --- */
 
 /* --- (8) Tìm nhanh câu hỏi --- */
 .rm-find { align-items: flex-start; padding-top: 12vh; }
@@ -1481,9 +1477,16 @@ body.zen .rm-zen-chip { display: inline-flex; }
 .rm-mestats span { font-size: .62rem; font-weight: 600; color: var(--rm-muted); text-align: center; }
 
 /* --- (9) Bảng phím tắt --- */
-.rm-help-grid { display: grid; gap: .3rem; }
+.rm-help-grid { display: grid; gap: .9rem; max-height: min(70vh, 34rem); overflow-y: auto; overscroll-behavior: contain; }
+.rm-help-sec { display: grid; gap: .3rem; }
+.rm-help-cap { margin: 0 0 .1rem; padding-inline: .55rem; font-size: .7rem; font-weight: 700; letter-spacing: .03em; color: var(--rm-muted); }
+.rm-help-sec .rm-help-row:nth-of-type(even) { background: var(--rm-surface-2); }
+.rm-help-sec .rm-help-row:nth-of-type(odd) { background: none; }
+.rm-help-row { align-items: flex-start; }
+.rm-help-row .rm-kbd { flex: none; max-width: 46%; text-align: right; white-space: normal; }
+#help-tabs { padding: 0 0 .55rem; }
+.rm-help-grid.is-gest .rm-kbd { font-family: inherit; font-weight: 600; letter-spacing: 0; }
 .rm-help-row { display: flex; align-items: center; gap: .6rem; padding: .42rem .55rem; border-radius: var(--rm-r-sm); font-size: .76rem; font-weight: 500; }
-.rm-help-row:nth-child(odd) { background: var(--rm-surface-2); }
 .rm-help-row .rm-kbd { margin-left: auto; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1744,7 +1747,7 @@ html.theme-dark .rm-doc-head > i, html.theme-dark .rm-doc-link { color: #D6C2FF;
 .rm-md img { max-height: 22rem; object-fit: contain; }
 #quiz-live .rm-md:not([contenteditable="true"]) img, #chat-messages img { cursor: zoom-in; }
 [data-live-edit] img { cursor: default; }
-[data-live-edit] img:hover { outline: 2px solid color-mix(in srgb, var(--rm-accent) 45%, transparent); outline-offset: 2px; }
+[data-live-edit].is-editing img:hover { outline: 2px solid color-mix(in srgb, var(--rm-accent) 45%, transparent); outline-offset: 2px; }
 .rm-upl {
     display: inline-flex; align-items: center; gap: .35rem; padding: .15rem .6rem; border-radius: 999px;
     font-size: .72rem; font-weight: 600; font-style: normal; color: var(--rm-accent-deep); background: var(--rm-accent-soft);
@@ -3494,17 +3497,7 @@ html.theme-dark body::after {
     100% { opacity: 0; transform: translate(14px, -10px) scale(1.25) rotate(20deg); }
 }
 
-/* ---- 5. Chưa chọn: "👇 Chạm để chọn" ---- */
-#options-area.need-pick::before {
-    content: '👇 Chạm vào một ô để chọn — hoặc bấm phím A B C D';
-    grid-column: 1 / -1; justify-self: start; align-self: start;
-    padding: .24rem .85rem; border-radius: 999px; font-size: .74rem; font-weight: 600;
-    color: var(--rm-accent-deep); background: color-mix(in srgb, var(--rm-accent-soft) 85%, transparent);
-    border: 1.5px dashed color-mix(in srgb, var(--rm-accent) 45%, transparent);
-    animation: rm-hint-bob 2.6s ease-in-out infinite;
-}
-@media (hover: none), (pointer: coarse) { #options-area.need-pick::before { content: '👇 Chạm vào một ô để chọn đáp án'; } }
-@keyframes rm-hint-bob { 50% { transform: translateY(-2px); } }
+/* ---- 5. (đã gỡ 2026-10-06) dòng gợi ý "👇 Chạm vào một ô để chọn đáp án": ai cũng biết, lại ăn một hàng đầu danh sách phương án ---- */
 
 /* ---- 6. "Việc của bạn ở câu này": các bước có dấu ✓, bước kế nhấp nháy ---- */
 .rm-steps4 { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem 0; margin: 0 0 .55rem; padding: 0; list-style: none; }
@@ -3662,7 +3655,6 @@ html.theme-dark {
 .rm-oexp-add:hover { color: var(--rm-ink); }
 
 /* Chỗ khác cùng nghĩa "lựa chọn của tôi" -> xanh dương; đỏ chỉ để nói SAI */
-#options-area.need-pick::before { color: var(--rm-pick); background: var(--rm-pick-bg); border-color: color-mix(in srgb, var(--rm-pick) 45%, transparent); }
 .rm-pip.done, .rm-mcell.is-done { color: var(--rm-pick); background: var(--rm-pick-bg); }
 .rm-conf-b.on { background: var(--rm-pick); }
 .rm-conf-b.is-guess.on { background: var(--rm-warn); }
@@ -4642,7 +4634,7 @@ html.theme-dark .mm-err { color: #7A4B12; }
     --rm-peach: #FFC2AE;
     --rm-peach-soft: #FFEEE6;
     --rm-ink: #574049;
-    --rm-muted: #A58A94;
+    --rm-muted: #826873;
     --rm-surface: #FFFDFE;
     --rm-surface-2: #FFF3F7;
     --rm-line: rgba(236, 150, 182, .26);
@@ -6296,3 +6288,534 @@ html svg[id^="mm"] g.nodes > g.node.node:has(> circle) { --n: var(--tb-4); --nt:
     html svg[id^="mm"] g.node:hover > :is(rect, polygon, circle, ellipse, path):not([style*="fill"]) { stroke-width: 3.2px !important; filter: drop-shadow(0 3px 0 color-mix(in srgb, var(--n, #F5A3BF) 75%, transparent)); }
 }
 @media (prefers-reduced-motion: reduce) { html svg[id^="mm"] :is(g.node, g.edgePaths, g.edgeLabels) { transition: none; } }
+
+/* ═══════════════ BẢN 54 (2026-10-06): ĐIỆN THOẠI / IPAD — DẢI SỐ CÂU MẢNH, ÍT CHIẾM CHỖ · BẢN ĐỒ CÂU GỌN ═══════════════
+   Người dùng: "thanh hiện ô số các câu hỏi thô, chiếm diện tích không cần thiết · giao diện mượt, ấn tượng, dễ thương hơn".
+   Đo trước khi sửa (preview &big=1): HUD điện thoại 67px mà chỉ thấy 3 viên số (đệm chồng 2 lớp: thanh + hàng); iPad dọc 114px
+   (chip trạng thái rớt xuống hàng 2); mỗi viên là ô 28–34px có bóng + nghiêng; có máy câu ĐANG LÀM nằm ngoài khung nhìn (căn giữa chỉ
+   chạy 1 lần, lúc dải còn ẩn nên bề ngang 0 — JS nay căn lại theo ResizeObserver). Nay:
+   1 · Vạch tiến độ #q-rail: MỌI câu một đoạn màu (xanh trúng · đỏ trật · xanh dương đã chọn · vàng bỏ trống · chấm tím cần bàn),
+       núm trượt theo câu đang xem; chạm / rê ngón để nhảy (nhãn "Câu N" nổi dưới ngón). room-quiz-stage paintRail / initRail.
+   2 · Điện thoại (≤640px): HUD = MỘT hàng ~44px [vạch · chip gọn]; dải viên số ẩn (dock đã có ‹ Câu x/y ›, vạch lo phần nhảy xa).
+   3 · iPad / máy tính (≥641px): viên số nhẹ hơn (câu chưa làm = nền phấn mờ, không bóng) + vạch mảnh ở đáy thẻ HUD; chip KHÔNG rớt hàng.
+   4 · Bản đồ câu trên điện thoại = tờ trượt từ dưới lên (tay nắm, màn mờ phía sau, 8 cột); bấm ra ngoài chỉ đóng tờ (JS capture).
+   5 · Tên bộ đề trên điện thoại thành 1 dòng trần (hết viên viền thứ 2 chồng trong tờ giấy). */
+
+/* ---- 1. Vạch tiến độ ---- */
+.rm-qrail {
+    --at: 0; --tip-at: .5; --pad: 6px;
+    position: relative; z-index: 2; height: 1.1rem;
+    touch-action: none; cursor: pointer; user-select: none; -webkit-user-select: none;
+}
+.rm-qsegs { position: absolute; inset: 0; display: flex; align-items: center; gap: 1px; }
+.rm-qsegs > i {
+    position: relative; flex: 1 1 0; min-width: 1.5px; height: 5px; border-radius: 99px;
+    background: color-mix(in srgb, var(--rm-powder-ink) 20%, var(--rm-paper));        /* chưa làm: đủ đậm để thấy cả trên nền bàn hồng */
+    transition: background .3s;
+}
+.rm-qsegs > i.done { background: color-mix(in srgb, var(--rm-pick) 60%, var(--rm-surface)); }
+.rm-qsegs > i.good { background: var(--rm-ok); }
+.rm-qsegs > i.bad { background: var(--rm-bad); }
+.rm-qsegs > i.miss { background: var(--rm-warn); }
+.rm-qsegs > i.focus { height: 9px; box-shadow: 0 0 0 1.5px var(--rm-lav); }          /* câu cả nhóm đang bàn (khi mình xem câu khác) */
+.rm-qsegs > i.flag::after {                                                        /* có người muốn bàn câu này */
+    content: ''; position: absolute; left: 50%; top: -5px; width: 4px; height: 4px; translate: -50% 0;
+    border-radius: 50%; background: var(--rm-lav); box-shadow: 0 0 0 1px var(--rm-surface);
+}
+.rm-qthumb {
+    position: absolute; z-index: 1; top: 50%; pointer-events: none;
+    left: clamp(var(--pad), calc(var(--at) * 100%), calc(100% - var(--pad)));
+    translate: -50% -50%;
+    display: grid; place-items: center; min-width: 11px; height: 11px; padding: 0; border-radius: 99px;
+    font-size: 0; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums;
+    color: var(--rm-coral-ink); background: var(--rm-coral);
+    box-shadow: 0 0 0 2.5px var(--rm-paper), 0 3px 8px -2px rgba(200, 110, 140, .7);
+    transition: left .42s var(--rm-spring), scale .2s var(--rm-spring);
+}
+.rm-qrail.is-drag .rm-qthumb { transition: scale .2s var(--rm-spring); scale: 1.3; }
+.rm-qtip {
+    position: absolute; z-index: 3; top: calc(100% + .5rem); left: calc(var(--tip-at) * 100%);
+    translate: -50% -4px; scale: .85; opacity: 0; pointer-events: none; white-space: nowrap;
+    padding: .2rem .65rem; border-radius: 999px; font-size: .74rem; font-weight: 700; font-variant-numeric: tabular-nums;
+    color: var(--rm-coral-ink); background: var(--rm-coral-mid); box-shadow: var(--rm-sticker);
+    transition: opacity .15s, translate .22s var(--rm-spring), scale .22s var(--rm-spring);
+}
+.rm-qrail.is-drag .rm-qtip { opacity: 1; translate: -50% 0; scale: 1; }
+.rm-qrail[data-mode="fine"] .rm-qtip::after { content: " · chỉnh chậm"; font-weight: 500; }   /* ngón đã kéo xa khỏi vạch: mỗi câu cần nhiều px hơn */
+@media (pointer: coarse) { .rm-qtip { top: calc(100% + 1.2rem); } }                 /* nhãn nằm dưới NGÓN tay chứ không bị ngón che */
+@media (prefers-reduced-motion: reduce) { .rm-qthumb, .rm-qtip, .rm-qsegs > i { transition: none; } }
+
+/* ---- 2. Dải viên số (iPad / máy tính): nhẹ hơn, không bóng, chữ trần cho câu chưa làm ---- */
+html .rm-qtrack { gap: .2rem; }
+html .rm-pip {
+    height: 1.8rem; border-radius: .65rem; font-size: .72rem; box-shadow: none;
+    color: color-mix(in srgb, var(--rm-ink) 58%, var(--rm-surface));
+    background: color-mix(in srgb, var(--rm-powder) 10%, transparent);
+    transition: background .25s, color .2s, scale .2s var(--rm-spring), rotate .25s var(--rm-spring);
+}
+html .rm-qtrack.is-long .rm-pip { width: 1.75rem; }
+html .rm-pip:active { scale: .9; }
+html .rm-pip.now { scale: 1.1; box-shadow: 0 0 0 2px var(--rm-paper), 0 4px 10px -5px rgba(200, 110, 140, .7); }
+html .rm-pip.flag::before { top: -3px; right: -2px; }
+html .rm-pip.focus::after { bottom: -2px; }
+@media (hover: hover) {
+    html .rm-pip:not(.done, .good, .bad, .miss, .now):hover { background: var(--rm-accent-soft); rotate: none; }
+}
+html .rm-pip-sep { align-self: center; width: 4px; height: 4px; margin: 0 .3rem; border-radius: 50%; background: var(--rm-line); }
+html .rm-pip-sep i { display: none; }                      /* vạch + số mốc 10 cũ ăn thêm .6rem chiều cao dải; vạch tiến độ đã cho cái nhìn tổng */
+
+/* ---- 3. iPad / máy tính ≥641px: một hàng, vạch nằm ở đáy thẻ HUD ---- */
+@media (min-width: 641px) {
+    html .rm-topbar { padding-block: .4rem .3rem; }
+    html .rm-topbar-row { position: relative; gap: .5rem; padding: .35rem .65rem 1.2rem; }
+    html .rm-qtrack { flex: 1 1 0; min-width: 3.5rem; padding: .2rem .1rem; }
+    html .rm-qrail { position: absolute; left: .65rem; right: .65rem; bottom: .32rem; height: 1rem; }
+    html .rm-hudchips { margin-left: 0; flex-wrap: nowrap; }
+}
+@container live (max-width: 58rem) {
+    .rm-hudchips .rm-hide-sm { display: none; }            /* iPad dọc: chip bỏ tên người dẫn đầu + chữ "câu" để vừa một hàng */
+    body.opts-away .rm-qtrack { display: none; }           /* A B C D mini hiện ở HUD thì nhường chỗ cho nó */
+}
+@media (pointer: coarse) and (min-width: 768px) { html .rm-pip { height: 2rem; } }
+
+/* ---- 4. Điện thoại ≤640px: HUD một hàng ~44px = vạch tiến độ (núm có số câu) + chip gọn ---- */
+@media (max-width: 640px) {
+    html .rm-topbar { padding-block: .2rem; margin-bottom: .5rem; }
+    html .rm-topbar-row { padding: 0; gap: .3rem .35rem; min-height: 2.15rem; }
+    html .rm-qtrack { display: none; }
+    html .rm-qrail { --pad: 12px; order: -1; flex: 1 1 6.5rem; min-width: 6.5rem; height: 2.15rem; }
+    html .rm-qthumb { min-width: 1.45rem; height: 1.3rem; padding: 0 .4rem; font-size: .7rem; background: var(--rm-coral-mid); }
+    html .rm-qrail.is-drag .rm-qthumb { scale: 1.18; }
+    body.opts-away .rm-qrail { display: none; }            /* A B C D mini chiếm chỗ vạch khi cuộn xuống bàn luận */
+    html .rm-hudchips { margin-left: 0; gap: .22rem; flex-wrap: nowrap; }
+    html .rm-hudchips > :is(.rm-racechip, .rm-state, .rm-leftchip, .rm-focuschip, .rm-talk, .rm-streak) {
+        padding: .2rem .5rem; font-size: .6875rem; gap: .2rem;
+    }
+    html .rm-hudchips .rm-ring { width: 2rem; height: 2rem; font-size: .66rem; }
+    html .rm-hudchips:has(#focus-chip:not(.hidden)) #race-chip { display: none; }   /* chip "Nhóm ở câu N" cần chỗ hơn */
+    html .rm-mobile-banner { margin: 0 0 .15rem; padding: 0 .15rem; background: none; border: 0; box-shadow: none; font-size: .72rem; }
+    .rm-mnote { display: none; }
+}
+
+/* Điện thoại hẹp: chip "👑 53/60" nhường chỗ cho vạch (vẫn mở được đường đua ở menu Thêm → Đường đua) */
+@media (max-width: 480px) { html .rm-hudchips #race-chip { display: none; } }
+
+/* ---- 5. Bản đồ câu trên điện thoại = tờ trượt từ dưới lên, màn mờ phía sau, 8 cột ---- */
+@keyframes rm-sheet-up { from { opacity: 0; translate: 0 26px; } }
+@media (max-width: 767px) {
+    html .rm-qmap, html.theme-dark .rm-qmap {
+        left: .5rem; right: .5rem; bottom: calc(4.35rem + env(safe-area-inset-bottom, 0px));
+        max-height: min(66vh, 31rem); padding: 1.5rem .8rem .7rem; border-radius: 1.7rem;
+        box-shadow: 0 0 0 100vmax rgba(86, 48, 66, .22), var(--rm-shadow-lg);
+        animation: rm-sheet-up .36s var(--rm-spring) backwards;
+    }
+    .rm-qmap::before {
+        content: ''; position: absolute; top: .55rem; left: 50%; width: 2.6rem; height: .28rem; translate: -50% 0;
+        border-radius: 99px; background: color-mix(in srgb, var(--rm-accent) 38%, transparent);
+    }
+    html .rm-mtop { margin-bottom: .45rem; gap: .35rem; }
+    html .rm-mchip { padding: .26rem .6rem; font-size: .7rem; }
+    .rm-mgrid { grid-template-columns: repeat(auto-fill, minmax(2.3rem, 1fr)); gap: .35rem; }
+    .rm-mcell { border-radius: .65rem; font-size: .76rem; }
+}
+
+/* ═══════════════ BẢN 55 (2026-10-06): 12 NÂNG CẤP ĐIỆN THOẠI / IPAD CHO CÁC MÀN KHÁC (room-polish.js) ═══════════════
+   Người dùng: "tối ưu giao diện hơn nữa — đẹp, dễ thương, tiện ích, dễ dùng — ít nhất 10 thay đổi lớn" (ý là các màn khác, không phải vạch kéo).
+   1 đầu trang tự thu khi cuộn xuống (điện thoại) · 2 giữ màn hình sáng khi đang làm bài (JS) · 3 dock có viên chỉ báo trượt + icon nảy
+   4 giữ ô đáp án = gạch riêng · 5 chụm hai ngón đổi cỡ chữ (touch-action) · 6 nghe đọc (JS + 2 nút menu) · 7 ảnh kết quả chia sẻ (JS + 1 nút)
+   8 menu Thêm: hàng "Hay dùng" · 9 bàn luận: chạm đúp 👍 / vuốt phải trả lời · 10 chuyển màn có chuyển động mờ dần
+   11 tự theo chế độ tối của máy lần đầu (<head>) · 12 hàng việc nhỏ dưới phương án = lưới 4 ô đều (hết xuống 2 dòng, vùng chạm to hơn). */
+
+/* ---- 1. Đầu trang tự thu (điện thoại) ---- */
+@media (max-width: 767px) {
+    body > header.rm-bar { transition: margin-top .34s var(--rm-spring), opacity .22s ease; }
+    body.hdr-away > header.rm-bar { margin-top: calc(-1 * var(--hdr-h, 4.2rem)); opacity: 0; pointer-events: none; }
+    #pinned-note { max-height: 4.5rem; transition: max-height .34s var(--rm-spring), margin .34s var(--rm-spring), padding .3s, opacity .2s; }
+    body.hdr-away #pinned-note { max-height: 0; margin-block: 0; padding-block: 0; opacity: 0; overflow: hidden; pointer-events: none; }
+    body.hdr-away .rm-topbar { border-bottom-color: color-mix(in srgb, var(--rm-accent) 28%, transparent); }
+}
+
+/* ---- 3. Dock: viên chỉ báo trượt + icon nảy ---- */
+@media (max-width: 767px) {
+    .rm-dock { position: relative; }
+    .rm-dock > :not(.rm-dock-ind) { position: relative; z-index: 1; }
+    .rm-dock-ind {
+        position: absolute; z-index: 0; left: 0; top: .26rem; bottom: .26rem; width: var(--w, 0px); translate: var(--x, 0px) 0;
+        border-radius: 1.2rem; pointer-events: none; opacity: 0;
+        background: var(--rm-coral-soft); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--rm-coral) 34%, transparent);
+        transition: translate .42s var(--rm-spring), width .3s var(--rm-spring), opacity .2s;
+    }
+    html .rm-dock-btn.is-on { background: none; }
+    .rm-dock-btn i { transition: scale .32s var(--rm-spring); }
+    .rm-dock-btn:active i { scale: .78; transition-duration: .08s; }
+    .rm-dock-btn.is-on i { animation: rm-dock-bob .5s var(--rm-spring); }
+}
+@keyframes rm-dock-bob { from { translate: 0 5px; scale: .7; } }
+
+/* ---- 4. Ô đáp án bị gạch (giữ ~0,5s): mờ + chữ gạch bút đào; chọn rồi / đã chốt thì thôi mờ ---- */
+html .rm-ocard.is-struck:not(.is-mine, .is-correct, .is-wrong) > .rm-option { opacity: .58; box-shadow: none; filter: saturate(.55); }
+html .rm-ocard.is-struck:not(.is-mine, .is-correct, .is-wrong) > .rm-option .rm-otext {
+    text-decoration: line-through; text-decoration-color: var(--rm-coral); text-decoration-thickness: 2.5px; text-decoration-skip-ink: none;
+}
+html .rm-ocard.is-struck:not(.is-mine, .is-correct, .is-wrong) > .rm-option .rm-letter { text-decoration: line-through; text-decoration-thickness: 2px; }
+html .rm-ocard.is-struck > .rm-option { transition: opacity .25s, filter .25s; }
+
+/* ---- 5. Chụm hai ngón: phóng chữ chứ không phóng cả trang ---- */
+#stage-quiz { touch-action: pan-x pan-y; }
+#pinch-tip {
+    position: fixed; z-index: 95; top: 4.4rem; left: 50%; translate: -50% -8px; scale: .9; opacity: 0; pointer-events: none;
+    padding: .35rem .95rem; border-radius: 999px; font-size: .85rem; font-weight: 700; font-variant-numeric: tabular-nums;
+    color: var(--rm-coral-ink); background: var(--rm-coral-mid); box-shadow: var(--rm-sticker);
+    transition: opacity .15s, translate .25s var(--rm-spring), scale .25s var(--rm-spring);
+}
+#pinch-tip.is-on { opacity: 1; translate: -50% 0; scale: 1; }
+
+/* ---- 6. Nút "Nghe đọc" đang đọc ---- */
+.rm-menu-item[data-tool="speak"].is-on, .rm-more-grid [data-more="speak"].is-on { color: var(--rm-coral-ink); background: var(--rm-coral-soft); }
+.rm-more-grid [data-more="speak"].is-on i { animation: rm-dock-bob .9s var(--rm-spring) infinite alternate; }
+
+/* ---- 8. Menu Thêm: "Hay dùng" ---- */
+.rm-more-fav { margin-bottom: .55rem; }
+.rm-more-fav .rm-more-cap::before { content: "★ "; color: var(--rm-butter-ink); }
+html .rm-more-fav .rm-more-grid > button { background: var(--rm-butter-soft); border-color: color-mix(in srgb, var(--rm-butter-ink) 22%, transparent); }
+html .rm-more-fav .rm-more-grid > button i { color: var(--rm-butter-ink); }
+
+/* ---- 9. Bàn luận: vuốt phải trả lời · chạm đúp 👍 ---- */
+li.rm-cmt, .rm-msg { transition: translate .28s var(--rm-spring), box-shadow .2s; }
+li.rm-cmt.is-swiping, .rm-msg.is-swiping { transition: box-shadow .2s; }
+li.rm-cmt.is-armed, .rm-msg.is-armed { box-shadow: inset 4px 0 0 var(--rm-coral); }
+.rm-heartpop {
+    position: fixed; z-index: 96; translate: -50% -50%; font-size: 2.1rem; line-height: 1; pointer-events: none;
+    animation: rm-heartpop .85s var(--rm-spring) forwards;
+}
+@keyframes rm-heartpop { 0% { opacity: 0; scale: .3; } 25% { opacity: 1; scale: 1.25; } 100% { opacity: 0; scale: 1; translate: -50% -190%; } }
+
+/* ---- 10. Chuyển màn (sảnh ⇄ làm bài ⇄ tổng kết) mờ dần vào — chỉ opacity: dịch/phóng sẽ làm sai số đo của placeNotebook / centerTrack ---- */
+@keyframes rm-screen-in { from { opacity: 0; } }
+#quiz-lobby:not(.hidden), #quiz-live:not(.hidden), #quiz-result:not(.hidden) { animation: rm-screen-in .42s ease-out backwards; }
+
+/* ---- 12. Điện thoại: 4 việc nhỏ dưới phương án luôn MỘT hàng, giãn đều (trước: 3 + 1 xuống dòng) ---- */
+@media (max-width: 640px) {
+    html .rm-selfchips { flex-wrap: nowrap; gap: .3rem; overflow: visible; }
+    html .rm-selfchips > * { flex: 1 1 auto; min-width: 0; }
+    html .rm-selfchips .rm-mini {
+        display: block; padding: .42rem .12rem; text-align: center; font-size: .6875rem; min-height: 2.4rem;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    html .rm-selfchips > div > .rm-mini { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body > header.rm-bar, #pinned-note, .rm-dock-ind, .rm-dock-btn i, #pinch-tip, li.rm-cmt, .rm-msg { transition: none; }
+    .rm-dock-btn.is-on i, .rm-more-grid [data-more="speak"].is-on i, .rm-heartpop, #quiz-lobby, #quiz-live, #quiz-result { animation: none; }
+}
+
+/* ═══════════════ BẢN 56 (2026-10-06): SỬA TẠI CHỖ CHỈ KHI BẤM ĐÚP (chuột) / CHẠM ĐÚP (cảm ứng) ═══════════════
+   Người dùng: "chế độ chỉnh sửa hiện khi rê chuột gây phiền; máy tính phải double click, điện thoại cũng double click để khỏi bấm nhầm / sượt qua".
+   Trước: mọi ô [data-live-edit] là contenteditable → rê chuột là tô nền hồng, bấm một cái là có con trỏ + bàn phím ảo bật lên; mỗi phương án có
+   nút bút chì hiện khi rê chuột. Nay: ô chỉ "chỉ đọc" cho tới khi room-editor.js thêm class .is-editing (bấm đúp / chạm đúp / code gọi focus()) và
+   gỡ lại khi rời ô. -webkit-user-modify:read-only ghi đè contenteditable="true" nên KHÔNG phải đổi attribute (nhiều chỗ code đọc/đặt lại nó) —
+   ô chỉ-đọc không nhận tiêu điểm, không có con trỏ, bôi đen chữ vẫn được (để ghi chú cụm từ / nhận xét đoạn). */
+html [data-live-edit]:not(.is-editing) { -webkit-user-modify: read-only; user-modify: read-only; cursor: auto; }
+html [data-live-edit]:not(.is-editing) img { cursor: zoom-in; }
+html [data-live-edit].is-editing { cursor: text; }
+
+/* Bút chì trên phương án: bỏ hẳn (hiện khi rê chuột = đúng thứ gây phiền). Sửa chữ phương án: bấm đúp vào chữ của phương án MÌNH đã chọn, hoặc chip "✏️ Sửa chữ X" trong khay */
+.rm-opt-edit { display: none !important; }
+.rm-touch-edit { display: inline-flex; align-items: center; gap: .2rem; }
+
+/* Nút "Sửa" mã sơ đồ chỉ hiện khi ô đang ở chế độ sửa (nút phóng to thì luôn có) */
+html [data-live-edit]:not(.is-editing) .rm-mm-tools [data-mm-edit] { display: none; }
+
+/* Bôi đen chữ ở ô chỉ-đọc: thanh nổi đủ nút (in đậm / nghiêng / bút dạ / ghi chú / nhận xét) — room-editor applyCommand tạm bật chế độ sửa lúc chạy lệnh */
+
+/* ═══════════════ BẢN 57 (2026-10-06): CHI TIẾT NHỎ — vòng 1: tương phản · cỡ chữ tối thiểu · vùng chạm ═══════════════
+   Đo bằng kiểm toán tự động (4 màn × điện thoại + iPad). Đã đổi token: --rm-muted #A58A94 → #826873 (chữ phụ 2,7–3,1:1 → 4,2–5:1 trên mọi nền giấy)
+   và --rm-warn #D99A5B → #A0621A (chữ cảnh báo vàng cam trên nền kem 2,25:1 → 4,6:1) ở đầu file. Phần dưới: những chỗ token không lo hết. */
+
+/* Bục top 3: chữ trắng trên nền pastel vàng / xanh / cam (1,3–1,5:1) → chữ mực cố định (không đổi theo chế độ tối vì nền bục luôn sáng) */
+.rm-pod-bar { color: #574049; }
+.rm-pod-bar span { opacity: 1; color: rgba(87, 64, 73, .78); font-size: .6875rem; }
+
+/* Cỡ chữ tối thiểu 11px cho chip / nhãn nhỏ (đang 9,2–10,9px) — vẫn nhân --rm-scale để người chỉnh cỡ chữ lớn không bị thiệt */
+:is(.rm-hero-tag, .rm-greet, .rm-ready-label, .rm-stp .rm-ready-label, .rm-mode-tip, .rm-step-opt, .rm-seat-state, .rm-tagmini, .rm-trail-lb,
+    .rm-state, .rm-leftchip, .rm-qchip, .rm-chip, .rm-vt-btn, .rm-otalk-me, .rm-qsrc-full, .rm-rf-meter, .rm-conf-b, .rm-fd-note, .rm-live-hint, .rm-hint,
+    .rm-st, .rm-cmt-time, .rm-cst, .rm-peek-n, .rm-why-tpl, .rm-like, .rm-label, #quiz-session-host, .rm-table th) {
+    font-size: max(11px, calc(.6875rem * var(--rm-scale)));
+}
+.rm-stp-no { font-size: max(11px, .64rem); }
+.rm-footer-sep { font-size: .75rem; }
+
+/* Vùng chạm: máy cảm ứng — mọi nút < 30px được nới lên ~34px (hình vẽ nhỏ giữ nguyên, chỉ vùng bấm to ra) */
+@media (pointer: coarse) {
+    html .rm-brand { min-height: 2.3rem; }
+    html .rm-tab { min-height: 2.15rem; padding-inline: .75rem; }
+    html .rm-otalk-tg { min-height: 2.2rem; }
+    html .rm-conf-b { min-height: 2.2rem; min-width: 2.2rem; }
+    html :is(.rm-why-tpl, .rm-vt-btn, .rm-tagmini.rm-touch-edit, .rm-oexp-add, .rm-mini) { min-height: 2.1rem; }
+    html .rm-like { display: inline-flex; align-items: center; justify-content: center; min-width: 2.1rem; min-height: 2.1rem; }
+    html .rm-sched-at input { min-height: 2.1rem; }
+    html .rm-check input[type="checkbox"] { width: 1.15rem; height: 1.15rem; }
+    html .rm-footer-author { padding-block: .5rem; }
+    html :is(.rm-pres, .rm-pin-x) { position: relative; }
+    html :is(.rm-pres, .rm-pin-x)::after { content: ""; position: absolute; inset: -.4rem; }          /* vùng chạm trong suốt rộng hơn hình */
+}
+
+/* ---- Vòng 1b: chữ XANH LÁ / XANH DƯƠNG / HỒNG trên nền pastel cùng tông (2–3:1) → bản mực đậm hơn; chế độ tối giữ nguyên màu sáng ---- */
+:root { --rm-ok-ink: #1B7A52; --rm-pick-ink: #2A6AAE; }
+html.theme-dark { --rm-ok-ink: var(--rm-ok); --rm-pick-ink: var(--rm-pick); }
+html :is(.rm-state.is-locked, .rm-mini.is-ready, .rm-chip.ok, [data-live-status], .rm-seat.is-ready .rm-seat-state, .rm-setup-hint.is-go, .rm-net.is-back,
+    .rm-leftchip.is-done, .rm-stance.is-ok, .rm-stp.is-done > .rm-stp-body > span, .rm-lib-main .is-ok, .rm-recap .is-ok, .rm-also.on, .rm-cst.is-pro,
+    .rm-vok, .rm-ask-st.is-done, .rm-held.is-ok, .rm-tally .is-pro, .rm-cmt.is-pro .rm-cmt-st, .rm-st.is-pro, .rm-step4.is-done, .rm-qpeek-meta .is-ok,
+    .rm-conf-b.is-1) { color: var(--rm-ok-ink); }
+html :is(.rm-pip.done, .rm-mcell.is-done, .rm-case-dot.is-done) { color: var(--rm-pick-ink); }
+html .text-\[\#FF69B4\] { color: var(--rm-accent-deep); }                          /* "25%" ở tiêu đề tổng kết */
+/* số thứ tự bước ở sảnh: chữ trắng trên hồng phấn (2:1) → chữ mực hồng đậm */
+html :is(.rm-step-no, .rm-stp.is-now .rm-stp-no) { color: #6B2142; }
+html .text-\[10px\] { font-size: 11px; }
+#nb-all-count { font-size: 10.5px; }
+
+/* ---- Vòng 1c: vùng chạm còn sót (cảm ứng) ---- */
+@media (pointer: coarse) {
+    html .rm-cmt > .rm-cmt-acts .rm-like { min-height: 2.1rem; min-width: 2.1rem; }
+    html button.rm-chip { min-height: 2rem; }
+    html :is(.rm-host-chip, .rm-host-btn.is-sec) { min-height: 2.2rem; min-width: 2.2rem; }
+}
+.rm-invite-code span, .rm-preset-txt span { font-size: .6875rem; }
+
+/* ═══════════════ BẢN 58 (2026-10-06): CHỐT NHANH — bấm = chốt theo mặc định, giữ nút = bảng chọn (room-quiz.js quickChot / defaultChot) ═══════════════ */
+#host-lock-answer { position: relative; }
+.rm-chot-def {
+    position: absolute; top: -.4rem; right: -.3rem; min-width: 1.2rem; height: 1.2rem; padding: 0 .32rem; border-radius: 999px;
+    display: grid; place-items: center; font-size: .68rem; font-weight: 700; line-height: 1; pointer-events: none;
+    color: var(--rm-coral-ink); background: var(--rm-paper);
+    box-shadow: 0 0 0 1.5px var(--rm-coral), 0 3px 6px -3px rgba(180, 70, 60, .5);
+}
+.rm-chot-def:empty { display: none; }
+.rm-menu-capsub { margin-left: .35rem; text-transform: none; letter-spacing: 0; font-weight: 500; opacity: .85; }
+.rm-menu-def {
+    margin-left: auto; padding: .08rem .5rem; border-radius: 999px; white-space: nowrap;
+    font-size: .68rem; font-weight: 700; color: var(--rm-butter-ink); background: var(--rm-butter-soft);
+}
+
+/* Thanh Hoàn tác (room-ui showUndo): nổi giữa phía trên, dưới thanh đầu trang */
+.rm-undo {
+    position: fixed; z-index: 90; top: 5.2rem; left: 50%; translate: -50% -8px; scale: .94; opacity: 0; pointer-events: none;
+    display: flex; align-items: center; gap: .7rem; max-width: min(92vw, 30rem); padding: .4rem .45rem .4rem 1rem; border-radius: 999px;
+    font-size: .8rem; font-weight: 600; color: var(--rm-ink); background: var(--rm-paper);
+    box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--rm-coral) 45%, transparent), 0 14px 28px -14px rgba(150, 80, 105, .6);
+    transition: opacity .18s, translate .28s var(--rm-spring), scale .28s var(--rm-spring);
+}
+.rm-undo.is-on { opacity: 1; translate: -50% 0; scale: 1; pointer-events: auto; }
+.rm-undo > span { min-width: 0; line-height: 1.35; }
+.rm-undo > button {
+    flex: none; min-height: 2rem; padding: 0 .9rem; border-radius: 999px; font-size: .78rem; font-weight: 700;
+    color: var(--rm-coral-ink); background: var(--rm-coral-mid);
+}
+.rm-undo > button:active { scale: .95; }
+@media (prefers-reduced-motion: reduce) { .rm-undo { transition: none; } }
+
+/* ═══════════════ BẢN 59→61 (2026-10-06): TRẠNG THÁI Ô ĐÁP ÁN — nhãn dán pastel bo tròn, phân biệt bằng màu + BIỂU TƯỢNG + chữ ═══════════════
+   Người dùng: "màu các đáp án được chọn / đúng / sai / file chọn… dễ nhận biết là kiểu phân loại nào" rồi chê bản băng keo đuôi én / mép rách / gáy cứng là
+   "vừa thô vừa cứng, không pastel dễ thương". Nay: mỗi ô có tối đa 2 STICKER (room-quiz-stage: .rm-tags > .rm-tg) — viên thuốc bo tròn, nền pastel cùng tông,
+   bong bóng biểu tượng tròn ở đầu (✓ ★ ＋ ✕ tờ giấy nhóm-người), viền giấy trắng quanh như sticker cắt viền, nghiêng nhẹ, nảy lò xo khi hiện.
+     bạn chọn → xanh dương nhạt ✓ · đúng (đáp án nhóm ★ / bạn chọn đúng ✓ / cũng đúng ＋) → xanh bạc hà · sai → hồng đào ✕
+     đáp án file → vàng bơ viền đứt (chỉ tham khảo) · số đông → oải hương (chưa chốt, đang dẫn đầu một mình)
+   Chữ thường, không in hoa; không băng keo sọc, không cắt hình, không gáy cứng ở mép ô. Chữ cho trình đọc màn hình ở .rm-vh. */
+.rm-vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+html .rm-ocard[data-st] { --st-c: var(--rm-pick); }
+html .rm-ocard[data-st="ok"] { --st-c: var(--rm-ok); }
+html .rm-ocard[data-st="bad"] { --st-c: var(--rm-bad); }
+html .rm-ocard[data-st="ref"] { --st-c: var(--rm-warn); }
+html .rm-ocard[data-st="lead"] { --st-c: var(--rm-lav); }
+html .rm-ocard[data-st]::before { content: none; }                       /* băng keo cũ vẽ bằng ::before của thẻ -> thay bằng sticker thật */
+
+.rm-tags { position: absolute; z-index: 3; top: -.78rem; right: .9rem; display: flex; flex-direction: row-reverse; gap: .45rem; pointer-events: none; }
+.rm-tg {
+    --c: var(--rm-pick); --ink: var(--rm-pick-ink);
+    display: inline-flex; align-items: center; gap: .32rem; padding: .16rem .78rem .16rem .2rem; border-radius: 999px; rotate: -2deg;
+    font-size: .74rem; font-weight: 600; font-style: normal; line-height: 1.25; white-space: nowrap; letter-spacing: .005em;
+    color: var(--ink); background: color-mix(in srgb, var(--c) 20%, var(--rm-paper));
+    box-shadow: 0 0 0 2.5px var(--rm-paper), 0 7px 12px -7px color-mix(in srgb, var(--c) 70%, transparent);
+    animation: rm-tg-pop .5s var(--rm-spring) backwards;
+}
+.rm-tg:nth-child(2) { rotate: 1.6deg; animation-delay: .06s; }
+.rm-tg > i {
+    flex: none; display: grid; place-items: center; width: 1.3rem; height: 1.3rem; border-radius: 50%; font-size: .6rem; color: #fff;
+    background: var(--c); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .09), 0 1px 3px color-mix(in srgb, var(--c) 55%, transparent);
+}
+.rm-tg.is-ok { --c: var(--rm-ok); --ink: var(--rm-ok-ink); }
+.rm-tg.is-bad { --c: var(--rm-bad); --ink: color-mix(in srgb, var(--rm-bad) 72%, #000); }
+.rm-tg.is-lead { --c: var(--rm-lav); --ink: var(--tb-6i, #6B4FB8); }
+.rm-tg.is-lead > i { color: var(--tb-6i, #6B4FB8); background: color-mix(in srgb, var(--rm-lav) 55%, var(--rm-paper)); box-shadow: none; }
+.rm-tg.is-ref { --c: var(--rm-warn); --ink: var(--rm-butter-ink); background: var(--rm-butter-soft); outline: 1.5px dashed color-mix(in srgb, var(--rm-warn) 60%, transparent); outline-offset: -3px; }
+html.theme-dark .rm-tg { background: color-mix(in srgb, var(--c) 26%, var(--rm-surface)); }
+html.theme-dark .rm-tg.is-bad { --ink: var(--rm-bad); }
+html.theme-dark .rm-tg.is-ref { background: color-mix(in srgb, var(--rm-warn) 20%, var(--rm-surface)); }
+@keyframes rm-tg-pop { from { opacity: 0; scale: .35; translate: 0 6px; rotate: 14deg; } }
+
+/* ô có trạng thái: viền mềm cùng tông (không gáy cứng); đáp án file viền đứt nhạt đã có từ trước */
+html .rm-ocard[data-st] > .rm-option::before { content: none; }
+html .rm-ocard[data-st] > .rm-option { padding-left: .95rem; }
+
+/* đóng dấu một lần khi vừa chốt: sticker nảy mạnh hơn một nhịp */
+html .rm-ocard.is-stamp .rm-tg { animation: rm-tg-stamp .6s var(--rm-spring) backwards; }
+@keyframes rm-tg-stamp { 0% { opacity: 0; scale: 1.7; rotate: -14deg; } 60% { scale: .94; } }
+@media (prefers-reduced-motion: reduce) { .rm-tg, html .rm-ocard.is-stamp .rm-tg { animation: none; } }
+/* chừa chỗ cho sticker nhô lên trên ô đầu tiên */
+.rm-opts:has(.rm-tags) { padding-top: .55rem; }
+
+/* Khoảnh khắc nhỏ (một lần): chốt xong ô đúng toả một vòng bạc hà, ô mình chọn sai lắc nhẹ; vừa bấm chọn thì chữ cái gợn một vòng xanh */
+html .rm-ocard.is-stamp[data-st="ok"] > .rm-option { animation: rm-ring-ok 1.1s ease-out; }
+html .rm-ocard.is-stamp[data-st="bad"] > .rm-option { animation: rm-wobble .55s ease-in-out; }
+html .rm-ocard.is-justpicked .rm-letter { animation: rm-ring-pick .65s ease-out; }
+@keyframes rm-ring-ok { from { outline: 0 solid color-mix(in srgb, var(--rm-ok) 55%, transparent); outline-offset: 0; } to { outline: .6rem solid transparent; outline-offset: .2rem; } }
+@keyframes rm-wobble { 20% { rotate: -.8deg; } 45% { rotate: .7deg; } 70% { rotate: -.35deg; } }
+@keyframes rm-ring-pick { from { outline: 0 solid color-mix(in srgb, var(--rm-pick) 50%, transparent); outline-offset: 0; } to { outline: .5rem solid transparent; outline-offset: .15rem; } }
+@media (prefers-reduced-motion: reduce) { html .rm-ocard.is-stamp > .rm-option, html .rm-ocard.is-justpicked .rm-letter { animation: none; } }
+
+/* ═══════════════ BẢN 60 (2026-10-06): MENU ⋮ + KHAY THÊM — công tắc có trạng thái, mục cần phiên mờ đi, điều hướng bằng phím ═══════════════
+   Người dùng: "các tính năng trong dấu ⋮ ở góc trên phải chẳng cái nào được tối ưu hoàn toàn".
+   Trước: chỉ 4/13 mục có chữ "bật/tắt" trong nhãn, còn lại (tập trung, trình chiếu, dải tiến độ, sáng/tối, nghe đọc) không biết đang bật hay tắt; bấm một mục là
+   đóng menu nên bật 3 công tắc phải mở 3 lần; ở sảnh bấm "Tìm câu / Biên bản" không có gì xảy ra mà không báo; Esc / phím mũi tên không dùng được; khay Thêm trên
+   điện thoại thiếu Tập trung + Tự chuyển câu. Nay: công tắc .rm-sw (xanh = bật), công tắc không đóng menu, mục cần phiên bị disabled + tooltip, role/aria + ↑↓ Home End Esc. */
+#room-menu { min-width: 17.5rem; }
+.rm-menu-lb { flex: 1 1 auto; min-width: 0; }
+.rm-menu-item { gap: .6rem; }
+.rm-menu-item .rm-kbd { margin-left: 0; flex: none; }
+.rm-menu-item:disabled { opacity: .45; cursor: not-allowed; }
+.rm-menu-item:disabled:hover { background: none; transform: none; }
+.rm-menu-item:focus-visible { outline: 2px solid var(--rm-accent-deep); outline-offset: -2px; }
+.rm-menu-item.is-on > i:first-child { color: var(--rm-ok-ink); }
+
+.rm-sw {
+    flex: none; position: relative; display: block; width: 2rem; height: 1.12rem; border-radius: 999px;
+    background: color-mix(in srgb, var(--rm-muted) 26%, var(--rm-surface)); transition: background .2s;
+}
+.rm-sw::after {
+    content: ""; position: absolute; top: .16rem; left: .18rem; width: .8rem; height: .8rem; border-radius: 50%;
+    background: var(--rm-paper); box-shadow: 0 1px 3px rgba(0, 0, 0, .28); transition: translate .24s var(--rm-spring);
+}
+.is-on > .rm-sw { background: var(--rm-ok); }
+.is-on > .rm-sw::after { translate: .88rem 0; }
+html.theme-dark .rm-sw::after { background: #f3e9ee; }
+
+.rm-more-grid button { position: relative; }
+.rm-more-grid button > .rm-sw { position: absolute; top: .45rem; right: .45rem; scale: .85; }
+.rm-more-grid button:disabled { opacity: .45; }
+@media (max-width: 767px) {
+    /* tile công tắc: chỉ cần công tắc báo bật / tắt — không tô cả ô như mục thường */
+    .rm-more-grid button[data-sw].is-on, .rm-more-grid button.is-on:has(> .rm-sw) { background: var(--rm-paper); outline: none; }
+    .rm-more-grid button.is-on > .rm-sw ~ i, .rm-more-grid button.is-on:has(> .rm-sw) > i { color: var(--rm-ok-ink); }
+}
+@media (prefers-reduced-motion: reduce) { .rm-sw, .rm-sw::after { transition: none; } }
+/* mở menu ⋮ thì thông báo nổi (mẹo, toast) nhường chỗ — trước đây nằm đè lên 2–3 mục đầu của menu */
+body:has(#room-menu:not(.hidden)) #toast-container { opacity: 0; pointer-events: none; transition: opacity .15s; }
+
+/* ═══════════════ BẢN 62 (2026-10-06): CHẾ ĐỘ TẬP TRUNG làm đúng nghĩa ═══════════════
+   Người dùng: "tập trung vào các tính năng trong ⋮, vd chế độ tập trung". Hiện trạng (đo bằng ảnh chụp): trên điện thoại nó HỎNG — cột câu hỏi co còn 32px (margin-inline:auto
+   trong flex cột làm lưới co theo nội dung), chữ rớt từng ký tự một dòng; trên máy tính chỉ ẩn dải đua + sổ tay, còn nguyên đầu trang, lời ghim, phiếu nhóm, bàn luận, thông báo.
+   Nay: tập trung = chỉ còn ĐỀ + PHƯƠNG ÁN + tiến độ của riêng mình. Ẩn: đầu trang, lời ghim, bảng bên, chip trạng thái nhóm, dải đua, ghi chú meta, thẻ trạng thái + bàn luận + khay
+   dưới từng ô, thông báo (chỉ giữ cảnh báo / lỗi), mặt người + % phiếu + thanh phiếu CỦA NHÓM trước khi chốt (đỡ bị dắt mũi theo số đông). Chốt rồi thì hiện lại (là kết quả).
+   Thoát: chip góc màn hình, phím Z hoặc Esc. Chỉ áp dụng ở màn LÀM BÀI (sảnh / tổng kết giữ nguyên). */
+body.zen:has(#quiz-live:not(.hidden)) > header.rm-bar { display: none; }
+body.zen #pinned-note, body.zen #stage-tabs, body.zen #side-panel, body.zen #split-side, body.zen #reaction-layer, body.zen .rm-coach, body.zen .rm-late,
+body.zen #quiz-live .rm-race, body.zen #quiz-live .rm-col-side, body.zen #quiz-live .rm-mobile-banner, body.zen #quiz-live .rm-qmeta,
+body.zen #quiz-live .rm-statuscard, body.zen #quiz-live .rm-hub, body.zen #quiz-live .rm-odisc, body.zen #quiz-live #game-bar, body.zen #quiz-live #hud-opts,
+body.zen #quiz-live .rm-qtrack, body.zen #quiz-live .rm-hudchips > :not(#left-chip):not(#timer-ring),
+body.zen .rm-dock-btn[data-m="chat"], body.zen .rm-dock-btn[data-m="tools"] { display: none !important; }
+body.zen #quiz-live:not(.is-announced) :is(.rm-oside, .rm-fill, .rm-tg.is-lead) { display: none !important; }
+body.zen .toast-notification:is(.bg-blue-500, .bg-green-500) { display: none !important; }
+body.zen .rm-live-grid { grid-template-columns: minmax(0, 1fr) !important; width: 100%; max-width: 46rem; margin-inline: auto; }
+body.zen .rm-live { max-width: 52rem; }
+body.zen::before { opacity: .45; filter: saturate(.6); }                       /* nền dịu đi, mắt dồn vào tờ giấy */
+body.zen #quiz-live .rm-col-main { box-shadow: 0 30px 60px -34px rgba(190, 90, 125, .55); }
+
+.rm-zen-chip {
+    position: fixed; z-index: 60; top: calc(.6rem + env(safe-area-inset-top, 0px)); right: .7rem; left: auto; bottom: auto; transform: none;
+    display: none; align-items: center; gap: .45rem; padding: .3rem .4rem .3rem .75rem; border-radius: 999px;
+    font-size: .74rem; font-weight: 600; color: var(--rm-ink); background: var(--rm-paper);
+    box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--rm-lav) 55%, transparent), 0 10px 22px -12px rgba(120, 90, 190, .55);
+    transition: box-shadow .2s, translate .25s var(--rm-spring);
+}
+.rm-zen-chip > i { color: var(--tb-6i, #6B4FB8); }
+.rm-zen-chip > em {
+    font-style: normal; padding: .2rem .65rem; border-radius: 999px; font-weight: 700;
+    color: var(--tb-6i, #6B4FB8); background: color-mix(in srgb, var(--rm-lav) 30%, var(--rm-paper));
+}
+.rm-zen-chip:active { translate: 0 1px; }
+body.zen:has(#quiz-live:not(.hidden)) .rm-zen-chip { display: inline-flex; animation: rm-pop-in .3s var(--rm-spring) backwards; }
+@media (max-width: 767px) { .rm-zen-chip { top: auto; bottom: calc(4.9rem + env(safe-area-inset-bottom, 0px)); right: .75rem; } }
+@media (prefers-reduced-motion: reduce) { body.zen:has(#quiz-live:not(.hidden)) .rm-zen-chip { animation: none; } }
+body.zen #quiz-live #notebook, body.zen #quiz-live .rm-quiz-footer { display: none !important; }
+
+/* ═══════════════ BẢN 63 (2026-10-06): TÌM CÂU (Ctrl K / ⋮ → Tìm câu) ═══════════════
+   Tìm cả trong đáp án + tên ca, lọc Chưa chọn / Đã chốt, tô đậm đoạn khớp, đánh dấu câu đang xem, đếm kết quả.
+   ĐT: ô gõ 16px (iOS khỏi tự phóng to), hộp nằm sát mép trên và danh sách co theo bàn phím ảo (--find-vh từ visualViewport). */
+.rm-find-bar { display: flex; align-items: center; gap: .4rem; padding: .5rem .8rem .15rem; flex-wrap: wrap; }
+.rm-find-chip {
+    padding: .3rem .75rem; border-radius: 999px; font-size: .74rem; font-weight: 600; color: var(--rm-muted);
+    background: var(--rm-surface-2); border: 1px solid transparent; transition: background .15s, color .15s, border-color .15s;
+}
+.rm-find-chip:hover { color: var(--rm-ink); }
+.rm-find-chip.on { color: var(--rm-pick-ink); background: color-mix(in srgb, var(--rm-pick) 18%, var(--rm-paper)); border-color: color-mix(in srgb, var(--rm-pick) 45%, transparent); }
+.rm-find-chip:focus-visible { outline: 2px solid var(--rm-pick); outline-offset: 2px; }
+.rm-find-count { margin-left: auto; font-size: .72rem; font-weight: 600; color: var(--rm-muted); font-variant-numeric: tabular-nums; }
+.rm-find-list { max-height: min(55vh, calc(var(--find-vh, 100vh) - 11rem)); overscroll-behavior: contain; }
+.rm-find-item { align-items: center; min-height: 2.75rem; }
+.rm-find-item .rm-kbd { align-self: center; flex: none; }
+.rm-find-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .12rem; }
+.rm-find-q { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.35; overflow-wrap: anywhere; }
+.rm-find-sub { font-size: .72rem; color: var(--rm-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rm-find-sub b { display: inline-grid; place-items: center; min-width: 1.15rem; height: 1.15rem; margin-right: .35rem; padding: 0 .25rem; border-radius: 6px; font-size: .64rem; color: var(--rm-pick-ink); background: color-mix(in srgb, var(--rm-pick) 16%, var(--rm-paper)); }
+.rm-find mark { color: inherit; font-weight: 700; background: color-mix(in srgb, var(--rm-warn) 24%, transparent); border-radius: 3px; box-shadow: 0 0 0 1px color-mix(in srgb, var(--rm-warn) 24%, transparent); }
+.rm-find-item.cur .rm-find-num { box-shadow: 0 0 0 2px var(--rm-pick); }
+.rm-find-item.cur:not(.done) .rm-find-num { background: color-mix(in srgb, var(--rm-pick) 16%, var(--rm-paper)); color: var(--rm-pick-ink); }
+.rm-find-empty { line-height: 1.5; }
+@media (max-width: 767px) {
+    .rm-find { padding-top: max(.6rem, env(safe-area-inset-top, 0px)); padding-inline: .6rem; }
+    .rm-find-input { font-size: 16px; }
+    .rm-find-head { padding: .75rem .9rem; }
+    .rm-find-head .rm-kbd { display: none; }
+    .rm-find-chip { padding: .42rem .85rem; }
+}
+@media (prefers-reduced-motion: reduce) { .rm-find-box { animation: none; } }
+
+/* ═══════════════ BẢN 64 (2026-10-06): TỰ CHUYỂN CÂU báo trước bằng vạch chạy ở mép trên (room-quiz-stage submitAnswer) ═══════════════ */
+.rm-autobar {
+    position: fixed; z-index: 120; inset: 0 0 auto 0; height: 3px; pointer-events: none;
+    background: var(--rm-pick); transform-origin: left center; animation: rm-autobar .9s linear forwards;
+}
+@keyframes rm-autobar { from { scale: 0 1; } to { scale: 1 1; } }
+
+/* ═══════════════ BẢN 66 (2026-10-06): NGHE ĐỌC — thanh điều khiển nổi (Dừng + tốc độ) ═══════════════ */
+.rm-speakbar {
+    position: fixed; z-index: 70; left: 50%; bottom: 1.1rem; translate: -50% 0;
+    display: flex; align-items: center; gap: .55rem; padding: .35rem .4rem .35rem .85rem; max-width: calc(100vw - 1.2rem);
+    border-radius: 999px; font-size: .78rem; font-weight: 600; color: var(--rm-pick-ink);
+    background: color-mix(in srgb, var(--rm-pick) 16%, var(--rm-paper)); box-shadow: 0 0 0 2.5px var(--rm-paper), 0 14px 24px -14px color-mix(in srgb, var(--rm-pick) 80%, transparent);
+    animation: rm-pop-in .3s var(--rm-spring) backwards;
+}
+.rm-speakbar.hidden { display: none; }
+.rm-speakbar > i { color: var(--rm-pick); animation: rm-speak-pulse 1.2s ease-in-out infinite; }
+.rm-speakbar > span { white-space: nowrap; }
+.rm-speakbar button { flex: none; white-space: nowrap; min-height: 2.2rem; padding: 0 .85rem; border-radius: 999px; font-weight: 700; font-size: .76rem; color: var(--rm-pick-ink); background: var(--rm-paper); font-variant-numeric: tabular-nums; }
+.rm-speakbar #speak-stop { color: #fff; background: var(--rm-pick); }
+.rm-speakbar button:focus-visible { outline: 2px solid var(--rm-pick); outline-offset: 2px; }
+@keyframes rm-speak-pulse { 50% { scale: 1.25; opacity: .7; } }
+@media (max-width: 767px) { .rm-speakbar { bottom: calc(5.2rem + env(safe-area-inset-bottom, 0px)); } }
+html.theme-dark .rm-speakbar { background: color-mix(in srgb, var(--rm-pick) 22%, var(--rm-surface)); }
+html.theme-dark .rm-speakbar button { background: var(--rm-surface-2); }
+@media (prefers-reduced-motion: reduce) { .rm-speakbar, .rm-speakbar > i { animation: none; } }
+
+/* ═══════════════ BẢN 67 (2026-10-06): CHẾ ĐỘ TỐI — color-scheme cho phần trình duyệt tự vẽ ═══════════════
+   Trước đây thanh cuộn, ô chọn <select>, nút tích, vùng kéo quá đà (iOS) và bàn phím vẫn sáng khi trang tối. */
+html { color-scheme: light; }
+html.theme-dark { color-scheme: dark; }
+@media (max-width: 767px) { body:has(.rm-speakbar:not(.hidden)) #toast-container { bottom: calc(8.8rem + env(safe-area-inset-bottom, 0px)); } }      /* thông báo nằm TRÊN thanh nghe đọc, không đè lên nó */
+
+/* ═══════════════ BẢN 68 (2026-10-06): HỘP THOẠI CHUNG — tiêu điểm vào hộp (room-polish initModals) ═══════════════ */
+.rm-modal-box:focus { outline: none; }
+.rm-modal-x:focus-visible { outline: 2px solid var(--rm-pick); outline-offset: 2px; }
+.rm-modal input[type=checkbox]:focus-visible { outline: 2px solid var(--rm-pick); outline-offset: 2px; }

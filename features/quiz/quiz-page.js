@@ -17,7 +17,7 @@
 
 import { auth } from '../../core/firebase-init.js';
 import { onSessionUser } from '../../core/auth-session.js';
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { showConfirm } from '../../core/utils.js';
 import { setupQuestionEditor } from './quiz-editor.js';
 import { state, clearQuizState, saveQuizState, readQuizState, flushQuizState } from './quiz-state.js';

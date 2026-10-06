@@ -4,7 +4,7 @@
 import { db, auth } from '../../core/firebase-init.js';
 import {
     collection, query, where, getDocs, doc
-} from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 // Bản bọc: mất mạng thì coi như xong ngay (Firestore xếp hàng, có mạng tự gửi) — không treo nút
 import { deleteDocQ as deleteDoc, updateDocQ as updateDoc } from '../../core/offline-write.js';
 import { onSessionUser, sessionUser } from '../../core/auth-session.js';

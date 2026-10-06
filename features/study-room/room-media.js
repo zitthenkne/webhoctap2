@@ -182,16 +182,16 @@ export function openLightbox(src, caption = '') {
     box.classList.add('on');
 }
 
-/** Bấm ảnh trong thảo luận / giải thích đã hiển thị -> phóng to; trong ô đang sửa thì bấm đúp. */
+/** Bấm ảnh trong thảo luận / giải thích đã hiển thị -> phóng to; trong ô ĐANG sửa (bản 56: .is-editing) thì bấm đúp. */
 export function initMedia() {
     document.addEventListener('click', (e) => {
         const img = e.target.closest?.('#chat-messages img, .rm-mimg img, #quiz-live .rm-md img, #quiz-result img, [data-zoom] img');
-        if (!img || img.closest('[contenteditable="true"]')) return;
+        if (!img || img.closest('[data-live-edit].is-editing')) return;
         e.preventDefault();
         openLightbox(img.currentSrc || img.src, img.alt || '');
     });
     document.addEventListener('dblclick', (e) => {
-        const img = e.target.closest?.('[data-live-edit] img');
+        const img = e.target.closest?.('[data-live-edit].is-editing img');
         if (img) openLightbox(img.currentSrc || img.src, img.alt || '');
     });
 }

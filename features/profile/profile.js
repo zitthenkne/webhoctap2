@@ -1,7 +1,7 @@
 import { auth, db } from '../../core/firebase-init.js';
 import { forgetSession, onSessionUser } from '../../core/auth-session.js';
-import { updateProfile, updatePassword, signOut } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
-import { doc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { updateProfile, updatePassword, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { doc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { updateDocQ as updateDoc } from '../../core/offline-write.js';
 import { showConfirm } from '../../core/utils.js';
 import { readMetaCache, fetchAllQuizMeta } from '../quiz/library/library-meta.js';

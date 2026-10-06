@@ -4,7 +4,7 @@
 //  · Chấm theo barem (chỉ hiện khi chủ trì đã "Hiện bài giải" — barem là đáp án): máy dò bài làm chung rồi
 //    tick sẵn; ai trong phòng cũng bấm tick / ½ / bỏ được -> session.grades.q<i> = { ticks, partials, by, at }.
 //    Chưa ai chấm tay thì điểm là của máy (tự tính lại khi bài làm chung đổi). ↺ = trả về máy chấm.
-import { updateDoc, deleteField } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { updateDoc, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { rubricOf, autoMatch, essayPoints, essayMaxPoints, missingCritical, formatOf } from '../quiz/quiz-essay-core.js';
 import { room, refs, qKey, questionAt, noteOf, myMember, partsOf } from './room-state.js';
 import { escapeHtml, shortName } from './room-ui.js';

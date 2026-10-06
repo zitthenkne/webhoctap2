@@ -4,7 +4,7 @@
 //    nội dung câu hỏi (chủ trì gõ không kịp thì người khác đỡ).
 //  · Chủ trì chỉ hơn ở 3 nút: Hiện đáp án · Chốt đáp án · Câu tiếp (+ lưu đề, kết thúc).
 //  · Đáp án trong file chỉ là THAM KHẢO: chỉ hiện khi chủ trì bấm "Hiện đáp án".
-import { updateDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { parseMarkdown, renderMath, stripOptionLabels, triggerConfetti } from '../quiz/quiz-helpers.js';
 import {
     room, refs, uid, canControl, hasSession, optsOf, refIdxOf, chosenOf, isAnnounced, isShown, isBlind, setState,
@@ -78,7 +78,11 @@ export const setViewIndex = (i) => {
     renderQuiz();
 };
 export const followHost = () => { viewIndex = null; renderQuiz(); };
+// Lúc câu CẢ PHÒNG đang bàn đổi lần gần nhất (bất kể ai đổi) — nút "Câu tiếp" của chủ trì dựa vào đây để KHÔNG nhảy đôi
+let focusAt = 0;
+export const focusChangedAt = () => focusAt;
 
+export const raceHidden = () => raceOff;
 /** Bật/tắt dải tiến độ nhóm. Phải đi qua đây, vì renderRace() vẽ lại theo biến raceOff. */
 export function toggleRace(force) {
     raceOff = force === undefined ? !raceOff : !!force;
@@ -121,7 +125,23 @@ async function submitAnswer(i, idx, extra = {}) {
     // Tự nhảy tới câu chưa chọn (chỉ khi bạn được tự đi câu và câu này chưa chốt).
     // Đổi phiếu từ khay bàn luận (🔄 Theo) thì đứng yên — đang đọc dở luồng.
     if (!extra.by && autoNextOn() && canRoam() && !isAnnounced(i) && i === effectiveIndex()) {
-        setTimeout(() => { if (!isAnnounced(i)) jumpToUnanswered(); }, 550);
+        // Kiểm lại LÚC NHẢY: trong lúc chờ mình có thể đã sang câu khác (tự chuyển tay, hoặc "Bám câu nhóm" theo chủ trì bấm Câu tiếp)
+        // — nhảy tiếp từ chỗ MỚI là bị lố một câu. Và HỦY nếu mình còn thao tác (chạm, cuộn, gõ: đang đọc khay giải thích, ghi lý do…) —
+        // trước đây cứ 550ms là bị kéo đi dù đang đọc dở.
+        // Bản 64: một vạch mỏng chạy ở mép trên màn hình suốt thời gian chờ (sắp tự chuyển) — chạm / cuộn / gõ là vạch biến mất và ở lại câu này.
+        let held = false;
+        const bar = document.createElement('i');
+        bar.className = 'rm-autobar';
+        bar.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(bar);
+        const hold = () => { held = true; bar.remove(); };
+        const EVS = ['pointerdown', 'keydown', 'wheel', 'touchmove'];
+        EVS.forEach(t => window.addEventListener(t, hold, { once: true, passive: true, capture: true }));
+        setTimeout(() => {
+            EVS.forEach(t => window.removeEventListener(t, hold, true));
+            bar.remove();
+            if (!held && !isAnnounced(i) && effectiveIndex() === i) jumpToUnanswered({ openOnly: true });
+        }, 900);
     }
 }
 
@@ -204,8 +224,14 @@ export function renderQuiz() {
 
     if (active && lastFocus !== s.currentQuestionIndex) {
         // chế độ cầm trịch: bám theo chủ trì · chế độ cùng làm: ai bật "Bám câu nhóm đang bàn" cũng tới theo
-        const follow = lastFocus !== null && followOn() && !canControl();
+        // Bản 66: "Bám câu nhóm" không giật màn hình khỏi tay người đang gõ ghi chú / lý do / sửa chữ (mất chỗ đang viết) —
+        // lúc đó để nguyên, chip "Nhóm ở câu N" vẫn báo; còn bám thật thì có một dòng nói rõ vừa sang câu mấy.
+        const editing = !!currentEditKey();
+        const follow = lastFocus !== null && followOn() && !canControl() && !editing;
         if ((!isCoop() && !canRoam()) || follow) viewIndex = null;
+        else if (editing && viewIndex === null && lastFocus !== null) viewIndex = lastFocus;     // đang gõ dở: ghim lại câu đang xem (viewIndex null = tự theo nhóm)
+        if (follow && lastFocus !== null) showToast(`Nhóm vừa sang câu ${s.currentQuestionIndex + 1}`, 'info', 1500);
+        if (lastFocus !== null) focusAt = Date.now();
         lastFocus = s.currentQuestionIndex;
     }
     if (!active) { viewIndex = null; lastFocus = null; }
@@ -273,6 +299,7 @@ function renderLive() {
     const mine = myAnswer(i);
     const chosen = chosenOf(i);
     const announced = isAnnounced(i);
+    el('quiz-live')?.classList.toggle('is-announced', announced);
     const shown = isShown(i);
     const refIdx = refIdxOf(q);
     const stats = questionStats(i);
@@ -325,6 +352,7 @@ function renderLive() {
     }
 
     el('q-track').innerHTML = questionTrackHtml(i);
+    paintRail(i);
     renderRace();
     renderExplainer(i);
 
@@ -371,7 +399,7 @@ function renderLive() {
     if (qt.contentEditable !== 'true') qt.setAttribute('contenteditable', 'true');   // đặt lại = ép dàn trang
     qt.dataset.liveEdit = 'question';
     qt.dataset.placeholder = 'Nhập nội dung câu hỏi…';
-    qt.title = 'Bấm để sửa câu hỏi — bôi đen để in đậm/nghiêng';
+    qt.title = 'Bấm đúp để sửa câu hỏi — bôi đen để ghi chú / nhận xét';
     if (currentEditKey() !== 'question') {
         qt.innerHTML = renderRich(q.question || '');
         renderMath(qt);
@@ -507,7 +535,7 @@ function questionMapHtml(cur) {
     return `
         <div class="rm-mtop">
             <b>🗺 Bản đồ câu</b>
-            <span class="rm-mstat"><b>${total - left}/${total}</b> đã chọn${count.miss ? ` · <em>${count.miss} bỏ trống</em>` : ''}</span>
+            <span class="rm-mstat"><b>${total - left}/${total}</b><span class="rm-hide-sm"> đã chọn</span>${count.miss ? ` · <em>${count.miss} bỏ trống</em>` : ''}</span>
             <button class="rm-mjump" data-mapjump title="Tới câu chưa chọn tiếp theo (phím J)"><i class="fas fa-forward"></i><span>Câu chưa chọn</span></button>
             <button class="rm-mclose" data-mapclose title="Đóng (Esc)" aria-label="Đóng bản đồ câu"><i class="fas fa-times"></i></button>
         </div>
@@ -527,8 +555,6 @@ function questionMapHtml(cur) {
 function renderOptions(i, q, opts, mine, chosen, announced, shown, refIdx, stats, showStats) {
     const area = el('options-area');
     area.classList.remove('is-essay');
-    // Chưa chọn thì có dòng gợi ý "👇 Chạm để chọn" (CSS ::before) — chọn rồi / đã khoá thì thôi
-    area.classList.toggle('need-pick', !mine && canAnswer(i));
     // Phương án ngắn thì xếp 2 cột cho đỡ dài; phương án dài luôn 1 cột cho dễ đọc
     area.classList.toggle('is-short', opts.every(o => String(o).replace(/<[^>]*>/g, '').trim().length <= 46));
     const ek = currentEditKey() || '';
@@ -588,6 +614,18 @@ function renderOptions(i, q, opts, mine, chosen, announced, shown, refIdx, stats
             : '';
         // Thẻ = ô chọn + KHAY gắn ngay dưới (giải thích · lý do · ai chọn gì · nhận xét, do
         // room-answer.js · renderOptionTalk đổ vào). Khay nằm NGOÀI <button> vì có ô gõ bên trong.
+        // Nhãn trạng thái (bản 59→61): mỗi ô mang tối đa 2 NHÃN DÁN (sticker bo tròn, nền pastel, có bong bóng biểu tượng) ở góc trên phải.
+        // Phân biệt bằng màu pastel + BIỂU TƯỢNG + chữ: bạn chọn (xanh dương, ✓) · đáp án nhóm / bạn chọn đúng / cũng đúng (xanh bạc hà, ★ ✓ ＋)
+        // · bạn chọn sai (hồng đào, ✕) · đáp án file (vàng bơ nét đứt, tờ giấy) · đa số (oải hương, nhóm người). Nhãn đầu quyết định màu viền ô.
+        // Ô mình chọn trùng đáp án file vẫn phải thấy CẢ HAI -> hai nhãn cạnh nhau (trước đây dấu "file" mất khi mình chọn trúng ô đó).
+        const tags = [];
+        if (isWrong) tags.push(['bad', 'Bạn chọn sai', 'fa-xmark']);
+        else if (isCorrect) tags.push(picked ? ['ok', 'Bạn chọn đúng', 'fa-check'] : idx === chosen ? ['ok', 'Đáp án nhóm', 'fa-star'] : ['ok', 'Cũng đúng', 'fa-plus']);
+        else if (picked) tags.push(['pick', 'Bạn chọn', 'fa-check']);
+        if (isRef) tags.push(['ref', 'Đáp án file', 'fa-file-lines']);
+        if (showStats && !announced && soloLead && stats.counts[idx] === topN) tags.push(['lead', 'Số đông', 'fa-users']);
+        const tst = tags.length ? tags[0][0] : '';
+        const tagHtml = tags.slice(0, 2);
         const card = ['rm-ocard', 'o' + (idx % 4)];
         if (isCorrect) card.push('is-correct'); else if (isWrong) card.push('is-wrong'); else if (picked) card.push('is-picked');
         // Đã chốt: ô không đúng mà mình cũng không chọn -> mờ đi, mắt dồn vào ô xanh (đúng) / đỏ (mình sai)
@@ -595,15 +633,13 @@ function renderOptions(i, q, opts, mine, chosen, announced, shown, refIdx, stats
         if (picked) card.push('is-mine');          // ô mình chọn (kể cả khi đã thành xanh / đỏ) -> dấu ✓ / ✗ ở chữ cái
         if (justAnn && (isCorrect || isWrong)) card.push('is-stamp');
         if (justPick && picked) card.push('is-justpicked');
-        return `<div class="${card.join(' ')}" data-card="${idx}"><button type="button" data-opt="${idx}" class="${cls.join(' ')}" title="${canAnswer(i) ? `Chọn ${L(idx)} (phím ${L(idx)})` : ''}">
+        return `<div class="${card.join(' ')}" data-card="${idx}"${tst ? ` data-st="${tst}"` : ''}>${tagHtml.length ? `<span class="rm-tags" aria-hidden="true">${tagHtml.map(([k, t, ic]) => `<b class="rm-tg is-${k}"><i class="fas ${ic}"></i>${t}</b>`).join('')}</span>` : ''}<button type="button" data-opt="${idx}" class="${cls.join(' ')}" title="${canAnswer(i) ? `Chọn ${L(idx)} (phím ${L(idx)})` : ''}">
             ${showStats ? `<span class="rm-fill ${wasPct !== pct ? 'is-grow' : ''}" style="--p:${pct / 100};--from:${wasPct / 100}"></span>` : ''}
             <span class="rm-opt-edit" data-edit-opt-text="${idx}" title="Sửa nội dung phương án ${L(idx)}"><i class="fas fa-pen"></i></span>
             <span class="rm-letter">${L(idx)}</span>
             <span class="rm-otext">
                 ${textHtml}
-                ${isRef ? '<span class="rm-chip warn">đáp án trong file</span>' : ''}
-                ${isCorrect ? `<span class="rm-chip ok rm-verdict">${picked ? '✓ Bạn chọn đúng' : '✓ Đáp án đúng'}</span>` : ''}
-                ${isWrong ? '<span class="rm-chip bad rm-verdict">✗ Bạn chọn sai</span>' : ''}
+                ${tags.length ? `<span class="rm-vh">${tags.map(([, t]) => t.toLowerCase()).join(', ')}</span>` : ''}
             </span>
             ${side}
         </button><div class="rm-odisc hidden" data-odisc="${idx}"></div></div>`;
@@ -653,7 +689,7 @@ function renderCase(i, q) {
         </div>
         <button type="button" class="rm-case-peek" data-case-fold title="Mở lại ca"></button>
         <div class="rm-case-body rm-md" contenteditable="true" data-live-edit="case" data-placeholder="Nội dung ca lâm sàng…"
-             title="Bấm để sửa ca — cả nhóm thấy ngay, đổi cho mọi câu trong chùm"></div>
+             title="Bấm đúp để sửa ca — cả nhóm thấy ngay, đổi cho mọi câu trong chùm"></div>
         <div class="rm-case-reveals"></div>`;
     }
     const body = box.querySelector('[data-live-edit="case"]');
@@ -747,9 +783,117 @@ function questionTrackHtml(cur) {
 function centerTrack(smooth = true) {
     const t = el('q-track');
     const now = t?.querySelector('.rm-pip.now');
-    if (!t || !now) return;
-    const target = now.offsetLeft - (t.clientWidth - now.offsetWidth) / 2;
-    t.scrollTo({ left: Math.max(0, target), behavior: smooth ? 'smooth' : 'auto' });
+    if (!t || !now || !t.clientWidth) return;           // đang ẩn (clientWidth 0) thì đo gì cũng sai -> đừng căn
+    // Đo bằng getBoundingClientRect: offsetLeft tính theo offsetParent — từ bản 43 là THẺ HUD (position:relative) chứ không phải dải,
+    // nên ≥768px viên đang xem bị căn lệch cả bề ngang nút ‹ Câu x/y › (câu đang làm nằm ngoài khung nhìn)
+    const a = now.getBoundingClientRect(), b = t.getBoundingClientRect();
+    const target = t.scrollLeft + (a.left - b.left) - (t.clientWidth - a.width) / 2;
+    t.scrollTo({ left: Math.max(0, target), behavior: smooth ? 'smooth' : 'instant' });
+}
+
+// ---------- Bản 54: vạch tiến độ — MỌI câu một đoạn màu, chạm / rê ngón để nhảy ----------
+// Dải viên kẹo chỉ thấy vài câu quanh câu đang xem; vạch này cho thấy cả đề trong ~6px chiều cao.
+let railK = -1;                 // câu đang rê tới (ngoài lúc rê = -1)
+function paintRail(cur) {
+    const rail = el('q-rail');
+    if (!rail) return;
+    const me = myMember();
+    const total = room.session.questions.length;
+    const segs = [];
+    for (let k = 0; k < total; k++) {
+        const c = [qStateOf(k)];
+        if (flagOf(me, k)) c.push('flag');
+        if (k === currentIndex() && k !== cur) c.push('focus');
+        segs.push(`<i class="${c.join(' ')}"></i>`);
+    }
+    const html = segs.join('');
+    const box = rail.firstElementChild;
+    if (box.dataset.sig !== html) { box.dataset.sig = html; box.innerHTML = html; }
+    rail.dataset.n = total;
+    if (railK < 0) railAt(rail, cur);
+}
+// Núm trượt đứng giữa đoạn của câu k (điện thoại: viên có số câu; iPad/máy tính: chấm tròn). f = vị trí thực (số lẻ) khi đang rê.
+function railAt(rail, k, f = k) {
+    const n = Number(rail.dataset.n) || 1;
+    rail.style.setProperty('--at', ((f + .5) / n).toFixed(4));
+    rail.querySelector('.rm-qthumb').textContent = k + 1;
+}
+// Rê bằng NGÓN TAY (cảm ứng / bút) là kéo TƯƠNG ĐỐI, tốc độ nhảy đổi theo cách kéo — như thanh tua video:
+//   · kéo chậm  = 1 câu / ~10px ngón tay (vạch điện thoại chỉ ~3px/câu nên nhắm tuyệt đối không trúng được)
+//   · kéo nhanh = trải cả đề trên bề ngang vạch
+//   · kéo xuống xa khỏi vạch = chậm thêm (ngón còn nguyên cả màn hình để di chuyển; xa quá 28px thì mỗi 70px nữa giảm một nửa)
+// Chuột (máy tính) giữ ánh xạ tuyệt đối vì con trỏ đủ chính xác.
+const SCRUB = { slow: .16, fast: .85, step: 10 };          // px/ms dưới mức này = chậm · px/ms trên mức này = nhanh · px / câu khi chậm
+function scrubGain(v, dy, n, w) {
+    const fast = n / Math.max(1, w) * 1.25;                // câu / px: cả đề trải trên ~80% bề ngang vạch
+    const slow = Math.min(fast, 1 / SCRUB.step);           // đề ngắn: vạch đã đủ rộng cho ánh xạ tuyệt đối -> chậm = nhanh
+    const t = Math.max(0, Math.min(1, (v - SCRUB.slow) / (SCRUB.fast - SCRUB.slow)));
+    const fine = 1 / (1 + Math.max(0, dy - 28) / 70);
+    return { g: (slow + (fast - slow) * t * t * (3 - 2 * t)) * fine, fine };
+}
+function initRail() {
+    const rail = el('q-rail');
+    if (!rail) return;
+    const N = () => Number(rail.dataset.n) || 1;
+    const clampK = (x) => Math.max(0, Math.min(N() - 1, x));
+    // đoạn nằm ngay dưới ngón (số lẻ: tâm đoạn k = k)
+    const absPos = (e) => { const r = rail.getBoundingClientRect(); return clampK((e.clientX - r.left) / r.width * N() - .5); };
+    let pos = 0, lx = 0, lt = 0, v = 0;
+    const show = (f) => {
+        const k = Math.round(f);
+        if (k !== railK) {
+            if (railK >= 0) haptic(3);
+            railK = k;
+            rail.querySelector('.rm-qtip').textContent = `Câu ${k + 1}`;
+        }
+        railAt(rail, k, f);
+        rail.style.setProperty('--tip-at', Math.max(.1, Math.min(.9, (f + .5) / N())).toFixed(4));
+    };
+    rail.addEventListener('pointerdown', (e) => {
+        if (e.button) return;
+        rail.setPointerCapture(e.pointerId);
+        rail.classList.add('is-drag');
+        lx = e.clientX; lt = e.timeStamp; v = 0;
+        // Đặt ngón lên chính núm = kéo tiếp từ câu đang xem (không nhảy); đặt chỗ khác = nhảy tới đó rồi chỉnh chậm
+        const th = rail.querySelector('.rm-qthumb').getBoundingClientRect();
+        const onThumb = e.pointerType !== 'mouse' && Math.abs(e.clientX - (th.left + th.width / 2)) <= th.width / 2 + 10;
+        pos = onThumb ? effectiveIndex() : absPos(e);
+        show(pos);
+    });
+    rail.addEventListener('pointermove', (e) => {
+        if (!rail.classList.contains('is-drag')) return;
+        if (e.pointerType === 'mouse') { pos = Math.round(absPos(e)); return show(pos); }
+        const dx = e.clientX - lx;
+        v = v * .5 + Math.abs(dx) / Math.max(4, e.timeStamp - lt) * .5;      // px/ms, làm mượt (sự kiện dồn cùng khung hình không làm vọt)
+        lx = e.clientX; lt = e.timeStamp;
+        const r = rail.getBoundingClientRect();
+        const { g, fine } = scrubGain(v, Math.abs(e.clientY - (r.top + r.height / 2)), N(), r.width);
+        pos = clampK(pos + dx * g);
+        rail.dataset.mode = fine < .75 ? 'fine' : '';
+        show(pos);
+    });
+    const end = (jump) => {
+        rail.classList.remove('is-drag');
+        rail.dataset.mode = '';
+        const k = railK;
+        railK = -1;
+        if (jump && k >= 0 && k !== effectiveIndex()) setViewIndex(k);    // renderLive vẽ lại núm ở câu mới
+        else railAt(rail, effectiveIndex());                              // thả tại chỗ / bị hủy: núm về câu đang xem
+    };
+    // Nhả ngón xong, trình duyệt còn bắn tiếp một cú CLICK tại đúng điểm đó. Nhảy câu làm chip "Nhóm ở câu N" hiện ra, vạch co lại
+    // và chip chui xuống dưới ngón tay -> cú click ấy bấm trúng chip, kéo về câu cũ ngay lập tức. Nuốt click đó (chỉ cảm ứng / bút).
+    let swallow = { until: 0, x: 0, y: 0 };
+    document.addEventListener('click', (e) => {
+        if (Date.now() >= swallow.until || Math.hypot(e.clientX - swallow.x, e.clientY - swallow.y) > 60) return;
+        swallow.until = 0;
+        e.stopPropagation();
+        e.preventDefault();
+    }, true);
+    rail.addEventListener('pointerup', (e) => {
+        if (e.pointerType !== 'mouse') swallow = { until: Date.now() + 500, x: e.clientX, y: e.clientY };
+        end(true);
+    });
+    rail.addEventListener('pointercancel', () => end(false));
 }
 
 // ---------- Đường đua: ai đang làm tới đâu ----------
@@ -802,7 +946,7 @@ function renderRace() {
             <span class="flex-1"></span>
             <button class="rm-icon-btn rm-race-toggle" data-race-toggle title="Ẩn dải tiến độ"><i class="fas fa-eye-slash"></i></button>
         </div>
-        <div class="rm-race-lane">
+        <div class="rm-race-lane" role="img" aria-label="${escapeHtml(leader ? `Tiến độ cả nhóm: ${shortName(leader.displayName || 'Khách', 14)} dẫn đầu ${best}/${total}` : `Tiến độ cả nhóm: chưa ai chọn câu nào`)}${meNow ? `; bạn ${done(meNow)}/${total}` : ''}">
             <div class="rm-rticks">
                 ${[0, 25, 50, 75, 100].map(p => `<span style="left:${p}%"><i></i><b>${Math.round(total * p / 100)}</b></span>`).join('')}
             </div>
@@ -839,7 +983,7 @@ function popScore(i) {
     const all = st.total >= 2 && st.correctCount === st.total;
     const node = document.createElement('div');
     node.className = 'rm-pop';
-    node.innerHTML = `<b>+10</b><span>${all ? '🎯 Cả phòng ăn trọn!' : streak >= 2 ? `🔥 Chuỗi ${streak} câu` : '✨ Chuẩn luôn!'}</span>`;
+    node.innerHTML = `<b>+10</b><span>${all ? 'Cả phòng cùng đúng' : streak >= 2 ? `Chuỗi ${streak} câu đúng` : 'Chọn đúng'}</span>`;
     layer.appendChild(node);
     setTimeout(() => node.remove(), 2000);
 }
@@ -1045,7 +1189,7 @@ function renderMyBlock(i, q, opts) {
             <div class="rm-md" contenteditable="true" data-live-edit="issue"
                  data-placeholder="Ví dụ: thiếu dữ kiện, 2 đáp án cùng đúng…">${renderRich(issue)}</div>
             <p class="text-[11px] text-muted mt-3">
-                <i class="fas fa-circle-info mr-1"></i>Sửa nội dung câu hỏi: bấm thẳng vào câu hỏi ở trên.
+                <i class="fas fa-circle-info mr-1"></i>Sửa nội dung câu hỏi: bấm đúp vào câu hỏi ở trên.
                 Sửa phương án: rê chuột vào phương án rồi bấm nút bút chì.
             </p>
         </div>`;
@@ -1136,6 +1280,15 @@ export function initStage() {
         const src = e.target.closest('[data-qsrc]');
         if (src) return void src.classList.toggle('is-open');
     });
+    // Điện thoại: bản đồ câu là tờ trượt có màn mờ (bản 54) -> bấm ra ngoài chỉ ĐÓNG tờ, không "xuyên" xuống chọn nhầm đáp án
+    document.addEventListener('click', (e) => {
+        const map = el('question-map');
+        if (!map || map.classList.contains('hidden') || !matchMedia('(max-width: 767px)').matches) return;
+        if (e.target.closest('#question-map, #question-pill')) return;
+        map.classList.add('hidden');
+        e.stopPropagation();
+        e.preventDefault();
+    }, true);
     document.addEventListener('click', (e) => {
         if (!e.target.closest('#question-pill') && !e.target.closest('#question-map')) el('question-map')?.classList.add('hidden');
         if (!e.target.closest('[data-mark-toggle]') && !e.target.closest('#mark-menu')) el('mark-menu')?.classList.add('hidden');
@@ -1216,6 +1369,17 @@ export function initStage() {
         e.preventDefault();
         t.scrollLeft += e.deltaY;
     }, { passive: false });
+
+    // Bản 54: dải câu tự căn lại về câu đang xem mỗi khi bề ngang của nó đổi (lúc từ ẩn -> hiện, chip bên cạnh
+    // đổi cỡ khi font nạp xong, xoay iPad) — trước đây chỉ căn một lần nên có máy thấy toàn câu 25–37 mà không thấy câu đang làm.
+    // Người dùng đang tự vuốt dải thì để yên.
+    const trk = el('q-track');
+    if (trk && window.ResizeObserver) {
+        let touched = 0;
+        trk.addEventListener('pointerdown', () => { touched = Date.now(); }, { passive: true });
+        new ResizeObserver(() => { if (Date.now() - touched > 4000) centerTrack(false); }).observe(trk);
+    }
+    initRail();
 
     try { raceOff = localStorage.getItem('roomRaceOff') === '1'; } catch (e) {}
 
@@ -1318,7 +1482,28 @@ export function initStage() {
         if (e.key === 'Enter' && e.target.closest?.('[data-live-edit="casetitle"]')) { e.preventDefault(); e.target.blur(); }
     });
 
-    // Bút chì trên phương án -> biến chữ của phương án đó thành ô gõ
+    // Bấm / chạm ĐÚP vào chữ phương án -> sửa chữ (bản 56, thay bút chì hiện khi rê chuột). Phương án CHƯA chọn thì bấm đúp = chọn nó
+    // (chạm 1 lần đã chọn rồi) nên bỏ qua; ô mình đã chọn (bấm lại là no-op) hoặc câu đã khóa thì cho sửa.
+    // "Đã chọn từ TRƯỚC cú bấm đầu" phải ghi lại lúc ấn xuống: tới khi sự kiện đúp bắn thì cú bấm đầu đã chọn ô đó rồi (sơn ngay tại máy).
+    let press = { idx: -1, mine: false, t: 0 };
+    el('options-area')?.addEventListener('pointerdown', (e) => {
+        const card = e.target.closest('.rm-ocard');
+        if (!card) return;
+        const idx = Number(card.dataset.card);
+        if (press.idx === idx && Date.now() - press.t < 700) { press.t = Date.now(); return; }      // lần ấn thứ hai của cú đúp
+        press = { idx, mine: myAnswer(effectiveIndex())?.i === idx, t: Date.now() };
+    }, true);
+    window.addEventListener('room:dbl', (e) => {
+        const t = e.detail.target.closest?.('#options-area .rm-otext');
+        const card = t?.closest('.rm-ocard');
+        if (!card || e.detail.target.closest('[data-live-edit], a, img')) return;
+        const idx = Number(card.dataset.card);
+        const i = effectiveIndex();
+        if (canAnswer(i) && !(press.idx === idx && press.mine)) return;
+        editingOpt = idx;
+        renderQuiz();
+    });
+    // Nút "✏️ Sửa chữ X" trong khay (và bút chì cũ nếu còn) -> biến chữ của phương án đó thành ô gõ
     el('options-area')?.addEventListener('click', (e) => {
         const pen = e.target.closest('[data-edit-opt-text]');
         if (pen) {

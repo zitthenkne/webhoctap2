@@ -9,7 +9,7 @@
 import { db } from '../../core/firebase-init.js';
 import {
     doc, getDoc, collection, query, where, getDocs
-} from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 // Giữ khớp với FOLDER_SWATCHES ở library-helpers.js
 const FOLDER_COLOR_HEX = {

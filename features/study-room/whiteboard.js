@@ -16,7 +16,7 @@
 //   Doc đặc biệt: `_present` (người trình bày: tâm + khổ khung nhìn + con trỏ), `laser_<uid>` (vệt laser).
 //   Doc kiểu cũ (stroke / line / rectangle / circle / image) vẫn đọc được, đổi sang kiểu mới lúc vẽ.
 import { db } from '../../core/firebase-init.js';
-import { doc, collection, onSnapshot, setDoc, writeBatch, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { doc, collection, onSnapshot, setDoc, writeBatch, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { showToast, showConfirm } from '../../core/utils.js';
 import { uploadImage, imageFilesOf, warnIfTemp, safeImgUrl } from './room-media.js';
 import { room, refs, myMember } from './room-state.js';

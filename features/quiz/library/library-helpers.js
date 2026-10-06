@@ -4,7 +4,7 @@
 
 import { db } from '../../../core/firebase-init.js';
 import { sessionUser } from '../../../core/auth-session.js';
-import { doc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { doc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { auth } from '../../../core/firebase-init.js';
 import { S, TRASH_RETENTION_MS } from './library-state.js';
 import { getLastAttempt, getLastTouchedAt } from './library-attempts.js';

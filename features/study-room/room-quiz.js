@@ -2,7 +2,7 @@
 // (chuyển câu / khóa / lộ đáp án / hẹn giờ / lưu / kết thúc) và phím tắt.
 import {
     doc, getDoc, setDoc, updateDoc, addDoc, collection, serverTimestamp,
-} from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { db } from '../../core/firebase-init.js';
 import { showToast, showConfirm } from '../../core/utils.js';
 import { shuffleArray } from '../quiz/quiz-helpers.js';
@@ -15,12 +15,12 @@ import {
     isEssay, acceptedOf, alsoOkOf, isSplit, acceptedText, answerOf, doneOf,
 } from './room-state.js';
 import { isOnline } from './room-members.js';
-import { escapeHtml } from './room-ui.js';
-import { answerCurrent, effectiveIndex, setViewIndex, followHost, slowOf } from './room-quiz-stage.js';
+import { escapeHtml, showUndo } from './room-ui.js';
+import { answerCurrent, effectiveIndex, setViewIndex, followHost, slowOf, focusChangedAt } from './room-quiz-stage.js';
 import { questionStats, computeScores } from './room-scoreboard.js';
 import { systemMessage } from './room-chat.js';
 import { renderLobby } from './room-lobby.js';
-import { ensureXlsx, openMinutes, fold } from './room-boost.js';
+import { ensureXlsx, openMinutes, fold, haptic } from './room-boost.js';
 import { reviewIndexes } from './room-game.js';
 import { optExpFull, mergeExp } from './room-reason.js';
 import { formatOf } from '../quiz/quiz-essay-core.js';
@@ -577,6 +577,7 @@ function chotMenuHtml() {
     const ref = refAllOf(q);
     const cur = chosenOf(i);
     const also = alsoOkOf(i);
+    const def = defaultChot(i);
     const letter = (k) => String.fromCharCode(65 + k);
     const ic = (bg, fg, inner) => `<span class="rm-menu-ic" style="background:${bg};color:${fg}">${inner}</span>`;
     return `
@@ -586,15 +587,75 @@ function chotMenuHtml() {
             ${cur === k ? 'Đáp án chính' : 'Chốt'} ${letter(k)}${st.counts[k] ? ` · ${st.counts[k]} người` : ''}</button>`).join('')}
         ${cur !== null ? `<p class="rm-menu-cap">Nhiều đáp án cùng đúng</p>
             <div class="rm-menu-also">${opts.map((_, k) => k === cur ? '' : `<button data-chot="also:${k}" class="rm-also ${also.includes(k) ? 'on' : ''}" title="Chấp nhận thêm ${letter(k)} (chọn ${letter(k)} cũng tính đúng)">${also.includes(k) ? '<i class="fas fa-check"></i>' : '+'} ${letter(k)}</button>`).join('')}</div>` : ''}
-        <p class="rm-menu-cap">Nhanh</p>
-        ${top.length ? `<button data-chot="top" class="rm-menu-item">${ic('var(--rm-ok-bg)', 'var(--rm-ok)', '<i class="fas fa-users"></i>')}Theo đa số (${top.map(letter).join(' + ')})${top.length > 1 ? ' — hoà, chấp nhận cả' : ''}</button>` : ''}
-        ${ref.length ? `<button data-chot="ref" class="rm-menu-item">${ic('var(--rm-lav-soft)', '#7B61C4', '<i class="fas fa-file-lines"></i>')}Theo đáp án file (${ref.map(letter).join(' + ')})</button>` : ''}
+        <p class="rm-menu-cap">Nhanh <span class="rm-menu-capsub">bấm thẳng nút Chốt = mục có dấu ★</span></p>
+        ${top.length ? `<button data-chot="top" class="rm-menu-item">${ic('var(--rm-ok-bg)', 'var(--rm-ok)', '<i class="fas fa-users"></i>')}Theo đa số (${top.map(letter).join(' + ')})${top.length > 1 ? ' — hoà, chấp nhận cả' : ''}${def?.value === 'top' ? '<span class="rm-menu-def">★ mặc định</span>' : ''}</button>` : ''}
+        ${ref.length ? `<button data-chot="ref" class="rm-menu-item">${ic('var(--rm-lav-soft)', '#7B61C4', '<i class="fas fa-file-lines"></i>')}Theo đáp án file (${ref.map(letter).join(' + ')})${def?.value === 'ref' ? '<span class="rm-menu-def">★ mặc định</span>' : ''}</button>` : ''}
         <button data-chot="split" class="rm-menu-item ${isSplit(i) ? 'is-active' : ''}">${ic('var(--rm-warn-bg)', 'var(--rm-warn)', '🤝')}Chưa thống nhất — ghi nhận các quan điểm</button>
         ${cur !== null || isSplit(i) ? `<button data-chot="none" class="rm-menu-item">${ic('var(--rm-bad-bg)', 'var(--rm-bad)', '<i class="fas fa-rotate-left"></i>')}Bỏ kết luận câu này</button>` : ''}
         <button data-chot="revote" class="rm-menu-item">${ic('var(--rm-peach-soft)', 'var(--rm-warn)', '<i class="fas fa-repeat"></i>')}Bầu lại câu này</button>`;
 }
 
-async function chot(value) {
+// ---------- Chốt nhanh: MỘT chạm = chốt theo cách chủ trì hay dùng cho đề này; giữ nút / chuột phải = bảng chọn ----------
+// Mặc định: đề soạn kỹ thì đáp án trong file thường đúng -> theo file. Mỗi lần chủ trì CHỌN TAY ở bảng (đa số / file / một chữ cái) ta nhớ
+// cách đó khớp với "file" hay "số đông" (theo từng đề, ở máy này) — lần sau nút Chốt tự theo cách chủ trì hay chọn. Hai cách khác nhau
+// (file nói B, số đông nói C) mới cần tới thói quen này; trùng nhau thì chốt luôn.
+const prefKey = () => `roomChotPref_${room.session?.sourceQuizId || room.session?.quizTitle || 'x'}`;
+const readPref = () => { try { return JSON.parse(localStorage.getItem(prefKey()) || '{}') || {}; } catch (e) { return {}; } };
+function learnChot(picks, ref, top) {
+    const p = readPref();
+    if (picks.some(k => ref.includes(k))) p.ref = Math.min(50, (p.ref || 0) + 1);
+    if (picks.some(k => top.includes(k))) p.top = Math.min(50, (p.top || 0) + 1);
+    try { localStorage.setItem(prefKey(), JSON.stringify(p)); } catch (e) {}
+}
+/** Cách chốt mặc định cho câu i: { value:'ref'|'top', picks, why } — hoặc null khi phải chọn tay (không có đáp án file, phiếu hoà / chưa ai chọn). */
+function defaultChot(i) {
+    const ref = refAllOf(questionAt(i));
+    const top = topOf(questionStats(i));
+    const p = readPref();
+    const preferTop = (p.top || 0) > (p.ref || 0);
+    if (preferTop && top.length === 1) return { value: 'top', picks: top, why: 'số đông' };
+    if (ref.length) return { value: 'ref', picks: ref, why: 'đáp án file' };
+    if (top.length === 1) return { value: 'top', picks: top, why: 'số đông' };
+    return null;
+}
+let lastChotAt = 0;
+async function quickChot() {
+    const i = effectiveIndex();
+    if (isEssay(questionAt(i))) return;
+    if (chosenOf(i) !== null || isSplit(i)) return openChotMenu();            // đã chốt: bấm lại là muốn sửa / bỏ chốt / thêm đáp án đúng
+    const d = defaultChot(i);
+    if (!d) {
+        showToast(topOf(questionStats(i)).length > 1 ? 'Phiếu đang hoà và đề không có đáp án file — chọn một phương án.' : 'Chưa có đáp án file hay phiếu nào — chọn tay một phương án.', 'info', 2800);
+        return openChotMenu();
+    }
+    lastChotAt = Date.now();
+    await chot(d.value);
+    // Chốt xong NGAY một chạm mà cả phòng thấy -> có đường lùi: thanh Hoàn tác (3 lần đầu kèm mẹo giữ nút)
+    let n = 0;
+    try { n = Number(localStorage.getItem('roomChotHint') || 0); localStorage.setItem('roomChotHint', String(n + 1)); } catch (e) {}
+    const lt = d.picks.map(k => String.fromCharCode(65 + k)).join(' + ');
+    showUndo(n < 3 ? `Đã chốt ${lt} theo ${d.why} · giữ nút Chốt để chọn cách khác` : `Đã chốt ${lt} (${d.why})`, () => chot('none'), n < 3 ? 7000 : 5000);
+}
+function openChotMenu({ toggle = false } = {}) {
+    const menu = el('chot-menu');
+    const btn = el('host-lock-answer');
+    if (!menu || !btn) return;
+    if (toggle && !menu.classList.contains('hidden')) { menu.classList.add('hidden'); return; }
+    menu.innerHTML = chotMenuHtml();
+    menu.classList.remove('hidden');
+    // Thanh chủ trì cuộn ngang -> menu đặt absolute sẽ bị cắt. Neo theo màn hình.
+    const r = btn.getBoundingClientRect();
+    menu.style.position = 'fixed';
+    menu.style.left = hostSide() ? `${r.right + 12}px` : `${Math.max(8, Math.min(r.left, window.innerWidth - 240))}px`;
+    menu.style.bottom = `${Math.max(8, window.innerHeight - (hostSide() ? r.bottom : r.top - 8))}px`;
+    menu.style.zIndex = '70';
+    // Bảng cao (A–D + 4 mục nhanh + nhiều đáp án đúng) — không được tràn khỏi mép trên màn hình điện thoại: co theo chỗ trống, quá thì cuộn
+    const room_ = hostSide() ? r.bottom : r.top - 8;
+    menu.style.maxHeight = `${Math.max(160, room_ - 10)}px`;
+    menu.style.overflowY = 'auto';
+}
+
+async function chot(value, opts = {}) {
     if (value === 'revote') return revote();
     const i = effectiveIndex();
     const q = questionAt(i);
@@ -623,6 +684,7 @@ async function chot(value) {
         showToast('Chưa có gì để chốt — chọn tay một phương án nhé.', 'warning');
         return;
     }
+    if (opts.manual && picks.length) learnChot(picks, refAllOf(q), topOf(st));
     await updateDoc(refs.session(), {
         [`chosen.q${i}`]: picks.length ? picks[0] : null,
         [`alsoOk.q${i}`]: picks.slice(1),
@@ -661,11 +723,19 @@ async function cycleTalk() {
     if (next) systemMessage(`Cùng bàn câu ${effectiveIndex() + 1} trong ${Math.round(next / 60)} phút nha!`);
 }
 
-// 3) Câu tiếp: dời câu cả nhóm đang bàn và kéo màn hình chủ trì theo
-async function nextQuestion() {
-    await gotoQuestion(currentIndex() + 1);
+// 3) Câu tiếp: dời câu cả nhóm đang bàn và kéo màn hình chủ trì theo.
+// KHÔNG được nhảy đôi: "câu kế" tính từ câu cả phòng ĐANG bàn đọc ở snapshot cục bộ — Firestore trả bản ghi chờ gần như tức thì, nên cú
+// bấm thứ hai (chạm đúp, giữ phím N, chạm hụt rồi chạm lại, hoặc phó chủ trì bấm cùng lúc) đọc luôn câu MỚI rồi +1 nữa. Chặn nếu vừa bấm Câu tiếp
+// <700ms hoặc câu cả phòng vừa đổi <500ms (cú bấm này nhắm câu cũ).
+let lastMoveAt = 0;
+async function moveGroup(step) {
+    const now = Date.now();
+    if (now - lastMoveAt < 700 || now - focusChangedAt() < 500) return;
+    lastMoveAt = now;
+    await gotoQuestion(currentIndex() + step);
     followHost();
 }
+const nextQuestion = () => moveGroup(1);
 
 // Đặt "câu cả phòng đang bàn" = câu chủ trì đang xem
 async function setFocusHere() {
@@ -916,12 +986,21 @@ function onKey(e) {
     if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
         e.preventDefault();
         const step = e.key === 'ArrowRight' ? 1 : -1;
-        if (e.shiftKey && canControl()) gotoQuestion(currentIndex() + step);
+        if (e.shiftKey && canControl()) { if (!e.repeat) moveGroup(step); }
         else setViewIndex(effectiveIndex() + step);
         return;
     }
     if (!canControl()) return;
-    if (e.key === ' ') { e.preventDefault(); chot('top'); }
+    if (e.repeat) return;                                       // giữ phím không được lặp lệnh của chủ trì
+    // Space khi TIÊU ĐIỂM BÀN PHÍM đang ở một nút / liên kết / mục menu (vừa Tab tới) là để BẤM nút đó — không được biến thành chốt đáp án
+    // (người dùng bàn phím Tab tới 'Câu tiếp' rồi bấm Space từng bị chốt thay vì sang câu). Nút vừa bấm bằng chuột không có :focus-visible nên Space vẫn là chốt nhanh.
+    if (e.key === ' ' && t?.matches?.('button, a[href], summary, select, [role=button], [role^=menuitem]') && t.matches(':focus-visible')) return;
+    // Space: chốt nhanh; đã chốt rồi (và qua 0,6s để cú nhấn đôi không trượt sang câu khác) thì Space = câu tiếp
+    if (e.key === ' ') {
+        e.preventDefault();
+        if (chosenOf(effectiveIndex()) !== null && Date.now() - lastChotAt > 600) nextQuestion();
+        else quickChot();
+    }
     else if (e.key.toLowerCase() === 's') showAnswer();
     else if (e.key.toLowerCase() === 'n') nextQuestion();
     else if (e.key.toLowerCase() === 'g') setFocusHere();
@@ -1018,20 +1097,29 @@ export function initQuizControl() {
     el('host-lock')?.addEventListener('click', () => setLocked(!room.session?.locked));
     el('host-minutes')?.addEventListener('click', openMinutes);
     el('host-talk')?.addEventListener('click', cycleTalk);
-    el('host-lock-answer')?.addEventListener('click', () => {
-        const menu = el('chot-menu');
-        const btn = el('host-lock-answer');
-        if (!menu) return;
-        if (!menu.classList.contains('hidden')) { menu.classList.add('hidden'); return; }
-        menu.innerHTML = chotMenuHtml();
-        menu.classList.remove('hidden');
-        // Thanh chủ trì cuộn ngang -> menu đặt absolute sẽ bị cắt. Neo theo màn hình.
-        const r = btn.getBoundingClientRect();
-        menu.style.position = 'fixed';
-        menu.style.left = hostSide() ? `${r.right + 12}px` : `${Math.max(8, Math.min(r.left, window.innerWidth - 240))}px`;
-        menu.style.bottom = `${Math.max(8, window.innerHeight - (hostSide() ? r.bottom : r.top - 8))}px`;
-        menu.style.zIndex = '70';
-    });
+    // Nút Chốt: bấm = chốt nhanh theo mặc định; GIỮ ~0,45s / chuột phải / Shift+bấm = bảng chọn cách chốt (bản 58)
+    const lockBtn = el('host-lock-answer');
+    if (lockBtn) {
+        let lp = 0, fired = false, px = 0, py = 0;
+        const clear = () => { clearTimeout(lp); lp = 0; };
+        lockBtn.addEventListener('pointerdown', (e) => {
+            fired = false;
+            if (e.button) return;
+            px = e.clientX; py = e.clientY;
+            clear();
+            lp = setTimeout(() => { lp = 0; fired = true; haptic(14); openChotMenu(); }, 450);
+        });
+        lockBtn.addEventListener('pointermove', (e) => { if (lp && Math.hypot(e.clientX - px, e.clientY - py) > 10) clear(); });
+        ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => lockBtn.addEventListener(t, clear));
+        lockBtn.addEventListener('contextmenu', (e) => { e.preventDefault(); openChotMenu(); });
+        lockBtn.addEventListener('click', (e) => {
+            if (fired) { fired = false; return; }                                  // cú click sau khi giữ là của việc giữ
+            const menu = el('chot-menu');
+            if (menu && !menu.classList.contains('hidden')) return void menu.classList.add('hidden');   // bảng đang mở: bấm nút = đóng
+            if (e.shiftKey) return openChotMenu();
+            quickChot();
+        });
+    }
     el('chot-menu')?.addEventListener('click', (e) => {
         const b = e.target.closest('[data-chot]');
         if (!b) return;
@@ -1039,10 +1127,10 @@ export function initQuizControl() {
         // (microtask) trước bộ "bấm ra ngoài thì đóng" -> nút vừa bấm đã rời DOM, tưởng bấm ngoài.
         if (b.dataset.chot.startsWith('also:')) {
             e.stopPropagation();
-            return void chot(b.dataset.chot).then(() => { el('chot-menu').innerHTML = chotMenuHtml(); });
+            return void chot(b.dataset.chot, { manual: true }).then(() => { el('chot-menu').innerHTML = chotMenuHtml(); });
         }
         el('chot-menu').classList.add('hidden');
-        chot(b.dataset.chot);
+        chot(b.dataset.chot, { manual: true });                  // chọn tay -> nhớ cách này cho nút Chốt nhanh
     });
     document.addEventListener('click', (e) => {
         if (!e.target.closest('#chot-menu') && !e.target.closest('#host-lock-answer')) el('chot-menu')?.classList.add('hidden');
@@ -1101,6 +1189,14 @@ export function syncHostBar() {
         lockBtn.classList.toggle('hidden', essay);
         lockBtn.querySelector('span').textContent = chosen !== null ? `Đã chốt ${acceptedText(i)}`
             : isSplit(i) ? 'Chưa thống nhất' : 'Chốt đáp án';
+        // Chữ cái sẽ được chốt khi bấm thẳng nút (chip nhỏ ở góc) + gợi ý trong tooltip
+        const d = !essay && chosen === null && !isSplit(i) ? defaultChot(i) : null;
+        const L = (ks) => ks.map(k => String.fromCharCode(65 + k)).join('+');
+        const chip = lockBtn.querySelector('.rm-chot-def');
+        if (chip) chip.textContent = d ? L(d.picks) : '';
+        lockBtn.title = chosen !== null || isSplit(i) ? 'Đã chốt — bấm để sửa / bỏ chốt / thêm đáp án đúng'
+            : d ? `Bấm: chốt ${L(d.picks)} (theo ${d.why}) · Giữ nút hoặc chuột phải: chọn cách chốt khác · Space = chốt nhanh`
+            : 'Chưa có đáp án file hay phiếu rõ ràng — bấm để chọn phương án chốt';
     }
 
     const lock = el('host-lock');

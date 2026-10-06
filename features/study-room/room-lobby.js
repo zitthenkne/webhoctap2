@@ -8,7 +8,7 @@
 //  · Ghế ngồi (ghế "Mời bạn" + bong bóng cảm xúc nổi trên đầu người vừa thả), thẻ mời gọn.
 //  · Trò chuyện NGAY TRONG SẢNH: tin nhắn chung + thông báo vào/ra/sẵn sàng gộp một dòng thời gian.
 //  · Thẻ "Buổi trước" (doc phòng: `live`), gợi ý mục tiêu, phím tắt R / I / Enter.
-import { updateDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { showToast } from '../../core/utils.js';
 import { room, refs, uid, canControl, hasSession } from './room-state.js';
 import { avatarHtml, escapeHtml, shortName, changed } from './room-ui.js';

@@ -12,7 +12,7 @@
 
 import { db, auth } from '../../core/firebase-init.js';
 import { sessionUser } from '../../core/auth-session.js';
-import { doc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { doc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 // Ghi không treo khi mất mạng (xem core/offline-write.js)
 import { updateDocQ as updateDoc, setDocQ } from "../../core/offline-write.js";
 import { saveOfflineQuiz, isOfflineSavedSync } from './quiz-offline-store.js';

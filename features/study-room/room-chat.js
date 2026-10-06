@@ -10,7 +10,7 @@
 //  · TÀI LIỆU: tin kiểu 'doc' {title, src, link, text, images} = thẻ trích dẫn sách / bài giảng / link.
 //  · Trả lời một tin (reply), thẻ "chọn B" cho biết người nói đang đứng ở phương án nào (ans).
 //  · Một chạm đưa ý kiến / tài liệu vào GIẢI THÍCH CHUNG của câu hoặc GHI CHÚ RIÊNG của mình.
-import { addDoc, updateDoc, onSnapshot, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { addDoc, updateDoc, onSnapshot, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { showToast } from '../../core/utils.js';
 import { renderMath } from '../quiz/quiz-helpers.js';
 import { room, refs, uid, canControl, hasSession, myMember, answerOf, chosenOf, noteOf, questionAt, isAccepted } from './room-state.js';

@@ -4,7 +4,7 @@
 // Tách từ quiz-library-controller.js — logic giữ nguyên, chỉ đổi truy cập trạng thái sang S.xxx.
 
 import { auth, db } from '../../../core/firebase-init.js';
-import { doc, collection, addDoc, query, where, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { doc, collection, addDoc, query, where, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 // Ghi không treo khi mất mạng (xem core/offline-write.js)
 import { updateDocQ as updateDoc, setDocQ } from "../../../core/offline-write.js";
 import { sessionUser } from '../../../core/auth-session.js';

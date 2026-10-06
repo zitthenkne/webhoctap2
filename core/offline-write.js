@@ -11,7 +11,7 @@ import {
     setDoc,
     updateDoc,
     deleteDoc
-} from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 export function queued(promise, timeoutMs = 2500) {
     if (!navigator.onLine) {

@@ -1,7 +1,7 @@
 // room-state.js — kho trạng thái dùng chung cho phòng học (members / session / room doc).
 // Mọi module con đọc `room` và đăng ký `subscribe()` thay vì tự nghe Firestore lần nữa.
 import { db } from '../../core/firebase-init.js';
-import { doc, collection } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { doc, collection } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { formatOf } from '../quiz/quiz-essay-core.js';
 
 export const room = {

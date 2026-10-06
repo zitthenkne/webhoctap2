@@ -10,7 +10,7 @@
 // Chỉ tin bản lưu khi navigator.onLine === false; còn online mà auth trả null thì
 // đúng là đã đăng xuất (không được tự cho đăng nhập, tránh gọi server thiếu token).
 import { auth } from './firebase-init.js';
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
 const KEY = 'lastAuthUser';
 

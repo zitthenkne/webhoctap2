@@ -9,7 +9,7 @@
 //  · Mẹo nhớ: ý cần nhớ -> tự ghép chữ cái đầu; tùy chọn đưa vào 📌 Ghi nhớ chung của câu.
 // Dữ liệu form: members/{uid}.rf.q<i>.<mech|elim|src|tip> (điền sẵn khi mở lại). Khối trong ô gõ là một
 // <div> cấp 1 bắt đầu bằng nhãn "🔬 Cơ chế" … -> tìm đúng khối đó để thay.
-import { updateDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { showToast } from '../../core/utils.js';
 import { stripOptionLabels } from '../quiz/quiz-helpers.js';
 import {

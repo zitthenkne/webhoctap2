@@ -291,7 +291,7 @@ export function renderResults() {
                         <td class="font-bold truncate">${escapeHtml(shortName(r.name, 22))}</td>
                         <td class="text-center tabular-nums">${r.correct}/${questions.length}</td>
                         <td class="text-center tabular-nums">${r.best}</td>
-                        <td class="text-right font-black tabular-nums" style="color:var(--rm-accent)">${r.points}</td>
+                        <td class="text-right font-black tabular-nums" style="color:var(--rm-accent-deep)">${r.points}</td>
                     </tr>`).join('')}
                 </tbody>
             </table>
@@ -331,7 +331,8 @@ export function renderResults() {
         ${participationHtml()}
 
         <div class="flex flex-wrap gap-2 justify-center pb-4">
-            <button id="result-minutes-btn" class="rm-cta rm-solid-btn"><i class="fas fa-file-pdf"></i>Biên bản buổi học (PDF / MD)</button>
+            <button id="result-share-btn" class="rm-cta rm-solid-btn"><i class="fas fa-share-nodes"></i>Chia sẻ ảnh kết quả</button>
+            <button id="result-minutes-btn" class="rm-ghost-btn"><i class="fas fa-file-pdf"></i>Biên bản buổi học (PDF / MD)</button>
             <button id="result-notes-btn" class="rm-ghost-btn"><i class="fas fa-file-arrow-down"></i>Tải ghi chú của tôi</button>
             ${room.session.sourceQuizId ? `<a href="../quiz/quiz.html?id=${encodeURIComponent(room.session.sourceQuizId)}" target="_blank" rel="noopener"
                 class="rm-ghost-btn"><i class="fas fa-rotate-left"></i>Ôn lại đề này một mình</a>` : ''}

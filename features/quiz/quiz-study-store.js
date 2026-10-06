@@ -27,7 +27,7 @@
 
 import { db } from '../../core/firebase-init.js';
 import { srsKeys, mergeSrsMaps, readSrsMeta } from './quiz-srs-store.js';
-import { doc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { doc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 // Ghi không treo khi mất mạng (xem core/offline-write.js)
 import { setDocQ as setDoc } from "../../core/offline-write.js";
 

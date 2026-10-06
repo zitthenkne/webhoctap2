@@ -7,7 +7,7 @@
 // Dữ liệu: members/{uid}.caret = { q, k: khóa ô sửa (data-live-edit), s, e: vị trí theo số ký tự, at } | null
 //   — phát tối đa ~1 lần / 0,7s khi con trỏ đổi chỗ, nhắc lại mỗi 10s khi đứng yên; quá 15s coi như đã rời.
 //   members/{uid}.cursor = câu đang xem (có sẵn từ trước).
-import { updateDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { room, refs, uid, hasSession, subscribe, memberOf, answerOf, readyOf, isEssay, questionAt } from './room-state.js';
 import { avatarHtml, avatarStack, escapeHtml, shortName, colorOf } from './room-ui.js';
 import { isOnline } from './room-members.js';

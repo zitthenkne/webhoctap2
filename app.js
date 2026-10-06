@@ -4,8 +4,8 @@
 
 import { auth, db } from './core/firebase-init.js';
 import { onSessionUser } from './core/auth-session.js';
-import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
-import { doc, setDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { doc, setDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { showToast } from './core/utils.js';
 import { requireLogin } from './core/require-login.js';
 

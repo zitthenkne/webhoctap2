@@ -9,7 +9,7 @@
 //   Tuỳ chọn "Bản đầy đủ" thêm: ai chọn gì + lý do, toàn bộ nhận xét/chat, ghi nhận phụ, mức độ tham gia.
 //   ĐÃ BỎ khỏi bản gọn: bảng "Thông tin chung" (lặp đầu trang), "Tóm tắt kết quả" (lặp thẻ số liệu),
 //   bảng 8 cột tham gia (toàn dấu —), dòng kết luận (lặp nhãn đầu câu), cột "Ai chọn", chat từng câu.
-import { getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { showToast } from '../../core/utils.js';
 import { stripOptionLabels } from '../quiz/quiz-helpers.js';
 import {
@@ -702,6 +702,17 @@ function fillTab(w, html) {
     w.document.close();
 }
 
+/** Chép vào bộ nhớ tạm; trang http (không phải https / localhost) không có navigator.clipboard nên lùi về execCommand. */
+async function copyText(text) {
+    if (navigator.clipboard?.writeText) { try { return await navigator.clipboard.writeText(text); } catch (e) { /* bị chặn quyền -> thử đường cũ */ } }
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+    document.body.appendChild(ta); ta.select();
+    let done = false;
+    try { done = document.execCommand('copy'); } finally { ta.remove(); }
+    if (!done) throw new Error('copy-failed');
+}
+
 function download(text, name, type) {
     const blob = new Blob([text], { type });
     const a = document.createElement('a');
@@ -740,7 +751,7 @@ async function run(kind) {
             download(buildMarkdown(d), name + '.md', 'text/markdown;charset=utf-8');
             showToast('Đã tải biên bản Markdown.', 'success');
         } else if (kind === 'copy') {
-            await navigator.clipboard.writeText(buildMarkdown(d));
+            await copyText(buildMarkdown(d));
             showToast('Đã chép Markdown — dán vào Obsidian / Notion / nhóm chat.', 'success');
         } else if (tab) {
             fillTab(tab, await inlineDiagrams(buildHtml(d)));
@@ -752,7 +763,7 @@ async function run(kind) {
     } catch (err) {
         tab?.close();
         console.error('Lỗi xuất biên bản:', err);
-        showToast(err?.message === 'no-session' ? 'Chưa có phiên đánh đề nào để lập biên bản.' : 'Không xuất được biên bản — thử lại nhé.', 'error');
+        showToast(err?.message === 'no-session' ? 'Chưa có phiên đánh đề nào để lập biên bản.' : err?.message === 'copy-failed' ? 'Trình duyệt không cho chép vào bộ nhớ tạm — dùng "Tải .md" nhé.' : 'Không xuất được biên bản — thử lại nhé.', 'error');
     } finally {
         btn?.classList.remove('is-busy');
     }

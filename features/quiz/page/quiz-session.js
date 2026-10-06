@@ -5,7 +5,7 @@
 
 import { db } from '../../../core/firebase-init.js';
 import { whenAuthReady } from '../../../core/auth-session.js';
-import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { showToast } from '../../../core/utils.js';
 import { applyLocalQuestionEdits } from '../quiz-editor.js';
 import { getOfflineQuiz, autoCacheQuiz, within, isOfflineSavedSync, saveOfflineQuiz, extractQuizImageUrls, cacheQuizImages } from '../quiz-offline-store.js';

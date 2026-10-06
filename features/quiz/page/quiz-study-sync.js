@@ -1,6 +1,6 @@
 import { auth } from '../../../core/firebase-init.js';
 import { sessionUser, onSessionUser } from '../../../core/auth-session.js';
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { studyKeys, syncPullStudy, scheduleCloudPush, fetchCloudProgress, scheduleCloudProgressPush } from '../quiz-study-store.js';
 import { state, readQuizState, writeQuizState, markQuizStateFinished } from '../quiz-state.js';
 import { showQuestion } from './quiz-question-view.js';

@@ -1,6 +1,6 @@
 // room-members.js — danh sách thành viên, hiện diện (online/offline), vai trò,
 // giơ tay, phản ứng emoji và bảng thao tác của chủ trì (trao quyền / mời ra).
-import { updateDoc, deleteDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { updateDoc, deleteDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { showToast, showConfirm } from '../../core/utils.js';
 import { room, refs, uid, isHost, canControl, currentIndex, answerOf, readyOf, hasSession, doneCount, hostIdNow, subscribe } from './room-state.js';
 import { systemMessage } from './room-chat.js';

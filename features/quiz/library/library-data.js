@@ -8,8 +8,8 @@ import { sessionUser } from '../../../core/auth-session.js';
 import {
     doc, collection, addDoc, setDoc, query, where, getDocs,
     orderBy, limit, startAfter, updateDoc, runTransaction
-} from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { showToast } from '../../../core/utils.js';
 import { checkAndAwardAchievement } from '../../../core/achievements.js';
 import { S, LIB_CHUNK, LIBRARY_AUTO_SYNC_MIN_INTERVAL } from './library-state.js';

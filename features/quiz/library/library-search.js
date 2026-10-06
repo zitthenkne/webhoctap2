@@ -4,7 +4,7 @@
 
 import { auth, db } from '../../../core/firebase-init.js';
 import { sessionUser } from '../../../core/auth-session.js';
-import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { S } from './library-state.js';
 import { ensureFullLibraryLoaded } from './library-data.js';
 import { renderLibrary } from './library-render.js';

@@ -2,8 +2,8 @@
 // Nhiệm vụ: đăng nhập, vào phòng, lắng nghe Firestore -> đổ vào room-state,
 // rồi để các module con (thành viên / chat / đề / bảng trắng) tự vẽ.
 import { auth } from '../../core/firebase-init.js';
-import { setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
-import { onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
+import { setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { showToast } from '../../core/utils.js';
 import { room, refs, setState, subscribe, uid, canControl, hasSession } from './room-state.js';
 import { AVATAR_EMOJIS, randomEmoji, avatarHtml } from './room-ui.js';
@@ -15,11 +15,12 @@ import { initQuizControl, syncHostBar, startFromSolo } from './room-quiz.js';
 import { initStage, renderQuiz } from './room-quiz-stage.js';
 import { renderRankPanel } from './room-scoreboard.js';
 import { initInlineEdit } from './room-editor.js';
-import { initBoost, openMinutes } from './room-boost.js';
+import { initBoost, openMinutes, paintToolStates } from './room-boost.js';
 import { initGame } from './room-game.js';
 import { initMedia } from './room-media.js';
 import { initPresence } from './room-presence.js';
 import { initSparkle } from './room-sparkle.js';
+import { initPolish } from './room-polish.js';
 
 const el = (id) => document.getElementById(id);
 const unsubs = [];
@@ -154,29 +155,42 @@ function initLayout() {
         }
     };
     el('present-btn')?.addEventListener('click', togglePresent);
+    // Thoát toàn màn hình bằng nút của trình duyệt / Esc thì chế độ trình chiếu phải thoát theo (trước đây còn kẹt: chữ to, ẩn bảng bên, công tắc vẫn bật)
+    document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement && document.body.classList.contains('present')) {
+            document.body.classList.remove('present');
+            window.dispatchEvent(new Event('resize'));
+            paintToolStates();
+        }
+    });
 
     // Cỡ chữ: vừa → lớn → rất lớn (nhớ theo máy)
+    // (bản 55: chụm hai ngón chỉnh liên tục -> giá trị có thể nằm giữa các bậc; nhãn / nút theo bậc GẦN NHẤT)
     const SCALES = [1, 1.12, 1.28];
+    const nearest = (v) => SCALES.reduce((b, s, k) => (Math.abs(s - v) < Math.abs(SCALES[b] - v) ? k : b), 0);
     const applyScale = (v) => {
         document.documentElement.style.setProperty('--rm-scale', v);
         const lb = el('text-size-label');
-        if (lb) lb.textContent = ['vừa', 'lớn', 'rất lớn'][Math.max(0, SCALES.indexOf(v))];
+        if (lb) lb.textContent = SCALES.includes(v) ? ['vừa', 'lớn', 'rất lớn'][SCALES.indexOf(v)] : Math.round(v * 100) + '%';
         try { localStorage.setItem('roomTextScale', String(v)); } catch (e) {}
     };
-    let scaleIdx = SCALES.indexOf(Number(localStorage.getItem('roomTextScale')) || 1);
-    if (scaleIdx < 0) scaleIdx = 0;
-    applyScale(SCALES[scaleIdx]);
+    let scaleIdx = nearest(Number(localStorage.getItem('roomTextScale')) || 1);
+    applyScale(Number(localStorage.getItem('roomTextScale')) || SCALES[scaleIdx]);
     el('text-size-btn')?.addEventListener('click', () => {
-        scaleIdx = (scaleIdx + 1) % SCALES.length;
+        const cur = Number(localStorage.getItem('roomTextScale')) || 1;
+        scaleIdx = Math.max(0, SCALES.findIndex(s => s > cur + .005));      // bậc kế tiếp lớn hơn cỡ hiện tại; hết bậc thì về 'vừa'
         applyScale(SCALES[scaleIdx]);
         showToast(['Cỡ chữ vừa', 'Cỡ chữ lớn', 'Cỡ chữ rất lớn'][scaleIdx], 'info', 1200);
     });
+    window.addEventListener('room:textscale', (e) => { scaleIdx = nearest(e.detail); applyScale(e.detail); });
 
     // Sáng / tối — dùng chung khoá 'quiz_theme' với trang làm bài
     const paintThemeBtn = () => {
         const dark = document.documentElement.classList.contains('theme-dark');
         const i = el('theme-btn')?.querySelector('i');
-        if (i) i.className = dark ? 'fas fa-sun' : 'fas fa-moon';
+        if (i) i.className = 'fas fa-moon';            // bản 60: trạng thái nằm ở công tắc, đổi biểu tượng sang mặt trời là gây rối
+        const tc = document.querySelector('meta[name=theme-color]');      // bản 67: thanh trạng thái / thanh địa chỉ của điện thoại đổi theo nền
+        if (tc) tc.content = dark ? '#221d1f' : '#FEF1F6';
     };
     paintThemeBtn();
     el('theme-btn')?.addEventListener('click', () => {
@@ -187,8 +201,12 @@ function initLayout() {
     document.addEventListener('keydown', (e) => {
         const t = e.target;
         if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-        if (e.key.toLowerCase() === 'f' && !e.ctrlKey && !e.metaKey) togglePresent();
-        if (e.key === 'Escape') document.body.classList.remove('present');
+        if (e.key.toLowerCase() === 'f' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.repeat) togglePresent();
+        if (e.key === 'Escape' && document.body.classList.contains('present')) {
+            document.body.classList.remove('present');
+            if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+            paintToolStates();
+        }
     });
 
     // Mời / chia sẻ
@@ -644,6 +662,7 @@ async function initRoom() {
         lazyRichTools();                                         // thanh soạn thảo: ảnh · bảng · danh sách · tiêu đề (tải lúc cần)
         initPresence();                                          // thanh ai-đang-xem + con trỏ người khác
         initSparkle();                                           // bản 32: ABCD mini trên HUD · xem trước câu · 🔥 chuỗi · vắng mặt
+        initPolish();                                            // bản 55: thu đầu trang · giữ sáng màn · dock trượt · gạch ô · chụm cỡ chữ · nghe đọc · ảnh kết quả · cử chỉ bàn luận
         window.addEventListener('room:minutes', openMinutes);   // room-minutes.js nạp lười ở lần mở đầu
         showPanel('discuss');
 

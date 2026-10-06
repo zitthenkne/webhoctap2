@@ -12,7 +12,7 @@
 //           re?: id ý kiến được trả lời, ok?: true | id câu trả lời (thắc mắc đã giải đáp), im?: [{u, t?}] ảnh, at }
 // Đồng tình: members/{uid}.agree.<aid> = true (xem argsOf trong room-state.js).
 // Bị thuyết phục: members/{uid}.answers.q<i>.by = { id: aid | 'w:'+uid (lý do của người đó), n: tên }
-import { updateDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { showToast } from '../../core/utils.js';
 import { renderMath } from '../quiz/quiz-helpers.js';
 import {
@@ -357,7 +357,7 @@ export function renderNotebook(i, force = false) {
             <span class="rm-xlabel"><span class="rm-xic">💡</span>Giải thích</span>
             <span data-live-status></span>
             <span class="flex-1"></span>
-            ${st.exp.fromFile ? '<span class="rm-hint">theo file · bấm để sửa</span>'
+            ${st.exp.fromFile ? '<span class="rm-hint">theo file · bấm đúp để sửa</span>'
                 : author ? `<span class="rm-hint">${escapeHtml(shortName(author.name || '', 14))} · ${agoText(author.at)}</span>` : ''}
         </div>
         ${st.exp.lock ? '<p class="rm-nb-lock">🔒 File có sẵn lời giải — tự mở khi chủ trì bấm <b>Hiện đáp án</b>. Nhóm vẫn viết trước được.</p>' : ''}
@@ -375,7 +375,7 @@ export function renderNotebook(i, force = false) {
                 <span class="rm-xlabel"><span class="rm-xic">${XF[f].ic}</span>${XF[f].label}</span>
                 <span data-live-status></span>
                 <span class="flex-1"></span>
-                <span class="rm-hint">${!v.own ? 'theo file · bấm để sửa' : by ? `${escapeHtml(shortName(by.name || '', 14))} · ${agoText(by.at)}` : ''}</span>
+                <span class="rm-hint">${!v.own ? 'theo file · bấm đúp để sửa' : by ? `${escapeHtml(shortName(by.name || '', 14))} · ${agoText(by.at)}` : ''}</span>
             </div>
             <div class="rm-md rm-xedit" contenteditable="true" data-live-edit="extra:${f}" data-placeholder="${XF[f].ph}">${renderRich(v.html)}</div>
             ${more(f)}
@@ -877,7 +877,7 @@ function talkHtml(i, q, k, people, args, open, revealed, mineA, t) {
     const mineBox = !mine ? '' : `<div class="rm-otalk-mine ${hasRich(myWhy) ? '' : 'is-empty'}" data-live-wrap>
         <span class="rm-otalk-me">${avatarHtml(myMember(), 'xs')}💭 Lý do của bạn${from !== null ? ` <span class="rm-tagmini is-move">đổi từ ${L(from)}${mineA.by?.n ? ` · nhờ ${escapeHtml(shortName(mineA.by.n, 10))}` : ''}</span>` : ''}</span><span data-live-status></span>
         ${confHtml}
-        <button type="button" class="rm-tagmini rm-touch-edit" data-edit-opt-text="${k}" title="Sửa chữ của phương án ${L(k)} (máy cảm ứng không có nút bút chì khi rê chuột)">✏️ Sửa chữ ${L(k)}</button>
+        <button type="button" class="rm-tagmini rm-touch-edit" data-edit-opt-text="${k}" title="Sửa chữ của phương án ${L(k)} (hoặc bấm đúp vào chữ của phương án đã chọn)">✏️ Sửa chữ ${L(k)}</button>
         ${differ ? `<button type="button" class="rm-tagmini ${dissentOf(myMember(), i) ? 'is-warn' : ''}" data-dissent-here title="Ý kiến của bạn vẫn được ghi vào biên bản">✋ ${dissentOf(myMember(), i) ? 'Đang bảo lưu' : 'Bảo lưu ' + L(k)}</button>` : ''}
         <div class="rm-md rm-hub-mini rm-why" contenteditable="true" data-live-edit="why" data-placeholder="Vì sao bạn chọn ${L(k)}? Gõ, hoặc Ctrl+V dán ảnh chụp sách / sơ đồ — cả nhóm thấy kèm tên">${renderRich(myWhy)}</div>
         ${reasonToolsHtml(i, 'why', myWhy, hasRich(myWhy) && !isEssay(q)
@@ -944,7 +944,7 @@ function composerHtml(i, slot, placeholder) {
         <div class="rm-cform-imgs ${imgs.length ? '' : 'hidden'}">${trayHtml(imgs)}</div>
         <div class="rm-cform-row">
             <button type="button" class="rm-cst is-${s}" data-cycle="${slot}" data-kind="${kind}" title="Đổi loại: ${CYCLE[kind].map(x => ST[x].ic + ' ' + ST[x].label).join(' · ')}">${ST[s].ic}<span>${ST[s].label}</span></button>
-            <input class="rm-input rm-cinput" data-cinput="${slot}" maxlength="600" placeholder="${escapeHtml(rp ? `Trả lời ${shortName(rp.name, 14)}…` : placeholder)}">
+            <input class="rm-input rm-cinput" data-cinput="${slot}" maxlength="600" aria-label="Viết ý kiến" placeholder="${escapeHtml(rp ? `Trả lời ${shortName(rp.name, 14)}…` : placeholder)}">
             <button type="button" class="rm-cform-tool" data-cimg="${slot}" title="Đính ảnh (hoặc Ctrl+V vào ô)"><i class="fas fa-image"></i></button>
             ${slot === 'g' ? '<button type="button" class="rm-cform-tool" data-hub-doc title="Trích tài liệu (sách, bài giảng, link)"><i class="fas fa-book-medical"></i></button>' : ''}
             <input type="file" accept="image/*" multiple hidden data-cfile="${slot}">

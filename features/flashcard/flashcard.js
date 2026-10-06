@@ -10,8 +10,8 @@
 
 import { db, auth } from '../../core/firebase-init.js';
 import { onSessionUser } from '../../core/auth-session.js';
-import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { showToast, showConfirm } from '../../core/utils.js';
 import { parseMarkdown, parseInlineMarkdown, renderMath } from '../quiz/quiz-helpers.js';
 import { keyPointsOf } from '../quiz/quiz-essay-core.js';

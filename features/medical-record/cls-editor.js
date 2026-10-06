@@ -12,7 +12,7 @@ import { authReady } from './record-store.js';
 import { openPicker, coCamera, uploadImage } from './image-upload.js';
 import {
     getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject
-} from 'https://www.gstatic.com/firebasejs/9.6.0/firebase-storage.js';
+} from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js';
 
 const storage = getStorage();
 

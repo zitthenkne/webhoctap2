@@ -4,7 +4,7 @@
 
 import { auth, db } from '../../core/firebase-init.js';
 import { sessionUser } from '../../core/auth-session.js';
-import { collection, query, where, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { collection, query, where, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { showToast, showConfirm } from '../../core/utils.js';
 import { achievements } from '../../core/achievements.js';
 import { readRowsCache, syncRows, clearRowsCache, renderInsights, renderInsightsSkeleton } from './stats-insights.js';

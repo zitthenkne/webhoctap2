@@ -1,6 +1,7 @@
 // room-editor.js — SỬA TẠI CHỖ (WYSIWYG) cho cả phòng.
-// Không có cửa sổ soạn thảo riêng nữa: bấm thẳng vào chỗ đang hiển thị (câu hỏi,
-// phương án, giải thích, ghi chú…) là gõ được luôn; bôi đen chữ thì hiện thanh
+// Không có cửa sổ soạn thảo riêng nữa: BẤM ĐÚP (chuột) / CHẠM ĐÚP (cảm ứng) vào chỗ đang hiển thị (câu hỏi,
+// phương án, giải thích, ghi chú…) là gõ được luôn (bản 56: trước đây rê chuột là lộ ô sửa, bấm một cái là bật con trỏ
+// + bàn phím ảo → hay bấm nhầm / sượt qua); bôi đen chữ thì hiện thanh
 // nhỏ để in đậm / in nghiêng / gạch chân / bôi vàng. Gõ tới đâu tự lưu tới đó,
 // mọi người trong phòng thấy ngay.
 //
@@ -373,6 +374,11 @@ function applyCommand(cmd) {
         if (t) window.dispatchEvent(new CustomEvent('room:quote', { detail: { text: t, key: node.dataset.liveEdit } }));
         return;
     }
+    // Bản 56: ô chỉ-đọc (chưa bấm đúp) vẫn in đậm / nghiêng / bút dạ được — bôi đen rồi bấm nút trên thanh nổi. execCommand chỉ chạy
+    // trong vùng sửa được nên bật .is-editing đúng trong lúc chạy lệnh rồi tắt (không focus, không bật bàn phím ảo); input -> lưu sau 400ms như thường.
+    const temp = !node.classList.contains('is-editing');
+    const before = temp ? sanitizeHtml(node.innerHTML) : '';
+    if (temp) node.classList.add('is-editing');
     try {
         if (cmd.startsWith('hl:')) {
             const bg = HL[cmd.slice(3)]?.bg || HL.y.bg;
@@ -382,6 +388,15 @@ function applyCommand(cmd) {
         }
     } catch (e) { /* trình duyệt cũ thì thôi */ }
     node.dispatchEvent(new Event('input', { bubbles: true }));
+    if (temp) {
+        // execCommand có thể kéo tiêu điểm vào ô -> focusin ghi đè lastSaved bằng bản MỚI và lúc rời ô saveNow tưởng không đổi (mất thay đổi):
+        // trả lastSaved về bản trước lệnh rồi lưu ngay; nhả tiêu điểm (khỏi bật bàn phím ảo / kẹt chế độ sửa), giữ vùng bôi đen cho lệnh kế tiếp
+        node.dataset.lastSaved = before;
+        clearTimeout(saveTimer);
+        saveNow(node);
+        if (node.contains(document.activeElement)) { node.blur(); setTimeout(() => document.dispatchEvent(new Event('mouseup')), 160); }
+        node.classList.remove('is-editing');
+    }
     syncToolbarState();
 }
 
@@ -402,17 +417,21 @@ export function initInlineEdit() {
         });
     }
 
+    initDoubleToEdit();
+
     // Vào / rời vùng sửa
     document.addEventListener('focusin', (e) => {
         const node = e.target.closest?.('[data-live-edit]');
         editingKey = node ? node.dataset.liveEdit : null;
         if (!node) return;
+        node.classList.add('is-editing');                 // tiêu điểm quay lại ô (vd. về từ tab khác) = vẫn đang sửa
         node.dataset.lastSaved = sanitizeHtml(node.innerHTML);
         showMathSource(node);
     });
     document.addEventListener('focusout', (e) => {
         const node = e.target.closest?.('[data-live-edit]');
         if (!node) return;
+        node.classList.remove('is-editing');              // rời ô là về chế độ chỉ-đọc
         clearTimeout(saveTimer);
         saveNow(node);
         editingKey = null;
@@ -524,6 +543,81 @@ export function initInlineEdit() {
         e.preventDefault(); e.stopPropagation();
         loadNotes().then(m => m.openNoteForSpan(sp)).catch(() => showToast('Không mở được khung ghi chú — kiểm tra mạng.', 'error'));
     }, true);
+}
+
+// ---------- Bản 56: chỉ bấm ĐÚP / chạm ĐÚP mới vào chế độ sửa ----------
+// Ô [data-live-edit] mặc định CHỈ ĐỌC (CSS: -webkit-user-modify:read-only đè contenteditable="true" nên không đụng attribute —
+// nhiều chỗ code đọc / đặt lại nó). Vào chế độ sửa = thêm class .is-editing rồi focus(): bấm đúp (mouse), chạm đúp (touch), hoặc
+// code CHỦ Ý gọi focus() (bước "Ghi lý do", phím R / E / W, nút chèn ảnh…) — focus() được vá bên dưới để tự thêm class.
+// Rời ô (focusout) thì gỡ class. Hai lần chạm / bấm rơi vào chỗ KHÁC (vd. chữ phương án) thì bắn 'room:dbl' cho module đó tự xử.
+function initDoubleToEdit() {
+    const nativeFocus = HTMLElement.prototype.focus;
+    if (!nativeFocus.__rmEdit) {
+        HTMLElement.prototype.focus = function (opts) {
+            if (this.dataset && 'liveEdit' in this.dataset) this.classList.add('is-editing');
+            return nativeFocus.call(this, opts);
+        };
+        HTMLElement.prototype.focus.__rmEdit = true;
+    }
+    const SKIP = 'a, button, img, .rm-mm-tools, .rm-mm';
+    const pointRange = (x, y) => {
+        if (document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
+        const p = document.caretPositionFromPoint?.(x, y);
+        if (!p) return null;
+        const r = document.createRange();
+        r.setStart(p.offsetNode, p.offset);
+        r.collapse(true);
+        return r;
+    };
+    let armedAt = 0;
+    // Con trỏ thu về đúng chỗ bấm (bấm đúp tự bôi đen một từ — gõ phím đầu tiên sẽ đè mất từ đó nếu không thu lại)
+    function caretAt(node, x, y) {
+        // Chỗ bấm nằm TRONG công thức / sơ đồ đã vẽ: để showMathSource (focusin) tự đặt con trỏ sau mã — chỗ bấm sẽ lệch khi công thức đổi về $…$
+        const r = pointRange(x, y);
+        const host = r && (r.startContainer.nodeType === 3 ? r.startContainer.parentElement : r.startContainer);
+        if (!r || !node.contains(r.startContainer) || host?.closest?.('.katex, .katex-error, .rm-mm')) return;
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(r);
+    }
+    function arm(node, x, y) {
+        const was = pointRange(x, y);               // đo TRƯỚC khi ô đổi (công thức hiện lại mã)
+        node.classList.add('is-editing');
+        armedAt = Date.now();
+        nativeFocus.call(node, { preventScroll: true });
+        if (was && node.contains(was.startContainer) && !(was.startContainer.parentElement?.closest?.('.katex, .katex-error, .rm-mm'))) {
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(was);
+        }
+    }
+    const onDouble = (target, x, y) => {
+        const node = target.closest?.('[data-live-edit]');
+        if (node) {
+            if (!node.classList.contains('is-editing') && !target.closest(SKIP)) arm(node, x, y);
+            return;
+        }
+        window.dispatchEvent(new CustomEvent('room:dbl', { detail: { target, x, y } }));
+    };
+    document.addEventListener('dblclick', (e) => {
+        const node = e.target.closest?.('[data-live-edit]');
+        // Cảm ứng: touchend đã vào chế độ sửa rồi, nhưng trình duyệt vẫn bắn tiếp dblclick + bôi đen một từ -> thu về con trỏ
+        if (node?.classList.contains('is-editing') && Date.now() - armedAt < 900) return caretAt(node, e.clientX, e.clientY);
+        onDouble(e.target, e.clientX, e.clientY);
+    });
+    // Cảm ứng: tự dò chạm đúp (iOS không bắn dblclick đáng tin; touch-action đã tắt phóng bằng chạm đúp)
+    let s0 = null, last = { t: 0, x: 0, y: 0 };
+    document.addEventListener('touchstart', (e) => { s0 = e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null; }, { passive: true });
+    document.addEventListener('touchend', (e) => {
+        const t = e.changedTouches[0];
+        if (e.touches.length || !s0 || !t || Math.hypot(t.clientX - s0.x, t.clientY - s0.y) > 12) { last.t = 0; return; }   // kéo / cuộn không tính
+        const now = Date.now();
+        if (now - last.t < 380 && Math.hypot(t.clientX - last.x, t.clientY - last.y) < 32) {
+            last.t = 0;
+            return onDouble(e.target, t.clientX, t.clientY);
+        }
+        last = { t: now, x: t.clientX, y: t.clientY };
+    }, { passive: true });
 }
 
 /** Vẽ lại công thức toán trong một vùng vừa được cập nhật. */

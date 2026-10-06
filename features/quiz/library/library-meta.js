@@ -12,7 +12,7 @@
 
 import { auth, db } from '../../../core/firebase-init.js';
 import { sessionUser } from '../../../core/auth-session.js';
-import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 // Các trường thư viện thật sự dùng tới (KHÔNG có `questions`)
 const META_FIELDS = ['title', 'questionCount', 'createdAt', 'folderId', 'isPublic', 'deleted', 'deletedAt'];

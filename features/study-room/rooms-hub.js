@@ -11,7 +11,7 @@
 // `live` do room-quiz.js ghi lúc bắt đầu/kết thúc phiên — để hub khỏi phải tải cả bộ đề về.
 import {
     collection, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, onSnapshot, query, where, serverTimestamp,
-} from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { db } from '../../core/firebase-init.js';
 import { onSessionUser } from '../../core/auth-session.js';
 import { showToast, showConfirm } from '../../core/utils.js';

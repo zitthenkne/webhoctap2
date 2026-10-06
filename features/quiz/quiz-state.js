@@ -2,7 +2,7 @@
 
 import { db, auth } from '../../core/firebase-init.js';
 import { sessionUser } from '../../core/auth-session.js';
-import { doc, getDoc, collection, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { doc, getDoc, collection, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 // Ghi không treo khi mất mạng (xem core/offline-write.js)
 import { queued } from "../../core/offline-write.js";
 import { checkAndAwardAchievement } from '../../core/achievements.js';

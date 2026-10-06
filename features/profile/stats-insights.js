@@ -12,7 +12,7 @@
 
 import { auth, db } from '../../core/firebase-init.js';
 import { sessionUser } from '../../core/auth-session.js';
-import { collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const DAY_MS = 86400000;
 const HEATMAP_WEEKS = 26;      // ~6 tháng, ô nhỏ kiểu lịch đóng góp GitHub

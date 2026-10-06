@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#FEF1F6">
     <title>Phòng đánh đề — Zitthenkne</title>
     <link rel="icon" type="image/png" href="../../assets/favicons/favicon-study-room.png">
     <!-- Chế độ tối dùng chung khoá với trang làm bài (đặt sớm để không nháy sáng) -->
     <script>
-        try { if (localStorage.getItem('quiz_theme') === 'dark') document.documentElement.classList.add('theme-dark'); } catch (e) {}
+        try { var qt = localStorage.getItem('quiz_theme'); if (qt === 'dark' || (!qt && matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('theme-dark'); document.querySelector('meta[name=theme-color]').content = '#221d1f'; } } catch (e) {}
     </script>
     <!-- Nền pixel-art mờ, chọn ngẫu nhiên như trang làm bài — gắn SAU khi trang tải xong:
          ảnh ~80KB chỉ là lớp trang trí 14% độ đục, không được giành băng thông với CSS/JS -->
@@ -33,15 +34,16 @@
     <base href="../">
     <script type="importmap">
     {"imports":{
-      "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js":"./dev/stub-firestore.js",
-      "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js":"./dev/stub-auth.js",
-      "https://www.gstatic.com/firebasejs/9.6.0/firebase-storage.js":"./dev/stub-storage.js",
+      "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js":"./dev/stub-firestore.js",
+      "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js":"./dev/stub-auth.js",
+      "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js":"./dev/stub-storage.js",
       "../../core/firebase-init.js":"./dev/stub-init.js"
     }}
     </script>
     <script src="../../pwa-install.js" defer></script>
     <!-- Mở sẵn kết nối tới Firebase (SDK + Firestore + đăng nhập) — đường găng của màn đầu tiên -->
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://wsrv.nl">
     <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
     <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -139,22 +141,27 @@
     </button>
     <button id="share-room-btn" class="rm-ghost-btn" title="Mời bạn vào phòng"><i class="fas fa-user-plus"></i><span class="hidden sm:inline">Mời</span></button>
     <div class="relative shrink-0 hidden sm:block">
-        <button id="room-menu-btn" class="rm-icon-btn" title="Công cụ · cỡ chữ · sáng tối · trình chiếu"><i class="fas fa-ellipsis-vertical"></i></button>
-        <div id="room-menu" class="rm-dropdown hidden">
-            <p class="rm-menu-cap">Công cụ</p>
-            <button class="rm-menu-item" data-tool="find"><i class="fas fa-magnifying-glass"></i>Tìm câu<kbd class="rm-kbd">Ctrl K</kbd></button>
-            <button class="rm-menu-item" data-tool="zen"><i class="fas fa-feather"></i>Chế độ tập trung<kbd class="rm-kbd">Z</kbd></button>
-            <button class="rm-menu-item" data-tool="sound"><i class="fas fa-volume-high"></i><span id="sound-label">Âm thanh: bật</span><kbd class="rm-kbd">M</kbd></button>
-            <button class="rm-menu-item" data-tool="autonext"><i class="fas fa-forward-step"></i><span id="auto-label">Tự chuyển câu: tắt</span></button>
-            <button class="rm-menu-item" data-tool="follow"><i class="fas fa-location-arrow"></i><span id="follow-label">Bám câu nhóm đang bàn: tắt</span></button>
-            <button class="rm-menu-item" data-tool="notes"><i class="fas fa-note-sticky"></i><span id="notes-label">Ghi chú cụm từ: hiện</span></button>
-            <button class="rm-menu-item" data-tool="race"><i class="fas fa-flag-checkered"></i>Ẩn / hiện dải tiến độ</button>
-            <button class="rm-menu-item" data-tool="minutes"><i class="fas fa-file-pdf"></i>Biên bản buổi học (PDF / MD)</button>
-            <button class="rm-menu-item" data-tool="help"><i class="fas fa-keyboard"></i>Bảng phím tắt<kbd class="rm-kbd">?</kbd></button>
+        <button id="room-menu-btn" class="rm-icon-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="room-menu" title="Công cụ · cỡ chữ · sáng tối · trình chiếu"><i class="fas fa-ellipsis-vertical"></i></button>
+        <!-- Bản 60: nhóm theo việc, công tắc có trạng thái BẬT / TẮT nhìn thấy ngay (trước chỉ có chữ "bật/tắt" trong nhãn, nhiều mục không có gì),
+             công tắc không đóng menu để bật nhiều mục liền, mục cần phiên đang chạy thì mờ đi khi ở sảnh, điều hướng bằng phím mũi tên. -->
+        <div id="room-menu" class="rm-dropdown hidden" role="menu" aria-label="Công cụ">
+            <p class="rm-menu-cap">Xem</p>
+            <button class="rm-menu-item" role="menuitem" data-tool="find" data-need="session"><i class="fas fa-magnifying-glass"></i><span class="rm-menu-lb">Tìm câu</span><kbd class="rm-kbd">Ctrl K</kbd></button>
+            <button class="rm-menu-item" role="menuitemcheckbox" aria-checked="false" data-tool="zen" data-sw="zen" title="Ẩn bớt mọi thứ, chỉ còn câu hỏi và phương án"><i class="fas fa-feather"></i><span class="rm-menu-lb">Chế độ tập trung</span><kbd class="rm-kbd">Z</kbd><em class="rm-sw" aria-hidden="true"></em></button>
+            <button class="rm-menu-item" role="menuitemcheckbox" aria-checked="false" id="present-btn" data-sw="present" title="Phóng to chữ, ẩn bảng bên — để chiếu cho cả phòng"><i class="fas fa-display"></i><span class="rm-menu-lb">Trình chiếu</span><kbd class="rm-kbd">F</kbd><em class="rm-sw" aria-hidden="true"></em></button>
+            <button class="rm-menu-item" role="menuitemcheckbox" aria-checked="false" data-tool="race" data-sw="race" data-need="session" data-keep title="Dải tiến độ cả nhóm dưới thanh câu"><i class="fas fa-flag-checkered"></i><span class="rm-menu-lb">Dải tiến độ nhóm</span><em class="rm-sw" aria-hidden="true"></em></button>
+            <p class="rm-menu-cap">Khi làm bài</p>
+            <button class="rm-menu-item" role="menuitemcheckbox" aria-checked="false" data-tool="autonext" data-sw="autonext" data-keep title="Chọn xong tự sang câu chưa làm"><i class="fas fa-forward-step"></i><span class="rm-menu-lb"><span id="auto-label">Tự chuyển câu</span></span><em class="rm-sw" aria-hidden="true"></em></button>
+            <button class="rm-menu-item" role="menuitemcheckbox" aria-checked="false" data-tool="follow" data-sw="follow" data-keep title="Chủ trì chuyển câu thì bạn tự tới câu đó"><i class="fas fa-location-arrow"></i><span class="rm-menu-lb"><span id="follow-label">Bám câu nhóm đang bàn</span></span><em class="rm-sw" aria-hidden="true"></em></button>
+            <button class="rm-menu-item" role="menuitemcheckbox" aria-checked="false" data-tool="notes" data-sw="notes" data-keep title="Hiện nội dung ghi chú cụm từ ngay cạnh chữ"><i class="fas fa-note-sticky"></i><span class="rm-menu-lb"><span id="notes-label">Ghi chú cụm từ</span></span><em class="rm-sw" aria-hidden="true"></em></button>
+            <button class="rm-menu-item" role="menuitemcheckbox" aria-checked="false" data-tool="speak" data-sw="speak" data-need="session" data-keep title="Đọc to câu hỏi và phương án"><i class="fas fa-volume-high"></i><span class="rm-menu-lb">Nghe đọc câu hỏi</span><em class="rm-sw" aria-hidden="true"></em></button>
+            <button class="rm-menu-item" role="menuitemcheckbox" aria-checked="false" data-tool="sound" data-sw="sound" data-keep title="Tiếng 'tinh' khi chọn / chốt và rung nhẹ trên điện thoại"><i class="fas fa-bell"></i><span class="rm-menu-lb"><span id="sound-label">Âm thanh</span></span><kbd class="rm-kbd">M</kbd><em class="rm-sw" aria-hidden="true"></em></button>
             <p class="rm-menu-cap">Hiển thị</p>
-            <button id="text-size-btn" class="rm-menu-item"><i class="fas fa-text-height"></i>Cỡ chữ<span id="text-size-label" class="rm-kbd">vừa</span></button>
-            <button id="theme-btn" class="rm-menu-item"><i class="fas fa-moon"></i>Sáng / tối</button>
-            <button id="present-btn" class="rm-menu-item"><i class="fas fa-display"></i>Trình chiếu<kbd class="rm-kbd">F</kbd></button>
+            <button id="text-size-btn" class="rm-menu-item" role="menuitem" data-keep title="Đổi cỡ chữ (hoặc chụm hai ngón trên màn cảm ứng)"><i class="fas fa-text-height"></i><span class="rm-menu-lb">Cỡ chữ</span><span id="text-size-label" class="rm-kbd">vừa</span></button>
+            <button class="rm-menu-item" role="menuitemcheckbox" aria-checked="false" id="theme-btn" data-sw="theme" data-keep><i class="fas fa-moon"></i><span class="rm-menu-lb">Chế độ tối</span><em class="rm-sw" aria-hidden="true"></em></button>
+            <p class="rm-menu-cap">Khác</p>
+            <button class="rm-menu-item" role="menuitem" data-tool="minutes" data-need="session"><i class="fas fa-file-pdf"></i><span class="rm-menu-lb">Biên bản buổi học</span><kbd class="rm-kbd">PDF / MD</kbd></button>
+            <button class="rm-menu-item" role="menuitem" data-tool="help"><i class="fas fa-keyboard"></i><span class="rm-menu-lb">Bảng phím tắt</span><kbd class="rm-kbd">?</kbd></button>
         </div>
     </div>
 </header>
@@ -399,7 +406,7 @@
                         </div>
                         <div id="lobby-log" class="rm-lobby-log rm-feed"></div>
                         <form id="lobby-chat-form" class="rm-feed-form" autocomplete="off">
-                            <input id="lobby-chat-input" class="rm-input" maxlength="500" placeholder="Nhắn cả phòng…">
+                            <input id="lobby-chat-input" class="rm-input" maxlength="500" aria-label="Nhắn cả phòng" placeholder="Nhắn cả phòng…">
                             <button type="submit" class="rm-cta rm-solid-btn" title="Gửi"><i class="fas fa-paper-plane"></i></button>
                         </form>
                         <!-- Cảm xúc + câu chào: MỘT hàng cuộn ngang -->
@@ -455,6 +462,8 @@
                             <span id="talk-chip" class="rm-talk hidden"><i class="fas fa-comments"></i><span id="talk-left">2:00</span></span>
                             <div id="timer-ring" class="rm-ring hidden" style="--p:100"><span>–</span></div>
                         </div>
+                        <!-- Bản 54: vạch tiến độ MỌI câu (mỗi câu một đoạn màu theo trạng thái) — chạm / rê ngón để nhảy tới câu (room-quiz-stage paintRail) -->
+                        <div id="q-rail" class="rm-qrail" aria-hidden="true"><div class="rm-qsegs"></div><b class="rm-qthumb"></b><span class="rm-qtip"></span></div>
                     </div>
                 </div>
 
@@ -559,7 +568,7 @@
             <button id="host-mode-btn" class="rm-host-chip" title="Đổi kiểu buổi học"><i class="fas fa-crown"></i><span id="host-mode">Cùng làm</span></button>
             <span class="rm-host-sep" aria-hidden="true"></span>
             <button id="host-show" class="rm-host-btn is-show" title="Hiện đáp án tham khảo trong file (phím S)"><i class="fas fa-eye"></i><span>Hiện đáp án</span></button>
-            <button id="host-lock-answer" class="rm-host-btn is-lock" title="Chốt đáp án (Space = theo đa số)"><i class="fas fa-gavel"></i><span>Chốt đáp án</span></button>
+            <button id="host-lock-answer" class="rm-host-btn is-lock" title="Chốt đáp án — bấm: chốt nhanh · giữ nút: chọn cách chốt (Space = chốt nhanh)"><i class="fas fa-gavel"></i><span>Chốt đáp án</span><b class="rm-chot-def" aria-hidden="true"></b></button>
             <button id="host-next" class="rm-host-btn is-next" title="Câu tiếp (phím N)"><span>Câu tiếp</span><i class="fas fa-arrow-right"></i></button>
             <span class="rm-host-sep" aria-hidden="true"></span>
             <button id="host-talk" class="rm-host-btn is-sec is-keep" title="Hẹn giờ bàn luận cho cả nhóm"><i class="fas fa-comments"></i><span id="host-talk-label">Bàn 2'</span></button>
@@ -668,24 +677,31 @@
     <div class="rm-more-grid">
         <button data-more="quiz"><i class="fas fa-list-check"></i><b>Về đề</b><small>màn làm bài</small></button>
         <button data-more="board"><i class="fas fa-chalkboard"></i><b>Bảng trắng</b><small>vẽ chung</small></button>
-        <button data-more="find"><i class="fas fa-magnifying-glass"></i><b>Tìm câu</b><small>theo chữ trong đề</small></button>
+        <button data-more="find" data-need="session"><i class="fas fa-magnifying-glass"></i><b>Tìm câu</b><small>theo chữ trong đề</small></button>
     </div>
     <p class="rm-more-cap">Cả phòng</p>
     <div class="rm-more-grid">
         <button data-more="chat"><i class="fas fa-comments"></i><b>Chat</b><small>cả phòng · tài liệu</small></button>
         <button data-more="members"><i class="fas fa-users"></i><b>Nhóm</b><small>ai đang ở đâu</small></button>
         <button data-more="rank"><i class="fas fa-trophy"></i><b>BXH</b><small>điểm hiện tại</small></button>
-        <button data-more="race"><i class="fas fa-flag-checkered"></i><b>Đường đua</b><small>tiến độ nhóm</small></button>
+        <button data-more="race" data-sw="race" data-need="session" data-keep><i class="fas fa-flag-checkered"></i><b>Dải tiến độ</b><small>cả nhóm làm tới đâu</small><em class="rm-sw" aria-hidden="true"></em></button>
         <button data-more="invite"><i class="fas fa-user-plus"></i><b>Mời bạn</b><small>link · mã QR</small></button>
-        <button data-more="follow"><i class="fas fa-location-arrow"></i><b>Bám nhóm</b><small id="follow-sub">tắt · tự tới câu đang bàn</small></button>
+        <button data-more="follow" data-sw="follow" data-keep><i class="fas fa-location-arrow"></i><b>Bám câu nhóm</b><small id="follow-sub">tự tới câu đang bàn</small><em class="rm-sw" aria-hidden="true"></em></button>
     </div>
-    <p class="rm-more-cap">Hiển thị &amp; lưu</p>
+    <p class="rm-more-cap">Khi làm bài</p>
     <div class="rm-more-grid">
-        <button data-more="text"><i class="fas fa-text-height"></i><b>Cỡ chữ</b><small>nhỏ · vừa · to</small></button>
-        <button data-more="theme"><i class="fas fa-moon"></i><b>Sáng / tối</b><small>đổi nền</small></button>
-        <button data-more="sound"><i class="fas fa-volume-high"></i><b>Âm thanh</b><small>tiếng + rung</small></button>
-        <button data-more="notes"><i class="fas fa-note-sticky"></i><b>Ghi chú chữ</b><small id="notes-sub">hiện cạnh chữ</small></button>
-        <button data-more="minutes"><i class="fas fa-file-pdf"></i><b>Biên bản</b><small>PDF / Markdown</small></button>
+        <button data-more="autonext" data-sw="autonext" data-keep><i class="fas fa-forward-step"></i><b>Tự chuyển câu</b><small>chọn xong sang câu chưa làm</small><em class="rm-sw" aria-hidden="true"></em></button>
+        <button data-more="zen" data-sw="zen"><i class="fas fa-feather"></i><b>Tập trung</b><small>chỉ còn câu và phương án</small><em class="rm-sw" aria-hidden="true"></em></button>
+        <button data-more="speak" data-sw="speak" data-need="session" data-keep><i class="fas fa-volume-high"></i><b>Nghe đọc</b><small>đọc to câu này</small><em class="rm-sw" aria-hidden="true"></em></button>
+        <button data-more="notes" data-sw="notes" data-keep><i class="fas fa-note-sticky"></i><b>Ghi chú cụm từ</b><small id="notes-sub">hiện cạnh chữ</small><em class="rm-sw" aria-hidden="true"></em></button>
+        <button data-more="sound" data-sw="sound" data-keep><i class="fas fa-bell"></i><b>Âm thanh</b><small>tiếng + rung</small><em class="rm-sw" aria-hidden="true"></em></button>
+        <button data-more="minutes" data-need="session"><i class="fas fa-file-pdf"></i><b>Biên bản</b><small>PDF / Markdown</small></button>
+    </div>
+    <p class="rm-more-cap">Hiển thị</p>
+    <div class="rm-more-grid">
+        <button data-more="text" data-keep><i class="fas fa-text-height"></i><b>Cỡ chữ</b><small>vừa</small></button>
+        <button data-more="theme" data-sw="theme" data-keep><i class="fas fa-moon"></i><b>Chế độ tối</b><small>đổi nền</small><em class="rm-sw" aria-hidden="true"></em></button>
+        <button data-more="help"><i class="fas fa-hand"></i><b>Cử chỉ</b><small>vuốt · giữ · chạm đúp</small></button>
     </div>
 </div>
 
@@ -849,8 +865,14 @@ Câu 2: Trình bày cơ chế điều hòa huyết áp ngắn hạn.
     <div class="rm-find-box">
         <div class="rm-find-head">
             <i class="fas fa-magnifying-glass"></i>
-            <input id="find-input" class="rm-find-input" placeholder="Gõ để tìm câu hỏi hoặc số câu…" autocomplete="off">
+            <input id="find-input" class="rm-find-input" placeholder="Tìm trong câu hỏi, đáp án hoặc gõ số câu…" autocomplete="off" enterkeyhint="go" aria-label="Tìm câu">
             <kbd class="rm-kbd">Esc</kbd>
+        </div>
+        <div class="rm-find-bar" role="group" aria-label="Lọc câu">
+            <button type="button" class="rm-find-chip on" data-ff="all" aria-pressed="true">Tất cả</button>
+            <button type="button" class="rm-find-chip" data-ff="todo" aria-pressed="false">Chưa chọn</button>
+            <button type="button" class="rm-find-chip" data-ff="locked" aria-pressed="false">Đã chốt</button>
+            <span id="find-count" class="rm-find-count" aria-live="polite"></span>
         </div>
         <div id="find-list" class="rm-find-list"></div>
     </div>
@@ -860,8 +882,12 @@ Câu 2: Trình bày cơ chế điều hòa huyết áp ngắn hạn.
 <div id="help-modal" class="rm-modal hidden">
     <div class="rm-modal-box">
         <button data-close-help class="rm-modal-x"><i class="fas fa-times"></i></button>
-        <h3 class="text-lg font-extrabold mb-1">Phím tắt</h3>
-        <p class="text-xs text-muted mb-4">Bấm <kbd class="rm-kbd">?</kbd> bất cứ lúc nào để mở lại bảng này.</p>
+        <h3 id="help-title" class="text-lg font-extrabold mb-1">Phím tắt</h3>
+        <p id="help-sub" class="text-xs text-muted mb-3">Bấm <kbd class="rm-kbd">?</kbd> bất cứ lúc nào để mở lại bảng này.</p>
+        <div id="help-tabs" class="rm-find-bar hidden" role="group" aria-label="Loại hướng dẫn">
+            <button type="button" class="rm-find-chip" data-help-tab="gesture" aria-pressed="false">Cử chỉ</button>
+            <button type="button" class="rm-find-chip" data-help-tab="keys" aria-pressed="false">Phím tắt</button>
+        </div>
         <div id="help-list" class="rm-help-grid"></div>
     </div>
 </div>

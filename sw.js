@@ -3,7 +3,7 @@
 //  - CACHE_NAME (zitthenkne-v2NNN): app shell. Tăng số MỖI LẦN sửa/thêm file trong urlsToCache.
 //  - CDN_CACHE: thư viện + phông từ CDN (URL có phiên bản, gần như bất biến) → GIỮ qua các phiên bản.
 //  - IMG_CACHE: ảnh tải lúc chạy (nền, avatar, ảnh bệnh án) → giữ qua các phiên bản, tối đa IMG_MAX mục.
-const CACHE_NAME = 'zitthenkne-v251';
+const CACHE_NAME = 'zitthenkne-v266';
 const CDN_CACHE = 'zitthenkne-cdn';
 const IMG_CACHE = 'zitthenkne-img';
 const IMG_MAX = 600;
@@ -126,6 +126,7 @@ const urlsToCache = [
   'features/study-room/room-reason.js',
   'features/study-room/room-barem.js',
   'features/study-room/room-paste.js',
+  'features/study-room/room-polish.js',
   'features/study-room/rooms-hub.js',
   'features/study-room/rooms-hub.css',
   'features/study-room/tailwind-phong.css',
@@ -257,10 +258,10 @@ const urlsToCache = [
 // Thư viện CDN chỉ gọi lúc chạy mà KHÔNG ghi nguyên văn URL trong trang/mã (bộ dò không thấy).
 // Mọi URL CDN còn lại được TỰ DÒ từ các file đã nạp sẵn — xem harvestCdnUrls().
 const cdnToCache = [
-  'https://www.gstatic.com/firebasejs/9.6.0/firebase-app.js',
-  'https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js',
-  'https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js',
-  'https://www.gstatic.com/firebasejs/9.6.0/firebase-storage.js'
+  'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js',
+  'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js',
+  'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js',
+  'https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js'
 ];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -402,15 +403,28 @@ self.addEventListener('install', (event) => {
 });
 
 // Kích hoạt: xoá app shell phiên bản cũ; GIỮ kho CDN + ảnh.
+// Kho CDN được GIỮ qua mọi phiên bản nên bản SDK Firebase cũ (đổi phiên bản = URL khác) nằm lại mãi (~1,6MB/bản).
+// Phiên bản hiện hành lấy từ chính danh sách cdnToCache ở trên (firebase-nang-cap.mjs đổi cả danh sách này).
+async function purgeOldFirebase() {
+  const cur = /firebasejs\/([\d.]+)\//.exec(cdnToCache[0]);
+  if (!cur) return;
+  const cache = await caches.open(CDN_CACHE);
+  for (const req of await cache.keys()) {
+    const v = /gstatic\.com\/firebasejs\/([\d.]+)\//.exec(req.url);
+    if (v && v[1] !== cur[1]) await cache.delete(req);
+  }
+}
+
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
+  event.waitUntil(Promise.all([
     caches.keys().then((names) => Promise.all(names.map((name) => {
       if (name !== CACHE_NAME && name !== CDN_CACHE && name !== IMG_CACHE && name !== QUIZ_IMG_CACHE && name !== PIPER_CACHE) {
         console.log('SW: xoá cache cũ:', name);
         return caches.delete(name);
       }
-    })))
-  );
+    }))),
+    purgeOldFirebase().catch(() => {})
+  ]));
   self.clients.claim();
 });
 

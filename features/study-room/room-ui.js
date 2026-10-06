@@ -88,3 +88,23 @@ export function fmtClock(sec) {
 export function toggle(el, show) {
     if (el) el.classList.toggle('hidden', !show);
 }
+
+/** Thanh "Hoàn tác" nhỏ ở giữa phía trên, tự tắt sau `ms`. Dùng cho việc làm xong NGAY một chạm mà cả phòng thấy (chốt nhanh…). */
+let undoTimer = 0;
+export function showUndo(text, onUndo, ms = 5500) {
+    let n = document.getElementById('rm-undo');
+    if (!n) {
+        n = document.createElement('div');
+        n.id = 'rm-undo';
+        n.className = 'rm-undo';
+        n.setAttribute('role', 'status');
+        n.innerHTML = '<span></span><button type="button">Hoàn tác</button>';
+        document.body.appendChild(n);
+    }
+    const hide = () => { clearTimeout(undoTimer); n.classList.remove('is-on'); };
+    n.firstChild.textContent = text;
+    n.lastChild.onclick = () => { hide(); onUndo?.(); };
+    n.classList.add('is-on');
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(hide, ms);
+}

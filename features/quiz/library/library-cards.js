@@ -4,7 +4,7 @@
 // Tách từ quiz-library-controller.js — logic giữ nguyên, chỉ đổi truy cập trạng thái sang S.xxx.
 
 import { db } from '../../../core/firebase-init.js';
-import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { showToast, showConfirm } from '../../../core/utils.js';
 import { isOfflineSavedSync, saveOfflineQuiz, deleteOfflineQuiz, extractQuizImageUrls } from '../quiz-offline-store.js';
 import { S } from './library-state.js';

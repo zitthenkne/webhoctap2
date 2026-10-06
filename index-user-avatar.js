@@ -4,7 +4,7 @@
 // kèm chấm trạng thái mạng (xanh = online, cam = offline giữ phiên).
 import { auth, db } from './core/firebase-init.js';
 import { onSessionUser } from './core/auth-session.js';
-import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', () => {
   const avatarEls = [

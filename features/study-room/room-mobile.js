@@ -167,12 +167,12 @@ export function initMobile() {
         const b = e.target.closest('[data-more]');
         if (!b) return;
         const k = b.dataset.more;
-        closeSheet();
+        if (!b.hasAttribute('data-keep')) closeSheet();          // công tắc (âm thanh, tự chuyển câu…) giữ khay mở để bật nhiều mục liền
         if (k === 'board' || k === 'quiz') return void document.querySelector(`#stage-tabs [data-stage="${k}"]`)?.click();
         if (k === 'chat') return void openPanelSheet('discuss');
         if (k === 'members' || k === 'rank') return void window.dispatchEvent(new CustomEvent('room:panel', { detail: k }));
         if (k === 'invite') return void el('share-room-btn')?.click();
-        if (k === 'find' || k === 'sound' || k === 'minutes' || k === 'follow' || k === 'notes') return void window.dispatchEvent(new CustomEvent('room:tool', { detail: k }));
+        if (k === 'find' || k === 'sound' || k === 'minutes' || k === 'follow' || k === 'notes' || k === 'speak' || k === 'zen' || k === 'autonext' || k === 'help') return void window.dispatchEvent(new CustomEvent('room:tool', { detail: k }));
         if (k === 'text') return void el('text-size-btn')?.click();
         if (k === 'theme') return void el('theme-btn')?.click();
         if (k === 'race') return void window.dispatchEvent(new CustomEvent('room:tool', { detail: 'race' }));
@@ -206,7 +206,7 @@ export function initMobile() {
     const scrolledV = () => Math.abs((stage?.scrollTop || 0) - st0) > 6;
     // Bản 47 (iPad): vuốt đổi câu NHƯỜNG mọi thao tác kéo khác. Trước đây kéo thanh chia 2 cột (#split-live nằm
     // trong vùng làm bài; preventDefault ở pointerdown KHÔNG chặn được touch event) là nhảy câu luôn.
-    const NO_SWIPE = 'input, textarea, select, .rm-split, .rm-qtrack, .rm-emoji-bar, .rm-quick-bar, '
+    const NO_SWIPE = 'input, textarea, select, .rm-split, .rm-qtrack, .rm-qrail, li.rm-cmt, .rm-emoji-bar, .rm-quick-bar, '
         + '.rm-qmap, .rm-col-side, .rm-rf, .rm-hostbar, .mermaid-container, .katex-display, .table-responsive, .rm-sheet-grip';
     // Chạm vào một vùng đang cuộn ngang được (bảng dài, hàng chip, công thức…) -> để vùng đó cuộn
     const scrollsX = (n) => {
