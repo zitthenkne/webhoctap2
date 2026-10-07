@@ -69,6 +69,10 @@ export const S = {
     attemptLastSyncTry: 0      // throttle: lần gọi server gần nhất trong phiên
 };
 
+// Bản C2: cache thư viện trong máy còn mới hơn mốc này thì mở lại thư viện KHÔNG hỏi server (trước đây mỗi lần mở trang index.html đều tốn
+// F + N lượt đọc: toàn bộ thư mục + toàn bộ bộ đề, kể cả khi vừa tải xong 10 giây trước ở trang quiz rồi bấm Back). Nút "Tải lại" xóa cache nên
+// vẫn bắt tải mới; mọi thao tác sửa đã ghi lại cache (persistLibraryCache) nên cache không lỗi thời so với chính máy này.
+export const LIBRARY_CACHE_FRESH_MS = 2 * 60 * 1000;
 export const LIBRARY_AUTO_SYNC_MIN_INTERVAL = 60 * 1000; // 60s: tránh gọi lại Firestore liên tục khi bật/tắt app nhanh
 
 export const LIB_PAGE_SIZE = 12;

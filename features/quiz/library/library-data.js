@@ -6,18 +6,19 @@
 import { auth, db } from '../../../core/firebase-init.js';
 import { sessionUser } from '../../../core/auth-session.js';
 import {
-    doc, collection, addDoc, setDoc, query, where, getDocs,
+    doc, collection, setDoc, query, where, getDocs,
     orderBy, limit, startAfter, updateDoc, runTransaction
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { showToast } from '../../../core/utils.js';
+import { setDocQ } from '../../../core/offline-write.js';
 import { checkAndAwardAchievement } from '../../../core/achievements.js';
-import { S, LIB_CHUNK, LIBRARY_AUTO_SYNC_MIN_INTERVAL } from './library-state.js';
+import { S, LIB_CHUNK, LIBRARY_AUTO_SYNC_MIN_INTERVAL, LIBRARY_CACHE_FRESH_MS } from './library-state.js';
 import { purgeExpiredTrash, sortUserFolders, loadPinnedQuizIds } from './library-helpers.js';
 import { renderLibrary, renderLibrarySkeleton, renderBreadcrumb, rerenderCurrentView } from './library-render.js';
 import { loadAttemptCache, syncAttemptsFromServer } from './library-attempts.js';
 import { invalidateQuestionIndex } from './library-search.js';
-import { fetchAllQuizMeta, readMetaCache, writeMetaCache, readFoldersCache, writeFoldersCache, clearMetaCache } from './library-meta.js';
+import { fetchAllQuizMeta, readMetaCache, writeMetaCache, readFoldersCache, writeFoldersCache, clearMetaCache, libraryCacheAge } from './library-meta.js';
 
 /**
  * Lưu bộ đề và chuyển sang màn hình làm quiz
@@ -38,12 +39,15 @@ export async function saveAndStartQuiz() {
     }
 
     try {
-        const docRef = await addDoc(collection(db, "quiz_sets"), {
+        // Bản C8: id tạo ngay trên máy + ghi xếp hàng (setDocQ) — addDoc treo tới khi có mạng nên tạo bộ lúc mất mạng đứng ở "Đang lưu..." mãi
+        const docRef = doc(collection(db, "quiz_sets"));
+        await setDocQ(docRef, {
             userId: user.uid,
             title: S.currentQuizTitle,
             questionCount: S.questions.length,
             questions: S.questions,
             createdAt: new Date(),
+            updatedAt: new Date(),
             isPublic: true,
             folderId: S.currentFolderId || null
         });
@@ -54,7 +58,7 @@ export async function saveAndStartQuiz() {
             questions: S.questions,
             updatedAt: new Date()
         }).catch(() => {});
-        await checkCreationAchievements(user.uid);
+        if (navigator.onLine) await checkCreationAchievements(user.uid);   // mất mạng: giao dịch đếm bộ đề không chạy được — bỏ qua thay vì treo/lỗi
         window.location.href = `features/quiz/quiz.html?id=${docRef.id}`;
     } catch (e) {
         showToast('Lỗi khi lưu bộ đề: ' + e.message, 'error');
@@ -85,12 +89,15 @@ export async function saveOnly() {
     }
 
     try {
-        const docRef = await addDoc(collection(db, "quiz_sets"), {
+        // Bản C8: id tạo ngay trên máy + ghi xếp hàng (setDocQ) — addDoc treo tới khi có mạng nên tạo bộ lúc mất mạng đứng ở "Đang lưu..." mãi
+        const docRef = doc(collection(db, "quiz_sets"));
+        await setDocQ(docRef, {
             userId: user.uid,
             title: S.currentQuizTitle,
             questionCount: S.questions.length,
             questions: S.questions,
             createdAt: new Date(),
+            updatedAt: new Date(),
             isPublic: true,
             folderId: S.currentFolderId || null
         });
@@ -101,7 +108,7 @@ export async function saveOnly() {
             questions: S.questions,
             updatedAt: new Date()
         }).catch(() => {});
-        await checkCreationAchievements(user.uid);
+        if (navigator.onLine) await checkCreationAchievements(user.uid);   // mất mạng: giao dịch đếm bộ đề không chạy được — bỏ qua thay vì treo/lỗi
         showToast(`Đã lưu "${S.currentQuizTitle}" vào thư viện!`, 'success');
         if (saveBtnPreQuiz) saveBtnPreQuiz.innerHTML = '✓ Đã lưu';
     } catch (e) {
@@ -203,6 +210,9 @@ export async function loadAndDisplayLibrary(page = 1) {
         renderLibrarySkeleton(quizListContainer);
     }
 
+    // Cache máy còn mới (< 2 phút) thì xong ở đây: RAM đã có trọn thư viện (applyQuizMeta đặt isLibraryFullyLoaded) — khỏi tốn F + N lượt đọc.
+    if (paintedFromCache && libraryCacheAge(user.uid) < LIBRARY_CACHE_FRESH_MS) return;
+
     // Ngoại tuyến mà đã vẽ từ cache máy thì dừng ở đây: đọc lại qua SDK lúc này chỉ ra bản THIẾU hơn
     // (thư viện đọc qua REST nên cache Firestore thường không có đủ bộ đề) rồi đè mất cache tốt.
     // Có mạng lại thì initLibraryAutoSync tự làm tươi.
@@ -219,8 +229,12 @@ export async function loadAndDisplayLibrary(page = 1) {
 
         // Đã vẽ từ cache thì trong RAM đã có sẵn cả thư viện → đi thẳng đường tải-đầy-đủ
         // (chỉ còn một lượt làm tươi rất nhẹ), không cần cuốn chiếu.
-        if (canUseRollingLibrary() && !paintedFromCache) {
-            // CUỐN CHIẾU: chỉ tải cụm đầu (36 = 12 hiển thị + prefetch 2 trang), tải thêm khi sang trang.
+        // Bản C4: REST `select` tải TRỌN metadata thư viện siêu nhẹ (không kèm câu hỏi) nên cuốn chiếu bằng SDK (kéo ĐỦ câu hỏi của 36 bộ mỗi cụm,
+        // hàng MB) chỉ còn là đường lùi khi REST không chạy được.
+        if (canUseRollingLibrary() && !paintedFromCache && await loadAllLibraryInBackground(user.uid, { restOnly: true })) {
+            // đã nạp đủ bằng REST và vẽ xong (trong loadAllLibraryInBackground)
+        } else if (canUseRollingLibrary() && !paintedFromCache) {
+            // CUỐN CHIẾU (đường lùi): chỉ tải cụm đầu (36 = 12 hiển thị + prefetch 2 trang), tải thêm khi sang trang.
             S.libraryCursor = null;
             S.serverHasMore = true;
             S.userQuizSets = [];
@@ -280,7 +294,8 @@ export function persistLibraryCache() {
     writeMetaCache(user.uid, S.userQuizSets);
 }
 
-export async function loadAllLibraryInBackground(userId) {
+export async function loadAllLibraryInBackground(userId, { restOnly = false } = {}) {
+    // Trả về true khi ĐÃ nạp + vẽ xong bằng dữ liệu tươi (restOnly: false nếu REST không chạy được để nơi gọi chọn đường khác)
     try {
         // Chốt số thay đổi TRƯỚC khi gọi mạng: nếu trong lúc chờ mà người dùng vừa sửa gì đó
         // thì kết quả trả về đã lạc hậu, đè vào là thao tác của họ bị nuốt mất.
@@ -288,12 +303,13 @@ export async function loadAllLibraryInBackground(userId) {
         // Ngoại tuyến: kết quả chỉ là phần có trong cache Firestore (thường thiếu) → đã có cache máy
         // thì giữ nguyên nó; chưa có thì hiện tạm phần đọc được nhưng KHÔNG ghi đè cache/dọn thùng rác.
         const offline = !navigator.onLine;
-        if (offline && readMetaCache(userId)) return;
+        if (offline && readMetaCache(userId)) return false;
         // Chỉ tải metadata (không kèm mảng `questions`) — xem library-meta.js
-        const allQuizzes = await fetchAllQuizMeta(userId);
-        if (S.libraryMutationSeq !== seqAtStart) return;
+        const allQuizzes = await fetchAllQuizMeta(userId, { restOnly });
+        if (!allQuizzes) return false;
+        if (S.libraryMutationSeq !== seqAtStart) return false;
         applyQuizMeta(allQuizzes, !offline);
-        if (offline) { renderLibrary(S.userQuizSets, S.currentLibraryPage); return; }
+        if (offline) { renderLibrary(S.userQuizSets, S.currentLibraryPage); return false; }
         writeMetaCache(userId, allQuizzes);
 
         // Vá dữ liệu cũ thiếu folderId để các truy vấn theo thư mục hoạt động đúng
@@ -306,8 +322,10 @@ export async function loadAllLibraryInBackground(userId) {
 
         S.lastLibrarySyncAt = Date.now(); // toàn bộ thư viện đã đồng bộ xong
         renderLibrary(S.userQuizSets, S.currentLibraryPage);
+        return true;
     } catch (err) {
         console.error("Lỗi tải thư viện chạy ngầm: ", err);
+        return false;
     }
 }
 

@@ -12,7 +12,7 @@ import { getOfflineQuiz, getOfflineIdsSync, autoCacheQuiz } from '../quiz/quiz-o
 import {
     room, refs, uid, canControl, hasSession, currentIndex, optsOf, correctIdxOf, refIdxOf,
     noteOf, optNoteOf, chosenOf, questionAt, issueOf, isCoop, isShown, whyOf, dissentOf, talkUntil,
-    isEssay, acceptedOf, alsoOkOf, isSplit, acceptedText, answerOf, doneOf,
+    isEssay, acceptedOf, alsoOkOf, isSplit, acceptedText, answerOf, doneOf, SPLIT_QUESTIONS, SPLIT_PRESENCE, writePresence,
 } from './room-state.js';
 import { isOnline } from './room-members.js';
 import { escapeHtml, showUndo } from './room-ui.js';
@@ -486,8 +486,12 @@ async function startSession(solo = null, fromSolo = false) {
         // Xóa đáp án phiên trước của mọi người để bảng điểm bắt đầu từ 0
         await Promise.all(room.members.map(m => updateDoc(refs.member(m.uid),
             { answers: {}, flags: {}, marks: {}, ready: {}, unclear: {}, diff: {}, dissent: {}, args: {}, agree: {}, rf: {}, cursor: 0, hand: null, team: null }).catch(() => {})));
+        if (SPLIT_PRESENCE) await Promise.all(room.members.map(m => writePresence({ cursor: 0 }, m.uid)));      // cursor nay nằm ở doc hiện diện
+        // Bộ câu hỏi ghi vào doc riêng TRƯỚC, rồi mới ghi doc phiên có cùng qid (máy khác chỉ dựng phiên khi hai doc khớp qid)
+        const qid = SPLIT_QUESTIONS ? Date.now() : 0;
+        if (qid) await setDoc(refs.questions(), { qid, list: questions });
         await setDoc(refs.session(), {
-            questions,
+            ...(qid ? { qid, qCount: questions.length } : { questions }),
             quizTitle: draft.title,
             mode,
             timerSec,
@@ -749,7 +753,11 @@ async function setFocusHere() {
 async function appendQuestions(list) {
     const s = room.session;
     const start = s.questions.length;
-    await updateDoc(refs.session(), { questions: [...s.questions, ...list] }).catch(() => showToast('Chưa thêm được câu.', 'error'));
+    const next = [...s.questions, ...list];
+    const done = s.qid
+        ? updateDoc(refs.questions(), { list: next }).then(() => updateDoc(refs.session(), { qCount: next.length }).catch(() => {}))
+        : updateDoc(refs.session(), { questions: next });         // phiên cũ nhúng sẵn câu hỏi
+    await done.catch(() => showToast('Chưa thêm được câu.', 'error'));
     systemMessage(`${hostName()} thêm ${list.length} câu mới (câu ${start + 1}${list.length > 1 ? `–${start + list.length}` : ''}).`);
     setViewIndex(start);
 }
@@ -793,7 +801,9 @@ async function restartSession() {
 
 async function closeSession() {
     if (!await showConfirm('Đóng phiên và quay về màn chọn đề?', { confirmText: 'Đóng phiên' })) return;
+    const split = !!room.session?.qid;
     await setDoc(refs.session(), { questions: [] });
+    if (split) setDoc(refs.questions(), { qid: 0, list: [] }).catch(() => {});      // dọn bộ câu hỏi cũ, khỏi nằm lại trong CSDL
 }
 
 /** Gom những câu đáng ôn (mình chọn trật / bỏ trống / nhóm bấm cần bàn / mình đánh dấu)

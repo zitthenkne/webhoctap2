@@ -27,6 +27,7 @@
 
 import { db } from '../../core/firebase-init.js';
 import { srsKeys, mergeSrsMaps, readSrsMeta } from './quiz-srs-store.js';
+import { makeCoalescer } from './quiz-coalesce.js';
 import { doc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 // Ghi không treo khi mất mạng (xem core/offline-write.js)
 import { setDocQ as setDoc } from "../../core/offline-write.js";
@@ -292,25 +293,32 @@ export async function fetchCloudProgress(uid, quizId) {
     }
 }
 
-// ----- Đẩy tiến trình cloud có giảm tần suất (debounce) -----
-const _progressTimers = {};
-// 5 giây (trước 1,2s): mỗi lần đổi câu từng là MỘT lần ghi Firestore; giờ gom lại, còn flush khi ẩn tab / rời trang.
-export function scheduleCloudProgressPush(uid, quizId, getProgressFn, delay = 5000) {
+// ----- Đẩy tiến trình cloud có giảm tần suất (gom lần ghi — quiz-coalesce.js) -----
+// Bản C5: trước đây chờ 5s sau lần đổi cuối → làm một bộ 100 câu, mỗi câu cách nhau >5s là ≈100 lần ghi `quiz_study` (mỗi lần 2–20 KB).
+// Nay chờ 30s sau lần đổi cuối nhưng không quá 120s kể từ lần đổi đầu của đợt (≈ 1 lần ghi / 2 phút khi làm liên tục); vẫn flush NGAY khi ẩn tab /
+// rời trang / nộp bài (xem flushAllPending bên dưới). Tiến trình trong máy luôn được ghi tức thì (localStorage) — cloud chỉ để tiếp tục ở máy khác.
+const PROGRESS_DELAY = 30000, PROGRESS_MAX_WAIT = 120000;
+const _progress = new Map();   // key -> { co, uid, quizId, fn }
+export function scheduleCloudProgressPush(uid, quizId, getProgressFn, delay = PROGRESS_DELAY) {
     if (!uid || !quizId) return;
     const key = studyDocId(uid, quizId);
-    clearTimeout(_progressTimers[key]);
-    _progressTimers[key] = setTimeout(() => {
-        const progress = typeof getProgressFn === 'function' ? getProgressFn() : getProgressFn;
-        if (progress && !progress.finished) {
-            pushCloudProgress(uid, quizId, progress);
-        }
-    }, delay);
+    let e = _progress.get(key);
+    if (!e) {
+        e = { uid, quizId, fn: null, co: null };
+        e.co = makeCoalescer(() => {
+            const progress = typeof e.fn === 'function' ? e.fn() : e.fn;
+            if (progress && !progress.finished) pushCloudProgress(e.uid, e.quizId, progress);
+        }, { delay: PROGRESS_DELAY, maxWait: PROGRESS_MAX_WAIT });
+        _progress.set(key, e);
+    }
+    e.fn = getProgressFn;
+    e.co.call(delay);
 }
 
 export function flushCloudProgressPush(uid, quizId, getProgressFn) {
     if (!uid || !quizId) return;
     const key = studyDocId(uid, quizId);
-    clearTimeout(_progressTimers[key]);
+    _progress.get(key)?.co.cancel();
     const progress = typeof getProgressFn === 'function' ? getProgressFn() : getProgressFn;
     if (progress && !progress.finished) {
         pushCloudProgress(uid, quizId, progress);
@@ -329,14 +337,29 @@ export async function syncPullStudy(uid, quizId, { preferCloud = false } = {}) {
     return merged;
 }
 
-// ----- Đẩy cloud có giảm tần suất (debounce) — dùng trong lúc làm bài -----
-const _pushTimers = {};
-export function scheduleCloudPush(uid, quizId, delay = 1500) {
+// ----- Đẩy cloud có giảm tần suất — dùng trong lúc làm bài -----
+// Bản C5: mỗi câu ôn ngắt quãng (SRS) / mỗi lần sửa ghi chú từng là MỘT lần ghi CẢ doc quiz_study (mọi ghi chú + đánh dấu + bôi vàng + lịch ôn, hàng chục KB)
+// sau 1,5s. Nay chờ 8s sau lần đổi cuối, không quá 60s kể từ lần đổi đầu của đợt; flush ngay khi ẩn tab / rời trang.
+const STUDY_DELAY = 8000, STUDY_MAX_WAIT = 60000;
+const _study = new Map();   // key -> { co }
+export function scheduleCloudPush(uid, quizId, delay = STUDY_DELAY) {
     if (!uid || !quizId) return;
     const key = studyDocId(uid, quizId);
-    clearTimeout(_pushTimers[key]);
-    _pushTimers[key] = setTimeout(() => {
-        pushCloudStudy(uid, quizId, readLocalStudy(quizId));
-    }, delay);
+    let e = _study.get(key);
+    if (!e) {
+        e = { co: makeCoalescer(() => { pushCloudStudy(uid, quizId, readLocalStudy(quizId)); }, { delay: STUDY_DELAY, maxWait: STUDY_MAX_WAIT }) };
+        _study.set(key, e);
+    }
+    e.co.call(delay);
+}
+
+// Ẩn tab / rời trang / đóng ứng dụng: đẩy NGAY mọi lần ghi đang chờ (Firestore xếp hàng ghi trong IndexedDB nên lần mở sau vẫn gửi nốt nếu trang đóng giữa chừng).
+function flushAllPending() {
+    _study.forEach((e) => e.co.flush());
+    _progress.forEach((e) => e.co.flush());
+}
+if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushAllPending(); });
+    window.addEventListener('pagehide', flushAllPending);
 }
 

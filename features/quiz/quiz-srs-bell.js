@@ -27,6 +27,7 @@ import { auth, db } from '../../core/firebase-init.js';
 import { sessionUser, onSessionUser } from '../../core/auth-session.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { runQueryRest } from '../../core/firestore-rest.js';
 
 const QUIZ_URL = 'features/quiz/quiz.html';
 const DAY_MS = 86400000;
@@ -395,15 +396,31 @@ function injectStyles() {
 
 // Kéo lịch SRS của người dùng từ Firestore (mọi doc quiz_study của họ) và hợp
 // nhất vào localStorage. Throttle 5 phút/phiên để không quét lại vô ích.
+// Bản C1 (2026-10): (1) mốc đồng bộ nhớ trong localStorage — trước đây chỉ nhớ trong RAM của trang nên MỖI lần mở / quay lại index.html
+// là quét lại mọi doc quiz_study (mỗi doc mang cả ghi chú + đánh dấu + bôi vàng, hàng KB–chục KB); nay 10 phút/tài khoản xuyên các lần mở trang.
+// (2) REST chỉ lấy 6 trường lịch ôn, không kéo ghi chú/đánh dấu/bôi vàng; lỗi thì lùi về SDK như cũ.
+const SRS_FIELDS = ['quizId', 'srs', 'srsTitle', 'srsTotal', 'srsPaused', 'srsPausedAt'];
+const SRS_SYNC_TTL = 10 * 60 * 1000;
+const srsSyncKey = (uid) => `quizSrsSyncAt_${uid}`;      // KHÔNG đặt tiền tố quiz_srs_ (sự kiện storage của chuông lắng nghe tiền tố đó)
 let _cloudSyncedAt = 0;
+async function fetchStudyForSrs(uid) {
+    try {
+        return await runQueryRest({ collection: 'quiz_study', where: [['userId', uid]], select: SRS_FIELDS, requireUser: true });
+    } catch (e) {
+        const snap = await getDocs(query(collection(db, 'quiz_study'), where('userId', '==', uid)));
+        return snap.docs.map(d => d.data() || {});
+    }
+}
 async function syncSrsFromCloud(uid) {
-    if (!uid || Date.now() - _cloudSyncedAt < 5 * 60 * 1000) return false;
+    if (!uid || Date.now() - _cloudSyncedAt < SRS_SYNC_TTL) return false;
+    let last = 0;
+    try { last = Number(localStorage.getItem(srsSyncKey(uid))) || 0; } catch (e) {}
+    if (Date.now() - last < SRS_SYNC_TTL) return false;
     _cloudSyncedAt = Date.now();
     try {
-        const snap = await getDocs(query(collection(db, 'quiz_study'), where('userId', '==', uid)));
+        const docs = await fetchStudyForSrs(uid);
         let changed = false;
-        snap.forEach(docSnap => {
-            const data = docSnap.data() || {};
+        docs.forEach(data => {
             const quizId = data.quizId;
             if (!quizId || !Array.isArray(data.srs) || !data.srs.length) return;
             const cloudMap = {};
@@ -430,6 +447,7 @@ async function syncSrsFromCloud(uid) {
             }
             changed = true;
         });
+        try { localStorage.setItem(srsSyncKey(uid), String(Date.now())); } catch (e) {}      // chỉ ghi mốc khi quét THÀNH CÔNG
         return changed;
     } catch (e) {
         // Rules không cho query / offline — chuông vẫn chạy bằng dữ liệu local

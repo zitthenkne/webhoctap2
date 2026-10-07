@@ -279,6 +279,14 @@ if (view === 'ended') {
     }
 }
 
+// ?split=1: phiên dạng tách (bản 70) — câu hỏi nằm ở quizSession/questions, doc 'current' chỉ còn trạng thái + qid
+if (new URLSearchParams(location.search).get('split') && Array.isArray(sess.questions) && sess.questions.length) {
+    const qid = 4242;
+    store['study_rooms/demo/quizSession/questions'] = { qid, list: sess.questions };
+    delete sess.questions;
+    sess.qid = qid; sess.qCount = store['study_rooms/demo/quizSession/questions'].list.length;
+}
+
 const listeners = [];
 window.__stubStore = store;   // cho script kiểm thử đọc thẳng dữ liệu giả (vd. đếm vật trên bảng trắng)
 const notify = () => listeners.forEach(l => l());

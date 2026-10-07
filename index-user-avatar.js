@@ -18,6 +18,10 @@ document.addEventListener('DOMContentLoaded', () => {
   ];
 
   let currentUid = null;
+  // onSessionUser phát HAI lần mỗi lần mở trang (danh tính lưu máy rồi bản Firebase thật); cache hồ sơ chỉ được ghi SAU khi đọc xong
+  // nên lần phát thứ hai vẫn thấy cache cũ và đọc users/{uid} lần nữa → dùng chung một lượt đọc đang chạy.
+  let prefsInflight = null;
+  const fetchUserDoc = (uid) => prefsInflight || (prefsInflight = getDoc(doc(db, 'users', uid)).finally(() => { prefsInflight = null; }));
 
   function updateStatusDots() {
     const isOnline = navigator.onLine;
@@ -48,17 +52,20 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (_) {}
 
-    // 2. Nếu có mạng thì kéo cấu hình mới nhất từ Firestore và cập nhật lại cache
-    if (navigator.onLine) {
+    // 2. Nếu có mạng VÀ cache cũ hơn 10 phút thì kéo cấu hình mới nhất từ Firestore (trước đây MỖI lần mở trang là một lượt đọc + chờ mạng mới vẽ avatar).
+    // Đổi avatar / tên ở trang hồ sơ ghi lại cache nên không bị lỗi thời; đổi từ máy khác thì thấy sau tối đa 10 phút.
+    let cachedAt = 0;
+    try { cachedAt = Number(JSON.parse(localStorage.getItem('userAvatarPrefs_' + user.uid) || 'null')?.at) || 0; } catch (_) {}
+    if (navigator.onLine && Date.now() - cachedAt > 10 * 60 * 1000) {
       try {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const userDoc = await fetchUserDoc(user.uid);
         if (userDoc.exists()) {
           const data = userDoc.data();
           if (data.avatarBgColor) avatarBgColor = data.avatarBgColor;
           if (data.avatarAnimal) avatarAnimal = data.avatarAnimal;
           if (data.displayName) displayName = data.displayName;
           try {
-            localStorage.setItem('userAvatarPrefs_' + user.uid, JSON.stringify({ avatarBgColor, avatarAnimal, displayName }));
+            localStorage.setItem('userAvatarPrefs_' + user.uid, JSON.stringify({ avatarBgColor, avatarAnimal, displayName, at: Date.now() }));
           } catch (_) {}
         }
       } catch (_) {}

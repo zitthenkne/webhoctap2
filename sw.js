@@ -3,7 +3,7 @@
 //  - CACHE_NAME (zitthenkne-v2NNN): app shell. Tăng số MỖI LẦN sửa/thêm file trong urlsToCache.
 //  - CDN_CACHE: thư viện + phông từ CDN (URL có phiên bản, gần như bất biến) → GIỮ qua các phiên bản.
 //  - IMG_CACHE: ảnh tải lúc chạy (nền, avatar, ảnh bệnh án) → giữ qua các phiên bản, tối đa IMG_MAX mục.
-const CACHE_NAME = 'zitthenkne-v266';
+const CACHE_NAME = 'zitthenkne-v283';
 const CDN_CACHE = 'zitthenkne-cdn';
 const IMG_CACHE = 'zitthenkne-img';
 const IMG_MAX = 600;
@@ -51,6 +51,7 @@ const urlsToCache = [
   'features/quiz/library/library-helpers.js',
   'features/quiz/library/library-data.js',
   'features/quiz/library/library-meta.js',
+  'features/quiz/library/library-qindex.js',
   'features/quiz/folder.html',
   'features/quiz/folder.js',
   'features/quiz/library/library-search.js',
@@ -60,9 +61,12 @@ const urlsToCache = [
   'features/quiz/library/library-actions.js',
   'features/quiz/quiz-launch-transition.js',
   'features/quiz/quiz-offline-store.js',
+  'features/quiz/quiz-fresh.js',
+  'features/quiz/quiz-coalesce.js',
   'features/quiz/quiz-helpers.js',
   'features/quiz/img-proxy.js',
   'features/quiz/quiz-ui.js',
+  'features/quiz/quiz-export.js',
   'features/quiz/quiz-state.js',
   'features/quiz/quiz-study-store.js',
   'features/quiz/quiz-srs-store.js',
@@ -86,6 +90,7 @@ const urlsToCache = [
   'core/utils.js',
   'core/offline-write.js',
   'core/auth-session.js',
+  'core/firestore-rest.js',
   'core/require-login.js',
   'core/achievements.js',
   'core/file-parser.js',

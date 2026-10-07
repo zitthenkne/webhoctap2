@@ -7,6 +7,7 @@
 // Chủ thư mục bật cả hai bằng một thao tác "Chia sẻ thư mục" ở thư viện.
 
 import { db } from '../../core/firebase-init.js';
+import { runQueryRest } from '../../core/firestore-rest.js';
 import {
     doc, getDoc, collection, query, where, getDocs
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
@@ -122,6 +123,23 @@ function renderQuizzes(quizzes) {
     }).join('');
 }
 
+// Trang này chỉ liệt kê bộ đề (tên + số câu) nhưng SDK kéo NGUYÊN mỗi bộ đề kèm mảng câu hỏi (hàng trăm KB × số bộ đề × MỌI người mở link).
+// REST có chọn trường chỉ lấy vài trường mô tả; lỗi gì thì lùi về SDK như cũ.
+const SET_META = ['title', 'questionCount', 'createdAt', 'folderId', 'isPublic', 'deleted', 'deletedAt'];
+async function fetchFolderSets(folderId) {
+    try {
+        return await runQueryRest({ collection: 'quiz_sets', where: [['folderId', folderId], ['isPublic', true]], select: SET_META });
+    } catch (err) {
+        console.warn('Tải nhanh danh sách bộ đề thất bại, quay về SDK:', err && err.message);
+        const snap = await getDocs(query(
+            collection(db, 'quiz_sets'),
+            where('folderId', '==', folderId),
+            where('isPublic', '==', true)
+        ));
+        return snap.docs.map(d => { const { questions, ...meta } = d.data(); return { id: d.id, ...meta }; });
+    }
+}
+
 async function main() {
     const folderId = new URLSearchParams(location.search).get('id');
     if (!folderId) {
@@ -178,17 +196,7 @@ async function main() {
     try {
         // Bắt buộc lọc isPublic == true: rule Firestore chỉ cho đọc bộ đề công khai,
         // truy vấn thiếu điều kiện này sẽ bị từ chối toàn bộ.
-        const snap = await withTimeout(getDocs(query(
-            collection(db, 'quiz_sets'),
-            where('folderId', '==', folderId),
-            where('isPublic', '==', true)
-        )));
-        quizzes = snap.docs
-            .map(d => {
-                const { questions, ...meta } = d.data();
-                return { id: d.id, ...meta };
-            })
-            .filter(q => !q.deleted);
+        quizzes = (await withTimeout(fetchFolderSets(folderId))).filter(q => !q.deleted);
     } catch (err) {
         console.error('Lỗi tải bộ đề trong thư mục:', err);
         showMessage('fa-triangle-exclamation', 'Không tải được danh sách bộ đề',

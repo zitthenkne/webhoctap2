@@ -4042,3 +4042,73 @@ body.nb-bar-away .nb-topbar { transform: translateY(-105%); }
     .quiz-side-panel { overscroll-behavior: auto; }
     html.case-h-set #quizSection #case-body:not(.hidden) { overscroll-behavior: auto; }
 }
+
+/* ============================================================
+   21) CA LÂM SÀNG GỌN TRÊN ĐIỆN THOẠI (giai đoạn D · D1, 2026-10-07)
+   Đo: câu con thứ 2 của ca, điện thoại 390×844 → khung ca cao 563px, câu hỏi bắt đầu ở y=754 (dưới màn), mỗi câu con lại phải cuộn
+   qua cả ca. Nay <768px + câu con ≥2 mặc định GẬP (page/quiz-question-view.js: lớp .is-collapsed, nhớ theo ca trong caseCollapseState):
+   còn tiêu đề + 2 dòng xem trước mờ dần (luật "#case-body.hidden" ở trên, ~dòng 1613) + chấm số; bấm xem trước / nút "Mở ca" để đọc đủ.
+   ============================================================ */
+#quizSection #case-body.hidden { pointer-events: auto; cursor: pointer; }
+#quizSection #clinical-case-panel.is-collapsed .case-toggle-label { display: inline !important; }   /* điện thoại: nhãn "Mở ca" luôn hiện khi gập */
+@media (pointer: coarse) {
+    #quizSection #case-toggle-btn { min-height: 2.5rem; padding-inline: 0.75rem; }
+}
+
+/* ============================================================
+   22) BẢN ĐỒ KẾT QUẢ (giai đoạn D · D2, 2026-10-07)
+   Lưới số câu ngay trên danh sách chi tiết (quiz-ui.js: #result-map, dùng lại .qjs-grid/.qjs-cell của bảng nhảy câu nên đúng/sai/chưa chấm
+   cùng màu với lúc làm bài). Bấm ô → mở + cuộn tới câu (data-ridx trên .result-item); đổi bộ lọc → ô không khớp mờ đi (.is-dim, §trên).
+   Bộ dài: lưới cuộn trong khung cao ≤ min(15.5rem, 40vh) để không đẩy danh sách xuống quá xa.
+   ============================================================ */
+#resultsSection .res-map-wrap { margin: 0 0 1rem; }
+#resultsSection .res-map {
+    grid-template-columns: repeat(auto-fill, minmax(2.5rem, 1fr));
+    max-height: min(15.5rem, 40vh);
+    padding: 0.5rem 0.45rem 0.6rem;
+    border-radius: 1rem;
+    background: color-mix(in srgb, var(--hue-sky) 7%, var(--surface-card));
+    border: 2px dashed color-mix(in srgb, var(--hue-sky) 32%, transparent);
+    overflow-x: clip;
+}
+#resultsSection .res-map .qjs-cell { cursor: pointer; min-height: 2.5rem; font-size: 0.9rem; }
+#resultsSection .res-map .qjs-cell:focus-visible { outline: 2.5px dashed var(--hue-blossom); outline-offset: 3px; }
+#resultsSection .res-map-legend {
+    display: flex; flex-wrap: wrap; gap: 0.3rem 0.95rem;
+    margin-top: 0.55rem; padding: 0 0.2rem;
+    font-size: 0.78rem; font-weight: 700; color: var(--ink-muted);
+}
+#resultsSection .res-map-key::before {
+    content: ""; display: inline-block; width: 0.72rem; height: 0.72rem; margin-right: 0.35rem;
+    border-radius: 999px; vertical-align: -1px;
+    background: var(--surface-card); border: 2px dashed var(--ink-faint);
+}
+#resultsSection .res-map-key.is-correct::before { background: var(--ok-bg); border: 2px solid var(--ok-line); }
+#resultsSection .res-map-key.is-wrong::before { background: var(--bad-bg); border: 2px solid var(--bad-line); }
+#resultsSection .res-map-key.is-pending::before { background: var(--pick-bg); border: 2px solid var(--pick-line); }
+/* nhảy từ bản đồ: chừa chỗ dưới thanh trên cố định + nháy viền một lần */
+#resultsSection .result-item { scroll-margin-top: 4.5rem; }
+@keyframes res-flash {
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--hue-blossom) 60%, transparent); }
+    100% { box-shadow: 0 0 0 12px transparent; }
+}
+#resultsSection .result-item.res-flash { animation: res-flash 0.9s ease-out 1; }
+@media (prefers-reduced-motion: reduce) {
+    #resultsSection .result-item.res-flash { animation: none; outline: 2px solid var(--hue-blossom); outline-offset: 2px; }
+}
+
+/* ============================================================
+   23) NHỊP ĐỌC MARKDOWN (giai đoạn D · D3, 2026-10-07)
+   - Tiêu đề `#`–`####` (quiz-helpers.js parseMarkdown → .quiz-md-h1…4): trước đây hiện nguyên chữ "### Mở rộng".
+     Màu theo biến nhấn của nền (--em-b) nên đúng trên ca xanh / note vàng / thẻ trắng.
+   - Hai .quiz-md-gap liền nhau (dòng trống giữa đoạn chữ và danh sách/bảng: 14px + 14px + lề danh sách ≈ 36px) chỉ còn MỘT, và
+     chỉ trong các khối đọc dài (khung ca, bảng xem lại ca, Ghi nhớ / Mở rộng, thẻ kết quả) — cùng cách study-room.css đã làm cho
+     phiếu ca. Đề bài / đáp án / giải thích từng ô giữ nguyên nhịp cũ.
+   ============================================================ */
+.quiz-md-h { font-weight: 800; line-height: 1.35; color: var(--em-b, var(--ink-blossom)); margin: 0.1rem 0 0; }
+.quiz-md-h1 { font-size: 1.22em; }
+.quiz-md-h2 { font-size: 1.14em; }
+.quiz-md-h3 { font-size: 1.06em; }
+.quiz-md-h4 { font-size: 1em; letter-spacing: 0.01em; }
+.quiz-md-h + .quiz-md-gap { height: 0.4rem; }
+:is(#case-body, #case-peek-sheet .cps-body, .kb-body, .study-extra-body) .quiz-md-gap + .quiz-md-gap { display: none; }

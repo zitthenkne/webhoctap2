@@ -8,6 +8,8 @@ import { caseCellClass } from './page/quiz-cases.js';
 import { isEssay, isPendingEssay, isEssayGraded, needsReview, questionWeight } from './quiz-essay-core.js';
 import { essayReviewHtml } from './page/quiz-essay.js';
 import { onSessionUser, sessionUser } from '../../core/auth-session.js';
+import { showToast } from '../../core/utils.js';
+import { wrongItemsMarkdown, wrongItemsCsv } from './quiz-export.js';
 
 // Ghi nhớ + Mở rộng kiến thức của một câu ở màn kết quả (trắc nghiệm lẫn tự luận) — chế độ
 // "nộp xong mới mở đáp án" không có dịp xem hai thẻ này trong lúc làm bài.
@@ -450,18 +452,24 @@ export function showResults(totalTime, opts = {}) {
     const markedReasons = state.markedReasons || {};
     const markedCount = markedSet.size;
 
+    // Trạng thái hiển thị của một câu ở màn kết quả (dùng chung cho danh sách chi tiết + bản đồ kết quả)
+    const resultStatus = (q, ua) => {
+        const un = ua === null || ua === undefined;
+        return isPendingEssay(q, ua) ? 'pending' : (!un && isAnswerCorrect(q, ua)) ? 'correct' : (un ? 'unanswered' : 'wrong');
+    };
+
     const detailedResultsHtml = state.questions.map((q, index) => {
         const userAnswerIndex = state.userAnswers[index];
         const essay = isEssay(q);
         const answerOptions = essay ? [] : stripOptionLabels(q.answers || q.options);
         const isUnanswered = userAnswerIndex === null || userAnswerIndex === undefined;
         const isCorrect = !isUnanswered && isAnswerCorrect(q, userAnswerIndex);
-        const status = isPendingEssay(q, userAnswerIndex) ? 'pending' : isCorrect ? 'correct' : (isUnanswered ? 'unanswered' : 'wrong');
+        const status = resultStatus(q, userAnswerIndex);
         // Câu nhiều đáp án đúng: gộp các lựa chọn của người dùng / các đáp án đúng thành chuỗi "A, C".
         const correctIdxList = getCorrectIndexes(q);
 
         if (!answerOptions || !Array.isArray(answerOptions)) {
-            return `<div class="result-item rounded-xl bg-red-50 border border-red-200 p-3" data-status="wrong">
+            return `<div class="result-item rounded-xl bg-red-50 border border-red-200 p-3" data-status="wrong" data-ridx="${index}">
                         <div class="text-sm font-semibold text-gray-800">Câu ${index + 1}: dữ liệu đáp án bị hỏng.</div>
                     </div>`;
         }
@@ -492,7 +500,7 @@ export function showResults(totalTime, opts = {}) {
                 </details>` : '';
 
         return `
-        <div class="result-item rounded-xl border ${cfg.wrap} overflow-hidden transition-all" data-status="${status}" data-marked="${markReasonKey}"${essay && needsReview(q, userAnswerIndex) ? ' data-review="1"' : ''}>
+        <div class="result-item rounded-xl border ${cfg.wrap} overflow-hidden transition-all" data-status="${status}" data-ridx="${index}" data-marked="${markReasonKey}"${essay && needsReview(q, userAnswerIndex) ? ' data-review="1"' : ''}>
             <div class="result-header flex items-start gap-2.5 p-3 cursor-pointer select-none" role="button" tabindex="0" aria-expanded="false">
                 <i class="fas ${cfg.icon} text-lg flex-shrink-0 mt-0.5"></i>
                 <div class="flex-1 min-w-0">
@@ -531,6 +539,28 @@ export function showResults(totalTime, opts = {}) {
             </div>
         </div>`;
     }).join('');
+
+    // Bản đồ kết quả (D2): mỗi câu một ô, cùng ngôn ngữ màu với bảng nhảy câu (.qjs-cell); bấm để nhảy tới câu trong danh sách chi tiết
+    const mapCount = { correct: 0, wrong: 0, pending: 0, unanswered: 0 };
+    const resultMapCells = state.questions.map((q, i) => {
+        const st = resultStatus(q, state.userAnswers[i]);
+        mapCount[st]++;
+        let cls = 'qjs-cell' + (st === 'correct' ? ' is-correct' : st === 'wrong' ? ' is-wrong' : st === 'pending' ? ' is-answered' : '');
+        const cc = caseCellClass(q);
+        if (cc) cls += ' ' + cc;
+        let flag = '';
+        if (markedSet.has(i)) {
+            const rk = markedReasons[i] || 'review';
+            flag = `<span class="qjs-flag" style="background:${(MARK_REASONS[rk] && MARK_REASONS[rk].color) || '#eab308'}"></span>`;
+        }
+        return `<button type="button" class="${cls}" data-qidx="${i}" aria-label="Câu ${i + 1}: ${statusConfig[st].label}">${i + 1}${flag}</button>`;
+    }).join('');
+    const mapKey = (st, label) => mapCount[st] > 0 ? `<span class="res-map-key is-${st}">${label} ${mapCount[st]}</span>` : '';
+    const resultMapHtml = state.questions.length > 1 ? `
+            <div class="res-map-wrap">
+                <div id="result-map" class="qjs-grid res-map" role="group" aria-label="Bản đồ kết quả: bấm một ô để tới câu đó">${resultMapCells}</div>
+                <div class="res-map-legend" aria-hidden="true">${mapKey('correct', 'Đúng')}${mapKey('wrong', 'Sai')}${mapKey('pending', 'Chưa chấm')}${mapKey('unanswered', 'Bỏ trống')}</div>
+            </div>` : '';
 
     resultsSection.innerHTML = `
         <!-- Thẻ tổng kết -->
@@ -633,6 +663,13 @@ export function showResults(totalTime, opts = {}) {
                 <a href="../flashcard/flashcard.html?id=${encodeURIComponent(state.quizData.id)}" class="px-4 py-2.5 bg-purple-50 text-purple-700 rounded-xl hover:bg-purple-100 transition shadow-sm font-semibold flex items-center gap-2 text-sm">
                     <i class="fas fa-clone"></i> Flashcard
                 </a>` : ''}
+                ${incorrectCount > 0 ? `
+                <button id="result-copy-wrong-btn" class="px-4 py-2.5 bg-amber-50 text-amber-700 rounded-xl hover:bg-amber-100 transition shadow-sm font-semibold flex items-center gap-2 text-sm" title="Sao chép các câu sai / bỏ trống (Markdown) để dán vào ghi chú">
+                    <i class="fas fa-copy"></i> Sao chép câu sai
+                </button>
+                <button id="result-anki-btn" class="px-4 py-2.5 bg-purple-50 text-purple-700 rounded-xl hover:bg-purple-100 transition shadow-sm font-semibold flex items-center gap-2 text-sm" title="Tải CSV (dấu ;) để nhập vào Anki">
+                    <i class="fas fa-download"></i> CSV Anki
+                </button>` : ''}
                 <button id="result-share-btn" class="px-4 py-2.5 bg-green-50 text-green-700 rounded-xl hover:bg-green-100 transition shadow-sm font-semibold flex items-center gap-2 text-sm">
                     <i class="fas fa-share-alt"></i> Chia sẻ
                 </button>
@@ -672,6 +709,7 @@ export function showResults(totalTime, opts = {}) {
                     </button>
                 </div>
             </div>
+            ${resultMapHtml}
             <div id="detailed-results-list" class="space-y-2.5">
                 ${detailedResultsHtml}
             </div>
@@ -725,6 +763,46 @@ export function showResults(totalTime, opts = {}) {
         }
     }
 
+    // Xuất câu sai / bỏ trống: Markdown (clipboard) + CSV cho Anki (quiz-export.js, hàm thuần)
+    const wrongExportItems = () => state.questions.map((q, i) => {
+        const ua = state.userAnswers[i];
+        const st = resultStatus(q, ua);
+        if (st !== 'wrong' && st !== 'unanswered') return null;
+        const essay = isEssay(q);
+        return {
+            n: i + 1, question: q.question, caseText: q.caseText,
+            options: essay ? [] : stripOptionLabels(q.answers || q.options),
+            correct: essay ? [] : getCorrectIndexes(q),
+            picked: (essay || ua === null || ua === undefined) ? null : (Array.isArray(ua) ? ua : [ua]),
+            modelAnswer: q.modelAnswer, explanation: q.explanation, note: q.note, expanded: q.expanded
+        };
+    }).filter(Boolean);
+    const quizTitleForExport = (state.quizData && state.quizData.title) || '';
+    document.getElementById('result-copy-wrong-btn')?.addEventListener('click', async () => {
+        const items = wrongExportItems();
+        const text = wrongItemsMarkdown(items, quizTitleForExport);
+        try {
+            await navigator.clipboard.writeText(text);
+        } catch (_) {
+            const ta = document.createElement('textarea');
+            ta.value = text; ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+            document.body.appendChild(ta); ta.select();
+            try { document.execCommand('copy'); } catch (__) { }
+            ta.remove();
+        }
+        showToast(`Đã sao chép ${items.length} câu`, 'success', 2000);
+    });
+    document.getElementById('result-anki-btn')?.addEventListener('click', () => {
+        const items = wrongExportItems();
+        const blob = new Blob([wrongItemsCsv(items, quizTitleForExport)], { type: 'text/csv;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `cau-sai-${String(quizTitleForExport || 'bo-de').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase().slice(0, 40) || 'bo-de'}.csv`;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+        showToast(`Đã tải ${items.length} thẻ`, 'success', 2000);
+    });
+
     // Pháo giấy chúc mừng khi đạt điểm cao
     if (percentage >= 80 && !opts.instant) {
         setTimeout(() => triggerConfetti(), 300);
@@ -760,6 +838,8 @@ export function showResults(totalTime, opts = {}) {
                 else if (filter === 'review') match = !!item.getAttribute('data-review');
                 else match = item.getAttribute('data-status') === filter;
                 item.classList.toggle('hidden', !match);
+                const mapCell = document.querySelector(`#result-map [data-qidx="${item.getAttribute('data-ridx')}"]`);
+                if (mapCell) mapCell.classList.toggle('is-dim', !match);
                 if (match) visibleCount++;
             });
             const emptyMsg = document.getElementById('result-empty-msg');
@@ -775,6 +855,28 @@ export function showResults(totalTime, opts = {}) {
                 if (icon) icon.className = anyClosed ? 'fas fa-angles-down' : 'fas fa-angles-up';
                 if (label) label.textContent = anyClosed ? 'Mở tất cả' : 'Thu gọn';
             }
+        });
+    }
+
+    // Bản đồ kết quả: bấm ô → (đang lọc ẩn thì về "Tất cả") mở câu đó, cuộn tới và nháy viền
+    const resultMap = document.getElementById('result-map');
+    if (resultMap) {
+        resultMap.addEventListener('click', (e) => {
+            const cell = e.target.closest('.qjs-cell');
+            if (!cell) return;
+            const list = document.getElementById('detailed-results-list');
+            let item = list && list.querySelector(`.result-item[data-ridx="${cell.getAttribute('data-qidx')}"]`);
+            if (!item) return;
+            if (item.classList.contains('hidden')) {
+                document.querySelector('#result-filter-tabs [data-filter="all"]')?.click();
+                item = list.querySelector(`.result-item[data-ridx="${cell.getAttribute('data-qidx')}"]`) || item;
+            }
+            const body = item.querySelector('.result-body');
+            if (body && body.classList.contains('hidden')) item.querySelector('.result-header')?.click();
+            item.scrollIntoView({ behavior: scrollBehaviorFor(), block: 'start' });
+            item.classList.remove('res-flash');
+            void item.offsetWidth;
+            item.classList.add('res-flash');
         });
     }
 

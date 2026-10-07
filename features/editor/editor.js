@@ -669,7 +669,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const payload = serializeForSave();
         try {
             if (quizId) {
-                await setDoc(doc(db, "quiz_sets", quizId), { ...quizData, ...payload, userId: user.uid }, { merge: true });
+                await setDoc(doc(db, "quiz_sets", quizId), { ...quizData, ...payload, userId: user.uid, updatedAt: serverTimestamp() }, { merge: true });
                 setDoc(doc(db, "quiz_payloads", quizId), { userId: user.uid, isPublic: quizData?.isPublic !== false, questions: payload.questions, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
                 // Bản tải về máy phải theo kịp, không thì làm bài offline vẫn ra câu hỏi cũ
                 if (isOfflineSavedSync(quizId)) autoCacheQuiz(quizId, { ...quizData, ...payload, userId: user.uid });
@@ -677,7 +677,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Tạo id ngay trên máy (thay addDoc) → lưu được cả khi mất mạng, Firestore tự đẩy lên sau
                 const ref = doc(collection(db, "quiz_sets"));
                 await setDoc(ref, {
-                    ...payload, userId: user.uid, createdAt: serverTimestamp(), folderId: null
+                    ...payload, userId: user.uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), folderId: null
                 });
                 quizId = ref.id;
                 setDoc(doc(db, "quiz_payloads", quizId), { userId: user.uid, isPublic: true, questions: payload.questions, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});

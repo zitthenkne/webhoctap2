@@ -286,11 +286,17 @@ export async function saveQuizResult(finalScore, totalQuestions, percentage, tim
             percentage: percentage,
             completedAt: new Date()
         }));
-        // Kiểm tra thành tựu
-        if (percentage === 100) await checkAndAwardAchievement(user.uid, 'GENIUS');
-        if (totalQuestions >= 30) await checkAndAwardAchievement(user.uid, 'MARATHONER');
     } catch (error) {
         console.error("Lỗi khi lưu kết quả:", error);
         showToast('Không thể lưu kết quả của bạn.', 'error');
+        return;
+    }
+    // Thành tựu tách riêng (bản C8): trước đây lỗi ở đây (vd mất mạng nên không đọc được thành tựu) rơi vào catch trên và báo
+    // "Không thể lưu kết quả" dù kết quả đã nằm trong hàng đợi ghi và lên cloud bình thường khi có mạng lại.
+    try {
+        if (percentage === 100) await checkAndAwardAchievement(user.uid, 'GENIUS');
+        if (totalQuestions >= 30) await checkAndAwardAchievement(user.uid, 'MARATHONER');
+    } catch (error) {
+        console.warn('Kiểm tra thành tựu lỗi (lần nộp sau sẽ thử lại):', error);
     }
 }

@@ -5,7 +5,7 @@ import { auth } from '../../core/firebase-init.js';
 import { setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { showToast } from '../../core/utils.js';
-import { room, refs, setState, subscribe, uid, canControl, hasSession } from './room-state.js';
+import { room, refs, setState, subscribe, uid, canControl, hasSession, SPLIT_PRESENCE, writePresence, overlayPresence } from './room-state.js';
 import { AVATAR_EMOJIS, randomEmoji, avatarHtml } from './room-ui.js';
 import { initMembers, renderMembers, flushReactions, flushJoins } from './room-members.js';
 import { initLobby } from './room-lobby.js';
@@ -440,6 +440,7 @@ async function changeIdentity() {
     });
     setState({ user: { ...room.user, displayName: name } });
     await updateDoc(refs.member(), { displayName: name, emoji: emoji || null }).catch(() => {});
+    if (SPLIT_PRESENCE) writePresence({ displayName: name, emoji: emoji || null });      // trang chủ đọc tên / mặt từ doc hiện diện
     showToast('Đã đổi mặt đại diện!', 'success');
 }
 window.addEventListener('room:change-identity', changeIdentity);
@@ -481,18 +482,27 @@ async function joinRoom() {
         lastSeen: Date.now(),
         joinedAt: Date.now(),
     }, { merge: true });
+    if (SPLIT_PRESENCE) await writePresence({
+        online: true, lastSeen: Date.now(),
+        displayName: room.user.displayName || room.user.email?.split('@')[0] || `Khách_${uid().slice(0, 5)}`,
+        emoji: room.user.emoji || null, photoURL: room.user.photoURL || null,
+    });
     systemMessage(`${room.user.displayName || 'Một bạn'} đã vào phòng.`);
     rememberRoomVisit(room.roomId);
 
-    // Nhịp tim: 30s/lần để cả phòng biết ai còn online
-    const beat = setInterval(() => updateDoc(refs.member(), { lastSeen: Date.now(), online: true }).catch(() => {}), 30000);
+    // Nhịp tim 60s/lần (trước 30s): mỗi nhịp là một lần ghi tới MỌI máy trong phòng — 14 người × 2 nhịp/phút ≈ 360 lượt đọc/phút.
+    // Ngưỡng "quá hạn" (STALE_MS ở room-members / rooms-hub) nâng 90s -> 150s cho khớp.
+    const beat = setInterval(() => writePresence({ lastSeen: Date.now(), online: true }), 60000);
     unsubs.push(() => clearInterval(beat));
 
-    const goOffline = () => { updateDoc(refs.member(), { online: false, lastSeen: Date.now(), hand: null }).catch(() => {}); };
+    const goOffline = () => {
+        writePresence({ online: false, lastSeen: Date.now() });
+        if (!SPLIT_PRESENCE || room.members.find(m => m.uid === uid())?.hand) updateDoc(refs.member(), { hand: null }).catch(() => {});      // hạ tay: chỉ ghi doc thành viên khi đang giơ tay
+    };
     window.addEventListener('pagehide', goOffline);
     window.addEventListener('beforeunload', goOffline);
     document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') updateDoc(refs.member(), { online: true, lastSeen: Date.now() }).catch(() => {});
+        if (document.visibilityState === 'visible') writePresence({ online: true, lastSeen: Date.now() });
     });
 }
 
@@ -517,17 +527,50 @@ function listenAll() {
     unsubs.push(onSnapshot(refs.members(), (snap) => {
         const members = [];
         snap.forEach(d => members.push(d.data()));
-        setState({ members });
+        room.membersRaw = members;
+        setState({ members: overlayPresence(members) });
         flushJoins();
         flushReactions(firstMemberSnap);
         firstMemberSnap = false;
     }));
 
-    unsubs.push(onSnapshot(refs.session(), (snap) => {
-        const data = snap.exists() ? snap.data() : null;
-        setState({ session: data?.questions?.length ? data : null, ready: true });
+    // Bản 70: phiên = doc 'current' (trạng thái, nhỏ) + doc 'questions' (bộ câu hỏi, ghi hiếm). Gộp lại thành room.session như cũ
+    // nên mọi module khác không đổi. Phiên cũ còn nhúng questions trong 'current' vẫn chạy (fallback).
+    let curDoc = null, qDoc = null;
+    const mergeSession = () => {
+        if (!curDoc) { setState({ session: null, ready: true }); markReady(); return; }
+        let questions = Array.isArray(curDoc.questions) && curDoc.questions.length ? curDoc.questions : null;
+        if (!questions && curDoc.qid) {
+            // hai listener không đảm bảo thứ tự: doc 'questions' phải ĐÚNG phiên (cùng qid) mới dùng, chưa về thì giữ nguyên màn hiện tại
+            if (!qDoc || qDoc.qid !== curDoc.qid) return;
+            questions = qDoc.list;
+        }
+        setState({ session: questions?.length ? (questions === curDoc.questions ? curDoc : { ...curDoc, questions }) : null, ready: true });
         markReady();
-    }));
+    };
+    unsubs.push(onSnapshot(refs.session(), (snap) => { curDoc = snap.exists() ? snap.data() : null; mergeSession(); }));
+    unsubs.push(onSnapshot(refs.questions(), (snap) => { qDoc = snap.exists() ? snap.data() : null; mergeSession(); }, () => { qDoc = null; mergeSession(); }));
+
+    // Hiện diện (bản 70c): doc nhỏ riêng từng người. Chỉ khi online / cursor ĐỔI mới vẽ lại; lastSeen đổi thì chỉ cập nhật tại chỗ
+    // (isOnline() đọc lastSeen lúc vẽ) — nhịp tim 60s của cả phòng không còn kéo cả bộ vẽ lại.
+    // Con trỏ sửa chung (bản 70b) + hiện diện (bản 70c): doc nhỏ riêng từng người, MỘT truy vấn chung (refs.live — xem room-state).
+    // KHÔNG đi qua setState trừ khi online / cursor ĐỔI: con trỏ đổi liên tục, nhịp tim 60s của cả phòng — không được kéo cả bộ vẽ lại của phòng.
+    let caretSig = '{}';
+    unsubs.push(onSnapshot(refs.live(), (snap) => {
+        const pres = {}, carets = {};
+        snap.forEach((d) => {
+            const v = d.data();
+            if (!v?.uid) return;
+            if (v.kind === 'presence') pres[v.uid] = v;
+            else if (v.kind === 'caret') carets[v.uid] = v.caret || null;
+        });
+        room.presence = pres;
+        const next = overlayPresence(room.membersRaw);
+        const vis = (a) => a.map(m => `${m.uid}:${m.online !== false}:${m.cursor}`).join('|');
+        if (vis(next) !== vis(room.members)) setState({ members: next }); else room.members = next;     // lastSeen đổi: cập nhật tại chỗ (isOnline đọc lúc vẽ)
+        const sig = JSON.stringify(carets);
+        if (sig !== caretSig) { caretSig = sig; room.carets = carets; window.dispatchEvent(new Event('room:carets')); }
+    }, () => { /* mất quyền / mất mạng: giữ trường hiện diện cũ trong doc thành viên, mất con trỏ người khác */ }));
 
     unsubs.push(initChat());
 }

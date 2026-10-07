@@ -16,7 +16,7 @@ import { db } from '../../core/firebase-init.js';
 import { onSessionUser } from '../../core/auth-session.js';
 import { showToast, showConfirm } from '../../core/utils.js';
 
-const STALE_MS = 90000;          // quá 90s không nhịp tim thì coi như đã rời
+const STALE_MS = 150000;         // quá 150s không nhịp tim thì coi như đã rời (nhịp tim 60s/lần từ bản 70)
 const MAX_LIVE = 12;             // trần số phòng được nghe trực tiếp (khỏi mở 40 listener)
 const EMOJIS = ['📚', '🩺', '🧠', '💊', '🔬', '🫀', '🦴', '🧬', '☕', '🌙', '🐿️', '🎯'];
 
@@ -41,6 +41,7 @@ const state = {
 };
 let unsubOwned = null, unsubUser = null;
 const roomUnsubs = new Map();    // id -> [fn]
+const liveRaw = new Map();       // id -> { members, pres } — doc thành viên + doc hiện diện (bản 70c) chờ gộp
 let tick = null;
 
 Object.assign(state, readLS('roomHubPrefs', {}));
@@ -81,9 +82,23 @@ export function openRoomsHub() {
     } else {
         reload();
     }
-    // Đếm ngược giờ hẹn + "x phút trước" tự tươi mỗi 30s
+    // Đếm ngược giờ hẹn + "x phút trước" tự tươi mỗi 30s (tab nền thì khỏi vẽ)
     clearInterval(tick);
-    tick = setInterval(() => state.open && render(true), 30000);
+    tick = setInterval(() => state.open && !document.hidden && render(true), 30000);
+    bindVisibility();
+}
+
+// Bản 70: tab nền quá 30s thì thôi nghe members của các phòng (mỗi nhịp tim / lần đổi câu của từng người đều là 1 lượt đọc); quay lại thì nghe lại.
+let hiddenT = 0, visBound = false;
+function bindVisibility() {
+    if (visBound) return;
+    visBound = true;
+    document.addEventListener('visibilitychange', () => {
+        if (!state.open) return;
+        clearTimeout(hiddenT);
+        if (document.hidden) hiddenT = setTimeout(stopRoomListeners, 30000);
+        else { watchLiveRooms(); render(true); }
+    });
 }
 
 export function closeRoomsHub() {
@@ -97,6 +112,7 @@ export function closeRoomsHub() {
 function stopRoomListeners() {
     roomUnsubs.forEach(list => list.forEach(fn => { try { fn(); } catch (e) { /* đã gỡ */ } }));
     roomUnsubs.clear();
+    liveRaw.clear();
 }
 
 // ---------------- Khung ----------------
@@ -269,6 +285,7 @@ function dropRoom(id) {
     state.live.delete(id);
     (roomUnsubs.get(id) || []).forEach(fn => { try { fn(); } catch (e) { /* đã gỡ */ } });
     roomUnsubs.delete(id);
+    liveRaw.delete(id);
 }
 
 /** Nghe members của các phòng đang hiện — nguồn của "ai đang trong phòng / đang ở câu mấy". */
@@ -276,14 +293,35 @@ function watchLiveRooms() {
     const ids = [...state.rooms.keys()].slice(0, MAX_LIVE);
     ids.forEach((id) => {
         if (roomUnsubs.has(id)) return;
-        const un = onSnapshot(collection(db, 'study_rooms', id, 'members'), (snap) => {
+        const raw = { members: [], pres: {}, sig: '' };
+        liveRaw.set(id, raw);
+        // Gộp doc thành viên + doc hiện diện (quizSession/p_<uid>, bản 70c). Doc hiện diện đổi theo nhịp tim 60s: chỉ vẽ lại khi
+        // online / cursor ĐỔI; lastSeen đổi thì cập nhật tại chỗ (isOnline đọc lúc vẽ, đồng hồ 30s lo phần quá hạn).
+        const merge = () => raw.members.map((m) => {
+            const p = raw.pres[m._id] || raw.pres[m.uid];
+            return p ? { ...m, ...(p.online !== undefined ? { online: p.online } : {}), ...(p.lastSeen !== undefined ? { lastSeen: p.lastSeen } : {}), ...(p.cursor !== undefined ? { cursor: p.cursor } : {}) } : m;
+        });
+        const sigOf = (a) => a.map(m => `${m._id}:${m.online !== false}:${m.cursor}:${m.displayName}:${m.emoji}`).join('|');
+        const push = (force) => {
             const prev = state.live.get(id);
-            const members = snap.docs.map(d => ({ ...(d.data() || {}), _id: d.id }));
+            const members = merge();
+            const sig = sigOf(members);
             state.live.set(id, { members, at: Date.now() });
+            if (!force && sig === raw.sig) return;                // chỉ lastSeen đổi
+            raw.sig = sig;
             if (prev) announceJoins(id, prev.members, members);   // lần đầu (chưa có prev) thì không báo
             render();
+        };
+        const un = onSnapshot(collection(db, 'study_rooms', id, 'members'), (snap) => {
+            raw.members = snap.docs.map(d => ({ ...(d.data() || {}), _id: d.id }));
+            push(true);
         }, () => { /* phòng riêng tư / mất mạng: thẻ vẫn hiện, chỉ không có trạng thái */ });
-        roomUnsubs.set(id, [un]);
+        const un2 = onSnapshot(query(collection(db, 'study_rooms', id, 'quizSession'), where('kind', '==', 'presence')), (snap) => {
+            raw.pres = {};
+            snap.docs.forEach((d) => { const v = d.data(); if (v?.uid) raw.pres[v.uid] = v; });
+            push(false);
+        }, () => { /* chỉ mất hiện diện mới, vẫn còn trường cũ trong doc thành viên */ });
+        roomUnsubs.set(id, [un, un2]);
     });
 }
 

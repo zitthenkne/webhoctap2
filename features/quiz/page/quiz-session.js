@@ -3,12 +3,13 @@
 // nộp bài (endQuiz), luyện tập lại câu sai và đọc cấu hình từ trang thiết lập.
 // Tách từ quiz-page.js — logic giữ nguyên.
 
-import { db } from '../../../core/firebase-init.js';
+import { db, auth } from '../../../core/firebase-init.js';
 import { whenAuthReady } from '../../../core/auth-session.js';
-import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { showToast } from '../../../core/utils.js';
 import { applyLocalQuestionEdits } from '../quiz-editor.js';
-import { getOfflineQuiz, autoCacheQuiz, within, isOfflineSavedSync, saveOfflineQuiz, extractQuizImageUrls, cacheQuizImages } from '../quiz-offline-store.js';
+import { getOfflineQuiz, autoCacheQuiz, within, isOfflineSavedSync, saveOfflineQuiz, extractQuizImageUrls, cacheQuizImages, touchOfflineQuiz } from '../quiz-offline-store.js';
+import { LOCAL_FRESH_MS, localStillCurrent } from '../quiz-fresh.js';
 import { state, saveQuizState, clearQuizState, saveQuizResult, updateQuizResultScore, markQuizStateFinished } from '../quiz-state.js';
 import { shuffleArray, shuffleQuestionOptions, isAnswerCorrect, sessionScore } from '../quiz-helpers.js';
 import { isEssay, isPendingEssay, withAutoGrade } from '../quiz-essay-core.js';
@@ -48,7 +49,7 @@ function showLandingError(message, { showRetry = true } = {}) {
     document.title = 'Không tải được bộ đề';
 }
 
-const LOCAL_FRESH_MS = 5 * 60 * 1000;   // bản bộ đề trong máy còn "tươi" bao lâu thì khỏi hỏi lại Firestore
+// LOCAL_FRESH_MS / so dấu updatedAt: xem ../quiz-fresh.js (dùng chung với flashcard, lịch sử)
 
 // Tải trước hình ảnh trong câu hỏi vào CacheStorage để khi tắt mạng ảnh vẫn hiển thị
 function prefetchQuizImages(questions) {
@@ -204,6 +205,7 @@ export async function loadQuizData() {
     // - Nếu CHƯA CÓ bản local (lần đầu tiên mở bộ đề): await fetch từ Firestore để nạp lần đầu.
     const revalidateOrFetchRemote = async () => {
         try {
+            if (localData && await localStillCurrent(quizId, localData)) { touchOfflineQuiz(quizId); return; }
             const docRef = doc(db, "quiz_sets", quizId);
             const remotePromise = getDoc(docRef);
             // Nếu chưa có dữ liệu thì chờ tối đa 6 giây; nếu đã có bản local rồi thì chờ thoải mái ở nền
@@ -223,6 +225,14 @@ export async function loadQuizData() {
             if (docSnap && docSnap.exists()) {
                 const remoteData = docSnap.data();
                 remoteData.id = quizId;
+
+                // Bản C3: bộ cũ CHƯA có dấu updatedAt → chủ bộ đề ghi bù MỘT lần (dấu = bây giờ, gán luôn vào bản máy sắp lưu để hai bên khớp ngay).
+                // Từ đó mọi máy chỉ cần hỏi dấu nhẹ thay vì tải lại cả bộ. Chỉ chủ ghi được (luật); lỗi ghi → máy khác cứ tải đủ như trước.
+                if (!remoteData.updatedAt && auth.currentUser && remoteData.userId === auth.currentUser.uid) {
+                    const stamp = new Date();
+                    remoteData.updatedAt = stamp;
+                    updateDoc(docRef, { updatedAt: stamp }).catch(() => {});
+                }
 
                 // Tách Vỏ - Ruột: nếu quiz_sets chỉ chứa metadata (hoặc questions rỗng),
                 // tải tiếp payload câu hỏi từ quiz_payloads

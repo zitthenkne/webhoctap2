@@ -4,7 +4,7 @@
 // Tách từ quiz-library-controller.js — logic giữ nguyên, chỉ đổi truy cập trạng thái sang S.xxx.
 
 import { auth, db } from '../../../core/firebase-init.js';
-import { doc, collection, addDoc, query, where, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { doc, collection, query, where, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 // Ghi không treo khi mất mạng (xem core/offline-write.js)
 import { updateDocQ as updateDoc, setDocQ } from "../../../core/offline-write.js";
 import { sessionUser } from '../../../core/auth-session.js';
@@ -93,14 +93,17 @@ export async function duplicateQuizSet(quizId, quizTitle) {
             } catch (_) {}
         }
         const newTitle = `${src.title || quizTitle || 'Không tên'} (bản sao)`;
-        const newDocRef = await addDoc(collection(db, "quiz_sets"), {
+        // Bản C9: id tạo ngay trên máy + ghi xếp hàng (addDoc treo tới khi có mạng → nhân đôi lúc mất mạng đứng ở "Đang nhân bản…" mãi)
+        const newDocRef = doc(collection(db, "quiz_sets"));
+        await setDocQ(newDocRef, {
             userId: user.uid,
             title: newTitle,
             questions: questions,
             questionCount: src.questionCount || (questions ? questions.length : 0),
             folderId: src.folderId ?? null,
             isPublic: src.isPublic === true,
-            createdAt: new Date()
+            createdAt: new Date(),
+            updatedAt: new Date()
         });
         setDocQ(doc(db, "quiz_payloads", newDocRef.id), {
             userId: user.uid,

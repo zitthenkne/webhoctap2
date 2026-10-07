@@ -7,7 +7,6 @@
 import { fastImgUrl } from './img-proxy.js';
 
 const DB_NAME = 'zitthenkne-offline';
-const DB_VERSION = 1;
 const STORE = 'quizzes';
 const IDS_KEY = 'zitthenkne_offline_quiz_ids';
 // Ảnh của bộ đề lưu offline nằm kho RIÊNG: service worker không dọn theo hạn IMG_MAX của kho ảnh chạy lúc (mở nhiều
@@ -23,15 +22,26 @@ function openDB() {
             reject(new Error('Trình duyệt không hỗ trợ IndexedDB'));
             return;
         }
-        const req = indexedDB.open(DB_NAME, DB_VERSION);
-        req.onupgradeneeded = () => {
-            const db = req.result;
-            if (!db.objectStoreNames.contains(STORE)) {
-                db.createObjectStore(STORE, { keyPath: 'id' });
-            }
+        // Mở KHÔNG kèm số phiên bản (lấy bản hiện có) rồi kiểm kho. Trước đây mở cứng phiên bản 1: nếu offline.html (bản cũ) hay chỗ khác tạo ra
+        // DB tên này MÀ CHƯA CÓ KHO thì không còn lần "nâng cấp" nào để dựng kho → mọi lần lưu bộ đề offline đều lỗi NotFoundError, vĩnh viễn.
+        const make = (version) => {
+            const req = version ? indexedDB.open(DB_NAME, version) : indexedDB.open(DB_NAME);
+            req.onupgradeneeded = () => {
+                const db = req.result;
+                if (!db.objectStoreNames.contains(STORE)) {
+                    db.createObjectStore(STORE, { keyPath: 'id' });
+                }
+            };
+            req.onsuccess = () => {
+                const db = req.result;
+                if (db.objectStoreNames.contains(STORE)) return resolve(db);
+                const next = db.version + 1;      // tự chữa: DB thiếu kho → nâng phiên bản để dựng kho
+                db.close();
+                make(next);
+            };
+            req.onerror = () => reject(req.error);
         };
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
+        make(0);
     });
     return _dbPromise;
 }
@@ -189,6 +199,7 @@ export async function saveOfflineQuiz(id, data, { auto = false, cacheImages = tr
         ...data,
         id,
         _offlineSavedAt: Date.now(),
+        _fullAt: Date.now(),   // lần TẢI ĐỦ gần nhất (touchOfflineQuiz chỉ làm mới _offlineSavedAt) — hạn cứng 24h không tin dấu updatedAt
         _auto: auto,   // true = tự lưu khi mở bài (có thể bị dọn), false = người dùng tải tay
     };
     await new Promise((resolve, reject) => {
@@ -227,6 +238,22 @@ export async function getOfflineQuiz(id) {
     } catch (e) {
         return null;
     }
+}
+
+/** Đã hỏi máy chủ và bản trong máy vẫn đúng → làm mới mốc "tươi" (_offlineSavedAt) mà KHÔNG ghi lại cả bộ câu hỏi / dò lại ảnh. */
+export async function touchOfflineQuiz(id) {
+    try {
+        const rec = await getOfflineQuiz(id);
+        if (!rec) return;
+        rec._offlineSavedAt = Date.now();
+        await new Promise((resolve, reject) => {
+            txStore('readwrite').then((store) => {
+                const req = store.put(rec);
+                req.onsuccess = () => resolve();
+                req.onerror = () => reject(req.error);
+            }).catch(reject);
+        });
+    } catch (e) { /* không ghi được thì lần sau hỏi lại, không sao */ }
 }
 
 /** Xóa bản offline của một bộ đề. */

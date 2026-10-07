@@ -12,6 +12,7 @@ import {
     questionAt, editOf, issueOf, editorOf, noteAuthorOf, whyOf, dissentOf, talkUntil, prevVoteOf,
     isEssay, doneOf, doneCount, isAccepted, isSplit, acceptedText, acceptedOf, argsOf,
     caseKeyAt, caseEditAt, caseByAt, talkOpen, partsOf,
+    writePresence,
 } from './room-state.js';
 import { showToast, showConfirm } from '../../core/utils.js';
 import { escapeHtml, shortName, toggle, avatarStack, avatarHtml, forget } from './room-ui.js';
@@ -70,11 +71,14 @@ export const effectiveIndex = () => {
     if (viewIndex !== null) return Math.max(0, Math.min(viewIndex, total - 1));
     return currentIndex();
 };
+// Bản 70: giữ phím mũi tên / lướt qua nhiều câu không còn ghi "cursor" mỗi bước (mỗi lần ghi = 1 lượt đọc ở MỌI máy): chỉ ghi câu dừng lại cuối cùng.
+let cursorT = 0;
 export const setViewIndex = (i) => {
     const total = room.session?.questions?.length || 1;
     viewIndex = Math.max(0, Math.min(i, total - 1));
     try { localStorage.setItem('roomQ_' + room.roomId, String(viewIndex)); } catch (e) {}
-    updateDoc(refs.member(), { cursor: viewIndex }).catch(() => {});
+    clearTimeout(cursorT);
+    cursorT = setTimeout(() => writePresence({ cursor: effectiveIndex() }), 500);
     renderQuiz();
 };
 export const followHost = () => { viewIndex = null; renderQuiz(); };
@@ -117,9 +121,9 @@ async function submitAnswer(i, idx, extra = {}) {
     haptic(8);
     beep('tap');
     renderQuiz();
+    writePresence({ cursor: i });                       // câu đang ở: doc hiện diện nhỏ (bản 70c), không kèm vào doc đáp án
     await updateDoc(refs.member(), {
         [`answers.q${i}`]: { i: idx, at: Date.now(), guess: !!cur?.guess, ...moved, ...extra },
-        cursor: i,
     }).catch(err => console.error('Lỗi gửi đáp án:', err));
 
     // Tự nhảy tới câu chưa chọn (chỉ khi bạn được tự đi câu và câu này chưa chốt).

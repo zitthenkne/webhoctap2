@@ -8,6 +8,7 @@ import {
 // Bản bọc: mất mạng thì coi như xong ngay (Firestore xếp hàng, có mạng tự gửi) — không treo nút
 import { deleteDocQ as deleteDoc, updateDocQ as updateDoc } from '../../core/offline-write.js';
 import { onSessionUser, sessionUser } from '../../core/auth-session.js';
+import { runQueryRest } from '../../core/firestore-rest.js';
 import { showToast, showConfirm } from '../../core/utils.js';
 
 const TRASH_RETENTION_DAYS = 30;
@@ -44,13 +45,25 @@ function purgeExpiredTrash(items, collectionName) {
 }
 
 // === TẢI DỮ LIỆU ===
+// Bản C1: trước đây tải MỌI bộ đề của người dùng (kèm cả mảng câu hỏi) rồi mới lọc `deleted` ở máy. Nay chỉ truy vấn bộ đề đã xóa
+// (hai điều kiện đẳng thức, không cần chỉ mục kép) và qua REST bỏ mảng câu hỏi; lỗi thì lùi về SDK.
+const TRASH_SET_FIELDS = ['title', 'questionCount', 'createdAt', 'folderId', 'isPublic', 'deleted', 'deletedAt', 'trashedWithFolder'];
+async function fetchTrashedSets(userId) {
+    try {
+        return await runQueryRest({ collection: 'quiz_sets', where: [['userId', userId], ['deleted', true]], select: TRASH_SET_FIELDS, requireUser: true });
+    } catch (err) {
+        console.warn('Tải nhanh thùng rác thất bại, quay về SDK:', err && err.message);
+        const snap = await getDocs(query(collection(db, "quiz_sets"), where("userId", "==", userId), where("deleted", "==", true)));
+        return snap.docs.map(d => { const { questions, ...meta } = d.data(); return { id: d.id, ...meta }; });
+    }
+}
+
 async function loadTrashItems(userId) {
-    const [fSnap, qSnap] = await Promise.all([
+    const [fSnap, allQuizzes] = await Promise.all([
         getDocs(query(collection(db, "quiz_folders"), where("userId", "==", userId))),
-        getDocs(query(collection(db, "quiz_sets"), where("userId", "==", userId)))
+        fetchTrashedSets(userId)
     ]);
     const allFolders = fSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const allQuizzes = qSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
     // Dọn mục quá hạn 30 ngày rồi mới hiển thị
     purgeExpiredTrash(allFolders, "quiz_folders");

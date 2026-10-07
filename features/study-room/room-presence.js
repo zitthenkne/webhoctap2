@@ -4,10 +4,11 @@
 //  2) Con trỏ người khác trong ô sửa CHUNG: vạch màu + cờ tên, vùng họ đang bôi đen tô cùng màu, khung ô
 //     đang có người sửa viền màu người đó. Ô riêng tư (lý do của bạn, ghi chú của tôi) KHÔNG phát.
 //  3) Sổ tay: "👀" mặt những người đang xem cùng câu.
-// Dữ liệu: members/{uid}.caret = { q, k: khóa ô sửa (data-live-edit), s, e: vị trí theo số ký tự, at } | null
+// Dữ liệu: quizSession/c_<uid>.caret = { q, k: khóa ô sửa (data-live-edit), s, e: vị trí theo số ký tự, at } | null  (bản 70b; trước đó nằm ở
+//   members/{uid}.caret — vẫn đọc được để tương thích máy bản cũ, nhưng máy mới không ghi vào đó nữa)
 //   — phát tối đa ~1 lần / 0,7s khi con trỏ đổi chỗ, nhắc lại mỗi 10s khi đứng yên; quá 15s coi như đã rời.
 //   members/{uid}.cursor = câu đang xem (có sẵn từ trước).
-import { updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { setDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { room, refs, uid, hasSession, subscribe, memberOf, answerOf, readyOf, isEssay, questionAt } from './room-state.js';
 import { avatarHtml, avatarStack, escapeHtml, shortName, colorOf } from './room-ui.js';
 import { isOnline } from './room-members.js';
@@ -33,7 +34,8 @@ const keyName = (k = '') => {
     return 'nội dung';
 };
 /** Con trỏ còn "sống" của một người khác (online, mới trong 15s), không thì null. */
-const liveCaret = (m) => (m && m.uid !== uid() && m.caret && isOnline(m) && Date.now() - (m.caret.at || 0) < FRESH ? m.caret : null);
+const caretOf = (m) => (m && room.carets && m.uid in room.carets ? room.carets[m.uid] : m?.caret) || null;      // doc riêng trước, members.caret (máy cũ) sau
+const liveCaret = (m) => { const c = caretOf(m); return m && m.uid !== uid() && c && isOnline(m) && Date.now() - (c.at || 0) < FRESH ? c : null; };
 
 // ---------- 1. Phát con trỏ của mình ----------
 let sentSig = 'null';
@@ -69,7 +71,7 @@ function send(force = false) {
     clearTimeout(timer);
     sentSig = sig;
     sentAt = now;
-    updateDoc(refs.member(), { caret: want ? { ...want, at: now } : null }).catch(() => {});
+    setDoc(refs.caret(), { kind: 'caret', live: true, uid: uid(), caret: want ? { ...want, at: now } : null }).catch(() => {});
 }
 
 // ---------- 2. Vẽ con trỏ người khác ----------
@@ -211,6 +213,7 @@ export function initPresence() {
         if (b) follow(b.dataset.follow);
     });
     subscribe(schedule);
+    window.addEventListener('room:carets', schedule);
     window.addEventListener('resize', schedule);
     window.addEventListener('room:notebook', schedule);
     setInterval(schedule, 5000);                                   // con trỏ quá 15s tự tắt dù không có snapshot mới

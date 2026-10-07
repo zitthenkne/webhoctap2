@@ -1,7 +1,7 @@
 // room-state.js — kho trạng thái dùng chung cho phòng học (members / session / room doc).
 // Mọi module con đọc `room` và đăng ký `subscribe()` thay vì tự nghe Firestore lần nữa.
 import { db } from '../../core/firebase-init.js';
-import { doc, collection } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { doc, collection, query, where, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { formatOf } from '../quiz/quiz-essay-core.js';
 
 export const room = {
@@ -9,9 +9,12 @@ export const room = {
     user: null,
     isOwner: false,      // chủ phòng (owner trong doc study_rooms)
     roomDoc: null,
-    members: [],         // [{uid, displayName, online, answers, hand, reaction, ...}]
+    members: [],         // [{uid, displayName, online, answers, hand, reaction, ...}] — ĐÃ gộp hiện diện (overlayPresence)
+    membersRaw: [],      // doc members nguyên bản (chưa gộp hiện diện)
+    presence: {},        // uid -> { online, lastSeen, cursor, ... } từ quizSession/p_<uid> (bản 70c)
     session: null,       // study_rooms/{id}/quizSession/current
     ready: false,        // đã nhận snapshot phiên đầu tiên chưa (chưa thì giữ màn chờ)
+    carets: {},          // uid -> { q, k, s, e, at } | null — con trỏ đang sửa chung (bản 70b; KHÔNG qua setState, xem listenAll)
 };
 
 const subs = new Set();
@@ -27,7 +30,49 @@ export const refs = {
     member: (uid) => doc(db, 'study_rooms', room.roomId, 'members', uid || room.user.uid),
     messages: () => collection(db, 'study_rooms', room.roomId, 'messages'),
     session: () => doc(db, 'study_rooms', room.roomId, 'quizSession', 'current'),
+    // Bản 70 (tối ưu Firebase): bộ câu hỏi tách khỏi doc phiên — { qid, list } ghi MỘT lần lúc mở phiên (và khi nối thêm câu).
+    questions: () => doc(db, 'study_rooms', room.roomId, 'quizSession', 'questions'),
+    // Bản 70b: con trỏ sửa chung từng nằm trong members/{uid}.caret — ghi tới ~1,4 lần/giây mà mỗi lần ship CẢ doc thành viên
+    // (đáp án, lập luận, đánh dấu… hàng chục KB) tới mọi máy và bắt cả phòng dựng lại. Nay mỗi người một doc nhỏ quizSession/c_<uid>
+    // ({ kind:'caret', uid, caret, at }) — dùng lại đường quizSession đã có luật mở nên KHÔNG phải sửa firestore.rules.
+    presence: (u) => doc(db, 'study_rooms', room.roomId, 'quizSession', 'p_' + (u || room.user.uid)),
+    caret: () => doc(db, 'study_rooms', room.roomId, 'quizSession', 'c_' + room.user.uid),
+    // MỘT truy vấn ĐẲNG THỨC cho cả hiện diện + con trỏ (cả hai loại doc đều có live:true). Đã đo trên SDK thật: hai truy vấn riêng cùng nằm trên
+    // collection quizSession làm MỖI lần ghi tốn thêm ~1,4 KB; còn `kind in [...]` thì SDK tách thành 2 mục tiêu nghe và doc đến 2 lần (~2 KB/lần ghi).
+    // Một truy vấn `live == true` chỉ ~1 KB/lần ghi.
+    live: () => query(collection(db, 'study_rooms', room.roomId, 'quizSession'), where('live', '==', true)),
 };
+// Doc phiên 'current' từng chứa cả bộ câu hỏi (vài trăm KB) nên MỌI lần ghi nhỏ (gõ ghi chú, chốt, nhịp "đang gõ") đều gửi lại
+// cả cục đó tới từng máy. Tách ra thì mỗi lần ghi chỉ còn vài KB. Phía ĐỌC luôn hiểu cả hai dạng (phiên cũ còn nhúng sẵn
+// questions vẫn chạy); công tắc này chỉ điều khiển phía GHI — đặt false để quay về cách cũ, không cần dọn dữ liệu.
+export const SPLIT_QUESTIONS = true;
+
+// Bản 70c: HIỆN DIỆN (online / lastSeen / cursor) tách khỏi doc thành viên. Doc thành viên chứa đáp án + lý do + nhận xét (đo trên SDK thật:
+// 1,5 – 21 KB JSON, ~5 – 34 KB trên đường truyền) mà nhịp tim và mỗi lần đổi câu đều ship NGUYÊN doc tới mọi máy — phòng 14 người chỉ riêng
+// nhịp tim đã 57 – 361 MB/giờ tải xuống. Nay mỗi người một doc ~100 byte quizSession/p_<uid> ({ kind:'presence', uid, online, lastSeen, cursor,
+// displayName, emoji, photoURL }); room.members vẫn đủ trường như cũ nhờ overlayPresence() nên module khác không đổi. Phía ĐỌC lùi về trường
+// trong doc thành viên khi thiếu doc hiện diện (máy bản cũ). SPLIT_PRESENCE chỉ điều khiển phía GHI: false = ghi vào doc thành viên như cũ.
+export const SPLIT_PRESENCE = true;
+export function writePresence(patch, forUid) {
+    const u = forUid || room.user?.uid;
+    if (!u || !room.roomId) return Promise.resolve();
+    const p = SPLIT_PRESENCE
+        ? setDoc(doc(db, 'study_rooms', room.roomId, 'quizSession', 'p_' + u), { kind: 'presence', live: true, uid: u, ...patch }, { merge: true })
+        : updateDoc(doc(db, 'study_rooms', room.roomId, 'members', u), patch);
+    return p.catch(() => {});
+}
+/** Gộp online / lastSeen / cursor từ doc hiện diện vào bản sao doc thành viên (doc thiếu thì giữ trường cũ trong doc thành viên). */
+export function overlayPresence(members, pres = room.presence) {
+    return members.map((m) => {
+        const p = pres?.[m.uid];
+        if (!p) return m;
+        const o = { ...m };
+        if (p.online !== undefined) o.online = p.online;
+        if (p.lastSeen !== undefined) o.lastSeen = p.lastSeen;
+        if (p.cursor !== undefined) o.cursor = p.cursor;
+        return o;
+    });
+}
 
 // --- Vai trò ---
 export const uid = () => room.user?.uid || null;

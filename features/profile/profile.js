@@ -326,8 +326,13 @@ function celebrate() {
 }
 
 // onSessionUser: mất mạng mà phiên hết hạn thì Firebase trả null — trước đây trang đá ngay về trang chủ
+// onSessionUser báo HAI lần mỗi lần mở trang (danh tính lưu máy trước, bản Firebase thật sau) — lần hai chỉ đổi currentUser sang bản thật (cần getIdToken để lưu),
+// KHÔNG đọc lại users/{uid} + quét quiz_results lần nữa (C6: trước đây mỗi lần mở hồ sơ = 2 getDoc + 2 truy vấn lịch sử).
+let _loadedUid = null;
 onSessionUser(async user => {
+    if (user && _loadedUid === user.uid) { currentUser = user; return; }
     if (user) {
+        _loadedUid = user.uid;
         currentUser = user;
         let name = user.displayName || (user.email || '').split('@')[0];
         emailInput.value = user.email;
@@ -387,6 +392,8 @@ saveBtn.onclick = async () => {
             avatarBgColor: avatarBgColorInput.value,
             avatarAnimal: avatarAnimalInput.value
         });
+        // Bản C3: trang chủ giữ cache hồ sơ 10 phút (index-user-avatar.js) → ghi lại ngay để đổi avatar / tên thấy liền khi quay về
+        try { localStorage.setItem('userAvatarPrefs_' + currentUser.uid, JSON.stringify({ avatarBgColor: avatarBgColorInput.value, avatarAnimal: avatarAnimalInput.value, displayName: newName, at: Date.now() })); } catch (_) {}
         // Bản nhớ offline không phải đối tượng Firebase → bỏ qua; tên chính vẫn nằm ở users/{uid}
         if (navigator.onLine) { try { await updateProfile(currentUser, { displayName: newName }); } catch {} }
 

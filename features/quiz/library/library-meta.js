@@ -13,12 +13,13 @@
 import { auth, db } from '../../../core/firebase-init.js';
 import { sessionUser } from '../../../core/auth-session.js';
 import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { runQueryRest } from '../../../core/firestore-rest.js';
 
 // Các trường thư viện thật sự dùng tới (KHÔNG có `questions`)
-const META_FIELDS = ['title', 'questionCount', 'createdAt', 'folderId', 'isPublic', 'deleted', 'deletedAt'];
+const META_FIELDS = ['title', 'questionCount', 'createdAt', 'updatedAt', 'folderId', 'isPublic', 'deleted', 'deletedAt'];      // updatedAt: dấu phiên bản (chỉ mục câu hỏi bền so dấu này)
 
 // === CACHE METADATA (localStorage, theo từng tài khoản) ===
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;   // v2 (C4): mỗi bộ đề trong cache có thêm updatedAt (dấu phiên bản cho chỉ mục câu hỏi bền) — cache v1 bị bỏ, tải lại một lần
 
 function readCache(key) {
     try {
@@ -51,33 +52,7 @@ export function clearMetaCache(uid) {
     } catch {}
 }
 
-// === ĐỌC QUA REST API (có projection) ===
-
-// Đổi một giá trị kiểu Firestore REST về giá trị JS thường.
-// Timestamp trả về chuỗi ISO — chỗ nào cần cũng đã dùng `new Date(...)` nên dùng thẳng được.
-function decodeValue(v) {
-    if (!v || typeof v !== 'object') return null;
-    if ('stringValue' in v) return v.stringValue;
-    if ('integerValue' in v) return Number(v.integerValue);
-    if ('doubleValue' in v) return v.doubleValue;
-    if ('booleanValue' in v) return v.booleanValue;
-    if ('timestampValue' in v) return v.timestampValue;
-    if ('nullValue' in v) return null;
-    if ('arrayValue' in v) return (v.arrayValue.values || []).map(decodeValue);
-    if ('mapValue' in v) {
-        const out = {};
-        Object.entries(v.mapValue.fields || {}).forEach(([k, val]) => { out[k] = decodeValue(val); });
-        return out;
-    }
-    return null;
-}
-
-function decodeDoc(document) {
-    const id = String(document.name || '').split('/').pop();
-    const out = { id };
-    Object.entries(document.fields || {}).forEach(([k, v]) => { out[k] = decodeValue(v); });
-    return out;
-}
+// === ĐỌC QUA REST API (có projection) — phần dùng chung nằm ở core/firestore-rest.js ===
 
 // Đường lùi: vẫn là SDK (tải cả câu hỏi rồi bỏ) — chậm nhưng chắc chắn chạy.
 async function fetchViaSdk(uid) {
@@ -94,37 +69,24 @@ async function fetchViaSdk(uid) {
  * `createdAt` sẽ biến mất khỏi thư viện. Sắp xếp để nơi gọi tự làm bằng JS.
  * @returns {Promise<Array>} danh sách metadata (chưa lọc `deleted`)
  */
-export async function fetchAllQuizMeta(uid) {
-    const user = sessionUser();
-    const projectId = db && db.app && db.app.options ? db.app.options.projectId : null;
-    if (!user || !projectId || typeof fetch !== 'function') return fetchViaSdk(uid);
-
+export async function fetchAllQuizMeta(uid, { restOnly = false } = {}) {
+    // restOnly: chỉ chấp nhận đường REST nhẹ — lỗi thì trả null (nơi gọi tự chọn đường khác), KHÔNG lùi về SDK (SDK kéo cả câu hỏi)
+    if (!sessionUser()) return restOnly ? null : fetchViaSdk(uid);
     try {
-        const token = await user.getIdToken();
-        const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery`;
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-                structuredQuery: {
-                    from: [{ collectionId: 'quiz_sets' }],
-                    where: {
-                        fieldFilter: {
-                            field: { fieldPath: 'userId' },
-                            op: 'EQUAL',
-                            value: { stringValue: uid }
-                        }
-                    },
-                    select: { fields: META_FIELDS.map(f => ({ fieldPath: f })) }
-                }
-            })
-        });
-        if (!res.ok) throw new Error(`runQuery ${res.status}`);
-        const rows = await res.json();
-        if (!Array.isArray(rows)) throw new Error('runQuery: dữ liệu trả về không đúng dạng');
-        return rows.filter(r => r && r.document).map(r => decodeDoc(r.document));
+        return await runQueryRest({ collection: 'quiz_sets', where: [['userId', uid]], select: META_FIELDS, requireUser: true });
     } catch (err) {
-        console.warn('Tải nhanh metadata thất bại, quay về SDK:', err && err.message);
-        return fetchViaSdk(uid);
+        console.warn('Tải nhanh metadata thất bại' + (restOnly ? '' : ', quay về SDK') + ':', err && err.message);
+        return restOnly ? null : fetchViaSdk(uid);
     }
 }
+
+/** Tuổi (ms) của một cache trong máy; chưa có / hỏng → Infinity. */
+function cacheAge(key) {
+    try {
+        const raw = JSON.parse(localStorage.getItem(key) || 'null');
+        return raw && raw.v === CACHE_VERSION && Array.isArray(raw.list) ? Math.max(0, Date.now() - (Number(raw.at) || 0)) : Infinity;
+    } catch { return Infinity; }
+}
+export function metaCacheAge(uid) { return cacheAge(`libMetaCache_${uid}`); }
+/** Tuổi của cache THƯ VIỆN = bên cũ hơn trong (bộ đề, thư mục); thiếu một trong hai → Infinity (phải tải). */
+export function libraryCacheAge(uid) { return Math.max(cacheAge(`libMetaCache_${uid}`), cacheAge(`libFolderCache_${uid}`)); }

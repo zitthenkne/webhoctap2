@@ -7,6 +7,7 @@ import { showToast } from '../../core/utils.js';
 import { MARK_REASONS } from './quiz-state.js';
 import { syncPullStudy, writeLocalStudy, pushCloudStudy } from './quiz-study-store.js';
 import { parseMarkdown, renderMath } from './quiz-helpers.js';
+import { usableLocalQuiz } from './quiz-fresh.js';
 
 const urlParams = new URLSearchParams(window.location.search);
 const quizId = urlParams.get('id');
@@ -93,11 +94,12 @@ async function initPage(quizId, userId) {
 // Tải thông tin chi tiết bộ đề
 async function loadQuizDetails(quizId) {
     try {
-        const quizDocRef = doc(db, "quiz_sets", quizId);
-        const quizSnap = await getDoc(quizDocRef);
-        
-        if (quizSnap.exists()) {
-            const quizData = quizSnap.data();
+        // Bản C3: bản bộ đề trong máy còn tươi / khớp dấu thì dùng luôn (trang này cần cả mảng câu hỏi để đánh số) — khỏi tải lại cả bộ
+        const local = await usableLocalQuiz(quizId);
+        const quizSnap = local ? null : await getDoc(doc(db, "quiz_sets", quizId));
+
+        if (local || quizSnap.exists()) {
+            const quizData = local || quizSnap.data();
             quizTitleEl.innerHTML = `<i class="fas fa-book-open text-pink-400 mr-1"></i> ${quizData.title}`;
             quizQuestions = Array.isArray(quizData.questions) ? quizData.questions : [];
             btnPlayQuiz.classList.remove('hidden');

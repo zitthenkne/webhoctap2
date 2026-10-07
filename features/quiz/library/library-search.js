@@ -4,7 +4,10 @@
 
 import { auth, db } from '../../../core/firebase-init.js';
 import { sessionUser } from '../../../core/auth-session.js';
-import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getDocRest, runQueryRest } from '../../../core/firestore-rest.js';
+import { stampOf } from '../quiz-fresh.js';
+import { qindexGetAll, qindexApply, slimQuestion } from './library-qindex.js';
 import { S } from './library-state.js';
 import { ensureFullLibraryLoaded } from './library-data.js';
 import { renderLibrary } from './library-render.js';
@@ -37,8 +40,69 @@ export function filterLibraryByMode(keyword, mode) {
     return S.userQuizSets;
 }
 
-// Tải LƯỜI chỉ mục câu hỏi: chỉ kéo nội dung `questions` của toàn bộ bộ đề khi người dùng thực sự
-// tìm kiếm theo câu hỏi. Kết quả được cache để các lần gõ sau không phải tải lại.
+// Tải LƯỜI chỉ mục câu hỏi khi người dùng thực sự tìm theo câu hỏi. Bản C4: chỉ mục BỀN trong IndexedDB (library-qindex.js), mỗi bộ đề một bản
+// gọn kèm dấu updatedAt — chỉ tải lại những bộ ĐỔI dấu / MỚI; trước đây MỖI lần mở trang kéo cả bộ câu hỏi của MỌI bộ đề (N × hàng trăm KB).
+// Bộ cũ chưa có updatedAt: tin bản chỉ mục tối đa QINDEX_LEGACY_TTL_MS (không có dấu thì không thể biết có đổi hay không).
+const QINDEX_LEGACY_TTL_MS = 24 * 60 * 60 * 1000;
+const QINDEX_REST_BATCH_MIN = 20;       // cần tải lại từ chừng này bộ trở lên thì dùng MỘT truy vấn gộp thay vì từng bộ
+const QINDEX_CONCURRENCY = 6;
+
+async function fetchQuestionsOf(id) {
+    try {
+        const d = await getDocRest('quiz_sets', id, ['questions'], { requireUser: true });
+        return d ? (Array.isArray(d.questions) ? d.questions : []) : null;
+    } catch (e) {
+        try { const snap = await getDoc(doc(db, 'quiz_sets', id)); return snap.exists() ? (snap.data().questions || []) : null; } catch (e2) { return null; }
+    }
+}
+
+async function buildQuestionIndex(user) {
+    await ensureFullLibraryLoaded();                         // cần metadata đủ (kèm updatedAt, questionCount) — nhẹ, qua REST
+    const metas = (S.userQuizSets || []).filter(m => !m.deleted);
+    const stored = await qindexGetAll(user.uid);
+    const now = Date.now();
+    const entries = new Map();
+    const stale = [];
+    for (const m of metas) {
+        const e = stored.get(m.id);
+        const stamp = stampOf(m.updatedAt);
+        const sameCount = m.questionCount == null || e?.n === m.questionCount;
+        const fresh = e && sameCount && (stamp ? e.stamp === stamp : (e.stamp === 0 && now - (e.at || 0) < QINDEX_LEGACY_TTL_MS));
+        if (fresh) entries.set(m.id, e); else stale.push({ m, stamp });
+    }
+    const toPut = [];
+    const keep = (m, stamp, qs) => {
+        const rec = { id: m.id, uid: user.uid, stamp, n: qs.length, at: now, title: m.title || 'Không tên', qs: qs.map(slimQuestion) };
+        entries.set(m.id, rec); toPut.push(rec);
+    };
+    if (stale.length >= QINDEX_REST_BATCH_MIN) {
+        // nhiều bộ cần tải (lần đầu): MỘT truy vấn REST kéo câu hỏi của tất cả (cùng số byte như trước nhưng một yêu cầu, không dư trường)
+        let rows = null;
+        try { rows = await runQueryRest({ collection: 'quiz_sets', where: [['userId', user.uid]], select: ['questions'], requireUser: true }); } catch (e) { rows = null; }
+        const byId = rows ? new Map(rows.map(r => [r.id, r.questions])) : null;
+        for (const { m, stamp } of stale) { const qs = byId ? byId.get(m.id) : await fetchQuestionsOf(m.id); if (Array.isArray(qs)) keep(m, stamp, qs); }
+    } else {
+        let next = 0;
+        await Promise.all(Array.from({ length: Math.min(QINDEX_CONCURRENCY, stale.length) }, async () => {
+            while (next < stale.length) {
+                const { m, stamp } = stale[next++];
+                const qs = await fetchQuestionsOf(m.id);
+                if (Array.isArray(qs)) keep(m, stamp, qs);
+            }
+        }));
+    }
+    const live = new Set(metas.map(m => m.id));
+    const del = [...stored.keys()].filter(id => !live.has(id));      // bộ đã xóa / vào thùng rác → bỏ khỏi chỉ mục
+    qindexApply({ put: toPut, del });
+    const flat = [];
+    for (const m of metas) {
+        const e = entries.get(m.id);
+        if (!e) continue;
+        e.qs.forEach(qq => flat.push({ quizTitle: m.title || e.title || 'Không tên', question: qq.question, options: qq.options || [] }));
+    }
+    return flat;
+}
+
 function ensureQuestionIndex() {
     if (S.isQuestionIndexLoaded) return Promise.resolve(S.questionIndexCache);
     if (S.questionIndexLoadingPromise) return S.questionIndexLoadingPromise;
@@ -46,27 +110,12 @@ function ensureQuestionIndex() {
     if (!user) return Promise.resolve([]);
 
     S.questionIndexLoadingPromise = (async () => {
-        const q = query(collection(db, "quiz_sets"), where("userId", "==", user.uid));
-        const snap = await getDocs(q);
-        const flat = [];
-        snap.docs.forEach(docSnap => {
-            const data = docSnap.data();
-            if (data.deleted) return; // ẩn bộ đề đang trong thùng rác
-            if (Array.isArray(data.questions)) {
-                data.questions.forEach(qq => {
-                    flat.push({
-                        quizTitle: data.title || 'Không tên',
-                        question: qq.question,
-                        options: qq.answers || qq.options || [] // Tương thích cả dạng cũ/mới
-                    });
-                });
-            }
-        });
+        const flat = await buildQuestionIndex(user);
         S.questionIndexCache = flat;
         S.isQuestionIndexLoaded = true;
         S.questionIndexLoadingPromise = null;
         return flat;
-    })();
+    })().catch((e) => { S.questionIndexLoadingPromise = null; throw e; });
     return S.questionIndexLoadingPromise;
 }
 

@@ -8,6 +8,8 @@ import { collection, query, where, getDocs, doc, getDoc } from "https://www.gsta
 import { showToast, showConfirm } from '../../core/utils.js';
 import { achievements } from '../../core/achievements.js';
 import { readRowsCache, syncRows, clearRowsCache, renderInsights, renderInsightsSkeleton } from './stats-insights.js';
+import { getDocRest, runQueryRest } from '../../core/firestore-rest.js';
+import { readMetaCache } from '../quiz/library/library-meta.js';
 
 
 /**
@@ -732,10 +734,15 @@ export async function loadMarkedNotedQuizzes() {
     const user = sessionUser();
     if (user) {
         try {
-            const q = query(collection(db, 'quiz_study'), where('userId', '==', user.uid));
-            const snap = await getDocs(q);
-            snap.forEach(d => {
-                const data = d.data() || {};
+            // Bản C3: chỉ lấy 4 trường cần để đếm (bỏ lịch ôn srs...), REST; lỗi thì lùi về SDK như cũ
+            let studyDocs;
+            try {
+                studyDocs = await runQueryRest({ collection: 'quiz_study', where: [['userId', user.uid]], select: ['quizId', 'notes', 'marks', 'annotations'], requireUser: true });
+            } catch (restErr) {
+                const snap = await getDocs(query(collection(db, 'quiz_study'), where('userId', '==', user.uid)));
+                studyDocs = snap.docs.map(d => d.data() || {});
+            }
+            studyDocs.forEach(data => {
                 const qid = data.quizId;
                 bump(qid, 'notes', (data.notes || []).filter(n => n && String(n.text || '').trim() !== '').length);
                 bump(qid, 'marks', (data.marks || []).filter(mk => mk && mk.reason).length);
@@ -758,13 +765,23 @@ export async function loadMarkedNotedQuizzes() {
     }
 
     // 3. Lấy tiêu đề từng bộ đề (bỏ qua bộ đề đã bị xoá)
+    // Bản C1: trước đây MỖI bộ đề là một getDoc kéo NGUYÊN bộ (mảng câu hỏi hàng trăm KB) chỉ để lấy tiêu đề. Nay: bộ của chính mình lấy từ
+    // cache metadata thư viện (0 lượt đọc); bộ của người khác dùng REST chỉ lấy trường title; lỗi thì lùi về SDK như cũ.
     const titles = {};
+    const own = new Map(((user && readMetaCache(user.uid)) || []).map(q => [q.id, q]));
     await Promise.all(quizIds.map(async qid => {
+        const c = own.get(qid);
+        if (c) { titles[qid] = c.title || 'Bộ đề không tên'; return; }
         try {
-            const snap = await getDoc(doc(db, 'quiz_sets', qid));
-            titles[qid] = snap.exists() ? (snap.data().title || 'Bộ đề không tên') : null;
+            const d = await getDocRest('quiz_sets', qid, ['title']);
+            titles[qid] = d ? (d.title || 'Bộ đề không tên') : null;
         } catch (e) {
-            titles[qid] = 'Bộ đề không tên';
+            try {
+                const snap = await getDoc(doc(db, 'quiz_sets', qid));
+                titles[qid] = snap.exists() ? (snap.data().title || 'Bộ đề không tên') : null;
+            } catch (e2) {
+                titles[qid] = 'Bộ đề không tên';
+            }
         }
     }));
 

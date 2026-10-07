@@ -16,6 +16,7 @@ import { showToast, showConfirm } from '../../core/utils.js';
 import { parseMarkdown, parseInlineMarkdown, renderMath } from '../quiz/quiz-helpers.js';
 import { keyPointsOf } from '../quiz/quiz-essay-core.js';
 import { getOfflineQuiz, autoCacheQuiz, within } from '../quiz/quiz-offline-store.js';
+import { usableLocalQuiz } from '../quiz/quiz-fresh.js';
 import { studyKeys, syncPullStudy, scheduleCloudPush } from '../quiz/quiz-study-store.js';
 
 const params = new URLSearchParams(window.location.search);
@@ -162,6 +163,8 @@ async function loadData() {
     let data = null;
     try {
         if (!navigator.onLine) data = await getOfflineQuiz(quizId);
+        // Bản C3: có bản trong máy còn tươi / khớp dấu updatedAt thì dùng luôn — trước đây MỖI lần mở flashcard là một lần tải cả bộ câu hỏi
+        if (!data) data = await usableLocalQuiz(quizId);
         if (!data) {
             const remote = getDoc(doc(db, 'quiz_sets', quizId));
             let snap = await within(remote);

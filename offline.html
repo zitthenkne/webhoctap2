@@ -281,7 +281,9 @@
             }
 
             try {
-                const req = indexedDB.open('zitthenkne-offline', 1);
+                const req = indexedDB.open('zitthenkne-offline');      // không ép phiên bản (khớp quiz-offline-store.js tự chữa kho thiếu)
+                // Nếu DB chưa từng có thì ĐỪNG để lại một DB rỗng không kho (làm hỏng việc lưu bộ đề offline về sau): dựng kho giống ứng dụng
+                req.onupgradeneeded = () => { if (!req.result.objectStoreNames.contains('quizzes')) req.result.createObjectStore('quizzes', { keyPath: 'id' }); };
                 req.onsuccess = () => {
                     const db = req.result;
                     if (!db.objectStoreNames.contains('quizzes')) {

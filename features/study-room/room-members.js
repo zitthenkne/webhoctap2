@@ -9,7 +9,7 @@ import { computeScores } from './room-scoreboard.js';
 import { renderLobby, pushLobbyLog } from './room-lobby.js';
 
 const REACTIONS = ['👍', '😂', '❤️', '😮', '🤔', '🎉'];
-const STALE_MS = 90000;   // không heartbeat quá 90s coi như offline
+const STALE_MS = 150000;  // không heartbeat quá 150s coi như offline (nhịp tim 60s/lần từ bản 70)
 const seenReaction = new Map();
 let sheetTarget = null;
 let selfTook = false;      // chủ phòng tự nhận lại quyền (chủ trì rời phòng) — khỏi báo "được trao"

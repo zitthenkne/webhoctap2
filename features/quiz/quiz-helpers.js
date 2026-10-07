@@ -682,7 +682,14 @@ export function parseMarkdown(text) {
                 tableHtml = '';
             }
             
-            processedLines.push(parseInlineMarkdown(rawLine));
+            // Tiêu đề markdown "## Tên mục" (1–4 dấu #, bắt buộc có khoảng trắng — "#HTA" vẫn là chữ thường).
+            // Khối mermaid/svg/math đã được thay bằng placeholder ở trên nên không lẫn vào đây.
+            const headingMatch = trimmedLine.match(/^(#{1,4})\s+(\S.*?)\s*#*\s*$/);
+            if (headingMatch) {
+                processedLines.push(`<div class="quiz-md-h quiz-md-h${headingMatch[1].length}">${parseInlineMarkdown(headingMatch[2])}</div>`);
+            } else {
+                processedLines.push(parseInlineMarkdown(rawLine));
+            }
         }
     }
     

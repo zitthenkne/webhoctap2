@@ -414,7 +414,10 @@ export function showQuestion() {
     let casePanelHtml = '';
     if (caseText) {
         const caseKey = caseKeyOf(question);
-        const collapsed = caseKey ? !!caseCollapseState[caseKey] : false;
+        // Bản D1: điện thoại + câu con thứ 2 trở đi → mặc định GẬP (cả ca ~560px chiếm trọn màn, câu hỏi nằm dưới màn, mỗi câu con lại phải cuộn qua ca).
+        // Người dùng bấm "Mở ca" / "Thu gọn" thì nhớ theo ca (caseCollapseState) và tôn trọng lựa chọn đó.
+        const savedCollapse = caseKey ? caseCollapseState[caseKey] : undefined;
+        const collapsed = savedCollapse !== undefined ? !!savedCollapse : (window.innerWidth < 768 && (question.__caseSeq || 0) > 1);
         const caseTitleRaw = (question.caseTitle && String(question.caseTitle).trim()) || 'Ca lâm sàng';
         const caseTitleSafe = caseTitleRaw
             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -447,7 +450,7 @@ export function showQuestion() {
             caseDotsHtml = `<div class="case-dots mt-3 flex flex-wrap items-center gap-1.5" role="group" aria-label="Điều hướng câu trong ca">${dots}</div>`;
         }
         casePanelHtml = `
-        <div id="clinical-case-panel" class="clinical-case mb-5 rounded-xl border border-cyan-200 bg-cyan-50/70 p-4 shadow-sm${caseSeq === 1 && caseTotal > 1 ? ' case-new' : ''}" data-case-id="${caseKeySafe}" data-case-total="${caseTotal}">
+        <div id="clinical-case-panel" class="clinical-case mb-5 rounded-xl border border-cyan-200 bg-cyan-50/70 p-4 shadow-sm${caseSeq === 1 && caseTotal > 1 ? ' case-new' : ''}${collapsed ? ' is-collapsed' : ''}" data-case-id="${caseKeySafe}" data-case-total="${caseTotal}">
             <div class="flex items-start justify-between gap-2">
                 <div class="flex items-start gap-2 min-w-0 text-cyan-800">
                     <i class="fas fa-notes-medical flex-shrink-0 mt-0.5"></i>
@@ -459,8 +462,7 @@ export function showQuestion() {
                     <span class="case-toggle-label hidden sm:inline">${collapsed ? 'Mở ca' : 'Thu gọn'}</span>
                 </button>
             </div>
-            ${seqLabel ? `<div class="sm:hidden mt-1 text-xs font-semibold text-cyan-700">${seqLabel}</div>` : ''}
-            <div id="case-body" data-annot="case" class="case-body mt-3 text-gray-800 leading-relaxed max-h-72 overflow-y-auto pr-1 ${collapsed ? 'hidden' : ''}">${parseMarkdown(caseText)}${caseRevealsHtml(state.currentIndex)}</div>
+            ${seqLabel ? `<div class="sm:hidden mt-1 text-xs font-semibold text-cyan-700">${seqLabel}</div>` : ''}            <div id="case-body" data-annot="case" class="case-body mt-3 text-gray-800 leading-relaxed max-h-72 overflow-y-auto pr-1 ${collapsed ? 'hidden' : ''}">${parseMarkdown(caseText)}${caseRevealsHtml(state.currentIndex)}</div>
             ${caseDotsHtml}
             <div class="case-resize" role="separator" aria-orientation="horizontal" tabindex="0"
                 aria-label="Kéo để chỉnh chiều cao khung ca" title="Kéo để chỉnh chiều cao khung ca · bấm đúp để về mặc định"><i class="fas fa-grip-lines"></i></div>
@@ -659,6 +661,7 @@ export function showQuestion() {
             const caseKey = panel.getAttribute('data-case-id') || '';
             const willCollapse = !body.classList.contains('hidden');
             body.classList.toggle('hidden', willCollapse);
+            panel.classList.toggle('is-collapsed', willCollapse);
             if (caseKey) caseCollapseState[caseKey] = willCollapse;
             caseToggleBtn.setAttribute('aria-expanded', willCollapse ? 'false' : 'true');
             const icon = caseToggleBtn.querySelector('i');
@@ -666,6 +669,11 @@ export function showQuestion() {
             const label = caseToggleBtn.querySelector('.case-toggle-label');
             if (label) label.textContent = willCollapse ? 'Mở ca' : 'Thu gọn';
         });
+    }
+    // Bấm vào 2 dòng xem trước (khi ca đang gập) = mở ca
+    const caseBodyEl = document.getElementById('case-body');
+    if (caseBodyEl && caseToggleBtn) {
+        caseBodyEl.addEventListener('click', () => { if (caseBodyEl.classList.contains('hidden')) caseToggleBtn.click(); });
     }
     // Chấm điều hướng giữa các câu con cùng ca lâm sàng
     document.querySelectorAll('.case-dot[data-case-jump]').forEach(dot => {
