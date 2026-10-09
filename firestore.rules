@@ -88,6 +88,25 @@ service cloud.firestore {
       allow delete: if isOwner(resource.data.userId);
     }
 
+    // QUIZ IMAGES — ẢNH BỘ ĐỀ LƯU THẲNG TRONG FIRESTORE (2026-10-09; core/zimg.js, skill up-cau-hoi). Trong câu hỏi: ![mô tả](zimg:<id>).
+    // id = 32 ký tự hex đầu của SHA-256 nội dung (cùng ảnh → cùng id). Đọc công khai (id không đoán được, như link ảnh của bộ đề công khai;
+    // khách ở phòng học cũng xem được) nhưng KHÔNG liệt kê. Chỉ người đăng nhập tạo được, ảnh ≤ 900 KB, đúng bộ trường, bất biến sau khi tạo.
+    match /quiz_images/{imageId} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if request.auth != null
+                    && imageId.matches('^[a-f0-9]{32}$')
+                    && request.resource.data.keys().hasOnly(['data', 'mime', 'w', 'h', 'bytes', 'userId', 'createdAt'])
+                    && request.resource.data.keys().hasAll(['data', 'mime', 'userId'])
+                    && request.resource.data.data is bytes
+                    && request.resource.data.data.size() > 0
+                    && request.resource.data.data.size() <= 900000
+                    && request.resource.data.mime in ['image/webp', 'image/png', 'image/jpeg', 'image/gif']
+                    && request.resource.data.userId == request.auth.uid;
+      allow update: if false;
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
     // STUDY ROOMS — phòng đánh đề chung.
     // Khách CHƯA đăng nhập vào được bằng link (mã phòng do người tạo đặt, chỉ chia sẻ
     // trong nhóm) — cùng kiểu "ai có link thì vào" như kho link chung ở cuối file.

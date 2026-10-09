@@ -1,6 +1,7 @@
 // features/quiz/quiz-helpers.js
 import { isEssay, isEssayPassed, essayCredit, questionWeight } from './quiz-essay-core.js';
 import { fastImgUrl } from './img-proxy.js';
+import { parseZimgRef, zimgUrl } from '../../core/zimg.js';
 
 // Cờ đảm bảo mermaid.initialize() chỉ chạy MỘT lần duy nhất (tránh reset cấu hình giữa chừng)
 let mermaidInitialized = false;
@@ -415,6 +416,9 @@ export function parseInlineMarkdown(text) {
         }
         // Chỉ nhận https / http / ảnh nhúng data:image / đường dẫn nội bộ; thoát dấu nháy — ảnh chèn tự động
         // (skill tìm ảnh) hay dán tay đều không nhét được thuộc tính lạ / javascript: vào thẻ
+        // Ảnh lưu thẳng trong Firestore: ![mô tả](zimg:<id>) → đường dẫn zimg/<id>.webp (Service Worker / core/zimg.js lấy ảnh từ quiz_images)
+        const zid = parseZimgRef(finalSrc);
+        if (zid) return keep(`<img src="${_escHtml(zimgUrl(zid))}" data-zimg="${zid}" alt="${_escHtml(alt)}" loading="lazy" decoding="async" class="quiz-image max-w-full h-auto my-4 rounded-xl shadow-md border border-pink-100/30 mx-auto block" />`);
         finalSrc = fastImgUrl(String(finalSrc).trim());
         if (!/^(https?:\/\/|data:image\/|\.{0,2}\/|[\w-]+\/)/i.test(finalSrc) || /^javascript:/i.test(finalSrc)) return _escHtml(match);
         return keep(`<img src="${_escHtml(finalSrc)}" alt="${_escHtml(alt)}" loading="lazy" decoding="async" class="quiz-image max-w-full h-auto my-4 rounded-xl shadow-md border border-pink-100/30 mx-auto block" />`);

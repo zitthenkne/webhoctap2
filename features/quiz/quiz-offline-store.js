@@ -5,6 +5,7 @@
 //   mà không phải chờ truy vấn bất đồng bộ khi render thư viện.
 
 import { fastImgUrl } from './img-proxy.js';
+import { zimgIdsIn, zimgUrl, idFromUrl, loadZimg } from '../../core/zimg.js';
 
 const DB_NAME = 'zitthenkne-offline';
 const STORE = 'quizzes';
@@ -107,6 +108,7 @@ export function extractQuizImageUrls(questions) {
         while ((m = htmlImgRegex.exec(fullText)) !== null) {
             urls.add(m[1].trim());
         }
+        zimgIdsIn(fullText).forEach((id) => urls.add(zimgUrl(id)));      // ![](zimg:<id>) — ảnh lưu thẳng trong Firestore
     });
 
     return Array.from(urls);
@@ -172,8 +174,12 @@ export async function cacheQuizImages(questions, { onProgress } = {}) {
         while (queue.length > 0) {
             const url = queue.shift();
             try {
-                const have = cache && await cache.match(url);
-                if (!have && !(await fetchToCacheOnce(cache, url))) failed++;
+                const zid = idFromUrl(url);
+                if (zid) await loadZimg(zid);                       // ảnh Firestore: lấy qua REST rồi cất vào kho riêng (core/zimg.js), không qua mạng ngoài
+                else {
+                    const have = cache && await cache.match(url);
+                    if (!have && !(await fetchToCacheOnce(cache, url))) failed++;
+                }
             } catch (err) {
                 failed++;
                 console.warn('Không tải được ảnh offline:', url, err);

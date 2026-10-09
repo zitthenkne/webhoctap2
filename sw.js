@@ -3,11 +3,14 @@
 //  - CACHE_NAME (zitthenkne-v2NNN): app shell. Tăng số MỖI LẦN sửa/thêm file trong urlsToCache.
 //  - CDN_CACHE: thư viện + phông từ CDN (URL có phiên bản, gần như bất biến) → GIỮ qua các phiên bản.
 //  - IMG_CACHE: ảnh tải lúc chạy (nền, avatar, ảnh bệnh án) → giữ qua các phiên bản, tối đa IMG_MAX mục.
-const CACHE_NAME = 'zitthenkne-v309';
+const CACHE_NAME = 'zitthenkne-v310';
 const CDN_CACHE = 'zitthenkne-cdn';
 const IMG_CACHE = 'zitthenkne-img';
 const IMG_MAX = 600;
 const QUIZ_IMG_CACHE = 'zitthenkne-quiz-img';   // ảnh bộ đề lưu offline (quiz-offline-store.js tự dọn) — không trim theo IMG_MAX
+const ZIMG_CACHE = 'zitthenkne-zimg';           // ảnh bộ đề lưu trong Firestore (quiz_images) — core/zimg.js cũng ghi/đọc kho này; ảnh bất biến theo id nên chỉ GIỮ
+const FS_PROJECT = 'zitthenkne';                // cấu hình web công khai, trùng core/firebase-init.js và core/zimg.js
+const FS_KEY = 'AIzaSyBFNNeJMeDIVRcG2Xj4ZVjr2-0d9RGrURc';
 const PIPER_CACHE = 'zitthenkne-piper';         // giọng đọc Piper người dùng đã tải (page/piper-worker.js tự ghi/xóa) — chỉ GIỮ, không đụng
 
 // App shell (cùng origin) — nạp sẵn khi cài để mở offline được ngay.
@@ -98,6 +101,7 @@ const urlsToCache = [
   'core/offline-write.js',
   'core/auth-session.js',
   'core/firestore-rest.js',
+  'core/zimg.js',
   'core/require-login.js',
   'core/achievements.js',
   'core/file-parser.js',
@@ -433,7 +437,7 @@ async function purgeOldFirebase() {
 self.addEventListener('activate', (event) => {
   event.waitUntil(Promise.all([
     caches.keys().then((names) => Promise.all(names.map((name) => {
-      if (name !== CACHE_NAME && name !== CDN_CACHE && name !== IMG_CACHE && name !== QUIZ_IMG_CACHE && name !== PIPER_CACHE) {
+      if (name !== CACHE_NAME && name !== CDN_CACHE && name !== IMG_CACHE && name !== QUIZ_IMG_CACHE && name !== ZIMG_CACHE && name !== PIPER_CACHE) {
         console.log('SW: xoá cache cũ:', name);
         return caches.delete(name);
       }
@@ -551,11 +555,39 @@ async function staleWhileRevalidate(request) {
   return Response.error();
 }
 
+// Ảnh bộ đề trong Firestore: <img src=".../zimg/<id>.webp"> (xem core/zimg.js) → cache trước, không có thì lấy quiz_images/<id> qua REST (đọc công khai).
+const ZIMG_RE = /\/zimg\/([a-f0-9]{32})\.[a-z0-9]+$/i;
+async function zimgResponse(url, id) {
+  const cache = await caches.open(ZIMG_CACHE);
+  const hit = await cache.match(url.href);
+  if (hit) return hit;
+  try {
+    const res = await fetch(`https://firestore.googleapis.com/v1/projects/${FS_PROJECT}/databases/(default)/documents/quiz_images/${id}?mask.fieldPaths=data&mask.fieldPaths=mime&key=${FS_KEY}`);
+    if (res.status === 404 || res.status === 403) return new Response('Không có ảnh này', { status: 404 });
+    if (!res.ok) return Response.error();
+    const f = (await res.json()).fields || {};
+    const bin = atob(String((f.data && f.data.bytesValue) || '').replace(/\s+/g, ''));
+    if (!bin.length) return new Response('Ảnh rỗng', { status: 404 });
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const mime = (f.mime && f.mime.stringValue) || 'image/webp';
+    const out = new Response(bytes, { headers: { 'Content-Type': mime, 'Cache-Control': 'public, max-age=31536000, immutable' } });
+    cache.put(url.href, out.clone()).catch(() => {});
+    return out;
+  } catch (e) {
+    return Response.error();
+  }
+}
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
+  if (url.origin === self.location.origin) {
+    const z = ZIMG_RE.exec(url.pathname);
+    if (z) return void event.respondWith(zimgResponse(url, z[1].toLowerCase()));
+  }
   if (!/^https?:$/.test(url.protocol) || isDynamicData(url)) return; // SDK Firebase tự lo offline
 
   if (request.destination === 'image' || isImageUrl(url)) {

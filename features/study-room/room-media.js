@@ -12,6 +12,7 @@
 // LƯU Ý: ảnh trên host công khai theo link — ai có link đều xem được.
 
 import { showToast } from '../../core/utils.js';
+import { isZimgUrl } from '../../core/zimg.js';
 
 /** Khóa API imgbb (miễn phí tại api.imgbb.com). Để trống thì bỏ qua imgbb. */
 export const IMGBB_KEY = '';
@@ -39,7 +40,7 @@ export function imageFilesOf(dt) {
 }
 
 /** Chỉ nhận link https hoặc ảnh nhúng — chặn javascript:, http: trần… */
-export const safeImgUrl = (u) => (/^https:\/\/[^\s"'<>]+$/i.test(u || '') || /^data:image\/(png|jpe?g|webp|gif);base64,[a-z0-9+/=]+$/i.test(u || '')) ? u : '';
+export const safeImgUrl = (u) => (/^https:\/\/[^\s"'<>]+$/i.test(u || '') || /^data:image\/(png|jpe?g|webp|gif);base64,[a-z0-9+/=]+$/i.test(u || '') || isZimgUrl(u)) ? u : '';
 
 // ---------- Nén ----------
 async function compress(file) {
