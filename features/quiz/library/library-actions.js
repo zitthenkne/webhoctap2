@@ -105,12 +105,7 @@ export async function duplicateQuizSet(quizId, quizTitle) {
             createdAt: new Date(),
             updatedAt: new Date()
         });
-        setDocQ(doc(db, "quiz_payloads", newDocRef.id), {
-            userId: user.uid,
-            isPublic: src.isPublic === true,
-            questions: questions,
-            updatedAt: new Date()
-        }).catch(() => {});
+        // (không còn ghi bản sao quiz_payloads: production không dùng đường lùi này, ghi thêm chỉ nhân đôi dung lượng)
         showToast(`Đã tạo "${newTitle}".`, 'success');
         S.isLibraryFullyLoaded = false;   // buộc nạp lại để bộ mới xuất hiện
         await loadAndDisplayLibrary();

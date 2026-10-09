@@ -376,6 +376,7 @@ if (typeof window !== 'undefined') {
 // Máy cảm ứng: ít hạt hơn + tắt sớm hơn (canvas toàn màn hình vẽ lại mỗi khung hình ngay lúc người dùng đang cuộn đọc giải thích);
 // bật 'giảm chuyển động' của hệ điều hành thì không bắn.
 export function triggerConfetti() {
+    if (document.body.classList.contains('focus-mode-active')) return;   // tập trung: không pháo giấy
     const touch = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
     loadConfetti().then(() => confetti({
         particleCount: touch ? 36 : 80,

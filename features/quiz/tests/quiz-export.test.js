@@ -48,3 +48,13 @@ test('rỗng: không có câu nào vẫn trả chuỗi hợp lệ', () => {
     assert.match(wrongItemsMarkdown([]), /^# 0 câu sai hoặc bỏ trống/);
     assert.equal(wrongItemsCsv([]), '﻿\r\n');
 });
+
+test('Ghi chú cá nhân (myNote): vào cả Markdown lẫn CSV khi có, vắng thì không in', () => {
+    const q = { ...mcq, myNote: 'Hỏi lại: cơ chế tăng troponin\n- nhớ ECG' };
+    const md = wrongItemsMarkdown([q, blank]);
+    assert.match(md, /Ghi chú của tôi: Hỏi lại: cơ chế tăng troponin\n- nhớ ECG/);
+    assert.equal((md.match(/Ghi chú của tôi/g) || []).length, 1);
+    const rows = wrongItemsCsv([q, blank]).replace('﻿', '').trim().split('\r\n');
+    assert.match(rows[0], /Ghi chú của tôi: Hỏi lại: cơ chế tăng troponin<br>- nhớ ECG/);
+    assert.ok(!rows[1].includes('Ghi chú của tôi'));
+});

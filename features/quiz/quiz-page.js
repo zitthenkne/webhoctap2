@@ -38,6 +38,9 @@ import {
 import { setupMobileNav } from './page/quiz-mobile-nav.js';
 import { setupTabletNext } from './page/quiz-tablet-next.js';
 import { setupQuizBoost } from './page/quiz-boost.js';
+import { setupFocus } from './page/quiz-focus.js';
+import { setupFind } from './page/quiz-find.js';
+import { noteCount } from './page/quiz-notes-panel.js';
 import {
     loadQuizData, startQuizMode, startQuizWithCurrentSettings, startSrsSession, endQuiz
 } from './page/quiz-session.js';
@@ -87,6 +90,21 @@ function setupLastAttemptStat() {
     });
 }
 
+// Nút "Ghi chú của bạn (N)" ở trang chờ: chỉ hiện khi bộ đề đã có ghi chú (kể cả vừa kéo từ cloud về); mở sổ ghi chú (chế độ xem)
+function setupLandingNotes() {
+    const btn = document.getElementById('landing-notes-btn');
+    if (!btn) return;
+    const refresh = () => {
+        const n = noteCount();
+        btn.classList.toggle('hidden', n === 0);
+        const label = document.getElementById('landing-notes-label');
+        if (label) label.textContent = `Ghi chú của bạn (${n})`;
+    };
+    refresh();
+    window.addEventListener('quiz-study-pulled', refresh);
+    btn.addEventListener('click', () => import('./page/quiz-notes-all.js').then(m => m.openAllNotes()));
+}
+
 // Chạm / bấm vào sơ đồ Mermaid (đề, giải thích, mở rộng, kết quả) -> xem phóng to toàn màn hình
 // (chụm 2 ngón / Ctrl + lăn / nút +−). Sơ đồ nằm TRONG ô đáp án thì bỏ qua: cú bấm đó là chọn đáp án.
 document.addEventListener('click', (e) => {
@@ -100,6 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ensureMermaidInit();
 
     setupLastAttemptStat();
+    setupLandingNotes();
 
     // === BÀI LÀM DỞ ===
     // KHÔNG hỏi "làm tiếp?" ngay khi vừa vào trang — người dùng chưa kịp đọc thông tin bộ đề
@@ -313,6 +332,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setupMobileNav();      // Thanh điều hướng đáy + bảng nhảy câu (mobile)
     setupTabletNext();     // iPad: nút Câu tiếp nổi khi nút trong thẻ ngoài màn hình
     setupQuizBoost();      // gói nâng cấp 2026-10-05: gập thẻ dài, chọn lại, nghe đọc, phím tắt, nhịp độ...
+    setupFocus();          // chế độ tập trung v2: thanh mảnh, toàn màn hình, nhắc nghỉ mắt, Esc
+    setupFind();           // Ctrl+K / "/": tìm và nhảy câu
 
     // "Làm cùng nhau": mở đề sang phòng đánh đề (trang chờ + bảng thiết lập khi đang làm) — nạp lười
     document.addEventListener('click', (e) => {
@@ -415,6 +436,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (resultsSectionElement && !resultsSectionElement.classList.contains('hidden')) return;
 
         if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+        if (document.querySelector('#notes-all.is-open') || document.body.classList.contains('quiz-paused')) return;   // sổ ghi chú mở / đang tạm dừng: phím A–Z không được chọn đáp án phía sau
 
         // Bỏ qua khi đang dùng tổ hợp phím hệ thống (Ctrl/Alt/Cmd)
         if (e.ctrlKey || e.altKey || e.metaKey) return;

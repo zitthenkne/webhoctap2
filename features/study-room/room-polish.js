@@ -145,7 +145,7 @@ function initStrike() {
     subscribe(() => {
         if (!hasSession() || lsGet('roomStrikeTip')) return;
         lsSet('roomStrikeTip', '1');
-        setTimeout(() => showToast('Mẹo: giữ một ô đáp án để gạch nó (chỉ mình bạn thấy).', 'info', 4500), 3000);
+        setTimeout(() => showToast('Mẹo: giữ một ô đáp án để gạch nó (chỉ mình bạn thấy).', 'info', 4500), 9000);      // sau Mẹo phím tắt (hiện 2,5s→7,5s), khỏi chồng 2 thông báo
     });
     paintStrike();
 }
@@ -236,6 +236,7 @@ const paintSpeak = () => {
     if (!on && !el('speakbar')) return;
     const b = speakBar();
     b.classList.toggle('hidden', !on);
+    document.body.classList.toggle('rm-speaking', on);
     if (on) { el('speak-q').textContent = `Đang đọc câu ${spokenAt + 1}`; el('speak-rate').textContent = rateText(rateNow()); }
 };
 function toggleSpeak() {

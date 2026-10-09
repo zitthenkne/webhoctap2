@@ -8,8 +8,12 @@ import { state, saveQuizState } from '../quiz-state.js';
 import { toggleFocusMode } from '../quiz-ui.js';
 import { startTimer, stopTimer } from './quiz-session.js';
 import {
-    getTheme, getSound, getVibrate, getBgOpacity, applyBgOpacity, playTone, getNotesInline, applyNotesInline
+    getTheme, getSound, getVibrate, getBgOpacity, applyBgOpacity, getNotesInline, applyNotesInline
 } from './quiz-page-prefs.js';
+import {
+    PACKS, GROUPS, setSound, getPack, setPack, getVolume, setVolume, isGroupOn, setGroupOn, previewSound, sfx,
+    AMBIENTS, getAmbient, setAmbient, getAmbientVol, setAmbientVol, syncAmbient
+} from './quiz-sound.js';
 import { getCatMemeEnabled, setMemeEnabled } from './quiz-cat-meme.js';
 import { showQuestion, showNextQuestion, showPreviousQuestion } from './quiz-question-view.js';
 import { isAutoNextOn, setAutoNext, setupAutoNextGuards } from './quiz-auto-next.js';
@@ -56,9 +60,7 @@ function handleToggleFocusMode() {
 
 export function setupFocusModeControls() {
     const focusModeBtn = document.getElementById('focus-mode-btn');
-    const exitFocusBtn = document.getElementById('exit-focus-btn');
     if (focusModeBtn) focusModeBtn.onclick = handleToggleFocusMode;
-    if (exitFocusBtn) exitFocusBtn.onclick = handleToggleFocusMode;
 }
 
 // --- #13 (bổ sung): phóng to ảnh trong đề ---
@@ -90,6 +92,7 @@ export function setupSettings() {
     const fab = document.getElementById('quiz-settings-fab');
     const pop = document.getElementById('quiz-settings-popover');
     const rowDark = document.getElementById('qs-dark');
+    const rowMin = document.getElementById('qs-min');
     const rowSound = document.getElementById('qs-sound');
     const rowVibrate = document.getElementById('qs-vibrate');
     const rowMeme = document.getElementById('qs-meme');
@@ -102,9 +105,28 @@ export function setupSettings() {
     if (!fab || !pop) return;
     setupAutoNextGuards(); // chạm/cuộn/gõ phím ở bất kỳ đâu đều hủy đếm ngược tự chuyển câu
 
+    const soundDetail = document.getElementById('qs-sound-detail');
+    const packSel = document.getElementById('qs-sound-pack');
+    const volInput = document.getElementById('qs-sound-vol');
+    const groupBox = document.getElementById('qs-sound-groups');
+    if (packSel) packSel.innerHTML = PACKS.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    if (groupBox) groupBox.innerHTML = GROUPS.map(g => `<button type="button" class="qs-sg" data-sg="${g.id}" aria-pressed="true">${g.name}</button>`).join('');
+    const ambSel = document.getElementById('qs-amb');
+    const ambVol = document.getElementById('qs-amb-vol');
+    const ambVolRow = document.getElementById('qs-amb-vol-row');
+    if (ambSel) ambSel.innerHTML = AMBIENTS.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+
     const sync = () => {
         if (rowDark) rowDark.setAttribute('aria-checked', getTheme() === 'dark');
+        if (rowMin) rowMin.setAttribute('aria-checked', document.documentElement.classList.contains('ui-min'));
         if (rowSound) rowSound.setAttribute('aria-checked', getSound());
+        if (soundDetail) soundDetail.hidden = !getSound();
+        if (packSel) packSel.value = getPack();
+        if (groupBox) groupBox.querySelectorAll('[data-sg]').forEach(b => { const on = isGroupOn(b.dataset.sg); b.classList.toggle('is-on', on); b.setAttribute('aria-pressed', String(on)); });
+        if (volInput) volInput.value = getVolume();
+        if (ambSel) ambSel.value = getAmbient();
+        if (ambVol) ambVol.value = getAmbientVol();
+        if (ambVolRow) ambVolRow.hidden = getAmbient() === 'off';
         if (rowVibrate) rowVibrate.setAttribute('aria-checked', getVibrate());
         if (rowMeme) rowMeme.setAttribute('aria-checked', getCatMemeEnabled());
         if (rowAutoNext) rowAutoNext.setAttribute('aria-checked', isAutoNextOn());
@@ -133,12 +155,43 @@ export function setupSettings() {
         document.documentElement.classList.toggle('theme-dark', dark);
         sync();
     });
-    if (rowSound) rowSound.addEventListener('click', () => {
-        const on = !getSound();
-        setLS('quiz_sound', on ? '1' : '0');
-        if (on) playTone(true); // nghe thử
+    if (rowMin) rowMin.addEventListener('click', () => {         // giao diện tinh gọn: class + nhớ theo máy (quiz-min.css)
+        const on = document.documentElement.classList.toggle('ui-min');
+        setLS('quiz_minimal', on ? '1' : '0');
+        window.dispatchEvent(new Event('resize'));
         sync();
     });
+    if (rowSound) rowSound.addEventListener('click', () => {
+        const on = !getSound();
+        setSound(on);
+        if (on) previewSound(); // nghe thử bộ âm đang chọn
+        sync();
+    });
+    // Chi tiết âm thanh: đổi bộ âm / phạm vi → nghe thử ngay; kéo âm lượng → mỗi cữ một tiếng "tách" để biết to nhỏ
+    const keepOpen = (el) => el && el.addEventListener('click', (e) => e.stopPropagation());
+    [packSel, groupBox, volInput].forEach(keepOpen);
+    if (packSel) packSel.addEventListener('change', () => { setPack(packSel.value); previewSound(packSel.value); });
+    if (groupBox) groupBox.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-sg]');
+        if (!b) return;
+        const g = GROUPS.find(x => x.id === b.dataset.sg), on = !isGroupOn(g.id);
+        setGroupOn(g.id, on);
+        sync();
+        if (on) sfx(g.demo, { force: true, streak: 3, pct: 85, remaining: 4 });   // bật lại nhóm nào nghe thử ngay tiếng đại diện của nhóm đó
+    });
+    if (volInput) {
+        volInput.addEventListener('input', () => { setVolume(+volInput.value); sfx('pick', { force: true }); });
+    }
+    document.getElementById('qs-sound-test')?.addEventListener('click', (e) => { e.stopPropagation(); previewSound(); });
+    // Âm nền: đang làm bài thì phát tiếp ngay; ở trang chờ chỉ nghe thử 4 giây
+    const ambApply = () => {
+        const live = document.body.classList.contains('quiz-active');
+        syncAmbient(true);
+        if (!live) setTimeout(() => { if (!document.body.classList.contains('quiz-active')) syncAmbient(false); }, 4000);
+    };
+    [ambSel, ambVol].forEach(keepOpen);
+    if (ambSel) ambSel.addEventListener('change', () => { setAmbient(ambSel.value); sync(); ambApply(); });
+    if (ambVol) ambVol.addEventListener('input', () => { setAmbientVol(+ambVol.value); if (getAmbient() !== 'off') ambApply(); });
     if (rowVibrate) rowVibrate.addEventListener('click', () => {
         const on = !getVibrate();
         setLS('quiz_vibrate', on ? '1' : '0');

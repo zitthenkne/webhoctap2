@@ -22,6 +22,7 @@ import {
 } from './room-state.js';
 import { reasonToolsHtml, reasonSig, initReason, elimListHtml, elimsOf, myElimSet, badgesHtml, fileLost } from './room-reason.js';
 import { escapeHtml, shortName, avatarHtml, avatarStack, changed, agoText } from './room-ui.js';
+import { sessionWrite, memberWrite } from './room-texts.js';
 import { effectiveIndex, repaintOptions, answerCurrent, canAnswer, qStateOf } from './room-quiz-stage.js';
 import { renderRich, currentEditKey, isBlank, insertImagesInto, sanitizeHtml } from './room-editor.js';
 import { getNote, setNote } from './room-study.js';
@@ -33,7 +34,20 @@ import { formatEditorHtml, wireFormatEditor, readFormatEditor } from '../quiz/es
 
 const el = (id) => document.getElementById(id);
 const L = (k) => String.fromCharCode(65 + k);
-const plain = (v) => String(v ?? '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+const stripHtml = (s) => s.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+// Nhớ kết quả cho chuỗi dài: giải thích / ghi nhớ của cả đề được gỡ thẻ lặp đi lặp lại ở MỖI lần vẽ (đo: top 1 trong hồ sơ CPU khi cả phòng hoạt động)
+const plainMemo = new Map();
+const plain = (v) => {
+    const s = String(v ?? '');
+    if (s.length < 48) return stripHtml(s);
+    let r = plainMemo.get(s);
+    if (r === undefined) {
+        if (plainMemo.size > 1200) plainMemo.clear();
+        r = stripHtml(s);
+        plainMemo.set(s, r);
+    }
+    return r;
+};
 // Có nội dung = có chữ HOẶC có ảnh (lý do chỉ là một tấm ảnh chụp sách vẫn là lý do)
 const hasRich = (v) => !!plain(v) || /<img/i.test(String(v || ''));
 const nameOf = (m, n = 14) => escapeHtml(shortName(m?.displayName || 'Khách', n));
@@ -360,9 +374,9 @@ export function renderNotebook(i, force = false) {
             ${st.exp.fromFile ? '<span class="rm-hint">theo file · bấm đúp để sửa</span>'
                 : author ? `<span class="rm-hint">${escapeHtml(shortName(author.name || '', 14))} · ${agoText(author.at)}</span>` : ''}
         </div>
-        ${st.exp.lock ? '<p class="rm-nb-lock">🔒 File có sẵn lời giải — tự mở khi chủ trì bấm <b>Hiện đáp án</b>. Nhóm vẫn viết trước được.</p>' : ''}
+        ${st.exp.lock ? '<p class="rm-nb-lock">🔒 Lời giải của file mở khi chủ trì bấm <b>Hiện đáp án</b> — cả nhóm cứ viết trước.</p>' : ''}
         <div class="rm-md rm-hub-editor" contenteditable="true" data-live-edit="explain"
-             data-placeholder="Ai cũng gõ được: cách suy luận, mẹo nhớ, dẫn chứng… (Ctrl+V dán ảnh)">${renderRich(st.exp.html)}</div>
+             data-placeholder="Cả nhóm cùng viết: suy luận, mẹo nhớ, dẫn chứng…">${renderRich(st.exp.html)}</div>
         ${reasonToolsHtml(i, 'explain', st.exp.html)}
         ${lostFile}
         ${more('exp')}
@@ -601,13 +615,44 @@ function allRows() {
         return {
             k, q: st.q, has, group, snippet, revealed: st.revealed, st: qStateOf(k), talk: argsOf(k).length,
             lock: st.exp.lock || st.x.expanded.lock || st.x.note.lock,
-            hay: fold([st.q.question, expHtml, st.x.expanded.shown ? st.x.expanded.html : '', st.x.note.shown ? st.x.note.html : '', mine].join(' ')),
+            // chuỗi tìm kiếm (bỏ dấu cả đề) chỉ tính khi thật sự có người gõ tìm
+            get hay() {
+                const v = fold([st.q.question, expHtml, st.x.expanded.shown ? st.x.expanded.html : '', st.x.note.shown ? st.x.note.html : '', mine].join(' '));
+                Object.defineProperty(this, 'hay', { value: v });
+                return v;
+            },
         };
     });
+}
+// Số câu đã có ghi chép (hiện trên thẻ "Cả đề") — khi thẻ đang ẩn chỉ cần con số này, KHÔNG dựng cả bảng 60 dòng.
+// Trước đây mọi lần vẽ sổ tay (vài lần/giây khi cả phòng hoạt động) đều dựng bảng đầy đủ rồi vứt: ~43% thời gian vẽ trên máy yếu.
+function filledCount() {
+    let n = 0;
+    const total = room.session?.questions?.length || 0;
+    for (let k = 0; k < total; k++) {
+        const st = nbState(k);
+        if (hasRich(st.essay ? noteOf(k) : st.exp.html) || (st.x.expanded.shown && hasRich(st.x.expanded.html))
+            || (st.x.note.shown && hasRich(st.x.note.html)) || hasRich(getNote(st.q.question))) n++;
+    }
+    return n;
+}
+let countTimer = null, countAt = 0;
+function paintCount() {
+    countAt = Date.now();
+    const cnt = el('nb-all-count');
+    if (!cnt || !hasSession()) return;
+    const f = String(filledCount() || '');
+    if (cnt.textContent !== f) cnt.textContent = f;
+}
+function countSoon() {
+    const wait = 1500 - (Date.now() - countAt);          // tối đa 1,5s/lần, có lần chốt cuối
+    if (wait <= 0) return paintCount();
+    if (!countTimer) countTimer = setTimeout(() => { countTimer = null; paintCount(); }, wait);
 }
 export function renderAllNotes() {
     const box = el('nb-all');
     if (!box || !hasSession()) return;
+    if (box.classList.contains('hidden')) return void countSoon();
     const rows = allRows();
     const cnt = el('nb-all-count');
     const filled = rows.filter(r => r.has.exp || r.has.expanded || r.has.note || r.has.mine).length;
@@ -846,7 +891,7 @@ function talkHtml(i, q, k, people, args, open, revealed, mineA, t) {
     const items = cm.map(argItem);
     const newN = items.filter(x => isNew(i, x)).length;
     const pref = rowPref[`${i}:${k}`];
-    const isOpen = quoted || (pref !== undefined ? pref : (ok || mine) && talkN > 0);
+    const isOpen = quoted || (pref !== undefined ? pref : ok && talkN > 0);      // bản 72: chỉ ô đã chốt mở sẵn luồng; ô mình chọn gập (còn hàng "n lý do" + ý được đồng tình nhất) -> thấy đủ 4 phương án
     // Chưa ai viết giải thích X: 1 nút gọn "✏️ Viết giải thích X" thay cho cả dòng chữ mờ nghiêng (nhìn như bỏ dở)
     const expBox = (inline) => !hasRich(exp) && !expOpen[`${i}:${k}`]
         ? `<button type="button" class="rm-oexp-add" data-oexp-add="${k}" title="Ai cũng viết được — cả nhóm cùng thấy">✏️ Viết giải thích ${L(k)}</button>`
@@ -879,7 +924,7 @@ function talkHtml(i, q, k, people, args, open, revealed, mineA, t) {
         ${confHtml}
         <button type="button" class="rm-tagmini rm-touch-edit" data-edit-opt-text="${k}" title="Sửa chữ của phương án ${L(k)} (hoặc bấm đúp vào chữ của phương án đã chọn)">✏️ Sửa chữ ${L(k)}</button>
         ${differ ? `<button type="button" class="rm-tagmini ${dissentOf(myMember(), i) ? 'is-warn' : ''}" data-dissent-here title="Ý kiến của bạn vẫn được ghi vào biên bản">✋ ${dissentOf(myMember(), i) ? 'Đang bảo lưu' : 'Bảo lưu ' + L(k)}</button>` : ''}
-        <div class="rm-md rm-hub-mini rm-why" contenteditable="true" data-live-edit="why" data-placeholder="Vì sao bạn chọn ${L(k)}? Gõ, hoặc Ctrl+V dán ảnh chụp sách / sơ đồ — cả nhóm thấy kèm tên">${renderRich(myWhy)}</div>
+        <div class="rm-md rm-hub-mini rm-why" contenteditable="true" data-live-edit="why" data-placeholder="Vì sao bạn chọn ${L(k)}? Gõ hoặc dán ảnh — cả nhóm thấy">${renderRich(myWhy)}</div>
         ${reasonToolsHtml(i, 'why', myWhy, hasRich(myWhy) && !isEssay(q)
             ? '<button type="button" class="rm-why-tpl is-share" data-rf-share title="Chép lý do của bạn (kèm tên) vào Giải thích chung của câu — bấm lại để cập nhật">📤 Góp vào giải thích</button>' : '')}
     </div>`;
@@ -1043,7 +1088,7 @@ async function send(slot) {
     const keep = list;
     delete pending[k];
     clear();
-    await updateDoc(refs.member(), { [`args.q${i}.${aid}`]: data })
+    await memberWrite({ [`args.q${i}.${aid}`]: data })
         .then(() => keep.forEach(p => p.prev && URL.revokeObjectURL(p.prev)))
         .catch(() => {
             drafts[k] = raw; pending[k] = keep;
@@ -1227,7 +1272,7 @@ export function initAnswerHub() {
             const moved = !old ? (multi && hasRich(legacy) ? { p0: legacy } : null)          // 1 ô -> nhiều ô: bài cũ vào ô đầu
                 : !multi ? null
                 : r.order ? Object.fromEntries(r.order.map((o, n) => [`p${n}`, o == null ? '' : (old[`p${o}`] || '')])) : old;
-            updateDoc(refs.session(), {
+            sessionWrite({
                 [`edits.q${i}.answerFormat`]: r.format,
                 // ý barem gắn ô đi theo đúng ô của nó (chèn / xóa / đổi thứ tự ô)
                 ...(r.order && Array.isArray(questionAt(i)?.keyPoints) ? { [`edits.q${i}.keyPoints`]: remapFields(questionAt(i).keyPoints, r.order) } : {}),
@@ -1283,13 +1328,13 @@ export function initAnswerHub() {
         if ((x = b('[data-conf]'))) {
             const v = x.dataset.conf;
             if (!answerOf(myMember(), i)) return;
-            return void updateDoc(refs.member(), {
+            return void memberWrite({
                 [`answers.q${i}.guess`]: v === 'guess',
                 [`answers.q${i}.bet`]: v === 'guess' ? 1 : Number(v),
             }).catch(() => {});
         }
         if (b('[data-dissent-here]')) {
-            return void updateDoc(refs.member(), { [`dissent.q${i}`]: !dissentOf(myMember(), i) }).catch(() => {});
+            return void memberWrite({ [`dissent.q${i}`]: !dissentOf(myMember(), i) }).catch(() => {});
         }
         if ((x = b('[data-cycle]'))) {
             const cyc = CYCLE[x.dataset.kind];
@@ -1314,14 +1359,14 @@ export function initAnswerHub() {
         if ((x = b('[data-resolve]'))) {
             const a = argsOf(i).find(v => v.id === x.dataset.resolve);
             if (!a || !canResolve(a)) return;
-            return void updateDoc(refs.member(a.uid), { [`args.q${i}.${a.id}.ok`]: a.ok ? null : true }).catch(() => {});
+            return void memberWrite({ [`args.q${i}.${a.id}.ok`]: a.ok ? null : true }, a.uid).catch(() => {});
         }
         if ((x = b('[data-accept]'))) {
             const [pid, kid] = x.dataset.accept.split(':');
             const a = argsOf(i).find(v => v.id === pid);
             if (!a || !canResolve(a)) return;
             const on2 = a.ok !== kid;
-            return void updateDoc(refs.member(a.uid), { [`args.q${i}.${a.id}.ok`]: on2 ? kid : null })
+            return void memberWrite({ [`args.q${i}.${a.id}.ok`]: on2 ? kid : null }, a.uid)
                 .then(() => on2 && showToast('✅ Đã đánh dấu: thắc mắc được giải đáp.', 'success', 1800))
                 .catch(() => {});
         }
@@ -1343,7 +1388,7 @@ export function initAnswerHub() {
             return void updateDoc(refs.member(), { [`agree.${id}`]: !myMember()?.agree?.[id] }).catch(() => {});
         }
         if ((x = b('[data-cmt-del]'))) {
-            return void updateDoc(refs.member(), { [`args.q${i}.${x.dataset.cmtDel}`]: null }).catch(() => {});
+            return void memberWrite({ [`args.q${i}.${x.dataset.cmtDel}`]: null }).catch(() => {});
         }
         if ((x = b('[data-cmt-exp]'))) {
             const a = argsOf(i).find(v => v.id === x.dataset.cmtExp);

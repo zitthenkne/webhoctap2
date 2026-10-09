@@ -71,7 +71,9 @@ export function loadScript(src) {
     return scripts[src];
 }
 /** Pháo giấy: chỉ tải khi thật sự ăn mừng lần đầu (~4KB). */
-export const ensureConfetti = () => (window.confetti
+export const ensureConfetti = () => document.documentElement.classList.contains('ui-min')
+    ? new Promise(() => {})        // giao diện tinh gọn: không pháo giấy (3 nơi gọi đều .then -> không bao giờ chạy)
+    : (window.confetti
     ? Promise.resolve()
     : loadScript('https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js')).catch(() => {});
 /** Biên bản buổi học (room-minutes.js 57KB): chỉ nạp khi có người mở hộp xuất. */
@@ -144,6 +146,7 @@ const TOOL_STATE = {
     present: () => document.body.classList.contains('present'),
     race: () => !raceHidden(),
     theme: () => document.documentElement.classList.contains('theme-dark'),
+    minimal: () => isMinimal(),
 };
 export function paintToolStates() {
     document.querySelectorAll('[data-sw]').forEach(n => {
@@ -205,6 +208,15 @@ function zenIntro() {
     t.textContent = 'Đã ẩn bàn luận, phiếu của nhóm và thông báo';
     clearTimeout(zenTimer);
     zenTimer = setTimeout(() => { t.textContent = 'Đang tập trung'; }, 4200);
+}
+// Giao diện tinh gọn (study-room-min.css): chỉ là class html.ui-min + nhớ theo máy; class được đặt sớm trong <head> để khỏi nháy
+const isMinimal = () => document.documentElement.classList.contains('ui-min');
+function toggleMinimal() {
+    const on = document.documentElement.classList.toggle('ui-min');
+    try { localStorage.setItem('roomMinimal', on ? '1' : '0'); } catch (e) {}
+    window.dispatchEvent(new Event('resize'));
+    paintToolStates();
+    showToast(on ? 'Giao diện tinh gọn: bật.' : 'Đã về giao diện sổ dán.', 'info', 1600);
 }
 export function toggleZen(force) {
     const on = force === undefined ? !document.body.classList.contains('zen') : !!force;
@@ -472,6 +484,7 @@ export function initBoost() {
     const setMenu = (on, focusFirst = false) => {
         if (!menu) return;
         menu.classList.toggle('hidden', !on);
+        document.body.classList.toggle('rm-menu-open', on);
         menuBtn?.setAttribute('aria-expanded', String(on));
         if (on) { paintToolStates(); if (focusFirst) menuItems()[0]?.focus(); }
     };
@@ -592,6 +605,7 @@ export function runTool(name) {
     if (name === 'find') return openFind();
     if (name === 'help') return openHelp();
     if (name === 'zen') return toggleZen();
+    if (name === 'minimal') return toggleMinimal();
     if (name === 'sound') return toggleSound();
     if (name === 'autonext') return toggleAutoNext();
     if (name === 'follow') return toggleFollow();

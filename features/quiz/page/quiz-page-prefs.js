@@ -3,8 +3,10 @@
 // kèm phản hồi rung + âm thanh khi trả lời và cuộn mượt lên đầu trang.
 // Tách từ quiz-page.js — logic giữ nguyên.
 
+import { sfx, getSound } from './quiz-sound.js';
+export { sfx, getSound };   // chỗ gọi cũ vẫn import từ file này
+
 export function getTheme()   { try { return localStorage.getItem('quiz_theme') || 'light'; } catch (e) { return 'light'; } }
-export function getSound()   { try { return localStorage.getItem('quiz_sound') === '1'; } catch (e) { return false; } }
 export function getVibrate() { try { return localStorage.getItem('quiz_vibrate') !== '0'; } catch (e) { return true; } } // mặc định BẬT
 export function getNotesInline() { try { return localStorage.getItem('quiz_notes_inline') !== '0'; } catch (e) { return true; } } // mặc định BẬT
 export function applyNotesInline() { document.body.classList.toggle('qz-notes-inline', getNotesInline()); }
@@ -14,32 +16,31 @@ export function getBgOpacity() { // % độ rõ ảnh nền, 0–60, mặc đị
 }
 export function applyBgOpacity(pct) { document.documentElement.style.setProperty('--quiz-bg-opacity', pct / 100); }
 
-// --- #15: Phản hồi rung + âm thanh nhẹ khi trả lời ---
-let _audioCtx = null;
-export function playTone(isCorrect) {
-    try {
-        _audioCtx = _audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-        const ctx = _audioCtx;
-        const now = ctx.currentTime;
-        const notes = isCorrect ? [660, 880] : [300, 200];
-        notes.forEach((freq, i) => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = 'sine';
-            osc.frequency.value = freq;
-            const t = now + i * 0.09;
-            gain.gain.setValueAtTime(0.0001, t);
-            gain.gain.exponentialRampToValueAtTime(0.06, t + 0.02);
-            gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
-            osc.connect(gain).connect(ctx.destination);
-            osc.start(t);
-            osc.stop(t + 0.18);
-        });
-    } catch (e) { /* trình duyệt không hỗ trợ WebAudio -> bỏ qua */ }
+// --- #15: Phản hồi rung + âm thanh khi trả lời (âm thanh: page/quiz-sound.js) ---
+// streak = độ dài chuỗi đúng SAU câu này (0 nếu sai): chuỗi càng dài, âm càng cao + rung nhiều nhịp hơn.
+// lost = chuỗi đang có TRƯỚC khi sai (≥3 thì thêm tiếng "đứt chuỗi").
+export function feedback(isCorrect, streak = 0, lost = 0) {
+    if (getVibrate() && navigator.vibrate) {
+        navigator.vibrate(!isCorrect ? [25, 35, 25] : streak >= 5 ? [14, 30, 14, 30, 34] : streak >= 3 ? [14, 30, 24] : 18);
+    }
+    sfx(isCorrect ? 'correct' : 'wrong', { streak, lost });
 }
-export function feedback(isCorrect) {
-    if (getVibrate() && navigator.vibrate) navigator.vibrate(isCorrect ? 18 : [25, 35, 25]);
-    if (getSound()) playTone(isCorrect);
+
+// Vùng đọc cho trình đọc màn hình (aria-live, ẩn khỏi mắt): "Đúng. Chuỗi 3." / "Sai. Đáp án đúng là B." / "Câu 4 trên 12"
+export function announce(text) {
+    try {
+        let el = document.getElementById('quiz-live');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'quiz-live';
+            el.setAttribute('role', 'status');
+            el.setAttribute('aria-live', 'polite');
+            el.style.cssText = 'position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;padding:0';
+            document.body.appendChild(el);
+        }
+        el.textContent = '';
+        setTimeout(() => { el.textContent = text; }, 30);   // xóa rồi đặt lại: cùng nội dung hai lần liền vẫn được đọc
+    } catch (e) { }
 }
 
 // --- Cuộn lên đầu trang khi chuyển sang câu khác (nội dung câu luôn nằm gọn ở giữa màn) ---

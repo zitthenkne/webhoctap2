@@ -14,6 +14,7 @@ import {
     noteOf, optNoteOf, chosenOf, questionAt, issueOf, isCoop, isShown, whyOf, dissentOf, talkUntil,
     isEssay, acceptedOf, alsoOkOf, isSplit, acceptedText, answerOf, doneOf, SPLIT_QUESTIONS, SPLIT_PRESENCE, writePresence,
 } from './room-state.js';
+import { memberWrite } from './room-texts.js';
 import { isOnline } from './room-members.js';
 import { escapeHtml, showUndo } from './room-ui.js';
 import { answerCurrent, effectiveIndex, setViewIndex, followHost, slowOf, focusChangedAt } from './room-quiz-stage.js';
@@ -708,9 +709,9 @@ async function revote() {
         [`prevVote.q${i}`]: st.counts,
         [`chosen.q${i}`]: null, [`alsoOk.q${i}`]: [], [`split.q${i}`]: null,
     }).catch(() => {});
-    await Promise.all(room.members.map(m => updateDoc(refs.member(m.uid), {
+    await Promise.all(room.members.map(m => memberWrite({
         [`answers.q${i}`]: null, [`ready.q${i}`]: null, [`dissent.q${i}`]: null,
-    }).catch(() => {})));
+    }, m.uid).catch(() => {})));
     systemMessage(`Bầu lại câu ${i + 1} — mọi người chọn lại nhé!`);
 }
 
@@ -790,7 +791,7 @@ async function endSession() {
 
 async function restartSession() {
     if (!await showConfirm('Làm lại từ câu 1? Đáp án của mọi người sẽ được xóa.', { confirmText: 'Làm lại' })) return;
-    await Promise.all(room.members.map(m => updateDoc(refs.member(m.uid), { answers: {}, flags: {} }).catch(() => {})));
+    await Promise.all(room.members.map(m => memberWrite({ answers: {}, flags: {} }, m.uid).catch(() => {})));
     await updateDoc(refs.session(), {
         currentQuestionIndex: 0, ended: false, locked: false, chosen: {}, alsoOk: {}, split: {},
         qStarts: { q0: Date.now() },
@@ -1255,7 +1256,7 @@ function initHostMore() {
     const btn = el('host-more-btn');
     const pop = el('host-more');
     if (!btn || !pop) return;
-    const set = (on) => { pop.classList.toggle('is-open', on); btn.setAttribute('aria-expanded', String(on)); btn.classList.toggle('on', on); };
+    const set = (on) => { pop.classList.toggle('is-open', on); document.body.classList.toggle('rm-host-more-open', on); btn.setAttribute('aria-expanded', String(on)); btn.classList.toggle('on', on); };
     btn.addEventListener('click', (e) => { e.stopPropagation(); set(!pop.classList.contains('is-open')); });
     pop.addEventListener('click', (e) => { if (e.target.closest('button')) set(false); }, true);
     document.addEventListener('click', (e) => { if (!e.target.closest('#host-more, #host-more-btn')) set(false); });
@@ -1311,5 +1312,5 @@ function paintCoach(c) {
     }
     void tip.offsetWidth;
     tip.classList.add('is-on');
-    coachTimer = setTimeout(() => tip.classList.remove('is-on'), 7000);
+    coachTimer = setTimeout(() => tip.classList.remove('is-on'), 4500);      // bản 73: bong bóng nằm đè đầu đề ở màn 1024–1366 -> hiện ngắn hơn (nút vẫn có viền tĩnh)
 }

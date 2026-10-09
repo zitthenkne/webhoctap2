@@ -13,6 +13,7 @@
 import { addDoc, updateDoc, onSnapshot, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { showToast } from '../../core/utils.js';
 import { renderMath } from '../quiz/quiz-helpers.js';
+import { sessionWrite } from './room-texts.js';
 import { room, refs, uid, canControl, hasSession, myMember, answerOf, chosenOf, noteOf, questionAt, isAccepted } from './room-state.js';
 // Mỗi người đang ở một câu khác nhau -> gắn thẻ theo câu NGƯỜI GỬI đang xem
 import { effectiveIndex, renderQuiz } from './room-quiz-stage.js';
@@ -311,7 +312,7 @@ function targetIndex(m) { return typeof m.qIdx === 'number' ? m.qIdx : effective
 export async function appendToExplain(i, html) {
     const cur = noteOf(i);
     const next = sanitizeHtml((cur ? renderRich(cur) : '') + html);
-    await updateDoc(refs.session(), {
+    await sessionWrite({
         [`notes.q${i}`]: next,
         [`notesBy.q${i}`]: { name: myName(), at: Date.now() },
     });

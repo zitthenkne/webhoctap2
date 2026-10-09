@@ -8,7 +8,7 @@ import { openQuestionEditor } from '../quiz-editor.js';
 import { state, saveQuizState } from '../quiz-state.js';
 import { renderMath, triggerConfetti, parseMarkdown, stripOptionLabels, isMultiAnswer, getCorrectIndexes, isAnswerCorrect } from '../quiz-helpers.js';
 import { updateProgressBar, renderQuizProgressBar, syncQuizNavPanel } from '../quiz-ui.js';
-import { feedback, getVibrate, scrollQuizTo, scrollQuizToTop } from './quiz-page-prefs.js';
+import { feedback, announce, getVibrate, scrollQuizTo, scrollQuizToTop, sfx } from './quiz-page-prefs.js';
 import { hideCatMeme, preloadCurrentMemes, showCatMeme } from './quiz-cat-meme.js';
 import { renderMarkControl, setupMarkControl, refreshMarkedPanel, applyMark } from './quiz-marks.js';
 import { renderPersonalNotePanel, setupPersonalNote } from './quiz-notes-panel.js';
@@ -75,6 +75,13 @@ function setupKbFold() {
     });
 }
 
+// Ôn ngắt quãng: nhớ lịch hẹn vừa chấm cho câu này (quiz-boost.js vẽ viên "Hẹn ôn: N ngày nữa"); đúng mà hẹn ≥ 7 ngày thì thêm tiếng "nhớ lâu"
+function noteSrs(qText, g) {
+    if (!g) return;
+    (state._srsNext = state._srsNext || {})[qText] = { ivl: g.ivl, ok: g.isCorrect };
+    if (g.isCorrect && g.ivl >= 7) sfx('srsFar');
+}
+
 // --- #11: tính thời gian cho từng câu ---
 export function accrueTime() {
     if (state._timingIndex !== null && state._timingEnterAt) {
@@ -119,6 +126,7 @@ function toggleEliminate(idx) {
     } else {
         state.eliminatedAnswers[state.currentIndex] = [...cur, idx];
     }
+    sfx(cur.includes(idx) ? 'unstrike' : 'strike');
     applyEliminatedStyles();
     if (getVibrate() && navigator.vibrate) navigator.vibrate(10);
     saveQuizState();
@@ -333,6 +341,7 @@ export function showQuestion() {
     const indexChanged = _lastShownIndex !== state.currentIndex;
     // Hướng trượt: tiến (câu sau) trượt vào từ phải, lùi (câu trước) từ trái.
     const slideDir = state.currentIndex >= _lastShownIndex ? 'next' : 'prev';
+    if (indexChanged && _lastShownIndex >= 0) { sfx(slideDir); announce(`Câu ${state.currentIndex + 1} trên ${state.questions.length}`); }   // tiếng "vút" trái/phải theo hướng chuyển câu (vào phiên thì im) + báo cho trình đọc màn hình
     _lastShownIndex = state.currentIndex;
     // Sang câu con khác của CÙNG ca: tình huống đã đọc rồi -> không kéo về đầu trang
     // (phải lướt qua cả ca lần nữa); sau khi vẽ sẽ cuộn thẳng tới đề bài.
@@ -931,6 +940,7 @@ function handleMultiToggle(e) {
     if (isNaN(optIdx)) return;
     const cur = state.multiSelections[idx] || [];
     state.multiSelections[idx] = cur.includes(optIdx) ? cur.filter(i => i !== optIdx) : [...cur, optIdx];
+    sfx(cur.includes(optIdx) ? 'toggleOff' : 'toggleOn');
     applyMultiSelectionStyles();
     if (getVibrate() && navigator.vibrate) navigator.vibrate(8);
 }
@@ -990,7 +1000,7 @@ function confirmMultiAnswer() {
 
     if (state.quizMode === 'srs') {
         const qText = (question.question || '').trim();
-        gradeSrsAnswer(currentQuizId(), qText, isCorrect);
+        noteSrs(qText, gradeSrsAnswer(currentQuizId(), qText, isCorrect));
         pushStudyToCloud();
     }
 
@@ -998,7 +1008,8 @@ function confirmMultiAnswer() {
     if (wrap) wrap.classList.add('hidden');
 
     if (state.quizOptions.showAnswerImmediately) {
-        feedback(isCorrect);
+        feedback(isCorrect, isCorrect ? state.streak + 1 : 0, isCorrect ? 0 : state.streak);
+        announce(isCorrect ? `Đúng.${state.streak + 1 >= 3 ? ' Chuỗi ' + (state.streak + 1) + '.' : ''}` : `Sai. Đáp án đúng là ${getCorrectIndexes(question).map(i => String.fromCharCode(65 + i)).join(', ')}.`);
         showCatMeme(isCorrect);
         if (isCorrect) { state.score++; state.streak++; triggerConfetti(); }
         else { state.streak = 0; }
@@ -1027,6 +1038,7 @@ export function handleAnswerClick(e) {
         if (state.userAnswers[state.currentIndex] !== null) return;
         state.userAnswers[state.currentIndex] = selectedIdx;
         if (getVibrate() && navigator.vibrate) navigator.vibrate(12);
+        sfx('pick');   // chế độ nộp mới chấm: chỉ một tiếng "tách" xác nhận đã chọn, không lộ đúng/sai
         selectedBtn.classList.add('bg-blue-100', 'border-blue-400');
         const answerBtns = document.querySelectorAll('.answer-btn');
         answerBtns.forEach(btn => setAnswerLock(btn, true));
@@ -1052,10 +1064,11 @@ export function handleAnswerClick(e) {
         // Chấm lịch ôn ngắt quãng ngay lúc trả lời (mỗi câu chỉ chấm một lần —
         // guard userAnswers !== null ở trên chặn chấm lại khi khôi phục phiên).
         const qText = (state.questions[state.currentIndex].question || '').trim();
-        gradeSrsAnswer(currentQuizId(), qText, isCorrect);
+        noteSrs(qText, gradeSrsAnswer(currentQuizId(), qText, isCorrect));
         pushStudyToCloud();
     }
-    feedback(isCorrect); // #15: rung/âm thanh phản hồi
+    feedback(isCorrect, isCorrect ? state.streak + 1 : 0, isCorrect ? 0 : state.streak); // #15: rung/âm thanh phản hồi (âm leo theo chuỗi đúng, đứt chuỗi có tiếng riêng)
+    announce(isCorrect ? `Đúng.${state.streak + 1 >= 3 ? ' Chuỗi ' + (state.streak + 1) + '.' : ''}` : `Sai. Đáp án đúng là ${getCorrectIndexes(state.questions[state.currentIndex]).map(i => String.fromCharCode(65 + i)).join(', ')}.`);
     showCatMeme(isCorrect); // meme con mèo vui khi đúng / khóc khi sai
     if (isCorrect) {
         state.score++;

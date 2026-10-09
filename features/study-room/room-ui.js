@@ -84,6 +84,34 @@ export function fmtClock(sec) {
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
+// Gán chữ chỉ khi KHÁC: textContent = cùng giá trị vẫn thay nút chữ -> kéo theo style/dàn trang (đo: hàng trăm lần/giây vô ích khi cả phòng hoạt động).
+export function setText(node, v) {
+    if (node && node.textContent !== v) node.textContent = v;
+}
+
+// Đặt biến CSS chỉ khi KHÁC: custom property tự kế thừa xuống con cháu nên gán lại cùng giá trị vẫn bắt trình duyệt tính lại style
+// của cả cây con (đo: dải 60 đoạn #q-rail bị tính lại 60 phần tử x mỗi lần vẽ).
+export function setVar(node, name, value) {
+    const v = String(value);
+    if (node && node.style.getPropertyValue(name) !== v) node.style.setProperty(name, v);
+}
+
+// Gán innerHTML chỉ khi chuỗi KHÁC lần gán trước (trả true nếu có gán). Mỗi lần snapshot về, renderLive dựng lại hàng chục khối HTML
+// giống hệt lần trước (dải 60 viên câu, đường đua, chip…) -> trình duyệt phân tích + dàn trang lại vô ích (đo: ~40% thời gian vẽ).
+// Ô contenteditable: lúc được focus coi như đã bị người dùng sửa tay -> lần vẽ kế buộc gán lại (huỷ sửa dở vẫn trả về đúng dữ liệu).
+export function setHtml(node, html) {
+    if (!node || node.__h === html) return false;
+    node.__h = html;
+    node.innerHTML = html;
+    return true;
+}
+if (typeof document !== 'undefined') {
+    document.addEventListener('focusin', (e) => {
+        const n = e.target?.closest?.('[contenteditable]');
+        if (n) n.__h = null;
+    }, true);
+}
+
 // Bật/tắt phần tử theo cờ, giữ đúng display flex/grid gốc trong class Tailwind.
 export function toggle(el, show) {
     if (el) el.classList.toggle('hidden', !show);

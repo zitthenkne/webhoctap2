@@ -2,7 +2,7 @@
 // Hàm THUẦN (không đụng DOM) — test ở tests/quiz-export.test.js. Dựng mục xuất từ state ở quiz-ui.js (showResults).
 //
 // Một mục: { n, question, caseText, options: [chuỗi], correct: [chỉ số], picked: [chỉ số] | null (chưa trả lời),
-//            modelAnswer (tự luận), explanation, note, expanded }
+//            modelAnswer (tự luận), explanation, note, expanded, myNote (ghi chú cá nhân của người làm) }
 
 const letter = (i) => String.fromCharCode(65 + i);
 const clean = (s) => String(s == null ? '' : s).replace(/\r\n/g, '\n').trim();
@@ -31,6 +31,7 @@ export function wrongItemsMarkdown(items, title = '') {
         if (clean(it.explanation)) out.push(`Giải thích: ${clean(it.explanation)}`);
         if (clean(it.note)) out.push(`Ghi nhớ: ${clean(it.note)}`);
         if (clean(it.expanded)) out.push(`Mở rộng: ${clean(it.expanded)}`);
+        if (clean(it.myNote)) out.push(`Ghi chú của tôi: ${clean(it.myNote)}`);
         out.push('');
     }
     return out.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n';
@@ -51,6 +52,7 @@ export function wrongItemsCsv(items, tag = '') {
             clean(it.explanation) ? `Giải thích: ${clean(it.explanation)}` : '',
             clean(it.note) ? `Ghi nhớ: ${clean(it.note)}` : '',
             clean(it.expanded) ? `Mở rộng: ${clean(it.expanded)}` : '',
+            clean(it.myNote) ? `Ghi chú của tôi: ${clean(it.myNote)}` : '',
         ].filter(Boolean).join('\n');
         return [cell(front), cell(back), cell(safeTag)].join(';');
     });

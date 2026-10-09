@@ -1,5 +1,5 @@
 /* SINH TỰ ĐỘNG — đừng sửa tay. Nguồn: fa-dong-bang.mjs (Font Awesome Free 6.4.0, CC BY 4.0 / OFL / MIT).
-   149 icon dò từ 40 file của trang làm bài. Thêm icon mới thì chạy lại: node fa-dong-bang.mjs */
+   155 icon dò từ 50 file của trang làm bài. Thêm icon mới thì chạy lại: node fa-dong-bang.mjs */
 .fa{font-family:var(--fa-style-family,"Font Awesome 6 Free");font-weight:var(--fa-style,900)}
 .fa,.fa-brands,.fa-classic,.fa-regular,.fa-solid,.fab,.far,.fas{-moz-osx-font-smoothing:grayscale;-webkit-font-smoothing:antialiased;display:var(--fa-display,inline-block);font-style:normal;font-variant:normal;line-height:1;text-rendering:auto}
 .fa-classic,.fa-regular,.fa-solid,.far,.fas{font-family:"Font Awesome 6 Free"}
@@ -9,6 +9,7 @@
 @media (prefers-reduced-motion:reduce){.fa-beat,.fa-beat-fade,.fa-bounce,.fa-fade,.fa-flip,.fa-pulse,.fa-shake,.fa-spin,.fa-spin-pulse{-webkit-animation-delay:-1ms;animation-delay:-1ms;-webkit-animation-duration:1ms;animation-duration:1ms;-webkit-animation-iteration-count:1;animation-iteration-count:1;-webkit-transition-delay:0s;transition-delay:0s;-webkit-transition-duration:0s;transition-duration:0s}}
 @keyframes fa-spin{0%{-webkit-transform:rotate(0deg);transform:rotate(0deg)}to{-webkit-transform:rotate(1turn);transform:rotate(1turn)}}
 .fa-trash-alt:before,.fa-trash-can:before{content:"\f2ed"}
+.fa-wave-square:before{content:"\f83e"}
 .fa-minus-circle:before{content:"\f056"}
 .fa-door-open:before{content:"\f52b"}
 .fa-forward-step:before{content:"\f051"}
@@ -32,6 +33,7 @@
 .fa-horse:before{content:"\f6f0"}
 .fa-notes-medical:before{content:"\f481"}
 .fa-bookmark:before{content:"\f02e"}
+.fa-bullseye:before{content:"\f140"}
 .fa-arrow-up-from-bracket:before{content:"\e09a"}
 .fa-wand-magic-sparkles:before{content:"\e2ca"}
 .fa-key:before{content:"\f084"}
@@ -47,6 +49,7 @@
 .fa-mug-hot:before{content:"\f7b6"}
 .fa-square-plus:before{content:"\f0fe"}
 .fa-image:before{content:"\f03e"}
+.fa-microphone:before{content:"\f130"}
 .fa-rotate-left:before{content:"\f2ea"}
 .fa-table-columns:before{content:"\f0db"}
 .fa-gem:before{content:"\f3a5"}
@@ -56,6 +59,7 @@
 .fa-pause:before{content:"\f04c"}
 .fa-cloud-arrow-up:before{content:"\f0ee"}
 .fa-palette:before{content:"\f53f"}
+.fa-arrows-left-right:before{content:"\f07e"}
 .fa-layer-group:before{content:"\f5fd"}
 .fa-square:before{content:"\f0c8"}
 .fa-italic:before{content:"\f033"}
@@ -107,6 +111,7 @@
 .fa-magnifying-glass:before{content:"\f002"}
 .fa-chevron-down:before{content:"\f078"}
 .fa-list-ul:before{content:"\f0ca"}
+.fa-arrow-up:before{content:"\f062"}
 .fa-list-check:before{content:"\f0ae"}
 .fa-copy:before{content:"\f0c5"}
 .fa-plus:before{content:"\2b"}
@@ -124,6 +129,7 @@
 .fa-qrcode:before{content:"\f029"}
 .fa-clock-rotate-left:before{content:"\f1da"}
 .fa-moon:before{content:"\f186"}
+.fa-music:before{content:"\f001"}
 .fa-up-right-and-down-left-from-center:before{content:"\f424"}
 .fa-infinity:before{content:"\f534"}
 .fa-circle-plus:before,.fa-plus-circle:before{content:"\f055"}

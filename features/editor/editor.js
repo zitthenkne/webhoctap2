@@ -4,6 +4,7 @@ import { doc, getDoc, collection, serverTimestamp } from "https://www.gstatic.co
 import { setDocQ as setDoc } from '../../core/offline-write.js';
 import { onSessionUser, sessionUser } from '../../core/auth-session.js';
 import { getOfflineQuiz, autoCacheQuiz, isOfflineSavedSync } from '../quiz/quiz-offline-store.js';
+import { stampLocal } from '../quiz/quiz-fresh.js';
 import { showToast, showConfirm } from '../../core/utils.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -670,9 +671,9 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             if (quizId) {
                 await setDoc(doc(db, "quiz_sets", quizId), { ...quizData, ...payload, userId: user.uid, updatedAt: serverTimestamp() }, { merge: true });
-                setDoc(doc(db, "quiz_payloads", quizId), { userId: user.uid, isPublic: quizData?.isPublic !== false, questions: payload.questions, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
+                // (không còn ghi bản sao quiz_payloads — nhân đôi dung lượng + tải lên ở MỖI lần lưu tự động; production không dùng đường lùi này)
                 // Bản tải về máy phải theo kịp, không thì làm bài offline vẫn ra câu hỏi cũ
-                if (isOfflineSavedSync(quizId)) autoCacheQuiz(quizId, { ...quizData, ...payload, userId: user.uid });
+                if (isOfflineSavedSync(quizId)) autoCacheQuiz(quizId, { ...quizData, ...payload, userId: user.uid }).then(() => stampLocal(quizId));
             } else {
                 // Tạo id ngay trên máy (thay addDoc) → lưu được cả khi mất mạng, Firestore tự đẩy lên sau
                 const ref = doc(collection(db, "quiz_sets"));
@@ -680,7 +681,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     ...payload, userId: user.uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), folderId: null
                 });
                 quizId = ref.id;
-                setDoc(doc(db, "quiz_payloads", quizId), { userId: user.uid, isPublic: true, questions: payload.questions, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
                 // cập nhật URL để các lần lưu sau là chỉnh sửa, không tạo mới
                 const url = new URL(window.location.href);
                 url.searchParams.set('id', quizId);

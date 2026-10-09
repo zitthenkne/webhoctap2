@@ -6,6 +6,7 @@
 import { showToast } from '../../../core/utils.js';
 import { state, saveQuizState, MARK_REASONS } from '../quiz-state.js';
 import { persistMarkByText } from './quiz-study-sync.js';
+import { sfx } from './quiz-page-prefs.js';
 import { showQuestion } from './quiz-question-view.js';
 
 // Nút "Đánh dấu câu hỏi" nâng cao: bấm để mở menu chọn lý do (khó / tranh cãi / hay / ôn lại).
@@ -53,6 +54,7 @@ export function renderMarkControl() {
 
 // Cập nhật trạng thái đánh dấu của một câu theo lý do ('__unmark' để bỏ đánh dấu)
 export function applyMark(idx, reason) {
+    sfx(reason === '__unmark' ? 'unmark' : 'mark');
     if (reason === '__unmark') {
         state.markedQuestions = state.markedQuestions.filter(i => i !== idx);
         delete state.markedReasons[idx];

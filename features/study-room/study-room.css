@@ -2780,7 +2780,7 @@ body:not(.race-open) #race { display: none; }
 
 /* ═══════════════ BẢN 23 (2026-09-24): SẢNH & TỔNG KẾT BỚT LẶP ═══════════════ */
 /* Sảnh: tên phòng đã là tiêu đề băng-rôn, mã + chép link ở hàng mời -> chip đầu trang thừa */
-body:has(#quiz-lobby:not(.hidden)) #room-id-display { display: none; }
+body.rm-in-lobby #room-id-display { display: none; }
 
 /* Tổng kết: MỘT danh sách "Từng câu" (thay "Câu khó nhất" + dải tỉ lệ + "Nên bàn lại") */
 .rm-qstats { display: flex; flex-direction: column; gap: .3rem; }
@@ -3840,9 +3840,11 @@ body.on-board .rm-coach { display: none; }
 .rm-pres-st.is-ok { color: #fff; background: var(--rm-pick); }
 .rm-pres-st.is-ready { background: var(--rm-ok-bg); font-size: .56rem; }
 .rm-pres-st.is-think { display: flex; align-items: center; gap: 1.5px; padding: 0 .2rem; background: var(--rm-surface); box-shadow: 0 0 0 1.5px var(--rm-opt-line), 0 0 0 3px var(--rm-surface); }
-.rm-pres-st.is-think b { width: 3px; height: 3px; border-radius: 999px; background: var(--rm-muted); animation: rm-think 1.2s ease-in-out infinite; }
-.rm-pres-st.is-think b:nth-child(2) { animation-delay: .15s; }
-.rm-pres-st.is-think b:nth-child(3) { animation-delay: .3s; }
+/* Ba chấm "đang nghĩ" để TĨNH (độ đậm tăng dần): hoạt ảnh vô hạn dù chỉ 3 chấm 3px cũng bắt luồng chính tính style MỖI khung hình
+   (đo: ~5% luồng chính khi phòng đứng yên, máy yếu) và phòng nào cũng có vài bạn đang nghĩ. */
+.rm-pres-st.is-think b { width: 3px; height: 3px; border-radius: 999px; background: var(--rm-muted); opacity: .45; }
+.rm-pres-st.is-think b:nth-child(2) { opacity: .7; }
+.rm-pres-st.is-think b:nth-child(3) { opacity: 1; }
 @keyframes rm-think { 0%, 60%, 100% { transform: none; opacity: .5; } 30% { transform: translateY(-2px); opacity: 1; } }
 
 /* ---- 8. "Trong lúc bạn vắng" (khuôn thẻ .rm-late, nền bơ cho khác thẻ vào giữa buổi) ---- */
@@ -5513,7 +5515,7 @@ html.theme-dark .rm-vt.is-slow { color: #CDBBFF; background: #332c47; }
     #host-bar > .rm-host-btn.is-sec i { width: 1.9rem; height: 1.9rem; }
     #host-bar > .rm-host-chip span { display: none !important; }
 }
-body:has(#host-more.is-open) .rm-coach { opacity: 0 !important; }
+body.rm-host-more-open .rm-coach { opacity: 0 !important; }
 
 /* ═══════════════ BẢN 47 (2026-09-27): CẢM ỨNG / iPAD — HẾT CHỒNG LẤP THAO TÁC ═══════════════
    Người dùng: "kéo thanh chỉnh bố cục trên iPad thì bị chuyển câu luôn — tìm và sửa hết chồng lấp cảm ứng".
@@ -6711,7 +6713,7 @@ html.theme-dark .rm-sw::after { background: #f3e9ee; }
 }
 @media (prefers-reduced-motion: reduce) { .rm-sw, .rm-sw::after { transition: none; } }
 /* mở menu ⋮ thì thông báo nổi (mẹo, toast) nhường chỗ — trước đây nằm đè lên 2–3 mục đầu của menu */
-body:has(#room-menu:not(.hidden)) #toast-container { opacity: 0; pointer-events: none; transition: opacity .15s; }
+body.rm-menu-open #toast-container { opacity: 0; pointer-events: none; transition: opacity .15s; }
 
 /* ═══════════════ BẢN 62 (2026-10-06): CHẾ ĐỘ TẬP TRUNG làm đúng nghĩa ═══════════════
    Người dùng: "tập trung vào các tính năng trong ⋮, vd chế độ tập trung". Hiện trạng (đo bằng ảnh chụp): trên điện thoại nó HỎNG — cột câu hỏi co còn 32px (margin-inline:auto
@@ -6719,7 +6721,7 @@ body:has(#room-menu:not(.hidden)) #toast-container { opacity: 0; pointer-events:
    Nay: tập trung = chỉ còn ĐỀ + PHƯƠNG ÁN + tiến độ của riêng mình. Ẩn: đầu trang, lời ghim, bảng bên, chip trạng thái nhóm, dải đua, ghi chú meta, thẻ trạng thái + bàn luận + khay
    dưới từng ô, thông báo (chỉ giữ cảnh báo / lỗi), mặt người + % phiếu + thanh phiếu CỦA NHÓM trước khi chốt (đỡ bị dắt mũi theo số đông). Chốt rồi thì hiện lại (là kết quả).
    Thoát: chip góc màn hình, phím Z hoặc Esc. Chỉ áp dụng ở màn LÀM BÀI (sảnh / tổng kết giữ nguyên). */
-body.zen:has(#quiz-live:not(.hidden)) > header.rm-bar { display: none; }
+body.zen.has-quiz > header.rm-bar { display: none; }
 body.zen #pinned-note, body.zen #stage-tabs, body.zen #side-panel, body.zen #split-side, body.zen #reaction-layer, body.zen .rm-coach, body.zen .rm-late,
 body.zen #quiz-live .rm-race, body.zen #quiz-live .rm-col-side, body.zen #quiz-live .rm-mobile-banner, body.zen #quiz-live .rm-qmeta,
 body.zen #quiz-live .rm-statuscard, body.zen #quiz-live .rm-hub, body.zen #quiz-live .rm-odisc, body.zen #quiz-live #game-bar, body.zen #quiz-live #hud-opts,
@@ -6745,9 +6747,9 @@ body.zen #quiz-live .rm-col-main { box-shadow: 0 30px 60px -34px rgba(190, 90, 1
     color: var(--tb-6i, #6B4FB8); background: color-mix(in srgb, var(--rm-lav) 30%, var(--rm-paper));
 }
 .rm-zen-chip:active { translate: 0 1px; }
-body.zen:has(#quiz-live:not(.hidden)) .rm-zen-chip { display: inline-flex; animation: rm-pop-in .3s var(--rm-spring) backwards; }
+body.zen.has-quiz .rm-zen-chip { display: inline-flex; animation: rm-pop-in .3s var(--rm-spring) backwards; }
 @media (max-width: 767px) { .rm-zen-chip { top: auto; bottom: calc(4.9rem + env(safe-area-inset-bottom, 0px)); right: .75rem; } }
-@media (prefers-reduced-motion: reduce) { body.zen:has(#quiz-live:not(.hidden)) .rm-zen-chip { animation: none; } }
+@media (prefers-reduced-motion: reduce) { body.zen.has-quiz .rm-zen-chip { animation: none; } }
 body.zen #quiz-live #notebook, body.zen #quiz-live .rm-quiz-footer { display: none !important; }
 
 /* ═══════════════ BẢN 63 (2026-10-06): TÌM CÂU (Ctrl K / ⋮ → Tìm câu) ═══════════════
@@ -6813,9 +6815,64 @@ html.theme-dark .rm-speakbar button { background: var(--rm-surface-2); }
    Trước đây thanh cuộn, ô chọn <select>, nút tích, vùng kéo quá đà (iOS) và bàn phím vẫn sáng khi trang tối. */
 html { color-scheme: light; }
 html.theme-dark { color-scheme: dark; }
-@media (max-width: 767px) { body:has(.rm-speakbar:not(.hidden)) #toast-container { bottom: calc(8.8rem + env(safe-area-inset-bottom, 0px)); } }      /* thông báo nằm TRÊN thanh nghe đọc, không đè lên nó */
+@media (max-width: 767px) { body.rm-speaking #toast-container { bottom: calc(8.8rem + env(safe-area-inset-bottom, 0px)); } }      /* thông báo nằm TRÊN thanh nghe đọc, không đè lên nó */
 
 /* ═══════════════ BẢN 68 (2026-10-06): HỘP THOẠI CHUNG — tiêu điểm vào hộp (room-polish initModals) ═══════════════ */
 .rm-modal-box:focus { outline: none; }
 .rm-modal-x:focus-visible { outline: 2px solid var(--rm-pick); outline-offset: 2px; }
 .rm-modal input[type=checkbox]:focus-visible { outline: 2px solid var(--rm-pick); outline-offset: 2px; }
+
+/* ═══════════════ BẢN 71 (2026-10-07): YÊN & RÕ — bớt thứ giành mắt, giữ nguyên nét dễ thương ═══════════════
+   Người dùng: "trực quan, đỡ rối, đỡ phân tâm, đừng mất dễ thương". Đo trên demo (1440, đã chọn B, chưa lộ đáp án): cùng lúc có ~6 thứ nhấp nháy
+   (nút Hiện đáp án, bước "Ghi lý do", ✦ ô đúng, viền người đang gõ, chip "đợi mình", chuông dock), 2 thông báo Mẹo chồng lên thanh câu, khay "Lý do của bạn"
+   cao 187px chỉ vì placeholder 2 dòng, dãy cược ×2 ×3 to ngang nút chính, 3 chip mục sổ tay còn KHÓA chiếm cả hàng trước khi có gì để mở.
+   Quy tắc: (1) chuyển động chỉ để báo việc GẤP (đồng hồ sắp hết, ✋ giơ tay); "nên bấm gì" = viền TĨNH. (2) thứ chỉ để tham khảo lùi xuống nền,
+   thứ nhóm cần biết (muốn bàn, cảnh báo) giữ nguyên. (3) mỗi ô gõ một câu hỏi ngắn. */
+html .rm-host-btn.is-suggest { animation: none; outline: 3px solid color-mix(in srgb, var(--rm-accent) 55%, transparent); outline-offset: 2px; }
+html :is(.rm-dock-btn.has-coach i, .rm-step4.is-next, .rm-vt.is-slow, .rm-ocard > .rm-option.correct::after) { animation: none; }
+html .rm-pres.is-editing .rm-avatar { animation: none; box-shadow: 0 0 0 2.5px var(--rm-surface), 0 0 0 5px color-mix(in srgb, var(--rc) 55%, transparent); }
+html .rm-qchip:not(.is-warn):not(.is-info):not(.is-edit) { padding-inline: .1rem; font-weight: 500; background: none; border-color: transparent; }   /* nhãn chủ đề / mức độ: chữ mờ, không viên */
+html .rm-conf-b:is(.is-2, .is-3):not(.on) { opacity: .55; }                                                                                        /* cược là món phụ, nút chính là Đoán / Chắc */
+html .rm-conf:is(:hover, :focus-within) .rm-conf-b { opacity: 1; }
+html .rm-notebook .rm-nb-toc:not(:has(.rm-toc:not(.is-lock):not(.is-mine))) { display: none; }                                                    /* toàn mục còn khóa -> chưa cần mục lục */
+
+/* ═══════════════ BẢN 72 (2026-10-07): BỐ CỤC — chọn xong vẫn thấy đủ 4 phương án; nhãn nổi không đè ô bên cạnh ═══════════════
+   Người dùng: "bố cục các thứ nè, nâng cấp đi". Đo ở 1366×768 (laptop phổ biến): chọn B xong, khay của B cao 551px (lý do + cả luồng bàn luận + ô nhận xét thứ hai)
+   -> C, D tụt khỏi màn hình, thẻ trạng thái ở y≈1280. Nay luồng bàn luận gập mặc định ở MỌI ô (như C), chỉ ô đã chốt mở sẵn; nhãn "Số đông · Bạn chọn"
+   (dán mép trên thẻ) chừa chỗ riêng thay vì đè mép ô phía trên; sổ tay bớt chữ hướng dẫn; điện thoại: "Sửa chữ B" thành nút ✏️ nằm chung hàng tiêu đề khay. */
+html .rm-opts > .rm-ocard:has(> .rm-tags) { margin-top: .7rem; }
+@media (max-width: 640px) {
+    html .rm-otalk-mine .rm-touch-edit { font-size: 0 !important; padding: .3rem .55rem; }   /* !important: luật sàn cỡ chữ 11px của máy cảm ứng (:is(...)) thắng độ ưu tiên */
+    html .rm-otalk-mine .rm-touch-edit::before { content: '✏️'; font-size: .82rem; }
+}
+/* Đầu trang: nút "👥 n" và ray "Nhóm" cùng mở một bảng -> khi ray hiện thì bỏ nút trùng ở header (vẫn còn mặt người + Mời) */
+@media (min-width: 768px) { body.side-rail #online-pill { display: none; } }
+/* Dưới đề: chip chủ đề/nhóm và nguồn sách chung MỘT hàng (trước: 2 hàng, ~26px) */
+@media (min-width: 768px) { html .rm-qmeta { flex-direction: row; flex-wrap: wrap; align-items: center; gap: .3rem .85rem; } }
+/* Thẻ trạng thái: "x/N đã chọn + chip" và hàng chip đoán/cược cùng một hàng khi đủ chỗ (trước: 2 hàng) */
+html #consensus-bar:not(.hidden) { display: flex; flex-wrap: wrap; align-items: center; column-gap: .55rem; }
+html #consensus-bar > .rm-vprog { flex: 1 1 100%; }
+html #consensus-bar > .rm-vote-head { flex: 1 1 auto; }
+html #consensus-bar > .rm-vote-team { flex: 0 1 auto; margin-top: .5rem; }
+
+/* ═══════════════ BẢN 73 (2026-10-07): TIỆN ÍCH — đề luôn trong tầm mắt khi cuộn, mục lục sổ tay 1 hàng, gợi ý không đè đề ═══════════════
+   Cuộn xuống đọc khay/bàn luận thì HUD hiện A B C D mini (bản 32) NHƯNG không còn thấy đề hỏi gì -> thêm "Câu n + đề rút gọn" đứng trước, bấm = cuộn về đề (≥1024; điện thoại HUD đã chật).
+   Bong bóng gợi ý của chủ trì hẹp hơn (đè đầu đề ở 1024–1366). Mục lục sổ tay: 4 chip vừa một hàng ở cột 416px (trước: 3 + 1). */
+.rm-hudq { display: none; }
+@media (min-width: 1024px) {
+    body.opts-away .rm-hudopts:not(.hidden) .rm-hudq {
+        display: inline-block; max-width: 13rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left;
+        padding: .25rem .6rem; margin-right: .15rem; border-radius: 999px; font-size: .72rem; font-weight: 500; color: var(--rm-muted);
+        background: color-mix(in srgb, var(--rm-surface) 80%, transparent); border: 1px dashed var(--rm-line-soft);
+    }
+    body.opts-away .rm-hudq b { color: var(--rm-accent-deep); font-weight: 700; }
+    body.opts-away .rm-hudq:hover { color: var(--rm-ink); border-color: var(--rm-accent); }
+}
+html .rm-notebook .rm-nb-toc { gap: .25rem; }
+html .rm-notebook .rm-toc { padding: .2rem .5rem .2rem .38rem; }
+@media (min-width: 1024px) { html .rm-coach.is-side { max-width: 15rem; } }
+
+/* ═══════════════ BẢN 74 (2026-10-07): sổ tay — chip lập luận chỉ lộ khi cần ═══════════════
+   Khay "Lý do của bạn" (ngay dưới ô chọn) và ô "Giải thích" của sổ tay cùng bày hàng Cơ chế/Loại trừ/Theo/Mẹo nhớ khi trống -> 2 hàng y hệt nhau trên một màn.
+   Giữ hàng ở khay ô (việc chính); ô sổ tay chỉ hiện khi đang gõ trong ô, hoặc đang mở một khối (chip .on). */
+html .rm-hub-exp.is-empty:not(:has(> .rm-md:focus)):not(:has(.rm-why-tpl.on)) .rm-why-tools { display: none; }

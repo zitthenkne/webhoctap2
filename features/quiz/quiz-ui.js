@@ -1,12 +1,13 @@
 // features/quiz/quiz-ui.js
 
 import { state, MARK_REASONS } from './quiz-state.js';
-import { scrollBehaviorFor } from './page/quiz-page-prefs.js';
+import { scrollBehaviorFor, sfx, getVibrate } from './page/quiz-page-prefs.js';
 import { parseMarkdown, renderMath, convertScoreToGPA, formatTime, triggerConfetti, stripOptionLabels, isAnswerCorrect, getCorrectIndexes, answerCredit, sessionScore } from './quiz-helpers.js';
 import { previewSrsCounts, getNewPerDay, setNewPerDay } from './quiz-srs-store.js';
 import { caseCellClass } from './page/quiz-cases.js';
 import { isEssay, isPendingEssay, isEssayGraded, needsReview, questionWeight } from './quiz-essay-core.js';
 import { essayReviewHtml } from './page/quiz-essay.js';
+import { readNotes, noteTagsOf, noteTextHtml } from './page/quiz-notes-panel.js';
 import { onSessionUser, sessionUser } from '../../core/auth-session.js';
 import { showToast } from '../../core/utils.js';
 import { wrongItemsMarkdown, wrongItemsCsv } from './quiz-export.js';
@@ -55,9 +56,19 @@ function navMarkHtml(rk) {
     const mc = (MARK_REASONS[rk] && MARK_REASONS[rk].color) || '#eab308';
     return `<span class="quiz-nav-flag" style="background:${mc}"></span>`;
 }
-// Lớp đầy đủ của một ô: trạng thái + nối nhóm ca lâm sàng (in-case/case-first/case-last)
+// Bản đồ ghi chú đọc MỘT lần mỗi lần vẽ/đồng bộ bảng (không đọc lại cho từng ô)
+let _noteMap = {};
+function navHasNote(i) {
+    const q = state.questions[i];
+    return !!(q && String(_noteMap[q.question] || '').trim());
+}
+function navHasStar(i) {
+    const q = state.questions[i];
+    return !!(q && String(_noteMap[q.question] || '').includes('⭐'));   // ghi chú gắn nhãn Quan trọng → chấm vàng thay vì oải hương
+}
+// Lớp đầy đủ của một ô: trạng thái + nối nhóm ca lâm sàng (in-case/case-first/case-last) + có ghi chú
 function navCellClass(i) {
-    return ['quiz-nav-btn', navStateClass(i), caseCellClass(state.questions[i])].filter(Boolean).join(' ');
+    return ['quiz-nav-btn', navStateClass(i), caseCellClass(state.questions[i]), navHasNote(i) ? 'has-note' : '', navHasStar(i) ? 'has-star' : ''].filter(Boolean).join(' ');
 }
 function navCellHtml(i, rk) {
     return `<span class="quiz-nav-num">${i + 1}</span>${navMarkHtml(rk)}`;
@@ -66,6 +77,7 @@ function navCellHtml(i, rk) {
 // Dựng lại toàn bộ bảng — chỉ gọi khi SỐ câu thay đổi (vào phiên mới).
 export function renderQuizProgressBar() {
     const total = state.questions.length;
+    _noteMap = readNotes();
     let navHtml = '';
     for (let i = 0; i < total; i++) {
         const rk = navMarkKey(i);
@@ -89,6 +101,7 @@ export function renderQuizProgressBar() {
                 <span class="lg-when-now"><i class="lg-ok"></i>Đúng</span>
                 <span class="lg-when-now"><i class="lg-bad"></i>Sai</span>
                 <span><i class="lg-flag"></i>Đánh dấu</span>
+                <span><i class="lg-note"></i>Ghi chú</span>
             </div>
         </div>
     `;
@@ -99,6 +112,7 @@ export function renderQuizProgressBar() {
 export function syncQuizNavPanel() {
     const wrap = document.getElementById('question-nav-wrapper');
     if (!wrap) return;
+    _noteMap = readNotes();
     const total = state.questions.length;
     const answered = state.userAnswers.filter(a => a !== null && a !== undefined).length;
     const percent = total > 0 ? Math.round((answered / total) * 100) : 0;
@@ -323,7 +337,6 @@ export function showResults(totalTime, opts = {}) {
     const wrongCount = answeredCount - correctCount - pendingCount;
 
     const percentage = scoreMax > 0 ? (scoreSum / scoreMax) * 100 : 0;
-    const percentageStr = percentage.toFixed(1);
     const gpaResult = convertScoreToGPA(scoreSum, scoreMax);
     const { score4: gpa4, letterGrade, motivation, score10 } = gpaResult;
     const incorrectCount = total - correctCount - pendingCount;
@@ -337,25 +350,52 @@ export function showResults(totalTime, opts = {}) {
         const info = state._srsSessionInfo || {};
         const newPart = info.newCount ? ` (trong đó ${info.newCount} câu mới bắt đầu học)` : '';
         srsSummaryHtml = `
-            <div class="mt-6 p-5 bg-gradient-to-r from-indigo-500/10 to-violet-500/10 border-2 border-indigo-300/70 rounded-2xl flex items-center gap-4 text-left shadow-md">
-                <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-400 to-violet-500 text-white flex items-center justify-center shadow-lg flex-shrink-0">
-                    <i class="fas fa-calendar-check text-xl"></i>
-                </div>
-                <div>
-                    <h4 class="font-extrabold text-indigo-800 text-base sm:text-lg">Đã hẹn lịch ôn ngắt quãng</h4>
-                    <p class="text-xs sm:text-sm text-gray-700 font-medium mt-1">
-                        <span class="text-green-600 font-bold">${correctCount} câu đúng</span> được giãn ra xa hơn,
-                        <span class="text-red-500 font-bold">${wrongCount} câu sai</span> sẽ quay lại trong hôm nay${newPart}.
-                        Chuông thông báo sẽ báo khi có câu đến hạn.
-                    </p>
+            <div class="res-banner is-srs">
+                <span class="res-banner-ic" aria-hidden="true"><i class="fas fa-calendar-check"></i></span>
+                <div class="res-banner-txt">
+                    <h4>Đã hẹn lịch ôn ngắt quãng</h4>
+                    <p><b class="is-ok">${correctCount} câu đúng</b> được giãn ra xa hơn, <b class="is-bad">${wrongCount} câu sai</b> sẽ quay lại trong hôm nay${newPart}. Chuông thông báo sẽ báo khi có câu đến hạn.</p>
                 </div>
             </div>`;
     }
 
-    // Màu sắc theo thành tích
-    let ringColor = '#ef4444', ringBg = '#fee2e2';
-    if (percentage >= 80) { ringColor = '#22c55e'; ringBg = '#dcfce7'; }
-    else if (percentage >= 50) { ringColor = '#f59e0b'; ringBg = '#fef3c7'; }
+    // Tông theo ĐIỂM HỆ 4: ≥ 3,0 (B trở lên) xanh lá · ≥ 2,0 (C, C+) vàng · thấp hơn đỏ. Màu lấy từ biến CSS (.tone-ok/mid/low) nên đúng cả chế độ tối.
+    const tone = gpa4 >= 3 ? 'ok' : gpa4 >= 2 ? 'mid' : 'low';
+    const fmt1 = (n) => Number(n).toFixed(1).replace('.', ',');                       // 3,5 · 4,0
+    const fmt2 = (n) => String(Number(Number(n).toFixed(2))).replace('.', ',');       // 8,13 · 8,5 · 10
+    // Thang điểm hệ 4 của UMP (đúng ngưỡng trong convertScoreToGPA): [chữ, điểm hệ 4, từ bao nhiêu điểm hệ 10]. A+ cùng 4,0 với A (từ 9,5).
+    const LADDER = [['F', 0, 0], ['D', 1, 4], ['D+', 1.5, 5], ['C', 2, 5.5], ['C+', 2.5, 6.5], ['B', 3, 7], ['B+', 3.5, 8], ['A', 4, 8.5]];
+    const nowIdx = letterGrade === 'A+' ? LADDER.length - 1 : Math.max(0, LADDER.findIndex(l => l[0] === letterGrade));
+    const ladderHtml = LADDER.map((l, i) => {
+        const cls = i < nowIdx ? 'is-passed' : i === nowIdx ? 'is-now' : i === nowIdx + 1 ? 'is-next' : '';
+        const lab = i === nowIdx && letterGrade === 'A+' ? 'A+' : l[0];
+        return `<li class="rs-scale-step ${cls}" title="${l[0]} = ${fmt1(l[1])} điểm hệ 4 · từ ${fmt1(l[2])} điểm hệ 10"${i === nowIdx ? ' aria-current="true"' : ''}><span>${lab}</span></li>`;
+    }).join('');
+    // Bước kế tiếp: còn thiếu bao nhiêu câu đúng để lên nấc trên (chỉ tính được khi mọi câu cùng trọng số; có tự luận/điểm riêng thì nêu ngưỡng hệ 10)
+    const nextStep = letterGrade === 'A' ? ['A+', 4, 9.5] : (letterGrade !== 'A+' && nowIdx < LADDER.length - 1 ? LADDER[nowIdx + 1] : null);
+    let nextHint = '';
+    if (nextStep) {
+        let need = 0;
+        if (!hasEssay && !weighted) {
+            for (let e = 1; e <= total - correctCount; e++) { if (convertScoreToGPA(correctCount + e, total).score10 >= nextStep[2]) { need = e; break; } }
+        }
+        nextHint = need
+            ? `Đúng thêm <b>${need} câu</b> nữa là lên <b>${nextStep[0]}</b> <span>(từ ${fmt1(nextStep[2])} điểm hệ 10)</span>`
+            : `Cần từ <b>${fmt1(nextStep[2])}</b> điểm hệ 10 để lên <b>${nextStep[0]}</b>`;
+    }
+    const tileMain = (hasEssay || weighted) ? `${fmtNum(scoreSum)}/${fmtNum(scoreMax)}` : `${correctCount}/${total}`;
+    const tileKey = (hasEssay || weighted) ? 'Điểm' : 'Câu đúng';
+    // Sao/tim dán quanh dấu điểm (chỉ là hình trang trí, không chữ): giỏi nhiều hơn, vừa một ngôi sao, thấp không có
+    const sparkHtml = tone === 'ok'
+        ? `<i class="nb-doodle nb-doodle-star rs2-spark sp1" aria-hidden="true"></i><i class="nb-doodle nb-doodle-star rs2-spark sp2" aria-hidden="true"></i><i class="nb-doodle nb-doodle-heart rs2-spark sp3" aria-hidden="true"></i>${letterGrade === 'A+' ? '<i class="nb-doodle nb-doodle-star rs2-spark sp4" aria-hidden="true"></i>' : ''}`
+        : tone === 'mid' ? '<i class="nb-doodle nb-doodle-star rs2-spark sp1" aria-hidden="true"></i>' : '';
+    // Dòng ngữ cảnh như nhãn phiếu: tên bộ đề · ngày · loại phiên
+    const escMeta = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const modeName = state.quizMode === 'srs' ? 'Ôn ngắt quãng' : state.quizMode === 'practice' ? 'Ôn câu sai' : '';
+    const metaTitle = (state.quizData && state.quizData.title) || '';
+    const metaHtml = metaTitle
+        ? `<p class="rs2-meta" title="${escMeta(metaTitle)}"><i class="fas fa-book-open" aria-hidden="true"></i><span>${escMeta(metaTitle)}</span><em>${new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}${modeName ? ' · ' + modeName : ''}</em></p>`
+        : '';
 
     // --- So sánh với lần làm trước (đọc cache đã đồng bộ từ thư viện — cache chỉ được
     // cập nhật ở lần đồng bộ SAU nên lúc này vẫn còn giữ kết quả của lần trước) ---
@@ -391,7 +431,7 @@ export function showResults(totalTime, opts = {}) {
 
     const radius = 52;
     const circumference = 2 * Math.PI * radius;
-    const dashOffset = circumference * (1 - percentage / 100);
+    const dashOffset = circumference * (1 - Math.max(0.012, gpa4 / 4));   // vòng = điểm hệ 4 trên thang 4 (không còn là % đúng)
 
     // --- Thống kê theo chủ đề (chỉ hiện khi có từ 2 chủ đề trở lên) ---
     const topicStats = {};
@@ -451,6 +491,9 @@ export function showResults(totalTime, opts = {}) {
     const markedSet = new Set(state.markedQuestions || []);
     const markedReasons = state.markedReasons || {};
     const markedCount = markedSet.size;
+    // Ghi chú của chính người làm (quiz_notes_<id>) hiện ngay trong chi tiết từng câu + bộ lọc "Có ghi chú" / "Hỏi lại"
+    const myNotes = readNotes();
+    let noteItemCount = 0, askItemCount = 0;
 
     // Trạng thái hiển thị của một câu ở màn kết quả (dùng chung cho danh sách chi tiết + bản đồ kết quả)
     const resultStatus = (q, ua) => {
@@ -485,6 +528,11 @@ export function showResults(totalTime, opts = {}) {
 
         const markReasonKey = markedSet.has(index) ? (markedReasons[index] || 'review') : '';
         const mr = markReasonKey ? MARK_REASONS[markReasonKey] : null;
+        const myNote = String(myNotes[q.question] || '').trim();
+        const askNote = !!myNote && noteTagsOf(myNote).has('Hỏi lại');
+        if (myNote) noteItemCount++;
+        if (askNote) askItemCount++;
+        const noteBadge = myNote ? `<span class="q-note-badge" title="Bạn có ghi chú cho câu này"><i class="fas fa-sticky-note"></i> Ghi chú${askNote ? ' · hỏi lại' : ''}</span>` : '';
         const markBadge = mr ? `<span class="q-mark-badge" style="background:${mr.bg};color:${mr.text}" title="Đã đánh dấu: ${mr.label}"><i class="fas ${mr.icon}"></i> ${mr.short}</span>` : '';
 
         // Ca lâm sàng: chip nhận diện ở tiêu đề + tình huống (thu gọn) trong phần chi tiết.
@@ -500,7 +548,7 @@ export function showResults(totalTime, opts = {}) {
                 </details>` : '';
 
         return `
-        <div class="result-item rounded-xl border ${cfg.wrap} overflow-hidden transition-all" data-status="${status}" data-ridx="${index}" data-marked="${markReasonKey}"${essay && needsReview(q, userAnswerIndex) ? ' data-review="1"' : ''}>
+        <div class="result-item rounded-xl border ${cfg.wrap} overflow-hidden transition-all" data-status="${status}" data-ridx="${index}" data-marked="${markReasonKey}"${essay && needsReview(q, userAnswerIndex) ? ' data-review="1"' : ''}${myNote ? ' data-note="1"' : ''}${askNote ? ' data-ask="1"' : ''}>
             <div class="result-header flex items-start gap-2.5 p-3 cursor-pointer select-none" role="button" tabindex="0" aria-expanded="false">
                 <i class="fas ${cfg.icon} text-lg flex-shrink-0 mt-0.5"></i>
                 <div class="flex-1 min-w-0">
@@ -514,6 +562,7 @@ export function showResults(totalTime, opts = {}) {
                         ${state.confidence && state.confidence[index] === 'guess' ? `<span class="q-guess-badge" title="Bạn đã đánh dấu là đoán"><i class="fas fa-dice"></i> Đoán</span>` : ''}
                         ${caseBadge}
                         ${markBadge}
+                        ${noteBadge}
                     </div>
                     <div class="result-question text-sm text-gray-700 line-clamp-2">${parseMarkdown(q.question)}</div>
                 </div>
@@ -536,6 +585,7 @@ export function showResults(totalTime, opts = {}) {
                     <span class="font-semibold text-gray-700"><i class="fas fa-lightbulb text-amber-400 mr-1"></i>Giải thích:</span> ${parseMarkdown(explanationText)}
                 </div>` : ''}
                 ${essay ? '' : studyExtrasHtml(q)}
+                ${myNote ? `<div class="result-note"><div class="result-note-head"><i class="fas fa-sticky-note"></i> Ghi chú của bạn</div><div class="result-note-body">${noteTextHtml(myNote)}</div></div>` : ''}
             </div>
         </div>`;
     }).join('');
@@ -563,51 +613,37 @@ export function showResults(totalTime, opts = {}) {
             </div>` : '';
 
     resultsSection.innerHTML = `
-        <!-- Thẻ tổng kết -->
-        <div class="bg-white rounded-3xl shadow-xl p-6 sm:p-8 fade-in border border-pink-100/60">
-            <div class="flex flex-col md:flex-row items-center gap-6 md:gap-10">
-                <!-- Con dấu chấm điểm: vòng phần trăm + điểm chữ, đóng nghiêng như dấu mực -->
-                <div class="result-stamp relative flex-shrink-0" style="--stamp:${ringColor}">
-                    <svg width="150" height="150" viewBox="0 0 120 120" class="-rotate-90">
-                        <circle cx="60" cy="60" r="${radius}" fill="none" stroke="${ringBg}" stroke-width="12" />
-                        <circle id="result-ring" cx="60" cy="60" r="${radius}" fill="none" stroke="${ringColor}" stroke-width="12" stroke-linecap="round"
+        <!-- Phiếu điểm: ĐIỂM HỆ 4 là số to nhất; dưới là thang điểm cho biết mình đứng ở đâu + còn thiếu bao nhiêu để lên nấc -->
+        <div class="bg-white rounded-3xl shadow-xl p-6 sm:p-8 fade-in border border-pink-100/60${gpa4 >= 3.5 ? ' is-great' : ''}">
+            <div class="rs2 tone-${tone}">
+                <div class="rs2-stamp" role="img" aria-label="Điểm hệ 4: ${fmt1(gpa4)} trên 4, xếp loại ${letterGrade}">
+                    <svg class="rs2-ring" viewBox="0 0 120 120" aria-hidden="true">
+                        <circle class="rs2-ring-track" cx="60" cy="60" r="${radius}" fill="none" stroke-width="11" />
+                        <circle class="rs2-stitch" cx="60" cy="60" r="${radius - 9}" fill="none" stroke-width="1.6" stroke-dasharray="2 5" />
+                        <circle id="result-ring" class="rs2-ring-bar" cx="60" cy="60" r="${radius}" fill="none" stroke-width="11" stroke-linecap="round"
                             stroke-dasharray="${circumference.toFixed(2)}" stroke-dashoffset="${circumference.toFixed(2)}"
                             style="transition: stroke-dashoffset 1.2s ease-out;" />
+                        <g id="result-head" class="rs2-head" style="transform: rotate(0deg); transform-origin: 60px 60px; transition: transform 1.2s ease-out;"><circle class="rs2-bead" cx="${60 + radius}" cy="60" r="6.4" stroke-width="3" /></g>
                     </svg>
-                    <div class="absolute inset-0 flex flex-col items-center justify-center">
-                        <span class="rs-grade" style="color:${ringColor}">${letterGrade}</span>
-                        <span id="result-pct" class="rs-pct font-extrabold" style="color:${ringColor}">0%</span>
-                        <span class="text-xs text-gray-400 font-medium">${scoreLabel}</span>
+                    ${sparkHtml}
+                    <div class="rs2-core">
+                        <span class="rs2-eyebrow">Điểm hệ 4</span>
+                        <span class="rs2-gpa"><b id="result-gpa4">${fmt1(gpa4)}</b><i>/4</i></span>
                     </div>
+                    <span id="result-letter" class="rs2-letter">${letterGrade}</span>
                 </div>
-                <!-- Thông tin tổng kết -->
-                <div class="flex-1 text-center md:text-left w-full">
-                    <h2 class="text-2xl sm:text-3xl font-extrabold text-gray-800 mb-1">Kết quả bài làm</h2>
-                    <p class="text-pink-600 font-semibold ${deltaHtml ? 'mb-2' : 'mb-4'}">${motivation}</p>
-                    ${deltaHtml ? `<div class="flex justify-center md:justify-start mb-4">${deltaHtml}</div>` : ''}
-                    <div class="res-ticket grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-                        <div class="bg-green-50 border border-green-100 rounded-xl px-3 py-2 text-center">
-                            <div class="text-lg font-bold text-green-600">${correctCount}</div>
-                            <div class="text-[11px] text-gray-500 font-medium">Đúng</div>
-                        </div>
-                        <div class="bg-red-50 border border-red-100 rounded-xl px-3 py-2 text-center">
-                            <div class="text-lg font-bold text-red-500">${wrongCount}</div>
-                            <div class="text-[11px] text-gray-500 font-medium">Sai</div>
-                        </div>
-                        <div class="bg-gray-50 border border-gray-100 rounded-xl px-3 py-2 text-center">
-                            <div class="text-lg font-bold text-gray-500">${unansweredCount}</div>
-                            <div class="text-[11px] text-gray-500 font-medium">Bỏ trống</div>
-                        </div>
-                        <div class="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 text-center">
-                            <div class="text-lg font-bold text-blue-500">${formatTime(totalTime)}</div>
-                            <div class="text-[11px] text-gray-500 font-medium">Thời gian${total > 0 && totalTime > 0 ? ` · TB ${formatTime(Math.round(totalTime / total))}/câu` : ''}</div>
-                        </div>
+                <div class="rs2-info">
+                    <h2 class="rs2-title">Kết quả bài làm</h2>
+                    ${metaHtml}
+                    <p class="rs2-sub">${motivation}</p>
+                    <ol class="rs2-scale" aria-label="Thang điểm hệ 4">${ladderHtml}</ol>
+                    ${nextHint ? `<p class="rs2-next"><i class="fas fa-arrow-up" aria-hidden="true"></i> ${nextHint}</p>` : ''}
+                    <div class="rs2-tiles">
+                        <div class="rs2-tile is-sky"><span class="rs2-k">Điểm hệ 10</span><b>${fmt2(score10)}</b></div>
+                        <div class="rs2-tile is-mint"><span class="rs2-k">${tileKey}</span><b>${tileMain}</b><small>${fmtNum(Math.round(percentage * 10) / 10)}% · ${wrongCount} sai${unansweredCount ? ` · ${unansweredCount} bỏ trống` : ''}</small></div>
+                        <div class="rs2-tile is-butter"><span class="rs2-k">Thời gian</span><b>${formatTime(totalTime)}</b>${total > 0 && totalTime > 0 ? `<small>TB ${formatTime(Math.round(totalTime / total))}/câu</small>` : ''}</div>
                     </div>
-                    <div class="flex flex-wrap justify-center md:justify-start gap-2">
-                        <span class="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-sm font-semibold border border-blue-100">Hệ 4: <b>${gpa4}</b></span>
-                        <span class="inline-flex items-center gap-1.5 bg-green-50 text-green-700 px-3 py-1.5 rounded-full text-sm font-semibold border border-green-100">Hệ 10: <b>${score10}</b></span>
-                        ${guessTotal > 0 ? `<span class="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 px-3 py-1.5 rounded-full text-sm font-semibold border border-amber-100" title="Câu bạn tự nhận là đoán — trúng nhờ may mắn thì vẫn nên ôn lại"><i class="fas fa-dice"></i> Đoán trúng <b>${guessRight}/${guessTotal}</b></span>` : ''}
-                    </div>
+                    ${(deltaHtml || guessTotal > 0) ? `<div class="rs2-chips">${deltaHtml}${guessTotal > 0 ? `<span class="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 px-3 py-1 rounded-full text-xs font-bold border border-amber-100" title="Câu bạn tự nhận là đoán — trúng nhờ may mắn thì vẫn nên ôn lại"><i class="fas fa-dice"></i> Đoán trúng <b>${guessRight}/${guessTotal}</b></span>` : ''}</div>` : ''}
                 </div>
             </div>
 
@@ -624,61 +660,52 @@ export function showResults(totalTime, opts = {}) {
                 <button type="button" id="essay-grade-now">Xem lại ngay</button>
             </div>` : ''}
 
-            <!-- Instant Redo Loop Banner -->
+            <!-- Việc tiếp theo -->
             ${showPracticeButton ? `
-            <div class="mt-6 p-5 sm:p-6 bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-red-500/10 border-2 border-amber-400/80 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-md transition-all duration-300">
-                <div class="flex items-center gap-4 text-left">
-                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-lg flex-shrink-0">
-                        <i class="fas fa-rotate-right text-2xl"></i>
-                    </div>
-                    <div>
-                        <h4 class="font-extrabold text-gray-800 text-lg sm:text-xl">Ôn lại câu sai</h4>
-                        <p class="text-xs sm:text-sm text-gray-700 font-medium mt-1">Có <span class="text-red-600 font-extrabold text-base">${incorrectCount} câu</span> sai hoặc bỏ trống. ${isSrs ? 'Học lại ngay không tính vào lịch ôn — lịch vẫn giữ nguyên hẹn của phiên vừa rồi.' : 'Làm lại riêng các câu này khi lời giải còn mới trong đầu.'}</p>
-                    </div>
+            <div class="res-banner is-practice">
+                <span class="res-banner-ic" aria-hidden="true"><i class="fas fa-rotate-right"></i></span>
+                <div class="res-banner-txt">
+                    <h4>Ôn lại câu sai</h4>
+                    <p>${incorrectCount} câu sai hoặc bỏ trống. ${isSrs ? 'Học lại ngay không tính vào lịch ôn — lịch vẫn giữ nguyên hẹn của phiên vừa rồi.' : 'Làm lại riêng các câu này khi lời giải còn mới.'}</p>
                 </div>
-                <button id="practiceIncorrectBtn" class="w-full md:w-auto px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl shadow-[0_8px_20px_rgba(245,158,11,0.4)] hover:scale-[1.03] active:scale-[0.98] transition-all font-extrabold text-sm sm:text-base flex items-center justify-center gap-2.5 flex-shrink-0">
-                    <i class="fas fa-redo-alt"></i> Làm lại ${incorrectCount} câu sai
-                </button>
+                <button id="practiceIncorrectBtn" type="button" class="res-banner-go"><i class="fas fa-redo-alt"></i> Làm lại ${incorrectCount} câu sai</button>
             </div>` : reviewCount ? '' : `
-            <div class="mt-6 p-5 sm:p-6 bg-gradient-to-r from-green-500/15 to-emerald-500/15 border-2 border-green-400/80 rounded-2xl flex items-center gap-4 text-left shadow-md">
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-400 to-emerald-500 text-white flex items-center justify-center shadow-lg flex-shrink-0">
-                    <i class="fas fa-trophy text-2xl"></i>
-                </div>
-                <div>
-                    <h4 class="font-extrabold text-green-800 text-lg sm:text-xl">Đúng toàn bộ ${total} câu</h4>
-                    <p class="text-xs sm:text-sm text-green-700 font-medium mt-1">Không có câu sai hay bỏ trống trong phiên này.</p>
+            <div class="res-banner is-perfect">
+                <span class="res-banner-ic" aria-hidden="true"><i class="fas fa-trophy"></i></span>
+                <div class="res-banner-txt">
+                    <h4>Đúng toàn bộ ${total} câu</h4>
+                    <p>Không có câu sai hay bỏ trống trong phiên này.</p>
                 </div>
             </div>`}
 
-            <div class="res-nav mt-6 pt-6 border-t border-gray-100 flex flex-wrap justify-center gap-2.5">
-                ${isSrs ? '' : `
-                <button id="restartQuizBtn" class="px-5 py-2.5 bg-[#FF69B4] text-white rounded-xl hover:bg-opacity-90 hover:scale-[1.02] transition shadow-md font-semibold flex items-center gap-2">
-                    <i class="fas fa-redo"></i> Làm lại toàn bộ
-                </button>
-                <span class="res-nav-sep" aria-hidden="true">Đi tiếp</span>`}
-                ${state.quizData && state.quizData.id ? `
-                <a href="quiz-history.html?id=${encodeURIComponent(state.quizData.id)}" class="px-4 py-2.5 bg-amber-50 text-amber-700 rounded-xl hover:bg-amber-100 transition shadow-sm font-semibold flex items-center gap-2 text-sm">
-                    <i class="fas fa-clock-rotate-left"></i> Lịch sử
-                </a>
-                <a href="../flashcard/flashcard.html?id=${encodeURIComponent(state.quizData.id)}" class="px-4 py-2.5 bg-purple-50 text-purple-700 rounded-xl hover:bg-purple-100 transition shadow-sm font-semibold flex items-center gap-2 text-sm">
-                    <i class="fas fa-clone"></i> Flashcard
-                </a>` : ''}
-                ${incorrectCount > 0 ? `
-                <button id="result-copy-wrong-btn" class="px-4 py-2.5 bg-amber-50 text-amber-700 rounded-xl hover:bg-amber-100 transition shadow-sm font-semibold flex items-center gap-2 text-sm" title="Sao chép các câu sai / bỏ trống (Markdown) để dán vào ghi chú">
-                    <i class="fas fa-copy"></i> Sao chép câu sai
-                </button>
-                <button id="result-anki-btn" class="px-4 py-2.5 bg-purple-50 text-purple-700 rounded-xl hover:bg-purple-100 transition shadow-sm font-semibold flex items-center gap-2 text-sm" title="Tải CSV (dấu ;) để nhập vào Anki">
-                    <i class="fas fa-download"></i> CSV Anki
-                </button>` : ''}
-                <button id="result-share-btn" class="px-4 py-2.5 bg-green-50 text-green-700 rounded-xl hover:bg-green-100 transition shadow-sm font-semibold flex items-center gap-2 text-sm">
-                    <i class="fas fa-share-alt"></i> Chia sẻ
-                </button>
-                <a href="../../index.html#libraryContent" class="px-4 py-2.5 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-100 transition shadow-sm font-semibold flex items-center gap-2 text-sm">
-                    <i class="fas fa-book"></i> Thư viện
-                </a>
-                <a href="../../index.html" class="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition shadow-sm font-semibold flex items-center gap-2 text-sm">
-                    <i class="fas fa-home"></i> Trang chủ
-                </a>
+            <div class="res-groups">
+                <div class="res-group">
+                    <span class="res-group-label">Làm tiếp</span>
+                    <div class="res-group-btns">
+                        ${isSrs ? '' : `<button id="restartQuizBtn" type="button" class="res-btn is-primary"><i class="fas fa-redo"></i> Làm lại toàn bộ</button>`}
+                        ${state.quizData && state.quizData.id ? `
+                        <a href="../flashcard/flashcard.html?id=${encodeURIComponent(state.quizData.id)}" class="res-btn"><i class="fas fa-clone"></i> Flashcard</a>
+                        <a href="quiz-history.html?id=${encodeURIComponent(state.quizData.id)}" class="res-btn"><i class="fas fa-clock-rotate-left"></i> Lịch sử</a>` : ''}
+                    </div>
+                </div>
+                <div class="res-group">
+                    <span class="res-group-label">Lưu &amp; chia sẻ</span>
+                    <div class="res-group-btns">
+                        <button id="result-card-btn" type="button" class="res-btn" title="Lưu thẻ điểm thành ảnh để gửi bạn bè"><i class="fas fa-image"></i> Lưu ảnh kết quả</button>
+                        <button id="result-share-btn" type="button" class="res-btn"><i class="fas fa-share-alt"></i> Chia sẻ</button>
+                        ${incorrectCount > 0 ? `
+                        <button id="result-copy-wrong-btn" type="button" class="res-btn" title="Sao chép các câu sai / bỏ trống (Markdown) để dán vào ghi chú"><i class="fas fa-copy"></i> Sao chép câu sai</button>
+                        <button id="result-anki-btn" type="button" class="res-btn" title="Tải CSV (dấu ;) để nhập vào Anki"><i class="fas fa-download"></i> CSV Anki</button>` : ''}
+                        ${noteItemCount > 0 ? `<button id="result-notes-btn" type="button" class="res-btn" title="Mở sổ ghi chú của bộ đề này"><i class="fas fa-sticky-note"></i> Sổ ghi chú (${noteItemCount})</button>` : ''}
+                    </div>
+                </div>
+                <div class="res-group">
+                    <span class="res-group-label">Đi tới</span>
+                    <div class="res-group-btns">
+                        <a href="../../index.html#libraryContent" class="res-btn"><i class="fas fa-book"></i> Thư viện</a>
+                        <a href="../../index.html" class="res-btn"><i class="fas fa-home"></i> Trang chủ</a>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -703,6 +730,8 @@ export function showResults(totalTime, opts = {}) {
                     <button data-filter="unanswered" class="result-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Bỏ trống (${unansweredCount})</button>
                     <button data-filter="correct" class="result-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Đúng (${correctCount})</button>
                     ${reviewCount > 0 ? `<button data-filter="review" class="result-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Cần xem lại (${reviewCount})</button>` : ''}
+                    ${noteItemCount > 0 ? `<button data-filter="note" class="result-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition"><i class="fas fa-sticky-note mr-1 text-purple-400"></i>Có ghi chú (${noteItemCount})</button>` : ''}
+                    ${askItemCount > 0 ? `<button data-filter="ask" class="result-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition"><i class="fas fa-circle-question mr-1 text-purple-400"></i>Hỏi lại (${askItemCount})</button>` : ''}
                     ${markedCount > 0 ? `<button data-filter="marked" class="result-filter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition"><i class="fas fa-flag mr-1 text-amber-500"></i>Đã đánh dấu (${markedCount})</button>` : ''}
                     <button id="toggle-all-results" class="px-3 py-1.5 rounded-full text-xs font-semibold bg-white text-pink-600 border border-pink-200 hover:bg-pink-50 transition flex items-center gap-1" title="Mở/thu gọn toàn bộ câu đang hiện">
                         <i class="fas fa-angles-down"></i> <span>Mở tất cả</span>
@@ -732,24 +761,42 @@ export function showResults(totalTime, opts = {}) {
 
     // Hiệu ứng vẽ vòng tròn phần trăm + đếm số % chạy song song
     const ringNow = document.getElementById('result-ring');
-    if (opts.instant && ringNow) { ringNow.style.transition = 'none'; ringNow.style.strokeDashoffset = dashOffset.toFixed(2); }
+    if (opts.instant && ringNow) {
+        ringNow.style.transition = 'none'; ringNow.style.strokeDashoffset = dashOffset.toFixed(2);
+        const h = document.getElementById('result-head');
+        if (h) { h.style.transition = 'none'; h.style.transform = `rotate(${(Math.max(0.012, gpa4 / 4) * 360).toFixed(1)}deg)`; }
+    }
     requestAnimationFrame(() => {
         const ring = document.getElementById('result-ring');
         if (ring) ring.style.strokeDashoffset = dashOffset.toFixed(2);
+        const head = document.getElementById('result-head');
+        if (head) head.style.transform = `rotate(${(Math.max(0.012, gpa4 / 4) * 360).toFixed(1)}deg)`;   // hạt bám đầu cung, chạy cùng nhịp 1,2s
 
-        const pctEl = document.getElementById('result-pct');
-        if (!pctEl) return;
+        const gpaEl = document.getElementById('result-gpa4');
+        if (!gpaEl) return;
+        // Số đã dừng: con dấu "cộp" + nhạc theo bậc + rung nhẹ (vẽ lại tại chỗ khi chấm tự luận — opts.instant — thì im)
+        const reveal = () => {
+            if (opts.instant) return;
+            sfx('stamp');
+            setTimeout(() => sfx('finish', { gpa4, pct: percentage }), 240);
+            if (getVibrate() && navigator.vibrate) navigator.vibrate(gpa4 >= 3.5 ? [20, 40, 20, 40, 60] : gpa4 >= 2 ? [20, 40, 20] : 25);
+        };
         const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        if (reduce || opts.instant) { pctEl.textContent = `${percentageStr}%`; return; }
+        if (reduce || opts.instant) { gpaEl.textContent = fmt1(gpa4); reveal(); return; }
         const DURATION = 1200; // khớp với transition 1.2s của vòng tròn
         const startAt = performance.now();
+        let lastStep = 0;
         const tick = (now) => {
             const t = Math.min(1, (now - startAt) / DURATION);
             const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic, khớp nhịp giảm tốc của vòng
-            pctEl.textContent = `${(percentage * eased).toFixed(1)}%`;
+            const val = gpa4 * eased;
+            gpaEl.textContent = fmt1(val);
+            const step = Math.floor(val * 2 + 1e-6);   // mỗi 0,5 điểm một tiếng "tách" cao dần
+            if (step > lastStep) { lastStep = step; sfx('scoreTick', { i: step - 1 }); }
             if (t < 1) requestAnimationFrame(tick);
-            else pctEl.textContent = `${percentageStr}%`;
+            else { gpaEl.textContent = fmt1(gpa4); reveal(); }
         };
+        gpaEl.textContent = fmt1(0);
         requestAnimationFrame(tick);
     });
 
@@ -763,6 +810,26 @@ export function showResults(totalTime, opts = {}) {
         }
     }
 
+    document.getElementById('result-notes-btn')?.addEventListener('click', () => import('./page/quiz-notes-all.js').then(m => m.openAllNotes()));
+
+    // Lưu ảnh kết quả: vẽ canvas ở module riêng (nạp lười khi bấm)
+    document.getElementById('result-card-btn')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        if (btn.disabled) return;
+        btn.disabled = true;
+        try {
+            const m = await import('./page/quiz-result-card.js');
+            const r = await m.saveResultCard({
+                title: (state.quizData && state.quizData.title) || '', pct: percentage, gpa4, score10: fmt2(score10), grade: letterGrade, label: scoreLabel,
+                correct: correctCount, wrong: Math.max(0, wrongCount), blank: unansweredCount, time: formatTime(totalTime),
+                when: new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+            });
+            if (r === 'saved') showToast('Đã lưu ảnh kết quả', 'success', 2000);
+            else if (r === 'error') showToast('Không tạo được ảnh kết quả.', 'error');
+        } catch (err) { showToast('Không tạo được ảnh kết quả.', 'error'); }
+        btn.disabled = false;
+    });
+
     // Xuất câu sai / bỏ trống: Markdown (clipboard) + CSV cho Anki (quiz-export.js, hàm thuần)
     const wrongExportItems = () => state.questions.map((q, i) => {
         const ua = state.userAnswers[i];
@@ -774,7 +841,8 @@ export function showResults(totalTime, opts = {}) {
             options: essay ? [] : stripOptionLabels(q.answers || q.options),
             correct: essay ? [] : getCorrectIndexes(q),
             picked: (essay || ua === null || ua === undefined) ? null : (Array.isArray(ua) ? ua : [ua]),
-            modelAnswer: q.modelAnswer, explanation: q.explanation, note: q.note, expanded: q.expanded
+            modelAnswer: q.modelAnswer, explanation: q.explanation, note: q.note, expanded: q.expanded,
+            myNote: String(myNotes[q.question] || '').trim()
         };
     }).filter(Boolean);
     const quizTitleForExport = (state.quizData && state.quizData.title) || '';
@@ -804,8 +872,8 @@ export function showResults(totalTime, opts = {}) {
     });
 
     // Pháo giấy chúc mừng khi đạt điểm cao
-    if (percentage >= 80 && !opts.instant) {
-        setTimeout(() => triggerConfetti(), 300);
+    if (gpa4 >= 3.5 && !opts.instant) {   // từ B+ trở lên; bắn khi số vừa dừng
+        setTimeout(() => triggerConfetti(), 1400);
     }
 
     // "Xem lại ngay": lọc các câu tự luận cần xem lại, mở hết, cuộn tới danh sách
@@ -836,6 +904,8 @@ export function showResults(totalTime, opts = {}) {
                 if (filter === 'all') match = true;
                 else if (filter === 'marked') match = !!item.getAttribute('data-marked');
                 else if (filter === 'review') match = !!item.getAttribute('data-review');
+                else if (filter === 'note') match = !!item.getAttribute('data-note');
+                else if (filter === 'ask') match = !!item.getAttribute('data-ask');
                 else match = item.getAttribute('data-status') === filter;
                 item.classList.toggle('hidden', !match);
                 const mapCell = document.querySelector(`#result-map [data-qidx="${item.getAttribute('data-ridx')}"]`);
@@ -942,21 +1012,19 @@ export function showResults(totalTime, opts = {}) {
     renderMath(resultsSection);
 }
 
-export function toggleFocusMode() {
+// Bật/tắt lớp .focus-mode-active + bắn 'quiz-focus-change' (thanh tập trung, toàn màn hình, nhắc nghỉ… ở page/quiz-focus.js).
+// restore = true khi bật lại sau F5 (không có thao tác người dùng → không xin toàn màn hình, không phát tiếng).
+// auto = true khi do HỆ THỐNG bật/tắt (công tắc tự tập trung, nộp bài) → không coi là lựa chọn của người dùng cho bộ đề này.
+export function toggleFocusMode(restore = false, auto = false) {
     state.focusMode = !state.focusMode;
     document.body.classList.toggle('focus-mode-active', state.focusMode);
-
-    const exitFocusBtn = document.getElementById('exit-focus-btn');
-    if (exitFocusBtn) {
-        exitFocusBtn.classList.toggle('hidden', !state.focusMode);
-    }
 
     const navWrapper = document.getElementById('question-nav-wrapper');
     if (state.focusMode) {
         if (navWrapper) navWrapper.style.display = 'none';
     } else {
-        const toggleBtn = document.getElementById('toggle-nav-btn');
         // Let main controller update visibility or restore manually
         if (navWrapper) navWrapper.style.display = '';
     }
+    document.dispatchEvent(new CustomEvent('quiz-focus-change', { detail: { on: state.focusMode, restore, auto } }));
 }

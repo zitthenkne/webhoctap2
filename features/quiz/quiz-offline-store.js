@@ -256,6 +256,23 @@ export async function touchOfflineQuiz(id) {
     } catch (e) { /* không ghi được thì lần sau hỏi lại, không sao */ }
 }
 
+/** Gắn dấu thời gian máy chủ (`updateTime` của doc quiz_sets) cho bản trong máy — chỉ khi bản trong máy ĐÚNG là bản vừa tải/ghi lên. */
+export async function setOfflineStamp(id, stamp) {
+    if (!stamp) return;
+    try {
+        const rec = await getOfflineQuiz(id);
+        if (!rec) return;
+        rec._srvTime = stamp;
+        await new Promise((resolve, reject) => {
+            txStore('readwrite').then((store) => {
+                const req = store.put(rec);
+                req.onsuccess = () => resolve();
+                req.onerror = () => reject(req.error);
+            }).catch(reject);
+        });
+    } catch (e) { /* không ghi được thì lần sau tải lại, không sao */ }
+}
+
 /** Xóa bản offline của một bộ đề. */
 export async function deleteOfflineQuiz(id, { prune = true } = {}) {
     await new Promise((resolve, reject) => {

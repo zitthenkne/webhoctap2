@@ -4,7 +4,7 @@ import { updateDoc, deleteDoc, arrayUnion, arrayRemove } from "https://www.gstat
 import { showToast, showConfirm } from '../../core/utils.js';
 import { room, refs, uid, isHost, canControl, currentIndex, answerOf, readyOf, hasSession, doneCount, hostIdNow, subscribe } from './room-state.js';
 import { systemMessage } from './room-chat.js';
-import { avatarHtml, escapeHtml, shortName, changed } from './room-ui.js';
+import { avatarHtml, escapeHtml, shortName, changed, setText } from './room-ui.js';
 import { computeScores } from './room-scoreboard.js';
 import { renderLobby, pushLobbyLog } from './room-lobby.js';
 
@@ -35,18 +35,24 @@ export const toggleHand = () => {
     return updateDoc(refs.member(), { hand: me?.hand ? null : Date.now() }).catch(() => {});
 };
 
+// Chữ ký đáp án của một người: chỉ phương án đã chọn từng câu (lý do `why`, thời điểm `at`… không hiện ở danh sách -> khỏi stringify cả đống HTML)
+const ansSig = (a) => (a ? Object.entries(a).map(([k, v]) => k + (v && typeof v.i === 'number' ? v.i : '-')).join(',') : '');
+
 // ---------- Render ----------
 export function renderMembers() {
     const list = document.getElementById('member-list');
     if (!list) return;
-    renderLobby();                       // sảnh chờ tự lo phần của nó
+    // Sảnh chờ tự lo phần của nó — nhưng chỉ dựng lại khi thứ nó vẽ thật sự đổi. Trước đây MỖI lần vẽ (vài lần/giây khi cả phòng
+    // hoạt động: đáp án, con trỏ, ghi chú…) đều thay cả lưới ghế + 12 nút chữ, kể cả lúc đang làm bài và sảnh đã ẩn.
+    if (changed('lobby-in', [room.roomId, room.roomDoc, canControl(), uid(), Math.floor(Date.now() / 30000),
+        room.members.map(m => [m.uid, m.displayName, m.emoji, isOnline(m), m.lobbyReady, m.hand, m.reaction?.at, m.reaction?.e])])) renderLobby();
     const qi = currentIndex();
     // Dùng isOnline() (đã quy ra true/false) thay cho lastSeen: nhịp tim 30s của
     // từng người không còn kéo cả danh sách vẽ lại.
     if (!changed('members', [qi, room.session?.chosen, room.session?.alsoOk, room.session?.questions?.length,
         room.session?.hostId, room.session?.cohosts, room.isOwner, room.roomDoc?.hostId,
         room.members.map(m => [m.uid, m.displayName, m.emoji, isOnline(m), m.hand,
-            m.cursor, m.answers, m.ready, m.marks])])) return;
+            m.cursor, ansSig(m.answers), m.ready, m.marks])])) return;
     const scores = new Map(computeScores().map(r => [r.uid, r]));
     const sorted = room.members.slice().sort((a, b) => {
         const w = (m) => (roleOf(m) === 'host' ? 0 : roleOf(m) === 'cohost' ? 1 : 2) + (isOnline(m) ? 0 : 10);
@@ -54,7 +60,7 @@ export function renderMembers() {
     });
 
     const totalQ = room.session?.questions?.length || 0;
-    list.innerHTML = sorted.map(m => {
+    const rows = sorted.map(m => {
         const me = m.uid === uid();
         const done = doneCount(m);
         const cursor = typeof m.cursor === 'number' ? m.cursor + 1 : null;
@@ -81,11 +87,26 @@ export function renderMembers() {
             ${m.hand ? '<span class="rm-hand text-base shrink-0">✋</span>' : ''}
             ${sc && sc.points ? `<span class="shrink-0 text-xs font-black tabular-nums" style="color:var(--rm-accent)">${sc.points}</span>` : ''}
         </li>`;
-    }).join('') || '<li class="rm-notice py-6">Chưa có ai trong phòng.</li>';
+    });
+    // Thay từng <li> thật sự đổi (đáp án/câu đang xem của MỘT bạn đổi thì 12 dòng kia khỏi dựng lại): cùng thứ tự người -> sửa tại chỗ
+    const prev = list.__rows;
+    if (rows.length && prev && prev.length === rows.length && prev.every((p, k) => p.uid === sorted[k].uid)) {
+        const lis = list.children;
+        if (lis.length === rows.length) {
+            rows.forEach((h, k) => {
+                if (prev[k].html === h) return;
+                const t = document.createElement('template');
+                t.innerHTML = h.trim();
+                lis[k].replaceWith(t.content.firstElementChild);
+            });
+        } else list.innerHTML = rows.join('');
+    } else {
+        list.innerHTML = rows.join('') || '<li class="rm-notice py-6">Chưa có ai trong phòng.</li>';
+    }
+    list.__rows = rows.length ? rows.map((html, k) => ({ uid: sorted[k].uid, html })) : null;
 
     const online = room.members.filter(isOnline).length;
-    const cnt = document.getElementById('online-count');
-    if (cnt) cnt.textContent = online;
+    setText(document.getElementById('online-count'), String(online));
 
     renderHandQueue();
 }
@@ -96,8 +117,7 @@ function renderHandQueue() {
     const hands = room.members.filter(m => m.hand).sort((a, b) => a.hand - b.hand);
     if (btn) {
         btn.classList.toggle('hidden', hands.length === 0 || !canControl());
-        const c = document.getElementById('host-hands-count');
-        if (c) c.textContent = hands.length;
+        setText(document.getElementById('host-hands-count'), String(hands.length));
     }
     if (!box) return;
     box.classList.toggle('hidden', hands.length === 0);

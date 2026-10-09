@@ -15,7 +15,7 @@ import {
     writePresence,
 } from './room-state.js';
 import { showToast, showConfirm } from '../../core/utils.js';
-import { escapeHtml, shortName, toggle, avatarStack, avatarHtml, forget } from './room-ui.js';
+import { escapeHtml, shortName, toggle, avatarStack, avatarHtml, forget, setText, setHtml, setVar } from './room-ui.js';
 import { renderRankPanel, renderResults, questionStats, toggleAllStats } from './room-scoreboard.js';
 import { MARK_REASONS, getNote, setNote, getMark, setMark } from './room-study.js';
 import { renderRich, currentEditKey, renderRichMath, sanitizeHtml, isBlank } from './room-editor.js';
@@ -24,7 +24,8 @@ import { beep, haptic, jumpToUnanswered, autoNextOn, ensureConfetti, followOn } 
 import { isOnline } from './room-members.js';
 import { elimsOf } from './room-reason.js';
 import { renderGameBar, downloadMyNotes } from './room-game.js';
-import { renderAnswerHub, initAnswerHub, renderOptionTalk, unreadQs, openAsksOf, renderNotebook, focusHub } from './room-answer.js';
+import { sessionWrite, memberWrite } from './room-texts.js';
+import { renderAnswerHub, initAnswerHub, renderOptionTalk, unreadQs, openAsksOf, renderNotebook, renderAllNotes, focusHub } from './room-answer.js';
 import { initScrollHold, resetScrollHold } from './room-scrollhold.js';
 
 let viewIndex = null;            // câu MÌNH đang xem
@@ -122,7 +123,7 @@ async function submitAnswer(i, idx, extra = {}) {
     beep('tap');
     renderQuiz();
     writePresence({ cursor: i });                       // câu đang ở: doc hiện diện nhỏ (bản 70c), không kèm vào doc đáp án
-    await updateDoc(refs.member(), {
+    await memberWrite({
         [`answers.q${i}`]: { i: idx, at: Date.now(), guess: !!cur?.guess, ...moved, ...extra },
     }).catch(err => console.error('Lỗi gửi đáp án:', err));
 
@@ -205,6 +206,7 @@ export function renderQuiz() {
     }
 
     toggle(el('quiz-lobby'), !active);
+    document.body.classList.toggle('rm-in-lobby', !active);        // CSS dùng lớp này thay cho body:has(#quiz-lobby:not(.hidden)) — :has gốc <body> làm cả trang tính lại style sau MỌI thay đổi DOM
     toggle(el('quiz-live'), active && !ended);
     toggle(el('quiz-result'), ended);
     toggle(el('host-bar'), active && !ended && canControl());
@@ -214,16 +216,16 @@ export function renderQuiz() {
     const badge = el('session-badge');
     badge?.classList.toggle('sm:flex', active);
     const bt = el('session-badge-text');
-    if (bt && active) bt.textContent = s.quizTitle || 'Phiên đánh đề';
+    if (bt && active) setText(bt, s.quizTitle || 'Phiên đánh đề');
     const mbt = el('mobile-quiz-title');
-    if (mbt && active) mbt.textContent = s.quizTitle || 'Phiên đánh đề';
+    if (mbt && active) setText(mbt, s.quizTitle || 'Phiên đánh đề');
 
     const pin = el('pinned-note');
     if (pin) {
         // Đã bấm ✕ với ĐÚNG lời ghim này thì thôi; chủ trì ghim câu khác là hiện lại
-        pin.classList.toggle('hidden', !s?.pinnedNote || s.pinnedNote === pinDismissed());
+        pin.classList.toggle('hidden', !s?.pinnedNote || !!s.ended || s.pinnedNote === pinDismissed());      // bản 73: phiên đã kết thúc thì lời ghim của câu hết nghĩa
         const pt = el('pinned-note-text');
-        if (pt) pt.textContent = s?.pinnedNote || '';
+        setText(pt, s?.pinnedNote || '');
     }
 
     if (active && lastFocus !== s.currentQuestionIndex) {
@@ -263,21 +265,34 @@ function renderLive() {
 
     // Không có gì liên quan đổi thì thôi, khỏi vẽ. (Nhịp tim / chat / reaction của
     // người khác vẫn bắn snapshot liên tục.)
+    // CHỮ KÝ THEO CÂU ĐANG XEM (bản 74): trước đây chữ ký gồm cả `notes`/`answers`/`args`/`cursor` của MỌI câu và MỌI người nên
+    // bạn A gõ ghi chú câu 40, bạn B lướt sang câu 12, bạn C chọn đáp án câu 7... đều bắt máy mình dựng lại cả màn câu 1 (3–4 lần/giây
+    // khi cả phòng hoạt động) và còn phải JSON.stringify cả cục. Nay chỉ lấy phần liên quan tới câu `i`; thứ thật sự dùng toàn đề thì
+    // giữ nguyên: đáp án/cờ CỦA MÌNH (dải câu, "Còn N"), tiến độ từng người (đường đua), con trỏ cả phòng khi bản đồ câu đang mở,
+    // ghi chú cả đề khi thẻ "Cả đề" đang mở.
+    const qk = 'q' + i;
+    const at = (o) => (o && typeof o === 'object' ? o[qk] : undefined);
+    const mapOpen = !el('question-map')?.classList.contains('hidden');
+    const allOpen = !el('nb-all')?.classList.contains('hidden');
+    const meId = uid();
+    if (!allOpen) renderAllNotes();          // thẻ "Cả đề" đang ẩn: số ghi chép đổi khi nhóm viết ở CÂU KHÁC (đường nhẹ, tối đa 1,5s/lần) — chữ ký bên dưới không còn thấy ghi chú câu khác
     if (!changed('live', [
         i, editingOpt, raceOff, currentEditKey(), chatCountFor(i), [...talkNew],
-        s.currentQuestionIndex, s.chosen, s.shown, s.notes, s.notesBy, s.optNotes, s.edits, s.issues,
+        s.currentQuestionIndex, s.chosen, s.shown, s.edits,
         s.explainer, s.locked, s.mode, s.liveStats, s.freeRoam, s.qStarts, s.prevVote,
         s.teamOn, s.buzzOn, s.buzz, s.blind, s.spotlight, s.thanks,   // bộ tiện ích trò chơi
         s.alsoOk, s.split,                                            // kết luận nhiều đáp án / chưa thống nhất
-        s.extra, s.extraBy,                                           // Mở rộng / Ghi nhớ nhóm sửa
         s.caseEdits, s.caseBy,                                        // ca lâm sàng nhóm sửa (chung cả chùm)
-        s.grades, s.parts,                                            // chấm barem · bài làm chung nhiều ô (tự luận)
+        allOpen ? [s.notes, s.notesBy, s.optNotes, s.issues, s.extra, s.extraBy, s.grades, s.parts]
+            : [at(s.notes), at(s.notesBy), at(s.optNotes), at(s.issues), at(s.extra), at(s.extraBy), at(s.grades), at(s.parts)],
         s.quizTitle, s.hostId, s.hostName, s.cohosts, s.questions.length, s.ended,
         editorOf(i) ? Math.floor(Date.now() / 2000) : 0,
         Object.entries(optimistic).map(([k, v]) => k + ':' + v.i),
-        room.members.map(m => [m.uid, m.displayName, m.emoji, m.online, m.answers, m.flags,
-            m.marks, m.ready, m.unclear, m.dissent, m.diff, m.cursor, m.team,
-            m.args, m.agree, m.slow, m.rf?.['q' + i]?.elim]),         // nhận xét · xin đợi · loại trừ (bảng phiếu)
+        room.members.map(m => m.uid === meId
+            ? [m.uid, m.displayName, m.emoji, m.online, m.answers, m.flags, m.marks, m.ready, m.unclear, m.dissent, m.diff, m.cursor, m.team,
+                at(m.args), m.agree, m.slow, m.rf?.[qk]?.elim]
+            : [m.uid, m.displayName, m.emoji, m.online, at(m.answers), at(m.flags), at(m.marks), at(m.ready), at(m.unclear), at(m.dissent), at(m.diff),
+                mapOpen ? m.cursor : m.cursor === i, m.team, at(m.args), m.agree, m.slow, m.rf?.[qk]?.elim, doneCount(m)]),   // doneCount = đường đua
     ])) return;
 
     // Đổi câu -> trượt theo hướng đi + cho phép phương án chạy hoạt ảnh vào một lần
@@ -311,31 +326,31 @@ function renderLive() {
     const showStats = (announced || shown || !!s.liveStats) && !isBlind(i);
 
     // --- Thanh điều hướng ---
-    el('question-counter').textContent = `Câu ${i + 1}/${total}`;
-    const dc = el('dock-counter');
-    if (dc) dc.textContent = `Câu ${i + 1}/${total}`;
+    setText(el('question-counter'), `Câu ${i + 1}/${total}`);
+    setText(el('dock-counter'), `Câu ${i + 1}/${total}`);
     // Tên đề nằm ở huy hiệu đầu trang (#session-badge-text); dòng phụ ngay dưới nó
-    el('quiz-session-host').textContent =
+    setText(el('quiz-session-host'),
         (isCoop() ? 'Cùng làm' : 'Chủ trì cầm trịch') +
-        ` · chủ trì: ${canControl() ? 'bạn' : (s.hostName || 'ẩn danh')}`;
+        ` · chủ trì: ${canControl() ? 'bạn' : (s.hostName || 'ẩn danh')}`);
     // Đang xem câu khác câu cả nhóm bàn -> chip bấm một phát là về
     const fc = el('focus-chip');
     if (fc) {
         fc.classList.toggle('hidden', i === currentIndex());
-        el('focus-text').innerHTML = `<span class="rm-hide-sm">Nhóm ở </span>câu ${currentIndex() + 1}`;
+        setHtml(el('focus-text'), `<span class="rm-hide-sm">Nhóm ở </span>câu ${currentIndex() + 1}`);
     }
 
     const essay = isEssay(q);
     const chip = el('phase-chip');
     if (chip) {
         const split = isSplit(i);
-        chip.className = 'rm-state' + (announced ? ' is-locked' : split ? ' is-split' : shown ? ' is-shown' : '');
-        chip.textContent = essay
+        const cn = 'rm-state' + (announced ? ' is-locked' : split ? ' is-split' : shown ? ' is-shown' : '');
+        if (chip.className !== cn) chip.className = cn;
+        setText(chip, essay
             ? (shown ? 'Tự luận · đã hiện bài giải' : doneOf(null, i) ? 'Tự luận · đang viết chung' : 'Tự luận · chưa có bài')
             : announced ? `Đã chốt ${acceptedText(i)}`
             : split ? 'Chưa thống nhất'
             : shown ? 'Đã hiện đáp án'
-            : (!isCoop() && s.locked) ? 'Đã khóa nộp' : 'Chưa chốt';
+            : (!isCoop() && s.locked) ? 'Đã khóa nộp' : 'Chưa chốt');
     }
     const lc = el('left-chip');
     if (lc) {
@@ -345,17 +360,17 @@ function renderLive() {
         lc.classList.remove('hidden');
         lc.classList.toggle('is-done', left === 0);
         // điện thoại chỉ còn "Còn N" cho dải câu cùng hàng khỏi xuống dòng
-        el('left-text').innerHTML = left ? `Còn ${left}<span class="rm-hide-sm"> câu</span>` : 'Xong hết';
+        setHtml(el('left-text'), left ? `Còn ${left}<span class="rm-hide-sm"> câu</span>` : 'Xong hết');
         // Vạch tiến độ dưới chân viên "Câu x/y" (HUD + dock điện thoại): mình làm được bao nhiêu phần đề
         const done = ((total - left) / total).toFixed(3);
         [el('question-pill'), document.querySelector('.rm-dock-count')].forEach(n => {
             if (!n) return;
-            n.style.setProperty('--done', done);
+            setVar(n, '--done', done);
             n.classList.toggle('is-full', left === 0);
         });
     }
 
-    el('q-track').innerHTML = questionTrackHtml(i);
+    setHtml(el('q-track'), questionTrackHtml(i));
     paintRail(i);
     renderRace();
     renderExplainer(i);
@@ -388,7 +403,7 @@ function renderLive() {
             + `<i class="fas fa-book-open"></i>`
             + `<span class="rm-qsrc-full">${escapeHtml(full)}</span></span>`;
     }
-    meta.innerHTML = metaHtml;
+    setHtml(meta, metaHtml);
     meta.classList.toggle('hidden', !metaHtml);
 
     renderCase(i, q);
@@ -405,8 +420,7 @@ function renderLive() {
     qt.dataset.placeholder = 'Nhập nội dung câu hỏi…';
     qt.title = 'Bấm đúp để sửa câu hỏi — bôi đen để ghi chú / nhận xét';
     if (currentEditKey() !== 'question') {
-        qt.innerHTML = renderRich(q.question || '');
-        renderMath(qt);
+        if (setHtml(qt, renderRich(q.question || ''))) renderMath(qt);        // công thức / sơ đồ chỉ vẽ lại khi chữ đổi
     }
     // Đề dài (ca lâm sàng nhiều dữ kiện) thì tự thu chữ lại theo bậc, kẻo riêng câu hỏi
     // đã chiếm hết màn và phương án bị đẩy xuống dưới. Cỡ chữ thật nằm ở CSS `[data-len]`.
@@ -813,14 +827,14 @@ function paintRail(cur) {
     const html = segs.join('');
     const box = rail.firstElementChild;
     if (box.dataset.sig !== html) { box.dataset.sig = html; box.innerHTML = html; }
-    rail.dataset.n = total;
+    if (rail.dataset.n !== String(total)) rail.dataset.n = total;
     if (railK < 0) railAt(rail, cur);
 }
 // Núm trượt đứng giữa đoạn của câu k (điện thoại: viên có số câu; iPad/máy tính: chấm tròn). f = vị trí thực (số lẻ) khi đang rê.
 function railAt(rail, k, f = k) {
     const n = Number(rail.dataset.n) || 1;
-    rail.style.setProperty('--at', ((f + .5) / n).toFixed(4));
-    rail.querySelector('.rm-qthumb').textContent = k + 1;
+    setVar(rail, '--at', ((f + .5) / n).toFixed(4));
+    setText(rail.querySelector('.rm-qthumb'), String(k + 1));
 }
 // Rê bằng NGÓN TAY (cảm ứng / bút) là kéo TƯƠNG ĐỐI, tốc độ nhảy đổi theo cách kéo — như thanh tua video:
 //   · kéo chậm  = 1 câu / ~10px ngón tay (vạch điện thoại chỉ ~3px/câu nên nhắm tuyệt đối không trúng được)
@@ -911,14 +925,14 @@ function renderRace() {
     const total = room.session?.questions?.length || 1;
     const done = (m) => doneCount(m);
     const runners = room.members.filter(m => m.online !== false).sort((a, b) => done(b) - done(a));
-    if (!runners.length) { box.innerHTML = ''; return; }
+    if (!runners.length) { setHtml(box, ''); return; }
     const best = done(runners[0]);
     const leader = best > 0 ? runners[0] : null;
     const meNow = myMember();
     // Chip trên thanh HUD: chỉ người dẫn đầu (tiến độ của MÌNH đã có ở chip "Còn N" + dải câu)
-    if (chip) chip.innerHTML = leader
+    if (chip) setHtml(chip, leader
         ? `<span class="rm-rcrown-sm">👑</span><span class="rm-hide-sm">${escapeHtml(shortName(leader.displayName || 'Khách', 10))}</span> <b>${best}/${total}</b>`
-        : `🏁 <span class="rm-hide-sm">Cả nhóm </span><b>0/${total}</b>`;
+        : `🏁 <span class="rm-hide-sm">Cả nhóm </span><b>0/${total}</b>`);
 
     // Gom người đứng gần nhau vào cùng một mốc -> hết cảnh avatar chồng thành đống
     const STEP = 5;                                   // mỗi mốc rộng 5%
@@ -944,7 +958,7 @@ function renderRace() {
         </div>`;
     }).join('');
 
-    box.innerHTML = `
+    setHtml(box, `
         <div class="rm-race-top" title="Bấm để xem / gập đường đua">
             <span class="rm-race-label">🏁 Cả nhóm tới đâu rồi</span>
             <span class="flex-1"></span>
@@ -955,7 +969,7 @@ function renderRace() {
                 ${[0, 25, 50, 75, 100].map(p => `<span style="left:${p}%"><i></i><b>${Math.round(total * p / 100)}</b></span>`).join('')}
             </div>
             ${marks}
-        </div>`;
+        </div>`);
 }
 
 // ---------- Ai đang nhận giảng câu này ----------
@@ -1069,7 +1083,7 @@ function renderConsensus(i, stats, mine, chosen, announced) {
             ${voted && diffCount('hard') >= Math.ceil(voted / 2) ? '<span class="rm-chip warn">nhóm thấy khó — nên ôn lại</span>' : ''}
         </div>` : '';
 
-    box.innerHTML = `
+    setHtml(box, `
         <div class="rm-vprog" title="${answered}/${totalMembers} người đã chọn"><span style="width:${Math.round(100 * answered / totalMembers)}%"></span></div>
         <div class="rm-vote-head">
             <span><b>${answered}</b>/${totalMembers} đã chọn</span>
@@ -1095,7 +1109,7 @@ function renderConsensus(i, stats, mine, chosen, announced) {
 
         ${team.length ? `<div class="rm-vote-team">${team.join('')}</div>` : ''}
         ${badges.length ? `<div class="rm-vote-badges">${badges.map(b => `<span class="rm-badge-chip">${b}</span>`).join('')}</div>` : ''}
-        ${diffBar}`;
+        ${diffBar}`);
 }
 
 /** Ai đang xin "⏳ đợi mình" ở câu i (hết hạn sau 3 phút hoặc khi người đó chọn xong sau lúc xin). */
@@ -1128,7 +1142,7 @@ function renderSelfBar(i, mine, q) {
     const next = steps.findIndex(s => !s[3] && !s[4]);
     const TIP = { pick: 'Chạm một ô A/B/C/D (hoặc phím A–D)', why: 'Viết vì sao bạn chọn — có thể dán ảnh (phím R)', write: 'Gõ vào bài làm chung (phím W)',
         talk: 'Góp ý / hỏi / trả lời trong luồng bàn luận (phím D)', ready: 'Báo cho chủ trì là bạn xong câu này' };
-    bar.innerHTML = `
+    setHtml(bar, `
         <ol class="rm-steps4" aria-label="Việc của bạn ở câu này">${steps.map(([k, ic, lb, done, skip], n) => `<li>
             <button type="button" class="rm-step4 ${done ? 'is-done' : ''} ${skip ? 'is-skip' : ''} ${n === next ? 'is-next' : ''}"
                 data-step="${k}" ${k === 'ready' ? 'data-ready' : ''} title="${TIP[k]}${skip ? ' — câu đã khoá' : ''}">
@@ -1150,7 +1164,7 @@ function renderSelfBar(i, mine, q) {
                     ${mark ? '<button data-mark="__unmark" class="rm-menu-item"><span class="rm-menu-ic" style="background:#fee2e2;color:#ef4444"><i class="fas fa-flag-checkered"></i></span>Bỏ đánh dấu</button>' : ''}
                 </div>
             </div>
-        </div>`;
+        </div>`);
 }
 
 // Ô trống thì hiện chữ gợi ý mờ
@@ -1318,17 +1332,17 @@ export function initStage() {
         if (mk) {
             const reason = mk.dataset.mark;
             setMark(questionAt(i).question, reason);
-            updateDoc(refs.member(), { [`marks.q${i}`]: reason === '__unmark' ? null : reason }).catch(() => {});
+            memberWrite({ [`marks.q${i}`]: reason === '__unmark' ? null : reason }).catch(() => {});
             el('mark-menu')?.classList.add('hidden');
             return renderQuiz();
         }
-        if (e.target.closest('[data-flag]')) return void updateDoc(refs.member(), { [`flags.q${i}`]: !flagOf(me, i) }).catch(() => {});
+        if (e.target.closest('[data-flag]')) return void memberWrite({ [`flags.q${i}`]: !flagOf(me, i) }).catch(() => {});
         if (e.target.closest('[data-slow]')) {
             const on = slowOf(i).some(m => m.uid === uid());
             return void updateDoc(refs.member(), { slow: on ? null : { q: i, at: Date.now() } }).catch(() => {});
         }
-        if (e.target.closest('[data-ready]')) return void updateDoc(refs.member(), { [`ready.q${i}`]: !readyOf(me, i) }).catch(() => {});
-        if (e.target.closest('[data-unclear]')) return void updateDoc(refs.member(), { [`unclear.q${i}`]: !unclearOf(me, i) }).catch(() => {});
+        if (e.target.closest('[data-ready]')) return void memberWrite({ [`ready.q${i}`]: !readyOf(me, i) }).catch(() => {});
+        if (e.target.closest('[data-unclear]')) return void memberWrite({ [`unclear.q${i}`]: !unclearOf(me, i) }).catch(() => {});
         if (e.target.closest('[data-explain-me]')) {
             const ex = explainerOf(i);
             const mineNow = ex?.uid === uid();
@@ -1351,7 +1365,7 @@ export function initStage() {
         if (!b) return;
         const i = effectiveIndex();
         const cur = diffOf(myMember(), i);
-        updateDoc(refs.member(), { [`diff.q${i}`]: cur === b.dataset.diff ? null : b.dataset.diff }).catch(() => {});
+        memberWrite({ [`diff.q${i}`]: cur === b.dataset.diff ? null : b.dataset.diff }).catch(() => {});
     });
 
     // Dải viên kẹo: bấm là nhảy tới câu đó
@@ -1388,7 +1402,7 @@ export function initStage() {
     try { raceOff = localStorage.getItem('roomRaceOff') === '1'; } catch (e) {}
 
     // --- Sửa tại chỗ: nhận nội dung từ room-editor rồi ghi lên Firestore ---
-    const saveNote = (i, v) => updateDoc(refs.session(), {
+    const saveNote = (i, v) => sessionWrite({
         [`notes.q${i}`]: v,
         [`notesBy.q${i}`]: { name: myMember()?.displayName || 'Ai đó', at: Date.now() },
     }).catch(() => {});
@@ -1423,43 +1437,43 @@ export function initStage() {
         pingTyping(i);
         if (key === 'why') {
             if (!myAnswer(i)) return;
-            return void updateDoc(refs.member(), { [`answers.q${i}.why`]: html }).catch(() => {});
+            return void memberWrite({ [`answers.q${i}.why`]: html }).catch(() => {});
         }
         if (key === 'explain') return void saveNote(i, html);
         // Bài làm chung nhiều ô (answerFormat): mỗi ô một field — hai người gõ hai ô không đè nhau
-        if (key.startsWith('part:')) return void updateDoc(refs.session(), {
+        if (key.startsWith('part:')) return void sessionWrite({
             [`parts.q${i}.p${key.slice(5)}`]: html,
             [`notesBy.q${i}`]: { name: myMember()?.displayName || 'Ai đó', at: Date.now() },
         }).catch(() => {});
         // Mở rộng / Ghi nhớ của nhóm (bản 26) — đè bản file, ghi tên người sửa
         if (key === 'extra:expanded' || key === 'extra:note') {
             const f = key.slice(6);
-            return void updateDoc(refs.session(), {
+            return void sessionWrite({
                 [`extra.q${i}.${f}`]: html,
                 [`extraBy.q${i}.${f}`]: { name: myMember()?.displayName || 'Ai đó', at: Date.now() },
             }).catch(() => {});
         }
         if (key === 'note') { setNote(q.question, html); return void renderNotebook(i); }   // đèn 📝 ở mục lục sổ tay
-        if (key === 'issue') return void updateDoc(refs.session(), { [`issues.q${i}`]: html }).catch(() => {});
-        if (key === 'question') return void updateDoc(refs.session(), { [`edits.q${i}.question`]: html }).catch(() => {});
+        if (key === 'issue') return void sessionWrite({ [`issues.q${i}`]: html }).catch(() => {});
+        if (key === 'question') return void sessionWrite({ [`edits.q${i}.question`]: html }).catch(() => {});
         // Ca lâm sàng: lưu theo CA -> mọi câu trong chùm đổi theo (tên ca giữ chữ trơn)
         if (key === 'case' || key === 'casetitle') {
             const ck = caseKeyAt(i);
             if (!ck) return;
-            return void updateDoc(refs.session(), {
+            return void sessionWrite({
                 [`caseEdits.${ck}.${key === 'case' ? 'text' : 'title'}`]: key === 'case' ? html : plainOf(html).slice(0, 120),
                 [`caseBy.${ck}`]: { name: myMember()?.displayName || 'Ai đó', at: Date.now() },
             }).catch(() => {});
         }
         if (key.startsWith('optexp:')) {
             const k = key.split(':')[1];
-            return void updateDoc(refs.session(), { [`optNotes.q${i}.o${k}`]: html }).catch(() => {});
+            return void sessionWrite({ [`optNotes.q${i}.o${k}`]: html }).catch(() => {});
         }
         if (key.startsWith('opttext:')) {
             const k = Number(key.split(':')[1]);
             const list = stripOptionLabels(optsOf(q)).slice();
             list[k] = html;
-            return void updateDoc(refs.session(), { [`edits.q${i}.options`]: list }).catch(() => {});
+            return void sessionWrite({ [`edits.q${i}.options`]: list }).catch(() => {});
         }
     });
 
@@ -1478,7 +1492,7 @@ export function initStage() {
             if (!ck || !await showConfirm('Trả ca lâm sàng về bản gốc trong file? Chỗ nhóm đã sửa ở ca này sẽ mất (mọi câu trong chùm).',
                 { confirmText: 'Trả về bản gốc', tone: 'warning' })) return;
             caseShown.text = caseShown.title = null;
-            updateDoc(refs.session(), { [`caseEdits.${ck}`]: null, [`caseBy.${ck}`]: null }).catch(() => {});
+            sessionWrite({ [`caseEdits.${ck}`]: null, [`caseBy.${ck}`]: null }).catch(() => {});
         }
     });
     // Tên ca một dòng: Enter = xong
@@ -1528,7 +1542,7 @@ export function initStage() {
         const q = questionAt(i);
         if (!q) return;
         if (e.target.closest('[data-open-chat]')) return void openDiscussion();
-        if (e.target.closest('[data-reset-edit]')) return void updateDoc(refs.session(), { [`edits.q${i}`]: null }).catch(() => {});
+        if (e.target.closest('[data-reset-edit]')) return void sessionWrite({ [`edits.q${i}`]: null }).catch(() => {});
     };
     el('answer-block')?.addEventListener('click', blockClicks);
     el('my-block')?.addEventListener('click', blockClicks);

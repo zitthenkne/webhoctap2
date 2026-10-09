@@ -22,6 +22,11 @@
     <!-- Google Fonts hỗ trợ trọn vẹn tiếng Việt cho phong cách sổ tay & typography ứng dụng -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Firebase: SDK nằm sau app.js (cuối trang) nên trình duyệt chỉ thấy nó sau khi tải + phân tích app.js -> nạp trước song song (đo lần đầu: SDK về lúc ~1,2s -> ~0,7s) -->
+    <link rel="modulepreload" href="core/firebase-init.js">
+    <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js" crossorigin>
+    <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js" crossorigin>
+    <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Nunito:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600;1,700&family=Quicksand:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=17">
     <link rel="stylesheet" href="features/study-room/rooms-hub.css?v=4">

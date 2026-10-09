@@ -27,7 +27,9 @@ function decodeValue(v) {
     return null;
 }
 export function decodeDoc(document) {
-    const out = { id: String(document.name || '').split('/').pop() };
+    // `_updateTime` = giờ GHI CUỐI do máy chủ Firestore tự đóng dấu cho MỌI cách ghi (web, MCP, script…), không phụ thuộc người ghi có
+    // nhớ cập nhật trường `updatedAt` hay không — dùng làm "số phiên bản" của doc (quiz-fresh.js).
+    const out = { id: String(document.name || '').split('/').pop(), _updateTime: document.updateTime || null };
     Object.entries(document.fields || {}).forEach(([k, v]) => { out[k] = decodeValue(v); });
     return out;
 }

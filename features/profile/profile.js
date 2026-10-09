@@ -435,7 +435,7 @@ logoutBtn.onclick = async () => {
         icon: 'fas fa-right-from-bracket'
     });
     if (!ok) return;
+    forgetSession();            // TRƯỚC signOut: để auth-session biết đây là đăng xuất chủ động, không báo "phiên hết hạn"
     await signOut(auth);
-    forgetSession();
     window.location.href = '../../index.html';
 };

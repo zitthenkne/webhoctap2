@@ -10,6 +10,7 @@
 // Dữ liệu form: members/{uid}.rf.q<i>.<mech|elim|src|tip> (điền sẵn khi mở lại). Khối trong ô gõ là một
 // <div> cấp 1 bắt đầu bằng nhãn "🔬 Cơ chế" … -> tìm đúng khối đó để thay.
 import { updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { memberWrite } from './room-texts.js';
 import { showToast } from '../../core/utils.js';
 import { stripOptionLabels } from '../quiz/quiz-helpers.js';
 import {
@@ -277,7 +278,7 @@ async function save(i, key, t, clear = false) {
     putBlock(i, key, markOf(t), html);
     const data = clear ? null : { ...d, at: Date.now() };
     if (data && t === 'elim') data.o = Object.fromEntries(Object.entries(d.o || {}).filter(([, v]) => String(v || '').trim()));
-    updateDoc(refs.member(), { [`rf.q${i}.${t}`]: data }).catch(() => {});
+    memberWrite({ [`rf.q${i}.${t}`]: data }).catch(() => {});
     if (!clear && t === 'src' && String(d.book || '').trim()) {
         try {
             const r = JSON.parse(localStorage.getItem('roomSrcRecent') || '[]').filter(s => s !== d.book.trim());

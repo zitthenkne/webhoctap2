@@ -108,7 +108,10 @@ export function paintDock() {
     document.body.classList.toggle('on-board', !el('stage-board')?.classList.contains('hidden'));
     document.body.classList.toggle('is-host', canControl());
     const c = el('dock-counter');
-    if (c && hasSession()) c.textContent = `Câu ${effectiveIndex() + 1}/${room.session.questions.length}`;
+    if (c && hasSession()) {
+        const t = `Câu ${effectiveIndex() + 1}/${room.session.questions.length}`;
+        if (c.textContent !== t) c.textContent = t;      // cùng chữ thì đừng thay nút chữ (kéo theo dàn trang)
+    }
     // Khay "Ghi chú" nay chỉ còn ghi chú riêng + báo lỗi đề: phần đáp án & bàn luận đã nằm
     // ngay dưới phương án (room-answer.js) nên khỏi đổi nhãn "Giải thích" như trước.
     document.querySelectorAll('#mobile-nav [data-m]').forEach(b => {
@@ -172,7 +175,7 @@ export function initMobile() {
         if (k === 'chat') return void openPanelSheet('discuss');
         if (k === 'members' || k === 'rank') return void window.dispatchEvent(new CustomEvent('room:panel', { detail: k }));
         if (k === 'invite') return void el('share-room-btn')?.click();
-        if (k === 'find' || k === 'sound' || k === 'minutes' || k === 'follow' || k === 'notes' || k === 'speak' || k === 'zen' || k === 'autonext' || k === 'help') return void window.dispatchEvent(new CustomEvent('room:tool', { detail: k }));
+        if (k === 'find' || k === 'sound' || k === 'minutes' || k === 'follow' || k === 'notes' || k === 'speak' || k === 'zen' || k === 'minimal' || k === 'autonext' || k === 'help') return void window.dispatchEvent(new CustomEvent('room:tool', { detail: k }));
         if (k === 'text') return void el('text-size-btn')?.click();
         if (k === 'theme') return void el('theme-btn')?.click();
         if (k === 'race') return void window.dispatchEvent(new CustomEvent('room:tool', { detail: 'race' }));

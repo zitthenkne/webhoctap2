@@ -36,10 +36,13 @@ function paintHudOpts() {
     const stats = (ann || isShown(i) || !!room.session.liveStats) && !isBlind(i);
     const ref = isShown(i) && !ann ? refIdxOf(q) : null;
     const can = canAnswer(i);
-    const sig = JSON.stringify([i, n, mine, ann && acceptedText(i), stats && st.counts, ref, can]);
+    const qtext = plain(q.question).slice(0, 90);
+    const sig = JSON.stringify([i, n, mine, ann && acceptedText(i), stats && st.counts, ref, can, qtext]);
     if (box.dataset.sig === sig) return;
     box.dataset.sig = sig;
-    box.innerHTML = Array.from({ length: n }, (_, k) => {
+    // Bản 73: đang cuộn xuống đọc bàn luận thì vẫn thấy ĐỀ là gì (rút gọn, bấm = cuộn về đề)
+    const head = `<button type="button" class="rm-hudq" title="${escapeHtml(qtext)} — bấm để cuộn về đề"><b>Câu ${i + 1}</b> ${escapeHtml(qtext)}</button>`;
+    box.innerHTML = head + Array.from({ length: n }, (_, k) => {
         const cls = ['rm-hopt', 'o' + (k % 4)];
         let say = '';
         if (ann && isAccepted(i, k)) { cls.push('is-ok'); say = ' · đáp án đúng'; }
@@ -59,6 +62,7 @@ function initHudOpts() {
     const root = el('stage-quiz');
     if (!box || !area || !root) return;
     box.addEventListener('click', (e) => {
+        if (e.target.closest('.rm-hudq')) return void el('question-text')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
         const b = e.target.closest('[data-hopt]');
         if (!b) return;
         const k = Number(b.dataset.hopt);

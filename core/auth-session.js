@@ -14,7 +14,18 @@ import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/f
 
 const KEY = 'lastAuthUser';
 
+// Tài khoản THẬT = đăng nhập bằng email. Người dùng ẩn danh (Firebase Anonymous) chỉ là khách vào phòng học bằng link:
+// KHÔNG được coi là "đã đăng nhập" ở trang chủ / cổng đăng nhập (trước đây bị nhớ vào KEY rồi lọt qua mọi cổng).
+const isReal = (u) => !!u && !u.isAnonymous;
+
+let persistAsked = false;
 function remember(u) {
+    // Xin trình duyệt đừng tự dọn dữ liệu của site (phiên đăng nhập, bản offline) khi máy thiếu dung lượng. Chrome/Edge tự quyết
+    // không hỏi; Firefox sẽ bật hộp xin quyền nên bỏ qua.
+    if (!persistAsked) {
+        persistAsked = true;
+        try { if (!/firefox/i.test(navigator.userAgent)) navigator.storage?.persist?.().catch(() => {}); } catch (e) {}
+    }
     try {
         localStorage.setItem(KEY, JSON.stringify({
             uid: u.uid,
@@ -28,17 +39,31 @@ function remember(u) {
 function cached() {
     try {
         const u = JSON.parse(localStorage.getItem(KEY) || 'null');
-        return u && u.uid ? { ...u, offline: true } : null;
+        // bản lưu của khách ẩn danh (từng bị ghi nhầm) không có email -> bỏ
+        return u && u.uid && u.email ? { ...u, offline: true } : null;
     } catch (e) { return null; }
 }
 
 // Tự ghi nhớ mỗi lần Firebase xác nhận có người đăng nhập. KHÔNG xoá khi trả null —
 // null lúc offline chính là trường hợp ta muốn chữa; chỉ đăng xuất thật mới xoá.
-onAuthStateChanged(auth, (u) => { if (u) remember(u); });
+onAuthStateChanged(auth, (u) => { if (isReal(u)) remember(u); });
 
 /** Người dùng hiện tại: bản thật của Firebase, hoặc bản đã lưu từ trước. */
 export function sessionUser() {
-    return auth.currentUser || cached();
+    return isReal(auth.currentUser) ? auth.currentUser : cached();
+}
+
+// Firebase báo "không còn phiên" trong khi máy đang online mà ta vừa hiện tên người dùng từ bản lưu: phiên đã mất thật
+// (đổi mật khẩu ở máy khác, tài khoản bị khóa, xóa dữ liệu trình duyệt...). Trước đây app vẫn giả vờ đang đăng nhập nên mọi lần
+// đọc/ghi Firestore lặng lẽ bị từ chối ("không đồng bộ") — nay báo thật một lần để người dùng đăng nhập lại.
+let manualSignOut = false, lostShown = false;
+function sessionLost() {
+    if (lostShown || manualSignOut) return;
+    lostShown = true;
+    window.dispatchEvent(new CustomEvent('auth:lost'));
+    if (!document.getElementById('toast-container')) return;
+    import('./utils.js').then(({ showToast }) => showToast('Phiên đăng nhập đã hết hạn — đăng nhập lại để đồng bộ dữ liệu.', 'warning', 6000)).catch(() => {});
+    if (typeof window.openAuthModal === 'function') window.openAuthModal('Phiên đăng nhập đã hết hạn');
 }
 
 /** Như onAuthStateChanged nhưng ưu tiên báo ngay từ cache (0ms) và giữ đăng nhập khi offline. */
@@ -53,18 +78,26 @@ export function onSessionUser(cb) {
     const off = cached();
     if (off) emit(off);        // Hiện ngay lập tức danh tính người dùng (0ms), không nháy "Khách"
     return onAuthStateChanged(auth, (u) => {
-        if (u) {
+        if (isReal(u)) {
             remember(u);
             emit(u);
+        } else if (navigator.onLine === false) {
+            emit(cached());          // offline: Firebase không làm mới được token -> tin bản lưu (đọc từ cache IndexedDB, ghi xếp hàng)
         } else {
-            emit(cached());
+            // online mà Firebase không có phiên = đã đăng xuất thật; bản lưu chỉ làm UI nói dối
+            if (cached()) { dropCache(); sessionLost(); }
+            emit(null);
         }
     });
 }
 
 /** Gọi khi người dùng CHỦ ĐỘNG đăng xuất, nếu không lần sau offline vẫn thấy đăng nhập. */
-export function forgetSession() {
+function dropCache() {
     try { localStorage.removeItem(KEY); } catch (e) {}
+}
+export function forgetSession() {
+    manualSignOut = true;
+    dropCache();
 }
 
 let _authReadyPromise = null;

@@ -9,12 +9,12 @@ import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.19
 import { showToast } from '../../../core/utils.js';
 import { applyLocalQuestionEdits } from '../quiz-editor.js';
 import { getOfflineQuiz, autoCacheQuiz, within, isOfflineSavedSync, saveOfflineQuiz, extractQuizImageUrls, cacheQuizImages, touchOfflineQuiz } from '../quiz-offline-store.js';
-import { LOCAL_FRESH_MS, localStillCurrent } from '../quiz-fresh.js';
+import { LOCAL_FRESH_MS, localStillCurrent, stampBeforeFetch, takeStamp } from '../quiz-fresh.js';
 import { state, saveQuizState, clearQuizState, saveQuizResult, updateQuizResultScore, markQuizStateFinished } from '../quiz-state.js';
 import { shuffleArray, shuffleQuestionOptions, isAnswerCorrect, sessionScore } from '../quiz-helpers.js';
 import { isEssay, isPendingEssay, withAutoGrade } from '../quiz-essay-core.js';
 import { showSubmitQuizBtn, loadQuizDetails, showResults, toggleFocusMode } from '../quiz-ui.js';
-import { getVibrate } from './quiz-page-prefs.js';
+import { getVibrate, sfx } from './quiz-page-prefs.js';
 import { pullStudyFromCloud, whenStudyPulled, currentQuizId } from './quiz-study-sync.js';
 import { buildSrsQueue } from '../quiz-srs-store.js';
 import { groupQuestionsByCase, tagCaseSequence } from './quiz-cases.js';
@@ -201,11 +201,23 @@ export async function loadQuizData() {
     }
 
     // 3. NẾU ĐANG CÓ MẠNG (ONLINE):
-    // - Nếu ĐÃ CÓ bản local: chạy fetch ngầm (Stale-While-Revalidate) mà không chặn giao diện.
+    // - Nếu ĐÃ CÓ bản local: chạy ngầm (Stale-While-Revalidate) mà không chặn giao diện.
     // - Nếu CHƯA CÓ bản local (lần đầu tiên mở bộ đề): await fetch từ Firestore để nạp lần đầu.
-    const revalidateOrFetchRemote = async () => {
+    const isPlayingNow = () => document.body.classList.contains('quiz-active') ||
+        (document.getElementById('quiz-container') && !document.getElementById('quiz-container').classList.contains('hidden'));
+    const ageOf = (rec) => Date.now() - (Number(rec._offlineSavedAt) || 0);
+
+    let noticedStamp = null;        // bản mới đã báo "đang làm bài" rồi thì khỏi báo lại
+    // Hỏi máy chủ xem bộ đề có bản mới không (dấu `updateTime` ~1 KB, xem quiz-fresh.js); có thì tải cả bộ về, lưu máy, và cập nhật trang chờ.
+    // `announce`: đã có bản máy hiện trên màn -> nói cho người dùng biết khi bản mới thay vào.
+    const refreshOnce = async ({ announce = false, force = false } = {}) => {
         try {
-            if (localData && await localStillCurrent(quizId, localData)) { touchOfflineQuiz(quizId); return; }
+            const cur = force ? localData : (await getOfflineQuiz(quizId)) || localData;
+            if (!force && cur && ageOf(cur) < LOCAL_FRESH_MS) return;            // vừa xác nhận xong, khỏi hỏi lại
+            if (cur && await localStillCurrent(quizId, cur)) { touchOfflineQuiz(quizId); return; }
+            // dấu máy chủ: lấy từ lượt hỏi vừa rồi, hoặc hỏi NGAY (trước getDoc) — để dấu không bao giờ mới hơn nội dung tải về
+            const known = takeStamp(quizId);
+            const stampP = known ? Promise.resolve(known) : stampBeforeFetch(quizId);
             const docRef = doc(db, "quiz_sets", quizId);
             const remotePromise = getDoc(docRef);
             // Nếu chưa có dữ liệu thì chờ tối đa 6 giây; nếu đã có bản local rồi thì chờ thoải mái ở nền
@@ -227,7 +239,8 @@ export async function loadQuizData() {
                 remoteData.id = quizId;
 
                 // Bản C3: bộ cũ CHƯA có dấu updatedAt → chủ bộ đề ghi bù MỘT lần (dấu = bây giờ, gán luôn vào bản máy sắp lưu để hai bên khớp ngay).
-                // Từ đó mọi máy chỉ cần hỏi dấu nhẹ thay vì tải lại cả bộ. Chỉ chủ ghi được (luật); lỗi ghi → máy khác cứ tải đủ như trước.
+                // Chỉ chủ ghi được (luật); lỗi ghi → máy khác cứ tải đủ như trước.
+                // (Ghi bù làm updateTime của doc nhảy -> dấu ta vừa lấy cũ đi MỘT nấc: lần mở sau tải lại đúng một lần rồi ổn.)
                 if (!remoteData.updatedAt && auth.currentUser && remoteData.userId === auth.currentUser.uid) {
                     const stamp = new Date();
                     remoteData.updatedAt = stamp;
@@ -250,16 +263,23 @@ export async function loadQuizData() {
                     }
                 }
 
+                // Lưu bản máy kèm dấu máy chủ để lần sau chỉ cần hỏi dấu
+                const srvStamp = await stampP;
+                if (srvStamp) remoteData._srvTime = srvStamp;
+
                 // Tự động tải lưu offline hoàn chỉnh vào IndexedDB và nạp cache ảnh ngầm
                 autoSaveAndNotify(quizId, remoteData);
+                const hadLocal = !!localData;
+                localData = remoteData;
 
-                // Nếu người dùng chưa bấm bắt đầu làm bài (vẫn đang ở trang landing),
-                // nhẹ nhàng cập nhật lại thông tin mới nhất từ máy chủ (đề phòng tác giả vừa sửa bài)
-                const isPlaying = document.body.classList.contains('quiz-active') ||
-                    (document.getElementById('quiz-container') && !document.getElementById('quiz-container').classList.contains('hidden'));
-
-                if (!isPlaying) {
+                // Chưa bấm bắt đầu (đang ở trang chờ) -> thay bản mới vào luôn (đề phòng tác giả vừa sửa bài).
+                // Đang làm dở -> KHÔNG đổi câu hỏi giữa chừng (đáp án đang chọn gắn theo vị trí câu); bản máy đã mới cho lần sau.
+                if (!isPlayingNow()) {
                     applyQuizData(remoteData);
+                    if (hadLocal && announce) showToast('Đã cập nhật bộ đề: bản mới vừa được tải về.', 'success', 3500);
+                } else if (srvStamp !== noticedStamp) {
+                    noticedStamp = srvStamp;
+                    showToast('Bộ đề vừa có bản mới. Bài đang làm giữ nguyên, lần làm sau sẽ dùng bản mới.', 'info', 5000);
                 }
             } else if (!localData) {
                 showLandingError('Không tìm thấy bộ đề này. Có thể nó đã bị xóa hoặc đường dẫn không đúng.', { showRetry: true });
@@ -282,18 +302,35 @@ export async function loadQuizData() {
             }
         }
     };
+    let refreshing = null, lastTry = 0;
+    const refresh = (opts) => {
+        if (refreshing) return refreshing;
+        lastTry = Date.now();
+        return (refreshing = refreshOnce(opts).finally(() => { refreshing = null; }));
+    };
+
+    // Trang ĐANG MỞ cũng tự nhận bản mới (trước đây chỉ kiểm lúc mở trang): quay lại tab / ứng dụng, có mạng lại, hoặc ở yên trang chờ ≥ 2 phút.
+    // refreshOnce tự bỏ qua nếu bản máy vừa được xác nhận (< LOCAL_FRESH_MS); lỗi mạng thì nghỉ 5s mới thử lại.
+    const watchForUpdates = () => {
+        const check = () => {
+            if (!navigator.onLine || document.visibilityState !== 'visible' || refreshing || Date.now() - lastTry < 5000) return;
+            refresh({ announce: true });
+        };
+        document.addEventListener('visibilitychange', check);
+        window.addEventListener('online', () => setTimeout(check, 1000));
+        window.addEventListener('pageshow', (e) => { if (e.persisted) check(); });
+        setInterval(() => { if (!isPlayingNow()) check(); }, 120000);
+    };
+    watchForUpdates();
 
     if (localData) {
-        // Đã hiện UI tức thì từ IndexedDB rồi! Cho fetch chạy ngầm ở background, không await chặn UI.
-        // Bản trong máy mới được lưu/làm tươi chưa tới 5 phút -> khỏi hỏi lại Firestore: mỗi lần mở lại bộ đề từng tốn
-        // 1–2 lượt đọc (cả bộ câu hỏi) + ghi lại IndexedDB + dò lại ảnh. Sửa đề trên máy này đã tự cập nhật bản trong máy
-        // (editor.js autoCacheQuiz / quiz-editor.js saveOfflineQuiz); nút "Đã tải offline" vẫn cập nhật tay được.
-        const ageMs = Date.now() - (Number(localData._offlineSavedAt) || 0);
-        if (ageMs >= LOCAL_FRESH_MS) revalidateOrFetchRemote();
+        // Đã hiện UI tức thì từ IndexedDB rồi! Cho kiểm tra chạy ngầm ở background, không await chặn UI.
+        // Bản trong máy vừa được xác nhận chưa tới LOCAL_FRESH_MS (20s) -> khỏi hỏi lại; quá hạn thì hỏi dấu ~1 KB (xem quiz-fresh.js).
+        refresh({ announce: true });
     } else {
         // Chưa có bản lưu nào thì cần đảm bảo Auth đã khôi phục phiên trước khi đọc bộ đề riêng tư
         await whenAuthReady(3500);
-        await revalidateOrFetchRemote();
+        await refresh({ force: true });
     }
 }
 
@@ -384,6 +421,13 @@ export function startQuizMode(questionsArray, mode = 'normal', restoreState = nu
 
     showQuestion();
     saveQuizState();
+    // Tải lại trang (F5) giữa lúc đang tập trung → vào lại vẫn tập trung (cờ do page/quiz-focus.js ghi, xóa khi tắt/nộp bài)
+    try {
+        if (!state.focusMode) {
+            if (restoreState) { if (sessionStorage.getItem('quizFocus') === '1') toggleFocusMode(true, true); }
+            else if (localStorage.getItem('quiz_focus_auto') === '1' || localStorage.getItem('quiz_focus_q_' + currentQuizId()) === '1') toggleFocusMode(false, true);   // công tắc "Tự tập trung khi bắt đầu" HOẶC lần trước bộ đề này đang ở tập trung
+        }
+    } catch (e) { }
 
     // Tự động lưu định kỳ để không mất tiến độ (ghi chú, đáp án...) nếu trình duyệt đóng đột ngột
     if (autoSaveInterval) clearInterval(autoSaveInterval);
@@ -410,7 +454,7 @@ export function endQuiz() {
         autoSaveInterval = null;
     }
     if (state.focusMode) {
-        toggleFocusMode();
+        toggleFocusMode(false, true);   // nộp bài tự thoát: không đổi lựa chọn "bộ đề này làm ở chế độ tập trung"
     }
 
     // LUÔN chấm lại điểm từ userAnswers: "Xem đáp án ngay" giờ bật/tắt được giữa chừng
@@ -517,7 +561,9 @@ export function startTimer(totalSeconds) {
     if (!timerDisplay) return;
     timerDisplay.classList.remove('hidden');
     timerDisplay.textContent = formatTimeLocal(totalSeconds);
-    let warnedOneMin = false;
+    clearPauseUi();
+    timerDisplay.title = 'Bấm để tạm dừng (phím P)';
+    let warnedOneMin = totalSeconds <= 60;   // tiếp tục sau tạm dừng khi chỉ còn <1 phút thì khỏi báo lại "Còn 1 phút"
     // Đếm theo MỐC KẾT THÚC chứ không đếm nhịp: tab chạy nền bị trình duyệt hãm setInterval vẫn đúng giờ.
     // (Bản cũ vừa elapsed++ vừa totalSeconds-- mỗi nhịp -> đồng hồ chạy GẤP ĐÔI, 30 phút hết sau 15 phút.)
     const endAt = Date.now() + totalSeconds * 1000;
@@ -531,11 +577,13 @@ export function startTimer(totalSeconds) {
         if (remaining <= 10 && remaining > 0) {
             timerDisplay.classList.add('timer-critical');
             timerDisplay.classList.remove('timer-warn');
+            sfx('timerTick', { remaining });   // 10 giây cuối: tích tắc cao dần
             if (remaining <= 5 && getVibrate() && navigator.vibrate) navigator.vibrate(40);
         } else if (remaining <= 60 && remaining > 10) {
             timerDisplay.classList.add('timer-warn');
             if (!warnedOneMin) {
                 warnedOneMin = true;
+                sfx('timerWarn');
                 if (getVibrate() && navigator.vibrate) navigator.vibrate([30, 40, 30]);
                 showToast('Còn 1 phút!', 'info');
             }
@@ -543,6 +591,7 @@ export function startTimer(totalSeconds) {
         if (remaining <= 0) {
             timerDisplay.classList.remove('timer-warn', 'timer-critical');
             clearInterval(state.quizTimerInterval);
+            sfx('timeUp');
             showToast('Hết giờ! Bài sẽ được nộp tự động.', 'info');
             setTimeout(() => {
                 endQuiz();
@@ -552,11 +601,59 @@ export function startTimer(totalSeconds) {
     }, 1000);
 }
 
+// --- TẠM DỪNG đồng hồ (bài tính giờ): phím P hoặc bấm vào đồng hồ. Câu hỏi bị màn che ẩn (không "nghỉ để nghĩ"),
+// giờ làm từng câu cũng dừng; tiếp tục = đếm tiếp đúng số giây còn lại. ---
+let pausedLeft = null;
+function clearPauseUi() {
+    pausedLeft = null;
+    document.body.classList.remove('quiz-paused');
+    document.getElementById('pause-veil')?.remove();
+    document.getElementById('timerDisplay')?.classList.remove('timer-paused');
+}
+export function isTimerPaused() { return pausedLeft !== null; }
+export function pauseTimer() {
+    if (pausedLeft !== null || !state.quizTimerInterval) return false;
+    pausedLeft = state.timeLeft;
+    clearInterval(state.quizTimerInterval);
+    state.quizTimerInterval = null;
+    accrueTime();
+    state._timingEnterAt = 0;   // thời gian đứng im không tính vào thời gian làm câu
+    document.body.classList.add('quiz-paused');
+    document.getElementById('timerDisplay')?.classList.add('timer-paused');
+    const veil = document.createElement('div');
+    veil.id = 'pause-veil';
+    veil.setAttribute('role', 'dialog');
+    veil.setAttribute('aria-modal', 'true');
+    veil.setAttribute('aria-label', 'Đã tạm dừng');
+    veil.innerHTML = `
+        <i class="fas fa-pause pv-ic" aria-hidden="true"></i>
+        <p class="pv-title">Đã tạm dừng</p>
+        <p class="pv-time">${formatTimeLocal(pausedLeft)}</p>
+        <p class="pv-sub">Đồng hồ dừng ở đây. Câu hỏi được ẩn trong lúc tạm dừng.</p>
+        <button type="button" class="pv-go"><i class="fas fa-play"></i> Tiếp tục</button>`;
+    document.body.appendChild(veil);
+    veil.querySelector('.pv-go').addEventListener('click', resumeTimer);
+    veil.querySelector('.pv-go').focus();
+    sfx('ui');
+    saveQuizState();
+    return true;
+}
+export function resumeTimer() {
+    if (pausedLeft === null) return;
+    const left = pausedLeft;
+    clearPauseUi();
+    if (state._timingIndex !== null) state._timingEnterAt = Date.now();
+    startTimer(left);
+    sfx('ui');
+}
+export function togglePause() { return pausedLeft !== null ? (resumeTimer(), false) : pauseTimer(); }
+
 // Tắt đồng hồ đếm ngược giữa chừng (công tắc "Tính giờ" trong bảng Ngựa thì chỉnh)
 export function stopTimer() {
     if (state.quizTimerInterval) clearInterval(state.quizTimerInterval);
     state.quizTimerInterval = null;
     state.timeLeft = null;
+    clearPauseUi();
     const timerDisplay = document.getElementById('timerDisplay');
     if (timerDisplay) {
         timerDisplay.classList.add('hidden');

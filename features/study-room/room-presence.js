@@ -10,7 +10,7 @@
 //   members/{uid}.cursor = câu đang xem (có sẵn từ trước).
 import { setDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { room, refs, uid, hasSession, subscribe, memberOf, answerOf, readyOf, isEssay, questionAt } from './room-state.js';
-import { avatarHtml, avatarStack, escapeHtml, shortName, colorOf } from './room-ui.js';
+import { avatarHtml, avatarStack, escapeHtml, shortName, colorOf, setHtml } from './room-ui.js';
 import { isOnline } from './room-members.js';
 import { effectiveIndex, setViewIndex } from './room-quiz-stage.js';
 import { toggleNotebookRail } from './room-answer.js';
@@ -173,12 +173,34 @@ function paintViewers() {
     if (!box || !hasSession()) return;
     const i = effectiveIndex();
     const here = room.members.filter(m => m.uid !== uid() && isOnline(m) && m.cursor === i);
-    box.innerHTML = here.length ? `<span title="Đang xem câu này: ${escapeHtml(here.map(m => m.displayName || 'Khách').join(', '))}">👀</span>${avatarStack(here, 4, 'xs')}` : '';
+    setHtml(box, here.length ? `<span title="Đang xem câu này: ${escapeHtml(here.map(m => m.displayName || 'Khách').join(', '))}">👀</span>${avatarStack(here, 4, 'xs')}` : '');
 }
 
+// Con trỏ người khác: vẽ lại (xóa lớp + đo lại vị trí = ÉP dàn trang) chỉ khi thứ nó vẽ thật sự đổi. Trước đây mỗi lần bất kỳ ô nào trong
+// phòng đổi là xóa hết lớp con trỏ rồi đo + dựng lại, làm hỏng cả style của ô sửa chung lẫn cây con của nó.
+// Chữ ký: câu đang xem, từng con trỏ còn sống (vị trí, còn hạn), độ dài chữ + danh tính NÚT của ô đang sửa (nút bị dựng lại -> vẽ lại).
+const edIds = new WeakMap();
+let edSeq = 0;
+const edId = (ed) => { if (!edIds.has(ed)) edIds.set(ed, ++edSeq); return edIds.get(ed); };
+let caretSig = '';
+window.addEventListener('resize', () => { caretSig = ''; });
+function caretsSignature() {
+    if (!hasSession()) return 'off';
+    const i = effectiveIndex();
+    return JSON.stringify([i, document.querySelectorAll('.rm-rc-layer').length, room.members.map(m => {
+        const c = liveCaret(m);
+        if (!c || c.q !== i || PRIVATE.has(c.k)) return 0;
+        const ed = document.querySelector(`#quiz-live [data-live-edit="${CSS.escape(c.k)}"]`);
+        return [m.uid, m.displayName, c.k, c.s, c.e, ed ? edId(ed) : 0, ed ? ed.textContent.length : -1, ed ? ed.querySelectorAll('img, svg, table').length : 0];
+    })]);
+}
 function paint() {
     mo?.disconnect();                        // tự vẽ lớp con trỏ thì đừng tự kích lại chính mình
-    try { paintCarets(); paintBar(); paintViewers(); } finally { observe(); }
+    try {
+        const sg = caretsSignature();
+        if (sg !== caretSig) { paintCarets(); caretSig = caretsSignature(); }
+        paintBar(); paintViewers();
+    } finally { observe(); }
 }
 function observe() {
     const root = el('quiz-live');

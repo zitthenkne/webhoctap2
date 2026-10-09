@@ -2,6 +2,12 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ---- Hàm dùng chung (2026-10-09, vòng /loop "Firebase chặt chẽ hơn") ----
+    // isOwner: đã đăng nhập và đúng chủ của tài liệu.
+    // keepsOwner: sửa tài liệu KHÔNG được đổi trường userId (trước đây chủ bộ có thể "tặng" bộ/thư mục/ghi chú cho người khác = gài rác vào thư viện của họ).
+    function isOwner(uid) { return request.auth != null && request.auth.uid == uid; }
+    function keepsOwner() { return request.resource.data.userId == resource.data.userId; }
+
     // USERS
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
@@ -14,8 +20,9 @@ service cloud.firestore {
     match /quiz_sets/{setId} {
       allow read: if resource.data.isPublic == true
                   || (request.auth != null && request.auth.uid == resource.data.userId);
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if isOwner(resource.data.userId) && keepsOwner();
+      allow delete: if isOwner(resource.data.userId);
     }
 
     // QUIZ FOLDERS (THƯ MỤC ĐỀ TRẮC NGHIỆM)
@@ -24,22 +31,44 @@ service cloud.firestore {
       // (các bộ đề vẫn tự kiểm tra isPublic của riêng nó ở rule quiz_sets bên trên).
       allow read: if resource.data.isPublic == true
                   || (request.auth != null && request.auth.uid == resource.data.userId);
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if isOwner(resource.data.userId) && keepsOwner();
+      allow delete: if isOwner(resource.data.userId);
     }
 
     // QUIZ RESULTS
+    // Trước đây CHỈ có read + create: app lại XÓA lượt làm (quiz-history: từng dòng + xóa sạch) và SỬA điểm sau khi tự chấm tự luận
+    // (quiz-state updateQuizResultScore) -> cả hai bị từ chối, mà hàm queued() nuốt lỗi nên giao diện vẫn báo "đã xóa/đã lưu".
+    // Nay: xóa được (chủ); sửa được ĐÚNG 3 trường điểm; tạo phải có điểm hợp lệ (số, 0–100, số câu 0–5000).
+    function validScore(d) {
+      return d.score is number
+          && d.totalQuestions is int && d.totalQuestions >= 0 && d.totalQuestions <= 5000
+          && d.percentage is number && d.percentage >= 0 && d.percentage <= 100;
+    }
     match /quiz_results/{resultId} {
       allow read: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow create: if isOwner(request.resource.data.userId) && validScore(request.resource.data);
+      allow update: if isOwner(resource.data.userId) && keepsOwner()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['score', 'totalQuestions', 'percentage'])
+                    && validScore(request.resource.data);
+      allow delete: if isOwner(resource.data.userId);
     }
 
-    // QUIZ STUDY DATA (GHI CHÚ / ĐÁNH DẤU / BÔI VÀNG CỦA NGƯỜI HỌC)
+    // QUIZ STUDY DATA (GHI CHÚ / ĐÁNH DẤU / BÔI VÀNG / LỊCH ÔN CỦA NGƯỜI HỌC)
+    // id tài liệu BẮT BUỘC = "<uid>__<quizId>" (đúng như studyDocId() trong quiz-study-store.js): trước đây ai cũng tạo được tài liệu
+    // mang id của người khác (userId của mình) và chiếm chỗ -> người đó không ghi được ghi chú cho bộ đề ấy nữa.
+    // get tách riêng khỏi list: đọc tài liệu CHƯA TỒN TẠI thì `resource` = null -> `resource.data.userId` lỗi -> bị từ chối (403) thay vì "không có".
+    // Mỗi lần mở một bộ đề mới app đọc quiz_study/{uid}__{quizId} (chưa có) -> trước đây dính 403 (tính 1 lượt đọc + cảnh báo console, và vì lỗi nên
+    // bộ nhớ đệm 15 giây không giữ -> đọc lần hai). Id luôn bắt đầu bằng "<uid>__" nên get kiểm theo id, không cần tài liệu có sẵn.
+    // list (truy vấn userId == uid ở chuông ôn tập / thống kê) vẫn kiểm theo trường userId của từng tài liệu.
     match /quiz_study/{docId} {
-      allow read, update, delete: if request.auth != null
-                                  && request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null
-                    && request.auth.uid == request.resource.data.userId;
+      allow get: if request.auth != null
+                 && (docId.split('__')[0] == request.auth.uid
+                     || (resource != null && resource.data.userId == request.auth.uid));
+      allow list, delete: if isOwner(resource.data.userId);
+      allow update: if isOwner(resource.data.userId) && keepsOwner();
+      allow create: if isOwner(request.resource.data.userId)
+                    && docId == request.auth.uid + '__' + request.resource.data.quizId;
     }
 
     // BỆNH ÁN (MEDICAL RECORDS) — riêng tư theo từng người dùng
@@ -54,8 +83,9 @@ service cloud.firestore {
     match /quiz_payloads/{setId} {
       allow read: if resource.data.isPublic == true
                   || (request.auth != null && request.auth.uid == resource.data.userId);
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if isOwner(resource.data.userId) && keepsOwner();
+      allow delete: if isOwner(resource.data.userId);
     }
 
     // STUDY ROOMS — phòng đánh đề chung.
@@ -85,12 +115,8 @@ service cloud.firestore {
       }
     }
 
-    // QUIZZES (nếu còn dùng)
-    match /quizzes/{quizId} {
-      allow create: if request.auth != null;
-      allow read: if request.auth != null;
-      allow update, delete: if request.auth != null && resource.data.createdBy == request.auth.uid;
-    }
+    // (Đã GỠ luật /quizzes/{quizId}: không có mã nào dùng bộ sưu tập Firestore này — "quizzes" trong code là kho IndexedDB offline.
+    //  Luật cũ cho BẤT KỲ người đăng nhập nào tạo/đọc tài liệu tùy ý ở đó.)
 
     // ===== KHO LƯU TRỮ LINK (công khai cho ai có mật khẩu giao diện) =====
     match /shared_links/{linkId} {

@@ -3,7 +3,7 @@
 // rồi để các module con (thành viên / chat / đề / bảng trắng) tự vẽ.
 import { auth } from '../../core/firebase-init.js';
 import { setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { showToast } from '../../core/utils.js';
 import { room, refs, setState, subscribe, uid, canControl, hasSession, SPLIT_PRESENCE, writePresence, overlayPresence } from './room-state.js';
 import { AVATAR_EMOJIS, randomEmoji, avatarHtml } from './room-ui.js';
@@ -21,6 +21,7 @@ import { initMedia } from './room-media.js';
 import { initPresence } from './room-presence.js';
 import { initSparkle } from './room-sparkle.js';
 import { initPolish } from './room-polish.js';
+import { mergeTexts, sidOf, CAP, mergeMember, groupMemberShards } from './room-texts-core.js';
 
 const el = (id) => document.getElementById(id);
 const unsubs = [];
@@ -472,8 +473,10 @@ function rememberRoomVisit(id) {
 }
 
 async function joinRoom() {
+    // KHÔNG chờ máy chủ xác nhận: SDK ghi vào bộ nhớ máy ngay (người nghe thấy mình liền) rồi tự gửi lên khi mạng thông.
+    // Trước đây `await` ở đây khiến mạng chậm/chập chờn (4G trong lớp) kẹt ở màn "đang vào phòng" cả vài giây dù đã tải xong.
     // setDoc merge: vào lại phòng KHÔNG xóa đáp án/điểm đã có
-    await setDoc(refs.member(), {
+    setDoc(refs.member(), {
         uid: uid(),
         displayName: room.user.displayName || room.user.email?.split('@')[0] || `Khách_${uid().slice(0, 5)}`,
         photoURL: room.user.photoURL || null,
@@ -481,9 +484,9 @@ async function joinRoom() {
         online: true,
         lastSeen: Date.now(),
         joinedAt: Date.now(),
-    }, { merge: true });
-    if (SPLIT_PRESENCE) await writePresence({
-        online: true, lastSeen: Date.now(),
+    }, { merge: true }).catch((e) => console.warn('Ghi thành viên chưa tới máy chủ:', e?.code || e));
+    if (SPLIT_PRESENCE) writePresence({
+        online: true, lastSeen: Date.now(), cap: CAP,
         displayName: room.user.displayName || room.user.email?.split('@')[0] || `Khách_${uid().slice(0, 5)}`,
         emoji: room.user.emoji || null, photoURL: room.user.photoURL || null,
     });
@@ -524,11 +527,22 @@ function listenAll() {
         }
     }));
 
+    // Bản 74c: đáp án · bình luận · đánh dấu… khóa theo câu của từng người nằm ở doc khối quizSession/m_<uid>_b<k> (đến qua truy vấn
+    // refs.live()). room.membersRaw/members vẫn đủ trường như cũ: doc thành viên + doc khối CÙNG PHIÊN được gộp bằng mergeMember().
+    const mshards = {};
+    let baseMembers = [];
+    room.mshards = mshards;
+    const mergedMembers = () => {
+        const by = groupMemberShards(mshards, sidOf(room.curRaw));
+        return by.size ? baseMembers.map(m => (by.has(m.uid) ? mergeMember(m, by.get(m.uid), sidOf(room.curRaw)) : m)) : baseMembers;
+    };
     unsubs.push(onSnapshot(refs.members(), (snap) => {
         const members = [];
         snap.forEach(d => members.push(d.data()));
-        room.membersRaw = members;
-        setState({ members: overlayPresence(members) });
+        baseMembers = members;
+        room.membersBase = members;
+        room.membersRaw = mergedMembers();
+        setState({ members: overlayPresence(room.membersRaw) });
         flushJoins();
         flushReactions(firstMemberSnap);
         firstMemberSnap = false;
@@ -537,15 +551,21 @@ function listenAll() {
     // Bản 70: phiên = doc 'current' (trạng thái, nhỏ) + doc 'questions' (bộ câu hỏi, ghi hiếm). Gộp lại thành room.session như cũ
     // nên mọi module khác không đổi. Phiên cũ còn nhúng questions trong 'current' vẫn chạy (fallback).
     let curDoc = null, qDoc = null;
+    const textDocs = {};                                  // 't_0'… -> doc chữ chung của phiên (bản 74b) — đến qua truy vấn hiện diện refs.live()
     const mergeSession = () => {
-        if (!curDoc) { setState({ session: null, ready: true }); markReady(); return; }
+        room.curRaw = curDoc;
+        room.texts = textDocs;
+        // định danh phiên đổi (hoặc phiên vừa về) thì doc khối nào còn hiệu lực cũng đổi theo
+        let withMembers = {};
+        if (Object.keys(mshards).length) { room.membersRaw = mergedMembers(); withMembers = { members: overlayPresence(room.membersRaw) }; }
+        if (!curDoc) { setState({ session: null, ready: true, ...withMembers }); markReady(); return; }
         let questions = Array.isArray(curDoc.questions) && curDoc.questions.length ? curDoc.questions : null;
         if (!questions && curDoc.qid) {
             // hai listener không đảm bảo thứ tự: doc 'questions' phải ĐÚNG phiên (cùng qid) mới dùng, chưa về thì giữ nguyên màn hiện tại
             if (!qDoc || qDoc.qid !== curDoc.qid) return;
             questions = qDoc.list;
         }
-        setState({ session: questions?.length ? (questions === curDoc.questions ? curDoc : { ...curDoc, questions }) : null, ready: true });
+        setState({ session: questions?.length ? mergeTexts(questions === curDoc.questions ? curDoc : { ...curDoc, questions }, textDocs, sidOf(curDoc)) : null, ready: true, ...withMembers });
         markReady();
     };
     unsubs.push(onSnapshot(refs.session(), (snap) => { curDoc = snap.exists() ? snap.data() : null; mergeSession(); }));
@@ -556,18 +576,33 @@ function listenAll() {
     // Con trỏ sửa chung (bản 70b) + hiện diện (bản 70c): doc nhỏ riêng từng người, MỘT truy vấn chung (refs.live — xem room-state).
     // KHÔNG đi qua setState trừ khi online / cursor ĐỔI: con trỏ đổi liên tục, nhịp tim 60s của cả phòng — không được kéo cả bộ vẽ lại của phòng.
     let caretSig = '{}';
+    // Bản 74d: dựng hiện diện / con trỏ THEO THAY ĐỔI (docChanges) thay vì duyệt lại + data() cả tập mỗi lần. Tập này giờ gồm cả doc chữ và doc
+    // khối đáp án của từng người (hàng trăm doc, mỗi doc vài KB) — mỗi nhịp hiện diện mà giải mã lại tất cả là phí.
+    const pres = {}, carets = {}, liveMeta = {};          // liveMeta: id doc -> { kind, uid } (để xóa đúng khi doc bị gỡ)
+    room.presence = pres;
     unsubs.push(onSnapshot(refs.live(), (snap) => {
-        const pres = {}, carets = {};
-        snap.forEach((d) => {
-            const v = d.data();
-            if (!v?.uid) return;
-            if (v.kind === 'presence') pres[v.uid] = v;
-            else if (v.kind === 'caret') carets[v.uid] = v.caret || null;
+        let textsChanged = false, shardsChanged = false, presChanged = false;
+        snap.docChanges().forEach((ch) => {
+            const id = ch.doc.id;
+            if (ch.type === 'removed') {
+                if (id in textDocs) { delete textDocs[id]; textsChanged = true; }
+                if (id in mshards) { delete mshards[id]; shardsChanged = true; }
+                const m = liveMeta[id];
+                if (m) { delete liveMeta[id]; if (m.kind === 'presence') delete pres[m.uid]; else if (m.kind === 'caret') delete carets[m.uid]; presChanged = true; }
+                return;
+            }
+            const v = ch.doc.data();
+            if (v?.kind === 'texts') { textDocs[id] = v; textsChanged = true; }
+            else if (v?.kind === 'mshard') { mshards[id] = v; shardsChanged = true; }
+            else if (v?.uid && v.kind === 'presence') { pres[v.uid] = v; liveMeta[id] = { kind: 'presence', uid: v.uid }; presChanged = true; }
+            else if (v?.uid && v.kind === 'caret') { carets[v.uid] = v.caret || null; liveMeta[id] = { kind: 'caret', uid: v.uid }; presChanged = true; }
         });
-        room.presence = pres;
+        if (textsChanged) mergeSession();
+        if (shardsChanged) room.membersRaw = mergedMembers();                     // đáp án / bình luận của ai đó vừa đổi -> luôn vẽ lại
+        if (!presChanged && !shardsChanged) return;
         const next = overlayPresence(room.membersRaw);
         const vis = (a) => a.map(m => `${m.uid}:${m.online !== false}:${m.cursor}`).join('|');
-        if (vis(next) !== vis(room.members)) setState({ members: next }); else room.members = next;     // lastSeen đổi: cập nhật tại chỗ (isOnline đọc lúc vẽ)
+        if (shardsChanged || vis(next) !== vis(room.members)) setState({ members: next }); else room.members = next;     // lastSeen đổi: cập nhật tại chỗ (isOnline đọc lúc vẽ)
         const sig = JSON.stringify(carets);
         if (sig !== caretSig) { caretSig = sig; room.carets = carets; window.dispatchEvent(new Event('room:carets')); }
     }, () => { /* mất quyền / mất mạng: giữ trường hiện diện cũ trong doc thành viên, mất con trỏ người khác */ }));
@@ -680,8 +715,13 @@ async function initRoom() {
         el('room-id-text').textContent = roomId;
         document.title = `Phòng ${roomId} — Đánh đề chung`;
 
-        // Chưa có tên (khách / tài khoản ẩn danh) -> chọn mặt + nhập tên trước khi vào
+        // Chưa có tên (khách / tài khoản ẩn danh) -> chọn mặt + nhập tên trước khi vào.
+        // Bản 75: bắt đầu NGHE phòng ngay lúc hộp tên hiện (snapshot đầu tiên — phiên, bộ câu hỏi, thành viên — về trong lúc bạn chọn mặt + gõ
+        // tên) thay vì chờ bấm "Vào phòng" mới nghe: trên 4G đó là 0,5–1,5 giây chờ mạng sau cú bấm. Nghe không cần tên; ghi tên vào phòng vẫn sau.
+        let listening = false;
         if (!room.user.displayName) {
+            listenAll();
+            listening = true;
             el('loading-overlay').classList.add('hidden');
             const { name, emoji } = await askIdentity({ emoji: room.user.emoji || null });
             setState({ user: { ...room.user, displayName: name, emoji } });
@@ -689,7 +729,7 @@ async function initRoom() {
         }
 
         await joinRoom();
-        listenAll();
+        if (!listening) listenAll();
 
         initLayout();
         initSplitters();
@@ -730,13 +770,11 @@ onAuthStateChanged(auth, async (user) => {
         setState({ user });
         await initRoom();
     } else {
-        // Chưa đăng nhập: thử tài khoản ẩn danh của Firebase; nếu console tắt tính năng đó
-        // thì vẫn vào được bằng danh tính khách lưu trên máy (rules cho phép khách).
-        signInAnonymously(auth).catch(async (error) => {
-            console.warn('Không dùng được đăng nhập ẩn danh, chuyển sang khách cục bộ:', error?.code);
-            if (room.user) return;
-            setState({ user: guestIdentity() });
-            await initRoom();
-        });
+        // Chưa đăng nhập: vào thẳng bằng danh tính khách lưu trên máy (luật Firestore cho khách vào phòng). KHÔNG gọi
+        // signInAnonymously: Anonymous đang TẮT ở Firebase console nên lời gọi luôn thất bại, chỉ tốn 1+ vòng mạng
+        // (mạng xấu: tới 30s) trước khi khách thấy được hộp nhập tên.
+        if (room.user) return;
+        setState({ user: guestIdentity() });
+        await initRoom();
     }
 });

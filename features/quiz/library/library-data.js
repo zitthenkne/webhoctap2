@@ -51,13 +51,7 @@ export async function saveAndStartQuiz() {
             isPublic: true,
             folderId: S.currentFolderId || null
         });
-        // Tách Vỏ - Ruột: đồng bộ mảng câu hỏi sang quiz_payloads
-        setDoc(doc(db, "quiz_payloads", docRef.id), {
-            userId: user.uid,
-            isPublic: true,
-            questions: S.questions,
-            updatedAt: new Date()
-        }).catch(() => {});
+        // (không còn ghi bản sao quiz_payloads — xem features/quiz/quiz-fresh.js / memory: production không dùng đường lùi này)
         if (navigator.onLine) await checkCreationAchievements(user.uid);   // mất mạng: giao dịch đếm bộ đề không chạy được — bỏ qua thay vì treo/lỗi
         window.location.href = `features/quiz/quiz.html?id=${docRef.id}`;
     } catch (e) {
@@ -101,13 +95,7 @@ export async function saveOnly() {
             isPublic: true,
             folderId: S.currentFolderId || null
         });
-        // Tách Vỏ - Ruột: đồng bộ mảng câu hỏi sang quiz_payloads
-        setDoc(doc(db, "quiz_payloads", docRef.id), {
-            userId: user.uid,
-            isPublic: true,
-            questions: S.questions,
-            updatedAt: new Date()
-        }).catch(() => {});
+        // (không còn ghi bản sao quiz_payloads — xem features/quiz/quiz-fresh.js / memory: production không dùng đường lùi này)
         if (navigator.onLine) await checkCreationAchievements(user.uid);   // mất mạng: giao dịch đếm bộ đề không chạy được — bỏ qua thay vì treo/lỗi
         showToast(`Đã lưu "${S.currentQuizTitle}" vào thư viện!`, 'success');
         if (saveBtnPreQuiz) saveBtnPreQuiz.innerHTML = '✓ Đã lưu';

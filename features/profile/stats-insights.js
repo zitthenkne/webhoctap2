@@ -313,6 +313,38 @@ function weakBlockHtml(ins) {
     </div>`;
 }
 
+// ---------- Khối 4: thời gian tập trung (chế độ tập trung ở trang làm bài) ----------
+// Nhật ký `quiz_focus_log` = { 'YYYY-MM-DD': giây } do features/quiz/page/quiz-focus.js ghi, CHỈ nằm trên máy này (không đồng bộ).
+// Dùng lại đúng các class Tailwind đã có trong file này nên không cần sinh lại tailwind-index.css.
+function focusBlockHtml() {
+    let log = {};
+    try { log = JSON.parse(localStorage.getItem('quiz_focus_log') || '{}') || {}; } catch (e) { return ''; }
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date(Date.now() - i * DAY_MS);
+        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        days.push({ k, label: `${d.getDate()}/${d.getMonth() + 1}`, sec: Number(log[k]) || 0 });
+    }
+    const total = days.reduce((a, d) => a + d.sec, 0);
+    if (!total) return '';
+    const max = Math.max(...days.map(d => d.sec), 60);
+    const mins = (sec) => Math.round(sec / 60);
+    const bars = days.map(d => `<div class="flex flex-col items-center gap-1 flex-1 min-w-0" title="${d.label}: ${mins(d.sec)} phút tập trung">
+                <span class="text-[9px] font-bold text-gray-500 leading-none">${d.sec ? mins(d.sec) : ''}</span>
+                <div class="w-full flex-1 flex items-end"><div class="w-full rounded-t-md ${d.sec ? '' : 'bg-gray-100 h-1'}" style="${d.sec ? `height:${Math.max(8, Math.round(d.sec / max * 100))}%;background:#FF8FB8` : ''}"></div></div>
+                <span class="text-[9px] text-gray-400 truncate w-full text-center">${d.label}</span>
+            </div>`).join('');
+    return `
+    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <h3 class="text-sm font-bold text-gray-700 flex items-center gap-2">
+            <i class="fas fa-bullseye text-pink-400"></i> Thời gian tập trung
+            <span class="text-[10px] font-semibold text-gray-400">chỉ tính trên máy này</span>
+        </h3>
+        <p class="text-[11px] text-gray-400 mt-1">Hôm nay <b class="text-gray-600">${mins(days[6].sec)} phút</b> <span class="mx-1 text-gray-200">·</span> 7 ngày qua <b class="text-gray-600">${mins(total)} phút</b></p>
+        <div class="flex items-stretch gap-1.5 mt-3 min-h-[90px]">${bars}</div>
+    </div>`;
+}
+
 // ---------- Vẽ ----------
 export function renderInsights(rows) {
     const mount = document.getElementById('stats-insights');
@@ -336,6 +368,7 @@ export function renderInsights(rows) {
                 ${chartHtml(ins)}
             </div>
             ${weakBlockHtml(ins)}
+            ${focusBlockHtml()}
         </div>`;
 }
 

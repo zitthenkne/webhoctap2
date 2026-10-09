@@ -15,6 +15,10 @@ export const room = {
     session: null,       // study_rooms/{id}/quizSession/current
     ready: false,        // đã nhận snapshot phiên đầu tiên chưa (chưa thì giữ màn chờ)
     carets: {},          // uid -> { q, k, s, e, at } | null — con trỏ đang sửa chung (bản 70b; KHÔNG qua setState, xem listenAll)
+    texts: {},           // docId ('t_0'…'t_c') -> doc chữ của phiên (bản 74b, room-texts-core.js) — đã gộp vào room.session bằng mergeTexts
+    mshards: {},         // docId ('m_<uid>_b0'…) -> doc đáp án/bình luận theo khối câu của một thành viên (bản 74c) — đã gộp vào room.members
+    membersBase: [],     // doc members NGUYÊN BẢN (chưa gộp doc khối) — để biết chữ cũ còn nằm ở doc nào khi ghi
+    curRaw: null,        // doc quizSession/current NGUYÊN BẢN (chưa gộp doc chữ / câu hỏi) — để biết chữ cũ còn nằm ở đâu khi ghi
 };
 
 const subs = new Set();
@@ -37,6 +41,10 @@ export const refs = {
     // ({ kind:'caret', uid, caret, at }) — dùng lại đường quizSession đã có luật mở nên KHÔNG phải sửa firestore.rules.
     presence: (u) => doc(db, 'study_rooms', room.roomId, 'quizSession', 'p_' + (u || room.user.uid)),
     caret: () => doc(db, 'study_rooms', room.roomId, 'quizSession', 'c_' + room.user.uid),
+    // Bản 74b: chữ chung (ghi chú, bản sửa đề, mở rộng…) tách khỏi doc phiên — id 't_0'…'t_5' theo khối 10 câu, 't_c' cho ca lâm sàng
+    // Bản 74c: đáp án · bình luận · đánh dấu… (khóa theo câu) của MỘT thành viên, theo khối 10 câu: 'm_<uid>_b<k>'
+    mshard: (uid, id) => doc(db, 'study_rooms', room.roomId, 'quizSession', 'm_' + uid + '_' + id),
+    text: (id) => doc(db, 'study_rooms', room.roomId, 'quizSession', id === 'tc' ? 't_c' : 't_' + id.slice(1)),
     // MỘT truy vấn ĐẲNG THỨC cho cả hiện diện + con trỏ (cả hai loại doc đều có live:true). Đã đo trên SDK thật: hai truy vấn riêng cùng nằm trên
     // collection quizSession làm MỖI lần ghi tốn thêm ~1,4 KB; còn `kind in [...]` thì SDK tách thành 2 mục tiêu nghe và doc đến 2 lần (~2 KB/lần ghi).
     // Một truy vấn `live == true` chỉ ~1 KB/lần ghi.
@@ -46,6 +54,16 @@ export const refs = {
 // cả cục đó tới từng máy. Tách ra thì mỗi lần ghi chỉ còn vài KB. Phía ĐỌC luôn hiểu cả hai dạng (phiên cũ còn nhúng sẵn
 // questions vẫn chạy); công tắc này chỉ điều khiển phía GHI — đặt false để quay về cách cũ, không cần dọn dữ liệu.
 export const SPLIT_QUESTIONS = true;
+
+// Bản 74b: CHỮ chung (notes · optNotes · edits · issues · extra · parts · caseEdits…) tách khỏi doc phiên sang doc quizSession/t_*. Chỉ GHI vào doc
+// chữ khi mọi người đang online đều đã báo `cap` ≥ 1 trong hiện diện (máy bản cũ không biết đọc doc chữ); phía ĐỌC luôn gộp cả hai nơi.
+// Đặt false = quay về ghi thẳng vào doc phiên như cũ — không cần dọn dữ liệu.
+export const SPLIT_TEXTS = true;
+
+// Bản 74c: doc THÀNH VIÊN chứa đáp án + bình luận + đánh dấu… của cả đề (9–21 KB) mà mỗi lần chọn đáp án đều gửi NGUYÊN doc tới mọi máy.
+// Các bản đồ khóa theo câu giờ nằm ở quizSession/m_<uid>_b<khối>; room.members vẫn đủ trường nhờ mergeMember(). Điều kiện ghi/lùi máy cũ
+// giống SPLIT_TEXTS (cap ≥ 2). false = ghi thẳng vào doc thành viên như cũ.
+export const SPLIT_MEMBERS = true;
 
 // Bản 70c: HIỆN DIỆN (online / lastSeen / cursor) tách khỏi doc thành viên. Doc thành viên chứa đáp án + lý do + nhận xét (đo trên SDK thật:
 // 1,5 – 21 KB JSON, ~5 – 34 KB trên đường truyền) mà nhịp tim và mỗi lần đổi câu đều ship NGUYÊN doc tới mọi máy — phòng 14 người chỉ riêng
@@ -70,6 +88,7 @@ export function overlayPresence(members, pres = room.presence) {
         if (p.online !== undefined) o.online = p.online;
         if (p.lastSeen !== undefined) o.lastSeen = p.lastSeen;
         if (p.cursor !== undefined) o.cursor = p.cursor;
+        if (p.cap !== undefined) o.cap = p.cap;
         return o;
     });
 }
@@ -260,7 +279,18 @@ export const doneOf = (member, i) => {
     if (isEssay(room.session?.questions?.[i])) return hasText(noteOf(i));
     return typeof answerOf(member, i)?.i === 'number';
 };
-export const doneCount = (member) => Object.keys(member?.answers || {}).filter(k => doneOf(member, Number(k.slice(1)))).length;
+// Nhớ theo (đối tượng answers, phiên): đường đua / bảng thành viên / điểm gọi hàm này nhiều lần cho cùng một người trong MỘT lần vẽ
+// (đường đua còn gọi trong cả hàm so sánh của sort -> n log n lần). Hết hiệu lực khi snapshot mới trả về đối tượng answers mới.
+const doneMemo = new WeakMap();
+export const doneCount = (member) => {
+    const ans = member?.answers;
+    if (!ans) return 0;
+    const hit = doneMemo.get(ans);
+    if (hit && hit.sess === room.session) return hit.n;
+    const n = Object.keys(ans).filter(k => doneOf(member, Number(k.slice(1)))).length;
+    doneMemo.set(ans, { sess: room.session, n });
+    return n;
+};
 
 // --- Kết luận của nhóm: KHÔNG ép về một đáp án ---
 // chosen.q<i> = đáp án chính; alsoOk.q<i> = [k…] những đáp án nhóm CŨNG chấp nhận (đều chấm đúng).

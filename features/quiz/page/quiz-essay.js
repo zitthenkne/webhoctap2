@@ -8,7 +8,7 @@
 //   tắt  -> gõ tự do; nộp bài thì máy chấm sơ bộ, đáp án + barem mở ở màn kết quả (điểm cập nhật tức thì)
 
 import { showToast } from '../../../core/utils.js';
-import { scrollBehaviorFor } from './quiz-page-prefs.js';
+import { scrollBehaviorFor, sfx } from './quiz-page-prefs.js';
 import { state, saveQuizState } from '../quiz-state.js';
 import { parseMarkdown, renderMath } from '../quiz-helpers.js';
 import {
@@ -423,6 +423,7 @@ function finishEssay(idx) {
     }
     const q = state.questions[idx];
     const ans = state.userAnswers[idx];
+    sfx('pick');
     // Chưa gõ gì mà vẫn muốn xem đáp án -> tính là bỏ trống, 0 điểm
     state.userAnswers[idx] = ans
         ? withAutoGrade(q, { ...ans, done: true })
@@ -470,6 +471,7 @@ function wireGrading() {
         }
         state.userAnswers[idx] = next;
         saveQuizState();
+        sfx(btn.hasAttribute('data-kp') ? (next.ticks.length > ticks.length ? 'toggleOn' : 'toggleOff') : 'ui');   // tick ý barem = tiếng bật/tắt, các nút chấm khác = tiếng nhẹ
         if (box.closest('#resultsSection')) { refreshResults(); return; }
         box.outerHTML = gradeHtml(q, idx, next);
         renderMath(document.querySelector(`#quizSection [data-essay-grade="${idx}"]`));

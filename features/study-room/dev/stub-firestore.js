@@ -308,7 +308,7 @@ export const deleteField = () => ({ __delete: true });
 export const writeBatch = () => {
     const ops = [];
     return {
-        set(ref, data, opts) { ops.push(() => { store[pathOf(ref)] = opts?.merge ? { ...(store[pathOf(ref)] || {}), ...data } : { ...data }; }); },
+        set(ref, data, opts) { ops.push(() => { store[pathOf(ref)] = (opts?.merge || opts?.mergeFields) ? { ...(store[pathOf(ref)] || {}), ...data } : { ...data }; }); },
         update(ref, patch) { ops.push(() => { store[pathOf(ref)] = store[pathOf(ref)] || {}; applyPatch(store[pathOf(ref)], patch); }); },
         delete(ref) { ops.push(() => { delete store[pathOf(ref)]; }); },
         commit: async () => { ops.forEach(f => f()); notify(); },
@@ -324,10 +324,10 @@ function applyPatch(target, patch) {
             target[head] = target[head] || {};
             let cur = target[head];
             while (rest.length > 1) { const s = rest.shift(); cur[s] = cur[s] || {}; cur = cur[s]; }
-            cur[rest[0]] = v;
+            if (v && v.__delete) delete cur[rest[0]]; else cur[rest[0]] = v;
             return;
         }
-        target[k] = v;
+        if (v && v.__delete) delete target[k]; else target[k] = v;
     });
 }
 
@@ -372,7 +372,8 @@ export function onSnapshot(refOrQuery, cb) {
     const emit = () => {
         if (refOrQuery.isCol) {
             const docs = docsIn(path, refOrQuery.__w, refOrQuery.__o);
-            cb({ forEach: (f) => docs.forEach(f), size: docs.length, docs, metadata: { hasPendingWrites: false } });
+            cb({ forEach: (f) => docs.forEach(f), size: docs.length, docs, metadata: { hasPendingWrites: false },
+                docChanges: () => docs.map(d => ({ type: 'added', doc: d })) });      // bản stub: coi mọi doc là "thêm/đổi" mỗi lần phát
         } else {
             const d = store[path];
             cb({ exists: () => !!d, data: () => d, metadata: { hasPendingWrites: false } });

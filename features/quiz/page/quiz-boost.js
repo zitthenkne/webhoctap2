@@ -15,15 +15,19 @@ import { isEssay } from '../quiz-essay-core.js';
 import { showQuestion, handle5050Help } from './quiz-question-view.js';
 import { applyMark } from './quiz-marks.js';
 import { hideCatMeme } from './quiz-cat-meme.js';
-import { getVibrate } from './quiz-page-prefs.js';
+import { getVibrate, sfx } from './quiz-page-prefs.js';
+import { getSound, setSound, syncAmbient } from './quiz-sound.js';
+import { openQuickNote } from './quiz-notes-panel.js';
+import { togglePause } from './quiz-session.js';
 import { speak as voiceSpeak, stopVoice, isSpeaking, voiceSupported, setupVoiceSettings, openVoiceSettings } from './quiz-voice.js';
 
-const LS = { confirmTap: 'quiz_confirm_tap', kbClamp: 'quiz_kb_clamp', wake: 'quiz_wake' };
+const LS = { confirmTap: 'quiz_confirm_tap', kbClamp: 'quiz_kb_clamp', wake: 'quiz_wake', qtimer: 'quiz_qtimer' };
 const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { } };
 const isConfirmTapOn = () => lsGet(LS.confirmTap) === '1';   // mặc định TẮT (đổi thói quen chạm là việc người dùng tự chọn)
 const isKbClampOn = () => lsGet(LS.kbClamp) !== '0';         // mặc định BẬT
 const isWakeOn = () => lsGet(LS.wake) !== '0';               // mặc định BẬT
+const isQTimerOn = () => lsGet(LS.qtimer) === '1';           // mặc định TẮT (không tạo áp lực cho ai không muốn)
 
 const $ = (id) => document.getElementById(id);
 const curQ = () => state.questions[state.currentIndex];
@@ -136,6 +140,7 @@ function undoAnswer() {
     seenOpen.add(i);
     hideCatMeme();
     buzz(10);
+    sfx('undo');
     saveQuizState();
     showQuestion();   // cùng câu -> không cuộn, vẽ lại ô đáp án ở trạng thái chưa chọn
 }
@@ -202,21 +207,40 @@ function setSpeakBtn(on) {
     if (b) { b.classList.toggle('is-speaking', on); b.setAttribute('aria-pressed', String(on)); }
 }
 function stopSpeaking() { if (isSpeaking()) stopVoice(); setSpeakBtn(false); }
-function toggleSpeak() {
-    if (!voiceSupported()) { showToast('Trình duyệt này chưa hỗ trợ đọc to.', 'info'); return; }
-    if (isSpeaking()) { stopSpeaking(); return; }
+// onlyAnswer = chỉ đọc phần "Đáp án đúng là … + ghi nhớ" (tự đọc giải thích sau khi trả lời)
+function speakNow(onlyAnswer) {
     const p = cardParts();
     if (!p || !p.question) return;
     const answered = isAnswered(state.currentIndex) && state.quizOptions.showAnswerImmediately && !isEssay(curQ());
     const text = [
-        p.question,
-        ...p.answers.map(a => a.replace(/^([A-Z])\. /, 'Đáp án $1: ')),
+        ...(onlyAnswer ? [] : [p.question, ...p.answers.map(a => a.replace(/^([A-Z])\. /, 'Đáp án $1: '))]),
         answered ? `Đáp án đúng là ${correctLetters()}.` : '',
         answered ? p.note : ''
     ].filter(Boolean).join('. ');
+    if (!text) return;
     setSpeakBtn(true);
     voiceSpeak(text, () => setSpeakBtn(false));   // gọi ngay trong cú chạm: iOS chỉ cho phát tiếng khi có thao tác
 }
+function toggleSpeak() {
+    if (!voiceSupported()) { showToast('Trình duyệt này chưa hỗ trợ đọc to.', 'info'); return; }
+    if (isSpeaking()) { stopSpeaking(); return; }
+    speakNow(false);
+}
+
+// TỰ ĐỌC (quiz_voice_auto): 'q' = đọc đề + phương án khi sang câu chưa làm; 'qe' = thêm đọc đáp án + ghi nhớ ngay sau khi trả lời
+const autoMode = () => { const v = lsGet('quiz_voice_auto'); return v === 'q' || v === 'qe' ? v : 'off'; };
+let autoT = 0;
+function autoRead(kind) {
+    clearTimeout(autoT);
+    autoT = setTimeout(() => {
+        if (!inQuiz() || !voiceSupported() || document.body.classList.contains('quiz-paused')) return;
+        if (document.querySelector('#focus-break, #notes-all.is-open, #qfind.is-open')) return;
+        if (kind === 'q' && isAnswered(state.currentIndex)) return;   // vào lại câu đã làm: không đọc lại đề
+        stopSpeaking();
+        speakNow(kind === 'a');
+    }, kind === 'q' ? 500 : 250);
+}
+let wasAns = false;
 async function copyQuestion() {
     const p = cardParts();
     if (!p) return;
@@ -249,7 +273,8 @@ function setupKeys() {
     document.addEventListener('keydown', (e) => {
         if (e.ctrlKey || e.altKey || e.metaKey || e.isComposing || e.repeat) return;
         if (typing() || !inQuiz()) return;
-        if (document.querySelector('#kbd-sheet:not(.hidden), .zt-confirm-overlay')) return;
+        if (document.body.classList.contains('quiz-paused')) return;   // đang tạm dừng: mọi phím tắt bị khóa (Space/Enter/Esc lo ở màn tạm dừng)
+        if (document.querySelector('#kbd-sheet:not(.hidden), .zt-confirm-overlay, #notes-all.is-open')) return;
         const k = e.key.length === 1 ? e.key.toLowerCase() : '';
         if (k === 'm') {                                 // đánh dấu nhanh / bỏ đánh dấu
             const i = state.currentIndex;
@@ -270,6 +295,17 @@ function setupKeys() {
             if (b && !b.disabled && b.style.display !== 'none') handle5050Help();
         } else if (k === 't') {                          // chế độ tập trung
             const b = $('focus-mode-btn'); if (b) b.click();
+        } else if (k === 'p') {                          // P tạm dừng / tiếp tục đồng hồ (bài tính giờ)
+            if (!state.quizOptions.isTimed) { showToast('Chỉ tạm dừng được khi bài có tính giờ.', 'info', 1800); return; }
+            togglePause();
+        } else if (k === 'q') {                          // Q ghi chú nhanh · Shift+Q sổ ghi chú cả bộ đề
+            if (e.shiftKey) import('./quiz-notes-all.js').then(m => m.toggleAllNotes());
+            else openQuickNote();
+        } else if (k === 's') {                          // bật/tắt âm thanh
+            const on = !getSound();
+            setSound(on);
+            if (on) sfx('ui');
+            showToast(on ? 'Đã bật âm thanh' : 'Đã tắt âm thanh', 'info', 1400);
         } else return;
         e.preventDefault();
     });
@@ -305,6 +341,63 @@ function syncPace() {
     el.title = 'Nhịp làm bài của bạn (trung vị các câu đã làm) và thời gian ước tính để làm hết số câu còn lại';
 }
 
+/* ---------------------------------------------------------------- Ôn ngắt quãng: viên lịch hẹn */
+// Sau khi trả lời ở chế độ Ôn ngắt quãng: "Hẹn ôn: 6 ngày nữa" / "ngày mai" / "Ôn lại trong hôm nay" (từ state._srsNext do question-view ghi)
+function syncSrsChip() {
+    const q = curQ(), old = $('srs-next-chip');
+    const host = document.querySelector('#quizSection .q-tools > div');
+    const r = q && state._srsNext && state._srsNext[String(q.question || '').trim()];
+    if (state.quizMode !== 'srs' || !host || !r || !isAnswered(state.currentIndex)) { if (old) old.remove(); return; }
+    const txt = r.ivl <= 0 ? 'Ôn lại trong hôm nay' : r.ivl === 1 ? 'Hẹn ôn: ngày mai' : `Hẹn ôn: ${r.ivl} ngày nữa`;
+    if (old && old.dataset.t === txt && host.contains(old)) return;
+    if (old) old.remove();
+    const el = document.createElement('span');
+    el.id = 'srs-next-chip';
+    el.className = 'srs-next-chip' + (r.ivl <= 0 ? ' is-again' : '');
+    el.dataset.t = txt;
+    el.innerHTML = `<i class="fas fa-calendar-check" aria-hidden="true"></i> ${txt}`;
+    host.prepend(el);
+}
+
+/* ---------------------------------------------------------------- Giờ từng câu (tùy chọn) */
+// Viên "⏱ 0:23" cạnh các nút của thẻ câu: đếm thời gian đang nghĩ câu này; ngả vàng khi chậm hơn hẳn nhịp của mình
+// (≥ 1,5 × trung vị các câu đã làm, đủ 3 mẫu, trên 20 giây); trả lời xong thì đứng yên ở mốc đã làm.
+let qtTick = 0;
+const qtFrozen = {};   // giây chốt lúc vừa trả lời (đọc giải thích sau đó không tính vào "thời gian nghĩ")
+const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+function updateQTimer() {
+    const chip = $('q-timer-chip');
+    if (!chip || !inQuiz()) return;
+    const i = state.currentIndex;
+    let sec = (state.questionTimes && state.questionTimes[i]) || 0;
+    if (state._timingIndex === i && state._timingEnterAt) sec += Math.max(0, Math.round((Date.now() - state._timingEnterAt) / 1000));
+    const done = isAnswered(i), fk = i + ':' + state.quizStartTime;
+    if (done) { if (qtFrozen[fk] === undefined) qtFrozen[fk] = sec; sec = qtFrozen[fk]; } else delete qtFrozen[fk];
+    chip.lastElementChild.textContent = mmss(sec);
+    const secs = state.userAnswers.map((a, k) => (a !== null && a !== undefined ? Math.min((state.questionTimes || [])[k] || 0, 300) : 0)).filter(t => t > 0).sort((a, b) => a - b);
+    const med = secs.length >= 3 ? secs[Math.floor(secs.length / 2)] : 0;
+    chip.classList.toggle('is-done', done);
+    chip.classList.toggle('is-slow', !done && med > 0 && sec > 20 && sec > med * 1.5);
+}
+function syncQTimer() {
+    const on = isQTimerOn() && inQuiz() && !document.body.classList.contains('quiz-paused');
+    let chip = $('q-timer-chip');
+    if (!on) { if (chip) chip.remove(); clearInterval(qtTick); qtTick = 0; return; }
+    const host = document.querySelector('#quizSection .q-head-tools');
+    if (!host) return;
+    if (!chip || !host.contains(chip)) {
+        if (chip) chip.remove();
+        chip = document.createElement('span');
+        chip.id = 'q-timer-chip';
+        chip.className = 'q-timer-chip';
+        chip.title = 'Thời gian bạn đã nghĩ câu này';
+        chip.innerHTML = '<i class="fas fa-stopwatch" aria-hidden="true"></i><b>0:00</b>';
+        host.prepend(chip);
+    }
+    if (!qtTick) qtTick = setInterval(updateQTimer, 1000);
+    updateQTimer();
+}
+
 /* ---------------------------------------------------------------- 9. Con dấu mốc tiến độ */
 const MILES = [25, 50, 75, 100];
 let mileSession = null, mileDone = new Set(), lastAnswered = 0;
@@ -338,6 +431,7 @@ function stampMilestone(pct) {
     s.setAttribute('aria-hidden', 'true');
     s.innerHTML = `<i class="fas fa-star"></i><b>${pct}%</b>`;
     card.appendChild(s);
+    sfx('milestone');
     setTimeout(() => s.remove(), 2000);
 }
 
@@ -396,7 +490,8 @@ function setupBoostSettings() {
         ['qs-confirm-tap', isConfirmTapOn, () => lsSet(LS.confirmTap, isConfirmTapOn() ? '0' : '1'),
             () => showToast(isConfirmTapOn() ? 'Chạm 2 lần mới chọn: lần 1 chỉ đánh dấu ô, lần 2 mới chốt' : 'Đã tắt chạm 2 lần', 'info')],
         ['qs-kb-clamp', isKbClampOn, () => lsSet(LS.kbClamp, isKbClampOn() ? '0' : '1'), () => clampKb()],
-        ['qs-wake', isWakeOn, () => lsSet(LS.wake, isWakeOn() ? '0' : '1'), () => syncWake()]
+        ['qs-wake', isWakeOn, () => lsSet(LS.wake, isWakeOn() ? '0' : '1'), () => syncWake()],
+        ['qs-qtimer', isQTimerOn, () => lsSet(LS.qtimer, isQTimerOn() ? '0' : '1'), () => syncQTimer()]
     ];
     const sync = () => rows.forEach(([id, get]) => { const r = $(id); if (r) r.setAttribute('aria-checked', String(get())); });
     sync();
@@ -407,8 +502,19 @@ function setupBoostSettings() {
         r.addEventListener('click', go);
         r.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
     });
+    // Chọn chế độ tự đọc (giọng đọc): bật giữa bài thì đọc luôn câu đang xem nếu chưa làm
+    const auto = $('qs-voice-auto');
+    if (auto) {
+        auto.value = autoMode();
+        auto.addEventListener('click', (e) => e.stopPropagation());
+        auto.addEventListener('change', () => {
+            lsSet('quiz_voice_auto', auto.value);
+            if (auto.value === 'off') stopSpeaking();
+            else if (inQuiz() && !isAnswered(state.currentIndex) && !isEssay(curQ())) autoRead('q');
+        });
+    }
     const fab = $('quiz-settings-fab');
-    if (fab) fab.addEventListener('click', sync);
+    if (fab) fab.addEventListener('click', () => { sync(); if (auto) auto.value = autoMode(); });
 }
 
 /* ---------------------------------------------------------------- Khởi tạo */
@@ -452,20 +558,42 @@ export function setupQuizBoost() {
         else if (t.id === 'listen-btn') toggleSpeak();
         else copyQuestion();
     });
-    document.addEventListener('visibilitychange', syncWake);
+    document.addEventListener('visibilitychange', () => { syncWake(); syncAmbient(inQuiz()); });
+    // Hai hàng trong bảng Ngựa thì chỉnh cho người dùng chuột/cảm ứng (không có Ctrl+K / Shift+Q): đóng bảng rồi mở hộp tương ứng
+    document.addEventListener('click', (e) => {
+        const t = e.target.closest && e.target.closest('#qs-find, #qs-notes-all');
+        if (!t) return;
+        $('quiz-settings-popover')?.classList.add('hidden-pop');
+        if (t.id === 'qs-find') import('./quiz-find.js').then(m => m.openFind());
+        else import('./quiz-notes-all.js').then(m => m.openAllNotes());
+    });
+    // Bấm vào đồng hồ (nổi hoặc trên thanh tập trung) = tạm dừng / tiếp tục; Esc cũng tiếp tục
+    document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('#timerDisplay, #fb-timer')) togglePause(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.body.classList.contains('quiz-paused')) { e.preventDefault(); togglePause(); } });   // preventDefault: báo cho các bộ xử lý Esc khác (tập trung) biết phím này đã dùng rồi
     window.addEventListener('pagehide', stopSpeaking);
 
     let lastIdx = -1, raf = 0;
     const run = () => {
         raf = 0;
-        if (!inQuiz()) { syncWake(); return; }
-        if (state.currentIndex !== lastIdx) { lastIdx = state.currentIndex; stopSpeaking(); }
+        if (!inQuiz()) { syncWake(); syncAmbient(false); syncQTimer(); return; }
+        if (state.currentIndex !== lastIdx) {
+            lastIdx = state.currentIndex; stopSpeaking();
+            wasAns = isAnswered(lastIdx);
+            if (autoMode() !== 'off' && curQ() && !isEssay(curQ())) autoRead('q');
+        } else {
+            const a = isAnswered(lastIdx);
+            if (a && !wasAns && autoMode() === 'qe' && state.quizOptions.showAnswerImmediately && curQ() && !isEssay(curQ())) autoRead('a');
+            wasAns = a;
+        }
         listen();
         clampKb();
         syncUndo();
         syncPace();
         syncMilestone();
         syncWake();
+        syncAmbient(true);
+        syncQTimer();
+        syncSrsChip();
     };
     const queue = () => { if (!raf) raf = requestAnimationFrame(run); };
     new MutationObserver(queue).observe(quiz, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });

@@ -3,7 +3,7 @@
 //  - CACHE_NAME (zitthenkne-v2NNN): app shell. Tăng số MỖI LẦN sửa/thêm file trong urlsToCache.
 //  - CDN_CACHE: thư viện + phông từ CDN (URL có phiên bản, gần như bất biến) → GIỮ qua các phiên bản.
 //  - IMG_CACHE: ảnh tải lúc chạy (nền, avatar, ảnh bệnh án) → giữ qua các phiên bản, tối đa IMG_MAX mục.
-const CACHE_NAME = 'zitthenkne-v283';
+const CACHE_NAME = 'zitthenkne-v309';
 const CDN_CACHE = 'zitthenkne-cdn';
 const IMG_CACHE = 'zitthenkne-img';
 const IMG_MAX = 600;
@@ -31,6 +31,11 @@ const urlsToCache = [
   'features/quiz/page/quiz-annotations.js',
   'features/quiz/page/quiz-marks.js',
   'features/quiz/page/quiz-notes-panel.js',
+  'features/quiz/page/quiz-notes-all.js',
+  'features/quiz/page/quiz-sound.js',
+  'features/quiz/page/quiz-focus.js',
+  'features/quiz/page/quiz-find.js',
+  'features/quiz/page/quiz-result-card.js',
   'features/quiz/page/quiz-page-setup.js',
   'features/quiz/page/quiz-cases.js',
   'features/quiz/page/quiz-case-peek.js',
@@ -76,6 +81,8 @@ const urlsToCache = [
   'features/quiz/quiz-enhance.css',
   'features/quiz/quiz-stationery.css',
   'features/quiz/tailwind-quiz.css',
+  'features/quiz/quiz-min.css',
+  'core/write-errors.js',
   'features/quiz/fa-quiz/fa-quiz.css',
   'features/quiz/fa-quiz/solid.woff2',
   'features/quiz/fa-quiz/regular.woff2',
@@ -110,6 +117,8 @@ const urlsToCache = [
   'features/study-room/study-room-main.js',
   'features/study-room/study-room.css',
   'features/study-room/room-state.js',
+  'features/study-room/room-texts.js',
+  'features/study-room/room-texts-core.js',
   'features/study-room/room-ui.js',
   'features/study-room/room-members.js',
   'features/study-room/room-chat.js',
@@ -135,6 +144,7 @@ const urlsToCache = [
   'features/study-room/rooms-hub.js',
   'features/study-room/rooms-hub.css',
   'features/study-room/tailwind-phong.css',
+  'features/study-room/study-room-min.css',
   'features/study-room/fa-phong/fa-phong.css',
   'features/study-room/fa-phong/solid.woff2',
   'features/study-room/fa-phong/regular.woff2',

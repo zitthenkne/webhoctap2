@@ -266,7 +266,11 @@ export async function clearCloudProgress(uid, quizId) {
     try {
         const id = studyDocId(uid, quizId);
         const ref = doc(db, 'quiz_study', id);
+        // Kèm userId/quizId: nếu doc chưa tồn tại (nộp bài nhanh hơn nhịp gom 30s nên chưa từng đẩy tiến trình) thì đây là lệnh TẠO,
+        // luật yêu cầu đủ hai trường này — thiếu thì bị từ chối (và nay lỗi từ chối còn hiện toast qua queued()).
         await setDoc(ref, {
+            userId: uid,
+            quizId,
             inProgress: { finished: true, savedAt: Date.now() },
             updatedAt: serverTimestamp(),
         }, { merge: true });

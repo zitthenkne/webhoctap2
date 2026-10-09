@@ -7,6 +7,8 @@
     <!-- Áp dụng chế độ tối NGAY trước khi vẽ trang để tránh nháy sáng -->
     <script>
         try { if (localStorage.getItem('quiz_theme') === 'dark') document.documentElement.classList.add('theme-dark'); } catch (e) {}
+        // Giao diện tinh gọn (quiz-min.css): chỉ là class html.ui-min, đặt sớm để khỏi nháy giao diện sổ tay
+        try { if (localStorage.getItem('quiz_minimal') === '1') document.documentElement.classList.add('ui-min'); } catch (e) {}
         // Kiểu giấy (kẻ ô mặc định / chấm bi / kẻ dòng / trơn) — chọn trong bảng "Ngựa thì chỉnh"
         try { var qp = localStorage.getItem('quiz_paper'); if (qp && qp !== 'grid') document.documentElement.setAttribute('data-paper', qp); } catch (e) {}
         // Tải lại trang (F5 / kéo làm mới / Back) GIỮA LÚC đang làm bài đề này -> vào thẳng câu đang làm:
@@ -147,6 +149,9 @@
     <link rel="modulepreload" href="page/quiz-boost.js">
     <link rel="modulepreload" href="page/quiz-voice.js">
     <link rel="modulepreload" href="page/quiz-notes-panel.js">
+    <link rel="modulepreload" href="page/quiz-sound.js">
+    <link rel="modulepreload" href="page/quiz-focus.js">
+    <link rel="modulepreload" href="page/quiz-find.js">
     <link rel="modulepreload" href="page/quiz-page-prefs.js">
     <link rel="modulepreload" href="page/quiz-page-setup.js">
     <link rel="modulepreload" href="page/quiz-question-view.js">
@@ -288,11 +293,6 @@
         #quiz-options-grid > label, #quiz-options-grid > div { padding: 0.7rem 0.9rem; border-radius: 1rem; }
         #quiz-options-grid .w-9 { width: 2.1rem; height: 2.1rem; border-radius: 0.7rem; }
 
-        /* Nút thoát chế độ tập trung: chỉ nhấp nháy vài nhịp đầu để gây chú ý rồi đứng yên
-           (nhấp nháy vô hạn đi ngược mục đích "tập trung") */
-        @keyframes exit-focus-pulse { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
-        .exit-focus-pulse { animation: exit-focus-pulse 2s ease-in-out 3; }
-
         /* Hộp QR chia sẻ: luôn nền trắng kể cả dark mode để máy quét đọc được */
         #share-qr-box { background: #fff !important; }
 
@@ -320,7 +320,6 @@
             .animate-pulse,
             .animate-stripes,
             .skeleton-line,
-            .exit-focus-pulse,
             .correct-answer-pulse,
             .wrong-answer-shake {
                 animation: none !important;
@@ -335,12 +334,10 @@
          — đúng chỗ CDN từng chèn — vì nhiều luật của trang ngầm để Tailwind thắng khi cùng độ ưu tiên.
          Thêm class Tailwind mới (quiz.html / features/quiz / core) thì chạy `node tailwind-dong-bang.mjs`. -->
     <link rel="stylesheet" href="tailwind-quiz.css">
+    <link rel="stylesheet" href="quiz-min.css">   <!-- "Giao diện tinh gọn": mọi luật nằm dưới html.ui-min, không bật thì không có tác dụng; PHẢI nằm sau tailwind-quiz.css -->
 </head>
 <body class="flex items-center justify-center min-h-screen p-2 sm:p-4 text-sm">
-    <!-- Floating Exit Focus Button -->
-    <button id="exit-focus-btn" type="button" class="fixed top-4 right-4 z-50 p-3 bg-pink-500 text-white rounded-full shadow-lg opacity-50 hover:opacity-100 transition hidden focus:outline-none exit-focus-pulse" title="Thoát chế độ tập trung">
-        <i class="fas fa-compress-arrows-alt text-lg"></i>
-    </button>
+    <!-- Nút thoát chế độ tập trung nay nằm trong thanh tập trung (page/quiz-focus.js, #focus-bar) -->
     <!-- Mobile Top Bar with Hamburger -->
     <div class="nb-topbar md:hidden fixed top-0 left-0 w-full z-40 flex items-center justify-between px-4 py-3 focus-hide">
         <button id="quiz-menu-toggle" class="text-2xl text-pink-500 focus:outline-none">
@@ -414,6 +411,10 @@
                                 <button id="offline-download-btn" type="button" title="Tải đề về máy để học khi không có mạng" class="nb-soft-btn px-3.5 py-2 font-semibold rounded-xl transition flex items-center gap-1.5 text-xs sm:text-sm">
                                     <i id="offline-download-icon" class="fas fa-arrow-down"></i>
                                     <span id="offline-download-label">Tải offline</span>
+                                </button>
+                                <button id="landing-notes-btn" type="button" title="Xem lại những ghi chú bạn đã viết cho bộ đề này" class="nb-soft-btn hidden px-3.5 py-2 font-semibold rounded-xl transition flex items-center gap-1.5 text-xs sm:text-sm">
+                                    <i class="fas fa-sticky-note"></i>
+                                    <span id="landing-notes-label">Ghi chú</span>
                                 </button>
                                 <div id="quiz-preview" class="quiz-preview-container mt-4 hidden text-left bg-pink-50/20 border border-pink-100/80 rounded-2xl p-4 max-h-[340px] overflow-y-auto w-full">
                                     <div class="flex items-center justify-between gap-2 mb-3 border-b border-pink-100 pb-2 sticky -top-4 -mx-4 px-4 pt-1 bg-white/70 backdrop-blur-sm z-10 rounded-t-2xl">
@@ -994,6 +995,7 @@
                 // không khớp chế độ nào -> thẻ "Tự chỉnh" sáng. Dòng mô tả dưới lưới chép mô tả thẻ đang sáng.
                 const modeCaption = document.getElementById('mode-caption');
                 const optionsFold = document.getElementById('bt-options');
+                if (optionsFold && document.documentElement.classList.contains('ui-min')) optionsFold.open = false;     // tinh gọn: khối ② gập sẵn, mở bằng thẻ "Tự chỉnh"
                 function syncModePresets() {
                     let active = null;
                     presetBtns.forEach(function (btn) {
@@ -1318,9 +1320,40 @@
                 <span class="qs-label"><i class="fas fa-moon"></i> Chế độ tối</span>
                 <span class="qs-switch"></span>
             </div>
-            <div class="qs-row" id="qs-sound" role="switch" aria-checked="false" tabindex="0">
+            <div class="qs-row" id="qs-min" role="switch" aria-checked="false" tabindex="0" title="Ít hộp lồng hộp, không hiệu ứng, chữ gọn — cho người thích đơn giản">
+                <span class="qs-label"><i class="fas fa-square"></i> Giao diện tinh gọn</span>
+                <span class="qs-switch"></span>
+            </div>
+            <div class="qs-row" id="qs-sound" role="switch" aria-checked="false" tabindex="0" title="Phím S bật/tắt nhanh khi đang làm bài">
                 <span class="qs-label"><i class="fas fa-volume-up"></i> Âm thanh</span>
                 <span class="qs-switch"></span>
+            </div>
+            <!-- Chi tiết âm thanh: chỉ hiện khi Âm thanh đang bật (page/quiz-sound.js, page/quiz-page-setup.js) -->
+            <div id="qs-sound-detail" hidden>
+                <label class="qs-row qs-row-voice" for="qs-sound-pack">
+                    <span class="qs-label"><i class="fas fa-music"></i> Bộ âm</span>
+                    <select id="qs-sound-pack" class="qs-select" aria-label="Chọn bộ âm"></select>
+                </label>
+                <div class="qs-row qs-row-slider">
+                    <span class="qs-label"><i class="fas fa-volume-up"></i> Âm lượng</span>
+                    <input type="range" id="qs-sound-vol" class="qs-range" min="0" max="100" step="5" value="70" aria-label="Âm lượng">
+                </div>
+                <div class="qs-row qs-row-voice">
+                    <span class="qs-label"><i class="fas fa-sliders"></i> Phát tiếng khi</span>
+                    <div id="qs-sound-groups" class="qs-sg-wrap" role="group" aria-label="Chọn nhóm âm thanh"></div>
+                </div>
+                <button type="button" id="qs-sound-test" class="qs-row qs-action">
+                    <span class="qs-label"><i class="fas fa-play"></i> Nghe thử</span>
+                </button>
+            </div>
+            <!-- Âm nền (nhiễu nâu / mưa / gió) sinh bằng WebAudio: chỉ phát khi đang làm bài, có âm lượng riêng -->
+            <label class="qs-row qs-row-voice" for="qs-amb" title="Chỉ phát khi đang làm bài · không phụ thuộc công tắc Âm thanh ở trên">
+                <span class="qs-label"><i class="fas fa-wave-square"></i> Âm nền</span>
+                <select id="qs-amb" class="qs-select" aria-label="Âm nền khi làm bài"></select>
+            </label>
+            <div class="qs-row qs-row-slider" id="qs-amb-vol-row" hidden>
+                <span class="qs-label"><i class="fas fa-volume-up"></i> Nền</span>
+                <input type="range" id="qs-amb-vol" class="qs-range" min="0" max="100" step="5" value="40" aria-label="Âm lượng âm nền">
             </div>
             <div class="qs-row" id="qs-vibrate" role="switch" aria-checked="true" tabindex="0">
                 <span class="qs-label"><i class="fas fa-mobile-alt"></i> Rung phản hồi</span>
@@ -1341,10 +1374,23 @@
                         <button type="button" id="font-size-large" class="px-2 py-1 text-xs rounded hover:bg-pink-100 transition font-bold text-gray-600">A+</button>
                     </span>
                 </div>
-                <button type="button" id="focus-mode-btn" class="qs-row qs-action">
+                <button type="button" id="focus-mode-btn" class="qs-row qs-action" title="Phím T · bật: gỡ hết xao nhãng, thanh tiến độ mảnh, ghi chú nhanh bằng phím Q, Esc để thoát">
                     <span class="qs-label"><i class="fas fa-expand"></i> Chế độ tập trung</span>
                     <i class="fas fa-chevron-right qs-action-ic"></i>
                 </button>
+                <label class="qs-row qs-row-voice" for="qs-focus-break" title="Khi đang ở chế độ tập trung: sau mỗi quãng này hiện màn nghỉ mắt 20 giây (bài tính giờ thì không chặn)">
+                    <span class="qs-label"><i class="fas fa-mug-hot"></i> Nhắc nghỉ mắt khi tập trung</span>
+                    <select id="qs-focus-break" class="qs-select" aria-label="Nhắc nghỉ mắt khi tập trung">
+                        <option value="0">Tắt</option>
+                        <option value="15">Mỗi 15 phút</option>
+                        <option value="25">Mỗi 25 phút</option>
+                        <option value="40">Mỗi 40 phút</option>
+                    </select>
+                </label>
+                <div class="qs-row" id="qs-focus-auto" role="switch" aria-checked="false" tabindex="0" title="Vào bài là tự bật chế độ tập trung (bấm T để thoát)">
+                    <span class="qs-label"><i class="fas fa-bullseye"></i> Tự tập trung khi bắt đầu</span>
+                    <span class="qs-switch"></span>
+                </div>
                 <button type="button" id="toggle-nav-btn" class="qs-row qs-action">
                     <span class="qs-label"><i class="fas fa-eye-slash"></i> Ẩn số câu hỏi</span>
                 </button>
@@ -1385,6 +1431,10 @@
                     <span class="qs-label"><i class="fas fa-compress-arrows-alt"></i> Gập gọn mục dài</span>
                     <span class="qs-switch"></span>
                 </div>
+                <div class="qs-row" id="qs-qtimer" role="switch" aria-checked="false" tabindex="0" title="Hiện viên đồng hồ nhỏ cạnh câu hỏi: bạn đã nghĩ câu này bao lâu (ngả vàng khi chậm hơn nhịp của chính bạn)">
+                    <span class="qs-label"><i class="fas fa-stopwatch"></i> Hiện giờ từng câu</span>
+                    <span class="qs-switch"></span>
+                </div>
                 <div class="qs-row" id="qs-wake" role="switch" aria-checked="true" tabindex="0" title="Màn hình không tự tắt khi đang làm bài (iPad / điện thoại)">
                     <span class="qs-label"><i class="fas fa-sun"></i> Giữ màn hình sáng</span>
                     <span class="qs-switch"></span>
@@ -1407,6 +1457,14 @@
                     <span class="qs-label"><i class="fas fa-users"></i> Làm cùng nhau</span>
                     <i class="fas fa-arrow-right qs-action-ic"></i>
                 </button>
+                <button type="button" id="qs-find" class="qs-row qs-action" title="Tìm câu theo chữ hoặc số câu (Ctrl+K)">
+                    <span class="qs-label"><i class="fas fa-magnifying-glass"></i> Tìm câu</span>
+                    <kbd class="kbd-key">Ctrl K</kbd>
+                </button>
+                <button type="button" id="qs-notes-all" class="qs-row qs-action" title="Sổ ghi chú cả bộ đề (Shift+Q)">
+                    <span class="qs-label"><i class="fas fa-sticky-note"></i> Sổ ghi chú</span>
+                    <kbd class="kbd-key">⇧ Q</kbd>
+                </button>
                 <button type="button" class="qs-row qs-action" data-open-kbd>
                     <span class="qs-label"><i class="fas fa-keyboard"></i> Phím tắt &amp; thao tác</span>
                     <kbd class="kbd-key">?</kbd>
@@ -1425,6 +1483,14 @@
                 <span class="qs-label"><i class="fas fa-forward"></i> Tốc độ</span>
                 <input type="range" id="qs-voice-rate" class="qs-range" min="0.7" max="1.4" step="0.05" value="1" aria-label="Tốc độ đọc">
             </div>
+            <label class="qs-row qs-row-voice" for="qs-voice-auto" title="Tự đọc to mà không cần bấm nút loa">
+                <span class="qs-label"><i class="fas fa-forward"></i> Tự đọc</span>
+                <select id="qs-voice-auto" class="qs-select" aria-label="Tự đọc khi sang câu">
+                    <option value="off">Không tự đọc</option>
+                    <option value="q">Đọc đề khi sang câu</option>
+                    <option value="qe">Đọc đề, rồi đáp án sau khi trả lời</option>
+                </select>
+            </label>
             <button type="button" id="qs-voice-test" class="qs-row qs-action">
                 <span class="qs-label"><i class="fas fa-play"></i> Nghe thử</span>
             </button>
@@ -1590,7 +1656,12 @@
                         <div><dt><kbd class="kbd-key">X</kbd></dt><dd>Trợ giúp 50:50</dd></div>
                         <div><dt><kbd class="kbd-key">R</kbd></dt><dd>Nghe đọc câu hỏi</dd></div>
                         <div><dt><kbd class="kbd-key">K</kbd></dt><dd>Sao chép câu hỏi</dd></div>
-                        <div><dt><kbd class="kbd-key">T</kbd></dt><dd>Chế độ tập trung</dd></div>
+                        <div><dt><kbd class="kbd-key">T</kbd></dt><dd>Chế độ tập trung (Esc để thoát)</dd></div>
+                        <div><dt><kbd class="kbd-key">S</kbd></dt><dd>Bật / tắt âm thanh</dd></div>
+                        <div><dt><kbd class="kbd-key">Q</kbd></dt><dd>Ghi chú nhanh (nhảy vào ô ghi chú)</dd></div>
+                        <div><dt><kbd class="kbd-key">Ctrl</kbd> + <kbd class="kbd-key">K</kbd> <kbd class="kbd-key">/</kbd></dt><dd>Tìm / nhảy tới câu</dd></div>
+                        <div><dt><kbd class="kbd-key">P</kbd></dt><dd>Tạm dừng / tiếp tục đồng hồ</dd></div>
+                        <div><dt><kbd class="kbd-key">Shift</kbd> + <kbd class="kbd-key">Q</kbd></dt><dd>Sổ ghi chú cả bộ đề</dd></div>
                         <div><dt><kbd class="kbd-key">V</kbd></dt><dd>Xem lại ca lâm sàng</dd></div>
                         <div><dt><kbd class="kbd-key">Esc</kbd></dt><dd>Đóng bảng đang mở</dd></div>
                         <div><dt><kbd class="kbd-key">?</kbd></dt><dd>Mở / đóng bảng này</dd></div>
