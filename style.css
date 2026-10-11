@@ -2537,3 +2537,9 @@ body.is-dragging-folder .folder-mini-card .folder-preview-pop { display: none; }
 @media (prefers-reduced-motion: reduce) {
     .quiz-grid-card, .quiz-list-card { rotate: none; }
 }
+
+/* Gạch đầu dòng trong ô bảng markdown ("- ý<br>- ý" -> quiz-helpers.js tableCellHtml): chấm hồng nhỏ, mỗi mục một dòng */
+.cute-table td .cell-ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.22rem; }
+.cute-table td .cell-ul li { position: relative; padding-left: 0.95rem; line-height: 1.45; }
+.cute-table td .cell-ul li::before { content: ""; position: absolute; left: 0.1rem; top: 0.52em; width: 0.4rem; height: 0.4rem; border-radius: 50%; background: #FF8FB8; }
+.cute-table td .cell-p { margin-bottom: 0.2rem; font-weight: 600; }

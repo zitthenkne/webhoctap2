@@ -90,7 +90,7 @@ html.ui-min #quiz-nav-fill { background: var(--pick-solid); }
 html.ui-min #question-nav-wrapper { background: none !important; border: 0 !important; padding: 0 !important; }
 html.ui-min .quiz-nav-btn { width: 1.9rem !important; height: 1.9rem !important; min-width: 0; border-radius: 7px !important; border: 1px solid var(--m-line) !important; background: transparent !important; box-shadow: none !important; font-size: .74rem; font-weight: 500; color: var(--m-dim) !important; }
 html.ui-min .quiz-nav-btn.is-done { background: color-mix(in srgb, var(--pick-solid) 10%, transparent) !important; border-color: transparent !important; color: var(--pick-ink) !important; }
-html.ui-min .quiz-nav-btn.is-current { border-color: var(--hue-blossom) !important; background: color-mix(in srgb, var(--hue-blossom) 14%, transparent) !important; color: var(--ink) !important; font-weight: 600; }
+html.ui-min .quiz-nav-btn.is-current { border-color: var(--cur-line) !important; background: var(--cur-bg) !important; color: var(--cur-ink) !important; font-weight: 800; }
 html.ui-min .qnp-jump { background: transparent !important; border: 1px solid var(--m-line) !important; box-shadow: none !important; border-radius: var(--m-r-sm) !important; font-size: .75rem !important; font-weight: 500 !important; color: var(--ink) !important; }
 
 html.ui-min #quizSection > .bg-white, html.ui-min #quizSection .quiz-card { background: var(--surface-card) !important; background-image: none !important; border: 1px solid var(--m-line); border-radius: var(--m-r-lg) !important; box-shadow: none !important; padding: 1.1rem 1.5rem 1.2rem !important; }
@@ -274,7 +274,7 @@ html.ui-min #clinical-case-panel span.rounded-full { background: none !important
 html.ui-min #case-toggle-btn { background: transparent !important; border: 1px solid var(--m-line) !important; border-radius: var(--m-r-sm) !important; box-shadow: none !important; color: var(--m-dim) !important; font-size: .72rem !important; font-weight: 500 !important; }
 html.ui-min #case-body { font-size: .9rem; line-height: 1.65; background: none !important; border: 0 !important; }
 html.ui-min .case-dot { width: 1.6rem !important; height: 1.6rem !important; border-radius: 7px !important; border: 1px solid var(--m-line) !important; background: transparent !important; box-shadow: none !important; font-size: .72rem !important; font-weight: 500 !important; color: var(--m-dim) !important; }
-html.ui-min .case-dot.is-current, html.ui-min .case-dot.is-now, html.ui-min .case-dot[aria-current="true"] { border-color: var(--hue-blossom) !important; background: color-mix(in srgb, var(--hue-blossom) 14%, transparent) !important; color: var(--ink) !important; font-weight: 600 !important; }
+html.ui-min .case-dot.is-current, html.ui-min .case-dot.is-now, html.ui-min .case-dot[aria-current="true"] { border-color: var(--cur-line) !important; background: var(--cur-bg) !important; color: var(--cur-ink) !important; font-weight: 800 !important; }
 html.ui-min .case-resize { opacity: .35; background: none !important; }
 html.ui-min .case-resize::before, html.ui-min .case-resize::after { display: none !important; }
 
@@ -393,7 +393,7 @@ html.ui-min body #quizSection #clinical-case-panel .case-dot { border-radius: 50
 html.ui-min #quiz-nav-panel { background: var(--t-blossom) !important; border: 1.5px solid var(--b-blossom) !important; border-radius: 22px !important; }
 html.ui-min .quiz-nav-btn { border-radius: 50% !important; border: 1.5px solid var(--b-blossom) !important; background: var(--surface-card) !important; color: var(--ink-blossom) !important; }
 html.ui-min .quiz-nav-btn.is-done { background: var(--t-sky) !important; border-color: var(--b-sky) !important; color: var(--ink-sky) !important; }
-html.ui-min .quiz-nav-btn.is-current { background: var(--hue-blossom) !important; border-color: var(--hue-blossom) !important; color: #fff !important; }
+html.ui-min .quiz-nav-btn.is-current { background: var(--cur-bg) !important; border-color: var(--cur-line) !important; color: var(--cur-ink) !important; }
 html.ui-min #quiz-nav-fill { background: var(--hue-blossom) !important; }
 html.ui-min .qnp-jump { background: var(--t-sky) !important; border: 1.5px solid var(--b-sky) !important; color: var(--ink-sky) !important; border-radius: 999px !important; }
 html.ui-min #nav-submit-btn.qnp-submit { color: #3A1624 !important; }
@@ -448,7 +448,8 @@ html.ui-min #quiz-mobile-nav #qmn-settings { background: var(--t-mint) !importan
 html.ui-min #quiz-mobile-nav #qmn-next { background: var(--hue-blossom) !important; border-color: transparent !important; }
 
 /* ───────── 14. Ghi chú cá nhân: chỉ còn ô gõ (người dùng: "đơn giản thôi, không cần cầu kì, nhiều lựa chọn") ───────── */
-html.ui-min .quiz-note-snips, html.ui-min .quiz-note-tpls, html.ui-min .quiz-note-footer .quiz-note-act, html.ui-min #note-char-count { display: none !important; }   /* chip chèn nhanh, mẫu, B/I/Xem/Mẫu/Đọc/Tất cả (Shift+Q mở sổ tất cả vẫn dùng được), dòng đếm chữ */
+html.ui-min .quiz-note-tools, html.ui-min .quiz-note-snips, html.ui-min .quiz-note-tpls, html.ui-min .quiz-note-footer .quiz-note-act, html.ui-min #note-char-count { display: none !important; }   /* hàng công cụ B/I/Nhãn/Mẫu/Xem/Đọc, chip chèn nhanh, mẫu, Tất cả (Shift+Q mở sổ tất cả vẫn dùng được), dòng đếm chữ */
+html.ui-min .quiz-note-clear .qna-t { display: inline; }   /* nút Xóa giữ chữ như trước */
 html.ui-min .quiz-note-footer { padding: 0 !important; min-height: 0 !important; justify-content: flex-end; }
 html.ui-min .quiz-note-input { min-height: 6rem; font-size: .9rem; line-height: 1.6; padding: .5rem .6rem !important; }
 
@@ -496,3 +497,10 @@ html.ui-min .res-groups { display: flex !important; flex-wrap: wrap; gap: .45rem
 html.ui-min .res-group, html.ui-min .res-group-btns { display: contents !important; }
 html.ui-min #quiz-mode-presets .mode-preset .mp-desc, html.ui-min #quiz-info, html.ui-min #quiz-landing .bt-hero-main > p { display: none !important; }
 html.ui-min #quiz-landing #quiz-mode-presets .mode-preset .mp-desc, html.ui-min #quiz-landing #quiz-mode-presets .mode-preset small { display: none !important; }
+
+/* ĐANG xem = vàng bơ pastel ở mọi bảng số câu (hồng dễ lẫn với "sai"; xanh lá/đỏ/xanh dương dành cho đúng/sai/đã làm) */
+html.ui-min .qjs-cell.is-current, html.ui-min body #quizSection #clinical-case-panel .case-dot.is-current { background: var(--cur-bg) !important; border-color: var(--cur-line) !important; color: var(--cur-ink) !important; font-weight: 800; }
+/* ô số câu bên trái ở chế độ tinh gọn từng THIẾU màu đúng/sai/đã làm (chỉ có luật cho .is-done của ô đang xem) -> 3 ô khác nhau trông y hệt */
+html.ui-min .quiz-nav-btn.is-correct { background: var(--ok-bg) !important; border-color: var(--ok-line) !important; color: var(--ok-ink) !important; }
+html.ui-min .quiz-nav-btn.is-wrong { background: var(--bad-bg) !important; border-color: var(--bad-line) !important; color: var(--bad-ink) !important; }
+html.ui-min .quiz-nav-btn.is-answered { background: var(--pick-bg) !important; border-color: var(--pick-line) !important; color: var(--pick-ink) !important; }

@@ -95,7 +95,7 @@ export function renderPersonalNotePanel() {
                 </span>
                 <span class="quiz-note-meta">
                     <span id="note-save-status" class="text-xs font-medium opacity-0 transition-opacity duration-300">
-                        <i class="fas fa-check-circle mr-1"></i>Đã lưu
+                        <i class="fas fa-check-circle mr-1"></i><span class="qna-t">Đã lưu</span>
                     </span>
                     <i id="note-chevron" class="fas fa-chevron-up quiz-note-chevron"></i>
                 </span>
@@ -108,20 +108,24 @@ export function renderPersonalNotePanel() {
                     title="Gõ “- ” hoặc “1. ” để lập danh sách (Enter nối tiếp) · Ctrl+Space tích ☐/☑ · Ctrl+Enter hoặc Esc để về phím tắt"></textarea>
                 <div id="note-preview" class="quiz-note-preview hidden" aria-label="Xem ghi chú đã định dạng"></div>
                 <div id="note-listen" class="quiz-note-listen hidden" aria-live="polite"></div>
-                <!-- Chèn nhanh nhãn đầu dòng hay dùng khi ghi chú ôn thi -->
-                <div class="quiz-note-snips" role="group" aria-label="Chèn nhanh">${chips}</div>
+                <!-- Một hàng công cụ: định dạng | chèn nhãn / mẫu | xem / đọc. Nhãn + mẫu gập sẵn, mở bằng nút -->
+                <div class="quiz-note-tools" role="toolbar" aria-label="Công cụ ghi chú">
+                    <button type="button" id="note-b-btn" class="quiz-note-act is-fmt" title="In đậm (Ctrl+B): **chữ**" aria-label="In đậm"><b>B</b></button>
+                    <button type="button" id="note-i-btn" class="quiz-note-act is-fmt" title="In nghiêng (Ctrl+I): *chữ*" aria-label="In nghiêng"><em>I</em></button>
+                    <span class="quiz-note-sep" aria-hidden="true"></span>
+                    <button type="button" id="note-snip-btn" class="quiz-note-act" title="Nhãn chèn nhanh: Nhớ, Dễ nhầm, Hỏi lại…" aria-label="Nhãn chèn nhanh" aria-expanded="false"><i class="fas fa-tag"></i><span class="qna-t">Nhãn</span></button>
+                    <button type="button" id="note-tpl-btn" class="quiz-note-act" title="Mẫu ghi chú: SOAP, 5 bước biện luận, so sánh…" aria-label="Mẫu ghi chú" aria-expanded="false"><i class="fas fa-list-ol"></i><span class="qna-t">Mẫu</span></button>
+                    <button type="button" id="note-view-btn" class="quiz-note-act" title="Xem ghi chú đã định dạng (đậm, nghiêng, ô tích bấm được)" aria-label="Xem ghi chú đã định dạng" aria-pressed="false"><i class="fas fa-eye"></i><span class="qna-t">Xem</span></button>
+                    <button type="button" id="note-mic-btn" class="quiz-note-act hidden" title="Đọc để ghi (tiếng Việt) — bấm lần nữa để dừng" aria-label="Đọc để ghi" aria-pressed="false"><i class="fas fa-microphone"></i><span class="qna-t">Đọc</span></button>
+                </div>
+                <div id="note-snips" class="quiz-note-snips hidden" role="group" aria-label="Chèn nhanh">${chips}</div>
                 <div id="note-tpls" class="quiz-note-snips quiz-note-tpls hidden" role="group" aria-label="Mẫu ghi chú">${NOTE_TEMPLATES.map((t, i) => `<button type="button" data-note-tpl="${i}">${t.label}</button>`).join('')}</div>
                 <div class="quiz-note-footer">
                     <span id="note-char-count" class="quiz-note-count">Chưa có ghi chú</span>
                     <span class="quiz-note-actions">
-                        <button type="button" id="note-b-btn" class="quiz-note-act is-fmt" title="In đậm (Ctrl+B): **chữ**" aria-label="In đậm"><b>B</b></button>
-                        <button type="button" id="note-i-btn" class="quiz-note-act is-fmt" title="In nghiêng (Ctrl+I): *chữ*" aria-label="In nghiêng"><em>I</em></button>
-                        <button type="button" id="note-view-btn" class="quiz-note-act" title="Xem ghi chú đã định dạng (đậm, nghiêng, ô tích bấm được)" aria-pressed="false"><i class="fas fa-eye"></i> Xem</button>
-                        <button type="button" id="note-tpl-btn" class="quiz-note-act" title="Mẫu ghi chú: SOAP, 5 bước biện luận, so sánh…" aria-expanded="false"><i class="fas fa-list-ol"></i> Mẫu</button>
-                        <button type="button" id="note-mic-btn" class="quiz-note-act hidden" title="Đọc để ghi (tiếng Việt) — bấm lần nữa để dừng" aria-pressed="false"><i class="fas fa-microphone"></i> Đọc</button>
                         <button type="button" id="note-all-btn" class="quiz-note-act" title="Sổ ghi chú cả bộ đề: tìm, lọc theo nhãn, nhảy tới câu (Shift+Q)"><i class="fas fa-list-ul"></i> Tất cả <b id="note-all-count">0</b></button>
-                        <button type="button" id="note-clear-btn" class="quiz-note-clear hidden">
-                            <i class="fas fa-eraser mr-1"></i>Xóa ghi chú
+                        <button type="button" id="note-clear-btn" class="quiz-note-clear hidden" title="Xóa ghi chú của câu này" aria-label="Xóa ghi chú">
+                            <i class="fas fa-eraser"></i><span class="qna-t">Xóa</span>
                         </button>
                     </span>
                 </div>
@@ -296,13 +300,13 @@ export function setupPersonalNote(question) {
     // Trạng thái lưu (đang lưu / đã lưu / lỗi)
     const showSaving = () => {
         if (!noteStatus) return;
-        noteStatus.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Đang lưu...';
+        noteStatus.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i><span class="qna-t">Đang lưu...</span>';
         noteStatus.classList.remove('opacity-0', 'text-green-600', 'text-red-500');
         noteStatus.classList.add('opacity-100', 'text-gray-500');
     };
     const showSaved = () => {
         if (!noteStatus) return;
-        noteStatus.innerHTML = '<i class="fas fa-check-circle mr-1"></i>Đã lưu';
+        noteStatus.innerHTML = '<i class="fas fa-check-circle mr-1"></i><span class="qna-t">Đã lưu</span>';
         noteStatus.classList.remove('text-gray-500', 'text-red-500', 'opacity-0');
         noteStatus.classList.add('text-green-600', 'opacity-100');
         clearTimeout(noteStatus._hideT);
@@ -402,6 +406,18 @@ export function setupPersonalNote(question) {
             noteInput.dispatchEvent(new Event('input', { bubbles: true }));
         });
     });
+
+    // Hàng nhãn chèn nhanh: gập sẵn cho gọn, nhớ trạng thái mở (cả phiên làm bài, như khung Xem)
+    const snipBtn = document.getElementById('note-snip-btn'), snipRow = document.getElementById('note-snips');
+    if (snipBtn && snipRow) {
+        const setSnips = (open) => { snipRow.classList.toggle('hidden', !open); snipBtn.setAttribute('aria-expanded', String(open)); };
+        setSnips(localStorage.getItem('quiz_note_snips') === '1');
+        snipBtn.addEventListener('click', () => {
+            const open = snipRow.classList.contains('hidden');
+            setSnips(open);
+            try { localStorage.setItem('quiz_note_snips', open ? '1' : '0'); } catch (e) { }
+        });
+    }
 
     // Khung "Xem": ghi chú đã định dạng ngay dưới ô gõ; ô tích ☐/☑ bấm được (đảo ký tự ở đúng dòng trong ô gõ). Nhớ trạng thái mở.
     const viewBtn = document.getElementById('note-view-btn'), preview = document.getElementById('note-preview');

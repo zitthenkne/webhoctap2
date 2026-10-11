@@ -244,15 +244,10 @@ let wasAns = false;
 async function copyQuestion() {
     const p = cardParts();
     if (!p) return;
-    const q = curQ();
-    const lines = [`Câu ${state.currentIndex + 1}/${state.questions.length}`];
+    // Chỉ đề + phương án (dán thẳng cho AI): không đáp án đúng, ghi nhớ, mở rộng. Ca lâm sàng giữ lại vì là phần của đề.
+    const lines = [];
     if (p.caseText) lines.push(p.caseText, '');
     lines.push(p.question, ...p.answers);
-    if (isAnswered(state.currentIndex) && state.quizOptions.showAnswerImmediately && !isEssay(q)) {
-        lines.push('', `Đáp án đúng: ${correctLetters()}`);
-        if (p.note) lines.push(`Ghi nhớ: ${p.note}`);
-        if (p.more) lines.push(`Mở rộng: ${p.more}`);
-    }
     const text = lines.join('\n');
     try {
         await navigator.clipboard.writeText(text);
@@ -264,7 +259,7 @@ async function copyQuestion() {
         ta.remove();
     }
     buzz(10);
-    showToast('Đã sao chép câu hỏi', 'success', 1800);
+    showToast('Đã sao chép câu hỏi + đáp án', 'success', 1800);
 }
 
 /* ---------------------------------------------------------------- 6. Phím tắt */

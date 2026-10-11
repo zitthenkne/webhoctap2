@@ -2183,7 +2183,7 @@ html.theme-dark .quiz-note-count {
         /* 5 cột: số câu | tay kéo | bài làm | tay kéo | ghi chú.
            Bề rộng hai cột bên do người dùng kéo (lưu vào localStorage) qua biến CSS. */
         grid-template-columns:
-            var(--quiz-nav-w, 11rem) var(--quiz-gutter, 1.25rem) minmax(0, 1fr) var(--quiz-gutter, 1.25rem) var(--quiz-note-w, 13rem);
+            var(--quiz-nav-w, 11rem) var(--quiz-gutter, 1.25rem) minmax(0, 1fr) var(--quiz-gutter, 1.25rem) var(--quiz-note-w, 15rem);
         column-gap: 0;
         row-gap: 1rem;
     }

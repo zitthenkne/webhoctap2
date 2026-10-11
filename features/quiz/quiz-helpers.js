@@ -474,6 +474,24 @@ export function svgFigureHtml(code) {
         + ` alt="${_escHtml(title)}" loading="lazy" decoding="async" style="width:100%;height:auto;${w ? `max-width:${Math.round(w)}px;--svg-w:${Math.round(w)}px;` : ''}"></div>`;
 }
 
+// Ô bảng chứa gạch đầu dòng: một dòng bảng không xuống dòng được nên người soạn / AI viết "- ý 1<br>- ý 2" (hoặc "• ý 1<br>• ý 2").
+// Trước đây dấu gạch hiện nguyên chữ trong ô; nay mỗi dòng có dấu thành một mục của danh sách nhỏ (.cell-ul), dòng không dấu giữ làm đoạn dẫn (.cell-p).
+// Ô không có dấu đầu dòng nào đi đường cũ (parseInlineMarkdown), không đổi gì. "+" không tính là dấu (hay dùng nghĩa "dương tính").
+const CELL_BULLET = /^(?:[-*•·]\s+)(\S.*)$/;
+function tableCellHtml(cell) {
+    const parts = String(cell).split(/<br\s*\/?>/i).map(s => s.trim()).filter(Boolean);
+    if (!parts.some(p => CELL_BULLET.test(p))) return parseInlineMarkdown(cell);
+    let out = '', items = '';
+    const flush = () => { if (items) { out += `<ul class="cell-ul">${items}</ul>`; items = ''; } };
+    for (const p of parts) {
+        const m = CELL_BULLET.exec(p);
+        if (m) items += `<li>${parseInlineMarkdown(m[1])}</li>`;
+        else { flush(); out += `<div class="cell-p">${parseInlineMarkdown(p)}</div>`; }
+    }
+    flush();
+    return out;
+}
+
 export function parseMarkdown(text) {
     if (text === null || text === undefined) return '';
     if (typeof text === 'object') {
@@ -667,7 +685,7 @@ export function parseMarkdown(text) {
                 
                 tableHtml += '<tr class="border-b border-pink-50 hover:bg-pink-50/30 transition-colors text-gray-700">';
                 cells.forEach(cell => {
-                    tableHtml += `<td class="p-3 text-sm md:text-base">${parseInlineMarkdown(cell)}</td>`;
+                    tableHtml += `<td class="p-3 text-sm md:text-base">${tableCellHtml(cell)}</td>`;
                 });
                 tableHtml += '</tr>';
             }
