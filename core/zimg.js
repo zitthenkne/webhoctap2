@@ -55,6 +55,29 @@ function b64ToBytes(b64) {
 const inflight = new Map();
 const missing = new Map();          // id -> lúc nhận 404: một phiên làm bài nạp ảnh nhiều lần (xem trước, lưu offline, thẻ <img>) — đừng hỏi lại ảnh không có mỗi lần
 const MISSING_MS = 60000;
+const TRIES = 3;
+const TIMEOUT_MS = 25000;
+
+// Một ảnh ≤900 KB về dạng base64 trong JSON (~1,2 MB): mạng chập chờn hay treo giữa chừng làm nút "Tải ảnh 3/12…" đứng mãi.
+// Mỗi lượt có hạn giờ (gồm cả đọc thân), lỗi mạng / 429 / 5xx thì nghỉ rồi thử lại; 404 / 403 / mất mạng hẳn thì thôi ngay.
+async function fetchImageFields(id) {
+    for (let n = 1; ; n++) {
+        const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timer = ctl && setTimeout(() => ctl.abort(), TIMEOUT_MS);
+        let final = false;
+        try {
+            const res = await fetch(`${endpoint()}/quiz_images/${id}?mask.fieldPaths=data&mask.fieldPaths=mime&key=${API_KEY}`, ctl ? { signal: ctl.signal } : undefined);
+            if (res.status === 404) missing.set(id, Date.now());
+            if (!res.ok) { final = res.status !== 429 && res.status < 500; throw new Error(`zimg: ${res.status}`); }
+            return (await res.json()).fields || {};
+        } catch (e) {
+            if (final || n >= TRIES || (typeof navigator !== 'undefined' && navigator.onLine === false)) throw e;
+        } finally {
+            if (timer) clearTimeout(timer);
+        }
+        await new Promise((r) => setTimeout(r, 700 * n));
+    }
+}
 /** Lấy ảnh (Blob): CacheStorage trước, không có thì Firestore REST rồi cất lại. Lỗi → ném. */
 export function loadZimg(id) {
     if (!isZimgId(id)) return Promise.reject(new Error('zimg: id không hợp lệ'));
@@ -68,10 +91,7 @@ export function loadZimg(id) {
             const hit = await cache.match(url).catch(() => null);
             if (hit) return hit.blob();
         }
-        const res = await fetch(`${endpoint()}/quiz_images/${id}?mask.fieldPaths=data&mask.fieldPaths=mime&key=${API_KEY}`);
-        if (res.status === 404) missing.set(id, Date.now());
-        if (!res.ok) throw new Error(`zimg: ${res.status}`);
-        const f = (await res.json()).fields || {};
+        const f = await fetchImageFields(id);
         const bytes = b64ToBytes(f.data && f.data.bytesValue);
         if (!bytes.length) throw new Error('zimg: ảnh rỗng');
         const mime = (f.mime && f.mime.stringValue) || 'image/webp';

@@ -56,6 +56,23 @@ if ('serviceWorker' in navigator && !isLocalDev) {
         setTimeout(warm, 5000);
         window.addEventListener('online', () => setTimeout(warm, 3000));
 
+        // Dò bản mới của chính app. Trình duyệt chỉ dò sw.js khi ĐIỀU HƯỚNG trang — app đã cài (iOS để ngủ nhiều ngày rồi mở lại đúng chỗ cũ,
+        // máy tính để cửa sổ mở cả tuần) hầu như không bao giờ điều hướng nên kẹt bản cũ mãi, kể cả bản vá đã đẩy lên. Nên tự dò khi quay lại app /
+        // bấm vào lại cửa sổ / có mạng lại / mỗi 30 phút. Chung một mốc 10 phút giữa mọi trang & iframe (localStorage) → mỗi lần chỉ ~1 request
+        // sw.js (304 nếu không đổi); có bản mới thì SW tự skipWaiting → controllerchange bên dưới tải lại trang.
+        const checkForUpdate = () => {
+          if (!navigator.onLine || document.visibilityState !== 'visible') return;
+          try {
+            if (Date.now() - Number(localStorage.getItem('swUpdateAt') || 0) < 10 * 60e3) return;
+            localStorage.setItem('swUpdateAt', String(Date.now()));
+          } catch (e) {}
+          reg.update().catch(() => {});
+        };
+        document.addEventListener('visibilitychange', checkForUpdate);
+        window.addEventListener('focus', checkForUpdate);
+        window.addEventListener('online', () => setTimeout(checkForUpdate, 2000));
+        setInterval(checkForUpdate, 30 * 60e3);
+
         // Kiểm tra xem có SW mới đang chờ kích hoạt không
         if (reg.waiting) {
           reg.waiting.postMessage({ action: 'skipWaiting' });
@@ -83,12 +100,18 @@ if ('serviceWorker' in navigator && !isLocalDev) {
   // sau khi mở (tải mọi thứ 2 lần, đang gõ tên vào phòng thì mất).
   const hadController = !!navigator.serviceWorker.controller;
   let refreshing = false;
+  // Đang làm bài (quiz-active) hoặc đang xem trang làm bài trong khung nổi của trang chủ → KHÔNG tải lại giữa chừng (mất chỗ đang làm,
+  // trang cha tải lại là khung bài bị giết); đợi hết bận rồi mới tải. Dò bản mới giờ chạy cả khi đang dùng app nên chuyện này xảy ra thường hơn trước.
+  const busy = () => !!document.body && (document.body.classList.contains('quiz-active') || !!document.getElementById('quiz-launch-frame'));
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (hadController && !refreshing) {
+    if (!hadController || refreshing) return;
+    const go = () => {
       refreshing = true;
       console.log('Service Worker mới đã kích hoạt. Đang tải lại trang để cập nhật giao diện...');
       window.location.reload();
-    }
+    };
+    if (!busy()) return go();
+    const t = setInterval(() => { if (!busy()) { clearInterval(t); go(); } }, 3000);
   });
 }
 

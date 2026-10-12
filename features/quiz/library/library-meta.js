@@ -12,7 +12,7 @@
 
 import { auth, db } from '../../../core/firebase-init.js';
 import { sessionUser } from '../../../core/auth-session.js';
-import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { collection, query, where, getDocsFromServer } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { runQueryRest } from '../../../core/firestore-rest.js';
 
 // Các trường thư viện thật sự dùng tới (KHÔNG có `questions`)
@@ -55,12 +55,27 @@ export function clearMetaCache(uid) {
 // === ĐỌC QUA REST API (có projection) — phần dùng chung nằm ở core/firestore-rest.js ===
 
 // Đường lùi: vẫn là SDK (tải cả câu hỏi rồi bỏ) — chậm nhưng chắc chắn chạy.
+// getDocsFromServer, KHÔNG getDocs: khi SDK tưởng mình offline (mạng chập chờn lúc vừa mở lại app) getDocs trả những gì có trong cache IndexedDB —
+// chỉ vài bộ từng mở — rồi nơi gọi ghi đó làm "danh sách đầy đủ" vào cache máy → thư viện thiếu/cũ cho tới lần làm tươi thành công sau.
 async function fetchViaSdk(uid) {
-    const snap = await getDocs(query(collection(db, 'quiz_sets'), where('userId', '==', uid)));
+    const snap = await getDocsFromServer(query(collection(db, 'quiz_sets'), where('userId', '==', uid)));
     return snap.docs.map(d => {
         const { questions, ...meta } = d.data();
         return { id: d.id, ...meta };
     });
+}
+
+/**
+ * Danh sách thư mục của tài khoản. REST trước (nhanh, không phụ thuộc kênh SDK); trước đây dùng SDK getDocs và MỌI lần làm tươi thư viện phải đợi nó —
+ * mở lại app mà kênh SDK đang chết thì kẹt hàng chục giây, hoặc nhận cache thư mục cũ. REST lỗi mới lùi SDK (chỉ nhận bản máy chủ).
+ */
+export async function fetchAllFolders(uid) {
+    if (sessionUser()) {
+        try { return await runQueryRest({ collection: 'quiz_folders', where: [['userId', uid]], requireUser: true }); }
+        catch (err) { console.warn('Tải nhanh thư mục thất bại, quay về SDK:', err && err.message); }
+    }
+    const snap = await getDocsFromServer(query(collection(db, 'quiz_folders'), where('userId', '==', uid)));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
 /**

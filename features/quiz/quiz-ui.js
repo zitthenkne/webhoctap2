@@ -141,6 +141,25 @@ export function syncQuizNavPanel() {
             btn.title = `Câu ${i + 1}${rk ? ' (Đánh dấu)' : ''}`;
         }
     });
+    keepNavCurrentInView(wrap);
+}
+
+// Giữ ô "đang xem" trong tầm nhìn của bảng số câu mà KHÔNG kéo cả trang: iPad dọc = dải ngang cuộn được (đưa ô vào giữa);
+// cột bên có cuộn dọc (đề 80+ câu) = chỉ cuộn khi ô nằm ngoài khung.
+function keepNavCurrentInView(wrap) {
+    const cur = wrap.querySelector('.is-current');
+    if (!cur) return;
+    const ox = getComputedStyle(wrap).overflowX;
+    const strip = (ox === 'auto' || ox === 'scroll') && wrap.scrollWidth > wrap.clientWidth + 2;
+    const box = strip ? wrap : wrap.closest('.quiz-side-panel');
+    if (!box) return;
+    const c = cur.getBoundingClientRect(), b = box.getBoundingClientRect();
+    const behavior = scrollBehaviorFor();
+    if (strip) {
+        box.scrollTo({ left: box.scrollLeft + (c.left + c.width / 2) - (b.left + b.width / 2), behavior });
+    } else if (box.scrollHeight > box.clientHeight + 2 && (c.top < b.top + 8 || c.bottom > b.bottom - 8)) {
+        box.scrollTo({ top: box.scrollTop + (c.top + c.height / 2) - (b.top + b.height / 2), behavior });
+    }
 }
 
 export function renderPreviewQuestions() {

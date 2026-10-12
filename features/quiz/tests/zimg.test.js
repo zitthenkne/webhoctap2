@@ -87,3 +87,30 @@ test('cacheQuizImages: ảnh zimg lấy qua loadZimg, ảnh thiếu tính là l�
     assert.deepEqual(bad, { total: 1, cached: 0, failed: 1 });
     assert.ok(env.fetched() >= 1);
 });
+
+test('ảnh riêng một dòng + dòng in nghiêng ngay dưới → khung hình kèm chú thích nguồn (không còn là chữ nghiêng nhấn)', () => {
+    const html = parseMarkdown(`Đoạn\n![Leopold](zimg:${ID})\n*Hình: C. G. Leopold · Public domain · [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Leopold_1.jpg)*\nĐoạn sau`);
+    assert.match(html, new RegExp(`<div class="quiz-fig"><img [^>]*data-zimg="${ID}"[^>]*/><div class="quiz-fig-cap"><span class="quiz-fig-lab">Hình:</span> C\. G\. Leopold`));
+    assert.match(html, /href="https:\/\/commons\.wikimedia\.org\/wiki\/File:Leopold_1\.jpg"/, 'dấu _ trong link không bị luật in nghiêng phá');
+    assert.doesNotMatch(html, /obsidian-italic/);
+    assert.match(html, /Đoạn sau/);
+    // cách một dòng trống vẫn nhận; dòng nghiêng KHÔNG đứng sau ảnh thì vẫn là chữ nghiêng như cũ
+    assert.match(parseMarkdown(`![x](zimg:${ID})\n\n*Nguồn: Lưu đồ — Bộ môn*`), /quiz-fig-cap"><span class="quiz-fig-lab">Nguồn:<\/span> Lưu đồ/);
+    assert.match(parseMarkdown('*chỉ nhấn mạnh*'), /<em class="obsidian-italic">chỉ nhấn mạnh<\/em>/);
+    // ảnh không chú thích vẫn vào khung; dòng in đậm sau ảnh không bị coi là chú thích
+    const bold = parseMarkdown(`![x](zimg:${ID})\n**Đậm**`);
+    assert.match(bold, /<div class="quiz-fig"><img [^>]*\/><\/div>/);
+    assert.match(bold, /obsidian-bold">Đậm/);
+});
+
+test('loadZimg: máy chủ bận (503) thì thử lại, không báo hỏng ngay', async () => {
+    const ID3 = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const env = fakeEnv();
+    let calls = 0;
+    const ok = globalThis.fetch;
+    globalThis.fetch = async (...a) => (++calls === 1 ? { ok: false, status: 503, json: async () => ({}) } : ok(...a));
+    const b = await loadZimg(ID3);
+    assert.equal(b.size, 4);
+    assert.equal(calls, 2);
+    assert.ok(env.store.has(zimgUrl(ID3)));
+});

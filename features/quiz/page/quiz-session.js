@@ -8,8 +8,8 @@ import { whenAuthReady } from '../../../core/auth-session.js';
 import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { showToast } from '../../../core/utils.js';
 import { applyLocalQuestionEdits } from '../quiz-editor.js';
-import { getOfflineQuiz, autoCacheQuiz, within, isOfflineSavedSync, saveOfflineQuiz, extractQuizImageUrls, cacheQuizImages, touchOfflineQuiz } from '../quiz-offline-store.js';
-import { LOCAL_FRESH_MS, localStillCurrent, stampBeforeFetch, takeStamp } from '../quiz-fresh.js';
+import { getOfflineQuiz, autoCacheQuiz, isOfflineSavedSync, saveOfflineQuiz, extractQuizImageUrls, cacheQuizImages, touchOfflineQuiz } from '../quiz-offline-store.js';
+import { LOCAL_FRESH_MS, localStillCurrent, fetchQuizFull } from '../quiz-fresh.js';
 import { state, saveQuizState, clearQuizState, saveQuizResult, updateQuizResultScore, markQuizStateFinished } from '../quiz-state.js';
 import { shuffleArray, shuffleQuestionOptions, isAnswerCorrect, sessionScore } from '../quiz-helpers.js';
 import { isEssay, isPendingEssay, withAutoGrade } from '../quiz-essay-core.js';
@@ -64,7 +64,7 @@ async function autoSaveAndNotify(quizId, data) {
     const imgUrls = extractQuizImageUrls(data.questions);
 
     try {
-        await saveOfflineQuiz(quizId, data, { auto: false });
+        const saved = await saveOfflineQuiz(quizId, data, { auto: false });
 
         // Cập nhật giao diện nút tải offline
         const btn = document.getElementById('offline-download-btn');
@@ -77,8 +77,8 @@ async function autoSaveAndNotify(quizId, data) {
 
         // Báo cho người dùng biết để có thể tắt mạng/5G nếu là lần đầu tải về máy
         if (!wasSaved) {
-            const imgNote = imgUrls.length > 0 ? ` (kèm ${imgUrls.length} ảnh minh họa)` : '';
-            showToast(`Đã tải xong bộ đề về máy${imgNote}! Bạn có thể tắt mạng để làm bài nhé.`, 'success', 5000);
+            const imgNote = saved.imgFailed ? ` (${saved.imgFailed}/${imgUrls.length} ảnh chưa tải được, bấm Đã tải offline khi mạng ổn để tải nốt)` : imgUrls.length > 0 ? ` (kèm ${imgUrls.length} ảnh minh họa)` : '';
+            showToast(`Đã tải xong bộ đề về máy${imgNote}! Bạn có thể tắt mạng để làm bài nhé.`, saved.imgFailed ? 'warning' : 'success', 5000);
         }
     } catch (e) {
         console.warn('Lỗi tự động lưu offline bộ đề:', e);
@@ -208,22 +208,21 @@ export async function loadQuizData() {
     const ageOf = (rec) => Date.now() - (Number(rec._offlineSavedAt) || 0);
 
     let noticedStamp = null;        // bản mới đã báo "đang làm bài" rồi thì khỏi báo lại
+    let failStreak = 0;             // số lần hỏi bản mới hỏng liên tiếp (xem catch của refreshOnce)
     // Hỏi máy chủ xem bộ đề có bản mới không (dấu `updateTime` ~1 KB, xem quiz-fresh.js); có thì tải cả bộ về, lưu máy, và cập nhật trang chờ.
     // `announce`: đã có bản máy hiện trên màn -> nói cho người dùng biết khi bản mới thay vào.
     const refreshOnce = async ({ announce = false, force = false } = {}) => {
         try {
             const cur = force ? localData : (await getOfflineQuiz(quizId)) || localData;
             if (!force && cur && ageOf(cur) < LOCAL_FRESH_MS) return;            // vừa xác nhận xong, khỏi hỏi lại
-            if (cur && await localStillCurrent(quizId, cur)) { touchOfflineQuiz(quizId); return; }
-            // dấu máy chủ: lấy từ lượt hỏi vừa rồi, hoặc hỏi NGAY (trước getDoc) — để dấu không bao giờ mới hơn nội dung tải về
-            const known = takeStamp(quizId);
-            const stampP = known ? Promise.resolve(known) : stampBeforeFetch(quizId);
+            if (cur && await localStillCurrent(quizId, cur)) { failStreak = 0; touchOfflineQuiz(quizId); return; }
             const docRef = doc(db, "quiz_sets", quizId);
-            const remotePromise = getDoc(docRef);
-            // Nếu chưa có dữ liệu thì chờ tối đa 6 giây; nếu đã có bản local rồi thì chờ thoải mái ở nền
-            let docSnap;
+            // Tải cả bộ kèm dấu máy chủ CÙNG phản hồi (quiz-fresh.js: không bao giờ nhận bản cache cũ của SDK). Chưa có bản máy thì không còn gì
+            // để lùi về → cứ chờ (REST tự ngắt sau 15s), đừng báo "không tìm thấy" oan chỉ vì mạng chậm.
+            let full;
             try {
-                docSnap = localData ? await remotePromise : await within(remotePromise, 6000);
+                full = await fetchQuizFull(quizId);
+                failStreak = 0;
             } catch (err) {
                 if (err && (err.code === 'permission-denied' || err.message?.includes('permission-denied'))) {
                     if (!localData) {
@@ -234,8 +233,8 @@ export async function loadQuizData() {
                 throw err;
             }
 
-            if (docSnap && docSnap.exists()) {
-                const remoteData = docSnap.data();
+            if (full) {
+                const remoteData = full.data;
                 remoteData.id = quizId;
 
                 // Bản C3: bộ cũ CHƯA có dấu updatedAt → chủ bộ đề ghi bù MỘT lần (dấu = bây giờ, gán luôn vào bản máy sắp lưu để hai bên khớp ngay).
@@ -264,8 +263,8 @@ export async function loadQuizData() {
                 }
 
                 // Lưu bản máy kèm dấu máy chủ để lần sau chỉ cần hỏi dấu
-                const srvStamp = await stampP;
-                if (srvStamp) remoteData._srvTime = srvStamp;
+                const srvStamp = full.stamp;
+                if (srvStamp) remoteData._srvStamp = srvStamp;
 
                 // Tự động tải lưu offline hoàn chỉnh vào IndexedDB và nạp cache ảnh ngầm
                 autoSaveAndNotify(quizId, remoteData);
@@ -286,6 +285,8 @@ export async function loadQuizData() {
             }
         } catch (error) {
             console.warn("Lỗi tải/cập nhật dữ liệu từ cloud:", error);
+            // Đã có bản máy hiện trên màn mà lần hỏi bản mới hỏng (mở lại app thường chưa có mạng ngay) → thử lại 3s/8s/20s, đừng đợi nhịp 45s
+            if (localData && failStreak < 3 && navigator.onLine) setTimeout(() => refresh({ announce }), [3000, 8000, 20000][failStreak++]);
             if (!localData) {
                 if (error && (error.code === 'permission-denied' || error.message?.includes('permission-denied'))) {
                     showLandingError('Bộ đề này được đặt ở chế độ riêng tư. Vui lòng đăng nhập đúng tài khoản tác giả để làm bài.', { showRetry: true });
@@ -309,7 +310,8 @@ export async function loadQuizData() {
         return (refreshing = refreshOnce(opts).finally(() => { refreshing = null; }));
     };
 
-    // Trang ĐANG MỞ cũng tự nhận bản mới (trước đây chỉ kiểm lúc mở trang): quay lại tab / ứng dụng, có mạng lại, hoặc ở yên trang chờ ≥ 2 phút.
+    // Trang ĐANG MỞ cũng tự nhận bản mới (trước đây chỉ kiểm lúc mở trang): quay lại tab / ứng dụng, bấm vào lại cửa sổ (focus — cửa sổ Firebase/VS Code
+    // đặt cạnh trình duyệt không làm tab "ẩn" nên visibilitychange không bắn), có mạng lại, hoặc ở yên trang chờ ≥ 45 giây.
     // refreshOnce tự bỏ qua nếu bản máy vừa được xác nhận (< LOCAL_FRESH_MS); lỗi mạng thì nghỉ 5s mới thử lại.
     const watchForUpdates = () => {
         const check = () => {
@@ -317,9 +319,10 @@ export async function loadQuizData() {
             refresh({ announce: true });
         };
         document.addEventListener('visibilitychange', check);
+        window.addEventListener('focus', check);
         window.addEventListener('online', () => setTimeout(check, 1000));
         window.addEventListener('pageshow', (e) => { if (e.persisted) check(); });
-        setInterval(() => { if (!isPlayingNow()) check(); }, 120000);
+        setInterval(() => { if (!isPlayingNow()) check(); }, 45000);
     };
     watchForUpdates();
 

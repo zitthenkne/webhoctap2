@@ -677,6 +677,7 @@
     <div id="toast" class="hidden toast-af" role="status"></div>
     <script type="module">
         import { db } from '../../core/firebase-init.js';
+        import { runQueryRest } from '../../core/firestore-rest.js';
         import {
             collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, serverTimestamp, writeBatch
         } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
@@ -820,31 +821,57 @@
         const grid = document.getElementById('links-grid');
         const searchInput = document.getElementById('search-input');
 
+        // Tải lần đầu bằng REST (cùng đường thư viện đề đang dùng), onSnapshot chỉ còn để thấy thay đổi tức thời. Lý do: trên iPad/Safari kênh SDK
+        // (WebChannel + IndexedDB) hay treo im dù có mạng, mà trang này trước đây ĐỢI onSnapshot mới thôi "đang giải mã" → kẹt mãi, hoặc nhận bản cache cũ/rỗng.
+        // fresh = đã có dữ liệu từ MÁY CHỦ cho bộ sưu tập đó: từ đó bỏ qua snapshot lấy từ cache máy (cũ hơn), và REST đến muộn không đè lên snapshot mới hơn.
+        const fresh = { f: false, l: false };
+        const restTime = (d) => ({ ...d, createdAt: typeof d.createdAt === 'string' ? { seconds: Math.floor(Date.parse(d.createdAt) / 1000) || 0 } : d.createdAt });
+        function applyFolders(list) {
+            allFolders = list;
+            allFolders.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+            foldersLoaded = true;
+            if (!folderRestored) {
+                folderRestored = true;
+                try {
+                    const saved = localStorage.getItem('lv_folder');
+                    // chỉ khôi phục thư mục công khai (thư mục khóa vẫn phải nhập mật khẩu lại)
+                    if (saved && (saved === '__none__' || (folderById(saved) && !folderById(saved).pw))) activeFolder = saved;
+                } catch (_) {}
+            }
+            if (activeFolder !== '__all__' && activeFolder !== '__none__' && !allFolders.find(f => f.id === activeFolder)) activeFolder = '__all__';
+            refreshAll();
+        }
+        function applyLinks(list) {
+            allLinks = list;
+            allLinks.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+            linksLoaded = true; refreshAll();
+        }
         function startSync() {
             if (syncing) return; syncing = true;
+            runQueryRest({ collection: 'shared_link_folders' }).then(rows => { if (!fresh.f) { fresh.f = true; applyFolders(rows.map(restTime)); } })
+                .catch(err => console.warn('Tải thư mục qua REST lỗi, chờ kênh SDK:', err && err.message));
+            runQueryRest({ collection: 'shared_links' }).then(rows => { if (!fresh.l) { fresh.l = true; applyLinks(rows.map(restTime)); } })
+                .catch(err => console.warn('Tải link qua REST lỗi, chờ kênh SDK:', err && err.message));
             onSnapshot(foldersRef, (snap) => {
-                allFolders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                allFolders.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
-                foldersLoaded = true;
-                if (!folderRestored) {
-                    folderRestored = true;
-                    try {
-                        const saved = localStorage.getItem('lv_folder');
-                        // chỉ khôi phục thư mục công khai (thư mục khóa vẫn phải nhập mật khẩu lại)
-                        if (saved && (saved === '__none__' || (folderById(saved) && !folderById(saved).pw))) activeFolder = saved;
-                    } catch (_) {}
-                }
-                if (activeFolder !== '__all__' && activeFolder !== '__none__' && !allFolders.find(f => f.id === activeFolder)) activeFolder = '__all__';
-                refreshAll();
+                if (snap.metadata.fromCache && !snap.metadata.hasPendingWrites && fresh.f) return;
+                if (!snap.metadata.fromCache) fresh.f = true;
+                applyFolders(snap.docs.map(d => ({ id: d.id, ...d.data() })));
             }, () => { foldersLoaded = true; refreshAll(); });
             onSnapshot(linksRef, (snap) => {
-                allLinks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                allLinks.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-                linksLoaded = true; refreshAll();
+                if (snap.metadata.fromCache && !snap.metadata.hasPendingWrites && fresh.l) return;
+                if (!snap.metadata.fromCache) fresh.l = true;
+                applyLinks(snap.docs.map(d => ({ id: d.id, ...d.data() })));
             }, (err) => {
+                if (linksLoaded) return;   // REST đã nạp xong rồi thì kênh SDK lỗi cũng không đáng báo "sự cố"
                 document.getElementById('loading-state').innerHTML =
                     '<div class="paper-card px-8 py-6 text-center tilt-l"><span class="stamp text-xs font-bold">SỰ CỐ</span><p class="font-display uppercase tracking-[.15em] mt-3">KHÔNG TẢI ĐƯỢC DỮ LIỆU</p><p class="text-sm mt-1 opacity-70">' + esc(err.message || '') + '</p></div>';
             });
+            // Quá 15s vẫn chưa có gì (REST lẫn SDK đều im) → đừng để "đang giải mã" quay mãi, cho nút thử lại
+            setTimeout(() => {
+                if (linksLoaded && foldersLoaded) return;
+                document.getElementById('loading-state').innerHTML =
+                    '<div class="paper-card px-8 py-6 text-center tilt-l"><span class="stamp text-xs font-bold">CHẬM</span><p class="font-display uppercase tracking-[.15em] mt-3">CHƯA TẢI ĐƯỢC KHO LƯU TRỮ</p><p class="text-sm mt-1 opacity-70">Mạng chậm hoặc bị chặn. Trang vẫn tự nạp tiếp nếu có mạng.</p><button type="button" class="btn-ink px-5 py-2 mt-4 text-xs font-bold" onclick="location.reload()">THỬ LẠI</button></div>';
+            }, 15000);
         }
         function refreshAll() {
             if (!linksLoaded || !foldersLoaded) return;

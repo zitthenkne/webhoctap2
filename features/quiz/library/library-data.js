@@ -18,7 +18,8 @@ import { purgeExpiredTrash, sortUserFolders, loadPinnedQuizIds } from './library
 import { renderLibrary, renderLibrarySkeleton, renderBreadcrumb, rerenderCurrentView } from './library-render.js';
 import { loadAttemptCache, syncAttemptsFromServer } from './library-attempts.js';
 import { invalidateQuestionIndex } from './library-search.js';
-import { fetchAllQuizMeta, readMetaCache, writeMetaCache, readFoldersCache, writeFoldersCache, clearMetaCache, libraryCacheAge } from './library-meta.js';
+import { fetchAllQuizMeta, fetchAllFolders, readMetaCache, writeMetaCache, readFoldersCache, writeFoldersCache, clearMetaCache, libraryCacheAge } from './library-meta.js';
+import { countRest } from '../../../core/firestore-rest.js';
 
 /**
  * Lưu bộ đề và chuyển sang màn hình làm quiz
@@ -141,7 +142,8 @@ const authReadyPromise = new Promise(resolve => {
 });
 
 // === TẢI VÀ RENDER THƯ VIỆN ===
-export async function loadAndDisplayLibrary(page = 1) {
+// fresh: bỏ qua mốc "cache còn mới" (dùng khi quay lại app — refreshLibraryOnResume đã tự giới hạn tần suất)
+export async function loadAndDisplayLibrary(page = 1, { fresh = false } = {}) {
     if (typeof page !== 'number') page = 1;
     let user = sessionUser();
     const quizListContainer = document.getElementById('quiz-list-container');
@@ -199,7 +201,8 @@ export async function loadAndDisplayLibrary(page = 1) {
     }
 
     // Cache máy còn mới (< 2 phút) thì xong ở đây: RAM đã có trọn thư viện (applyQuizMeta đặt isLibraryFullyLoaded) — khỏi tốn F + N lượt đọc.
-    if (paintedFromCache && libraryCacheAge(user.uid) < LIBRARY_CACHE_FRESH_MS) return;
+    // (Quay lại app thì KHÔNG dừng ở đây: trước đây lần "làm tươi khi quay lại" rơi vào khe 60s–2 phút sau lần tải trước chỉ vẽ lại đúng cache cũ → bộ đề mới chậm tới 2 phút.)
+    if (paintedFromCache && !fresh && libraryCacheAge(user.uid) < LIBRARY_CACHE_FRESH_MS) return;
 
     // Ngoại tuyến mà đã vẽ từ cache máy thì dừng ở đây: đọc lại qua SDK lúc này chỉ ra bản THIẾU hơn
     // (thư viện đọc qua REST nên cache Firestore thường không có đủ bộ đề) rồi đè mất cache tốt.
@@ -207,13 +210,17 @@ export async function loadAndDisplayLibrary(page = 1) {
     if (!navigator.onLine && paintedFromCache) return;
 
     try {
-        const qFolders = query(collection(db, "quiz_folders"), where("userId", "==", user.uid));
-        const querySnapshotFolders = await getDocs(qFolders);
-        const allFolders = querySnapshotFolders.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
-        purgeExpiredTrash(allFolders, "quiz_folders"); // dọn thư mục quá hạn 30 ngày
-        S.userFolders = allFolders.filter(f => !f.deleted); // ẩn thư mục đang trong thùng rác
-        sortUserFolders();
-        writeFoldersCache(user.uid, S.userFolders);
+        // Thư mục qua REST (library-meta.js). Đã vẽ được từ cache mà thư mục lỗi (mạng chập chờn) thì giữ bản đang có, đừng bỏ cả lượt làm tươi.
+        try {
+            const allFolders = await fetchAllFolders(user.uid);
+            purgeExpiredTrash(allFolders, "quiz_folders"); // dọn thư mục quá hạn 30 ngày
+            S.userFolders = allFolders.filter(f => !f.deleted); // ẩn thư mục đang trong thùng rác
+            sortUserFolders();
+            writeFoldersCache(user.uid, S.userFolders);
+        } catch (folderErr) {
+            if (!paintedFromCache) throw folderErr;
+            console.warn('Không tải được thư mục, giữ bản đang có:', folderErr && folderErr.message);
+        }
 
         // Đã vẽ từ cache thì trong RAM đã có sẵn cả thư viện → đi thẳng đường tải-đầy-đủ
         // (chỉ còn một lượt làm tươi rất nhẹ), không cần cuốn chiếu.
@@ -233,7 +240,7 @@ export async function loadAndDisplayLibrary(page = 1) {
             // Đường tải-đầy-đủ (có thư mục / sắp xếp khác / lọc / tìm kiếm):
             // một lượt tải metadata (không kèm câu hỏi) là có trọn thư viện.
             if (paintedFromCache) {
-                loadAllLibraryInBackground(user.uid); // làm tươi ở nền, không chặn màn hình
+                refreshInBackground(user.uid); // làm tươi ở nền, không chặn màn hình
             } else {
                 await loadAllLibraryInBackground(user.uid);
             }
@@ -282,6 +289,19 @@ export function persistLibraryCache() {
     writeMetaCache(user.uid, S.userQuizSets);
 }
 
+// Số bộ đề (kể cả trong thùng rác) máy chủ có ở lần tải đủ gần nhất — probeLibrary so với số hiện tại để biết có bộ mới/bị xóa không. null = chưa biết.
+let serverCount = null;
+
+// Làm tươi ở nền khi đã vẽ từ cache: chỉ đi đường REST nhẹ rồi tự thử lại 3s/8s/20s (mở lại app thường chưa có mạng ở lần đầu — trước đây lần lỗi
+// bị nuốt, danh sách cũ nằm đó tới lần quay lại app sau). Lần cuối mới cho lùi SDK (chỉ nhận bản máy chủ, nặng vì kèm câu hỏi).
+function refreshInBackground(userId, tries = 0) {
+    const startedAt = Date.now();
+    loadAllLibraryInBackground(userId, { restOnly: tries < 3 }).then(ok => {
+        if (ok || tries >= 3 || !navigator.onLine || !sessionUser() || S.lastLibrarySyncAt >= startedAt) return;
+        setTimeout(() => refreshInBackground(userId, tries + 1), [3000, 8000, 20000][tries]);
+    });
+}
+
 export async function loadAllLibraryInBackground(userId, { restOnly = false } = {}) {
     // Trả về true khi ĐÃ nạp + vẽ xong bằng dữ liệu tươi (restOnly: false nếu REST không chạy được để nơi gọi chọn đường khác)
     try {
@@ -299,6 +319,7 @@ export async function loadAllLibraryInBackground(userId, { restOnly = false } = 
         applyQuizMeta(allQuizzes, !offline);
         if (offline) { renderLibrary(S.userQuizSets, S.currentLibraryPage); return false; }
         writeMetaCache(userId, allQuizzes);
+        serverCount = allQuizzes.length;
 
         // Vá dữ liệu cũ thiếu folderId để các truy vấn theo thư mục hoạt động đúng
         allQuizzes.forEach(q => {
@@ -388,9 +409,13 @@ export async function ensureFullLibraryLoaded() {
 // Trên iPad/iOS, PWA bị tạm dừng rồi khôi phục chứ KHÔNG tải lại trang, nên cache `isLibraryFullyLoaded`
 // trong RAM giữ dữ liệu cũ nhiều ngày → bộ đề tạo ở thiết bị khác không xuất hiện. Khi app hiển thị trở lại
 // (visibilitychange) hoặc trang được khôi phục từ bfcache (pageshow), ta vô hiệu hoá cache và nạp lại từ server.
+let lastResumeTry = 0;
 function refreshLibraryOnResume() {
     if (document.visibilityState !== 'visible') return;
     if (!sessionUser()) return;
+    // visibilitychange + focus bắn gần như cùng lúc khi quay lại app; lastLibrarySyncAt chỉ cập nhật SAU khi tải xong nên không chặn được cú thứ hai → nhân đôi N lượt đọc
+    if (Date.now() - lastResumeTry < 5000) return;
+    lastResumeTry = Date.now();
     // Giới hạn tần suất: nếu vừa đồng bộ trong vòng 60s thì bỏ qua để khỏi tốn lượt đọc Firestore
     if (Date.now() - S.lastLibrarySyncAt < LIBRARY_AUTO_SYNC_MIN_INTERVAL) return;
     // Đang chọn nhiều bộ đề: đừng nạp lại kẻo mất lựa chọn của người dùng
@@ -399,13 +424,34 @@ function refreshLibraryOnResume() {
     const searchInput = document.getElementById('library-search-input');
     if (searchInput && searchInput.value.trim()) return;
 
-    S.isLibraryFullyLoaded = false; // buộc lần nạp tới lấy dữ liệu mới từ server
+    reloadLibraryFresh();
+}
+
+function isLibraryTabVisible() {
     const libraryPanel = document.getElementById('libraryContent');
-    const isLibraryTabVisible = libraryPanel && !libraryPanel.classList.contains('hidden');
+    return !!libraryPanel && !libraryPanel.classList.contains('hidden');
+}
+function reloadLibraryFresh() {
+    S.isLibraryFullyLoaded = false; // buộc lần nạp tới lấy dữ liệu mới từ server
     // Chỉ nạp ngay nếu đang mở tab Thư viện; nếu không, để dành tới khi người dùng mở tab (tiết kiệm lượt đọc)
-    if (isLibraryTabVisible) {
-        loadAndDisplayLibrary(S.currentLibraryPage);
-    }
+    if (isLibraryTabVisible()) loadAndDisplayLibrary(S.currentLibraryPage, { fresh: true });
+}
+
+// Thăm dò định kỳ: app mở đứng yên ở thư viện (iPad dựng cạnh máy khác…) thì có khi chẳng sự kiện quay-lại nào bắn. Cứ 60s hỏi máy chủ "tôi có mấy bộ đề?"
+// (đếm gộp: 1 lượt đọc, ~300 byte, thay vì N lượt như tải danh sách) — khác số lần tải gần nhất (có bộ mới / bị xóa hẳn) thì tải lại cả danh sách.
+// Sửa nội dung bộ đã có thì không đổi số lượng: thẻ cập nhật ở lần quay lại app kế tiếp, còn nội dung bài luôn tươi mỗi khi mở bộ đề.
+let probing = false;
+async function probeLibrary() {
+    if (probing || serverCount === null || document.visibilityState !== 'visible' || !navigator.onLine) return;
+    if (!S.isLibraryFullyLoaded || S.isSelectionMode || !isLibraryTabVisible() || isLibrarySearchActive()) return;
+    const user = sessionUser();
+    if (!user) return;
+    probing = true;
+    try {
+        const n = await countRest({ collection: 'quiz_sets', where: [['userId', user.uid]], requireUser: true });
+        if (n !== serverCount) { lastResumeTry = Date.now(); reloadLibraryFresh(); }
+    } catch (e) { /* mạng chập chờn: phút sau thử lại */ }
+    finally { probing = false; }
 }
 
 // Tải lại thủ công từ server khi người dùng bấm nút "Tải lại".
@@ -428,10 +474,13 @@ export async function forceReloadLibrary() {
 // Gắn listener tự đồng bộ. Gọi một lần khi khởi tạo app.
 export function initLibraryAutoSync() {
     document.addEventListener('visibilitychange', refreshLibraryOnResume);
+    // Bấm vào lại cửa sổ trình duyệt: cửa sổ khác đặt cạnh (Firebase, VS Code) không làm tab "ẩn" nên visibilitychange không bắn
+    window.addEventListener('focus', refreshLibraryOnResume);
     // pageshow với persisted=true: trang được khôi phục từ bfcache (Safari/iOS khi quay lại app)
     window.addEventListener('pageshow', (e) => {
         if (e.persisted) refreshLibraryOnResume();
     });
     // Vừa có mạng lại: lấy danh sách mới (lúc ngoại tuyến chỉ vẽ từ cache máy)
     window.addEventListener('online', () => setTimeout(refreshLibraryOnResume, 1500));
+    setInterval(probeLibrary, 60000);
 }

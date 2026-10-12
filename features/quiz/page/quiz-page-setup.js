@@ -19,6 +19,7 @@ import { showQuestion, showNextQuestion, showPreviousQuestion } from './quiz-que
 import { isAutoNextOn, setAutoNext, setupAutoNextGuards } from './quiz-auto-next.js';
 
 let navVisible = true;
+try { navVisible = localStorage.getItem('quiz_nav_visible') !== '0'; } catch (e) { }   // nhớ ẩn/hiện bảng số câu cho mọi bộ đề
 
 export function setNavVisibility(visible) {
     const navWrapper = document.getElementById('question-nav-wrapper');
@@ -43,6 +44,7 @@ export function attachToggleNavEvent() {
     if (toggleBtn) {
         toggleBtn.onclick = function () {
             navVisible = !navVisible;
+            try { localStorage.setItem('quiz_nav_visible', navVisible ? '1' : '0'); } catch (e) { }
             setNavVisibility(navVisible);
         };
     }
@@ -235,6 +237,7 @@ export function setupSettings() {
             showToast('Đã tắt tính giờ — làm bài thoải mái nhé');
         }
         saveQuizState(); // nhớ vào bản lưu bài dở để khôi phục đúng chế độ
+        setLS('quiz_pref_timed', on ? '1' : '0');   // thiết lập CHUNG: bộ đề mới mở ra theo lần chọn này (trang chờ đọc ở quiz.html applyGlobalPrefs)
         sync();
     });
 
@@ -251,6 +254,7 @@ export function setupSettings() {
         state.quizOptions.showAnswerImmediately = on;
         showToast(on ? '👀 Đáp án + giải thích sẽ hiện ngay sau mỗi câu' : '📝 Đáp án sẽ chỉ hiện khi nộp bài');
         saveQuizState();
+        setLS('quiz_pref_ans', on ? '1' : '0');   // thiết lập CHUNG, như quiz_pref_timed
         const quizContainer = document.getElementById('quiz-container');
         if (quizContainer && !quizContainer.classList.contains('hidden') && state.questions.length) {
             showQuestion();

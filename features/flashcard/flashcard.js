@@ -8,15 +8,14 @@
 // - Ghi chú cá nhân DÙNG CHUNG kho ghi chú với trang làm bài (quiz_notes_<id>,
 //   khóa theo text câu hỏi) và tự đồng bộ lên cloud khi đã đăng nhập.
 
-import { db, auth } from '../../core/firebase-init.js';
+import { auth } from '../../core/firebase-init.js';
 import { onSessionUser } from '../../core/auth-session.js';
-import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { showToast, showConfirm } from '../../core/utils.js';
 import { parseMarkdown, parseInlineMarkdown, renderMath } from '../quiz/quiz-helpers.js';
 import { keyPointsOf } from '../quiz/quiz-essay-core.js';
 import { getOfflineQuiz, autoCacheQuiz, within } from '../quiz/quiz-offline-store.js';
-import { usableLocalQuiz, stampBeforeFetch } from '../quiz/quiz-fresh.js';
+import { usableLocalQuiz, fetchQuizFull } from '../quiz/quiz-fresh.js';
 import { studyKeys, syncPullStudy, scheduleCloudPush } from '../quiz/quiz-study-store.js';
 
 const params = new URLSearchParams(window.location.search);
@@ -166,16 +165,15 @@ async function loadData() {
         // Bản C3: có bản trong máy còn tươi / khớp dấu updatedAt thì dùng luôn — trước đây MỖI lần mở flashcard là một lần tải cả bộ câu hỏi
         if (!data) data = await usableLocalQuiz(quizId);
         if (!data) {
-            const stampP = stampBeforeFetch(quizId);        // dấu máy chủ hỏi TRƯỚC khi tải — gắn vào bản máy để lần sau chỉ cần hỏi dấu (quiz-fresh.js)
-            const remote = getDoc(doc(db, 'quiz_sets', quizId));
-            let snap = await within(remote);
-            if (snap === undefined) {
+            const remote = fetchQuizFull(quizId);           // nội dung + dấu máy chủ cùng một phản hồi — gắn vào bản máy để lần sau chỉ cần hỏi dấu (quiz-fresh.js)
+            let full = await within(remote);
+            if (full === undefined) {
                 // Mạng chập chờn: có bản trên máy thì dùng luôn, bản máy chủ về sau chỉ cập nhật bản lưu
                 data = await getOfflineQuiz(quizId);
-                if (data) remote.then(async (s) => { if (s.exists()) autoCacheQuiz(quizId, { ...s.data(), _srvTime: await stampP }); }).catch(() => {});
-                else snap = await remote;
+                if (data) remote.then((r) => { if (r) autoCacheQuiz(quizId, { ...r.data, _srvStamp: r.stamp }); }).catch(() => {});
+                else full = await remote;
             }
-            if (snap && snap.exists()) { data = snap.data(); autoCacheQuiz(quizId, { ...data, _srvTime: await stampP }); }
+            if (full) { data = full.data; autoCacheQuiz(quizId, { ...data, _srvStamp: full.stamp }); }
         }
         if (!data) data = await getOfflineQuiz(quizId); // dự phòng: server không có nhưng máy đã tải
     } catch (e) {

@@ -6882,3 +6882,10 @@ html .rm-hub-exp.is-empty:not(:has(> .rm-md:focus)):not(:has(.rm-why-tpl.on)) .r
 .cute-table td .cell-ul li { position: relative; padding-left: 0.95rem; line-height: 1.45; }
 .cute-table td .cell-ul li::before { content: ""; position: absolute; left: 0.1rem; top: 0.52em; width: 0.4rem; height: 0.4rem; border-radius: 50%; background: #FF8FB8; }
 .cute-table td .cell-p { margin-bottom: 0.2rem; font-weight: 600; }
+
+/* Ảnh riêng một dòng + dòng ghi nguồn (quiz-helpers parseMarkdown → .quiz-fig): chú thích nhỏ, mờ, sát dưới ảnh */
+.quiz-fig { margin: 1rem 0; text-align: center; }
+.quiz-fig img.quiz-image { margin: 0 auto; }
+.quiz-fig-cap { max-width: 36rem; margin: 0.45rem auto 0; font-size: 0.8em; line-height: 1.45; font-style: italic; color: var(--rm-muted); }
+.quiz-fig-lab { font-style: normal; font-weight: 700; }
+.quiz-fig-cap .quiz-link { color: inherit; }

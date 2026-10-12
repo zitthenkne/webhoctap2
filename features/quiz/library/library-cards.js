@@ -7,6 +7,7 @@ import { db } from '../../../core/firebase-init.js';
 import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { showToast, showConfirm } from '../../../core/utils.js';
 import { isOfflineSavedSync, saveOfflineQuiz, deleteOfflineQuiz, extractQuizImageUrls } from '../quiz-offline-store.js';
+import { fetchQuizFull } from '../quiz-fresh.js';
 import { S } from './library-state.js';
 import {
     FOLDER_COLOR_HEX, FOLDER_SWATCHES, escapeHtml, formatRelativeTime,
@@ -879,6 +880,25 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
 // === TẢI BỘ ĐỀ VỀ MÁY ĐỂ LÀM OFFLINE ===
 // Tải đầy đủ doc (kèm mảng `questions`) từ Firestore và lưu vào IndexedDB,
 // để sau này mở bài làm được kể cả khi không có mạng.
+
+// Bản ĐỦ từ máy chủ (null = không có). REST fetchQuizFull thay getDoc: SDK tưởng mình offline thì trả bản cache cũ → cất về máy
+// thiếu câu / ảnh mới thêm. Kèm dấu máy chủ (_srvStamp) để lần mở sau chỉ hỏi dấu, khỏi tải lại cả bộ. Bộ kiểu cũ tách ruột → quiz_payloads.
+async function fetchQuizForOffline(quizId) {
+    const full = await fetchQuizFull(quizId);
+    if (!full) return null;
+    const quizData = { ...full.data, id: quizId };
+    if (full.stamp) quizData._srvStamp = full.stamp;
+    if (!Array.isArray(quizData.questions) || quizData.questions.length === 0) {
+        try {
+            const p = await getDoc(doc(db, 'quiz_payloads', quizId));
+            if (p.exists() && Array.isArray(p.data().questions)) quizData.questions = p.data().questions;
+        } catch (pErr) {
+            console.warn('Không tải được payload questions từ quiz_payloads:', pErr);
+        }
+    }
+    return quizData;
+}
+
 async function handleDownloadOffline(quizId, quizTitle, btnEl) {
     if (!navigator.onLine) {
         showToast('Cần có mạng để tải bộ đề về máy lần đầu.', 'warning');
@@ -890,26 +910,11 @@ async function handleDownloadOffline(quizId, quizTitle, btnEl) {
         btnEl.innerHTML = `<i class="fas fa-spinner fa-spin mr-2.5 text-sky-500"></i>Đang tải...`;
     }
     try {
-        const snap = await getDoc(doc(db, 'quiz_sets', quizId));
-        if (!snap.exists()) {
+        const quizData = await fetchQuizForOffline(quizId);
+        if (!quizData) {
             showToast('Không tìm thấy bộ đề trên máy chủ.', 'error');
+            if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = originalHTML; }
             return;
-        }
-        let quizData = snap.data();
-        quizData.id = quizId;
-        // Tách Vỏ - Ruột: nạp payload nếu questions rỗng
-        if (!Array.isArray(quizData.questions) || quizData.questions.length === 0) {
-            try {
-                const payloadSnap = await getDoc(doc(db, 'quiz_payloads', quizId));
-                if (payloadSnap && payloadSnap.exists()) {
-                    const pData = payloadSnap.data();
-                    if (Array.isArray(pData.questions)) {
-                        quizData.questions = pData.questions;
-                    }
-                }
-            } catch (pErr) {
-                console.warn('Không tải được payload questions từ quiz_payloads:', pErr);
-            }
         }
 
         const imgUrls = extractQuizImageUrls(quizData.questions);
@@ -962,33 +967,25 @@ export async function downloadQuizzesOffline(pick, label) {
     );
     if (!ok) return;
 
-    let done = 0, failed = 0;
+    let done = 0, failed = 0, imgFailed = 0;
     showToast(`Đang tải ${pending.length} bộ đề…`, 'info');
     for (const q of pending) {
         try {
-            const snap = await getDoc(doc(db, 'quiz_sets', q.id));
-            if (!snap.exists()) { failed++; continue; }
-            let quizData = snap.data();
-            quizData.id = q.id;
-            if (!Array.isArray(quizData.questions) || quizData.questions.length === 0) {
-                try {
-                    const payloadSnap = await getDoc(doc(db, 'quiz_payloads', q.id));
-                    if (payloadSnap && payloadSnap.exists()) {
-                        const pData = payloadSnap.data();
-                        if (Array.isArray(pData.questions)) quizData.questions = pData.questions;
-                    }
-                } catch (_) {}
-            }
-            await saveOfflineQuiz(q.id, quizData, { auto: false, cacheImages: true });
+            const quizData = await fetchQuizForOffline(q.id);
+            if (!quizData) { failed++; continue; }
+            const saved = await saveOfflineQuiz(q.id, quizData, { auto: false, cacheImages: true });
+            imgFailed += saved.imgFailed || 0;
             done++;
         } catch (e) {
             console.error('Lỗi tải bộ đề offline:', q.id, e);
             failed++;
         }
     }
-    showToast(failed
+    // Ảnh hỏng trước đây bị nuốt: báo "tải xong" mà vào offline thấy khung trống
+    const imgNote = imgFailed ? ` ${imgFailed} ảnh chưa tải được — mở bộ đề rồi bấm Đã tải offline để tải nốt.` : '';
+    showToast((failed
         ? `Đã tải ${done}/${pending.length} bộ đề, ${failed} bộ lỗi.`
-        : `Đã tải xong ${done} bộ đề của ${label.scope} về máy.`, failed ? 'warning' : 'success');
+        : `Đã tải xong ${done} bộ đề của ${label.scope} về máy.`) + imgNote, failed || imgFailed ? 'warning' : 'success');
     rerenderCurrentView();
 }
 

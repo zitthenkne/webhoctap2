@@ -60,7 +60,8 @@ async function call(url, init, { requireUser = false, timeoutMs = 15000 } = {}) 
     const ctl = typeof AbortController === 'function' ? new AbortController() : null;
     const timer = ctl ? setTimeout(() => ctl.abort(), timeoutMs) : 0;
     try {
-        return await fetch(target, { ...init, headers, signal: ctl?.signal });
+        // no-store: dữ liệu phải TƯƠI mỗi lần — không để trình duyệt (nhất là WebKit trong app iOS) tự giữ lại phản hồi GET
+        return await fetch(target, { ...init, headers, signal: ctl?.signal, cache: 'no-store' });
     } finally { clearTimeout(timer); }
 }
 
@@ -82,6 +83,26 @@ export async function runQueryRest({ collection, where = [], select = [], requir
     const rows = await res.json();
     if (!Array.isArray(rows)) throw new Error('runQuery: dữ liệu trả về không đúng dạng');
     return rows.filter(r => r && r.document).map(r => decodeDoc(r.document));
+}
+
+/**
+ * Đếm doc khớp điều kiện đẳng thức — Firestore tính 1 lượt đọc cho mỗi 1000 doc khớp (thay vì N lượt như tải danh sách), ~300 byte.
+ * Dùng làm "có gì mới không?" rẻ tiền trước khi tải lại cả danh sách.
+ */
+export async function countRest({ collection, where = [], requireUser = false }) {
+    const { base } = endpoint();
+    const filters = where.map(([f, v]) => ({ fieldFilter: { field: { fieldPath: f }, op: 'EQUAL', value: encodeValue(v) } }));
+    const structuredQuery = {
+        from: [{ collectionId: collection }],
+        ...(filters.length === 1 ? { where: filters[0] } : filters.length > 1 ? { where: { compositeFilter: { op: 'AND', filters } } } : {}),
+    };
+    const body = { structuredAggregationQuery: { structuredQuery, aggregations: [{ alias: 'n', count: {} }] } };
+    const res = await call(`${base}:runAggregationQuery`, { method: 'POST', body: JSON.stringify(body) }, { requireUser });
+    if (!res.ok) throw new Error(`count ${res.status}`);
+    const rows = await res.json();
+    const n = Array.isArray(rows) && rows[0]?.result?.aggregateFields?.n?.integerValue;
+    if (n === undefined || n === false) throw new Error('count: dữ liệu trả về không đúng dạng');
+    return Number(n);
 }
 
 /** Đọc MỘT doc nhưng chỉ lấy các trường `fields`. Doc không tồn tại → null. */

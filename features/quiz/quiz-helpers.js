@@ -710,6 +710,21 @@ export function parseMarkdown(text) {
             const headingMatch = trimmedLine.match(/^(#{1,4})\s+(\S.*?)\s*#*\s*$/);
             if (headingMatch) {
                 processedLines.push(`<div class="quiz-md-h quiz-md-h${headingMatch[1].length}">${parseInlineMarkdown(headingMatch[2])}</div>`);
+            } else if (/^!\[[^\]]*\]\([^)\s]+\)$/.test(trimmedLine)) {
+                // Ảnh đứng riêng một dòng (+ dòng in nghiêng ngay dưới, cho phép cách 1 dòng trống) = khung hình + CHÚ THÍCH:
+                // *Hình: tác giả · giấy phép · [Wikimedia Commons](…)* / *Nguồn: Lưu đồ … — Bộ môn …* là dòng ghi nguồn,
+                // trước đây thành chữ nghiêng màu nhấn như một ý chính và nằm cách xa ảnh → nay chữ nhỏ, mờ, sát dưới ảnh.
+                let j = i + 1;
+                if (j + 1 < lines.length && !lines[j].trim()) j++;
+                const cap = j < lines.length && /^\*([^*]+)\*$|^_([^_]+)_$/.exec(lines[j].trim());
+                let capHtml = '';
+                if (cap) {
+                    const text = (cap[1] || cap[2]).trim();
+                    const lab = /^(Hình|Ảnh|Nguồn)\s*:\s*/i.exec(text);
+                    capHtml = `<div class="quiz-fig-cap">${lab ? `<span class="quiz-fig-lab">${lab[1]}:</span> ` : ''}${parseInlineMarkdown(lab ? text.slice(lab[0].length) : text)}</div>`;
+                    i = j;
+                }
+                processedLines.push(`<div class="quiz-fig">${parseInlineMarkdown(trimmedLine)}${capHtml}</div>`);
             } else {
                 processedLines.push(parseInlineMarkdown(rawLine));
             }

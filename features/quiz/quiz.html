@@ -953,9 +953,24 @@
                     }
                     syncTimedPresetActive();
                 })();
+                // "Tính giờ" + "Đáp án ngay" là thiết lập CHUNG (cùng công tắc với bảng "Ngựa thì chỉnh" lúc làm bài): nhớ lần chọn gần nhất cho MỌI bộ đề,
+                // bộ đề mới không bị trả về mặc định. Thắng bản nhớ riêng từng đề ở trên; số phút / xáo trộn / số câu vẫn nhớ theo từng đề.
+                (function applyGlobalPrefs() {
+                    let t = null, a = null;
+                    try { t = localStorage.getItem('quiz_pref_timed'); a = localStorage.getItem('quiz_pref_ans'); } catch (e) {}
+                    if (showAnsCheckbox && a !== null) showAnsCheckbox.checked = a === '1';
+                    if (timedCheckbox && t !== null) {
+                        timedCheckbox.checked = t === '1';
+                        timedCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                    syncTimedPresetActive();
+                })();
                 // Mọi thay đổi tùy chọn -> lưu lại cho lần mở sau
                 [shuffleQCheckbox, shuffleACheckbox, showAnsCheckbox, timedCheckbox, enableCountCheckbox].forEach(function (el) {
                     if (el) el.addEventListener('change', saveLandingOpts);
+                });
+                [[timedCheckbox, 'quiz_pref_timed'], [showAnsCheckbox, 'quiz_pref_ans']].forEach(function (p) {
+                    if (p[0]) p[0].addEventListener('change', function () { try { localStorage.setItem(p[1], p[0].checked ? '1' : '0'); } catch (e) {} });
                 });
                 [timedInput, countInput].forEach(function (el) {
                     if (el) el.addEventListener('input', saveLandingOpts);
@@ -966,9 +981,9 @@
                 const memeChk = document.getElementById('meme-enabled-checkbox');
                 const presetBtns = document.querySelectorAll('#quiz-mode-presets .mode-preset');
                 const MODE_PRESETS = {
-                    exam:   { sq: true,  sa: true,  ans: false, tm: true,  cnt: false, meme: false },
-                    study:  { sq: false, sa: true,  ans: true,  tm: false, cnt: false, meme: true },
-                    sprint: { sq: true,  sa: true,  ans: true,  tm: false, cnt: true,  meme: true }
+                    exam:   { sq: true,  sa: true,  ans: false, tm: true,  cnt: false },
+                    study:  { sq: false, sa: true,  ans: true,  tm: false, cnt: false },
+                    sprint: { sq: true,  sa: true,  ans: true,  tm: false, cnt: true }
                 };
                 const sprintCount = function () { return Math.min(20, window.quizQuestionsLength || 20); };
                 function setChecked(el, val) {
@@ -984,7 +999,6 @@
                     setChecked(shuffleACheckbox, p.sa);
                     setChecked(showAnsCheckbox, p.ans);
                     setChecked(timedCheckbox, p.tm);
-                    setChecked(memeChk, p.meme);
                     setChecked(enableCountCheckbox, p.cnt);
                     if (p.cnt && countInput) {
                         countInput.value = sprintCount();

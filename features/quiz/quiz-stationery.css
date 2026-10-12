@@ -4803,3 +4803,47 @@ body.focus-mode-active .qna-t { display: inline; }
 :is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table td:nth-child(6n+4) { --cell-dot: var(--hue-mint); }
 :is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table td:nth-child(6n+5) { --cell-dot: var(--hue-sky); }
 :is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table td:nth-child(6n+6) { --cell-dot: var(--hue-lav); }
+
+/* ============================================================
+   30) iPAD / MÁY TÍNH BẢNG CẢM ỨNG (2026-10-12) — người dùng: "giao diện trên iPad vẫn chưa được tối ưu".
+   Soát bằng ảnh chụp 820×1180 (dọc), 1180×820 (ngang), đề 6 và 80 câu:
+   a) iPad dọc: bảng số câu xếp TRÊN câu hỏi cao ~370px (đề 80 câu ~520px) -> câu nào cũng phải cuộn xuống mới thấy đề. Nay thu thành MỘT
+      dải ngang cuộn được (ô đang xem tự vào giữa: quiz-ui.js keepNavCurrentInView), bỏ sóc + chú giải, "Câu chưa làm" + "Nộp bài" chung một hàng.
+   b) iPad ngang: nút ngựa nổi đè lên đáy cột ô câu (che ô số và nút Nộp bài) -> cột kết thúc phía trên nút ngựa.
+   c) Cột ghi chú hẹp: 6 nút công cụ cỡ chạm xếp bậc thang 4+2 -> lưới 3×2 đều.
+   d) Đáp án 2 cột (khung làm bài ≤ 800px): thẻ có giải thích bị bóp (chữ/bảng bị cắt, thẻ bên cạnh kéo cao trống) -> đã hiện giải thích thì xếp 1 cột.
+   e) Nút chạm dưới 40px (Nghe/Sao chép/Sửa 36px, Chắc chắn 35px, Câu chưa làm/Nộp bài 32–36px, A-/A/A+ 27×22px) -> ≥ 40px trên máy cảm ứng.
+   ============================================================ */
+@media (min-width: 768px) and (max-width: 1023px) {
+    #quiz-nav-panel { position: relative; padding: 0.55rem 0.75rem 0.6rem; }
+    #quiz-nav-panel::before { display: none; }
+    #quiz-nav-panel .qnp-brand { position: absolute; top: 0.5rem; right: 0.75rem; margin: 0; }
+    #quiz-nav-panel > .mb-4 { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.5rem; margin-bottom: 0; }
+    #quiz-nav-panel .qnp-head { flex: 0 0 100%; padding-right: 9rem; }
+    #quiz-nav-panel .qnp-legend { display: none; }
+    #quiz-nav-panel .qnp-jump { flex: 1 1 0; width: auto; margin-top: 0.2rem; }
+    #quiz-nav-panel #question-nav-wrapper.quiz-nav-grid {
+        flex: 0 0 100%; display: flex; flex-wrap: nowrap; justify-content: flex-start; align-items: center; gap: 0.45rem;
+        margin-top: 0.3rem; padding: 0.4rem 0.2rem 0.55rem; overflow-x: auto; overflow-y: hidden;
+        scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; scroll-snap-type: x proximity;
+    }
+    #quiz-nav-panel #question-nav-wrapper.quiz-nav-grid::-webkit-scrollbar { display: none; }
+    #quiz-nav-panel #question-nav-wrapper .quiz-nav-btn { flex: 0 0 auto; width: 2.5rem; height: 2.5rem; scroll-snap-align: center; }
+}
+@media (min-width: 1024px) {
+    #quiz-nav-panel { max-height: calc(100vh - 5.5rem); }
+}
+@media (min-width: 1024px) and (pointer: coarse) {
+    .quiz-note-tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.35rem; }
+    .quiz-note-sep { display: none; }
+    .quiz-note-tools .quiz-note-act { width: auto; min-width: 0; height: 2.5rem; }
+}
+@container quizmain (max-width: 800px) {
+    #quizSection #answers-container.md\:grid-cols-2:has(.option-explanation:not(.hidden)) { grid-template-columns: minmax(0, 1fr); }
+}
+@media (pointer: coarse) and (min-width: 640px) {
+    #quizSection .q-tool-btn { width: 2.6rem; height: 2.6rem; }
+    #quizSection #confidence-toggle { min-height: 2.5rem; }
+    #quiz-nav-panel .qnp-jump { min-height: 2.5rem; font-size: 12.5px; }
+    #quiz-settings-popover :is(#font-size-small, #font-size-normal, #font-size-large) { min-width: 2.7rem; min-height: 2.4rem; }
+}

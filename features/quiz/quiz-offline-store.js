@@ -5,7 +5,7 @@
 //   mà không phải chờ truy vấn bất đồng bộ khi render thư viện.
 
 import { fastImgUrl } from './img-proxy.js';
-import { zimgIdsIn, zimgUrl, idFromUrl, loadZimg } from '../../core/zimg.js';
+import { zimgIdsIn, zimgUrl, idFromUrl, loadZimg, ZIMG_CACHE } from '../../core/zimg.js';
 
 const DB_NAME = 'zitthenkne-offline';
 const STORE = 'quizzes';
@@ -156,10 +156,11 @@ export async function cacheQuizImages(questions, { onProgress } = {}) {
     const urls = extractQuizImageUrls(questions).map(fastImgUrl);
     if (!urls.length) return { total: 0, cached: 0, failed: 0 };
 
-    let cache = null;
+    let cache = null, zcache = null;
     try {
         if ('caches' in window) {
             cache = await caches.open(QUIZ_IMG_CACHE);
+            zcache = await caches.open(ZIMG_CACHE);
         }
     } catch (e) {
         console.warn('CacheStorage không khả dụng:', e);
@@ -175,7 +176,8 @@ export async function cacheQuizImages(questions, { onProgress } = {}) {
             const url = queue.shift();
             try {
                 const zid = idFromUrl(url);
-                if (zid) await loadZimg(zid);                       // ảnh Firestore: lấy qua REST rồi cất vào kho riêng (core/zimg.js), không qua mạng ngoài
+                // ảnh Firestore: đã có trong kho thì thôi (khỏi đọc cả ảnh ra chỉ để biết là có); chưa có thì lấy qua REST rồi cất (core/zimg.js)
+                if (zid) { if (!(zcache && await zcache.match(url))) await loadZimg(zid); }
                 else {
                     const have = cache && await cache.match(url);
                     if (!have && !(await fetchToCacheOnce(cache, url))) failed++;
@@ -268,7 +270,7 @@ export async function setOfflineStamp(id, stamp) {
     try {
         const rec = await getOfflineQuiz(id);
         if (!rec) return;
-        rec._srvTime = stamp;
+        rec._srvStamp = stamp;
         await new Promise((resolve, reject) => {
             txStore('readwrite').then((store) => {
                 const req = store.put(rec);
@@ -292,15 +294,20 @@ export async function deleteOfflineQuiz(id, { prune = true } = {}) {
     if (prune) await pruneQuizImages();
 }
 
-/** Bỏ khỏi kho ảnh những ảnh không còn bộ đề offline nào dùng (ảnh dùng chung giữa các bộ được giữ lại). */
+/** Bỏ khỏi kho ảnh những ảnh không còn bộ đề offline nào dùng (ảnh dùng chung giữa các bộ được giữ lại).
+ *  Dọn cả kho zimg (ảnh Firestore): trước đây kho này chỉ thêm không bớt — mỗi bộ từng mở để lại ảnh trong máy mãi. */
 async function pruneQuizImages() {
     try {
+        const all = await listOfflineQuizzes();
+        if (!all.length && readIds().length) return;      // đọc IndexedDB lỗi (trả rỗng) — đừng vì thế mà xóa sạch kho ảnh
         const keep = new Set();
-        for (const q of await listOfflineQuizzes()) {
+        for (const q of all) {
             extractQuizImageUrls(q.questions).forEach((u) => keep.add(new URL(fastImgUrl(u)).href));
         }
-        const cache = await caches.open(QUIZ_IMG_CACHE);
-        for (const req of await cache.keys()) if (!keep.has(req.url)) await cache.delete(req);
+        for (const name of [QUIZ_IMG_CACHE, ZIMG_CACHE]) {
+            const cache = await caches.open(name);
+            for (const req of await cache.keys()) if (!keep.has(req.url)) await cache.delete(req);
+        }
     } catch (e) { /* dọn không được thì thôi, ảnh thừa không hại */ }
 }
 
