@@ -1,12 +1,15 @@
 // File: features/quiz/page/quiz-tablet-next.js
-// iPad / máy tính bảng: nút "Câu tiếp" nổi, chỉ hiện khi nút Câu tiếp trong thẻ đã mở khóa
+// iPad / máy tính bảng / máy tính (≥1024): nút "Câu tiếp" nổi, chỉ hiện khi nút Câu tiếp trong thẻ đã mở khóa
 // (đã trả lời) mà đang nằm NGOÀI màn hình -> chuyển câu bất cứ lúc nào, không cần cuộn xuống.
 //
 // 2026-10-06: theo dõi vị trí nút thật bằng IntersectionObserver (trình duyệt tự báo khi nút vào/ra khung nhìn),
 // KHÔNG còn lắng nghe `scroll` rồi gọi getBoundingClientRect mỗi khung hình (ép dàn lại trang ngay lúc người dùng đang kéo).
 import { showNextQuestion } from './quiz-question-view.js';
 
-const isTablet = () => window.innerWidth >= 768 && window.matchMedia('(pointer: coarse)').matches;
+// 2026-10-14: máy tính (≥1024) cũng dùng — thẻ có Ghi nhớ/Mở rộng dài thì nút Câu tiếp nằm tít dưới. Đúng phần bù của isNarrow()
+// trong quiz-mobile-nav.js (màn hẹp đã có thanh đáy) nên không bao giờ có hai nút Tiếp cùng lúc.
+const isTablet = () => window.innerWidth >= 1024 || (window.innerWidth >= 768 && window.matchMedia('(pointer: coarse)').matches);
+const hasKeyboard = () => window.matchMedia('(pointer: fine)').matches;
 
 export function setupTabletNext() {
     const btn = document.createElement('button');
@@ -36,7 +39,7 @@ export function setupTabletNext() {
             }, { rootMargin: '0px 0px -8px 0px' });
             io.observe(real);
         }
-        if (!visible) btn.innerHTML = real.textContent.trim() + ' <i class="fas fa-arrow-right"></i>';
+        if (!visible) btn.innerHTML = real.textContent.trim() + (hasKeyboard() ? ' <kbd class="kbd-key">Enter</kbd>' : '') + ' <i class="fas fa-arrow-right"></i>';
         btn.hidden = visible;
     };
     const queue = () => { if (!raf) raf = requestAnimationFrame(apply); };

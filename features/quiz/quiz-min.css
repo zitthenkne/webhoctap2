@@ -96,7 +96,7 @@ html.ui-min .qnp-jump { background: transparent !important; border: 1px solid va
 html.ui-min #quizSection > .bg-white, html.ui-min #quizSection .quiz-card { background: var(--surface-card) !important; background-image: none !important; border: 1px solid var(--m-line); border-radius: var(--m-r-lg) !important; box-shadow: none !important; padding: 1.1rem 1.5rem 1.2rem !important; }
 html.ui-min .quiz-question-heading { font-size: .8rem !important; font-weight: 600 !important; color: var(--m-dim) !important; }
 html.ui-min .quiz-question-heading .q-of { font-size: .72rem; }
-html.ui-min .question-text { font-size: 1.2rem !important; font-weight: 600 !important; line-height: 1.5 !important; color: var(--ink) !important; margin-block: 1rem !important; }
+html.ui-min .question-text { font-size: 1.2rem !important; font-weight: 700 !important; line-height: 1.5 !important; color: var(--q-ink) !important; margin-block: 1rem !important; }
 html.ui-min .quiz-meta-chips > span { background: none !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; font-size: .7rem; font-weight: 500; color: var(--m-dim) !important; }
 html.ui-min .q-tool-btn { width: 1.9rem !important; height: 1.9rem !important; }
 
