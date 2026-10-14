@@ -3783,9 +3783,13 @@ html.theme-dark #quizSection .answer-letter {
     display: none;
 }
 
-/* Khi hiện: bắt được click ở MỌI nơi để bấm ra ngoài ảnh là tắt ngay */
+/* Khi hiện: lớp phủ KHÔNG chặn chạm (2026-10-14: trước đây nuốt cú bấm đầu vào "Câu tiếp" — meme hiện ~2,6s sau mỗi câu, ngay lúc người dùng bấm Tiếp);
+   bấm ra ngoài vẫn tắt ngay nhờ pointerdown ở quiz-cat-meme.js, cú bấm đó đi tiếp xuống nút bên dưới. Ảnh vẫn bấm được để tắt. */
 #cat-meme-pop.show {
     opacity: 1;
+}
+
+#cat-meme-pop.show .cat-meme-img {
     pointer-events: auto;
 }
 

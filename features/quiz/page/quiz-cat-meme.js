@@ -144,8 +144,9 @@ export function showCatMeme(isCorrect) {
         el.className = 'hidden';
         el.innerHTML = `<img class="cat-meme-img" alt="Meme phản hồi" />`;
         document.body.appendChild(el);
-        // Bấm ra ngoài (hoặc vào) meme là ẩn ngay
+        // Bấm vào ảnh là ẩn ngay; bấm ra NGOÀI cũng ẩn nhưng cú bấm vẫn đi tiếp tới nút bên dưới (lớp phủ không chặn chạm, xem quiz-enhance.css)
         el.addEventListener('click', hideCatMeme);
+        document.addEventListener('pointerdown', () => { if (el.classList.contains('show')) hideCatMeme(); }, { capture: true, passive: true });
     }
     if (_catMemeTimer) { clearTimeout(_catMemeTimer); _catMemeTimer = null; }
 
