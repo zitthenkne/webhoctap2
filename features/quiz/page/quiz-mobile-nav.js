@@ -2,7 +2,7 @@
 // Thanh điều hướng cố định ở ĐÁY màn hình khi đang làm bài (chỉ mobile/tablet hẹp) +
 // bảng "nhảy câu" dạng bottom-sheet. Mục tiêu: trên điện thoại luôn với tới nút
 // Trước/Tiếp và thấy tiến trình mà không phải cuộn xuống cuối thẻ câu hỏi (vốn có thể
-// rất dài khi đã hiện giải thích / mở rộng). Bổ trợ cho vuốt & chạm rìa sẵn có,
+// rất dài khi đã hiện giải thích / mở rộng). Bổ trợ cho cú vuốt sẵn có,
 // và thay cho lưới số câu xếp dọc (đỡ chiếm chỗ trên màn hẹp).
 
 import { state, MARK_REASONS, saveQuizState } from '../quiz-state.js';
@@ -142,7 +142,7 @@ export function setupMobileNav() {
     if (prevBtn) prevBtn.addEventListener('click', () => {
         if (state.currentIndex > 0 && state.quizMode !== 'practice') { buzz(); showPreviousQuestion(); }
     });
-    // "Tiếp" luôn khả dụng (nhất quán với vuốt / chạm rìa). Ở câu cuối -> showNextQuestion
+    // "Tiếp" luôn khả dụng (nhất quán với cú vuốt). Ở câu cuối -> showNextQuestion
     // sẽ hỏi xác nhận rồi nộp bài.
     if (nextBtn) nextBtn.addEventListener('click', () => { buzz(); showNextQuestion(); });
 

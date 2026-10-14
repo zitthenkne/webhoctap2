@@ -9,6 +9,7 @@ import { state, saveQuizState } from '../quiz-state.js';
 import { renderMath, triggerConfetti, parseMarkdown, stripOptionLabels, isMultiAnswer, getCorrectIndexes, isAnswerCorrect } from '../quiz-helpers.js';
 import { updateProgressBar, renderQuizProgressBar, syncQuizNavPanel } from '../quiz-ui.js';
 import { feedback, announce, getVibrate, scrollQuizTo, scrollQuizToTop, sfx } from './quiz-page-prefs.js';
+import { centerQuizCard } from './quiz-center.js';
 import { hideCatMeme, preloadCurrentMemes, showCatMeme } from './quiz-cat-meme.js';
 import { renderMarkControl, setupMarkControl, refreshMarkedPanel, applyMark } from './quiz-marks.js';
 import { renderPersonalNotePanel, setupPersonalNote } from './quiz-notes-panel.js';
@@ -588,7 +589,7 @@ export function showQuestion() {
     if (indexChanged) {
         const card = quizSection.firstElementChild;
         if (card) card.classList.add(slideDir === 'prev' ? 'q-slide-prev' : 'q-slide-next');
-        if (!stayInCase) scrollQuizToTop();
+        if (!stayInCase) centerQuizCard();   // thẻ thấp hơn khung nhìn thì canh giữa trên-dưới, không thì đỉnh thẻ ở đầu trang
     }
     // Cùng ca với câu vừa xem: khung ca đứng yên (CSS chỉ trượt phần câu hỏi) + giữ vị trí cuộn
     const sameCase = !!(caseText && prevCaseKey && prevCaseKey === caseKeyOf(question));

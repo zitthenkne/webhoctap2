@@ -1073,66 +1073,12 @@ html.theme-dark .qs-marked-unmark {
     touch-action: manipulation;
 }
 
-/* Cả khung làm bài: bỏ "chạm đúp để phóng to" (iOS) — chạm rìa/bấm Tiếp 2 lần nhanh không bị
+/* Cả khung làm bài: bỏ "chạm đúp để phóng to" (iOS) — bấm Tiếp 2 lần nhanh không bị
    hiểu thành phóng to; vẫn phóng to bằng 2 ngón. (Dải tiến trình thanh đáy từng touch-action:none
    cho cử chỉ vuốt lên mở danh sách câu → vuốt bắt đầu ở đáy màn không cuộn được trang; đã bỏ.) */
 #quiz-container,
 #quiz-mobile-nav {
     touch-action: manipulation;
-}
-
-/* Mũi tên lóe khi CHẠM RÌA chuyển câu (mobile) — chỉ để phản hồi, không chặn chạm */
-.edge-tap-hint {
-    position: fixed;
-    top: 50%;
-    width: 42px;
-    height: 42px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 9999px;
-    background: rgba(255, 105, 180, 0.92);
-    color: #fff;
-    font-size: 1.05rem;
-    z-index: 60;
-    pointer-events: none;
-    opacity: 0;
-    box-shadow: 0 8px 20px -6px rgba(255, 105, 180, 0.7);
-}
-
-.edge-tap-hint.is-left {
-    left: 10px;
-}
-
-.edge-tap-hint.is-right {
-    right: 10px;
-}
-
-.edge-tap-hint.show {
-    animation: edge-hint-flash .5s ease forwards;
-}
-
-@keyframes edge-hint-flash {
-    0% {
-        opacity: 0;
-        transform: translateY(-50%) scale(0.6);
-    }
-
-    35% {
-        opacity: 1;
-        transform: translateY(-50%) scale(1);
-    }
-
-    100% {
-        opacity: 0;
-        transform: translateY(-50%) scale(0.85);
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .edge-tap-hint.show {
-        animation: none;
-    }
 }
 
 /* Chuyển câu: thẻ trượt-vào theo hướng (tiến từ phải, lùi từ trái) — đỡ "nhảy giật" */

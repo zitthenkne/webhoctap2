@@ -10,7 +10,7 @@
 //   quiz-annotations.js   — ghi chú trực quan (bôi vàng / in đậm / in nghiêng)
 //   quiz-marks.js         — đánh dấu câu theo lý do + danh sách "Câu đã đánh dấu"
 //   quiz-notes-panel.js   — panel ghi chú cá nhân (cột phải)
-//   quiz-page-setup.js    — bảng thiết lập nổi, cỡ chữ, chế độ tập trung, kéo cột, vuốt/chạm rìa, lightbox
+//   quiz-page-setup.js    — bảng thiết lập nổi, cỡ chữ, chế độ tập trung, kéo cột, vuốt, lightbox
 //   quiz-cases.js         — gom nhóm ca lâm sàng (caseId) + thứ tự câu trong ca
 //   quiz-question-view.js — render câu hỏi, chọn/loại trừ đáp án, 50:50, HUD, chuyển câu
 //   quiz-session.js       — tải bộ đề, bắt đầu/khôi phục phiên, đếm giờ, nộp bài, luyện tập lại
@@ -30,7 +30,7 @@ import { setupAnnotations } from './page/quiz-annotations.js';
 import { setupMarkedList } from './page/quiz-marks.js';
 import {
     setupSettings, setupFontSizeControls, setupFocusModeControls,
-    setupResizers, setupSwipe, setupEdgeTap, setupLightbox
+    setupResizers, setupSwipe, setupLightbox
 } from './page/quiz-page-setup.js';
 import {
     showQuestion, showNextQuestion, showPreviousQuestion, accrueTime
@@ -329,7 +329,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setupLightbox();       // #13: phóng to ảnh
     setupQuestionEditor(showQuestion); // Chỉnh sửa câu hỏi (đáp án/giải thích/ghi chú/mở rộng) ngay khi làm bài
     setupSwipe();          // #3: vuốt chuyển câu
-    setupEdgeTap();        // Chạm rìa trái/phải màn hình để chuyển câu (mobile)
     setupMobileNav();      // Thanh điều hướng đáy + bảng nhảy câu (mobile)
     setupTabletNext();     // iPad: nút Câu tiếp nổi khi nút trong thẻ ngoài màn hình
     setupQuizBoost();      // gói nâng cấp 2026-10-05: gập thẻ dài, chọn lại, nghe đọc, phím tắt, nhịp độ...

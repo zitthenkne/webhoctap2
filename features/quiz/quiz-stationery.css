@@ -1397,7 +1397,6 @@ html.theme-dark #timerDisplay.timer-critical {
     color: var(--bad-ink) !important;
     border-color: var(--bad-line);
 }
-.edge-tap-hint { background: color-mix(in srgb, var(--hue-blossom) 30%, var(--surface-card)) !important; color: var(--ink-blossom) !important; border: 2px solid color-mix(in srgb, var(--hue-blossom) 50%, transparent); }
 @media (min-width: 1024px) {
     .quiz-resizer::before, html.theme-dark .quiz-resizer::before {
         width: 6px;
@@ -5292,3 +5291,36 @@ html:not(.ui-min) #quizSection .quiz-question-heading .q-of { font-size: 0.82em;
     #tablet-next-fab i { width: 2.1rem; height: 2.1rem; }
     #tablet-next-fab .kbd-key { font-size: 10px; background: rgba(255, 255, 255, 0.55); border-color: rgba(255, 255, 255, 0.85); color: var(--hi); }
 }
+
+/* ============================================================
+   35) ẢNH TRONG KHUNG CA CHÙM (2026-10-14) — người dùng: "hỗ trợ cho chèn hình trong khung của case chùm".
+   caseText vẫn viết như mọi chỗ khác: ![mô tả](https://…) hoặc ![mô tả](zimg:<id>), dòng *Hình: …* ngay dưới = chú thích.
+   Lỗi cũ: khung ca có trần 18rem (max-h-72, cuộn trong khung) nên ảnh bị cắt cụt, chú thích + chữ sau ảnh phải cuộn lồng mới thấy;
+   ảnh lại không có khung riêng như ảnh trong đề. Cảm ứng không cần luật cao độ (§31 đã bỏ trần).
+   ============================================================ */
+/* 35.1 ảnh trong ca / khay "Xem lại ca" / mục xem tình huống ở màn kết quả = cùng ảnh dán viền trắng như ảnh trong đề (§33.1) */
+html:not(.ui-min) :is(#case-body, #case-peek-sheet .cps-body, .result-case) img.quiz-image {
+    padding: 5px;
+    background: var(--surface-card);
+    border: 2px solid var(--line);
+    border-radius: 1.1rem;
+    box-shadow: 0 3px 0 var(--line), 0 10px 18px -14px rgba(190, 130, 115, 0.5);
+}
+/* 35.2 ảnh trong ca không cao quá nửa khung mặc định → thấy trọn ảnh + chú thích mà không phải cuộn lồng */
+#quizSection #case-body img.quiz-image { max-height: min(18rem, 40vh); }
+/* ca có ảnh: nới trần mặc định 18rem lên ~36rem (người dùng đã kéo tay nắm thì --case-h vẫn thắng, §17e) */
+html:not(.case-h-set) #quizSection #case-body:has(img.quiz-image):not(.hidden) { max-height: min(36rem, 72vh); }
+/* khay xem lại ca: ảnh vừa chiều ngang khay, không cao quá nửa khay */
+#case-peek-sheet .cps-body img.quiz-image { max-height: min(22rem, 45vh); }
+
+/* ============================================================
+   36) THẺ CÂU HỎI CANH GIỮA TRÊN–DƯỚI KHI SANG CÂU MỚI (2026-10-14) — page/quiz-center.js
+   JS tính đệm trên của #quiz-main theo innerHeight thật rồi cuộn tới; các luật CSS cũ canh giữa bằng vh / flex phải nhường:
+   - ≥1024px: quiz-enhance §11 từng canh giữa trong hàng cao 100vh (lệch trên iPad/iPhone Safari vì 100vh > phần nhìn thấy)
+     và đẩy thẻ nhảy lên mỗi khi bung giải thích -> về đầu cột, để đệm của JS quyết định.
+   - body mặc định canh giữa con theo chiều dọc (items-center): trang làm bài phải bắt đầu từ đỉnh, nếu không thêm đệm sẽ bị chia đôi.
+   ============================================================ */
+@media (min-width: 1024px) {
+    body:not(.focus-mode-active) #quiz-workspace:not(.results-active) #quiz-main { justify-content: flex-start; }
+}
+@media (min-width: 768px) { body.quiz-active { align-items: flex-start; } }   /* điện thoại giữ nguyên */
