@@ -1,5 +1,5 @@
 /* SINH TỰ ĐỘNG — đừng sửa tay. Nguồn: fa-dong-bang.mjs (Font Awesome Free 6.4.0, CC BY 4.0 / OFL / MIT).
-   155 icon dò từ 50 file của trang làm bài. Thêm icon mới thì chạy lại: node fa-dong-bang.mjs */
+   157 icon dò từ 53 file của trang làm bài. Thêm icon mới thì chạy lại: node fa-dong-bang.mjs */
 .fa{font-family:var(--fa-style-family,"Font Awesome 6 Free");font-weight:var(--fa-style,900)}
 .fa,.fa-brands,.fa-classic,.fa-regular,.fa-solid,.fab,.far,.fas{-moz-osx-font-smoothing:grayscale;-webkit-font-smoothing:antialiased;display:var(--fa-display,inline-block);font-style:normal;font-variant:normal;line-height:1;text-rendering:auto}
 .fa-classic,.fa-regular,.fa-solid,.far,.fas{font-family:"Font Awesome 6 Free"}
@@ -28,6 +28,7 @@
 .fa-share-alt:before,.fa-share-nodes:before{content:"\f1e0"}
 .fa-users:before{content:"\f0c0"}
 .fa-eye-slash:before{content:"\f070"}
+.fa-hand:before{content:"\f256"}
 .fa-chevron-up:before{content:"\f077"}
 .fa-stopwatch:before{content:"\f2f2"}
 .fa-horse:before{content:"\f6f0"}
@@ -94,6 +95,7 @@
 .fa-sliders:before{content:"\f1de"}
 .fa-ellipsis-vertical:before{content:"\f142"}
 .fa-images:before{content:"\f302"}
+.fa-calculator:before{content:"\f1ec"}
 .fa-download:before{content:"\f019"}
 .fa-file-circle-check:before{content:"\e5a0"}
 .fa-forward:before{content:"\f04e"}

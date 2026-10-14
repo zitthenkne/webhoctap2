@@ -4,6 +4,7 @@ import { updateProfile, updatePassword, signOut } from "https://www.gstatic.com/
 import { doc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { updateDocQ as updateDoc } from '../../core/offline-write.js';
 import { showConfirm } from '../../core/utils.js';
+import { claimName } from '../../core/usernames.js';
 import { readMetaCache, fetchAllQuizMeta } from '../quiz/library/library-meta.js';
 import { readRowsCache, syncRows } from './stats-insights.js';
 
@@ -396,6 +397,8 @@ saveBtn.onclick = async () => {
         try { localStorage.setItem('userAvatarPrefs_' + currentUser.uid, JSON.stringify({ avatarBgColor: avatarBgColorInput.value, avatarAnimal: avatarAnimalInput.value, displayName: newName, at: Date.now() })); } catch (_) {}
         // Bản nhớ offline không phải đối tượng Firebase → bỏ qua; tên chính vẫn nằm ở users/{uid}
         if (navigator.onLine) { try { await updateProfile(currentUser, { displayName: newName }); } catch {} }
+        // Ô đăng nhập gõ tên mới là vào được (bảng tra usernames, bỏ bản tra tên cũ). Không chờ: tên đã có người giữ thì thôi.
+        if (newName !== initialState.name) claimName(currentUser, newName, initialState.name);
 
         if (newPassword) {
             try {

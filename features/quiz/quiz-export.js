@@ -5,7 +5,8 @@
 //            modelAnswer (tự luận), explanation, note, expanded, myNote (ghi chú cá nhân của người làm) }
 
 const letter = (i) => String.fromCharCode(65 + i);
-const clean = (s) => String(s == null ? '' : s).replace(/\r\n/g, '\n').trim();
+// Khối ```widget (minh họa tương tác) chỉ chạy trên web -> ra file thì thay bằng một dòng nhắc, không đổ mã HTML/JS vào Anki
+const clean = (s) => String(s == null ? '' : s).replace(/\r\n/g, '\n').replace(/```widget[^\n]*\n[\s\S]*?```/g, '[Minh họa động — xem trên web]').trim();
 const optLine = (it, i) => `${letter(i)}. ${clean(it.options[i]).replace(/\n+/g, ' ')}`;
 const optList = (it, idx) => idx.filter((i) => i >= 0 && i < it.options.length).map((i) => optLine(it, i));
 

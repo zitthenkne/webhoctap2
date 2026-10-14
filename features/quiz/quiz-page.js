@@ -38,6 +38,7 @@ import {
 import { setupMobileNav } from './page/quiz-mobile-nav.js';
 import { setupTabletNext } from './page/quiz-tablet-next.js';
 import { setupQuizBoost } from './page/quiz-boost.js';
+import { setupQuizTools } from './page/quiz-tools.js';
 import { setupFocus } from './page/quiz-focus.js';
 import { setupFind } from './page/quiz-find.js';
 import { noteCount } from './page/quiz-notes-panel.js';
@@ -332,6 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupMobileNav();      // Thanh điều hướng đáy + bảng nhảy câu (mobile)
     setupTabletNext();     // iPad: nút Câu tiếp nổi khi nút trong thẻ ngoài màn hình
     setupQuizBoost();      // gói nâng cấp 2026-10-05: gập thẻ dài, chọn lại, nghe đọc, phím tắt, nhịp độ...
+    setupQuizTools();      // giấy nháp (Apple Pencil) + máy tính / công thức: ngăn ghép cạnh bài, chỉ đóng khi bấm ×
     setupFocus();          // chế độ tập trung v2: thanh mảnh, toàn màn hình, nhắc nghỉ mắt, Esc
     setupFind();           // Ctrl+K / "/": tìm và nhảy câu
 

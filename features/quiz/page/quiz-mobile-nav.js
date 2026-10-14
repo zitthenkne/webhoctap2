@@ -152,20 +152,8 @@ export function setupMobileNav() {
         else openJumpSheet();
     });
 
-    // Vuốt trên thanh: LÊN = mở danh sách câu, XUỐNG = đóng (bù cho việc phải bấm đúng dải)
-    if (jumpBtn) {
-        let barY = 0, barTrack = false;
-        jumpBtn.addEventListener('touchstart', (e) => {
-            barTrack = e.touches.length === 1;
-            if (barTrack) barY = e.touches[0].clientY;
-        }, { passive: true });
-        jumpBtn.addEventListener('touchend', (e) => {
-            if (!barTrack) return; barTrack = false;
-            const dy = e.changedTouches[0].clientY - barY;
-            if (dy < -32) { buzz(); openJumpSheet(); }
-            else if (dy > 32) closeJumpSheet();
-        }, { passive: true });
-    }
+    // (Đã bỏ "vuốt LÊN trên dải = mở danh sách câu": dải chặn kéo (touch-action:none) nên vuốt bắt đầu ở đáy màn
+    //  không cuộn được trang — quiz-stationery.css §31. Bấm dải vẫn mở danh sách.)
 
     // 50:50 ở thanh đáy — gọi đúng logic trong thẻ rồi làm mờ nút khi đã dùng
     if (fiveBtn) fiveBtn.addEventListener('click', () => {

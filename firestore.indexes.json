@@ -89,5 +89,56 @@
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "quiz_sets",
+      "fieldPath": "questions",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "quiz_study",
+      "fieldPath": "notes",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "quiz_study",
+      "fieldPath": "marks",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "quiz_study",
+      "fieldPath": "annotations",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "quiz_study",
+      "fieldPath": "srs",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "quiz_study",
+      "fieldPath": "inProgress",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "quiz_images",
+      "fieldPath": "data",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "medical_records",
+      "fieldPath": "record",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "quizSession",
+      "fieldPath": "questions",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "quizSession",
+      "fieldPath": "list",
+      "indexes": []
+    }
+  ]
 }

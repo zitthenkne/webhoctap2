@@ -1,4 +1,8 @@
 rules_version = '2';
+// (2026-10-13) Dự án CHƯA bật Firebase Storage (không có bucket, cần gói Blaze) — app không dùng Storage: ảnh bệnh án nén dataURL,
+// ảnh bộ đề ở Firestore quiz_images. File này để sẵn cho lúc bật.
+// Đã BỎ luật bắt-tất-cả `match /{allPaths=**} { allow read, write: if request.auth != null; }`: Storage cho phép nếu BẤT KỲ luật nào
+// khớp cho phép → nó đè luật riêng bên dưới, mọi người đăng nhập đọc/ghi được cả ảnh bệnh án của người khác.
 service firebase.storage {
   match /b/{bucket}/o {
     // Ảnh bệnh án: chỉ chủ tài khoản mới được tải lên và xem/xóa
@@ -7,10 +11,6 @@ service firebase.storage {
     }
     // Phòng học cộng tác
     match /study_rooms/{roomId}/{allPaths=**} {
-      allow read, write: if request.auth != null;
-    }
-    // Mặc định cho người dùng đã xác thực
-    match /{allPaths=**} {
       allow read, write: if request.auth != null;
     }
   }

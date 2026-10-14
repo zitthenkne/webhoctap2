@@ -37,10 +37,21 @@ function trashDaysLeft(deletedAt) {
     const left = TRASH_RETENTION_MS - (Date.now() - tsToMillis(deletedAt));
     return Math.max(0, Math.ceil(left / DAY_MS));
 }
-function purgeExpiredTrash(items, collectionName) {
+// Xóa hẳn một bộ đề = doc bộ + ghi chú / đánh dấu / bôi vàng / lịch ôn của MÌNH cho bộ đó (quiz_study/{uid}__{id}).
+// Trước đây quiz_study bị bỏ lại (production 2026-10-13: 18 doc mồ côi) — lịch ôn của bộ đã mất vẫn nằm trong dữ liệu chuông ôn tập.
+// (Bỏ xóa quiz_payloads: production 0 doc, app thôi ghi từ 2026-10-09 — lần xóa nào cũng bị luật từ chối vì doc không có.)
+// quiz_results giữ lại: lịch sử làm bài vẫn tính vào thống kê hồ sơ.
+function deleteSetDocs(uid, id) {
+    return [
+        deleteDoc(doc(db, 'quiz_sets', id)),
+        deleteDoc(doc(db, 'quiz_study', uid + '__' + id)).catch(() => {}),   // chưa từng ghi chú thì không có, kệ
+    ];
+}
+
+function purgeExpiredTrash(items, collectionName, uid) {
     const expired = items.filter(it => it.deleted && isTrashExpired(it.deletedAt));
     if (!expired.length) return;
-    Promise.allSettled(expired.map(it => deleteDoc(doc(db, collectionName, it.id))))
+    Promise.allSettled(expired.flatMap(it => collectionName === 'quiz_sets' ? deleteSetDocs(uid, it.id) : [deleteDoc(doc(db, collectionName, it.id))]))
         .catch(err => console.warn('Lỗi dọn thùng rác quá hạn:', err));
 }
 
@@ -67,7 +78,7 @@ async function loadTrashItems(userId) {
 
     // Dọn mục quá hạn 30 ngày rồi mới hiển thị
     purgeExpiredTrash(allFolders, "quiz_folders");
-    purgeExpiredTrash(allQuizzes, "quiz_sets");
+    purgeExpiredTrash(allQuizzes, "quiz_sets", userId);
 
     activeFolderIds = new Set(allFolders.filter(f => !f.deleted).map(f => f.id));
     trashedFolders = allFolders.filter(f => f.deleted && !isTrashExpired(f.deletedAt))
@@ -197,18 +208,12 @@ async function permanentlyDeleteTrashItem(kind, id) {
             const cascaded = trashedQuizzes.filter(q => q.trashedWithFolder === id);
             const cascadedFolders = trashedFolders.filter(f => f.trashedWithFolder === id);
             await Promise.all([
-                ...cascaded.flatMap(q => [
-                    deleteDoc(doc(db, "quiz_sets", q.id)),
-                    deleteDoc(doc(db, "quiz_payloads", q.id)).catch(() => {})
-                ]),
+                ...cascaded.flatMap(q => deleteSetDocs(user.uid, q.id)),
                 ...cascadedFolders.map(f => deleteDoc(doc(db, "quiz_folders", f.id)))
             ]);
             await deleteDoc(doc(db, "quiz_folders", id));
         } else {
-            await Promise.all([
-                deleteDoc(doc(db, "quiz_sets", id)),
-                deleteDoc(doc(db, "quiz_payloads", id)).catch(() => {})
-            ]);
+            await Promise.all(deleteSetDocs(user.uid, id));
         }
         showToast('Đã xóa vĩnh viễn.', 'success');
         await refresh();
@@ -231,8 +236,7 @@ async function emptyTrash() {
     try {
         const ops = [];
         trashedQuizzes.forEach(q => {
-            ops.push(deleteDoc(doc(db, "quiz_sets", q.id)));
-            ops.push(deleteDoc(doc(db, "quiz_payloads", q.id)).catch(() => {}));
+            ops.push(...deleteSetDocs(user.uid, q.id));
         });
         trashedFolders.forEach(f => ops.push(deleteDoc(doc(db, "quiz_folders", f.id))));
         await Promise.all(ops);

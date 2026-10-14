@@ -8,6 +8,22 @@ service cloud.firestore {
     function isOwner(uid) { return request.auth != null && request.auth.uid == uid; }
     function keepsOwner() { return request.resource.data.userId == resource.data.userId; }
 
+    // USERNAMES — bảng tra cho ô đăng nhập gõ TÊN (core/usernames.js): usernames/{khóa tên} = { uid, email }.
+    // Khách chưa đăng nhập cần tra tên → email, nhưng users/{uid} không được mở (lộ email mọi người) → bảng riêng:
+    // get công khai (phải biết đúng tên), KHÔNG liệt kê; mỗi tên thuộc người giữ nó trước, chỉ ghi được email của chính token.
+    match /usernames/{nameKey} {
+      function validName() {
+        return request.resource.data.keys().hasOnly(['uid', 'email'])
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.email == request.auth.token.email;
+      }
+      allow get: if true;
+      allow list: if false;
+      allow create: if request.auth != null && validName();
+      allow update: if request.auth != null && resource.data.uid == request.auth.uid && validName();
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+    }
+
     // USERS
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
@@ -65,7 +81,12 @@ service cloud.firestore {
       allow get: if request.auth != null
                  && (docId.split('__')[0] == request.auth.uid
                      || (resource != null && resource.data.userId == request.auth.uid));
-      allow list, delete: if isOwner(resource.data.userId);
+      allow list: if isOwner(resource.data.userId);
+      // xóa theo id như get: thùng rác xóa hẳn bộ đề thì xóa luôn quiz_study của bộ (trash.js) — bộ chưa từng ghi chú thì doc không có,
+      // kiểm theo resource sẽ bị từ chối → lỗi quyền + toast "ghi lỗi" muộn của offline-write.
+      allow delete: if request.auth != null
+                    && (docId.split('__')[0] == request.auth.uid
+                        || (resource != null && resource.data.userId == request.auth.uid));
       allow update: if isOwner(resource.data.userId) && keepsOwner();
       allow create: if isOwner(request.resource.data.userId)
                     && docId == request.auth.uid + '__' + request.resource.data.quizId;
@@ -73,8 +94,9 @@ service cloud.firestore {
 
     // BỆNH ÁN (MEDICAL RECORDS) — riêng tư theo từng người dùng
     match /medical_records/{recordId} {
-      allow read, update, delete: if request.auth != null
-                                  && request.auth.uid == resource.data.userId;
+      allow read, delete: if request.auth != null
+                          && request.auth.uid == resource.data.userId;
+      allow update: if isOwner(resource.data.userId) && keepsOwner();
       allow create: if request.auth != null
                     && request.auth.uid == request.resource.data.userId;
     }
@@ -108,11 +130,18 @@ service cloud.firestore {
     }
 
     // STUDY ROOMS — phòng đánh đề chung.
-    // Khách CHƯA đăng nhập vào được bằng link (mã phòng do người tạo đặt, chỉ chia sẻ
-    // trong nhóm) — cùng kiểu "ai có link thì vào" như kho link chung ở cuối file.
-    // Xóa phòng vẫn phải là chủ phòng đã đăng nhập.
+    // ⚠️ CỐ Ý (chủ dự án dặn 2026-10-13 — người/AI sửa sau ĐỪNG "siết cho chặt" chỗ này): khách CHƯA ĐĂNG NHẬP vào phòng bằng link
+    // (mã phòng chỉ chia sẻ trong nhóm) và làm chung được hết — đọc, sửa doc phòng, làm bài, chat, vẽ, hiện diện. Vì vậy get/update
+    // của phòng và MỌI subcollection bên dưới KHÔNG được đòi request.auth. Chỉ siết những việc khách không bao giờ làm:
+    //   - list: chỉ truy vấn "phòng của tôi" (rooms-hub.js: where owner == uid) — người lạ không quét được danh sách mọi phòng;
+    //   - create: người đã đăng nhập tạo phòng của chính mình (rooms-hub.js);
+    //   - update: không ai đổi được owner (trước đây ai cũng sửa owner thành mình rồi XÓA phòng của người khác);
+    //   - delete: chủ phòng.
     match /study_rooms/{roomId} {
-      allow read, create, update: if true;
+      allow get: if true;
+      allow list: if request.auth != null && resource.data.owner == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.owner == request.auth.uid;
+      allow update: if request.resource.data.get('owner', null) == resource.data.get('owner', null);
       allow delete: if request.auth != null && resource.data.owner == request.auth.uid;
 
       match /drawings/{drawingId} {

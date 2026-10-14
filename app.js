@@ -5,7 +5,8 @@
 import { auth, db } from './core/firebase-init.js';
 import { onSessionUser } from './core/auth-session.js';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { doc, setDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { doc, setDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { emailForName, claimName } from './core/usernames.js';
 import { showToast } from './core/utils.js';
 import { requireLogin } from './core/require-login.js';
 
@@ -160,6 +161,8 @@ window.addEventListener('popstate', (e) => {
 
 // --- QUẢN LÝ THÀNH VIÊN & AUTH STATE ---
 onSessionUser(user => {
+    // Có tên + là phiên Firebase thật (không phải danh tính lưu máy lúc offline) → bảo đảm gõ tên này ở ô đăng nhập là vào được (1 lần ghi/máy/tên)
+    if (user && user.displayName && typeof user.getIdToken === 'function' && navigator.onLine) claimName(user, user.displayName);
     if (user) {
         const displayName = user.displayName || user.email.split('@')[0];
         const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=FF69B4&color=fff`;
@@ -228,16 +231,12 @@ async function handleLogin() {
     const password = document.getElementById('passwordInput').value;
     if (!identifier || !password) return showToast('Vui lòng nhập đủ thông tin.', 'warning');
     let email = identifier;
-    // Nhập tên người dùng thay vì email: tra Firestore lấy email tương ứng
+    // Nhập tên người dùng thay vì email: tra bảng usernames lấy email tương ứng (core/usernames.js)
     if (!identifier.includes('@')) {
         try {
-            const snap = await getDocs(query(collection(db, 'users'), where('displayName', '==', identifier)));
-            if (snap.empty) {
-                return showToast('Không tìm thấy tên người dùng "' + identifier + '". Hãy thử đăng nhập bằng email.', 'error');
-            }
-            email = snap.docs[0].data().email;
+            email = await emailForName(identifier);
             if (!email) {
-                return showToast('Tài khoản này chưa lưu email, vui lòng đăng nhập bằng email.', 'error');
+                return showToast('Chưa có tài khoản nào dùng tên "' + identifier + '". Hãy đăng nhập bằng email — lần sau gõ tên là vào được.', 'error');
             }
         } catch (error) {
             return showToast('Không tra cứu được tên người dùng: ' + error.message, 'error');

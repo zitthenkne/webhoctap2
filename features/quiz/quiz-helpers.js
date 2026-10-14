@@ -474,6 +474,129 @@ export function svgFigureHtml(code) {
         + ` alt="${_escHtml(title)}" loading="lazy" decoding="async" style="width:100%;height:auto;${w ? `max-width:${Math.round(w)}px;--svg-w:${Math.round(w)}px;` : ''}"></div>`;
 }
 
+/**
+ * WIDGET TƯƠNG TÁC trong Ghi nhớ / Mở rộng: ```widget [chiều cao px] … ``` = mẩu HTML + CSS + JS nhỏ (hình + chuyển động, ít chữ).
+ * Chạy trong <iframe sandbox="allow-scripts"> (nguồn gốc rỗng) + CSP chặn mọi tải ngoài: không đọc được tài khoản, localStorage,
+ * Firestore của trang, không mở cửa sổ / điều hướng trang -> bộ đề công khai, phòng học (ai có link cũng sửa) vẫn an toàn.
+ * parseMarkdown chỉ để lại khung giữ chỗ .qw; khung tự dựng iframe khi cuộn tới gần (IntersectionObserver) nên màn kết quả /
+ * lịch sử có nhiều widget không chạy cả chục iframe một lúc. Chiều cao tự khớp nội dung qua postMessage; sáng/tối đi theo trang.
+ * Người soạn dùng sẵn biến màu --ink --muted --paper --card --line --blossom --peach --butter --mint --sky --lav --ok --bad --pick.
+ * Luật soạn: skill up-cau-hoi, references/widget.md.
+ */
+export const WIDGET_MAX = 20000;
+export function widgetBoxHtml(code, info = '') {
+    const src = String(code || '').trim();
+    if (!src) return '';
+    if (src.length > WIDGET_MAX) return '<p class="svg-fig-err">⚠ Minh họa tương tác quá lớn (tối đa 20 KB) — cần rút gọn.</p>';
+    const h = Math.min(900, Math.max(80, parseInt((String(info).match(/\d{2,3}/) || [])[0], 10) || 240));
+    ensureWidgetRuntime();
+    return `<div class="qw" data-w="${encodeURIComponent(src)}" style="--qw-h:${h}px"><button type="button" class="qw-ph" aria-label="Chạy minh họa">▶</button></div>`;
+}
+
+const QW_CSS = `.qw{position:relative;margin:.6rem 0;min-height:var(--qw-h,240px);border-radius:1rem;overflow:hidden;
+border:2px dashed rgba(185,162,240,.5);background:rgba(185,162,240,.06)}
+.qw.is-on{min-height:0;border-style:solid;border-color:rgba(185,162,240,.35)}
+.qw-frame{display:block;width:100%;height:var(--qw-h,240px);border:0;background:transparent}
+.qw-ph{position:absolute;inset:0;margin:auto;width:3rem;height:3rem;border:0;border-radius:50%;cursor:pointer;font-size:1.05rem;
+color:#6A4FB8;background:#fff;box-shadow:0 3px 0 rgba(185,162,240,.55)}
+.qw-re{position:absolute;bottom:.2rem;right:.3rem;z-index:1;width:1.5rem;height:1.5rem;padding:0;border-radius:50%;cursor:pointer;font-size:.85rem;
+line-height:1;color:#8E74D6;background:rgba(185,162,240,.16);border:1.5px solid rgba(185,162,240,.45);opacity:.6;transition:opacity .15s}
+.qw:hover .qw-re,.qw-re:focus-visible{opacity:1}
+@media (hover:none){.qw-re{opacity:.85}}`;
+
+// Khung trong iframe: biến màu theo giao diện sổ tay, chữ Quicksand, nền trong suốt, tôn trọng "giảm chuyển động",
+// CSP chặn mọi kết nối (widget phải tự đủ: SVG vẽ tay, CSS, JS thuần), báo chiều cao cho trang mẹ.
+function widgetDoc(code, dark) {
+    return `<!doctype html><html class="${dark ? 'dark' : ''}"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src data: blob:; media-src data: blob:">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap">
+<style>
+:root{--ink:#5A4640;--muted:#9A8780;--paper:#FFFCF8;--card:#fff;--line:#F2DED6;--blossom:#FF8FB8;--peach:#F79A5E;--butter:#F2BE2E;
+--mint:#6FD1AE;--sky:#7EC0EE;--lav:#B9A2F0;--ok:#3DB37A;--bad:#E4646C;--pick:#4B9EDB;color-scheme:light}
+html.dark{--ink:#F3E9E4;--muted:#C4B5AE;--paper:#2b2527;--card:#342d2f;--line:rgba(255,255,255,.12);color-scheme:dark}
+*{box-sizing:border-box}html,body{margin:0;background:transparent;color:var(--ink)}
+body{padding:6px 6px 24px;overflow:hidden;font:600 14px/1.45 Quicksand,"Segoe UI",system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
+#qw-root{max-width:560px;margin:0 auto}svg{max-width:100%;height:auto}button,input,select{font:inherit;color:inherit}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}}
+</style></head><body><div id="qw-root">${code}</div><script>
+(function(){var r=document.getElementById('qw-root'),last=0;
+function send(){var h=Math.ceil(r.getBoundingClientRect().height)+30;if(Math.abs(h-last)>1){last=h;parent.postMessage({qw:'h',h:h},'*')}}
+if(window.ResizeObserver)new ResizeObserver(send).observe(r);addEventListener('load',send);setTimeout(send,60);
+addEventListener('message',function(e){if(e.data&&e.data.qw==='theme'){document.documentElement.classList.toggle('dark',!!e.data.dark)}})})();
+<\/script></body></html>`;
+}
+
+const pageDark = () => {
+    const h = document.documentElement;
+    return h.classList.contains('theme-dark') || h.classList.contains('dark') || h.dataset.theme === 'dark';
+};
+function mountWidget(box) {
+    const dark = pageDark();
+    let f = box.querySelector('iframe.qw-frame');
+    if (!f) {
+        f = document.createElement('iframe');
+        f.className = 'qw-frame';
+        f.setAttribute('sandbox', 'allow-scripts');   // KHÔNG allow-same-origin: widget không chạm được dữ liệu của trang
+        f.setAttribute('referrerpolicy', 'no-referrer');
+        f.title = 'Minh họa tương tác';
+        const re = document.createElement('button');
+        re.type = 'button'; re.className = 'qw-re'; re.title = 'Chạy lại từ đầu'; re.setAttribute('aria-label', 'Chạy lại minh họa'); re.textContent = '↻';
+        box.replaceChildren(f, re);
+        box.classList.add('is-on');
+    }
+    f.style.colorScheme = dark ? 'dark' : 'light';   // khớp color-scheme trong iframe, không thì trình duyệt tô nền đục sau iframe
+    f.srcdoc = widgetDoc(decodeURIComponent(box.dataset.w || ''), dark);
+}
+
+let _qwOn = false;
+function ensureWidgetRuntime() {
+    if (_qwOn || typeof document === 'undefined' || typeof window === 'undefined' || !document.head) return;
+    _qwOn = true;
+    const st = document.createElement('style');
+    st.textContent = QW_CSS;
+    document.head.appendChild(st);
+    const io = 'IntersectionObserver' in window
+        ? new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { io.unobserve(e.target); mountWidget(e.target); } }), { rootMargin: '300px 0px' })
+        : null;
+    let raf = 0;
+    const scan = () => {
+        raf = 0;
+        document.querySelectorAll('.qw:not([data-qw])').forEach((el) => { el.dataset.qw = '1'; if (io) io.observe(el); else mountWidget(el); });
+    };
+    const queue = () => { if (!raf) raf = requestAnimationFrame(scan); };
+    new MutationObserver(queue).observe(document.documentElement, { childList: true, subtree: true });
+    queue();
+    document.addEventListener('click', (e) => {
+        const b = e.target.closest && e.target.closest('.qw-ph, .qw-re');
+        const box = b && b.closest('.qw');
+        if (!box) return;
+        if (io) io.unobserve(box);
+        mountWidget(box);
+    });
+    // Chiều cao: chỉ nhận số từ đúng iframe widget đã gửi
+    window.addEventListener('message', (e) => {
+        const d = e.data;
+        if (!d || d.qw !== 'h' || !Number.isFinite(d.h)) return;
+        for (const f of document.querySelectorAll('iframe.qw-frame')) {
+            if (f.contentWindow === e.source) { f.style.height = Math.min(900, Math.max(60, Math.round(d.h))) + 'px'; break; }
+        }
+    });
+    let dark = pageDark();
+    new MutationObserver(() => {
+        const d = pageDark();
+        if (d === dark) return;
+        dark = d;
+        document.querySelectorAll('iframe.qw-frame').forEach((f) => {
+            f.style.colorScheme = d ? 'dark' : 'light';
+            if (f.contentWindow) f.contentWindow.postMessage({ qw: 'theme', dark: d }, '*');
+        });
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
+}
+
+// Văn bản thuần (xuất Markdown / CSV Anki / biên bản phòng): thay khối widget bằng một dòng ghi chú thay vì đổ mã ra
+export const stripWidgets = (s, repl = '[Minh họa động — xem trên web]') => String(s == null ? '' : s).replace(/```widget[^\n]*\n[\s\S]*?```/g, repl);
+
 // Ô bảng chứa gạch đầu dòng: một dòng bảng không xuống dòng được nên người soạn / AI viết "- ý 1<br>- ý 2" (hoặc "• ý 1<br>• ý 2").
 // Trước đây dấu gạch hiện nguyên chữ trong ô; nay mỗi dòng có dấu thành một mục của danh sách nhỏ (.cell-ul), dòng không dấu giữ làm đoạn dẫn (.cell-p).
 // Ô không có dấu đầu dòng nào đi đường cũ (parseInlineMarkdown), không đổi gì. "+" không tính là dấu (hay dùng nghĩa "dương tính").
@@ -505,7 +628,15 @@ export function parseMarkdown(text) {
     let html = text.replace(/\r\n/g, '\n');
     
     const placeholders = [];
-    
+
+    // 0. WIDGET TƯƠNG TÁC (```widget [chiều cao px] … ```) — tách TRƯỚC mọi bước khác để mã HTML/CSS/JS bên trong
+    //    không bị hiểu nhầm là SVG trần, công thức $…$, danh sách hay bảng. Xem widgetBoxHtml / mountWidget bên dưới.
+    html = html.replace(/```widget[ \t]*([^\n]*)\n([\s\S]*?)```/g, (match, info, code) => {
+        const placeholder = `<!--WIDGETPLACEHOLDER${placeholders.length}-->`;
+        placeholders.push({ type: 'widget', content: widgetBoxHtml(code, info) });
+        return placeholder;
+    });
+
     // 1. Trích xuất và bảo vệ các khối mã Mermaid (```mermaid ... ```)
     html = html.replace(/```mermaid([\s\S]*?)```/g, (match, code) => {
         const placeholder = `<!--MERMAIDPLACEHOLDER${placeholders.length}-->`;
@@ -745,7 +876,7 @@ export function parseMarkdown(text) {
     
     // 5. Khôi phục lại các khối đã bảo vệ bằng cách thay thế an toàn (dùng callback để tránh lỗi ký tự $)
     for (let i = placeholders.length - 1; i >= 0; i--) {
-        const placeholderPattern = new RegExp(`<!--(?:MERMAID|SVG|MATHBLOCK|MATHINLINE)PLACEHOLDER${i}-->`, 'g');
+        const placeholderPattern = new RegExp(`<!--(?:WIDGET|MERMAID|SVG|MATHBLOCK|MATHINLINE)PLACEHOLDER${i}-->`, 'g');
         html = html.replace(placeholderPattern, () => placeholders[i].content);
     }
     return html;

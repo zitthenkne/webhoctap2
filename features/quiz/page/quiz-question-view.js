@@ -494,6 +494,8 @@ export function showQuestion() {
             <div class="q-head-tools">
                 <button type="button" id="listen-btn" class="q-tool-btn" title="Nghe đọc câu hỏi (phím R) · bấm giữ để đổi giọng" aria-label="Nghe đọc câu hỏi" aria-pressed="false"><i class="fas fa-volume-up"></i></button>
                 <button type="button" id="copy-q-btn" class="q-tool-btn" title="Sao chép câu hỏi + đáp án (phím K)" aria-label="Sao chép câu hỏi và đáp án"><i class="fas fa-copy"></i></button>
+                <button type="button" id="scratch-btn" class="q-tool-btn" title="Giấy nháp — viết bằng Apple Pencil / bút / ngón tay (phím W)" aria-label="Giấy nháp" aria-pressed="false"><i class="fas fa-pencil"></i></button>
+                <button type="button" id="calc-btn" class="q-tool-btn" title="Máy tính + công thức y khoa (phím L)" aria-label="Máy tính" aria-pressed="false"><i class="fas fa-calculator"></i></button>
                 <button type="button" id="edit-question-btn" class="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border border-pink-300 text-[#FF69B4] bg-pink-50 hover:bg-pink-100 hover:text-pink-600 transition" title="Sửa đáp án, giải thích, ghi chú, mở rộng cho câu này" aria-label="Sửa câu hỏi">
                     <i class="fas fa-pen-to-square"></i>
                 </button>

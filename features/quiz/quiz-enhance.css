@@ -372,6 +372,9 @@ html.theme-dark .resume-chip {
     opacity: 0;
     transform: scale(0.9) translateY(8px);
     pointer-events: none;
+    /* Ẩn hẳn sau khi mờ xong: bảng mờ 0 vẫn là khung cuộn cố định giữa màn — iOS có thể gắn cú vuốt vào nó (trang đứng im) */
+    visibility: hidden;
+    transition: opacity .18s ease, transform .18s ease, visibility 0s linear .18s;
 }
 
 .qs-row {
@@ -1071,15 +1074,11 @@ html.theme-dark .qs-marked-unmark {
 }
 
 /* Cả khung làm bài: bỏ "chạm đúp để phóng to" (iOS) — chạm rìa/bấm Tiếp 2 lần nhanh không bị
-   hiểu thành phóng to; vẫn phóng to bằng 2 ngón. Dải tiến trình thanh đáy: vuốt lên = mở danh sách
-   câu, không kéo trang cuộn theo. */
+   hiểu thành phóng to; vẫn phóng to bằng 2 ngón. (Dải tiến trình thanh đáy từng touch-action:none
+   cho cử chỉ vuốt lên mở danh sách câu → vuốt bắt đầu ở đáy màn không cuộn được trang; đã bỏ.) */
 #quiz-container,
 #quiz-mobile-nav {
     touch-action: manipulation;
-}
-
-#qmn-jump {
-    touch-action: none;
 }
 
 /* Mũi tên lóe khi CHẠM RÌA chuyển câu (mobile) — chỉ để phản hồi, không chặn chạm */

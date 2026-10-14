@@ -1,5 +1,9 @@
 // room-state.js — kho trạng thái dùng chung cho phòng học (members / session / room doc).
 // Mọi module con đọc `room` và đăng ký `subscribe()` thay vì tự nghe Firestore lần nữa.
+//
+// ⚠️ CỐ Ý (chủ dự án dặn, 2026-10-13): phòng học cho KHÁCH CHƯA ĐĂNG NHẬP vào làm chung bằng link — đọc, sửa, làm bài, chat, vẽ.
+// KHÔNG thêm cổng đăng nhập cho trang phòng, KHÔNG siết luật study_rooms/** bằng request.auth (xem khối STUDY ROOMS trong
+// firestore.rules). Chỉ tạo phòng / xóa phòng / liệt kê "phòng của tôi" mới cần đăng nhập.
 import { db } from '../../core/firebase-init.js';
 import { doc, collection, query, where, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { formatOf } from '../quiz/quiz-essay-core.js';

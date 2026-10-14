@@ -11,7 +11,7 @@
 //   bảng 8 cột tham gia (toàn dấu —), dòng kết luận (lặp nhãn đầu câu), cột "Ai chọn", chat từng câu.
 import { getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { showToast } from '../../core/utils.js';
-import { stripOptionLabels } from '../quiz/quiz-helpers.js';
+import { stripOptionLabels, stripWidgets } from '../quiz/quiz-helpers.js';
 import {
     room, refs, optsOf, refIdxOf, chosenOf, noteOf, noteAuthorOf, optNoteOf, issueOf, whyOf, dissentOf,
     answerOf, questionAt, isCoop, editOf, prevVoteOf, explainerOf, thanksOf,
@@ -207,7 +207,7 @@ function htmlToMd(html) {
     };
     return walk(box).replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
 }
-const md = (v) => { const t = String(v ?? '').trim(); return !t ? '' : looksHtml(t) ? htmlToMd(t) : t; };
+const md = (v) => { const t = stripWidgets(v).trim(); return !t ? '' : looksHtml(t) ? htmlToMd(t) : t; };   // widget chỉ chạy trên web
 const cell = (v) => md(v).replace(/\|/g, '\\|').replace(/\n+/g, '<br>') || ' ';
 const quoteMd = (v) => md(v).split('\n').map(l => '> ' + l).join('\n');
 const imgsMd = (list, on) => on ? (list || []).map(im => safeImgUrl(im.u)).filter(u => u && !u.startsWith('data:')).map(u => `![ảnh](${u})`).join(' ') : '';
@@ -368,7 +368,7 @@ function kpiLine(S, todo) {
 // ================= 3. HTML IN ĐẸP (→ PDF) =================
 const E = escapeHtml;
 const rich = (v, on = true) => {
-    let h = renderRich(v);
+    let h = renderRich(typeof v === 'string' ? stripWidgets(v) : v);   // biên bản in: widget chỉ chạy trên web
     if (!on) h = h.replace(/<img[^>]*>/gi, '<em class="noimg">[ảnh]</em>');
     return h;
 };
