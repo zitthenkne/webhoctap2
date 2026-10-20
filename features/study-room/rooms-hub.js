@@ -10,7 +10,7 @@
 //   title, emoji, theme (0-5), scheduledAt (ms), live { title, qCount, startedAt, ended, endedAt, avg, people }
 // `live` do room-quiz.js ghi lúc bắt đầu/kết thúc phiên — để hub khỏi phải tải cả bộ đề về.
 import {
-    collection, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, onSnapshot, query, where, serverTimestamp,
+    collection, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, onSnapshot, query, where, serverTimestamp, deleteField, FieldPath,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { db } from '../../core/firebase-init.js';
 import { onSessionUser } from '../../core/auth-session.js';
@@ -54,7 +54,22 @@ const togglePin = (id) => {
     render(true);
 };
 const recents = () => readLS('roomRecents', []).filter(r => r && r.id);
-const forgetRecent = (id) => { writeLS('roomRecents', recents().filter(r => r.id !== id)); };
+const forgetRecent = (id) => {
+    writeLS('roomRecents', recents().filter(r => r.id !== id));
+    // gỡ cả bản trên tài khoản (study-room-main ghi users/{uid}.roomVisits) — kẻo lần tải sau máy khác lại đem về
+    if (state.user?.uid) updateDoc(doc(db, 'users', state.user.uid), new FieldPath('roomVisits', id), deleteField()).catch(() => {});
+};
+/** Gộp phòng đã vào ở MÁY KHÁC (users/{uid}.roomVisits = { mã phòng: ms }) vào nhật ký máy này. */
+async function pullCloudRecents() {
+    try {
+        const visits = (await getDoc(doc(db, 'users', state.user.uid))).data()?.roomVisits || {};
+        const byId = new Map(recents().map(r => [r.id, r]));
+        Object.entries(visits).forEach(([id, at]) => {
+            if (typeof at === 'number' && !(byId.get(id)?.at >= at)) byId.set(id, { id, at });
+        });
+        writeLS('roomRecents', [...byId.values()].sort((a, b) => b.at - a.at).slice(0, 24));
+    } catch (e) { /* mất mạng: dùng nhật ký máy */ }
+}
 
 /** Ghi nhớ phòng vừa vào (study-room-main.js gọi bản chép của hàm này). */
 export function rememberRoomVisit(id) {
@@ -228,8 +243,8 @@ async function reload() {
     state.loading = true;
     render(true);
 
-    // Phòng đã tham gia (không phải chủ) — đọc từ nhật ký cục bộ
-    const recentIds = recents().map(r => r.id);
+    // Phòng đã tham gia (không phải chủ) — nhật ký cục bộ; đã đăng nhập thì gộp thêm bản trên tài khoản (pullCloudRecents bên dưới)
+    let recentIds = recents().map(r => r.id);
 
     if (!state.user) {
         state.loading = false;
@@ -262,6 +277,8 @@ async function reload() {
         state.loading = false;
     }
 
+    await pullCloudRecents();
+    recentIds = recents().map(r => r.id);
     await hydrateGuestRooms(recentIds.filter(id => !state.rooms.has(id)));
     render(true);
 }

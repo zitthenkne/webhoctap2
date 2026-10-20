@@ -193,6 +193,36 @@ export async function mermaidSvg(code) {
 // Công thức: chỉ thoát < > (không thì "$a<b$" bị hiểu là thẻ <b>). GIỮ & — nội dung phòng lưu dạng HTML
 // đã thoát sẵn ("a&lt;b") và LaTeX dùng & cho ma trận; thoát & nữa là ra chữ "&lt;" trên màn.
 const _escMath = (s) => String(s ?? '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// Công thức AI viết hay hỏng "im lặng": KaTeX không báo đỏ mà hiện SAI (soi 1.416 trường thật 2026-10-20).
+// JSON / Python nuốt dấu \ của lệnh: \to -> TAB+"o", \frac -> FF+"rac", \alpha -> BEL+"lpha", \vec -> VT+"ec"…
+export const TEX_EAT = { '\t': 't', '\b': 'b', '\f': 'f', '\r': 'r', '\x07': 'a', '\x0b': 'v' };
+const TEX_EAT_RE = /[\t\b\f\r\x07\x0b](?=[a-zA-Z])/g;
+const VN = 'À-ÃÈ-ÊÌÍÒ-ÕÙÚÝà-ãè-êìíò-õùúýĂăĐđĨĩŨũƠơƯưẠ-ỹ';
+const TEX_WORDS = new RegExp(`\\s*[A-Za-z${VN}]+(?:\\s+[A-Za-z${VN}]+)*\\s*`, 'g');   // gồm dấu cách 2 đầu: chế độ toán bỏ cách quanh \text
+const TEX_VN = new RegExp(`[${VN}]`);
+const TEX_MULTI = new RegExp(`[A-Za-z${VN}]{2,}\\s+[A-Za-z${VN}]{2,}`);
+const TEX_SKIP = /(\\(?:text\w*|mathrm|mbox|operatorname)\s*\{[^{}]*\}|\\[a-zA-Z]+|\\.)/;
+/** Sửa mã công thức trước khi đưa KaTeX:
+ *  · % chưa escape = chú thích LaTeX -> mất hết chữ phía sau ("90 - 95%" hiện "90 - 95") -> \%
+ *  · chữ Việt / cụm nhiều từ viết thẳng trong công thức -> \text{…} (chế độ toán bỏ dấu cách, in nghiêng: "Thiếuoxyhồmáu") */
+export function fixTex(f) {
+    return String(f ?? '').replace(TEX_EAT_RE, c => '\\' + TEX_EAT[c])
+        .replace(/(^|[^\\])%/g, '$1\\%')
+        .split(TEX_SKIP)
+        .map((p, i) => i % 2 ? p : p.replace(TEX_WORDS, w => TEX_VN.test(w) || TEX_MULTI.test(w) ? `\\text{${w}}` : w))
+        .join('');
+}
+// Công thức chỉ là con số / khoảng số / một ký hiệu ("$85\%$", "$37 - 38$", "$\to$") -> chữ thường:
+// cùng phông Quicksand với câu, ăn theo **đậm** bao quanh (KaTeX dùng phông có chân, luôn nét thường)
+const TEX_PLAIN = /^[+\-−–]?\d+(?:[.,]\d+)*(?:\s*[-–]\s*\d+(?:[.,]\d+)*)?\s*(?:\\%)?$/;
+const TEX_SYM = { to: '→', rightarrow: '→', Rightarrow: '⇒', ge: '≥', geq: '≥', le: '≤', leq: '≤', times: '×', approx: '≈', pm: '±', neq: '≠', uparrow: '↑', downarrow: '↓' };
+export function plainTex(f) {
+    const t = String(f ?? '').trim();
+    if (TEX_PLAIN.test(t)) return t.replace('\\%', '%');
+    const m = /^\\([a-zA-Z]+)$/.exec(t);
+    return (m && TEX_SYM[m[1]]) || null;
+}
 const _escHtml = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 /** Thẻ báo lỗi dễ đọc thay cho hình "quả bom" của Mermaid (màu phẳng, tự chứa style — dùng được ở mọi trang). */
 function _mermaidErrorHtml(code, err) {
@@ -336,7 +366,8 @@ function _runKaTeX(element) {
                 {left: "\\(", right: "\\)", display: false},
                 {left: "\\[", right: "\\]", display: true}
             ],
-            throwOnError: false
+            throwOnError: false,
+            strict: 'ignore'   // chữ Việt trong \text{} là hợp lệ ở đây — bỏ hàng trăm cảnh báo console mỗi lần vẽ
         });
     } catch (err) {
         console.error("Lỗi render công thức KaTeX:", err);
@@ -615,6 +646,28 @@ function tableCellHtml(cell) {
     return out;
 }
 
+// Tách các chặng / kịch bản AI viết dính một dòng (xem bước 3c của parseMarkdown). Dùng chung với skill up-cau-hoi (kiem_hinh.tach_chang).
+const STAGE_AFTER_STOP = /([.!?…”"»)])[ \t]+(?=(?:\*\*)?\s*(?:📌|🤔|⚠️?|🧠|🎯|🔑|👁️?|🚫|🔴|💊|⚙️?|🧰|🔀|💡|📖|🔄)\s*(?:\*\*)?[^\n:|]{1,40}?:)/g;
+const WI_HEAD = /^(?:[-*+]\s+)?(?:\*\*)?\s*(?:🔀|(?:Tập trận\s+)?What-?if\b)/i;
+const WI_END = /^(?:\*\*)?\s*(?:⚙️?|⚠️?|🧰|💡|💊|📌|🎯|🔑|📖|🩺|🤔|🧠)/;
+const oddBold = (s, at) => (s.slice(0, at).match(/\*\*/g) || []).length % 2 === 1;
+export function splitRunOn(text) {
+    let inWI = false;
+    return String(text ?? '').split('\n').map((L) => {
+        const t = L.trim();
+        if (WI_HEAD.test(t)) inWI = true;
+        else if (WI_END.test(t)) inWI = false;
+        if (t.startsWith('|')) return L;
+        let s = L.replace(STAGE_AFTER_STOP, (m, p, at, all) => oddBold(all, at) ? m : `${p}\n`);
+        // chỉ khi dòng có ≥2 kịch bản (còn ". Nếu" phía sau) — "🔀 What-if: Nếu A ➔ B" một kịch bản giữ nguyên một dòng
+        if (inWI && /[.!?][ \t]+(?:Nếu\s|\*?What-?if\s*\d)/.test(s)) {
+            s = s.replace(/^(\s*(?:\*\*)?\s*🔀[^\n]*?(?:\*\*|:)[ \t]*)(?=[Nn]ếu\s)/, '$1\n- ')
+                 .replace(/([.!?])[ \t]+(?=Nếu\s|\*?What-?if\s*\d)/g, (m, p, at, all) => oddBold(all, at) ? m : `${p}\n- `);
+        }
+        return s;
+    }).join('\n');
+}
+
 export function parseMarkdown(text) {
     if (text === null || text === undefined) return '';
     if (typeof text === 'object') {
@@ -659,6 +712,26 @@ export function parseMarkdown(text) {
         return placeholder;
     });
 
+    // 1c. TỰ CHỮA dữ liệu lỗi do AI / JSON (soi 202 bộ thật 2026-10-20) — nạp bằng đường nào cũng hiện đúng, khỏi sửa Firestore:
+    //   · JSON nuốt dấu \ của lệnh KaTeX (TEX_EAT): làm TRƯỚC khi tách công thức — "$<TAB>o$" mở đầu bằng khoảng trắng, bước 3 không nhận
+    //   · dòng bảng gãy: xuống dòng giữa ô ("| … | Xử Trí &⏎Thời Điểm |"), rác sau dòng kẻ ("|---|---|s"), thiếu | đóng.
+    //     Chỉ chữa khi sát dòng bảng khác — "|x| = 3" trong câu chữ không bị biến thành bảng.
+    html = html.replace(/\$\$[\s\S]+?\$\$|\$[^$\n]+\$/g, m => m.replace(TEX_EAT_RE, c => '\\' + TEX_EAT[c]));
+    const rows = html.split('\n');
+    const isRow = (s) => (s || '').trim().startsWith('|');
+    for (let i = 0; i < rows.length; i++) {
+        const t = rows[i].trim();
+        if (!t.startsWith('|') || t.endsWith('|') || t.split('|').length < 3) continue;
+        const nx = (rows[i + 1] || '').trim();
+        if (nx.endsWith('|') && !nx.startsWith('|') && (isRow(rows[i - 1]) || isRow(rows[i + 2]))) {
+            rows[i] = `${rows[i].trimEnd()} ${nx}`;
+            rows.splice(i + 1, 1);
+        } else if (isRow(rows[i - 1]) || isRow(rows[i + 1])) {
+            rows[i] = (t.match(/^(\|\s*:?-{3,}:?\s*)+\|/) || [])[0] || `${rows[i].trimEnd()} |`;
+        }
+    }
+    html = rows.join('\n');
+
     // 2. Trích xuất và bảo vệ các khối LaTeX $$...$$ (Display Math)
     // AI hay viết $$LR^-$$ ngay GIỮA câu: KaTeX dựng thành khối display (chiếm nguyên dòng) -> câu bị đứt làm 3.
     // Nên: công thức ngắn, một dòng, có chữ cùng dòng (trước/sau) => coi là inline; còn lại mới là khối riêng.
@@ -669,30 +742,45 @@ export function parseMarkdown(text) {
         const around = (str.slice(ls, offset) + str.slice(offset + match.length, le)).replace(/<!--[A-Z]+PLACEHOLDER\d+-->/g, '').trim();
         const inline = !formula.includes('\n') && formula.length <= 80 && around.length > 0;
         const placeholder = `<!--${inline ? 'MATHINLINE' : 'MATHBLOCK'}PLACEHOLDER${placeholders.length}-->`;
+        const tex = fixTex(formula), plain = inline ? plainTex(tex) : null;
         placeholders.push({
             type: inline ? 'math_inline' : 'math_block',
-            content: inline ? `$${_escMath(formula.trim())}$` : `$$${_escMath(formula)}$$`
+            content: plain != null ? _escHtml(plain) : inline ? `$${_escMath(tex.trim())}$` : `$$${_escMath(tex)}$$`
         });
         return placeholder;
     });
 
     // 3. Trích xuất và bảo vệ các khối LaTeX $...$ (Inline Math)
+    // ("\\approx" trong $…$ = AI escape kép; KaTeX hiểu \\ là XUỐNG DÒNG -> còn một dấu \)
     html = html.replace(/\$([^\$\s\n](?:[^\$\n]*?[^\$\s\n])?)\$/g, (match, formula) => {
         const placeholder = `<!--MATHINLINEPLACEHOLDER${placeholders.length}-->`;
+        const tex = fixTex(formula.replace(/\\\\(?=[a-zA-Z])/g, '\\')), plain = plainTex(tex);
         placeholders.push({
             type: 'math_inline',
-            content: `$${_escMath(formula)}$`
+            content: plain != null ? _escHtml(plain) : `$${_escMath(tex)}$`
         });
         return placeholder;
     });
 
+    // 3a. Chữ "\n" thô (AI escape kép) -> xuống dòng thật. Công thức đã cất vào chỗ giữ nên \neq / \nu không bị đụng.
+    html = html.replace(/\\n/g, '\n');
+
+    // 3c. AI hay "quên xuống dòng" (soi dữ liệu thật 2026-10-20) — chỉ tách sau dấu kết câu, chừa dòng bảng và đoạn **đậm** đang mở:
+    //   · chặng Ghi nhớ dính cuối câu trước: "… phòng chụp. 🧠 Mẹo nhớ: …" -> xuống dòng trước 🧠
+    //   · mục 🔀 What-if viết liền: "🔀 **Đổi tình huống:** nếu A. Nếu B. Nếu C." -> mỗi kịch bản một gạch đầu dòng
+    html = splitRunOn(html);
+
     // 3b. Công thức inline bị tách khỏi câu bằng dấu xuống dòng lẻ ("…Ratio -\n$LR^-$\n) cực…") mà parse từng dòng
     // sẽ chèn khoảng trắng cả đoạn giữa chúng. Nối lại khi câu rõ ràng chưa hết: dòng trước không kết thúc bằng
     // . : ; ? ! và dòng sau không phải mục danh sách / bảng / thụt lề.
+    // (dòng trước kết thúc bằng ** — nhãn đậm "**🧰 Công cụ:**" — hay | của dòng bảng thì KHÔNG nối)
     const MI = '<!--MATHINLINEPLACEHOLDER\\d+-->';
     const NOT_BLOCK = '(?![-*+]\\s|\\d+\\.\\s|[a-zA-Z]\\.\\s|\\||\\s{2})';
-    html = html.replace(new RegExp(`([^\\s.:;?!>])[ \\t]*\\n[ \\t]*(${MI})`, 'g'), '$1 $2')
+    html = html.replace(new RegExp(`([^\\s.:;?!>*|])[ \\t]*\\n[ \\t]*(${MI})`, 'g'), '$1 $2')
                .replace(new RegExp(`(${MI})[ \\t]*\\n[ \\t]*(?=[a-zà-ỹ),;.\\]])${NOT_BLOCK}`, 'g'), '$1 ');
+
+    // Bách phân vị "<p3", "<p10" ngoài $…$: trình duyệt hiểu là thẻ <p3 …> và nuốt chữ tới dấu > kế tiếp (mất cả ô bảng)
+    html = html.replace(/<(?=[a-z]\d)(?![hH][1-6]\b)/gi, '&lt;');
 
     // 4. Phân tách các dòng để xử lý bảng, danh sách phân cấp và Markdown inline
     const lines = html.split('\n');
@@ -710,12 +798,14 @@ export function parseMarkdown(text) {
         // Danh sách không thứ tự: ví dụ "- mục", "* mục", "+ mục"
         const unorderedListMatch = rawLine.match(/^(\s*)([-*+])\s+(.*)$/);
         // Danh sách có thứ tự: ví dụ "1. mục", "1.1. mục", "a. mục"
-        const orderedListMatch = rawLine.match(/^(\s*)(\d+\.(?:\d+\.)*|[a-zA-Z]\.)\s+(.*)$/);
+        // (chữ HOA + tên loài viết thường — "S. aureus", "E. coli", "H. pylori" — là tên vi khuẩn, không phải mục danh sách)
+        const orderedListMatch = rawLine.match(/^(\s*)(\d+\.(?:\d+\.)*|[a-z]\.|[A-Z]\.(?!\s+[a-z]{2,}(?:[\s,.;:)]|$)))\s+(.*)$/);
         // Văn bản thụt lề (ít nhất 2 khoảng trắng ở đầu dòng, không bắt đầu bằng ký tự đặc biệt của list hoặc khoảng trắng)
         const indentedTextMatch = rawLine.match(/^(\s{2,})([^-*+\d\s][^\n]*)$/);
-        
-        const isList = unorderedListMatch || orderedListMatch || indentedTextMatch;
+
+        // Bảng xét TRƯỚC: bảng thụt lề nằm dưới một mục danh sách ("  | a | b |") từng bị coi là dòng chữ thụt lề -> hiện nguyên dấu |
         const isTable = trimmedLine.startsWith('|') && trimmedLine.endsWith('|');
+        const isList = !isTable && (unorderedListMatch || orderedListMatch || indentedTextMatch);
         
         if (isList) {
             // Đóng bảng nếu đang mở
@@ -872,7 +962,9 @@ export function parseMarkdown(text) {
         processedLines.push(tableHtml);
     }
     
-    html = processedLines.join('<div class="quiz-md-gap"></div>');
+    // Khoảng sau một dòng TRỐNG mang thêm .quiz-md-gap2 để khối đọc dài gộp "đoạn ⏎⏎ đoạn" còn một khoảng. ĐỪNG gộp bằng CSS
+    // ".quiz-md-gap + .quiz-md-gap": dấu + bỏ qua chữ nằm giữa -> từ dòng thứ 3 mọi dòng chữ liền nhau đều mất xuống dòng (lỗi 2026-10-07 → 10-20).
+    html = processedLines.map((p, i) => (i ? (processedLines[i - 1] === '' ? '<div class="quiz-md-gap quiz-md-gap2"></div>' : '<div class="quiz-md-gap"></div>') : '') + p).join('');
     
     // 5. Khôi phục lại các khối đã bảo vệ bằng cách thay thế an toàn (dùng callback để tránh lỗi ký tự $)
     for (let i = placeholders.length - 1; i >= 0; i--) {

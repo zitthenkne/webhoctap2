@@ -25,6 +25,7 @@ import { isOnline } from './room-members.js';
 import { elimsOf } from './room-reason.js';
 import { renderGameBar, downloadMyNotes } from './room-game.js';
 import { sessionWrite, memberWrite } from './room-texts.js';
+import { sidOf } from './room-texts-core.js';
 import { renderAnswerHub, initAnswerHub, renderOptionTalk, unreadQs, openAsksOf, renderNotebook, renderAllNotes, focusHub } from './room-answer.js';
 import { initScrollHold, resetScrollHold } from './room-scrollhold.js';
 
@@ -73,16 +74,34 @@ export const effectiveIndex = () => {
     return currentIndex();
 };
 // Bản 70: giữ phím mũi tên / lướt qua nhiều câu không còn ghi "cursor" mỗi bước (mỗi lần ghi = 1 lượt đọc ở MỌI máy): chỉ ghi câu dừng lại cuối cùng.
-let cursorT = 0;
+let cursorT = 0, movedSelf = false, adoptCursor = false;
+// Câu đang xem nhớ theo NGƯỜI chứ không theo máy: doc hiện diện p_<uid> (cursor + cs = định danh phiên) là chỗ MỌI máy của cùng tài khoản
+// ghi vào, nên mở phòng ở máy khác / trang khác quay lại là về đúng câu đang làm. localStorage chỉ là dự phòng khi doc chưa về.
+// cs chống lấy nhầm câu của phiên trước (startSession chỉ trả cursor về 0 cho người đang trong phòng lúc mở đề).
+const writeCursor = (i) => writePresence({ cursor: i, cs: sidOf(room.curRaw) });
+const myCursor = () => {
+    const p = room.presence?.[uid()];
+    return p?.cs && p.cs === sidOf(room.curRaw) && typeof p.cursor === 'number' ? p.cursor : null;
+};
+const localCursor = () => {
+    try {
+        const v = JSON.parse(localStorage.getItem('roomQ_' + room.roomId));
+        return typeof v === 'number' ? v : (v?.s === sidOf(room.curRaw) ? v.i : null);     // số trơn = bản cũ chưa kèm phiên
+    } catch (e) { return null; }
+};
+const flushCursor = () => { if (!cursorT) return; clearTimeout(cursorT); cursorT = 0; writeCursor(effectiveIndex()); };
+document.addEventListener('visibilitychange', () => { if (document.hidden) flushCursor(); });     // ẩn app / sang trang khác giữa 500ms chờ
+window.addEventListener('pagehide', flushCursor);
 export const setViewIndex = (i) => {
     const total = room.session?.questions?.length || 1;
     viewIndex = Math.max(0, Math.min(i, total - 1));
-    try { localStorage.setItem('roomQ_' + room.roomId, String(viewIndex)); } catch (e) {}
+    movedSelf = true;
+    try { localStorage.setItem('roomQ_' + room.roomId, JSON.stringify({ i: viewIndex, s: sidOf(room.curRaw) })); } catch (e) {}
     clearTimeout(cursorT);
-    cursorT = setTimeout(() => writePresence({ cursor: effectiveIndex() }), 500);
+    cursorT = setTimeout(() => { cursorT = 0; writeCursor(effectiveIndex()); }, 500);
     renderQuiz();
 };
-export const followHost = () => { viewIndex = null; renderQuiz(); };
+export const followHost = () => { viewIndex = null; movedSelf = true; renderQuiz(); };
 // Lúc câu CẢ PHÒNG đang bàn đổi lần gần nhất (bất kể ai đổi) — nút "Câu tiếp" của chủ trì dựa vào đây để KHÔNG nhảy đôi
 let focusAt = 0;
 export const focusChangedAt = () => focusAt;
@@ -122,7 +141,7 @@ async function submitAnswer(i, idx, extra = {}) {
     haptic(8);
     beep('tap');
     renderQuiz();
-    writePresence({ cursor: i });                       // câu đang ở: doc hiện diện nhỏ (bản 70c), không kèm vào doc đáp án
+    writeCursor(i);                                     // câu đang ở: doc hiện diện nhỏ (bản 70c), không kèm vào doc đáp án
     await memberWrite({
         [`answers.q${i}`]: { i: idx, at: Date.now(), guess: !!cur?.guess, ...moved, ...extra },
     }).catch(err => console.error('Lỗi gửi đáp án:', err));
@@ -184,14 +203,18 @@ export function renderQuiz() {
     }
     toggle(el('quiz-boot'), false);
 
-    // Khôi phục đúng câu đang xem của lần vào trước (chỉ ở kiểu "cùng làm")
+    // Khôi phục đúng câu đang xem của lần vào trước (chỉ ở kiểu "cùng làm"): doc hiện diện của mình > localStorage máy này.
+    // Doc hiện diện đến bằng truy vấn riêng, có thể SAU lần vẽ đầu -> còn chờ (adoptCursor) tới khi nó về hoặc mình tự đi câu.
     if (active && !restoredIndex) {
         restoredIndex = true;
-        if (isCoop()) {
-            let saved = null;
-            try { saved = Number(localStorage.getItem('roomQ_' + room.roomId)); } catch (e) {}
-            if (saved > 0 && saved < s.questions.length) viewIndex = saved;
-        }
+        adoptCursor = isCoop();
+        const saved = isCoop() ? (myCursor() ?? localCursor()) : null;
+        if (saved > 0 && saved < s.questions.length) viewIndex = saved;
+    }
+    if (active && adoptCursor) {
+        const mine = movedSelf ? null : myCursor();
+        if (movedSelf || mine !== null) adoptCursor = false;
+        if (mine !== null && mine < s.questions.length && mine !== effectiveIndex()) viewIndex = mine;
     }
 
     // Hoạt ảnh vào màn: che nốt phần khựng khi đổi giữa sảnh chờ / làm bài / tổng kết

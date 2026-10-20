@@ -146,7 +146,6 @@ const TOOL_STATE = {
     present: () => document.body.classList.contains('present'),
     race: () => !raceHidden(),
     theme: () => document.documentElement.classList.contains('theme-dark'),
-    minimal: () => isMinimal(),
 };
 export function paintToolStates() {
     document.querySelectorAll('[data-sw]').forEach(n => {
@@ -172,6 +171,9 @@ export function paintToolStates() {
     });
     const lb = el('text-size-label'), ts = document.querySelector('[data-more="text"] small');
     if (lb && ts) ts.textContent = lb.textContent;
+    const lv = minLevel();
+    document.querySelectorAll('.rm-minrange').forEach(r => { r.value = String(lv); r.setAttribute('aria-valuetext', MIN_LV[lv]); r.style.setProperty('--p', `${lv * 50}%`); });
+    document.querySelectorAll('[data-min-set]').forEach(b => b.classList.toggle('on', Number(b.dataset.minSet) === lv));
 }
 function toggleSound() {
     soundOn = !soundOn;
@@ -209,15 +211,21 @@ function zenIntro() {
     clearTimeout(zenTimer);
     zenTimer = setTimeout(() => { t.textContent = 'Đang tập trung'; }, 4200);
 }
-// Giao diện tinh gọn (study-room-min.css): chỉ là class html.ui-min + nhớ theo máy; class được đặt sớm trong <head> để khỏi nháy
-const isMinimal = () => document.documentElement.classList.contains('ui-min');
-function toggleMinimal() {
-    const on = document.documentElement.classList.toggle('ui-min');
-    try { localStorage.setItem('roomMinimal', on ? '1' : '0'); } catch (e) {}
+// Giao diện tinh gọn (study-room-min.css): THANH TRƯỢT 3 nấc (.rm-minrange trong menu ⋮ + khay Thêm) — 0 tắt · 1 vừa (html.ui-min) · 2 tối đa
+// (+ html.ui-min-max). Nhớ theo máy ở localStorage roomMinimal; class được đặt sớm trong <head> để khỏi nháy.
+const MIN_LV = ['tắt', 'vừa', 'tối đa'];
+const minLevel = () => (document.documentElement.classList.contains('ui-min-max') ? 2 : document.documentElement.classList.contains('ui-min') ? 1 : 0);
+function setMinLevel(lv, toast = true) {
+    if (lv === minLevel()) return;
+    document.documentElement.classList.toggle('ui-min', lv > 0);
+    document.documentElement.classList.toggle('ui-min-max', lv === 2);
+    try { localStorage.setItem('roomMinimal', String(lv)); } catch (e) {}
     window.dispatchEvent(new Event('resize'));
     paintToolStates();
-    showToast(on ? 'Giao diện tinh gọn: bật.' : 'Đã về giao diện sổ dán.', 'info', 1600);
+    if (toast) showToast(['Đã về giao diện sổ dán.', 'Tinh gọn vừa: gọn mắt, vẫn còn công cụ phụ.', 'Tinh gọn tối đa: chỉ giữ thứ cần để làm bài và bàn.'][lv], 'info', 1800);
 }
+document.addEventListener('input', (e) => { if (e.target.matches?.('.rm-minrange')) setMinLevel(Number(e.target.value)); });
+document.addEventListener('click', (e) => { const b = e.target.closest?.('[data-min-set]'); if (b) setMinLevel(Number(b.dataset.minSet)); });
 export function toggleZen(force) {
     const on = force === undefined ? !document.body.classList.contains('zen') : !!force;
     document.body.classList.toggle('zen', on);
@@ -605,7 +613,6 @@ export function runTool(name) {
     if (name === 'find') return openFind();
     if (name === 'help') return openHelp();
     if (name === 'zen') return toggleZen();
-    if (name === 'minimal') return toggleMinimal();
     if (name === 'sound') return toggleSound();
     if (name === 'autonext') return toggleAutoNext();
     if (name === 'follow') return toggleFollow();

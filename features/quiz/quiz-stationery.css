@@ -4069,7 +4069,9 @@ body.nb-bar-away .nb-topbar { transform: translateY(-105%); }
 .quiz-md-h3 { font-size: 1.06em; }
 .quiz-md-h4 { font-size: 1em; letter-spacing: 0.01em; }
 .quiz-md-h + .quiz-md-gap { height: 0.4rem; }
-:is(#case-body, #case-peek-sheet .cps-body, .kb-body, .study-extra-body) .quiz-md-gap + .quiz-md-gap { display: none; }
+/* .quiz-md-gap2 = khoảng do dòng TRỐNG sinh ra (parseMarkdown). Không dùng ".quiz-md-gap + .quiz-md-gap": dấu + bỏ qua chữ ở giữa
+   -> ẩn nhầm mọi khoảng từ dòng thứ 3, các chặng 📌 🤔 ⚠️ / dòng What-if dính nhau (2026-10-20) */
+:is(#case-body, #case-peek-sheet .cps-body, .kb-body, .study-extra-body) .quiz-md-gap2 { display: none; }
 
 /* ============================================================
    24) GIAI ĐOẠN E · VÒNG 1 (2026-10-07) — ÂM THANH · TẬP TRUNG v2 · GHI CHÚ

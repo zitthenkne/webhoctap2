@@ -28,9 +28,10 @@ import { renderRich, currentEditKey, isBlank, insertImagesInto, sanitizeHtml } f
 import { getNote, setNote } from './room-study.js';
 import { appendToExplain, questionMsgs, questionMsgsSig, msgTime, chatCmtHtml, chatMsgAction, sendQuestionMessage, chatMessages } from './room-chat.js';
 import { uploadImage, imageFilesOf, warnIfTemp, safeImgUrl } from './room-media.js';
-import { baremHtml, baremSig, initBarem } from './room-barem.js';
+import { baremHtml, baremSig, initBarem, gradeOf } from './room-barem.js';
 import { formatOf, remapFields } from '../quiz/quiz-essay-core.js';
 import { formatEditorHtml, wireFormatEditor, readFormatEditor } from '../quiz/essay-format-editor.js';
+const num2 = (n) => String(Math.round(n * 100) / 100).replace('.', ',');       // điểm kiểu Việt: 1,5
 
 const el = (id) => document.getElementById(id);
 const L = (k) => String.fromCharCode(65 + k);
@@ -186,12 +187,12 @@ function slotsHtml(i, q) {
         const box = `<div class="rm-md rm-slot is-${s.size || 'line'}" contenteditable="true" data-live-edit="part:${k}" data-placeholder="${escapeHtml(s.hint || ph)}">${renderRich(p['p' + k] || '')}</div>`;
         return s.unit ? `<div class="rm-slot-wrap">${box}<span class="rm-slot-unit">${escapeHtml(s.unit)}</span></div>` : box;
     };
-    if (f.kind === 'list') return `<ol class="rm-slots is-list">${f.slots.map((s, k) => `<li>
+    if (f.kind === 'list') return `<ol class="rm-slots is-list" data-n="${f.slots.length}">${f.slots.map((s, k) => `<li>
         <span class="rm-slot-n">${k + 1}</span>${s.label ? `<b class="rm-slot-lb">${escapeHtml(s.label)}</b>` : ''}${cell(k, `Ý ${k + 1}…`, s)}</li>`).join('')}</ol>`;
-    if (f.kind === 'fields') return `<div class="rm-slots is-fields">${f.slots.map((s, k) => `<div class="rm-slot-row">
+    if (f.kind === 'fields') return `<div class="rm-slots is-fields" data-n="${f.slots.length}">${f.slots.map((s, k) => `<div class="rm-slot-row">
         ${s.label ? `<b class="rm-slot-lb">${escapeHtml(s.label)}</b>` : ''}${cell(k, (s.label || 'Ô ' + (k + 1)) + '…', s)}</div>`).join('')}</div>`;
     const cols = f.columns.length;
-    return `<div class="rm-slots is-table"><table class="rm-slot-table">
+    return `<div class="rm-slots is-table" data-n="${f.rows * cols}"><table class="rm-slot-table">
         <thead><tr>${f.rowLabels.length ? '<th></th>' : ''}${f.columns.map(c => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead>
         <tbody>${Array.from({ length: f.rows }, (_, r) => `<tr>${f.rowLabels.length ? `<th scope="row">${escapeHtml(f.rowLabels[r] || '')}</th>` : ''}${
             f.columns.map((c, ci) => `<td data-col="${escapeHtml(c)}">${cell(r * cols + ci, c)}</td>`).join('')}</tr>`).join('')}</tbody>
@@ -219,7 +220,7 @@ export function renderAnswerHub(i, force = false) {
     const key = qKey(i);
     const t = tallyOf(i);
     if (!force && !changed('hub', [i, essay, questionMsgsSig(i), base[key], canControl(), Math.floor(Date.now() / 60000),
-        essay ? [s.notes?.[key], s.notesBy?.[key], s.parts?.[key]] : 0,
+        essay ? [s.notes?.[key], s.notesBy?.[key], s.parts?.[key], isShown(i), isShown(i) && baremSig(i)] : 0,
         args.map(a => [a.id, a.t, a.s, a.qt, a.re, a.ok, a.im, a.at, t.agree[a.id], a.member.displayName, a.member.emoji]),
         Object.keys(myMember()?.agree || {}).filter(k => myMember().agree[k]),
         rowPref[`${i}:g`], stance[`${i}:g`], quotes[`${i}:g`], replyTo[`${i}:g`]])) return paintTyping(i);
@@ -233,9 +234,12 @@ export function renderAnswerHub(i, force = false) {
     // Luồng ý kiến gập sẵn (trừ bài làm chung): số ý kiến hiện trên thanh, bấm mới xổ — đỡ dài trang
     const open = !!quotes[`${i}:g`] || !!replyTo[`${i}:g`] || (pref !== undefined ? pref : essay);
     const author = noteAuthorOf(i);
+    // Đã hiện bài giải: điểm barem ngay trên bài làm (bấm = tới hộp chấm trong sổ tay) — khỏi phải tìm sang cột bên
+    const G = essay && isShown(i) ? gradeOf(i) : null;
     const essayBox = !essay ? '' : `<div class="rm-hub-exp is-essay" data-live-wrap>
         <div class="rm-hub-boxhead">
             <span class="rm-xlabel"><span class="rm-xic">✍️</span>Bài làm chung</span>
+            ${G ? `<button type="button" class="rm-bm-jump${G.missing.length ? ' is-zero' : ''}" data-nb-go="barem" title="Tới hộp chấm theo barem">✅ ${num2(G.pts)}/${num2(G.max)}đ</button>` : ''}
             <span data-live-status></span>
             <span id="typing-hint" class="rm-typing"></span>
             <span class="flex-1"></span>
@@ -252,7 +256,7 @@ export function renderAnswerHub(i, force = false) {
     box.innerHTML = `
         ${essayBox}
         <button type="button" class="rm-otalk-tg rm-hub-tg ${open ? 'is-open' : ''}" data-otalk="g" aria-expanded="${open}">
-            <span>💬 ${n ? `${n} ý kiến về câu này` : (essay ? 'Nhận xét bài làm chung' : 'Bàn về câu này')}</span>
+            <span>💬 ${essay ? (n ? `${n} nhận xét bài làm chung` : 'Nhận xét bài làm chung') : (n ? `${n} ý kiến về câu này` : 'Bàn về câu này')}</span>
             ${asks ? `<span class="rm-tally"><b class="is-ask is-open" title="Thắc mắc chưa ai giải đáp">❓${asks} chưa giải đáp</b></span>` : ''}
             ${newN && !open ? `<span class="rm-new-pill">${newN} mới</span>` : ''}
             <i class="fas fa-chevron-down"></i>
@@ -323,6 +327,7 @@ export function renderNotebook(i, force = false) {
     lastRev[i] = st.revealed;
     const fresh = Date.now() < (freshUntil[i] || 0);
     const inline = nb.classList.contains('is-inline');
+    if (inline) placeInline(nb, st.essay);
     const mineOn = hasRich(getNote(q.question));
     if (!force && !changed('nb', [i, inline, st.revealed, fresh, st.essay, s.notes?.[key], s.notesBy?.[key], s.extra?.[key], s.extraBy?.[key],
         adding[`${i}:expanded`], adding[`${i}:note`], nbPref[i], s.parts?.[key], q.question, q.explanation, q.modelAnswer, q.expanded, q.note,
@@ -532,8 +537,18 @@ export function toggleNotebookRail(force) {
     if (!on) renderNotebook(effectiveIndex(), true);
 }
 
+// Màn hẹp: sổ tay vào cột chính. Trắc nghiệm: TRƯỚC luồng bàn luận (đọc giải thích rồi bàn). Tự luận: SAU bài làm chung + nhận xét —
+// viết bài là việc chính nên đứng ngay dưới đề; bài giải mẫu / barem (chờ lộ đáp án) đọc sau.
+function placeInline(nb, essay) {
+    const hub = el('answer-block');
+    if (!hub) return;
+    if (essay ? hub.nextElementSibling !== nb : nb.nextElementSibling !== hub) {
+        if (essay) hub.after(nb); else hub.before(nb);
+    }
+}
+
 // Máy tính rộng (cột phải đứng CẠNH cột chính) -> sổ tay ở cột phải; còn lại (màn hẹp, điện thoại, tập trung,
-// trình chiếu) -> vào cột chính ngay trước luồng bàn luận. Chỉ dời khi bố cục đổi (ResizeObserver).
+// trình chiếu) -> vào cột chính (placeInline). Chỉ dời khi bố cục đổi (ResizeObserver).
 function placeNotebook() {
     const nb = el('notebook');
     const side = document.querySelector('.rm-col-side');
@@ -541,6 +556,9 @@ function placeNotebook() {
     const main = document.querySelector('.rm-col-main');
     const hub = el('answer-block');
     if (!nb || !side || !pane || !main || !hub) return;
+    // Đang lật trang (đổi câu: .rm-col-main trượt bằng transform) thì số đo lệch -> tưởng màn hẹp, sổ tay rơi vào cột chính và nằm luôn
+    // ở đó (transform không gọi ResizeObserver). Đo lại khi hoạt ảnh xong.
+    if (main.getAnimations?.().some(a => a.playState === 'running')) return void main.addEventListener('animationend', () => placeNotebook(), { once: true });
     const mr = main.getBoundingClientRect();
     if (!mr.width) return;                                         // màn làm bài đang ẩn — chờ lần sau
     // ĐỌC hết số đo trước rồi mới GHI vào DOM: đọc sau khi ghi là ép trình duyệt dàn lại cả màn
@@ -567,7 +585,7 @@ function placeNotebook() {
     const or = op?.getBoundingClientRect();
 
     if (wide && nb.parentElement !== pane) pane.prepend(nb);
-    if (!wide && nb.nextElementSibling !== hub) hub.before(nb);
+    if (!wide) placeInline(nb, isEssay(questionAt(effectiveIndex())));
     nb.classList.toggle('is-inline', !wide);
     // Lớp nb-wide đổi đệm đáy khung làm bài -> đo lại ở khung hình sau (lúc đó DOM đã sạch, đọc rẻ)
     if (document.body.classList.contains('nb-wide') !== wide) requestAnimationFrame(placeNotebook);

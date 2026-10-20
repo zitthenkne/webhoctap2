@@ -1,8 +1,8 @@
 // study-room-main.js — điểm khởi động phòng đánh đề chung.
 // Nhiệm vụ: đăng nhập, vào phòng, lắng nghe Firestore -> đổ vào room-state,
 // rồi để các module con (thành viên / chat / đề / bảng trắng) tự vẽ.
-import { auth } from '../../core/firebase-init.js';
-import { setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { auth, db } from '../../core/firebase-init.js';
+import { doc, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { showToast } from '../../core/utils.js';
 import { room, refs, setState, subscribe, uid, canControl, hasSession, SPLIT_PRESENCE, writePresence, overlayPresence } from './room-state.js';
@@ -470,6 +470,11 @@ function rememberRoomVisit(id) {
         list.unshift({ id, at: Date.now() });
         localStorage.setItem('roomRecents', JSON.stringify(list.slice(0, 24)));
     } catch (e) { /* hết dung lượng: chỉ mất tiện lợi */ }
+    // Đã đăng nhập: ghi thêm vào users/{uid}.roomVisits để trang chủ ở MÁY KHÁC cũng thấy phòng này (rooms-hub gộp với nhật ký máy).
+    // setDoc merge với object lồng (không phải field path) -> mã phòng có dấu chấm vẫn an toàn; luật users/{uid} đã cho chủ ghi.
+    if (!room.user?.isGuest && !room.user?.isAnonymous && uid()) {
+        setDoc(doc(db, 'users', uid()), { roomVisits: { [id]: Date.now() } }, { merge: true }).catch(() => {});
+    }
 }
 
 async function joinRoom() {
@@ -499,15 +504,17 @@ async function joinRoom() {
     unsubs.push(() => clearInterval(beat));
 
     const goOffline = () => {
+        leaving = true;
         writePresence({ online: false, lastSeen: Date.now() });
         if (!SPLIT_PRESENCE || room.members.find(m => m.uid === uid())?.hand) updateDoc(refs.member(), { hand: null }).catch(() => {});      // hạ tay: chỉ ghi doc thành viên khi đang giơ tay
     };
     window.addEventListener('pagehide', goOffline);
     window.addEventListener('beforeunload', goOffline);
     document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') writePresence({ online: true, lastSeen: Date.now() });
+        if (document.visibilityState === 'visible') { leaving = false; writePresence({ online: true, lastSeen: Date.now() }); }
     });
 }
+let leaving = false;                 // tab này đang đóng (đã tự ghi offline) — đừng tự "chữa" lại thành online
 
 function listenAll() {
     unsubs.push(onSnapshot(refs.room(), (snap) => {
@@ -581,7 +588,7 @@ function listenAll() {
     const pres = {}, carets = {}, liveMeta = {};          // liveMeta: id doc -> { kind, uid } (để xóa đúng khi doc bị gỡ)
     room.presence = pres;
     unsubs.push(onSnapshot(refs.live(), (snap) => {
-        let textsChanged = false, shardsChanged = false, presChanged = false;
+        let textsChanged = false, shardsChanged = false, presChanged = false, heal = false;
         snap.docChanges().forEach((ch) => {
             const id = ch.doc.id;
             if (ch.type === 'removed') {
@@ -594,9 +601,15 @@ function listenAll() {
             const v = ch.doc.data();
             if (v?.kind === 'texts') { textDocs[id] = v; textsChanged = true; }
             else if (v?.kind === 'mshard') { mshards[id] = v; shardsChanged = true; }
-            else if (v?.uid && v.kind === 'presence') { pres[v.uid] = v; liveMeta[id] = { kind: 'presence', uid: v.uid }; presChanged = true; }
+            else if (v?.uid && v.kind === 'presence') {
+                pres[v.uid] = v; liveMeta[id] = { kind: 'presence', uid: v.uid }; presChanged = true;
+                // Cùng tài khoản mở 2 máy/tab: máy kia đóng thì ghi online:false vào CHUNG doc p_<uid> -> cả phòng thấy mình rời dù máy này
+                // còn mở (tới nhịp tim 60s sau). Bản offline đến từ máy chủ (không phải lệnh ghi của tab này) mà tab đang hiện -> ghi lại online.
+                if (v.uid === uid() && v.online === false && !ch.doc.metadata?.hasPendingWrites && !leaving && document.visibilityState === 'visible') heal = true;
+            }
             else if (v?.uid && v.kind === 'caret') { carets[v.uid] = v.caret || null; liveMeta[id] = { kind: 'caret', uid: v.uid }; presChanged = true; }
         });
+        if (heal) writePresence({ online: true, lastSeen: Date.now() });
         if (textsChanged) mergeSession();
         if (shardsChanged) room.membersRaw = mergedMembers();                     // đáp án / bình luận của ai đó vừa đổi -> luôn vẽ lại
         if (!presChanged && !shardsChanged) return;

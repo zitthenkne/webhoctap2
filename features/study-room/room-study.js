@@ -4,7 +4,7 @@
 //   Firestore quiz_study/{uid}__{quizId}                    (khi đã đăng nhập)
 // Nhờ vậy ghi chú viết lúc đánh đề chung sẽ có sẵn khi tự ôn lại một mình.
 import { studyKeys, scheduleCloudPush, syncPullStudy } from '../quiz/quiz-study-store.js';
-import { room, uid, studyQuizId } from './room-state.js';
+import { room, uid, studyQuizId, subscribe, setState, hasSession } from './room-state.js';
 
 // Bản sao gọn của MARK_REASONS trong features/quiz/quiz-state.js (nguồn gốc ở đó).
 export const MARK_REASONS = {
@@ -20,10 +20,37 @@ const keys = () => studyKeys(studyQuizId());
 
 // Khách (chưa đăng nhập) chỉ lưu máy mình — không có uid thật để đẩy lên cloud.
 const cloudUid = () => (room.user && !room.user.isGuest && !room.user.isAnonymous) ? uid() : null;
+// pushCloudStudy GHI ĐÈ mảng notes/marks trên cloud bằng bản ở máy -> PHẢI kéo về gộp trước rồi mới đẩy. Bản cũ không bao giờ kéo
+// (pullStudyOnce không ai gọi): ghi một ghi chú trong phòng là xóa mất ghi chú viết ở máy khác / trang làm bài của cùng bộ đề.
+// Mất mạng thì không kéo được cloud (syncPullStudy lặng lẽ trả bản máy) -> đẩy lúc đó là đè; chữ vẫn nằm ở máy, lần kéo đầu sau khi có
+// mạng sẽ sao lưu bản gộp.
 function push() {
     const u = cloudUid();
-    if (u) scheduleCloudPush(u, studyQuizId());
+    if (!u || !navigator.onLine) return;
+    const id = studyQuizId();
+    pull(u, id).then(() => scheduleCloudPush(u, id));
 }
+
+// Kéo ghi chú / đánh dấu trên cloud về máy này: một lần cho mỗi bộ đề + mỗi lần quay lại tab sau ≥20s (vừa sửa ở máy khác / quiz.html).
+const pulls = new Map();             // quizId -> Promise lần kéo đầu
+let hiddenAt = 0;
+function pull(u, id, again = false) {
+    if (!again && pulls.has(id)) return pulls.get(id);
+    const p = syncPullStudy(u, id, { preferCloud: false })
+        .then(() => { setState({}); if (!again) scheduleCloudPush(u, id, 800); })    // vẽ lại ghi chú mới về; lần đầu sao lưu bản gộp như quiz.html
+        .catch(() => {});
+    if (!again) pulls.set(id, p);
+    return p;
+}
+subscribe(() => {
+    const u = cloudUid();
+    if (u && navigator.onLine && hasSession() && !pulls.has(studyQuizId())) pull(u, studyQuizId());
+});
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { hiddenAt = Date.now(); return; }
+    const u = cloudUid();
+    if (u && hasSession() && hiddenAt && Date.now() - hiddenAt >= 20000) pull(u, studyQuizId(), true);
+});
 
 export const getNote = (qText) => readMap(keys().notes)[qText] || '';
 export function setNote(qText, text) {
@@ -43,16 +70,4 @@ export function setMark(qText, reason) {
     if (!reason || reason === '__unmark') delete map[qText]; else map[qText] = reason;
     writeMap(k, map);
     push();
-}
-
-// Kéo ghi chú/đánh dấu đã có trên cloud về máy này — 1 lần cho mỗi bộ đề.
-let pulledFor = null;
-export function pullStudyOnce() {
-    const u = cloudUid();
-    const id = studyQuizId();
-    if (!u || pulledFor === id) return;
-    pulledFor = id;
-    syncPullStudy(u, id, { preferCloud: false })
-        .then(() => document.dispatchEvent(new CustomEvent('room-study-pulled')))
-        .catch(() => {});
 }

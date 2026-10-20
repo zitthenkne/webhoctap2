@@ -4518,7 +4518,8 @@ html.theme-dark .rm-case { box-shadow: 0 1px 0 rgba(255, 255, 255, .04), 0 14px 
 .rm-case-body:focus { background: var(--rm-surface); box-shadow: 0 0 0 2px color-mix(in srgb, var(--rm-peach) 70%, transparent); }
 .rm-case-body table { font-size: .92em; }
 /* parseMarkdown chèn 2 khoảng .quiz-md-gap + lề bảng 16px giữa đoạn chữ và bảng -> hở ~44px, phiếu ca gọn lại */
-.rm-case-body .quiz-md-gap + .quiz-md-gap { display: none; }
+/* (.quiz-md-gap2 = khoảng do dòng trống sinh ra; ".quiz-md-gap + .quiz-md-gap" bỏ qua chữ ở giữa -> các dòng ca / Ghi nhớ dính nhau) */
+.rm-case-body .quiz-md-gap2, .rm-md .quiz-md-gap2 { display: none; }   /* Ghi nhớ / Mở rộng: dòng trống = 1 khoảng như quiz.html */
 .rm-case-body .table-responsive { margin: .45rem 0 .15rem; }
 /* Gập: còn 2 dòng xem trước — bấm vào là mở lại */
 .rm-case-peek { display: none; }
@@ -6889,3 +6890,33 @@ html .rm-hub-exp.is-empty:not(:has(> .rm-md:focus)):not(:has(.rm-why-tpl.on)) .r
 .quiz-fig-cap { max-width: 36rem; margin: 0.45rem auto 0; font-size: 0.8em; line-height: 1.45; font-style: italic; color: var(--rm-muted); }
 .quiz-fig-lab { font-style: normal; font-weight: 700; }
 .quiz-fig-cap .quiz-link { color: inherit; }
+
+/* ═══════════════ BẢN 76 (2026-10-19): CÂU TỰ LUẬN trực quan hơn ═══════════════
+   (người dùng: "tối ưu giao diện làm đề tự luận — trực quan hơn, hợp lý hơn, hiển thị các thứ oke hơn")
+   · Thứ tự ở màn hẹp (room-answer placeInline): đề → BÀI LÀM CHUNG → nhận xét → sổ tay (bài giải mẫu / barem) — sổ tay từng chen giữa đề và bài làm.
+   · Ô đã có chữ: nhãn / số thứ tự xanh lá + ✓; dưới các ô "✓ 1/2 ô đã có chữ" (CSS counter, data-n = số ô). data-empty do room-editor ghi khi gõ
+     nên đổi NGAY, không cần vẽ lại khối (khối không vẽ lại khi đang gõ).
+   · Đã hiện bài giải: nút điểm barem ✅ x/yđ trên đầu khối bài làm, bấm tới hộp chấm (data-nb-go="barem").
+   · Điện thoại: đầu khối 1 hàng (ẩn "ai sửa cuối · lúc nào" — luồng nhận xét đã có), nút ✏️ Ô trả lời khỏi rớt xuống hàng riêng. */
+.rm-slots { counter-reset: rm-filled; }
+.rm-slots .rm-slot[data-empty="0"] { counter-increment: rm-filled; }
+.rm-slots[data-n]::after {
+    content: '✓ ' counter(rm-filled) '/' attr(data-n) ' ô đã có chữ'; display: block; margin-top: .15rem;
+    font-size: calc(.72rem * var(--rm-scale)); font-weight: 600; color: var(--rm-muted);
+}
+html .rm-slot-row:has(.rm-slot[data-empty="0"]) > .rm-slot-lb::after,
+html .rm-slots.is-list li:has(.rm-slot[data-empty="0"]) > .rm-slot-lb::after { content: ' ✓'; color: var(--rm-ok); font-weight: 700; }
+html .rm-slots.is-list li:has(.rm-slot[data-empty="0"]) > .rm-slot-n { background: var(--rm-ok-bg); color: var(--rm-ok-ink); }
+.rm-bm-jump {
+    flex-shrink: 0; border: 0; border-radius: 999px; padding: .14rem .62rem; cursor: pointer;
+    font-size: calc(.74rem * var(--rm-scale)); font-weight: 700; background: var(--rm-ok-bg); color: var(--rm-ok-ink);
+}
+.rm-bm-jump.is-zero { background: var(--rm-bad-bg); color: var(--rm-bad); }
+.rm-bm-jump:hover { filter: brightness(.97); }
+@media (max-width: 640px) {
+    .rm-hub-exp.is-essay > .rm-hub-boxhead { flex-wrap: nowrap; }
+    .rm-hub-exp.is-essay > .rm-hub-boxhead > .rm-hint { display: none; }
+}
+/* Tự lưu bộ đề (room-quiz.js scheduleAutoSave): nút trong Công cụ chủ trì — bật = mây xanh lá, tắt = mờ */
+#host-autosave.is-on i { color: var(--rm-ok) !important; }
+#host-autosave:not(.is-on) i { opacity: .45; }

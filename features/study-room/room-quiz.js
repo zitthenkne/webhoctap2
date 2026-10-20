@@ -12,7 +12,7 @@ import { getOfflineQuiz, getOfflineIdsSync, autoCacheQuiz } from '../quiz/quiz-o
 import {
     room, refs, uid, canControl, hasSession, currentIndex, optsOf, correctIdxOf, refIdxOf,
     noteOf, optNoteOf, chosenOf, questionAt, issueOf, isCoop, isShown, whyOf, dissentOf, talkUntil,
-    isEssay, acceptedOf, alsoOkOf, isSplit, acceptedText, answerOf, doneOf, SPLIT_QUESTIONS, SPLIT_PRESENCE, writePresence,
+    isEssay, acceptedOf, alsoOkOf, isSplit, acceptedText, answerOf, doneOf, SPLIT_QUESTIONS, SPLIT_PRESENCE, writePresence, isHost, subscribe,
 } from './room-state.js';
 import { memberWrite } from './room-texts.js';
 import { isOnline } from './room-members.js';
@@ -797,6 +797,8 @@ async function restartSession() {
         qStarts: { q0: Date.now() },
         deadline: room.session?.timerSec ? Date.now() + room.session.timerSec * 1000 : null,
         startedAtMs: Date.now(),
+        // lượt làm lại xóa hết đáp án đã chốt -> tự lưu sang bộ đề MỚI, đừng đè mất bộ đề (đáp án chốt) của lượt trước
+        savedQuizId: null, savedBy: null, savedTitle: null,
     }).catch(() => {});
 }
 
@@ -859,69 +861,82 @@ async function saveReviewQuiz() {
 }
 window.addEventListener('room:save-review', saveReviewQuiz);
 
+// Bộ câu hỏi đem lưu thư viện (quy ước answers/correctAnswerIndex 0-based để quiz.html đọc được): bản nhóm đã sửa + đáp án đã chốt +
+// giải thích nhóm viết. Dùng chung cho "Lưu đề" và tự lưu.
+function libraryQuestions() {
+    return room.session.questions.map((_, i) => {
+        const q = questionAt(i);            // bản đã được nhóm sửa (nếu có)
+        const issue = issueOf(i) ? { note: [q.note, '⚠ ' + issueOf(i)].filter(Boolean).join(' — ') } : {};
+        // Tự luận (trang làm đề đã hỗ trợ): giữ barem / kiểu ô / điểm câu của file. Bài làm chung của nhóm
+        // thành đáp án mẫu khi file không có, có rồi thì nối vào giải thích để đối chiếu.
+        if (isEssay(q)) {
+            const group = noteOf(i);
+            const hasGroup = !!String(group).replace(/<[^>]*>|&nbsp;/g, '').trim();
+            const { correctAnswerIndex, correctAnswerIndexes, ...rest } = q;
+            return {
+                ...rest,
+                type: 'essay',
+                answers: [],
+                modelAnswer: q.modelAnswer || (hasGroup ? group : ''),
+                explanation: q.modelAnswer && hasGroup
+                    ? mergeExp(`<p><b>✍️ Bài làm chung của nhóm</b></p>${group}`, q.explanation || '')
+                    : (q.explanation || ''),
+                ...issue,
+            };
+        }
+        const opts = optsOf(q);
+        const optExp = opts.map((_, k) => optExpFull(i, k, q.optionExplanations && q.optionExplanations[k]));
+        return {
+            ...q,
+            question: q.question,
+            answers: opts,
+            correctAnswerIndex: correctIdxOf(q, i) ?? refIdxOf(q),
+            ...(acceptedOf(i).length > 1 ? { correctAnswerIndexes: acceptedOf(i) } : {}),
+            explanation: mergeExp(noteOf(i), q.explanation || q.explain || ''),
+            ...(optExp.some(t => t) ? { optionExplanations: optExp } : {}),
+            ...issue,
+        };
+    });
+}
+const loggedIn = () => !!room.user && !room.user.isAnonymous && !room.user.isGuest;
+const saveTitle = () => {
+    const d = new Date();
+    return `${room.session?.quizTitle || 'Đề từ phòng học'} (nhóm ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')})`;
+};
+
 async function saveToLibrary() {
     const s = room.session;
-    if (!s || !room.user || room.user.isAnonymous || room.user.isGuest) return showToast('Đăng nhập để lưu đề vào thư viện.', 'warning');
+    if (!s || !loggedIn()) return showToast('Đăng nhập để lưu đề vào thư viện.', 'warning');
+    // Đang tự lưu vào bộ đề của mình -> bấm Lưu đề = lưu NGAY, khỏi đẻ thêm bản
+    if (s.savedBy === uid() && s.savedQuizId) {
+        await autoSaveNow(true);
+        return showToast(`💾 Đã lưu "${s.savedTitle || 'bộ đề'}" — bộ đề vẫn tự cập nhật khi nhóm chốt / sửa.`, 'success', 3200);
+    }
     const keep = s.questions.map((_, i) => i);
     const missing = keep.filter(i => !isEssay(questionAt(i)) && correctIdxOf(questionAt(i), i) === null && refIdxOf(questionAt(i)) === null).length;
     const msg = (missing ? `Còn ${missing} câu chưa có đáp án đúng. ` : '')
-        + 'Lưu thành bộ đề MỚI trong thư viện của bạn? (không đụng vào bộ đề gốc)';
+        + 'Lưu thành bộ đề MỚI trong thư viện của bạn? (không đụng vào bộ đề gốc) — sau đó bộ đề tự cập nhật khi nhóm chốt / sửa.';
     if (!await showConfirm(msg, { confirmText: 'Lưu bản mới' })) return;
 
     el('loading-overlay').classList.remove('hidden');
     try {
-        // Quy ước answers/correctAnswerIndex (0-based) để trang quiz.html đọc được
-        const payload = {
-            questionCount: keep.length,
-            questions: keep.map((i) => {
-                const q = questionAt(i);            // bản đã được nhóm sửa (nếu có)
-                const issue = issueOf(i) ? { note: [q.note, '⚠ ' + issueOf(i)].filter(Boolean).join(' — ') } : {};
-                // Tự luận (trang làm đề đã hỗ trợ): giữ barem / kiểu ô / điểm câu của file. Bài làm chung của nhóm
-                // thành đáp án mẫu khi file không có, có rồi thì nối vào giải thích để đối chiếu.
-                if (isEssay(q)) {
-                    const group = noteOf(i);
-                    const hasGroup = !!String(group).replace(/<[^>]*>|&nbsp;/g, '').trim();
-                    const { correctAnswerIndex, correctAnswerIndexes, ...rest } = q;
-                    return {
-                        ...rest,
-                        type: 'essay',
-                        answers: [],
-                        modelAnswer: q.modelAnswer || (hasGroup ? group : ''),
-                        explanation: q.modelAnswer && hasGroup
-                            ? mergeExp(`<p><b>✍️ Bài làm chung của nhóm</b></p>${group}`, q.explanation || '')
-                            : (q.explanation || ''),
-                        ...issue,
-                    };
-                }
-                const opts = optsOf(q);
-                const optExp = opts.map((_, k) => optExpFull(i, k, q.optionExplanations && q.optionExplanations[k]));
-                return {
-                    ...q,
-                    question: q.question,
-                    answers: opts,
-                    correctAnswerIndex: correctIdxOf(q, i) ?? refIdxOf(q),
-                    ...(acceptedOf(i).length > 1 ? { correctAnswerIndexes: acceptedOf(i) } : {}),
-                    explanation: mergeExp(noteOf(i), q.explanation || q.explain || ''),
-                    ...(optExp.some(t => t) ? { optionExplanations: optExp } : {}),
-                    ...issue,
-                };
-            }),
-            updatedAt: serverTimestamp(),
-        };
+        const questions = libraryQuestions();
         // LUÔN tạo bản mới: bộ đề gốc trong thư viện không bao giờ bị ghi đè.
-        const base = s.quizTitle || 'Đề từ phòng học';
-        const d = new Date();
-        const stamp = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-        const title = `${base} (nhóm ${stamp})`;
+        const title = saveTitle();
         const ref = await addDoc(collection(db, 'quiz_sets'), {
-            ...payload,
+            questionCount: questions.length,
+            questions,
+            updatedAt: serverTimestamp(),
             userId: uid(),
             title,
             createdAt: serverTimestamp(),
             isPublic: true,
             folderId: null,
         });
-        await updateDoc(refs.session(), { savedQuizId: ref.id }).catch(() => {});
+        auto.sig = JSON.stringify(questions);
+        auto.fail = false;
+        auto.at = Date.now();
+        await updateDoc(refs.session(), { savedQuizId: ref.id, savedBy: uid(), savedTitle: title }).catch(() => {});
         showToast(`Đã lưu bản mới: "${title}"`, 'success', 3200);
     } catch (err) {
         console.error('Lỗi lưu thư viện:', err);
@@ -930,6 +945,93 @@ async function saveToLibrary() {
         el('loading-overlay').classList.add('hidden');
     }
 }
+
+// ---------- Tự lưu bộ đề SONG SONG khi đang làm (2026-10-19) ----------
+// Người dùng: "tự động lưu bộ đề mới được cập nhật đáp án khi đang làm được song song". Thay đổi đầu tiên của nhóm (chốt đáp án / viết giải thích /
+// bài làm chung / sửa đề) -> máy CHỦ TRÌ (đã đăng nhập) tạo bộ đề MỚI quiz_sets/r_<phòng>_<startedAtMs> (id cố định theo phiên: hai máy cùng tài khoản
+// không đẻ 2 bản), rồi cứ ~6s sau lần đổi cuối (chậm nhất 30s) ghi lại questions NẾU khác bản đã lưu. Chỉ máy của người tạo (session.savedBy) ghi
+// tiếp được — luật quiz_sets chỉ cho chủ sửa. Tắt/bật: "Tự lưu" trong Công cụ chủ trì (nhớ theo máy, mặc định bật). Bộ đề gốc không bao giờ bị đụng.
+const AUTO_KEY = 'roomAutoSave';
+const autoOn = () => { try { return localStorage.getItem(AUTO_KEY) !== '0'; } catch (e) { return true; } };
+const auto = { t: 0, first: 0, sig: '', busy: false, fail: false, sid: '', at: 0 };
+const TOUCH = ['chosen', 'notes', 'parts', 'edits', 'optNotes', 'extra', 'caseEdits', 'issues'];
+const touched = (s) => TOUCH.some(k => Object.values(s[k] || {}).some(v => v != null && v !== ''));
+function autoMine(s) {
+    if (!s?.questions?.length || !loggedIn() || !autoOn() || auto.fail) return false;
+    if (s.savedBy) return s.savedBy === uid() && !!s.savedQuizId;
+    return !s.savedQuizId && isHost() && touched(s);         // savedQuizId mà không có savedBy = bản "Lưu đề" kiểu cũ — để yên
+}
+function scheduleAutoSave() {
+    const s = room.session;
+    const sid = s?.startedAtMs ? String(s.startedAtMs) : '';
+    if (sid !== auto.sid) { auto.sid = sid; auto.sig = ''; auto.fail = false; auto.at = 0; }       // phiên mới
+    paintSaveBtns();
+    if (!autoMine(s)) return;
+    clearTimeout(auto.t);
+    if (!auto.first) auto.first = Date.now();
+    auto.t = setTimeout(() => autoSaveNow(), Math.max(0, Math.min(6000, auto.first + 30000 - Date.now())));
+}
+async function autoSaveNow(force = false) {
+    clearTimeout(auto.t);
+    auto.t = 0; auto.first = 0;
+    const s = room.session;
+    if (auto.busy || !(force ? s?.savedBy === uid() && s.savedQuizId : autoMine(s))) return;
+    const questions = libraryQuestions();
+    const sig = JSON.stringify(questions);
+    if (sig === auto.sig && !force) return;
+    auto.busy = true;
+    try {
+        if (s.savedBy === uid() && s.savedQuizId) {
+            await updateDoc(doc(db, 'quiz_sets', s.savedQuizId), { questions, questionCount: questions.length, updatedAt: serverTimestamp() });
+        } else {
+            const id = `r_${String(room.roomId).replace(/[^\w-]/g, '_')}_${s.startedAtMs || Date.now()}`;
+            const title = saveTitle();
+            await setDoc(doc(db, 'quiz_sets', id), {
+                questions, questionCount: questions.length, userId: uid(), title,
+                createdAt: serverTimestamp(), updatedAt: serverTimestamp(), isPublic: true, folderId: null,
+            });
+            await updateDoc(refs.session(), { savedQuizId: id, savedBy: uid(), savedTitle: title }).catch(() => {});
+            showToast(`💾 Đang tự lưu vào thư viện: "${title}" — nhóm chốt / sửa tới đâu bộ đề cập nhật tới đó.`, 'success', 4200);
+        }
+        auto.sig = sig;
+        auto.at = Date.now();
+    } catch (err) {
+        console.warn('Tự lưu bộ đề lỗi:', err);
+        auto.fail = true;          // quá 1 MiB / mất quyền (bộ đề của người khác)… — thôi tự lưu phiên này, báo một lần
+        showToast('Không tự lưu được bộ đề (đề quá nặng hoặc không phải bộ đề của bạn). Bấm Lưu đề để lưu bản mới.', 'warning', 4200);
+    } finally {
+        auto.busy = false;
+        paintSaveBtns();
+    }
+}
+const hhmm = (t) => new Date(t).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+function paintSaveBtns() {
+    const s = room.session;
+    const mine = s?.savedBy === uid() && s?.savedQuizId;
+    const sub = el('host-save')?.querySelector('small');
+    if (sub) sub.textContent = mine ? `"${s.savedTitle || 'bộ đề'}" · ${auto.at ? 'lưu lúc ' + hhmm(auto.at) : 'đang tự cập nhật'}`
+        : s?.savedBy ? 'đang tự lưu ở máy người khác — bấm để lưu bản của bạn' : 'bản mới kèm giải thích của nhóm';
+    const b = el('host-autosave');
+    if (b) {
+        const on = autoOn();
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-pressed', String(on));
+        const small = b.querySelector('small');
+        if (small) small.textContent = !on ? 'tắt — chỉ lưu khi bấm Lưu đề' : auto.fail ? 'tạm dừng (lỗi) — bấm Lưu đề' : 'bật · nhóm chốt / sửa là bộ đề tự cập nhật';
+    }
+}
+function toggleAutoSave() {
+    const on = !autoOn();
+    try { localStorage.setItem(AUTO_KEY, on ? '1' : '0'); } catch (e) {}
+    auto.fail = false;
+    showToast(on ? '💾 Bật tự lưu: nhóm chốt / sửa tới đâu, bộ đề trong thư viện cập nhật tới đó.' : 'Đã tắt tự lưu bộ đề.', 'info', 2400);
+    scheduleAutoSave();
+}
+subscribe(scheduleAutoSave);
+// Ẩn app / rời trang giữa lúc đang chờ: lưu ngay (phòng dùng bộ nhớ tạm của Firestore — lệnh chưa gửi là mất theo trang)
+const flushAuto = () => { if (auto.t) autoSaveNow(); };
+document.addEventListener('visibilitychange', () => { if (document.hidden) flushAuto(); });
+window.addEventListener('pagehide', flushAuto);
 
 // ---------- Dán đề (trắc nghiệm / tự luận) — không cần file Excel ----------
 // mode 'lobby' = dùng làm đề mới cho phòng · 'append' = nối vào cuối phiên đang chạy
@@ -1148,6 +1250,7 @@ export function initQuizControl() {
     });
     el('host-timer')?.addEventListener('click', cycleTimer);
     el('host-save')?.addEventListener('click', saveToLibrary);
+    el('host-autosave')?.addEventListener('click', toggleAutoSave);
     el('host-end')?.addEventListener('click', endSession);
     el('host-hands')?.addEventListener('click', () => window.dispatchEvent(new CustomEvent('room:panel', { detail: 'members' })));
     el('host-mode-btn')?.addEventListener('click', async () => {

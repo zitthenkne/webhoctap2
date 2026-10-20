@@ -335,7 +335,9 @@ export async function setDoc(ref, data, opts) {
     store[pathOf(ref)] = opts?.merge ? { ...(store[pathOf(ref)] || {}), ...data } : { ...data };
     notify();
 }
-export async function updateDoc(ref, patch) {
+export class FieldPath { constructor(...seg) { this.seg = seg; } }
+export async function updateDoc(ref, patch, value) {
+    if (patch instanceof FieldPath) patch = { [patch.seg.join('.')]: value };      // dạng updateDoc(ref, new FieldPath(...), giá trị)
     store[pathOf(ref)] = store[pathOf(ref)] || {};
     applyPatch(store[pathOf(ref)], patch);
     notify();
@@ -385,3 +387,6 @@ export function onSnapshot(refOrQuery, cb) {
     if (slow && path.includes('quizSession')) setTimeout(emit, slow); else emit();
     return () => { const i = listeners.indexOf(emit); if (i >= 0) listeners.splice(i, 1); };
 }
+// library-meta.js / quiz-fresh.js đọc thẳng máy chủ — bản giả không có cache nên giống hệt bản thường
+export const getDocsFromServer = (q) => getDocs(q);
+export const getDocFromServer = (r) => getDoc(r);

@@ -9,7 +9,7 @@
     <!-- Chế độ tối dùng chung khoá với trang làm bài (đặt sớm để không nháy sáng) -->
     <script>
         try { var qt = localStorage.getItem('quiz_theme'); if (qt === 'dark' || (!qt && matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('theme-dark'); document.querySelector('meta[name=theme-color]').content = '#221d1f'; } } catch (e) {}
-        try { if (localStorage.getItem('roomMinimal') === '1') document.documentElement.classList.add('ui-min'); } catch (e) {}
+        try { var mv = localStorage.getItem('roomMinimal'); if (mv === '1' || mv === '2') document.documentElement.classList.add('ui-min'); if (mv === '2') document.documentElement.classList.add('ui-min-max'); } catch (e) {}
     </script>
     <!-- Nền pixel-art mờ, chọn ngẫu nhiên như trang làm bài — gắn SAU khi trang tải xong:
          ảnh ~80KB chỉ là lớp trang trí 14% độ đục, không được giành băng thông với CSS/JS -->
@@ -74,8 +74,11 @@
     <!-- Nạp song song CẢ cây module, kể cả Firebase SDK (trước đây gstatic chỉ lộ ra sau
          3 tầng import: main -> room-state -> firebase-init -> gstatic). Biên bản, dán đề,
          đọc file Excel, bảng trắng nạp lười — không có ở đây. -->
+    <script>window.__FB_LEAN_CACHE = true;   // phòng thời gian thực: Firestore dùng bộ nhớ tạm (xem core/firebase-init.js)</script>
     <link rel="modulepreload" href="study-room-main.js">
     <link rel="modulepreload" href="room-state.js">
+    <link rel="modulepreload" href="room-texts.js">
+    <link rel="modulepreload" href="room-texts-core.js">
     <link rel="modulepreload" href="room-ui.js">
     <link rel="modulepreload" href="room-quiz-stage.js">
     <link rel="modulepreload" href="room-quiz.js">
@@ -161,7 +164,11 @@
             <p class="rm-menu-cap">Hiển thị</p>
             <button id="text-size-btn" class="rm-menu-item" role="menuitem" data-keep title="Đổi cỡ chữ (hoặc chụm hai ngón trên màn cảm ứng)"><i class="fas fa-text-height"></i><span class="rm-menu-lb">Cỡ chữ</span><span id="text-size-label" class="rm-kbd">vừa</span></button>
             <button class="rm-menu-item" role="menuitemcheckbox" aria-checked="false" id="theme-btn" data-sw="theme" data-keep><i class="fas fa-moon"></i><span class="rm-menu-lb">Chế độ tối</span><em class="rm-sw" aria-hidden="true"></em></button>
-            <button class="rm-menu-item" role="menuitemcheckbox" aria-checked="false" data-tool="minimal" data-sw="minimal" data-keep title="Ít hộp lồng hộp, không hiệu ứng, màu trung tính — gọn và nghiêm túc"><i class="fas fa-square"></i><span class="rm-menu-lb">Giao diện tinh gọn</span><em class="rm-sw" aria-hidden="true"></em></button>
+            <div class="rm-minslide" role="group" aria-label="Giao diện tinh gọn" title="Vừa: gọn mắt, còn công cụ phụ · Tối đa: chỉ giữ thứ cần để làm bài và bàn">
+                <span class="rm-minslide-hd"><i class="fas fa-square"></i><span>Giao diện tinh gọn</span></span>
+                <input type="range" class="rm-minrange" min="0" max="2" step="1" value="0" aria-label="Mức tinh gọn" aria-valuetext="tắt">
+                <span class="rm-minticks"><button type="button" data-min-set="0">Tắt</button><button type="button" data-min-set="1">Vừa</button><button type="button" data-min-set="2">Tối đa</button></span>
+            </div>
             <p class="rm-menu-cap">Khác</p>
             <button class="rm-menu-item" role="menuitem" data-tool="minutes" data-need="session"><i class="fas fa-file-pdf"></i><span class="rm-menu-lb">Biên bản buổi học</span><kbd class="rm-kbd">PDF / MD</kbd></button>
             <button class="rm-menu-item" role="menuitem" data-tool="help"><i class="fas fa-keyboard"></i><span class="rm-menu-lb">Bảng phím tắt</span><kbd class="rm-kbd">?</kbd></button>
@@ -591,6 +598,7 @@
                 <p class="rm-host-cap">Buổi học</p>
                 <button id="host-minutes" class="rm-host-btn is-sec" title="Biên bản buổi học — xuất PDF / Markdown"><i class="fas fa-file-arrow-down"></i><span>Biên bản</span><small>xuất PDF / Markdown</small></button>
                 <button id="host-save" class="rm-host-btn is-sec" title="Lưu bộ đề (kèm giải thích cả nhóm vừa viết)"><i class="fas fa-floppy-disk"></i><span>Lưu đề</span><small>bản mới kèm giải thích của nhóm</small></button>
+                <button id="host-autosave" class="rm-host-btn is-sec" aria-pressed="true" title="Tự lưu bộ đề vào thư viện khi đang làm: nhóm chốt đáp án / viết giải thích / bài làm chung tới đâu, bộ đề cập nhật tới đó (bộ đề gốc không bị đụng)"><i class="fas fa-cloud-arrow-up"></i><span>Tự lưu</span><small>bật · nhóm chốt / sửa là bộ đề tự cập nhật</small></button>
                 <button id="host-end" class="rm-host-btn is-sec is-end" title="Kết thúc phiên"><i class="fas fa-flag-checkered"></i><span>Kết thúc</span><small>sang màn tổng kết</small></button>
             </div>
         </div>
@@ -704,8 +712,12 @@
     <div class="rm-more-grid">
         <button data-more="text" data-keep><i class="fas fa-text-height"></i><b>Cỡ chữ</b><small>vừa</small></button>
         <button data-more="theme" data-sw="theme" data-keep><i class="fas fa-moon"></i><b>Chế độ tối</b><small>đổi nền</small><em class="rm-sw" aria-hidden="true"></em></button>
-        <button data-more="minimal" data-sw="minimal" data-keep><i class="fas fa-square"></i><b>Tinh gọn</b><small>ít hộp, không hiệu ứng</small><em class="rm-sw" aria-hidden="true"></em></button>
         <button data-more="help"><i class="fas fa-hand"></i><b>Cử chỉ</b><small>vuốt · giữ · chạm đúp</small></button>
+    </div>
+    <div class="rm-minslide is-sheet" role="group" aria-label="Giao diện tinh gọn">
+        <span class="rm-minslide-hd"><i class="fas fa-square"></i><span>Giao diện tinh gọn</span></span>
+        <input type="range" class="rm-minrange" min="0" max="2" step="1" value="0" aria-label="Mức tinh gọn" aria-valuetext="tắt">
+        <span class="rm-minticks"><button type="button" data-min-set="0">Tắt</button><button type="button" data-min-set="1">Vừa</button><button type="button" data-min-set="2">Tối đa</button></span>
     </div>
 </div>
 

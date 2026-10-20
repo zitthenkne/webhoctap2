@@ -198,7 +198,11 @@ export function renderRich(text) {
     const v = String(text ?? '');
     if (!v.trim()) return '';
     // Có ```svg / <svg> (từ file) thì là Markdown -> parseMarkdown dựng khung hình; <div data-svg> là HTML đã lưu
-    const looksHtml = /<(b|strong|i|em|u|mark|code|br|div|p|ul|ol|li|span|img|a|table|h4|hr)\b/i.test(v.replace(/<svg[\s>][\s\S]*?<\/svg>/gi, ''));
+    // <br> riêng lẻ KHÔNG đủ để coi là HTML: Markdown từ file hay có "- ý<br>- ý" trong ô bảng — coi nhầm là HTML thì
+    // mọi dấu xuống dòng, **đậm**, bảng của cả Ghi nhớ / Mở rộng dính thành một cục. HTML đã lưu không có ký tự xuống dòng.
+    const bare = v.replace(/<svg[\s>][\s\S]*?<\/svg>/gi, '');
+    const looksHtml = /<(b|strong|i|em|u|mark|code|div|p|ul|ol|li|span|img|a|table|h4|hr)\b/i.test(bare)
+        || (/<br\b/i.test(bare) && !bare.includes('\n'));
     return looksHtml ? expandDiagrams(sanitizeHtml(v)) : parseMarkdown(v);
 }
 
@@ -449,6 +453,14 @@ export function initInlineEdit() {
         clearTimeout(saveTimer);
         saveTimer = setTimeout(() => saveNow(node), 400);
     });
+    // Ẩn app / sang trang khác trong 400ms chờ: lưu NGAY. Phòng dùng bộ nhớ tạm của Firestore (__FB_LEAN_CACHE) — lệnh chưa gửi đi là mất
+    // theo trang; trên điện thoại vuốt ra ngoài thường không có focusout. saveNow tự bỏ qua khi chữ không đổi.
+    const flushEdit = () => {
+        const node = document.activeElement?.closest?.('[data-live-edit]');
+        if (node) { clearTimeout(saveTimer); saveNow(node); }
+    };
+    document.addEventListener('visibilitychange', () => { if (document.hidden) flushEdit(); });
+    window.addEventListener('pagehide', flushEdit);
 
     // Phím tắt + Esc để thoát vùng sửa
     document.addEventListener('keydown', (e) => {
