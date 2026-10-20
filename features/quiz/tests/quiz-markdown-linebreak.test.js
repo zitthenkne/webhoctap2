@@ -77,6 +77,31 @@ test('dòng trống sinh khoảng .quiz-md-gap2 (CSS gộp đúng nó); dòng ch
     assert.match(html, /c<div class="quiz-md-gap"><\/div><div class="quiz-md-gap quiz-md-gap2"><\/div>🔀/);
 });
 
+test('"● Công thức máu: …" / "• ý" đầu dòng là gạch đầu dòng; "·" giữa câu không', () => {
+    const html = parseMarkdown('● Công thức máu: Hb 9 g/dL\n• PLT 250 G/L');
+    assert.equal((html.match(/class="quiz-li"/g) || []).length, 2);
+    assert.ok(!text(html).includes('●'));
+});
+
+test('xuất Markdown / CSV Anki: chữ "\\n" thô và chặng dính dòng được tách như trên web', async () => {
+    const { wrongItemsMarkdown, wrongItemsCsv } = await import('../quiz-export.js');
+    const it = { n: 1, question: 'Q', options: ['a', 'b'], correct: [0], picked: [1], note: '📌 Chốt: x.\\n🤔 Tự vấn: y? ⚠️ Bẫy: z.', explanation: '$a \\neq b$' };
+    const md = wrongItemsMarkdown([it]);
+    assert.match(md, /Ghi nhớ: 📌 Chốt: x\.\n🤔 Tự vấn: y\?\n⚠️ Bẫy: z\./);
+    assert.ok(md.includes('$a \\neq b$'));                                   // \neq trong công thức giữ nguyên
+    assert.match(wrongItemsCsv([it]), /📌 Chốt: x\.<br>🤔 Tự vấn: y\?<br>⚠️ Bẫy: z\./);
+});
+
+test('bậc gạch đầu dòng theo cha–con: thụt 4 cách / Tab = bậc kế; mục đầu thụt "  1." vẫn là bậc 0; mỗi bậc một kiểu chấm', () => {
+    const lv = (md) => [...parseMarkdown(md).matchAll(/class="quiz-li" data-lvl="(\d)"/g)].map(m => +m[1]);
+    assert.deepEqual(lv('- a\n    - b\n        - c\n            - d\n- e'), [0, 1, 2, 3, 0]);      // thụt 4 cách
+    assert.deepEqual(lv('- a\n\t- b\n\t\t- c'), [0, 1, 2]);                                   // Tab
+    assert.deepEqual(lv('  1. **Giai đoạn**\n     - con\n  2. tiếp'), [0, 1, 0]);             // mở đầu thụt 2 cách
+    assert.deepEqual(lv('- a\n  - b\n  - b2\n- c'), [0, 1, 1, 0]);                            // thụt 2 cách như cũ
+    const html = parseMarkdown('- a\n  - b\n    - c\n      - d');
+    for (const ic of ['fas fa-circle', 'far fa-circle', 'fas fa-square', 'far fa-square']) assert.ok(html.includes(ic), ic);
+});
+
 test('"<p3", "<p10" ngoài công thức hiện đúng chữ, không nuốt ô bảng', () => {
     const html = parseMarkdown('| Sớm | AC/EFW <p3 hoặc UA mất dòng | AC <p10 |\n|---|---|---|\n| a | b | c |');
     assert.ok(html.includes('&lt;p3 hoặc UA mất dòng'));

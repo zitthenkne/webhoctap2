@@ -726,6 +726,15 @@ body.present .rm-live-grid { grid-template-columns: 1fr; }
 .rm-md ul { margin: .4rem 0 .4rem 1.15rem; list-style: disc; }
 .rm-md ol { margin: .4rem 0 .4rem 1.3rem; list-style: decimal; }
 .rm-md li { margin: .2rem 0; }
+/* Gạch đầu dòng theo BẬC như quiz.html (parseMarkdown): chấm đặc → chấm rỗng → vuông đặc → vuông rỗng, màu hồng.
+   Cho cả nội dung đã lưu (sanitize đổi .quiz-li thành <ul> lồng) lẫn danh sách tự gõ — Tab / Shift+Tab trong ô sửa = thụt / lùi bậc */
+:is(.rm-md, [data-live-edit]) ul:not(.cell-ul) { list-style-type: disc; }
+:is(.rm-md, [data-live-edit]) :is(ul, ol) ul:not(.cell-ul) { list-style-type: circle; }
+:is(.rm-md, [data-live-edit]) :is(ul, ol) :is(ul, ol) ul:not(.cell-ul) { list-style-type: square; }
+:is(.rm-md, [data-live-edit]) :is(ul, ol) :is(ul, ol) :is(ul, ol) ul:not(.cell-ul) { list-style-type: '▫  '; }
+:is(.rm-md, [data-live-edit]) :is(ul, ol) ul:not(.cell-ul), :is(.rm-md, [data-live-edit]) :is(ul, ol) ol { margin-top: .15rem; margin-bottom: .15rem; }
+:is(.rm-md, [data-live-edit]) li::marker { color: #FF69B4; }
+:is(.rm-md, [data-live-edit]) ol > li::marker { font-weight: 700; }
 .rm-md strong, .rm-md b { font-weight: 600; }
 .rm-md code { padding: .05rem .4rem; border-radius: 999px; background: var(--rm-accent-soft); color: var(--rm-accent-deep); font-size: .92em; }
 .rm-md pre { padding: .7rem .9rem; border-radius: var(--rm-r-sm); background: var(--rm-surface-2); overflow-x: auto; }

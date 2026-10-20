@@ -8,7 +8,7 @@
 // Cách hoạt động: vùng sửa được là phần tử có [data-live-edit="<khóa>"] và
 // contenteditable. Mỗi lần gõ (chờ 400ms cho êm) file này bắn sự kiện
 // window 'room:edit' kèm {key, html} — sân khấu bắt lấy rồi ghi lên Firestore.
-import { parseMarkdown, renderMath, configureMermaid, svgFigureHtml, SVG_MAX } from '../quiz/quiz-helpers.js';
+import { parseMarkdown, renderMath, configureMermaid, svgFigureHtml, SVG_MAX, widgetBoxHtml, WIDGET_MAX } from '../quiz/quiz-helpers.js';
 import { showToast } from '../../core/utils.js';
 import { uploadImage, imageFilesOf, safeImgUrl, warnIfTemp } from './room-media.js';
 import { effectiveIndex } from './room-quiz-stage.js';
@@ -109,12 +109,80 @@ function unrenderSvgs(root) {
         f.replaceWith(d);
     });
 }
-/** <div data-mermaid> / <div data-svg> (dạng lưu) -> khung sơ đồ / khung hình chuẩn của parseMarkdown. */
+/** Widget tương tác (khung .qw[data-w] của parseMarkdown) -> <div data-widget="mã đã mã hoá"> khi lưu:
+ *  sanitize gỡ data-w và nút ▶ -> sửa một chữ trong Ghi nhớ / Mở rộng là widget mất, chỉ còn chữ "▶". */
+const WG_OK = (c) => typeof c === 'string' && c.length <= WIDGET_MAX * 3 && MM_CHARS.test(c);
+function unrenderWidgets(root) {
+    root.querySelectorAll('.qw[data-w]').forEach(q => {
+        const code = q.getAttribute('data-w');
+        if (!WG_OK(code)) return void q.remove();
+        const d = document.createElement('div');
+        d.setAttribute('data-widget', code);
+        q.replaceWith(d);
+    });
+}
+/** Khối của parseMarkdown -> HTML ngữ nghĩa TRƯỚC khi sanitize gỡ hết class. Bản cũ: sửa một chữ trong Ghi nhớ / Mở rộng lấy
+ *  từ file là mất chấm đầu dòng (icon <i class="fas…">), mất khoảng cách đoạn (.quiz-md-gap thành <div></div> cao 0) và kiểu tiêu đề.
+ *  Nay: .quiz-li -> <ul>/<ol> LỒNG theo data-lvl (mỗi bậc một kiểu chấm — study-room.css), .quiz-md-h -> <h4>,
+ *  mỗi dòng chữ giữa các .quiz-md-gap -> một <p>. "1." -> <ol> (giữ số bắt đầu); "a." / "1.1." giữ làm chữ đầu mục. */
+const BLOCK_TAGS = new Set(['DIV', 'P', 'UL', 'OL', 'TABLE', 'H4', 'HR', 'BLOCKQUOTE', 'PRE']);
+function unrenderMd(root) {
+    root.querySelectorAll('.quiz-md-h').forEach(h => { const n = document.createElement('h4'); n.append(...h.childNodes); h.replaceWith(n); });
+    root.querySelectorAll('.quiz-list-container').forEach(c => {
+        const top = document.createDocumentFragment(), stack = [];   // stack[bậc] = { list, kind, li }
+        let lastLi = null;
+        c.querySelectorAll(':scope > .quiz-li').forEach(q => {
+            const body = q.querySelector(':scope > .quiz-li-body, :scope > .quiz-li-cont');
+            const kids = body ? [...body.childNodes] : [];
+            if (q.classList.contains('quiz-li-continued')) {
+                if (lastLi) return void lastLi.append(document.createElement('br'), ...kids);
+                const p = document.createElement('p'); p.append(...kids); return void top.append(p);
+            }
+            const lvl = Math.min(+q.dataset.lvl || 0, stack.length);    // không nhảy cóc nhiều bậc
+            const label = q.querySelector(':scope > .quiz-li-num')?.textContent.trim() || '';
+            const kind = /^\d+\.$/.test(label) ? 'OL' : 'UL';
+            stack.length = Math.min(stack.length, lvl + 1);
+            if (!stack[lvl] || stack[lvl].kind !== kind) {
+                const list = document.createElement(kind);
+                if (kind === 'OL' && parseInt(label, 10) > 1) list.setAttribute('start', String(parseInt(label, 10)));
+                (lvl ? stack[lvl - 1].li : top).append(list);
+                stack[lvl] = { list, kind, li: null };
+            }
+            const li = document.createElement('li');
+            if (kind === 'UL' && label) li.append(`${label} `);
+            li.append(...kids);
+            stack[lvl].list.append(li);
+            stack[lvl].li = lastLi = li;
+        });
+        c.replaceWith(top);
+    });
+    new Set([...root.querySelectorAll('.quiz-md-gap')].map(g => g.parentNode)).forEach(par => {
+        const out = [];
+        let run = [];
+        const flush = () => {
+            if (run.some(n => n.nodeType === 1 || /\S/.test(n.nodeValue))) { const p = document.createElement('p'); p.append(...run); out.push(p); }
+            run = [];
+        };
+        [...par.childNodes].forEach(n => {
+            if (n.nodeType === 1 && n.classList.contains('quiz-md-gap')) { flush(); run = [...n.childNodes]; flush(); }   // (có người gõ vào khoảng)
+            else if (n.nodeType === 1 && BLOCK_TAGS.has(n.tagName)) { flush(); out.push(n); }
+            else if (n.nodeType === 1 || n.nodeType === 3) run.push(n);
+        });
+        flush();
+        par.replaceChildren(...out);
+    });
+}
+
+/** <div data-mermaid> / <div data-svg> / <div data-widget> (dạng lưu) -> khung sơ đồ / hình / widget chuẩn của parseMarkdown. */
 const expandDiagrams = (html) => html.replace(/<div data-mermaid="([^"]*)"><\/div>/g, (m, code) =>
     MM_OK.test(code) ? `<div class="${MM_BOX}"><div class="mermaid-viewer" data-code="${code}"></div></div>` : '')
     .replace(/<div data-svg="([^"]*)"><\/div>/g, (m, code) => {
         if (!SVG_OK(code)) return '';
         try { return svgFigureHtml(decodeURIComponent(code)); } catch (e) { return ''; }
+    })
+    .replace(/<div data-widget="([^"]*)"><\/div>/g, (m, code) => {
+        if (!WG_OK(code)) return '';
+        try { return widgetBoxHtml(decodeURIComponent(code)); } catch (e) { return ''; }
     });
 /** Khung sơ đồ mới (chèn từ thanh soạn thảo / hộp sửa sơ đồ). */
 export const diagramHtml = (code) => `<div class="${MM_BOX}"><div class="mermaid-viewer" data-code="${encodeURIComponent(String(code || '').trim())}"></div></div>`;
@@ -126,6 +194,8 @@ export function sanitizeHtml(html) {
     unrenderMath(box);
     unrenderDiagrams(box);
     unrenderSvgs(box);
+    unrenderWidgets(box);
+    unrenderMd(box);
     const tw = document.createTreeWalker(box, NodeFilter.SHOW_COMMENT);   // <!--StartFragment--> của Word/Excel
     const comments = [];
     while (tw.nextNode()) comments.push(tw.currentNode);
@@ -160,9 +230,13 @@ export function sanitizeHtml(html) {
         const nt = tag === 'SPAN' ? cleanNote(node.getAttribute('data-note')) : '';
         const mm = tag === 'DIV' ? node.getAttribute('data-mermaid') : null;
         const sv = tag === 'DIV' ? node.getAttribute('data-svg') : null;
+        const wg = tag === 'DIV' ? node.getAttribute('data-widget') : null;
+        const st = tag === 'OL' ? node.getAttribute('start') : null;
         [...node.attributes].forEach(a => node.removeAttribute(a.name));
         if (mm && MM_OK.test(mm)) { node.setAttribute('data-mermaid', mm); node.replaceChildren(); }
         if (sv && SVG_OK(sv)) { node.setAttribute('data-svg', sv); node.replaceChildren(); }
+        if (wg && WG_OK(wg)) { node.setAttribute('data-widget', wg); node.replaceChildren(); }
+        if (st && /^\d{1,3}$/.test(st) && +st > 1) node.setAttribute('start', st);   // danh sách số bắt đầu từ 3, 4… (nối tiếp đoạn trước)
         span.forEach(([a, v]) => node.setAttribute(a, v));
         if (nt) node.setAttribute('data-note', nt);
         if (c && HL[c]) node.setAttribute('data-c', c);
@@ -467,6 +541,19 @@ export function initInlineEdit() {
         const node = e.target.closest?.('[data-live-edit]');
         if (!node) return;
         if (e.key === 'Escape') { e.preventDefault(); node.blur(); return; }
+        // Tab / Shift+Tab trong gạch đầu dòng: thụt / lùi một bậc (mỗi bậc một kiểu chấm — study-room.css). Ngoài danh sách: Tab như cũ
+        if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            const a = window.getSelection()?.anchorNode;
+            const li = a && (a.nodeType === 1 ? a : a.parentElement)?.closest('li');
+            if (li && node.contains(li)) {
+                e.preventDefault();
+                document.execCommand(e.shiftKey ? 'outdent' : 'indent');
+                // outdent của Chrome bọc chữ trong <span style="background-color:…; font-size:…"> (chép kiểu tính được) —
+                // để nguyên thì sanitize biến thành bút dạ vàng. Bút dạ thật (đúng 4 màu HL) giữ lại.
+                node.querySelectorAll('li span[style]').forEach(s => { if (!HL_BY_RGB[s.style.backgroundColor]) s.replaceWith(...s.childNodes); });
+            }
+            return;
+        }
         if ((e.ctrlKey || e.metaKey) && ['b', 'i', 'u'].includes(e.key.toLowerCase())) {
             e.preventDefault();
             applyCommand({ b: 'bold', i: 'italic', u: 'underline' }[e.key.toLowerCase()]);

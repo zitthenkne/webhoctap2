@@ -4,9 +4,12 @@
 // Một mục: { n, question, caseText, options: [chuỗi], correct: [chỉ số], picked: [chỉ số] | null (chưa trả lời),
 //            modelAnswer (tự luận), explanation, note, expanded, myNote (ghi chú cá nhân của người làm) }
 
+import { fixLines } from './quiz-helpers.js';
+
 const letter = (i) => String.fromCharCode(65 + i);
-// Khối ```widget (minh họa tương tác) chỉ chạy trên web -> ra file thì thay bằng một dòng nhắc, không đổ mã HTML/JS vào Anki
-const clean = (s) => String(s == null ? '' : s).replace(/\r\n/g, '\n').replace(/```widget[^\n]*\n[\s\S]*?```/g, '[Minh họa động — xem trên web]').trim();
+// Khối ```widget (minh họa tương tác) chỉ chạy trên web -> ra file thì thay bằng một dòng nhắc, không đổ mã HTML/JS vào Anki.
+// fixLines: chữ "\n" thô / chặng Ghi nhớ / What-if dính dòng — tự chữa như khi hiện trên web
+const clean = (s) => fixLines(String(s == null ? '' : s).replace(/\r\n/g, '\n').replace(/```widget[^\n]*\n[\s\S]*?```/g, '[Minh họa động — xem trên web]')).trim();
 const optLine = (it, i) => `${letter(i)}. ${clean(it.options[i]).replace(/\n+/g, ' ')}`;
 const optList = (it, idx) => idx.filter((i) => i >= 0 && i < it.options.length).map((i) => optLine(it, i));
 

@@ -668,6 +668,10 @@ export function splitRunOn(text) {
     }).join('\n');
 }
 
+// Cho văn bản THUẦN (xuất Markdown / CSV Anki / biên bản phòng) — cùng cách tự chữa như khi hiện trên web:
+// chữ "\n" thô -> xuống dòng ("\neq", "\nu" trong công thức: sau \n là chữ thường -> giữ), chặng / What-if dính dòng -> tách.
+export const fixLines = (s) => splitRunOn(String(s ?? '').replace(/\\n(?![a-z])/g, '\n'));
+
 export function parseMarkdown(text) {
     if (text === null || text === undefined) return '';
     if (typeof text === 'object') {
@@ -789,14 +793,27 @@ export function parseMarkdown(text) {
     let inList = false;
     let listHtml = '';
     let processedLines = [];
-    
+    // BẬC gạch đầu dòng theo quan hệ cha–con, KHÔNG theo số dấu cách ÷ 2: mục đầu danh sách = bậc 0, thụt sâu hơn mục trước
+    // = bậc kế tiếp, lùi về = bậc của mục cùng độ thụt. AI thụt 1 / 2 / 4 cách hay Tab đều ra đúng kiểu chấm từng bậc;
+    // danh sách mở đầu "  1. …" (không có mục cha) từng bị đẩy vào bậc 1 — chấm rỗng, thụt vào.
+    let lvlStack = [];
+    const indentWidth = (s) => s.replace(/\t/g, '    ').length;
+    const itemLevel = (s) => {
+        const w = indentWidth(s);
+        while (lvlStack.length && w < lvlStack[lvlStack.length - 1]) lvlStack.pop();
+        if (!lvlStack.length || w > lvlStack[lvlStack.length - 1]) lvlStack.push(w);
+        return lvlStack.length - 1;
+    };
+    // dòng chữ thụt (nối tiếp mục) canh theo mục cha; chưa có mục nào thì giữ cách tính cũ
+    const contLevel = (s) => lvlStack.length ? lvlStack.filter(x => x < indentWidth(s)).length : Math.floor(s.length / 2);
+
     for (let i = 0; i < lines.length; i++) {
         const rawLine = lines[i];
         const trimmedLine = rawLine.trim();
         
         // Nhận diện danh sách và thụt lề
-        // Danh sách không thứ tự: ví dụ "- mục", "* mục", "+ mục"
-        const unorderedListMatch = rawLine.match(/^(\s*)([-*+])\s+(.*)$/);
+        // Danh sách không thứ tự: ví dụ "- mục", "* mục", "+ mục" (+ "• ● ▪ ◦" chép từ Word / đề nhớ lại)
+        const unorderedListMatch = rawLine.match(/^(\s*)([-*+•●▪◦])\s+(.*)$/);
         // Danh sách có thứ tự: ví dụ "1. mục", "1.1. mục", "a. mục"
         // (chữ HOA + tên loài viết thường — "S. aureus", "E. coli", "H. pylori" — là tên vi khuẩn, không phải mục danh sách)
         const orderedListMatch = rawLine.match(/^(\s*)(\d+\.(?:\d+\.)*|[a-z]\.|[A-Z]\.(?!\s+[a-z]{2,}(?:[\s,.;:)]|$)))\s+(.*)$/);
@@ -820,6 +837,7 @@ export function parseMarkdown(text) {
             if (!inList) {
                 inList = true;
                 listHtml = '<div class="quiz-list-container">';
+                lvlStack = [];
             }
             
             let indentStr = '';
@@ -830,8 +848,8 @@ export function parseMarkdown(text) {
                 indentStr = unorderedListMatch[1];
                 const bulletSymbol = unorderedListMatch[2];
                 contentStr = unorderedListMatch[3];
-                
-                const indentLevel = Math.floor(indentStr.length / 2);
+
+                const indentLevel = itemLevel(indentStr);
                 let bulletHtml = '';
 
                 // Chọn bullet point dựa trên độ sâu thụt lề (mỗi cấp một dạng riêng cho rõ phân cấp)
@@ -855,8 +873,8 @@ export function parseMarkdown(text) {
                 indentStr = orderedListMatch[1];
                 const orderPrefix = orderedListMatch[2];
                 contentStr = orderedListMatch[3];
-                
-                const indentLevel = Math.floor(indentStr.length / 2);
+
+                const indentLevel = itemLevel(indentStr);
 
                 lineHtml = `
                     <div class="quiz-li" data-lvl="${indentLevel}" style="--lvl:${indentLevel};">
@@ -867,8 +885,8 @@ export function parseMarkdown(text) {
             } else if (indentedTextMatch) {
                 indentStr = indentedTextMatch[1];
                 contentStr = indentedTextMatch[2];
-                
-                const indentLevel = Math.floor(indentStr.length / 2);
+
+                const indentLevel = contLevel(indentStr);
 
                 // Dòng bổ trợ (xuống dòng trong cùng một cấp): canh thẳng hàng với phần chữ của mục cha
                 lineHtml = `
