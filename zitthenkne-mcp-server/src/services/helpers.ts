@@ -42,6 +42,7 @@ function normalizeQuestion(raw: DocumentData): QuizQuestion {
     note: raw.note ?? undefined,
     expanded: raw.expanded ?? undefined,
     source: raw.source ?? undefined,
+    reasoning: raw.reasoning ?? undefined,
     caseId: raw.caseId ?? undefined,
     caseText: raw.caseText ?? undefined,
     caseTitle: raw.caseTitle ?? undefined,

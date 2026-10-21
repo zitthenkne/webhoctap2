@@ -7,6 +7,7 @@ import { previewSrsCounts, getNewPerDay, setNewPerDay } from './quiz-srs-store.j
 import { caseCellClass } from './page/quiz-cases.js';
 import { isEssay, isPendingEssay, isEssayGraded, needsReview, questionWeight } from './quiz-essay-core.js';
 import { essayReviewHtml } from './page/quiz-essay.js';
+import { reasoningBodyHtml } from './page/quiz-reasoning.js';
 import { readNotes, noteTagsOf, noteTextHtml } from './page/quiz-notes-panel.js';
 import { onSessionUser, sessionUser } from '../../core/auth-session.js';
 import { showToast } from '../../core/utils.js';
@@ -17,7 +18,10 @@ import { wrongItemsMarkdown, wrongItemsCsv } from './quiz-export.js';
 export function studyExtrasHtml(q) {
     const note = String((q && q.note) || '').trim();
     const more = String((q && q.expanded) || '').trim();
-    return (note ? `<div class="study-extra is-memo"><div class="study-extra-head"><i class="fas fa-lightbulb"></i> Ghi nhớ</div>
+    const reason = q ? reasoningBodyHtml(q, false) : '';
+    return (reason ? `<div class="study-extra is-reason"><div class="study-extra-head"><i class="fas fa-brain"></i> Quét dữ kiện & hướng tư duy</div>
+            <div class="study-extra-body qr">${reason}</div></div>` : '')
+        + (note ?`<div class="study-extra is-memo"><div class="study-extra-head"><i class="fas fa-lightbulb"></i> Ghi nhớ</div>
             <div class="study-extra-body">${parseMarkdown(note)}</div></div>` : '')
         + (more ? `<details class="study-extra is-more" open><summary class="study-extra-head"><i class="fas fa-book-open"></i> Mở rộng kiến thức<i class="fas fa-chevron-down study-extra-chev" aria-hidden="true"></i></summary>
             <div class="study-extra-body">${parseMarkdown(more)}</div></details>` : '');

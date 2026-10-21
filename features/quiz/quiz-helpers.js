@@ -1091,6 +1091,16 @@ export function applyOptionOrder(question, order) {
     if (Array.isArray(question.optionExplanations)) {
         shuffled.optionExplanations = order.map(i => question.optionExplanations[i]);
     }
+    // Hướng tư duy (page/quiz-reasoning.js) ghi chữ cái phương án GỐC ở cues[].in / steps[].out -> đổi theo thứ tự mới
+    const r = question.reasoning;
+    if (r && typeof r === 'object') {
+        const to = (ch) => { const k = order.indexOf(ch.toUpperCase().charCodeAt(0) - 65); return k >= 0 ? String.fromCharCode(65 + k) : ch; };
+        shuffled.reasoning = {
+            ...r,
+            cues: Array.isArray(r.cues) ? r.cues.map(c => (c && /^[A-H]$/i.test(String(c.in || '').trim()) ? { ...c, in: to(String(c.in).trim()) } : c)) : r.cues,
+            steps: Array.isArray(r.steps) ? r.steps.map(s => (s && s.out != null ? { ...s, out: String(Array.isArray(s.out) ? s.out.join(',') : s.out).replace(/[A-H]/gi, to) } : s)) : r.steps,
+        };
+    }
 
     return shuffled;
 }

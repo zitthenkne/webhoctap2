@@ -52,7 +52,7 @@ function typing() {
 function clampKb() {
     const on = isKbClampOn();
     const limit = Math.max(240, Math.round(window.innerHeight * 0.42));
-    document.querySelectorAll('#quizSection .kb-card').forEach(card => {
+    document.querySelectorAll('#quizSection .kb-card:not(.kb-reason)').forEach(card => {   // thẻ Hướng tư duy luôn mở trọn: đó là phần cần đọc nhất
         const body = card.querySelector('.kb-body');
         if (!body) return;
         if (!on) {

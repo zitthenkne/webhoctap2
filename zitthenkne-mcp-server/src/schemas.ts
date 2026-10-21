@@ -178,6 +178,41 @@ const KeyPointGroupSchema = z
   })
   .strict();
 
+// Thẻ "Quét dữ kiện & hướng tư duy" (web features/quiz/page/quiz-reasoning.js): bấm ra đáp án thì tô từng cues[].text
+// ngay trong đề + vẽ dữ kiện ➜ chuỗi suy luận ➜ chốt. Chữ cái ở in/out là thứ tự GỐC của answers (web tự đổi khi xáo).
+const ReasoningSchema = z
+  .object({
+    cues: z
+      .array(
+        z
+          .object({
+            text: z.string().min(1).describe("Cụm dữ kiện CHÉP NGUYÊN VĂN từ question / case_text / đáp án (không **, không $) — web tô ngay trong đề"),
+            kind: z.enum(["key", "neg", "trap"]).optional().describe("key = bản lề (mặc định) · neg = âm tính có giá trị · trap = mồi nhử"),
+            hint: z.string().optional().describe("Thấy cụm này thì nghĩ tới gì (≤ 16 từ)"),
+            in: z.string().optional().describe("Chỉ tìm trong: 'case' | 'q' | chữ cái đáp án gốc"),
+          })
+          .strict(),
+      )
+      .min(1),
+    steps: z
+      .array(
+        z
+          .object({
+            from: z
+              .array(z.union([z.number().int().min(1), z.string().regex(/^b?\d+$/)]))
+              .min(1)
+              .describe("Số = dữ kiện (1-based) · 'b1' = kết luận bước 1 (chỉ trỏ lùi)"),
+            text: z.string().min(1).describe("Kết luận của bước (≤ 25 từ, chỉ **đậm**)"),
+            out: z.string().regex(/^[A-Ha-h ,]+$/).optional().describe("Chữ cái đáp án GỐC bị gạch ở bước này — KHÔNG gạch đáp án đúng"),
+            kind: z.enum(["then", "join", "out"]).optional().describe("Bỏ trống = web tự suy; tự luận loại trừ chẩn đoán ghi 'out'"),
+          })
+          .strict(),
+      )
+      .min(1),
+    goal: z.string().min(1).describe("Dòng Chốt (≤ 20 từ)"),
+  })
+  .strict();
+
 const QuestionInputSchema = z
   .object({
     type: z
@@ -210,6 +245,9 @@ const QuestionInputSchema = z
     note: z.string().optional().describe("Thẻ 'Ghi nhớ' (markdown): mẹo nhớ, lưu ý, bẫy hay nhầm — hiện sau khi mở đáp án. BẮT BUỘC với câu tự luận, tùy chọn với trắc nghiệm"),
     expanded: z.string().optional().describe("Thẻ 'Mở rộng kiến thức' (markdown): kiến thức VƯỢT đáp án mẫu — bảng so sánh, phân loại, cơ chế, mốc số, hướng xử trí; không chép lại đáp án. BẮT BUỘC với câu tự luận, tùy chọn với trắc nghiệm"),
     source: z.string().optional().describe("Nguồn tài liệu tham khảo đối chiếu (tùy chọn)"),
+    reasoning: ReasoningSchema.optional().describe(
+      "Thẻ 'Quét dữ kiện & hướng tư duy' {cues, steps, goal} — nên có ở mọi câu: cụm nguyên văn trong đề ➜ suy luận (tổng hợp / bắc cầu 'b1' / loại trừ out) ➜ chốt",
+    ),
     case_id: z
       .string()
       .optional()
@@ -251,6 +289,15 @@ const QuestionInputSchema = z
   })
   .strict()
   .superRefine((q, ctx) => {
+    // Bước loại trừ: tự luận không có đáp án để gạch; trắc nghiệm không được gạch đáp án đúng
+    const correct = new Set(q.correct_answer_indexes ?? [q.correct_answer_index]);
+    q.reasoning?.steps.forEach((s, i) => {
+      if (!s.out) return;
+      const path = ["reasoning", "steps", i, "out"];
+      if (q.type === "essay") ctx.addIssue({ code: "custom", path, message: "Tự luận không có đáp án để gạch — bỏ out, ghi kind: 'out'" });
+      else if ([...s.out.toUpperCase()].some((ch) => correct.has(ch.charCodeAt(0) - 65)))
+        ctx.addIssue({ code: "custom", path, message: "Bước loại trừ gạch nhầm đáp án đúng" });
+    });
     if (q.type === "essay") {
       if (q.answers?.length) ctx.addIssue({ code: "custom", path: ["answers"], message: "Câu tự luận không có answers" });
       if (!q.model_answer && !q.key_points?.length)

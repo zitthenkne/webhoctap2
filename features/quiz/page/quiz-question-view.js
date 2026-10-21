@@ -24,6 +24,7 @@ import { currentQuizId, pushStudyToCloud } from './quiz-study-sync.js';
 import { gradeSrsAnswer } from '../quiz-srs-store.js';
 import { isEssay, isPendingEssay } from '../quiz-essay-core.js';
 import { essayCardHtml, setupEssay, isEssayRevealed, caseRevealsHtml, noteCaseProgress, lockMcqIfNeeded } from './quiz-essay.js';
+import { reasoningCardHtml, revealReasoning } from './quiz-reasoning.js';
 
 // Câu vừa hiển thị trước đó — dùng để biết khi nào THỰC SỰ chuyển sang câu khác
 // (để cuộn lên đầu trang) so với khi chỉ vẽ lại cùng một câu (đổi cỡ chữ, ghi chú…).
@@ -543,6 +544,7 @@ export function showQuestion() {
             ${renderMarkControl()}
             </div>
         </div>
+        ${reasoningCardHtml(question)}
         ${question.note && question.note.trim() ? `
         <div id="explanation-area" class="kb-card kb-memo hidden">
             <div class="kb-head">
@@ -718,6 +720,7 @@ export function showQuestion() {
         if (isEssayRevealed(state.currentIndex)) {
             document.getElementById('explanation-area')?.classList.remove('hidden');
             if (question.expanded && String(question.expanded).trim()) document.getElementById('expanded-area')?.classList.remove('hidden');
+            revealReasoning(question);
         }
         // Tự luận: bỏ qua / quay lại lúc nào cũng được -> nút Câu tiếp luôn hiện
         const nextBtn = document.getElementById('nextBtn');
@@ -839,6 +842,7 @@ export function showQuestion() {
         if (expandedArea && question.expanded && String(question.expanded).trim()) {
             expandedArea.classList.remove('hidden');
         }
+        revealReasoning(question);
         const nextBtn = document.getElementById('nextBtn');
         if (nextBtn) {
             nextBtn.classList.remove('hidden');
@@ -989,6 +993,7 @@ function revealMultiAnswer(question, selected) {
     const expandedArea = document.getElementById('expanded-area');
     if (expandedArea && question.expanded && String(question.expanded).trim()) expandedArea.classList.remove('hidden');
     applyAnnotationsAll();
+    revealReasoning(question);
 }
 
 function confirmMultiAnswer() {
@@ -1137,6 +1142,7 @@ export function handleAnswerClick(e) {
     if (expandedArea && question.expanded && String(question.expanded).trim()) {
         expandedArea.classList.remove('hidden');
     }
+    revealReasoning(question);
 
     const nextBtn = document.getElementById('nextBtn');
     if (nextBtn) {

@@ -504,3 +504,9 @@ html.ui-min .qjs-cell.is-current, html.ui-min body #quizSection #clinical-case-p
 html.ui-min .quiz-nav-btn.is-correct { background: var(--ok-bg) !important; border-color: var(--ok-line) !important; color: var(--ok-ink) !important; }
 html.ui-min .quiz-nav-btn.is-wrong { background: var(--bad-bg) !important; border-color: var(--bad-line) !important; color: var(--bad-ink) !important; }
 html.ui-min .quiz-nav-btn.is-answered { background: var(--pick-bg) !important; border-color: var(--pick-line) !important; color: var(--pick-ink) !important; }
+
+/* Quét dữ kiện & hướng tư duy (2026-10-21, page/quiz-reasoning.js): cùng khuôn viên pastel với Ghi nhớ/Mở rộng (§13), tông oải hương */
+html.ui-min body #quizSection #reason-area.kb-card { border: 1.5px solid var(--b-lav) !important; border-radius: 18px !important; padding: .7rem 1rem .8rem !important; margin-top: 1rem !important; background: var(--t-lav) !important; }
+html.ui-min #reason-area .kb-title, html.ui-min #reason-area .kb-ic { color: var(--ink-lav) !important; }
+html.ui-min #reason-area .kb-body { padding: .35rem 0 0 !important; }
+html.ui-min .qr-cue, html.ui-min .qr-step-main, html.ui-min .qr-node, html.ui-min .qr-goal { box-shadow: none; }

@@ -22,6 +22,8 @@ export interface QuizQuestion {
   expanded?: string;
   /** Nguồn tham khảo đối chiếu. */
   source?: string;
+  /** Thẻ "Quét dữ kiện & hướng tư duy": cụm nguyên văn trong đề ➜ chuỗi suy luận ➜ chốt. */
+  reasoning?: { cues: { text: string; kind?: string; hint?: string; in?: string }[]; steps: { from: (number | string)[]; text: string; out?: string; kind?: string }[]; goal: string };
   /** Mã ca lâm sàng — các câu cùng caseId dùng chung một tình huống. */
   caseId?: string;
   /** Nội dung tình huống/ca lâm sàng dùng chung. */

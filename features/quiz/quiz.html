@@ -156,6 +156,7 @@
     <link rel="modulepreload" href="page/quiz-page-prefs.js">
     <link rel="modulepreload" href="page/quiz-page-setup.js">
     <link rel="modulepreload" href="page/quiz-question-view.js">
+    <link rel="modulepreload" href="page/quiz-reasoning.js">
     <link rel="modulepreload" href="page/quiz-session.js">
     <link rel="modulepreload" href="page/quiz-study-sync.js">
     <link rel="modulepreload" href="quiz-editor.js">
@@ -1485,6 +1486,23 @@
                     <kbd class="kbd-key">?</kbd>
                 </button>
             </div>
+
+            <!-- Nhóm: Quét dữ kiện & hướng tư duy (page/quiz-reasoning.js setupReasoningSettings) -->
+            <div class="qs-group">
+                <div class="qs-group-title"><i class="fas fa-brain"></i> Hướng tư duy</div>
+                <div class="qs-row" id="qs-reason-marks" role="switch" aria-checked="true" tabindex="0" title="Ra đáp án thì tô các dữ kiện then chốt ngay trong đề (kèm số). Tắt: chỉ còn thẻ Hướng tư duy">
+                    <span class="qs-label"><i class="fas fa-marker"></i> Tô dữ kiện trong đề</span>
+                    <span class="qs-switch"></span>
+                </div>
+                <div class="qs-row" id="qs-reason-step" role="switch" aria-checked="false" tabindex="0" title="Chuỗi suy luận mở từng bước (phím G): tự đoán bước kế trước khi xem — luyện tư duy chủ động">
+                    <span class="qs-label"><i class="fas fa-list-ol"></i> Mở suy luận từng bước</span>
+                    <span class="qs-switch"></span>
+                </div>
+                <div class="qs-row" id="qs-reason-fx" role="switch" aria-checked="true" tabindex="0" title="Vạch quét chạy qua đề, bút dạ tô lần lượt từng dữ kiện, thẻ hiện dần (mỗi câu một lần). Tắt nếu máy yếu">
+                    <span class="qs-label"><i class="fas fa-wand-magic-sparkles"></i> Hiệu ứng quét dữ kiện</span>
+                    <span class="qs-switch"></span>
+                </div>
+            </div>
         </div>
 
         <!-- Nhóm: Giọng đọc — chọn giọng có sẵn trong máy, hoặc Adam/ElevenLabs bằng khóa API riêng (page/quiz-voice.js) -->
@@ -1680,6 +1698,7 @@
                         <div><dt><kbd class="kbd-key">P</kbd></dt><dd>Tạm dừng / tiếp tục đồng hồ</dd></div>
                         <div><dt><kbd class="kbd-key">Shift</kbd> + <kbd class="kbd-key">Q</kbd></dt><dd>Sổ ghi chú cả bộ đề</dd></div>
                         <div><dt><kbd class="kbd-key">V</kbd></dt><dd>Xem lại ca lâm sàng</dd></div>
+                        <div><dt><kbd class="kbd-key">G</kbd> · <kbd class="kbd-key">Shift</kbd> + <kbd class="kbd-key">G</kbd></dt><dd>Hướng tư duy: mở bước suy luận tiếp · hiện hết (khi bật "từng bước")</dd></div>
                         <div><dt><kbd class="kbd-key">Esc</kbd></dt><dd>Đóng bảng đang mở</dd></div>
                         <div><dt><kbd class="kbd-key">?</kbd></dt><dd>Mở / đóng bảng này</dd></div>
                     </dl>

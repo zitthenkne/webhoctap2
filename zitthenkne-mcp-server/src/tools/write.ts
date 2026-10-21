@@ -32,6 +32,7 @@ type QuestionInput = {
   note?: string;
   expanded?: string;
   source?: string;
+  reasoning?: { cues: { text: string; kind?: string; hint?: string; in?: string }[]; steps: { from: (number | string)[]; text: string; out?: string; kind?: string }[]; goal: string };
   case_id?: string;
   case_text?: string;
   case_title?: string;
@@ -79,6 +80,7 @@ function toStoredQuestion(q: QuestionInput): Record<string, unknown> {
   if (q.note) stored.note = q.note;
   if (q.expanded) stored.expanded = q.expanded;
   if (q.source) stored.source = q.source;
+  if (q.reasoning) stored.reasoning = q.reasoning;
   if (q.case_id) stored.caseId = q.case_id;
   if (q.case_text) stored.caseText = q.case_text;
   if (q.case_title) stored.caseTitle = q.case_title;
