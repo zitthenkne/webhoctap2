@@ -373,6 +373,9 @@ function drawStroke(ctx, st) {
     if (w >= 0) ctx.stroke();
     penTail(ctx, st);
 }
+// Dùng chung với mực trên HÌNH trong đề (page/quiz-ink.js): cùng cách làm trơn nét, đậm nhạt theo lực bút, bảng màu theo sáng/tối
+export { SIZES, readPalette, drawStroke, penSeg, penTail, hlPath, setStyle };
+
 function redraw() {
     if (!ictx) return;
     ictx.clearRect(0, 0, sheetW, sheetH);

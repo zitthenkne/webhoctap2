@@ -5810,3 +5810,86 @@ body:not(.quiz-active) #quiz-settings-popover .qs-quiz-only { display: none !imp
     #quiz-settings-popover .qs-preset { font-size: 0.9rem; padding: 0.65rem 0.4rem; }
     #quiz-settings-popover .qs-preset-desc { font-size: 0.8rem; }
 }
+
+/* ============================================================
+   39) VẼ / VIẾT GHI CHÚ LÊN HÌNH TRONG ĐỀ (2026-10-21) — page/quiz-ink.js
+   Người dùng: lưu đồ / sơ đồ GV sửa muốn vẽ lên bằng Apple Pencil. Hình trong bài bọc .qi-wrap + canvas .qi-ink phủ đúng
+   vùng nội dung hình (trừ viền + đệm khung ảnh dán, JS đặt toạ độ). Canvas KHÔNG nhận chạm: bấm hình vẫn phóng to như cũ,
+   bút bắt ở .qi-wrap. Khung phóng to = cột: hình + canvas (.qi-stage) rồi thanh bút (.qi-bar).
+   ============================================================ */
+.qi-wrap { position: relative; display: block; width: fit-content; max-width: 100%; margin-inline: auto; }
+.qi-wrap > img { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.qi-ink { position: absolute; left: 0; top: 0; pointer-events: none; }
+
+#img-lightbox:not(.hidden) { flex-direction: column; gap: 0.7rem; }
+#img-lightbox .qi-stage { position: relative; line-height: 0; touch-action: none; cursor: crosshair; }
+#img-lightbox .qi-stage img { max-width: min(100%, 96vw); max-height: calc(100vh - 8.5rem); max-height: calc(100dvh - 8.5rem); cursor: crosshair; }
+#img-lightbox .qi-bar {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.3rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 999px;
+    background: var(--surface-card);
+    border: 2px solid var(--line);
+    box-shadow: 0 4px 0 var(--line), var(--shadow-page);
+    cursor: default;
+}
+#img-lightbox .qi-bar button {
+    display: grid; place-items: center;
+    width: 2.3rem; height: 2.3rem;
+    border: 0; border-radius: 999px;
+    font-size: 0.9rem;
+    color: var(--ink-muted);
+    background: none;
+    cursor: pointer;
+    transition: background .15s, color .15s, transform .2s var(--spring);
+}
+#img-lightbox .qi-bar button:hover:not(:disabled) { color: var(--ink-blossom); background: color-mix(in srgb, var(--hue-blossom) 12%, transparent); }
+#img-lightbox .qi-bar button[aria-pressed="true"] { color: var(--ink-blossom); background: color-mix(in srgb, var(--hue-blossom) 20%, var(--surface-card)); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--hue-blossom) 55%, transparent); }
+#img-lightbox .qi-bar button:disabled { opacity: 0.35; cursor: default; }
+#img-lightbox .qi-bar button:focus-visible { outline: 3px solid color-mix(in srgb, var(--hue-blossom) 50%, transparent); outline-offset: 1px; }
+#img-lightbox .qi-color span { width: 1rem; height: 1rem; border-radius: 999px; box-shadow: 0 0 0 2px var(--surface-card), 0 0 0 3.5px var(--line); }
+#img-lightbox .qi-color[data-ink-color="red"] span { background: var(--bad-solid); }
+#img-lightbox .qi-color[data-ink-color="blue"] span { background: var(--pick-solid); }
+#img-lightbox .qi-color[data-ink-color="green"] span { background: var(--ok-solid); }
+#img-lightbox .qi-color[data-ink-color="ink"] span { background: var(--ink); }
+#img-lightbox .qi-color[aria-pressed="true"] { background: none !important; box-shadow: none !important; }
+#img-lightbox .qi-color[aria-pressed="true"] span { box-shadow: 0 0 0 2px var(--surface-card), 0 0 0 4px var(--ink-blossom); transform: scale(1.12); }
+#img-lightbox .qi-sep { width: 2px; height: 1.4rem; margin: 0 0.15rem; border-radius: 2px; background: var(--line); }
+#img-lightbox .qi-x { color: var(--ink) !important; }
+@media (hover: hover) and (pointer: fine) { #img-lightbox .qi-touch { display: none !important; } }
+@media (max-width: 479px) { #img-lightbox .qi-bar button { width: 2.15rem; height: 2.15rem; } #img-lightbox .qi-sep { display: none; } }
+
+/* ============================================================
+   40) NÓI ĐỂ VIẾT VÀO BÀI LÀM TỰ LUẬN (2026-10-21) — page/quiz-dictation.js (dùng chung với ghi chú cá nhân)
+   Nút micro ở đầu ô "Bài làm của bạn"; đang nghe: nút đỏ nhịp chậm + dải chữ đang nghe dở dưới đầu ô.
+   ============================================================ */
+#quizSection .essay-sheet-lb { cursor: text; }
+#quizSection .essay-head-r { display: inline-flex; align-items: center; gap: 0.55rem; flex-shrink: 0; }
+#quizSection .essay-mic {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0.28rem 0.7rem;
+    border: 0; border-radius: 999px;
+    font: inherit; font-size: 0.74rem; font-weight: 800;
+    color: var(--ink-blossom);
+    background: color-mix(in srgb, var(--hue-blossom) 14%, var(--surface-card));
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--hue-blossom) 45%, transparent);
+    cursor: pointer;
+    transition: transform .2s var(--spring), background .15s;
+}
+#quizSection .essay-mic:hover { transform: translateY(-1px); }
+#quizSection .essay-mic:focus-visible { outline: 3px solid color-mix(in srgb, var(--hue-blossom) 50%, transparent); outline-offset: 2px; }
+#quizSection .essay-mic.is-live { color: #fff; background: var(--bad-solid); box-shadow: none; animation: essay-mic-live 1.6s ease-out infinite; }
+html.theme-dark #quizSection .essay-mic.is-live { color: #1d1819; }
+@keyframes essay-mic-live { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--bad-solid) 55%, transparent); } 100% { box-shadow: 0 0 0 9px transparent; } }
+@media (prefers-reduced-motion: reduce) { #quizSection .essay-mic.is-live { animation: none; } }
+#quizSection .essay-listen {
+    margin: 0.2rem 1rem 0.1rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 0.8rem;
+    font-size: 0.8rem; font-weight: 600; font-style: italic; line-height: 1.45;
+    color: var(--ink-muted);
+    background: color-mix(in srgb, var(--bad-solid) 7%, var(--surface-card));
+    border: 1.5px dashed color-mix(in srgb, var(--bad-solid) 35%, transparent);
+}
+#quizSection .essay-listen[hidden] { display: none; }
+@media (max-width: 479px) { #quizSection .essay-mic span { display: none; } #quizSection .essay-mic { padding: 0.4rem 0.55rem; } }

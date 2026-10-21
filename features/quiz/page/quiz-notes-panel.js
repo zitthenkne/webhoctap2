@@ -11,6 +11,7 @@ import { pushStudyToCloud } from './quiz-study-sync.js';
 import { sfx, scrollBehaviorFor } from './quiz-page-prefs.js';
 import { syncQuizNavPanel } from '../quiz-ui.js';
 import { applyMark, renderMarkControl, setupMarkControl, refreshMarkedPanel } from './quiz-marks.js';
+import { SR, toggleDictation, stopDictation } from './quiz-dictation.js';
 
 // Nhãn chèn nhanh + biểu thức nhận ra nhãn ở đầu dòng (để lọc theo nhãn ở sổ ghi chú)
 export const NOTE_TAGS = [
@@ -145,46 +146,7 @@ function autoMarkAsk(idx) {
     syncQuizNavPanel();
 }
 
-/* ---------------------------------------------------------------- Đọc để ghi */
-const SR = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
-let rec = null, recOn = false;
-function stopDictation() {
-    recOn = false;
-    if (rec) { try { rec.onend = null; rec.stop(); } catch (e) { } rec = null; }
-}
-function toggleDictation(input, ui) {
-    if (recOn) { stopDictation(); ui.off(); return; }
-    const r = new SR();
-    r.lang = 'vi-VN'; r.continuous = true; r.interimResults = true;
-    r.onresult = (ev) => {
-        let fin = '', interim = '';
-        for (let i = ev.resultIndex; i < ev.results.length; i++) {
-            const t = ev.results[i][0].transcript;
-            if (ev.results[i].isFinal) fin += t; else interim += t;
-        }
-        if (fin.trim()) {
-            const v = input.value;
-            input.value = v + (v && !/\s$/.test(v) ? ' ' : '') + fin.trim();
-            input.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        ui.interim(interim);
-    };
-    r.onerror = (e) => {
-        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-            recOn = false; ui.off();
-            showToast('Chưa được cấp quyền micro cho trang này.', 'error');
-        } else if (e.error === 'network') {
-            recOn = false; ui.off();
-            showToast('Nhận giọng nói cần có mạng.', 'error');
-        }
-    };
-    // Trình duyệt tự ngắt sau một quãng lặng -> nối lại nếu người dùng chưa bấm dừng
-    r.onend = () => {
-        if (!recOn) { ui.off(); return; }
-        try { r.start(); } catch (e) { recOn = false; ui.off(); }
-    };
-    try { recOn = true; rec = r; r.start(); ui.on(); } catch (e) { recOn = false; rec = null; ui.off(); }
-}
+/* ---------------------------------------------------------------- Đọc để ghi: page/quiz-dictation.js (dùng chung với ô tự luận) */
 
 /* ---------------------------------------------------------------- Gõ danh sách thông minh */
 function lineBounds(v, pos) {
@@ -492,7 +454,7 @@ export function setupPersonalNote(question) {
             off() { micBtn.classList.remove('is-live'); micBtn.setAttribute('aria-pressed', 'false'); listenEl.classList.add('hidden'); },
             interim(t) { listenEl.textContent = t ? 'Đang nghe… ' + t : 'Đang nghe… cứ nói, chữ sẽ nối vào ghi chú'; }
         };
-        micBtn.addEventListener('click', () => toggleDictation(noteInput, ui));
+        micBtn.addEventListener('click', () => toggleDictation(() => noteInput, ui));
     }
 
     // Sổ ghi chú cả bộ đề (nạp lười: chỉ tốn khi bấm)

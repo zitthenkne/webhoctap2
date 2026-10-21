@@ -40,6 +40,7 @@ import { setupTabletNext } from './page/quiz-tablet-next.js';
 import { setupQuizBoost } from './page/quiz-boost.js';
 import { setupReasoningSettings } from './page/quiz-reasoning.js';
 import { setupSettingsNav } from './page/quiz-settings-nav.js';
+import { setupInk } from './page/quiz-ink.js';
 import { setupQuizTools } from './page/quiz-tools.js';
 import { setupFocus } from './page/quiz-focus.js';
 import { setupFind } from './page/quiz-find.js';
@@ -329,6 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupResizers();       // Kéo giãn độ rộng 3 cột + nhớ theo thiết bị
     setupAnnotations();    // #9: ghi chú trực quan (bôi vàng / in đậm / in nghiêng)
     setupLightbox();       // #13: phóng to ảnh
+    setupInk();            // vẽ / viết ghi chú lên hình trong đề: Apple Pencil viết thẳng, khung phóng to có thanh bút
     setupQuestionEditor(showQuestion); // Chỉnh sửa câu hỏi (đáp án/giải thích/ghi chú/mở rộng) ngay khi làm bài
     setupSwipe();          // #3: vuốt chuyển câu
     setupMobileNav();      // Thanh điều hướng đáy + bảng nhảy câu (mobile)

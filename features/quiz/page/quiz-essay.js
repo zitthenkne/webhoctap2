@@ -8,6 +8,7 @@
 //   tắt  -> gõ tự do; nộp bài thì máy chấm sơ bộ, đáp án + barem mở ở màn kết quả (điểm cập nhật tức thì)
 
 import { showToast } from '../../../core/utils.js';
+import { SR, toggleDictation } from './quiz-dictation.js';
 import { scrollBehaviorFor, sfx } from './quiz-page-prefs.js';
 import { state, saveQuizState } from '../quiz-state.js';
 import { parseMarkdown, renderMath } from '../quiz-helpers.js';
@@ -348,13 +349,16 @@ export function essayCardHtml(q, idx) {
         ? `<div id="essay-read" class="essay-read">${answerReadHtml(q, ans, true)}</div>`
         : inputsHtml(q, ans, done);
     const kind = formatOf(q).kind;
+    // Nói để viết (page/quiz-dictation.js) — chỉ khi còn làm được và trình duyệt có nhận giọng nói
+    const mic = !done && SR ? '<button type="button" id="essay-mic" class="essay-mic" aria-pressed="false" title="Nói để viết vào bài làm (tiếng Việt). Nói “xuống dòng”, “gạch đầu dòng”, “dấu chấm”, “dấu phẩy” để chấm câu"><i class="fas fa-microphone"></i><span>Nói để viết</span></button>' : '';
     return `
     <div id="essay-area" class="essay-area">
         <div class="essay-sheet is-${kind}${done ? ' is-done' : ''}">
-            <label ${kind === 'text' || kind === 'short' ? 'for="essay-input" ' : ''}class="essay-sheet-head">
-                <span><i class="fas fa-pen"></i> Bài làm của bạn</span>
-                <span id="essay-wc" class="essay-wc">${countWords(text)} từ</span>
-            </label>
+            <div class="essay-sheet-head">
+                <label ${kind === 'text' || kind === 'short' ? 'for="essay-input" ' : ''}class="essay-sheet-lb"><i class="fas fa-pen"></i> Bài làm của bạn</label>
+                <span class="essay-head-r">${mic}<span id="essay-wc" class="essay-wc">${countWords(text)} từ</span></span>
+            </div>
+            ${mic ? '<div id="essay-listen" class="essay-listen" hidden aria-live="polite"></div>' : ''}
             ${sheetBody}
             ${locked ? lockNoteHtml() : ''}
         </div>
@@ -386,6 +390,20 @@ export function setupEssay(idx) {
     const inputs = [...document.querySelectorAll('#essay-area #essay-input, #essay-area .essay-part')];
     inputs.forEach(autoGrow);
     if (!inputs.length || inputs[0].readOnly) return;
+    // Nói để viết: chữ vào ô chạm gần nhất (chưa chạm ô nào: ô đầu), chèn đúng chỗ con trỏ
+    const mic = document.getElementById('essay-mic'), listen = document.getElementById('essay-listen');
+    if (mic && listen) {
+        let target = inputs[0];
+        inputs.forEach(el => el.addEventListener('focus', () => { target = el; }));
+        const HINT = 'Đang nghe… nói “xuống dòng”, “gạch đầu dòng”, “dấu chấm”, “dấu phẩy” để chấm câu';
+        const lab = mic.querySelector('span');
+        const ui = {
+            on() { mic.classList.add('is-live'); mic.setAttribute('aria-pressed', 'true'); lab.textContent = 'Dừng nghe'; listen.hidden = false; listen.textContent = HINT; },
+            off() { mic.classList.remove('is-live'); mic.setAttribute('aria-pressed', 'false'); lab.textContent = 'Nói để viết'; listen.hidden = true; },
+            interim(t) { listen.textContent = t ? `… ${t}` : HINT; },
+        };
+        mic.addEventListener('click', () => toggleDictation(() => target, ui));
+    }
     const onChange = () => {
         const had = state.userAnswers[idx] != null;
         const cur = state.userAnswers[idx];

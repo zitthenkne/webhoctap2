@@ -158,6 +158,8 @@
     <link rel="modulepreload" href="page/quiz-question-view.js">
     <link rel="modulepreload" href="page/quiz-reasoning.js">
     <link rel="modulepreload" href="page/quiz-settings-nav.js">
+    <link rel="modulepreload" href="page/quiz-ink.js">
+    <link rel="modulepreload" href="page/quiz-dictation.js">
     <link rel="modulepreload" href="page/quiz-session.js">
     <link rel="modulepreload" href="page/quiz-study-sync.js">
     <link rel="modulepreload" href="quiz-editor.js">
@@ -1712,7 +1714,26 @@
     </div>
 
     <!-- Lớp phủ phóng to ảnh -->
-    <div id="img-lightbox" class="hidden"><img src="" alt="Ảnh phóng to" /></div>
+    <!-- Phóng to ảnh + thanh bút vẽ ghi chú lên hình (page/quiz-ink.js). Bấm nền / × / Esc để đóng -->
+    <div id="img-lightbox" class="hidden">
+        <div class="qi-stage"><img src="" alt="Ảnh phóng to" /><canvas class="qi-ink" aria-hidden="true"></canvas></div>
+        <div class="qi-bar" role="toolbar" aria-label="Bút ghi chú lên hình">
+            <button type="button" data-ink-pen="pen" title="Bút" aria-label="Bút"><i class="fas fa-pen"></i></button>
+            <button type="button" data-ink-pen="hl" title="Bút dạ quang" aria-label="Bút dạ quang"><i class="fas fa-marker"></i></button>
+            <button type="button" data-ink-pen="erase" title="Tẩy (vuốt qua nét)" aria-label="Tẩy"><i class="fas fa-eraser"></i></button>
+            <span class="qi-sep" aria-hidden="true"></span>
+            <button type="button" class="qi-color" data-ink-color="red" title="Đỏ" aria-label="Màu đỏ"><span></span></button>
+            <button type="button" class="qi-color" data-ink-color="blue" title="Xanh dương" aria-label="Màu xanh dương"><span></span></button>
+            <button type="button" class="qi-color" data-ink-color="green" title="Xanh lá" aria-label="Màu xanh lá"><span></span></button>
+            <button type="button" class="qi-color" data-ink-color="ink" title="Mực" aria-label="Màu mực"><span></span></button>
+            <span class="qi-sep" aria-hidden="true"></span>
+            <button type="button" data-ink-act="undo" title="Hoàn tác (Ctrl+Z)" aria-label="Hoàn tác"><i class="fas fa-rotate-left"></i></button>
+            <button type="button" data-ink-act="redo" title="Làm lại (Ctrl+Y)" aria-label="Làm lại"><i class="fas fa-rotate-right"></i></button>
+            <button type="button" data-ink-act="clear" title="Xóa hết nét trên hình này (hoàn tác được)" aria-label="Xóa hết nét"><i class="fas fa-trash-can"></i></button>
+            <button type="button" class="qi-touch" data-ink-act="finger" title="Cho ngón tay vẽ (tắt khi dùng Apple Pencil để tì tay)" aria-label="Vẽ bằng ngón tay"><i class="fas fa-hand"></i></button>
+            <button type="button" class="qi-x" data-ink-act="close" title="Đóng (Esc)" aria-label="Đóng"><i class="fas fa-times"></i></button>
+        </div>
+    </div>
 
     <!-- Bảng phím tắt & thao tác: phím ? hoặc nút "Phím tắt" (trang chờ / bảng thiết lập / dưới thẻ câu hỏi) -->
     <div id="kbd-sheet" class="hidden" role="dialog" aria-modal="true" aria-labelledby="kbd-sheet-title">
