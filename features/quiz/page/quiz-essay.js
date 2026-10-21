@@ -15,7 +15,7 @@ import {
     rubricOf, essayPoints, essayMaxPoints, essayCredit, questionWeight, isEssayGraded, countWords,
     isLockedByReveal, autoMatch, withAutoGrade, missingCritical, modelCoverage, formatOf, answerDocs, partsText
 } from '../quiz-essay-core.js';
-import { syncQuizNavPanel, studyExtrasHtml } from '../quiz-ui.js';
+import { syncQuizNavPanel, studyExtrasHtml, studyReasonHtml } from '../quiz-ui.js';
 import { caseKeyOf } from './quiz-cases.js';
 import { updateMobileNav } from './quiz-mobile-nav.js';
 import { showQuestion, showNextQuestion } from './quiz-question-view.js';
@@ -311,7 +311,7 @@ export function gradeHtml(q, idx, ans) {
     </div>`;
 }
 
-// Màn kết quả: bài của mình (tô chữ khớp) -> đáp án mẫu -> barem, xếp dọc
+// Màn kết quả: bài của mình (tô chữ khớp) -> hướng tư duy -> đáp án mẫu -> barem, xếp dọc
 export function essayReviewHtml(q, idx, ans) {
     wireGrading();
     return `<div class="essay-review">
@@ -319,9 +319,10 @@ export function essayReviewHtml(q, idx, ans) {
             <div class="essay-mine-head"><i class="fas fa-pen"></i> Bài làm của bạn</div>
             <div class="essay-mine-text">${hasText(ans) ? answerReadHtml(q, ans, true) : '<i>Bỏ trống</i>'}</div>
         </div>
+        ${studyReasonHtml(q)}
         ${modelHtml(q)}
         ${gradeHtml(q, idx, ans)}
-        ${studyExtrasHtml(q)}
+        ${studyExtrasHtml(q, false)}
     </div>`;
 }
 

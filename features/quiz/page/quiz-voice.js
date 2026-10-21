@@ -300,5 +300,6 @@ export function openVoiceSettings() {
     const fab = $('quiz-settings-fab'), pop = $('quiz-settings-popover'), sel = $('qs-voice');
     if (!fab || !pop) return;
     if (pop.classList.contains('hidden-pop')) fab.click();
+    setTimeout(() => pop.querySelector('[data-qs-tab="sound"]')?.click(), 20);   // giọng đọc nằm ở tab Âm thanh (page/quiz-settings-nav.js)
     if (sel) setTimeout(() => { sel.scrollIntoView({ block: 'center' }); }, 60);
 }

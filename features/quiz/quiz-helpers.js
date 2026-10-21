@@ -672,6 +672,97 @@ export function splitRunOn(text) {
 // chữ "\n" thô -> xuống dòng ("\neq", "\nu" trong công thức: sau \n là chữ thường -> giữ), chặng / What-if dính dòng -> tách.
 export const fixLines = (s) => splitRunOn(String(s ?? '').replace(/\\n(?![a-z])/g, '\n'));
 
+// TRÍCH DẪN ">" + CALLOUT kiểu Obsidian (2026-10-21 — AI hay tự chèn, trước đây hiện nguyên dấu ">" và "[!tip]"):
+//   > [!tip] Tiêu đề        khối màu có đầu mục (bỏ trống tiêu đề = tên mặc định theo loại)
+//   > [!warning]- Tiêu đề   gập sẵn, bấm để mở  ·  [!note]+ = gập được nhưng mở sẵn
+//   > chữ thường            trích dẫn vạch trái; dòng đầu mở bằng ⚠️ 💡 📌 🔴 ✅ ❓ ℹ️ … thì tô màu theo emoji
+// Nội dung trong khối parse ĐỆ QUY (danh sách, bảng, khối lồng ">>"); công thức / mermaid / widget đã cất chỗ giữ từ trước nên đi qua nguyên vẹn.
+const CO = {
+    note: ['sky', 'fa-pen', 'Ghi chú'], info: ['sky', 'fa-circle-info', 'Thông tin'], todo: ['sky', 'fa-list-check', 'Cần làm'],
+    abstract: ['mint', 'fa-list', 'Tóm tắt'], tip: ['butter', 'fa-lightbulb', 'Mẹo'], important: ['blossom', 'fa-thumbtack', 'Quan trọng'],
+    success: ['mint', 'fa-circle-check', 'Đúng'], question: ['lav', 'fa-circle-question', 'Câu hỏi'],
+    warning: ['peach', 'fa-triangle-exclamation', 'Lưu ý'], failure: ['bad', 'fa-times-circle', 'Sai lầm'],
+    danger: ['bad', 'fa-circle-exclamation', 'Nguy hiểm'], bug: ['bad', 'fa-circle-exclamation', 'Lỗi'],
+    example: ['lav', 'fa-list-ol', 'Ví dụ'], quote: ['latte', 'fa-book-open', 'Trích dẫn'],
+};
+const CO_ALIAS = {
+    summary: 'abstract', tldr: 'abstract', hint: 'tip', check: 'success', done: 'success', help: 'question', faq: 'question',
+    caution: 'warning', attention: 'warning', fail: 'failure', missing: 'failure', error: 'danger', cite: 'quote',
+    'ghi-chu': 'note', 'thong-tin': 'info', 'tom-tat': 'abstract', meo: 'tip', 'meo-nho': 'tip', 'ghi-nho': 'tip', 'quan-trong': 'important',
+    'gv-nhan': 'important', 'luu-y': 'warning', 'canh-bao': 'warning', bay: 'warning', 'nguy-hiem': 'danger', 'co-do': 'danger',
+    'sai-lam': 'failure', 'vi-du': 'example', 'cau-hoi': 'question', dung: 'success', 'trich-dan': 'quote', 'co-che': 'info',
+};
+const CO_EMOJI = [[/^(?:⚠️?|❗|‼️?)/u, 'peach'], [/^(?:💡|🔑)/u, 'butter'], [/^📌/u, 'blossom'], [/^(?:🔴|🚨|⛔|❌)/u, 'bad'],
+    [/^(?:✅|✔️?)/u, 'mint'], [/^(?:❓|🤔)/u, 'lav'], [/^(?:ℹ️?|📝|🧠)/u, 'sky']];
+const coKey = (t) => {
+    const k = String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().trim().replace(/[\s_]+/g, '-');
+    return CO[k] ? k : CO_ALIAS[k] || '';
+};
+const PH_TOKEN = { widget: 'WIDGET', mermaid: 'MERMAID', svg: 'SVG', math_block: 'MATHBLOCK', math_inline: 'MATHINLINE', quote: 'QUOTE' };
+const QUOTE_START = /^\s*>(?!\s*[\d=])/;   // "> 140 lần/phút" ở đầu dòng là phép so sánh, không phải trích dẫn
+const CO_CSS = `.quiz-quote{--co:var(--hue-lav,#B9A2F0);--co-ink:var(--ink-lav,#6A4FB8)}
+.quiz-callout{--co:var(--hue-sky,#7EC0EE);--co-ink:var(--ink-sky,#2D6FA3)}
+.co-sky{--co:var(--hue-sky,#7EC0EE);--co-ink:var(--ink-sky,#2D6FA3)}.co-mint{--co:var(--hue-mint,#6FD1AE);--co-ink:var(--ink-mint,#23805F)}
+.co-butter{--co:var(--hue-butter,#F2BE2E);--co-ink:var(--ink-butter,#8C6500)}.co-peach{--co:var(--hue-peach,#F79A5E);--co-ink:var(--ink-peach,#B0551C)}
+.co-lav{--co:var(--hue-lav,#B9A2F0);--co-ink:var(--ink-lav,#6A4FB8)}.co-blossom{--co:var(--hue-blossom,#FF8FB8);--co-ink:var(--ink-blossom,#C8487A)}
+.co-latte{--co:var(--hue-latte,#C8A07A);--co-ink:var(--ink-latte,#83603F)}.co-bad{--co:var(--bad-solid,#E4646C);--co-ink:var(--bad-ink,#A33A42)}
+.quiz-callout{display:block;margin:.55rem 0;border:1.5px solid color-mix(in srgb,var(--co) 42%,transparent);border-left-width:5px;border-radius:14px;overflow:hidden;
+background:color-mix(in srgb,var(--co) 10%,var(--surface-card,#fff));--em-b:var(--co-ink);--em-i:var(--co-ink)}
+.qco-head{display:flex;align-items:center;gap:.5rem;padding:.42rem .8rem;font-weight:800;line-height:1.35;color:var(--co-ink);background:color-mix(in srgb,var(--co) 15%,transparent)}
+.quiz-callout>summary.qco-head{cursor:pointer;list-style:none;user-select:none}.quiz-callout>summary.qco-head::-webkit-details-marker{display:none}
+.quiz-callout:not([open])>summary.qco-head{background:none}
+.qco-ic{display:grid;place-items:center;flex-shrink:0;width:1.55rem;height:1.55rem;border-radius:999px;font-size:.72rem;background:var(--surface-card,#fff);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--co) 60%,transparent)}
+.qco-t{flex:1;min-width:0}.qco-chev{flex-shrink:0;font-size:.68rem;opacity:.75;transition:transform .2s}.quiz-callout[open]>summary .qco-chev{transform:rotate(180deg)}
+.qco-body{padding:.5rem .85rem .6rem}.qco-body>:first-child{margin-top:0}.qco-body>:last-child{margin-bottom:0}
+.quiz-quote{display:block;margin:.55rem 0;padding:.45rem .85rem;border-left:4px solid color-mix(in srgb,var(--co) 70%,transparent);border-radius:4px 12px 12px 4px;
+background:color-mix(in srgb,var(--co) 9%,transparent);--em-b:var(--co-ink);--em-i:var(--co-ink)}
+.quiz-quote>:first-child{margin-top:0}.quiz-quote>:last-child{margin-bottom:0}
+.question-text :is(.quiz-callout,.quiz-quote){font-size:.86em}.question-text :is(.qco-body,.quiz-quote){font-weight:500}`;   // trong đề: đừng to + đậm bằng chính câu hỏi
+let _coCss = false;
+function ensureCalloutCss() {
+    if (_coCss || typeof document === 'undefined' || !document.head) return;
+    _coCss = true;
+    const st = document.createElement('style');
+    st.id = 'quiz-callout-css';
+    st.textContent = CO_CSS;
+    document.head.prepend(st);   // đặt ĐẦU head: CSS riêng của từng trang (vd. quiz-min) vẫn ghi đè được
+}
+function quoteHtml(lines) {
+    ensureCalloutCss();
+    const first = String(lines[0] || '').trim();
+    const m = /^\[!([^\]\n]+)\]([+-]?)[ \t]*(.*)$/.exec(first);
+    if (!m) {
+        const emo = CO_EMOJI.find(([re]) => re.test(first.replace(/^\*\*\s*/, '')));
+        return `<blockquote class="quiz-quote${emo ? ' co-' + emo[1] : ''}">${parseMarkdown(lines.join('\n'))}</blockquote>`;
+    }
+    const key = coKey(m[1]);
+    const [hue, icon, label] = CO[key] || CO.note;
+    const title = m[3].trim() ? parseInlineMarkdown(m[3].trim()) : _escHtml(key ? label : m[1].trim());
+    const inner = parseMarkdown(lines.slice(1).join('\n'));
+    const head = `<span class="qco-ic" aria-hidden="true"><i class="fas ${icon}"></i></span><span class="qco-t">${title}</span>`;
+    const body = inner ? `<div class="qco-body">${inner}</div>` : '';
+    if (m[2]) return `<details class="quiz-callout co-${hue}" data-co="${key || 'note'}"${m[2] === '+' ? ' open' : ''}><summary class="qco-head">${head}<i class="fas fa-chevron-down qco-chev" aria-hidden="true"></i></summary>${body}</details>`;
+    return `<div class="quiz-callout co-${hue}" data-co="${key || 'note'}"><div class="qco-head">${head}</div>${body}</div>`;
+}
+function quoteBlocks(src, placeholders) {
+    if (!src.includes('>')) return src;
+    const lines = src.split('\n'), out = [];
+    for (let i = 0; i < lines.length; i++) {
+        if (!QUOTE_START.test(lines[i])) { out.push(lines[i]); continue; }
+        const body = [];
+        for (; i < lines.length && /^\s*>/.test(lines[i]); i++) body.push(lines[i].replace(/^\s*>[ \t]?/, ''));
+        i--;
+        // AI hay viết 2 callout liền nhau không chừa dòng trống: dòng "[!loại]" giữa khối = mở callout MỚI (không để lộ chữ "[!tip]")
+        const segs = [[]];
+        body.forEach((l, k) => { if (k && /^\[![^\]\n]+\]/.test(l.trim())) segs.push([]); segs[segs.length - 1].push(l); });
+        segs.forEach((seg) => {
+            out.push(`<!--QUOTEPLACEHOLDER${placeholders.length}-->`);
+            placeholders.push({ type: 'quote', content: quoteHtml(seg) });
+        });
+    }
+    return out.join('\n');
+}
+
 export function parseMarkdown(text) {
     if (text === null || text === undefined) return '';
     if (typeof text === 'object') {
@@ -782,6 +873,9 @@ export function parseMarkdown(text) {
     const NOT_BLOCK = '(?![-*+]\\s|\\d+\\.\\s|[a-zA-Z]\\.\\s|\\||\\s{2})';
     html = html.replace(new RegExp(`([^\\s.:;?!>*|])[ \\t]*\\n[ \\t]*(${MI})`, 'g'), '$1 $2')
                .replace(new RegExp(`(${MI})[ \\t]*\\n[ \\t]*(?=[a-zà-ỹ),;.\\]])${NOT_BLOCK}`, 'g'), '$1 ');
+
+    // 3d. Trích dẫn ">" / callout "> [!tip]" -> khối màu (quoteBlocks ở trên), làm TRƯỚC khi chia dòng để danh sách / bảng bên trong khối đi cùng khối
+    html = quoteBlocks(html, placeholders);
 
     // Bách phân vị "<p3", "<p10" ngoài $…$: trình duyệt hiểu là thẻ <p3 …> và nuốt chữ tới dấu > kế tiếp (mất cả ô bảng)
     html = html.replace(/<(?=[a-z]\d)(?![hH][1-6]\b)/gi, '&lt;');
@@ -986,7 +1080,8 @@ export function parseMarkdown(text) {
     
     // 5. Khôi phục lại các khối đã bảo vệ bằng cách thay thế an toàn (dùng callback để tránh lỗi ký tự $)
     for (let i = placeholders.length - 1; i >= 0; i--) {
-        const placeholderPattern = new RegExp(`<!--(?:WIDGET|MERMAID|SVG|MATHBLOCK|MATHINLINE)PLACEHOLDER${i}-->`, 'g');
+        // đúng LOẠI chỗ giữ: khối ">" lồng nhau parse đệ quy có mảng riêng đánh số lại từ 0 — không được thay nhầm công thức của lớp ngoài
+        const placeholderPattern = new RegExp(`<!--${PH_TOKEN[placeholders[i].type]}PLACEHOLDER${i}-->`, 'g');
         html = html.replace(placeholderPattern, () => placeholders[i].content);
     }
     return html;

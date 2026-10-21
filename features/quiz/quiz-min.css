@@ -510,3 +510,9 @@ html.ui-min body #quizSection #reason-area.kb-card { border: 1.5px solid var(--b
 html.ui-min #reason-area .kb-title, html.ui-min #reason-area .kb-ic { color: var(--ink-lav) !important; }
 html.ui-min #reason-area .kb-body { padding: .35rem 0 0 !important; }
 html.ui-min .qr-cue, html.ui-min .qr-step-main, html.ui-min .qr-node, html.ui-min .qr-goal { box-shadow: none; }
+
+/* Bảng Ngựa thì chỉnh gọn lại (2026-10-21, quiz-stationery.css §38): giữ tab + gợi ý, nền phẳng theo tinh gọn */
+html.ui-min #quiz-settings-popover .qs-top { background: var(--surface-card) !important; border-bottom: 1px solid var(--m-line) !important; }
+html.ui-min #quiz-settings-popover .qs-presets { border-width: 1.5px; }
+html.ui-min #quiz-settings-popover .qs-preset, html.ui-min #quiz-settings-popover .qs-tab[aria-selected="true"] { box-shadow: inset 0 0 0 1.5px var(--m-line) !important; }
+html.ui-min #quiz-settings-popover .qs-preset[aria-pressed="true"] { box-shadow: inset 0 0 0 1.5px var(--hue-butter) !important; }

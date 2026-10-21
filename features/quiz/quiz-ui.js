@@ -15,13 +15,17 @@ import { wrongItemsMarkdown, wrongItemsCsv } from './quiz-export.js';
 
 // Ghi nhớ + Mở rộng kiến thức của một câu ở màn kết quả (trắc nghiệm lẫn tự luận) — chế độ
 // "nộp xong mới mở đáp án" không có dịp xem hai thẻ này trong lúc làm bài.
-export function studyExtrasHtml(q) {
+export function studyReasonHtml(q) {
+    const reason = q ? reasoningBodyHtml(q, false) : '';
+    return reason ? `<div class="study-extra is-reason"><div class="study-extra-head"><i class="fas fa-brain"></i> Quét dữ kiện & hướng tư duy</div>
+            <div class="study-extra-body qr">${reason}</div></div>` : '';
+}
+// withReason = false: chỗ gọi đã tự đặt khối Hướng tư duy ở vị trí riêng (tự luận: ngay dưới bài làm)
+export function studyExtrasHtml(q, withReason = true) {
     const note = String((q && q.note) || '').trim();
     const more = String((q && q.expanded) || '').trim();
-    const reason = q ? reasoningBodyHtml(q, false) : '';
-    return (reason ? `<div class="study-extra is-reason"><div class="study-extra-head"><i class="fas fa-brain"></i> Quét dữ kiện & hướng tư duy</div>
-            <div class="study-extra-body qr">${reason}</div></div>` : '')
-        + (note ?`<div class="study-extra is-memo"><div class="study-extra-head"><i class="fas fa-lightbulb"></i> Ghi nhớ</div>
+    return (withReason ? studyReasonHtml(q) : '')
+        + (note ? `<div class="study-extra is-memo"><div class="study-extra-head"><i class="fas fa-lightbulb"></i> Ghi nhớ</div>
             <div class="study-extra-body">${parseMarkdown(note)}</div></div>` : '')
         + (more ? `<details class="study-extra is-more" open><summary class="study-extra-head"><i class="fas fa-book-open"></i> Mở rộng kiến thức<i class="fas fa-chevron-down study-extra-chev" aria-hidden="true"></i></summary>
             <div class="study-extra-body">${parseMarkdown(more)}</div></details>` : '');

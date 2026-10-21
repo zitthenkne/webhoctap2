@@ -655,14 +655,7 @@ html.theme-dark .qs-group-title--horse {
     overscroll-behavior: contain;
 }
 
-/* Nhóm điều khiển chỉ liên quan khi đang làm bài -> ẩn ở màn cấu hình */
-#qs-quiz-controls {
-    display: none;
-}
-
-body.quiz-active #qs-quiz-controls {
-    display: block;
-}
+/* (2026-10-21) #qs-quiz-controls đã gỡ: mục chỉ dùng khi đang làm bài mang lớp .qs-quiz-only — quiz-stationery.css §38 */
 
 /* Hàng "Cỡ chữ": nhãn trái + cụm nút A-/A/A+ bên phải */
 .qs-row-fontsize {

@@ -39,6 +39,7 @@ import { setupMobileNav } from './page/quiz-mobile-nav.js';
 import { setupTabletNext } from './page/quiz-tablet-next.js';
 import { setupQuizBoost } from './page/quiz-boost.js';
 import { setupReasoningSettings } from './page/quiz-reasoning.js';
+import { setupSettingsNav } from './page/quiz-settings-nav.js';
 import { setupQuizTools } from './page/quiz-tools.js';
 import { setupFocus } from './page/quiz-focus.js';
 import { setupFind } from './page/quiz-find.js';
@@ -334,6 +335,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupTabletNext();     // iPad: nút Câu tiếp nổi khi nút trong thẻ ngoài màn hình
     setupQuizBoost();      // gói nâng cấp 2026-10-05: gập thẻ dài, chọn lại, nghe đọc, phím tắt, nhịp độ...
     setupReasoningSettings(showQuestion);   // nhóm "Hướng tư duy" trong bảng thiết lập: tô dữ kiện / từng bước / hiệu ứng quét
+    setupSettingsNav();    // bảng Ngựa thì chỉnh: 4 tab theo nhu cầu, gợi ý 1 chạm theo kiểu học, ô tìm thiết lập (gọi SAU mọi công tắc)
     setupQuizTools();      // giấy nháp (Apple Pencil) + máy tính / công thức: ngăn ghép cạnh bài, chỉ đóng khi bấm ×
     setupFocus();          // chế độ tập trung v2: thanh mảnh, toàn màn hình, nhắc nghỉ mắt, Esc
     setupFind();           // Ctrl+K / "/": tìm và nhảy câu
