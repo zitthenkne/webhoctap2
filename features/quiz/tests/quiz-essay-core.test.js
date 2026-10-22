@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import {
     isEssay, keyPointsOf, essayMaxPoints, essayCredit, isEssayGraded, isPendingEssay, isLockedByReveal,
     essayPoints, missingCritical, rubricOf, questionWeight, autoMatch, withAutoGrade, needsReview, modelCoverage,
-    formatOf, answerDocs, partsText, rubricToText, textToRubric, remapFields
+    formatOf, answerDocs, partsText, rubricToText, textToRubric, remapFields,
+    sheetOf, unitScore, splitModel, splitChot, studyLayers, answerTextOf
 } from '../quiz-essay-core.js';
 import { isAnswerCorrect, answerCredit } from '../quiz-helpers.js';
 
@@ -265,4 +266,96 @@ test('remapFields: ý barem gắn ô đi theo ô khi chèn / xóa / đổi thứ
     assert.equal('field' in d[1], false);
     assert.equal(d[2].items[0].field, 2);
     assert.equal(remapFields(kp, undefined), kp);                    // không có order -> giữ nguyên
+});
+
+// ---- Phiếu chấm bản 2: tách tự động bộ đã nạp (không sửa dữ liệu, không mất chữ) ----
+test('why: chuẩn hóa + khứ hồi dạng dòng chữ', () => {
+    const kp = [{ text: 'MgSO4', points: 0.5, keywords: ['magnesium'], why: 'Giảm 50% sản giật' }];
+    assert.equal(rubricOf(essay({ keyPoints: kp })).items[0].why, 'Giảm 50% sản giật');
+    const txt = rubricToText(kp);
+    assert.match(txt, /\{vì sao: Giảm 50% sản giật\}$/);
+    assert.deepEqual(textToRubric(txt), kp);
+    // có cả thứ tự lẫn vì sao, viết mẫu
+    const ord = [{ text: 'Đúng thứ tự', points: 1, order: ['A', 'B'], why: 'Sai thứ tự 0 điểm', example: 'Khám A rồi mới B' }];
+    assert.deepEqual(textToRubric(rubricToText(ord)), ord);
+    assert.deepEqual(textToRubric('- Trấn an (1đ) {viết mẫu: Chị bình tĩnh, kết quả này chưa phải chẩn đoán}'),
+        [{ text: 'Trấn an', points: 1, example: 'Chị bình tĩnh, kết quả này chưa phải chẩn đoán' }]);
+});
+
+test('answerTextOf: đáp án mẫu nếu có, không thì dựng từ checklist (bỏ lỗi trừ điểm, kèm viết mẫu)', () => {
+    assert.equal(answerTextOf(essay({ modelAnswer: 'Mẫu', keyPoints: [{ text: 'A' }] })), 'Mẫu');
+    assert.equal(answerTextOf(essay({ keyPoints: [{ text: 'A', example: 'Viết A' }, { text: 'B' }, { text: 'Lỗi', points: -1 }] })),
+        '- A — viết mẫu: Viết A\n- B');
+});
+
+test('sheetOf: barem gắn ô -> mỗi ô một hàng (+ hàng "cả bài"); không gắn ô -> một hàng', () => {
+    const fmt = { kind: 'fields', labels: ['Chẩn đoán', 'Xử trí'] };
+    const s = sheetOf(essay({
+        answerFormat: fmt,
+        keyPoints: [{ text: 'A', field: 1 }, { text: 'B', field: 2 }, { text: 'C' }, { group: 'Nhóm', items: [{ text: 'D', field: 2 }, { text: 'E', field: 2 }] }, { text: 'Lỗi', points: -0.5 }],
+    }));
+    assert.equal(s.split, true);
+    assert.deepEqual(s.rows.map(r => [r.field, r.units.length]), [[1, 1], [2, 2], [0, 1]]);
+    assert.deepEqual(s.pens, [5]);
+    const one = sheetOf(essay({ answerFormat: fmt, keyPoints: [{ text: 'A' }, { text: 'B' }] }));
+    assert.equal(one.split, false);
+    assert.equal(one.rows.length, 1);
+    // điểm theo unit: nhóm có trần
+    const q = essay({ keyPoints: [{ group: 'g', max: 1, items: [{ text: 'x', points: 1 }, { text: 'y', points: 1 }] }] });
+    assert.deepEqual(unitScore(q, sheetOf(q).rows[0].units[0], { ticks: [0, 1] }), { got: 1, max: 1 });
+});
+
+test('splitModel: tách theo mục khi số mục = số ô, giữ đoạn mở đầu, không nhận nhầm dòng nội dung', () => {
+    const q = essay({ modelAnswer: 'Mở đầu:\n\n1. **Bản chất NT:**\n- lớp dịch\n\n2. **Ý nghĩa:**\n- sàng lọc\n- không chẩn đoán' });
+    const p = splitModel(q, 2);
+    assert.deepEqual(p.map(x => x.title), ['Bản chất NT', 'Ý nghĩa']);
+    assert.match(p[0].body, /^Mở đầu:/);
+    assert.match(p[0].body, /lớp dịch$/);
+    assert.equal(p[1].body, '- sàng lọc\n- không chẩn đoán');
+    assert.equal(splitModel(q, 3), null);                                     // số mục lệch -> không tách
+    assert.deepEqual(splitModel(essay({ modelAnswer: 'a. Diễn biến:\n- x\nb. Lỗi chủ quan:\n- y' }), 2).map(x => x.title), ['Diễn biến', 'Lỗi chủ quan']);
+    assert.equal(splitModel(essay({ modelAnswer: '1. Kháng sinh: ceftriaxone\n2. Dịch truyền: NaCl' }), 2), null);   // nội dung, không phải tiêu đề
+    // Tiêu đề CON vô tình đủ số mục (bộ APP 4.6 thật): tên mục không chung tiếng nào với tên ô -> không tách
+    const fmt = { kind: 'fields', labels: ['Quyết định can thiệp', 'Lí giải & Kế hoạch theo dõi'] };
+    assert.equal(splitModel(essay({ answerFormat: fmt, modelAnswer: 'Chọn b.\n3. **Quản lý chặt chẽ giai đoạn 2:**\n- x\n4. **Quản lý giai đoạn 3 và hậu sản:**\n- y' }), 2), null);
+    // Đoạn mở đầu dài (cả bài viết liền trước mục 1) -> không tách
+    assert.equal(splitModel(essay({ modelAnswer: 'x '.repeat(200) + '\n1. **A:**\n- a\n2. **B:**\n- b' }), 2), null);
+    // Tên mục chung tiếng với tên ô -> tách
+    const ok = { kind: 'fields', labels: ['a. Phân tích yếu tố khách quan', 'b. Phân tích lỗi chủ quan'] };
+    assert.ok(splitModel(essay({ answerFormat: ok, modelAnswer: 'a. Diễn biến khách quan:\n- x\nb. Yếu tố lỗi chủ quan:\n- y' }), 2));
+});
+
+test('splitChot: dòng Chốt của ghi nhớ lên dải Chốt, trùng explanation thì giữ một', () => {
+    const a = splitChot(essay({ explanation: 'X là sàng lọc', note: '📌 Chốt: NT dày chưa phải Down.\n⚠️ Bẫy: quên trấn an' }));
+    assert.deepEqual(a.chot, ['X là sàng lọc', 'NT dày chưa phải Down.']);
+    assert.equal(a.note, '⚠️ Bẫy: quên trấn an');
+    const b = splitChot(essay({ explanation: 'MgSO4 trước hạ áp sau', note: '**🎯 Chốt & Phản xạ:** MgSO4 trước hạ áp sau' }));
+    assert.deepEqual(b.chot, ['MgSO4 trước hạ áp sau']);
+    assert.equal(b.note, '');
+    const c = splitChot(essay({ note: '- Nhớ nhanh: 4T' }));                  // không có dòng Chốt -> note nguyên vẹn
+    assert.deepEqual(c, { chot: [], note: '- Nhớ nhanh: 4T' });
+});
+
+test('studyLayers: tách thẻ ghi nhớ, khúc bẫy của Mở rộng dời sang Ghi nhớ, không mất chữ', () => {
+    const q = essay({
+        note: '⚠️ Bẫy trạm thi: quên trấn an\n- ý con\n💡 Lời dặn: siêu âm tim thai\n- **Nhớ nhanh:** NT < 3 mm\nDòng tự do',
+        expanded: '⚙️ **Tinh hoa 80/20 & Cơ chế lõi:**\nBảng A\n\n⚠️ **Radar cạm bẫy (Error Simulator):**\n- NIPT khi NT dày\n\n🔀 **What-if:**\n- Nếu NT 1,8 mm',
+    });
+    const L = studyLayers(q);
+    assert.deepEqual(L.memo.map(c => [c.label, c.trap]), [['Bẫy trạm thi', true], ['Lời dặn', false], ['Nhớ nhanh', false]]);
+    assert.equal(L.memo[0].body, 'quên trấn an\n- ý con');
+    assert.equal(L.memo[2].body, 'NT < 3 mm\nDòng tự do');
+    assert.deepEqual(L.traps.map(s => s.title), ['Radar cạm bẫy (Error Simulator)']);
+    assert.deepEqual(L.more.map(s => s.title), ['Tinh hoa 80/20 & Cơ chế lõi', 'What-if']);
+    // Tiêu đề dính nội dung cùng dòng (bộ cũ): vẫn tách khúc, nội dung giữ nguyên
+    const inl = studyLayers(essay({ expanded: '⚙️ **Bản chất 80/20:** Nhau thai tiết hPL.\n\n⚠️ **Radar cạm bẫy (Error Simulator):** Dùng thuốc ngay.\n\n🔀 **Tập trận What-if:**\n- Nếu thất bại' }));
+    assert.deepEqual(inl.more.map(s => [s.title, s.body]), [['Bản chất 80/20', 'Nhau thai tiết hPL.'], ['Tập trận What-if', '- Nếu thất bại']]);
+    assert.deepEqual(inl.traps.map(s => [s.title, s.body]), [['Radar cạm bẫy (Error Simulator)', 'Dùng thuốc ngay.']]);
+    // Mở rộng không có khung tiêu đề -> giữ nguyên khối
+    const plain = studyLayers(essay({ expanded: '| a | b |\n|---|---|\n| 1 | 2 |' }));
+    assert.deepEqual(plain.traps, []);
+    assert.equal(plain.more[0].body, '| a | b |\n|---|---|\n| 1 | 2 |');
+    // chữ nào của note/expanded cũng còn ở đâu đó
+    const all = [...L.chot, ...L.memo.map(c => c.label + ' ' + c.body), ...[...L.traps, ...L.more].map(s => s.title + ' ' + s.body)].join('\n');
+    ['quên trấn an', 'ý con', 'siêu âm tim thai', 'NT < 3 mm', 'Dòng tự do', 'Bảng A', 'NIPT khi NT dày', 'Nếu NT 1,8 mm'].forEach(w => assert.ok(all.includes(w), w));
 });

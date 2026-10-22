@@ -39,6 +39,11 @@ function annotKeyFor(question, scope) {
     }
     return question ? question.question : '';
 }
+// Vùng này của câu đã có ghi chú/tô chưa — phiếu chấm tự luận giữ nguyên đáp án mẫu liền khối khi đã có
+// (ghi chú neo theo vị trí chữ trong vùng, tách theo ô là lệch)
+export function hasAnnots(question, scope) {
+    return getAnnotsFor(annotKeyFor(question, scope)).some(a => a.scope === scope);
+}
 function addAnnot(qText, scope, text, type, start, end, note) {
     const store = getAnnotStore();
     const arr = Array.isArray(store[qText]) ? store[qText] : [];
@@ -244,8 +249,9 @@ function markLastNoteFragments(root) {
     root.querySelectorAll('.annot-note[data-annot-id]').forEach(el => { el.classList.add('an-dup'); last.set(el.getAttribute('data-annot-id'), el); });
     last.forEach(el => el.classList.remove('an-dup'));
 }
-export function applyAnnotationsAll() {
-    const quizSection = document.getElementById('quizSection');
+// root: chỉ áp trong một khối vừa vẽ lại (phiếu chấm tự luận sau khi tick) — mặc định cả câu
+export function applyAnnotationsAll(root) {
+    const quizSection = root || document.getElementById('quizSection');
     if (!quizSection) return;
     const question = state.questions[state.currentIndex];
     if (!question) return;

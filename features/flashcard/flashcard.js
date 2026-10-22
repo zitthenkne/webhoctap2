@@ -13,7 +13,7 @@ import { onSessionUser } from '../../core/auth-session.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { showToast, showConfirm } from '../../core/utils.js';
 import { parseMarkdown, parseInlineMarkdown, renderMath } from '../quiz/quiz-helpers.js';
-import { keyPointsOf } from '../quiz/quiz-essay-core.js';
+import { answerTextOf } from '../quiz/quiz-essay-core.js';
 import { getOfflineQuiz, autoCacheQuiz, within } from '../quiz/quiz-offline-store.js';
 import { usableLocalQuiz, fetchQuizFull } from '../quiz/quiz-fresh.js';
 import { studyKeys, syncPullStudy, scheduleCloudPush } from '../quiz/quiz-study-store.js';
@@ -93,7 +93,7 @@ function normalize(questions) {
             caseText: q.caseText || '',
             caseTitle: q.caseTitle || '',
             // Câu tự luận: mặt sau = đáp án mẫu, không có thì các ý chấm
-            modelAnswer: q.modelAnswer || keyPointsOf(q).filter(k => !k.penalty).map(k => '- ' + k.text).join('\n'),
+            modelAnswer: answerTextOf(q),   // không có đáp án mẫu (bộ bản 2): dựng từ checklist, kèm câu viết mẫu
         };
     });
 }

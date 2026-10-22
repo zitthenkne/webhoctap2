@@ -95,4 +95,4 @@ export interface UserStats {
   quizSetsCreated: number;
 }
 
-export interface StoredKeyPoint { text: string; points?: number; keywords?: string[]; partial?: number; critical?: boolean; field?: number; order?: string[] }
+export interface StoredKeyPoint { text: string; points?: number; keywords?: string[]; partial?: number; critical?: boolean; field?: number; order?: string[]; why?: string; example?: string }

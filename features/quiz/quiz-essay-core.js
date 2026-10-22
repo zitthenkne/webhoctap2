@@ -73,6 +73,10 @@ function normItem(kp, group) {
         // Ý kiểm tra THỨ TỰ (trạm thủ thuật): các bước phải xuất hiện đúng trình tự; mỗi bước "a|b" = cách viết tương đương
         order: kp && Array.isArray(kp.order) && kp.order.length >= 2
             ? kp.order.map(s => String(s).split('|').map(x => x.trim()).filter(Boolean)).filter(a => a.length) : null,
+        // Bản 2: một câu "vì sao ý này có điểm / thiếu thì sao" + câu VIẾT MẪU (ghi trong bài thi / nói với người bệnh thế nào)
+        // — phiếu chấm hiện dưới ý bị THIẾU; checklist đủ 3 lớp thì không cần đáp án mẫu viết liền
+        why: String((kp && kp.why) || '').trim(),
+        example: String((kp && kp.example) || '').trim(),
         group,
     };
 }
@@ -114,6 +118,15 @@ export function rubricOf(q) {
 
 export function keyPointsOf(q) {
     return rubricOf(q).items;
+}
+
+// Đáp án dạng chữ cho câu: đáp án mẫu nếu có, không thì dựng từ checklist (bộ bản 2 chỉ viết barem kỹ:
+// ý + vì sao + viết mẫu) — dùng cho sao chép câu sai, CSV Anki, flashcard
+export function answerTextOf(q) {
+    const model = String((q && q.modelAnswer) || '').trim();
+    if (model) return model;
+    return keyPointsOf(q).filter(it => !it.penalty)
+        .map(it => `- ${it.text}${it.example ? ` — viết mẫu: ${it.example}` : ''}`).join('\n');
 }
 
 const round2 = (n) => Math.round(n * 100) / 100;
@@ -488,6 +501,7 @@ export function partsText(fmt, parts) {
      # Nêu 2 trong 3 nguyên nhân (tối đa 1đ)
        - Tăng huyết áp (0,5đ) [tăng huyết áp; THA]
      - Dùng nitrat khi tụt HA (-0,5đ) [nitrat]        <- điểm âm = lỗi trừ điểm
+     - Aspirin liều nạp (0,5đ) [aspirin] {vì sao: ức chế tiểu cầu sớm giảm tử vong} {viết mẫu: Aspirin 300 mg nhai}   <- bản 2
    Từ khóa ngăn bằng ";" (dấu phẩy dùng được trong từ khóa, vd. "NaCl 0,9").
    ------------------------------------------------------------------ */
 const num = (n) => String(Math.round(n * 1000) / 1000).replace('.', ',');
@@ -502,8 +516,10 @@ export function rubricToText(keyPoints) {
         if (Number(k.field) >= 1) meta.push(`ô ${Number(k.field)}`);
         const kw = strList(k.keywords);
         const ord = strList(k.order);
+        const brace = (s) => String(s || '').replace(/[{}]/g, '').trim();
+        const why = brace(k.why), ex = brace(k.example);
         return `${pad}- ${String(k.text || '').trim()} (${meta.join(', ')})${kw.length ? ` [${kw.join('; ')}]` : ''}`
-            + (ord.length >= 2 ? ` {thứ tự: ${ord.join(' > ')}}` : '');
+            + (ord.length >= 2 ? ` {thứ tự: ${ord.join(' > ')}}` : '') + (why ? ` {vì sao: ${why}}` : '') + (ex ? ` {viết mẫu: ${ex}}` : '');
     };
     return keyPoints.map(k => (k && Array.isArray(k.items)
         ? [`# ${String(k.group || 'Nhóm ý').trim()}${Number(k.max) > 0 ? ` (tối đa ${num(Number(k.max))}đ)` : ''}`,
@@ -527,6 +543,15 @@ export function textToRubric(text) {
         if (!m) return;
         let body = m[2].trim();
         const item = { text: '', points: 1 };
+        // Đuôi {viết mẫu: …} rồi {vì sao: …} (đúng thứ tự rubricToText ghi ra, đọc từ cuối lên)
+        const tail = (key, prop) => {
+            const m = body.match(new RegExp(`\\{\\s*${key}\\s*:\\s*([^}]*)\\}\\s*$`, 'i'));
+            if (!m) return;
+            if (m[1].trim()) item[prop] = m[1].trim();
+            body = body.slice(0, m.index).trim();
+        };
+        tail('viết mẫu', 'example');
+        tail('vì sao', 'why');
         const ord = body.match(/\{\s*thứ tự\s*:\s*([^}]*)\}\s*$/i);
         if (ord) {
             item.order = ord[1].split('>').map(s => s.trim()).filter(Boolean);
@@ -570,4 +595,159 @@ export function isLockedByReveal(caseQs, seq, seen) {
         if (String(caseQs[s - 1]?.caseReveal || '').trim()) return true;
     }
     return false;
+}
+
+/* ------------------------------------------------------------------
+   PHIẾU CHẤM BẢN 2 (2026-10-22) — sắp lại nội dung để mỗi ý chỉ hiện MỘT lần.
+   Bộ đã nạp (bản 1) KHÔNG cần sửa dữ liệu: các hàm dưới tự tách lúc hiển thị, không tách được thì trả
+   nguyên văn (không mất chữ nào):
+     sheetOf      -> các hàng đối chiếu: mỗi ô bài làm + các ý barem dò trong ô đó (ý không gắn ô = hàng "cả bài")
+     splitModel   -> đáp án mẫu tách theo mục "1. Tên mục:" / "a. **Tên mục**" khi số mục = số ô
+     splitChot    -> dải Chốt = explanation + dòng "📌/🎯 Chốt…:" của note (dòng đó rời khỏi Ghi nhớ)
+     studyLayers  -> Ghi nhớ tách thẻ theo nhãn đầu dòng; Mở rộng tách theo tiêu đề có biểu tượng (⚙️ / 🔀 / …);
+                     khúc "⚠️ Radar cạm bẫy" của Mở rộng dời sang Ghi nhớ (bẫy ở một chỗ)
+   ------------------------------------------------------------------ */
+const EMOJI = '\\p{Extended_Pictographic}[\\uFE0F\\u200D\\p{Extended_Pictographic}]*';
+const wordPairs = (s) => {
+    const w = stripMarks(String(s || '').toLowerCase()).match(/[a-z0-9]+/g) || [];
+    return new Set(w.slice(1).map((x, k) => w[k] + ' ' + x));
+};
+// Tỉ lệ cặp tiếng của a có trong b (≈ a chép lại b)
+export function pairOverlap(a, b) {
+    const pa = wordPairs(a), pb = wordPairs(b);
+    if (!pa.size) return 0;
+    let n = 0;
+    pa.forEach(p => { if (pb.has(p)) n++; });
+    return n / pa.size;
+}
+
+// Hàng đối chiếu. unit = một ý lẻ ({idxs:[i], group:-1}) hoặc cả nhóm "nêu k trong n" ({idxs, group}).
+export function sheetOf(q) {
+    const format = formatOf(q);
+    const { items, groups } = rubricOf(q);
+    const nSlots = format.kind === 'table' ? format.rows : (format.kind === 'fields' || format.kind === 'list') ? format.parts : 0;
+    const fieldOf = (i) => (items[i].field && items[i].field <= nSlots ? items[i].field : 0);
+    const units = [], pens = [];
+    items.forEach((it, i) => {
+        if (it.penalty) pens.push(i);
+        else if (it.group < 0) units.push({ idxs: [i], group: -1, field: fieldOf(i) });
+        else if (groups[it.group].idxs[0] === i) {
+            const fs = new Set(groups[it.group].idxs.map(fieldOf));
+            units.push({ idxs: groups[it.group].idxs, group: it.group, field: fs.size === 1 ? [...fs][0] : 0 });
+        }
+    });
+    // Chia theo ô chỉ khi barem CÓ gắn ô; không thì một hàng: cả bài | cả barem
+    const split = nSlots > 1 && units.some(u => u.field);
+    const rows = split
+        ? [...Array.from({ length: nSlots }, (_, k) => ({ field: k + 1, units: units.filter(u => u.field === k + 1) })),
+            { field: 0, units: units.filter(u => !u.field) }].filter(r => r.field || r.units.length)
+        : [{ field: 0, units }];
+    return { format, items, groups, split, rows, pens };
+}
+
+// Điểm đạt / tối đa của một unit (nhóm có trần max)
+export function unitScore(q, unit, ans) {
+    const { items, groups } = rubricOf(q);
+    const val = (i) => (ans && typeof ans === 'object' ? itemValue(items[i], ans, i) : 0);
+    if (unit.group < 0) return { got: val(unit.idxs[0]), max: items[unit.idxs[0]].points };
+    const max = groups[unit.group].max;
+    return { got: Math.min(max, unit.idxs.reduce((a, i) => a + val(i), 0)), max };
+}
+
+// Dòng tiêu đề mục của đáp án mẫu: "1. **Tên mục:**", "a. Tên mục:", "**b) Tên mục**", "### 2. Tên mục:" — phải là cả dòng
+// (in đậm trọn hoặc kết thúc bằng ":"), không thụt lề. "1. Kháng sinh: ceftriaxone" là nội dung, không phải tiêu đề.
+function modelHead(line) {
+    if (/^\s{2,}|^\t/.test(line)) return null;
+    const m = line.match(/^\s*(?:#{1,4}\s*)?(\*\*)?\s*(?:\d{1,2}|[a-zA-Z])[.)]\s+(.+?)\s*$/);
+    if (!m) return null;
+    const t = m[2];
+    const bold = /^\*\*.+\*\*:?$/.test(t) || (!!m[1] && /\*\*:?$/.test(t));
+    if (!bold && !/:\s*(?:\*\*)?$/.test(t)) return null;
+    const title = t.replace(/\*\*/g, '').replace(/:\s*$/, '').trim();
+    return title && title.length <= 140 ? title : null;
+}
+
+// -> mảng n mục { title, body } (body bỏ dòng tiêu đề; đoạn mở đầu trước mục 1 dính vào body mục 1),
+//    hoặc null khi số mục ≠ n
+// Chống tách nhầm (gặp thật ở bộ APP 4.6: "3. **Quản lý giai đoạn 2:**" là tiêu đề CON trong phần kế hoạch, vô tình
+// đủ số mục): đoạn mở đầu phải ngắn và tên mục phải chung ít nhất một tiếng có nghĩa với tên ô tương ứng.
+const meaningWords = (s) => new Set(tokenize(s).map(t => t.t).filter(t => t.length > 1 && !STOP.has(t) && !/^\d+$/.test(t)));
+export function splitModel(q, n) {
+    const lines = String((q && q.modelAnswer) || '').split('\n');
+    const heads = lines.map((l, k) => (modelHead(l) ? k : -1)).filter(k => k >= 0);
+    if (!(n > 1) || heads.length !== n) return null;
+    if (lines.slice(0, heads[0]).join(' ').trim().length > 300) return null;
+    const labels = formatOf(q).labels || [];
+    const parts = heads.map((h, k) => ({
+        title: modelHead(lines[h]),
+        body: [...(k ? [] : lines.slice(0, h)), ...lines.slice(h + 1, heads[k + 1] ?? lines.length)].join('\n').trim(),
+    }));
+    const fits = (p, k) => {
+        const lb = meaningWords(labels[k] || '');
+        return !lb.size || [...meaningWords(p.title)].some(w => lb.has(w));
+    };
+    return parts.every((p, k) => p.body && fits(p, k)) ? parts : null;
+}
+
+const CHOT_RE = new RegExp(`^\\s*(?:[-*+]\\s+)?(?:\\*\\*)?\\s*(?:${EMOJI}\\s*)?(?:\\*\\*)?\\s*Chốt\\b[^:\\n]{0,40}:\\s*(?:\\*\\*)?\\s*`, 'u');
+export function splitChot(q) {
+    const raw = String((q && q.note) || '');
+    const exp = String((q && q.explanation) || '').trim();
+    const lines = raw.split('\n');
+    const k = lines.findIndex(l => CHOT_RE.test(l));
+    const line = k >= 0 ? lines[k].replace(CHOT_RE, '').trim() : '';
+    const chot = [exp, line].filter(Boolean);
+    if (chot.length === 2 && pairOverlap(line, exp) >= 0.6) chot.pop();   // gần y hệt explanation -> giữ một
+    return { chot, note: line ? lines.filter((_, j) => j !== k).join('\n').trim() : raw.trim() };
+}
+
+const TRAP_RE = /bẫy|cạm|radar|sai lầm|nhầm|cờ đỏ|tránh|error|⚠|🚫|❌|🔴/i;
+// Ghi nhớ -> thẻ: dòng "emoji Nhãn: nội dung" hoặc "**Nhãn:** nội dung" mở thẻ mới; dòng sau (gạch con…) dính vào thẻ trước
+const NOTE_EMOJI_RE = new RegExp(`^\\s*(?:[-*+]\\s+)?(?:\\*\\*)?\\s*(${EMOJI})\\s*(?:\\*\\*)?\\s*([^:\\n]{1,60}?)\\s*(?:\\*\\*)?\\s*:\\s*(?:\\*\\*)?\\s*(.*)$`, 'u');
+const NOTE_BOLD_RE = /^\s*(?:[-*+]\s+)?\*\*\s*([^*:\n]{1,50}?)\s*:?\s*\*\*\s*:?\s*(.*)$/;
+function noteCards(note) {
+    const cards = [];
+    String(note || '').split('\n').forEach(line => {
+        const a = line.match(NOTE_EMOJI_RE);
+        const b = !a && line.match(NOTE_BOLD_RE);
+        if (a || b) {
+            const label = (a ? a[2] : b[1]).replace(/\*\*/g, '').trim();
+            cards.push({ icon: a ? a[1] : '', label, body: (a ? a[3] : b[2]).trim(), trap: TRAP_RE.test((a ? a[1] : '') + label) });
+        } else if (cards.length && line.trim()) {
+            cards[cards.length - 1].body += '\n' + line;
+        } else if (line.trim()) {
+            cards.push({ icon: '', label: '', body: line, trap: false });
+        }
+    });
+    return cards.map(c => ({ ...c, body: c.body.trim() })).filter(c => c.body || c.label);
+}
+
+// Mở rộng -> khúc theo dòng tiêu đề "⚙️ **Tên khúc:**" / "### 🔀 Tên khúc" (cả dòng là tiêu đề, sau ":" không còn chữ)
+const SEC_RE = new RegExp(`^\\s*(?:#{1,4}\\s*)?(?:\\*\\*)?\\s*(${EMOJI})\\s*(?:\\*\\*)?\\s*([^\\n]{1,90}?)\\s*(?:\\*\\*)?\\s*:?\\s*(?:\\*\\*)?\\s*:?\\s*$`, 'u');
+// Bộ cũ hay viết tiêu đề dính nội dung: "⚙️ **Tên khúc:** nội dung…" (tiêu đề phải in đậm mới tính)
+const SEC_INLINE_RE = new RegExp(`^\\s*(?:#{1,4}\\s*)?(${EMOJI})\\s*\\*\\*([^*\\n]{1,90}?)\\s*:?\\s*\\*\\*\\s*:?\\s+(\\S.*)$`, 'u');
+function sections(md) {
+    const out = [];
+    String(md || '').split('\n').forEach(line => {
+        const m = line.match(SEC_RE);
+        const n = !(m && !/:\s*\S/.test(m[2])) && line.match(SEC_INLINE_RE);
+        if (m && !/:\s*\S/.test(m[2])) out.push({ icon: m[1], title: m[2].replace(/\*\*/g, '').replace(/:$/, '').trim(), body: '' });
+        else if (n) out.push({ icon: n[1], title: n[2].trim(), body: n[3] + '\n' });
+        else if (out.length) out[out.length - 1].body += line + '\n';
+        else out.push({ icon: '', title: '', body: line + '\n' });
+    });
+    return out.map(s => ({ ...s, body: s.body.trim(), trap: !!s.title && TRAP_RE.test(s.icon + s.title) })).filter(s => s.body || s.title);
+}
+
+export function studyLayers(q) {
+    const { chot, note } = splitChot(q);
+    const secs = sections(q && q.expanded);
+    // Chỉ tách khi Mở rộng thật sự có từ 2 khúc tiêu đề trở lên (khung "⚙️ → ⚠️ → 🔀" của skill)
+    const split = secs.filter(s => s.title).length >= 2;
+    return {
+        chot,
+        memo: noteCards(note),
+        traps: split ? secs.filter(s => s.trap) : [],
+        more: split ? secs.filter(s => !s.trap) : [{ icon: '', title: '', body: String((q && q.expanded) || '').trim(), trap: false }].filter(s => s.body),
+    };
 }

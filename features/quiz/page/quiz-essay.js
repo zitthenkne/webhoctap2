@@ -14,9 +14,12 @@ import { state, saveQuizState } from '../quiz-state.js';
 import { parseMarkdown, renderMath } from '../quiz-helpers.js';
 import {
     rubricOf, essayPoints, essayMaxPoints, essayCredit, questionWeight, isEssayGraded, countWords,
-    isLockedByReveal, autoMatch, withAutoGrade, missingCritical, modelCoverage, formatOf, answerDocs, partsText
+    isLockedByReveal, autoMatch, withAutoGrade, missingCritical, modelCoverage, formatOf, answerDocs, partsText,
+    sheetOf, unitScore, splitModel, splitChot, studyLayers, pairOverlap
 } from '../quiz-essay-core.js';
-import { syncQuizNavPanel, studyExtrasHtml, studyReasonHtml } from '../quiz-ui.js';
+import { syncQuizNavPanel } from '../quiz-ui.js';
+import { reasoningBodyHtml } from './quiz-reasoning.js';
+import { hasAnnots, applyAnnotationsAll } from './quiz-annotations.js';
 import { caseKeyOf } from './quiz-cases.js';
 import { updateMobileNav } from './quiz-mobile-nav.js';
 import { showQuestion, showNextQuestion } from './quiz-question-view.js';
@@ -178,37 +181,16 @@ export function answerReadHtml(q, ans, withMarks) {
     return `<div class="essay-read-text">${docHtml(docs[0], marks[0])}</div>`;
 }
 
-// Ý gắn vào một ô -> nhãn ngắn của ô đó (hiện trên barem để biết máy dò ở đâu)
-function fieldLabel(format, field) {
-    if (!field) return '';
-    if (format.kind === 'fields') return format.labels[field - 1] || `ô ${field}`;
-    if (format.kind === 'list') return format.labels[field - 1] || `ý ${field}`;
-    if (format.kind === 'table') return format.rowLabels[field - 1] || `hàng ${field}`;
-    return '';
-}
-
 /* ------------------------------------------------------------------
-   Đáp án mẫu + khung chấm theo barem (dùng chung cho màn làm bài và màn kết quả)
+   PHIẾU CHẤM bản 2 (2026-10-22) — thay lối xếp chồng "bài làm → tư duy → đáp án mẫu → barem → ghi nhớ →
+   mở rộng" (một nội dung lặp 2–3 lần, phải cuộn qua lại mới so được bài mình với barem). Bố cục mới:
+     ① dải điểm: số điểm + vạch chia theo ý (đạt / ½ / thiếu) + máy chấm sơ bộ
+     ② dải Chốt: explanation + dòng "Chốt" của ghi nhớ (splitChot)
+     ③ đối chiếu TỪNG Ô: [bạn viết + đáp án tham khảo của đúng ô đó, bật/tắt được] | các ý barem dò trong ô đó
+        — ý thiếu hiện "vì sao" (why)
+     ④ màn kết quả: thẻ tab Tư duy · Ghi nhớ · Mở rộng — mỗi lớp kiến thức một chỗ, nhớ tab vừa chọn
+   Bộ đã nạp tự tách bằng sheetOf / splitModel / studyLayers (quiz-essay-core.js), không sửa dữ liệu.
    ------------------------------------------------------------------ */
-function modelHtml(q) {
-    const model = String(q.modelAnswer || '').trim();
-    if (!model) return '';
-    const explicit = Array.isArray(q.keyPoints) && q.keyPoints.length > 0;
-    const kps = rubricOf(q).items;
-    if (!explicit && kps.length) {
-        // Ý chấm được tách từ chính đáp án mẫu -> danh sách tick đã là đáp án; chỉ mở bản đầy đủ
-        // khi đáp án mẫu còn phần khác ngoài các gạch đầu dòng (ý con, đoạn văn).
-        const lines = model.split('\n').filter(l => l.trim()).length;
-        if (lines <= kps.length) return '';
-        return `<details class="essay-model is-fold"><summary><i class="fas fa-book-open"></i> Đáp án mẫu đầy đủ</summary>
-            <div class="essay-model-body" data-annot="model">${parseMarkdown(model)}</div></details>`;
-    }
-    return `<div class="essay-model">
-        <div class="essay-model-head"><i class="fas fa-book-open"></i> Đáp án mẫu</div>
-        <div class="essay-model-body" data-annot="model">${parseMarkdown(model)}</div>
-    </div>`;
-}
-
 function markOf(ans, i) {
     if (!ans) return 0;
     if (Array.isArray(ans.ticks) && ans.ticks.includes(i)) return 'full';
@@ -216,23 +198,27 @@ function markOf(ans, i) {
     return 0;
 }
 
-function itemRowHtml(it, i, ans, m, readonly, format) {
+// Đã có kết luận chấm (tick của người làm / máy, hoặc bỏ trống = 0) -> tô hàng theo điểm
+const settled = (ans) => !hasText(ans) || Array.isArray(ans.ticks);
+
+function itemRowHtml(it, i, ans, m, readonly) {
     const mark = markOf(ans, i);
     const cls = ['essay-kp', mark === 'full' && 'is-on', mark === 'half' && 'is-half', it.penalty && 'is-penalty',
-        !mark && m && m.level === 'near' && !it.penalty && 'is-near'].filter(Boolean).join(' ');
+        !mark && m && m.level === 'near' && !it.penalty && 'is-near', !mark && !it.penalty && settled(ans) && 'is-miss'].filter(Boolean).join(' ');
     const words = m ? escHtml(m.words.slice(0, 3).join(', ')) : '';
     let tags = it.critical ? '<span class="essay-kp-tag is-crit">Bắt buộc</span>' : '';
-    const where = format ? fieldLabel(format, it.field) : '';
-    if (where) tags += `<span class="essay-kp-tag is-field" title="Máy chỉ dò ý này trong ô này">ô: ${escHtml(where)}</span>`;
     if (m && m.level && !it.penalty) {
         tags += m.level === 'match'
             ? `<span class="essay-kp-tag is-auto" title="Máy nhận ra trong bài của bạn"><i class="fas fa-wand-magic-sparkles"></i> ${words}</span>`
             : `<span class="essay-kp-tag is-near" title="Có vài chữ trùng — tự xem có đúng ý không">gần khớp: ${words}</span>`;
     }
     if (m && m.level && it.penalty) tags += `<span class="essay-kp-tag is-bad">bài có nhắc “${words}” — tự kiểm tra</span>`;
+    // Vì sao + viết mẫu: luôn vẽ; CSS giấu ở ý đã đạt trừ khi bật "Xem đáp án đầy đủ" (.er-all) — checklist thay đáp án mẫu
+    const why = (it.why ? `<span class="essay-kp-why"><i class="fas fa-circle-info" aria-hidden="true"></i><span>${parseMarkdown(it.why)}</span></span>` : '')
+        + (it.example ? `<span class="essay-kp-ex"><i class="fas fa-comment-dots" aria-hidden="true"></i><span><b>Viết mẫu:</b> ${parseMarkdown(it.example)}</span></span>` : '');
     const pts = mark === 'half' ? `${fmt(it.partial)}/${fmt(it.points)}đ` : `${fmt(it.points)}đ`;
     const inner = `<span class="essay-kp-box" aria-hidden="true">${it.penalty ? '<i class="fas fa-minus"></i>' : mark === 'half' ? '½' : '<i class="fas fa-check"></i>'}</span>
-        <span class="essay-kp-body"><span class="essay-kp-text">${parseMarkdown(it.text)}</span>${tags ? `<span class="essay-kp-tags">${tags}</span>` : ''}</span>
+        <span class="essay-kp-body"><span class="essay-kp-text">${parseMarkdown(it.text)}</span>${tags ? `<span class="essay-kp-tags">${tags}</span>` : ''}${why}</span>
         <span class="essay-kp-pts">${pts}</span>`;
     if (readonly) return `<li><div class="${cls}">${inner}</div></li>`;
     const half = it.partial
@@ -241,89 +227,239 @@ function itemRowHtml(it, i, ans, m, readonly, format) {
     return `<li class="essay-kp-row"><button type="button" class="${cls}" data-kp="${i}" aria-pressed="${mark === 'full'}">${inner}</button>${half}</li>`;
 }
 
-// Danh sách ý theo đúng thứ tự tác giả; nhóm "nêu k trong n" gom thành khung có trần điểm;
-// lỗi trừ điểm tách xuống khung riêng.
-function rubricListHtml(q, ans, matches, readonly) {
-    const { items, groups } = rubricOf(q);
-    const format = formatOf(q);
-    const val = (i) => { const k = markOf(ans, i); return k === 'full' ? items[i].points : k === 'half' ? items[i].partial : 0; };
-    let main = '';
-    let pens = '';
-    items.forEach((it, i) => {
-        const m = matches && matches[i];
-        if (it.penalty) { pens += itemRowHtml(it, i, ans, m, readonly, format); return; }
-        if (it.group < 0) { main += itemRowHtml(it, i, ans, m, readonly, format); return; }
-        const g = groups[it.group];
-        if (g.idxs[0] !== i) return;           // cả nhóm vẽ một lần ở ý đầu tiên
-        const got = Math.min(g.max, g.idxs.reduce((a, k) => a + val(k), 0));
-        const sum = g.idxs.reduce((a, k) => a + items[k].points, 0);
-        main += `<li class="essay-kp-group">
-            <div class="essay-kp-group-head">
-                <span>${escHtml(g.label || 'Nhóm ý')}</span>
-                <b>${fmt(got)}/${fmt(g.max)}đ${g.max < sum ? ' <em>(tối đa)</em>' : ''}</b>
-            </div>
-            <ul class="essay-kps">${g.idxs.map(k => itemRowHtml(items[k], k, ans, matches && matches[k], readonly, format)).join('')}</ul>
-        </li>`;
-    });
-    return `<ul class="essay-kps">${main}</ul>`
-        + (pens ? `<div class="essay-pen"><div class="essay-pen-head"><i class="fas fa-triangle-exclamation"></i> Lỗi trừ điểm${readonly ? '' : ' — tick nếu bài bạn mắc'}</div><ul class="essay-kps">${pens}</ul></div>` : '');
+// Một ý lẻ, hoặc cả nhóm "nêu k trong n" (khung có trần điểm)
+function unitHtml(q, sheet, u, ans, matches, readonly) {
+    const row = (k) => itemRowHtml(sheet.items[k], k, ans, matches && matches[k], readonly);
+    if (u.group < 0) return row(u.idxs[0]);
+    const g = sheet.groups[u.group];
+    const { got } = unitScore(q, u, ans);
+    const sum = u.idxs.reduce((a, k) => a + sheet.items[k].points, 0);
+    return `<li class="essay-kp-group">
+        <div class="essay-kp-group-head"><span>${escHtml(g.label || 'Nhóm ý')}</span><b>${fmt(got)}/${fmt(g.max)}đ${g.max < sum ? ' <em>(tối đa)</em>' : ''}</b></div>
+        <ul class="essay-kps">${u.idxs.map(row).join('')}</ul>
+    </li>`;
 }
 
-export function gradeHtml(q, idx, ans) {
-    const { items } = rubricOf(q);
+// Tên ô của một hàng đối chiếu
+function fieldName(format, f) {
+    if (format.kind === 'table') return format.rowLabels[f - 1] || `Hàng ${f}`;
+    return format.slots[f - 1]?.label || (format.kind === 'list' ? `Ý ${f}` : `Ô ${f}`);
+}
+
+// Phần bài làm của một ô (bảng: cả hàng, mỗi cột một dòng), chữ máy nhận ra được tô
+function fieldMineHtml(format, f, docs, marks) {
+    const cell = (d) => (String(docs[d] || '').trim()
+        ? docHtml(docs[d], marks[d]) + (format.slots?.[d]?.unit ? ` <span class="essay-unit">${escHtml(format.slots[d].unit)}</span>` : '')
+        : '<span class="essay-empty-cell">— bỏ trống</span>');
+    if (format.kind !== 'table') return `<div class="er-text is-pre">${cell(f - 1)}</div>`;
+    const cols = format.columns.length;
+    const ds = format.columns.map((_, j) => (f - 1) * cols + j);
+    if (!ds.some(d => String(docs[d] || '').trim())) return '<span class="essay-empty-cell">— bỏ trống</span>';
+    return `<dl class="er-cells">${format.columns.map((c, j) => `<dt>${escHtml(c)}</dt><dd>${cell(ds[j])}</dd>`).join('')}</dl>`;
+}
+
+// Đáp án mẫu (markdown). scope = vùng tô/ghi chú cá nhân ở màn làm bài ('' = không cho tô, màn kết quả)
+function modelBodyHtml(md, scope = '') {
+    return `<div class="essay-model-body"${scope ? ` data-annot="${scope}"` : ''}>${parseMarkdown(md)}</div>`;
+}
+
+// Đáp án mẫu có cần hiện riêng không: barem tách từ chính gạch đầu dòng của nó thì danh sách ý ĐÃ là đáp án
+function modelExtra(q) {
+    const model = String(q.modelAnswer || '').trim();
+    if (!model) return '';
+    const kps = rubricOf(q).items;
+    const explicit = Array.isArray(q.keyPoints) && q.keyPoints.length > 0;
+    if (!explicit && kps.length && model.split('\n').filter(l => l.trim()).length <= kps.length) return '';
+    return model;
+}
+
+// Hai mức xem phiếu (một nút trên dải điểm, nhớ ở quiz_essay_full — mặc định "ý thiếu"):
+//   ý thiếu  -> "vì sao" + "viết mẫu" chỉ hiện ở ý chưa đạt; đáp án tham khảo (bộ cũ có đáp án mẫu viết liền) gập lại
+//   đầy đủ   -> hiện ở MỌI ý (.er-all) + mở đáp án tham khảo — checklist kỹ đọc như một bài đáp án hoàn chỉnh
+// Đáp án tham khảo (nếu có) đặt dưới cặp "Bạn viết | Barem" của đúng ô đó; vẫn gập/mở riêng từng ô được.
+const FULL_KEY = 'quiz_essay_full';
+const fullOn = () => { try { return localStorage.getItem(FULL_KEY) === '1'; } catch (e) { return false; } };
+const fullBtnInner = (on) => `<i class="fas ${on ? 'fa-eye-slash' : 'fa-eye'}" aria-hidden="true"></i><span>${on ? 'Chỉ hiện ý thiếu' : 'Xem đáp án đầy đủ'}</span>`;
+// note = phụ đề sau nhãn: "(cả bài)" hoặc tên mục của đáp án mẫu khi khác tên ô
+function refHtml(md, scope, note = '', whole = false) {
+    return `<details class="er-ref${whole ? ' is-whole' : ''}"${fullOn() ? ' open' : ''}>
+        <summary><i class="fas fa-book-open" aria-hidden="true"></i> Đáp án tham khảo${note ? `<span class="er-ref-sub">· ${escHtml(note)}</span>` : ''}</summary>
+        ${modelBodyHtml(md, scope)}
+    </details>`;
+}
+function toggleFull(btn) {
+    const on = btn.getAttribute('aria-pressed') !== 'true';
+    try { localStorage.setItem(FULL_KEY, on ? '1' : '0'); } catch (e) { }
+    document.querySelectorAll('.er').forEach(el => el.classList.toggle('er-all', on));
+    document.querySelectorAll('.er-ref').forEach(d => { d.open = on; });
+    document.querySelectorAll('[data-er-full]').forEach(b => { b.setAttribute('aria-pressed', String(on)); b.innerHTML = fullBtnInner(on); });
+    sfx(on ? 'toggleOn' : 'toggleOff');
+}
+
+function scoreHtml(q, idx, ans, sheet, hasDetail) {
     const max = essayMaxPoints(q);
-    const w = Number(q.maxScore) > 0 ? questionWeight(q) : 0;
-    const weightTxt = (credit) => (w ? ` · câu ${fmt(credit * w)}/${fmt(w)}đ` : '');
-    if (!hasText(ans)) {
-        if (!items.length) return '';
-        // Bỏ trống: vẫn cho xem barem (không có gì để tick)
-        return `<div class="essay-grade is-readonly">
-            <div class="essay-grade-head"><span><i class="fas fa-list-check"></i> Barem</span><b class="essay-score">0/${fmt(max)} điểm</b></div>
-            ${rubricListHtml(q, null, null, true)}
+    // Điểm câu trong bài — chỉ ghi khi khác thang barem (OSCE thường barem = max_score, ghi nữa là lặp)
+    const w = Number(q.maxScore) > 0 && Math.abs(questionWeight(q) - (sheet.items.length ? max : 1)) > 1e-9 ? questionWeight(q) : 0;
+    const weightTxt = (credit) => (w ? ` · <span class="er-weight">câu ${fmt(credit * w)}/${fmt(w)}đ</span>` : '');
+    const has = hasText(ans);
+    const refBtn = hasDetail ? `<button type="button" class="er-full-btn" data-er-full aria-pressed="${fullOn()}">${fullBtnInner(fullOn())}</button>` : '';
+    if (!sheet.items.length) {
+        const graded = has && typeof ans.self === 'number';
+        const c = has ? modelCoverage(q, ans.text) : { total: 0 };
+        return `<div class="er-score">
+            <div class="er-score-top">
+                <b class="er-pts${graded ? '' : ' is-pending'}">${graded ? `${fmt(ans.self)}<small>/1</small>` : has ? 'Chưa chấm' : `0<small>/1</small>`}</b>
+                <span class="er-score-sub">${has ? 'Tự chấm cả câu (câu không có barem ý)' : 'Bỏ trống'}${graded ? weightTxt(ans.self) : ''}</span>
+            </div>
+            ${has && c.total ? `<p class="er-hint">Bài bạn nhắc ${c.hit}/${c.total} thuật ngữ có trong đáp án mẫu (chỉ để tham khảo).</p>` : ''}
+            ${has ? `<div class="essay-self" role="group" aria-label="Tự chấm cả câu">${[[0, 'Chưa đạt'], [0.5, 'Một phần'], [1, 'Đạt']].map(([v, label]) =>
+                `<button type="button" class="essay-self-btn${ans.self === v ? ' is-on' : ''}" data-self="${v}" aria-pressed="${ans.self === v}">${label}</button>`).join('')}</div>` : ''}
         </div>`;
     }
-    const graded = isEssayGraded(q, ans);
-    if (!items.length) {
-        const c = modelCoverage(q, ans.text);
-        return `<div class="essay-grade" data-essay-grade="${idx}">
-            <div class="essay-grade-head"><span><i class="fas fa-list-check"></i> Tự chấm cả câu</span>
-                <b class="essay-score${graded ? '' : ' is-pending'}">${graded ? `${fmt(ans.self)}/1${weightTxt(ans.self)}` : 'Chưa chấm'}</b></div>
-            ${c.total ? `<p class="essay-grade-hint">Câu này không có barem ý. Bài bạn nhắc ${c.hit}/${c.total} thuật ngữ có trong đáp án mẫu (chỉ để tham khảo).</p>` : ''}
-            <div class="essay-self" role="group" aria-label="Tự chấm cả câu">${[[0, 'Chưa đạt'], [0.5, 'Một phần'], [1, 'Đạt']].map(([v, label]) =>
-                `<button type="button" class="essay-self-btn${ans.self === v ? ' is-on' : ''}" data-self="${v}" aria-pressed="${ans.self === v}">${label}</button>`).join('')}</div>
-        </div>`;
-    }
-    const matches = autoMatch(q, ans);
-    const got = essayPoints(q, ans);
+    const graded = has && Array.isArray(ans.ticks);
+    const got = has ? essayPoints(q, ans) : 0;
+    // Vạch chia theo ý, đúng thứ tự hàng đối chiếu; mỗi đoạn dài theo điểm của ý
+    const segs = sheet.rows.flatMap(r => r.units).map(u => {
+        const s = unitScore(q, u, ans);
+        const cls = !graded && has ? '' : s.got >= s.max - 1e-9 ? 'is-full' : s.got > 0 ? 'is-part' : '';
+        return `<span class="er-seg ${cls}" style="flex:${s.max} 1 0"><i style="width:${Math.round(100 * Math.min(1, s.got / s.max))}%"></i></span>`;
+    }).join('');
+    const pos = sheet.items.map((it, i) => (it.penalty ? -1 : i)).filter(i => i >= 0);
+    const full = pos.filter(i => markOf(ans, i) === 'full').length;
+    const half = pos.filter(i => markOf(ans, i) === 'half').length;
     const missing = graded ? missingCritical(q, ans) : [];
-    const score = graded ? `${fmt(got)}/${fmt(max)} điểm${weightTxt(essayCredit(q, ans))}` : 'Chưa chấm';
-    return `<div class="essay-grade" data-essay-grade="${idx}">
-        <div class="essay-grade-head">
-            <span><i class="fas fa-list-check"></i> Chấm theo barem</span>
-            <b class="essay-score${graded && !ans.auto ? '' : ' is-pending'}">${score}</b>
+    const status = !has ? '<span class="er-chip">Bỏ trống</span>'
+        : ans.auto ? '<span class="er-chip is-auto"><i class="fas fa-wand-magic-sparkles"></i> Máy chấm sơ bộ</span>'
+            : graded ? '<span class="er-chip is-ok"><i class="fas fa-check"></i> Đã chấm</span>' : '<span class="er-chip is-auto">Chưa chấm</span>';
+    return `<div class="er-score">
+        <div class="er-score-top">
+            <b class="er-pts${graded && !ans.auto ? '' : has ? ' is-pending' : ''}">${fmt(got)}<small>/${fmt(max)}đ</small></b>
+            <span class="er-score-sub">${graded || !has ? `Đạt <b>${full}</b>${half ? ` · ½ <b>${half}</b>` : ''} · thiếu <b>${pos.length - full - half}</b> / ${pos.length} ý` : `${pos.length} ý chấm`}${graded || !has ? weightTxt(essayCredit(q, ans)) : ''}</span>
+            ${status}
         </div>
-        ${ans.auto ? `<div class="essay-auto-note">
-            <span><i class="fas fa-wand-magic-sparkles"></i> <b>Máy chấm sơ bộ:</b> đã tick các ý có từ khóa khớp (chữ tô xanh trong bài). Máy không hiểu câu phủ định hay cách nói khác — hãy xem lại, tick thêm ý bạn đã nêu.</span>
-            <button type="button" class="essay-ok-btn" data-grade-ok><i class="fas fa-check"></i> Đã xem lại</button>
-        </div>` : '<p class="essay-grade-hint">Tick ý bài bạn đã nêu (diễn đạt khác mà cùng nghĩa vẫn tính). Nút ½ = nêu chưa đủ.</p>'}
-        ${missing.length ? `<p class="essay-crit-note"><i class="fas fa-circle-exclamation"></i> Thiếu ý bắt buộc → cả câu 0 điểm.</p>` : ''}
-        ${rubricListHtml(q, ans, matches, false)}
-        ${graded ? '' : '<button type="button" class="essay-none" data-kp-none>Không nêu được ý nào</button>'}
+        <div class="er-bar" aria-hidden="true">${segs}</div>
+        ${missing.length ? '<p class="essay-crit-note"><i class="fas fa-circle-exclamation"></i> Thiếu ý bắt buộc → cả câu 0 điểm.</p>' : ''}
+        ${!has ? '<p class="er-hint">Bạn bỏ trống câu này — barem dưới cho biết cần nêu những gì.</p>'
+            : ans.auto ? `<div class="essay-auto-note">
+                <span>Máy đã tick các ý có từ khóa khớp (chữ tô xanh trong bài). Máy không hiểu phủ định hay cách nói khác — bấm vào ý để sửa.</span>
+                <button type="button" class="essay-ok-btn" data-grade-ok><i class="fas fa-check"></i> Đã xem lại</button>
+            </div>`
+                : `<p class="er-hint">Bấm vào ý để tick / bỏ tick (diễn đạt khác mà cùng nghĩa vẫn tính) · ½ = nêu chưa đủ.</p>`}
+        ${has && !graded || refBtn ? `<div class="er-score-act">${has && !graded ? '<button type="button" class="essay-none" data-kp-none>Không nêu được ý nào</button>' : ''}${refBtn}</div>` : ''}
     </div>`;
 }
 
-// Màn kết quả: bài của mình (tô chữ khớp) -> hướng tư duy -> đáp án mẫu -> barem, xếp dọc
+function chotHtml(lines) {
+    if (!lines.length) return '';
+    return `<div class="er-chot"><span class="er-chot-tag"><i class="fas fa-thumbtack"></i> Chốt</span>
+        <div class="er-chot-body">${lines.map(l => `<div class="er-chot-line">${parseMarkdown(l)}</div>`).join('')}</div></div>`;
+}
+
+// Khối đối chiếu (dải điểm + Chốt + từng ô). ctx.inQuiz: đang làm bài -> Chốt chỉ lấy explanation (ghi nhớ đã có
+// thẻ riêng ngay dưới) và đáp án tham khảo mở cho tô/ghi chú cá nhân (vùng model-<ô>, hoặc 'model' liền khối).
+export function sheetHtml(q, idx, ans, ctx = {}) {
+    const sheet = sheetOf(q);
+    const readonly = !hasText(ans);
+    const matches = readonly ? null : autoMatch(q, ans);
+    const { docs, marks } = readonly ? { docs: [], marks: [] } : answerMarks(q, ans);
+    const model = modelExtra(q);
+    const ref = sheet.items.length ? model : '';            // không barem: đáp án mẫu nằm ở cột phải rồi
+    // Tách theo ô; câu đã có ghi chú trên đáp án mẫu liền khối (bản cũ) thì giữ liền khối cho khỏi lệch
+    const parts = ref && sheet.split && !(ctx.inQuiz && hasAnnots(q, 'model')) ? splitModel(q, sheet.format.parts) : null;
+    const scope = (k) => (ctx.inQuiz ? (k ? `model-${k}` : 'model') : '');
+    const chot = ctx.inQuiz ? [String(q.explanation || '').trim()].filter(Boolean) : splitChot(q).chot;
+    const rows = sheet.rows.map(row => {
+        const sc = row.units.reduce((a, u) => { const s = unitScore(q, u, ans); return { got: a.got + s.got, max: a.max + s.max }; }, { got: 0, max: 0 });
+        const tone = !row.units.length || !settled(ans) ? '' : sc.got >= sc.max - 1e-9 ? ' is-full' : sc.got > 0 ? ' is-part' : ' is-zero';
+        const mine = sheet.split
+            ? (row.field ? fieldMineHtml(sheet.format, row.field, docs, marks) : '')
+            : (readonly ? '<span class="essay-empty-cell">— bỏ trống</span>' : `<div class="er-text">${answerReadHtml(q, ans, true)}</div>`);
+        const lb = row.field ? fieldName(sheet.format, row.field) : 'Ý chấm trên cả bài';
+        const part = parts && row.field ? parts[row.field - 1] : null;
+        // Tên mục của đáp án mẫu trùng tên ô thì thôi nhắc lại (đã có ở đầu hàng)
+        const rowRef = !sheet.split ? (ref ? refHtml(ref, scope(0)) : '')
+            : part ? refHtml(part.body, scope(row.field), pairOverlap(part.title, lb) >= 0.5 ? '' : part.title) : '';
+        const right = row.units.length
+            ? `<ul class="essay-kps">${row.units.map(u => unitHtml(q, sheet, u, ans, matches, readonly)).join('')}</ul>`
+            : !sheet.items.length && model ? modelBodyHtml(model, scope(0))
+                : '<p class="er-hint">Ô này không có ý chấm riêng.</p>';
+        const head = sheet.split
+            ? `<div class="er-row-head"><span class="er-row-lb">${row.field && !/^\s*[a-z0-9]{1,2}[.)]\s/i.test(lb) ? `<span class="er-row-no">${row.field}</span>` : ''}${escHtml(lb)}</span>${row.units.length ? `<b class="er-row-pts">${fmt(sc.got)}/${fmt(sc.max)}đ</b>` : ''}</div>` : '';
+        return `<section class="er-row${tone}${mine ? '' : ' is-solo'}">
+            ${head}
+            <div class="er-grid">
+                ${mine ? `<div class="er-mine"><span class="er-cap"><i class="fas fa-pen"></i> Bạn viết</span>${mine}</div>` : ''}
+                <div class="er-want"><span class="er-cap"><i class="fas fa-list-check"></i> ${sheet.items.length ? 'Barem cần có' : 'Đáp án mẫu'}</span>${right}</div>
+                ${rowRef}
+            </div>
+        </section>`;
+    }).join('');
+    const pens = sheet.pens.length
+        ? `<div class="essay-pen"><div class="essay-pen-head"><i class="fas fa-triangle-exclamation"></i> Lỗi trừ điểm${readonly ? '' : ' — tick nếu bài bạn mắc'}</div>
+            <ul class="essay-kps">${sheet.pens.map(i => itemRowHtml(sheet.items[i], i, ans, matches && matches[i], readonly)).join('')}</ul></div>` : '';
+    // Chia theo ô mà đáp án mẫu không tách được theo ô -> một khối "cả bài" dưới các hàng (vẫn chung công tắc)
+    const whole = ref && sheet.split && !parts ? refHtml(ref, scope(0), 'cả bài', true) : '';
+    const hasDetail = !!ref || sheet.items.some(it => it.why || it.example);
+    return `<div class="er${sheet.split ? ' is-split' : ''}${fullOn() ? ' er-all' : ''}" data-essay-grade="${idx}">
+        ${scoreHtml(q, idx, ans, sheet, hasDetail)}
+        ${chotHtml(chot)}
+        <div class="er-rows">${rows}</div>
+        ${whole}
+        ${pens}
+    </div>`;
+}
+
+/* ---- Thẻ tab kiến thức (màn kết quả): Tư duy · Ghi nhớ · Mở rộng (đáp án tham khảo đã nằm trong phiếu, theo ô) ---- */
+const TAB_KEY = 'quiz_essay_tab';
+const tabPick = new Map();   // câu -> tab đang mở, giữ qua lần vẽ lại sau khi tick (refreshResults)
+const readTab = () => { try { return localStorage.getItem(TAB_KEY) || ''; } catch (e) { return ''; } };
+
+function memoCardHtml(c) {
+    return `<div class="er-memo${c.trap ? ' is-trap' : ''}">
+        ${c.label ? `<span class="er-memo-lb">${c.icon ? `<span aria-hidden="true">${escHtml(c.icon)}</span> ` : ''}${escHtml(c.label)}</span>` : ''}
+        <div class="er-memo-body">${parseMarkdown(c.body)}</div></div>`;
+}
+function secHtml(s) {
+    return `<section class="er-sec">${s.title ? `<h4 class="er-sec-h">${s.icon ? `<span aria-hidden="true">${escHtml(s.icon)}</span> ` : ''}${escHtml(s.title)}</h4>` : ''}
+        <div class="er-sec-body">${parseMarkdown(s.body)}</div></section>`;
+}
+
+function tabsHtml(q, idx) {
+    const L = studyLayers(q);
+    const reason = reasoningBodyHtml(q, false);
+    const memo = L.memo.map(memoCardHtml).join('')
+        + L.traps.map(s => memoCardHtml({ icon: s.icon, label: s.title, body: s.body, trap: true })).join('');
+    const tabs = [
+        reason && ['reason', 'fa-brain', 'Tư duy', `<div class="qr">${reason}</div>`],
+        memo && ['note', 'fa-lightbulb', 'Ghi nhớ', `<div class="er-memos">${memo}</div>`],
+        L.more.length && ['more', 'fa-layer-group', 'Mở rộng', L.more.map(secHtml).join('')],
+    ].filter(Boolean);
+    if (!tabs.length) return '';
+    let cur = tabPick.get(idx) || readTab();
+    if (!tabs.some(t => t[0] === cur)) cur = (tabs.find(t => t[0] === 'note') || tabs[0])[0];
+    return `<div class="er-tabs" data-er-tabs="${idx}">
+        <div class="er-tablist" role="tablist" aria-label="Kiến thức của câu">${tabs.map(([k, ic, lb]) =>
+            `<button type="button" role="tab" class="er-tab" data-er-tab="${k}" aria-selected="${k === cur}"><i class="fas ${ic}" aria-hidden="true"></i> ${lb}</button>`).join('')}</div>
+        ${tabs.map(([k, , , html]) => `<div class="er-panel is-${k}" role="tabpanel" data-er-panel="${k}"${k === cur ? '' : ' hidden'}>${html}</div>`).join('')}
+    </div>`;
+}
+
+function switchTab(btn) {
+    const wrap = btn.closest('[data-er-tabs]');
+    const k = btn.getAttribute('data-er-tab');
+    wrap.querySelectorAll('[data-er-tab]').forEach(b => b.setAttribute('aria-selected', String(b === btn)));
+    wrap.querySelectorAll('[data-er-panel]').forEach(p => { p.hidden = p.getAttribute('data-er-panel') !== k; });
+    tabPick.set(Number(wrap.getAttribute('data-er-tabs')), k);
+    try { localStorage.setItem(TAB_KEY, k); } catch (e) { }
+    sfx('ui');
+}
+
+// Màn kết quả: phiếu chấm + thẻ tab kiến thức
 export function essayReviewHtml(q, idx, ans) {
     wireGrading();
     return `<div class="essay-review">
-        <div class="essay-mine">
-            <div class="essay-mine-head"><i class="fas fa-pen"></i> Bài làm của bạn</div>
-            <div class="essay-mine-text">${hasText(ans) ? answerReadHtml(q, ans, true) : '<i>Bỏ trống</i>'}</div>
-        </div>
-        ${studyReasonHtml(q)}
-        ${modelHtml(q)}
-        ${gradeHtml(q, idx, ans)}
-        ${studyExtrasHtml(q, false)}
+        ${sheetHtml(q, idx, ans)}
+        ${tabsHtml(q, idx)}
     </div>`;
 }
 
@@ -343,11 +479,16 @@ export function essayCardHtml(q, idx) {
     const immediate = !!state.quizOptions.showAnswerImmediately;
     const revealed = isEssayRevealed(idx);
     const text = (ans && ans.text) || '';
-    const exp = q.explanation && String(q.explanation).trim();
-    // Đã mở đáp án: bài làm hiện dạng đọc, tô chữ máy nhận ra (tô trước khi mở = lộ đáp án nên không làm)
-    const sheetBody = revealed && text.trim()
-        ? `<div id="essay-read" class="essay-read">${answerReadHtml(q, ans, true)}</div>`
-        : inputsHtml(q, ans, done);
+    // Đã mở đáp án: tờ bài làm nhường chỗ cho phiếu chấm (bài làm nằm TRONG phiếu, cạnh barem từng ô, chữ máy
+    // nhận ra được tô — tô trước khi mở = lộ đáp án nên không làm), đáp án tham khảo ngay dưới bài của từng ô.
+    if (revealed) {
+        return `
+    <div id="essay-area" class="essay-area is-revealed">
+        ${locked ? lockNoteHtml() : ''}
+        ${sheetHtml(q, idx, ans, { inQuiz: true })}
+    </div>`;
+    }
+    const sheetBody = inputsHtml(q, ans, done);
     const kind = formatOf(q).kind;
     // Nói để viết (page/quiz-dictation.js) — chỉ khi còn làm được và trình duyệt có nhận giọng nói
     const mic = !done && SR ? '<button type="button" id="essay-mic" class="essay-mic" aria-pressed="false" title="Nói để viết vào bài làm (tiếng Việt). Nói “xuống dòng”, “gạch đầu dòng”, “dấu chấm”, “dấu phẩy” để chấm câu"><i class="fas fa-microphone"></i><span>Nói để viết</span></button>' : '';
@@ -367,12 +508,6 @@ export function essayCardHtml(q, idx) {
             <span class="essay-kbd">${immediate ? '' : 'Đáp án mở sau khi nộp bài · '}<kbd class="kbd-key">Ctrl</kbd>+<kbd class="kbd-key">Enter</kbd>${immediate ? '' : ' câu tiếp'}</span>
             ${immediate ? '<button type="button" id="essay-done-btn" class="essay-done-btn"><i class="fas fa-check"></i> Xong, xem đáp án</button>' : ''}
         </div>`}
-        ${revealed ? `
-        <div class="essay-reveal">
-            ${modelHtml(q)}
-            ${gradeHtml(q, idx, ans)}
-            ${exp ? `<div class="essay-exp"><b><i class="fas fa-lightbulb"></i> Giải thích:</b> ${parseMarkdown(exp)}</div>` : ''}
-        </div>` : ''}
     </div>`;
 }
 
@@ -451,7 +586,7 @@ function finishEssay(idx) {
     saveQuizState();
     showQuestion();   // vẽ lại cùng câu -> hiện đáp án mẫu + barem (máy đã tick sẵn)
     syncQuizNavPanel();
-    document.querySelector('#quizSection .essay-reveal')?.scrollIntoView({ behavior: scrollBehaviorFor(), block: 'start' });
+    document.querySelector('#quizSection .er')?.scrollIntoView({ behavior: scrollBehaviorFor(), block: 'start' });
 }
 
 // Tick ý / ½ / tự chấm / xác nhận — một listener ủy quyền cho cả màn làm bài lẫn màn kết quả.
@@ -461,6 +596,10 @@ function wireGrading() {
     if (gradingWired) return;
     gradingWired = true;
     document.addEventListener('click', (e) => {
+        const tab = e.target.closest('[data-er-tab]');
+        if (tab) { switchTab(tab); return; }
+        const fullBtn = e.target.closest('[data-er-full]');
+        if (fullBtn) { toggleFull(fullBtn); return; }
         const box = e.target.closest('[data-essay-grade]');
         const btn = box && e.target.closest('[data-kp],[data-kp-half],[data-self],[data-kp-none],[data-grade-ok]');
         if (!btn) return;
@@ -492,8 +631,10 @@ function wireGrading() {
         saveQuizState();
         sfx(btn.hasAttribute('data-kp') ? (next.ticks.length > ticks.length ? 'toggleOn' : 'toggleOff') : 'ui');   // tick ý barem = tiếng bật/tắt, các nút chấm khác = tiếng nhẹ
         if (box.closest('#resultsSection')) { refreshResults(); return; }
-        box.outerHTML = gradeHtml(q, idx, next);
-        renderMath(document.querySelector(`#quizSection [data-essay-grade="${idx}"]`));
+        box.outerHTML = sheetHtml(q, idx, next, { inQuiz: true });
+        const fresh = document.querySelector(`#quizSection [data-essay-grade="${idx}"]`);
+        renderMath(fresh);
+        applyAnnotationsAll(fresh);   // đáp án tham khảo nằm trong phiếu -> tô / ghi chú cá nhân vẽ lại
         syncQuizNavPanel();
         updateMobileNav();
     });

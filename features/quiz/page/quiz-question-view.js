@@ -585,9 +585,9 @@ export function showQuestion() {
         // Ô bài làm thay khối đáp án; 50:50 vô nghĩa với tự luận. Giữ "Chắc chắn/Đoán" + nút sửa câu (modal có chế độ tự luận)
         document.getElementById('answers-container').outerHTML = essayCardHtml(question, state.currentIndex);
         document.getElementById('help-5050-btn')?.remove();
-        // Hướng tư duy ngay dưới "Bài làm của bạn", trước đáp án mẫu: đối chiếu cách nghĩ của mình trước rồi mới xem đáp án
+        // Hướng tư duy ngay dưới phiếu chấm (đã mở đáp án) / tờ bài làm, trước bài mẫu đầy đủ
         const reasonCard = document.getElementById('reason-area');
-        if (reasonCard) document.querySelector('#essay-area .essay-sheet')?.after(reasonCard);
+        if (reasonCard) document.querySelector('#essay-area .er, #essay-area .essay-sheet')?.after(reasonCard);
     }
 
     // Hiệu ứng trượt-vào theo hướng chuyển câu (chỉ khi thực sự đổi câu, không khi vẽ lại)

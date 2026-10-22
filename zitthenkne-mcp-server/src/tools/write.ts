@@ -42,7 +42,7 @@ type QuestionInput = {
   max_score?: number;
   answer_format?: { kind: string; count?: number; labels?: (string | { label?: string; hint?: string; size?: string; unit?: string })[]; columns?: string[]; rows?: number | string[]; placeholder?: string };
 };
-type KeyPointInput = { text: string; points?: number; keywords?: string[]; partial_points?: number; critical?: boolean; field?: number; order?: string[] };
+type KeyPointInput = { text: string; points?: number; keywords?: string[]; partial_points?: number; critical?: boolean; field?: number; order?: string[]; why?: string; example?: string };
 
 /** Ý barem snake_case -> dạng lưu (camelCase, bỏ trường rỗng) */
 function toStoredKeyPoint(k: KeyPointInput): Record<string, unknown> {
@@ -52,6 +52,8 @@ function toStoredKeyPoint(k: KeyPointInput): Record<string, unknown> {
   if (k.critical) out.critical = true;
   if (k.field) out.field = k.field;
   if (k.order?.length) out.order = k.order;
+  if (k.why) out.why = k.why;
+  if (k.example) out.example = k.example;
   return out;
 }
 
@@ -89,8 +91,14 @@ function toStoredQuestion(q: QuestionInput): Record<string, unknown> {
 
 const ESSAY_GUIDE = `    Tự luận / thi tình huống: { type: 'essay', question, model_answer?, key_points?, max_score?, explanation?, note, expanded } — KHÔNG truyền answers/correct_answer_index.
       - key_points = BAREM. Máy tự dò từ khóa trong bài làm để tick sẵn, người làm xem lại và tick thêm. Mỗi ý:
-          { text, points (mặc định 1), keywords: [2-6 từ khóa/đồng nghĩa/viết tắt, có dấu, ngắn], partial_points?, critical? }
+          { text, points (mặc định 1), keywords: [2-6 từ khóa/đồng nghĩa/viết tắt, có dấu, ngắn], partial_points?, critical?, why, example? }
         LUÔN kèm keywords cho mọi ý (thiếu keywords máy chỉ đoán theo chữ của text, kém chính xác hơn).
+        Ý NGUYÊN TỬ: mỗi ý ≤ 25 từ, MỘT khái niệm — một từ khóa khớp là máy tick cả ý, nên ý gộp "A + B + C" bị tick oan khi bài chỉ có A.
+        CHECKLIST LÀ ĐÁP ÁN (bản 2): mỗi ý đủ 3 lớp, đọc liền các ý = một bài đạt điểm tối đa:
+          · text = ý chấm · why = 1 câu ≤ 30 từ "vì sao có điểm / thiếu thì sao" (mọi ý điểm dương)
+          · example = VIẾT MẪU ≤ 40 từ, đúng câu chữ nên ghi / nói với người bệnh (liều + đường dùng, cách ghi chẩn đoán,
+            câu tư vấn) — bắt buộc khi cách diễn đạt được chấm (tư vấn, kê đơn, ghi chẩn đoán), bỏ khi ý tự nó đã là câu viết mẫu.
+          Web: mặc định hiện why + example dưới ý người làm THIẾU; nút "Xem đáp án đầy đủ" hiện cho mọi ý.
         Các kiểu barem (chỉ dùng khi barem gốc có, đừng tự bịa):
           · ý một phần: partial_points (vd. points 0.5, partial_points 0.25 khi có tên thuốc mà thiếu liều)
           · ý bắt buộc / điểm liệt: critical: true -> thiếu thì cả câu 0 điểm
@@ -113,12 +121,21 @@ const ESSAY_GUIDE = `    Tự luận / thi tình huống: { type: 'essay', quest
               { kind: 'fields', labels: [{ label: 'Mạch', unit: 'lần/phút', size: 'line' }, { label: 'Huyết áp', unit: 'mmHg', size: 'line' },
                 { label: 'Nhận định', hint: 'bình thường / bất thường + lý do', size: 'para' }] }
               Chọn cỡ theo độ dài câu trả lời mong đợi; nhiều phần khác loại trong một câu thì dùng fields với từng ô riêng.
-      - MỌI câu tự luận BẮT BUỘC có note + expanded (thiếu là bị từ chối), nên có thêm explanation (lập luận của barem):
-          · note (Ghi nhớ): bẫy hay nhầm, lỗi làm mất điểm, mẹo nhớ, đính chính quan niệm sai — ngắn, gạch đầu dòng.
-          · expanded (Mở rộng): kiến thức VƯỢT đáp án mẫu, KHÔNG chép lại model_answer — ưu tiên bảng markdown so sánh / phân biệt,
-            phân loại, cơ chế, mốc số (ngưỡng, liều, tuần thai), hướng xử trí tiếp theo, câu hỏi thầy hay hỏi thêm. Tối thiểu ~200 ký tự.
+      - PHIẾU CHẤM (web bản 2): mỗi nội dung hiện MỘT chỗ — viết mỗi trường đúng vai, KHÔNG lặp ý giữa các trường:
+          · explanation = dải CHỐT trên đầu phiếu: 1 câu ≤ 40 từ, kết luận cốt lõi. Không ghi lại "Chốt" trong note.
+          · key_points = cột "Barem cần có" đặt cạnh bài làm TỪNG Ô (gắn field), mỗi ý text + why + example như trên.
+          · model_answer = KHÔNG viết khi checklist đã đủ (nó chỉ lặp lại barem). CHỈ viết khi có thứ checklist không chở được:
+            hình đáp án (vẽ/chấm lên biểu đồ, CTG, sản đồ), bảng/đơn thuốc trình bày liền, kịch bản tư vấn liền mạch (role-play dài).
+            Khi viết với fields/list: chia ĐÚNG số mục bằng số ô, mỗi mục mở bằng dòng riêng "1. **Tên mục:**" — web đặt dưới bài làm
+            từng ô (gập sẵn, "Đáp án tham khảo"); lệch số mục thì hiện liền một khối "cả bài".
+          · note (tab Ghi nhớ): mỗi dòng "emoji Nhãn: nội dung" thành một thẻ — ⚠️ Bẫy trạm / điểm liệt, 💡 Lời dặn giảng viên,
+            🧠 Mẹo nhớ, 🔢 Mốc số. Ngắn, ≤ 5 dòng.
+          · expanded: kiến thức VƯỢT đáp án, chia khúc bằng dòng tiêu đề RIÊNG một dòng: "⚙️ **Tinh hoa 80/20 & Cơ chế lõi:**" →
+            "⚠️ **Radar cạm bẫy:**" → "🔀 **What-if:**" (bảng so sánh, phân loại, mốc số, xử trí tiếp theo). Web đặt ⚙️/🔀 ở tab Mở rộng,
+            khúc ⚠️ dời sang tab Ghi nhớ cạnh note — nên KHÔNG ghi cùng một bẫy ở cả note lẫn Radar. Tối thiểu ~200 ký tự.
+      - MỌI câu tự luận BẮT BUỘC có note + expanded (thiếu là bị từ chối), nên có explanation (dải Chốt).
       - max_score = điểm tối đa của CÂU trong đề (trọng số; vd. đề thang 10: câu 1 = 2đ, câu 2 = 3đ). Tổng barem của câu nên bằng max_score.
-      - model_answer = đáp án mẫu viết liền (markdown). Có key_points thì model_answer chỉ để đọc thêm; không có key_points thì mỗi gạch đầu dòng cấp 1 của model_answer thành 1 ý (ghi điểm cuối ý: "- Killip I (0.5đ)").
+      - Cần ít nhất một trong key_points / model_answer. Không có key_points thì mỗi gạch đầu dòng cấp 1 của model_answer thành 1 ý (ghi điểm cuối ý: "- Killip I (0.5đ)").
       - Đề tình huống: bối cảnh chung đặt ở case_text (lặp y hệt ở mọi câu cùng case_id), mỗi câu hỏi nhỏ là một câu riêng theo đúng thứ tự.
       - HÌNH VẼ BẰNG MÃ (mọi trường markdown, cả trắc nghiệm): khối \`\`\`mermaid (flowchart lưu đồ / xychart-beta biểu đồ đường-cột / pie)
         hoặc khối \`\`\`svg (hình y khoa vẽ tay: băng CTG, biểu đồ chuyển dạ, đường cong tăng trưởng). SVG phải tự đủ: viewBox + width + height,

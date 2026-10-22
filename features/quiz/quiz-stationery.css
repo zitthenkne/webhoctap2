@@ -3128,46 +3128,10 @@ html.theme-dark #quizSection .essay-done-btn { background: color-mix(in srgb, va
 }
 .essay-lock + #answers-container { margin-top: 0.25rem; }
 
-/* Đáp án mẫu = phiếu xanh lá (nghĩa "đúng") */
-.essay-model {
-    --em-b: var(--ok-ink); --em-i: var(--ink-sky);
-    border-radius: 1.1rem;
-    border: 2px solid var(--ok-line);
-    background: var(--ok-bg);
-    color: var(--ink);
-}
-.essay-model-head, .essay-model > summary {
-    display: flex; align-items: center; gap: 0.45rem;
-    padding: 0.65rem 1rem 0.25rem;
-    font-weight: 800; font-size: 0.92rem; color: var(--ok-ink);
-    list-style: none;
-}
-.essay-model > summary { cursor: pointer; padding-bottom: 0.65rem; }
-.essay-model > summary::-webkit-details-marker { display: none; }
 .essay-model-body { padding: 0 1.05rem 0.9rem; line-height: 1.75; }
 .essay-model-body > :first-child { margin-top: 0; }
 .essay-model-body > :last-child { margin-bottom: 0; }
 
-/* Khung tự chấm */
-.essay-grade {
-    border-radius: 1.1rem;
-    border: 2px solid color-mix(in srgb, var(--hue-latte) 38%, transparent);
-    background: var(--surface-card);
-    padding: 0.7rem 0.85rem 0.85rem;
-    color: var(--ink);
-}
-.essay-grade-head { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; font-weight: 800; font-size: 0.92rem; color: var(--ink-latte); }
-.essay-score {
-    padding: 0.15rem 0.7rem; border-radius: 999px;
-    font-size: 0.82rem; white-space: nowrap;
-    color: var(--ok-ink); background: var(--ok-bg); border: 1.5px solid var(--ok-line);
-}
-.essay-score.is-pending {
-    color: var(--ink-butter);
-    background: color-mix(in srgb, var(--hue-butter) 22%, var(--surface-card));
-    border-color: color-mix(in srgb, var(--hue-butter) 60%, transparent);
-}
-.essay-grade-hint { margin: 0.35rem 0 0.1rem; font-size: 12px; font-weight: 600; color: var(--ink-muted); }
 .essay-kps { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.45rem; }
 .essay-kp {
     display: flex; align-items: flex-start; gap: 0.65rem;
@@ -3194,7 +3158,6 @@ button.essay-kp:hover { border-color: color-mix(in srgb, var(--hue-latte) 50%, t
 .essay-kp.is-on { --em-b: var(--ok-ink); border-color: var(--ok-line); background: var(--ok-bg); }
 .essay-kp.is-on .essay-kp-box { border-color: var(--ok-solid); background: var(--ok-solid); color: #fff; }
 .essay-kp.is-on .essay-kp-pts { color: var(--ok-ink); }
-.essay-grade.is-readonly .essay-kp { background: var(--surface-card); }
 .essay-none {
     margin-top: 0.55rem; padding: 0.3rem 0.8rem;
     border-radius: 999px; border: 1.5px dashed var(--ink-faint);
@@ -3210,16 +3173,6 @@ button.essay-kp:hover { border-color: color-mix(in srgb, var(--hue-latte) 50%, t
 .essay-self-btn.is-on[data-self="0.5"] { border-color: color-mix(in srgb, var(--hue-butter) 60%, transparent); background: color-mix(in srgb, var(--hue-butter) 22%, var(--surface-card)); color: var(--ink-butter); }
 .essay-self-btn.is-on[data-self="0"]   { border-color: var(--bad-line); background: var(--bad-bg); color: var(--bad-ink); }
 
-#quizSection .essay-reveal { display: flex; flex-direction: column; gap: 0.9rem; animation: kb-in .45s var(--spring) both; }
-.essay-exp {
-    --em-b: #9A4A12;
-    padding: 0.7rem 1rem;
-    border-radius: 1.1rem;
-    background: color-mix(in srgb, var(--hue-butter) 18%, var(--surface-card));
-    border: 2px solid color-mix(in srgb, var(--hue-butter) 45%, transparent);
-    line-height: 1.75; color: var(--ink);
-}
-.essay-exp > b { color: var(--ink-butter); }
 
 /* Ca mở dần: khối thông tin bổ sung nối dưới tình huống */
 #quizSection #clinical-case-panel .case-reveal, #case-peek-sheet .case-reveal {
@@ -3236,10 +3189,6 @@ button.essay-kp:hover { border-color: color-mix(in srgb, var(--hue-latte) 50%, t
 
 /* Màn kết quả */
 #resultsSection .essay-review { display: flex; flex-direction: column; gap: 0.7rem; }
-.essay-mine { border-radius: 1rem; border: 2px dashed color-mix(in srgb, var(--hue-latte) 45%, transparent); background: var(--paper); }
-.essay-mine-head { padding: 0.55rem 0.9rem 0.1rem; font-weight: 800; font-size: 0.88rem; color: var(--ink-latte); }
-.essay-mine-text { padding: 0 0.9rem 0.75rem; line-height: 1.7; color: var(--ink); overflow-wrap: anywhere; }
-.essay-mine-text i { color: var(--ink-muted); }
 #resultsSection .essay-pending-card {
     display: flex; flex-wrap: wrap; align-items: center; gap: 0.8rem 1rem;
     margin-top: 1.5rem; padding: 1rem 1.2rem;
@@ -3280,7 +3229,6 @@ html.theme-dark #essay-grade-now { background: color-mix(in srgb, var(--hue-butt
 }
 
 /* Bài làm dạng đọc (sau khi mở đáp án) + chữ máy nhận ra */
-#quizSection .essay-read { min-height: 3.5rem; }
 mark.essay-hit { color: inherit; border-radius: 0.3rem; padding: 0 0.1em; }
 mark.essay-hit.is-match { background: var(--ok-bg); box-shadow: inset 0 -2px 0 var(--ok-line); }
 mark.essay-hit.is-near  { background: color-mix(in srgb, var(--hue-butter) 22%, transparent); box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--hue-butter) 70%, transparent); }
@@ -3414,7 +3362,6 @@ html #quizSection .essay-part::placeholder { color: var(--ink-faint) !important;
 }
 
 /* Bài đọc lại theo kiểu ô */
-#quizSection .essay-read { padding: 0.25rem 0 0.4rem; }
 .essay-read-text {
     padding: 0 1rem 0.5rem;
     white-space: pre-wrap; overflow-wrap: anywhere;
@@ -3430,7 +3377,6 @@ html #quizSection .essay-part::placeholder { color: var(--ink-faint) !important;
 #resultsSection .essay-read-list { padding-left: 1.6rem; }
 @media (max-width: 639px) { .essay-read-fields { grid-template-columns: 1fr; } }
 .essay-empty-cell { color: var(--ink-faint); }
-.essay-kp-tag.is-field { color: var(--ink-sky); border-color: color-mix(in srgb, var(--hue-sky) 50%, transparent); }
 
 /* Modal sửa câu: chế độ tự luận */
 .qe-modal.is-essay .qe-mcq-only, .qe-modal:not(.is-essay) .qe-essay-only { display: none !important; }
@@ -5893,3 +5839,274 @@ html.theme-dark #quizSection .essay-mic.is-live { color: #1d1819; }
 }
 #quizSection .essay-listen[hidden] { display: none; }
 @media (max-width: 479px) { #quizSection .essay-mic span { display: none; } #quizSection .essay-mic { padding: 0.4rem 0.55rem; } }
+
+/* ============================================================
+   41) PHIẾU CHẤM TỰ LUẬN BẢN 2 (2026-10-22) — page/quiz-essay.js sheetHtml / essayReviewHtml
+   Thay lối xếp chồng (bài làm → đáp án mẫu → barem → ghi nhớ → mở rộng, cùng một ý lặp 2–3 lần):
+   ① dải điểm + vạch chia theo ý ② dải Chốt ③ đối chiếu TỪNG Ô: ["Bạn viết" + đáp án tham khảo của ô] | "Barem cần có"
+   (2 cột khi khung ≥ 620px, container query) ④ màn kết quả: thẻ tab Tư duy · Ghi nhớ · Mở rộng (một lớp mỗi lần).
+   Màu giữ nghĩa: đạt = xanh lá, một phần = vàng hổ phách, 0 điểm = đỏ nhạt; Chốt = xanh trời; đáp án tham khảo =
+   oải hương; bẫy = cam đào.
+   Icon: fa-thumbtack fa-circle-info fa-layer-group fa-brain fa-book-open fa-lightbulb fa-pen fa-list-check
+   fa-comment-dots fa-eye fa-eye-slash
+   ============================================================ */
+.er { container: erbox / inline-size; display: flex; flex-direction: column; gap: 0.65rem; color: var(--ink); }
+#quizSection .essay-area.is-revealed { gap: 0.9rem; animation: kb-in .45s var(--spring) both; }
+
+/* ① dải điểm */
+.er-score {
+    padding: 0.65rem 0.85rem 0.7rem;
+    border-radius: 1.1rem;
+    border: 2px solid color-mix(in srgb, var(--hue-latte) 38%, transparent);
+    background: var(--surface-card);
+}
+.er-score-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem; }
+.er-pts { font-size: 1.55rem; font-weight: 800; line-height: 1.1; color: var(--ok-ink); font-variant-numeric: tabular-nums; }
+.er-pts small { font-size: 0.85rem; font-weight: 700; color: var(--ink-muted); margin-left: 0.1rem; }
+.er-pts.is-pending { color: var(--ink-butter); }
+.er-score-sub { font-size: 12.5px; font-weight: 600; color: var(--ink-muted); }
+.er-score-sub b { color: var(--ink); }
+.er-weight { font-weight: 700; color: var(--ink-peach); }
+.er-chip {
+    margin-left: auto; align-self: center;
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    padding: 0.08rem 0.55rem; border-radius: 999px;
+    font-size: 11px; font-weight: 800;
+    color: var(--ink-muted); border: 1.5px solid var(--line); background: var(--paper);
+}
+.er-chip.is-auto { color: var(--ink-butter); border-color: color-mix(in srgb, var(--hue-butter) 60%, transparent); background: color-mix(in srgb, var(--hue-butter) 16%, var(--surface-card)); }
+.er-bar { display: flex; gap: 3px; height: 0.5rem; margin: 0.5rem 0 0.15rem; }
+.er-seg { min-width: 0.4rem; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, var(--hue-latte) 18%, var(--surface-card)); }
+.er-seg > i { display: block; height: 100%; border-radius: inherit; background: var(--ok-solid); }
+.er-seg.is-part > i { background: var(--hue-butter); }
+.er-hint { margin: 0.35rem 0 0; font-size: 12px; font-weight: 600; line-height: 1.5; color: var(--ink-muted); }
+.er-score .essay-auto-note { margin: 0.45rem 0 0; }
+.er-score .essay-self { margin-top: 0.5rem; }
+
+/* ② Chốt */
+.er-chot {
+    --em-b: var(--ink-sky);
+    display: flex; align-items: flex-start; gap: 0.6rem;
+    padding: 0.55rem 0.85rem;
+    border-radius: 1rem;
+    border: 2px solid color-mix(in srgb, var(--hue-sky) 42%, transparent);
+    background: color-mix(in srgb, var(--hue-sky) 9%, var(--surface-card));
+}
+.er-chot-tag {
+    flex-shrink: 0; display: inline-flex; align-items: center; gap: 0.3rem;
+    margin-top: 0.12rem; padding: 0.05rem 0.55rem; border-radius: 999px;
+    font-size: 11.5px; font-weight: 800; color: var(--ink-sky);
+    background: color-mix(in srgb, var(--hue-sky) 18%, var(--surface-card));
+}
+.er-chot-body { flex: 1; min-width: 0; line-height: 1.6; font-weight: 600; }
+.er-chot-body p { margin: 0; }
+.er-chot-line + .er-chot-line { margin-top: 0.3rem; padding-top: 0.3rem; border-top: 1px dashed color-mix(in srgb, var(--hue-sky) 35%, transparent); }
+
+/* ③ đối chiếu từng ô */
+.er-rows { display: flex; flex-direction: column; gap: 0.6rem; }
+.er-row {
+    padding: 0.55rem 0.75rem 0.7rem;
+    border-radius: 1.05rem;
+    border: 2px solid var(--line);
+    background: var(--surface-card);
+}
+.er-row.is-full { border-color: var(--ok-line); }
+.er-row.is-part { border-color: color-mix(in srgb, var(--hue-butter) 60%, transparent); }
+.er-row.is-zero { border-color: color-mix(in srgb, var(--bad-line) 70%, transparent); }
+.er-row-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.6rem; margin-bottom: 0.45rem; }
+.er-row-lb { font-size: 0.86rem; font-weight: 800; color: var(--ink-latte); line-height: 1.4; }
+.er-row-pts {
+    flex-shrink: 0; padding: 0.05rem 0.55rem; border-radius: 999px;
+    font-size: 12px; font-weight: 800; white-space: nowrap;
+    color: var(--ink-muted); background: var(--paper); border: 1.5px solid var(--line);
+}
+.er-row.is-full .er-row-pts { color: var(--ok-ink); background: var(--ok-bg); border-color: var(--ok-line); }
+.er-row.is-part .er-row-pts { color: var(--ink-butter); background: color-mix(in srgb, var(--hue-butter) 18%, var(--surface-card)); border-color: color-mix(in srgb, var(--hue-butter) 60%, transparent); }
+.er-row.is-zero .er-row-pts { color: var(--bad-ink); background: var(--bad-bg); border-color: var(--bad-line); }
+.er-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.55rem; }
+@container erbox (min-width: 620px) {
+    .er-grid { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); align-items: start; }
+    .er-row.is-solo .er-grid { grid-template-columns: minmax(0, 1fr); }
+}
+.er-cap { display: flex; align-items: center; gap: 0.3rem; margin-bottom: 0.3rem; font-size: 11px; font-weight: 800; letter-spacing: 0.02em; color: var(--ink-muted); }
+.er-mine {
+    padding: 0.45rem 0.65rem 0.55rem;
+    border-radius: 0.85rem;
+    border: 1.5px dashed color-mix(in srgb, var(--hue-latte) 45%, transparent);
+    background: var(--paper);
+}
+.er-text { line-height: 1.65; overflow-wrap: anywhere; }
+.er-text.is-pre { white-space: pre-wrap; }
+.er-text .essay-read-text { padding: 0; background-image: none; font-size: inherit; line-height: 1.65; }
+.er-text .essay-read-list, .er-text .essay-read-fields, .er-text .essay-table-wrap { padding-left: 0; padding-right: 0; }
+.er-text .essay-read-list { padding-left: 1.4rem; list-style: decimal; }
+.er-cells { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.25rem 0.6rem; }
+.er-cells dt { font-size: 12px; font-weight: 800; color: var(--ink-latte); padding-top: 0.1rem; }
+.er-cells dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; }
+.er-want .essay-kps { margin-top: 0; }
+.er-want > .essay-model-body { padding: 0; }
+.essay-kp.is-miss .essay-kp-box { border-color: color-mix(in srgb, var(--bad-line) 75%, transparent); }
+.essay-kp-why {
+    display: flex; align-items: flex-start; gap: 0.35rem;
+    margin-top: 0.1rem; padding: 0.25rem 0.55rem;
+    border-radius: 0.6rem;
+    font-size: 12.5px; line-height: 1.5; color: var(--ink);
+    background: color-mix(in srgb, var(--hue-butter) 12%, var(--surface-card));
+}
+.essay-kp-why > i { margin-top: 0.2rem; color: var(--ink-butter); font-size: 0.75rem; }
+.essay-kp-why p { margin: 0; }
+/* Viết mẫu = cách ghi trong bài thi / nói với người bệnh — oải hương như đáp án tham khảo (là phần thay cho nó) */
+.essay-kp-ex {
+    --em-b: var(--ink-lav);
+    display: flex; align-items: flex-start; gap: 0.35rem;
+    margin-top: 0.1rem; padding: 0.25rem 0.55rem;
+    border-radius: 0.6rem;
+    font-size: 12.5px; line-height: 1.5; color: var(--ink);
+    background: color-mix(in srgb, var(--hue-lav) 11%, var(--surface-card));
+    border-left: 2.5px solid color-mix(in srgb, var(--hue-lav) 60%, transparent);
+}
+.essay-kp-ex > i { margin-top: 0.2rem; color: var(--ink-lav); font-size: 0.75rem; }
+.essay-kp-ex b { color: var(--ink-lav); font-weight: 800; }
+.essay-kp-ex p { margin: 0; display: inline; }
+/* Mức "ý thiếu" (mặc định): ý đã ĐẠT đủ thì giấu vì sao / viết mẫu; "Xem đáp án đầy đủ" (.er-all) hiện cho mọi ý */
+.er:not(.er-all) .essay-kp.is-on:not(.is-penalty) :is(.essay-kp-why, .essay-kp-ex) { display: none; }
+.er .essay-pen { margin-top: 0; }
+
+/* Đáp án tham khảo: trải ngang ngay dưới cặp "Bạn viết | Barem" của đúng ô, giấy OẢI HƯƠNG — khác xanh lá vì
+   đây là bài tham khảo chứ không phải "bạn đúng". Gập từng ô (details) hoặc cả phiếu (nút .er-full-btn). */
+.er-grid > .er-ref { grid-column: 1 / -1; }
+.er-ref-sub { font-weight: 700; letter-spacing: 0; opacity: 0.85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.er-ref {
+    --em-b: var(--ink-lav); --em-i: var(--ink-sky);
+    border-radius: 0.85rem;
+    border: 1.5px solid color-mix(in srgb, var(--hue-lav) 50%, transparent);
+    background: color-mix(in srgb, var(--hue-lav) 9%, var(--surface-card));
+}
+.er-ref > summary {
+    display: flex; align-items: center; gap: 0.35rem;
+    padding: 0.32rem 0.65rem;
+    font-size: 11.5px; font-weight: 800; letter-spacing: 0.02em; color: var(--ink-lav);
+    cursor: pointer; list-style: none; user-select: none;
+}
+.er-ref > summary::-webkit-details-marker { display: none; }
+.er-ref > summary::after { content: '▾'; margin-left: auto; font-size: 0.8rem; opacity: 0.75; transition: transform .2s; }
+.er-ref:not([open]) > summary::after { transform: rotate(-90deg); }
+.er-ref:not([open]) { background: transparent; border-style: dashed; }
+.er-ref > .essay-model-body { padding: 0 0.7rem 0.6rem; line-height: 1.65; font-size: 0.95em; }
+.er-ref > .essay-model-body > :first-child { margin-top: 0; }
+.er-ref > .essay-model-body > :last-child { margin-bottom: 0; }
+.er-ref[open] > .essay-model-body { animation: er-in .25s ease-out both; }
+.er-ref.is-whole { border-width: 2px; border-radius: 1.05rem; }
+.er-ref.is-whole > summary { padding: 0.5rem 0.85rem; font-size: 12.5px; }
+.er-ref.is-whole > .essay-model-body { padding: 0 0.95rem 0.8rem; }
+.er-score-act { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
+.er-score-act .essay-none { margin-top: 0; }
+.er-full-btn {
+    margin-left: auto;
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.3rem 0.8rem; border-radius: 999px;
+    font: inherit; font-size: 12px; font-weight: 800;
+    color: var(--ink-lav);
+    border: 1.5px solid color-mix(in srgb, var(--hue-lav) 55%, transparent);
+    background: color-mix(in srgb, var(--hue-lav) 12%, var(--surface-card));
+    cursor: pointer;
+    transition: transform .15s var(--spring), background-color .15s;
+}
+.er-full-btn:hover { transform: translateY(-1px); }
+.er-full-btn[aria-pressed="false"] { background: transparent; border-style: dashed; }
+.er-full-btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--hue-lav) 45%, transparent); outline-offset: 2px; }
+@keyframes er-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .er-ref[open] > .essay-model-body, .er-panel { animation: none !important; } }
+
+/* Chút chiều sâu sổ dán: bóng đáy phẳng như tờ bài làm, số thứ tự ô dạng nhãn tròn, giấy kẻ dòng cho "Bạn viết" */
+.er-score, .er-row, .er-chot, .er-tabs { box-shadow: 0 3px 0 color-mix(in srgb, var(--hue-latte) 20%, transparent); }
+.er-row.is-full { box-shadow: 0 3px 0 color-mix(in srgb, var(--ok-line) 40%, transparent); }
+.er-row.is-part { box-shadow: 0 3px 0 color-mix(in srgb, var(--hue-butter) 30%, transparent); }
+.er-row.is-zero { box-shadow: 0 3px 0 color-mix(in srgb, var(--bad-line) 35%, transparent); }
+.er-row-lb { display: inline-flex; align-items: baseline; gap: 0.45rem; }
+.er-row-no {
+    flex-shrink: 0; display: inline-grid; place-items: center;
+    width: 1.35rem; height: 1.35rem; border-radius: 50%;
+    font-size: 0.72rem; font-weight: 800; color: var(--ink-latte);
+    background: color-mix(in srgb, var(--hue-latte) 20%, var(--surface-card));
+    transform: translateY(-1px);
+}
+.er-row.is-full .er-row-no { color: var(--ok-ink); background: var(--ok-bg); }
+.er-row.is-part .er-row-no { color: var(--ink-butter); background: color-mix(in srgb, var(--hue-butter) 22%, var(--surface-card)); }
+.er-row.is-zero .er-row-no { color: var(--bad-ink); background: var(--bad-bg); }
+.er-mine .er-text.is-pre, .er-mine > .er-text > .essay-read-text {
+    background-image: repeating-linear-gradient(to bottom, transparent 0 calc(1.65em - 1px), var(--rule) calc(1.65em - 1px) 1.65em);
+    background-attachment: local;
+}
+.er-chip.is-ok { color: var(--ok-ink); border-color: var(--ok-line); background: var(--ok-bg); }
+.er-panel { animation: er-in .25s ease-out both; }
+
+/* ④ thẻ tab kiến thức (màn kết quả) */
+.er-tabs {
+    border-radius: 1.1rem;
+    border: 2px solid color-mix(in srgb, var(--hue-latte) 35%, transparent);
+    background: var(--surface-card);
+    overflow: hidden;
+}
+.er-tablist {
+    display: flex; gap: 0.35rem;
+    padding: 0.45rem 0.5rem;
+    overflow-x: auto; scrollbar-width: none;
+    border-bottom: 1.5px dashed var(--line);
+    background: var(--paper);
+}
+.er-tablist::-webkit-scrollbar { display: none; }
+.er-tab {
+    --t: var(--hue-latte); --ti: var(--ink-latte);
+    flex-shrink: 0; display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0.32rem 0.85rem;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background: none;
+    font: inherit; font-size: 13px; font-weight: 800; white-space: nowrap;
+    color: var(--ink-muted);
+    cursor: pointer;
+    transition: background-color .15s, border-color .15s, color .15s;
+}
+.er-tab[data-er-tab="reason"] { --t: var(--hue-lav);  --ti: var(--ink-lav); }
+.er-tab[data-er-tab="note"]   { --t: var(--hue-butter); --ti: var(--ink-butter); }
+.er-tab[data-er-tab="more"]   { --t: var(--hue-sky);  --ti: var(--ink-sky); }
+.er-tab:hover { color: var(--ti); }
+.er-tab[aria-selected="true"] {
+    color: var(--ti);
+    border-color: color-mix(in srgb, var(--t) 55%, transparent);
+    background: color-mix(in srgb, var(--t) 14%, var(--surface-card));
+}
+.er-tab:focus-visible { outline: 3px solid color-mix(in srgb, var(--t) 45%, transparent); outline-offset: 1px; }
+.er-panel { padding: 0.75rem 0.95rem 0.9rem; line-height: 1.7; }
+.er-panel[hidden] { display: none; }
+.er-panel > :first-child, .er-sec-body > :first-child, .er-memo-body > :first-child { margin-top: 0; }
+.er-panel > :last-child, .er-sec-body > :last-child, .er-memo-body > :last-child { margin-bottom: 0; }
+.er-panel.is-reason .qr { gap: 0.7rem; }
+.er-memos { display: flex; flex-direction: column; gap: 0.5rem; }
+.er-memo {
+    --em-b: var(--ink-butter);
+    padding: 0.45rem 0.75rem 0.55rem;
+    border-radius: 0.85rem;
+    border: 1.5px solid color-mix(in srgb, var(--hue-butter) 45%, transparent);
+    background: color-mix(in srgb, var(--hue-butter) 10%, var(--surface-card));
+    line-height: 1.65;
+}
+.er-memo.is-trap {
+    --em-b: var(--ink-peach);
+    border-color: color-mix(in srgb, var(--hue-peach) 50%, transparent);
+    background: color-mix(in srgb, var(--hue-peach) 9%, var(--surface-card));
+}
+.er-memo-lb { display: block; margin-bottom: 0.1rem; font-size: 12px; font-weight: 800; color: var(--ink-butter); }
+.er-memo.is-trap .er-memo-lb { color: var(--ink-peach); }
+.er-memo-body p { margin: 0.2rem 0; }
+.er-sec + .er-sec { margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1.5px dashed var(--line); }
+.er-sec-h { margin: 0 0 0.35rem; font-size: 0.92rem; font-weight: 800; color: var(--ink-sky); }
+
+@media (max-width: 639px) {
+    .er-score, .er-row { padding-left: 0.6rem; padding-right: 0.6rem; }
+    .er-pts { font-size: 1.35rem; }
+    .er-chot { padding: 0.5rem 0.65rem; gap: 0.45rem; flex-direction: column; }
+    .er-panel { padding: 0.65rem 0.7rem 0.8rem; }
+    .er-tab { padding: 0.3rem 0.7rem; }
+}

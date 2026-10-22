@@ -5,7 +5,7 @@ import { scrollBehaviorFor, sfx, getVibrate } from './page/quiz-page-prefs.js';
 import { parseMarkdown, renderMath, convertScoreToGPA, formatTime, triggerConfetti, stripOptionLabels, isAnswerCorrect, getCorrectIndexes, answerCredit, sessionScore } from './quiz-helpers.js';
 import { previewSrsCounts, getNewPerDay, setNewPerDay } from './quiz-srs-store.js';
 import { caseCellClass } from './page/quiz-cases.js';
-import { isEssay, isPendingEssay, isEssayGraded, needsReview, questionWeight } from './quiz-essay-core.js';
+import { isEssay, isPendingEssay, isEssayGraded, needsReview, questionWeight, answerTextOf } from './quiz-essay-core.js';
 import { essayReviewHtml } from './page/quiz-essay.js';
 import { reasoningBodyHtml } from './page/quiz-reasoning.js';
 import { readNotes, noteTagsOf, noteTextHtml } from './page/quiz-notes-panel.js';
@@ -607,7 +607,7 @@ export function showResults(totalTime, opts = {}) {
                     <span class="font-medium text-gray-500">Đáp án đúng${correctIdxList.length > 1 ? ' (chọn tất cả)' : ''}: </span>
                     <span class="text-green-600 font-medium">${correctAnswerText}</span>
                 </div>`}
-                ${hasExplanation ? `
+                ${hasExplanation && !essay ? `
                 <div class="mt-1 p-2.5 bg-amber-50/60 border border-amber-100 rounded-lg text-gray-600">
                     <span class="font-semibold text-gray-700"><i class="fas fa-lightbulb text-amber-400 mr-1"></i>Giải thích:</span> ${parseMarkdown(explanationText)}
                 </div>` : ''}
@@ -868,7 +868,7 @@ export function showResults(totalTime, opts = {}) {
             options: essay ? [] : stripOptionLabels(q.answers || q.options),
             correct: essay ? [] : getCorrectIndexes(q),
             picked: (essay || ua === null || ua === undefined) ? null : (Array.isArray(ua) ? ua : [ua]),
-            modelAnswer: q.modelAnswer, explanation: q.explanation, note: q.note, expanded: q.expanded,
+            modelAnswer: essay ? answerTextOf(q) : q.modelAnswer, explanation: q.explanation, note: q.note, expanded: q.expanded,
             myNote: String(myNotes[q.question] || '').trim()
         };
     }).filter(Boolean);

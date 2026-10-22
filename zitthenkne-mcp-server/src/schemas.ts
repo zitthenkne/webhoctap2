@@ -97,7 +97,7 @@ export const UserStatsSchema = z
 
 const KeyPointItemSchema = z
   .object({
-    text: z.string().min(1).describe("Một ý chấm — ngắn gọn, một khái niệm chấm được"),
+    text: z.string().min(1).describe("Một ý chấm NGUYÊN TỬ — ngắn (≤ 25 từ), MỘT khái niệm chấm được; ý gộp nhiều khái niệm thì tách thành nhiều ý (một từ khóa khớp là máy tick cả ý)"),
     points: z
       .number()
       .refine((v) => v !== 0, "points khác 0")
@@ -132,6 +132,20 @@ const KeyPointItemSchema = z
       .optional()
       .describe(
         "Ý KIỂM TRA THỨ TỰ (trạm thủ thuật / quy trình): các bước theo đúng trình tự, mỗi bước là cụm từ khóa, cách viết tương đương ngăn bằng '|' (vd. ['bề cao tử cung|BCTC','Leopold','tim thai','cơn gò|cơn co','khám trong']). Máy chỉ tick khi mọi bước có mặt và xuất hiện đúng thứ tự",
+      ),
+    why: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        "MỘT câu ≤ 30 từ: vì sao ý này có điểm / thiếu thì hậu quả gì (vd. 'Không hạ áp thì nguy cơ xuất huyết não ở mẹ'). Phiếu chấm hiện ngay dưới ý khi người làm THIẾU ý đó — nên có cho ý bắt buộc và ý hay sót; không chép lại text",
+      ),
+    example: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        "VIẾT MẪU ≤ 40 từ: đúng câu chữ nên ghi trong bài thi / nói với người bệnh cho ý này (vd. 'Labetalol 20 mg tiêm tĩnh mạch chậm, nhắc lại sau 10 phút, mục tiêu HA < 160/110 mmHg'). Checklist có text + why + example thay cho model_answer viết liền",
       ),
   })
   .strict();
@@ -241,7 +255,7 @@ const QuestionInputSchema = z
       .array(z.string())
       .optional()
       .describe("Giải thích cho từng đáp án, cùng thứ tự với answers (tùy chọn)"),
-    explanation: z.string().optional().describe("Giải thích chung cho câu hỏi (tùy chọn)"),
+    explanation: z.string().optional().describe("Giải thích chung cho câu hỏi (tùy chọn). Câu tự luận: đây là dải CHỐT trên phiếu chấm — 1 câu ≤ 40 từ, kết luận cốt lõi; không lặp lại trong note"),
     note: z.string().optional().describe("Thẻ 'Ghi nhớ' (markdown): mẹo nhớ, lưu ý, bẫy hay nhầm — hiện sau khi mở đáp án. BẮT BUỘC với câu tự luận, tùy chọn với trắc nghiệm"),
     expanded: z.string().optional().describe("Thẻ 'Mở rộng kiến thức' (markdown): kiến thức VƯỢT đáp án mẫu — bảng so sánh, phân loại, cơ chế, mốc số, hướng xử trí; không chép lại đáp án. BẮT BUỘC với câu tự luận, tùy chọn với trắc nghiệm"),
     source: z.string().optional().describe("Nguồn tài liệu tham khảo đối chiếu (tùy chọn)"),
@@ -270,7 +284,7 @@ const QuestionInputSchema = z
       .string()
       .optional()
       .describe(
-        "Tự luận: đáp án mẫu (markdown). Nếu không truyền key_points, mỗi gạch đầu dòng CẤP 1 ('- ý (1đ)') được tách thành một ý chấm",
+        "Tự luận: đáp án mẫu viết liền (markdown) — BỎ khi key_points đã đủ text + why + example (chỉ lặp barem); chỉ viết khi có hình đáp án, bảng/đơn thuốc liền, kịch bản tư vấn dài. fields/list: chia đúng số mục = số ô, mỗi mục mở bằng dòng '1. **Tên mục:**'. Không truyền key_points thì mỗi gạch đầu dòng CẤP 1 ('- ý (1đ)') được tách thành một ý chấm",
       ),
     key_points: z
       .array(z.union([KeyPointItemSchema, KeyPointGroupSchema]))
