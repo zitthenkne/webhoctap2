@@ -5,7 +5,7 @@ import { onSessionUser } from '../../core/auth-session.js';
 import { deleteDocQ } from '../../core/offline-write.js';
 import { showToast } from '../../core/utils.js';
 import { MARK_REASONS } from './quiz-state.js';
-import { syncPullStudy, writeLocalStudy, pushCloudStudy } from './quiz-study-store.js';
+import { syncPullStudy, writeLocalStudy, pushCloudStudy, buryAnnots } from './quiz-study-store.js';
 import { parseMarkdown, renderMath } from './quiz-helpers.js';
 import { usableLocalQuiz } from './quiz-fresh.js';
 
@@ -630,7 +630,9 @@ async function loadStudyData(quizId, userId) {
     try {
         // preferCloud: trang lịch sử coi bản trên cloud là "bản chuẩn" khi tranh chấp
         const merged = await syncPullStudy(userId, quizId, { preferCloud: true });
+        // giữ NGUYÊN cả srs + annotDel: persistStudy ghi đè cả doc, thiếu là xóa trắng lịch ôn / bia mộ
         studyData = {
+            ...merged,
             notes: merged.notes || {},
             marks: merged.marks || {},
             annotations: merged.annotations || {},
@@ -743,7 +745,7 @@ async function saveStudyEdit(item, noteVal, reasonVal) {
 async function deleteAnnotation(item, annotIndex) {
     const list = studyData.annotations[item.qText];
     if (!Array.isArray(list)) return;
-    list.splice(annotIndex, 1);
+    buryAnnots(studyData, list.splice(annotIndex, 1));
     if (list.length === 0) delete studyData.annotations[item.qText];
     await persistStudy();
     showToast('Đã xóa đoạn đánh dấu.', 'success');
@@ -753,6 +755,7 @@ async function deleteAnnotation(item, annotIndex) {
 async function deleteStudyItem(item) {
     delete studyData.notes[item.qText];
     delete studyData.marks[item.qText];
+    buryAnnots(studyData, studyData.annotations[item.qText]);
     delete studyData.annotations[item.qText];
     await persistStudy();
     showToast('Đã xóa ghi chú & đánh dấu của câu này.', 'success');
@@ -866,15 +869,17 @@ function renderStudyCard(item) {
     if (item.annots.length > 0) {
         const pills = item.annots.map((a, ai) => {
             const t = a.type || 'highlight';
-            const ic = t === 'bold' ? 'fa-bold' : t === 'italic' ? 'fa-italic' : 'fa-highlighter';
+            const ic = t === 'bold' ? 'fa-bold' : t === 'italic' ? 'fa-italic' : t === 'note' ? 'fa-comment-dots' : 'fa-highlighter';
             const cls = t === 'bold'
                 ? 'bg-pink-50 text-pink-700 border-pink-100'
                 : t === 'italic'
                 ? 'bg-indigo-50 text-indigo-700 border-indigo-100'
+                : t === 'note'
+                ? 'bg-purple-50 text-purple-800 border-purple-100'
                 : 'bg-yellow-50 text-yellow-800 border-yellow-200';
             return `<span class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg border ${cls} max-w-full group/pill">
                         <i class="fas ${ic} text-[10px] opacity-70"></i>
-                        <span class="truncate">${escapeHtml(a.text)}</span>
+                        <span class="truncate">${escapeHtml(a.text)}</span>${t === 'note' && a.note ? `<span class="font-normal whitespace-pre-line break-words">— ${escapeHtml(a.note)}</span>` : ''}
                         <button type="button" class="study-annot-del ml-0.5 -mr-0.5 w-4 h-4 flex-shrink-0 rounded-full inline-flex items-center justify-center text-current opacity-40 hover:opacity-100 hover:bg-black/10 transition"
                                 data-annot-index="${ai}" title="Xóa đoạn này">
                             <i class="fas fa-times text-[9px]"></i>

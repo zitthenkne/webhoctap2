@@ -8,7 +8,7 @@ import { caseCellClass } from './page/quiz-cases.js';
 import { isEssay, isPendingEssay, isEssayGraded, needsReview, questionWeight, answerTextOf } from './quiz-essay-core.js';
 import { essayReviewHtml } from './page/quiz-essay.js';
 import { reasoningBodyHtml } from './page/quiz-reasoning.js';
-import { readNotes, noteTagsOf, noteTextHtml } from './page/quiz-notes-panel.js';
+import { readNotes, noteTagsOf, noteTextHtml, readPhraseNotes, hasPhraseNote } from './page/quiz-notes-panel.js';
 import { onSessionUser, sessionUser } from '../../core/auth-session.js';
 import { showToast } from '../../core/utils.js';
 import { wrongItemsMarkdown, wrongItemsCsv } from './quiz-export.js';
@@ -65,10 +65,11 @@ function navMarkHtml(rk) {
     return `<span class="quiz-nav-flag" style="background:${mc}"></span>`;
 }
 // Bản đồ ghi chú đọc MỘT lần mỗi lần vẽ/đồng bộ bảng (không đọc lại cho từng ô)
-let _noteMap = {};
+let _noteMap = {}, _phraseKeys = new Set();   // ghi chú cá nhân + câu có ghi chú cụm từ (chấm oải hương như nhau)
+const loadNoteMaps = () => { _noteMap = readNotes(); _phraseKeys = new Set(readPhraseNotes().map(a => a.q)); };
 function navHasNote(i) {
     const q = state.questions[i];
-    return !!(q && String(_noteMap[q.question] || '').trim());
+    return !!(q && (String(_noteMap[q.question] || '').trim() || hasPhraseNote(q, _phraseKeys)));
 }
 function navHasStar(i) {
     const q = state.questions[i];
@@ -85,7 +86,7 @@ function navCellHtml(i, rk) {
 // Dựng lại toàn bộ bảng — chỉ gọi khi SỐ câu thay đổi (vào phiên mới).
 export function renderQuizProgressBar() {
     const total = state.questions.length;
-    _noteMap = readNotes();
+    loadNoteMaps();
     let navHtml = '';
     for (let i = 0; i < total; i++) {
         const rk = navMarkKey(i);
@@ -120,7 +121,7 @@ export function renderQuizProgressBar() {
 export function syncQuizNavPanel() {
     const wrap = document.getElementById('question-nav-wrapper');
     if (!wrap) return;
-    _noteMap = readNotes();
+    loadNoteMaps();
     const total = state.questions.length;
     const answered = state.userAnswers.filter(a => a !== null && a !== undefined).length;
     const percent = total > 0 ? Math.round((answered / total) * 100) : 0;

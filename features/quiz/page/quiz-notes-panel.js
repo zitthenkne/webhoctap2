@@ -79,8 +79,23 @@ export function quizNotesKey() {
 export function readNotes() {
     try { return JSON.parse(localStorage.getItem(quizNotesKey()) || '{}') || {}; } catch (e) { return {}; }
 }
+// Ghi chú CỤM TỪ (quiz_annot_<id>, type 'note' — page/quiz-annotations.js): sổ "Tất cả", số đếm và chấm ghi chú gộp cả hai loại.
+// Khóa q = nội dung câu, hoặc 'case:<caseId>' cho ghi chú trong khung ca lâm sàng.
+export function readPhraseNotes() {
+    let store = {};
+    try { store = JSON.parse(localStorage.getItem(quizNotesKey().replace(/^quiz_notes_/, 'quiz_annot_')) || '{}') || {}; } catch (e) {}
+    const out = [];
+    Object.entries(store).forEach(([q, arr]) => (Array.isArray(arr) ? arr : []).forEach(a => {
+        if (a && a.type === 'note' && String(a.note || '').trim()) out.push({ ...a, q });
+    }));
+    return out;
+}
+// Câu có ghi chú cụm từ (kể cả ghi chú trong ca lâm sàng của câu)
+export function hasPhraseNote(question, keys) {
+    return !!question && (keys.has(question.question) || (question.caseId && keys.has('case:' + String(question.caseId).trim())));
+}
 export function noteCount() {
-    return Object.values(readNotes()).filter(v => String(v).trim()).length;
+    return Object.values(readNotes()).filter(v => String(v).trim()).length + readPhraseNotes().length;
 }
 
 // Markup panel ghi chú cá nhân (đặt ở cột phải; logic được nối trong showQuestion)

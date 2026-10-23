@@ -18,8 +18,10 @@
 //        marks:       [ { q, reason } ],
 //        annotations: [ { q, items:[{scope,text,type}] } ],
 //        srs:         [ { q, n, ivl, due, lapses, last } ],  // lịch ôn ngắt quãng
+//        annotDel:    [ { id, ts } ],   // "bia mộ" annotation đã xóa -> máy khác không gộp nó sống lại
 //        updatedAt
 //     }
+//   Mỗi annotation mang `ts` (lần sửa cuối): hai máy cùng sửa một ghi chú cụm từ -> bản ts mới hơn thắng.
 //
 // LƯU Ý khi thêm loại dữ liệu mới: pushCloudStudy setDoc GHI ĐÈ TOÀN DOC, nên
 // field mới phải đi qua ĐỦ readLocalStudy / writeLocalStudy / mapsToArrays /
@@ -39,8 +41,14 @@ export function studyKeys(quizId) {
         notes: `quiz_notes_${id}`,
         marks: `quiz_marks_${id}`,
         annot: `quiz_annot_${id}`,
+        annotDel: `quiz_annot_del_${id}`,
         srs: srsKeys(id).map,
     };
+}
+// Ghi "bia mộ" cho các annotation vừa xóa (theo id) — bên hợp nhất sẽ bỏ chúng dù máy khác còn giữ
+export function buryAnnots(data, items) {
+    data.annotDel = data.annotDel || {};
+    (items || []).forEach(it => { if (it && it.id) data.annotDel[it.id] = Date.now(); });
 }
 
 function readMap(key) {
@@ -58,17 +66,20 @@ export function readLocalStudy(quizId) {
         notes: readMap(k.notes),
         marks: readMap(k.marks),
         annotations: readMap(k.annot),
+        annotDel: readMap(k.annotDel),
         srs: readMap(k.srs),
     };
 }
 
-// Ghi đè dữ liệu học tập cục bộ (dạng map theo qText).
+// Ghi đè dữ liệu học tập cục bộ (dạng map theo qText). srs / annotDel chỉ ghi khi có mặt:
+// bên gọi chỉ cầm notes/marks/annotations (trang Lịch sử cũ) không được xóa trắng lịch ôn + bia mộ.
 export function writeLocalStudy(quizId, data) {
     const k = studyKeys(quizId);
     writeMap(k.notes, data.notes || {});
     writeMap(k.marks, data.marks || {});
     writeMap(k.annot, data.annotations || {});
-    writeMap(k.srs, data.srs || {});
+    if (data.annotDel) writeMap(k.annotDel, data.annotDel);
+    if (data.srs) writeMap(k.srs, data.srs);
 }
 
 // ----- Chuyển đổi map <-> mảng (cho Firestore) -----
@@ -93,7 +104,8 @@ function mapsToArrays(data) {
             lapses: Number(e.lapses) || 0,
             last: Number(e.last) || 0,
         }));
-    return { notes, marks, annotations, srs };
+    const annotDel = Object.entries(data.annotDel || {}).map(([id, ts]) => ({ id, ts: Number(ts) || 0 }));
+    return { notes, marks, annotations, srs, annotDel };
 }
 function arraysToMaps(payload) {
     const notes = {};
@@ -106,7 +118,9 @@ function arraysToMaps(payload) {
     (payload.srs || []).forEach(e => { // doc cũ không có srs → giữ {}
         if (e && e.q != null) srs[e.q] = { n: e.n, ivl: e.ivl, due: e.due, lapses: e.lapses, last: e.last };
     });
-    return { notes, marks, annotations, srs };
+    const annotDel = {};
+    (payload.annotDel || []).forEach(d => { if (d && d.id) annotDel[d.id] = Number(d.ts) || 0; });
+    return { notes, marks, annotations, srs, annotDel };
 }
 
 // ----- Hợp nhất hai bộ dữ liệu (dạng map). preferCloud=true → khi cùng một câu
@@ -129,19 +143,28 @@ export function mergeStudy(localData, cloudData, preferCloud) {
         merged[kind] = out;
     });
 
-    // annotations: union theo từng câu, gộp các đoạn theo (scope|text|type)
+    // bia mộ: hợp hai phía (giữ mốc mới hơn), bỏ cái quá 120 ngày cho doc khỏi phình
+    const del = { ...(localData.annotDel || {}) };
+    Object.entries(cloudData.annotDel || {}).forEach(([id, ts]) => { if (!(del[id] >= ts)) del[id] = ts; });
+    const cutoff = Date.now() - 120 * 864e5;
+    Object.keys(del).forEach(id => { if (!(del[id] > cutoff)) delete del[id]; });
+    merged.annotDel = del;
+
+    // annotations: union theo từng câu, trừ cái đã có bia mộ. Khóa = vị trí (scope|type|start|end) — cùng luật trùng của addAnnot;
+    // dữ liệu cũ không offset thì (scope|text|type). Cùng khóa: ts mới hơn thắng (sửa ghi chú ở máy kia), hòa thì "top".
     const aKeys = new Set([
         ...Object.keys(base.annotations || {}),
         ...Object.keys(top.annotations || {}),
     ]);
     aKeys.forEach(q => {
-        // Map theo (scope|text|type): bản "top" ghi đè bản "base" cùng khóa -> sửa nội dung ghi chú (note) không bị bản cũ nuốt
-        const bySig = new Map();
+        const byKey = new Map();
         [...(base.annotations?.[q] || []), ...(top.annotations?.[q] || [])].forEach(it => {
-            if (!it) return;
-            bySig.set(`${it.scope}|${it.text}|${it.type}`, it);
+            if (!it || (it.id && del[it.id])) return;
+            const k = typeof it.start === 'number' ? `${it.scope}|${it.type}|${it.start}|${it.end}` : `${it.scope}|${it.text}|${it.type}`;
+            const cur = byKey.get(k);
+            if (!cur || (Number(it.ts) || 0) >= (Number(cur.ts) || 0)) byKey.set(k, it);
         });
-        if (bySig.size) merged.annotations[q] = [...bySig.values()];
+        if (byKey.size) merged.annotations[q] = [...byKey.values()];
     });
 
     return merged;
@@ -179,6 +202,7 @@ function studySig(a, meta) {
         by(a.notes, x => x), by(a.marks, x => x),
         by(a.annotations, x => ({ q: x.q, items: (x.items || []).map(i => JSON.stringify(i)).sort() })),
         by(a.srs, x => x),
+        (a.annotDel || []).map(x => x.id + ':' + x.ts).sort(),
         meta.title || '', meta.total | 0, !!meta.paused, Number(meta.pausedAt) || 0
     ]);
 }

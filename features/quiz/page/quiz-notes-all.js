@@ -1,12 +1,14 @@
 // File: features/quiz/page/quiz-notes-all.js
 // Sổ ghi chú CẢ BỘ ĐỀ (nạp lười từ nút "Tất cả" ở panel ghi chú): danh sách mọi ghi chú theo thứ tự câu trong lượt làm,
 // tìm không dấu, lọc theo nhãn (Nhớ / Dễ nhầm / Hỏi lại…), "Đến câu" nhảy thẳng, sao chép Markdown, tải .md.
-// Chỉ ĐỌC quiz_notes_<id> (đã gồm bản kéo từ cloud) — không ghi gì, không đổi lược đồ.
+// Gồm cả GHI CHÚ CỤM TỪ (quiz_annot_<id>, type 'note'): hiện “cụm từ” + lời ghi chú, chip lọc "Cụm từ", sửa/xóa ngay trong sổ
+// (setPhraseNote), "Đến câu" nhảy tới rồi quét sáng đúng cụm đó.
 
 import { showToast } from '../../../core/utils.js';
 import { state, saveQuizState } from '../quiz-state.js';
 import { showQuestion } from './quiz-question-view.js';
-import { NOTE_TAGS, noteTagsOf, noteTextHtml, readNotes, quizNotesKey } from './quiz-notes-panel.js';
+import { NOTE_TAGS, noteTagsOf, noteTextHtml, readNotes, quizNotesKey, readPhraseNotes } from './quiz-notes-panel.js';
+import { setPhraseNote, flashPhraseNote } from './quiz-annotations.js';
 import { pushStudyToCloud } from './quiz-study-sync.js';
 import { syncQuizNavPanel } from '../quiz-ui.js';
 import { sfx } from './quiz-page-prefs.js';
@@ -28,10 +30,18 @@ function collect() {
     const src = (canJump || (resultsOpen && state.questions.length)) ? state.questions : (state.originalQuestions || []);   // màn kết quả: đánh số theo lượt vừa làm (khớp danh sách chi tiết)
     const pos = new Map();
     src.forEach((q, i) => { if (!pos.has(q.question)) pos.set(q.question, i); });
-    items = Object.entries(readNotes())
+    const own = Object.entries(readNotes())
         .filter(([, text]) => String(text).trim())
-        .map(([q, text]) => ({ q, text: String(text), idx: pos.has(q) ? pos.get(q) : -1, tags: noteTagsOf(text) }))
-        .sort((a, b) => (a.idx < 0) - (b.idx < 0) || a.idx - b.idx);
+        .map(([q, text]) => ({ q, qShow: q, text: String(text), idx: pos.has(q) ? pos.get(q) : -1, tags: noteTagsOf(text) }));
+    // ghi chú cụm từ trong khung ca lâm sàng lưu theo 'case:<caseId>' -> gắn vào câu đầu tiên của ca trong lượt
+    const caseIdx = (cid) => src.findIndex(x => x && x.caseId && String(x.caseId).trim() === cid);
+    const phrase = readPhraseNotes().map(a => {
+        const isCase = a.q.startsWith('case:');
+        const idx = isCase ? caseIdx(a.q.slice(5)) : (pos.has(a.q) ? pos.get(a.q) : -1);
+        return { q: a.q, qShow: isCase ? (idx >= 0 ? 'Ca lâm sàng · ' + src[idx].question : 'Ca lâm sàng') : a.q, text: String(a.note), phrase: a.text || '', id: a.id, at: Number(a.start) || 0, idx, tags: noteTagsOf(a.note), kind: 'phrase' };
+    });
+    items = [...own, ...phrase]
+        .sort((a, b) => (a.idx < 0) - (b.idx < 0) || a.idx - b.idx || (a.kind === 'phrase') - (b.kind === 'phrase') || (a.at || 0) - (b.at || 0));
     items.forEach((it, k) => { it.k = k; });
 }
 
@@ -80,7 +90,7 @@ function build() {
         const chip = e.target.closest('[data-na-tag]');
         if (chip) { filterTag = chip.dataset.naTag === filterTag ? '' : chip.dataset.naTag; render(); return; }
         const go = e.target.closest('[data-na-go]');
-        if (go) { jump(parseInt(go.dataset.naGo, 10)); return; }
+        if (go) { jump(parseInt(go.dataset.naGo, 10), go.dataset.naId); return; }
         const ed = e.target.closest('[data-na-edit]');
         if (ed) { startEdit(+ed.dataset.naEdit); return; }
         const sv = e.target.closest('[data-na-save]');
@@ -97,8 +107,8 @@ function build() {
 }
 
 function visible() {
-    return items.filter(it => (!filterTag || it.tags.has(filterTag))
-        && (!query || fold(it.text).includes(query) || fold(it.q).includes(query)));
+    return items.filter(it => (!filterTag || (filterTag === 'phrase' ? it.kind === 'phrase' : it.tags.has(filterTag)))
+        && (!query || fold(it.text).includes(query) || fold(it.qShow).includes(query) || (it.phrase && fold(it.phrase).includes(query))));
 }
 
 function renderChips() {
@@ -106,26 +116,29 @@ function renderChips() {
     items.forEach(it => it.tags.forEach(t => { counts[t] = (counts[t] || 0) + 1; }));
     const chip = (key, label, n, icon) =>
         `<button type="button" data-na-tag="${esc(key)}" class="na-chip${filterTag === key ? ' is-on' : ''}" aria-pressed="${filterTag === key}">${icon ? `<i class="fas ${icon}"></i> ` : ''}${esc(label)} <b>${n}</b></button>`;
-    root.querySelector('#na-chips').innerHTML = NOTE_TAGS.filter(t => counts[t.label]).map(t => chip(t.label, t.label, counts[t.label], t.icon)).join('');
+    const nPhrase = items.filter(it => it.kind === 'phrase').length;
+    root.querySelector('#na-chips').innerHTML = (nPhrase ? chip('phrase', 'Cụm từ', nPhrase, 'fa-comment-dots') : '')
+        + NOTE_TAGS.filter(t => counts[t.label]).map(t => chip(t.label, t.label, counts[t.label], t.icon)).join('');
 }
 
 function renderList() {
     const list = root.querySelector('#na-list');
     const rows = visible();
     if (!items.length) {
-        list.innerHTML = '<p class="na-empty">Bộ đề này chưa có ghi chú nào. Gõ vào ô “Ghi chú cá nhân” khi làm bài (phím Q) — chúng sẽ hiện ở đây.</p>';
+        list.innerHTML = '<p class="na-empty">Bộ đề này chưa có ghi chú nào. Gõ vào ô “Ghi chú cá nhân” khi làm bài (phím Q), hoặc bôi đen một cụm chữ rồi bấm nút ghi chú — chúng sẽ hiện ở đây.</p>';
         return;
     }
     if (!rows.length) { list.innerHTML = '<p class="na-empty">Không có ghi chú khớp bộ lọc.</p>'; return; }
     list.innerHTML = rows.map((it) => `
-        <article class="na-item${canJump && it.idx === state.currentIndex ? ' is-here' : ''}${it.tags.has('Quan trọng') ? ' is-star' : ''}" data-k="${it.k}">
+        <article class="na-item${canJump && it.idx === state.currentIndex ? ' is-here' : ''}${it.tags.has('Quan trọng') ? ' is-star' : ''}${it.kind === 'phrase' ? ' is-phrase' : ''}" data-k="${it.k}">
             <header>
                 <span class="na-no">${it.idx >= 0 ? 'Câu ' + (it.idx + 1) : 'Lượt khác'}</span>
-                <span class="na-qs">${esc(snippet(it.q))}</span>
+                <span class="na-qs">${esc(snippet(it.qShow))}</span>
             </header>
+            ${it.kind === 'phrase' ? `<div class="na-phrase"><i class="fas fa-comment-dots" aria-hidden="true"></i> <span>${esc(snippet(it.phrase, 120))}</span></div>` : ''}
             <div class="na-text">${noteTextHtml(it.text)}</div>
             <div class="na-actions">
-                ${it.idx >= 0 && canJump ? `<button type="button" class="na-go" data-na-go="${it.idx}"><i class="fas fa-arrow-right"></i> ${it.idx === state.currentIndex ? 'Đang ở câu này' : 'Đến câu'}</button>` : ''}
+                ${it.idx >= 0 && canJump ? `<button type="button" class="na-go" data-na-go="${it.idx}"${it.id ? ` data-na-id="${esc(it.id)}"` : ''}><i class="fas fa-arrow-right"></i> ${it.idx === state.currentIndex ? (it.id ? 'Xem ở câu này' : 'Đang ở câu này') : 'Đến câu'}</button>` : ''}
                 <button type="button" class="na-go na-edit" data-na-edit="${it.k}"><i class="fas fa-pen"></i> Sửa</button>
             </div>
         </article>`).join('');
@@ -152,7 +165,7 @@ function finishEdit(k, save) {
     if (!it || !art) return;
     if (save) {
         const val = art.querySelector('.na-ta')?.value ?? it.text;
-        if (val !== it.text && writeNote(it.q, val)) { sfx('noteSave'); showToast(val.trim() ? 'Đã lưu ghi chú' : 'Đã xóa ghi chú', 'success', 1500); }
+        if (val !== it.text && (it.kind === 'phrase' ? (setPhraseNote(it.q, it.id, val), true) : writeNote(it.q, val))) { sfx('noteSave'); showToast(val.trim() ? 'Đã lưu ghi chú' : 'Đã xóa ghi chú', 'success', 1500); }
         collect();
     }
     render();
@@ -169,7 +182,7 @@ function markdown() {
     const title = (state.quizData && state.quizData.title) || 'Bộ đề';
     const rows = visible();
     return `# Ghi chú — ${title}\n\n` + rows.map(it =>
-        `## ${it.idx >= 0 ? 'Câu ' + (it.idx + 1) : 'Câu khác'} — ${snippet(it.q, 140)}\n\n${it.text.trim()}\n`).join('\n');
+        `## ${it.idx >= 0 ? 'Câu ' + (it.idx + 1) : 'Câu khác'} — ${snippet(it.qShow, 140)}\n\n${it.kind === 'phrase' ? `> “${it.phrase}”\n\n` : ''}${it.text.trim()}\n`).join('\n');
 }
 async function copyAll() {
     const text = markdown();
@@ -193,7 +206,7 @@ function downloadAll() {
     setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
-function jump(idx) {
+function jump(idx, phraseId) {
     if (!canJump || isNaN(idx) || idx < 0 || idx >= state.questions.length) return;
     close();
     if (idx !== state.currentIndex) {
@@ -201,6 +214,7 @@ function jump(idx) {
         saveQuizState();
         showQuestion();
     }
+    if (phraseId) setTimeout(() => flashPhraseNote(phraseId), 120);   // ghi chú cụm từ: cuộn tới đúng cụm rồi quét sáng
 }
 
 function close() {
@@ -211,11 +225,12 @@ function close() {
     returnTo = null;
 }
 
-export function openAllNotes() {
+// opts.filter: mở sẵn một bộ lọc ('phrase' = chỉ ghi chú cụm từ — nút "Tất cả" trong bóng thoại ghi chú cụm từ)
+export function openAllNotes(opts = {}) {
     if (!root) build();
     returnTo = document.activeElement;
     collect();
-    filterTag = ''; query = '';
+    filterTag = opts.filter || ''; query = '';
     root.querySelector('#na-q').value = '';
     render();
     root.classList.add('is-open');

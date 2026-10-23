@@ -4,7 +4,7 @@
 
 import { state, saveQuizState } from '../quiz-state.js';
 import { showQuestion } from './quiz-question-view.js';
-import { readNotes } from './quiz-notes-panel.js';
+import { readNotes, readPhraseNotes, hasPhraseNote } from './quiz-notes-panel.js';
 import { sfx } from './quiz-page-prefs.js';
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -59,14 +59,14 @@ function statusOf(i) {
 }
 
 function render() {
-    const notes = readNotes();
+    const notes = readNotes(), phraseKeys = new Set(readPhraseNotes().map(a => a.q));
     const q = fold(input.value.trim());
     const num = /^\d{1,4}$/.test(q) ? parseInt(q, 10) : 0;
     rows = [];
     haystack.forEach((h, i) => {
         if (filter === 'todo' && statusOf(i) !== 'todo') return;
         if (filter === 'mark' && !state.markedQuestions.includes(i)) return;
-        if (filter === 'note' && !String(notes[state.questions[i].question] || '').trim()) return;
+        if (filter === 'note' && !String(notes[state.questions[i].question] || '').trim() && !hasPhraseNote(state.questions[i], phraseKeys)) return;
         let score = 0, noteHit = false;
         const nf = noteFold[i] || '';
         if (!q) score = 1;

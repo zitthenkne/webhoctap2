@@ -101,6 +101,22 @@ export function pullStudyFromCloud(quizId) {
                 }
             }).catch((err) => console.warn('Không tải được tiến trình từ cloud:', err));
         });
+        // Quay lại tab / mở lại app (≥ 60s sau lần kéo trước): kéo lại để thấy ghi chú vừa viết ở máy khác.
+        // Chỉ vẽ lại câu khi annotation thật sự đổi và không đang viết dở ghi chú.
+        let lastPull = Date.now();
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState !== 'visible' || Date.now() - lastPull < 60000 || !navigator.onLine) return;
+            lastPull = Date.now();
+            const key = studyKeys(quizId).annot, before = localStorage.getItem(key);
+            syncPullStudy(uid, quizId).then(() => {
+                scheduleCloudPush(uid, quizId, 800);
+                const sec = document.getElementById('quizSection');
+                if (localStorage.getItem(key) === before || document.getElementById('annot-note-pop')) return;
+                if (state.questions && state.questions.length && sec && !sec.classList.contains('hidden')) {
+                    try { showQuestion(); } catch (e) {}
+                }
+            });
+        });
     };
     const u = sessionUser();
     if (u) run(u.uid);
