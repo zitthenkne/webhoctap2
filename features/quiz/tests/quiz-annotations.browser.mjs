@@ -5,7 +5,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 
-const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const playwright = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const browserType = playwright[process.env.ANNOTATION_BROWSER || 'chromium'];
 const source = (await readFile(new URL('../page/quiz-annotations.js', import.meta.url), 'utf8'))
     .replace(/^import .*;\r?$/gm, '').replace(/^export /gm, '');
 const css = await readFile(new URL('../quiz-stationery.css', import.meta.url), 'utf8');
@@ -15,6 +16,7 @@ const stub = `const state={questions:[{question:'fixture'}],currentIndex:0,quizD
 const studyKeys=()=>({annot:'test-annotations',annotDel:'test-del'}),pushStudyToCloud=()=>{};
 const noteTextHtml=v=>v.replaceAll('<','&lt;');
 const noteCount=()=>0,syncQuizNavPanel=()=>{},showQuestion=()=>{};` + noteTags;
+const toastStub = `const showToast=(...args)=>(window.annotationErrors ||= []).push(args);`;
 const phrase = (id, text, note) => `<span class="quiz-annot annot-note" data-annot-id="${id}" data-note="${note}">${text}</span>`;
 const balancedNote = 'cái này dùng để hạ huyết áp nhưng vô tình làm lượng máu đến bánh nhau giảm -> nếu dùng thì dùng loại uống phóng thích nhanh để hạ áp từ từ kiểm soát được tốc độ';
 const fixtures = {
@@ -33,7 +35,7 @@ fixtures.manualBreak = phrase('manual', 'Cụm từ', 'Dòng ngắn.\nDòng dài
 const fixtureHtml = `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}
 body{margin:0;padding:18px;font:600 20px/1.8 sans-serif}#quizSection{max-width:1200px;margin:auto}</style>
 <body class="qz-notes-inline"><div id="quizSection"><div data-annot="q"></div></div><div id="annot-toolbar" hidden></div></body>`;
-const browser = await chromium.launch(process.env.ANNOTATION_BROWSER_PATH
+const browser = await browserType.launch(process.env.ANNOTATION_BROWSER_PATH
     ? { executablePath: process.env.ANNOTATION_BROWSER_PATH, headless: true } : { headless: true });
 async function checkLayoutAndColors() {
     const page = await browser.newPage();
@@ -283,8 +285,10 @@ async function checkTouchPersistence() {
     const touchPage = await browser.newPage({ viewport: { width: 768, height: 1024 }, hasTouch: true, isMobile: true });
     await touchPage.route('http://annotations.test/**', route => route.fulfill({ contentType: 'text/html', body: fixtureHtml }));
     const bootTouch = async () => {
+        // WebKit không cho nạp fixture HTTP khi offline; chỉ bật mạng để nạp lại HTML giả.
+        await touchPage.context().setOffline(false);
         await touchPage.goto('http://annotations.test/');
-        await touchPage.addScriptTag({ content: stub + source + '\nwindow.annotationTest={openNoteEditor,applyAnnotationsAll,dismissNoteEditor};setupAnnotations();' });
+        await touchPage.addScriptTag({ content: stub + toastStub + source + '\nwindow.annotationTest={openNoteEditor,applyAnnotationsAll,dismissNoteEditor};setupAnnotations();' });
         await touchPage.evaluate(() => {
             const sec = document.getElementById('quizSection');
             const draw = () => {
@@ -299,6 +303,7 @@ async function checkTouchPersistence() {
             state.questions.push({ question: 'câu thứ hai' });
             draw();
         });
+        await touchPage.context().setOffline(true);
     };
     const openTouch = (ctx = {}) => touchPage.evaluate(ctx => {
         const scopeEl = document.querySelector('[data-annot]');
@@ -306,9 +311,14 @@ async function checkTouchPersistence() {
     }, ctx);
     const storedTouch = () => touchPage.evaluate(() => JSON.parse(localStorage.getItem('test-annotations') || '{}'));
     await bootTouch();
+    assert.equal(await touchPage.evaluate(() => navigator.onLine), false, 'toàn bộ thao tác ghi chú phải dùng được khi tắt mạng');
     assert.equal(await touchPage.evaluate(() => matchMedia('(pointer: coarse)').matches), true);
     await openTouch();
     await touchPage.locator('.anp-ta').fill('Ghi chú viết trên iPad dọc');
+    await touchPage.locator('[data-note-color="#FF8FB8"]').tap();
+    assert.equal(await touchPage.locator('[data-note-color="#FF8FB8"]').getAttribute('aria-pressed'), 'true', 'đổi màu không phụ thuộc Firebase');
+    await touchPage.locator('[data-anp="save"]').tap();
+    assert.equal((await storedTouch()).fixture?.[0]?.color, '#ff8fb8', 'bấm Lưu phải cất màu ngay trên máy khi offline');
     await touchPage.locator('#touch-next').tap();
     assert.equal((await storedTouch()).fixture?.[0]?.note, 'Ghi chú viết trên iPad dọc', 'chạm chuyển câu phải lưu phần đang viết');
     assert.equal(await touchPage.locator('#annot-note-pop').count(), 0);
@@ -348,7 +358,7 @@ async function checkTouchPersistence() {
         annotationTest.applyAnnotationsAll();
     });
     assert.equal(await touchPage.locator('.annot-note').getAttribute('data-note'), 'Ghi chú của ca dùng chung', 'câu con khác vẫn đọc được ghi chú cùng ca');
-    await touchPage.locator('.annot-note').tap();
+    await touchPage.locator('.an-line[data-id]').tap();
     await touchPage.locator('[data-anp="edit"]').tap();
     await touchPage.locator('.anp-ta').fill('Phần sửa còn mở khi đổi câu');
     await touchPage.evaluate(() => {
@@ -359,8 +369,33 @@ async function checkTouchPersistence() {
     assert.equal((await storedTouch())['case:shared'][0].note, 'Phần sửa còn mở khi đổi câu', 'lưu theo ngữ cảnh cũ kể cả khi DOM đã bị thay');
     assert.equal((await storedTouch())['case:shared'].length, 1);
     assert.equal(await touchPage.locator('#annot-note-pop').count(), 0);
+    const beforeFailure = await storedTouch();
+    await touchPage.evaluate(() => {
+        state.questions[state.currentIndex].question = 'quota-fixture';
+        document.getElementById('quizSection').innerHTML = '<div data-annot="q">Cụm từ khi bộ nhớ đầy.</div>';
+        window.originalSetItem = Storage.prototype.setItem;
+        Storage.prototype.setItem = function(key, value) {
+            if (key === 'test-annotations') throw new DOMException('Storage full', 'QuotaExceededError');
+            return originalSetItem.call(this, key, value);
+        };
+    });
+    await openTouch({ qText: 'quota-fixture' });
+    await touchPage.locator('.anp-ta').fill('Ghi chú phải giữ lại khi lưu lỗi');
+    await touchPage.locator('[data-note-color="#7EC0EE"]').tap();
+    await touchPage.locator('[data-anp="save"]').tap();
+    assert.equal(await touchPage.locator('.anp-ta').inputValue(), 'Ghi chú phải giữ lại khi lưu lỗi', 'lưu lỗi phải giữ ô nhập');
+    assert.deepEqual(await storedTouch(), beforeFailure, 'lưu lỗi không sửa dữ liệu cũ');
+    assert.equal(await touchPage.locator('.annot-note').count(), 0, 'không vẽ ghi chú như thể đã lưu thành công');
+    assert.match(await touchPage.evaluate(() => annotationErrors.at(-1)[0]), /Chưa lưu được ghi chú trên máy/);
+    await touchPage.locator('#touch-next').tap();
+    assert.equal(await touchPage.locator('.anp-ta').inputValue(), 'Ghi chú phải giữ lại khi lưu lỗi', 'đổi câu sau lỗi vẫn giữ bản đang viết');
+    await touchPage.evaluate(() => { Storage.prototype.setItem = originalSetItem; });
+    await touchPage.locator('[data-anp="save"]').tap();
+    assert.equal((await storedTouch())['quota-fixture'][0].note, 'Ghi chú phải giữ lại khi lưu lỗi');
+    assert.equal((await storedTouch())['quota-fixture'][0].color, '#7ec0ee');
+    assert.equal(await touchPage.locator('#annot-note-pop').count(), 0);
     await touchPage.close();
-    console.log('PASS: lưu/sửa ghi chú và màu trên iPad dọc khi chuyển câu, quay lại, tải lại; Hủy, ô rỗng và ca dùng chung giữ đúng dữ liệu.');
+    console.log('PASS: ghi chú/màu trên iPad dọc khi offline; chuyển câu, tải lại, ca dùng chung; giữ bản đang viết và thử lưu lại khi bộ nhớ đầy.');
 }
 try {
     await checkTouchPersistence();

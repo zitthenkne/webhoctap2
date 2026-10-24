@@ -356,9 +356,10 @@ export function flushCloudProgressPush(uid, quizId, getProgressFn) {
 // Tải cloud (nếu có) rồi hợp nhất vào local. preferCloud quyết định bên nào
 // thắng khi tranh chấp. Trả về dữ liệu đã hợp nhất (map) hoặc local nếu offline.
 export async function syncPullStudy(uid, quizId, { preferCloud = false } = {}) {
-    const local = readLocalStudy(quizId);
-    if (!uid) return local;
+    if (!uid) return readLocalStudy(quizId);
     const cloud = await fetchCloudStudy(uid, quizId);
+    // Người học có thể vừa lưu ghi chú / màu trong lúc chờ mạng: hợp nhất bản local mới nhất.
+    const local = readLocalStudy(quizId);
     if (!cloud) return local;
     const merged = mergeStudy(local, cloud, preferCloud);
     writeLocalStudy(quizId, merged);

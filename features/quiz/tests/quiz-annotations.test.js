@@ -100,3 +100,25 @@ test('màu tự chọn lưu cùng ghi chú; sửa nội dung giữ màu, Tự đ
     assert.equal(css.size, 0);
     for (const invalid of ['red', '#fff', 'url(x)', '#123456;display:none', {}, null]) assert.equal(noteColor(invalid), '');
 });
+
+test('ghi bộ nhớ lỗi không báo thêm/sửa thành công và không đẩy bản cũ lên cloud', () => {
+    storage.clear();
+    const id = addAnnot('q', 'q', 'cụm từ', 'note', 0, 6, 'ghi chú ban đầu');
+    const before = storage.get('annotations');
+    const originalSetItem = ctx.localStorage.setItem;
+    let pushes = 0;
+    const errors = [];
+    ctx.pushStudyToCloud = () => pushes++;
+    ctx.showToast = message => errors.push(message);
+    ctx.localStorage.setItem = () => { throw new Error('Storage full'); };
+    try {
+        assert.equal(addAnnot('q', 'q', 'cụm khác', 'note', 8, 16, 'ghi chú mới'), null);
+        assert.equal(updateAnnotNote('q', id, 'sửa nội dung', { inkColor: '#13579b' }), false);
+        assert.equal(storage.get('annotations'), before);
+        assert.equal(pushes, 0);
+        assert.equal(errors.length, 2);
+    } finally {
+        ctx.localStorage.setItem = originalSetItem;
+        ctx.pushStudyToCloud = () => {};
+    }
+});

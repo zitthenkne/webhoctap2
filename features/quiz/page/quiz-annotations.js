@@ -18,6 +18,7 @@ import { studyKeys } from '../quiz-study-store.js';
 import { NOTE_TAGS, noteTagsOf, noteTextHtml, noteCount } from './quiz-notes-panel.js';
 import { syncQuizNavPanel } from '../quiz-ui.js';
 import { showQuestion } from './quiz-question-view.js';
+import { showToast } from '../../../core/utils.js';
 
 const quizIdNow = () => (state.quizData && state.quizData.id) || (new URLSearchParams(window.location.search)).get('id') || 'default_quiz';
 function annotStorageKey() {
@@ -33,7 +34,13 @@ function getAnnotStore() {
     try { return JSON.parse(localStorage.getItem(annotStorageKey()) || '{}'); } catch (e) { return {}; }
 }
 function saveAnnotStore(store) {
-    try { localStorage.setItem(annotStorageKey(), JSON.stringify(store)); } catch (e) {}
+    try {
+        localStorage.setItem(annotStorageKey(), JSON.stringify(store));
+        return true;
+    } catch (e) {
+        showToast('Chưa lưu được ghi chú trên máy. Phần đang nhập vẫn được giữ; hãy kiểm tra dung lượng trống rồi bấm Lưu lại.', 'error', 6000);
+        return false;
+    }
 }
 function getAnnotsFor(qText) {
     const store = getAnnotStore();
@@ -82,30 +89,32 @@ function addAnnot(qText, scope, text, type, start, end, note, colors = {}) {
         arr.push(item);
     }
     store[qText] = arr;
-    saveAnnotStore(store);
+    if (!saveAnnotStore(store)) return null;
     pushStudyToCloud();
     return id;
 }
 function updateAnnotNote(qText, id, note, colors) {
     const store = getAnnotStore();
     const a = Array.isArray(store[qText]) && store[qText].find(x => x.id === id);
-    if (!a) return;
+    if (!a) return false;
     a.note = note;
     if (colors) ['color', 'inkColor'].forEach(key => {
         if (noteColor(colors[key])) a[key] = noteColor(colors[key]); else delete a[key];
     });
     a.ts = Date.now();
-    saveAnnotStore(store);
+    if (!saveAnnotStore(store)) return false;
     pushStudyToCloud();
+    return true;
 }
 function removeAnnot(qText, scope, text, type) {
     const store = getAnnotStore();
     if (Array.isArray(store[qText])) {
         store[qText] = store[qText].filter(a => !(a.scope === scope && a.text === text && a.type === type));
         if (store[qText].length === 0) delete store[qText];
-        saveAnnotStore(store);
+        if (!saveAnnotStore(store)) return false;
         pushStudyToCloud();
     }
+    return true;
 }
 // Gỡ theo id (ghi chú mới đều có); mảnh DOM nào cũng mang data-annot-id nên khớp tuyệt đối
 function removeAnnotById(qText, id) {
@@ -113,10 +122,11 @@ function removeAnnotById(qText, id) {
     if (Array.isArray(store[qText])) {
         store[qText] = store[qText].filter(a => a.id !== id);
         if (store[qText].length === 0) delete store[qText];
-        saveAnnotStore(store);
+        if (!saveAnnotStore(store)) return false;
         buryAnnotId(id);
         pushStudyToCloud();
     }
+    return true;
 }
 // Gỡ một đoạn ghi chú khỏi cả KHO lẫn DOM (mọi mảnh cùng id biến mất theo);
 // dữ liệu cũ không có id thì lui về khớp (scope, text, type).
@@ -124,10 +134,10 @@ function removeAnnotEverywhere(qText, scope, mark) {
     const id = mark.getAttribute('data-annot-id');
     const type = mark.getAttribute('data-annot-type') || 'highlight';
     if (id) {
-        removeAnnotById(qText, id);
+        if (!removeAnnotById(qText, id)) return;
         document.querySelectorAll(`#quizSection [data-annot-id="${id}"]`).forEach(unwrapMark);
     } else {
-        removeAnnot(qText, scope, mark.textContent, type);
+        if (!removeAnnot(qText, scope, mark.textContent, type)) return;
         unwrapMark(mark);
     }
 }
@@ -271,7 +281,10 @@ function applyAnnotsToContainer(container, annots) {
 // Ghi chú bị tách thành nhiều mảnh (định dạng khác chồng cắt ngang) -> chỉ mảnh cuối hiện nhãn, tránh lặp
 function markLastNoteFragments(root) {
     const last = new Map();
-    root.querySelectorAll('.annot-note[data-annot-id]').forEach(el => { el.classList.add('an-dup'); last.set(el.getAttribute('data-annot-id'), el); });
+    root.querySelectorAll('.annot-note[data-annot-id]').forEach(el => {
+        el.onclick = () => {}; // WebKit cảm ứng cần listener trực tiếp để phát click cho span; xử lý ở document.
+        el.classList.add('an-dup'); last.set(el.getAttribute('data-annot-id'), el);
+    });
     last.forEach(el => el.classList.remove('an-dup'));
 }
 // root: chỉ áp trong một khối vừa vẽ lại (phiếu chấm tự luận sau khi tick) — mặc định cả câu
@@ -798,7 +811,7 @@ function afterNoteChange() {
 // Sổ ghi chú cả bộ đề (quiz-notes-all.js) sửa / xóa ghi chú cụm từ của câu bất kỳ, không cần đang mở câu đó
 export function setPhraseNote(qText, id, value) {
     const note = tidyNote(value);
-    if (note) updateAnnotNote(qText, id, note); else removeAnnotById(qText, id);
+    if (!(note ? updateAnnotNote(qText, id, note) : removeAnnotById(qText, id))) return;
     const frags = document.querySelectorAll(`#quizSection [data-annot-id="${id}"]`);
     if (frags.length) {
         frags.forEach(f => (note ? f.setAttribute('data-note', note) : unwrapMark(f)));
@@ -828,12 +841,13 @@ function closeNoteEditor() {
 }
 // Rời ô viết / chuyển câu: giữ nội dung đã nhập. Hủy và Escape vẫn bỏ phần sửa.
 export function dismissNoteEditor() {
-    if (noteEd?.ta && tidyNote(noteEd.ta.value)) saveNoteEditor();
-    else closeNoteEditor();
+    if (noteEd?.ta && tidyNote(noteEd.ta.value)) return saveNoteEditor();
+    closeNoteEditor();
+    return true;
 }
 // ctx.mode: 'view' (bấm cụm từ: bóng thoại ĐỌC, không bật bàn phím điện thoại) · 'edit' · 'new'
 function openNoteEditor(ctx) {
-    dismissNoteEditor();
+    if (!dismissNoteEditor()) return;
     const view = ctx.mode === 'view';
     const saved = ctx.id ? getAnnotsFor(ctx.qText).find(a => a.id === ctx.id) : null;
     const colors = { color: noteColor(saved?.color), inkColor: noteColor(saved?.inkColor) };
@@ -949,20 +963,22 @@ function openNoteEditor(ctx) {
     });
 }
 function saveNoteEditor() {
-    if (!noteEd) return;
+    if (!noteEd) return true;
     const { ta, ctx, colors } = noteEd;
-    if (!ta) return;
+    if (!ta) return true;
     const note = tidyNote(ta.value);
-    if (ctx.mode === 'edit' && !note) { deleteNoteEditor(); return; }
-    closeNoteEditor(); // chốt ngữ cảnh câu cũ trước khi vẽ lại (showQuestion có thể gọi ngược về đây)
+    if (ctx.mode === 'edit' && !note) return deleteNoteEditor();
     const sec = document.getElementById('quizSection');
     if (ctx.mode === 'edit') {
-        updateAnnotNote(ctx.qText, ctx.id, note, colors);
+        if (!updateAnnotNote(ctx.qText, ctx.id, note, colors)) return false;
+        closeNoteEditor(); // chỉ đóng sau khi lưu thành công, trước khi vẽ lại câu
         document.querySelectorAll(`#quizSection [data-annot-id="${ctx.id}"]`).forEach(el => el.setAttribute('data-note', note));
         renderNoteLines(sec);
         popIn(noteEls(ctx.id));
     } else if (note) {
         const id = addAnnot(ctx.qText, ctx.scope, ctx.text, 'note', ctx.start, ctx.end, note, colors);
+        if (!id) return false;
+        closeNoteEditor();
         if (ctx.scopeEl && ctx.scopeEl.isConnected) {
             clearNoteLines(ctx.scopeEl);
             wrapOffsetRange(ctx.scopeEl, ctx.start, ctx.end, 'note', id, note);
@@ -971,19 +987,21 @@ function saveNoteEditor() {
             renderNoteLines(sec);
             popIn(noteEls(id));
         } else showQuestion();
-    }
+    } else closeNoteEditor();
     afterNoteChange();
+    return true;
 }
 function deleteNoteEditor() {
-    if (!noteEd) return;
+    if (!noteEd) return true;
     const { ctx } = noteEd;
     if (ctx.mode !== 'new') {
-        removeAnnotById(ctx.qText, ctx.id);
+        if (!removeAnnotById(ctx.qText, ctx.id)) return false;
         document.querySelectorAll(`#quizSection [data-annot-id="${ctx.id}"]`).forEach(unwrapMark);
         renderNoteLines(document.getElementById('quizSection'));
         afterNoteChange();
     }
     closeNoteEditor();
+    return true;
 }
 
 export function setupAnnotations() {
