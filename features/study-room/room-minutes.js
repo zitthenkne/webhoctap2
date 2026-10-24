@@ -26,6 +26,7 @@ import { escapeHtml } from './room-ui.js';
 import { safeImgUrl } from './room-media.js';
 import { optExpFull } from './room-reason.js';
 import { gradeOf } from './room-barem.js';
+import { reasoningLines } from '../quiz/quiz-reasoning-core.js';
 
 const el = (id) => document.getElementById(id);
 const L = (k) => String.fromCharCode(65 + k);
@@ -277,6 +278,14 @@ function buildMarkdown(d) {
         else if (x.bestWhy.length) push(`**💡 Lý do phe đúng:** ${x.bestWhy.map(r => `${nm(r.m)}: ${md(r.why).replace(/\n/g, ' ')}`).join(' · ')}`, '');
         if (q.expanded) push(`**📖 Mở rộng:** ${md(q.expanded)}`, '');
         if (q.note) push(`**📌 Ghi nhớ:** ${md(q.note)}`, '');
+        const th = reasoningLines(q);      // Hướng tư duy (trường `reasoning`, cùng trang làm bài)
+        if (th) {
+            push('**🧠 Hướng tư duy**');
+            th.cues.forEach(c => push(`- ${c}`));
+            th.steps.forEach(t => push(`- ${t}`));
+            if (th.goal) push(`- **Chốt:** ${th.goal}`);
+            push('');
+        }
         if (!opt.full && x.keyArgs.length) {
             push(x.essay ? '**🗣 Nhận xét**' : '**🗣 Ý chính khi bàn**');
             x.keyArgs.forEach(a => push(`- ${IC[a.s] || '•'} **${nm(a.member)}:** ${argText(a)}${agreeCount(a.id) ? ` (👍 ${agreeCount(a.id)})` : ''}${a.s === 'ask' && !a.ok ? ' — ⏳ *chưa giải đáp*' : ''}`));
@@ -424,6 +433,11 @@ function buildHtml(d) {
         const calls = [q.expanded ? `<div class="call peach"><h4>📖 Mở rộng</h4><div class="rich">${rich(q.expanded, opt.images)}</div></div>` : '',
             q.note ? `<div class="call pink"><h4>📌 Ghi nhớ</h4><div class="rich">${rich(q.note, opt.images)}</div></div>` : ''].filter(Boolean);
         if (calls.length) blocks.push(`<div class="calls n${calls.length}">${calls.join('')}</div>`);
+        const th = reasoningLines(q);
+        if (th) {
+            const b = (t) => E(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+            blocks.push(`<div class="block think"><h4>🧠 Hướng tư duy</h4>${th.cues.length ? `<p class="soft">Dữ kiện trong đề</p><ul>${th.cues.map(c => `<li>${b(c)}</li>`).join('')}</ul>` : ''}${th.steps.length ? `<p class="soft">Chuỗi suy luận</p><ul>${th.steps.map(t => `<li>${b(t)}</li>`).join('')}</ul>` : ''}${th.goal ? `<p><b>Chốt:</b> ${b(th.goal)}</p>` : ''}</div>`);
+        }
         if (!opt.full && x.keyArgs.length) blocks.push(`<div class="block"><h4>${x.essay ? '🗣 Nhận xét' : '🗣 Ý chính khi bàn'}</h4><ul class="args">${x.keyArgs.map(argLi).join('')}</ul></div>`);
         if (x.docs.length) blocks.push(`<div class="block"><h4>📚 Nguồn</h4>${x.docs.map(m => `<div class="docref">
             <p><b>${E(plain(m.title) || 'Tài liệu')}</b>${m.src ? ` — ${E(plain(m.src))}` : ''}${safeLink(m.link) ? ` · <a href="${E(m.link)}">link</a>` : ''}</p>
@@ -612,6 +626,7 @@ tr { break-inside: avoid; }
 .block { margin-top: 6px; break-inside: avoid; }
 .block h4, .call h4 { margin: 0 0 2px; font-size: 7.6pt; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #8c4e6a; }
 .block h4 em { font-style: normal; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--muted); }
+.block.think { padding: 6px 10px; border-radius: 8px; background: #f4effd; } .block.think ul { margin: 1px 0 3px; padding-left: 16px; font-size: 8.6pt; } .block.think p { margin: 2px 0 0; font-size: 8.6pt; } .block.think p.soft { font-size: 7.4pt; font-weight: 700; color: var(--muted); }
 .block.expl { padding: 6px 10px; border-radius: 8px; border-left: 3px solid var(--pink); background: #fffafc; }
 .block.expl p { margin: 2px 0; }
 .calls { display: grid; gap: 6px; margin-top: 6px; } .calls.n2 { grid-template-columns: 1fr 1fr; }

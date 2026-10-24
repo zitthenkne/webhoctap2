@@ -6929,3 +6929,136 @@ html .rm-slots.is-list li:has(.rm-slot[data-empty="0"]) > .rm-slot-n { backgroun
 /* Tự lưu bộ đề (room-quiz.js scheduleAutoSave): nút trong Công cụ chủ trì — bật = mây xanh lá, tắt = mờ */
 #host-autosave.is-on i { color: var(--rm-ok) !important; }
 #host-autosave:not(.is-on) i { opacity: .45; }
+
+/* ═══════════════ BẢN 77 (2026-10-24): ĐỒNG BỘ DỮ LIỆU BỘ ĐỀ VỚI TRANG LÀM BÀI ═══════════════
+   (người dùng: "cập nhật những nâng cấp của quiz.html mà study-room.html chưa có để 2 bên tối ưu dữ liệu bộ đề")
+   · Bảng màu của trang làm bài (--surface-card / --hue-* / --ink-* / --ok-* / --bad-*) ánh xạ sang màu phòng: khối dùng chung
+     quiz-helpers vẽ (callout "> [!tip]", trích dẫn ">") tự chèn CSS đọc các biến này — thiếu thì rơi về nền TRẮNG cả ở giao diện tối.
+   · Tiêu đề markdown `#`–`####` (parseMarkdown → .quiz-md-h1…4): phòng chưa có luật -> hiện như chữ thường.
+   · Thẻ 🧠 Hướng tư duy trong sổ tay (room-thinking.js, trường `reasoning`): thân thẻ .qr-* y như trang làm bài; dữ kiện tô trong đề
+     bằng ::highlight() (không chèn thẻ vào ô sửa chung). Màu theo VAI: bản lề = vàng bơ · âm tính = trời · mồi nhử = gạch lượn đào. */
+:root {
+    --surface-card: var(--rm-surface); --ink: var(--rm-ink); --ink-muted: var(--rm-muted); --spring: var(--rm-spring);
+    --hue-blossom: #FF8FB8; --ink-blossom: #C8487A;
+    --hue-peach: #F79A5E;   --ink-peach: #B0551C;
+    --hue-butter: #F2BE2E;  --ink-butter: #8C6500;
+    --hue-mint: #6FD1AE;    --ink-mint: #23805F;
+    --hue-sky: #7EC0EE;     --ink-sky: #2D6FA3;
+    --hue-lav: #B9A2F0;     --ink-lav: #6A4FB8;
+    --hue-latte: #C8A07A;   --ink-latte: #83603F;
+    --ok-bg: #DDF6E8;  --ok-line: #7ED3A4;  --ok-solid: #3DB37A;  --ok-ink: #1E7A4C;
+    --bad-bg: #FFE4E4; --bad-line: #F4A0A0; --bad-solid: #E4646C; --bad-ink: #A33A42;
+}
+html.theme-dark {
+    --ink-blossom: #FFB9D6; --ink-peach: #FFC098; --ink-butter: #FFD972; --ink-mint: #9EE8CB; --ink-sky: #A9D8FA; --ink-lav: #D5C6FF; --ink-latte: #E6C7A6;
+    --ok-bg: #1f3a2c;  --ok-line: #4a9a72;  --ok-solid: #5FD49B;  --ok-ink: #BBF7D0;
+    --bad-bg: #46221f; --bad-line: #b85a5a; --bad-solid: #FF8A8A; --bad-ink: #FECACA;
+}
+
+/* Tiêu đề markdown — cùng nhịp với quiz-stationery.css §23 */
+.quiz-md-h { font-weight: 800; line-height: 1.35; color: var(--em-b, var(--ink-blossom)); margin: .1rem 0 0; }
+.quiz-md-h1 { font-size: 1.22em; }
+.quiz-md-h2 { font-size: 1.14em; }
+.quiz-md-h3 { font-size: 1.06em; }
+.quiz-md-h4 { font-size: 1em; letter-spacing: .01em; }
+.quiz-md-h + .quiz-md-gap { height: .4rem; }
+
+/* Khối sổ tay 🧠 Hướng tư duy */
+.rm-xbox.is-reason { background: color-mix(in srgb, var(--hue-lav) 8%, var(--rm-surface)); border-color: color-mix(in srgb, var(--hue-lav) 45%, transparent); }
+.rm-xbox.is-reason .rm-xlabel { color: var(--ink-lav); }
+.rm-qr-tg {
+    flex-shrink: 0; border: 1.5px dashed color-mix(in srgb, var(--hue-butter) 70%, transparent); border-radius: 999px;
+    padding: .1rem .55rem; cursor: pointer; font: inherit; font-size: calc(.72rem * var(--rm-scale)); font-weight: 700;
+    color: var(--rm-muted); background: transparent;
+}
+.rm-qr-tg.on { border-style: solid; color: var(--ink-butter); background: color-mix(in srgb, var(--hue-butter) 18%, var(--rm-surface)); }
+
+.qr { display: flex; flex-direction: column; gap: .7rem; margin-top: .45rem; font-size: calc(.86rem * var(--rm-scale)); line-height: 1.5; color: var(--rm-ink); }
+.qr-cue, .qr-ref { --qk: var(--hue-butter); --qk-ink: var(--ink-butter); }
+:is(.qr-cue, .qr-ref).is-neg  { --qk: var(--hue-sky);   --qk-ink: var(--ink-sky); }
+:is(.qr-cue, .qr-ref).is-trap { --qk: var(--hue-peach); --qk-ink: var(--ink-peach); }
+.qr-sec { display: flex; flex-direction: column; gap: .4rem; }
+.qr-lb { display: inline-flex; align-items: center; gap: .35rem; align-self: flex-start; font-size: .68rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-lav); }
+.qr-lb span { font-size: .85rem; letter-spacing: 0; }
+.qr-lb em { margin-left: .25rem; font-style: normal; font-size: .66rem; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--rm-muted); }
+.qr-cues { list-style: none; margin: 0; padding: 0; display: grid; gap: .4rem; }
+.qr-cues > li { min-width: 0; display: flex; }
+.qr-cue {
+    flex: 1; min-width: 0;
+    display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: .5rem; row-gap: .1rem; align-items: start;
+    padding: .42rem .65rem; border-radius: .95rem;
+    text-align: left; font: inherit; color: var(--rm-ink);
+    background: color-mix(in srgb, var(--qk) 10%, var(--rm-surface));
+    border: 1.5px solid color-mix(in srgb, var(--qk) 42%, transparent);
+    box-shadow: 0 2px 0 color-mix(in srgb, var(--qk) 32%, transparent);
+    transition: transform .2s var(--rm-spring), border-color .2s, opacity .18s;
+}
+button.qr-cue { cursor: pointer; }
+button.qr-cue:hover { transform: translateY(-1px); border-color: var(--qk); }
+button.qr-cue:focus-visible, button.qr-ref:focus-visible { outline: 3px solid color-mix(in srgb, var(--qk, var(--hue-lav)) 60%, transparent); outline-offset: 2px; }
+.qr-cue.is-miss { opacity: .7; border-style: dashed; cursor: default; }
+.qr-n {
+    grid-row: span 2; display: grid; place-items: center; width: 1.4rem; height: 1.4rem; margin-top: .05rem;
+    border-radius: 999px; font-size: .72rem; font-weight: 800; color: var(--qk-ink); background: var(--rm-surface); box-shadow: inset 0 0 0 2px var(--qk);
+}
+.qr-cue-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .45rem; min-width: 0; }
+.qr-q { font-weight: 700; overflow-wrap: anywhere; }
+.qr-q::before { content: "“"; color: var(--qk-ink); }
+.qr-q::after { content: "”"; color: var(--qk-ink); }
+.qr-cue.is-trap .qr-q { text-decoration: underline wavy color-mix(in srgb, var(--qk) 80%, transparent); text-decoration-thickness: 1.5px; text-underline-offset: .22em; }
+.qr-kind { padding: 0 .45rem; border-radius: 999px; font-size: .62rem; font-weight: 800; line-height: 1.5; color: var(--qk-ink); background: color-mix(in srgb, var(--qk) 22%, var(--rm-surface)); }
+.qr-hint { grid-column: 2; font-size: .8rem; color: color-mix(in srgb, var(--rm-ink) 80%, transparent); }
+.qr-hint::before { content: "➜ "; color: var(--qk-ink); font-weight: 800; }
+.qr-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .45rem; position: relative; }
+.qr-steps::before { content: ""; position: absolute; left: .85rem; top: .8rem; bottom: .8rem; border-left: 2px dashed color-mix(in srgb, var(--hue-lav) 55%, transparent); }
+.qr-step { --st: var(--hue-lav); --st-ink: var(--ink-lav); position: relative; display: flex; gap: .55rem; align-items: flex-start; border-radius: .95rem; }
+.qr-step.is-out { --st: var(--hue-blossom); --st-ink: var(--ink-blossom); }
+.qr-node {
+    position: relative; z-index: 1; flex-shrink: 0; display: grid; place-items: center; width: 1.7rem; height: 1.7rem; border-radius: .5rem;
+    font-size: .64rem; font-weight: 800; color: var(--st-ink); background: color-mix(in srgb, var(--st) 18%, var(--rm-surface));
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--st) 60%, transparent), 0 2px 0 color-mix(in srgb, var(--st) 40%, transparent);
+}
+.qr-step-main { flex: 1; min-width: 0; padding: .35rem .65rem .45rem; border-radius: .85rem; background: color-mix(in srgb, var(--st) 7%, var(--rm-surface)); border: 1.5px solid color-mix(in srgb, var(--st) 30%, transparent); }
+.qr-from { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem; }
+.qr-ref {
+    display: inline-grid; place-items: center; min-width: 1.3rem; height: 1.3rem; padding: 0 .28rem; border: 0; border-radius: 999px;
+    font: inherit; font-size: .68rem; font-weight: 800; line-height: 1; color: var(--qk-ink);
+    background: color-mix(in srgb, var(--qk) 20%, var(--rm-surface)); box-shadow: inset 0 0 0 1.5px var(--qk);
+}
+.qr-ref.is-step { --qk: var(--hue-lav); --qk-ink: var(--ink-lav); border-radius: .45rem; }
+button.qr-ref { cursor: pointer; }
+button.qr-ref:hover { background: color-mix(in srgb, var(--qk) 38%, var(--rm-surface)); }
+.qr-plus { font-weight: 800; color: var(--rm-muted); font-size: .72rem; }
+.qr-type { margin-left: .3rem; font-size: .62rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; color: var(--st-ink); }
+.qr-type::before { content: "➜ "; }
+.qr-to { margin-top: .15rem; font-weight: 600; overflow-wrap: anywhere; }
+.qr-to b, .qr-hint b, .qr-goal b { font-weight: 800; color: var(--st-ink, var(--ink-lav)); }
+.qr-out { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; margin-top: .25rem; font-size: .72rem; font-weight: 700; color: var(--rm-muted); }
+.qr-opt {
+    position: relative; display: inline-grid; place-items: center; width: 1.3rem; height: 1.3rem; border-radius: 999px;
+    font-size: .7rem; font-weight: 800; text-decoration: none; color: var(--bad-ink); background: var(--bad-bg); box-shadow: inset 0 0 0 1.5px var(--bad-line);
+}
+.qr-opt::after { content: ""; position: absolute; left: 18%; right: 18%; top: 50%; border-top: 2px solid var(--bad-solid); rotate: -45deg; border-radius: 2px; }   /* gạch CHÉO: "D" gạch ngang đọc thành "Đ" */
+.qr-goal { display: flex; align-items: center; gap: .55rem; padding: .45rem .7rem; border-radius: .9rem; background: color-mix(in srgb, var(--hue-mint) 12%, var(--rm-surface)); border: 2px solid color-mix(in srgb, var(--ok-line) 70%, transparent); }
+.qr-goal-k { flex-shrink: 0; padding: .1rem .55rem; border-radius: 999px; font-size: .64rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--ok-ink); background: var(--ok-bg); }
+.qr-goal-t { flex: 1; min-width: 0; font-weight: 700; overflow-wrap: anywhere; --st-ink: var(--ok-ink); }
+.qr-ans { flex-shrink: 0; display: inline-grid; place-items: center; min-width: 1.7rem; height: 1.7rem; padding: 0 .4rem; border-radius: 999px; font-weight: 800; font-size: .8rem; color: #fff; background: var(--ok-solid); box-shadow: 0 2px 0 var(--ok-line); }
+html.theme-dark .qr-ans { color: #1d1819; }
+.qr-step.is-ping, .qr-cue.is-ping, .rm-question .is-ping, .rm-case-body.is-ping { animation: rm-qr-ping 1.6s ease-out; }
+@keyframes rm-qr-ping { 0%, 55% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--hue-lav) 55%, transparent); } 100% { box-shadow: 0 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .qr-step.is-ping, .qr-cue.is-ping, .rm-question .is-ping, .rm-case-body.is-ping { animation: none; outline: 3px solid color-mix(in srgb, var(--hue-lav) 60%, transparent); outline-offset: 2px; } }
+@media (max-width: 479px) {
+    .qr-cue { padding: .4rem .55rem; column-gap: .45rem; }
+    .qr-step { gap: .45rem; }
+    .qr-steps::before { left: .775rem; }
+    .qr-node { width: 1.55rem; height: 1.55rem; }
+    .qr-step-main { padding: .32rem .55rem .42rem; }
+}
+
+/* Dữ kiện tô ngay trong ca / đề / phương án (CSS Custom Highlight — room-thinking.js) */
+::highlight(rm-qr-key)  { background-color: color-mix(in srgb, #F2BE2E 36%, transparent); }
+::highlight(rm-qr-neg)  { background-color: color-mix(in srgb, #7EC0EE 34%, transparent); }
+::highlight(rm-qr-trap) { background-color: color-mix(in srgb, #F79A5E 12%, transparent); text-decoration: underline wavy #F79A5E; text-decoration-thickness: 1.5px; text-underline-offset: .22em; }
+::highlight(rm-qr-ping) { background-color: color-mix(in srgb, #B9A2F0 60%, transparent); }
+html.theme-dark ::highlight(rm-qr-key) { background-color: color-mix(in srgb, #F2BE2E 30%, transparent); }
+html.theme-dark ::highlight(rm-qr-neg) { background-color: color-mix(in srgb, #7EC0EE 30%, transparent); }

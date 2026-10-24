@@ -3,7 +3,7 @@
 //  - CACHE_NAME (zitthenkne-v2NNN): app shell. Tăng số MỖI LẦN sửa/thêm file trong urlsToCache.
 //  - CDN_CACHE: thư viện + phông từ CDN (URL có phiên bản, gần như bất biến) → GIỮ qua các phiên bản.
 //  - IMG_CACHE: ảnh tải lúc chạy (nền, avatar, ảnh bệnh án) → giữ qua các phiên bản, tối đa IMG_MAX mục.
-const CACHE_NAME = 'zitthenkne-v375';
+const CACHE_NAME = 'zitthenkne-v376';
 const CDN_CACHE = 'zitthenkne-cdn';
 const IMG_CACHE = 'zitthenkne-img';
 const IMG_MAX = 600;
@@ -48,6 +48,7 @@ const urlsToCache = [
   'features/quiz/page/quiz-group.js',
   'features/quiz/page/quiz-question-view.js',
   'features/quiz/page/quiz-reasoning.js',
+  'features/quiz/quiz-reasoning-core.js',
   'features/quiz/page/quiz-settings-nav.js',
   'features/quiz/page/quiz-ink.js',
   'features/quiz/page/quiz-dictation.js',
@@ -149,6 +150,7 @@ const urlsToCache = [
   'features/study-room/room-richtools.js',
   'features/study-room/room-sparkle.js',
   'features/study-room/room-reason.js',
+  'features/study-room/room-thinking.js',
   'features/study-room/room-barem.js',
   'features/study-room/room-paste.js',
   'features/study-room/room-polish.js',

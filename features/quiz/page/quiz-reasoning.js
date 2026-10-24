@@ -10,15 +10,12 @@
 // Bản 2: hiệu ứng quét (mỗi câu một lần), rê / chạm để soi liên kết dữ kiện ⇄ bước, chế độ mở từng bước (phím G),
 // gập thẻ, 3 công tắc trong bảng "Ngựa thì chỉnh" (quiz_reason_marks / _step / _fx).
 
-import { getCorrectIndexes, isMultiAnswer } from '../quiz-helpers.js';
+import { readReasoning, reasoningBodyHtml, locateCue } from '../quiz-reasoning-core.js';
+export { readReasoning, cueRegex, reasoningBodyHtml, locateCue } from '../quiz-reasoning-core.js';   // chỗ gọi / test cũ vẫn import từ file này
 import { scrollBehaviorFor } from './quiz-page-prefs.js';
 
-const KINDS = { key: 'bản lề', neg: 'âm tính', trap: 'mồi nhử' };
-const STEP_TYPES = { then: 'Suy ra', join: 'Tổng hợp', out: 'Loại trừ' };
 const L = (i) => String.fromCharCode(65 + i);
 const str = (v) => (v == null ? '' : String(v).trim());
-const esc = (s) => str(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-const rich = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');   // chỉ **đậm**, không markdown/KaTeX
 
 const LS = { marks: 'quiz_reason_marks', step: 'quiz_reason_step', fx: 'quiz_reason_fx', fold: 'quiz_reason_folded' };
 const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
@@ -33,87 +30,6 @@ const seen = new Set();        // câu đã chạy hiệu ứng quét trong phi�
 const stepShown = new Map();   // câu -> số bước đã mở (chế độ từng bước), giữ qua các lần vẽ lại
 let cur = null;                // { key, rs } câu đang hiện thẻ
 let io = null, litTimer = 0, litKey = '';
-
-// 'BD' / 'B, D' / ['B','D'] -> ['B','D']; lẫn chữ khác thì bỏ (skill phải ghi đúng khuôn)
-function letters(v) {
-    const s = (Array.isArray(v) ? v.join(',') : str(v)).toUpperCase().replace(/[\s,;·/]+/g, '');
-    return /^[A-H]+$/.test(s) ? [...new Set(s)].sort() : [];
-}
-
-// Chuẩn hóa: bỏ mục rỗng, `from` nhận số / "1" / "b2" (kết luận bước 2, chỉ trỏ LÙI), kiểu bước tự suy
-export function readReasoning(q) {
-    const r = q && q.reasoning;
-    if (!r || typeof r !== 'object') return null;
-    const cues = (Array.isArray(r.cues) ? r.cues : [])
-        .map(c => (typeof c === 'string' ? { text: c } : c))
-        .filter(c => c && str(c.text))
-        .map(c => ({ text: str(c.text), kind: KINDS[c.kind] ? c.kind : 'key', hint: str(c.hint), in: str(c.in) }));
-    const steps = [];
-    (Array.isArray(r.steps) ? r.steps : []).forEach(s => {
-        if (!s || !str(s.text)) return;
-        const from = (Array.isArray(s.from) ? s.from : s.from == null ? [] : [s.from]).map(x => {
-            const m = /^(b?)(\d+)$/i.exec(str(x));
-            if (!m) return null;
-            const n = +m[2];
-            if (m[1]) return n >= 1 && n <= steps.length ? { s: n } : null;
-            return n >= 1 && n <= cues.length ? { c: n } : null;
-        }).filter(Boolean);
-        const out = letters(s.out);
-        // `kind` ghi rõ thì theo đó (tự luận loại trừ chẩn đoán không có chữ cái phương án); không thì tự suy
-        const type = STEP_TYPES[s.kind] ? s.kind : out.length ? 'out' : from.length > 1 ? 'join' : 'then';
-        steps.push({ from, text: str(s.text), out, type });
-    });
-    const goal = str(r.goal);
-    return cues.length || steps.length || goal ? { cues, steps, goal } : null;
-}
-
-// Cụm từ -> regex: khoảng trắng co giãn, không phân biệt hoa thường, không khớp giữa chừng một từ
-export function cueRegex(text) {
-    const body = str(text).split(/\s+/).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+');
-    if (!body) return null;
-    try {
-        const pre = /^[\p{L}\p{N}]/u.test(text.trim()) ? '(?<![\\p{L}\\p{N}])' : '';
-        const post = /[\p{L}\p{N}]$/u.test(text.trim()) ? '(?![\\p{L}\\p{N}])' : '';
-        return new RegExp(pre + body + post, 'iu');
-    } catch (e) {
-        return new RegExp(body, 'i');   // trình duyệt cũ chưa có lookbehind
-    }
-}
-
-function refHtml(ref, rs, live) {
-    const tag = live ? 'button' : 'span', btn = live ? ' type="button"' : '';
-    if (ref.s) return `<${tag}${btn} class="qr-ref is-step" data-goto-step="${ref.s}" title="Kết luận bước ${ref.s}">B${ref.s}</${tag}>`;
-    const c = rs.cues[ref.c - 1];
-    return `<${tag}${btn} class="qr-ref is-${c.kind}" data-cue="${ref.c}" title="${esc(c.text)}">${ref.c}</${tag}>`;
-}
-
-// Phần thân (dùng chung: thẻ trong trang làm bài + khối ở màn kết quả). live = có nút bấm nhảy tới đề.
-// extra = chèn ngay dưới danh sách bước (thanh "Mở bước tiếp" của chế độ từng bước).
-export function reasoningBodyHtml(q, live = true, extra = '') {
-    const rs = readReasoning(q);
-    if (!rs) return '';
-    const cueTag = live ? 'button' : 'div';
-    const cues = rs.cues.map((c, i) => `
-        <li><${cueTag}${live ? ' type="button"' : ''} class="qr-cue is-${c.kind}" data-cue="${i + 1}">
-            <span class="qr-n">${i + 1}</span>
-            <span class="qr-cue-main"><span class="qr-q">${esc(c.text)}</span><span class="qr-kind">${KINDS[c.kind]}</span></span>
-            ${c.hint ? `<span class="qr-hint">${rich(c.hint)}</span>` : ''}
-        </${cueTag}></li>`).join('');
-    const steps = rs.steps.map((s, i) => `
-        <li class="qr-step is-${s.type}" data-step="${i + 1}">
-            <span class="qr-node" aria-hidden="true">B${i + 1}</span>
-            <div class="qr-step-main">
-                <div class="qr-from">${s.from.map(r => refHtml(r, rs, live)).join('<span class="qr-plus">+</span>')}<span class="qr-type">${STEP_TYPES[s.type]}</span></div>
-                <div class="qr-to">${rich(s.text)}</div>
-                ${s.out.length ? `<div class="qr-out">gạch ${s.out.map(x => `<s class="qr-opt">${x}</s>`).join('')}</div>` : ''}
-            </div>
-        </li>`).join('');
-    const essay = !Array.isArray(q.answers || q.options) || !(q.answers || q.options).length;
-    const ans = essay ? '' : (isMultiAnswer(q) ? getCorrectIndexes(q) : [q.correctAnswerIndex]).filter(i => Number.isInteger(i)).map(L).join(' · ');
-    return (cues ? `<div class="qr-sec"><div class="qr-lb"><span>①</span> Dữ kiện trong đề${live ? '<em>bấm để xem trong đề</em>' : ''}</div><ol class="qr-cues">${cues}</ol></div>` : '')
-        + (steps ? `<div class="qr-sec"><div class="qr-lb"><span>②</span> Chuỗi suy luận</div><ol class="qr-steps">${steps}</ol>${extra}</div>` : '')
-        + (rs.goal || ans ? `<div class="qr-goal"><span class="qr-goal-k">Chốt</span><span class="qr-goal-t">${rich(rs.goal)}</span>${ans ? `<span class="qr-ans" title="Đáp án đúng">${ans}</span>` : ''}</div>` : '');
-}
 
 const STEPPER = `<div class="qr-stepper">
         <button type="button" class="qr-next" data-qr="next"><i class="fas fa-forward-step"></i> Mở bước tiếp <kbd class="kbd-key">G</kbd></button>
@@ -138,16 +54,6 @@ export function reasoningCardHtml(q) {
             </button>
             <div class="kb-body qr">${reasoningBodyHtml(q, reasonPrefs.marks(), step ? STEPPER : '')}</div>
         </div>`;
-}
-
-// Text node của một vùng, bỏ công thức / hình / widget (KaTeX có 2 bản chữ, tô vào sẽ lệch)
-function textNodes(root) {
-    const out = [];
-    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-        acceptNode: n => (n.parentElement && n.parentElement.closest('.katex, svg, .qw, script, style') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
-    });
-    while (w.nextNode()) out.push(w.currentNode);
-    return out;
 }
 
 // Bọc [from, to) của chuỗi ghép các text node: mỗi node một <mark> riêng (vắt qua chữ đậm vẫn an toàn)
@@ -176,14 +82,9 @@ function markCues(rs) {
     const regions = [['case', sec.querySelector('[data-annot="case"]')], ['q', sec.querySelector('[data-annot="q"]')]];
     sec.querySelectorAll('.answer-content[data-annot^="a"]').forEach(el => regions.push([L(+el.getAttribute('data-annot').slice(1)), el]));
     rs.cues.forEach((c, i) => {
-        const re = cueRegex(c.text);
-        if (!re) return;
-        for (const [scope, el] of regions) {
-            if (!el || (c.in && c.in.toLowerCase() !== scope.toLowerCase())) continue;
-            const nodes = textNodes(el);
-            const m = re.exec(nodes.map(n => n.nodeValue).join(''));
-            if (!m || !m[0]) continue;
-            const marks = wrapSpan(nodes, m.index, m.index + m[0].length, () => {
+        const hit = locateCue(c, regions);      // tìm SAU khi đã bọc dữ kiện trước (bọc làm tách text node)
+        if (hit) {
+            const marks = wrapSpan(hit.nodes, hit.start, hit.end, () => {
                 const k = document.createElement('mark');
                 k.className = `qr-hit is-${c.kind}`;
                 k.setAttribute('data-cue', String(i + 1));

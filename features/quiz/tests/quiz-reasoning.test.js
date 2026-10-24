@@ -98,3 +98,17 @@ test('thẻ: đầu thẻ đếm dữ kiện/bước + nút gập; thanh từng 
     assert.match(body, /<\/ol><div class="X"><\/div><\/div>/);       // ngay sau <ol class="qr-steps">, trước Chốt
     assert.equal(reasoningCardHtml({ question: 'x' }), '');
 });
+
+test('reasoningLines: bản chữ cho biên bản phòng học / chép sổ tay — đủ dữ kiện, bước, chốt + đáp án', async () => {
+    const { reasoningLines } = await import('../quiz-reasoning-core.js');
+    const r = reasoningLines(Q);
+    assert.deepEqual(r.cues, [
+        '1. “HA tụt 80/50 mmHg” (bản lề) — bù trừ co mạch đã **cạn**',
+        '2. “mạch 120 l/p” (bản lề)',
+        '3. “còn tiếp xúc được” (mồi nhử) — dễ tưởng sốc nhẹ',
+    ]);
+    assert.equal(r.steps[0], 'B1 · [1 + 2] Tổng hợp: Sốc mất bù');
+    assert.equal(r.steps[1], 'B2 · [B1] Loại trừ: Độ 1–2 HA còn bình thường (gạch A, B)');
+    assert.match(r.goal, /đáp án C$/);
+    assert.equal(reasoningLines({ question: 'x', answers: ['a'] }), null);
+});
