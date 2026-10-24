@@ -142,10 +142,13 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
     // Thư mục đang mở vừa bị xoá (ở máy khác / vào thùng rác) → về gốc thay vì kẹt ở màn trống
     if (S.currentFolderId && !folderById(S.currentFolderId)) {
         S.currentFolderId = null;
+        try { history.replaceState({ libFolder: null }, ''); } catch {}
         renderBreadcrumb();
     }
 
     updateLibraryOverview();
+    // Cây thư mục (library-tree.js) nghe sự kiện này để vẽ lại theo dữ liệu mới — không import ngược cho khỏi vòng phụ thuộc
+    document.dispatchEvent(new CustomEvent('library:render'));
 
     let filteredQuizzes = quizzesToDisplay;
     if (!isSearching) {
@@ -204,7 +207,16 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
     if (foldersContainer) {
         removeOrphanFolderMenus(); // menu đang mở đã được đưa ra <body>, xoá kẻo thành rác
         foldersContainer.innerHTML = '';
-        applyFolderGridColumns(foldersContainer);
+        // Dạng danh sách: cùng thẻ thư mục (giữ nguyên menu, kéo-thả, bấm mở) nhưng CSS dựng lại thành hàng gọn
+        const listMode = S.folderLayoutMode === 'list';
+        foldersContainer.classList.toggle('is-folder-list', listMode);
+        if (listMode) {
+            foldersContainer.classList.remove('folders-custom-cols');
+            foldersContainer.style.removeProperty('--folder-grid-cols');
+        } else {
+            applyFolderGridColumns(foldersContainer);
+        }
+        updateFolderLayoutToggle();
         if (!isSearching) {
             const visibleFolders = getFoldersForDisplay(); // con của cấp hiện tại, hoặc kết quả tìm xuyên cấp
             const totalFolders = visibleFolders.length;
@@ -479,6 +491,7 @@ function renderFoldersPagination(totalFolders, currentPage, totalPages) {
 export function renderBreadcrumb() {
     const breadcrumb = document.getElementById('folder-breadcrumb');
     if (!breadcrumb) return;
+    closeFolderPicker();
 
     if (S.currentFolderId === null) {
         // Ở thư viện gốc thì ẩn breadcrumb cho gọn (đã có tiêu đề trang)
@@ -490,34 +503,123 @@ export function renderBreadcrumb() {
     breadcrumb.classList.remove('hidden');
     breadcrumb.classList.add('flex');
 
-    // Đường đi nhiều cấp: ← | Thư viện gốc › A › B › [thư mục đang mở]
+    // Đường đi nhiều cấp: ← | Thư viện gốc › A › B › [thư mục đang mở] ▾
     // Mỗi nấc (kể cả nút ←) vừa BẤM để đi tới, vừa là chỗ THẢ bộ đề/thư mục đang kéo vào.
+    // Dấu › giữa hai nấc là nút: bấm ra danh sách thư mục cùng cấp để nhảy ngang (kiểu Explorer).
     const path = folderPath(S.currentFolderId);
     const current = path[path.length - 1];
     const parentId = path.length > 1 ? path[path.length - 2].id : '';
-    const sep = '<i class="fas fa-chevron-right fd-crumb-sep" aria-hidden="true"></i>';
-    const link = (f) => `<button type="button" class="fd-crumb-link" data-crumb="${f.id}" style="--fc:${folderHex(f)}" title="Mở &quot;${escapeHtml(f.name || 'Thư mục')}&quot; (thả vào đây để chuyển)"><i class="fas ${f.icon || 'fa-folder'}"></i><span>${escapeHtml(f.name || 'Thư mục')}</span></button>`;
+    const sep = (levelId) => `<button type="button" class="fd-crumb-sep-btn" data-level="${levelId}" title="Thư mục cùng cấp" aria-label="Xem thư mục cùng cấp" aria-haspopup="true"><i class="fas fa-chevron-right" aria-hidden="true"></i></button>`;
+    const link = (f) => `<button type="button" class="fd-crumb-link" data-crumb="${f.id}" style="--fc:${folderHex(f)}" title="Mở &quot;${escapeHtml(f.name || 'Thư mục')}&quot; (thả vào đây để chuyển)"><i class="fas ${escapeHtml(f.icon || 'fa-folder')}"></i><span>${escapeHtml(f.name || 'Thư mục')}</span></button>`;
+    const kids = childFolders(current.id);
     breadcrumb.innerHTML = `
-        <button type="button" class="fd-crumb-up" data-crumb="${parentId}" title="Lên một cấp (thả vào đây để đưa ra ngoài)" aria-label="Lên một cấp"><i class="fas fa-arrow-left"></i></button>
+        <button type="button" class="fd-crumb-up" data-crumb="${parentId}" title="Lên một cấp — phím Backspace (thả vào đây để đưa ra ngoài)" aria-label="Lên một cấp"><i class="fas fa-arrow-left"></i></button>
         <button type="button" class="fd-crumb-link is-root" data-crumb="" title="Về Thư viện gốc (thả vào đây để chuyển ra gốc)"><i class="fas fa-home"></i><span>Thư viện gốc</span></button>
-        ${path.slice(0, -1).map(f => sep + link(f)).join('')}
-        ${sep}<span class="fd-crumb" style="--fc:${folderHex(current)}"><i class="fas ${current.icon || 'fa-folder'}"></i>${escapeHtml(current.name || 'Thư mục')}</span>`;
+        ${path.map((f, i) => sep(i === 0 ? '' : path[i - 1].id) + (i < path.length - 1 ? link(f) : '')).join('')}<span class="fd-crumb" style="--fc:${folderHex(current)}"><i class="fas ${escapeHtml(current.icon || 'fa-folder')}"></i>${escapeHtml(current.name || 'Thư mục')}</span>
+        ${kids.length ? `<button type="button" class="fd-crumb-sep-btn is-down" data-level="${current.id}" title="Mở thư mục con (${kids.length})" aria-label="Mở thư mục con" aria-haspopup="true"><i class="fas fa-chevron-down" aria-hidden="true"></i><span>${kids.length}</span></button>` : ''}`;
 
     breadcrumb.querySelectorAll('[data-crumb]').forEach(btn => {
         const target = btn.dataset.crumb || null;
         btn.addEventListener('click', () => goToFolder(target));
         bindMoveDropZone(btn, target);
     });
+    breadcrumb.querySelectorAll('.fd-crumb-sep-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openFolderPicker(btn, btn.dataset.level || null);
+        });
+    });
     // Nấc cuối cùng luôn trong tầm nhìn khi đường dài (điện thoại cuộn ngang)
     breadcrumb.scrollLeft = breadcrumb.scrollWidth;
 }
 
-/** Mở một thư mục (null = Thư viện gốc). */
-export function goToFolder(folderId) {
-    S.currentFolderId = folderId || null;
-    S.currentLibraryPage = 1;
+// === MENU "THƯ MỤC CÙNG CẤP" CỦA BREADCRUMB ===
+// Một menu nổi gắn vào <body> (breadcrumb nằm trong bảng dính có overflow:hidden → menu con sẽ bị cắt).
+let pickerEl = null;
+let pickerAnchor = null;
+export function closeFolderPicker() {
+    if (pickerAnchor) pickerAnchor.setAttribute('aria-expanded', 'false');
+    if (pickerEl) pickerEl.remove();
+    pickerEl = null;
+    pickerAnchor = null;
+}
+function openFolderPicker(anchor, levelId) {
+    const reopen = pickerAnchor === anchor;
+    closeFolderPicker();
+    if (reopen) return; // bấm lại chính nút đó = đóng
+    const list = childFolders(levelId);
+    if (!list.length) return;
+    // Nấc đang đứng trong đường dẫn (để tô đậm thư mục "mình đang ở nhánh này")
+    const onPath = new Set(folderPath(S.currentFolderId).map(f => f.id));
+    const el = document.createElement('div');
+    el.className = 'fd-picker';
+    el.setAttribute('role', 'menu');
+    el.innerHTML = list.map(f => {
+        const n = childFolders(f.id).length;
+        return `<button type="button" role="menuitem" class="fd-picker-item${onPath.has(f.id) ? ' is-current' : ''}" data-id="${f.id}" style="--fc:${folderHex(f)}">
+            <i class="fas ${escapeHtml(f.icon || 'fa-folder')}"></i><span class="truncate">${escapeHtml(f.name || 'Thư mục')}</span>${n ? `<em>${n} <i class="fas fa-folder"></i></em>` : ''}
+        </button>`;
+    }).join('');
+    document.body.appendChild(el);
+    const r = anchor.getBoundingClientRect();
+    const w = el.offsetWidth;
+    el.style.top = `${r.bottom + 6}px`;
+    el.style.left = `${Math.max(8, Math.min(r.left - 8, window.innerWidth - w - 8))}px`;
+    el.querySelectorAll('.fd-picker-item').forEach(btn => {
+        btn.addEventListener('click', () => { closeFolderPicker(); goToFolder(btn.dataset.id); });
+        bindMoveDropZone(btn, btn.dataset.id);
+    });
+    pickerEl = el;
+    pickerAnchor = anchor;
+    anchor.setAttribute('aria-expanded', 'true');
+    const first = el.querySelector('.is-current') || el.querySelector('.fd-picker-item');
+    if (first) first.focus({ preventScroll: true });
+}
+document.addEventListener('click', (e) => {
+    if (pickerEl && !pickerEl.contains(e.target)) closeFolderPicker();
+});
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && pickerEl) closeFolderPicker();
+});
+// capture: trang cuộn trong <main> (overflow:auto) chứ không phải window — sự kiện scroll không nổi bọt lên tới đây
+document.addEventListener('scroll', () => { if (pickerEl) closeFolderPicker(); }, { capture: true, passive: true });
+window.addEventListener('resize', () => { if (pickerEl) closeFolderPicker(); });
+
+/**
+ * Đổi thư mục đang mở (null = Thư viện gốc) và ghi một mục lịch sử: nút Back của trình duyệt / điện thoại
+ * lùi về thư mục trước thay vì rời tab, còn F5 hay quay lại từ trang làm bài vẫn mở đúng thư mục này.
+ * fromHistory: gọi từ popstate → không đẩy thêm mục.
+ */
+export function setCurrentFolder(folderId, { fromHistory = false } = {}) {
+    const id = folderId || null;
+    if (!fromHistory && id !== S.currentFolderId) {
+        try { history.pushState({ libFolder: id }, ''); } catch {}
+    }
+    S.currentFolderId = id;
     renderBreadcrumb();
+}
+
+/** Mở một thư mục (null = Thư viện gốc). */
+export function goToFolder(folderId, opts) {
+    setCurrentFolder(folderId, opts);
+    S.currentLibraryPage = 1;
+    S.currentFolderPage = 1;
     loadAndDisplayLibrary(1);
+}
+
+/** Nút đổi kiểu hiện thư mục (thẻ ↔ danh sách) ở đầu khu thư mục. */
+function updateFolderLayoutToggle() {
+    const btn = document.getElementById('folder-layout-toggle');
+    if (!btn) return;
+    const list = S.folderLayoutMode === 'list';
+    btn.setAttribute('aria-pressed', String(list));
+    btn.title = list ? 'Đang xem dạng danh sách — bấm để xem dạng thẻ' : 'Đang xem dạng thẻ — bấm để xem dạng danh sách';
+    btn.innerHTML = `<i class="fas ${list ? 'fa-grip' : 'fa-list-ul'} text-xs"></i>`;
+}
+export function toggleFolderLayout() {
+    S.folderLayoutMode = S.folderLayoutMode === 'list' ? 'cards' : 'list';
+    try { localStorage.setItem('folderLayoutMode', S.folderLayoutMode); } catch {}
+    renderLibrary(S.userQuizSets, S.currentLibraryPage);
 }
 
 /**

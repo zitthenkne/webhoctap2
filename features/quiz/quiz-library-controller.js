@@ -12,6 +12,7 @@
 //   library-render.js  — renderLibrary, phân trang, breadcrumb, skeleton, trạng thái rỗng
 //   library-cards.js   — dựng thẻ thư mục / thẻ bộ đề + thao tác offline
 //   library-actions.js — CRUD thư mục, di chuyển, chọn nhiều, chia sẻ, thùng rác
+//   library-tree.js    — cây thư mục (ngăn kéo / ghim cạnh phải), Back & phím tắt giữa các thư mục
 
 import { S } from './library/library-state.js';
 import { togglePinData } from './library/library-helpers.js';
@@ -36,8 +37,12 @@ export {
 export {
     renderLibrary,
     renderBreadcrumb,
-    updateLayoutButtons
+    updateLayoutButtons,
+    toggleFolderLayout
 } from './library/library-render.js';
+
+// Cây thư mục bên cạnh + điều hướng Back/phím tắt giữa các thư mục
+export { initFolderTree, toggleFolderTree } from './library/library-tree.js';
 
 // Tải bộ đề về máy để làm offline
 export { downloadWholeLibraryOffline } from './library/library-cards.js';

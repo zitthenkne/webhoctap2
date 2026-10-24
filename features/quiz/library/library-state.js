@@ -2,6 +2,13 @@
 // Trạng thái dùng chung của toàn bộ thư viện bộ đề (theo idiom `state` object của quiz-state.js).
 // Mọi module trong features/quiz/library/ đọc/ghi qua `S.xxx` để tránh lệch trạng thái giữa các file.
 
+function readHistoryFolder() {
+    try {
+        const st = history.state;
+        return st && typeof st.libFolder === 'string' && st.libFolder ? st.libFolder : null;
+    } catch { return null; }
+}
+
 export const S = {
     // Câu hỏi upload từ file (màn tạo bộ đề)
     questions: [],
@@ -15,8 +22,9 @@ export const S = {
     isQuestionIndexLoaded: false,
     questionIndexLoadingPromise: null,
 
-    // Thư mục
-    currentFolderId: null,
+    // Thư mục — khôi phục từ mục lịch sử hiện tại: F5 / quay lại từ trang làm bài vẫn đứng đúng thư mục
+    // (thư mục không còn thì renderLibrary tự đưa về gốc)
+    currentFolderId: readHistoryFolder(),
     userFolders: [],
     selectedFolderIcon: 'fa-folder',
     selectedFolderColor: 'amber',
@@ -49,6 +57,8 @@ export const S = {
     // Số cột lưới do người dùng tự chọn ('auto' = tự co giãn theo màn hình)
     libraryGridCols: localStorage.getItem('libraryGridCols') || 'auto',
     folderGridCols: localStorage.getItem('folderGridCols') || 'auto',
+    // Kiểu hiện thư mục: 'cards' (bìa hồ sơ) | 'list' (hàng gọn kiểu trình quản lý tệp)
+    folderLayoutMode: localStorage.getItem('folderLayoutMode') === 'list' ? 'list' : 'cards',
 
     // Thư mục: phân trang & sắp xếp & tìm kiếm
     currentFolderPage: 1,

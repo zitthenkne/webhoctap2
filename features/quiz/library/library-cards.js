@@ -15,7 +15,7 @@ import {
     isPinned, isNewQuiz, getQuizAccent, togglePinData,
     folderById, parentIdOf, quizFolderOf, childFolders, folderStats, subtreeIds, canMoveFolderInto, folderPath
 } from './library-helpers.js';
-import { renderLibrary, renderBreadcrumb, rerenderCurrentView } from './library-render.js';
+import { renderLibrary, rerenderCurrentView, setCurrentFolder } from './library-render.js';
 import { loadAndDisplayLibrary, ensureFullLibraryLoaded } from './library-data.js';
 import {
     toggleFolderPin, openFolderModal, quickSetFolderColor, confirmDeleteFolder,
@@ -215,10 +215,7 @@ export function createFolderCard(folder) {
     card.addEventListener('click', (e) => {
         if (e.target.closest('.fd-menu-wrap')) return;
         markFolderOpened(folder.id); // ghi nhận lần mở gần nhất (cục bộ)
-        const enter = () => {
-            S.currentFolderId = folder.id;
-            renderBreadcrumb();
-        };
+        const enter = () => setCurrentFolder(folder.id);
         if (prefersReducedMotion()) {
             enter();
             loadAndDisplayLibrary(1);
@@ -342,9 +339,13 @@ export function createFolderCard(folder) {
             // Đổi thứ tự chỉ có nghĩa khi đang xếp "Thủ công" và không tìm kiếm
             if (S.folderSortMode === 'manual' && !S.folderSearchTerm.trim()) {
                 const r = card.getBoundingClientRect();
-                const x = (e.clientX - r.left) / r.width;
-                if (x < 0.22) return 'before';
-                if (x > 0.78) return 'after';
+                // Dạng danh sách xếp dọc → mép trên/dưới của hàng; dạng thẻ xếp ngang → mép trái/phải
+                const t = S.folderLayoutMode === 'list'
+                    ? (e.clientY - r.top) / r.height
+                    : (e.clientX - r.left) / r.width;
+                const edge = S.folderLayoutMode === 'list' ? 0.3 : 0.22;
+                if (t < edge) return 'before';
+                if (t > 1 - edge) return 'after';
             }
             return 'into';
         }

@@ -61,6 +61,8 @@ import {
     initLibraryAutoSync,
     forceReloadLibrary,
     initDragAndDropBreadcrumb,
+    initFolderTree,
+    toggleFolderLayout,
     handleBulkMove,
     handleBulkDelete,
     handleBulkShare,
@@ -572,6 +574,11 @@ function setupEventListeners() {
             renderLibrary(getUserQuizSets(), getCurrentLibraryPage());
         });
     }
+
+    // Kiểu hiện thư mục (thẻ ↔ danh sách) + cây thư mục
+    const folderLayoutToggle = document.getElementById('folder-layout-toggle');
+    if (folderLayoutToggle) folderLayoutToggle.addEventListener('click', toggleFolderLayout);
+    initFolderTree();
 
     // Sắp xếp thư mục
     const folderSortSelect = document.getElementById('folder-sort-select');

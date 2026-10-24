@@ -14,7 +14,7 @@ import { showToast } from '../../../core/utils.js';
 import { setDocQ } from '../../../core/offline-write.js';
 import { checkAndAwardAchievement } from '../../../core/achievements.js';
 import { S, LIB_CHUNK, LIBRARY_AUTO_SYNC_MIN_INTERVAL, LIBRARY_CACHE_FRESH_MS } from './library-state.js';
-import { purgeExpiredTrash, sortUserFolders, loadPinnedQuizIds } from './library-helpers.js';
+import { purgeExpiredTrash, isTrashExpired, sortUserFolders, loadPinnedQuizIds } from './library-helpers.js';
 import { renderLibrary, renderLibrarySkeleton, renderBreadcrumb, rerenderCurrentView } from './library-render.js';
 import { loadAttemptCache, syncAttemptsFromServer } from './library-attempts.js';
 import { invalidateQuestionIndex } from './library-search.js';
@@ -188,10 +188,13 @@ export async function loadAndDisplayLibrary(page = 1, { fresh = false } = {}) {
 
     // Vẽ NGAY từ cache cục bộ nếu có: mở thư viện là thấy nội dung, không phải nhìn khung chờ
     // chờ hết một vòng gọi mạng. Dữ liệu tươi từ server về sau sẽ vẽ đè.
+    // CHỈ vẽ khi có ĐỦ cả hai cache: thiếu cache thư mục (localStorage bị dọn một phần) mà vẫn vẽ thì mọi bộ đề
+    // trông như rơi ra gốc và thư mục đang mở bị đá về gốc — người dùng tưởng mất hết thư mục.
     const cachedQuizzes = readMetaCache(user.uid);
-    const paintedFromCache = !!(cachedQuizzes && cachedQuizzes.length);
+    const cachedFolders = readFoldersCache(user.uid);
+    const paintedFromCache = !!(cachedQuizzes && cachedQuizzes.length && cachedFolders);
     if (paintedFromCache) {
-        S.userFolders = readFoldersCache(user.uid) || [];
+        S.userFolders = cachedFolders;
         sortUserFolders();
         applyQuizMeta(cachedQuizzes, false);
         renderBreadcrumb();
@@ -210,10 +213,18 @@ export async function loadAndDisplayLibrary(page = 1, { fresh = false } = {}) {
     if (!navigator.onLine && paintedFromCache) return;
 
     try {
+        // Lần tải "lạnh" (chưa có gì để vẽ): gọi danh sách bộ đề SONG SONG với thư mục thay vì đợi thư mục xong mới gọi
+        // → bớt hẳn một vòng mạng trước khi thư viện hiện ra. Chốt số thay đổi trước khi gọi để kết quả cũ không đè thao tác mới.
+        const prefetch = !paintedFromCache && navigator.onLine
+            ? { seq: S.libraryMutationSeq, promise: fetchAllQuizMeta(user.uid, { restOnly: true }).catch(() => null) }
+            : null;
+
         // Thư mục qua REST (library-meta.js). Đã vẽ được từ cache mà thư mục lỗi (mạng chập chờn) thì giữ bản đang có, đừng bỏ cả lượt làm tươi.
         try {
             const allFolders = await fetchAllFolders(user.uid);
             purgeExpiredTrash(allFolders, "quiz_folders"); // dọn thư mục quá hạn 30 ngày
+            // Không tính thư mục vừa bị dọn khỏi thùng rác ở trên, kẻo lần thăm dò kế tiếp thấy lệch số rồi tải lại vô ích
+            serverFolderCount = allFolders.filter(f => !(f.deleted && isTrashExpired(f.deletedAt))).length;
             S.userFolders = allFolders.filter(f => !f.deleted); // ẩn thư mục đang trong thùng rác
             sortUserFolders();
             writeFoldersCache(user.uid, S.userFolders);
@@ -226,7 +237,9 @@ export async function loadAndDisplayLibrary(page = 1, { fresh = false } = {}) {
         // (chỉ còn một lượt làm tươi rất nhẹ), không cần cuốn chiếu.
         // Bản C4: REST `select` tải TRỌN metadata thư viện siêu nhẹ (không kèm câu hỏi) nên cuốn chiếu bằng SDK (kéo ĐỦ câu hỏi của 36 bộ mỗi cụm,
         // hàng MB) chỉ còn là đường lùi khi REST không chạy được.
-        if (canUseRollingLibrary() && !paintedFromCache && await loadAllLibraryInBackground(user.uid, { restOnly: true })) {
+        if (prefetch && await loadAllLibraryInBackground(user.uid, { restOnly: true, prefetch })) {
+            // đã nạp đủ bằng REST (gọi song song ở trên) và vẽ xong
+        } else if (canUseRollingLibrary() && !paintedFromCache && await loadAllLibraryInBackground(user.uid, { restOnly: true })) {
             // đã nạp đủ bằng REST và vẽ xong (trong loadAllLibraryInBackground)
         } else if (canUseRollingLibrary() && !paintedFromCache) {
             // CUỐN CHIẾU (đường lùi): chỉ tải cụm đầu (36 = 12 hiển thị + prefetch 2 trang), tải thêm khi sang trang.
@@ -282,6 +295,11 @@ export function persistFoldersCache() {
     if (user) writeFoldersCache(user.uid, S.userFolders);
 }
 
+/** Vừa tạo thư mục ngay trên máy này → máy chủ có thêm một thư mục mà không cần tải lại để biết. */
+export function noteFolderCreated() {
+    if (serverFolderCount !== null) serverFolderCount++;
+}
+
 export function persistLibraryCache() {
     const user = sessionUser();
     if (!user || !S.isLibraryFullyLoaded) return;
@@ -289,8 +307,10 @@ export function persistLibraryCache() {
     writeMetaCache(user.uid, S.userQuizSets);
 }
 
-// Số bộ đề (kể cả trong thùng rác) máy chủ có ở lần tải đủ gần nhất — probeLibrary so với số hiện tại để biết có bộ mới/bị xóa không. null = chưa biết.
+// Số bộ đề / thư mục (kể cả trong thùng rác) máy chủ có ở lần tải đủ gần nhất — probeLibrary so với số hiện tại để biết có bộ/thư mục
+// mới hay bị xóa không (thư mục tạo ở máy khác hoặc qua MCP trước đây phải đợi tới lần quay lại app mới hiện). null = chưa biết.
 let serverCount = null;
+let serverFolderCount = null;
 
 // Làm tươi ở nền khi đã vẽ từ cache: chỉ đi đường REST nhẹ rồi tự thử lại 3s/8s/20s (mở lại app thường chưa có mạng ở lần đầu — trước đây lần lỗi
 // bị nuốt, danh sách cũ nằm đó tới lần quay lại app sau). Lần cuối mới cho lùi SDK (chỉ nhận bản máy chủ, nặng vì kèm câu hỏi).
@@ -302,18 +322,19 @@ function refreshInBackground(userId, tries = 0) {
     });
 }
 
-export async function loadAllLibraryInBackground(userId, { restOnly = false } = {}) {
+export async function loadAllLibraryInBackground(userId, { restOnly = false, prefetch = null } = {}) {
     // Trả về true khi ĐÃ nạp + vẽ xong bằng dữ liệu tươi (restOnly: false nếu REST không chạy được để nơi gọi chọn đường khác)
+    // prefetch: { seq, promise } — danh sách đã gọi sẵn từ trước (song song với thư mục), dùng luôn thay vì gọi lại
     try {
         // Chốt số thay đổi TRƯỚC khi gọi mạng: nếu trong lúc chờ mà người dùng vừa sửa gì đó
         // thì kết quả trả về đã lạc hậu, đè vào là thao tác của họ bị nuốt mất.
-        const seqAtStart = S.libraryMutationSeq;
+        const seqAtStart = prefetch ? prefetch.seq : S.libraryMutationSeq;
         // Ngoại tuyến: kết quả chỉ là phần có trong cache Firestore (thường thiếu) → đã có cache máy
         // thì giữ nguyên nó; chưa có thì hiện tạm phần đọc được nhưng KHÔNG ghi đè cache/dọn thùng rác.
         const offline = !navigator.onLine;
         if (offline && readMetaCache(userId)) return false;
         // Chỉ tải metadata (không kèm mảng `questions`) — xem library-meta.js
-        const allQuizzes = await fetchAllQuizMeta(userId, { restOnly });
+        const allQuizzes = prefetch ? await prefetch.promise : await fetchAllQuizMeta(userId, { restOnly });
         if (!allQuizzes) return false;
         if (S.libraryMutationSeq !== seqAtStart) return false;
         applyQuizMeta(allQuizzes, !offline);
@@ -448,8 +469,13 @@ async function probeLibrary() {
     if (!user) return;
     probing = true;
     try {
-        const n = await countRest({ collection: 'quiz_sets', where: [['userId', user.uid]], requireUser: true });
-        if (n !== serverCount) { lastResumeTry = Date.now(); reloadLibraryFresh(); }
+        // Hai phép đếm gộp chạy song song (mỗi phép 1 lượt đọc); phép đếm thư mục lỗi thì bỏ qua, không làm hỏng phép kia
+        const [n, nf] = await Promise.all([
+            countRest({ collection: 'quiz_sets', where: [['userId', user.uid]], requireUser: true }),
+            serverFolderCount === null ? null
+                : countRest({ collection: 'quiz_folders', where: [['userId', user.uid]], requireUser: true }).catch(() => null)
+        ]);
+        if (n !== serverCount || (nf !== null && nf !== serverFolderCount)) { lastResumeTry = Date.now(); reloadLibraryFresh(); }
     } catch (e) { /* mạng chập chờn: phút sau thử lại */ }
     finally { probing = false; }
 }

@@ -16,7 +16,7 @@ import {
     folderStats, canMoveFolderInto
 } from './library-helpers.js';
 import { renderLibrary, renderBreadcrumb, rerenderCurrentView, getFilteredQuizzesForView } from './library-render.js';
-import { loadAndDisplayLibrary, ensureFullLibraryLoaded, persistLibraryCache, persistFoldersCache } from './library-data.js';
+import { loadAndDisplayLibrary, ensureFullLibraryLoaded, persistLibraryCache, persistFoldersCache, noteFolderCreated } from './library-data.js';
 
 export async function deleteQuizSet(quizId) {
     const ok = await showConfirm(
@@ -341,6 +341,7 @@ export async function saveFolder() {
                 parentId,
                 createdAt: new Date()
             });
+            noteFolderCreated();
             showToast('Đã tạo thư mục thành công!', 'success');
         } else {
             const docRef = doc(db, "quiz_folders", S.editingFolderId);

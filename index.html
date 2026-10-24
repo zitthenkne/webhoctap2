@@ -28,7 +28,7 @@
     <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js" crossorigin>
     <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Nunito:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600;1,700&family=Quicksand:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=17">
+    <link rel="stylesheet" href="style.css?v=18">
     <link rel="stylesheet" href="features/study-room/rooms-hub.css?v=4">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -2600,6 +2600,9 @@
                                 <option value="count">Nhiều bộ đề</option>
                             </select>
                         </div>
+                        <!-- Đổi kiểu hiện thư mục (thẻ ↔ danh sách) và mở cây thư mục (library-render.js / library-tree.js) -->
+                        <button type="button" id="folder-layout-toggle" class="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-white/90 text-gray-500 border border-pink-100 rounded-xl hover:text-pink-600 transition focus:outline-none shadow-sm" title="Đổi kiểu hiện thư mục" aria-pressed="false"><i class="fas fa-list-ul text-xs"></i></button>
+                        <button type="button" id="folder-tree-btn" class="flex-shrink-0 h-8 px-2.5 flex items-center gap-1.5 bg-white/90 text-gray-600 border border-pink-100 rounded-xl hover:text-pink-600 transition focus:outline-none shadow-sm text-xs font-bold" title="Cây thư mục" aria-expanded="false"><i class="fas fa-sitemap text-xs"></i> <span class="hidden lg:inline">Cây</span></button>
                         <!-- Nút Tạo thư mục: trên điện thoại chỉ hiện icon + để tiết kiệm chỗ -->
                         <button type="button" id="create-folder-btn" class="flex-shrink-0 px-2.5 sm:px-3 py-1.5 bg-pink-100 text-pink-700 rounded-xl hover:bg-pink-200 transition font-bold flex items-center gap-1.5 text-xs focus:outline-none shadow-sm" title="Tạo thư mục mới">
                             <i class="fas fa-folder-plus text-xs"></i> <span class="hidden sm:inline">Tạo thư mục</span>

@@ -3,7 +3,7 @@
 //  - CACHE_NAME (zitthenkne-v2NNN): app shell. Tăng số MỖI LẦN sửa/thêm file trong urlsToCache.
 //  - CDN_CACHE: thư viện + phông từ CDN (URL có phiên bản, gần như bất biến) → GIỮ qua các phiên bản.
 //  - IMG_CACHE: ảnh tải lúc chạy (nền, avatar, ảnh bệnh án) → giữ qua các phiên bản, tối đa IMG_MAX mục.
-const CACHE_NAME = 'zitthenkne-v375';
+const CACHE_NAME = 'zitthenkne-v376';
 const CDN_CACHE = 'zitthenkne-cdn';
 const IMG_CACHE = 'zitthenkne-img';
 const IMG_MAX = 600;
@@ -73,6 +73,7 @@ const urlsToCache = [
   'features/quiz/library/library-cards.js',
   'features/quiz/library/folder-open-fx.js',
   'features/quiz/library/library-actions.js',
+  'features/quiz/library/library-tree.js',
   'features/quiz/quiz-launch-transition.js',
   'features/quiz/quiz-offline-store.js',
   'features/quiz/quiz-fresh.js',
