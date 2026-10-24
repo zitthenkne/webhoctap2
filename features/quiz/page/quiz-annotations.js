@@ -826,9 +826,14 @@ function closeNoteEditor() {
     noteEd.box.remove();
     noteEd = null;
 }
+// Rời ô viết / chuyển câu: giữ nội dung đã nhập. Hủy và Escape vẫn bỏ phần sửa.
+export function dismissNoteEditor() {
+    if (noteEd?.ta && tidyNote(noteEd.ta.value)) saveNoteEditor();
+    else closeNoteEditor();
+}
 // ctx.mode: 'view' (bấm cụm từ: bóng thoại ĐỌC, không bật bàn phím điện thoại) · 'edit' · 'new'
 function openNoteEditor(ctx) {
-    closeNoteEditor();
+    dismissNoteEditor();
     const view = ctx.mode === 'view';
     const saved = ctx.id ? getAnnotsFor(ctx.qText).find(a => a.id === ctx.id) : null;
     const colors = { color: noteColor(saved?.color), inkColor: noteColor(saved?.inkColor) };
@@ -948,9 +953,10 @@ function saveNoteEditor() {
     const { ta, ctx, colors } = noteEd;
     if (!ta) return;
     const note = tidyNote(ta.value);
+    if (ctx.mode === 'edit' && !note) { deleteNoteEditor(); return; }
+    closeNoteEditor(); // chốt ngữ cảnh câu cũ trước khi vẽ lại (showQuestion có thể gọi ngược về đây)
     const sec = document.getElementById('quizSection');
     if (ctx.mode === 'edit') {
-        if (!note) { deleteNoteEditor(); return; }
         updateAnnotNote(ctx.qText, ctx.id, note, colors);
         document.querySelectorAll(`#quizSection [data-annot-id="${ctx.id}"]`).forEach(el => el.setAttribute('data-note', note));
         renderNoteLines(sec);
@@ -967,7 +973,6 @@ function saveNoteEditor() {
         } else showQuestion();
     }
     afterNoteChange();
-    closeNoteEditor();
 }
 function deleteNoteEditor() {
     if (!noteEd) return;
@@ -1216,6 +1221,6 @@ export function setupAnnotations() {
             removeAnnotEverywhere(annotKeyFor(question, scope), scope, mark);
         }
     }, true);
-    document.addEventListener('mousedown', (e) => { if (noteEd && !noteEd.box.contains(e.target)) closeNoteEditor(); });
-    document.addEventListener('touchstart', (e) => { if (noteEd && !noteEd.box.contains(e.target)) closeNoteEditor(); }, { passive: true });
+    document.addEventListener('mousedown', (e) => { if (noteEd && !noteEd.box.contains(e.target)) dismissNoteEditor(); });
+    document.addEventListener('touchstart', (e) => { if (noteEd && !noteEd.box.contains(e.target)) dismissNoteEditor(); }, { passive: true });
 }

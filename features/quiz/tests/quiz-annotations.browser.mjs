@@ -1,5 +1,6 @@
 // Kiểm tra bố cục thật bằng Playwright có sẵn. Khi không cài trong repo, đặt PLAYWRIGHT_MODULE
 // trỏ tới package Playwright và ANNOTATION_BROWSER_PATH trỏ tới Chrome / Edge executable.
+// --touch-only: chỉ chạy hồi quy lưu ghi chú khi chuyển câu trên cảm ứng.
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -29,13 +30,14 @@ fixtures.upperFallback = 'Hai cụm ' + phrase('upper1', 'A', 'Ghi chú thứ nh
 fixtures.balancedLines = 'Sáng nay: Huyết áp đột ngột tăng, kèm nhức đầu nhiều. Nhân viên y tế<br>cho thêm '
     + phrase('balanced', 'Nifedipine ngậm dưới lưỡi', balancedNote) + '.';
 fixtures.manualBreak = phrase('manual', 'Cụm từ', 'Dòng ngắn.\nDòng dài hơn được giữ nguyên.');
+const fixtureHtml = `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}
+body{margin:0;padding:18px;font:600 20px/1.8 sans-serif}#quizSection{max-width:1200px;margin:auto}</style>
+<body class="qz-notes-inline"><div id="quizSection"><div data-annot="q"></div></div><div id="annot-toolbar" hidden></div></body>`;
 const browser = await chromium.launch(process.env.ANNOTATION_BROWSER_PATH
     ? { executablePath: process.env.ANNOTATION_BROWSER_PATH, headless: true } : { headless: true });
-try {
+async function checkLayoutAndColors() {
     const page = await browser.newPage();
-    await page.route('http://annotations.test/**', route => route.fulfill({ contentType: 'text/html', body: `<!doctype html><style>${css}
-body{margin:0;padding:18px;font:600 20px/1.8 sans-serif}#quizSection{max-width:1200px;margin:auto}</style>
-<body class="qz-notes-inline"><div id="quizSection"><div data-annot="q"></div></div><div id="annot-toolbar" hidden></div></body>` }));
+    await page.route('http://annotations.test/**', route => route.fulfill({ contentType: 'text/html', body: fixtureHtml }));
     await page.goto('http://annotations.test/');
     await page.addScriptTag({ content: stub + source + '\nwindow.annotationTest={renderNoteLines,clearNoteLines};setupAnnotations();' });
     const load = html => page.evaluate(html => {
@@ -276,6 +278,93 @@ body{margin:0;padding:18px;font:600 20px/1.8 sans-serif}#quizSection{max-width:1
         }
     }
     console.log(`PASS: ${checks} bố cục, ${colorChecks} màu ghi chú theo nền/sáng tối/kiểu giấy, tương phản chữ thấp nhất ${minContrast.toFixed(2)}:1, lưu/reset màu, bật/tắt và bàn phím.`);
+}
+async function checkTouchPersistence() {
+    const touchPage = await browser.newPage({ viewport: { width: 768, height: 1024 }, hasTouch: true, isMobile: true });
+    await touchPage.route('http://annotations.test/**', route => route.fulfill({ contentType: 'text/html', body: fixtureHtml }));
+    const bootTouch = async () => {
+        await touchPage.goto('http://annotations.test/');
+        await touchPage.addScriptTag({ content: stub + source + '\nwindow.annotationTest={openNoteEditor,applyAnnotationsAll,dismissNoteEditor};setupAnnotations();' });
+        await touchPage.evaluate(() => {
+            const sec = document.getElementById('quizSection');
+            const draw = () => {
+                sec.innerHTML = '<div data-annot="q">Cụm từ cần nhớ ở câu ' + (state.currentIndex + 1) + '.</div>';
+                annotationTest.applyAnnotationsAll();
+            };
+            const next = document.createElement('button');
+            next.id = 'touch-next'; next.textContent = 'Chuyển câu';
+            Object.assign(next.style, { position: 'fixed', bottom: '20px', right: '20px' });
+            next.onclick = () => { state.currentIndex = 1 - state.currentIndex; draw(); };
+            document.body.append(next);
+            state.questions.push({ question: 'câu thứ hai' });
+            draw();
+        });
+    };
+    const openTouch = (ctx = {}) => touchPage.evaluate(ctx => {
+        const scopeEl = document.querySelector('[data-annot]');
+        annotationTest.openNoteEditor({ mode: 'new', qText: 'fixture', scope: 'q', scopeEl, start: 0, end: 6, text: 'Cụm từ', rect: scopeEl.getBoundingClientRect(), ...ctx });
+    }, ctx);
+    const storedTouch = () => touchPage.evaluate(() => JSON.parse(localStorage.getItem('test-annotations') || '{}'));
+    await bootTouch();
+    assert.equal(await touchPage.evaluate(() => matchMedia('(pointer: coarse)').matches), true);
+    await openTouch();
+    await touchPage.locator('.anp-ta').fill('Ghi chú viết trên iPad dọc');
+    await touchPage.locator('#touch-next').tap();
+    assert.equal((await storedTouch()).fixture?.[0]?.note, 'Ghi chú viết trên iPad dọc', 'chạm chuyển câu phải lưu phần đang viết');
+    assert.equal(await touchPage.locator('#annot-note-pop').count(), 0);
+    await touchPage.locator('#touch-next').tap();
+    assert.equal(await touchPage.locator('.annot-note').getAttribute('data-note'), 'Ghi chú viết trên iPad dọc', 'quay lại câu phải khôi phục ghi chú');
+    await touchPage.locator('.annot-note').tap();
+    await touchPage.locator('[data-anp="edit"]').tap();
+    await touchPage.locator('.anp-ta').fill('Nội dung đã sửa');
+    await touchPage.locator('[data-note-color="#6FD1AE"]').tap();
+    await touchPage.locator('#touch-next').tap();
+    const edited = (await storedTouch()).fixture;
+    assert.equal(edited.length, 1, 'sửa ghi chú không tạo bản trùng');
+    assert.equal(edited[0].note, 'Nội dung đã sửa');
+    assert.equal(edited[0].color, '#6fd1ae');
+    await bootTouch();
+    assert.equal(await touchPage.locator('.annot-note').getAttribute('data-note'), 'Nội dung đã sửa', 'tải lại trang vẫn giữ ghi chú');
+    await touchPage.locator('.annot-note').tap();
+    await touchPage.locator('[data-anp="edit"]').tap();
+    await touchPage.locator('.anp-ta').fill('Phần sửa đã hủy');
+    await touchPage.locator('[data-anp="cancel"]').tap();
+    assert.equal((await storedTouch()).fixture[0].note, 'Nội dung đã sửa', 'Hủy phải bỏ phần sửa');
+    await touchPage.evaluate(() => { document.querySelector('[data-annot="q"]').textContent = 'Cụm từ khác.'; });
+    await openTouch();
+    await touchPage.locator('.anp-ta').fill('   ');
+    await touchPage.locator('#touch-next').tap();
+    assert.equal((await storedTouch()).fixture.length, 1, 'chạm ngoài ô rỗng không tạo hoặc xóa ghi chú');
+    await touchPage.evaluate(() => {
+        state.questions.forEach(q => q.caseId = 'shared');
+        document.getElementById('quizSection').innerHTML = '<div data-annot="case">Cụm từ dùng chung trong ca.</div>';
+    });
+    await openTouch({ qText: 'case:shared', scope: 'case' });
+    await touchPage.locator('.anp-ta').fill('Ghi chú của ca dùng chung');
+    await touchPage.locator('[data-anp="save"]').tap();
+    await touchPage.locator('#touch-next').tap();
+    await touchPage.evaluate(() => {
+        document.getElementById('quizSection').innerHTML = '<div data-annot="case">Cụm từ dùng chung trong ca.</div>';
+        annotationTest.applyAnnotationsAll();
+    });
+    assert.equal(await touchPage.locator('.annot-note').getAttribute('data-note'), 'Ghi chú của ca dùng chung', 'câu con khác vẫn đọc được ghi chú cùng ca');
+    await touchPage.locator('.annot-note').tap();
+    await touchPage.locator('[data-anp="edit"]').tap();
+    await touchPage.locator('.anp-ta').fill('Phần sửa còn mở khi đổi câu');
+    await touchPage.evaluate(() => {
+        state.currentIndex = 1 - state.currentIndex;
+        document.getElementById('quizSection').innerHTML = '';
+        annotationTest.dismissNoteEditor(); // đổi câu từ mã: không có touchstart / mousedown
+    });
+    assert.equal((await storedTouch())['case:shared'][0].note, 'Phần sửa còn mở khi đổi câu', 'lưu theo ngữ cảnh cũ kể cả khi DOM đã bị thay');
+    assert.equal((await storedTouch())['case:shared'].length, 1);
+    assert.equal(await touchPage.locator('#annot-note-pop').count(), 0);
+    await touchPage.close();
+    console.log('PASS: lưu/sửa ghi chú và màu trên iPad dọc khi chuyển câu, quay lại, tải lại; Hủy, ô rỗng và ca dùng chung giữ đúng dữ liệu.');
+}
+try {
+    await checkTouchPersistence();
+    if (!process.argv.includes('--touch-only')) await checkLayoutAndColors();
 } finally {
     await browser.close();
 }

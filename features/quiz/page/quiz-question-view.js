@@ -13,7 +13,7 @@ import { centerQuizCard } from './quiz-center.js';
 import { hideCatMeme, preloadCurrentMemes, showCatMeme } from './quiz-cat-meme.js';
 import { renderMarkControl, setupMarkControl, refreshMarkedPanel, applyMark } from './quiz-marks.js';
 import { renderPersonalNotePanel, setupPersonalNote } from './quiz-notes-panel.js';
-import { applyAnnotationsAll } from './quiz-annotations.js';
+import { applyAnnotationsAll, dismissNoteEditor } from './quiz-annotations.js';
 import { caseKeyOf, caseCollapseState } from './quiz-cases.js';
 import { syncCasePeek } from './quiz-case-peek.js';
 import { applyNavVisibility, attachToggleNavEvent } from './quiz-page-setup.js';
@@ -336,6 +336,7 @@ function getQuestionSizeClass(fontSize, rawQuestion) {
 }
 
 export function showQuestion() {
+    dismissNoteEditor(); // lưu ghi chú cụm từ của câu cũ trước khi thay DOM
     // Đang làm bài -> mở khóa nhóm điều khiển làm bài trong bảng thiết lập
     document.body.classList.add('quiz-active');
     // Chỉ cuộn lên đầu khi THỰC SỰ chuyển sang câu khác (không cuộn khi vẽ lại cùng câu
