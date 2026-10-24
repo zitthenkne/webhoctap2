@@ -28,6 +28,7 @@ import { sessionWrite, memberWrite } from './room-texts.js';
 import { sidOf } from './room-texts-core.js';
 import { renderAnswerHub, initAnswerHub, renderOptionTalk, unreadQs, openAsksOf, renderNotebook, renderAllNotes, focusHub } from './room-answer.js';
 import { initScrollHold, resetScrollHold } from './room-scrollhold.js';
+import { paintThinking } from './room-thinking.js';
 
 let viewIndex = null;            // câu MÌNH đang xem
 let lastFocus = null;
@@ -464,6 +465,7 @@ function renderLive() {
     renderAnswerHub(i);
     renderNotebook(i);                       // sổ tay: giải thích · mở rộng · ghi nhớ (cột phải khi màn rộng)
     renderMyBlock(i, q, opts);
+    paintThinking(q, shown);                 // Hướng tư duy: tô dữ kiện trong ca / đề / phương án khi đáp án đã lộ (DOM đề vừa vẽ lại)
     tickTalk();
 
     if (firstLive) maybeLateJoin();

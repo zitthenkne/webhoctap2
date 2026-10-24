@@ -50,6 +50,20 @@ const store = {
                 topic: 'Điện sinh lý tim', level: 'Nhận biết', source: 'Guyton & Hall, ch. 10',
                 expanded: 'Tần số phát nhịp: nút xoang 60–100/phút > nút nhĩ thất 40–60 > mạng Purkinje 20–40.',
                 note: 'Nhớ: "xoang trên, nhĩ thất dưới" theo hướng dẫn truyền.',
+                // Hướng tư duy (cùng trường trang làm bài — room-thinking.js): tô trong đề + phương án B khi lộ đáp án
+                reasoning: {
+                    cues: [
+                        { text: 'SA node', kind: 'key', hint: 'chủ nhịp → nơi máu tĩnh mạch về **nhĩ phải**' },
+                        { text: 'gần lỗ đổ tĩnh mạch chủ trên', kind: 'key', in: 'B' },
+                        { text: 'Vách liên thất', kind: 'trap', hint: 'đó là đường đi của bó His', in: 'A' },
+                    ],
+                    steps: [
+                        { from: [1], text: 'Chủ nhịp nằm ở **nhĩ phải**' },
+                        { from: ['b1', 2], text: 'Khớp vị trí phương án B' },
+                        { from: [3], out: 'A, C, D', text: 'Thất / van không có mô nút xoang' },
+                    ],
+                    goal: 'Thành sau nhĩ phải, sát tĩnh mạch chủ trên',
+                },
             },
             {
                 question: 'Cung lượng tim được tính bằng công thức nào? (gợi ý: $CO = HR \\times SV$, bình thường $K<5$ L/phút là thấp)',

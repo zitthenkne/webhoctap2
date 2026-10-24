@@ -31,6 +31,7 @@ import { uploadImage, imageFilesOf, warnIfTemp, safeImgUrl } from './room-media.
 import { baremHtml, baremSig, initBarem, gradeOf } from './room-barem.js';
 import { formatOf, remapFields } from '../quiz/quiz-essay-core.js';
 import { formatEditorHtml, wireFormatEditor, readFormatEditor } from '../quiz/essay-format-editor.js';
+import { hasThinking, thinkingBoxHtml, thinkingPlainHtml, paintThinking } from './room-thinking.js';
 const num2 = (n) => String(Math.round(n * 100) / 100).replace('.', ',');       // điểm kiểu Việt: 1,5
 
 const el = (id) => document.getElementById(id);
@@ -282,7 +283,7 @@ export function renderAnswerHub(i, force = false) {
 const nbPref = {};      // `${i}` -> mở sổ gọn (màn hẹp) · `${i}:${sec}` -> đã bấm "Xem thêm"
 const lastRev = {};     // i -> lần vẽ trước đã lộ đáp án chưa
 const freshUntil = {};  // i -> tới lúc này thì còn tô "vừa mở"
-const NB_SEC = { exp: { ic: '💡', label: 'Giải thích' }, note: XF.note, expanded: XF.expanded, mine: { ic: '📝', label: 'Của tôi' } };
+const NB_SEC = { exp: { ic: '💡', label: 'Giải thích' }, reason: { ic: '🧠', label: 'Tư duy' }, note: XF.note, expanded: XF.expanded, mine: { ic: '📝', label: 'Của tôi' } };
 
 // Nội dung đang HIỂN THỊ của sổ tay (đúng luật chống lộ đáp án) — dùng chung cho vẽ, chép, lưu
 function nbState(i) {
@@ -308,6 +309,8 @@ function nbState(i) {
         // Tự luận có cả đáp án mẫu lẫn giải thích: giải thích từng bị nuốt mất (chỉ hiện 1 trong 2)
         modelExp: essay && isShown(i) && q.modelAnswer ? (q.explanation || '') : '',
         barem: essay && isShown(i),               // hộp chấm barem (vẽ sau chữ ký — autoMatch không rẻ)
+        // Hướng tư duy (trường `reasoning`, cùng trang làm bài): chỉ đọc, mở cùng lúc với lời giải của file
+        reason: hasThinking(q) ? (revealed ? 'on' : 'lock') : '',
     };
 }
 
@@ -336,8 +339,8 @@ export function renderNotebook(i, force = false) {
     nb.dataset.qi = String(i);
     if (fresh) setTimeout(() => renderNotebook(effectiveIndex()), Math.max(0, freshUntil[i] - Date.now()) + 60);
 
-    const has = !!hasRich(st.exp.html) || Object.values(st.x).some(v => v.shown) || !!hasRich(st.model) || st.barem;
-    const locks = [st.exp.lock, ...Object.values(st.x).map(v => v.lock)].filter(Boolean).length;
+    const has = !!hasRich(st.exp.html) || Object.values(st.x).some(v => v.shown) || !!hasRich(st.model) || st.barem || st.reason === 'on';
+    const locks = [st.exp.lock, ...Object.values(st.x).map(v => v.lock), st.reason === 'lock'].filter(Boolean).length;
     // Màn hẹp, chưa có gì để đọc: gập thành 1 dòng (khỏi chèn một khung trống giữa đề và bàn luận)
     if (inline && !has && !nbPref[i]) {
         nb.classList.add('is-mini');
@@ -352,9 +355,10 @@ export function renderNotebook(i, force = false) {
     const secState = (sec) => {
         if (sec === 'exp') return st.essay ? (hasRich(noteOf(i)) ? 'on' : 'off') : hasRich(st.exp.html) ? 'on' : st.exp.lock ? 'lock' : 'off';
         if (sec === 'mine') return mineOn ? 'on' : 'off';
+        if (sec === 'reason') return st.reason;
         return st.x[sec].shown ? 'on' : st.x[sec].lock ? 'lock' : 'off';
     };
-    const toc = Object.keys(NB_SEC).map(sec => {
+    const toc = Object.keys(NB_SEC).filter(sec => sec !== 'reason' || st.reason).map(sec => {
         const v = secState(sec);
         const label = sec === 'exp' && st.essay ? 'Bài làm chung' : NB_SEC[sec].label;
         const tip = v === 'lock' ? 'File có sẵn — tự mở khi chủ trì bấm Hiện đáp án' : v === 'off' ? `Chưa có — bấm để viết ${label.toLowerCase()}` : `Tới phần ${label}`;
@@ -419,9 +423,11 @@ export function renderNotebook(i, force = false) {
         ${st.barem ? baremHtml(i) : ''}
         ${hasRich(st.modelExp) ? `<div class="rm-xbox is-file" data-nb-sec="modelexp"><div class="rm-hub-boxhead"><span class="rm-xlabel"><span class="rm-xic">💡</span>Giải thích trong file</span></div><div class="rm-md">${renderRich(st.modelExp)}</div>${more('modelexp')}</div>` : ''}
         ${expBox}
+        ${st.reason === 'on' ? thinkingBoxHtml(q, fresh) : ''}
         ${Object.keys(XF).filter(f => st.x[f].shown).map(xBox).join('')}`;
     nb.querySelectorAll('[data-live-edit]').forEach(n2 => { n2.dataset.empty = isBlank(n2) ? '1' : '0'; });
     renderMath(nb);
+    if (st.reason) paintThinking(q, st.revealed);      // đánh dấu vé dữ kiện không tìm thấy trong đề (thẻ vừa vẽ lại)
     // Nội dung dài: gập bớt kèm "Xem thêm" (đỡ phải cuộn cả cột) — bấm vào ô để sửa thì tự bung
     requestAnimationFrame(() => nb.querySelectorAll('[data-nb-sec]').forEach(sec => {
         const body = sec.querySelector('.rm-md');
@@ -465,6 +471,7 @@ function nbSections(i) {
     if (hasRich(st.modelExp)) out.push(['💡 Giải thích trong file', st.modelExp]);
     if (st.essay && hasRich(noteOf(i))) out.push(['✍️ Bài làm chung', noteOf(i)]);
     if (hasRich(st.exp.html)) out.push(['💡 Giải thích', st.exp.html]);
+    if (st.reason === 'on') out.push(['🧠 Hướng tư duy', thinkingPlainHtml(st.q)]);
     Object.keys(XF).forEach(f => { if (st.x[f].shown && hasRich(st.x[f].html)) out.push([`${XF[f].ic} ${XF[f].label}`, st.x[f].html]); });
     return out;
 }
@@ -516,10 +523,13 @@ export function gotoNotebook(sec = 'exp', focus = true) {
         return void (focus && setTimeout(() => d?.querySelector('[data-live-edit="note"]')?.focus(), 200));
     }
     const st = nbState(i);
-    if (sec !== 'exp' && st.x[sec]?.lock) {
+    if (sec === 'reason' && st.reason !== 'on') {
+        return void showToast('🔒 Hướng tư duy có trong file — tự mở khi chủ trì bấm Hiện đáp án.', 'info', 2000);
+    }
+    if (sec !== 'exp' && sec !== 'reason' && st.x[sec]?.lock) {
         return void showToast('🔒 Phần này có trong file — tự mở khi chủ trì bấm Hiện đáp án.', 'info', 2000);
     }
-    if (sec !== 'exp' && !st.x[sec]?.shown) adding[`${i}:${sec}`] = true;
+    if (sec !== 'exp' && sec !== 'reason' && !st.x[sec]?.shown) adding[`${i}:${sec}`] = true;
     nbPref[i] = true;
     renderNotebook(i, true);
     const box = nb.querySelector(`[data-nb-sec="${sec}"]`);
