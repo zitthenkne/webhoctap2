@@ -213,6 +213,10 @@ const ABBR = {
     tm: 'tĩnh mạch', dm: 'động mạch', ttm: ['tiêm tĩnh mạch', 'truyền tĩnh mạch'], bn: 'bệnh nhân', ef: 'phân suất tống máu',
     hfref: 'suy tim phân suất tống máu giảm', hfpef: 'suy tim phân suất tống máu bảo tồn', sxh: 'sốt xuất huyết',
     btm: 'bệnh thận mạn', ckd: 'bệnh thận mạn', ttta: 'tổn thương thận cấp', aki: 'tổn thương thận cấp', tmcb: 'thiếu máu cục bộ',
+    // Sản khoa (OSCE Sản, 2026-10-23). KHÔNG thêm "sa" (sa dây rốn, sa sinh dục) hay "tc" thứ 3 — barem cũng bung viết tắt.
+    bctc: 'bề cao tử cung', ctc: 'cổ tử cung', tntc: 'thai ngoài tử cung', tsg: 'tiền sản giật', dtdtk: 'đái tháo đường thai kỳ',
+    mlt: 'mổ lấy thai', vmc: 'vết mổ cũ', kc: 'kinh chót', bhss: 'băng huyết sau sinh', ctm: 'công thức máu',
+    lmwh: 'heparin trọng lượng phân tử thấp', ufh: 'heparin không phân đoạn', ppi: 'ức chế bơm proton', tdf: 'tenofovir',
 };
 const STOP = new Set(('và của các là có với trong cho khi do được bị thì một những để theo từ hoặc hay nên cần này đó ra vào '
     + 'như nếu mà sau trước tại về bằng rất đã đang sẽ vì nhưng cũng thể nào gì ở trên dưới lại nữa đến tới hơn kèm gồm mỗi mọi '
@@ -268,10 +272,13 @@ function phraseTokens(s) {
     });
 }
 
-function findSeq(segs, words) {
+function findSeq(segs, words, accept = () => true, loose = true) {
     for (const seg of segs) {
         for (let i = 0; i + words.length <= seg.length; i++) {
-            if (words.every((w, k) => tokEq(w, seg[i + k], true))) return seg.slice(i, i + words.length);
+            if (words.every((w, k) => tokEq(w, seg[i + k], loose))) {
+                const hits = seg.slice(i, i + words.length);
+                if (accept(hits)) return hits;
+            }
         }
     }
     return null;
@@ -297,13 +304,19 @@ function altsOf(text) {
     return out.map(s => s.trim()).filter(Boolean);
 }
 
+// Tiếng có nghĩa để chấm: bỏ hư từ; giữ số và chữ cái IN HOA đứng một mình ("giai đoạn C", "viêm gan B", "type 2")
+const isContent = (tk) => !STOP.has(tk.t) && (tk.t.length > 1 || /\d/.test(tk.t) || /^[A-Z]$/.test((tk.src || tk).raw || ''));
+
 // Điểm khớp của một cách nói = trung bình của
 //   (1) tỉ lệ tiếng có mặt (tiếng "mạnh" nặng gấp đôi) và
 //   (2) tỉ lệ CẶP tiếng liền nhau có mặt đúng thứ tự (cách nhau tối đa 1 tiếng) —
 // thiếu (2) thì "tụt huyết áp" khớp nhầm "tăng huyết áp" (2/3 tiếng trùng).
-function altScore(segs, alt) {
-    const toks = phraseTokens(alt).filter(tk => !STOP.has(tk.t) && (tk.t.length > 1 || /\d/.test(tk.t)));
+function altScore(segs, alt, accept = () => true) {
+    const toks = phraseTokens(alt).filter(isContent);
     if (!toks.length) return { score: 0, hits: [] };
+    // Ưu tiên cụm đầy đủ đúng ngữ cảnh; không ghép tiếng ở lần nhắc phủ định đầu bài với ý đúng ở cuối bài.
+    const exact = findSeq(segs, phraseTokens(alt).map(tk => tk.t), accept, false);
+    if (exact) return { score: 1, hits: exact };
     let total = 0, got = 0;
     const hits = [];
     toks.forEach(tk => {
@@ -311,10 +324,9 @@ function altScore(segs, alt) {
         const strong = /\d/.test(tk.t) || (/^[a-z]{4,}$/.test(tk.t) && !hasMarks(tk.t)) || /^[A-ZĐ]{2,}$/.test(tk.src.raw);
         const w = strong ? 2 : 1;
         total += w;
-        for (const seg of segs) {
-            const m = seg.find(g => tokEq(tk.t, g));
-            if (m) { got += w; hits.push(m); break; }
-        }
+        const matches = segs.flatMap(seg => seg.filter(g => tokEq(tk.t, g)));
+        const m = matches.find(g => accept([g])) || matches[0];
+        if (m) { got += w; hits.push(m); }
     });
     const uni = got / total;
     if (toks.length < 2) return { score: uni, hits };
@@ -327,16 +339,102 @@ function altScore(segs, alt) {
 }
 
 // Kết quả dò cho từng ý (cùng thứ tự rubricOf().items):
-//   { level: 'match' | 'near' | null, ranges: [[ô, s, e],…] (vị trí trong ô bài làm), words: [chữ khớp] }
+//   { level: 'match' | 'near' | null, ranges: [[ô, s, e],…] (vị trí trong ô bài làm), words: [chữ khớp],
+//     why?: 'few' | 'kw' | 'neg' | 'given' | 'elsewhere' | 'weak' (vì sao chỉ gần khớp), missing?: [thành phần còn thiếu], at?: số ô }
 // input = chuỗi bài làm, hoặc object bài làm { text, parts } (bài nhiều ô).
-// Ý có field (số ô, đếm từ 1; bảng = số hàng) chỉ dò trong ô đó -> "NMCT" ghi ở ô chẩn đoán phân biệt
-// không được tính cho ý chẩn đoán chính.
+// Ý có field (số ô, đếm từ 1; bảng = số hàng) chỉ CHẤM trong ô đó -> "NMCT" ghi ở ô chẩn đoán phân biệt
+// không được tính cho ý chẩn đoán chính (chỉ gợi ý "ghi ở ô khác").
+/* ---- Máy chấm bản 3 (2026-10-23) — đo trên 104 câu / 388 ý OSCE thật (bộ đo: scratchpad eval-grader.mjs) ----
+   Bản cũ: 1 từ khóa có mặt là tick cả ý (ghi "đau" = đạt "Đau bụng: vị trí, tính chất, thời gian…"), chép lại đề vẫn ăn
+   18% số ý, "không dùng X" vẫn tính là "dùng X", ghi đúng ý nhưng nhầm ô thì im lặng bỏ qua. Nay:
+   ① chỉ chặn bằng chứng nằm hoàn toàn trong đoạn chép nguyên đề / ca đủ dài — 'given'
+   ② phủ định (không / chưa / tránh / cấm / chống chỉ định) đứng ngay trước chữ khớp, không qua dấu câu, mà ý thì không
+      phủ định (hoặc ngược lại) -> chỉ "gần khớp" — 'neg'
+   ③ ý nhiều thành phần ("Tên: a, b, c" / "a, b và c") phải nêu ≥ ½ thành phần (2 thành phần thì đủ cả 2); thiếu -> gần khớp
+      kèm danh sách thành phần còn thiếu — 'few'. Ý có con số (liều, ngưỡng) mà bài không ghi số nào -> 'few'
+   ④ từ khóa chỉ đủ để đạt ý NGẮN (≤ 8 tiếng có nghĩa) hoặc khi bài còn khớp thêm nội dung ý; ý dài chỉ có từ khóa -> 'kw'
+   ⑤ ý gắn ô mà bài ghi ở ô khác -> gần khớp 'elsewhere' + số ô (at) để người làm tự quyết
+   Kết quả mỗi ý: { level, ranges, words, why?, missing?, at? } — level/ranges/words như cũ (phòng đánh đề dùng chung). */
+const NEG_MARKED = new Set(['không', 'chưa', 'chẳng', 'tránh', 'cấm', 'đừng']);
+const NEG_PLAIN = new Set(['khong', 'chua', 'ko', 'tranh']);   // gõ không dấu: bỏ "dung" (dùng ≠ đừng), "cam" (cảm)
+const isNegTok = (tk) => NEG_MARKED.has(tk.t) || (!hasMarks(tk.t) && NEG_PLAIN.has(tk.t));
+const isCCD = (toks, i) => toks[i] && toks[i].t === 'định' && toks[i - 1] && toks[i - 1].t === 'chỉ' && toks[i - 2] && toks[i - 2].t === 'chống';
+// Cụm chữ của barem / từ khóa có mang nghĩa phủ định không ("không" đứng CUỐI là hỏi: "có giống trước không")
+function phraseNeg(s) {
+    const t = tokenize(String(s).split(/\s+(?:để|nhằm)\s+/i)[0]);
+    return t.some((tk, i) => (isNegTok(tk) && i < t.length - 1) || isCCD(t, i));
+}
+const contentToks = (s) => phraseTokens(s).filter(isContent);
+// Thành phần của ý: "Tên: a, b, c" -> head + [a, b, c]; "a, b và c" -> [a, b, c]. Ngoặc = ví dụ / chi tiết, bỏ.
+// Có "hoặc" / " / " là các cách nói thay thế (altsOf lo) -> không chia.
+// Mỗi thành phần giữ ngoặc của nó ở `full` ("xét nghiệm NST đồ (Karyotype)": viết "karyotype" vẫn tính cho vế này),
+// `core` = bỏ ngoặc để đo độ phủ. Không tách dấu phẩy thập phân ("NaCl 0,9%"); chỉ tách "và" khi hai bên đều ≥ 2 tiếng
+// có nghĩa ("từ bố và mẹ" là một vế).
+function partsOf(text) {
+    const par = [];
+    const prot = String(text).replace(/\([^)]*\)/g, (x) => { par.push(x); return ` \u0001${par.length - 1}\u0001 `; });
+    const back = (s) => s.replace(/\u0001(\d+)\u0001/g, (_, k) => par[k]).replace(/\s+/g, ' ').trim();
+    const strip = (s) => s.replace(/\u0001\d+\u0001/g, ' ').replace(/\s+/g, ' ').trim();
+    const main = strip(prot);
+    const m = prot.match(/^([^:]{2,90}):\s+([\s\S]+)$/);
+    const head = m && !GENERIC_HEAD.has(strip(m[1]).toLowerCase()) ? strip(m[1]) : '';
+    const body = m ? m[2] : prot;
+    if (/\s(?:hoặc)\s|\s\/\s/i.test(strip(body))) return { head, list: [], main };
+    const pieces = body.split(/(?<!\d)[,;](?!\d)/).flatMap(piece => {
+        const out = [];
+        piece.split(/\s+và\s+/).forEach(x => {
+            if (out.length && (contentToks(strip(out[out.length - 1])).length < 2 || contentToks(strip(x)).length < 2)) out[out.length - 1] += ' và ' + x;
+            else out.push(x);
+        });
+        return out;
+    });
+    const list = pieces.map(x => ({ core: strip(x), full: back(x) })).filter(x => contentToks(x.core).length);
+    return { head, list: list.length >= 2 ? list : [], main };
+}
+// Số đi kèm đơn vị (liều, ngưỡng, tỉ lệ) — "3 tháng đầu" không tính, "300 mg", "≥ 27 pg", "25%" thì tính
+const UNIT_RE = /^(?:mg|mcg|µg|g|kg|ml|l|ui|iu|đv|đơn|mmhg|cmh2o|mmol|meq|mg\/dl|fl|pg|ng|ml\/h|giọt|nhát|lần|tuần|ngày|giờ|phút|mm|cm|bpm|nhịp)$/i;
+const tokSet = (s) => new Set(contentToks(s).map(tk => stripMarks(tk.t)));
+
 export function autoMatch(q, input) {
-    const docs = answerDocs(q, input);
+    const docs = answerDocs(q, input).map(t => String(t).normalize('NFC'));
     const fmt = formatOf(q);
     const segsByDoc = docs.map((t, d) => answerSegments(t, d));
-    return keyPointsOf(q).map(it => {
-        const segs = fieldDocs(fmt, it.field, docs.length).flatMap(d => segsByDoc[d]);
+    const mains = segsByDoc.map(s => s[0]);
+    // ponytail: chỉ nhận đoạn chép nguyên đề / ca ≥ 12 tiếng; dùng lại thuật ngữ vẫn được tính.
+    const sources = [q?.question, q?.caseText, typeof q?.caseReveal === 'string' ? q.caseReveal : '']
+        .filter(Boolean).map(tokenize).filter(t => t.length >= 12);
+    const copied = mains.map(main => sources.flatMap(src => {
+        const spans = [];
+        for (let i = 0; i + src.length <= main.length; i++) {
+            if (src.every((tk, k) => tokEq(tk.t, main[i + k]))) spans.push([main[i].s, main[i + src.length - 1].e]);
+        }
+        return spans;
+    }));
+    const isCopied = (hits) => hits.length > 0 && hits.every(h => copied[h.d].some(([s, e]) => h.s >= s && h.e <= e));
+    const first = (hits) => hits.reduce((a, h) => (!a || h.d < a.d || (h.d === a.d && h.s < a.s) ? h : a), null);
+    const negBefore = (h) => {
+        if (!h) return false;
+        const main = mains[h.d], k = main.findIndex(t => t.s === h.s);
+        for (let j = k - 1, n = 0; k > 0 && j >= 0 && n < 3; j--, n++) {
+            if (/[.,;:!?\n()[\]]/.test(docs[h.d].slice(main[j].e, main[j + 1].s))) return false;   // dấu câu chặn: "không sốt, đau bụng"
+            if (isNegTok(main[j]) || isCCD(main, j)) return true;
+        }
+        return false;
+    };
+    // Nghĩa phủ định của bài khớp với của cụm barem? Bài "phủ định" khi có MỘT chữ khớp đứng ngay sau không/chưa/tránh…
+    // (≤ 3 tiếng, không qua dấu câu) — "heparin không phân đoạn" là tên thuốc: barem có "không" thì bài cũng phải có.
+    // Không xét cả khoảng giữa các chữ khớp: chúng là lần gặp đầu của từng tiếng, có thể rải khắp bài.
+    const negOk = (hits, phrase) => hits.some(negBefore) === phraseNeg(phrase);
+    const scoreAlt = (segs, phrase) => altScore(segs, phrase, hits => negOk(hits, phrase) && !isCopied(hits));
+
+    function evalItem(it, segs) {
+        const r = evalCore(it, segs);
+        if (r.level && !r.ev) r.ev = (r.hits || []).concat(r.more || []);
+        return r;
+    }
+    function evalCore(it, segs) {
+        const none = { level: null, hits: [] };
+        if (!segs.length) return none;
         // 0) Ý thứ tự: mọi bước phải có mặt và lần xuất hiện ĐẦU của chúng tăng dần (theo ô rồi theo vị trí)
         if (it.order) {
             const firsts = it.order.map(alts => {
@@ -349,19 +447,113 @@ export function autoMatch(q, input) {
             });
             const inOrder = firsts.every(Boolean) && firsts.every((f, k) => k === 0
                 || f[0].d > firsts[k - 1][0].d || (f[0].d === firsts[k - 1][0].d && f[0].s > firsts[k - 1][0].s));
-            return inOrder ? pack('match', firsts.flat()) : { level: null, ranges: [], words: [] };
+            return inOrder ? { level: 'match', hits: firsts.flat() } : none;
         }
-        // 1) Từ khóa tác giả cho sẵn: khớp nguyên cụm là đạt
-        for (const kw of it.keywords) {
+        // Từ khóa tác giả cho sẵn (khớp nguyên cụm), chia: dùng được / chỉ là chữ trong đề / lệch phủ định
+        const kwAll = it.keywords.map(kw => {
             const words = phraseTokens(kw).map(x => x.t);
-            const seq = words.length ? findSeq(segs, words) : null;
-            if (seq) return pack('match', seq);
+            const seq = words.length ? findSeq(segs, words, hits => negOk(hits, kw) && !isCopied(hits)) || findSeq(segs, words) : null;
+            return seq ? { kw, seq, neg: negOk(seq, kw) } : null;
+        }).filter(Boolean);
+        const kwOk = kwAll.filter(h => h.neg);
+        const kwWhy = kwAll.length && !kwOk.length ? 'neg' : '';
+        // Nội dung ý: cách nói khớp nhất
+        let best = { score: 0, hits: [] }, bestAlt = '';
+        altsOf(it.text).forEach(alt => { const r = scoreAlt(segs, alt); if (r.score > best.score) { best = r; bestAlt = alt; } });
+        const bestOk = best.hits.length > 0 && negOk(best.hits, bestAlt);
+        const P = partsOf(it.text);
+        // Con số của ý (liều, ngưỡng, tỉ lệ): ý có số mà bài không ghi số nào của ý -> chưa đủ
+        const mt = tokenize(P.main);
+        const numIdx = mt.map((tk, i) => (/^\d/.test(tk.t) && (/%/.test(P.main.slice(tk.e, tk.e + 2))
+            || (mt[i + 1] && UNIT_RE.test(mt[i + 1].t) && !/tuần|ngày|giờ|phút|lần/.test(mt[i + 1].t))) ? i : -1)).filter(i => i >= 0);
+        const nums = numIdx.map(i => mt[i].t);
+        const numLabel = numIdx.map(i => (/%/.test(P.main.slice(mt[i].e, mt[i].e + 2)) ? mt[i].t + '%' : P.main.slice(mt[i].s, mt[i + 1].e))).join(', ');
+        const numOk = !nums.length || segs.some(seg => seg.some(g => nums.includes(g.t)));
+        const weakWhy = !best.hits.length ? '' : !bestOk ? 'neg' : 'weak';
+        // Độ phủ trên THÂN ý (bỏ ngoặc): chữ trong ngoặc như "(CBC)" khớp 100% nhưng một mình không đủ đạt cả ý dài
+        const cover = scoreAlt(segs, P.main);
+        const more = kwOk.flatMap(h => h.seq).concat(best.hits, cover.hits);   // mọi bằng chứng (xét "có chữ mới không" trên cả ý)
+
+        if (P.list.length) {
+            // ③ Ý nhiều thành phần: đếm thành phần được nêu (nội dung khớp ≥ 0,5, hoặc có từ khóa nằm trong thành phần đó)
+            const comps = P.list.map(({ core, full }) => {
+                const cs = tokSet(full);
+                const byKw = kwOk.filter(h => { const ks = tokSet(h.kw); return ks.size && [...ks].every(x => cs.has(x)); });
+                if (byKw.length) return { c: core, ok: true, hits: byKw.flatMap(h => h.seq) };
+                const r = scoreAlt(segs, core);
+                if (r.score >= 0.45 && negOk(r.hits, core)) return { c: core, ok: true, hits: r.hits };
+                // tên khác ghi trong ngoặc của vế ("lợi tiểu quai (furosemide)")
+                const syn = [...full.matchAll(/\(([^)]*)\)/g)].map(x => scoreAlt(segs, x[1])).find(x => x.score >= 0.6 && negOk(x.hits, ''));
+                return syn ? { c: core, ok: true, hits: syn.hits } : { c: core, ok: false, hits: r.hits };
+            });
+            // Từ khóa đồng nghĩa không nằm trong chữ của vế nào ("mong con" cho vế "thai kỳ có trong kế hoạch") -> bù một vế còn thiếu
+            // (chỉ từ khóa KHÔNG có trong chữ của ý và không trùng chỗ với chữ đã khớp: "đau" của ý "Đau bụng: …" không bù được gì)
+            const own = tokSet(it.text);
+            const used = new Set(comps.filter(x => x.ok).flatMap(x => x.hits).map(h => h.d + ':' + h.s));
+            kwOk.filter(h => { const ks = tokSet(h.kw); return ks.size && ![...ks].every(x => own.has(x)); })
+                .forEach(h => {
+                    const miss = comps.find(x => !x.ok);
+                    if (!miss || h.seq.some(t => used.has(t.d + ':' + t.s))) return;
+                    miss.ok = true; miss.hits = h.seq;
+                    h.seq.forEach(t => used.add(t.d + ':' + t.s));
+                });
+            const got = comps.filter(x => x.ok);
+            const need = comps.length === 2 ? 2 : Math.ceil(comps.length / 2);
+            const hits = got.flatMap(x => x.hits).concat(kwOk.flatMap(h => h.seq));
+            if (got.length >= need && numOk) return { more, level: 'match', hits };
+            const head = P.head ? scoreAlt(segs, P.head) : null;
+            const headOk = head && head.score >= 0.6 && negOk(head.hits, P.head);
+            if (got.length || headOk || kwOk.length) {
+                const missing = comps.filter(x => !x.ok).map(x => x.c);
+                if (!numOk) missing.push(numLabel);
+                return { more, level: 'near', why: 'few', missing, hits: hits.length ? hits : (headOk ? head.hits : best.hits) };
+            }
+            if (kwWhy || (best.score >= 0.34 && weakWhy)) return { more, level: 'near', why: kwWhy || weakWhy, hits: kwAll.length ? kwAll[0].seq : best.hits };
+            return none;
         }
-        // 2) Tự so với nội dung ý: tỉ lệ tiếng khớp (tiếng mạnh nặng gấp đôi), lấy cách nói khớp nhất
-        let best = { score: 0, hits: [] };
-        altsOf(it.text).forEach(alt => { const r = altScore(segs, alt); if (r.score > best.score) best = r; });
-        const level = best.score >= 0.6 && !it.keywords.length ? 'match' : best.score >= 0.34 ? 'near' : null;
-        return level ? pack(level, best.hits) : { level: null, ranges: [], words: [] };
+        // ④ Ý một thành phần
+        // Thân ý khớp nhiều nhưng bị phủ định ("không kháng đông…") -> chỉ gần khớp, kể cả khi từ khóa / chữ trong ngoặc khớp
+        if (cover.score >= 0.35 && !negOk(cover.hits, P.main)) return { more, level: 'near', why: 'neg', hits: cover.hits };
+        // Ý "Tên ý: giải thích" / "Tên ý — giải thích" (không liệt kê): nêu đủ TÊN ý cụ thể (≥ 2 tiếng có nghĩa, không phải
+        // tiêu đề chung "Chẩn đoán:") là đạt — phần sau là lời giải thích, hiện ở "vì sao"
+        const lead = P.head || (P.main.split(/\s+[—–-]\s+|\s*→\s*/)[0] || '').trim();
+        const leadOk = lead && lead !== P.main && contentToks(lead).length >= 2 && scoreAlt(segs, lead).score >= 0.8;
+        const enough = contentToks(P.main).length <= 8 || cover.score >= 0.35 || leadOk;
+        const byText = bestOk && best.score >= (it.keywords.length ? 0.75 : 0.6);
+        if ((kwOk.length || byText) && enough) {
+            const h = kwOk.length ? kwOk[0].seq : best.hits;
+            return numOk ? { more, level: 'match', hits: h } : { more, level: 'near', why: 'few', missing: [numLabel], hits: h };
+        }
+        if (byText) return { more, level: 'near', why: 'kw', hits: best.hits };
+        if (kwOk.length) return { more, level: 'near', why: 'kw', hits: kwOk[0].seq };
+        if (kwWhy) return { more, level: 'near', why: kwWhy, hits: kwAll[0].seq };
+        if (best.score >= 0.34) return { more, level: 'near', why: weakWhy || 'weak', hits: best.hits };
+        return none;
+    }
+
+    return keyPointsOf(q).map(it => {
+        const own = fieldDocs(fmt, it.field, docs.length);
+        // ① Chỉ hạ mức khi mọi bằng chứng đều nằm trong đoạn chép nguyên đề / ca.
+        const judge = (segs) => {
+            const r = evalItem(it, segs);
+            if (!r.level || !isCopied(r.ev || r.hits)) return r;
+            return r.why === 'neg' ? r : { ...r, level: 'near', why: 'given' };
+        };
+        let r = judge(own.flatMap(d => segsByDoc[d]));
+        // ⑤ Ý gắn ô: ô của nó không có gì -> dò các ô khác, có thì chỉ gợi ý (người làm tự quyết)
+        if (!r.level && own.length < docs.length) {
+            const other = docs.map((_, d) => d).filter(d => !own.includes(d));
+            const r2 = judge(other.flatMap(d => segsByDoc[d]));
+            if (r2.level && r2.hits.length) r = { level: 'near', why: 'elsewhere', at: first(r2.hits).d + 1, hits: r2.hits };
+        }
+        // Lỗi trừ điểm: bài nói NGƯỢC lại ("không dùng nitrat") hay chỉ lặp chữ trong đề thì không phải mắc lỗi
+        if (it.penalty && (r.why === 'neg' || r.why === 'given')) r = { level: null, hits: [] };
+        if (!r.level) return { level: null, ranges: [], words: [] };
+        const out = pack(r.level, r.hits);
+        if (r.why) out.why = r.why;
+        if (r.missing && r.missing.length) out.missing = r.missing;
+        if (r.at) out.at = r.at;
+        return out;
     });
     function pack(level, toks) {
         // Gộp các tiếng liền nhau (cách 1 ký tự) trong cùng ô thành cụm: "bóc tách" chứ không phải "bóc, tách"
@@ -373,20 +565,21 @@ export function autoMatch(q, input) {
                 else if (!last || last[0] !== r[0] || r[1] >= last[2]) acc.push([...r]);
                 return acc;
             }, []);
-        const words = [...new Set(ranges.map(([d, s, e]) => String(docs[d]).normalize('NFC').slice(s, e)))];
+        const words = [...new Set(ranges.map(([d, s, e]) => docs[d].slice(s, e)))];
         return { level, ranges, words };
     }
 }
 
-// Máy chấm sơ bộ: tick các ý khớp (KHÔNG tự tick lỗi trừ điểm — máy không hiểu câu phủ định,
-// "tránh nitrat" vẫn chứa chữ "nitrat"). Chỉ áp khi bài có chữ, có barem và chưa được chấm.
+// Máy chấm sơ bộ: tick ý khớp, không tự trừ điểm. Chấm lại kết quả auto, giữ nguyên điểm đã chấm tay.
 export function withAutoGrade(q, ans) {
-    if (!ans || typeof ans !== 'object' || !String(ans.text || '').trim() || isEssayGraded(q, ans)) return ans;
+    if (!ans || typeof ans !== 'object' || !answerDocs(q, ans).some(t => t.trim()) || (isEssayGraded(q, ans) && !ans.auto)) return ans;
     const items = keyPointsOf(q);
     if (!items.length) return ans;
-    const ticks = autoMatch(q, ans)
-        .map((m, i) => (m.level === 'match' && !items[i].penalty ? i : -1)).filter(i => i >= 0);
-    return { ...ans, ticks, partials: [], auto: true };
+    const ms = autoMatch(q, ans);
+    const ticks = ms.map((m, i) => (m.level === 'match' && !items[i].penalty ? i : -1)).filter(i => i >= 0);
+    // Ý có mức "nêu chưa đủ" (partial) mà bài mới nêu một phần thành phần / thiếu con số -> ½ điểm (vẫn auto: chờ người làm xem lại)
+    const partials = ms.map((m, i) => (m.level === 'near' && m.why === 'few' && items[i].partial > 0 && !items[i].penalty ? i : -1)).filter(i => i >= 0);
+    return { ...ans, ticks, partials, auto: true };
 }
 
 // Câu không có barem: bài nhắc được bao nhiêu thuật ngữ của đáp án mẫu (chỉ để tham khảo khi tự chấm)
@@ -459,16 +652,16 @@ export function remapFields(keyPoints, order) {
 export function answerDocs(q, input) {
     if (typeof input === 'string') return [input];
     const fmt = formatOf(q);
-    if (fmt.parts > 1 && input && Array.isArray(input.parts)) {
+    if (input && Array.isArray(input.parts) && !['text', 'short'].includes(fmt.kind)) {
         return Array.from({ length: fmt.parts }, (_, i) => String(input.parts[i] ?? ''));
     }
     return [String((input && input.text) || '')];
 }
 
-// Ô được phép dò cho một ý có field (đếm từ 1): danh sách/ô nhãn = đúng ô đó, bảng = cả hàng đó
+// Ô có vai trò riêng chấm đúng ô / hàng; danh sách không nhãn được phép đổi thứ tự.
 function fieldDocs(fmt, field, n) {
     const all = Array.from({ length: n }, (_, i) => i);
-    if (!field || n <= 1) return all;
+    if (!field || n <= 1 || (fmt.kind === 'list' && fmt.slots.every(s => !s.label && !s.hint && !s.unit))) return all;
     if (fmt.kind === 'table') {
         const cols = fmt.columns.length;
         return field <= fmt.rows ? all.slice((field - 1) * cols, field * cols) : all;

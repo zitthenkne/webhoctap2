@@ -97,7 +97,7 @@ export const UserStatsSchema = z
 
 const KeyPointItemSchema = z
   .object({
-    text: z.string().min(1).describe("Một ý chấm NGUYÊN TỬ — ngắn (≤ 25 từ), MỘT khái niệm chấm được; ý gộp nhiều khái niệm thì tách thành nhiều ý (một từ khóa khớp là máy tick cả ý)"),
+    text: z.string().min(1).describe("Một ý chấm NGUYÊN TỬ — ngắn (≤ 15 từ), MỘT khái niệm chấm được, lời giải thích để ở `why`. Máy chấm: ý ≤ 8 tiếng có nghĩa thì một từ khóa là đạt; ý dài hơn phải khớp thêm nội dung. Ý LIỆT KÊ viết đúng khuôn 'Tên: a, b, c' (vd. 'Đau bụng: vị trí, tính chất, thời gian') — phải nêu ≥ ½ vế mới đạt, thiếu thì máy chỉ 'gần khớp' và liệt kê vế thiếu. Con số kèm đơn vị trong text (300 mg, ≥ 3.5 mm) là bắt buộc để đạt đủ. Ngoặc = tên khác / ví dụ của vế chứa nó"),
     points: z
       .number()
       .refine((v) => v !== 0, "points khác 0")
@@ -107,13 +107,13 @@ const KeyPointItemSchema = z
       .array(z.string().min(1))
       .optional()
       .describe(
-        "Từ khóa để MÁY TỰ NHẬN DIỆN ý trong bài làm: tên thuốc, thuật ngữ, từ đồng nghĩa, viết tắt (vd. ['aspirin','asa','acetylsalicylic']). Khớp NGUYÊN CỤM bất kỳ từ khóa nào là máy tick sẵn; nên viết có dấu, ngắn (1-3 chữ), 2-6 từ khóa/ý. Bài gõ không dấu và viết tắt y khoa thông dụng (NMCT, THA, ĐTĐ...) đã được tự xử lý",
+        "Từ khóa để MÁY TỰ NHẬN DIỆN ý: tên thuốc, thuật ngữ, từ ĐỒNG NGHĨA người làm hay viết, viết tắt (vd. ['aspirin','asa']). Khớp nguyên cụm; có dấu, ngắn (1-3 chữ), 2-6 từ khóa/ý. KHÔNG dùng chữ đã có sẵn trong đề / case_text (máy coi là chép đề, không tính) — từ khóa phải là thứ người làm TỰ VIẾT ra (kết luận, diễn giải, hành động). Ý phủ định ('Không đình chỉ thai') thì từ khóa mang luôn chữ phủ định ('không đình chỉ'): máy hiểu không/chưa/tránh/cấm/chống chỉ định đứng ngay trước chữ khớp. Đồng nghĩa KHÔNG có trong text (vd. 'mong con' cho vế 'thai kỳ có kế hoạch') được tính bù một vế. Bài gõ không dấu và viết tắt y khoa thông dụng đã được tự xử lý",
       ),
     partial_points: z
       .number()
       .positive()
       .optional()
-      .describe("Điểm khi nêu CHƯA ĐỦ (vd. có tên thuốc nhưng thiếu liều), phải nhỏ hơn points"),
+      .describe("Điểm khi nêu CHƯA ĐỦ (vd. có tên thuốc nhưng thiếu liều), phải nhỏ hơn points. Máy TỰ cho mức này khi bài mới nêu một phần vế / thiếu con số của ý — nên đặt cho ý liệt kê và ý có liều / ngưỡng"),
     critical: z
       .boolean()
       .optional()
@@ -124,7 +124,7 @@ const KeyPointItemSchema = z
       .min(1)
       .optional()
       .describe(
-        "Ô chứa ý này (đếm từ 1) khi answer_format là 'fields' / 'list' / 'table' (bảng: số HÀNG). Máy chỉ dò ý trong đúng ô đó — vd. 'NMCT' ghi ở ô Chẩn đoán phân biệt sẽ không được tính cho ý Chẩn đoán chính. Bỏ trống = dò cả bài",
+        "Ô chứa ý này (đếm từ 1) khi answer_format là 'fields' / 'list' / 'table' (bảng: số HÀNG). Máy chỉ chấm ý trong đúng ô đó — vd. 'NMCT' ghi ở ô Chẩn đoán phân biệt không được tính cho ý Chẩn đoán chính (chỉ hiện gợi ý 'ghi ở ô khác'). Bỏ trống = dò cả bài",
       ),
     order: z
       .array(z.string().min(1))

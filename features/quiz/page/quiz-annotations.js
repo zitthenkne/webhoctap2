@@ -9,7 +9,7 @@
 // không đổi số ký tự -> offset luôn hợp lệ). Dữ liệu cũ chỉ có `text` vẫn đọc được
 // (lui về khớp lần xuất hiện đầu).
 // type "note" = ghi chú RIÊNG cho cụm từ: thêm trường `note` (nội dung, dài bao nhiêu cũng được), vẽ bằng <span class="annot-note">
-// + HÀNG GHI CHÚ riêng ngay dưới vùng chữ (renderNoteRails); bấm cụm từ / dòng ghi chú mở khung sửa/xóa.
+// + HÀNG GHI CHÚ ngay dưới DÒNG có cụm từ (renderNoteLines); bấm cụm từ / hàng ghi chú mở bóng thoại đọc (Sửa / Xóa).
 // Mọi item mang `ts` (lần sửa cuối) và xóa thì để "bia mộ" (quiz_annot_del_<id>) -> đồng bộ đúng giữa các máy (quiz-study-store.js).
 
 import { state } from '../quiz-state.js';
@@ -54,7 +54,14 @@ function annotKeyFor(question, scope) {
 export function hasAnnots(question, scope) {
     return getAnnotsFor(annotKeyFor(question, scope)).some(a => a.scope === scope);
 }
-function addAnnot(qText, scope, text, type, start, end, note) {
+const noteColor = (value) => typeof value === 'string' && /^#[\da-f]{6}$/i.test(value) ? value.toLowerCase() : '';
+function setNoteColors(el, colors = {}) {
+    [['color', '--nt'], ['inkColor', '--nt-ink']].forEach(([key, prop]) => {
+        const value = noteColor(colors[key]);
+        if (value) el.style.setProperty(prop, value); else el.style.removeProperty(prop);
+    });
+}
+function addAnnot(qText, scope, text, type, start, end, note, colors = {}) {
     const store = getAnnotStore();
     const arr = Array.isArray(store[qText]) ? store[qText] : [];
     const hasPos = typeof start === 'number' && typeof end === 'number';
@@ -70,6 +77,8 @@ function addAnnot(qText, scope, text, type, start, end, note) {
         id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
         const item = hasPos ? { scope, text, type, id, start, end, ts: Date.now() } : { scope, text, type, id, ts: Date.now() };
         if (note) item.note = note;
+        if (noteColor(colors.color)) item.color = noteColor(colors.color);
+        if (noteColor(colors.inkColor)) item.inkColor = noteColor(colors.inkColor);
         arr.push(item);
     }
     store[qText] = arr;
@@ -77,11 +86,14 @@ function addAnnot(qText, scope, text, type, start, end, note) {
     pushStudyToCloud();
     return id;
 }
-function updateAnnotNote(qText, id, note) {
+function updateAnnotNote(qText, id, note, colors) {
     const store = getAnnotStore();
     const a = Array.isArray(store[qText]) && store[qText].find(x => x.id === id);
     if (!a) return;
     a.note = note;
+    if (colors) ['color', 'inkColor'].forEach(key => {
+        if (noteColor(colors[key])) a[key] = noteColor(colors[key]); else delete a[key];
+    });
     a.ts = Date.now();
     saveAnnotStore(store);
     pushStudyToCloud();
@@ -294,69 +306,485 @@ export function applyAnnotationsAll(root) {
     });
     byEl.forEach((annots, el) => { applyAnnotsToContainer(el, annots); cleanupEmptyAnnots(el); });
     markLastNoteFragments(quizSection);
-    renderNoteRails(document.getElementById('quizSection') || quizSection);   // vẽ lại một khối (phiếu chấm) vẫn đánh số theo cả câu
+    renderNoteLines(document.getElementById('quizSection') || quizSection);   // vẽ lại một khối (phiếu chấm) vẫn đánh số theo cả câu
+    relayNoteLines(350);   // dấu quét dữ kiện / ảnh / phông vừa chèn có thể đổi chỗ xuống dòng
 }
-// ---- Hàng ghi chú riêng dưới mỗi vùng chữ ----
-// Ghi chú dài ngắn tùy ý nên không nhét cạnh chữ nữa: cụm từ chỉ còn vạch bút dạ + số trong bong bóng nhỏ, nội dung nằm ở
-// .an-rail = anh em KẾ TIẾP của [data-annot] (KHÔNG nằm trong vùng -> offset chữ, đọc to, quét dữ kiện, chọn chữ không đụng tới).
-// Ghi chú tĩnh của phòng đánh đề (<span data-note> trong nội dung đề) cũng lên hàng, chỉ để đọc.
-const QUOTE_MAX = 48;
+// ---- Ghi chú hiện NGAY DƯỚI DÒNG có cụm từ (bản 5, 2026-10-23) ----
+// Người dùng: hàng riêng nhưng phải ở đúng chỗ bôi đen, không gom một đống cuối khối. Mỗi ghi chú = một hàng .an-line chèn vào
+// đúng CHỖ DÒNG ĐÓ VỐN XUỐNG DÒNG (ký tự đầu của dòng kế) -> dòng chứa cụm từ giữ nguyên, câu chữ không bị cắt giữa dòng; mũi nhọn
+// mỗi chỗ xuống dòng là một dải .an-band, layoutBand xếp ghi chú dưới đúng cụm theo bề ngang thật — kiểu chú thích viết tay.
+// Hàng là inline-flex rộng (100% - thụt) (ăn trọn một dòng; KHÔNG nhận vạch text-decoration của thẻ cha) và
+// KHÔNG chứa chữ thật: số + lời ghi chú vẽ bằng ::before/::after content: attr() -> offset ghi chú, Range.toString, đọc to,
+// quét dữ kiện, sao chép chữ đều không thấy nó. Bố cục đổi (cỡ khung, phông, dấu quét dữ kiện) thì vẽ lại.
+// Ghi chú tĩnh của phòng đánh đề (<span data-note> trong nội dung đề) cũng có hàng, chỉ để đọc.
 // Nhãn đầu dòng (CHUNG hệ nhãn ghi chú cá nhân: "⭐ ", "Dễ nhầm với: ", "Hỏi lại: "…) -> màu + ký hiệu trong bong bóng.
 // Không nhãn thì màu theo nền (--nt). Nhãn đầu tiên theo thứ tự NOTE_TAGS thắng.
 const TAG_LOOK = { 'Quan trọng': ['star', '★'], 'Dễ nhầm': ['trap', '≠'], 'Hỏi lại': ['ask', '?'] };   // "!" trong Quicksand đọc thành "1"
 const tagLook = (note) => { const t = [...noteTagsOf(note)].find(x => TAG_LOOK[x]); return t ? TAG_LOOK[t] : null; };
-function renderNoteRails(root) {
+const isInline = (el) => /^inline/.test(getComputedStyle(el).display) || el.tagName === 'BR';
+// Khối chứa (đoạn / mục danh sách / ô bảng…) gần nhất của một nút, không vượt khỏi vùng
+function blockOf(node, scope) {
+    let el = node.nodeType === 3 ? node.parentElement : node;
+    while (el && el !== scope && isInline(el)) el = el.parentElement;
+    return el || scope;
+}
+// Chỗ chèn hàng cho cụm kết thúc ở `frag`: ký tự có nghĩa ĐẦU TIÊN nằm ở dòng dưới dòng chứa đuôi cụm (cùng khối);
+// cụm ở cuối khối -> chèn cuối khối; vùng đang ẩn (không đo được) -> cuối khối.
+function lineEndAfter(frag, scope) {
+    const block = blockOf(frag, scope);
+    const rs = frag.getClientRects();
+    if (!rs.length) return { append: block };
+    const line = rs[rs.length - 1];
+    // Duyệt cả THẺ lẫn chữ sau cụm: ngắt dòng cứng <br> / thẻ khối (khoảng cách đoạn .quiz-md-gap, bảng, danh sách…) cũng là chỗ dòng kết thúc
+    // — bỏ qua chúng thì dải ghi chú bị đẩy xuống sau cả khoảng trống giữa hai đoạn.
+    const w = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+    w.currentNode = frag;
+    const r = document.createRange();
+    let n;
+    while ((n = w.nextNode())) {
+        if (frag.contains(n)) continue;
+        if (!block.contains(n)) break;
+        if (n.nodeType === 1) {
+            // hàng ghi chú của cụm trước CÙNG dòng đã nằm ở đây -> đứng ngay sau (các hàng liền nhau = một dải, giữ thứ tự)
+            if (n.classList.contains('an-line')) {
+                let lastRow = n;
+                while (lastRow.nextSibling && lastRow.nextSibling.nodeType === 1 && lastRow.nextSibling.classList.contains('an-line')) lastRow = lastRow.nextSibling;
+                return { after: lastRow };
+            }
+            if (n.tagName === 'BR') {
+                let tail = n;
+                while (tail.nextSibling?.nodeType === 1 && tail.nextSibling.classList.contains('an-line')) tail = tail.nextSibling;
+                return { after: tail };
+            }
+            if (!isInline(n)) return { before: n };
+            continue;
+        }
+        if (!n.nodeValue) continue;
+        r.selectNodeContents(n);
+        const all = r.getClientRects();
+        if (all.length && all[all.length - 1].top < line.bottom - 2) continue;   // cả nút còn trên dòng này
+        const v = n.nodeValue;
+        for (let i = 0; i < v.length; i++) {
+            if (/\s/.test(v[i])) continue;
+            r.setStart(n, i); r.setEnd(n, i + 1);
+            const c = r.getClientRects()[0];
+            if (c && c.top >= line.bottom - 2) return { node: n, offset: i };
+        }
+    }
+    return { append: block };
+}
+function liftSplit(text, offset, block) {
+    let node = offset > 0 ? text.splitText(offset) : text, el = node.parentNode;
+    while (el && el !== block) {
+        // chỗ xuống dòng ngay ĐẦU thẻ -> đứng trước cả thẻ, khỏi tách
+        let prev = node.previousSibling;
+        while (prev && prev.nodeType === 3 && !prev.nodeValue) prev = prev.previousSibling;
+        if (!prev) { node = el; el = el.parentNode; continue; }
+        const right = el.cloneNode(false);
+        right.setAttribute('data-an-split', '');
+        right.removeAttribute('id');
+        for (let cur = node; cur;) { const nx = cur.nextSibling; right.appendChild(cur); cur = nx; }
+        el.after(right);
+        node = right; el = right.parentNode;
+    }
+    return node;
+}
+function unsplit(row) {
+    let a = row.previousSibling, b = row.nextSibling;
+    const parent = row.parentNode;
+    row.remove();
+    while (a && b && a.nodeType === 1 && b.nodeType === 1 && b.hasAttribute('data-an-split') && a.tagName === b.tagName) {
+        const aLast = a.lastChild, bFirst = b.firstChild;
+        while (b.firstChild) a.appendChild(b.firstChild);
+        b.remove();
+        a = aLast; b = bFirst;
+    }
+    if (b && b.nodeType === 1 && b.hasAttribute('data-an-split') && !a) b.removeAttribute('data-an-split');   // nửa trước đã rỗng bị bỏ
+    if (parent) try { parent.normalize(); } catch (e) {}
+}
+let _scopeRO = null;
+const _scopeH = new WeakMap();
+function clearNoteLines(root) {
+    root.querySelectorAll('.an-band').forEach(unsplit);
+    root.querySelectorAll('.an-line').forEach(unsplit);   // phòng hờ hàng lẻ ngoài dải
+}
+function renderNoteLines(root) {
     if (!root) return;
-    let n = 0;   // đánh số LIÊN TỤC cả câu (ca lâm sàng -> đề -> đáp án -> giải thích -> ghi nhớ -> mở rộng): mỗi số chỉ một cụm
-    root.querySelectorAll('[data-annot]').forEach(el => {
-        const old = el.nextElementSibling;
-        if (old && old.classList.contains('an-rail')) old.remove();
-        const groups = new Map();   // id (hoặc chính phần tử với ghi chú tĩnh) -> các mảnh
-        el.querySelectorAll('span[data-note]').forEach(s => {
-            const k = s.getAttribute('data-annot-id') || s;
-            if (!groups.has(k)) groups.set(k, []);
-            groups.get(k).push(s);
+    clearNoteLines(root);
+    markLastNoteFragments(root);
+    const colors = new Map(Object.values(getAnnotStore()).flatMap(a => Array.isArray(a) ? a : []).map(a => [a.id, a]));
+    root.querySelectorAll('.annot-note[data-annot-id]').forEach(sp => setNoteColors(sp, colors.get(sp.getAttribute('data-annot-id'))));
+    if (!document.body.classList.contains('qz-notes-inline')) {
+        // tắt hàng ghi chú: không chèn gì, chỉ đánh số bong bóng sau cụm (rê chuột / chạm để xem)
+        let m = 0;
+        const seen = new Map();
+        root.querySelectorAll('[data-annot] span[data-note]').forEach(sp => {
+            const k = sp.getAttribute('data-annot-id') || sp;
+            if (!seen.has(k)) { const look = tagLook(sp.getAttribute('data-note') || ''); seen.set(k, [(look ? look[1] : '') + (++m), look]); }
+            const [mark, look] = seen.get(k);
+            sp.setAttribute('data-an', mark);
+            if (look) sp.dataset.tag = look[0]; else delete sp.dataset.tag;
         });
-        if (!groups.size) return;
-        const rail = document.createElement('div');
-        rail.className = 'an-rail';
-        groups.forEach((frags, k) => {
+        return;
+    }
+    // Chữ trong vùng xuống dòng khác đi mà bề ngang khung không đổi (nhãn "Bạn chọn" chen vào ô đáp án, ảnh tải xong, dấu quét
+    // dữ kiện) -> theo dõi CHIỀU CAO từng vùng có ghi chú, đổi thì vẽ lại hàng (lần vẽ lại cho ra cùng chiều cao nên không lặp)
+    if (window.ResizeObserver) {
+        _scopeRO = _scopeRO || new ResizeObserver(ens => {
+            if (ens.some(en => { const h = Math.round(en.contentRect.height), o = _scopeH.get(en.target); _scopeH.set(en.target, h); return o !== undefined && o !== h; })) relayNoteLines();
+        });
+        _scopeRO.disconnect();
+        root.querySelectorAll('[data-annot]').forEach(sc => { if (sc.querySelector('span[data-note]')) _scopeRO.observe(sc); });
+    }
+    let n = 0;   // số liên tục cả câu (bong bóng khi TẮT hàng); khi hiện hàng chỉ dùng số nhỏ cho các cụm CHUNG một dòng
+    root.querySelectorAll('[data-mk]').forEach(x => x.removeAttribute('data-mk'));
+    root.querySelectorAll('[data-annot]').forEach(scope => {
+        const keys = [];   // id (hoặc chính phần tử với ghi chú tĩnh), theo thứ tự tài liệu
+        scope.querySelectorAll('span[data-note]').forEach(sp => { const k = sp.getAttribute('data-annot-id') || sp; if (!keys.includes(k)) keys.push(k); });
+        // lấy mảnh NGAY LÚC xử lý: chèn hàng trước đó có thể đã tách một thẻ thành hai nửa
+        const fragsOf = (k) => (typeof k === 'string' ? [...scope.querySelectorAll(`span[data-annot-id="${k}"]`)] : [k]);
+        const placed = [];
+        keys.forEach(k => {
             n++;
-            const note = frags[frags.length - 1].getAttribute('data-note') || '';
+            const frags = fragsOf(k);
+            if (!frags.length) return;
+            const last = frags[frags.length - 1];
+            const note = last.getAttribute('data-note') || '';
             const look = tagLook(note);
             const mark = (look ? look[1] : '') + n;
             frags.forEach(f => { f.setAttribute('data-an', mark); if (look) f.dataset.tag = look[0]; else delete f.dataset.tag; });
-            const it = document.createElement('div');
-            it.className = 'an-ri';
-            if (look) it.dataset.tag = look[0];
-            if (typeof k === 'string') { it.dataset.id = k; it.tabIndex = 0; it.setAttribute('role', 'button'); it.title = 'Bấm để sửa ghi chú'; }
-            else it.classList.add('is-static');
-            it.innerHTML = '<span class="an-no" aria-hidden="true"></span><div class="an-body"><div class="an-tx"><span class="an-q"></span><span class="an-nt"></span></div></div>';
-            const q = frags.map(f => f.textContent).join('').trim();
-            it.querySelector('.an-no').textContent = mark;
-            it.querySelector('.an-q').textContent = q.length > QUOTE_MAX ? q.slice(0, QUOTE_MAX).trim() + '…' : q;
-            it.querySelector('.an-nt').innerHTML = noteTextHtml(note);   // nhãn đầu dòng in đậm, ☐ thành ô tích, **đậm** — chữ đã thoát HTML
-            rail.appendChild(it);
+            const row = document.createElement('span');
+            row.className = 'an-line';
+            setNoteColors(row, colors.get(k));
+            row.setAttribute('data-txt', note.replace(/->/g, '-\u2060>')); // giữ nguyên mũi tên văn bản khi cân dòng; không đổi nội dung lưu
+            row.setAttribute('role', 'note');
+            row.setAttribute('aria-label', 'Ghi chú cho “' + frags.map(f => f.textContent).join('').trim() + '”: ' + note);
+            if (look) row.dataset.tag = look[0];
+            if (typeof k === 'string') { row.dataset.id = k; row.tabIndex = 0; row.title = 'Bấm để xem / sửa ghi chú'; }
+            else row.classList.add('is-static');
+            const at = lineEndAfter(last, scope);
+            if (at.node) { const tail = liftSplit(at.node, at.offset, blockOf(at.node, scope)); tail.parentNode.insertBefore(row, tail); }
+            else if (at.before) at.before.before(row);
+            else if (at.after) at.after.after(row);
+            else at.append.appendChild(row);
+            placed.push({ row, last });
         });
-        // Hàng nằm trong ô đáp án: chạm/giữ ở đây không được tính là chọn / gạch đáp án; phím Enter/Space trên dòng = sửa
-        ['pointerdown', 'contextmenu'].forEach(t => rail.addEventListener(t, e => e.stopPropagation()));
-        rail.addEventListener('keydown', (e) => {
-            const ri = e.target.closest('.an-ri[data-id]');
-            if (ri && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); e.stopPropagation(); ri.click(); }
+        // Gom các hàng đứng LIỀN nhau (chung một chỗ xuống dòng = cụm chung một dòng chữ) thành một DẢI .an-band
+        const runs = [];
+        placed.forEach(pl => {
+            let prev = pl.row.previousSibling;
+            while (prev && prev.nodeType === 3 && !prev.nodeValue.trim()) prev = prev.previousSibling;
+            const run = runs[runs.length - 1];
+            if (run && prev === run[run.length - 1].row) run.push(pl); else runs.push([pl]);
         });
-        el.after(rail);
-        // Ghi chú dài gập còn 4 dòng (.is-clamp = line-clamp) -> chỉ giữ gập khi ĐO được là tràn, kèm nút "Xem hết".
-        // Hàng đang ẩn (công tắc tắt, giải thích chưa mở) đo ra 0 -> để nguyên văn, không bao giờ bị cắt mà thiếu nút.
-        rail.querySelectorAll('.an-tx').forEach(tx => {
-            tx.classList.add('is-clamp');
-            if (!tx.clientHeight || tx.scrollHeight <= tx.clientHeight + 2) { tx.classList.remove('is-clamp'); return; }
-            const more = document.createElement('span');
-            more.className = 'an-more';
-            more.setAttribute('role', 'button');
-            more.textContent = 'Xem hết';
-            tx.after(more);
+        runs.forEach(run => {
+            const band = makeBand();
+            run[0].row.before(band);
+            run.forEach(({ row, last }) => { row._last = last; row._dir = 'below'; band.appendChild(row); });
         });
     });
+    // Lượt 1: xếp mọi dải; ghi chú không vừa ngay dưới cụm (làn đầu) -> thử khoảng trống NGAY TRÊN dòng của nó.
+    // Lượt 2: xếp lại các dải bị đổi; ai không lên được thì mới xếp tầng (lúc đó có số ¹ ²).
+    const fails = [];
+    root.querySelectorAll('.an-band').forEach(b => fails.push(...layoutBand(b, true)));
+    const dirty = new Set();
+    fails.forEach(it => {
+        const g = gutterAbove(it);
+        if (g) { g.appendChild(it.row); it.row._dir = 'above'; dirty.add(g); }
+        else it.row._force = true;
+        dirty.add(it.band);
+    });
+    dirty.forEach(b => { if (!b.querySelector('.an-line')) unsplit(b); else layoutBand(b, false); });
+    // Các dải phía trên có thể đổi chiều cao: đo đường nối sau khi toàn bộ bố cục đã ổn định.
+    root.querySelectorAll('.an-band').forEach(drawNoteLinks);
+}
+const makeBand = () => { const b = document.createElement('span'); b.className = 'an-band'; return b; };
+// Ký tự đầu của DÒNG chữ chứa rect (dòng có đuôi cụm) trong khối
+function lineStartOf(rect, block) {
+    const mid = (rect.top + rect.bottom) / 2;
+    const w = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+    const r = document.createRange();
+    let n;
+    while ((n = w.nextNode())) {
+        if (!n.nodeValue.trim()) continue;
+        r.selectNodeContents(n);
+        const rs = r.getClientRects();
+        if (!rs.length || rs[rs.length - 1].bottom < mid) continue;   // cả nút ở các dòng phía trên
+        for (let i = 0; i < n.nodeValue.length; i++) {
+            if (/\s/.test(n.nodeValue[i])) continue;
+            r.setStart(n, i); r.setEnd(n, i + 1);
+            const c = r.getClientRects()[0];
+            if (c && c.bottom >= mid) return c.top <= mid ? { node: n, offset: i } : null;
+        }
+    }
+    return null;
+}
+// Khoảng trống ngay TRÊN dòng có cụm = dải ở chỗ dòng đó bắt đầu (dùng chung với dải "dưới" của dòng phía trên nếu có).
+// Dòng phía trên đã có ghi chú chiếm đúng khoảng ngang đó -> thôi (mũi tên lên / xuống chen nhau sẽ rối).
+function gutterAbove(it) {
+    if (!it.rect || !it.last) return null;
+    const rects = it.last.getClientRects();
+    if (!rects.length) return null;
+    it.rect = rects[rects.length - 1]; // dải khác vừa đổi chiều cao có thể đã đẩy dòng nguồn xuống
+    const scope = it.last.closest('[data-annot]');
+    if (!scope) return null;
+    const block = blockOf(it.last, scope);
+    const st = lineStartOf(it.rect, block);
+    if (!st) return null;
+    const head = liftSplit(st.node, st.offset, block);
+    const prevOf = (x) => { let q = x.previousSibling; while (q && q.nodeType === 3 && !q.nodeValue.trim()) q = q.previousSibling; return q; };
+    let prev = prevOf(head), at = head;
+    // Dòng ĐẦU của một mục danh sách (<li> hoặc div.quiz-li = [dấu • | .quiz-li-body] của parseMarkdown): chèn khối vào đầu
+    // phần thân đẩy chữ tách khỏi dấu • -> đặt dải NGAY TRƯỚC cả mục (giữa hai mục)
+    const item = !prev && block.closest('.quiz-li, li');
+    if (item && scope.contains(item) && item !== scope) { at = item; prev = prevOf(item); }
+    if (prev && prev.nodeType === 1 && prev.classList.contains('an-band')) {
+        const rows = [...prev.querySelectorAll('.an-line:not(.is-side)')];
+        const used = rows.reduce((sum, r) => sum + noteMinWidth(r._nat || r.offsetWidth, prev.clientWidth) + BAND_GAP, 0);
+        return used + noteMinWidth(it.nat, prev.clientWidth) <= prev.clientWidth ? prev : null;
+    }
+    const g = makeBand();
+    at.before(g);
+    return g;
+}
+// Xếp ngang trước, tận dụng cả hai phía của điểm neo; hết chỗ mới thử dải trên rồi thêm tầng.
+const BAND_GAP = 16;
+const NOTE_LAYOUT_RULES = { shortLead: 24, breathingRoom: 40 };
+const noteMinWidth = (nat, width) => Math.min(width, nat, Math.max(88, nat / 2 + 8));
+// So sánh lần lượt, không cộng điểm khiến ưu tiên thấp lấn ưu tiên cao:
+// 1. Không tràn / chồng, giữ bề rộng chữ tối đa (ràng buộc khi chia làn và chọn khoảng đặt).
+// 2. Đường nối gần cụm: tránh phần kéo ngang vượt 24px ngoài vùng highlight.
+// 3. Chừa 40px giữa các ghi chú nếu còn chỗ, thay vì dồn sát mức tối thiểu 16px.
+// 4. Cùng đạt các điều kiện trên: ưu tiên đọc sang phải.
+// 5. Cuối cùng mới chọn đường nối ngắn nhất trong các phương án tương đương.
+function noteLanePriority(placed) {
+    const excess = placed.map(p => Math.max(0, p.distance - NOTE_LAYOUT_RULES.shortLead));
+    const ordered = [...placed].sort((a, b) => a.left - b.left);
+    const crowded = ordered.slice(1).reduce((sum, p, i) => sum + Math.max(0,
+        NOTE_LAYOUT_RULES.breathingRoom - (p.left - ordered[i].left - ordered[i].it.width)), 0);
+    return [Math.max(0, ...excess), excess.reduce((sum, v) => sum + v, 0), crowded,
+        placed.filter(p => p.trailing).length, placed.reduce((sum, p) => sum + p.distance, 0)];
+}
+function compareNotePriority(a, b) {
+    for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > .01) return a[i] - b[i];
+    return 0;
+}
+function packNoteLane(items, width) {
+    if (!items.length) return;
+    const total = items.reduce((sum, it) => sum + it.nat, 0);
+    const minimum = items.reduce((sum, it) => sum + noteMinWidth(it.nat, width), 0);
+    const available = Math.max(0, width - BAND_GAP * (items.length - 1));
+    const shrink = total > minimum ? Math.min(1, Math.max(0, (total - available) / (total - minimum))) : 0;
+    items.forEach(it => {
+        it.width = Math.floor(it.nat - shrink * (it.nat - noteMinWidth(it.nat, width)));
+    });
+    // Thử cả hai chiều xếp, và cả hai mép nối của từng ghi chú. Ghi chú sau có thể nhường chỗ cho ghi chú trước.
+    const sweep = (reverse, seed) => {
+        const order = reverse ? [...items].reverse() : items;
+        let edge = reverse ? width : 0;
+        let remaining = items.reduce((sum, it) => sum + it.width, 0) + BAND_GAP * (items.length - 1);
+        const placed = [];
+        for (const it of order) {
+            remaining -= it.width;
+            const lo = reverse ? remaining : edge, hi = reverse ? edge - it.width : width - remaining - it.width;
+            const choices = [false, true].flatMap(trailing => {
+                const lead = it.lead || 26;
+                const offset = trailing ? it.width - lead + 16 : lead - 16;
+                const positions = [it.x - offset, (it.x0 ?? it.x) - offset, (it.x1 ?? it.x) - offset];
+                const neighbor = placed[placed.length - 1];
+                if (neighbor) positions.push(reverse ? neighbor.left - NOTE_LAYOUT_RULES.breathingRoom - it.width
+                    : neighbor.left + neighbor.it.width + NOTE_LAYOUT_RULES.breathingRoom);
+                return positions.map(position => {
+                    const left = Math.max(lo, Math.min(hi, position)), turn = left + offset;
+                    const distance = Math.max((it.x0 ?? it.x) - turn, 0, turn - (it.x1 ?? it.x));
+                    const candidate = { it, left, trailing, distance };
+                    return { ...candidate, priority: noteLanePriority([...placed, candidate]) };
+                });
+            });
+            const best = placed.length ? choices.reduce((a, b) => compareNotePriority(b.priority, a.priority) < 0 ? b : a) : choices[seed];
+            placed.push(best);
+            edge = reverse ? best.left - BAND_GAP : best.left + it.width + BAND_GAP;
+            remaining -= BAND_GAP;
+        }
+        return { placed, priority: noteLanePriority(placed) };
+    };
+    // Giữ cả điểm neo đầu / giữa / cuối cho ghi chú đầu tiên, để nó có thể dịch nhường chỗ cho hàng xóm.
+    let best = null;
+    for (const reverse of [false, true]) for (let seed = 0; seed < 6; seed++) {
+        const candidate = sweep(reverse, seed);
+        if (!best || compareNotePriority(candidate.priority, best.priority) < 0) best = candidate;
+    }
+    best.placed.forEach(({ it, left, trailing, distance }) => Object.assign(it, { left, trailing, leaderDistance: distance }));
+}
+function measureBalancedNoteWidth(row, limit) {
+    const style = getComputedStyle(row, '::after'), box = getComputedStyle(row);
+    const padding = parseFloat(box.paddingLeft) + parseFloat(box.paddingRight);
+    const probe = document.createElement('span');
+    Object.assign(probe.style, {
+        position: 'fixed', left: '-10000px', top: '0', visibility: 'hidden', pointerEvents: 'none', display: 'block',
+        width: Math.max(1, limit - padding) + 'px', font: style.font, letterSpacing: style.letterSpacing,
+        lineHeight: style.lineHeight, whiteSpace: style.whiteSpace, overflowWrap: style.overflowWrap, textWrap: style.textWrap
+    });
+    probe.textContent = row.getAttribute('data-txt');
+    document.body.appendChild(probe);
+    const range = document.createRange();
+    range.selectNodeContents(probe);
+    const lines = [...range.getClientRects()].filter(r => r.width > 0 && r.height > 0);
+    probe.remove();
+    // Balance chỉ đổi chỗ ngắt, không thu khung. Thu theo dòng THẬT để phần trống bên phải được dùng khi định vị lại.
+    // Chỉ thu khi đủ toàn bộ nội dung trong tối đa hai dòng; không làm tăng số dòng / thay đổi phần bị clamp.
+    return lines.length && lines.length <= 2 ? Math.min(limit, Math.ceil(Math.max(...lines.map(r => r.width)) + padding) + 2) : limit;
+}
+function layoutBand(band, allowFail) {
+    const W = band.clientWidth;
+    if (!W) return [];
+    band.classList.add('is-laid');
+    const br = band.getBoundingClientRect(), bl = br.left;
+    const items = [...band.querySelectorAll('.an-line')].map(row => {
+        row.classList.remove('is-side', 'is-above', 'is-trailing');
+        row.removeAttribute('data-mk');
+        if (row._last) row._last.removeAttribute('data-mk');
+        row.style.left = row.style.top = '';
+        row.style.width = 'max-content';
+        const singleLineNat = Math.ceil(row.getBoundingClientRect().width) + 2;
+        const singleLine = row.offsetHeight <= parseFloat(getComputedStyle(row).lineHeight) + 1;
+        const nat = singleLineNat > W ? measureBalancedNoteWidth(row, W) : singleLineNat;
+        row._nat = nat;
+        row.style.width = '';
+        const lr = row._last ? row._last.getClientRects() : [];
+        const rect = lr.length ? lr[lr.length - 1] : null;
+        const inset = rect ? Math.min(6, rect.width / 2) : 0;
+        return { row, band, last: row._last, rect, nat, singleLineNat, singleLine, lead: parseFloat(getComputedStyle(row).paddingLeft), up: row._dir === 'above',
+            x: rect ? (rect.left + rect.right) / 2 - bl : W / 2,
+            x0: rect ? rect.left - bl + inset : 0, x1: rect ? rect.right - bl - inset : W };
+    });
+    const below = items.filter(i => !i.up && i.rect);
+    // Khoảng trống cùng dòng ở hai mép: chỉ dùng nếu đủ nguyên một dòng ghi chú.
+    const extremes = [below.reduce((a, i) => !a || i.rect.left < a.rect.left ? i : a, null),
+        below.reduce((a, i) => !a || i.rect.right > a.rect.right ? i : a, null)];
+    [1, 0].forEach(side => {
+        const it = extremes[side]; // hai mép cùng phù hợp thì ưu tiên đọc sang phải
+        if (!it || it.side) return;
+        const scope = it.last.closest('[data-annot]');
+        const r = document.createRange();
+        r.selectNodeContents(blockOf(it.last, scope));
+        const mid = (it.rect.top + it.rect.bottom) / 2;
+        const rs = [...r.getClientRects()].filter(c => c.width && c.top <= mid && c.bottom >= mid);
+        const edge = side ? Math.max(it.rect.right, ...rs.map(c => c.right)) - bl : Math.min(it.rect.left, ...rs.map(c => c.left)) - bl;
+        const distance = side ? edge - (it.rect.right - bl) : it.rect.left - bl - edge;
+        const sideWidth = it.singleLineNat - it.lead;
+        if (it.singleLine && distance <= 32 && sideWidth + 24 <= (side ? W - edge : edge)) {
+            Object.assign(it, { side: true, width: sideWidth, left: side ? edge + 24 : edge - 24 - sideWidth });
+            it.row.classList.add('is-side');
+        }
+    });
+    const lanes = [], fails = [];
+    // Giữ thứ tự ngang của cụm từ để các đường nối cùng dải không bắt chéo nhau.
+    items.filter(i => !i.side).sort((a, b) => a.x - b.x).forEach(it => {
+        const lane = lanes.find(group => group.reduce((sum, x) => sum + noteMinWidth(x.nat, W) + BAND_GAP, 0) + noteMinWidth(it.nat, W) <= W);
+        if (lane) lane.push(it);
+        else if (lanes.length && allowFail && !it.up && !it.row._force) { it.skip = true; fails.push(it); }
+        else lanes.push([it]);
+    });
+    // Hết cả hai hướng gần cụm trên làn hiện tại: thử khoảng trống TRÊN dòng trước khi buộc nối xa / thêm tầng dưới.
+    lanes.forEach(group => {
+        packNoteLane(group, W);
+        while (allowFail && group.length > 1) {
+            const blocked = group.filter(it => !it.up && !it.row._force && it.leaderDistance > NOTE_LAYOUT_RULES.shortLead)
+                .sort((a, b) => b.leaderDistance - a.leaderDistance)[0];
+            if (!blocked) break;
+            blocked.skip = true;
+            fails.push(blocked);
+            group.splice(group.indexOf(blocked), 1);
+            packNoteLane(group, W);
+        }
+    });
+    // Đánh số trước khi đo chiều cao: số cũng chiếm bề ngang, có thể làm lời ghi chú xuống dòng.
+    if (lanes.length > 1) lanes.flat().forEach((it, j) => {
+        it.row.setAttribute('data-mk', j + 1);
+        if (it.last) it.last.setAttribute('data-mk', j + 1);
+    });
+    let top = lanes.length ? 4 : 0;
+    lanes.forEach(group => {
+        group.sort((a, b) => a.x - b.x);
+        group.forEach(it => {
+            it.row.classList.toggle('is-above', it.up);
+            it.row.classList.toggle('is-trailing', it.trailing);
+            Object.assign(it.row.style, { left: it.left + 'px', width: it.width + 'px', top: top + 'px' });
+        });
+        top += Math.max(...group.map(it => it.row.offsetHeight)) + 8;
+    });
+    items.filter(i => i.side).forEach(it => Object.assign(it.row.style, {
+        left: it.left + 'px', width: it.width + 'px', top: Math.round(it.rect.top - br.top + (it.rect.height - it.row.offsetHeight) / 2) + 'px'
+    }));
+    band.style.height = top + 'px';
+    band.classList.toggle('is-flat', !top);
+    return fails;
+}
+function drawNoteLinks(band) {
+    band.querySelector('.an-links')?.remove();
+    if (!band.classList.contains('is-laid')) return;
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.classList.add('an-links');
+    svg.setAttribute('aria-hidden', 'true');
+    const br = band.getBoundingClientRect();
+    band.querySelectorAll('.an-line').forEach(row => {
+        const rs = row._last ? [...row._last.getClientRects()] : [];
+        if (!rs.length) return;
+        const rect = rs[rs.length - 1], rr = row.getBoundingClientRect();
+        const up = row._dir === 'above', side = row.classList.contains('is-side'), trailing = row.classList.contains('is-trailing');
+        const flow = trailing ? -1 : 1;
+        const style = getComputedStyle(row), firstLine = Math.min(parseFloat(style.lineHeight), rr.height);
+        const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+        let sx, sy, ex, ey;
+        if (side) {
+            const right = rr.left >= rect.right;
+            sx = right ? rect.right + 3 : rect.left - 3;
+            ex = right ? rr.left - 4 : rr.right + 4;
+            sy = (rect.top + rect.bottom) / 2; ey = rr.top + firstLine / 2;
+        } else {
+            ex = trailing ? rr.right - parseFloat(style.paddingRight) + 4 : rr.left + parseFloat(style.paddingLeft) - 4;
+            ey = rr.top + firstLine / 2;
+            sx = clamp(ex - flow * 12, rect.left + Math.min(6, rect.width / 2), rect.right - Math.min(6, rect.width / 2));
+            sy = up ? rect.top - 2 : rect.bottom + 2;
+        }
+        sx -= br.left; ex -= br.left; sy -= br.top; ey -= br.top;
+        const path = document.createElementNS(ns, 'path');
+        let curve, angle;
+        if (side) {
+            const bend = (sx + ex) / 2;
+            curve = `M${sx},${sy} C${bend},${sy - 3} ${bend},${ey + 3} ${ex},${ey}`;
+            angle = Math.atan2(-3, ex - bend);
+            path.dataset.shape = 'side';
+        } else {
+            // Móc cong ở mép trái hoặc phải gần cụm từ nhất; đầu tên luôn sát chữ trên cùng hàng.
+            const turnX = ex - flow * 12, railY = (up ? rr.bottom + 3 : rr.top - 3) - br.top;
+            const turnY = ey + (up ? 9 : -9);
+            curve = `M${sx},${sy} C${sx},${railY} ${turnX},${railY} ${turnX},${turnY} Q${turnX},${ey} ${ex},${ey}`;
+            angle = trailing ? Math.PI : 0;
+            path.dataset.shape = Math.abs(sx - turnX) < 14 ? 'hook' : 'curve';
+        }
+        // Đuôi ở cụm highlight, đầu nhọn kết thúc ngay trước chữ ghi chú.
+        const wing = (a) => `${ex - 4 * Math.cos(a)},${ey - 4 * Math.sin(a)}`;
+        path.setAttribute('d', `${curve} M${wing(angle - .55)} L${ex},${ey} L${wing(angle + .55)}`);
+        path.dataset.pointsTo = 'note';
+        // Giữ biến CSS sống để mũi tên đổi cùng chữ khi đổi nền / sáng tối, kể cả màu nhãn và màu tự chọn.
+        if (row.dataset.tag) path.dataset.tag = row.dataset.tag;
+        setNoteColors(path, { color: row.style.getPropertyValue('--nt'), inkColor: row.style.getPropertyValue('--nt-ink') });
+        path.style.stroke = 'var(--nt-ink)';
+        svg.appendChild(path);
+    });
+    band.prepend(svg);
+}
+// Bố cục đổi (xoay máy, kéo khung, phông Quicksand tải xong, dấu quét dữ kiện chèn vào đề) -> dòng xuống chỗ khác -> vẽ lại hàng
+let _relayT = 0;
+function relayNoteLines(delay = 120) {
+    clearTimeout(_relayT);
+    _relayT = setTimeout(() => {
+        const sec = document.getElementById('quizSection');
+        if (sec && sec.querySelector('span[data-note]')) renderNoteLines(sec);
+    }, delay);
 }
 // Vừa lưu / vừa nhảy tới: bút dạ quét lại cụm từ + dòng ghi chú bật ra (CSS .an-new, ~0.8s)
 const popIn = (els) => els.forEach(el => { el.classList.remove('an-new'); void el.offsetWidth; el.classList.add('an-new'); setTimeout(() => el.classList.remove('an-new'), 1000); });
@@ -374,7 +802,7 @@ export function setPhraseNote(qText, id, value) {
     const frags = document.querySelectorAll(`#quizSection [data-annot-id="${id}"]`);
     if (frags.length) {
         frags.forEach(f => (note ? f.setAttribute('data-note', note) : unwrapMark(f)));
-        renderNoteRails(document.getElementById('quizSection'));
+        renderNoteLines(document.getElementById('quizSection'));
     }
     afterNoteChange();
 }
@@ -385,7 +813,7 @@ export function flashPhraseNote(id) {
     try { f.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { f.scrollIntoView(); }
     setTimeout(() => popIn(noteEls(id)), 350);
 }
-const noteEls = (id) => document.querySelectorAll(`#quizSection [data-annot-id="${id}"], #quizSection .an-ri[data-id="${id}"]`);
+const noteEls = (id) => document.querySelectorAll(`#quizSection [data-annot-id="${id}"], #quizSection .an-line[data-id="${id}"]`);
 // ---- Khung viết ghi chú cho một cụm từ (mới / sửa) ----
 // Không giới hạn số từ (hàng riêng chứa được ghi chú dài); maxlength chỉ chặn dán nhầm cả trang làm phình doc quiz_study.
 const NOTE_MAX_CHARS = 4000;
@@ -402,6 +830,8 @@ function closeNoteEditor() {
 function openNoteEditor(ctx) {
     closeNoteEditor();
     const view = ctx.mode === 'view';
+    const saved = ctx.id ? getAnnotsFor(ctx.qText).find(a => a.id === ctx.id) : null;
+    const colors = { color: noteColor(saved?.color), inkColor: noteColor(saved?.inkColor) };
     const box = document.createElement('div');
     box.id = 'annot-note-pop';
     box.setAttribute('role', 'dialog');
@@ -418,7 +848,14 @@ function openNoteEditor(ctx) {
             + `<textarea class="anp-ta" rows="2" maxlength="${NOTE_MAX_CHARS}" enterkeyhint="done" autocomplete="off" placeholder="Viết ghi chú cho cụm từ này…"></textarea></div>`
             + '<div class="anp-tags" role="group" aria-label="Chèn nhãn">'
             + QUICK_TAGS.map((t, i) => `<button type="button" data-anp-tag="${i}" title="Chèn “${t.snip.trim()}” đầu dòng"><i class="fas ${t.icon}"></i> ${TAG_SHORT[t.label] || t.label}</button>`).join('')
-            + '</div>')
+            + '</div>'
+            + '<div class="anp-colors" role="group" aria-label="Màu ghi chú">'
+            + '<div class="anp-palette">'
+            + [['#B9A2F0', '#6A4FB8', 'Tím'], ['#FF8FB8', '#C8487A', 'Hồng'], ['#6FD1AE', '#23805F', 'Xanh lá'], ['#7EC0EE', '#2D6FA3', 'Xanh dương'], ['#F2BE2E', '#8C6500', 'Vàng'], ['#F79A5E', '#B0551C', 'Cam']]
+                .map(([color, ink, name]) => `<button type="button" data-note-color="${color}" data-note-ink="${ink}" style="--swatch:${color}" aria-label="Màu ${name.toLowerCase()}" title="${name}"></button>`).join('')
+            + '<button type="button" class="anp-auto" data-anp="auto-color">Tự động</button></div>'
+            + '<div class="anp-color-fields"><label>Vạch nhấn <input type="color" data-note-field="color" aria-label="Màu vạch nhấn"></label>'
+            + '<label>Chữ & mũi tên <input type="color" data-note-field="inkColor" aria-label="Màu chữ và mũi tên"></label></div></div>')
         + '<div class="anp-row">'
         + (view ? ''
             : '<span class="anp-hint">Enter lưu · Shift+Enter xuống dòng</span>')
@@ -436,13 +873,15 @@ function openNoteEditor(ctx) {
     else ta.value = ctx.note || '';
     document.body.appendChild(box);
     // Ô tự cao theo chữ (tới 40vh thì cuộn trong ô); nhãn đang có trong ghi chú sáng lên
+    const fit = () => { box.style.overflowY = ''; if (box.scrollHeight > box.clientHeight + 1) box.style.overflowY = 'auto'; };
     const grow = () => {
         if (!ta) return;
         ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight + 4, window.innerHeight * 0.4) + 'px';
         const on = noteTagsOf(ta.value);
         box.querySelectorAll('[data-anp-tag]').forEach(b => b.classList.toggle('is-on', on.has(QUICK_TAGS[+b.dataset.anpTag].label)));
+        fit();
     };
-    if (ta) { ta.addEventListener('input', grow); grow(); }
+    if (ta) { ta.addEventListener('input', grow); grow(); } else fit();
     // Bóng thoại cạnh cụm từ, đuôi chỉ đúng vào chữ (--tail). Cảm ứng lúc VIẾT thì ghim trên màn hình (bàn phím ảo che nửa dưới).
     const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
     if ((!coarse || view) && ctx.rect) {
@@ -455,14 +894,26 @@ function openNoteEditor(ctx) {
         box.style.setProperty('--tail', Math.max(22, Math.min(w - 22, ctx.rect.left + ctx.rect.width / 2 - left)) + 'px');
         box.classList.add('anp-near', below ? 'anp-below' : 'anp-above');
     }
-    noteEd = { box, ta, ctx };
+    noteEd = { box, ta, ctx, colors };
+    const previewColors = () => {
+        setNoteColors(box, colors);
+        if (colors.color) box.style.setProperty('--hue-lav', colors.color); else box.style.removeProperty('--hue-lav');
+        if (colors.inkColor) box.style.setProperty('--ink-lav', colors.inkColor); else box.style.removeProperty('--ink-lav');
+        box.querySelectorAll('[data-note-field]').forEach(input => { input.value = colors[input.dataset.noteField] || (input.dataset.noteField === 'color' ? '#b9a2f0' : '#6a4fb8'); });
+        box.querySelectorAll('[data-note-color]').forEach(b => b.setAttribute('aria-pressed', String(noteColor(b.dataset.noteColor) === colors.color && noteColor(b.dataset.noteInk) === colors.inkColor)));
+        box.querySelector('[data-anp="auto-color"]')?.setAttribute('aria-pressed', String(!colors.color && !colors.inkColor));
+    };
+    previewColors();
+    box.querySelectorAll('[data-note-field]').forEach(input => input.addEventListener('input', () => { colors[input.dataset.noteField] = input.value; previewColors(); }));
     if (ta) setTimeout(() => { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }, 30);
     else setTimeout(() => box.querySelector('[data-anp="edit"]')?.focus({ preventScroll: true }), 30);
     box.addEventListener('mousedown', (e) => {
         e.stopPropagation();
-        if (e.target.closest('[data-anp-tag]')) e.preventDefault();   // bấm nhãn: giữ con trỏ (và bàn phím ảo) trong ô gõ
+        if (e.target.closest('[data-anp-tag], [data-note-color]')) e.preventDefault();   // giữ con trỏ khi bấm nhãn / bảng màu
     });
     box.addEventListener('click', (e) => {
+        const swatch = e.target.closest('[data-note-color]');
+        if (swatch) { colors.color = noteColor(swatch.dataset.noteColor); colors.inkColor = noteColor(swatch.dataset.noteInk); previewColors(); return; }
         const tg = e.target.closest('[data-anp-tag]');
         if (tg && ta) {
             // chèn nhãn ở ĐẦU dòng đang gõ; dòng đã có đúng nhãn đó thì bấm lại = gỡ
@@ -480,36 +931,38 @@ function openNoteEditor(ctx) {
         if (!b) return;
         const act = b.getAttribute('data-anp');
         if (act === 'cancel') closeNoteEditor();
+        else if (act === 'auto-color') { colors.color = colors.inkColor = ''; previewColors(); }
         else if (act === 'save') saveNoteEditor();
         else if (act === 'del') deleteNoteEditor();
         else if (act === 'edit') openNoteEditor({ ...ctx, mode: 'edit' });
         else if (act === 'all') { closeNoteEditor(); import('./quiz-notes-all.js').then(m => m.openAllNotes({ filter: 'phrase' })); }
     });
-    (ta || box).addEventListener('keydown', (e) => {
+    box.addEventListener('keydown', (e) => {
         e.stopPropagation(); // đừng kích hoạt phím tắt A–D / mũi tên của trang làm bài
         if (e.key === 'Escape') closeNoteEditor();
-        else if (ta && e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); saveNoteEditor(); }   // Enter chốt chữ đang ghép (Telex / VNI) thì chưa lưu; Shift+Enter = xuống dòng
+        else if (ta && e.target === ta && e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); saveNoteEditor(); }   // Enter chốt chữ đang ghép (Telex / VNI) thì chưa lưu; Shift+Enter = xuống dòng
     });
 }
 function saveNoteEditor() {
     if (!noteEd) return;
-    const { ta, ctx } = noteEd;
+    const { ta, ctx, colors } = noteEd;
     if (!ta) return;
     const note = tidyNote(ta.value);
     const sec = document.getElementById('quizSection');
     if (ctx.mode === 'edit') {
         if (!note) { deleteNoteEditor(); return; }
-        updateAnnotNote(ctx.qText, ctx.id, note);
+        updateAnnotNote(ctx.qText, ctx.id, note, colors);
         document.querySelectorAll(`#quizSection [data-annot-id="${ctx.id}"]`).forEach(el => el.setAttribute('data-note', note));
-        renderNoteRails(sec);
+        renderNoteLines(sec);
         popIn(noteEls(ctx.id));
     } else if (note) {
-        const id = addAnnot(ctx.qText, ctx.scope, ctx.text, 'note', ctx.start, ctx.end, note);
+        const id = addAnnot(ctx.qText, ctx.scope, ctx.text, 'note', ctx.start, ctx.end, note, colors);
         if (ctx.scopeEl && ctx.scopeEl.isConnected) {
+            clearNoteLines(ctx.scopeEl);
             wrapOffsetRange(ctx.scopeEl, ctx.start, ctx.end, 'note', id, note);
             cleanupEmptyAnnots(ctx.scopeEl);
             markLastNoteFragments(ctx.scopeEl);
-            renderNoteRails(sec);
+            renderNoteLines(sec);
             popIn(noteEls(id));
         } else showQuestion();
     }
@@ -522,7 +975,7 @@ function deleteNoteEditor() {
     if (ctx.mode !== 'new') {
         removeAnnotById(ctx.qText, ctx.id);
         document.querySelectorAll(`#quizSection [data-annot-id="${ctx.id}"]`).forEach(unwrapMark);
-        renderNoteRails(document.getElementById('quizSection'));
+        renderNoteLines(document.getElementById('quizSection'));
         afterNoteChange();
     }
     closeNoteEditor();
@@ -687,25 +1140,46 @@ export function setupAnnotations() {
         });
     });
 
-    // Bấm một dòng trên hàng ghi chú -> mở sửa (capture: dòng nằm trong ô đáp án thì không tính là chọn đáp án)
+    // Bấm hàng ghi chú -> bóng thoại đọc (đủ chữ, Sửa / Xóa). Capture: hàng nằm trong ô đáp án thì không tính là chọn đáp án;
+    // nhấn giữ trên hàng cũng không được thành "gạch đáp án" (pointerdown / contextmenu chặn từ document).
+    const rowOf = (e) => e.target && e.target.closest && e.target.closest('#quizSection .an-line');
+    ['pointerdown', 'contextmenu'].forEach(t => document.addEventListener(t, (e) => { if (rowOf(e)) e.stopPropagation(); }, true));
     document.addEventListener('click', (e) => {
-        const ri = e.target.closest && e.target.closest('#quizSection .an-ri');
-        if (!ri) return;
+        const row = rowOf(e);
+        if (!row) return;
         e.preventDefault();
         e.stopPropagation();
-        const more = e.target.closest('.an-more');
-        if (more) { const open = !ri.querySelector('.an-tx').classList.toggle('is-clamp'); more.textContent = open ? 'Thu gọn' : 'Xem hết'; return; }
-        const scopeEl = ri.parentElement.previousElementSibling;
-        const id = ri.dataset.id, question = state.questions[state.currentIndex];
+        const scopeEl = row.closest('[data-annot]');
+        const id = row.dataset.id, question = state.questions[state.currentIndex];
         const frags = id && scopeEl ? [...scopeEl.querySelectorAll(`[data-annot-id="${id}"]`)] : [];
         if (!frags.length || !question) return;   // ghi chú tĩnh của phòng: chỉ đọc
         const scope = scopeEl.getAttribute('data-annot');
-        openNoteEditor({ mode: 'edit', qText: annotKeyFor(question, scope), scope, id, text: frags.map(f => f.textContent).join(''), note: frags[frags.length - 1].getAttribute('data-note') || '', rect: ri.getBoundingClientRect() });
+        openNoteEditor({ mode: 'view', qText: annotKeyFor(question, scope), scope, id, text: frags.map(f => f.textContent).join(''), note: frags[frags.length - 1].getAttribute('data-note') || '', rect: row.getBoundingClientRect() });
+        popIn(frags);
     }, true);
-    // Rê chuột lên cụm từ <-> dòng ghi chú: cả hai cùng sáng để biết dòng nào của cụm nào
+    document.addEventListener('keydown', (e) => {
+        const row = rowOf(e);
+        if (row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); e.stopPropagation(); row.click(); }
+    }, true);
+    // Bố cục đổi -> chỗ xuống dòng đổi -> vẽ lại hàng ghi chú
+    const secEl = document.getElementById('quizSection');
+    if (secEl && window.ResizeObserver) {
+        let w0 = 0;
+        new ResizeObserver(([en]) => { const w = Math.round(en.contentRect.width); if (w !== w0) { w0 = w; relayNoteLines(); } }).observe(secEl);
+    }
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => relayNoteLines(0));
+    // phông viết tay chỉ được tải khi hàng ghi chú đầu tiên xuất hiện -> đo lại bề rộng chữ khi nó tải xong
+    if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', () => relayNoteLines(0));
+    // bật / tắt "Hiện ghi chú cụm từ" (body.qz-notes-inline) -> chèn / gỡ hàng
+    let inl = document.body.classList.contains('qz-notes-inline');
+    new MutationObserver(() => {
+        const now = document.body.classList.contains('qz-notes-inline');
+        if (now !== inl) { inl = now; const sec = document.getElementById('quizSection'); if (sec) renderNoteLines(sec); }
+    }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    // Rê chuột lên cụm từ <-> hàng ghi chú: cả hai cùng sáng để biết hàng nào của cụm nào
     let litId = null;
     document.addEventListener('mouseover', (e) => {
-        const t = e.target.closest && e.target.closest('#quizSection :is(.an-ri[data-id], .annot-note[data-annot-id])');
+        const t = e.target.closest && e.target.closest('#quizSection :is(.an-line[data-id], .annot-note[data-annot-id])');
         const id = t ? (t.dataset.id || t.getAttribute('data-annot-id')) : null;
         if (id === litId) return;
         if (litId) noteEls(litId).forEach(x => x.classList.remove('is-lit'));
@@ -716,7 +1190,7 @@ export function setupAnnotations() {
     // Bấm vào một đoạn đã ghi chú để gỡ nhanh (capture để không kích hoạt chọn đáp án)
     document.addEventListener('click', (e) => {
         const mark = e.target.closest && e.target.closest('.quiz-annot');
-        if (!mark) return;
+        if (!mark || e.target.closest('.an-line')) return;   // hàng ghi chú có thể nằm TRONG một đoạn tô (dòng kế bắt đầu giữa đoạn đó)
         const cont = mark.closest('#quizSection [data-annot]');
         if (!cont) return;
         // Đang bôi đen chữ (kết thúc kéo chọn trên chính đoạn ghi chú) -> đừng gỡ nhầm
@@ -732,7 +1206,7 @@ export function setupAnnotations() {
             const frags = id ? [...cont.querySelectorAll(`[data-annot-id="${id}"]`)] : [mark];
             const rect = [...mark.getClientRects()].find(r => e.clientY >= r.top - 2 && e.clientY <= r.bottom + 2) || mark.getBoundingClientRect();
             openNoteEditor({ mode: 'view', qText: annotKeyFor(question, scope), scope, id, text: frags.map(f => f.textContent).join(''), note: mark.getAttribute('data-note') || '', rect });
-            popIn([...noteEls(id)].filter(x => x.classList.contains('an-ri')));
+            popIn([...noteEls(id)].filter(x => x.classList.contains('an-line')));
             return;
         }
         if (question) {

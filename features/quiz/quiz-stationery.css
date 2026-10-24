@@ -3268,6 +3268,16 @@ mark.essay-hit.is-bad   { background: var(--bad-bg); box-shadow: inset 0 -2px 0 
 .essay-kp-tag.is-near { color: var(--ink-butter); border-color: color-mix(in srgb, var(--hue-butter) 60%, transparent); }
 .essay-kp-tag.is-bad  { color: var(--bad-ink); border-color: var(--bad-line); background: var(--bad-bg); }
 .essay-kp-tag.is-crit { color: var(--ink-peach); border-color: color-mix(in srgb, var(--hue-peach) 55%, transparent); background: color-mix(in srgb, var(--hue-peach) 12%, var(--surface-card)); }
+/* Máy chấm bản 3: ý nhiều vế mới nêu một phần -> liệt kê vế còn thiếu (viên vàng bơ nét đứt, cùng họ "gần khớp") */
+.essay-kp-gaps { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.3rem; font-size: 11.5px; line-height: 1.45; }
+.essay-kp-gaps > b { font-weight: 800; color: var(--ink-butter); margin-right: 0.1rem; }
+.essay-kp-gap {
+    padding: 0.02rem 0.45rem; border-radius: 0.6rem;
+    font-weight: 600; color: var(--ink);
+    border: 1.5px dashed color-mix(in srgb, var(--hue-butter) 70%, transparent);
+    background: color-mix(in srgb, var(--hue-butter) 10%, var(--surface-card));
+}
+.essay-kp.is-on .essay-kp-gaps { display: none; }   /* đã tick đủ điểm thì thôi nhắc thiếu */
 
 .essay-kp.is-near { border-style: dashed; border-color: color-mix(in srgb, var(--hue-butter) 65%, transparent); }
 .essay-kp.is-half { border-color: color-mix(in srgb, var(--hue-butter) 65%, transparent); background: color-mix(in srgb, var(--hue-butter) 16%, var(--surface-card)); }
@@ -3580,7 +3590,7 @@ body.focus-mode-active #qz-brand { display: inline-flex; top: 0.75rem; left: 0.7
    19) BÔI ĐEN TRÊN ĐIỆN THOẠI / iPAD + GHI CHÚ CHO CỤM TỪ  (page/quiz-annotations.js)
    - Cảm ứng: menu Sao chép/Tra cứu của hệ điều hành hiện sát vùng chọn và che thanh nổi -> thanh ghim ở NỬA MÀN HÌNH ĐỐI DIỆN
      (data-dock="bottom|top", JS chọn theo vị trí vùng chọn); nút to hơn cho ngón tay.
-   - Ghi chú riêng cho cụm từ: .annot-note (vạch bút dạ theo màu nền + số bong bóng), hàng ghi chú .an-rail dưới vùng chữ
+   - Ghi chú riêng cho cụm từ: .annot-note (vạch bút dạ theo màu nền + số bong bóng), hàng ghi chú .an-line ngay dưới dòng có cụm từ
      và khung viết #annot-note-pop (giấy dán băng keo).
    ============================================================ */
 #annot-toolbar.annot-dock { transform: translateX(-50%); max-width: calc(100vw - 16px); overflow-x: auto; scrollbar-width: none; }
@@ -3618,27 +3628,26 @@ html.theme-dark {
 
 /* ---- Ghi chú cụm từ bản 3 (2026-10-22): HÀNG GHI CHÚ RIÊNG + màu theo nền ----
    Ghi chú dài ngắn tùy ý -> nội dung không còn chen cạnh chữ (chip ::after làm xô dòng, bóng thoại ::before đè lên dòng trên).
-   Cụm từ chỉ giữ vạch bút dạ + số trong bong bóng nhỏ; nội dung nằm ở .an-rail ngay DƯỚI vùng chữ (JS: renderNoteRails),
+   Cụm từ chỉ giữ vạch bút dạ + số trong bong bóng nhỏ; nội dung nằm ở hàng .an-line ngay DƯỚI DÒNG có cụm (bản 5, JS: renderNoteLines),
    cùng số với bong bóng, rê chuột bên nào thì cả cặp cùng sáng (.is-lit).
    Màu: --nt (bút dạ / viền) + --nt-ink (mực) đặt theo NỀN chứa nó, cùng lối --em-b/--em-i §16.1:
-   giấy = oải hương · ca lâm sàng (xanh trời) = xanh trời + mực xanh than · Ghi nhớ (vàng bơ) = cam đào + nâu cam ·
-   ô đáp án = chính màu kẹo của ô (--h/--hi) · đang chọn / đúng / sai = mực của chính trạng thái đó.
+   Giấy = tím · ca xanh = tím chàm · Ghi nhớ / Lập luận = xanh ngọc · ô đáp án ấm = xanh dương.
+   Mực pha đậm trên nền sáng, sáng dịu trên nền tối; màu tự chọn đặt inline vẫn có ưu tiên cao nhất.
    Vạch pha với TRONG SUỐT (không pha giấy) nên tự ngả theo nền bên dưới. */
-:root { --nt: var(--hue-lav); --nt-ink: var(--ink-lav); }
-#quizSection #clinical-case-panel, #case-peek-sheet { --nt: var(--hue-sky); --nt-ink: #1F4C7A; }
-html.theme-dark :is(#quizSection #clinical-case-panel, #case-peek-sheet) { --nt-ink: #CFE8FF; }
-#quizSection .kb-memo { --nt: var(--hue-peach); --nt-ink: #9A4A12; }
-html.theme-dark #quizSection .kb-memo { --nt-ink: #FFD08A; }
-#quizSection #answers-container > .answer-btn { --nt: var(--h, var(--hue-latte)); --nt-ink: var(--hi, var(--ink-latte)); }
-#quizSection #answers-container > .answer-btn.bg-blue-100 { --nt: var(--pick-solid); --nt-ink: var(--pick-ink); }
-#quizSection #answers-container > .answer-btn.bg-green-200, #quizSection .option-explanation.exp-correct { --nt: var(--ok-solid); --nt-ink: var(--ok-ink); }
-#quizSection #answers-container > .answer-btn.bg-red-200, #quizSection .option-explanation.exp-wrong-selected { --nt: var(--bad-solid); --nt-ink: var(--bad-ink); }
+:root { --nt-shade: #291D40; --nt: var(--hue-lav); --nt-ink: color-mix(in srgb, var(--ink-lav) 86%, var(--nt-shade)); }
+html.theme-dark { --nt-shade: #FFF9F2; }
+#quizSection #clinical-case-panel, #case-peek-sheet { --nt: var(--hue-lav); --nt-ink: color-mix(in srgb, var(--ink-lav) 86%, var(--nt-shade)); }
+#quizSection :is(.kb-memo, .kb-reason) { --nt: var(--hue-mint); --nt-ink: color-mix(in srgb, var(--ink-mint) 84%, var(--nt-shade)); }
+#quizSection #answers-container > .answer-btn { --nt: var(--hue-sky); --nt-ink: color-mix(in srgb, var(--ink-sky) 86%, var(--nt-shade)); }
+#quizSection #answers-container > .answer-btn.bg-blue-100 { --nt: var(--hue-lav); --nt-ink: color-mix(in srgb, var(--ink-lav) 86%, var(--nt-shade)); }
+#quizSection #answers-container > .answer-btn.bg-green-200, #quizSection .option-explanation.exp-correct { --nt: var(--hue-mint); --nt-ink: color-mix(in srgb, var(--ink-mint) 84%, var(--nt-shade)); }
+#quizSection #answers-container > .answer-btn.bg-red-200, #quizSection .option-explanation.exp-wrong-selected { --nt: var(--hue-blossom); --nt-ink: color-mix(in srgb, var(--ink-blossom) 78%, var(--nt-shade)); }
 
 /* :is(.annot-note, [data-annot] span[data-note]): ghi chú do chính trang này tạo (.annot-note, bấm để sửa) + ghi chú CỦA NHÓM đi theo đề
    từ phòng đánh đề (Lưu đề mang theo <span data-note>, study-room.css bản 53) — lên hàng ghi chú như thường, chỉ để đọc.
    text-decoration (không phải background) -> chỉ vẽ dưới CHỮ, nằm SAU nét chữ, không lan sang bong bóng số. */
 :is(.annot-note, [data-annot] span[data-note]) {
-    --nt-a: 46%;
+    --nt-a: 56%;
     text-decoration-line: underline;
     text-decoration-color: color-mix(in srgb, var(--nt) var(--nt-a), transparent);
     text-decoration-thickness: .44em;
@@ -3646,7 +3655,7 @@ html.theme-dark #quizSection .kb-memo { --nt-ink: #FFD08A; }
     text-decoration-skip-ink: none;
     transition: text-decoration-color .2s ease;
 }
-html.theme-dark :is(.annot-note, [data-annot] span[data-note]) { --nt-a: 38%; }
+html.theme-dark :is(.annot-note, [data-annot] span[data-note]) { --nt-a: 48%; }
 .annot-note { cursor: pointer; }
 .annot-note:is(:hover, .is-lit) { --nt-a: 78%; }
 html.theme-dark .annot-note:is(:hover, .is-lit) { --nt-a: 62%; }
@@ -3659,10 +3668,9 @@ html.theme-dark .annot-note:is(:hover, .is-lit) { --nt-a: 62%; }
     text-underline-offset: .3em;
 }
 
-/* Bong bóng số sau cụm từ (mảnh CUỐI nếu cụm bị định dạng khác cắt đôi) — góc dưới trái nhọn như đuôi bóng thoại,
-   khác hẳn số tròn của "Quét dữ kiện" (mark.qr-hit[data-n]) dù cùng đứng trong đề. */
-:is(.annot-note, [data-annot] span[data-note])[data-an]:not(.an-dup)::after,
-.an-rail .an-no {
+/* Bong bóng số sau cụm từ (mảnh CUỐI nếu cụm bị định dạng khác cắt đôi) + đầu hàng ghi chú — góc dưới trái nhọn như đuôi bóng
+   thoại, khác hẳn số tròn của "Quét dữ kiện" (mark.qr-hit[data-n]) dù cùng đứng trong đề. */
+body:not(.qz-notes-inline) :is(.annot-note, [data-annot] span[data-note])[data-an]:not(.an-dup)::after {
     display: inline-grid; place-items: center;
     min-width: 1.6em; height: 1.6em; padding: 0 .32em;
     border-radius: .8em .8em .8em .22em;
@@ -3672,44 +3680,65 @@ html.theme-dark .annot-note:is(:hover, .is-lit) { --nt-a: 62%; }
     background: color-mix(in srgb, var(--nt) 24%, var(--surface-card));
     box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--nt) 62%, transparent);
 }
-:is(.annot-note, [data-annot] span[data-note])[data-an]:not(.an-dup)::after { content: attr(data-an); margin-left: .2em; vertical-align: .5em; }
-.annot-note.is-lit::after, .an-ri.is-lit .an-no { background: color-mix(in srgb, var(--nt) 45%, var(--surface-card)); }
+body:not(.qz-notes-inline) :is(.annot-note, [data-annot] span[data-note])[data-an]:not(.an-dup)::after { content: attr(data-an); margin-left: .2em; vertical-align: .5em; }
+.annot-note.is-lit::after { background: color-mix(in srgb, var(--nt) 45%, var(--surface-card)); }
 
-/* Hàng ghi chú: mỗi dòng = số + cụm từ (cùng vạch bút dạ, nhỏ) + lời ghi chú, nền pha nhẹ màu --nt của nền chứa nó */
-.an-rail {
-    display: flex; flex-direction: column; gap: .1rem;
-    margin: .6em 0 .1em; padding: .3em .35em;
-    border-radius: 1em;
-    background: color-mix(in srgb, var(--nt) 8%, transparent);
-    font-size: max(.84em, 13px); font-weight: 600; font-style: normal; line-height: 1.5;
-    text-align: left; letter-spacing: normal; text-transform: none; white-space: normal;
-    cursor: auto;
-}
-.an-ri {
-    display: flex; align-items: flex-start; gap: .55em;
-    padding: .2em .55em .24em .3em;
-    border-radius: .7em;
+/* Chú thích viết tay: nội dung ở ::after để không đổi offset chữ của câu hỏi.
+   JS xếp ghi chú sát cụm từ, vẽ mũi tên SVG cong theo vị trí thực; số chỉ dùng khi phải xếp nhiều tầng. */
+.an-line {
+    box-sizing: border-box;
+    display: flex; align-items: flex-start; gap: .28em;
+    margin: .1em 0 .35em;
+    padding: 0 .3em 0 1.6em;
+    font-family: 'Patrick Hand', Quicksand, cursive; font-size: clamp(15px, .82em, 18px); font-weight: 400; font-style: normal;
+    line-height: 1.28; letter-spacing: .012em;
+    text-transform: none; text-align: left; text-indent: 0; white-space: normal;
     color: var(--nt-ink);
     cursor: pointer;
-    transition: background-color .18s ease;
+    -webkit-user-select: none; user-select: none;
+    transition: color .2s ease, translate .3s var(--spring);
 }
-.an-ri:is(:hover, .is-lit) { background: color-mix(in srgb, var(--nt) 18%, transparent); }
-.an-ri.is-static { cursor: default; }
-.an-rail .an-no { flex: none; font-size: .78em; margin-top: .2em; }
-.an-tx { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.an-q {
-    margin-right: .45em; font-weight: 700;
-    text-decoration: underline .38em color-mix(in srgb, var(--nt) 42%, transparent);
-    text-underline-offset: -.24em; text-decoration-skip-ink: none;
-    -webkit-box-decoration-break: clone; box-decoration-break: clone;
+.an-line::after {
+    content: attr(data-txt);
+    flex: 1; min-width: 0;
+    white-space: pre-line; overflow-wrap: anywhere;
+    text-wrap: balance; /* đã xuống dòng thì cân độ dài các dòng, vẫn giữ ngắt dòng người dùng nhập */
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
 }
-.an-q::after { content: "—"; margin-left: .45em; font-weight: 500; opacity: .45; text-decoration: none; display: inline-block; }
-.an-nt { font-weight: 600; white-space: pre-line; }
-/* vùng chữ đang ẩn (ca lâm sàng thu gọn, giải thích chưa mở, Mở rộng gập) -> hàng của nó ẩn theo */
-[data-annot].hidden + .an-rail, .kb-more.is-folded .an-rail { display: none; }
+.an-line:is(:hover, .is-lit) { color: var(--nt-ink); }
+.an-line.is-side { padding-left: 0; }
+.an-line.is-trailing { padding-left: .3em; padding-right: 1.6em; text-align: right; }
+/* ≥ 2 cụm chung một dòng chữ: số nhỏ viết tay NỔI ở cuối cụm (absolute -> không chiếm chỗ, không đổi chỗ xuống dòng) + đầu hàng
+   cùng số; các hàng của dòng đó xếp sát nhau, thẳng hàng dưới cụm đầu -> không còn hàng sau "chỉ" nhầm vào hàng trước. */
+body.qz-notes-inline :is(.annot-note, [data-annot] span[data-note])[data-mk] { position: relative; }
+body.qz-notes-inline :is(.annot-note, [data-annot] span[data-note])[data-mk]::after {
+    content: attr(data-mk);
+    position: absolute; right: -.42em; top: -.58em;
+    font-family: 'Patrick Hand', Quicksand, cursive; font-size: .62em; font-weight: 400; font-style: normal; line-height: 1;
+    color: var(--nt-ink); text-decoration: none; pointer-events: none;
+}
+.an-line[data-mk]::before {
+    content: attr(data-mk);
+    flex: none; background: none;
+    width: .8em; height: auto; margin-top: 0; text-align: center;
+    font-size: .8em; line-height: 1.6; opacity: 1; color: var(--nt-ink);
+}
+/* Dải ghi chú của MỘT dòng chữ (JS layoutBand xếp theo bề ngang thật): ghi chú đặt tuyệt đối dưới cụm của nó, cạnh nhau khi đủ
+   chỗ, chật mới xuống làn dưới (lúc đó mới có số ¹ ²). Chưa xếp được (vùng đang ẩn) thì các hàng xếp chồng bình thường. */
+.an-band { display: block; position: relative; margin: .05em 0 .35em; }
+.an-band.is-flat { margin: 0; }   /* chỉ có ghi chú cùng dòng: dải không chiếm chỗ */
+.an-band.is-laid > .an-line { position: absolute; margin: 0; }
+.an-band.is-laid > .an-line::before { display: none; }
+.an-band.is-laid > .an-line[data-mk]::before { display: block; }
+.an-links { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 1px; overflow: visible; pointer-events: none; }
+.an-links path { fill: none; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; opacity: .95; }
+.an-band:not(.is-laid) > .an-line { margin: .05em 0; }
+.an-line:is(:hover, .is-lit)::before { opacity: 1; }
+.an-line.is-static { cursor: default; }
+.an-line:focus-visible { outline: 2px solid color-mix(in srgb, var(--nt) 80%, transparent); outline-offset: 1px; }
 
 /* Tắt "Hiện ghi chú cụm từ": giấu hàng, chỉ còn bong bóng số; máy có chuột rê vào cụm từ thì hiện lời ghi chú như bóng thoại */
-body:not(.qz-notes-inline) .an-rail { display: none; }
+body:not(.qz-notes-inline) .an-line { display: none; }
 @media (hover: hover) {
     body:not(.qz-notes-inline) :is(.annot-note, [data-annot] span[data-note]) { position: relative; }
     body:not(.qz-notes-inline) :is(.annot-note, [data-annot] span[data-note]):hover::before {
@@ -3727,12 +3756,15 @@ body:not(.qz-notes-inline) .an-rail { display: none; }
 }
 /* Vừa lưu: bong bóng số + dòng ghi chú bật ra như dán nhãn */
 .annot-note.an-new::after { animation: an-pop .5s var(--spring) both; transform-origin: 0 60%; }
-.an-ri.an-new { animation: an-pop .45s var(--spring) both; transform-origin: 0 50%; }
+/* chữ hiện dần như đang được viết, nét mũi tên vẽ trước */
+.an-line.an-new { animation: an-write .75s cubic-bezier(.4, .1, .3, 1) both; }
+@keyframes an-write { from { clip-path: inset(-.3em 100% -.3em 0); } to { clip-path: inset(-.3em -.3em -.3em 0); } }
 @keyframes an-pop { from { opacity: 0; scale: .55; translate: 0 5px; } }
 
 /* Khung viết ghi chú = tờ giấy note dán băng keo oải hương (cùng họ Ghi nhớ / bảng Ngựa thì chỉnh) */
 #annot-note-pop {
     position: fixed; z-index: 70; width: min(380px, calc(100vw - 16px));
+    box-sizing: border-box; max-height: calc(100dvh - 5rem);
     left: 50%; top: calc(4.2rem + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
     padding: 1.15rem .95rem .85rem;
     display: flex; flex-direction: column; gap: .7rem;
@@ -3761,7 +3793,7 @@ body:not(.qz-notes-inline) .an-rail { display: none; }
     text-decoration-thickness: .44em; text-underline-offset: -.26em; text-decoration-skip-ink: none;
 }
 #annot-note-pop .anp-field { position: relative; }
-html.theme-dark #annot-note-pop .anp-ta { background-color: var(--surface-card) !important; color: var(--ink) !important; border-color: var(--line) !important; }
+html.theme-dark #annot-note-pop .anp-ta { background-color: var(--surface-card) !important; color: var(--nt-ink) !important; border-color: var(--line) !important; }
 html.theme-dark #annot-note-pop .anp-ta:focus { border-color: var(--hue-lav) !important; }
 html.theme-dark #annot-note-pop .anp-ta::placeholder { color: var(--ink-faint) !important; }
 #annot-note-pop .anp-ta {
@@ -3774,6 +3806,19 @@ html.theme-dark #annot-note-pop .anp-ta::placeholder { color: var(--ink-faint) !
 }
 #annot-note-pop .anp-ta::placeholder { color: var(--ink-faint); font-weight: 600; }
 #annot-note-pop .anp-ta:focus { outline: none; border-color: var(--hue-lav); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hue-lav) 26%, transparent); }
+#annot-note-pop .anp-colors { display: grid; gap: .5rem; }
+#annot-note-pop .anp-palette, #annot-note-pop .anp-color-fields { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem; }
+#annot-note-pop .anp-palette [data-note-color] {
+    width: 30px; height: 30px; padding: 0; border: 3px solid var(--surface-card); border-radius: 50%;
+    background: var(--swatch); box-shadow: 0 0 0 1px var(--line); cursor: pointer;
+}
+#annot-note-pop .anp-palette [aria-pressed="true"] { outline: 2px solid var(--ink-lav); outline-offset: 2px; }
+#annot-note-pop .anp-auto { margin-left: auto; padding: .35rem .5rem; border: 1px solid var(--line); border-radius: .6rem; font: inherit; font-size: 12px; color: var(--ink-muted); background: var(--surface-card); cursor: pointer; }
+#annot-note-pop .anp-color-fields { justify-content: space-between; }
+#annot-note-pop .anp-color-fields label { display: flex; align-items: center; gap: .4rem; font-size: 12px; font-weight: 700; color: var(--ink-muted); }
+#annot-note-pop input[type="color"] { width: 36px; height: 30px; padding: 2px; border: 1px solid var(--line); border-radius: .5rem; background: var(--surface-card); cursor: pointer; }
+#annot-note-pop .anp-ta { color: var(--nt-ink); border-color: color-mix(in srgb, var(--nt) 55%, var(--line)); }
+#annot-note-pop :is(.anp-palette button, input[type="color"]):focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 #annot-note-pop .anp-row { display: flex; align-items: center; gap: .5rem; }
 #annot-note-pop .anp-hint { order: 9; flex-basis: 100%; font-size: 11px; font-weight: 700; color: var(--ink-muted); text-align: right; }
 @media (pointer: coarse) { #annot-note-pop .anp-hint { display: none; } }
@@ -3799,29 +3844,12 @@ html.theme-dark #annot-note-pop .anp-row .anp-ok { --hi: #3a1422; background: #F
 /* ---- Ghi chú cụm từ bản 4 (2026-10-23) ----
    - Nhãn đầu dòng (chung hệ nhãn ghi chú cá nhân) đổi màu cả cụm: ⭐ Quan trọng = vàng bơ (★ trong bong bóng), Dễ nhầm = cam đào (!,
      cùng màu "bẫy" của Quét dữ kiện), Hỏi lại = xanh trời (?). Không nhãn thì vẫn theo nền.
-   - Ghi chú dài gập 4 dòng (.is-clamp, JS chỉ gắn khi đo được là tràn) + "Xem hết".
+   - (bản 5) hàng ghi chú nằm ngay dưới dòng có cụm từ, gập 3 dòng; bấm hàng = bóng thoại đủ chữ.
    - Bấm cụm từ = bóng thoại ĐỌC có đuôi chỉ vào chữ; khung viết có chip chèn nhãn.
    - Vừa lưu / nhảy tới từ sổ: bút dạ QUÉT trái -> phải rồi lắng thành vạch (chỉ background-size + màu, không 3D/blur — §17). */
-:is(.annot-note, [data-annot] span[data-note], .an-ri)[data-tag="star"] { --nt: var(--hue-butter); --nt-ink: var(--ink-butter); }
-:is(.annot-note, [data-annot] span[data-note], .an-ri)[data-tag="trap"] { --nt: var(--hue-peach); --nt-ink: var(--ink-peach); }
-:is(.annot-note, [data-annot] span[data-note], .an-ri)[data-tag="ask"] { --nt: var(--hue-sky); --nt-ink: var(--ink-sky); }
-.an-ri[data-tag] { background: color-mix(in srgb, var(--nt) 9%, transparent); }
-.an-ri[data-tag]:is(:hover, .is-lit) { background: color-mix(in srgb, var(--nt) 20%, transparent); }
-
-.an-body { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
-.an-tx { align-self: stretch; }
-.an-tx.is-clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; }
-.an-more {
-    margin-top: .1rem; padding: 0 .5rem; border-radius: 999px;
-    font-size: .86em; font-weight: 800; color: var(--nt-ink);
-    background: color-mix(in srgb, var(--nt) 16%, transparent);
-    cursor: pointer;
-}
-.an-more:hover { background: color-mix(in srgb, var(--nt) 30%, transparent); }
-.an-ri:focus-visible { outline: 2px solid color-mix(in srgb, var(--nt) 80%, transparent); outline-offset: 1px; }
-.an-rail .na-tag { color: inherit; font-weight: 800; }
-.an-rail .na-todo { border-color: color-mix(in srgb, var(--nt) 70%, transparent); }
-.an-rail strong { font-weight: 800; color: inherit; }
+:is(.annot-note, [data-annot] span[data-note], .an-line, .an-links path)[data-tag="star"] { --nt: var(--hue-butter); --nt-ink: color-mix(in srgb, var(--ink-butter) 86%, var(--nt-shade)); }
+:is(.annot-note, [data-annot] span[data-note], .an-line, .an-links path)[data-tag="trap"] { --nt: var(--hue-peach); --nt-ink: color-mix(in srgb, var(--ink-peach) 86%, var(--nt-shade)); }
+:is(.annot-note, [data-annot] span[data-note], .an-line, .an-links path)[data-tag="ask"] { --nt: var(--hue-sky); --nt-ink: color-mix(in srgb, var(--ink-sky) 86%, var(--nt-shade)); }
 
 /* Bút dạ quét: nền MỘT màu (điểm dừng cứng, không phải gradient trang trí) chạy 0 -> 100% đúng chỗ vạch text-decoration
    (đáy dòng chữ trừ .07em, dày .44em), rồi --an-sw tan dần trong lúc vạch thật hiện lên -> không nháy lúc đổi lớp. */
@@ -3894,7 +3922,7 @@ html.theme-dark #annot-note-pop .anp-row .anp-ok { --hi: #3a1422; background: #F
     -webkit-box-decoration-break: clone; box-decoration-break: clone;
 }
 @media (prefers-reduced-motion: reduce) {
-    #annot-toolbar.show, #annot-note-pop, .annot-note.an-new, .annot-note.an-new::after, .an-ri.an-new, body:not(.qz-notes-inline) :is(.annot-note, [data-annot] span[data-note]):hover::before { animation: none; }
+    #annot-toolbar.show, #annot-note-pop, .annot-note.an-new, .annot-note.an-new::after, .an-line.an-new, body:not(.qz-notes-inline) :is(.annot-note, [data-annot] span[data-note]):hover::before { animation: none; }
 }
 
 /* ============================================================

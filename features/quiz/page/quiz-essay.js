@@ -201,7 +201,26 @@ function markOf(ans, i) {
 // Đã có kết luận chấm (tick của người làm / máy, hoặc bỏ trống = 0) -> tô hàng theo điểm
 const settled = (ans) => !hasText(ans) || Array.isArray(ans.ticks);
 
-function itemRowHtml(it, i, ans, m, readonly) {
+// Vì sao máy chỉ "gần khớp" (máy chấm bản 3, quiz-essay-core.js autoMatch .why) — nói rõ để người làm tự quyết nhanh
+const clip = (s, n = 70) => (String(s).length > n ? String(s).slice(0, n).trim() + '…' : String(s));
+function nearTagHtml(m, format) {
+    const words = escHtml(m.words.slice(0, 3).join(', '));
+    const tag = (title, body) => `<span class="essay-kp-tag is-near" title="${title}">${body}</span>`;
+    if (m.why === 'few') {
+        return tag('Ý gồm nhiều vế, bài mới nêu một phần', `mới nêu một phần${words ? ': ' + words : ''}`)
+            + (m.missing && m.missing.length ? `<span class="essay-kp-gaps"><b>Còn thiếu</b>${m.missing.slice(0, 5).map(x => `<span class="essay-kp-gap">${escHtml(clip(x))}</span>`).join('')}</span>` : '');
+    }
+    if (m.why === 'kw') return tag('Bài có từ khóa nhưng chưa nêu được nội dung chính của ý', `mới có “${words}” — chưa đủ nội dung ý`);
+    if (m.why === 'neg') return tag('Trước chữ khớp có “không / chưa / tránh…” — nghĩa có thể ngược với ý này', `ghi phủ định: “${words}” — ngược nghĩa?`);
+    if (m.why === 'given') return tag('Những chữ này có sẵn trong đề / ca bệnh — chép lại chưa tính là nêu ý', `chỉ lặp chữ của đề: ${words}`);
+    if (m.why === 'elsewhere' && m.at) {
+        const f = format.kind === 'table' ? Math.floor((m.at - 1) / format.columns.length) + 1 : m.at;
+        return tag('Ý này chấm ở ô khác — đúng ý thì tự tick', `ghi ở ô “${escHtml(fieldName(format, f))}”: ${words}`);
+    }
+    return tag('Có vài chữ trùng — tự xem có đúng ý không', `gần khớp: ${words}`);
+}
+
+function itemRowHtml(it, i, ans, m, readonly, format) {
     const mark = markOf(ans, i);
     const cls = ['essay-kp', mark === 'full' && 'is-on', mark === 'half' && 'is-half', it.penalty && 'is-penalty',
         !mark && m && m.level === 'near' && !it.penalty && 'is-near', !mark && !it.penalty && settled(ans) && 'is-miss'].filter(Boolean).join(' ');
@@ -210,7 +229,7 @@ function itemRowHtml(it, i, ans, m, readonly) {
     if (m && m.level && !it.penalty) {
         tags += m.level === 'match'
             ? `<span class="essay-kp-tag is-auto" title="Máy nhận ra trong bài của bạn"><i class="fas fa-wand-magic-sparkles"></i> ${words}</span>`
-            : `<span class="essay-kp-tag is-near" title="Có vài chữ trùng — tự xem có đúng ý không">gần khớp: ${words}</span>`;
+            : nearTagHtml(m, format);
     }
     if (m && m.level && it.penalty) tags += `<span class="essay-kp-tag is-bad">bài có nhắc “${words}” — tự kiểm tra</span>`;
     // Vì sao + viết mẫu: luôn vẽ; CSS giấu ở ý đã đạt trừ khi bật "Xem đáp án đầy đủ" (.er-all) — checklist thay đáp án mẫu
@@ -229,7 +248,7 @@ function itemRowHtml(it, i, ans, m, readonly) {
 
 // Một ý lẻ, hoặc cả nhóm "nêu k trong n" (khung có trần điểm)
 function unitHtml(q, sheet, u, ans, matches, readonly) {
-    const row = (k) => itemRowHtml(sheet.items[k], k, ans, matches && matches[k], readonly);
+    const row = (k) => itemRowHtml(sheet.items[k], k, ans, matches && matches[k], readonly, sheet.format);
     if (u.group < 0) return row(u.idxs[0]);
     const g = sheet.groups[u.group];
     const { got } = unitScore(q, u, ans);
@@ -396,7 +415,7 @@ export function sheetHtml(q, idx, ans, ctx = {}) {
     }).join('');
     const pens = sheet.pens.length
         ? `<div class="essay-pen"><div class="essay-pen-head"><i class="fas fa-triangle-exclamation"></i> Lỗi trừ điểm${readonly ? '' : ' — tick nếu bài bạn mắc'}</div>
-            <ul class="essay-kps">${sheet.pens.map(i => itemRowHtml(sheet.items[i], i, ans, matches && matches[i], readonly)).join('')}</ul></div>` : '';
+            <ul class="essay-kps">${sheet.pens.map(i => itemRowHtml(sheet.items[i], i, ans, matches && matches[i], readonly, sheet.format)).join('')}</ul></div>` : '';
     // Chia theo ô mà đáp án mẫu không tách được theo ô -> một khối "cả bài" dưới các hàng (vẫn chung công tắc)
     const whole = ref && sheet.split && !parts ? refHtml(ref, scope(0), 'cả bài', true) : '';
     const hasDetail = !!ref || sheet.items.some(it => it.why || it.example);

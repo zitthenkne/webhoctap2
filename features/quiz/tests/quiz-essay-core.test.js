@@ -134,7 +134,9 @@ test('máy chấm sơ bộ: tick ý khớp, KHÔNG tự tick lỗi trừ điểm
     assert.deepEqual(a.ticks, [0]);
     assert.equal(a.auto, true);
     assert.equal(needsReview(barem, a), true);
-    assert.equal(autoMatch(barem, a.text)[5].level, 'match');   // vẫn báo để người làm tự xem
+    assert.equal(autoMatch(barem, a.text)[5].level, null);      // "KHÔNG dùng nitrat" = tránh đúng lỗi -> không nhắc
+    assert.equal(autoMatch(barem, 'NMCT cấp, cho nitrat ngậm')[5].level, 'match');   // mắc lỗi thật: vẫn báo để tự xem (máy không tự trừ)
+    assert.deepEqual(withAutoGrade(barem, { text: 'NMCT cấp, cho nitrat ngậm', ticks: null }).ticks, [0]);
     // đã chấm rồi thì không đè
     assert.deepEqual(withAutoGrade(barem, { text: 'aspirin', ticks: [] }).ticks, []);
 });
@@ -161,6 +163,130 @@ test('dò: viết tắt bung tại chỗ, tên thuốc kiểu Việt, ý dạng 
     assert.equal(m[1].level, null);                     // "Nguyên nhân:" là tiêu đề chung, không tính là một ý
 });
 
+/* ---------------- Máy chấm bản 3 (2026-10-23): các lỗi đo trên 388 ý OSCE thật ---------------- */
+test('chấm bản 3: chép lại đề không ăn điểm, diễn giải số liệu của đề thì vẫn được', () => {
+    const q = essay({
+        question: 'Thai phụ có tiền căn thai lưu, kinh chót 12/8, Ferritin 145 ng/mL, RDW 14,1%. Trình bày cần hỏi gì và nhận định xét nghiệm.',
+        keyPoints: [{ text: 'Tiền căn thai lưu', keywords: ['thai lưu'] }, { text: 'Ferritin bình thường, loại trừ thiếu sắt', keywords: ['ferritin bình thường'] }],
+    });
+    assert.deepEqual(autoMatch(q, q.question).map(m => m.level === 'match'), [false, false]);
+    assert.equal(autoMatch(q, q.question)[0].why, 'given');
+    assert.equal(autoMatch(q, 'Ferritin 145 là bình thường, loại trừ thiếu sắt')[1].level, 'match');
+    assert.equal(autoMatch(q, 'hỏi kỹ lần thai lưu trước: tuổi thai, xử trí')[0].level, 'match');   // có chữ mới ngoài đề
+});
+
+test('chấm bản 3: phủ định ngay trước chữ khớp -> chỉ gần khớp; tên thuốc có "không" vẫn đạt', () => {
+    const q = essay({ keyPoints: [{ text: 'Dùng aspirin', keywords: ['aspirin'] }, { text: 'Heparin không phân đoạn' }, { text: 'Không dùng nitrat', keywords: ['không dùng nitrat'] }] });
+    const r = autoMatch(q, 'Không dùng aspirin. Heparin không phân đoạn. Không dùng nitrat.');
+    assert.deepEqual(r.map(m => m.level), ['near', 'match', 'match']);
+    assert.equal(r[0].why, 'neg');
+    assert.equal(autoMatch(q, 'không sốt, dùng aspirin')[0].level, 'match');   // dấu phẩy chặn phủ định của vế trước
+});
+
+test('chấm bản 3: ý nhiều thành phần phải nêu ≥ ½, thiếu thì nói rõ thiếu gì', () => {
+    const q = essay({ keyPoints: [{ text: 'Đau bụng: vị trí, tính chất, thời gian, yếu tố làm tăng giảm', keywords: ['đau bụng', 'đau'] }] });
+    const chi1 = autoMatch(q, 'đau bụng')[0];
+    assert.equal(chi1.level, 'near');
+    assert.equal(chi1.why, 'few');
+    assert.deepEqual(chi1.missing, ['vị trí', 'tính chất', 'thời gian', 'yếu tố làm tăng giảm']);
+    assert.equal(autoMatch(q, 'đau bụng: vị trí, tính chất, thời gian xuất hiện')[0].level, 'match');
+    // "bố và mẹ" là một vế; ngoặc thuộc về vế của nó
+    const k = essay({ keyPoints: [{ text: 'Tuổi mẹ lúc sinh em trai và kết quả nhiễm sắc thể đồ (karyotype) của em trai', keywords: ['karyotype'] }] });
+    assert.equal(autoMatch(k, 'hỏi tuổi mẹ lúc sinh em trai, em đã làm karyotype chưa')[0].level, 'match');
+});
+
+test('chấm bản 3: từ khóa một chữ không đủ đạt ý dài; ý thiếu liều -> ½ điểm tự động', () => {
+    const q = essay({ keyPoints: [
+        { text: 'Chỉ định xét nghiệm tổng phân tích tế bào máu ngoại vi (CBC) cho người chồng để kiểm tra MCV và MCH', keywords: ['cbc'] },
+        { text: 'Aspirin liều nạp 150–300 mg', points: 0.5, partial: 0.25, keywords: ['aspirin'] },
+    ] });
+    const r = autoMatch(q, 'CBC; aspirin');
+    assert.deepEqual(r.map(m => [m.level, m.why]), [['near', 'kw'], ['near', 'few']]);
+    assert.deepEqual(r[1].missing, ['300 mg']);
+    const a = withAutoGrade(q, { text: 'CBC; aspirin', ticks: null });
+    assert.deepEqual([a.ticks, a.partials], [[], [1]]);
+    assert.equal(autoMatch(q, 'aspirin 300 mg nhai')[1].level, 'match');
+});
+
+test('không bỏ ý đúng vì dùng lại từ của đề hoặc ca bệnh', () => {
+    const q = essay({
+        question: 'Nêu các bước sao lưu dữ liệu.',
+        caseText: 'Thư mục có bản gốc và bản sao lưu dữ liệu.',
+        keyPoints: [{ text: 'Sao lưu dữ liệu', keywords: ['sao lưu'] }],
+    });
+    assert.equal(autoMatch(q, 'Sao lưu dữ liệu')[0].level, 'match');
+    assert.deepEqual(withAutoGrade(q, { text: 'Sao lưu dữ liệu' }).ticks, [0]);
+});
+
+test('chọn bằng chứng đúng viết phía sau, không kẹt ở lần nhắc phủ định hoặc chép đề', () => {
+    const q = essay({
+        question: 'Nếu không sao lưu dữ liệu trước khi sửa tệp thì bản gốc có thể bị mất. Cần làm gì?',
+        keyPoints: [{ text: 'Sao lưu dữ liệu', keywords: ['sao lưu'] }],
+    });
+    for (const text of [
+        'Không sao lưu bản lỗi. Sao lưu dữ liệu trước khi sửa.',
+        'Không sao lưu bản lỗi, sao lưu dữ liệu trước khi sửa.',
+        'Không sao lưu bản lỗi. Sao lưu toàn bộ dữ liệu trước khi sửa.',
+        q.question + '\nSao lưu dữ liệu trước khi sửa.',
+    ]) {
+        const m = autoMatch(q, text)[0];
+        assert.equal(m.level, 'match', text);
+        assert.ok(m.ranges.every(([, s]) => s > text.toLowerCase().indexOf('sao lưu')), text);
+    }
+    assert.equal(autoMatch(q, 'Không sao lưu dữ liệu')[0].why, 'neg');
+    assert.notEqual(autoMatch(q, q.question)[0].level, 'match');
+    const noKeywords = essay({ keyPoints: [{ text: 'Sao lưu dữ liệu' }] });
+    assert.equal(autoMatch(noKeywords, 'Không sao lưu bản lỗi. Sao lưu dữ liệu.')[0].level, 'match');
+});
+
+test('phủ định trong phần giải thích không đảo nghĩa hành động chính', () => {
+    const q = essay({ keyPoints: [{ text: 'Sao lưu dữ liệu để không mất bản gốc', keywords: ['sao lưu'] }] });
+    assert.equal(autoMatch(q, 'Sao lưu dữ liệu')[0].level, 'match');
+    assert.notEqual(autoMatch(q, 'Không sao lưu dữ liệu')[0].level, 'match');
+});
+
+test('chép nguyên ý barem có điều kiện phủ định vẫn nhận đúng toàn bộ ý', () => {
+    const text = 'Không đáp ứng yêu cầu: kiểm tra cấu hình (configuration)';
+    const q = essay({ keyPoints: [{ text, keywords: ['configuration'] }] });
+    assert.equal(autoMatch(q, 'Kiểm tra cấu hình khác.\n' + text)[0].level, 'match');
+});
+
+test('danh sách không nhãn chấp nhận đổi thứ tự và chấm bài chỉ có parts', () => {
+    const q = essay({
+        answerFormat: { kind: 'list', count: 2 },
+        keyPoints: [{ text: 'Màu xanh', field: 1 }, { text: 'Màu vàng', field: 2 }],
+    });
+    const ans = { parts: ['Màu vàng', 'Màu xanh'], ticks: null };
+    assert.deepEqual(autoMatch(q, ans).map(m => m.level), ['match', 'match']);
+    assert.deepEqual(withAutoGrade(q, ans).ticks, [0, 1]);
+    assert.equal(essayPoints(q, withAutoGrade(q, ans)), 2);
+    assert.deepEqual(withAutoGrade(q, { ...ans, ticks: [], auto: true }).ticks, [0, 1]);
+    const manual = { ...ans, ticks: [0], auto: false };
+    assert.strictEqual(withAutoGrade(q, manual), manual);
+    const named = { ...q, answerFormat: { kind: 'list', labels: [{ hint: 'Màu xanh' }, { hint: 'Màu vàng' }] } };
+    assert.deepEqual(withAutoGrade(named, ans).ticks, []);
+    for (const answerFormat of [
+        { kind: 'list', count: 1 },
+        { kind: 'fields', labels: ['Tác vụ'] },
+        { kind: 'table', columns: ['Tác vụ'], rows: 1 },
+    ]) {
+        const single = essay({ answerFormat, keyPoints: [{ text: 'Sao lưu dữ liệu', field: 1 }] });
+        assert.deepEqual(withAutoGrade(single, { parts: ['Sao lưu dữ liệu'] }).ticks, [0]);
+    }
+});
+
+test('không cộng điểm một phần cho ý ngược nghĩa hoặc chép nguyên đề', () => {
+    const q = essay({
+        question: 'Hãy sao lưu dữ liệu: bản gốc, bản phụ trước khi thực hiện sửa nội dung.',
+        keyPoints: [{ text: 'Sao lưu dữ liệu: bản gốc, bản phụ', points: 1, partial: 0.5, keywords: ['sao lưu'] }],
+    });
+    for (const text of ['Không sao lưu dữ liệu', q.question]) {
+        const ans = withAutoGrade(q, { text });
+        assert.deepEqual([ans.ticks, ans.partials], [[], []], text);
+    }
+    assert.deepEqual(withAutoGrade(q, { text: 'Sao lưu bản gốc' }).partials, [0]);
+});
+
 /* ---------------- Kiểu ô nhập ---------------- */
 test('kiểu ô: chuẩn hóa + gộp chữ', () => {
     assert.equal(formatOf(essay()).kind, 'text');
@@ -179,7 +305,10 @@ test('dò theo ô: ý gắn field chỉ tính trong đúng ô', () => {
         keyPoints: [{ text: 'NMCT cấp', field: 1, keywords: ['NMCT'] }, { text: 'Bóc tách ĐMC', field: 2, keywords: ['bóc tách'] }],
     });
     const wrong = { parts: ['đau thắt ngực ổn định', 'NMCT, bóc tách ĐMC'], text: 'x' };
-    assert.deepEqual(autoMatch(q, wrong).map(m => m.level), [null, 'match']);
+    const w = autoMatch(q, wrong);
+    assert.deepEqual(w.map(m => m.level), ['near', 'match']);           // ghi nhầm ô: chỉ gợi ý, không tính
+    assert.deepEqual([w[0].why, w[0].at], ['elsewhere', 2]);
+    assert.deepEqual(withAutoGrade(q, { ...wrong, ticks: null }).ticks, [1]);
     const right = { parts: ['NMCT cấp', 'bóc tách ĐMC'], text: 'x' };
     const r = autoMatch(q, right);
     assert.deepEqual(r.map(m => m.level), ['match', 'match']);
@@ -193,7 +322,7 @@ test('dò theo ô: bảng — field = số hàng', () => {
         keyPoints: [{ text: 'Aspirin', field: 1, keywords: ['aspirin'] }, { text: 'Heparin', field: 2, keywords: ['heparin'] }],
     });
     const a = { parts: ['heparin', '5000 UI', 'aspirin', '300 mg'], text: 'x' };
-    assert.deepEqual(autoMatch(q, a).map(m => m.level), [null, null]);    // đổi hàng -> không tính
+    assert.deepEqual(autoMatch(q, a).map(m => [m.level, m.why]), [['near', 'elsewhere'], ['near', 'elsewhere']]);    // đổi hàng -> chỉ gợi ý
 });
 
 test('barem <-> dạng dòng chữ: khứ hồi không mất dữ liệu', () => {
@@ -240,7 +369,7 @@ test('ô tự đặt: nhãn · gợi ý · cỡ · đơn vị, chuỗi cũ vẫn
     assert.deepEqual(f.slots[0], { label: 'Chẩn đoán', hint: '', size: 'para', unit: '' });   // ô có nhãn mặc định là đoạn
     assert.deepEqual(f.slots[1], { label: 'Mạch', hint: '60–100', size: 'line', unit: 'lần/phút' });
     assert.equal(partsText(f, ['Tiền sản giật', '110', 'x']), 'Chẩn đoán: Tiền sản giật\nMạch: 110 lần/phút\nx');
-    assert.equal(autoMatch(q, { parts: ['110', '', ''] })[0].level, null);       // ghi ở ô khác -> không tính
+    assert.equal(autoMatch(q, { parts: ['110', '', ''] })[0].why, 'elsewhere');  // ghi ở ô khác -> chỉ gợi ý, không tính
     assert.equal(autoMatch(q, { parts: ['', '110', ''] })[0].level, 'match');
     // danh sách: nhãn giữ đúng vị trí (không dồn khi có ô trống)
     const l = formatOf(essay({ answerFormat: { kind: 'list', labels: ['', { label: 'Thuốc 2', unit: 'mg' }] } }));

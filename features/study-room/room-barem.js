@@ -32,7 +32,10 @@ export function gradeOf(i) {
     const manual = !!g && Array.isArray(g.ticks);
     const ans = manual
         ? { ticks: g.ticks, partials: g.partials || [] }
-        : { ticks: m.map((x, k) => (x.level === 'match' && !items[k].penalty ? k : -1)).filter(k => k >= 0), partials: [] };
+        : {
+            ticks: m.map((x, k) => (x.level === 'match' && !items[k].penalty ? k : -1)).filter(k => k >= 0),
+            partials: m.map((x, k) => (x.level === 'near' && x.why === 'few' && items[k].partial > 0 && !items[k].penalty ? k : -1)).filter(k => k >= 0),
+        };
     return { q, items, m, ans, auto: !manual, by: g?.by, pts: essayPoints(q, ans), max: essayMaxPoints(q), missing: missingCritical(q, ans) };
 }
 
