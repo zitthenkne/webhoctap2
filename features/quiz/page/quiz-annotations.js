@@ -1241,4 +1241,310 @@ export function setupAnnotations() {
     }, true);
     document.addEventListener('mousedown', (e) => { if (noteEd && !noteEd.box.contains(e.target)) dismissNoteEditor(); });
     document.addEventListener('touchstart', (e) => { if (noteEd && !noteEd.box.contains(e.target)) dismissNoteEditor(); }, { passive: true });
+    setupPenMode();
+}
+
+// ---- BÚT TÔ NHANH (2026-10-24) ----
+// Người dùng: "bật một nút, rồi lấy Apple Pencil di ngang qua chữ là tô luôn / ghi chú luôn cho cụm đó".
+// Bật bút (#annot-pen-dock, phím J) -> vuốt BÚT (Apple Pencil / bút cảm ứng) hoặc kéo CHUỘT qua chữ trong vùng [data-annot]:
+// - tô vàng / xanh lá / xanh dương / gạch chân: thả bút là lưu (cùng kho, cùng đồng bộ với thanh bôi đen). Vuốt nối vào đoạn đã
+//   tô cùng màu -> GỘP thành một đoạn (tô tiếp được, không bị cắt mất phần cũ).
+// - ghi chú: thả bút mở khung viết ghi chú cho đúng cụm vừa vuốt (cụm đã có ghi chú -> mở sửa).
+// - tẩy: vuốt qua là gỡ ĐÚNG phần bị vuốt (đoạn tô dài bị tẩy giữa -> còn lại hai đầu). Không đụng ghi chú cụm từ.
+// Ngón tay mặc định vẫn CUỘN trang như thường (chống tì tay); bật "Ngón tay cũng tô" cho máy không có bút.
+// Vuốt bám theo DÒNG đang tô (lệch lên/xuống chút không nhảy dòng), tự nới tới trọn từ ở hai đầu. Chạm bút (không vuốt) = bấm
+// như thường (chọn đáp án, bấm đoạn tô để gỡ…). Hoàn tác được từng nét (nút ↶ trên thanh bút).
+const PEN_KEY = 'quiz_pen_mode';
+const PEN_TOOLS = ['highlight', 'hl-green', 'hl-blue', 'underline', 'note', 'erase'];
+const PEN_LABEL = { highlight: 'Tô vàng', 'hl-green': 'Tô xanh lá', 'hl-blue': 'Tô xanh dương', underline: 'Gạch chân', note: 'Ghi chú', erase: 'Tẩy' };
+const isWordCh = (c) => !!c && /[\p{L}\p{M}\p{N}]/u.test(c);
+function scopeTextOf(scopeEl) { return collectTextNodes(scopeEl).map(n => n.nodeValue).join(''); }
+// Nới [s, e) ra trọn từ ở hai đầu rồi bỏ khoảng trắng thừa
+function snapToWords(txt, s, e) {
+    if (s > e) [s, e] = [e, s];
+    while (s > 0 && isWordCh(txt[s - 1]) && isWordCh(txt[s])) s--;
+    while (e < txt.length && isWordCh(txt[e]) && isWordCh(txt[e - 1])) e++;
+    if (s === e && isWordCh(txt[s])) { while (e < txt.length && isWordCh(txt[e])) e++; while (s > 0 && isWordCh(txt[s - 1])) s--; }
+    while (s < e && /\s/.test(txt[s])) s++;
+    while (e > s && /\s/.test(txt[e - 1])) e--;
+    return [s, e];
+}
+function rangeFromOffsets(scopeEl, from, to) {
+    const nodes = collectTextNodes(scopeEl);
+    const a = locateInNodes(nodes, from, false), b = locateInNodes(nodes, to, true);
+    if (!a || !b) return null;
+    try { const r = document.createRange(); r.setStart(a.node, a.offset); r.setEnd(b.node, b.offset); return r; } catch (e) { return null; }
+}
+// Điểm (x, y) trên màn hình -> (node, offset) của con trỏ chữ gần nhất
+function caretAtPoint(x, y) {
+    try {
+        if (document.caretPositionFromPoint) {
+            const p = document.caretPositionFromPoint(x, y);
+            if (p && p.offsetNode) return { node: p.offsetNode, offset: p.offset, rect: p.getClientRect ? p.getClientRect() : null };
+        }
+        if (document.caretRangeFromPoint) {
+            const r = document.caretRangeFromPoint(x, y);
+            if (r) return { node: r.startContainer, offset: r.startOffset, rect: r.getBoundingClientRect() };
+        }
+    } catch (e) {}
+    return null;
+}
+// Các đoạn định dạng (theo id) giao với [s, e) trong vùng — vị trí đo trên DOM hiện tại (đúng cả khi đáp án bị xáo)
+function marksInRange(scopeEl, s, e) {
+    const groups = new Map();
+    scopeEl.querySelectorAll('.quiz-annot:not(.annot-note)').forEach(m => {
+        const from = offsetInContainer(scopeEl, m, 0);
+        if (from < 0) return;
+        const to = from + m.textContent.length;
+        const key = m.getAttribute('data-annot-id') || m;
+        const g = groups.get(key) || { id: m.getAttribute('data-annot-id'), type: m.getAttribute('data-annot-type') || 'highlight', start: from, end: to, els: [] };
+        g.start = Math.min(g.start, from); g.end = Math.max(g.end, to); g.els.push(m);
+        groups.set(key, g);
+    });
+    return [...groups.values()].filter(g => g.start < e && g.end > s);
+}
+const penUndo = [];
+function penRemoveGroup(qText, scope, scopeEl, g, op) {
+    if (g.id) {
+        const item = getAnnotsFor(qText).find(a => a.id === g.id);
+        if (!removeAnnotById(qText, g.id)) return false;
+        if (item) op.removed.push({ ...item });
+        scopeEl.querySelectorAll(`[data-annot-id="${g.id}"]`).forEach(unwrapMark);
+    } else g.els.forEach(m => removeAnnotEverywhere(qText, scope, m));
+    return true;
+}
+function penAdd(qText, scope, scopeEl, txt, s, e, type, op) {
+    while (s < e && /\s/.test(txt[s])) s++;
+    while (e > s && /\s/.test(txt[e - 1])) e--;
+    if (e <= s) return;
+    const id = addAnnot(qText, scope, txt.slice(s, e), type, s, e);
+    if (!id) return;
+    op.added.push(id);
+    wrapOffsetRange(scopeEl, s, e, type, id);
+}
+// Áp một nét bút [s, e) (đã nới trọn từ) lên vùng
+function applyPenStroke(scopeEl, s, e, tool) {
+    const question = state.questions[state.currentIndex];
+    if (!question || e <= s) return;
+    const scope = scopeEl.getAttribute('data-annot');
+    const qText = annotKeyFor(question, scope);
+    const txt = scopeTextOf(scopeEl);
+    if (tool === 'note') {
+        const range = rangeFromOffsets(scopeEl, s, e);
+        if (!range) return;
+        const existing = [...scopeEl.querySelectorAll('.annot-note')].find(m => { try { return range.intersectsNode(m); } catch (x) { return false; } });
+        if (existing) openNoteEditor({ mode: 'edit', qText, scope, id: existing.getAttribute('data-annot-id'), text: existing.textContent, note: existing.getAttribute('data-note') || '', rect: existing.getBoundingClientRect() });
+        else openNoteEditor({ mode: 'new', qText, scope, scopeEl, start: s, end: e, text: txt.slice(s, e), rect: range.getBoundingClientRect() });
+        return;
+    }
+    const op = { qText, added: [], removed: [] };
+    const hits = marksInRange(scopeEl, s, e);
+    try {
+        clearNoteLines(scopeEl);
+        if (tool === 'erase') {
+            hits.forEach(g => {
+                if (!penRemoveGroup(qText, scope, scopeEl, g, op)) return;
+                if (g.start < s) penAdd(qText, scope, scopeEl, txt, g.start, s, g.type, op);
+                if (g.end > e) penAdd(qText, scope, scopeEl, txt, e, g.end, g.type, op);
+            });
+        } else {
+            const same = hits.filter(g => g.type === tool);
+            if (same.some(g => g.start <= s && g.end >= e)) { renderNoteLines(document.getElementById('quizSection')); return; }   // đã tô kín: khỏi làm gì
+            let ns = s, ne = e;
+            same.forEach(g => { if (penRemoveGroup(qText, scope, scopeEl, g, op)) { ns = Math.min(ns, g.start); ne = Math.max(ne, g.end); } });
+            penAdd(qText, scope, scopeEl, txt, ns, ne, tool, op);
+        }
+        cleanupEmptyAnnots(scopeEl);
+    } catch (x) {
+        showQuestion();
+    }
+    if (op.added.length || op.removed.length) { penUndo.push(op); if (penUndo.length > 40) penUndo.shift(); }
+    renderNoteLines(document.getElementById('quizSection'));
+    syncPenUndo();
+}
+function undoPenStroke() {
+    const op = penUndo.pop();
+    syncPenUndo();
+    if (!op) { showToast('Chưa có nét bút nào để hoàn tác.', 'info', 1600); return; }
+    const sec = document.getElementById('quizSection');
+    if (sec) clearNoteLines(sec);
+    op.added.forEach(id => { if (removeAnnotById(op.qText, id)) document.querySelectorAll(`#quizSection [data-annot-id="${id}"]`).forEach(unwrapMark); });
+    if (op.removed.length) {
+        // id cũ đã có "bia mộ" (đồng bộ sẽ bỏ) -> khôi phục với id mới
+        const store = getAnnotStore();
+        const arr = Array.isArray(store[op.qText]) ? store[op.qText] : (store[op.qText] = []);
+        op.removed.forEach(a => {
+            const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+            arr.push({ ...a, id, ts: Date.now() });
+            penUndo.forEach(o => { o.added = o.added.map(x => (x === a.id ? id : x)); });   // các bước hoàn tác cũ hơn trỏ sang id mới
+        });
+        if (saveAnnotStore(store)) pushStudyToCloud();
+    }
+    if (sec) { sec.querySelectorAll('[data-annot]').forEach(cleanupEmptyAnnots); applyAnnotationsAll(); }
+}
+let syncPenUndo = () => {};
+
+function setupPenMode() {
+    const dock = document.getElementById('annot-pen-dock');
+    if (!dock) return;
+    const toggleBtn = dock.querySelector('[data-pen-act="toggle"]');
+    let cfg = { on: false, tool: 'highlight', finger: false };
+    try { cfg = { ...cfg, ...JSON.parse(localStorage.getItem(PEN_KEY) || '{}') }; } catch (e) {}
+    if (!PEN_TOOLS.includes(cfg.tool)) cfg.tool = 'highlight';
+    const save = () => { try { localStorage.setItem(PEN_KEY, JSON.stringify(cfg)); } catch (e) {} };
+    const sync = () => {
+        dock.classList.toggle('is-on', !!cfg.on);
+        dock.dataset.tool = cfg.tool;
+        document.body.classList.toggle('qz-pen-on', !!cfg.on);
+        document.body.dataset.qzPen = cfg.tool;   // KHÔNG đặt data-pen-tool lên body: closest("[data-pen-tool]") của nút thanh bút sẽ khớp nhầm
+        toggleBtn.setAttribute('aria-pressed', String(!!cfg.on));
+        toggleBtn.title = cfg.on ? `Bút tô nhanh: ${PEN_LABEL[cfg.tool]} — bấm để tắt (phím J)` : 'Bật bút tô nhanh: vuốt bút / kéo chuột qua chữ là tô (phím J)';
+        dock.querySelectorAll('[data-pen-tool]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.penTool === cfg.tool)));
+        dock.querySelector('[data-pen-act="finger"]')?.setAttribute('aria-pressed', String(!!cfg.finger));
+    };
+    syncPenUndo = () => { const b = dock.querySelector('[data-pen-act="undo"]'); if (b) b.disabled = !penUndo.length; };
+    const setOn = (on) => {
+        cfg.on = on; save(); sync();
+        if (on) {
+            let seen = false;
+            try { seen = localStorage.getItem(PEN_KEY + '_hint') === '1'; localStorage.setItem(PEN_KEY + '_hint', '1'); } catch (e) {}
+            showToast(seen ? `Bút: ${PEN_LABEL[cfg.tool]}` : 'Đã bật bút tô nhanh: vuốt Apple Pencil / kéo chuột qua chữ là tô. Ngón tay vẫn cuộn trang bình thường.', 'info', seen ? 1300 : 4200);
+        }
+    };
+    sync(); syncPenUndo();
+    dock.addEventListener('mousedown', (e) => e.preventDefault());   // giữ vùng chọn / không cướp focus
+    dock.addEventListener('click', (e) => {
+        const t = e.target.closest('[data-pen-tool]');
+        if (t) { cfg.tool = t.dataset.penTool; if (!cfg.on) setOn(true); else { save(); sync(); } return; }
+        const b = e.target.closest('[data-pen-act]');
+        if (!b) return;
+        const act = b.dataset.penAct;
+        if (act === 'toggle') setOn(!cfg.on);
+        else if (act === 'undo') undoPenStroke();
+        else if (act === 'finger') {
+            cfg.finger = !cfg.finger; save(); sync();
+            showToast(cfg.finger ? 'Ngón tay cũng tô: vuốt trên chữ là tô (cuộn bằng vùng trống / lề).' : 'Chỉ bút & chuột tô — ngón tay cuộn trang như thường.', 'info', 2600);
+        }
+    });
+    // Phím J bật / tắt bút (A–H chọn đáp án, các chữ khác đã có việc)
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey || e.altKey || e.metaKey || e.isComposing || e.repeat) return;
+        if ((e.key || '').toLowerCase() !== 'j') return;
+        const t = e.target;
+        if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+        const sec = document.getElementById('quizSection');
+        if (!sec || sec.classList.contains('hidden') || !sec.offsetParent) return;
+        e.preventDefault();
+        setOn(!cfg.on);
+    });
+
+    let stroke = null;          // { id, type, scopeEl, a, b, x0, y0, lineY, lh, locked, moved, target }
+    let swallowClickUntil = 0;
+    const hl = window.CSS && CSS.highlights && window.Highlight ? CSS.highlights : null;
+    const clearPreview = () => { if (hl) hl.delete('qz-pen'); };
+    const offsetFromPoint = (x, y) => {
+        const c = caretAtPoint(x, y);
+        if (!c || !stroke) return null;
+        const sc = stroke.scopeEl;
+        if (sc.contains(c.node)) return { pos: offsetInContainer(sc, c.node, c.offset), rect: c.rect };
+        const rel = sc.compareDocumentPosition(c.node);
+        if (rel & Node.DOCUMENT_POSITION_FOLLOWING) return { pos: scopeTextOf(sc).length };
+        if (rel & Node.DOCUMENT_POSITION_PRECEDING) return { pos: 0 };
+        return null;
+    };
+    const wants = (e) => {
+        if (!cfg.on || !e.isPrimary) return false;
+        if (e.pointerType === 'mouse') return e.button === 0;
+        return e.pointerType === 'pen' || (e.pointerType === 'touch' && cfg.finger);
+    };
+    let raf = 0;
+    const paint = () => {
+        raf = 0;
+        if (!stroke || !stroke.moved) return;
+        const txt = scopeTextOf(stroke.scopeEl);
+        const [s, e] = snapToWords(txt, stroke.a, stroke.b);
+        stroke.s = s; stroke.e = e;
+        if (!hl) return;
+        const r = e > s ? rangeFromOffsets(stroke.scopeEl, s, e) : null;
+        if (r) hl.set('qz-pen', new Highlight(r)); else clearPreview();
+    };
+    document.addEventListener('pointerdown', (e) => {
+        if (stroke || !wants(e)) return;
+        const t = e.target;
+        if (!t || !t.closest || t.closest('.qi-wrap, img, video, canvas, input, textarea, select, a[href], .an-line, #annot-pen-dock, #annot-note-pop, #annot-toolbar')) return;
+        const scopeEl = t.closest('#quizSection [data-annot]');
+        if (!scopeEl || scopeEl.closest('.hidden')) return;
+        stroke = { id: e.pointerId, type: e.pointerType, scopeEl, x0: e.clientX, y0: e.clientY, moved: false, locked: true, target: t,
+            touchBlocked: performance.now() - stylusBlockedAt < 300 };
+        const p = offsetFromPoint(e.clientX, e.clientY);
+        if (!p || p.pos < 0) { stroke = null; return; }
+        stroke.a = stroke.b = p.pos;
+        // Dòng đang tô: tâm dòng + chiều cao dòng để vuốt lệch nhẹ không nhảy sang dòng khác
+        const rect = p.rect && p.rect.height ? p.rect : null;
+        const lhCss = parseFloat(getComputedStyle(t.nodeType === 1 ? t : scopeEl).lineHeight);
+        stroke.lh = rect ? rect.height : (lhCss || 24);
+        stroke.lineY = rect ? rect.top + rect.height / 2 : e.clientY;
+        if (noteEd) dismissNoteEditor();
+        if (e.pointerType === 'mouse') {
+            e.preventDefault();   // không bôi đen kiểu thường
+            try { scopeEl.setPointerCapture(e.pointerId); } catch (x) {}   // kéo ra ngoài cửa sổ vẫn nhận lúc thả
+        }
+        e.stopPropagation();   // không bắt đầu "giữ để gạch đáp án"
+    }, true);
+    document.addEventListener('pointermove', (e) => {
+        if (!stroke || e.pointerId !== stroke.id) return;
+        const dx = e.clientX - stroke.x0, dy = e.clientY - stroke.y0;
+        if (!stroke.moved && Math.hypot(dx, dy) < (stroke.type === 'mouse' ? 4 : 6)) return;
+        if (!stroke.moved) { stroke.moved = true; document.body.classList.add('qz-pen-drawing'); try { window.getSelection()?.removeAllRanges(); } catch (x) {} }
+        if (stroke.locked && Math.abs(e.clientY - stroke.lineY) > stroke.lh * 0.8) stroke.locked = false;
+        const p = offsetFromPoint(e.clientX, stroke.locked ? stroke.lineY : e.clientY);
+        if (p && p.pos >= 0) stroke.b = p.pos;
+        if (!raf) raf = requestAnimationFrame(paint);
+        e.preventDefault();
+    }, { capture: true, passive: false });
+    const finish = (e, cancel) => {
+        if (!stroke || e.pointerId !== stroke.id) return;
+        const st = stroke;
+        stroke = null;
+        if (raf) { cancelAnimationFrame(raf); raf = 0; }
+        clearPreview();
+        document.body.classList.remove('qz-pen-drawing');
+        if (cancel) return;
+        if (!st.moved) {
+            // Chạm bút, không vuốt: touchstart đã bị chặn (không cuộn) nên tự phát click như một cú bấm thường
+            if (st.touchBlocked) {
+                const el = document.elementFromPoint(e.clientX, e.clientY) || st.target;
+                el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window, clientX: e.clientX, clientY: e.clientY }));
+            }
+            return;
+        }
+        swallowClickUntil = performance.now() + 450;
+        stroke = st; paint(); stroke = null;
+        if (st.e > st.s && st.scopeEl.isConnected) applyPenStroke(st.scopeEl, st.s, st.e, cfg.tool);
+    };
+    document.addEventListener('pointerup', (e) => finish(e, false), true);
+    document.addEventListener('pointercancel', (e) => finish(e, true), true);
+    // Bút / ngón (khi bật) đặt lên chữ: không cuộn, không kính lúp / menu chọn chữ, không vuốt chuyển câu
+    // (Safari phát pointerdown trước touchstart; phòng khi thứ tự ngược: bút chạm lên chữ thì chặn luôn, pointerdown tới sau nhận cờ)
+    let stylusBlockedAt = -1e9;
+    ['touchstart', 'touchmove'].forEach(type => document.addEventListener(type, (e) => {
+        if (!stroke && type === 'touchstart' && cfg.on && [...(e.changedTouches || [])].some(t => t.touchType === 'stylus')
+            && e.target.closest && e.target.closest('#quizSection [data-annot]') && !e.target.closest('.qi-wrap, img, video, canvas, input, textarea, select, a[href], .an-line')) {
+            if (e.cancelable) { e.preventDefault(); stylusBlockedAt = performance.now(); }
+            return;
+        }
+        if (!stroke || stroke.type === 'mouse') return;
+        if (e.cancelable) e.preventDefault();
+        if (type === 'touchstart') stroke.touchBlocked = true;
+        e.stopPropagation();
+    }, { capture: true, passive: false }));
+    document.addEventListener('selectstart', (e) => { if (stroke) e.preventDefault(); }, true);
+    // Sau một nét: nuốt click kèm theo (không chọn đáp án / không gỡ đoạn tô dưới đầu bút)
+    window.addEventListener('click', (e) => {
+        if (performance.now() >= swallowClickUntil) return;
+        swallowClickUntil = 0;
+        // chỉ click rơi vào bài (nét vừa vẽ) — bấm ngay nút trên thanh bút / chỗ khác vẫn ăn
+        if (e.target && e.target.closest && e.target.closest('#quizSection')) { e.preventDefault(); e.stopImmediatePropagation(); }
+    }, true);
+    window.addEventListener('contextmenu', (e) => { if (stroke || performance.now() < swallowClickUntil) e.preventDefault(); }, true);
 }

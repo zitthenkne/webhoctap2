@@ -6283,3 +6283,97 @@ html.theme-dark #quizSection .essay-mic.is-live { color: #1d1819; }
     .er-panel { padding: 0.65rem 0.7rem 0.8rem; }
     .er-tab { padding: 0.3rem 0.7rem; }
 }
+
+/* ============================================================
+   36) BÚT TÔ NHANH (2026-10-24) — page/quiz-annotations.js setupPenMode
+   Người dùng: "bật một nút, lấy Apple Pencil di ngang qua chữ là tô / ghi chú luôn".
+   #annot-pen-dock: nút bút tròn ở góc trái (trên nút cài đặt); bật thì xòe cột công cụ (3 màu tô, gạch chân, ghi chú, tẩy,
+   hoàn tác, ngón tay). Nút chính đổi màu theo công cụ đang chọn để liếc là biết bút đang làm gì.
+   Vuốt: xem trước bằng CSS Custom Highlight (::highlight(qz-pen)) — không đụng DOM cho tới khi thả bút.
+   ============================================================ */
+#annot-pen-dock {
+    --apd-c: var(--hue-butter); --apd-i: var(--ink-butter);
+    position: fixed; z-index: 46;
+    left: calc(1rem + env(safe-area-inset-left, 0px));
+    bottom: calc(4.4rem + env(safe-area-inset-bottom, 0px));
+    display: flex; flex-direction: column; align-items: center; gap: .45rem;
+    pointer-events: none;
+}
+#annot-pen-dock > * { pointer-events: auto; }
+body:not(:has(#quiz-container:not(.hidden) #quizSection:not(.hidden))) #annot-pen-dock { display: none; }
+body.has-mobile-nav #annot-pen-dock { bottom: calc(7.2rem + env(safe-area-inset-bottom, 0px)); }
+html.qt-bottom #annot-pen-dock { translate: 0 calc(-1 * var(--qt-h)); }
+#annot-pen-dock[data-tool="hl-green"] { --apd-c: var(--hue-mint); --apd-i: var(--ink-mint); }
+#annot-pen-dock[data-tool="hl-blue"] { --apd-c: var(--hue-sky); --apd-i: var(--ink-sky); }
+#annot-pen-dock[data-tool="underline"] { --apd-c: var(--hue-blossom); --apd-i: var(--ink-blossom); }
+#annot-pen-dock[data-tool="note"] { --apd-c: var(--hue-lav); --apd-i: var(--ink-lav); }
+#annot-pen-dock[data-tool="erase"] { --apd-c: #C9BDB8; --apd-i: var(--ink); }
+#annot-pen-dock button {
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 0; background: transparent; color: var(--ink); cursor: pointer;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+#annot-pen-dock .apd-main {
+    width: 2.9rem; height: 2.9rem; border-radius: 999px; font-size: 1.1rem;
+    background: var(--surface-card); color: var(--ink);
+    border: 2px solid var(--line); box-shadow: 0 3px 0 var(--line), var(--shadow-sticky);
+    opacity: .82;
+    transition: transform .28s var(--spring), background-color .2s ease, color .2s ease, border-color .2s ease, opacity .2s ease;
+}
+#annot-pen-dock .apd-main:hover, #annot-pen-dock .apd-main:focus-visible { opacity: 1; }
+#annot-pen-dock.is-on .apd-main {
+    opacity: 1; transform: rotate(-8deg) scale(1.04);
+    background: color-mix(in srgb, var(--apd-c) 30%, var(--surface-card));
+    color: var(--apd-i); border-color: color-mix(in srgb, var(--apd-c) 70%, transparent);
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--apd-c) 55%, transparent), var(--shadow-sticky);
+}
+#annot-pen-dock.is-on .apd-main::after {
+    content: ''; position: absolute; right: .1rem; top: .1rem; width: .7rem; height: .7rem; border-radius: 999px;
+    background: var(--apd-c); border: 2px solid var(--surface-card);
+}
+#annot-pen-dock .apd-main { position: relative; }
+#annot-pen-dock .apd-tools {
+    display: none; flex-direction: column; align-items: center; gap: .15rem;
+    padding: .3rem; border-radius: 999px;
+    background: var(--surface-card); border: 2px solid var(--line);
+    box-shadow: 0 4px 0 var(--line), var(--shadow-sticky);
+    max-height: calc(100dvh - 14rem); overflow-y: auto; scrollbar-width: none;
+}
+#annot-pen-dock.is-on .apd-tools { display: flex; animation: apd-in .3s var(--spring) both; }
+@keyframes apd-in { from { opacity: 0; translate: 0 .6rem; scale: .9; } }
+#annot-pen-dock .apd-tools button { width: 2.35rem; height: 2.35rem; border-radius: 999px; font-size: .95rem; flex: none; }
+#annot-pen-dock .apd-tools button:hover { background: color-mix(in srgb, var(--hue-blossom) 14%, transparent); }
+#annot-pen-dock .apd-tools button[aria-pressed="true"] {
+    background: color-mix(in srgb, var(--apd-c) 28%, transparent); color: var(--apd-i);
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--apd-c) 75%, transparent);
+}
+#annot-pen-dock .apd-tools button[data-pen-act="finger"][aria-pressed="true"] {
+    background: color-mix(in srgb, var(--hue-blossom) 22%, transparent); color: var(--ink-blossom);
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--hue-blossom) 60%, transparent);
+}
+#annot-pen-dock .apd-tools button:disabled { opacity: .35; cursor: default; }
+#annot-pen-dock .apd-dot::before { content: ''; width: 1.1rem; height: 1.1rem; border-radius: 999px; box-shadow: inset 0 0 0 1.5px rgba(0, 0, 0, .12); }
+#annot-pen-dock .apd-yellow::before { background: var(--hue-butter); }
+#annot-pen-dock .apd-green::before { background: var(--hue-mint); }
+#annot-pen-dock .apd-blue::before { background: var(--hue-sky); }
+#annot-pen-dock .apd-note { color: var(--ink-lav); }
+#annot-pen-dock .apd-sep { width: 1.3rem; height: 2px; border-radius: 2px; background: var(--line); margin: .15rem 0; flex: none; }
+@media (pointer: coarse) and (min-width: 768px) {
+    #annot-pen-dock .apd-main { width: 3.3rem; height: 3.3rem; font-size: 1.25rem; }
+    #annot-pen-dock .apd-tools button { width: 2.75rem; height: 2.75rem; font-size: 1.05rem; }
+}
+body.focus-mode-active #annot-pen-dock:not(.is-on) .apd-main { opacity: .25; }
+
+/* Đang bật bút: con trỏ chuột trên chữ = bút; đang vuốt thì khóa bôi đen kiểu thường */
+body.qz-pen-on #quizSection [data-annot] { cursor: text; }
+body.qz-pen-drawing #quizSection { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+/* Xem trước nét bút (chưa lưu) */
+::highlight(qz-pen) { background-color: color-mix(in srgb, #F2BE2E 55%, transparent); color: inherit; }
+body[data-qz-pen="hl-green"] ::highlight(qz-pen) { background-color: color-mix(in srgb, #6FD1AE 55%, transparent); }
+body[data-qz-pen="hl-blue"] ::highlight(qz-pen) { background-color: color-mix(in srgb, #7EC0EE 55%, transparent); }
+body[data-qz-pen="underline"] ::highlight(qz-pen) { background-color: transparent; text-decoration: underline 3px #FF8FB8; }
+body[data-qz-pen="note"] ::highlight(qz-pen) { background-color: color-mix(in srgb, #B9A2F0 50%, transparent); }
+body[data-qz-pen="erase"] ::highlight(qz-pen) { background-color: rgba(120, 110, 105, .18); text-decoration: line-through 2px rgba(200, 72, 72, .7); }
+@media (prefers-reduced-motion: reduce) {
+    #annot-pen-dock.is-on .apd-tools { animation: none; }
+}
