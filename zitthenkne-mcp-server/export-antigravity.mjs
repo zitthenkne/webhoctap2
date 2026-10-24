@@ -6,6 +6,7 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import { registerReadTools } from "./dist/tools/read.js";
 import { registerWriteTools } from "./dist/tools/write.js";
 import { registerRecordTools } from "./dist/tools/record.js";
+import { registerFolderTools } from "./dist/tools/folders.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -22,6 +23,7 @@ const server = new McpServer({
 registerReadTools(server);
 registerWriteTools(server);
 registerRecordTools(server);
+registerFolderTools(server);
 
 // @ts-ignore
 const registeredTools = server._registeredTools || {};
@@ -43,9 +45,13 @@ Server kết nối trực tiếp với cơ sở dữ liệu Firebase Firestore c
 - \`quiz_update_question\`: Chỉnh sửa nội dung câu hỏi trong bộ đề theo index.
 - \`quiz_delete_question\`: Xóa câu hỏi khỏi bộ đề theo index.
 - \`quiz_delete_set\`: Xóa toàn bộ bộ đề (yêu cầu \`confirm: true\`).
-- \`quiz_list_folders\`: Xem danh sách thư mục bài học.
-- \`quiz_create_folder\`: Tạo thư mục mới.
-- \`quiz_move_to_folder\`: Chuyển bộ đề vào thư mục hoặc đưa ra ngoài gốc.
+- \`quiz_list_folders\`: Xem danh sách thư mục (kèm đường dẫn từ gốc, cấp, số bộ đề; lọc con trực tiếp bằng \`parent_id\`).
+- \`quiz_folder_tree\`: Xem TOÀN BỘ cây thư mục lồng nhau — gọi trước khi quyết định đặt bộ đề vào đâu.
+- \`quiz_get_folder\`: Chi tiết một thư mục: breadcrumb, thư mục con, bộ đề bên trong.
+- \`quiz_create_folder\`: Tạo thư mục mới (\`parent_id\` để tạo thư mục con, \`icon\`, \`color\`).
+- \`quiz_ensure_folder_path\`: Tạo/lấy cả chuỗi "A / B / C" (cấp nào có rồi thì dùng lại) và trả về ID thư mục cuối.
+- \`quiz_update_folder\`: Đổi tên/icon/màu/ghim hoặc chuyển thư mục sang thư mục cha khác.
+- \`quiz_move_to_folder\`: Chuyển bộ đề vào thư mục (ở cấp nào cũng được) hoặc đưa ra ngoài gốc.
 - \`quiz_list_results\`: Xem kết quả làm bài của học viên.
 - \`quiz_get_user_stats\`: Lấy thống kê chi tiết của người dùng.
 

@@ -56,16 +56,33 @@ export interface QuizSet {
   isPublic: boolean;
   /** ID thư mục chứa bộ đề, hoặc null nếu ở thư mục gốc. */
   folderId: string | null;
+  /** Đang nằm trong thùng rác. */
+  deleted?: boolean;
   /** Thời điểm tạo (ISO string sau khi chuẩn hóa). */
   createdAt: string | null;
 }
 
-/** Thư mục để tổ chức các bộ đề. */
+/**
+ * Thư mục để tổ chức các bộ đề. Thư mục có thể LỒNG NHAU qua `parentId`
+ * (null / trỏ tới thư mục không còn = nằm ở Thư viện gốc — đúng như web app hiển thị).
+ */
 export interface QuizFolder {
   id: string;
   userId: string;
   name?: string;
   title?: string;
+  /** ID thư mục cha, null nếu ở gốc. */
+  parentId: string | null;
+  /** Icon FontAwesome, vd "fa-folder", "fa-heart-pulse". */
+  icon?: string;
+  /** Tên màu có sẵn (amber/pink/red/green/blue/indigo/purple) hoặc mã "#RRGGBB". */
+  color?: string;
+  pinned?: boolean;
+  isPublic?: boolean;
+  /** Thứ tự kéo-thả thủ công trên web. */
+  order?: number;
+  /** Đang nằm trong thùng rác (web tự xóa hẳn sau 30 ngày). */
+  deleted?: boolean;
   createdAt: string | null;
 }
 

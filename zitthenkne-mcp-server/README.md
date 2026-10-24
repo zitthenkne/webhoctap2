@@ -6,10 +6,12 @@ MCP server cho web app học tập **Zitthenkne** (Firebase Firestore). Cho phé
 
 Đọc (read-only):
 
-- `quiz_list_sets` — liệt kê bộ đề (lọc theo user, thư mục, công khai; có phân trang)
+- `quiz_list_sets` — liệt kê bộ đề (lọc theo user, thư mục — có thể gồm cả thư mục con, công khai; có phân trang; tự bỏ bộ đề trong thùng rác)
 - `quiz_search_sets` — tìm bộ đề theo tiêu đề
 - `quiz_get_set` — xem chi tiết một bộ đề kèm câu hỏi
-- `quiz_list_folders` — liệt kê thư mục
+- `quiz_list_folders` — liệt kê thư mục kèm đường dẫn, cấp, số bộ đề; lọc con trực tiếp bằng `parent_id`
+- `quiz_folder_tree` — toàn bộ cây thư mục lồng nhau (số bộ đề / số câu gộp theo nhánh, có thể kèm danh sách bộ đề)
+- `quiz_get_folder` — chi tiết một thư mục: breadcrumb, thư mục con, bộ đề bên trong
 - `quiz_list_results` — liệt kê kết quả làm bài
 - `quiz_get_user_stats` — thống kê tổng hợp của một người dùng
 
@@ -21,8 +23,10 @@ Ghi (cần quyền ghi Firestore):
 - `quiz_update_question` — sửa một câu hỏi
 - `quiz_delete_question` — xóa một câu hỏi
 - `quiz_delete_set` — xóa bộ đề (bắt buộc `confirm=true`)
-- `quiz_create_folder` — tạo thư mục
-- `quiz_move_to_folder` — di chuyển bộ đề vào thư mục
+- `quiz_create_folder` — tạo thư mục (có `parent_id` để tạo thư mục con, `icon`, `color`)
+- `quiz_ensure_folder_path` — tạo/lấy cả chuỗi `"A / B / C"`, cấp nào có rồi thì dùng lại (không tạo trùng)
+- `quiz_update_folder` — đổi tên/icon/màu/ghim, hoặc chuyển thư mục sang cha khác (chặn vòng lặp)
+- `quiz_move_to_folder` — di chuyển bộ đề vào thư mục (kiểm tra thư mục tồn tại, cùng chủ)
 
 Bệnh án (collection `medical_records` — dữ liệu của `features/medical-record/tao-benh-an.html` và `features/study-room/waiting-room.html`):
 
@@ -107,7 +111,8 @@ Suy ra từ mã nguồn web app:
 
 - `quiz_sets`: `{ userId, title, questionCount, questions[], isPublic, folderId, createdAt }`
   - `questions[i]`: `{ question, answers[], correctAnswerIndex, optionExplanations?, explanation? }`
-- `quiz_folders`: `{ userId, name, createdAt }`
+- `quiz_folders`: `{ userId, name, parentId, icon, color, pinned?, order?, isPublic?, deleted?, createdAt }`
+  - Thư mục **lồng nhau** qua `parentId` (null = ở gốc). `parentId`/`folderId` trỏ tới thư mục không còn (hoặc trong thùng rác) thì coi như ở gốc — giống web.
 - `quiz_results`: `{ userId, quizId, quizTitle, score, totalQuestions, percentage, timeTaken, completedAt }`
 - `users`: `{ quizSetsCreated, … }`
 
@@ -131,9 +136,12 @@ zitthenkne-mcp-server/
 │   ├── schemas.ts          # Zod schema validate input
 │   ├── services/
 │   │   ├── firestore.ts    # Khởi tạo Firebase Admin
-│   │   └── helpers.ts      # Chuẩn hóa document, format, xử lý lỗi
+│   │   ├── helpers.ts      # Chuẩn hóa document, format, xử lý lỗi
+│   │   └── folders.ts      # Dựng cây thư mục, đường dẫn, chống vòng lặp
 │   └── tools/
-│       ├── read.ts         # 6 tool đọc
-│       └── write.ts        # 8 tool ghi
+│       ├── read.ts         # tool đọc bộ đề / kết quả / thống kê
+│       ├── write.ts        # tool ghi bộ đề & câu hỏi
+│       ├── folders.ts      # tool thư mục phân cấp
+│       └── record.ts       # tool bệnh án
 └── dist/                   # JS sau khi build
 ```

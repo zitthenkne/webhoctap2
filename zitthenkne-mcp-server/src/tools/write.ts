@@ -11,11 +11,9 @@ import { getFirestore } from "../services/firestore.js";
 import { handleError, jsonResult, textResult, toQuizSet, type ToolResult } from "../services/helpers.js";
 import {
   AddQuestionSchema,
-  CreateFolderSchema,
   CreateQuizSetSchema,
   DeleteQuestionSchema,
   DeleteQuizSetSchema,
-  MoveToFolderSchema,
   UpdateQuestionSchema,
   UpdateQuizSetSchema,
   UpdateQuizSetObjectSchema,
@@ -414,77 +412,6 @@ Lưu ý: thao tác KHÔNG thể hoàn tác.`,
           return jsonResult({ success: true, id: params.quiz_id, deletedTitle: title });
         }
         return textResult(`Đã xóa vĩnh viễn bộ đề "${title}" (${params.quiz_id}).`);
-      } catch (error) {
-        return handleError(error);
-      }
-    },
-  );
-
-  /* ---------------- quiz_create_folder ---------------- */
-  server.registerTool(
-    "quiz_create_folder",
-    {
-      title: "Tạo thư mục",
-      description: `Tạo thư mục mới trong quiz_folders để tổ chức bộ đề.
-
-Args:
-  - name (string, bắt buộc)
-  - user_id (string, bắt buộc): UID chủ sở hữu
-  - response_format ('markdown' | 'json')
-
-Returns (JSON): { success: true, id, name }`,
-      inputSchema: CreateFolderSchema.shape,
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
-    },
-    async (params: z.infer<typeof CreateFolderSchema>): Promise<ToolResult> => {
-      try {
-        const db = getFirestore();
-        const ref = await db.collection(COLLECTIONS.QUIZ_FOLDERS).add({
-          name: params.name,
-          userId: params.user_id,
-          createdAt: FieldValue.serverTimestamp(),
-        });
-        return ok(
-          params.response_format,
-          { id: ref.id, name: params.name },
-          `Đã tạo thư mục "${params.name}". ID: ${ref.id}`,
-        );
-      } catch (error) {
-        return handleError(error);
-      }
-    },
-  );
-
-  /* ---------------- quiz_move_to_folder ---------------- */
-  server.registerTool(
-    "quiz_move_to_folder",
-    {
-      title: "Di chuyển bộ đề vào thư mục",
-      description: `Đặt folderId của một bộ đề. Truyền folder_id=null để chuyển về thư mục gốc.
-
-Args:
-  - quiz_id (string, bắt buộc)
-  - folder_id (string | null, bắt buộc)
-  - response_format ('markdown' | 'json')
-
-Returns (JSON): { success: true, id, folderId }`,
-      inputSchema: MoveToFolderSchema.shape,
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
-    },
-    async (params: z.infer<typeof MoveToFolderSchema>): Promise<ToolResult> => {
-      try {
-        const db = getFirestore();
-        const ref = db.collection(COLLECTIONS.QUIZ_SETS).doc(params.quiz_id);
-        const doc = await ref.get();
-        if (!doc.exists) return textResult(`Không tìm thấy bộ đề với id "${params.quiz_id}".`, true);
-
-        await ref.update({ folderId: params.folder_id });
-        const dest = params.folder_id ? `thư mục ${params.folder_id}` : "thư mục gốc";
-        return ok(
-          params.response_format,
-          { id: params.quiz_id, folderId: params.folder_id },
-          `Đã chuyển bộ đề ${params.quiz_id} về ${dest}.`,
-        );
       } catch (error) {
         return handleError(error);
       }

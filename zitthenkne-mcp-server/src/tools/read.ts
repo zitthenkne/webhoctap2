@@ -8,18 +8,17 @@ import type { Query } from "firebase-admin/firestore";
 import type { z } from "zod";
 import { COLLECTIONS, ResponseFormat } from "../constants.js";
 import { getFirestore } from "../services/firestore.js";
+import { FolderIndex, loadUserFolders } from "../services/folders.js";
 import {
   handleError,
   jsonResult,
   textResult,
   toQuizSet,
-  toQuizFolder,
   toQuizResult,
   type ToolResult,
 } from "../services/helpers.js";
 import {
   GetQuizSetSchema,
-  ListFoldersSchema,
   ListQuizSetsSchema,
   ListResultsSchema,
   SearchQuizSetsSchema,
@@ -28,9 +27,9 @@ import {
 import type { QuizSet, UserStats } from "../types.js";
 
 /** Tóm tắt một bộ đề (không kèm câu hỏi) thành dòng markdown. */
-function quizSummaryLine(q: QuizSet): string {
+function quizSummaryLine(q: QuizSet & { folderPath?: string }): string {
   const pub = q.isPublic ? "công khai" : "riêng tư";
-  const folder = q.folderId ? ` · thư mục ${q.folderId}` : "";
+  const folder = q.folderPath ? ` · 📁 ${q.folderPath}` : q.folderId ? ` · thư mục ${q.folderId}` : "";
   return `- **${q.title}** (\`${q.id}\`) — ${q.questionCount} câu · ${pub}${folder}`;
 }
 
@@ -45,11 +44,13 @@ export function registerReadTools(server: McpServer): void {
 Args:
   - user_id (string, optional): chỉ lấy bộ đề của UID này
   - folder_id (string, optional): lọc theo thư mục; truyền "root" để lấy bộ đề không thuộc thư mục
+  - include_subfolders (boolean, mặc định false): cùng folder_id — lấy cả bộ đề trong mọi thư mục con cháu
+  - include_deleted (boolean, mặc định false): lấy cả bộ đề trong thùng rác
   - public_only (boolean): nếu true chỉ lấy isPublic=true (mặc định false)
   - limit (number 1-100, mặc định 20), offset (number, mặc định 0)
   - response_format ('markdown' | 'json')
 
-Returns (JSON): { total, count, offset, has_more, next_offset?, items: [{ id, userId, title, questionCount, isPublic, folderId, createdAt }] }
+Returns (JSON): { total, count, offset, has_more, next_offset?, items: [{ id, userId, title, questionCount, isPublic, folderId, folderPath?, createdAt }] }
 Lưu ý: không kèm nội dung câu hỏi (dùng quiz_get_set để xem chi tiết).`,
       inputSchema: ListQuizSetsSchema.shape,
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
@@ -60,12 +61,40 @@ Lưu ý: không kèm nội dung câu hỏi (dùng quiz_get_set để xem chi ti�
         let query = db.collection(COLLECTIONS.QUIZ_SETS) as Query;
         if (params.user_id) query = query.where("userId", "==", params.user_id);
         if (params.public_only) query = query.where("isPublic", "==", true);
-        if (params.folder_id) {
-          query = query.where("folderId", "==", params.folder_id === "root" ? null : params.folder_id);
+
+        // Cây thư mục của chủ sở hữu — để lọc theo nhánh và ghi đường dẫn thư mục cho từng bộ đề
+        let index: FolderIndex | null = null;
+        let ownerId = params.user_id;
+        if (!ownerId && params.folder_id && params.folder_id !== "root") {
+          const f = await db.collection(COLLECTIONS.QUIZ_FOLDERS).doc(params.folder_id).get();
+          ownerId = f.exists ? f.get("userId") : undefined;
+        }
+        if (ownerId) index = new FolderIndex(await loadUserFolders(db, ownerId));
+
+        if (params.folder_id === "root") {
+          // Ở gốc = folderId null HOẶC trỏ tới thư mục đã xóa (giống web) → lọc sau khi tải
+          if (!index) query = query.where("folderId", "==", null);
+        } else if (params.folder_id && !(params.include_subfolders && index)) {
+          query = query.where("folderId", "==", params.folder_id);
+        } else if (params.folder_id && !params.user_id && ownerId) {
+          query = query.where("userId", "==", ownerId);
         }
 
         const snap = await query.get();
-        const all = snap.docs.map((d) => toQuizSet(d, false));
+        let all = snap.docs
+          .map((d) => toQuizSet(d, false))
+          .filter((q) => params.include_deleted || !q.deleted);
+        if (index && params.folder_id === "root") {
+          all = all.filter((q) => index!.quizFolderOf(q) === null);
+        } else if (index && params.folder_id && params.include_subfolders) {
+          const scope = new Set([params.folder_id, ...index.descendants(params.folder_id)]);
+          all = all.filter((q) => q.folderId !== null && scope.has(q.folderId));
+        }
+        const withPath = (q: QuizSet) => {
+          const fid = index?.quizFolderOf(q);
+          return fid ? { ...q, folderPath: index!.pathString(fid) } : q;
+        };
+        all = all.map(withPath);
         const total = all.length;
         const page = all.slice(params.offset, params.offset + params.limit);
         const hasMore = total > params.offset + page.length;
@@ -198,42 +227,6 @@ Lỗi: trả "Không tìm thấy bộ đề" nếu quiz_id không tồn tại.`,
           lines.push("");
         });
         return textResult(lines.join("\n"));
-      } catch (error) {
-        return handleError(error);
-      }
-    },
-  );
-
-  /* ---------------- quiz_list_folders ---------------- */
-  server.registerTool(
-    "quiz_list_folders",
-    {
-      title: "Liệt kê thư mục",
-      description: `Liệt kê thư mục (quiz_folders) dùng để tổ chức bộ đề.
-
-Args:
-  - user_id (string, optional): lọc theo UID chủ sở hữu
-  - limit (number 1-100, mặc định 20)
-  - response_format ('markdown' | 'json')
-
-Returns (JSON): { count, items: [{ id, userId, name, createdAt }] }`,
-      inputSchema: ListFoldersSchema.shape,
-      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
-    },
-    async (params: z.infer<typeof ListFoldersSchema>): Promise<ToolResult> => {
-      try {
-        const db = getFirestore();
-        let query = db.collection(COLLECTIONS.QUIZ_FOLDERS) as Query;
-        if (params.user_id) query = query.where("userId", "==", params.user_id);
-        const snap = await query.get();
-        const items = snap.docs.map(toQuizFolder).slice(0, params.limit);
-        const output = { count: items.length, items };
-
-        if (params.response_format === ResponseFormat.JSON) return jsonResult(output, "items");
-        if (items.length === 0) return textResult("Không có thư mục nào.");
-        return textResult(
-          [`# Thư mục (${items.length})`, "", ...items.map((f) => `- **${f.name ?? "(không tên)"}** (\`${f.id}\`)`)].join("\n"),
-        );
       } catch (error) {
         return handleError(error);
       }

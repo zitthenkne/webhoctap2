@@ -73,6 +73,7 @@ export function toQuizSet(
     questions: includeQuestions ? questions : [],
     isPublic: data.isPublic ?? false,
     folderId: data.folderId ?? null,
+    ...(data.deleted === true ? { deleted: true } : {}),
     createdAt: toIso(data.createdAt),
   };
 }
@@ -87,6 +88,13 @@ export function toQuizFolder(
     userId: data.userId ?? "",
     name: data.name ?? data.title ?? undefined,
     title: data.title ?? undefined,
+    parentId: typeof data.parentId === "string" && data.parentId ? data.parentId : null,
+    icon: data.icon ?? undefined,
+    color: data.color ?? undefined,
+    pinned: data.pinned === true ? true : undefined,
+    isPublic: data.isPublic === true ? true : undefined,
+    order: typeof data.order === "number" ? data.order : undefined,
+    deleted: data.deleted === true ? true : undefined,
     createdAt: toIso(data.createdAt),
   };
 }

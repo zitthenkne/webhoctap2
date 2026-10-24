@@ -20,6 +20,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { registerReadTools } from "./tools/read.js";
 import { registerWriteTools } from "./tools/write.js";
 import { registerRecordTools } from "./tools/record.js";
+import { registerFolderTools } from "./tools/folders.js";
 
 const server = new McpServer({
   name: "zitthenkne-mcp-server",
@@ -29,6 +30,7 @@ const server = new McpServer({
 registerReadTools(server);
 registerWriteTools(server);
 registerRecordTools(server);
+registerFolderTools(server);
 
 async function main(): Promise<void> {
   const hasCredentials =

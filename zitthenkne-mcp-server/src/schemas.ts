@@ -34,6 +34,14 @@ export const ListQuizSetsSchema = z
       .string()
       .optional()
       .describe("Lọc theo ID thư mục. Truyền 'root' để lấy bộ đề không thuộc thư mục nào"),
+    include_subfolders: z
+      .boolean()
+      .default(false)
+      .describe("Khi có folder_id: lấy cả bộ đề trong mọi thư mục con cháu (cần biết chủ sở hữu thư mục)"),
+    include_deleted: z
+      .boolean()
+      .default(false)
+      .describe("Có lấy cả bộ đề đang nằm trong thùng rác hay không (mặc định không)"),
     public_only: z
       .boolean()
       .default(false)
@@ -68,10 +76,61 @@ export const GetQuizSetSchema = z
   })
   .strict();
 
+const folderIcon = z
+  .string()
+  .regex(/^fa-[a-z0-9-]+$/, "Icon phải có dạng 'fa-xxx', vd 'fa-heart-pulse'")
+  .describe("Icon FontAwesome 6 (solid) dạng 'fa-xxx', vd 'fa-folder', 'fa-heart-pulse', 'fa-brain'");
+
+const folderColor = z
+  .string()
+  .regex(
+    /^(amber|pink|red|green|blue|indigo|purple|#[0-9a-fA-F]{6})$/,
+    "Màu phải là amber/pink/red/green/blue/indigo/purple hoặc mã '#RRGGBB'",
+  )
+  .describe("Màu thư mục: amber | pink | red | green | blue | indigo | purple | '#RRGGBB'");
+
 export const ListFoldersSchema = z
   .object({
-    user_id: z.string().optional().describe("Lọc theo UID chủ sở hữu (tùy chọn)"),
+    user_id: z.string().optional().describe("Lọc theo UID chủ sở hữu (nên truyền để có đường dẫn & số liệu cây)"),
+    parent_id: z
+      .string()
+      .optional()
+      .describe("Chỉ lấy thư mục con TRỰC TIẾP của thư mục này. Truyền 'root' để lấy thư mục cấp gốc. Cần user_id"),
+    include_deleted: z.boolean().default(false).describe("Có lấy thư mục trong thùng rác hay không"),
     limit,
+    response_format: responseFormat,
+  })
+  .strict();
+
+export const FolderTreeSchema = z
+  .object({
+    user_id: z.string().min(1).describe("UID chủ sở hữu thư viện"),
+    root_id: z
+      .string()
+      .optional()
+      .describe("Chỉ vẽ nhánh bắt đầu từ thư mục này (bỏ trống = toàn bộ thư viện)"),
+    max_depth: z
+      .number()
+      .int()
+      .min(1)
+      .max(20)
+      .default(10)
+      .describe("Số cấp tối đa trả về tính từ điểm bắt đầu (số liệu vẫn gộp cả cây con)"),
+    include_quizzes: z
+      .boolean()
+      .default(false)
+      .describe("Liệt kê luôn bộ đề nằm trong từng thư mục (và ở gốc)"),
+    response_format: responseFormat,
+  })
+  .strict();
+
+export const GetFolderSchema = z
+  .object({
+    folder_id: z.string().min(1).describe("ID thư mục trong quiz_folders"),
+    include_subfolders: z
+      .boolean()
+      .default(false)
+      .describe("Liệt kê bộ đề của cả cây con (mặc định chỉ bộ đề nằm trực tiếp trong thư mục)"),
     response_format: responseFormat,
   })
   .strict();
@@ -456,11 +515,60 @@ export const DeleteQuizSetSchema = z
 
 export const CreateFolderSchema = z
   .object({
-    name: z.string().min(1, "Tên thư mục không được rỗng").max(200).describe("Tên thư mục"),
+    name: z.string().trim().min(1, "Tên thư mục không được rỗng").max(200).describe("Tên thư mục"),
     user_id: z.string().min(1).describe("UID chủ sở hữu thư mục"),
+    parent_id: z
+      .string()
+      .nullable()
+      .default(null)
+      .describe("ID thư mục cha (tạo thành thư mục con), hoặc null để tạo ở Thư viện gốc"),
+    icon: folderIcon.default("fa-folder"),
+    color: folderColor.default("amber"),
     response_format: responseFormat,
   })
   .strict();
+
+export const EnsureFolderPathSchema = z
+  .object({
+    user_id: z.string().min(1).describe("UID chủ sở hữu thư mục"),
+    path: z
+      .string()
+      .min(1)
+      .max(1000)
+      .describe("Đường dẫn phân cấp, ngăn bằng '/' hoặc '>', vd 'Nội khoa / Tim mạch / Suy tim'"),
+    parent_id: z
+      .string()
+      .nullable()
+      .default(null)
+      .describe("Bắt đầu từ thư mục này thay vì từ gốc (tùy chọn)"),
+    icon: folderIcon.optional().describe("Icon cho các thư mục MỚI được tạo (mặc định 'fa-folder')"),
+    color: folderColor.optional().describe("Màu cho các thư mục MỚI được tạo (mặc định 'amber')"),
+    response_format: responseFormat,
+  })
+  .strict();
+
+export const UpdateFolderObjectSchema = z
+  .object({
+    folder_id: z.string().min(1).describe("ID thư mục cần sửa"),
+    name: z.string().trim().min(1).max(200).optional().describe("Tên mới"),
+    icon: folderIcon.optional(),
+    color: folderColor.optional(),
+    pinned: z.boolean().optional().describe("Ghim thư mục lên đầu"),
+    parent_id: z
+      .string()
+      .nullable()
+      .optional()
+      .describe("Chuyển thư mục vào thư mục cha mới, hoặc null để đưa ra Thư viện gốc"),
+    response_format: responseFormat,
+  })
+  .strict();
+
+export const UpdateFolderSchema = UpdateFolderObjectSchema.refine(
+  (d) =>
+    d.name !== undefined || d.icon !== undefined || d.color !== undefined ||
+    d.pinned !== undefined || d.parent_id !== undefined,
+  { message: "Cần ít nhất một trường để cập nhật (name/icon/color/pinned/parent_id)" },
+);
 
 export const MoveToFolderSchema = z
   .object({
