@@ -1,7 +1,8 @@
 /* study-room-min.css — "Giao diện tinh gọn" (viết lại lần 4, 2026-10-19). Menu ⋮ → Hiển thị → "Giao diện tinh gọn" (điện thoại: Thêm → Tinh gọn),
-   bấm xoay vòng Tắt → Vừa → Tối đa; nhớ theo máy ở localStorage roomMinimal = '0' | '1' | '2'.
+   Thanh trượt Tắt → Vừa → Tối đa → Cốt lõi; nhớ theo máy ở localStorage roomMinimal = '0' | '1' | '2' | '3'.
      · html.ui-min                 = mức VỪA: gọn mắt nhưng còn đủ công cụ phụ (cược ×2/×3, dải tiến độ nhóm, "việc của bạn", bảng phiếu, mục lục sổ tay…).
      · html.ui-min.ui-min-max      = mức TỐI ĐA: chỉ giữ thứ cần để làm bài + bàn; công cụ phụ ẩn (mục 4b).
+     · html.ui-min.ui-min-max.ui-min-core = CỐT LÕI: một luồng đọc, chỉ cất phần trống và công cụ phụ; giữ nội dung đã viết.
    Lịch sử: bản 1 xám/vuông bị bác -> bản 2 pastel + ẩn -> bản 3 hệ thống trung tính + lớp pastel đè lên (khối nào cũng viền màu riêng = rối, và ẩn mất nhiều tính năng).
    Lần 4 = MỘT hệ thống, không chồng lớp:
      · Hai mặt phẳng: bàn hồng phấn phẳng · tờ trắng bo 22px, bóng hồng rất mềm, KHÔNG viền. Trong tờ: không hộp lồng hộp, ngăn mục bằng một đường kẻ hồng nhạt.
@@ -20,7 +21,7 @@ html.ui-min {
     --m-card-sh: 0 1px 2px rgba(196, 110, 145, .07), 0 10px 28px -16px rgba(196, 110, 145, .32);
     --m-line: color-mix(in srgb, var(--rm-accent) 22%, transparent);
     --rm-stitch: var(--m-line); --rm-line: var(--m-line); --rm-line-soft: color-mix(in srgb, var(--rm-accent) 12%, transparent);
-    --m-dim: color-mix(in srgb, var(--rm-ink) 58%, transparent); --m-faint: color-mix(in srgb, var(--rm-ink) 36%, transparent);
+    --m-dim: color-mix(in srgb, var(--rm-ink) 75%, var(--rm-surface)); --m-faint: color-mix(in srgb, var(--rm-ink) 36%, transparent);
     --m-fill: color-mix(in srgb, var(--rm-accent) 9%, var(--rm-surface)); --m-fill-2: color-mix(in srgb, var(--rm-accent) 16%, var(--rm-surface));
     --mt-lav: color-mix(in srgb, var(--rm-lav) 20%, var(--rm-surface));
     --mt-mint: color-mix(in srgb, var(--rm-mint) 20%, var(--rm-surface));
@@ -272,7 +273,7 @@ html.ui-min .rm-fd-msg.me .rm-fd-text { border-radius: 14px; }
 html.ui-min :is(.wb-dock, .wb-empty-card, .wb-tplc) { box-shadow: var(--m-card-sh); border: 0; }
 html.ui-min .wb-empty-card { background: var(--rm-surface); }
 
-/* ───────── 12. Thanh trượt chọn mức (menu ⋮ + khay Thêm) — hiện ở MỌI chế độ nên KHÔNG đặt dưới html.ui-min ───────── */
+/* ───────── 12. Thanh trượt bốn mức — hiện ở MỌI chế độ ───────── */
 .rm-minslide { display: grid; gap: .35rem; padding: .5rem .75rem .45rem; }
 .rm-minslide-hd { display: flex; align-items: center; gap: .55rem; font-size: .84rem; font-weight: 600; color: var(--rm-ink); }
 .rm-minslide-hd i { width: 1.1rem; text-align: center; color: var(--rm-accent-deep); }
@@ -291,8 +292,9 @@ html.ui-min .wb-empty-card { background: var(--rm-surface); }
 }
 .rm-minrange::-moz-range-thumb { width: 1.15rem; height: 1.15rem; border: 0; border-radius: 50%; background: var(--rm-surface); box-shadow: 0 0 0 3px var(--rm-accent), 0 2px 6px rgba(196, 110, 145, .45); }
 .rm-minrange:focus-visible { outline: 2px solid var(--rm-pick); outline-offset: 3px; border-radius: 999px; }
-.rm-minticks { display: flex; justify-content: space-between; margin-top: -.15rem; }
-.rm-minticks button { font-size: .68rem; font-weight: 500; color: var(--rm-muted, #8a7a80); padding: .1rem .2rem; border-radius: 6px; background: none; border: 0; }
+.rm-minticks { display: grid; grid-template-columns: repeat(4, 1fr); gap: .2rem; margin-top: -.15rem; }
+.rm-minticks button { min-height: 32px; font-size: .68rem; font-weight: 500; color: var(--rm-muted, #8a7a80); padding: .1rem .2rem; border-radius: 8px; background: none; border: 0; }
+.rm-minhelp { font-size: .72rem; line-height: 1.5; color: var(--rm-muted); }
 .rm-minticks button.on { color: var(--rm-accent-deep); font-weight: 700; }
 .rm-minticks button:hover { color: var(--rm-ink); }
 .rm-minslide.is-sheet { margin-top: .6rem; padding: .7rem .9rem .6rem; border-radius: var(--rm-r, 14px); background: var(--rm-surface-2, #fff); }
@@ -318,19 +320,19 @@ html.ui-min #question-text .quiz-md-gap { height: .3em; }                       
    cất thêm: tên đề trên đầu trang, chip "Chưa chốt", nguồn sách, nhãn "Lý do của bạn", Đoán/Chắc, Sửa chữ, Đợi mình, Giảng.
    Còn nguyên: chọn đáp án, lý do, bàn luận, sổ tay, ghi chú của tôi, Cần bàn, Đánh dấu, mọi nút chủ trì, chat / nhóm / BXH. */
 html.ui-min-max {
-    --rm-desk: var(--rm-surface); --m-card-sh: none; --rm-shadow: 0 6px 18px -12px rgba(120, 80, 100, .35);
+    --rm-desk: color-mix(in srgb, var(--rm-accent) 4%, var(--rm-surface)); --m-card-sh: none; --rm-shadow: 0 6px 18px -12px rgba(120, 80, 100, .35);
     --m-line: color-mix(in srgb, var(--rm-ink) 10%, transparent);
     --m-fill: transparent; --m-fill-2: color-mix(in srgb, var(--rm-ink) 5%, transparent);
 }
-html.ui-min-max.theme-dark { --rm-desk: var(--rm-surface); --m-line: color-mix(in srgb, #fff 10%, transparent); --m-card-sh: none; }
+html.ui-min-max.theme-dark { --rm-desk: color-mix(in srgb, var(--rm-accent) 3%, var(--rm-surface)); --m-line: color-mix(in srgb, #fff 10%, transparent); --m-card-sh: none; }
 
 /* cất thêm */
 html.ui-min-max :is(#session-badge, #phase-chip, .rm-qsrc, .rm-otalk-me, .rm-conf, .rm-touch-edit, .rm-selfchips [data-slow], .rm-selfchips [data-explain-me], #share-room-btn span, .rm-nb-mini-sub) { display: none !important; }
 
 /* mặt phẳng: tờ bỏ nền + bóng + bo; cột sổ tay ngăn bằng 1 đường kẻ */
-html.ui-min.ui-min-max :is(.rm-col-main, .rm-panel, .rm-hero, .rm-setup, .rm-goal-panel, .rm-log-panel) { background-color: transparent; box-shadow: none !important; border-radius: 0 !important; }
+html.ui-min.ui-min-max :is(.rm-col-main, .rm-panel, .rm-hero, .rm-setup, .rm-goal-panel, .rm-log-panel) { background-color: transparent; box-shadow: none !important; border-radius: 12px !important; }
 html.ui-min-max .rm-col-main { padding: .4rem .3rem 1rem; }
-html.ui-min-max .rm-col-side .rm-side-scroll { background: transparent; box-shadow: none !important; border-radius: 0 !important; border-left: 1px solid var(--m-line) !important; }
+html.ui-min-max .rm-col-side .rm-side-scroll { background: transparent; box-shadow: none !important; border-radius: 12px !important; border-left: 1px solid var(--m-line) !important; }
 html.ui-min.ui-min-max :is(.rm-panel, .rm-hero) { box-shadow: inset 0 0 0 1px var(--m-line) !important; border-radius: 14px !important; }      /* .ui-min.ui-min-max: luật tờ của mục 5 có :is() độ ưu tiên (0,2,0) */
 html.ui-min-max header.rm-bar { background: var(--rm-surface); }
 html.ui-min-max .rm-room-chip { background: transparent; color: var(--m-dim); padding-inline: .3rem; }
@@ -352,7 +354,7 @@ html.ui-min-max :is(.rm-qchip, .rm-chip.warn, .rm-qchip.is-warn) { background: t
 /* phương án = danh sách: ô chưa chọn trong suốt + đường kẻ, chỉ chữ cái tròn còn màu A–D */
 html.ui-min-max .rm-opts { gap: 0; margin-top: .45rem; }
 html.ui-min-max .rm-ocard > .rm-option { background: transparent !important; border-radius: 12px; min-height: 2.6rem; padding: .5rem .6rem; }
-html.ui-min-max .rm-ocard + .rm-ocard > .rm-option:not(.picked):not(.correct):not(.wrong) { box-shadow: 0 -1px 0 var(--m-line) !important; border-radius: 0; }
+html.ui-min-max .rm-ocard + .rm-ocard > .rm-option:not(.picked):not(.correct):not(.wrong) { box-shadow: 0 -1px 0 var(--m-line) !important; border-radius: 10px; }
 html.ui-min-max .rm-ocard > .rm-option:not(.rm-locked):hover { background: var(--m-fill-2) !important; }
 html.ui-min-max .rm-ocard > .rm-option.picked { background: var(--rm-pick-bg) !important; box-shadow: none !important; }
 html.ui-min-max .rm-ocard > .rm-option.correct { background: var(--rm-ok-bg) !important; box-shadow: none !important; }
@@ -402,3 +404,78 @@ html.ui-min-max .rm-odisc .rm-otalk-mine { margin-top: 0; }
 html.ui-min-max .rm-otalk-mine > [data-live-status]:not(.on) { display: none; }
 html.ui-min-max .rm-otalk-mine > .rm-why { margin-top: .1rem; }
 html.ui-min-max .rm-vprog { height: 2px; background: var(--m-line); }
+
+/* ───────── 15. Cốt lõi: một luồng đọc, vẫn mềm và có màu ─────────
+   Giữ: ca / đề / mọi phương án, trạng thái đáp án, nguồn / cảnh báo, phiếu,
+   nội dung lý do, giải thích, ghi nhớ, mở rộng, thảo luận và bài tự luận.
+   Cất: dải số lặp với bộ đi câu, mặt người lặp với số phiếu, nút viết vào ô
+   còn trống và mẫu lập luận khi chưa gõ. Mở "Bàn về A/B/…" để viết thêm.
+   Desktop: sổ tay vào luồng đọc nhờ ResizeObserver hiện có; ghi chú riêng
+   và thẻ Cả đề ở cuối. Mobile: ghi chú riêng vẫn trong khay Ghi chú. */
+html.ui-min-core {
+    --m-fill: color-mix(in srgb, var(--rm-accent) 5%, var(--rm-surface));
+    --m-fill-2: color-mix(in srgb, var(--rm-accent) 10%, var(--rm-surface));
+}
+html.ui-min-core .rm-live { max-width: 60rem; }
+html.ui-min-core .rm-topbar { margin-inline: 0; padding-inline: 0; }
+html.ui-min-core .rm-live-grid { display: block; }
+html.ui-min.ui-min-core .rm-col-main { background-color: var(--rm-surface); padding: 1rem clamp(.8rem, 2vw, 1.5rem) 1.3rem; }
+html.ui-min-core #question-text { font-size: calc(clamp(1.12rem, 1.4vw, 1.3rem) * var(--rm-scale)); line-height: 1.65; }
+html.ui-min-core :is(#q-track, #q-rail, #hud-opts, #presence, .rm-nb-qtext, .rm-voters, .rm-fill) { display: none !important; }
+html.ui-min.ui-min-core #phase-chip { display: inline-flex !important; color: var(--rm-ink); background: var(--mt-lav); border-radius: 8px; }
+html.ui-min.ui-min-core #q-meta .rm-qsrc { display: flex !important; }
+html.ui-min.ui-min-core .rm-qchip { display: inline-flex; }
+html.ui-min-core .rm-qchips { flex-wrap: wrap; overflow: visible; mask: none; -webkit-mask: none; padding-right: 0; gap: .2rem .65rem; }
+html.ui-min-core .rm-qsrc-full { overflow-wrap: anywhere; }
+html.ui-min-core .rm-opts { gap: .3rem; }
+html.ui-min-core .rm-opts .rm-ocard > .rm-option {
+    min-height: 44px; border-radius: 12px;
+    background: color-mix(in srgb, var(--h, var(--rm-accent)) 5%, var(--rm-surface)) !important;
+    box-shadow: none !important;
+}
+html.ui-min-core .rm-opts .rm-ocard > .rm-option.picked { background: var(--rm-pick-bg) !important; }
+html.ui-min-core .rm-opts .rm-ocard > .rm-option.correct { background: var(--rm-ok-bg) !important; }
+html.ui-min-core .rm-opts .rm-ocard > .rm-option.wrong { background: var(--rm-bad-bg) !important; }
+html.ui-min-core .rm-opts .rm-ocard + .rm-ocard > .rm-option:not(.picked):not(.correct):not(.wrong) { border-radius: 12px; box-shadow: none !important; }
+html.ui-min-core .rm-option .rm-otext, html.ui-min-core .rm-option .rm-otext .rm-md { font-size: calc(.96rem * var(--rm-scale)); line-height: 1.6; }
+html.ui-min-core .rm-opts .rm-ocard > .rm-odisc { margin: .2rem .25rem .35rem; padding: 0 .35rem; border: 0; }
+html.ui-min-core .rm-odisc > .rm-oexp-add { display: none; }
+html.ui-min-core .rm-odisc:has(> .rm-otalk-tg.is-open) > .rm-oexp-add { display: inline-flex; }
+html.ui-min-core .rm-otalk-tg { min-height: 36px; }
+html.ui-min-core .rm-otalk-mine:not(:focus-within):not(:has(.rm-why-tpl.on)) .rm-why-tools,
+html.ui-min-core .rm-hub-exp:not(:focus-within):not(:has(.rm-why-tpl.on)) .rm-why-tools { display: none !important; }
+html.ui-min-core .rm-odisc .rm-why { min-height: 2rem; }
+html.ui-min-core .rm-notebook .is-clamped > .rm-md:not(:focus) { max-height: none; overflow: visible; mask: none; -webkit-mask: none; }
+html.ui-min-core .rm-notebook [data-nb-more] { display: none; }
+html.ui-min-core .rm-notebook .rm-xlabel { border-radius: 8px; background: var(--mt-butter); padding: .2rem .45rem; color: var(--rm-ink) !important; }
+html.ui-min-core .rm-notebook .is-note .rm-xlabel { background: var(--mt-lav); }
+html.ui-min-core .rm-notebook .is-expanded .rm-xlabel { background: var(--mt-mint); }
+html.ui-min-core .rm-notebook .rm-md { font-size: calc(.9rem * var(--rm-scale)); line-height: 1.75; }
+html.ui-min-core .rm-notebook .rm-hub-boxhead { flex-wrap: wrap; }
+html.ui-min-core .rm-hub-boxhead .rm-hint { margin-left: auto; }
+html.ui-min-core .rm-notebook.is-inline { padding: .5rem 0; }
+html.ui-min-core .rm-lobby .rm-stp { box-shadow: none !important; padding-inline: .2rem; }
+html.ui-min-core .rm-hero-mascot { width: 2.8rem; height: 2.8rem; }
+html.ui-min-core .rm-lobby .rm-panel { padding: 1rem; }
+
+@media (min-width: 640px) {
+    html.ui-min-core #session-badge[class~="sm:flex"] { display: flex !important; }
+}
+@media (min-width: 768px) {
+    html.ui-min-core .rm-col-side { display: flex; position: static; margin-top: .75rem; }
+    html.ui-min-core .rm-col-side .rm-side-scroll {
+        display: flex !important; max-height: none !important; overflow: visible;
+        border: 0 !important; background: transparent; box-shadow: none !important; margin: 0; padding: 0;
+    }
+    html.ui-min-core .rm-side-scroll > .rm-side-tabs { position: static; }
+    html.ui-min-core .rm-side-scroll > .rm-side-pane { padding: .5rem; }
+    html.ui-min-core .rm-nb-railbtn, html.ui-min-core .rm-split-live,
+    html.ui-min-core .rm-side-tabs :is([data-nb-wide], [data-nb-rail]) { display: none !important; }
+}
+@media (max-width: 767px) {
+    html.ui-min-core .rm-live { padding-inline: .7rem; }
+    html.ui-min-core .rm-topbar-row { justify-content: flex-end; padding-bottom: .15rem; }
+    html.ui-min-core .rm-otalk-tg { min-height: 44px; }
+    html.ui-min-core .rm-opts .rm-ocard > .rm-option { padding: .6rem; }
+    .rm-minslide.is-sheet .rm-minticks button { min-height: 44px; }
+}
