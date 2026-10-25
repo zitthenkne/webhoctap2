@@ -575,7 +575,7 @@ function placeNotebook() {
     // (từng tốn ~250ms lúc mở phòng trên điện thoại). Dời sổ tay làm số đo cũ đi thì ResizeObserver gọi lại.
     const sr = side.getBoundingClientRect();
     const wide = getComputedStyle(side).display !== 'none' && sr.width > 0 && sr.left >= mr.right - 4
-        && !document.body.classList.contains('present');
+        && !document.body.classList.contains('present') && !document.documentElement.classList.contains('ui-min-core');
     const was = !nb.classList.contains('is-inline') && nb.parentElement === pane;
     // Bản 28: cột sổ tay CAO HẾT MÀN (từ dưới thanh HUD tới đáy khung làm bài), không chừa chỗ thanh chủ trì nữa…
     const stage = el('stage-quiz');
@@ -870,7 +870,7 @@ export function renderOptionTalk(i, force = false) {
     const revealed = isAnnounced(i) || isShown(i);
     const args = argsOf(i);
     const t = tallyOf(i);
-    const sig = [i, open, revealed, s.chosen?.[key], s.alsoOk?.[key], s.split?.[key], s.optNotes?.[key], q.optionExplanations,
+    const sig = [i, open, revealed, document.documentElement.classList.contains('ui-min-core'), s.chosen?.[key], s.alsoOk?.[key], s.split?.[key], s.optNotes?.[key], q.optionExplanations,
         base[key], canAnswer(i), canControl(), Math.floor(Date.now() / 60000),
         args.map(a => [a.id, a.t, a.o, a.s, a.qt, a.re, a.ok, a.im, a.at, t.agree[a.id], a.member.displayName, a.member.emoji]),
         room.members.map(m => [m.uid, m.displayName, m.emoji, answerOf(m, i), m.dissent?.[key]]),
@@ -919,7 +919,7 @@ function talkHtml(i, q, k, people, args, open, revealed, mineA, t) {
     const items = cm.map(argItem);
     const newN = items.filter(x => isNew(i, x)).length;
     const pref = rowPref[`${i}:${k}`];
-    const isOpen = quoted || (pref !== undefined ? pref : ok && talkN > 0);      // bản 72: chỉ ô đã chốt mở sẵn luồng; ô mình chọn gập (còn hàng "n lý do" + ý được đồng tình nhất) -> thấy đủ 4 phương án
+    const isOpen = quoted || (pref !== undefined ? pref : ok && talkN > 0 && !document.documentElement.classList.contains('ui-min-core')); // Cốt lõi: mở luồng khi người dùng chọn; giữ phần giải thích ở ngoài.
     // Chưa ai viết giải thích X: 1 nút gọn "✏️ Viết giải thích X" thay cho cả dòng chữ mờ nghiêng (nhìn như bỏ dở)
     const expBox = (inline) => !hasRich(exp) && !expOpen[`${i}:${k}`]
         ? `<button type="button" class="rm-oexp-add" data-oexp-add="${k}" title="Ai cũng viết được — cả nhóm cùng thấy">✏️ Viết giải thích ${L(k)}</button>`
@@ -1189,6 +1189,7 @@ export function initAnswerHub() {
     const ro = new ResizeObserver(() => requestAnimationFrame(placeNotebook));
     [el('quiz-live'), document.querySelector('.rm-col-side')].forEach(n => n && ro.observe(n));
     window.addEventListener('resize', () => requestAnimationFrame(placeNotebook));   // cao cửa sổ đổi -> cột cao theo
+    window.addEventListener('room:minimal', () => renderOptionTalk(effectiveIndex()));
     // Khung cột bên (ngoài #notebook): thanh ray · thẻ Câu này / Cả đề · ⤢ nới rộng · ⇥ thu gọn · mục lục cả đề
     const side = document.querySelector('.rm-col-side');
     try { side?.querySelector('[data-nb-wide]')?.classList.toggle('on', localStorage.getItem('roomLiveCols') === WIDE_COLS); } catch (e) {}

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const src = readFileSync(join(HERE, '..', 'study-room.html'), 'utf8');
+const src = readFileSync(join(HERE, '..', 'study-room.html'), 'utf8').replace(/\r\n/g, '\n');
 const MAP = `    <base href="../">
     <script type="importmap">
     {"imports":{

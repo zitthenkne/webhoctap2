@@ -221,13 +221,17 @@ export async function loadAndDisplayLibrary(page = 1, { fresh = false } = {}) {
 
         // Thư mục qua REST (library-meta.js). Đã vẽ được từ cache mà thư mục lỗi (mạng chập chờn) thì giữ bản đang có, đừng bỏ cả lượt làm tươi.
         try {
+            const seqAtStart = S.libraryMutationSeq;
             const allFolders = await fetchAllFolders(user.uid);
-            purgeExpiredTrash(allFolders, "quiz_folders"); // dọn thư mục quá hạn 30 ngày
-            // Không tính thư mục vừa bị dọn khỏi thùng rác ở trên, kẻo lần thăm dò kế tiếp thấy lệch số rồi tải lại vô ích
-            serverFolderCount = allFolders.filter(f => !(f.deleted && isTrashExpired(f.deletedAt))).length;
-            S.userFolders = allFolders.filter(f => !f.deleted); // ẩn thư mục đang trong thùng rác
-            sortUserFolders();
-            writeFoldersCache(user.uid, S.userFolders);
+            // Trong lúc chờ mạng có thể vừa tạo/chuyển thư mục: snapshot cũ không được làm mất nhánh mới hay hoàn tác parentId.
+            if (S.libraryMutationSeq === seqAtStart) {
+                purgeExpiredTrash(allFolders, "quiz_folders"); // dọn thư mục quá hạn 30 ngày
+                // Không tính thư mục vừa bị dọn khỏi thùng rác ở trên, kẻo lần thăm dò kế tiếp thấy lệch số rồi tải lại vô ích
+                serverFolderCount = allFolders.filter(f => !(f.deleted && isTrashExpired(f.deletedAt))).length;
+                S.userFolders = allFolders.filter(f => !f.deleted); // ẩn thư mục đang trong thùng rác
+                sortUserFolders();
+                writeFoldersCache(user.uid, S.userFolders);
+            }
         } catch (folderErr) {
             if (!paintedFromCache) throw folderErr;
             console.warn('Không tải được thư mục, giữ bản đang có:', folderErr && folderErr.message);
@@ -291,6 +295,7 @@ function applyQuizMeta(list, purge = true) {
 export function persistFoldersCache() {
     // Danh sách thư mục cũng phải theo kịp RAM (tạo/chuyển/xoá/ghim…), nếu không lần mở sau
     // (hoặc lúc ngoại tuyến) lại thấy cây thư mục cũ.
+    S.libraryMutationSeq++; // vô hiệu hóa cả lượt tải thư mục bắt đầu trước thao tác này
     const user = sessionUser();
     if (user) writeFoldersCache(user.uid, S.userFolders);
 }

@@ -1,0 +1,65 @@
+/* Chỉ chỉnh bố cục và lớp hộp bên trong; giữ toàn bộ tạo hình sổ dán
+   của study-room.css. Hai chế độ tinh gọn tiếp tục dùng style riêng. */
+
+/* Khay vẫn liền màu với phương án, nhưng lý do không thêm một hộp trắng
+   bên trong hộp màu. Giữ nguyên sticker, băng keo và hiệu ứng của ô đáp án. */
+html:not(.ui-min) .rm-ocard .rm-odisc {
+    padding: 1.75rem 1rem .7rem;
+}
+html:not(.ui-min) .rm-odisc .rm-otalk-mine {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    padding: .45rem 0;
+}
+html:not(.ui-min) .rm-otalk-mine::before,
+html:not(.ui-min) .rm-otalk-mine::after { display: none; }
+html:not(.ui-min) .rm-odisc > * + * { margin-top: .35rem; }
+html:not(.ui-min) .rm-odisc:has(> .rm-otalk-tg:not(.is-open)):not(:has(.rm-otalk-mine, .rm-hub-mini)) {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem 1rem;
+}
+html:not(.ui-min) .rm-odisc > .rm-otalk-tg { min-height: 32px; }
+html:not(.ui-min) .rm-odisc:has(> .rm-oexp-add) > .rm-otalk-tg { flex: 1; width: auto; margin-top: 0; }
+
+/* Chỉ lộ các mẫu lập luận khi gõ: bớt chi tiết nhỏ ở trạng thái đọc,
+   vẫn giữ lại khi đang viết hoặc khi một mẫu đang được mở. */
+html:not(.ui-min) :is(.rm-otalk-mine, .rm-hub-exp):not(:focus-within):not(:has(.rm-why-tpl.on)) .rm-why-tools { display: none; }
+
+/* Giữ từng tờ note pastel và băng keo của sổ tay. Ô sửa không thành
+   một khung con nữa khi đang đọc; focus vẫn có nền và viền như bản gốc. */
+html:not(.ui-min) .rm-notebook [data-live-edit]:not(:focus):not(:hover) {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+}
+html:not(.ui-min) .rm-notebook .rm-hub-exp > * + *,
+html:not(.ui-min) .rm-notebook .rm-xbox > * + * { margin-top: .6rem; }
+
+/* Hẹn giờ là thao tác phụ, mở ngay tại chỗ bằng details native. */
+.rm-schedule-details { margin: .35rem 0 .75rem 2.6rem; }
+.rm-schedule-details > summary {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .7rem 0;
+    cursor: pointer;
+    list-style: none;
+    font-weight: 600;
+    color: var(--rm-ink);
+}
+.rm-schedule-details > summary::-webkit-details-marker { display: none; }
+.rm-schedule-details > summary > i:first-child { color: var(--rm-accent-deep); }
+.rm-schedule-details > summary > i:last-child { margin-left: auto; font-size: .65rem; color: var(--rm-muted); }
+.rm-schedule-details[open] > summary > i:last-child { transform: rotate(180deg); }
+.rm-schedule-body { padding: .4rem 0 .75rem; }
+.rm-schedule-details > summary:focus-visible { outline: 2px solid var(--rm-accent-deep); outline-offset: 3px; border-radius: .6rem; }
+
+@media (max-width: 767px) {
+    html:not(.ui-min) .rm-ocard .rm-odisc { padding: 1.65rem .8rem .65rem; }
+    html:not(.ui-min) .rm-odisc > .rm-otalk-tg { min-height: 44px; }
+    .rm-schedule-details { margin-left: 2.05rem; }
+    .rm-schedule-details > summary, .rm-schedule-details .rm-quick { min-height: 44px; }
+}

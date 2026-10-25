@@ -9,7 +9,7 @@
     <!-- Chế độ tối dùng chung khoá với trang làm bài (đặt sớm để không nháy sáng) -->
     <script>
         try { var qt = localStorage.getItem('quiz_theme'); if (qt === 'dark' || (!qt && matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('theme-dark'); document.querySelector('meta[name=theme-color]').content = '#221d1f'; } } catch (e) {}
-        try { var mv = localStorage.getItem('roomMinimal'); if (mv === '1' || mv === '2') document.documentElement.classList.add('ui-min'); if (mv === '2') document.documentElement.classList.add('ui-min-max'); } catch (e) {}
+        try { var mv = localStorage.getItem('roomMinimal'); if (mv === '1' || mv === '2' || mv === '3') document.documentElement.classList.add('ui-min'); if (mv === '2' || mv === '3') document.documentElement.classList.add('ui-min-max'); if (mv === '3') document.documentElement.classList.add('ui-min-core'); } catch (e) {}
     </script>
     <!-- Nền pixel-art mờ, chọn ngẫu nhiên như trang làm bài — gắn SAU khi trang tải xong:
          ảnh ~80KB chỉ là lớp trang trí 14% độ đục, không được giành băng thông với CSS/JS -->
@@ -70,6 +70,7 @@
     <link rel="stylesheet" href="study-room.css">
     <link rel="stylesheet" href="fa-phong/fa-phong.css">
     <link rel="stylesheet" href="tailwind-phong.css">
+    <link rel="stylesheet" href="study-room-layout.css">
     <link rel="stylesheet" href="study-room-min.css">   <!-- chế độ "Giao diện tinh gọn": mọi luật nằm dưới html.ui-min, không bật thì không có tác dụng -->
     <!-- Nạp song song CẢ cây module, kể cả Firebase SDK (trước đây gstatic chỉ lộ ra sau
          3 tầng import: main -> room-state -> firebase-init -> gstatic). Biên bản, dán đề,
@@ -166,10 +167,11 @@
             <p class="rm-menu-cap">Hiển thị</p>
             <button id="text-size-btn" class="rm-menu-item" role="menuitem" data-keep title="Đổi cỡ chữ (hoặc chụm hai ngón trên màn cảm ứng)"><i class="fas fa-text-height"></i><span class="rm-menu-lb">Cỡ chữ</span><span id="text-size-label" class="rm-kbd">vừa</span></button>
             <button class="rm-menu-item" role="menuitemcheckbox" aria-checked="false" id="theme-btn" data-sw="theme" data-keep><i class="fas fa-moon"></i><span class="rm-menu-lb">Chế độ tối</span><em class="rm-sw" aria-hidden="true"></em></button>
-            <div class="rm-minslide" role="group" aria-label="Giao diện tinh gọn" title="Vừa: gọn mắt, còn công cụ phụ · Tối đa: chỉ giữ thứ cần để làm bài và bàn">
+            <div class="rm-minslide" role="group" aria-label="Giao diện tinh gọn" title="Vừa · Tối đa · Cốt lõi: một luồng đọc, giữ nội dung và cất công cụ phụ">
                 <span class="rm-minslide-hd"><i class="fas fa-square"></i><span>Giao diện tinh gọn</span></span>
-                <input type="range" class="rm-minrange" min="0" max="2" step="1" value="0" aria-label="Mức tinh gọn" aria-valuetext="tắt">
-                <span class="rm-minticks"><button type="button" data-min-set="0">Tắt</button><button type="button" data-min-set="1">Vừa</button><button type="button" data-min-set="2">Tối đa</button></span>
+                <input type="range" class="rm-minrange" min="0" max="3" step="1" value="0" aria-label="Mức tinh gọn" aria-valuetext="tắt">
+                <span class="rm-minticks"><button type="button" data-min-set="0">Tắt</button><button type="button" data-min-set="1">Vừa</button><button type="button" data-min-set="2">Tối đa</button><button type="button" data-min-set="3">Cốt lõi</button></span>
+                <span class="rm-minhelp">Sổ dán pastel đầy đủ.</span>
             </div>
             <p class="rm-menu-cap">Khác</p>
             <button class="rm-menu-item" role="menuitem" data-tool="minutes" data-need="session"><i class="fas fa-file-pdf"></i><span class="rm-menu-lb">Biên bản buổi học</span><kbd class="rm-kbd">PDF / MD</kbd></button>
@@ -335,10 +337,9 @@
                         </div>
                     </div>
 
-                    <div class="rm-step">
-                        <span class="rm-step-no">3</span>
-                        <div class="rm-step-body">
-                            <p class="rm-step-title">Hẹn giờ bắt đầu <span class="rm-step-opt">không bắt buộc</span></p>
+                    <details class="rm-schedule-details">
+                        <summary><i class="fas fa-clock" aria-hidden="true"></i>Hẹn giờ bắt đầu <span class="rm-step-opt">không bắt buộc</span><i class="fas fa-chevron-down" aria-hidden="true"></i></summary>
+                        <div class="rm-schedule-body">
                             <div id="sched-row" class="rm-sched">
                                 <button type="button" class="rm-quick" data-sched="5">+5 phút</button>
                                 <button type="button" class="rm-quick" data-sched="10">+10 phút</button>
@@ -348,7 +349,7 @@
                             </div>
                             <p class="rm-hint mt-1.5">Cả phòng thấy đồng hồ đếm ngược; đến giờ bạn vẫn là người bấm bắt đầu.</p>
                         </div>
-                    </div>
+                    </details>
 
                     <div class="rm-setup-foot">
                         <p id="start-ready-hint" class="rm-setup-hint">Chọn đề để mở nút bắt đầu.</p>
@@ -718,8 +719,9 @@
     </div>
     <div class="rm-minslide is-sheet" role="group" aria-label="Giao diện tinh gọn">
         <span class="rm-minslide-hd"><i class="fas fa-square"></i><span>Giao diện tinh gọn</span></span>
-        <input type="range" class="rm-minrange" min="0" max="2" step="1" value="0" aria-label="Mức tinh gọn" aria-valuetext="tắt">
-        <span class="rm-minticks"><button type="button" data-min-set="0">Tắt</button><button type="button" data-min-set="1">Vừa</button><button type="button" data-min-set="2">Tối đa</button></span>
+        <input type="range" class="rm-minrange" min="0" max="3" step="1" value="0" aria-label="Mức tinh gọn" aria-valuetext="tắt">
+        <span class="rm-minticks"><button type="button" data-min-set="0">Tắt</button><button type="button" data-min-set="1">Vừa</button><button type="button" data-min-set="2">Tối đa</button><button type="button" data-min-set="3">Cốt lõi</button></span>
+        <span class="rm-minhelp">Sổ dán pastel đầy đủ.</span>
     </div>
 </div>
 

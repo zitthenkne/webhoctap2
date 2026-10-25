@@ -48,20 +48,30 @@ function endpoint() {
 
 async function call(url, init, { requireUser = false, timeoutMs = 15000 } = {}) {
     const { apiKey } = endpoint();
-    // KHÔNG dùng sessionUser(): lúc mới mở trang nó trả bản danh tính lưu trong máy (không có getIdToken) trước khi Firebase khôi phục phiên.
-    // Cần đăng nhập thì chờ Firebase Auth (tối đa 4s); chỉ đọc công khai thì đi luôn với phiên đã có hoặc khóa API.
-    let user = auth.currentUser;
-    if (!user && requireUser) { await whenAuthReady(4000); user = auth.currentUser; }
-    if (requireUser && !user) throw new Error('rest: cần đăng nhập');
-    const headers = { 'Content-Type': 'application/json' };
-    let target = url;
-    if (user) headers.Authorization = `Bearer ${await user.getIdToken()}`;
-    else if (apiKey) target += `${url.includes('?') ? '&' : '?'}key=${encodeURIComponent(apiKey)}`;
     const ctl = typeof AbortController === 'function' ? new AbortController() : null;
-    const timer = ctl ? setTimeout(() => ctl.abort(), timeoutMs) : 0;
+    const timeoutError = Object.assign(new Error('rest: quá thời gian chờ dữ liệu'), { code: 'deadline-exceeded' });
+    let timer, expired = false;
+    const timeout = new Promise((_, reject) => {
+        timer = setTimeout(() => { expired = true; reject(timeoutError); ctl?.abort(); }, timeoutMs);
+    });
     try {
-        // no-store: dữ liệu phải TƯƠI mỗi lần — không để trình duyệt (nhất là WebKit trong app iOS) tự giữ lại phản hồi GET
-        return await fetch(target, { ...init, headers, signal: ctl?.signal, cache: 'no-store' });
+        const request = (async () => {
+            // Chỉ dùng phiên thật có getIdToken; danh tính lưu trong máy không cấp quyền đọc dữ liệu riêng tư.
+            let user = auth.currentUser;
+            if (!user && requireUser) { await whenAuthReady(4000); user = auth.currentUser; }
+            if (requireUser && !user) throw new Error('rest: cần đăng nhập');
+            const headers = { 'Content-Type': 'application/json' };
+            let target = url;
+            if (user) headers.Authorization = `Bearer ${await user.getIdToken()}`;
+            else if (apiKey) target += `${url.includes('?') ? '&' : '?'}key=${encodeURIComponent(apiKey)}`;
+            if (expired) throw timeoutError; // token về sau timeout: không gửi thêm request
+            // no-store: luôn lấy bản mới, kể cả WebKit trong app iOS.
+            const res = await fetch(target, { ...init, headers, signal: ctl?.signal, cache: 'no-store' });
+            // Đọc hết body trong cùng thời hạn; nhận headers chưa có nghĩa là tải dữ liệu xong.
+            const data = res.ok ? await res.json() : null;
+            return { ok: res.ok, status: res.status, data };
+        })();
+        return await Promise.race([request, timeout]);
     } finally { clearTimeout(timer); }
 }
 
@@ -80,7 +90,7 @@ export async function runQueryRest({ collection, where = [], select = [], requir
     };
     const res = await call(`${base}:runQuery`, { method: 'POST', body: JSON.stringify({ structuredQuery }) }, { requireUser });
     if (!res.ok) throw new Error(`runQuery ${res.status}`);
-    const rows = await res.json();
+    const rows = res.data;
     if (!Array.isArray(rows)) throw new Error('runQuery: dữ liệu trả về không đúng dạng');
     return rows.filter(r => r && r.document).map(r => decodeDoc(r.document));
 }
@@ -99,7 +109,7 @@ export async function countRest({ collection, where = [], requireUser = false })
     const body = { structuredAggregationQuery: { structuredQuery, aggregations: [{ alias: 'n', count: {} }] } };
     const res = await call(`${base}:runAggregationQuery`, { method: 'POST', body: JSON.stringify(body) }, { requireUser });
     if (!res.ok) throw new Error(`count ${res.status}`);
-    const rows = await res.json();
+    const rows = res.data;
     const n = Array.isArray(rows) && rows[0]?.result?.aggregateFields?.n?.integerValue;
     if (n === undefined || n === false) throw new Error('count: dữ liệu trả về không đúng dạng');
     return Number(n);
@@ -112,5 +122,5 @@ export async function getDocRest(collection, id, fields = [], { requireUser = fa
     const res = await call(`${base}/${collection}/${encodeURIComponent(id)}${mask ? `?${mask}` : ''}`, { method: 'GET' }, { requireUser });
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`getDoc ${res.status}`);
-    return decodeDoc(await res.json());
+    return decodeDoc(res.data);
 }
