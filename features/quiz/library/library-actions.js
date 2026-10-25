@@ -362,7 +362,9 @@ export async function saveFolder() {
         sortUserFolders();
         persistFoldersCache();
         closeFolderModal();
-        await loadAndDisplayLibrary();
+        // RAM/cache đã có thư mục vừa lưu. Đọc REST ngay lúc lệnh ghi còn xếp hàng có thể trả cây cũ và làm mất nhánh mới.
+        renderBreadcrumb();
+        rerenderCurrentView();
     } catch (err) {
         console.error("Lỗi khi lưu thư mục:", err);
         showToast('Lỗi khi lưu thư mục!', 'error');
