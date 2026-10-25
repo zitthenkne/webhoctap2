@@ -100,33 +100,20 @@ export function forgetSession() {
     dropCache();
 }
 
-let _authReadyPromise = null;
-
 /**
- * Chờ Firebase Auth khôi phục phiên (onAuthStateChanged trả về kết quả đầu tiên).
+ * Chờ Firebase Auth khôi phục phiên, với thời gian chờ riêng cho từng caller.
  * Cực kỳ quan trọng trước khi gửi query Firestore đối với các tài liệu riêng tư (private quiz),
  * tránh gửi request khi request.auth == null làm Firestore Rules từ chối quyền truy cập.
  */
-export function whenAuthReady(timeoutMs = 4000) {
-    if (auth.currentUser) return Promise.resolve(auth.currentUser);
-    if (!_authReadyPromise) {
-        _authReadyPromise = new Promise((resolve) => {
-            let unsub = null;
-            const timer = setTimeout(() => {
-                if (unsub) {
-                    try { unsub(); } catch (_) {}
-                }
-                resolve(auth.currentUser || cached());
-            }, timeoutMs);
-
-            unsub = onAuthStateChanged(auth, (u) => {
-                clearTimeout(timer);
-                if (unsub) {
-                    try { unsub(); } catch (_) {}
-                }
-                resolve(u || cached());
-            });
-        });
-    }
-    return _authReadyPromise;
+export async function whenAuthReady(timeoutMs = 4000) {
+    if (auth.currentUser) return auth.currentUser;
+    let timer;
+    try {
+        // Timeout của một caller không hủy việc khôi phục phiên hay giữ kết quả cũ cho lần sau.
+        await Promise.race([
+            auth.authStateReady(),
+            new Promise(resolve => { timer = setTimeout(resolve, timeoutMs); })
+        ]);
+        return auth.currentUser || (navigator.onLine === false ? cached() : null);
+    } finally { clearTimeout(timer); }
 }
