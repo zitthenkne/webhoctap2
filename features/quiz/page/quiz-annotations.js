@@ -1640,8 +1640,12 @@ function setupPenMode() {
         stroke = null;
         endVisuals();
     };
+    // Nét "treo": mất pointerup (chữ dưới bút bị vẽ lại giữa chừng...) thì stroke kẹt mãi -> mọi cú chạm bị chặn cuộn.
+    // Nét thật luôn có pointermove liên tục; im quá 1,5 s mà có cú chạm mới = nét sót, bỏ đi.
+    const dropStaleStroke = () => { if (stroke && stroke.type !== 'mouse' && performance.now() - stroke.last > 1500) abortStroke(); };
     document.addEventListener('pointerdown', (e) => {
         swallowClickUntil = 0;   // lần chạm mới: click "kèm theo nét trước" (nếu có) đã qua rồi -> đừng nuốt nhầm cú bấm này
+        dropStaleStroke();
         // ngón thứ hai chạm vào khi đang tô bằng ngón tay = cử chỉ 2 ngón (hoàn tác / thu phóng), không phải nét tô
         if (stroke && stroke.type === 'touch' && e.pointerType === 'touch' && e.pointerId !== stroke.id) { abortStroke(); return; }
         if (stroke || !wants(e)) return;
@@ -1660,7 +1664,7 @@ function setupPenMode() {
             scopeEl = sc;
         }
         if (scopeEl.closest('.hidden')) return;
-        stroke = { id: e.pointerId, type: e.pointerType, scopeEl, x0: e.clientX, y0: e.clientY, moved: false, locked: false, target: t,
+        stroke = { id: e.pointerId, type: e.pointerType, scopeEl, x0: e.clientX, y0: e.clientY, moved: false, locked: false, target: t, last: performance.now(),
             touchBlocked: performance.now() - stylusBlockedAt < 300 };
         const p = offsetFromPoint(e.clientX, e.clientY);
         if (!p || p.pos < 0) { stroke = null; return; }
@@ -1680,6 +1684,7 @@ function setupPenMode() {
     }, true);
     document.addEventListener('pointermove', (e) => {
         if (!stroke || e.pointerId !== stroke.id) return;
+        stroke.last = performance.now();
         const dx = e.clientX - stroke.x0, dy = e.clientY - stroke.y0;
         if (!stroke.moved && Math.hypot(dx, dy) < (stroke.type === 'mouse' ? 4 : 6)) return;
         if (!stroke.moved) {
@@ -1729,6 +1734,7 @@ function setupPenMode() {
     // (Safari phát pointerdown trước touchstart; phòng khi thứ tự ngược: bút chạm lên chữ thì chặn luôn, pointerdown tới sau nhận cờ)
     let stylusBlockedAt = -1e9;
     ['touchstart', 'touchmove'].forEach(type => document.addEventListener(type, (e) => {
+        if (type === 'touchstart') dropStaleStroke();
         if (!stroke && type === 'touchstart' && cfg.on && [...(e.changedTouches || [])].some(t => t.touchType === 'stylus')
             && e.target.closest && e.target.closest('#quizSection [data-annot]') && !e.target.closest('.qi-wrap, img, video, canvas, input, textarea, select, a[href], .an-line')) {
             if (e.cancelable) { e.preventDefault(); stylusBlockedAt = performance.now(); }

@@ -3934,8 +3934,11 @@ html.theme-dark #annot-note-pop .anp-row .anp-ok { --hi: #3a1422; background: #F
    (nảy ở đáy/đầu trang chính là lúc lộ nền trơn); nền ảnh bỏ blur (lớp cố định + blur làm iPad giật khi cuộn);
    huy hiệu chuỗi đúng không chạy hiệu ứng vô hạn (vẽ lại liên tục = tốn pin). */
 #quizSection { overflow-anchor: none; }
+/* (2026-10-26) BỎ overscroll-behavior ở html / body trên cảm ứng: lỗi WebKit — đặt nó ở khung cuộn gốc thì thỉnh thoảng trang
+   đứng hẳn, vuốt không cuộn (nút vẫn bấm được), phải chụm 2 ngón thu phóng mới chạy lại. Đó chính là "kẹt cuộn trên iPad"
+   mà §20 / §31 chưa trị dứt. Chịu nảy ở đầu / đáy trang. style.css đặt contain lên body nên ghi đè cả body. */
 @media (hover: none) and (pointer: coarse) {
-    html { overscroll-behavior-y: none; }
+    html, body { overscroll-behavior: auto; }
     body::before { filter: none; }
     #quizSection #streak-badge, #quizSection #streak-badge i { animation: none; }
 }
