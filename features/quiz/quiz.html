@@ -1714,20 +1714,27 @@
         <button type="button" data-annot-action="erase" title="Gỡ định dạng trong vùng chọn"><i class="fas fa-eraser"></i></button>
     </div>
 
-    <!-- Bút tô nhanh: bật rồi vuốt Apple Pencil / kéo chuột qua chữ là tô hoặc ghi chú luôn (page/quiz-annotations.js setupPenMode) -->
+    <!-- Bút tô nhanh (page/quiz-annotations.js setupPenMode): thanh ngang giữa đáy màn hình kiểu Markup của iPad.
+         Chỉ hiện khi bút đang bật (bật ở nút #pen-btn đầu thẻ / phím J). Hàng .apd-ctx phía trên hiện sau mỗi nét tô (ghi chú / đổi màu / gỡ) hoặc mẹo dùng lần đầu. -->
     <div id="annot-pen-dock" role="toolbar" aria-label="Bút tô nhanh">
-        <div class="apd-tools">
-            <button type="button" data-pen-tool="highlight" class="apd-dot apd-yellow" title="Tô vàng" aria-label="Tô vàng"></button>
-            <button type="button" data-pen-tool="hl-green" class="apd-dot apd-green" title="Tô xanh lá" aria-label="Tô xanh lá"></button>
-            <button type="button" data-pen-tool="hl-blue" class="apd-dot apd-blue" title="Tô xanh dương" aria-label="Tô xanh dương"></button>
-            <button type="button" data-pen-tool="underline" title="Gạch chân" aria-label="Gạch chân"><i class="fas fa-underline"></i></button>
-            <button type="button" data-pen-tool="note" class="apd-note" title="Vuốt qua cụm từ để viết ghi chú" aria-label="Ghi chú cho cụm từ"><i class="fas fa-comment-dots"></i></button>
-            <button type="button" data-pen-tool="erase" title="Tẩy: vuốt qua phần muốn gỡ" aria-label="Tẩy"><i class="fas fa-eraser"></i></button>
-            <span class="apd-sep" aria-hidden="true"></span>
-            <button type="button" data-pen-act="undo" title="Hoàn tác nét vừa tô" aria-label="Hoàn tác" disabled><i class="fas fa-rotate-left"></i></button>
-            <button type="button" data-pen-act="finger" title="Ngón tay cũng tô (tắt = chỉ bút & chuột, ngón tay cuộn trang)" aria-label="Ngón tay cũng tô"><i class="fas fa-hand-pointer"></i></button>
+        <div class="apd-ctx" hidden></div>
+        <div class="apd-bar">
+            <button type="button" data-pen-act="toggle" class="apd-main" aria-pressed="false"><i class="fas fa-highlighter" aria-hidden="true"></i><span class="apd-label">Bút tô</span></button>
+            <div class="apd-tools">
+                <span class="apd-sep" aria-hidden="true"></span>
+                <button type="button" data-pen-tool="highlight" class="apd-dot apd-yellow" title="Tô vàng" aria-label="Tô vàng"></button>
+                <button type="button" data-pen-tool="hl-green" class="apd-dot apd-green" title="Tô xanh lá" aria-label="Tô xanh lá"></button>
+                <button type="button" data-pen-tool="hl-blue" class="apd-dot apd-blue" title="Tô xanh dương" aria-label="Tô xanh dương"></button>
+                <button type="button" data-pen-tool="underline" title="Gạch chân" aria-label="Gạch chân"><i class="fas fa-underline"></i></button>
+                <button type="button" data-pen-tool="note" class="apd-note" title="Ghi chú: vuốt qua cụm từ là mở khung viết" aria-label="Ghi chú"><i class="fas fa-comment-dots"></i></button>
+                <button type="button" data-pen-tool="erase" title="Tẩy: vuốt qua phần muốn gỡ" aria-label="Tẩy"><i class="fas fa-eraser"></i></button>
+                <span class="apd-sep" aria-hidden="true"></span>
+                <button type="button" data-pen-act="undo" title="Hoàn tác nét vừa tô (hoặc chạm 2 ngón)" aria-label="Hoàn tác" disabled><i class="fas fa-rotate-left"></i></button>
+                <button type="button" data-pen-act="finger" title="Ngón tay cũng tô (tắt = chỉ bút & chuột, ngón tay cuộn trang)" aria-label="Ngón tay cũng tô"><i class="fas fa-hand-pointer"></i></button>
+                <button type="button" data-pen-act="help" title="Cách dùng" aria-label="Cách dùng bút tô"><i class="fas fa-circle-question"></i></button>
+                <button type="button" data-pen-act="off" class="apd-off" title="Tắt bút (phím J)"><i class="fas fa-xmark"></i><span>Tắt</span></button>
+            </div>
         </div>
-        <button type="button" data-pen-act="toggle" class="apd-main" aria-pressed="false" aria-label="Bút tô nhanh"><i class="fas fa-highlighter"></i></button>
     </div>
 
     <!-- Lớp phủ phóng to ảnh -->
