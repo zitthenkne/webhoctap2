@@ -1251,7 +1251,7 @@ export function setupAnnotations() {
 
 // ---- BÚT TÔ NHANH (2026-10-24) ----
 // Người dùng: "bật một nút, rồi lấy Apple Pencil di ngang qua chữ là tô luôn / ghi chú luôn cho cụm đó".
-// Bật bút (#annot-pen-dock, phím J) -> vuốt BÚT (Apple Pencil / bút cảm ứng) hoặc kéo CHUỘT qua chữ trong vùng [data-annot]:
+// Bật bút (nút #pen-btn ở hàng công cụ đầu thẻ, phím J; thanh nổi #annot-pen-dock chỉ hiện khi đang bật) ->vuốt BÚT (Apple Pencil / bút cảm ứng) hoặc kéo CHUỘT qua chữ trong vùng [data-annot]:
 // - tô vàng / xanh lá / xanh dương / gạch chân: thả bút là lưu (cùng kho, cùng đồng bộ với thanh bôi đen). Vuốt nối vào đoạn đã
 //   tô cùng màu -> GỘP thành một đoạn (tô tiếp được, không bị cắt mất phần cũ).
 // - ghi chú: thả bút mở khung viết ghi chú cho đúng cụm vừa vuốt (cụm đã có ghi chú -> mở sửa).
@@ -1438,7 +1438,8 @@ function setupPenMode() {
         document.body.classList.toggle('qz-pen-on', !!cfg.on);
         document.body.dataset.qzPen = cfg.tool;   // KHÔNG đặt data-pen-tool lên body: closest("[data-pen-tool]") của nút thanh bút sẽ khớp nhầm
         toggleBtn.setAttribute('aria-pressed', String(!!cfg.on));
-        toggleBtn.title = (cfg.on ? `Bút tô nhanh: ${PEN_LABEL[cfg.tool]} — bấm để tắt (phím J)` : 'Bật bút tô nhanh: vuốt bút / kéo chuột qua chữ là tô (phím J)') + ' · kéo để dời chỗ';
+        document.getElementById('pen-btn')?.setAttribute('aria-pressed', String(!!cfg.on));
+        toggleBtn.title = `Bút tô nhanh: ${PEN_LABEL[cfg.tool]} — bấm để tắt (phím J) · kéo để dời chỗ`;
         dock.querySelectorAll('[data-pen-tool]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.penTool === cfg.tool)));
         dock.querySelector('[data-pen-act="finger"]')?.setAttribute('aria-pressed', String(!!cfg.finger));
     };
@@ -1571,6 +1572,8 @@ function setupPenMode() {
             showToast(cfg.finger ? 'Ngón tay cũng tô: vuốt trên chữ là tô (cuộn bằng vùng trống / lề).' : 'Chỉ bút & chuột tô — ngón tay cuộn trang như thường.', 'info', 2600);
         }
     });
+    // Nút bật bút nằm ở hàng công cụ đầu thẻ (vẽ lại mỗi câu -> bắt bằng ủy quyền); thanh nổi chỉ hiện khi bút đang bật
+    document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('#pen-btn')) setOn(!cfg.on); });
     // Phím J bật / tắt bút (A–H chọn đáp án, các chữ khác đã có việc)
     document.addEventListener('keydown', (e) => {
         if (e.ctrlKey || e.altKey || e.metaKey || e.isComposing || e.repeat) return;

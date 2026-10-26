@@ -3951,7 +3951,7 @@ html.theme-dark #annot-note-pop .anp-row .anp-ok { --hi: #3a1422; background: #F
 #quizSection #copy-q-btn { --h: var(--hue-mint); --hi: var(--ink-mint); }
 #quizSection #undo-answer-btn { --h: var(--hue-butter); --hi: var(--ink-butter); }
 #quizSection .kb-more-btn { --h: var(--hue-latte); --hi: var(--ink-latte); }
-#quizSection :is(#listen-btn, #copy-q-btn, #scratch-btn, #calc-btn, #undo-answer-btn, .kb-more-btn) {
+#quizSection :is(#listen-btn, #copy-q-btn, #pen-btn, #scratch-btn, #calc-btn, #undo-answer-btn, .kb-more-btn) {
     background-color: color-mix(in srgb, var(--h) var(--fill), var(--surface-card)) !important;
     background-image: none;
     border: 2px solid color-mix(in srgb, var(--h) 40%, transparent);
@@ -3959,12 +3959,12 @@ html.theme-dark #annot-note-pop .anp-row .anp-ok { --hi: #3a1422; background: #F
     box-shadow: 0 3px 0 color-mix(in srgb, var(--h) 32%, transparent);
     transition: transform .28s var(--spring), box-shadow .18s ease;
 }
-#quizSection :is(#listen-btn, #copy-q-btn, #scratch-btn, #calc-btn, #undo-answer-btn, .kb-more-btn):active {
+#quizSection :is(#listen-btn, #copy-q-btn, #pen-btn, #scratch-btn, #calc-btn, #undo-answer-btn, .kb-more-btn):active {
     transform: translateY(2px);
     box-shadow: 0 1px 0 color-mix(in srgb, var(--h) 36%, transparent);
 }
 @media (hover: hover) {
-    #quizSection :is(#listen-btn, #copy-q-btn, #scratch-btn, #calc-btn, #undo-answer-btn, .kb-more-btn):hover {
+    #quizSection :is(#listen-btn, #copy-q-btn, #pen-btn, #scratch-btn, #calc-btn, #undo-answer-btn, .kb-more-btn):hover {
         transform: translateY(-2px);
         border-color: color-mix(in srgb, var(--h) 70%, transparent);
         box-shadow: 0 5px 0 color-mix(in srgb, var(--h) 36%, transparent);
@@ -3977,6 +3977,12 @@ html.theme-dark #annot-note-pop .anp-row .anp-ok { --hi: #3a1422; background: #F
 @media (max-width: 639px) {
     #quizSection .q-tool-btn { width: 2.1rem; height: 2.1rem; }
     .q-head-tools { gap: 0.3rem; }
+}
+/* điện thoại: 6 nút chen cạnh tiêu đề làm "Câu hỏi 1/6" gãy dòng -> hàng nút xuống dòng riêng khi tiêu đề còn < 9rem */
+@media (max-width: 479px) {
+    #quizSection .quiz-card > div:has(> .q-head-tools) { flex-wrap: wrap; row-gap: 0.5rem; }
+    #quizSection .quiz-card > div:has(> .q-head-tools) > .min-w-0 { flex: 1 1 9rem; }
+    #quizSection .q-head-tools { margin-left: auto; }
 }
 
 /* 18.3 Chạm 2 lần để chọn: lần 1 chỉ "nhấc" ô lên + viền xanh dương (màu = đang chọn), lần 2 mới chốt */
@@ -4993,7 +4999,8 @@ body.focus-mode-active .qna-t { display: inline; }
    ============================================================ */
 #quizSection #scratch-btn { --h: var(--hue-lav); --hi: var(--ink-lav); }
 #quizSection #calc-btn { --h: var(--hue-peach); --hi: var(--ink-peach); }
-#quizSection :is(#scratch-btn, #calc-btn)[aria-pressed="true"] {
+#quizSection #pen-btn { --h: var(--hue-butter); --hi: var(--ink-butter); }
+#quizSection :is(#pen-btn, #scratch-btn, #calc-btn)[aria-pressed="true"] {
     background-color: color-mix(in srgb, var(--h) 34%, var(--surface-card)) !important;
     border-color: var(--h);
 }
@@ -6287,8 +6294,9 @@ html.theme-dark #quizSection .essay-mic.is-live { color: #1d1819; }
 /* ============================================================
    36) BÚT TÔ NHANH (2026-10-24) — page/quiz-annotations.js setupPenMode
    Người dùng: "bật một nút, lấy Apple Pencil di ngang qua chữ là tô / ghi chú luôn".
-   #annot-pen-dock: nút bút tròn ở góc trái (trên nút cài đặt); bật thì xòe cột công cụ (3 màu tô, gạch chân, ghi chú, tẩy,
-   hoàn tác, ngón tay). Nút chính đổi màu theo công cụ đang chọn để liếc là biết bút đang làm gì.
+   Bật/tắt ở nút #pen-btn trong hàng công cụ đầu thẻ (cạnh Nháp, Máy tính) hoặc phím J. 2026-10-26: bỏ nút tròn nổi thường trực
+   (người dùng: "lơ lửng, chiếm chỗ, khó chịu") -> #annot-pen-dock CHỈ hiện khi bút đang bật: cột công cụ (3 màu tô, gạch chân,
+   ghi chú, tẩy, hoàn tác, ngón tay) + nút chính = tắt bút. Nút chính đổi màu theo công cụ đang chọn để liếc là biết bút đang làm gì.
    Vuốt: xem trước bằng CSS Custom Highlight (::highlight(qz-pen)) — không đụng DOM cho tới khi thả bút.
    ============================================================ */
 #annot-pen-dock {
@@ -6300,7 +6308,7 @@ html.theme-dark #quizSection .essay-mic.is-live { color: #1d1819; }
     pointer-events: none;
 }
 #annot-pen-dock > * { pointer-events: auto; }
-body:not(:has(#quiz-container:not(.hidden) #quizSection:not(.hidden))) #annot-pen-dock { display: none; }
+#annot-pen-dock:not(.is-on), body:not(:has(#quiz-container:not(.hidden) #quizSection:not(.hidden))) #annot-pen-dock { display: none; }
 body.has-mobile-nav #annot-pen-dock { bottom: calc(7.2rem + env(safe-area-inset-bottom, 0px)); }
 html.qt-bottom #annot-pen-dock { translate: 0 calc(-1 * var(--qt-h)); }
 #annot-pen-dock[data-tool="hl-green"] { --apd-c: var(--hue-mint); --apd-i: var(--ink-mint); }
@@ -6317,12 +6325,10 @@ html.qt-bottom #annot-pen-dock { translate: 0 calc(-1 * var(--qt-h)); }
     width: 2.9rem; height: 2.9rem; border-radius: 999px; font-size: 1.1rem;
     background: var(--surface-card); color: var(--ink);
     border: 2px solid var(--line); box-shadow: 0 3px 0 var(--line), var(--shadow-sticky);
-    opacity: .82;
-    transition: transform .28s var(--spring), background-color .2s ease, color .2s ease, border-color .2s ease, opacity .2s ease;
+    transition: transform .28s var(--spring), background-color .2s ease, color .2s ease, border-color .2s ease;
 }
-#annot-pen-dock .apd-main:hover, #annot-pen-dock .apd-main:focus-visible { opacity: 1; }
 #annot-pen-dock.is-on .apd-main {
-    opacity: 1; transform: rotate(-8deg) scale(1.04);
+    transform: rotate(-8deg) scale(1.04);
     background: color-mix(in srgb, var(--apd-c) 30%, var(--surface-card));
     color: var(--apd-i); border-color: color-mix(in srgb, var(--apd-c) 70%, transparent);
     box-shadow: 0 3px 0 color-mix(in srgb, var(--apd-c) 55%, transparent), var(--shadow-sticky);
@@ -6362,7 +6368,6 @@ html.qt-bottom #annot-pen-dock { translate: 0 calc(-1 * var(--qt-h)); }
     #annot-pen-dock .apd-main { width: 3.3rem; height: 3.3rem; font-size: 1.25rem; }
     #annot-pen-dock .apd-tools button { width: 2.75rem; height: 2.75rem; font-size: 1.05rem; }
 }
-body.focus-mode-active #annot-pen-dock:not(.is-on) .apd-main { opacity: .25; }
 
 /* Đang bật bút: con trỏ chuột trên chữ = bút; đang vuốt thì khóa bôi đen kiểu thường */
 body.qz-pen-on #quizSection [data-annot] { cursor: text; }
