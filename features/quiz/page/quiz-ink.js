@@ -7,7 +7,7 @@
 //  · Nét lưu theo TỈ LỆ bề rộng hình: hình to nhỏ thế nào, máy khác cỡ màn khác, nét vẫn nằm đúng chỗ.
 //  · Lưu trên máy: localStorage quizInk_<id bộ đề> = { <khóa hình>: [nét] }; khóa = id zimg hoặc src -> cùng hình ở nhiều câu dùng chung nét.
 // Bộ vẽ (làm trơn, lực nhấn, màu theo sáng/tối) dùng chung với giấy nháp: page/quiz-tools.js.
-import { SIZES, readPalette, drawStroke, penSeg, penTail, hlPath, setStyle } from './quiz-tools.js';
+import { SIZES, readPalette, drawStroke, penSeg, penTail, hlPath, setStyle, inkPressure } from './quiz-tools.js';
 
 const $ = (id) => document.getElementById(id);
 const ls = { get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { } } };
@@ -134,9 +134,8 @@ function addPoint(ev) {
     const x = Math.round((ev.clientX - r.left) * 10) / 10, y = Math.round((ev.clientY - r.top) * 10) / 10;
     const n = st.p.length / 3;
     if (n && Math.abs(st.p[n * 3 - 3] - x) < 0.6 && Math.abs(st.p[n * 3 - 2] - y) < 0.6) return false;
-    const raw = ev.pointerType === 'pen' && ev.pressure > 0 ? ev.pressure : 0.5;
-    cur.ps = n ? cur.ps * 0.6 + raw * 0.4 : raw;
-    st.p.push(x, y, Math.round(cur.ps * 100) / 100);
+    const pr = inkPressure(cur, ev, x, y, st);   // cùng cách tính lực với giấy nháp (quiz-tools.js)
+    st.p.push(x, y, pr);
     return true;
 }
 function eraseAt(ev) {

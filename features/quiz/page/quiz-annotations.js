@@ -1253,7 +1253,8 @@ export function setupAnnotations() {
 // Người dùng: "bật một nút, rồi lấy Apple Pencil di ngang qua chữ là tô luôn / ghi chú luôn cho cụm đó".
 // Bật bằng nút #pen-btn ở hàng công cụ đầu thẻ (cạnh Nháp, Máy tính) hoặc phím J. ĐANG BẬT mới hiện thanh ngang giữa đáy màn hình
 // (#annot-pen-dock, kiểu Markup của iPad): xòe công cụ, nút chính ghi rõ bút đang làm gì ("Tô vàng", "Tẩy"…). 2026-10-26: bỏ viên
-// "Bút tô" nổi thường trực lúc tắt (người dùng: "lơ lửng, chiếm chỗ"). Vuốt BÚT (Apple Pencil / bút cảm ứng) hoặc kéo CHUỘT qua chữ trong vùng [data-annot]:
+// "Bút tô" nổi thường trực lúc tắt (người dùng: "lơ lửng, chiếm chỗ"). 2026-10-26 (lần 2): dời về GÓC DƯỚI TRÁI (cạnh nút Ngựa thì
+// chỉnh) vì giữa đáy đè chữ / nút Câu tiếp; nút chính bấm = thu gọn / xòe hộp bút (tắt bằng ×), đang vuốt thì hộp bút mờ đi. Vuốt BÚT (Apple Pencil / bút cảm ứng) hoặc kéo CHUỘT qua chữ trong vùng [data-annot]:
 // - tô vàng / xanh lá / xanh dương / gạch chân: thả bút là lưu (cùng kho, cùng đồng bộ với thanh bôi đen). Vuốt nối vào đoạn đã
 //   tô cùng màu -> GỘP thành một đoạn.
 // - vuốt xong GIỮ YÊN bút một nhịp (~0,55 s) = tô + mở luôn khung ghi chú cho cụm đó (xem trước đổi sang màu ghi chú).
@@ -1432,22 +1433,26 @@ function setupPenMode() {
     if (!dock) return;
     const toggleBtn = dock.querySelector('[data-pen-act="toggle"]');
     const label = dock.querySelector('.apd-label');
+    const swatchIco = dock.querySelector('.apd-swatch i');
     const ctxRow = dock.querySelector('.apd-ctx');
-    let cfg = { on: false, tool: 'highlight', finger: false };
+    const PEN_ICON = { highlight: 'fa-highlighter', 'hl-green': 'fa-highlighter', 'hl-blue': 'fa-highlighter', underline: 'fa-underline', note: 'fa-comment-dots', erase: 'fa-eraser' };
+    let cfg = { on: false, tool: 'highlight', finger: false, mini: false };   // mini = hộp bút thu gọn (chỉ còn bút đang cầm + hoàn tác + tắt)
     try { cfg = { ...cfg, ...JSON.parse(localStorage.getItem(PEN_KEY) || '{}') }; } catch (e) {}
     if (!PEN_TOOLS.includes(cfg.tool)) cfg.tool = 'highlight';
     const save = () => { try { localStorage.setItem(PEN_KEY, JSON.stringify(cfg)); } catch (e) {} };
     const sync = () => {
         dock.classList.toggle('is-on', !!cfg.on);
+        dock.classList.toggle('is-mini', !!cfg.mini);
         dock.dataset.tool = cfg.tool;
         document.body.classList.toggle('qz-pen-on', !!cfg.on);
         document.body.dataset.qzPen = cfg.tool;   // KHÔNG đặt data-pen-tool lên body: closest("[data-pen-tool]") của nút thanh bút sẽ khớp nhầm
-        // Nhãn chữ trên nút chính: tắt = "Bút tô", bật = đúng việc bút đang làm ("Tô vàng", "Tẩy"…) -> liếc là biết
-        if (label) label.textContent = cfg.on ? PEN_LABEL[cfg.tool] : 'Bút tô';
-        toggleBtn.setAttribute('aria-pressed', String(!!cfg.on));
+        // Nút chính = bút đang cầm: chấm màu + biểu tượng + tên ("Tô vàng", "Tẩy"…) -> liếc là biết; bấm = thu gọn / xòe hộp bút
+        if (label) label.textContent = PEN_LABEL[cfg.tool];
+        if (swatchIco) swatchIco.className = 'fas ' + PEN_ICON[cfg.tool];
         document.getElementById('pen-btn')?.setAttribute('aria-pressed', String(!!cfg.on));
-        toggleBtn.setAttribute('aria-label', `Bút tô nhanh đang bật: ${PEN_LABEL[cfg.tool]}. Bấm để tắt`);
-        toggleBtn.title = `Đang bật: ${PEN_LABEL[cfg.tool]} — bấm để tắt (phím J)`;
+        toggleBtn.setAttribute('aria-expanded', String(!cfg.mini));
+        toggleBtn.setAttribute('aria-label', `Đang cầm: ${PEN_LABEL[cfg.tool]}. Bấm để ${cfg.mini ? 'mở hộp bút' : 'thu gọn hộp bút'}`);
+        toggleBtn.title = `Đang cầm: ${PEN_LABEL[cfg.tool]} — bấm để ${cfg.mini ? 'mở hộp bút' : 'thu gọn'}`;
         dock.querySelectorAll('[data-pen-tool]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.penTool === cfg.tool)));
         dock.querySelector('[data-pen-act="finger"]')?.setAttribute('aria-pressed', String(!!cfg.finger));
     };
@@ -1521,7 +1526,7 @@ function setupPenMode() {
         const b = e.target.closest('[data-pen-act]');
         if (!b) return;
         const act = b.dataset.penAct;
-        if (act === 'toggle') setOn(!cfg.on);
+        if (act === 'toggle') { cfg.mini = !cfg.mini; save(); sync(); }
         else if (act === 'off') setOn(false);
         else if (act === 'undo') undoPenStroke();
         else if (act === 'help') { if (ctx && ctx.kind === 'tip') hideCtx(); else showTip(); }
@@ -1725,6 +1730,7 @@ function setupPenMode() {
         clearPreview();
         if (!(st.e > st.s) || !st.scopeEl.isConnected) return;
         const id = applyPenStroke(st.scopeEl, st.s, st.e, cfg.tool);
+        if (id || cfg.tool === 'erase') { const sw = dock.querySelector('.apd-swatch'); if (sw) { sw.classList.remove('apd-pop'); void sw.offsetWidth; sw.classList.add('apd-pop'); } }   // chấm màu nảy = đã lưu
         if (st.hold) { hideCtx(); openNoteForRange(st.scopeEl, st.s, st.e); }   // giữ yên bút cuối nét: tô xong mở luôn khung ghi chú
         else if (id) showMarkCtx(st.scopeEl, id);
     };

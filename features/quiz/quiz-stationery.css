@@ -5128,6 +5128,16 @@ html.qt-bottom #qt-dock .qt-grip::after { width: 3rem; height: 6px; }
 }
 #qt-scratch .qt-tool[data-pen="hl"] { --h: var(--hue-butter); --hi: var(--ink-butter); }
 #qt-scratch .qt-tool[data-pen="erase"] { --h: var(--hue-blossom); --hi: var(--ink-blossom); }
+#qt-scratch .qt-tool[data-pen="lasso"] { --h: var(--hue-sky); --hi: var(--ink-sky); }
+#qt-scratch .qt-tool[data-pen="shape"] { --h: var(--hue-mint); --hi: var(--ink-mint); }
+#qt-scratch .qt-tool[data-pen="text"] { --h: var(--hue-peach); --hi: var(--ink-peach); }
+#qt-scratch .qt-tool[data-pen="laser"] { --h: #FF8FA3; --hi: #D93A5B; }
+#qt-scratch .qt-tool { position: relative; }
+#qt-scratch .qt-svg { width: 1.15rem; height: 1.15rem; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+/* cây đang cầm có chấm nhỏ bên dưới = chạm lần nữa mở tùy chọn */
+#qt-scratch .qt-tool[aria-pressed="true"]::after {
+    content: ""; position: absolute; left: 50%; bottom: -6px; width: 4px; height: 4px; translate: -50% 0; border-radius: 50%; background: var(--hi);
+}
 #qt-scratch .qt-tool[aria-pressed="true"] {
     background: color-mix(in srgb, var(--h) 34%, var(--surface-card)); border-color: var(--h);
     box-shadow: 0 3px 0 color-mix(in srgb, var(--h) 48%, transparent); transform: translateY(-2px) rotate(-4deg);
@@ -5140,6 +5150,40 @@ html.qt-bottom #qt-dock .qt-grip::after { width: 3rem; height: 6px; }
     transition: transform 0.22s var(--spring), box-shadow 0.15s ease;
 }
 #qt-scratch .qt-dot[aria-pressed="true"] { transform: scale(1.18); box-shadow: 0 0 0 2.5px var(--c), 0 3px 6px -2px color-mix(in srgb, var(--c) 70%, transparent); }
+#qt-scratch .qt-recent { display: contents; }
+/* chấm "+" = màu tự chọn (ô chọn màu của máy nằm ẩn bên trong) */
+#qt-scratch .qt-dot-add {
+    --c: transparent; position: relative; display: inline-grid; place-items: center; flex: none; overflow: hidden;
+    background: conic-gradient(#FF8FB8, #F2BE2E, #6FD1AE, #7EC0EE, #B9A2F0, #FF8FB8);
+    color: #fff; font-size: 0.62rem; box-shadow: 0 0 0 1.5px var(--line);
+}
+#qt-scratch .qt-dot-add i { filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .35)); pointer-events: none; }
+#qt-scratch .qt-dot-add input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+/* tẩy / laser không dùng màu; khoanh chọn / laser không dùng cỡ nét */
+#qt-scratch:is([data-pen="erase"], [data-pen="laser"]) .qt-swatches,
+#qt-scratch:is([data-pen="lasso"], [data-pen="laser"]) .qt-sizes { opacity: 0.35; }
+
+/* hàng tùy chọn của công cụ đang cầm: viên chọn kiểu + mẹo ngắn */
+#qt-scratch .qt-opts {
+    flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; padding: 0.45rem 0.6rem;
+    border-bottom: 2px dashed var(--line); background: color-mix(in srgb, var(--hue-lav) 7%, var(--surface-card));
+    animation: qt-opts-in 0.22s cubic-bezier(.16, 1, .3, 1);
+}
+#qt-scratch .qt-opts[hidden] { display: none; }
+@keyframes qt-opts-in { from { opacity: 0; translate: 0 -4px; } }
+#qt-scratch .qt-seg { display: inline-flex; gap: 0.1rem; padding: 0.15rem; border-radius: 999px; background: color-mix(in srgb, var(--hue-lav) 12%, var(--surface-card)); }
+#qt-scratch .qt-seg button, #qt-scratch .qt-chip {
+    height: 1.9rem; padding: 0 0.75rem; border: 0; border-radius: 999px; cursor: pointer; background: transparent;
+    font: inherit; font-size: 0.8rem; font-weight: 800; color: var(--ink-muted); white-space: nowrap;
+    transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+#qt-scratch .qt-seg button[aria-pressed="true"] { background: var(--surface-card); color: var(--ink-lav); box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--hue-lav) 55%, transparent), 0 2px 0 color-mix(in srgb, var(--hue-lav) 30%, transparent); }
+#qt-scratch .qt-chip { border: 1.5px dashed color-mix(in srgb, var(--hue-butter) 70%, transparent); }
+#qt-scratch .qt-chip[aria-pressed="true"] { border-style: solid; background: color-mix(in srgb, var(--hue-butter) 30%, var(--surface-card)); color: var(--ink-butter); }
+#qt-scratch .qt-hint { flex: 1 1 12rem; min-width: 0; font-size: 0.78rem; font-weight: 600; line-height: 1.35; color: var(--ink-muted); }
+#qt-scratch .qt-hint i { margin-right: 0.35rem; color: var(--ink-lav); }
+#qt-scratch .qt-hint b { color: var(--ink); }
+@media (pointer: coarse) { #qt-scratch :is(.qt-seg button, .qt-chip) { height: 2.2rem; font-size: 0.84rem; } }
 /* cỡ nét: ba chấm to dần trong một viên */
 #qt-scratch .qt-sizes { gap: 0.1rem; padding: 0.15rem; border-radius: 999px; background: color-mix(in srgb, var(--hue-lav) 10%, var(--surface-card)); }
 #qt-scratch .qt-sz { display: grid; place-items: center; width: 1.75rem; height: 1.75rem; padding: 0; cursor: pointer; border: 0; border-radius: 50%; background: transparent; transition: background-color 0.15s ease; }
@@ -5162,22 +5206,57 @@ html.qt-bottom #qt-dock .qt-grip::after { width: 3rem; height: 6px; }
     #qt-scratch .qt-sz { width: 1.8rem; height: 1.8rem; }
 }
 
-/* tờ giấy: kẻ ô / kẻ dòng / trơn + một vạch lề hồng như vở */
+/* tờ giấy: kẻ ô / kẻ dòng / chấm bi / trơn + vạch lề hồng như vở — vẽ trên canvas .qt-paper (thu phóng / dời trang theo nét) */
 #qt-scratch .qt-sheet {
-    --qt-margin-line: linear-gradient(to right, transparent 2.1rem, color-mix(in srgb, var(--hue-blossom) 55%, transparent) 2.1rem calc(2.1rem + 1.5px), transparent calc(2.1rem + 1.5px));
     position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; touch-action: none; cursor: crosshair;
     border-radius: 0 0 calc(1.25rem - 2px) calc(1.25rem - 2px);
-    background-color: var(--paper); background-image: var(--qt-margin-line);
+    background-color: var(--paper);
 }
-#qt-scratch .qt-sheet[data-paper="grid"] { background-image: var(--qt-margin-line), var(--paper-art); background-size: auto, var(--paper-size); }
-#qt-scratch .qt-sheet[data-paper="lines"] { background-image: var(--qt-margin-line), linear-gradient(to bottom, transparent 27px, var(--rule) 27px); background-size: auto, 100% 28px; }
 #qt-scratch .qt-sheet[data-pen="erase"] { cursor: cell; }
+#qt-scratch .qt-sheet[data-pen="text"] { cursor: text; }
+#qt-scratch .qt-sheet[data-pen="lasso"] { cursor: default; }
 #qt-scratch .qt-sheet canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
 #qt-scratch .qt-empty {
-    position: absolute; inset: 0; margin: 0; display: flex; align-items: center; justify-content: center; gap: 0.45rem;
-    pointer-events: none; font-size: 0.85rem; font-weight: 700; color: var(--ink-faint); transition: opacity 0.2s ease;
+    position: absolute; inset: 0; z-index: 1; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.3rem;
+    pointer-events: none; font-size: 0.85rem; font-weight: 700; color: var(--ink-faint); text-align: center; padding: 0 1rem; transition: opacity 0.2s ease;
 }
+#qt-scratch .qt-empty small { font-size: 0.72rem; font-weight: 600; }
 #qt-scratch .qt-sheet.has-ink .qt-empty { opacity: 0; }
+
+/* menu nổi trên phần đã khoanh */
+#qt-scratch .qt-selmenu {
+    position: absolute; z-index: 3; display: flex; gap: 0.15rem; padding: 0.2rem; border-radius: 999px;
+    background: var(--surface-card); border: 2px solid color-mix(in srgb, var(--hue-sky) 55%, var(--line));
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--hue-sky) 35%, var(--line)), var(--shadow-sticky);
+    animation: qt-opts-in 0.2s cubic-bezier(.16, 1, .3, 1);
+}
+#qt-scratch .qt-selmenu[hidden] { display: none; }
+#qt-scratch .qt-selmenu button {
+    display: inline-flex; align-items: center; gap: 0.35rem; height: 2.1rem; padding: 0 0.7rem; border: 0; border-radius: 999px; cursor: pointer;
+    background: transparent; font: inherit; font-size: 0.8rem; font-weight: 800; color: var(--ink); white-space: nowrap; touch-action: manipulation;
+}
+#qt-scratch .qt-selmenu button:hover { background: color-mix(in srgb, var(--hue-sky) 16%, transparent); }
+#qt-scratch .qt-selmenu .qt-sel-del { color: #C84848; }
+#qt-scratch .qt-selmenu .qt-sel-del:hover { background: rgba(200, 72, 72, .12); }
+#qt-scratch .qt-selc { width: 0.95rem; height: 0.95rem; border-radius: 50%; box-shadow: inset 0 0 0 1.5px rgba(0, 0, 0, .12); }
+@media (pointer: coarse) { #qt-scratch .qt-selmenu button { height: 2.45rem; } }
+
+/* chip "150%" góc dưới: chạm để về cỡ 100% */
+#qt-scratch .qt-zoom {
+    position: absolute; z-index: 3; right: 0.5rem; bottom: 0.5rem; display: inline-flex; align-items: center; gap: 0.35rem;
+    height: 1.9rem; padding: 0 0.7rem; border-radius: 999px; cursor: pointer; touch-action: manipulation;
+    border: 1.5px solid color-mix(in srgb, var(--hue-lav) 50%, transparent); background: color-mix(in srgb, var(--surface-card) 88%, transparent);
+    font: inherit; font-size: 0.76rem; font-weight: 800; color: var(--ink-lav); font-variant-numeric: tabular-nums;
+}
+#qt-scratch .qt-zoom[hidden] { display: none; }
+
+/* ô gõ chữ đặt đúng chỗ chạm, chữ viết tay Patrick Hand như khi đã lưu */
+#qt-scratch .qt-text-edit {
+    position: absolute; z-index: 2; margin: -0.15em 0 0 -0.3em; padding: 0.1em 0.3em; min-height: 1.4em; resize: none; overflow: hidden; white-space: pre;
+    border: 1.5px dashed color-mix(in srgb, var(--hue-peach) 80%, transparent); border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--surface-card) 70%, transparent); outline: none; touch-action: manipulation;
+    -webkit-user-select: text; user-select: text;
+}
 
 /* ---------- máy tính nổi: vỏ kẹo đào, màn LCD kem ---------- */
 #qt-calc {
@@ -6298,27 +6377,37 @@ html.theme-dark #quizSection .essay-mic.is-live { color: #1d1819; }
    Người dùng: "bật một nút, lấy Apple Pencil di ngang qua chữ là tô / ghi chú luôn"; lần 2: nút chưa rõ làm gì, đổi tô <-> ghi chú
    mất công, thanh che chữ -> chọn "thanh ngang ở đáy" kiểu Markup của iPad; lần 3: viên "Bút tô" nổi thường trực giữa đáy
    "lơ lửng, chiếm chỗ, khó chịu" -> bật/tắt ở nút #pen-btn trong hàng công cụ đầu thẻ (cạnh Nháp, Máy tính) hoặc phím J.
-   #annot-pen-dock: giữa đáy màn hình, CHỈ hiện khi bút đang bật = xòe ngang đủ công cụ, nút chính ghi rõ bút đang làm gì.
-   .apd-ctx = hàng thao tác / mẹo NGAY TRÊN thanh (không nổi đè lên chữ của câu hỏi).
+   lần 4 (2026-10-26): giữa đáy xòe hết cỡ đè lên chữ / nút Câu tiếp -> dời về GÓC DƯỚI TRÁI, ngay phải nút Ngựa thì chỉnh
+   (cụm riêng, không chung cụm với nút Câu tiếp bên phải); nút chính = bút đang cầm, bấm thu gọn / xòe hộp bút; đang vuốt thì mờ đi.
+   #annot-pen-dock: CHỈ hiện khi bút đang bật. .apd-ctx = hàng thao tác / mẹo ngay trên hộp bút (không nổi đè lên chữ của câu hỏi).
    Vuốt: xem trước bằng CSS Custom Highlight (::highlight(qz-pen)) — không đụng DOM cho tới khi thả bút.
    ============================================================ */
 #annot-pen-dock {
     --apd-c: var(--hue-butter); --apd-i: var(--ink-butter);
-    position: fixed; z-index: 46; left: 50%;
+    --apd-left: calc(1rem + 2.75rem + .55rem);   /* nút Ngựa thì chỉnh: left 1rem, rộng 2,75rem */
+    position: fixed; z-index: 46;
+    left: calc(var(--apd-left) + env(safe-area-inset-left, 0px));
     bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
-    transform: translateX(-50%);
-    width: max-content; max-width: calc(100vw - 16px);
-    display: flex; flex-direction: column; align-items: center; gap: .4rem;
+    width: max-content; max-width: calc(100vw - var(--apd-left) - 1rem);
+    display: flex; flex-direction: column; align-items: flex-start; gap: .4rem;
     pointer-events: none;
-    transition: bottom .28s cubic-bezier(.16, 1, .3, 1);
+    transition: bottom .28s cubic-bezier(.16, 1, .3, 1), opacity .2s ease;
 }
 #annot-pen-dock > * { pointer-events: auto; }
 #annot-pen-dock:not(.is-on), body:not(:has(#quiz-container:not(.hidden) #quizSection:not(.hidden))) #annot-pen-dock { display: none; }
-/* Né các nút nổi khác ở đáy: nút "Câu tiếp" của iPad / máy tính, thanh đáy điện thoại, thanh Bắt đầu */
-body:has(#tablet-next-fab:not([hidden])) #annot-pen-dock { bottom: calc(5.4rem + env(safe-area-inset-bottom, 0px)); }
-body.has-mobile-nav #annot-pen-dock { bottom: calc(5.6rem + env(safe-area-inset-bottom, 0px)); }
+/* Chừa chỗ cho nút "Câu tiếp" nổi ở góc phải (iPad / máy tính): hộp bút dài quá thì cuộn ngang trong hộp */
+body:has(#tablet-next-fab:not([hidden])) #annot-pen-dock { max-width: calc(100vw - var(--apd-left) - 11.5rem); }
+@media (max-width: 767px) { #annot-pen-dock { --apd-left: calc(1rem + 3.4rem + .55rem); } }
+/* Điện thoại: nút Ngựa thì chỉnh đã lên thanh đáy -> hộp bút sát mép trái, ngay trên thanh đáy */
+body.has-mobile-nav #annot-pen-dock { --apd-left: .5rem; bottom: calc(5.6rem + env(safe-area-inset-bottom, 0px)); }
+body.has-mobile-nav:has(#tablet-next-fab:not([hidden])) #annot-pen-dock { max-width: calc(100vw - 1rem); }
 html.qt-bottom #annot-pen-dock { translate: 0 calc(-1 * var(--qt-h)); }
-/* Đang bật bút: chừa chỗ cuối bài để chữ không nằm kẹt dưới thanh */
+/* Đang vuốt bút: hộp bút lùi lại (mờ, không bắt chạm) để không che / không vướng chữ ở cuối màn */
+body.qz-pen-drawing #annot-pen-dock { opacity: .2; }
+body.qz-pen-drawing #annot-pen-dock > * { pointer-events: none; }
+/* Bảng Ngựa thì chỉnh mở lên từ cùng góc -> nhường chỗ */
+body:has(#quiz-settings-popover:not(.hidden-pop)) #annot-pen-dock { opacity: 0; visibility: hidden; }
+/* Đang bật bút: chừa chỗ cuối bài để chữ không nằm kẹt dưới hộp bút */
 body.qz-pen-on #quizSection { padding-bottom: 4.5rem; }
 
 #annot-pen-dock[data-tool="hl-green"] { --apd-c: var(--hue-mint); --apd-i: var(--ink-mint); }
@@ -6334,6 +6423,13 @@ body.qz-pen-on #quizSection { padding-bottom: 4.5rem; }
     background: var(--surface-card); border: 2px solid var(--line);
     box-shadow: 0 4px 0 var(--line), var(--shadow-sticky);
 }
+/* Hộp bút nhuộm nhẹ theo màu bút đang cầm -> nhìn góc màn là biết đang tô gì */
+#annot-pen-dock .apd-bar {
+    background: color-mix(in srgb, var(--apd-c) 12%, var(--surface-card));
+    border-color: color-mix(in srgb, var(--apd-c) 50%, var(--line));
+    box-shadow: 0 4px 0 color-mix(in srgb, var(--apd-c) 38%, var(--line)), var(--shadow-sticky);
+    transition: background-color .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
 #annot-pen-dock .apd-bar::-webkit-scrollbar, #annot-pen-dock .apd-ctx::-webkit-scrollbar { display: none; }
 #annot-pen-dock button {
     flex: none; display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
@@ -6347,27 +6443,39 @@ body.qz-pen-on #quizSection { padding-bottom: 4.5rem; }
 #annot-pen-dock button:disabled { opacity: .32; cursor: default; transform: none; }
 #annot-pen-dock button:focus-visible { outline: 2px solid var(--ink-blossom); outline-offset: 2px; }
 
-/* Nút chính: có CHỮ (không chỉ icon) = tên bút đang dùng, nền theo màu bút; bấm = tắt bút */
-#annot-pen-dock .apd-main { padding: 0 1rem 0 .9rem; font-size: .98rem; letter-spacing: .01em; }
-#annot-pen-dock .apd-main i { font-size: 1.05rem; }
-#annot-pen-dock.is-on .apd-main {
-    background: color-mix(in srgb, var(--apd-c) 32%, var(--surface-card)); color: var(--apd-i);
-    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--apd-c) 70%, transparent);
+/* Nút chính = bút đang cầm: chấm màu tròn có biểu tượng + tên bút + mũi tên thu / xòe; bấm = thu gọn / xòe hộp bút */
+#annot-pen-dock .apd-main { padding: 0 .65rem 0 .2rem; gap: .45rem; font-size: .92rem; letter-spacing: .01em; color: var(--apd-i); }
+#annot-pen-dock .apd-swatch {
+    flex: none; display: grid; place-items: center; width: 2.1rem; height: 2.1rem; border-radius: 999px;
+    background: var(--apd-c); color: var(--apd-i); font-size: .95rem;
+    box-shadow: inset 0 -3px 0 rgba(0, 0, 0, .1), 0 0 0 2px var(--surface-card);
+    transition: background-color .2s ease, transform .3s var(--spring);
 }
-#annot-pen-dock.is-on .apd-main i { transform: rotate(-12deg); }
+#annot-pen-dock .apd-swatch i { transform: rotate(-12deg); }
+#annot-pen-dock .apd-main:active .apd-swatch { transform: rotate(-8deg) scale(.94); }
+#annot-pen-dock .apd-swatch.apd-pop { animation: apd-pop .42s var(--spring); }
+@keyframes apd-pop { 35% { scale: 1.28; rotate: -14deg; box-shadow: inset 0 -3px 0 rgba(0, 0, 0, .1), 0 0 0 2px var(--surface-card), 0 0 0 7px color-mix(in srgb, var(--apd-c) 35%, transparent); } }
+#annot-pen-dock .apd-label { white-space: nowrap; }
+#annot-pen-dock .apd-chev { font-size: .7rem; opacity: .55; transition: transform .28s var(--spring); }
+#annot-pen-dock.is-mini .apd-chev { transform: rotate(180deg); }
 #annot-pen-dock .apd-tools { display: none; align-items: center; gap: .15rem; }
 #annot-pen-dock.is-on .apd-tools { display: flex; animation: apd-in .28s var(--spring) both; }
 @keyframes apd-in { from { opacity: 0; translate: -.5rem 0; } }
+/* Thu gọn: chỉ còn bút đang cầm + hoàn tác + tắt */
+#annot-pen-dock.is-mini .apd-tools > :not([data-pen-act="undo"], .apd-off) { display: none; }
+/* Bút đang chọn "nhô lên" khỏi hộp như cây bút vừa rút ra */
 #annot-pen-dock .apd-tools button[aria-pressed="true"] {
-    background: color-mix(in srgb, var(--apd-c) 28%, transparent); color: var(--apd-i);
-    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--apd-c) 80%, transparent);
+    background: color-mix(in srgb, var(--apd-c) 30%, var(--surface-card)); color: var(--apd-i);
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--apd-c) 85%, transparent), 0 3px 0 color-mix(in srgb, var(--apd-c) 55%, transparent);
+    translate: 0 -2px;
 }
+#annot-pen-dock .apd-tools button { transition: background-color .15s ease, color .15s ease, box-shadow .15s ease, transform .2s var(--spring), translate .2s var(--spring); }
 #annot-pen-dock .apd-tools button[data-pen-act="finger"][aria-pressed="true"] {
     background: color-mix(in srgb, var(--hue-blossom) 22%, transparent); color: var(--ink-blossom);
     box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--hue-blossom) 60%, transparent);
 }
 #annot-pen-dock .apd-note { color: var(--ink-lav); }
-#annot-pen-dock .apd-off { padding: 0 .85rem; margin-left: .15rem; background: color-mix(in srgb, var(--ink) 8%, transparent); font-size: .9rem; }
+#annot-pen-dock .apd-off { margin-left: .1rem; color: color-mix(in srgb, var(--ink) 60%, transparent); background: color-mix(in srgb, var(--ink) 6%, transparent); }
 #annot-pen-dock .apd-off:hover { background: rgba(200, 72, 72, .14); color: #C84848; }
 #annot-pen-dock .apd-sep { flex: none; width: 2px; height: 1.4rem; border-radius: 2px; background: var(--line); margin: 0 .2rem; }
 #annot-pen-dock .apd-dot::before { content: ''; width: 1.2rem; height: 1.2rem; border-radius: 999px; box-shadow: inset 0 0 0 1.5px rgba(0, 0, 0, .12); }
@@ -6403,14 +6511,17 @@ body.qz-pen-on #quizSection { padding-bottom: 4.5rem; }
 
 @media (pointer: coarse) and (min-width: 768px) {
     #annot-pen-dock button { min-width: 2.85rem; height: 2.85rem; font-size: 1.08rem; }
+    #annot-pen-dock .apd-swatch { width: 2.35rem; height: 2.35rem; }
     #annot-pen-dock .apd-dot::before { width: 1.35rem; height: 1.35rem; }
 }
-/* Điện thoại: bỏ chữ trên nút chính khi đang bật cho vừa một hàng (tên bút vẫn đọc được qua màu + aria-label) */
+/* Màn chưa đủ rộng: lúc xòe hộp bút thì bỏ chữ trên nút chính (bút đang cầm đã nhô lên ngay bên cạnh); thu gọn thì vẫn ghi tên */
+@media (max-width: 1099px) {
+    #annot-pen-dock:not(.is-mini) .apd-label { display: none; }
+    #annot-pen-dock:not(.is-mini) .apd-main { padding-right: .45rem; }
+}
 @media (max-width: 639px) {
-    #annot-pen-dock.is-on .apd-label, #annot-pen-dock .apd-off span { display: none; }
-    #annot-pen-dock.is-on .apd-main { padding: 0 .75rem; }
-    #annot-pen-dock .apd-off { padding: 0 .6rem; }
     #annot-pen-dock button { min-width: 2.15rem; height: 2.3rem; }
+    #annot-pen-dock .apd-swatch { width: 1.85rem; height: 1.85rem; font-size: .85rem; }
     #annot-pen-dock .apd-bar, #annot-pen-dock .apd-tools { gap: 0; }
     #annot-pen-dock .apd-bar { padding: .2rem; }
     #annot-pen-dock .apd-tools .apd-sep, #annot-pen-dock [data-pen-act="help"] { display: none; }   /* mẹo vẫn tự hiện lần đầu bật */
@@ -6431,4 +6542,6 @@ body[data-qz-pen="note"] ::highlight(qz-pen), body.qz-pen-hold ::highlight(qz-pe
 body[data-qz-pen="erase"] ::highlight(qz-pen) { background-color: rgba(120, 110, 105, .18); text-decoration: line-through 2px rgba(200, 72, 72, .7); }
 @media (prefers-reduced-motion: reduce) {
     #annot-pen-dock.is-on .apd-tools, #annot-pen-dock .apd-ctx.apd-in { animation: none; }
+    #annot-pen-dock .apd-tools button[aria-pressed="true"] { translate: none; }
+    #annot-pen-dock .apd-swatch.apd-pop, #qt-scratch :is(.qt-opts, .qt-selmenu) { animation: none; }
 }
