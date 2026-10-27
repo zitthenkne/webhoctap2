@@ -7,7 +7,8 @@
 //
 // Dữ liệu trên từng doc quiz_sets / quiz_folders (firestore.rules: sharedWithMe / editsAsEditor / validShare):
 //   sharedWith: email chữ thường được XEM (email phải đã xác nhận) · editors ⊆ sharedWith: được SỬA nội dung bộ đề
-//   sharedBy: tên người chia sẻ (hiện "từ ai") · noCopy: true = người xem không lưu bản sao · isPublic: ai có link đều xem.
+//   sharedBy: tên người chia sẻ (hiện "từ ai") · allowTakeout: true = người khác được MANG ĐỀ ĐI (lưu bản sao, mở phòng "Làm cùng nhau",
+//   lưu đề từ phòng) — thiếu/false (mặc định) = chỉ làm bài ngay trên web · isPublic: ai có link đều xem.
 // Module không biết cache của nơi gọi: ghi lên các doc do `targets()` trả về (theo LÔ), sửa thẳng các object đó rồi gọi `onChange()`.
 
 import { db } from '../../core/firebase-init.js';
@@ -23,12 +24,26 @@ const ROLE_LABEL = { viewer: 'Người xem', editor: 'Người chỉnh sửa' };
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
+/** publicUntil ở mọi dạng (Timestamp SDK / chuỗi ISO từ REST / Date / {seconds} đã qua cache / null) → mili-giây, null = không hết hạn. */
+export function untilMsOf(v) {
+    if (v == null || v === '') return null;
+    if (typeof v.toMillis === 'function') return v.toMillis();
+    if (v instanceof Date) return v.getTime();
+    if (typeof v === 'number') return v;
+    if (typeof v === 'string') { const t = Date.parse(v); return Number.isNaN(t) ? null : t; }
+    if (typeof v.seconds === 'number') return v.seconds * 1000;
+    return null;
+}
+/** Link công khai còn mở được không (isPublic và chưa quá hạn) — khớp publicAlive() trong firestore.rules. */
+export const publicAlive = (d) => !!d && d.isPublic === true && (untilMsOf(d.publicUntil) == null || untilMsOf(d.publicUntil) > Date.now());
+
 /**
  * @typedef {Object} ShareTarget
- * @property {() => {isPublic?: boolean, sharedWith?: string[], editors?: string[], noCopy?: boolean, mixed?: boolean}} view
+ * @property {() => {isPublic?: boolean, sharedWith?: string[], editors?: string[], allowTakeout?: boolean, mixed?: boolean}} view
  *           trạng thái để vẽ (đọc lại mỗi lần vẽ); mixed = chọn nhiều bộ đề có chế độ công khai khác nhau
  * @property {() => Promise<Array<{col: string, id: string, obj: object}>>} targets  MỌI doc phải ghi khi đổi người / vai trò / cài đặt
- * @property {(makePublic: boolean) => Promise<boolean>} setPublic  đổi quyền truy cập chung; false = hủy/lỗi (ô chọn tự trả lại)
+ * @property {(makePublic: boolean, until: Date|null) => Promise<boolean>} setPublic  đổi quyền truy cập chung (until = hạn link công khai,
+ *           null = không hết hạn); false = hủy/lỗi (ô chọn tự trả lại)
  * @property {() => void} [onChange]  sau khi ghi xong (lưu cache, vẽ lại thẻ…)
  * @property {string} [scope]  mô tả phạm vi, vd "cả thư mục" — hiện dưới tiêu đề
  * @property {string} [title]  tên bộ đề / thư mục — cho thư mời
@@ -87,13 +102,24 @@ function build(section) {
                         <option value="mixed" disabled hidden>Khác nhau giữa các bộ đề</option>
                     </select>
                     <p id="share-general-desc" class="text-[11px] text-gray-400 leading-snug mt-0.5"></p>
+                    <div id="share-expiry-row" class="hidden items-center gap-2 mt-1.5" style="display:none">
+                        <span class="text-[11px] font-bold text-gray-500">Link hết hạn sau</span>
+                        <select id="share-expiry-select" class="text-[11px] font-bold text-gray-700 border border-gray-200 rounded-lg px-1.5 py-1 focus:outline-none" style="background:#fff" aria-label="Thời hạn link công khai">
+                            <option value="1">1 giờ</option>
+                            <option value="12" selected>12 giờ</option>
+                            <option value="24">1 ngày</option>
+                            <option value="168">7 ngày</option>
+                            <option value="0">Không hết hạn</option>
+                        </select>
+                    </div>
+                    <p id="share-expiry-at" class="text-[11px] font-semibold leading-snug mt-1"></p>
                 </div>
             </div>
         </div>
         <label class="flex items-start gap-2 cursor-pointer">
             <input type="checkbox" id="share-allow-copy" class="mt-0.5 w-4 h-4 cursor-pointer" style="accent-color:#ec4899">
-            <span class="text-xs text-gray-600 leading-snug"><b>Người xem được lưu bản sao</b> về thư viện của họ
-                <span class="block text-[11px] text-gray-400">Tắt thì nút "Lưu bản sao" bị ẩn với người xem (người chỉnh sửa luôn được).</span></span>
+            <span class="text-xs text-gray-600 leading-snug"><b>Cho người khác mang đề đi</b>
+                <span class="block text-[11px] text-gray-400">Lưu bản sao về thư viện của họ, mở sang phòng "Làm cùng nhau", lưu đề từ phòng. Tắt (mặc định): người được chia sẻ chỉ làm bài ngay trên web, không chuyền trải nghiệm làm bài cho ai khác được.</span></span>
         </label>
         <p id="share-scope-note" class="hidden text-[11px] text-amber-600 font-semibold leading-snug"></p>`;
     bindOnce(section);
@@ -141,9 +167,21 @@ function render() {
     if (desc) desc.textContent = general === 'public'
         ? 'Bất kỳ ai có đường liên kết đều xem và làm bài được — không cần tài khoản (khách lưu kết quả trên máy của họ).'
         : general === 'mixed' ? 'Các bộ đề đã chọn đang khác nhau — chọn một chế độ để áp cho tất cả.'
-        : 'Chỉ những người đã thêm ở trên mới mở được bằng đường liên kết (cần đăng nhập đúng email).';
+        : 'Chỉ những người đã thêm ở trên mới mở được bằng đường liên kết (cần đăng nhập Google đúng email).';
+    // Hạn link công khai (publicUntil — luật Firestore so với giờ máy chủ)
+    const row = document.getElementById('share-expiry-row');
+    const at = document.getElementById('share-expiry-at');
+    if (row) row.style.display = general === 'public' ? 'flex' : 'none';
+    if (at) {
+        const until = untilMsOf(v.publicUntil);
+        at.style.color = until != null && until <= Date.now() ? '#dc2626' : '#6b7280';
+        at.textContent = general !== 'public' ? ''
+            : until == null ? 'Link không hết hạn.'
+            : until <= Date.now() ? 'Link ĐÃ HẾT HẠN — chọn thời hạn ở trên để gia hạn.'
+            : `Link hết hạn lúc ${new Date(until).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })} — đổi thời hạn để gia hạn từ bây giờ.`;
+    }
     const allow = document.getElementById('share-allow-copy');
-    if (allow) allow.checked = v.noCopy !== true;
+    if (allow) allow.checked = v.allowTakeout === true;
     const note = document.getElementById('share-scope-note');
     if (note) { note.textContent = t.scope || ''; note.classList.toggle('hidden', !t.scope); }
 }
@@ -171,18 +209,30 @@ function bindOnce(section) {
         if (email) changeRole(email, sel.value);
     });
     const general = section.querySelector('#share-general-select');
+    const expiry = section.querySelector('#share-expiry-select');
+    // Hạn tính TỪ BÂY GIỜ theo ô "Link hết hạn sau" (mặc định 12 giờ); "Không hết hạn" → null
+    const chosenUntil = () => { const h = Number(expiry.value) || 0; return h ? new Date(Date.now() + h * 3600 * 1000) : null; };
     general.addEventListener('change', async () => {
         const t = current;
         if (!t || general.value === 'mixed') return;
         general.disabled = true;
-        try { await t.setPublic(general.value === 'public'); }
+        try { await t.setPublic(general.value === 'public', general.value === 'public' ? chosenUntil() : null); }
         finally { general.disabled = false; render(); }
+    });
+    // Đổi thời hạn khi đang công khai = gia hạn (tính lại từ bây giờ)
+    expiry.addEventListener('change', async () => {
+        const t = current;
+        if (!t || general.value !== 'public') return;
+        expiry.disabled = true;
+        try { await t.setPublic(true, chosenUntil()); }
+        finally { expiry.disabled = false; render(); }
     });
     const allow = section.querySelector('#share-allow-copy');
     allow.addEventListener('change', async () => {
         allow.disabled = true;
-        const ok = await writeAll({ noCopy: !allow.checked }, (o) => { o.noCopy = !allow.checked; },
-            allow.checked ? 'Người xem đã được lưu bản sao.' : 'Đã tắt "Lưu bản sao" với người xem.');
+        const ok = await writeAll({ allowTakeout: allow.checked }, (o) => { o.allowTakeout = allow.checked; },
+            allow.checked ? 'Đã cho người khác mang đề đi (lưu bản sao, mở phòng làm cùng).'
+                : 'Đã khóa: người được chia sẻ chỉ làm bài ngay trên web, không mang đề đi được.');
         if (!ok) allow.checked = !allow.checked;
         allow.disabled = false;
     });

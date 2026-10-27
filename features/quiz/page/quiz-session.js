@@ -8,7 +8,7 @@ import { whenAuthReady, refreshEmailVerified } from '../../../core/auth-session.
 import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { showToast } from '../../../core/utils.js';
 import { applyLocalQuestionEdits } from '../quiz-editor.js';
-import { getOfflineQuiz, autoCacheQuiz, isOfflineSavedSync, saveOfflineQuiz, extractQuizImageUrls, cacheQuizImages, touchOfflineQuiz } from '../quiz-offline-store.js';
+import { getOfflineQuiz, autoCacheQuiz, isOfflineSavedSync, saveOfflineQuiz, extractQuizImageUrls, cacheQuizImages, touchOfflineQuiz, deleteOfflineQuiz } from '../quiz-offline-store.js';
 import { LOCAL_FRESH_MS, localStillCurrent, fetchQuizFull } from '../quiz-fresh.js';
 import { state, saveQuizState, clearQuizState, saveQuizResult, updateQuizResultScore, markQuizStateFinished } from '../quiz-state.js';
 import { shuffleArray, shuffleQuestionOptions, isAnswerCorrect, sessionScore } from '../quiz-helpers.js';
@@ -27,10 +27,18 @@ whenAuthReady(4000).then(u => { if (u && u.uid && !u.offline && !u.isAnonymous) 
 
 let autoSaveInterval = null;
 
+// Link công khai hết hạn (api/public.js — máy chủ đọc được trạng thái bộ đề). Lỗi / chưa deploy API → coi như không biết (false).
+async function linkExpired(id) {
+    try {
+        const r = await fetch(new URL(`api/public?kind=quiz&id=${encodeURIComponent(id)}`, location.origin + '/').href, { cache: 'no-store' });
+        return r.ok && (await r.json()).status === 'expired';
+    } catch (e) { return false; }
+}
+
 // Bộ đề bị luật chặn: nói rõ cách vào được theo tình trạng đăng nhập (chia sẻ riêng cần đúng email + email đã xác nhận).
 const PRIVATE_QUIZ_MSG = () => {
     const u = auth.currentUser;
-    if (!u || u.isAnonymous) return 'Bộ đề này không công khai. Nếu được chia sẻ riêng, hãy đăng nhập đúng email được chia sẻ (ở trang chủ) rồi bấm Thử lại.';
+    if (!u || u.isAnonymous) return 'Bộ đề này không công khai. Nếu được chia sẻ riêng, hãy đăng nhập bằng Google đúng email được chia sẻ (ở trang chủ) rồi bấm Thử lại.';
     if (!u.emailVerified) return `Bộ đề này không công khai. Nếu được chia sẻ cho ${u.email}, bạn cần xác nhận email trước (trang Hồ sơ → Gửi mail xác nhận, hoặc đăng nhập bằng Google), rồi bấm Thử lại.`;
     return `Bộ đề này không công khai và chưa được chia sẻ cho ${u.email}. Nhờ tác giả thêm email của bạn vào phần Chia sẻ.`;
 };
@@ -184,6 +192,8 @@ export async function loadQuizData() {
         loadQuizDetails();
         pullStudyFromCloud(quizId);
         setupOfflineDownloadBtn(quizId);
+        // Báo cho quiz.html biết đã có dữ liệu bộ đề → chỉ hiện nút Chia sẻ khi người xem là CHỦ bộ đề
+        window.dispatchEvent(new CustomEvent('quiz:data'));
         // Bộ đề của NGƯỜI KHÁC (mở bằng link, kể cả khi chưa đăng nhập) → ghi lên kệ "Trên máy này" để mở lại / quản lý (local-shelf.js)
         if (!auth.currentUser || data.userId !== auth.currentUser.uid) {
             rememberOpened({
@@ -253,7 +263,20 @@ export async function loadQuizData() {
                             setTimeout(() => refresh(), 0);   // refreshOnce đang chạy giữ khóa `refreshing` → gọi sau khi nó xong
                             return;
                         }
+                        // Link công khai đã hết hạn? (máy chủ xem được trạng thái — luật chỉ báo "không có quyền")
+                        if (await linkExpired(quizId)) {
+                            showLandingError('Link công khai của bộ đề này đã HẾT HẠN. Nhờ chủ bộ đề mở Chia sẻ để gia hạn, rồi bấm Thử lại.', { showRetry: true });
+                            return;
+                        }
                         showLandingError(PRIVATE_QUIZ_MSG(), { showRetry: true });
+                        return;
+                    }
+                    // Có bản trong máy (từng mở khi link còn hạn) mà máy chủ báo link ĐÃ HẾT HẠN → xóa bản máy, không cho làm tiếp bằng bản cũ.
+                    // Chỉ khi máy chủ khẳng định "expired": từ chối vì lý do khác (vừa đăng nhập, máy chưa đăng ký xong…) thì giữ bản máy như cũ.
+                    if (await linkExpired(quizId)) {
+                        deleteOfflineQuiz(quizId).catch(() => {});
+                        localData = null;
+                        showLandingError('Link công khai của bộ đề này đã HẾT HẠN. Nhờ chủ bộ đề mở Chia sẻ để gia hạn, rồi bấm Thử lại.', { showRetry: true });
                         return;
                     }
                 }

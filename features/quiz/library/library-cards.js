@@ -9,6 +9,13 @@ import { showToast, showConfirm } from '../../../core/utils.js';
 import { isOfflineSavedSync, saveOfflineQuiz, deleteOfflineQuiz, extractQuizImageUrls } from '../quiz-offline-store.js';
 import { fetchQuizFull } from '../quiz-fresh.js';
 import { S } from './library-state.js';
+import { untilMsOf, publicAlive } from '../share-access.js';
+
+// "còn 5 giờ" / "còn 3 ngày" cho huy hiệu link công khai có hạn
+const hoursLeft = (until) => {
+    const h = Math.max(0, (until - Date.now()) / 3600000);
+    return h < 1 ? `còn ${Math.max(1, Math.round(h * 60))} phút` : h < 48 ? `còn ${Math.round(h)} giờ` : `còn ${Math.round(h / 24)} ngày`;
+};
 import {
     FOLDER_COLOR_HEX, FOLDER_SWATCHES, escapeHtml, formatRelativeTime,
     getFolderLastOpenedMap, markFolderOpened, positionFolderMenu, resetFolderMenuPosition,
@@ -133,7 +140,7 @@ export function createFolderCard(folder) {
     // Icon dạng sticker bế viền trắng, nền màu gốc của thư mục (tô ở CSS)
     const wrapperHTML = `<div class="folder-icon-wrapper"><i class="fas ${iconClass}"></i></div>`;
 
-    const isPublicFolder = folder.isPublic === true;
+    const isPublicFolder = folder.isPublic === true && publicAlive(folder);     // hết hạn = như riêng tư (luật chặn mở link)
     const pinBadge = isPinnedFolder
         ? `<span class="folder-pin-badge" title="Đã ghim"><i class="fas fa-thumbtack"></i></span>`
         : '';
@@ -469,7 +476,10 @@ function buildBadges(quizSet, offlineSaved, due, isNew = false) {
         out.push(`<span class="qc-badge qc-badge-offline" title="Đã tải về máy — làm được khi không có mạng"><i class="fas fa-circle-down"></i>Đã tải</span>`);
     }
     if (quizSet.isPublic === true) {
-        out.push(`<span class="qc-badge qc-badge-public" title="Đang công khai — ai có link đều mở được"><i class="fas fa-globe"></i>Công khai</span>`);
+        const until = untilMsOf(quizSet.publicUntil);
+        out.push(!publicAlive(quizSet)
+            ? `<span class="qc-badge qc-badge-public" style="opacity:.6" title="Link công khai đã hết hạn — mở Chia sẻ để gia hạn"><i class="fas fa-clock"></i>Link hết hạn</span>`
+            : `<span class="qc-badge qc-badge-public" title="Đang công khai — ai có link đều mở được${until ? ' tới ' + new Date(until).toLocaleString('vi-VN') : ' (không hết hạn)'}"><i class="fas fa-globe"></i>Công khai${until ? ' · ' + hoursLeft(until) : ''}</span>`);
     }
     const sharedCount = (quizSet.sharedWith || []).length;
     if (sharedCount) {

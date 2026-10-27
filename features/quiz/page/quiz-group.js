@@ -21,6 +21,11 @@ export async function openInRoom() {
     if (!navigator.onLine) return showToast('Cần có mạng để mở phòng làm cùng nhau.', 'warning');
     const quizId = quizIdOf();
     if (!quizId) return;
+    // Đề của người khác mà chủ không cho "mang đề đi" (allowTakeout): không mở sang phòng — link phòng ai cũng vào được
+    const q = state.quizData;
+    if (q && q.userId && q.userId !== user.uid && q.allowTakeout !== true) {
+        return showToast('Chủ bộ đề không cho mở đề này sang phòng làm cùng.', 'warning', 4000);
+    }
     const title = String((state.quizData && state.quizData.title) || 'Đề ôn tập').trim();
 
     // Đang làm bài thì ghi bản mới nhất trước (phòng đọc bản này); ở trang chờ thì dùng bài dở đã lưu

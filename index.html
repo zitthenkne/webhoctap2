@@ -2881,65 +2881,65 @@
                     </button>
                 </div>
 
+                <!-- CHỈ ĐĂNG NHẬP BẰNG GOOGLE (2026-10-28 — chống cho mượn tài khoản; app.js handleGoogleLogin, core/google-gate.js) -->
                 <div class="space-y-4">
-                    <!-- Email -->
-                    <div>
-                        <label for="emailInput" id="emailLabel" class="block text-xs font-bold text-gray-500 mb-1.5 ml-1">Email hoặc tên người dùng</label>
-                        <div class="relative">
-                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400 pointer-events-none">
-                                <i class="fas fa-envelope"></i>
-                            </span>
-                            <input type="text" id="emailInput" placeholder="ban@example.com hoặc tên của bạn" autocomplete="username"
-                                class="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] focus:bg-white transition">
-                        </div>
-                    </div>
-                    <!-- Mật khẩu -->
-                    <div>
-                        <label for="passwordInput" class="block text-xs font-bold text-gray-500 mb-1.5 ml-1">Mật khẩu</label>
-                        <div class="relative">
-                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400 pointer-events-none">
-                                <i class="fas fa-lock"></i>
-                            </span>
-                            <input type="password" id="passwordInput" placeholder="••••••••" autocomplete="current-password"
-                                class="w-full pl-11 pr-11 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] focus:bg-white transition">
-                            <button type="button" id="togglePasswordBtn" aria-label="Hiện/ẩn mật khẩu"
-                                class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-[#FF69B4] transition">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </div>
-                        <div class="text-right mt-1.5">
-                            <button type="button" id="forgotPasswordBtn" class="text-xs font-bold text-gray-400 hover:text-[#FF69B4] transition">Quên mật khẩu?</button>
-                        </div>
-                    </div>
-                    <!-- Mật khẩu web (chỉ hiện khi ở tab Đăng ký) -->
+                    <button type="button" id="googleLoginBtn"
+                        class="w-full px-6 py-3 bg-gradient-to-r from-[#FF69B4] to-[#FF8DC7] text-white rounded-xl font-bold shadow-md hover:shadow-lg hover:shadow-pink-200 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 flex items-center justify-center gap-2">
+                        <i class="fab fa-google"></i> Tiếp tục với Google
+                    </button>
+                    <p id="auth-google-hint" class="text-center text-xs text-gray-500 leading-relaxed">Chọn Gmail của bạn. Mỗi tài khoản dùng tối đa 2 máy.</p>
+                    <!-- Mật khẩu web: tài khoản MỚI (tab Tài khoản mới) phải nhập trước khi bấm Google -->
                     <div id="signupCodeWrap" class="hidden">
-                        <label for="signupCodeInput" class="block text-xs font-bold text-gray-500 mb-1.5 ml-1">Mật khẩu web</label>
+                        <label for="signupCodeInput" class="block text-xs font-bold text-gray-500 mb-1.5 ml-1">Mật khẩu web (bắt buộc với tài khoản mới)</label>
                         <div class="relative">
                             <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400 pointer-events-none">
                                 <i class="fas fa-key"></i>
                             </span>
-                            <input type="password" id="signupCodeInput" placeholder="Nhập mật khẩu web để được đăng ký" autocomplete="off"
+                            <input type="password" id="signupCodeInput" placeholder="Nhập mật khẩu web rồi bấm Tiếp tục với Google" autocomplete="off"
                                 class="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] focus:bg-white transition">
                         </div>
                     </div>
-                </div>
 
-                <div class="mt-6 space-y-3">
-                    <button type="button" id="loginBtn"
-                        class="w-full px-6 py-3 bg-gradient-to-r from-[#FF69B4] to-[#FF8DC7] text-white rounded-xl font-bold shadow-md hover:shadow-lg hover:shadow-pink-200 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 flex items-center justify-center gap-2">
-                        <i class="fas fa-right-to-bracket"></i> Đăng nhập
-                    </button>
-                    <button type="button" id="signupBtn"
-                        class="w-full px-6 py-3 bg-white text-[#FF69B4] border-2 border-pink-200 rounded-xl font-bold hover:bg-pink-50 hover:border-[#FF69B4] active:scale-[0.99] transition-all duration-200 flex items-center justify-center gap-2">
-                        <i class="fas fa-user-plus"></i> Tạo tài khoản mới
-                    </button>
-                    <div class="flex items-center gap-3 text-[11px] font-bold text-gray-300 uppercase tracking-wider"><span class="h-px flex-1 bg-gray-200"></span>hoặc<span class="h-px flex-1 bg-gray-200"></span></div>
-                    <button type="button" id="googleLoginBtn"
-                        class="w-full px-6 py-3 bg-white text-gray-700 border-2 border-gray-200 rounded-xl font-bold hover:bg-gray-50 active:scale-[0.99] transition-all duration-200 flex items-center justify-center gap-2">
-                        <i class="fab fa-google" style="color:#4285F4"></i> Tiếp tục với Google
-                    </button>
+                    <!-- Tài khoản CŨ (email + mật khẩu): vẫn đăng nhập được, xong sẽ được yêu cầu gắn Google (core/google-gate.js) -->
+                    <details id="legacy-login" class="border-t border-gray-100 pt-3">
+                        <summary class="text-xs font-bold text-gray-400 hover:text-[#FF69B4] cursor-pointer text-center">Tài khoản cũ đăng nhập bằng email + mật khẩu?</summary>
+                        <div class="space-y-3 mt-3">
+                            <div>
+                                <label for="emailInput" id="emailLabel" class="block text-xs font-bold text-gray-500 mb-1.5 ml-1">Email hoặc tên người dùng</label>
+                                <div class="relative">
+                                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400 pointer-events-none">
+                                        <i class="fas fa-envelope"></i>
+                                    </span>
+                                    <input type="text" id="emailInput" placeholder="ban@example.com hoặc tên của bạn" autocomplete="username"
+                                        class="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] focus:bg-white transition">
+                                </div>
+                            </div>
+                            <div>
+                                <label for="passwordInput" class="block text-xs font-bold text-gray-500 mb-1.5 ml-1">Mật khẩu</label>
+                                <div class="relative">
+                                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400 pointer-events-none">
+                                        <i class="fas fa-lock"></i>
+                                    </span>
+                                    <input type="password" id="passwordInput" placeholder="••••••••" autocomplete="current-password"
+                                        class="w-full pl-11 pr-11 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] focus:bg-white transition">
+                                    <button type="button" id="togglePasswordBtn" aria-label="Hiện/ẩn mật khẩu"
+                                        class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-[#FF69B4] transition">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                                <div class="text-right mt-1.5">
+                                    <button type="button" id="forgotPasswordBtn" class="text-xs font-bold text-gray-400 hover:text-[#FF69B4] transition">Quên mật khẩu?</button>
+                                </div>
+                            </div>
+                            <button type="button" id="loginBtn"
+                                class="w-full px-6 py-3 bg-white text-[#FF69B4] border-2 border-pink-200 rounded-xl font-bold hover:bg-pink-50 hover:border-[#FF69B4] active:scale-[0.99] transition-all duration-200 flex items-center justify-center gap-2">
+                                <i class="fas fa-right-to-bracket"></i> Đăng nhập (rồi gắn Google)
+                            </button>
+                            <!-- Tạo tài khoản bằng email đã TẮT (chỉ Google); giữ nút ẩn để mã cũ không lỗi -->
+                            <button type="button" id="signupBtn" class="hidden"></button>
+                        </div>
+                    </details>
                 </div>
-
                 <p class="text-center text-[11px] text-gray-400 mt-5 leading-relaxed">
                     <i class="fas fa-shield-heart text-pink-300 mr-1"></i>
                     Thông tin của bạn được bảo mật. Bằng việc tiếp tục, bạn đồng ý với điều khoản sử dụng.
@@ -3292,41 +3292,30 @@
             // Chuyển đổi giữa chế độ Đăng nhập và Đăng ký (chỉ đổi giao diện cho trực quan)
             var tabLogin = document.getElementById('auth-tab-login');
             var tabSignup = document.getElementById('auth-tab-signup');
-            var loginBtnEl = document.getElementById('loginBtn');
-            var signupBtnEl = document.getElementById('signupBtn');
             var authSubtitle = document.getElementById('auth-subtitle');
-            if (tabLogin && tabSignup && loginBtnEl && signupBtnEl) {
+            if (tabLogin && tabSignup) {
                 var TAB_ON = 'flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 bg-gradient-to-r from-[#FF69B4] to-[#FF8DC7] text-white shadow-sm flex items-center justify-center gap-2';
                 var TAB_OFF = 'flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 text-gray-500 hover:text-[#FF69B4] flex items-center justify-center gap-2';
-                var BTN_PRIMARY = 'w-full px-6 py-3 bg-gradient-to-r from-[#FF69B4] to-[#FF8DC7] text-white rounded-xl font-bold shadow-md hover:shadow-lg hover:shadow-pink-200 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 flex items-center justify-center gap-2';
-                var BTN_SECONDARY = 'w-full px-6 py-3 bg-white text-[#FF69B4] border-2 border-pink-200 rounded-xl font-bold hover:bg-pink-50 hover:border-[#FF69B4] active:scale-[0.99] transition-all duration-200 flex items-center justify-center gap-2';
+                // Chỉ đăng nhập bằng Google: tab "Đăng ký" = nhập mật khẩu web rồi bấm Google; tab "Đăng nhập" có thêm lối cho tài khoản cũ
                 var setMode = function (mode) {
                     var isLogin = mode === 'login';
                     tabLogin.className = isLogin ? TAB_ON : TAB_OFF;
                     tabSignup.className = isLogin ? TAB_OFF : TAB_ON;
-                    loginBtnEl.className = isLogin ? BTN_PRIMARY : BTN_SECONDARY;
-                    signupBtnEl.className = isLogin ? BTN_SECONDARY : BTN_PRIMARY;
                     if (authSubtitle) {
                         authSubtitle.textContent = isLogin
                             ? 'Đăng nhập để đồng bộ bộ đề & thành tích của bạn 🐿️'
-                            : 'Tạo tài khoản miễn phí để lưu lại mọi thứ của bạn 🐿️';
+                            : 'Tạo tài khoản bằng Gmail để lưu lại mọi thứ của bạn 🐿️';
                     }
-                    if (pwInput) {
-                        pwInput.setAttribute('autocomplete', isLogin ? 'current-password' : 'new-password');
-                    }
-                    var emailLabel = document.getElementById('emailLabel');
-                    var emailInputEl = document.getElementById('emailInput');
-                    if (emailLabel) {
-                        emailLabel.textContent = isLogin ? 'Email hoặc tên người dùng' : 'Email';
-                    }
-                    if (emailInputEl) {
-                        emailInputEl.setAttribute('placeholder', isLogin ? 'ban@example.com hoặc tên của bạn' : 'ban@example.com');
-                        emailInputEl.setAttribute('autocomplete', isLogin ? 'username' : 'email');
+                    var hint = document.getElementById('auth-google-hint');
+                    if (hint) {
+                        hint.textContent = isLogin
+                            ? 'Chọn Gmail của bạn. Mỗi tài khoản dùng tối đa 2 máy.'
+                            : 'Nhập mật khẩu web bên dưới, rồi bấm "Tiếp tục với Google" và chọn Gmail của bạn.';
                     }
                     var signupCodeWrap = document.getElementById('signupCodeWrap');
-                    if (signupCodeWrap) {
-                        signupCodeWrap.classList.toggle('hidden', isLogin);
-                    }
+                    if (signupCodeWrap) signupCodeWrap.classList.toggle('hidden', isLogin);
+                    var legacy = document.getElementById('legacy-login');
+                    if (legacy) legacy.classList.toggle('hidden', !isLogin);
                 };
                 tabLogin.addEventListener('click', function () { setMode('login'); });
                 tabSignup.addEventListener('click', function () { setMode('signup'); });

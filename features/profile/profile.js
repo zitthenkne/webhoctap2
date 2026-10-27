@@ -5,6 +5,8 @@ import { doc, getDoc, collection, query, where, getDocs } from "https://www.gsta
 import { updateDocQ as updateDoc } from '../../core/offline-write.js';
 import { showConfirm } from '../../core/utils.js';
 import { claimName } from '../../core/usernames.js';
+import { releaseThisDevice, removeDevice, adminRemoveDevices, onDevices, onLogins, placeOf, findAccount, deviceId, MAX_DEVICES, deviceLimitFor,
+    isAdminUser, onDeviceExempt, setDeviceExempt, ADMIN_EMAILS } from '../../core/device-limit.js';
 import { readMetaCache, fetchAllQuizMeta } from '../quiz/library/library-meta.js';
 import { readRowsCache, syncRows } from './stats-insights.js';
 
@@ -353,6 +355,140 @@ sendVerifyBtn?.addEventListener('click', async () => {
 });
 window.addEventListener('auth:verified', () => { renderVerifyState(); showMessage('Email đã được xác nhận!', 'success'); });
 
+// THIẾT BỊ ĐANG ĐĂNG NHẬP (giới hạn 2 máy — core/device-limit.js): xem danh sách, đăng xuất từ xa máy khác (máy đó tự đăng xuất ngay).
+const escH = (s) => String(s ?? '').replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtWhen = (ms) => ms ? new Date(ms).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+const deviceIcon = (label) => /iPhone|Android|Điện thoại/.test(label) ? 'fa-mobile-screen' : /iPad|bảng/.test(label) ? 'fa-tablet-screen-button' : 'fa-laptop';
+/** Dòng thiết bị. me = id máy này (không có nút Đăng xuất); null = xem hộ (admin) → máy nào cũng có nút. */
+function deviceRowsHtml(list, me) {
+    return list.slice().sort((a, b) => (b.at || 0) - (a.at || 0)).map(d => {
+        const mine = me && d.id === me;
+        const label = escH(d.label || 'Thiết bị');
+        const where = [placeOf(d), d.ip].filter(Boolean).map(escH).join(' · ');
+        return `<li class="flex items-center gap-3 bg-white rounded-2xl border border-slate-200/60 px-3 py-2">
+            <i class="fas ${deviceIcon(d.label || '')} text-slate-400 w-5 text-center"></i>
+            <span class="min-w-0 flex-1"><span class="block text-[13px] font-bold text-slate-700 truncate">${label}${mine ? ' <span class="text-emerald-500">(máy này)</span>' : ''}</span>
+                <span class="block text-[11px] text-slate-400 truncate">Đăng nhập lúc ${fmtWhen(d.at)}${where ? ' · ' + where : ''}</span></span>
+            ${mine ? '' : `<button type="button" class="device-out-btn text-[12px] font-extrabold text-red-500 hover:bg-red-50 px-2.5 py-1 rounded-xl" data-id="${escH(d.id)}">Đăng xuất</button>`}
+        </li>`;
+    }).join('') || '<li class="text-[12px] text-slate-400 pl-1">Chưa có dữ liệu thiết bị.</li>';
+}
+function loginRowsHtml(list) {
+    return list.map(l => `<li class="flex items-start gap-2 text-[11px] ${l.alert ? 'text-red-600 bg-red-50 rounded-xl px-2 py-1' : 'text-slate-500 px-2'}">
+            <i class="fas ${l.alert ? 'fa-triangle-exclamation' : 'fa-right-to-bracket'} mt-0.5"></i>
+            <span class="min-w-0 flex-1"><b>${fmtWhen(l.at)}</b> · ${escH(l.label || '')}${placeOf(l) ? ' · ' + escH(placeOf(l)) : ''}${l.ip ? ' · ' + escH(l.ip) : ''}
+                ${l.alert ? `<span class="block font-bold">${escH(l.alert)} — có thể tài khoản đang bị dùng chung.</span>` : ''}</span>
+        </li>`).join('') || '<li class="text-[11px] text-slate-400 pl-2">Chưa có lịch sử (ghi từ lần đăng nhập tới).</li>';
+}
+let devicesUnsub = null, devicesUid = null;
+function renderDevices() {
+    const u = auth.currentUser;
+    const box = document.getElementById('devices-box');
+    if (!box || !u || u.isAnonymous || devicesUid === u.uid) return;
+    devicesUid = u.uid;
+    devicesUnsub?.();
+    const me = deviceId();
+    const listEl = document.getElementById('devices-list');
+    let limit = MAX_DEVICES;
+    deviceLimitFor(u).then(n => { limit = n; }).catch(() => {});
+    devicesUnsub = onDevices(u.uid, (list) => {
+        if (!list) return;
+        box.classList.remove('hidden');
+        document.getElementById('devices-count').textContent = limit > MAX_DEVICES ? `${list.length} máy · không giới hạn` : `${list.length}/${limit} máy`;
+        listEl.innerHTML = deviceRowsHtml(list, me);
+    });
+    // Lịch sử đăng nhập (5 lần gần nhất) — dòng có cảnh báo tô đỏ: hai nơi khác nhau trong 2 giờ
+    const logEl = document.getElementById('logins-list');
+    if (logEl) onLogins(u.uid, (list) => { if (list) logEl.innerHTML = loginRowsHtml(list.slice(0, 5)); });
+    listEl.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.device-out-btn');
+        if (!btn) return;
+        const ok = await showConfirm('Máy này sẽ bị đăng xuất ngay (khi có mạng).', { title: 'Đăng xuất thiết bị?', confirmText: 'Đăng xuất', tone: 'danger' });
+        if (!ok) return;
+        try { await removeDevice(u.uid, btn.dataset.id); showMessage('Đã đăng xuất thiết bị đó.', 'success'); }
+        catch (err) { showMessage('Không đăng xuất được thiết bị: ' + err.message, 'error'); }
+    });
+}
+
+// QUẢN TRỊ (chỉ admin — isAdminUser, khớp isAdmin() của firestore.rules): danh sách email KHÔNG giới hạn số máy đăng nhập.
+let adminBound = false;
+function renderAdmin() {
+    const u = auth.currentUser;
+    const box = document.getElementById('admin-box');
+    if (!box || !isAdminUser(u) || adminBound) return;
+    adminBound = true;
+    box.classList.remove('hidden');
+    const listEl = document.getElementById('admin-exempt-list');
+    const input = document.getElementById('admin-exempt-input');
+    const esc = (s) => String(s).replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
+    onDeviceExempt((list) => {
+        if (!list) { listEl.innerHTML = '<li class="text-[12px] text-red-400 pl-1">Không đọc được cấu hình (luật Firestore đã deploy chưa?).</li>'; return; }
+        const rows = [
+            ...ADMIN_EMAILS.map(e => `<li class="flex items-center gap-2 bg-white rounded-xl border border-slate-200/60 px-3 py-1.5">
+                <span class="flex-1 min-w-0 truncate text-[13px] font-bold text-slate-700">${esc(e)}</span><span class="text-[11px] font-bold text-amber-500">Admin</span></li>`),
+            ...list.filter(e => !ADMIN_EMAILS.includes(e)).map(e => `<li class="flex items-center gap-2 bg-white rounded-xl border border-slate-200/60 px-3 py-1.5">
+                <span class="flex-1 min-w-0 truncate text-[13px] font-semibold text-slate-700">${esc(e)}</span>
+                <button type="button" class="admin-exempt-remove text-[12px] font-extrabold text-red-500 hover:bg-red-50 px-2 py-0.5 rounded-lg" data-email="${esc(e)}">Bỏ</button></li>`)
+        ];
+        listEl.innerHTML = rows.join('');
+    });
+    const add = async () => {
+        try { await setDeviceExempt(input.value, true); input.value = ''; showMessage('Đã thêm tài khoản ngoại lệ (áp dụng từ lần mở app tới của họ).', 'success'); }
+        catch (e) { showMessage('Không thêm được: ' + e.message, 'error'); }
+    };
+    document.getElementById('admin-exempt-add').addEventListener('click', add);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+    listEl.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.admin-exempt-remove');
+        if (!btn) return;
+        try { await setDeviceExempt(btn.dataset.email, false); showMessage(`Đã bỏ ngoại lệ cho ${btn.dataset.email}.`, 'success'); }
+        catch (err) { showMessage('Không bỏ được: ' + err.message, 'error'); }
+    });
+
+    // TRA CỨU TÀI KHOẢN: email / tên → máy đang đăng nhập (kèm vị trí) + lịch sử đăng nhập; đăng xuất từ xa từng máy hoặc tất cả.
+    const qInput = document.getElementById('admin-lookup-input');
+    const out = document.getElementById('admin-lookup-result');
+    let stop = [];
+    let target = null;
+    const lookup = async () => {
+        stop.forEach(f => f?.()); stop = [];
+        target = null;
+        out.innerHTML = '<p class="text-[12px] text-slate-400">Đang tìm…</p>';
+        let acc;
+        try { acc = await findAccount(qInput.value); }
+        catch (e) { out.innerHTML = `<p class="text-[12px] text-red-500">Lỗi tra cứu: ${escH(e.message)}</p>`; return; }
+        if (!acc) {
+            out.innerHTML = '<p class="text-[12px] text-slate-500">Không tìm thấy. (Tài khoản chưa đăng nhập lại kể từ bản cập nhật này thì chưa tra được theo email — thử theo tên người dùng.)</p>';
+            return;
+        }
+        target = acc;
+        out.innerHTML = `
+            <div class="flex items-center justify-between gap-2 mb-1.5">
+                <p class="text-[13px] font-extrabold text-slate-700 truncate">${escH(acc.email || acc.uid)}</p>
+                <button type="button" id="admin-out-all" class="shrink-0 text-[12px] font-extrabold text-red-500 hover:bg-red-50 px-2.5 py-1 rounded-xl">Đăng xuất tất cả</button>
+            </div>
+            <ul id="admin-dev-list" class="space-y-1.5 mb-2"></ul>
+            <p class="text-[12px] font-bold text-slate-600 mb-1">Lịch sử đăng nhập</p>
+            <ul id="admin-log-list" class="space-y-1"></ul>`;
+        stop.push(onDevices(acc.uid, (list) => { const el = document.getElementById('admin-dev-list'); if (el) el.innerHTML = list ? deviceRowsHtml(list, null) : '<li class="text-[12px] text-red-400">Không đọc được (luật đã deploy chưa?).</li>'; }));
+        stop.push(onLogins(acc.uid, (list) => { const el = document.getElementById('admin-log-list'); if (el) el.innerHTML = list ? loginRowsHtml(list) : ''; }));
+    };
+    document.getElementById('admin-lookup-btn').addEventListener('click', lookup);
+    qInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); lookup(); } });
+    out.addEventListener('click', async (e) => {
+        if (!target) return;
+        const one = e.target.closest('.device-out-btn');
+        const all = e.target.closest('#admin-out-all');
+        if (!one && !all) return;
+        const ok = await showConfirm(all ? `Đăng xuất MỌI máy của ${target.email}?` : 'Đăng xuất máy này của người dùng?', { title: 'Đăng xuất từ xa', confirmText: 'Đăng xuất', tone: 'danger' });
+        if (!ok) return;
+        try {
+            await adminRemoveDevices(target.uid, all ? '' : one.dataset.id);
+            showMessage('Đã đăng xuất từ xa (máy đó tự đăng xuất khi có mạng).', 'success');
+        } catch (err) { showMessage('Không đăng xuất được: ' + err.message, 'error'); }
+    });
+}
+
 // LIÊN KẾT GOOGLE: tài khoản email/mật khẩu gắn thêm Google → lần sau bấm "Tiếp tục với Google" là vào đúng tài khoản này (cùng uid, cùng dữ liệu).
 // Resolver popup chỉ truyền lúc gọi (xem firebase-init.js). Liên kết xong Firebase coi email là đã xác nhận nếu trùng Gmail.
 const googleRow = document.getElementById('google-link-row');
@@ -396,8 +532,8 @@ window.addEventListener('focus', () => { refreshEmailVerified(); });
 // KHÔNG đọc lại users/{uid} + quét quiz_results lần nữa (C6: trước đây mỗi lần mở hồ sơ = 2 getDoc + 2 truy vấn lịch sử).
 let _loadedUid = null;
 onSessionUser(async user => {
-    if (user && _loadedUid === user.uid) { currentUser = user; renderVerifyState(); renderProviders(); return; }
-    if (user) { renderVerifyState(); renderProviders(); }
+    if (user && _loadedUid === user.uid) { currentUser = user; renderVerifyState(); renderProviders(); renderDevices(); renderAdmin(); return; }
+    if (user) { renderVerifyState(); renderProviders(); renderDevices(); renderAdmin(); }
     if (user) {
         _loadedUid = user.uid;
         currentUser = user;
@@ -504,6 +640,7 @@ logoutBtn.onclick = async () => {
         icon: 'fas fa-right-from-bracket'
     });
     if (!ok) return;
+    await releaseThisDevice();   // nhả chỗ trong giới hạn 2 máy cho máy khác dùng
     forgetSession();            // TRƯỚC signOut: để auth-session biết đây là đăng xuất chủ động, không báo "phiên hết hạn"
     await signOut(auth);
     window.location.href = '../../index.html';

@@ -828,10 +828,12 @@ export function showResults(totalTime, opts = {}) {
         requestAnimationFrame(tick);
     });
 
-    // Nút "Chia sẻ": mở lại modal chia sẻ bộ đề (inline script của quiz.html phơi sẵn)
+    // Nút "Chia sẻ": mở lại modal chia sẻ bộ đề (inline script của quiz.html phơi sẵn) — CHỈ chủ bộ đề (window.__canShareQuiz, quiz.html)
     const shareResultBtn = document.getElementById('result-share-btn');
     if (shareResultBtn) {
-        if (typeof window.openQuizShareModal === 'function') {
+        if (typeof window.__canShareQuiz !== 'function' || !window.__canShareQuiz()) {
+            shareResultBtn.style.display = 'none';
+        } else if (typeof window.openQuizShareModal === 'function') {
             shareResultBtn.addEventListener('click', () => window.openQuizShareModal());
         } else {
             shareResultBtn.classList.add('hidden');

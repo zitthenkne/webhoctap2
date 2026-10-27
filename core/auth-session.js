@@ -46,7 +46,14 @@ function cached() {
 
 // Tự ghi nhớ mỗi lần Firebase xác nhận có người đăng nhập. KHÔNG xoá khi trả null —
 // null lúc offline chính là trường hợp ta muốn chữa; chỉ đăng xuất thật mới xoá.
-onAuthStateChanged(auth, (u) => { if (isReal(u)) { remember(u); if (!u.emailVerified) refreshEmailVerified(); } });
+onAuthStateChanged(auth, (u) => {
+    if (!isReal(u)) return;
+    remember(u);
+    if (!u.emailVerified) refreshEmailVerified();
+    // Chỉ đăng nhập bằng Google (core/google-gate.js) + giới hạn 2 máy / tài khoản (core/device-limit.js) — nạp lười để trang không đăng nhập khỏi tải thêm
+    import('./google-gate.js').then(m => m.checkGoogleSession(u)).catch(() => {});
+    import('./device-limit.js').then(m => m.watchDevices(u)).catch(() => {});
+});
 
 // XÁC NHẬN EMAIL: bấm link trong mail (ở tab/máy khác) không đổi phiên đang mở — `emailVerified` và token cũ vẫn ghi "chưa xác nhận",
 // luật chia sẻ riêng (firestore.rules sharedWithMe) vẫn từ chối. Tài khoản chưa xác nhận thì hỏi lại máy chủ lúc mở trang và mỗi lần

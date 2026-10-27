@@ -14,7 +14,22 @@ service cloud.firestore {
     function sharedWithMe() {
       return request.auth != null
           && request.auth.token.email_verified == true
-          && request.auth.token.email in resource.data.sharedWith;
+          && request.auth.token.email in resource.data.sharedWith
+          && trustedSession();
+    }
+    // PHIÊN TIN CẬY (chống cho mượn tài khoản, 2026-10-28): đăng nhập bằng GOOGLE và phiên này (auth_time — mốc đăng nhập, mỗi máy một mốc,
+    // không giả được) nằm trong danh sách máy hợp lệ users/{uid}/private/devices.authTimes. Danh sách do MÁY CHỦ ghi (api/devices.js, tối đa
+    // 2 máy, admin/ngoại lệ 20) — app không ghi được. Máy bị đẩy ra → không đọc được đề chia sẻ nữa dù có sửa code. Chỉ áp cho đề NGƯỜI KHÁC
+    // chia sẻ (1 lượt đọc thêm); dữ liệu của chính mình và đề công khai không cần.
+    function trustedSession() {
+      return request.auth.token.firebase.sign_in_provider == 'google.com'
+          && request.auth.token.auth_time
+               in get(/databases/$(database)/documents/users/$(request.auth.uid)/private/devices).data.get('authTimes', []);
+    }
+    // LINK CÔNG KHAI CÓ HẠN: isPublic + publicUntil (mặc định 12 giờ; thiếu/null = không hết hạn — link cũ). So với giờ MÁY CHỦ.
+    function publicAlive() {
+      return resource.data.get('isPublic', false) == true
+          && (resource.data.get('publicUntil', null) == null || request.time < resource.data.publicUntil);
     }
     // Người được chia sẻ tự "Rời chia sẻ" (folder.js ?shared=me): chỉ được sửa sharedWith/editors, và chỉ để GỠ ĐÚNG email của mình.
     function leavesShare() {
@@ -31,16 +46,44 @@ service cloud.firestore {
           && request.auth.token.email_verified == true
           && request.auth.token.email in resource.data.get('editors', [])
           && request.auth.token.email in resource.data.get('sharedWith', [])
+          && trustedSession()
           && request.resource.data.diff(resource.data).affectedKeys()
                .hasOnly(['questions', 'questionCount', 'title', 'description', 'updatedAt']);
     }
-    // Danh sách chia sẻ: mảng ≤ 50 người; editors phải nằm trong sharedWith; sharedBy (tên người chia sẻ) chuỗi ≤ 100; noCopy (cấm người
-    // xem lưu bản sao — như Drive "Người xem có thể tải xuống, in, sao chép") là bool. Chặn ghi rác làm phình doc.
+    // Danh sách chia sẻ: mảng ≤ 50 người; editors phải nằm trong sharedWith; sharedBy (tên người chia sẻ) chuỗi ≤ 100; allowTakeout (chủ cho
+    // người khác MANG ĐỀ ĐI: lưu bản sao, mở phòng "Làm cùng nhau", lưu đề từ phòng — mặc định không) là bool. Chặn ghi rác làm phình doc.
     function validShare(d) {
       return d.get('sharedWith', []) is list && d.get('sharedWith', []).size() <= 50
           && d.get('editors', []) is list && d.get('sharedWith', []).hasAll(d.get('editors', []))
           && d.get('sharedBy', '') is string && d.get('sharedBy', '').size() <= 100
-          && d.get('noCopy', false) is bool;
+          && d.get('allowTakeout', false) is bool
+          && (d.get('publicUntil', null) == null || d.publicUntil is timestamp);
+    }
+    // BẢN SAO (Lưu bản sao / Lưu đề từ phòng / Nhân bản): app luôn ghi `copiedFrom` = id bộ đề gốc. Gốc đã khóa (không allowTakeout)
+    // thì chỉ CHỦ gốc được chép. Gốc đã bị xóa → cho (không còn gì để bảo vệ). Tốn 1 lượt đọc, và chỉ khi tạo bản sao.
+    function copyAllowed(d) {
+      let src = d.get('copiedFrom', null);
+      return src == null
+          || !exists(/databases/$(database)/documents/quiz_sets/$(src))
+          || get(/databases/$(database)/documents/quiz_sets/$(src)).data.userId == request.auth.uid
+          || get(/databases/$(database)/documents/quiz_sets/$(src)).data.get('allowTakeout', false) == true;
+    }
+
+    // ADMIN — tài khoản quản trị của chủ web (email đã xác nhận; đăng nhập Google luôn đã xác nhận). Thêm admin: thêm email vào đây
+    // VÀ vào ADMIN_EMAILS trong core/device-limit.js.
+    function isAdmin() {
+      return request.auth != null
+          && request.auth.token.email_verified == true
+          && request.auth.token.email in ['vietthanhne@gmail.com'];
+    }
+
+    // CONFIG — cấu hình chung do admin chỉnh (vd config/access.deviceExempt = email được dùng KHÔNG giới hạn số máy).
+    // Người đăng nhập đọc được (app cần biết mình có được ngoại lệ không); chỉ admin ghi.
+    match /config/{docId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin()
+                   && (docId != 'access' || (request.resource.data.get('deviceExempt', []) is list
+                                             && request.resource.data.get('deviceExempt', []).size() <= 200));
     }
 
     // USERNAMES — bảng tra cho ô đăng nhập gõ TÊN (core/usernames.js): usernames/{khóa tên} = { uid, email }.
@@ -60,19 +103,39 @@ service cloud.firestore {
     }
 
     // USERS
+    // users/{uid}.email là chỗ ADMIN tra cứu tài khoản theo email (core/device-limit.js findAccount) → không ai được ghi email KHÁC email
+    // đăng nhập của chính mình vào đây (giả làm người khác). Doc cũ có email sẵn thì sửa trường khác vẫn được (email không đổi).
+    function ownEmailOk() {
+      return request.resource.data.get('email', null) == null
+          || request.resource.data.email.lower() == request.auth.token.get('email', '').lower();
+    }
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if (request.auth != null && request.auth.uid == userId) || isAdmin();
+      allow delete: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId && ownEmailOk();
+      allow update: if request.auth != null && request.auth.uid == userId
+                    && (request.resource.data.get('email', null) == resource.data.get('email', null) || ownEmailOk());
       match /achievements/{achievementId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      // private/devices (máy đang đăng nhập + authTimes cho trustedSession) và private/logins (lịch sử đăng nhập): CHỈ MÁY CHỦ ghi
+      // (api/devices.js, Admin SDK bỏ qua luật). App chỉ đọc: chủ tài khoản và admin.
+      match /private/{docId} {
+        allow read: if (request.auth != null && request.auth.uid == userId) || isAdmin();
+        allow write: if false;
       }
     }
 
     // QUIZ SETS (THƯ VIỆN ĐỀ)
+    // get (mở MỘT bộ đề bằng link): công khai còn hạn / chủ / được chia sẻ. list (truy vấn): chỉ chủ hoặc được chia sẻ — KHÔNG còn liệt kê
+    // đề công khai từ app (trước đây ai cũng quét được mọi đề công khai); thư mục công khai lấy danh sách qua máy chủ (api/public.js).
     match /quiz_sets/{setId} {
-      allow read: if resource.data.isPublic == true
-                  || (request.auth != null && request.auth.uid == resource.data.userId)
+      allow get: if publicAlive()
+                 || (request.auth != null && request.auth.uid == resource.data.userId)
+                 || sharedWithMe();
+      allow list: if (request.auth != null && request.auth.uid == resource.data.userId)
                   || sharedWithMe();
-      allow create: if isOwner(request.resource.data.userId) && validShare(request.resource.data);
+      allow create: if isOwner(request.resource.data.userId) && validShare(request.resource.data) && copyAllowed(request.resource.data);
       allow update: if (isOwner(resource.data.userId) && keepsOwner() && validShare(request.resource.data)) || leavesShare() || editsAsEditor();
       allow delete: if isOwner(resource.data.userId);
     }
@@ -82,8 +145,10 @@ service cloud.firestore {
       // isPublic == true: ai có link thư mục cũng xem được danh sách bộ đề bên trong
       // (các bộ đề vẫn tự kiểm tra isPublic của riêng nó ở rule quiz_sets bên trên).
       // sharedWith: chỉ những tài khoản được mời mới xem (bộ đề bên trong được chép cùng danh sách lúc chia sẻ).
-      allow read: if resource.data.isPublic == true
-                  || (request.auth != null && request.auth.uid == resource.data.userId)
+      allow get: if publicAlive()
+                 || (request.auth != null && request.auth.uid == resource.data.userId)
+                 || sharedWithMe();
+      allow list: if (request.auth != null && request.auth.uid == resource.data.userId)
                   || sharedWithMe();
       allow create: if isOwner(request.resource.data.userId) && validShare(request.resource.data);
       allow update: if (isOwner(resource.data.userId) && keepsOwner() && validShare(request.resource.data)) || leavesShare();
@@ -141,9 +206,10 @@ service cloud.firestore {
 
     // QUIZ PAYLOADS (Nội dung câu hỏi chi tiết tách riêng để chống tràn giới hạn 1MB doc)
     match /quiz_payloads/{setId} {
-      allow read: if resource.data.isPublic == true
-                  || (request.auth != null && request.auth.uid == resource.data.userId)
-                  || sharedWithMe();
+      allow get: if publicAlive()
+                 || (request.auth != null && request.auth.uid == resource.data.userId)
+                 || sharedWithMe();
+      allow list: if request.auth != null && request.auth.uid == resource.data.userId;
       allow create: if isOwner(request.resource.data.userId);
       allow update: if isOwner(resource.data.userId) && keepsOwner();
       allow delete: if isOwner(resource.data.userId);

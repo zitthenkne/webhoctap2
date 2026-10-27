@@ -1202,6 +1202,11 @@
 
                 function openQuizShareModal() {
                     if (!shareModal) return;
+                    // CHỈ CHỦ bộ đề được chia sẻ (người xem / người chỉnh sửa / khách thì không) — cổng do script module cuối trang gắn
+                    if (typeof window.__canShareQuiz !== 'function' || !window.__canShareQuiz()) {
+                        toast('Chỉ chủ bộ đề mới chia sẻ được bộ đề này.', 'info');
+                        return;
+                    }
                     const shareId = new URLSearchParams(window.location.search).get('id');
                     // Ưu tiên link /api/share-quiz (Zalo/Messenger hiện ảnh sóc + tên đề)
                     const quizUrl = shareId
@@ -1981,6 +1986,7 @@
     <script type="module">
         import { auth, db } from '../../core/firebase-init.js';
         import { doc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+        import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
         import { updateDocQ as updateDoc } from '../../core/offline-write.js';
         import { showToast } from '../../core/utils.js';
         import { state } from './quiz-state.js';
@@ -1988,18 +1994,47 @@
         // (Bản bộ đề lưu trong máy tự lấy lại khi doc đổi updateTime — quiz-fresh.js — nên không cần sửa tay ở đây.)
 
         const modal = document.getElementById('shareQuizModal');
+
+        // CHỈ CHỦ bộ đề được chia sẻ: người xem / người chỉnh sửa / khách không thấy nút Chia sẻ (trang chờ, bảng thiết lập, màn kết quả).
+        // Luật Firestore cũng chỉ cho chủ đổi sharedWith / editors / isPublic — đây là phần giao diện cho khớp.
+        const isOwner = () => {
+            const q = state.quizData;
+            return !!(q && auth.currentUser && q.userId === auth.currentUser.uid);
+        };
+        window.__canShareQuiz = isOwner;
+        const syncShareButtons = () => {
+            const own = isOwner();
+            // style.display thay vì class .hidden: các nút này có display:flex riêng trong CSS trang, dễ đè .hidden
+            ['share-quiz-btn', 'qs-share-quiz', 'result-share-btn'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = own ? '' : 'none';
+            });
+            // "Làm cùng nhau" chép đề sang phòng mà ai có link phòng cũng vào được → chỉ chủ, hoặc khi chủ cho "mang đề đi"
+            const takeout = own || state.quizData?.allowTakeout === true;
+            ['group-quiz-btn', 'qs-group-room'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = takeout ? '' : 'none';
+            });
+            if (!own && modal && !modal.classList.contains('hidden')) modal.classList.add('hidden');
+        };
+        syncShareButtons();                                   // ẩn ngay từ đầu, xác nhận là chủ mới hiện
+        window.addEventListener('quiz:data', syncShareButtons);
+        onAuthStateChanged(auth, syncShareButtons);
+
         const mount = () => {
             const q = state.quizData;
             const id = q && (q.id || new URLSearchParams(location.search).get('id'));
-            if (!q || !id || !auth.currentUser || q.userId !== auth.currentUser.uid) return hideShareAccess();
+            if (!q || !id || !isOwner()) { modal.classList.add('hidden'); return hideShareAccess(); }
             showShareAccess({
                 view: () => q,
                 targets: async () => [{ col: 'quiz_sets', id, obj: q }],
-                setPublic: async (v) => {
+                setPublic: async (v, until) => {
                     try {
-                        await updateDoc(doc(db, 'quiz_sets', id), { isPublic: v });
-                        q.isPublic = v;
-                        showToast(v ? 'Đã đặt CÔNG KHAI — ai có link đều mở được.' : 'Đã tắt công khai.', 'success');
+                        // Link công khai có hạn (share-access.js gửi until = Date | null — null là không hết hạn)
+                        const patch = v ? { isPublic: true, publicUntil: until ?? null } : { isPublic: false, publicUntil: null };
+                        await updateDoc(doc(db, 'quiz_sets', id), patch);
+                        Object.assign(q, patch);
+                        showToast(v ? 'Đã đặt CÔNG KHAI — ai có link đều mở được' + (until ? ' tới ' + until.toLocaleString('vi-VN') : '') + '.' : 'Đã tắt công khai.', 'success');
                         return true;
                     } catch (e) { showToast('Đổi chế độ công khai thất bại: ' + e.message, 'error'); return false; }
                 },

@@ -26,7 +26,7 @@ import { countRest } from '../../../core/firestore-rest.js';
 function folderShareFields() {
     const f = folderById(S.currentFolderId);
     if (!f?.sharedWith?.length) return {};
-    return { sharedWith: [...f.sharedWith], editors: [...(f.editors || [])], sharedBy: f.sharedBy || '', ...(f.noCopy === true ? { noCopy: true } : {}) };
+    return { sharedWith: [...f.sharedWith], editors: [...(f.editors || [])], sharedBy: f.sharedBy || '', ...(f.allowTakeout === true ? { allowTakeout: true } : {}) };
 }
 
 
@@ -58,7 +58,7 @@ export async function saveAndStartQuiz() {
             questions: S.questions,
             createdAt: new Date(),
             updatedAt: new Date(),
-            isPublic: true,
+            isPublic: false,       // mặc định "Hạn chế" (2026-10-28): chia sẻ link công khai có hạn ở hộp Chia sẻ
             folderId: S.currentFolderId || null,
             ...folderShareFields()
         });
@@ -103,7 +103,7 @@ export async function saveOnly() {
             questions: S.questions,
             createdAt: new Date(),
             updatedAt: new Date(),
-            isPublic: true,
+            isPublic: false,       // mặc định "Hạn chế" (2026-10-28): chia sẻ link công khai có hạn ở hộp Chia sẻ
             folderId: S.currentFolderId || null,
             ...folderShareFields()
         });

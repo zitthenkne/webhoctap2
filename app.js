@@ -4,6 +4,7 @@
 
 import { auth, db } from './core/firebase-init.js';
 import { onSessionUser, sendVerifyMail, sendResetMail, authErrorVi } from './core/auth-session.js';
+import { markFreshLogin, clearFreshLogin } from './core/device-limit.js';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, browserPopupRedirectResolver, getAdditionalUserInfo } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { doc, setDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { emailForName, claimName } from './core/usernames.js';
@@ -211,7 +212,7 @@ window.openAuthModal = function (feature) {
     const sub = document.getElementById('auth-subtitle');
     if (sub && feature) sub.textContent = feature + ' cần tài khoản — đăng nhập để mở khoá 🔒';
     if (authModal) authModal.classList.remove('hidden');
-    document.getElementById('emailInput')?.focus();
+    document.getElementById('googleLoginBtn')?.focus();      // chỉ đăng nhập bằng Google (ô email nằm trong mục "tài khoản cũ")
 };
 
 // Sau khi đăng nhập xong thì quay lại đúng trang đã bị chặn (?next=...).
@@ -245,12 +246,12 @@ async function handleLogin() {
         }
     }
     try {
-        const { user } = await signInWithEmailAndPassword(auth, email, password);
+        // Tài khoản CŨ (email + mật khẩu): đăng nhập xong core/google-gate.js phủ màn hình bắt gắn Google — web chỉ nhận phiên Google
+        await signInWithEmailAndPassword(auth, email, password);
         toggleAuthModal();
-        // Chưa xác nhận email vẫn dùng app bình thường; chỉ nhắc vì nhận đề/thư mục chia sẻ riêng cần email đã xác nhận.
-        showToast(user.emailVerified ? 'Đăng nhập thành công!' : 'Đăng nhập thành công! Email chưa xác nhận — vào Hồ sơ để gửi mail xác nhận.', 'success', user.emailVerified ? undefined : 5000);
-        goNextAfterLogin();
+        showToast('Đăng nhập thành công — bước cuối: gắn Gmail của bạn (chỉ một lần).', 'success', 5000);
     } catch (error) {
+        clearFreshLogin();
         // Tài khoản tạo bằng Google không có mật khẩu → Firebase chỉ báo "sai thông tin"; nhắc lối đúng (hoặc đặt mật khẩu qua "Quên mật khẩu?")
         const hint = error?.code === 'auth/invalid-credential' ? ' Nếu bạn từng vào bằng Google, bấm "Tiếp tục với Google".' : '';
         showToast('Đăng nhập thất bại: ' + authErrorVi(error) + hint, 'error', hint ? 6000 : undefined);
@@ -330,6 +331,7 @@ async function handleGoogleLogin() {
     try {
         const provider = new GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
+        markFreshLogin();
         const result = await signInWithPopup(auth, provider, browserPopupRedirectResolver);
         const user = result.user;
         if (getAdditionalUserInfo(result)?.isNewUser) {
@@ -345,6 +347,7 @@ async function handleGoogleLogin() {
         showToast('Đăng nhập Google thành công!', 'success');
         goNextAfterLogin();
     } catch (error) {
+        clearFreshLogin();
         if (error?.code === 'auth/popup-closed-by-user' || error?.code === 'auth/cancelled-popup-request') return;
         if (error?.code === 'auth/popup-blocked') return showToast('Trình duyệt chặn cửa sổ đăng nhập — cho phép popup rồi bấm lại.', 'warning', 6000);
         if (error?.code === 'auth/operation-not-allowed') return showToast('Đăng nhập Google chưa được bật trên máy chủ.', 'error');
@@ -359,6 +362,7 @@ async function handleSignup() {
     if (!email.includes('@')) return showToast('Vui lòng nhập email hợp lệ để đăng ký.', 'warning');
     if (!await signupCodeOk()) return;
     try {
+        markFreshLogin();
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
         await setDoc(doc(db, "users", user.uid), { email: user.email, createdAt: new Date(), quizSetsCreated: 0 });
@@ -370,6 +374,7 @@ async function handleSignup() {
             showToast('Đăng ký thành công! Chưa gửi được mail xác nhận — gửi lại ở trang Hồ sơ.', 'warning', 6000);
         }
     } catch (error) {
+        clearFreshLogin();
         showToast('Đăng ký thất bại: ' + authErrorVi(error), 'error');
     }
 }

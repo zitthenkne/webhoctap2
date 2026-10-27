@@ -356,8 +356,15 @@ let pickSeq = 0;                  // chọn A rồi đổi sang B: kết quả v
 let fresh = null;                 // bản máy chủ của đề đang chọn — startSession đợi nó
 const sameQuiz = (a, b) => a.title === b.title && JSON.stringify(a.questions) === JSON.stringify(b.questions);
 
+// Chủ bộ đề gốc + bộ đề có bị khóa "mang đi" không (allowTakeout) — ghi vào phiên để "Lưu đề" / tự lưu biết ai được chép
+const takeoutOf = (data) => ({ sourceOwner: data?.userId || null, noTakeout: !!data && data.allowTakeout !== true });
+
 function useLibraryData(quizId, data) {
-    draft = { questions: data.questions || [], title: data.title || 'Đề ôn tập', fromLibrary: true, quizId };
+    // "Làm lại đề này" do đồng chủ trì (không phải chủ đề) bấm với đề bị khóa mang đi → không phát lại được
+    if (data?.userId && data.userId !== uid() && data.allowTakeout !== true) {
+        return void showToast('Chủ bộ đề không cho mở đề này sang phòng làm cùng.', 'warning', 4000);
+    }
+    draft = { questions: data.questions || [], title: data.title || 'Đề ôn tập', fromLibrary: true, quizId, ...takeoutOf(data) };
     showDraft(draft.title, draft.questions);
     publishNext();
     rememberQuiz(quizId, draft.title, draft.questions.length);
@@ -443,6 +450,13 @@ export async function startFromSolo() {
     history.replaceState(null, '', `${location.pathname}?${p}`);      // F5 không mở lại lần nữa
     for (let k = 0; k < 40 && !room.roomDoc; k++) await new Promise(r => setTimeout(r, 100));
     if (!canControl()) return void showToast('Chỉ chủ phòng / chủ trì mới mở đề cho cả phòng.', 'warning', 3200);
+    // Đề của người khác mà chủ không cho "mang đề đi": không mở sang phòng (link phòng ai cũng vào được, không cần đăng nhập)
+    el('loading-overlay').classList.remove('hidden');
+    const meta = (await getOfflineQuiz(quizId).catch(() => null)) || (await fetchQuiz(quizId).catch(() => null));
+    el('loading-overlay').classList.add('hidden');
+    if (meta && meta.userId && meta.userId !== uid() && meta.allowTakeout !== true) {
+        return void showToast('Chủ bộ đề không cho mở đề này sang phòng làm cùng.', 'warning', 4000);
+    }
     if (hasSession() && !room.session.ended
         && !await showConfirm('Phòng đang có phiên làm dở — thay bằng đề này?', { confirmText: 'Thay đề' })) return;
     let saved = null;
@@ -455,7 +469,7 @@ export async function startFromSolo() {
     }
     let solo = null;
     if (saved?.questions?.length) {
-        draft = { questions: saved.questions, title: title || 'Đề ôn tập', fromLibrary: true, quizId };
+        draft = { questions: saved.questions, title: title || 'Đề ôn tập', fromLibrary: true, quizId, ...takeoutOf(meta) };
         solo = soloResume(saved);
     } else {
         if (resume) showToast('Bản lưu bài dở không còn đủ đề — mở đề từ đầu.', 'warning', 3200);
@@ -463,7 +477,7 @@ export async function startFromSolo() {
         const data = (await getOfflineQuiz(quizId).catch(() => null)) || (await fetchQuiz(quizId).catch(() => null));
         el('loading-overlay').classList.add('hidden');
         if (!data?.questions?.length) return void showToast('Không mở được bộ đề này.', 'error');
-        draft = { questions: data.questions, title: data.title || title || 'Đề ôn tập', fromLibrary: true, quizId };
+        draft = { questions: data.questions, title: data.title || title || 'Đề ôn tập', fromLibrary: true, quizId, ...takeoutOf(data) };
     }
     rememberQuiz(quizId, draft.title, draft.questions.length);
     await startSession(solo, true);
@@ -511,6 +525,8 @@ async function startSession(solo = null, fromSolo = false) {
             pinnedNote: '',
             fromLibrary: !!draft.fromLibrary,
             sourceQuizId: draft.quizId || null,
+            sourceOwner: draft.sourceOwner || null,
+            noTakeout: !!draft.noTakeout,
             savedQuizId: null,
             startedAt: serverTimestamp(),
             startedAtMs: Date.now(),
@@ -904,9 +920,14 @@ const saveTitle = () => {
     return `${room.session?.quizTitle || 'Đề từ phòng học'} (nhóm ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')})`;
 };
 
+// Phiên mở từ bộ đề mà chủ KHÔNG cho mang đi (allowTakeout) → chỉ chủ bộ đề gốc lưu được thành bộ đề trong thư viện.
+// Luật quiz_sets (copyAllowed, theo copiedFrom) cũng chặn ở máy chủ; đây là để báo rõ thay vì lỗi quyền.
+const takeoutBlocked = (s) => !!s?.noTakeout && s.sourceOwner !== uid();
+
 async function saveToLibrary() {
     const s = room.session;
     if (!s || !loggedIn()) return showToast('Đăng nhập để lưu đề vào thư viện.', 'warning');
+    if (takeoutBlocked(s)) return showToast('Chủ bộ đề không cho lưu đề này về thư viện của người khác.', 'warning', 3600);
     // Đang tự lưu vào bộ đề của mình -> bấm Lưu đề = lưu NGAY, khỏi đẻ thêm bản
     if (s.savedBy === uid() && s.savedQuizId) {
         await autoSaveNow(true);
@@ -930,8 +951,9 @@ async function saveToLibrary() {
             userId: uid(),
             title,
             createdAt: serverTimestamp(),
-            isPublic: true,
+            isPublic: false,
             folderId: null,
+            copiedFrom: s.sourceQuizId || null,     // luật copyAllowed
         });
         auto.sig = JSON.stringify(questions);
         auto.fail = false;
@@ -957,7 +979,7 @@ const auto = { t: 0, first: 0, sig: '', busy: false, fail: false, sid: '', at: 0
 const TOUCH = ['chosen', 'notes', 'parts', 'edits', 'optNotes', 'extra', 'caseEdits', 'issues'];
 const touched = (s) => TOUCH.some(k => Object.values(s[k] || {}).some(v => v != null && v !== ''));
 function autoMine(s) {
-    if (!s?.questions?.length || !loggedIn() || !autoOn() || auto.fail) return false;
+    if (!s?.questions?.length || !loggedIn() || !autoOn() || auto.fail || takeoutBlocked(s)) return false;
     if (s.savedBy) return s.savedBy === uid() && !!s.savedQuizId;
     return !s.savedQuizId && isHost() && touched(s);         // savedQuizId mà không có savedBy = bản "Lưu đề" kiểu cũ — để yên
 }
@@ -988,7 +1010,8 @@ async function autoSaveNow(force = false) {
             const title = saveTitle();
             await setDoc(doc(db, 'quiz_sets', id), {
                 questions, questionCount: questions.length, userId: uid(), title,
-                createdAt: serverTimestamp(), updatedAt: serverTimestamp(), isPublic: true, folderId: null,
+                createdAt: serverTimestamp(), updatedAt: serverTimestamp(), isPublic: false, folderId: null,
+                copiedFrom: s.sourceQuizId || null,     // luật copyAllowed
             });
             await updateDoc(refs.session(), { savedQuizId: id, savedBy: uid(), savedTitle: title }).catch(() => {});
             showToast(`💾 Đang tự lưu vào thư viện: "${title}" — nhóm chốt / sửa tới đâu bộ đề cập nhật tới đó.`, 'success', 4200);

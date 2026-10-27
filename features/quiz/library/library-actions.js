@@ -5,7 +5,7 @@
 
 import { auth, db } from '../../../core/firebase-init.js';
 import { doc, collection, query, where, getDoc, getDocs, arrayUnion } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { showShareAccess, commitInBatches } from '../share-access.js';
+import { showShareAccess, commitInBatches, untilMsOf } from '../share-access.js';
 // Ghi không treo khi mất mạng (xem core/offline-write.js)
 import { updateDocQ as updateDoc, setDocQ } from "../../../core/offline-write.js";
 import { sessionUser } from '../../../core/auth-session.js';
@@ -54,17 +54,27 @@ export async function editQuizSetTitle(quizId, currentTitle) {
     }
 }
 
-// Bật/tắt công khai bộ đề. isPublic=true: ai có link đều mở được (rule Firestore cho đọc);
-// false/thiếu: chỉ chủ xem được, link "Chia sẻ" sẽ báo lỗi quyền với người khác.
-export async function toggleQuizPublic(quizId, makePublic) {
+// LINK CÔNG KHAI CÓ HẠN (2026-10-28): mặc định 12 giờ; hết hạn thì luật Firestore (publicAlive) tự chặn — so với giờ máy chủ.
+export const DEFAULT_PUBLIC_HOURS = 12;
+const defaultUntil = () => new Date(Date.now() + DEFAULT_PUBLIC_HOURS * 3600 * 1000);
+/** Patch bật/tắt công khai: bật kèm hạn (until = Date, null = không hết hạn; bỏ trống = mặc định 12 giờ), tắt thì xóa hạn. */
+export function publicPatch(makePublic, until) {
+    return makePublic ? { isPublic: true, publicUntil: until === undefined ? defaultUntil() : until } : { isPublic: false, publicUntil: null };
+}
+const untilText = (until) => until ? ` đến ${until.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}` : ' (không hết hạn)';
+
+// Bật/tắt công khai bộ đề. isPublic=true: ai có link đều mở được tới khi hết hạn (rule Firestore cho đọc);
+// false/thiếu: chỉ chủ (và người được chia sẻ) xem được, link "Chia sẻ" sẽ báo lỗi quyền với người khác.
+export async function toggleQuizPublic(quizId, makePublic, until) {
     try {
-        await updateDoc(doc(db, "quiz_sets", quizId), { isPublic: makePublic });
+        const patch = publicPatch(makePublic, until);
+        await updateDoc(doc(db, "quiz_sets", quizId), patch);
         const q = S.userQuizSets.find(x => x.id === quizId);
-        if (q) q.isPublic = makePublic; // cập nhật cache để nhãn nút đổi ngay
+        if (q) Object.assign(q, patch); // cập nhật cache để nhãn nút đổi ngay
         persistLibraryCache();
         const shared = (q?.sharedWith || []).length;
         showToast(makePublic
-            ? 'Đã đặt CÔNG KHAI — ai có link đều mở được.'
+            ? `Đã đặt CÔNG KHAI — ai có link đều mở được${untilText(patch.publicUntil)}.`
             : shared ? `Đã tắt công khai — chỉ bạn và ${shared} người được chia sẻ xem được.` : 'Đã đặt RIÊNG TƯ — chỉ mình bạn xem được.', 'success');
         rerenderCurrentView();
         return true;
@@ -76,14 +86,14 @@ export async function toggleQuizPublic(quizId, makePublic) {
 
 // Chuyển bộ đề VÀO một thư mục đang chia sẻ riêng → người được chia sẻ thư mục cũng thấy bộ đề đó (rule đọc theo sharedWith của TỪNG bộ đề).
 // Chỉ cộng thêm, không gỡ: chuyển ra khỏi thư mục thì bộ đề vẫn giữ người đã được chia sẻ (gỡ ở hộp Chia sẻ của bộ đề).
-// Người chỉnh sửa của thư mục cũng thành người chỉnh sửa của bộ đề; "cấm lưu bản sao" của thư mục áp luôn.
+// Người chỉnh sửa của thư mục cũng thành người chỉnh sửa của bộ đề; "cho mang đề đi" của thư mục áp luôn.
 export function inheritSharePatch(folderId) {
     const f = folderById(folderId);
     const list = f?.sharedWith || [];
     if (!list.length) return {};
     const patch = { sharedWith: arrayUnion(...list), sharedBy: f.sharedBy || '' };
     if (f.editors?.length) patch.editors = arrayUnion(...f.editors);
-    if (f.noCopy === true) patch.noCopy = true;
+    if (f.allowTakeout === true) patch.allowTakeout = true;
     return patch;
 }
 export function applyInheritedShare(obj, folderId) {
@@ -91,7 +101,7 @@ export function applyInheritedShare(obj, folderId) {
     if (!f?.sharedWith?.length) return;
     obj.sharedWith = [...new Set([...(obj.sharedWith || []), ...f.sharedWith])];
     if (f.editors?.length) obj.editors = [...new Set([...(obj.editors || []), ...f.editors])];
-    if (f.noCopy === true) obj.noCopy = true;
+    if (f.allowTakeout === true) obj.allowTakeout = true;
     obj.sharedBy = f.sharedBy || '';
 }
 
@@ -127,6 +137,7 @@ export async function duplicateQuizSet(quizId, quizTitle) {
             questionCount: src.questionCount || (questions ? questions.length : 0),
             folderId: src.folderId ?? null,
             isPublic: src.isPublic === true,
+            copiedFrom: quizId,         // luật copyAllowed (chủ tự nhân bản luôn được)
             createdAt: new Date(),
             updatedAt: new Date()
         });
@@ -943,7 +954,7 @@ function quizShareTarget(quizId) {
     return {
         view: q,
         targets: async () => [{ col: 'quiz_sets', id: quizId, obj: q() }],
-        setPublic: (v) => toggleQuizPublic(quizId, v),
+        setPublic: (v, until) => toggleQuizPublic(quizId, v, until),
         onChange: afterShareChange,
         title: q().title,
         link: new URL(`api/share-quiz?id=${quizId}`, window.location.origin).href
@@ -958,7 +969,7 @@ function folderShareTarget(folderId) {
             ...S.userFolders.filter(x => subtreeIds(folderId).has(x.id)).map(x => ({ col: 'quiz_folders', id: x.id, obj: x })),
             ...(await getQuizzesInFolder(folderId)).map(q => ({ col: 'quiz_sets', id: q.id, obj: q }))
         ],
-        setPublic: (v) => toggleFolderPublic(folderId, v),
+        setPublic: (v, until) => toggleFolderPublic(folderId, v, { until }),
         onChange: afterShareChange,
         scope: 'Áp dụng cho cả thư mục: mọi thư mục con và bộ đề bên trong (kể cả bộ đề thêm vào sau).',
         title: f().name,
@@ -973,15 +984,19 @@ function bulkShareTarget(ids) {
         view: () => {
             const s = sets();
             const pub = s.filter(q => q.isPublic === true).length;
-            return { isPublic: pub === s.length && s.length > 0, mixed: pub > 0 && pub < s.length, sharedWith: [...new Set(s.flatMap(q => q.sharedWith || []))] };
+            // Hạn hiển thị = hạn SỚM nhất trong các bộ đề công khai (có bộ không hết hạn mà bộ khác có hạn thì vẫn báo hạn sớm nhất)
+            const untils = s.filter(q => q.isPublic === true).map(q => untilMsOf(q.publicUntil)).filter(n => n != null);
+            return { isPublic: pub === s.length && s.length > 0, mixed: pub > 0 && pub < s.length,
+                publicUntil: untils.length ? Math.min(...untils) : null, sharedWith: [...new Set(s.flatMap(q => q.sharedWith || []))] };
         },
         targets: async () => sets().map(q => ({ col: 'quiz_sets', id: q.id, obj: q })),
-        setPublic: async (v) => {
+        setPublic: async (v, until) => {
             try {
-                await commitInBatches(sets().filter(q => (q.isPublic === true) !== v).map(q => ({ col: 'quiz_sets', id: q.id })), { isPublic: v });
-                sets().forEach(q => { q.isPublic = v; });
+                const patch = publicPatch(v, until);
+                await commitInBatches(sets().map(q => ({ col: 'quiz_sets', id: q.id })), patch);
+                sets().forEach(q => Object.assign(q, patch));
                 afterShareChange();
-                showToast(v ? `Đã công khai ${ids.length} bộ đề.` : `Đã tắt công khai ${ids.length} bộ đề.`, 'success');
+                showToast(v ? `Đã công khai ${ids.length} bộ đề${untilText(patch.publicUntil)}.` : `Đã tắt công khai ${ids.length} bộ đề.`, 'success');
                 return true;
             } catch (e) { showToast('Đổi chế độ công khai thất bại: ' + e.message, 'error'); return false; }
         },
@@ -1062,7 +1077,7 @@ function folderShareUrl(folderId) {
  * Đặt cờ isPublic lên chính thư mục VÀ lên mọi bộ đề bên trong — link thư mục sẽ vô nghĩa
  * nếu bộ đề bên trong vẫn riêng tư (người nhận mở ra chỉ thấy thư mục trống).
  */
-export async function toggleFolderPublic(folderId, makePublic, { skipConfirm = false } = {}) {
+export async function toggleFolderPublic(folderId, makePublic, { skipConfirm = false, until } = {}) {
     const folder = S.userFolders.find(f => f.id === folderId);
     const name = folder ? folder.name : 'thư mục';
     const quizzes = await getQuizzesInFolder(folderId);
@@ -1073,7 +1088,7 @@ export async function toggleFolderPublic(folderId, makePublic, { skipConfirm = f
     if (!skipConfirm) {
         const ok = await showConfirm(
             makePublic
-                ? `Thư mục "${name}" và ${what} sẽ CÔNG KHAI: ai có link đều mở và làm được.`
+                ? `Thư mục "${name}" và ${what} sẽ CÔNG KHAI: ai có link đều mở và làm được${untilText(publicPatch(true, until).publicUntil)}.`
                 : `Thư mục "${name}" và ${what} sẽ về RIÊNG TƯ: link đã chia sẻ trước đó sẽ không mở được nữa.`,
             {
                 title: makePublic ? 'Công khai cả thư mục?' : 'Chuyển về riêng tư?',
@@ -1086,22 +1101,20 @@ export async function toggleFolderPublic(folderId, makePublic, { skipConfirm = f
     }
 
     try {
-        // Thư mục + thư mục con + bộ đề bên trong (bỏ qua cái đã đúng trạng thái) trong các LÔ ghi nguyên tử — trước đây mỗi doc một lệnh ghi riêng
-        const subNeed = subFolders.filter(f => (f.isPublic === true) !== makePublic);
-        const needUpdate = quizzes.filter(q => (q.isPublic === true) !== makePublic);
+        // Thư mục + thư mục con + bộ đề bên trong trong các LÔ ghi nguyên tử. Ghi CẢ NHÁNH (không bỏ qua cái đã công khai): hạn link
+        // (publicUntil) phải đồng bộ — gia hạn thư mục là gia hạn mọi bộ đề bên trong.
+        const patch = publicPatch(makePublic, until);
         await commitInBatches([
             { col: 'quiz_folders', id: folderId },
-            ...subNeed.map(f => ({ col: 'quiz_folders', id: f.id })),
-            ...needUpdate.map(q => ({ col: 'quiz_sets', id: q.id }))
-        ], { isPublic: makePublic });
-        if (folder) folder.isPublic = makePublic;
-        subNeed.forEach(f => { f.isPublic = makePublic; });
-        needUpdate.forEach(q => { q.isPublic = makePublic; });
+            ...subFolders.map(f => ({ col: 'quiz_folders', id: f.id })),
+            ...quizzes.map(q => ({ col: 'quiz_sets', id: q.id }))
+        ], patch);
+        [folder, ...subFolders, ...quizzes].forEach(d => { if (d) Object.assign(d, patch); });
         persistFoldersCache();
         persistLibraryCache();
 
         showToast(makePublic
-            ? `Đã công khai "${name}" cùng ${quizzes.length} bộ đề bên trong.`
+            ? `Đã công khai "${name}" cùng ${quizzes.length} bộ đề bên trong${untilText(patch.publicUntil)}.`
             : `Đã chuyển "${name}" về riêng tư.`, 'success');
         rerenderCurrentView();
         return true;

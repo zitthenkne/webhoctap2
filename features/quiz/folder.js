@@ -1,9 +1,9 @@
 // File: features/quiz/folder.js
 // Trang xem một THƯ MỤC ĐƯỢC CHIA SẺ: ai có link cũng mở được, không cần đăng nhập.
 //
-// Điều kiện để trang này có dữ liệu (do rule Firestore quyết định):
-//   - thư mục phải có isPublic == true  → mới đọc được tên/màu/icon
-//   - từng bộ đề bên trong cũng phải isPublic == true → mới hiện trong danh sách
+// Điều kiện để trang này có dữ liệu:
+//   - thư mục phải công khai CÒN HẠN (isPublic + publicUntil — luật Firestore) → mới đọc được tên/màu/icon
+//   - danh sách bộ đề / thư mục con công khai lấy qua máy chủ (api/public.js), chỉ những cái còn hạn
 // Chủ thư mục bật cả hai bằng một thao tác "Chia sẻ thư mục" ở thư viện.
 //
 // CHIA SẺ RIÊNG (2026-10-27): thư mục/bộ đề có `sharedWith` chứa email (đã xác nhận) của người đang đăng nhập cũng mở được.
@@ -17,7 +17,7 @@ import { markSharedSeen } from './shared-inbox.js';
 import { rememberOpened, listShelf, forgetShelf, togglePinShelf, clearShelf, localStatsFor } from './local-shelf.js';
 import { showToast, showConfirm } from '../../core/utils.js';
 import {
-    doc, getDoc, collection, query, where, getDocs, setDoc, arrayRemove, writeBatch
+    doc, getDoc, collection, setDoc, arrayRemove, writeBatch
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 // Giữ khớp với FOLDER_SWATCHES ở library-helpers.js
@@ -137,7 +137,7 @@ function renderQuizzes(quizzes, { shared = false } = {}) {
                 <a href="quiz.html?id=${q.id}" class="practice-btn"><i class="fas fa-play"></i><span>Làm bài</span></a>
                 ${shared && canEdit(q) ? `
                 <a href="../editor/editor.html?id=${encodeURIComponent(q.id)}" class="practice-btn" style="flex:0 0 auto" title="Sửa câu hỏi (bạn là Người chỉnh sửa)"><i class="fas fa-pen"></i></a>` : ''}
-                ${shared && (canEdit(q) || q.noCopy !== true) ? `
+                ${shared && q.allowTakeout === true ? `
                 <button type="button" class="shared-copy-btn practice-btn" style="flex:0 0 auto" data-id="${escapeHtml(q.id)}" title="Lưu một bản sao vào thư viện của bạn (sửa được, không ảnh hưởng bản gốc)"><i class="fas fa-copy"></i></button>` : ''}
                 ${shared ? `
                 <button type="button" class="shared-leave-btn practice-btn" style="flex:0 0 auto" data-kind="quiz" data-id="${escapeHtml(q.id)}" title="Rời chia sẻ (ẩn bộ đề này khỏi danh sách của bạn)"><i class="fas fa-right-from-bracket"></i></button>` : ''}
@@ -146,28 +146,28 @@ function renderQuizzes(quizzes, { shared = false } = {}) {
     }).join('');
 }
 
-// Trang này chỉ liệt kê bộ đề (tên + số câu) nhưng SDK kéo NGUYÊN mỗi bộ đề kèm mảng câu hỏi (hàng trăm KB × số bộ đề × MỌI người mở link).
-// REST có chọn trường chỉ lấy vài trường mô tả; lỗi gì thì lùi về SDK như cũ.
+// Trang này chỉ liệt kê bộ đề (tên + số câu) → REST có chọn trường (SDK kéo NGUYÊN mỗi bộ đề kèm mảng câu hỏi).
 const SET_META = ['title', 'questionCount', 'createdAt', 'folderId', 'isPublic', 'deleted', 'deletedAt'];
-async function fetchFolderSets(folderId) {
-    try {
-        return await runQueryRest({ collection: 'quiz_sets', where: [['folderId', folderId], ['isPublic', true]], select: SET_META });
-    } catch (err) {
-        console.warn('Tải nhanh danh sách bộ đề thất bại, quay về SDK:', err && err.message);
-        const snap = await getDocs(query(
-            collection(db, 'quiz_sets'),
-            where('folderId', '==', folderId),
-            where('isPublic', '==', true)
-        ));
-        return snap.docs.map(d => { const { questions, ...meta } = d.data(); return { id: d.id, ...meta }; });
-    }
+
+/** Thư mục công khai còn hạn: { status, folder, subFolders, quizzes } từ máy chủ (api/public.js). 410 = hết hạn, 404 = không có / riêng tư. */
+async function fetchPublicFolder(folderId) {
+    const r = await fetch(new URL(`api/public?kind=folder&id=${encodeURIComponent(folderId)}`, location.origin + '/').href, { cache: 'no-store' });
+    const data = await r.json().catch(() => ({}));
+    if (r.status === 410) return { status: 'expired' };
+    if (!r.ok) throw new Error(data.error || data.status || `HTTP ${r.status}`);
+    return data;
+}
+
+function showExpired() {
+    showMessage('fa-clock', 'Link đã hết hạn',
+        'Link công khai của thư mục này đã hết hạn. Nhờ chủ thư mục mở Chia sẻ để gia hạn (hoặc chia sẻ riêng cho email của bạn).');
 }
 
 // Mọi bộ đề + thư mục chia sẻ riêng cho tài khoản đang đăng nhập (chỉ vài trường mô tả). Rule đòi truy vấn có đúng điều kiện này.
 async function fetchSharedWithMe(email) {
     const mine = [['sharedWith', email, 'ARRAY_CONTAINS']];
     const [sets, folders] = await Promise.all([
-        runQueryRest({ collection: 'quiz_sets', where: mine, select: [...SET_META, 'userId', 'sharedBy', 'editors', 'noCopy'], requireUser: true }),
+        runQueryRest({ collection: 'quiz_sets', where: mine, select: [...SET_META, 'userId', 'sharedBy', 'editors', 'allowTakeout'], requireUser: true }),
         runQueryRest({ collection: 'quiz_folders', where: mine, select: ['name', 'color', 'icon', 'parentId', 'deleted', 'userId', 'sharedBy'], requireUser: true })
     ]);
     // total đếm CẢ mục trong thùng rác — khớp truy vấn đếm của shared-inbox.js (chấm "mục mới")
@@ -380,6 +380,7 @@ function bindSharedActions(me, data, redraw) {
                 questionCount: questions.length,
                 folderId: null,
                 isPublic: false,
+                copiedFrom: copyBtn.dataset.id,     // luật copyAllowed: gốc phải cho "mang đề đi"
                 createdAt: new Date(),
                 updatedAt: new Date()
             });
@@ -428,6 +429,10 @@ async function main() {
     }
 
     if (!folder || folder.deleted) {
+        // Link công khai hết hạn? (luật chỉ báo "không có quyền" — máy chủ phân biệt được)
+        if (!folder) {
+            try { if ((await fetchPublicFolder(folderId)).status === 'expired') return showExpired(); } catch (e) { /* không rõ → báo chung */ }
+        }
         showMessage('fa-lock', 'Không mở được thư mục này',
             !me ? 'Thư mục không tồn tại, đã bị xóa, hoặc chỉ chia sẻ riêng — nếu được mời, hãy đăng nhập đúng email được chia sẻ ở trang chủ rồi mở lại link.'
                 : !me.verified ? `Nếu thư mục được chia sẻ riêng cho ${me.email}, bạn cần xác nhận email trước (trang Hồ sơ → Gửi mail xác nhận), rồi tải lại trang.`
@@ -482,23 +487,13 @@ async function main() {
         bindSharedActions(me, data, draw);
         return;
     }
-    // Thư mục con công khai (bắt buộc lọc isPublic == true, như bộ đề). Lỗi thì bỏ qua, không chặn trang.
+    // THƯ MỤC CÔNG KHAI: danh sách lấy qua máy chủ (api/public.js) — luật Firestore không cho app liệt kê đề công khai nữa (link có hạn,
+    // luật chỉ kiểm hạn được khi đọc từng doc). Máy chủ chỉ trả thư mục con / bộ đề công khai CÒN HẠN.
     try {
-        const fsnap = await withTimeout(getDocs(query(
-            collection(db, 'quiz_folders'),
-            where('parentId', '==', folderId),
-            where('isPublic', '==', true)
-        )));
-        subFolders = fsnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(f => !f.deleted)
-            .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi', { sensitivity: 'base' }));
-    } catch (err) {
-        console.warn('Không tải được thư mục con:', err);
-    }
-
-    try {
-        // Bắt buộc lọc isPublic == true: rule Firestore chỉ cho đọc bộ đề công khai,
-        // truy vấn thiếu điều kiện này sẽ bị từ chối toàn bộ.
-        quizzes = (await withTimeout(fetchFolderSets(folderId))).filter(q => !q.deleted);
+        const data = await withTimeout(fetchPublicFolder(folderId));
+        if (data.status === 'expired') return showExpired();
+        subFolders = (data.subFolders || []).sort(byName);
+        quizzes = data.quizzes || [];
     } catch (err) {
         console.error('Lỗi tải bộ đề trong thư mục:', err);
         showMessage('fa-triangle-exclamation', 'Không tải được danh sách bộ đề',

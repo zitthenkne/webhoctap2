@@ -16,7 +16,7 @@ import { collection, query, where, getDocsFromServer } from "https://www.gstatic
 import { runQueryRest } from '../../../core/firestore-rest.js';
 
 // Các trường thư viện thật sự dùng tới (KHÔNG có `questions`)
-const META_FIELDS = ['title', 'questionCount', 'createdAt', 'updatedAt', 'folderId', 'isPublic', 'sharedWith', 'editors', 'noCopy', 'sharedBy', 'deleted', 'deletedAt'];      // updatedAt: dấu phiên bản (chỉ mục câu hỏi bền so dấu này)
+const META_FIELDS = ['title', 'questionCount', 'createdAt', 'updatedAt', 'folderId', 'isPublic', 'publicUntil', 'sharedWith', 'editors', 'allowTakeout', 'sharedBy', 'deleted', 'deletedAt'];      // updatedAt: dấu phiên bản (chỉ mục câu hỏi bền so dấu này)
 
 // === CACHE METADATA (localStorage, theo từng tài khoản) ===
 const CACHE_VERSION = 3;   // v2 (C4): mỗi bộ đề trong cache có thêm updatedAt (dấu phiên bản cho chỉ mục câu hỏi bền) — cache v1 bị bỏ, tải lại một lần
