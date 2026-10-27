@@ -1,7 +1,7 @@
 // File: editor.js
 import { db, auth } from '../../core/firebase-init.js';
 import { doc, getDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { setDocQ as setDoc } from '../../core/offline-write.js';
+import { setDocQ as setDoc, updateDocQ as updateDoc } from '../../core/offline-write.js';
 import { onSessionUser, sessionUser } from '../../core/auth-session.js';
 import { getOfflineQuiz, autoCacheQuiz, isOfflineSavedSync } from '../quiz/quiz-offline-store.js';
 import { stampLocal } from '../quiz/quiz-fresh.js';
@@ -669,8 +669,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const payload = serializeForSave();
         try {
-            if (quizId) {
-                await setDoc(doc(db, "quiz_sets", quizId), { ...quizData, ...payload, userId: user.uid, updatedAt: serverTimestamp() }, { merge: true });
+            if (quizId && quizData.userId && quizData.userId !== user.uid) {
+                // "Người chỉnh sửa" được chia sẻ (Google Drive-style): luật editsAsEditor CHỈ cho ghi nội dung — không được đụng userId,
+                // quyền chia sẻ, thư mục… nên không ghi cả quizData như chủ bộ đề mà chỉ các trường nội dung.
+                await updateDoc(doc(db, "quiz_sets", quizId), {
+                    title: payload.title, description: payload.description, questions: payload.questions,
+                    questionCount: payload.questions.length, updatedAt: serverTimestamp()
+                });
+                if (isOfflineSavedSync(quizId)) autoCacheQuiz(quizId, { ...quizData, ...payload }).then(() => stampLocal(quizId));
+            } else if (quizId) {
+                await setDoc(doc(db, "quiz_sets", quizId), { ...quizData, ...payload, questionCount: payload.questions.length, userId: user.uid, updatedAt: serverTimestamp() }, { merge: true });
                 // (không còn ghi bản sao quiz_payloads — nhân đôi dung lượng + tải lên ở MỖI lần lưu tự động; production không dùng đường lùi này)
                 // Bản tải về máy phải theo kịp, không thì làm bài offline vẫn ra câu hỏi cũ
                 if (isOfflineSavedSync(quizId)) autoCacheQuiz(quizId, { ...quizData, ...payload, userId: user.uid }).then(() => stampLocal(quizId));

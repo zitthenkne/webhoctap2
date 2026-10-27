@@ -1829,6 +1829,9 @@
                 <!-- Tên bộ đề -->
                 <p id="share-quiz-title" class="font-bold text-gray-800 text-sm line-clamp-2 bg-pink-50/50 p-2.5 rounded-xl border border-pink-100/50"></p>
 
+                <!-- Ai được xem — chỉ hiện với CHỦ bộ đề (share-access.js, gắn ở script module cuối trang) -->
+                <div id="share-access-section" class="hidden"></div>
+
                 <!-- QR Code Section (mã QR tạo ngay trên máy, không gửi link ra dịch vụ ngoài) -->
                 <div class="flex flex-col items-center justify-center py-3 bg-gray-50 rounded-2xl border border-gray-100">
                     <div id="share-qr-box" class="w-36 h-36 flex items-center justify-center rounded-lg shadow-sm border border-gray-100 p-1.5">
@@ -1973,6 +1976,41 @@
     </div>
 
     <script type="module" src="quiz-page.js"></script>
+    <!-- Hộp Chia sẻ: chủ bộ đề bật/tắt công khai + chia sẻ riêng theo tài khoản ngay tại trang làm bài.
+         Gắn khi hộp hiện ra (hộp do script thường ở trên mở), đọc bộ đề đang mở từ state của quiz-state.js. -->
+    <script type="module">
+        import { auth, db } from '../../core/firebase-init.js';
+        import { doc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+        import { updateDocQ as updateDoc } from '../../core/offline-write.js';
+        import { showToast } from '../../core/utils.js';
+        import { state } from './quiz-state.js';
+        import { showShareAccess, hideShareAccess } from './share-access.js';
+        // (Bản bộ đề lưu trong máy tự lấy lại khi doc đổi updateTime — quiz-fresh.js — nên không cần sửa tay ở đây.)
+
+        const modal = document.getElementById('shareQuizModal');
+        const mount = () => {
+            const q = state.quizData;
+            const id = q && (q.id || new URLSearchParams(location.search).get('id'));
+            if (!q || !id || !auth.currentUser || q.userId !== auth.currentUser.uid) return hideShareAccess();
+            showShareAccess({
+                view: () => q,
+                targets: async () => [{ col: 'quiz_sets', id, obj: q }],
+                setPublic: async (v) => {
+                    try {
+                        await updateDoc(doc(db, 'quiz_sets', id), { isPublic: v });
+                        q.isPublic = v;
+                        showToast(v ? 'Đã đặt CÔNG KHAI — ai có link đều mở được.' : 'Đã tắt công khai.', 'success');
+                        return true;
+                    } catch (e) { showToast('Đổi chế độ công khai thất bại: ' + e.message, 'error'); return false; }
+                },
+                publicLabel: 'Ai có link đều xem được',
+                title: q.title,
+                link: new URL('api/share-quiz?id=' + encodeURIComponent(id), location.origin).href
+            });
+        };
+        if (modal) new MutationObserver(() => { if (!modal.classList.contains('hidden')) mount(); })
+            .observe(modal, { attributes: true, attributeFilter: ['class'] });
+    </script>
     <script>
     // Hamburger menu logic for quiz.html
     document.addEventListener('DOMContentLoaded', function() {

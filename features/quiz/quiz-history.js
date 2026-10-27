@@ -8,6 +8,7 @@ import { MARK_REASONS } from './quiz-state.js';
 import { syncPullStudy, writeLocalStudy, pushCloudStudy, buryAnnots } from './quiz-study-store.js';
 import { parseMarkdown, renderMath } from './quiz-helpers.js';
 import { usableLocalQuiz } from './quiz-fresh.js';
+import { listLocalResults } from './local-shelf.js';
 
 const urlParams = new URLSearchParams(window.location.search);
 const quizId = urlParams.get('id');
@@ -67,7 +68,8 @@ if (!quizId) {
     let historyStarted = false;
     onSessionUser(user => {
         if (!user) {
-            showAuthError();
+            // Khách: lượt làm bài lưu trong máy (local-shelf.js) — xem được ngay; không có thì mời đăng nhập như cũ
+            if (!showGuestHistory(quizId)) showAuthError();
             return;
         }
         if (historyStarted) return;          // chỉ khởi tạo 1 lần (tránh gắn trùng listener)
@@ -563,6 +565,30 @@ function showEmptyState() {
     statHighScoreDetail.innerText = "Chưa có điểm";
     statAvgScore.innerText = "0%";
     statAvgTime.innerText = "--";
+}
+
+// Lịch sử của KHÁCH: dựng từ kết quả lưu trong máy, cùng định dạng với bản Firestore để dùng lại thống kê / biểu đồ / danh sách.
+// Không có nút xóa từng lượt (nút đó xóa trên Firestore); đăng nhập là các lượt này tự lên tài khoản.
+function showGuestHistory(id) {
+    const rows = listLocalResults(id);
+    if (!rows.length) return false;
+    loadQuizDetails(id);
+    const history = rows.map(r => {
+        const d = new Date(r.completedAt || 0);
+        return { id: r.id, time: formatDate(d), rawDate: d, score: r.score, total: r.totalQuestions, percentage: r.percentage,
+                 timeTaken: r.timeTaken || 0, quizTitle: r.quizTitle || '' };
+    }).sort((a, b) => b.rawDate - a.rawDate);
+    calculateAndDisplayStats(history);
+    drawProgressChart(history);
+    renderHistoryList(history);
+    historyList.querySelectorAll('.btn-delete-result').forEach(b => b.remove());
+    btnClearAll.classList.add('hidden');
+    historyList.insertAdjacentHTML('afterbegin', `
+        <div class="mb-3 text-sm text-gray-600 bg-pink-50/70 border border-pink-100 rounded-2xl px-4 py-3">
+            <i class="fas fa-circle-info text-pink-400 mr-1"></i>Kết quả đang lưu <b>trên máy này</b> (chưa đăng nhập).
+            <a href="../../index.html?next=${encodeURIComponent(location.href)}" class="font-bold text-pink-600 underline">Đăng nhập</a> để đồng bộ vào tài khoản.
+        </div>`);
+    return true;
 }
 
 function showAuthError() {

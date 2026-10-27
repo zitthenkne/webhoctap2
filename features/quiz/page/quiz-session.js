@@ -4,7 +4,7 @@
 // Tách từ quiz-page.js — logic giữ nguyên.
 
 import { db, auth } from '../../../core/firebase-init.js';
-import { whenAuthReady } from '../../../core/auth-session.js';
+import { whenAuthReady, refreshEmailVerified } from '../../../core/auth-session.js';
 import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { showToast } from '../../../core/utils.js';
 import { applyLocalQuestionEdits } from '../quiz-editor.js';
@@ -20,8 +20,20 @@ import { buildSrsQueue } from '../quiz-srs-store.js';
 import { groupQuestionsByCase, tagCaseSequence } from './quiz-cases.js';
 import { showQuestion, accrueTime } from './quiz-question-view.js';
 import { hideMobileNav } from './quiz-mobile-nav.js';
+import { rememberOpened, syncLocalResults } from '../local-shelf.js';
+
+// Khách vừa đăng nhập (ở tab khác / trang chủ) mà máy còn kết quả làm bài lưu tạm → đẩy lên tài khoản
+whenAuthReady(4000).then(u => { if (u && u.uid && !u.offline && !u.isAnonymous) syncLocalResults(u.uid); }).catch(() => {});
 
 let autoSaveInterval = null;
+
+// Bộ đề bị luật chặn: nói rõ cách vào được theo tình trạng đăng nhập (chia sẻ riêng cần đúng email + email đã xác nhận).
+const PRIVATE_QUIZ_MSG = () => {
+    const u = auth.currentUser;
+    if (!u || u.isAnonymous) return 'Bộ đề này không công khai. Nếu được chia sẻ riêng, hãy đăng nhập đúng email được chia sẻ (ở trang chủ) rồi bấm Thử lại.';
+    if (!u.emailVerified) return `Bộ đề này không công khai. Nếu được chia sẻ cho ${u.email}, bạn cần xác nhận email trước (trang Hồ sơ → Gửi mail xác nhận, hoặc đăng nhập bằng Google), rồi bấm Thử lại.`;
+    return `Bộ đề này không công khai và chưa được chia sẻ cho ${u.email}. Nhờ tác giả thêm email của bạn vào phần Chia sẻ.`;
+};
 
 // Biến trang thiết lập thành card lỗi rõ ràng (icon + thông điệp + Thử lại / Về trang chủ)
 // thay vì kẹt ở "Đang tải thông tin..." với tiêu đề "Lỗi" khô khan.
@@ -172,6 +184,14 @@ export async function loadQuizData() {
         loadQuizDetails();
         pullStudyFromCloud(quizId);
         setupOfflineDownloadBtn(quizId);
+        // Bộ đề của NGƯỜI KHÁC (mở bằng link, kể cả khi chưa đăng nhập) → ghi lên kệ "Trên máy này" để mở lại / quản lý (local-shelf.js)
+        if (!auth.currentUser || data.userId !== auth.currentUser.uid) {
+            rememberOpened({
+                kind: 'quiz', id: quizId, title: data.title,
+                count: Array.isArray(data.questions) ? data.questions.length : data.questionCount,
+                ownerName: data.sharedBy || '', access: data.isPublic === true ? 'public' : 'shared'
+            });
+        }
     };
 
     // 1. KIỂM TRA BẢN LƯU TRONG MÁY (INDEXEDDB) ĐẦU TIÊN (Tải tức thì ~5-15ms)
@@ -209,6 +229,7 @@ export async function loadQuizData() {
 
     let noticedStamp = null;        // bản mới đã báo "đang làm bài" rồi thì khỏi báo lại
     let failStreak = 0;             // số lần hỏi bản mới hỏng liên tiếp (xem catch của refreshOnce)
+    let retriedAfterVerify = false; // đã thử lại một lần sau khi phát hiện email vừa được xác nhận
     // Hỏi máy chủ xem bộ đề có bản mới không (dấu `updateTime` ~1 KB, xem quiz-fresh.js); có thì tải cả bộ về, lưu máy, và cập nhật trang chờ.
     // `announce`: đã có bản máy hiện trên màn -> nói cho người dùng biết khi bản mới thay vào.
     const refreshOnce = async ({ announce = false, force = false } = {}) => {
@@ -226,7 +247,13 @@ export async function loadQuizData() {
             } catch (err) {
                 if (err && (err.code === 'permission-denied' || err.message?.includes('permission-denied'))) {
                     if (!localData) {
-                        showLandingError('Bộ đề này được đặt ở chế độ riêng tư. Vui lòng đăng nhập đúng tài khoản tác giả để làm bài.', { showRetry: true });
+                        // Bộ đề chia sẻ riêng mà token còn ghi "chưa xác nhận" (vừa bấm link xác nhận ở tab khác): hỏi lại máy chủ, đúng thì tải lại ngay
+                        if (!retriedAfterVerify && await refreshEmailVerified({ force: true })) {
+                            retriedAfterVerify = true;
+                            setTimeout(() => refresh(), 0);   // refreshOnce đang chạy giữ khóa `refreshing` → gọi sau khi nó xong
+                            return;
+                        }
+                        showLandingError(PRIVATE_QUIZ_MSG(), { showRetry: true });
                         return;
                     }
                 }
@@ -289,7 +316,7 @@ export async function loadQuizData() {
             if (localData && failStreak < 3 && navigator.onLine) setTimeout(() => refresh({ announce }), [3000, 8000, 20000][failStreak++]);
             if (!localData) {
                 if (error && (error.code === 'permission-denied' || error.message?.includes('permission-denied'))) {
-                    showLandingError('Bộ đề này được đặt ở chế độ riêng tư. Vui lòng đăng nhập đúng tài khoản tác giả để làm bài.', { showRetry: true });
+                    showLandingError(PRIVATE_QUIZ_MSG(), { showRetry: true });
                     return;
                 }
                 // Thử lại lần cuối xem IndexedDB có gì không

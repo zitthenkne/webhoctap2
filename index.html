@@ -2437,6 +2437,11 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-2 flex-shrink-0">
+                        <!-- Được chia sẻ với tôi: chấm số = mục MỚI được chia sẻ kể từ lần xem trước (features/quiz/shared-inbox.js) -->
+                        <a href="features/quiz/folder.html?shared=me" id="open-shared-with-me-btn" class="relative w-9 h-9 flex items-center justify-center bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 hover:text-pink-500 transition focus:outline-none shadow-sm" title="Được chia sẻ với tôi" aria-label="Được chia sẻ với tôi">
+                            <i class="fas fa-user-group"></i>
+                            <span id="shared-new-badge" class="hidden absolute min-w-[18px] h-[18px] px-1 rounded-full bg-pink-500 text-white text-[10px] font-extrabold text-center shadow" style="top:-6px;right:-6px;line-height:18px"></span>
+                        </a>
                         <!-- Nút tải lại đặt cạnh dấu "..." cho dễ bấm -->
                         <button type="button" id="refresh-library-btn" class="w-9 h-9 flex items-center justify-center bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 hover:text-pink-500 transition focus:outline-none shadow-sm" title="Tải lại thư viện" aria-label="Tải lại thư viện">
                             <i class="fas fa-sync-alt"></i>
@@ -2902,6 +2907,9 @@
                                 <i class="fas fa-eye"></i>
                             </button>
                         </div>
+                        <div class="text-right mt-1.5">
+                            <button type="button" id="forgotPasswordBtn" class="text-xs font-bold text-gray-400 hover:text-[#FF69B4] transition">Quên mật khẩu?</button>
+                        </div>
                     </div>
                     <!-- Mật khẩu web (chỉ hiện khi ở tab Đăng ký) -->
                     <div id="signupCodeWrap" class="hidden">
@@ -2924,6 +2932,11 @@
                     <button type="button" id="signupBtn"
                         class="w-full px-6 py-3 bg-white text-[#FF69B4] border-2 border-pink-200 rounded-xl font-bold hover:bg-pink-50 hover:border-[#FF69B4] active:scale-[0.99] transition-all duration-200 flex items-center justify-center gap-2">
                         <i class="fas fa-user-plus"></i> Tạo tài khoản mới
+                    </button>
+                    <div class="flex items-center gap-3 text-[11px] font-bold text-gray-300 uppercase tracking-wider"><span class="h-px flex-1 bg-gray-200"></span>hoặc<span class="h-px flex-1 bg-gray-200"></span></div>
+                    <button type="button" id="googleLoginBtn"
+                        class="w-full px-6 py-3 bg-white text-gray-700 border-2 border-gray-200 rounded-xl font-bold hover:bg-gray-50 active:scale-[0.99] transition-all duration-200 flex items-center justify-center gap-2">
+                        <i class="fab fa-google" style="color:#4285F4"></i> Tiếp tục với Google
                     </button>
                 </div>
 
@@ -3048,15 +3061,18 @@
             <div class="space-y-4">
                 <!-- Tên bộ đề -->
                 <p id="share-quiz-title" class="font-bold text-gray-800 text-sm line-clamp-2 bg-pink-50/50 p-2.5 rounded-xl border border-pink-100/50"></p>
-                
+
+                <!-- Ai được xem: công khai (ai có link) hoặc chỉ các tài khoản được mời (library-actions.js renderShareAccess) -->
+                <div id="share-access-section" class="hidden"></div>
+
                 <!-- QR Code Section -->
-                <div class="flex flex-col items-center justify-center py-3 bg-gray-50 rounded-2xl border border-gray-100">
+                <div id="share-qr-section" class="flex flex-col items-center justify-center py-3 bg-gray-50 rounded-2xl border border-gray-100">
                     <img id="share-qr-img" src="" alt="QR Code" class="w-36 h-36 object-contain rounded-lg shadow-sm border border-gray-100 bg-white p-1" />
                     <span class="text-[10px] text-gray-400 mt-2"><i class="fas fa-qrcode mr-1"></i>Quét mã QR để làm bài trên điện thoại</span>
                 </div>
                 
                 <!-- Quick Share Buttons -->
-                <div class="flex gap-2 justify-center py-1">
+                <div id="share-quick-buttons" class="flex gap-2 justify-center py-1">
                     <button type="button" id="share-messenger-btn" class="flex-1 py-2 px-3 bg-[#0084FF] hover:bg-opacity-90 active:scale-95 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition">
                         <i class="fab fa-facebook-messenger text-sm"></i> Messenger
                     </button>
@@ -3113,6 +3129,7 @@
     </div>
 
     <script type="module" src="index-user-avatar.js"></script>
+    <script type="module">import { initSharedInbox } from './features/quiz/shared-inbox.js'; initSharedInbox();</script>
     <!-- Chuông thông báo ôn ngắt quãng (đọc thuần localStorage, không Firebase) -->
     <script type="module" src="features/quiz/quiz-srs-bell.js"></script>
     <script type="module" src="features/quiz/quiz-srs-dashboard.js"></script>

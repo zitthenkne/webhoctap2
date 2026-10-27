@@ -76,13 +76,13 @@ async function call(url, init, { requireUser = false, timeoutMs = 15000 } = {}) 
 }
 
 /**
- * Truy vấn một collection với điều kiện ĐẲNG THỨC và chỉ lấy các trường `select`.
- * @param {{collection:string, where?:Array<[string, any]>, select?:string[], requireUser?:boolean}} o
+ * Truy vấn một collection với điều kiện ĐẲNG THỨC (hoặc toán tử thứ 3, vd 'ARRAY_CONTAINS') và chỉ lấy các trường `select`.
+ * @param {{collection:string, where?:Array<[string, any, string?]>, select?:string[], requireUser?:boolean}} o
  * @returns {Promise<Array>} [{ id, ...trường }]
  */
 export async function runQueryRest({ collection, where = [], select = [], requireUser = false }) {
     const { base } = endpoint();
-    const filters = where.map(([f, v]) => ({ fieldFilter: { field: { fieldPath: f }, op: 'EQUAL', value: encodeValue(v) } }));
+    const filters = where.map(([f, v, op = 'EQUAL']) => ({ fieldFilter: { field: { fieldPath: f }, op, value: encodeValue(v) } }));
     const structuredQuery = {
         from: [{ collectionId: collection }],
         ...(filters.length === 1 ? { where: filters[0] } : filters.length > 1 ? { where: { compositeFilter: { op: 'AND', filters } } } : {}),
@@ -101,7 +101,7 @@ export async function runQueryRest({ collection, where = [], select = [], requir
  */
 export async function countRest({ collection, where = [], requireUser = false }) {
     const { base } = endpoint();
-    const filters = where.map(([f, v]) => ({ fieldFilter: { field: { fieldPath: f }, op: 'EQUAL', value: encodeValue(v) } }));
+    const filters = where.map(([f, v, op = 'EQUAL']) => ({ fieldFilter: { field: { fieldPath: f }, op, value: encodeValue(v) } }));
     const structuredQuery = {
         from: [{ collectionId: collection }],
         ...(filters.length === 1 ? { where: filters[0] } : filters.length > 1 ? { where: { compositeFilter: { op: 'AND', filters } } } : {}),

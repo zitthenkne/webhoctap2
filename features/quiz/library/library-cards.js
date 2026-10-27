@@ -138,9 +138,12 @@ export function createFolderCard(folder) {
         ? `<span class="folder-pin-badge" title="Đã ghim"><i class="fas fa-thumbtack"></i></span>`
         : '';
     // Thư mục đang chia sẻ công khai → báo ngay trên thẻ để không lỡ để lộ mà không biết
+    const folderShared = (folder.sharedWith || []).length;
     const publicBadge = isPublicFolder
         ? `<span class="folder-public-badge" title="Đang công khai — ai có link đều xem được"><i class="fas fa-globe"></i></span>`
-        : '';
+        : folderShared
+            ? `<span class="folder-public-badge" title="Chia sẻ riêng cho ${folderShared} người: ${escapeHtml(folder.sharedWith.join(', '))}"><i class="fas fa-user-group"></i></span>`
+            : '';
 
     const swatchHTML = FOLDER_SWATCHES.map(s =>
         `<button type="button" class="folder-color-dot ${s.key === colorVal ? 'is-active' : ''}" data-color="${s.key}" style="background:${s.hex}" title="${s.label}" aria-label="${s.label}"></button>`
@@ -467,6 +470,10 @@ function buildBadges(quizSet, offlineSaved, due, isNew = false) {
     }
     if (quizSet.isPublic === true) {
         out.push(`<span class="qc-badge qc-badge-public" title="Đang công khai — ai có link đều mở được"><i class="fas fa-globe"></i>Công khai</span>`);
+    }
+    const sharedCount = (quizSet.sharedWith || []).length;
+    if (sharedCount) {
+        out.push(`<span class="qc-badge qc-badge-public" title="Chia sẻ riêng: ${escapeHtml(quizSet.sharedWith.join(', '))}"><i class="fas fa-user-group"></i>${sharedCount} người</span>`);
     }
     return out.length ? `<div class="qc-badges">${out.join('')}</div>` : '';
 }

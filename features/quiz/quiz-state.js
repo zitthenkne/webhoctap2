@@ -8,6 +8,7 @@ import { queued } from "../../core/offline-write.js";
 import { checkAndAwardAchievement } from '../../core/achievements.js';
 import { showToast } from '../../core/utils.js';
 import { scheduleCloudProgressPush, flushCloudProgressPush, clearCloudProgress } from './quiz-study-store.js';
+import { saveLocalResult, updateLocalResult } from './local-shelf.js';
 
 // Các loại lý do đánh dấu câu hỏi (dùng chung cho lúc làm bài và màn tổng kết).
 // Thứ tự khai báo cũng là thứ tự hiển thị trong menu / bộ lọc.
@@ -255,9 +256,11 @@ export function clearQuizState(quizId) {
 }
 
 let lastResultRef = null;
+let lastLocalResultId = null;   // lượt của khách lưu trong máy (local-shelf.js)
 let resultUpdateTimer = null;
 // Điểm đổi sau khi đã lưu (tự chấm tự luận) -> ghi đè điểm của bản vừa lưu, gom nhiều lần tick thành 1 lần ghi
 export function updateQuizResultScore(score, totalQuestions, percentage) {
+    if (lastLocalResultId) { updateLocalResult(lastLocalResultId, { score, totalQuestions, percentage }); return; }
     if (!lastResultRef) return;
     const ref = lastResultRef;
     clearTimeout(resultUpdateTimer);
@@ -269,7 +272,18 @@ export function updateQuizResultScore(score, totalQuestions, percentage) {
 
 export async function saveQuizResult(finalScore, totalQuestions, percentage, timeTaken) {
     const user = sessionUser();
-    if (!user) return; // Không lưu kết quả cho khách
+    lastLocalResultId = null;
+    if (!user) {
+        // KHÁCH (làm bộ đề công khai không cần tài khoản): lưu kết quả trong máy (local-shelf.js); đăng nhập xong tự đẩy lên tài khoản.
+        lastResultRef = null;
+        lastLocalResultId = saveLocalResult({
+            quizId: new URLSearchParams(window.location.search).get('id'),
+            quizTitle: state.quizData?.title || '',
+            score: finalScore, totalQuestions, percentage, timeTaken
+        });
+        if (lastLocalResultId) showToast('Đã lưu kết quả trên máy này. Đăng nhập để đồng bộ vào tài khoản.', 'info', 4000);
+        return;
+    }
 
     try {
         const quizId = new URLSearchParams(window.location.search).get('id');

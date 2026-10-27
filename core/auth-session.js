@@ -10,7 +10,7 @@
 // Chỉ tin bản lưu khi navigator.onLine === false; còn online mà auth trả null thì
 // đúng là đã đăng xuất (không được tự cho đăng nhập, tránh gọi server thiếu token).
 import { auth } from './firebase-init.js';
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
 const KEY = 'lastAuthUser';
 
@@ -46,7 +46,76 @@ function cached() {
 
 // Tự ghi nhớ mỗi lần Firebase xác nhận có người đăng nhập. KHÔNG xoá khi trả null —
 // null lúc offline chính là trường hợp ta muốn chữa; chỉ đăng xuất thật mới xoá.
-onAuthStateChanged(auth, (u) => { if (isReal(u)) remember(u); });
+onAuthStateChanged(auth, (u) => { if (isReal(u)) { remember(u); if (!u.emailVerified) refreshEmailVerified(); } });
+
+// XÁC NHẬN EMAIL: bấm link trong mail (ở tab/máy khác) không đổi phiên đang mở — `emailVerified` và token cũ vẫn ghi "chưa xác nhận",
+// luật chia sẻ riêng (firestore.rules sharedWithMe) vẫn từ chối. Tài khoản chưa xác nhận thì hỏi lại máy chủ lúc mở trang và mỗi lần
+// quay lại tab (tối đa 1 lần / 60 giây cho cả phiên tab — mốc lưu sessionStorage nên chuyển trang không hỏi lại); vừa xác nhận xong thì xin
+// token mới và báo 'auth:verified'. force: nơi THẬT cần biết ngay (mở thư mục/bộ đề chia sẻ riêng bị chặn) — bỏ qua mốc.
+const VERIFY_GAP_MS = 60000;
+let lastVerifyCheck = 0;
+function verifyCheckedAt() {
+    try { return Math.max(lastVerifyCheck, Number(sessionStorage.getItem('verifyCheckAt')) || 0); } catch (e) { return lastVerifyCheck; }
+}
+export async function refreshEmailVerified({ force = false } = {}) {
+    const u = auth.currentUser;
+    if (!isReal(u)) return false;
+    if (u.emailVerified) return true;
+    if (!force && Date.now() - verifyCheckedAt() < VERIFY_GAP_MS) return false;
+    lastVerifyCheck = Date.now();
+    try { sessionStorage.setItem('verifyCheckAt', String(lastVerifyCheck)); } catch (e) { /* chế độ riêng tư */ }
+    try {
+        await u.reload();
+        if (!auth.currentUser?.emailVerified) return false;
+        await auth.currentUser.getIdToken(true);
+        window.dispatchEvent(new CustomEvent('auth:verified'));
+        return true;
+    } catch (e) { return false; }
+}
+if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && navigator.onLine !== false) refreshEmailVerified();
+});
+
+// Bấm link trong mail xong, trang xác nhận của Firebase có nút "Tiếp tục" quay về đây (phải là tên miền đã khai ở Firebase Auth → Authorized domains).
+const actionSettings = () => ({ url: location.origin + '/index.html' });
+
+/** Gửi (lại) mail xác nhận cho tài khoản đang đăng nhập. Lỗi → ném (thông điệp đã dịch: authErrorVi). */
+export async function sendVerifyMail() {
+    const u = auth.currentUser;
+    if (!isReal(u)) throw new Error('Bạn cần đăng nhập trước.');
+    try { await sendEmailVerification(u, actionSettings()); }
+    catch (e) {
+        // Tên miền chưa khai (chạy localhost, bản xem trước Vercel…) → gửi mail không kèm nút quay về
+        if (e?.code === 'auth/unauthorized-continue-uri' || e?.code === 'auth/invalid-continue-uri') await sendEmailVerification(u);
+        else throw e;
+    }
+}
+
+/** Gửi mail đặt lại mật khẩu. Firebase không báo email có tồn tại hay không (chống dò tài khoản). */
+export async function sendResetMail(email) {
+    try { await sendPasswordResetEmail(auth, email, actionSettings()); }
+    catch (e) {
+        if (e?.code === 'auth/unauthorized-continue-uri' || e?.code === 'auth/invalid-continue-uri') await sendPasswordResetEmail(auth, email);
+        else throw e;
+    }
+}
+
+const AUTH_ERRORS = {
+    'auth/invalid-credential': 'Sai email/tên hoặc mật khẩu.',
+    'auth/wrong-password': 'Sai mật khẩu.',
+    'auth/user-not-found': 'Không có tài khoản với email này.',
+    'auth/invalid-email': 'Email không hợp lệ.',
+    'auth/email-already-in-use': 'Email này đã có tài khoản — hãy đăng nhập (hoặc bấm "Quên mật khẩu").',
+    'auth/weak-password': 'Mật khẩu quá yếu (tối thiểu 6 ký tự).',
+    'auth/too-many-requests': 'Thử quá nhiều lần. Đợi vài phút rồi thử lại nhé.',
+    'auth/network-request-failed': 'Mất kết nối mạng.',
+    'auth/user-disabled': 'Tài khoản này đã bị khóa.',
+    'auth/requires-recent-login': 'Vì an toàn, hãy đăng xuất rồi đăng nhập lại và thử lại.',
+};
+/** Lỗi Firebase Auth → câu tiếng Việt dễ hiểu. */
+export function authErrorVi(e) {
+    return AUTH_ERRORS[e?.code] || e?.message || 'Lỗi không xác định.';
+}
 
 /** Người dùng hiện tại: bản thật của Firebase, hoặc bản đã lưu từ trước. */
 export function sessionUser() {

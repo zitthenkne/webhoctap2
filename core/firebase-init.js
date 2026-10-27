@@ -25,9 +25,11 @@ const app = initializeApp(firebaseConfig);
 
 // KHÔNG dùng getAuth(): nó gắn sẵn popupRedirectResolver, và trên điện thoại/iPad/Safari SDK tự nạp apis.google.com/js/api.js +
 // iframe zitthenkne.firebaseapp.com/__/auth/iframe rồi CHỜ xong mới báo trạng thái đăng nhập (đo: 3 request thừa, chậm ~550ms MỖI trang).
-// Site chỉ dùng email/mật khẩu + ẩn danh (không signInWithPopup/Redirect) nên bỏ resolver. Danh sách persistence = đúng mặc định của
-// getAuth -> phiên đăng nhập cũ giữ nguyên. Nếu sau này thêm đăng nhập Google/popup: thêm popupRedirectResolver: browserPopupRedirectResolver.
+// Danh sách persistence = đúng mặc định của getAuth -> phiên đăng nhập cũ giữ nguyên.
+// Đăng nhập Google (app.js handleGoogleLogin) truyền browserPopupRedirectResolver NGAY LÚC GỌI signInWithPopup — đừng gắn vào đây.
 export const auth = initializeAuth(app, { persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence] });
+// Mail xác nhận / đặt lại mật khẩu do Firebase gửi viết bằng tiếng Việt (mẫu mặc định của Firebase có sẵn bản dịch).
+auth.languageCode = 'vi';
 
 // Bộ nhớ đệm offline (IndexedDB), cấu hình NGAY lúc khởi tạo (kiểu mới của SDK 10+; hàm cũ
 // enableMultiTabIndexedDbPersistence đã bị đánh dấu lỗi thời): dữ liệu đã đọc vẫn xem được khi mất mạng,

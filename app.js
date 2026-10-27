@@ -3,8 +3,8 @@
 // Điều phối SPA tab navigation, quản lý Auth state và kết nối các module chức năng
 
 import { auth, db } from './core/firebase-init.js';
-import { onSessionUser } from './core/auth-session.js';
-import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { onSessionUser, sendVerifyMail, sendResetMail, authErrorVi } from './core/auth-session.js';
+import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, browserPopupRedirectResolver, getAdditionalUserInfo } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { doc, setDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { emailForName, claimName } from './core/usernames.js';
 import { showToast } from './core/utils.js';
@@ -245,12 +245,32 @@ async function handleLogin() {
         }
     }
     try {
-        await signInWithEmailAndPassword(auth, email, password);
+        const { user } = await signInWithEmailAndPassword(auth, email, password);
         toggleAuthModal();
-        showToast('Đăng nhập thành công!', 'success');
+        // Chưa xác nhận email vẫn dùng app bình thường; chỉ nhắc vì nhận đề/thư mục chia sẻ riêng cần email đã xác nhận.
+        showToast(user.emailVerified ? 'Đăng nhập thành công!' : 'Đăng nhập thành công! Email chưa xác nhận — vào Hồ sơ để gửi mail xác nhận.', 'success', user.emailVerified ? undefined : 5000);
         goNextAfterLogin();
     } catch (error) {
-        showToast('Đăng nhập thất bại: ' + error.message, 'error');
+        // Tài khoản tạo bằng Google không có mật khẩu → Firebase chỉ báo "sai thông tin"; nhắc lối đúng (hoặc đặt mật khẩu qua "Quên mật khẩu?")
+        const hint = error?.code === 'auth/invalid-credential' ? ' Nếu bạn từng vào bằng Google, bấm "Tiếp tục với Google".' : '';
+        showToast('Đăng nhập thất bại: ' + authErrorVi(error) + hint, 'error', hint ? 6000 : undefined);
+    }
+}
+
+// Quên mật khẩu: lấy email (hoặc tên → email) đang gõ ở ô đăng nhập, gửi mail đặt lại của Firebase.
+async function handleForgotPassword() {
+    const identifier = document.getElementById('emailInput').value.trim();
+    if (!identifier) {
+        document.getElementById('emailInput')?.focus();
+        return showToast('Nhập email (hoặc tên người dùng) vào ô trên rồi bấm lại "Quên mật khẩu".', 'info');
+    }
+    try {
+        const email = identifier.includes('@') ? identifier : await emailForName(identifier);
+        if (!email) return showToast('Chưa có tài khoản nào dùng tên "' + identifier + '". Hãy nhập email.', 'error');
+        await sendResetMail(email);
+        showToast('Đã gửi mail đặt lại mật khẩu (nếu email có tài khoản). Kiểm tra cả hộp thư rác nhé.', 'success', 6000);
+    } catch (error) {
+        showToast('Không gửi được mail: ' + authErrorVi(error), 'error');
     }
 }
 
@@ -275,31 +295,82 @@ document.addEventListener('keydown', async (e) => {
     showToast('Đã mở khóa đăng ký, không cần mật khẩu web.', 'success');
 });
 
+// Được tạo tài khoản mới không: đã mở khóa bằng phím tắt, hoặc ô "Mật khẩu web" đúng. Sai/thiếu thì mở ô đó và báo (trả false).
+async function signupCodeOk() {
+    if (signupUnlocked) return true;
+    const signupCodeWrap = document.getElementById('signupCodeWrap');
+    const signupCode = (document.getElementById('signupCodeInput')?.value || '').trim();
+    if (!signupCode) {
+        if (signupCodeWrap) signupCodeWrap.classList.remove('hidden');
+        document.getElementById('signupCodeInput')?.focus();
+        showToast('Vui lòng nhập mật khẩu web để tạo tài khoản mới.', 'warning');
+        return false;
+    }
+    // Mã đăng ký so bằng hash SHA-256, plaintext không nằm trong code.
+    if (await sha256Hex(signupCode) !== '5e0d128731e26b9befa3ea41f7b40422e916c87b6cac4c542af1adf331875be2') {
+        if (signupCodeWrap) signupCodeWrap.classList.remove('hidden');
+        showToast('Mật khẩu web không đúng. Bạn không thể tạo tài khoản mới.', 'error');
+        return false;
+    }
+    return true;
+}
+
+// ĐĂNG NHẬP BẰNG GOOGLE (tài khoản Google đang đăng nhập trên trình duyệt hiện ngay trong cửa sổ chọn).
+// browserPopupRedirectResolver chỉ truyền ở ĐÂY, không gắn vào initializeAuth (firebase-init.js: gắn sẵn thì mọi trang tải thêm iframe ~550ms).
+// Email Google luôn đã xác nhận → nhận được đề/thư mục chia sẻ riêng ngay. Cần bật nhà cung cấp Google ở Firebase console → Authentication.
+// Cổng đăng ký vẫn giữ: Google tạo tài khoản MỚI mà chưa nhập đúng mật khẩu web → xóa ngay tài khoản vừa tạo.
+// (Email đã có tài khoản mật khẩu thì Firebase gộp vào tài khoản đó — vẫn là cùng uid, dữ liệu cũ giữ nguyên.)
+let googleBusy = false;
+async function handleGoogleLogin() {
+    if (googleBusy) return;
+    googleBusy = true;
+    // Đọc trạng thái mã TRƯỚC khi mở popup: hỏi mã sau khi popup đóng thì đã lỡ tạo tài khoản.
+    const codeInput = (document.getElementById('signupCodeInput')?.value || '').trim();
+    const mayCreate = signupUnlocked || (codeInput && await sha256Hex(codeInput) === '5e0d128731e26b9befa3ea41f7b40422e916c87b6cac4c542af1adf331875be2');
+    try {
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+        const result = await signInWithPopup(auth, provider, browserPopupRedirectResolver);
+        const user = result.user;
+        if (getAdditionalUserInfo(result)?.isNewUser) {
+            if (!mayCreate) {
+                await user.delete().catch(() => auth.signOut());
+                document.getElementById('auth-tab-signup')?.click();
+                await signupCodeOk();   // mở ô mật khẩu web + báo
+                return;
+            }
+            await setDoc(doc(db, "users", user.uid), { email: user.email, displayName: user.displayName || '', createdAt: new Date(), quizSetsCreated: 0 });
+        }
+        toggleAuthModal();
+        showToast('Đăng nhập Google thành công!', 'success');
+        goNextAfterLogin();
+    } catch (error) {
+        if (error?.code === 'auth/popup-closed-by-user' || error?.code === 'auth/cancelled-popup-request') return;
+        if (error?.code === 'auth/popup-blocked') return showToast('Trình duyệt chặn cửa sổ đăng nhập — cho phép popup rồi bấm lại.', 'warning', 6000);
+        if (error?.code === 'auth/operation-not-allowed') return showToast('Đăng nhập Google chưa được bật trên máy chủ.', 'error');
+        showToast('Đăng nhập Google thất bại: ' + authErrorVi(error), 'error');
+    } finally { googleBusy = false; }
+}
+
 async function handleSignup() {
     const email = document.getElementById('emailInput').value.trim();
     const password = document.getElementById('passwordInput').value;
     if (!email || !password) return showToast('Vui lòng nhập đủ thông tin.', 'warning');
     if (!email.includes('@')) return showToast('Vui lòng nhập email hợp lệ để đăng ký.', 'warning');
-    const signupCodeWrap = document.getElementById('signupCodeWrap');
-    const signupCode = (document.getElementById('signupCodeInput')?.value || '').trim();
-    if (!signupUnlocked && !signupCode) {
-        if (signupCodeWrap) signupCodeWrap.classList.remove('hidden');
-        document.getElementById('signupCodeInput')?.focus();
-        return showToast('Vui lòng nhập mật khẩu web để tạo tài khoản mới.', 'warning');
-    }
-    // Mã đăng ký so bằng hash SHA-256, plaintext không nằm trong code.
-    if (!signupUnlocked && await sha256Hex(signupCode) !== '5e0d128731e26b9befa3ea41f7b40422e916c87b6cac4c542af1adf331875be2') {
-        if (signupCodeWrap) signupCodeWrap.classList.remove('hidden');
-        return showToast('Mật khẩu web không đúng. Bạn không thể tạo tài khoản mới.', 'error');
-    }
+    if (!await signupCodeOk()) return;
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
         await setDoc(doc(db, "users", user.uid), { email: user.email, createdAt: new Date(), quizSetsCreated: 0 });
-        showToast('Đăng ký thành công!', 'success');
         toggleAuthModal();
+        try {
+            await sendVerifyMail();
+            showToast(`Đăng ký thành công! Đã gửi mail xác nhận tới ${user.email} — bấm link trong mail (xem cả hộp thư rác).`, 'success', 7000);
+        } catch (e) {
+            showToast('Đăng ký thành công! Chưa gửi được mail xác nhận — gửi lại ở trang Hồ sơ.', 'warning', 6000);
+        }
     } catch (error) {
-        showToast('Đăng ký thất bại: ' + error.message, 'error');
+        showToast('Đăng ký thất bại: ' + authErrorVi(error), 'error');
     }
 }
 
@@ -489,6 +560,8 @@ function setupEventListeners() {
     if (closeModalBtn) closeModalBtn.addEventListener('click', toggleAuthModal);
     if (loginBtn) loginBtn.addEventListener('click', handleLogin);
     if (signupBtn) signupBtn.addEventListener('click', handleSignup);
+    document.getElementById('forgotPasswordBtn')?.addEventListener('click', handleForgotPassword);
+    document.getElementById('googleLoginBtn')?.addEventListener('click', handleGoogleLogin);
     if (uploadArea) uploadArea.addEventListener('click', () => fileInput.click());
     if (fileInput) fileInput.addEventListener('change', handleFileSelect);
     if (processBtn) processBtn.addEventListener('click', saveAndStartQuiz);
@@ -850,7 +923,8 @@ function setupEventListeners() {
         copyShareLinkBtn.addEventListener('click', () => {
             const input = document.getElementById('share-link-input');
             if (input && input.value) {
-                navigator.clipboard.writeText(input.value)
+                // Chia sẻ nhiều bộ đề: ô input một dòng làm mất xuống dòng → bản đầy đủ nằm ở data-copy
+                navigator.clipboard.writeText(input.dataset.copy || input.value)
                     .then(() => showToast('Đã copy link bộ đề!', 'success'))
                     .catch(() => showToast('Không thể sao chép!', 'error'));
             }

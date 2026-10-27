@@ -14,12 +14,21 @@ import { showToast } from '../../../core/utils.js';
 import { setDocQ } from '../../../core/offline-write.js';
 import { checkAndAwardAchievement } from '../../../core/achievements.js';
 import { S, LIB_CHUNK, LIBRARY_AUTO_SYNC_MIN_INTERVAL, LIBRARY_CACHE_FRESH_MS } from './library-state.js';
-import { purgeExpiredTrash, isTrashExpired, sortUserFolders, loadPinnedQuizIds } from './library-helpers.js';
+import { purgeExpiredTrash, isTrashExpired, sortUserFolders, loadPinnedQuizIds, folderById } from './library-helpers.js';
+
 import { renderLibrary, renderLibrarySkeleton, renderBreadcrumb, rerenderCurrentView } from './library-render.js';
 import { loadAttemptCache, syncAttemptsFromServer } from './library-attempts.js';
 import { invalidateQuestionIndex } from './library-search.js';
 import { fetchAllQuizMeta, fetchAllFolders, readMetaCache, writeMetaCache, readFoldersCache, writeFoldersCache, clearMetaCache, libraryCacheAge } from './library-meta.js';
 import { countRest } from '../../../core/firestore-rest.js';
+// Tạo bộ đề ngay trong một thư mục đang chia sẻ riêng → người được chia sẻ (và người chỉnh sửa) của thư mục thấy luôn bộ mới
+// (rule đọc theo sharedWith của TỪNG bộ đề). Giá trị thường, không phải arrayUnion: setDoc tạo doc mới.
+function folderShareFields() {
+    const f = folderById(S.currentFolderId);
+    if (!f?.sharedWith?.length) return {};
+    return { sharedWith: [...f.sharedWith], editors: [...(f.editors || [])], sharedBy: f.sharedBy || '', ...(f.noCopy === true ? { noCopy: true } : {}) };
+}
+
 
 /**
  * Lưu bộ đề và chuyển sang màn hình làm quiz
@@ -50,7 +59,8 @@ export async function saveAndStartQuiz() {
             createdAt: new Date(),
             updatedAt: new Date(),
             isPublic: true,
-            folderId: S.currentFolderId || null
+            folderId: S.currentFolderId || null,
+            ...folderShareFields()
         });
         // (không còn ghi bản sao quiz_payloads — xem features/quiz/quiz-fresh.js / memory: production không dùng đường lùi này)
         if (navigator.onLine) await checkCreationAchievements(user.uid);   // mất mạng: giao dịch đếm bộ đề không chạy được — bỏ qua thay vì treo/lỗi
@@ -94,7 +104,8 @@ export async function saveOnly() {
             createdAt: new Date(),
             updatedAt: new Date(),
             isPublic: true,
-            folderId: S.currentFolderId || null
+            folderId: S.currentFolderId || null,
+            ...folderShareFields()
         });
         // (không còn ghi bản sao quiz_payloads — xem features/quiz/quiz-fresh.js / memory: production không dùng đường lùi này)
         if (navigator.onLine) await checkCreationAchievements(user.uid);   // mất mạng: giao dịch đếm bộ đề không chạy được — bỏ qua thay vì treo/lỗi

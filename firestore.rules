@@ -7,6 +7,41 @@ service cloud.firestore {
     // keepsOwner: sửa tài liệu KHÔNG được đổi trường userId (trước đây chủ bộ có thể "tặng" bộ/thư mục/ghi chú cho người khác = gài rác vào thư viện của họ).
     function isOwner(uid) { return request.auth != null && request.auth.uid == uid; }
     function keepsOwner() { return request.resource.data.userId == resource.data.userId; }
+    // CHIA SẺ RIÊNG (2026-10-27): bộ đề / thư mục có `sharedWith` = danh sách email (chữ thường) được xem. Chỉ tin email ĐÃ XÁC NHẬN —
+    // không thì ai cũng tạo tài khoản bằng email của người được mời rồi đọc ké. Email trong token Firebase luôn là chữ thường.
+    // Viết thẳng `resource.data.sharedWith` (không .get mặc định) để Firestore chứng minh được truy vấn `sharedWith array-contains <email>`
+    // của trang "Được chia sẻ với tôi"; doc thiếu trường → vế này lỗi = không cho, đúng ý.
+    function sharedWithMe() {
+      return request.auth != null
+          && request.auth.token.email_verified == true
+          && request.auth.token.email in resource.data.sharedWith;
+    }
+    // Người được chia sẻ tự "Rời chia sẻ" (folder.js ?shared=me): chỉ được sửa sharedWith/editors, và chỉ để GỠ ĐÚNG email của mình.
+    function leavesShare() {
+      let me = [request.auth.token.email].toSet();
+      return sharedWithMe()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sharedWith', 'editors'])
+          && request.resource.data.sharedWith.toSet() == resource.data.sharedWith.toSet().difference(me)
+          && request.resource.data.get('editors', []).toSet() == resource.data.get('editors', []).toSet().difference(me);
+    }
+    // VAI TRÒ "NGƯỜI CHỈNH SỬA" (giống Google Drive): `editors` = các email trong sharedWith được sửa NỘI DUNG bộ đề
+    // (câu hỏi, tên, mô tả) — không đổi được quyền chia sẻ, công khai, chủ sở hữu, thư mục hay xóa.
+    function editsAsEditor() {
+      return request.auth != null
+          && request.auth.token.email_verified == true
+          && request.auth.token.email in resource.data.get('editors', [])
+          && request.auth.token.email in resource.data.get('sharedWith', [])
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['questions', 'questionCount', 'title', 'description', 'updatedAt']);
+    }
+    // Danh sách chia sẻ: mảng ≤ 50 người; editors phải nằm trong sharedWith; sharedBy (tên người chia sẻ) chuỗi ≤ 100; noCopy (cấm người
+    // xem lưu bản sao — như Drive "Người xem có thể tải xuống, in, sao chép") là bool. Chặn ghi rác làm phình doc.
+    function validShare(d) {
+      return d.get('sharedWith', []) is list && d.get('sharedWith', []).size() <= 50
+          && d.get('editors', []) is list && d.get('sharedWith', []).hasAll(d.get('editors', []))
+          && d.get('sharedBy', '') is string && d.get('sharedBy', '').size() <= 100
+          && d.get('noCopy', false) is bool;
+    }
 
     // USERNAMES — bảng tra cho ô đăng nhập gõ TÊN (core/usernames.js): usernames/{khóa tên} = { uid, email }.
     // Khách chưa đăng nhập cần tra tên → email, nhưng users/{uid} không được mở (lộ email mọi người) → bảng riêng:
@@ -35,9 +70,10 @@ service cloud.firestore {
     // QUIZ SETS (THƯ VIỆN ĐỀ)
     match /quiz_sets/{setId} {
       allow read: if resource.data.isPublic == true
-                  || (request.auth != null && request.auth.uid == resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId);
-      allow update: if isOwner(resource.data.userId) && keepsOwner();
+                  || (request.auth != null && request.auth.uid == resource.data.userId)
+                  || sharedWithMe();
+      allow create: if isOwner(request.resource.data.userId) && validShare(request.resource.data);
+      allow update: if (isOwner(resource.data.userId) && keepsOwner() && validShare(request.resource.data)) || leavesShare() || editsAsEditor();
       allow delete: if isOwner(resource.data.userId);
     }
 
@@ -45,10 +81,12 @@ service cloud.firestore {
     match /quiz_folders/{folderId} {
       // isPublic == true: ai có link thư mục cũng xem được danh sách bộ đề bên trong
       // (các bộ đề vẫn tự kiểm tra isPublic của riêng nó ở rule quiz_sets bên trên).
+      // sharedWith: chỉ những tài khoản được mời mới xem (bộ đề bên trong được chép cùng danh sách lúc chia sẻ).
       allow read: if resource.data.isPublic == true
-                  || (request.auth != null && request.auth.uid == resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId);
-      allow update: if isOwner(resource.data.userId) && keepsOwner();
+                  || (request.auth != null && request.auth.uid == resource.data.userId)
+                  || sharedWithMe();
+      allow create: if isOwner(request.resource.data.userId) && validShare(request.resource.data);
+      allow update: if (isOwner(resource.data.userId) && keepsOwner() && validShare(request.resource.data)) || leavesShare();
       allow delete: if isOwner(resource.data.userId);
     }
 
@@ -104,7 +142,8 @@ service cloud.firestore {
     // QUIZ PAYLOADS (Nội dung câu hỏi chi tiết tách riêng để chống tràn giới hạn 1MB doc)
     match /quiz_payloads/{setId} {
       allow read: if resource.data.isPublic == true
-                  || (request.auth != null && request.auth.uid == resource.data.userId);
+                  || (request.auth != null && request.auth.uid == resource.data.userId)
+                  || sharedWithMe();
       allow create: if isOwner(request.resource.data.userId);
       allow update: if isOwner(resource.data.userId) && keepsOwner();
       allow delete: if isOwner(resource.data.userId);

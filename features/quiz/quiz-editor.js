@@ -24,6 +24,19 @@ import { isMultiAnswer, getCorrectIndexes, isAnswerCorrect } from './quiz-helper
 import { isEssay, rubricToText, textToRubric, rubricOf, withAutoGrade, formatOf, partsText, remapFields } from './quiz-essay-core.js';
 import { formatEditorHtml, wireFormatEditor, readFormatEditor } from './essay-format-editor.js';
 
+/**
+ * Được ghi câu hỏi lên Firestore không: chủ bộ đề, hoặc "Người chỉnh sửa" được chia sẻ (email đã xác nhận nằm trong `editors`
+ * — đúng điều kiện editsAsEditor của firestore.rules). Còn lại (người xem, khách) → sửa chỉ lưu trên máy này.
+ */
+export function canEditQuiz(q) {
+    const user = sessionUser();
+    if (!user || !q) return false;
+    if (q.userId === user.uid) return true;
+    const email = (auth.currentUser?.email || '').toLowerCase();
+    return !!(email && auth.currentUser?.emailVerified && Array.isArray(q.editors) && q.editors.includes(email)
+        && Array.isArray(q.sharedWith) && q.sharedWith.includes(email));
+}
+
 // Các trường của một câu hỏi mà trình sửa được phép thay đổi (dùng cho cả lưu lẫn hoàn tác).
 const EDIT_FIELDS = ['question', 'answers', 'options', 'correctAnswerIndex', 'correctAnswerIndexes', 'optionExplanations', 'note', 'explanation', 'expanded', 'caseId', 'caseText', 'caseTitle',
     'caseReveal', 'maxScore', 'type', 'modelAnswer', 'keyPoints', 'answerFormat'];
@@ -322,8 +335,7 @@ export function openQuestionEditor() {
     if (qpos) qpos.textContent = `Câu ${state.currentIndex + 1}/${state.questions.length}`;
 
     // Cho biết nơi lưu (đám mây nếu là chủ bộ đề, ngược lại lưu cục bộ)
-    const user = sessionUser();
-    const isOwner = !!(user && state.quizData && state.quizData.userId === user.uid);
+    const isOwner = canEditQuiz(state.quizData);
     const hint = qeEl('qe-save-hint');
     if (hint) {
         hint.className = 'qe-save-hint ' + (isOwner ? 'is-cloud' : 'is-local');
@@ -484,9 +496,10 @@ async function commitQuestionEdit(edited) {
     closeQuestionEditor();
     _rerender();
 
-    // Lưu lâu dài: Firestore nếu là chủ, ngược lại lưu cục bộ.
+    // Lưu lâu dài: Firestore nếu là chủ HOẶC "Người chỉnh sửa" được chia sẻ (firestore.rules editsAsEditor — chỉ ghi questions/updatedAt),
+    // ngược lại lưu cục bộ.
     const user = sessionUser();
-    const isOwner = !!(user && state.quizData && state.quizData.userId === user.uid);
+    const isOwner = canEditQuiz(state.quizData);
     let savedMsg = 'Đã áp dụng cho phiên làm bài này.';
     if (isOwner) {
         try {

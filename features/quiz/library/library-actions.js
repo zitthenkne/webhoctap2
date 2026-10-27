@@ -4,7 +4,8 @@
 // Tách từ quiz-library-controller.js — logic giữ nguyên, chỉ đổi truy cập trạng thái sang S.xxx.
 
 import { auth, db } from '../../../core/firebase-init.js';
-import { doc, collection, query, where, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { doc, collection, query, where, getDoc, getDocs, arrayUnion } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { showShareAccess, commitInBatches } from '../share-access.js';
 // Ghi không treo khi mất mạng (xem core/offline-write.js)
 import { updateDocQ as updateDoc, setDocQ } from "../../../core/offline-write.js";
 import { sessionUser } from '../../../core/auth-session.js';
@@ -61,13 +62,37 @@ export async function toggleQuizPublic(quizId, makePublic) {
         const q = S.userQuizSets.find(x => x.id === quizId);
         if (q) q.isPublic = makePublic; // cập nhật cache để nhãn nút đổi ngay
         persistLibraryCache();
+        const shared = (q?.sharedWith || []).length;
         showToast(makePublic
             ? 'Đã đặt CÔNG KHAI — ai có link đều mở được.'
-            : 'Đã đặt RIÊNG TƯ — chỉ mình bạn xem được.', 'success');
+            : shared ? `Đã tắt công khai — chỉ bạn và ${shared} người được chia sẻ xem được.` : 'Đã đặt RIÊNG TƯ — chỉ mình bạn xem được.', 'success');
         rerenderCurrentView();
+        return true;
     } catch (e) {
         showToast("Đổi chế độ công khai thất bại: " + e.message, 'error');
+        return false;
     }
+}
+
+// Chuyển bộ đề VÀO một thư mục đang chia sẻ riêng → người được chia sẻ thư mục cũng thấy bộ đề đó (rule đọc theo sharedWith của TỪNG bộ đề).
+// Chỉ cộng thêm, không gỡ: chuyển ra khỏi thư mục thì bộ đề vẫn giữ người đã được chia sẻ (gỡ ở hộp Chia sẻ của bộ đề).
+// Người chỉnh sửa của thư mục cũng thành người chỉnh sửa của bộ đề; "cấm lưu bản sao" của thư mục áp luôn.
+export function inheritSharePatch(folderId) {
+    const f = folderById(folderId);
+    const list = f?.sharedWith || [];
+    if (!list.length) return {};
+    const patch = { sharedWith: arrayUnion(...list), sharedBy: f.sharedBy || '' };
+    if (f.editors?.length) patch.editors = arrayUnion(...f.editors);
+    if (f.noCopy === true) patch.noCopy = true;
+    return patch;
+}
+export function applyInheritedShare(obj, folderId) {
+    const f = folderById(folderId);
+    if (!f?.sharedWith?.length) return;
+    obj.sharedWith = [...new Set([...(obj.sharedWith || []), ...f.sharedWith])];
+    if (f.editors?.length) obj.editors = [...new Set([...(obj.editors || []), ...f.editors])];
+    if (f.noCopy === true) obj.noCopy = true;
+    obj.sharedBy = f.sharedBy || '';
 }
 
 /**
@@ -134,7 +159,7 @@ export async function moveQuizToFolder(quizId, folderId, folderName) {
     if (!quiz) {
         try {
             S.isLibraryFullyLoaded = false;
-            await updateDoc(doc(db, "quiz_sets", quizId), { folderId });
+            await updateDoc(doc(db, "quiz_sets", quizId), { folderId, ...inheritSharePatch(folderId) });
             showToast(`Đã chuyển bộ đề vào ${where}.`, 'success');
             await loadAndDisplayLibrary();
         } catch (err) {
@@ -154,7 +179,8 @@ export async function moveQuizToFolder(quizId, folderId, folderName) {
     rerenderCurrentView();          // thấy kết quả ngay lập tức
 
     try {
-        await updateDoc(doc(db, "quiz_sets", quizId), { folderId });
+        await updateDoc(doc(db, "quiz_sets", quizId), { folderId, ...inheritSharePatch(folderId) });
+        applyInheritedShare(quiz, folderId);
         persistLibraryCache();   // cache phải khớp RAM, nếu không lần mở sau lại thấy chỗ cũ
         showToast(`Đã chuyển "${quiz.title || 'bộ đề'}" vào ${where}.`, 'success');
     } catch (err) {
@@ -323,13 +349,18 @@ export async function saveFolder() {
         if (S.folderModalMode === 'create') {
             const parentId = S.newFolderParentId || null;
             const newDoc = doc(collection(db, "quiz_folders"));
+            // Thư mục con của thư mục đang chia sẻ riêng → người được chia sẻ thấy luôn
+            const parent = folderById(parentId);
+            const inherited = {};
+            applyInheritedShare(inherited, parentId);   // giá trị thường (không phải arrayUnion) vì setDoc tạo mới
             await setDocQ(newDoc, {
                 userId: user.uid,
                 name: name,
                 icon: S.selectedFolderIcon,
                 color: S.selectedFolderColor,
                 parentId,
-                createdAt: new Date()
+                createdAt: new Date(),
+                ...inherited
             });
             // Cập nhật ngay vào cache để thư mục mới hiện liền, không cần tải lại trang
             S.userFolders.push({
@@ -339,7 +370,8 @@ export async function saveFolder() {
                 icon: S.selectedFolderIcon,
                 color: S.selectedFolderColor,
                 parentId,
-                createdAt: new Date()
+                createdAt: new Date(),
+                ...inherited
             });
             noteFolderCreated();
             showToast('Đã tạo thư mục thành công!', 'success');
@@ -656,9 +688,10 @@ async function moveQuizzesBulk(ids, targetId) {
     const prev = new Map(moving.map(q => [q.id, q.folderId ?? null]));
     moving.forEach(q => { q.folderId = targetId; });
     rerenderCurrentView();
-    const results = await Promise.allSettled(moving.map(q => updateDoc(doc(db, "quiz_sets", q.id), { folderId: targetId })));
+    const results = await Promise.allSettled(moving.map(q => updateDoc(doc(db, "quiz_sets", q.id), { folderId: targetId, ...inheritSharePatch(targetId) })));
     const failed = moving.filter((q, i) => results[i].status === 'rejected');
     failed.forEach(q => { q.folderId = prev.get(q.id); });
+    moving.filter((q, i) => results[i].status !== 'rejected').forEach(q => applyInheritedShare(q, targetId));
     persistLibraryCache();
     if (failed.length) {
         rerenderCurrentView();
@@ -702,6 +735,20 @@ export async function moveFolder(folderId, targetParentId) {
     rerenderCurrentView();
     try {
         await updateDoc(doc(db, "quiz_folders", folderId), { parentId: target });
+        // Chuyển vào thư mục đang chia sẻ riêng → cả nhánh vừa chuyển cũng chia sẻ cho những người đó (chỉ cộng thêm, không gỡ)
+        const patch = inheritSharePatch(target);
+        if (patch.sharedWith) {
+            const subFolders = S.userFolders.filter(f => subtreeIds(folderId).has(f.id));
+            const quizzes = await getQuizzesInFolder(folderId);
+            await commitInBatches([
+                ...subFolders.map(f => ({ col: 'quiz_folders', id: f.id })),
+                ...quizzes.map(q => ({ col: 'quiz_sets', id: q.id }))
+            ], patch);
+            [...subFolders, ...quizzes].forEach(d => applyInheritedShare(d, target));
+            persistFoldersCache();
+            persistLibraryCache();
+            rerenderCurrentView();
+        }
         showToast(`Đã chuyển thư mục "${folder.name}" vào ${where}.`, 'success');
     } catch (err) {
         console.error("Lỗi chuyển thư mục:", err);
@@ -736,25 +783,37 @@ export async function handleBulkDelete() {
     }
 }
 
+// Chia sẻ nhiều bộ đề: mở hộp Chia sẻ (công khai / chia sẻ riêng cho tài khoản áp lên cả mẻ); ô link = danh sách "tên: link" để copy.
 export function handleBulkShare() {
     if (S.selectedQuizIds.length === 0) {
         showToast('Vui lòng chọn ít nhất một bộ đề để chia sẻ!', 'warning');
         return;
     }
-
-    const links = S.selectedQuizIds.map(id => {
+    const ids = [...S.selectedQuizIds];
+    const links = ids.map(id => {
         const quiz = S.userQuizSets.find(q => q.id === id);
         const title = quiz ? quiz.title : 'Bộ đề';
         const quizUrl = new URL(`api/share-quiz?id=${id}&t=${Date.now()}`, window.location.origin).href;
         return `${title}: ${quizUrl}`;
     }).join('\n');
 
-    navigator.clipboard.writeText(links)
-        .then(() => {
-            showToast(`Đã copy link của ${S.selectedQuizIds.length} bộ đề vào clipboard!`, 'success');
-            exitSelectionMode();
-        })
-        .catch(() => showToast('Không thể sao chép liên kết!', 'error'));
+    const modal = document.getElementById('shareQuizModal');
+    const heading = document.querySelector('#share-modal-heading span');
+    const titleEl = document.getElementById('share-quiz-title');
+    const linkInput = document.getElementById('share-link-input');
+    if (!modal || !titleEl || !linkInput) {
+        navigator.clipboard.writeText(links).then(() => showToast(`Đã copy link của ${ids.length} bộ đề!`, 'success')).catch(() => {});
+        return;
+    }
+    if (heading) heading.textContent = `Chia sẻ ${ids.length} bộ đề`;
+    titleEl.textContent = ids.map(id => S.userQuizSets.find(q => q.id === id)?.title || 'Bộ đề').join(' · ');
+    linkInput.value = links.replace(/\n/g, '  |  ');
+    linkInput.dataset.copy = links;
+    document.getElementById('share-embed-section')?.classList.add('hidden');
+    document.getElementById('share-qr-section')?.classList.add('hidden');
+    document.getElementById('share-quick-buttons')?.classList.add('hidden');
+    showShareAccess(bulkShareTarget(ids));
+    modal.classList.remove('hidden');
 }
 
 // === CHẾ ĐỘ CHỌN NHIỀU (SELECTION MODE) ===
@@ -834,8 +893,17 @@ export function updateBulkActionsToolbar() {
     });
 }
 
+// Hộp Chia sẻ dùng chung cho 1 bộ đề / thư mục / nhiều bộ đề: trả các phần mà chế độ "nhiều bộ đề" đã ẩn.
+function resetShareModal() {
+    document.getElementById('share-qr-section')?.classList.remove('hidden');
+    document.getElementById('share-quick-buttons')?.classList.remove('hidden');
+    const linkInput = document.getElementById('share-link-input');
+    if (linkInput) delete linkInput.dataset.copy;
+}
+
 // === CHIA SẺ BỘ ĐỀ (SHARE QUIZ) ===
 export function openShareQuizModal(quizId, quizTitle) {
+    resetShareModal();
     const modal = document.getElementById('shareQuizModal');
     const heading = document.querySelector('#share-modal-heading span');
     const titleEl = document.getElementById('share-quiz-title');
@@ -861,7 +929,67 @@ export function openShareQuizModal(quizId, quizTitle) {
     }
 
     bindQuickShareButtons(quizUrl, quizTitle, `Hãy cùng làm bài kiểm tra "${quizTitle}" trên Zitthenkne nhé!`);
+    showShareAccess(quizShareTarget(quizId));
     modal.classList.remove('hidden');
+}
+
+// === AI ĐƯỢC XEM: CÔNG KHAI / CHIA SẺ RIÊNG THEO TÀI KHOẢN (khối dùng chung: ../share-access.js) ===
+// Chia sẻ thư mục = ghi lên thư mục, MỌI thư mục con và MỌI bộ đề trong nhánh (giống công khai thư mục) — rule đọc theo từng doc,
+// không tra ngược thư mục cha.
+const afterShareChange = () => { persistFoldersCache(); persistLibraryCache(); rerenderCurrentView(); };
+
+function quizShareTarget(quizId) {
+    const q = () => S.userQuizSets.find(x => x.id === quizId) || {};
+    return {
+        view: q,
+        targets: async () => [{ col: 'quiz_sets', id: quizId, obj: q() }],
+        setPublic: (v) => toggleQuizPublic(quizId, v),
+        onChange: afterShareChange,
+        title: q().title,
+        link: new URL(`api/share-quiz?id=${quizId}`, window.location.origin).href
+    };
+}
+
+function folderShareTarget(folderId) {
+    const f = () => S.userFolders.find(x => x.id === folderId) || {};
+    return {
+        view: f,
+        targets: async () => [
+            ...S.userFolders.filter(x => subtreeIds(folderId).has(x.id)).map(x => ({ col: 'quiz_folders', id: x.id, obj: x })),
+            ...(await getQuizzesInFolder(folderId)).map(q => ({ col: 'quiz_sets', id: q.id, obj: q }))
+        ],
+        setPublic: (v) => toggleFolderPublic(folderId, v),
+        onChange: afterShareChange,
+        scope: 'Áp dụng cho cả thư mục: mọi thư mục con và bộ đề bên trong (kể cả bộ đề thêm vào sau).',
+        title: f().name,
+        link: folderShareUrl(folderId)
+    };
+}
+
+// Chọn nhiều bộ đề: danh sách hiện = gộp người của mọi bộ đã chọn; thêm/bỏ áp lên tất cả.
+function bulkShareTarget(ids) {
+    const sets = () => ids.map(id => S.userQuizSets.find(q => q.id === id)).filter(Boolean);
+    return {
+        view: () => {
+            const s = sets();
+            const pub = s.filter(q => q.isPublic === true).length;
+            return { isPublic: pub === s.length && s.length > 0, mixed: pub > 0 && pub < s.length, sharedWith: [...new Set(s.flatMap(q => q.sharedWith || []))] };
+        },
+        targets: async () => sets().map(q => ({ col: 'quiz_sets', id: q.id, obj: q })),
+        setPublic: async (v) => {
+            try {
+                await commitInBatches(sets().filter(q => (q.isPublic === true) !== v).map(q => ({ col: 'quiz_sets', id: q.id })), { isPublic: v });
+                sets().forEach(q => { q.isPublic = v; });
+                afterShareChange();
+                showToast(v ? `Đã công khai ${ids.length} bộ đề.` : `Đã tắt công khai ${ids.length} bộ đề.`, 'success');
+                return true;
+            } catch (e) { showToast('Đổi chế độ công khai thất bại: ' + e.message, 'error'); return false; }
+        },
+        onChange: afterShareChange,
+        scope: `Áp dụng cho cả ${ids.length} bộ đề đã chọn.`,
+        title: `${ids.length} bộ đề`,
+        link: new URL('features/quiz/folder.html?shared=me', window.location.origin).href
+    };
 }
 
 export function closeShareQuizModal() {
@@ -958,17 +1086,18 @@ export async function toggleFolderPublic(folderId, makePublic, { skipConfirm = f
     }
 
     try {
-        await updateDoc(doc(db, "quiz_folders", folderId), { isPublic: makePublic });
-        if (folder) folder.isPublic = makePublic;
+        // Thư mục + thư mục con + bộ đề bên trong (bỏ qua cái đã đúng trạng thái) trong các LÔ ghi nguyên tử — trước đây mỗi doc một lệnh ghi riêng
         const subNeed = subFolders.filter(f => (f.isPublic === true) !== makePublic);
-        await Promise.all(subNeed.map(f => updateDoc(doc(db, "quiz_folders", f.id), { isPublic: makePublic })));
-        subNeed.forEach(f => { f.isPublic = makePublic; });
-        persistFoldersCache();
-
-        // Đồng bộ trạng thái cho từng bộ đề bên trong (bỏ qua cái đã đúng trạng thái)
         const needUpdate = quizzes.filter(q => (q.isPublic === true) !== makePublic);
-        await Promise.all(needUpdate.map(q => updateDoc(doc(db, "quiz_sets", q.id), { isPublic: makePublic })));
+        await commitInBatches([
+            { col: 'quiz_folders', id: folderId },
+            ...subNeed.map(f => ({ col: 'quiz_folders', id: f.id })),
+            ...needUpdate.map(q => ({ col: 'quiz_sets', id: q.id }))
+        ], { isPublic: makePublic });
+        if (folder) folder.isPublic = makePublic;
+        subNeed.forEach(f => { f.isPublic = makePublic; });
         needUpdate.forEach(q => { q.isPublic = makePublic; });
+        persistFoldersCache();
         persistLibraryCache();
 
         showToast(makePublic
@@ -985,16 +1114,10 @@ export async function toggleFolderPublic(folderId, makePublic, { skipConfirm = f
 
 /**
  * Mở hộp chia sẻ cho CẢ THƯ MỤC (dùng chung modal với chia sẻ bộ đề).
- * Thư mục còn riêng tư thì hỏi công khai trước — chia sẻ link của thư mục riêng tư
- * chỉ làm người nhận thấy trang báo lỗi.
+ * Không còn ép công khai trước: trong hộp chọn "ai có link đều xem" hoặc chia sẻ riêng cho từng tài khoản.
  */
 export async function openShareFolderModal(folderId, folderName) {
-    const folder = S.userFolders.find(f => f.id === folderId);
-    if (folder && folder.isPublic !== true) {
-        const ok = await toggleFolderPublic(folderId, true);
-        if (!ok) return;
-    }
-
+    resetShareModal();
     const modal = document.getElementById('shareQuizModal');
     const heading = document.querySelector('#share-modal-heading span');
     const titleEl = document.getElementById('share-quiz-title');
@@ -1015,6 +1138,7 @@ export async function openShareFolderModal(folderId, folderName) {
     if (qrImg) qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(url)}`;
 
     bindQuickShareButtons(url, folderName, `Mình chia sẻ thư mục đề "${folderName}" trên Zitthenkne nhé!`);
+    showShareAccess(folderShareTarget(folderId));
     modal.classList.remove('hidden');
 }
 

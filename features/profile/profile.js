@@ -1,6 +1,6 @@
 import { auth, db } from '../../core/firebase-init.js';
-import { forgetSession, onSessionUser } from '../../core/auth-session.js';
-import { updateProfile, updatePassword, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { forgetSession, onSessionUser, sendVerifyMail, refreshEmailVerified, authErrorVi } from '../../core/auth-session.js';
+import { updateProfile, updatePassword, signOut, GoogleAuthProvider, linkWithPopup, browserPopupRedirectResolver } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { doc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { updateDocQ as updateDoc } from '../../core/offline-write.js';
 import { showConfirm } from '../../core/utils.js';
@@ -326,12 +326,78 @@ function celebrate() {
     }
 }
 
+// XÁC NHẬN EMAIL: hiện trạng thái + nút gửi (lại) mail. Email đã xác nhận mới nhận được bộ đề/thư mục chia sẻ riêng (firestore.rules sharedWithMe).
+const verifyRow = document.getElementById('email-verify-row');
+const verifyStatus = document.getElementById('email-verify-status');
+const sendVerifyBtn = document.getElementById('send-verify-btn');
+function renderVerifyState() {
+    const u = auth.currentUser;
+    if (!verifyRow || !u || u.isAnonymous) return;
+    verifyRow.classList.remove('hidden');
+    verifyStatus.innerHTML = u.emailVerified
+        ? '<span class="text-emerald-500"><i class="fas fa-circle-check mr-1"></i>Email đã xác nhận</span>'
+        : '<span class="text-amber-500"><i class="fas fa-triangle-exclamation mr-1"></i>Chưa xác nhận — cần để nhận đề được chia sẻ riêng</span>';
+    sendVerifyBtn?.classList.toggle('hidden', u.emailVerified);
+}
+sendVerifyBtn?.addEventListener('click', async () => {
+    sendVerifyBtn.disabled = true;
+    try {
+        await sendVerifyMail();
+        showMessage(`Đã gửi mail xác nhận tới ${auth.currentUser.email}. Bấm link trong mail (xem cả thư rác), rồi quay lại trang này.`, 'success');
+        // Đợi 60s rồi mới cho gửi lại (Firebase chặn gửi dồn: auth/too-many-requests)
+        setTimeout(() => { sendVerifyBtn.disabled = false; }, 60000);
+    } catch (e) {
+        showMessage('Không gửi được mail xác nhận: ' + authErrorVi(e), 'error');
+        sendVerifyBtn.disabled = false;
+    }
+});
+window.addEventListener('auth:verified', () => { renderVerifyState(); showMessage('Email đã được xác nhận!', 'success'); });
+
+// LIÊN KẾT GOOGLE: tài khoản email/mật khẩu gắn thêm Google → lần sau bấm "Tiếp tục với Google" là vào đúng tài khoản này (cùng uid, cùng dữ liệu).
+// Resolver popup chỉ truyền lúc gọi (xem firebase-init.js). Liên kết xong Firebase coi email là đã xác nhận nếu trùng Gmail.
+const googleRow = document.getElementById('google-link-row');
+const googleStatus = document.getElementById('google-link-status');
+const linkGoogleBtn = document.getElementById('link-google-btn');
+function renderProviders() {
+    const u = auth.currentUser;
+    if (!googleRow || !u || u.isAnonymous) return;
+    const g = u.providerData.find(p => p.providerId === 'google.com');
+    googleRow.classList.remove('hidden');
+    googleStatus.innerHTML = g
+        ? `<i class="fab fa-google text-[#4285F4] mr-1"></i>Đã liên kết Google${g.email && g.email !== u.email ? ` (${g.email})` : ''}`
+        : '<i class="fas fa-key mr-1"></i>Đăng nhập bằng email + mật khẩu';
+    linkGoogleBtn?.classList.toggle('hidden', !!g);
+}
+linkGoogleBtn?.addEventListener('click', async () => {
+    const u = auth.currentUser;
+    if (!u) return;
+    linkGoogleBtn.disabled = true;
+    try {
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+        await linkWithPopup(u, provider, browserPopupRedirectResolver);
+        await u.reload();
+        renderProviders();
+        renderVerifyState();
+        showMessage('Đã liên kết Google — lần sau bấm "Tiếp tục với Google" là vào tài khoản này.', 'success');
+    } catch (e) {
+        if (e?.code === 'auth/popup-closed-by-user' || e?.code === 'auth/cancelled-popup-request') return;
+        const msg = e?.code === 'auth/credential-already-in-use'
+            ? 'Tài khoản Google này đã gắn với một tài khoản Zitthenkne khác.'
+            : e?.code === 'auth/popup-blocked' ? 'Trình duyệt chặn cửa sổ đăng nhập — cho phép popup rồi bấm lại.'
+            : authErrorVi(e);
+        showMessage('Không liên kết được Google: ' + msg, 'error');
+    } finally { linkGoogleBtn.disabled = false; }
+});
+window.addEventListener('focus', () => { refreshEmailVerified(); });
+
 // onSessionUser: mất mạng mà phiên hết hạn thì Firebase trả null — trước đây trang đá ngay về trang chủ
 // onSessionUser báo HAI lần mỗi lần mở trang (danh tính lưu máy trước, bản Firebase thật sau) — lần hai chỉ đổi currentUser sang bản thật (cần getIdToken để lưu),
 // KHÔNG đọc lại users/{uid} + quét quiz_results lần nữa (C6: trước đây mỗi lần mở hồ sơ = 2 getDoc + 2 truy vấn lịch sử).
 let _loadedUid = null;
 onSessionUser(async user => {
-    if (user && _loadedUid === user.uid) { currentUser = user; return; }
+    if (user && _loadedUid === user.uid) { currentUser = user; renderVerifyState(); renderProviders(); return; }
+    if (user) { renderVerifyState(); renderProviders(); }
     if (user) {
         _loadedUid = user.uid;
         currentUser = user;
