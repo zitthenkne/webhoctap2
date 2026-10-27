@@ -1,9 +1,10 @@
 // Service Worker for PWA - Offline Support & Caching
 // 3 kho cache:
-//  - CACHE_NAME (zitthenkne-v2NNN): app shell. Tăng số MỖI LẦN sửa/thêm file trong urlsToCache.
+//  - CACHE_NAME (zitthenkne-v2NNN): app shell, phục vụ "mạng trước" (networkFirst) -> sửa code KHÔNG cần tăng số nữa,
+//    có mạng là máy tự lấy bản mới. Chỉ tăng khi thêm / bớt / đổi tên file trong urlsToCache (để nạp sẵn đúng bộ cho offline).
 //  - CDN_CACHE: thư viện + phông từ CDN (URL có phiên bản, gần như bất biến) → GIỮ qua các phiên bản.
 //  - IMG_CACHE: ảnh tải lúc chạy (nền, avatar, ảnh bệnh án) → giữ qua các phiên bản, tối đa IMG_MAX mục.
-const CACHE_NAME = 'zitthenkne-v383';
+const CACHE_NAME = 'zitthenkne-v384';
 const CDN_CACHE = 'zitthenkne-cdn';
 const IMG_CACHE = 'zitthenkne-img';
 const IMG_MAX = 600;
@@ -539,17 +540,24 @@ async function cacheFirst(request, url, store) {
   }
 }
 
-// Stale-While-Revalidate: trả cache TỨC THÌ (mở app mượt như native), đồng thời
-// ngầm tải bản mới về cache cho lần sau. Không có cache thì chờ mạng; hỏng thì
-// rơi về offline.html cho điều hướng trang.
-async function staleWhileRevalidate(request) {
+// Mạng trước, cache dự phòng (2026-10-27; trước là stale-while-revalidate -> đẩy code mới lên mà máy vẫn chạy
+// bản cũ cho tới khi đổi CACHE_NAME). Có mạng: luôn lấy bản mới nhất (cache:'no-cache' = hỏi lại máy chủ bằng
+// ETag, file không đổi chỉ tốn một phản hồi 304 rất nhẹ — vượt luôn cache HTTP 10 phút của GitHub Pages) rồi cất vào
+// cache. Mạng chậm quá NET_WAIT_MS hoặc mất mạng: trả bản trong cache (bản mới vẫn tải tiếp & cất cho lần sau);
+// không có cả hai thì điều hướng trang rơi về offline.html.
+const NET_WAIT_MS = 3000;
+async function networkFirst(request) {
   const cache = await caches.open(CACHE_NAME);
   // Điều hướng thường kèm query (quiz.html?id=...): cache chỉ có bản không query,
   // nên phải bỏ qua query khi dò, không thì offline sẽ rơi oan vào offline.html.
   // Tài nguyên cùng nguồn hay kèm đuôi phá cache (xem-benh-an.css?v=2) trong khi danh sách
   // nạp sẵn ghi tên trơn -> không bỏ query khi dò thì offline hụt, trang mất định dạng.
-  const cached = await cache.match(request) || await cache.match(request, { ignoreSearch: true });
-  const network = fetch(request).then((res) => {
+  const fromCache = async () => (await cache.match(request)) || (await cache.match(request, { ignoreSearch: true }));
+  // Request điều hướng (mode 'navigate') không dựng lại kèm tuỳ chọn được -> dựng request mới theo URL
+  const fresh = request.mode === 'navigate'
+    ? new Request(request.url, { cache: 'no-cache', credentials: 'same-origin' })
+    : new Request(request, { cache: 'no-cache' });
+  const network = fetch(fresh).then((res) => {
     if (res && res.status === 200 && res.type === 'basic') {
       // Lưu theo URL đã bỏ query để mỗi id không đẻ ra một bản HTML riêng trong cache.
       const key = request.mode === 'navigate' ? new Request(new URL(request.url).origin + new URL(request.url).pathname) : request;
@@ -558,8 +566,14 @@ async function staleWhileRevalidate(request) {
     return res;
   }).catch(() => undefined);
 
-  if (cached) return cached;                 // có cache -> trả ngay, cập nhật chạy nền
-  const res = await network;
+  let timer;
+  const slow = new Promise((resolve) => { timer = setTimeout(resolve, NET_WAIT_MS); });
+  const first = await Promise.race([network, slow]);
+  clearTimeout(timer);
+  if (first) return first;                    // mạng kịp trả lời -> bản mới nhất
+  const cached = await fromCache();
+  if (cached) return cached;                  // mạng chậm / mất mạng -> bản đã lưu
+  const res = await network;                  // chưa từng lưu -> đành chờ mạng
   if (res) return res;
   if (request.mode === 'navigate') return cache.match('offline.html');
   return Response.error();
@@ -605,7 +619,7 @@ self.addEventListener('fetch', (event) => {
   } else if (url.origin !== self.location.origin || isFontUrl(url)) {
     event.respondWith(cacheFirst(request, url, CDN_CACHE));        // CDN + phông
   } else {
-    event.respondWith(staleWhileRevalidate(request));              // app shell cùng origin
+    event.respondWith(networkFirst(request));                      // app shell cùng origin: luôn bản mới khi có mạng
   }
 });
 
