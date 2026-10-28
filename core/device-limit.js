@@ -25,30 +25,55 @@ const emailOf = (u) => String(u?.email || '').toLowerCase();
 /** Tài khoản quản trị (email đã xác nhận nằm trong ADMIN_EMAILS). */
 export const isAdminUser = (u) => !!u && !u.isAnonymous && ADMIN_EMAILS.includes(emailOf(u));
 
-/** Tài khoản đặc biệt (admin hoặc trong config/access.deviceExempt): không bắt đăng nhập Google và dùng tối đa EXEMPT_MAX máy. */
+/** Tài khoản được phép đăng nhập thẳng bằng email + mật khẩu (không bắt qua Google): admin, passwordAllowed hoặc deviceExempt. */
 export async function isExemptUser(u) {
     if (!u || u.isAnonymous) return false;
     if (isAdminUser(u)) return true;
     try {
         const snap = await getDoc(accessRef());
-        const list = snap.exists() && Array.isArray(snap.data().deviceExempt) ? snap.data().deviceExempt : [];
-        return list.includes(emailOf(u));
+        if (!snap.exists()) return false;
+        const d = snap.data() || {};
+        const e = emailOf(u);
+        const devList = Array.isArray(d.deviceExempt) ? d.deviceExempt : [];
+        const pwList = Array.isArray(d.passwordAllowed) ? d.passwordAllowed : [];
+        return devList.includes(e) || pwList.includes(e);
     } catch (e) { return false; }
 }
 
-/** Số máy tối đa của một tài khoản: admin / email ngoại lệ → EXEMPT_MAX, còn lại MAX_DEVICES. Lỗi đọc cấu hình → MAX_DEVICES. */
+/** Số máy tối đa của một tài khoản: admin / email trong deviceExempt → EXEMPT_MAX (20), còn lại MAX_DEVICES (2). */
 export async function deviceLimitFor(u) {
-    return (await isExemptUser(u)) ? EXEMPT_MAX : MAX_DEVICES;
+    if (!u || u.isAnonymous) return MAX_DEVICES;
+    if (isAdminUser(u)) return EXEMPT_MAX;
+    try {
+        const snap = await getDoc(accessRef());
+        const list = snap.exists() && Array.isArray(snap.data().deviceExempt) ? snap.data().deviceExempt : [];
+        return list.includes(emailOf(u)) ? EXEMPT_MAX : MAX_DEVICES;
+    } catch (e) { return MAX_DEVICES; }
 }
 
-// ---------- Admin: quản lý danh sách ngoại lệ (luật config/{docId}: chỉ admin ghi) ----------
-export function onDeviceExempt(cb) {
-    return onSnapshot(accessRef(), (s) => cb(s.exists() && Array.isArray(s.data().deviceExempt) ? s.data().deviceExempt : []), () => cb(null));
+// ---------- Admin: quản lý cấu hình đặc quyền (config/access: passwordAllowed & deviceExempt) ----------
+export function onAccessConfig(cb) {
+    return onSnapshot(accessRef(), (s) => {
+        const d = s.exists() ? s.data() || {} : {};
+        cb({
+            deviceExempt: Array.isArray(d.deviceExempt) ? d.deviceExempt : [],
+            passwordAllowed: Array.isArray(d.passwordAllowed) ? d.passwordAllowed : []
+        });
+    }, () => cb(null));
 }
-export async function setDeviceExempt(email, exempt) {
+export function onDeviceExempt(cb) {
+    return onAccessConfig((cfg) => cb(cfg ? cfg.deviceExempt : null));
+}
+export async function setAccountAccess(email, { allowPassword, unlimitedDevices } = {}) {
     const e = String(email || '').trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw new Error('Email không hợp lệ.');
-    await setDoc(accessRef(), { deviceExempt: exempt ? arrayUnion(e) : arrayRemove(e) }, { merge: true });
+    const patch = {};
+    if (typeof allowPassword === 'boolean') patch.passwordAllowed = allowPassword ? arrayUnion(e) : arrayRemove(e);
+    if (typeof unlimitedDevices === 'boolean') patch.deviceExempt = unlimitedDevices ? arrayUnion(e) : arrayRemove(e);
+    await setDoc(accessRef(), patch, { merge: true });
+}
+export async function setDeviceExempt(email, exempt) {
+    return setAccountAccess(email, exempt ? { allowPassword: true, unlimitedDevices: true } : { allowPassword: false, unlimitedDevices: false });
 }
 const FRESH_KEY = 'freshLogin';
 const devRef = (uid) => doc(db, 'users', uid, 'private', 'devices');
@@ -205,6 +230,31 @@ export async function removeDevice(_uid, id) {
 /** Admin: đăng xuất một máy (deviceId) hoặc MỌI máy (bỏ trống) của tài khoản khác. */
 export async function adminRemoveDevices(uid, id) {
     await callDevices({ action: 'adminRemove', uid, deviceId: id || '' });
+}
+
+/** Admin: tạo tài khoản mới (hoặc cập nhật nếu đã có) trực tiếp trên Firebase Auth. */
+export async function adminCreateUser(payload) {
+    return callDevices({ action: 'adminCreateUser', ...payload });
+}
+
+/** Admin: tra cứu chi tiết tài khoản (theo email, tên hoặc UID) trực tiếp từ Firebase Auth. */
+export async function adminLookupUser(query) {
+    return callDevices({ action: 'adminLookup', query });
+}
+
+/** Admin: lấy danh sách toàn bộ tài khoản trên hệ thống. */
+export async function adminListUsers(limit = 60) {
+    return callDevices({ action: 'adminListUsers', limit });
+}
+
+/** Admin: cập nhật quyền (allowPassword, unlimitedDevices, approved, disabled), mật khẩu hoặc tên hiển thị. */
+export async function adminUpdateUser(payload) {
+    return callDevices({ action: 'adminUpdateUser', ...payload });
+}
+
+/** Admin: xóa vĩnh viễn một tài khoản khỏi Firebase Auth. */
+export async function adminDeleteUser(uid) {
+    return callDevices({ action: 'adminDeleteUser', uid });
 }
 
 /** Trang Hồ sơ: nghe danh sách máy để vẽ. */

@@ -22,10 +22,12 @@ service cloud.firestore {
     // 2 máy, admin/ngoại lệ 20) — app không ghi được. Máy bị đẩy ra → không đọc được đề chia sẻ nữa dù có sửa code. Chỉ áp cho đề NGƯỜI KHÁC
     // chia sẻ (1 lượt đọc thêm); dữ liệu của chính mình và đề công khai không cần.
     function isExempt() {
+      let cfg = get(/databases/$(database)/documents/config/access).data;
       return isAdmin()
           || (request.auth != null
               && request.auth.token.email_verified == true
-              && request.auth.token.email in get(/databases/$(database)/documents/config/access).data.get('deviceExempt', []));
+              && (request.auth.token.email in cfg.get('deviceExempt', [])
+                  || request.auth.token.email in cfg.get('passwordAllowed', [])));
     }
     function trustedSession() {
       return isAdmin()
@@ -98,7 +100,9 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow write: if isAdmin()
                    && (docId != 'access' || (request.resource.data.get('deviceExempt', []) is list
-                                             && request.resource.data.get('deviceExempt', []).size() <= 200));
+                                             && request.resource.data.get('deviceExempt', []).size() <= 500
+                                             && request.resource.data.get('passwordAllowed', []) is list
+                                             && request.resource.data.get('passwordAllowed', []).size() <= 500));
     }
 
     // USERNAMES — bảng tra cho ô đăng nhập gõ TÊN (core/usernames.js): usernames/{khóa tên} = { uid, email }.

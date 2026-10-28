@@ -523,25 +523,74 @@
                         <p class="text-[11px] text-slate-400 mt-1.5 pl-1 leading-snug">Mỗi tài khoản đăng nhập tối đa 2 máy. Đăng nhập máy thứ 3 thì máy đăng nhập lâu nhất tự đăng xuất. Trên iPhone/iPad, Safari và ứng dụng ngoài màn hình chính tính là 2 máy.</p>
                     </div>
 
-                    <!-- QUẢN TRỊ — chỉ hiện với admin (profile.js renderAdmin): email được đăng nhập KHÔNG giới hạn số máy -->
-                    <div id="admin-box" class="hidden bg-amber-50/60 border border-amber-200/60 rounded-2xl p-3">
-                        <p class="text-[13px] font-extrabold text-amber-700 mb-1"><i class="fas fa-crown mr-1"></i>Quản trị · Tài khoản đặc biệt (miễn Google &amp; không giới hạn máy)</p>
-                        <p class="text-[11px] text-amber-700/70 mb-2 leading-snug">Các email dưới đây đăng nhập thẳng bằng email + mật khẩu (không bắt gắn Google) và dùng tối đa 20 máy. Tài khoản admin luôn được đặc cách.</p>
-                        <div class="flex gap-2 mb-2">
-                            <input type="email" id="admin-exempt-input" placeholder="email@gmail.com" autocomplete="off"
-                                class="flex-1 min-w-0 px-3 py-2 rounded-xl border border-amber-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-300">
-                            <button type="button" id="admin-exempt-add" class="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold">Thêm</button>
+                    <!-- QUẢN TRỊ TOÀN QUYỀN — chỉ hiện với admin (profile.js renderAdmin) -->
+                    <div id="admin-box" class="hidden bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 space-y-4">
+                        <div class="flex items-center justify-between gap-2">
+                            <p class="text-[14px] font-extrabold text-amber-800"><i class="fas fa-crown mr-1.5 text-amber-500"></i>Trung tâm Quản trị (Admin)</p>
+                            <span class="text-[10px] font-black uppercase tracking-wider bg-amber-200/80 text-amber-900 px-2.5 py-1 rounded-lg">Toàn quyền</span>
                         </div>
-                        <ul id="admin-exempt-list" class="space-y-1"></ul>
 
-                        <p class="text-[13px] font-extrabold text-amber-700 mt-4 mb-1"><i class="fas fa-magnifying-glass mr-1"></i>Tra cứu tài khoản</p>
-                        <p class="text-[11px] text-amber-700/70 mb-2 leading-snug">Nhập email hoặc tên người dùng → xem máy đang đăng nhập, vị trí gần đúng, lịch sử; đăng xuất từ xa nếu nghi cho mượn tài khoản.</p>
-                        <div class="flex gap-2 mb-2">
-                            <input type="text" id="admin-lookup-input" placeholder="email@gmail.com hoặc tên" autocomplete="off"
-                                class="flex-1 min-w-0 px-3 py-2 rounded-xl border border-amber-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-300">
-                            <button type="button" id="admin-lookup-btn" class="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold">Tìm</button>
+                        <!-- 1. TẠO TÀI KHOẢN MỚI / CẬP NHẬT NHANH -->
+                        <div class="bg-white/90 rounded-2xl border border-amber-200/70 p-3.5 space-y-2.5">
+                            <p class="text-[12.5px] font-extrabold text-amber-800"><i class="fas fa-user-plus mr-1 text-amber-600"></i>Tạo tài khoản mới (hoặc cập nhật nếu email đã có)</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <input type="email" id="admin-create-email" placeholder="Email đăng nhập *" autocomplete="off"
+                                    class="px-3 py-2 rounded-xl border border-amber-200 bg-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-300">
+                                <input type="text" id="admin-create-password" placeholder="Mật khẩu (>= 6 ký tự) *" autocomplete="off"
+                                    class="px-3 py-2 rounded-xl border border-amber-200 bg-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-300">
+                                <input type="text" id="admin-create-name" placeholder="Tên hiển thị / username" autocomplete="off"
+                                    class="px-3 py-2 rounded-xl border border-amber-200 bg-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-300">
+                            </div>
+                            <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                                <div class="flex flex-wrap items-center gap-3 text-[11.5px] font-bold text-slate-700">
+                                    <label class="inline-flex items-center gap-1.5 cursor-pointer select-none" title="Bật: đăng nhập bằng email + mật khẩu bình thường, không hiện bảng bắt liên kết Google. Tắt: bắt phải qua Google.">
+                                        <input type="checkbox" id="admin-create-allow-pw" checked class="rounded text-amber-500 focus:ring-amber-400">
+                                        <span>🔑 Cho đăng nhập thẳng (miễn Google)</span>
+                                    </label>
+                                    <label class="inline-flex items-center gap-1.5 cursor-pointer select-none" title="Bật: cho phép đăng nhập tối đa 20 thiết bị. Tắt: giới hạn 2 thiết bị như mặc định.">
+                                        <input type="checkbox" id="admin-create-unlimited" class="rounded text-amber-500 focus:ring-amber-400">
+                                        <span>♾️ Không giới hạn thiết bị (20 máy)</span>
+                                    </label>
+                                </div>
+                                <button type="button" id="admin-create-btn" class="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold shadow-sm transition">
+                                    <i class="fas fa-plus mr-1"></i>Tạo / Cập nhật
+                                </button>
+                            </div>
                         </div>
-                        <div id="admin-lookup-result"></div>
+
+                        <!-- 2. DANH SÁCH ĐẶC CÁCH NHANH (MIỄN GOOGLE / KHÔNG GIỚI HẠN MÁY) -->
+                        <div class="bg-white/90 rounded-2xl border border-amber-200/70 p-3.5 space-y-2">
+                            <p class="text-[12.5px] font-extrabold text-amber-800"><i class="fas fa-shield-halved mr-1 text-amber-600"></i>Danh sách đặc cách (bấm vào nhãn để bật/tắt từng quyền)</p>
+                            <p class="text-[11px] text-amber-700/80 leading-snug">
+                                <b>🔑 Đăng nhập thẳng</b>: được vào bằng email + mật khẩu (không bắt qua Google).
+                                <b>♾️ 20 máy</b>: không giới hạn 2 máy. Bấm trực tiếp vào từng nhãn bên dưới để đổi nhanh.
+                            </p>
+                            <div class="flex flex-wrap gap-2">
+                                <input type="email" id="admin-exempt-input" placeholder="Thêm nhanh email@gmail.com..." autocomplete="off"
+                                    class="flex-1 min-w-[180px] px-3 py-1.5 rounded-xl border border-amber-200 bg-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-300">
+                                <button type="button" id="admin-exempt-add-pw" class="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-extrabold" title="Chỉ miễn Google, vẫn giới hạn 2 máy">+ Miễn Google (2 máy)</button>
+                                <button type="button" id="admin-exempt-add" class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-extrabold" title="Miễn Google và mở 20 máy">+ Miễn Google &amp; 20 máy</button>
+                            </div>
+                            <ul id="admin-exempt-list" class="space-y-1.5 pt-1"></ul>
+                        </div>
+
+                        <!-- 3. TRA CỨU & QUẢN LÝ TOÀN BỘ TÀI KHOẢN -->
+                        <div class="bg-white/90 rounded-2xl border border-amber-200/70 p-3.5 space-y-2.5">
+                            <div class="flex items-center justify-between gap-2 flex-wrap">
+                                <p class="text-[12.5px] font-extrabold text-amber-800"><i class="fas fa-users-gear mr-1 text-amber-600"></i>Tra cứu &amp; Điều khiển tài khoản</p>
+                                <button type="button" id="admin-list-users-btn" class="px-2.5 py-1 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-800 text-[11px] font-extrabold transition">
+                                    <i class="fas fa-list mr-1"></i>Danh sách tài khoản
+                                </button>
+                            </div>
+                            <p class="text-[11px] text-amber-700/80 leading-snug">Tìm theo email, tên hiển thị hoặc UID → chỉnh quyền <b>đăng nhập thẳng / bắt qua Google</b>, <b>2 máy / 20 máy</b>, <b>đặt lại mật khẩu</b>, <b>đổi tên</b>, <b>khoá/mở khoá</b>, xem vị trí &amp; đá thiết bị từ xa.</p>
+                            <div class="flex gap-2">
+                                <input type="text" id="admin-lookup-input" placeholder="Nhập email, tên người dùng hoặc UID..." autocomplete="off"
+                                    class="flex-1 min-w-0 px-3 py-2 rounded-xl border border-amber-200 bg-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-300">
+                                <button type="button" id="admin-lookup-btn" class="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold">Tìm</button>
+                            </div>
+                            <div id="admin-lookup-result" class="space-y-2"></div>
+                            <div id="admin-users-list-wrap" class="hidden pt-2 border-t border-amber-100"></div>
+                        </div>
                     </div>
 
                     <!-- Đổi mật khẩu (Accordion mượt mà) -->

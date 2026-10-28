@@ -6,7 +6,8 @@ import { updateDocQ as updateDoc } from '../../core/offline-write.js';
 import { showConfirm } from '../../core/utils.js';
 import { claimName } from '../../core/usernames.js';
 import { releaseThisDevice, removeDevice, adminRemoveDevices, onDevices, onLogins, placeOf, findAccount, deviceId, MAX_DEVICES, deviceLimitFor,
-    isAdminUser, onDeviceExempt, setDeviceExempt, ADMIN_EMAILS } from '../../core/device-limit.js';
+    isAdminUser, onAccessConfig, setAccountAccess, ADMIN_EMAILS,
+    adminCreateUser, adminLookupUser, adminListUsers, adminUpdateUser, adminDeleteUser } from '../../core/device-limit.js';
 import { readMetaCache, fetchAllQuizMeta } from '../quiz/library/library-meta.js';
 import { readRowsCache, syncRows } from './stats-insights.js';
 
@@ -410,7 +411,7 @@ function renderDevices() {
     });
 }
 
-// QUẢN TRỊ (chỉ admin — isAdminUser, khớp isAdmin() của firestore.rules): danh sách email KHÔNG giới hạn số máy đăng nhập.
+// QUẢN TRỊ TOÀN QUYỀN (chỉ admin — isAdminUser, khớp isAdmin() của firestore.rules + api/_lib/admin.js)
 let adminBound = false;
 function renderAdmin() {
     const u = auth.currentUser;
@@ -418,74 +419,435 @@ function renderAdmin() {
     if (!box || !isAdminUser(u) || adminBound) return;
     adminBound = true;
     box.classList.remove('hidden');
-    const listEl = document.getElementById('admin-exempt-list');
-    const input = document.getElementById('admin-exempt-input');
-    const esc = (s) => String(s).replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
-    onDeviceExempt((list) => {
-        if (!list) { listEl.innerHTML = '<li class="text-[12px] text-red-400 pl-1">Không đọc được cấu hình (luật Firestore đã deploy chưa?).</li>'; return; }
-        const rows = [
-            ...ADMIN_EMAILS.map(e => `<li class="flex items-center gap-2 bg-white rounded-xl border border-slate-200/60 px-3 py-1.5">
-                <span class="flex-1 min-w-0 truncate text-[13px] font-bold text-slate-700">${esc(e)}</span><span class="text-[11px] font-bold text-amber-500">Admin</span></li>`),
-            ...list.filter(e => !ADMIN_EMAILS.includes(e)).map(e => `<li class="flex items-center gap-2 bg-white rounded-xl border border-slate-200/60 px-3 py-1.5">
-                <span class="flex-1 min-w-0 truncate text-[13px] font-semibold text-slate-700">${esc(e)}</span>
-                <button type="button" class="admin-exempt-remove text-[12px] font-extrabold text-red-500 hover:bg-red-50 px-2 py-0.5 rounded-lg" data-email="${esc(e)}">Bỏ</button></li>`)
-        ];
-        listEl.innerHTML = rows.join('');
-    });
-    const add = async () => {
-        try { await setDeviceExempt(input.value, true); input.value = ''; showMessage('Đã thêm tài khoản ngoại lệ (áp dụng từ lần mở app tới của họ).', 'success'); }
-        catch (e) { showMessage('Không thêm được: ' + e.message, 'error'); }
-    };
-    document.getElementById('admin-exempt-add').addEventListener('click', add);
-    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
-    listEl.addEventListener('click', async (e) => {
-        const btn = e.target.closest('.admin-exempt-remove');
-        if (!btn) return;
-        try { await setDeviceExempt(btn.dataset.email, false); showMessage(`Đã bỏ ngoại lệ cho ${btn.dataset.email}.`, 'success'); }
-        catch (err) { showMessage('Không bỏ được: ' + err.message, 'error'); }
+
+    const esc = (s) => String(s ?? '').replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    // --- 1. TẠO TÀI KHOẢN MỚI / CẬP NHẬT NHANH ---
+    const cEmail = document.getElementById('admin-create-email');
+    const cPass = document.getElementById('admin-create-password');
+    const cName = document.getElementById('admin-create-name');
+    const cAllowPw = document.getElementById('admin-create-allow-pw');
+    const cUnlimited = document.getElementById('admin-create-unlimited');
+    const cBtn = document.getElementById('admin-create-btn');
+
+    cBtn?.addEventListener('click', async () => {
+        const email = cEmail.value.trim().toLowerCase();
+        const password = cPass.value;
+        const displayName = cName.value.trim();
+        const allowPassword = !!cAllowPw.checked;
+        const unlimitedDevices = !!cUnlimited.checked;
+        if (!email || !email.includes('@')) return showMessage('Vui lòng nhập email hợp lệ.', 'error');
+        if (!password || password.length < 6) return showMessage('Mật khẩu phải từ 6 ký tự trở lên.', 'error');
+        cBtn.disabled = true;
+        const oldHtml = cBtn.innerHTML;
+        cBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Đang xử lý...';
+        try {
+            const res = await adminCreateUser({ email, password, displayName, allowPassword, unlimitedDevices, approved: true });
+            const modeTxt = allowPassword ? 'Đăng nhập thẳng (miễn Google)' : 'Bắt buộc qua Google';
+            const devTxt = unlimitedDevices ? '20 máy' : '2 máy';
+            showMessage(`${res.existed ? 'Đã cập nhật' : 'Đã tạo mới'} tài khoản ${res.email} · ${modeTxt} · ${devTxt}.`, 'success');
+            cEmail.value = '';
+            cPass.value = '';
+            cName.value = '';
+            if (qInput && qInput.value.trim().toLowerCase() === email) lookup();
+        } catch (err) {
+            showMessage('Lỗi tạo/cập nhật tài khoản: ' + err.message, 'error');
+        } finally {
+            cBtn.disabled = false;
+            cBtn.innerHTML = oldHtml;
+        }
     });
 
-    // TRA CỨU TÀI KHOẢN: email / tên → máy đang đăng nhập (kèm vị trí) + lịch sử đăng nhập; đăng xuất từ xa từng máy hoặc tất cả.
-    const qInput = document.getElementById('admin-lookup-input');
-    const out = document.getElementById('admin-lookup-result');
-    let stop = [];
-    let target = null;
-    const lookup = async () => {
-        stop.forEach(f => f?.()); stop = [];
-        target = null;
-        out.innerHTML = '<p class="text-[12px] text-slate-400">Đang tìm…</p>';
-        let acc;
-        try { acc = await findAccount(qInput.value); }
-        catch (e) { out.innerHTML = `<p class="text-[12px] text-red-500">Lỗi tra cứu: ${escH(e.message)}</p>`; return; }
-        if (!acc) {
-            out.innerHTML = '<p class="text-[12px] text-slate-500">Không tìm thấy. (Tài khoản chưa đăng nhập lại kể từ bản cập nhật này thì chưa tra được theo email — thử theo tên người dùng.)</p>';
+    // --- 2. DANH SÁCH ĐẶC CÁCH (onAccessConfig: độc lập giữa passwordAllowed & deviceExempt) ---
+    const listEl = document.getElementById('admin-exempt-list');
+    const input = document.getElementById('admin-exempt-input');
+    let latestCfg = { deviceExempt: [], passwordAllowed: [] };
+
+    onAccessConfig((cfg) => {
+        if (!cfg) {
+            listEl.innerHTML = '<li class="text-[12px] text-red-400 pl-1">Không đọc được cấu hình (luật Firestore đã deploy chưa?).</li>';
             return;
         }
-        target = acc;
-        out.innerHTML = `
-            <div class="flex items-center justify-between gap-2 mb-1.5">
-                <p class="text-[13px] font-extrabold text-slate-700 truncate">${escH(acc.email || acc.uid)}</p>
-                <button type="button" id="admin-out-all" class="shrink-0 text-[12px] font-extrabold text-red-500 hover:bg-red-50 px-2.5 py-1 rounded-xl">Đăng xuất tất cả</button>
-            </div>
-            <ul id="admin-dev-list" class="space-y-1.5 mb-2"></ul>
-            <p class="text-[12px] font-bold text-slate-600 mb-1">Lịch sử đăng nhập</p>
-            <ul id="admin-log-list" class="space-y-1"></ul>`;
-        stop.push(onDevices(acc.uid, (list) => { const el = document.getElementById('admin-dev-list'); if (el) el.innerHTML = list ? deviceRowsHtml(list, null) : '<li class="text-[12px] text-red-400">Không đọc được (luật đã deploy chưa?).</li>'; }));
-        stop.push(onLogins(acc.uid, (list) => { const el = document.getElementById('admin-log-list'); if (el) el.innerHTML = list ? loginRowsHtml(list) : ''; }));
+        latestCfg = cfg;
+        const devSet = new Set(cfg.deviceExempt || []);
+        const pwSet = new Set([...(cfg.passwordAllowed || []), ...(cfg.deviceExempt || [])]);
+        const allEmails = Array.from(new Set([...ADMIN_EMAILS, ...pwSet, ...devSet]));
+
+        const rows = allEmails.map(e => {
+            const isAdm = ADMIN_EMAILS.includes(e);
+            if (isAdm) {
+                return `<li class="flex flex-wrap items-center justify-between gap-2 bg-amber-50/70 rounded-xl border border-amber-200 px-3 py-1.5">
+                    <span class="min-w-0 truncate text-[12.5px] font-extrabold text-amber-900">${esc(e)}</span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-[10.5px] font-extrabold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-lg">👑 Admin mặc định</span>
+                        <span class="text-[10.5px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-lg">🔑 Đăng nhập thẳng</span>
+                        <span class="text-[10.5px] font-bold bg-purple-100 text-purple-700 px-2 py-0.5 rounded-lg">♾️ 20 máy</span>
+                    </div>
+                </li>`;
+            }
+            const hasPw = pwSet.has(e);
+            const hasUnlim = devSet.has(e);
+            return `<li class="flex flex-wrap items-center justify-between gap-2 bg-white rounded-xl border border-slate-200/70 px-3 py-1.5">
+                <button type="button" class="admin-quick-inspect min-w-0 truncate text-left text-[12.5px] font-bold text-slate-700 hover:text-amber-600" data-email="${esc(e)}" title="Bấm để tra cứu chi tiết">${esc(e)}</button>
+                <div class="flex flex-wrap items-center gap-1.5">
+                    <button type="button" class="admin-toggle-pw text-[10.5px] font-extrabold px-2 py-0.5 rounded-lg transition ${hasPw ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}"
+                        data-email="${esc(e)}" data-pw="${hasPw ? '1' : '0'}" data-dev="${hasUnlim ? '1' : '0'}"
+                        title="Bấm để chuyển đổi: Cho đăng nhập thẳng bằng mật khẩu vs Bắt qua Google">
+                        ${hasPw ? '🔑 Đăng nhập thẳng' : '🌐 Bắt qua Google'}
+                    </button>
+                    <button type="button" class="admin-toggle-dev text-[10.5px] font-extrabold px-2 py-0.5 rounded-lg transition ${hasUnlim ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}"
+                        data-email="${esc(e)}" data-pw="${hasPw ? '1' : '0'}" data-dev="${hasUnlim ? '1' : '0'}"
+                        title="Bấm để chuyển đổi: Không giới hạn (20 máy) vs Giới hạn 2 máy">
+                        ${hasUnlim ? '♾️ 20 máy' : '🔒 2 máy'}
+                    </button>
+                    <button type="button" class="admin-exempt-remove text-[11px] font-extrabold text-red-500 hover:bg-red-50 px-2 py-0.5 rounded-lg" data-email="${esc(e)}" title="Xoá mọi đặc cách (về mặc định: bắt Google + 2 máy)">Bỏ</button>
+                </div>
+            </li>`;
+        });
+        listEl.innerHTML = rows.join('');
+    });
+
+    const addExempt = async (allowPw, unlimDev) => {
+        const email = input.value.trim().toLowerCase();
+        if (!email) return;
+        try {
+            await setAccountAccess(email, { allowPassword: allowPw, unlimitedDevices: unlimDev });
+            input.value = '';
+            showMessage(`Đã cấp quyền cho ${email}: ${allowPw ? 'Đăng nhập thẳng' : 'Qua Google'} · ${unlimDev ? '20 máy' : '2 máy'}.`, 'success');
+        } catch (e) {
+            showMessage('Không thêm được: ' + e.message, 'error');
+        }
     };
-    document.getElementById('admin-lookup-btn').addEventListener('click', lookup);
-    qInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); lookup(); } });
-    out.addEventListener('click', async (e) => {
+    document.getElementById('admin-exempt-add')?.addEventListener('click', () => addExempt(true, true));
+    document.getElementById('admin-exempt-add-pw')?.addEventListener('click', () => addExempt(true, false));
+    input?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addExempt(true, true); } });
+
+    listEl?.addEventListener('click', async (e) => {
+        const inspectBtn = e.target.closest('.admin-quick-inspect');
+        if (inspectBtn) {
+            qInput.value = inspectBtn.dataset.email;
+            lookup();
+            return;
+        }
+        const pwBtn = e.target.closest('.admin-toggle-pw');
+        if (pwBtn) {
+            const email = pwBtn.dataset.email;
+            const curPw = pwBtn.dataset.pw === '1';
+            const curDev = pwBtn.dataset.dev === '1';
+            const nextPw = !curPw;
+            // Nếu tắt đăng nhập thẳng thì cũng tắt deviceExempt (vì deviceExempt hàm ý đặc cách)
+            const nextDev = nextPw ? curDev : false;
+            try {
+                await setAccountAccess(email, { allowPassword: nextPw, unlimitedDevices: nextDev });
+                showMessage(`Đã cập nhật ${email}: ${nextPw ? 'Cho đăng nhập thẳng (miễn Google)' : 'Bắt đăng nhập qua Google'}.`, 'success');
+            } catch (err) { showMessage('Lỗi cập nhật: ' + err.message, 'error'); }
+            return;
+        }
+        const devBtn = e.target.closest('.admin-toggle-dev');
+        if (devBtn) {
+            const email = devBtn.dataset.email;
+            const curPw = devBtn.dataset.pw === '1';
+            const curDev = devBtn.dataset.dev === '1';
+            const nextDev = !curDev;
+            const nextPw = nextDev ? true : curPw;
+            try {
+                await setAccountAccess(email, { allowPassword: nextPw, unlimitedDevices: nextDev });
+                showMessage(`Đã cập nhật ${email}: ${nextDev ? 'Mở 20 thiết bị' : 'Giới hạn 2 thiết bị'}.`, 'success');
+            } catch (err) { showMessage('Lỗi cập nhật: ' + err.message, 'error'); }
+            return;
+        }
+        const rmBtn = e.target.closest('.admin-exempt-remove');
+        if (rmBtn) {
+            try {
+                await setAccountAccess(rmBtn.dataset.email, { allowPassword: false, unlimitedDevices: false });
+                showMessage(`Đã gỡ đặc cách của ${rmBtn.dataset.email} (về mặc định: qua Google + 2 máy).`, 'success');
+            } catch (err) { showMessage('Không bỏ được: ' + err.message, 'error'); }
+        }
+    });
+
+    // --- 3. TRA CỨU SÂU & ĐIỀU KHIỂN TÀI KHOẢN (kết hợp Firebase Auth Admin + Firestore) ---
+    const qInput = document.getElementById('admin-lookup-input');
+    const out = document.getElementById('admin-lookup-result');
+    const usersWrap = document.getElementById('admin-users-list-wrap');
+    let stop = [];
+    let target = null;
+
+    function renderTargetCard(acc) {
+        target = acc;
+        const isTargetAdmin = ADMIN_EMAILS.includes((acc.email || '').toLowerCase());
+        const allowPw = isTargetAdmin || !!acc.allowPassword || !!acc.unlimitedDevices;
+        const unlimDev = isTargetAdmin || !!acc.unlimitedDevices;
+        const approved = isTargetAdmin || acc.approved !== false;
+        const disabled = !!acc.disabled;
+        const providers = (acc.providers || []).map(p => p === 'google.com' ? 'Google' : p === 'password' ? 'Mật khẩu' : p).join(', ') || 'Chưa rõ';
+
+        out.innerHTML = `
+            <div class="bg-amber-50/50 rounded-2xl border border-amber-200/80 p-3 space-y-3">
+                <div class="flex flex-wrap items-start justify-between gap-2">
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <p class="text-[13.5px] font-black text-slate-800 truncate">${escH(acc.displayName || '(Chưa đặt tên)')}</p>
+                            ${isTargetAdmin ? '<span class="text-[10px] font-extrabold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-md">ADMIN</span>' : ''}
+                            ${disabled ? '<span class="text-[10px] font-extrabold bg-red-100 text-red-700 px-2 py-0.5 rounded-md">ĐANG KHOÁ</span>' : '<span class="text-[10px] font-extrabold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-md">HOẠT ĐỘNG</span>'}
+                        </div>
+                        <p class="text-[12px] font-bold text-slate-600 truncate">${escH(acc.email || '(Không có email)')} · <span class="text-[11px] text-slate-400 font-mono">UID: ${escH(acc.uid)}</span></p>
+                        <p class="text-[11px] text-slate-500">Phương thức: <b>${escH(providers)}</b> · Email xác thực: <b>${acc.emailVerified ? 'Rồi' : 'Chưa'}</b></p>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" id="admin-out-all" class="text-[11px] font-extrabold text-amber-700 bg-amber-100 hover:bg-amber-200 px-2.5 py-1 rounded-xl">Đá mọi thiết bị</button>
+                        ${isTargetAdmin ? '' : `<button type="button" id="admin-delete-user" class="text-[11px] font-extrabold text-red-600 bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-xl">Xoá TK</button>`}
+                    </div>
+                </div>
+
+                <!-- Công tắc phân quyền 1-chạm -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-1">
+                    <button type="button" id="admin-card-toggle-pw" ${isTargetAdmin ? 'disabled' : ''}
+                        class="px-2.5 py-2 rounded-xl border text-left transition ${allowPw ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-600'}">
+                        <span class="block text-[10px] font-bold uppercase opacity-75">Cổng đăng nhập</span>
+                        <span class="block text-[11.5px] font-extrabold mt-0.5">${allowPw ? '🔑 Đăng nhập thẳng' : '🌐 Bắt qua Google'}</span>
+                    </button>
+                    <button type="button" id="admin-card-toggle-dev" ${isTargetAdmin ? 'disabled' : ''}
+                        class="px-2.5 py-2 rounded-xl border text-left transition ${unlimDev ? 'bg-purple-50 border-purple-200 text-purple-800' : 'bg-slate-50 border-slate-200 text-slate-600'}">
+                        <span class="block text-[10px] font-bold uppercase opacity-75">Giới hạn thiết bị</span>
+                        <span class="block text-[11.5px] font-extrabold mt-0.5">${unlimDev ? '♾️ 20 thiết bị' : '🔒 2 thiết bị'}</span>
+                    </button>
+                    <button type="button" id="admin-card-toggle-approved" ${isTargetAdmin ? 'disabled' : ''}
+                        class="px-2.5 py-2 rounded-xl border text-left transition ${approved ? 'bg-sky-50 border-sky-200 text-sky-800' : 'bg-rose-50 border-rose-200 text-rose-700'}">
+                        <span class="block text-[10px] font-bold uppercase opacity-75">Quyền tạo đề / phòng</span>
+                        <span class="block text-[11.5px] font-extrabold mt-0.5">${approved ? '✅ Đã duyệt' : '⏳ Chưa duyệt'}</span>
+                    </button>
+                    <button type="button" id="admin-card-toggle-lock" ${isTargetAdmin ? 'disabled' : ''}
+                        class="px-2.5 py-2 rounded-xl border text-left transition ${disabled ? 'bg-red-50 border-red-200 text-red-700' : 'bg-slate-50 border-slate-200 text-slate-700'}">
+                        <span class="block text-[10px] font-bold uppercase opacity-75">Trạng thái TK</span>
+                        <span class="block text-[11.5px] font-extrabold mt-0.5">${disabled ? '🚫 Đang bị khoá' : '🟢 Đang mở'}</span>
+                    </button>
+                </div>
+
+                <!-- Đổi mật khẩu & Đổi tên trực tiếp -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                    <div class="flex gap-1.5">
+                        <input type="text" id="admin-card-newpass" placeholder="Đặt mật khẩu mới (>=6 ký tự)" autocomplete="off"
+                            class="flex-1 min-w-0 px-2.5 py-1.5 rounded-xl border border-amber-200 bg-white text-xs font-semibold">
+                        <button type="button" id="admin-card-setpass-btn" class="shrink-0 px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-extrabold">Đổi MK</button>
+                    </div>
+                    <div class="flex gap-1.5">
+                        <input type="text" id="admin-card-newname" value="${escH(acc.displayName || '')}" placeholder="Đổi tên hiển thị / username" autocomplete="off"
+                            class="flex-1 min-w-0 px-2.5 py-1.5 rounded-xl border border-amber-200 bg-white text-xs font-semibold">
+                        <button type="button" id="admin-card-setname-btn" class="shrink-0 px-2.5 py-1.5 rounded-xl bg-slate-700 hover:bg-slate-800 text-white text-[11px] font-extrabold">Đổi tên</button>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="text-[11.5px] font-extrabold text-slate-600 mb-1">Thiết bị đang đăng nhập</p>
+                    <ul id="admin-dev-list" class="space-y-1.5 mb-2"></ul>
+                    <p class="text-[11.5px] font-extrabold text-slate-600 mb-1">Lịch sử đăng nhập</p>
+                    <ul id="admin-log-list" class="space-y-1"></ul>
+                </div>
+            </div>`;
+
+        stop.forEach(f => f?.()); stop = [];
+        stop.push(onDevices(acc.uid, (list) => {
+            const el = document.getElementById('admin-dev-list');
+            if (el) el.innerHTML = list ? deviceRowsHtml(list, null) : '<li class="text-[12px] text-red-400">Không đọc được thiết bị.</li>';
+        }));
+        stop.push(onLogins(acc.uid, (list) => {
+            const el = document.getElementById('admin-log-list');
+            if (el) el.innerHTML = list ? loginRowsHtml(list) : '';
+        }));
+    }
+
+    const lookup = async () => {
+        const q = qInput.value.trim();
+        if (!q) return;
+        stop.forEach(f => f?.()); stop = [];
+        target = null;
+        out.innerHTML = '<p class="text-[12px] text-slate-400"><i class="fas fa-spinner fa-spin mr-1"></i>Đang tra cứu từ hệ thống…</p>';
+        let acc = null;
+        try {
+            acc = await adminLookupUser(q);
+        } catch {
+            // Fallback client lookup nếu offline/lỗi mạng tạm thời
+            try { acc = await findAccount(q); } catch {}
+        }
+        if (!acc) {
+            out.innerHTML = '<p class="text-[12px] text-slate-500">Không tìm thấy tài khoản nào khớp. Bạn có thể tạo mới tài khoản này ở khung bên trên.</p>';
+            return;
+        }
+        renderTargetCard(acc);
+    };
+
+    document.getElementById('admin-lookup-btn')?.addEventListener('click', lookup);
+    qInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); lookup(); } });
+
+    // Sự kiện bên trong thẻ điều khiển tài khoản
+    out?.addEventListener('click', async (e) => {
         if (!target) return;
+
+        // 1. Đá 1 thiết bị hoặc toàn bộ thiết bị
         const one = e.target.closest('.device-out-btn');
         const all = e.target.closest('#admin-out-all');
-        if (!one && !all) return;
-        const ok = await showConfirm(all ? `Đăng xuất MỌI máy của ${target.email}?` : 'Đăng xuất máy này của người dùng?', { title: 'Đăng xuất từ xa', confirmText: 'Đăng xuất', tone: 'danger' });
-        if (!ok) return;
+        if (one || all) {
+            const ok = await showConfirm(all ? `Đăng xuất MỌI máy của ${target.email || target.uid}?` : 'Đăng xuất máy này của người dùng?', { title: 'Đăng xuất từ xa', confirmText: 'Đăng xuất', tone: 'danger' });
+            if (!ok) return;
+            try {
+                await adminRemoveDevices(target.uid, all ? '' : one.dataset.id);
+                showMessage('Đã đá thiết bị từ xa thành công.', 'success');
+            } catch (err) { showMessage('Không đăng xuất được: ' + err.message, 'error'); }
+            return;
+        }
+
+        // 2. Bật/tắt Đăng nhập thẳng (miễn Google)
+        if (e.target.closest('#admin-card-toggle-pw')) {
+            const nextPw = !target.allowPassword;
+            const nextDev = nextPw ? !!target.unlimitedDevices : false;
+            try {
+                await adminUpdateUser({ uid: target.uid, email: target.email, allowPassword: nextPw, unlimitedDevices: nextDev });
+                target.allowPassword = nextPw;
+                target.unlimitedDevices = nextDev;
+                renderTargetCard(target);
+                showMessage(`Đã chỉnh ${target.email}: ${nextPw ? 'Cho phép đăng nhập thẳng (miễn Google)' : 'Bắt buộc đăng nhập qua Google'}.`, 'success');
+            } catch (err) { showMessage('Lỗi: ' + err.message, 'error'); }
+            return;
+        }
+
+        // 3. Bật/tắt Không giới hạn thiết bị (20 máy)
+        if (e.target.closest('#admin-card-toggle-dev')) {
+            const nextDev = !target.unlimitedDevices;
+            const nextPw = nextDev ? true : !!target.allowPassword;
+            try {
+                await adminUpdateUser({ uid: target.uid, email: target.email, allowPassword: nextPw, unlimitedDevices: nextDev });
+                target.unlimitedDevices = nextDev;
+                target.allowPassword = nextPw;
+                renderTargetCard(target);
+                showMessage(`Đã chỉnh ${target.email}: ${nextDev ? 'Mở giới hạn 20 thiết bị' : 'Giới hạn 2 thiết bị'}.`, 'success');
+            } catch (err) { showMessage('Lỗi: ' + err.message, 'error'); }
+            return;
+        }
+
+        // 4. Bật/tắt quyền tạo đề (approved claim)
+        if (e.target.closest('#admin-card-toggle-approved')) {
+            const nextApp = !(target.approved !== false);
+            try {
+                await adminUpdateUser({ uid: target.uid, approved: nextApp });
+                target.approved = nextApp;
+                renderTargetCard(target);
+                showMessage(`Đã ${nextApp ? 'cấp quyền' : 'thu hồi quyền'} tạo bộ đề cho ${target.email || target.uid}.`, 'success');
+            } catch (err) { showMessage('Lỗi: ' + err.message, 'error'); }
+            return;
+        }
+
+        // 5. Khoá / Mở khoá tài khoản
+        if (e.target.closest('#admin-card-toggle-lock')) {
+            const nextDis = !target.disabled;
+            const ok = await showConfirm(nextDis ? `Khoá tài khoản ${target.email || target.uid} và đá toàn bộ thiết bị đang đăng nhập?` : `Mở khoá cho tài khoản ${target.email || target.uid}?`, {
+                title: nextDis ? 'Khoá tài khoản?' : 'Mở khoá tài khoản?',
+                confirmText: nextDis ? 'Khoá ngay' : 'Mở khoá',
+                tone: nextDis ? 'danger' : 'info'
+            });
+            if (!ok) return;
+            try {
+                await adminUpdateUser({ uid: target.uid, disabled: nextDis });
+                target.disabled = nextDis;
+                renderTargetCard(target);
+                showMessage(nextDis ? 'Đã khoá tài khoản và thu hồi mọi phiên đăng nhập.' : 'Đã mở khoá tài khoản.', 'success');
+            } catch (err) { showMessage('Lỗi: ' + err.message, 'error'); }
+            return;
+        }
+
+        // 6. Đặt lại mật khẩu trực tiếp
+        if (e.target.closest('#admin-card-setpass-btn')) {
+            const pwEl = document.getElementById('admin-card-newpass');
+            const newPassword = pwEl?.value || '';
+            if (newPassword.length < 6) return showMessage('Mật khẩu mới phải từ 6 ký tự trở lên.', 'error');
+            try {
+                await adminUpdateUser({ uid: target.uid, password: newPassword });
+                if (pwEl) pwEl.value = '';
+                showMessage(`Đã đặt mật khẩu mới cho ${target.email || target.uid}.`, 'success');
+            } catch (err) { showMessage('Lỗi đổi mật khẩu: ' + err.message, 'error'); }
+            return;
+        }
+
+        // 7. Đổi tên hiển thị / username trực tiếp
+        if (e.target.closest('#admin-card-setname-btn')) {
+            const nameEl = document.getElementById('admin-card-newname');
+            const newName = (nameEl?.value || '').trim();
+            if (!newName) return showMessage('Vui lòng nhập tên hiển thị.', 'error');
+            try {
+                await adminUpdateUser({ uid: target.uid, displayName: newName });
+                target.displayName = newName;
+                renderTargetCard(target);
+                showMessage(`Đã đổi tên thành "${newName}".`, 'success');
+            } catch (err) { showMessage('Lỗi đổi tên: ' + err.message, 'error'); }
+            return;
+        }
+
+        // 8. Xoá vĩnh viễn tài khoản
+        if (e.target.closest('#admin-delete-user')) {
+            const ok = await showConfirm(`Xoá vĩnh viễn tài khoản ${target.email || target.uid}? Thao tác này không thể hoàn tác.`, {
+                title: 'Xoá tài khoản?',
+                confirmText: 'Xoá vĩnh viễn',
+                tone: 'danger'
+            });
+            if (!ok) return;
+            try {
+                await adminDeleteUser(target.uid);
+                stop.forEach(f => f?.()); stop = [];
+                out.innerHTML = '<p class="text-[12px] text-emerald-600 font-bold">Đã xoá tài khoản.</p>';
+                target = null;
+                showMessage('Đã xoá tài khoản thành công.', 'success');
+            } catch (err) { showMessage('Lỗi xoá tài khoản: ' + err.message, 'error'); }
+        }
+    });
+
+    // --- 4. DANH SÁCH TOÀN BỘ TÀI KHOẢN TRÊN HỆ THỐNG ---
+    const listUsersBtn = document.getElementById('admin-list-users-btn');
+    listUsersBtn?.addEventListener('click', async () => {
+        if (!usersWrap) return;
+        const isHidden = usersWrap.classList.contains('hidden');
+        if (!isHidden) {
+            usersWrap.classList.add('hidden');
+            return;
+        }
+        usersWrap.classList.remove('hidden');
+        usersWrap.innerHTML = '<p class="text-[12px] text-slate-400"><i class="fas fa-spinner fa-spin mr-1"></i>Đang tải danh sách tài khoản…</p>';
         try {
-            await adminRemoveDevices(target.uid, all ? '' : one.dataset.id);
-            showMessage('Đã đăng xuất từ xa (máy đó tự đăng xuất khi có mạng).', 'success');
-        } catch (err) { showMessage('Không đăng xuất được: ' + err.message, 'error'); }
+            const users = await adminListUsers();
+            usersWrap.innerHTML = `
+                <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-[11.5px] font-extrabold text-amber-800">Tổng cộng: ${users.length} tài khoản (bấm vào bất kỳ dòng nào để điều khiển)</span>
+                    <button type="button" id="admin-close-users-list" class="text-[11px] font-bold text-slate-400 hover:text-slate-600">Thu gọn</button>
+                </div>
+                <div class="max-h-64 overflow-y-auto space-y-1 pr-1">
+                    ${users.map(uItem => `
+                        <button type="button" class="admin-pick-user w-full text-left flex flex-wrap items-center justify-between gap-2 bg-slate-50/80 hover:bg-amber-50 rounded-xl border border-slate-200/70 px-3 py-1.5 transition" data-q="${esc(uItem.email || uItem.uid)}">
+                            <span class="min-w-0 truncate text-[12px] font-bold text-slate-700">
+                                ${esc(uItem.displayName || '(Chưa tên)')}
+                                <span class="text-slate-400 font-normal">· ${esc(uItem.email || uItem.uid)}</span>
+                            </span>
+                            <span class="flex items-center gap-1 shrink-0 text-[10px] font-extrabold">
+                                ${uItem.disabled ? '<span class="bg-red-100 text-red-700 px-1.5 py-0.5 rounded">Khoá</span>' : ''}
+                                ${uItem.allowPassword ? '<span class="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">🔑 Thẳng</span>' : '<span class="bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">🌐 Google</span>'}
+                                ${uItem.unlimitedDevices ? '<span class="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">♾️ 20 máy</span>' : '<span class="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">2 máy</span>'}
+                            </span>
+                        </button>
+                    `).join('')}
+                </div>
+            `;
+        } catch (err) {
+            usersWrap.innerHTML = `<p class="text-[12px] text-red-500">Không tải được danh sách: ${escH(err.message)}</p>`;
+        }
+    });
+
+    usersWrap?.addEventListener('click', (e) => {
+        if (e.target.closest('#admin-close-users-list')) {
+            usersWrap.classList.add('hidden');
+            return;
+        }
+        const pick = e.target.closest('.admin-pick-user');
+        if (pick) {
+            qInput.value = pick.dataset.q;
+            lookup();
+        }
     });
 }
 
