@@ -4,7 +4,7 @@
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import type { z } from "zod";
 import { COLLECTIONS, ResponseFormat } from "../constants.js";
 import { getFirestore } from "../services/firestore.js";
@@ -158,6 +158,15 @@ function ok(
   return textResult(message);
 }
 
+/**
+ * isPublic + publicUntil như web (2026-10-28): link công khai có hạn, luật Firestore publicAlive() so với giờ máy chủ.
+ * Tắt công khai → xóa hạn. hours = 0 → không hết hạn (publicUntil null).
+ */
+function publicPatch(makePublic: boolean, hours: number): Record<string, unknown> {
+  if (!makePublic) return { isPublic: false, publicUntil: null };
+  return { isPublic: true, publicUntil: hours > 0 ? Timestamp.fromMillis(Date.now() + hours * 3600 * 1000) : null };
+}
+
 export function registerWriteTools(server: McpServer): void {
   /* ---------------- quiz_create_set ---------------- */
   server.registerTool(
@@ -172,9 +181,11 @@ Args:
   - questions (array, >=1): mỗi câu gồm { question, answers[>=2], correct_answer_index, correct_answer_indexes?(câu nhiều đáp án, ≥2), option_explanations?, explanation? }
     Ca lâm sàng (case chùm): để nhiều câu dùng chung một tình huống, đặt cùng case_id cho các câu đó và truyền case_text (nội dung ca) + case_title (tùy chọn) giống nhau ở các câu cùng nhóm. Các câu cùng case_id sẽ được nhóm liền nhau khi làm bài.
 ${ESSAY_GUIDE}
-  - is_public (boolean, mặc định true)
+  - is_public (boolean, mặc định false — riêng tư như web; chỉ bật khi user yêu cầu)
+  - public_hours (number, mặc định 12): hạn link công khai tính bằng giờ, 0 = không hết hạn (chỉ khi is_public)
   - folder_id (string | null, mặc định null)
   - response_format ('markdown' | 'json')
+Chia sẻ riêng cho tài khoản (sharedWith/editors/allowTakeout) làm ở hộp Chia sẻ của web — tool này không ghi.
 
 Returns (JSON): { success: true, id, title, questionCount }`,
       inputSchema: CreateQuizSetSchema.shape,
@@ -189,7 +200,7 @@ Returns (JSON): { success: true, id, title, questionCount }`,
           title: params.title,
           questionCount: questions.length,
           questions,
-          isPublic: params.is_public,
+          ...publicPatch(params.is_public, params.public_hours),
           folderId: params.folder_id,
           createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
@@ -215,7 +226,8 @@ Returns (JSON): { success: true, id, title, questionCount }`,
 Args:
   - quiz_id (string, bắt buộc)
   - title (string, optional)
-  - is_public (boolean, optional)
+  - is_public (boolean, optional): bật lại = gia hạn link tính từ bây giờ
+  - public_hours (number, mặc định 12): hạn link công khai tính bằng giờ, 0 = không hết hạn (chỉ khi is_public = true)
   - folder_id (string | null, optional)
   - response_format ('markdown' | 'json')
 
@@ -233,7 +245,7 @@ Lỗi: "Không tìm thấy bộ đề" nếu quiz_id sai.`,
 
         const update: Record<string, unknown> = {};
         if (params.title !== undefined) update.title = params.title;
-        if (params.is_public !== undefined) update.isPublic = params.is_public;
+        if (params.is_public !== undefined) Object.assign(update, publicPatch(params.is_public, params.public_hours));
         if (params.folder_id !== undefined) update.folderId = params.folder_id;
 
         await ref.update({ ...update, updatedAt: FieldValue.serverTimestamp() });

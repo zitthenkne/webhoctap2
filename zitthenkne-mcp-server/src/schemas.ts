@@ -437,6 +437,14 @@ const QuestionInputSchema = z
       ctx.addIssue({ code: "custom", path: ["correct_answer_indexes"], message: "correct_answer_indexes có index vượt số lượng đáp án" });
   });
 
+// Hạn link công khai (giờ) — web mặc định 12 giờ; 0 = không hết hạn. Chỉ có tác dụng khi is_public = true.
+const publicHours = z
+  .number()
+  .min(0)
+  .max(24 * 365)
+  .default(12)
+  .describe("Hạn link công khai tính bằng giờ (mặc định 12 như web; 0 = không hết hạn). Chỉ dùng khi is_public = true");
+
 export const CreateQuizSetSchema = z
   .object({
     title: z.string().min(1, "Tiêu đề không được rỗng").max(300).describe("Tiêu đề bộ đề"),
@@ -445,7 +453,9 @@ export const CreateQuizSetSchema = z
       .array(QuestionInputSchema)
       .min(1, "Cần ít nhất 1 câu hỏi")
       .describe("Danh sách câu hỏi của bộ đề"),
-    is_public: z.boolean().default(true).describe("Bộ đề có công khai hay không"),
+    // Mặc định RIÊNG TƯ như web (2026-10-28): link công khai có hạn, chia sẻ ở hộp Chia sẻ của web
+    is_public: z.boolean().default(false).describe("Công khai (ai có link mở được) — mặc định false, chỉ bật khi user yêu cầu"),
+    public_hours: publicHours,
     folder_id: z.string().nullable().default(null).describe("ID thư mục chứa bộ đề, hoặc null"),
     response_format: responseFormat,
   })
@@ -455,7 +465,8 @@ export const UpdateQuizSetObjectSchema = z
   .object({
     quiz_id: z.string().min(1).describe("ID bộ đề cần cập nhật"),
     title: z.string().min(1).max(300).optional().describe("Tiêu đề mới (tùy chọn)"),
-    is_public: z.boolean().optional().describe("Trạng thái công khai mới (tùy chọn)"),
+    is_public: z.boolean().optional().describe("Trạng thái công khai mới (tùy chọn); bật lại = gia hạn tính từ bây giờ"),
+    public_hours: publicHours,
     folder_id: z
       .string()
       .nullable()
