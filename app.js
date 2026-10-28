@@ -4,7 +4,7 @@
 
 import { auth, db } from './core/firebase-init.js';
 import { onSessionUser, sendVerifyMail, sendResetMail, authErrorVi } from './core/auth-session.js';
-import { markFreshLogin, clearFreshLogin, isExemptUser } from './core/device-limit.js';
+import { markFreshLogin, clearFreshLogin, isExemptUser, approveAccount } from './core/device-limit.js';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, browserPopupRedirectResolver, getAdditionalUserInfo } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { doc, setDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { emailForName, claimName } from './core/usernames.js';
@@ -287,53 +287,81 @@ async function sha256Hex(str) {
     return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Phím tắt bí mật (bấm lần lượt, cũng chỉ lưu hash) = thay cho mật khẩu web khi đăng ký.
-let signupUnlocked = false;
+// ---------- TẠO TÀI KHOẢN: MẬT KHẨU WEB (kiểm thật ở MÁY CHỦ — api/signup.js) ----------
+// Mã băm dưới đây chỉ để báo ngay "đúng/sai" khi đang gõ (đỡ phải mở popup Google mới biết sai). Quyết định thật nằm ở máy chủ:
+// đúng mật khẩu web thì máy chủ gắn claim `approved`; firestore.rules (approved()) chỉ cho tài khoản đã duyệt tạo bộ đề / thư mục…
+// → sửa biến trong DevTools cũng vô ích. Phím tắt bí mật của chủ web gửi lên máy chủ kiểm tương tự.
+const SIGNUP_CODE_HASH = '5e0d128731e26b9befa3ea41f7b40422e916c87b6cac4c542af1adf331875be2';
+const SIGNUP_KEYS_HASH = '955bcbc1a840e0548bf80d0b679629c84619310a8147235bbda1e3eb2fe2bc10';
+let unlockKeys = '';            // chuỗi phím tắt bí mật đã bấm đúng (gửi máy chủ thay cho mật khẩu web)
 let secretKeys = [];
+let codeLooksRight = false;     // ô mật khẩu web khớp mã băm (chỉ để bật nút — máy chủ kiểm lại)
 document.addEventListener('keydown', async (e) => {
     if (!e.key) return;
     secretKeys = [...secretKeys, e.key.toLowerCase()].slice(-3);
-    if (secretKeys.length < 3 || await sha256Hex(secretKeys.join()) !== '955bcbc1a840e0548bf80d0b679629c84619310a8147235bbda1e3eb2fe2bc10') return;
+    if (secretKeys.length < 3 || await sha256Hex(secretKeys.join()) !== SIGNUP_KEYS_HASH) return;
     const t = e.target;
     // gõ phím trong ô nhập thì bỏ 2 ký tự vừa lọt vào
     if ((t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && t.value.toLowerCase().endsWith('zt')) t.value = t.value.slice(0, -2);
-    signupUnlocked = true;
-    document.getElementById('signupCodeWrap')?.classList.add('hidden');
-    showToast('Đã mở khóa đăng ký, không cần mật khẩu web.', 'success');
+    unlockKeys = secretKeys.join();
+    setSignupStatus('ok', 'Đã mở khóa bằng phím tắt — chọn Gmail để tạo tài khoản.');
+    syncSignupGate();
 });
 
-// Được tạo tài khoản mới không: đã mở khóa bằng phím tắt, hoặc ô "Mật khẩu web" đúng. Sai/thiếu thì mở ô đó và báo (trả false).
-async function signupCodeOk() {
-    if (signupUnlocked) return true;
-    const signupCodeWrap = document.getElementById('signupCodeWrap');
-    const signupCode = (document.getElementById('signupCodeInput')?.value || '').trim();
-    if (!signupCode) {
-        if (signupCodeWrap) signupCodeWrap.classList.remove('hidden');
-        document.getElementById('signupCodeInput')?.focus();
-        showToast('Vui lòng nhập mật khẩu web để tạo tài khoản mới.', 'warning');
-        return false;
-    }
-    // Mã đăng ký so bằng hash SHA-256, plaintext không nằm trong code.
-    if (await sha256Hex(signupCode) !== '5e0d128731e26b9befa3ea41f7b40422e916c87b6cac4c542af1adf331875be2') {
-        if (signupCodeWrap) signupCodeWrap.classList.remove('hidden');
-        showToast('Mật khẩu web không đúng. Bạn không thể tạo tài khoản mới.', 'error');
-        return false;
-    }
-    return true;
+const isSignupMode = () => authModal?.dataset.mode === 'signup';
+function setSignupStatus(kind, text) {
+    const st = document.getElementById('signupCodeStatus');
+    const field = document.getElementById('signupCodeInput')?.closest('.am-field');
+    if (st) { st.textContent = text; st.className = 'am-status' + (kind ? ' is-' + kind : ''); }
+    if (field) { field.classList.toggle('is-ok', kind === 'ok'); field.classList.toggle('is-bad', kind === 'bad'); }
+}
+/** Tab "Tạo tài khoản": nút Google chỉ bật khi mật khẩu web có vẻ đúng (hoặc đã mở khóa bằng phím tắt). */
+function syncSignupGate() {
+    const btn = document.getElementById('googleLoginBtn');
+    if (btn) btn.disabled = isSignupMode() && !codeLooksRight && !unlockKeys;
+}
+window.syncSignupGate = syncSignupGate;
+
+let codeCheckTimer = 0;
+function onSignupCodeInput() {
+    clearTimeout(codeCheckTimer);
+    const v = (document.getElementById('signupCodeInput')?.value || '').trim();
+    codeLooksRight = false;
+    syncSignupGate();
+    if (!v) return setSignupStatus('', unlockKeys ? 'Đã mở khóa bằng phím tắt.' : 'Chưa có mật khẩu web thì không tạo được tài khoản mới.');
+    codeCheckTimer = setTimeout(async () => {
+        codeLooksRight = (await sha256Hex(v)) === SIGNUP_CODE_HASH;
+        setSignupStatus(codeLooksRight ? 'ok' : 'bad', codeLooksRight ? 'Mật khẩu web đúng — bấm nút Google bên dưới.' : 'Mật khẩu web chưa đúng.');
+        syncSignupGate();
+    }, 250);
 }
 
-// ĐĂNG NHẬP BẰNG GOOGLE (tài khoản Google đang đăng nhập trên trình duyệt hiện ngay trong cửa sổ chọn).
+/** Bí mật gửi máy chủ để duyệt tài khoản mới: mật khẩu web, hoặc phím tắt. null = chưa có gì. */
+function signupSecret() {
+    const code = (document.getElementById('signupCodeInput')?.value || '').trim();
+    if (code && codeLooksRight) return { code };
+    if (unlockKeys) return { keys: unlockKeys };          // đã mở khóa bằng phím tắt: dùng nó dù ô mật khẩu còn gõ dở
+    if (code) return { code };
+    return null;
+}
+
+// ĐĂNG NHẬP / TẠO TÀI KHOẢN BẰNG GOOGLE (tài khoản Google đang đăng nhập trên trình duyệt hiện ngay trong cửa sổ chọn).
 // browserPopupRedirectResolver chỉ truyền ở ĐÂY, không gắn vào initializeAuth (firebase-init.js: gắn sẵn thì mọi trang tải thêm iframe ~550ms).
-// Email Google luôn đã xác nhận → nhận được đề/thư mục chia sẻ riêng ngay. Cần bật nhà cung cấp Google ở Firebase console → Authentication.
-// Cổng đăng ký vẫn giữ: Google tạo tài khoản MỚI mà chưa nhập đúng mật khẩu web → xóa ngay tài khoản vừa tạo.
+// Gmail CHƯA có tài khoản: phải có mật khẩu web → máy chủ duyệt (api/signup.js); không có / sai / máy chủ lỗi → xóa ngay tài khoản vừa tạo.
 // (Email đã có tài khoản mật khẩu thì Firebase gộp vào tài khoản đó — vẫn là cùng uid, dữ liệu cũ giữ nguyên.)
 let googleBusy = false;
 async function handleGoogleLogin() {
     if (googleBusy) return;
+    const btn = document.getElementById('googleLoginBtn');
+    // Đọc bí mật TRƯỚC khi mở popup: hỏi sau khi popup đóng thì đã lỡ tạo tài khoản.
+    const secret = signupSecret();
+    if (isSignupMode() && !secret) {
+        setSignupStatus('bad', 'Nhập mật khẩu web trước đã.');
+        document.getElementById('signupCodeInput')?.focus();
+        return;
+    }
     googleBusy = true;
-    // Đọc trạng thái mã TRƯỚC khi mở popup: hỏi mã sau khi popup đóng thì đã lỡ tạo tài khoản.
-    const codeInput = (document.getElementById('signupCodeInput')?.value || '').trim();
-    const mayCreate = signupUnlocked || (codeInput && await sha256Hex(codeInput) === '5e0d128731e26b9befa3ea41f7b40422e916c87b6cac4c542af1adf331875be2');
+    btn?.classList.add('is-busy');
     try {
         const provider = new GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
@@ -341,13 +369,26 @@ async function handleGoogleLogin() {
         const result = await signInWithPopup(auth, provider, browserPopupRedirectResolver);
         const user = result.user;
         if (getAdditionalUserInfo(result)?.isNewUser) {
-            if (!mayCreate) {
+            const undo = async (msg) => {
                 await user.delete().catch(() => auth.signOut());
-                document.getElementById('auth-tab-signup')?.click();
-                await signupCodeOk();   // mở ô mật khẩu web + báo
-                return;
+                window.setAuthMode?.('signup');
+                setSignupStatus('bad', msg);
+                document.getElementById('signupCodeInput')?.focus();
+            };
+            if (!secret) return await undo(`Gmail ${user.email} chưa có tài khoản. Nhập mật khẩu web để tạo tài khoản mới.`);
+            try {
+                await approveAccount(secret);        // máy chủ kiểm mật khẩu web + gắn claim approved
+            } catch (err) {
+                const why = err.status === 403 ? (err.message || 'Mật khẩu web không đúng.')
+                    : err.status === 429 ? err.message
+                    : 'Máy chủ chưa xác nhận được mật khẩu web — thử lại sau ít phút.';
+                return await undo(why);
             }
             await setDoc(doc(db, "users", user.uid), { email: user.email, displayName: user.displayName || '', createdAt: new Date(), quizSetsCreated: 0 });
+            toggleAuthModal();
+            showToast(`Đã tạo tài khoản cho ${user.email}! 🎉`, 'success', 5000);
+            goNextAfterLogin();
+            return;
         }
         toggleAuthModal();
         showToast('Đăng nhập Google thành công!', 'success');
@@ -358,31 +399,15 @@ async function handleGoogleLogin() {
         if (error?.code === 'auth/popup-blocked') return showToast('Trình duyệt chặn cửa sổ đăng nhập — cho phép popup rồi bấm lại.', 'warning', 6000);
         if (error?.code === 'auth/operation-not-allowed') return showToast('Đăng nhập Google chưa được bật trên máy chủ.', 'error');
         showToast('Đăng nhập Google thất bại: ' + authErrorVi(error), 'error');
-    } finally { googleBusy = false; }
-}
-
-async function handleSignup() {
-    const email = document.getElementById('emailInput').value.trim();
-    const password = document.getElementById('passwordInput').value;
-    if (!email || !password) return showToast('Vui lòng nhập đủ thông tin.', 'warning');
-    if (!email.includes('@')) return showToast('Vui lòng nhập email hợp lệ để đăng ký.', 'warning');
-    if (!await signupCodeOk()) return;
-    try {
-        markFreshLogin();
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
-        await setDoc(doc(db, "users", user.uid), { email: user.email, createdAt: new Date(), quizSetsCreated: 0 });
-        toggleAuthModal();
-        try {
-            await sendVerifyMail();
-            showToast(`Đăng ký thành công! Đã gửi mail xác nhận tới ${user.email} — bấm link trong mail (xem cả hộp thư rác).`, 'success', 7000);
-        } catch (e) {
-            showToast('Đăng ký thành công! Chưa gửi được mail xác nhận — gửi lại ở trang Hồ sơ.', 'warning', 6000);
-        }
-    } catch (error) {
-        clearFreshLogin();
-        showToast('Đăng ký thất bại: ' + authErrorVi(error), 'error');
+    } finally {
+        googleBusy = false;
+        btn?.classList.remove('is-busy');
     }
+}
+// Tạo tài khoản bằng email + mật khẩu đã TẮT (chỉ Google — tab "Tạo tài khoản"). Giữ hàm cho nút ẩn #signupBtn.
+function handleSignup() {
+    window.setAuthMode?.('signup');
+    showToast('Tạo tài khoản mới: nhập mật khẩu web rồi chọn Gmail.', 'info');
 }
 
 // --- QUẢN LÝ CHỌN FILE VÀ GỌI PARSER ---
@@ -572,6 +597,11 @@ function setupEventListeners() {
     if (loginBtn) loginBtn.addEventListener('click', handleLogin);
     if (signupBtn) signupBtn.addEventListener('click', handleSignup);
     document.getElementById('forgotPasswordBtn')?.addEventListener('click', handleForgotPassword);
+    document.getElementById('signupCodeInput')?.addEventListener('input', onSignupCodeInput);
+    document.getElementById('signupCodeInput')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !document.getElementById('googleLoginBtn')?.disabled) { e.preventDefault(); handleGoogleLogin(); }
+    });
+    document.getElementById('passwordInput')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); handleLogin(); } });
     document.getElementById('googleLoginBtn')?.addEventListener('click', handleGoogleLogin);
     if (uploadArea) uploadArea.addEventListener('click', () => fileInput.click());
     if (fileInput) fileInput.addEventListener('change', handleFileSelect);
@@ -921,7 +951,11 @@ function setupEventListeners() {
 
     const closeShareQuizModalBtn = document.getElementById('closeShareQuizModalBtn');
     if (closeShareQuizModalBtn) closeShareQuizModalBtn.addEventListener('click', closeShareQuizModal);
-    
+    document.querySelector('#shareQuizModal [data-close-share]')?.addEventListener('click', closeShareQuizModal);
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !document.getElementById('shareQuizModal')?.classList.contains('hidden')) closeShareQuizModal();
+    });
+
     const shareQuizModal = document.getElementById('shareQuizModal');
     if (shareQuizModal) {
         shareQuizModal.addEventListener('click', (e) => {
@@ -936,7 +970,13 @@ function setupEventListeners() {
             if (input && input.value) {
                 // Chia sẻ nhiều bộ đề: ô input một dòng làm mất xuống dòng → bản đầy đủ nằm ở data-copy
                 navigator.clipboard.writeText(input.dataset.copy || input.value)
-                    .then(() => showToast('Đã copy link bộ đề!', 'success'))
+                    .then(() => {
+                        // Phản hồi ngay trên nút (đỡ phải nhìn toast): "Đã sao chép" 1,6 giây rồi trả lại
+                        const old = copyShareLinkBtn.innerHTML;
+                        copyShareLinkBtn.classList.add('is-done');
+                        copyShareLinkBtn.innerHTML = '<i class="fas fa-check"></i> Đã sao chép';
+                        setTimeout(() => { copyShareLinkBtn.innerHTML = old; copyShareLinkBtn.classList.remove('is-done'); }, 1600);
+                    })
                     .catch(() => showToast('Không thể sao chép!', 'error'));
             }
         });

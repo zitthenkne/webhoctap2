@@ -67,118 +67,201 @@ export function hideShareAccess() {
     document.getElementById('share-access-section')?.classList.add('hidden');
 }
 
-// ---------- Dựng khung (một lần) ----------
-// Chỉ dùng icon có trong bộ icon rút gọn của trang làm bài (fa-quiz.css): fa-user-plus, fa-user-group, fa-lock, fa-share-nodes,
-// fa-xmark, fa-arrow-up-right-from-square.
+// ---------- Giao diện (2026-10-29) ----------
+// CSS riêng chèn một lần (lớp .sa-*): chạy giống nhau ở trang chủ (tailwind-index.css đóng băng) và trang làm bài (tailwind-quiz.css +
+// bộ icon rút gọn fa-quiz.css) — không phụ thuộc lớp Tailwind nào. Chỉ dùng icon có trong fa-quiz.css: fa-user-plus, fa-user-group,
+// fa-lock, fa-share-nodes, fa-xmark, fa-arrow-up-right-from-square.
+const CSS = `
+.sa{--sa-ink:#3b2230;--sa-mute:#8a6f7c;--sa-line:#f0dbe4;--sa-pink:#ff69b4;--sa-pink-d:#e0559f;--sa-soft:#fff3f8;--sa-ok:#15925f;--sa-bad:#d14343;
+  display:flex;flex-direction:column;gap:14px;padding:14px;border-radius:18px;background:#fff;border:1.5px solid var(--sa-line);color:var(--sa-ink);font-size:13px}
+.sa.hidden{display:none}
+.sa-h{display:flex;align-items:center;gap:7px;margin:0 0 7px;font-size:12px;font-weight:800;color:var(--sa-ink);letter-spacing:.01em}
+.sa-h i{color:var(--sa-pink)}
+.sa-badge{margin-left:auto;padding:1px 8px;border-radius:999px;background:var(--sa-soft);color:var(--sa-pink-d);font-size:11px;font-weight:800}
+.sa-add{display:flex;gap:6px}
+.sa-input{flex:1;min-width:0;height:38px;padding:0 11px;border-radius:11px;border:1.5px solid var(--sa-line);background:#fff;font-size:13px;color:var(--sa-ink);outline:0;transition:border-color .15s,box-shadow .15s}
+.sa-input:focus{border-color:var(--sa-pink);box-shadow:0 0 0 3px rgba(255,105,180,.16)}
+.sa-select{height:38px;padding:0 6px;border-radius:11px;border:1.5px solid var(--sa-line);background:#fff;font-size:12px;font-weight:700;color:#5b4250;outline:0;cursor:pointer}
+.sa-btn{height:38px;padding:0 14px;border-radius:11px;border:0;background:var(--sa-pink);color:#fff;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 2px 0 var(--sa-pink-d);transition:transform .1s,opacity .15s}
+.sa-btn:active{transform:translateY(1px);box-shadow:none}.sa-btn:disabled{opacity:.55;cursor:wait}
+.sa-list{list-style:none;margin:0;padding:2px;display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto}
+.sa-person{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:12px;transition:background .15s}
+.sa-person:hover{background:#fdf6f9}
+.sa-av{width:30px;height:30px;flex:none;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff}
+.sa-who{min-width:0;flex:1;display:flex;flex-direction:column}
+.sa-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sa-sub{font-size:11px;color:var(--sa-mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sa-owner{font-size:11px;font-weight:800;color:var(--sa-mute);padding-right:4px}
+.sa-role{height:30px;padding:0 4px;border-radius:9px;border:1.5px solid transparent;background:transparent;font-size:12px;font-weight:700;color:#5b4250;cursor:pointer;outline:0}
+.sa-role:hover,.sa-role:focus{border-color:var(--sa-line);background:#fff}
+.sa-icon{width:28px;height:28px;flex:none;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#c7a9b7;text-decoration:none}
+.sa-icon:hover{background:var(--sa-soft);color:var(--sa-pink)}
+.sa-empty{padding:6px 8px;font-size:12px;color:var(--sa-mute);font-style:italic}
+.sa-general{display:flex;align-items:flex-start;gap:10px;padding:11px;border-radius:14px;background:#fcf8fa;border:1.5px solid var(--sa-line)}
+.sa-gicon{width:36px;height:36px;flex:none;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:14px;background:#efe6ea;color:#7b6470;transition:background .2s,color .2s}
+.sa-gicon.is-public{background:#dcf5ea;color:var(--sa-ok)}
+.sa-gmain{min-width:0;flex:1}
+.sa-seg{display:inline-flex;gap:3px;padding:3px;border-radius:11px;background:#fff;border:1.5px solid var(--sa-line)}
+.sa-seg button{border:0;background:transparent;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:800;color:var(--sa-mute);cursor:pointer;transition:background .15s,color .15s}
+.sa-seg button.is-on{background:var(--sa-ink);color:#fff}
+.sa-seg button[data-general="public"].is-on{background:var(--sa-ok)}
+.sa-desc{margin:6px 0 0;font-size:11.5px;line-height:1.45;color:var(--sa-mute)}
+.sa-expiry{margin-top:10px;padding-top:10px;border-top:1.5px dashed var(--sa-line)}
+.sa-expiry.hidden{display:none}
+.sa-mini{display:block;margin-bottom:6px;font-size:11px;font-weight:800;color:#5b4250}
+.sa-chips{display:flex;flex-wrap:wrap;gap:5px}
+.sa-chips button{border:1.5px solid var(--sa-line);background:#fff;padding:5px 10px;border-radius:999px;font-size:11.5px;font-weight:800;color:#5b4250;cursor:pointer;transition:all .15s}
+.sa-chips button:hover{border-color:var(--sa-pink)}
+.sa-chips button.is-on{background:var(--sa-soft);border-color:var(--sa-pink);color:var(--sa-pink-d)}
+.sa-at{margin:7px 0 0;font-size:11.5px;font-weight:700;color:var(--sa-mute)}
+.sa-at.is-bad{color:var(--sa-bad)}.sa-at.is-ok{color:var(--sa-ok)}
+.sa-switch-row{display:flex;align-items:flex-start;gap:12px;padding:11px;border-radius:14px;background:#fcf8fa;border:1.5px solid var(--sa-line);cursor:pointer}
+.sa-switch-row b{display:block;font-size:12.5px;margin-bottom:2px}
+.sa-switch-row small{display:block;font-size:11px;line-height:1.45;color:var(--sa-mute)}
+.sa-switch{position:relative;flex:none;width:40px;height:24px;margin-top:2px}
+.sa-switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
+.sa-switch i{position:absolute;inset:0;border-radius:999px;background:#dccbd3;transition:background .2s;pointer-events:none}
+.sa-switch i::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:999px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .2s}
+.sa-switch input:checked + i{background:var(--sa-pink)}
+.sa-switch input:checked + i::after{transform:translateX(16px)}
+.sa-switch input:focus-visible + i{box-shadow:0 0 0 3px rgba(255,105,180,.3)}
+.sa-note{margin:0;padding:8px 10px;border-radius:11px;background:#fff8e6;color:#9a6a00;font-size:11.5px;font-weight:700;line-height:1.4}
+.sa-note.hidden{display:none}
+@media (max-width:420px){.sa{padding:12px}.sa-add{flex-wrap:wrap}.sa-input{flex-basis:100%}.sa-select{flex:1}}
+`;
+function injectCss() {
+    if (document.getElementById('sa-style')) return;
+    const s = document.createElement('style');
+    s.id = 'sa-style';
+    s.textContent = CSS;
+    document.head.appendChild(s);
+}
+
+const HOUR_CHOICES = [[1, '1 giờ'], [12, '12 giờ'], [24, '1 ngày'], [168, '7 ngày'], [0, 'Không hết hạn']];
+let expiryHours = 12;          // thời hạn đang chọn cho link công khai (mặc định 12 giờ như web)
+const AV_COLORS = ['#f472b6', '#a78bfa', '#60a5fa', '#34d399', '#fbbf24', '#fb923c', '#f87171', '#2dd4bf'];
+const avColor = (s) => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return AV_COLORS[h % AV_COLORS.length]; };
+const fmtUntil = (ms) => new Date(ms).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+const leftText = (ms) => {
+    const h = (ms - Date.now()) / 3600000;
+    return h < 1 ? `còn ${Math.max(1, Math.round(h * 60))} phút` : h < 48 ? `còn ${Math.round(h)} giờ` : `còn ${Math.round(h / 24)} ngày`;
+};
+
 function build(section) {
     if (section.dataset.built) return;
     section.dataset.built = '1';
-    section.className = 'bg-gray-50 rounded-2xl border border-gray-100 p-3 space-y-3';
+    injectCss();
+    section.className = 'sa';
     section.innerHTML = `
         <div>
-            <p class="text-xs font-extrabold text-gray-600 mb-1.5 flex items-center gap-1.5"><i class="fas fa-user-plus text-pink-400"></i> Thêm người</p>
-            <div class="flex gap-2">
-                <input type="text" id="share-person-input" placeholder="Email / tên (nhiều người: cách nhau dấu phẩy)" autocomplete="off"
-                    class="flex-1 min-w-0 px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-300">
-                <select id="share-person-role" class="px-2 py-2 border border-gray-200 rounded-xl text-xs font-bold bg-white text-gray-600 focus:outline-none" aria-label="Vai trò người được thêm">
+            <p class="sa-h"><i class="fas fa-user-plus"></i> Thêm người</p>
+            <div class="sa-add">
+                <input type="text" id="share-person-input" class="sa-input" placeholder="Email hoặc tên — nhiều người cách nhau dấu phẩy" autocomplete="off" spellcheck="false">
+                <select id="share-person-role" class="sa-select" aria-label="Vai trò người được thêm">
                     <option value="viewer">Người xem</option>
                     <option value="editor">Người chỉnh sửa</option>
                 </select>
-                <button type="button" id="share-person-add-btn" class="px-3 py-2 bg-[#FF69B4] text-white rounded-xl hover:bg-opacity-90 active:scale-95 transition font-bold text-xs shadow-sm">Thêm</button>
+                <button type="button" id="share-person-add-btn" class="sa-btn">Thêm</button>
             </div>
         </div>
         <div>
-            <p class="text-xs font-extrabold text-gray-600 mb-1.5 flex items-center gap-1.5"><i class="fas fa-user-group text-pink-400"></i> Người có quyền truy cập</p>
-            <ul id="share-person-list" class="flex flex-col gap-1 overflow-y-auto" style="max-height:14rem"></ul>
+            <p class="sa-h"><i class="fas fa-user-group"></i> Người có quyền truy cập <span id="share-count" class="sa-badge"></span></p>
+            <ul id="share-person-list" class="sa-list"></ul>
         </div>
         <div>
-            <p class="text-xs font-extrabold text-gray-600 mb-1.5">Quyền truy cập chung</p>
-            <div class="flex items-start gap-2.5 bg-white border border-gray-100 rounded-xl p-2.5">
-                <span id="share-general-icon" class="w-8 h-8 shrink-0 rounded-full flex items-center justify-center"></span>
-                <div class="min-w-0 flex-1">
-                    <select id="share-general-select" class="w-full text-sm font-bold text-gray-700 focus:outline-none cursor-pointer" style="background:transparent" aria-label="Quyền truy cập chung">
-                        <option value="restricted">Hạn chế</option>
-                        <option value="public">Bất kỳ ai có đường liên kết</option>
-                        <option value="mixed" disabled hidden>Khác nhau giữa các bộ đề</option>
-                    </select>
-                    <p id="share-general-desc" class="text-[11px] text-gray-400 leading-snug mt-0.5"></p>
-                    <div id="share-expiry-row" class="hidden items-center gap-2 mt-1.5" style="display:none">
-                        <span class="text-[11px] font-bold text-gray-500">Link hết hạn sau</span>
-                        <select id="share-expiry-select" class="text-[11px] font-bold text-gray-700 border border-gray-200 rounded-lg px-1.5 py-1 focus:outline-none" style="background:#fff" aria-label="Thời hạn link công khai">
-                            <option value="1">1 giờ</option>
-                            <option value="12" selected>12 giờ</option>
-                            <option value="24">1 ngày</option>
-                            <option value="168">7 ngày</option>
-                            <option value="0">Không hết hạn</option>
-                        </select>
+            <p class="sa-h">Quyền truy cập chung</p>
+            <div class="sa-general">
+                <span id="share-general-icon" class="sa-gicon"><i class="fas fa-lock"></i></span>
+                <div class="sa-gmain">
+                    <div class="sa-seg" role="radiogroup" aria-label="Quyền truy cập chung">
+                        <button type="button" data-general="restricted" role="radio">Hạn chế</button>
+                        <button type="button" data-general="public" role="radio">Ai có link</button>
                     </div>
-                    <p id="share-expiry-at" class="text-[11px] font-semibold leading-snug mt-1"></p>
+                    <p id="share-general-desc" class="sa-desc"></p>
+                    <div id="share-expiry-row" class="sa-expiry hidden">
+                        <span class="sa-mini">Link tự hết hạn sau</span>
+                        <div class="sa-chips" role="radiogroup" aria-label="Thời hạn link công khai">
+                            ${HOUR_CHOICES.map(([h, l]) => `<button type="button" data-hours="${h}" role="radio">${l}</button>`).join('')}
+                        </div>
+                        <p id="share-expiry-at" class="sa-at"></p>
+                    </div>
                 </div>
             </div>
         </div>
-        <label class="flex items-start gap-2 cursor-pointer">
-            <input type="checkbox" id="share-allow-copy" class="mt-0.5 w-4 h-4 cursor-pointer" style="accent-color:#ec4899">
-            <span class="text-xs text-gray-600 leading-snug"><b>Cho người khác mang đề đi</b>
-                <span class="block text-[11px] text-gray-400">Lưu bản sao về thư viện của họ, mở sang phòng "Làm cùng nhau", lưu đề từ phòng. Tắt (mặc định): người được chia sẻ chỉ làm bài ngay trên web, không chuyền trải nghiệm làm bài cho ai khác được.</span></span>
+        <label class="sa-switch-row">
+            <span class="sa-switch"><input type="checkbox" id="share-allow-copy"><i></i></span>
+            <span><b>Cho người khác mang đề đi</b>
+                <small>Lưu bản sao về thư viện của họ, mở sang phòng "Làm cùng nhau". Tắt (mặc định): chỉ làm bài ngay trên web của bạn.</small></span>
         </label>
-        <p id="share-scope-note" class="hidden text-[11px] text-amber-600 font-semibold leading-snug"></p>`;
+        <p id="share-scope-note" class="sa-note hidden"></p>`;
     bindOnce(section);
 }
 
 function render() {
     const t = current;
     const list = document.getElementById('share-person-list');
-    const sel = document.getElementById('share-general-select');
-    if (!t || !list || !sel) return;
+    if (!t || !list) return;
     const v = t.view() || {};
     const people = v.sharedWith || [];
     const editors = new Set(v.editors || []);
     const me = sessionUser();
+    const meName = me?.displayName || (me?.email || 'Bạn').split('@')[0];
     const ownerRow = `
-        <li class="flex items-center gap-2 px-2.5 py-1.5">
-            <span class="w-7 h-7 shrink-0 rounded-full bg-pink-100 text-pink-500 text-xs font-extrabold flex items-center justify-center">${esc((me?.displayName || me?.email || '?').charAt(0).toUpperCase())}</span>
-            <span class="min-w-0 flex-1"><span class="block text-xs font-bold text-gray-700 truncate">${esc(me?.displayName || 'Bạn')} (bạn)</span>
-                <span class="block text-[11px] text-gray-400 truncate">${esc(me?.email || '')}</span></span>
-            <span class="text-[11px] font-bold text-gray-400 pr-1">Chủ sở hữu</span>
+        <li class="sa-person">
+            <span class="sa-av" style="background:${avColor(me?.email || 'me')}">${esc(meName.charAt(0).toUpperCase())}</span>
+            <span class="sa-who"><span class="sa-name">${esc(meName)} (bạn)</span><span class="sa-sub">${esc(me?.email || '')}</span></span>
+            <span class="sa-owner">Chủ sở hữu</span>
         </li>`;
-    list.innerHTML = ownerRow + people.map(e => {
+    list.innerHTML = ownerRow + (people.length ? people.map(e => {
         const role = editors.has(e) ? 'editor' : 'viewer';
         return `
-        <li class="flex items-center gap-2 bg-white border border-gray-100 rounded-lg px-2.5 py-1.5" data-email="${esc(e)}">
-            <span class="w-7 h-7 shrink-0 rounded-full bg-gray-100 text-gray-500 text-xs font-extrabold flex items-center justify-center">${esc(e.charAt(0).toUpperCase())}</span>
-            <span class="min-w-0 flex-1 text-xs font-semibold text-gray-700 truncate" title="${esc(e)}">${esc(e)}</span>
-            <a class="text-gray-300 hover:text-pink-500 transition px-1" href="${esc(inviteHref(t, e, role))}" title="Gửi thư mời cho ${esc(e)}" aria-label="Gửi thư mời"><i class="fas fa-arrow-up-right-from-square"></i></a>
-            <select class="share-person-role text-[11px] font-bold text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-1.5 py-1 focus:outline-none" aria-label="Vai trò của ${esc(e)}">
+        <li class="sa-person" data-email="${esc(e)}">
+            <span class="sa-av" style="background:${avColor(e)}">${esc(e.charAt(0).toUpperCase())}</span>
+            <span class="sa-who"><span class="sa-name" title="${esc(e)}">${esc(e.split('@')[0])}</span><span class="sa-sub">${esc(e)}</span></span>
+            <a class="sa-icon" href="${esc(inviteHref(t, e, role))}" title="Gửi thư mời qua email" aria-label="Gửi thư mời cho ${esc(e)}"><i class="fas fa-arrow-up-right-from-square"></i></a>
+            <select class="share-person-role sa-role" aria-label="Vai trò của ${esc(e)}">
                 <option value="viewer"${role === 'viewer' ? ' selected' : ''}>${ROLE_LABEL.viewer}</option>
                 <option value="editor"${role === 'editor' ? ' selected' : ''}>${ROLE_LABEL.editor}</option>
                 <option value="remove">Xóa quyền truy cập</option>
             </select>
         </li>`;
-    }).join('');
+    }).join('') : `<li class="sa-empty">Chưa chia sẻ riêng cho ai — thêm email ở trên.</li>`);
+    const count = document.getElementById('share-count');
+    if (count) count.textContent = people.length ? `${people.length} người` : '';
 
     const general = v.mixed ? 'mixed' : (v.isPublic === true ? 'public' : 'restricted');
-    sel.value = general;
+    document.querySelectorAll('#share-access-section [data-general]').forEach(b => {
+        const on = b.dataset.general === general;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
     const icon = document.getElementById('share-general-icon');
-    const desc = document.getElementById('share-general-desc');
     if (icon) {
-        icon.className = `w-8 h-8 shrink-0 rounded-full flex items-center justify-center ${general === 'public' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`;
+        icon.classList.toggle('is-public', general === 'public');
         icon.innerHTML = `<i class="fas ${general === 'public' ? 'fa-share-nodes' : 'fa-lock'}"></i>`;
     }
+    const desc = document.getElementById('share-general-desc');
     if (desc) desc.textContent = general === 'public'
-        ? 'Bất kỳ ai có đường liên kết đều xem và làm bài được — không cần tài khoản (khách lưu kết quả trên máy của họ).'
+        ? 'Ai có đường liên kết đều xem và làm bài được, không cần tài khoản (khách lưu kết quả trên máy của họ).'
         : general === 'mixed' ? 'Các bộ đề đã chọn đang khác nhau — chọn một chế độ để áp cho tất cả.'
-        : 'Chỉ những người đã thêm ở trên mới mở được bằng đường liên kết (cần đăng nhập Google đúng email).';
+        : 'Chỉ những người trong danh sách trên mở được — đăng nhập Google đúng email, tối đa 2 máy.';
+
     // Hạn link công khai (publicUntil — luật Firestore so với giờ máy chủ)
-    const row = document.getElementById('share-expiry-row');
+    document.getElementById('share-expiry-row')?.classList.toggle('hidden', general !== 'public');
+    document.querySelectorAll('#share-access-section [data-hours]').forEach(b => {
+        const on = Number(b.dataset.hours) === expiryHours;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
     const at = document.getElementById('share-expiry-at');
-    if (row) row.style.display = general === 'public' ? 'flex' : 'none';
     if (at) {
         const until = untilMsOf(v.publicUntil);
-        at.style.color = until != null && until <= Date.now() ? '#dc2626' : '#6b7280';
+        const dead = until != null && until <= Date.now();
+        at.className = 'sa-at' + (dead ? ' is-bad' : general === 'public' ? ' is-ok' : '');
         at.textContent = general !== 'public' ? ''
-            : until == null ? 'Link không hết hạn.'
-            : until <= Date.now() ? 'Link ĐÃ HẾT HẠN — chọn thời hạn ở trên để gia hạn.'
-            : `Link hết hạn lúc ${new Date(until).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })} — đổi thời hạn để gia hạn từ bây giờ.`;
+            : until == null ? 'Đang mở: không hết hạn.'
+            : dead ? 'Link ĐÃ HẾT HẠN — chọn một thời hạn ở trên để mở lại.'
+            : `Đang mở tới ${fmtUntil(until)} (${leftText(until)}) — chọn thời hạn để gia hạn từ bây giờ.`;
     }
     const allow = document.getElementById('share-allow-copy');
     if (allow) allow.checked = v.allowTakeout === true;
@@ -193,7 +276,7 @@ function inviteHref(t, email, role) {
     const subject = `${who} chia sẻ "${what}" với bạn trên Zitthenkne`;
     const body = `Chào bạn,\n\n${who} vừa chia sẻ "${what}" với bạn trên Zitthenkne (vai trò: ${ROLE_LABEL[role] || ROLE_LABEL.viewer}).\n\n`
         + `Mở link: ${t.link || location.origin}\n\n`
-        + `Đăng nhập bằng đúng email ${email} (đăng nhập Google, hoặc email đã xác nhận) là mở được. `
+        + `Đăng nhập bằng Google đúng email ${email} là mở được. `
         + `Mục này cũng nằm ở nút "Được chia sẻ với tôi" trong thư viện.`;
     return `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
@@ -208,25 +291,30 @@ function bindOnce(section) {
         const email = sel.closest('li')?.dataset.email;
         if (email) changeRole(email, sel.value);
     });
-    const general = section.querySelector('#share-general-select');
-    const expiry = section.querySelector('#share-expiry-select');
-    // Hạn tính TỪ BÂY GIỜ theo ô "Link hết hạn sau" (mặc định 12 giờ); "Không hết hạn" → null
-    const chosenUntil = () => { const h = Number(expiry.value) || 0; return h ? new Date(Date.now() + h * 3600 * 1000) : null; };
-    general.addEventListener('change', async () => {
+    // Hạn tính TỪ BÂY GIỜ theo thời hạn đang chọn (mặc định 12 giờ); 0 = không hết hạn → null
+    const chosenUntil = () => (expiryHours ? new Date(Date.now() + expiryHours * 3600 * 1000) : null);
+    let busy = false;
+    const setPublic = async (makePublic) => {
         const t = current;
-        if (!t || general.value === 'mixed') return;
-        general.disabled = true;
-        try { await t.setPublic(general.value === 'public', general.value === 'public' ? chosenUntil() : null); }
-        finally { general.disabled = false; render(); }
-    });
-    // Đổi thời hạn khi đang công khai = gia hạn (tính lại từ bây giờ)
-    expiry.addEventListener('change', async () => {
-        const t = current;
-        if (!t || general.value !== 'public') return;
-        expiry.disabled = true;
-        try { await t.setPublic(true, chosenUntil()); }
-        finally { expiry.disabled = false; render(); }
-    });
+        if (!t || busy) return;
+        busy = true;
+        section.style.opacity = '.7';
+        try { await t.setPublic(makePublic, makePublic ? chosenUntil() : null); }
+        finally { busy = false; section.style.opacity = ''; render(); }
+    };
+    section.querySelectorAll('[data-general]').forEach(b => b.addEventListener('click', () => {
+        const want = b.dataset.general === 'public';
+        const v = current?.view() || {};
+        // Đang đúng chế độ thì thôi — trừ khi chọn nhiều bộ đề đang lẫn lộn (mixed): khi đó bấm gì cũng áp cho tất cả
+        if (!v.mixed && want === (v.isPublic === true)) return;
+        setPublic(want);
+    }));
+    // Bấm một thời hạn khi đang công khai = gia hạn (tính lại từ bây giờ); khi đang hạn chế thì chỉ chọn trước
+    section.querySelectorAll('[data-hours]').forEach(b => b.addEventListener('click', () => {
+        expiryHours = Number(b.dataset.hours) || 0;
+        const isPublicNow = section.querySelector('[data-general="public"]').classList.contains('is-on');
+        if (isPublicNow) setPublic(true); else render();
+    }));
     const allow = section.querySelector('#share-allow-copy');
     allow.addEventListener('change', async () => {
         allow.disabled = true;
@@ -237,7 +325,6 @@ function bindOnce(section) {
         allow.disabled = false;
     });
 }
-
 // ---------- Ghi ----------
 // Thư mục lớn = hàng trăm doc: ghi theo LÔ (writeBatch, ≤ 450 thao tác/lô — giới hạn Firestore 500) thay vì từng updateDoc:
 // mỗi lô là MỘT lượt mạng và nguyên tử (không có chuyện nửa nhánh đã chia sẻ, nửa chưa). Mất mạng: lô xếp hàng như mọi lệnh ghi (queued).

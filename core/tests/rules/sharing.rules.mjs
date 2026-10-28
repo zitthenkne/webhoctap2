@@ -17,7 +17,8 @@ const OTHER = { uid: 'other', email: 'other@x.test', email_verified: true };
 // Mặc định: phiên đăng nhập GOOGLE, auth_time = 1000 (mốc đăng nhập) — luật trustedSession() đòi cả hai + máy có trong danh sách.
 const as = (u) => env.authenticatedContext(u.uid, {
     email: u.email, email_verified: u.email_verified,
-    firebase: { sign_in_provider: u.provider || 'google.com' }, auth_time: u.authTime ?? 1000
+    firebase: { sign_in_provider: u.provider || 'google.com' }, auth_time: u.authTime ?? 1000,
+    approved: u.approved ?? true          // custom claim do api/signup.js gắn sau khi nhập đúng mật khẩu web
 }).firestore();
 // Danh sách máy hợp lệ (máy chủ api/devices.js ghi) — authTimes chứa mốc đăng nhập của phiên được phép
 const seedDevices = (db, uid, authTimes = [1000]) => setDoc(doc(db, `users/${uid}/private/devices`), { list: authTimes.map((a, i) => ({ id: 'd' + i, authTime: a })), authTimes });
@@ -192,6 +193,19 @@ test('users/{uid}.email: không ghi được email của người khác', async 
     await assertSucceeds(setDoc(doc(as(FRIEND), 'users/friend'), { email: 'friend@x.test' }));
     await assertFails(setDoc(doc(as(FRIEND), 'users/friend'), { email: 'vietthanhne@gmail.com' }));
     await assertSucceeds(updateDoc(doc(as(FRIEND), 'users/friend'), { avatarAnimal: '🐱' }));
+});
+
+test('TÀI KHOẢN CHƯA DUYỆT (chưa nhập đúng mật khẩu web): không tạo được bộ đề / thư mục / ảnh / bệnh án / phòng', async () => {
+    const NEW = { uid: 'newbie', email: 'newbie@x.test', email_verified: true, approved: false };
+    const db = as(NEW);
+    await assertFails(setDoc(doc(db, 'quiz_sets/n1'), { userId: 'newbie', title: 'x', questions: [], isPublic: false }));
+    await assertFails(setDoc(doc(db, 'quiz_folders/n1'), { userId: 'newbie', name: 'x' }));
+    await assertFails(setDoc(doc(db, 'medical_records/n1'), { userId: 'newbie' }));
+    await assertFails(setDoc(doc(db, 'study_rooms/n1'), { owner: 'newbie' }));
+    // nhưng vẫn đọc được đề công khai và hồ sơ của chính mình
+    await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), 'quiz_sets/pub2'), { userId: 'owner', title: 'Công khai', isPublic: true }));
+    await assertSucceeds(getDoc(doc(db, 'quiz_sets/pub2')));
+    await assertSucceeds(setDoc(doc(db, 'users/newbie'), { email: 'newbie@x.test' }));
 });
 
 test('tạo bộ đề MỚI của mình (không chép từ đâu) luôn được', async () => {

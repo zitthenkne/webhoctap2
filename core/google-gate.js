@@ -20,18 +20,24 @@ function overlay(user) {
     shown = true;
     const el = document.createElement('div');
     el.id = 'google-gate';
-    el.style.cssText = 'position:fixed;inset:0;z-index:2147483001;background:rgba(17,24,39,.72);display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto;font-family:system-ui,-apple-system,"Segoe UI",sans-serif';
+    // Giao diện tự chứa (style nội tuyến) vì hiện trên MỌI trang — cùng tông với hộp đăng nhập (home-scrapbook.css .am-*)
+    el.style.cssText = 'position:fixed;inset:0;z-index:2147483001;background:rgba(60,25,42,.5);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto;font-family:Quicksand,Outfit,system-ui,-apple-system,"Segoe UI",sans-serif';
+    const G = '<svg viewBox="0 0 48 48" width="22" height="22" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.2l7.9 6.2C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.6c0-1.6-.1-3.1-.4-4.6H24v9h12.4c-.5 2.9-2.2 5.3-4.6 7l7.2 5.6c4.2-3.9 7.1-9.7 7.1-17z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.2C1 16.6 0 20.2 0 24s1 7.4 2.7 10.8l7.9-6.2z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.2-5.6c-2.2 1.5-5 2.4-8.7 2.4-6.2 0-11.5-4.1-13.4-9.8l-7.9 6.2C6.6 42.6 14.6 48 24 48z"/></svg>';
     el.innerHTML = `
-<div style="background:#fff;border-radius:24px;max-width:400px;width:100%;padding:26px 22px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.25)">
-  <div style="width:60px;height:60px;margin:0 auto 12px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#eef2ff;font-size:28px">🔐</div>
-  <h2 style="margin:0 0 6px;font-size:19px;font-weight:800;color:#1f2937">Từ nay đăng nhập bằng Google</h2>
-  <p style="margin:0 0 14px;font-size:14px;color:#6b7280;line-height:1.5">Để bảo vệ tài khoản và đề được chia sẻ, web chỉ nhận đăng nhập bằng Google.
-    Bấm nút dưới và chọn Gmail của bạn — <b>dữ liệu cũ giữ nguyên</b>.</p>
-  <p style="margin:0 0 16px;font-size:13px;color:#374151">Tài khoản hiện tại: <b>${String(user.email || '').replace(/[<>&"]/g, '')}</b></p>
-  <button type="button" id="gg-go" style="width:100%;padding:13px;border:0;border-radius:14px;background:#fff;border:2px solid #e5e7eb;color:#1f2937;font-weight:700;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
-    <span style="font-weight:900;color:#4285F4">G</span> Tiếp tục với Google</button>
-  <p id="gg-msg" style="margin:10px 0 0;font-size:13px;color:#dc2626;min-height:1em"></p>
-  <button type="button" id="gg-out" style="margin-top:6px;border:0;background:none;color:#9ca3af;font-size:13px;cursor:pointer">Đăng xuất</button>
+<div style="background:#FFFBFC;border:1.5px solid #F6C9D8;border-radius:26px;max-width:400px;width:100%;overflow:hidden;text-align:center;box-shadow:0 4px 0 #F6C9D8,0 24px 60px rgba(110,58,85,.3)">
+  <div style="padding:24px 22px 20px;background:#FFDDE7;border-bottom:1.5px dashed #F4B6CB">
+    <div style="width:56px;height:56px;margin:0 auto 10px;border-radius:18px;display:flex;align-items:center;justify-content:center;background:#fff;box-shadow:0 2px 0 #F4B6CB;font-size:26px">🔐</div>
+    <h2 style="margin:0;font-size:19px;font-weight:800;color:#6E3A55">Từ nay đăng nhập bằng Google</h2>
+    <p style="margin:6px 0 0;font-size:13.5px;font-weight:600;color:#9B5C79;line-height:1.5">Gắn Gmail một lần là xong — <b>dữ liệu cũ giữ nguyên</b>.</p>
+  </div>
+  <div style="padding:18px 22px 20px">
+    <p style="margin:0 0 6px;font-size:12.5px;color:#7A4A62;line-height:1.5">Web chỉ nhận đăng nhập Google để bảo vệ tài khoản và các đề được chia sẻ (mỗi tài khoản tối đa 2 máy).</p>
+    <p style="margin:0 0 14px;font-size:12.5px;color:#7A4A62">Tài khoản hiện tại: <b style="color:#6E3A55">${String(user.email || '').replace(/[<>&"]/g, '')}</b></p>
+    <button type="button" id="gg-go" style="width:100%;height:52px;border-radius:16px;background:#fff;border:1.5px solid #E7D4DD;box-shadow:0 3px 0 #EBD3DD;color:#3b2230;font-weight:800;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px">
+      ${G} Gắn Gmail & tiếp tục</button>
+    <p id="gg-msg" style="margin:10px 0 0;font-size:13px;font-weight:600;color:#D14343;min-height:1em"></p>
+    <button type="button" id="gg-out" style="margin-top:4px;border:0;background:none;color:#A07086;font-size:13px;font-weight:700;cursor:pointer">Đăng xuất</button>
+  </div>
 </div>`;
     document.body.appendChild(el);
     document.documentElement.style.overflow = 'hidden';

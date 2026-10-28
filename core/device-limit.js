@@ -88,10 +88,21 @@ function takeFresh() {
 
 // ---------- Gọi máy chủ (api/devices.js) ----------
 // Danh sách máy + lịch sử đăng nhập do MÁY CHỦ ghi (luật chặn app ghi) — máy chủ xác minh token thật, lấy auth_time + IP/vị trí thật.
-async function callDevices(body) {
+const callDevices = (body) => callApi('api/devices', body);
+
+/**
+ * Duyệt tài khoản mới bằng mật khẩu web ({ code }) hoặc phím tắt bí mật ({ keys }) — máy chủ kiểm (api/signup.js), gắn claim `approved`,
+ * rồi xin token mới để luật cho tạo bộ đề / thư mục ngay. Sai → ném lỗi (message tiếng Việt, kèm số lần còn lại nếu có).
+ */
+export async function approveAccount(secret) {
+    await callApi('api/signup', secret);
+    await auth.currentUser?.getIdToken(true);
+}
+
+async function callApi(path, body) {
     const u = auth.currentUser;
     if (!u) throw new Error('Chưa đăng nhập');
-    const res = await fetch(new URL('api/devices', location.origin + '/').href, {
+    const res = await fetch(new URL(path, location.origin + '/').href, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await u.getIdToken()}` },
         body: JSON.stringify(body),
@@ -153,7 +164,10 @@ export async function watchDevices(user) {
             settled = true;
             if (!r.present) {
                 kickOut(`Tài khoản này đang đăng nhập trên đủ ${r.limit || MAX_DEVICES} máy khác. Máy này đã được đăng xuất — đăng nhập lại sẽ đẩy máy cũ nhất ra.`);
+                return;
             }
+            // Tài khoản cũ vừa được máy chủ duyệt (claim `approved`) → xin token mới để luật cho tạo bộ đề / thư mục ngay
+            if (r.claimsChanged) await user.getIdToken(true).catch(() => {});
         } catch (e) { warnServer(e); }
     };
     if (navigator.onLine !== false) {
@@ -161,7 +175,8 @@ export async function watchDevices(user) {
         let ok = false;
         try {
             const snap = await getDoc(devRef(user.uid));
-            ok = !fresh && snap.exists() && (snap.data().list || []).some(d => d.id === me && d.authTime === authTime);
+            // Token chưa có claim `approved` (tài khoản cũ chưa duyệt) → vẫn gọi máy chủ để được duyệt tự động
+            ok = !fresh && claims.approved === true && snap.exists() && (snap.data().list || []).some(d => d.id === me && d.authTime === authTime);
         } catch (e) { /* mạng chập chờn: để máy chủ xử lý */ }
         if (ok) settled = true; else await ensure();
     }
