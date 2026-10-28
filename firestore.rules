@@ -21,10 +21,25 @@ service cloud.firestore {
     // không giả được) nằm trong danh sách máy hợp lệ users/{uid}/private/devices.authTimes. Danh sách do MÁY CHỦ ghi (api/devices.js, tối đa
     // 2 máy, admin/ngoại lệ 20) — app không ghi được. Máy bị đẩy ra → không đọc được đề chia sẻ nữa dù có sửa code. Chỉ áp cho đề NGƯỜI KHÁC
     // chia sẻ (1 lượt đọc thêm); dữ liệu của chính mình và đề công khai không cần.
+    function isExempt() {
+      return isAdmin()
+          || (request.auth != null
+              && request.auth.token.email_verified == true
+              && request.auth.token.email in get(/databases/$(database)/documents/config/access).data.get('deviceExempt', []));
+    }
     function trustedSession() {
-      return request.auth.token.firebase.sign_in_provider == 'google.com'
-          && request.auth.token.auth_time
-               in get(/databases/$(database)/documents/users/$(request.auth.uid)/private/devices).data.get('authTimes', []);
+      return isAdmin()
+          || ((request.auth.token.firebase.sign_in_provider == 'google.com' || isExempt())
+              && request.auth.token.auth_time
+                   in get(/databases/$(database)/documents/users/$(request.auth.uid)/private/devices).data.get('authTimes', []));
+    }
+    // TÀI KHOẢN ĐÃ DUYỆT (2026-10-29): tạo tài khoản phải nhập ĐÚNG mật khẩu web — máy chủ (api/signup.js) kiểm rồi gắn custom claim
+    // `approved` vào token (không giả được, không tốn lượt đọc). Tài khoản có từ trước được duyệt tự động (api/devices.js). Chưa duyệt
+    // → đăng nhập được nhưng KHÔNG tạo được bộ đề / thư mục / ảnh / bệnh án / phòng (lách ô mật khẩu web bằng DevTools cũng vô ích).
+    // uid admin: khớp isAdminToken trong api/_lib/admin.js — skill up-cau-hoi (upload.py) đăng nhập mật khẩu, email có thể chưa xác nhận.
+    function approved() {
+      return request.auth != null
+          && (request.auth.token.get('approved', false) == true || isAdmin() || request.auth.uid == 'qZ5dzmJzrjdpN9l4n9x5UGPwHE43');
     }
     // LINK CÔNG KHAI CÓ HẠN: isPublic + publicUntil (mặc định 12 giờ; thiếu/null = không hết hạn — link cũ). So với giờ MÁY CHỦ.
     function publicAlive() {
@@ -135,7 +150,7 @@ service cloud.firestore {
                  || sharedWithMe();
       allow list: if (request.auth != null && request.auth.uid == resource.data.userId)
                   || sharedWithMe();
-      allow create: if isOwner(request.resource.data.userId) && validShare(request.resource.data) && copyAllowed(request.resource.data);
+      allow create: if isOwner(request.resource.data.userId) && approved() && validShare(request.resource.data) && copyAllowed(request.resource.data);
       allow update: if (isOwner(resource.data.userId) && keepsOwner() && validShare(request.resource.data)) || leavesShare() || editsAsEditor();
       allow delete: if isOwner(resource.data.userId);
     }
@@ -150,7 +165,7 @@ service cloud.firestore {
                  || sharedWithMe();
       allow list: if (request.auth != null && request.auth.uid == resource.data.userId)
                   || sharedWithMe();
-      allow create: if isOwner(request.resource.data.userId) && validShare(request.resource.data);
+      allow create: if isOwner(request.resource.data.userId) && approved() && validShare(request.resource.data);
       allow update: if (isOwner(resource.data.userId) && keepsOwner() && validShare(request.resource.data)) || leavesShare();
       allow delete: if isOwner(resource.data.userId);
     }
@@ -200,7 +215,7 @@ service cloud.firestore {
       allow read, delete: if request.auth != null
                           && request.auth.uid == resource.data.userId;
       allow update: if isOwner(resource.data.userId) && keepsOwner();
-      allow create: if request.auth != null
+      allow create: if request.auth != null && approved()
                     && request.auth.uid == request.resource.data.userId;
     }
 
@@ -210,7 +225,7 @@ service cloud.firestore {
                  || (request.auth != null && request.auth.uid == resource.data.userId)
                  || sharedWithMe();
       allow list: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow create: if isOwner(request.resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId) && approved();
       allow update: if isOwner(resource.data.userId) && keepsOwner();
       allow delete: if isOwner(resource.data.userId);
     }
@@ -221,7 +236,7 @@ service cloud.firestore {
     match /quiz_images/{imageId} {
       allow get: if true;
       allow list: if false;
-      allow create: if request.auth != null
+      allow create: if request.auth != null && approved()
                     && imageId.matches('^[a-f0-9]{32}$')
                     && request.resource.data.keys().hasOnly(['data', 'mime', 'w', 'h', 'bytes', 'userId', 'createdAt'])
                     && request.resource.data.keys().hasAll(['data', 'mime', 'userId'])
@@ -245,7 +260,7 @@ service cloud.firestore {
     match /study_rooms/{roomId} {
       allow get: if true;
       allow list: if request.auth != null && resource.data.owner == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.owner == request.auth.uid;
+      allow create: if request.auth != null && approved() && request.resource.data.owner == request.auth.uid;
       allow update: if request.resource.data.get('owner', null) == resource.data.get('owner', null);
       allow delete: if request.auth != null && resource.data.owner == request.auth.uid;
 

@@ -17,7 +17,8 @@ function init() {
 
 // Khớp isAdmin() trong firestore.rules và ADMIN_EMAILS trong core/device-limit.js
 const ADMIN_EMAILS = ['vietthanhne@gmail.com'];
-const isAdminToken = (t) => !!t && t.email_verified === true && ADMIN_EMAILS.includes(String(t.email || '').toLowerCase());
+const isAdminEmail = (email) => ADMIN_EMAILS.includes(String(email || '').toLowerCase());
+const isAdminToken = (t) => !!t && isAdminEmail(t.email) && (t.email_verified === true || t.uid === 'qZ5dzmJzrjdpN9l4n9x5UGPwHE43');
 
 /** Xác minh ID token Firebase ở header Authorization: Bearer <token>. Trả token đã giải mã hoặc ném lỗi 401. */
 async function verifyUser(req) {
@@ -53,9 +54,31 @@ async function readJson(req) {
     return {};
 }
 
+// ---------- Duyệt tài khoản (custom claim `approved` — firestore.rules approved()) ----------
+// Tài khoản TẠO TRƯỚC mốc này có từ thời chưa có cổng máy chủ (đã qua mật khẩu web ở app) → duyệt tự động khi mở app.
+const APPROVE_CUTOFF_MS = Date.parse('2026-10-29T00:00:00Z');
+
+/** Gắn claim approved (giữ các claim khác). */
+async function setApproved(uid) {
+    const { auth } = init();
+    const u = await auth.getUser(uid);
+    await auth.setCustomUserClaims(uid, { ...(u.customClaims || {}), approved: true });
+}
+
+/** Token chưa có approved: tài khoản cũ (trước APPROVE_CUTOFF_MS) hoặc admin → duyệt luôn. Trả true nếu vừa gắn (app phải làm mới token). */
+async function autoApprove(token) {
+    if (!token || token.approved === true) return false;
+    const { auth } = init();
+    const u = await auth.getUser(token.uid);
+    const created = Date.parse(u.metadata.creationTime || '') || Date.now();
+    if (created >= APPROVE_CUTOFF_MS && !isAdminToken(token)) return false;
+    await auth.setCustomUserClaims(token.uid, { ...(u.customClaims || {}), approved: true });
+    return true;
+}
+
 /** Mốc hết hạn (Timestamp Firestore / Date / null) → mili-giây, null = không hết hạn. */
 const untilMs = (v) => (v == null ? null : typeof v.toMillis === 'function' ? v.toMillis() : new Date(v).getTime());
 /** Doc công khai còn hiệu lực: isPublic và chưa quá publicUntil (thiếu publicUntil = không hết hạn — link cũ). */
 const publicAlive = (d) => !!d && d.isPublic === true && (untilMs(d.publicUntil) == null || untilMs(d.publicUntil) > Date.now());
 
-module.exports = { init, verifyUser, isAdminToken, ADMIN_EMAILS, geoOf, send, readJson, untilMs, publicAlive };
+module.exports = { init, verifyUser, isAdminEmail, isAdminToken, ADMIN_EMAILS, geoOf, send, readJson, untilMs, publicAlive, setApproved, autoApprove };

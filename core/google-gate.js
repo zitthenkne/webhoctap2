@@ -10,7 +10,7 @@ import { auth } from './firebase-init.js';
 import {
     GoogleAuthProvider, linkWithPopup, signInWithPopup, signInWithCredential, signOut, browserPopupRedirectResolver
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { markFreshLogin, clearFreshLogin } from './device-limit.js';
+import { markFreshLogin, clearFreshLogin, isExemptUser } from './device-limit.js';
 
 const ROOT = new URL('../', import.meta.url).href;
 let shown = false;
@@ -81,12 +81,12 @@ async function toGoogle(user) {
     }
 }
 
-/** auth-session.js gọi với mỗi người dùng thật. */
+/** auth-session.js gọi với mỗi người dùng thật. Tài khoản đặc biệt (admin / deviceExempt) không cần đăng nhập Google. */
 export async function checkGoogleSession(user) {
     if (!user || user.isAnonymous || navigator.onLine === false) return;
     let provider;
     try { provider = (await user.getIdTokenResult()).claims.firebase?.sign_in_provider; } catch (e) { return; }
-    if (provider === 'google.com') return;
+    if (provider === 'google.com' || await isExemptUser(user)) return;
     if (document.readyState === 'loading') await new Promise(r => document.addEventListener('DOMContentLoaded', r, { once: true }));
     overlay(user);
 }

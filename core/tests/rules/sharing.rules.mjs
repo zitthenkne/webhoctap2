@@ -147,8 +147,10 @@ test('danh sách thiết bị: chủ tài khoản ĐỌC được nhưng KHÔNG 
     await assertFails(getDoc(doc(as(OTHER), 'users/friend/private/devices')));
 });
 
-test('PHIÊN TIN CẬY: phiên mật khẩu (không phải Google) không đọc được đề chia sẻ', async () => {
+test('PHIÊN TIN CẬY: phiên mật khẩu thường không đọc được đề chia sẻ; nhưng tài khoản đặc biệt (deviceExempt) thì đọc được', async () => {
     await assertFails(getDoc(doc(as({ ...FRIEND, provider: 'password' }), 'quiz_sets/shared')));
+    await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), 'config/access'), { deviceExempt: ['friend@x.test'] }));
+    await assertSucceeds(getDoc(doc(as({ ...FRIEND, provider: 'password' }), 'quiz_sets/shared')));
 });
 
 test('PHIÊN TIN CẬY: máy bị đẩy ra (auth_time không còn trong danh sách) không đọc được đề chia sẻ', async () => {

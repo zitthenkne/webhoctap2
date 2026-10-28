@@ -10,7 +10,7 @@
 //   release   { deviceId }                — đăng xuất máy này (nhả chỗ)
 //   remove    { deviceId }                — đăng xuất từ xa một máy khác của CHÍNH MÌNH
 //   adminRemove { uid, deviceId? }        — admin đăng xuất một máy (hoặc mọi máy) của người khác
-const { init, verifyUser, isAdminToken, geoOf, send, readJson } = require('./_lib/admin');
+const { init, verifyUser, isAdminEmail, isAdminToken, geoOf, send, readJson, autoApprove } = require('./_lib/admin');
 
 const MAX_DEVICES = 2;
 const EXEMPT_MAX = 20;
@@ -19,13 +19,17 @@ const ALERT_WINDOW_MS = 2 * 60 * 60 * 1000;
 const cleanId = (s) => String(s || '').replace(/[^\w-]/g, '').slice(0, 40);
 const placeOf = (e) => [e?.city, e?.country].filter(Boolean).join(', ');
 
-async function limitFor(db, token) {
-    if (isAdminToken(token)) return EXEMPT_MAX;
+async function isExemptToken(db, token) {
+    if (isAdminToken(token) || isAdminEmail(token?.email)) return true;
     try {
         const s = await db.doc('config/access').get();
         const list = s.exists && Array.isArray(s.data().deviceExempt) ? s.data().deviceExempt : [];
-        return list.includes(String(token.email || '').toLowerCase()) ? EXEMPT_MAX : MAX_DEVICES;
-    } catch (e) { return MAX_DEVICES; }
+        return list.includes(String(token?.email || '').toLowerCase());
+    } catch (e) { return false; }
+}
+
+async function limitFor(db, token) {
+    return (await isExemptToken(db, token)) ? EXEMPT_MAX : MAX_DEVICES;
 }
 
 const pack = (list) => ({ list, authTimes: list.map(d => d.authTime).filter(n => typeof n === 'number') });
@@ -63,13 +67,17 @@ module.exports = async function handler(req, res) {
         }
         if (body.action !== 'register') return send(res, 400, { error: 'action không hợp lệ' });
 
-        if (token.firebase?.sign_in_provider !== 'google.com') return send(res, 403, { error: 'google-required' });
+        const exempt = await isExemptToken(db, token);
+        if (token.firebase?.sign_in_provider !== 'google.com' && !exempt) return send(res, 403, { error: 'google-required' });
+        if (exempt && !token.email_verified) {
+            try { await init().auth.updateUser(uid, { emailVerified: true }); } catch (e) {}
+        }
         const me = cleanId(body.deviceId);
         if (!me) return send(res, 400, { error: 'Thiếu deviceId' });
         const label = String(body.label || 'Thiết bị').slice(0, 80);
         const authTime = Number(token.auth_time) || 0;
         const geo = geoOf(req);
-        const limit = await limitFor(db, token);
+        const limit = exempt ? EXEMPT_MAX : MAX_DEVICES;
         const now = Date.now();
         const devRef = db.doc(`users/${uid}/private/devices`);
         const logRef = db.doc(`users/${uid}/private/logins`);
@@ -101,7 +109,10 @@ module.exports = async function handler(req, res) {
             }
             return { list, present: list.some(d => d.id === me) };
         });
-        return send(res, 200, { ok: true, limit, present: out.present, list: out.list });
+        // Tài khoản có từ trước cổng duyệt (api/signup.js) → duyệt tự động; app thấy claimsChanged thì làm mới token
+        let claimsChanged = false;
+        try { claimsChanged = await autoApprove(token); } catch (e) { /* lần sau thử lại */ }
+        return send(res, 200, { ok: true, limit, present: out.present, list: out.list, claimsChanged, approved: token.approved === true || claimsChanged });
     } catch (e) {
         return send(res, e.status || 500, { error: e.message || 'Lỗi máy chủ' });
     }

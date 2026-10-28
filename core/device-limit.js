@@ -23,16 +23,22 @@ const accessRef = () => doc(db, 'config', 'access');
 
 const emailOf = (u) => String(u?.email || '').toLowerCase();
 /** Tài khoản quản trị (email đã xác nhận nằm trong ADMIN_EMAILS). */
-export const isAdminUser = (u) => !!u && !u.isAnonymous && u.emailVerified === true && ADMIN_EMAILS.includes(emailOf(u));
+export const isAdminUser = (u) => !!u && !u.isAnonymous && ADMIN_EMAILS.includes(emailOf(u));
 
-/** Số máy tối đa của một tài khoản: admin / email ngoại lệ → EXEMPT_MAX, còn lại MAX_DEVICES. Lỗi đọc cấu hình → MAX_DEVICES. */
-export async function deviceLimitFor(u) {
-    if (isAdminUser(u)) return EXEMPT_MAX;
+/** Tài khoản đặc biệt (admin hoặc trong config/access.deviceExempt): không bắt đăng nhập Google và dùng tối đa EXEMPT_MAX máy. */
+export async function isExemptUser(u) {
+    if (!u || u.isAnonymous) return false;
+    if (isAdminUser(u)) return true;
     try {
         const snap = await getDoc(accessRef());
         const list = snap.exists() && Array.isArray(snap.data().deviceExempt) ? snap.data().deviceExempt : [];
-        return list.includes(emailOf(u)) ? EXEMPT_MAX : MAX_DEVICES;
-    } catch (e) { return MAX_DEVICES; }
+        return list.includes(emailOf(u));
+    } catch (e) { return false; }
+}
+
+/** Số máy tối đa của một tài khoản: admin / email ngoại lệ → EXEMPT_MAX, còn lại MAX_DEVICES. Lỗi đọc cấu hình → MAX_DEVICES. */
+export async function deviceLimitFor(u) {
+    return (await isExemptUser(u)) ? EXEMPT_MAX : MAX_DEVICES;
 }
 
 // ---------- Admin: quản lý danh sách ngoại lệ (luật config/{docId}: chỉ admin ghi) ----------
@@ -133,7 +139,7 @@ export async function watchDevices(user) {
     if (!user || user.isAnonymous || watchingUid === user.uid) return;
     let claims;
     try { claims = (await user.getIdTokenResult()).claims; } catch (e) { return; }
-    if (claims.firebase?.sign_in_provider !== 'google.com') return;
+    if (claims.firebase?.sign_in_provider !== 'google.com' && !(await isExemptUser(user))) return;
     watchingUid = user.uid;
     unsub?.();
     const me = deviceId();

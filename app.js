@@ -4,7 +4,7 @@
 
 import { auth, db } from './core/firebase-init.js';
 import { onSessionUser, sendVerifyMail, sendResetMail, authErrorVi } from './core/auth-session.js';
-import { markFreshLogin, clearFreshLogin } from './core/device-limit.js';
+import { markFreshLogin, clearFreshLogin, isExemptUser } from './core/device-limit.js';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, browserPopupRedirectResolver, getAdditionalUserInfo } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { doc, setDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { emailForName, claimName } from './core/usernames.js';
@@ -247,9 +247,15 @@ async function handleLogin() {
     }
     try {
         // Tài khoản CŨ (email + mật khẩu): đăng nhập xong core/google-gate.js phủ màn hình bắt gắn Google — web chỉ nhận phiên Google
-        await signInWithEmailAndPassword(auth, email, password);
+        markFreshLogin();
+        const cred = await signInWithEmailAndPassword(auth, email, password);
         toggleAuthModal();
-        showToast('Đăng nhập thành công — bước cuối: gắn Gmail của bạn (chỉ một lần).', 'success', 5000);
+        if (await isExemptUser(cred.user)) {
+            if (goNextAfterLogin()) return;
+            showToast('Đăng nhập thành công!', 'success');
+        } else {
+            showToast('Đăng nhập thành công — bước cuối: gắn Gmail của bạn (chỉ một lần).', 'success', 5000);
+        }
     } catch (error) {
         clearFreshLogin();
         // Tài khoản tạo bằng Google không có mật khẩu → Firebase chỉ báo "sai thông tin"; nhắc lối đúng (hoặc đặt mật khẩu qua "Quên mật khẩu?")
