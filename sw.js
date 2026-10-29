@@ -116,6 +116,7 @@ const urlsToCache = [
   'core/google-gate.js',
   'core/google-signin.js',
   'core/quiz-run.js',
+  'core/features.js',
   'core/announce.js',
   'core/firestore-rest.js',
   'core/zimg.js',

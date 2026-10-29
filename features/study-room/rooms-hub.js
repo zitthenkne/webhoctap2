@@ -14,6 +14,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { db } from '../../core/firebase-init.js';
 import { onSessionUser } from '../../core/auth-session.js';
+import { requireFeature } from '../../core/features.js';
 import { showToast, showConfirm } from '../../core/utils.js';
 
 const STALE_MS = 150000;         // quá 150s không nhịp tim thì coi như đã rời (nhịp tim 60s/lần từ bản 70)
@@ -938,6 +939,11 @@ function openCreateModal(opts = {}) {
         showToast('Đăng nhập để tạo phòng nhé!', 'warning');
         window.toggleAuthModal?.();
         return opts.onCancel?.();
+    }
+    // Tạo phòng cần tính năng "Học nhóm" (core/features.js — admin bật/tắt theo tài khoản; mặc định mở)
+    if (!opts.allowed) {
+        requireFeature('room').then(ok => ok ? openCreateModal({ ...opts, allowed: true }) : opts.onCancel?.());
+        return;
     }
     const pre = opts.preset || {};
     const pick = {

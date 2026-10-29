@@ -36,6 +36,7 @@ function setup({ folders = initialFolders, quizzes = [{ id: 'q', folderId: null 
         loadPinnedQuizIds() {}, loadAttemptCache() {}, syncAttemptsFromServer: async () => false,
         invalidateQuestionIndex() {}, purgeExpiredTrash() {},
         renderLibrary() {}, renderLibrarySkeleton() {}, renderBreadcrumb() {}, rerenderCurrentView() {},
+        requireFeature: () => ({ then: fn => fn(true) }),
         showToast: (...args) => notices.push(args)
     });
     for (const name of ['library-state.js', 'library-helpers.js', 'library-data.js', 'library-actions.js']) {

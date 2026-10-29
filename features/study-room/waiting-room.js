@@ -2,6 +2,7 @@
 import { showToast } from '../../core/utils.js';
 import { guideOn, setGuide } from '../../core/guide.js';
 import { onSessionUser } from '../../core/auth-session.js';
+import { requireFeature } from '../../core/features.js';
 import {
     listLocal, sortRecords, syncFromCloud, syncNow, deleteRecord, saveRecord,
     isSignedIn, exportJson, importJson, watchCloud, syncInfo, isPinned as storePinned, setPinned
@@ -1011,7 +1012,9 @@ function undoToast(message, onUndo, ms = 6000) {
 function createNew() {
     createNewIn(folderId && folderId !== '__none__' ? folderId : '');
 }
-function createNewIn(fid) {
+async function createNewIn(fid) {
+    // Viết bệnh án MỚI cần admin mở tính năng "Bệnh án" (core/features.js); bệnh án đã có vẫn mở / sửa bình thường
+    if (!await requireFeature('record', { label: 'Viết bệnh án' })) return;
     const q = fid ? '&folder=' + encodeURIComponent(fid) : '';
     location.href = '../medical-record/tao-benh-an.html?id=' + encodeURIComponent('BA-' + Date.now()) + q;
 }

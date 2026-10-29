@@ -10,6 +10,7 @@ import { showShareAccess, commitInBatches, untilMsOf } from '../share-access.js'
 import { updateDocQ as updateDoc, setDocQ } from "../../../core/offline-write.js";
 import { sessionUser } from '../../../core/auth-session.js';
 import { showToast, showConfirm } from '../../../core/utils.js';
+import { requireFeature } from '../../../core/features.js';
 import { S } from './library-state.js';
 import {
     sortUserFolders, parseFontAwesomeIcon, escapeHtml, FOLDER_COLOR_HEX,
@@ -113,6 +114,7 @@ export function applyInheritedShare(obj, folderId) {
 export async function duplicateQuizSet(quizId, quizTitle) {
     const user = sessionUser();
     if (!user) { showToast('Vui lòng đăng nhập.', 'info'); return; }
+    if (!await requireFeature('create', { label: 'Nhân bản bộ đề' })) return;     // bản sao = bộ đề mới (core/features.js)
     try {
         showToast('Đang nhân bản…', 'info');
         const snap = await getDoc(doc(db, "quiz_sets", quizId));
@@ -204,7 +206,12 @@ export async function moveQuizToFolder(quizId, folderId, folderName) {
 }
 
 // === QUẢN LÝ THƯ MỤC MODAL ===
-export function openFolderModal(mode = 'create', folderId = null, folderName = '', parentId) {
+export function openFolderModal(mode = 'create', folderId = null, folderName = '', parentId, featureOk = false) {
+    // Tạo thư mục mới cần tính năng "Tạo đề" (core/features.js); sửa thư mục đã có thì không
+    if (mode === 'create' && !featureOk) {
+        requireFeature('create', { label: 'Tạo thư mục' }).then(ok => { if (ok) openFolderModal(mode, folderId, folderName, parentId, true); });
+        return;
+    }
     S.folderModalMode = mode;
     S.editingFolderId = folderId;
     // Thư mục mới nằm trong đâu: chỉ định rõ (menu "Tạo thư mục con") hoặc ngay cấp đang mở

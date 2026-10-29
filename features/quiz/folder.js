@@ -16,6 +16,7 @@ import { runQueryRest } from '../../core/firestore-rest.js';
 import { markSharedSeen } from './shared-inbox.js';
 import { rememberOpened, listShelf, forgetShelf, togglePinShelf, clearShelf, localStatsFor } from './local-shelf.js';
 import { showToast, showConfirm } from '../../core/utils.js';
+import { requireFeature } from '../../core/features.js';
 import {
     doc, getDoc, collection, setDoc, arrayRemove, writeBatch
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
@@ -366,6 +367,7 @@ function bindSharedActions(me, data, redraw) {
             return;
         }
         // Lưu bản sao: chép câu hỏi sang một bộ đề MỚI của mình (riêng tư, ở Thư viện gốc) — bản gốc không bị đụng tới.
+        if (!await requireFeature('create', { label: 'Lưu bản sao' })) return;      // bộ đề mới cần tính năng "Tạo đề" (core/features.js)
         btn.disabled = true;
         try {
             const snap = await getDoc(doc(db, 'quiz_sets', copyBtn.dataset.id));

@@ -15,9 +15,11 @@ import { showToast, showConfirm } from '../../core/utils.js';
 import { isAdminUser, onAccessConfig, setDefaultLimit, limitFromConfig, adminListAllUsers, adminLookupUser, adminUpdateUser, adminDeleteUser,
     adminRemoveDevices, adminCreateUser, placeOf, ADMIN_EMAILS, EXEMPT_MAX, MAX_DEVICES } from '../../core/device-limit.js';
 import { RUN_MAX_MS } from '../../core/quiz-run.js';
+import { FEATURES, FEATURE_KEYS, DEFAULT_FEATURES, FULL_FEATURES, normFeatures } from '../../core/features.js';
 
 const RESULTS_MAX = 1500;                         // số lượt nộp tối đa mỗi lần tải báo cáo (mỗi lượt = 1 lượt đọc)
 const PURGE_AFTER_MS = 14 * 24 * 60 * 60 * 1000;
+const GUEST_PURGE_MS = 60 * 24 * 60 * 60 * 1000;
 const OVERLAP_MIN_MS = 60 * 1000;                 // chồng giờ dưới 1 phút = lệch đồng hồ giữa 2 máy, không tính
 const RANGES = { 1: '24 giờ qua', 7: '7 ngày qua', 30: '30 ngày qua' };
 const MODES = { practice: 'luyện câu sai', srs: 'ôn lặp lại' };
@@ -55,6 +57,8 @@ let runs = [];               // quiz_runs ghi trong RUN_MAX_MS gần nhất
 let runsError = '', runsLoaded = false;
 let results = null;          // quiz_results trong khoảng đang chọn (null = chưa tải)
 let resultsError = '', resultsAt = 0, resultsCapped = false, resultsDays = 7;
+let guests = [];             // quiz_guest (máy CHƯA đăng nhập làm đề công khai) trong cùng khoảng
+let guestsError = '';
 let incidents = null;        // kết quả analyze(), tính lại khi dữ liệu đổi
 let users = null;            // danh sách tài khoản (tải khi mở trang — để có tên / email cho báo cáo)
 let userMap = new Map();
@@ -189,6 +193,15 @@ function normResult(id, x) {
         device: str(x.device, 64), label: str(x.deviceLabel, 80), clash: str(x.clash, 80), flags: []
     };
 }
+// Máy khách: mỗi máy × mỗi đề một doc (làm lại thì ghi đè lượt cuối + đếm số lượt)
+function normGuest(id, x) {
+    const end = msOf(x.at);
+    return {
+        id, device: str(x.device, 64) || id, label: str(x.label, 80), quizId: str(x.quizId, 120), title: str(x.title, 200),
+        done: x.state === 'done', pct: int(x.pct), attempts: Math.max(1, int(x.attempts) || 1),
+        start: Math.min(int(x.startedAt) || end, end), end
+    };
+}
 const isDoing = (r) => r.state === 'doing' && Date.now() - r.atMs < RUN_MAX_MS;
 
 let runsUnsub = null;
@@ -219,10 +232,18 @@ async function loadResults() {
     renderStatus();
     try {
         const since = Timestamp.fromMillis(Date.now() - days * 24 * 60 * 60 * 1000);
-        const snap = await getDocs(query(collection(db, 'quiz_results'), where('completedAt', '>=', since), orderBy('completedAt', 'desc'), limit(RESULTS_MAX)));
+        guestsError = '';
+        const [snap, gsnap] = await Promise.all([
+            getDocs(query(collection(db, 'quiz_results'), where('completedAt', '>=', since), orderBy('completedAt', 'desc'), limit(RESULTS_MAX))),
+            getDocs(query(collection(db, 'quiz_guest'), where('at', '>=', since), orderBy('at', 'desc'), limit(RESULTS_MAX))).catch((e) => {
+                guestsError = e?.code === 'permission-denied' ? 'Chưa đọc được máy khách — luật Firestore mới (quiz_guest) đã deploy chưa?' : 'Không tải được máy khách.';
+                return null;
+            })
+        ]);
         if (token !== resultsToken) return;
         results = snap.docs.map(d => normResult(d.id, d.data()));
-        resultsCapped = snap.size >= RESULTS_MAX;
+        guests = gsnap ? gsnap.docs.map(d => normGuest(d.id, d.data())) : [];
+        resultsCapped = snap.size >= RESULTS_MAX || (gsnap?.size || 0) >= RESULTS_MAX;
         resultsAt = Date.now();
     } catch (e) {
         if (token !== resultsToken) return;
@@ -302,7 +323,7 @@ function renderStatus() {
     if (resultsError) { el.innerHTML = `<span class="text-red-500">${esc(resultsError)}</span>`; return; }
     if (!results) { el.textContent = 'Đang tải báo cáo…'; return; }
     const doing = doingByUid().size;
-    el.textContent = `Báo cáo ${RANGES[resultsDays]} · ${results.length}${resultsCapped ? '+' : ''} lượt nộp · ${doing} người đang làm · tải lúc ${fmtClock(resultsAt)}`;
+    el.textContent = `Báo cáo ${RANGES[resultsDays]} · ${results.length}${resultsCapped ? '+' : ''} lượt nộp · ${new Set(guests.map(g => g.device)).size} máy khách · ${doing} người đang làm · tải lúc ${fmtClock(resultsAt)}`;
 }
 
 function stat(label, value, sub, tone) {
@@ -315,7 +336,7 @@ function stat(label, value, sub, tone) {
 function personHead(uid, extra = '') {
     const p = person(uid);
     return `<div class="flex flex-wrap items-center gap-2 min-w-0">
-        <button type="button" class="font-extrabold text-slate-800 hover:text-amber-600 text-left min-w-0 truncate" data-act="open" data-uid="${esc(uid)}">${esc(nameOf(p))}</button>
+        <button type="button" class="font-extrabold text-slate-800 hover:text-pink-500 text-left min-w-0 truncate" data-act="open" data-uid="${esc(uid)}">${esc(nameOf(p))}</button>
         <span class="text-[11.5px] text-slate-400 truncate min-w-0">${esc(p.email)}</span>${extra}
     </div>`;
 }
@@ -347,11 +368,15 @@ function renderReport() {
     const quizIds = new Set(all.map(r => r.quizId));
     const avg = all.length ? Math.round(all.reduce((s, r) => s + r.pct, 0) / all.length) : 0;
     const doingDevices = [...doing.values()].reduce((s, g) => s + g.devices.size, 0);
+    const accDevices = new Set(all.filter(r => r.device).map(r => r.uid + '|' + r.device)).size;
+    const guestDevices = new Set(guests.map(g => g.device)).size;
+    guests.forEach(g => quizIds.add(g.quizId));
     $('rep-stats').innerHTML =
-        stat('Lượt nộp bài', `${all.length}${resultsCapped ? '+' : ''}`, `${people} người · ${RANGES[resultsDays]}`, 'text-pink-600') +
-        stat('Đề đã có người làm', quizIds.size, all.length ? `điểm trung bình ${avg}%` : 'chưa có lượt nộp', 'text-violet-600') +
-        stat('Đang làm (chưa nộp)', doing.size, runsError ? 'chưa đọc được' : `${doingDevices} máy`, 'text-emerald-600') +
-        stat('Cảnh báo 2 máy', clashUids().size, inc.length ? `${inc.length} lần · xem bên dưới` : 'không có', inc.length ? 'text-red-600' : 'text-slate-500');
+        stat('🍓 Lượt nộp bài', `${all.length}${resultsCapped ? '+' : ''}`, `${people} người · ${RANGES[resultsDays]}`, 'text-pink-500') +
+        stat('📱 Máy đã làm đề', accDevices + guestDevices, guestsError ? esc(guestsError) : `${accDevices} có tài khoản · ${guestDevices} máy khách`, 'text-sky-500') +
+        stat('📚 Đề đã có người làm', quizIds.size, all.length ? `điểm trung bình ${avg}%` : 'chưa có lượt nộp', 'text-violet-500') +
+        stat('✏️ Đang làm (chưa nộp)', doing.size, runsError ? 'chưa đọc được' : `${doingDevices} máy`, 'text-emerald-500') +
+        stat('⚠️ Cảnh báo 2 máy', clashUids().size, inc.length ? `${inc.length} lần · xem bên dưới` : 'không có', inc.length ? 'text-rose-500' : 'text-slate-400');
 
     $('rep-alerts').innerHTML = inc.length ? `<div class="card p-4 space-y-3 border-red-200" style="border-color:#FECACA">
         <p class="font-black text-red-700"><i class="fas fa-triangle-exclamation mr-1.5"></i>Cùng một tài khoản làm đề trên 2 máy cùng lúc <span class="chip bg-red-100 text-red-700">${inc.length}</span></p>
@@ -375,17 +400,41 @@ function renderReport() {
         <div class="mt-2 space-y-2">${[...doing.entries()].map(([uid, g]) => `<div class="space-y-1">
             ${personHead(uid, g.devices.size >= 2 ? '<span class="chip bg-amber-100 text-amber-800">2 máy</span>' : '')}
             ${g.runs.map(r => `<div class="text-[12px] text-slate-600 pl-1"><i class="fas ${deviceIcon(r.label)} mr-1 text-slate-400"></i><b>${esc(r.label || 'Thiết bị')}</b> · ${esc(r.title || r.quizId)}${MODES[r.mode] ? ` · ${MODES[r.mode]}` : ''} · bắt đầu ${ago(r.startedAt || r.atMs)}</div>`).join('')}
-        </div>`).join('<hr class="border-amber-100">')}</div>
+        </div>`).join('<hr class="border-pink-100">')}</div>
     </details>` : '';
 
     const q = lc($('rep-search').value.trim());
     const onlyClash = $('rep-only-clash').checked;
     const shown = all.filter(r => matchesQ(r, q) && (!onlyClash || r.flags.length));
+    const shownGuests = onlyClash ? [] : guests.filter(g => guestMatches(g, q));
     let html = '';
     if (!results) html = '';
-    else if (repView === 'quiz') html = renderByQuiz(shown);
-    else html = renderByUser(shown);
-    $('rep-list').innerHTML = html || `<div class="card p-6 text-center text-slate-400 font-bold">${resultsError ? esc(resultsError) : results ? (all.length ? 'Không có lượt nộp nào khớp bộ lọc.' : `Chưa ai nộp bài trong ${RANGES[resultsDays]}.`) : 'Đang tải…'}</div>`;
+    else if (repView === 'quiz') html = renderByQuiz(shown, shownGuests);
+    else html = renderByUser(shown, shownGuests);
+    $('rep-list').innerHTML = html || `<div class="card p-6 text-center text-slate-400 font-bold">${resultsError ? esc(resultsError) : results ? (all.length || guests.length ? 'Không có lượt nào khớp bộ lọc.' : `Chưa ai làm đề trong ${RANGES[resultsDays]} 🌸`) : 'Đang tải…'}</div>`;
+}
+
+const guestMatches = (g, q) => !q || [g.title, g.quizId, g.label, 'khách', 'chưa đăng nhập'].some(v => lc(v).includes(q));
+
+function guestRow(g, { withTitle = false } = {}) {
+    const tone = g.pct == null ? 'text-slate-400' : g.pct >= 80 ? 'text-emerald-600' : g.pct >= 50 ? 'text-amber-600' : 'text-rose-500';
+    return `<div class="rounded-2xl px-3 py-1.5 text-[12px] flex flex-wrap items-center gap-x-2 gap-y-0.5 bg-sky-50/70 border border-sky-100">
+        <span class="font-black ${tone}">${g.done && g.pct != null ? g.pct + '%' : 'đang làm / bỏ dở'}</span>
+        ${withTitle ? `<span class="font-bold text-slate-700 min-w-0 truncate">${esc(g.title || g.quizId)}</span>` : ''}
+        <span class="text-slate-400"><i class="fas ${deviceIcon(g.label)} mr-0.5"></i>${esc(g.label || 'Máy chưa rõ')}</span>
+        <span class="text-slate-500">${fmtShort(g.end)}</span>
+        ${g.attempts > 1 ? `<span class="chip bg-white text-sky-600 border border-sky-100">${g.attempts} lượt</span>` : ''}
+    </div>`;
+}
+function guestBlock(gs, { withTitle = false, head = true } = {}) {
+    if (!gs.length) return '';
+    const n = new Set(gs.map(g => g.device)).size;
+    const max = head ? 12 : 40;
+    return `<div class="space-y-1">
+        ${head ? `<p class="text-[12.5px] font-extrabold text-sky-700"><i class="fas fa-user-secret mr-1"></i>Khách chưa đăng nhập <span class="chip bg-sky-100 text-sky-700">${n} máy</span></p>` : ''}
+        <div class="grid gap-1">${gs.slice(0, max).map(g => guestRow(g, { withTitle })).join('')}</div>
+        ${gs.length > max ? `<p class="text-[11px] text-slate-400 pl-1">… và ${gs.length - max} lượt khác</p>` : ''}
+    </div>`;
 }
 
 function groupBy(list, key) {
@@ -398,20 +447,28 @@ function groupBy(list, key) {
     return m;
 }
 
-function renderByQuiz(list) {
-    const quizzes = [...groupBy(list, 'quizId').entries()]
-        .map(([id, rs]) => ({ id, rs, title: rs.find(r => r.title)?.title || '', people: groupBy(rs, 'uid') }))
-        .sort((a, b) => b.people.size - a.people.size || b.rs.length - a.rs.length);
+function renderByQuiz(list, gs = []) {
+    const byQuiz = groupBy(list, 'quizId');
+    const guestByQuiz = groupBy(gs, 'quizId');
+    const ids = new Set([...byQuiz.keys(), ...guestByQuiz.keys()]);
+    const quizzes = [...ids]
+        .map(id => {
+            const rs = byQuiz.get(id) || [], g = guestByQuiz.get(id) || [];
+            const devices = new Set(rs.filter(r => r.device).map(r => r.uid + '|' + r.device)).size + new Set(g.map(x => x.device)).size;
+            return { id, rs, gs: g, devices, title: rs.find(r => r.title)?.title || g.find(x => x.title)?.title || '', people: groupBy(rs, 'uid') };
+        })
+        .sort((a, b) => (b.people.size + b.gs.length) - (a.people.size + a.gs.length) || b.rs.length - a.rs.length);
     return quizzes.slice(0, 200).map(qz => {
         const flagged = qz.rs.filter(r => r.flags.length).length;
-        const avg = Math.round(qz.rs.reduce((s, r) => s + r.pct, 0) / qz.rs.length);
+        const graded = [...qz.rs.map(r => r.pct), ...qz.gs.filter(g => g.done && g.pct != null).map(g => g.pct)];
+        const avg = graded.length ? Math.round(graded.reduce((s, p) => s + p, 0) / graded.length) : null;
         const rows = [...qz.people.entries()]
             .sort((a, b) => b[1].length - a[1].length)
             .map(([uid, rs]) => `<div class="space-y-1">
                 ${personHead(uid, `<span class="chip bg-slate-100 text-slate-600">${rs.length} lượt</span>`)}
                 <div class="grid gap-1">${rs.slice(0, 10).map(r => attemptChip(r)).join('')}</div>
                 ${rs.length > 10 ? `<p class="text-[11px] text-slate-400 pl-1">… và ${rs.length - 10} lượt cũ hơn</p>` : ''}
-            </div>`).join('<hr class="border-amber-100">');
+            </div>`).join('<hr class="border-pink-100">');
         return `<div class="card p-4 space-y-3">
             <div class="flex flex-wrap items-start gap-2">
                 <div class="min-w-0 flex-1">
@@ -419,16 +476,25 @@ function renderByQuiz(list) {
                     <p class="text-[11px] text-slate-400 font-semibold truncate">Mã đề: ${esc(qz.id)}</p>
                 </div>
                 <span class="chip bg-pink-100 text-pink-700 text-[12px]"><i class="fas fa-user-group"></i>${qz.people.size} người</span>
-                <span class="chip bg-violet-100 text-violet-700 text-[12px]">${qz.rs.length} lượt · TB ${avg}%</span>
+                <span class="chip bg-sky-100 text-sky-700 text-[12px]" title="Số máy đã làm đề này (có tài khoản + khách)"><i class="fas fa-mobile-screen"></i>${qz.devices} máy</span>
+                <span class="chip bg-violet-100 text-violet-700 text-[12px]">${qz.rs.length} lượt nộp${avg != null ? ` · TB ${avg}%` : ''}</span>
                 ${flagged ? `<span class="chip bg-red-100 text-red-700 text-[12px]"><i class="fas fa-triangle-exclamation"></i>${flagged} lượt 2 máy</span>` : ''}
-                <a href="../quiz/quiz.html?id=${encodeURIComponent(qz.id)}" target="_blank" rel="noopener" class="chip bg-slate-100 text-slate-600 hover:bg-slate-200 text-[12px]"><i class="fas fa-up-right-from-square"></i>Mở đề</a>
+                <a href="../quiz/quiz.html?id=${encodeURIComponent(qz.id)}" target="_blank" rel="noopener" class="chip bg-white text-slate-600 border border-pink-100 hover:bg-pink-50 text-[12px]"><i class="fas fa-up-right-from-square"></i>Mở đề</a>
             </div>
             ${rows}
+            ${rows && qz.gs.length ? '<hr class="border-pink-100">' : ''}
+            ${guestBlock(qz.gs)}
         </div>`;
     }).join('') + (quizzes.length > 200 ? `<p class="text-[12px] text-slate-400 text-center">Đang hiện 200/${quizzes.length} đề — lọc để thu hẹp.</p>` : '');
 }
 
-function renderByUser(list) {
+function renderByUser(list, gs = []) {
+    const guestCard = gs.length ? `<div class="card p-4 space-y-2" style="background:linear-gradient(160deg,#fff,#f0f9ff)">
+        <p class="font-black text-sky-800"><i class="fas fa-user-secret mr-1.5"></i>Khách chưa đăng nhập
+            <span class="chip bg-sky-100 text-sky-700">${new Set(gs.map(g => g.device)).size} máy</span>
+            <span class="chip bg-white text-sky-600 border border-sky-100">${new Set(gs.map(g => g.quizId)).size} đề</span></p>
+        ${guestBlock(gs, { withTitle: true, head: false })}
+    </div>` : '';
     const people = [...groupBy(list, 'uid').entries()]
         .map(([uid, rs]) => ({ uid, rs, flagged: rs.filter(r => r.flags.length).length }))
         .sort((a, b) => b.flagged - a.flagged || b.rs.length - a.rs.length);
@@ -440,12 +506,12 @@ function renderByUser(list) {
                 <span class="chip bg-violet-100 text-violet-700">${rs.length} lượt · ${new Set(rs.map(r => r.quizId)).size} đề</span>
                 ${labels.length ? `<span class="chip ${labels.length >= 2 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'}" title="${esc(labels.join(', '))}">làm trên ${labels.length} máy</span>` : ''}
                 ${flagged ? `<span class="chip bg-red-100 text-red-700"><i class="fas fa-triangle-exclamation"></i>${flagged} lượt 2 máy</span>` : ''}
-                <button type="button" class="btn bg-amber-50 hover:bg-amber-100 text-amber-800" data-act="open" data-uid="${esc(uid)}"><i class="fas fa-id-card mr-1"></i>Chi tiết</button>
+                <button type="button" class="btn bg-violet-50 hover:bg-violet-100 text-violet-700" data-act="open" data-uid="${esc(uid)}"><i class="fas fa-id-card mr-1"></i>Chi tiết</button>
             </div>
             <div class="grid gap-1">${rs.slice(0, 20).map(r => attemptChip(r, { withTitle: true })).join('')}</div>
             ${rs.length > 20 ? `<p class="text-[11px] text-slate-400 pl-1">… và ${rs.length - 20} lượt cũ hơn</p>` : ''}
         </div>`;
-    }).join('') + (people.length > 200 ? `<p class="text-[12px] text-slate-400 text-center">Đang hiện 200/${people.length} người — lọc để thu hẹp.</p>` : '');
+    }).join('') + (people.length > 200 ? `<p class="text-[12px] text-slate-400 text-center">Đang hiện 200/${people.length} người — lọc để thu hẹp.</p>` : '') + guestCard;
 }
 
 async function onReportClick(e) {
@@ -484,8 +550,13 @@ function exportReport() {
         rows.push([fmtDate(r.end), fmtDate(r.start), p.email, p.name, r.title, r.quizId, r.pct, r.total, Math.round(r.taken / 60),
             r.label, r.flags.length ? 'cùng lúc với ' + r.flags.join(', ') : '']);
     }
+    // Máy khách: lượt cuối của mỗi máy × đề (cột Số câu ghi số lượt đã làm)
+    for (const g of onlyClash ? [] : guests.filter(g => guestMatches(g, q))) {
+        rows.push([g.done ? fmtDate(g.end) : '(chưa nộp)', fmtDate(g.start), '(khách chưa đăng nhập)', '', g.title, g.quizId,
+            g.done && g.pct != null ? g.pct : '', `${g.attempts} lượt`, '', g.label, '']);
+    }
     downloadCsv(rows, 'bao-cao-de');
-    showToast(`Đã xuất ${rows.length - 1} lượt nộp.`, 'success');
+    showToast(`Đã xuất ${rows.length - 1} dòng.`, 'success');
 }
 
 async function kick(uid, device, label) {
@@ -502,16 +573,109 @@ async function kick(uid, device, label) {
     } catch (err) { showToast('Không đá được: ' + err.message, 'error', 5000); }
 }
 
-// Doc quiz_runs: mỗi tài khoản × máy một doc nên không phình nhiều; máy đổi id (xoá dữ liệu trình duyệt) thì doc cũ nằm lại → dọn sau 14 ngày
+// Doc quiz_runs: mỗi tài khoản × máy một doc nên không phình nhiều; máy đổi id (xoá dữ liệu trình duyệt) thì doc cũ nằm lại → dọn sau 14 ngày.
+// quiz_guest (máy khách): giữ 60 ngày để báo cáo 30 ngày còn đủ.
 async function purgeRuns(manual) {
-    const snap = await getDocs(query(collection(db, 'quiz_runs'), where('at', '<', Timestamp.fromMillis(Date.now() - PURGE_AFTER_MS)), limit(400)));
-    if (!snap.empty) {
+    const [a, b] = await Promise.all([
+        getDocs(query(collection(db, 'quiz_runs'), where('at', '<', Timestamp.fromMillis(Date.now() - PURGE_AFTER_MS)), limit(400))),
+        getDocs(query(collection(db, 'quiz_guest'), where('at', '<', Timestamp.fromMillis(Date.now() - GUEST_PURGE_MS)), limit(400))).catch(() => null)
+    ]);
+    const docs = [...a.docs, ...(b?.docs || [])];
+    if (docs.length) {
         const batch = writeBatch(db);
-        snap.docs.forEach(d => batch.delete(d.ref));
+        docs.forEach(d => batch.delete(d.ref));
         await batch.commit();
     }
-    if (manual) showToast(snap.empty ? 'Không có gì cần dọn.' : `Đã dọn ${snap.size} bản ghi cũ.`, 'success');
-    if (manual && !snap.empty) logAction('purge-runs', '', { count: snap.size });
+    if (manual) showToast(docs.length ? `Đã dọn ${docs.length} bản ghi cũ.` : 'Không có gì cần dọn.', 'success');
+    if (manual && docs.length) logAction('purge-runs', '', { count: docs.length });
+}
+
+// ---------------- QUYỀN TÍNH NĂNG (core/features.js) ----------------
+// Bấm là đổi NGAY trên màn hình (không chờ máy chủ, không tải lại cả ngăn); bấm liên tiếp trong 0,7 giây gộp thành MỘT lần gọi máy chủ.
+// Lỗi → trả lại như cũ + báo. Máy người đó nhận quyền mới gần như ngay (core/device-limit.js nghe claimsAt).
+const featOf = (u) => u.isAdmin ? { ...FULL_FEATURES } : normFeatures(u.features || DEFAULT_FEATURES);
+const isFull = (u) => FEATURE_KEYS.every(k => featOf(u)[k]);
+const featPending = new Map();       // uid → { timer, before: { features, featuresCustom }, payload }
+
+function setFeatures(u, next) {
+    if (!u || u.isAdmin) return;
+    let p = featPending.get(u.uid);
+    if (!p) featPending.set(u.uid, p = { before: { features: u.features, featuresCustom: u.featuresCustom } });
+    if (next === null) { u.features = { ...DEFAULT_FEATURES }; u.featuresCustom = false; p.payload = null; }
+    else { u.features = normFeatures(next); u.featuresCustom = true; p.payload = u.features; }
+    paintUser(u.uid);
+    clearTimeout(p.timer);
+    p.timer = setTimeout(() => flushFeatures(u), 700);
+}
+
+async function flushFeatures(u) {
+    const p = featPending.get(u.uid);
+    if (!p) return;
+    p.sending = true;
+    const payload = p.payload;
+    paintUser(u.uid);
+    try {
+        const r = await adminUpdateUser({ uid: u.uid, email: u.email, features: payload });
+        if (featPending.get(u.uid) === p && p.payload === payload) {
+            featPending.delete(u.uid);
+            if (r.user) { u.features = r.user.features; u.featuresCustom = r.user.featuresCustom; u.approved = r.user.approved; }
+        } else p.sending = false;                       // bấm tiếp trong lúc đang gửi → lượt sau gửi bản mới nhất
+        showToast(`Đã lưu quyền cho ${nameOf(u)} 🌷`, 'success', 1800);
+    } catch (e) {
+        if (featPending.get(u.uid) === p) {
+            featPending.delete(u.uid);
+            u.features = p.before.features;
+            u.featuresCustom = p.before.featuresCustom;
+        }
+        showToast('Chưa lưu được quyền: ' + e.message, 'error', 5000);
+    }
+    paintUser(u.uid);
+}
+
+/** Vẽ lại ĐÚNG phần của một tài khoản (dòng trong danh sách + mục quyền trong ngăn chi tiết) — không vẽ lại cả trang. */
+function paintUser(uid) {
+    const u = userMap.get(uid) || (drawerData?.user?.uid === uid ? drawerData.user : null);
+    if (!u) return;
+    const row = $('acc-list')?.querySelector(`[data-row="${CSS.escape(uid)}"]`);
+    if (row) row.outerHTML = rowHtml(u, doingByUid(), clashUids());
+    if (openUid === uid && $('dr-feat')) $('dr-feat').outerHTML = featureSection(u);
+}
+
+function featurePills(u) {
+    const f = featOf(u);
+    return `<span class="flex flex-wrap gap-1" title="Bấm để bật / tắt nhanh">${FEATURE_KEYS.map(k => {
+        const [name, icon, color, bg] = FEATURES[k];
+        return `<button type="button" class="fpill ${f[k] ? 'is-on' : ''}" data-feat="${k}" data-uid="${esc(u.uid)}" ${u.isAdmin ? 'disabled' : ''}
+            style="--fc:${color};--fb:${bg}" aria-pressed="${f[k]}" title="${esc(name)}: ${f[k] ? 'đang mở' : 'đang tắt'}"><i class="fas ${icon}"></i><span>${name}</span></button>`;
+    }).join('')}</span>`;
+}
+
+function featureSection(u) {
+    const f = featOf(u);
+    const p = featPending.get(u.uid);
+    const state = u.isAdmin ? '<span class="chip bg-amber-100 text-amber-700">admin · mở hết</span>'
+        : p ? `<span class="chip bg-white text-pink-500 border border-pink-100"><i class="fas ${p.sending ? 'fa-spinner fa-spin' : 'fa-cloud-arrow-up'}"></i>${p.sending ? 'đang lưu…' : 'sắp lưu'}</span>`
+        : isFull(u) ? '<span class="chip bg-gradient-to-r from-pink-200 to-violet-200 text-violet-800">✨ full tính năng</span>'
+        : !u.featuresCustom ? '<span class="chip bg-emerald-50 text-emerald-700">🌱 mặc định</span>' : '<span class="chip bg-violet-50 text-violet-700">🎀 tuỳ chỉnh</span>';
+    return `<div id="dr-feat" class="card p-4 space-y-3 feat-card">
+        <div class="flex flex-wrap items-center gap-2">
+            <p class="text-[13.5px] font-extrabold text-pink-700 flex-1"><i class="fas fa-wand-magic-sparkles mr-1.5"></i>Tính năng được dùng</p>${state}
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${FEATURE_KEYS.map(k => {
+            const [name, icon, color, bg, desc] = FEATURES[k];
+            return `<button type="button" class="ftile ${f[k] ? 'is-on' : ''}" data-dfeat="${k}" ${u.isAdmin ? 'disabled' : ''} style="--fc:${color};--fb:${bg}" aria-pressed="${f[k]}">
+                <span class="ftile-ic"><i class="fas ${icon}"></i></span>
+                <span class="min-w-0 flex-1 text-left"><b>${name}</b><small>${esc(desc)}</small></span>
+                <span class="fswitch"><i></i></span>
+            </button>`;
+        }).join('')}</div>
+        <div class="flex flex-wrap gap-2 ${u.isAdmin ? 'opacity-50 pointer-events-none' : ''}">
+            <button type="button" class="btn btn-candy" data-dfeat-all="full">✨ Mở full</button>
+            <button type="button" class="btn bg-emerald-50 hover:bg-emerald-100 text-emerald-700" data-dfeat-all="default" title="Làm đề + Học nhóm">🌱 Về mặc định</button>
+            <button type="button" class="btn bg-slate-50 hover:bg-slate-100 text-slate-500" data-dfeat-all="none">Tắt hết</button>
+        </div>
+        <p class="text-[11px] text-slate-400 leading-snug">Không cần tài khoản: Tính điểm hệ 4, làm đề công khai, vào phòng học bằng link. Đổi quyền thì máy người đó nhận ngay trong vài giây.</p>
+    </div>`;
 }
 
 // ---------------- TÀI KHOẢN ----------------
@@ -549,6 +713,10 @@ function filteredUsers(doing, clash) {
         if (f === 'unapproved') return !u.approved;
         if (f === 'password') return canPassword(u);
         if (f === 'custom') return !!customLimit(u);
+        if (f === 'feat-full') return isFull(u);
+        if (f === 'feat-default') return !u.isAdmin && !u.featuresCustom;
+        if (f.startsWith('feat-on-')) return featOf(u)[f.slice(8)] === true;
+        if (f.startsWith('feat-off-')) return featOf(u)[f.slice(9)] === false;
         return true;
     }).sort((a, b) => (rank(b) - rank(a)) || ((b.lastSignInAt || 0) - (a.lastSignInAt || 0)));
 }
@@ -557,10 +725,11 @@ function exportCsv() {
     if (!users) return showToast('Danh sách tài khoản chưa tải xong.', 'warning');
     const doing = doingByUid();
     const clash = clashUids();
-    const rows = [['Email', 'Tên', 'UID', 'Đang làm đề (số máy)', 'Cảnh báo 2 máy', 'Đăng nhập thẳng', 'Số máy được dùng', 'Số máy riêng', 'Đã duyệt', 'Bị khoá',
+    const rows = [['Email', 'Tên', 'UID', 'Tính năng', 'Đang làm đề (số máy)', 'Cảnh báo 2 máy', 'Đăng nhập thẳng', 'Số máy được dùng', 'Số máy riêng', 'Đã duyệt', 'Bị khoá',
         'Cách đăng nhập', 'Ngày tạo', 'Đăng nhập gần nhất']];
     for (const u of filteredUsers(doing, clash)) {
-        rows.push([u.email, u.displayName, u.uid, doing.get(u.uid)?.devices.size || 0, clash.has(u.uid) ? 'có' : '', canPassword(u) ? 'có' : '', accLimit(u),
+        const feats = FEATURE_KEYS.filter(k => featOf(u)[k]).map(k => FEATURES[k][0]).join(', ') || 'tắt hết';
+        rows.push([u.email, u.displayName, u.uid, feats + (u.featuresCustom ? '' : ' (mặc định)'), doing.get(u.uid)?.devices.size || 0, clash.has(u.uid) ? 'có' : '', canPassword(u) ? 'có' : '', accLimit(u),
             customLimit(u) || '', u.approved ? 'có' : 'chưa', u.disabled ? 'khoá' : '', (u.providers || []).join(' '),
             fmtDate(u.createdAt), fmtDate(u.lastSignInAt)]);
     }
@@ -574,27 +743,35 @@ function renderAccounts() {
     const clash = clashUids();
     const list = filteredUsers(doing, clash);
     $('acc-summary').textContent = `${users.length} tài khoản · ${doing.size} đang làm đề · ${clash.size} bị cảnh báo 2 máy · đang hiện ${Math.min(list.length, 300)}/${list.length}`;
-    $('acc-list').innerHTML = list.slice(0, 300).map(u => {
-        const g = doing.get(u.uid);
-        const custom = customLimit(u);
-        return `<button type="button" class="card w-full text-left px-3.5 py-2.5 hover:border-amber-300 transition flex flex-wrap items-center gap-x-3 gap-y-1" data-uid="${esc(u.uid)}">
-            <span class="w-2.5 h-2.5 rounded-full ${g ? 'bg-emerald-500' : 'bg-slate-200'} shrink-0" title="${g ? 'Đang làm đề' : 'Không làm đề'}"></span>
-            <span class="min-w-0 flex-1">
-                <span class="block font-extrabold text-slate-800 truncate">${esc(u.displayName || u.email.split('@')[0])}${u.isAdmin ? ' <i class="fas fa-crown text-amber-500 text-[11px]"></i>' : ''}</span>
-                <span class="block text-[11.5px] text-slate-400 truncate">${esc(u.email)}</span>
-            </span>
-            <span class="flex flex-wrap gap-1">
-                ${clash.has(u.uid) ? '<span class="chip bg-red-100 text-red-700"><i class="fas fa-triangle-exclamation"></i>2 máy cùng lúc</span>' : ''}
-                ${g ? `<span class="chip ${g.devices.size >= 2 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-50 text-emerald-700'}">đang làm đề${g.devices.size >= 2 ? ` · ${g.devices.size} máy` : ''}</span>` : ''}
-                ${u.disabled ? '<span class="chip bg-red-100 text-red-700">Bị khoá</span>' : ''}
-                ${!u.approved ? '<span class="chip bg-slate-200 text-slate-600">Chưa duyệt</span>' : ''}
-                ${canPassword(u) ? '<span class="chip bg-emerald-100 text-emerald-700">🔑 thẳng</span>' : ''}
-                <span class="chip ${custom ? 'bg-violet-100 text-violet-700' : 'bg-slate-100 text-slate-500'}">${accLimit(u) >= EXEMPT_MAX ? '∞' : accLimit(u)} máy${custom ? ' (riêng)' : ''}</span>
-                ${u.providers?.includes('google.com') ? '<span class="chip bg-sky-50 text-sky-700"><i class="fab fa-google"></i></span>' : ''}
-            </span>
-            <span class="text-[11px] text-slate-400 font-semibold w-full sm:w-auto">đăng nhập ${ago(u.lastSignInAt)}</span>
-        </button>`;
-    }).join('') || '<div class="card p-6 text-center text-slate-400 font-bold">Không có tài khoản khớp.</div>';
+    $('acc-list').innerHTML = list.slice(0, 300).map(u => rowHtml(u, doing, clash)).join('')
+        || '<div class="card p-6 text-center text-slate-400 font-bold">Không có tài khoản khớp 🌸</div>';
+}
+
+// Một dòng tài khoản: bấm vào dòng = mở chi tiết; bấm viên tính năng = bật / tắt ngay tại chỗ
+function rowHtml(u, doing, clash) {
+    const g = doing.get(u.uid);
+    const custom = customLimit(u);
+    return `<div role="button" tabindex="0" class="card acc-row w-full text-left px-3.5 py-2.5 transition flex flex-wrap items-center gap-x-3 gap-y-1.5 cursor-pointer" data-row="${esc(u.uid)}">
+        <span class="w-2.5 h-2.5 rounded-full ${g ? 'bg-emerald-400' : 'bg-pink-100'} shrink-0" title="${g ? 'Đang làm đề' : 'Không làm đề'}"></span>
+        <span class="min-w-0 flex-1">
+            <span class="block font-extrabold text-slate-700 truncate">${esc(u.displayName || u.email.split('@')[0])}${u.isAdmin ? ' <i class="fas fa-crown text-amber-400 text-[11px]"></i>' : ''}</span>
+            <span class="block text-[11.5px] text-slate-400 truncate">${esc(u.email)}</span>
+        </span>
+        <span class="flex flex-wrap gap-1">
+            ${clash.has(u.uid) ? '<span class="chip bg-rose-100 text-rose-600"><i class="fas fa-triangle-exclamation"></i>2 máy cùng lúc</span>' : ''}
+            ${g ? `<span class="chip ${g.devices.size >= 2 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-50 text-emerald-600'}">đang làm đề${g.devices.size >= 2 ? ` · ${g.devices.size} máy` : ''}</span>` : ''}
+            ${u.disabled ? '<span class="chip bg-rose-100 text-rose-600">Bị khoá</span>' : ''}
+            ${!u.approved ? '<span class="chip bg-slate-100 text-slate-500">Chưa duyệt</span>' : ''}
+            ${canPassword(u) ? '<span class="chip bg-emerald-50 text-emerald-600">🔑 thẳng</span>' : ''}
+            <span class="chip ${custom ? 'bg-violet-100 text-violet-600' : 'bg-slate-50 text-slate-400'}">${accLimit(u) >= EXEMPT_MAX ? '∞' : accLimit(u)} máy${custom ? ' (riêng)' : ''}</span>
+            ${u.providers?.includes('google.com') ? '<span class="chip bg-sky-50 text-sky-600"><i class="fab fa-google"></i></span>' : ''}
+        </span>
+        <span class="w-full flex flex-wrap items-center gap-2">
+            ${featurePills(u)}
+            ${featPending.has(u.uid) ? '<i class="fas fa-spinner fa-spin text-pink-300 text-[11px]" title="Đang lưu"></i>' : ''}
+            <span class="ml-auto text-[11px] text-slate-400 font-semibold">đăng nhập ${ago(u.lastSignInAt)}</span>
+        </span>
+    </div>`;
 }
 
 function bindAccounts() {
@@ -603,8 +780,19 @@ function bindAccounts() {
     $('acc-reload').addEventListener('click', loadUsers);
     $('acc-export').addEventListener('click', exportCsv);
     $('acc-list').addEventListener('click', (e) => {
-        const b = e.target.closest('[data-uid]');
-        if (b) openDrawer(b.dataset.uid);
+        const pill = e.target.closest('[data-feat]');
+        if (pill) {
+            const u = userMap.get(pill.dataset.uid);
+            if (u) setFeatures(u, { ...featOf(u), [pill.dataset.feat]: !featOf(u)[pill.dataset.feat] });
+            return;
+        }
+        const row = e.target.closest('[data-row]');
+        if (row) openDrawer(row.dataset.row);
+    });
+    $('acc-list').addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' || e.target.closest('[data-feat]')) return;
+        const row = e.target.closest('[data-row]');
+        if (row) openDrawer(row.dataset.row);
     });
     $('acc-new-toggle').addEventListener('click', () => $('acc-new').classList.toggle('hidden'));
     $('new-create').addEventListener('click', async () => {
@@ -618,10 +806,12 @@ function bindAccounts() {
         const btn = $('new-create');
         btn.disabled = true;
         try {
-            const r = await adminCreateUser({ email, password, displayName, allowPassword: $('new-allow-pw').checked, unlimitedDevices: false });
+            const r = await adminCreateUser({ email, password, displayName, allowPassword: $('new-allow-pw').checked, unlimitedDevices: false,
+                ...($('new-full')?.checked ? { features: FULL_FEATURES } : {}) });
             if (lim !== null) await adminUpdateUser({ uid: r.user.uid, email, deviceLimit: lim });
             showToast(`${r.created ? 'Đã tạo' : 'Đã cập nhật'} ${email}.`, 'success');
             ['new-email', 'new-pass', 'new-name', 'new-limit'].forEach(id => { $(id).value = ''; });
+            if ($('new-full')) $('new-full').checked = false;
             await loadUsers();
             openDrawer(r.user.uid);
         } catch (err) { showToast('Lỗi: ' + err.message, 'error', 5000); }
@@ -633,6 +823,14 @@ function bindAccounts() {
 function bindDrawer() {
     $('acc-drawer').addEventListener('click', (e) => {
         if (e.target.closest('[data-close]')) return closeDrawer();
+        const u = drawerData?.user;
+        const tile = e.target.closest('[data-dfeat]');
+        if (tile && u) return setFeatures(u, { ...featOf(u), [tile.dataset.dfeat]: !featOf(u)[tile.dataset.dfeat] });
+        const all = e.target.closest('[data-dfeat-all]');
+        if (all && u) {
+            const v = all.dataset.dfeatAll;
+            return setFeatures(u, v === 'full' ? FULL_FEATURES : v === 'none' ? Object.fromEntries(FEATURE_KEYS.map(k => [k, false])) : null);
+        }
         const b = e.target.closest('[data-do]');
         if (b) drawerAction(b.dataset.do, b);
     });
@@ -680,7 +878,7 @@ async function refreshDrawer() {
 }
 
 function section(title, body, icon = 'fa-circle') {
-    return `<div class="card p-4 space-y-2"><p class="text-[13px] font-extrabold text-amber-800"><i class="fas ${icon} mr-1.5"></i>${title}</p>${body}</div>`;
+    return `<div class="card p-4 space-y-2"><p class="text-[13px] font-extrabold text-pink-600"><i class="fas ${icon} mr-1.5"></i>${title}</p>${body}</div>`;
 }
 function toggle(id, on, label, hint, disabled) {
     return `<button type="button" data-do="${id}" ${disabled ? 'disabled' : ''} class="btn w-full text-left flex items-center justify-between gap-2 ${on ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-slate-50 text-slate-600 border border-slate-200'}" title="${esc(hint)}">
@@ -725,9 +923,9 @@ function renderDrawer() {
         <p class="text-[12.5px] text-slate-600">Đang áp dụng: <b>${lim >= EXEMPT_MAX ? `${EXEMPT_MAX} (coi như không giới hạn)` : lim} máy</b> <span class="text-slate-400">(${limSrc})</span> · đang đăng nhập <b>${d.devices.length}</b> máy</p>
         <div class="flex flex-wrap items-center gap-2 ${isAdm ? 'opacity-50 pointer-events-none' : ''}">
             <input id="dr-limit" type="number" min="1" max="${EXEMPT_MAX}" value="${custom || ''}" placeholder="${lim}" class="inp w-24">
-            <button type="button" data-do="set-limit" class="btn bg-amber-500 hover:bg-amber-600 text-white">Đặt số riêng</button>
+            <button type="button" data-do="set-limit" class="btn btn-candy">Đặt số riêng</button>
             ${custom ? '<button type="button" data-do="clear-limit" class="btn bg-slate-100 hover:bg-slate-200 text-slate-600">Bỏ số riêng</button>' : ''}
-            <span class="flex gap-1">${[1, 2, 3, 5].map(n => `<button type="button" data-do="quick-limit" data-n="${n}" class="btn bg-amber-50 hover:bg-amber-100 text-amber-800">${n}</button>`).join('')}</span>
+            <span class="flex gap-1">${[1, 2, 3, 5].map(n => `<button type="button" data-do="quick-limit" data-n="${n}" class="btn bg-violet-50 hover:bg-violet-100 text-violet-700">${n}</button>`).join('')}</span>
         </div>
         <p class="text-[11px] text-slate-400">Hạ số máy thì máy đăng nhập lâu nhất bị đẩy ra ngay.</p>`, 'fa-mobile-screen');
 
@@ -766,7 +964,7 @@ function renderDrawer() {
         <div class="flex gap-2"><input id="dr-name" class="inp flex-1" value="${esc(u.displayName || '')}" placeholder="Tên hiển thị / username" autocomplete="off">
             <button type="button" data-do="rename" class="btn bg-slate-700 hover:bg-slate-800 text-white">Đổi tên</button></div>
         <div class="flex gap-2"><input id="dr-pass" class="inp flex-1" placeholder="Mật khẩu mới (≥ 6 ký tự)" autocomplete="off">
-            <button type="button" data-do="setpass" class="btn bg-amber-500 hover:bg-amber-600 text-white">Đổi mật khẩu</button></div>
+            <button type="button" data-do="setpass" class="btn btn-candy">Đổi mật khẩu</button></div>
         <div class="flex flex-wrap gap-2 pt-1">
             <button type="button" data-do="notify" class="btn bg-sky-50 hover:bg-sky-100 text-sky-700"><i class="fas fa-bullhorn mr-1"></i>Gửi thông báo riêng</button>
             ${isAdm ? '' : '<button type="button" data-do="delete" class="btn bg-red-50 hover:bg-red-100 text-red-600 ml-auto"><i class="fas fa-trash mr-1"></i>Xoá tài khoản</button>'}
@@ -777,7 +975,7 @@ function renderDrawer() {
     const focused = document.activeElement?.id;
     const scroller = $('drawer-body').parentElement;
     const top = scroller.scrollTop;
-    $('drawer-body').innerHTML = head + clashes + nowDoing + perms + limits + devs + resultsHtml + logins + edit;
+    $('drawer-body').innerHTML = head + clashes + nowDoing + featureSection(u) + perms + limits + devs + resultsHtml + logins + edit;
     keep.forEach(([id, v]) => { if ($(id)) $(id).value = v; });
     if (focused && $(focused)) $(focused).focus();
     scroller.scrollTop = top;
@@ -787,38 +985,63 @@ async function drawerAction(act, btn) {
     const d = drawerData;
     if (!d) return;
     const u = d.user;
-    const run = async (payload, okMsg) => {
-        btn.disabled = true;
+    // Đổi quyền / số máy: hiện kết quả NGAY (optimistic) rồi mới gửi máy chủ; máy chủ trả bản thật thì cập nhật đúng chỗ — không tải lại cả ngăn.
+    // Lỗi → trả lại như cũ. `guess(u, access)` = sửa tạm trên máy cho khớp điều sắp xảy ra.
+    const run = async (payload, okMsg, guess) => {
+        const before = { u: { ...u }, access: { ...access, deviceExempt: [...access.deviceExempt], passwordAllowed: [...access.passwordAllowed], deviceLimits: { ...access.deviceLimits } } };
+        if (guess) { guess(u, access); renderDrawer(); paintUser(u.uid); }
+        else btn.disabled = true;
         try {
-            await adminUpdateUser({ uid: u.uid, email: u.email, ...payload });
-            showToast(okMsg, 'success');
-            await refreshDrawer();
-        } catch (e) { showToast('Lỗi: ' + e.message, 'error', 5000); btn.disabled = false; }
+            const r = await adminUpdateUser({ uid: u.uid, email: u.email, ...payload });
+            if (r.user?.uid === u.uid) Object.assign(u, r.user);
+            showToast(okMsg, 'success', 2000);
+            // Khoá / hạ số máy / thu hồi phiên / đổi tên… làm đổi danh sách máy hoặc dữ liệu khác → tải lại ngăn ở nền (màn hình đã đổi rồi)
+            if (!guess || 'disabled' in payload || 'deviceLimit' in payload) refreshDrawer();
+        } catch (e) {
+            Object.assign(u, before.u);
+            access = before.access;
+            showToast('Lỗi: ' + e.message, 'error', 5000);
+        }
+        if (openUid === u.uid) renderDrawer();
+        paintUser(u.uid);
     };
+    const e = lc(u.email);
+    const listSet = (arr, on) => { const i = arr.indexOf(e); if (on && i < 0) arr.push(e); if (!on && i >= 0) arr.splice(i, 1); };
     const nLimit = (v) => Number.isInteger(v) && v >= 1 && v <= EXEMPT_MAX;
     switch (act) {
         case 'pw': {
             const next = !canPassword(u);
-            return run({ allowPassword: next, unlimitedDevices: next ? access.deviceExempt.includes(lc(u.email)) : false },
-                next ? 'Đã cho đăng nhập thẳng.' : 'Đã bắt đăng nhập qua Google.');
+            const unlim = next ? access.deviceExempt.includes(e) : false;
+            return run({ allowPassword: next, unlimitedDevices: unlim },
+                next ? 'Đã cho đăng nhập thẳng.' : 'Đã bắt đăng nhập qua Google.',
+                (_, a) => { listSet(a.passwordAllowed, next); listSet(a.deviceExempt, unlim); });
         }
         case 'unlim': {
             // deviceExempt kiêm luôn "đăng nhập thẳng" → bỏ 20 máy thì giữ nguyên quyền đăng nhập thẳng đang có
-            const next = !access.deviceExempt.includes(lc(u.email));
-            return run({ unlimitedDevices: next, allowPassword: next || canPassword(u) }, next ? 'Đã đặc cách 20 máy.' : 'Đã bỏ đặc cách 20 máy.');
+            const next = !access.deviceExempt.includes(e);
+            const pw = next || canPassword(u);
+            return run({ unlimitedDevices: next, allowPassword: pw }, next ? 'Đã đặc cách 20 máy.' : 'Đã bỏ đặc cách 20 máy.',
+                (_, a) => { listSet(a.deviceExempt, next); listSet(a.passwordAllowed, pw); });
         }
-        case 'approved': return run({ approved: !u.approved }, u.approved ? 'Đã bỏ duyệt.' : 'Đã duyệt tài khoản.');
+        case 'approved': {
+            const next = !u.approved;
+            return run({ approved: next }, next ? 'Đã duyệt tài khoản.' : 'Đã bỏ duyệt.', (x) => { x.approved = next; });
+        }
         case 'lock': {
             if (!u.disabled && !await showConfirm(`Khoá ${u.email}? Mọi máy bị đá ra, không đăng nhập lại được tới khi mở khoá.`, { title: 'Khoá tài khoản?', confirmText: 'Khoá', tone: 'danger' })) return;
-            return run({ disabled: !u.disabled }, u.disabled ? 'Đã mở khoá.' : 'Đã khoá tài khoản.');
+            const next = !u.disabled;
+            return run({ disabled: next }, next ? 'Đã khoá tài khoản.' : 'Đã mở khoá.', (x) => { x.disabled = next; });
         }
         case 'set-limit': {
             const n = Number($('dr-limit').value);
             if (!nLimit(n)) return showToast(`Nhập số máy từ 1 đến ${EXEMPT_MAX}.`, 'warning');
-            return run({ deviceLimit: n }, `Đã đặt ${n} máy cho tài khoản này.`);
+            return run({ deviceLimit: n }, `Đã đặt ${n} máy cho tài khoản này.`, (_, a) => { a.deviceLimits[e] = n; });
         }
-        case 'quick-limit': return run({ deviceLimit: Number(btn.dataset.n) }, `Đã đặt ${btn.dataset.n} máy cho tài khoản này.`);
-        case 'clear-limit': return run({ deviceLimit: null }, 'Đã bỏ số máy riêng.');
+        case 'quick-limit': {
+            const n = Number(btn.dataset.n);
+            return run({ deviceLimit: n }, `Đã đặt ${n} máy cho tài khoản này.`, (_, a) => { a.deviceLimits[e] = n; });
+        }
+        case 'clear-limit': return run({ deviceLimit: null }, 'Đã bỏ số máy riêng.', (_, a) => { delete a.deviceLimits[e]; });
         case 'kick': return kick(u.uid, btn.dataset.device, btn.dataset.label);
         case 'kick-all': return kick(u.uid, '', '');
         case 'revoke': {
@@ -866,7 +1089,7 @@ const ACTIONS = {
 const FIELDS = {
     allowPassword: 'Đăng nhập thẳng', unlimitedDevices: 'Đặc cách 20 máy', approved: 'Duyệt', disabled: 'Khoá', emailVerified: 'Xác nhận email',
     revokeSessions: 'Thu hồi phiên', displayName: 'Tên', deviceLimit: 'Số máy riêng', password: 'Mật khẩu', device: 'Máy', n: 'Số máy',
-    text: 'Nội dung', hours: 'Số giờ', count: 'Số bản ghi'
+    text: 'Nội dung', hours: 'Số giờ', count: 'Số bản ghi', features: 'Tính năng'
 };
 const showVal = (v) => v === true ? 'bật' : v === false ? 'tắt' : v === null ? 'bỏ' : String(v);
 

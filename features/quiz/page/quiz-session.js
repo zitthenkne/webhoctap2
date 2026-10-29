@@ -22,6 +22,11 @@ import { showQuestion, accrueTime } from './quiz-question-view.js';
 import { hideMobileNav } from './quiz-mobile-nav.js';
 import { rememberOpened, syncLocalResults } from '../local-shelf.js';
 import { quizRunStart, quizRunEnd } from '../../../core/quiz-run.js';
+import { canUse } from '../../../core/features.js';
+
+// Tài khoản bị admin tắt tính năng "Làm đề" (core/features.js): luật chỉ cho mở đề CÔNG KHAI → bị chặn thì nói đúng lý do
+let quizFeatureOff = false;
+whenAuthReady(4000).then(u => { if (u && !u.isAnonymous) canUse('quiz').then(ok => { quizFeatureOff = !ok; }); }).catch(() => {});
 
 // Khách vừa đăng nhập (ở tab khác / trang chủ) mà máy còn kết quả làm bài lưu tạm → đẩy lên tài khoản
 whenAuthReady(4000).then(u => { if (u && u.uid && !u.offline && !u.isAnonymous) syncLocalResults(u.uid); }).catch(() => {});
@@ -40,6 +45,7 @@ async function linkExpired(id) {
 const PRIVATE_QUIZ_MSG = () => {
     const u = auth.currentUser;
     if (!u || u.isAnonymous) return 'Bộ đề này không công khai. Nếu được chia sẻ riêng, hãy đăng nhập bằng Google đúng email được chia sẻ (ở trang chủ) rồi bấm Thử lại.';
+    if (quizFeatureOff) return 'Bộ đề này không công khai, mà tài khoản của bạn chưa được admin mở tính năng Làm đề (đề chia sẻ riêng). Đề công khai thì vẫn làm bình thường — nhắn admin để được mở nha.';
     if (!u.emailVerified) return `Bộ đề này không công khai. Nếu được chia sẻ cho ${u.email}, bạn cần xác nhận email trước (trang Hồ sơ → Gửi mail xác nhận, hoặc đăng nhập bằng Google), rồi bấm Thử lại.`;
     return `Bộ đề này không công khai và chưa được chia sẻ cho ${u.email}. Nhờ tác giả thêm email của bạn vào phần Chia sẻ.`;
 };

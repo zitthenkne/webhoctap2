@@ -10,7 +10,7 @@ import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndP
 import { doc, setDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { emailForName, claimName } from './core/usernames.js';
 import { showToast } from './core/utils.js';
-import { requireLogin } from './core/require-login.js';
+import { requireFeature } from './core/features.js';
 
 // Import các Module chức năng
 import { parseFile, downloadTemplate } from './core/file-parser.js';
@@ -616,7 +616,7 @@ function setupEventListeners() {
     if (processBtn) processBtn.addEventListener('click', saveAndStartQuiz);
     if (saveBtnPreQuiz) saveBtnPreQuiz.addEventListener('click', saveOnly);
     if (selectCreateQuizBtn) selectCreateQuizBtn.addEventListener('click', async () => {
-        if (!await requireLogin('Tạo bộ đề')) return;
+        if (!await requireFeature('create', { label: 'Tạo bộ đề' })) return;
         showContent('createQuizContent', 'Tạo bộ đề');
     });
 
@@ -770,8 +770,9 @@ function setupEventListeners() {
     }
     
     if (selectStudyRoomBtn) {
-        selectStudyRoomBtn.addEventListener('click', (event) => {
+        selectStudyRoomBtn.addEventListener('click', async (event) => {
             event.preventDefault();
+            if (!await requireFeature('room', { guestOk: true })) return;
             showContent('myStudyRoomsContent', 'Phòng học của tôi');
         });
     }
@@ -783,14 +784,16 @@ function setupEventListeners() {
     if (calculateGpaBtn) calculateGpaBtn.addEventListener('click', calculateGPA);
     if (downloadTemplateBtn) downloadTemplateBtn.addEventListener('click', downloadTemplate);
     
-    const LOCKED_TABS = ['createQuizContent'];   // các tab bắt buộc đăng nhập
+    // Tab cần quyền tính năng (core/features.js — admin bật/tắt theo tài khoản). Khu phòng học: khách vẫn xem được (vào phòng bằng link).
+    const FEATURE_TABS = { createQuizContent: ['create'], myStudyRoomsContent: ['room', { guestOk: true }] };
     navLinks.forEach(link => {
         link.addEventListener('click', async (event) => {
             const targetId = link.getAttribute('data-target');
             if (targetId) {
                 event.preventDefault();
                 const title = navTitle(link);
-                if (LOCKED_TABS.includes(targetId) && !await requireLogin(title)) return;
+                const need = FEATURE_TABS[targetId];
+                if (need && !await requireFeature(need[0], { label: title, ...need[1] })) return;
                 showContent(targetId, title);
             }
         });

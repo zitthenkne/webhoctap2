@@ -5,6 +5,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { db } from '../../core/firebase-init.js';
 import { showToast, showConfirm } from '../../core/utils.js';
+import { requireFeature } from '../../core/features.js';
 import { shuffleArray } from '../quiz/quiz-helpers.js';
 import { groupQuestionsByCase } from '../quiz/page/quiz-cases.js';
 import { fetchAllQuizMeta, readMetaCache, writeMetaCache, readFoldersCache } from '../quiz/library/library-meta.js';
@@ -833,6 +834,7 @@ async function saveReviewQuiz() {
     if (!room.user || room.user.isAnonymous || room.user.isGuest) {
         return showToast('Đăng nhập để lưu đề ôn vào thư viện của bạn.', 'warning');
     }
+    if (!await requireFeature('create', { label: 'Lưu đề ôn' })) return;       // bộ đề mới cần tính năng "Tạo đề" (core/features.js)
     const idx = reviewIndexes().filter(i => !isEssay(questionAt(i)));
     if (!idx.length) return showToast('Không có câu trắc nghiệm nào cần ôn lại.', 'success');
     if (!await showConfirm(`Tạo bộ đề ôn gồm ${idx.length} câu (sai / bỏ trống / cần bàn)?`, { confirmText: 'Tạo đề ôn' })) return;
@@ -933,6 +935,7 @@ async function saveToLibrary() {
         await autoSaveNow(true);
         return showToast(`💾 Đã lưu "${s.savedTitle || 'bộ đề'}" — bộ đề vẫn tự cập nhật khi nhóm chốt / sửa.`, 'success', 3200);
     }
+    if (!await requireFeature('create', { label: 'Lưu đề vào thư viện' })) return;
     const keep = s.questions.map((_, i) => i);
     const missing = keep.filter(i => !isEssay(questionAt(i)) && correctIdxOf(questionAt(i), i) === null && refIdxOf(questionAt(i)) === null).length;
     const msg = (missing ? `Còn ${missing} câu chưa có đáp án đúng. ` : '')

@@ -43,6 +43,18 @@ service cloud.firestore {
       return request.auth != null
           && (request.auth.token.get('approved', false) == true || isAdmin() || request.auth.uid == 'qZ5dzmJzrjdpN9l4n9x5UGPwHE43');
     }
+    // QUYỀN TÍNH NĂNG (2026-10-29): admin bật/tắt từng tính năng cho từng tài khoản ở trang Quản trị → máy chủ (api/devices.js) gắn custom
+    // claim `feat` = { quiz, create, room, record } (không giả được, không tốn lượt đọc). Chưa chỉnh = mặc định: làm đề + học nhóm MỞ,
+    // tạo đề + bệnh án TẮT. Không cần tài khoản (không đi qua hàm này): đề công khai, vào phòng học bằng link, tính điểm hệ 4.
+    //   quiz   — mở đề NGƯỜI KHÁC chia sẻ riêng (đề công khai và đề của mình luôn mở được)
+    //   create — tạo bộ đề / thư mục / ảnh đề (gồm Lưu bản sao, Lưu đề từ phòng)
+    //   room   — tạo phòng học
+    //   record — tạo bệnh án (bệnh án đã có vẫn xem / sửa / xoá được)
+    function can(f) {
+      return request.auth != null
+          && (isAdmin() || request.auth.uid == 'qZ5dzmJzrjdpN9l4n9x5UGPwHE43'
+              || request.auth.token.get('feat', {'quiz': true, 'room': true}).get(f, false) == true);
+    }
     // LINK CÔNG KHAI CÓ HẠN: isPublic + publicUntil (mặc định 12 giờ; thiếu/null = không hết hạn — link cũ). So với giờ MÁY CHỦ.
     function publicAlive() {
       return resource.data.get('isPublic', false) == true
@@ -137,6 +149,30 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // LƯỢT LÀM ĐỀ CỦA KHÁCH (chưa đăng nhập) — core/quiz-run.js; trang Quản trị đếm số máy đã làm đề kể cả máy chưa đăng nhập.
+    // Mỗi máy × mỗi đề một doc `{deviceId}_{quizId}` (làm lại thì ghi đè). Chỉ ghi được cho bộ đề ĐANG CÔNG KHAI (1 lượt đọc) → không ai
+    // rải rác vào đây bằng mã đề bịa; đúng bộ trường, `at` = giờ máy chủ. Chỉ admin đọc / xoá.
+    function validGuestRun(d) {
+      return d.keys().hasOnly(['device', 'label', 'quizId', 'title', 'mode', 'state', 'startedAt', 'pct', 'attempts', 'at', 'expireAt'])
+          && d.at == request.time
+          && d.device is string && d.device.matches('[A-Za-z0-9]{4,40}')
+          && d.quizId is string && d.quizId.matches('[A-Za-z0-9_-]{1,120}')
+          && d.state in ['doing', 'done']
+          && d.get('label', '') is string && d.get('label', '').size() <= 80
+          && d.get('title', '') is string && d.get('title', '').size() <= 200
+          && d.get('mode', '') is string && d.get('mode', '').size() <= 20
+          && d.get('startedAt', 0) is int
+          && d.get('pct', 0) is int && d.get('pct', 0) >= 0 && d.get('pct', 0) <= 100
+          && d.get('attempts', 0) is int && d.get('attempts', 0) <= 100000;
+    }
+    match /quiz_guest/{docId} {
+      allow read, delete: if isAdmin();
+      allow create, update: if request.auth == null
+                            && validGuestRun(request.resource.data)
+                            && docId == request.resource.data.device + '_' + request.resource.data.quizId
+                            && get(/databases/$(database)/documents/quiz_sets/$(request.resource.data.quizId)).data.get('isPublic', false) == true;
+    }
+
     match /quiz_runs/{docId} {
       allow read: if isAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
       allow create, update: if request.auth != null
@@ -191,10 +227,10 @@ service cloud.firestore {
     match /quiz_sets/{setId} {
       allow get: if publicAlive()
                  || (request.auth != null && request.auth.uid == resource.data.userId)
-                 || sharedWithMe();
+                 || (sharedWithMe() && can('quiz'));
       allow list: if (request.auth != null && request.auth.uid == resource.data.userId)
-                  || sharedWithMe();
-      allow create: if isOwner(request.resource.data.userId) && approved() && validShare(request.resource.data) && copyAllowed(request.resource.data);
+                  || (sharedWithMe() && can('quiz'));
+      allow create: if isOwner(request.resource.data.userId) && approved() && can('create') && validShare(request.resource.data) && copyAllowed(request.resource.data);
       allow update: if (isOwner(resource.data.userId) && keepsOwner() && validShare(request.resource.data)) || leavesShare() || editsAsEditor();
       allow delete: if isOwner(resource.data.userId);
     }
@@ -206,10 +242,10 @@ service cloud.firestore {
       // sharedWith: chỉ những tài khoản được mời mới xem (bộ đề bên trong được chép cùng danh sách lúc chia sẻ).
       allow get: if publicAlive()
                  || (request.auth != null && request.auth.uid == resource.data.userId)
-                 || sharedWithMe();
+                 || (sharedWithMe() && can('quiz'));
       allow list: if (request.auth != null && request.auth.uid == resource.data.userId)
-                  || sharedWithMe();
-      allow create: if isOwner(request.resource.data.userId) && approved() && validShare(request.resource.data);
+                  || (sharedWithMe() && can('quiz'));
+      allow create: if isOwner(request.resource.data.userId) && approved() && can('create') && validShare(request.resource.data);
       allow update: if (isOwner(resource.data.userId) && keepsOwner() && validShare(request.resource.data)) || leavesShare();
       allow delete: if isOwner(resource.data.userId);
     }
@@ -260,7 +296,7 @@ service cloud.firestore {
       allow read, delete: if request.auth != null
                           && request.auth.uid == resource.data.userId;
       allow update: if isOwner(resource.data.userId) && keepsOwner();
-      allow create: if request.auth != null && approved()
+      allow create: if request.auth != null && approved() && can('record')
                     && request.auth.uid == request.resource.data.userId;
     }
 
@@ -268,9 +304,9 @@ service cloud.firestore {
     match /quiz_payloads/{setId} {
       allow get: if publicAlive()
                  || (request.auth != null && request.auth.uid == resource.data.userId)
-                 || sharedWithMe();
+                 || (sharedWithMe() && can('quiz'));
       allow list: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow create: if isOwner(request.resource.data.userId) && approved();
+      allow create: if isOwner(request.resource.data.userId) && approved() && can('create');
       allow update: if isOwner(resource.data.userId) && keepsOwner();
       allow delete: if isOwner(resource.data.userId);
     }
@@ -281,7 +317,7 @@ service cloud.firestore {
     match /quiz_images/{imageId} {
       allow get: if true;
       allow list: if false;
-      allow create: if request.auth != null && approved()
+      allow create: if request.auth != null && approved() && (can('create') || can('record'))
                     && imageId.matches('^[a-f0-9]{32}$')
                     && request.resource.data.keys().hasOnly(['data', 'mime', 'w', 'h', 'bytes', 'userId', 'createdAt'])
                     && request.resource.data.keys().hasAll(['data', 'mime', 'userId'])
@@ -305,7 +341,7 @@ service cloud.firestore {
     match /study_rooms/{roomId} {
       allow get: if true;
       allow list: if request.auth != null && resource.data.owner == request.auth.uid;
-      allow create: if request.auth != null && approved() && request.resource.data.owner == request.auth.uid;
+      allow create: if request.auth != null && approved() && can('room') && request.resource.data.owner == request.auth.uid;
       allow update: if request.resource.data.get('owner', null) == resource.data.get('owner', null);
       allow delete: if request.auth != null && resource.data.owner == request.auth.uid;
 

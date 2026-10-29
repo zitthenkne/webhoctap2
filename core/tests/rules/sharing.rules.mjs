@@ -18,7 +18,9 @@ const OTHER = { uid: 'other', email: 'other@x.test', email_verified: true };
 const as = (u) => env.authenticatedContext(u.uid, {
     email: u.email, email_verified: u.email_verified,
     firebase: { sign_in_provider: u.provider || 'google.com' }, auth_time: u.authTime ?? 1000,
-    approved: u.approved ?? true          // custom claim do api/signup.js gắn sau khi nhập đúng mật khẩu web
+    approved: u.approved ?? true,         // custom claim do api/signup.js gắn sau khi nhập đúng mật khẩu web
+    // quyền tính năng do admin bật (api/devices.js) — các test chia sẻ mặc định cho mở hết; 'default' = chưa chỉnh (không có claim)
+    ...(u.feat === 'default' ? {} : { feat: u.feat ?? { quiz: true, create: true, room: true, record: true } })
 }).firestore();
 // Danh sách máy hợp lệ (máy chủ api/devices.js ghi) — authTimes chứa mốc đăng nhập của phiên được phép
 const seedDevices = (db, uid, authTimes = [1000]) => setDoc(doc(db, `users/${uid}/private/devices`), { list: authTimes.map((a, i) => ({ id: 'd' + i, authTime: a })), authTimes });
@@ -208,6 +210,26 @@ test('TÀI KHOẢN CHƯA DUYỆT (chưa nhập đúng mật khẩu web): không 
     await assertSucceeds(setDoc(doc(db, 'users/newbie'), { email: 'newbie@x.test' }));
 });
 
+test('QUYỀN TÍNH NĂNG mặc định: làm đề + học nhóm mở; tạo đề + bệnh án tắt', async () => {
+    const DEF = { uid: 'friend', email: 'friend@x.test', email_verified: true, feat: 'default' };
+    const db = as(DEF);
+    await assertFails(setDoc(doc(db, 'quiz_sets/d1'), { userId: 'friend', title: 'x', questions: [], isPublic: false }));
+    await assertFails(setDoc(doc(db, 'quiz_folders/d1'), { userId: 'friend', name: 'x' }));
+    await assertFails(setDoc(doc(db, 'medical_records/d1'), { userId: 'friend' }));
+    await assertSucceeds(setDoc(doc(db, 'study_rooms/d1'), { owner: 'friend' }));
+    await assertSucceeds(getDoc(doc(db, 'quiz_sets/shared')));                   // đề chia sẻ riêng: cần "làm đề" (mặc định mở)
+});
+
+test('QUYỀN TÍNH NĂNG admin chỉnh: tắt làm đề → không mở được đề chia sẻ riêng; bật tạo đề / bệnh án → tạo được', async () => {
+    const off = as({ ...FRIEND, feat: { quiz: false, create: true, room: false, record: true } });
+    await assertFails(getDoc(doc(off, 'quiz_sets/shared')));
+    await assertFails(setDoc(doc(off, 'study_rooms/f1'), { owner: 'friend' }));
+    await assertSucceeds(setDoc(doc(off, 'quiz_sets/f1'), { userId: 'friend', title: 'x', questions: [], isPublic: false }));
+    await assertSucceeds(setDoc(doc(off, 'medical_records/f1'), { userId: 'friend' }));
+    await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), 'quiz_sets/pub3'), { userId: 'owner', title: 'Công khai', isPublic: true }));
+    await assertSucceeds(getDoc(doc(off, 'quiz_sets/pub3')));                    // đề công khai: ai cũng làm được
+});
+
 test('tạo bộ đề MỚI của mình (không chép từ đâu) luôn được', async () => {
     await assertSucceeds(setDoc(doc(as(FRIEND), 'quiz_sets/copy1'), { userId: 'friend', title: 'Chia sẻ (bản sao)', questions: [], isPublic: false }));
 });
@@ -230,6 +252,23 @@ test('QUIZ_RUNS: chỉ ghi doc {uid}_{máy} của mình (at = giờ máy chủ);
     await assertFails(getDocs(collection(as(OTHER), 'quiz_runs')));
     await assertSucceeds(getDocs(collection(as(ADMIN), 'quiz_runs')));
     await assertSucceeds(deleteDoc(doc(as(FRIEND), 'quiz_runs/friend_dev1abc')));
+});
+
+test('QUIZ_GUEST: khách chưa đăng nhập ghi lượt làm đề CÔNG KHAI; đề riêng / người đăng nhập / đọc thì không', async () => {
+    const ADMIN = { uid: 'admin', email: 'vietthanhne@gmail.com', email_verified: true };
+    const { serverTimestamp } = await import('firebase/firestore');
+    await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), 'quiz_sets/pubg'), { userId: 'owner', title: 'Công khai', isPublic: true }));
+    const guest = env.unauthenticatedContext().firestore();
+    const g = (extra = {}) => ({ device: 'dev1abc', label: 'iPhone · Safari', quizId: 'pubg', title: 'Công khai', mode: 'normal', state: 'doing',
+        startedAt: Date.now(), attempts: 1, at: serverTimestamp(), ...extra });
+    await assertSucceeds(setDoc(doc(guest, 'quiz_guest/dev1abc_pubg'), g()));
+    await assertSucceeds(setDoc(doc(guest, 'quiz_guest/dev1abc_pubg'), { state: 'done', pct: 70, at: serverTimestamp() }, { merge: true }));
+    await assertFails(setDoc(doc(guest, 'quiz_guest/dev1abc_private'), g({ quizId: 'private' })));     // đề không công khai
+    await assertFails(setDoc(doc(guest, 'quiz_guest/xxx_pubg'), g()));                                // id không khớp máy
+    await assertFails(setDoc(doc(guest, 'quiz_guest/dev1abc_pubg'), g({ hack: 1 })));
+    await assertFails(setDoc(doc(as(FRIEND), 'quiz_guest/dev1abc_pubg'), g()));                       // người đăng nhập dùng quiz_runs
+    await assertFails(getDoc(doc(guest, 'quiz_guest/dev1abc_pubg')));
+    await assertSucceeds(getDoc(doc(as(ADMIN), 'quiz_guest/dev1abc_pubg')));
 });
 
 test('ADMIN: đọc lịch sử làm đề (quiz_results) của người khác; người thường thì không; defaultLimit 1..20', async () => {

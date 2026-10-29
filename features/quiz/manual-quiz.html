@@ -332,8 +332,8 @@
     <script src="manual-quiz.js"></script>
   <!-- Bắt buộc đăng nhập: khách sẽ thấy lớp chặn thay vì làm rồi mất dữ liệu -->
   <script type="module">
-    import { guardPage } from '../../core/require-login.js';
-    guardPage('Soạn đề thủ công');
+    import { guardFeaturePage } from '../../core/features.js';
+    guardFeaturePage('create', 'Soạn đề thủ công');
   </script>
 </body>
 </html>

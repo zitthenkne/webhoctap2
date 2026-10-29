@@ -7,13 +7,17 @@
 //   • máy khác ghi (bắt đầu / nộp) SAU lúc máy này bắt đầu = hai máy làm bài chồng giờ nhau → hiện cảnh báo + ghi vào kết quả
 //     (quiz_results.clash, quiz-session.js lấy qua quizRunEnd) → trang Quản trị gắn cờ.
 //   • máy khác còn "đang làm" từ TRƯỚC lúc máy này bắt đầu (có thể chỉ là bài bỏ dở) → nhắc nhẹ, không ghi.
+// KHÁCH (chưa đăng nhập, làm đề công khai): quiz_guest/{deviceId}_{quizId} = { device, label, quizId, title, mode, state, startedAt, pct,
+//   attempts, at, expireAt } — mỗi máy × mỗi đề một doc (làm lại thì ghi đè + đếm lượt), cũng 2 lượt ghi / lượt làm. Luật chỉ cho ghi khi
+//   bộ đề đang công khai → báo cáo của admin đếm được cả máy chưa đăng nhập.
 // Nhẹ để trang làm đề import tĩnh: device-limit.js chỉ nạp lúc bắt đầu lượt làm.
 import { db, auth } from './firebase-init.js';
-import { doc, setDoc, collection, query, where, onSnapshot, serverTimestamp, Timestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { doc, setDoc, collection, query, where, onSnapshot, serverTimestamp, Timestamp, increment } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 /** "Đang làm" quá mốc này mà không nộp = coi như đã bỏ dở (trang Quản trị dùng chung). */
 export const RUN_MAX_MS = 3 * 60 * 60 * 1000;
 const KEEP_MS = 14 * 24 * 60 * 60 * 1000;
+const GUEST_KEEP_MS = 60 * 24 * 60 * 60 * 1000;   // khách: giữ đủ cho báo cáo 30 ngày
 const SKEW_MS = 60 * 1000;          // giờ máy người dùng lệch giờ máy chủ chút ít → chừa 1 phút cho khỏi báo oan
 
 let run = null;     // { uid, device, label, ref, startMs, unsub, clash, shown }
@@ -22,11 +26,15 @@ const msOf = (v) => (v && typeof v.toMillis === 'function' ? v.toMillis() : 0);
 
 /** Bắt đầu (hoặc làm tiếp) một lượt làm đề trên máy này. */
 export async function quizRunStart({ quizId, title, mode, startedAt }) {
-    const u = auth.currentUser;
     quizRunStop();
-    if (!u || u.isAnonymous || !quizId) return;
+    guest = null;
+    // F5 giữa bài: trang vào thẳng câu đang làm có thể trước khi Firebase khôi phục phiên → chờ, đừng tưởng người đăng nhập là khách
+    try { await auth.authStateReady?.(); } catch (e) {}
+    const u = auth.currentUser;
+    if (!quizId || u?.isAnonymous) return;
     let dl;
     try { dl = await import('./device-limit.js'); } catch (e) { return; }
+    if (!u) return guestStart(dl, { quizId, title, mode, startedAt });
     if (auth.currentUser?.uid !== u.uid || run) return;
     const device = dl.deviceId();
     const me = run = { uid: u.uid, device, label: dl.deviceLabel().slice(0, 80), startMs: Date.now(), unsub: null, clash: null, shown: '' };
@@ -46,11 +54,31 @@ export async function quizRunStart({ quizId, title, mode, startedAt }) {
 /** Nộp bài: ghi "đã nộp" và trả thông tin máy + cờ 2 máy để lưu kèm kết quả (null nếu không có lượt nào đang chạy). */
 export function quizRunEnd({ pct } = {}) {
     const me = run;
+    if (guest) {
+        const p = Math.round(Number(pct));
+        setDoc(guest, { state: 'done', at: serverTimestamp(), ...(Number.isFinite(p) ? { pct: Math.min(100, Math.max(0, p)) } : {}) }, { merge: true }).catch(() => {});
+        guest = null;
+    }
     if (!me) return null;
     quizRunStop();
     const p = Math.round(Number(pct));
     setDoc(me.ref, { state: 'done', at: serverTimestamp(), ...(Number.isFinite(p) ? { pct: p } : {}) }, { merge: true }).catch(() => {});
     return { device: me.device, deviceLabel: me.label, clash: me.clash };
+}
+
+// Khách: không có tài khoản → không so 2 máy, chỉ ghi để admin đếm máy đã làm đề. Luật từ chối nếu đề không công khai (bỏ qua lỗi).
+let guest = null;
+function guestStart(dl, { quizId, title, mode, startedAt }) {
+    if (auth.currentUser) return;
+    const device = dl.deviceId();
+    const id = String(quizId).slice(0, 120);
+    if (!/^[A-Za-z0-9_-]+$/.test(id)) return;
+    guest = doc(db, 'quiz_guest', `${device}_${id}`);
+    setDoc(guest, {
+        device, label: dl.deviceLabel().slice(0, 80), quizId: id, title: String(title || '').slice(0, 200), mode: String(mode || '').slice(0, 20),
+        state: 'doing', startedAt: Math.round(Number(startedAt) || Date.now()), attempts: increment(1),
+        at: serverTimestamp(), expireAt: Timestamp.fromMillis(Date.now() + GUEST_KEEP_MS)
+    }, { merge: true }).catch(() => {});
 }
 
 /** Thôi nghe (đăng xuất / bắt đầu lượt mới). Không ghi gì. */

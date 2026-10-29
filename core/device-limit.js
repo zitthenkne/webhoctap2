@@ -209,7 +209,7 @@ export async function watchDevices(user) {
                 return;
             }
             // Tài khoản cũ vừa được máy chủ duyệt (claim `approved`) → xin token mới để luật cho tạo bộ đề / thư mục ngay
-            if (r.claimsChanged) await user.getIdToken(true).catch(() => {});
+            if (r.claimsChanged) await user.getIdToken(true).then(() => window.dispatchEvent(new Event('auth:claims'))).catch(() => {});
         } catch (e) { warnServer(e); }
     };
     if (navigator.onLine !== false) {
@@ -222,8 +222,15 @@ export async function watchDevices(user) {
         } catch (e) { /* mạng chập chờn: để máy chủ xử lý */ }
         if (ok) settled = true; else await ensure();
     }
+    let tokenAt = (Number(claims.iat) || 0) * 1000;
     unsub = onSnapshot(devRef(user.uid), (snap) => {
         if (snap.metadata.fromCache || !settled) return;           // chỉ tin dữ liệu máy chủ, sau khi đã đăng ký
+        // Admin vừa đổi quyền (duyệt / tính năng) — máy chủ ghi claimsAt → xin token mới ngay để luật + giao diện (core/features.js) theo kịp
+        const claimsAt = snap.exists() ? Number(snap.data().claimsAt) || 0 : 0;
+        if (claimsAt > tokenAt) {
+            tokenAt = Date.now();
+            user.getIdToken(true).then(() => window.dispatchEvent(new Event('auth:claims'))).catch(() => {});
+        }
         const list = snap.exists() && Array.isArray(snap.data().list) ? snap.data().list : [];
         if (!list.some(d => d.id === me)) {
             kickOut('Tài khoản vừa đăng nhập trên máy khác (vượt số máy cho phép) hoặc máy này bị đăng xuất từ xa. Máy này đã được đăng xuất.');
@@ -279,7 +286,7 @@ export async function adminListAllUsers() {
     return { users, access };
 }
 
-/** Admin: cập nhật quyền (allowPassword, unlimitedDevices, approved, disabled), mật khẩu hoặc tên hiển thị. */
+/** Admin: cập nhật quyền (allowPassword, unlimitedDevices, approved, disabled, features — core/features.js), mật khẩu hoặc tên hiển thị. */
 export async function adminUpdateUser(payload) {
     return callDevices({ action: 'adminUpdateUser', ...payload });
 }

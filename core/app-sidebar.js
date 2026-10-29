@@ -93,4 +93,9 @@
         try { localStorage.setItem('sidebarMini', mini ? '1' : '0'); } catch (e) {}
         nhan();
     });
+
+    // Ổ khoá nhỏ ở lối vào tính năng tài khoản chưa được admin mở (core/features.js) — việc phụ, nạp sau khi trang tải xong
+    function khoa() { import(root + 'core/features.js').then(function (m) { m.watchNav(); }).catch(function () {}); }
+    if (document.readyState === 'complete') setTimeout(khoa, 300);
+    else window.addEventListener('load', function () { setTimeout(khoa, 300); }, { once: true });
 })();

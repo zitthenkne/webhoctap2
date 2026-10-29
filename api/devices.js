@@ -25,6 +25,15 @@ const placeOf = (e) => [e?.city, e?.country].filter(Boolean).join(', ');
 
 const okLimit = (n) => Number.isInteger(n) && n >= 1 && n <= EXEMPT_MAX;
 
+// QUYỀN DÙNG TÍNH NĂNG — custom claim `feat` = { quiz, create, room, record } (khớp can() trong firestore.rules và core/features.js).
+// Thiếu claim = mặc định: làm đề + học nhóm mở, tạo đề + bệnh án tắt. Admin luôn mở hết.
+const FEATURE_KEYS = ['quiz', 'create', 'room', 'record'];
+const DEFAULT_FEATURES = { quiz: true, create: false, room: true, record: false };
+const normFeatures = (f) => {
+    const src = f && typeof f === 'object' ? f : DEFAULT_FEATURES;
+    return Object.fromEntries(FEATURE_KEYS.map(k => [k, src[k] === true]));
+};
+
 async function getAccessConfig(db) {
     try {
         const s = await db.doc('config/access').get();
@@ -85,8 +94,14 @@ async function trimTo(db, uid, n) {
         const s = await tx.get(ref);
         const list = s.exists && Array.isArray(s.data().list) ? s.data().list : [];
         if (list.length <= n) return;
-        tx.set(ref, pack([...list].sort((a, b) => (a.at || 0) - (b.at || 0)).slice(-n)));
+        tx.set(ref, pack([...list].sort((a, b) => (a.at || 0) - (b.at || 0)).slice(-n)), { merge: true });
     });
+}
+
+/** Đổi quyền (claim) của tài khoản: ghi mốc vào doc danh sách máy — máy người đó đang nghe doc này (core/device-limit.js) nên xin token mới NGAY,
+ *  không phải đợi token hết hạn (≤ 1 giờ). merge để không đụng danh sách máy. */
+async function markClaims(db, uid) {
+    await db.doc(`users/${uid}/private/devices`).set({ claimsAt: Date.now() }, { merge: true }).catch(() => {});
 }
 
 async function removeFrom(db, uid, pred) {
@@ -94,7 +109,7 @@ async function removeFrom(db, uid, pred) {
     await db.runTransaction(async (tx) => {
         const s = await tx.get(ref);
         const list = s.exists && Array.isArray(s.data().list) ? s.data().list : [];
-        tx.set(ref, pack(list.filter(d => !pred(d))));
+        tx.set(ref, pack(list.filter(d => !pred(d))), { merge: true });
     });
 }
 
@@ -107,6 +122,8 @@ function serializeUserRecord(u, cfg) {
         displayName: u.displayName || '',
         emailVerified: !!u.emailVerified,
         approved: isAdmin || u.customClaims?.approved === true,
+        features: isAdmin ? normFeatures({ quiz: true, create: true, room: true, record: true }) : normFeatures(u.customClaims?.feat),
+        featuresCustom: !isAdmin && !!u.customClaims?.feat,
         disabled: !!u.disabled,
         isAdmin,
         providers: (u.providerData || []).map(p => p.providerId),
@@ -198,6 +215,12 @@ module.exports = async function handler(req, res) {
 
                 // Tự động gắn custom claim approved: true để tạo bộ đề / thư mục / phòng ngay
                 await setApproved(userRecord.uid);
+                // Admin chọn sẵn quyền tính năng lúc tạo (vd "Full tính năng") — không chọn thì theo mặc định
+                if (body.features && typeof body.features === 'object') {
+                    const cur = (await auth.getUser(userRecord.uid)).customClaims || {};
+                    await auth.setCustomUserClaims(userRecord.uid, { ...cur, feat: normFeatures(body.features) });
+                    await markClaims(db, userRecord.uid);
+                }
                 userRecord = await auth.getUser(userRecord.uid);
 
                 const finalName = displayName || userRecord.displayName || email.split('@')[0];
@@ -311,12 +334,25 @@ module.exports = async function handler(req, res) {
                     if (Object.keys(authPatch).length > 0) {
                         userRecord = await auth.updateUser(targetUid, authPatch);
                     }
-                    if (typeof body.approved === 'boolean') {
-                        await auth.setCustomUserClaims(targetUid, { ...(userRecord.customClaims || {}), approved: body.approved });
+                    // Claim: duyệt + quyền tính năng — gộp MỘT lần ghi. features: null = về mặc định, object = bật/tắt từng tính năng
+                    const claims = { ...(userRecord.customClaims || {}) };
+                    let claimsDirty = false;
+                    if (typeof body.approved === 'boolean') { claims.approved = body.approved; claimsDirty = true; }
+                    else if (body.allowPassword === true && claims.approved !== true) { claims.approved = true; claimsDirty = true; }
+                    if ('features' in body) {
+                        if (body.features === null) delete claims.feat;
+                        else if (body.features && typeof body.features === 'object') {
+                            claims.feat = normFeatures({ ...normFeatures(claims.feat), ...body.features });
+                            // Tạo đề / phòng / bệnh án còn cần "đã duyệt" (approved() trong luật) → admin mở tính năng = tin tài khoản này, duyệt luôn
+                            if (['create', 'room', 'record'].some(k => claims.feat[k]) && typeof body.approved !== 'boolean') claims.approved = true;
+                        }
+                        else return send(res, 400, { error: 'Quyền tính năng không hợp lệ.' });
+                        claimsDirty = true;
+                    }
+                    if (claimsDirty) {
+                        await auth.setCustomUserClaims(targetUid, claims);
                         userRecord = await auth.getUser(targetUid);
-                    } else if (body.allowPassword === true && userRecord.customClaims?.approved !== true) {
-                        await setApproved(targetUid);
-                        userRecord = await auth.getUser(targetUid);
+                        await markClaims(db, targetUid);
                     }
                     if (authPatch.displayName) {
                         await db.doc(`users/${targetUid}`).set({ email: targetEmail, displayName: authPatch.displayName }, { merge: true });
@@ -357,6 +393,10 @@ module.exports = async function handler(req, res) {
                 const changed = {};
                 for (const k of ['allowPassword', 'unlimitedDevices', 'approved', 'disabled', 'emailVerified', 'revokeSessions', 'displayName', 'deviceLimit']) {
                     if (k in body) changed[k] = body[k];
+                }
+                if ('features' in body) {
+                    const f = body.features === null ? null : normFeatures(userRecord?.customClaims?.feat);
+                    changed.features = f ? FEATURE_KEYS.filter(k => f[k]).join(', ') || 'tắt hết' : 'mặc định';
                 }
                 if (typeof body.password === 'string' && body.password) changed.password = 'đã đổi';
                 await audit(db, admin, token, 'update-user', targetEmail || targetUid, changed);
@@ -430,7 +470,7 @@ module.exports = async function handler(req, res) {
                 list = [...list, { id: me, label, at: now, authTime, ...geo }].sort((a, b) => (a.at || 0) - (b.at || 0)).slice(-limit);
                 newLogin = true;
             }
-            tx.set(devRef, pack(list));
+            tx.set(devRef, pack(list), { merge: true });
             if (newLogin) {
                 const prev = ls.exists && Array.isArray(ls.data().list) ? ls.data().list : [];
                 const odd = prev.find(p => p.device !== me && now - (p.at || 0) < ALERT_WINDOW_MS

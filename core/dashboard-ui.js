@@ -1,5 +1,6 @@
 // File: core/dashboard-ui.js
 import { requireLogin } from './require-login.js';
+import { requireFeature } from './features.js';
 
 // Module chịu trách nhiệm quản lý các tương tác giao diện (UI) trang chủ, sidebar mobile và modal sửa phòng học local
 
@@ -110,7 +111,7 @@ export function initDashboardUI() {
     const selectWriteMedicalRecord = document.getElementById('selectWriteMedicalRecord');
     if (selectWriteMedicalRecord) {
         selectWriteMedicalRecord.addEventListener('click', async () => {
-            if (!await requireLogin('Viết bệnh án')) return;
+            if (!await requireFeature('record', { label: 'Viết bệnh án' })) return;
             // Vào danh sách bệnh án trước (tạo mới / mở lại bài cũ ở đó), không nhảy thẳng vào trang viết
             window.location.href = 'features/study-room/waiting-room.html';
         });
