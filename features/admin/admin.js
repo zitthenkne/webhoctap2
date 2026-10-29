@@ -378,12 +378,12 @@ function renderReport() {
         stat('✏️ Đang làm (chưa nộp)', doing.size, runsError ? 'chưa đọc được' : `${doingDevices} máy`, 'text-emerald-500') +
         stat('⚠️ Cảnh báo 2 máy', clashUids().size, inc.length ? `${inc.length} lần · xem bên dưới` : 'không có', inc.length ? 'text-rose-500' : 'text-slate-400');
 
-    $('rep-alerts').innerHTML = inc.length ? `<div class="card p-4 space-y-3 border-red-200" style="border-color:#FECACA">
-        <p class="font-black text-red-700"><i class="fas fa-triangle-exclamation mr-1.5"></i>Cùng một tài khoản làm đề trên 2 máy cùng lúc <span class="chip bg-red-100 text-red-700">${inc.length}</span></p>
+    $('rep-alerts').innerHTML = inc.length ? `<div class="card nb-alert p-4 space-y-3">
+        <p class="nb-h" style="color:var(--ink-cherry)">🚨 Cùng một tài khoản làm đề trên 2 máy cùng lúc <span class="chip bg-red-100 text-red-700">${inc.length}</span></p>
         ${inc.slice(0, 60).map(x => {
             const [kind, tone] = CLASH_KINDS[x.kind];
             const line = (s) => `<div class="text-[12px] text-slate-600"><i class="fas ${deviceIcon(s.label)} mr-1 text-slate-400"></i><b>${esc(s.label)}</b>${s.title ? ` · ${esc(s.title)}` : ''}${s.start ? ` · ${fmtShort(s.start)}${s.end ? `–${fmtClock(s.end)}` : ' → đang làm'}` : ''}</div>`;
-            return `<div class="rounded-xl bg-red-50/60 border border-red-100 px-3 py-2 space-y-1">
+            return `<div class="nb-alert-item px-3 py-2 space-y-1">
                 <div class="flex flex-wrap items-center gap-2">
                     <div class="min-w-0 flex-1">${personHead(x.uid, `<span class="chip ${tone}">${kind}</span>`)}</div>
                     <button type="button" class="btn bg-red-50 hover:bg-red-100 text-red-600" data-act="kick-all" data-uid="${esc(x.uid)}"><i class="fas fa-power-off mr-1"></i>Đá mọi máy</button>
@@ -394,8 +394,8 @@ function renderReport() {
         ${inc.length > 60 ? `<p class="text-[11.5px] text-slate-400">… và ${inc.length - 60} lần khác (lọc "Chỉ lượt bị cảnh báo" để xem hết).</p>` : ''}
     </div>` : '';
 
-    $('rep-doing').innerHTML = doing.size ? `<details class="card p-3" ${doing.size <= 8 ? 'open' : ''}>
-        <summary class="cursor-pointer text-[13px] font-extrabold text-emerald-700">Đang làm, chưa nộp <span class="chip bg-emerald-100 text-emerald-700 ml-1">${doing.size} người</span>
+    $('rep-doing').innerHTML = doing.size ? `<details class="card p-3" style="--h:var(--hue-mint)" ${doing.size <= 8 ? 'open' : ''}>
+        <summary class="cursor-pointer nb-h" style="color:var(--ink-mint)">Đang làm, chưa nộp <span class="chip bg-emerald-100 text-emerald-700 ml-1">${doing.size} người</span>
             <span class="text-[11px] font-semibold text-slate-400">(bắt đầu trong ${RUN_MAX_MS / 3600000} giờ qua, có thể đã bỏ dở)</span></summary>
         <div class="mt-2 space-y-2">${[...doing.entries()].map(([uid, g]) => `<div class="space-y-1">
             ${personHead(uid, g.devices.size >= 2 ? '<span class="chip bg-amber-100 text-amber-800">2 máy</span>' : '')}
@@ -411,7 +411,7 @@ function renderReport() {
     if (!results) html = '';
     else if (repView === 'quiz') html = renderByQuiz(shown, shownGuests);
     else html = renderByUser(shown, shownGuests);
-    $('rep-list').innerHTML = html || `<div class="card p-6 text-center text-slate-400 font-bold">${resultsError ? esc(resultsError) : results ? (all.length || guests.length ? 'Không có lượt nào khớp bộ lọc.' : `Chưa ai làm đề trong ${RANGES[resultsDays]} 🌸`) : 'Đang tải…'}</div>`;
+    $('rep-list').innerHTML = html || `<div class="card p-6 text-center text-slate-400 font-bold"><span class="doodle doodle-cloud mr-1"></span>${resultsError ? esc(resultsError) : results ? (all.length || guests.length ? 'Không có lượt nào khớp bộ lọc.' : `Chưa ai làm đề trong ${RANGES[resultsDays]} 🌸`) : 'Đang tải…'}</div>`;
 }
 
 const guestMatches = (g, q) => !q || [g.title, g.quizId, g.label, 'khách', 'chưa đăng nhập'].some(v => lc(v).includes(q));
@@ -472,7 +472,7 @@ function renderByQuiz(list, gs = []) {
         return `<div class="card p-4 space-y-3">
             <div class="flex flex-wrap items-start gap-2">
                 <div class="min-w-0 flex-1">
-                    <p class="font-black text-slate-800 leading-snug break-words">${esc(qz.title || 'Đề chưa rõ tên')}</p>
+                    <p class="nb-h break-words" style="color:var(--ink)"><span class="marker">${esc(qz.title || 'Đề chưa rõ tên')}</span></p>
                     <p class="text-[11px] text-slate-400 font-semibold truncate">Mã đề: ${esc(qz.id)}</p>
                 </div>
                 <span class="chip bg-pink-100 text-pink-700 text-[12px]"><i class="fas fa-user-group"></i>${qz.people.size} người</span>
@@ -489,8 +489,8 @@ function renderByQuiz(list, gs = []) {
 }
 
 function renderByUser(list, gs = []) {
-    const guestCard = gs.length ? `<div class="card p-4 space-y-2" style="background:linear-gradient(160deg,#fff,#f0f9ff)">
-        <p class="font-black text-sky-800"><i class="fas fa-user-secret mr-1.5"></i>Khách chưa đăng nhập
+    const guestCard = gs.length ? `<div class="card p-4 space-y-2" style="--h:var(--hue-sky)">
+        <p class="nb-h" style="color:var(--ink-sky)">🕶️ Khách chưa đăng nhập
             <span class="chip bg-sky-100 text-sky-700">${new Set(gs.map(g => g.device)).size} máy</span>
             <span class="chip bg-white text-sky-600 border border-sky-100">${new Set(gs.map(g => g.quizId)).size} đề</span></p>
         ${guestBlock(gs, { withTitle: true, head: false })}
@@ -659,7 +659,7 @@ function featureSection(u) {
         : !u.featuresCustom ? '<span class="chip bg-emerald-50 text-emerald-700">🌱 mặc định</span>' : '<span class="chip bg-violet-50 text-violet-700">🎀 tuỳ chỉnh</span>';
     return `<div id="dr-feat" class="card p-4 space-y-3 feat-card">
         <div class="flex flex-wrap items-center gap-2">
-            <p class="text-[13.5px] font-extrabold text-pink-700 flex-1"><i class="fas fa-wand-magic-sparkles mr-1.5"></i>Tính năng được dùng</p>${state}
+            <p class="nb-h flex-1">✨ Tính năng được dùng</p>${state}
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${FEATURE_KEYS.map(k => {
             const [name, icon, color, bg, desc] = FEATURES[k];
@@ -744,7 +744,7 @@ function renderAccounts() {
     const list = filteredUsers(doing, clash);
     $('acc-summary').textContent = `${users.length} tài khoản · ${doing.size} đang làm đề · ${clash.size} bị cảnh báo 2 máy · đang hiện ${Math.min(list.length, 300)}/${list.length}`;
     $('acc-list').innerHTML = list.slice(0, 300).map(u => rowHtml(u, doing, clash)).join('')
-        || '<div class="card p-6 text-center text-slate-400 font-bold">Không có tài khoản khớp 🌸</div>';
+        || '<div class="card p-6 text-center text-slate-400 font-bold"><span class="doodle doodle-cloud mr-1"></span>Không có tài khoản khớp 🌸</div>';
 }
 
 // Một dòng tài khoản: bấm vào dòng = mở chi tiết; bấm viên tính năng = bật / tắt ngay tại chỗ
@@ -878,7 +878,7 @@ async function refreshDrawer() {
 }
 
 function section(title, body, icon = 'fa-circle') {
-    return `<div class="card p-4 space-y-2"><p class="text-[13px] font-extrabold text-pink-600"><i class="fas ${icon} mr-1.5"></i>${title}</p>${body}</div>`;
+    return `<div class="card p-4 space-y-2"><p class="nb-h"><i class="fas ${icon} mr-1.5"></i>${title}</p>${body}</div>`;
 }
 function toggle(id, on, label, hint, disabled) {
     return `<button type="button" data-do="${id}" ${disabled ? 'disabled' : ''} class="btn w-full text-left flex items-center justify-between gap-2 ${on ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-slate-50 text-slate-600 border border-slate-200'}" title="${esc(hint)}">

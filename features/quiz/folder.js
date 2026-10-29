@@ -17,6 +17,7 @@ import { markSharedSeen } from './shared-inbox.js';
 import { rememberOpened, listShelf, forgetShelf, togglePinShelf, clearShelf, localStatsFor } from './local-shelf.js';
 import { showToast, showConfirm } from '../../core/utils.js';
 import { requireFeature } from '../../core/features.js';
+import { apiUrl } from '../../core/device-limit.js';
 import {
     doc, getDoc, collection, setDoc, arrayRemove, writeBatch
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
@@ -152,7 +153,7 @@ const SET_META = ['title', 'questionCount', 'createdAt', 'folderId', 'isPublic',
 
 /** Thư mục công khai còn hạn: { status, folder, subFolders, quizzes } từ máy chủ (api/public.js). 410 = hết hạn, 404 = không có / riêng tư. */
 async function fetchPublicFolder(folderId) {
-    const r = await fetch(new URL(`api/public?kind=folder&id=${encodeURIComponent(folderId)}`, location.origin + '/').href, { cache: 'no-store' });
+    const r = await fetch(apiUrl(`api/public?kind=folder&id=${encodeURIComponent(folderId)}`), { cache: 'no-store' });
     const data = await r.json().catch(() => ({}));
     if (r.status === 410) return { status: 'expired' };
     if (!r.ok) throw new Error(data.error || data.status || `HTTP ${r.status}`);

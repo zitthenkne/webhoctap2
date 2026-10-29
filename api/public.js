@@ -11,6 +11,7 @@ const statusOf = (d) => (!d ? 'missing' : d.deleted ? 'missing' : d.isPublic !==
 const ms = (v) => untilMs(v);
 
 module.exports = async function handler(req, res) {
+    if (req.method === 'OPTIONS') return send(res, 200, { ok: true });
     try {
         const id = String(req.query.id || '').replace(/[^\w-]/g, '').slice(0, 64);
         const kind = req.query.kind === 'quiz' ? 'quiz' : 'folder';

@@ -156,6 +156,7 @@ async function updateAccessLists(db, admin, email, { allowPassword, unlimitedDev
 }
 
 module.exports = async function handler(req, res) {
+    if (req.method === 'OPTIONS') return send(res, 200, { ok: true });
     if (req.method !== 'POST') return send(res, 405, { error: 'POST only' });
     try {
         const token = await verifyUser(req);

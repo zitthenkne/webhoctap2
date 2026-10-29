@@ -130,6 +130,7 @@ function takeFresh() {
 
 // ---------- Gọi máy chủ (api/devices.js) ----------
 // Danh sách máy + lịch sử đăng nhập do MÁY CHỦ ghi (luật chặn app ghi) — máy chủ xác minh token thật, lấy auth_time + IP/vị trí thật.
+export const apiUrl = (path) => new URL(path, (typeof location !== 'undefined' && /\.vercel\.app$/i.test(location.hostname) ? location.origin : 'https://zitthenkne.vercel.app') + '/').href;
 const callDevices = (body) => callApi('api/devices', body);
 
 /**
@@ -144,7 +145,7 @@ export async function approveAccount(secret) {
 async function callApi(path, body) {
     const u = auth.currentUser;
     if (!u) throw new Error('Chưa đăng nhập');
-    const res = await fetch(new URL(path, location.origin + '/').href, {
+    const res = await fetch(apiUrl(path), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await u.getIdToken()}` },
         body: JSON.stringify(body),
@@ -173,7 +174,7 @@ async function kickOut(reason) {
 let serverWarned = false;
 function warnServer(e) {
     console.warn('Máy chủ thiết bị chưa sẵn sàng:', e);
-    if (serverWarned || e?.status === 401) return;
+    if (serverWarned || navigator.onLine === false || e?.status === 401 || e?.code === 'google-required') return;
     serverWarned = true;
     // 503 = chưa cấu hình FIREBASE_SERVICE_ACCOUNT trên Vercel; 404 = API chưa deploy (chạy localhost…)
     import('./utils.js').then(({ showToast }) => {

@@ -15,6 +15,7 @@ const WINDOW_MS = 60 * 60 * 1000;
 const sha = (s) => crypto.createHash('sha256').update(String(s), 'utf8').digest('hex');
 
 module.exports = async function handler(req, res) {
+    if (req.method === 'OPTIONS') return send(res, 200, { ok: true });
     if (req.method !== 'POST') return send(res, 405, { error: 'POST only' });
     try {
         const token = await verifyUser(req);

@@ -36,7 +36,8 @@ let autoSaveInterval = null;
 // Link công khai hết hạn (api/public.js — máy chủ đọc được trạng thái bộ đề). Lỗi / chưa deploy API → coi như không biết (false).
 async function linkExpired(id) {
     try {
-        const r = await fetch(new URL(`api/public?kind=quiz&id=${encodeURIComponent(id)}`, location.origin + '/').href, { cache: 'no-store' });
+        const base = typeof location !== 'undefined' && /\.vercel\.app$/i.test(location.hostname) ? location.origin : 'https://zitthenkne.vercel.app';
+        const r = await fetch(new URL(`api/public?kind=quiz&id=${encodeURIComponent(id)}`, base + '/').href, { cache: 'no-store' });
         return r.ok && (await r.json()).status === 'expired';
     } catch (e) { return false; }
 }
