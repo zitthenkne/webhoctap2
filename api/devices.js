@@ -9,6 +9,8 @@
 // Quyền đặc biệt trong doc `config/access`:
 //   • passwordAllowed: [email] — được đăng nhập thẳng bằng Email + Mật khẩu (không bắt qua Google), vẫn giữ giới hạn 2 máy nếu không có trong deviceExempt.
 //   • deviceExempt:    [email] — được dùng tối đa EXEMPT_MAX (20) máy (kiêm miễn Google nếu chưa bật riêng).
+//   • deviceLimits:    { email: n } — số máy RIÊNG của từng tài khoản (1..20), admin chỉnh ở trang Quản trị; ưu tiên hơn deviceExempt.
+//   • defaultLimit:    n — số máy mặc định cho mọi tài khoản còn lại (thiếu = MAX_DEVICES).
 const { init, verifyUser, isAdminEmail, isAdminToken, ADMIN_EMAILS, geoOf, send, readJson, setApproved, autoApprove } = require('./_lib/admin');
 
 const MAX_DEVICES = 2;
@@ -21,16 +23,24 @@ const isEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normEmail(s));
 const nameKey = (name) => encodeURIComponent(String(name || '').normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase());
 const placeOf = (e) => [e?.city, e?.country].filter(Boolean).join(', ');
 
+const okLimit = (n) => Number.isInteger(n) && n >= 1 && n <= EXEMPT_MAX;
+
 async function getAccessConfig(db) {
     try {
         const s = await db.doc('config/access').get();
         const d = s.exists ? s.data() || {} : {};
+        const limits = {};
+        for (const [k, v] of Object.entries(d.deviceLimits && typeof d.deviceLimits === 'object' ? d.deviceLimits : {})) {
+            if (okLimit(v)) limits[normEmail(k)] = v;
+        }
         return {
             deviceExempt: Array.isArray(d.deviceExempt) ? d.deviceExempt.map(normEmail) : [],
-            passwordAllowed: Array.isArray(d.passwordAllowed) ? d.passwordAllowed.map(normEmail) : []
+            passwordAllowed: Array.isArray(d.passwordAllowed) ? d.passwordAllowed.map(normEmail) : [],
+            deviceLimits: limits,
+            defaultLimit: okLimit(d.defaultLimit) ? d.defaultLimit : MAX_DEVICES
         };
     } catch (e) {
-        return { deviceExempt: [], passwordAllowed: [] };
+        return { deviceExempt: [], passwordAllowed: [], deviceLimits: {}, defaultLimit: MAX_DEVICES };
     }
 }
 
@@ -48,7 +58,36 @@ function hasUnlimitedDevices(cfg, emailOrToken) {
     return cfg.deviceExempt.includes(email);
 }
 
+/** Số máy được dùng: admin → EXEMPT_MAX; số riêng (deviceLimits) → số đó; deviceExempt → EXEMPT_MAX; còn lại defaultLimit. */
+function limitFor(cfg, emailOrToken) {
+    const email = typeof emailOrToken === 'string' ? normEmail(emailOrToken) : normEmail(emailOrToken?.email);
+    if (isAdminEmail(email) || (typeof emailOrToken === 'object' && isAdminToken(emailOrToken))) return EXEMPT_MAX;
+    if (okLimit(cfg.deviceLimits[email])) return cfg.deviceLimits[email];
+    return hasUnlimitedDevices(cfg, emailOrToken) ? EXEMPT_MAX : cfg.defaultLimit;
+}
+
 const pack = (list) => ({ list, authTimes: list.map(d => d.authTime).filter(n => typeof n === 'number') });
+
+/** Nhật ký quản trị (admin_log — trang Quản trị đọc): ai làm gì với tài khoản nào. Không bao giờ ghi mật khẩu. Lỗi ghi log không chặn thao tác. */
+async function audit(db, admin, token, action, target, detail = {}) {
+    try {
+        await db.collection('admin_log').add({
+            at: admin.firestore.Timestamp.now(), by: normEmail(token.email), action,
+            target: String(target || '').slice(0, 200), detail
+        });
+    } catch (e) {}
+}
+
+/** Hạ giới hạn máy: chỉ giữ `n` máy đăng nhập GẦN NHẤT, máy cũ hơn bị đẩy ra ngay (máy đó đang nghe danh sách nên tự đăng xuất). */
+async function trimTo(db, uid, n) {
+    const ref = db.doc(`users/${uid}/private/devices`);
+    await db.runTransaction(async (tx) => {
+        const s = await tx.get(ref);
+        const list = s.exists && Array.isArray(s.data().list) ? s.data().list : [];
+        if (list.length <= n) return;
+        tx.set(ref, pack([...list].sort((a, b) => (a.at || 0) - (b.at || 0)).slice(-n)));
+    });
+}
 
 async function removeFrom(db, uid, pred) {
     const ref = db.doc(`users/${uid}/private/devices`);
@@ -73,6 +112,8 @@ function serializeUserRecord(u, cfg) {
         providers: (u.providerData || []).map(p => p.providerId),
         allowPassword: isAdmin || cfg.passwordAllowed.includes(email) || cfg.deviceExempt.includes(email),
         unlimitedDevices: isAdmin || cfg.deviceExempt.includes(email),
+        deviceLimit: limitFor(cfg, email),
+        customLimit: okLimit(cfg.deviceLimits[email]) ? cfg.deviceLimits[email] : null,
         createdAt: u.metadata?.creationTime ? new Date(u.metadata.creationTime).getTime() : null,
         lastSignInAt: u.metadata?.lastSignInTime ? new Date(u.metadata.lastSignInTime).getTime() : null
     };
@@ -115,6 +156,7 @@ module.exports = async function handler(req, res) {
                 if (!target) return send(res, 400, { error: 'Thiếu uid' });
                 const dev = cleanId(body.deviceId);
                 await removeFrom(db, target, d => !dev || d.id === dev);
+                await audit(db, admin, token, dev ? 'kick-device' : 'kick-all', target, dev ? { device: dev } : {});
                 return send(res, 200, { ok: true });
             }
 
@@ -173,6 +215,7 @@ module.exports = async function handler(req, res) {
 
                 await updateAccessLists(db, admin, email, { allowPassword, unlimitedDevices });
                 const cfg = await getAccessConfig(db);
+                await audit(db, admin, token, created ? 'create-user' : 'reset-user', email, { allowPassword, unlimitedDevices });
                 return send(res, 200, { ok: true, created, user: serializeUserRecord(userRecord, cfg) });
             }
 
@@ -215,16 +258,18 @@ module.exports = async function handler(req, res) {
             }
 
             // 4. Liệt kê danh sách tài khoản trên hệ thống
+            // Có pageToken → trang kế tiếp (Firebase Auth trả tối đa 1000 / trang). Trang Quản trị gọi tới hết để có đủ danh sách.
             if (body.action === 'adminListUsers') {
-                const max = Math.min(Math.max(Number(body.limit) || 50, 1), 200);
+                const max = Math.min(Math.max(Number(body.limit) || 50, 1), 1000);
+                const pageToken = typeof body.pageToken === 'string' && body.pageToken ? body.pageToken : undefined;
                 const [listRes, cfg] = await Promise.all([
-                    auth.listUsers(max),
+                    auth.listUsers(max, pageToken),
                     getAccessConfig(db)
                 ]);
                 const users = (listRes.users || [])
                     .map(u => serializeUserRecord(u, cfg))
                     .sort((a, b) => (b.lastSignInAt || b.createdAt || 0) - (a.lastSignInAt || a.createdAt || 0));
-                return send(res, 200, { ok: true, users, access: cfg });
+                return send(res, 200, { ok: true, users, access: cfg, nextPageToken: listRes.pageToken || null });
             }
 
             // 5. Cập nhật quyền / mật khẩu / tên / duyệt / khóa tài khoản
@@ -293,9 +338,28 @@ module.exports = async function handler(req, res) {
                         allowPassword: allowPw,
                         unlimitedDevices: unlim
                     });
+                    // Số máy riêng: số 1..20 = đặt, null = bỏ (về mặc định / theo "20 máy")
+                    if ('deviceLimit' in body) {
+                        const n = body.deviceLimit === null ? null : Number(body.deviceLimit);
+                        if (n !== null && !okLimit(n)) return send(res, 400, { error: `Số máy phải từ 1 đến ${EXEMPT_MAX}.` });
+                        await db.doc('config/access').set({
+                            deviceLimits: { [targetEmail]: n === null ? admin.firestore.FieldValue.delete() : n }
+                        }, { merge: true });
+                    }
                 }
 
                 const cfg = await getAccessConfig(db);
+                // Giới hạn mới thấp hơn số máy đang đăng nhập → đẩy bớt máy cũ nhất ra ngay
+                if (targetUid && isEmail(targetEmail) && ('deviceLimit' in body || body.unlimitedDevices === false || body.allowPassword === false)) {
+                    await trimTo(db, targetUid, limitFor(cfg, targetEmail));
+                }
+                // Ghi lại các trường đã đổi (mật khẩu chỉ ghi "đã đổi", không ghi giá trị)
+                const changed = {};
+                for (const k of ['allowPassword', 'unlimitedDevices', 'approved', 'disabled', 'emailVerified', 'revokeSessions', 'displayName', 'deviceLimit']) {
+                    if (k in body) changed[k] = body[k];
+                }
+                if (typeof body.password === 'string' && body.password) changed.password = 'đã đổi';
+                await audit(db, admin, token, 'update-user', targetEmail || targetUid, changed);
                 return send(res, 200, {
                     ok: true,
                     user: userRecord ? serializeUserRecord(userRecord, cfg) : { email: targetEmail },
@@ -314,7 +378,9 @@ module.exports = async function handler(req, res) {
                 await db.doc(`users/${targetUid}/private/devices`).delete().catch(() => {});
                 if (isEmail(email)) {
                     await updateAccessLists(db, admin, email, { allowPassword: false, unlimitedDevices: false });
+                    await db.doc('config/access').set({ deviceLimits: { [email]: admin.firestore.FieldValue.delete() } }, { merge: true }).catch(() => {});
                 }
+                await audit(db, admin, token, 'delete-user', email || targetUid);
                 return send(res, 200, { ok: true });
             }
 
@@ -332,7 +398,6 @@ module.exports = async function handler(req, res) {
 
         const cfg = await getAccessConfig(db);
         const passwordOk = canUsePassword(cfg, token);
-        const unlimited = hasUnlimitedDevices(cfg, token);
 
         if (token.firebase?.sign_in_provider !== 'google.com' && !passwordOk) {
             return send(res, 403, { error: 'google-required' });
@@ -346,7 +411,7 @@ module.exports = async function handler(req, res) {
         const label = String(body.label || 'Thiết bị').slice(0, 80);
         const authTime = Number(token.auth_time) || 0;
         const geo = geoOf(req);
-        const limit = unlimited ? EXEMPT_MAX : MAX_DEVICES;
+        const limit = limitFor(cfg, token);
         const now = Date.now();
         const devRef = db.doc(`users/${uid}/private/devices`);
         const logRef = db.doc(`users/${uid}/private/logins`);

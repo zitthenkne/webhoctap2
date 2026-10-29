@@ -1,11 +1,12 @@
 import { auth, db } from '../../core/firebase-init.js';
 import { forgetSession, onSessionUser, sendVerifyMail, refreshEmailVerified, authErrorVi } from '../../core/auth-session.js';
-import { updateProfile, updatePassword, signOut, GoogleAuthProvider, linkWithPopup, browserPopupRedirectResolver } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { updateProfile, updatePassword, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { openGoogle, resumeGoogle, isCancelled } from '../../core/google-signin.js';
 import { doc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { updateDocQ as updateDoc } from '../../core/offline-write.js';
 import { showConfirm } from '../../core/utils.js';
 import { claimName } from '../../core/usernames.js';
-import { releaseThisDevice, removeDevice, adminRemoveDevices, onDevices, onLogins, placeOf, findAccount, deviceId, MAX_DEVICES, deviceLimitFor,
+import { releaseThisDevice, removeDevice, adminRemoveDevices, onDevices, onLogins, placeOf, findAccount, deviceId, MAX_DEVICES, EXEMPT_MAX, deviceLimitFor,
     isAdminUser, onAccessConfig, setAccountAccess, ADMIN_EMAILS,
     adminCreateUser, adminLookupUser, adminListUsers, adminUpdateUser, adminDeleteUser } from '../../core/device-limit.js';
 import { readMetaCache, fetchAllQuizMeta } from '../quiz/library/library-meta.js';
@@ -395,7 +396,7 @@ function renderDevices() {
     devicesUnsub = onDevices(u.uid, (list) => {
         if (!list) return;
         box.classList.remove('hidden');
-        document.getElementById('devices-count').textContent = limit > MAX_DEVICES ? `${list.length} máy · không giới hạn` : `${list.length}/${limit} máy`;
+        document.getElementById('devices-count').textContent = limit >= EXEMPT_MAX ? `${list.length} máy · không giới hạn` : `${list.length}/${limit} máy`;
         listEl.innerHTML = deviceRowsHtml(list, me);
     });
     // Lịch sử đăng nhập (5 lần gần nhất) — dòng có cảnh báo tô đỏ: hai nơi khác nhau trong 2 giờ
@@ -445,7 +446,7 @@ function renderAdmin() {
             const res = await adminCreateUser({ email, password, displayName, allowPassword, unlimitedDevices, approved: true });
             const modeTxt = allowPassword ? 'Đăng nhập thẳng (miễn Google)' : 'Bắt buộc qua Google';
             const devTxt = unlimitedDevices ? '20 máy' : '2 máy';
-            showMessage(`${res.existed ? 'Đã cập nhật' : 'Đã tạo mới'} tài khoản ${res.email} · ${modeTxt} · ${devTxt}.`, 'success');
+            showMessage(`${res.created === false ? 'Đã cập nhật' : 'Đã tạo mới'} tài khoản ${res.user?.email || email} · ${modeTxt} · ${devTxt}.`, 'success');
             cEmail.value = '';
             cPass.value = '';
             cName.value = '';
@@ -664,7 +665,7 @@ function renderAdmin() {
         out.innerHTML = '<p class="text-[12px] text-slate-400"><i class="fas fa-spinner fa-spin mr-1"></i>Đang tra cứu từ hệ thống…</p>';
         let acc = null;
         try {
-            acc = await adminLookupUser(q);
+            const r = await adminLookupUser(q); acc = r?.user || r;
         } catch {
             // Fallback client lookup nếu offline/lỗi mạng tạm thời
             try { acc = await findAccount(q); } catch {}
@@ -811,7 +812,7 @@ function renderAdmin() {
         usersWrap.classList.remove('hidden');
         usersWrap.innerHTML = '<p class="text-[12px] text-slate-400"><i class="fas fa-spinner fa-spin mr-1"></i>Đang tải danh sách tài khoản…</p>';
         try {
-            const users = await adminListUsers();
+            const r = await adminListUsers(); const users = Array.isArray(r) ? r : (r?.users || []);
             usersWrap.innerHTML = `
                 <div class="flex items-center justify-between mb-1.5">
                     <span class="text-[11.5px] font-extrabold text-amber-800">Tổng cộng: ${users.length} tài khoản (bấm vào bất kỳ dòng nào để điều khiển)</span>
@@ -866,27 +867,33 @@ function renderProviders() {
         : '<i class="fas fa-key mr-1"></i>Đăng nhập bằng email + mật khẩu';
     linkGoogleBtn?.classList.toggle('hidden', !!g);
 }
+async function googleLinked() {
+    await auth.currentUser?.reload();
+    renderProviders();
+    renderVerifyState();
+    showMessage('Đã liên kết Google — lần sau bấm "Tiếp tục với Google" là vào tài khoản này.', 'success');
+}
+function googleLinkFailed(e) {
+    if (isCancelled(e)) return;
+    const msg = e?.code === 'auth/credential-already-in-use'
+        ? 'Tài khoản Google này đã gắn với một tài khoản Zitthenkne khác.'
+        : e?.code === 'auth/popup-blocked' ? 'Trình duyệt chặn cửa sổ đăng nhập — cho phép popup rồi bấm lại.'
+        : authErrorVi(e);
+    showMessage('Không liên kết được Google: ' + msg, 'error');
+}
 linkGoogleBtn?.addEventListener('click', async () => {
     const u = auth.currentUser;
     if (!u) return;
     linkGoogleBtn.disabled = true;
     try {
-        const provider = new GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: 'select_account' });
-        await linkWithPopup(u, provider, browserPopupRedirectResolver);
-        await u.reload();
-        renderProviders();
-        renderVerifyState();
-        showMessage('Đã liên kết Google — lần sau bấm "Tiếp tục với Google" là vào tài khoản này.', 'success');
+        await openGoogle({ kind: 'link', user: u, tag: 'profile-link' });
+        await googleLinked();
     } catch (e) {
-        if (e?.code === 'auth/popup-closed-by-user' || e?.code === 'auth/cancelled-popup-request') return;
-        const msg = e?.code === 'auth/credential-already-in-use'
-            ? 'Tài khoản Google này đã gắn với một tài khoản Zitthenkne khác.'
-            : e?.code === 'auth/popup-blocked' ? 'Trình duyệt chặn cửa sổ đăng nhập — cho phép popup rồi bấm lại.'
-            : authErrorVi(e);
-        showMessage('Không liên kết được Google: ' + msg, 'error');
+        googleLinkFailed(e);
     } finally { linkGoogleBtn.disabled = false; }
 });
+// Chế độ app: liên kết bằng chuyển trang (core/google-signin.js) → quay về đây làm nốt
+resumeGoogle('profile-link').then(r => r && googleLinked()).catch(googleLinkFailed);
 window.addEventListener('focus', () => { refreshEmailVerified(); });
 
 // onSessionUser: mất mạng mà phiên hết hạn thì Firebase trả null — trước đây trang đá ngay về trang chủ

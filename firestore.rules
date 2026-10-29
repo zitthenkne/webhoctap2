@@ -94,7 +94,8 @@ service cloud.firestore {
           && request.auth.token.email in ['vietthanhne@gmail.com'];
     }
 
-    // CONFIG — cấu hình chung do admin chỉnh (vd config/access.deviceExempt = email được dùng KHÔNG giới hạn số máy).
+    // CONFIG — cấu hình chung do admin chỉnh (vd config/access.deviceExempt = email được dùng KHÔNG giới hạn số máy;
+    // config/access.defaultLimit = số máy mặc định; config/announce = thông báo admin gửi — core/announce.js).
     // Người đăng nhập đọc được (app cần biết mình có được ngoại lệ không); chỉ admin ghi.
     match /config/{docId} {
       allow read: if request.auth != null;
@@ -102,7 +103,46 @@ service cloud.firestore {
                    && (docId != 'access' || (request.resource.data.get('deviceExempt', []) is list
                                              && request.resource.data.get('deviceExempt', []).size() <= 500
                                              && request.resource.data.get('passwordAllowed', []) is list
-                                             && request.resource.data.get('passwordAllowed', []).size() <= 500));
+                                             && request.resource.data.get('passwordAllowed', []).size() <= 500
+                                             && request.resource.data.get('defaultLimit', 2) is int
+                                             && request.resource.data.get('defaultLimit', 2) >= 1
+                                             && request.resource.data.get('defaultLimit', 2) <= 20));
+    }
+
+    // LƯỢT LÀM ĐỀ — core/quiz-run.js ghi lúc bắt đầu và lúc nộp; trang Quản trị đọc (báo cáo + cảnh báo 2 máy).
+    // Mỗi tài khoản × mỗi máy một doc `{uid}_{deviceId}`. Chủ tài khoản đọc được doc của MÌNH (máy này biết máy kia đang làm đề → cảnh báo);
+    // chỉ ghi được doc mang uid + máy của mình, `at` = giờ máy chủ (không giả giờ được).
+    function validRun(d) {
+      return d.keys().hasOnly(['uid', 'email', 'name', 'device', 'label', 'quizId', 'title', 'mode', 'state', 'startedAt', 'pct', 'at', 'expireAt'])
+          && d.uid == request.auth.uid
+          && d.at == request.time
+          && d.device is string && d.device.matches('[A-Za-z0-9]{4,40}')
+          && d.state in ['doing', 'done']
+          && d.get('name', '') is string && d.get('name', '').size() <= 80
+          && d.get('label', '') is string && d.get('label', '').size() <= 80
+          && d.get('quizId', '') is string && d.get('quizId', '').size() <= 120
+          && d.get('title', '') is string && d.get('title', '').size() <= 200
+          && d.get('mode', '') is string && d.get('mode', '').size() <= 20
+          && d.get('startedAt', 0) is int && d.get('pct', 0) is int
+          && d.get('email', '').lower() == request.auth.token.get('email', '').lower();
+    }
+    // NHẬT KÝ QUẢN TRỊ — máy chủ (api/devices.js) ghi mọi thao tác admin với tài khoản; trang Quản trị tự ghi thao tác cài đặt
+    // (số máy mặc định, thông báo). Chỉ admin đọc / thêm; không ai sửa hay xoá được (kể cả admin) → không xoá dấu vết.
+    match /admin_log/{id} {
+      allow read: if isAdmin();
+      allow create: if isAdmin()
+                    && request.resource.data.keys().hasOnly(['at', 'by', 'action', 'target', 'detail'])
+                    && request.resource.data.at == request.time
+                    && request.resource.data.by == request.auth.token.email;
+      allow update, delete: if false;
+    }
+
+    match /quiz_runs/{docId} {
+      allow read: if isAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
+      allow create, update: if request.auth != null
+                            && validRun(request.resource.data)
+                            && docId == request.auth.uid + '_' + request.resource.data.device;
+      allow delete: if isAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
     }
 
     // USERNAMES — bảng tra cho ô đăng nhập gõ TÊN (core/usernames.js): usernames/{khóa tên} = { uid, email }.
@@ -184,7 +224,8 @@ service cloud.firestore {
           && d.percentage is number && d.percentage >= 0 && d.percentage <= 100;
     }
     match /quiz_results/{resultId} {
-      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      // Admin đọc được để xem lịch sử làm đề của một tài khoản (trang Quản trị)
+      allow read: if (request.auth != null && request.auth.uid == resource.data.userId) || isAdmin();
       allow create: if isOwner(request.resource.data.userId) && validScore(request.resource.data);
       allow update: if isOwner(resource.data.userId) && keepsOwner()
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['score', 'totalQuestions', 'percentage'])

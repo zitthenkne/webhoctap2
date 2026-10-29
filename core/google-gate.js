@@ -6,16 +6,24 @@
 // Vì sao bắt buộc: cho mượn mật khẩu web thì dễ, cho mượn Gmail (lộ cả email, Drive, ảnh; Google báo đăng nhập lạ) thì gần như không ai làm.
 // Luật Firestore cũng chỉ cho phiên Google đọc đề được chia sẻ (trustedSession) — màn hình này là để người dùng biết phải làm gì.
 // Mất mạng: không chặn (popup Google cần mạng; dữ liệu offline vẫn dùng như cũ), có mạng lại thì hiện.
+// Chế độ app: chọn Gmail bằng chuyển trang (core/google-signin.js) → quay về trang này, checkGoogleSession làm nốt (resumeOnce) rồi tải lại.
 import { auth } from './firebase-init.js';
-import {
-    GoogleAuthProvider, linkWithPopup, signInWithPopup, signInWithCredential, signOut, browserPopupRedirectResolver
-} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { GoogleAuthProvider, signInWithCredential, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { markFreshLogin, clearFreshLogin, isExemptUser } from './device-limit.js';
+import { openGoogle, resumeGoogle, isCancelled } from './google-signin.js';
 
 const ROOT = new URL('../', import.meta.url).href;
 let shown = false;
 
-function overlay(user) {
+function gateError(e) {
+    if (isCancelled(e)) return '';
+    return e?.code === 'auth/credential-already-in-use'
+        ? 'Gmail này đã gắn với một tài khoản khác trên web. Hãy chọn Gmail khác (hoặc nhờ admin).'
+        : e?.code === 'auth/popup-blocked' ? 'Trình duyệt chặn cửa sổ đăng nhập — cho phép popup rồi bấm lại.'
+        : e?.message || 'Không đăng nhập được, thử lại nhé.';
+}
+
+function overlay(user, firstMsg = '') {
     if (shown || document.getElementById('google-gate')) return;
     shown = true;
     const el = document.createElement('div');
@@ -42,6 +50,7 @@ function overlay(user) {
     document.body.appendChild(el);
     document.documentElement.style.overflow = 'hidden';
     const msg = el.querySelector('#gg-msg');
+    msg.textContent = firstMsg;
     const go = el.querySelector('#gg-go');
     go.addEventListener('click', async () => {
         go.disabled = true;
@@ -52,11 +61,7 @@ function overlay(user) {
         } catch (e) {
             clearFreshLogin();
             go.disabled = false;
-            if (e?.code === 'auth/popup-closed-by-user' || e?.code === 'auth/cancelled-popup-request') return;
-            msg.textContent = e?.code === 'auth/credential-already-in-use'
-                ? 'Gmail này đã gắn với một tài khoản khác trên web. Hãy chọn Gmail khác (hoặc nhờ admin).'
-                : e?.code === 'auth/popup-blocked' ? 'Trình duyệt chặn cửa sổ đăng nhập — cho phép popup rồi bấm lại.'
-                : e?.message || 'Không đăng nhập được, thử lại nhé.';
+            msg.textContent = gateError(e);
         }
     });
     el.querySelector('#gg-out').addEventListener('click', async () => {
@@ -67,29 +72,55 @@ function overlay(user) {
 }
 
 async function toGoogle(user) {
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account', ...(user.email ? { login_hint: user.email } : {}) });
+    const params = user.email ? { login_hint: user.email } : {};
     const linked = user.providerData.some(p => p.providerId === 'google.com');
     markFreshLogin();
-    if (!linked) {
-        const res = await linkWithPopup(user, provider, browserPopupRedirectResolver);
-        const cred = GoogleAuthProvider.credentialFromResult(res);
-        // Phiên vẫn là "mật khẩu" → đăng nhập lại bằng chứng thực Google vừa nhận để có phiên Google (luật trustedSession đòi)
-        if (cred) await signInWithCredential(auth, cred);
-        else await signInWithPopup(auth, provider, browserPopupRedirectResolver);
-        return;
-    }
-    const oldUid = user.uid;
-    const res = await signInWithPopup(auth, provider, browserPopupRedirectResolver);
+    if (!linked) return afterLink(await openGoogle({ kind: 'link', user, tag: 'gate', params }), user.uid, params);
+    const res = await openGoogle({ tag: 'gate', data: { oldUid: user.uid }, params });
+    await ensureSameUser(res, user.uid);
+}
+
+async function afterLink(res, uid, params) {
+    const cred = GoogleAuthProvider.credentialFromResult(res);
+    // Phiên vẫn là "mật khẩu" → đăng nhập lại bằng chứng thực Google vừa nhận để có phiên Google (luật trustedSession đòi)
+    if (cred) await signInWithCredential(auth, cred);
+    else await ensureSameUser(await openGoogle({ tag: 'gate', data: { oldUid: uid }, params }), uid);
+}
+
+async function ensureSameUser(res, oldUid) {
     if (res.user.uid !== oldUid) {
         await signOut(auth).catch(() => {});
         throw new Error('Bạn vừa chọn Gmail của một tài khoản khác. Hãy đăng nhập lại và chọn đúng Gmail đã gắn với tài khoản này.');
     }
 }
 
+// Quay về từ Google (chế độ app): làm nốt bước gắn / đăng nhập rồi tải lại. Chỉ chạy một lần mỗi trang — onAuthStateChanged
+// báo lại ngay khi getRedirectResult đổi phiên, lần gọi sau nhận chung kết quả. true = đã lo xong (thành công hoặc đã hiện lỗi).
+let resuming = null;
+function resumeOnce(user) {
+    if (!resuming) resuming = (async () => {
+        try {
+            const r = await resumeGoogle('gate');
+            if (!r) return false;
+            if (r.data?.oldUid) await ensureSameUser(r.result, r.data.oldUid);
+            else await afterLink(r.result, user.uid, user.email ? { login_hint: user.email } : {});
+            location.reload();
+            return true;
+        } catch (e) {
+            clearFreshLogin();
+            if (document.readyState === 'loading') await new Promise(r => document.addEventListener('DOMContentLoaded', r, { once: true }));
+            overlay(user, gateError(e));
+            return true;
+        }
+    })();
+    return resuming;
+}
+
 /** auth-session.js gọi với mỗi người dùng thật. Tài khoản đặc biệt (admin / deviceExempt) không cần đăng nhập Google. */
 export async function checkGoogleSession(user) {
-    if (!user || user.isAnonymous || navigator.onLine === false) return;
+    if (!user || user.isAnonymous) return;
+    if (await resumeOnce(user)) return;
+    if (navigator.onLine === false) return;
     let provider;
     try { provider = (await user.getIdTokenResult()).claims.firebase?.sign_in_provider; } catch (e) { return; }
     if (provider === 'google.com' || await isExemptUser(user)) return;

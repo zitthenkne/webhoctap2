@@ -12,9 +12,13 @@ import {
     CACHE_SIZE_UNLIMITED
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
+// authDomain = CHÍNH tên miền web (vercel.json chuyển /__/auth/* sang zitthenkne.firebaseapp.com): trang chọn Gmail cùng tên miền
+// nên chế độ app không bị bật khung có thanh địa chỉ, và redirect trên Safari/iPhone không mất kết quả (core/google-signin.js).
+// Chỉ bản chính thức: bản xem trước Vercel / localhost / GitHub Pages chưa khai trong Google Cloud (Authorized redirect URIs) → giữ firebaseapp.com.
+const PROD_HOST = 'zitthenkne.vercel.app';
 const firebaseConfig = {
     apiKey: "AIzaSyBFNNeJMeDIVRcG2Xj4ZVjr2-0d9RGrURc",
-    authDomain: "zitthenkne.firebaseapp.com",
+    authDomain: globalThis.location?.hostname === PROD_HOST ? PROD_HOST : "zitthenkne.firebaseapp.com",
     projectId: "zitthenkne",
     storageBucket: "zitthenkne.firebasestorage.app",
     messagingSenderId: "288090340109",
@@ -26,7 +30,7 @@ const app = initializeApp(firebaseConfig);
 // KHÔNG dùng getAuth(): nó gắn sẵn popupRedirectResolver, và trên điện thoại/iPad/Safari SDK tự nạp apis.google.com/js/api.js +
 // iframe zitthenkne.firebaseapp.com/__/auth/iframe rồi CHỜ xong mới báo trạng thái đăng nhập (đo: 3 request thừa, chậm ~550ms MỖI trang).
 // Danh sách persistence = đúng mặc định của getAuth -> phiên đăng nhập cũ giữ nguyên.
-// Đăng nhập Google (app.js handleGoogleLogin) truyền browserPopupRedirectResolver NGAY LÚC GỌI signInWithPopup — đừng gắn vào đây.
+// Đăng nhập Google (core/google-signin.js) truyền browserPopupRedirectResolver NGAY LÚC GỌI popup / redirect — đừng gắn vào đây.
 export const auth = initializeAuth(app, { persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence] });
 // Mail xác nhận / đặt lại mật khẩu do Firebase gửi viết bằng tiếng Việt (mẫu mặc định của Firebase có sẵn bản dịch).
 auth.languageCode = 'vi';

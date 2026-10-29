@@ -44,6 +44,13 @@ function cached() {
     } catch (e) { return null; }
 }
 
+// Việc phụ (không ảnh hưởng nội dung trang): đợi trang tải xong và máy rảnh mới chạy, không tranh mạng / CPU với dữ liệu chính
+function afterLoad(fn) {
+    const idle = () => 'requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: 4000 }) : setTimeout(fn, 1500);
+    if (document.readyState === 'complete') idle();
+    else window.addEventListener('load', idle, { once: true });
+}
+
 // Tự ghi nhớ mỗi lần Firebase xác nhận có người đăng nhập. KHÔNG xoá khi trả null —
 // null lúc offline chính là trường hợp ta muốn chữa; chỉ đăng xuất thật mới xoá.
 onAuthStateChanged(auth, (u) => {
@@ -53,6 +60,11 @@ onAuthStateChanged(auth, (u) => {
     // Chỉ đăng nhập bằng Google (core/google-gate.js) + giới hạn 2 máy / tài khoản (core/device-limit.js) — nạp lười để trang không đăng nhập khỏi tải thêm
     import('./google-gate.js').then(m => m.checkGoogleSession(u)).catch(() => {});
     import('./device-limit.js').then(m => m.watchDevices(u)).catch(() => {});
+    // Thông báo admin gửi (core/announce.js) — việc phụ, chạy sau khi trang tải xong
+    afterLoad(() => {
+        if (auth.currentUser?.uid !== u.uid) return;     // đăng xuất / đổi tài khoản trong lúc chờ
+        import('./announce.js').then(m => m.showAnnouncement(u)).catch(() => {});
+    });
 });
 
 // XÁC NHẬN EMAIL: bấm link trong mail (ở tab/máy khác) không đổi phiên đang mở — `emailVerified` và token cũ vẫn ghi "chưa xác nhận",

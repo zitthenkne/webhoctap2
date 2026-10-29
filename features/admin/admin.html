@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Bảng Quản trị &middot; Zitthenkne</title>
+    <meta name="robots" content="noindex">
+    <link rel="icon" type="image/png" href="../../assets/favicons/favicon-profile.png">
+    <script src="../../pwa-install.js" defer></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Nunito', 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+            color: #475569;
+            background:
+                radial-gradient(circle at 15% 20%, rgba(254, 215, 226, 0.45) 0%, transparent 40%),
+                radial-gradient(circle at 85% 10%, rgba(254, 240, 138, 0.35) 0%, transparent 40%),
+                #FAFAFA;
+            background-attachment: fixed;
+            -webkit-font-smoothing: antialiased;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .card { background: rgba(255, 255, 255, .9); border: 1px solid #F1E4D0; border-radius: 22px; box-shadow: 0 6px 20px rgba(180, 120, 40, .06); }
+        .tab-btn { padding: 8px 14px; border-radius: 14px; font-weight: 800; font-size: 13px; color: #92400E; transition: .15s; white-space: nowrap; }
+        .tab-btn.is-on { background: #F59E0B; color: #fff; box-shadow: 0 3px 0 #D97706; }
+        .rep-view { color: #B45309; }
+        .rep-view.is-on { background: #fff; color: #92400E; box-shadow: 0 2px 6px rgba(180, 120, 40, .15); }
+        .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 9px; white-space: nowrap; }
+        .pulse { width: 8px; height: 8px; border-radius: 50%; background: #10B981; box-shadow: 0 0 0 0 rgba(16, 185, 129, .6); animation: pulse 1.8s infinite; }
+        @keyframes pulse { 70% { box-shadow: 0 0 0 7px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
+        .inp { padding: 8px 12px; border-radius: 12px; border: 1px solid #FCD34D; background: #fff; font-size: 13px; font-weight: 600; min-width: 0; }
+        .inp:focus { outline: none; box-shadow: 0 0 0 3px rgba(245, 158, 11, .3); }
+        .btn { padding: 7px 12px; border-radius: 12px; font-size: 12px; font-weight: 800; transition: .15s; white-space: nowrap; }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+        .bar { height: 6px; border-radius: 6px; background: #FEF3C7; overflow: hidden; }
+        .bar > i { display: block; height: 100%; background: linear-gradient(90deg, #F59E0B, #EC4899); border-radius: 6px; }
+        #toast-container { position: fixed; top: calc(12px + env(safe-area-inset-top)); right: 12px; left: 12px; z-index: 9999; display: flex; flex-direction: column; align-items: flex-end; pointer-events: none; }
+        #toast-container > * { pointer-events: auto; max-width: 420px; }
+    </style>
+</head>
+<body>
+    <div id="toast-container"></div>
+
+    <header class="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-amber-100" style="padding-top: env(safe-area-inset-top)">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+            <a href="../profile/profile.html" class="w-9 h-9 shrink-0 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 flex items-center justify-center" title="Về Hồ sơ"><i class="fas fa-arrow-left"></i></a>
+            <div class="min-w-0 flex-1">
+                <h1 class="text-[17px] font-black text-amber-900 leading-tight truncate"><i class="fas fa-crown text-amber-500 mr-1.5"></i>Bảng Quản trị</h1>
+                <p id="live-status" class="text-[11.5px] font-bold text-slate-400 truncate">Đang kết nối…</p>
+            </div>
+            <a href="../../index.html" class="btn bg-slate-100 hover:bg-slate-200 text-slate-600 hidden sm:inline-block"><i class="fas fa-house mr-1"></i>Trang chủ</a>
+        </div>
+        <nav class="max-w-6xl mx-auto px-4 pb-2.5 flex gap-1.5 overflow-x-auto" role="tablist">
+            <button type="button" class="tab-btn is-on" data-tab="report"><i class="fas fa-chart-column mr-1"></i>Báo cáo đề</button>
+            <button type="button" class="tab-btn" data-tab="accounts"><i class="fas fa-users-gear mr-1"></i>Tài khoản</button>
+            <button type="button" class="tab-btn" data-tab="settings"><i class="fas fa-sliders mr-1"></i>Cài đặt &amp; Thông báo</button>
+        </nav>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-4">
+        <div id="gate" class="card p-6 text-center hidden">
+            <p class="text-4xl mb-2">🔒</p>
+            <p class="font-extrabold text-slate-700">Trang này chỉ dành cho admin.</p>
+            <a href="../../index.html" class="inline-block mt-3 btn bg-amber-500 text-white">Về trang chủ</a>
+        </div>
+
+        <!-- BÁO CÁO ĐỀ -->
+        <section id="tab-report" class="space-y-4 hidden">
+            <div id="rep-stats" class="grid grid-cols-2 lg:grid-cols-4 gap-3"></div>
+            <div id="rep-alerts"></div>
+            <div id="rep-doing"></div>
+            <div class="card p-3 flex flex-wrap items-center gap-2">
+                <div class="flex bg-amber-50 rounded-xl p-1">
+                    <button type="button" class="btn rep-view is-on" data-view="quiz">Theo đề</button>
+                    <button type="button" class="btn rep-view" data-view="user">Theo người</button>
+                </div>
+                <select id="rep-range" class="inp">
+                    <option value="1">24 giờ qua</option>
+                    <option value="7" selected>7 ngày qua</option>
+                    <option value="30">30 ngày qua</option>
+                </select>
+                <input id="rep-search" class="inp flex-1 min-w-[160px]" placeholder="Lọc theo tên, email, tên đề, máy…" autocomplete="off">
+                <label class="inline-flex items-center gap-1.5 text-[12px] font-bold text-slate-600 select-none">
+                    <input type="checkbox" id="rep-only-clash" class="rounded text-amber-500"> Chỉ lượt bị cảnh báo 2 máy
+                </label>
+                <button type="button" id="rep-reload" class="btn bg-amber-100 hover:bg-amber-200 text-amber-800"><i class="fas fa-rotate mr-1"></i>Tải lại</button>
+                <button type="button" id="rep-export" class="btn bg-amber-100 hover:bg-amber-200 text-amber-800" title="Xuất các lượt nộp đang hiện (theo bộ lọc) ra file CSV mở bằng Excel"><i class="fas fa-file-csv mr-1"></i>Xuất CSV</button>
+            </div>
+            <div id="rep-list" class="space-y-3"></div>
+            <p class="text-[11.5px] text-slate-400 leading-snug px-1">
+                Báo cáo lấy từ các lượt <b>nộp bài</b> (chế độ làm bài thường), tải một lần khi mở trang. Bấm Tải lại để xem lượt mới. Mục "Đang làm" tự cập nhật: máy người làm ghi lúc bắt đầu và lúc nộp, ngoài ra không ghi gì thêm.
+                <b>Cảnh báo 2 máy</b>: cùng tài khoản có 2 lượt làm trên 2 máy khác nhau mà thời gian chồng lên nhau quá 1 phút, hoặc máy đang làm bài thấy máy kia bắt đầu hay nộp bài trong lúc mình làm. Máy đang làm cũng hiện cảnh báo ngay cho người làm.
+                Chỉ so được các lượt nộp từ bản cập nhật này trở đi, vì lượt cũ không ghi máy. Người dùng tự xoá lịch sử làm bài thì lượt đó cũng mất khỏi báo cáo.
+                <b>Máy</b> = một trình duyệt trên một thiết bị. Trên iPhone/iPad, Safari và ứng dụng ngoài màn hình chính tính là 2 máy.
+            </p>
+        </section>
+
+        <!-- TÀI KHOẢN -->
+        <section id="tab-accounts" class="space-y-4 hidden">
+            <div class="card p-3 flex flex-wrap items-center gap-2">
+                <input id="acc-search" class="inp flex-1 min-w-[180px]" placeholder="Tìm email, tên hoặc UID…" autocomplete="off">
+                <select id="acc-filter" class="inp">
+                    <option value="all">Tất cả</option>
+                    <option value="doing">Đang làm đề</option>
+                    <option value="clash">Bị cảnh báo 2 máy</option>
+                    <option value="locked">Bị khoá</option>
+                    <option value="unapproved">Chưa duyệt</option>
+                    <option value="password">Được đăng nhập thẳng</option>
+                    <option value="custom">Có số máy riêng</option>
+                </select>
+                <button type="button" id="acc-reload" class="btn bg-amber-100 hover:bg-amber-200 text-amber-800"><i class="fas fa-rotate mr-1"></i>Tải lại</button>
+                <button type="button" id="acc-export" class="btn bg-amber-100 hover:bg-amber-200 text-amber-800" title="Xuất các tài khoản đang hiện (theo bộ lọc) ra file CSV mở bằng Excel"><i class="fas fa-file-csv mr-1"></i>Xuất CSV</button>
+                <button type="button" id="acc-new-toggle" class="btn bg-amber-500 hover:bg-amber-600 text-white"><i class="fas fa-user-plus mr-1"></i>Tạo tài khoản</button>
+            </div>
+            <div id="acc-new" class="card p-4 space-y-2.5 hidden">
+                <p class="text-[13px] font-extrabold text-amber-800">Tạo tài khoản mới (email đã có thì cập nhật mật khẩu &amp; quyền)</p>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <input id="new-email" type="email" class="inp" placeholder="Email *" autocomplete="off">
+                    <input id="new-pass" type="text" class="inp" placeholder="Mật khẩu ≥ 6 ký tự *" autocomplete="off">
+                    <input id="new-name" type="text" class="inp" placeholder="Tên hiển thị" autocomplete="off">
+                </div>
+                <div class="flex flex-wrap items-center gap-3 text-[12px] font-bold text-slate-600">
+                    <label class="inline-flex items-center gap-1.5"><input type="checkbox" id="new-allow-pw" checked class="rounded text-amber-500"> 🔑 Đăng nhập thẳng (miễn Google)</label>
+                    <label class="inline-flex items-center gap-1.5">Số máy <input id="new-limit" type="number" min="1" max="20" class="inp w-20" placeholder="mặc định"></label>
+                    <button type="button" id="new-create" class="btn bg-amber-500 hover:bg-amber-600 text-white ml-auto"><i class="fas fa-plus mr-1"></i>Tạo / Cập nhật</button>
+                </div>
+            </div>
+            <p id="acc-summary" class="text-[12px] font-bold text-slate-500 px-1"></p>
+            <div id="acc-list" class="space-y-2"></div>
+        </section>
+
+        <!-- CÀI ĐẶT -->
+        <section id="tab-settings" class="space-y-4 hidden">
+            <div class="card p-4 space-y-2">
+                <p class="text-[14px] font-extrabold text-amber-800"><i class="fas fa-mobile-screen mr-1.5"></i>Số máy mặc định cho mỗi tài khoản</p>
+                <p class="text-[12px] text-slate-500 leading-snug">Áp dụng cho tài khoản không có số máy riêng. Từng người có thể đặt số riêng ở tab Tài khoản (ưu tiên hơn mức này). Giảm mức này thì máy cũ hơn bị đẩy ra ở lần đăng nhập kế tiếp của người đó.</p>
+                <div class="flex items-center gap-2">
+                    <input id="set-default-limit" type="number" min="1" max="20" class="inp w-24">
+                    <button type="button" id="set-default-save" class="btn bg-amber-500 hover:bg-amber-600 text-white">Lưu</button>
+                    <span id="set-default-now" class="text-[12px] font-bold text-slate-400"></span>
+                </div>
+            </div>
+            <div class="card p-4 space-y-2.5">
+                <p class="text-[14px] font-extrabold text-amber-800"><i class="fas fa-bullhorn mr-1.5"></i>Gửi thông báo</p>
+                <p class="text-[12px] text-slate-500 leading-snug">Hiện thành một thẻ nhỏ ở đáy màn hình, lần tới người dùng mở hoặc chuyển trang (trễ tối đa khoảng 15 phút). Ai bấm "Đã xem" rồi thì không thấy lại. Gửi thông báo mới thì mọi người đều thấy lại.</p>
+                <textarea id="ann-text" rows="3" class="inp w-full" maxlength="600" placeholder="Nội dung thông báo…"></textarea>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <select id="ann-tone" class="inp">
+                        <option value="info">📣 Thông tin</option>
+                        <option value="warn">⚠️ Cảnh báo</option>
+                        <option value="success">🎉 Tin vui</option>
+                    </select>
+                    <select id="ann-until" class="inp">
+                        <option value="1">Hiện trong 1 giờ</option>
+                        <option value="6">Hiện trong 6 giờ</option>
+                        <option value="24" selected>Hiện trong 1 ngày</option>
+                        <option value="72">Hiện trong 3 ngày</option>
+                        <option value="168">Hiện trong 7 ngày</option>
+                        <option value="0">Không hết hạn</option>
+                    </select>
+                    <input id="ann-to" class="inp" placeholder="Gửi riêng: email1, email2 (trống = tất cả)" autocomplete="off">
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" id="ann-send" class="btn bg-amber-500 hover:bg-amber-600 text-white"><i class="fas fa-paper-plane mr-1"></i>Gửi</button>
+                    <button type="button" id="ann-off" class="btn bg-slate-100 hover:bg-slate-200 text-slate-600">Tắt thông báo đang hiện</button>
+                </div>
+                <div id="ann-current" class="text-[12px] text-slate-500"></div>
+            </div>
+            <div class="card p-4 space-y-2">
+                <p class="text-[14px] font-extrabold text-amber-800"><i class="fas fa-clock-rotate-left mr-1.5"></i>Nhật ký quản trị <span class="text-[11.5px] font-bold text-slate-400">(50 thao tác gần nhất · không sửa / xoá được)</span></p>
+                <ul id="audit-list" class="space-y-1 max-h-[420px] overflow-y-auto"></ul>
+            </div>
+            <div class="card p-4 space-y-1.5">
+                <p class="text-[14px] font-extrabold text-amber-800"><i class="fas fa-broom mr-1.5"></i>Dọn lượt làm cũ</p>
+                <p class="text-[12px] text-slate-500 leading-snug">Mỗi tài khoản trên mỗi máy giữ một bản ghi "đang làm / đã nộp" (không phải kết quả, kết quả vẫn giữ nguyên). Bản ghi quá 14 ngày được dọn tự động mỗi lần mở trang này. Muốn Firebase tự xoá luôn thì vào Firebase Console → Firestore → TTL, thêm chính sách cho nhóm <code>quiz_runs</code>, trường <code>expireAt</code>.</p>
+                <button type="button" id="runs-purge" class="btn bg-slate-100 hover:bg-slate-200 text-slate-600">Dọn ngay</button>
+            </div>
+        </section>
+    </main>
+
+    <!-- CHI TIẾT TÀI KHOẢN (ngăn trượt) -->
+    <div id="acc-drawer" class="fixed inset-0 z-40 hidden">
+        <div class="absolute inset-0 bg-black/30" data-close></div>
+        <aside class="absolute right-0 top-0 bottom-0 w-full max-w-xl bg-[#FFFDF8] shadow-2xl overflow-y-auto" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom)">
+            <div class="sticky top-0 bg-[#FFFDF8]/95 backdrop-blur border-b border-amber-100 px-4 py-3 flex items-center gap-2 z-10">
+                <p class="flex-1 font-black text-amber-900 truncate" id="drawer-title">Tài khoản</p>
+                <button type="button" class="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200" data-close title="Đóng"><i class="fas fa-xmark"></i></button>
+            </div>
+            <div id="drawer-body" class="p-4 space-y-4"></div>
+        </aside>
+    </div>
+
+    <script type="module" src="admin.js"></script>
+</body>
+</html>

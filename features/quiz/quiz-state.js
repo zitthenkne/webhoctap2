@@ -270,7 +270,8 @@ export function updateQuizResultScore(score, totalQuestions, percentage) {
     }, 1200);
 }
 
-export async function saveQuizResult(finalScore, totalQuestions, percentage, timeTaken) {
+// extra (tài khoản thật): { startedAt, device, deviceLabel, clash } — máy làm bài + cờ "2 máy cùng lúc" (core/quiz-run.js) cho báo cáo của admin
+export async function saveQuizResult(finalScore, totalQuestions, percentage, timeTaken, extra = {}) {
     const user = sessionUser();
     lastLocalResultId = null;
     if (!user) {
@@ -290,7 +291,9 @@ export async function saveQuizResult(finalScore, totalQuestions, percentage, tim
         // Tạo sẵn id để tự chấm tự luận ở màn kết quả còn cập nhật được đúng bản này
         const ref = doc(collection(db, "quiz_results"));
         lastResultRef = ref;
+        const meta = Object.fromEntries(Object.entries(extra || {}).filter(([, v]) => v != null && v !== ''));
         await queued(setDoc(ref, {
+            ...meta,
             userId: user.uid,
             quizId: quizId,
             quizTitle: state.quizData.title, // Use the stored title

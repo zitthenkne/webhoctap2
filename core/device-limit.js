@@ -40,26 +40,43 @@ export async function isExemptUser(u) {
     } catch (e) { return false; }
 }
 
-/** Số máy tối đa của một tài khoản: admin / email trong deviceExempt → EXEMPT_MAX (20), còn lại MAX_DEVICES (2). */
+const okLimit = (n) => Number.isInteger(n) && n >= 1 && n <= EXEMPT_MAX;
+function parseAccess(d = {}) {
+    const limits = {};
+    for (const [k, v] of Object.entries(d.deviceLimits && typeof d.deviceLimits === 'object' ? d.deviceLimits : {})) if (okLimit(v)) limits[k.toLowerCase()] = v;
+    return {
+        deviceExempt: Array.isArray(d.deviceExempt) ? d.deviceExempt : [],
+        passwordAllowed: Array.isArray(d.passwordAllowed) ? d.passwordAllowed : [],
+        deviceLimits: limits,
+        defaultLimit: okLimit(d.defaultLimit) ? d.defaultLimit : MAX_DEVICES
+    };
+}
+/** Khớp limitFor trong api/devices.js: admin → 20; số riêng (deviceLimits) → số đó; deviceExempt → 20; còn lại defaultLimit. */
+export function limitFromConfig(cfg, email) {
+    const e = String(email || '').toLowerCase();
+    if (ADMIN_EMAILS.includes(e)) return EXEMPT_MAX;
+    if (okLimit(cfg.deviceLimits[e])) return cfg.deviceLimits[e];
+    return cfg.deviceExempt.includes(e) ? EXEMPT_MAX : cfg.defaultLimit;
+}
+
+/** Số máy tối đa của một tài khoản (xem limitFromConfig). */
 export async function deviceLimitFor(u) {
     if (!u || u.isAnonymous) return MAX_DEVICES;
     if (isAdminUser(u)) return EXEMPT_MAX;
     try {
         const snap = await getDoc(accessRef());
-        const list = snap.exists() && Array.isArray(snap.data().deviceExempt) ? snap.data().deviceExempt : [];
-        return list.includes(emailOf(u)) ? EXEMPT_MAX : MAX_DEVICES;
+        return limitFromConfig(parseAccess(snap.exists() ? snap.data() : {}), emailOf(u));
     } catch (e) { return MAX_DEVICES; }
 }
 
-// ---------- Admin: quản lý cấu hình đặc quyền (config/access: passwordAllowed & deviceExempt) ----------
+// ---------- Admin: quản lý cấu hình đặc quyền (config/access: passwordAllowed, deviceExempt, deviceLimits, defaultLimit) ----------
 export function onAccessConfig(cb) {
-    return onSnapshot(accessRef(), (s) => {
-        const d = s.exists() ? s.data() || {} : {};
-        cb({
-            deviceExempt: Array.isArray(d.deviceExempt) ? d.deviceExempt : [],
-            passwordAllowed: Array.isArray(d.passwordAllowed) ? d.passwordAllowed : []
-        });
-    }, () => cb(null));
+    return onSnapshot(accessRef(), (s) => cb(parseAccess(s.exists() ? s.data() || {} : {})), () => cb(null));
+}
+/** Admin: số máy mặc định cho mọi tài khoản không có số riêng (1..20). Áp dụng từ lần đăng nhập kế tiếp của từng người. */
+export async function setDefaultLimit(n) {
+    if (!okLimit(n)) throw new Error(`Số máy phải từ 1 đến ${EXEMPT_MAX}.`);
+    await setDoc(accessRef(), { defaultLimit: n }, { merge: true });
 }
 export function onDeviceExempt(cb) {
     return onAccessConfig((cfg) => cb(cfg ? cfg.deviceExempt : null));
@@ -245,6 +262,21 @@ export async function adminLookupUser(query) {
 /** Admin: lấy danh sách toàn bộ tài khoản trên hệ thống. */
 export async function adminListUsers(limit = 60) {
     return callDevices({ action: 'adminListUsers', limit });
+}
+
+/** Admin: lấy HẾT tài khoản (lật qua mọi trang của Firebase Auth). → { users, access } */
+export async function adminListAllUsers() {
+    const users = [];
+    let pageToken = null, access = null;
+    for (let i = 0; i < 20; i++) {
+        const r = await callDevices({ action: 'adminListUsers', limit: 1000, pageToken });
+        users.push(...(r.users || []));
+        access = r.access || access;
+        pageToken = r.nextPageToken;
+        if (!pageToken) break;
+    }
+    users.sort((a, b) => (b.lastSignInAt || b.createdAt || 0) - (a.lastSignInAt || a.createdAt || 0));
+    return { users, access };
 }
 
 /** Admin: cập nhật quyền (allowPassword, unlimitedDevices, approved, disabled), mật khẩu hoặc tên hiển thị. */

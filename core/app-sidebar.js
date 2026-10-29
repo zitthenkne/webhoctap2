@@ -34,6 +34,14 @@
             ['features/link-vault/link-vault.html', 'Lưu trữ link', 'fa-link', '#db2777', '#fce7f3']
         ]]
     ];
+    // Admin (danh tính lần đăng nhập gần nhất — core/auth-session.js lưu 'lastAuthUser') thấy thêm lối vào Bảng Quản trị.
+    // Chỉ là lối tắt: quyền thật do máy chủ (api/_lib/admin.js) + firestore.rules kiểm. Email khớp ADMIN_EMAILS trong core/device-limit.js.
+    try {
+        var last = JSON.parse(localStorage.getItem('lastAuthUser') || 'null');
+        if (last && ['vietthanhne@gmail.com'].indexOf(String(last.email || '').toLowerCase()) >= 0) {
+            NHOM.push(['Quản trị', [['features/admin/admin.html', 'Bảng Quản trị', 'fa-crown', '#b45309', '#fef3c7']]]);
+        }
+    } catch (e) {}
 
     function muc(m) {
         var key = m[0], isTab = key.indexOf('/') < 0;

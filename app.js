@@ -5,7 +5,8 @@
 import { auth, db } from './core/firebase-init.js';
 import { onSessionUser, sendVerifyMail, sendResetMail, authErrorVi } from './core/auth-session.js';
 import { markFreshLogin, clearFreshLogin, isExemptUser, approveAccount } from './core/device-limit.js';
-import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, browserPopupRedirectResolver, getAdditionalUserInfo } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { openGoogle, resumeGoogle, isCancelled } from './core/google-signin.js';
+import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, getAdditionalUserInfo } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { doc, setDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { emailForName, claimName } from './core/usernames.js';
 import { showToast } from './core/utils.js';
@@ -346,7 +347,7 @@ function signupSecret() {
 }
 
 // ĐĂNG NHẬP / TẠO TÀI KHOẢN BẰNG GOOGLE (tài khoản Google đang đăng nhập trên trình duyệt hiện ngay trong cửa sổ chọn).
-// browserPopupRedirectResolver chỉ truyền ở ĐÂY, không gắn vào initializeAuth (firebase-init.js: gắn sẵn thì mọi trang tải thêm iframe ~550ms).
+// Popup hay chuyển trang: core/google-signin.js (chế độ app thì chuyển trang → quay về, DOMContentLoaded gọi resumeGoogle('login') làm nốt).
 // Gmail CHƯA có tài khoản: phải có mật khẩu web → máy chủ duyệt (api/signup.js); không có / sai / máy chủ lỗi → xóa ngay tài khoản vừa tạo.
 // (Email đã có tài khoản mật khẩu thì Firebase gộp vào tài khoản đó — vẫn là cùng uid, dữ liệu cũ giữ nguyên.)
 let googleBusy = false;
@@ -363,46 +364,53 @@ async function handleGoogleLogin() {
     googleBusy = true;
     btn?.classList.add('is-busy');
     try {
-        const provider = new GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: 'select_account' });
         markFreshLogin();
-        const result = await signInWithPopup(auth, provider, browserPopupRedirectResolver);
-        const user = result.user;
-        if (getAdditionalUserInfo(result)?.isNewUser) {
-            const undo = async (msg) => {
-                await user.delete().catch(() => auth.signOut());
-                window.setAuthMode?.('signup');
-                setSignupStatus('bad', msg);
-                document.getElementById('signupCodeInput')?.focus();
-            };
-            if (!secret) return await undo(`Gmail ${user.email} chưa có tài khoản. Nhập mật khẩu web để tạo tài khoản mới.`);
-            try {
-                await approveAccount(secret);        // máy chủ kiểm mật khẩu web + gắn claim approved
-            } catch (err) {
-                const why = err.status === 403 ? (err.message || 'Mật khẩu web không đúng.')
-                    : err.status === 429 ? err.message
-                    : 'Máy chủ chưa xác nhận được mật khẩu web — thử lại sau ít phút.';
-                return await undo(why);
-            }
-            await setDoc(doc(db, "users", user.uid), { email: user.email, displayName: user.displayName || '', createdAt: new Date(), quizSetsCreated: 0 });
-            toggleAuthModal();
-            showToast(`Đã tạo tài khoản cho ${user.email}! 🎉`, 'success', 5000);
-            goNextAfterLogin();
-            return;
-        }
-        toggleAuthModal();
-        showToast('Đăng nhập Google thành công!', 'success');
-        goNextAfterLogin();
+        // Chế độ app: bí mật đi kèm qua lần chuyển trang (sessionStorage của tab, resumeGoogle xóa ngay khi quay về)
+        await afterGoogleLogin(await openGoogle({ tag: 'login', data: { secret } }), secret);
     } catch (error) {
-        clearFreshLogin();
-        if (error?.code === 'auth/popup-closed-by-user' || error?.code === 'auth/cancelled-popup-request') return;
-        if (error?.code === 'auth/popup-blocked') return showToast('Trình duyệt chặn cửa sổ đăng nhập — cho phép popup rồi bấm lại.', 'warning', 6000);
-        if (error?.code === 'auth/operation-not-allowed') return showToast('Đăng nhập Google chưa được bật trên máy chủ.', 'error');
-        showToast('Đăng nhập Google thất bại: ' + authErrorVi(error), 'error');
+        googleLoginFailed(error);
     } finally {
         googleBusy = false;
         btn?.classList.remove('is-busy');
     }
+}
+
+async function afterGoogleLogin(result, secret) {
+    const user = result.user;
+    if (getAdditionalUserInfo(result)?.isNewUser) {
+        const undo = async (msg) => {
+            await user.delete().catch(() => auth.signOut());
+            window.openAuthModal?.();               // quay về từ chế độ app thì hộp đăng nhập đang đóng
+            window.setAuthMode?.('signup');
+            setSignupStatus('bad', msg);
+            document.getElementById('signupCodeInput')?.focus();
+        };
+        if (!secret) return await undo(`Gmail ${user.email} chưa có tài khoản. Nhập mật khẩu web để tạo tài khoản mới.`);
+        try {
+            await approveAccount(secret);        // máy chủ kiểm mật khẩu web + gắn claim approved
+        } catch (err) {
+            const why = err.status === 403 ? (err.message || 'Mật khẩu web không đúng.')
+                : err.status === 429 ? err.message
+                : 'Máy chủ chưa xác nhận được mật khẩu web — thử lại sau ít phút.';
+            return await undo(why);
+        }
+        await setDoc(doc(db, "users", user.uid), { email: user.email, displayName: user.displayName || '', createdAt: new Date(), quizSetsCreated: 0 });
+        authModal?.classList.add('hidden');
+        showToast(`Đã tạo tài khoản cho ${user.email}! 🎉`, 'success', 5000);
+        goNextAfterLogin();
+        return;
+    }
+    authModal?.classList.add('hidden');
+    showToast('Đăng nhập Google thành công!', 'success');
+    goNextAfterLogin();
+}
+
+function googleLoginFailed(error) {
+    clearFreshLogin();
+    if (isCancelled(error)) return;
+    if (error?.code === 'auth/popup-blocked') return showToast('Trình duyệt chặn cửa sổ đăng nhập — cho phép popup rồi bấm lại.', 'warning', 6000);
+    if (error?.code === 'auth/operation-not-allowed') return showToast('Đăng nhập Google chưa được bật trên máy chủ.', 'error');
+    showToast('Đăng nhập Google thất bại: ' + authErrorVi(error), 'error');
 }
 // Tạo tài khoản bằng email + mật khẩu đã TẮT (chỉ Google — tab "Tạo tài khoản"). Giữ hàm cho nút ẩn #signupBtn.
 function handleSignup() {
@@ -1093,6 +1101,8 @@ function setupEventListeners() {
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     initDashboardUI();
+    // Chế độ app: vừa chọn Gmail xong quay về trang này → làm nốt như popup (core/google-signin.js)
+    resumeGoogle('login').then(r => r && afterGoogleLogin(r.result, r.data?.secret)).catch(googleLoginFailed);
 
     // Tự động chuyển tab nếu URL có hash (#libraryContent). Phải chạy SAU setupEventListeners:
     // trước đây bấm hộ khi lối tắt chưa có handler → chỉ nhảy tới href="#" và mất hash.

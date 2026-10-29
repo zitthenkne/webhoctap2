@@ -1,0 +1,109 @@
+// File: core/quiz-run.js
+// LƯỢT LÀM ĐỀ — cho trang Quản trị (báo cáo đề nào ai làm) + CẢNH BÁO một tài khoản làm đề trên 2 máy cùng lúc.
+// Mỗi tài khoản × mỗi máy MỘT doc quiz_runs/{uid}_{deviceId} (số doc không phình — tối đa bằng số máy):
+//   { uid, email, name, device, label, quizId, title, mode, state: 'doing'|'done', startedAt (ms), pct, at (giờ máy chủ), expireAt }
+// Chi phí: 2 lượt ghi / lượt làm (bắt đầu — kể cả làm tiếp sau F5 — và nộp bài). Không có nhịp giữ chỗ.
+// Trong lúc đang làm, máy nghe các doc CÙNG tài khoản (vài doc — mỗi thay đổi 1 lượt đọc):
+//   • máy khác ghi (bắt đầu / nộp) SAU lúc máy này bắt đầu = hai máy làm bài chồng giờ nhau → hiện cảnh báo + ghi vào kết quả
+//     (quiz_results.clash, quiz-session.js lấy qua quizRunEnd) → trang Quản trị gắn cờ.
+//   • máy khác còn "đang làm" từ TRƯỚC lúc máy này bắt đầu (có thể chỉ là bài bỏ dở) → nhắc nhẹ, không ghi.
+// Nhẹ để trang làm đề import tĩnh: device-limit.js chỉ nạp lúc bắt đầu lượt làm.
+import { db, auth } from './firebase-init.js';
+import { doc, setDoc, collection, query, where, onSnapshot, serverTimestamp, Timestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+/** "Đang làm" quá mốc này mà không nộp = coi như đã bỏ dở (trang Quản trị dùng chung). */
+export const RUN_MAX_MS = 3 * 60 * 60 * 1000;
+const KEEP_MS = 14 * 24 * 60 * 60 * 1000;
+const SKEW_MS = 60 * 1000;          // giờ máy người dùng lệch giờ máy chủ chút ít → chừa 1 phút cho khỏi báo oan
+
+let run = null;     // { uid, device, label, ref, startMs, unsub, clash, shown }
+let authHooked = false;
+const msOf = (v) => (v && typeof v.toMillis === 'function' ? v.toMillis() : 0);
+
+/** Bắt đầu (hoặc làm tiếp) một lượt làm đề trên máy này. */
+export async function quizRunStart({ quizId, title, mode, startedAt }) {
+    const u = auth.currentUser;
+    quizRunStop();
+    if (!u || u.isAnonymous || !quizId) return;
+    let dl;
+    try { dl = await import('./device-limit.js'); } catch (e) { return; }
+    if (auth.currentUser?.uid !== u.uid || run) return;
+    const device = dl.deviceId();
+    const me = run = { uid: u.uid, device, label: dl.deviceLabel().slice(0, 80), startMs: Date.now(), unsub: null, clash: null, shown: '' };
+    me.ref = doc(db, 'quiz_runs', `${u.uid}_${device}`);
+    setDoc(me.ref, {
+        uid: u.uid, email: (u.email || '').toLowerCase(), name: (u.displayName || '').slice(0, 80), device, label: me.label,
+        quizId: String(quizId).slice(0, 120), title: String(title || '').slice(0, 200), mode: String(mode || '').slice(0, 20),
+        state: 'doing', startedAt: Math.round(Number(startedAt) || Date.now()), at: serverTimestamp(), expireAt: Timestamp.fromMillis(Date.now() + KEEP_MS)
+    }).catch(() => {});
+    me.unsub = onSnapshot(query(collection(db, 'quiz_runs'), where('uid', '==', u.uid)), (snap) => check(me, snap), () => {});
+    if (!authHooked) {
+        authHooked = true;
+        auth.onAuthStateChanged((x) => { if (run && x?.uid !== run.uid) quizRunStop(); });
+    }
+}
+
+/** Nộp bài: ghi "đã nộp" và trả thông tin máy + cờ 2 máy để lưu kèm kết quả (null nếu không có lượt nào đang chạy). */
+export function quizRunEnd({ pct } = {}) {
+    const me = run;
+    if (!me) return null;
+    quizRunStop();
+    const p = Math.round(Number(pct));
+    setDoc(me.ref, { state: 'done', at: serverTimestamp(), ...(Number.isFinite(p) ? { pct: p } : {}) }, { merge: true }).catch(() => {});
+    return { device: me.device, deviceLabel: me.label, clash: me.clash };
+}
+
+/** Thôi nghe (đăng xuất / bắt đầu lượt mới). Không ghi gì. */
+export function quizRunStop() {
+    if (!run) return;
+    run.unsub?.();
+    run = null;
+}
+
+function check(me, snap) {
+    if (run !== me) return;
+    let hard = null, soft = null;
+    snap.forEach((d) => {
+        const x = d.data({ serverTimestamps: 'estimate' });
+        if (!x || x.device === me.device) return;
+        const at = msOf(x.at);
+        if (at > me.startMs + SKEW_MS) hard = hard || x;
+        else if (x.state === 'doing' && Date.now() - at < RUN_MAX_MS) soft = soft || x;
+    });
+    const other = hard || soft;
+    if (!other) return;
+    const label = String(other.label || 'máy khác').slice(0, 80);
+    const title = String(other.title || '').slice(0, 120);
+    if (hard && !me.clash) me.clash = label;
+    const kind = hard ? 'hard' : 'soft';
+    if (me.shown === 'hard' || me.shown === kind) return;
+    me.shown = kind;
+    const when = new Date(Number(other.startedAt) || msOf(other.at)).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    showBanner(hard
+        ? `Tài khoản của bạn đang làm đề trên máy khác cùng lúc (${label}${title ? ` · đề "${title}"` : ''}). Mỗi tài khoản chỉ được làm bài trên 1 máy một lúc — lượt làm này đã được ghi lại để admin kiểm tra.`
+        : `Tài khoản của bạn còn một bài đang làm dở trên máy khác (${label}${title ? ` · đề "${title}"` : ''}, bắt đầu lúc ${when}). Nếu máy đó vẫn đang được dùng, lượt làm sẽ bị ghi nhận là làm trên 2 máy cùng lúc.`,
+    hard);
+}
+
+function showBanner(text, hard) {
+    document.getElementById('quiz-run-warn')?.remove();
+    const el = document.createElement('div');
+    el.id = 'quiz-run-warn';
+    el.setAttribute('role', 'alert');
+    const [bg, border, color] = hard ? ['#FEF2F2', '#FCA5A5', '#7F1D1D'] : ['#FFFBEB', '#FCD34D', '#78350F'];
+    el.style.cssText = `position:fixed;left:12px;right:12px;top:calc(12px + env(safe-area-inset-top));margin:0 auto;max-width:540px;z-index:2147483000;background:${bg};border:1.5px solid ${border};color:${color};border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:12px 14px;display:flex;gap:10px;align-items:flex-start;font:600 14px/1.5 Quicksand,Nunito,system-ui,-apple-system,"Segoe UI",sans-serif`;
+    const ic = document.createElement('span');
+    ic.textContent = hard ? '⛔' : '⚠️';
+    ic.style.cssText = 'font-size:18px;line-height:1.3';
+    const msg = document.createElement('div');
+    msg.style.cssText = 'flex:1;min-width:0;overflow-wrap:anywhere';
+    msg.textContent = text;
+    const ok = document.createElement('button');
+    ok.type = 'button';
+    ok.textContent = 'Đã hiểu';
+    ok.style.cssText = `flex-shrink:0;border:0;border-radius:12px;padding:6px 10px;background:${border};color:${color};font:800 12.5px Quicksand,Nunito,system-ui,sans-serif;cursor:pointer`;
+    ok.addEventListener('click', () => el.remove());
+    el.append(ic, msg, ok);
+    document.body.appendChild(el);
+    if (hard && navigator.vibrate) { try { navigator.vibrate([60, 60, 60]); } catch (e) {} }
+}

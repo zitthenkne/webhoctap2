@@ -211,3 +211,47 @@ test('TÀI KHOẢN CHƯA DUYỆT (chưa nhập đúng mật khẩu web): không 
 test('tạo bộ đề MỚI của mình (không chép từ đâu) luôn được', async () => {
     await assertSucceeds(setDoc(doc(as(FRIEND), 'quiz_sets/copy1'), { userId: 'friend', title: 'Chia sẻ (bản sao)', questions: [], isPublic: false }));
 });
+
+test('QUIZ_RUNS: chỉ ghi doc {uid}_{máy} của mình (at = giờ máy chủ); chủ đọc được doc của mình, admin đọc hết', async () => {
+    const ADMIN = { uid: 'admin', email: 'vietthanhne@gmail.com', email_verified: true };
+    const { serverTimestamp, deleteDoc, query, where } = await import('firebase/firestore');
+    const run = (extra = {}) => ({ uid: 'friend', email: 'friend@x.test', name: 'Bạn', device: 'dev1abc', label: 'iPhone · Safari',
+        quizId: 'q1', title: 'Đề 1', mode: 'normal', state: 'doing', startedAt: Date.now(), at: serverTimestamp(), ...extra });
+    await assertSucceeds(setDoc(doc(as(FRIEND), 'quiz_runs/friend_dev1abc'), run()));
+    await assertSucceeds(setDoc(doc(as(FRIEND), 'quiz_runs/friend_dev1abc'), { state: 'done', pct: 80, at: serverTimestamp() }, { merge: true }));
+    await assertFails(setDoc(doc(as(FRIEND), 'quiz_runs/other_dev1abc'), run()));               // doc của người khác
+    await assertFails(setDoc(doc(as(FRIEND), 'quiz_runs/friend_dev2xyz'), run()));              // id không khớp máy
+    await assertFails(setDoc(doc(as(FRIEND), 'quiz_runs/friend_dev1abc'), run({ uid: 'other' })));
+    await assertFails(setDoc(doc(as(FRIEND), 'quiz_runs/friend_dev1abc'), run({ at: new Date(0) })));   // giả giờ
+    await assertFails(setDoc(doc(as(FRIEND), 'quiz_runs/friend_dev1abc'), run({ hack: 1 })));          // trường lạ
+    await assertFails(setDoc(doc(as(FRIEND), 'quiz_runs/friend_dev1abc'), run({ state: 'x' })));
+    await assertFails(setDoc(doc(as(FRIEND), 'quiz_runs/friend_dev1abc'), run({ email: 'vietthanhne@gmail.com' })));   // mạo danh email
+    await assertSucceeds(getDocs(query(collection(as(FRIEND), 'quiz_runs'), where('uid', '==', 'friend'))));
+    await assertFails(getDocs(collection(as(OTHER), 'quiz_runs')));
+    await assertSucceeds(getDocs(collection(as(ADMIN), 'quiz_runs')));
+    await assertSucceeds(deleteDoc(doc(as(FRIEND), 'quiz_runs/friend_dev1abc')));
+});
+
+test('ADMIN: đọc lịch sử làm đề (quiz_results) của người khác; người thường thì không; defaultLimit 1..20', async () => {
+    const ADMIN = { uid: 'admin', email: 'vietthanhne@gmail.com', email_verified: true };
+    await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), 'quiz_results/r1'), { userId: 'friend', quizId: 'q1', score: 1, totalQuestions: 2 }));
+    await assertSucceeds(getDoc(doc(as(ADMIN), 'quiz_results/r1')));
+    await assertFails(getDoc(doc(as(OTHER), 'quiz_results/r1')));
+    await assertSucceeds(setDoc(doc(as(ADMIN), 'config/access'), { defaultLimit: 3 }, { merge: true }));
+    await assertFails(setDoc(doc(as(ADMIN), 'config/access'), { defaultLimit: 50 }, { merge: true }));
+    await assertSucceeds(setDoc(doc(as(ADMIN), 'config/announce'), { active: true, id: '1', text: 'Chào', to: [] }));
+    await assertFails(setDoc(doc(as(FRIEND), 'config/announce'), { active: true, id: '2', text: 'Giả admin' }));
+});
+
+test('NHẬT KÝ QUẢN TRỊ: admin thêm / đọc được, KHÔNG sửa / xoá được; người thường không đụng tới', async () => {
+    const ADMIN = { uid: 'admin', email: 'vietthanhne@gmail.com', email_verified: true };
+    const { serverTimestamp, deleteDoc, updateDoc: upd } = await import('firebase/firestore');
+    const entry = (by = 'vietthanhne@gmail.com') => ({ at: serverTimestamp(), by, action: 'default-limit', target: '', detail: { n: 3 } });
+    await assertSucceeds(setDoc(doc(as(ADMIN), 'admin_log/a1'), entry()));
+    await assertFails(setDoc(doc(as(ADMIN), 'admin_log/a2'), entry('khac@x.test')));             // ghi tên người khác
+    await assertSucceeds(getDoc(doc(as(ADMIN), 'admin_log/a1')));
+    await assertFails(upd(doc(as(ADMIN), 'admin_log/a1'), { action: 'sửa dấu vết' }));
+    await assertFails(deleteDoc(doc(as(ADMIN), 'admin_log/a1')));
+    await assertFails(getDoc(doc(as(FRIEND), 'admin_log/a1')));
+    await assertFails(setDoc(doc(as(FRIEND), 'admin_log/a3'), entry('friend@x.test')));
+});

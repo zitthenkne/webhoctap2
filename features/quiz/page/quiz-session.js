@@ -21,6 +21,7 @@ import { groupQuestionsByCase, tagCaseSequence } from './quiz-cases.js';
 import { showQuestion, accrueTime } from './quiz-question-view.js';
 import { hideMobileNav } from './quiz-mobile-nav.js';
 import { rememberOpened, syncLocalResults } from '../local-shelf.js';
+import { quizRunStart, quizRunEnd } from '../../../core/quiz-run.js';
 
 // Khách vừa đăng nhập (ở tab khác / trang chủ) mà máy còn kết quả làm bài lưu tạm → đẩy lên tài khoản
 whenAuthReady(4000).then(u => { if (u && u.uid && !u.offline && !u.isAnonymous) syncLocalResults(u.uid); }).catch(() => {});
@@ -474,6 +475,11 @@ export function startQuizMode(questionsArray, mode = 'normal', restoreState = nu
 
     showQuestion();
     saveQuizState();
+    // Báo cáo đề cho admin + cảnh báo cùng tài khoản làm trên 2 máy (core/quiz-run.js) — 1 lượt ghi lúc bắt đầu, 1 lượt lúc nộp
+    quizRunStart({
+        quizId: state.quizData?.id || new URLSearchParams(location.search).get('id'),
+        title: state.quizData?.title || '', mode, startedAt: +new Date(state.quizStartTime)
+    });
     // Tải lại trang (F5) giữa lúc đang tập trung → vào lại vẫn tập trung (cờ do page/quiz-focus.js ghi, xóa khi tắt/nộp bài)
     try {
         if (!state.focusMode) {
@@ -529,9 +535,11 @@ export function endQuiz() {
     state._resultsTime = totalTime;
     renderResults(totalTime);
 
+    const r = savedScore();
+    // Máy làm bài + cờ "2 máy cùng lúc" lưu kèm kết quả → trang Quản trị dựng báo cáo, không tốn thêm lượt ghi
+    const run = quizRunEnd({ pct: r.pct });
     if (state.quizMode === 'normal') {
-        const r = savedScore();
-        saveQuizResult(r.score, r.total, r.pct, totalTime);
+        saveQuizResult(r.score, r.total, r.pct, totalTime, { ...run, startedAt: state.quizStartTime ? +new Date(state.quizStartTime) : null });
     }
 
     const quizSection = document.getElementById('quizSection');
