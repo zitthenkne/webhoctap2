@@ -50,6 +50,7 @@ service cloud.firestore {
     //   create — tạo bộ đề / thư mục / ảnh đề (gồm Lưu bản sao, Lưu đề từ phòng)
     //   room   — tạo phòng học
     //   record — tạo bệnh án (bệnh án đã có vẫn xem / sửa / xoá được)
+    //   (offline — tải đề về máy: chỉ app kiểm, features/quiz/quiz-offline-store.js; luật không dùng)
     function can(f) {
       return request.auth != null
           && (isAdmin() || request.auth.uid == 'qZ5dzmJzrjdpN9l4n9x5UGPwHE43'

@@ -68,14 +68,52 @@ function writeIds(ids) {
     } catch (e) { /* hết dung lượng cũng không sao, IndexedDB là nguồn chính */ }
 }
 
+// ---- QUYỀN "LÀM OFFLINE" (core/features.js — admin bật / tắt theo tài khoản, mặc định TẮT) ----
+// Chưa được mở (kể cả khách chưa đăng nhập) thì KHÔNG tải đề về máy: không lưu, không đọc lại bản cũ, bản đã tải trước đó bị xoá
+// → mọi lượt làm đều phải có mạng, máy chủ (quiz_runs / quiz_guest) theo dõi được ai đang làm, máy nào đang làm.
+// Bản đồng bộ đọc quyền đã lưu lần trước (core/features.js ghi 'myFeatures') — dùng cho nhãn giao diện; bản async hỏi token thật.
+const ADMIN_EMAIL = 'vietthanhne@gmail.com';     // khớp ADMIN_EMAILS (core/device-limit.js) — admin luôn được
+export function offlineAllowedSync() {
+    try {
+        const last = JSON.parse(localStorage.getItem('lastAuthUser') || 'null');
+        if (!last?.uid) return false;
+        if (String(last.email || '').toLowerCase() === ADMIN_EMAIL) return true;
+        const c = JSON.parse(localStorage.getItem('myFeatures') || 'null');
+        return c?.uid === last.uid && c.f?.offline === true;
+    } catch (e) { return false; }
+}
+export async function offlineAllowed() {
+    try { return await (await import('../../core/features.js')).canUse('offline'); }
+    catch (e) { return offlineAllowedSync(); }
+}
+const lockedError = () => Object.assign(new Error('Tài khoản của bạn chưa được admin mở "Làm offline" nên không tải đề về máy được.'), { code: 'offline-locked' });
+
+let wiped = false;
+/** Không có quyền mà máy còn đề đã tải (tài khoản khác từng tải / quyền vừa bị tắt) → xoá sạch kho đề offline + ảnh đi kèm. */
+async function wipeOffline() {
+    if (wiped) return;
+    wiped = true;
+    try {
+        const store = await txStore('readwrite');
+        await new Promise((resolve, reject) => { const r = store.clear(); r.onsuccess = resolve; r.onerror = () => reject(r.error); });
+        writeIds([]);
+        await pruneQuizImages();
+    } catch (e) { wiped = false; }
+}
+async function gate() {
+    const ok = await offlineAllowed();
+    if (!ok && readIds().length) wipeOffline();
+    return ok;
+}
+
 /** Kiểm tra nhanh (đồng bộ) một bộ đề đã được tải offline hay chưa. */
 export function isOfflineSavedSync(id) {
-    return readIds().includes(id);
+    return offlineAllowedSync() && readIds().includes(id);
 }
 
 /** Trả về Set tất cả id bộ đề đã tải offline (đồng bộ). */
 export function getOfflineIdsSync() {
-    return new Set(readIds());
+    return offlineAllowedSync() ? new Set(readIds()) : new Set();
 }
 
 /**
@@ -203,6 +241,7 @@ export async function cacheQuizImages(questions, { onProgress } = {}) {
  * Trả về Promise.
  */
 export async function saveOfflineQuiz(id, data, { auto = false, cacheImages = true, onProgress } = {}) {
+    if (!await gate()) throw lockedError();
     const record = {
         ...data,
         id,
@@ -236,6 +275,7 @@ export async function saveOfflineQuiz(id, data, { auto = false, cacheImages = tr
 /** Lấy bộ đề đã lưu offline theo id. Trả về dữ liệu doc (hoặc null nếu chưa có). */
 export async function getOfflineQuiz(id) {
     try {
+        if (!await gate()) return null;
         return await new Promise((resolve, reject) => {
             txStore('readonly').then((store) => {
                 const req = store.get(id);
@@ -330,6 +370,7 @@ const AUTO_LIMIT = 40;
  */
 export async function autoCacheQuiz(id, data) {
     try {
+        if (!await gate()) return;
         const existing = await getOfflineQuiz(id);
         const auto = existing ? !!existing._auto : true;
         await saveOfflineQuiz(id, data, { auto });

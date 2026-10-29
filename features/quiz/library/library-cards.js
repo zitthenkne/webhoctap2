@@ -6,7 +6,14 @@
 import { db } from '../../../core/firebase-init.js';
 import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { showToast, showConfirm } from '../../../core/utils.js';
-import { isOfflineSavedSync, saveOfflineQuiz, deleteOfflineQuiz, extractQuizImageUrls } from '../quiz-offline-store.js';
+import { isOfflineSavedSync, saveOfflineQuiz, deleteOfflineQuiz, extractQuizImageUrls, offlineAllowed, offlineAllowedSync } from '../quiz-offline-store.js';
+
+// Tải đề về máy cần admin mở "Làm offline" (core/features.js) — chưa mở thì báo khoá, không tải
+async function offlineGate() {
+    if (await offlineAllowed()) return true;
+    (await import('../../../core/features.js')).showLocked('offline');
+    return false;
+}
 import { fetchQuizFull } from '../quiz-fresh.js';
 import { S } from './library-state.js';
 import { untilMsOf, publicAlive } from '../share-access.js';
@@ -504,7 +511,7 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
     // Mục trong menu "..." để tải về / xóa bản offline
     const offlineMenuItem = offlineSaved
         ? `<button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 remove-offline-btn" data-id="${quizSet.id}"><i class="fas fa-trash-can mr-2.5 text-sky-400"></i>Xóa bản offline</button>`
-        : `<button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 download-offline-btn" data-id="${quizSet.id}"><i class="fas fa-cloud-arrow-down mr-2.5 text-sky-500"></i>Tải về máy (offline)</button>`;
+        : `<button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 download-offline-btn" data-id="${quizSet.id}"><i class="fas ${offlineAllowedSync() ? 'fa-cloud-arrow-down' : 'fa-lock'} mr-2.5 text-sky-500"></i>Tải về máy (offline)</button>`;
     const pinBtn = (size) => `<button class="pin-quiz-btn${pinned ? ' is-pinned' : ''}${size === 'sm' ? ' pin-quiz-btn-sm' : ''}" data-id="${quizSet.id}" title="${pinned ? 'Bỏ ghim' : 'Ghim lên đầu'}" aria-label="${pinned ? 'Bỏ ghim bộ đề' : 'Ghim bộ đề lên đầu'}" aria-pressed="${pinned}"><i class="fas fa-thumbtack"></i></button>`;
 
     // "MỚI" là một huy hiệu như mọi trạng thái khác — cùng hàng, cùng hình dáng viên thuốc,
@@ -918,6 +925,7 @@ async function fetchQuizForOffline(quizId) {
 }
 
 async function handleDownloadOffline(quizId, quizTitle, btnEl) {
+    if (!await offlineGate()) return;
     if (!navigator.onLine) {
         showToast('Cần có mạng để tải bộ đề về máy lần đầu.', 'warning');
         return;
@@ -968,6 +976,7 @@ async function handleDownloadOffline(quizId, quizTitle, btnEl) {
  * @param {{scope:string, title:string}} label  chữ hiển thị trong hộp thoại/thông báo
  */
 export async function downloadQuizzesOffline(pick, label) {
+    if (!await offlineGate()) return;
     if (!navigator.onLine) {
         showToast('Cần có mạng để tải bộ đề về máy lần đầu.', 'warning');
         return;

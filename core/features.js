@@ -1,7 +1,7 @@
 // File: core/features.js
 // QUYỀN DÙNG TÍNH NĂNG theo tài khoản — admin bật/tắt ở trang Quản trị (features/admin), máy chủ (api/devices.js) gắn custom claim `feat`.
 // Chốt chặn THẬT là can() trong firestore.rules; ở đây chỉ để giao diện khoá sớm và báo rõ ràng (không để người dùng làm xong mới bị từ chối).
-//   Mặc định (admin chưa chỉnh): Làm đề + Học nhóm MỞ; Tạo đề + Bệnh án TẮT. Admin: mở hết.
+//   Mặc định (admin chưa chỉnh): Làm đề + Học nhóm MỞ; Tạo đề + Bệnh án + Làm offline TẮT. Admin: mở hết.
 //   Không cần tài khoản: Tính điểm hệ 4, làm đề CÔNG KHAI, vào phòng học bằng link.
 // Admin đổi quyền → máy người đó xin token mới ngay (core/device-limit.js nghe claimsAt) và báo 'auth:claims' → khoá / mở lại giao diện.
 import { auth } from './firebase-init.js';
@@ -13,11 +13,13 @@ export const FEATURES = {
     quiz: ['Làm đề', 'fa-pen-to-square', '#db2777', '#fce7f3', 'Mở đề người khác chia sẻ riêng (đề công khai thì ai cũng làm được)'],
     create: ['Tạo đề', 'fa-wand-magic-sparkles', '#7c3aed', '#ede9fe', 'Tạo bộ đề, thư mục, lưu bản sao, lưu đề từ phòng'],
     room: ['Học nhóm', 'fa-people-group', '#0284c7', '#e0f2fe', 'Tạo phòng học nhóm (vào phòng bằng link thì ai cũng vào được)'],
-    record: ['Bệnh án', 'fa-notes-medical', '#059669', '#d1fae5', 'Viết bệnh án mới (bệnh án đã có vẫn xem / sửa được)']
+    record: ['Bệnh án', 'fa-notes-medical', '#059669', '#d1fae5', 'Viết bệnh án mới (bệnh án đã có vẫn xem / sửa được)'],
+    // Tắt = không tải đề về máy (features/quiz/quiz-offline-store.js chặn lưu / đọc, xoá bản cũ) → mọi lượt làm phải có mạng, admin theo dõi được
+    offline: ['Làm offline', 'fa-plane', '#c2410c', '#ffedd5', 'Tải đề về máy để làm khi mất mạng (tắt thì phải có mạng mới làm được — admin theo dõi được)']
 };
 export const FEATURE_KEYS = Object.keys(FEATURES);
-export const DEFAULT_FEATURES = { quiz: true, create: false, room: true, record: false };
-export const FULL_FEATURES = { quiz: true, create: true, room: true, record: true };
+export const DEFAULT_FEATURES = { quiz: true, create: false, room: true, record: false, offline: false };
+export const FULL_FEATURES = { quiz: true, create: true, room: true, record: true, offline: true };
 const ADMIN_EMAILS = ['vietthanhne@gmail.com'];                 // khớp isAdmin() trong firestore.rules
 const ADMIN_UIDS = ['qZ5dzmJzrjdpN9l4n9x5UGPwHE43'];
 const CACHE_KEY = 'myFeatures';

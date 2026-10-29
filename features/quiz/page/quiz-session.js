@@ -8,7 +8,7 @@ import { whenAuthReady, refreshEmailVerified } from '../../../core/auth-session.
 import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { showToast } from '../../../core/utils.js';
 import { applyLocalQuestionEdits } from '../quiz-editor.js';
-import { getOfflineQuiz, autoCacheQuiz, isOfflineSavedSync, saveOfflineQuiz, extractQuizImageUrls, cacheQuizImages, touchOfflineQuiz, deleteOfflineQuiz } from '../quiz-offline-store.js';
+import { getOfflineQuiz, autoCacheQuiz, isOfflineSavedSync, saveOfflineQuiz, extractQuizImageUrls, cacheQuizImages, touchOfflineQuiz, deleteOfflineQuiz, offlineAllowed, offlineAllowedSync } from '../quiz-offline-store.js';
 import { LOCAL_FRESH_MS, localStillCurrent, fetchQuizFull } from '../quiz-fresh.js';
 import { state, saveQuizState, clearQuizState, saveQuizResult, updateQuizResultScore, markQuizStateFinished } from '../quiz-state.js';
 import { shuffleArray, shuffleQuestionOptions, isAnswerCorrect, sessionScore } from '../quiz-helpers.js';
@@ -22,7 +22,7 @@ import { showQuestion, accrueTime } from './quiz-question-view.js';
 import { hideMobileNav } from './quiz-mobile-nav.js';
 import { rememberOpened, syncLocalResults } from '../local-shelf.js';
 import { quizRunStart, quizRunEnd } from '../../../core/quiz-run.js';
-import { canUse } from '../../../core/features.js';
+import { canUse, showLocked } from '../../../core/features.js';
 
 // Tài khoản bị admin tắt tính năng "Làm đề" (core/features.js): luật chỉ cho mở đề CÔNG KHAI → bị chặn thì nói đúng lý do
 let quizFeatureOff = false;
@@ -88,6 +88,7 @@ function prefetchQuizImages(questions) {
 // Tự động tải lưu offline hoàn chỉnh vào IndexedDB và nạp cache ảnh ngầm
 async function autoSaveAndNotify(quizId, data) {
     if (!data || !Array.isArray(data.questions) || !data.questions.length) return;
+    if (!await offlineAllowed()) return;            // chưa được mở "Làm offline" → không lưu đề về máy
     const wasSaved = isOfflineSavedSync(quizId);
     const imgUrls = extractQuizImageUrls(data.questions);
 
@@ -126,7 +127,12 @@ function setupOfflineDownloadBtn(quizId) {
         btn.classList.toggle('is-saved', isSaved);
         btn.classList.toggle('is-offline', isOffline);
 
-        if (isOffline) {
+        if (!offlineAllowedSync()) {
+            // Tài khoản / khách chưa được admin mở "Làm offline" (core/features.js) → nút chỉ để báo khoá
+            if (icon) icon.className = isOffline ? 'fas fa-wifi text-amber-500' : 'fas fa-lock';
+            if (label) label.textContent = isOffline ? 'Mất mạng' : 'Tải offline';
+            btn.title = 'Chưa được admin mở "Làm offline" — cần có mạng để làm bài.';
+        } else if (isOffline) {
             if (icon) icon.className = 'fas fa-plane text-amber-500';
             if (label) label.textContent = isSaved ? 'Đang ngoại tuyến' : 'Mất mạng';
             btn.title = isSaved ? 'Đang học ngoại tuyến bằng bản lưu trên máy.' : 'Mất mạng và chưa có bản tải về.';
@@ -147,6 +153,7 @@ function setupOfflineDownloadBtn(quizId) {
     window.addEventListener('offline', updateStatus);
 
     btn.onclick = async () => {
+        if (!await offlineAllowed()) { showLocked('offline'); updateStatus(); return; }
         if (!state.quizData || !state.quizData.questions) {
             showToast('Dữ liệu bộ đề đang tải, vui lòng chờ chút nhé...', 'info');
             return;
@@ -234,7 +241,9 @@ export async function loadQuizData() {
             showToast('Đang học ngoại tuyến bằng bản đã tải về máy.', 'info');
             return;
         }
-        showLandingError('Bạn đang ngoại tuyến và bộ đề này chưa được tải về máy.');
+        showLandingError(await offlineAllowed()
+            ? 'Bạn đang ngoại tuyến và bộ đề này chưa được tải về máy.'
+            : 'Bạn đang ngoại tuyến. Tài khoản của bạn chưa được admin mở "Làm offline" nên cần có mạng mới làm bài được — bật mạng rồi bấm Thử lại nhé.');
         return;
     }
 
@@ -396,6 +405,11 @@ export async function loadQuizData() {
 }
 
 export function startQuizMode(questionsArray, mode = 'normal', restoreState = null) {
+    // Chưa được mở "Làm offline": mất mạng thì không bắt đầu (lượt làm phải qua máy chủ để admin theo dõi — core/quiz-run.js)
+    if (navigator.onLine === false && !offlineAllowedSync()) {
+        showToast('Đang mất mạng — tài khoản của bạn chưa được mở "Làm offline" nên cần có mạng để bắt đầu làm bài.', 'warning', 5000);
+        return;
+    }
     if (mode === 'normal' || mode === 'practice' || mode === 'srs') {
         showSubmitQuizBtn(true);
     } else {

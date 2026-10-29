@@ -25,10 +25,11 @@ const placeOf = (e) => [e?.city, e?.country].filter(Boolean).join(', ');
 
 const okLimit = (n) => Number.isInteger(n) && n >= 1 && n <= EXEMPT_MAX;
 
-// QUYỀN DÙNG TÍNH NĂNG — custom claim `feat` = { quiz, create, room, record } (khớp can() trong firestore.rules và core/features.js).
-// Thiếu claim = mặc định: làm đề + học nhóm mở, tạo đề + bệnh án tắt. Admin luôn mở hết.
-const FEATURE_KEYS = ['quiz', 'create', 'room', 'record'];
-const DEFAULT_FEATURES = { quiz: true, create: false, room: true, record: false };
+// QUYỀN DÙNG TÍNH NĂNG — custom claim `feat` = { quiz, create, room, record, offline } (khớp can() trong firestore.rules và core/features.js).
+// Thiếu claim = mặc định: làm đề + học nhóm mở, tạo đề + bệnh án + làm offline tắt. Admin luôn mở hết.
+// `offline` chỉ app kiểm (features/quiz/quiz-offline-store.js) — làm offline thì không có máy chủ nào để chặn.
+const FEATURE_KEYS = ['quiz', 'create', 'room', 'record', 'offline'];
+const DEFAULT_FEATURES = { quiz: true, create: false, room: true, record: false, offline: false };
 const normFeatures = (f) => {
     const src = f && typeof f === 'object' ? f : DEFAULT_FEATURES;
     return Object.fromEntries(FEATURE_KEYS.map(k => [k, src[k] === true]));
@@ -122,7 +123,7 @@ function serializeUserRecord(u, cfg) {
         displayName: u.displayName || '',
         emailVerified: !!u.emailVerified,
         approved: isAdmin || u.customClaims?.approved === true,
-        features: isAdmin ? normFeatures({ quiz: true, create: true, room: true, record: true }) : normFeatures(u.customClaims?.feat),
+        features: isAdmin ? normFeatures(Object.fromEntries(FEATURE_KEYS.map(k => [k, true]))) : normFeatures(u.customClaims?.feat),
         featuresCustom: !isAdmin && !!u.customClaims?.feat,
         disabled: !!u.disabled,
         isAdmin,
