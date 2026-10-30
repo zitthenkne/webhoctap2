@@ -15,10 +15,14 @@ function init() {
     return ready;
 }
 
-// Khớp isAdmin() trong firestore.rules và ADMIN_EMAILS trong core/device-limit.js
+// ADMIN GỐC — khớp isAdmin() trong firestore.rules và ADMIN_EMAILS trong core/device-limit.js. Không ai khoá / xoá / hạ quyền được.
+// ADMIN PHỤ — custom claim `admin: true` do admin cấp ở trang Quản trị (api/devices.js adminUpdateUser { admin }). Claim chỉ máy chủ gắn được.
 const ADMIN_EMAILS = ['vietthanhne@gmail.com'];
 const isAdminEmail = (email) => ADMIN_EMAILS.includes(String(email || '').toLowerCase());
-const isAdminToken = (t) => !!t && isAdminEmail(t.email) && (t.email_verified === true || t.uid === 'qZ5dzmJzrjdpN9l4n9x5UGPwHE43');
+const isRootToken = (t) => !!t && isAdminEmail(t.email) && (t.email_verified === true || t.uid === 'qZ5dzmJzrjdpN9l4n9x5UGPwHE43');
+const isAdminToken = (t) => isRootToken(t) || (!!t && t.admin === true);
+/** UserRecord của Firebase Auth là admin (gốc hoặc phụ)? */
+const isAdminRecord = (u) => !!u && (isAdminEmail(u.email) || u.customClaims?.admin === true);
 
 /** Xác minh ID token Firebase ở header Authorization: Bearer <token>. Trả token đã giải mã hoặc ném lỗi 401. */
 async function verifyUser(req) {
@@ -84,4 +88,4 @@ const untilMs = (v) => (v == null ? null : typeof v.toMillis === 'function' ? v.
 /** Doc công khai còn hiệu lực: isPublic và chưa quá publicUntil (thiếu publicUntil = không hết hạn — link cũ). */
 const publicAlive = (d) => !!d && d.isPublic === true && (untilMs(d.publicUntil) == null || untilMs(d.publicUntil) > Date.now());
 
-module.exports = { init, verifyUser, isAdminEmail, isAdminToken, ADMIN_EMAILS, geoOf, send, readJson, untilMs, publicAlive, setApproved, autoApprove };
+module.exports = { init, verifyUser, isAdminEmail, isAdminToken, isRootToken, isAdminRecord, ADMIN_EMAILS, geoOf, send, readJson, untilMs, publicAlive, setApproved, autoApprove };

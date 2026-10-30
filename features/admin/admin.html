@@ -24,7 +24,7 @@
         <div class="max-w-6xl mx-auto px-4 pt-3 pb-1 flex flex-wrap items-center gap-x-3 gap-y-2">
             <a href="../profile/profile.html" class="nb-back" title="Về Hồ sơ"><i class="fas fa-arrow-left"></i></a>
             <div class="min-w-0 flex-1">
-                <h1 class="nb-title truncate"><span class="marker">Sổ Quản trị</span> <span class="doodle doodle-heart"></span><span class="doodle doodle-star"></span></h1>
+                <h1 class="nb-title truncate"><span class="marker">Sổ Quản trị</span> <span class="doodle doodle-heart"></span><span class="doodle doodle-star"></span> <span id="me-role" class="role-chip hidden"></span></h1>
                 <p id="live-status" class="nb-sub truncate">Đang mở sổ…</p>
             </div>
             <button type="button" id="open-cmdk" class="cmdk-btn" title="Tìm nhanh tài khoản, đề, thao tác"><i class="fas fa-magnifying-glass"></i><span>Tìm nhanh</span><kbd>Ctrl K</kbd></button>
@@ -40,7 +40,7 @@
         <nav class="max-w-6xl mx-auto px-4 pt-2 pb-3 flex gap-2 overflow-x-auto" role="tablist">
             <button type="button" class="tab-btn is-on" data-tab="home">🏠 Tổng quan</button>
             <button type="button" class="tab-btn" data-tab="report">📚 Đề &amp; lượt làm</button>
-            <button type="button" class="tab-btn" data-tab="accounts">🎀 Quyền tài khoản</button>
+            <button type="button" class="tab-btn" data-tab="accounts">👥 Tài khoản</button>
             <button type="button" class="tab-btn" data-tab="settings">🌿 Cài đặt</button>
         </nav>
     </header>
@@ -115,11 +115,15 @@
             </p>
         </section>
 
-        <!-- ===== QUYỀN TÀI KHOẢN ===== -->
+        <!-- ===== TÀI KHOẢN ===== -->
         <section id="tab-accounts" class="space-y-4 hidden">
             <div class="card nb-plain p-3 space-y-3">
                 <div class="flex flex-wrap items-center gap-2">
-                    <label class="search flex-1 min-w-[200px]"><i class="fas fa-magnifying-glass"></i><input id="acc-search" placeholder="Tìm email, tên hoặc UID…" autocomplete="off"></label>
+                    <div class="seg" role="group" aria-label="Kiểu xem">
+                        <button type="button" class="acc-view rep-view is-on" data-aview="perm" title="Bật / tắt tính năng cho từng tài khoản">🎀 Quyền</button>
+                        <button type="button" class="acc-view rep-view" data-aview="login" title="Mật khẩu, cách đăng nhập, khoá / đá máy nhanh">🔑 Đăng nhập</button>
+                    </div>
+                    <label class="search flex-1 min-w-[200px]"><i class="fas fa-magnifying-glass"></i><input id="acc-search" placeholder="Tìm email, tên, UID hoặc ghi chú…  ( / )" autocomplete="off"></label>
                     <button type="button" id="acc-reload" class="btn" title="Tải lại danh sách"><i class="fas fa-rotate"></i></button>
                     <button type="button" id="acc-export" class="btn" title="Xuất các tài khoản đang hiện ra CSV"><i class="fas fa-file-csv"></i><span class="hidden sm:inline ml-1">CSV</span></button>
                     <button type="button" id="acc-new-toggle" class="btn btn-candy"><i class="fas fa-user-plus mr-1"></i>Tạo tài khoản</button>
@@ -128,27 +132,28 @@
             </div>
 
             <div id="acc-new" class="card p-4 space-y-3 hidden" style="--h:var(--hue-peach)">
-                <p class="nb-h">🌱 Tạo tài khoản mới <span class="nb-tiny">(email đã có thì cập nhật mật khẩu &amp; quyền)</span></p>
+                <p class="nb-h">🌱 Tạo tài khoản mới <span class="nb-tiny">(email đã có thì đặt lại mật khẩu &amp; quyền)</span></p>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <input id="new-email" type="email" class="inp" placeholder="Email *" autocomplete="off">
-                    <input id="new-pass" type="text" class="inp" placeholder="Mật khẩu ≥ 6 ký tự *" autocomplete="off">
+                    <div class="pw-field">
+                        <input id="new-pass" type="text" class="inp" placeholder="Mật khẩu ≥ 6 ký tự *" autocomplete="off" spellcheck="false">
+                        <button type="button" id="new-gen" class="pw-gen" title="Tạo mật khẩu ngẫu nhiên">🎲</button>
+                    </div>
                     <input id="new-name" type="text" class="inp" placeholder="Tên hiển thị" autocomplete="off">
                 </div>
-                <div class="flex flex-wrap items-center gap-3">
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
                     <label class="tick"><input type="checkbox" id="new-allow-pw" checked> 🔑 Đăng nhập thẳng (miễn Google)</label>
                     <label class="tick" title="Bỏ trống = mặc định: Làm đề + Học nhóm"><input type="checkbox" id="new-full"> ✨ Full tính năng</label>
+                    <label class="tick" title="Vào được trang Quản trị, quản lý mọi tài khoản thường"><input type="checkbox" id="new-admin"> 👑 Cấp quyền admin</label>
                     <label class="tick">📱 Số máy <input id="new-limit" type="number" min="1" max="20" class="inp w-20" placeholder="mặc định"></label>
                     <button type="button" id="new-create" class="btn btn-candy ml-auto"><i class="fas fa-plus mr-1"></i>Tạo / Cập nhật</button>
                 </div>
+                <p class="nb-tiny">Mật khẩu admin đặt ở đây được lưu để xem lại về sau (mục 🔑 Đăng nhập). Tạo xong sẽ mở ngay chi tiết tài khoản để sao chép email + mật khẩu gửi cho người dùng.</p>
             </div>
 
-            <div class="legend">
-                <span>Bấm vào ô để <b>bật</b> <span class="tog-mini is-on">✓</span> hoặc <b>tắt</b> <span class="tog-mini">✕</span> — tự lưu, không cần bấm Lưu.</span>
-                <span>🌱 Mặc định: <b>Làm đề + Học nhóm</b>.</span>
-                <span>☑️ Tick nhiều dòng để đổi quyền một lần.</span>
-            </div>
+            <div class="legend" id="acc-legend"></div>
 
-            <div class="mtx">
+            <div class="mtx" id="acc-mtx">
                 <div class="mtx-head" id="acc-head"></div>
                 <div id="acc-list"></div>
             </div>
@@ -159,6 +164,16 @@
         <section id="tab-settings" class="hidden">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="space-y-6">
+                    <div class="card p-4 space-y-2.5" style="--h:var(--hue-butter)">
+                        <p class="nb-h">👑 Đội quản trị</p>
+                        <p class="nb-tiny">Admin vào được trang này và quản lý mọi tài khoản thường (quyền, mật khẩu, khoá, xoá…). Chỉ <b>admin gốc</b> mới gỡ quyền admin hoặc chỉnh tài khoản của admin khác.</p>
+                        <ul id="admins-list" class="space-y-1.5"></ul>
+                        <div class="flex gap-2">
+                            <input id="admin-add-email" type="email" class="inp flex-1" placeholder="Email tài khoản muốn cấp quyền admin" autocomplete="off" list="admin-add-hints">
+                            <datalist id="admin-add-hints"></datalist>
+                            <button type="button" id="admin-add" class="btn btn-candy"><i class="fas fa-crown mr-1"></i>Cấp admin</button>
+                        </div>
+                    </div>
                     <div class="card p-4 space-y-2.5" style="--h:var(--hue-blossom)">
                         <p class="nb-h">📣 Gửi thông báo</p>
                         <p class="nb-tiny">Hiện thành thẻ nhỏ ở đáy màn hình, lần tới người dùng mở / chuyển trang (trễ tối đa ~15 phút). Bấm "Đã xem" thì không thấy lại; gửi thông báo mới thì ai cũng thấy lại.</p>
@@ -212,7 +227,7 @@
     <nav class="botbar" aria-label="Chuyển mục">
         <button type="button" class="bot-btn is-on" data-tab="home"><span>🏠</span>Tổng quan</button>
         <button type="button" class="bot-btn" data-tab="report"><span>📚</span>Lượt làm</button>
-        <button type="button" class="bot-btn" data-tab="accounts"><span>🎀</span>Quyền</button>
+        <button type="button" class="bot-btn" data-tab="accounts"><span>👥</span>Tài khoản</button>
         <button type="button" class="bot-btn" data-tab="settings"><span>🌿</span>Cài đặt</button>
     </nav>
 

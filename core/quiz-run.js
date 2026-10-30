@@ -8,8 +8,10 @@
 //     (quiz_results.clash, quiz-session.js lấy qua quizRunEnd) → trang Quản trị gắn cờ.
 //   • máy khác còn "đang làm" từ TRƯỚC lúc máy này bắt đầu (có thể chỉ là bài bỏ dở) → nhắc nhẹ, không ghi.
 // KHÁCH (chưa đăng nhập, làm đề công khai): quiz_guest/{deviceId}_{quizId} = { device, label, quizId, title, mode, state, startedAt, pct,
-//   attempts, at, expireAt } — mỗi máy × mỗi đề một doc (làm lại thì ghi đè + đếm lượt), cũng 2 lượt ghi / lượt làm. Luật chỉ cho ghi khi
-//   bộ đề đang công khai → báo cáo của admin đếm được cả máy chưa đăng nhập.
+//   attempts, at, expireAt, + chi tiết máy: os, model, screen, tz, src (deviceInfo), ip (đã che), city, region, country (api/public?kind=geo
+//   — theo IP, gần đúng), firstAt (lần đầu làm đề này), hist: 10 lượt gần nhất [{ s: bắt đầu, e: nộp (0 = chưa / bỏ dở), p: điểm % }] }
+//   — mỗi máy × mỗi đề một doc (làm lại thì ghi đè + đếm lượt), cũng 2 lượt ghi / lượt làm. Lịch sử giữ ở localStorage của chính máy đó
+//   (khách không đọc được doc). Luật chỉ cho ghi khi bộ đề đang công khai → báo cáo của admin đếm được cả máy chưa đăng nhập.
 // Nhẹ để trang làm đề import tĩnh: device-limit.js chỉ nạp lúc bắt đầu lượt làm.
 import { db, auth } from './firebase-init.js';
 import { doc, setDoc, collection, query, where, onSnapshot, serverTimestamp, Timestamp, increment } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
@@ -56,7 +58,11 @@ export function quizRunEnd({ pct } = {}) {
     const me = run;
     if (guest) {
         const p = Math.round(Number(pct));
-        setDoc(guest, { state: 'done', at: serverTimestamp(), ...(Number.isFinite(p) ? { pct: Math.min(100, Math.max(0, p)) } : {}) }, { merge: true }).catch(() => {});
+        const score = Number.isFinite(p) ? Math.min(100, Math.max(0, p)) : null;
+        const hist = readHist(guest.key);
+        const last = hist[hist.length - 1];
+        if (last && !last.e) { last.e = Date.now(); last.p = score; writeHist(guest.key, hist); }
+        setDoc(guest.ref, { state: 'done', at: serverTimestamp(), ...(score != null ? { pct: score } : {}), ...(last ? { hist } : {}) }, { merge: true }).catch(() => {});
         guest = null;
     }
     if (!me) return null;
@@ -67,16 +73,45 @@ export function quizRunEnd({ pct } = {}) {
 }
 
 // Khách: không có tài khoản → không so 2 máy, chỉ ghi để admin đếm máy đã làm đề. Luật từ chối nếu đề không công khai (bỏ qua lỗi).
-let guest = null;
-function guestStart(dl, { quizId, title, mode, startedAt }) {
+let guest = null;            // { ref, key } — lượt làm của khách đang chạy
+const HIST_MAX = 10;
+const readHist = (key) => { try { const h = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(h) ? h.slice(-HIST_MAX) : []; } catch (e) { return []; } };
+const writeHist = (key, h) => { try { localStorage.setItem(key, JSON.stringify(h.slice(-HIST_MAX))); } catch (e) {} };
+
+/** Vị trí gần đúng theo IP (api/public?kind=geo) — nhớ 1 giờ trong phiên tab; chậm quá 2 giây hoặc lỗi thì bỏ qua (không chặn ghi). */
+async function guestGeo(dl) {
+    try { const c = JSON.parse(sessionStorage.getItem('guestGeo') || 'null'); if (c && Date.now() - c.t < 3600000) return c.g; } catch (e) {}
+    try {
+        const ctl = new AbortController();
+        const timer = setTimeout(() => ctl.abort(), 2000);
+        const r = await fetch(dl.apiUrl('api/public?kind=geo'), { signal: ctl.signal, cache: 'no-store' });
+        clearTimeout(timer);
+        const j = r.ok ? await r.json() : null;
+        const g = j ? { ip: String(j.ip || '').slice(0, 60), city: String(j.city || '').slice(0, 60), region: String(j.region || '').slice(0, 10), country: String(j.country || '').slice(0, 4) } : {};
+        try { sessionStorage.setItem('guestGeo', JSON.stringify({ t: Date.now(), g })); } catch (e) {}
+        return g;
+    } catch (e) { return {}; }
+}
+
+async function guestStart(dl, { quizId, title, mode, startedAt }) {
     if (auth.currentUser) return;
     const device = dl.deviceId();
     const id = String(quizId).slice(0, 120);
     if (!/^[A-Za-z0-9_-]+$/.test(id)) return;
-    guest = doc(db, 'quiz_guest', `${device}_${id}`);
-    setDoc(guest, {
+    const me = guest = { ref: doc(db, 'quiz_guest', `${device}_${id}`), key: `guestHist:${id}` };
+    const start = Math.round(Number(startedAt) || Date.now());
+    // F5 giữa bài = làm tiếp lượt cũ (cùng mốc bắt đầu, chưa nộp) → không đếm thêm lượt
+    const hist = readHist(me.key);
+    const resume = hist.length > 0 && hist[hist.length - 1].s === start && !hist[hist.length - 1].e;
+    if (!resume) { hist.push({ s: start, e: 0, p: null }); writeHist(me.key, hist); }
+    let firstAt = start;
+    try { firstAt = Number(localStorage.getItem(me.key + ':first')) || start; localStorage.setItem(me.key + ':first', String(firstAt)); } catch (e) {}
+    const [info, geo] = await Promise.all([dl.deviceInfo().catch(() => ({})), guestGeo(dl)]);
+    if (guest !== me || auth.currentUser) return;      // đã nộp / bắt đầu lượt khác / vừa đăng nhập trong lúc chờ
+    setDoc(me.ref, {
         device, label: dl.deviceLabel().slice(0, 80), quizId: id, title: String(title || '').slice(0, 200), mode: String(mode || '').slice(0, 20),
-        state: 'doing', startedAt: Math.round(Number(startedAt) || Date.now()), attempts: increment(1),
+        state: 'doing', startedAt: start, ...(resume ? {} : { attempts: increment(1) }), firstAt, hist,
+        ...info, ...geo,
         at: serverTimestamp(), expireAt: Timestamp.fromMillis(Date.now() + GUEST_KEEP_MS)
     }, { merge: true }).catch(() => {});
 }

@@ -99,12 +99,18 @@ service cloud.firestore {
           || get(/databases/$(database)/documents/quiz_sets/$(src)).data.get('allowTakeout', false) == true;
     }
 
-    // ADMIN — tài khoản quản trị của chủ web (email đã xác nhận; đăng nhập Google luôn đã xác nhận). Thêm admin: thêm email vào đây
-    // VÀ vào ADMIN_EMAILS trong core/device-limit.js.
+    // ADMIN — admin GỐC: tài khoản của chủ web (email đã xác nhận; đăng nhập Google luôn đã xác nhận), khớp ADMIN_EMAILS trong
+    // core/device-limit.js và api/_lib/admin.js. Admin PHỤ: custom claim `admin` do máy chủ gắn (api/devices.js — admin cấp ở trang
+    // Quản trị), app không tự gắn được.
     function isAdmin() {
       return request.auth != null
-          && request.auth.token.email_verified == true
-          && request.auth.token.email in ['vietthanhne@gmail.com'];
+          && ((request.auth.token.email_verified == true && request.auth.token.email in ['vietthanhne@gmail.com'])
+              || request.auth.token.get('admin', false) == true);
+    }
+
+    // KHO MẬT KHẨU admin đặt cho tài khoản (api/devices.js saveVault) — chỉ máy chủ (Admin SDK) đọc / ghi, kể cả admin cũng không đọc thẳng.
+    match /admin_vault/{uid} {
+      allow read, write: if false;
     }
 
     // CONFIG — cấu hình chung do admin chỉnh (vd config/access.deviceExempt = email được dùng KHÔNG giới hạn số máy;
@@ -153,8 +159,16 @@ service cloud.firestore {
     // LƯỢT LÀM ĐỀ CỦA KHÁCH (chưa đăng nhập) — core/quiz-run.js; trang Quản trị đếm số máy đã làm đề kể cả máy chưa đăng nhập.
     // Mỗi máy × mỗi đề một doc `{deviceId}_{quizId}` (làm lại thì ghi đè). Chỉ ghi được cho bộ đề ĐANG CÔNG KHAI (1 lượt đọc) → không ai
     // rải rác vào đây bằng mã đề bịa; đúng bộ trường, `at` = giờ máy chủ. Chỉ admin đọc / xoá.
+    // Chi tiết máy (2026-10-30): os / model / screen / tz / src (máy tự đọc), ip / city / region / country (api/public?kind=geo theo IP),
+    // firstAt, hist (≤ 10 lượt gần nhất) — đều do máy khách gửi nên chỉ chặn kiểu + độ dài; trang Quản trị luôn esc khi vẽ.
+    function shortStr(d, k, n) { return d.get(k, '') is string && d.get(k, '').size() <= n; }
     function validGuestRun(d) {
-      return d.keys().hasOnly(['device', 'label', 'quizId', 'title', 'mode', 'state', 'startedAt', 'pct', 'attempts', 'at', 'expireAt'])
+      return d.keys().hasOnly(['device', 'label', 'quizId', 'title', 'mode', 'state', 'startedAt', 'pct', 'attempts', 'at', 'expireAt',
+                               'os', 'model', 'screen', 'tz', 'src', 'ip', 'city', 'region', 'country', 'firstAt', 'hist'])
+          && shortStr(d, 'os', 40) && shortStr(d, 'model', 40) && shortStr(d, 'screen', 20) && shortStr(d, 'tz', 40) && shortStr(d, 'src', 40)
+          && shortStr(d, 'ip', 60) && shortStr(d, 'city', 60) && shortStr(d, 'region', 10) && shortStr(d, 'country', 4)
+          && d.get('firstAt', 0) is int
+          && d.get('hist', []) is list && d.get('hist', []).size() <= 10
           && d.at == request.time
           && d.device is string && d.device.matches('[A-Za-z0-9]{4,40}')
           && d.quizId is string && d.quizId.matches('[A-Za-z0-9_-]{1,120}')

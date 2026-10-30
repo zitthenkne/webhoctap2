@@ -22,8 +22,22 @@ export const ADMIN_EMAILS = ['vietthanhne@gmail.com'];
 const accessRef = () => doc(db, 'config', 'access');
 
 const emailOf = (u) => String(u?.email || '').toLowerCase();
-/** Tài khoản quản trị (email đã xác nhận nằm trong ADMIN_EMAILS). */
+/** Admin GỐC (email nằm trong ADMIN_EMAILS). Admin phụ (claim `admin`) thì xem adminRole. */
 export const isAdminUser = (u) => !!u && !u.isAnonymous && ADMIN_EMAILS.includes(emailOf(u));
+
+/**
+ * 'root' (admin gốc) | 'admin' (admin phụ — custom claim `admin` do máy chủ gắn) | null. Token chưa có claim thì xin token mới MỘT lần
+ * (vừa được cấp admin mà token cũ còn hạn). Danh tính lưu máy lúc offline (không có getIdTokenResult) chỉ nhận ra admin gốc.
+ */
+export async function adminRole(u) {
+    if (!u || u.isAnonymous) return null;
+    if (isAdminUser(u)) return 'root';
+    if (typeof u.getIdTokenResult !== 'function') return null;
+    try {
+        if ((await u.getIdTokenResult()).claims.admin === true) return 'admin';
+        return (await u.getIdTokenResult(true)).claims.admin === true ? 'admin' : null;
+    } catch (e) { return null; }
+}
 
 /** Tài khoản được phép đăng nhập thẳng bằng email + mật khẩu (không bắt qua Google): admin, passwordAllowed hoặc deviceExempt. */
 export async function isExemptUser(u) {
@@ -115,6 +129,40 @@ export function deviceLabel() {
     const br = /Edg\//.test(ua) ? 'Edge' : /CriOS|Chrome\//.test(ua) ? 'Chrome' : /FxiOS|Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'Trình duyệt';
     const app = window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone ? ' (ứng dụng)' : '';
     return `${os} · ${br}${app}`;
+}
+
+/**
+ * Chi tiết máy cho báo cáo máy khách (core/quiz-run.js): { os: 'Android 14' | 'iOS 17.5' | 'Windows 10/11'…, model: 'SM-G991B' (Android),
+ * screen: '390×844', tz: 'Asia/Ho_Chi_Minh', src: nơi bấm link vào (zalo, facebook…) }. Chrome / Edge mới che bớt UA → hỏi thêm
+ * userAgentData (đời máy Android, Windows 11). Chuỗi đều cắt ngắn (luật validGuestRun giới hạn độ dài).
+ */
+export async function deviceInfo() {
+    const ua = navigator.userAgent || '';
+    let os = '', model = '';
+    let m;
+    if ((m = /Android\s([\d.]+)/.exec(ua))) os = 'Android ' + m[1];
+    else if ((m = /(?:iPhone|CPU) OS (\d+)[_.](\d+)/.exec(ua))) os = 'iOS ' + m[1] + '.' + m[2];
+    else if (/Windows NT 10/.test(ua)) os = 'Windows 10/11';
+    else if ((m = /Windows NT ([\d.]+)/.exec(ua))) os = 'Windows NT ' + m[1];
+    else if ((m = /Mac OS X (\d+)[_.](\d+)/.exec(ua))) os = 'macOS ' + m[1] + '.' + m[2];
+    else if (/CrOS/.test(ua)) os = 'ChromeOS';
+    else if (/Linux/.test(ua)) os = 'Linux';
+    if ((m = /Android [\d.]+; ([^;)]+?)(?: Build|\))/.exec(ua)) && m[1] !== 'K') model = m[1].trim();
+    try {
+        const hi = await navigator.userAgentData?.getHighEntropyValues?.(['model', 'platformVersion']);
+        if (hi?.model) model = hi.model;
+        if (navigator.userAgentData?.platform === 'Windows' && hi?.platformVersion) os = Number(hi.platformVersion.split('.')[0]) >= 13 ? 'Windows 11' : 'Windows 10';
+    } catch (e) {}
+    let tz = '', src = '';
+    try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
+    try {
+        const r = document.referrer ? new URL(document.referrer).hostname.replace(/^www\.|^m\.|^l\./, '') : '';
+        if (r && r !== location.hostname) src = /zalo/.test(r) ? 'zalo' : /facebook|messenger|fb\./.test(r) ? 'facebook' : /google/.test(r) ? 'google' : r;
+    } catch (e) {}
+    return {
+        os: os.slice(0, 40), model: model.slice(0, 40), screen: `${screen.width || 0}×${screen.height || 0}`.slice(0, 20),
+        tz: tz.slice(0, 40), src: src.slice(0, 40)
+    };
 }
 
 /** Gọi NGAY TRƯỚC signInWith… / createUser…: lần báo đăng nhập kế tiếp là "đăng nhập mới" → được ghi vào danh sách (đẩy máy cũ nhất ra). */

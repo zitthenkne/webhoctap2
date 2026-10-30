@@ -157,6 +157,14 @@ export function openSheet(rows) {
     wrap.querySelector('[data-x]').onclick = close;
 }
 
+/** Hộp chi tiết (vd máy khách). `html` do nơi gọi dựng sẵn và ĐÃ esc mọi chữ lấy từ dữ liệu. */
+export function openInfo(title, html) {
+    const { wrap, close } = overlay('info-sheet', `<div class="sheet-box info-box" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+        <p class="sheet-h">${esc(title)}</p><div class="info-body">${html}</div>
+        <button type="button" class="btn btn-candy w-full mt-3" data-x>Đóng</button></div>`);
+    wrap.querySelector('[data-x]').onclick = close;
+}
+
 // ---------- Giao diện sổ: ngày / đêm / theo máy · màu chủ đạo · mật độ ----------
 const LOOK_KEY = 'adminLook';
 export const ACCENTS = [['blossom', '#FF8FB8', 'Hồng đào'], ['lav', '#B9A2F0', 'Tím oải hương'], ['mint', '#6FD1AE', 'Bạc hà'], ['sky', '#7EC0EE', 'Trời xanh'], ['peach', '#F79A5E', 'Cam đào']];

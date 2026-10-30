@@ -11,7 +11,10 @@
 //   • deviceExempt:    [email] — được dùng tối đa EXEMPT_MAX (20) máy (kiêm miễn Google nếu chưa bật riêng).
 //   • deviceLimits:    { email: n } — số máy RIÊNG của từng tài khoản (1..20), admin chỉnh ở trang Quản trị; ưu tiên hơn deviceExempt.
 //   • defaultLimit:    n — số máy mặc định cho mọi tài khoản còn lại (thiếu = MAX_DEVICES).
-const { init, verifyUser, isAdminEmail, isAdminToken, ADMIN_EMAILS, geoOf, send, readJson, setApproved, autoApprove } = require('./_lib/admin');
+//
+// ADMIN PHỤ: claim `admin: true` (admin nào cũng cấp được; chỉ admin gốc gỡ được). Admin phụ không đụng được tài khoản admin khác
+// (đổi mật khẩu, khoá, đá máy, xoá, xem mật khẩu) — chỉ admin gốc làm được (canManage).
+const { init, verifyUser, isAdminEmail, isAdminToken, isRootToken, isAdminRecord, geoOf, send, readJson, setApproved, autoApprove } = require('./_lib/admin');
 
 const MAX_DEVICES = 2;
 const EXEMPT_MAX = 20;
@@ -30,6 +33,7 @@ const okLimit = (n) => Number.isInteger(n) && n >= 1 && n <= EXEMPT_MAX;
 // `offline` chỉ app kiểm (features/quiz/quiz-offline-store.js) — làm offline thì không có máy chủ nào để chặn.
 const FEATURE_KEYS = ['quiz', 'create', 'room', 'record', 'offline'];
 const DEFAULT_FEATURES = { quiz: true, create: false, room: true, record: false, offline: false };
+const FULL_FEATURES = Object.fromEntries(FEATURE_KEYS.map(k => [k, true]));
 const normFeatures = (f) => {
     const src = f && typeof f === 'object' ? f : DEFAULT_FEATURES;
     return Object.fromEntries(FEATURE_KEYS.map(k => [k, src[k] === true]));
@@ -105,6 +109,27 @@ async function markClaims(db, uid) {
     await db.doc(`users/${uid}/private/devices`).set({ claimsAt: Date.now() }, { merge: true }).catch(() => {});
 }
 
+// KHO MẬT KHẨU — Firebase Auth chỉ giữ bản băm, không đọc lại được. Mật khẩu ADMIN ĐẶT (tạo / đổi ở trang Quản trị) được giữ ở
+// admin_vault/{uid} = { password, setAt, setBy, validAfter } — CHỈ máy chủ đọc / ghi (firestore.rules chặn mọi lệnh từ app), trả cho admin qua API.
+// Mật khẩu người dùng TỰ đặt (đăng ký, tự đổi) không bao giờ được lưu. `validAfter` = tokensValidAfterTime lúc đặt: người dùng tự đổi
+// mật khẩu sau đó thì Firebase dời mốc này → báo "có thể đã đổi" thay vì hiện một mật khẩu đã sai.
+const validAfterOf = (u) => Date.parse(u?.tokensValidAfterTime || '') || 0;
+async function saveVault(db, admin, record, password, by) {
+    await db.doc(`admin_vault/${record.uid}`).set({ password, setAt: admin.firestore.Timestamp.now(), setBy: by, validAfter: validAfterOf(record) });
+}
+/** Máy chủ vừa tự dời mốc (thu hồi phiên, khoá): dời mốc trong kho theo — trừ khi trước đó người dùng đã tự đổi mật khẩu (`before` = mốc trước thao tác). */
+async function touchVault(db, auth, uid, before) {
+    const ref = db.doc(`admin_vault/${uid}`);
+    const [s, u] = await Promise.all([ref.get(), auth.getUser(uid)]);
+    if (s.exists && (Number(s.data().validAfter) || 0) + 1500 >= before) await ref.update({ validAfter: validAfterOf(u) });
+}
+function vaultView(d, record) {
+    if (!d || typeof d.password !== 'string') return null;
+    return { password: d.password, setAt: d.setAt?.toMillis?.() || null, setBy: d.setBy || '', stale: validAfterOf(record) > (Number(d.validAfter) || 0) + 1500 };
+}
+/** Người gọi được đụng tài khoản này không: tài khoản thường → mọi admin; tài khoản admin → chỉ admin gốc (hoặc chính mình). */
+const canManage = (token, record) => !isAdminRecord(record) || isRootToken(token) || record.uid === token.uid;
+
 async function removeFrom(db, uid, pred) {
     const ref = db.doc(`users/${uid}/private/devices`);
     await db.runTransaction(async (tx) => {
@@ -114,10 +139,13 @@ async function removeFrom(db, uid, pred) {
     });
 }
 
-function serializeUserRecord(u, cfg) {
+/** `extra` (trang Quản trị): { pw: vaultView | null, canManage } — chỉ gửi khi người gọi là admin. */
+function serializeUserRecord(u, cfg, extra = {}) {
     const email = normEmail(u.email);
-    const isAdmin = isAdminEmail(email);
+    const isAdmin = isAdminRecord(u);
     return {
+        ...extra,
+        isRoot: isAdminEmail(email),
         uid: u.uid,
         email,
         displayName: u.displayName || '',
@@ -130,7 +158,7 @@ function serializeUserRecord(u, cfg) {
         providers: (u.providerData || []).map(p => p.providerId),
         allowPassword: isAdmin || cfg.passwordAllowed.includes(email) || cfg.deviceExempt.includes(email),
         unlimitedDevices: isAdmin || cfg.deviceExempt.includes(email),
-        deviceLimit: limitFor(cfg, email),
+        deviceLimit: isAdmin ? EXEMPT_MAX : limitFor(cfg, email),
         customLimit: okLimit(cfg.deviceLimits[email]) ? cfg.deviceLimits[email] : null,
         createdAt: u.metadata?.creationTime ? new Date(u.metadata.creationTime).getTime() : null,
         lastSignInAt: u.metadata?.lastSignInTime ? new Date(u.metadata.lastSignInTime).getTime() : null
@@ -168,11 +196,15 @@ module.exports = async function handler(req, res) {
         // ==================== CÁC TÁC VỤ QUẢN TRỊ (ADMIN ONLY) ====================
         if (String(body.action || '').startsWith('admin')) {
             if (!isAdminToken(token)) return send(res, 403, { error: 'Chỉ admin mới thực hiện được thao tác này' });
+            const by = normEmail(token.email);
+            const NOT_ROOT = 'Chỉ admin gốc mới chỉnh được tài khoản admin khác.';
 
             // 1. Đăng xuất thiết bị từ xa
             if (body.action === 'adminRemove') {
                 const target = cleanId(body.uid);
                 if (!target) return send(res, 400, { error: 'Thiếu uid' });
+                const rec = await auth.getUser(target).catch(() => null);
+                if (rec && !canManage(token, rec)) return send(res, 403, { error: NOT_ROOT });
                 const dev = cleanId(body.deviceId);
                 await removeFrom(db, target, d => !dev || d.id === dev);
                 await audit(db, admin, token, dev ? 'kick-device' : 'kick-all', target, dev ? { device: dev } : {});
@@ -194,6 +226,7 @@ module.exports = async function handler(req, res) {
                 let created = false;
                 try {
                     userRecord = await auth.getUserByEmail(email);
+                    if (!canManage(token, userRecord)) return send(res, 403, { error: NOT_ROOT });
                     userRecord = await auth.updateUser(userRecord.uid, {
                         password,
                         ...(displayName ? { displayName } : {}),
@@ -217,13 +250,16 @@ module.exports = async function handler(req, res) {
 
                 // Tự động gắn custom claim approved: true để tạo bộ đề / thư mục / phòng ngay
                 await setApproved(userRecord.uid);
-                // Admin chọn sẵn quyền tính năng lúc tạo (vd "Full tính năng") — không chọn thì theo mặc định
-                if (body.features && typeof body.features === 'object') {
+                // Admin chọn sẵn quyền tính năng lúc tạo (vd "Full tính năng") — không chọn thì theo mặc định; tick "Admin" = cấp luôn quyền admin
+                const makeAdmin = body.admin === true && !isAdminEmail(email);
+                if ((body.features && typeof body.features === 'object') || makeAdmin) {
                     const cur = (await auth.getUser(userRecord.uid)).customClaims || {};
-                    await auth.setCustomUserClaims(userRecord.uid, { ...cur, feat: normFeatures(body.features) });
+                    const feat = makeAdmin ? FULL_FEATURES : normFeatures(body.features);
+                    await auth.setCustomUserClaims(userRecord.uid, { ...cur, feat, ...(makeAdmin ? { admin: true } : {}) });
                     await markClaims(db, userRecord.uid);
                 }
                 userRecord = await auth.getUser(userRecord.uid);
+                await saveVault(db, admin, userRecord, password, by);
 
                 const finalName = displayName || userRecord.displayName || email.split('@')[0];
                 await db.doc(`users/${userRecord.uid}`).set({
@@ -240,8 +276,8 @@ module.exports = async function handler(req, res) {
 
                 await updateAccessLists(db, admin, email, { allowPassword, unlimitedDevices });
                 const cfg = await getAccessConfig(db);
-                await audit(db, admin, token, created ? 'create-user' : 'reset-user', email, { allowPassword, unlimitedDevices });
-                return send(res, 200, { ok: true, created, user: serializeUserRecord(userRecord, cfg) });
+                await audit(db, admin, token, created ? 'create-user' : 'reset-user', email, { allowPassword, unlimitedDevices, ...(makeAdmin ? { admin: true } : {}) });
+                return send(res, 200, { ok: true, created, user: serializeUserRecord(userRecord, cfg, { canManage: true, pw: { password, setAt: Date.now(), setBy: by, stale: false } }) });
             }
 
             // 3. Tra cứu chi tiết 1 tài khoản (theo email, tên đăng nhập hoặc uid) trực tiếp từ Firebase Auth
@@ -269,14 +305,16 @@ module.exports = async function handler(req, res) {
                     return send(res, 404, { error: 'Không tìm thấy tài khoản này trong Firebase Authentication.' });
                 }
 
-                const [cfg, devSnap, logSnap] = await Promise.all([
+                const manage = canManage(token, userRecord);
+                const [cfg, devSnap, logSnap, vSnap] = await Promise.all([
                     getAccessConfig(db),
                     db.doc(`users/${userRecord.uid}/private/devices`).get(),
-                    db.doc(`users/${userRecord.uid}/private/logins`).get()
+                    db.doc(`users/${userRecord.uid}/private/logins`).get(),
+                    manage ? db.doc(`admin_vault/${userRecord.uid}`).get() : null
                 ]);
                 return send(res, 200, {
                     ok: true,
-                    user: serializeUserRecord(userRecord, cfg),
+                    user: serializeUserRecord(userRecord, cfg, { canManage: manage, pw: vSnap?.exists ? vaultView(vSnap.data(), userRecord) : null }),
                     devices: devSnap.exists && Array.isArray(devSnap.data().list) ? devSnap.data().list : [],
                     logins: logSnap.exists && Array.isArray(logSnap.data().list) ? logSnap.data().list : []
                 });
@@ -287,12 +325,17 @@ module.exports = async function handler(req, res) {
             if (body.action === 'adminListUsers') {
                 const max = Math.min(Math.max(Number(body.limit) || 50, 1), 1000);
                 const pageToken = typeof body.pageToken === 'string' && body.pageToken ? body.pageToken : undefined;
-                const [listRes, cfg] = await Promise.all([
+                const [listRes, cfg, vaultSnap] = await Promise.all([
                     auth.listUsers(max, pageToken),
-                    getAccessConfig(db)
+                    getAccessConfig(db),
+                    db.collection('admin_vault').get()
                 ]);
+                const vault = new Map(vaultSnap.docs.map(d => [d.id, d.data()]));
                 const users = (listRes.users || [])
-                    .map(u => serializeUserRecord(u, cfg))
+                    .map(u => {
+                        const manage = canManage(token, u);
+                        return serializeUserRecord(u, cfg, { canManage: manage, pw: manage ? vaultView(vault.get(u.uid), u) : null });
+                    })
                     .sort((a, b) => (b.lastSignInAt || b.createdAt || 0) - (a.lastSignInAt || a.createdAt || 0));
                 return send(res, 200, { ok: true, users, access: cfg, nextPageToken: listRes.pageToken || null });
             }
@@ -312,6 +355,12 @@ module.exports = async function handler(req, res) {
                 if (userRecord) {
                     targetUid = userRecord.uid;
                     targetEmail = normEmail(userRecord.email || targetEmail);
+                    if (!canManage(token, userRecord)) return send(res, 403, { error: NOT_ROOT });
+                    if (typeof body.admin === 'boolean') {
+                        if (isAdminEmail(targetEmail)) return send(res, 400, { error: 'Admin gốc luôn là admin.' });
+                        if (!body.admin && isAdminRecord(userRecord) && !isRootToken(token)) return send(res, 403, { error: 'Chỉ admin gốc mới gỡ được quyền admin.' });
+                    }
+                    const validBefore = validAfterOf(userRecord);
                     const authPatch = {};
                     if (typeof body.password === 'string' && body.password.length > 0) {
                         if (body.password.length < 6) return send(res, 400, { error: 'Mật khẩu mới phải có ít nhất 6 ký tự.' });
@@ -336,6 +385,7 @@ module.exports = async function handler(req, res) {
                     if (Object.keys(authPatch).length > 0) {
                         userRecord = await auth.updateUser(targetUid, authPatch);
                     }
+                    if (authPatch.password) await saveVault(db, admin, userRecord, authPatch.password, by);
                     // Claim: duyệt + quyền tính năng — gộp MỘT lần ghi. features: null = về mặc định, object = bật/tắt từng tính năng
                     const claims = { ...(userRecord.customClaims || {}) };
                     let claimsDirty = false;
@@ -351,6 +401,12 @@ module.exports = async function handler(req, res) {
                         else return send(res, 400, { error: 'Quyền tính năng không hợp lệ.' });
                         claimsDirty = true;
                     }
+                    // Cấp admin = duyệt + mở hết tính năng; gỡ admin thì giữ nguyên tính năng đang có (admin gốc chỉnh lại sau nếu muốn)
+                    if (typeof body.admin === 'boolean' && body.admin !== (claims.admin === true)) {
+                        if (body.admin) Object.assign(claims, { admin: true, approved: true, feat: { ...FULL_FEATURES } });
+                        else delete claims.admin;
+                        claimsDirty = true;
+                    }
                     if (claimsDirty) {
                         await auth.setCustomUserClaims(targetUid, claims);
                         userRecord = await auth.getUser(targetUid);
@@ -364,6 +420,10 @@ module.exports = async function handler(req, res) {
                     if (body.disabled === true || body.revokeSessions === true) {
                         await auth.revokeRefreshTokens(targetUid).catch(() => {});
                         await removeFrom(db, targetUid, () => true);
+                    }
+                    if (typeof body.disabled === 'boolean' || body.revokeSessions === true) {
+                        await touchVault(db, auth, targetUid, validBefore).catch(() => {});
+                        userRecord = await auth.getUser(targetUid);
                     }
                 }
 
@@ -393,7 +453,7 @@ module.exports = async function handler(req, res) {
                 }
                 // Ghi lại các trường đã đổi (mật khẩu chỉ ghi "đã đổi", không ghi giá trị)
                 const changed = {};
-                for (const k of ['allowPassword', 'unlimitedDevices', 'approved', 'disabled', 'emailVerified', 'revokeSessions', 'displayName', 'deviceLimit']) {
+                for (const k of ['allowPassword', 'unlimitedDevices', 'approved', 'disabled', 'emailVerified', 'revokeSessions', 'displayName', 'deviceLimit', 'admin']) {
                     if (k in body) changed[k] = body[k];
                 }
                 if ('features' in body) {
@@ -402,9 +462,14 @@ module.exports = async function handler(req, res) {
                 }
                 if (typeof body.password === 'string' && body.password) changed.password = 'đã đổi';
                 await audit(db, admin, token, 'update-user', targetEmail || targetUid, changed);
+                let pw;
+                if (userRecord) {
+                    const v = await db.doc(`admin_vault/${targetUid}`).get().catch(() => null);
+                    pw = v?.exists ? vaultView(v.data(), userRecord) : null;
+                }
                 return send(res, 200, {
                     ok: true,
-                    user: userRecord ? serializeUserRecord(userRecord, cfg) : { email: targetEmail },
+                    user: userRecord ? serializeUserRecord(userRecord, cfg, { canManage: canManage(token, userRecord), pw }) : { email: targetEmail },
                     access: cfg
                 });
             }
@@ -415,9 +480,11 @@ module.exports = async function handler(req, res) {
                 if (!targetUid) return send(res, 400, { error: 'Thiếu uid' });
                 const u = await auth.getUser(targetUid);
                 const email = normEmail(u.email);
-                if (isAdminEmail(email)) return send(res, 400, { error: 'Không thể xóa tài khoản Admin.' });
+                if (isAdminEmail(email)) return send(res, 400, { error: 'Không thể xóa tài khoản admin gốc.' });
+                if (!canManage(token, u)) return send(res, 403, { error: NOT_ROOT });
                 await auth.deleteUser(targetUid);
                 await db.doc(`users/${targetUid}/private/devices`).delete().catch(() => {});
+                await db.doc(`admin_vault/${targetUid}`).delete().catch(() => {});
                 if (isEmail(email)) {
                     await updateAccessLists(db, admin, email, { allowPassword: false, unlimitedDevices: false });
                     await db.doc('config/access').set({ deviceLimits: { [email]: admin.firestore.FieldValue.delete() } }, { merge: true }).catch(() => {});

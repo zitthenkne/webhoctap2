@@ -27,14 +27,26 @@ function remember(u) {
         try { if (!/firefox/i.test(navigator.userAgent)) navigator.storage?.persist?.().catch(() => {}); } catch (e) {}
     }
     try {
+        // `admin` (admin phụ — claim do máy chủ gắn): chỉ để thanh bên hiện lối vào Bảng Quản trị; giữ giá trị cũ tới khi đọc được claim
+        const prev = cached();
         localStorage.setItem(KEY, JSON.stringify({
             uid: u.uid,
             displayName: u.displayName || '',
             email: u.email || '',
-            photoURL: u.photoURL || ''
+            photoURL: u.photoURL || '',
+            ...(prev?.uid === u.uid && prev.admin ? { admin: true } : {})
         }));
     } catch (e) { /* hết dung lượng: chịu, chỉ mất tiện lợi */ }
 }
+function rememberAdmin(u) {
+    u.getIdTokenResult().then((r) => {
+        const c = cached();
+        if (!c || c.uid !== u.uid || !!c.admin === (r.claims.admin === true)) return;
+        const { offline, ...rest } = c;
+        localStorage.setItem(KEY, JSON.stringify({ ...rest, admin: r.claims.admin === true }));
+    }).catch(() => {});
+}
+if (typeof window !== 'undefined') window.addEventListener('auth:claims', () => { if (isReal(auth.currentUser)) rememberAdmin(auth.currentUser); });
 
 function cached() {
     try {
@@ -56,6 +68,7 @@ function afterLoad(fn) {
 onAuthStateChanged(auth, (u) => {
     if (!isReal(u)) return;
     remember(u);
+    rememberAdmin(u);
     if (!u.emailVerified) refreshEmailVerified();
     // Chỉ đăng nhập bằng Google (core/google-gate.js) + giới hạn 2 máy / tài khoản (core/device-limit.js) — nạp lười để trang không đăng nhập khỏi tải thêm
     import('./google-gate.js').then(m => m.checkGoogleSession(u)).catch(() => {});

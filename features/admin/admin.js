@@ -1,20 +1,23 @@
 // File: features/admin/admin.js
-// SỔ QUẢN TRỊ — chỉ admin (isAdminUser, khớp isAdmin() trong firestore.rules và isAdminToken trong api/_lib/admin.js).
+// SỔ QUẢN TRỊ — chỉ admin (adminRole: admin gốc theo email, admin phụ theo claim `admin` — khớp isAdmin() trong firestore.rules và
+// isAdminToken trong api/_lib/admin.js). Admin phụ không chỉnh được tài khoản admin khác (máy chủ trả u.canManage = false).
 // Một khoảng thời gian chung (Hôm nay / 7 / 30 ngày — đầu trang) cho mọi tab:
 //  • Tổng quan: note số liệu, "Việc cần xem" (bấm là nhảy tới đúng chỗ đã lọc), biểu đồ lượt làm, đề hot, ai được dùng tính năng gì.
 //  • Đề & lượt làm: quiz_results (lượt nộp của tài khoản) + quiz_guest (máy khách chưa đăng nhập) — tải một lần, Tải lại mới đọc lại;
 //    quiz_runs (đang làm — core/quiz-run.js ghi lúc bắt đầu / nộp) và CẢNH BÁO cùng tài khoản làm trên 2 máy cùng lúc:
 //      – hai lượt nộp của cùng tài khoản, khác máy, chồng giờ nhau; – lượt nộp mà máy làm bài tự phát hiện máy kia (quiz_results.clash);
 //      – đang làm (chưa nộp) trên ≥ 2 máy.
-//  • Quyền tài khoản: bảng ô tài khoản × tính năng (core/features.js) — bấm ô là bật / tắt, tự lưu; tick nhiều dòng để đổi hàng loạt.
-//    Ngăn chi tiết (4 tab con): Quyền · Máy · Làm đề · Sửa.
-//  • Cài đặt: thông báo (config/announce — core/announce.js), số máy mặc định (config/access.defaultLimit), dọn bản ghi cũ, nhật ký.
+//  • Tài khoản: 2 kiểu xem — 🎀 Quyền: bảng ô tài khoản × tính năng (core/features.js), bấm ô là bật / tắt, tự lưu, tick nhiều dòng để đổi
+//    hàng loạt; 🔑 Đăng nhập: mật khẩu admin đã đặt (kho admin_vault — api/devices.js), cách đăng nhập, khoá / đá máy nhanh.
+//    Ngăn chi tiết (4 tab con): Tài khoản (mật khẩu, vai trò admin, tên, khoá, xoá) · Quyền · Máy · Làm đề.
+//  • Cài đặt: đội quản trị (cấp / gỡ admin), thông báo (config/announce — core/announce.js), số máy mặc định (config/access.defaultLimit),
+//    dọn bản ghi cũ, nhật ký.
 import { auth, db } from '../../core/firebase-init.js';
 import { onSessionUser } from '../../core/auth-session.js';
 import { collection, query, where, orderBy, limit, onSnapshot, getDocs, getDoc, setDoc, addDoc, doc, writeBatch, Timestamp, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { showToast, showConfirm } from '../../core/utils.js';
-import { isAdminUser, onAccessConfig, setDefaultLimit, limitFromConfig, adminListAllUsers, adminLookupUser, adminUpdateUser, adminDeleteUser,
-    adminRemoveDevices, adminCreateUser, placeOf, ADMIN_EMAILS, EXEMPT_MAX, MAX_DEVICES } from '../../core/device-limit.js';
+import { adminRole, onAccessConfig, setDefaultLimit, limitFromConfig, adminListAllUsers, adminLookupUser, adminUpdateUser, adminDeleteUser,
+    adminRemoveDevices, adminCreateUser, placeOf, EXEMPT_MAX, MAX_DEVICES } from '../../core/device-limit.js';
 import { RUN_MAX_MS } from '../../core/quiz-run.js';
 import { FEATURES, FEATURE_KEYS, DEFAULT_FEATURES, FULL_FEATURES, normFeatures } from '../../core/features.js';
 import * as fx from './admin-fx.js';
@@ -71,7 +74,12 @@ let usersError = '';
 let userMap = new Map();
 let access = { deviceExempt: [], passwordAllowed: [], deviceLimits: {}, defaultLimit: MAX_DEVICES };
 let repView = 'quiz';
+let accView = 'perm';        // 'perm' (bảng quyền) | 'login' (mật khẩu, đăng nhập)
 let accFilter = 'all';
+let myRole = null;           // 'root' | 'admin'
+let myUid = '';
+const revealed = new Set();  // tài khoản đang hiện mật khẩu (bấm 👁)
+let revealAll = false;
 const selected = new Set();  // tài khoản đang tick (đổi quyền hàng loạt)
 let accSort = { key: 'smart', dir: 1 };   // bấm tiêu đề cột để xếp
 let openUid = null;
@@ -101,17 +109,19 @@ function switchTab(t) {
     try { localStorage.setItem('adminTab', t); } catch (e) {}
     renderCurrent();
     if (t === 'accounts' && !users) loadUsers();
-    if (t === 'settings') { loadAnnounce(); watchAudit(); }
+    if (t === 'settings') { loadAnnounce(); watchAudit(); if (!users) loadUsers(); }
     paintBulk();
 }
 function renderCurrent() {
     if (curTab === 'home') renderHome();
     if (curTab === 'report') renderReport();
     if (curTab === 'accounts') renderAccounts();
+    if (curTab === 'settings') renderAdmins();
 }
 /** Nhảy tới tab khác, đã lọc sẵn (từ "Việc cần xem", đề hot, "Ai được dùng gì"…). */
 function goto(tab, o = {}) {
     if (o.filter) accFilter = o.filter;
+    if (o.view) setAccView(o.view, false);
     if (o.search != null && tab === 'report') $('rep-search').value = o.search;
     if (o.search != null && tab === 'accounts') $('acc-search').value = o.search;
     if (o.clash != null) $('rep-only-clash').checked = o.clash;
@@ -153,21 +163,29 @@ function onAdminVisibility() {
 }
 
 let started = false;
-onSessionUser((u) => {
+onSessionUser(async (u) => {
     if (started) return;
-    if (!u || !isAdminUser(u)) {
-        $('gate').classList.remove('hidden');
-        $('live-status').textContent = u ? 'Không có quyền' : 'Chưa đăng nhập';
-        return;
-    }
+    const gate = (text) => { $('gate').classList.remove('hidden'); $('live-status').textContent = text; };
+    if (!u) return gate('Chưa đăng nhập');
     if (typeof u.getIdToken !== 'function') {           // danh tính lưu máy lúc offline — chưa gọi được máy chủ
         $('live-status').textContent = 'Đang chờ mạng để xác minh tài khoản…';
         return;
     }
+    $('live-status').textContent = 'Đang xác minh quyền admin…';
+    const role = await adminRole(u);
+    if (started) return;
+    if (!role) return gate('Không có quyền');
     started = true;
+    myRole = role;
+    myUid = u.uid;
     $('gate').classList.add('hidden');
+    $('me-role').textContent = role === 'root' ? '👑 Admin gốc' : '🛡️ Admin';
+    $('me-role').classList.remove('hidden');
     let t = 'home', r = 7;
-    try { t = localStorage.getItem('adminTab') || 'home'; r = Number(localStorage.getItem('adminRange')) || 7; } catch (e) {}
+    try {
+        t = localStorage.getItem('adminTab') || 'home'; r = Number(localStorage.getItem('adminRange')) || 7;
+        if (localStorage.getItem('adminAccView') === 'login') accView = 'login';
+    } catch (e) {}
     rangeDays = RANGES[r] ? r : 7;
     document.querySelectorAll('[data-range]').forEach(b => b.classList.toggle('is-on', Number(b.dataset.range) === rangeDays));
     bindAll();
@@ -187,9 +205,9 @@ function bindAll() {
         document.querySelectorAll('[data-range]').forEach(x => x.classList.toggle('is-on', x === b));
         loadResults();
     }));
-    document.querySelectorAll('.rep-view').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('.rep-view[data-view]').forEach(b => b.addEventListener('click', () => {
         repView = b.dataset.view;
-        document.querySelectorAll('.rep-view').forEach(x => x.classList.toggle('is-on', x === b));
+        document.querySelectorAll('.rep-view[data-view]').forEach(x => x.classList.toggle('is-on', x === b));
         renderReport();
     }));
     ['rep-search', 'rep-only-clash'].forEach(id => $(id).addEventListener('input', renderReport));
@@ -222,7 +240,7 @@ function start() {
 // ---------------- PHÍM TẮT + TÌM NHANH ----------------
 const KEYS = [
     ['Ctrl K', 'Tìm nhanh tài khoản, đề, thao tác'], ['1 2 3 4', 'Chuyển tab Tổng quan · Lượt làm · Quyền · Cài đặt'],
-    ['/', 'Nhảy vào ô tìm của tab đang mở'], ['N', 'Tạo tài khoản mới'], ['R', 'Tải lại lượt làm'],
+    ['/', 'Nhảy vào ô tìm của tab đang mở'], ['N', 'Tạo tài khoản mới'], ['V', 'Đổi kiểu xem tài khoản: Quyền ⇄ Đăng nhập'], ['R', 'Tải lại lượt làm'],
     ['← →', 'Lật tài khoản trước / sau (khi đang mở chi tiết)'], ['Ctrl Z', 'Hoàn tác lần đổi quyền vừa rồi'], ['Esc', 'Đóng hộp / ngăn đang mở'], ['?', 'Mở bảng này']
 ];
 function openKeys() { fx.openSheet(KEYS); }
@@ -242,6 +260,7 @@ function onShortcut(e) {
         return;
     }
     if (e.key.toLowerCase() === 'n') { e.preventDefault(); switchTab('accounts'); $('acc-new').classList.remove('hidden'); $('new-email').focus(); return; }
+    if (e.key.toLowerCase() === 'v' && curTab === 'accounts') { e.preventDefault(); return setAccView(accView === 'perm' ? 'login' : 'perm'); }
     if (e.key.toLowerCase() === 'r') { e.preventDefault(); loadResults(); showToast('Đang đọc lại lượt làm… 🔄', 'info', 1400); }
 }
 
@@ -250,13 +269,13 @@ function paletteSearch(q) {
     const out = [];
     const has = (...v) => !q || v.some(x => lc(x).includes(q));
     const go = (tab) => () => switchTab(tab);
-    [['home', '🏠', 'Tổng quan'], ['report', '📚', 'Đề & lượt làm'], ['accounts', '🎀', 'Quyền tài khoản'], ['settings', '🌿', 'Cài đặt']]
+    [['home', '🏠', 'Tổng quan'], ['report', '📚', 'Đề & lượt làm'], ['accounts', '👥', 'Tài khoản'], ['settings', '🌿', 'Cài đặt']]
         .forEach(([t, ic, name]) => { if (has(name, 'đi tới', t)) out.push({ group: 'Đi tới', icon: ic, label: name, run: go(t) }); });
     if (q && users) {
         users.filter(u => has(u.displayName, u.email, u.uid, memos[u.uid])).slice(0, 8).forEach(u => out.push({
             group: 'Tài khoản', icon: avatar(u.uid, u.displayName || u.email), label: u.displayName || u.email,
             labelHtml: fx.hl(u.displayName || u.email.split('@')[0], q),
-            sub: `${u.email}${memos[u.uid] ? ' · 📝 ' + memos[u.uid].slice(0, 40) : ''}`, run: () => openDrawer(u.uid)
+            sub: `${u.email}${u.isAdmin ? ' · 👑 admin' : ''}${memos[u.uid] ? ' · 📝 ' + memos[u.uid].slice(0, 40) : ''}`, run: () => openDrawer(u.uid, null, false, 'acc')
         }));
     }
     if (q) {
@@ -271,6 +290,10 @@ function paletteSearch(q) {
     }
     const acts = [
         ['🌱', 'Tạo tài khoản mới', () => { switchTab('accounts'); $('acc-new').classList.remove('hidden'); $('new-email').focus(); }],
+        ['🔑', 'Xem mật khẩu / đăng nhập các tài khoản', () => goto('accounts', { view: 'login', filter: 'all' })],
+        ['👑', 'Cấp quyền admin cho tài khoản khác', () => { switchTab('settings'); $('admin-add-email').focus(); }],
+        ['👑', 'Danh sách admin', () => goto('accounts', { filter: 'admin' })],
+        ['🔒', 'Tài khoản bị khoá', () => goto('accounts', { filter: 'locked', view: 'login' })],
         ['🚨', 'Xem lượt làm trên 2 máy', () => goto('report', { clash: true })],
         ['⏳', 'Tài khoản chưa duyệt', () => goto('accounts', { filter: 'unapproved' })],
         ['⭐', 'Tài khoản đã ghim', () => goto('accounts', { filter: 'pinned' })],
@@ -286,12 +309,14 @@ function paletteSearch(q) {
 }
 
 function onNavClick(e) {
+    const gd = e.target.closest('[data-guest-dev]');
+    if (gd) return openGuest(gd.dataset.guestDev);
     const g = e.target.closest('[data-goto]');
     if (g) return goto(g.dataset.goto, { filter: g.dataset.filter, search: g.dataset.search, clash: g.dataset.clash === '1' ? true : undefined });
     const b = e.target.closest('[data-act]');
     if (!b) return;
     // Lật ‹ › theo đúng thứ tự những người đang hiện trên tab này
-    if (b.dataset.act === 'open') return openDrawer(b.dataset.uid, [...new Set([...$(`tab-${curTab}`).querySelectorAll('[data-act="open"]')].map(x => x.dataset.uid))]);
+    if (b.dataset.act === 'open') return openDrawer(b.dataset.uid, [...new Set([...$(`tab-${curTab}`).querySelectorAll('[data-act="open"]')].map(x => x.dataset.uid))], false, curTab === 'report' ? 'quiz' : 'acc');
     if (b.dataset.act === 'kick-all') return kick(b.dataset.uid, '', '');
 }
 
@@ -321,14 +346,31 @@ function normResult(id, x) {
         device: str(x.device, 64), label: str(x.deviceLabel, 80), clash: str(x.clash, 80), flags: []
     };
 }
-// Máy khách: mỗi máy × mỗi đề một doc (làm lại thì ghi đè lượt cuối + đếm số lượt)
+// Máy khách: mỗi máy × mỗi đề một doc (làm lại thì ghi đè lượt cuối + đếm số lượt) — kèm chi tiết máy, vị trí theo IP, 10 lượt gần nhất
+// (core/quiz-run.js). Bản ghi cũ trước bản cập nhật này không có các trường đó → hiện "chưa rõ".
 function normGuest(id, x) {
     const end = msOf(x.at);
+    const hist = (Array.isArray(x.hist) ? x.hist.slice(-10) : [])
+        .map(h => ({ s: int(h?.s) || 0, e: int(h?.e) || 0, p: int(h?.p) })).filter(h => h.s > 0);
     return {
         id, device: str(x.device, 64) || id, label: str(x.label, 80), quizId: str(x.quizId, 120), title: str(x.title, 200),
         done: x.state === 'done', pct: int(x.pct), attempts: Math.max(1, int(x.attempts) || 1),
-        start: Math.min(int(x.startedAt) || end, end), end
+        start: Math.min(int(x.startedAt) || end, end), end,
+        os: str(x.os, 40), model: str(x.model, 40), screen: str(x.screen, 20), tz: str(x.tz, 40), src: str(x.src, 40),
+        ip: str(x.ip, 60), city: str(x.city, 60), region: str(x.region, 10), country: str(x.country, 4).toUpperCase(),
+        firstAt: int(x.firstAt) || 0, hist
     };
+}
+/** Cờ quốc gia từ mã 2 chữ (VN → 🇻🇳). */
+const flagOf = (cc) => /^[A-Z]{2}$/.test(cc) ? String.fromCodePoint(...[...cc].map(c => 0x1F1A5 + c.charCodeAt(0))) : '';
+const guestPlace = (g) => [g.city, g.region && g.region !== g.city ? g.region : '', g.country].filter(Boolean).join(', ');
+/** "SM-G991B · Điện thoại Android · Chrome" — đời máy (nếu đọc được) + loại máy · trình duyệt. */
+const guestDev = (g) => [g.model, g.label || 'Máy chưa rõ'].filter(Boolean).join(' · ');
+/** Một dòng phụ: 📍 nơi · 🕐 lúc · ⏱ làm bao lâu. */
+function guestMeta(g) {
+    const place = guestPlace(g);
+    return [place ? `${flagOf(g.country)} ${esc(place)}`.trim() : '📍 chưa rõ nơi', `🕐 ${fmtShort(g.end)}`,
+        g.done && g.end > g.start ? `⏱ ${dur(g.end - g.start)}` : g.done ? '' : '✏️ chưa nộp'].filter(Boolean).join(' · ');
 }
 const isDoing = (r) => r.state === 'doing' && Date.now() - r.atMs < RUN_MAX_MS;
 
@@ -472,9 +514,48 @@ function bubbles(rs, max = 14, withTitle = false) {
     return `<span class="bubs">${list.length > max ? `<span class="bub-more">+${list.length - max}</span>` : ''}${shown.map(r => bubble(r, withTitle)).join('')}</span>`;
 }
 function guestBubble(g) {
-    const tip = [g.label || 'máy chưa rõ', g.done && g.pct != null ? `${g.pct}%` : 'chưa nộp / bỏ dở', fmtShort(g.end), g.attempts > 1 ? `${g.attempts} lượt` : ''].filter(Boolean).join(' · ');
+    const tip = [guestDev(g), g.done && g.pct != null ? `${g.pct}%` : 'chưa nộp / bỏ dở', fmtShort(g.end), guestPlace(g), g.attempts > 1 ? `${g.attempts} lượt` : ''].filter(Boolean).join(' · ');
     return `<span class="bub ${g.done ? scoreClass(g.pct) : 's-none'}" title="${esc(tip)}">${g.done && g.pct != null ? g.pct : '…'}</span>`;
 }
+/** Bong bóng từng lượt của máy khách (lịch sử ≤ 10 lượt); bản ghi cũ không có lịch sử → chỉ lượt cuối. */
+function guestHistBubbles(g) {
+    if (!g.hist.length) return guestBubble(g);
+    return g.hist.map(h => {
+        const tip = [`Bắt đầu ${fmtShort(h.s)}`, h.e ? `nộp ${fmtClock(h.e)} (${dur(h.e - h.s)})` : 'chưa nộp / bỏ dở', h.p != null ? `${h.p}%` : ''].filter(Boolean).join(' · ');
+        return `<span class="bub ${h.e && h.p != null ? scoreClass(h.p) : 's-none'}" title="${esc(tip)}">${h.e && h.p != null ? h.p : '…'}</span>`;
+    }).join('');
+}
+
+/** Hộp chi tiết một máy khách: máy gì, ở đâu, lần đầu / lần cuối, từng đề + từng lượt (giờ bắt đầu, nộp, làm bao lâu, điểm). */
+function openGuest(device) {
+    const ds = guests.filter(g => g.device === device).sort((a, b) => b.end - a.end);
+    if (!ds.length) return;
+    // Lượt mới nhất có đủ chi tiết nhất (bản ghi cũ thiếu trường) → lấy trường đầu tiên có giá trị
+    const pick = (k) => ds.find(g => g[k])?.[k] || '';
+    const g = Object.fromEntries(['label', 'model', 'os', 'screen', 'tz', 'src', 'ip', 'city', 'region', 'country'].map(k => [k, pick(k)]));
+    const firsts = ds.map(x => x.firstAt || x.hist[0]?.s || x.start).filter(Boolean);
+    const first = firsts.length ? Math.min(...firsts) : 0;
+    const last = Math.max(...ds.map(x => x.end));
+    const place = guestPlace(g);
+    const kv = [
+        ['📱 Máy', esc(guestDev(g))], ['💻 Hệ điều hành', esc(g.os || 'chưa rõ')], ['🖥️ Màn hình', esc(g.screen || 'chưa rõ')],
+        ['📍 Ở đâu', place ? `${flagOf(g.country)} ${esc(place)} <small>(theo IP, gần đúng)</small>` : 'chưa rõ'],
+        ['🌐 IP', esc(g.ip || 'chưa rõ')], ['🕰️ Múi giờ máy', esc(g.tz || 'chưa rõ')], ['🔗 Vào từ', esc(g.src || 'mở thẳng link / không rõ')],
+        ['🌱 Lần đầu làm', fmtDate(first)], ['🕐 Lần cuối', `${fmtDate(last)} <small>(${ago(last)})</small>`],
+        ['🔑 Mã máy', `<code>${esc(device)}</code>`]
+    ];
+    const quizzes = ds.map(x => {
+        const rows = (x.hist.length ? x.hist : [{ s: x.start, e: x.done ? x.end : 0, p: x.pct }]).slice().reverse();
+        return `<div class="gq"><p class="gq-t"><b>${esc(x.title || x.quizId)}</b> <small>${x.attempts} lượt${x.hist.length && x.attempts > x.hist.length ? ` · hiện ${x.hist.length} lượt gần nhất` : ''}</small></p>
+            <table class="hist-t"><thead><tr><th>Bắt đầu</th><th>Nộp</th><th>Làm</th><th>Điểm</th></tr></thead><tbody>${rows.map(h => `<tr>
+                <td>${fmtShort(h.s)}</td><td>${h.e ? fmtClock(h.e) : '<span class="nb-tiny">chưa nộp</span>'}</td>
+                <td>${h.e && h.e > h.s ? dur(h.e - h.s) : '—'}</td><td>${h.e && h.p != null ? `<span class="bub ${scoreClass(h.p)}">${h.p}</span>` : '—'}</td></tr>`).join('')}</tbody></table></div>`;
+    }).join('');
+    fx.openInfo('🕶️ Máy khách chưa đăng nhập', `<dl class="kv">${kv.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
+        <p class="look-l">📚 Đã làm ${ds.length} đề · ${RANGES[rangeDays]}</p>${quizzes}
+        <p class="nb-tiny mt-2">Vị trí lấy theo IP mạng (nhà mạng / wifi) nên chỉ gần đúng tới tỉnh / thành. Máy chưa cập nhật bản mới thì chỉ có lượt cuối.</p>`);
+}
+
 function personBtn(uid, extra = '', q = '') {
     const p = person(uid);
     return `<button type="button" class="who" data-act="open" data-uid="${esc(uid)}">${avatar(uid, nameOf(p))}
@@ -612,8 +693,9 @@ function renderFeed() {
             return `<li><button type="button" class="feed-it" data-act="open" data-uid="${esc(acc.uid)}">${avatar(acc.uid, nameOf(p))}
                 <span class="min-w-0 flex-1"><b>${esc(nameOf(p))}</b> nộp <i>${esc(acc.title || acc.quizId)}</i><small>${ago(acc.end)}${acc.label ? ' · ' + esc(acc.label) : ''}</small></span>${bubble(acc)}</button></li>`;
         }
-        return `<li><button type="button" class="feed-it" data-goto="report" data-search="${esc(g.title || g.quizId)}"><span class="ava ava-guest">🕶️</span>
-            <span class="min-w-0 flex-1"><b>Khách</b> nộp <i>${esc(g.title || g.quizId)}</i><small>${ago(g.end)} · ${esc(g.label || 'máy chưa rõ')}</small></span>${guestBubble(g)}</button></li>`;
+        const place = guestPlace(g);
+        return `<li><button type="button" class="feed-it" data-guest-dev="${esc(g.device)}" title="Xem chi tiết máy khách này"><span class="ava ava-guest">🕶️</span>
+            <span class="min-w-0 flex-1"><b>Khách</b> nộp <i>${esc(g.title || g.quizId)}</i><small>${ago(g.end)} · ${esc(guestDev(g))}${place ? ' · ' + flagOf(g.country) + ' ' + esc(place) : ''}</small></span>${guestBubble(g)}</button></li>`;
     }).join('') : `<li class="nb-tiny">Chưa có lượt nộp nào trong ${RANGES[rangeDays]} 🌸</li>`;
 }
 
@@ -671,7 +753,7 @@ function matchesQ(r, q) {
     const p = person(r.uid);
     return [r.title, r.quizId, p.name, p.email, r.label].some(v => lc(v).includes(q));
 }
-const guestMatches = (g, q) => !q || [g.title, g.quizId, g.label, 'khách', 'chưa đăng nhập'].some(v => lc(v).includes(q));
+const guestMatches = (g, q) => !q || [g.title, g.quizId, g.label, g.model, g.os, g.city, g.region, g.country, g.ip, g.device, 'khách', 'chưa đăng nhập'].some(v => lc(v).includes(q));
 
 function renderReport() {
     if (!started) return;
@@ -734,9 +816,9 @@ function renderByQuiz(list, gs = [], q = '') {
                 ${bubbles(rs)}
                 <span class="prow-meta">${rs.length} lượt${labels.length ? ` · <i class="fas ${deviceIcon(labels[0])}"></i> ${labels.length} máy` : ''}</span></div>`;
         };
-        const grow = (g) => `<div class="prow is-guest"><span class="who"><span class="ava ava-guest">🕶️</span>
-            <span class="min-w-0"><b>${esc(g.label || 'Máy chưa rõ')}</b><small>khách chưa đăng nhập</small></span></span>
-            <span class="bubs">${guestBubble(g)}</span><span class="prow-meta">${g.attempts} lượt</span></div>`;
+        const grow = (g) => `<div class="prow is-guest"><button type="button" class="who" data-guest-dev="${esc(g.device)}" title="Xem chi tiết máy khách"><span class="ava ava-guest"><i class="fas ${deviceIcon(g.label)}"></i></span>
+            <span class="min-w-0"><b>${fx.hl(guestDev(g), q)}</b><small>${guestMeta(g)}</small></span></button>
+            <span class="bubs">${guestHistBubbles(g)}</span><span class="prow-meta">${g.attempts} lượt</span></div>`;
         const rows = [...people.map(row), ...qz.gs.sort((a, b) => b.end - a.end).map(grow)];
         const SHOW = 6;
         // Bục top 3 (điểm cao nhất của từng người) + thanh phân bố điểm giỏi / khá / cần cố gắng
@@ -795,9 +877,13 @@ function renderByUser(list, gs = [], q = '') {
         html += `<article class="card p-4" style="--h:var(--hue-sky)">
             <header class="flex flex-wrap items-center gap-2 mb-2"><span class="who"><span class="ava ava-guest">🕶️</span>
                 <span><b>Khách chưa đăng nhập</b><small>${byDev.length} máy · ${new Set(gs.map(g => g.quizId)).size} đề</small></span></span></header>
-            <div class="space-y-1.5">${byDev.slice(0, 60).map(ds => `<div class="prow"><span class="prow-title"><i class="fas ${deviceIcon(ds[0].label)} mr-1"></i>${esc(ds[0].label || 'Máy chưa rõ')}</span>
-                <span class="bubs">${ds.map(g => guestBubble(g).replace('title="', `title="${esc(g.title || g.quizId)} · `)).join('')}</span>
-                <span class="prow-meta">${ds.length} đề</span></div>`).join('')}</div>
+            <div class="space-y-1.5">${byDev.slice(0, 60).map(ds => {
+                const g = [...ds].sort((a, b) => b.end - a.end)[0];
+                return `<div class="prow is-guest"><button type="button" class="who" data-guest-dev="${esc(g.device)}" title="Xem chi tiết máy khách"><span class="ava ava-guest"><i class="fas ${deviceIcon(g.label)}"></i></span>
+                    <span class="min-w-0"><b>${fx.hl(guestDev(g), q)}${g.os ? ` <span class="g-os">· ${esc(g.os)}</span>` : ''}</b><small>${guestMeta(g)}</small></span></button>
+                <span class="bubs">${ds.map(x => guestBubble(x).replace('title="', `title="${esc(x.title || x.quizId)} · `)).join('')}</span>
+                <span class="prow-meta">${ds.length} đề · ${ds.reduce((s, x) => s + x.attempts, 0)} lượt</span></div>`;
+            }).join('')}</div>
         </article>`;
     }
     return html;
@@ -834,7 +920,8 @@ function exportReport() {
     // Máy khách: lượt cuối của mỗi máy × đề (cột Số câu ghi số lượt đã làm)
     for (const g of onlyClash ? [] : guests.filter(g => guestMatches(g, q))) {
         rows.push([g.done ? fmtDate(g.end) : '(chưa nộp)', fmtDate(g.start), '(khách chưa đăng nhập)', '', g.title, g.quizId,
-            g.done && g.pct != null ? g.pct : '', `${g.attempts} lượt`, '', g.label, '']);
+            g.done && g.pct != null ? g.pct : '', `${g.attempts} lượt`, g.done && g.end > g.start ? Math.round((g.end - g.start) / 60000) : '',
+            [guestDev(g), g.os, guestPlace(g), g.ip].filter(Boolean).join(' · '), '']);
     }
     downloadCsv(rows, 'luot-lam-de');
     showToast(`Đã xuất ${rows.length - 1} dòng 📄`, 'success');
@@ -974,17 +1061,70 @@ async function loadUsers() {
     renderCurrent();
 }
 
-function accLimit(u) { return limitFromConfig(access, u.email); }
+function accLimit(u) { return u.isAdmin ? EXEMPT_MAX : limitFromConfig(access, u.email); }
 function customLimit(u) { return access.deviceLimits[lc(u.email)] || null; }
 function canPassword(u) {
     const e = lc(u.email);
-    return ADMIN_EMAILS.includes(e) || access.passwordAllowed.includes(e) || access.deviceExempt.includes(e);
+    return !!u.isAdmin || access.passwordAllowed.includes(e) || access.deviceExempt.includes(e);
+}
+/** Mình chỉnh được tài khoản này không (máy chủ quyết: admin phụ không đụng được admin khác). */
+const canMng = (u) => !!u && u.canManage !== false;
+const roleChip = (u) => u.isRoot ? '<span class="chip chip-root">👑 admin gốc</span>' : u.isAdmin ? '<span class="chip chip-admin">🛡️ admin</span>' : '';
+
+// ---------------- MẬT KHẨU (kho admin_vault — api/devices.js) ----------------
+// Firebase chỉ giữ bản băm → chỉ xem được mật khẩu DO ADMIN ĐẶT (tạo / đổi ở trang này). Người dùng tự đặt / tự đổi thì không xem được;
+// tự đổi sau lần admin đặt thì máy chủ báo pw.stale (mật khẩu đang lưu có thể đã sai).
+const PW_CHARS = 'abcdefghjkmnpqrstuvwxyz23456789';      // bỏ chữ dễ nhầm (l, i, o, 0, 1)
+function genPassword(n = 8) {
+    const a = new Uint32Array(n);
+    crypto.getRandomValues(a);
+    return [...a].map(x => PW_CHARS[x % PW_CHARS.length]).join('');
+}
+async function copyText(text, msg = 'Đã sao chép 📋') {
+    try { await navigator.clipboard.writeText(text); }
+    catch (e) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+    }
+    showToast(msg, 'success', 1500);
+}
+const credsText = (u) => `Email: ${u.email}\nMật khẩu: ${u.pw?.password || ''}`;
+const pwShown = (uid) => revealAll || revealed.has(uid);
+function toggleReveal(uid) {
+    if (revealed.has(uid)) revealed.delete(uid); else revealed.add(uid);
+    paintUser(uid);
+}
+/** Ô mật khẩu (dòng bảng + ngăn chi tiết). */
+function pwBox(u, big = false) {
+    if (!canMng(u)) return `<span class="pw-none">🔒 chỉ admin gốc xem được</span>`;
+    const pw = u.pw;
+    if (!pw) return `<button type="button" class="pw-set" data-pw-set="${esc(u.uid)}" title="Mật khẩu người dùng tự đặt không xem được — đặt mật khẩu mới để lưu lại">＋ Đặt mật khẩu</button>`;
+    const show = pwShown(u.uid);
+    return `<span class="pw ${big ? 'pw-big' : ''} ${pw.stale ? 'is-stale' : ''}" title="${esc(`Admin ${pw.setBy || ''} đặt lúc ${fmtDate(pw.setAt)}${pw.stale ? ' — người dùng có thể đã tự đổi sau đó' : ''}`)}">
+        <code class="pw-v">${show ? esc(pw.password) : '••••••••'}</code>
+        <button type="button" data-pw-eye="${esc(u.uid)}" title="${show ? 'Ẩn' : 'Hiện'} mật khẩu">${show ? '🙈' : '👁'}</button>
+        <button type="button" data-pw-copy="${esc(u.uid)}" title="Sao chép mật khẩu">📋</button>
+        ${pw.stale ? '<span class="pw-warn" title="Người dùng có thể đã tự đổi mật khẩu sau lần admin đặt">⚠️</span>' : ''}</span>`;
+}
+
+/** Đổi chế độ xem bảng tài khoản: 'perm' (ô quyền) | 'login' (mật khẩu, đăng nhập). */
+function setAccView(v, render = true) {
+    accView = v === 'login' ? 'login' : 'perm';
+    try { localStorage.setItem('adminAccView', accView); } catch (e) {}
+    document.querySelectorAll('.acc-view').forEach(b => b.classList.toggle('is-on', b.dataset.aview === accView));
+    if (render && curTab === 'accounts') renderAccounts();
 }
 
 // Bộ lọc dạng nút: [khoá, nhãn, điều kiện] — nút có 0 tài khoản thì ẩn (trừ "Tất cả" và nút đang chọn) cho gọn
 function accFilters(doing, clash) {
     return [
         ['all', '🌸 Tất cả', () => true],
+        ['admin', '👑 Admin', u => u.isAdmin],
         ['pinned', '⭐ Đã ghim', u => pins.has(u.uid)],
         ['memo', '📝 Có ghi chú', u => !!memos[u.uid]],
         ['doing', '✏️ Đang làm đề', u => doing.has(u.uid)],
@@ -998,6 +1138,8 @@ function accFilters(doing, clash) {
         ...FEATURE_KEYS.filter(k => DEFAULT_FEATURES[k]).map(k => [`off-${k}`, `🚫 Tắt ${FEATURES[k][0].toLowerCase()}`, u => !featOf(u)[k]]),
         ...FEATURE_KEYS.filter(k => DEFAULT_FEATURES[k]).map(k => [`on-${k}`, `${FEAT_EMOJI[k]} Được ${FEATURES[k][0].toLowerCase()}`, u => featOf(u)[k]]).map(f => [...f, 'hidden']),
         ['password', '🔑 Đăng nhập thẳng', canPassword],
+        ['vault', '🗝️ Đã lưu mật khẩu', u => !!u.pw],
+        ['google', '🇬 Chỉ Google', u => !(u.providers || []).includes('password')],
         ['limit', '📱 Số máy riêng', u => !!customLimit(u)]
     ];
 }
@@ -1012,6 +1154,7 @@ function filteredUsers(doing, clash) {
     const k = accSort.key, d = accSort.dir;
     const cmp = k === 'name' ? (a, b) => d * byName(a, b)
         : k === 'limit' ? (a, b) => d * (accLimit(b) - accLimit(a)) || byName(a, b)
+        : k === 'last' ? (a, b) => d * ((b.lastSignInAt || 0) - (a.lastSignInAt || 0)) || byName(a, b)
         : k.startsWith('feat-') ? (a, b) => d * (featOf(b)[k.slice(5)] - featOf(a)[k.slice(5)]) || byName(a, b)
         : (a, b) => (rank(b) - rank(a)) || ((b.lastSignInAt || 0) - (a.lastSignInAt || 0));
     return users.filter(u => (!q || [u.email, u.displayName, u.uid, memos[u.uid]].some(v => lc(v).includes(q))) && f[2](u)).sort(cmp);
@@ -1044,6 +1187,12 @@ function renderAccounts() {
     }).join('');
     const list = filteredUsers(doing, clash);
     visibleUids = list.slice(0, 300).map(u => u.uid);
+    $('acc-mtx').classList.toggle('is-login', accView === 'login');
+    $('acc-legend').innerHTML = accView === 'login'
+        ? `<span>👁 hiện · 📋 sao chép mật khẩu admin đã đặt. Mật khẩu người dùng <b>tự đặt</b> được Firebase mã hoá một chiều — không ai xem được, bấm <b>＋ Đặt mật khẩu</b> để đặt mới.</span>
+           <span>⚠️ = người dùng có thể đã tự đổi sau lần admin đặt.</span>`
+        : `<span>Bấm vào ô để <b>bật</b> <span class="tog-mini is-on">✓</span> hoặc <b>tắt</b> <span class="tog-mini">✕</span> — tự lưu, không cần bấm Lưu.</span>
+           <span>🌱 Mặc định: <b>Làm đề + Học nhóm</b>.</span><span>☑️ Tick nhiều dòng để đổi quyền một lần.</span><span>⌨️ <kbd>V</kbd> đổi kiểu xem.</span>`;
     paintHead();
     $('acc-list').innerHTML = list.slice(0, 300).map(u => rowHtml(u, doing, clash)).join('')
         || `<div class="mtx-empty"><span class="doodle doodle-cloud"></span> Không có tài khoản nào khớp 🌸</div>`;
@@ -1056,8 +1205,19 @@ function paintHead() {
     if (!users) return;
     const vis = visibleUids.map(id => userMap.get(id)).filter(Boolean);
     const allSel = vis.length > 0 && vis.every(u => selected.has(u.uid));
-    $('acc-head').innerHTML = `<label class="mcheck" title="Chọn tất cả dòng đang hiện"><input type="checkbox" data-selall ${allSel ? 'checked' : ''}></label>
-        <button type="button" class="mh-who" data-sort="name" title="Xếp theo tên (bấm lần nữa để đảo, lần ba về thông minh)">Tài khoản${sortMark('name')}${accSort.key === 'smart' ? ' <small>· xếp thông minh</small>' : ''}</button>
+    const selAll = `<label class="mcheck" title="Chọn tất cả dòng đang hiện"><input type="checkbox" data-selall ${allSel ? 'checked' : ''}></label>
+        <button type="button" class="mh-who" data-sort="name" title="Xếp theo tên (bấm lần nữa để đảo, lần ba về thông minh)">Tài khoản${sortMark('name')}${accSort.key === 'smart' ? ' <small>· xếp thông minh</small>' : ''}</button>`;
+    if (accView === 'login') {
+        const saved = vis.filter(u => u.pw).length;
+        $('acc-head').innerHTML = `${selAll}
+            <span class="mh-pw">Mật khẩu <small>${saved}/${vis.length} đã lưu</small>
+                <button type="button" class="mh-reveal" data-reveal-all title="Hiện / ẩn mọi mật khẩu đang hiện trong bảng">${revealAll ? '🙈 ẩn hết' : '👁 hiện hết'}</button></span>
+            <span>Đăng nhập bằng</span>
+            <button type="button" class="mh-dev" data-sort="last" title="Xếp theo lần đăng nhập gần nhất">Lần cuối${sortMark('last')}</button>
+            <span class="mh-act">Thao tác nhanh</span>`;
+        return;
+    }
+    $('acc-head').innerHTML = `${selAll}
         ${FEATURE_KEYS.map(k => {
             const [name, , color, bg] = FEATURES[k];
             const on = vis.filter(u => featOf(u)[k]).length;
@@ -1067,31 +1227,38 @@ function paintHead() {
         <button type="button" class="mh-dev" data-sort="limit" title="Xếp theo số máy được dùng">Máy${sortMark('limit')}</button><span></span>`;
 }
 
+/** Ô "tài khoản" đầu dòng (dùng chung 2 kiểu xem). */
+function whoCell(u, badges, q) {
+    return `<label class="mcheck"><input type="checkbox" data-sel="${esc(u.uid)}" ${selected.has(u.uid) ? 'checked' : ''} ${u.isAdmin ? 'disabled' : ''}></label>
+        <div class="mwho">
+            <button type="button" class="mwho-open" data-open="${esc(u.uid)}" title="Mở chi tiết">${avatar(u.uid, u.displayName || u.email)}
+                <span class="min-w-0"><b>${fx.hl(u.displayName || u.email.split('@')[0], q)}${u.uid === myUid ? ' <small class="me-tag">(bạn)</small>' : ''}</b><small>${fx.hl(u.email, q)}</small>
+                <span class="mbadges">${badges}</span></span></button>
+            <button type="button" class="pin-btn ${pins.has(u.uid) ? 'is-on' : ''}" data-pin="${esc(u.uid)}" title="${pins.has(u.uid) ? 'Bỏ ghim' : 'Ghim lên đầu'}">⭐</button>
+        </div>`;
+}
+const rowClass = (u) => `mrow ${selected.has(u.uid) ? 'is-sel' : ''} ${u.disabled ? 'is-off' : ''} ${pins.has(u.uid) ? 'is-pin' : ''}`;
+
 function rowHtml(u, doing, clash) {
+    if (accView === 'login') return loginRowHtml(u, doing, clash);
     const g = doing.get(u.uid);
     const f = featOf(u);
     const custom = customLimit(u);
     const lim = accLimit(u);
     const pend = featPending.get(u.uid);
     const badges = [
+        roleChip(u),
         clash.has(u.uid) ? '<span class="chip bg-rose-100 text-rose-600">🚨 2 máy</span>' : '',
         g ? `<span class="chip bg-emerald-100 text-emerald-700"><span class="pulse"></span>đang làm</span>` : '',
         u.disabled ? '<span class="chip bg-slate-200 text-slate-600">🔒 khoá</span>' : '',
         !u.approved ? '<span class="chip bg-amber-100 text-amber-700">⏳ chưa duyệt</span>' : '',
-        u.isAdmin ? '<span class="chip bg-amber-100 text-amber-700">👑 admin</span>' : '',
         !u.isAdmin && !u.featuresCustom ? '<span class="chip bg-emerald-50 text-emerald-600">🌱 mặc định</span>' : '',
         memos[u.uid] ? `<span class="chip bg-yellow-50 text-yellow-700" title="${esc(memos[u.uid])}">📝 ghi chú</span>` : '',
         pend ? `<span class="chip bg-pink-50 text-pink-500"><i class="fas ${pend.sending ? 'fa-spinner fa-spin' : 'fa-clock'}"></i>${pend.sending ? 'đang lưu' : 'sắp lưu'}</span>` : ''
     ].join('');
     const q = lc($('acc-search').value.trim());
-    return `<div class="mrow ${selected.has(u.uid) ? 'is-sel' : ''} ${u.disabled ? 'is-off' : ''} ${pins.has(u.uid) ? 'is-pin' : ''}" data-row="${esc(u.uid)}">
-        <label class="mcheck"><input type="checkbox" data-sel="${esc(u.uid)}" ${selected.has(u.uid) ? 'checked' : ''} ${u.isAdmin ? 'disabled' : ''}></label>
-        <div class="mwho">
-            <button type="button" class="mwho-open" data-open="${esc(u.uid)}" title="Mở chi tiết">${avatar(u.uid, u.displayName || u.email)}
-                <span class="min-w-0"><b>${fx.hl(u.displayName || u.email.split('@')[0], q)}</b><small>${fx.hl(u.email, q)}</small>
-                <span class="mbadges">${badges}</span></span></button>
-            <button type="button" class="pin-btn ${pins.has(u.uid) ? 'is-on' : ''}" data-pin="${esc(u.uid)}" title="${pins.has(u.uid) ? 'Bỏ ghim' : 'Ghim lên đầu'}">⭐</button>
-        </div>
+    return `<div class="${rowClass(u)}" data-row="${esc(u.uid)}">
+        ${whoCell(u, badges, q)}
         ${FEATURE_KEYS.map(k => {
             const [name, , color, bg] = FEATURES[k];
             return `<button type="button" class="tog ${f[k] ? 'is-on' : ''}" data-tog="${k}" data-uid="${esc(u.uid)}" ${u.isAdmin ? 'disabled' : ''}
@@ -1100,6 +1267,37 @@ function rowHtml(u, doing, clash) {
         }).join('')}
         <span class="mdev" title="${custom ? 'Số máy riêng' : 'Theo mặc định'}">${lim >= EXEMPT_MAX ? '∞' : lim}<small>${custom ? 'riêng' : 'máy'}</small></span>
         <button type="button" class="mmore" data-open="${esc(u.uid)}" title="Chi tiết"><i class="fas fa-chevron-right"></i></button>
+    </div>`;
+}
+
+/** Dòng kiểu xem 🔑 Đăng nhập: mật khẩu · cách đăng nhập · lần cuối · khoá / đá máy / đổi mật khẩu nhanh. */
+function loginRowHtml(u, doing, clash) {
+    const g = doing.get(u.uid);
+    const prov = u.providers || [];
+    const badges = [
+        roleChip(u),
+        clash.has(u.uid) ? '<span class="chip bg-rose-100 text-rose-600">🚨 2 máy</span>' : '',
+        g ? `<span class="chip bg-emerald-100 text-emerald-700"><span class="pulse"></span>đang làm</span>` : '',
+        !u.approved ? '<span class="chip bg-amber-100 text-amber-700">⏳ chưa duyệt</span>' : ''
+    ].join('');
+    const q = lc($('acc-search').value.trim());
+    const mng = canMng(u);
+    const methods = [
+        prov.includes('google.com') ? '<span class="chip bg-sky-50 text-sky-600"><i class="fab fa-google"></i> Google</span>' : '',
+        prov.includes('password') ? '<span class="chip bg-slate-100 text-slate-500">🔑 Mật khẩu</span>' : '',
+        canPassword(u) && !u.isAdmin ? '<span class="chip bg-violet-50 text-violet-600" title="Được vào bằng email + mật khẩu, không bắt Google">⚡ thẳng</span>' : ''
+    ].join('');
+    return `<div class="${rowClass(u)}" data-row="${esc(u.uid)}">
+        ${whoCell(u, badges, q)}
+        <div class="lpw">${pwBox(u)}</div>
+        <div class="lmeth">${methods || '<span class="nb-tiny">—</span>'}${u.disabled ? '<span class="chip bg-slate-200 text-slate-600">🔒 đang khoá</span>' : ''}</div>
+        <div class="llast" title="${esc(fmtDate(u.lastSignInAt))}">${u.lastSignInAt ? ago(u.lastSignInAt) : 'chưa đăng nhập'}</div>
+        <div class="lact">
+            <button type="button" class="iact" data-qpass="${esc(u.uid)}" ${mng ? '' : 'disabled'} title="Đổi mật khẩu">🔑</button>
+            <button type="button" class="iact ${u.disabled ? 'is-on' : ''}" data-qlock="${esc(u.uid)}" ${mng && !u.isRoot && u.uid !== myUid ? '' : 'disabled'} title="${u.disabled ? 'Mở khoá' : 'Khoá tài khoản'}">${u.disabled ? '🔓' : '🔒'}</button>
+            <button type="button" class="iact" data-qkick="${esc(u.uid)}" ${mng ? '' : 'disabled'} title="Đá mọi máy (đăng xuất ngay)">👢</button>
+            <button type="button" class="mmore" data-open="${esc(u.uid)}" title="Chi tiết"><i class="fas fa-chevron-right"></i></button>
+        </div>
     </div>`;
 }
 
@@ -1132,7 +1330,7 @@ function exportCsv() {
         'Số máy được dùng', 'Số máy riêng', 'Đã duyệt', 'Bị khoá', 'Cách đăng nhập', 'Ngày tạo', 'Đăng nhập gần nhất']];
     for (const u of filteredUsers(doing, clash)) {
         const f = featOf(u);
-        rows.push([u.email, u.displayName, u.uid, ...FEATURE_KEYS.map(k => f[k] ? 'bật' : 'tắt'), u.isAdmin ? 'admin' : u.featuresCustom ? 'tuỳ chỉnh' : 'mặc định',
+        rows.push([u.email, u.displayName, u.uid, ...FEATURE_KEYS.map(k => f[k] ? 'bật' : 'tắt'), u.isRoot ? 'admin gốc' : u.isAdmin ? 'admin' : u.featuresCustom ? 'tuỳ chỉnh' : 'mặc định',
             doing.get(u.uid)?.devices.size || 0, clash.has(u.uid) ? 'có' : '', canPassword(u) ? 'có' : '', accLimit(u),
             customLimit(u) || '', u.approved ? 'có' : 'chưa', u.disabled ? 'khoá' : '', (u.providers || []).join(' '),
             fmtDate(u.createdAt), fmtDate(u.lastSignInAt)]);
@@ -1141,7 +1339,41 @@ function exportCsv() {
     showToast(`Đã xuất ${rows.length - 1} tài khoản 📄`, 'success');
 }
 
+// ---------------- THAO TÁC NHANH (dòng bảng, ngăn chi tiết, đội quản trị) ----------------
+/** Gửi một thay đổi tài khoản lên máy chủ, nhận bản thật về rồi vẽ lại đúng chỗ. → true nếu thành công. */
+async function quickUpdate(u, payload, okMsg) {
+    try {
+        const r = await adminUpdateUser({ uid: u.uid, email: u.email, ...payload });
+        if (r.user?.uid === u.uid) Object.assign(u, r.user, featPending.has(u.uid) ? { features: u.features, featuresCustom: u.featuresCustom } : {});
+        showToast(okMsg, 'success', 2200);
+        if (openUid === u.uid) refreshDrawer();
+        return true;
+    } catch (e) {
+        showToast('Lỗi: ' + e.message, 'error', 5000);
+        return false;
+    } finally {
+        paintUser(u.uid);
+        if (curTab === 'settings') renderAdmins();
+    }
+}
+async function toggleLock(u) {
+    if (!u.disabled && !await showConfirm(`Khoá ${u.email}? Mọi máy bị đá ra, không đăng nhập lại được tới khi mở khoá.`, { title: 'Khoá tài khoản?', confirmText: 'Khoá', tone: 'danger' })) return;
+    return quickUpdate(u, { disabled: !u.disabled }, u.disabled ? 'Đã mở khoá 🔓' : 'Đã khoá tài khoản 🔒');
+}
+async function setAdmin(u, on) {
+    const ok = await showConfirm(on
+        ? `${u.email} sẽ vào được trang Quản trị: xem / đổi mật khẩu, quyền, khoá, xoá mọi tài khoản thường và cấp admin cho người khác. Tính năng được mở hết.`
+        : `Gỡ quyền admin của ${u.email}? Người đó không vào trang Quản trị được nữa (tính năng đang mở vẫn giữ nguyên).`,
+        { title: on ? 'Cấp quyền admin?' : 'Gỡ quyền admin?', confirmText: on ? 'Cấp admin' : 'Gỡ admin', tone: on ? undefined : 'danger' });
+    if (!ok) return false;
+    const done = await quickUpdate(u, { admin: on }, on ? `Đã cấp quyền admin cho ${nameOf(u)} 👑` : `Đã gỡ quyền admin của ${nameOf(u)}.`);
+    if (done && on) fx.burst(innerWidth / 2, innerHeight / 2, ['👑', '✨', '🌟', '💛']);
+    return done;
+}
+
 function bindAccounts() {
+    setAccView(accView, false);
+    document.querySelectorAll('.acc-view').forEach(b => b.addEventListener('click', () => setAccView(b.dataset.aview)));
     $('acc-search').addEventListener('input', renderAccounts);
     $('acc-reload').addEventListener('click', loadUsers);
     $('acc-export').addEventListener('click', exportCsv);
@@ -1149,7 +1381,11 @@ function bindAccounts() {
         const b = e.target.closest('[data-filter]');
         if (b) { accFilter = b.dataset.filter; renderAccounts(); }
     });
-    $('acc-head').addEventListener('click', (e) => { const s = e.target.closest('[data-sort]'); if (s) setSort(s.dataset.sort); });
+    $('acc-head').addEventListener('click', (e) => {
+        if (e.target.closest('[data-reveal-all]')) { revealAll = !revealAll; if (!revealAll) revealed.clear(); return renderAccounts(); }
+        const s = e.target.closest('[data-sort]');
+        if (s) setSort(s.dataset.sort);
+    });
     $('acc-head').addEventListener('change', (e) => {
         if (!e.target.matches('[data-selall]')) return;
         visibleUids.forEach(id => { const u = userMap.get(id); if (u && !u.isAdmin) e.target.checked ? selected.add(id) : selected.delete(id); });
@@ -1172,8 +1408,18 @@ function bindAccounts() {
         }
         const pin = e.target.closest('[data-pin]');
         if (pin) return togglePin(pin.dataset.pin);
+        const eye = e.target.closest('[data-pw-eye]');
+        if (eye) return toggleReveal(eye.dataset.pwEye);
+        const cp = e.target.closest('[data-pw-copy]');
+        if (cp) { const u = userMap.get(cp.dataset.pwCopy); return u?.pw && copyText(u.pw.password, `Đã sao chép mật khẩu của ${nameOf(u)} 📋`); }
+        const setp = e.target.closest('[data-pw-set], [data-qpass]');
+        if (setp) return openDrawer(setp.dataset.pwSet || setp.dataset.qpass, visibleUids, false, 'acc', 'dr-pass');
+        const lk = e.target.closest('[data-qlock]');
+        if (lk) { const u = userMap.get(lk.dataset.qlock); return u && toggleLock(u); }
+        const kk = e.target.closest('[data-qkick]');
+        if (kk) return kick(kk.dataset.qkick, '', '');
         const o = e.target.closest('[data-open]');
-        if (o) openDrawer(o.dataset.open, visibleUids);
+        if (o) openDrawer(o.dataset.open, visibleUids, false, accView === 'login' ? 'acc' : 'perm');
     });
     $('bulk-bar').addEventListener('click', (e) => {
         const bf = e.target.closest('[data-bulk-feat]');
@@ -1190,6 +1436,8 @@ function bindAccounts() {
         if (v === 'none') return applyBulk(() => Object.fromEntries(FEATURE_KEYS.map(k => [k, false])), 'Tắt hết tính năng', b);
     });
     $('acc-new-toggle').addEventListener('click', () => { $('acc-new').classList.toggle('hidden'); $('new-email').focus(); });
+    $('new-gen').addEventListener('click', () => { $('new-pass').value = genPassword(); $('new-pass').focus(); $('new-pass').select(); });
+    $('new-admin').addEventListener('change', (e) => { if (e.target.checked) $('new-full').checked = true; });
     $('new-create').addEventListener('click', async () => {
         const email = lc($('new-email').value.trim());
         const password = $('new-pass').value;
@@ -1202,21 +1450,24 @@ function bindAccounts() {
         btn.disabled = true;
         try {
             const r = await adminCreateUser({ email, password, displayName, allowPassword: $('new-allow-pw').checked, unlimitedDevices: false,
-                ...($('new-full').checked ? { features: FULL_FEATURES } : {}) });
+                ...($('new-full').checked ? { features: FULL_FEATURES } : {}), ...($('new-admin').checked ? { admin: true } : {}) });
             if (lim !== null) await adminUpdateUser({ uid: r.user.uid, email, deviceLimit: lim });
             showToast(`${r.created ? 'Đã tạo' : 'Đã cập nhật'} ${email} 🎉`, 'success');
             ['new-email', 'new-pass', 'new-name', 'new-limit'].forEach(id => { $(id).value = ''; });
             $('new-full').checked = false;
+            $('new-admin').checked = false;
             $('acc-new').classList.add('hidden');
+            revealed.add(r.user.uid);              // vừa tạo → hiện sẵn mật khẩu để sao chép gửi người dùng
             await loadUsers();
-            openDrawer(r.user.uid);
+            openDrawer(r.user.uid, null, false, 'acc');
         } catch (err) { showToast('Lỗi: ' + err.message, 'error', 5000); }
         finally { btn.disabled = false; }
     });
 }
 
 // ---------------- NGĂN CHI TIẾT TÀI KHOẢN ----------------
-const DRAWER_TABS = [['perm', '🎀 Quyền'], ['dev', '📱 Máy'], ['quiz', '📚 Làm đề'], ['edit', '✏️ Sửa']];
+const DRAWER_TABS = [['acc', '🔑 Tài khoản'], ['perm', '🎀 Quyền'], ['dev', '📱 Máy'], ['quiz', '📚 Làm đề']];
+let drawerFocus = '';        // ô cần trỏ vào sau khi ngăn vẽ xong (vd 'dr-pass' khi bấm "Đổi mật khẩu" ở dòng bảng)
 
 function bindDrawer() {
     $('acc-drawer').addEventListener('click', (e) => {
@@ -1239,6 +1490,9 @@ function bindDrawer() {
         if (e.target.closest('#dr-next')) return stepDrawer(1);
         const pin = e.target.closest('[data-pin]');
         if (pin) return togglePin(pin.dataset.pin);
+        if (e.target.closest('[data-pw-eye]') && u) return toggleReveal(u.uid);
+        if (e.target.closest('[data-pw-copy]') && u?.pw) return copyText(u.pw.password, 'Đã sao chép mật khẩu 📋');
+        if (e.target.closest('[data-pw-set]')) { $('dr-pass')?.focus(); return; }
         const b = e.target.closest('[data-do]');
         if (b) drawerAction(b.dataset.do, b);
     });
@@ -1262,12 +1516,14 @@ function closeDrawer() {
     document.documentElement.style.overflow = '';
 }
 
-/** Mở chi tiết; `list` = thứ tự để lật ‹ › (mặc định: bảng tài khoản đang hiện). keepTab: lật sang người khác vẫn giữ tab con đang xem. */
-async function openDrawer(uid, list, keepTab = false) {
+/** Mở chi tiết; `list` = thứ tự để lật ‹ › (mặc định: bảng tài khoản đang hiện). keepTab: lật sang người khác vẫn giữ tab con đang xem.
+ *  tab: tab con mở ra (mặc định 🔑 Tài khoản); focus: id ô cần trỏ vào khi vẽ xong. */
+async function openDrawer(uid, list, keepTab = false, tab = 'acc', focus = '') {
     if (!uid) return;
     openUid = uid;
     drawerData = null;
-    if (!keepTab) drawerTab = 'perm';
+    drawerFocus = focus;
+    if (!keepTab) drawerTab = tab;
     drawerList = Array.isArray(list) && list.includes(uid) ? [...list]
         : drawerList.includes(uid) ? drawerList : visibleUids.includes(uid) ? [...visibleUids] : [uid];
     const wasOpen = !$('acc-drawer').classList.contains('hidden');
@@ -1383,7 +1639,7 @@ function renderDrawer() {
             <button type="button" class="pin-btn ${pins.has(u.uid) ? 'is-on' : ''}" data-pin="${esc(u.uid)}" title="${pins.has(u.uid) ? 'Bỏ ghim' : 'Ghim lên đầu danh sách'}">⭐</button>
         </div>
         <div class="flex flex-wrap gap-1 mt-2">
-            ${isAdm ? '<span class="chip bg-amber-100 text-amber-700">👑 Admin</span>' : ''}
+            ${roleChip(u)}${u.uid === myUid ? '<span class="chip bg-pink-50 text-pink-500">💁 tài khoản của bạn</span>' : ''}
             ${doing ? `<span class="chip bg-emerald-100 text-emerald-700"><span class="pulse"></span>đang làm đề${doing.devices.size >= 2 ? ` · ${doing.devices.size} máy` : ''}</span>` : ''}
             ${myIncidents.length ? `<span class="chip bg-rose-100 text-rose-600">🚨 ${myIncidents.length} lần làm 2 máy</span>` : ''}
             ${u.disabled ? '<span class="chip bg-slate-200 text-slate-600">🔒 Bị khoá</span>' : ''}
@@ -1404,13 +1660,52 @@ function renderDrawer() {
         return `<button type="button" class="${k === drawerTab ? 'is-on' : ''}" data-dtab="${k}">${label}${badge !== '' && badge !== 0 ? `<span>${badge}</span>` : ''}</button>`;
     }).join('')}</div>`;
 
+    const mng = canMng(u);
+    const notMine = mng ? '' : `<p class="nb-tiny" style="color:var(--ink-cherry)">🔒 Đây là tài khoản admin — chỉ admin gốc mới chỉnh được.</p>`;
     let body = '';
-    if (drawerTab === 'perm') {
+    if (drawerTab === 'acc') {
+        const prov = u.providers || [];
+        const pw = u.pw;
+        const pwInfo = !mng ? ''
+            : pw ? `<p class="nb-tiny">Admin <b>${esc(pw.setBy || '?')}</b> đặt lúc ${fmtDate(pw.setAt)}.${pw.stale ? ' <span style="color:var(--ink-cherry)">⚠️ Người dùng có thể đã tự đổi mật khẩu sau đó — đặt lại nếu cần chắc chắn.</span>' : ''}</p>`
+            : `<p class="nb-tiny">Chưa có mật khẩu do admin đặt. ${prov.includes('password')
+                ? 'Mật khẩu người dùng tự đặt được Firebase mã hoá một chiều — không ai xem được, kể cả admin.'
+                : 'Tài khoản này chỉ đăng nhập bằng Google.'} Đặt mật khẩu mới bên dưới thì lần sau xem lại được.</p>`;
+        body = section('🔑 Mật khẩu', `${notMine}
+            <div class="flex flex-wrap items-center gap-2">${pwBox(u, true)}
+                ${mng && pw ? `<button type="button" data-do="copy-creds" class="btn" title="Sao chép cả email lẫn mật khẩu để gửi cho người dùng"><i class="fas fa-copy mr-1"></i>Email + mật khẩu</button>` : ''}</div>
+            ${pwInfo}
+            <div class="flex gap-2 ${mng ? '' : 'opacity-50 pointer-events-none'}">
+                <div class="pw-field flex-1"><input id="dr-pass" class="inp" placeholder="Mật khẩu mới (≥ 6 ký tự)" autocomplete="off" spellcheck="false">
+                    <button type="button" data-do="gen-pass" class="pw-gen" title="Tạo mật khẩu ngẫu nhiên">🎲</button></div>
+                <button type="button" data-do="setpass" class="btn btn-candy">Đổi mật khẩu</button></div>
+            ${mng && !prov.includes('password') ? '<p class="nb-tiny">Đặt mật khẩu cho tài khoản Google = cho đăng nhập thêm bằng email + mật khẩu. Muốn vào thẳng không qua Google thì bật <b>Đăng nhập thẳng</b> ở tab 🎀 Quyền.</p>' : ''}`, 'peach')
+            + section('👑 Vai trò', `<div class="role-card">
+                <span class="role-ic">${u.isRoot ? '👑' : u.isAdmin ? '🛡️' : '🧸'}</span>
+                <span class="min-w-0 flex-1"><b>${u.isRoot ? 'Admin gốc' : u.isAdmin ? 'Admin' : 'Người dùng'}</b>
+                    <small>${u.isRoot ? 'Chủ web — không ai khoá, xoá hay gỡ quyền được.' : u.isAdmin ? 'Vào được trang Quản trị, quản lý mọi tài khoản thường, cấp admin cho người khác.' : 'Dùng các tính năng được mở ở tab 🎀 Quyền.'}</small></span>
+                ${u.isRoot ? '' : u.isAdmin
+                    ? (myRole === 'root' ? '<button type="button" data-do="admin-off" class="btn" style="--h:var(--hue-cherry);--hi:var(--ink-cherry)">Gỡ admin</button>' : '<span class="nb-tiny">chỉ admin gốc gỡ được</span>')
+                    : `<button type="button" data-do="admin-on" class="btn btn-candy" ${mng ? '' : 'disabled'}><i class="fas fa-crown mr-1"></i>Cấp admin</button>`}
+            </div>`, 'butter')
+            + section('✏️ Tên & trạng thái', `
+                <div class="flex gap-2 ${mng ? '' : 'opacity-50 pointer-events-none'}"><input id="dr-name" class="inp flex-1" value="${esc(u.displayName || '')}" placeholder="Tên hiển thị / username" autocomplete="off">
+                    <button type="button" data-do="rename" class="btn">Đổi tên</button></div>
+                ${srow('lock', u.disabled, '⛔', 'Khoá tài khoản', u.isRoot ? 'Admin gốc không khoá được' : u.uid === myUid ? 'Không tự khoá chính mình được' : 'Bật: không đăng nhập được, mọi máy bị đá ra', u.isRoot || u.uid === myUid || !mng, 'cherry')}
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" data-do="notify" class="btn" style="--h:var(--hue-sky);--hi:var(--ink-sky)"><i class="fas fa-bullhorn mr-1"></i>Gửi thông báo riêng</button>
+                    <button type="button" data-do="copy-email" class="btn"><i class="fas fa-at mr-1"></i>Sao chép email</button>
+                </div>`, 'mint')
+            + section('🗂️ Thông tin', `<p class="nb-tiny break-all">UID: ${esc(u.uid)} <button type="button" data-do="copy-uid" class="pw-mini" title="Sao chép UID">📋</button></p>
+                <p class="nb-tiny">Tạo: ${fmtDate(u.createdAt)} · Đăng nhập gần nhất: ${fmtDate(u.lastSignInAt)}</p>
+                <p class="nb-tiny">Đăng nhập bằng: ${prov.map(p => p === 'google.com' ? 'Google' : p === 'password' ? 'Email + mật khẩu' : esc(p)).join(', ') || '—'}</p>`, 'latte')
+            + (u.isRoot || !mng || u.uid === myUid ? '' : section('🗑️ Vùng nguy hiểm', `<p class="nb-tiny">Xoá vĩnh viễn tài khoản khỏi hệ thống — không hoàn tác được.</p>
+                <button type="button" data-do="delete" class="btn bg-red-500"><i class="fas fa-trash mr-1"></i>Xoá tài khoản</button>`, 'cherry'));
+    } else if (drawerTab === 'perm') {
         body = featureTiles(u) + section('🔐 Đăng nhập & duyệt', `<div class="space-y-2">
             ${srow('approved', u.approved, '✅', 'Đã duyệt', 'Tắt: đăng nhập được nhưng không tạo được bộ đề, thư mục, phòng, bệnh án', isAdm, 'mint')}
             ${srow('pw', canPassword(u), '🔑', 'Đăng nhập thẳng (miễn Google)', 'Bật: vào bằng email + mật khẩu, không bắt gắn Google', isAdm, 'sky')}
             ${srow('unlim', isAdm || access.deviceExempt.includes(lc(u.email)), '♾️', 'Đặc cách 20 máy', 'Bật: dùng tối đa 20 máy (số riêng vẫn được ưu tiên)', isAdm, 'lav')}
-            ${srow('lock', u.disabled, '⛔', 'Khoá tài khoản', 'Bật: không đăng nhập được, mọi máy bị đá ra', isAdm, 'cherry')}
         </div>`, 'mint') + section('📱 Số máy được dùng', `
             <p class="text-[13px]">Đang áp dụng: <b>${lim >= EXEMPT_MAX ? `${EXEMPT_MAX} (coi như không giới hạn)` : lim} máy</b> <span class="nb-tiny">(${limSrc})</span></p>
             <div class="flex flex-wrap items-center gap-2 ${isAdm ? 'opacity-50 pointer-events-none' : ''}">
@@ -1426,9 +1721,9 @@ function renderDrawer() {
                 <span class="dev-ic"><i class="fas ${deviceIcon(x.label || '')}"></i></span>
                 <span class="min-w-0 flex-1"><b>${esc(x.label || 'Thiết bị')}</b>${doingDevices.has(x.id) ? ' <span class="chip bg-emerald-100 text-emerald-700"><span class="pulse"></span>đang làm đề</span>' : ''}
                     <small>từ ${fmtDate(x.at)}${placeOf(x) ? ' · ' + esc(placeOf(x)) : ''}${x.ip ? ' · ' + esc(x.ip) : ''}</small></span>
-                <button type="button" data-do="kick" data-device="${esc(x.id)}" data-label="${esc(x.label || '')}" class="btn" style="--h:var(--hue-cherry);--hi:var(--ink-cherry)">Đá</button>
+                <button type="button" data-do="kick" data-device="${esc(x.id)}" data-label="${esc(x.label || '')}" class="btn" style="--h:var(--hue-cherry);--hi:var(--ink-cherry)" ${mng ? '' : 'disabled'}>Đá</button>
             </li>`).join('') || '<li class="nb-tiny">Chưa có máy nào (đăng nhập lại sẽ ghi).</li>'}</ul>
-            <div class="flex flex-wrap gap-2 pt-1">
+            <div class="flex flex-wrap gap-2 pt-1 ${mng ? '' : 'opacity-50 pointer-events-none'}">
                 <button type="button" data-do="kick-all" class="btn" style="--h:var(--hue-cherry);--hi:var(--ink-cherry)"><i class="fas fa-power-off mr-1"></i>Đá mọi máy</button>
                 <button type="button" data-do="revoke" class="btn bg-red-500" title="Đá mọi máy và vô hiệu mọi phiên đăng nhập (token) — kể cả phiên chưa ghi vào danh sách"><i class="fas fa-user-slash mr-1"></i>Thu hồi mọi phiên</button>
             </div>`, 'sky') + section('🕰️ Lịch sử đăng nhập', `<ul class="space-y-1">${(d.logins || []).map(l => `<li class="login-item ${l.alert ? 'is-alert' : ''}">
@@ -1450,18 +1745,6 @@ function renderDrawer() {
                     <span class="prow-title">${esc(r.title || r.quizId)}</span>${bubble(r)}
                     <span class="prow-meta">${fmtShort(r.end)}${r.label ? ` · <i class="fas ${deviceIcon(r.label)}"></i>` : ''}</span></div>`).join('')}</div>`
                 : '<p class="nb-tiny">Chưa nộp bài nào 🌱</p>', 'blossom');
-    } else {
-        body = section('✏️ Đổi tên & mật khẩu', `
-            <div class="flex gap-2"><input id="dr-name" class="inp flex-1" value="${esc(u.displayName || '')}" placeholder="Tên hiển thị / username" autocomplete="off">
-                <button type="button" data-do="rename" class="btn">Đổi tên</button></div>
-            <div class="flex gap-2"><input id="dr-pass" class="inp flex-1" placeholder="Mật khẩu mới (≥ 6 ký tự)" autocomplete="off">
-                <button type="button" data-do="setpass" class="btn btn-candy">Đổi mật khẩu</button></div>`, 'peach')
-            + section('📣 Nhắn riêng', `<p class="nb-tiny">Mở mục Gửi thông báo, điền sẵn email người này.</p>
-                <button type="button" data-do="notify" class="btn" style="--h:var(--hue-sky);--hi:var(--ink-sky)"><i class="fas fa-bullhorn mr-1"></i>Gửi thông báo riêng</button>`, 'sky')
-            + section('🗂️ Thông tin', `<p class="nb-tiny break-all">UID: ${esc(u.uid)}</p>
-                <p class="nb-tiny">Tạo: ${fmtDate(u.createdAt)} · Đăng nhập gần nhất: ${fmtDate(u.lastSignInAt)}</p>`, 'latte')
-            + (isAdm ? '' : section('🗑️ Vùng nguy hiểm', `<p class="nb-tiny">Xoá vĩnh viễn tài khoản khỏi hệ thống — không hoàn tác được.</p>
-                <button type="button" data-do="delete" class="btn bg-red-500"><i class="fas fa-trash mr-1"></i>Xoá tài khoản</button>`, 'cherry'));
     }
 
     // Dữ liệu mới về → vẽ lại ngăn này: giữ chữ đang gõ dở + ô đang chọn + vị trí cuộn
@@ -1469,11 +1752,14 @@ function renderDrawer() {
     const focused = document.activeElement?.id;
     const scroller = $('drawer-body').parentElement;
     const top = scroller.scrollTop;
-    $('drawer-body').innerHTML = head + tabs + body;
+    $('drawer-body').innerHTML = head + tabs + notMineBanner(u) + body;
     keep.forEach(([id, v]) => { if ($(id)) $(id).value = v; });
-    if (focused && $(focused)) $(focused).focus();
+    if (drawerFocus && $(drawerFocus)) { $(drawerFocus).focus(); $(drawerFocus).scrollIntoView({ block: 'center' }); drawerFocus = ''; }
+    else if (focused && $(focused)) $(focused).focus();
     scroller.scrollTop = top;
 }
+const notMineBanner = (u) => canMng(u) || drawerTab === 'acc' ? ''
+    : `<div class="nb-lock">🔒 Tài khoản admin — chỉ admin gốc chỉnh được. Bạn đang xem ở chế độ chỉ đọc.</div>`;
 
 async function drawerAction(act, btn) {
     const d = drawerData;
@@ -1553,8 +1839,15 @@ async function drawerAction(act, btn) {
         case 'setpass': {
             const p = $('dr-pass').value;
             if (p.length < 6) return showToast('Mật khẩu phải từ 6 ký tự.', 'warning');
-            return run({ password: p }, 'Đã đổi mật khẩu 🔑');
+            revealed.add(u.uid);                       // đổi xong hiện luôn để sao chép gửi người dùng
+            return run({ password: p }, 'Đã đổi mật khẩu 🔑 — đã lưu để xem lại về sau');
         }
+        case 'gen-pass': { const el = $('dr-pass'); el.value = genPassword(); el.focus(); el.select(); return; }
+        case 'copy-creds': return u.pw && copyText(credsText(u), 'Đã sao chép email + mật khẩu 📋');
+        case 'copy-email': return copyText(u.email, 'Đã sao chép email 📋');
+        case 'copy-uid': return copyText(u.uid, 'Đã sao chép UID 📋');
+        case 'admin-on': return setAdmin(u, true);
+        case 'admin-off': return setAdmin(u, false);
         case 'notify':
             closeDrawer();
             switchTab('settings');
@@ -1586,7 +1879,7 @@ const ACTIONS = {
 };
 const FIELDS = {
     allowPassword: 'Đăng nhập thẳng', unlimitedDevices: 'Đặc cách 20 máy', approved: 'Duyệt', disabled: 'Khoá', emailVerified: 'Xác nhận email',
-    revokeSessions: 'Thu hồi phiên', displayName: 'Tên', deviceLimit: 'Số máy riêng', password: 'Mật khẩu', device: 'Máy', n: 'Số máy',
+    revokeSessions: 'Thu hồi phiên', displayName: 'Tên', deviceLimit: 'Số máy riêng', password: 'Mật khẩu', device: 'Máy', n: 'Số máy', admin: 'Quyền admin',
     text: 'Nội dung', hours: 'Số giờ', count: 'Số bản ghi', features: 'Tính năng'
 };
 const showVal = (v) => v === true ? 'bật' : v === false ? 'tắt' : v === null ? 'bỏ' : String(v);
@@ -1620,6 +1913,41 @@ function watchAudit() {
     });
 }
 
+// ---------------- ĐỘI QUẢN TRỊ ----------------
+function renderAdmins() {
+    if (!started) return;
+    if (!users) { $('admins-list').innerHTML = `<li class="nb-tiny">${usersError ? esc(usersError) : 'Đang tải danh sách tài khoản…'}</li>`; return; }
+    const admins = users.filter(u => u.isAdmin).sort((a, b) => (b.isRoot - a.isRoot) || (a.displayName || a.email).localeCompare(b.displayName || b.email, 'vi'));
+    $('admins-list').innerHTML = admins.map(u => `<li class="adm-item">
+        <button type="button" class="who flex-1" data-adm-open="${esc(u.uid)}">${avatar(u.uid, u.displayName || u.email)}
+            <span class="min-w-0"><b>${esc(nameOf(u))}${u.uid === myUid ? ' <small class="me-tag">(bạn)</small>' : ''}</b><small>${esc(u.email)} · ${u.lastSignInAt ? 'vào ' + ago(u.lastSignInAt) : 'chưa đăng nhập'}</small></span></button>
+        ${roleChip(u)}
+        ${!u.isRoot && myRole === 'root' ? `<button type="button" class="btn" data-adm-off="${esc(u.uid)}" style="--h:var(--hue-cherry);--hi:var(--ink-cherry)" title="Gỡ quyền admin">Gỡ</button>` : ''}
+    </li>`).join('') || '<li class="nb-tiny">Chưa có admin nào.</li>';
+    // Gợi ý email khi gõ ô "Cấp admin" (tài khoản thường, mới đăng nhập trước)
+    $('admin-add-hints').innerHTML = users.filter(u => !u.isAdmin && u.email).slice(0, 300).map(u => `<option value="${esc(u.email)}">${esc(u.displayName || '')}</option>`).join('');
+}
+
+function bindAdmins() {
+    $('admins-list').addEventListener('click', (e) => {
+        const o = e.target.closest('[data-adm-open]');
+        if (o) return openDrawer(o.dataset.admOpen, null, false, 'acc');
+        const off = e.target.closest('[data-adm-off]');
+        if (off) { const u = userMap.get(off.dataset.admOff); if (u) setAdmin(u, false); }
+    });
+    const add = async () => {
+        const email = lc($('admin-add-email').value.trim());
+        if (!email.includes('@')) return showToast('Nhập email của tài khoản cần cấp admin.', 'warning');
+        if (!users) return showToast('Danh sách tài khoản chưa tải xong.', 'warning');
+        const u = users.find(x => lc(x.email) === email);
+        if (!u) return showToast('Chưa có tài khoản với email này — tạo tài khoản trước (tick 👑 Cấp quyền admin).', 'warning', 5000);
+        if (u.isAdmin) return showToast(`${email} đã là admin rồi 👑`, 'info');
+        if (await setAdmin(u, true)) $('admin-add-email').value = '';
+    };
+    $('admin-add').addEventListener('click', add);
+    $('admin-add-email').addEventListener('keydown', (e) => { if (e.key === 'Enter') add(); });
+}
+
 // ---------------- CÀI ĐẶT & THÔNG BÁO ----------------
 const annRef = () => doc(db, 'config', 'announce');
 async function loadAnnounce() {
@@ -1635,6 +1963,7 @@ async function loadAnnounce() {
 }
 
 function bindSettings() {
+    bindAdmins();
     $('set-default-save').addEventListener('click', async () => {
         const n = Number($('set-default-limit').value);
         try { await setDefaultLimit(n); showToast(`Mặc định giờ là ${n} máy / tài khoản 📱`, 'success'); logAction('default-limit', '', { n }); }

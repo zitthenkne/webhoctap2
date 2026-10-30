@@ -41,7 +41,8 @@ export async function myFeatures() {
     try {
         const cur = auth.currentUser;
         if (cur && cur.uid === u.uid) {
-            f = normFeatures((await cur.getIdTokenResult()).claims.feat);
+            const claims = (await cur.getIdTokenResult()).claims;
+            f = claims.admin === true ? { ...FULL_FEATURES } : normFeatures(claims.feat);      // admin phụ: mở hết như admin gốc
             try { localStorage.setItem(CACHE_KEY, JSON.stringify({ uid: u.uid, f })); } catch (e) {}
         }
     } catch (e) { f = null; }

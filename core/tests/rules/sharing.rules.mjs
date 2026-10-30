@@ -20,7 +20,8 @@ const as = (u) => env.authenticatedContext(u.uid, {
     firebase: { sign_in_provider: u.provider || 'google.com' }, auth_time: u.authTime ?? 1000,
     approved: u.approved ?? true,         // custom claim do api/signup.js gắn sau khi nhập đúng mật khẩu web
     // quyền tính năng do admin bật (api/devices.js) — các test chia sẻ mặc định cho mở hết; 'default' = chưa chỉnh (không có claim)
-    ...(u.feat === 'default' ? {} : { feat: u.feat ?? { quiz: true, create: true, room: true, record: true } })
+    ...(u.feat === 'default' ? {} : { feat: u.feat ?? { quiz: true, create: true, room: true, record: true } }),
+    ...(u.admin ? { admin: true } : {})   // admin phụ — claim do api/devices.js gắn
 }).firestore();
 // Danh sách máy hợp lệ (máy chủ api/devices.js ghi) — authTimes chứa mốc đăng nhập của phiên được phép
 const seedDevices = (db, uid, authTimes = [1000]) => setDoc(doc(db, `users/${uid}/private/devices`), { list: authTimes.map((a, i) => ({ id: 'd' + i, authTime: a })), authTimes });
@@ -142,6 +143,17 @@ test('ADMIN: chỉ vietthanhne@gmail.com (đã xác nhận) sửa được confi
     await assertFails(setDoc(doc(as(FRIEND), 'config/access'), { deviceExempt: ['friend@x.test'] }));
     await assertSucceeds(getDoc(doc(as(FRIEND), 'config/access')));
     await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'config/access')));
+});
+
+test('ADMIN PHỤ: claim admin (máy chủ gắn) sửa được config/access + đọc nhật ký; kho mật khẩu thì không ai đọc thẳng được', async () => {
+    const SUB = { uid: 'sub', email: 'sub@x.test', email_verified: true, admin: true };
+    const ROOT = { uid: 'admin', email: 'vietthanhne@gmail.com', email_verified: true };
+    await assertSucceeds(setDoc(doc(as(SUB), 'config/access'), { deviceExempt: ['friend@x.test'] }));
+    await assertSucceeds(getDocs(collection(as(SUB), 'admin_log')));
+    await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), 'admin_vault/friend'), { password: 'abc123' }));
+    await assertFails(getDoc(doc(as(ROOT), 'admin_vault/friend')));
+    await assertFails(getDoc(doc(as(SUB), 'admin_vault/friend')));
+    await assertFails(setDoc(doc(as(SUB), 'admin_vault/friend'), { password: 'x' }));
 });
 
 test('danh sách thiết bị: chủ tài khoản ĐỌC được nhưng KHÔNG ghi được (chỉ máy chủ ghi); người khác không đọc', async () => {
@@ -266,6 +278,12 @@ test('QUIZ_GUEST: khách chưa đăng nhập ghi lượt làm đề CÔNG KHAI; 
     await assertFails(setDoc(doc(guest, 'quiz_guest/dev1abc_private'), g({ quizId: 'private' })));     // đề không công khai
     await assertFails(setDoc(doc(guest, 'quiz_guest/xxx_pubg'), g()));                                // id không khớp máy
     await assertFails(setDoc(doc(guest, 'quiz_guest/dev1abc_pubg'), g({ hack: 1 })));
+    // chi tiết máy + vị trí + lịch sử lượt làm
+    const more = { os: 'Android 14', model: 'SM-G991B', screen: '390×844', tz: 'Asia/Ho_Chi_Minh', src: 'zalo', ip: '113.22.1.x', city: 'Hanoi', region: 'HN',
+        country: 'VN', firstAt: Date.now() - 1000, hist: [{ s: 1, e: 2, p: 80 }] };
+    await assertSucceeds(setDoc(doc(guest, 'quiz_guest/dev1abc_pubg'), g(more)));
+    await assertFails(setDoc(doc(guest, 'quiz_guest/dev1abc_pubg'), g({ ...more, city: 'x'.repeat(61) })));
+    await assertFails(setDoc(doc(guest, 'quiz_guest/dev1abc_pubg'), g({ ...more, hist: Array.from({ length: 11 }, () => ({ s: 1 })) })));
     await assertFails(setDoc(doc(as(FRIEND), 'quiz_guest/dev1abc_pubg'), g()));                       // người đăng nhập dùng quiz_runs
     await assertFails(getDoc(doc(guest, 'quiz_guest/dev1abc_pubg')));
     await assertSucceeds(getDoc(doc(as(ADMIN), 'quiz_guest/dev1abc_pubg')));
