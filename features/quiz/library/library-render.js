@@ -13,6 +13,7 @@ import {
     folderById, folderHex, folderPath, childFolders, quizFolderOf
 } from './library-helpers.js';
 import { getLastAttempt, getLastTouchedAt, markQuizOpened } from './library-attempts.js';
+import { countDueNow } from '../quiz-srs-store.js';
 import { createFolderCard, createQuizCard } from './library-cards.js';
 import { canUseRollingLibrary, loadLibraryChunk, loadAllLibraryInBackground, loadAndDisplayLibrary } from './library-data.js';
 import { moveQuizToFolder, moveFolder } from './library-actions.js';
@@ -57,45 +58,97 @@ function updateLibraryOverview() {
 }
 
 // === DẢI "LÀM GẦN ĐÂY" ===
-// Tối đa 6 bộ đề vừa mở / nộp bài gần nhất (getLastTouchedAt). Luôn vẽ đủ 6 ô, CSS tự ẩn bớt
-// còn 4–5 khi khung hẹp. Chỉ hiện ở gốc thư viện, lúc không tìm kiếm / lọc / chọn nhiều.
+// Tối đa 6 bộ đề vừa mở / nộp bài gần nhất (getLastTouchedAt), mỗi bộ là một mẩu giấy note dán sổ.
+// Luôn vẽ đủ 6 ô, CSS tự ẩn bớt còn 4–5 khi khung hẹp. Chỉ hiện ở gốc thư viện, lúc không tìm kiếm / lọc / chọn nhiều.
 const RECENT_MAX = 6;
+const RECENT_MIN_VISIBLE = 4; // khung hẹp nhất vẫn thấy 4 ô → nhiều hơn thế mới cần nút "Xem thêm"
+const RECENT_TILTS = [-1.2, 0.9, -0.6, 1.1, -0.9, 0.6]; // nghiêng so le cho giống giấy dán tay
+let lastRecentHTML = null;
+
+function recentNoteHTML({ q, at }, idx) {
+    const accent = getQuizAccent(q.id || q.title);
+    const title = escapeHtml(q.title || 'Không tên');
+    const att = getLastAttempt(q.id);
+    const hasScore = att && att.t > 0;
+    // Lần chạm cuối là NỘP bài → "Làm …"; chỉ mở ra (chưa nộp, hoặc mở lại sau khi nộp) → "Mở …"
+    const verb = hasScore && att.at >= at ? 'Làm' : 'Mở';
+    const when = formatRelativeTime(at) || 'vừa xong';
+
+    const folder = folderById(quizFolderOf(q));
+    const subParts = [];
+    if (folder) subParts.push(`<span class="recent-folder"><i class="fas fa-folder"></i>${escapeHtml(folder.name || 'Thư mục')}</span>`);
+    subParts.push(`<span class="recent-count">${q.questionCount || 0} câu</span>`);
+
+    let barHTML, statusHTML;
+    if (hasScore) {
+        const pct = Math.max(0, Math.min(100, Math.round((att.s / att.t) * 100)));
+        const tone = pct >= 80 ? 'is-good' : pct >= 50 ? 'is-mid' : 'is-low';
+        barHTML = `<span class="recent-bar ${tone}"><span style="width:${pct}%"></span></span>`;
+        statusHTML = `<span class="recent-score ${tone}" title="Lần làm gần nhất: đúng ${att.s}/${att.t} câu (${pct}%)">${pct}%</span>`;
+    } else {
+        barHTML = '<span class="recent-bar is-empty"></span>';
+        statusHTML = '<span class="recent-pending" title="Đã mở nhưng chưa nộp bài lần nào">Chưa nộp</span>';
+    }
+    let due = 0;
+    try { due = countDueNow(q.id); } catch {}
+    const dueHTML = due > 0 ? `<span class="recent-due" title="Ôn ngắt quãng: ${due} câu đến hạn ôn lại"><i class="fas fa-bell"></i>${due}</span>` : '';
+    const latestHTML = idx === 0 ? '<span class="recent-latest" title="Bộ đề bạn chạm vào gần nhất" aria-hidden="true"><i class="fas fa-heart"></i></span>' : '';
+
+    return `
+        <a href="features/quiz/quiz.html?id=${q.id}" class="recent-note${idx === 0 ? ' is-latest' : ''}" data-id="${q.id}"
+           style="--qc-from:${accent.from};--tilt:${RECENT_TILTS[idx % RECENT_TILTS.length]}deg;--i:${idx}"
+           aria-label="${verb} ${when}: ${title}">
+            <span class="recent-tape" aria-hidden="true"></span>
+            ${latestHTML}
+            <span class="recent-top">
+                <span class="recent-icon" aria-hidden="true"><i class="fas ${accent.icon}"></i></span>
+                <span class="recent-info">
+                    <span class="recent-title" title="${title}">${title}</span>
+                    <span class="recent-sub">${subParts.join('<span class="recent-dot" aria-hidden="true"></span>')}</span>
+                </span>
+            </span>
+            ${barHTML}
+            <span class="recent-foot">
+                <span class="recent-time"><i class="far fa-clock"></i>${verb} ${when}</span>
+                ${statusHTML}${dueHTML}
+                <span class="recent-play" aria-hidden="true"><i class="fas fa-play"></i></span>
+            </span>
+        </a>`;
+}
+
 function renderRecentQuizzes(isSearching) {
     const section = document.getElementById('recent-quizzes-section');
     const list = document.getElementById('recent-quizzes-list');
     if (!section || !list) return;
 
     const show = !isSearching && S.currentFolderId === null && S.libraryFilterMode === 'all' && !S.isSelectionMode;
-    const recent = show
+    const touched = show
         ? S.userQuizSets
             .map(q => ({ q, at: getLastTouchedAt(q.id) }))
             .filter(r => r.at > 0)
             .sort((a, b) => b.at - a.at)
-            .slice(0, RECENT_MAX)
         : [];
+    const recent = touched.slice(0, RECENT_MAX);
     section.classList.toggle('hidden', recent.length === 0);
-    if (!recent.length) { list.innerHTML = ''; return; }
 
-    list.innerHTML = recent.map(({ q, at }) => {
-        const accent = getQuizAccent(q.id || q.title);
-        const title = escapeHtml(q.title || 'Không tên');
-        const att = getLastAttempt(q.id);
-        let scoreHTML = '';
-        if (att && att.t > 0) {
-            const pct = Math.round((att.s / att.t) * 100);
-            const tone = pct >= 80 ? 'is-good' : pct >= 50 ? 'is-mid' : 'is-low';
-            scoreHTML = `<span class="recent-score ${tone}" title="Lần làm gần nhất: ${att.s}/${att.t} câu đúng">${att.s}/${att.t}</span>`;
+    const seeAll = document.getElementById('recent-see-all');
+    if (seeAll) {
+        seeAll.classList.toggle('hidden', touched.length <= RECENT_MIN_VISIBLE);
+        if (!seeAll.dataset.bound) {
+            seeAll.dataset.bound = '1';
+            seeAll.addEventListener('click', () => {
+                const chip = document.querySelector('.library-filter-chip[data-filter="recent"]');
+                if (chip) chip.click();
+            });
         }
-        return `
-            <a href="features/quiz/quiz.html?id=${q.id}" class="recent-chip" data-id="${q.id}" style="--qc-from:${accent.from};--qc-to:${accent.to}" title="${title}">
-                <span class="recent-icon" aria-hidden="true"><i class="fas ${accent.icon}"></i></span>
-                <span class="recent-body">
-                    <span class="recent-title">${title}</span>
-                    <span class="recent-meta"><span>${formatRelativeTime(at) || 'vừa xong'}</span>${scoreHTML}</span>
-                </span>
-            </a>`;
-    }).join('');
-    list.querySelectorAll('.recent-chip').forEach(a => {
+    }
+
+    const html = recent.map(recentNoteHTML).join('');
+    // renderLibrary chạy lại rất thường (ghim, sang trang…): nội dung không đổi thì giữ nguyên DOM, khỏi nháy lại hoạt ảnh
+    if (lastRecentHTML === html) return;
+    lastRecentHTML = html;
+    list.innerHTML = html;
+    list.querySelectorAll('.recent-note').forEach(a => {
         a.addEventListener('click', () => markQuizOpened(a.dataset.id));
     });
 }

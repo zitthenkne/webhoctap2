@@ -1042,86 +1042,310 @@ body {
 /* Dải "Làm gần đây": luôn có tối đa 6 ô, số ô hiện theo bề ngang KHUNG (không phải màn hình,
    vì sidebar co/giãn): hẹp 2×2 = 4 ô, vừa 4 ô một hàng, rộng 5 rồi 6 ô */
 .recent-quizzes { container-type: inline-size; }
-.recent-strip {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.6rem;
+
+/* Tiêu đề: nhãn băng washi hồng dán lệch + lời nhắc nhỏ; nút "Xem thêm" neo phải */
+.recent-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.9rem;
 }
-.recent-chip:nth-child(n+5) { display: none; }
-@container (min-width: 720px) {
-    .recent-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.75rem; }
-}
-@container (min-width: 960px) {
-    .recent-strip { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-    .recent-chip:nth-child(5) { display: flex; }
-}
-@container (min-width: 1180px) {
-    .recent-strip { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-    .recent-chip:nth-child(6) { display: flex; }
-}
-.recent-chip {
+.recent-heading {
     display: flex;
     align-items: center;
     gap: 0.6rem;
     min-width: 0;
-    padding: 0.6rem 0.7rem;
-    border-radius: 1rem;
-    background: rgba(255, 255, 255, 0.95);
-    border: 1px solid rgba(15, 23, 42, 0.07);
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 18px -16px rgba(15, 23, 42, 0.45);
+    margin: 0;
+}
+.recent-heading-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.32rem 0.85rem;
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #9d174d;
+    background-color: #fbcfe8;
+    background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.5) 0 5px, transparent 5px 10px);
+    /* hai mép răng cưa như băng xé tay (cùng kiểu .qc-rail) */
+    -webkit-mask: conic-gradient(from 45deg at left, #000 90deg, #0000 0) left / 51% 6px repeat-y,
+                  conic-gradient(from 225deg at right, #000 90deg, #0000 0) right / 51% 6px repeat-y;
+    mask: conic-gradient(from 45deg at left, #000 90deg, #0000 0) left / 51% 6px repeat-y,
+          conic-gradient(from 225deg at right, #000 90deg, #0000 0) right / 51% 6px repeat-y;
+    rotate: -1.5deg;
+    white-space: nowrap;
+}
+.recent-heading-tag i { font-size: 0.7rem; }
+.recent-heading-hint {
+    font-size: 0.72rem;
+    font-weight: 600;
+    font-style: italic;
+    color: #b0899d;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.recent-see-all {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.32rem 0.8rem;
+    border-radius: 9999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #db2777;
+    background: #fdf2f8;
+    border: 1.5px dashed #f9a8d4;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.15s ease;
+}
+.recent-see-all i { font-size: 0.6rem; transition: transform 0.2s ease; }
+.recent-see-all:hover { background: #fce7f3; transform: translateY(-1px); }
+.recent-see-all:hover i { transform: translateX(2px); }
+.recent-see-all.hidden { display: none; }
+
+/* Lưới: hẹp 2×2 = 4 ô, ≥720px 4 ô một hàng, ≥960px 5 ô, ≥1180px 6 ô.
+   padding-top chừa chỗ cho băng washi + sticker tim thò lên khỏi mép giấy */
+.recent-strip {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.95rem 0.75rem;
+    padding-top: 0.5rem;
+}
+.recent-note:nth-child(n+5) { display: none; }
+@container (max-width: 460px) {
+    .recent-heading-hint { display: none; }
+}
+@container (min-width: 720px) {
+    .recent-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
+}
+@container (min-width: 960px) {
+    .recent-strip { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .recent-note:nth-child(5) { display: flex; }
+}
+@container (min-width: 1180px) {
+    .recent-strip { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .recent-note:nth-child(6) { display: flex; }
+}
+
+/* Mẩu giấy note: nền chấm bi pastel theo màu danh tính bộ đề, đường may nét đứt, nghiêng so le */
+.recent-note {
+    --qc: var(--qc-from, #f472b6);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    min-width: 0;
+    padding: 0.9rem 0.75rem 0.65rem;
+    border-radius: 0.95rem;
+    background-color: color-mix(in srgb, var(--qc) 7%, #fffdfa);
+    background-image: radial-gradient(color-mix(in srgb, var(--qc) 26%, transparent) 1px, transparent 1.5px);
+    background-size: 14px 14px;
+    border: 1.5px solid color-mix(in srgb, var(--qc) 30%, #ffffff);
+    outline: 1.5px dashed color-mix(in srgb, var(--qc) 40%, #ffffff);
+    outline-offset: -5px;
+    box-shadow: 0 2px 0 color-mix(in srgb, var(--qc) 22%, #ffffff),
+                0 10px 20px -16px color-mix(in srgb, var(--qc) 70%, #4a2233);
+    rotate: var(--tilt, 0deg);
+    color: inherit;
     text-decoration: none;
-    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), rotate 0.25s ease,
+                border-color 0.2s ease, box-shadow 0.2s ease;
+    animation: recent-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) backwards; /* backwards: xong là trả transform cho :hover */
+    animation-delay: calc(var(--i, 0) * 55ms);
+}
+@keyframes recent-pop {
+    from { opacity: 0; transform: translateY(10px) scale(0.94); }
 }
 @media (hover: hover) {
-    .recent-chip:hover {
-        transform: translateY(-2px);
-        border-color: color-mix(in srgb, var(--qc-from, #ec4899) 45%, transparent);
-        box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05), 0 14px 26px -18px rgba(15, 23, 42, 0.55);
+    .recent-note:hover {
+        transform: translateY(-4px);
+        rotate: 0deg;
+        border-color: color-mix(in srgb, var(--qc) 55%, #ffffff);
+        box-shadow: 0 2px 0 color-mix(in srgb, var(--qc) 28%, #ffffff),
+                    0 18px 28px -18px color-mix(in srgb, var(--qc) 75%, #4a2233);
     }
+    .recent-note:hover .recent-icon { transform: scale(1.08); rotate: 5deg; }
+    .recent-note:hover .recent-play { transform: scale(1.12); background: #ec5fa8; }
 }
-.recent-chip:active { transform: scale(0.98); }
-.recent-icon {
-    width: 2.1rem;
-    height: 2.1rem;
-    flex-shrink: 0;
-    border-radius: 0.7rem;
+.recent-note:active { transform: translateY(1px) scale(0.98); }
+.recent-note:focus-visible { outline: 2.5px solid #ec4899; outline-offset: 2px; }
+
+/* Băng washi giữa mép trên (so le chiều nghiêng) */
+.recent-tape {
+    position: absolute;
+    top: -9px;
+    left: 50%;
+    width: 48px;
+    height: 17px;
+    translate: -50% 0;
+    rotate: -4deg;
+    background-color: color-mix(in srgb, var(--qc) 40%, transparent);
+    background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.45) 0 5px, transparent 5px 10px);
+    -webkit-mask: conic-gradient(from 45deg at left, #000 90deg, #0000 0) left / 51% 6px repeat-y,
+                  conic-gradient(from 225deg at right, #000 90deg, #0000 0) right / 51% 6px repeat-y;
+    mask: conic-gradient(from 45deg at left, #000 90deg, #0000 0) left / 51% 6px repeat-y,
+          conic-gradient(from 225deg at right, #000 90deg, #0000 0) right / 51% 6px repeat-y;
+    pointer-events: none;
+}
+.recent-note:nth-child(even) .recent-tape { rotate: 5deg; }
+
+/* Sticker tim ở góc tờ chạm gần nhất */
+.recent-latest {
+    position: absolute;
+    top: -9px;
+    right: -6px;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 9999px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: #fff;
-    font-size: 0.85rem;
-    background: linear-gradient(135deg, var(--qc-from, #ec4899), var(--qc-to, #fb7185));
+    background: #ffffff;
+    color: #f472b6;
+    font-size: 0.68rem;
+    box-shadow: 0 0 0 1.5px #fbcfe8, 0 4px 8px -3px rgba(236, 72, 153, 0.55);
+    rotate: 14deg;
+    animation: recent-beat 2.4s ease-in-out 0.6s infinite;
 }
-.recent-body { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+@keyframes recent-beat {
+    0%, 70%, 100% { transform: scale(1); }
+    78% { transform: scale(1.18); }
+    86% { transform: scale(0.96); }
+}
+
+.recent-top { display: flex; align-items: flex-start; gap: 0.55rem; min-width: 0; }
+/* Icon = sticker bế viền trắng, giống icon trên thẻ bộ đề */
+.recent-icon {
+    width: 2.05rem;
+    height: 2.05rem;
+    flex-shrink: 0;
+    border-radius: 0.65rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.82rem;
+    background: color-mix(in srgb, var(--qc) 24%, #ffffff);
+    color: color-mix(in srgb, var(--qc) 78%, #3a2430);
+    box-shadow: 0 0 0 2px #ffffff, 0 4px 9px -4px color-mix(in srgb, var(--qc) 70%, #4a2233);
+    rotate: -5deg;
+    transition: transform 0.25s ease, rotate 0.25s ease;
+}
+.recent-info { display: flex; flex-direction: column; gap: 0.18rem; min-width: 0; flex: 1 1 auto; }
 .recent-title {
     font-size: 0.8rem;
-    font-weight: 700;
+    font-weight: 800;
     line-height: 1.25;
-    color: #334155;
+    color: #3d2733;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     word-break: break-word;
+    min-height: 2.5em; /* tên 1 dòng vẫn giữ chiều cao → các tờ thẳng hàng */
 }
-.recent-meta {
+.recent-sub {
     display: flex;
     align-items: center;
-    gap: 0.35rem;
-    font-size: 0.66rem;
+    gap: 0.3rem;
+    min-width: 0;
+    font-size: 0.64rem;
     font-weight: 600;
-    color: #94a3b8;
+    color: #a08898;
     white-space: nowrap;
 }
-.recent-score {
-    padding: 0.05rem 0.4rem;
+.recent-folder {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.22rem;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.recent-folder i { font-size: 0.56rem; color: #f2b53c; }
+.recent-count { flex-shrink: 0; }
+.recent-dot { width: 3px; height: 3px; border-radius: 9999px; background: currentColor; opacity: 0.5; flex-shrink: 0; }
+
+/* Thước điểm: màu theo mức (xanh / hổ phách / hồng); chưa nộp = nét đứt */
+.recent-bar {
+    display: block;
+    height: 5px;
+    border-radius: 9999px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--qc) 14%, #f4ecef);
+}
+.recent-bar > span { display: block; height: 100%; border-radius: inherit; }
+.recent-bar.is-good > span { background: #34c38f; }
+.recent-bar.is-mid  > span { background: #f2b53c; }
+.recent-bar.is-low  > span { background: #f2708e; }
+.recent-bar.is-empty {
+    background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--qc) 30%, #ecdfe5) 0 6px, transparent 6px 11px);
+}
+
+.recent-foot {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    min-width: 0;
+    font-size: 0.64rem;
+    font-weight: 700;
+}
+.recent-time {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-width: 0;
+    flex: 1 1 auto;
+    color: #9a8090;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.recent-time i { font-size: 0.58rem; opacity: 0.8; }
+.recent-score,
+.recent-pending,
+.recent-due {
+    flex-shrink: 0;
+    padding: 0.06rem 0.42rem;
     border-radius: 9999px;
     font-weight: 800;
+    white-space: nowrap;
     font-variant-numeric: tabular-nums;
 }
-.recent-score.is-good { background: #dcfce7; color: #15803d; }
-.recent-score.is-mid { background: #fef3c7; color: #b45309; }
-.recent-score.is-low { background: #ffe4e6; color: #be123c; }
+.recent-score.is-good { background: #dcfce7; color: #047857; }
+.recent-score.is-mid  { background: #fef3c7; color: #b45309; }
+.recent-score.is-low  { background: #ffe4e6; color: #be123c; }
+.recent-pending { border: 1px dashed #d7b8c7; color: #a08898; background: rgba(255, 255, 255, 0.7); }
+.recent-due { display: inline-flex; align-items: center; gap: 0.2rem; background: #fff1f2; color: #e11d48; }
+.recent-due i { font-size: 0.55rem; }
+/* Nút play: viên kẹo hồng giống nút "Làm bài" → nhìn là biết bấm để làm */
+.recent-play {
+    flex-shrink: 0;
+    width: 1.55rem;
+    height: 1.55rem;
+    border-radius: 9999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding-left: 1px;
+    font-size: 0.52rem;
+    color: #ffffff;
+    background: #f472b6;
+    box-shadow: 0 2px 0 #e35d9f;
+    outline: 1.2px dashed rgba(255, 255, 255, 0.8);
+    outline-offset: -3.5px;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .recent-note { rotate: none; animation: none; }
+    .recent-latest { animation: none; }
+}
 
 /* Thanh phân trang: một viên thuốc gọn thay cho hai nút rời rạc, cùng chất liệu với thẻ */
 .lib-pager {
