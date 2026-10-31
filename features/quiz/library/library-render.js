@@ -9,9 +9,10 @@ import { S, FOLDERS_PER_PAGE, LIB_PREFETCH_PAGES } from './library-state.js';
 import {
     applyQuizGridColumns, applyFolderGridColumns,
     applyLibraryFilter, sortQuizList, getFoldersForDisplay,
-    removeOrphanFolderMenus, escapeHtml,
+    removeOrphanFolderMenus, escapeHtml, formatRelativeTime, getQuizAccent,
     folderById, folderHex, folderPath, childFolders, quizFolderOf
 } from './library-helpers.js';
+import { getLastAttempt, getLastTouchedAt, markQuizOpened } from './library-attempts.js';
 import { createFolderCard, createQuizCard } from './library-cards.js';
 import { canUseRollingLibrary, loadLibraryChunk, loadAllLibraryInBackground, loadAndDisplayLibrary } from './library-data.js';
 import { moveQuizToFolder, moveFolder } from './library-actions.js';
@@ -53,6 +54,50 @@ function updateLibraryOverview() {
     if (elQuizzes) elQuizzes.textContent = fmt(S.userQuizSets.length);
     if (elQuestions) elQuestions.textContent = fmt(totalQuestions);
     if (elFolders) elFolders.textContent = fmt(S.userFolders.length);
+}
+
+// === DẢI "LÀM GẦN ĐÂY" ===
+// Tối đa 6 bộ đề vừa mở / nộp bài gần nhất (getLastTouchedAt). Luôn vẽ đủ 6 ô, CSS tự ẩn bớt
+// còn 4–5 khi khung hẹp. Chỉ hiện ở gốc thư viện, lúc không tìm kiếm / lọc / chọn nhiều.
+const RECENT_MAX = 6;
+function renderRecentQuizzes(isSearching) {
+    const section = document.getElementById('recent-quizzes-section');
+    const list = document.getElementById('recent-quizzes-list');
+    if (!section || !list) return;
+
+    const show = !isSearching && S.currentFolderId === null && S.libraryFilterMode === 'all' && !S.isSelectionMode;
+    const recent = show
+        ? S.userQuizSets
+            .map(q => ({ q, at: getLastTouchedAt(q.id) }))
+            .filter(r => r.at > 0)
+            .sort((a, b) => b.at - a.at)
+            .slice(0, RECENT_MAX)
+        : [];
+    section.classList.toggle('hidden', recent.length === 0);
+    if (!recent.length) { list.innerHTML = ''; return; }
+
+    list.innerHTML = recent.map(({ q, at }) => {
+        const accent = getQuizAccent(q.id || q.title);
+        const title = escapeHtml(q.title || 'Không tên');
+        const att = getLastAttempt(q.id);
+        let scoreHTML = '';
+        if (att && att.t > 0) {
+            const pct = Math.round((att.s / att.t) * 100);
+            const tone = pct >= 80 ? 'is-good' : pct >= 50 ? 'is-mid' : 'is-low';
+            scoreHTML = `<span class="recent-score ${tone}" title="Lần làm gần nhất: ${att.s}/${att.t} câu đúng">${att.s}/${att.t}</span>`;
+        }
+        return `
+            <a href="features/quiz/quiz.html?id=${q.id}" class="recent-chip" data-id="${q.id}" style="--qc-from:${accent.from};--qc-to:${accent.to}" title="${title}">
+                <span class="recent-icon" aria-hidden="true"><i class="fas ${accent.icon}"></i></span>
+                <span class="recent-body">
+                    <span class="recent-title">${title}</span>
+                    <span class="recent-meta"><span>${formatRelativeTime(at) || 'vừa xong'}</span>${scoreHTML}</span>
+                </span>
+            </a>`;
+    }).join('');
+    list.querySelectorAll('.recent-chip').forEach(a => {
+        a.addEventListener('click', () => markQuizOpened(a.dataset.id));
+    });
 }
 
 // === SKELETON LOADING ===
@@ -147,6 +192,7 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
     }
 
     updateLibraryOverview();
+    renderRecentQuizzes(isSearching);
     // Cây thư mục (library-tree.js) nghe sự kiện này để vẽ lại theo dữ liệu mới — không import ngược cho khỏi vòng phụ thuộc
     document.dispatchEvent(new CustomEvent('library:render'));
 

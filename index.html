@@ -28,7 +28,7 @@
     <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js" crossorigin>
     <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Nunito:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600;1,700&family=Quicksand:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=18">
+    <link rel="stylesheet" href="style.css?v=19">
     <link rel="stylesheet" href="features/study-room/rooms-hub.css?v=4">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -2583,6 +2583,14 @@
 
                     </div>
                     </div><!-- /#lib-panel-body -->
+                </div>
+                <!-- LÀM GẦN ĐÂY: các bộ đề vừa mở/làm, chỉ hiện ở gốc thư viện khi không tìm/lọc.
+                     Hiện 4–6 ô tùy bề ngang khung (container query trong style.css; library-render.js renderRecentQuizzes) -->
+                <div id="recent-quizzes-section" class="recent-quizzes hidden mb-6">
+                    <h3 class="text-on-bg text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <i class="fas fa-clock-rotate-left text-pink-400"></i> <span>Làm gần đây</span>
+                    </h3>
+                    <div id="recent-quizzes-list" class="recent-strip"></div>
                 </div>
                 <!-- Header khu vực thư mục: tiêu đề + tìm kiếm + sắp xếp + nút tạo (luôn hiện ở gốc thư viện) -->
                 <div id="folders-header" class="flex items-center justify-between gap-2 mb-3 flex-wrap hidden">
