@@ -3,7 +3,8 @@
 // isAdminToken trong api/_lib/admin.js). Admin phụ không chỉnh được tài khoản admin khác (máy chủ trả u.canManage = false).
 // Một khoảng thời gian chung (Hôm nay / 7 / 30 ngày — đầu trang) cho mọi tab:
 //  • Tổng quan: note số liệu, "Việc cần xem" (bấm là nhảy tới đúng chỗ đã lọc), biểu đồ lượt làm, đề hot, ai được dùng tính năng gì.
-//  • Đề & lượt làm: quiz_results (lượt nộp của tài khoản) + quiz_guest (máy khách chưa đăng nhập) — tải một lần, Tải lại mới đọc lại;
+//  • Đề & lượt làm: quiz_results (lượt nộp của tài khoản) + quiz_starts (mỗi lần tài khoản bấm Bắt đầu — lượt không có lượt nộp vẫn tính
+//    là 1 lượt làm) + quiz_guest (máy khách chưa đăng nhập) — tải một lần, Tải lại mới đọc lại;
 //    quiz_runs (đang làm — core/quiz-run.js ghi lúc bắt đầu / nộp) và CẢNH BÁO cùng tài khoản làm trên 2 máy cùng lúc:
 //      – hai lượt nộp của cùng tài khoản, khác máy, chồng giờ nhau; – lượt nộp mà máy làm bài tự phát hiện máy kia (quiz_results.clash);
 //      – đang làm (chưa nộp) trên ≥ 2 máy.
@@ -68,7 +69,10 @@ let results = null;          // quiz_results trong khoảng đang chọn (null =
 let resultsError = '', resultsAt = 0, resultsCapped = false;
 let guests = [];             // quiz_guest (máy CHƯA đăng nhập làm đề công khai) trong cùng khoảng
 let guestsError = '';
+let starts = [];             // quiz_starts (mỗi lần tài khoản bấm Bắt đầu) trong cùng khoảng
+let startsError = '';
 let incidents = null;        // kết quả analyze(), tính lại khi dữ liệu đổi
+let extras = null;           // kết quả openStarts(), tính lại khi dữ liệu đổi
 let users = null;            // danh sách tài khoản (máy chủ đọc Auth — không tốn lượt đọc Firestore)
 let usersError = '';
 let userMap = new Map();
@@ -141,7 +145,7 @@ function queueRender() {
         if (openUid && drawerData) renderDrawer();
     }, 500);
 }
-const dataChanged = () => { incidents = null; queueRender(); };
+const dataChanged = () => { incidents = null; extras = null; queueRender(); };
 
 // Tab Quản trị bị ẩn quá 1 phút → thôi nghe (mỗi thay đổi nghe được là 1 lượt đọc bị tính tiền); mở lại thì nghe tiếp
 const PAUSE_AFTER_MS = 60 * 1000;
@@ -342,9 +346,28 @@ function normResult(id, x) {
     const p = typeof x.percentage === 'number' ? x.percentage : (total ? Number(x.score) / total * 100 : 0);
     return {
         id, uid: str(x.userId, 128), quizId: str(x.quizId, 120), title: str(x.quizTitle, 200), pct: Math.round(p) || 0,
-        score: Number(x.score) || 0, total, taken, start: Math.min(start, end), end,
+        score: Number(x.score) || 0, total, taken, start: Math.min(start, end), end, startedAt: int(x.startedAt) || 0,
         device: str(x.device, 64), label: str(x.deviceLabel, 80), clash: str(x.clash, 80), flags: []
     };
+}
+// Một lần tài khoản bấm Bắt đầu (core/quiz-run.js) — dựng giống lượt nộp (open = không có lượt nộp trong quiz_results) để vẽ chung.
+// end = lúc bắt đầu: lượt bỏ dở không có giờ nộp, xếp vào biểu đồ theo lúc bắt đầu.
+function normStart(id, x) {
+    const start = int(x.startedAt) || msOf(x.at);
+    const done = x.state === 'done';
+    return {
+        id, uid: str(x.uid, 128), quizId: str(x.quizId, 120), title: str(x.title, 200), mode: own(MODES, x.mode) ? x.mode : '',
+        done, pct: done ? int(x.pct) : null, total: 0, taken: 0, start, end: start, startedAt: start,
+        device: str(x.device, 64), label: str(x.label, 80), clash: '', flags: [], open: true
+    };
+}
+/** Lượt bấm Bắt đầu KHÔNG có lượt nộp tương ứng trong quiz_results (cùng tài khoản + giờ bắt đầu tới mili giây — mã đề không so vì
+ *  quiz_results lấy theo URL còn quiz_starts theo bộ đề đã nạp): chưa nộp / bỏ dở, hoặc nộp ở chế độ luyện câu sai / ôn lặp lại
+ *  (không lưu kết quả). Vẫn tính là 1 lượt làm. */
+function openStarts() {
+    if (extras) return extras;
+    const submitted = new Set((results || []).map(r => `${r.uid}|${r.startedAt}`));
+    return (extras = starts.filter(s => !submitted.has(`${s.uid}|${s.startedAt}`)));
 }
 // Máy khách: mỗi máy × mỗi đề một doc (làm lại thì ghi đè lượt cuối + đếm số lượt) — kèm chi tiết máy, vị trí theo IP, 10 lượt gần nhất
 // (core/quiz-run.js). Bản ghi cũ trước bản cập nhật này không có các trường đó → hiện "chưa rõ".
@@ -395,21 +418,27 @@ async function loadResults() {
     const token = ++resultsToken;
     resultsError = '';
     guestsError = '';
+    startsError = '';
     $('rep-reload').disabled = true;
     renderStatus();
     try {
         const since = Timestamp.fromMillis(Date.now() - rangeDays * DAY);
-        const [snap, gsnap] = await Promise.all([
+        const [snap, gsnap, ssnap] = await Promise.all([
             getDocs(query(collection(db, 'quiz_results'), where('completedAt', '>=', since), orderBy('completedAt', 'desc'), limit(RESULTS_MAX))),
             getDocs(query(collection(db, 'quiz_guest'), where('at', '>=', since), orderBy('at', 'desc'), limit(RESULTS_MAX))).catch((e) => {
                 guestsError = e?.code === 'permission-denied' ? 'Chưa đọc được máy khách — luật Firestore mới (quiz_guest) đã deploy chưa?' : 'Không tải được máy khách.';
+                return null;
+            }),
+            getDocs(query(collection(db, 'quiz_starts'), where('at', '>=', since), orderBy('at', 'desc'), limit(RESULTS_MAX))).catch((e) => {
+                startsError = e?.code === 'permission-denied' ? 'Chưa đọc được lượt bắt đầu chưa nộp — luật Firestore mới (quiz_starts) đã deploy chưa?' : 'Không tải được lượt bắt đầu chưa nộp.';
                 return null;
             })
         ]);
         if (token !== resultsToken) return;
         results = snap.docs.map(d => normResult(d.id, d.data()));
         guests = gsnap ? gsnap.docs.map(d => normGuest(d.id, d.data())) : [];
-        resultsCapped = snap.size >= RESULTS_MAX || (gsnap?.size || 0) >= RESULTS_MAX;
+        starts = ssnap ? ssnap.docs.map(d => normStart(d.id, d.data())) : [];
+        resultsCapped = snap.size >= RESULTS_MAX || (gsnap?.size || 0) >= RESULTS_MAX || (ssnap?.size || 0) >= RESULTS_MAX;
         resultsAt = Date.now();
     } catch (e) {
         if (token !== resultsToken) return;
@@ -504,9 +533,10 @@ const scoreClass = (p) => p == null ? 's-none' : p >= 80 ? 's-good' : p >= 50 ? 
 /** Bong bóng điểm của một lượt làm (rê chuột / chạm để xem giờ, máy, cờ 2 máy). */
 function bubble(r, withTitle = false) {
     const flag = r.flags?.length > 0;
-    const tip = [withTitle ? (r.title || r.quizId) : '', `${r.pct}%`, fmtShort(r.end), r.taken ? dur(r.taken * 1000) : '', r.label,
+    const tip = [withTitle ? (r.title || r.quizId) : '', r.pct != null ? `${r.pct}%` : 'chưa nộp / bỏ dở', MODES[r.mode] || '',
+        r.open ? 'bắt đầu ' + fmtShort(r.start) : fmtShort(r.end), r.taken ? dur(r.taken * 1000) : '', r.label,
         flag ? '🚨 cùng lúc với ' + r.flags.join(', ') : ''].filter(Boolean).join(' · ');
-    return `<span class="bub ${scoreClass(r.pct)} ${flag ? 'is-flag' : ''}" title="${esc(tip)}">${r.pct}</span>`;
+    return `<span class="bub ${scoreClass(r.pct)} ${flag ? 'is-flag' : ''}" title="${esc(tip)}">${r.pct ?? '…'}</span>`;
 }
 function bubbles(rs, max = 14, withTitle = false) {
     const list = [...rs].sort((a, b) => a.end - b.end);
@@ -607,7 +637,8 @@ function series(times) {
 function renderHome() {
     if (!started) return;
     const inc = analyze();
-    const all = results || [];
+    const all = results ? [...results, ...openStarts()] : [];
+    const unsubmitted = all.filter(r => r.open && !r.done).length;
     const doing = doingByUid();
     const guestAttempts = guests.reduce((s, g) => s + g.attempts, 0);
     const accDevices = new Set(all.filter(r => r.device).map(r => r.uid + '|' + r.device)).size;
@@ -620,7 +651,7 @@ function renderHome() {
 
     const runTimes = [...all.map(r => r.end), ...guests.map(g => g.end)];
     $('home-notes').innerHTML =
-        note('runs', '🍓', 'Lượt làm đề', results ? all.length + guestAttempts : '…', `${all.length} tài khoản · ${guestAttempts} khách`, 'blossom', 'data-goto="report"', results ? series(runTimes) : null) +
+        note('runs', '🍓', 'Lượt làm đề', results ? all.length + guestAttempts : '…', `${all.length} tài khoản${unsubmitted ? ` (${unsubmitted} chưa nộp)` : ''} · ${guestAttempts} khách`, 'blossom', 'data-goto="report"', results ? series(runTimes) : null) +
         note('devs', '📱', 'Máy đã làm đề', results ? accDevices + guestDevices : '…', guestsError ? 'chưa đọc được máy khách' : `${accDevices} có tài khoản · ${guestDevices} khách`, 'sky', 'data-goto="report"', results ? series(guests.map(g => g.end)) : null) +
         note('doing', '✏️', 'Đang làm ngay', doing.size, runsError ? 'chưa đọc được' : doing.size ? `trên ${[...doing.values()].reduce((s, g) => s + g.devices.size, 0)} máy` : 'chưa ai đang làm', 'mint', 'data-goto="report"') +
         note('users', '🧸', 'Tài khoản', users ? users.length : '…', users ? `+${newUsers} mới · ${unapproved} chờ duyệt` : 'đang tải…', 'lav', 'data-goto="accounts" data-filter="all"', users ? series(users.map(u => u.createdAt || 0)) : null);
@@ -632,7 +663,7 @@ function renderHome() {
     if (doing.size) todo.push(['✏️', `<b>${doing.size}</b> người đang làm đề`, 'chưa nộp bài', 'mint', 'data-goto="report"', 'Xem']);
     if (unapproved) todo.push(['⏳', `<b>${unapproved}</b> tài khoản chưa duyệt`, 'chưa tạo được đề, phòng, bệnh án', 'butter', 'data-goto="accounts" data-filter="unapproved"', 'Duyệt']);
     if (locked) todo.push(['🔒', `<b>${locked}</b> tài khoản đang bị khoá`, 'không đăng nhập được', 'latte', 'data-goto="accounts" data-filter="locked"', 'Xem']);
-    for (const err of [resultsError, guestsError, runsError, usersError].filter(Boolean)) todo.push(['⚠️', esc(err), 'kiểm tra lại phần deploy', 'cherry', '', '']);
+    for (const err of [resultsError, guestsError, startsError, runsError, usersError].filter(Boolean)) todo.push(['⚠️', esc(err), 'kiểm tra lại phần deploy', 'cherry', '', '']);
     $('home-todo').innerHTML = todo.length ? todo.map(([ic, text, sub, hue, go, cta]) => `<li>
         <${go ? 'button type="button"' : 'div'} class="todo" style="--h:var(--hue-${hue});--hi:var(--ink-${hue})" ${go}>
             <span class="todo-ic">${ic}</span><span class="min-w-0 flex-1"><span class="todo-t">${text}</span><small>${sub}</small></span>
@@ -668,7 +699,7 @@ function renderHeat() {
     if (!results) { $('home-heat').innerHTML = fx.skeleton(3, 'line'); return; }
     const grid = Array.from({ length: 7 }, () => new Array(12).fill(0));
     const put = (t) => { if (!t) return; const d = new Date(t); grid[(d.getDay() + 6) % 7][Math.floor(d.getHours() / 2)]++; };
-    results.forEach(r => put(r.end));
+    [...results, ...openStarts()].forEach(r => put(r.end));
     guests.forEach(g => put(g.end));
     const max = Math.max(1, ...grid.flat());
     const DAYS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
@@ -714,7 +745,7 @@ function renderChart() {
     }
     const acc = new Array(n).fill(0), gst = new Array(n).fill(0);
     const put = (arr, t) => { const i = Math.floor((t - start) / step); if (i >= 0 && i < n) arr[i]++; };
-    (results || []).forEach(r => put(acc, r.end));
+    [...(results || []), ...openStarts()].forEach(r => put(acc, r.end));
     guests.forEach(g => put(gst, g.end));
     const max = Math.max(1, ...acc.map((v, i) => v + gst[i]));
     const every = n > 14 ? Math.ceil(n / 10) : 1;
@@ -733,7 +764,7 @@ function renderChart() {
 function renderHot() {
     const byQuiz = new Map();
     const add = (id, title) => { let q = byQuiz.get(id); if (!q) byQuiz.set(id, q = { id, title: '', dev: new Set(), n: 0 }); if (!q.title && title) q.title = title; return q; };
-    (results || []).forEach(r => { const q = add(r.quizId, r.title); q.n++; q.dev.add(r.device ? r.uid + '|' + r.device : 'u|' + r.uid); });
+    [...(results || []), ...openStarts()].forEach(r => { const q = add(r.quizId, r.title); q.n++; q.dev.add(r.device ? r.uid + '|' + r.device : 'u|' + r.uid); });
     guests.forEach(g => { const q = add(g.quizId, g.title); q.n += g.attempts; q.dev.add('g|' + g.device); });
     const top = [...byQuiz.values()].sort((a, b) => b.dev.size - a.dev.size || b.n - a.n).slice(0, 6);
     const max = Math.max(1, ...top.map(q => q.dev.size));
@@ -786,11 +817,11 @@ function renderReport() {
     if (!results) { $('rep-list').innerHTML = fx.skeleton(3, 'card'); return; }
     const q = lc($('rep-search').value.trim());
     const onlyClash = $('rep-only-clash').checked;
-    const shown = results.filter(r => matchesQ(r, q) && (!onlyClash || r.flags.length));
+    const shown = [...results, ...openStarts()].filter(r => matchesQ(r, q) && (!onlyClash || r.flags.length));
     const shownGuests = onlyClash ? [] : guests.filter(g => guestMatches(g, q));
     const html = repView === 'quiz' ? renderByQuiz(shown, shownGuests, q) : renderByUser(shown, shownGuests, q);
     $('rep-list').innerHTML = html || empty(resultsError ? esc(resultsError)
-        : results.length || guests.length ? 'Không có lượt nào khớp bộ lọc 🔍' : `Chưa ai làm đề trong ${RANGES[rangeDays]} 🌸`);
+        : results.length || starts.length || guests.length ? 'Không có lượt nào khớp bộ lọc 🔍' : `Chưa ai làm đề trong ${RANGES[rangeDays]} 🌸`);
 }
 
 function renderByQuiz(list, gs = [], q = '') {
@@ -807,7 +838,7 @@ function renderByQuiz(list, gs = [], q = '') {
 
     return quizzes.slice(0, 150).map((qz, qi) => {
         const flagged = qz.rs.filter(r => r.flags.length).length;
-        const graded = [...qz.rs.map(r => r.pct), ...qz.gs.filter(g => g.done && g.pct != null).map(g => g.pct)];
+        const graded = [...qz.rs.filter(r => !r.open).map(r => r.pct), ...qz.gs.filter(g => g.done && g.pct != null).map(g => g.pct)];
         const avg = graded.length ? Math.round(graded.reduce((s, p) => s + p, 0) / graded.length) : null;
         const people = [...qz.people.entries()].sort((a, b) => (b[1].some(r => r.flags.length) - a[1].some(r => r.flags.length)) || b[1].length - a[1].length);
         const row = ([uid, rs]) => {
@@ -822,7 +853,8 @@ function renderByQuiz(list, gs = [], q = '') {
         const rows = [...people.map(row), ...qz.gs.sort((a, b) => b.end - a.end).map(grow)];
         const SHOW = 6;
         // Bục top 3 (điểm cao nhất của từng người) + thanh phân bố điểm giỏi / khá / cần cố gắng
-        const podium = people.map(([uid, rs]) => ({ uid, pct: Math.max(...rs.map(r => r.pct)) })).sort((a, b) => b.pct - a.pct).slice(0, 3);
+        const podium = people.map(([uid, rs]) => ({ uid, pct: Math.max(-1, ...rs.filter(r => !r.open).map(r => r.pct)) }))
+            .filter(b => b.pct >= 0).sort((a, b) => b.pct - a.pct).slice(0, 3);
         const dist = [graded.filter(p => p >= 80).length, graded.filter(p => p >= 50 && p < 80).length, graded.filter(p => p < 50).length];
         const extras = graded.length >= 2 ? `<div class="qextra">
             ${podium.length >= 2 ? `<div class="podium">${podium.map((b, i) => `<button type="button" class="pod pod-${i + 1}" data-act="open" data-uid="${esc(b.uid)}" title="${esc(nameOf(person(b.uid)))} · cao nhất ${b.pct}%">
@@ -917,6 +949,12 @@ function exportReport() {
         rows.push([fmtDate(r.end), fmtDate(r.start), p.email, p.name, r.title, r.quizId, r.pct, r.total, Math.round(r.taken / 60),
             r.label, r.flags.length ? 'cùng lúc với ' + r.flags.join(', ') : '']);
     }
+    // Lượt bấm Bắt đầu không có lượt nộp đã lưu (chưa nộp / bỏ dở, hoặc chế độ luyện câu sai / ôn lặp lại)
+    for (const r of onlyClash ? [] : openStarts().filter(r => matchesQ(r, q))) {
+        const p = person(r.uid);
+        rows.push([r.done ? `(nộp — ${MODES[r.mode] || 'không lưu kết quả'})` : '(chưa nộp)', fmtDate(r.start), p.email, p.name, r.title, r.quizId,
+            r.pct ?? '', '', '', r.label, '']);
+    }
     // Máy khách: lượt cuối của mỗi máy × đề (cột Số câu ghi số lượt đã làm)
     for (const g of onlyClash ? [] : guests.filter(g => guestMatches(g, q))) {
         rows.push([g.done ? fmtDate(g.end) : '(chưa nộp)', fmtDate(g.start), '(khách chưa đăng nhập)', '', g.title, g.quizId,
@@ -942,13 +980,14 @@ async function kick(uid, device, label) {
 }
 
 // Doc quiz_runs: mỗi tài khoản × máy một doc nên không phình nhiều; máy đổi id (xoá dữ liệu trình duyệt) thì doc cũ nằm lại → dọn sau 14 ngày.
-// quiz_guest (máy khách): giữ 60 ngày để báo cáo 30 ngày còn đủ.
+// quiz_guest (máy khách) + quiz_starts (lượt bấm Bắt đầu): giữ 60 ngày để báo cáo 30 ngày còn đủ.
 async function purgeRuns(manual) {
-    const [a, b] = await Promise.all([
+    const [a, b, c] = await Promise.all([
         getDocs(query(collection(db, 'quiz_runs'), where('at', '<', Timestamp.fromMillis(Date.now() - PURGE_AFTER_MS)), limit(400))),
-        getDocs(query(collection(db, 'quiz_guest'), where('at', '<', Timestamp.fromMillis(Date.now() - GUEST_PURGE_MS)), limit(400))).catch(() => null)
+        getDocs(query(collection(db, 'quiz_guest'), where('at', '<', Timestamp.fromMillis(Date.now() - GUEST_PURGE_MS)), limit(400))).catch(() => null),
+        getDocs(query(collection(db, 'quiz_starts'), where('at', '<', Timestamp.fromMillis(Date.now() - GUEST_PURGE_MS)), limit(400))).catch(() => null)
     ]);
-    const docs = [...a.docs, ...(b?.docs || [])];
+    const docs = [...a.docs, ...(b?.docs || []), ...(c?.docs || [])].slice(0, 500);   // một batch tối đa 500 thao tác
     if (docs.length) {
         const batch = writeBatch(db);
         docs.forEach(d => batch.delete(d.ref));
@@ -1626,6 +1665,7 @@ function renderDrawer() {
     const doingDevices = doing ? doing.devices : new Set();
     const myIncidents = analyze().filter(x => x.uid === u.uid);
     const myResults = (results || []).filter(r => r.uid === u.uid).length;
+    const myOpen = openStarts().filter(r => r.uid === u.uid).sort((a, b) => b.start - a.start);
     $('drawer-title').textContent = u.displayName || u.email;
     paintDrawerNav();
 
@@ -1647,7 +1687,7 @@ function renderDrawer() {
             ${(u.providers || []).map(p => p === 'google.com' ? '<span class="chip bg-sky-50 text-sky-600"><i class="fab fa-google"></i> Google</span>' : p === 'password' ? '<span class="chip bg-slate-100 text-slate-500">🔑 Mật khẩu</span>' : '').join('')}
         </div>
         <div class="mini-stats mt-3">
-            <span><b>${myResults}</b><small>lượt nộp · ${rangeDays === 1 ? 'hôm nay' : rangeDays + ' ngày'}</small></span>
+            <span><b>${myResults + myOpen.length}</b><small>lượt làm${myOpen.length ? ` (${myResults} đã nộp)` : ''} · ${rangeDays === 1 ? 'hôm nay' : rangeDays + ' ngày'}</small></span>
             <span><b>${d.devices.length}/${lim >= EXEMPT_MAX ? '∞' : lim}</b><small>máy đang đăng nhập</small></span>
             <span><b>${ago(u.lastSignInAt).replace(' trước', '')}</b><small>lần đăng nhập cuối</small></span>
         </div>
@@ -1739,6 +1779,9 @@ function renderDrawer() {
                 `<div class="nb-alert-item p-2 text-[12.5px]"><b>${esc(CLASH_KINDS[x.kind][0])}</b> · ${fmtShort(x.a.start || x.at)}
                     <div class="clash-pair mt-1"><span class="clash-side"><b>${esc(x.a.label)}</b><small>${esc(x.a.title || '')}</small></span><span class="clash-vs">⚡</span>
                     <span class="clash-side"><b>${esc(x.b.label)}</b><small>${esc(x.b.title || '')}</small></span></div></div>`).join(''), 'cherry') : '')
+            + (myOpen.length ? section(`🌱 Bấm Bắt đầu, không có lượt nộp đã lưu (${myOpen.length}) · ${RANGES[rangeDays]}`, `<div class="space-y-1.5">${myOpen.slice(0, 30).map(r => `<div class="prow">
+                    <span class="prow-title">${esc(r.title || r.quizId)}</span>${bubble(r)}
+                    <span class="prow-meta">${r.done ? esc(MODES[r.mode] || 'đã nộp') : 'chưa nộp'} · ${fmtShort(r.start)}${r.label ? ` · <i class="fas ${deviceIcon(r.label)}"></i>` : ''}</span></div>`).join('')}</div>`, 'mint') : '')
             + section('📚 30 lượt nộp gần nhất', d.results === null
                 ? '<p class="nb-tiny" style="color:var(--ink-cherry)">Không đọc được — đã deploy luật Firestore mới và chỉ mục quiz_results (userId + completedAt) chưa?</p>'
                 : d.results.length ? `<div class="space-y-1.5">${d.results.map(r => `<div class="prow ${r.flags.length ? 'is-flag' : ''}">

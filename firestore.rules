@@ -188,6 +188,28 @@ service cloud.firestore {
                             && get(/databases/$(database)/documents/quiz_sets/$(request.resource.data.quizId)).data.get('isPublic', false) == true;
     }
 
+    // MỖI LẦN BẤM BẮT ĐẦU của tài khoản — core/quiz-run.js; trang Quản trị đếm cả lượt chưa nộp / bỏ dở. Một doc / lượt
+    // `{uid}_{deviceId}_{startedAt}` (F5 giữa bài = cùng doc). Chỉ ghi doc của mình, `at` = giờ máy chủ; chỉ admin đọc / xoá.
+    function validStart(d) {
+      return d.keys().hasOnly(['uid', 'device', 'label', 'quizId', 'title', 'mode', 'state', 'startedAt', 'pct', 'at', 'expireAt'])
+          && d.uid == request.auth.uid
+          && d.at == request.time
+          && d.device is string && d.device.matches('[A-Za-z0-9]{4,40}')
+          && d.state in ['doing', 'done']
+          && d.startedAt is int
+          && d.get('label', '') is string && d.get('label', '').size() <= 80
+          && d.get('quizId', '') is string && d.get('quizId', '').size() <= 120
+          && d.get('title', '') is string && d.get('title', '').size() <= 200
+          && d.get('mode', '') is string && d.get('mode', '').size() <= 20
+          && d.get('pct', 0) is int;
+    }
+    match /quiz_starts/{docId} {
+      allow read, delete: if isAdmin();
+      allow create, update: if request.auth != null
+                            && validStart(request.resource.data)
+                            && docId == request.auth.uid + '_' + request.resource.data.device + '_' + string(request.resource.data.startedAt);
+    }
+
     match /quiz_runs/{docId} {
       allow read: if isAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
       allow create, update: if request.auth != null

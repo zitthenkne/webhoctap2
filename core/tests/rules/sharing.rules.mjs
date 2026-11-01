@@ -266,6 +266,24 @@ test('QUIZ_RUNS: chỉ ghi doc {uid}_{máy} của mình (at = giờ máy chủ);
     await assertSucceeds(deleteDoc(doc(as(FRIEND), 'quiz_runs/friend_dev1abc')));
 });
 
+test('QUIZ_STARTS: mỗi lần bấm Bắt đầu một doc {uid}_{máy}_{startedAt} của mình; chỉ admin đọc', async () => {
+    const ADMIN = { uid: 'admin', email: 'vietthanhne@gmail.com', email_verified: true };
+    const { serverTimestamp } = await import('firebase/firestore');
+    const t = 1760000000000;
+    const s = (extra = {}) => ({ uid: 'friend', device: 'dev1abc', label: 'iPhone · Safari', quizId: 'q1', title: 'Đề 1', mode: 'normal',
+        state: 'doing', startedAt: t, at: serverTimestamp(), ...extra });
+    await assertSucceeds(setDoc(doc(as(FRIEND), `quiz_starts/friend_dev1abc_${t}`), s()));
+    await assertSucceeds(setDoc(doc(as(FRIEND), `quiz_starts/friend_dev1abc_${t}`), { state: 'done', pct: 80, at: serverTimestamp() }, { merge: true }));
+    await assertFails(setDoc(doc(as(FRIEND), `quiz_starts/other_dev1abc_${t}`), s()));          // doc của người khác
+    await assertFails(setDoc(doc(as(FRIEND), `quiz_starts/friend_dev1abc_${t + 1}`), s()));     // id không khớp giờ bắt đầu
+    await assertFails(setDoc(doc(as(FRIEND), `quiz_starts/friend_dev1abc_${t}`), s({ uid: 'other' })));
+    await assertFails(setDoc(doc(as(FRIEND), `quiz_starts/friend_dev1abc_${t}`), s({ at: new Date(0) })));   // giả giờ
+    await assertFails(setDoc(doc(as(FRIEND), `quiz_starts/friend_dev1abc_${t}`), s({ hack: 1 })));
+    await assertFails(setDoc(doc(env.unauthenticatedContext().firestore(), `quiz_starts/friend_dev1abc_${t}`), s()));
+    await assertFails(getDoc(doc(as(FRIEND), `quiz_starts/friend_dev1abc_${t}`)));
+    await assertSucceeds(getDocs(collection(as(ADMIN), 'quiz_starts')));
+});
+
 test('QUIZ_GUEST: khách chưa đăng nhập ghi lượt làm đề CÔNG KHAI; đề riêng / người đăng nhập / đọc thì không', async () => {
     const ADMIN = { uid: 'admin', email: 'vietthanhne@gmail.com', email_verified: true };
     const { serverTimestamp } = await import('firebase/firestore');

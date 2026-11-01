@@ -12,6 +12,9 @@
 //   — theo IP, gần đúng), firstAt (lần đầu làm đề này), hist: 10 lượt gần nhất [{ s: bắt đầu, e: nộp (0 = chưa / bỏ dở), p: điểm % }] }
 //   — mỗi máy × mỗi đề một doc (làm lại thì ghi đè + đếm lượt), cũng 2 lượt ghi / lượt làm. Lịch sử giữ ở localStorage của chính máy đó
 //   (khách không đọc được doc). Luật chỉ cho ghi khi bộ đề đang công khai → báo cáo của admin đếm được cả máy chưa đăng nhập.
+// MỖI LẦN BẤM BẮT ĐẦU (tài khoản): quiz_starts/{uid}_{deviceId}_{startedAt} = { uid, device, label, quizId, title, mode, state, startedAt, pct,
+//   at, expireAt } — một doc / lượt làm, nộp hay không cũng được tính là 1 lượt (quiz_runs bị ghi đè nên không giữ lại được lượt bỏ dở).
+//   F5 giữa bài giữ nguyên startedAt → ghi lại đúng doc cũ, không đếm thêm. Thêm 1 lượt ghi lúc bắt đầu + 1 lượt lúc nộp.
 // Nhẹ để trang làm đề import tĩnh: device-limit.js chỉ nạp lúc bắt đầu lượt làm.
 import { db, auth } from './firebase-init.js';
 import { doc, setDoc, collection, query, where, onSnapshot, serverTimestamp, Timestamp, increment } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
@@ -19,10 +22,10 @@ import { doc, setDoc, collection, query, where, onSnapshot, serverTimestamp, Tim
 /** "Đang làm" quá mốc này mà không nộp = coi như đã bỏ dở (trang Quản trị dùng chung). */
 export const RUN_MAX_MS = 3 * 60 * 60 * 1000;
 const KEEP_MS = 14 * 24 * 60 * 60 * 1000;
-const GUEST_KEEP_MS = 60 * 24 * 60 * 60 * 1000;   // khách: giữ đủ cho báo cáo 30 ngày
+const GUEST_KEEP_MS = 60 * 24 * 60 * 60 * 1000;   // khách + quiz_starts: giữ đủ cho báo cáo 30 ngày
 const SKEW_MS = 60 * 1000;          // giờ máy người dùng lệch giờ máy chủ chút ít → chừa 1 phút cho khỏi báo oan
 
-let run = null;     // { uid, device, label, ref, startMs, unsub, clash, shown }
+let run = null;     // { uid, device, label, ref, startRef, startMs, unsub, clash, shown }
 let authHooked = false;
 const msOf = (v) => (v && typeof v.toMillis === 'function' ? v.toMillis() : 0);
 
@@ -40,11 +43,17 @@ export async function quizRunStart({ quizId, title, mode, startedAt }) {
     if (auth.currentUser?.uid !== u.uid || run) return;
     const device = dl.deviceId();
     const me = run = { uid: u.uid, device, label: dl.deviceLabel().slice(0, 80), startMs: Date.now(), unsub: null, clash: null, shown: '' };
+    const start = Math.round(Number(startedAt) || Date.now());
+    const info = { quizId: String(quizId).slice(0, 120), title: String(title || '').slice(0, 200), mode: String(mode || '').slice(0, 20) };
     me.ref = doc(db, 'quiz_runs', `${u.uid}_${device}`);
+    me.startRef = doc(db, 'quiz_starts', `${u.uid}_${device}_${start}`);
     setDoc(me.ref, {
-        uid: u.uid, email: (u.email || '').toLowerCase(), name: (u.displayName || '').slice(0, 80), device, label: me.label,
-        quizId: String(quizId).slice(0, 120), title: String(title || '').slice(0, 200), mode: String(mode || '').slice(0, 20),
-        state: 'doing', startedAt: Math.round(Number(startedAt) || Date.now()), at: serverTimestamp(), expireAt: Timestamp.fromMillis(Date.now() + KEEP_MS)
+        uid: u.uid, email: (u.email || '').toLowerCase(), name: (u.displayName || '').slice(0, 80), device, label: me.label, ...info,
+        state: 'doing', startedAt: start, at: serverTimestamp(), expireAt: Timestamp.fromMillis(Date.now() + KEEP_MS)
+    }).catch(() => {});
+    setDoc(me.startRef, {
+        uid: u.uid, device, label: me.label, ...info,
+        state: 'doing', startedAt: start, at: serverTimestamp(), expireAt: Timestamp.fromMillis(Date.now() + GUEST_KEEP_MS)
     }).catch(() => {});
     me.unsub = onSnapshot(query(collection(db, 'quiz_runs'), where('uid', '==', u.uid)), (snap) => check(me, snap), () => {});
     if (!authHooked) {
@@ -68,7 +77,9 @@ export function quizRunEnd({ pct } = {}) {
     if (!me) return null;
     quizRunStop();
     const p = Math.round(Number(pct));
-    setDoc(me.ref, { state: 'done', at: serverTimestamp(), ...(Number.isFinite(p) ? { pct: p } : {}) }, { merge: true }).catch(() => {});
+    const done = { state: 'done', at: serverTimestamp(), ...(Number.isFinite(p) ? { pct: p } : {}) };
+    setDoc(me.ref, done, { merge: true }).catch(() => {});
+    setDoc(me.startRef, done, { merge: true }).catch(() => {});
     return { device: me.device, deviceLabel: me.label, clash: me.clash };
 }
 
