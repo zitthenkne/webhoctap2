@@ -102,11 +102,13 @@ const saveMemos = () => { clearTimeout(memoTimer); memoTimer = setTimeout(() => 
 
 // ---------------- Khung trang ----------------
 const TABS = ['home', 'report', 'accounts', 'settings'];
+const TAB_NAMES = { home: 'Tổng quan', report: 'Đề & lượt làm', accounts: 'Tài khoản', settings: 'Cài đặt' };
 let curTab = 'home';
 function switchTab(t) {
     const changed = curTab !== t;
     curTab = t;
-    document.querySelectorAll('.tab-btn, .bot-btn').forEach(b => b.classList.toggle('is-on', b.dataset.tab === t));
+    document.querySelectorAll('.tab-btn, .bot-btn, .side-btn').forEach(b => b.classList.toggle('is-on', b.dataset.tab === t));
+    $('head-sec').textContent = TAB_NAMES[t];      // máy tính: đầu trang hiện tên mục đang mở (tên sổ đã ở thanh bên)
     TABS.forEach(k => $(`tab-${k}`).classList.toggle('hidden', k !== t));
     // Chuyển tab mượt: trang mới trượt nhẹ lên
     if (changed) { const sec = $(`tab-${t}`); sec.classList.remove('tab-in'); void sec.offsetWidth; sec.classList.add('tab-in'); }
@@ -117,6 +119,7 @@ function switchTab(t) {
     paintBulk();
 }
 function renderCurrent() {
+    renderSide();
     if (curTab === 'home') renderHome();
     if (curTab === 'report') renderReport();
     if (curTab === 'accounts') renderAccounts();
@@ -185,6 +188,7 @@ onSessionUser(async (u) => {
     $('gate').classList.add('hidden');
     $('me-role').textContent = role === 'root' ? '👑 Admin gốc' : '🛡️ Admin';
     $('me-role').classList.remove('hidden');
+    $('side-role').textContent = `${role === 'root' ? '👑 Admin gốc' : '🛡️ Admin'} · ${u.email || ''}`;
     let t = 'home', r = 7;
     try {
         t = localStorage.getItem('adminTab') || 'home'; r = Number(localStorage.getItem('adminRange')) || 7;
@@ -198,7 +202,8 @@ onSessionUser(async (u) => {
 });
 
 function bindAll() {
-    document.querySelectorAll('.tab-btn, .bot-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+    document.querySelectorAll('.tab-btn, .bot-btn, .side-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+    $('side-quick').addEventListener('click', onNavClick);
     $('open-cmdk').addEventListener('click', () => fx.openPalette(paletteSearch));
     $('open-look').addEventListener('click', () => fx.openLook());
     $('open-keys').addEventListener('click', openKeys);
@@ -601,6 +606,37 @@ function renderStatus() {
     if (err) { el.innerHTML = `<span style="color:var(--ink-cherry)">⚠️ ${esc(err)}</span>`; return; }
     if (!results) { el.textContent = 'Đang lật sổ…'; return; }
     el.textContent = `Đang xem ${RANGES[rangeDays]} · cập nhật lúc ${fmtClock(resultsAt)}`;
+}
+
+// ---------------- THANH BÊN (máy tính) ----------------
+/** Số trên từng mục + "Cần xem nhanh" (bấm là tới đúng chỗ đã lọc — cùng kiểu data-goto với Tổng quan). Điện thoại ẩn thanh này. */
+function renderSide() {
+    if (!started) return;
+    const doing = doingByUid().size;
+    const clash = clashUids().size;
+    const unapproved = users ? users.filter(u => !u.approved && !u.disabled).length : 0;
+    const locked = users ? users.filter(u => u.disabled).length : 0;
+    const runCount = results ? results.length + openStarts().length + guests.reduce((s, g) => s + g.attempts, 0) : null;
+    const badges = {
+        home: doing ? [`✏️ ${doing}`, false] : ['', false],
+        report: clash ? [`🚨 ${clash}`, true] : [runCount ?? '', false],
+        accounts: unapproved ? [`⏳ ${unapproved}`, true] : [users ? users.length : '', false],
+        settings: ['', false]
+    };
+    document.querySelectorAll('.side-badge').forEach(el => {
+        const [text, alert] = badges[el.dataset.badge] || ['', false];
+        el.textContent = text;
+        el.classList.toggle('is-alert', alert);
+    });
+    const rows = [
+        ['✏️', 'Đang làm ngay', doing, 'mint', 'data-goto="report"'],
+        ['🚨', 'Làm trên 2 máy', clash, 'cherry', 'data-goto="report" data-clash="1"'],
+        ['⏳', 'Chờ duyệt', unapproved, 'butter', 'data-goto="accounts" data-filter="unapproved"'],
+        ['🔒', 'Đang bị khoá', locked, 'latte', 'data-goto="accounts" data-filter="locked"'],
+        ['⭐', 'Đã ghim', pins.size, 'peach', 'data-goto="accounts" data-filter="pinned"']
+    ];
+    $('side-quick').innerHTML = rows.map(([ic, label, n, hue, go]) =>
+        `<li><button type="button" class="sq ${n ? '' : 'is-zero'}" style="--hi:var(--ink-${hue})" ${go}><span>${ic}</span>${label}<b>${n}</b></button></li>`).join('');
 }
 
 // ---------------- TỔNG QUAN ----------------
@@ -1592,6 +1628,7 @@ function togglePin(uid) {
     showToast(pins.has(uid) ? 'Đã ghim ⭐ — lên đầu danh sách' : 'Đã bỏ ghim', 'info', 1400);
     if (curTab === 'accounts') renderAccounts(); else paintUser(uid);
     if (openUid === uid) renderDrawer();
+    renderSide();
 }
 
 async function refreshDrawer() {

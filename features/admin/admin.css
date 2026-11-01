@@ -88,12 +88,69 @@ button { font-family: inherit; }
     padding: 8px 16px 9px; border-radius: 16px 16px 10px 10px; font-weight: 800; font-size: 13.5px; white-space: nowrap;
     color: var(--hi); background: color-mix(in srgb, var(--h) 14%, var(--paper)); border: 2px solid color-mix(in srgb, var(--h) 38%, transparent);
     box-shadow: 0 3px 0 color-mix(in srgb, var(--h) 30%, transparent); transition: transform .28s var(--spring), box-shadow .18s, background-color .2s; }
-.tab-btn[data-tab="home"] { --h: var(--hue-butter); --hi: var(--ink-butter); }
-.tab-btn[data-tab="report"] { --h: var(--hue-blossom); --hi: var(--ink-blossom); }
-.tab-btn[data-tab="accounts"] { --h: var(--hue-lav); --hi: var(--ink-lav); }
-.tab-btn[data-tab="settings"] { --h: var(--hue-mint); --hi: var(--ink-mint); }
+:is(.tab-btn, .side-btn)[data-tab="home"] { --h: var(--hue-butter); --hi: var(--ink-butter); }
+:is(.tab-btn, .side-btn)[data-tab="report"] { --h: var(--hue-blossom); --hi: var(--ink-blossom); }
+:is(.tab-btn, .side-btn)[data-tab="accounts"] { --h: var(--hue-lav); --hi: var(--ink-lav); }
+:is(.tab-btn, .side-btn)[data-tab="settings"] { --h: var(--hue-mint); --hi: var(--ink-mint); }
 .tab-btn:hover { transform: translateY(-2px) rotate(-1deg); }
 .tab-btn.is-on { background: var(--h); color: #fff; border-color: transparent; transform: translateY(-2px); box-shadow: 0 5px 0 color-mix(in srgb, var(--h) 70%, var(--ink)), 0 12px 22px -14px var(--h); }
+
+/* ======================= KHUNG: THANH BÊN + TRANG ======================= */
+/* Điện thoại / máy tính bảng: một cột, tab trên đầu (hoặc dưới đáy). Máy tính ≥ 1024px: thanh bên trái cố định (gáy khoen như
+   ngăn chi tiết) thay cho hàng tab, trang nội dung rộng hơn; đầu trang chỉ còn tên mục đang mở + công cụ. */
+.wrap { max-width: 1152px; margin-inline: auto; }
+.side, .sec-t { display: none; }
+.side-brand { display: flex; align-items: center; gap: 10px; }
+.side-title { font-family: var(--hand); font-weight: 700; font-size: 21px; line-height: 1.15; color: var(--ink-blossom); white-space: nowrap; }
+.side-title .doodle { width: 18px; height: 18px; }
+.side-nav { display: flex; flex-direction: column; gap: 6px; }
+/* Mục đang mở = mép phân trang thò ra khỏi gáy sổ */
+.side-btn { --h: var(--hue-latte); --hi: var(--ink-latte);
+    display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border-radius: 16px; text-align: left;
+    font-weight: 800; font-size: 14px; color: var(--hi); border: 2px solid transparent;
+    transition: transform .28s var(--spring), background-color .2s, box-shadow .18s; }
+.side-btn:hover { background: color-mix(in srgb, var(--h) 12%, var(--paper)); transform: translateX(3px); }
+.side-btn.is-on { background: var(--h); color: #fff; transform: translateX(6px) rotate(-1deg);
+    box-shadow: 0 4px 0 color-mix(in srgb, var(--h) 70%, var(--ink)), 0 12px 22px -14px var(--h); }
+.side-ic { width: 32px; height: 32px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 17px; border-radius: 11px;
+    background: color-mix(in srgb, var(--h) 16%, var(--paper)); }
+.side-btn.is-on .side-ic { background: rgba(255, 255, 255, .28); }
+.side-l { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-badge { font-size: 11px; font-weight: 800; padding: 1px 8px; border-radius: 999px; color: var(--hi); background: color-mix(in srgb, var(--h) 16%, var(--paper)); }
+.side-badge:empty { display: none; }
+.side-badge.is-alert { color: #fff; background: var(--hue-cherry); }
+.side-btn.is-on .side-badge { color: #fff; background: rgba(255, 255, 255, .3); }
+.side-btn.is-on .side-badge.is-alert { color: var(--ink-cherry); background: #fff; }
+.side-sec { padding: 10px; border-radius: 18px; background: color-mix(in srgb, var(--hue-butter) 9%, var(--paper));
+    border: 2px dashed color-mix(in srgb, var(--hue-butter) 40%, transparent); }
+.side-h { padding: 0 6px 4px; font-size: 12px; font-weight: 800; color: var(--ink-butter); }
+.side-quick { display: flex; flex-direction: column; gap: 2px; }
+.sq { --hi: var(--ink); display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px; border-radius: 12px; text-align: left;
+    font-size: 12.5px; font-weight: 700; color: var(--ink); transition: background-color .2s, transform .25s var(--spring); }
+.sq:hover { background: var(--paper); transform: translateX(2px); }
+.sq b { margin-left: auto; font-family: var(--hand); font-size: 15px; color: var(--hi); }
+.sq.is-zero, .sq.is-zero b { color: var(--ink-faint); }
+.side-foot { margin-top: auto; padding-left: 4px; font-size: 11px; font-weight: 700; line-height: 2.1; color: var(--ink-muted); }
+@media (min-width: 1024px) {
+    .shell { display: grid; grid-template-columns: 252px minmax(0, 1fr); align-items: start; }
+    .wrap { max-width: 1320px; }
+    .side { position: sticky; top: 0; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; gap: 18px;
+        padding: calc(16px + env(safe-area-inset-top)) 16px 16px 42px;
+        background: var(--grid), var(--paper); border-right: 2px dashed var(--line); box-shadow: 10px 0 28px -24px rgba(190, 130, 115, .6); }
+    /* gáy khoen dọc mép trái — cùng hoạ tiết với #drawer-body */
+    .side::before { content: ""; position: absolute; top: 10px; bottom: 10px; left: 4px; width: 30px; pointer-events: none;
+        background-image:
+            radial-gradient(9px 1.5px at 12px 21.6px, var(--ring-shine) 95%, transparent 100%),
+            radial-gradient(11px 3.4px at 12px 23px, var(--ring-body) 95%, transparent 100%),
+            radial-gradient(circle 5.6px at 21px 23.8px, var(--bg-desk) 96%, transparent 100%),
+            radial-gradient(circle 6.4px at 20.4px 23px, var(--hole-shadow) 96%, transparent 100%);
+        background-size: 30px 46px; background-repeat: repeat-y; }
+    .head-back, .brand-t, .top-tabs { display: none !important; }
+    .sec-t { display: inline; }
+    /* thanh đổi quyền hàng loạt + thẻ Hoàn tác: canh giữa phần trang, không đè thanh bên */
+    .bulk, .undo-toast { left: calc(50% + 126px); }
+    .bulk { max-width: calc(100vw - 276px); }
+}
 
 /* ======================= TRANG GIẤY (thẻ) ======================= */
 .card { --h: var(--hue-blossom); --tape: color-mix(in srgb, var(--h) 55%, #fff);
