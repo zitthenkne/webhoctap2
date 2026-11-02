@@ -93,22 +93,42 @@ let drawerList = [];         // danh sách để lật ‹ › trong ngăn chi t
 
 // Ghim ⭐ + ghi chú riêng 📝 của admin — chỉ lưu trên máy này (không ai khác đọc được)
 const readLS = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch (e) { return d; } };
-const writeLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+const writeLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } };
 const pins = new Set(readLS('adminPins', []));
 const memos = readLS('adminMemos', {});
 const savePins = () => writeLS('adminPins', [...pins]);
 let memoTimer = 0;
 const saveMemos = () => { clearTimeout(memoTimer); memoTimer = setTimeout(() => writeLS('adminMemos', memos), 400); };
+const VIEWS_KEY = 'adminAccountViews';
+const storedViews = readLS(VIEWS_KEY, []);
+let accountViews = Array.isArray(storedViews) ? storedViews.filter(v => v && typeof v.name === 'string' && typeof v.q === 'string'
+    && typeof v.filter === 'string' && ['perm', 'login'].includes(v.view)).slice(0, 6) : [];
 
 // ---------------- Khung trang ----------------
 const TABS = ['home', 'report', 'accounts', 'settings'];
 const TAB_NAMES = { home: 'Tổng quan', report: 'Đề & lượt làm', accounts: 'Tài khoản', settings: 'Cài đặt' };
+const TAB_DESCRIPTIONS = {
+    home: 'Theo dõi hoạt động học tập và những việc cần xử lý.',
+    report: 'Tra cứu lượt làm, kết quả và hoạt động trên thiết bị.',
+    accounts: 'Tìm tài khoản, quản lý quyền sử dụng và đăng nhập.',
+    settings: 'Quản lý đội ngũ, thông báo và cấu hình hệ thống.'
+};
 let curTab = 'home';
 function switchTab(t) {
     const changed = curTab !== t;
     curTab = t;
-    document.querySelectorAll('.tab-btn, .bot-btn, .side-btn').forEach(b => b.classList.toggle('is-on', b.dataset.tab === t));
+    document.querySelectorAll('.tab-btn, .bot-btn, .side-btn').forEach(b => {
+        const active = b.dataset.tab === t;
+        b.classList.toggle('is-on', active);
+        if (active) b.setAttribute('aria-current', 'page');
+        else b.removeAttribute('aria-current');
+    });
     $('head-sec').textContent = TAB_NAMES[t];      // máy tính: đầu trang hiện tên mục đang mở (tên sổ đã ở thanh bên)
+    document.title = `${TAB_NAMES[t]} · Quản trị Zitthenkne`;
+    $('workspace-description').textContent = TAB_DESCRIPTIONS[t];
+    $('workspace-page').textContent = String(TABS.indexOf(t) + 1).padStart(2, '0');
+    $('admin-main').dataset.section = t;
+    $('workspace-toolbar').classList.remove('hidden');
     TABS.forEach(k => $(`tab-${k}`).classList.toggle('hidden', k !== t));
     // Chuyển tab mượt: trang mới trượt nhẹ lên
     if (changed) { const sec = $(`tab-${t}`); sec.classList.remove('tab-in'); void sec.offsetWidth; sec.classList.add('tab-in'); }
@@ -195,7 +215,7 @@ onSessionUser(async (u) => {
         if (localStorage.getItem('adminAccView') === 'login') accView = 'login';
     } catch (e) {}
     rangeDays = RANGES[r] ? r : 7;
-    document.querySelectorAll('[data-range]').forEach(b => b.classList.toggle('is-on', Number(b.dataset.range) === rangeDays));
+    paintRange();
     bindAll();
     switchTab(TABS.includes(t) ? t : 'home');
     start();
@@ -211,7 +231,7 @@ function bindAll() {
     document.querySelectorAll('[data-range]').forEach(b => b.addEventListener('click', () => {
         rangeDays = Number(b.dataset.range);
         try { localStorage.setItem('adminRange', String(rangeDays)); } catch (e) {}
-        document.querySelectorAll('[data-range]').forEach(x => x.classList.toggle('is-on', x === b));
+        paintRange();
         loadResults();
     }));
     document.querySelectorAll('.rep-view[data-view]').forEach(b => b.addEventListener('click', () => {
@@ -220,13 +240,44 @@ function bindAll() {
         renderReport();
     }));
     ['rep-search', 'rep-only-clash'].forEach(id => $(id).addEventListener('input', renderReport));
+    $('rep-clear').addEventListener('click', () => {
+        $('rep-search').value = '';
+        $('rep-only-clash').checked = false;
+        renderReport();
+        $('rep-search').focus();
+    });
     $('rep-reload').addEventListener('click', loadResults);
     $('rep-export').addEventListener('click', exportReport);
+    $('workspace-reload').addEventListener('click', refreshAll);
     // Mọi nút "đi tới…" / mở chi tiết / đá máy trong Tổng quan + Báo cáo
     ['tab-home', 'tab-report'].forEach(id => $(id).addEventListener('click', onNavClick));
     bindAccounts();
+    bindSavedViews();
     bindSettings();
     bindDrawer();
+}
+
+function paintRange() {
+    document.querySelectorAll('[data-range]').forEach(b => {
+        const active = Number(b.dataset.range) === rangeDays;
+        b.classList.toggle('is-on', active);
+        b.setAttribute('aria-pressed', String(active));
+    });
+}
+
+async function refreshAll() {
+    if (featPending.size) return showToast('Quyền đang được lưu. Chờ lưu xong rồi tải lại nhé.', 'info');
+    const btn = $('workspace-reload');
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    try {
+        await Promise.all([loadResults(), loadUsers()]);
+        if (!resultsError && !usersError && !guestsError && !startsError) showToast('Đã tải lại lượt làm và tài khoản 🌷', 'success');
+        else showToast('Một phần dữ liệu chưa tải được. Xem thông báo trong sổ nhé.', 'warning');
+    } finally {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+    }
 }
 
 function start() {
@@ -318,10 +369,23 @@ function paletteSearch(q) {
 }
 
 function onNavClick(e) {
+    const quick = e.target.closest('[data-quick]');
+    if (quick) {
+        if (quick.dataset.quick === 'export') return exportReport();
+        if (quick.dataset.quick === 'new') {
+            switchTab('accounts');
+            $('acc-new').classList.remove('hidden');
+            $('new-email').focus();
+        } else if (quick.dataset.quick === 'announce') {
+            switchTab('settings');
+            $('ann-text').focus();
+        }
+        return;
+    }
     const gd = e.target.closest('[data-guest-dev]');
     if (gd) return openGuest(gd.dataset.guestDev);
     const g = e.target.closest('[data-goto]');
-    if (g) return goto(g.dataset.goto, { filter: g.dataset.filter, search: g.dataset.search, clash: g.dataset.clash === '1' ? true : undefined });
+    if (g) return goto(g.dataset.goto, { filter: g.dataset.filter, search: g.dataset.search, clash: g.dataset.clash === '1' ? true : g.dataset.clash === '0' ? false : undefined });
     const b = e.target.closest('[data-act]');
     if (!b) return;
     // Lật ‹ › theo đúng thứ tự những người đang hiện trên tab này
@@ -688,6 +752,29 @@ function renderHome() {
     const locked = users ? users.filter(u => u.disabled).length : 0;
     const clash = clashUids();
 
+    // Bìa sổ dẫn tới việc cần ưu tiên, dùng đúng dữ liệu đang xem và không ghi lên máy chủ.
+    const now = new Date();
+    $('cover-date').dateTime = now.toISOString();
+    $('cover-date').textContent = now.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' });
+    $('cover-period').textContent = `Đang xem ${RANGES[rangeDays]}`;
+    const errors = [resultsError, guestsError, startsError, runsError, usersError].filter(Boolean);
+    $('cover-summary').textContent = errors.length ? 'Một phần dữ liệu chưa tải đủ. Mở mục cần kiểm tra để xem chi tiết nhé.'
+        : !users || !results ? 'Đang gom những chuyện mới trong sổ…'
+        : clash.size ? `${clash.size} tài khoản có dấu hiệu làm đề cùng lúc trên 2 máy. Mở cảnh báo để kiểm tra trước nhé!`
+        : unapproved ? `${unapproved} tài khoản đang chờ duyệt${doing.size ? `, ${doing.size} người đang làm đề` : ''}. Ghé xem một chút nhé!`
+        : doing.size ? `${doing.size} người đang chăm chỉ làm đề. Cùng xem lớp mình đang học thế nào nhé!`
+        : 'Mọi thứ đã gọn gàng. Cùng xem lại những lượt học và bài làm mới nhất nhé!';
+    const action = $('cover-action');
+    const priority = errors.length ? [usersError ? 'accounts' : 'report', 'all', 'Kiểm tra dữ liệu', false]
+        : clash.size ? ['report', 'all', `Xem ${clash.size} tài khoản có cảnh báo`, true]
+        : unapproved ? ['accounts', 'unapproved', `Duyệt ${unapproved} tài khoản`, false]
+        : ['report', 'all', doing.size ? 'Xem người đang làm đề' : 'Mở lượt làm mới nhất', false];
+    action.dataset.goto = priority[0];
+    action.dataset.filter = priority[1];
+    action.dataset.clash = priority[3] ? '1' : '0';
+    action.disabled = !users && !results && !errors.length;
+    $('cover-action-label').textContent = priority[2];
+
     const runTimes = [...all.map(r => r.end), ...guests.map(g => g.end)];
     $('home-notes').innerHTML =
         note('runs', '🍓', 'Lượt làm đề', results ? all.length + guestAttempts : '…', `${all.length} tài khoản${unsubmitted ? ` (${unsubmitted} chưa nộp)` : ''} · ${guestAttempts} khách`, 'blossom', 'data-goto="report"', results ? series(runTimes) : null) +
@@ -699,10 +786,12 @@ function renderHome() {
     // Việc cần xem: mỗi dòng một việc, bấm là tới đúng chỗ đã lọc sẵn
     const todo = [];
     if (clash.size) todo.push(['🚨', `<b>${clash.size}</b> tài khoản làm đề trên 2 máy cùng lúc`, `${inc.length} lần · ${RANGES[rangeDays]}`, 'cherry', 'data-goto="report" data-clash="1"', 'Xem lượt']);
-    if (doing.size) todo.push(['✏️', `<b>${doing.size}</b> người đang làm đề`, 'chưa nộp bài', 'mint', 'data-goto="report"', 'Xem']);
     if (unapproved) todo.push(['⏳', `<b>${unapproved}</b> tài khoản chưa duyệt`, 'chưa tạo được đề, phòng, bệnh án', 'butter', 'data-goto="accounts" data-filter="unapproved"', 'Duyệt']);
+    if (doing.size) todo.push(['✏️', `<b>${doing.size}</b> người đang làm đề`, 'chưa nộp bài', 'mint', 'data-goto="report"', 'Xem']);
     if (locked) todo.push(['🔒', `<b>${locked}</b> tài khoản đang bị khoá`, 'không đăng nhập được', 'latte', 'data-goto="accounts" data-filter="locked"', 'Xem']);
     for (const err of [resultsError, guestsError, startsError, runsError, usersError].filter(Boolean)) todo.push(['⚠️', esc(err), 'kiểm tra lại phần deploy', 'cherry', '', '']);
+    $('home-attention-count').textContent = todo.length ? `${todo.length} mục` : 'Ổn cả ✨';
+    $('home-attention-count').classList.toggle('is-clear', !todo.length);
     $('home-todo').innerHTML = todo.length ? todo.map(([ic, text, sub, hue, go, cta]) => `<li>
         <${go ? 'button type="button"' : 'div'} class="todo" style="--h:var(--hue-${hue});--hi:var(--ink-${hue})" ${go}>
             <span class="todo-ic">${ic}</span><span class="min-w-0 flex-1"><span class="todo-t">${text}</span><small>${sub}</small></span>
@@ -788,6 +877,14 @@ function renderChart() {
     guests.forEach(g => put(gst, g.end));
     const max = Math.max(1, ...acc.map((v, i) => v + gst[i]));
     const every = n > 14 ? Math.ceil(n / 10) : 1;
+    const totals = acc.map((v, i) => v + gst[i]);
+    const total = totals.reduce((sum, v) => sum + v, 0);
+    const peak = totals.indexOf(Math.max(...totals));
+    $('home-chart-insights').innerHTML = [
+        ['📌 Cao nhất', total ? `${label(peak)} · ${totals[peak]} lượt` : 'Chưa có lượt'],
+        [rangeDays === 1 ? '🌿 TB / 2 giờ' : '🌿 TB / ngày', total ? `${(total / n).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} lượt` : '—'],
+        ['👤 Có tài khoản', total ? `${Math.round(acc.reduce((sum, v) => sum + v, 0) / total * 100)}%` : '—']
+    ].map(([name, value]) => `<span><small>${name}</small><b>${results ? value : '…'}</b></span>`).join('');
     $('home-chart-cap').textContent = `${acc.reduce((a, b) => a + b, 0) + gst.reduce((a, b) => a + b, 0)} lượt · ${RANGES[rangeDays]}`;
     $('home-chart').style.setProperty('--n', n);
     $('home-chart').innerHTML = !results ? '<p class="nb-tiny">Đang tải…</p>' : acc.map((v, i) => {
@@ -829,6 +926,9 @@ function renderReport() {
     if (!started) return;
     const inc = analyze();
     const doing = doingByUid();
+    const q = lc($('rep-search').value.trim());
+    const onlyClash = $('rep-only-clash').checked;
+    $('rep-clear').classList.toggle('hidden', !q && !onlyClash);
 
     $('rep-alerts').innerHTML = inc.length ? `<details class="card nb-alert p-4" ${inc.length <= 6 ? 'open' : ''}>
         <summary class="nb-h" style="color:var(--ink-cherry)">🚨 Cùng tài khoản làm đề trên 2 máy cùng lúc <span class="chip bg-rose-100 text-rose-600">${inc.length}</span></summary>
@@ -853,11 +953,15 @@ function renderReport() {
         </div>`).join('')}</div>
     </details>` : '';
 
-    if (!results) { $('rep-list').innerHTML = fx.skeleton(3, 'card'); return; }
-    const q = lc($('rep-search').value.trim());
-    const onlyClash = $('rep-only-clash').checked;
-    const shown = [...results, ...openStarts()].filter(r => matchesQ(r, q) && (!onlyClash || r.flags.length));
+    const shown = [...(results || []), ...openStarts()].filter(r => matchesQ(r, q) && (!onlyClash || r.flags.length));
     const shownGuests = onlyClash ? [] : guests.filter(g => guestMatches(g, q));
+    $('rep-summary').innerHTML = [
+        ['📚', 'Bộ đề', new Set([...shown, ...shownGuests].map(r => r.quizId)).size, 'lav'],
+        ['👤', 'Lượt tài khoản', shown.length, 'blossom'],
+        ['🕶️', 'Lượt máy khách', shownGuests.reduce((sum, g) => sum + g.attempts, 0), 'sky'],
+        ['🚨', 'Lượt có cảnh báo', shown.filter(r => r.flags.length).length, 'cherry']
+    ].map(([ic, label, value, hue]) => `<div class="report-stat" style="--h:var(--hue-${hue});--hi:var(--ink-${hue})"><span aria-hidden="true">${ic}</span><b>${results ? value.toLocaleString('vi-VN') : '…'}</b><small>${label}</small></div>`).join('');
+    if (!results) { $('rep-list').innerHTML = fx.skeleton(3, 'card'); return; }
     const html = repView === 'quiz' ? renderByQuiz(shown, shownGuests, q) : renderByUser(shown, shownGuests, q);
     $('rep-list').innerHTML = html || empty(resultsError ? esc(resultsError)
         : results.length || starts.length || guests.length ? 'Không có lượt nào khớp bộ lọc 🔍' : `Chưa ai làm đề trong ${RANGES[rangeDays]} 🌸`);
@@ -1246,11 +1350,74 @@ function setSort(key) {
 }
 const sortMark = (key) => accSort.key === key ? (accSort.dir === 1 ? ' ▾' : ' ▴') : '';
 
+// Bộ lọc đặt tên: chỉ lưu cấu hình xem trên máy này, không lưu danh sách hay mật khẩu tài khoản.
+function renderSavedViews() {
+    $('acc-preset-count').textContent = `${accountViews.length}/6`;
+    $('acc-presets').innerHTML = accountViews.length ? accountViews.map((v, i) => `<span class="saved-view">
+        <button type="button" data-preset="${i}" title="Áp dụng bộ lọc ${esc(v.name)}">📑 ${esc(v.name)}</button>
+        <button type="button" data-preset-remove="${i}" aria-label="Bỏ bộ lọc ${esc(v.name)}">×</button></span>`).join('')
+        : '<p class="nb-tiny">Chưa có bộ lọc đã lưu. Chọn nhóm, tìm tài khoản rồi đặt tên bên dưới nhé.</p>';
+}
+function saveAccountViews(next) {
+    if (!writeLS(VIEWS_KEY, next)) {
+        showToast('Trình duyệt chưa cho lưu trên máy này. Kiểm tra bộ nhớ hoặc quyền lưu trữ nhé.', 'error');
+        return false;
+    }
+    accountViews = next;
+    renderSavedViews();
+    return true;
+}
+function bindSavedViews() {
+    renderSavedViews();
+    $('acc-clear').addEventListener('click', () => {
+        $('acc-search').value = '';
+        accFilter = 'all';
+        accSort = { key: 'smart', dir: 1 };
+        renderAccounts();
+        $('acc-search').focus();
+    });
+    $('acc-preset-form').addEventListener('submit', e => {
+        e.preventDefault();
+        const name = $('acc-preset-name').value.trim().slice(0, 40);
+        if (!name) return $('acc-preset-name').focus();
+        const view = { name, q: $('acc-search').value.trim().slice(0, 200), filter: accFilter, view: accView, sort: { ...accSort } };
+        const next = [...accountViews];
+        const i = next.findIndex(v => lc(v.name) === lc(name));
+        if (i >= 0) next[i] = view;
+        else if (next.length < 6) next.push(view);
+        else return showToast('Đã đủ 6 bộ lọc. Bỏ một bộ cũ hoặc dùng lại tên để cập nhật nhé.', 'warning');
+        if (saveAccountViews(next)) {
+            $('acc-preset-name').value = '';
+            showToast(`Đã lưu bộ lọc “${name}” 📑`, 'success');
+        }
+    });
+    $('acc-presets').addEventListener('click', e => {
+        const remove = e.target.closest('[data-preset-remove]');
+        if (remove) {
+            const i = Number(remove.dataset.presetRemove);
+            if (!Number.isInteger(i) || !accountViews[i]) return;
+            saveAccountViews(accountViews.filter((_, index) => index !== i));
+            return;
+        }
+        const btn = e.target.closest('[data-preset]');
+        if (!btn) return;
+        const v = accountViews[Number(btn.dataset.preset)];
+        if (!v) return;
+        $('acc-search').value = v.q.slice(0, 200);
+        accFilter = accFilters(doingByUid(), clashUids()).some(f => f[0] === v.filter) ? v.filter : 'all';
+        const sortKeys = ['smart', 'name', 'limit', 'last', ...FEATURE_KEYS.map(k => 'feat-' + k)];
+        accSort = { key: sortKeys.includes(v.sort?.key) ? v.sort.key : 'smart', dir: v.sort?.dir === -1 ? -1 : 1 };
+        setAccView(v.view);
+    });
+}
+
 let visibleUids = [];
 function renderAccounts() {
     if (!started) return;
     if (!users) {
+        $('acc-overview').innerHTML = fx.skeleton(1, 'row');
         $('acc-filters').innerHTML = '';
+        $('acc-extra-filters').innerHTML = '';
         $('acc-head').innerHTML = '';
         $('acc-list').innerHTML = usersError ? empty(esc(usersError)) : fx.skeleton(6, 'row');
         return;
@@ -1258,14 +1425,34 @@ function renderAccounts() {
     const doing = doingByUid();
     const clash = clashUids();
     const filters = accFilters(doing, clash);
-    $('acc-filters').innerHTML = filters.map(([k, label, fn, hidden]) => {
+    const summaryKeys = ['all', 'unapproved', 'clash', 'locked'];
+    const primaryKeys = ['admin', 'pinned', 'memo', 'doing', 'full', 'default', 'custom'];
+    $('acc-overview').innerHTML = [
+        ['all', '👥', 'Tất cả', 'lav'], ['unapproved', '⏳', 'Chưa duyệt', 'butter'],
+        ['clash', '🚨', 'Cảnh báo 2 máy', 'cherry'], ['locked', '🔒', 'Bị khóa', 'latte']
+    ].map(([key, ic, label, hue]) => {
+        const n = users.filter(filters.find(f => f[0] === key)[2]).length;
+        return `<button type="button" class="account-stat ${key === accFilter ? 'is-on' : ''}" data-filter="${key}" aria-pressed="${key === accFilter}" style="--h:var(--hue-${hue});--hi:var(--ink-${hue})"><span aria-hidden="true">${ic}</span><b>${n.toLocaleString('vi-VN')}</b><small>${label}</small></button>`;
+    }).join('');
+    const filterButton = ([k, label, fn, hidden]) => {
         const n = users.filter(fn).length;
         if (k !== accFilter && (hidden || (k !== 'all' && !n))) return '';
-        return `<button type="button" class="fchip ${k === accFilter ? 'is-on' : ''}" data-filter="${k}">${label} <span>${n}</span></button>`;
-    }).join('');
+        return `<button type="button" class="fchip ${k === accFilter ? 'is-on' : ''}" data-filter="${k}" aria-pressed="${k === accFilter}">${label} <span>${n}</span></button>`;
+    };
+    $('acc-filters').innerHTML = filters.filter(f => primaryKeys.includes(f[0])).map(filterButton).join('');
+    const extraFilters = filters.filter(f => !summaryKeys.includes(f[0]) && !primaryKeys.includes(f[0]));
+    $('acc-extra-filters').innerHTML = extraFilters.map(filterButton).join('');
+    const extraActive = extraFilters.find(f => f[0] === accFilter);
+    $('acc-extra-active').textContent = extraActive ? `· ${extraActive[1]}` : '';
+    $('acc-sort').value = `${accSort.key}:${accSort.dir}`;
     const list = filteredUsers(doing, clash);
+    const q = $('acc-search').value.trim();
+    $('acc-filter-status').textContent = `${list.length}/${users.length} tài khoản${q ? ` · từ khóa “${q}”` : ''}${accFilter !== 'all' ? ' · đã lọc theo nhóm' : ''}${accSort.key !== 'smart' ? ' · sắp xếp tùy chọn' : ''}`;
+    $('acc-clear').classList.toggle('hidden', !q && accFilter === 'all' && accSort.key === 'smart');
     visibleUids = list.slice(0, 300).map(u => u.uid);
     $('acc-mtx').classList.toggle('is-login', accView === 'login');
+    $('acc-table-title').textContent = accView === 'login' ? '🔑 Đăng nhập & thiết bị' : '🎀 Quyền theo tài khoản';
+    $('acc-view-help').textContent = accView === 'login' ? 'Xem cách đăng nhập, đặt mật khẩu hoặc quản lý thiết bị.' : 'Bấm ô ✓ / ✕ để đổi quyền. Mọi thay đổi được tự lưu.';
     $('acc-legend').innerHTML = accView === 'login'
         ? `<span>👁 hiện · 📋 sao chép mật khẩu admin đã đặt. Mật khẩu người dùng <b>tự đặt</b> được Firebase mã hoá một chiều — không ai xem được, bấm <b>＋ Đặt mật khẩu</b> để đặt mới.</span>
            <span>⚠️ = người dùng có thể đã tự đổi sau lần admin đặt.</span>`
@@ -1273,7 +1460,7 @@ function renderAccounts() {
            <span>🌱 Mặc định: <b>Làm đề + Học nhóm</b>.</span><span>☑️ Tick nhiều dòng để đổi quyền một lần.</span><span>⌨️ <kbd>V</kbd> đổi kiểu xem.</span>`;
     paintHead();
     $('acc-list').innerHTML = list.slice(0, 300).map(u => rowHtml(u, doing, clash)).join('')
-        || `<div class="mtx-empty"><span class="doodle doodle-cloud"></span> Không có tài khoản nào khớp 🌸</div>`;
+        || `<div class="mtx-empty"><span class="doodle doodle-cloud"></span><b>Không có tài khoản nào khớp 🌸</b><p class="nb-tiny">Thử từ khóa khác hoặc bỏ bớt điều kiện lọc nhé.</p><button type="button" class="btn mt-3" data-reset-filters>↶ Xem tất cả tài khoản</button></div>`;
     $('acc-summary').textContent = `Đang hiện ${Math.min(list.length, 300)}/${list.length} tài khoản${list.length > 300 ? ' — gõ vào ô tìm để thu hẹp' : ''} · tổng ${users.length}`;
     paintBulk();
 }
@@ -1451,14 +1638,24 @@ async function setAdmin(u, on) {
 
 function bindAccounts() {
     setAccView(accView, false);
+    const sorts = [['smart:1', '✨ Ưu tiên cần xem'], ['name:1', 'Tên A → Z'], ['name:-1', 'Tên Z → A'], ['last:1', 'Mới đăng nhập trước'], ['last:-1', 'Lâu chưa đăng nhập trước'], ['limit:1', 'Số máy: nhiều trước'], ['limit:-1', 'Số máy: ít trước'],
+        ...FEATURE_KEYS.flatMap(k => [[`feat-${k}:1`, `${FEATURES[k][0]}: bật trước`], [`feat-${k}:-1`, `${FEATURES[k][0]}: tắt trước`]])];
+    $('acc-sort').innerHTML = sorts.map(([value, label]) => `<option value="${value}">${esc(label)}</option>`).join('');
+    $('acc-sort').addEventListener('change', e => {
+        const [key, dir] = e.target.value.split(':');
+        if (!sorts.some(([value]) => value === e.target.value)) return;
+        accSort = { key, dir: Number(dir) };
+        renderAccounts();
+    });
     document.querySelectorAll('.acc-view').forEach(b => b.addEventListener('click', () => setAccView(b.dataset.aview)));
     $('acc-search').addEventListener('input', renderAccounts);
     $('acc-reload').addEventListener('click', loadUsers);
     $('acc-export').addEventListener('click', exportCsv);
-    $('acc-filters').addEventListener('click', (e) => {
+    const selectFilter = (e) => {
         const b = e.target.closest('[data-filter]');
         if (b) { accFilter = b.dataset.filter; renderAccounts(); }
-    });
+    };
+    ['acc-overview', 'acc-filters', 'acc-extra-filters'].forEach(id => $(id).addEventListener('click', selectFilter));
     $('acc-head').addEventListener('click', (e) => {
         if (e.target.closest('[data-reveal-all]')) { revealAll = !revealAll; if (!revealAll) revealed.clear(); return renderAccounts(); }
         const s = e.target.closest('[data-sort]');
@@ -1478,6 +1675,7 @@ function bindAccounts() {
         paintBulk();
     });
     $('acc-list').addEventListener('click', (e) => {
+        if (e.target.closest('[data-reset-filters]')) return $('acc-clear').click();
         const t = e.target.closest('[data-tog]');
         if (t) {
             const u = userMap.get(t.dataset.uid), k = t.dataset.tog;
@@ -1546,6 +1744,7 @@ function bindAccounts() {
 // ---------------- NGĂN CHI TIẾT TÀI KHOẢN ----------------
 const DRAWER_TABS = [['acc', '🔑 Tài khoản'], ['perm', '🎀 Quyền'], ['dev', '📱 Máy'], ['quiz', '📚 Làm đề']];
 let drawerFocus = '';        // ô cần trỏ vào sau khi ngăn vẽ xong (vd 'dr-pass' khi bấm "Đổi mật khẩu" ở dòng bảng)
+let drawerReturnFocus = null;
 
 function bindDrawer() {
     $('acc-drawer').addEventListener('click', (e) => {
@@ -1574,7 +1773,17 @@ function bindDrawer() {
         const b = e.target.closest('[data-do]');
         if (b) drawerAction(b.dataset.do, b);
     });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && openUid && !fx.isOpen()) closeDrawer(); });
+    document.addEventListener('keydown', (e) => {
+        if (!openUid || fx.isOpen()) return;
+        if (e.key === 'Escape') return closeDrawer();
+        if (e.key !== 'Tab') return;
+        const controls = [...$('acc-drawer').querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]')]
+            .filter(el => el.getClientRects().length && !el.closest('[inert]'));
+        const first = controls[0], last = controls[controls.length - 1];
+        if (!first) return;
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
     // Ghi chú riêng: lưu ngay khi gõ (chỉ trên máy này), cập nhật huy hiệu 📝 ở dòng trong bảng
     $('acc-drawer').addEventListener('input', (e) => {
         if (e.target.id !== 'dr-memo' || !openUid) return;
@@ -1588,10 +1797,16 @@ function bindDrawer() {
     fx.onSwipe($('acc-drawer').querySelector('aside'), { right: closeDrawer });
 }
 function closeDrawer() {
+    const uid = openUid;
     openUid = null;
     drawerData = null;
     $('acc-drawer').classList.add('hidden');
     document.documentElement.style.overflow = '';
+    document.querySelectorAll('.shell, .botbar, #bulk-bar').forEach(el => { el.inert = false; });
+    const returnTo = drawerReturnFocus?.isConnected ? drawerReturnFocus
+        : uid ? $('acc-list').querySelector(`[data-row="${CSS.escape(uid)}"] .mwho-open`) : null;
+    returnTo?.focus({ preventScroll: true });
+    drawerReturnFocus = null;
 }
 
 /** Mở chi tiết; `list` = thứ tự để lật ‹ › (mặc định: bảng tài khoản đang hiện). keepTab: lật sang người khác vẫn giữ tab con đang xem.
@@ -1605,9 +1820,12 @@ async function openDrawer(uid, list, keepTab = false, tab = 'acc', focus = '') {
     drawerList = Array.isArray(list) && list.includes(uid) ? [...list]
         : drawerList.includes(uid) ? drawerList : visibleUids.includes(uid) ? [...visibleUids] : [uid];
     const wasOpen = !$('acc-drawer').classList.contains('hidden');
+    if (!wasOpen) drawerReturnFocus = document.activeElement;
     $('acc-drawer').classList.remove('hidden');
     if (!wasOpen) { const a = $('acc-drawer').querySelector('aside'); a.classList.remove('dr-in'); void a.offsetWidth; a.classList.add('dr-in'); }
     document.documentElement.style.overflow = 'hidden';
+    document.querySelectorAll('.shell, .botbar, #bulk-bar').forEach(el => { el.inert = true; });
+    if (!wasOpen) $('acc-drawer').querySelector('button[data-close]').focus({ preventScroll: true });
     const u = userMap.get(uid);
     $('drawer-title').textContent = u ? (u.displayName || u.email) : 'Đang mở…';
     paintDrawerNav();

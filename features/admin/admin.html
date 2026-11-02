@@ -20,10 +20,11 @@
     <link rel="stylesheet" href="admin.css">
 </head>
 <body>
-    <div id="toast-container"></div>
+    <a class="skip-link" href="#admin-main">Đến nội dung chính</a>
+    <div id="toast-container" role="status" aria-live="polite"></div>
 
     <div class="shell">
-    <!-- THANH BÊN: máy tính / iPad ngang (≥ 1024px) đủ bìa sổ + các mục + "Cần xem nhanh"; iPad dọc chỉ biểu tượng; điện thoại dùng tab dưới đáy -->
+    <!-- Máy tính dùng thanh bên đầy đủ, tablet dùng thanh gọn, điện thoại dùng điều hướng dưới đáy. -->
     <aside id="side" class="side" aria-label="Mục của sổ">
         <div class="side-brand">
             <a href="../profile/profile.html" class="nb-back" title="Về Hồ sơ"><i class="fas fa-arrow-left"></i></a>
@@ -32,11 +33,11 @@
                 <p id="side-role" class="nb-tiny truncate">Đang mở sổ…</p>
             </div>
         </div>
-        <nav class="side-nav" role="tablist" aria-label="Chuyển mục">
-            <button type="button" class="side-btn is-on" data-tab="home" data-short="Tổng quan"><span class="side-ic">🏠</span><span class="side-l">Tổng quan</span><span class="side-badge" data-badge="home"></span></button>
-            <button type="button" class="side-btn" data-tab="report" data-short="Lượt làm"><span class="side-ic">📚</span><span class="side-l">Đề &amp; lượt làm</span><span class="side-badge" data-badge="report"></span></button>
-            <button type="button" class="side-btn" data-tab="accounts" data-short="Tài khoản"><span class="side-ic">👥</span><span class="side-l">Tài khoản</span><span class="side-badge" data-badge="accounts"></span></button>
-            <button type="button" class="side-btn" data-tab="settings" data-short="Cài đặt"><span class="side-ic">🌿</span><span class="side-l">Cài đặt</span><span class="side-badge" data-badge="settings"></span></button>
+        <nav class="side-nav" aria-label="Chuyển mục">
+            <button type="button" class="side-btn is-on" data-tab="home" data-short="Tổng quan"><span class="side-ic">🏠</span><span class="side-l"><b>Tổng quan</b><small>Số liệu &amp; việc cần xem</small></span><span class="side-badge" data-badge="home"></span></button>
+            <button type="button" class="side-btn" data-tab="report" data-short="Lượt làm"><span class="side-ic">📚</span><span class="side-l"><b>Đề &amp; lượt làm</b><small>Kết quả &amp; thiết bị</small></span><span class="side-badge" data-badge="report"></span></button>
+            <button type="button" class="side-btn" data-tab="accounts" data-short="Tài khoản"><span class="side-ic">👥</span><span class="side-l"><b>Tài khoản</b><small>Quyền &amp; đăng nhập</small></span><span class="side-badge" data-badge="accounts"></span></button>
+            <button type="button" class="side-btn" data-tab="settings" data-short="Cài đặt"><span class="side-ic">🌿</span><span class="side-l"><b>Cài đặt</b><small>Thông báo &amp; hệ thống</small></span><span class="side-badge" data-badge="settings"></span></button>
         </nav>
         <div class="side-sec">
             <p class="side-h">📌 Cần xem nhanh</p>
@@ -46,33 +47,24 @@
     </aside>
 
     <div class="shell-main">
-    <!-- BÌA SỔ -->
+    <!-- Tiêu đề và công cụ chung -->
     <header class="nb-head">
-        <div class="wrap px-4 pt-3 pb-1 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <div class="wrap header-content">
             <a href="../profile/profile.html" class="nb-back head-back" title="Về Hồ sơ"><i class="fas fa-arrow-left"></i></a>
             <div class="min-w-0 flex-1">
                 <h1 class="nb-title truncate"><span class="marker brand-t">Sổ Quản trị</span><span id="head-sec" class="marker sec-t">Tổng quan</span> <span class="doodle doodle-heart"></span><span class="doodle doodle-star"></span> <span id="me-role" class="role-chip hidden"></span></h1>
-                <p id="live-status" class="nb-sub truncate">Đang mở sổ…</p>
+                <p id="live-status" class="nb-sub" aria-live="polite">Đang xác minh quyền quản trị…</p>
             </div>
-            <button type="button" id="open-cmdk" class="cmdk-btn" title="Tìm nhanh tài khoản, đề, thao tác"><i class="fas fa-magnifying-glass"></i><span>Tìm nhanh</span><kbd>Ctrl K</kbd></button>
-            <span id="save-state" class="save-pill is-idle" title="Quyền bạn vừa đổi được lưu tự động">💾 Đã lưu hết</span>
-            <button type="button" id="open-look" class="icon-btn" title="Giao diện sổ: ngày / đêm, màu, mật độ">🎨</button>
-            <button type="button" id="open-keys" class="icon-btn hidden sm:flex" title="Phím tắt (?)">⌨️</button>
-            <div class="range-seg" role="group" aria-label="Khoảng thời gian">
-                <button type="button" data-range="1">Hôm nay</button>
-                <button type="button" data-range="7" class="is-on">7 ngày</button>
-                <button type="button" data-range="30">30 ngày</button>
+            <div class="header-actions">
+                <button type="button" id="open-cmdk" class="cmdk-btn" title="Tìm nhanh tài khoản, đề, thao tác" aria-label="Tìm nhanh tài khoản, đề, thao tác"><i class="fas fa-magnifying-glass" aria-hidden="true"></i><span>Tìm nhanh…</span><kbd>Ctrl K</kbd></button>
+                <span id="save-state" class="save-pill is-idle" role="status" title="Quyền bạn vừa đổi được lưu tự động">💾 Đã lưu hết</span>
+                <button type="button" id="open-look" class="icon-btn" title="Giao diện: sáng / tối, màu, mật độ" aria-label="Tùy chỉnh giao diện">🎨</button>
+                <button type="button" id="open-keys" class="icon-btn hidden sm:flex" title="Phím tắt (?)" aria-label="Xem phím tắt">⌨️</button>
             </div>
         </div>
-        <nav class="top-tabs wrap px-4 pt-2 pb-3 flex gap-2 overflow-x-auto" role="tablist">
-            <button type="button" class="tab-btn is-on" data-tab="home">🏠 Tổng quan</button>
-            <button type="button" class="tab-btn" data-tab="report">📚 Đề &amp; lượt làm</button>
-            <button type="button" class="tab-btn" data-tab="accounts">👥 Tài khoản</button>
-            <button type="button" class="tab-btn" data-tab="settings">🌿 Cài đặt</button>
-        </nav>
     </header>
 
-    <main class="wrap px-4 pt-5 pb-28">
+    <main id="admin-main" class="wrap admin-content" tabindex="-1">
         <div id="gate" class="card p-6 text-center hidden">
             <span class="doodle doodle-cloud"></span>
             <p class="text-4xl mb-2">🔒</p>
@@ -81,81 +73,143 @@
         </div>
 
         <!-- ===== TỔNG QUAN ===== -->
+        <div id="workspace-toolbar" class="workspace-toolbar hidden">
+            <span id="workspace-page" class="workspace-page" aria-hidden="true">01</span>
+            <p id="workspace-description">Theo dõi hoạt động học tập và những việc cần xử lý.</p>
+            <div class="range-seg" role="group" aria-label="Khoảng thời gian thống kê">
+                <i class="fas fa-calendar-days" aria-hidden="true"></i>
+                <button type="button" data-range="1" aria-pressed="false">24 giờ</button>
+                <button type="button" data-range="7" class="is-on" aria-pressed="true">7 ngày</button>
+                <button type="button" data-range="30" aria-pressed="false">30 ngày</button>
+            </div>
+            <button type="button" id="workspace-reload" class="btn" title="Tải lại lượt làm và danh sách tài khoản"><i class="fas fa-rotate" aria-hidden="true"></i> Tải lại dữ liệu</button>
+        </div>
         <section id="tab-home" class="hidden">
-            <div id="home-notes" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-7"></div>
-            <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                <div class="lg:col-span-2 space-y-6">
-                    <div class="card p-4" style="--h:var(--hue-butter)">
-                        <p class="nb-h mb-2">📌 Việc cần xem</p>
+            <div class="dashboard-cover">
+                <div class="cover-intro">
+                    <div class="cover-meta"><span>🌷 Cuốn sổ của admin</span><time id="cover-date"></time></div>
+                    <h2 class="cover-title">Mở sổ,<br><span>nhìn cả lớp.</span></h2>
+                    <p id="cover-summary" class="cover-summary">Đang gom những chuyện mới trong sổ…</p>
+                    <button type="button" id="cover-action" class="cover-action" data-goto="accounts" data-filter="unapproved" data-search=""><span id="cover-action-label">Xem tài khoản</span><i class="fas fa-arrow-right" aria-hidden="true"></i></button>
+                    <span id="cover-period" class="cover-period">Đang xem 7 ngày qua</span>
+                    <svg class="cover-mascot" viewBox="0 0 180 170" aria-hidden="true" focusable="false">
+                        <g class="mascot-sticker">
+                            <path class="mascot-outline" d="M34 142Q25 140 27 129L36 96Q20 78 32 55L28 25Q28 16 38 22L61 36Q80 28 101 36L126 20Q134 15 134 27L132 57Q146 76 129 98L141 129Q147 144 132 146Z"/>
+                            <path class="mascot-body" d="M34 142Q25 140 27 129L36 96Q20 78 32 55L28 25Q28 16 38 22L61 36Q80 28 101 36L126 20Q134 15 134 27L132 57Q146 76 129 98L141 129Q147 144 132 146Z"/>
+                            <path class="mascot-ear" d="M35 31L37 51L51 41ZM126 31L112 42L126 51Z"/>
+                            <path class="mascot-line" d="M39 72L49 74M37 81L49 80M112 74L124 72M113 80L126 82"/>
+                            <g class="mascot-eyes"><path class="mascot-line" d="M58 63Q64 57 69 63M94 63Q100 57 106 63"/></g>
+                            <path class="mascot-nose" d="M77 69Q82 65 87 69L82 75Z"/>
+                            <path class="mascot-line" d="M82 75V80Q76 86 72 80M82 80Q88 86 93 80"/>
+                            <ellipse class="mascot-blush" cx="54" cy="77" rx="9" ry="5"/><ellipse class="mascot-blush" cx="109" cy="77" rx="9" ry="5"/>
+                            <g transform="rotate(-8 85 121)"><rect class="mascot-note" x="46" y="95" width="77" height="57" rx="7"/><path class="mascot-line mascot-rule" d="M60 112H109M60 123H87M60 134H100"/><path class="mascot-check" d="M98 125L105 132L117 115"/></g>
+                            <path class="mascot-paw" d="M40 102Q29 105 37 118Q44 126 51 119Q57 110 47 105M122 106Q134 104 135 115Q135 124 125 125Q115 123 119 115"/>
+                            <path class="mascot-star" d="M153 44L156 52L165 55L157 59L154 68L150 59L142 55L150 52ZM19 98L21 103L27 105L21 107L19 113L17 107L11 105L17 103Z"/>
+                        </g>
+                    </svg>
+                </div>
+                <div class="cover-notes"><div id="home-notes" class="overview-stats" aria-label="Số liệu tổng quan"></div></div>
+                <span class="cover-binding" aria-hidden="true"><i></i><i></i><i></i></span>
+            </div>
+            <div class="board-heading"><h2>Hoạt động &amp; việc cần xem</h2><span>Ghi chép từ cuốn sổ của bạn ✨</span></div>
+            <div class="overview-grid">
+            <div class="shortcut-bar" role="group" aria-label="Thao tác nhanh">
+                <span class="shortcut-label"><b>🧷 Góc thao tác nhanh</b><small>Những việc thường dùng trong sổ</small></span>
+                <div class="shortcut-actions">
+                    <button type="button" class="quick-action" data-quick="new"><span aria-hidden="true">🌱</span><span><b>Tạo tài khoản</b><small>Thêm người học mới</small></span><i class="fas fa-arrow-right" aria-hidden="true"></i></button>
+                    <button type="button" class="quick-action" data-quick="export"><span aria-hidden="true">📄</span><span><b>Xuất lượt làm</b><small>Tải báo cáo CSV</small></span><i class="fas fa-arrow-right" aria-hidden="true"></i></button>
+                    <button type="button" class="quick-action" data-quick="announce"><span aria-hidden="true">📣</span><span><b>Viết thông báo</b><small>Mở trang soạn tin</small></span><i class="fas fa-arrow-right" aria-hidden="true"></i></button>
+                </div>
+            </div>
+                    <div class="card overview-todo" style="--h:var(--hue-butter)">
+                        <div class="panel-heading"><div><h2 class="nb-h">📌 Việc cần xem</h2><p class="nb-tiny">Ưu tiên cảnh báo và tài khoản cần duyệt</p></div><span id="home-attention-count" class="attention-count">…</span></div>
                         <ul id="home-todo" class="space-y-2"></ul>
                     </div>
-                    <div class="card p-4" style="--h:var(--hue-lav)">
-                        <p class="nb-h">🎀 Ai được dùng gì</p>
-                        <p class="nb-tiny mb-2">Bấm một dòng để xem đúng những tài khoản đó.</p>
+                    <div class="card overview-features" style="--h:var(--hue-lav)">
+                        <div class="panel-heading"><h2 class="nb-h">🎀 Ai được dùng gì</h2><button type="button" class="text-link" data-goto="accounts">Quản lý <i class="fas fa-arrow-right" aria-hidden="true"></i></button></div>
+                        <p class="nb-tiny panel-description">Chọn một tính năng để xem các tài khoản có quyền.</p>
                         <div id="home-feats" class="space-y-2"></div>
                     </div>
-                    <div class="card p-4" style="--h:var(--hue-peach)">
-                        <p class="nb-h">🕊️ Vừa nộp xong</p>
-                        <p class="nb-tiny mb-2">10 lượt mới nhất — bấm để xem người / đề đó.</p>
+                    <div class="card overview-feed" style="--h:var(--hue-peach)">
+                        <div class="panel-heading"><div><h2 class="nb-h">🕊️ Vừa nộp xong</h2><p class="nb-tiny">Chọn một lượt để mở chi tiết</p></div><span class="chip">10 lượt mới nhất</span></div>
                         <ul id="home-feed" class="feed"></ul>
                     </div>
-                </div>
-                <div class="lg:col-span-3 space-y-6">
-                    <div class="card p-4" style="--h:var(--hue-sky)">
-                        <div class="flex items-center gap-2 mb-1"><p class="nb-h flex-1">📈 Lượt làm đề</p><span id="home-chart-cap" class="nb-tiny"></span></div>
+                    <div class="card overview-chart" style="--h:var(--hue-sky)">
+                        <div class="panel-heading"><div><h2 class="nb-h">📈 Lượt làm đề</h2><p id="home-chart-cap" class="nb-tiny"></p></div><span class="panel-icon"><i class="fas fa-chart-column" aria-hidden="true"></i></span></div>
                         <div id="home-chart" class="bars"></div>
-                        <div class="flex gap-3 mt-2 nb-tiny"><span><i class="lg lg-acc"></i>có tài khoản</span><span><i class="lg lg-guest"></i>máy khách</span></div>
+                        <div class="chart-legend nb-tiny"><span><i class="lg lg-acc"></i>Có tài khoản</span><span><i class="lg lg-guest"></i>Máy khách</span></div>
+                        <div id="home-chart-insights" class="chart-insights"></div>
                     </div>
-                    <div class="card p-4" style="--h:var(--hue-blossom)">
-                        <div class="flex items-center gap-2 mb-2"><p class="nb-h flex-1">🔥 Giờ vàng làm đề</p><span id="home-heat-cap" class="nb-tiny"></span></div>
+                    <div class="card overview-heat" style="--h:var(--hue-blossom)">
+                        <div class="panel-heading"><div><h2 class="nb-h">🔥 Giờ vàng làm đề</h2><p id="home-heat-cap" class="nb-tiny"></p></div><span class="panel-icon"><i class="fas fa-clock" aria-hidden="true"></i></span></div>
                         <div id="home-heat" class="heat"></div>
+                        <div class="heat-caption nb-tiny"><span>Mỗi ô = 2 giờ</span><span>Ít <i class="heat-key"></i><i class="heat-key"></i><i class="heat-key"></i><i class="heat-key"></i> Nhiều</span></div>
                     </div>
-                    <div class="card p-4" style="--h:var(--hue-mint)">
-                        <p class="nb-h mb-2">🏆 Đề được làm nhiều nhất</p>
+                    <div class="card overview-hot" style="--h:var(--hue-mint)">
+                        <div class="panel-heading"><h2 class="nb-h">🏆 Đề được làm nhiều nhất</h2><button type="button" class="text-link" data-goto="report">Xem tất cả <i class="fas fa-arrow-right" aria-hidden="true"></i></button></div>
                         <ol id="home-hot" class="space-y-2"></ol>
                     </div>
-                </div>
             </div>
         </section>
 
         <!-- ===== ĐỀ & LƯỢT LÀM ===== -->
         <section id="tab-report" class="space-y-5 hidden">
-            <div class="card nb-plain p-3 flex flex-wrap items-center gap-2">
+            <div id="rep-summary" class="report-overview" aria-label="Tóm tắt các lượt làm đang hiển thị"></div>
+            <div class="card nb-plain data-toolbar p-3 flex flex-wrap items-center gap-2">
                 <div class="seg">
                     <button type="button" class="rep-view is-on" data-view="quiz">📚 Theo đề</button>
                     <button type="button" class="rep-view" data-view="user">🧸 Theo người</button>
                 </div>
-                <label class="search flex-1 min-w-[180px]"><i class="fas fa-magnifying-glass"></i><input id="rep-search" placeholder="Tìm tên đề, người, máy…" autocomplete="off"></label>
-                <label class="tick"><input type="checkbox" id="rep-only-clash"> 🚨 Chỉ lượt 2 máy</label>
+                <label class="search flex-1 min-w-[180px]"><i class="fas fa-magnifying-glass" aria-hidden="true"></i><input id="rep-search" aria-label="Tìm lượt làm theo tên đề, người hoặc máy" placeholder="Tìm tên đề, người, máy…" autocomplete="off"></label>
+                <label class="tick"><input type="checkbox" id="rep-only-clash"> Chỉ lượt 2 máy</label>
+                <button type="button" id="rep-clear" class="chip-btn hidden">↶ Xóa bộ lọc</button>
                 <button type="button" id="rep-reload" class="btn" title="Đọc lại lượt làm mới nhất"><i class="fas fa-rotate"></i><span class="hidden sm:inline ml-1">Tải lại</span></button>
                 <button type="button" id="rep-export" class="btn" title="Xuất các lượt đang hiện ra file CSV (mở bằng Excel)"><i class="fas fa-file-csv"></i><span class="hidden sm:inline ml-1">CSV</span></button>
             </div>
             <div id="rep-alerts"></div>
             <div id="rep-doing"></div>
             <div id="rep-list" class="space-y-5"></div>
-            <p class="nb-note">
+            <details class="nb-note report-guide"><summary><i class="fas fa-circle-info" aria-hidden="true"></i> Cách đọc lượt làm và cảnh báo thiết bị <i class="fas fa-chevron-down" aria-hidden="true"></i></summary><p>
                 🍓 <b>Lượt làm</b> = mỗi lần <b>bấm Bắt đầu</b>, nộp hay không cũng tính — của tài khoản và của <b>máy khách chưa đăng nhập</b> (đề công khai — mỗi máy × mỗi đề ghi lượt cuối và số lượt).
                 Bong bóng điểm: <span class="bub s-good">85</span> từ 80% · <span class="bub s-mid">60</span> 50–79% · <span class="bub s-low">30</span> dưới 50% · <span class="bub s-none">…</span> chưa nộp / bỏ dở · <span class="bub s-low is-flag">40</span> làm cùng lúc trên 2 máy.
                 Rê chuột / chạm vào bong bóng để xem giờ và máy.<br>
                 🚨 <b>2 máy</b>: cùng tài khoản có 2 lượt trên 2 máy khác nhau chồng giờ quá 1 phút, hoặc máy đang làm thấy máy kia làm cùng lúc (máy đó cũng được cảnh báo ngay).
                 Chỉ so được lượt nộp từ bản cập nhật này trở đi. <b>Máy</b> = một trình duyệt trên một thiết bị (iPhone: Safari và ứng dụng ngoài màn hình chính là 2 máy).
-            </p>
+            </p></details>
         </section>
 
         <!-- ===== TÀI KHOẢN ===== -->
         <section id="tab-accounts" class="space-y-4 hidden">
-            <div class="card nb-plain p-3 space-y-3">
-                <div class="flex flex-wrap items-center gap-2">
+            <div id="acc-overview" class="account-overview" role="group" aria-label="Lọc nhanh theo trạng thái tài khoản"></div>
+            <div class="card nb-plain data-toolbar p-3 space-y-3">
+                <div class="account-actions flex flex-wrap items-center gap-2">
                     <div class="seg" role="group" aria-label="Kiểu xem">
-                        <button type="button" class="acc-view rep-view is-on" data-aview="perm" title="Bật / tắt tính năng cho từng tài khoản">🎀 Quyền</button>
-                        <button type="button" class="acc-view rep-view" data-aview="login" title="Mật khẩu, cách đăng nhập, khoá / đá máy nhanh">🔑 Đăng nhập</button>
+                        <button type="button" class="acc-view rep-view is-on" data-aview="perm" title="Bật / tắt tính năng cho từng tài khoản"><b>🎀 Quyền sử dụng</b><small>Bật / tắt từng tính năng</small></button>
+                        <button type="button" class="acc-view rep-view" data-aview="login" title="Mật khẩu, cách đăng nhập, khoá / đá máy nhanh"><b>🔑 Đăng nhập</b><small>Mật khẩu &amp; thiết bị</small></button>
                     </div>
-                    <label class="search flex-1 min-w-[200px]"><i class="fas fa-magnifying-glass"></i><input id="acc-search" placeholder="Tìm email, tên, UID hoặc ghi chú…  ( / )" autocomplete="off"></label>
+                    <label class="search flex-1 min-w-[200px]"><i class="fas fa-magnifying-glass" aria-hidden="true"></i><input id="acc-search" aria-label="Tìm tài khoản theo email, tên, UID hoặc ghi chú" placeholder="Tìm email, tên, UID hoặc ghi chú…" autocomplete="off"><kbd>/</kbd></label>
                     <button type="button" id="acc-reload" class="btn" title="Tải lại danh sách"><i class="fas fa-rotate"></i></button>
                     <button type="button" id="acc-export" class="btn" title="Xuất các tài khoản đang hiện ra CSV"><i class="fas fa-file-csv"></i><span class="hidden sm:inline ml-1">CSV</span></button>
                     <button type="button" id="acc-new-toggle" class="btn btn-candy"><i class="fas fa-user-plus mr-1"></i>Tạo tài khoản</button>
                 </div>
-                <div id="acc-filters" class="flex flex-wrap gap-1.5"></div>
+                <div class="account-filter-row"><span class="filter-label">Nhóm tài khoản</span><div id="acc-filters" class="flex flex-wrap gap-1.5" role="group" aria-label="Lọc tài khoản"></div></div>
+                <div class="account-filter-options">
+                <details id="acc-more-filters" class="filter-extra"><summary>🧩 Lọc nâng cao <span id="acc-extra-active" class="nb-tiny"></span></summary><div id="acc-extra-filters" class="flex flex-wrap gap-1.5" role="group" aria-label="Lọc nâng cao theo tính năng và đăng nhập"></div></details>
+                <details class="filter-bookmark">
+                    <summary>📑 Bộ lọc đã lưu <span id="acc-preset-count" class="nb-tiny">0/6</span></summary>
+                    <div id="acc-presets" class="saved-views" role="group" aria-label="Bộ lọc tài khoản đã lưu"></div>
+                    <form id="acc-preset-form" class="preset-form">
+                        <input id="acc-preset-name" class="inp" maxlength="40" required aria-label="Tên bộ lọc" placeholder="Đặt tên bộ lọc, ví dụ: Tài khoản cần duyệt">
+                        <button type="submit" class="btn">💾 Lưu bộ lọc hiện tại</button>
+                    </form>
+                    <p class="nb-tiny">Nhớ từ khóa, nhóm lọc, kiểu xem và cách sắp xếp. Lưu tối đa 6 bộ lọc trên máy này.</p>
+                </details>
+                </div>
+                <div class="filter-context">
+                    <p id="acc-filter-status" class="nb-tiny" role="status"></p>
+                    <label class="sort-control"><span>Sắp xếp</span><select id="acc-sort" class="inp" aria-label="Sắp xếp tài khoản"></select></label>
+                    <button type="button" id="acc-clear" class="chip-btn hidden">↶ Xóa bộ lọc</button>
+                </div>
             </div>
 
             <div id="acc-new" class="card p-4 space-y-3 hidden" style="--h:var(--hue-peach)">
@@ -178,21 +232,20 @@
                 <p class="nb-tiny">Mật khẩu admin đặt ở đây được lưu để xem lại về sau (mục 🔑 Đăng nhập). Tạo xong sẽ mở ngay chi tiết tài khoản để sao chép email + mật khẩu gửi cho người dùng.</p>
             </div>
 
-            <div class="legend" id="acc-legend"></div>
-
-            <div class="mtx" id="acc-mtx">
+            <div class="account-table-caption"><div><h2 id="acc-table-title" class="nb-h">🎀 Quyền theo tài khoản</h2><p id="acc-view-help" class="nb-tiny">Bấm ô để bật / tắt quyền, thay đổi được tự lưu.</p></div><p id="acc-summary" class="nb-tiny"></p></div>
+            <div class="mtx" id="acc-mtx" role="region" aria-label="Danh sách tài khoản và quyền sử dụng" tabindex="0">
                 <div class="mtx-head" id="acc-head"></div>
                 <div id="acc-list"></div>
             </div>
-            <p id="acc-summary" class="nb-tiny px-1"></p>
+            <details class="nb-note account-guide"><summary><i class="fas fa-circle-info" aria-hidden="true"></i> Hướng dẫn quản lý tài khoản <i class="fas fa-chevron-down" aria-hidden="true"></i></summary><div class="legend" id="acc-legend"></div></details>
         </section>
 
         <!-- ===== CÀI ĐẶT ===== -->
         <section id="tab-settings" class="hidden">
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="settings-layout">
                 <div class="space-y-6">
                     <div class="card p-4 space-y-2.5" style="--h:var(--hue-butter)">
-                        <p class="nb-h">👑 Đội quản trị</p>
+                        <h2 class="nb-h">👑 Đội quản trị</h2>
                         <p class="nb-tiny">Admin vào được trang này và quản lý mọi tài khoản thường (quyền, mật khẩu, khoá, xoá…). Chỉ <b>admin gốc</b> mới gỡ quyền admin hoặc chỉnh tài khoản của admin khác.</p>
                         <ul id="admins-list" class="space-y-1.5"></ul>
                         <div class="flex gap-2">
@@ -202,7 +255,7 @@
                         </div>
                     </div>
                     <div class="card p-4 space-y-2.5" style="--h:var(--hue-blossom)">
-                        <p class="nb-h">📣 Gửi thông báo</p>
+                        <h2 class="nb-h">📣 Gửi thông báo</h2>
                         <p class="nb-tiny">Hiện thành thẻ nhỏ ở đáy màn hình, lần tới người dùng mở / chuyển trang (trễ tối đa ~15 phút). Bấm "Đã xem" thì không thấy lại; gửi thông báo mới thì ai cũng thấy lại.</p>
                         <textarea id="ann-text" rows="3" class="inp w-full" maxlength="600" placeholder="Viết gì đó thật dễ thương…"></textarea>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -236,14 +289,14 @@
                             <span id="set-default-now" class="nb-tiny"></span>
                         </div>
                     </div>
-                    <div class="card p-4 space-y-2" style="--h:var(--hue-latte)">
-                        <p class="nb-h">🧹 Dọn lượt làm cũ</p>
+                    <details class="card p-4 space-y-2" style="--h:var(--hue-latte)">
+                        <summary class="nb-h">🧹 Dọn lượt làm cũ <span class="nb-tiny">Mở khi cần bảo trì</span></summary>
                         <p class="nb-tiny">Bản ghi "đang làm / đã nộp" (không phải kết quả) quá 14 ngày — máy khách và lượt bấm Bắt đầu quá 60 ngày — được dọn mỗi lần mở trang. Muốn Firebase tự xoá: Console → Firestore → TTL, thêm chính sách cho <code>quiz_runs</code>, <code>quiz_guest</code> và <code>quiz_starts</code>, trường <code>expireAt</code>.</p>
                         <button type="button" id="runs-purge" class="btn">Dọn ngay</button>
-                    </div>
+                    </details>
                 </div>
-                <div class="card p-4 space-y-2" style="--h:var(--hue-mint)">
-                    <p class="nb-h">🕰️ Nhật ký quản trị <span class="nb-tiny">(50 thao tác gần nhất · không sửa / xoá được)</span></p>
+                <div class="card audit-panel p-4 space-y-2" style="--h:var(--hue-mint)">
+                    <h2 class="nb-h"><i class="fas fa-clock-rotate-left" aria-hidden="true"></i> Nhật ký quản trị <span class="nb-tiny">50 thao tác gần nhất</span></h2>
                     <ul id="audit-list" class="space-y-1.5 max-h-[640px] overflow-y-auto pr-1"></ul>
                 </div>
             </div>
@@ -254,10 +307,10 @@
 
     <!-- Thanh tab dưới đáy (điện thoại — ngón cái với tới) -->
     <nav class="botbar" aria-label="Chuyển mục">
-        <button type="button" class="bot-btn is-on" data-tab="home"><span>🏠</span>Tổng quan</button>
-        <button type="button" class="bot-btn" data-tab="report"><span>📚</span>Lượt làm</button>
-        <button type="button" class="bot-btn" data-tab="accounts"><span>👥</span>Tài khoản</button>
-        <button type="button" class="bot-btn" data-tab="settings"><span>🌿</span>Cài đặt</button>
+        <button type="button" class="bot-btn is-on" data-tab="home" aria-controls="tab-home" aria-current="page"><span>🏠</span>Tổng quan</button>
+        <button type="button" class="bot-btn" data-tab="report" aria-controls="tab-report"><span>📚</span>Lượt làm</button>
+        <button type="button" class="bot-btn" data-tab="accounts" aria-controls="tab-accounts"><span>👥</span>Tài khoản</button>
+        <button type="button" class="bot-btn" data-tab="settings" aria-controls="tab-settings"><span>🌿</span>Cài đặt</button>
     </nav>
 
     <!-- Thanh đổi quyền hàng loạt (hiện khi tick ≥ 1 tài khoản) -->
@@ -274,7 +327,7 @@
     <!-- CHI TIẾT TÀI KHOẢN (trang sổ trượt ra) -->
     <div id="acc-drawer" class="fixed inset-0 z-40 hidden">
         <div class="absolute inset-0" style="background: rgba(90, 60, 55, .32)" data-close></div>
-        <aside class="absolute right-0 top-0 bottom-0 w-full max-w-xl shadow-2xl overflow-y-auto" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom)">
+        <aside class="absolute right-0 top-0 bottom-0 w-full max-w-xl shadow-2xl overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="drawer-title" tabindex="-1" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom)">
             <div class="drawer-head sticky top-0 backdrop-blur px-4 py-3 flex items-center gap-2 z-10">
                 <button type="button" id="dr-prev" class="icon-btn" title="Tài khoản trước (←)"><i class="fas fa-chevron-left"></i></button>
                 <p class="flex-1 truncate" id="drawer-title">Tài khoản</p>
