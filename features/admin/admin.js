@@ -333,6 +333,9 @@ function onNavClick(e) {
 // Doc do MÁY NGƯỜI DÙNG ghi → không tin: chữ ép về chuỗi (luôn esc khi vẽ), số ép về số nguyên, trạng thái chỉ nhận giá trị đã biết
 // (trang này chạy bằng quyền admin — chèn nguyên văn là mở đường cho mã độc; khoá lạ như "constructor" còn làm vỡ cả trang).
 const own = (obj, k) => typeof k === 'string' && Object.prototype.hasOwnProperty.call(obj, k);
+/** Quá `ms` chưa xong (Safari / iPad: kênh Firestore hay lời gọi máy chủ đôi khi đứng im) → báo lỗi, hiện nút Tải lại thay vì quay mãi. */
+const withTimeout = (p, ms, what) => Promise.race([p, new Promise((_, reject) =>
+    setTimeout(() => reject(new Error(`${what} quá ${ms / 1000} giây chưa xong — kiểm tra mạng rồi bấm Tải lại`)), ms))]);
 const str = (v, max = 200) => (typeof v === 'string' ? v : '').slice(0, max);
 const int = (v) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v) : null);
 
@@ -428,7 +431,7 @@ async function loadResults() {
     renderStatus();
     try {
         const since = Timestamp.fromMillis(Date.now() - rangeDays * DAY);
-        const [snap, gsnap, ssnap] = await Promise.all([
+        const [snap, gsnap, ssnap] = await withTimeout(Promise.all([
             getDocs(query(collection(db, 'quiz_results'), where('completedAt', '>=', since), orderBy('completedAt', 'desc'), limit(RESULTS_MAX))),
             getDocs(query(collection(db, 'quiz_guest'), where('at', '>=', since), orderBy('at', 'desc'), limit(RESULTS_MAX))).catch((e) => {
                 guestsError = e?.code === 'permission-denied' ? 'Chưa đọc được máy khách — luật Firestore mới (quiz_guest) đã deploy chưa?' : 'Không tải được máy khách.';
@@ -438,7 +441,7 @@ async function loadResults() {
                 startsError = e?.code === 'permission-denied' ? 'Chưa đọc được lượt bắt đầu chưa nộp — luật Firestore mới (quiz_starts) đã deploy chưa?' : 'Không tải được lượt bắt đầu chưa nộp.';
                 return null;
             })
-        ]);
+        ]), 30000, 'Đọc lượt làm');
         if (token !== resultsToken) return;
         results = snap.docs.map(d => normResult(d.id, d.data()));
         guests = gsnap ? gsnap.docs.map(d => normGuest(d.id, d.data())) : [];
@@ -1125,7 +1128,7 @@ async function loadUsers() {
     $('acc-summary').textContent = 'Đang tải danh sách tài khoản…';
     $('acc-reload').disabled = true;
     try {
-        const r = await adminListAllUsers();
+        const r = await withTimeout(adminListAllUsers(), 45000, 'Tải danh sách tài khoản');
         users = r.users;
         userMap = new Map(users.map(u => [u.uid, u]));
         for (const uid of [...selected]) if (!userMap.has(uid)) selected.delete(uid);

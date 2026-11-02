@@ -12,6 +12,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
     <!-- Giao diện sổ (ngày / đêm, màu, mật độ — admin-fx.js applyLook) đặt TRƯỚC khi vẽ để không nháy màu -->
     <script>try{var l=JSON.parse(localStorage.getItem('adminLook')||'{}')||{},r=document.documentElement,n=l.theme==='night'||(l.theme!=='day'&&matchMedia('(prefers-color-scheme: dark)').matches);r.dataset.theme=n?'night':'day';r.dataset.accent=l.accent||'blossom';r.dataset.density=l.density==='compact'?'compact':'cozy'}catch(e){}</script>
+    <!-- Firestore dùng bộ nhớ tạm (core/firebase-init.js): sổ đọc vài nghìn lượt mỗi lần tải — chép hết vào IndexedDB làm Safari / iPad
+         đứng im ở "đang tải" (nhất là khi tab khác của web đang giữ cache). Trang này không cần dùng offline. -->
+    <script>window.__FB_LEAN_CACHE = true;</script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="admin.css">
@@ -20,7 +23,7 @@
     <div id="toast-container"></div>
 
     <div class="shell">
-    <!-- THANH BÊN (máy tính ≥ 1024px): bìa sổ + các mục + "Cần xem nhanh" — điện thoại / máy tính bảng dùng tab trên đầu / dưới đáy -->
+    <!-- THANH BÊN: máy tính / iPad ngang (≥ 1024px) đủ bìa sổ + các mục + "Cần xem nhanh"; iPad dọc chỉ biểu tượng; điện thoại dùng tab dưới đáy -->
     <aside id="side" class="side" aria-label="Mục của sổ">
         <div class="side-brand">
             <a href="../profile/profile.html" class="nb-back" title="Về Hồ sơ"><i class="fas fa-arrow-left"></i></a>
@@ -30,10 +33,10 @@
             </div>
         </div>
         <nav class="side-nav" role="tablist" aria-label="Chuyển mục">
-            <button type="button" class="side-btn is-on" data-tab="home"><span class="side-ic">🏠</span><span class="side-l">Tổng quan</span><span class="side-badge" data-badge="home"></span></button>
-            <button type="button" class="side-btn" data-tab="report"><span class="side-ic">📚</span><span class="side-l">Đề &amp; lượt làm</span><span class="side-badge" data-badge="report"></span></button>
-            <button type="button" class="side-btn" data-tab="accounts"><span class="side-ic">👥</span><span class="side-l">Tài khoản</span><span class="side-badge" data-badge="accounts"></span></button>
-            <button type="button" class="side-btn" data-tab="settings"><span class="side-ic">🌿</span><span class="side-l">Cài đặt</span><span class="side-badge" data-badge="settings"></span></button>
+            <button type="button" class="side-btn is-on" data-tab="home" data-short="Tổng quan"><span class="side-ic">🏠</span><span class="side-l">Tổng quan</span><span class="side-badge" data-badge="home"></span></button>
+            <button type="button" class="side-btn" data-tab="report" data-short="Lượt làm"><span class="side-ic">📚</span><span class="side-l">Đề &amp; lượt làm</span><span class="side-badge" data-badge="report"></span></button>
+            <button type="button" class="side-btn" data-tab="accounts" data-short="Tài khoản"><span class="side-ic">👥</span><span class="side-l">Tài khoản</span><span class="side-badge" data-badge="accounts"></span></button>
+            <button type="button" class="side-btn" data-tab="settings" data-short="Cài đặt"><span class="side-ic">🌿</span><span class="side-l">Cài đặt</span><span class="side-badge" data-badge="settings"></span></button>
         </nav>
         <div class="side-sec">
             <p class="side-h">📌 Cần xem nhanh</p>

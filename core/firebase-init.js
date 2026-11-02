@@ -47,6 +47,7 @@ auth.languageCode = 'vi';
 //  - Trang THỜI GIAN THỰC (phòng đánh đề, đặt `window.__FB_LEAN_CACHE = true` trước khi nạp module) dùng bộ nhớ tạm: mỗi snapshot
 //    của người khác (đáp án, con trỏ, ghi chú — vài lần/giây) không phải ghi vào IndexedDB nữa. Đo trên máy yếu (CPU x4, 12 bạn hoạt động):
 //    luồng chính bận 67% -> 51%, script 8,0s -> 4,6s mỗi 30s. Đánh đổi: lệnh ghi đang chờ lúc mất mạng mà tải lại trang thì mất.
+//    Sổ Quản trị cũng vậy: mỗi lần tải đọc vài nghìn doc, chép vào IndexedDB làm Safari / iPad treo ở "đang tải".
 export const db = initializeFirestore(app, {
     localCache: globalThis.__FB_LEAN_CACHE === true ? memoryLocalCache() : persistentLocalCache({
         tabManager: persistentMultipleTabManager(),

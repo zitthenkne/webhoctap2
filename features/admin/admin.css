@@ -96,8 +96,8 @@ button { font-family: inherit; }
 .tab-btn.is-on { background: var(--h); color: #fff; border-color: transparent; transform: translateY(-2px); box-shadow: 0 5px 0 color-mix(in srgb, var(--h) 70%, var(--ink)), 0 12px 22px -14px var(--h); }
 
 /* ======================= KHUNG: THANH BÊN + TRANG ======================= */
-/* Điện thoại / máy tính bảng: một cột, tab trên đầu (hoặc dưới đáy). Máy tính ≥ 1024px: thanh bên trái cố định (gáy khoen như
-   ngăn chi tiết) thay cho hàng tab, trang nội dung rộng hơn; đầu trang chỉ còn tên mục đang mở + công cụ. */
+/* Điện thoại (≤ 760px): một cột, tab dưới đáy. iPad dọc (761–1023px): thanh hẹp chỉ biểu tượng. Máy tính / iPad ngang (≥ 1024px):
+   thanh bên đầy đủ (gáy khoen như ngăn chi tiết), trang nội dung rộng hơn. Có thanh bên thì đầu trang chỉ còn tên mục đang mở + công cụ. */
 .wrap { max-width: 1152px; margin-inline: auto; }
 .side, .sec-t { display: none; }
 .side-brand { display: flex; align-items: center; gap: 10px; }
@@ -131,12 +131,32 @@ button { font-family: inherit; }
 .sq b { margin-left: auto; font-family: var(--hand); font-size: 15px; color: var(--hi); }
 .sq.is-zero, .sq.is-zero b { color: var(--ink-faint); }
 .side-foot { margin-top: auto; padding-left: 4px; font-size: 11px; font-weight: 700; line-height: 2.1; color: var(--ink-muted); }
-@media (min-width: 1024px) {
+/* Từ máy tính bảng (iPad dọc 768–834px) trở lên: có thanh bên, bỏ hàng tab trên đầu */
+@media (min-width: 761px) {
     .shell { display: grid; grid-template-columns: 252px minmax(0, 1fr); align-items: start; }
-    .wrap { max-width: 1320px; }
-    .side { position: sticky; top: 0; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; gap: 18px;
-        padding: calc(16px + env(safe-area-inset-top)) 16px 16px 42px;
+    .side { position: sticky; top: 0; height: 100vh; height: 100dvh; overflow-y: auto; display: flex; flex-direction: column; gap: 18px;
+        padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)) 42px;
         background: var(--grid), var(--paper); border-right: 2px dashed var(--line); box-shadow: 10px 0 28px -24px rgba(190, 130, 115, .6); }
+    .head-back, .brand-t, .top-tabs { display: none !important; }
+    .sec-t { display: inline; }
+}
+/* iPad dọc: thanh hẹp chỉ biểu tượng + chữ ngắn (thanh đủ rộng sẽ bóp bảng Tài khoản) — số cảnh báo nằm trên góc biểu tượng */
+@media (min-width: 761px) and (max-width: 1023px) {
+    .shell { grid-template-columns: 84px minmax(0, 1fr); }
+    .side { align-items: center; gap: 14px; padding-left: 8px; padding-right: 8px; }
+    .side-brand > div, .side-sec, .side-foot, .side-l { display: none; }
+    .side-nav { width: 100%; }
+    .side-btn { position: relative; flex-direction: column; gap: 3px; padding: 7px 2px; }
+    .side-btn::after { content: attr(data-short); font-size: 10.5px; line-height: 1.2; white-space: nowrap; }
+    .side-btn:hover { transform: none; }
+    .side-btn.is-on { transform: translateX(3px) rotate(-1deg); }
+    .side-ic { width: 38px; height: 38px; font-size: 19px; }
+    .side-badge { position: absolute; top: 0; right: 2px; padding: 0 5px; font-size: 9.5px; box-shadow: 0 0 0 2px var(--paper); }
+    .bulk, .undo-toast { left: calc(50% + 42px); }
+    .bulk { max-width: calc(100vw - 108px); }
+}
+@media (min-width: 1024px) {
+    .wrap { max-width: 1320px; }
     /* gáy khoen dọc mép trái — cùng hoạ tiết với #drawer-body */
     .side::before { content: ""; position: absolute; top: 10px; bottom: 10px; left: 4px; width: 30px; pointer-events: none;
         background-image:
@@ -145,8 +165,6 @@ button { font-family: inherit; }
             radial-gradient(circle 5.6px at 21px 23.8px, var(--bg-desk) 96%, transparent 100%),
             radial-gradient(circle 6.4px at 20.4px 23px, var(--hole-shadow) 96%, transparent 100%);
         background-size: 30px 46px; background-repeat: repeat-y; }
-    .head-back, .brand-t, .top-tabs { display: none !important; }
-    .sec-t { display: inline; }
     /* thanh đổi quyền hàng loạt + thẻ Hoàn tác: canh giữa phần trang, không đè thanh bên */
     .bulk, .undo-toast { left: calc(50% + 126px); }
     .bulk { max-width: calc(100vw - 276px); }
