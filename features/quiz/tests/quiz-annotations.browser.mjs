@@ -10,21 +10,28 @@ const browserType = playwright[process.env.ANNOTATION_BROWSER || 'chromium'];
 const source = (await readFile(new URL('../page/quiz-annotations.js', import.meta.url), 'utf8'))
     .replace(/^import .*;\r?$/gm, '').replace(/^export /gm, '');
 const css = await readFile(new URL('../quiz-stationery.css', import.meta.url), 'utf8');
+const mdSource = (await readFile(new URL('../page/quiz-note-md.js', import.meta.url), 'utf8')).replace(/^export /gm, '');
 const notesSource = await readFile(new URL('../page/quiz-notes-panel.js', import.meta.url), 'utf8');
 const noteTags = notesSource.slice(notesSource.indexOf('export const NOTE_TAGS'), notesSource.indexOf('// Một ghi chú → HTML')).replace(/^export /gm, '');
 const stub = `const state={questions:[{question:'fixture'}],currentIndex:0,quizData:{id:'test'}};
 const studyKeys=()=>({annot:'test-annotations',annotDel:'test-del'}),pushStudyToCloud=()=>{};
 const noteTextHtml=v=>v.replaceAll('<','&lt;');
-const noteCount=()=>0,syncQuizNavPanel=()=>{},showQuestion=()=>{};` + noteTags;
+const noteCount=()=>0,syncQuizNavPanel=()=>{},showQuestion=()=>{};` + noteTags + mdSource;
 const toastStub = `const showToast=(...args)=>(window.annotationErrors ||= []).push(args);`;
-const phrase = (id, text, note) => `<span class="quiz-annot annot-note" data-annot-id="${id}" data-note="${note}">${text}</span>`;
+const phrase = (id, text, note, grp) => `<span class="quiz-annot annot-note" data-annot-id="${id}" data-note="${note}"${grp ? ` data-annot-grp="${grp}"` : ''}>${text}</span>`;
 const balancedNote = 'cái này dùng để hạ huyết áp nhưng vô tình làm lượng máu đến bánh nhau giảm -> nếu dùng thì dùng loại uống phóng thích nhanh để hạ áp từ từ kiểm soát được tốc độ';
 const fixtures = {
     inlineArrow: `Tiền căn sản khoa: 1 lần ${phrase('surgery', 'mổ lấy thai', '⭐ nhưng mà vết mổ kiểu gì (ngang, dọc, T?)')} vì ngôi ngang, cách đây ${phrase('years', '4 năm', 'hơn mốc 18–24 tháng')} tại bệnh viện Từ Dũ.`,
     adjacent: `Nhau bong tự nhiên kiểu ${phrase('a', 'Duncan', 'bong từ rìa vào trung tâm')}, kèm mất máu ${phrase('b', '500 mL', 'mất trên 500 là tính là BHSS rồi')}. ${phrase('c', 'Tử cung gò kém', 'đờ tử cung')} sau sổ nhau.`,
     dense: 'Một đoạn ' + ['rất', 'nhiều', 'cụm', 'từ', 'gần nhau'].map((text, i) => phrase('d' + i, text, 'Ghi chú số ' + i + ' có nhiều chữ để thử bố cục')).join(' ') + ' trong một đoạn dài để theo dõi xuống dòng.',
     multiline: 'Đây là <strong>nội dung ' + phrase('m', 'cụm từ rất dài trải qua nhiều dòng trên điện thoại và chứa <em>định dạng lồng nhau</em> bên trong để kiểm tra', 'Nhớ xem toàn bộ cụm từ') + ' cách đặt ghi chú</strong> sau khi đổi kích thước màn hình.',
-    table: '<table style="width:100%;table-layout:fixed"><tr><td>' + phrase('t1', 'Một cụm từ', 'Diễn giải thứ nhất') + ' trong ô một</td><td>' + phrase('t2', 'Một cụm khác', 'Diễn giải thứ hai') + ' trong ô hai</td></tr></table>'
+    table: '<table style="width:100%;table-layout:fixed"><tr><td>' + phrase('t1', 'Một cụm từ', 'Diễn giải thứ nhất') + ' trong ô một</td><td>' + phrase('t2', 'Một cụm khác', 'Diễn giải thứ hai') + ' trong ô hai</td></tr></table>',
+    // Ảnh người dùng 2026-11-03: bảng tự co (cột đầu hẹp, ô đầu dính mép trái), mỗi cột một ghi chú dài -> từng tràn ô, đè lên nhau
+    tableAuto: '<table class="cute-table"><tbody><tr><td style="position:sticky;left:0;z-index:1;background:#fff">' + phrase('ta1', 'Ngày 06/10', '3 tuần 2 ngày -> chưa có hcg + lâm sàng')
+        + '</td><td>' + phrase('ta2', 'Beta-hCG (-)', 'thường + 10 ngày sau khi thụ tinh ~ 34-35 ngày tuổi thai ~ 5,5 tuần')
+        + ', SA: Nội mạc tử cung 14mm, hai phần phụ không có bất thường.</td></tr><tr><td>Ngày 08/10</td><td>Đau bụng ít, ra huyết.</td></tr></tbody></table>',
+    markdown: 'Bệnh nhân ' + phrase('md', 'đau hạ vị', '**Nhớ:** loại trừ thai ngoài -> làm *β-hCG*\n- siêu âm ==ngả âm đạo==\n- theo dõi ↑ ↓') + ' từ sáng.',
+    group: 'Mẹ ' + phrase('g1', 'sốt 39°C', 'nhiễm trùng ối?', 'gA') + ', tim thai ' + phrase('g2', '180 l/p', 'nhiễm trùng ối?', 'gA') + ', ối ' + phrase('g3', 'hôi', 'nhiễm trùng ối?', 'gA') + '.'
 };
 fixtures.hardBreak = fixtures.inlineArrow + '<br>hậu phẫu ổn, bé hiện khỏe.';
 fixtures.upperFallback = 'Hai cụm ' + phrase('upper1', 'A', 'Ghi chú thứ nhất khá dài và cần bám sát cụm từ') + ' '
@@ -46,7 +53,7 @@ async function checkLayoutAndColors() {
         const scope = document.querySelector('[data-annot]');
         scope.innerHTML = html;
         localStorage.setItem('test-annotations', JSON.stringify({ fixture: [...scope.querySelectorAll('[data-annot-id]')].map(sp => ({
-            id: sp.dataset.annotId, scope: 'q', type: 'note', text: sp.textContent, note: sp.dataset.note
+            id: sp.dataset.annotId, scope: 'q', type: 'note', text: sp.textContent, note: sp.dataset.note, ...(sp.dataset.annotGrp ? { grp: sp.dataset.annotGrp } : {})
         })) }));
         annotationTest.renderNoteLines(document.getElementById('quizSection'));
     }, html);
@@ -66,7 +73,7 @@ async function checkLayoutAndColors() {
         for (let i = 0; i < 5; i++) annotationTest.renderNoteLines(document.getElementById('quizSection'));
         const directionCorrect = [...scope.querySelectorAll('.an-band')].every(band => {
             const br = band.getBoundingClientRect(), rows = [...band.querySelectorAll('.an-line')];
-            return [...band.querySelectorAll('.an-links path')].every((path, i) => {
+            return [...band.querySelectorAll('.an-links path[data-points-to="note"]')].every((path, i) => {
                 const d = path.getAttribute('d');
                 const curve = d.split(' M')[0].match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi).map(Number);
                 const tip = d.match(/ L([^ ]+)/)[1].split(',').map(Number);
@@ -79,7 +86,7 @@ async function checkLayoutAndColors() {
         });
         const textFollowsArrow = [...scope.querySelectorAll('.an-band')].every(band => {
             const br = band.getBoundingClientRect(), rows = [...band.querySelectorAll('.an-line')];
-            return [...band.querySelectorAll('.an-links path')].every((path, i) => {
+            return [...band.querySelectorAll('.an-links path[data-points-to="note"]')].every((path, i) => {
                 const row = rows[i];
                 if (row.classList.contains('is-side')) return true;
                 const tip = path.getAttribute('d').match(/ L([^ ]+)/)[1].split(',').map(Number);
@@ -112,39 +119,35 @@ async function checkLayoutAndColors() {
     await page.setViewportSize({ width: 1000, height: 900 });
     await load(fixtures.balancedLines);
     const balance = await page.locator('.an-line[data-id="balanced"]').evaluate(row => {
-        // Probe dùng đúng font, bề rộng và cách dựng ::after để đo độ dài từng dòng chữ thật.
-        const style = getComputedStyle(row, '::after'), probe = document.createElement('span');
-        for (const prop of ['display', 'font', 'letter-spacing', 'line-height', 'white-space', 'overflow-wrap', 'text-wrap', '-webkit-box-orient', '-webkit-line-clamp']) {
-            probe.style.setProperty(prop, style.getPropertyValue(prop));
-        }
-        Object.assign(probe.style, { position: 'fixed', left: '-10000px', top: '0', width: style.width, visibility: 'hidden' });
-        probe.textContent = row.dataset.txt;
-        document.body.append(probe);
-        let arrowIntact = true;
-        const widths = () => {
-            const lines = new Map();
-            for (const word of probe.textContent.matchAll(/\S+/g)) {
+        // Đo từng dòng chữ thật của hàng (nội dung trong shadow DOM); bản thử đặt cạnh, cùng shadow root nên cùng kiểu chữ.
+        const root = row.shadowRoot, tx = root.querySelector('.tx');
+        const widths = (el) => {
+            const lines = new Map(), w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+            let n;
+            while ((n = w.nextNode())) for (const word of n.nodeValue.matchAll(/\S+/g)) {
                 const range = document.createRange();
-                range.setStart(probe.firstChild, word.index); range.setEnd(probe.firstChild, word.index + word[0].length);
-                const rects = [...range.getClientRects()];
-                if (word[0].includes('-\u2060>') && rects.length !== 1) arrowIntact = false;
-                rects.forEach(rect => {
+                range.setStart(n, word.index); range.setEnd(n, word.index + word[0].length);
+                [...range.getClientRects()].forEach(rect => {
                     const y = Math.round(rect.top), old = lines.get(y) || { left: rect.left, right: rect.right };
                     old.left = Math.min(old.left, rect.left); old.right = Math.max(old.right, rect.right); lines.set(y, old);
                 });
             }
             return [...lines.values()].map(line => line.right - line.left);
         };
-        const balanced = widths();
-        probe.style.textWrap = 'wrap'; const greedy = widths();
-        probe.style.textWrap = 'balance'; probe.style.width = '900px';
-        probe.textContent = 'Dòng ngắn.\nDòng dài hơn được giữ nguyên.'; const manualLines = widths().length;
-        probe.textContent = 'Ghi chú ngắn'; const shortLines = widths().length;
+        const probe = tx.cloneNode(true);
+        Object.assign(probe.style, { position: 'fixed', left: '-10000px', top: '0', width: tx.clientWidth + 'px', visibility: 'hidden', maxHeight: 'none' });
+        root.append(probe);
+        const balanced = widths(tx);
+        probe.querySelectorAll('div').forEach(d => { d.style.textWrap = 'wrap'; });
+        const greedy = widths(probe);
+        probe.style.width = '900px';
+        probe.innerHTML = noteMdHtml('Dòng ngắn.\nDòng dài hơn được giữ nguyên.'); const manualLines = widths(probe).length;
+        probe.innerHTML = noteMdHtml('Ghi chú ngắn'); const shortLines = widths(probe).length;
         probe.remove();
         const band = row.closest('.an-band');
         const coords = band.querySelector('.an-links path').getAttribute('d').split(' M')[0].match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi).map(Number);
-        return { balanced, greedy, arrowIntact, manualLines, shortLines, rowWidth: row.offsetWidth, bandWidth: band.clientWidth,
-            arrowSpan: Math.abs(coords[0] - coords.at(-2)), side: row.classList.contains('is-side') };
+        return { balanced, greedy, arrowShown: tx.textContent.includes('→') && !tx.textContent.includes('->'), manualLines, shortLines,
+            rowWidth: row.offsetWidth, bandWidth: band.clientWidth, arrowSpan: Math.abs(coords[0] - coords.at(-2)), side: row.classList.contains('is-side') };
     });
     assert.equal(balance.balanced.length, 2, 'ghi chú dài có hai dòng hiển thị đầy đủ');
     assert.equal(balance.balanced.length, balance.greedy.length, 'cân dòng không tăng số dòng');
@@ -154,10 +157,45 @@ async function checkLayoutAndColors() {
     assert.ok(balance.rowWidth < balance.bandWidth * .9, 'khung thu theo chữ đã cân, để khoảng trống còn lại dùng được: ' + JSON.stringify(balance));
     assert.ok(balance.arrowSpan <= 36, 'ghi chú được đặt lại sát cụm, không kéo bẹt mũi tên vì khung rỗng: ' + balance.arrowSpan);
     assert.equal(balance.side, false, 'ghi chú hai dòng không bị nhét vào khoảng trống cùng dòng nguồn');
-    assert.equal(balance.arrowIntact, true, 'ký hiệu -> không bị chẻ giữa hai dòng');
+    assert.equal(balance.arrowShown, true, 'ký hiệu -> hiện thành →');
     assert.equal(balance.manualLines, 2, 'giữ ngắt dòng người dùng nhập');
     assert.equal(balance.shortLines, 1, 'ghi chú ngắn vẫn nằm trên một dòng');
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('test-annotations')).fixture[0].note), balancedNote, 'không đổi nội dung ghi chú đã lưu');
+    for (const width of [375, 1280]) {
+        await page.setViewportSize({ width, height: 900 });
+        await load(fixtures.tableAuto);
+        const tbl = await page.evaluate(() => {
+            const tr = document.querySelector('tr.an-tr'), table = document.querySelector('table').getBoundingClientRect();
+            const rows = [...document.querySelectorAll('.an-line')];
+            // cột đầu hẹp, hai cụm sát nhau mà ghi chú dài: một ghi chú dưới dải chung, ghi chú kia lên khoảng trống TRÊN cụm (không đè)
+            return { slots: document.querySelectorAll('tr.an-tr').length, inSlot: rows.filter(r => tr && (tr.contains(r) || r.classList.contains('is-above'))).length, rows: rows.length,
+                colspan: tr && tr.firstElementChild.colSpan,
+                inside: rows.every(r => { const b = r.getBoundingClientRect(); return b.left >= table.left - 1 && b.right <= table.right + 1; }) };
+        });
+        if (width === 1280) {   // màn hẹp: ô đầu thấp hơn ô bên cạnh -> ghi chú của nó ở ngay trong ô (đúng thiết kế)
+            assert.equal(tbl.slots, 1, `bảng/${width}: một dải chung ngay dưới hàng có hai ghi chú`);
+            assert.equal(tbl.inSlot, tbl.rows, `bảng/${width}: ghi chú của cả hai cột cùng nằm trong dải chung`);
+            assert.equal(tbl.colspan, 2);
+        }
+        assert.equal(tbl.inside, true, `bảng/${width}: ghi chú không tràn ra ngoài bảng`);
+    }
+    await page.setViewportSize({ width: 1000, height: 900 });
+    await load(fixtures.markdown);
+    const md = await page.locator('.an-line[data-id="md"]').evaluate(r => {
+        const tx = r.shadowRoot.querySelector('.tx');
+        return { b: tx.querySelectorAll('b').length, i: tx.querySelectorAll('i').length, mark: tx.querySelectorAll('mark').length,
+            li: tx.querySelectorAll('.li').length, arrow: tx.textContent.includes('→'), visibleLines: Math.round(tx.getBoundingClientRect().height / parseFloat(getComputedStyle(r).lineHeight)) };
+    });
+    assert.deepEqual({ b: md.b, i: md.i, mark: md.mark, li: md.li, arrow: md.arrow }, { b: 1, i: 1, mark: 1, li: 2, arrow: true }, 'markdown trong hàng ghi chú: ' + JSON.stringify(md));
+    assert.ok(md.visibleLines >= 3, 'ghi chú nhiều dòng hiện đủ các dòng (không còn kẹp 2 dòng): ' + md.visibleLines);
+    await load(fixtures.group);
+    const grp = await page.evaluate(() => ({ rows: document.querySelectorAll('.an-line').length, grp: document.querySelector('.an-line')?.dataset.grp,
+        extra: document.querySelectorAll('.an-links path[data-points-to="note-extra"]').length, marks: document.querySelectorAll('[data-gmk]').length }));
+    assert.equal(grp.rows, 1, 'ghi chú nhóm chỉ vẽ một hàng');
+    assert.equal(grp.grp, 'gA');
+    assert.equal(grp.extra + grp.marks, 2, 'hai cụm còn lại của nhóm đều được nối / đánh dấu: ' + JSON.stringify(grp));
+    await page.locator('[data-annot-id="g1"]').dispatchEvent('mouseover');
+    assert.equal(await page.locator('.is-lit').count(), 4, 'rê vào một cụm: cả 3 cụm + hàng ghi chú cùng sáng');
     await load(fixtures.hardBreak);
     assert.equal(await page.locator('.an-line[data-id="years"]').evaluate(r => r.classList.contains('is-trailing')), false, 'ghi chú ngắn quay phải khi vẫn gần cụm và còn chỗ');
     const spacing = await page.locator('.an-band').evaluate(b => {

@@ -15,7 +15,8 @@
 import { state } from '../quiz-state.js';
 import { pushStudyToCloud } from './quiz-study-sync.js';
 import { studyKeys } from '../quiz-study-store.js';
-import { NOTE_TAGS, noteTagsOf, noteTextHtml, noteCount } from './quiz-notes-panel.js';
+import { NOTE_TAGS, noteTagsOf, noteCount } from './quiz-notes-panel.js';
+import { arrowizeTyping, noteMdHtml, noteHasMd, ensureNoteMdCss, mountNoteRow } from './quiz-note-md.js';
 import { syncQuizNavPanel } from '../quiz-ui.js';
 import { showQuestion } from './quiz-question-view.js';
 import { showToast } from '../../../core/utils.js';
@@ -93,16 +94,62 @@ function addAnnot(qText, scope, text, type, start, end, note, colors = {}) {
     pushStudyToCloud();
     return id;
 }
+const newAnnotId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+// Ghi chú NHÓM (chọn nhiều cụm xa nhau bằng Ctrl rồi ghi một lần): mỗi cụm vẫn là một item riêng (offset riêng, đồng bộ riêng)
+// nhưng chung trường `grp` -> sửa / đổi màu / xóa một cụm là cả nhóm theo, hàng ghi chú chỉ vẽ một lần cho cả nhóm.
+const groupItems = (store, a) => (a && a.grp
+    ? Object.values(store).flatMap(arr => (Array.isArray(arr) ? arr.filter(x => x && x.grp === a.grp) : []))
+    : (a ? [a] : []));
 function updateAnnotNote(qText, id, note, colors) {
     const store = getAnnotStore();
     const a = Array.isArray(store[qText]) && store[qText].find(x => x.id === id);
     if (!a) return false;
-    a.note = note;
-    if (colors) ['color', 'inkColor'].forEach(key => {
-        if (noteColor(colors[key])) a[key] = noteColor(colors[key]); else delete a[key];
+    const ts = Date.now();
+    groupItems(store, a).forEach(x => {
+        x.note = note;
+        if (colors) ['color', 'inkColor'].forEach(key => {
+            if (noteColor(colors[key])) x[key] = noteColor(colors[key]); else delete x[key];
+        });
+        x.ts = ts;
     });
-    a.ts = Date.now();
     if (!saveAnnotStore(store)) return false;
+    pushStudyToCloud();
+    return true;
+}
+// Thêm MỘT ghi chú cho một hay nhiều cụm (targets: [{ qText, scope, text, start, end }]) — một lần ghi kho, lỗi thì không đổi gì.
+// Trả mảng id theo đúng thứ tự targets (cụm đã có đúng ghi chú ở đúng chỗ thì null), hoặc null nếu không lưu được.
+function addNoteItems(targets, note, colors = {}) {
+    const store = getAnnotStore();
+    const grp = targets.length > 1 ? 'g' + newAnnotId() : '';
+    const ts = Date.now();
+    const ids = targets.map(t => {
+        const arr = Array.isArray(store[t.qText]) ? store[t.qText] : (store[t.qText] = []);
+        if (arr.some(a => a.scope === t.scope && a.type === 'note' && a.start === t.start && a.end === t.end)) return null;
+        const item = { scope: t.scope, text: t.text, type: 'note', id: newAnnotId(), start: t.start, end: t.end, ts, note };
+        if (grp) item.grp = grp;
+        if (noteColor(colors.color)) item.color = noteColor(colors.color);
+        if (noteColor(colors.inkColor)) item.inkColor = noteColor(colors.inkColor);
+        arr.push(item);
+        return item.id;
+    });
+    if (!ids.some(Boolean)) return ids;
+    if (!saveAnnotStore(store)) return null;
+    pushStudyToCloud();
+    return ids.map(id => (id ? { id, grp } : null));
+}
+// Xóa ghi chú cụm từ (cả nhóm nếu có) -> bia mộ từng id
+function removeNoteById(qText, id) {
+    const store = getAnnotStore();
+    const a = Array.isArray(store[qText]) && store[qText].find(x => x.id === id);
+    if (!a || !a.grp) return removeAnnotById(qText, id);
+    const gone = new Set(groupItems(store, a).map(x => x.id));
+    Object.keys(store).forEach(k => {
+        if (!Array.isArray(store[k])) return;
+        store[k] = store[k].filter(x => !gone.has(x.id));
+        if (!store[k].length) delete store[k];
+    });
+    if (!saveAnnotStore(store)) return false;
+    gone.forEach(buryAnnotId);
     pushStudyToCloud();
     return true;
 }
@@ -204,12 +251,13 @@ function locateInNodes(nodes, globalPos, preferEnd) {
 // Bọc một Range trong thẻ định dạng. surroundContents chỉ chịu range nằm gọn trong
 // một node; range vắt qua nhiều thẻ (chữ đậm/nghiêng có sẵn của markdown) thì dùng
 // extractContents — DOM tự tách đôi các thẻ bị cắt ngang nên vẫn an toàn.
-function wrapRange(range, type, id, note) {
+function wrapRange(range, type, id, note, grp) {
     const el = document.createElement(annotTag(type));
     el.className = annotClass(type);
     el.setAttribute('data-annot-type', type);
     if (id) el.setAttribute('data-annot-id', id);
     if (note) el.setAttribute('data-note', note);
+    if (grp) el.setAttribute('data-annot-grp', grp);
     try {
         range.surroundContents(el);
     } catch (e) {
@@ -241,7 +289,7 @@ function cleanupEmptyAnnots(scopeEl) {
 // Bọc một khoảng [from, to) ký tự của container trong thẻ định dạng.
 // Text node được gom LẠI mỗi lần gọi vì lần bọc trước có thể đã tách đôi node — nhưng
 // tổng số ký tự không đổi nên offset tuyệt đối vẫn trỏ đúng chỗ.
-function wrapOffsetRange(container, from, to, type, id, note) {
+function wrapOffsetRange(container, from, to, type, id, note, grp) {
     const nodes = collectTextNodes(container);
     if (!nodes.length) return;
     const start = locateInNodes(nodes, from, false);
@@ -251,7 +299,7 @@ function wrapOffsetRange(container, from, to, type, id, note) {
         const range = document.createRange();
         range.setStart(start.node, start.offset);
         range.setEnd(end.node, end.offset);
-        wrapRange(range, type, id, note);
+        wrapRange(range, type, id, note, grp);
     } catch (e) {}
 }
 
@@ -265,7 +313,7 @@ function applyAnnotsToContainer(container, annots) {
     annots.forEach(a => {
         if (a.id && container.querySelector(`[data-annot-id="${a.id}"]`)) return;   // đã vẽ (applyAnnotationsAll gọi lại sau khi trả lời) -> khỏi bọc lồng
         if (typeof a.start === 'number' && typeof a.end === 'number' && a.end > a.start) {
-            wrapOffsetRange(container, a.start, a.end, a.type, a.id, a.note);
+            wrapOffsetRange(container, a.start, a.end, a.type, a.id, a.note, a.grp);
             return;
         }
         // Lui về khớp theo chữ (dữ liệu cũ): chỉ lần xuất hiện đầu tiên.
@@ -274,7 +322,7 @@ function applyAnnotsToContainer(container, annots) {
         const nodes = collectTextNodes(container);
         const pos = nodes.map(n => n.nodeValue).join('').indexOf(phrase);
         if (pos === -1) return;
-        wrapOffsetRange(container, pos, pos + phrase.length, a.type, a.id, a.note);
+        wrapOffsetRange(container, pos, pos + phrase.length, a.type, a.id, a.note, a.grp);
     });
 }
 // Áp dụng ghi chú cho mọi vùng [data-annot] của câu đang hiển thị
@@ -283,7 +331,7 @@ function markLastNoteFragments(root) {
     const last = new Map();
     root.querySelectorAll('.annot-note[data-annot-id]').forEach(el => {
         el.onclick = () => {}; // WebKit cảm ứng cần listener trực tiếp để phát click cho span; xử lý ở document.
-        el.classList.add('an-dup'); last.set(el.getAttribute('data-annot-id'), el);
+        el.classList.add('an-dup'); last.set(el.getAttribute('data-annot-id'), el);   // nhóm: mỗi cụm của nhóm đều mang cùng một số
     });
     last.forEach(el => el.classList.remove('an-dup'));
 }
@@ -418,21 +466,61 @@ function unsplit(row) {
 let _scopeRO = null;
 const _scopeH = new WeakMap();
 function clearNoteLines(root) {
+    root.querySelectorAll('tr.an-tr').forEach(tr => tr.remove());
     root.querySelectorAll('.an-band').forEach(unsplit);
     root.querySelectorAll('.an-line').forEach(unsplit);   // phòng hờ hàng lẻ ngoài dải
 }
+// ---- Ghi chú trong BẢNG (2026-11-03) ----
+// Người dùng: hai cột cùng một hàng bảng mỗi cột một ghi chú -> hai dải nằm riêng trong từng ô, ô hẹp mà ghi chú dài thì tràn
+// sang ô bên cạnh và đè lên nhau (ô đầu còn dính mép trái nên đè lên trên). Cách xử lý: cụm nằm ở DÒNG CUỐI của ô, mà ô đó là ô
+// "cao nhất" hàng (ô khác không còn dòng nào thấp hơn) -> ghi chú vào MỘT dải chung ngay dưới hàng (<tr class="an-tr"><td colspan>).
+// Ghi chú của mọi ô cùng hàng xếp chung một làn theo bề ngang cả bảng như các cụm cùng một dòng chữ -> không còn đè nhau.
+// Cụm ở giữa ô (hoặc ô ngắn hơn ô bên cạnh) vẫn để dải trong ô: nằm sát cụm, dùng khoảng trống sẵn có của ô.
+const isCell = (el) => !!el && (el.tagName === 'TD' || el.tagName === 'TH');
+function contentBottom(cell) {
+    const r = document.createRange();
+    r.selectNodeContents(cell);
+    const rs = [...r.getClientRects()].filter(x => x.height > 0);
+    return rs.length ? Math.max(...rs.map(x => x.bottom)) : -Infinity;
+}
+function cellEndsRow(cell) {
+    const tr = cell.parentElement;
+    if (!tr || tr.tagName !== 'TR' || tr.classList.contains('an-tr')) return false;
+    const mine = contentBottom(cell);
+    return [...tr.cells].every(c => c === cell || contentBottom(c) <= mine + 4);
+}
+function rowNoteSlot(cell) {
+    const tr = cell.parentElement;
+    const next = tr.nextElementSibling;
+    if (next && next.classList.contains('an-tr')) return next.firstElementChild;
+    const ntr = document.createElement('tr');
+    ntr.className = 'an-tr';
+    const td = document.createElement('td');
+    td.className = 'an-td';
+    td.colSpan = [...tr.cells].reduce((s, c) => s + (c.colSpan || 1), 0);
+    ntr.appendChild(td);
+    tr.after(ntr);
+    return td;
+}
+// Ghi chú nhóm: khóa vẽ = nhóm (một hàng cho mọi cụm cùng nhóm trong một vùng), ghi chú lẻ = id, ghi chú tĩnh = chính phần tử
+const noteKeyOf = (sp) => (sp.getAttribute('data-annot-grp') ? 'g:' + sp.getAttribute('data-annot-grp') : (sp.getAttribute('data-annot-id') || sp));
 function renderNoteLines(root) {
     if (!root) return;
     clearNoteLines(root);
-    markLastNoteFragments(root);
+    root.querySelectorAll('[data-gmk]').forEach(x => x.removeAttribute('data-gmk'));
     const colors = new Map(Object.values(getAnnotStore()).flatMap(a => Array.isArray(a) ? a : []).map(a => [a.id, a]));
-    root.querySelectorAll('.annot-note[data-annot-id]').forEach(sp => setNoteColors(sp, colors.get(sp.getAttribute('data-annot-id'))));
+    root.querySelectorAll('.annot-note[data-annot-id]').forEach(sp => {
+        const it = colors.get(sp.getAttribute('data-annot-id'));
+        setNoteColors(sp, it);
+        if (it && it.grp) sp.setAttribute('data-annot-grp', it.grp); else if (it) sp.removeAttribute('data-annot-grp');
+    });
+    markLastNoteFragments(root);
     if (!document.body.classList.contains('qz-notes-inline')) {
         // tắt hàng ghi chú: không chèn gì, chỉ đánh số bong bóng sau cụm (rê chuột / chạm để xem)
         let m = 0;
         const seen = new Map();
         root.querySelectorAll('[data-annot] span[data-note]').forEach(sp => {
-            const k = sp.getAttribute('data-annot-id') || sp;
+            const k = noteKeyOf(sp);
             if (!seen.has(k)) { const look = tagLook(sp.getAttribute('data-note') || ''); seen.set(k, [(look ? look[1] : '') + (++m), look]); }
             const [mark, look] = seen.get(k);
             sp.setAttribute('data-an', mark);
@@ -452,33 +540,47 @@ function renderNoteLines(root) {
     let n = 0;   // số liên tục cả câu (bong bóng khi TẮT hàng); khi hiện hàng chỉ dùng số nhỏ cho các cụm CHUNG một dòng
     root.querySelectorAll('[data-mk]').forEach(x => x.removeAttribute('data-mk'));
     root.querySelectorAll('[data-annot]').forEach(scope => {
-        const keys = [];   // id (hoặc chính phần tử với ghi chú tĩnh), theo thứ tự tài liệu
-        scope.querySelectorAll('span[data-note]').forEach(sp => { const k = sp.getAttribute('data-annot-id') || sp; if (!keys.includes(k)) keys.push(k); });
+        const keys = [];   // nhóm / id (hoặc chính phần tử với ghi chú tĩnh), theo thứ tự tài liệu
+        scope.querySelectorAll('span[data-note]').forEach(sp => { const k = noteKeyOf(sp); if (!keys.includes(k)) keys.push(k); });
         // lấy mảnh NGAY LÚC xử lý: chèn hàng trước đó có thể đã tách một thẻ thành hai nửa
-        const fragsOf = (k) => (typeof k === 'string' ? [...scope.querySelectorAll(`span[data-annot-id="${k}"]`)] : [k]);
+        const fragsOf = (k) => (typeof k !== 'string' ? [k]
+            : [...scope.querySelectorAll(k.startsWith('g:') ? `span[data-annot-grp="${k.slice(2)}"]` : `span[data-annot-id="${k}"]`)]);
         const placed = [];
         keys.forEach(k => {
             n++;
             const frags = fragsOf(k);
             if (!frags.length) return;
+            // nhóm: hàng neo ở cụm CUỐI (theo thứ tự đọc); các cụm còn lại nối thêm đường / mang dấu ✱ (drawNoteLinks)
             const last = frags[frags.length - 1];
+            const id = typeof k === 'string' ? last.getAttribute('data-annot-id') : null;
             const note = last.getAttribute('data-note') || '';
             const look = tagLook(note);
             const mark = (look ? look[1] : '') + n;
             frags.forEach(f => { f.setAttribute('data-an', mark); if (look) f.dataset.tag = look[0]; else delete f.dataset.tag; });
             const row = document.createElement('span');
             row.className = 'an-line';
-            setNoteColors(row, colors.get(k));
-            row.setAttribute('data-txt', note.replace(/->/g, '-\u2060>')); // giữ nguyên mũi tên văn bản khi cân dòng; không đổi nội dung lưu
+            setNoteColors(row, colors.get(id));
+            row.setAttribute('data-txt', note);   // nội dung gốc (bản sao DOM dựng lại từ đây — hydrateNoteRows)
+            mountNoteRow(row, note);   // markdown + mũi tên, vẽ trong shadow DOM (không thành chữ của đề)
             row.setAttribute('role', 'note');
-            row.setAttribute('aria-label', 'Ghi chú cho “' + frags.map(f => f.textContent).join('').trim() + '”: ' + note);
+            const quoteParts = [];
+            frags.forEach(f => { const fk = f.getAttribute('data-annot-id') || f; const q = quoteParts.find(p => p.k === fk); if (q) q.t += f.textContent; else quoteParts.push({ k: fk, t: f.textContent }); });
+            row.setAttribute('aria-label', 'Ghi chú cho “' + quoteParts.map(p => p.t.trim()).join(' … ') + '”: ' + note);
             if (look) row.dataset.tag = look[0];
-            if (typeof k === 'string') { row.dataset.id = k; row.tabIndex = 0; row.title = 'Bấm để xem / sửa ghi chú'; }
+            if (id) { row.dataset.id = id; row.tabIndex = 0; row.title = 'Bấm để xem / sửa ghi chú'; }
             else row.classList.add('is-static');
+            if (typeof k === 'string' && k.startsWith('g:')) {
+                row.dataset.grp = k.slice(2);
+                const lastOf = new Map();
+                frags.forEach(f => lastOf.set(f.getAttribute('data-annot-id'), f));
+                lastOf.delete(id);
+                row._srcs = [...lastOf.values()];
+            }
             const at = lineEndAfter(last, scope);
             if (at.node) { const tail = liftSplit(at.node, at.offset, blockOf(at.node, scope)); tail.parentNode.insertBefore(row, tail); }
             else if (at.before) at.before.before(row);
             else if (at.after) at.after.after(row);
+            else if (isCell(at.append) && scope.contains(at.append.parentElement) && cellEndsRow(at.append)) rowNoteSlot(at.append).appendChild(row);
             else at.append.appendChild(row);
             placed.push({ row, last });
         });
@@ -502,7 +604,8 @@ function renderNoteLines(root) {
     root.querySelectorAll('.an-band').forEach(b => fails.push(...layoutBand(b, true)));
     const dirty = new Set();
     fails.forEach(it => {
-        const g = gutterAbove(it);
+        // dải chung dưới hàng bảng: chèn lên trên cụm sẽ đẩy chữ một cột xuống, lệch hàng với cột bên cạnh -> xếp tầng ngay trong dải
+        const g = it.band.closest('.an-td') ? null : gutterAbove(it);
         if (g) { g.appendChild(it.row); it.row._dir = 'above'; dirty.add(g); }
         else it.row._force = true;
         dirty.add(it.band);
@@ -629,24 +732,27 @@ function packNoteLane(items, width) {
     }
     best.placed.forEach(({ it, left, trailing, distance }) => Object.assign(it, { left, trailing, leaderDistance: distance }));
 }
+// Bề rộng thật của ghi chú khi đặt trong khung `limit`: chữ (trong shadow DOM) đã cân dòng / xuống dòng theo ý người viết,
+// đo mép phải xa nhất của CHỮ (không lấy khung khối của từng dòng markdown — khung đó luôn rộng bằng hàng).
+// Balance chỉ đổi chỗ ngắt, không thu khung -> thu theo dòng THẬT để phần trống bên phải được dùng khi định vị lại.
 function measureBalancedNoteWidth(row, limit) {
-    const style = getComputedStyle(row, '::after'), box = getComputedStyle(row);
-    const padding = parseFloat(box.paddingLeft) + parseFloat(box.paddingRight);
-    const probe = document.createElement('span');
-    Object.assign(probe.style, {
-        position: 'fixed', left: '-10000px', top: '0', visibility: 'hidden', pointerEvents: 'none', display: 'block',
-        width: Math.max(1, limit - padding) + 'px', font: style.font, letterSpacing: style.letterSpacing,
-        lineHeight: style.lineHeight, whiteSpace: style.whiteSpace, overflowWrap: style.overflowWrap, textWrap: style.textWrap
-    });
-    probe.textContent = row.getAttribute('data-txt');
-    document.body.appendChild(probe);
-    const range = document.createRange();
-    range.selectNodeContents(probe);
-    const lines = [...range.getClientRects()].filter(r => r.width > 0 && r.height > 0);
-    probe.remove();
-    // Balance chỉ đổi chỗ ngắt, không thu khung. Thu theo dòng THẬT để phần trống bên phải được dùng khi định vị lại.
-    // Chỉ thu khi đủ toàn bộ nội dung trong tối đa hai dòng; không làm tăng số dòng / thay đổi phần bị clamp.
-    return lines.length && lines.length <= 2 ? Math.min(limit, Math.ceil(Math.max(...lines.map(r => r.width)) + padding) + 2) : limit;
+    const tx = row.shadowRoot && row.shadowRoot.querySelector('.tx');
+    if (!tx) return limit;
+    row.style.width = limit + 'px';
+    const left = row.getBoundingClientRect().left, pr = parseFloat(getComputedStyle(row).paddingRight) || 0;
+    const r = document.createRange(), w = document.createTreeWalker(tx, NodeFilter.SHOW_TEXT);
+    let right = 0, n;
+    while ((n = w.nextNode())) {
+        if (!n.nodeValue.trim()) continue;
+        r.selectNodeContents(n);
+        for (const c of r.getClientRects()) if (c.width > 0 && c.height > 0) right = Math.max(right, c.right);
+    }
+    return right ? Math.min(limit, Math.ceil(right - left + pr) + 2) : limit;
+}
+// Ghi chú dài quá số dòng tối đa của hàng (--an-lines) -> mờ đuôi; bấm hàng để đọc đủ
+function markClipped(row) {
+    const tx = row.shadowRoot && row.shadowRoot.querySelector('.tx');
+    row.classList.toggle('is-clip', !!tx && tx.scrollHeight > tx.clientHeight + 1);
 }
 function layoutBand(band, allowFail) {
     const W = band.clientWidth;
@@ -686,7 +792,14 @@ function layoutBand(band, allowFail) {
         const edge = side ? Math.max(it.rect.right, ...rs.map(c => c.right)) - bl : Math.min(it.rect.left, ...rs.map(c => c.left)) - bl;
         const distance = side ? edge - (it.rect.right - bl) : it.rect.left - bl - edge;
         const sideWidth = it.singleLineNat - it.lead;
-        if (it.singleLine && distance <= 32 && sideWidth + 24 <= (side ? W - edge : edge)) {
+        // Dải chung dưới hàng bảng rộng cả bảng, nhưng khoảng trống "cùng dòng" chỉ là phần còn lại của CHÍNH ô chứa cụm
+        let lo = 0, hi = W;
+        const cell = it.last.closest('td, th');
+        if (cell && !cell.contains(band)) {
+            const cr = cell.getBoundingClientRect(), cs = getComputedStyle(cell);
+            lo = cr.left + parseFloat(cs.paddingLeft) - bl; hi = cr.right - parseFloat(cs.paddingRight) - bl;
+        }
+        if (it.singleLine && distance <= 32 && sideWidth + 24 <= (side ? hi - edge : edge - lo)) {
             Object.assign(it, { side: true, width: sideWidth, left: side ? edge + 24 : edge - 24 - sideWidth });
             it.row.classList.add('is-side');
         }
@@ -724,6 +837,7 @@ function layoutBand(band, allowFail) {
             it.row.classList.toggle('is-above', it.up);
             it.row.classList.toggle('is-trailing', it.trailing);
             Object.assign(it.row.style, { left: it.left + 'px', width: it.width + 'px', top: top + 'px' });
+            markClipped(it.row);
         });
         top += Math.max(...group.map(it => it.row.offsetHeight)) + 8;
     });
@@ -742,6 +856,7 @@ function drawNoteLinks(band) {
     svg.classList.add('an-links');
     svg.setAttribute('aria-hidden', 'true');
     const br = band.getBoundingClientRect();
+    const extras = [];
     band.querySelectorAll('.an-line').forEach(row => {
         const rs = row._last ? [...row._last.getClientRects()] : [];
         if (!rs.length) return;
@@ -783,11 +898,30 @@ function drawNoteLinks(band) {
         path.setAttribute('d', `${curve} M${wing(angle - .55)} L${ex},${ey} L${wing(angle + .55)}`);
         path.dataset.pointsTo = 'note';
         // Giữ biến CSS sống để mũi tên đổi cùng chữ khi đổi nền / sáng tối, kể cả màu nhãn và màu tự chọn.
-        if (row.dataset.tag) path.dataset.tag = row.dataset.tag;
-        setNoteColors(path, { color: row.style.getPropertyValue('--nt'), inkColor: row.style.getPropertyValue('--nt-ink') });
-        path.style.stroke = 'var(--nt-ink)';
+        const paint = (p) => {
+            if (row.dataset.tag) p.dataset.tag = row.dataset.tag;
+            setNoteColors(p, { color: row.style.getPropertyValue('--nt'), inkColor: row.style.getPropertyValue('--nt-ink') });
+            p.style.stroke = 'var(--nt-ink)';
+        };
+        paint(path);
         svg.appendChild(path);
+        // Ghi chú nhóm: cụm khác CÙNG dòng với cụm neo -> thêm một nhánh nhập vào đúng chỗ móc của mũi tên chính;
+        // cụm ở dòng khác -> dấu ✱ nhỏ (rê chuột / bấm vào sáng cả nhóm cùng hàng ghi chú)
+        (row._srcs || []).forEach(src => {
+            const s = [...src.getClientRects()].pop();
+            if (!s) return;
+            if (side || Math.abs(s.bottom - rect.bottom) > 4) { src.setAttribute('data-gmk', '✱'); return; }
+            const bx = clamp((s.left + s.right) / 2, s.left + Math.min(6, s.width / 2), s.right - Math.min(6, s.width / 2)) - br.left;
+            const by = (up ? s.top - 2 : s.bottom + 2) - br.top;
+            const turnX = ex - flow * 12, railY = (up ? rr.bottom + 3 : rr.top - 3) - br.top, turnY = ey + (up ? 9 : -9);
+            const extra = document.createElementNS(ns, 'path');
+            extra.setAttribute('d', `M${bx},${by} C${bx},${railY} ${turnX},${railY} ${turnX},${turnY}`);
+            extra.dataset.pointsTo = 'note-extra';
+            paint(extra);
+            extras.push(extra);
+        });
     });
+    extras.forEach(p => svg.appendChild(p));   // sau mọi mũi tên chính: thứ tự path chính vẫn khớp thứ tự hàng
     band.prepend(svg);
 }
 // Bố cục đổi (xoay máy, kéo khung, phông Quicksand tải xong, dấu quét dữ kiện chèn vào đề) -> dòng xuống chỗ khác -> vẽ lại hàng
@@ -801,7 +935,10 @@ function relayNoteLines(delay = 120) {
 }
 // Vừa lưu / vừa nhảy tới: bút dạ quét lại cụm từ + dòng ghi chú bật ra (CSS .an-new, ~0.8s)
 const popIn = (els) => els.forEach(el => { el.classList.remove('an-new'); void el.offsetWidth; el.classList.add('an-new'); setTimeout(() => el.classList.remove('an-new'), 1000); });
-const tidyNote = (v) => String(v || '').replace(/[ \t]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim();   // giữ xuống dòng (tối đa 1 dòng trống)
+// Giữ xuống dòng (tối đa 2 dòng trống liền) và thụt đầu dòng (danh sách con); chỉ gọn khoảng trắng thừa giữa chữ / cuối dòng
+const tidyNote = (v) => String(v || '').replace(/\r/g, '').split('\n')
+    .map(l => l.replace(/[ \t]+$/, '').replace(/(\S)[ \t]{2,}(?=\S)/g, '$1 '))
+    .join('\n').replace(/\n{4,}/g, '\n\n\n').replace(/^(?:[ \t]*\n)+/, '').replace(/\s+$/, '');
 // Sau mỗi lần thêm/sửa/xóa ghi chú cụm từ: chấm "có ghi chú" ở bảng số câu + số đếm nút "Tất cả" theo kịp
 function afterNoteChange() {
     try { syncQuizNavPanel(); } catch (e) {}
@@ -811,8 +948,8 @@ function afterNoteChange() {
 // Sổ ghi chú cả bộ đề (quiz-notes-all.js) sửa / xóa ghi chú cụm từ của câu bất kỳ, không cần đang mở câu đó
 export function setPhraseNote(qText, id, value) {
     const note = tidyNote(value);
-    if (!(note ? updateAnnotNote(qText, id, note) : removeAnnotById(qText, id))) return;
-    const frags = document.querySelectorAll(`#quizSection [data-annot-id="${id}"]`);
+    const frags = noteSpans(id);   // lấy TRƯỚC khi xóa (nhóm nhận ra qua data-annot-grp trên DOM)
+    if (!(note ? updateAnnotNote(qText, id, note) : removeNoteById(qText, id))) return;
     if (frags.length) {
         frags.forEach(f => (note ? f.setAttribute('data-note', note) : unwrapMark(f)));
         renderNoteLines(document.getElementById('quizSection'));
@@ -826,13 +963,89 @@ export function flashPhraseNote(id) {
     try { f.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { f.scrollIntoView(); }
     setTimeout(() => popIn(noteEls(id)), 350);
 }
-const noteEls = (id) => document.querySelectorAll(`#quizSection [data-annot-id="${id}"], #quizSection .an-line[data-id="${id}"]`);
+// Cụm từ của một ghi chú (cả nhóm nếu là ghi chú nhóm) + hàng ghi chú của nó
+function noteSpans(id) {
+    const el = id && document.querySelector(`#quizSection [data-annot-id="${id}"]`);
+    const g = el && el.getAttribute('data-annot-grp');
+    return [...document.querySelectorAll(g ? `#quizSection [data-annot-grp="${g}"]` : `#quizSection [data-annot-id="${id}"]`)];
+}
+function noteEls(id) {
+    const el = id && document.querySelector(`#quizSection [data-annot-id="${id}"]`);
+    const g = el && el.getAttribute('data-annot-grp');
+    return document.querySelectorAll(g ? `#quizSection [data-annot-grp="${g}"], #quizSection .an-line[data-grp="${g}"]`
+        : `#quizSection [data-annot-id="${id}"], #quizSection .an-line[data-id="${id}"]`);
+}
+// Chữ trích ở đầu bóng thoại: mọi cụm của nhóm, nối bằng " · "
+function noteQuote(id, fallback) {
+    const parts = new Map();
+    noteSpans(id).forEach(f => { const k = f.getAttribute('data-annot-id'); parts.set(k, (parts.get(k) || '') + f.textContent); });
+    return parts.size ? [...parts.values()].map(t => t.replace(/\s+/g, ' ').trim()).join(' · ') : (fallback || '');
+}
 // ---- Khung viết ghi chú cho một cụm từ (mới / sửa) ----
 // Không giới hạn số từ (hàng riêng chứa được ghi chú dài); maxlength chỉ chặn dán nhầm cả trang làm phình doc quiz_study.
 const NOTE_MAX_CHARS = 4000;
 // Nhãn chèn nhanh trong khung viết (cùng nhãn với ô Ghi chú cá nhân -> sổ "Tất cả" lọc chung được)
 const QUICK_TAGS = ['Quan trọng', 'Nhớ', 'Dễ nhầm', 'Hỏi lại', 'Cơ chế', 'Việc cần làm'].map(l => NOTE_TAGS.find(t => t.label === l)).filter(Boolean);
 const TAG_SHORT = { 'Quan trọng': 'Quan trọng', 'Việc cần làm': 'Việc cần làm' };
+// Thanh định dạng nhanh trên ô viết: [khóa, nhãn, biểu tượng]. Bôi đen rồi bấm = bọc chữ; không bôi đen = chèn cặp ký hiệu.
+const NOTE_FMT = [
+    ['bold', 'In đậm (Ctrl+B)', '<i class="fas fa-bold"></i>'],
+    ['italic', 'In nghiêng (Ctrl+I)', '<i class="fas fa-italic"></i>'],
+    ['strike', 'Gạch ngang', '<i class="fas fa-strikethrough"></i>'],
+    ['mark', 'Tô sáng ==…==', '<i class="fas fa-highlighter"></i>'],
+    ['code', 'Mã / thuật ngữ `…`', '<i class="fas fa-code"></i>'],
+    ['ul', 'Danh sách gạch đầu dòng', '<i class="fas fa-list-ul"></i>'],
+    ['ol', 'Danh sách đánh số', '<i class="fas fa-list-ol"></i>'],
+    ['→', 'Chèn →', '→'], ['⇒', 'Chèn ⇒', '⇒'], ['↑', 'Chèn ↑ (tăng)', '↑'], ['↓', 'Chèn ↓ (giảm)', '↓'], ['≈', 'Chèn ≈', '≈']
+];
+const FMT_WRAP = { bold: '**', italic: '*', strike: '~~', mark: '==', code: '`' };
+// Thay [from, to) trong ô viết mà vẫn giữ lịch sử Hoàn tác (Ctrl+Z) của trình duyệt; trình duyệt không có insertText thì thay thẳng
+function replaceInTa(ta, from, to, text) {
+    ta.focus();
+    ta.setSelectionRange(from, to);
+    let ok = false;
+    try { ok = document.execCommand('insertText', false, text); } catch (e) {}
+    if (!ok || ta.value.slice(from, from + text.length) !== text) {
+        ta.setRangeText(text, from, to, 'end');
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+}
+// Bọc vùng chọn bằng ký hiệu markdown (bấm lại khi đã bọc = gỡ)
+function wrapInTa(ta, mark) {
+    const s = ta.selectionStart, e = ta.selectionEnd, v = ta.value, sel = v.slice(s, e);
+    if (sel.startsWith(mark) && sel.endsWith(mark) && sel.length >= mark.length * 2) { replaceInTa(ta, s, e, sel.slice(mark.length, sel.length - mark.length)); return; }
+    if (v.slice(s - mark.length, s) === mark && v.slice(e, e + mark.length) === mark) {
+        replaceInTa(ta, s - mark.length, e + mark.length, sel);
+        ta.setSelectionRange(s - mark.length, e - mark.length);
+        return;
+    }
+    replaceInTa(ta, s, e, mark + sel + mark);
+    ta.setSelectionRange(s + mark.length, e + mark.length);
+}
+// Đặt / gỡ dấu danh sách ở đầu các dòng đang chọn
+function listInTa(ta, ordered) {
+    const v = ta.value, s = ta.selectionStart, e = ta.selectionEnd;
+    const ls = v.lastIndexOf('\n', s - 1) + 1, le = (v.indexOf('\n', e) + 1 || v.length + 1) - 1;
+    const lines = v.slice(ls, le).split('\n');
+    const re = ordered ? /^(\s*)\d{1,3}[.)]\s+/ : /^(\s*)[-*+]\s+/;
+    const all = lines.every(l => !l.trim() || re.test(l));
+    const out = lines.map((l, i) => all ? l.replace(re, '$1') : (l.trim() ? l.replace(/^(\s*)(?:[-*+]|\d{1,3}[.)])?\s*/, `$1${ordered ? (i + 1) + '. ' : '- '}`) : l)).join('\n');
+    replaceInTa(ta, ls, le, out);
+    ta.setSelectionRange(ls + out.length, ls + out.length);
+}
+// Enter trong mục danh sách: mục mới cùng kiểu (số tự tăng); Enter ở mục rỗng = thoát danh sách. Trả true nếu đã xử lý.
+function continueListInTa(ta) {
+    const v = ta.value, s = ta.selectionStart;
+    if (s !== ta.selectionEnd) return false;
+    const ls = v.lastIndexOf('\n', s - 1) + 1, line = v.slice(ls, s);
+    const m = /^(\s*)([-*+•]|(\d{1,3})([.)])|>)(\s+)(\[[ xX]\]\s+|[☐☑]\s*)?(.*)$/.exec(line);
+    if (!m) return false;
+    if (!m[7].trim() && !(v.slice(s).split('\n')[0].trim())) { replaceInTa(ta, ls, s, m[1]); return true; }   // mục rỗng -> bỏ dấu
+    const next = m[3] ? (+m[3] + 1) + m[4] : m[2];
+    const box = m[6] ? (m[6][0] === '[' ? '[ ] ' : '☐ ') : '';
+    replaceInTa(ta, s, s, '\n' + m[1] + next + m[5] + box);
+    return true;
+}
 let noteEd = null;   // { box, ta, ctx }
 function closeNoteEditor() {
     if (!noteEd) return;
@@ -863,8 +1076,12 @@ function openNoteEditor(ctx) {
         + '<div class="anp-head"><span class="anp-ic" aria-hidden="true"></span><div class="anp-quote">“<span></span>”</div></div>'
         + (view
             ? '<div class="anp-read"></div>'
-            : '<div class="anp-field">'
-            + `<textarea class="anp-ta" rows="2" maxlength="${NOTE_MAX_CHARS}" enterkeyhint="done" autocomplete="off" placeholder="Viết ghi chú cho cụm từ này…"></textarea></div>`
+            : '<div class="anp-fmt" role="toolbar" aria-label="Định dạng ghi chú">'
+            + NOTE_FMT.map(([k, label, html]) => `<button type="button" data-anp-fmt="${k}" title="${label}" aria-label="${label}">${html}</button>`).join('')
+            + '</div>'
+            + '<div class="anp-field">'
+            + `<textarea class="anp-ta" rows="2" maxlength="${NOTE_MAX_CHARS}" enterkeyhint="enter" autocomplete="off" spellcheck="false" placeholder="${ctx.targets && ctx.targets.length > 1 ? `Một ghi chú chung cho ${ctx.targets.length} cụm…` : 'Viết ghi chú cho cụm từ này…'}"></textarea></div>`
+            + '<div class="anp-prev nmd" aria-label="Xem trước" hidden></div>'
             + '<div class="anp-tags" role="group" aria-label="Chèn nhãn">'
             + QUICK_TAGS.map((t, i) => `<button type="button" data-anp-tag="${i}" title="Chèn “${t.snip.trim()}” đầu dòng"><i class="fas ${t.icon}"></i> ${TAG_SHORT[t.label] || t.label}</button>`).join('')
             + '</div>'
@@ -877,7 +1094,7 @@ function openNoteEditor(ctx) {
             + '<label>Chữ & mũi tên <input type="color" data-note-field="inkColor" aria-label="Màu chữ và mũi tên"></label></div></div>')
         + '<div class="anp-row">'
         + (view ? ''
-            : '<span class="anp-hint">Enter lưu · Shift+Enter xuống dòng</span>')
+            : '<span class="anp-hint">Enter xuống dòng · Ctrl+Enter lưu · **đậm** *nghiêng* ==tô== · -&gt; thành →</span>')
         + (ctx.mode !== 'new' ? '<button type="button" class="anp-del" data-anp="del"><i class="fas fa-trash-can"></i> Xóa</button>' : '')
         + '<span class="anp-sp"></span>'
         + (view
@@ -888,19 +1105,41 @@ function openNoteEditor(ctx) {
         + '</div>';
     box.querySelector('.anp-quote span').textContent = quote;
     const ta = box.querySelector('.anp-ta');
-    if (view) box.querySelector('.anp-read').innerHTML = noteTextHtml(ctx.note || '');
-    else ta.value = ctx.note || '';
+    const prev = box.querySelector('.anp-prev');
+    ensureNoteMdCss();
+    if (view) {
+        const rd = box.querySelector('.anp-read');
+        rd.classList.add('nmd');
+        rd.innerHTML = noteMdHtml(ctx.note || '');
+    } else ta.value = ctx.note || '';
     document.body.appendChild(box);
-    // Ô tự cao theo chữ (tới 40vh thì cuộn trong ô); nhãn đang có trong ghi chú sáng lên
+    // Ô tự cao theo chữ (tới 40vh thì cuộn trong ô); nhãn đang có trong ghi chú sáng lên; có định dạng thì hiện bản xem trước
     const fit = () => { box.style.overflowY = ''; if (box.scrollHeight > box.clientHeight + 1) box.style.overflowY = 'auto'; };
     const grow = () => {
         if (!ta) return;
         ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight + 4, window.innerHeight * 0.4) + 'px';
         const on = noteTagsOf(ta.value);
         box.querySelectorAll('[data-anp-tag]').forEach(b => b.classList.toggle('is-on', on.has(QUICK_TAGS[+b.dataset.anpTag].label)));
+        const md = noteHasMd(ta.value) && ta.value.trim();
+        prev.hidden = !md;
+        if (md) prev.innerHTML = noteMdHtml(tidyNote(ta.value));
         fit();
     };
-    if (ta) { ta.addEventListener('input', grow); grow(); } else fit();
+    // Gõ "->", "=>", "<=", "!="… đổi ngay thành ký hiệu; Backspace ngay sau đó trả lại chữ gốc
+    let lastAuto = null;
+    const onInput = (e) => {
+        lastAuto = null;
+        if (e && e.inputType === 'insertText' && !e.isComposing && ta.selectionStart === ta.selectionEnd) {
+            const r = arrowizeTyping(ta.value, ta.selectionStart, e.data);
+            if (r) {
+                const caret = ta.selectionStart;
+                replaceInTa(ta, caret - r.raw.length, caret, r.rep);
+                lastAuto = { at: ta.selectionStart, raw: r.raw, rep: r.rep };
+            }
+        }
+        grow();
+    };
+    if (ta) { ta.addEventListener('input', onInput); grow(); } else fit();
     // Bóng thoại cạnh cụm từ, đuôi chỉ đúng vào chữ (--tail). Cảm ứng lúc VIẾT thì ghim trên màn hình (bàn phím ảo che nửa dưới).
     const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
     if ((!coarse || view) && ctx.rect) {
@@ -928,11 +1167,19 @@ function openNoteEditor(ctx) {
     else setTimeout(() => box.querySelector('[data-anp="edit"]')?.focus({ preventScroll: true }), 30);
     box.addEventListener('mousedown', (e) => {
         e.stopPropagation();
-        if (e.target.closest('[data-anp-tag], [data-note-color]')) e.preventDefault();   // giữ con trỏ khi bấm nhãn / bảng màu
+        if (e.target.closest('[data-anp-tag], [data-note-color], [data-anp-fmt]')) e.preventDefault();   // giữ con trỏ / vùng chọn khi bấm nhãn / màu / định dạng
     });
     box.addEventListener('click', (e) => {
         const swatch = e.target.closest('[data-note-color]');
         if (swatch) { colors.color = noteColor(swatch.dataset.noteColor); colors.inkColor = noteColor(swatch.dataset.noteInk); previewColors(); return; }
+        const fmt = e.target.closest('[data-anp-fmt]');
+        if (fmt && ta) {
+            const k = fmt.dataset.anpFmt;
+            if (FMT_WRAP[k]) wrapInTa(ta, FMT_WRAP[k]);
+            else if (k === 'ul' || k === 'ol') listInTa(ta, k === 'ol');
+            else replaceInTa(ta, ta.selectionStart, ta.selectionEnd, k);
+            return;
+        }
         const tg = e.target.closest('[data-anp-tag]');
         if (tg && ta) {
             // chèn nhãn ở ĐẦU dòng đang gõ; dòng đã có đúng nhãn đó thì bấm lại = gỡ
@@ -958,8 +1205,38 @@ function openNoteEditor(ctx) {
     });
     box.addEventListener('keydown', (e) => {
         e.stopPropagation(); // đừng kích hoạt phím tắt A–D / mũi tên của trang làm bài
-        if (e.key === 'Escape') closeNoteEditor();
-        else if (ta && e.target === ta && e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); saveNoteEditor(); }   // Enter chốt chữ đang ghép (Telex / VNI) thì chưa lưu; Shift+Enter = xuống dòng
+        if (e.key === 'Escape') { closeNoteEditor(); return; }
+        if (!ta || e.target !== ta || e.isComposing || e.keyCode === 229) return;   // đang ghép chữ (Telex / VNI): để bộ gõ xử lý
+        const mod = e.ctrlKey || e.metaKey;
+        // Ghi chú nhiều dòng thoải mái: Enter = xuống dòng (trong danh sách thì tự thêm mục mới), Ctrl/⌘+Enter = lưu
+        if (e.key === 'Enter') {
+            if (mod) { e.preventDefault(); saveNoteEditor(); }
+            else if (!e.shiftKey && continueListInTa(ta)) e.preventDefault();
+            return;
+        }
+        if (mod && !e.altKey && (e.key === 'b' || e.key === 'B' || e.key === 'i' || e.key === 'I')) {
+            e.preventDefault();
+            wrapInTa(ta, e.key.toLowerCase() === 'b' ? '**' : '*');
+            return;
+        }
+        // Tab / Shift+Tab ở mục danh sách: thụt vào / lùi ra một cấp
+        if (e.key === 'Tab' && !mod && !e.altKey) {
+            const v = ta.value, ls = v.lastIndexOf('\n', ta.selectionStart - 1) + 1;
+            if (!/^\s*(?:[-*+•]|\d{1,3}[.)])\s/.test(v.slice(ls))) return;
+            e.preventDefault();
+            const pos = ta.selectionStart;
+            if (e.shiftKey) { const sp = /^ {1,2}|^\t/.exec(v.slice(ls)); if (sp) { replaceInTa(ta, ls, ls + sp[0].length, ''); ta.setSelectionRange(pos - sp[0].length, pos - sp[0].length); } }
+            else { replaceInTa(ta, ls, ls, '  '); ta.setSelectionRange(pos + 2, pos + 2); }
+            return;
+        }
+        // Backspace ngay sau khi vừa tự đổi "->" thành "→": trả lại chữ gốc
+        if (e.key === 'Backspace' && !mod && lastAuto && ta.selectionStart === ta.selectionEnd && ta.selectionStart === lastAuto.at
+            && ta.value.slice(lastAuto.at - lastAuto.rep.length, lastAuto.at) === lastAuto.rep) {
+            e.preventDefault();
+            const { at, raw, rep } = lastAuto;
+            replaceInTa(ta, at - rep.length, at, raw);
+            lastAuto = null;
+        }
     });
 }
 function saveNoteEditor() {
@@ -972,20 +1249,22 @@ function saveNoteEditor() {
     if (ctx.mode === 'edit') {
         if (!updateAnnotNote(ctx.qText, ctx.id, note, colors)) return false;
         closeNoteEditor(); // chỉ đóng sau khi lưu thành công, trước khi vẽ lại câu
-        document.querySelectorAll(`#quizSection [data-annot-id="${ctx.id}"]`).forEach(el => el.setAttribute('data-note', note));
+        noteSpans(ctx.id).forEach(el => el.setAttribute('data-note', note));   // cả nhóm
         renderNoteLines(sec);
         popIn(noteEls(ctx.id));
     } else if (note) {
-        const id = addAnnot(ctx.qText, ctx.scope, ctx.text, 'note', ctx.start, ctx.end, note, colors);
-        if (!id) return false;
+        // một cụm (ctx.start/end) hoặc nhiều cụm chọn bằng Ctrl (ctx.targets) -> một ghi chú chung
+        const targets = ctx.targets || [{ qText: ctx.qText, scope: ctx.scope, scopeEl: ctx.scopeEl, text: ctx.text, start: ctx.start, end: ctx.end }];
+        const made = addNoteItems(targets, note, colors);
+        if (!made) return false;
         closeNoteEditor();
-        if (ctx.scopeEl && ctx.scopeEl.isConnected) {
-            clearNoteLines(ctx.scopeEl);
-            wrapOffsetRange(ctx.scopeEl, ctx.start, ctx.end, 'note', id, note);
-            cleanupEmptyAnnots(ctx.scopeEl);
-            markLastNoteFragments(ctx.scopeEl);
+        if (targets.every(t => t.scopeEl && t.scopeEl.isConnected)) {
+            targets.forEach(t => clearNoteLines(t.scopeEl));
+            targets.forEach((t, i) => { if (made[i]) wrapOffsetRange(t.scopeEl, t.start, t.end, 'note', made[i].id, note, made[i].grp); });
+            targets.forEach(t => { cleanupEmptyAnnots(t.scopeEl); markLastNoteFragments(t.scopeEl); });
             renderNoteLines(sec);
-            popIn(noteEls(id));
+            const first = made.find(Boolean);
+            if (first) popIn(noteEls(first.id));
         } else showQuestion();
     } else closeNoteEditor();
     afterNoteChange();
@@ -995,8 +1274,9 @@ function deleteNoteEditor() {
     if (!noteEd) return true;
     const { ctx } = noteEd;
     if (ctx.mode !== 'new') {
-        if (!removeAnnotById(ctx.qText, ctx.id)) return false;
-        document.querySelectorAll(`#quizSection [data-annot-id="${ctx.id}"]`).forEach(unwrapMark);
+        const spans = noteSpans(ctx.id);
+        if (!removeNoteById(ctx.qText, ctx.id)) return false;
+        spans.forEach(unwrapMark);
         renderNoteLines(document.getElementById('quizSection'));
         afterNoteChange();
     }
@@ -1008,12 +1288,10 @@ export function setupAnnotations() {
     const toolbar = document.getElementById('annot-toolbar');
     if (!toolbar) return;
 
-    let activeScope = null;    // tên vùng (data-annot) của vùng chọn hiện tại
-    let activeScopeEl = null;  // phần tử vùng — để tìm các đoạn định dạng giao với vùng chọn
     const coarsePointer = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
 
     let dockSide = null;       // cảm ứng: thanh ghim 'top' | 'bottom' (đối diện vùng chọn)
-    const hide = () => { toolbar.classList.remove('show', 'annot-dock'); activeScope = null; activeScopeEl = null; dockSide = null; };
+    const hide = () => { toolbar.classList.remove('show', 'annot-dock'); dockSide = null; };
     const scopeOf = (node) => {
         const el = node && node.nodeType === 3 ? node.parentElement : node;
         return el && el.closest ? el.closest('#quizSection [data-annot]') : null;
@@ -1068,19 +1346,81 @@ export function setupAnnotations() {
         toolbar.style.top = below ? (rect.bottom + 10) + 'px' : (rect.top - 8) + 'px';
     };
 
+    // ---- CHỌN NHIỀU ĐOẠN XA NHAU (2026-11-03) ----
+    // Giữ Ctrl (⌘ trên Mac) rồi bôi đen tiếp đoạn khác: đoạn trước được GIỮ LẠI (tô tím nhạt bằng CSS Custom Highlight, không đụng
+    // DOM), bấm một nút trên thanh là áp cho TẤT CẢ một lượt. Ghi chú: một ghi chú chung cho cả nhóm (grp). Máy cảm ứng không có
+    // Ctrl -> nút "+" trên thanh giữ đoạn đang chọn rồi chọn đoạn tiếp. Bấm chỗ khác (không giữ Ctrl) / Esc = bỏ các đoạn đã giữ.
+    let picks = [];   // [{ scopeEl, scope, start, end, text }]
+    const multiHl = window.CSS && CSS.highlights && window.Highlight ? CSS.highlights : null;
+    const countEl = toolbar.querySelector('.annot-multi');
+    const targetOfRange = (range) => {
+        if (!range || range.collapsed) return null;
+        const el = scopeOf(range.startContainer);
+        if (!el || el !== scopeOf(range.endContainer)) return null;
+        let start = offsetInContainer(el, range.startContainer, range.startOffset);
+        let end = offsetInContainer(el, range.endContainer, range.endOffset);
+        const raw = range.toString();
+        if (start < 0 || end <= start || !raw.trim()) return null;
+        start += raw.length - raw.replace(/^\s+/, '').length;   // bỏ khoảng trắng hai đầu: offset khớp đúng chữ
+        end -= raw.length - raw.replace(/\s+$/, '').length;
+        return { scopeEl: el, scope: el.getAttribute('data-annot'), start, end, text: raw.trim() };
+    };
+    const sameTarget = (a, b) => a.scopeEl === b.scopeEl && a.start === b.start && a.end === b.end;
+    const selTargets = () => {
+        const sel = window.getSelection();
+        const out = [];
+        if (sel && !sel.isCollapsed) for (let i = 0; i < sel.rangeCount; i++) {   // Firefox: Ctrl+kéo cho nhiều range thật
+            const t = targetOfRange(sel.getRangeAt(i));
+            if (t && !out.some(x => sameTarget(x, t))) out.push(t);
+        }
+        return out;
+    };
+    const allTargets = () => {
+        picks = picks.filter(p => p.scopeEl.isConnected);
+        const out = [...picks];
+        selTargets().forEach(t => { if (!out.some(x => sameTarget(x, t))) out.push(t); });
+        return out;
+    };
+    const syncPicks = () => {
+        picks = picks.filter(p => p.scopeEl.isConnected);
+        if (multiHl) {
+            const rs = picks.map(p => rangeFromOffsets(p.scopeEl, p.start, p.end)).filter(Boolean);
+            if (rs.length) multiHl.set('qz-multi', new Highlight(...rs)); else multiHl.delete('qz-multi');
+        }
+        const n = allTargets().length;
+        if (countEl) { countEl.hidden = n < 2; countEl.textContent = n + ' đoạn'; }
+        toolbar.classList.toggle('is-multi', n > 1);
+    };
+    const keepSelection = () => {
+        selTargets().forEach(t => {
+            const i = picks.findIndex(p => sameTarget(p, t));
+            if (i < 0) picks.push(t);
+        });
+    };
+    const clearPicks = () => { if (!picks.length) return; picks = []; syncPicks(); };
+
     const onSelect = () => {
         const sel = window.getSelection();
-        if (!sel || sel.isCollapsed || sel.rangeCount === 0) { hide(); return; }
-        const text = sel.toString().trim();
-        if (text.length < 1) { hide(); return; }
+        const lastPick = () => {
+            const p = picks[picks.length - 1];
+            const r = p && rangeFromOffsets(p.scopeEl, p.start, p.end);
+            return r ? r.getBoundingClientRect() : null;
+        };
+        picks = picks.filter(p => p.scopeEl.isConnected);
+        if (!sel || sel.isCollapsed || sel.rangeCount === 0 || !sel.toString().trim()) {
+            // không bôi đen gì nhưng còn đoạn đã giữ -> thanh vẫn đứng cạnh đoạn giữ cuối cùng
+            const pr = picks.length && lastPick();
+            if (pr && (pr.width || pr.height)) { syncPicks(); positionToolbar(pr); }
+            else hide();
+            return;
+        }
         // Vùng chọn phải nằm gọn trong MỘT vùng cho phép ghi chú
         const a = scopeOf(sel.anchorNode);
         const b = scopeOf(sel.focusNode);
-        if (!a || a !== b) { hide(); return; }
-        activeScope = a.getAttribute('data-annot');
-        activeScopeEl = a;
-        const rect = sel.getRangeAt(0).getBoundingClientRect();
+        if (!a || a !== b) { if (!picks.length) hide(); return; }
+        const rect = sel.getRangeAt(sel.rangeCount - 1).getBoundingClientRect();
         if (!rect || (!rect.width && !rect.height)) { hide(); return; }
+        syncPicks();
         positionToolbar(rect);
     };
 
@@ -1101,67 +1441,88 @@ export function setupAnnotations() {
     // Giữ vùng chọn khi nhấn nút công cụ (đừng để mousedown xóa selection)
     toolbar.addEventListener('mousedown', (e) => e.preventDefault());
 
+    // Áp một định dạng (tô / đậm / nghiêng / gạch / tẩy) lên một đoạn [start, end) của vùng. Kho cập nhật trước (nguồn sự thật),
+    // DOM sửa tại chỗ sau; DOM lỗi thì vẽ lại cả câu — kho đã đúng nên render lại vẫn ra kết quả chuẩn.
+    const applyFormat = (question, t, type) => {
+        const qText = annotKeyFor(question, t.scope);
+        const isErase = type === 'erase';
+        try {
+            clearNoteLines(t.scopeEl);   // hàng ghi chú không có chữ nhưng là phần tử: gỡ ra để bọc thẻ không kéo theo
+            const range = rangeFromOffsets(t.scopeEl, t.start, t.end);
+            if (!range) return;
+            // Tẩy: gỡ MỌI định dạng giao với đoạn. Áp định dạng mới: chỉ gỡ đoạn TRÙNG LOẠI (bôi lại cùng màu = làm mới), các loại
+            // khác giữ nguyên để CHỒNG LỚP được — highlight + in đậm + in nghiêng dùng chung một đoạn chữ.
+            const overlapped = Array.from(t.scopeEl.querySelectorAll('.quiz-annot')).filter(m => {
+                try { if (!range.intersectsNode(m)) return false; } catch (e) { return false; }
+                if (m.classList.contains('annot-note')) return false; // tẩy KHÔNG xóa ghi chú riêng (xóa trong khung ghi chú)
+                return isErase || (m.getAttribute('data-annot-type') || 'highlight') === type;
+            });
+            overlapped.forEach(m => removeAnnotEverywhere(qText, t.scope, m));
+            if (!isErase) {
+                const id = addAnnot(qText, t.scope, t.text, type, t.start, t.end);
+                if (id) wrapOffsetRange(t.scopeEl, t.start, t.end, type, id);
+            }
+            cleanupEmptyAnnots(t.scopeEl); // dọn mảnh rỗng do range chồng lấn cắt ngang
+        } catch (e) {
+            showQuestion(); // phương án lui: vẽ lại từ kho
+        }
+    };
     toolbar.querySelectorAll('[data-annot-action]').forEach(btn => {
         btn.addEventListener('click', () => {
             const type = btn.getAttribute('data-annot-action');
             const sel = window.getSelection();
-            const text = sel ? sel.toString().trim() : '';
             const question = state.questions[state.currentIndex];
-            if (!sel || sel.rangeCount === 0 || !question || !activeScope || !activeScopeEl) return;
-            const range = sel.getRangeAt(0);
-            const scope = activeScope;
-            const qText = annotKeyFor(question, scope);
-            const scopeEl = activeScopeEl;
-
-            // Vị trí (offset ký tự) của vùng chọn — TÍNH TRƯỚC khi đụng vào DOM để lưu
-            // chuẩn xác. Gỡ/bọc thẻ inline không đổi số ký tự nên offset vẫn hợp lệ sau đó.
-            const selStart = offsetInContainer(scopeEl, range.startContainer, range.startOffset);
-            const selEnd = offsetInContainer(scopeEl, range.endContainer, range.endOffset);
-
-            const isErase = type === 'erase';
+            if (!question) return;
+            if (type === 'add') {
+                // cảm ứng (không có Ctrl): giữ đoạn đang chọn, bôi đen tiếp đoạn khác
+                keepSelection();
+                if (sel) sel.removeAllRanges();
+                syncPicks();
+                showToast(`Đã giữ ${picks.length} đoạn — bôi đen thêm đoạn khác rồi chọn định dạng / ghi chú để áp một lượt.`, 'info', 2600);
+                onSelect();
+                return;
+            }
+            const targets = allTargets();
+            if (!targets.length) return;
+            const curRange = sel && !sel.isCollapsed && sel.rangeCount ? sel.getRangeAt(sel.rangeCount - 1) : null;
+            const lastT = targets[targets.length - 1];
+            const rectSel = (curRange || rangeFromOffsets(lastT.scopeEl, lastT.start, lastT.end))?.getBoundingClientRect();
+            if (sel) sel.removeAllRanges();
+            hide();
+            picks = [];
+            syncPicks();
             if (type === 'note') {
-                // Đã có ghi chú giao với vùng chọn -> mở sửa cái đó; chưa có -> viết mới cho cụm từ đang bôi đen
-                const rectSel = range.getBoundingClientRect();
-                const existing = Array.from(scopeEl.querySelectorAll('.annot-note')).find(m => { try { return range.intersectsNode(m); } catch (e) { return false; } });
-                sel.removeAllRanges();
-                hide();
-                if (existing) {
-                    openNoteEditor({ mode: 'edit', qText, scope, id: existing.getAttribute('data-annot-id'), text: existing.textContent, note: existing.getAttribute('data-note') || '', rect: existing.getBoundingClientRect() });
-                } else if (selStart >= 0 && selEnd > selStart && text) {
-                    openNoteEditor({ mode: 'new', qText, scope, scopeEl, start: selStart, end: selEnd, text, rect: rectSel });
+                if (targets.length === 1) {
+                    // Đã có ghi chú giao với vùng chọn -> mở sửa cái đó; chưa có -> viết mới cho cụm từ đang bôi đen
+                    const t = targets[0], qText = annotKeyFor(question, t.scope);
+                    const range = rangeFromOffsets(t.scopeEl, t.start, t.end);
+                    const existing = range && Array.from(t.scopeEl.querySelectorAll('.annot-note')).find(m => { try { return range.intersectsNode(m); } catch (e) { return false; } });
+                    if (existing) {
+                        const id = existing.getAttribute('data-annot-id');
+                        openNoteEditor({ mode: 'edit', qText, scope: t.scope, id, text: noteQuote(id, existing.textContent), note: existing.getAttribute('data-note') || '', rect: existing.getBoundingClientRect() });
+                    } else openNoteEditor({ mode: 'new', qText, scope: t.scope, scopeEl: t.scopeEl, start: t.start, end: t.end, text: t.text, rect: rectSel });
+                } else {
+                    // nhiều cụm -> MỘT ghi chú chung (nhóm)
+                    const list = targets.map(t => ({ ...t, qText: annotKeyFor(question, t.scope) }));
+                    openNoteEditor({ mode: 'new', qText: list[0].qText, scope: list[0].scope, targets: list,
+                        text: list.length + ' cụm: ' + list.map(t => t.text.replace(/\s+/g, ' ')).join(' · '), rect: rectSel });
                 }
                 return;
             }
-            // Tẩy: gỡ MỌI định dạng giao với vùng chọn. Áp định dạng mới: chỉ gỡ đoạn
-            // TRÙNG LOẠI (bôi lại cùng màu = làm mới), các loại khác giữ nguyên để
-            // CHỒNG LỚP được — highlight + in đậm + in nghiêng dùng chung một đoạn chữ.
-            const overlapped = Array.from(scopeEl.querySelectorAll('.quiz-annot'))
-                .filter(m => {
-                    try { if (!range.intersectsNode(m)) return false; } catch (e) { return false; }
-                    if (m.classList.contains('annot-note')) return false; // tẩy KHÔNG xóa ghi chú riêng (xóa trong khung ghi chú)
-                    return isErase || (m.getAttribute('data-annot-type') || 'highlight') === type;
-                });
-            if (isErase && !overlapped.length) { hide(); return; } // tẩy vào vùng trắng: thôi
-
-            // Kho cập nhật trước (nguồn sự thật), DOM sửa tại chỗ sau; DOM lỗi thì
-            // vẽ lại cả câu — kho đã đúng nên render lại vẫn ra kết quả chuẩn.
-            try {
-                overlapped.forEach(m => removeAnnotEverywhere(qText, scope, m));
-                if (!isErase && text.length >= 1) {
-                    const hasPos = selStart >= 0 && selEnd > selStart;
-                    const newId = hasPos
-                        ? addAnnot(qText, scope, text, type, selStart, selEnd)
-                        : addAnnot(qText, scope, text, type);
-                    wrapRange(range, type, newId);
-                }
-                cleanupEmptyAnnots(scopeEl); // dọn mảnh rỗng do range chồng lấn cắt ngang
-            } catch (e) {
-                showQuestion(); // phương án lui: vẽ lại từ kho
-            }
-            sel.removeAllRanges();
-            hide();
+            targets.forEach(t => applyFormat(question, t, type));
+            const sec = document.getElementById('quizSection');
+            if (sec && sec.querySelector('span[data-note]')) renderNoteLines(sec);
         });
     });
+    // Giữ Ctrl / ⌘ rồi bấm vào bài: đoạn đang bôi đen được giữ lại trước khi trình duyệt xóa nó để bắt đầu vùng chọn mới.
+    // Bấm thường (không giữ phím) ở chỗ khác = bỏ các đoạn đã giữ.
+    document.addEventListener('mousedown', (e) => {
+        const t = e.target;
+        if (!t || !t.closest || t.closest('#annot-toolbar, #annot-note-pop')) return;
+        if (e.ctrlKey || e.metaKey) { if (t.closest('#quizSection')) { keepSelection(); syncPicks(); } return; }
+        if (e.button === 0) clearPicks();
+    }, true);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && picks.length) { clearPicks(); hide(); } });
 
     // Bấm hàng ghi chú -> bóng thoại đọc (đủ chữ, Sửa / Xóa). Capture: hàng nằm trong ô đáp án thì không tính là chọn đáp án;
     // nhấn giữ trên hàng cũng không được thành "gạch đáp án" (pointerdown / contextmenu chặn từ document).
@@ -1177,8 +1538,8 @@ export function setupAnnotations() {
         const frags = id && scopeEl ? [...scopeEl.querySelectorAll(`[data-annot-id="${id}"]`)] : [];
         if (!frags.length || !question) return;   // ghi chú tĩnh của phòng: chỉ đọc
         const scope = scopeEl.getAttribute('data-annot');
-        openNoteEditor({ mode: 'view', qText: annotKeyFor(question, scope), scope, id, text: frags.map(f => f.textContent).join(''), note: frags[frags.length - 1].getAttribute('data-note') || '', rect: row.getBoundingClientRect() });
-        popIn(frags);
+        openNoteEditor({ mode: 'view', qText: annotKeyFor(question, scope), scope, id, text: noteQuote(id, frags.map(f => f.textContent).join('')), note: frags[frags.length - 1].getAttribute('data-note') || '', rect: row.getBoundingClientRect() });
+        popIn(noteSpans(id));
     }, true);
     document.addEventListener('keydown', (e) => {
         const row = rowOf(e);
@@ -1212,6 +1573,7 @@ export function setupAnnotations() {
 
     // Bấm vào một đoạn đã ghi chú để gỡ nhanh (capture để không kích hoạt chọn đáp án)
     document.addEventListener('click', (e) => {
+        if (e.ctrlKey || e.metaKey) return;   // đang giữ Ctrl / ⌘ để chọn nhiều đoạn: đừng gỡ đoạn tô dưới con trỏ
         const mark = e.target.closest && e.target.closest('.quiz-annot');
         if (!mark || e.target.closest('.an-line')) return;   // hàng ghi chú có thể nằm TRONG một đoạn tô (dòng kế bắt đầu giữa đoạn đó)
         const cont = mark.closest('#quizSection [data-annot]');
@@ -1228,7 +1590,7 @@ export function setupAnnotations() {
             const id = mark.getAttribute('data-annot-id');
             const frags = id ? [...cont.querySelectorAll(`[data-annot-id="${id}"]`)] : [mark];
             const rect = [...mark.getClientRects()].find(r => e.clientY >= r.top - 2 && e.clientY <= r.bottom + 2) || mark.getBoundingClientRect();
-            openNoteEditor({ mode: 'view', qText: annotKeyFor(question, scope), scope, id, text: frags.map(f => f.textContent).join(''), note: mark.getAttribute('data-note') || '', rect });
+            openNoteEditor({ mode: 'view', qText: annotKeyFor(question, scope), scope, id, text: noteQuote(id, frags.map(f => f.textContent).join('')), note: mark.getAttribute('data-note') || '', rect });
             popIn([...noteEls(id)].filter(x => x.classList.contains('an-line')));
             return;
         }

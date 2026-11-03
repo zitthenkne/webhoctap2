@@ -1706,6 +1706,8 @@
     <!-- Thanh công cụ định dạng nổi khi bôi đen chữ (đề / đáp án / giải thích / mở rộng / ghi chú):
          3 màu bôi + in đậm/nghiêng + tẩy gỡ định dạng trong vùng chọn -->
     <div id="annot-toolbar" role="toolbar" aria-label="Định dạng ghi chú">
+        <!-- Đang giữ nhiều đoạn (Ctrl/⌘ + bôi đen, hoặc nút +): mọi nút bên dưới áp cho tất cả một lượt -->
+        <span class="annot-multi" aria-live="polite" hidden></span>
         <button type="button" data-annot-action="highlight" class="annot-dot annot-dot-yellow" title="Bôi vàng" aria-label="Bôi vàng"></button>
         <button type="button" data-annot-action="hl-green" class="annot-dot annot-dot-green" title="Bôi xanh lá" aria-label="Bôi xanh lá"></button>
         <button type="button" data-annot-action="hl-blue" class="annot-dot annot-dot-blue" title="Bôi xanh dương" aria-label="Bôi xanh dương"></button>
@@ -1717,6 +1719,7 @@
         <span class="annot-sep" aria-hidden="true"></span>
         <button type="button" data-annot-action="note" title="Ghi chú cho cụm từ này" aria-label="Ghi chú cho cụm từ"><i class="fas fa-comment-dots"></i></button>
         <button type="button" data-annot-action="erase" title="Gỡ định dạng trong vùng chọn"><i class="fas fa-eraser"></i></button>
+        <button type="button" data-annot-action="add" class="annot-add" title="Giữ đoạn này rồi chọn thêm đoạn khác (hoặc giữ Ctrl khi bôi đen)" aria-label="Chọn thêm đoạn khác"><i class="fas fa-plus"></i></button>
     </div>
 
     <!-- Bút tô nhanh (page/quiz-annotations.js setupPenMode): hộp bút góc dưới trái (cạnh nút Ngựa thì chỉnh).

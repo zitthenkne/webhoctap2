@@ -12,6 +12,7 @@ import { sfx, scrollBehaviorFor } from './quiz-page-prefs.js';
 import { syncQuizNavPanel } from '../quiz-ui.js';
 import { applyMark, renderMarkControl, setupMarkControl, refreshMarkedPanel } from './quiz-marks.js';
 import { SR, toggleDictation, stopDictation } from './quiz-dictation.js';
+import { arrowize } from './quiz-note-md.js';
 
 // Nhãn chèn nhanh + biểu thức nhận ra nhãn ở đầu dòng (để lọc theo nhãn ở sổ ghi chú)
 export const NOTE_TAGS = [
@@ -37,12 +38,13 @@ export function noteTagsOf(text) {
 
 // Một ghi chú → HTML (dùng ở sổ ghi chú + màn kết quả): nhãn đầu dòng in đậm, ☐/☑ thành ô tích; mọi chữ đều được thoát HTML
 const escHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-// **đậm** và *nghiêng* trong ghi chú (áp lên chuỗi ĐÃ thoát HTML nên không chèn được thẻ lạ)
+// **đậm** *nghiêng* ~~gạch~~ ==tô== trong ghi chú (áp lên chuỗi ĐÃ thoát HTML nên không chèn được thẻ lạ)
 function inlineMd(h) {
-    return h.replace(/\*\*([^*]+?)\*\*/g, '<strong>$1</strong>').replace(/(^|[^*\w])\*([^\s*][^*]*?)\*(?!\*)/g, '$1<em>$2</em>');
+    return h.replace(/\*\*([^*]+?)\*\*/g, '<strong>$1</strong>').replace(/(^|[^*\w])\*([^\s*][^*]*?)\*(?!\*)/g, '$1<em>$2</em>')
+        .replace(/~~(?=\S)([^\n]*?\S)~~/g, '<s>$1</s>').replace(/==(?=\S)([^\n]*?\S)==/g, '<mark>$1</mark>');
 }
 function noteLineHtml(raw, ln, interactive) {
-    const line = String(raw);
+    const line = arrowize(String(raw));   // "->" "=>" "<=" … hiện thành → ⇒ ≤ (chữ lưu giữ nguyên)
     const lead = /^(\s*(?:[-•*]\s*)?)/.exec(line)[1];
     const body = line.slice(lead.length);
     const low = body.normalize('NFC').toLowerCase();
@@ -85,8 +87,13 @@ export function readPhraseNotes() {
     let store = {};
     try { store = JSON.parse(localStorage.getItem(quizNotesKey().replace(/^quiz_notes_/, 'quiz_annot_')) || '{}') || {}; } catch (e) {}
     const out = [];
+    const groups = new Map();   // ghi chú nhóm (nhiều cụm chọn bằng Ctrl, cùng `grp`) = MỘT ghi chú; chữ trích nối các cụm
     Object.entries(store).forEach(([q, arr]) => (Array.isArray(arr) ? arr : []).forEach(a => {
-        if (a && a.type === 'note' && String(a.note || '').trim()) out.push({ ...a, q });
+        if (!(a && a.type === 'note' && String(a.note || '').trim())) return;
+        if (a.grp && groups.has(a.grp)) { const g = groups.get(a.grp); g.text = (g.text || '') + ' · ' + (a.text || ''); return; }
+        const item = { ...a, q };
+        if (a.grp) groups.set(a.grp, item);
+        out.push(item);
     }));
     return out;
 }

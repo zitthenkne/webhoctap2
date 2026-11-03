@@ -4,6 +4,8 @@
 // hộp giữa màn trên máy tính — khỏi phải cuộn ngược lên rồi cuộn xuống lại.
 // Nút + bảng gắn thẳng vào <body> (không nằm trong #quizSection bị vẽ lại mỗi câu).
 
+import { hydrateNoteRows } from './quiz-note-md.js';
+
 let pill = null;
 let sheet = null;
 let io = null;
@@ -61,6 +63,7 @@ function openPeek() {
     if (!panel || !body || !sheet) return;
     // Chép bản ĐÃ vẽ (giữ bảng, công thức, chỗ tô/gạch của người dùng); chỉ để đọc
     sheet.querySelector('.cps-body').innerHTML = body.innerHTML;
+    hydrateNoteRows(sheet.querySelector('.cps-body'));   // hàng ghi chú vẽ chữ trong shadow DOM — bản sao innerHTML không mang theo
     const title = panel.querySelector('.font-bold');
     sheet.querySelector('.cps-title-text').textContent = title ? title.textContent.trim() : 'Ca lâm sàng';
     const seq = panel.querySelector('.bg-cyan-100');

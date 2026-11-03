@@ -13,8 +13,30 @@ const ctx = vm.createContext({
     localStorage: { getItem: k => storage.get(k), setItem: (k, v) => storage.set(k, v) }
 });
 vm.runInContext(source, ctx);
-const { packNoteLane, noteMinWidth, addAnnot, updateAnnotNote, setNoteColors, noteColor } =
-    vm.runInContext('({ packNoteLane, noteMinWidth, addAnnot, updateAnnotNote, setNoteColors, noteColor })', ctx);
+const { packNoteLane, noteMinWidth, addAnnot, updateAnnotNote, setNoteColors, noteColor, addNoteItems, removeNoteById } =
+    vm.runInContext('({ packNoteLane, noteMinWidth, addAnnot, updateAnnotNote, setNoteColors, noteColor, addNoteItems, removeNoteById })', ctx);
+
+test('ghi chú nhóm (Ctrl chọn nhiều cụm): một lần lưu, sửa / đổi màu / xóa theo cả nhóm, kể cả khác vùng lưu', () => {
+    storage.clear();
+    const made = addNoteItems([
+        { qText: 'q', scope: 'q', text: 'Beta-hCG (-)', start: 0, end: 12 },
+        { qText: 'q', scope: 'a1', text: 'Nội mạc', start: 4, end: 11 },
+        { qText: 'case:1', scope: 'case', text: 'Ngày 06/10', start: 0, end: 10 }
+    ], 'chưa có thai trong tử cung', { color: '#B9A2F0' });
+    assert.equal(made.length, 3);
+    const grp = made[0].grp;
+    assert.ok(grp && made.every(m => m.grp === grp));
+    const all = () => Object.values(JSON.parse(storage.get('annotations'))).flat();
+    assert.equal(all().length, 3);
+    assert.ok(all().every(a => a.grp === grp && a.note === 'chưa có thai trong tử cung' && a.color === '#b9a2f0'));
+    assert.equal(updateAnnotNote('q', made[1].id, 'sửa một lần', { inkColor: '#123456' }), true);
+    assert.ok(all().every(a => a.note === 'sửa một lần' && a.inkColor === '#123456' && !a.color));
+    // một cụm lẻ không bị cuốn theo nhóm
+    addNoteItems([{ qText: 'q', scope: 'q', text: 'lẻ', start: 20, end: 22 }], 'ghi chú lẻ');
+    assert.equal(all().find(a => a.text === 'lẻ').grp, undefined);
+    assert.equal(removeNoteById('case:1', made[2].id), true);
+    assert.deepEqual(all().map(a => a.text), ['lẻ']);
+});
 
 test('cụm sát nhau: chia khoảng trống hai phía, không chồng / tràn ở 240–1024px', () => {
     for (const width of [240, 280, 320, 375, 480, 768, 1024]) {

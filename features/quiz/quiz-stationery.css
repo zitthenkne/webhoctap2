@@ -3698,13 +3698,12 @@ body:not(.qz-notes-inline) :is(.annot-note, [data-annot] span[data-note])[data-a
     -webkit-user-select: none; user-select: none;
     transition: color .2s ease, translate .3s var(--spring);
 }
-.an-line::after {
-    content: attr(data-txt);
-    flex: 1; min-width: 0;
-    white-space: pre-line; overflow-wrap: anywhere;
-    text-wrap: balance; /* đã xuống dòng thì cân độ dài các dòng, vẫn giữ ngắt dòng người dùng nhập */
-    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
-}
+/* Nội dung hàng (2026-11-03): markdown vẽ trong SHADOW DOM (quiz-note-md.js mountNoteRow) thay cho ::after content: attr() —
+   vẫn không phải chữ của đề (offset ghi chú / quét dữ kiện / đọc to không thấy), nhưng có **đậm**, danh sách, xuống dòng, mũi tên.
+   Hàng tự cao theo chữ tới --an-lines dòng (quá thì mờ đuôi, bấm để đọc đủ).
+   contain: inline-size khi CHƯA xếp: hàng đang nằm trong dòng chảy không được nong rộng ô bảng / khối chứa trước khi đo. */
+.an-line { --an-lines: 8; contain: inline-size; }
+.an-band.is-laid > .an-line { contain: none; }
 .an-line:is(:hover, .is-lit) { color: var(--nt-ink); }
 .an-line.is-side { padding-left: 0; }
 .an-line.is-trailing { padding-left: .3em; padding-right: 1.6em; text-align: right; }
@@ -3736,6 +3735,48 @@ body.qz-notes-inline :is(.annot-note, [data-annot] span[data-note])[data-mk]::af
 .an-line:is(:hover, .is-lit)::before { opacity: 1; }
 .an-line.is-static { cursor: default; }
 .an-line:focus-visible { outline: 2px solid color-mix(in srgb, var(--nt) 80%, transparent); outline-offset: 1px; }
+
+/* Ghi chú trong BẢNG: hàng phụ <tr class="an-tr"> ngay dưới hàng có cụm từ, một ô trải hết các cột -> ghi chú của mọi cột cùng
+   hàng xếp chung một dải theo bề ngang cả bảng (không còn tràn ô rồi đè lên nhau). Hàng phụ trông như phần đuôi của hàng trên:
+   cùng nền, đường kẻ dời xuống dưới nó. */
+tr.an-tr > td.an-td { padding-top: 0; border-top: 0; vertical-align: top; }
+:is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table tr.an-tr > td.an-td {
+    position: static; min-width: 0; max-width: none; box-shadow: none;
+    padding: 0 .9rem .4rem !important; font-weight: 400;
+}
+:is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table tbody tr:has(+ tr.an-tr) > td { border-bottom-color: transparent !important; padding-bottom: .3rem !important; }
+/* sọc xen kẽ đếm theo hàng DỮ LIỆU (bỏ qua hàng phụ); trình duyệt chưa hiểu "of S" thì bỏ qua nguyên luật, sọc chỉ lệch nhẹ */
+:is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table tbody tr:nth-child(odd of :not(.an-tr)) td,
+:is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table tbody tr:nth-child(odd of :not(.an-tr)) + tr.an-tr > td { background: var(--surface-card) !important; }
+:is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table tbody tr:nth-child(even of :not(.an-tr)) td,
+:is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table tbody tr:nth-child(even of :not(.an-tr)) + tr.an-tr > td { background: color-mix(in srgb, var(--hue-peach) 7%, var(--surface-card)) !important; }
+@media (hover: hover) {
+    :is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table.cute-table tbody tr:is(:hover, :has(+ tr.an-tr:hover)):not(.an-tr) td,
+    :is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table.cute-table tbody tr:hover + tr.an-tr > td,
+    :is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-table.cute-table tbody tr.an-tr:hover > td { background: color-mix(in srgb, var(--hue-butter) 22%, var(--surface-card)) !important; }
+}
+
+/* Ghi chú NHÓM (chọn nhiều cụm bằng Ctrl): cụm khác dòng với hàng ghi chú mang dấu ✱ nhỏ; rê chuột / bấm = sáng cả nhóm */
+body.qz-notes-inline .annot-note[data-gmk] { position: relative; }
+body.qz-notes-inline .annot-note[data-gmk]::before {
+    content: attr(data-gmk);
+    position: absolute; left: -.5em; top: -.66em;
+    font-size: .6em; font-weight: 700; font-style: normal; line-height: 1; letter-spacing: 0;
+    color: var(--nt-ink); text-decoration: none; pointer-events: none;
+}
+
+/* Các đoạn đang GIỮ để áp một lượt (Ctrl/⌘ + bôi đen, hoặc nút + trên thanh) — CSS Custom Highlight, không đụng DOM */
+::highlight(qz-multi) { background-color: color-mix(in srgb, #B9A2F0 45%, transparent); color: inherit; }
+#annot-toolbar .annot-multi {
+    display: inline-flex; align-items: center; align-self: center;
+    margin: 0 .2rem 0 .1rem; padding: .15rem .5rem; border-radius: 999px; white-space: nowrap;
+    font-size: 12px; font-weight: 800; color: var(--ink-lav);
+    background: color-mix(in srgb, var(--hue-lav) 26%, var(--surface-card));
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--hue-lav) 55%, transparent);
+}
+#annot-toolbar .annot-multi[hidden] { display: none; }
+#annot-toolbar .annot-add { color: var(--ink-muted); }
+#annot-toolbar.is-multi .annot-add { color: var(--ink-lav); }
 
 /* Tắt "Hiện ghi chú cụm từ": giấu hàng, chỉ còn bong bóng số; máy có chuột rê vào cụm từ thì hiện lời ghi chú như bóng thoại */
 body:not(.qz-notes-inline) .an-line { display: none; }
@@ -3881,6 +3922,28 @@ html.theme-dark #annot-note-pop .anp-row .anp-ok { --hi: #3a1422; background: #F
     white-space: pre-line; overflow-wrap: anywhere;
 }
 #annot-note-pop .anp-read .na-tag { color: var(--ink-lav); font-weight: 800; }
+#annot-note-pop .anp-read.nmd { white-space: normal; --nt: var(--hue-lav); }
+#annot-note-pop .anp-read.nmd .t { color: var(--ink-lav); font-weight: 800; }
+/* Thanh định dạng nhỏ trên ô viết + bản xem trước markdown (chỉ hiện khi ghi chú có định dạng / nhiều dòng) */
+#annot-note-pop .anp-fmt { display: flex; flex-wrap: wrap; gap: .25rem; margin-bottom: -.35rem; }
+#annot-note-pop .anp-fmt button {
+    min-width: 1.9rem; height: 1.9rem; padding: 0 .35rem; border: 0; border-radius: .55rem;
+    display: inline-flex; align-items: center; justify-content: center;
+    font: 700 13px/1 Quicksand, sans-serif; color: var(--ink-muted); background: transparent; cursor: pointer;
+    transition: background .15s ease, color .15s ease;
+}
+#annot-note-pop .anp-fmt button:hover { color: var(--ink-lav); background: color-mix(in srgb, var(--hue-lav) 20%, transparent); }
+#annot-note-pop .anp-fmt button:focus-visible { outline: 2px solid var(--ink-lav); outline-offset: 1px; }
+@media (pointer: coarse) { #annot-note-pop .anp-fmt button { min-width: 2.3rem; height: 2.3rem; font-size: 15px; } }
+#annot-note-pop .anp-prev {
+    --nt: var(--hue-lav);
+    max-height: 9.5rem; overflow-y: auto; overscroll-behavior: contain;
+    margin-top: -.3rem; padding: .45rem .75rem; border-radius: .9rem;
+    border: 1.5px dashed color-mix(in srgb, var(--hue-lav) 50%, var(--line));
+    font: 400 16px/1.3 'Patrick Hand', Quicksand, cursive; color: var(--nt-ink);
+}
+#annot-note-pop .anp-prev[hidden] { display: none; }
+#annot-note-pop .anp-prev::before { content: "Xem trước"; display: block; margin-bottom: .15rem; font: 800 10px/1 Quicksand, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
 #annot-note-pop.anp-near::before {
     content: ""; position: absolute; left: var(--tail, 50%);
     width: 14px; height: 14px; margin-left: -7px;
