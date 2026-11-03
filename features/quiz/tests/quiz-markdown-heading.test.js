@@ -6,16 +6,16 @@ import { parseMarkdown } from '../quiz-helpers.js';
 
 test('"### Mở rộng" thành tiêu đề cấp 3, không còn nguyên chữ ###', () => {
     const html = parseMarkdown('### Mở rộng\n- ý một');
-    assert.match(html, /<div class="quiz-md-h quiz-md-h3">Mở rộng<\/div>/);
+    assert.match(html, /<div class="quiz-md-h quiz-md-h3" role="heading" aria-level="3">Mở rộng<\/div>/);
     assert.ok(!html.includes('###'));
     assert.match(html, /quiz-li/);   // danh sách phía dưới vẫn dựng bình thường
 });
 
-test('cấp 1–4 đều nhận; cấp 5 trở lên và "#HTA" (không có khoảng trắng) vẫn là chữ thường', () => {
-    for (let n = 1; n <= 4; n++) {
-        assert.match(parseMarkdown('#'.repeat(n) + ' Tiêu đề'), new RegExp(`quiz-md-h${n}">`));
+test('cấp 1–6 đều nhận; cấp 7 trở lên và "#HTA" (không có khoảng trắng) vẫn là chữ thường', () => {
+    for (let n = 1; n <= 6; n++) {
+        assert.match(parseMarkdown('#'.repeat(n) + ' Tiêu đề'), new RegExp(`quiz-md-h${n}" role="heading" aria-level="${n}">`));
     }
-    assert.ok(!parseMarkdown('##### Quá sâu').includes('quiz-md-h'));
+    assert.ok(!parseMarkdown('####### Quá sâu').includes('quiz-md-h'));
     assert.ok(!parseMarkdown('#HTA cần điều trị sớm').includes('quiz-md-h'));
     assert.ok(!parseMarkdown('Kết luận: nhóm #1 là ưu tiên').includes('quiz-md-h'));
 });

@@ -33,11 +33,13 @@ body { overscroll-behavior-y: contain; }
    và phóng bè sơ đồ nhỏ. Nay: vừa cột, không vượt cỡ gốc (--mm-w do room-editor đặt), không co dưới 60% cỡ gốc (chật thì cuộn, cần thì ⤢). */
 .mermaid { display: block; width: 100%; min-width: 0; }
 .mermaid svg { display: block; margin: 0 auto; width: 100% !important; height: auto !important; max-width: var(--mm-w, 100%) !important; min-width: calc(var(--mm-w, 0px) * .6); }
-.katex-display { display: block !important; width: 100% !important; overflow-x: auto !important; overflow-y: hidden !important; -webkit-overflow-scrolling: touch; padding: 0.5rem 0 !important; box-sizing: border-box; }
-.katex { display: inline-block !important; max-width: 100% !important; overflow-x: auto !important; overflow-y: hidden !important; vertical-align: middle; -webkit-overflow-scrolling: touch; }
-.katex-display::-webkit-scrollbar, .katex::-webkit-scrollbar { height: 4px; }
-.katex-display::-webkit-scrollbar-thumb, .katex::-webkit-scrollbar-thumb { background-color: rgba(255, 105, 180, 0.3); border-radius: 99px; }
-@media (max-width: 640px) { .katex-display { font-size: 0.9em !important; } .katex { font-size: 0.92em !important; } }
+/* KaTeX: công thức inline KHÔNG làm khung cuộn (từng hiện thanh cuộn hồng ◂ ▸ dưới $HbA_2$) — chỉ khối $$…$$ cuộn ngang. Cùng luật style.css. */
+html .katex { font-size: 1.08em; line-height: 1.2; text-indent: 0; max-width: 100%; }
+html .katex-display { display: block; max-width: 100%; margin: .6rem 0; padding: .35rem .1rem; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; scrollbar-width: thin; scrollbar-color: rgba(255, 105, 180, .35) transparent; box-sizing: border-box; }
+html .katex-display > .katex { font-size: 1.12em; max-width: none; }
+.katex-display::-webkit-scrollbar { height: 4px; }
+.katex-display::-webkit-scrollbar-thumb { background-color: rgba(255, 105, 180, .35); border-radius: 99px; }
+@media (max-width: 640px) { html .katex { font-size: 1.03em; } html .katex-display > .katex { font-size: 1em; } }
 
 :root {
     /* Màu kẹo */
@@ -6955,13 +6957,7 @@ html.theme-dark {
     --bad-bg: #46221f; --bad-line: #b85a5a; --bad-solid: #FF8A8A; --bad-ink: #FECACA;
 }
 
-/* Tiêu đề markdown — cùng nhịp với quiz-stationery.css §23 */
-.quiz-md-h { font-weight: 800; line-height: 1.35; color: var(--em-b, var(--ink-blossom)); margin: .1rem 0 0; }
-.quiz-md-h1 { font-size: 1.22em; }
-.quiz-md-h2 { font-size: 1.14em; }
-.quiz-md-h3 { font-size: 1.06em; }
-.quiz-md-h4 { font-size: 1em; letter-spacing: .01em; }
-.quiz-md-h + .quiz-md-gap { height: .4rem; }
+/* Tiêu đề markdown: kiểu dùng chung ở MD_CSS (quiz-helpers.js, 2026-11-03) */
 
 /* Khối sổ tay 🧠 Hướng tư duy */
 .rm-xbox.is-reason { background: color-mix(in srgb, var(--hue-lav) 8%, var(--rm-surface)); border-color: color-mix(in srgb, var(--hue-lav) 45%, transparent); }

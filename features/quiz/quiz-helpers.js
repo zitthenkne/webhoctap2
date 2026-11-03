@@ -427,6 +427,7 @@ export function parseInlineMarkdown(text) {
         text = String(text);
     }
     if (!text) return '';
+    ensureMdCss();
     let html = text;
     // Thẻ ảnh / link dựng xong được CẤT vào chỗ giữ tạm: URL hay có dấu _ (ảnh Wikimedia "Some_file_name.jpg")
     // mà để luật in nghiêng _…_ / in đậm __…__ chạy qua là hỏng đường dẫn. Gắn lại ở cuối hàm.
@@ -467,8 +468,12 @@ export function parseInlineMarkdown(text) {
     html = html.replace(/\*(.*?)\*/g, '<em class="obsidian-italic">$1</em>');
     html = html.replace(/_(.*?)_/g, '<em class="obsidian-italic">$1</em>');
     
-    // Code inline: `text` (đoạn mã cao hơn, co giãn cỡ chữ theo dòng [0.9em] và căn giữa dòng)
-    html = html.replace(/`(.*?)`/g, '<code class="bg-gray-100 text-pink-600 px-1.5 py-0.5 rounded font-mono text-[0.9em] align-middle inline-block">$1</code>');
+    // Gạch ngang ~~chữ~~ và tô nổi ==chữ== (cùng cú pháp sổ ghi chú quiz-note-md). "==>" mũi tên / "a == b" không bị bắt.
+    html = html.replace(/~~(?=\S)([^~\n]+?)(?<=\S)~~/g, '<s class="quiz-strike">$1</s>');
+    html = html.replace(/==(?=[^=\s>])([^=\n]+?)(?<=[^=\s<])==(?!>)/g, '<mark class="quiz-mark">$1</mark>');
+
+    // Code inline: `text` — giao diện ở MD_CSS (.quiz-code): xuống dòng được, không đẩy vỡ khung trên điện thoại
+    html = html.replace(/`(.*?)`/g, '<code class="quiz-code">$1</code>');
     return html.replace(/\u0001(\d+)\u0001/g, (m, k) => kept[k] ?? '');
 }
 
@@ -727,6 +732,52 @@ function ensureCalloutCss() {
     st.textContent = CO_CSS;
     document.head.prepend(st);   // đặt ĐẦU head: CSS riêng của từng trang (vd. quiz-min) vẫn ghi đè được
 }
+// NỀN MARKDOWN DÙNG CHUNG (2026-11-03): tiêu đề #–######, danh sách, khoảng đoạn, đường kẻ, ==tô==, ~~gạch~~, `mã`.
+// Trước đây chỉ quiz.html (quiz-enhance / quiz-stationery) và phòng học có luật -> flashcard, lịch sử… hiện "##" như chữ thường,
+// chấm đầu dòng rơi xuống dòng riêng. Chèn ĐẦU <head> như CO_CSS: CSS riêng từng trang (ui-min, phòng…) vẫn ghi đè được.
+// Màu đọc biến của trang (--em-b / --hue-* / --ink-*), thiếu thì dùng màu dự phòng -> đúng ở mọi trang, cả giao diện tối.
+const MD_DARK = ':is(html.theme-dark,html.dark,html[data-theme="dark"])';
+const MD_CSS = `.quiz-md-h{--h:var(--hue-blossom,#FF8FB8);font-weight:800;line-height:1.35;color:var(--em-b,var(--ink-blossom,#C8487A));margin:.5rem 0 .1rem;text-wrap:balance;overflow-wrap:anywhere}
+.quiz-md-h:first-child{margin-top:0}
+.quiz-md-h1{font-size:1.3em;padding-bottom:.3rem;border-bottom:2px solid color-mix(in srgb,var(--h) 45%,transparent)}
+.quiz-md-h2{font-size:1.16em;padding:.12rem .6rem .12rem .62rem;border-left:4px solid var(--h);border-radius:3px 10px 10px 3px;background:color-mix(in srgb,var(--h) 10%,transparent)}
+.quiz-md-h3{font-size:1.06em;position:relative;padding-left:1.05em}
+.quiz-md-h3::before{content:"";position:absolute;left:.12em;top:.46em;width:.42em;height:.42em;border-radius:.1em;background:var(--h);transform:rotate(45deg)}
+.quiz-md-h4{font-size:1em;text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--h) 55%,transparent);text-decoration-thickness:2px;text-underline-offset:.22em}
+.quiz-md-h5,.quiz-md-h6{font-size:.94em;font-weight:700;opacity:.85}
+.quiz-md-h6{font-style:italic}
+.quiz-md-h+.quiz-md-gap{height:.4rem}
+.quiz-md-gap{height:.85rem}
+.quiz-md-hr{border:0;height:0;border-top:2px dashed color-mix(in srgb,var(--hue-blossom,#FF8FB8) 45%,transparent);margin:.45rem 0}
+.quiz-list-container{--indent-step:1.7rem;--base-indent:1.25rem;--guide-color:rgba(255,105,180,.22);display:flex;flex-direction:column;margin:.55rem 0;padding-left:var(--base-indent)}
+.quiz-li{display:flex;align-items:flex-start;gap:.6rem;padding:.22rem 0;margin-left:calc(var(--lvl,0)*var(--indent-step))}
+.quiz-li[data-lvl]:not([data-lvl="0"]){border-left:2px solid var(--guide-color);padding-left:.85rem}
+.quiz-li-body,.quiz-li-cont{flex:1;min-width:0;line-height:1.7}
+.quiz-li-bullet{display:flex;align-items:center;justify-content:center;height:1.7em;min-width:1rem;flex-shrink:0;user-select:none}
+.quiz-li-num{color:#FF69B4;font-weight:700;font-size:.8rem}
+.quiz-li-continued{padding-left:1.6rem}
+.quiz-li[data-lvl]:not([data-lvl="0"]).quiz-li-continued{padding-left:calc(.85rem + 1.6rem)}
+.quiz-li-cont{color:#6b7280;font-size:.9em}
+.quiz-mark{background:color-mix(in srgb,var(--hue-butter,#F2BE2E) 38%,transparent);color:inherit;padding:0 .18em;border-radius:.3em;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.quiz-strike{text-decoration-thickness:1.5px;opacity:.7}
+.quiz-code{font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;font-size:.86em;padding:.08em .4em;border-radius:.4em;
+background:color-mix(in srgb,var(--hue-blossom,#FF8FB8) 13%,transparent);color:var(--ink-blossom,#C8487A);overflow-wrap:anywhere;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+${MD_DARK} .quiz-md-h{color:var(--em-b,var(--ink-blossom,#FFB9D6))}
+${MD_DARK} .quiz-code{color:var(--ink-blossom,#FFB9D6);background:color-mix(in srgb,var(--hue-blossom,#FF8FB8) 18%,transparent)}
+${MD_DARK} .quiz-mark{background:color-mix(in srgb,var(--hue-butter,#F2BE2E) 30%,transparent)}
+${MD_DARK} .quiz-list-container{--guide-color:rgba(255,105,180,.3)}
+${MD_DARK} .quiz-li-cont{color:#a99fc0}
+${MD_DARK} .quiz-li-num{color:#f9a8d4}`;
+let _mdCss = false;
+function ensureMdCss() {
+    if (_mdCss || typeof document === 'undefined' || !document.head) return;
+    _mdCss = true;
+    const st = document.createElement('style');
+    st.id = 'quiz-md-css';
+    st.textContent = MD_CSS;
+    document.head.prepend(st);
+}
+
 function quoteHtml(lines) {
     ensureCalloutCss();
     const first = String(lines[0] || '').trim();
@@ -771,7 +822,8 @@ export function parseMarkdown(text) {
         text = String(text);
     }
     if (!text) return '';
-    
+    ensureMdCss();
+
     // Chuẩn hóa xuống dòng của Windows (\r\n -> \n) để tránh lỗi cú pháp Mermaid
     let html = text.replace(/\r\n/g, '\n');
     
@@ -916,7 +968,8 @@ export function parseMarkdown(text) {
 
         // Bảng xét TRƯỚC: bảng thụt lề nằm dưới một mục danh sách ("  | a | b |") từng bị coi là dòng chữ thụt lề -> hiện nguyên dấu |
         const isTable = trimmedLine.startsWith('|') && trimmedLine.endsWith('|');
-        const isList = !isTable && (unorderedListMatch || orderedListMatch || indentedTextMatch);
+        const isHr = /^(?:-[ \t]*){3,}$|^(?:\*[ \t]*){3,}$|^(?:_[ \t]*){3,}$/.test(trimmedLine);   // "- - -" là đường kẻ, không phải mục "-"
+        const isList = !isTable && !isHr && (unorderedListMatch || orderedListMatch || indentedTextMatch);
         
         if (isList) {
             // Đóng bảng nếu đang mở
@@ -1038,11 +1091,15 @@ export function parseMarkdown(text) {
                 tableHtml = '';
             }
             
-            // Tiêu đề markdown "## Tên mục" (1–4 dấu #, bắt buộc có khoảng trắng — "#HTA" vẫn là chữ thường).
+            // Tiêu đề markdown "## Tên mục" (1–6 dấu #, bắt buộc có khoảng trắng — "#HTA" vẫn là chữ thường).
             // Khối mermaid/svg/math đã được thay bằng placeholder ở trên nên không lẫn vào đây.
-            const headingMatch = trimmedLine.match(/^(#{1,4})\s+(\S.*?)\s*#*\s*$/);
+            const headingMatch = trimmedLine.match(/^(#{1,6})\s+(\S.*?)\s*#*\s*$/);
             if (headingMatch) {
-                processedLines.push(`<div class="quiz-md-h quiz-md-h${headingMatch[1].length}">${parseInlineMarkdown(headingMatch[2])}</div>`);
+                const lv = headingMatch[1].length;
+                processedLines.push(`<div class="quiz-md-h quiz-md-h${lv}" role="heading" aria-level="${lv}">${parseInlineMarkdown(headingMatch[2])}</div>`);
+            } else if (isHr) {
+                // Đường kẻ ngang "---" / "***" / "___" (trước đây hiện nguyên dấu gạch)
+                processedLines.push('<hr class="quiz-md-hr">');
             } else if (/^!\[[^\]]*\]\([^)\s]+\)$/.test(trimmedLine)) {
                 // Ảnh đứng riêng một dòng (+ dòng in nghiêng ngay dưới, cho phép cách 1 dòng trống) = khung hình + CHÚ THÍCH:
                 // *Hình: tác giả · giấy phép · [Wikimedia Commons](…)* / *Nguồn: Lưu đồ … — Bộ môn …* là dòng ghi nguồn,

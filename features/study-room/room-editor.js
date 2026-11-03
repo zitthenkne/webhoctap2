@@ -16,7 +16,7 @@ import { effectiveIndex } from './room-quiz-stage.js';
 // Thẻ được phép giữ lại khi lưu (đủ để in đậm/nghiêng/gạch chân/bôi vàng/danh sách)
 // + ẢNH (chỉ giữ src https / ảnh nhúng) và LINK (chỉ giữ href http/https) cho phần tài liệu.
 // + BẢNG (bản 28) và tiêu đề nhỏ H4 / đường kẻ HR cho mở rộng · ghi nhớ · ghi chú.
-const ALLOWED = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'MARK', 'CODE', 'BR', 'DIV', 'P', 'UL', 'OL', 'LI', 'SUB', 'SUP', 'SPAN', 'IMG', 'A',
+const ALLOWED = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'S', 'MARK', 'CODE', 'BR', 'DIV', 'P', 'UL', 'OL', 'LI', 'SUB', 'SUP', 'SPAN', 'IMG', 'A',
     'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD', 'H4', 'HR']);
 const TABLE_TAGS = new Set(['TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD']);
 // Ghi chú cụm từ (bản 53): <span data-note="chữ ghi chú ngắn">cụm từ</span>. Chỉ giữ chữ trơn, bỏ ký tự điều khiển, tối đa 120 ký tự.

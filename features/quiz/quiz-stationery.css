@@ -4416,12 +4416,7 @@ body.nb-bar-away .nb-topbar { transform: translateY(-105%); }
      chỉ trong các khối đọc dài (khung ca, bảng xem lại ca, Ghi nhớ / Mở rộng, thẻ kết quả) — cùng cách study-room.css đã làm cho
      phiếu ca. Đề bài / đáp án / giải thích từng ô giữ nguyên nhịp cũ.
    ============================================================ */
-.quiz-md-h { font-weight: 800; line-height: 1.35; color: var(--em-b, var(--ink-blossom)); margin: 0.1rem 0 0; }
-.quiz-md-h1 { font-size: 1.22em; }
-.quiz-md-h2 { font-size: 1.14em; }
-.quiz-md-h3 { font-size: 1.06em; }
-.quiz-md-h4 { font-size: 1em; letter-spacing: 0.01em; }
-.quiz-md-h + .quiz-md-gap { height: 0.4rem; }
+/* Kiểu tiêu đề #–######, đường kẻ ---, ==tô==, `mã`: dời về MD_CSS trong quiz-helpers.js (2026-11-03) — dùng chung mọi trang */
 /* .quiz-md-gap2 = khoảng do dòng TRỐNG sinh ra (parseMarkdown). Không dùng ".quiz-md-gap + .quiz-md-gap": dấu + bỏ qua chữ ở giữa
    -> ẩn nhầm mọi khoảng từ dòng thứ 3, các chặng 📌 🤔 ⚠️ / dòng What-if dính nhau (2026-10-20) */
 :is(#case-body, #case-peek-sheet .cps-body, .kb-body, .study-extra-body) .quiz-md-gap2 { display: none; }
