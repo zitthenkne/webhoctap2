@@ -118,11 +118,14 @@ function buildDock() {
             <button type="button" class="qt-x" data-act="close" data-tool="calc" title="Đóng máy tính" aria-label="Đóng máy tính"><i class="fas fa-times"></i></button>
         </header>
         <div class="qt-pane" data-pane="calc">
+            <div class="qt-brand" aria-hidden="true">
+                <span class="qt-model"><b>MEDI</b>CALC<small>SV-19</small></span>
+                <span class="qt-solar"><i></i><i></i><i></i><i></i></span>
+            </div>
             <div class="qt-lcd" title="Chạm vào máy tính rồi gõ phím được">
                 <div class="qt-lcd-top">
                     ${FACE_SVG}
                     <i class="fas fa-keyboard qt-kbd" title="Đang nhận phím từ bàn phím"></i>
-                    <span class="qt-solar" aria-hidden="true"></span>
                 </div>
                 <button type="button" class="qt-last" title="Bấm để dùng lại kết quả này" hidden></button>
                 <div class="qt-expr"></div>
