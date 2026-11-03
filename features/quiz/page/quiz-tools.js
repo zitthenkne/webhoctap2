@@ -109,8 +109,9 @@ function buildDock() {
         <header class="qt-head qt-drag" title="Nắm thanh này để kéo máy tính đi chỗ khác · bấm đúp để về chỗ cũ">
             <span class="qt-grab" aria-hidden="true"><i class="fas fa-grip-lines"></i></span>
             <div class="qt-tabs" role="tablist">
-                <button type="button" role="tab" data-tab="calc" aria-selected="true"><i class="fas fa-calculator"></i><span>Máy tính</span></button>
-                <button type="button" role="tab" data-tab="med" aria-selected="false"><i class="fas fa-notes-medical"></i><span>Công thức</span></button>
+                <button type="button" role="tab" data-tab="calc" aria-selected="true" title="Máy tính"><i class="fas fa-calculator"></i><span>Tính</span></button>
+                <button type="button" role="tab" data-tab="med" aria-selected="false" title="Công thức y khoa"><i class="fas fa-notes-medical"></i><span>Công thức</span></button>
+                <button type="button" role="tab" data-tab="conv" aria-selected="false" title="Đổi đơn vị xét nghiệm"><i class="fas fa-arrows-left-right"></i><span>Đơn vị</span></button>
             </div>
             <output class="qt-mini-read" aria-hidden="true"></output>
             <button type="button" class="qt-ib" data-act="mini" title="Thu gọn / mở lại máy tính" aria-label="Thu gọn máy tính" aria-pressed="false"><i class="fas fa-minus"></i></button>
@@ -118,15 +119,35 @@ function buildDock() {
         </header>
         <div class="qt-pane" data-pane="calc">
             <div class="qt-lcd" title="Chạm vào máy tính rồi gõ phím được">
-                <span class="qt-solar" aria-hidden="true"></span>
-                <i class="fas fa-keyboard qt-kbd" title="Đang nhận phím từ bàn phím"></i>
-                <div class="qt-hist" aria-label="Phép tính trước (bấm để dùng lại kết quả)"></div>
+                <div class="qt-lcd-top">
+                    ${FACE_SVG}
+                    <i class="fas fa-keyboard qt-kbd" title="Đang nhận phím từ bàn phím"></i>
+                    <span class="qt-solar" aria-hidden="true"></span>
+                </div>
+                <button type="button" class="qt-last" title="Bấm để dùng lại kết quả này" hidden></button>
                 <div class="qt-expr"></div>
                 <div class="qt-res" aria-live="polite"></div>
             </div>
-            <div class="qt-keys">${KEYS.map(k => `<button type="button" data-k="${k[0]}" class="${k[2] || ''}" aria-label="${k[3] || k[1]}">${k[1]}</button>`).join('')}</div>
+            <div class="qt-kwrap">
+                <div class="qt-crow">
+                    <button type="button" class="qt-pill qt-pill-sci" data-act="sci" aria-pressed="false" title="Hiện / ẩn hàng phím khoa học: ln, eˣ, π, x⁻¹, Ans"><i class="qt-fx" aria-hidden="true">f(x)</i><span>Khoa học</span></button>
+                    <button type="button" class="qt-pill" data-act="copy" title="Chép kết quả (Ctrl+C)"><i class="fas fa-copy" aria-hidden="true"></i><span>Chép</span></button>
+                    <button type="button" class="qt-pill" data-act="hist" aria-expanded="false" title="Các phép tính đã làm (phím H)"><i class="fas fa-clock-rotate-left" aria-hidden="true"></i><span>Lịch sử</span><b class="qt-badge" hidden></b></button>
+                </div>
+                <div class="qt-keys">${KEYS.map(k => `<button type="button" data-k="${k[0]}" class="${k[2] || ''}" aria-label="${k[3] || k[1]}">${k[1]}</button>`).join('')}</div>
+                <section class="qt-hsheet" hidden aria-label="Lịch sử phép tính">
+                    <header class="qt-hs-head">
+                        <b><i class="fas fa-clock-rotate-left" aria-hidden="true"></i> Lịch sử</b>
+                        <small>bấm một dòng để dùng lại</small>
+                        <button type="button" class="qt-hs-clr" data-act="hclr" title="Xóa hết lịch sử"><i class="fas fa-trash-can" aria-hidden="true"></i>Xóa</button>
+                        <button type="button" class="qt-hs-x" data-act="hist" title="Đóng lịch sử" aria-label="Đóng lịch sử"><i class="fas fa-times"></i></button>
+                    </header>
+                    <div class="qt-hs-list"></div>
+                </section>
+            </div>
         </div>
-        <div class="qt-pane qt-med" data-pane="med" hidden>${medHtml()}</div>`;
+        <div class="qt-pane qt-lp qt-med" data-pane="med" hidden>${medHtml()}</div>
+        <div class="qt-pane qt-lp qt-conv" data-pane="conv" hidden>${convHtml()}</div>`;
     document.body.appendChild(calcEl);
 }
 
@@ -167,7 +188,7 @@ function setOpen(tool, on) {
     layout();
     syncLaunchers();
     if (tool === 'scratch' && on) { fitSheet(); syncScratchPage(); }
-    if (tool === 'calc') { calcHot = on; syncHot(); if (on) showCalcAt(); }
+    if (tool === 'calc') { calcHot = on; syncHot(); if (on) { showCalcAt(); renderCalc(); } }
 }
 const toggle = (tool) => setOpen(tool, !openSet.has(tool));
 
@@ -1296,24 +1317,54 @@ function syncScratchPage() {
 }
 
 /* ================================================================ MÁY TÍNH */
+// Nâng cấp 2026-11-03:
+// - Bàn phím xếp lại cho thuận tay: cột trái = hàm (oải hương), giữa = số (trắng sữa), phải = phép tính (đào), AC + ⌫ cạnh nhau (hồng).
+//   Chip "Khoa học" bật thêm một hàng xanh trời: ln · eˣ · π · x⁻¹ · Ans (= kết quả phép trước, lưu đủ số lẻ).
+// - Bé mặt cười trên màn LCD: chớp mắt khi chờ, cười tít khi ra kết quả, nhăn mặt khi bấm sai, nháy mắt khi đã chép.
+// - % kiểu máy tính bỏ túi: 200 + 10% = 220, 200 × 10% = 20. Gõ dấu khi màn trống = tính tiếp từ Ans; gõ 2 dấu liền = đổi dấu.
+// - Ngoặc chưa đóng hiện mờ ở cuối · biểu thức dài tự thu nhỏ chữ · số dài nhóm 3 chữ số · số rất lớn / rất nhỏ ghi dạng ×10^n.
+// - Hàng nút có chữ: Khoa học · Chép (Ctrl+C) · Lịch sử (phím H) — lịch sử mở thành tờ giấy kẻ dòng phủ lên bàn phím,
+//   lưu 30 phép qua F5 và lần làm bài sau; trên màn LCD luôn thấy phép vừa làm, bấm vào là dùng lại.
+// - Tab Công thức / Đơn vị chia nhóm theo màu (Thận, Khí máu, Dịch · thuốc…), có ô tìm không dấu.
 // [phím, nhãn, lớp, nhãn đọc]
 const KEYS = [
-    ['AC', 'AC', 'is-ac', 'Xóa hết'], ['(', '(', 'is-fn', 'Mở ngoặc'], [')', ')', 'is-fn', 'Đóng ngoặc'], ['back', '⌫', 'is-fn', 'Xóa một ký tự'], ['÷', '÷', 'is-op', 'Chia'],
-    ['7', '7'], ['8', '8'], ['9', '9'], ['√', '√', 'is-fn', 'Căn bậc hai'], ['×', '×', 'is-op', 'Nhân'],
-    ['4', '4'], ['5', '5'], ['6', '6'], ['^2', 'x²', 'is-fn', 'Bình phương'], ['−', '−', 'is-op', 'Trừ'],
-    ['1', '1'], ['2', '2'], ['3', '3'], ['^', 'xʸ', 'is-fn', 'Lũy thừa'], ['+', '+', 'is-op', 'Cộng'],
-    ['0', '0'], ['.', '.', '', 'Dấu thập phân'], ['%', '%', 'is-fn', 'Phần trăm'], ['log(', 'log', 'is-fn', 'Logarit cơ số 10'], ['=', '=', 'is-eq', 'Bằng'],
+    ['ln(', 'ln', 'is-fn is-sci', 'Logarit tự nhiên'], ['e^(', 'eˣ', 'is-fn is-sci', 'e mũ x'], ['π', 'π', 'is-fn is-sci', 'Số pi'], ['⁻¹', 'x⁻¹', 'is-fn is-sci', 'Nghịch đảo'], ['Ans', 'Ans', 'is-fn is-sci', 'Kết quả trước'],
+    ['AC', 'AC', 'is-ac', 'Xóa hết'], ['back', '⌫', 'is-del', 'Xóa một ký tự (giữ để xóa hết)'], ['(', '(', 'is-fn', 'Mở ngoặc'], [')', ')', 'is-fn', 'Đóng ngoặc'], ['÷', '÷', 'is-op', 'Chia'],
+    ['^2', 'x²', 'is-fn', 'Bình phương'], ['7', '7'], ['8', '8'], ['9', '9'], ['×', '×', 'is-op', 'Nhân'],
+    ['^', 'xʸ', 'is-fn', 'Lũy thừa'], ['4', '4'], ['5', '5'], ['6', '6'], ['−', '−', 'is-op', 'Trừ'],
+    ['√', '√', 'is-fn', 'Căn bậc hai'], ['1', '1'], ['2', '2'], ['3', '3'], ['+', '+', 'is-op', 'Cộng'],
+    ['log(', 'log', 'is-fn', 'Logarit cơ số 10'], ['0', '0'], ['.', '.', '', 'Dấu thập phân'], ['%', '%', 'is-fn', 'Phần trăm'], ['=', '=', 'is-eq', 'Bằng'],
 ];
-let expr = '', justEq = false, calcHot = false;
-const hist = [];
+// Mặt cười: mỗi tâm trạng (data-mood) hiện một cặp mắt + miệng — CSS ẩn / hiện
+const FACE_SVG = `<svg class="qt-face" data-mood="idle" viewBox="0 0 30 20" aria-hidden="true">
+    <ellipse class="f-ck" cx="5.6" cy="12.6" rx="3" ry="1.8"/><ellipse class="f-ck" cx="24.4" cy="12.6" rx="3" ry="1.8"/>
+    <g class="f-e f-eo"><circle cx="9.6" cy="8" r="1.75"/><circle cx="20.4" cy="8" r="1.75"/></g>
+    <g class="f-e f-eh"><path d="M7.7 8.9q1.9-2.6 3.8 0M18.5 8.9q1.9-2.6 3.8 0"/></g>
+    <g class="f-e f-ex"><path d="M8.2 6.3l3 1.7-3 1.7M21.8 6.3l-3 1.7 3 1.7"/></g>
+    <g class="f-e f-ew"><circle cx="9.6" cy="8" r="1.75"/><path d="M18.5 8.4q1.9-1.3 3.8 0"/></g>
+    <path class="f-m f-ms" d="M12.6 12.1q2.4 2.7 4.8 0"/>
+    <path class="f-m f-mb" d="M12.2 11.5h5.6q-.3 3.6-2.8 3.6t-2.8-3.6z"/>
+    <path class="f-m f-mw" d="M11.8 13.6q.8-1.1 1.6 0t1.6 0 1.6 0 1.6 0"/>
+</svg>`;
+const TOKENS = ['log(', 'ln(', 'Ans', '⁻¹'];        // ⌫ xóa một lần cả cụm
+const PREFIX = ['√', 'log(', 'ln(', 'e^('];         // bấm ngay sau "=": bọc kết quả vừa ra, vd √(kết quả)
+const MAX_LEN = 160;
+let expr = '', justEq = false, calcHot = false, sci = ls.get('quiz_calc_sci') === '1', histOpen = false;
+let hist = [];
+try {
+    const h = JSON.parse(ls.get('quiz_calc_hist') || '[]');
+    hist = (Array.isArray(h) ? h : []).filter(x => x && typeof x.e === 'string' && typeof x.r === 'string' && Number.isFinite(x.v)).slice(-30);
+} catch (e) { hist = []; }
+const ans = () => (hist.length ? hist[hist.length - 1].v : 0);
+const saveHist = () => ls.set('quiz_calc_hist', JSON.stringify(hist));
 
-// Bộ tính biểu thức tự viết (không eval): + − × ÷ ^ % √ log ln, ngoặc thiếu tự đóng, "2(3)" = 2×3
+// Bộ tính biểu thức tự viết (không eval): + − × ÷ ^ % √ log ln x⁻¹ π e Ans, ngoặc thiếu tự đóng, "2(3)" = "2π" = nhân ngầm
 function calcEval(src) {
     const s = src.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-').replace(/,/g, '.').replace(/\s+/g, '');
     let i = 0;
-    const eat = (c) => (s[i] === c ? (i++, true) : false);
+    const eat = (c) => (s.startsWith(c, i) ? (i += c.length, true) : false);
     const num = () => {
-        const m = /^(\d+\.?\d*|\.\d+)(e[+-]?\d+)?/.exec(s.slice(i));
+        const m = /^(\d+\.?\d*|\.\d+)/.exec(s.slice(i));
         if (!m) throw new Error('cú pháp');
         i += m[0].length;
         return parseFloat(m[0]);
@@ -1321,11 +1372,14 @@ function calcEval(src) {
     const atom = () => {
         if (eat('(')) { const v = add(); eat(')'); return v; }
         if (eat('√')) return Math.sqrt(unary());
-        if (s.startsWith('log', i)) { i += 3; return Math.log10(unary()); }
-        if (s.startsWith('ln', i)) { i += 2; return Math.log(unary()); }
+        if (eat('log')) return Math.log10(unary());
+        if (eat('ln')) return Math.log(unary());
+        if (eat('Ans')) return ans();
+        if (eat('π')) return Math.PI;
+        if (eat('e')) return Math.E;
         return num();
     };
-    const post = () => { let v = atom(); while (eat('%')) v /= 100; return v; };
+    const post = () => { let v = atom(); for (;;) { if (eat('%')) v /= 100; else if (eat('⁻¹')) v = 1 / v; else return v; } };
     const pow = () => { const b = post(); return eat('^') ? Math.pow(b, unary()) : b; };
     const unary = () => (eat('-') ? -unary() : eat('+') ? unary() : pow());
     const mul = () => {
@@ -1333,62 +1387,171 @@ function calcEval(src) {
         for (;;) {
             if (eat('*')) v *= unary();
             else if (eat('/')) v /= unary();
-            else if (i < s.length && /[\d.(√l]/.test(s[i])) v *= unary();
+            else if (i < s.length && /[\d.(√lπeA]/.test(s[i])) v *= unary();
             else return v;
         }
     };
-    const add = () => { let v = mul(); for (;;) { if (eat('+')) v += mul(); else if (eat('-')) v -= mul(); else return v; } };
+    // a ± b% = a ± a × b/100 (như máy tính bỏ túi) — chỉ khi vế sau đúng là "số%"
+    const add = () => {
+        let v = mul();
+        for (;;) {
+            const sign = eat('+') ? 1 : eat('-') ? -1 : 0;
+            if (!sign) return v;
+            const st = i, t = mul();
+            v += sign * (/^(\d+\.?\d*|\.\d+)%$/.test(s.slice(st, i)) ? v * t : t);
+        }
+    };
     if (!s) throw new Error('trống');
     const v = add();
     if (i < s.length) throw new Error('cú pháp');
     return v;
 }
-const fmtNum = (v) => (Number.isFinite(v) ? String(+v.toPrecision(12)) : 'Lỗi');
+// Kết quả -> chuỗi gõ lại được: 12 chữ số có nghĩa, dấu trừ "−", số mũ ghi ×10^n (không dùng "e" vì e là hằng số)
+function fmtNum(v) {
+    if (!Number.isFinite(v)) return 'Lỗi';
+    let t = String(+v.toPrecision(12));
+    const m = /^(-?[\d.]+)e([+-])(\d+)$/.exec(t);
+    if (m) t = `${m[1]}×10^${m[2] === '-' ? '−' : ''}${m[3]}`;
+    return t.replace(/^-/, '−');
+}
 const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const tryEval = (t) => { try { const r = fmtNum(calcEval(t)); return r === 'Lỗi' ? '' : r; } catch (e) { return ''; } };
 
 function calcPress(k) {
     if (k === 'AC') { expr = ''; justEq = false; }
-    else if (k === 'back') { expr = /log\($/.test(expr) ? expr.slice(0, -4) : expr.slice(0, -1); justEq = false; }
-    else if (k === '=') {
-        if (!expr) return;
-        let r;
-        try { r = fmtNum(calcEval(expr)); } catch (e) { r = 'Lỗi'; }
-        if (r === 'Lỗi') {
-            calcEl.querySelector('.qt-res').textContent = 'Phép tính chưa đúng';
-            flash(calcEl.querySelector('.qt-lcd'), 'is-err');
-            return;
-        }
-        hist.push({ e: expr, r }); if (hist.length > 30) hist.shift();
+    else if (k === 'back') {
+        const t = TOKENS.find(x => expr.endsWith(x));
+        expr = expr.slice(0, -(t ? t.length : 1));
+        justEq = false;
+    } else if (k === '=') {
+        if (!expr || justEq) return;
+        let v = NaN;
+        try { v = calcEval(expr); } catch (e) { }
+        const r = fmtNum(v);
+        if (r === 'Lỗi') { showMsg(Number.isNaN(v) ? 'Phép tính chưa đúng' : 'Kết quả vô cực (chia cho 0?)', 'is-err'); flash(calcEl.querySelector('.qt-lcd'), 'is-err'); return; }
+        hist.push({ e: expr, r, v }); if (hist.length > 30) hist.shift();
+        saveHist();
         expr = r; justEq = true;
         renderCalc();
         flash(calcEl.querySelector('.qt-expr'), 'is-pop');
         return;
     } else {
-        if (justEq && (k === '√' || k === 'log(')) { expr = k + expr; justEq = false; renderCalc(); return; }   // √ / log của kết quả vừa ra
-        const isOp = /^[+−×÷^%)]/.test(k);
+        if (justEq && PREFIX.includes(k)) { expr = (k.endsWith('(') ? k : k + '(') + expr + ')'; justEq = false; renderCalc(); return; }
+        const isOp = /^([+−×÷^%)]|⁻¹)/.test(k);
+        if (justEq && /^(\^|⁻¹|%)/.test(k) && !/^[\d.]+$/.test(expr)) expr = '(' + expr + ')';   // (−5)², (1,5×10^21)²
         if (justEq && !isOp) expr = '';   // vừa ra kết quả: gõ số mới là phép tính mới, gõ dấu là tính tiếp
         justEq = false;
+        if (!expr && /^([+×÷^%]|⁻¹)/.test(k)) { if (!hist.length) return; expr = 'Ans'; }   // màn trống + gõ dấu: tính tiếp từ Ans
+        if (/^[+×÷^]$/.test(k)) {   // 2 dấu liền: dấu sau thay dấu trước (5 + × -> 5 ×)
+            expr = expr.replace(/[+−×÷^]+$/, '');
+            if (!expr) return;
+        } else if (k === '−' && /[+−]$/.test(expr)) expr = expr.slice(0, -1);   // − sau × ÷ ^ là số âm thì giữ
+        if (k === '.') {
+            const m = /[\d.]*$/.exec(expr)[0];
+            if (m.includes('.')) return;   // một số chỉ có một dấu thập phân
+            if (!m) k = '0.';
+        }
+        if (expr.length + k.length > MAX_LEN) { showMsg('Dài quá rồi, bấm = trước nhé', 'is-err'); flash(calcEl.querySelector('.qt-lcd'), 'is-err'); return; }
         expr += k;
     }
     renderCalc();
 }
+// Dán một kết quả cũ (bấm dòng lịch sử) vào biểu thức đang gõ: sau số thì tự nhân, số âm / dạng ×10^n thì bọc ngoặc
+function insertVal(r) {
+    if (justEq) expr = '';
+    justEq = false;
+    if (expr && /([\d.)π%e]|Ans|⁻¹)$/.test(expr)) expr += '×';
+    expr += expr && /^−|×/.test(r) ? '(' + r + ')' : r;
+    renderCalc();
+}
 // Chạy lại một hiệu ứng ngắn (gỡ lớp -> ép vẽ -> gắn lại)
 function flash(el, cls) { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
-const opHtml = (t) => esc(t).replace(/log|[+−×÷^%()√]/g, (m) => `<span class="op">${m}</span>`);
+// Hiển thị: nhóm 3 chữ số (khoảng hẹp, chỉ để nhìn — chép / tính vẫn là số trơn), tô màu dấu & hàm
+const lcdHtml = (t) => esc(t)
+    .replace(/(^|[^\d.])(\d{4,})/g, (m, a, d) => a + d.replace(/\B(?=(\d{3})+$)/g, ' '))
+    .replace(/log|ln|Ans|⁻¹|[+−×÷^%()√π]/g, (m) => `<span class="op">${m}</span>`);
+
+const setMood = (m) => { const f = calcEl.querySelector('.qt-face'); if (f && f.dataset.mood !== m) f.dataset.mood = m; };
+let msgT = 0;
+function showMsg(t, cls) {
+    const r = calcEl.querySelector('.qt-res');
+    clearTimeout(msgT);
+    r.textContent = t; r.className = 'qt-res ' + cls;
+    setMood(cls === 'is-ok' ? 'wink' : 'oops');
+    msgT = setTimeout(renderCalc, 1600);
+}
 function renderCalc() {
-    const ex = calcEl.querySelector('.qt-expr');
-    ex.innerHTML = expr ? opHtml(expr) : '0';
-    ex.scrollLeft = ex.scrollWidth;   // biểu thức dài: luôn thấy phần cuối đang gõ
-    let prev = '';
-    if (expr && !justEq && /[^\d.]/.test(expr)) { try { const v = fmtNum(calcEval(expr)); if (v !== 'Lỗi') prev = '= ' + v; } catch (e) { } }
-    calcEl.querySelector('.qt-res').textContent = justEq ? '' : prev;
+    if (!calcEl) return;
+    clearTimeout(msgT);
+    const ex = calcEl.querySelector('.qt-expr'), res = calcEl.querySelector('.qt-res');
+    const open = (expr.match(/\(/g) || []).length - (expr.match(/\)/g) || []).length;
+    ex.innerHTML = (expr ? lcdHtml(expr) : '<span class="qt-zero">0</span>') + (open > 0 && !justEq ? `<span class="ghost" aria-hidden="true">${')'.repeat(Math.min(open, 6))}</span>` : '');
     ex.classList.toggle('is-result', justEq);
-    calcEl.querySelector('.qt-mini-read').textContent = justEq || !prev ? (expr || '0') : prev;
-    const h = calcEl.querySelector('.qt-hist');
-    h.innerHTML = hist.length
-        ? hist.map(x => `<button type="button" data-v="${esc(x.r)}">${opHtml(x.e)} = <b>${esc(x.r)}</b></button>`).join('')
-        : '<span class="qt-hist-empty">Phép tính đã làm hiện ở đây</span>';
-    h.scrollTop = h.scrollHeight;
+    // Dài quá: thu chữ (tối đa còn 55%), vẫn dài thì cuộn tới phần cuối đang gõ
+    ex.style.fontSize = '';
+    if (ex.clientWidth && ex.scrollWidth > ex.clientWidth + 1) {
+        const base = parseFloat(getComputedStyle(ex).fontSize) || 24;
+        ex.style.fontSize = Math.max(base * 0.55, base * ex.clientWidth / ex.scrollWidth * 0.97).toFixed(1) + 'px';
+    }
+    ex.scrollLeft = ex.scrollWidth;
+    const prev = expr && !justEq && /[^\d.]/.test(expr.replace(/^−/, '')) ? tryEval(expr) : '';
+    res.className = 'qt-res' + (prev ? ' is-prev' : '');
+    res.innerHTML = prev ? `<span class="qt-eq">=</span> ${lcdHtml(prev)}` : '';
+    calcEl.querySelector('.qt-mini-read').textContent = prev ? '= ' + prev : (expr || '0');
+    calcEl.querySelector('.qt-lcd').classList.remove('is-err');
+    setMood(justEq ? 'happy' : 'idle');
+    // Dòng "phép vừa làm" trên màn: phép cuối trong lịch sử (đang xem kết quả của chính nó thì thôi, đỡ lặp)
+    const last = hist[hist.length - 1], lb = calcEl.querySelector('.qt-last');
+    const showLast = !!last && !(justEq && expr === last.r);
+    lb.hidden = !showLast;
+    if (showLast) { lb.dataset.v = last.r; lb.innerHTML = `${lcdHtml(last.e)} = <b>${lcdHtml(last.r)}</b>`; }
+    else if (last && justEq) { lb.hidden = false; lb.removeAttribute('data-v'); lb.innerHTML = `${lcdHtml(last.e)} =`; }
+    // Tờ lịch sử: mới nhất trên cùng
+    calcEl.querySelector('.qt-hs-list').innerHTML = hist.length
+        ? hist.map(x => `<button type="button" data-v="${esc(x.r)}"><span>${lcdHtml(x.e)}</span><b>= ${lcdHtml(x.r)}</b></button>`).reverse().join('')
+        : '<p class="qt-hs-empty">Chưa có phép tính nào<small>bấm = là phép tính được ghi vào đây</small></p>';
+    calcEl.querySelector('.qt-hs-clr').disabled = !hist.length;
+    const badge = calcEl.querySelector('.qt-badge');
+    badge.hidden = !hist.length; badge.textContent = hist.length;
+    calcEl.classList.toggle('is-sci', sci);
+    calcEl.querySelector('[data-act="sci"]').setAttribute('aria-pressed', String(sci));
+    calcEl.querySelector('.qt-crow [data-act="copy"]').disabled = !expr;
+}
+function setHist(on) {
+    histOpen = on;
+    calcEl.querySelector('.qt-hsheet').hidden = !on;
+    calcEl.querySelector('.qt-crow [data-act="hist"]').setAttribute('aria-expanded', String(on));
+    if (on) calcEl.querySelector('.qt-hs-list').scrollTop = 0;
+}
+
+function copyText(t) {
+    const fallback = () => {
+        const ta = document.createElement('textarea');
+        ta.value = t; ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+        document.body.appendChild(ta); ta.select();
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) { }
+        ta.remove();
+        return ok ? Promise.resolve() : Promise.reject(new Error('copy'));
+    };
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(t).catch(fallback);
+    return fallback();
+}
+// Chép kết quả (đang gõ dở thì chép giá trị xem trước); dấu trừ thường để dán sang chỗ khác vẫn hiểu
+function copyResult() {
+    const t = (justEq ? expr : tryEval(expr) || expr).replace(/−/g, '-');
+    if (!t) return;
+    copyText(t).then(() => { showMsg('Đã chép ' + t, 'is-ok'); buzz(10); }, () => showMsg('Không chép được', 'is-err'));
+}
+
+function setTab(name, place = true) {
+    if (!calcEl.querySelector(`[data-pane="${name}"]`)) name = 'calc';
+    calcEl.querySelectorAll('[data-tab]').forEach(t => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
+    calcEl.querySelectorAll('[data-pane]').forEach(p => { p.hidden = p.dataset.pane !== name; });
+    ls.set('quiz_calc_tab', name);
+    if (name === 'calc') renderCalc();
+    if (place) placeCalc(...(calcPos || [calcEl.offsetLeft, calcEl.offsetTop]));
 }
 
 function setupCalc() {
@@ -1405,71 +1568,167 @@ function setupCalc() {
         calcHot = true; syncHot();
         if (lpDone && b.dataset.k === 'back') { lpDone = false; return; }   // vừa giữ ⌫ để xóa hết
         if (b.dataset.k) buzz();
-        if (b.dataset.act === 'mini') {
+        const act = b.dataset.act;
+        if (act === 'mini') {
             const mini = calcEl.classList.toggle('is-mini');
             b.setAttribute('aria-pressed', String(mini));
             b.firstElementChild.className = 'fas ' + (mini ? 'fa-plus' : 'fa-minus');
             placeCalc(...(calcPos || [calcEl.offsetLeft, calcEl.offsetTop]));   // mở lại khi đang sát đáy: đẩy lên cho vừa màn
-        } else if (b.dataset.k) calcPress(b.dataset.k);
-        else if (b.dataset.v) { if (justEq || !expr) expr = ''; justEq = false; expr += b.dataset.v; renderCalc(); }
-        else if (b.dataset.tab) {
-            calcEl.querySelectorAll('[data-tab]').forEach(t => t.setAttribute('aria-selected', String(t === b)));
-            calcEl.querySelectorAll('[data-pane]').forEach(p => { p.hidden = p.dataset.pane !== b.dataset.tab; });
+        } else if (act === 'sci') {
+            sci = !sci; ls.set('quiz_calc_sci', sci ? '1' : '');
+            renderCalc();
             placeCalc(...(calcPos || [calcEl.offsetLeft, calcEl.offsetTop]));
-        }
+        } else if (act === 'copy') copyResult();
+        else if (act === 'hist') setHist(!histOpen);
+        else if (act === 'hclr') { hist = []; saveHist(); renderCalc(); }
+        else if (b.dataset.k) calcPress(b.dataset.k);
+        else if (b.dataset.v) { insertVal(b.dataset.v); if (histOpen) setHist(false); }
+        else if (b.dataset.tab) setTab(b.dataset.tab);
     });
     // "Đang dùng máy tính" = lần chạm gần nhất nằm trong máy tính -> phím số / phép tính vào máy tính, không chọn đáp án
     document.addEventListener('pointerdown', (e) => { calcHot = !!(e.target.closest && e.target.closest('#qt-calc')); syncHot(); }, true);
     window.addEventListener('keydown', (e) => {
-        if (!calcHot || calcEl.hidden || calcEl.classList.contains('is-mini') || e.ctrlKey || e.metaKey || e.altKey || typing()) return;
+        if (!calcHot || calcEl.hidden || calcEl.classList.contains('is-mini') || e.altKey || typing()) return;
         if (calcEl.querySelector('[data-pane="calc"]').hidden) return;
-        const map = { '*': '×', 'x': '×', '/': '÷', '-': '−', ',': '.', 'Enter': '=', '=': '=', 'Backspace': 'back', 'Delete': 'AC' };
+        if (e.ctrlKey || e.metaKey) {   // Ctrl/⌘ + C khi không bôi đen gì: chép kết quả
+            if (e.key.toLowerCase() === 'c' && !String(window.getSelection ? getSelection() : '')) { e.preventDefault(); e.stopImmediatePropagation(); copyResult(); }
+            return;
+        }
+        if (e.key === 'Escape') {   // Esc: đóng tờ lịch sử trước, lần nữa mới thôi nhận phím
+            if (histOpen) { setHist(false); e.stopImmediatePropagation(); } else { calcHot = false; syncHot(); }
+            return;
+        }
+        if (e.key === 'h' || e.key === 'H') { e.preventDefault(); e.stopImmediatePropagation(); setHist(!histOpen); return; }
+        const map = {
+            '*': '×', 'x': '×', '/': '÷', ':': '÷', '-': '−', ',': '.', 'Enter': '=', '=': '=', 'Backspace': 'back', 'Delete': 'AC', 'c': 'AC',
+            'p': 'π', 'a': 'Ans', 'r': '√', 'n': 'ln(', 'e': 'e',
+        };
         const k = map[e.key] || (/^[\d.+()^%]$/.test(e.key) ? e.key : '');
-        if (e.key === 'Escape') { calcHot = false; syncHot(); return; }
         if (!k) return;
         e.preventDefault(); e.stopImmediatePropagation();
+        if (histOpen) setHist(false);
         calcPress(k);
+        const key = calcEl.querySelector(`.qt-keys [data-k="${k}"]`);
+        if (key) flash(key, 'is-tap');   // phím trên màn nháy theo phím gõ
     }, true);
-    ['input', 'change'].forEach(t => calcEl.querySelector('.qt-med').addEventListener(t, onMedInput));
+    const med = calcEl.querySelector('.qt-med'), conv = calcEl.querySelector('.qt-conv');
+    ['input', 'change'].forEach(t => med.addEventListener(t, onMedInput));
+    conv.addEventListener('input', onConvInput);
+    [med, conv].forEach(p => p.addEventListener('input', onSearch));
+    // Bấm vào kết quả công thức (viên tròn cạnh tên) = chép, không đóng / mở mẩu giấy
+    med.addEventListener('click', (e) => {
+        const o = e.target.closest('.qt-f-out');
+        if (!o || !o.textContent) return;
+        e.preventDefault();
+        copyText(o.textContent).then(() => { o.classList.remove('is-copied'); void o.offsetWidth; o.classList.add('is-copied'); buzz(10); }, () => { });
+    });
+    setTab(ls.get('quiz_calc_tab') || 'calc', false);
     renderCalc();
 }
 function syncHot() { if (calcEl) calcEl.classList.toggle('is-hot', calcHot && !calcEl.hidden); }
 
+/* ---------------------------------------------------------------- Ô tìm + nhóm màu (tab Công thức / Đơn vị) */
+const norm = (t) => String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase();
+const searchHtml = (ph) => `<label class="qt-in qt-search"><i class="fas fa-magnifying-glass" aria-hidden="true"></i><input type="text" enterkeyhint="search" autocomplete="off" spellcheck="false" placeholder="${ph}" aria-label="${ph}" data-search></label>`;
+// Mỗi nhóm một màu kẹo: mẩu giấy trong nhóm cùng màu với nhãn nhóm
+const groupHtml = (name, hue, inner) => `<section class="qt-grp" style="--n: var(${hue})"><h4 class="qt-gh">${name}</h4>${inner}</section>`;
+function onSearch(e) {
+    const inp = e.target;
+    if (!inp.matches || !inp.matches('[data-search]')) return;
+    const pane = inp.closest('.qt-lp'), q = norm(inp.value.trim()).split(/\s+/).filter(Boolean);
+    let n = 0;
+    pane.querySelectorAll('[data-q]').forEach(el => {
+        const hit = q.every(w => el.dataset.q.includes(w));
+        el.hidden = !hit;
+        if (hit) n++;
+    });
+    pane.querySelectorAll('.qt-grp').forEach(g => { g.hidden = !g.querySelector('[data-q]:not([hidden])'); });
+    pane.querySelector('.qt-none').hidden = n > 0;
+}
+
 /* ---------------------------------------------------------------- Công thức y khoa */
 // Ô cùng tên dùng chung giữa các công thức (gõ cân nặng ở BMI là Cockcroft–Gault cũng có). Đơn vị SI như xét nghiệm trong nước.
+// g nhóm · n tên · a từ khóa tìm thêm · s công thức · i ô nhập · o ô không bắt buộc (bỏ trống = 0) · r kết quả · note ghi chú
+const MED_GROUPS = [
+    ['nt', 'Nhân trắc', '--hue-peach'], ['than', 'Thận', '--hue-sky'], ['tm', 'Tim mạch', '--hue-blossom'], ['km', 'Khí máu', '--hue-mint'],
+    ['dg', 'Điện giải', '--hue-butter'], ['lip', 'Mỡ máu', '--hue-latte'], ['dt', 'Dịch · thuốc', '--hue-lav'],
+];
 const MED = [
-    { n: 'BMI', s: 'cân nặng ÷ (chiều cao m)²', i: ['kg', 'cm'],
+    { g: 'nt', n: 'BMI', a: 'chi so khoi co the', s: 'cân nặng ÷ (chiều cao m)²', i: ['kg', 'cm'],
         r: (v) => { const b = v.kg / (v.cm / 100) ** 2; return `${fx(b, 1)} kg/m² · ${b < 18.5 ? 'gầy' : b < 23 ? 'bình thường' : b < 25 ? 'thừa cân' : b < 30 ? 'béo phì độ I' : 'béo phì độ II'}`; },
         note: 'Phân loại IDI & WPRO cho người châu Á' },
-    { n: 'Diện tích da (Mosteller)', s: '√(chiều cao cm × cân nặng kg ÷ 3600)', i: ['kg', 'cm'], r: (v) => `${fx(Math.sqrt(v.cm * v.kg / 3600), 2)} m²` },
-    { n: 'Độ thanh thải creatinin (Cockcroft–Gault)', s: '(140 − tuổi) × kg ÷ (0,815 × Cr) · nữ × 0,85', i: ['age', 'kg', 'cr', 'nu'],
+    { g: 'nt', n: 'Diện tích da (Mosteller)', a: 'bsa', s: '√(chiều cao cm × cân nặng kg ÷ 3600)', i: ['kg', 'cm'], r: (v) => `${fx(Math.sqrt(v.cm * v.kg / 3600), 2)} m²` },
+    { g: 'nt', n: 'Cân nặng lý tưởng (Devine)', a: 'ibw abw adjbw hieu chinh', s: 'nam 50 · nữ 45,5 + 0,91 × (cao cm − 152,4) · hiệu chỉnh = IBW + 0,4 × (thực − IBW)', i: ['cm', 'nu', 'kg'], o: ['kg'],
+        r: (v) => { const ibw = (v.nu ? 45.5 : 50) + 0.91 * (v.cm - 152.4); return `IBW ${fx(ibw, 1)} kg` + (v.kg > ibw * 1.2 ? ` · AdjBW ${fx(ibw + 0.4 * (v.kg - ibw), 1)} kg` : ''); },
+        note: 'Cân nặng hiệu chỉnh (AdjBW) chỉ hiện khi cân nặng thực > 120% IBW' },
+    { g: 'than', n: 'eGFR (CKD-EPI 2021)', a: 'mlcl muc loc cau than creatinin suy than man', s: '142 × min(Scr/κ, 1)^α × max(Scr/κ, 1)^−1,2 × 0,9938^tuổi × 1,012 (nữ)', i: ['cr', 'age', 'nu'],
+        r: (v) => {
+            const k = v.nu ? 0.7 : 0.9, al = v.nu ? -0.241 : -0.302, x = v.cr / 88.4 / k;
+            const g = 142 * Math.min(x, 1) ** al * Math.max(x, 1) ** -1.2 * 0.9938 ** v.age * (v.nu ? 1.012 : 1);
+            return `${fx(g, 0)} mL/ph/1,73m² · ${g >= 90 ? 'G1' : g >= 60 ? 'G2' : g >= 45 ? 'G3a' : g >= 30 ? 'G3b' : g >= 15 ? 'G4' : 'G5'}`;
+        },
+        note: 'Nhập Cr µmol/L (tự đổi sang mg/dL) · bản 2021 bỏ hệ số chủng tộc' },
+    { g: 'than', n: 'Độ thanh thải creatinin (Cockcroft–Gault)', a: 'clcr chinh lieu thuoc', s: '(140 − tuổi) × kg ÷ (0,815 × Cr) · nữ × 0,85', i: ['age', 'kg', 'cr', 'nu'],
         r: (v) => `${fx((140 - v.age) * v.kg / (0.815 * v.cr) * (v.nu ? 0.85 : 1), 0)} mL/phút` },
-    { n: 'Huyết áp trung bình', s: '(HA tâm thu + 2 × HA tâm trương) ÷ 3', i: ['sys', 'dia'], r: (v) => `${fx((v.sys + 2 * v.dia) / 3, 0)} mmHg` },
-    { n: 'Khoảng trống anion', s: 'Na − (Cl + HCO₃) · hiệu chỉnh: + 0,25 × (40 − albumin)', i: ['na', 'cl', 'hco3', 'albo'],
+    { g: 'tm', n: 'Huyết áp trung bình', a: 'map', s: '(HA tâm thu + 2 × HA tâm trương) ÷ 3', i: ['sys', 'dia'], r: (v) => `${fx((v.sys + 2 * v.dia) / 3, 0)} mmHg` },
+    { g: 'tm', n: 'QT hiệu chỉnh (QTc)', a: 'bazett fridericia ecg dien tim', s: 'Bazett QT ÷ √RR · Fridericia QT ÷ ∛RR · RR = 60 ÷ nhịp tim (giây)', i: ['qt', 'hr'],
+        r: (v) => { const rr = 60 / v.hr; return `Bazett ${fx(v.qt / Math.sqrt(rr), 0)} · Fridericia ${fx(v.qt / Math.cbrt(rr), 0)} ms`; },
+        note: 'Dài khi > 450 ms (nam) / > 470 ms (nữ) · > 500 ms: nguy cơ xoắn đỉnh' },
+    { g: 'km', n: 'PaCO₂ dự kiến (Winter)', a: 'toan chuyen hoa bu tru', s: '1,5 × HCO₃ + 8 ± 2', i: ['hco3'],
+        r: (v) => { const p = 1.5 * v.hco3 + 8; return `${fx(p - 2, 0)}–${fx(p + 2, 0)} mmHg`; },
+        note: 'Toan chuyển hóa: PaCO₂ đo cao hơn = kèm toan hô hấp, thấp hơn = kèm kiềm hô hấp' },
+    { g: 'km', n: 'Tỉ số P/F', a: 'pf pao2 fio2 ards berlin ho hap', s: 'PaO₂ ÷ FiO₂', i: ['pao2', 'fio2'],
+        r: (v) => { const pf = v.pao2 / (v.fio2 / 100); return `${fx(pf, 0)} · ${pf > 300 ? 'bình thường' : pf > 200 ? 'ARDS nhẹ' : pf > 100 ? 'ARDS vừa' : 'ARDS nặng'}`; },
+        note: 'Phân độ ARDS theo Berlin (khi PEEP ≥ 5 cmH₂O) · khí trời FiO₂ = 21%' },
+    { g: 'km', n: 'Chênh áp O₂ phế nang – động mạch (A–a)', a: 'aa gradient ho hap', s: 'PAO₂ = FiO₂ × 713 − PaCO₂ ÷ 0,8 · A–a = PAO₂ − PaO₂', i: ['fio2', 'pao2', 'paco2', 'age'], o: ['age'],
+        r: (v) => { const g = v.fio2 / 100 * 713 - v.paco2 / 0.8 - v.pao2; return `${fx(g, 0)} mmHg` + (v.age ? ` · bình thường ≤ ${fx(v.age / 4 + 4, 0)}` : ''); },
+        note: 'Ở mực nước biển · nhập tuổi để có mức bình thường (tuổi ÷ 4 + 4)' },
+    { g: 'dg', n: 'Khoảng trống anion', a: 'anion gap toan chuyen hoa', s: 'Na − (Cl + HCO₃) · hiệu chỉnh: + 0,25 × (40 − albumin)', i: ['na', 'cl', 'hco3', 'albo'], o: ['albo'],
         r: (v) => { const ag = v.na - v.cl - v.hco3; return `${fx(ag, 1)} mmol/L` + (v.albo ? ` · hiệu chỉnh ${fx(ag + 0.25 * (40 - v.albo), 1)}` : ''); } },
-    { n: 'Canxi hiệu chỉnh theo albumin', s: 'Ca + 0,02 × (40 − albumin g/L)', i: ['ca', 'alb'], r: (v) => `${fx(v.ca + 0.02 * (40 - v.alb), 2)} mmol/L` },
-    { n: 'Áp lực thẩm thấu máu', s: '2 × Na + glucose + urê', i: ['na', 'glu', 'ure'], r: (v) => `${fx(2 * v.na + v.glu + v.ure, 0)} mOsm/kg` },
+    { g: 'dg', n: 'Canxi hiệu chỉnh theo albumin', a: 'calci', s: 'Ca + 0,02 × (40 − albumin g/L)', i: ['ca', 'alb'], r: (v) => `${fx(v.ca + 0.02 * (40 - v.alb), 2)} mmol/L` },
+    { g: 'dg', n: 'Na hiệu chỉnh theo glucose', a: 'natri tang duong huyet katz hillier', s: 'Na + 1,6 × (glucose mg/dL − 100) ÷ 100', i: ['na', 'glu'],
+        r: (v) => { const d = (v.glu * 18.016 - 100) / 100; return `${fx(v.na + 1.6 * d, 1)} mmol/L · Hillier ${fx(v.na + 2.4 * d, 1)}`; },
+        note: 'Nhập glucose mmol/L (tự đổi) · hệ số Katz 1,6 / Hillier 2,4' },
+    { g: 'dg', n: 'Áp lực thẩm thấu máu', a: 'osm', s: '2 × Na + glucose + urê', i: ['na', 'glu', 'ure'], r: (v) => `${fx(2 * v.na + v.glu + v.ure, 0)} mOsm/kg` },
+    { g: 'dg', n: 'Lượng nước thiếu (tăng Na máu)', a: 'free water deficit natri', s: 'TBW × (Na ÷ 140 − 1) · TBW = 0,6 × kg (nữ 0,5)', i: ['na', 'kg', 'nu'],
+        r: (v) => (v.na <= 140 ? 'Na ≤ 140: không thiếu nước' : `${fx(v.kg * (v.nu ? 0.5 : 0.6) * (v.na / 140 - 1), 1)} L`),
+        note: 'Người già: nam 0,5 · nữ 0,45 · hạ Na không quá 10–12 mmol/L mỗi 24 giờ' },
+    { g: 'lip', n: 'LDL-C (Friedewald)', a: 'lipid cholesterol', s: 'TC − HDL − TG ÷ 2,2 (mmol/L)', i: ['tc', 'hdl', 'tg'],
+        r: (v) => (v.tg >= 4.5 ? 'TG ≥ 4,5: không dùng được' : `${fx(v.tc - v.hdl - v.tg / 2.2, 2)} mmol/L`) },
+    { g: 'dt', n: 'Dịch duy trì (Holliday–Segar 4-2-1)', a: 'nhi dich truyen', s: '10 kg đầu 4 mL/kg/giờ · 10 kg kế 2 · phần còn lại 1', i: ['kg'],
+        r: (v) => { const h = v.kg <= 10 ? 4 * v.kg : v.kg <= 20 ? 40 + 2 * (v.kg - 10) : 60 + (v.kg - 20); return `${fx(h, 0)} mL/giờ · ${fx(h * 24, 0)} mL/ngày`; } },
+    { g: 'dt', n: 'Bù dịch bỏng (Parkland)', a: 'bong burn ringer dich truyen', s: '4 mL × kg × %TBSA trong 24 giờ · một nửa trong 8 giờ đầu', i: ['kg', 'tbsa'],
+        r: (v) => { const t = 4 * v.kg * v.tbsa; return `${fx(t, 0)} mL/24h · 8h đầu ${fx(t / 16, 0)} mL/giờ`; },
+        note: 'Tính 8 giờ từ lúc bị bỏng, không phải lúc nhập viện' },
+    { g: 'dt', n: 'Liều theo cân nặng', a: 'thuoc mg kg', s: 'liều mg/kg × cân nặng', i: ['mgkg', 'kg'], r: (v) => `${fx(v.mgkg * v.kg, 1)} mg` },
+    { g: 'dt', n: 'Tốc độ bơm tiêm điện', a: 'mcg kg phut ml gio truyen thuoc van mach noradrenalin dobutamin', s: 'liều mcg/kg/phút × kg × 60 ÷ (nồng độ mg/mL × 1000)', i: ['mcg', 'kg', 'conc'],
+        r: (v) => `${fx(v.mcg * v.kg * 60 / (v.conc * 1000), 1)} mL/giờ` },
 ];
 // [nhãn, đơn vị]  (albo = albumin không bắt buộc; dùng chung giá trị với alb)
 const FIELDS = {
     kg: ['Cân nặng', 'kg'], cm: ['Chiều cao', 'cm'], age: ['Tuổi', 'năm'], cr: ['Creatinin', 'µmol/L'], nu: ['Nữ', ''],
     sys: ['HA tâm thu', 'mmHg'], dia: ['HA tâm trương', 'mmHg'], na: ['Na⁺', 'mmol/L'], cl: ['Cl⁻', 'mmol/L'], hco3: ['HCO₃⁻', 'mmol/L'],
-    alb: ['Albumin', 'g/L'], albo: ['Albumin (nếu có)', 'g/L'], ca: ['Ca toàn phần', 'mmol/L'], glu: ['Glucose', 'mmol/L'], ure: ['Urê', 'mmol/L'],
+    alb: ['Albumin', 'g/L'], albo: ['Albumin', 'g/L'], ca: ['Ca toàn phần', 'mmol/L'], glu: ['Glucose', 'mmol/L'], ure: ['Urê', 'mmol/L'],
+    qt: ['QT', 'ms'], hr: ['Nhịp tim', 'l/ph'], pao2: ['PaO₂', 'mmHg'], paco2: ['PaCO₂', 'mmHg'], fio2: ['FiO₂', '%'], tbsa: ['Diện tích bỏng', '%'],
+    tc: ['Cholesterol TP', 'mmol/L'], hdl: ['HDL-C', 'mmol/L'], tg: ['Triglycerid', 'mmol/L'],
+    mgkg: ['Liều', 'mg/kg'], mcg: ['Liều', 'mcg/kg/ph'], conc: ['Nồng độ', 'mg/mL'],
 };
 const fx = (v, d) => (Number.isFinite(v) ? v.toFixed(d).replace('.', ',') : '—');
 const fieldKey = (k) => (k === 'albo' ? 'alb' : k);
 const medVals = {};
 
 function medHtml() {
-    return MED.map((f, idx) => `
-        <details class="qt-f" data-f="${idx}">
-            <summary><span>${f.n}</span><output class="qt-f-out"></output></summary>
+    const one = (f, idx) => `
+        <details class="qt-f" data-f="${idx}" data-q="${esc(norm(f.n + ' ' + (f.a || '') + ' ' + MED_GROUPS.find(g => g[0] === f.g)[1]))}">
+            <summary><span>${f.n}</span><output class="qt-f-out" title="Bấm để chép kết quả"></output></summary>
             <p class="qt-f-s">${f.s}</p>
             <div class="qt-f-in">${f.i.map(k => k === 'nu'
                 ? `<label class="qt-f-chk"><input type="checkbox" data-k="nu"><span>Nữ</span></label>`
-                : `<label><span>${FIELDS[k][0]}</span><span class="qt-in"><input type="text" inputmode="decimal" autocomplete="off" size="4" data-k="${fieldKey(k)}" aria-label="${FIELDS[k][0]}"><em>${FIELDS[k][1]}</em></span></label>`).join('')}</div>
+                : `<label><span>${FIELDS[k][0]}${(f.o || []).includes(k) ? ' <i class="qt-opt">nếu có</i>' : ''}</span><span class="qt-in"><input type="text" inputmode="decimal" autocomplete="off" size="4" data-k="${fieldKey(k)}" aria-label="${FIELDS[k][0]}"><em>${FIELDS[k][1]}</em></span></label>`).join('')}</div>
             ${f.note ? `<p class="qt-f-note">${f.note}</p>` : ''}
-        </details>`).join('');
+        </details>`;
+    return searchHtml('Tìm: egfr, qtc, bỏng, natri…') + `<div class="qt-list">${MED_GROUPS.map(([id, name, hue]) =>
+        groupHtml(name, hue, MED.map((f, idx) => (f.g === id ? one(f, idx) : '')).join(''))).join('')}</div><p class="qt-none" hidden>Không thấy công thức nào</p>`;
 }
 function onMedInput(e) {
     const inp = e.target, k = inp.dataset.k;
@@ -1482,12 +1741,64 @@ function onMedInput(e) {
             const fk = fieldKey(key), raw = medVals[fk];
             if (key === 'nu') { v.nu = !!raw; return; }
             const n = parseFloat(String(raw ?? '').replace(',', '.'));
-            if (key === 'albo') { v.albo = Number.isFinite(n) && n > 0 ? n : 0; return; }
-            if (!Number.isFinite(n) || n <= 0) ok = false;
+            const good = Number.isFinite(n) && n > 0;
+            if ((f.o || []).includes(key)) { v[key] = good ? n : 0; return; }
+            if (!good) ok = false;
             v[key] = n;
         });
         calcEl.querySelector(`.qt-f[data-f="${idx}"] .qt-f-out`).textContent = ok ? f.r(v) : '';
     });
+}
+
+/* ---------------------------------------------------------------- Đổi đơn vị xét nghiệm */
+// [tên, đơn vị trái, đơn vị phải, hệ số, cộng thêm, gợi ý]: phải = trái × hệ số + cộng thêm. Gõ bên nào cũng được, bên kia tự ra.
+const CONV_GROUPS = [
+    ['Đường máu · thận', '--hue-mint', [
+        ['Glucose', 'mg/dL', 'mmol/L', 1 / 18.016],
+        ['HbA1c', '% NGSP', 'mmol/mol', 10.929, -23.52, '7% ≈ 53 mmol/mol'],
+        ['Creatinin', 'mg/dL', 'µmol/L', 88.4],
+        ['BUN → urê', 'mg/dL', 'mmol/L', 0.357],
+        ['Acid uric', 'mg/dL', 'µmol/L', 59.48],
+    ]],
+    ['Mỡ máu · gan', '--hue-butter', [
+        ['Cholesterol (TP · LDL · HDL)', 'mg/dL', 'mmol/L', 0.02586],
+        ['Triglycerid', 'mg/dL', 'mmol/L', 0.01129],
+        ['Bilirubin', 'mg/dL', 'µmol/L', 17.1],
+    ]],
+    ['Điện giải · protein', '--hue-sky', [
+        ['Canxi', 'mg/dL', 'mmol/L', 0.2495],
+        ['Magie', 'mg/dL', 'mmol/L', 0.4114],
+        ['Phospho', 'mg/dL', 'mmol/L', 0.3229],
+        ['Hb · albumin · protein', 'g/dL', 'g/L', 10],
+    ]],
+    ['Khí máu · đo lường', '--hue-blossom', [
+        ['Áp suất (khí máu)', 'mmHg', 'kPa', 0.13332],
+        ['Nhiệt độ', '°C', '°F', 1.8, 32, '°F = °C × 1,8 + 32'],
+        ['Cân nặng', 'lb', 'kg', 0.45359],
+        ['Chiều cao', 'inch', 'cm', 2.54],
+    ]],
+];
+const CONV = CONV_GROUPS.flatMap(g => g[2]);
+const fmtSig = (v) => (Number.isFinite(v) ? String(+v.toPrecision(Math.abs(v) >= 1000 ? 6 : 4)).replace('.', ',') : '');
+// Gợi ý quy đổi viết theo chiều "1 đơn vị lớn = bao nhiêu đơn vị nhỏ" cho dễ nhớ
+const convHint = (c) => c[5] || (c[3] >= 1 ? `1 ${c[1]} = ${fmtSig(c[3])} ${c[2]}` : `1 ${c[2]} = ${fmtSig(1 / c[3])} ${c[1]}`);
+function convHtml() {
+    const box = (c, side, u) => `<span class="qt-in"><input type="text" inputmode="decimal" autocomplete="off" size="4" data-side="${side}" aria-label="${esc(c[0])} (${u})"><em>${u}</em></span>`;
+    const one = (c) => `
+        <div class="qt-cv" data-cv="${CONV.indexOf(c)}" data-q="${esc(norm(c.slice(0, 3).join(' ')))}">
+            <div class="qt-cv-top"><span class="qt-cv-n">${c[0]}</span><small class="qt-cv-h">${convHint(c)}</small></div>
+            <div class="qt-cv-io">${box(c, 'a', c[1])}<span class="qt-cv-sw" aria-hidden="true">⇄</span>${box(c, 'b', c[2])}</div>
+        </div>`;
+    return searchHtml('Tìm: glucose, creatinin…') + `<div class="qt-list">${CONV_GROUPS.map(([name, hue, rows]) => groupHtml(name, hue, rows.map(one).join(''))).join('')}</div><p class="qt-none" hidden>Chưa có chất này</p>`;
+}
+function onConvInput(e) {
+    const inp = e.target, row = inp.closest && inp.closest('.qt-cv');
+    if (!row || !inp.dataset.side) return;
+    const c = CONV[+row.dataset.cv], f = c[3], add = c[4] || 0;
+    const n = parseFloat(inp.value.replace(',', '.'));
+    const other = row.querySelector(`[data-side="${inp.dataset.side === 'a' ? 'b' : 'a'}"]`);
+    other.value = Number.isFinite(n) ? fmtSig(inp.dataset.side === 'a' ? n * f + add : (n - add) / f) : '';
+    row.classList.toggle('has-val', Number.isFinite(n));
 }
 
 /* ================================================================ KHỞI TẠO */
@@ -1531,7 +1842,7 @@ export function setupQuizTools() {
         if (!restored && inQuiz()) {   // F5 giữa bài: mở lại đúng các công cụ đang mở
             restored = true;
             try { JSON.parse(ss.get('quiz_tools_open') || '[]').forEach(t => { if (TOOLS.includes(t)) openSet.add(t); }); } catch (e) { }
-            if (openSet.size) { layout(); fitSheet(); if (openSet.has('calc')) showCalcAt(); }
+            if (openSet.size) { layout(); fitSheet(); if (openSet.has('calc')) { showCalcAt(); renderCalc(); } }
         }
         syncLaunchers();
         syncScratchPage();
