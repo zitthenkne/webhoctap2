@@ -3804,11 +3804,11 @@ body:not(.qz-notes-inline) .an-line { display: none; }
 
 /* Khung viết ghi chú = tờ giấy note dán băng keo oải hương (cùng họ Ghi nhớ / bảng Ngựa thì chỉnh) */
 #annot-note-pop {
-    position: fixed; z-index: 70; width: min(380px, calc(100vw - 16px));
+    position: fixed; z-index: 70; width: min(396px, calc(100vw - 16px));
     box-sizing: border-box; max-height: calc(100dvh - 5rem);
     left: 50%; top: calc(4.2rem + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
-    padding: 1.15rem .95rem .85rem;
-    display: flex; flex-direction: column; gap: .7rem;
+    padding: 1rem .95rem .8rem;
+    display: flex; flex-direction: column; gap: .65rem;
     border-radius: 1.5rem;
     background: var(--paper) var(--paper-art) 0 0 / var(--paper-size);
     border: 2px solid color-mix(in srgb, var(--hue-lav) 42%, transparent);
@@ -3833,55 +3833,215 @@ body:not(.qz-notes-inline) .an-line { display: none; }
     text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--hue-lav) 52%, var(--surface-card));
     text-decoration-thickness: .44em; text-underline-offset: -.26em; text-decoration-skip-ink: none;
 }
-#annot-note-pop .anp-field { position: relative; }
-html.theme-dark #annot-note-pop .anp-ta { background-color: var(--surface-card) !important; color: var(--nt-ink) !important; border-color: var(--line) !important; }
-html.theme-dark #annot-note-pop .anp-ta:focus { border-color: var(--hue-lav) !important; }
-html.theme-dark #annot-note-pop .anp-ta::placeholder { color: var(--ink-faint) !important; }
-#annot-note-pop .anp-ta {
-    display: block; width: 100%; min-height: 66px; padding: .6rem .95rem;
-    border-radius: 1.1rem; border: 2px solid var(--line);
-    background: var(--surface-card); color: var(--ink);
-    font: 600 16px/1.45 Quicksand, sans-serif;   /* ≥16px: iOS không tự phóng to khi gõ */
-    resize: none; overflow-y: auto;   /* JS tự giãn chiều cao theo chữ, tới 40vh thì cuộn trong ô */
+/* ---- Khung viết bản 2 (2026-11-03, người dùng: "thô, khó dùng"): mọi thứ một hàng, theo đúng thứ tự làm việc ----
+   đầu: cụm đang ghi + nút đóng · KHỐI VIẾT liền một mảnh (thanh định dạng ở mép trên, ô viết bên dưới, Xem trước thay chỗ ô viết)
+   · nhãn (một hàng vuốt ngang) · màu (một hàng; tự chọn mở thêm) · chân: xóa ở trái, Lưu ở phải. */
+#annot-note-pop .anp-x {
+    flex: none; width: 2rem; height: 2rem; margin: -.2rem -.25rem -.2rem 0; border: 0; border-radius: 50%;
+    display: inline-grid; place-items: center; font-size: 15px; color: var(--ink-muted); background: transparent; cursor: pointer;
+    transition: background .15s ease, color .15s ease;
+}
+#annot-note-pop .anp-x:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 8%, transparent); }
+#annot-note-pop .anp-n {
+    display: inline-block; margin-right: .35rem; padding: .05rem .45rem; border-radius: 999px; vertical-align: .05em;
+    font-size: 11px; font-weight: 800; color: var(--ink-lav); background: color-mix(in srgb, var(--hue-lav) 22%, var(--surface-card));
+}
+
+/* Khối viết: một khung bo tròn chứa thanh định dạng + ô viết, sáng viền khi đang gõ */
+#annot-note-pop .anp-card {
+    display: flex; flex-direction: column; min-width: 0;
+    border-radius: 1.1rem; overflow: hidden;
+    background: var(--surface-card);
+    border: 2px solid color-mix(in srgb, var(--nt) 45%, var(--line));
     transition: border-color .2s ease, box-shadow .2s ease;
 }
-#annot-note-pop .anp-ta::placeholder { color: var(--ink-faint); font-weight: 600; }
-#annot-note-pop .anp-ta:focus { outline: none; border-color: var(--hue-lav); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hue-lav) 26%, transparent); }
-#annot-note-pop .anp-colors { display: grid; gap: .5rem; }
-#annot-note-pop .anp-palette, #annot-note-pop .anp-color-fields { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem; }
-#annot-note-pop .anp-palette [data-note-color] {
-    width: 30px; height: 30px; padding: 0; border: 3px solid var(--surface-card); border-radius: 50%;
-    background: var(--swatch); box-shadow: 0 0 0 1px var(--line); cursor: pointer;
+#annot-note-pop .anp-card:focus-within { border-color: var(--hue-lav); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hue-lav) 24%, transparent); }
+#annot-note-pop .anp-fmt {
+    display: flex; align-items: center; gap: .3rem; padding: .3rem .35rem .3rem .3rem;
+    border-bottom: 1.5px dashed color-mix(in srgb, var(--hue-lav) 38%, var(--line));
+    background: color-mix(in srgb, var(--hue-lav) 6%, transparent);
 }
-#annot-note-pop .anp-palette [aria-pressed="true"] { outline: 2px solid var(--ink-lav); outline-offset: 2px; }
-#annot-note-pop .anp-auto { margin-left: auto; padding: .35rem .5rem; border: 1px solid var(--line); border-radius: .6rem; font: inherit; font-size: 12px; color: var(--ink-muted); background: var(--surface-card); cursor: pointer; }
-#annot-note-pop .anp-color-fields { justify-content: space-between; }
-#annot-note-pop .anp-color-fields label { display: flex; align-items: center; gap: .4rem; font-size: 12px; font-weight: 700; color: var(--ink-muted); }
-#annot-note-pop input[type="color"] { width: 36px; height: 30px; padding: 2px; border: 1px solid var(--line); border-radius: .5rem; background: var(--surface-card); cursor: pointer; }
-#annot-note-pop .anp-ta { color: var(--nt-ink); border-color: color-mix(in srgb, var(--nt) 55%, var(--line)); }
-#annot-note-pop :is(.anp-palette button, input[type="color"]):focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
-#annot-note-pop .anp-row { display: flex; align-items: center; gap: .5rem; }
-#annot-note-pop .anp-hint { order: 9; flex-basis: 100%; font-size: 11px; font-weight: 700; color: var(--ink-muted); text-align: right; }
-@media (pointer: coarse) { #annot-note-pop .anp-hint { display: none; } }
-#annot-note-pop .anp-row { flex-wrap: wrap; }
+#annot-note-pop .anp-fmt-tools { display: flex; align-items: center; gap: .1rem; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+#annot-note-pop .anp-fmt-tools::-webkit-scrollbar { display: none; }
+#annot-note-pop .anp-sep { flex: none; width: 1.5px; height: 1.05rem; margin: 0 .2rem; border-radius: 1px; background: var(--line); }
+#annot-note-pop :is(.anp-fmt-tools, .anp-syms) button {
+    flex: none; width: 1.9rem; height: 1.9rem; padding: 0; border: 0; border-radius: .6rem;
+    display: inline-grid; place-items: center;
+    font: 700 13px/1 Quicksand, sans-serif; color: var(--ink-muted); background: transparent; cursor: pointer;
+    transition: background .15s ease, color .15s ease;
+}
+#annot-note-pop .anp-sym-ic { font-size: 15px; }
+#annot-note-pop :is(.anp-fmt-tools, .anp-syms) button:hover,
+#annot-note-pop .anp-fmt-tools [aria-expanded="true"] { color: var(--ink-lav); background: color-mix(in srgb, var(--hue-lav) 22%, transparent); }
+#annot-note-pop .anp-mode {
+    flex: none; display: inline-flex; align-items: center; gap: .3rem; height: 1.9rem; padding: 0 .65rem;
+    border: 0; border-radius: 999px; cursor: pointer;
+    font: 800 12px/1 Quicksand, sans-serif; color: var(--ink-lav);
+    background: color-mix(in srgb, var(--hue-lav) 16%, transparent);
+    transition: background .15s ease;
+}
+#annot-note-pop .anp-mode:hover { background: color-mix(in srgb, var(--hue-lav) 28%, transparent); }
+@media (max-width: 420px) {   /* màn hẹp: nút Xem chỉ còn biểu tượng để cả thanh vừa một hàng */
+    #annot-note-pop .anp-mode { width: 1.9rem; padding: 0; justify-content: center; }
+    #annot-note-pop .anp-mode span { display: none; }
+}
+#annot-note-pop .anp-mode[aria-pressed="true"] { color: var(--surface-card); background: var(--ink-lav); }
+#annot-note-pop :is(.anp-fmt, .anp-syms) button:focus-visible, #annot-note-pop .anp-x:focus-visible { outline: 2px solid var(--ink-lav); outline-offset: 1px; }
+/* Ngăn kéo dưới thanh: ký hiệu / cách định dạng (đóng mặc định) */
+#annot-note-pop .anp-drawer {
+    display: flex; flex-wrap: wrap; gap: .15rem .3rem; padding: .35rem .45rem;
+    border-bottom: 1.5px dashed color-mix(in srgb, var(--hue-lav) 38%, var(--line));
+    background: color-mix(in srgb, var(--hue-lav) 9%, transparent);
+    animation: anp-drawer .2s ease both;
+}
+#annot-note-pop .anp-drawer[hidden] { display: none; }
+@keyframes anp-drawer { from { opacity: 0; translate: 0 -4px; } }
+#annot-note-pop .anp-syms { justify-content: space-between; gap: .1rem; }
+#annot-note-pop .anp-syms button { font-size: 15px; color: var(--ink); }
+#annot-note-pop .anp-help { gap: .3rem .75rem; padding: .45rem .7rem; font-size: 12px; font-weight: 700; line-height: 1.5; color: var(--ink-muted); }
+#annot-note-pop .anp-help code {
+    font: 700 11.5px ui-monospace, SFMono-Regular, Consolas, monospace; color: var(--ink-lav);
+    padding: .05rem .3rem; border-radius: .35rem; background: var(--surface-card);
+}
+/* Ô viết nằm trong khối: không viền riêng */
+#annot-note-pop .anp-ta, html.theme-dark #annot-note-pop .anp-ta {
+    box-sizing: border-box; display: block; width: 100%; min-height: 56px; margin: 0; padding: .65rem .9rem .7rem;
+    border: 0 !important; border-radius: 0; box-shadow: none !important;
+    background: transparent !important; color: var(--nt-ink) !important;
+    font: 600 16px/1.45 Quicksand, sans-serif;   /* ≥16px: iOS không tự phóng to khi gõ */
+    resize: none; overflow-y: auto;   /* JS tự giãn chiều cao theo chữ, tới 40vh thì cuộn trong ô */
+}
+#annot-note-pop .anp-ta:focus { outline: none; }
+#annot-note-pop .anp-ta::placeholder, html.theme-dark #annot-note-pop .anp-ta::placeholder { color: var(--ink-faint) !important; font-weight: 600; }
+#annot-note-pop .anp-ta[hidden], #annot-note-pop .anp-prev[hidden] { display: none; }
+#annot-note-pop .anp-prev {
+    --nt: var(--hue-lav);
+    max-height: 40vh; overflow-y: auto; overscroll-behavior: contain;
+    padding: .6rem .9rem .75rem;
+    font: 400 17px/1.3 'Patrick Hand', Quicksand, cursive; color: var(--nt-ink);
+}
+#annot-note-pop .anp-prev .t { font-weight: 700; }
+#annot-note-pop .anp-empty { font: 600 13px Quicksand, sans-serif; color: var(--ink-faint); }
+
+/* Nhãn: một hàng vuốt ngang, mờ hai mép khi còn chữ khuất */
+#annot-note-pop .anp-tags {
+    display: flex; gap: .35rem; overflow-x: auto; scrollbar-width: none;
+    margin: -.15rem -.95rem 0; padding: .1rem .95rem;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 .8rem, #000 calc(100% - .8rem), transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 .8rem, #000 calc(100% - .8rem), transparent);
+}
+#annot-note-pop .anp-tags::-webkit-scrollbar { display: none; }
+#annot-note-pop .anp-tags button {
+    flex: none; display: inline-flex; align-items: center; gap: .3rem;
+    height: 1.85rem; padding: 0 .65rem; border-radius: 999px; white-space: nowrap; cursor: pointer;
+    font: 700 12px/1 Quicksand, sans-serif; color: var(--ink-muted);
+    background: var(--surface-card); border: 1.5px solid var(--line);
+    transition: transform .2s var(--spring), color .15s ease, border-color .15s ease, background .15s ease;
+}
+#annot-note-pop .anp-tags button i { font-size: .92em; }
+#annot-note-pop .anp-tags button:hover { transform: translateY(-1px); color: var(--ink-lav); border-color: color-mix(in srgb, var(--hue-lav) 55%, transparent); }
+#annot-note-pop .anp-tags button.is-on { color: var(--ink-lav); background: color-mix(in srgb, var(--hue-lav) 20%, var(--surface-card)); border-color: color-mix(in srgb, var(--hue-lav) 62%, transparent); }
+#annot-note-pop .anp-tags [data-anp-tag="0"] { --hue-lav: var(--hue-butter); --ink-lav: var(--ink-butter); }
+#annot-note-pop .anp-tags [data-anp-tag="2"] { --hue-lav: var(--hue-peach); --ink-lav: var(--ink-peach); }
+#annot-note-pop .anp-tags [data-anp-tag="3"] { --hue-lav: var(--hue-sky); --ink-lav: var(--ink-sky); }
+
+/* Màu: ngăn mở từ chấm màu ở chân khung — "A" tự động theo nền + 6 màu + ống hút (tự chọn) trên một hàng */
+#annot-note-pop .anp-palette-pop {
+    display: grid; gap: .45rem; padding: .55rem .65rem; border-radius: 1rem;
+    background: color-mix(in srgb, var(--hue-lav) 9%, var(--surface-card));
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--hue-lav) 30%, transparent);
+    animation: anp-drawer .2s ease both;
+}
+#annot-note-pop .anp-palette-pop[hidden] { display: none; }
+#annot-note-pop .anp-colors { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+#annot-note-pop .anp-colors button {
+    flex: none; width: 26px; height: 26px; padding: 0; border-radius: 50%; cursor: pointer;
+    display: inline-grid; place-items: center;
+    border: 2.5px solid var(--surface-card); box-shadow: 0 0 0 1px var(--line);
+    transition: transform .2s var(--spring), box-shadow .15s ease;
+}
+#annot-note-pop .anp-colors [data-note-color] { background: var(--swatch); }
+#annot-note-pop .anp-colors button:hover { transform: scale(1.1); }
+#annot-note-pop .anp-colors [aria-pressed="true"] { box-shadow: 0 0 0 2px var(--ink-lav); transform: scale(1.08); }
+#annot-note-pop .anp-colors .anp-auto {
+    font: 800 11px/1 Quicksand, sans-serif; color: var(--ink-muted);
+    background: conic-gradient(from 30deg, #B9A2F0 0 25%, #FF8FB8 0 50%, #6FD1AE 0 75%, #7EC0EE 0);
+    text-shadow: 0 0 3px var(--surface-card), 0 0 2px var(--surface-card);
+}
+#annot-note-pop .anp-colors .anp-custom { margin-left: auto; font-size: 11px; color: var(--ink-muted); background: var(--surface-card); }
+#annot-note-pop .anp-colors .anp-custom:is([aria-expanded="true"], .is-on) { color: var(--ink-lav); box-shadow: 0 0 0 2px color-mix(in srgb, var(--hue-lav) 70%, transparent); }
+#annot-note-pop .anp-colors button:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+#annot-note-pop .anp-color-fields { display: flex; flex-wrap: wrap; gap: .4rem 1rem; padding-top: .45rem; border-top: 1.5px dashed color-mix(in srgb, var(--hue-lav) 30%, var(--line)); animation: anp-drawer .2s ease both; }
+#annot-note-pop .anp-color-fields[hidden] { display: none; }
+#annot-note-pop .anp-color-fields label { display: flex; align-items: center; gap: .45rem; font-size: 12px; font-weight: 700; color: var(--ink-muted); cursor: pointer; }
+#annot-note-pop input[type="color"] { width: 30px; height: 26px; padding: 1px; border: 1px solid var(--line); border-radius: .45rem; background: var(--surface-card); cursor: pointer; }
+#annot-note-pop input[type="color"]:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* Chân: xóa (biểu tượng, trái) — gợi ý phím + nút chính (phải) */
+#annot-note-pop .anp-row { display: flex; align-items: center; gap: .5rem; padding-top: .1rem; }
 #annot-note-pop .anp-sp { flex: 1; }
-/* Nút = công thức kẹo chung (xem §3): Lưu = hồng chính, Hủy = cà phê sữa, Xóa = đỏ nhạt */
+#annot-note-pop .anp-hint { font-size: 11px; font-weight: 700; color: var(--ink-faint); white-space: nowrap; }
+#annot-note-pop .anp-hint kbd {
+    display: inline-block; padding: .05rem .3rem; border-radius: .3rem; font: 700 10.5px Quicksand, sans-serif; color: var(--ink-muted);
+    background: var(--surface-card); box-shadow: inset 0 0 0 1px var(--line), 0 1.5px 0 var(--line);
+}
+@media (pointer: coarse) { #annot-note-pop .anp-hint { display: none; } }
+/* Nút = công thức kẹo chung (xem §3): Lưu / Sửa = hồng chính, Tất cả = oải hương */
 #annot-note-pop .anp-row button {
     --h: var(--hue-latte); --hi: var(--ink-latte);
-    min-height: 40px; padding: 0 1.1rem; border-radius: 999px;
+    min-height: 38px; padding: 0 1.15rem; border-radius: 999px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: .4rem;
     font: 800 13px Quicksand, sans-serif;
     background: color-mix(in srgb, var(--h) var(--fill), var(--surface-card));
     border: 2px solid color-mix(in srgb, var(--h) 40%, transparent);
     color: var(--hi);
     box-shadow: 0 3px 0 color-mix(in srgb, var(--h) 32%, transparent);
-    transition: transform .28s var(--spring), box-shadow .18s ease, opacity .2s ease;
+    transition: transform .28s var(--spring), box-shadow .18s ease, opacity .2s ease, background .15s ease;
 }
 #annot-note-pop .anp-row button:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 5px 0 color-mix(in srgb, var(--h) 36%, transparent); }
 #annot-note-pop .anp-row button:not(:disabled):active { transform: translateY(2px); box-shadow: 0 1px 0 color-mix(in srgb, var(--h) 36%, transparent); }
 #annot-note-pop .anp-row .anp-ok { --h: var(--hue-blossom); --hi: #8E2A55; background: color-mix(in srgb, var(--hue-blossom) 55%, #fff); }
 html.theme-dark #annot-note-pop .anp-row .anp-ok { --hi: #3a1422; background: #F4A3C1; }
 #annot-note-pop .anp-row .anp-ok:disabled { opacity: .45; }
-#annot-note-pop .anp-row .anp-del { --h: var(--bad-solid); --hi: var(--bad-ink); }
+/* Xóa: chỉ biểu tượng, nhạt — không ngang hàng nút chính để khỏi bấm nhầm */
+#annot-note-pop .anp-row .anp-del {
+    width: 38px; padding: 0; justify-content: center; border: 0; box-shadow: none;
+    color: color-mix(in srgb, var(--bad-ink) 80%, var(--ink-muted)); background: transparent;
+}
+#annot-note-pop .anp-row .anp-del:not(:disabled):hover { transform: none; box-shadow: none; color: var(--bad-ink); background: color-mix(in srgb, var(--bad-solid) 14%, transparent); }
+/* Chấm màu ở chân khung: nút phụ (viền mảnh, không phải nút kẹo) cho biết màu hiện tại, bấm mở ngăn màu */
+#annot-note-pop .anp-row .anp-color-btn {
+    min-height: 34px; padding: 0 .65rem 0 .5rem; gap: .4rem; border: 1.5px solid var(--line); box-shadow: none;
+    font: 700 12px Quicksand, sans-serif; color: var(--ink-muted); background: var(--surface-card);
+}
+#annot-note-pop .anp-row .anp-color-btn:not(:disabled):hover { transform: none; box-shadow: none; border-color: color-mix(in srgb, var(--hue-lav) 60%, var(--line)); color: var(--ink-lav); }
+#annot-note-pop .anp-row .anp-color-btn[aria-expanded="true"] { border-color: var(--hue-lav); color: var(--ink-lav); }
+#annot-note-pop .anp-dot {
+    width: 15px; height: 15px; border-radius: 50%; flex: none;
+    background: var(--hue-lav); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ink-lav) 35%, transparent);
+}
+#annot-note-pop .anp-color-btn.is-auto .anp-dot { background: conic-gradient(from 30deg, #B9A2F0 0 25%, #FF8FB8 0 50%, #6FD1AE 0 75%, #7EC0EE 0); }
+#annot-note-pop .anp-chev { font-size: 9px; transition: rotate .2s ease; }
+#annot-note-pop .anp-color-btn[aria-expanded="false"] .anp-chev { rotate: 180deg; }
+
+/* Chân khung dính đáy khi khung phải cuộn (bàn phím điện thoại đang mở, ngăn màu mở…) -> Lưu luôn bấm được */
+#annot-note-pop:not(.anp-view) .anp-row {
+    position: sticky; bottom: -.8rem; z-index: 1;
+    margin: 0 -.95rem -.8rem; padding: .45rem .95rem .8rem;
+    background: var(--paper); border-radius: 0 0 1.5rem 1.5rem;
+}
+
+/* Màn cảm ứng: vùng bấm lớn hơn (≈34px) mà thanh định dạng vẫn vừa một hàng ở 360px */
+@media (pointer: coarse) {
+    #annot-note-pop :is(.anp-fmt-tools, .anp-syms) button { width: 2.05rem; height: 2.15rem; font-size: 14px; }
+    #annot-note-pop .anp-fmt-tools { gap: 0; }
+    #annot-note-pop .anp-sep { margin: 0 .1rem; }
+    #annot-note-pop .anp-mode { height: 2.15rem; }
+    #annot-note-pop .anp-tags button { height: 2.15rem; font-size: 13px; }
+    #annot-note-pop .anp-colors button { width: 32px; height: 32px; }
+    #annot-note-pop .anp-x { width: 2.4rem; height: 2.4rem; }
+}
+@media (pointer: coarse) and (max-width: 420px) { #annot-note-pop .anp-mode { width: 2.15rem; } }
 /* ---- Ghi chú cụm từ bản 4 (2026-10-23) ----
    - Nhãn đầu dòng (chung hệ nhãn ghi chú cá nhân) đổi màu cả cụm: ⭐ Quan trọng = vàng bơ (★ trong bong bóng), Dễ nhầm = cam đào (!,
      cùng màu "bẫy" của Quét dữ kiện), Hỏi lại = xanh trời (?). Không nhãn thì vẫn theo nền.
@@ -3924,26 +4084,6 @@ html.theme-dark #annot-note-pop .anp-row .anp-ok { --hi: #3a1422; background: #F
 #annot-note-pop .anp-read .na-tag { color: var(--ink-lav); font-weight: 800; }
 #annot-note-pop .anp-read.nmd { white-space: normal; --nt: var(--hue-lav); }
 #annot-note-pop .anp-read.nmd .t { color: var(--ink-lav); font-weight: 800; }
-/* Thanh định dạng nhỏ trên ô viết + bản xem trước markdown (chỉ hiện khi ghi chú có định dạng / nhiều dòng) */
-#annot-note-pop .anp-fmt { display: flex; flex-wrap: wrap; gap: .25rem; margin-bottom: -.35rem; }
-#annot-note-pop .anp-fmt button {
-    min-width: 1.9rem; height: 1.9rem; padding: 0 .35rem; border: 0; border-radius: .55rem;
-    display: inline-flex; align-items: center; justify-content: center;
-    font: 700 13px/1 Quicksand, sans-serif; color: var(--ink-muted); background: transparent; cursor: pointer;
-    transition: background .15s ease, color .15s ease;
-}
-#annot-note-pop .anp-fmt button:hover { color: var(--ink-lav); background: color-mix(in srgb, var(--hue-lav) 20%, transparent); }
-#annot-note-pop .anp-fmt button:focus-visible { outline: 2px solid var(--ink-lav); outline-offset: 1px; }
-@media (pointer: coarse) { #annot-note-pop .anp-fmt button { min-width: 2.3rem; height: 2.3rem; font-size: 15px; } }
-#annot-note-pop .anp-prev {
-    --nt: var(--hue-lav);
-    max-height: 9.5rem; overflow-y: auto; overscroll-behavior: contain;
-    margin-top: -.3rem; padding: .45rem .75rem; border-radius: .9rem;
-    border: 1.5px dashed color-mix(in srgb, var(--hue-lav) 50%, var(--line));
-    font: 400 16px/1.3 'Patrick Hand', Quicksand, cursive; color: var(--nt-ink);
-}
-#annot-note-pop .anp-prev[hidden] { display: none; }
-#annot-note-pop .anp-prev::before { content: "Xem trước"; display: block; margin-bottom: .15rem; font: 800 10px/1 Quicksand, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
 #annot-note-pop.anp-near::before {
     content: ""; position: absolute; left: var(--tail, 50%);
     width: 14px; height: 14px; margin-left: -7px;
@@ -3956,23 +4096,6 @@ html.theme-dark #annot-note-pop .anp-row .anp-ok { --hi: #3a1422; background: #F
 #annot-note-pop.anp-below .anp-tape { display: none; }
 #annot-note-pop .anp-row .anp-all { --h: var(--hue-lav); --hi: var(--ink-lav); }
 
-/* Chip chèn nhãn trong khung viết — mỗi nhãn đúng màu của nó trên chữ */
-#annot-note-pop .anp-tags { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: -.25rem; }
-#annot-note-pop .anp-tags button {
-    display: inline-flex; align-items: center; gap: .3rem;
-    min-height: 28px; padding: 0 .65rem; border-radius: 999px;
-    font: 700 12px/1 Quicksand, sans-serif; color: var(--ink-muted);
-    background: var(--surface-card); border: 1.5px solid var(--line);
-    cursor: pointer;
-    transition: background-color .15s ease, border-color .15s ease, color .15s ease, transform .25s var(--spring);
-}
-#annot-note-pop .anp-tags button i { font-size: .92em; }
-#annot-note-pop .anp-tags button:hover { transform: translateY(-1px); color: var(--ink-lav); border-color: color-mix(in srgb, var(--hue-lav) 55%, transparent); }
-#annot-note-pop .anp-tags button.is-on { color: var(--ink-lav); background: color-mix(in srgb, var(--hue-lav) 20%, var(--surface-card)); border-color: color-mix(in srgb, var(--hue-lav) 62%, transparent); }
-#annot-note-pop .anp-tags [data-anp-tag="0"] { --hue-lav: var(--hue-butter); --ink-lav: var(--ink-butter); }
-#annot-note-pop .anp-tags [data-anp-tag="2"] { --hue-lav: var(--hue-peach); --ink-lav: var(--ink-peach); }
-#annot-note-pop .anp-tags [data-anp-tag="3"] { --hue-lav: var(--hue-sky); --ink-lav: var(--ink-sky); }
-@media (pointer: coarse) { #annot-note-pop .anp-tags button { min-height: 34px; font-size: 13px; } }
 
 /* Sổ ghi chú cả bộ đề: mục ghi chú cụm từ = cụm chữ (vạch bút dạ) trên lời ghi chú */
 .na-item.is-phrase { border-style: dashed; }

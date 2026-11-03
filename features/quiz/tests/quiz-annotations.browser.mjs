@@ -226,7 +226,9 @@ async function checkLayoutAndColors() {
     assert.equal(await page.locator('.an-links path').getAttribute('data-shape'), 'hook');
     await page.locator('.annot-note').click();
     await page.locator('[data-anp="edit"]').click();
+    await page.locator('[data-anp="colors"]').click();   // màu nằm trong ngăn mở từ chấm màu ở chân khung
     await page.locator('[data-note-color="#6FD1AE"]').click();
+    await page.locator('[data-anp="custom-color"]').click();   // màu tự chọn nằm trong phần mở thêm
     await page.locator('[data-note-field="inkColor"]').fill('#13579b');
     await page.locator('[data-anp="save"]').click();
     assert.equal(await page.locator('.an-line').evaluate(r => r.style.getPropertyValue('--nt-ink')), '#13579b');
@@ -234,6 +236,7 @@ async function checkLayoutAndColors() {
     await page.locator('.annot-note').click();
     await page.locator('[data-anp="edit"]').click();
     assert.equal(await page.locator('[data-note-field="inkColor"]').inputValue(), '#13579b');
+    await page.locator('[data-anp="colors"]').click();   // màu nằm trong ngăn mở từ chấm màu ở chân khung
     await page.locator('[data-anp="auto-color"]').click();
     await page.locator('[data-anp="save"]').click();
     assert.equal(await page.locator('.an-line').evaluate(r => r.style.getPropertyValue('--nt-ink')), '');
@@ -247,6 +250,8 @@ async function checkLayoutAndColors() {
     await page.locator('[data-anp="edit"]').click();
     assert.equal(await page.locator('[data-anp-tag]').count(), 6);
     assert.equal(await page.locator('#annot-note-pop').evaluate(r => r.getBoundingClientRect().bottom <= innerHeight), true, 'khung sửa nằm gọn trên màn hình thấp');
+    await page.locator('[data-anp="colors"]').click();   // màu nằm trong ngăn mở từ chấm màu ở chân khung
+    await page.locator('[data-anp="custom-color"]').click();
     await page.locator('[data-note-field="inkColor"]').focus();
     await page.keyboard.press('ArrowRight');
     assert.equal(await page.evaluate(() => window.quizKeyEvents), 0, 'chỉnh màu bằng bàn phím không kích hoạt phím tắt quiz');
@@ -353,6 +358,7 @@ async function checkTouchPersistence() {
     assert.equal(await touchPage.evaluate(() => matchMedia('(pointer: coarse)').matches), true);
     await openTouch();
     await touchPage.locator('.anp-ta').fill('Ghi chú viết trên iPad dọc');
+    await touchPage.locator('[data-anp="colors"]').tap();
     await touchPage.locator('[data-note-color="#FF8FB8"]').tap();
     assert.equal(await touchPage.locator('[data-note-color="#FF8FB8"]').getAttribute('aria-pressed'), 'true', 'đổi màu không phụ thuộc Firebase');
     await touchPage.locator('[data-anp="save"]').tap();
@@ -365,6 +371,7 @@ async function checkTouchPersistence() {
     await touchPage.locator('.annot-note').tap();
     await touchPage.locator('[data-anp="edit"]').tap();
     await touchPage.locator('.anp-ta').fill('Nội dung đã sửa');
+    await touchPage.locator('[data-anp="colors"]').tap();
     await touchPage.locator('[data-note-color="#6FD1AE"]').tap();
     await touchPage.locator('#touch-next').tap();
     const edited = (await storedTouch()).fixture;
@@ -419,6 +426,7 @@ async function checkTouchPersistence() {
     });
     await openTouch({ qText: 'quota-fixture' });
     await touchPage.locator('.anp-ta').fill('Ghi chú phải giữ lại khi lưu lỗi');
+    await touchPage.locator('[data-anp="colors"]').tap();
     await touchPage.locator('[data-note-color="#7EC0EE"]').tap();
     await touchPage.locator('[data-anp="save"]').tap();
     assert.equal(await touchPage.locator('.anp-ta').inputValue(), 'Ghi chú phải giữ lại khi lưu lỗi', 'lưu lỗi phải giữ ô nhập');

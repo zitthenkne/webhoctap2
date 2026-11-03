@@ -16,7 +16,7 @@ import { state } from '../quiz-state.js';
 import { pushStudyToCloud } from './quiz-study-sync.js';
 import { studyKeys } from '../quiz-study-store.js';
 import { NOTE_TAGS, noteTagsOf, noteCount } from './quiz-notes-panel.js';
-import { arrowizeTyping, noteMdHtml, noteHasMd, ensureNoteMdCss, mountNoteRow } from './quiz-note-md.js';
+import { arrowizeTyping, noteMdHtml, ensureNoteMdCss, mountNoteRow } from './quiz-note-md.js';
 import { syncQuizNavPanel } from '../quiz-ui.js';
 import { showQuestion } from './quiz-question-view.js';
 import { showToast } from '../../../core/utils.js';
@@ -988,25 +988,37 @@ const NOTE_MAX_CHARS = 4000;
 const QUICK_TAGS = ['Quan trọng', 'Nhớ', 'Dễ nhầm', 'Hỏi lại', 'Cơ chế', 'Việc cần làm'].map(l => NOTE_TAGS.find(t => t.label === l)).filter(Boolean);
 const TAG_SHORT = { 'Quan trọng': 'Quan trọng', 'Việc cần làm': 'Việc cần làm' };
 // Thanh định dạng nhanh trên ô viết: [khóa, nhãn, biểu tượng]. Bôi đen rồi bấm = bọc chữ; không bôi đen = chèn cặp ký hiệu.
+// Bố cục 2026-11-03 (bản 2, người dùng: "thô, khó dùng"): thanh MỘT hàng gắn liền ô viết (không xuống 2 hàng), ký hiệu và
+// cú pháp gom vào nút mở thêm, Xem trước là nút bật / tắt thay cho hộp xem trước tự chen vào.
 const NOTE_FMT = [
     ['bold', 'In đậm (Ctrl+B)', '<i class="fas fa-bold"></i>'],
     ['italic', 'In nghiêng (Ctrl+I)', '<i class="fas fa-italic"></i>'],
-    ['strike', 'Gạch ngang', '<i class="fas fa-strikethrough"></i>'],
+    ['strike', 'Gạch ngang ~~…~~', '<i class="fas fa-strikethrough"></i>'],
     ['mark', 'Tô sáng ==…==', '<i class="fas fa-highlighter"></i>'],
-    ['code', 'Mã / thuật ngữ `…`', '<i class="fas fa-code"></i>'],
+    '|',
     ['ul', 'Danh sách gạch đầu dòng', '<i class="fas fa-list-ul"></i>'],
     ['ol', 'Danh sách đánh số', '<i class="fas fa-list-ol"></i>'],
-    ['→', 'Chèn →', '→'], ['⇒', 'Chèn ⇒', '⇒'], ['↑', 'Chèn ↑ (tăng)', '↑'], ['↓', 'Chèn ↓ (giảm)', '↓'], ['≈', 'Chèn ≈', '≈']
+    ['task', 'Danh sách việc cần làm ☐', '<i class="far fa-square-check"></i>']
 ];
+// Khung to (bản 3): nhớ theo máy người xem, không cần đồng bộ
+const NOTE_BIG_KEY = 'qz-note-editor-big';
+const noteBigPref = () => { try { return localStorage.getItem(NOTE_BIG_KEY) === '1'; } catch (e) { return false; } };
+const setNoteBigPref = (on) => { try { localStorage.setItem(NOTE_BIG_KEY, on ? '1' : '0'); } catch (e) {} };
+const NOTE_SYMS = [['→', 'Mũi tên (gõ ->)'], ['⇒', 'Suy ra (gõ =>)'], ['↔', 'Hai chiều (gõ <->)'], ['↑', 'Tăng'], ['↓', 'Giảm'],
+    ['≈', 'Xấp xỉ (gõ ~=)'], ['≥', 'Lớn hơn hoặc bằng (gõ >=)'], ['≤', 'Nhỏ hơn hoặc bằng (gõ <=)'], ['≠', 'Khác (gõ !=)'], ['±', 'Cộng trừ (gõ +/-)']];
+const NOTE_COLORS = [['#B9A2F0', '#6A4FB8', 'Tím'], ['#FF8FB8', '#C8487A', 'Hồng'], ['#6FD1AE', '#23805F', 'Xanh lá'],
+    ['#7EC0EE', '#2D6FA3', 'Xanh dương'], ['#F2BE2E', '#8C6500', 'Vàng'], ['#F79A5E', '#B0551C', 'Cam']];
 const FMT_WRAP = { bold: '**', italic: '*', strike: '~~', mark: '==', code: '`' };
 // Thay [from, to) trong ô viết mà vẫn giữ lịch sử Hoàn tác (Ctrl+Z) của trình duyệt; trình duyệt không có insertText thì thay thẳng
 function replaceInTa(ta, from, to, text) {
+    const expected = ta.value.slice(0, from) + text + ta.value.slice(to);
     ta.focus();
     ta.setSelectionRange(from, to);
     let ok = false;
     try { ok = document.execCommand('insertText', false, text); } catch (e) {}
-    if (!ok || ta.value.slice(from, from + text.length) !== text) {
-        ta.setRangeText(text, from, to, 'end');
+    if (!ok || ta.value !== expected) {
+        ta.value = expected;   // đặt thẳng giá trị đúng (kể cả khi insertText chỉ làm được một nửa)
+        ta.setSelectionRange(from + text.length, from + text.length);
         ta.dispatchEvent(new Event('input', { bubbles: true }));
     }
 }
@@ -1022,14 +1034,17 @@ function wrapInTa(ta, mark) {
     replaceInTa(ta, s, e, mark + sel + mark);
     ta.setSelectionRange(s + mark.length, e + mark.length);
 }
-// Đặt / gỡ dấu danh sách ở đầu các dòng đang chọn
-function listInTa(ta, ordered) {
+// Đặt / gỡ dấu danh sách ở đầu các dòng đang chọn. kind: 'ul' (- ) · 'ol' (1. ) · 'task' (- [ ] )
+const LIST_RE = { ul: /^(\s*)[-*+]\s+(?!\[[ xX]\])/, ol: /^(\s*)\d{1,3}[.)]\s+/, task: /^(\s*)(?:[-*+]\s+\[[ xX]\]|[☐☑])\s*/ };
+function listInTa(ta, kind) {
     const v = ta.value, s = ta.selectionStart, e = ta.selectionEnd;
     const ls = v.lastIndexOf('\n', s - 1) + 1, le = (v.indexOf('\n', e) + 1 || v.length + 1) - 1;
     const lines = v.slice(ls, le).split('\n');
-    const re = ordered ? /^(\s*)\d{1,3}[.)]\s+/ : /^(\s*)[-*+]\s+/;
-    const all = lines.every(l => !l.trim() || re.test(l));
-    const out = lines.map((l, i) => all ? l.replace(re, '$1') : (l.trim() ? l.replace(/^(\s*)(?:[-*+]|\d{1,3}[.)])?\s*/, `$1${ordered ? (i + 1) + '. ' : '- '}`) : l)).join('\n');
+    const re = LIST_RE[kind];
+    const all = lines.some(l => l.trim()) && lines.every(l => !l.trim() || re.test(l));
+    const lone = lines.length === 1;   // một dòng (kể cả dòng trống): vẫn đặt dấu để gõ tiếp
+    const mark = (i) => kind === 'ol' ? (i + 1) + '. ' : (kind === 'task' ? '- [ ] ' : '- ');
+    const out = lines.map((l, i) => all ? l.replace(re, '$1') : ((l.trim() || lone) ? l.replace(/^(\s*)(?:[-*+]\s+\[[ xX]\]|[☐☑]|[-*+]|\d{1,3}[.)])?\s*/, `$1${mark(i)}`) : l)).join('\n');
     replaceInTa(ta, ls, le, out);
     ta.setSelectionRange(ls + out.length, ls + out.length);
 }
@@ -1049,6 +1064,7 @@ function continueListInTa(ta) {
 let noteEd = null;   // { box, ta, ctx }
 function closeNoteEditor() {
     if (!noteEd) return;
+    if (noteEd.cleanup) noteEd.cleanup();
     noteEd.box.remove();
     noteEd = null;
 }
@@ -1063,6 +1079,7 @@ function openNoteEditor(ctx) {
     if (!dismissNoteEditor()) return;
     const view = ctx.mode === 'view';
     const saved = ctx.id ? getAnnotsFor(ctx.qText).find(a => a.id === ctx.id) : null;
+    if (saved && saved.note && ctx.mode !== 'new') ctx = { ...ctx, note: saved.note };   // khung cũ vừa tự lưu khi mở khung này: đọc bản mới nhất
     const colors = { color: noteColor(saved?.color), inkColor: noteColor(saved?.inkColor) };
     const box = document.createElement('div');
     box.id = 'annot-note-pop';
@@ -1072,36 +1089,50 @@ function openNoteEditor(ctx) {
     const look = view ? tagLook(ctx.note || '') : null;
     if (look) box.dataset.tag = look[0];
     box.classList.toggle('anp-view', view);
+    const multi = ctx.targets && ctx.targets.length > 1;
+    // Bố cục (trên -> dưới): cụm đang ghi + nút đóng · KHỐI VIẾT (thanh định dạng một hàng + ô viết / xem trước) · nhãn (một hàng
+    // vuốt ngang) · màu (một hàng; tự chọn màu mở thêm khi cần) · chân: xóa (trái) — Lưu (phải)
     box.innerHTML = (view ? '' : '<span class="washi-tape washi-lav anp-tape" aria-hidden="true"></span>')
-        + '<div class="anp-head"><span class="anp-ic" aria-hidden="true"></span><div class="anp-quote">“<span></span>”</div></div>'
+        + `<div class="anp-head"${view ? '' : ' title="Kéo để dời khung"'}><span class="anp-ic" aria-hidden="true"></span>`
+        + `<div class="anp-quote">${multi ? `<b class="anp-n">${ctx.targets.length} cụm</b>` : ''}“<span></span>”</div>`
+        + (view ? '' : '<button type="button" class="anp-x anp-big" data-anp="big" aria-pressed="false" title="Khung to" aria-label="Phóng to khung viết"><i class="fas fa-up-right-and-down-left-from-center"></i></button>')
+        + '<button type="button" class="anp-x" data-anp="cancel" title="Đóng (Esc)" aria-label="Đóng"><i class="fas fa-xmark"></i></button></div>'
         + (view
             ? '<div class="anp-read"></div>'
-            : '<div class="anp-fmt" role="toolbar" aria-label="Định dạng ghi chú">'
-            + NOTE_FMT.map(([k, label, html]) => `<button type="button" data-anp-fmt="${k}" title="${label}" aria-label="${label}">${html}</button>`).join('')
+            : '<div class="anp-card">'
+            + '<div class="anp-fmt" role="toolbar" aria-label="Định dạng ghi chú"><div class="anp-fmt-tools">'
+            + NOTE_FMT.map(f => (f === '|' ? '<span class="anp-sep" aria-hidden="true"></span>'
+                : `<button type="button" data-anp-fmt="${f[0]}" title="${f[1]}" aria-label="${f[1]}">${f[2]}</button>`)).join('')
+            + '<span class="anp-sep" aria-hidden="true"></span>'
+            + '<button type="button" class="anp-tg" data-anp="syms" aria-expanded="false" title="Ký hiệu → ⇒ ↑ ↓ ≈ và mẹo gõ nhanh" aria-label="Chèn ký hiệu"><span class="anp-sym-ic">→</span></button>'
+            + '</div><button type="button" class="anp-mode" data-anp="preview" aria-pressed="false" title="Xem ghi chú sẽ hiện thế nào"><i class="fas fa-eye"></i><span>Xem</span></button></div>'
+            // một ngăn: hàng ký hiệu bấm chèn + mẹo gõ tắt (thay cho nút ? riêng)
+            + '<div class="anp-drawer anp-syms" hidden><div class="anp-sym-row">'
+            + NOTE_SYMS.map(([s, label]) => `<button type="button" data-anp-fmt="${s}" title="${label}" aria-label="Chèn ${s} — ${label}">${s}</button>`).join('')
+            + '</div><div class="anp-help"><span><code>-&gt;</code> →</span><span><code>=&gt;</code> ⇒</span><span><code>**đậm**</code></span>'
+            + '<span><code>==tô==</code></span><span><code># </code>tiêu đề</span><span><code>Tab</code> lùi mục</span></div></div>'
+            + `<textarea class="anp-ta" rows="1" maxlength="${NOTE_MAX_CHARS}" enterkeyhint="enter" autocomplete="off" spellcheck="false" aria-label="Nội dung ghi chú" placeholder="${multi ? 'Một ghi chú chung cho các cụm đã chọn…' : 'Viết ghi chú cho cụm từ này…'}"></textarea>`
+            + '<div class="anp-prev nmd" aria-live="polite" hidden></div>'
             + '</div>'
-            + '<div class="anp-field">'
-            + `<textarea class="anp-ta" rows="2" maxlength="${NOTE_MAX_CHARS}" enterkeyhint="enter" autocomplete="off" spellcheck="false" placeholder="${ctx.targets && ctx.targets.length > 1 ? `Một ghi chú chung cho ${ctx.targets.length} cụm…` : 'Viết ghi chú cho cụm từ này…'}"></textarea></div>`
-            + '<div class="anp-prev nmd" aria-label="Xem trước" hidden></div>'
             + '<div class="anp-tags" role="group" aria-label="Chèn nhãn">'
             + QUICK_TAGS.map((t, i) => `<button type="button" data-anp-tag="${i}" title="Chèn “${t.snip.trim()}” đầu dòng"><i class="fas ${t.icon}"></i> ${TAG_SHORT[t.label] || t.label}</button>`).join('')
             + '</div>'
-            + '<div class="anp-colors" role="group" aria-label="Màu ghi chú">'
-            + '<div class="anp-palette">'
-            + [['#B9A2F0', '#6A4FB8', 'Tím'], ['#FF8FB8', '#C8487A', 'Hồng'], ['#6FD1AE', '#23805F', 'Xanh lá'], ['#7EC0EE', '#2D6FA3', 'Xanh dương'], ['#F2BE2E', '#8C6500', 'Vàng'], ['#F79A5E', '#B0551C', 'Cam']]
-                .map(([color, ink, name]) => `<button type="button" data-note-color="${color}" data-note-ink="${ink}" style="--swatch:${color}" aria-label="Màu ${name.toLowerCase()}" title="${name}"></button>`).join('')
-            + '<button type="button" class="anp-auto" data-anp="auto-color">Tự động</button></div>'
-            + '<div class="anp-color-fields"><label>Vạch nhấn <input type="color" data-note-field="color" aria-label="Màu vạch nhấn"></label>'
-            + '<label>Chữ & mũi tên <input type="color" data-note-field="inkColor" aria-label="Màu chữ và mũi tên"></label></div></div>')
+            // Màu là việc phụ (đa số để Tự động) -> gói vào ngăn mở từ chấm màu ở chân khung, không chiếm một hàng thường trực
+            + '<div class="anp-palette-pop" hidden><div class="anp-colors" role="group" aria-label="Màu ghi chú">'
+            + '<button type="button" class="anp-auto" data-anp="auto-color" title="Tự động theo nền" aria-label="Màu tự động theo nền">A</button>'
+            + NOTE_COLORS.map(([color, ink, name]) => `<button type="button" data-note-color="${color}" data-note-ink="${ink}" style="--swatch:${color}" aria-label="Màu ${name.toLowerCase()}" title="${name}"></button>`).join('')
+            + '<button type="button" class="anp-custom" data-anp="custom-color" aria-expanded="false" title="Tự chọn màu" aria-label="Tự chọn màu"><i class="fas fa-eye-dropper"></i></button></div>'
+            + '<div class="anp-color-fields" hidden><label><input type="color" data-note-field="color" aria-label="Màu vạch nhấn"> Vạch nhấn</label>'
+            + '<label><input type="color" data-note-field="inkColor" aria-label="Màu chữ và mũi tên"> Chữ &amp; mũi tên</label></div></div>')
         + '<div class="anp-row">'
-        + (view ? ''
-            : '<span class="anp-hint">Enter xuống dòng · Ctrl+Enter lưu · **đậm** *nghiêng* ==tô== · -&gt; thành →</span>')
-        + (ctx.mode !== 'new' ? '<button type="button" class="anp-del" data-anp="del"><i class="fas fa-trash-can"></i> Xóa</button>' : '')
+        + (ctx.mode !== 'new' ? '<button type="button" class="anp-del" data-anp="del" title="Xóa ghi chú" aria-label="Xóa ghi chú"><i class="fas fa-trash-can"></i></button>' : '')
+        + (view ? '' : '<button type="button" class="anp-color-btn" data-anp="colors" aria-expanded="false" title="Màu ghi chú" aria-label="Màu ghi chú"><span class="anp-dot" aria-hidden="true"></span><span class="anp-color-name">Tự động</span><i class="fas fa-chevron-up anp-chev" aria-hidden="true"></i></button>')
         + '<span class="anp-sp"></span>'
         + (view
             ? '<button type="button" class="anp-all" data-anp="all" title="Sổ ghi chú cả bộ đề (Shift+Q)"><i class="fas fa-list-ul"></i> Tất cả</button>'
             + '<button type="button" class="anp-ok" data-anp="edit"><i class="fas fa-pen"></i> Sửa</button>'
-            : '<button type="button" data-anp="cancel">Hủy</button>'
-            + '<button type="button" class="anp-ok" data-anp="save"><i class="fas fa-check"></i> Lưu</button>')
+            : '<span class="anp-hint" aria-hidden="true"><kbd>Ctrl</kbd>+<kbd>Enter</kbd></span>'
+            + '<button type="button" class="anp-ok" data-anp="save" title="Lưu (Ctrl+Enter)"><i class="fas fa-check"></i> Lưu</button>')
         + '</div>';
     box.querySelector('.anp-quote span').textContent = quote;
     const ta = box.querySelector('.anp-ta');
@@ -1113,16 +1144,41 @@ function openNoteEditor(ctx) {
         rd.innerHTML = noteMdHtml(ctx.note || '');
     } else ta.value = ctx.note || '';
     document.body.appendChild(box);
-    // Ô tự cao theo chữ (tới 40vh thì cuộn trong ô); nhãn đang có trong ghi chú sáng lên; có định dạng thì hiện bản xem trước
+    // Ô tự cao theo chữ (tới 40vh thì cuộn trong ô); nhãn đang có trong ghi chú sáng lên
     const fit = () => { box.style.overflowY = ''; if (box.scrollHeight > box.clientHeight + 1) box.style.overflowY = 'auto'; };
     const grow = () => {
         if (!ta) return;
-        ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight + 4, window.innerHeight * 0.4) + 'px';
+        // trần chiều cao theo vùng NHÌN THẤY (bàn phím điện thoại đang mở thì nhỏ lại) -> khung không bị đẩy khuất nút Lưu
+        const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+        const big = box.classList.contains('is-big');   // khung to: ô viết cao sẵn ~6 dòng, trần cao hơn
+        ta.style.height = 'auto'; ta.style.height = Math.max(big ? 150 : 56, Math.min(ta.scrollHeight + 2, vh * (big ? 0.5 : 0.32))) + 'px';
         const on = noteTagsOf(ta.value);
         box.querySelectorAll('[data-anp-tag]').forEach(b => b.classList.toggle('is-on', on.has(QUICK_TAGS[+b.dataset.anpTag].label)));
-        const md = noteHasMd(ta.value) && ta.value.trim();
-        prev.hidden = !md;
-        if (md) prev.innerHTML = noteMdHtml(tidyNote(ta.value));
+        fit();
+    };
+    // Viết <-> Xem trước: cùng một chỗ trong khối viết (không thêm hộp thứ hai làm khung dài ra)
+    const setPreview = (on) => {
+        if (!ta) return;
+        const btn = box.querySelector('[data-anp="preview"]');
+        if (on) {
+            prev.style.minHeight = ta.offsetHeight + 'px';
+            prev.innerHTML = ta.value.trim() ? noteMdHtml(tidyNote(ta.value)) : '<span class="anp-empty">Chưa có gì để xem.</span>';
+        }
+        box.classList.toggle('is-preview', on);
+        prev.hidden = !on; ta.hidden = on;
+        btn.setAttribute('aria-pressed', String(on));
+        btn.querySelector('span').textContent = on ? 'Sửa' : 'Xem';
+        btn.title = on ? 'Quay lại viết' : 'Xem ghi chú sẽ hiện thế nào';
+        if (on) btn.focus({ preventScroll: true });   // ô viết vừa ẩn: giữ tiêu điểm trong khung (Esc / Ctrl+Enter vẫn ăn)
+        else ta.focus();
+        fit();
+    };
+    const toggleDrawer = (name) => {
+        box.querySelectorAll('[data-anp="syms"]').forEach(b => {
+            const open = b.dataset.anp === name && b.getAttribute('aria-expanded') !== 'true';
+            b.setAttribute('aria-expanded', String(open));
+            box.querySelector('.anp-' + b.dataset.anp).hidden = !open;
+        });
         fit();
     };
     // Gõ "->", "=>", "<=", "!="… đổi ngay thành ký hiệu; Backspace ngay sau đó trả lại chữ gốc
@@ -1139,35 +1195,121 @@ function openNoteEditor(ctx) {
         }
         grow();
     };
-    if (ta) { ta.addEventListener('input', onInput); grow(); } else fit();
     // Bóng thoại cạnh cụm từ, đuôi chỉ đúng vào chữ (--tail). Cảm ứng lúc VIẾT thì ghim trên màn hình (bàn phím ảo che nửa dưới).
+    // Khung đã bị kéo đi (anp-moved) thì chỉ giữ nó trong màn hình.
     const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-    if ((!coarse || view) && ctx.rect) {
+    const place = () => {
         const w = box.offsetWidth, h = box.offsetHeight;
+        if (box.classList.contains('anp-moved')) {
+            const r = box.getBoundingClientRect();
+            box.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left)) + 'px';
+            box.style.top = Math.max(8, Math.min(window.innerHeight - h - 8, r.top)) + 'px';
+            return;
+        }
+        if (!((!coarse || view) && ctx.rect)) return;
         const left = Math.max(8, Math.min(window.innerWidth - w - 8, ctx.rect.left + ctx.rect.width / 2 - w / 2));
         let top = ctx.rect.bottom + 12, below = true;
         if (top + h > window.innerHeight - 8) { top = Math.max(8, ctx.rect.top - h - 12); below = false; }
         box.style.left = left + 'px';
         box.style.top = top + 'px';
         box.style.setProperty('--tail', Math.max(22, Math.min(w - 22, ctx.rect.left + ctx.rect.width / 2 - left)) + 'px');
+        box.classList.remove('anp-below', 'anp-above');
         box.classList.add('anp-near', below ? 'anp-below' : 'anp-above');
+    };
+    let placed = false;
+    const setBig = (on) => {
+        box.classList.toggle('is-big', on);
+        const b = box.querySelector('[data-anp="big"]');
+        if (b) {
+            b.setAttribute('aria-pressed', String(on));
+            b.title = on ? 'Khung nhỏ' : 'Khung to';
+            b.setAttribute('aria-label', on ? 'Thu nhỏ khung viết' : 'Phóng to khung viết');
+            b.querySelector('i').className = 'fas ' + (on ? 'fa-down-left-and-up-right-to-center' : 'fa-up-right-and-down-left-from-center');
+        }
+        grow();
+        if (placed) place();
+    };
+    if (ta) { ta.addEventListener('input', onInput); setBig(noteBigPref()); } else fit();
+    place(); placed = true;
+    noteEd = { box, ta, ctx, colors, cleanup: null };
+    // Cảm ứng: bàn phím ảo che nửa dưới màn hình (layout viewport không đổi) -> co khung theo visualViewport; khung tự cuộn,
+    // chân khung (Lưu) dính đáy nên luôn bấm được.
+    const vv = window.visualViewport;
+    if (coarse && !view && vv) {
+        const fitVV = () => {
+            const top = box.getBoundingClientRect().top;
+            box.style.maxHeight = Math.max(180, vv.height + vv.offsetTop - top - 8) + 'px';
+            grow();
+        };
+        vv.addEventListener('resize', fitVV);
+        vv.addEventListener('scroll', fitVV);
+        noteEd.cleanup = () => { vv.removeEventListener('resize', fitVV); vv.removeEventListener('scroll', fitVV); };
+        fitVV();
     }
-    noteEd = { box, ta, ctx, colors };
+    // Kéo phần đầu khung để dời khung đi (khung che mất chữ đang cần đọc). Bấm nút trong đầu khung thì không kéo.
+    const head = box.querySelector('.anp-head');
+    if (!view) head.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0 || e.target.closest('button')) return;
+        e.preventDefault();   // không bôi đen chữ, ô viết giữ con trỏ
+        const r = box.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
+        box.classList.remove('anp-near', 'anp-below', 'anp-above');
+        box.classList.add('anp-moved', 'is-drag');
+        box.style.left = r.left + 'px'; box.style.top = r.top + 'px';
+        try { head.setPointerCapture(e.pointerId); } catch (err) {}
+        const move = (ev) => {
+            const w = box.offsetWidth, h = box.offsetHeight;
+            box.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, ev.clientX - dx)) + 'px';
+            box.style.top = Math.max(8, Math.min(window.innerHeight - h - 8, ev.clientY - dy)) + 'px';
+        };
+        const up = () => {
+            head.removeEventListener('pointermove', move);
+            head.removeEventListener('pointerup', up);
+            head.removeEventListener('pointercancel', up);
+            box.classList.remove('is-drag');
+        };
+        head.addEventListener('pointermove', move);
+        head.addEventListener('pointerup', up);
+        head.addEventListener('pointercancel', up);
+    });
     const previewColors = () => {
         setNoteColors(box, colors);
         if (colors.color) box.style.setProperty('--hue-lav', colors.color); else box.style.removeProperty('--hue-lav');
         if (colors.inkColor) box.style.setProperty('--ink-lav', colors.inkColor); else box.style.removeProperty('--ink-lav');
         box.querySelectorAll('[data-note-field]').forEach(input => { input.value = colors[input.dataset.noteField] || (input.dataset.noteField === 'color' ? '#b9a2f0' : '#6a4fb8'); });
-        box.querySelectorAll('[data-note-color]').forEach(b => b.setAttribute('aria-pressed', String(noteColor(b.dataset.noteColor) === colors.color && noteColor(b.dataset.noteInk) === colors.inkColor)));
-        box.querySelector('[data-anp="auto-color"]')?.setAttribute('aria-pressed', String(!colors.color && !colors.inkColor));
+        let preset = false;
+        box.querySelectorAll('[data-note-color]').forEach(b => {
+            const on = noteColor(b.dataset.noteColor) === colors.color && noteColor(b.dataset.noteInk) === colors.inkColor;
+            preset = preset || on;
+            b.setAttribute('aria-pressed', String(on));
+        });
+        const auto = !colors.color && !colors.inkColor;
+        box.querySelector('[data-anp="auto-color"]')?.setAttribute('aria-pressed', String(auto));
+        box.querySelector('[data-anp="custom-color"]')?.classList.toggle('is-on', !auto && !preset);   // đang dùng màu tự chọn
+        // chấm màu ở chân khung: liếc là biết ghi chú đang màu gì
+        const btn = box.querySelector('[data-anp="colors"]');
+        if (btn) {
+            const pressed = box.querySelector('[data-note-color][aria-pressed="true"]');
+            const name = auto ? 'Tự động' : (pressed ? pressed.title : 'Tự chọn');
+            btn.classList.toggle('is-auto', auto);
+            btn.querySelector('.anp-color-name').textContent = name;
+            btn.setAttribute('aria-label', 'Màu ghi chú: ' + name);
+        }
     };
     previewColors();
+    const fields = box.querySelector('.anp-color-fields');
+    const showFields = (open) => {
+        if (!fields) return;
+        fields.hidden = !open;
+        box.querySelector('[data-anp="custom-color"]').setAttribute('aria-expanded', String(open));
+        fit();
+    };
+    if (fields && (colors.color || colors.inkColor) && !box.querySelector('[data-note-color][aria-pressed="true"]')) showFields(true);   // màu tự chọn đã lưu: mở sẵn
     box.querySelectorAll('[data-note-field]').forEach(input => input.addEventListener('input', () => { colors[input.dataset.noteField] = input.value; previewColors(); }));
     if (ta) setTimeout(() => { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }, 30);
     else setTimeout(() => box.querySelector('[data-anp="edit"]')?.focus({ preventScroll: true }), 30);
     box.addEventListener('mousedown', (e) => {
         e.stopPropagation();
-        if (e.target.closest('[data-anp-tag], [data-note-color], [data-anp-fmt]')) e.preventDefault();   // giữ con trỏ / vùng chọn khi bấm nhãn / màu / định dạng
+        if (e.target.closest('[data-anp-tag], [data-note-color], [data-anp-fmt], .anp-fmt button, [data-anp="big"]')) e.preventDefault();   // giữ con trỏ / vùng chọn khi bấm nhãn / màu / định dạng
     });
     box.addEventListener('click', (e) => {
         const swatch = e.target.closest('[data-note-color]');
@@ -1175,28 +1317,39 @@ function openNoteEditor(ctx) {
         const fmt = e.target.closest('[data-anp-fmt]');
         if (fmt && ta) {
             const k = fmt.dataset.anpFmt;
+            if (box.classList.contains('is-preview')) setPreview(false);   // đang xem trước mà bấm định dạng: quay lại viết rồi áp
             if (FMT_WRAP[k]) wrapInTa(ta, FMT_WRAP[k]);
-            else if (k === 'ul' || k === 'ol') listInTa(ta, k === 'ol');
+            else if (LIST_RE[k]) listInTa(ta, k);
             else replaceInTa(ta, ta.selectionStart, ta.selectionEnd, k);
             return;
         }
         const tg = e.target.closest('[data-anp-tag]');
         if (tg && ta) {
+            if (box.classList.contains('is-preview')) setPreview(false);
             // chèn nhãn ở ĐẦU dòng đang gõ; dòng đã có đúng nhãn đó thì bấm lại = gỡ
             const snip = QUICK_TAGS[+tg.dataset.anpTag].snip;
             const v = ta.value, pos = ta.selectionStart == null ? v.length : ta.selectionStart;
             const ls = v.lastIndexOf('\n', pos - 1) + 1;
             const had = v.slice(ls).startsWith(snip);
-            ta.value = had ? v.slice(0, ls) + v.slice(ls + snip.length) : v.slice(0, ls) + snip + v.slice(ls);
+            replaceInTa(ta, ls, had ? ls + snip.length : ls, had ? '' : snip);   // qua insertText -> Ctrl+Z gỡ được
             const c = Math.max(ls, pos + (had ? -snip.length : snip.length));
-            ta.focus(); ta.setSelectionRange(c, c);
-            grow();
+            ta.setSelectionRange(c, c);
             return;
         }
         const b = e.target.closest('[data-anp]');
         if (!b) return;
         const act = b.getAttribute('data-anp');
         if (act === 'cancel') closeNoteEditor();
+        else if (act === 'preview') setPreview(!box.classList.contains('is-preview'));
+        else if (act === 'syms') toggleDrawer(act);
+        else if (act === 'big') { setBig(!box.classList.contains('is-big')); setNoteBigPref(box.classList.contains('is-big')); }
+        else if (act === 'custom-color') showFields(fields.hidden);
+        else if (act === 'colors') {
+            const pop = box.querySelector('.anp-palette-pop'), open = pop.hidden;
+            pop.hidden = !open;
+            b.setAttribute('aria-expanded', String(open));
+            fit();
+        }
         else if (act === 'auto-color') { colors.color = colors.inkColor = ''; previewColors(); }
         else if (act === 'save') saveNoteEditor();
         else if (act === 'del') deleteNoteEditor();
@@ -1206,12 +1359,12 @@ function openNoteEditor(ctx) {
     box.addEventListener('keydown', (e) => {
         e.stopPropagation(); // đừng kích hoạt phím tắt A–D / mũi tên của trang làm bài
         if (e.key === 'Escape') { closeNoteEditor(); return; }
-        if (!ta || e.target !== ta || e.isComposing || e.keyCode === 229) return;   // đang ghép chữ (Telex / VNI): để bộ gõ xử lý
         const mod = e.ctrlKey || e.metaKey;
+        if (ta && mod && e.key === 'Enter' && !e.isComposing) { e.preventDefault(); saveNoteEditor(); return; }   // lưu từ bất cứ đâu trong khung
+        if (!ta || e.target !== ta || e.isComposing || e.keyCode === 229) return;   // đang ghép chữ (Telex / VNI): để bộ gõ xử lý
         // Ghi chú nhiều dòng thoải mái: Enter = xuống dòng (trong danh sách thì tự thêm mục mới), Ctrl/⌘+Enter = lưu
         if (e.key === 'Enter') {
-            if (mod) { e.preventDefault(); saveNoteEditor(); }
-            else if (!e.shiftKey && continueListInTa(ta)) e.preventDefault();
+            if (!e.shiftKey && continueListInTa(ta)) e.preventDefault();
             return;
         }
         if (mod && !e.altKey && (e.key === 'b' || e.key === 'B' || e.key === 'i' || e.key === 'I')) {
@@ -1505,7 +1658,7 @@ export function setupAnnotations() {
                     // nhiều cụm -> MỘT ghi chú chung (nhóm)
                     const list = targets.map(t => ({ ...t, qText: annotKeyFor(question, t.scope) }));
                     openNoteEditor({ mode: 'new', qText: list[0].qText, scope: list[0].scope, targets: list,
-                        text: list.length + ' cụm: ' + list.map(t => t.text.replace(/\s+/g, ' ')).join(' · '), rect: rectSel });
+                        text: list.map(t => t.text.replace(/\s+/g, ' ')).join(' · '), rect: rectSel });
                 }
                 return;
             }
