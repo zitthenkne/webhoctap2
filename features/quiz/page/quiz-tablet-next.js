@@ -8,7 +8,8 @@ import { showNextQuestion } from './quiz-question-view.js';
 
 // 2026-10-14: máy tính (≥1024) cũng dùng — thẻ có Ghi nhớ/Mở rộng dài thì nút Câu tiếp nằm tít dưới. Đúng phần bù của isNarrow()
 // trong quiz-mobile-nav.js (màn hẹp đã có thanh đáy) nên không bao giờ có hai nút Tiếp cùng lúc.
-const isTablet = () => window.innerWidth >= 1024 || (window.innerWidth >= 768 && window.matchMedia('(pointer: coarse)').matches);
+// 2026-11-03: iPad DỌC (<1024) đã có dock ngón cái (quiz-mobile-nav.js, nút Tiếp luôn trong tầm tay) -> nút nổi chỉ còn ở ≥1024 (iPad ngang, máy tính).
+const isTablet = () => window.innerWidth >= 1024;
 const hasKeyboard = () => window.matchMedia('(pointer: fine)').matches;
 
 export function setupTabletNext() {

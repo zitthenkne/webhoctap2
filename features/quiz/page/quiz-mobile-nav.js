@@ -13,6 +13,44 @@ import { applyMark } from './quiz-marks.js';
 import { caseCellClass } from './quiz-cases.js';
 import { getVibrate } from './quiz-page-prefs.js';
 import { liveStats, accTone } from '../quiz-ui.js';
+import { openQuickNote, closeQuickNote } from './quiz-notes-panel.js';
+
+// --- Dock iPad: sổ ghi chú trượt lên (CSS body.qmn-dock-on.fm-note-open) ---
+let noteBtn = null;
+const noteOpen = () => document.body.classList.contains('fm-note-open');
+function syncNoteBtn() {
+    if (!noteBtn) return;
+    const open = noteOpen();
+    noteBtn.classList.toggle('is-active', open);
+    noteBtn.setAttribute('aria-expanded', String(open));
+    const v = document.getElementById('personal-note-input')?.value || '';
+    noteBtn.classList.toggle('has-note', !!v.trim());   // chấm oải hương = câu này đã có ghi chú
+}
+function setupDockNote() {
+    noteBtn = document.getElementById('qmn-note');
+    if (!noteBtn) return;
+    noteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        buzz();
+        setMarkMenu(false);
+        if (noteOpen()) closeQuickNote(); else openQuickNote();
+        syncNoteBtn();
+    });
+    // Chạm ra ngoài sổ / Esc -> đóng (chỉ ở dock; chế độ tập trung có cách đóng riêng trên thanh tập trung)
+    document.addEventListener('pointerdown', (e) => {
+        if (!document.body.classList.contains('qmn-dock-on') || !noteOpen()) return;
+        if (e.target.closest('#quiz-note-panel, #qmn-note, #annot-toolbar, .zt-confirm-overlay')) return;
+        closeQuickNote(); syncNoteBtn();
+    }, true);
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && document.body.classList.contains('qmn-dock-on') && noteOpen()) { closeQuickNote(); syncNoteBtn(); }
+    });
+    document.addEventListener('input', (e) => { if (e.target && e.target.id === 'personal-note-input') syncNoteBtn(); });
+    // Phím Q (bàn phím rời iPad) / thanh tập trung cũng mở-đóng sổ: theo dõi lớp fm-note-open thay vì chỉ nghe nút dock
+    let was = noteOpen();
+    new MutationObserver(() => { const now = noteOpen(); if (now !== was) { was = now; syncNoteBtn(); } })
+        .observe(document.body, { attributes: true, attributeFilter: ['class'] });
+}
 
 let bar, prevBtn, nextBtn, jumpBtn, counterEl, fillEl, fiveBtn, markBtn, markMenu, settingsBtn;
 let sheet, sheetGrid, sheetMeta, sheetBackdrop, sheetClose;
@@ -20,7 +58,11 @@ let wired = false;
 let jumpFilter = 'all';   // bộ lọc bảng nhảy câu: all | todo | marked | wrong
 
 // Chỉ hiện ở màn hình hẹp (mobile / tablet dọc). ≥1024px đã có bố cục 3 cột + lưới số câu.
-function isNarrow() { return window.innerWidth < 1024 && !(window.innerWidth >= 768 && window.matchMedia('(pointer: coarse)').matches); } // iPad: không dùng thanh đáy, đã có nút Câu tiếp nổi (quiz-tablet-next.js)
+// 2026-11-03: iPad DỌC (768–1023) cũng dùng — ở dạng DOCK nổi cho ngón cái (isDock): chỉ hàng nút Trước · 50:50 · Đánh dấu · Ghi chú ·
+// Thiết lập · Tiếp; dải "Câu X/Y" bỏ vì bảng số câu dính đỉnh (quiz-stationery.css §30b) đã có. Nút Câu tiếp nổi (quiz-tablet-next.js)
+// nay chỉ còn ở ≥1024 nên không bao giờ có hai nút Tiếp cùng lúc.
+function isNarrow() { return window.innerWidth < 1024; }
+function isDock() { return window.innerWidth >= 768; }
 
 // Đang thực sự trong lúc làm bài (không phải trang thiết lập / màn kết quả)?
 function inQuiz() {
@@ -164,6 +206,8 @@ export function setupMobileNav() {
         updateMobileNav();
     });
 
+    setupDockNote();
+
     // Đánh dấu ở thanh đáy: mở bong bóng chọn lý do (giống menu trong thẻ), chọn xong tự đóng
     markMenu = document.getElementById('qmn-mark-menu');
     if (markBtn) markBtn.addEventListener('click', (e) => {
@@ -256,14 +300,21 @@ function renderStripScore() {
 export function updateMobileNav() {
     if (!bar) return;
     if (!isNarrow() || !inQuiz()) {
-        bar.classList.remove('show');
+        bar.classList.remove('show', 'qmn-dock');
         bar.setAttribute('aria-hidden', 'true');
-        document.body.classList.remove('has-mobile-nav');
+        if (document.body.classList.contains('qmn-dock-on') && noteOpen()) closeQuickNote();   // sổ dạng trượt không được kẹt mở khi rời dock
+        document.body.classList.remove('has-mobile-nav', 'qmn-dock-on');
         return;
     }
+    const dock = isDock();
     bar.classList.add('show');
+    bar.classList.toggle('qmn-dock', dock);
     bar.setAttribute('aria-hidden', 'false');
     document.body.classList.add('has-mobile-nav');
+    if (!dock && document.body.classList.contains('qmn-dock-on') && noteOpen()) closeQuickNote();
+    document.body.classList.toggle('qmn-dock-on', dock);
+    if (noteBtn) noteBtn.hidden = !dock;
+    syncNoteBtn();
 
     const total = state.questions.length;
     const idx = state.currentIndex;

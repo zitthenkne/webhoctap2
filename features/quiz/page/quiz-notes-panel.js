@@ -232,7 +232,8 @@ export function openQuickNote() {
     input.focus({ preventScroll: true });
     const v = input.value.length;
     input.setSelectionRange(v, v);
-    if (window.innerWidth < 1024 && !document.body.classList.contains('focus-mode-active')) {
+    // dock iPad dọc: sổ trượt lên tại chỗ (quiz-stationery.css §30c) -> không cuộn trang
+    if (window.innerWidth < 1024 && !document.body.classList.contains('focus-mode-active') && !document.body.classList.contains('qmn-dock-on')) {
         input.scrollIntoView({ block: 'center', behavior: scrollBehaviorFor() });
     }
 }

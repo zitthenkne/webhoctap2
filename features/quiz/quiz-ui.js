@@ -84,7 +84,7 @@ function renderNavScore(s) {
             ${s.acc != null ? `<span class="qns-chip qns-acc ${accTone(s.acc)}" title="Tỉ lệ đúng trên số câu đã chấm"><b>${s.acc}</b>%</span>` : ''}
         </div>
         <div class="qns-bar" aria-hidden="true"><i class="qns-bar-ok" style="width:${pctOk}%"></i><i class="qns-bar-bad" style="width:${pctBad}%"></i></div>
-        ${s.streak >= 2 || s.pending ? `<div class="qns-sub">${s.streak >= 2 ? `<span class="qns-fire"><i class="fas fa-fire"></i> Chuỗi ${s.streak} câu đúng</span>` : ''}${s.pending ? `<span class="qns-pend"><i class="fas fa-hourglass-half"></i> ${s.pending} chờ chấm</span>` : ''}</div>` : ''}`;
+        ${s.streak >= 2 || s.pending ? `<div class="qns-sub">${s.streak >= 2 ? `<span class="qns-fire"><i class="fas fa-fire"></i> Chuỗi ${s.streak} câu đúng</span>` : ''}${s.pending ? `<span class="qns-pend"><i class="fas fa-clock"></i> ${s.pending} chờ chấm</span>` : ''}</div>` : ''}`;
     el.setAttribute('aria-label', `Đúng ${s.correct}, sai ${s.wrong}${s.acc != null ? `, tỉ lệ đúng ${s.acc}%` : ''}`);
     // vừa tăng thì nảy nhẹ chip tương ứng
     if (_prevScore.correct >= 0 && s.correct > _prevScore.correct) el.querySelector('.qns-ok')?.classList.add('is-bump');
