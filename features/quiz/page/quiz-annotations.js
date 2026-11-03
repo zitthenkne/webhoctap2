@@ -1046,7 +1046,7 @@ function listInTa(ta, kind) {
     const mark = (i) => kind === 'ol' ? (i + 1) + '. ' : (kind === 'task' ? '- [ ] ' : '- ');
     const out = lines.map((l, i) => all ? l.replace(re, '$1') : ((l.trim() || lone) ? l.replace(/^(\s*)(?:[-*+]\s+\[[ xX]\]|[☐☑]|[-*+]|\d{1,3}[.)])?\s*/, `$1${mark(i)}`) : l)).join('\n');
     replaceInTa(ta, ls, le, out);
-    ta.setSelectionRange(ls + out.length, ls + out.length);
+    ta.setSelectionRange(s !== e ? ls : ls + out.length, ls + out.length);   // đang chọn nhiều dòng: giữ chọn để đổi kiểu tiếp
 }
 // Enter trong mục danh sách: mục mới cùng kiểu (số tự tăng); Enter ở mục rỗng = thoát danh sách. Trả true nếu đã xử lý.
 function continueListInTa(ta) {
