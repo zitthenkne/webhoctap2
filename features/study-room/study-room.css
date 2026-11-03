@@ -5793,7 +5793,8 @@ html .mermaid-container::before {                    /* băng keo xanh trời d�
 html .mermaid { min-width: min(calc(var(--mm-w, 0px) * .8), 34rem); }
 html .mermaid svg { min-width: 0; }
 html .mermaid-container foreignObject { overflow: visible; }
-html .mermaid .nodeLabel { line-height: 1.4; }
+/* ĐỪNG đặt font-weight / line-height cho .nodeLabel ở đây: Mermaid đo chữ TRƯỚC khi CSS trang có hiệu lực -> chữ chạm viền ô.
+   Độ đậm + giãn dòng nằm trong themeCSS (quiz-helpers.js ensureMermaidInit); trang chỉ đổi MÀU. */
 /* Ô sơ đồ luồng: mỗi ô một màu kẹo xoay vòng (ô tác giả tự tô bằng style / classDef thì giữ nguyên) */
 html svg[id^="mm"] g.nodes > g.node { --n: var(--tb-1); --nt: #8E2F57; }
 html svg[id^="mm"] g.nodes > g.node:nth-child(6n+2) { --n: var(--tb-2); --nt: #9A4A12; }
@@ -5807,13 +5808,13 @@ html svg[id^="mm"] g.node > :is(rect, polygon, circle, ellipse, path):not([style
     stroke-width: 2px !important;
 }
 html svg[id^="mm"] g.node > rect:not([style*="fill"]) { rx: 12px; ry: 12px; }
-html svg[id^="mm"] g.node .nodeLabel:not([style*="color"]) { color: var(--nt) !important; font-weight: 700; }
+html svg[id^="mm"] g.node .nodeLabel:not([style*="color"]) { color: var(--nt) !important; }
 html svg[id^="mm"] .flowchart-link { stroke-width: 2px !important; stroke-linecap: round; }
 /* nhãn trên mũi tên: bản 53 (cuối file) — chữ viết thẳng lên đường, không đóng viên */
 html svg[id^="mm"] g.cluster > rect:not([style*="fill"]) {
     fill: #F7F2FF !important; stroke: #C9B8F5 !important; stroke-width: 2px !important; stroke-dasharray: 6 5; rx: 14px; ry: 14px;
 }
-html svg[id^="mm"] g.cluster .nodeLabel, html svg[id^="mm"] g.cluster-label span { color: #5B45A8 !important; font-weight: 700; }
+html svg[id^="mm"] g.cluster .nodeLabel, html svg[id^="mm"] g.cluster-label span { color: #5B45A8 !important; }
 
 /* Hình SVG vẽ bằng mã (quiz-helpers svgFigureHtml -> <img data:image/svg+xml>): thẻ giấy như sơ đồ, bấm để phóng to */
 html .svg-fig {
@@ -6292,7 +6293,6 @@ html #room-note-pop .rnp-input:focus { box-shadow: inset 0 0 0 1.5px var(--rm-la
 /* ---- 4. Sơ đồ Mermaid (đồng bộ quiz-stationery.css §16): ý nghĩa bằng màu + nổi như nhãn dán + rê chuột để lần theo logic ----
    (nhãn trên mũi tên: bản 49 từng vẽ viên kẹo bơ — đã gỡ; nay là chữ viết thẳng lên đường, themeCSS trong quiz-helpers.js) */
 html svg[id^="mm"] g.nodes > g.node.node:has(> polygon) { --n: var(--tb-3); --nt: #7A5E1E; }     /* hình thoi = chỗ rẽ nhánh: vàng bơ */
-html svg[id^="mm"] g.nodes > g.node.node:has(> polygon) .nodeLabel { font-weight: 800; }
 html svg[id^="mm"] g.nodes > g.node.node:has(> circle) { --n: var(--tb-4); --nt: #1F6B4C; }      /* mốc đầu / cuối tròn: bạc hà */
 @media (pointer: fine) {
     html svg[id^="mm"] g.node > :is(rect, polygon, circle, ellipse, path):not([style*="fill"]) { filter: drop-shadow(0 2px 0 color-mix(in srgb, var(--n, #F5A3BF) 55%, transparent)); }

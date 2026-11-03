@@ -18,17 +18,22 @@ export function ensureMermaidInit() {
             theme: 'base',
             securityLevel: _mmSecurity, // mặc định 'loose' (nhãn HTML); trang nhiều người cùng sửa đặt 'antiscript' qua configureMermaid
             // Thoáng hơn: ô cách xa nhau, chữ dài tự xuống dòng (ô không bị kéo thành dải ngang), đường nối cong mềm
-            flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis', nodeSpacing: 48, rankSpacing: 58, padding: 16, wrappingWidth: 230 },
+            // padding = tổng lề trong ô theo mỗi chiều (16 -> chỉ 8px mỗi bên, chữ sát viền) -> 26
+            flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis', nodeSpacing: 52, rankSpacing: 62, padding: 26, wrappingWidth: 230 },
             sequence: { useMaxWidth: true, actorMargin: 60, messageMargin: 38, boxMargin: 10, mirrorActors: false, wrap: true, width: 160 },
             mindmap: { useMaxWidth: true, padding: 20 },
             // CSS chạy TRONG svg -> áp cho mọi trang có sơ đồ (quiz, flashcard, phòng, lịch sử): góc bo, nét tròn đầu, chữ nhãn đậm
-            themeCSS: '.node rect{rx:12px;ry:12px}.cluster rect{rx:16px;ry:16px;stroke-dasharray:7 5;stroke-width:2px}'
+            // ĐỘ ĐẬM + GIÃN DÒNG chữ trong ô PHẢI đặt ở đây: Mermaid đo chữ trong vùng vẽ tạm (ngoài #quiz-container…) để định cỡ ô —
+            // trước đây CSS trang làm đậm 700/800 SAU khi đo -> chữ rộng thêm ~10%, chạm sát viền ô / mép hình thoi (2026-11-03).
+            // CSS trang chỉ được đổi MÀU chữ, không đổi font-weight / font-size / line-height / letter-spacing của .nodeLabel.
+            themeCSS: '.nodeLabel{font-weight:700;line-height:1.4}.cluster-label .nodeLabel{font-weight:800}'
+                + '.node rect{rx:12px;ry:12px}.cluster rect{rx:16px;ry:16px;stroke-dasharray:7 5;stroke-width:2px}'
+                + MM_KIND_CSS
                 + '.flowchart-link,.messageLine0,.messageLine1,.relationshipLine{stroke-linecap:round;stroke-linejoin:round}.flowchart-link{stroke-width:2px}'
                 + '.actor{rx:14px;ry:14px;stroke-width:2px}.note{rx:10px;ry:10px}'
                 // Nhãn trên mũi tên = CHỮ viết thẳng lên đường (không viên/ô): bỏ nền, viền chữ màu giấy "cắt" đường nối phía sau; Có = xanh, Không = đỏ (class gắn ở tagEdgeLabels)
                 + '.edgeLabel,.edgeLabel rect,.labelBkg{background:transparent!important;fill:transparent!important;opacity:1}'
-                + '.edgeLabel span{background:transparent!important;padding:0!important;font-size:13.5px;font-weight:800;font-style:italic;letter-spacing:.01em;color:#A04A6D;text-shadow:-2px 0px 0 var(--mm-halo,#FFFDF8),2px 0px 0 var(--mm-halo,#FFFDF8),0px -2px 0 var(--mm-halo,#FFFDF8),0px 2px 0 var(--mm-halo,#FFFDF8),-2px -2px 0 var(--mm-halo,#FFFDF8),2px 2px 0 var(--mm-halo,#FFFDF8),-2px 2px 0 var(--mm-halo,#FFFDF8),2px -2px 0 var(--mm-halo,#FFFDF8)}'
-                + '.edgeLabel .el-yes{color:#1F7A55!important}.edgeLabel .el-no{color:#C2415A!important}',
+                + '.edgeLabel span{background:transparent!important;padding:0!important;font-size:13.5px;font-weight:800;font-style:italic;letter-spacing:.01em;color:#A04A6D;text-shadow:-2px 0px 0 var(--mm-halo,#FFFDF8),2px 0px 0 var(--mm-halo,#FFFDF8),0px -2px 0 var(--mm-halo,#FFFDF8),0px 2px 0 var(--mm-halo,#FFFDF8),-2px -2px 0 var(--mm-halo,#FFFDF8),2px 2px 0 var(--mm-halo,#FFFDF8),-2px 2px 0 var(--mm-halo,#FFFDF8),2px -2px 0 var(--mm-halo,#FFFDF8)}',
             themeVariables: {
                 // Bảng màu kẹo pastel dùng chung cả web (quiz, flashcard, phòng đánh đề): nền phẳng,
                 // viền đậm hơn một bậc, chữ mực cùng tông. Ô sơ đồ luồng ở quiz.html còn được tô
@@ -156,13 +161,61 @@ export function fixMermaidCode(code) {
         .replace(/\[([^\[\]"]*[()&][^\[\]"]*)\]/g, (m, label) => `["${label.trim()}"]`);
 }
 
-// Nhãn trên mũi tên: "Có / Đúng / Yes" -> xanh, "Không / Sai / No" -> hồng đỏ (class el-yes / el-no, tô màu ở quiz-stationery.css)
-const _EL_YES = /^(có|đúng|yes|y|true|đồng ý|dương tính|tăng|\+)$/i, _EL_NO = /^(không|sai|no|n|false|không đồng ý|âm tính|giảm|-)$/i;
+// Nhãn trên mũi tên: "Có / Đúng / Yes" -> xanh, "Không / Sai / No" -> hồng đỏ (class el-yes / el-no, tô màu ở themeCSS).
+// Nhận cả nhãn có phần giải thích: "Có (Hồng cầu nhỏ nhược sắc)", "Không: theo dõi".
+const _EL_TAIL = '(?=$|[\\s(:,;–—-])';
+const _EL_YES = new RegExp(`^(?:(?:có|đúng|yes|y|true|đồng ý|dương tính|tăng)${_EL_TAIL}|\\+$)`, 'i');
+const _EL_NO = new RegExp(`^(?:(?:không|sai|no|n|false|không đồng ý|âm tính|giảm)${_EL_TAIL}|-$)`, 'i');
 function tagEdgeLabels(svg) {
-    return svg.replace(/<span class="edgeLabel">([^<]{1,40})<\/span>/g, (m, t) => {
+    return svg.replace(/<span class="edgeLabel">([^<]{1,60})<\/span>/g, (m, t) => {
         const s = t.trim();
-        return _EL_YES.test(s) ? `<span class="edgeLabel el-yes">${t}</span>` : _EL_NO.test(s) ? `<span class="edgeLabel el-no">${t}</span>` : m;
+        return _EL_NO.test(s) ? `<span class="edgeLabel el-no">${t}</span>` : _EL_YES.test(s) ? `<span class="edgeLabel el-yes">${t}</span>` : m;
     });
+}
+
+// MÀU THEO Ý NGHĨA Ô (2026-11-03) — đọc lưu đồ là biết ngay đâu là điểm bắt đầu, chỗ rẽ nhánh, kết cục tốt / xấu:
+//   mm-start  ô đầu tiên (không mũi tên nào đi vào)     hồng   · mm-q    hình thoi = câu hỏi rẽ nhánh  vàng bơ
+//   mm-ok     ✅ / bình thường / nguy cơ thấp / âm tính  bạc hà · mm-bad  🔴 ❌ / nguy cơ cao / cấp cứu  đỏ hồng
+//   mm-warn   ⚠️ / nghi ngờ / dương tính / lưu ý         cam đào · mm-info xét nghiệm / siêu âm / tư vấn  xanh trời
+// Ô không khớp giữ màu xoay vòng 6 màu như cũ; ô tác giả tự tô (style / classDef = thuộc tính style) giữ nguyên màu của tác giả.
+// --n / --nt đặt !important để CSS xoay vòng màu của trang (quiz-stationery §16, study-room) đọc đúng màu ý nghĩa.
+const MM_KINDS = {
+    start: ['#FF8FB8', '#8E2F57'], q: ['#F2BE2E', '#7A5E1E'], ok: ['#6FD1AE', '#1F6B4C'],
+    bad: ['#F0838F', '#A33A42'], warn: ['#F79A5E', '#9A4A12'], info: ['#7EC0EE', '#2A5E8C'],
+};
+const MM_KIND_CSS = Object.entries(MM_KINDS).map(([k, [n, t]]) => {
+    const g = `.node.mm-${k}`;
+    return `${g}{--n:${n}!important;--nt:${t}!important}`
+        + `${g}>rect,${g}>polygon,${g}>circle,${g}>ellipse,${g}>path{fill:color-mix(in srgb,${n} 26%,#fff);stroke:color-mix(in srgb,${n} 80%,#fff);stroke-width:2px}`
+        + `${g} .nodeLabel{color:${t}}`;
+}).join('') + '.node.mm-start>rect{stroke-width:2.6px}'
+    + '.edgeLabel .el-yes{color:#1F7A55!important}.edgeLabel .el-no{color:#C2415A!important}';
+const MM_KIND_RULES = [
+    ['bad', /❌|🔴|🚨|⛔|☠|nguy cơ cao|cấp cứu|nguy hiểm|biến chứng|tử vong|chấm dứt thai|đình chỉ thai|thai bị bệnh|bệnh nặng/iu],
+    ['ok', /✅|✔|🟢|💚|nguy cơ thấp|bình thường|âm tính|không (?:mắc|bị) bệnh|khỏe mạnh|an toàn|định kỳ/iu],
+    ['warn', /⚠|❗|🟡|🟠|nghi ngờ|cảnh báo|lưu ý|thận trọng|dương tính|mang gen|người lành mang/iu],
+    ['info', /🔬|🧪|🩸|🩺|xét nghiệm|siêu âm|điện di|chọc ối|sinh thiết gai nhau|định lượng|giải trình tự|tư vấn/iu],
+];
+function tagNodes(svg) {
+    if (typeof document === 'undefined' || !/class="node[ "]/.test(svg)) return svg;
+    const t = document.createElement('template');
+    t.innerHTML = svg;
+    const nodes = [...t.content.querySelectorAll('g.node')];
+    if (!nodes.length) return svg;
+    // Ô đầu: có mũi tên đi ra (LS-<id>) nhưng không có mũi tên nào đi vào (LE-<id>) — chỉ tính ở lưu đồ ≥ 3 ô
+    const links = [...t.content.querySelectorAll('.flowchart-link')].map(p => p.getAttribute('class') || '');
+    const has = (pre, id) => links.some(c => c.split(/\s+/).includes(pre + id));
+    for (const g of nodes) {
+        const own = g.querySelector(':scope > rect, :scope > polygon, :scope > circle, :scope > ellipse, :scope > path');
+        if (own?.getAttribute('style')?.includes('fill')) continue;   // tác giả tự tô
+        const id = (/^flowchart-(.+)-\d+$/.exec(g.id || '') || [])[1];
+        if (g.querySelector(':scope > polygon')) { g.classList.add('mm-q'); continue; }
+        if (id && nodes.length >= 3 && has('LS-', id) && !has('LE-', id)) { g.classList.add('mm-start'); continue; }
+        const text = g.textContent || '';
+        const kind = MM_KIND_RULES.find(([, re]) => re.test(text));
+        if (kind) g.classList.add('mm-' + kind[0]);
+    }
+    return t.innerHTML;
 }
 
 /** Vẽ mã Mermaid (đã sửa) thành chuỗi SVG, có bộ nhớ đệm. Sai cú pháp thì ném lỗi. */
@@ -176,7 +229,8 @@ export async function mermaidSvg(code) {
     if (hit) return { svg: hit.svg.split(hit.id).join(id), bind: null };
     try {
         const { svg: raw, bindFunctions } = await mermaid.render(id, code);
-        const svg = tagEdgeLabels(raw);
+        let svg = tagEdgeLabels(raw);
+        try { svg = tagNodes(svg); } catch (e) { /* tô màu ý nghĩa là phần thêm — lỗi thì giữ sơ đồ gốc */ }
         _mmCache.set(code, { svg, id });
         if (_mmCache.size > 80) _mmCache.delete(_mmCache.keys().next().value);
         return { svg, bind: bindFunctions };

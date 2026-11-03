@@ -2994,7 +2994,8 @@ html.theme-dark :is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-tabl
 /* chữ tiếng Việt có dấu / đuôi chữ g, y không bị cắt: khung foreignObject Mermaid đo hụt vài px */
 :is(#quiz-landing, #quiz-container, .rm-dgv) .mermaid-container foreignObject,
 .rm-dgv foreignObject { overflow: visible; }
-:is(#quiz-landing, #quiz-container) .mermaid .nodeLabel { line-height: 1.35; }
+/* ĐỪNG đặt font-weight / line-height cho .nodeLabel ở file này: Mermaid đo chữ TRƯỚC khi CSS trang có hiệu lực -> chữ chạm viền ô.
+   Độ đậm + giãn dòng nằm trong themeCSS (quiz-helpers.js ensureMermaidInit); ở đây chỉ đổi MÀU. */
 
 /* Sơ đồ luồng: mỗi ô một màu kẹo xoay vòng 6 màu (ô tác giả tự tô bằng style/classDef thì giữ nguyên) */
 :is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.nodes > g.node { --n: var(--hue-blossom); --nt: #8E2F57; }
@@ -3009,7 +3010,7 @@ html.theme-dark :is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-tabl
     stroke-width: 2px !important;
 }
 :is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.node > rect:not([style*="fill"]) { rx: 12px; ry: 12px; }
-:is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.node .nodeLabel:not([style*="color"]) { color: var(--nt) !important; font-weight: 700; }
+:is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.node .nodeLabel:not([style*="color"]) { color: var(--nt) !important; }
 /* đường nối: nét tròn đầu, chữ trên đường là chữ viết thẳng lên mũi tên (themeCSS trong quiz-helpers.js), không đóng khung */
 :is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] .flowchart-link { stroke-width: 2px !important; stroke-linecap: round; }
 /* nhóm (subgraph) = tờ giấy nét đứt oải hương */
@@ -3020,10 +3021,9 @@ html.theme-dark :is(#quiz-landing, #quiz-container, #case-peek-sheet) .cute-tabl
     stroke-dasharray: 7 5;
     rx: 16px; ry: 16px;
 }
-:is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.cluster .nodeLabel { color: #5B45A8 !important; font-weight: 800; }
+:is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.cluster .nodeLabel { color: #5B45A8 !important; }
 /* Ý nghĩa bằng màu: ô QUYẾT ĐỊNH (hình thoi) vàng bơ + chữ đậm, ô tròn (mốc đầu/cuối) bạc hà -> nhìn là biết chỗ rẽ nhánh */
 :is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.nodes > g.node.node:has(> polygon) { --n: var(--hue-butter); --nt: #7A5E1E; }
-:is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.nodes > g.node.node:has(> polygon) .nodeLabel { font-weight: 800; }
 :is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.nodes > g.node.node:has(> circle) { --n: var(--hue-mint); --nt: #1F6B4C; }
 /* Nổi như nhãn dán: bóng phẳng dưới mỗi ô (chuột/bút; máy cảm ứng bỏ cho nhẹ GPU). Rê chuột vào một ô -> các ô khác mờ đi, ô đó đậm lên để lần theo logic */
 @media (pointer: fine) {
