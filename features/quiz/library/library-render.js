@@ -200,19 +200,18 @@ function renderEmptyState(container, type) {
         title = 'Thư viện của bạn đang trống';
         desc = 'Tạo bộ đề đầu tiên để bắt đầu ôn luyện thôi nào!';
         ctaHTML = `
-            <button type="button" id="empty-create-quiz-btn"
-                class="mt-5 inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 text-white rounded-xl font-bold text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all">
-                <i class="fas fa-plus"></i> Tạo bộ đề đầu tiên
+            <button type="button" id="empty-create-quiz-btn" class="lib-cta lib-empty-cta">
+                <i class="fas fa-plus"></i> <span>Tạo bộ đề đầu tiên</span>
             </button>`;
     }
+    // Tấm giấy note dán băng keo (lớp .lib-empty-* trong home-scrapbook.css) — dùng chung mọi kiểu "rỗng"
     const wrap = document.createElement('div');
-    wrap.className = 'col-span-full flex flex-col items-center justify-center text-center py-14 px-4';
+    wrap.className = 'lib-empty col-span-full';
+    wrap.dataset.kind = type;
     wrap.innerHTML = `
-        <div class="w-20 h-20 rounded-full bg-pink-50 flex items-center justify-center mb-4">
-            <i class="fas ${icon} text-3xl text-pink-300"></i>
-        </div>
-        <h3 class="text-lg font-bold text-gray-700">${title}</h3>
-        <p class="text-sm text-gray-400 mt-1 max-w-xs">${desc}</p>
+        <span class="lib-empty-icon"><i class="fas ${icon}"></i></span>
+        <h3 class="lib-empty-title">${title}</h3>
+        <p class="lib-empty-desc">${desc}</p>
         ${ctaHTML}
     `;
     container.appendChild(wrap);

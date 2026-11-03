@@ -10,7 +10,7 @@
 // Khi đó không lọc isPublic được nữa → lấy MỌI thứ chia sẻ cho mình (sharedWith array-contains email) rồi lọc theo thư mục ở máy
 // (vài chục doc, khỏi cần chỉ mục ghép). `?shared=me`: trang "Được chia sẻ với tôi" — liệt kê các mục gốc được chia sẻ cho mình.
 
-import { db } from '../../core/firebase-init.js';
+import { db, auth } from '../../core/firebase-init.js';
 import { whenAuthReady, refreshEmailVerified } from '../../core/auth-session.js';
 import { runQueryRest } from '../../core/firestore-rest.js';
 import { markSharedSeen } from './shared-inbox.js';
@@ -61,12 +61,66 @@ function withTimeout(promise, ms = 12000) {
     ]);
 }
 
+// ---------- Giao diện trang (2026-11-03): bìa hồ sơ đầu trang + các mục có tiêu đề, lớp .fp-* trong folder.html ----------
+const $ = (id) => document.getElementById(id);
+const fmtNum = (n) => Number(n || 0).toLocaleString('vi-VN');
+
+/** Tô đầu trang: màu (--fc), icon, tên, tai hồ sơ, dòng phụ (HTML đã escape), các viên số liệu. */
+function setHero({ hex, icon, name, tab, metaHTML, stats } = {}) {
+    const hero = $('folder-header');
+    if (hex) hero.style.setProperty('--fc', hex);
+    if (tab) hero.dataset.tab = tab;
+    if (icon) $('folder-icon').innerHTML = `<i class="fas ${escapeHtml(icon)}"></i>`;
+    if (name != null) { $('folder-name').textContent = name; hero.dataset.ready = '1'; }
+    if (metaHTML != null) $('folder-meta').innerHTML = metaHTML;
+    if (stats) {
+        $('folder-stats').innerHTML = stats.filter(s => s && s.n != null).map(s =>
+            `<span class="fp-stat"><i class="fas ${s.icon}"></i><b>${fmtNum(s.n)}</b> ${s.label}</span>`).join('');
+    }
+}
+const accessBadge = (kind) => kind === 'public'
+    ? '<span class="fp-access is-public"><i class="fas fa-globe"></i> Công khai</span>'
+    : kind === 'link' ? '<span class="fp-access is-once"><i class="fas fa-mobile-screen"></i> Link 1 thiết bị</span>'
+    : kind === 'owner' ? '<span class="fp-access is-owner"><i class="fas fa-crown"></i> Thư mục của bạn</span>'
+    : '<span class="fp-access is-shared"><i class="fas fa-user-lock"></i> Chia sẻ riêng</span>';
+
+// Nút "Sao chép link" (thanh trên) — CHỈ hiện cho chủ thư mục; người được chia sẻ và trang "Được chia sẻ với tôi" không có
+function bindCopyLink() {
+    const btn = $('fp-copy-link');
+    if (!btn) return;
+    btn.classList.remove('hidden');
+    btn.addEventListener('click', async () => {
+        const url = location.href;
+        try {
+            if (navigator.share && matchMedia('(pointer: coarse)').matches) {
+                await navigator.share({ title: document.title, url });
+                return;
+            }
+            await navigator.clipboard.writeText(url);
+            btn.classList.add('is-done');
+            btn.innerHTML = '<i class="fas fa-check"></i><span class="fp-btn-text">Đã sao chép</span>';
+            setTimeout(() => {
+                btn.classList.remove('is-done');
+                btn.innerHTML = '<i class="fas fa-link"></i><span class="fp-btn-text">Sao chép link</span>';
+            }, 1800);
+        } catch (e) {
+            if (e?.name !== 'AbortError') showToast('Không sao chép được — hãy copy đường dẫn trên thanh địa chỉ.', 'warning');
+        }
+    });
+}
+
 function showMessage(icon, title, desc) {
-    const box = document.getElementById('folder-message');
-    document.getElementById('folder-quiz-list').innerHTML = '';
-    document.getElementById('folder-message-icon').className = `fas ${icon} text-3xl text-pink-300`;
-    document.getElementById('folder-message-title').textContent = title;
-    document.getElementById('folder-message-desc').textContent = desc;
+    const box = $('folder-message');
+    // Lỗi trước khi biết thư mục là gì → đầu trang về dạng trung tính thay vì treo "Đang mở thư mục…"
+    if (!$('folder-header').dataset.ready) {
+        setHero({ hex: '#c9a2b5', icon: 'fa-folder-closed', name: 'Thư mục chia sẻ', metaHTML: 'Zitthenkne' });
+    }
+    $('folder-quiz-list').innerHTML = '';
+    $('fp-quiz-head')?.classList.add('hidden');
+    $('fp-no-match')?.classList.add('hidden');
+    $('folder-message-icon').className = `fas ${icon}`;
+    $('folder-message-title').textContent = title;
+    $('folder-message-desc').textContent = desc;
     box.classList.remove('hidden');
 }
 
@@ -90,10 +144,13 @@ function renderSkeleton(n = 6) {
 
 // Thư mục con: cùng kiểu "bìa hồ sơ giấy" với thư viện (style.css), là link mở folder.html của nó
 // `shared`: trang "Được chia sẻ với tôi" — thêm dòng "từ ai" và nút Rời chia sẻ / Lưu bản sao (xử lý ở bindSharedActions).
-function renderSubFolders(folders, { shared = false } = {}) {
+function renderSubFolders(folders, { shared = false, link = '' } = {}) {
     const box = document.getElementById('folder-sub-list');
+    const section = $('fp-sub-section');
     if (!box) return;
-    if (!folders.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+    $('fp-sub-label').textContent = shared ? 'Thư mục được chia sẻ' : 'Thư mục con';
+    $('fp-sub-count').textContent = folders.length || '';
+    if (!folders.length) { section?.classList.add('hidden'); box.innerHTML = ''; return; }
     box.innerHTML = folders.map((f, i) => {
         const hex = (f.color || '').startsWith('#') ? f.color : (FOLDER_COLOR_HEX[f.color] || FOLDER_COLOR_HEX.amber);
         const name = escapeHtml(f.name || 'Thư mục');
@@ -102,7 +159,7 @@ function renderSubFolders(folders, { shared = false } = {}) {
             ? `<button type="button" class="shared-leave-btn absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-white/80 text-gray-400 hover:text-red-500 text-xs" data-kind="folder" data-id="${escapeHtml(f.id)}" title="Rời chia sẻ (ẩn thư mục này khỏi danh sách của bạn)" aria-label="Rời chia sẻ"><i class="fas fa-right-from-bracket"></i></button>`
             : '';
         return `
-        <a class="folder-mini-card relative" href="folder.html?id=${encodeURIComponent(f.id)}" data-tab="Thư mục" data-fill="2" style="--fc:${hex};--card-index:${Math.min(i, 12)}">
+        <a class="folder-mini-card relative" href="folder.html?id=${encodeURIComponent(f.id)}${link ? `&link=${encodeURIComponent(link)}` : ''}" data-tab="Thư mục" data-fill="2" style="--fc:${hex};--card-index:${Math.min(i, 12)}">
             <span class="fd-papers" aria-hidden="true"><i></i><i></i><i></i></span>
             <div class="folder-mini-card-content">
                 <div class="folder-icon-wrapper"><i class="fas ${escapeHtml(f.icon || 'fa-folder')}"></i></div>
@@ -111,14 +168,55 @@ function renderSubFolders(folders, { shared = false } = {}) {
             ${leave}
         </a>`;
     }).join('');
-    box.classList.remove('hidden');
+    section?.classList.remove('hidden');
 }
+
+// ---------- Danh sách bộ đề: tìm theo tên (bỏ dấu) + sắp xếp, hiện công cụ khi > 4 bộ ----------
+const fold = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd');
+let quizView = { items: [], shared: false };
+let toolsBound = false;
+
+function setQuizList(items, { shared = false, label } = {}) {
+    quizView = { items, shared };
+    $('fp-quiz-label').textContent = label || (shared ? 'Bộ đề được chia sẻ' : 'Bộ đề');
+    $('fp-quiz-head').classList.toggle('hidden', !items.length);
+    $('fp-tools').classList.toggle('hidden', items.length <= 4);
+    if (!toolsBound) {
+        toolsBound = true;
+        let t = 0;
+        $('fp-search').addEventListener('input', () => { clearTimeout(t); t = setTimeout(drawQuizList, 120); });
+        $('fp-sort').addEventListener('change', drawQuizList);
+    }
+    drawQuizList();
+}
+
+function drawQuizList() {
+    const { items, shared } = quizView;
+    const raw = ($('fp-search').value || '').trim();
+    const q = fold(raw);
+    const sort = $('fp-sort').value;
+    let list = q ? items.filter(x => fold(x.title).includes(q)) : items.slice();
+    const byTitle = (a, b) => (a.title || '').localeCompare(b.title || '', 'vi', { sensitivity: 'base' });
+    if (sort === 'count') list.sort((a, b) => (b.questionCount || 0) - (a.questionCount || 0) || byTitle(a, b));
+    else if (sort === 'few') list.sort((a, b) => (a.questionCount || 0) - (b.questionCount || 0) || byTitle(a, b));
+    else list.sort(byTitle);
+    $('fp-quiz-count').textContent = items.length ? (q ? `${list.length}/${items.length}` : items.length) : '';
+    const none = $('fp-no-match');
+    none.classList.toggle('hidden', !(q && !list.length));
+    if (q && !list.length) none.textContent = `Không có bộ đề nào khớp “${raw}”.`;
+    renderQuizzes(list, { shared });
+}
+
+function scoreClass(p) { return p >= 80 ? 'is-good' : p >= 50 ? 'is-mid' : 'is-low'; }
 
 function renderQuizzes(quizzes, { shared = false } = {}) {
     const list = document.getElementById('folder-quiz-list');
     list.innerHTML = quizzes.map((q, i) => {
         const a = accentFor(q.id);
         const title = escapeHtml(q.title || 'Không tên');
+        // Khách đã làm trên máy này (local-shelf.js) → hiện điểm cao nhất, nút thành "Làm lại"
+        const st = localStatsFor(q.id);
+        const best = st ? Math.round(st.best.percentage) : null;
         return `
         <div class="quiz-grid-card" data-paper="${a.paper}" style="--qc-from:${a.from};--qc-to:${a.to};--qc-tilt:${a.tilt}deg;--card-index:${Math.min(i, 12)}">
             <span class="qc-rail" aria-hidden="true"></span>
@@ -130,13 +228,14 @@ function renderQuizzes(quizzes, { shared = false } = {}) {
                     <h3 class="qc-title" title="${title}"><a href="quiz.html?id=${q.id}">${title}</a></h3>
                     <p class="qc-meta">
                         <span class="qc-meta-item"><i class="fas fa-list-ol"></i><b>${q.questionCount || 0}</b> câu</span>
+                        ${st ? `<span class="fp-score ${scoreClass(best)}" title="Đã làm ${st.count} lần trên máy này · gần nhất ${Math.round(st.last.percentage)}%"><i class="fas fa-trophy"></i>${best}%</span>` : ''}
                         ${shared && q.sharedBy ? `<span class="qc-meta-item"><i class="fas fa-user"></i>từ ${escapeHtml(q.sharedBy)}</span>` : ''}
                         ${shared ? `<span class="qc-meta-item"><i class="fas ${canEdit(q) ? 'fa-pen' : 'fa-eye'}"></i>${canEdit(q) ? 'Người chỉnh sửa' : 'Người xem'}</span>` : ''}
                     </p>
                 </div>
             </div>
             <div class="qc-foot">
-                <a href="quiz.html?id=${q.id}" class="practice-btn"><i class="fas fa-play"></i><span>Làm bài</span></a>
+                <a href="quiz.html?id=${q.id}" class="practice-btn"><i class="fas ${st ? 'fa-rotate-right' : 'fa-play'}"></i><span>${st ? 'Làm lại' : 'Làm bài'}</span></a>
                 ${shared && canEdit(q) ? `
                 <a href="../editor/editor.html?id=${encodeURIComponent(q.id)}" class="practice-btn" style="flex:0 0 auto" title="Sửa câu hỏi (bạn là Người chỉnh sửa)"><i class="fas fa-pen"></i></a>` : ''}
                 ${shared && q.allowTakeout === true ? `
@@ -206,30 +305,33 @@ function renderShelf(excludeIds = new Set()) {
     if (!box || !list) return;
     const items = listShelf().filter(x => !excludeIds.has(x.id));
     box.classList.remove('hidden');
+    $('local-shelf-clear')?.classList.toggle('hidden', !items.some(x => !x.pinned));
     if (!items.length) {
-        list.innerHTML = `<p class="text-sm text-gray-400 py-4 text-center">Chưa mở bộ đề / thư mục nào của người khác trên máy này. Mở một link chia sẻ là nó hiện ở đây.</p>`;
+        list.innerHTML = `<p class="fp-shelf-empty" style="grid-column:1/-1"><i class="fas fa-inbox mr-1.5"></i>Chưa mở bộ đề / thư mục nào của người khác trên máy này. Mở một link chia sẻ là nó hiện ở đây.</p>`;
         return;
     }
     list.innerHTML = items.map(it => {
-        const href = it.kind === 'folder' ? `folder.html?id=${encodeURIComponent(it.id)}` : `quiz.html?id=${encodeURIComponent(it.id)}`;
+        const href = it.kind === 'folder'
+            ? `folder.html?id=${encodeURIComponent(it.id)}${it.link ? `&link=${encodeURIComponent(it.link)}` : ''}`
+            : `quiz.html?id=${encodeURIComponent(it.id)}`;
         const st = it.kind === 'quiz' ? localStatsFor(it.id) : null;
         const meta = [
             it.kind === 'folder' ? 'Thư mục' : (it.count ? `${it.count} câu` : 'Bộ đề'),
             it.ownerName ? `từ ${escapeHtml(it.ownerName)}` : '',
-            it.access === 'public' ? 'Công khai' : it.access === 'shared' ? 'Chia sẻ riêng' : '',
+            it.access === 'public' ? 'Công khai' : it.access === 'shared' ? 'Chia sẻ riêng' : it.access === 'link' ? 'Link 1 thiết bị' : '',
             `mở ${fmtAgo(it.openedAt || 0)}`,
             st ? `làm ${st.count} lần · gần nhất ${Math.round(st.last.percentage)}% · cao nhất ${Math.round(st.best.percentage)}%` : ''
         ].filter(Boolean).join(' · ');
+        const isFolder = it.kind === 'folder';
         return `
-        <div class="flex items-center gap-3 bg-white/80 hover:bg-white rounded-2xl px-3 py-2.5 shadow-sm transition">
-            <span class="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${it.kind === 'folder' ? 'bg-amber-100 text-amber-500' : 'bg-pink-100 text-pink-500'}">
-                <i class="fas ${it.kind === 'folder' ? 'fa-folder-open' : 'fa-file-lines'}"></i></span>
-            <a href="${href}" class="min-w-0 flex-1">
-                <span class="block text-sm font-bold text-gray-800 truncate">${it.pinned ? '<i class="fas fa-thumbtack text-pink-400 text-xs mr-1"></i>' : ''}${escapeHtml(it.title || 'Không tên')}</span>
-                <span class="block text-[11px] text-gray-500 truncate">${meta}</span>
+        <div class="fp-shelf-item">
+            <span class="fp-shelf-ic ${isFolder ? 'is-folder' : 'is-quiz'}"><i class="fas ${isFolder ? 'fa-folder-open' : 'fa-file-lines'}"></i></span>
+            <a href="${href}" class="fp-shelf-main">
+                <span class="fp-shelf-title">${it.pinned ? '<i class="fas fa-thumbtack"></i>' : ''}${escapeHtml(it.title || 'Không tên')}</span>
+                <span class="fp-shelf-meta" title="${meta}">${meta}</span>
             </a>
-            <button type="button" class="shelf-pin-btn w-8 h-8 rounded-full text-gray-400 hover:text-pink-500 hover:bg-pink-50" data-kind="${it.kind}" data-id="${escapeHtml(it.id)}" title="${it.pinned ? 'Bỏ ghim' : 'Ghim lên đầu'}"><i class="fas fa-thumbtack"></i></button>
-            <button type="button" class="shelf-forget-btn w-8 h-8 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50" data-kind="${it.kind}" data-id="${escapeHtml(it.id)}" title="Xóa khỏi máy này (không ảnh hưởng bản gốc)"><i class="fas fa-xmark"></i></button>
+            <button type="button" class="shelf-pin-btn fp-icon-btn${it.pinned ? ' is-on' : ''}" data-kind="${it.kind}" data-id="${escapeHtml(it.id)}" title="${it.pinned ? 'Bỏ ghim' : 'Ghim lên đầu'}" aria-label="${it.pinned ? 'Bỏ ghim' : 'Ghim lên đầu'}"><i class="fas fa-thumbtack"></i></button>
+            <button type="button" class="shelf-forget-btn fp-icon-btn is-danger" data-kind="${it.kind}" data-id="${escapeHtml(it.id)}" title="Xóa khỏi máy này (không ảnh hưởng bản gốc)" aria-label="Xóa khỏi máy này"><i class="fas fa-xmark"></i></button>
         </div>`;
     }).join('');
 }
@@ -254,21 +356,21 @@ function bindShelf(excludeIds) {
 }
 
 async function sharedWithMePage() {
-    document.getElementById('folder-name').textContent = 'Được chia sẻ với tôi';
     document.title = 'Được chia sẻ với tôi - Zitthenkne';
-    const iconEl = document.getElementById('folder-icon');
-    iconEl.innerHTML = '<i class="fas fa-user-group"></i>';
+    setHero({ hex: '#ec5f95', icon: 'fa-user-group', name: 'Được chia sẻ với tôi', tab: 'Hộp thư chia sẻ',
+        metaHTML: '<i class="fas fa-circle-notch fa-spin"></i> Đang kiểm tra tài khoản…' });
     renderSkeleton();
     const me = await viewer();
     // Không có tài khoản / chưa xác nhận email: vẫn quản lý được những gì đã mở trên máy này (kệ cục bộ)
     if (!me || !me.verified) {
         document.getElementById('folder-quiz-list').innerHTML = '';
-        document.getElementById('folder-meta').textContent = me ? me.email : 'Chưa đăng nhập · dữ liệu lưu trên trình duyệt này';
+        setHero({ metaHTML: me ? `<i class="fas fa-envelope"></i> ${escapeHtml(me.email)} · chưa xác nhận email`
+            : '<i class="fas fa-laptop"></i> Chưa đăng nhập · dữ liệu lưu trên trình duyệt này' });
         const note = document.getElementById('shared-account-note');
         if (note) {
             note.innerHTML = !me
-                ? `<i class="fas fa-circle-info mr-1"></i>Đăng nhập để xem bộ đề / thư mục được <b>chia sẻ riêng</b> cho email của bạn và đồng bộ kết quả làm bài. <a href="../../index.html?next=${encodeURIComponent(location.href)}" class="font-bold text-pink-600 underline">Đăng nhập</a>`
-                : `<i class="fas fa-circle-info mr-1"></i>Xác nhận email <b>${escapeHtml(me.email)}</b> (trang <a href="../profile/profile.html" class="font-bold text-pink-600 underline">Hồ sơ</a> → Gửi mail xác nhận) để thấy mục được chia sẻ riêng cho bạn.`;
+                ? `<i class="fas fa-circle-info"></i><span>Đăng nhập để xem bộ đề / thư mục được <b>chia sẻ riêng</b> cho email của bạn và đồng bộ kết quả làm bài. <a href="../../index.html?next=${encodeURIComponent(location.href)}">Đăng nhập ngay</a></span>`
+                : `<i class="fas fa-circle-info"></i><span>Xác nhận email <b>${escapeHtml(me.email)}</b> (trang <a href="../profile/profile.html">Hồ sơ</a> → Gửi mail xác nhận) để thấy mục được chia sẻ riêng cho bạn.</span>`;
             note.classList.remove('hidden');
         }
         renderShelf();
@@ -288,15 +390,21 @@ async function sharedWithMePage() {
         const folderIds = new Set(data.folders.map(f => f.id));
         const topFolders = data.folders.filter(f => !folderIds.has(f.parentId)).sort(byName);
         const looseSets = data.sets.filter(q => !folderIds.has(q.folderId)).sort(byName);
-        document.getElementById('folder-meta').textContent = `${topFolders.length} thư mục · ${looseSets.length} bộ đề · ${me.email}`;
+        setHero({
+            metaHTML: `<i class="fas fa-envelope"></i> ${escapeHtml(me.email)}`,
+            stats: [
+                { icon: 'fa-folder', n: topFolders.length, label: 'thư mục' },
+                { icon: 'fa-file-lines', n: looseSets.length, label: 'bộ đề' }
+            ]
+        });
         document.getElementById('folder-message').classList.add('hidden');
         renderSubFolders(topFolders, { shared: true });
         if (!topFolders.length && !looseSets.length) {
+            setQuizList([], { shared: true });
             showMessage('fa-inbox', 'Chưa có gì được chia sẻ', `Khi ai đó chia sẻ riêng bộ đề/thư mục cho ${me.email}, chúng sẽ hiện ở đây.`);
             return;
         }
-        if (looseSets.length) renderQuizzes(looseSets, { shared: true });
-        else document.getElementById('folder-quiz-list').innerHTML = '';
+        setQuizList(looseSets, { shared: true });
     };
     draw();
     markSharedSeen(me.uid, data.total);
@@ -313,7 +421,7 @@ let actionsBound = false;
 function bindSharedActions(me, data, redraw) {
     if (actionsBound) return;
     actionsBound = true;
-    const root = document.querySelector('.max-w-5xl') || document.body;
+    const root = document.getElementById('fp-root') || document.body;
     root.addEventListener('click', async (e) => {
         const leaveBtn = e.target.closest('.shared-leave-btn');
         const copyBtn = e.target.closest('.shared-copy-btn');
@@ -395,10 +503,62 @@ function bindSharedActions(me, data, redraw) {
     });
 }
 
+// ---------- LINK DÙNG CHO 1 THIẾT BỊ (folder.html?id=…&link=<mã>, api/link.js) ----------
+// Thư mục vẫn riêng tư: máy chủ kiểm máy này đang giữ link, trả nội dung + cấp quyền đọc các bộ đề bên trong (firestore.rules linkGranted).
+async function linkFolderPage(token, folderId) {
+    renderSkeleton();
+    try { await auth.authStateReady(); } catch (e) {}
+    const u = auth.currentUser;
+    // Trình duyệt này chưa nhận link → về trang cổng (nhận lần đầu / báo link đã dùng ở máy khác)
+    if (!u) { location.replace(`link.html?t=${encodeURIComponent(token)}`); return; }
+    let data;
+    try {
+        const r = await withTimeout(fetch(apiUrl('api/link'), {
+            method: 'POST', cache: 'no-store',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await u.getIdToken()}` },
+            body: JSON.stringify({ action: 'folder', token, folderId })
+        }));
+        data = await r.json().catch(() => ({}));
+    } catch (err) {
+        showMessage('fa-wifi', 'Mạng đang chậm', 'Chưa tải được thư mục. Kiểm tra kết nối rồi tải lại trang giúp mình nhé.');
+        return;
+    }
+    const st = data.status;
+    if (st === 'unclaimed') { location.replace(`link.html?t=${encodeURIComponent(token)}`); return; }
+    if (st !== 'mine' && st !== 'owner') {
+        const msg = {
+            taken: ['fa-lock', 'Link đã được dùng trên thiết bị khác', 'Link này chỉ mở được trên MỘT thiết bị và máy khác đã nhận trước. Nhờ người chia sẻ gửi link mới nhé.'],
+            expired: ['fa-clock', 'Link đã hết hạn', 'Thời hạn của link đã qua. Nhờ người chia sẻ gửi link mới nhé.']
+        }[st] || ['fa-link-slash', 'Link không còn hiệu lực', data.error || 'Link đã bị thu hồi, hoặc thư mục đã bị xóa.'];
+        showMessage(...msg);
+        return;
+    }
+    const f = data.folder || {};
+    const hex = (f.color || '').startsWith('#') ? f.color : (FOLDER_COLOR_HEX[f.color] || FOLDER_COLOR_HEX.amber);
+    pageAccess = 'link';
+    pageOwner = data.ownerName || '';
+    const left = data.expiresAt ? Math.max(0, data.expiresAt - Date.now()) / 3600000 : null;
+    setHero({
+        hex, icon: f.icon || 'fa-folder-open', name: f.name || 'Thư mục', tab: 'Link riêng',
+        metaHTML: heroMeta() + (left == null ? '' : `<span><i class="fas fa-clock mr-1"></i>${left < 48 ? `còn ${Math.max(1, Math.round(left))} giờ` : `còn ${Math.round(left / 24)} ngày`}</span>`)
+    });
+    document.title = `${f.name || 'Thư mục'} - Zitthenkne`;
+    // Thư mục con: nút quay lên thư mục cha (vẫn trong nhánh của link)
+    if (f.parentId) {
+        $('fp-hero-actions').innerHTML = `<a class="fp-btn" href="folder.html?id=${encodeURIComponent(f.parentId)}&link=${encodeURIComponent(token)}"><i class="fas fa-arrow-up"></i> Thư mục cha</a>`;
+    }
+    if (st === 'mine' && (folderId || data.root) === data.root) {
+        rememberOpened({ kind: 'folder', id: f.id, title: f.name, ownerName: pageOwner, access: 'link', link: token });
+    }
+    finishFolderPage(data.subFolders || [], data.quizzes || [], { link: token });
+}
+
 async function main() {
     const params = new URLSearchParams(location.search);
     if (params.get('shared') === 'me') return sharedWithMePage();
     const folderId = params.get('id');
+    const linkToken = (params.get('link') || '').replace(/[^\w-]/g, '').slice(0, 64);
+    if (linkToken) return linkFolderPage(linkToken, folderId);
     if (!folderId) {
         showMessage('fa-link-slash', 'Thiếu mã thư mục', 'Đường dẫn không hợp lệ. Hãy xin lại link chia sẻ nhé.');
         return;
@@ -449,14 +609,15 @@ async function main() {
     const hex = (folder.color || '').startsWith('#')
         ? folder.color
         : (FOLDER_COLOR_HEX[folder.color] || FOLDER_COLOR_HEX.amber);
-    const iconEl = document.getElementById('folder-icon');
-    iconEl.style.backgroundImage = 'none';   // màu phẳng (không gradient)
-    iconEl.style.backgroundColor = hex;
-    iconEl.innerHTML = `<i class="fas ${folder.icon || 'fa-folder-open'}"></i>`;
-    document.getElementById('folder-name').textContent = folder.name || 'Thư mục';
-    document.title = `${folder.name || 'Thư mục'} - Zitthenkne`;
-
     const isOwner = !!me && folder.userId === me.uid;
+    pageAccess = isOwner ? 'owner' : privateMode ? 'shared' : 'public';
+    pageOwner = isOwner ? '' : (folder.sharedBy || '');
+    setHero({ hex, icon: folder.icon || 'fa-folder-open', name: folder.name || 'Thư mục',
+        tab: isOwner ? 'Thư mục của bạn' : 'Thư mục chia sẻ', metaHTML: heroMeta() });
+    document.title = `${folder.name || 'Thư mục'} - Zitthenkne`;
+    // Chỉ CHỦ thư mục có nút sao chép link — người được chia sẻ không có lối phát tán link ra tiếp từ giao diện
+    if (isOwner) bindCopyLink();
+
     if (me?.verified) viewerEmail = me.email;
     // Thư mục của người khác (công khai hoặc chia sẻ riêng) → lên kệ "Trên máy này", kể cả khi chưa đăng nhập
     if (!isOwner) rememberOpened({ kind: 'folder', id: folderId, title: folder.name, ownerName: folder.sharedBy || '', access: privateMode ? 'shared' : 'public' });
@@ -506,26 +667,33 @@ async function main() {
     finishFolderPage(subFolders, quizzes);
 }
 
-function finishFolderPage(subFolders, quizzes, { shared = false } = {}) {
-    quizzes.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'vi', { sensitivity: 'base' }));
+// Dòng phụ dưới tên thư mục: nhãn quyền truy cập + "từ ai"
+let pageAccess = 'public';
+let pageOwner = '';
+function heroMeta() {
+    return `${accessBadge(pageAccess)}${pageOwner ? `<span><i class="fas fa-user mr-1"></i>Chia sẻ bởi <b>${escapeHtml(pageOwner)}</b></span>` : ''}`;
+}
 
+function finishFolderPage(subFolders, quizzes, { shared = false, link = '' } = {}) {
     const totalQuestions = quizzes.reduce((sum, q) => sum + (q.questionCount || 0), 0);
-    document.getElementById('folder-meta').textContent =
-        `${subFolders.length ? `${subFolders.length} thư mục con · ` : ''}${quizzes.length} bộ đề · ${totalQuestions} câu hỏi · thư mục được chia sẻ`;
+    setHero({
+        stats: [
+            subFolders.length ? { icon: 'fa-folder', n: subFolders.length, label: 'thư mục con' } : null,
+            { icon: 'fa-file-lines', n: quizzes.length, label: 'bộ đề' },
+            { icon: 'fa-circle-question', n: totalQuestions, label: 'câu hỏi' }
+        ]
+    });
 
     // Thư mục con trong thư mục được chia sẻ: không có nút "Rời" riêng (rời ở cấp thư mục cha / trang "Được chia sẻ với tôi")
-    renderSubFolders(subFolders);
-    if (!quizzes.length && subFolders.length) {
-        document.getElementById('folder-quiz-list').innerHTML = '';
-        return;
-    }
+    renderSubFolders(subFolders, { link });
+    setQuizList(quizzes, { shared });
+    if (!quizzes.length && subFolders.length) return;
     if (!quizzes.length) {
         showMessage('fa-folder-open', 'Thư mục này chưa có bộ đề nào bạn xem được',
             'Chủ thư mục cần bật công khai hoặc chia sẻ cho bạn các bộ đề bên trong.');
         return;
     }
     document.getElementById('folder-message').classList.add('hidden');
-    renderQuizzes(quizzes, { shared });
 }
 
 main();

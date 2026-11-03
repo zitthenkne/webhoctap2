@@ -53,7 +53,7 @@
     <link rel="stylesheet" href="core/app-sidebar.css?v=1">
     <link rel="stylesheet" href="home-shell.css?v=2">
     <!-- Lớp da "sổ cắt dán" (caro, washi, kẹp giấy, polaroid) — chỉ màu/hoạ tiết, không đổi bố cục -->
-    <link rel="stylesheet" href="home-scrapbook.css?v=2">
+    <link rel="stylesheet" href="home-scrapbook.css?v=4">
 </head>
 
 <body class="flex h-screen bg-gray-50 text-gray-700 text-sm">
@@ -2426,29 +2426,40 @@
             </div>
 
             <div id="libraryContent" class="content-panel hidden px-5 pt-3 sm:px-0 sm:pt-0">
-                <div class="flex flex-row justify-between items-center gap-3 mb-4">
-                    <div class="min-w-0">
-                        <h2 class="text-on-bg text-xl sm:text-2xl font-extrabold text-[#FF69B4] tracking-wide">Thư viện</h2>
-                        <!-- Số liệu tổng quan: đặt ngay dưới tiêu đề nên luôn thấy, không bị thu gọn theo bộ lọc -->
-                        <div class="lib-stats">
-                            <span class="lib-stat"><i class="fas fa-file-alt text-pink-400"></i><b id="lib-stat-quizzes">…</b> bộ đề</span>
-                            <span class="lib-stat"><i class="fas fa-circle-question text-purple-400"></i><b id="lib-stat-questions">…</b> câu</span>
-                            <span class="lib-stat"><i class="fas fa-folder text-amber-400"></i><b id="lib-stat-folders">…</b> thư mục</span>
+                <!-- ĐẦU THƯ VIỆN (2026-11-03): tấm giấy kem dán băng washi — sticker icon + tiêu đề + 3 ô số liệu,
+                     cụm nút bên phải (Tạo bộ đề · Được chia sẻ · Tải lại · "..."). Lớp .lib-hero-* trong home-scrapbook.css
+                     (không dựa tailwind-index.css đóng băng). Giữ nguyên mọi id mà JS dùng. -->
+                <div class="lib-hero">
+                    <div class="lib-hero-main">
+                        <span class="lib-hero-icon" aria-hidden="true"><i class="fas fa-book-open"></i></span>
+                        <div class="lib-hero-text">
+                            <h2 class="lib-hero-title">Thư viện</h2>
+                            <p class="lib-hero-sub">Bộ đề &amp; thư mục của bạn — bấm một thẻ để làm bài</p>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2 flex-shrink-0">
+                    <!-- Số liệu tổng quan: đặt ngay dưới tiêu đề nên luôn thấy, không bị thu gọn theo bộ lọc -->
+                    <div class="lib-stats">
+                        <span class="lib-stat" style="--st:#ec5f95"><i class="fas fa-file-lines"></i><span><b id="lib-stat-quizzes">…</b><small>bộ đề</small></span></span>
+                        <span class="lib-stat" style="--st:#8b6fd6"><i class="fas fa-circle-question"></i><span><b id="lib-stat-questions">…</b><small>câu hỏi</small></span></span>
+                        <span class="lib-stat" style="--st:#e2a21a"><i class="fas fa-folder"></i><span><b id="lib-stat-folders">…</b><small>thư mục</small></span></span>
+                    </div>
+                    <div class="lib-hero-actions">
+                        <!-- Tạo bộ đề: mở tab Tạo trắc nghiệm (bấm hộ link điều hướng — xem script cuối trang) -->
+                        <button type="button" id="lib-create-quiz-btn" class="lib-cta" title="Tạo bộ đề mới">
+                            <i class="fas fa-plus"></i><span>Tạo bộ đề</span>
+                        </button>
                         <!-- Được chia sẻ với tôi: chấm số = mục MỚI được chia sẻ kể từ lần xem trước (features/quiz/shared-inbox.js) -->
-                        <a href="features/quiz/folder.html?shared=me" id="open-shared-with-me-btn" class="relative w-9 h-9 flex items-center justify-center bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 hover:text-pink-500 transition focus:outline-none shadow-sm" title="Được chia sẻ với tôi" aria-label="Được chia sẻ với tôi">
-                            <i class="fas fa-user-group"></i>
-                            <span id="shared-new-badge" class="hidden absolute min-w-[18px] h-[18px] px-1 rounded-full bg-pink-500 text-white text-[10px] font-extrabold text-center shadow" style="top:-6px;right:-6px;line-height:18px"></span>
+                        <a href="features/quiz/folder.html?shared=me" id="open-shared-with-me-btn" class="lib-tool-btn lib-tool-wide" title="Được chia sẻ với tôi" aria-label="Được chia sẻ với tôi">
+                            <i class="fas fa-user-group"></i><span class="lib-tool-label">Được chia sẻ</span>
+                            <span id="shared-new-badge" class="hidden lib-tool-badge"></span>
                         </a>
                         <!-- Nút tải lại đặt cạnh dấu "..." cho dễ bấm -->
-                        <button type="button" id="refresh-library-btn" class="w-9 h-9 flex items-center justify-center bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 hover:text-pink-500 transition focus:outline-none shadow-sm" title="Tải lại thư viện" aria-label="Tải lại thư viện">
+                        <button type="button" id="refresh-library-btn" class="lib-tool-btn" title="Tải lại thư viện" aria-label="Tải lại thư viện">
                             <i class="fas fa-sync-alt"></i>
                         </button>
                         <!-- Menu "..." gom các thao tác ít dùng cho gọn gàng -->
                         <div class="relative">
-                            <button type="button" id="library-more-btn" class="w-9 h-9 flex items-center justify-center bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 hover:text-pink-500 transition focus:outline-none shadow-sm" title="Thêm tùy chọn" aria-haspopup="true" aria-expanded="false">
+                            <button type="button" id="library-more-btn" class="lib-tool-btn" title="Thêm tùy chọn" aria-haspopup="true" aria-expanded="false">
                                 <i class="fas fa-ellipsis-h"></i>
                             </button>
                             <div id="library-more-menu" class="hidden absolute right-0 mt-2 w-60 bg-white rounded-2xl shadow-xl border border-gray-100 p-2 z-30 origin-top-right">
@@ -2507,22 +2518,47 @@
                 <!-- BẢNG ĐIỀU KHIỂN THƯ VIỆN: ô tìm kiếm luôn hiện + nút Bộ lọc mở/thu phần lọc.
                      Dính (sticky) ở mép trên; trên mobile tự ẩn khi cuộn xuống, hiện lại khi cuộn lên. -->
                 <div id="library-panel" class="lib-panel bg-white rounded-2xl border border-gray-100 shadow-sm mb-6 overflow-hidden sticky top-0 z-20">
-                    <!-- Hàng trên (LUÔN hiện): ô tìm kiếm + nút Bộ lọc -->
-                    <div class="flex items-center gap-2 p-2.5 sm:p-3">
-                        <!-- Chặn bề ngang ô tìm kiếm: trên màn siêu rộng nó dài cả 1600px,
-                             vừa xấu vừa khó nhắm; nút Bộ lọc neo về mép phải cho cân. -->
-                        <div class="relative flex-1 min-w-0 max-w-2xl">
-                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                                <i class="fas fa-search text-xs"></i>
+                    <!-- THANH CÔNG CỤ (2026-11-03): ô tìm kiếm + [Tìm bộ đề | câu hỏi] + Sắp xếp + nút Lọc nhanh, MỘT hàng trên máy tính
+                         (hết khúc trống giữa ô tìm và nút lọc). Điện thoại: chế độ tìm + sắp xếp xuống hàng 2, chỉ hiện khi mở "Bộ lọc".
+                         Lớp .lib-toolbar* trong home-scrapbook.css. -->
+                    <div class="lib-toolbar">
+                        <div class="lib-search relative min-w-0">
+                            <span class="lib-search-icon" aria-hidden="true">
+                                <i class="fas fa-search"></i>
                             </span>
                             <input type="text" id="library-search-input"
-                                class="pl-9 pr-9 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF69B4] focus:border-[#FF69B4] w-full text-sm transition-all duration-200 shadow-sm bg-gray-50/60 focus:bg-white"
-                                placeholder="Tìm kiếm bộ đề...">
+                                class="lib-search-input"
+                                placeholder="Tìm kiếm bộ đề..." autocomplete="off" spellcheck="false">
+                            <!-- Gợi ý phím tắt "/" (máy tính, ẩn khi đang gõ) -->
+                            <kbd class="lib-search-kbd" aria-hidden="true">/</kbd>
                             <!-- Nút xóa nhanh từ khóa (chỉ hiện khi có chữ). Phím tắt: "/" focus ô tìm, Esc xóa -->
                             <button type="button" id="library-search-clear" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-pink-500 focus:outline-none" aria-label="Xóa từ khóa tìm kiếm"><i class="fas fa-times-circle"></i></button>
                         </div>
-                        <!-- Nút Bộ lọc: mở/thu phần lọc; chấm hồng báo đang có bộ lọc bật -->
-                        <button type="button" id="lib-filter-btn" class="relative flex-shrink-0 ml-auto h-9 px-3 flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white text-gray-600 text-xs font-bold hover:bg-gray-50 hover:text-pink-600 transition focus:outline-none shadow-sm" aria-expanded="true" aria-controls="lib-panel-body" title="Bộ lọc & sắp xếp">
+                        <!-- Chế độ tìm (bộ đề / câu hỏi) + Sắp xếp -->
+                        <div class="lib-toolbar-extra">
+                            <div class="lib-mode" role="group" aria-label="Tìm theo">
+                                <button type="button" id="search-mode-quiz-btn" class="bg-white text-pink-600 shadow-sm focus:outline-none" title="Tìm theo tên bộ đề">
+                                    <i class="fas fa-file-alt"></i><span>Bộ đề</span>
+                                </button>
+                                <button type="button" id="search-mode-question-btn" class="text-gray-500 hover:text-gray-700 focus:outline-none" title="Tìm trong nội dung câu hỏi">
+                                    <i class="fas fa-question-circle"></i><span>Câu hỏi</span>
+                                </button>
+                                <!-- Giữ lại các radio ẩn để phục vụ code JS cũ -->
+                                <input type="radio" name="search-mode" value="quiz" id="search-mode-quiz" class="hidden" checked>
+                                <input type="radio" name="search-mode" value="question" id="search-mode-question" class="hidden">
+                            </div>
+                            <label class="lib-sort" title="Sắp xếp bộ đề">
+                                <i class="fas fa-arrow-down-wide-short" aria-hidden="true"></i>
+                                <select id="library-sort-select" aria-label="Sắp xếp bộ đề">
+                                    <option value="newest">Mới nhất</option>
+                                    <option value="oldest">Cũ nhất</option>
+                                    <option value="name">Tên A → Z</option>
+                                    <option value="count">Nhiều câu nhất</option>
+                                </select>
+                            </label>
+                        </div>
+                        <!-- Nút Bộ lọc: mở/thu dải lọc nhanh; chấm hồng báo đang có bộ lọc bật -->
+                        <button type="button" id="lib-filter-btn" class="lib-filter-btn relative flex-shrink-0 flex items-center gap-1.5 focus:outline-none" aria-expanded="true" aria-controls="lib-panel-body" title="Lọc nhanh: gần đây, chưa làm, đã ghim">
                             <i class="fas fa-sliders text-xs"></i>
                             <span class="hidden sm:inline">Bộ lọc</span>
                             <i id="lib-filter-chevron" class="fas fa-chevron-up text-[10px] transition-transform duration-300"></i>
@@ -2544,33 +2580,9 @@
                         </button>
                     </div>
 
-                    <!-- PHẦN LỌC (thu/mở bằng nút "Bộ lọc"): chế độ tìm + sắp xếp + lọc nhanh + số liệu -->
+                    <!-- PHẦN LỌC (thu/mở bằng nút "Bộ lọc"): lọc nhanh + số kết quả -->
                     <div id="lib-panel-body" class="lib-panel-body">
-                    <div class="px-2.5 sm:px-3 pb-3 pt-3 border-t border-gray-100 space-y-3">
-                        <!-- Chế độ tìm (bộ đề / câu hỏi) + Sắp xếp -->
-                        <div class="flex flex-col sm:flex-row sm:items-center gap-2">
-                            <div class="bg-gray-100 p-1 rounded-xl flex gap-1 flex-1 sm:flex-none border border-gray-200/40">
-                                <button type="button" id="search-mode-quiz-btn" class="flex-1 sm:flex-none text-center px-3 sm:px-4 py-1.5 text-xs font-bold rounded-lg transition-all duration-200 bg-white text-pink-600 shadow-sm flex items-center justify-center gap-1.5 focus:outline-none">
-                                    <i class="fas fa-file-alt text-xs"></i> Tìm bộ đề
-                                </button>
-                                <button type="button" id="search-mode-question-btn" class="flex-1 sm:flex-none text-center px-3 sm:px-4 py-1.5 text-xs font-bold rounded-lg transition-all duration-200 text-gray-500 hover:text-gray-700 flex items-center justify-center gap-1.5 focus:outline-none">
-                                    <i class="fas fa-question-circle text-xs"></i> Tìm câu hỏi
-                                </button>
-                                <!-- Giữ lại các radio ẩn để phục vụ code JS cũ -->
-                                <input type="radio" name="search-mode" value="quiz" id="search-mode-quiz" class="hidden" checked>
-                                <input type="radio" name="search-mode" value="question" id="search-mode-question" class="hidden">
-                            </div>
-                            <div class="flex items-center gap-2 flex-shrink-0 sm:ml-auto">
-                                <label for="library-sort-select" class="text-xs text-gray-400 font-medium hidden sm:inline">Sắp xếp:</label>
-                                <select id="library-sort-select" class="flex-1 sm:flex-initial text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg pl-3 pr-8 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-200 cursor-pointer">
-                                    <option value="newest">Mới nhất</option>
-                                    <option value="oldest">Cũ nhất</option>
-                                    <option value="name">Tên A → Z</option>
-                                    <option value="count">Nhiều câu nhất</option>
-                                </select>
-                            </div>
-                        </div>
-
+                    <div class="lib-panel-inner">
                         <!-- Lọc nhanh + nút Xóa lọc + số kết quả -->
                         <div id="lib-filter-chips" class="flex flex-wrap items-center gap-2">
                             <button type="button" data-filter="all" class="library-filter-chip is-active"><i class="fas fa-layer-group mr-1.5 text-[11px]"></i>Tất cả</button>
@@ -3046,6 +3058,8 @@
                 <div class="sm-head-text">
                     <h3 id="share-modal-heading" class="sm-heading"><span>Chia sẻ bộ đề</span></h3>
                     <p id="share-quiz-title" class="sm-item"></p>
+                    <!-- Trạng thái quyền truy cập hiện tại (share-access.js tự điền) -->
+                    <span id="share-status-pill" class="sm-status" aria-live="polite"></span>
                 </div>
                 <button type="button" class="sm-x" data-close-share aria-label="Đóng"><i class="fas fa-times"></i></button>
             </header>
@@ -3055,9 +3069,13 @@
                 <div id="share-access-section" class="hidden"></div>
 
                 <!-- Liên kết -->
+                <div>
+                <p class="sm-label"><i class="fas fa-link"></i> Liên kết chia sẻ</p>
                 <div class="sm-link">
+                    <span class="sm-link-ic" aria-hidden="true"><i class="fas fa-globe"></i></span>
                     <input type="text" id="share-link-input" readonly aria-label="Đường dẫn liên kết" />
                     <button type="button" id="copy-share-link-btn" class="sm-copy"><i class="far fa-copy"></i> Sao chép liên kết</button>
+                </div>
                 </div>
 
                 <details id="share-more" class="sm-more">
@@ -3116,6 +3134,13 @@
     <!-- Tương tác gọn nhẹ cho thư viện: menu "..." và thu gọn phần Tổng quan -->
     <script>
         (function () {
+            // Nút "Tạo bộ đề" ở đầu Thư viện: bấm hộ link điều hướng tab Tạo trắc nghiệm (giữ đúng luồng chuyển tab của app.js)
+            var createBtn = document.getElementById('lib-create-quiz-btn');
+            if (createBtn) createBtn.addEventListener('click', function () {
+                var nav = document.querySelector('.nav-link[data-target="createQuizContent"]');
+                if (nav) nav.click();
+            });
+
             // Menu "..." gom các thao tác ít dùng
             var moreBtn = document.getElementById('library-more-btn');
             var moreMenu = document.getElementById('library-more-menu');

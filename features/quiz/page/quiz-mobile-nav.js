@@ -15,10 +15,24 @@ import { getVibrate } from './quiz-page-prefs.js';
 import { liveStats, accTone } from '../quiz-ui.js';
 import { openQuickNote, closeQuickNote } from './quiz-notes-panel.js';
 
-// --- Dock iPad: sổ ghi chú trượt lên (CSS body.qmn-dock-on.fm-note-open) ---
+// --- Dock: sổ ghi chú trượt lên (CSS body.qmn-dock-on.fm-note-open) ---
 let noteBtn = null;
 const noteOpen = () => document.body.classList.contains('fm-note-open');
+
+// Bàn phím ảo (iOS không co trang, chỉ co visualViewport): phần màn bị che = innerHeight − vv.height − vv.offsetTop.
+// Đang gõ ghi chú trong sổ trượt -> body.qmn-kb, sổ nhấc lên ngay trên bàn phím (§30c). Android co cả trang nên kb ≈ 0.
+function syncKb() {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+    const on = kb > 80 && noteOpen() && document.body.classList.contains('qmn-dock-on') && !document.body.classList.contains('focus-mode-active');
+    const root = document.documentElement.style;
+    root.setProperty('--kb', kb + 'px');
+    root.setProperty('--vvh', Math.round(vv.height) + 'px');
+    document.body.classList.toggle('qmn-kb', on);
+}
 function syncNoteBtn() {
+    syncKb();
     if (!noteBtn) return;
     const open = noteOpen();
     noteBtn.classList.toggle('is-active', open);
@@ -46,6 +60,10 @@ function setupDockNote() {
         if (e.key === 'Escape' && document.body.classList.contains('qmn-dock-on') && noteOpen()) { closeQuickNote(); syncNoteBtn(); }
     });
     document.addEventListener('input', (e) => { if (e.target && e.target.id === 'personal-note-input') syncNoteBtn(); });
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', syncKb);
+        window.visualViewport.addEventListener('scroll', syncKb);
+    }
     // Phím Q (bàn phím rời iPad) / thanh tập trung cũng mở-đóng sổ: theo dõi lớp fm-note-open thay vì chỉ nghe nút dock
     let was = noteOpen();
     new MutationObserver(() => { const now = noteOpen(); if (now !== was) { was = now; syncNoteBtn(); } })
@@ -58,11 +76,11 @@ let wired = false;
 let jumpFilter = 'all';   // bộ lọc bảng nhảy câu: all | todo | marked | wrong
 
 // Chỉ hiện ở màn hình hẹp (mobile / tablet dọc). ≥1024px đã có bố cục 3 cột + lưới số câu.
-// 2026-11-03: iPad DỌC (768–1023) cũng dùng — ở dạng DOCK nổi cho ngón cái (isDock): chỉ hàng nút Trước · 50:50 · Đánh dấu · Ghi chú ·
-// Thiết lập · Tiếp; dải "Câu X/Y" bỏ vì bảng số câu dính đỉnh (quiz-stationery.css §30b) đã có. Nút Câu tiếp nổi (quiz-tablet-next.js)
-// nay chỉ còn ở ≥1024 nên không bao giờ có hai nút Tiếp cùng lúc.
+// 2026-11-03: thanh đáy = DOCK nổi cho ngón cái ở MỌI màn < 1024 (quiz-stationery.css §30c), có thêm nút Ghi chú (sổ trượt lên).
+// iPad dọc (isTab, 768–1023) dùng bản gọn: chỉ hàng nút, bỏ dải "Câu X/Y" vì bảng số câu dính đỉnh (§30b) đã có.
+// Nút Câu tiếp nổi (quiz-tablet-next.js) nay chỉ còn ở ≥1024 nên không bao giờ có hai nút Tiếp cùng lúc.
 function isNarrow() { return window.innerWidth < 1024; }
-function isDock() { return window.innerWidth >= 768; }
+function isTab() { return window.innerWidth >= 768; }
 
 // Đang thực sự trong lúc làm bài (không phải trang thiết lập / màn kết quả)?
 function inQuiz() {
@@ -303,18 +321,19 @@ export function updateMobileNav() {
         bar.classList.remove('show', 'qmn-dock');
         bar.setAttribute('aria-hidden', 'true');
         if (document.body.classList.contains('qmn-dock-on') && noteOpen()) closeQuickNote();   // sổ dạng trượt không được kẹt mở khi rời dock
-        document.body.classList.remove('has-mobile-nav', 'qmn-dock-on');
+        document.body.classList.remove('has-mobile-nav', 'qmn-dock-on', 'qmn-tab', 'qmn-kb');
         return;
     }
-    const dock = isDock();
-    bar.classList.add('show');
-    bar.classList.toggle('qmn-dock', dock);
+    const tab = isTab();
+    bar.classList.add('show', 'qmn-dock');
+    bar.classList.toggle('qmn-tab', tab);
     bar.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('has-mobile-nav');
-    if (!dock && document.body.classList.contains('qmn-dock-on') && noteOpen()) closeQuickNote();
-    document.body.classList.toggle('qmn-dock-on', dock);
-    if (noteBtn) noteBtn.hidden = !dock;
+    document.body.classList.add('has-mobile-nav', 'qmn-dock-on');
+    document.body.classList.toggle('qmn-tab', tab);
+    if (noteBtn) noteBtn.hidden = false;
     syncNoteBtn();
+    // chiều cao dock -> sổ ghi chú đặt ngay trên dock, chân trang chừa đủ chỗ (dock điện thoại 2 tầng, iPad 1 tầng)
+    requestAnimationFrame(() => { if (bar.offsetHeight) document.documentElement.style.setProperty('--qmn-h', bar.offsetHeight + 'px'); });
 
     const total = state.questions.length;
     const idx = state.currentIndex;

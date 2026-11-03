@@ -45,7 +45,9 @@ async function linkExpired(id) {
 // Bộ đề bị luật chặn: nói rõ cách vào được theo tình trạng đăng nhập (chia sẻ riêng cần đúng email + email đã xác nhận).
 const PRIVATE_QUIZ_MSG = () => {
     const u = auth.currentUser;
-    if (!u || u.isAnonymous) return 'Bộ đề này không công khai. Nếu được chia sẻ riêng, hãy đăng nhập bằng Google đúng email được chia sẻ (ở trang chủ) rồi bấm Thử lại.';
+    // Khách ẩn danh = máy đã nhận một "link 1 thiết bị" (features/quiz/link.js): quyền đó hết hạn / bị thu hồi / không gồm bộ đề này
+    if (u?.isAnonymous) return 'Không mở được bộ đề này trên máy bạn: link 1 thiết bị đã hết hạn, đã bị người chia sẻ thu hồi, hoặc không dành cho bộ đề này. Nhờ người chia sẻ gửi link mới nhé.';
+    if (!u) return 'Bộ đề này không công khai. Nếu được chia sẻ riêng, hãy đăng nhập bằng Google đúng email được chia sẻ (ở trang chủ) rồi bấm Thử lại.';
     if (quizFeatureOff) return 'Bộ đề này không công khai, mà tài khoản của bạn chưa được admin mở tính năng Làm đề (đề chia sẻ riêng). Đề công khai thì vẫn làm bình thường — nhắn admin để được mở nha.';
     if (!u.emailVerified) return `Bộ đề này không công khai. Nếu được chia sẻ cho ${u.email}, bạn cần xác nhận email trước (trang Hồ sơ → Gửi mail xác nhận, hoặc đăng nhập bằng Google), rồi bấm Thử lại.`;
     return `Bộ đề này không công khai và chưa được chia sẻ cho ${u.email}. Nhờ tác giả thêm email của bạn vào phần Chia sẻ.`;
@@ -214,7 +216,7 @@ export async function loadQuizData() {
             rememberOpened({
                 kind: 'quiz', id: quizId, title: data.title,
                 count: Array.isArray(data.questions) ? data.questions.length : data.questionCount,
-                ownerName: data.sharedBy || '', access: data.isPublic === true ? 'public' : 'shared'
+                ownerName: data.sharedBy || '', access: data.isPublic === true ? 'public' : auth.currentUser?.isAnonymous ? 'link' : 'shared'
             });
         }
     };

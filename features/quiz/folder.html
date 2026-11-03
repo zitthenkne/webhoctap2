@@ -24,65 +24,343 @@
     <link rel="stylesheet" href="../../style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
+    <!-- Giao diện trang (2026-11-03): lớp .fp-* — "sổ cắt dán" giống thư viện ở trang chủ.
+         Đầu trang là một BÌA HỒ SƠ to tô theo màu thư mục (--fc, folder.js đặt), các mục có tiêu đề + số đếm,
+         ô tìm / sắp xếp bộ đề khi thư mục đông. Thẻ thư mục / bộ đề dùng chung style.css với thư viện. -->
     <style>
+        :root {
+            --fp-ink: #6E3A55;
+            --fp-ink-soft: #A07086;
+            --fp-paper: #FFFCF8;
+            --fp-line: #F3D3DF;
+            --fp-pink: #FF7FB0;
+            --fp-pink-d: #E05A8E;
+        }
         body {
             font-family: 'Quicksand', 'Outfit', sans-serif;
-            background: linear-gradient(135deg, #FCE4EC 0%, #F3E5F5 55%, #E8EAF6 100%);
+            background-color: #FCE4EC;
+            background-image:
+                linear-gradient(rgba(236, 110, 155, .10) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(236, 110, 155, .10) 1px, transparent 1px),
+                linear-gradient(135deg, #FCE4EC 0%, #F3E5F5 55%, #E8EAF6 100%);
+            background-size: 24px 24px, 24px 24px, 100% 100%;
             background-attachment: fixed;
             min-height: 100vh;
         }
+        .fp-wrap { max-width: 72rem; margin: 0 auto; padding: 14px 16px 40px; }
+        .fp-wrap .hidden { display: none !important; }   /* lớp hidden do JS bật/tắt — thắng mọi display của .fp-* */
+        @media (min-width: 640px) { .fp-wrap { padding: 20px 24px 56px; } }
+
+        /* ---------- Thanh trên ---------- */
+        .fp-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 34px; }
+        .fp-brand { display: inline-flex; align-items: center; gap: 9px; min-width: 0; color: var(--fp-ink); font-weight: 800; font-size: 1rem; text-decoration: none; }
+        .fp-brand img { width: 34px; height: 34px; flex: none; border-radius: 11px; background: #fff; padding: 3px; box-shadow: 0 2px 0 #F4B6CB; }
+        .fp-brand span { white-space: nowrap; }
+        .fp-top-actions { display: flex; align-items: center; gap: 8px; }
+        .fp-btn {
+            height: 38px; padding: 0 13px; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+            border-radius: 12px; background: #fff; color: #8A5A72; border: 1.5px solid #F0D3DF; box-shadow: 0 2px 0 #F6DCE6;
+            font-size: .8rem; font-weight: 800; white-space: nowrap; cursor: pointer; text-decoration: none;
+            transition: color .15s, border-color .15s, transform .12s, box-shadow .12s, background .15s;
+        }
+        .fp-btn:hover { color: #E0588F; border-color: #F29CBB; transform: translateY(-1px); box-shadow: 0 3px 0 #F4C3D5; }
+        .fp-btn:active { transform: translateY(1px); box-shadow: 0 1px 0 #F6DCE6; }
+        .fp-btn:focus-visible, .fp-btn-main:focus-visible { outline: 2.5px solid var(--fp-pink); outline-offset: 2px; }
+        .fp-btn.is-done { color: #15925F; border-color: #9EDDBE; background: #EFFAF4; }
+        .fp-btn-main { background: var(--fp-pink); color: #fff; border-color: var(--fp-pink); box-shadow: 0 3px 0 var(--fp-pink-d); }
+        .fp-btn-main:hover { background: #F76BA3; color: #fff; border-color: #F76BA3; box-shadow: 0 4px 0 var(--fp-pink-d); }
+        @media (max-width: 479px) { .fp-top .fp-btn .fp-btn-text { display: none; } .fp-top .fp-btn { width: 38px; padding: 0; } }
+        /* Tailwind CDN chèn preflight SAU thẻ style này: [type='button'] { background-color: transparent } cùng độ ưu tiên
+           với một lớp → neo bằng #fp-root để nền nút không bị xóa */
+        #fp-root .fp-btn { background-color: #fff; }
+        #fp-root .fp-btn.is-done { background-color: #EFFAF4; }
+        #fp-root .fp-btn-main { background-color: var(--fp-pink); }
+        #fp-root .fp-btn-main:hover { background-color: #F76BA3; }
+        #fp-root .fp-link-btn { background-color: #fff; }
+
+        /* ---------- Đầu trang: BÌA HỒ SƠ to, tai hồ sơ ghi loại trang ---------- */
+        .fp-hero {
+            --fc: #f59e0b;
+            --fp-edge: color-mix(in srgb, var(--fc) 42%, #ffffff);
+            position: relative;
+            display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 18px;
+            margin-bottom: 30px; padding: 24px 22px 22px;
+            border-radius: 0 24px 24px 24px;
+            background-color: color-mix(in srgb, var(--fc) 13%, #fffdfa);
+            background-image: radial-gradient(color-mix(in srgb, var(--fc) 26%, transparent) 1px, transparent 1.6px);
+            background-size: 16px 16px;
+            border: 2px solid var(--fp-edge);
+            box-shadow: 0 4px 0 var(--fp-edge), 0 24px 40px -26px color-mix(in srgb, var(--fc) 75%, #5a2a40);
+            transition: background-color .4s, border-color .4s;
+        }
+        /* tai hồ sơ nhô lên mép trên-trái */
+        .fp-hero::before {
+            content: attr(data-tab);
+            position: absolute; left: -2px; bottom: calc(100% - 2px);
+            min-width: 7.5rem; height: 26px; padding: 0 22px 0 14px; box-sizing: border-box;
+            border: 2px solid var(--fp-edge); border-bottom: 0; border-radius: 12px 22px 0 0 / 12px 26px 0 0;
+            background-color: color-mix(in srgb, var(--fc) 13%, #fffdfa);
+            font-size: .7rem; font-weight: 800; line-height: 24px; letter-spacing: .03em; white-space: nowrap;
+            color: color-mix(in srgb, var(--fc) 45%, #3a2430);
+        }
+        /* băng washi góc phải */
+        .fp-hero::after {
+            content: ''; position: absolute; top: -10px; right: 34px; width: 80px; height: 22px; rotate: 4deg; pointer-events: none;
+            background-color: color-mix(in srgb, var(--fc) 40%, #ffffff);
+            background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, .5) 0 6px, transparent 6px 12px);
+            clip-path: polygon(0 0, 100% 0, 97% 25%, 100% 50%, 97% 75%, 100% 100%, 0 100%, 3% 75%, 0 50%, 3% 25%);
+            opacity: .9;
+        }
+        .fp-hero-icon {
+            width: 76px; height: 76px; flex: none; border-radius: 24px;
+            display: flex; align-items: center; justify-content: center;
+            background: var(--fc); color: #fff; font-size: 2rem;
+            box-shadow: 0 0 0 4px #fff, 0 12px 22px -10px color-mix(in srgb, var(--fc) 75%, #4a2233);
+            rotate: -5deg; transition: background .4s;
+        }
+        .fp-hero-text { min-width: 0; }
+        .fp-title {
+            margin: 0; font-size: clamp(1.35rem, 3.6vw, 2.05rem); line-height: 1.15; font-weight: 800; letter-spacing: -.01em;
+            color: color-mix(in srgb, var(--fc) 22%, #33202a); overflow-wrap: anywhere;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .fp-meta { margin: 6px 0 0; font-size: .84rem; font-weight: 600; color: #8A7080; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+        .fp-access {
+            display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px;
+            font-size: .7rem; font-weight: 800; background: #fff; color: #7B6470; box-shadow: inset 0 0 0 1.5px #EBD9E1;
+        }
+        .fp-access i { font-size: .62rem; }
+        .fp-access.is-public { color: #15925F; background: #EFFAF4; box-shadow: inset 0 0 0 1.5px #BFE8D3; }
+        .fp-access.is-shared { color: #6D5DE0; background: #F3F0FF; box-shadow: inset 0 0 0 1.5px #D9D2FA; }
+        .fp-access.is-once { color: #B4570B; background: #FFF4E5; box-shadow: inset 0 0 0 1.5px #F6D3A8; }
+        .fp-access.is-owner { color: #D9487F; background: #FFF1F6; box-shadow: inset 0 0 0 1.5px #F6C9D8; }
+        .fp-stats { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+        .fp-stats:empty { display: none; }
+        .fp-stat {
+            display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px 6px 7px; border-radius: 999px;
+            background: #fff; font-size: .78rem; font-weight: 700; color: #7A6170;
+            box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--fc) 26%, #ffffff), 0 2px 0 color-mix(in srgb, var(--fc) 14%, #ffffff);
+        }
+        .fp-stat i {
+            width: 22px; height: 22px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
+            font-size: .62rem; color: #fff; background: var(--fc);
+        }
+        .fp-stat b { color: color-mix(in srgb, var(--fc) 30%, #33202a); font-weight: 800; font-variant-numeric: tabular-nums; }
+        .fp-hero-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+        .fp-hero-actions:empty { display: none; }
+        @media (min-width: 768px) {
+            .fp-hero { grid-template-columns: auto minmax(0, 1fr) auto; padding: 28px 28px 26px; gap: 22px; }
+            .fp-hero-actions { grid-column: auto; flex-direction: column; align-items: stretch; }
+        }
+        @media (max-width: 479px) {
+            .fp-hero { gap: 14px; padding: 20px 16px 18px; border-radius: 0 20px 20px 20px; }
+            .fp-hero-icon { width: 58px; height: 58px; border-radius: 18px; font-size: 1.5rem; }
+            .fp-hero::after { right: 18px; width: 60px; }
+        }
+
+        /* ---------- Các mục ---------- */
+        .fp-section { margin-bottom: 30px; }
+        .fp-section.hidden { display: none; }
+        .fp-section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+        .fp-section-title {
+            position: relative; isolation: isolate; width: fit-content; margin: 0;
+            display: inline-flex; align-items: center; gap: 8px;
+            font-size: .92rem; font-weight: 800; letter-spacing: .02em; color: var(--fp-ink);
+            text-shadow: 0 0 3px #fff, 0 0 8px rgba(255, 255, 255, .9);
+        }
+        .fp-section-title::before {
+            content: ''; position: absolute; z-index: -1; left: -8px; right: -10px; top: 30%; bottom: -10%;
+            background: color-mix(in srgb, var(--tape, #FBD3C4) 80%, transparent); rotate: -1.2deg;
+            clip-path: polygon(0 0, 100% 0, 98% 30%, 100% 60%, 98% 100%, 0 100%, 2% 65%, 0 35%);
+        }
+        .fp-section-title > i { color: #EC5F95; font-size: .85rem; }
+        #fp-quiz-section .fp-section-title { --tape: #CFE6F6; }
+        #fp-quiz-section .fp-section-title > i { color: #4F8CC9; }
+        .fp-count {
+            min-width: 22px; height: 20px; padding: 0 7px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
+            background: #fff; color: #A07086; font-size: .7rem; font-weight: 800; text-shadow: none; box-shadow: inset 0 0 0 1.5px #F0D3DF;
+        }
+        .fp-count:empty { display: none; }
+        .fp-tools { display: flex; align-items: center; gap: 8px; flex: 1 1 260px; justify-content: flex-end; }
+        .fp-tools.hidden { display: none; }
+        .fp-search { position: relative; flex: 1 1 auto; max-width: 340px; }
+        .fp-search i { position: absolute; left: 12px; top: 50%; translate: 0 -50%; color: #D59AB4; font-size: .78rem; pointer-events: none; }
+        .fp-search input, .fp-sort {
+            height: 38px; border-radius: 12px; border: 1.5px solid #EED3DE; background: #fff;
+            font-size: .82rem; font-weight: 600; color: #3b2230; outline: 0; transition: border-color .15s, box-shadow .15s;
+        }
+        .fp-search input { width: 100%; padding: 0 12px 0 32px; }
+        .fp-search input::placeholder { color: #C3A2B2; }
+        .fp-sort { padding: 0 10px; font-weight: 700; color: #6E3A55; cursor: pointer; flex: none; }
+        .fp-search input:focus, .fp-sort:focus { border-color: var(--fp-pink); box-shadow: 0 0 0 4px rgba(255, 127, 176, .16); }
+        .fp-no-match { padding: 24px 12px; text-align: center; font-size: .86rem; font-weight: 600; color: #9A7384; }
+        .fp-no-match.hidden { display: none; }
+        #folder-sub-list { padding-top: .2rem; }
+
+        /* Kết quả của khách trên thẻ bộ đề (local-shelf.js) */
+        .fp-score { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px; font-size: .68rem; font-weight: 800; }
+        .fp-score.is-good { background: #dcfce7; color: #047857; }
+        .fp-score.is-mid { background: #fef3c7; color: #b45309; }
+        .fp-score.is-low { background: #ffe4e6; color: #be123c; }
+
+        /* ---------- Báo lỗi / trống / ghi chú tài khoản ---------- */
+        .fp-empty {
+            --le: #EC5F95; --le-bg: #FFE1EA;
+            position: relative; max-width: 480px; margin: 10px auto 28px; padding: 38px 24px 30px; text-align: center;
+            border-radius: 22px; background-color: var(--fp-paper);
+            background-image: linear-gradient(rgba(236, 110, 155, .12) 1px, transparent 1px), linear-gradient(90deg, rgba(236, 110, 155, .12) 1px, transparent 1px);
+            background-size: 22px 22px; border: 1.5px solid #F6C9D8; box-shadow: 0 3px 0 #F6D2DE, 0 18px 30px -20px rgba(160, 70, 105, .5);
+        }
+        .fp-empty.hidden { display: none; }
+        .fp-empty::before {
+            content: ''; position: absolute; top: -11px; left: 50%; width: 96px; height: 22px; translate: -50% 0; rotate: -3deg;
+            background-color: color-mix(in srgb, var(--le) 38%, #ffffff);
+            background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, .45) 0 6px, transparent 6px 12px);
+            clip-path: polygon(0 0, 100% 0, 97% 25%, 100% 50%, 97% 75%, 100% 100%, 0 100%, 3% 75%, 0 50%, 3% 25%);
+        }
+        .fp-empty-icon {
+            width: 72px; height: 72px; margin: 0 auto 14px; border-radius: 22px; display: flex; align-items: center; justify-content: center;
+            background: var(--le-bg); color: var(--le); font-size: 1.7rem; rotate: -5deg;
+            box-shadow: 0 0 0 4px #fff, 0 10px 18px -10px color-mix(in srgb, var(--le) 70%, #000);
+        }
+        .fp-empty h2 { margin: 0; font-size: 1.08rem; font-weight: 800; color: var(--fp-ink); }
+        .fp-empty p { margin: 6px auto 0; max-width: 24rem; font-size: .86rem; font-weight: 600; line-height: 1.55; color: #9A7384; }
+        .fp-empty-actions { margin-top: 16px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+        .fp-note {
+            display: flex; align-items: flex-start; gap: 10px; margin: 0 0 26px; padding: 13px 15px; border-radius: 16px;
+            background: #FFF8E6; border: 1.5px dashed #F2D58A; color: #7A5B12; font-size: .86rem; font-weight: 600; line-height: 1.5;
+        }
+        .fp-note.hidden { display: none; }
+        .fp-note > i { margin-top: 3px; color: #E2A21A; }
+        .fp-note a { color: #D9487F; font-weight: 800; text-decoration: underline; text-underline-offset: 2px; }
+
+        /* ---------- Kệ "Trên máy này" ---------- */
+        .fp-shelf {
+            padding: 20px 18px 16px; border-radius: 22px; background: rgba(255, 252, 248, .9);
+            border: 1.5px solid var(--fp-line); box-shadow: 0 3px 0 #F6DCE6, 0 18px 30px -24px rgba(160, 70, 105, .5);
+        }
+        .fp-shelf.hidden { display: none; }
+        .fp-shelf .fp-section-title { --tape: #D9F0E3; }
+        .fp-shelf .fp-section-title > i { color: #2FA36B; }
+        .fp-shelf-hint { margin: 6px 0 0; font-size: .76rem; font-weight: 600; color: #A08898; }
+        .fp-shelf-list { display: grid; gap: 8px; margin-top: 14px; }
+        @media (min-width: 900px) { .fp-shelf-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        .fp-shelf-item {
+            display: flex; align-items: center; gap: 11px; padding: 10px 10px 10px 11px; border-radius: 16px;
+            background: #fff; border: 1.5px solid #F3E1E8; transition: border-color .15s, transform .15s, box-shadow .15s;
+        }
+        .fp-shelf-item:hover { border-color: #F29CBB; transform: translateY(-1px); box-shadow: 0 8px 16px -12px rgba(190, 80, 120, .5); }
+        .fp-shelf-ic { width: 40px; height: 40px; flex: none; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: .95rem; }
+        .fp-shelf-ic.is-folder { background: #FFF1CC; color: #E2A21A; }
+        .fp-shelf-ic.is-quiz { background: #FFE1EA; color: #EC5F95; }
+        .fp-shelf-main { min-width: 0; flex: 1; text-decoration: none; }
+        .fp-shelf-title { display: block; font-size: .88rem; font-weight: 800; color: #3b2230; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .fp-shelf-title .fa-thumbtack { color: #EC5F95; font-size: .7rem; margin-right: 4px; }
+        .fp-shelf-meta { display: block; margin-top: 1px; font-size: .72rem; font-weight: 600; color: #9A8090; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .fp-icon-btn { width: 32px; height: 32px; flex: none; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; color: #C7A9B7; transition: background .15s, color .15s; }
+        .fp-icon-btn:hover { background: #FFF1F6; color: #EC5F95; }
+        .fp-icon-btn.is-on { color: #EC5F95; }
+        .fp-icon-btn.is-danger:hover { background: #FFF1F1; color: #D14343; }
+        .fp-shelf-empty { padding: 18px 10px 8px; text-align: center; font-size: .84rem; font-weight: 600; color: #A08898; }
+        .fp-link-btn { flex: none; height: 32px; padding: 0 11px; border-radius: 10px; font-size: .74rem; font-weight: 800; color: #A07086; background: #fff; border: 1.5px solid #F0D3DF; }
+        .fp-link-btn:hover { color: #D14343; border-color: #F6C9C9; }
+
+        /* ---------- Chân trang ---------- */
+        .fp-foot {
+            margin-top: 40px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
+            font-size: .78rem; font-weight: 600; color: #A07086;
+        }
+        @media (prefers-reduced-motion: reduce) { .fp-btn, .fp-shelf-item { transition: none; } }
     </style>
     <script src="../../pwa-install.js" defer></script>
 </head>
 <body class="text-gray-700">
-    <div class="max-w-5xl mx-auto px-4 py-6 sm:py-10">
-        <!-- Đầu trang: icon + tên thư mục + số liệu -->
-        <header id="folder-header" class="mb-6">
-            <div class="flex items-center gap-3 sm:gap-4">
-                <span id="folder-icon" class="quiz-card-icon" style="background-image:linear-gradient(135deg,#fbbf24,#f59e0b)">
-                    <i class="fas fa-folder-open"></i>
-                </span>
-                <div class="min-w-0 flex-1">
-                    <h1 id="folder-name" class="text-xl sm:text-2xl font-extrabold text-gray-800 truncate">Đang mở thư mục…</h1>
-                    <p id="folder-meta" class="text-xs sm:text-sm text-gray-500 font-semibold mt-0.5">Zitthenkne · thư mục được chia sẻ</p>
-                </div>
+    <div id="fp-root" class="fp-wrap">
+        <!-- Thanh trên: thương hiệu + sao chép link + về trang chủ -->
+        <nav class="fp-top" aria-label="Điều hướng">
+            <a href="../../index.html" class="fp-brand" title="Về trang chủ Zitthenkne">
+                <img src="../../assets/logo.png" alt=""><span>Zitthenkne</span>
+            </a>
+            <div class="fp-top-actions">
+                <button type="button" id="fp-copy-link" class="fp-btn hidden" title="Sao chép đường dẫn trang này">
+                    <i class="fas fa-link"></i><span class="fp-btn-text">Sao chép link</span>
+                </button>
+                <a href="../../index.html#libraryContent" class="fp-btn" title="Mở thư viện của bạn">
+                    <i class="fas fa-book"></i><span class="fp-btn-text">Thư viện của tôi</span>
+                </a>
             </div>
+        </nav>
+
+        <!-- Đầu trang: bìa hồ sơ tô theo màu & icon thư mục (folder.js) -->
+        <header id="folder-header" class="fp-hero" data-tab="Thư mục chia sẻ">
+            <span id="folder-icon" class="fp-hero-icon" aria-hidden="true">
+                <i class="fas fa-folder-open"></i>
+            </span>
+            <div class="fp-hero-text">
+                <h1 id="folder-name" class="fp-title">Đang mở thư mục…</h1>
+                <p id="folder-meta" class="fp-meta">Zitthenkne · thư mục được chia sẻ</p>
+                <div id="folder-stats" class="fp-stats"></div>
+            </div>
+            <div id="fp-hero-actions" class="fp-hero-actions"></div>
         </header>
 
-        <!-- Thư mục con công khai (thư mục lồng nhau) — bấm để mở tiếp -->
-        <div id="folder-sub-list" class="folders-scroll-container hidden mb-6"></div>
-
-        <!-- Danh sách bộ đề bên trong -->
-        <div id="folder-quiz-list" class="quiz-grid"></div>
-
-        <!-- Báo lỗi / thư mục trống -->
-        <div id="folder-message" class="hidden text-center py-16 px-4">
-            <div class="w-20 h-20 rounded-full bg-white/70 flex items-center justify-center mb-4 mx-auto shadow-sm">
-                <i id="folder-message-icon" class="fas fa-folder-open text-3xl text-pink-300"></i>
-            </div>
-            <h2 id="folder-message-title" class="text-lg font-bold text-gray-700"></h2>
-            <p id="folder-message-desc" class="text-sm text-gray-500 mt-1 max-w-sm mx-auto"></p>
-        </div>
-
         <!-- Trang "Được chia sẻ với tôi" khi chưa đăng nhập / chưa xác nhận email (folder.js) -->
-        <p id="shared-account-note" class="hidden mt-2 mb-4 text-sm text-gray-600 bg-white/70 rounded-2xl px-4 py-3"></p>
+        <p id="shared-account-note" class="fp-note hidden"></p>
 
-        <!-- TRÊN MÁY NÀY: bộ đề / thư mục của người khác đã mở trên trình duyệt này (local-shelf.js) — không cần tài khoản -->
-        <section id="local-shelf" class="hidden mt-8">
-            <div class="flex items-end justify-between gap-3 mb-3">
-                <div>
-                    <h2 class="text-base sm:text-lg font-extrabold text-gray-800"><i class="fas fa-laptop text-pink-400 mr-1.5"></i>Trên máy này</h2>
-                    <p class="text-xs text-gray-500">Đã mở bằng link trên trình duyệt này — mở lại, ghim, xem điểm. Xóa dữ liệu trình duyệt là mất danh sách.</p>
-                </div>
-                <button type="button" id="local-shelf-clear" class="shrink-0 text-xs font-bold text-gray-500 hover:text-red-500 bg-white/70 px-3 py-1.5 rounded-xl">Dọn (giữ mục ghim)</button>
+        <!-- Thư mục con (thư mục lồng nhau) — bấm để mở tiếp -->
+        <section id="fp-sub-section" class="fp-section hidden">
+            <div class="fp-section-head">
+                <h2 class="fp-section-title"><i class="fas fa-folder-tree"></i><span id="fp-sub-label">Thư mục con</span><span id="fp-sub-count" class="fp-count"></span></h2>
             </div>
-            <div id="local-shelf-list" class="space-y-2"></div>
+            <div id="folder-sub-list" class="folders-scroll-container"></div>
         </section>
 
-        <footer class="mt-10 text-center">
-            <a href="../../index.html" class="inline-flex items-center gap-2 text-xs font-bold text-pink-600 bg-white/70 hover:bg-white px-4 py-2 rounded-xl shadow-sm transition">
-                <i class="fas fa-house"></i> Về trang chủ Zitthenkne
-            </a>
+        <!-- Danh sách bộ đề bên trong (+ tìm / sắp xếp khi đông) -->
+        <section id="fp-quiz-section" class="fp-section">
+            <div id="fp-quiz-head" class="fp-section-head hidden">
+                <h2 class="fp-section-title"><i class="fas fa-file-lines"></i><span id="fp-quiz-label">Bộ đề</span><span id="fp-quiz-count" class="fp-count"></span></h2>
+                <div id="fp-tools" class="fp-tools hidden">
+                    <label class="fp-search">
+                        <i class="fas fa-search"></i>
+                        <input type="search" id="fp-search" placeholder="Tìm bộ đề trong thư mục…" autocomplete="off" aria-label="Tìm bộ đề">
+                    </label>
+                    <select id="fp-sort" class="fp-sort" aria-label="Sắp xếp bộ đề">
+                        <option value="name">Tên A → Z</option>
+                        <option value="count">Nhiều câu nhất</option>
+                        <option value="few">Ít câu nhất</option>
+                    </select>
+                </div>
+            </div>
+            <div id="folder-quiz-list" class="quiz-grid"></div>
+            <p id="fp-no-match" class="fp-no-match hidden"></p>
+        </section>
+
+        <!-- Báo lỗi / thư mục trống -->
+        <div id="folder-message" class="fp-empty hidden" role="status">
+            <div class="fp-empty-icon"><i id="folder-message-icon" class="fas fa-folder-open"></i></div>
+            <h2 id="folder-message-title"></h2>
+            <p id="folder-message-desc"></p>
+            <div class="fp-empty-actions">
+                <button type="button" class="fp-btn" onclick="location.reload()"><i class="fas fa-rotate-right"></i> Tải lại</button>
+                <a href="../../index.html" class="fp-btn fp-btn-main"><i class="fas fa-house"></i> Về trang chủ</a>
+            </div>
+        </div>
+
+        <!-- TRÊN MÁY NÀY: bộ đề / thư mục của người khác đã mở trên trình duyệt này (local-shelf.js) — không cần tài khoản -->
+        <section id="local-shelf" class="fp-shelf hidden">
+            <div class="fp-section-head" style="margin-bottom:0">
+                <div>
+                    <h2 class="fp-section-title"><i class="fas fa-laptop"></i><span>Trên máy này</span></h2>
+                    <p class="fp-shelf-hint">Đã mở bằng link trên trình duyệt này — mở lại, ghim, xem điểm. Xóa dữ liệu trình duyệt là mất danh sách.</p>
+                </div>
+                <button type="button" id="local-shelf-clear" class="fp-link-btn"><i class="fas fa-broom mr-1"></i>Dọn (giữ mục ghim)</button>
+            </div>
+            <div id="local-shelf-list" class="fp-shelf-list"></div>
+        </section>
+
+        <footer class="fp-foot">
+            <span>Học vui hơn với bộ đề của riêng bạn trên Zitthenkne</span>
+            <a href="../../index.html" class="fp-btn"><i class="fas fa-house"></i> Về trang chủ Zitthenkne</a>
         </footer>
     </div>
 

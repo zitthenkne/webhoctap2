@@ -16,7 +16,9 @@ import { doc, arrayUnion, arrayRemove, writeBatch } from "https://www.gstatic.co
 import { queued } from '../../core/offline-write.js';
 import { sessionUser } from '../../core/auth-session.js';
 import { emailForName } from '../../core/usernames.js';
-import { showToast } from '../../core/utils.js';
+import { showToast, showConfirm } from '../../core/utils.js';
+import { auth } from '../../core/firebase-init.js';
+import { apiUrl } from '../../core/device-limit.js';
 
 export const MAX_SHARED = 50;          // khớp validShare() trong firestore.rules
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -48,6 +50,7 @@ export const publicAlive = (d) => !!d && d.isPublic === true && (untilMsOf(d.pub
  * @property {string} [scope]  mô tả phạm vi, vd "cả thư mục" — hiện dưới tiêu đề
  * @property {string} [title]  tên bộ đề / thư mục — cho thư mời
  * @property {string} [link]   link mở mục này — cho thư mời
+ * @property {{kind: 'quiz'|'folder', id: string}} [oneTime]  có thì hiện khối "Link dùng cho 1 thiết bị" (api/link.js) — không có (chọn nhiều) thì ẩn
  */
 let current = null;
 
@@ -59,6 +62,7 @@ export function showShareAccess(target) {
     build(section);
     section.classList.remove('hidden');
     render();
+    loadOnce();
 }
 
 /** Ẩn khối (vd. người xem không phải chủ bộ đề ở trang làm bài). */
@@ -75,8 +79,11 @@ const CSS = `
 .sa{--sa-ink:#3b2230;--sa-mute:#8a6f7c;--sa-line:#f0dbe4;--sa-pink:#ff69b4;--sa-pink-d:#e0559f;--sa-soft:#fff3f8;--sa-ok:#15925f;--sa-bad:#d14343;
   display:flex;flex-direction:column;gap:14px;padding:14px;border-radius:18px;background:#fff;border:1.5px solid var(--sa-line);color:var(--sa-ink);font-size:13px}
 .sa.hidden{display:none}
-.sa-h{display:flex;align-items:center;gap:7px;margin:0 0 7px;font-size:12px;font-weight:800;color:var(--sa-ink);letter-spacing:.01em}
-.sa-h i{color:var(--sa-pink)}
+.sa-h{display:flex;align-items:center;gap:7px;margin:0 0 8px;font-size:12px;font-weight:800;color:var(--sa-ink);letter-spacing:.01em}
+.sa-h i{width:22px;height:22px;flex:none;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:var(--sa-pink-d);background:var(--sa-soft)}
+.sa > div + div{padding-top:14px;border-top:1.5px dashed var(--sa-line)}
+.sa-person:first-child{background:#fdf6f9}
+.sa-person:first-child .sa-owner{padding:2px 8px;border-radius:999px;background:#fff;box-shadow:inset 0 0 0 1.5px var(--sa-line)}
 .sa-badge{margin-left:auto;padding:1px 8px;border-radius:999px;background:var(--sa-soft);color:var(--sa-pink-d);font-size:11px;font-weight:800}
 .sa-add{display:flex;gap:6px}
 .sa-input{flex:1;min-width:0;height:38px;padding:0 11px;border-radius:11px;border:1.5px solid var(--sa-line);background:#fff;font-size:13px;color:var(--sa-ink);outline:0;transition:border-color .15s,box-shadow .15s}
@@ -101,9 +108,11 @@ const CSS = `
 .sa-gicon{width:36px;height:36px;flex:none;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:14px;background:#efe6ea;color:#7b6470;transition:background .2s,color .2s}
 .sa-gicon.is-public{background:#dcf5ea;color:var(--sa-ok)}
 .sa-gmain{min-width:0;flex:1}
-.sa-seg{display:inline-flex;gap:3px;padding:3px;border-radius:11px;background:#fff;border:1.5px solid var(--sa-line)}
-.sa-seg button{border:0;background:transparent;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:800;color:var(--sa-mute);cursor:pointer;transition:background .15s,color .15s}
-.sa-seg button.is-on{background:var(--sa-ink);color:#fff}
+.sa-seg{display:flex;gap:3px;padding:3px;border-radius:12px;background:#fff;border:1.5px solid var(--sa-line)}
+.sa-seg button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;background:transparent;padding:7px 10px;border-radius:9px;font-size:12px;font-weight:800;color:var(--sa-mute);cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
+.sa-seg button i{font-size:10px}
+.sa-seg button:hover:not(.is-on){background:var(--sa-soft);color:var(--sa-pink-d)}
+.sa-seg button.is-on{background:var(--sa-ink);color:#fff;box-shadow:0 2px 0 rgba(0,0,0,.18)}
 .sa-seg button[data-general="public"].is-on{background:var(--sa-ok)}
 .sa-desc{margin:6px 0 0;font-size:11.5px;line-height:1.45;color:var(--sa-mute)}
 .sa-expiry{margin-top:10px;padding-top:10px;border-top:1.5px dashed var(--sa-line)}
@@ -127,6 +136,14 @@ const CSS = `
 .sa-switch input:focus-visible + i{box-shadow:0 0 0 3px rgba(255,105,180,.3)}
 .sa-note{margin:0;padding:8px 10px;border-radius:11px;background:#fff8e6;color:#9a6a00;font-size:11.5px;font-weight:700;line-height:1.4}
 .sa-note.hidden{display:none}
+.sa-once.hidden{display:none}
+.sa-once-new{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0}
+.sa-once-new .sa-chips{flex:1 1 200px}
+.sa-once-new .sa-btn{display:inline-flex;align-items:center;gap:6px}
+button.sa-icon{border:0;background:transparent;cursor:pointer;padding:0}
+.sa-once-row .sa-av{font-size:12px}
+.sa-once-row.is-expired{opacity:.62}
+.sa-once-row .sa-name b{font-weight:800}
 @media (max-width:420px){.sa{padding:12px}.sa-add{flex-wrap:wrap}.sa-input{flex-basis:100%}.sa-select{flex:1}}
 `;
 function injectCss() {
@@ -139,6 +156,8 @@ function injectCss() {
 
 const HOUR_CHOICES = [[1, '1 giờ'], [12, '12 giờ'], [24, '1 ngày'], [168, '7 ngày'], [0, 'Không hết hạn']];
 let expiryHours = 12;          // thời hạn đang chọn cho link công khai (mặc định 12 giờ như web)
+const ONCE_HOURS = [[24, '1 ngày'], [168, '7 ngày'], [720, '30 ngày'], [0, 'Không hạn']];   // khớp HOUR_CHOICES trong api/link.js
+let onceHours = 168;
 const AV_COLORS = ['#f472b6', '#a78bfa', '#60a5fa', '#34d399', '#fbbf24', '#fb923c', '#f87171', '#2dd4bf'];
 const avColor = (s) => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return AV_COLORS[h % AV_COLORS.length]; };
 const fmtUntil = (ms) => new Date(ms).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
@@ -169,13 +188,13 @@ function build(section) {
             <ul id="share-person-list" class="sa-list"></ul>
         </div>
         <div>
-            <p class="sa-h">Quyền truy cập chung</p>
+            <p class="sa-h"><i class="fas fa-share-nodes"></i> Quyền truy cập chung</p>
             <div class="sa-general">
                 <span id="share-general-icon" class="sa-gicon"><i class="fas fa-lock"></i></span>
                 <div class="sa-gmain">
                     <div class="sa-seg" role="radiogroup" aria-label="Quyền truy cập chung">
-                        <button type="button" data-general="restricted" role="radio">Hạn chế</button>
-                        <button type="button" data-general="public" role="radio">Ai có link</button>
+                        <button type="button" data-general="restricted" role="radio"><i class="fas fa-lock"></i> Hạn chế</button>
+                        <button type="button" data-general="public" role="radio"><i class="fas fa-share-nodes"></i> Ai có link</button>
                     </div>
                     <p id="share-general-desc" class="sa-desc"></p>
                     <div id="share-expiry-row" class="sa-expiry hidden">
@@ -187,6 +206,17 @@ function build(section) {
                     </div>
                 </div>
             </div>
+        </div>
+        <div id="sa-once" class="sa-once hidden">
+            <p class="sa-h"><i class="fas fa-mobile-screen"></i> Link dùng cho 1 thiết bị <span id="sa-once-count" class="sa-badge"></span></p>
+            <p class="sa-desc" style="margin:0">Không cần tài khoản: máy đầu tiên bấm mở sẽ giữ link, máy khác mở bị chặn. Hết hạn là đóng. Mỗi người một link.</p>
+            <div class="sa-once-new">
+                <div class="sa-chips" role="radiogroup" aria-label="Thời hạn link 1 thiết bị">
+                    ${ONCE_HOURS.map(([h, l]) => `<button type="button" data-once-hours="${h}" role="radio">${l}</button>`).join('')}
+                </div>
+                <button type="button" id="sa-once-create" class="sa-btn"><i class="fas fa-mobile-screen"></i> Tạo link</button>
+            </div>
+            <ul id="sa-once-list" class="sa-list"></ul>
         </div>
         <label class="sa-switch-row">
             <span class="sa-switch"><input type="checkbox" id="share-allow-copy"><i></i></span>
@@ -253,10 +283,20 @@ function render() {
         b.classList.toggle('is-on', on);
         b.setAttribute('aria-checked', on ? 'true' : 'false');
     });
+    const until = untilMsOf(v.publicUntil);
+    const dead = until != null && until <= Date.now();
+    // Viên trạng thái ở đầu hộp (index.html #share-status-pill — trang làm bài không có thì thôi)
+    const pill = document.getElementById('share-status-pill');
+    if (pill) {
+        const who = people.length ? ` · ${people.length} người` : '';
+        pill.className = 'sm-status' + (general === 'public' ? (dead ? ' is-expired' : ' is-public') : '');
+        pill.innerHTML = general === 'public'
+            ? `<i class="fas fa-share-nodes"></i> Ai có link · ${dead ? 'đã hết hạn' : until == null ? 'không hết hạn' : leftText(until)}${who}`
+            : general === 'mixed' ? `<i class="fas fa-layer-group"></i> Chế độ đang khác nhau${who}`
+            : `<i class="fas fa-lock"></i> Hạn chế${who || ' · chỉ mình bạn'}`;
+    }
     const at = document.getElementById('share-expiry-at');
     if (at) {
-        const until = untilMsOf(v.publicUntil);
-        const dead = until != null && until <= Date.now();
         at.className = 'sa-at' + (dead ? ' is-bad' : general === 'public' ? ' is-ok' : '');
         at.textContent = general !== 'public' ? ''
             : until == null ? 'Đang mở: không hết hạn.'
@@ -267,6 +307,137 @@ function render() {
     if (allow) allow.checked = v.allowTakeout === true;
     const note = document.getElementById('share-scope-note');
     if (note) { note.textContent = t.scope || ''; note.classList.toggle('hidden', !t.scope); }
+    renderOnce();
+}
+
+// ---------- LINK DÙNG CHO 1 THIẾT BỊ (api/link.js; trang người nhận: features/quiz/link.html) ----------
+// Mục vẫn RIÊNG TƯ. Mỗi link có mã ngẫu nhiên; máy (trình duyệt) đầu tiên bấm mở giữ link, máy khác bị chặn; hết hạn là đóng.
+let once = { key: '', links: [], loading: false, error: '' };
+const onceUrl = (token) => new URL(`features/quiz/link.html?t=${encodeURIComponent(token)}`, location.origin).href;
+
+async function onceApi(action, extra = {}) {
+    const u = auth.currentUser;
+    if (!u || u.isAnonymous) throw new Error('Cần đăng nhập để quản lý link.');
+    const r = await fetch(apiUrl('api/link'), {
+        method: 'POST', cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await u.getIdToken()}` },
+        body: JSON.stringify({ action, ...extra })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+    return d;
+}
+
+async function loadOnce() {
+    const o = current?.oneTime;
+    if (!o) { once = { key: '', links: [], loading: false, error: '' }; return renderOnce(); }
+    const key = `${o.kind}:${o.id}`;
+    once = { key, links: once.key === key ? once.links : [], loading: true, error: '' };
+    renderOnce();
+    try {
+        const d = await onceApi('list', { kind: o.kind, id: o.id });
+        if (once.key === key) once.links = d.links || [];
+    } catch (e) { if (once.key === key) once.error = e.message; }
+    if (once.key === key) { once.loading = false; renderOnce(); }
+}
+
+const onceState = (l) => (l.expiresAt != null && l.expiresAt <= Date.now()) ? 'expired' : l.claimed ? 'used' : 'free';
+
+function renderOnce() {
+    const box = document.getElementById('sa-once');
+    if (!box) return;
+    const on = !!current?.oneTime;
+    box.classList.toggle('hidden', !on);
+    if (!on) return;
+    box.querySelectorAll('[data-once-hours]').forEach(b => {
+        const sel = Number(b.dataset.onceHours) === onceHours;
+        b.classList.toggle('is-on', sel);
+        b.setAttribute('aria-checked', sel ? 'true' : 'false');
+    });
+    const live = once.links.filter(l => onceState(l) !== 'expired').length;
+    const count = document.getElementById('sa-once-count');
+    if (count) count.textContent = live ? `${live} link` : '';
+    const list = document.getElementById('sa-once-list');
+    if (!list) return;
+    if (!once.links.length) {
+        list.innerHTML = `<li class="sa-empty">${once.loading ? 'Đang tải danh sách link…' : once.error ? esc('Không tải được: ' + once.error) : 'Chưa có link nào — chọn thời hạn rồi bấm Tạo link.'}</li>`;
+        return;
+    }
+    const STYLE = {
+        free: { c: '#60a5fa', i: 'fa-mobile-screen' },
+        used: { c: '#34c38f', i: 'fa-check' },
+        expired: { c: '#c4b5bd', i: 'fa-clock' }
+    };
+    list.innerHTML = once.links.map(l => {
+        const st = onceState(l), s = STYLE[st];
+        const place = [l.claimCity, l.claimCountry].filter(Boolean).join(', ');
+        const left = l.expiresAt == null ? 'không hết hạn' : leftText(l.expiresAt);
+        const name = st === 'used' ? `Đã mở · <b>${esc(l.claimLabel || 'một thiết bị')}</b>` : st === 'expired' ? 'Đã hết hạn' : 'Chưa ai mở';
+        const sub = st === 'used'
+            ? [place, l.claimedAt ? `nhận ${fmtUntil(l.claimedAt)}` : '', l.lastSeenAt && l.lastSeenAt !== l.claimedAt ? `mở gần nhất ${fmtUntil(l.lastSeenAt)}` : '', left].filter(Boolean).join(' · ')
+            : st === 'expired' ? `Tạo ${fmtUntil(l.createdAt)}` : `Tạo ${fmtUntil(l.createdAt)} · ${left}`;
+        return `
+        <li class="sa-person sa-once-row is-${st}">
+            <span class="sa-av" style="background:${s.c}"><i class="fas ${s.i}"></i></span>
+            <span class="sa-who"><span class="sa-name">${name}</span><span class="sa-sub" title="${esc(sub)}">${esc(sub)}</span></span>
+            ${st === 'expired' ? '' : `<button type="button" class="sa-icon" data-once-copy="${esc(l.token)}" title="Sao chép link" aria-label="Sao chép link"><i class="fas fa-copy"></i></button>`}
+            <button type="button" class="sa-icon" data-once-revoke="${esc(l.token)}" title="${st === 'expired' ? 'Xóa khỏi danh sách' : 'Thu hồi link'}" aria-label="Thu hồi link"><i class="fas fa-xmark"></i></button>
+        </li>`;
+    }).join('');
+}
+
+async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); return true; }
+    catch (e) { window.prompt('Sao chép link này:', text); return false; }
+}
+
+function bindOnceBlock(section) {
+    section.querySelectorAll('[data-once-hours]').forEach(b => b.addEventListener('click', () => {
+        onceHours = Number(b.dataset.onceHours) || 0;
+        renderOnce();
+    }));
+    const createBtn = section.querySelector('#sa-once-create');
+    createBtn.addEventListener('click', async () => {
+        const o = current?.oneTime;
+        if (!o || createBtn.disabled) return;
+        createBtn.disabled = true;
+        try {
+            const d = await onceApi('create', { kind: o.kind, id: o.id, hours: onceHours });
+            if (once.key === `${o.kind}:${o.id}`) once.links = [d.link, ...once.links];
+            renderOnce();
+            if (await copyText(onceUrl(d.link.token))) showToast('Đã tạo và sao chép link 1 thiết bị — gửi cho đúng MỘT người nhé.', 'success', 5000);
+        } catch (e) {
+            showToast('Không tạo được link: ' + e.message, 'error');
+        } finally { createBtn.disabled = false; }
+    });
+    section.querySelector('#sa-once-list').addEventListener('click', async (e) => {
+        const copy = e.target.closest('[data-once-copy]');
+        const revoke = e.target.closest('[data-once-revoke]');
+        if (copy) {
+            if (await copyText(onceUrl(copy.dataset.onceCopy))) showToast('Đã sao chép link.', 'success');
+            return;
+        }
+        if (!revoke || revoke.disabled) return;
+        const token = revoke.dataset.onceRevoke;
+        const l = once.links.find(x => x.token === token);
+        const st = l ? onceState(l) : 'expired';
+        if (st !== 'expired') {
+            const ok = await showConfirm(st === 'used'
+                ? `Thiết bị đang giữ link (${l.claimLabel || 'một thiết bị'}) sẽ mất quyền vào NGAY.`
+                : 'Link này sẽ không mở được nữa.', { title: 'Thu hồi link?', confirmText: 'Thu hồi', cancelText: 'Hủy', tone: 'danger' });
+            if (!ok) return;
+        }
+        revoke.disabled = true;
+        try {
+            await onceApi('revoke', { token });
+            once.links = once.links.filter(x => x.token !== token);
+            renderOnce();
+            if (st !== 'expired') showToast('Đã thu hồi link.', 'success');
+        } catch (err) {
+            revoke.disabled = false;
+            showToast('Không thu hồi được: ' + err.message, 'error');
+        }
+    });
 }
 
 // Thư mời qua ứng dụng mail của máy (mailto:) — web không có máy chủ gửi mail; người nhận cũng thấy mục ở "Được chia sẻ với tôi".
@@ -282,6 +453,7 @@ function inviteHref(t, email, role) {
 }
 
 function bindOnce(section) {
+    bindOnceBlock(section);
     const input = section.querySelector('#share-person-input');
     section.querySelector('#share-person-add-btn').addEventListener('click', addPerson);
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addPerson(); } });

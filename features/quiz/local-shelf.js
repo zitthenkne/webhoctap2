@@ -19,7 +19,7 @@ const keyOf = (kind, id) => `${kind}:${id}`;
 
 // ---------- Kệ: mục đã mở ----------
 /** Ghi nhớ một bộ đề / thư mục vừa mở (cập nhật tên + giờ mở; giữ ghim). */
-export function rememberOpened({ kind, id, title, count, ownerName, access }) {
+export function rememberOpened({ kind, id, title, count, ownerName, access, link }) {
     if (!kind || !id) return;
     const list = load(SHELF_KEY);
     const k = keyOf(kind, id);
@@ -29,7 +29,8 @@ export function rememberOpened({ kind, id, title, count, ownerName, access }) {
         title: String(title || old?.title || (kind === 'folder' ? 'Thư mục' : 'Bộ đề')).slice(0, 200),
         count: Number.isFinite(count) ? count : old?.count,
         ownerName: ownerName || old?.ownerName || '',
-        access: access || old?.access || '',            // 'public' | 'shared'
+        access: access || old?.access || '',            // 'public' | 'shared' | 'link' (link 1 thiết bị — api/link.js)
+        link: link || old?.link || '',                  // mã link 1 thiết bị của thư mục: mở lại từ kệ phải kèm mã (folder.html?link=)
         openedAt: Date.now()
     };
     const rest = list.filter(x => keyOf(x.kind, x.id) !== k);

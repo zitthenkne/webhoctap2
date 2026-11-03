@@ -61,6 +61,13 @@ service cloud.firestore {
       return resource.data.get('isPublic', false) == true
           && (resource.data.get('publicUntil', null) == null || request.time < resource.data.publicUntil);
     }
+    // LINK DÙNG CHO 1 THIẾT BỊ (2026-11-03, api/link.js): máy chủ ghi link_grants/{uid} = { q: { quizId: hạn }, f: { folderId: hạn } } cho đúng
+    // MỘT danh tính — trình duyệt đã bấm nhận link (khách ẩn danh) hoặc tài khoản đang đăng nhập. Chỉ máy chủ ghi; quá hạn là hết đọc.
+    // Đặt CUỐI chuỗi điều kiện: doc chưa có → get() lỗi → nhánh này từ chối (các nhánh trước đã xét xong).
+    function linkGranted(kind, id) {
+      return request.auth != null
+          && request.time < get(/databases/$(database)/documents/link_grants/$(request.auth.uid)).data.get([kind, id], timestamp.value(0));
+    }
     // Người được chia sẻ tự "Rời chia sẻ" (folder.js ?shared=me): chỉ được sửa sharedWith/editors, và chỉ để GỠ ĐÚNG email của mình.
     function leavesShare() {
       let me = [request.auth.token.email].toSet();
@@ -264,7 +271,8 @@ service cloud.firestore {
     match /quiz_sets/{setId} {
       allow get: if publicAlive()
                  || (request.auth != null && request.auth.uid == resource.data.userId)
-                 || (sharedWithMe() && can('quiz'));
+                 || (sharedWithMe() && can('quiz'))
+                 || linkGranted('q', setId);
       allow list: if (request.auth != null && request.auth.uid == resource.data.userId)
                   || (sharedWithMe() && can('quiz'));
       allow create: if isOwner(request.resource.data.userId) && approved() && can('create') && validShare(request.resource.data) && copyAllowed(request.resource.data);
@@ -279,12 +287,21 @@ service cloud.firestore {
       // sharedWith: chỉ những tài khoản được mời mới xem (bộ đề bên trong được chép cùng danh sách lúc chia sẻ).
       allow get: if publicAlive()
                  || (request.auth != null && request.auth.uid == resource.data.userId)
-                 || (sharedWithMe() && can('quiz'));
+                 || (sharedWithMe() && can('quiz'))
+                 || linkGranted('f', folderId);
       allow list: if (request.auth != null && request.auth.uid == resource.data.userId)
                   || (sharedWithMe() && can('quiz'));
       allow create: if isOwner(request.resource.data.userId) && approved() && can('create') && validShare(request.resource.data);
       allow update: if (isOwner(resource.data.userId) && keepsOwner() && validShare(request.resource.data)) || leavesShare();
       allow delete: if isOwner(resource.data.userId);
+    }
+
+    // LINK 1 THIẾT BỊ: mã link + quyền đã cấp — CHỈ máy chủ (api/link.js, Admin SDK) đọc/ghi. App không liệt kê / đoán mã / tự cấp quyền được.
+    match /share_links/{token} {
+      allow read, write: if false;
+    }
+    match /link_grants/{uid} {
+      allow read, write: if false;
     }
 
     // QUIZ RESULTS
@@ -341,7 +358,8 @@ service cloud.firestore {
     match /quiz_payloads/{setId} {
       allow get: if publicAlive()
                  || (request.auth != null && request.auth.uid == resource.data.userId)
-                 || (sharedWithMe() && can('quiz'));
+                 || (sharedWithMe() && can('quiz'))
+                 || linkGranted('q', setId);
       allow list: if request.auth != null && request.auth.uid == resource.data.userId;
       allow create: if isOwner(request.resource.data.userId) && approved() && can('create');
       allow update: if isOwner(resource.data.userId) && keepsOwner();

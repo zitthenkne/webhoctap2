@@ -2,7 +2,18 @@
 // Chạy: node --test  (từ thư mục webhoctap2)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseMarkdown, parseInlineMarkdown } from '../quiz-helpers.js';
+import { parseMarkdown, parseInlineMarkdown, splitRunOn } from '../quiz-helpers.js';
+
+test('mục What-if viết bằng tiêu đề "## 🔀" vẫn được tách mỗi kịch bản một dòng', () => {
+    assert.equal(splitRunOn('## 🔀 Tập trận What-if\nNếu A thì X. Nếu B thì Y.'),
+        '## 🔀 Tập trận What-if\nNếu A thì X.\n- Nếu B thì Y.');
+});
+
+test('dòng callout / trích dẫn ">" không bị chèn xuống dòng (khối không bị cắt đôi)', () => {
+    const md = '## 🔀 Tập trận What-if\n> [!question]- Nếu vợ HbA2 5,2%?\n> ➔ β-Thal dị hợp. Nếu chồng α-Thal thì không cùng gen.';
+    assert.equal(splitRunOn(md), md);
+    assert.match(parseMarkdown(md), /<details class="quiz-callout[^"]*"[^>]*><summary/);
+});
 
 test('"---" / "***" / "- - -" đứng riêng một dòng thành đường kẻ, không thành mục danh sách', () => {
     for (const hr of ['---', '***', '___', '- - -', '* * *']) {

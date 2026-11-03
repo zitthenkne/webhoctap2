@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mở bộ đề được chia sẻ - Zitthenkne</title>
+    <link rel="icon" type="image/png" href="../../assets/favicons/favicon-quiz-folder.png">
+    <!-- Trình quét link (Messenger/Zalo/Facebook) KHÔNG chạy JS → chỉ đọc thẻ này, không bao giờ "nhận" link thay người dùng. -->
+    <meta name="robots" content="noindex">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Zitthenkne">
+    <meta property="og:locale" content="vi_VN">
+    <meta property="og:title" content="Bạn được mời làm bộ đề trên Zitthenkne">
+    <meta property="og:description" content="Link riêng chỉ mở được trên MỘT thiết bị — bấm để mở trên máy của bạn.">
+    <meta property="og:image" content="/assets/og_squirrel_study.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Trang cổng của LINK DÙNG CHO 1 THIẾT BỊ (link.js + api/link.js). Lớp .lk-* tự chứa, cùng tông "sổ cắt dán" với folder.html. -->
+    <style>
+        :root { --ink: #6E3A55; --soft: #A07086; --pink: #FF7FB0; --pink-d: #E05A8E; --line: #F3D3DF; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 16px;
+            font-family: 'Quicksand', system-ui, sans-serif; color: #3b2230;
+            background-color: #FCE4EC;
+            background-image:
+                linear-gradient(rgba(236, 110, 155, .10) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(236, 110, 155, .10) 1px, transparent 1px),
+                linear-gradient(135deg, #FCE4EC 0%, #F3E5F5 55%, #E8EAF6 100%);
+            background-size: 24px 24px, 24px 24px, 100% 100%;
+            background-attachment: fixed;
+        }
+        .lk-card {
+            --c: #EC5F95; --c-bg: #FFE1EA;
+            position: relative; width: 100%; max-width: 440px; padding: 34px 24px 24px; text-align: center;
+            border-radius: 26px; background: #FFFCF8; border: 1.5px solid #F6C9D8;
+            box-shadow: 0 4px 0 #F6D2DE, 0 24px 50px -24px rgba(160, 70, 105, .55);
+            animation: lk-pop .3s cubic-bezier(.34, 1.4, .64, 1);
+        }
+        @keyframes lk-pop { from { opacity: 0; transform: translateY(10px) scale(.97); } }
+        .lk-card::before {
+            content: ''; position: absolute; top: -11px; left: 50%; width: 100px; height: 22px; translate: -50% 0; rotate: -3deg;
+            background-color: color-mix(in srgb, var(--c) 38%, #ffffff);
+            background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, .45) 0 6px, transparent 6px 12px);
+            clip-path: polygon(0 0, 100% 0, 97% 25%, 100% 50%, 97% 75%, 100% 100%, 0 100%, 3% 75%, 0 50%, 3% 25%);
+        }
+        .lk-card[data-tone="bad"] { --c: #D14343; --c-bg: #FFE4E4; }
+        .lk-card[data-tone="warn"] { --c: #E2A21A; --c-bg: #FFF1CC; }
+        .lk-card[data-tone="ok"] { --c: #15925F; --c-bg: #DCF5EA; }
+        .lk-icon {
+            width: 76px; height: 76px; margin: 0 auto 16px; border-radius: 24px; display: flex; align-items: center; justify-content: center;
+            background: var(--c-bg); color: var(--c); font-size: 1.9rem; rotate: -5deg;
+            box-shadow: 0 0 0 4px #fff, 0 12px 20px -10px color-mix(in srgb, var(--c) 70%, #000);
+        }
+        .lk-kicker { margin: 0; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--soft); }
+        .lk-title { margin: 6px 0 0; font-size: 1.35rem; line-height: 1.25; font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+        .lk-meta { margin: 8px 0 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+        .lk-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; background: #fff; font-size: .74rem; font-weight: 700; color: #7A6170; box-shadow: inset 0 0 0 1.5px var(--line); }
+        .lk-chip i { font-size: .65rem; color: var(--pink-d); }
+        .lk-desc { margin: 14px auto 0; max-width: 24rem; font-size: .88rem; font-weight: 600; line-height: 1.55; color: #8A7080; }
+        .lk-note {
+            display: flex; gap: 9px; align-items: flex-start; text-align: left; margin: 16px 0 0; padding: 11px 13px; border-radius: 14px;
+            background: #FFF8E6; border: 1.5px dashed #F2D58A; color: #7A5B12; font-size: .8rem; font-weight: 600; line-height: 1.5;
+        }
+        .lk-note i { margin-top: 3px; color: #E2A21A; }
+        .lk-actions { margin-top: 20px; display: flex; flex-direction: column; gap: 8px; }
+        .lk-btn {
+            height: 48px; padding: 0 20px; border: 0; border-radius: 15px; display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+            font: 700 .95rem 'Quicksand', sans-serif; text-decoration: none; cursor: pointer; transition: transform .12s, box-shadow .12s, background .15s;
+        }
+        .lk-btn-main { background: var(--pink); color: #fff; box-shadow: 0 4px 0 var(--pink-d); }
+        .lk-btn-main:hover { background: #F76BA3; transform: translateY(-1px); }
+        .lk-btn-main:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--pink-d); }
+        .lk-btn-main:disabled { opacity: .65; cursor: wait; transform: none; }
+        .lk-btn-ghost { height: 42px; background: #fff; color: #8A5A72; border: 1.5px solid #F0D3DF; font-size: .85rem; }
+        .lk-btn-ghost:hover { color: #E0588F; border-color: #F29CBB; }
+        .lk-btn:focus-visible { outline: 2.5px solid var(--pink); outline-offset: 2px; }
+        .lk-foot { margin-top: 18px; font-size: .72rem; font-weight: 600; color: #B39AA7; }
+        .lk-foot a { color: inherit; }
+        .hidden { display: none !important; }
+        @media (prefers-reduced-motion: reduce) { .lk-card { animation: none; } }
+    </style>
+</head>
+<body>
+    <main id="lk-card" class="lk-card" aria-live="polite">
+        <div class="lk-icon"><i id="lk-icon" class="fas fa-circle-notch fa-spin"></i></div>
+        <p id="lk-kicker" class="lk-kicker">Link riêng · 1 thiết bị</p>
+        <h1 id="lk-title" class="lk-title">Đang kiểm tra link…</h1>
+        <div id="lk-meta" class="lk-meta"></div>
+        <p id="lk-desc" class="lk-desc"></p>
+        <p id="lk-note" class="lk-note hidden"></p>
+        <div id="lk-actions" class="lk-actions"></div>
+        <p class="lk-foot">Zitthenkne · <a href="../../index.html">Trang chủ</a></p>
+    </main>
+    <script type="module" src="link.js"></script>
+</body>
+</html>

@@ -894,7 +894,7 @@ export function splitChot(q) {
     return { chot, note: line ? lines.filter((_, j) => j !== k).join('\n').trim() : raw.trim() };
 }
 
-const TRAP_RE = /bẫy|cạm|radar|sai lầm|nhầm|cờ đỏ|tránh|error|⚠|🚫|❌|🔴/i;
+const TRAP_RE = /bẫy|cạm|radar|sai lầm|nhầm|cờ đỏ|điểm liệt|tránh|error|⚠|⛔|🚫|❌|🔴/i;   // ⛔ Điểm liệt (skill up-cau-hoi, 2026-11-03)
 // Ghi nhớ -> thẻ: dòng "emoji Nhãn: nội dung" hoặc "**Nhãn:** nội dung" mở thẻ mới; dòng sau (gạch con…) dính vào thẻ trước
 const NOTE_EMOJI_RE = new RegExp(`^\\s*(?:[-*+]\\s+)?(?:\\*\\*)?\\s*(${EMOJI})\\s*(?:\\*\\*)?\\s*([^:\\n]{1,60}?)\\s*(?:\\*\\*)?\\s*:\\s*(?:\\*\\*)?\\s*(.*)$`, 'u');
 const NOTE_BOLD_RE = /^\s*(?:[-*+]\s+)?\*\*\s*([^*:\n]{1,50}?)\s*:?\s*\*\*\s*:?\s*(.*)$/;

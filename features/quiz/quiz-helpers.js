@@ -707,8 +707,9 @@ function tableCellHtml(cell) {
 
 // Tách các chặng / kịch bản AI viết dính một dòng (xem bước 3c của parseMarkdown). Dùng chung với skill up-cau-hoi (kiem_hinh.tach_chang).
 const STAGE_AFTER_STOP = /([.!?…”"»)])[ \t]+(?=(?:\*\*)?\s*(?:📌|🤔|⚠️?|🧠|🎯|🔑|👁️?|🚫|🔴|💊|⚙️?|🧰|🔀|💡|📖|🔄)\s*(?:\*\*)?[^\n:|]{1,40}?:)/g;
-const WI_HEAD = /^(?:[-*+]\s+)?(?:\*\*)?\s*(?:🔀|(?:Tập trận\s+)?What-?if\b)/i;
-const WI_END = /^(?:\*\*)?\s*(?:⚙️?|⚠️?|🧰|💡|💊|📌|🎯|🔑|📖|🩺|🤔|🧠)/;
+// Tiêu đề mục: nhãn đậm "🔀 **What-if:**" hoặc tiêu đề markdown "## 🔀 Tập trận What-if" (skill up-cau-hoi, 2026-11-03)
+const WI_HEAD = /^(?:#{1,6}\s+)?(?:[-*+]\s+)?(?:\*\*)?\s*(?:🔀|(?:Tập trận\s+)?What-?if\b)/i;
+const WI_END = /^(?:#{1,6}\s+)?(?:\*\*)?\s*(?:⚙️?|⚠️?|🧰|💡|💊|📌|🎯|🔑|📖|🩺|🤔|🧠)/;
 const oddBold = (s, at) => (s.slice(0, at).match(/\*\*/g) || []).length % 2 === 1;
 export function splitRunOn(text) {
     let inWI = false;
@@ -716,7 +717,8 @@ export function splitRunOn(text) {
         const t = L.trim();
         if (WI_HEAD.test(t)) inWI = true;
         else if (WI_END.test(t)) inWI = false;
-        if (t.startsWith('|')) return L;
+        // dòng bảng / trích dẫn / callout "> …": chèn xuống dòng vào giữa thì phần sau mất dấu ">" -> khối bị cắt đôi
+        if (t.startsWith('|') || t.startsWith('>')) return L;
         let s = L.replace(STAGE_AFTER_STOP, (m, p, at, all) => oddBold(all, at) ? m : `${p}\n`);
         // chỉ khi dòng có ≥2 kịch bản (còn ". Nếu" phía sau) — "🔀 What-if: Nếu A ➔ B" một kịch bản giữ nguyên một dòng
         if (inWI && /[.!?][ \t]+(?:Nếu\s|\*?What-?if\s*\d)/.test(s)) {

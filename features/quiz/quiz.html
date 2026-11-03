@@ -1669,7 +1669,7 @@
             <button type="button" id="qmn-mark" class="qmn-act" aria-label="Đánh dấu câu" title="Đánh dấu câu" aria-haspopup="menu" aria-expanded="false" aria-controls="qmn-mark-menu">
                 <i class="fas fa-bookmark"></i>
             </button>
-            <!-- Ghi chú (chỉ dock iPad dọc): mở sổ ghi chú trượt lên thay vì cuộn xuống cuối trang — quiz-mobile-nav.js -->
+            <!-- Ghi chú: mở sổ ghi chú trượt lên ngay trên dock thay vì cuộn xuống cuối trang — quiz-mobile-nav.js, quiz-stationery.css §30c -->
             <button type="button" id="qmn-note" class="qmn-act" aria-label="Ghi chú cho câu này" title="Ghi chú (phím Q)" aria-expanded="false" aria-controls="quiz-note-panel" hidden>
                 <i class="fas fa-note-sticky"></i>
             </button>
@@ -2049,7 +2049,8 @@
                 },
                 publicLabel: 'Ai có link đều xem được',
                 title: q.title,
-                link: new URL('api/share-quiz?id=' + encodeURIComponent(id), location.origin).href
+                link: new URL('api/share-quiz?id=' + encodeURIComponent(id), location.origin).href,
+                oneTime: { kind: 'quiz', id }      // khối "Link dùng cho 1 thiết bị" (api/link.js)
             });
         };
         if (modal) new MutationObserver(() => { if (!modal.classList.contains('hidden')) mount(); })

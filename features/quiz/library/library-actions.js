@@ -964,7 +964,8 @@ function quizShareTarget(quizId) {
         setPublic: (v, until) => toggleQuizPublic(quizId, v, until),
         onChange: afterShareChange,
         title: q().title,
-        link: new URL(`api/share-quiz?id=${quizId}`, window.location.origin).href
+        link: new URL(`api/share-quiz?id=${quizId}`, window.location.origin).href,
+        oneTime: { kind: 'quiz', id: quizId }
     };
 }
 
@@ -980,7 +981,8 @@ function folderShareTarget(folderId) {
         onChange: afterShareChange,
         scope: 'Áp dụng cho cả thư mục: mọi thư mục con và bộ đề bên trong (kể cả bộ đề thêm vào sau).',
         title: f().name,
-        link: folderShareUrl(folderId)
+        link: folderShareUrl(folderId),
+        oneTime: { kind: 'folder', id: folderId }
     };
 }
 

@@ -5297,48 +5297,48 @@ body.focus-mode-active .qna-t { display: inline; }
 }
 
 /* ============================================================
-   30c) iPAD DỌC — DOCK NGÓN CÁI + SỔ GHI CHÚ TRƯỢT (2026-11-03, vòng 2: "chưa đủ tiện ích, chưa đủ tối ưu")
-   Cầm iPad dọc hai tay: ngón cái ở đáy màn. Trước đây Trước / 50:50 / Đánh dấu nằm trong thẻ (phải cuộn tìm), Ghi chú ở tận cuối trang,
-   chỉ có nút "Câu tiếp" nổi. Nay thanh đáy điện thoại (quiz-mobile-nav.js) hiện ở dạng DOCK nổi giữa đáy:
-     [‹ Trước] [50:50] [Đánh dấu] [Ghi chú] [Thiết lập] [Tiếp ›]   (bỏ dải "Câu X/Y" — bảng số câu dính đỉnh §30b đã có)
-   Ghi chú = sổ trượt lên ngay trên dock (chạm ra ngoài / Esc / bấm lại nút để đóng), sang câu khác sổ vẫn mở với ghi chú của câu mới.
-   body.qmn-dock-on do JS bật (chỉ khi đang làm bài, 768–1023px).
+   30c) DOCK NGÓN CÁI + SỔ GHI CHÚ TRƯỢT — ĐIỆN THOẠI + iPAD DỌC (<1024) (2026-11-03)
+   Vòng 2 iPad ("chưa đủ tiện ích, chưa đủ tối ưu") rồi điện thoại ("điện thoại cũng cần nâng cấp như vậy").
+   Thanh đáy (quiz-mobile-nav.js) = DOCK nổi, bo tròn, tách khỏi mép màn:
+     điện thoại   [Câu 8/24 ✓4 ✗4 50% ▓▓░ ⊞]            <- dải tiến trình (chạm = danh sách câu), không có bảng số câu trên đỉnh
+                  [‹ Trước][50:50][Đánh dấu][Ghi chú][Thiết lập][Tiếp ›]
+     iPad dọc     chỉ hàng nút, to hơn (dải tiến trình đã có ở bảng số câu dính đỉnh §30b)
+   Ghi chú = sổ trượt lên ngay trên dock (bấm lại nút / chạm ra ngoài / Esc để đóng); sang câu khác sổ vẫn mở với ghi chú câu mới.
+   Bàn phím ảo iOS che nửa dưới màn mà không co trang -> JS đo visualViewport: --kb (phần bị che), --vvh (phần còn thấy), body.qmn-kb;
+   sổ nhấc lên ngay trên bàn phím, dock ẩn (nằm sau bàn phím). Android co trang theo bàn phím nên --kb ≈ 0, không cần gì thêm.
+   JS bật: body.qmn-dock-on (<1024, đang làm bài) · body.qmn-tab + #quiz-mobile-nav.qmn-tab (768–1023) · --qmn-h = chiều cao dock.
    ============================================================ */
-#qmn-note[hidden] { display: none !important; }
 #quiz-mobile-nav #qmn-note { --h: var(--hue-lav); --hi: var(--ink-lav); position: relative; }
 #quiz-mobile-nav #qmn-note.is-active { --bg: color-mix(in srgb, var(--hue-lav) 32%, var(--surface-card)); }
 #quiz-mobile-nav #qmn-note.has-note::after {
-    content: ""; position: absolute; top: 0.45rem; right: 0.55rem; width: 0.5rem; height: 0.5rem; border-radius: 50%;
+    content: ""; position: absolute; top: 0.35rem; right: 0.4rem; width: 0.5rem; height: 0.5rem; border-radius: 50%;
     background: var(--hue-lav); box-shadow: 0 0 0 2px var(--surface-card);
 }
-@media (min-width: 768px) and (max-width: 1023px) {
-    /* bảng số câu dính đỉnh vẫn hiện dù đang có thanh đáy (bản điện thoại ẩn nó vì đã có dải Câu X/Y) */
-    body.qmn-dock-on:not(.focus-mode-active) #quiz-nav-panel { display: block !important; }
-
+@media (max-width: 1023px) {
     html #quiz-mobile-nav.show.qmn-dock {
         left: 0; right: 0; margin: 0 auto;
-        bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
-        width: min(40rem, calc(100vw - 2rem));
-        padding: 0.45rem;
+        bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+        width: calc(100vw - 1rem);
+        gap: 0.35rem;
+        padding: 0.4rem;
         border: 2px solid var(--line);
-        border-radius: 1.7rem;
+        border-radius: 1.5rem;
         background: color-mix(in srgb, var(--paper) 96%, transparent);
         box-shadow: 0 4px 0 var(--line), 0 18px 34px -18px rgba(120, 70, 60, 0.55);
-        animation: qmn-dock-rise 0.38s var(--spring) both;
+        animation: qmn-dock-rise 0.38s var(--spring) backwards;   /* backwards: hết hoạt ảnh thì trả transform cho luật khác (ẩn khi tập trung) */
     }
-    #quiz-mobile-nav.qmn-dock .qmn-strip { display: none; }
-    #quiz-mobile-nav.qmn-dock .qmn-row { gap: 0.45rem; }
-    #quiz-mobile-nav.qmn-dock .qmn-arrow { flex: 1 1 0; min-height: 3.1rem; font-size: 1rem; }
-    #quiz-mobile-nav.qmn-dock .qmn-act { width: 3.5rem; min-height: 3.1rem; font-size: 1.1rem; }
-    body.qmn-dock-on #qmn-mark-menu { bottom: calc(100% + 14px); }
+    #quiz-mobile-nav.qmn-dock .qmn-row { gap: 0.35rem; }
+    #quiz-mobile-nav.qmn-dock .qmn-arrow { flex: 1 1 0; min-width: 0; padding: 0 0.6rem; }
+    #quiz-mobile-nav.qmn-dock .qmn-act { flex: none; width: 2.85rem; }
+    body.qmn-dock-on .qz-foot { margin-bottom: calc(var(--qmn-h, 6.6rem) + 1.6rem); }
 
     /* sổ ghi chú: trượt lên, nằm ngay trên dock, cùng bề rộng */
     body.qmn-dock-on:not(.focus-mode-active) #quiz-note-panel {
         position: fixed !important; top: auto !important; left: 0; right: 0; z-index: 43;
-        bottom: calc(5.35rem + env(safe-area-inset-bottom, 0px));
-        width: min(40rem, calc(100vw - 2rem)); max-width: none; margin: 0 auto !important;
-        max-height: min(58vh, 34rem) !important; overflow-y: auto !important; overscroll-behavior: contain;
-        transform: translateY(calc(100% + 6rem)); opacity: 0; visibility: hidden;
+        bottom: calc(var(--qmn-h, 6.6rem) + 1rem + env(safe-area-inset-bottom, 0px));
+        width: calc(100vw - 1rem); max-width: none; margin: 0 auto !important;
+        max-height: min(55vh, 34rem) !important; overflow-y: auto !important; overscroll-behavior: contain;
+        transform: translateY(calc(100% + 9rem)); opacity: 0; visibility: hidden;
         transition: transform 0.34s cubic-bezier(.16, 1, .3, 1), opacity 0.2s ease, visibility 0s linear 0.34s;
     }
     body.qmn-dock-on.fm-note-open:not(.focus-mode-active) #quiz-note-panel {
@@ -5352,6 +5352,33 @@ body.focus-mode-active .qna-t { display: inline; }
         max-height: none; opacity: 1; padding: 0 0.9rem 0.85rem; pointer-events: auto;   /* sổ đã mở bằng nút thì luôn mở hết */
     }
     body.qmn-dock-on:not(.focus-mode-active) #quiz-note-panel :is(.quiz-note-chevron, .quiz-panel-drag) { display: none; }
+
+    /* bàn phím ảo đang mở khi gõ ghi chú: sổ ngay trên bàn phím, vừa phần màn còn thấy; dock nằm sau bàn phím -> giấu */
+    body.qmn-kb.qmn-dock-on:not(.focus-mode-active) #quiz-note-panel {
+        bottom: calc(var(--kb, 0px) + 0.4rem);
+        max-height: calc(var(--vvh, 50vh) - 0.8rem) !important;
+    }
+    body.qmn-kb #quiz-mobile-nav.show { visibility: hidden; }
+}
+/* điện thoại hẹp (iPhone SE / máy 360px): "Trước" chỉ còn mũi tên để 6 nút vừa một hàng; "Tiếp" giữ chữ */
+@media (max-width: 399px) {
+    #quiz-mobile-nav.qmn-dock .qmn-arrow:not(.qmn-arrow-next) .qmn-arrow-txt { display: none; }
+    #quiz-mobile-nav.qmn-dock .qmn-arrow:not(.qmn-arrow-next) { flex: 0 0 2.85rem; padding: 0; }
+    #quiz-mobile-nav.qmn-dock .qmn-act { width: 2.7rem; }
+}
+/* iPad dọc: dock gọn giữa đáy, nút to hơn, bỏ dải tiến trình (đã có bảng số câu dính đỉnh) */
+@media (min-width: 768px) and (max-width: 1023px) {
+    body.qmn-tab:not(.focus-mode-active) #quiz-nav-panel { display: block !important; }
+    html #quiz-mobile-nav.show.qmn-dock.qmn-tab {
+        bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+        width: min(40rem, calc(100vw - 2rem));
+        padding: 0.45rem; border-radius: 1.7rem;
+    }
+    #quiz-mobile-nav.qmn-tab .qmn-strip { display: none; }
+    #quiz-mobile-nav.qmn-tab .qmn-row { gap: 0.45rem; }
+    #quiz-mobile-nav.qmn-tab .qmn-arrow { min-height: 3.1rem; font-size: 1rem; }
+    #quiz-mobile-nav.qmn-tab .qmn-act { width: 3.5rem; min-height: 3.1rem; font-size: 1.1rem; }
+    body.qmn-tab:not(.focus-mode-active) #quiz-note-panel { width: min(40rem, calc(100vw - 2rem)); }
 }
 @keyframes qmn-dock-rise { 0% { opacity: 0; transform: translateY(1.6rem) scale(0.96); } 100% { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
