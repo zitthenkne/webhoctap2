@@ -21,6 +21,12 @@ function insets() {
     let top = 0, bottom = 0;
     const bar = document.querySelector('.nb-topbar');
     if (bar && bar.offsetHeight && /fixed|sticky/.test(getComputedStyle(bar).position)) top = bar.offsetHeight;
+    // iPad dọc (768–1023): bảng số câu DÍNH ĐỈNH màn (quiz-stationery.css §30b) -> phần đó cũng che trên.
+    // ≥1024 bảng là cột bên (cũng sticky) nhưng không nằm trên thẻ nên không tính.
+    const np = document.getElementById('quiz-nav-panel');
+    if (np && np.offsetHeight && window.innerWidth < 1024 && getComputedStyle(np).position === 'sticky') {
+        top += np.offsetHeight + (parseFloat(getComputedStyle(np).top) || 0) + 8;
+    }
     const nav = document.getElementById('quiz-mobile-nav');
     if (nav && nav.classList.contains('show')) bottom += nav.offsetHeight;
     const root = document.documentElement;

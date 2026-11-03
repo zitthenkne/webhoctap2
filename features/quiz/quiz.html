@@ -1652,6 +1652,8 @@
         <!-- Tầng 1: dải tiến trình — chạm (hoặc vuốt lên) để mở danh sách câu -->
         <button type="button" id="qmn-jump" class="qmn-strip" aria-haspopup="dialog" aria-controls="quiz-jump-sheet" aria-expanded="false">
             <span id="qmn-counter" class="qmn-counter">Câu 1/1</span>
+            <!-- Đúng / sai đang có (chỉ khi xem đáp án ngay) — quiz-mobile-nav.js updateMobileNav -->
+            <span id="qmn-score" class="qmn-score" hidden></span>
             <span class="qmn-progress"><span id="qmn-progress-fill" class="qmn-progress-fill"></span></span>
             <span class="qmn-hint"><i class="fas fa-table-cells-large"></i> Danh sách câu</span>
         </button>

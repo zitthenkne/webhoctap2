@@ -12,6 +12,7 @@ import { showQuestion, showNextQuestion, showPreviousQuestion, handle5050Help } 
 import { applyMark } from './quiz-marks.js';
 import { caseCellClass } from './quiz-cases.js';
 import { getVibrate } from './quiz-page-prefs.js';
+import { liveStats, accTone } from '../quiz-ui.js';
 
 let bar, prevBtn, nextBtn, jumpBtn, counterEl, fillEl, fiveBtn, markBtn, markMenu, settingsBtn;
 let sheet, sheetGrid, sheetMeta, sheetBackdrop, sheetClose;
@@ -232,6 +233,26 @@ export function setupMobileNav() {
 }
 
 // Gọi ở cuối showQuestion() (mọi lần render câu) để đồng bộ số câu / tiến trình / nút.
+// Dải tiến trình: "✓12 ✗3 · 80%" cạnh "Câu 5/40" — chỉ khi chế độ xem đáp án ngay (thi thử không lộ đúng/sai).
+// Có điểm thì ẩn chữ "Danh sách câu" (chỉ giữ biểu tượng) cho đủ chỗ trên màn hẹp.
+let _stripPrev = { correct: -1, wrong: -1 };
+function renderStripScore() {
+    const el = document.getElementById('qmn-score');
+    if (!el) return;
+    const s = liveStats();
+    const show = s.immediate && s.answered > 0;
+    el.hidden = !show;
+    if (bar) bar.classList.toggle('has-score', show);
+    if (!show) { _stripPrev = { correct: -1, wrong: -1 }; return; }
+    el.innerHTML = `<span class="qms-ok"><i class="fas fa-check"></i>${s.correct}</span>`
+        + `<span class="qms-bad"><i class="fas fa-xmark"></i>${s.wrong}</span>`
+        + (s.acc != null ? `<span class="qms-acc ${accTone(s.acc)}">${s.acc}%</span>` : '');
+    el.setAttribute('aria-label', `Đúng ${s.correct}, sai ${s.wrong}${s.acc != null ? `, tỉ lệ đúng ${s.acc}%` : ''}`);
+    if (_stripPrev.correct >= 0 && s.correct > _stripPrev.correct) el.querySelector('.qms-ok')?.classList.add('is-bump');
+    if (_stripPrev.wrong >= 0 && s.wrong > _stripPrev.wrong) el.querySelector('.qms-bad')?.classList.add('is-bump');
+    _stripPrev = { correct: s.correct, wrong: s.wrong };
+}
+
 export function updateMobileNav() {
     if (!bar) return;
     if (!isNarrow() || !inQuiz()) {
@@ -250,6 +271,7 @@ export function updateMobileNav() {
 
     if (counterEl) counterEl.textContent = `Câu ${idx + 1}/${total}`;
     if (fillEl) fillEl.style.width = (total ? Math.round((answered / total) * 100) : 0) + '%';
+    renderStripScore();
 
     const canPrev = idx > 0 && state.quizMode !== 'practice';
     if (prevBtn) {

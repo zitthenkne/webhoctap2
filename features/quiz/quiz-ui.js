@@ -44,6 +44,54 @@ export function updateProgressBar() {
     }
 }
 
+/**
+ * ĐIỂM ĐANG LÀM (2026-11-03): đếm đúng / sai / chờ chấm từ userAnswers (không dựa state.score — khôi phục phiên, câu nhiều đáp án,
+ * tự luận đều đúng). Chế độ "nộp bài mới xem đáp án" (immediate = false) KHÔNG được lộ đúng/sai: chỗ hiển thị tự ẩn.
+ */
+export function liveStats() {
+    const qs = state.questions || [], ua = state.userAnswers || [];
+    let answered = 0, correct = 0, wrong = 0, pending = 0;
+    for (let i = 0; i < qs.length; i++) {
+        const ans = ua[i];
+        if (ans === null || ans === undefined) continue;
+        answered++;
+        if (isPendingEssay(qs[i], ans)) pending++;
+        else if (isAnswerCorrect(qs[i], ans)) correct++;
+        else wrong++;
+    }
+    const judged = correct + wrong;
+    return {
+        total: qs.length, answered, correct, wrong, pending, judged,
+        acc: judged ? Math.round((correct / judged) * 100) : null,
+        streak: state.streak || 0,
+        immediate: !!(state.quizOptions && state.quizOptions.showAnswerImmediately),
+    };
+}
+// Tông màu tỉ lệ đúng: ≥80 bạc hà · ≥50 vàng bơ · còn lại đào (cùng ngưỡng màn kết quả)
+export const accTone = (acc) => acc == null ? '' : acc >= 80 ? 'is-good' : acc >= 50 ? 'is-mid' : 'is-low';
+
+let _prevScore = { correct: -1, wrong: -1 };
+function renderNavScore(s) {
+    const el = document.getElementById('quiz-nav-score');
+    if (!el) return;
+    const show = s.immediate && s.answered > 0;
+    el.hidden = !show;
+    if (!show) { _prevScore = { correct: -1, wrong: -1 }; return; }
+    const pctOk = s.total ? (s.correct / s.total) * 100 : 0, pctBad = s.total ? (s.wrong / s.total) * 100 : 0;
+    el.innerHTML = `<div class="qns-row">
+            <span class="qns-chip qns-ok" title="Số câu đúng"><i class="fas fa-check"></i><b>${s.correct}</b> đúng</span>
+            <span class="qns-chip qns-bad" title="Số câu sai"><i class="fas fa-xmark"></i><b>${s.wrong}</b> sai</span>
+            ${s.acc != null ? `<span class="qns-chip qns-acc ${accTone(s.acc)}" title="Tỉ lệ đúng trên số câu đã chấm"><b>${s.acc}</b>%</span>` : ''}
+        </div>
+        <div class="qns-bar" aria-hidden="true"><i class="qns-bar-ok" style="width:${pctOk}%"></i><i class="qns-bar-bad" style="width:${pctBad}%"></i></div>
+        ${s.streak >= 2 || s.pending ? `<div class="qns-sub">${s.streak >= 2 ? `<span class="qns-fire"><i class="fas fa-fire"></i> Chuỗi ${s.streak} câu đúng</span>` : ''}${s.pending ? `<span class="qns-pend"><i class="fas fa-hourglass-half"></i> ${s.pending} chờ chấm</span>` : ''}</div>` : ''}`;
+    el.setAttribute('aria-label', `Đúng ${s.correct}, sai ${s.wrong}${s.acc != null ? `, tỉ lệ đúng ${s.acc}%` : ''}`);
+    // vừa tăng thì nảy nhẹ chip tương ứng
+    if (_prevScore.correct >= 0 && s.correct > _prevScore.correct) el.querySelector('.qns-ok')?.classList.add('is-bump');
+    if (_prevScore.wrong >= 0 && s.wrong > _prevScore.wrong) el.querySelector('.qns-bad')?.classList.add('is-bump');
+    _prevScore = { correct: s.correct, wrong: s.wrong };
+}
+
 // Ô số câu dùng CHUNG bộ lớp trạng thái với bảng nhảy câu mobile (.qjs-cell):
 // is-current / is-correct / is-wrong / is-answered / (không lớp = chưa làm).
 function navStateClass(i) {
@@ -100,6 +148,7 @@ export function renderQuizProgressBar() {
             <div class="qnp-head focus-hide">
                 <div class="qnp-count"><b id="quiz-nav-answered"></b><span id="quiz-nav-left"></span></div>
                 <div class="qnp-ruler" aria-hidden="true"><span id="quiz-nav-fill" class="qnp-fill"></span><i id="quiz-nav-pin" class="fas fa-pencil qnp-pin"></i></div>
+                <div id="quiz-nav-score" class="qnp-score" hidden></div>
             </div>
             <div id="question-nav-wrapper" class="quiz-nav-grid mt-3 bg-gray-50/50 rounded-xl border border-gray-100 focus-hide">${navHtml}</div>
             <button type="button" id="nav-next-unanswered" class="qnp-jump focus-hide" title="Nhảy tới câu chưa trả lời kế tiếp"><i class="fas fa-forward-step"></i> Câu chưa làm</button>
@@ -137,6 +186,7 @@ export function syncQuizNavPanel() {
     if (jumpEl) jumpEl.disabled = answered >= total;
     const legendEl = document.getElementById('quiz-nav-legend');
     if (legendEl) legendEl.dataset.imm = state.quizOptions.showAnswerImmediately ? '1' : '0';
+    renderNavScore(liveStats());
     wrap.querySelectorAll('.quiz-nav-btn').forEach(btn => {
         const i = parseInt(btn.dataset.qidx, 10);
         if (isNaN(i)) return;

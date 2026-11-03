@@ -225,7 +225,7 @@ html body .zt-confirm-overlay .zt-confirm-btn,
 #quiz-mobile-menu nav > a, #quiz-menu-close,
 .qe-btn-primary, .qe-btn-secondary, .qe-add-btn,
 #landing-retry-btn, #exit-focus-btn, .qjs-close, #auto-next-pill,
-#case-peek-pill, #case-peek-sheet .cps-close, #nav-next-unanswered, .kbd-sheet-close,
+#case-peek-pill, #case-peek-sheet .cps-close, #nav-next-unanswered, #nav-submit-btn, .kbd-sheet-close,
 #resultsSection .pt-6.border-t > :is(a, button) {
     background-color: var(--bg, color-mix(in srgb, var(--h, var(--hue-latte)) var(--fill), var(--surface-card))) !important;
     border: 2px solid color-mix(in srgb, var(--h, var(--hue-latte)) 40%, transparent);
@@ -240,7 +240,7 @@ html body .zt-confirm-overlay .zt-confirm-btn,
     #resume-hint, #quizSection #edit-question-btn, #quizSection #help-5050-btn,
     #quizSection #prevBtn, #quizSection #nextBtn, #quizSection #multi-confirm-btn, #submit-quiz-btn,
     html body .zt-confirm-overlay .zt-confirm-btn, #share-messenger-btn, #share-facebook-btn, #share-system-btn, #copy-share-link-btn, #copy-share-embed-btn, #closeShareQuizModalBtn, #quiz-mobile-menu nav > a, #quiz-menu-close, .qe-btn-primary, .qe-btn-secondary, .qe-add-btn, #landing-retry-btn, #exit-focus-btn, .qjs-close,
-    #case-peek-pill, #case-peek-sheet .cps-close, #nav-next-unanswered, .kbd-sheet-close,
+    #case-peek-pill, #case-peek-sheet .cps-close, #nav-next-unanswered, #nav-submit-btn, .kbd-sheet-close,
     #resultsSection #practiceIncorrectBtn, #resultsSection .pt-6.border-t > :is(a, button)):not(:disabled):hover {
     transform: translateY(-2px);
     border-color: color-mix(in srgb, var(--h, var(--hue-latte)) 70%, transparent);
@@ -252,7 +252,7 @@ html body .zt-confirm-overlay .zt-confirm-btn,
     #quizSection #prevBtn, #quizSection #nextBtn, #quizSection #multi-confirm-btn, #submit-quiz-btn,
     #quiz-mobile-nav .qmn-arrow, #quiz-mobile-nav .qmn-act,
     html body .zt-confirm-overlay .zt-confirm-btn, #share-messenger-btn, #share-facebook-btn, #share-system-btn, #copy-share-link-btn, #copy-share-embed-btn, #closeShareQuizModalBtn, #quiz-mobile-menu nav > a, #quiz-menu-close, .qe-btn-primary, .qe-btn-secondary, .qe-add-btn, #landing-retry-btn, #exit-focus-btn, .qjs-close,
-    #case-peek-pill, #case-peek-sheet .cps-close, #nav-next-unanswered, .kbd-sheet-close,
+    #case-peek-pill, #case-peek-sheet .cps-close, #nav-next-unanswered, #nav-submit-btn, .kbd-sheet-close,
     #resultsSection #practiceIncorrectBtn, #resultsSection .pt-6.border-t > :is(a, button)):not(:disabled):active {
     transform: translateY(2px);
     box-shadow: 0 1px 0 color-mix(in srgb, var(--h, var(--hue-latte)) 36%, transparent);
@@ -2132,6 +2132,56 @@ html.theme-dark .bt-postmark { filter: invert(1) hue-rotate(180deg); opacity: 0.
 .qnp-count { display: flex; align-items: baseline; justify-content: space-between; gap: 0.4rem; font-size: 11.5px; font-variant-numeric: tabular-nums; }
 .qnp-count b { color: var(--ink); font-weight: 800; }
 .qnp-count span { color: var(--ink-muted); font-weight: 700; }
+
+/* 12b) ĐIỂM ĐANG LÀM (2026-11-03, quiz-ui.js renderNavScore · quiz-mobile-nav.js renderStripScore) — chỉ hiện khi "Xem đáp án ngay":
+   viên Đúng (bạc hà) · Sai (hồng đỏ) · tỉ lệ đúng (màu theo ngưỡng 80 / 50) + dải 2 màu = phần đúng / sai trên tổng số câu */
+.qnp-score:not([hidden]) { display: grid; gap: 0.4rem; margin-top: 0.6rem; }
+.qns-row { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.qns-chip {
+    display: inline-flex; align-items: center; gap: 0.25rem;
+    padding: 0.14rem 0.5rem; border-radius: 999px; border: 1.5px solid;
+    font-size: 11.5px; font-weight: 700; line-height: 1.35; font-variant-numeric: tabular-nums;
+}
+.qns-chip b { font-weight: 800; font-size: 12.5px; }
+.qns-chip i { font-size: 10px; }
+.qns-ok  { color: var(--ok-ink);  background: var(--ok-bg);  border-color: var(--ok-line); }
+.qns-bad { color: var(--bad-ink); background: var(--bad-bg); border-color: var(--bad-line); }
+.qns-acc { margin-left: auto; color: var(--ink); background: var(--surface-card); border-color: var(--line); }
+.qns-acc.is-good { color: var(--ok-ink);      border-color: var(--ok-line); }
+.qns-acc.is-mid  { color: var(--ink-butter);  border-color: color-mix(in srgb, var(--hue-butter) 60%, transparent); }
+.qns-acc.is-low  { color: var(--ink-peach);   border-color: color-mix(in srgb, var(--hue-peach) 60%, transparent); }
+.qns-bar {
+    display: flex; height: 6px; border-radius: 999px; overflow: hidden;
+    background: color-mix(in srgb, var(--ink-muted) 14%, transparent);
+}
+.qns-bar i { display: block; height: 100%; transition: width 0.35s cubic-bezier(.16, 1, .3, 1); }
+.qns-bar-ok  { background: var(--ok-solid); }
+.qns-bar-bad { background: var(--bad-solid); }
+.qns-sub { display: flex; flex-wrap: wrap; gap: 0.25rem 0.7rem; font-size: 11px; font-weight: 700; }
+.qns-fire { color: var(--ink-peach); }
+.qns-pend { color: var(--ink-muted); }
+
+/* dải đáy điện thoại */
+#quiz-mobile-nav .qmn-score:not([hidden]) {
+    display: inline-flex; align-items: center; gap: 0.3rem; flex: 0 0 auto;
+    font-size: 0.72rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1;
+}
+.qmn-score > span { display: inline-flex; align-items: center; gap: 0.15rem; padding: 0.18rem 0.38rem; border-radius: 999px; }
+.qmn-score i { font-size: 0.6rem; }
+.qms-ok  { color: var(--ok-ink);  background: var(--ok-bg); }
+.qms-bad { color: var(--bad-ink); background: var(--bad-bg); }
+.qms-acc { color: var(--ink-muted); padding-inline: 0.15rem !important; }
+.qms-acc.is-good { color: var(--ok-ink); }
+.qms-acc.is-mid  { color: var(--ink-butter); }
+.qms-acc.is-low  { color: var(--ink-peach); }
+#quiz-mobile-nav.has-score .qmn-hint { font-size: 0; gap: 0; }            /* chỉ giữ biểu tượng lưới cho đủ chỗ */
+#quiz-mobile-nav.has-score .qmn-hint i { font-size: 0.8rem; }
+@media (max-width: 359px) { .qms-acc { display: none !important; } }       /* máy rất hẹp: bỏ % (bảng đầy đủ ở danh sách câu) */
+
+/* vừa có thêm câu đúng / sai: viên nảy nhẹ một nhịp */
+:is(.qns-chip, .qmn-score > span).is-bump { animation: qns-bump 0.45s cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes qns-bump { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { :is(.qns-chip, .qmn-score > span).is-bump { animation: none; } }
 .qnp-ruler {
     position: relative;
     height: 17px;
@@ -5195,6 +5245,55 @@ body.focus-mode-active .qna-t { display: inline; }
     #quizSection #confidence-toggle { min-height: 2.5rem; }
     #quiz-nav-panel .qnp-jump { min-height: 2.5rem; font-size: 12.5px; }
     #quiz-settings-popover :is(#font-size-small, #font-size-normal, #font-size-large) { min-width: 2.7rem; min-height: 2.4rem; }
+}
+
+/* ============================================================
+   30b) iPAD DỌC — NÂNG CẤP 2026-11-03 (người dùng: "nâng cấp giao diện trang làm bài khi dùng iPad xoay dọc").
+   Soát bằng ảnh chụp 820×1180 (Chrome headless, pointer coarse):
+   a) Bảng số câu cao ~230px (đếm + thước + viên đúng/sai + dải đúng/sai + dải ô số + hàng nút) rồi trôi mất khi cuộn: đang đọc giải thích
+      dài thì muốn nhảy câu / xem tiến độ phải cuộn ngược lên. Nay gọn còn ~2 hàng (~125px) và DÍNH ĐỈNH màn:
+        hàng 1  "Đã làm 8/24 33%"  ·  ✓4 ✗4 50%  ·  [Câu chưa làm] [Nộp bài]
+        vạch   dải đúng/sai (chấm ngay) hoặc thước tiến độ (thi thử) — mảnh 8px, không lặp hai thanh
+        hàng 2  dải ô số cuộn ngang, mờ dần ở mép = còn ô để vuốt
+      Ẩn: logo (đã có ở trang chờ / thanh trên), tay kéo, chú giải màu, dòng chuỗi đúng (thẻ câu hỏi đã có viên "Chuỗi đúng").
+   b) quiz-center.js tính phần bảng dính này vào lề trên khi canh giữa thẻ -> thẻ không chui xuống dưới bảng.
+   ============================================================ */
+@media (min-width: 768px) and (max-width: 1023px) {
+    body:not(.focus-mode-active) #quiz-nav-panel {
+        position: sticky; top: env(safe-area-inset-top, 0px); z-index: 35;   /* sát mép: khe trên để lộ chữ trôi phía sau */
+        padding: 0.5rem 0.7rem 0.35rem;
+        background: var(--paper) !important;
+        box-shadow: 0 10px 22px -16px color-mix(in srgb, var(--ink) 55%, transparent);
+    }
+    #quiz-nav-panel :is(.qnp-brand, .quiz-panel-drag) { display: none !important; }
+    #quiz-nav-panel > .mb-4 {
+        display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
+        grid-template-areas: "head jump submit" "grid grid grid";
+        align-items: center; gap: 0.3rem 0.45rem;
+    }
+    #quiz-nav-panel .qnp-head {
+        grid-area: head; padding: 0; min-width: 0;
+        display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 0.35rem 0.6rem;
+    }
+    #quiz-nav-panel .qnp-count { justify-content: flex-start; gap: 0.45rem; font-size: 12.5px; white-space: nowrap; }
+    #quiz-nav-panel .qnp-ruler { grid-column: 1 / -1; height: 8px; margin: 0.1rem 0 0; border-width: 1px; background: color-mix(in srgb, var(--hue-butter) 16%, var(--surface-card)); }
+    #quiz-nav-panel .qnp-fill { top: 0; height: 100%; border-radius: 4px; }
+    #quiz-nav-panel .qnp-pin { display: none; }
+    #quiz-nav-panel .qnp-score:not([hidden]) { display: contents; }
+    #quiz-nav-panel .qns-row { grid-column: 2; grid-row: 1; justify-content: flex-end; flex-wrap: nowrap; min-width: 0; }
+    #quiz-nav-panel .qns-acc { margin-left: 0; }
+    #quiz-nav-panel .qns-bar { grid-column: 1 / -1; height: 8px; margin-top: 0.1rem; }
+    #quiz-nav-panel .qns-sub { display: none; }
+    #quiz-nav-panel .qnp-head:has(.qnp-score:not([hidden])) .qnp-ruler { display: none; }   /* dải đúng/sai đã cho biết tiến độ */
+    #quiz-nav-panel #nav-next-unanswered { grid-area: jump; }
+    #quiz-nav-panel #nav-submit-btn { grid-area: submit; }
+    #quiz-nav-panel .qnp-jump { flex: none; width: auto; margin: 0; padding: 0 0.9rem; white-space: nowrap; }
+    #quiz-nav-panel #question-nav-wrapper.quiz-nav-grid {
+        grid-area: grid; margin-top: 0.1rem; padding: 0.35rem 0.9rem 0.4rem;
+        background: transparent !important; border: 0 !important;
+        -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 0.9rem, #000 calc(100% - 1.6rem), transparent);
+                mask-image: linear-gradient(90deg, transparent 0, #000 0.9rem, #000 calc(100% - 1.6rem), transparent);
+    }
 }
 
 /* ============================================================
