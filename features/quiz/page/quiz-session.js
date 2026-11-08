@@ -627,6 +627,7 @@ export function startIncorrectPracticeMode() {
     // Câu tự luận chưa tự chấm không tính là sai
     const incorrectQuestions = state.questions.filter((q, index) => !isAnswerCorrect(q, state.userAnswers[index]) && !isPendingEssay(q, state.userAnswers[index]));
     if (incorrectQuestions.length > 0) {
+        state._pickInfo = null;
         startQuizMode(incorrectQuestions, 'practice');
     } else {
         showToast("Chúc mừng! Bạn không có câu nào sai.", 'success');
@@ -801,6 +802,23 @@ export function startQuizWithCurrentSettings() {
 
     showSubmitQuizBtn(true);
     startQuizMode(selectedQuestions, 'normal');
+}
+
+// Mở từ kết quả TÌM CÂU HỎI ở thư viện (quiz.html?id=…&pick=3,7,12 — chỉ số gốc trong bộ đề): luyện ngay đúng các câu đó,
+// giữ thứ tự gốc, hiện đáp án sau mỗi câu, không tính giờ. Trả về false nếu không có chỉ số hợp lệ.
+export function startPickedSession(indices) {
+    const n = (state.originalQuestions || []).length;
+    const picked = [...new Set(indices)].filter(i => Number.isInteger(i) && i >= 0 && i < n).sort((a, b) => a - b);
+    if (!picked.length) return false;
+    clearQuizState();
+    state.streak = 0;
+    state.used5050Questions = {};
+    state.quizOptions.isTimed = false;
+    state.quizOptions.timedMinutes = 0;
+    state.quizOptions.showAnswerImmediately = true;
+    state._pickInfo = { n: picked.length };
+    startQuizMode(picked.map(i => ({ ...state.originalQuestions[i], __origIdx: i })), 'practice');
+    return true;
 }
 
 // Bắt đầu phiên ÔN NGẮT QUÃNG: hàng đợi = câu đến hạn + câu mới trong quota ngày

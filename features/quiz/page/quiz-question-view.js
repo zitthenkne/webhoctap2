@@ -395,7 +395,9 @@ export function showQuestion() {
         return;
     }
 
-    let title = state.quizMode === 'practice' ? 'Luyện tập lại' : `Câu hỏi ${state.currentIndex + 1}<span class="q-of"> / ${state.questions.length}</span>`;
+    let title = state.quizMode === 'practice'
+        ? (state._pickInfo ? `Câu từ tìm kiếm ${state.currentIndex + 1}<span class="q-of"> / ${state.questions.length}</span>` : 'Luyện tập lại')
+        : `Câu hỏi ${state.currentIndex + 1}<span class="q-of"> / ${state.questions.length}</span>`;
     saveQuizState();
 
     startTiming(state.currentIndex);

@@ -190,6 +190,25 @@ document.addEventListener('DOMContentLoaded', () => {
         await maybeRestoreDraft();
         render();
         setStatus(isDirty ? 'dirty' : 'saved');
+        jumpToQuestionFromUrl(urlParams);
+    }
+
+    // Mở từ kết quả tìm câu hỏi ở thư viện (editor.html?id=…&q=12): mở rộng, cuộn tới và nháy sáng đúng câu đó
+    function jumpToQuestionFromUrl(urlParams) {
+        const raw = urlParams.get('q');
+        const idx = raw === null ? NaN : Number(raw);
+        const qs = quizData.questions || [];
+        if (!Number.isInteger(idx) || idx < 0 || idx >= qs.length) return;
+        if (qs[idx]._collapsed) { qs[idx]._collapsed = false; render(); }
+        requestAnimationFrame(() => {
+            const card = document.querySelector(`.ed-qcard[data-idx="${idx}"]`);
+            if (!card) return;
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            card.classList.add('ed-flash');
+            setTimeout(() => card.classList.remove('ed-flash'), 2600);
+            const ta = card.querySelector('textarea[data-field="question"]');
+            if (ta) setTimeout(() => ta.focus({ preventScroll: true }), 450);
+        });
     }
 
     // Hỏi khôi phục bản nháp tự động nếu có

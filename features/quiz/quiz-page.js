@@ -46,7 +46,7 @@ import { setupFocus } from './page/quiz-focus.js';
 import { setupFind } from './page/quiz-find.js';
 import { noteCount } from './page/quiz-notes-panel.js';
 import {
-    loadQuizData, startQuizMode, startQuizWithCurrentSettings, startSrsSession, endQuiz
+    loadQuizData, startQuizMode, startQuizWithCurrentSettings, startSrsSession, startPickedSession, endQuiz
 } from './page/quiz-session.js';
 
 // Thời điểm nộp bài -> chuỗi "x phút/giờ/ngày trước" (quá 1 tuần thì hiện ngày cụ thể)
@@ -550,6 +550,13 @@ document.addEventListener('DOMContentLoaded', () => {
             try { sessionStorage.removeItem('quizLive'); } catch (e) {}   // bài đã nộp / hết dữ liệu -> về trang chờ
         }
         const params = new URLSearchParams(window.location.search);
+        // Từ kết quả tìm câu hỏi ở thư viện (?pick=3,7): vào luyện ngay đúng các câu đó. Bỏ ?pick khỏi URL để F5 khôi phục bài dở
+        // như thường (không bắt đầu lại). Có bài dở thì không tự vào — giống ?srs=1.
+        const pick = params.get('pick');
+        if (pick !== null) {
+            const u = new URL(location.href); u.searchParams.delete('pick'); history.replaceState(history.state, '', u.href);
+            if (!getPendingSavedState() && startPickedSession(pick.split(',').map(Number))) return;
+        }
         if (params.get('srs') === '1' && !getPendingSavedState()
             && Array.isArray(state.originalQuestions) && state.originalQuestions.length) {
             startSrsSession();

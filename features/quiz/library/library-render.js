@@ -17,7 +17,7 @@ import { countDueNow } from '../quiz-srs-store.js';
 import { createFolderCard, createQuizCard } from './library-cards.js';
 import { canUseRollingLibrary, loadLibraryChunk, loadAllLibraryInBackground, loadAndDisplayLibrary } from './library-data.js';
 import { moveQuizToFolder, moveFolder } from './library-actions.js';
-import { filterLibraryByMode } from './library-search.js';
+import { filterLibraryByMode, currentSearchMode, handleLibrarySearch } from './library-search.js';
 
 export function updateLayoutButtons() {
     const gridBtn = document.getElementById('library-layout-grid-btn');
@@ -777,7 +777,10 @@ export function rerenderCurrentView() {
         loadAllLibraryInBackground(sessionUser().uid);
         return;
     }
-    if (keyword) {
+    // Đang xem kết quả tìm CÂU HỎI: vẽ lại đúng kết quả câu hỏi (trước đây bị danh sách bộ đề đè mất khi thư viện tải nền xong)
+    if (keyword && currentSearchMode() === 'question') {
+        handleLibrarySearch();
+    } else if (keyword) {
         renderLibrary(getFilteredQuizzesForView(), S.currentLibraryPage);
     } else {
         renderLibrary(S.userQuizSets, S.currentLibraryPage);

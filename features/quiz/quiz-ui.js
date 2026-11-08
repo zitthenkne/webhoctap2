@@ -469,7 +469,7 @@ export function showResults(totalTime, opts = {}) {
         : tone === 'mid' ? '<i class="nb-doodle nb-doodle-star rs2-spark sp1" aria-hidden="true"></i>' : '';
     // Dòng ngữ cảnh như nhãn phiếu: tên bộ đề · ngày · loại phiên
     const escMeta = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const modeName = state.quizMode === 'srs' ? 'Ôn ngắt quãng' : state.quizMode === 'practice' ? 'Ôn câu sai' : '';
+    const modeName = state.quizMode === 'srs' ? 'Ôn ngắt quãng' : state.quizMode === 'practice' ? (state._pickInfo ? 'Câu từ tìm kiếm' : 'Ôn câu sai') : '';
     const metaTitle = (state.quizData && state.quizData.title) || '';
     const metaHtml = metaTitle
         ? `<p class="rs2-meta" title="${escMeta(metaTitle)}"><i class="fas fa-book-open" aria-hidden="true"></i><span>${escMeta(metaTitle)}</span><em>${new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}${modeName ? ' · ' + modeName : ''}</em></p>`

@@ -11,8 +11,8 @@ import { registerFolderTools } from "./dist/tools/folders.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const TARGET_DIRS = [
-  "C:/Users/admin/.gemini/antigravity/mcp/zitthenkne",
-  "C:/Users/admin/.gemini/antigravity-ide/mcp/zitthenkne",
+  "C:/Users/zitthenk/.gemini/antigravity/mcp/zitthenkne",
+  "C:/Users/zitthenk/.gemini/antigravity-ide/mcp/zitthenkne",
 ];
 
 const server = new McpServer({

@@ -58,5 +58,27 @@ export async function qindexApply({ put = [], del = [] }) {
     } catch (e) { /* hết dung lượng / IDB lỗi: lần sau lập lại, không ảnh hưởng tìm kiếm */ }
 }
 
-/** Rút gọn một câu hỏi về phần cần cho tìm kiếm (không giữ lời giải / ảnh / giải thích). */
-export const slimQuestion = (q) => ({ question: q && q.question, options: (q && (q.answers || q.options)) || [] });
+/** Phiên bản cấu trúc bản chỉ mục. Đổi số → mọi bản cũ coi như hết hạn, lập lại (v2: thêm đáp án đúng, giải thích, ghi chú, ca lâm sàng). */
+export const QINDEX_V = 2;
+
+// Ảnh nhúng base64 rất nặng mà không tìm được chữ gì → thay bằng chỗ trống (ảnh link thường vẫn giữ để xem trước)
+const DATA_URI = /data:[\w/+.-]+;base64,[A-Za-z0-9+/=]{2000,}/g;
+const txt = (v) => (v == null ? '' : typeof v === 'string' ? v : (v.text || v.content || String(v))).replace(DATA_URI, '');
+
+/** Rút gọn một câu hỏi về phần CHỮ: đủ để tìm sâu (đáp án, giải thích, ghi chú) và xem đầy đủ ngay ở thư viện. */
+export const slimQuestion = (q) => {
+    q = q || {};
+    const opts = (q.answers || q.options || []).map(txt);
+    const correct = Array.isArray(q.correctAnswerIndexes) && q.correctAnswerIndexes.length
+        ? q.correctAnswerIndexes.slice() : (typeof q.correctAnswerIndex === 'number' && q.correctAnswerIndex >= 0 ? [q.correctAnswerIndex] : []);
+    const out = { question: txt(q.question), options: opts, correct };
+    if (q.explanation) out.exp = txt(q.explanation);
+    if (Array.isArray(q.optionExplanations) && q.optionExplanations.some(Boolean)) out.optExp = q.optionExplanations.map(txt);
+    if (q.note) out.note = txt(q.note);
+    if (q.expanded) out.expanded = txt(q.expanded);
+    if (q.caseText) { out.caseText = txt(q.caseText); if (q.caseTitle) out.caseTitle = txt(q.caseTitle); }
+    if (q.type) out.type = q.type;
+    if (q.modelAnswer) out.modelAnswer = txt(q.modelAnswer);
+    if (Array.isArray(q.keyPoints) && q.keyPoints.length) out.keyPoints = q.keyPoints.map(txt);
+    return out;
+};

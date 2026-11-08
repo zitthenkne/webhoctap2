@@ -124,6 +124,12 @@
             transition: box-shadow 0.2s, border-color 0.2s, transform 0.12s, opacity 0.2s;
             animation: fadeIn 0.35s ease;
         }
+        /* Nhảy tới từ kết quả tìm câu hỏi ở thư viện (editor.html?q=N) */
+        .ed-qcard.ed-flash { animation: edFlash 2.4s ease; border-color:#ff7fb0; }
+        @keyframes edFlash {
+            0%, 40% { box-shadow:0 0 0 4px rgba(255,127,176,.45), 0 8px 24px rgba(255,127,176,.35); }
+            100% { box-shadow:0 2px 14px rgba(255,182,193,0.15); }
+        }
         .ed-qcard:hover { box-shadow:0 8px 26px rgba(255,182,193,0.3); border-color:#fbcfe8; }
         .ed-qcard.is-incomplete { border-color:#fde68a; }
         .ed-qcard.is-incomplete:hover { box-shadow:0 8px 26px rgba(251,191,36,0.25); }
