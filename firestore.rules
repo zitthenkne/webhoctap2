@@ -85,7 +85,15 @@ service cloud.firestore {
           && request.auth.token.email in resource.data.get('sharedWith', [])
           && trustedSession()
           && request.resource.data.diff(resource.data).affectedKeys()
-               .hasOnly(['questions', 'questionCount', 'title', 'description', 'updatedAt']);
+               .hasOnly(['questions', 'questionCount', 'title', 'description', 'updatedAt', 'contentRevision']);
+    }
+    // REVISION NỘI DUNG (2026-11-10, features/quiz/quiz-fresh.js): `contentRevision` = băm câu hỏi do MÁY CHỦ đánh dấu (api/publish-rev.js).
+    // Đổi `questions` mà giữ con trỏ cũ → máy khác tưởng nội dung chưa đổi, dùng mãi bản cũ → mọi lần ghi câu hỏi phải BỎ trường này.
+    // App không tự đặt được revision mới (chỉ máy chủ băm thật mới đặt).
+    function dropsRevision() {
+      return !('contentRevision' in request.resource.data)
+          || (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['questions'])
+              && request.resource.data.contentRevision == resource.data.get('contentRevision', null));
     }
     // Danh sách chia sẻ: mảng ≤ 50 người; editors phải nằm trong sharedWith; sharedBy (tên người chia sẻ) chuỗi ≤ 100; allowTakeout (chủ cho
     // người khác MANG ĐỀ ĐI: lưu bản sao, mở phòng "Làm cùng nhau", lưu đề từ phòng — mặc định không) là bool. Chặn ghi rác làm phình doc.
@@ -94,6 +102,7 @@ service cloud.firestore {
           && d.get('editors', []) is list && d.get('sharedWith', []).hasAll(d.get('editors', []))
           && d.get('sharedBy', '') is string && d.get('sharedBy', '').size() <= 100
           && d.get('allowTakeout', false) is bool
+          && d.get('allowOffline', false) is bool
           && (d.get('publicUntil', null) == null || d.publicUntil is timestamp);
     }
     // BẢN SAO (Lưu bản sao / Lưu đề từ phòng / Nhân bản): app luôn ghi `copiedFrom` = id bộ đề gốc. Gốc đã khóa (không allowTakeout)
@@ -276,7 +285,8 @@ service cloud.firestore {
       allow list: if (request.auth != null && request.auth.uid == resource.data.userId)
                   || (sharedWithMe() && can('quiz'));
       allow create: if isOwner(request.resource.data.userId) && approved() && can('create') && validShare(request.resource.data) && copyAllowed(request.resource.data);
-      allow update: if (isOwner(resource.data.userId) && keepsOwner() && validShare(request.resource.data)) || leavesShare() || editsAsEditor();
+      allow update: if ((isOwner(resource.data.userId) && keepsOwner() && validShare(request.resource.data)) || leavesShare() || editsAsEditor())
+                    && dropsRevision();
       allow delete: if isOwner(resource.data.userId);
     }
 
@@ -317,9 +327,15 @@ service cloud.firestore {
       // Admin đọc được để xem lịch sử làm đề của một tài khoản (trang Quản trị)
       allow read: if (request.auth != null && request.auth.uid == resource.data.userId) || isAdmin();
       allow create: if isOwner(request.resource.data.userId) && validScore(request.resource.data);
+      // Sửa 3 trường điểm (tự chấm tự luận); HOẶC gửi lại CÙNG một lượt (id = attemptId, quiz-state.js): hai máy cùng nộp / hàng chờ offline
+      // phát lại → vẫn là một lượt, không được đổi chủ / bộ đề / lượt.
       allow update: if isOwner(resource.data.userId) && keepsOwner()
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['score', 'totalQuestions', 'percentage'])
-                    && validScore(request.resource.data);
+                    && validScore(request.resource.data)
+                    && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['score', 'totalQuestions', 'percentage'])
+                        || (resource.data.get('attemptId', null) != null
+                            && request.resource.data.attemptId == resource.data.attemptId
+                            && request.resource.data.quizId == resource.data.quizId
+                            && resultId == resource.data.attemptId));
       allow delete: if isOwner(resource.data.userId);
     }
 

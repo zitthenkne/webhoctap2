@@ -6,6 +6,7 @@
 
 import { fastImgUrl } from './img-proxy.js';
 import { zimgIdsIn, zimgUrl, idFromUrl, loadZimg, ZIMG_CACHE } from '../../core/zimg.js';
+import { currentOwner, deviceMode, isMyDevice } from '../../core/scope.js';
 
 const DB_NAME = 'zitthenkne-offline';
 const STORE = 'quizzes';
@@ -73,20 +74,44 @@ function writeIds(ids) {
 // → mọi lượt làm đều phải có mạng, máy chủ (quiz_runs / quiz_guest) theo dõi được ai đang làm, máy nào đang làm.
 // Bản đồng bộ đọc quyền đã lưu lần trước (core/features.js ghi 'myFeatures') — dùng cho nhãn giao diện; bản async hỏi token thật.
 const ADMIN_EMAIL = 'vietthanhne@gmail.com';     // khớp ADMIN_EMAILS (core/device-limit.js) — admin luôn được
+// Máy dùng chung (core/scope.js): không bao giờ lưu đề về máy — kể cả tài khoản đã được mở "Làm offline"
+// MÁY CỦA TÔI (2026-11-10): đã đăng nhập VÀ máy chủ đã nhận máy này là máy của tài khoản (core/device-limit.js isMyDevice) → được làm offline,
+// không cần admin mở riêng. Quyền admin "Làm offline" vẫn còn tác dụng cho máy chưa được nhận (vd đăng nhập mật khẩu chưa qua danh sách máy).
+const lastUser = () => { try { return JSON.parse(localStorage.getItem('lastAuthUser') || 'null'); } catch (e) { return null; } };
 export function offlineAllowedSync() {
+    if (deviceMode() === 'shared') return false;
     try {
-        const last = JSON.parse(localStorage.getItem('lastAuthUser') || 'null');
+        const last = lastUser();
         if (!last?.uid) return false;
+        if (isMyDevice(last.uid)) return true;
         if (String(last.email || '').toLowerCase() === ADMIN_EMAIL) return true;
         const c = JSON.parse(localStorage.getItem('myFeatures') || 'null');
         return c?.uid === last.uid && c.f?.offline === true;
     } catch (e) { return false; }
 }
 export async function offlineAllowed() {
+    if (deviceMode() === 'shared') return false;
+    const last = lastUser();
+    if (last?.uid && isMyDevice(last.uid)) return true;
     try { return await (await import('../../core/features.js')).canUse('offline'); }
     catch (e) { return offlineAllowedSync(); }
 }
 const lockedError = () => Object.assign(new Error('Tài khoản của bạn chưa được admin mở "Làm offline" nên không tải đề về máy được.'), { code: 'offline-locked' });
+
+// ---- ĐỀ CỦA NGƯỜI KHÁC KHÔNG TỰ LÀM OFFLINE ĐƯỢC (2026-11-10) ----
+// Chỉ CHỦ bộ đề được tải đề về máy. Đề được chia sẻ (riêng, link công khai, link 1 thiết bị) chỉ khi chủ bật "Cho tải về làm offline"
+// (allowOffline — hộp Chia sẻ, share-access.js): khi đó mới có nút Tải offline và máy mới tự lưu. Chủ tắt lại → bản đã tải tự xóa ở lần mở sau
+// (metadata mới về qua quiz-fresh.js checkLocal). Vẫn cần quyền "Làm offline" của tài khoản (offlineAllowed) như trước.
+export function quizOfflineOk(data) {
+    return !!data && (data.allowOffline === true || (!!data.userId && data.userId === currentOwner()));
+}
+const notOwnerError = () => Object.assign(new Error('Bộ đề này của người khác — chủ bộ đề chưa cho tải về làm offline.'), { code: 'offline-not-owner' });
+
+// ---- Bản đệm RIÊNG theo danh tính (core/scope.js): mỗi bản đề mang `_owner`; người khác trên cùng máy không đọc được ----
+// Bản lưu đời cũ chưa có `_owner`: chỉ nhận cho người đang có id đó trong danh sách đề đã tải của mình (danh sách này cũng theo danh tính).
+const ownsRecord = (rec) => !!rec && (rec._owner ? rec._owner === currentOwner() : readIds().includes(rec.id));
+/** Xóa MỌI bản đề offline của mọi người (chuyển sang máy dùng chung). */
+export async function wipeAllOffline() { wiped = false; await wipeOffline(); }
 
 let wiped = false;
 /** Không có quyền mà máy còn đề đã tải (tài khoản khác từng tải / quyền vừa bị tắt) → xoá sạch kho đề offline + ảnh đi kèm. */
@@ -102,7 +127,7 @@ async function wipeOffline() {
 }
 async function gate() {
     const ok = await offlineAllowed();
-    if (!ok && readIds().length) wipeOffline();
+    if (!ok && (readIds().length || deviceMode() === 'shared')) wipeOffline();
     return ok;
 }
 
@@ -242,9 +267,11 @@ export async function cacheQuizImages(questions, { onProgress } = {}) {
  */
 export async function saveOfflineQuiz(id, data, { auto = false, cacheImages = true, onProgress } = {}) {
     if (!await gate()) throw lockedError();
+    if (!quizOfflineOk(data)) throw notOwnerError();
     const record = {
         ...data,
         id,
+        _owner: currentOwner(),
         _offlineSavedAt: Date.now(),
         _fullAt: Date.now(),   // lần TẢI ĐỦ gần nhất (touchOfflineQuiz chỉ làm mới _offlineSavedAt) — hạn cứng 24h không tin dấu updatedAt
         _auto: auto,   // true = tự lưu khi mở bài (có thể bị dọn), false = người dùng tải tay
@@ -276,13 +303,16 @@ export async function saveOfflineQuiz(id, data, { auto = false, cacheImages = tr
 export async function getOfflineQuiz(id) {
     try {
         if (!await gate()) return null;
-        return await new Promise((resolve, reject) => {
+        const rec = await new Promise((resolve, reject) => {
             txStore('readonly').then((store) => {
                 const req = store.get(id);
-                req.onsuccess = () => resolve(req.result || null);
+                req.onsuccess = () => resolve(ownsRecord(req.result) ? req.result : null);
                 req.onerror = () => reject(req.error);
             }).catch(reject);
         });
+        // Đề người khác mà chủ không (còn) cho offline — kể cả bản tải từ trước khi có luật này → xóa, không dùng
+        if (rec && !quizOfflineOk(rec)) { deleteOfflineQuiz(id).catch(() => {}); return null; }
+        return rec;
     } catch (e) {
         return null;
     }
@@ -321,6 +351,21 @@ export async function setOfflineStamp(id, stamp) {
     } catch (e) { /* không ghi được thì lần sau tải lại, không sao */ }
 }
 
+/** Vá vài trường (metadata vừa đổi trên máy chủ, câu hỏi giữ nguyên — quiz-fresh.js checkLocal) mà không ghi lại ảnh. `drop` = trường đã bị gỡ. */
+export async function patchOfflineQuiz(id, patch, drop = []) {
+    const rec = await getOfflineQuiz(id);
+    if (!rec) return;
+    Object.assign(rec, patch, { _offlineSavedAt: Date.now() });
+    drop.forEach((k) => { delete rec[k]; });
+    await new Promise((resolve, reject) => {
+        txStore('readwrite').then((store) => {
+            const req = store.put(rec);
+            req.onsuccess = () => resolve();
+            req.onerror = () => reject(req.error);
+        }).catch(reject);
+    });
+}
+
 /** Xóa bản offline của một bộ đề. */
 export async function deleteOfflineQuiz(id, { prune = true } = {}) {
     await new Promise((resolve, reject) => {
@@ -338,7 +383,7 @@ export async function deleteOfflineQuiz(id, { prune = true } = {}) {
  *  Dọn cả kho zimg (ảnh Firestore): trước đây kho này chỉ thêm không bớt — mỗi bộ từng mở để lại ảnh trong máy mãi. */
 async function pruneQuizImages() {
     try {
-        const all = await listOfflineQuizzes();
+        const all = await listOfflineQuizzes({ everyone: true });     // ảnh còn bộ đề của NGƯỜI KHÁC trên máy dùng thì giữ
         if (!all.length && readIds().length) return;      // đọc IndexedDB lỗi (trả rỗng) — đừng vì thế mà xóa sạch kho ảnh
         const keep = new Set();
         for (const q of all) {
@@ -387,12 +432,12 @@ async function pruneAutoCached() {
 }
 
 /** Danh sách metadata các bộ đề đã tải offline (để màn hình quản lý nếu cần). */
-export async function listOfflineQuizzes() {
+export async function listOfflineQuizzes({ everyone = false } = {}) {
     try {
         return await new Promise((resolve, reject) => {
             txStore('readonly').then((store) => {
                 const req = store.getAll();
-                req.onsuccess = () => resolve(req.result || []);
+                req.onsuccess = () => resolve((req.result || []).filter(r => everyone || ownsRecord(r)));
                 req.onerror = () => reject(req.error);
             }).catch(reject);
         });

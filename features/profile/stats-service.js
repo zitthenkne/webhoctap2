@@ -10,6 +10,7 @@ import { achievements } from '../../core/achievements.js';
 import { readRowsCache, syncRows, clearRowsCache, renderInsights, renderInsightsSkeleton } from './stats-insights.js';
 import { getDocRest, runQueryRest } from '../../core/firestore-rest.js';
 import { readMetaCache } from '../quiz/library/library-meta.js';
+import { decodeStudyDoc } from '../quiz/quiz-study-store.js';
 
 
 /**
@@ -737,16 +738,18 @@ export async function loadMarkedNotedQuizzes() {
             // Bản C3: chỉ lấy 4 trường cần để đếm (bỏ lịch ôn srs...), REST; lỗi thì lùi về SDK như cũ
             let studyDocs;
             try {
-                studyDocs = await runQueryRest({ collection: 'quiz_study', where: [['userId', user.uid]], select: ['quizId', 'notes', 'marks', 'annotations'], requireUser: true });
+                // nx / mx / ax: ghi chú / đánh dấu / dấu tô theo từng bản ghi (bản 2026-11-10 — quiz-study-store.js); ba mảng cũ là đời trước
+                studyDocs = await runQueryRest({ collection: 'quiz_study', where: [['userId', user.uid]], select: ['quizId', 'notes', 'marks', 'annotations', 'annotDel', 'nx', 'mx', 'ax'], requireUser: true });
             } catch (restErr) {
                 const snap = await getDocs(query(collection(db, 'quiz_study'), where('userId', '==', user.uid)));
                 studyDocs = snap.docs.map(d => d.data() || {});
             }
             studyDocs.forEach(data => {
                 const qid = data.quizId;
-                bump(qid, 'notes', (data.notes || []).filter(n => n && String(n.text || '').trim() !== '').length);
-                bump(qid, 'marks', (data.marks || []).filter(mk => mk && mk.reason).length);
-                bump(qid, 'annots', (data.annotations || []).filter(a => a && Array.isArray(a.items) && a.items.length > 0).length);
+                const s = decodeStudyDoc(data);
+                bump(qid, 'notes', Object.values(s.notes).filter(t => t && String(t).trim() !== '').length);
+                bump(qid, 'marks', Object.values(s.marks).filter(Boolean).length);
+                bump(qid, 'annots', Object.values(s.annotations).filter(a => Array.isArray(a) && a.length > 0).length);
             });
         } catch (e) {
             console.warn('Không tải được danh sách bộ đề đã đánh dấu/ghi chú:', e);

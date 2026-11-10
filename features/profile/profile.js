@@ -5,6 +5,7 @@ import { openGoogle, resumeGoogle, isCancelled } from '../../core/google-signin.
 import { doc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { updateDocQ as updateDoc } from '../../core/offline-write.js';
 import { showConfirm } from '../../core/utils.js';
+import { deviceMode, setDeviceMode } from '../../core/scope.js';
 import { claimName } from '../../core/usernames.js';
 import { releaseThisDevice, removeDevice, adminRemoveDevices, onDevices, onLogins, placeOf, findAccount, deviceId, MAX_DEVICES, EXEMPT_MAX, deviceLimitFor,
     isAdminUser, onAccessConfig, setAccountAccess, ADMIN_EMAILS,
@@ -388,6 +389,20 @@ function renderDevices() {
     const box = document.getElementById('devices-box');
     if (!box || !u || u.isAnonymous || devicesUid === u.uid) return;
     devicesUid = u.uid;
+    // Chế độ máy (core/scope.js)
+    const modeLabel = document.getElementById('device-mode-label');
+    const modeBtn = document.getElementById('device-mode-btn');
+    if (modeLabel) modeLabel.textContent = deviceMode() === 'shared' ? 'Máy dùng chung' : 'Máy cá nhân';
+    if (modeBtn) modeBtn.onclick = async () => {
+        const toShared = deviceMode() !== 'shared';
+        const ok = await showConfirm(toShared
+            ? 'Máy dùng chung: không lưu đề về máy, dữ liệu riêng chỉ giữ trong lúc đăng nhập — đăng xuất / mở lại trình duyệt là xóa khỏi máy (đã đồng bộ lên tài khoản thì vẫn còn). Bản đề đã tải offline trên máy này sẽ bị xóa.'
+            : 'Máy cá nhân: giữ bài làm dở, ghi chú và đề đã tải trên máy này để học cả khi mất mạng.',
+            { title: toShared ? 'Chuyển sang máy dùng chung?' : 'Chuyển sang máy cá nhân?', confirmText: 'Chuyển', tone: toShared ? 'warning' : 'primary' });
+        if (!ok) return;
+        await setDeviceMode(toShared ? 'shared' : 'personal');
+        location.reload();
+    };
     devicesUnsub?.();
     const me = deviceId();
     const listEl = document.getElementById('devices-list');

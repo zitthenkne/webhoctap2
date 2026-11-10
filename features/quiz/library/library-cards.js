@@ -6,7 +6,7 @@
 import { db } from '../../../core/firebase-init.js';
 import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { showToast, showConfirm } from '../../../core/utils.js';
-import { isOfflineSavedSync, saveOfflineQuiz, deleteOfflineQuiz, extractQuizImageUrls, offlineAllowed, offlineAllowedSync } from '../quiz-offline-store.js';
+import { isOfflineSavedSync, saveOfflineQuiz, deleteOfflineQuiz, extractQuizImageUrls, offlineAllowed, offlineAllowedSync, quizOfflineOk } from '../quiz-offline-store.js';
 
 // Tải đề về máy cần admin mở "Làm offline" (core/features.js) — chưa mở thì báo khoá, không tải
 async function offlineGate() {
@@ -508,9 +508,10 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
     const safeTitle = escapeHtml(quizSet.title || 'Không tên');
     const quizHref = `features/quiz/quiz.html?id=${quizSet.id}`;
     const offlineSaved = isOfflineSavedSync(quizSet.id);
-    // Mục trong menu "..." để tải về / xóa bản offline
+    // Mục trong menu "..." để tải về / xóa bản offline. Đề người khác mà chủ chưa bật "Cho tải về làm offline" → không có mục tải
     const offlineMenuItem = offlineSaved
         ? `<button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 remove-offline-btn" data-id="${quizSet.id}"><i class="fas fa-trash-can mr-2.5 text-sky-400"></i>Xóa bản offline</button>`
+        : !canOffline(quizSet) ? ''
         : `<button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 download-offline-btn" data-id="${quizSet.id}"><i class="fas ${offlineAllowedSync() ? 'fa-cloud-arrow-down' : 'fa-lock'} mr-2.5 text-sky-500"></i>Tải về máy (offline)</button>`;
     const pinBtn = (size) => `<button class="pin-quiz-btn${pinned ? ' is-pinned' : ''}${size === 'sm' ? ' pin-quiz-btn-sm' : ''}" data-id="${quizSet.id}" title="${pinned ? 'Bỏ ghim' : 'Ghim lên đầu'}" aria-label="${pinned ? 'Bỏ ghim bộ đề' : 'Ghim bộ đề lên đầu'}" aria-pressed="${pinned}"><i class="fas fa-thumbtack"></i></button>`;
 
@@ -902,6 +903,10 @@ export function createQuizCard(quizSet, quizzesToDisplay, currentPage) {
     return card;
 }
 
+// Được tải về máy không? Metadata thư viện của chính mình (truy vấn theo userId) không kèm trường userId → thiếu = đề của mình.
+// Đề người khác: chỉ khi chủ bật "Cho tải về làm offline" (quiz-offline-store.js quizOfflineOk).
+function canOffline(q) { return !q.userId || quizOfflineOk(q); }
+
 // === TẢI BỘ ĐỀ VỀ MÁY ĐỂ LÀM OFFLINE ===
 // Tải đầy đủ doc (kèm mảng `questions`) từ Firestore và lưu vào IndexedDB,
 // để sau này mở bài làm được kể cả khi không có mạng.
@@ -982,7 +987,7 @@ export async function downloadQuizzesOffline(pick, label) {
         return;
     }
     if (!S.isLibraryFullyLoaded) await ensureFullLibraryLoaded();
-    const quizzes = S.userQuizSets.filter(pick);
+    const quizzes = S.userQuizSets.filter(pick).filter(canOffline);     // bỏ đề người khác chưa cho offline
     const pending = quizzes.filter(q => !isOfflineSavedSync(q.id));
 
     if (!quizzes.length) { showToast(`${label.scope} đang trống.`, 'info'); return; }

@@ -161,14 +161,17 @@ export function showConfirm(message, options = {}) {
             setTimeout(() => overlay.remove(), 300); // dự phòng nếu không có transitionend
             resolve(result);
         };
+        // options.dismiss: giá trị trả về khi đóng bằng Esc / bấm nền (mặc định false = như nút Hủy). Hai nút là hai lựa chọn thật
+        // (vd chọn nhánh làm tiếp) thì đặt null để "đóng" không bị hiểu nhầm thành chọn nút trái.
+        const dismissed = 'dismiss' in options ? options.dismiss : false;
         const onKey = (e) => {
-            if (e.key === 'Escape') close(false);
+            if (e.key === 'Escape') close(dismissed);
             else if (e.key === 'Enter') close(true);
         };
 
         okBtn.addEventListener('click', () => close(true));
         cancelBtn.addEventListener('click', () => close(false));
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false); });
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(dismissed); });
         document.addEventListener('keydown', onKey);
         setTimeout(() => okBtn.focus(), 60);
     });

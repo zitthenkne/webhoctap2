@@ -10,9 +10,20 @@
 // Chỉ tin bản lưu khi navigator.onLine === false; còn online mà auth trả null thì
 // đúng là đã đăng xuất (không được tự cho đăng nhập, tránh gọi server thiếu token).
 import { auth } from './firebase-init.js';
-import { onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { switchScope, isNewSharedSession, wipePrivate } from './scope.js';
 
 const KEY = 'lastAuthUser';
+
+// Dữ liệu riêng trong máy thuộc đúng người đang đăng nhập (core/scope.js) — chạy NGAY khi nạp, trước khi trang đọc bài làm dở / ghi chú
+try { const u = JSON.parse(localStorage.getItem(KEY) || 'null'); switchScope(u && u.uid && u.email ? u.uid : 'guest'); } catch (e) {}
+// Máy dùng chung mở lại trình duyệt = phiên mới: đăng xuất + xóa dữ liệu riêng của người dùng trước
+isNewSharedSession().then((fresh) => {
+    if (!fresh) return;
+    wipePrivate();
+    try { localStorage.removeItem(KEY); } catch (e) {}
+    signOut(auth).catch(() => {});
+});
 
 // Tài khoản THẬT = đăng nhập bằng email. Người dùng ẩn danh (Firebase Anonymous) chỉ là khách vào phòng học bằng link:
 // KHÔNG được coi là "đã đăng nhập" ở trang chủ / cổng đăng nhập (trước đây bị nhớ vào KEY rồi lọt qua mọi cổng).
@@ -67,9 +78,9 @@ function afterLoad(fn) {
 // null lúc offline chính là trường hợp ta muốn chữa; chỉ đăng xuất thật mới xoá.
 onAuthStateChanged(auth, (u) => {
     if (!isReal(u)) return;
+    switchScope(u.uid);        // đổi tài khoản trên cùng máy: cất dữ liệu riêng của người trước, lấy ra của người này (core/scope.js)
     remember(u);
-    rememberAdmin(u);
-    if (!u.emailVerified) refreshEmailVerified();
+    rememberAdmin(u);    if (!u.emailVerified) refreshEmailVerified();
     // Chỉ đăng nhập bằng Google (core/google-gate.js) + giới hạn 2 máy / tài khoản (core/device-limit.js) — nạp lười để trang không đăng nhập khỏi tải thêm
     import('./google-gate.js').then(m => m.checkGoogleSession(u)).catch(() => {});
     import('./device-limit.js').then(m => m.watchDevices(u)).catch(() => {});
@@ -161,6 +172,7 @@ let manualSignOut = false, lostShown = false;
 function sessionLost() {
     if (lostShown || manualSignOut) return;
     lostShown = true;
+    switchScope('guest');      // phiên mất thật: dữ liệu riêng của tài khoản không còn hiện cho người đang cầm máy
     window.dispatchEvent(new CustomEvent('auth:lost'));
     if (!document.getElementById('toast-container')) return;
     import('./utils.js').then(({ showToast }) => showToast('Phiên đăng nhập đã hết hạn — đăng nhập lại để đồng bộ dữ liệu.', 'warning', 6000)).catch(() => {});
@@ -199,6 +211,7 @@ function dropCache() {
 export function forgetSession() {
     manualSignOut = true;
     dropCache();
+    switchScope('guest');      // đăng xuất: cất (máy cá nhân) / xóa (máy dùng chung) dữ liệu riêng — core/scope.js
 }
 
 /**

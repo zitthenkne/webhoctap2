@@ -255,24 +255,85 @@ export function countDueNow(quizId, now = Date.now()) {
     return due;
 }
 
+// ----- BẢN TÓM TẮT lịch ôn từng bộ (2026-11-10) — chuông ôn không phải kéo cả mảng srs của mọi bộ -----
+// srsSum (trên doc quiz_study, do pushCloudStudy ghi) = { next: hạn sớm nhất (ms; 0 = bộ chưa có câu nào), n, strong, hard,
+//   last: lần ôn gần nhất, dt: [các giá trị due], dc: [số câu tương ứng] } (Firestore không cho mảng lồng mảng → hai mảng song song).
+// Gom theo ĐÚNG giá trị due (không làm tròn lại theo ngày ở máy đọc) → "bao nhiêu câu đến hạn lúc t" ra y hệt quét cả mảng, dù máy đọc
+// đổi múi giờ. Máy chưa mở bộ đề / máy khác vừa ôn (summary.last mới hơn lịch trong máy) → chuông tính theo bản tóm tắt; mở bộ đề thì
+// trang làm bài kéo đủ lịch về (quiz-study-sync.js) và lịch trong máy lại là nguồn.
+export function summarizeSrs(map) {
+    const by = new Map();
+    let next = 0, n = 0, strong = 0, hard = 0, last = 0;
+    Object.values(map || {}).forEach(e => {
+        if (!e) return;
+        n++;
+        const d = Number(e.due) || 0;
+        by.set(d, (by.get(d) || 0) + 1);
+        if (!next || d < next) next = d;
+        if ((e.n | 0) >= 3) strong++;
+        if ((e.lapses | 0) >= 3) hard++;
+        last = Math.max(last, Number(e.last) || 0);
+    });
+    const rows = [...by.entries()].sort((a, b) => a[0] - b[0]);
+    return { next, n, strong, hard, last, dt: rows.map(r => r[0]), dc: rows.map(r => r[1]) };
+}
+const SUM_PREFIX = 'quizSrsSum_';      // KHÔNG đặt tiền tố quiz_srs_ (vòng quét bộ đề bên dưới coi mọi khóa quiz_srs_* là lịch của một bộ)
+export function writeSrsSummary(quizId, sum) { if (quizId && sum) writeJson(SUM_PREFIX + quizId, sum); }
+export function readSrsSummary(quizId) { return readJson(SUM_PREFIX + quizId, null); }
+
+// Số liệu một bộ — từ lịch trong máy, hoặc từ bản tóm tắt cloud khi bản đó MỚI HƠN (máy khác vừa ôn / máy này chưa từng mở bộ).
+function deckStats(quizId, now, daysAhead) {
+    const map = readSrsMap(quizId);
+    const entries = Object.values(map).filter(Boolean);
+    const sum = readSrsSummary(quizId);
+    const localLast = entries.reduce((m, e) => Math.max(m, Number(e.last) || 0), 0);
+    const fromSum = !!(sum && sum.n > 0 && Array.isArray(sum.dt) && (!entries.length || (Number(sum.last) || 0) > localLast));
+    const rows = fromSum
+        ? sum.dt.map((d, i) => [Number(d) || 0, Number((sum.dc || [])[i]) || 0])
+        : entries.map(e => [Number(e.due) || 0, 1]);
+    if (!rows.length) return null;
+    const todayEnd = endOfDay(now);
+    let due = 0, later = 0, nextDue = 0;
+    const byOffset = {};
+    rows.forEach(([d, c]) => {
+        if (d <= now) { due += c; return; }
+        if (!nextDue || d < nextDue) nextDue = d;
+        // due tương lai luôn chốt cuối ngày → offset ngày = khoảng cách tới
+        // cuối ngày hôm nay chia ngày, làm tròn (an toàn với lệch giờ nhỏ)
+        const offset = Math.max(1, Math.round((d - todayEnd) / DAY_MS));
+        if (offset <= daysAhead) byOffset[offset] = (byOffset[offset] || 0) + c;
+        else later += c;
+    });
+    const learned = fromSum ? sum.n : entries.length;
+    const strong = fromSum ? sum.strong | 0 : entries.filter(e => (e.n | 0) >= 3).length;
+    const hard = fromSum ? sum.hard | 0 : entries.filter(e => (e.lapses | 0) >= 3).length;
+    return { due, byOffset, later, nextDue, learned, strong, hard };
+}
+// Mọi bộ có lịch ôn: lịch trong máy (quiz_srs_<id>) hoặc chỉ có bản tóm tắt từ cloud
+function deckIds() {
+    const ids = new Set();
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key) continue;
+        if (key.startsWith('quiz_srs_') && !key.startsWith('quiz_srs_meta_')) ids.add(key.slice('quiz_srs_'.length));
+        else if (key.startsWith(SUM_PREFIX)) ids.add(key.slice(SUM_PREFIX.length));
+    }
+    ids.delete('');
+    return [...ids];
+}
+
 // Quét toàn bộ localStorage tìm các bộ đề có câu đến hạn — nguồn dữ liệu cho
 // chuông thông báo trên index. title/total lấy từ meta (fallback quizId).
 // Bộ đang tạm dừng không vào chuông.
 export function getAllSrsSummaries(now = Date.now()) {
     const out = [];
-    const prefix = 'quiz_srs_';
-    const metaPrefix = 'quiz_srs_meta_';
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (!key || !key.startsWith(prefix) || key.startsWith(metaPrefix)) continue;
-        const quizId = key.slice(prefix.length);
-        if (!quizId) continue;
-        const due = countDueNow(quizId, now);
-        if (due <= 0) continue;
+    deckIds().forEach(quizId => {
+        const st = deckStats(quizId, now, 0);
+        if (!st || st.due <= 0) return;
         const meta = readMeta(quizId);
-        if (meta.paused) continue;
-        out.push({ quizId, due, title: meta.title || quizId, total: meta.total | 0 });
-    }
+        if (meta.paused) return;
+        out.push({ quizId, due: st.due, title: meta.title || quizId, total: meta.total | 0 });
+    });
     out.sort((a, b) => b.due - a.due);
     return out;
 }
@@ -287,36 +348,15 @@ export function getAllSrsSummaries(now = Date.now()) {
 //   newToday   : số câu mới còn được phát hôm nay (theo quota, cần meta.total)
 export function getAllSrsDeckDetails(daysAhead = 7, now = Date.now()) {
     const out = [];
-    const prefix = 'quiz_srs_';
-    const metaPrefix = 'quiz_srs_meta_';
-    const todayEnd = endOfDay(now);
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (!key || !key.startsWith(prefix) || key.startsWith(metaPrefix)) continue;
-        const quizId = key.slice(prefix.length);
-        if (!quizId) continue;
-        const entries = Object.values(readSrsMap(quizId)).filter(Boolean);
-        if (!entries.length) continue;
+    deckIds().forEach(quizId => {
+        const st = deckStats(quizId, now, daysAhead);
+        if (!st) return;
         const meta = readMeta(quizId);
-
-        let due = 0, later = 0, nextDue = 0, strong = 0, hard = 0;
-        const byOffset = {};
-        entries.forEach(e => {
-            if ((e.n | 0) >= 3) strong++;
-            if ((e.lapses | 0) >= 3) hard++;
-            const d = Number(e.due) || 0;
-            if (d <= now) { due++; return; }
-            if (!nextDue || d < nextDue) nextDue = d;
-            // due tương lai luôn chốt cuối ngày → offset ngày = khoảng cách tới
-            // cuối ngày hôm nay chia ngày, làm tròn (an toàn với lệch giờ nhỏ)
-            const offset = Math.max(1, Math.round((d - todayEnd) / DAY_MS));
-            if (offset <= daysAhead) byOffset[offset] = (byOffset[offset] || 0) + 1;
-            else later++;
-        });
+        const { due, byOffset, later, nextDue, strong, hard } = st;
 
         // Câu mới còn lại của bộ (cần biết tổng số câu) + số được phát hôm nay theo quota
         const total = meta.total | 0;
-        const newRemaining = total > 0 ? Math.max(0, total - entries.length) : 0;
+        const newRemaining = total > 0 ? Math.max(0, total - st.learned) : 0;
         const perDay = (meta.newPerDay == null || meta.newPerDay === '') ? null : Math.max(0, parseInt(meta.newPerDay, 10) || 0);
         const introduced = meta.date === localDayStr(now) ? (meta.newIntroduced | 0) : 0;
         const newToday = perDay == null ? newRemaining : Math.min(newRemaining, Math.max(0, perDay - introduced));
@@ -325,7 +365,7 @@ export function getAllSrsDeckDetails(daysAhead = 7, now = Date.now()) {
             quizId,
             title: meta.title || quizId,
             total,
-            learned: entries.length,
+            learned: st.learned,
             strong,
             hard,
             due,
@@ -336,7 +376,7 @@ export function getAllSrsDeckDetails(daysAhead = 7, now = Date.now()) {
             newPerDay: perDay,
             paused: !!meta.paused,
         });
-    }
+    });
     // Bộ đang hoạt động trước (nhiều câu đến hạn hơn lên đầu, rồi hạn gần hơn), bộ tạm dừng xuống cuối
     out.sort((a, b) => (a.paused - b.paused) || (b.due - a.due) || ((a.nextDue || Infinity) - (b.nextDue || Infinity)));
     return out;

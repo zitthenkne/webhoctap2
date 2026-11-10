@@ -18,10 +18,12 @@
 import { auth } from '../../core/firebase-init.js';
 import { onSessionUser } from '../../core/auth-session.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { showConfirm } from '../../core/utils.js';
+import { showConfirm, showToast } from '../../core/utils.js';
 import { setupQuestionEditor } from './quiz-editor.js';
 import { state, clearQuizState, saveQuizState, readQuizState, flushQuizState } from './quiz-state.js';
-import { ensureMermaidInit, reconstructQuestionsFromBlueprint } from './quiz-helpers.js';
+import { ensureMermaidInit, applyOptionOrder } from './quiz-helpers.js';
+import { rebuildFromBlueprint, mergeBranches } from './quiz-attempt.js';
+import { branchConflict, resolveBranchConflict } from './page/quiz-study-sync.js';
 import { showSubmitQuizBtn } from './quiz-ui.js';
 
 import { scrollQuizToTop } from './page/quiz-page-prefs.js';
@@ -139,50 +141,96 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     };
 
-    const restoreSavedSession = (savedState) => {
+    // Khôi phục không thành → trả trang chờ về trạng thái đứng yên (nút Bắt đầu đã cho trang chờ "bay" ra)
+    const backToLanding = () => document.getElementById('quiz-landing')?.classList.remove('quiz-landing-leaving');
+    const waitForQuizData = async (ms = 10000) => {
+        for (let t = 0; t < ms && !(state.quizData && Array.isArray(state.quizData.questions) && state.quizData.questions.length); t += 200) {
+            await new Promise(r => setTimeout(r, 200));
+        }
+        return !!(state.quizData && Array.isArray(state.quizData.questions) && state.quizData.questions.length);
+    };
+
+    // Hai máy cùng một lượt trả lời khác nhau (quiz-study-sync.js) → người học chọn nhánh; câu chỉ một máy trả lời được giữ cả.
+    // Trả bản lưu đã gộp (vào thẳng câu khác đầu tiên), hoặc null nếu người học đóng hộp chọn.
+    const pickBranch = async (savedState) => {
+        const quizId = savedState.quizId || new URLSearchParams(location.search).get('id');
+        const c = branchConflict(quizId);
+        if (!c) return savedState;
+        const other = c.other.deviceLabel || 'máy kia';
+        const mineFirst = await showConfirm(
+            `Máy này và ${other} cùng làm lượt này nhưng trả lời KHÁC nhau từ câu ${c.at + 1}. Chọn nhánh để làm tiếp — câu chỉ một máy đã trả lời vẫn được giữ.`,
+            { title: 'Hai nhánh khác nhau', confirmText: 'Theo máy này', cancelText: `Theo ${other.split('·')[0].trim()}`, tone: 'warning', icon: 'fas fa-code-branch', dismiss: null }
+        );
+        if (mineFirst === null) return null;
+        const merged = mergeBranches(mineFirst ? savedState : c.other, mineFirst ? c.other : savedState);
+        merged.currentIndex = c.at;                                    // đưa tới đúng câu khác đầu tiên
+        Object.defineProperty(merged, 'questions', { value: savedState.questions, writable: true, configurable: true, enumerable: false });
+        resolveBranchConflict(quizId);
+        return merged;
+    };
+
+    // Lượt dở → dựng lại ĐÚNG đề của lượt (quiz-attempt.js):
+    //  1. bộ câu đã chơi còn trong máy → y nguyên;
+    //  2. cùng revision → theo blueprint; khác revision → ghép theo khóa câu + dấu vân tay (tác giả chèn câu / đảo phương án vẫn đúng);
+    //  3. tác giả đã SỬA câu của lượt → hỏi người học: làm tiếp (riêng các câu bị sửa tính theo bản mới, phải trả lời lại) hay làm lại;
+    //  4. bản lưu đời cũ không ghi revision / câu của lượt đã bị xóa khỏi đề → KHÔNG tự đoán (dễ chấm sai câu) — hỏi làm lại.
+    const restoreSavedSession = async (input) => {
+        const savedState = await pickBranch(input);
+        if (!savedState) { backToLanding(); return false; }
         // Khôi phục cấu hình phiên (tính giờ, xem đáp án ngay...) để render đúng trạng thái
         if (savedState.quizOptions) state.quizOptions = savedState.quizOptions;
         const restoreMode = savedState.quizMode || 'normal';
 
         if (Array.isArray(savedState.questions) && savedState.questions.length === savedState.questionsLength) {
             // Có sẵn bộ câu hỏi đã chơi (đã trộn câu/đáp án) -> khôi phục chính xác tuyệt đối
-            startQuizMode(savedState.questions, restoreMode, savedState);
-            return;
+            const same = savedState.revisionId && state.quizData && state.quizData._rev === savedState.revisionId;
+            startQuizMode(savedState.questions, restoreMode, { ...savedState, _attemptSource: same ? state.quizData : undefined });
+            return true;
         }
 
-        const doRestore = () => {
-            if (!state.originalQuestions || !state.originalQuestions.length) return false;
-
-            let questionsToPlay = null;
-            if (Array.isArray(savedState.questionBlueprint) && savedState.questionBlueprint.length) {
-                questionsToPlay = reconstructQuestionsFromBlueprint(state.originalQuestions, savedState.questionBlueprint);
-            }
-
-            if (!questionsToPlay || !questionsToPlay.length) {
-                // Dự phòng cho bản lưu cũ không có blueprint
-                if (state.originalQuestions.length === savedState.questionsLength) {
-                    questionsToPlay = state.originalQuestions.map((q, i) => ({ ...q, __origIdx: i }));
-                } else {
-                    questionsToPlay = state.originalQuestions.slice(0, savedState.questionsLength).map((q, i) => ({ ...q, __origIdx: i }));
-                }
-            }
-
-            startQuizMode(questionsToPlay, restoreMode, savedState);
+        if (!await waitForQuizData()) { backToLanding(); return false; }
+        const r = rebuildFromBlueprint(savedState, state.quizData, applyOptionOrder);
+        if (r.ok) {
+            startQuizMode(r.questions, restoreMode, { ...savedState, _attemptSource: state.quizData, _attemptRev: r.exact ? savedState.revisionId : state.quizData._rev });
             return true;
-        };
-
-        if (doRestore()) return;
-
-        // Nếu dữ liệu câu hỏi gốc đang tải bất đồng bộ -> chờ tối đa 10s có timeout an toàn
-        let elapsed = 0;
-        const step = 200;
-        const maxWait = 10000;
-        const restoreTimer = setInterval(() => {
-            elapsed += step;
-            if (doRestore() || elapsed >= maxWait) {
-                clearInterval(restoreTimer);
+        }
+        if (r.reason === 'changed' && savedState.revisionId) {
+            const r2 = rebuildFromBlueprint(savedState, state.quizData, applyOptionOrder, { lenient: true });
+            if (r2.ok) {
+                const n = r2.reset.length;
+                const go = await showConfirm(
+                    `Tác giả đã sửa ${n} câu trong lượt này sau khi bạn bắt đầu. Làm tiếp thì ${n === 1 ? 'câu đó' : n + ' câu đó'} hiện theo bản mới và cần trả lời lại; các câu khác giữ nguyên.`,
+                    { title: 'Bộ đề vừa được sửa', confirmText: 'Làm tiếp', cancelText: 'Làm lại từ đầu', tone: 'warning', dismiss: null });
+                if (go === null) { backToLanding(); return false; }
+                if (go) {
+                    const s = { ...savedState, userAnswers: [...(savedState.userAnswers || [])] };
+                    ['eliminatedAnswers', 'used5050Questions', 'multiSelections', 'confidence', 'markedReasons'].forEach(k => { s[k] = { ...(savedState[k] || {}) }; });
+                    r2.reset.forEach(i => {
+                        s.userAnswers[i] = null;
+                        ['eliminatedAnswers', 'used5050Questions', 'multiSelections', 'confidence'].forEach(k => { delete s[k][i]; });
+                    });
+                    s.currentIndex = r2.reset[0];
+                    startQuizMode(r2.questions, restoreMode, { ...s, _attemptSource: state.quizData, _attemptRev: state.quizData._rev });
+                    return true;
+                }
+                backToLanding();
+                clearQuizState();
+                renderResumeHint(null);
+                startQuizWithCurrentSettings();
+                return false;
             }
-        }, step);
+        }
+        const why = r.reason === 'legacy'
+            ? 'Bản lưu này được tạo từ phiên bản cũ của web, không ghi lại phiên bản đề nên không xác định được đề gốc.'
+            : 'Bộ đề đã được sửa sau khi bạn bắt đầu (có câu của lượt này đã bị xóa khỏi đề).';
+        backToLanding();
+        if (await showConfirm(`${why} Khôi phục theo đề hiện tại có thể chấm sai câu, nên lượt này cần làm lại.`,
+            { title: 'Không khôi phục chính xác được', confirmText: 'Làm lại từ đầu', cancelText: 'Để sau', tone: 'warning' })) {
+            clearQuizState();
+            renderResumeHint(null);
+            startQuizWithCurrentSettings();
+        }
+        return false;
     };
 
     // Hỏi khôi phục khi người dùng CHỦ ĐỘNG bắt đầu; cancelText đổi theo ngữ cảnh nút bấm
@@ -230,6 +278,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     renderResumeHint(getPendingSavedState());
+
+    // Đổi tài khoản / đăng xuất ngay trên trang (core/scope.js đã đổi ngăn dữ liệu riêng): bài làm + ghi chú đang trong bộ nhớ là của
+    // người trước → tải lại trang để chỉ hiện dữ liệu của người đang đăng nhập.
+    window.addEventListener('scope:changed', () => location.reload());
 
     // Cập nhật gợi ý làm bài dở khi dữ liệu cloud đồng bộ về hoặc xóa khi đã nộp trên máy khác
     window.addEventListener('quiz-state-synced', () => {

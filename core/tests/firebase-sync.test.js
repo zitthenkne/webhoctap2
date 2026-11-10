@@ -31,6 +31,8 @@ function authEnv(t, { offline = false } = {}) {
     const api = load('auth-session.js', {
         auth, navigator: { onLine: !offline },
         localStorage: { getItem: () => JSON.stringify(cachedUser) },
+        // core/scope.js (ngăn dữ liệu riêng theo danh tính) — không phải thứ đang kiểm ở đây
+        switchScope: () => false, isNewSharedSession: async () => false, wipePrivate() {}, signOut: async () => {},
         onAuthStateChanged: (_, cb) => { listeners.add(cb); return () => listeners.delete(cb); }
     }, ['whenAuthReady']);
     return { ...api, auth, settle(user = null) {

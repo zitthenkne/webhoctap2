@@ -121,6 +121,7 @@ export async function getDocRest(collection, id, fields = [], { requireUser = fa
     const mask = fields.map(f => `mask.fieldPaths=${encodeURIComponent(f)}`).join('&');
     const res = await call(`${base}/${collection}/${encodeURIComponent(id)}${mask ? `?${mask}` : ''}`, { method: 'GET' }, { requireUser });
     if (res.status === 404) return null;
-    if (!res.ok) throw new Error(`getDoc ${res.status}`);
+    // 403 = luật từ chối THẬT (máy chủ đã trả lời) — nơi gọi phân biệt với lỗi mạng để thu hồi bản đệm (quiz-fresh.js)
+    if (!res.ok) throw Object.assign(new Error(`getDoc ${res.status}`), { status: res.status, ...(res.status === 403 ? { code: 'permission-denied' } : {}) });
     return decodeDoc(res.data);
 }

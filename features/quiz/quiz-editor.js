@@ -16,7 +16,8 @@ import { doc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firesto
 // Ghi không treo khi mất mạng (xem core/offline-write.js)
 import { updateDocQ as updateDoc } from "../../core/offline-write.js";
 import { saveOfflineQuiz, isOfflineSavedSync } from './quiz-offline-store.js';
-import { stampLocal } from './quiz-fresh.js';
+import { stampLocal, questionsWritten } from './quiz-fresh.js';
+import { sealContent } from './quiz-attempt.js';
 import { showToast } from '../../core/utils.js';
 import { state, saveQuizState, markQuestionsDirty } from './quiz-state.js';
 import { tagCaseSequence } from './page/quiz-cases.js';
@@ -67,10 +68,14 @@ function saveQEdits(store) {
 export function applyLocalQuestionEdits() {
     if (!state.quizData || !Array.isArray(state.quizData.questions)) return;
     const edits = getQEdits();
-    Object.keys(edits).forEach(k => {
+    const keys = Object.keys(edits);
+    if (!keys.length) return;
+    // Chép-khi-sửa: KHÔNG sửa thẳng câu của bản vừa tải — bản đó còn được lưu offline / băm revision (quiz-attempt.js) như bản máy chủ
+    const qs = state.quizData.questions = state.quizData.questions.slice();
+    keys.forEach(k => {
         const idx = parseInt(k, 10);
-        if (!isNaN(idx) && state.quizData.questions[idx] && edits[k] && typeof edits[k] === 'object') {
-            Object.assign(state.quizData.questions[idx], edits[k]);
+        if (!isNaN(idx) && qs[idx] && edits[k] && typeof edits[k] === 'object') {
+            qs[idx] = { ...qs[idx], ...edits[k] };
         }
     });
 }
@@ -506,8 +511,10 @@ async function commitQuestionEdit(edited) {
             const cleanQuestions = state.quizData.questions.map(stripInternalFields);
             // Bản C2: dấu "sửa lúc" — máy khác có bản trong máy chỉ cần so dấu này (REST nhẹ) thay vì tải lại cả bộ câu hỏi
             const stamp = new Date();
-            await updateDoc(doc(db, "quiz_sets", state.quizData.id), { questions: cleanQuestions, updatedAt: stamp });
+            await updateDoc(doc(db, "quiz_sets", state.quizData.id), { questions: cleanQuestions, updatedAt: stamp, ...questionsWritten() });
             state.quizData.updatedAt = stamp;       // bản lưu offline ngay bên dưới mang đúng dấu này
+            // Đề trên máy chủ vừa thành revision mới → lượt đang làm theo revision đó (máy khác làm tiếp dựng đúng câu vừa sửa)
+            sealContent(state.quizData); state.attemptRev = state.quizData._rev; delete dq.__bp;
             // Bản C7: không ghi thêm bản sao quiz_payloads — nó chỉ là đường lùi khi quiz_sets.questions rỗng (không bao giờ xảy ra khi sửa tại chỗ),
             // mà mỗi lần ghi là thêm ~1 lượt ghi + toàn bộ mảng câu hỏi (bộ 120 câu ≈ 230 KB) tải lên lần thứ hai.
             if (isOfflineSavedSync(state.quizData.id)) {
@@ -583,8 +590,9 @@ async function undoLastEdit() {
             const cleanQuestions = state.quizData.questions.map(stripInternalFields);
             // Bản C2: dấu "sửa lúc" — máy khác có bản trong máy chỉ cần so dấu này (REST nhẹ) thay vì tải lại cả bộ câu hỏi
             const stamp = new Date();
-            await updateDoc(doc(db, "quiz_sets", state.quizData.id), { questions: cleanQuestions, updatedAt: stamp });
+            await updateDoc(doc(db, "quiz_sets", state.quizData.id), { questions: cleanQuestions, updatedAt: stamp, ...questionsWritten() });
             state.quizData.updatedAt = stamp;       // bản lưu offline ngay bên dưới mang đúng dấu này
+            sealContent(state.quizData); state.attemptRev = state.quizData._rev; delete dq.__bp;
             // Bản C7: bỏ ghi quiz_payloads (xem chỗ sửa câu). Khối cũ tham chiếu `user` không có trong hàm này → ReferenceError sau khi quiz_sets đã ghi xong.
             if (isOfflineSavedSync(state.quizData.id)) {
                 saveOfflineQuiz(state.quizData.id, state.quizData, { auto: true }).then(() => stampLocal(state.quizData.id)).catch(() => {});

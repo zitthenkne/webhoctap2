@@ -20,13 +20,13 @@
 import {
     getAllSrsSummaries, getAllSrsDeckDetails, getSrsStreak, setSrsPaused, endOfDay,
     readSrsLog, localDayStr,
-    readSrsMap, writeSrsMap, readSrsMeta, srsKeys, mergeSrsMaps
+    readSrsMap, writeSrsMap, readSrsMeta, srsKeys, mergeSrsMaps, summarizeSrs, writeSrsSummary
 } from './quiz-srs-store.js';
 import { syncPullStudy, pushCloudStudy, readLocalStudy } from './quiz-study-store.js';
 import { auth, db } from '../../core/firebase-init.js';
 import { sessionUser, onSessionUser } from '../../core/auth-session.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { collection, query, where, getDocs, doc, setDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { runQueryRest } from '../../core/firestore-rest.js';
 
 const QUIZ_URL = 'features/quiz/quiz.html';
@@ -399,9 +399,16 @@ function injectStyles() {
 // Bản C1 (2026-10): (1) mốc đồng bộ nhớ trong localStorage — trước đây chỉ nhớ trong RAM của trang nên MỖI lần mở / quay lại index.html
 // là quét lại mọi doc quiz_study (mỗi doc mang cả ghi chú + đánh dấu + bôi vàng, hàng KB–chục KB); nay 10 phút/tài khoản xuyên các lần mở trang.
 // (2) REST chỉ lấy 6 trường lịch ôn, không kéo ghi chú/đánh dấu/bôi vàng; lỗi thì lùi về SDK như cũ.
-const SRS_FIELDS = ['quizId', 'srs', 'srsTitle', 'srsTotal', 'srsPaused', 'srsPausedAt'];
+// Bản 2026-11-10 — CHUÔNG ÔN TRUY VẤN BỘ ĐẾN HẠN: mỗi doc quiz_study có bản tóm tắt `srsSum` (quiz-srs-store.js summarizeSrs: hạn sớm
+// nhất, số câu theo từng mốc hạn, trạng thái tạm dừng đi kèm). Chuông chỉ truy vấn bộ CÓ lịch (srsSum.next > 0 — cần chỉ mục
+// userId + srsSum.next trong firestore.indexes.json) và chỉ lấy bản tóm tắt; mảng srs (chi tiết từng câu) chỉ tải khi MỞ bộ đề.
+// Lần đầu mỗi tài khoản (doc đời cũ chưa có srsSum): quét kiểu cũ một lần, tính + ghi srsSum cho từng bộ, rồi chuyển hẳn sang truy vấn mới.
+// Đối chiếu với phép quét cũ: features/quiz/tests/quiz-srs-summary.test.js; đo lượt đọc: scripts/srs-bell-explain.mjs (Query Explain).
+const SRS_FIELDS = ['quizId', 'srs', 'srsSum', 'srsTitle', 'srsTotal', 'srsPaused', 'srsPausedAt'];
+const SUM_FIELDS = ['quizId', 'srsSum', 'srsTitle', 'srsTotal', 'srsPaused', 'srsPausedAt'];
 const SRS_SYNC_TTL = 10 * 60 * 1000;
 const srsSyncKey = (uid) => `quizSrsSyncAt_${uid}`;      // KHÔNG đặt tiền tố quiz_srs_ (sự kiện storage của chuông lắng nghe tiền tố đó)
+const sumReadyKey = (uid) => `quizSrsSumReady_${uid}`;   // đã chuyển các doc đời cũ sang có srsSum
 let _cloudSyncedAt = 0;
 async function fetchStudyForSrs(uid) {
     try {
@@ -411,6 +418,14 @@ async function fetchStudyForSrs(uid) {
         return snap.docs.map(d => d.data() || {});
     }
 }
+async function fetchSrsSummaries(uid) {
+    return runQueryRest({ collection: 'quiz_study', where: [['userId', uid], ['srsSum.next', 0, 'GREATER_THAN']], select: SUM_FIELDS, requireUser: true });
+}
+const srsMapOf = (arr) => {
+    const m = {};
+    (arr || []).forEach(e => { if (e && e.q != null) m[e.q] = { n: e.n, ivl: e.ivl, due: e.due, lapses: e.lapses, last: e.last }; });
+    return m;
+};
 async function syncSrsFromCloud(uid) {
     if (!uid || Date.now() - _cloudSyncedAt < SRS_SYNC_TTL) return false;
     let last = 0;
@@ -418,15 +433,26 @@ async function syncSrsFromCloud(uid) {
     if (Date.now() - last < SRS_SYNC_TTL) return false;
     _cloudSyncedAt = Date.now();
     try {
-        const docs = await fetchStudyForSrs(uid);
+        let ready = false;
+        try { ready = localStorage.getItem(sumReadyKey(uid)) === '1'; } catch (e) {}
+        let docs = null;
+        if (ready) { try { docs = await fetchSrsSummaries(uid); } catch (e) { docs = null; } }   // chưa có chỉ mục → quét kiểu cũ
+        const legacyScan = !docs;
+        if (legacyScan) docs = await fetchStudyForSrs(uid);
         let changed = false;
         docs.forEach(data => {
             const quizId = data.quizId;
-            if (!quizId || !Array.isArray(data.srs) || !data.srs.length) return;
-            const cloudMap = {};
-            data.srs.forEach(e => { if (e && e.q != null) cloudMap[e.q] = { n: e.n, ivl: e.ivl, due: e.due, lapses: e.lapses, last: e.last }; });
-            const merged = mergeSrsMaps(readSrsMap(quizId), cloudMap);
-            writeSrsMap(quizId, merged);
+            if (!quizId) return;
+            if (legacyScan) {
+                if (!Array.isArray(data.srs) || !data.srs.length) return;
+                const merged = mergeSrsMaps(readSrsMap(quizId), srsMapOf(data.srs));
+                writeSrsMap(quizId, merged);
+                // doc đời cũ chưa có bản tóm tắt → ghi bù MỘT lần (lần quét sau chỉ cần truy vấn tóm tắt)
+                if (!data.srsSum) setDoc(doc(db, 'quiz_study', `${uid}__${quizId}`), { srsSum: summarizeSrs(srsMapOf(data.srs)) }, { merge: true }).catch(() => {});
+            } else {
+                if (!data.srsSum || !(data.srsSum.n > 0)) return;
+                writeSrsSummary(quizId, data.srsSum);
+            }
             const meta = readSrsMeta(quizId);
             let metaDirty = false;
             // Bổ sung title/total cho meta nếu máy này chưa có (máy mới)
@@ -447,7 +473,10 @@ async function syncSrsFromCloud(uid) {
             }
             changed = true;
         });
-        try { localStorage.setItem(srsSyncKey(uid), String(Date.now())); } catch (e) {}      // chỉ ghi mốc khi quét THÀNH CÔNG
+        try {
+            localStorage.setItem(srsSyncKey(uid), String(Date.now()));      // chỉ ghi mốc khi quét THÀNH CÔNG
+            if (legacyScan) localStorage.setItem(sumReadyKey(uid), '1');
+        } catch (e) {}
         return changed;
     } catch (e) {
         // Rules không cho query / offline — chuông vẫn chạy bằng dữ liệu local

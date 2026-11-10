@@ -1,7 +1,7 @@
 // room-quiz.js — điều khiển phiên đánh đề chung: nhập đề, bắt đầu, quyền chủ trì
 // (chuyển câu / khóa / lộ đáp án / hẹn giờ / lưu / kết thúc) và phím tắt.
 import {
-    doc, getDoc, setDoc, updateDoc, addDoc, collection, serverTimestamp,
+    doc, getDoc, setDoc, updateDoc, addDoc, collection, serverTimestamp, deleteField,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { db } from '../../core/firebase-init.js';
 import { showToast, showConfirm } from '../../core/utils.js';
@@ -1007,7 +1007,8 @@ async function autoSaveNow(force = false) {
     auto.busy = true;
     try {
         if (s.savedBy === uid() && s.savedQuizId) {
-            await updateDoc(doc(db, 'quiz_sets', s.savedQuizId), { questions, questionCount: questions.length, updatedAt: serverTimestamp() });
+            // contentRevision: ghi câu hỏi phải bỏ con trỏ revision (firestore.rules; máy chủ phát hành lại — features/quiz/quiz-fresh.js)
+            await updateDoc(doc(db, 'quiz_sets', s.savedQuizId), { questions, questionCount: questions.length, updatedAt: serverTimestamp(), contentRevision: deleteField() });
         } else {
             const id = `r_${String(room.roomId).replace(/[^\w-]/g, '_')}_${s.startedAtMs || Date.now()}`;
             const title = saveTitle();

@@ -2,7 +2,9 @@ import { auth } from '../../../core/firebase-init.js';
 import { sessionUser, onSessionUser } from '../../../core/auth-session.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { studyKeys, syncPullStudy, scheduleCloudPush, fetchCloudProgress, scheduleCloudProgressPush } from '../quiz-study-store.js';
-import { state, readQuizState, writeQuizState, markQuizStateFinished } from '../quiz-state.js';
+import { state, readQuizState, readQuizStateLight, writeQuizState, markQuizStateFinished } from '../quiz-state.js';
+import { firstDivergence, mergeBranches, sameAttempt } from '../quiz-attempt.js';
+import { deviceId } from '../../../core/device-limit.js';
 import { showQuestion } from './quiz-question-view.js';
 
 export function currentQuizId() {
@@ -59,6 +61,76 @@ export function whenStudyPulled(timeoutMs = 4000) {
     return Promise.race([_studyPullPromise, new Promise(r => setTimeout(r, timeoutMs))]);
 }
 
+// ---- Hai nhánh offline, một lượt nộp (quiz-attempt.js) ----
+// Hai máy làm CÙNG một lượt (cùng attemptId, cùng đề): câu chỉ một máy trả lời → gộp tự động; cả hai trả lời KHÁC nhau ở cùng câu → giữ cả hai
+// nhánh, ghi lại xung đột để lần bấm "Làm tiếp" hỏi người học chọn nhánh, rồi đưa tới đúng câu khác đầu tiên (quiz-page.js).
+// So theo NỘI DUNG câu trả lời, không theo giờ máy (lệch đồng hồ / kết nối lại ngược thứ tự không đổi kết quả).
+const _conflicts = new Map();   // quizId -> { attemptId, at, other }
+/** Xung đột nhánh đang chờ người học chọn cho lượt dở hiện tại của bộ đề (hoặc null). */
+export function branchConflict(quizId) {
+    const c = _conflicts.get(quizId);
+    const local = readQuizStateLight(quizId);
+    return c && local && !local.finished && local.attemptId === c.attemptId ? c : null;
+}
+export function resolveBranchConflict(quizId) { _conflicts.delete(quizId); }
+
+function emitSynced(detail) {
+    const ev = new CustomEvent('quiz-state-synced', { bubbles: true, detail });
+    document.dispatchEvent(ev);
+    window.dispatchEvent(ev);
+}
+
+function reconcileProgress(uid, quizId, cloud) {
+    const local = readQuizState(quizId);
+    const isPlaying = document.getElementById('quiz-container') && !document.getElementById('quiz-container').classList.contains('hidden');
+    const pushMine = () => { if (local && !local.finished) scheduleCloudProgressPush(uid, quizId, () => readQuizState(quizId), 500); };
+    if (!cloud) { pushMine(); return; }
+    const fin = cloud.finished;
+    const finishedHere = (b) => !!(fin && b && (fin.attemptId ? fin.attemptId === b.attemptId
+        : (Number(fin.savedAt) || 0) >= (Number(b.savedAt) || 0)));   // dấu đời cũ không có attemptId: theo giờ như trước
+    // 1. Lượt này đã nộp / bỏ ở máy khác
+    if (local && !local.finished && finishedHere(local)) {
+        if (!isPlaying) { markQuizStateFinished(quizId); emitSynced({ finished: true }); }
+        return;
+    }
+    if (isPlaying) { pushMine(); return; }
+
+    const me = deviceId();
+    const others = Object.entries(cloud.branches || {}).filter(([dev]) => dev !== me).map(([, b]) => b)
+        .filter(b => b && !b.finished && !finishedHere(b));
+    if (cloud.legacy && !finishedHere(cloud.legacy)) others.push(cloud.legacy);      // máy còn chạy bản cũ (một trường inProgress)
+    const mine = local && !local.finished ? local : null;
+    const newest = (arr) => arr.slice().sort((a, b) => (Number(b.savedAt) || 0) - (Number(a.savedAt) || 0))[0];
+
+    if (!mine) {
+        // Máy này không có lượt dở → nhận nhánh mới nhất của máy khác (làm tiếp ở đây sẽ thành nhánh của máy này, cùng attemptId)
+        const best = newest(others);
+        if (best) { writeQuizState(quizId, best); emitSynced({ progress: best }); }
+        return;
+    }
+    const twins = others.filter(b => sameAttempt(mine, b));
+    if (twins.length) {
+        let merged = mine, conflict = null;
+        twins.forEach(b => {
+            const at = firstDivergence(merged, b);
+            if (at < 0) merged = mergeBranches(merged, b);
+            else if (!conflict || at < conflict.at) conflict = { attemptId: mine.attemptId, at, other: b };
+        });
+        if (conflict) _conflicts.set(quizId, conflict); else _conflicts.delete(quizId);
+        if (merged !== mine) {
+            merged.questions = mine.questions;            // giữ bộ câu đang làm trong máy (cùng lượt = cùng đề)
+            writeQuizState(quizId, merged);
+            emitSynced({ progress: merged, merged: true });
+        } else if (conflict) emitSynced({ conflict: true });
+        pushMine();
+        return;
+    }
+    // Lượt KHÁC ở máy khác: giữ cách cũ — lượt mới hơn thay vào trang chờ (giờ máy chỉ dùng để chọn giữa hai lượt khác nhau)
+    const best = newest(others);
+    if (best && (Number(best.savedAt) || 0) > (Number(mine.savedAt) || 0)) { writeQuizState(quizId, best); emitSynced({ progress: best }); }
+    else pushMine();
+}
+
 export function pullStudyFromCloud(quizId) {
     const run = (uid) => {
         if (_studyPulled || !uid) return;
@@ -75,31 +147,9 @@ export function pullStudyFromCloud(quizId) {
             document.dispatchEvent(new CustomEvent('quiz-study-pulled', { bubbles: true }));
             window.dispatchEvent(new CustomEvent('quiz-study-pulled'));
 
-            // Đồng bộ tiến trình bài làm dở giữa các thiết bị (cross-device sync)
-            fetchCloudProgress(uid, quizId).then((cloudProgress) => {
-                const local = readQuizState(quizId);
-                const localSavedAt = Number(local?.savedAt) || 0;
-                const cloudSavedAt = Number(cloudProgress?.savedAt) || 0;
-                const isPlaying = document.getElementById('quiz-container') && !document.getElementById('quiz-container').classList.contains('hidden');
-
-                if (cloudProgress?.finished) {
-                    if (cloudSavedAt >= localSavedAt && local && !local.finished) {
-                        markQuizStateFinished(quizId);
-                        const ev = new CustomEvent('quiz-state-synced', { bubbles: true, detail: { finished: true } });
-                        document.dispatchEvent(ev);
-                        window.dispatchEvent(ev);
-                    }
-                } else if (cloudProgress && cloudSavedAt > localSavedAt && !isPlaying) {
-                    // Cloud có bài làm dở mới hơn -> nạp vào local và báo UI
-                    writeQuizState(quizId, cloudProgress);
-                    const ev = new CustomEvent('quiz-state-synced', { bubbles: true, detail: { progress: cloudProgress } });
-                    document.dispatchEvent(ev);
-                    window.dispatchEvent(ev);
-                } else if (local && !local.finished && localSavedAt > cloudSavedAt) {
-                    // Local mới hơn (vừa làm lúc ngoại tuyến) -> đẩy lên cloud cập nhật
-                    scheduleCloudProgressPush(uid, quizId, () => readQuizState(quizId), 500);
-                }
-            }).catch((err) => console.warn('Không tải được tiến trình từ cloud:', err));
+            // Đồng bộ tiến trình bài làm dở giữa các thiết bị — theo NHÁNH từng máy (quiz-study-store.js pushCloudProgress)
+            fetchCloudProgress(uid, quizId).then((cloud) => reconcileProgress(uid, quizId, cloud))
+                .catch((err) => console.warn('Không tải được tiến trình từ cloud:', err));
         });
         // Quay lại tab / mở lại app (≥ 60s sau lần kéo trước): kéo lại để thấy ghi chú vừa viết ở máy khác.
         // Chỉ vẽ lại câu khi annotation thật sự đổi và không đang viết dở ghi chú.

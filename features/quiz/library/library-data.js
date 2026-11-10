@@ -26,7 +26,7 @@ import { countRest } from '../../../core/firestore-rest.js';
 function folderShareFields() {
     const f = folderById(S.currentFolderId);
     if (!f?.sharedWith?.length) return {};
-    return { sharedWith: [...f.sharedWith], editors: [...(f.editors || [])], sharedBy: f.sharedBy || '', ...(f.allowTakeout === true ? { allowTakeout: true } : {}) };
+    return { sharedWith: [...f.sharedWith], editors: [...(f.editors || [])], sharedBy: f.sharedBy || '', ...(f.allowTakeout === true ? { allowTakeout: true } : {}), ...(f.allowOffline === true ? { allowOffline: true } : {}) };
 }
 
 

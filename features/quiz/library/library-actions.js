@@ -95,6 +95,7 @@ export function inheritSharePatch(folderId) {
     const patch = { sharedWith: arrayUnion(...list), sharedBy: f.sharedBy || '' };
     if (f.editors?.length) patch.editors = arrayUnion(...f.editors);
     if (f.allowTakeout === true) patch.allowTakeout = true;
+    if (f.allowOffline === true) patch.allowOffline = true;
     return patch;
 }
 export function applyInheritedShare(obj, folderId) {
@@ -103,6 +104,7 @@ export function applyInheritedShare(obj, folderId) {
     obj.sharedWith = [...new Set([...(obj.sharedWith || []), ...f.sharedWith])];
     if (f.editors?.length) obj.editors = [...new Set([...(obj.editors || []), ...f.editors])];
     if (f.allowTakeout === true) obj.allowTakeout = true;
+    if (f.allowOffline === true) obj.allowOffline = true;
     obj.sharedBy = f.sharedBy || '';
 }
 

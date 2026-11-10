@@ -4,7 +4,7 @@
 //    có mạng là máy tự lấy bản mới. Chỉ tăng khi thêm / bớt / đổi tên file trong urlsToCache (để nạp sẵn đúng bộ cho offline).
 //  - CDN_CACHE: thư viện + phông từ CDN (URL có phiên bản, gần như bất biến) → GIỮ qua các phiên bản.
 //  - IMG_CACHE: ảnh tải lúc chạy (nền, avatar, ảnh bệnh án) → giữ qua các phiên bản, tối đa IMG_MAX mục.
-const CACHE_NAME = 'zitthenkne-v396';
+const CACHE_NAME = 'zitthenkne-v397';
 const CDN_CACHE = 'zitthenkne-cdn';
 const IMG_CACHE = 'zitthenkne-img';
 const IMG_MAX = 600;
@@ -85,6 +85,7 @@ const urlsToCache = [
   'features/quiz/quiz-launch-transition.js',
   'features/quiz/quiz-offline-store.js',
   'features/quiz/quiz-fresh.js',
+  'features/quiz/quiz-attempt.js',
   'features/quiz/quiz-coalesce.js',
   'features/quiz/quiz-helpers.js',
   'features/quiz/img-proxy.js',
@@ -115,6 +116,7 @@ const urlsToCache = [
   'core/utils.js',
   'core/offline-write.js',
   'core/auth-session.js',
+  'core/scope.js',
   'core/device-limit.js',
   'core/google-gate.js',
   'core/google-signin.js',

@@ -287,7 +287,7 @@ Returns (JSON): { success: true, id, questionCount }`,
         const data = doc.data() ?? {};
         const questions = Array.isArray(data.questions) ? [...data.questions] : [];
         questions.push(toStoredQuestion(params.question as QuestionInput));
-        await ref.update({ questions, questionCount: questions.length, updatedAt: FieldValue.serverTimestamp() });
+        await ref.update({ questions, questionCount: questions.length, updatedAt: FieldValue.serverTimestamp(), contentRevision: FieldValue.delete() });
 
         return ok(
           params.response_format,
@@ -334,7 +334,7 @@ Lỗi: trả lỗi nếu quiz_id sai hoặc question_index vượt quá số câ
           );
         }
         questions[params.question_index] = toStoredQuestion(params.question as QuestionInput);
-        await ref.update({ questions, updatedAt: FieldValue.serverTimestamp() });
+        await ref.update({ questions, updatedAt: FieldValue.serverTimestamp(), contentRevision: FieldValue.delete() });
 
         return ok(
           params.response_format,
@@ -379,7 +379,7 @@ Returns (JSON): { success: true, id, questionCount }`,
           );
         }
         questions.splice(params.question_index, 1);
-        await ref.update({ questions, questionCount: questions.length, updatedAt: FieldValue.serverTimestamp() });
+        await ref.update({ questions, questionCount: questions.length, updatedAt: FieldValue.serverTimestamp(), contentRevision: FieldValue.delete() });
 
         return ok(
           params.response_format,

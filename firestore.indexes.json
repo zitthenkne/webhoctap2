@@ -87,6 +87,20 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "quiz_study",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "srsSum.next",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [
@@ -118,6 +132,26 @@
     {
       "collectionGroup": "quiz_study",
       "fieldPath": "inProgress",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "quiz_study",
+      "fieldPath": "branches",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "quiz_study",
+      "fieldPath": "nx",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "quiz_study",
+      "fieldPath": "mx",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "quiz_study",
+      "fieldPath": "ax",
       "indexes": []
     },
     {

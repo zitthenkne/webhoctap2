@@ -12,7 +12,7 @@ import { doc, getDoc, collection, serverTimestamp } from "https://www.gstatic.co
 import { setDocQ as setDoc, updateDocQ as updateDoc } from '../../core/offline-write.js';
 import { onSessionUser, sessionUser } from '../../core/auth-session.js';
 import { getOfflineQuiz, autoCacheQuiz, isOfflineSavedSync } from '../quiz/quiz-offline-store.js';
-import { stampLocal } from '../quiz/quiz-fresh.js';
+import { stampLocal, questionsWritten } from '../quiz/quiz-fresh.js';
 import { showToast, showConfirm } from '../../core/utils.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1185,11 +1185,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 // "Người chỉnh sửa" được chia sẻ: luật editsAsEditor CHỈ cho ghi nội dung — không đụng userId, quyền chia sẻ, thư mục…
                 await updateDoc(doc(db, "quiz_sets", quizId), {
                     title: payload.title, description: payload.description, questions: payload.questions,
-                    questionCount: payload.questions.length, updatedAt: serverTimestamp()
+                    questionCount: payload.questions.length, updatedAt: serverTimestamp(), ...questionsWritten()
                 });
                 if (isOfflineSavedSync(quizId)) autoCacheQuiz(quizId, { ...quizData, ...payload }).then(() => stampLocal(quizId));
             } else if (quizId) {
-                await setDoc(doc(db, "quiz_sets", quizId), { ...quizData, ...payload, questionCount: payload.questions.length, userId: user.uid, updatedAt: serverTimestamp() }, { merge: true });
+                await setDoc(doc(db, "quiz_sets", quizId), { ...quizData, ...payload, questionCount: payload.questions.length, userId: user.uid, updatedAt: serverTimestamp(), ...questionsWritten() }, { merge: true });
                 // Bản tải về máy phải theo kịp, không thì làm bài offline vẫn ra câu hỏi cũ
                 if (isOfflineSavedSync(quizId)) autoCacheQuiz(quizId, { ...quizData, ...payload, userId: user.uid }).then(() => stampLocal(quizId));
             } else {

@@ -10,11 +10,12 @@
 //      như trước (fetchQuizFull: nội dung + dấu cùng một phản hồi) rồi gắn `_srvStamp` mới.
 //      (2026-10-12: trường này đổi tên từ `_srvTime` có CHỦ ĐÍCH — bản máy do code cũ đóng dấu có thể là nội dung cache cũ + dấu mới, tin dấu đó thì kẹt bản cũ mãi;
 //       đổi tên khiến mọi bản cũ bị coi là "chưa có dấu" → tải đủ MỘT lần rồi tự lành. Đừng đổi tên lại về `_srvTime`.)
-import { getOfflineQuiz, touchOfflineQuiz, setOfflineStamp } from './quiz-offline-store.js';
+import { getOfflineQuiz, touchOfflineQuiz, setOfflineStamp, patchOfflineQuiz, deleteOfflineQuiz } from './quiz-offline-store.js';
 import { getDocRest } from '../../core/firestore-rest.js';
 import { whenAuthReady } from '../../core/auth-session.js';
-import { db } from '../../core/firebase-init.js';
-import { doc, getDocFromServer } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { db, auth } from '../../core/firebase-init.js';
+import { doc, getDocFromServer, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { contentRev } from './quiz-attempt.js';
 
 export const LOCAL_FRESH_MS = 20 * 1000;                     // bản bộ đề trong máy còn "tươi" bao lâu thì khỏi hỏi lại Firestore (trước: 5 phút)
 
@@ -31,10 +32,66 @@ export function stampOf(v) {
 
 export const isLocalFresh = (local) => !!local && Date.now() - (Number(local._offlineSavedAt) || 0) < LOCAL_FRESH_MS;
 
-/** Một lượt REST nhỏ: `updateTime` + số câu của bộ đề trên máy chủ. Doc không tồn tại → null; lỗi → ném. */
+// ---- TÁCH PHIÊN BẢN NỘI DUNG KHỎI QUYỀN + METADATA (2026-11-10) ----
+// `contentRevision` trên quiz_sets = revision NỘI DUNG câu hỏi (băm, xem quiz-attempt.js contentRev) do máy chủ đánh dấu (api/publish-rev.js).
+// Mọi lần GHI câu hỏi phải bỏ trường này (questionsWritten() — luật bắt buộc với app; MCP / upload.py tự bỏ) → con trỏ không bao giờ trỏ
+// nội dung cũ. Nhờ vậy: đổi tiêu đề / chia sẻ (updateTime đổi, revision giữ) → chỉ vá metadata, DÙNG LẠI câu hỏi trong máy; sửa một phương án
+// → revision mất / đổi → tải lại. Lượt hỏi đầu (~1–2 KB) mang luôn trường quyền → bị thu hồi quyền thì biết ngay (403) trước khi dùng bản đệm.
+export const META_FIELDS = ['questionCount', 'contentRevision', 'title', 'description', 'userId', 'isPublic', 'publicUntil', 'sharedWith',
+    'editors', 'sharedBy', 'allowTakeout', 'allowOffline', 'folderId', 'deleted', 'updatedAt'];
+const FULL_MAX_AGE = 24 * 3600 * 1000;      // sửa thẳng trên Firebase console (không qua luật / MCP) → quá 24h vẫn tải đủ một lần
+/** Mọi chỗ ghi `questions` của quiz_sets trộn thêm cái này (firestore.rules bắt buộc khi câu hỏi đổi). */
+export const questionsWritten = () => ({ contentRevision: deleteField() });
+
+// Nhờ máy chủ đánh dấu revision hiện tại (api/publish-rev.js) — gọi lười khi thấy con trỏ thiếu / lệch nội dung, mỗi bộ đề một lần mỗi trang.
+// Không bao giờ ném.
+const _asked = new Set();
+export async function requestPublish(quizId) {
+    if (!quizId || _asked.has(quizId) || navigator.onLine === false) return null;
+    _asked.add(quizId);
+    try {
+        await whenAuthReady(1500);
+        const base = /\.vercel\.app$/i.test(location.hostname) ? location.origin : 'https://zitthenkne.vercel.app';
+        const headers = { 'Content-Type': 'application/json' };
+        if (auth.currentUser) headers.Authorization = `Bearer ${await auth.currentUser.getIdToken()}`;
+        const r = await fetch(new URL('api/publish-rev', base + '/').href, { method: 'POST', headers, body: JSON.stringify({ quizId }), cache: 'no-store' });
+        return r.ok ? await r.json() : null;
+    } catch (e) { return null; }
+}
+
+/** Một lượt REST nhỏ: `updateTime` + trường nhẹ (số câu, revision, tiêu đề, quyền) của bộ đề. Doc không tồn tại → null; lỗi → ném (403 mang code). */
 export async function fetchHead(quizId) {
     await whenAuthReady(1500);      // đã đăng nhập thì gửi kèm token (bộ riêng tư của chính mình), không thì đọc công khai
-    return getDocRest('quiz_sets', quizId, ['questionCount']);
+    return getDocRest('quiz_sets', quizId, META_FIELDS);
+}
+
+/**
+ * So bản máy với máy chủ bằng MỘT lượt hỏi nhẹ.
+ * @returns {Promise<{verdict:'same'|'meta'|'stale'|'denied'|'missing'|'error', head?:object, data?:object}>}
+ *   same  — y hệt (updateTime khớp)          meta — chỉ metadata đổi: `data` = bản máy đã vá (đã lưu lại), dùng lại câu hỏi
+ *   stale — nội dung đổi / không chắc → tải đủ  denied — máy chủ từ chối quyền (403)   missing — doc không còn
+ */
+export async function checkLocal(quizId, localData) {
+    if (!localData) return { verdict: 'stale' };
+    let head;
+    try { head = await fetchHead(quizId); }
+    catch (e) { return { verdict: e && e.code === 'permission-denied' ? 'denied' : 'error' }; }
+    if (!head) return { verdict: 'missing' };
+    const n = Array.isArray(localData.questions) ? localData.questions.length : -1;
+    const countOk = head.questionCount == null || head.questionCount === n;
+    if (localData._srvStamp && head._updateTime === localData._srvStamp && countOk) return { verdict: 'same', head };
+    const fullAge = Date.now() - (Number(localData._fullAt) || 0);
+    if (head.contentRevision && countOk && fullAge < FULL_MAX_AGE
+        && head.contentRevision === (localData._rev || contentRev(localData.questions))) {
+        const patch = { _srvStamp: head._updateTime || null };
+        const drop = [];
+        META_FIELDS.forEach(k => { if (k in head) patch[k] = head[k]; else drop.push(k); });
+        const data = { ...localData, ...patch };
+        drop.forEach(k => { delete data[k]; });
+        await patchOfflineQuiz(quizId, patch, drop).catch(() => {});
+        return { verdict: 'meta', head, data };
+    }
+    return { verdict: 'stale', head };
 }
 
 /** Hỏi dấu riêng (~1 KB). Trả Promise<dấu|null>, không bao giờ ném. */
@@ -64,15 +121,28 @@ export async function fetchQuizFull(quizId) {
     }
 }
 
-/** Bản máy còn khớp bản trên máy chủ không? Mọi lỗi → false (tải cả bộ như cũ). */
-export async function localStillCurrent(quizId, localData) {
-    if (!localData || !localData._srvStamp) return false;      // chưa từng xác nhận bằng dấu máy chủ → không tin
+/**
+ * Máy chủ từ chối quyền với bộ đề đang có bản trong máy (chia sẻ bị gỡ, link 1 thiết bị bị thu hồi, hết hạn công khai…).
+ * Hỏi lại MỘT lần với token mới (vừa đăng nhập / vừa xác nhận email / máy vừa đăng ký xong có thể còn mang token cũ); vẫn bị từ chối
+ * thì xóa bản máy để bản cũ hết mở được. Chủ bộ đề không bao giờ bị thu hồi. Trả true nếu đã thu hồi.
+ */
+export async function revokeLocal(quizId, localData) {
     try {
-        const head = await fetchHead(quizId);
-        if (!head || !head._updateTime) return false;
-        const n = Array.isArray(localData.questions) ? localData.questions.length : -1;
-        return head._updateTime === localData._srvStamp && (head.questionCount == null || head.questionCount === n);
+        const u = auth.currentUser;
+        if (localData && u && localData.userId === u.uid) return false;
+        if (u) await u.getIdToken(true).catch(() => {});
+        await new Promise(r => setTimeout(r, 1200));
+        try { await fetchHead(quizId); return false; }                       // lần hai đọc được → chỉ là lỗi tạm
+        catch (e) { if (!(e && e.code === 'permission-denied')) return false; }
+        await deleteOfflineQuiz(quizId);
+        return true;
     } catch (e) { return false; }
+}
+
+/** Bản máy còn dùng được không (y hệt, hoặc chỉ metadata đổi — đã vá)? Mọi lỗi / bị từ chối → false (nơi gọi tải cả bộ / tự xử lý quyền). */
+export async function localStillCurrent(quizId, localData) {
+    const { verdict } = await checkLocal(quizId, localData);
+    return verdict === 'same' || verdict === 'meta';
 }
 
 /**
@@ -84,9 +154,11 @@ export async function usableLocalQuiz(quizId) {
         const local = await getOfflineQuiz(quizId);
         if (!local || !Array.isArray(local.questions) || !local.questions.length) return null;
         if (isLocalFresh(local)) return local;
-        const verdict = await Promise.race([localStillCurrent(quizId, local), new Promise(r => setTimeout(() => r('slow'), 1500))]);
-        if (verdict === 'slow') return navigator.onLine === false || local._srvStamp ? local : null;
-        if (verdict) { touchOfflineQuiz(quizId); return local; }
+        const r = await Promise.race([checkLocal(quizId, local), new Promise(res => setTimeout(() => res({ verdict: 'slow' }), 1500))]);
+        if (r.verdict === 'slow') return navigator.onLine === false || local._srvStamp ? local : null;
+        if (r.verdict === 'same') { touchOfflineQuiz(quizId); return local; }
+        if (r.verdict === 'meta') return r.data;
+        if (r.verdict === 'denied') { await revokeLocal(quizId); return null; }
     } catch (e) { /* kho máy lỗi → tải như cũ */ }
     return null;
 }

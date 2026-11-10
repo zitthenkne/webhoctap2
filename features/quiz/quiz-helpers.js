@@ -767,17 +767,28 @@ const CO_CSS = `.quiz-quote{--co:var(--hue-lav,#B9A2F0);--co-ink:var(--ink-lav,#
 .co-butter{--co:var(--hue-butter,#F2BE2E);--co-ink:var(--ink-butter,#8C6500)}.co-peach{--co:var(--hue-peach,#F79A5E);--co-ink:var(--ink-peach,#B0551C)}
 .co-lav{--co:var(--hue-lav,#B9A2F0);--co-ink:var(--ink-lav,#6A4FB8)}.co-blossom{--co:var(--hue-blossom,#FF8FB8);--co-ink:var(--ink-blossom,#C8487A)}
 .co-latte{--co:var(--hue-latte,#C8A07A);--co-ink:var(--ink-latte,#83603F)}.co-bad{--co:var(--bad-solid,#E4646C);--co-ink:var(--bad-ink,#A33A42)}
-.quiz-callout{display:block;margin:.55rem 0;border:1.5px solid color-mix(in srgb,var(--co) 42%,transparent);border-left-width:5px;border-radius:14px;overflow:hidden;
-background:color-mix(in srgb,var(--co) 10%,var(--surface-card,#fff));--em-b:var(--co-ink);--em-i:var(--co-ink)}
-.qco-head{display:flex;align-items:center;gap:.5rem;padding:.42rem .8rem;font-weight:800;line-height:1.35;color:var(--co-ink);background:color-mix(in srgb,var(--co) 15%,transparent)}
-.quiz-callout>summary.qco-head{cursor:pointer;list-style:none;user-select:none}.quiz-callout>summary.qco-head::-webkit-details-marker{display:none}
-.quiz-callout:not([open])>summary.qco-head{background:none}
-.qco-ic{display:grid;place-items:center;flex-shrink:0;width:1.55rem;height:1.55rem;border-radius:999px;font-size:.72rem;background:var(--surface-card,#fff);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--co) 60%,transparent)}
-.qco-t{flex:1;min-width:0}.qco-chev{flex-shrink:0;font-size:.68rem;opacity:.75;transition:transform .2s}.quiz-callout[open]>summary .qco-chev{transform:rotate(180deg)}
-.qco-body{padding:.5rem .85rem .6rem}.qco-body>:first-child{margin-top:0}.qco-body>:last-child{margin-bottom:0}
-.quiz-quote{display:block;margin:.55rem 0;padding:.45rem .85rem;border-left:4px solid color-mix(in srgb,var(--co) 70%,transparent);border-radius:4px 12px 12px 4px;
-background:color-mix(in srgb,var(--co) 9%,transparent);--em-b:var(--co-ink);--em-i:var(--co-ink)}
+.quiz-callout{display:block;margin:.7rem 0;border:1.5px solid color-mix(in srgb,var(--co) 30%,transparent);border-radius:18px;overflow:hidden;
+background:linear-gradient(160deg,color-mix(in srgb,var(--co) 16%,var(--surface-card,#fff)),color-mix(in srgb,var(--co) 5%,var(--surface-card,#fff)) 75%);
+box-shadow:0 8px 20px -12px color-mix(in srgb,var(--co) 70%,transparent);--em-b:var(--co-ink);--em-i:var(--co-ink)}
+.qco-head{display:flex;align-items:center;gap:.6rem;padding:.6rem .9rem .3rem;font-weight:800;line-height:1.35;color:var(--co-ink)}
+.quiz-callout>summary.qco-head{cursor:pointer;list-style:none;user-select:none;padding-bottom:.6rem;transition:background .2s}
+.quiz-callout>summary.qco-head:hover{background:color-mix(in srgb,var(--co) 10%,transparent)}
+.quiz-callout>summary.qco-head::-webkit-details-marker{display:none}
+.quiz-callout[open]>summary.qco-head{padding-bottom:.3rem}
+.qco-ic{display:grid;place-items:center;flex-shrink:0;width:1.8rem;height:1.8rem;border-radius:.65rem;font-size:.78rem;color:#fff;rotate:-6deg;transition:rotate .25s;
+background:linear-gradient(145deg,color-mix(in srgb,var(--co) 75%,#fff),var(--co));text-shadow:0 1px 1px color-mix(in srgb,var(--co-ink) 55%,transparent);
+box-shadow:0 4px 10px -4px color-mix(in srgb,var(--co) 90%,transparent),inset 0 1px 0 rgba(255,255,255,.5)}
+.quiz-callout:hover .qco-ic{rotate:5deg}
+.qco-t{flex:1;min-width:0}
+.qco-chev{flex-shrink:0;display:grid;place-items:center;width:1.5rem;height:1.5rem;border-radius:999px;font-size:.62rem;background:color-mix(in srgb,var(--co) 18%,transparent);transition:transform .25s}
+.quiz-callout[open]>summary .qco-chev{transform:rotate(180deg)}
+.qco-body{padding:.2rem .95rem .75rem}.qco-body>:first-child{margin-top:0}.qco-body>:last-child{margin-bottom:0}
+.quiz-quote{position:relative;display:block;margin:.7rem 0;padding:.6rem 2rem .6rem 1.4rem;border-radius:16px;
+background:linear-gradient(135deg,color-mix(in srgb,var(--co) 14%,transparent),color-mix(in srgb,var(--co) 4%,transparent));--em-b:var(--co-ink);--em-i:var(--co-ink)}
+.quiz-quote::before{content:"";position:absolute;left:.55rem;top:.6rem;bottom:.6rem;width:4px;border-radius:99px;background:linear-gradient(var(--co),color-mix(in srgb,var(--co) 30%,transparent))}
+.quiz-quote::after{content:"\\201D";position:absolute;right:.6rem;top:.1rem;font:900 2.4rem/1 Georgia,serif;color:color-mix(in srgb,var(--co) 40%,transparent);pointer-events:none}
 .quiz-quote>:first-child{margin-top:0}.quiz-quote>:last-child{margin-bottom:0}
+@media (prefers-reduced-motion:reduce){.qco-ic,.qco-chev{transition:none}}
 .question-text :is(.quiz-callout,.quiz-quote){font-size:.86em}.question-text :is(.qco-body,.quiz-quote){font-weight:500}`;   // trong đề: đừng to + đậm bằng chính câu hỏi
 let _coCss = false;
 function ensureCalloutCss() {
@@ -793,18 +804,20 @@ function ensureCalloutCss() {
 // chấm đầu dòng rơi xuống dòng riêng. Chèn ĐẦU <head> như CO_CSS: CSS riêng từng trang (ui-min, phòng…) vẫn ghi đè được.
 // Màu đọc biến của trang (--em-b / --hue-* / --ink-*), thiếu thì dùng màu dự phòng -> đúng ở mọi trang, cả giao diện tối.
 const MD_DARK = ':is(html.theme-dark,html.dark,html[data-theme="dark"])';
-const MD_CSS = `.quiz-md-h{--h:var(--hue-blossom,#FF8FB8);font-weight:800;line-height:1.35;color:var(--em-b,var(--ink-blossom,#C8487A));margin:.5rem 0 .1rem;text-wrap:balance;overflow-wrap:anywhere}
+const MD_CSS = `.quiz-md-h{--h:var(--hue-blossom,#FF8FB8);font-weight:800;line-height:1.35;color:var(--em-b,var(--ink-blossom,#C8487A));margin:.6rem 0 .2rem;text-wrap:balance;overflow-wrap:anywhere}
 .quiz-md-h:first-child{margin-top:0}
-.quiz-md-h1{font-size:1.3em;padding-bottom:.3rem;border-bottom:2px solid color-mix(in srgb,var(--h) 45%,transparent)}
-.quiz-md-h2{font-size:1.16em;padding:.12rem .6rem .12rem .62rem;border-left:4px solid var(--h);border-radius:3px 10px 10px 3px;background:color-mix(in srgb,var(--h) 10%,transparent)}
-.quiz-md-h3{font-size:1.06em;position:relative;padding-left:1.05em}
-.quiz-md-h3::before{content:"";position:absolute;left:.12em;top:.46em;width:.42em;height:.42em;border-radius:.1em;background:var(--h);transform:rotate(45deg)}
-.quiz-md-h4{font-size:1em;text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--h) 55%,transparent);text-decoration-thickness:2px;text-underline-offset:.22em}
+.quiz-md-h1{font-size:1.32em;padding-bottom:.4rem;background:linear-gradient(90deg,var(--h),color-mix(in srgb,var(--h) 25%,transparent) 55%,transparent) left bottom/100% 3px no-repeat}
+.quiz-md-h2{font-size:1.15em;padding:.32rem .8rem .32rem 1rem;border-radius:12px;box-shadow:inset 4px 0 0 var(--h);
+background:linear-gradient(90deg,color-mix(in srgb,var(--h) 17%,transparent),color-mix(in srgb,var(--h) 3%,transparent))}
+.quiz-md-h3{font-size:1.06em;position:relative;padding-left:1.2em}
+.quiz-md-h3::before{content:"";position:absolute;left:.15em;top:.43em;width:.5em;height:.5em;border-radius:50%;background:var(--h);box-shadow:0 0 0 .2em color-mix(in srgb,var(--h) 25%,transparent)}
+.quiz-md-h4{font-size:1em;width:fit-content;max-width:100%;padding:0 .2em;border-radius:.25em;-webkit-box-decoration-break:clone;box-decoration-break:clone;
+background:linear-gradient(transparent 60%,color-mix(in srgb,var(--h) 32%,transparent) 60%)}
 .quiz-md-h5,.quiz-md-h6{font-size:.94em;font-weight:700;opacity:.85}
 .quiz-md-h6{font-style:italic}
 .quiz-md-h+.quiz-md-gap{height:.4rem}
 .quiz-md-gap{height:.85rem}
-.quiz-md-hr{border:0;height:0;border-top:2px dashed color-mix(in srgb,var(--hue-blossom,#FF8FB8) 45%,transparent);margin:.45rem 0}
+.quiz-md-hr{border:0;height:6px;width:min(100%,14rem);margin:.8rem auto;background:radial-gradient(circle,color-mix(in srgb,var(--hue-blossom,#FF8FB8) 65%,transparent) 1.6px,transparent 2.2px) center/12px 6px repeat-x}
 .quiz-list-container{--indent-step:1.7rem;--base-indent:1.25rem;--guide-color:rgba(255,105,180,.22);display:flex;flex-direction:column;margin:.55rem 0;padding-left:var(--base-indent)}
 .quiz-li{display:flex;align-items:flex-start;gap:.6rem;padding:.22rem 0;margin-left:calc(var(--lvl,0)*var(--indent-step))}
 .quiz-li[data-lvl]:not([data-lvl="0"]){border-left:2px solid var(--guide-color);padding-left:.85rem}

@@ -15,6 +15,7 @@
 import { auth, db } from './firebase-init.js';
 import { doc, getDoc, setDoc, onSnapshot, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { markMine, clearMine } from './scope.js';
 
 export const MAX_DEVICES = 2;
 export const EXEMPT_MAX = 20;                         // khớp EXEMPT_MAX trong api/devices.js
@@ -207,9 +208,15 @@ async function callApi(path, body) {
 export const placeOf = (e) => [e?.city, e?.country].filter(Boolean).join(', ');
 
 let kicked = false;
+// MÁY CỦA TÔI (2026-11-10): máy này đang nằm trong danh sách máy hợp lệ của tài khoản (users/{uid}/private/devices, máy chủ ghi) →
+// nhớ uid vào localStorage để biết ngay cả khi mất mạng. Đủ điều kiện này là được làm offline (features/quiz/quiz-offline-store.js).
+// Bị đẩy ra / đăng xuất máy này → xóa.
+// (markMine / clearMine / isMyDevice nằm ở core/scope.js — kho offline đọc được mà không phải nạp Firebase)
+
 async function kickOut(reason) {
     if (kicked) return;
     kicked = true;
+    clearMine();
     try {
         const { forgetSession } = await import('./auth-session.js');
         forgetSession();                 // đăng xuất chủ động: không báo nhầm "phiên hết hạn"
@@ -253,6 +260,7 @@ export async function watchDevices(user) {
         try {
             const r = await callDevices({ action: 'register', deviceId: me, label: deviceLabel(), fresh });
             settled = true;
+            if (r.present) markMine(user.uid);
             if (!r.present) {
                 kickOut(`Tài khoản này đang đăng nhập trên đủ ${r.limit || MAX_DEVICES} máy khác. Máy này đã được đăng xuất — đăng nhập lại sẽ đẩy máy cũ nhất ra.`);
                 return;
@@ -269,7 +277,7 @@ export async function watchDevices(user) {
             // Token chưa có claim `approved` (tài khoản cũ chưa duyệt) → vẫn gọi máy chủ để được duyệt tự động
             ok = !fresh && claims.approved === true && snap.exists() && (snap.data().list || []).some(d => d.id === me && d.authTime === authTime);
         } catch (e) { /* mạng chập chờn: để máy chủ xử lý */ }
-        if (ok) settled = true; else await ensure();
+        if (ok) { settled = true; markMine(user.uid); } else await ensure();
     }
     let tokenAt = (Number(claims.iat) || 0) * 1000;
     unsub = onSnapshot(devRef(user.uid), (snap) => {
@@ -281,7 +289,8 @@ export async function watchDevices(user) {
             user.getIdToken(true).then(() => window.dispatchEvent(new Event('auth:claims'))).catch(() => {});
         }
         const list = snap.exists() && Array.isArray(snap.data().list) ? snap.data().list : [];
-        if (!list.some(d => d.id === me)) {
+        if (list.some(d => d.id === me)) markMine(user.uid);
+        else {
             kickOut('Tài khoản vừa đăng nhập trên máy khác (vượt số máy cho phép) hoặc máy này bị đăng xuất từ xa. Máy này đã được đăng xuất.');
         }
     }, () => {});
@@ -292,6 +301,7 @@ export function stopWatchingDevices() { unsub?.(); unsub = null; watchingUid = n
 /** Đăng xuất chủ động trên máy này: nhả chỗ trong danh sách để máy khác dùng. Lỗi mạng → bỏ qua. */
 export async function releaseThisDevice() {
     stopWatchingDevices();
+    clearMine();
     try { await callDevices({ action: 'release', deviceId: deviceId() }); } catch (e) { /* chỗ này được nhả khi máy khác đăng nhập */ }
 }
 

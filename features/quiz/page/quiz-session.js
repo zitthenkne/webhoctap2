@@ -4,14 +4,15 @@
 // Tách từ quiz-page.js — logic giữ nguyên.
 
 import { db, auth } from '../../../core/firebase-init.js';
-import { whenAuthReady, refreshEmailVerified } from '../../../core/auth-session.js';
+import { whenAuthReady, refreshEmailVerified, sessionUser } from '../../../core/auth-session.js';
 import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { showToast } from '../../../core/utils.js';
 import { applyLocalQuestionEdits } from '../quiz-editor.js';
-import { getOfflineQuiz, autoCacheQuiz, isOfflineSavedSync, saveOfflineQuiz, extractQuizImageUrls, cacheQuizImages, touchOfflineQuiz, deleteOfflineQuiz, offlineAllowed, offlineAllowedSync } from '../quiz-offline-store.js';
-import { LOCAL_FRESH_MS, localStillCurrent, fetchQuizFull } from '../quiz-fresh.js';
-import { state, saveQuizState, clearQuizState, saveQuizResult, updateQuizResultScore, markQuizStateFinished } from '../quiz-state.js';
+import { getOfflineQuiz, autoCacheQuiz, isOfflineSavedSync, saveOfflineQuiz, extractQuizImageUrls, cacheQuizImages, touchOfflineQuiz, deleteOfflineQuiz, offlineAllowed, offlineAllowedSync, quizOfflineOk } from '../quiz-offline-store.js';
+import { LOCAL_FRESH_MS, checkLocal, revokeLocal, fetchQuizFull, stampOf, requestPublish } from '../quiz-fresh.js';
+import { state, saveQuizState, clearQuizState, saveQuizResult, updateQuizResultScore, markQuizStateFinished, newAttemptId, sealAttempt } from '../quiz-state.js';
 import { shuffleArray, shuffleQuestionOptions, isAnswerCorrect, sessionScore } from '../quiz-helpers.js';
+import { restoredRemaining, newTiming, sealContent, contentRev } from '../quiz-attempt.js';
 import { isEssay, isPendingEssay, withAutoGrade } from '../quiz-essay-core.js';
 import { showSubmitQuizBtn, loadQuizDetails, showResults, toggleFocusMode } from '../quiz-ui.js';
 import { getVibrate, sfx } from './quiz-page-prefs.js';
@@ -53,6 +54,15 @@ const PRIVATE_QUIZ_MSG = () => {
     return `Bộ đề này không công khai và chưa được chia sẻ cho ${u.email}. Nhờ tác giả thêm email của bạn vào phần Chia sẻ.`;
 };
 
+const EXPIRED_MSG = 'Link công khai của bộ đề này đã HẾT HẠN. Nhờ chủ bộ đề mở Chia sẻ để gia hạn, rồi bấm Thử lại.';
+// Bản đệm cần xác nhận quyền trước khi dùng? — không phải đề của mình và không phải đề công khai còn hạn (theo dữ liệu trong máy)
+function needsAccessCheck(d) {
+    const me = sessionUser();
+    if (me && d.userId === me.uid) return false;
+    const until = stampOf(d.publicUntil);
+    return !(d.isPublic === true && (!d.publicUntil || until > Date.now()));
+}
+
 // Biến trang thiết lập thành card lỗi rõ ràng (icon + thông điệp + Thử lại / Về trang chủ)
 // thay vì kẹt ở "Đang tải thông tin..." với tiêu đề "Lỗi" khô khan.
 function showLandingError(message, { showRetry = true } = {}) {
@@ -90,6 +100,7 @@ function prefetchQuizImages(questions) {
 // Tự động tải lưu offline hoàn chỉnh vào IndexedDB và nạp cache ảnh ngầm
 async function autoSaveAndNotify(quizId, data) {
     if (!data || !Array.isArray(data.questions) || !data.questions.length) return;
+    if (!quizOfflineOk(data)) return;               // đề người khác mà chủ chưa cho offline → không tự lưu (quiz-offline-store.js)
     if (!await offlineAllowed()) return;            // chưa được mở "Làm offline" → không lưu đề về máy
     const wasSaved = isOfflineSavedSync(quizId);
     const imgUrls = extractQuizImageUrls(data.questions);
@@ -123,6 +134,8 @@ function setupOfflineDownloadBtn(quizId) {
     const label = document.getElementById('offline-download-label');
 
     const updateStatus = () => {
+        // Đề người khác: chỉ có nút khi chủ bật "Cho tải về làm offline". Chưa biết dữ liệu bộ đề thì chưa hiện.
+        btn.style.display = state.quizData && quizOfflineOk(state.quizData) ? '' : 'none';
         const isOffline = !navigator.onLine;
         const isSaved = isOfflineSavedSync(quizId);
 
@@ -202,8 +215,9 @@ export async function loadQuizData() {
 
     // Dùng bộ đề (từ IndexedDB hoặc Firestore) để nạp vào state và hiển thị trang chờ
     const applyQuizData = (data) => {
-        state.quizData = data;
+        state.quizData = { ...data };   // bản riêng của trang: bản vừa tải (đang được lưu offline) giữ nguyên nội dung máy chủ
         state.quizData.id = quizId;
+        sealContent(state.quizData);   // revision + dấu từng câu của bản MÁY CHỦ — trước khi áp chỉnh sửa cục bộ (quiz-attempt.js)
         applyLocalQuestionEdits();
         state.originalQuestions = state.quizData.questions;
         loadQuizDetails();
@@ -227,6 +241,17 @@ export async function loadQuizData() {
     try {
         localData = await getOfflineQuiz(quizId);
         if (localData && Array.isArray(localData.questions) && localData.questions.length > 0) {
+            // Bộ đề người khác chia sẻ riêng / link 1 thiết bị: có mạng thì xác nhận QUYỀN (lượt hỏi nhẹ, tối đa 1,5s) TRƯỚC khi dùng bản đệm —
+            // bị gỡ chia sẻ / thu hồi link thì bản cũ không mở được nữa. Đề của mình / đề công khai còn hạn: hiện ngay như cũ.
+            if (navigator.onLine !== false && needsAccessCheck(localData)) {
+                const r = await Promise.race([checkLocal(quizId, localData), new Promise(res => setTimeout(() => res({ verdict: 'slow' }), 1500))]);
+                if (r.verdict === 'denied' && await revokeLocal(quizId, localData)) {
+                    showLandingError(await linkExpired(quizId) ? EXPIRED_MSG : PRIVATE_QUIZ_MSG(), { showRetry: true });
+                    return;
+                }
+                if (r.verdict === 'meta') localData = r.data;
+                if (r.verdict === 'same') touchOfflineQuiz(quizId);
+            }
             applyQuizData(localData);
             prefetchQuizImages(localData.questions);
         } else {
@@ -265,7 +290,24 @@ export async function loadQuizData() {
         try {
             const cur = force ? localData : (await getOfflineQuiz(quizId)) || localData;
             if (!force && cur && ageOf(cur) < LOCAL_FRESH_MS) return;            // vừa xác nhận xong, khỏi hỏi lại
-            if (cur && await localStillCurrent(quizId, cur)) { failStreak = 0; touchOfflineQuiz(quizId); return; }
+            if (cur) {
+                // MỘT lượt hỏi nhẹ (quiz-fresh.js checkLocal): y hệt → giữ; chỉ đổi tiêu đề / chia sẻ → vá metadata, dùng lại câu hỏi;
+                // bị thu hồi quyền → xóa bản máy; nội dung đổi → tải đủ bên dưới.
+                const r = await checkLocal(quizId, cur);
+                if (r.verdict === 'same') { failStreak = 0; touchOfflineQuiz(quizId); return; }
+                if (r.verdict === 'meta') {
+                    failStreak = 0;
+                    localData = r.data;
+                    if (!isPlayingNow()) applyQuizData(r.data);
+                    return;
+                }
+                if (r.verdict === 'denied' && await revokeLocal(quizId, cur)) {
+                    localData = null;
+                    if (!isPlayingNow()) showLandingError(await linkExpired(quizId) ? EXPIRED_MSG : PRIVATE_QUIZ_MSG(), { showRetry: true });
+                    else showToast('Quyền mở bộ đề này vừa bị thu hồi — bản trong máy đã được xóa.', 'warning', 6000);
+                    return;
+                }
+            }
             const docRef = doc(db, "quiz_sets", quizId);
             // Tải cả bộ kèm dấu máy chủ CÙNG phản hồi (quiz-fresh.js: không bao giờ nhận bản cache cũ của SDK). Chưa có bản máy thì không còn gì
             // để lùi về → cứ chờ (REST tự ngắt sau 15s), đừng báo "không tìm thấy" oan chỉ vì mạng chậm.
@@ -330,6 +372,10 @@ export async function loadQuizData() {
                         console.warn("Không thể tải payload questions từ quiz_payloads:", pErr);
                     }
                 }
+
+                // Con trỏ revision thiếu / lệch nội dung → nhờ máy chủ đánh dấu (lần sau đổi tiêu đề / chia sẻ khỏi tải lại câu hỏi)
+                if (Array.isArray(remoteData.questions) && remoteData.questions.length
+                    && remoteData.contentRevision !== contentRev(remoteData.questions)) requestPublish(quizId);
 
                 // Lưu bản máy kèm dấu máy chủ để lần sau chỉ cần hỏi dấu
                 const srvStamp = full.stamp;
@@ -422,6 +468,12 @@ export function startQuizMode(questionsArray, mode = 'normal', restoreState = nu
     // Bảo đảm thông tin thứ tự câu trong ca lâm sàng luôn có mặt cho mọi đường vào
     // (luyện tập lại, khôi phục bài làm dở...), không chỉ riêng startQuizWithCurrentSettings.
     tagCaseSequence(state.questions);
+    // Niêm phong lượt: định danh lượt (dùng chung khi làm tiếp ở máy khác) + revision đề của lượt (quiz-attempt.js)
+    state.attemptId = (restoreState && restoreState.attemptId) || newAttemptId();
+    state._seqBase = (restoreState && Number(restoreState.seq)) || 0;
+    if (!restoreState) state.questions.forEach(q => { delete q.__bp; });   // luyện lại câu sai: câu mang __bp của lượt trước
+    sealAttempt(restoreState ? restoreState._attemptSource : state.quizData,
+        restoreState ? (restoreState._attemptRev !== undefined ? restoreState._attemptRev : restoreState.revisionId) : null);
 
     const quizLanding = document.getElementById('quiz-landing');
     const quizContainer = document.getElementById('quiz-container');
@@ -467,15 +519,26 @@ export function startQuizMode(questionsArray, mode = 'normal', restoreState = nu
     state._timingEnterAt = 0;
 
     if (state.quizTimerInterval) clearInterval(state.quizTimerInterval);
+    state.quizTimerInterval = null;
+    clearPauseUi();
+    // Hợp đồng đồng hồ của lượt (quiz-attempt.js): chính sách + deadline / số giây còn lại. Khôi phục: 0 = ĐÃ HẾT GIỜ (nộp luôn, không
+    // phát lại đủ giờ); đang tạm dừng thì vào lại vẫn tạm dừng; chế độ 'deadline' tính theo giờ thật kể cả lúc đóng trang / đổi máy.
+    let expiredOnRestore = false, pausedOnRestore = false;
     if (state.quizOptions.isTimed) {
-        let totalSeconds = 0;
-        if (state.quizOptions.timedMinutes && !isNaN(state.quizOptions.timedMinutes)) {
-            totalSeconds = state.quizOptions.timedMinutes * 60;
+        const limit = Math.max(0, (parseInt(state.quizOptions.timedMinutes, 10) || 0) * 60);
+        const left = restoreState ? restoredRemaining(restoreState) : null;
+        state.timing = restoreState && restoreState.timing ? { ...restoreState.timing }
+            : newTiming(left ?? limit, state.quizOptions.timerPolicy);
+        const secs = left ?? limit;
+        if (restoreState && left === 0) {
+            expiredOnRestore = true;
+            state.timeLeft = 0;
+        } else if (secs > 0) {
+            pausedOnRestore = !!(restoreState && state.timing.paused && state.timing.policy !== 'deadline');
+            startTimer(secs);
         }
-        // Khôi phục bài dở: đếm tiếp phần giờ CÒN LẠI, không phát lại đủ giờ
-        if (restoreState && restoreState.timeLeft > 0) totalSeconds = restoreState.timeLeft;
-        startTimer(totalSeconds);
     } else {
+        state.timing = null;
         state.timeLeft = null;
     }
 
@@ -518,6 +581,12 @@ export function startQuizMode(questionsArray, mode = 'normal', restoreState = nu
         if (resultsSection && !resultsSection.classList.contains('hidden')) return;
         saveQuizState();
     }, 15000);
+
+    if (expiredOnRestore) {
+        setTimeout(() => { showToast('Lượt này đã hết giờ — bài được nộp với các câu đã trả lời.', 'info', 5000); endQuiz(); }, 300);
+    } else if (pausedOnRestore) {
+        pauseTimer();
+    }
 }
 
 export function endQuiz() {
@@ -653,6 +722,9 @@ export function startTimer(totalSeconds) {
     // (Bản cũ vừa elapsed++ vừa totalSeconds-- mỗi nhịp -> đồng hồ chạy GẤP ĐÔI, 30 phút hết sau 15 phút.)
     const endAt = Date.now() + totalSeconds * 1000;
     state.timeLeft = totalSeconds;
+    // Bật tính giờ giữa bài (bảng thiết lập) = hợp đồng mới đếm từ bây giờ
+    if (!state.timing) state.timing = newTiming(totalSeconds, state.quizOptions.timerPolicy);
+    state.timing.paused = false;
     clearInterval(state.quizTimerInterval);
     state.quizTimerInterval = setInterval(() => {
         const remaining = Math.max(0, Math.round((endAt - Date.now()) / 1000));
@@ -698,7 +770,12 @@ function clearPauseUi() {
 export function isTimerPaused() { return pausedLeft !== null; }
 export function pauseTimer() {
     if (pausedLeft !== null || !state.quizTimerInterval) return false;
+    if (state.timing && state.timing.policy === 'deadline') {
+        showToast('Lượt thi này tính giờ theo mốc cố định — không tạm dừng được.', 'info');
+        return false;
+    }
     pausedLeft = state.timeLeft;
+    if (state.timing) state.timing.paused = true;
     clearInterval(state.quizTimerInterval);
     state.quizTimerInterval = null;
     accrueTime();
@@ -738,6 +815,7 @@ export function stopTimer() {
     if (state.quizTimerInterval) clearInterval(state.quizTimerInterval);
     state.quizTimerInterval = null;
     state.timeLeft = null;
+    state.timing = null;
     clearPauseUi();
     const timerDisplay = document.getElementById('timerDisplay');
     if (timerDisplay) {

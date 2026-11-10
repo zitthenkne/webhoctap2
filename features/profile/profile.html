@@ -521,6 +521,11 @@
                         <p class="text-[12px] font-bold text-slate-600 mt-3 mb-1 pl-1">Đăng nhập gần đây</p>
                         <ul id="logins-list" class="space-y-1"></ul>
                         <p class="text-[11px] text-slate-400 mt-1.5 pl-1 leading-snug">Mỗi tài khoản đăng nhập tối đa 2 máy. Đăng nhập máy thứ 3 thì máy đăng nhập lâu nhất tự đăng xuất. Trên iPhone/iPad, Safari và ứng dụng ngoài màn hình chính tính là 2 máy.</p>
+                        <!-- Chế độ máy (core/scope.js): cá nhân giữ dữ liệu offline; dùng chung chỉ giữ trong phiên, đăng xuất là xóa -->
+                        <div class="mt-3 flex items-center justify-between gap-2 pl-1">
+                            <span class="text-[12px] font-bold text-slate-600">Máy này: <b id="device-mode-label">Máy cá nhân</b></span>
+                            <button type="button" id="device-mode-btn" class="text-[11px] font-extrabold text-pink-500 hover:underline">Đổi</button>
+                        </div>
                     </div>
 
                     <!-- QUẢN TRỊ TOÀN QUYỀN — chỉ hiện với admin (profile.js renderAdmin) -->

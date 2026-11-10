@@ -23,14 +23,18 @@
 //     }
 //   Mỗi annotation mang `ts` (lần sửa cuối): hai máy cùng sửa một ghi chú cụm từ -> bản ts mới hơn thắng.
 //
-// LƯU Ý khi thêm loại dữ liệu mới: pushCloudStudy setDoc GHI ĐÈ TOÀN DOC, nên
-// field mới phải đi qua ĐỦ readLocalStudy / writeLocalStudy / mapsToArrays /
-// arraysToMaps / mergeStudy — thiếu một chỗ là chu trình pull→push xóa mất nó.
+//   Từ 2026-11-10 ghi chú / đánh dấu / dấu tô lên cloud theo TỪNG BẢN GHI (map nx / mx / ax — xem "ĐỒNG BỘ TỪNG THAO TÁC"); ba mảng
+//   trên chỉ còn là dữ liệu đời cũ được đọc làm nền. srs vẫn là mảng, kèm bản tóm tắt srsSum cho chuông ôn.
+//   tiến trình làm dở: branches.<deviceId> (mỗi máy một nhánh) + inProgress = dấu "lượt đã nộp".
+//
+// LƯU Ý khi thêm loại dữ liệu mới: field mới phải đi qua ĐỦ readLocalStudy / writeLocalStudy / mapsToArrays /
+// arraysToMaps / mergeStudy (hoặc flatStudy / cloudFlat nếu đồng bộ theo bản ghi) — thiếu một chỗ là chu trình pull→push xóa mất nó.
 
 import { db } from '../../core/firebase-init.js';
-import { srsKeys, mergeSrsMaps, readSrsMeta } from './quiz-srs-store.js';
+import { srsKeys, mergeSrsMaps, readSrsMeta, summarizeSrs } from './quiz-srs-store.js';
+import { hash64 } from './quiz-attempt.js';
 import { makeCoalescer } from './quiz-coalesce.js';
-import { doc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { doc, getDoc, serverTimestamp, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 // Ghi không treo khi mất mạng (xem core/offline-write.js)
 import { setDocQ as setDoc } from "../../core/offline-write.js";
 
@@ -194,61 +198,161 @@ const dropStudyDoc = (uid, quizId) => _docCache.delete(studyDocId(uid, quizId));
 
 // 2) Chữ ký nội dung lần ghi/đọc gần nhất: dữ liệu y hệt thì KHÔNG ghi lại (trước đây mỗi lần mở đề đều ghi lại bản
 //    vừa kéo về, dù không có gì đổi). Sắp xếp để thứ tự mảng khác nhau không làm lệch chữ ký.
-const _studySig = new Map();   // docId -> chữ ký ghi chú/đánh dấu/annotation/srs đã có trên cloud
-const _progSig = new Map();    // docId -> chữ ký tiến trình dở đã có trên cloud (bỏ savedAt)
-function studySig(a, meta) {
-    const by = (arr, f) => (arr || []).map(f).sort((x, y) => String(x.q).localeCompare(String(y.q)));
-    return JSON.stringify([
-        by(a.notes, x => x), by(a.marks, x => x),
-        by(a.annotations, x => ({ q: x.q, items: (x.items || []).map(i => JSON.stringify(i)).sort() })),
-        by(a.srs, x => x),
-        (a.annotDel || []).map(x => x.id + ':' + x.ts).sort(),
-        meta.title || '', meta.total | 0, !!meta.paused, Number(meta.pausedAt) || 0
-    ]);
-}
-function progSig(p) { const { savedAt, ...rest } = p || {}; return JSON.stringify(rest); }
+const _studySig = new Map();   // docId -> chữ ký lịch ôn + bia mộ + meta đã có trên cloud (ghi chú / đánh dấu / dấu tô: so bản gốc — xem dưới)
+const _progSig = new Map();    // docId/thiết bị -> chữ ký nhánh tiến trình dở đã có trên cloud (bỏ savedAt)
+function progSig(p) { const { savedAt, seq, ...rest } = p || {}; return JSON.stringify(rest); }
 
-// Tải dữ liệu học tập từ cloud (đã chuyển về dạng map). Trả về null nếu chưa có.
+// ----- ĐỒNG BỘ TỪNG THAO TÁC ghi chú / đánh dấu / dấu tô (2026-11-10) -----
+// Trước đây mỗi lần đẩy là gửi lại CẢ mảng notes / marks / annotations, và hợp nhất kiểu "hợp hai phía": máy A xóa ghi chú X lúc offline,
+// máy B sửa ghi chú Y — A có mạng lại kéo về thấy X vẫn ở cloud nên X SỐNG LẠI. Nay:
+//   - Trên cloud mỗi bản ghi là MỘT khóa trong map: nx.<khóa câu> = { q, t|null, ts } (ghi chú), mx.<…> = { q, r|null, ts } (đánh dấu),
+//     ax.<khóa dấu tô> = { q, it|null, ts } (khóa = id dấu tô, đời cũ theo vị trí). null = đã xóa (dấu xóa). setDoc merge chỉ ghi các khóa
+//     vừa đổi → mỗi lần đẩy là một cụm nhỏ, hai máy sửa / xóa hai bản ghi khác nhau không đè nhau.
+//   - Máy nhớ "bản gốc" = cloud có gì ở lần đồng bộ trước (quiz_study_base_<id>). Đẩy = khác biệt máy ↔ bản gốc. Kéo = hợp nhất 3 chiều:
+//     bên nào khác bản gốc thì bên đó vừa đổi; cả hai cùng đổi một bản ghi → preferCloud quyết (sửa thắng xóa để không mất chữ).
+//   - Mảng notes / marks / annotations đời cũ vẫn đọc làm nền (máy chạy bản cũ còn ghi vào đó); lần đẩy đầu chuyển hẳn sang map rồi gỡ mảng.
+const opKey = (s) => 'k' + hash64(String(s)).slice(0, 12);
+const annKeyOf = (q, it) => opKey(it && it.id ? 'id:' + it.id
+    : q + '|' + (typeof it.start === 'number' ? `${it.scope}|${it.type}|${it.start}|${it.end}` : `${it.scope}|${it.text}|${it.type}`));
+const baseKey = (quizId) => `quiz_study_base_${quizId || 'default_quiz'}`;
+const SECTIONS = [['n', 'nx', 't'], ['m', 'mx', 'r'], ['a', 'ax', 'it']];   // [mục phẳng, trường cloud, tên giá trị]
+
+/** Map theo qText → dạng phẳng { n:{khóa:{q,t}}, m:{khóa:{q,r}}, a:{khóa:{q,it}} }. */
+export function flatStudy(data) {
+    const f = { n: {}, m: {}, a: {} };
+    Object.entries(data.notes || {}).forEach(([q, t]) => { if (t != null && String(t).trim() !== '') f.n[opKey(q)] = { q, t }; });
+    Object.entries(data.marks || {}).forEach(([q, r]) => { if (r) f.m[opKey(q)] = { q, r }; });
+    Object.entries(data.annotations || {}).forEach(([q, items]) => (Array.isArray(items) ? items : []).forEach(it => {
+        if (it) f.a[annKeyOf(q, it)] = { q, it };
+    }));
+    return f;
+}
+function unflatStudy(f) {
+    const notes = {}, marks = {}, annotations = {};
+    Object.values(f.n).forEach(({ q, t }) => { notes[q] = t; });
+    Object.values(f.m).forEach(({ q, r }) => { marks[q] = r; });
+    Object.values(f.a).forEach(({ q, it }) => { (annotations[q] = annotations[q] || []).push(it); });
+    return { notes, marks, annotations };
+}
+/** Doc quiz_study → dạng phẳng: mảng đời cũ làm nền, map thao tác (nx/mx/ax) đè lên, dấu xóa annotDel bỏ dấu tô. */
+function cloudFlat(d) {
+    const legacy = arraysToMaps(d);
+    const f = flatStudy(legacy);
+    SECTIONS.forEach(([s, field, val]) => {
+        Object.entries(d[field] || {}).forEach(([k, e]) => {
+            if (!e || typeof e !== 'object') return;
+            if (e[val] == null || e[val] === '') delete f[s][k];
+            else f[s][k] = { q: e.q, [val]: e[val] };
+        });
+    });
+    Object.keys(f.a).forEach(k => { const id = f.a[k].it && f.a[k].it.id; if (id && legacy.annotDel[id]) delete f.a[k]; });
+    return f;
+}
+/** Doc quiz_study bất kỳ → { notes, marks, annotations, srs, annotDel } dạng map (trang Thống kê đọc thẳng doc cũng dùng). */
+export function decodeStudyDoc(d) {
+    const legacy = arraysToMaps(d || {});
+    return { ...unflatStudy(cloudFlat(d || {})), srs: legacy.srs, annotDel: legacy.annotDel };
+}
+const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+/** Hợp nhất 3 chiều trên dạng phẳng. */
+export function merge3(base, local, cloud, preferCloud = false) {
+    const out = { n: {}, m: {}, a: {} };
+    ['n', 'm', 'a'].forEach(s => {
+        new Set([...Object.keys(base[s] || {}), ...Object.keys(local[s] || {}), ...Object.keys(cloud[s] || {})]).forEach(k => {
+            const b = (base[s] || {})[k], l = (local[s] || {})[k], c = (cloud[s] || {})[k];
+            let v;
+            if (same(l, b)) v = c;                 // máy không đổi → theo cloud (cloud sửa / xóa đều nhận)
+            else if (same(c, b)) v = l;            // cloud không đổi → theo máy
+            else if (s === 'a' && l && c) v = (Number(c.it.ts) || 0) > (Number(l.it.ts) || 0) || (preferCloud && Number(c.it.ts) === Number(l.it.ts)) ? c : l;
+            else { v = preferCloud ? c : l; if (v === undefined) v = preferCloud ? l : c; }   // cả hai đổi: sửa thắng xóa
+            if (v !== undefined) out[s][k] = v;
+        });
+    });
+    return out;
+}
+function readBase(quizId) {
+    try { const v = JSON.parse(localStorage.getItem(baseKey(quizId)) || 'null'); return v && v.n && v.m && v.a ? v : null; }
+    catch (e) { return null; }
+}
+function writeBase(quizId, f) { try { localStorage.setItem(baseKey(quizId), JSON.stringify(f)); } catch (e) {} }
+const _hasLegacy = new Map();   // docId -> doc còn mảng đời cũ (lần đẩy kế tiếp chuyển hẳn sang map)
+
+// Tải dữ liệu học tập từ cloud (đã chuyển về dạng map). Trả về null nếu chưa có. `_flat` (không liệt kê) = dạng phẳng cho hợp nhất 3 chiều.
 export async function fetchCloudStudy(uid, quizId) {
     if (!uid || !quizId) return null;
     try {
         const snap = await getStudyDoc(uid, quizId);
         if (!snap.exists()) return null;
         const d = snap.data() || {};
-        _studySig.set(studyDocId(uid, quizId), studySig(mapsToArrays(arraysToMaps(d)),
+        const id = studyDocId(uid, quizId);
+        _hasLegacy.set(id, ['notes', 'marks', 'annotations'].some(k => Array.isArray(d[k]) && d[k].length));
+        _studySig.set(id, srsSig(mapsToArrays(arraysToMaps(d)).srs, mapsToArrays(arraysToMaps(d)).annotDel,
             { title: d.srsTitle, total: d.srsTotal, paused: d.srsPaused, pausedAt: d.srsPausedAt }));
-        return arraysToMaps(d);
+        const out = decodeStudyDoc(d);
+        Object.defineProperty(out, '_flat', { value: cloudFlat(d), enumerable: false });
+        return out;
     } catch (e) {
         console.warn('Không tải được dữ liệu học tập từ cloud:', e);
         return null;
     }
 }
+function srsSig(srs, annotDel, meta) {
+    return JSON.stringify([
+        (srs || []).slice().sort((x, y) => String(x.q).localeCompare(String(y.q))),
+        (annotDel || []).map(x => x.id + ':' + x.ts).sort(),
+        meta.title || '', meta.total | 0, !!meta.paused, Number(meta.pausedAt) || 0
+    ]);
+}
 
-// Đẩy dữ liệu học tập (dạng map) lên cloud. Bỏ qua nếu chưa đăng nhập.
+// Đẩy dữ liệu học tập (dạng map) lên cloud: CHỈ các bản ghi khác bản gốc (+ lịch ôn nếu đổi). Bỏ qua nếu chưa đăng nhập.
 export async function pushCloudStudy(uid, quizId, data) {
     if (!uid || !quizId) return false;
     try {
         const id = studyDocId(uid, quizId);
         const ref = doc(db, 'quiz_study', id);
+        const local = flatStudy(data);
+        const base = readBase(quizId) || { n: {}, m: {}, a: {} };
+        const migrate = _hasLegacy.get(id) === true;
+        const ts = Date.now();
+        const ops = {};
+        SECTIONS.forEach(([s, field, val]) => {
+            const out = {};
+            new Set([...Object.keys(local[s]), ...Object.keys(base[s])]).forEach(k => {
+                const l = local[s][k], b = base[s][k];
+                if (!migrate && same(l, b)) return;
+                out[k] = l ? { q: l.q, [val]: l[val], ts } : { q: b.q, [val]: null, ts };
+            });
+            if (Object.keys(out).length) ops[field] = out;
+        });
         const arrays = mapsToArrays(data);
         // Kèm tên/số câu của bộ đề (từ meta SRS cục bộ) để chuông thông báo trên
         // index đọc thẳng từ cloud được — máy mới chưa từng mở bộ đề vẫn hiện đúng.
         const meta = readSrsMeta(quizId);
-        const sig = studySig(arrays, meta);
-        if (_studySig.get(id) === sig) return true;   // y hệt bản đang có trên cloud: khỏi ghi
+        const withSrs = !!data.srs;      // bên gọi chỉ cầm ghi chú (trang Lịch sử cũ) không được xóa trắng lịch ôn
+        const sig = srsSig(withSrs ? arrays.srs : null, arrays.annotDel, meta);
+        const srsChanged = withSrs && _studySig.get(id) !== sig;
+        if (!Object.keys(ops).length && !srsChanged && !migrate) return true;   // không có gì mới: khỏi ghi
         await setDoc(ref, {
             userId: uid,
             quizId,
-            ...arrays,
-            srsTitle: meta.title || '',
-            srsTotal: meta.total | 0,
-            // Trạng thái tạm dừng ôn ngắt quãng — scalar last-write-wins theo
-            // pausedAt; máy khác adopt trong syncSrsFromCloud (quiz-srs-bell.js)
-            srsPaused: !!meta.paused,
-            srsPausedAt: Number(meta.pausedAt) || 0,
+            ...ops,
+            ...(migrate ? { notes: deleteField(), marks: deleteField(), annotations: deleteField() } : {}),
+            ...(srsChanged ? {
+                srs: arrays.srs,
+                srsSum: summarizeSrs(data.srs),        // bản tóm tắt cho chuông ôn (quiz-srs-bell.js) — không phải kéo cả mảng srs
+                annotDel: arrays.annotDel,
+                srsTitle: meta.title || '',
+                srsTotal: meta.total | 0,
+                // Trạng thái tạm dừng ôn ngắt quãng — scalar last-write-wins theo
+                // pausedAt; máy khác adopt trong syncSrsFromCloud (quiz-srs-bell.js)
+                srsPaused: !!meta.paused,
+                srsPausedAt: Number(meta.pausedAt) || 0,
+            } : {}),
             updatedAt: serverTimestamp(),
         }, { merge: true });
-        _studySig.set(id, sig);
+        if (srsChanged) _studySig.set(id, sig);
+        _hasLegacy.set(id, false);
+        writeBase(quizId, local);
         dropStudyDoc(uid, quizId);
         return true;
     } catch (e) {
@@ -258,8 +362,13 @@ export async function pushCloudStudy(uid, quizId, data) {
 }
 
 // ----- Tiến trình bài làm dở trên Cloud (đồng bộ giữa các thiết bị) -----
+// HAI NHÁNH OFFLINE, MỘT LƯỢT NỘP (2026-11-10): Firestore gộp ghi trên cùng tài liệu theo lượt ghi SAU CÙNG — trước đây một trường
+// `inProgress` chung nên iPad và điện thoại cùng làm offline rồi có mạng lại thì máy nào gửi sau xóa sạch câu trả lời của máy kia (và "sau"
+// tính theo đồng hồ từng máy — lệch giờ là chọn sai). Nay mỗi MÁY một nhánh `branches.<deviceId>` (setDoc merge chỉ ghi đúng khóa đó →
+// hai máy không đè nhau dù kết nối lại theo thứ tự nào). Nhánh mang attemptId của lượt; so nhánh theo NỘI DUNG câu trả lời
+// (quiz-attempt.js firstDivergence), không theo giờ máy. `inProgress` chỉ còn là dấu "lượt <attemptId> đã nộp / đã bỏ".
 
-/** Đẩy tiến trình làm bài dở lên cloud (Firestore). Payload nhẹ không chứa mảng questions. */
+/** Đẩy nhánh tiến trình của MÁY NÀY lên cloud. Payload nhẹ không chứa mảng questions. */
 export async function pushCloudProgress(uid, quizId, progressObj) {
     if (!uid || !quizId || !progressObj) return false;
     try {
@@ -267,15 +376,18 @@ export async function pushCloudProgress(uid, quizId, progressObj) {
         const ref = doc(db, 'quiz_study', id);
         const clean = { ...progressObj };
         delete clean.questions; // Đã có questionBlueprint, bỏ questions để payload luôn < 5KB
+        const dev = String(clean.deviceId || 'unknown').replace(/[^\w-]/g, '').slice(0, 40) || 'unknown';
         const sig = progSig(clean);
-        if (_progSig.get(id) === sig) return true;   // y hệt tiến trình đã có trên cloud (chỉ khác savedAt): khỏi ghi
+        if (_progSig.get(id + '/' + dev) === sig) return true;   // y hệt nhánh đã có trên cloud (chỉ khác savedAt / seq): khỏi ghi
+        // mergeFields: THAY nguyên nhánh của máy này (merge thường gộp sâu map con → câu vừa bỏ đánh dấu / bỏ gạch vẫn còn trên cloud),
+        // không đụng nhánh máy khác hay ghi chú / lịch ôn cùng doc
         await setDoc(ref, {
             userId: uid,
             quizId,
-            inProgress: clean,
+            branches: { [dev]: clean },
             updatedAt: serverTimestamp(),
-        }, { merge: true });
-        _progSig.set(id, sig);
+        }, { mergeFields: ['userId', 'quizId', `branches.${dev}`, 'updatedAt'] });
+        _progSig.set(id + '/' + dev, sig);
         dropStudyDoc(uid, quizId);
         return true;
     } catch (e) {
@@ -284,37 +396,52 @@ export async function pushCloudProgress(uid, quizId, progressObj) {
     }
 }
 
-/** Đánh dấu phiên làm bài đã kết thúc trên cloud để thiết bị khác không báo làm dở nữa. */
-export async function clearCloudProgress(uid, quizId) {
+/** Đánh dấu lượt `attemptId` đã kết thúc (nộp / bỏ) trên cloud và gỡ các nhánh CỦA LƯỢT ĐÓ — máy khác đang làm lượt khác giữ nguyên. */
+const _lastBranches = new Map();   // docId -> branches đọc được lần gần nhất
+export async function clearCloudProgress(uid, quizId, attemptId = null) {
     if (!uid || !quizId) return false;
     try {
         const id = studyDocId(uid, quizId);
         const ref = doc(db, 'quiz_study', id);
+        const known = _lastBranches.get(id) || {};
+        const drop = {};
+        Object.entries(known).forEach(([dev, b]) => { if (!attemptId || !b || b.attemptId === attemptId) drop[dev] = deleteField(); });
+        const own = deviceIdOf();
+        if (own) drop[own] = deleteField();
         // Kèm userId/quizId: nếu doc chưa tồn tại (nộp bài nhanh hơn nhịp gom 30s nên chưa từng đẩy tiến trình) thì đây là lệnh TẠO,
         // luật yêu cầu đủ hai trường này — thiếu thì bị từ chối (và nay lỗi từ chối còn hiện toast qua queued()).
         await setDoc(ref, {
             userId: uid,
             quizId,
-            inProgress: { finished: true, savedAt: Date.now() },
+            inProgress: { finished: true, attemptId: attemptId || null, savedAt: Date.now() },
+            ...(Object.keys(drop).length ? { branches: drop } : {}),
             updatedAt: serverTimestamp(),
         }, { merge: true });
-        _progSig.delete(id);   // lần làm bài sau chắc chắn khác bản "đã nộp"
+        [..._progSig.keys()].forEach(k => { if (k.startsWith(id + '/')) _progSig.delete(k); });   // lần làm bài sau chắc chắn khác
         dropStudyDoc(uid, quizId);
         return true;
     } catch (e) {
         return false;
     }
 }
+const deviceIdOf = () => { try { return localStorage.getItem('deviceId') || ''; } catch (e) { return ''; } };
 
-/** Tải tiến trình làm bài dở từ cloud (Firestore). Trả về object hoặc null. */
+/**
+ * Tải tiến trình làm dở từ cloud. Trả về null (chưa có) hoặc
+ * { finished: {attemptId, savedAt}|null, branches: { deviceId: nhánh }, legacy: tiến trình kiểu cũ (một trường inProgress)|null }.
+ */
 export async function fetchCloudProgress(uid, quizId) {
     if (!uid || !quizId) return null;
     try {
         const snap = await getStudyDoc(uid, quizId);
         if (!snap.exists()) return null;
-        const d = snap.data();
-        if (d && d.inProgress) _progSig.set(studyDocId(uid, quizId), progSig(d.inProgress));
-        return (d && d.inProgress) ? d.inProgress : null;
+        const d = snap.data() || {};
+        const id = studyDocId(uid, quizId);
+        const branches = (d.branches && typeof d.branches === 'object') ? d.branches : {};
+        _lastBranches.set(id, branches);
+        Object.entries(branches).forEach(([dev, b]) => _progSig.set(id + '/' + dev, progSig(b)));
+        const ip = d.inProgress || null;
+        return { finished: ip && ip.finished ? ip : null, branches, legacy: ip && !ip.finished ? ip : null };
     } catch (e) {
         console.warn('Không tải được tiến trình làm bài từ cloud:', e);
         return null;
@@ -361,8 +488,17 @@ export async function syncPullStudy(uid, quizId, { preferCloud = false } = {}) {
     // Người học có thể vừa lưu ghi chú / màu trong lúc chờ mạng: hợp nhất bản local mới nhất.
     const local = readLocalStudy(quizId);
     if (!cloud) return local;
-    const merged = mergeStudy(local, cloud, preferCloud);
+    const base = readBase(quizId);
+    let merged;
+    if (base && cloud._flat) {
+        // Hợp nhất 3 chiều theo từng bản ghi (xem đầu mục "ĐỒNG BỘ TỪNG THAO TÁC"); lịch ôn + bia mộ vẫn như cũ
+        const legacy = mergeStudy(local, cloud, preferCloud);
+        merged = { ...unflatStudy(merge3(base, flatStudy(local), cloud._flat, preferCloud)), srs: legacy.srs, annotDel: legacy.annotDel };
+    } else {
+        merged = mergeStudy(local, cloud, preferCloud);   // máy chưa từng đồng bộ: chưa có bản gốc → hợp hai phía như trước
+    }
     writeLocalStudy(quizId, merged);
+    if (cloud._flat) writeBase(quizId, cloud._flat);       // bản gốc = cloud vừa đọc; lần đẩy sau gửi đúng phần máy khác cloud
     return merged;
 }
 
@@ -390,5 +526,13 @@ function flushAllPending() {
 if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushAllPending(); });
     window.addEventListener('pagehide', flushAllPending);
+    // Đổi danh tính trên máy (core/scope.js): lượt đẩy đang chờ của người cũ sẽ đọc localStorage — lúc đó đã là dữ liệu người MỚI → HỦY,
+    // không gửi. Dữ liệu + bản gốc của người cũ nằm trong ngăn cất; họ đăng nhập lại thì lần đồng bộ đầu gửi nốt đúng tài khoản của họ.
+    window.addEventListener('scope:changed', () => {
+        _study.forEach((e) => e.co.cancel());
+        _progress.forEach((e) => e.co.cancel());
+        _study.clear(); _progress.clear();
+        _docCache.clear(); _studySig.clear(); _progSig.clear(); _hasLegacy.clear(); _lastBranches.clear();
+    });
 }
 

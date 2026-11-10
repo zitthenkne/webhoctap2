@@ -9,6 +9,9 @@ import { checkAndAwardAchievement } from '../../core/achievements.js';
 import { showToast } from '../../core/utils.js';
 import { scheduleCloudProgressPush, flushCloudProgressPush, clearCloudProgress } from './quiz-study-store.js';
 import { saveLocalResult, updateLocalResult } from './local-shelf.js';
+import { blueprintEntry } from './quiz-attempt.js';
+import { deviceId, deviceLabel } from '../../core/device-limit.js';
+import { currentOwner } from '../../core/scope.js';
 
 // Các loại lý do đánh dấu câu hỏi (dùng chung cho lúc làm bài và màn tổng kết).
 // Thứ tự khai báo cũng là thứ tự hiển thị trong menu / bộ lọc.
@@ -167,6 +170,7 @@ function pruneSavedStates(keepKey) {
 }
 
 export function flushQuizState() {
+    if (ownerChanged()) return;
     try {
         const quizId = stateQuizId();
         const u = sessionUser();
@@ -176,18 +180,41 @@ export function flushQuizState() {
     } catch (_) {}
 }
 
+// ---- Niêm phong lượt làm (quiz-attempt.js) ----
+// attemptId: định danh lượt — mọi máy làm tiếp cùng lượt dùng chung, kết quả nộp ghi vào quiz_results/{attemptId} (nộp 2 lần = 1 lượt).
+// attemptRev: revision bộ đề mà lượt này đang dùng; attemptSource: bản dữ liệu đã niêm phong tương ứng (bộ đề đang dùng cho lượt).
+// Mỗi câu đang làm mang `__bp` (mục blueprint tính một lần lúc bắt đầu / khôi phục) — ghi lại không phải băm lại cả đề.
+export function newAttemptId() {
+    const r = (globalThis.crypto && crypto.randomUUID) ? crypto.randomUUID().replace(/-/g, '') : (Date.now().toString(36) + Math.random().toString(36).slice(2));
+    return 'a' + r.slice(0, 23);
+}
+export function sealAttempt(source, rev) {
+    state.attemptSource = source || state.quizData;
+    state.attemptRev = rev || (state.attemptSource && state.attemptSource._rev) || null;
+    (state.questions || []).forEach((q, i) => { if (!q.__bp) q.__bp = blueprintEntry(q, i, state.attemptSource); });
+}
+let _seq = 0;
+// Bài làm trong bộ nhớ thuộc người đang dùng lúc trang mở. Đổi danh tính giữa chừng (core/scope.js) → không ghi bài của người trước
+// vào ngăn dữ liệu của người sau (trang tự tải lại ngay sau đó).
+const _pageOwner = currentOwner();
+const ownerChanged = () => currentOwner() !== _pageOwner;
+
 export function saveQuizState({ immediate = false } = {}) {
+    if (ownerChanged()) return;
     const quizId = stateQuizId();
-    // Tạo blueprint nhẹ (chỉ số câu gốc + thứ tự đáp án đã xáo)
-    // Blueprint này chỉ nặng ~1-2KB, hoàn toàn không sợ đầy bộ nhớ hay giới hạn Firestore
-    const questionBlueprint = (state.questions || []).map((q, idx) => ({
-        origIdx: (typeof q.__origIdx === 'number') ? q.__origIdx : idx,
-        optOrder: Array.isArray(q.__optOrder) ? q.__optOrder : null,
-        caseId: q.caseId || null
-    }));
+    // Blueprint nhẹ (~1-3 KB): vị trí gốc + thứ tự đáp án đã xáo + khóa câu + dấu vân tay + ID phương án — đủ dựng lại đúng đề trên máy khác
+    const questionBlueprint = (state.questions || []).map((q, idx) => {
+        const bp = q.__bp || (q.__bp = blueprintEntry(q, idx, state.attemptSource || state.quizData));
+        return { ...bp, optOrder: Array.isArray(q.__optOrder) ? q.__optOrder : bp.optOrder, caseId: q.caseId || bp.caseId || null };
+    });
 
     const stateObj = {
         quizId,
+        attemptId: state.attemptId || (state.attemptId = newAttemptId()),
+        revisionId: state.attemptRev || null,
+        deviceId: deviceId(),
+        deviceLabel: deviceLabel().slice(0, 80),
+        seq: ++_seq + (Number(state._seqBase) || 0),
         savedAt: Date.now(),
         currentIndex: state.currentIndex,
         userAnswers: state.userAnswers,
@@ -208,8 +235,9 @@ export function saveQuizState({ immediate = false } = {}) {
         questions: state.questions,
         quizMode: state.quizMode,
         quizOptions: state.quizOptions,
-        // Giây còn lại của đồng hồ đếm ngược (null = không tính giờ)
-        timeLeft: state.quizTimerInterval ? state.timeLeft : null
+        // Đồng hồ theo lượt (quiz-attempt.js): giữ cả khi đang tạm dừng (trước đây interval tắt → ghi null → tải lại được đủ giờ) và khi = 0 (hết giờ)
+        timeLeft: state.timing ? state.timeLeft : null,
+        timing: state.timing ? { ...state.timing, remaining: state.timeLeft } : null
     };
 
     writeQuizState(quizId, stateObj);
@@ -240,18 +268,21 @@ export function markQuizStateFinished(quizId) {
     }
     try {
         const u = sessionUser();
-        if (u && u.uid) clearCloudProgress(u.uid, id);
+        if (u && u.uid) clearCloudProgress(u.uid, id, (saved && saved.attemptId) || state.attemptId || null);
     } catch (_) {}
 }
 
 export function clearQuizState(quizId) {
     const id = quizId || stateQuizId();
+    const prev = readQuizStateLight(id);
     localStorage.removeItem(stateKey(id));
     localStorage.removeItem(qKey(id));
     if (_qWritten.id === id) _qWritten = { id: null, ref: null };
+    state.attemptId = null;   // lượt mới sẽ có định danh mới
     try {
         const u = sessionUser();
-        if (u && u.uid) clearCloudProgress(u.uid, id);
+        // chỉ đóng ĐÚNG lượt vừa bỏ (máy khác đang làm lượt khác thì không bị coi là đã nộp)
+        if (u && u.uid && prev && !prev.finished) clearCloudProgress(u.uid, id, prev.attemptId || null);
     } catch (_) {}
 }
 
@@ -288,12 +319,20 @@ export async function saveQuizResult(finalScore, totalQuestions, percentage, tim
 
     try {
         const quizId = new URLSearchParams(window.location.search).get('id');
+        // Id kết quả = attemptId của lượt (một lượt nộp, dù hai máy cùng nộp / gửi lại khi có mạng): máy nộp sau thấy đã có thì thôi.
         // Tạo sẵn id để tự chấm tự luận ở màn kết quả còn cập nhật được đúng bản này
-        const ref = doc(collection(db, "quiz_results"));
+        const attemptId = state.attemptId || null;
+        const ref = attemptId ? doc(db, "quiz_results", attemptId) : doc(collection(db, "quiz_results"));
         lastResultRef = ref;
+        if (attemptId && navigator.onLine !== false) {
+            const prev = await Promise.race([getDoc(ref).catch(() => null), new Promise(r => setTimeout(() => r(null), 2500))]);
+            if (prev && prev.exists && prev.exists()) { showToast('Lượt này đã được nộp từ máy khác — giữ kết quả đã nộp.', 'info', 5000); return; }
+        }
         const meta = Object.fromEntries(Object.entries(extra || {}).filter(([, v]) => v != null && v !== ''));
         await queued(setDoc(ref, {
             ...meta,
+            ...(attemptId ? { attemptId } : {}),
+            ...(state.attemptRev ? { revisionId: state.attemptRev } : {}),
             userId: user.uid,
             quizId: quizId,
             quizTitle: state.quizData.title, // Use the stored title

@@ -237,7 +237,6 @@ function mark5050Out(btn, idx, question) {
 
 export function handle5050Help() {
     if (state.userAnswers[state.currentIndex] !== null || state.used5050Questions[state.currentIndex]) return;
-
     const correctAnswerIdx = state.questions[state.currentIndex].correctAnswerIndex;
     const answerBtns = document.querySelectorAll('.answer-btn');
     if (answerBtns.length <= 2) {

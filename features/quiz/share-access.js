@@ -9,6 +9,7 @@
 //   sharedWith: email chữ thường được XEM (email phải đã xác nhận) · editors ⊆ sharedWith: được SỬA nội dung bộ đề
 //   sharedBy: tên người chia sẻ (hiện "từ ai") · allowTakeout: true = người khác được MANG ĐỀ ĐI (lưu bản sao, mở phòng "Làm cùng nhau",
 //   lưu đề từ phòng) — thiếu/false (mặc định) = chỉ làm bài ngay trên web · isPublic: ai có link đều xem.
+//   allowOffline: true = người KHÁC chủ được tải đề về làm offline (thiếu/false = chỉ chủ — features/quiz/quiz-offline-store.js).
 // Module không biết cache của nơi gọi: ghi lên các doc do `targets()` trả về (theo LÔ), sửa thẳng các object đó rồi gọi `onChange()`.
 
 import { db } from '../../core/firebase-init.js';
@@ -223,6 +224,11 @@ function build(section) {
             <span><b>Cho người khác mang đề đi</b>
                 <small>Lưu bản sao về thư viện của họ, mở sang phòng "Làm cùng nhau". Tắt (mặc định): chỉ làm bài ngay trên web của bạn.</small></span>
         </label>
+        <label class="sa-switch-row">
+            <span class="sa-switch"><input type="checkbox" id="share-allow-offline"><i></i></span>
+            <span><b>Cho tải về làm offline</b>
+                <small>Người được chia sẻ có nút "Tải offline" và máy họ tự lưu đề để làm khi mất mạng. Tắt (mặc định): họ chỉ làm khi có mạng, bản đã tải trước đó tự xóa.</small></span>
+        </label>
         <p id="share-scope-note" class="sa-note hidden"></p>`;
     bindOnce(section);
 }
@@ -305,6 +311,8 @@ function render() {
     }
     const allow = document.getElementById('share-allow-copy');
     if (allow) allow.checked = v.allowTakeout === true;
+    const allowOff = document.getElementById('share-allow-offline');
+    if (allowOff) allowOff.checked = v.allowOffline === true;
     const note = document.getElementById('share-scope-note');
     if (note) { note.textContent = t.scope || ''; note.classList.toggle('hidden', !t.scope); }
     renderOnce();
@@ -495,6 +503,16 @@ function bindOnce(section) {
                 : 'Đã khóa: người được chia sẻ chỉ làm bài ngay trên web, không mang đề đi được.');
         if (!ok) allow.checked = !allow.checked;
         allow.disabled = false;
+    });
+    // Tải offline: chỉ CHỦ bộ đề luôn được; người khác (chia sẻ riêng, link công khai, link 1 thiết bị) chỉ khi bật cái này (quiz-offline-store.js)
+    const allowOff = section.querySelector('#share-allow-offline');
+    allowOff.addEventListener('change', async () => {
+        allowOff.disabled = true;
+        const ok = await writeAll({ allowOffline: allowOff.checked }, (o) => { o.allowOffline = allowOff.checked; },
+            allowOff.checked ? 'Đã cho người được chia sẻ tải đề về làm offline.'
+                : 'Đã khóa offline: người được chia sẻ chỉ làm khi có mạng, bản đã tải sẽ tự xóa.');
+        if (!ok) allowOff.checked = !allowOff.checked;
+        allowOff.disabled = false;
     });
 }
 // ---------- Ghi ----------
