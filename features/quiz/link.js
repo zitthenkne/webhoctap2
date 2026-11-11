@@ -9,6 +9,7 @@
 import { auth } from '../../core/firebase-init.js';
 import { signInAnonymously } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { apiUrl, deviceLabel } from '../../core/device-limit.js';
+import { mountAccessRequest } from './access-request.js';
 
 const token = (new URLSearchParams(location.search).get('t') || '').replace(/[^\w-]/g, '').slice(0, 64);
 const $ = (id) => document.getElementById(id);
@@ -45,6 +46,8 @@ function paint({ tone = '', icon, kicker, title, chips = [], desc = '', note = '
     $('lk-note').innerHTML = note ? `<i class="fas fa-circle-info"></i><span>${note}</span>` : '';
     $('lk-note').classList.toggle('hidden', !note);
     $('lk-actions').innerHTML = actions;
+    $('lk-request').innerHTML = '';
+    $('lk-request').className = '';
 }
 
 const HOME = `<a class="lk-btn lk-btn-ghost" href="../../index.html"><i class="fas fa-house"></i> Về trang chủ</a>`;
@@ -52,13 +55,17 @@ const RETRY = `<button type="button" class="lk-btn lk-btn-ghost" onclick="locati
 
 function showStatus(status) {
     const map = {
-        taken: ['fa-lock', 'Link đã được dùng trên thiết bị khác', 'Link này chỉ mở được trên MỘT thiết bị và đã có máy khác nhận trước. Nếu đó không phải bạn, hãy nhờ người chia sẻ thu hồi và gửi link mới.'],
-        expired: ['fa-clock', 'Link đã hết hạn', 'Thời hạn của link đã qua nên không mở được nữa. Nhờ người chia sẻ gửi link mới nhé.'],
-        missing: ['fa-link-slash', 'Link không còn hiệu lực', 'Link sai, đã bị thu hồi, hoặc bộ đề / thư mục đã bị xóa.'],
+        taken: ['fa-lock', 'Bạn chưa có quyền truy cập', 'Link này đã được mở trên đủ số thiết bị cho phép, máy của bạn không nằm trong số đó.'],
+        blocked: ['fa-user-slash', 'Bạn chưa có quyền truy cập', 'Người chia sẻ đã gỡ máy / tài khoản này khỏi link.'],
+        revoked: ['fa-link-slash', 'Link đã bị thu hồi', 'Người chia sẻ đã thu hồi link này.'],
+        expired: ['fa-clock', 'Link đã hết hạn', 'Thời hạn của link đã qua nên không mở được nữa.'],
+        missing: ['fa-link-slash', 'Link không còn hiệu lực', 'Link sai, đã bị xóa, hoặc bộ đề / thư mục đã bị xóa.'],
         unclaimed: ['fa-link-slash', 'Link không còn hiệu lực', 'Hãy mở lại đúng link được gửi cho bạn.']
     };
     const [icon, title, desc] = map[status] || map.missing;
     paint({ tone: status === 'expired' ? 'warn' : 'bad', icon, title, desc, actions: HOME });
+    // Mọi trường hợp bị chặn mà link còn đó → cho gửi yêu cầu truy cập (máy chủ biết link trỏ tới đâu)
+    if (['taken', 'blocked', 'revoked', 'expired'].includes(status)) mountAccessRequest($('lk-request'), { token });
 }
 
 async function claim(btn) {
@@ -116,6 +123,7 @@ async function main() {
     if (info.status !== 'ok') return showStatus(info.status);
 
     const u = auth.currentUser;
+    const uses = info.maxUses || 1;
     const chips = [
         info.kind === 'quiz' && info.count ? { icon: 'fa-list-ol', text: `${info.count} câu` } : null,
         info.ownerName ? { icon: 'fa-user', text: `Từ ${info.ownerName}` } : null,
@@ -123,10 +131,13 @@ async function main() {
     ].filter(Boolean);
     paint({
         icon: info.kind === 'folder' ? 'fa-folder-open' : 'fa-file-lines',
-        kicker: `${what} được chia sẻ · link 1 thiết bị`,
+        kicker: info.name ? `Gửi bạn ${info.name}` : `${what} được chia sẻ · link riêng`,
         title: info.title || what,
         chips,
-        desc: 'Link này chỉ mở được trên MỘT thiết bị. Bấm nút dưới để giữ link cho máy (trình duyệt) bạn đang dùng — sau đó máy khác sẽ không mở được nữa.',
+        desc: `${info.name ? `Bạn ${info.name} được mời ${info.kind === 'folder' ? 'học thư mục' : 'làm bộ đề'} này trên Zitthenkne. ` : ''}`
+            + (uses === 1 ? 'Đây là link dùng 1 lần — chỉ mở được trên MỘT thiết bị, đừng chia sẻ cho người khác. '
+                : `Link riêng chỉ mở được trên ${uses} thiết bị — đừng chia sẻ cho người khác. `)
+            + 'Bấm nút dưới để giữ link cho máy (trình duyệt) bạn đang dùng.',
         note: u && !u.isAnonymous
             ? `Bạn đang đăng nhập <b>${esc(u.email || u.displayName || 'tài khoản')}</b> — link sẽ gắn với tài khoản này.`
             : 'Hãy mở bằng trình duyệt bạn sẽ dùng để học. Không dùng tab ẩn danh và đừng xóa dữ liệu trình duyệt, không thì chính bạn cũng mất quyền vào.',

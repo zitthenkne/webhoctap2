@@ -15,9 +15,11 @@
     <!-- Firestore dùng bộ nhớ tạm (core/firebase-init.js): sổ đọc vài nghìn lượt mỗi lần tải — chép hết vào IndexedDB làm Safari / iPad
          đứng im ở "đang tải" (nhất là khi tab khác của web đang giữ cache). Trang này không cần dùng offline. -->
     <script>window.__FB_LEAN_CACHE = true;</script>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="admin.css">
+    <!-- Tailwind ĐÓNG BĂNG (tailwind-dong-bang.mjs) thay bản CDN dịch CSS ngay trên máy — điện thoại mở sổ chậm vì nó.
+         Để CUỐI <head> như chỗ CDN từng chèn. Thêm class Tailwind mới → chạy lại: node features/admin/tailwind-dong-bang.mjs -->
+    <link rel="stylesheet" href="tailwind-admin.css">
 </head>
 <body>
     <a class="skip-link" href="#admin-main">Đến nội dung chính</a>

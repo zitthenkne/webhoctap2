@@ -121,7 +121,15 @@ function showMessage(icon, title, desc) {
     $('folder-message-icon').className = `fas ${icon}`;
     $('folder-message-title').textContent = title;
     $('folder-message-desc').textContent = desc;
+    const req = $('folder-access-request');
+    if (req) { req.innerHTML = ''; req.className = ''; }
     box.classList.remove('hidden');
+}
+
+// Bị chặn vì quyền (riêng tư / link công khai hết hạn) → khối "Gửi yêu cầu truy cập" (access-request.js)
+function offerAccessRequest(folderId) {
+    if (!folderId) return;
+    import('./access-request.js').then(m => m.mountAccessRequest($('folder-access-request'), { kind: 'folder', id: folderId })).catch(() => {});
 }
 
 // Khung chờ: dùng đúng thẻ chờ của thư viện để hai màn hình đồng bộ
@@ -524,13 +532,10 @@ async function linkFolderPage(token, folderId) {
         return;
     }
     const st = data.status;
-    if (st === 'unclaimed') { location.replace(`link.html?t=${encodeURIComponent(token)}`); return; }
+    // Chưa nhận / hết suất / hết hạn / thu hồi / bị gỡ → trang cổng (báo đúng lý do + nút Gửi yêu cầu truy cập)
+    if (['unclaimed', 'taken', 'expired', 'revoked', 'blocked'].includes(st)) { location.replace(`link.html?t=${encodeURIComponent(token)}`); return; }
     if (st !== 'mine' && st !== 'owner') {
-        const msg = {
-            taken: ['fa-lock', 'Link đã được dùng trên thiết bị khác', 'Link này chỉ mở được trên MỘT thiết bị và máy khác đã nhận trước. Nhờ người chia sẻ gửi link mới nhé.'],
-            expired: ['fa-clock', 'Link đã hết hạn', 'Thời hạn của link đã qua. Nhờ người chia sẻ gửi link mới nhé.']
-        }[st] || ['fa-link-slash', 'Link không còn hiệu lực', data.error || 'Link đã bị thu hồi, hoặc thư mục đã bị xóa.'];
-        showMessage(...msg);
+        showMessage('fa-link-slash', 'Link không còn hiệu lực', data.error || 'Link đã bị xóa, hoặc thư mục đã bị xóa.');
         return;
     }
     const f = data.folder || {};
@@ -594,12 +599,13 @@ async function main() {
     if (!folder || folder.deleted) {
         // Link công khai hết hạn? (luật chỉ báo "không có quyền" — máy chủ phân biệt được)
         if (!folder) {
-            try { if ((await fetchPublicFolder(folderId)).status === 'expired') return showExpired(); } catch (e) { /* không rõ → báo chung */ }
+            try { if ((await fetchPublicFolder(folderId)).status === 'expired') { showExpired(); return offerAccessRequest(folderId); } } catch (e) { /* không rõ → báo chung */ }
         }
         showMessage('fa-lock', 'Không mở được thư mục này',
             !me ? 'Thư mục không tồn tại, đã bị xóa, hoặc chỉ chia sẻ riêng — nếu được mời, hãy đăng nhập đúng email được chia sẻ ở trang chủ rồi mở lại link.'
                 : !me.verified ? `Nếu thư mục được chia sẻ riêng cho ${me.email}, bạn cần xác nhận email trước (trang Hồ sơ → Gửi mail xác nhận), rồi tải lại trang.`
                 : `Thư mục không tồn tại, đã bị xóa, hoặc chưa được chia sẻ cho ${me.email}.`);
+        if (!folder) offerAccessRequest(folderId);
         return;
     }
     // Đọc được mà không công khai = mình là chủ hoặc được chia sẻ riêng → lấy nội dung theo đường tương ứng (lọc isPublic sẽ ra rỗng).

@@ -310,6 +310,13 @@ service cloud.firestore {
     match /share_links/{token} {
       allow read, write: if false;
     }
+    // Yêu cầu truy cập + lịch sử link riêng (link hết hạn / thu hồi bị xóa, chỉ giữ dòng gọn) — cũng CHỈ máy chủ (api/link.js).
+    match /access_requests/{id} {
+      allow read, write: if false;
+    }
+    match /link_history/{id} {
+      allow read, write: if false;
+    }
     match /link_grants/{uid} {
       allow read, write: if false;
     }

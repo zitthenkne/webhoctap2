@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mở bộ đề được chia sẻ - Zitthenkne</title>
     <link rel="icon" type="image/png" href="../../assets/favicons/favicon-quiz-folder.png">
-    <!-- Trình quét link (Messenger/Zalo/Facebook) KHÔNG chạy JS → chỉ đọc thẻ này, không bao giờ "nhận" link thay người dùng. -->
+    <!-- Trình quét link (Messenger/Zalo/Facebook) KHÔNG chạy JS → chỉ đọc thẻ này, không bao giờ "nhận" link thay người dùng.
+         Link chủ gửi đi là /api/link?t=… (thẻ xem trước RIÊNG từng link: "Gửi bạn ABC…"); thẻ dưới chỉ là bản chung cho link kiểu cũ. -->
     <meta name="robots" content="noindex">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Zitthenkne">
@@ -95,6 +96,7 @@
         <p id="lk-desc" class="lk-desc"></p>
         <p id="lk-note" class="lk-note hidden"></p>
         <div id="lk-actions" class="lk-actions"></div>
+        <div id="lk-request"></div>
         <p class="lk-foot">Zitthenkne · <a href="../../index.html">Trang chủ</a></p>
     </main>
     <script type="module" src="link.js"></script>

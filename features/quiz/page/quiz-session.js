@@ -65,7 +65,8 @@ function needsAccessCheck(d) {
 
 // Biến trang thiết lập thành card lỗi rõ ràng (icon + thông điệp + Thử lại / Về trang chủ)
 // thay vì kẹt ở "Đang tải thông tin..." với tiêu đề "Lỗi" khô khan.
-function showLandingError(message, { showRetry = true } = {}) {
+// request: bị chặn vì quyền (riêng tư / hết hạn / thu hồi) → thêm khối "Gửi yêu cầu truy cập" (../access-request.js)
+function showLandingError(message, { showRetry = true, request = false } = {}) {
     const landing = document.getElementById('quiz-landing');
     if (!landing) return;
     landing.innerHTML = `
@@ -79,7 +80,12 @@ function showLandingError(message, { showRetry = true } = {}) {
                 ${showRetry ? `<button type="button" id="landing-retry-btn" class="px-6 py-2.5 bg-gradient-to-r from-pink-500 to-[#FF69B4] text-white rounded-xl font-bold text-sm shadow hover:scale-[1.03] active:scale-[0.97] transition"><i class="fas fa-rotate-right"></i> Thử lại</button>` : ''}
                 <a href="../../index.html" class="px-6 py-2.5 bg-gray-100 text-gray-600 rounded-xl font-bold text-sm hover:bg-gray-200 transition"><i class="fas fa-home"></i> Về trang chủ</a>
             </div>
+            ${request ? '<div id="landing-access-request" class="w-full max-w-sm"></div>' : ''}
         </div>`;
+    const quizId = new URLSearchParams(location.search).get('id');
+    if (request && quizId) import('../access-request.js')
+        .then(m => m.mountAccessRequest(document.getElementById('landing-access-request'), { kind: 'quiz', id: quizId }))
+        .catch(() => {});
     const retryBtn = document.getElementById('landing-retry-btn');
     if (retryBtn) retryBtn.addEventListener('click', () => window.location.reload());
     // Nút "Bắt đầu ngay" gốc đã bị gỡ cùng landing -> ẩn luôn thanh bắt đầu nổi (mobile),
@@ -246,7 +252,7 @@ export async function loadQuizData() {
             if (navigator.onLine !== false && needsAccessCheck(localData)) {
                 const r = await Promise.race([checkLocal(quizId, localData), new Promise(res => setTimeout(() => res({ verdict: 'slow' }), 1500))]);
                 if (r.verdict === 'denied' && await revokeLocal(quizId, localData)) {
-                    showLandingError(await linkExpired(quizId) ? EXPIRED_MSG : PRIVATE_QUIZ_MSG(), { showRetry: true });
+                    showLandingError(await linkExpired(quizId) ? EXPIRED_MSG : PRIVATE_QUIZ_MSG(), { showRetry: true, request: true });
                     return;
                 }
                 if (r.verdict === 'meta') localData = r.data;
@@ -303,7 +309,7 @@ export async function loadQuizData() {
                 }
                 if (r.verdict === 'denied' && await revokeLocal(quizId, cur)) {
                     localData = null;
-                    if (!isPlayingNow()) showLandingError(await linkExpired(quizId) ? EXPIRED_MSG : PRIVATE_QUIZ_MSG(), { showRetry: true });
+                    if (!isPlayingNow()) showLandingError(await linkExpired(quizId) ? EXPIRED_MSG : PRIVATE_QUIZ_MSG(), { showRetry: true, request: true });
                     else showToast('Quyền mở bộ đề này vừa bị thu hồi — bản trong máy đã được xóa.', 'warning', 6000);
                     return;
                 }
@@ -326,10 +332,10 @@ export async function loadQuizData() {
                         }
                         // Link công khai đã hết hạn? (máy chủ xem được trạng thái — luật chỉ báo "không có quyền")
                         if (await linkExpired(quizId)) {
-                            showLandingError('Link công khai của bộ đề này đã HẾT HẠN. Nhờ chủ bộ đề mở Chia sẻ để gia hạn, rồi bấm Thử lại.', { showRetry: true });
+                            showLandingError('Link công khai của bộ đề này đã HẾT HẠN. Nhờ chủ bộ đề mở Chia sẻ để gia hạn, rồi bấm Thử lại.', { showRetry: true, request: true });
                             return;
                         }
-                        showLandingError(PRIVATE_QUIZ_MSG(), { showRetry: true });
+                        showLandingError(PRIVATE_QUIZ_MSG(), { showRetry: true, request: true });
                         return;
                     }
                     // Có bản trong máy (từng mở khi link còn hạn) mà máy chủ báo link ĐÃ HẾT HẠN → xóa bản máy, không cho làm tiếp bằng bản cũ.
@@ -337,7 +343,7 @@ export async function loadQuizData() {
                     if (await linkExpired(quizId)) {
                         deleteOfflineQuiz(quizId).catch(() => {});
                         localData = null;
-                        showLandingError('Link công khai của bộ đề này đã HẾT HẠN. Nhờ chủ bộ đề mở Chia sẻ để gia hạn, rồi bấm Thử lại.', { showRetry: true });
+                        showLandingError('Link công khai của bộ đề này đã HẾT HẠN. Nhờ chủ bộ đề mở Chia sẻ để gia hạn, rồi bấm Thử lại.', { showRetry: true, request: true });
                         return;
                     }
                 }
@@ -404,7 +410,7 @@ export async function loadQuizData() {
             if (localData && failStreak < 3 && navigator.onLine) setTimeout(() => refresh({ announce }), [3000, 8000, 20000][failStreak++]);
             if (!localData) {
                 if (error && (error.code === 'permission-denied' || error.message?.includes('permission-denied'))) {
-                    showLandingError(PRIVATE_QUIZ_MSG(), { showRetry: true });
+                    showLandingError(PRIVATE_QUIZ_MSG(), { showRetry: true, request: true });
                     return;
                 }
                 // Thử lại lần cuối xem IndexedDB có gì không
