@@ -1149,12 +1149,19 @@ export async function openShareFolderModal(folderId, folderName) {
     const embedSection = document.getElementById('share-embed-section');
     if (!modal || !titleEl || !linkInput) return;
 
-    const quizzes = await getQuizzesInFolder(folderId);
     const url = folderShareUrl(folderId);
 
+    // Mở hộp NGAY; số bộ đề điền sau (thư viện chưa tải hết thì phải chờ tải cả thư viện — trên điện thoại mất vài giây)
     if (heading) heading.textContent = 'Chia sẻ thư mục';
     titleEl.innerHTML = `<i class="fas fa-folder-open text-amber-400 mr-1.5"></i>${escapeHtml(folderName)}
-        <span class="block text-[11px] font-semibold text-gray-400 mt-0.5">${quizzes.length} bộ đề bên trong</span>`;
+        <span id="share-folder-count" data-folder="${escapeHtml(folderId)}" class="block text-[11px] font-semibold text-gray-400 mt-0.5">Đang đếm bộ đề…</span>`;
+    getQuizzesInFolder(folderId).then((quizzes) => {
+        const el = document.getElementById('share-folder-count');
+        if (el && el.dataset.folder === folderId) {      // đã mở hộp của thư mục khác thì thôi
+            const subs = S.userFolders.filter(f => f.id !== folderId && subtreeIds(folderId).has(f.id)).length;
+            el.textContent = `${quizzes.length} bộ đề${subs ? ` · ${subs} thư mục con` : ''} bên trong`;
+        }
+    }).catch(() => {});
     linkInput.value = url;
     if (embedSection) embedSection.classList.add('hidden'); // nhúng iframe chỉ hợp với bộ đề
 

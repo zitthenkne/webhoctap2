@@ -22,6 +22,7 @@ import { groupQuestionsByCase, tagCaseSequence } from './quiz-cases.js';
 import { showQuestion, accrueTime } from './quiz-question-view.js';
 import { hideMobileNav } from './quiz-mobile-nav.js';
 import { rememberOpened, syncLocalResults } from '../local-shelf.js';
+import { rememberLinkToken, reportLinkProgress } from '../link-progress.js';
 import { quizRunStart, quizRunEnd } from '../../../core/quiz-run.js';
 import { canUse, showLocked } from '../../../core/features.js';
 
@@ -218,6 +219,7 @@ export async function loadQuizData() {
     }
 
     setupOfflineDownloadBtn(quizId);
+    rememberLinkToken(quizId);       // mở từ link riêng / nhóm → nộp bài sẽ báo điểm cho chủ link (link-progress.js)
 
     // Dùng bộ đề (từ IndexedDB hoặc Firestore) để nạp vào state và hiển thị trang chờ
     const applyQuizData = (data) => {
@@ -638,6 +640,7 @@ export function endQuiz() {
     const run = quizRunEnd({ pct: r.pct });
     if (state.quizMode === 'normal') {
         saveQuizResult(r.score, r.total, r.pct, totalTime, { ...run, startedAt: state.quizStartTime ? +new Date(state.quizStartTime) : null });
+        reportLinkProgress(state.quizData?.id, r, state.quizData?.title);
     }
 
     const quizSection = document.getElementById('quizSection');

@@ -165,10 +165,10 @@ const CSS = `
 .sa-tag-in{flex:1;min-width:90px;height:28px;border:0;outline:0;background:transparent;font-size:13px;color:var(--sa-ink);padding:0 4px}
 .sa-area{height:auto;min-height:84px;padding:9px 11px;line-height:1.45;resize:vertical;font-family:inherit}
 .sa-area.hidden{display:none}
-.sa-roster{display:flex;flex-wrap:wrap;gap:4px}
-.sa-roster span{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;background:#fff;color:var(--sa-mute);box-shadow:inset 0 0 0 1.5px var(--sa-line)}
-.sa-roster span.is-in{background:#dcf5ea;color:var(--sa-ok);box-shadow:none}
-.sa-roster i{font-size:9px}
+.sa-roster{display:flex;flex-wrap:wrap;gap:5px}
+.sa-roster span{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:11.5px;font-weight:700;background:#fff;color:#a08b95;border:1.5px dashed #e8d6df}
+.sa-roster span.is-in{background:#dcf5ea;color:#11734b;border:1.5px solid #dcf5ea}
+.sa-roster i{font-size:9.5px}
 .sa-line .sa-input{flex:1 1 150px}
 .sa-step{display:inline-flex;align-items:center;height:36px;border-radius:11px;border:1.5px solid var(--sa-line);background:#fff;overflow:hidden}
 .sa-step button{width:30px;height:100%;border:0;background:transparent;color:var(--sa-pink-d);cursor:pointer;font-size:10px}
@@ -181,37 +181,45 @@ const CSS = `
 .sa-pv-card b{font-size:12.5px;color:var(--sa-ink)}
 .sa-pv-card small{font-size:10.5px;color:#b394a3}
 button.sa-icon{border:0;background:transparent;cursor:pointer;padding:0}
-#sa-once-list,#sa-req-list{max-height:none;overflow:visible;gap:8px}
-.sa-detail{margin-top:2px;padding:10px;border-radius:12px;background:#fdf6f9;display:flex;flex-direction:column;gap:9px}
-.sa-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.sa-stats div{display:flex;flex-direction:column;align-items:center;gap:1px;padding:8px 4px;border-radius:12px;background:#fcf8fa;border:1.5px solid var(--sa-line)}
-.sa-stats b{font-size:18px;line-height:1.1;color:var(--sa-ink)}
-.sa-stats small{font-size:10.5px;font-weight:700;color:var(--sa-mute);text-align:center}
-.sa-stats .is-warn{background:#fff8e6;border-color:#f6dc9b}.sa-stats .is-warn b{color:#b07800}
-.sa-card{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:14px;background:#fff;border:1.5px solid var(--sa-line);transition:border-color .15s,box-shadow .15s}
-.sa-card.is-open{border-color:var(--sa-pink);box-shadow:0 0 0 3px rgba(255,105,180,.1)}
-.sa-card.is-expired{opacity:.62}
-.sa-top{display:flex;align-items:center;gap:9px}
-.sa-pill{flex:none;padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:800;white-space:nowrap}
-.sa-pill.is-free{background:#e8f1ff;color:#2f6fd0}.sa-pill.is-used{background:#dcf5ea;color:var(--sa-ok)}
-.sa-pill.is-full{background:#efe9ff;color:#6d4fd6}.sa-pill.is-expired{background:#f1ebee;color:#8a6f7c}
-.sa-mid{display:flex;align-items:center;gap:10px}
-.sa-seats{flex:1;display:flex;gap:3px;min-width:40px}
-.sa-seats i{flex:1;height:6px;border-radius:99px;background:#efe3e9}
-.sa-seats i.on{background:var(--sa-ok)}
-.sa-card.is-full .sa-seats i.on{background:#a78bfa}
-.sa-seats.is-bar{height:6px;border-radius:99px;background:#efe3e9;overflow:hidden}
-.sa-seats.is-bar i{flex:none;height:100%}
-.sa-seat-n{flex:none;font-size:11px;font-weight:800;color:var(--sa-mute)}
+#sa-once-list,#sa-req-list{max-height:none;overflow:visible;gap:10px}
+/* Ô số liệu (2026-11-12): nền pastel riêng từng ô + icon tròn trắng */
+.sa-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.sa-stats div{--c:#ec5f95;--b:#ffeef5;display:grid;grid-template-columns:auto 1fr;align-items:center;column-gap:8px;padding:10px;border-radius:16px;background:var(--b);min-width:0}
+.sa-stats small{grid-column:1/-1;margin-top:6px}
+.sa-stats i{width:30px;height:30px;border-radius:11px;display:flex;align-items:center;justify-content:center;background:#fff;color:var(--c);font-size:12px;box-shadow:0 3px 8px -5px var(--c)}
+.sa-stats b{font-size:19px;line-height:1;color:var(--c)}
+.sa-stats small{font-size:10px;font-weight:700;line-height:1.2;color:#7d6872}
+.sa-stats .is-blue{--c:#3b82f6;--b:#eaf2ff}.sa-stats .is-amber{--c:#d08a00;--b:#fff4d9}.sa-stats .is-zero{--c:#b8a5ae;--b:#f6f1f3}
+/* Thẻ link: không viền cứng, bóng mềm; màu trạng thái qua --st / --stb */
+.sa-card{--st:#3b82f6;--stb:#e6f0ff;display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:18px;background:#fff;box-shadow:0 0 0 1.5px #f6e6ed,0 10px 24px -18px rgba(160,70,105,.5);transition:box-shadow .2s}
+.sa-card.is-open{box-shadow:0 0 0 2px var(--sa-pink),0 14px 30px -18px rgba(236,95,149,.55)}
+.sa-card.is-expired{opacity:.6}
+.sa-top{display:flex;align-items:center;gap:10px}
+.sa-st-ic{width:38px;height:38px;flex:none;border-radius:13px;display:flex;align-items:center;justify-content:center;background:var(--stb);color:var(--st);font-size:15px;rotate:-4deg}
+.sa-card .sa-top .sa-name{font-size:14px}
+.sa-pill{flex:none;display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:10.5px;font-weight:800;white-space:nowrap;background:var(--stb);color:var(--st)}
+.sa-pill::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
+.sa-mid{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:13px;background:#fbf7f9}
+.sa-seats{flex:1;display:flex;flex-wrap:wrap;gap:3px;min-width:40px}
+.sa-seats i{font-size:15px;color:#e8d9e0}
+.sa-seats i.on{color:var(--st)}
+.sa-seats.is-bar{flex-wrap:nowrap;height:8px;border-radius:99px;background:#efe3e9;overflow:hidden}
+.sa-seats.is-bar u{display:block;height:100%;border-radius:99px;background:var(--st)}
+.sa-seat-n{flex:none;font-size:11.5px;font-weight:800;color:#6f5a64}
 .sa-faces{display:flex;flex:none}
-.sa-faces span{width:22px;height:22px;margin-left:-6px;border-radius:999px;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:800;color:#fff}
+.sa-faces span{width:24px;height:24px;margin-left:-7px;border-radius:999px;border:2px solid #fbf7f9;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff}
 .sa-faces span:first-child{margin-left:0}
 .sa-faces .is-more{background:#efe3e9;color:#5b4250}
 .sa-ttl{display:inline-flex;align-items:center;gap:4px}
 .sa-ttl.is-soon{color:#c26a00;font-weight:800}
+.sa-sum{display:flex;align-items:center;gap:8px;padding:0 2px;font-size:11.5px;font-weight:700;color:#6f5a64}
+.sa-sum > i{color:var(--sa-pink-d)}
+.sa-sum-bar{flex:1;max-width:110px;height:6px;border-radius:99px;background:#f3e6ec;overflow:hidden}
+.sa-sum-bar u{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#ff9cc6,#ec5f95)}
+.sa-sum small{margin-left:auto;font-size:11px;font-weight:700;color:var(--sa-mute)}
 .sa-acts{display:flex;gap:6px}
-.sa-acts .sa-btn{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:0}
-.sa-btn-danger{color:var(--sa-bad)!important}
+.sa-acts .sa-btn{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:0;padding:0 8px;border-radius:999px;white-space:nowrap}
+.sa-btn-danger{color:var(--sa-bad)!important;background:#fff1f1!important}
 .sa-req-card{background:#fffaf0;border-color:#f6dc9b}
 .sa-msg{margin:0;padding:7px 10px;border-radius:4px 12px 12px 12px;background:#fff;border:1.5px solid #f6dc9b;font-size:12px;line-height:1.45;color:#7a5b12;white-space:pre-wrap;word-break:break-word}
 .sa-hist-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:6px;height:34px;border:1.5px dashed var(--sa-line);border-radius:11px;background:transparent;font-size:11.5px;font-weight:800;color:var(--sa-mute);cursor:pointer}
@@ -221,12 +229,128 @@ button.sa-icon{border:0;background:transparent;cursor:pointer;padding:0}
 .sa-hist li::before{content:'';position:absolute;left:-20px;top:4px;width:10px;height:10px;border-radius:999px;background:#fff;border:2px solid #c4b5bd}
 .sa-hist li.is-revoked::before{border-color:var(--sa-bad)}
 .sa-hist .sa-sub{white-space:normal}
+/* Chi tiết link: các khối nền hồng nhạt — Thành viên · Kết quả làm bài · Chỉnh sửa (gập) */
+.sa-detail{display:flex;flex-direction:column;gap:10px;animation:sa-pop .2s ease}
 .sa-detail .sa-mini{margin:0}
-.sa-claim{display:flex;align-items:center;gap:8px}
-.sa-claim .sa-av{width:24px;height:24px;font-size:10px}
-.sa-btn-sm{height:30px;padding:0 10px;font-size:11.5px;border-radius:9px}
-.sa-btn-ghost{background:#fff;color:#5b4250;box-shadow:inset 0 0 0 1.5px var(--sa-line)}
+.sa-sec{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:15px;background:#fcf8fa}
+.sa-sec h5{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:0;font-size:12px;font-weight:800;color:var(--sa-ink)}
+.sa-sec h5 > i{width:24px;height:24px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;background:#fff;color:var(--sa-pink-d);font-size:10.5px;box-shadow:0 2px 6px -4px var(--sa-pink-d)}
+.sa-sec h5 small{font-size:11px;font-weight:700;color:var(--sa-mute)}
+.sa-sec h5 .sa-mini-seg{margin-left:auto}
+.sa-empty-row{margin:0;padding:6px 2px;font-size:11.5px;color:var(--sa-mute)}
+/* Người đã mở: thẻ trắng nhỏ, huy hiệu điểm bên phải, các viên điểm có thanh tô theo % */
+.sa-pr{display:flex;flex-direction:column;gap:7px;padding:9px;border-radius:13px;background:#fff}
+.sa-pr-top{display:flex;align-items:center;gap:9px}
+.sa-av-soft{width:32px;height:32px;flex:none;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800}
+.sa-grade{flex:none;display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800;white-space:nowrap}
+.sa-grade.is-good{background:#dcf5ea;color:#11734b}.sa-grade.is-mid{background:#fff1cc;color:#946200}.sa-grade.is-low{background:#ffe4e4;color:#b42318}.sa-grade.is-none{background:#f3eef1;color:#9b8a93}
+.sa-kick{width:26px;height:26px;flex:none;border:0;border-radius:9px;background:transparent;color:#cdb6c1;cursor:pointer}
+.sa-kick:hover{background:#fff1f1;color:var(--sa-bad)}
+.sa-done{display:flex;flex-wrap:wrap;gap:5px}
+.sa-score{--fill:#c8efdb;--track:#effaf4;--ink:#11734b;display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:4px 10px;border-radius:10px;font-size:11.5px;color:var(--ink);background:linear-gradient(90deg,var(--fill) var(--p),var(--track) var(--p))}
+.sa-score.is-mid{--fill:#ffe5a3;--track:#fff8e6;--ink:#8a5a00}.sa-score.is-low{--fill:#ffcaca;--track:#fff2f2;--ink:#a8261b}
+.sa-score b{font-weight:700;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sa-score em{font-style:normal;font-weight:800}
+.sa-score small{font-size:10px;font-weight:800;opacity:.65}
+/* Theo đề: mỗi đề một thẻ, mỗi người một thanh */
+.sa-qcard{display:flex;flex-direction:column;gap:7px;padding:10px;border-radius:13px;background:#fff}
+.sa-qcard-h{display:flex;align-items:center;gap:7px;font-size:12.5px}
+.sa-qcard-h i{color:var(--sa-pink-d);font-size:11px}
+.sa-qcard-h b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sa-qcard-h small{flex:none;font-size:11px;font-weight:700;color:var(--sa-mute)}
+.sa-bar{--fill:#34c38f;display:grid;grid-template-columns:70px 1fr 50px;align-items:center;gap:8px;font-size:11.5px}
+.sa-bar.is-mid{--fill:#f5b52e}.sa-bar.is-low{--fill:#f26d6d}
+.sa-bar span{font-weight:700;color:#5b4250;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sa-bar i{height:9px;border-radius:99px;background:#f3e9ee;overflow:hidden}
+.sa-bar u{display:block;height:100%;border-radius:99px;background:var(--fill)}
+.sa-bar b{text-align:right;font-weight:800;color:#3b2230;white-space:nowrap}
+.sa-bar small{margin-left:2px;font-size:10px;color:var(--sa-mute)}
+.sa-mini-seg{display:inline-flex;gap:2px;padding:3px;border-radius:999px;background:#fff;box-shadow:inset 0 0 0 1.5px var(--sa-line)}
+.sa-mini-seg button{border:0;background:transparent;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:800;color:var(--sa-mute);cursor:pointer}
+.sa-mini-seg button.is-on{background:var(--sa-pink);color:#fff}
+.sa-edit-toggle{display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;border:1.5px dashed var(--sa-line);border-radius:13px;background:transparent;font-size:12px;font-weight:800;color:#6f5a64;cursor:pointer}
+.sa-edit-toggle:hover{border-color:var(--sa-pink);color:var(--sa-pink-d)}
+.sa-edit-toggle .sa-chev{margin-left:auto;font-size:10px}
+.sa-field{display:flex;flex-direction:column;gap:5px}
+.sa-field > span:first-child{font-size:11px;font-weight:800;color:#6f5a64}
+.sa-field .sa-step{align-self:flex-start;background:#fff}
+.sa-sec .sa-btn-ghost{background:#fff;box-shadow:inset 0 0 0 1.5px var(--sa-line)}
+.sa-btn-sm{height:32px;padding:0 12px;font-size:11.5px;border-radius:10px}
+.sa-btn-ghost{background:#fff4f8;color:#6b4a5b;box-shadow:none}
+.sa-btn-ghost:hover{background:#ffe8f1}
 @media (max-width:420px){.sa{padding:12px}.sa-add{flex-wrap:wrap}.sa-input{flex-basis:100%}.sa-select{flex:1}}
+.sa-once-side,.sa-once-main{display:flex;flex-direction:column;gap:12px;min-width:0}
+/* ===================== LỚP DA "SỔ CẮT DÁN" (2026-11-12) =====================
+   Đồng bộ home-scrapbook.css: giấy kem kẻ caro, băng washi mép răng cưa (--tape-mask), đường may nét đứt,
+   bóng in cứng (0 3px 0), nghiêng nhẹ. Chỉ CSS — chạy giống nhau ở trang chủ và trang làm bài (không cần icon thêm). */
+.sa{--tape-mask:conic-gradient(from 45deg at left,#000 90deg,#0000 0) left/51% 6px repeat-y,conic-gradient(from 225deg at right,#000 90deg,#0000 0) right/51% 6px repeat-y;
+  --stripes:repeating-linear-gradient(45deg,rgba(255,255,255,.45) 0 4px,transparent 4px 8px);
+  background-color:#FFFCF8;background-image:linear-gradient(rgba(236,110,155,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(236,110,155,.08) 1px,transparent 1px);
+  background-size:22px 22px;border:1.5px dashed #F4BCD0;box-shadow:0 3px 0 #F9D9E4}
+/* Tab = mục lục sổ: tab đang mở là tờ giấy trắng có mẩu washi */
+.sa-tabs{background:#FFF1F6;border:1.5px dashed #F4BCD0;border-radius:16px}
+.sa-tabs button{position:relative}
+.sa-tabs button.is-on{box-shadow:0 2px 0 #F6D2DE;rotate:-1deg}
+.sa-tabs button.is-on::before{content:'';position:absolute;top:-6px;left:50%;width:34px;height:11px;translate:-50% 0;rotate:-4deg;background-color:color-mix(in srgb,#F7B2CB 85%,transparent);background-image:var(--stripes);-webkit-mask:var(--tape-mask);mask:var(--tape-mask)}
+/* Tiêu đề khối = chữ trên mẩu băng keo */
+.sa-h{--tape:#FBD3C4;position:relative;isolation:isolate;width:fit-content;padding:3px 12px 3px 2px}
+.sa-h::before{content:'';position:absolute;z-index:-1;inset:3px -6px 1px 14px;background-color:color-mix(in srgb,var(--tape) 72%,transparent);-webkit-mask:var(--tape-mask);mask:var(--tape-mask);rotate:-1.2deg}
+.sa-h i{background:#fff;box-shadow:0 0 0 2px #fff,0 2px 5px rgba(150,80,110,.18)}
+.sa-h .sa-badge{margin-left:6px;background:#fff}
+.sa-pane > div:nth-child(2) .sa-h,.sa-once-main .sa-h{--tape:#CFE6F6}
+.sa-pane > div:nth-child(3) .sa-h,.sa-once-new .sa-h{--tape:#BDE6CD}
+#sa-req-box .sa-h{--tape:#F6DD92}
+/* Ô số liệu = giấy note dán băng keo, nghiêng lệch nhau */
+.sa-stats{padding-top:6px}
+.sa-stats div{position:relative;border-radius:3px 3px 14px 3px;box-shadow:0 3px 0 color-mix(in srgb,var(--c) 22%,#fff),0 10px 18px -14px rgba(120,60,90,.5);rotate:-1.2deg}
+.sa-stats div:nth-child(2){rotate:.9deg}.sa-stats div:nth-child(3){rotate:-.5deg}
+.sa-stats div::before{content:'';position:absolute;top:-8px;left:50%;width:40px;height:14px;translate:-50% 0;rotate:3deg;background-color:color-mix(in srgb,var(--c) 32%,#fff);background-image:var(--stripes);-webkit-mask:var(--tape-mask);mask:var(--tape-mask)}
+.sa-stats i{box-shadow:0 0 0 2px #fff,0 3px 6px -2px color-mix(in srgb,var(--c) 45%,transparent)}
+/* Khung tạo link = tờ giấy caro có mẩu washi xanh bạc hà */
+.sa-once-new{position:relative;background-color:#FFF9FB;background-image:linear-gradient(rgba(236,110,155,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(236,110,155,.08) 1px,transparent 1px);background-size:18px 18px;border:1.5px solid #F6CFDD;box-shadow:0 3px 0 #F6D7E2;margin-top:6px}
+.sa-once-new::before{content:'';position:absolute;top:-10px;right:22px;width:64px;height:18px;rotate:5deg;background-color:color-mix(in srgb,#BDE6CD 88%,transparent);background-image:var(--stripes);-webkit-mask:var(--tape-mask);mask:var(--tape-mask)}
+/* Tên người nhận / thành viên = nhãn washi nhỏ */
+.sa-tag{border-radius:3px;background-color:#FFE1EC;background-image:var(--stripes);rotate:-1.5deg}
+.sa-tag:nth-child(even){rotate:1.2deg;background-color:#E3F0FB;color:#3f74a6}
+/* Thẻ link = tờ giấy kẻ dòng, đường may nét đứt, mẩu washi theo màu trạng thái, bóng in */
+.sa-card{position:relative;background-color:#fff;background-image:linear-gradient(rgba(236,110,155,.06) 1px,transparent 1px);background-size:100% 22px;
+  border:1.5px solid color-mix(in srgb,var(--st) 28%,#fff);border-radius:5px 16px 16px 16px;
+  box-shadow:0 3px 0 color-mix(in srgb,var(--st) 20%,#fff),0 14px 24px -18px rgba(120,60,90,.55);
+  outline:1.5px dashed color-mix(in srgb,var(--st) 32%,transparent);outline-offset:-7px;rotate:-.35deg;margin-top:6px}
+#sa-once-list > .sa-card:nth-child(even){rotate:.35deg}
+.sa-card::before{content:'';position:absolute;top:-9px;left:20px;width:58px;height:18px;rotate:-6deg;background-color:color-mix(in srgb,var(--st) 35%,#fff);background-image:var(--stripes);-webkit-mask:var(--tape-mask);mask:var(--tape-mask);pointer-events:none}
+.sa-card.is-open{rotate:0deg;border-color:#F7A8C6;outline-color:rgba(236,95,149,.45);box-shadow:0 3px 0 #F6C3D6,0 18px 32px -18px rgba(236,95,149,.55)}
+.sa-st-ic{box-shadow:0 0 0 2.5px #fff,0 3px 7px -2px color-mix(in srgb,var(--st) 50%,transparent)}
+.sa-pill{box-shadow:0 0 0 2px #fff,0 2px 4px rgba(120,60,90,.12);rotate:2deg}
+.sa-mid{background:#FFF8FB;border:1.5px dashed #F4D6E1}
+.sa-btn{box-shadow:0 3px 0 var(--sa-pink-d)}
+.sa-btn-ghost,.sa-sec .sa-btn-ghost{background:#fff;border:1.5px dashed #F2C3D4;box-shadow:0 2px 0 #F8DDE7}
+.sa-btn-danger{border-color:#F5B9B9!important;background:#FFF5F5!important}
+/* Khối chi tiết = phiếu giấy kẻ dòng; người / đề = thẻ trắng viền in */
+.sa-sec{background-color:#FFFEFA;background-image:linear-gradient(rgba(130,170,220,.12) 1px,transparent 1px);background-size:100% 22px;border:1.5px dashed #F2CFDC;border-radius:12px}
+.sa-sec h5 > i{box-shadow:0 0 0 2px #fff,0 2px 5px rgba(150,80,110,.2)}
+.sa-pr,.sa-qcard{border:1.5px solid #F6E2EA;box-shadow:0 2px 0 #F6E2EA}
+.sa-av-soft{box-shadow:0 0 0 2px #fff;rotate:-3deg}
+.sa-grade{box-shadow:0 0 0 1.5px #fff}
+.sa-roster span.is-in{background-image:var(--stripes);border-radius:3px;rotate:-1deg}
+.sa-roster span.is-in:nth-child(even){rotate:1deg}
+/* Yêu cầu truy cập = giấy note vàng dán băng keo */
+.sa-req-card{position:relative;background-color:#FFF8DC;background-image:linear-gradient(rgba(215,170,60,.14) 1px,transparent 1px);background-size:100% 22px;border:1.5px solid #F2DFA6;box-shadow:0 3px 0 #F2DFA6;rotate:-.6deg;margin-top:6px}
+.sa-req-card::before{content:'';position:absolute;top:-9px;left:50%;width:56px;height:17px;translate:-50% 0;rotate:-3deg;background-color:color-mix(in srgb,#F6DD92 90%,transparent);background-image:var(--stripes);-webkit-mask:var(--tape-mask);mask:var(--tape-mask)}
+/* Tab Mọi người / Cài đặt: các ô = giấy trắng viền may */
+.sa-general,.sa-switch-row{background:#fff;border:1.5px dashed #F2C3D4;box-shadow:0 2px 0 #F8DDE7}
+.sa-person:first-child{background:#FFF1F6}
+/* MÁY TÍNH: tab Link riêng — hộp Chia sẻ (index.html .sm-card / quiz.html) giãn rộng, chia 2 cột:
+   trái = yêu cầu + tạo link (dính khi cuộn), phải = danh sách link. Trình duyệt chưa có :has() thì giữ hộp hẹp như cũ. */
+@media (min-width:900px){
+  #shareQuizModal > div:has(.sa[data-tab="links"]){max-width:min(940px,calc(100vw - 64px))!important}
+  #shareQuizModal > div{transition:max-width .25s ease}
+  .sa[data-tab="links"] .sa-once:not(.hidden){display:grid;grid-template-columns:minmax(0,350px) minmax(0,1fr);gap:14px 18px;align-items:start}
+  .sa[data-tab="links"] #sa-once-stats{grid-column:1/-1}
+  .sa[data-tab="links"] .sa-once-side{position:sticky;top:56px}
+  .sa[data-tab="links"] .sa-stats div{grid-template-columns:auto auto 1fr}
+  .sa[data-tab="links"] .sa-stats small{grid-column:auto;margin:0}
+}
 `;
 function injectCss() {
     if (document.getElementById('sa-style')) return;
@@ -265,6 +389,7 @@ function applyTab() {
         b.setAttribute('aria-selected', on ? 'true' : 'false');
     });
     sec.querySelectorAll('[data-pane]').forEach(p => { p.hidden = p.dataset.pane !== t; });
+    sec.dataset.tab = t;             // máy tính: tab Link riêng giãn hộp + chia 2 cột (CSS @media min-width 900px)
 }
 
 function build(section) {
@@ -318,6 +443,7 @@ function build(section) {
         <div class="sa-pane" data-pane="links" hidden>
         <div id="sa-once" class="sa-once hidden">
             <div id="sa-once-stats" class="sa-stats"></div>
+            <div class="sa-once-side">
             <div id="sa-req-box" class="hidden">
                 <p class="sa-h" style="margin-bottom:8px"><i class="fas fa-hand"></i> Yêu cầu truy cập <span id="sa-req-count" class="sa-badge"></span></p>
                 <ul id="sa-req-list" class="sa-list"></ul>
@@ -342,8 +468,11 @@ function build(section) {
                 <p id="sa-once-preview" class="sa-preview"></p>
                 <button type="button" id="sa-once-create" class="sa-btn"><i class="fas fa-copy"></i> Tạo link &amp; sao chép</button>
             </div>
+            </div>
+            <div class="sa-once-main">
             <p class="sa-h"><i class="fas fa-mobile-screen"></i> Link đã tạo <span id="sa-once-count" class="sa-badge"></span></p>
             <ul id="sa-once-list" class="sa-list"></ul>
+            </div>
         </div>
         </div>
         <div class="sa-pane" data-pane="settings" hidden>
@@ -521,7 +650,15 @@ whenAuthReady(6000).then(u => { if (u && !u.isAnonymous && !u.offline) notifyAcc
 
 const linkUsed = (l) => (l.claims || []).length;
 const onceState = (l) => (l.expiresAt != null && l.expiresAt <= Date.now()) ? 'expired' : linkUsed(l) >= l.maxUses ? 'full' : linkUsed(l) ? 'used' : 'free';
-const putLink = (l) => { const i = once.links.findIndex(x => x.token === l.token); if (i >= 0) once.links[i] = l; else once.links.unshift(l); };
+// Chỉ 'list' kèm kết quả làm bài (claims[].done) — link trả về từ sửa / gỡ / duyệt thì giữ lại kết quả đang có
+const putLink = (l) => {
+    const i = once.links.findIndex(x => x.token === l.token);
+    if (i < 0) return once.links.unshift(l);
+    const old = once.links[i];
+    (l.claims || []).forEach(c => { if (!c.done?.length) c.done = old.claims?.find(o => o.uid === c.uid)?.done || []; });
+    once.links[i] = l;
+};
+const resByQuiz = new Set();          // link đang xem kết quả "Theo đề" (mặc định "Theo người")
 
 /** Bản xem trước khớp thẻ Open Graph máy chủ vẽ (api/link.js previewPage). */
 function previewOf(name, uses, group) {
@@ -588,23 +725,60 @@ function renderPreview() {
 const stepper = (attrs, n) => `<span class="sa-step"><button type="button" ${attrs} data-d="-1" aria-label="Bớt"><i class="fas fa-minus"></i></button><b>${n}</b><button type="button" ${attrs} data-d="1" aria-label="Thêm"><i class="fas fa-plus"></i></button><small>thiết bị</small></span>`;
 
 const whoOf = (c) => c.who || c.email || c.name || c.label || 'Một thiết bị';
-function claimRow(token, c, live) {
-    const who = whoOf(c);
-    const sub = [c.who ? c.email : '', c.who || c.email || c.name ? c.label : '', [c.city, c.country].filter(Boolean).join(', '),
-        c.at ? `mở ${fmtUntil(c.at)}` : '', c.seen && c.seen !== c.at ? `gần nhất ${fmtUntil(c.seen)}` : '',
-        c.via === 'request' ? 'được duyệt yêu cầu' : ''].filter(Boolean).join(' · ');
+// Kết quả làm bài qua link (api/link.js 'progress'): viên điểm cao nhất, màu theo mức; ×n = số lần nộp
+const pctClass = (p) => p >= 80 ? 'is-good' : p >= 50 ? 'is-mid' : 'is-low';
+const pctOf = (x) => Math.round(x.best ?? 0);
+const scoreTip = (label, x) => `${label}: cao nhất ${x.best}% · gần nhất ${x.last}% · ${x.n} lần nộp${x.at ? ` · ${fmtUntil(x.at)}` : ''}`;
+// Viên điểm có nền tô theo % (nhìn là biết cao / thấp); ×n = số lần nộp
+const scoreChip = (label, x) => `<span class="sa-score ${pctClass(pctOf(x))}" style="--p:${pctOf(x)}%" title="${esc(scoreTip(label, x))}"><b>${esc(label)}</b><em>${pctOf(x)}%</em>${x.n > 1 ? `<small>×${x.n}</small>` : ''}</span>`;
+// Ô đại diện người / máy: chữ cái đầu trên nền màu nhạt (máy ẩn danh chưa xưng tên → icon điện thoại)
+function softAv(c) {
+    const who = whoOf(c), anon = c.anon && !c.who;
+    const col = anon ? '#3b82f6' : avColor(who);
+    return `<span class="sa-av-soft" style="background:${col}22;color:${col}">${anon ? '<i class="fas fa-mobile-screen"></i>' : esc(who.charAt(0).toUpperCase())}</span>`;
+}
+/** Theo đề: mỗi bộ đề một thẻ, mỗi người một thanh điểm */
+function resultsByQuiz(l) {
+    const m = new Map();
+    (l.claims || []).forEach(c => (c.done || []).forEach(x => {
+        const e = m.get(x.quizId) || { title: x.title, rows: [] };
+        e.rows.push([whoOf(c), x]);
+        m.set(x.quizId, e);
+    }));
+    if (!m.size) return '<p class="sa-empty-row">Chưa ai nộp bài.</p>';
+    return [...m.values()].sort((a, b) => b.rows.length - a.rows.length || (a.title || '').localeCompare(b.title || '', 'vi')).map(e => `
+        <div class="sa-qcard">
+            <div class="sa-qcard-h"><i class="fas fa-book-open"></i><b title="${esc(e.title)}">${esc(e.title || 'Bộ đề')}</b><small>${e.rows.length} người</small></div>
+            ${e.rows.sort((a, b) => pctOf(b[1]) - pctOf(a[1])).map(([w, x]) => `
+            <div class="sa-bar ${pctClass(pctOf(x))}" title="${esc(scoreTip(w, x))}"><span>${esc(w)}</span><i><u style="width:${pctOf(x)}%"></u></i><b>${pctOf(x)}%${x.n > 1 ? `<small>×${x.n}</small>` : ''}</b></div>`).join('')}
+        </div>`).join('');
+}
+/** Theo người: thẻ nhỏ — ai, máy gì, mở lúc nào · huy hiệu điểm · các viên điểm từng đề */
+function claimRow(token, c, live, kind = 'quiz') {
+    const who = whoOf(c), done = c.done || [];
+    const meta = [c.who ? c.email : '', c.who || c.email || c.name ? c.label : '', [c.city, c.country].filter(Boolean).join(', '),
+        c.at ? `mở ${fmtUntil(c.at)}` : '', c.via === 'request' ? 'được duyệt yêu cầu' : ''].filter(Boolean).join(' · ');
+    const avg = done.length ? Math.round(done.reduce((s, x) => s + pctOf(x), 0) / done.length) : null;
+    const grade = !done.length ? '<span class="sa-grade is-none"><i class="fas fa-clock"></i> Chưa làm</span>'
+        : kind === 'quiz' ? `<span class="sa-grade ${pctClass(avg)}"><i class="fas fa-trophy"></i> ${avg}%</span>`
+        : `<span class="sa-grade ${pctClass(avg)}" title="Điểm cao nhất trung bình">${done.length} đề · TB ${avg}%</span>`;
     return `
-        <div class="sa-claim">
-            <span class="sa-av" style="background:${c.anon && !c.who ? '#60a5fa' : avColor(who)}">${c.anon && !c.who ? '<i class="fas fa-mobile-screen"></i>' : esc(who.charAt(0).toUpperCase())}</span>
-            <span class="sa-who"><span class="sa-name" title="${esc(who)}">${esc(who)}</span><span class="sa-sub" title="${esc(sub)}">${esc(sub)}</span></span>
-            ${live ? `<button type="button" class="sa-icon" data-kick="${esc(token)}" data-uid="${esc(c.uid)}" title="Gỡ và chặn máy này" aria-label="Gỡ máy này"><i class="fas fa-xmark"></i></button>` : ''}
+        <div class="sa-pr">
+            <div class="sa-pr-top">
+                ${softAv(c)}
+                <span class="sa-who"><span class="sa-name" title="${esc(who)}">${esc(who)}</span><span class="sa-sub" title="${esc(meta)}">${esc(meta)}</span></span>
+                ${grade}
+                ${live ? `<button type="button" class="sa-kick" data-kick="${esc(token)}" data-uid="${esc(c.uid)}" title="Gỡ và chặn máy này" aria-label="Gỡ máy này"><i class="fas fa-xmark"></i></button>` : ''}
+            </div>
+            ${kind !== 'quiz' && done.length ? `<div class="sa-done">${done.map(x => scoreChip(x.title || 'Bộ đề', x)).join('')}</div>`
+                : kind === 'quiz' && done[0]?.n > 1 ? `<div class="sa-done">${scoreChip('Gần nhất', { ...done[0], best: done[0].last })}<span class="sa-sub">${done[0].n} lần nộp</span></div>` : ''}
         </div>`;
 }
 
-// Thanh suất: mỗi ô = 1 thiết bị (≤ 12 ô), nhiều hơn thì một thanh liền
+// Suất máy: mỗi máy một icon điện thoại (≤ 12), nhiều hơn thì một thanh liền
 const seatBar = (used, max) => max <= 12
-    ? `<span class="sa-seats">${Array.from({ length: max }, (_, i) => `<i${i < used ? ' class="on"' : ''}></i>`).join('')}</span>`
-    : `<span class="sa-seats is-bar"><i class="on" style="width:${Math.round(used / max * 100)}%"></i></span>`;
+    ? `<span class="sa-seats" aria-hidden="true">${Array.from({ length: max }, (_, i) => `<i class="fas fa-mobile-screen${i < used ? ' on' : ''}"></i>`).join('')}</span>`
+    : `<span class="sa-seats is-bar"><u style="width:${Math.round(used / max * 100)}%"></u></span>`;
 // Mặt những người / máy đã mở (tối đa 4, còn lại "+n")
 function faces(claims) {
     const show = claims.slice(0, 4).map(c => {
@@ -613,10 +787,12 @@ function faces(claims) {
     }).join('');
     return claims.length ? `<span class="sa-faces">${show}${claims.length > 4 ? `<span class="is-more">+${claims.length - 4}</span>` : ''}</span>` : '';
 }
+// [màu chữ, màu nền nhạt, icon, nhãn]
 const ONCE_STATE = {
-    free: ['#60a5fa', 'fa-mobile-screen', 'Chưa ai mở'], used: ['#34c38f', 'fa-check', 'Đang dùng'],
-    full: ['#a78bfa', 'fa-lock', 'Đã đủ máy'], expired: ['#c4b5bd', 'fa-clock', 'Hết hạn']
+    free: ['#3b82f6', '#e6f0ff', 'fa-share-nodes', 'Chưa ai mở'], used: ['#16a36a', '#ddf6ea', 'fa-check', 'Đang dùng'],
+    full: ['#7c5ce0', '#efe9ff', 'fa-lock', 'Đã đủ máy'], expired: ['#9b8a93', '#f1ebee', 'fa-clock', 'Hết hạn']
 };
+const editRows = new Set();          // link đang mở khối "Chỉnh sửa link"
 
 function linkRow(l) {
     const st = onceState(l), used = linkUsed(l), claims = l.claims || [];
@@ -627,42 +803,64 @@ function linkRow(l) {
     const ttl = !live ? 'sẽ tự chuyển vào lịch sử' : l.expiresAt == null ? 'không hết hạn' : leftText(l.expiresAt);
     const sub = `<span class="sa-ttl${soon ? ' is-soon' : ''}"><i class="fas fa-clock"></i> ${esc(ttl)}</span> · ${esc(last ? `mở gần nhất ${fmtUntil(last)}` : `tạo ${fmtUntil(l.createdAt)}`)}`;
     const open = openRows.has(l.token);
+    // Kết quả làm bài: bao nhiêu máy đã nộp, tổng lượt nộp
+    const nDone = claims.filter(c => c.done?.length).length;
+    const nSubmit = claims.reduce((n, c) => n + (c.done || []).reduce((k, x) => k + (x.n || 0), 0), 0);
+    const byQuiz = resByQuiz.has(l.token);
     // Link nhóm có danh sách: ai đã vào (xanh) / chưa vào
     const members = l.members || [];
     const inKeys = new Set(claims.map(c => (c.who || '').toLocaleLowerCase('vi')).filter(Boolean));
     const nIn = members.filter(m => inKeys.has(m.toLocaleLowerCase('vi'))).length;
     const roster = !l.group || !members.length ? '' : `
-            <span class="sa-mini">Thành viên đã vào (${nIn}/${members.length})</span>
-            <div class="sa-roster">${members.map(m => inKeys.has(m.toLocaleLowerCase('vi'))
-                ? `<span class="is-in"><i class="fas fa-check"></i>${esc(m)}</span>` : `<span>${esc(m)}</span>`).join('')}</div>`;
-    const detail = !open ? '' : `
-        <div class="sa-detail">
-            ${roster}
-            ${live ? `
-            <div class="sa-line">
-                <input type="text" class="sa-input" data-rename-input="${esc(l.token)}" value="${esc(l.name)}" maxlength="60" placeholder="${l.group ? 'Tên nhóm' : 'Tên người nhận'}">
-                <button type="button" class="sa-btn sa-btn-sm" data-rename="${esc(l.token)}">Lưu tên</button>
-            </div>
-            ${l.group ? `
-            <textarea class="sa-input sa-area" data-members-input="${esc(l.token)}" rows="3" placeholder="Minh, Hoa, Khang… (dấu phẩy hoặc xuống dòng) — bỏ trống: người mở tự gõ tên">${esc(members.join('\n'))}</textarea>
-            <button type="button" class="sa-btn sa-btn-sm sa-btn-ghost" data-members="${esc(l.token)}"><i class="fas fa-users"></i> Lưu danh sách thành viên</button>` : ''}
-            <div class="sa-line"><span class="sa-mini">Mở được trên</span>${stepper(`data-seat="${esc(l.token)}"`, l.maxUses)}</div>
-            <div><span class="sa-mini">Gia hạn tính từ bây giờ</span>
-                <div class="sa-chips">${ONCE_HOURS.map(([h, t]) => `<button type="button" data-extend="${esc(l.token)}" data-h="${h}">${t}</button>`).join('')}</div></div>` : ''}
-            <span class="sa-mini">Ai đã mở (${used}/${l.maxUses})</span>
-            ${used ? (l.claims || []).map(c => claimRow(l.token, c, live)).join('') : '<span class="sa-sub">Chưa có máy nào.</span>'}
-        </div>`;
+            <section class="sa-sec">
+                <h5><i class="fas fa-users"></i> Thành viên <small>${nIn}/${members.length} đã vào</small></h5>
+                <div class="sa-roster">${members.map(m => inKeys.has(m.toLocaleLowerCase('vi'))
+                    ? `<span class="is-in"><i class="fas fa-check"></i>${esc(m)}</span>` : `<span><i class="fas fa-clock"></i>${esc(m)}</span>`).join('')}</div>
+            </section>`;
+    // Chi tiết: thành viên → ai đã mở & kết quả → (gập) chỉnh sửa link
+    const results = `
+            <section class="sa-sec">
+                <h5><i class="fas fa-trophy"></i> Kết quả làm bài <small>${used}/${l.maxUses} máy</small>
+                    ${l.kind === 'folder' && nDone ? `<span class="sa-mini-seg">
+                        <button type="button" data-resview="${esc(l.token)}" data-v="person" class="${byQuiz ? '' : 'is-on'}">Theo người</button>
+                        <button type="button" data-resview="${esc(l.token)}" data-v="quiz" class="${byQuiz ? 'is-on' : ''}">Theo đề</button></span>` : ''}</h5>
+                ${!used ? '<p class="sa-empty-row">Chưa có máy nào mở link.</p>'
+                    : byQuiz && l.kind === 'folder' ? resultsByQuiz(l)
+                    : claims.map(c => claimRow(l.token, c, live, l.kind)).join('')}
+            </section>`;
+    const editing = editRows.has(l.token);
+    const edit = !live ? '' : `
+            <button type="button" class="sa-edit-toggle" data-edit-toggle="${esc(l.token)}" aria-expanded="${editing}">
+                <i class="fas fa-sliders"></i> Chỉnh sửa link <i class="fas fa-chevron-${editing ? 'up' : 'down'} sa-chev"></i></button>
+            ${editing ? `
+            <section class="sa-sec">
+                <label class="sa-field"><span>${l.group ? 'Tên nhóm' : 'Tên người nhận'}</span>
+                    <span class="sa-line"><input type="text" class="sa-input" data-rename-input="${esc(l.token)}" value="${esc(l.name)}" maxlength="60" placeholder="${l.group ? 'vd: Tổ 17' : 'vd: An'}">
+                    <button type="button" class="sa-btn sa-btn-sm" data-rename="${esc(l.token)}">Lưu</button></span></label>
+                ${l.group ? `
+                <label class="sa-field"><span>Danh sách thành viên</span>
+                    <textarea class="sa-input sa-area" data-members-input="${esc(l.token)}" rows="3" placeholder="Minh, Hoa, Khang… (dấu phẩy hoặc xuống dòng) — bỏ trống: người mở tự gõ tên">${esc(members.join('\n'))}</textarea>
+                    <button type="button" class="sa-btn sa-btn-sm sa-btn-ghost" data-members="${esc(l.token)}"><i class="fas fa-users"></i> Lưu danh sách</button></label>` : ''}
+                <div class="sa-field"><span>Số thiết bị mở được</span>${stepper(`data-seat="${esc(l.token)}"`, l.maxUses)}</div>
+                <div class="sa-field"><span>Gia hạn tính từ bây giờ</span>
+                    <div class="sa-chips">${ONCE_HOURS.map(([h, t]) => `<button type="button" data-extend="${esc(l.token)}" data-h="${h}">${t}</button>`).join('')}</div></div>
+            </section>` : ''}`;
+    const detail = !open ? '' : `<div class="sa-detail">${roster}${results}${edit}</div>`;
+    const icon = l.group && (st === 'free' || st === 'used') ? 'fa-users' : S[2];
     return `
-        <li class="sa-card is-${st}${open ? ' is-open' : ''}">
+        <li class="sa-card is-${st}${open ? ' is-open' : ''}" style="--st:${S[0]};--stb:${S[1]}">
             <div class="sa-top">
-                <span class="sa-av" style="background:${S[0]}"><i class="fas ${l.group && (st === 'free' || st === 'used') ? 'fa-users' : S[1]}"></i></span>
+                <span class="sa-st-ic"><i class="fas ${icon}"></i></span>
                 <span class="sa-who"><span class="sa-name">${linkTitle(l)}</span><span class="sa-sub">${sub}</span></span>
-                <span class="sa-pill is-${st}">${S[2]}</span>
+                <span class="sa-pill">${S[3]}</span>
             </div>
             <div class="sa-mid">${seatBar(used, l.maxUses)}<span class="sa-seat-n">${used}/${l.maxUses} máy</span>${faces(claims)}</div>
+            ${used ? `<div class="sa-sum"><i class="fas fa-list-check"></i>
+                <span class="sa-sum-bar"><u style="width:${Math.round(nDone / used * 100)}%"></u></span>
+                <span>${nDone}/${used} đã làm bài</span>${nSubmit ? `<small>${nSubmit} lượt nộp</small>` : ''}</div>` : ''}
             <div class="sa-acts">
                 ${live ? `<button type="button" class="sa-btn sa-btn-sm" data-once-copy="${esc(l.token)}"><i class="fas fa-copy"></i> Sao chép</button>` : ''}
-                <button type="button" class="sa-btn sa-btn-sm sa-btn-ghost" data-once-edit="${esc(l.token)}" aria-expanded="${open}"><i class="fas ${open ? 'fa-chevron-up' : 'fa-pen'}"></i> ${open ? 'Thu gọn' : 'Chi tiết'}</button>
+                <button type="button" class="sa-btn sa-btn-sm sa-btn-ghost" data-once-edit="${esc(l.token)}" aria-expanded="${open}"><i class="fas ${open ? 'fa-chevron-up' : 'fa-chart-pie'}"></i> ${open ? 'Thu gọn' : 'Chi tiết'}</button>
                 ${live ? `<button type="button" class="sa-btn sa-btn-sm sa-btn-ghost sa-btn-danger" data-once-revoke="${esc(l.token)}"><i class="fas fa-xmark"></i> Thu hồi</button>` : ''}
             </div>${detail}
         </li>`;
@@ -690,7 +888,9 @@ function histRow(h) {
     const opens = h.opens || [];
     const head = `${h.reason === 'revoked' ? 'Thu hồi' : 'Hết hạn'} ${fmtUntil(h.endedAt)} · tạo ${fmtUntil(h.createdAt)} · ${opens.length}/${h.maxUses} máy đã mở`;
     const list = opens.map(o => [o.who || o.label || 'Một thiết bị', o.who ? o.label : '', o.place, o.at ? `mở ${fmtUntil(o.at)}` : '',
-        o.seen && o.seen !== o.at ? `gần nhất ${fmtUntil(o.seen)}` : ''].filter(Boolean).join(' · '));
+        o.seen && o.seen !== o.at ? `gần nhất ${fmtUntil(o.seen)}` : '',
+        o.done?.length ? `làm ${o.done.length} đề: ${o.done.slice(0, 4).map(d => `${d.t || 'Bộ đề'} ${Math.round(d.b ?? 0)}%`).join(', ')}${o.done.length > 4 ? '…' : ''}` : ''
+    ].filter(Boolean).join(' · '));
     return `
         <li class="is-${h.reason === 'revoked' ? 'revoked' : 'expired'}">
             <span class="sa-name">${linkTitle(h)}</span>
@@ -721,9 +921,9 @@ function renderOnce() {
     if (count) count.innerHTML = once.loading && once.links.length ? '<i class="fas fa-spinner fa-spin"></i> đang cập nhật' : live ? `${live} link` : '';
     const stats = document.getElementById('sa-once-stats');
     if (stats) stats.innerHTML = `
-        <div><b>${live}</b><small>link đang mở</small></div>
-        <div><b>${liveLinks.reduce((n, l) => n + linkUsed(l), 0)}</b><small>máy đã vào</small></div>
-        <div class="${once.requests.length ? 'is-warn' : ''}"><b>${once.requests.length}</b><small>chờ duyệt</small></div>`;
+        <div><i class="fas fa-share-nodes"></i><b>${live}</b><small>link đang mở</small></div>
+        <div class="is-blue"><i class="fas fa-mobile-screen"></i><b>${liveLinks.reduce((n, l) => n + linkUsed(l), 0)}</b><small>máy đã vào</small></div>
+        <div class="${once.requests.length ? 'is-amber' : 'is-zero'}"><i class="fas fa-hand"></i><b>${once.requests.length}</b><small>chờ duyệt</small></div>`;
 
     // Yêu cầu truy cập đang chờ
     const reqBox = document.getElementById('sa-req-box');
@@ -804,6 +1004,8 @@ function bindOnceBlock(section) {
         if (d.onceHours !== undefined) { onceHours = Number(d.onceHours) || 0; return renderOnce(); }
         if (d.onceUses !== undefined) { onceUses = Math.min(ONCE_MAX_USES, Math.max(1, onceUses + Number(d.onceUses))); return renderPreview(); }
         if (d.histToggle !== undefined) { historyOpen = !historyOpen; return renderOnce(); }
+        if (d.resview) { d.v === 'quiz' ? resByQuiz.add(d.resview) : resByQuiz.delete(d.resview); return renderOnce(); }
+        if (d.editToggle) { editRows.has(d.editToggle) ? editRows.delete(d.editToggle) : editRows.add(d.editToggle); return renderOnce(); }
         if (d.untag) { tags[d.untag].splice(Number(d.i), 1); return renderTags(d.untag); }
         if (d.onceMode) {
             const g = d.onceMode === 'group';

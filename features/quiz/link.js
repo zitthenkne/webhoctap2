@@ -27,7 +27,7 @@ async function call(action, extra = {}) {
 
 const targetUrl = (kind, id, { viaLink = true } = {}) => kind === 'folder'
     ? `folder.html?id=${encodeURIComponent(id)}${viaLink ? `&link=${encodeURIComponent(token)}` : ''}`
-    : `quiz.html?id=${encodeURIComponent(id)}`;
+    : `quiz.html?id=${encodeURIComponent(id)}${viaLink ? `&link=${encodeURIComponent(token)}` : ''}`;   // &link → báo điểm cho chủ (link-progress.js)
 
 const fmtLeft = (ms) => {
     if (ms == null) return 'Không hết hạn';

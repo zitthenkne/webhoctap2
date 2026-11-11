@@ -28,7 +28,8 @@
 //   peek      { token }                       — ai cũng gọi: { status, kind, title, count, ownerName, expiresAt, name, maxUses }
 //   claim     { token, label, who? }          — cần token Firebase (ẩn danh / thật): chiếm 1 suất → { status: 'mine'|'owner'|..., kind, targetId }
 //                                               link nhóm: thiếu who → needWho · ngoài danh sách → notMember · tên đã có máy giữ → whoTaken
-//   folder    { token, folderId }             — người giữ link mở một thư mục trong nhánh: { status, folder, subFolders, quizzes }
+//   folder    { token, folderId }             — người giữ link mở một thư mục trong nhánh: { status, folder, subFolders, quizzes, link }
+//   progress  { token, quizId, pct, total, title } — người giữ link nộp bài: ghi link_progress để chủ xem ai làm đề nào
 //   create    { kind, id, hours, name, maxUses, group?, members? } — CHỦ: tạo link (hours: 24 | 168 | 720 | 0 = không hết hạn)
 //   list      { kind, id }                    — CHỦ: các link còn sống + yêu cầu đang chờ + lịch sử link của mục này
 //   update    { token, name?, maxUses?, hours?, members? } — CHỦ: đổi tên / số suất / gia hạn (tính từ bây giờ) / danh sách nhóm
@@ -153,10 +154,23 @@ function newLinkDoc(Timestamp, me, kind, id, t, { hours, name, maxUses, claims =
     };
 }
 
-function view(token, l) {
+// ---------- Kết quả làm bài qua link (action 'progress') ----------
+// link_progress/{token}_{uid} = { token, uid, kind, targetId, ownerUid, quizzes: { quizId: { title, n, best, last, total, first, at } } }
+// — một doc cho mỗi (link, máy); chủ đọc qua 'list'. Link vào lịch sử → chép gọn vào opens[].done rồi xóa doc.
+const doneView = (quizzes) => Object.entries(quizzes || {}).map(([quizId, x]) => ({
+    quizId, title: x.title || '', n: x.n || 0, best: x.best ?? null, last: x.last ?? null, total: x.total || 0, at: ms(x.at)
+})).sort((a, b) => (b.at || 0) - (a.at || 0));
+/** Snapshot truy vấn link_progress → { token: { uid: quizzes } } */
+function progressMap(docs) {
+    const m = {};
+    docs.forEach(d => { const p = d.data(); (m[p.token] = m[p.token] || {})[p.uid] = p.quizzes || {}; });
+    return m;
+}
+
+function view(token, l, prog = {}) {
     const claims = Object.entries(claimsOf(l)).map(([uid, x]) => ({
         uid, at: ms(x.at), seen: ms(x.seen), label: x.label || '', city: x.city || '', country: x.country || '',
-        anon: !!x.anon, email: x.email || '', name: x.name || '', who: x.who || '', via: x.via || ''
+        anon: !!x.anon, email: x.email || '', name: x.name || '', who: x.who || '', via: x.via || '', done: doneView(prog[uid])
     })).sort((a, b) => (a.at || 0) - (b.at || 0));
     return {
         token, kind: l.kind, targetId: l.targetId, status: statusOf(l, null), name: l.name || '', maxUses: usesOf(l),
@@ -174,13 +188,20 @@ async function archiveMany(db, admin, pairs, reason) {
     if (!pairs.length) return null;
     const Timestamp = admin.firestore.Timestamp;
     const l0 = pairs[0][1];
-    await Promise.all(pairs.map(([, l]) => ungrant(db, admin, l)));
+    // Kết quả làm bài của từng máy → chép gọn vào lịch sử (≤ 60 đề / máy), doc link_progress xóa cùng giao dịch
+    const progSnaps = await Promise.all([
+        ...pairs.map(([, l]) => ungrant(db, admin, l)).map(p => p.then(() => null)),
+        ...pairs.map(([token]) => db.collection('link_progress').where('token', '==', token).get().catch(() => null))
+    ]);
+    const progDocs = progSnaps.filter(Boolean).flatMap(s => s.docs);
+    const prog = progressMap(progDocs);
     const entries = pairs.map(([token, l]) => ({
         token, name: l.name || '', maxUses: usesOf(l), group: !!l.group, createdAt: l.createdAt || null, expiresAt: l.expiresAt || null,
         endedAt: Timestamp.now(), reason,
-        opens: Object.values(claimsOf(l)).map(x => ({
+        opens: Object.entries(claimsOf(l)).map(([uid, x]) => ({
             who: x.who || x.email || x.name || '', label: x.label || '', place: [x.city, x.country].filter(Boolean).join(', '),
-            at: x.at || null, seen: x.seen || null, via: x.via || ''
+            at: x.at || null, seen: x.seen || null, via: x.via || '',
+            done: Object.values(prog[token]?.[uid] || {}).slice(0, 60).map(q => ({ t: q.title || '', b: q.best ?? null, n: q.n || 0 }))
         }))
     }));
     const tokens = new Set(entries.map(e => e.token));
@@ -191,6 +212,7 @@ async function archiveMany(db, admin, pairs, reason) {
         const items = [...entries, ...(h.items || []).filter(x => !tokens.has(x.token))].slice(0, HIST_MAX);
         tx.set(href, { kind: l0.kind, targetId: l0.targetId, ownerUid: l0.ownerUid, title: l0.title || h.title || '', items, tokens: items.map(x => x.token) });
         tokens.forEach(t => tx.delete(db.doc(`share_links/${t}`)));
+        progDocs.forEach(d => tx.delete(db.doc(`link_progress/${d.id}`)));
         return items;
     });
 }
@@ -208,7 +230,7 @@ async function historyOf(db, token) {
 function histView(e) {
     return {
         token: e.token, name: e.name || '', maxUses: e.maxUses || 1, group: !!e.group, reason: e.reason, createdAt: ms(e.createdAt), expiresAt: ms(e.expiresAt), endedAt: ms(e.endedAt),
-        opens: (e.opens || []).map(o => ({ who: o.who || '', label: o.label || '', place: o.place || '', at: ms(o.at), seen: ms(o.seen), via: o.via || '' }))
+        opens: (e.opens || []).map(o => ({ who: o.who || '', label: o.label || '', place: o.place || '', at: ms(o.at), seen: ms(o.seen), via: o.via || '', done: o.done || [] }))
     };
 }
 
@@ -302,11 +324,12 @@ module.exports = async function handler(req, res) {
             if (!id) throw err(400, 'Thiếu id');
             // Mọi lượt đọc chạy SONG SONG (mỗi lượt là một chuyến Vercel ↔ Firestore — tuần tự thì điện thoại chờ rất lâu)
             const isList = action === 'list';
-            const [t, snap, rs, hs] = await Promise.all([
+            const [t, snap, rs, hs, ps] = await Promise.all([
                 targetOf(db, kind, id, me.uid),
                 db.collection('share_links').where('targetId', '==', id).get(),
                 isList ? db.collection('access_requests').where('targetId', '==', id).where('status', '==', 'pending').get() : null,
-                isList ? db.doc(`link_history/${histIdOf(kind, id)}`).get() : null
+                isList ? db.doc(`link_history/${histIdOf(kind, id)}`).get() : null,
+                isList ? db.collection('link_progress').where('targetId', '==', id).get() : null
             ]);
             if (!t) throw err(403, 'Chỉ chủ bộ đề / thư mục mới tạo và xem được link này.');
             let mine = snap.docs.filter(d => d.data().ownerUid === me.uid && d.data().kind === kind);
@@ -318,7 +341,8 @@ module.exports = async function handler(req, res) {
                 if (items) { history = items.map(histView); mine = mine.filter(d => !dead.includes(d)); }
             }
             if (isList) {
-                const links = mine.map(d => view(d.id, d.data())).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                const prog = progressMap(ps.docs.filter(d => d.data().ownerUid === me.uid));
+                const links = mine.map(d => view(d.id, d.data(), prog[d.id])).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
                 const requests = rs.docs.filter(d => d.data().ownerUid === me.uid && d.data().kind === kind)
                     .map(d => reqView(d.id, d.data())).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
                 return send(res, 200, { ok: true, links, requests, history });
@@ -539,6 +563,33 @@ module.exports = async function handler(req, res) {
             return send(res, 200, { status: st, kind: l.kind, targetId: l.targetId });
         }
 
+        // Người giữ link nộp bài → ghi điểm cho chủ xem (chỉ khi máy đang giữ link và bộ đề nằm trong phạm vi link)
+        if (action === 'progress') {
+            const me = await verifyUser(req);
+            const quizId = cleanId(body.quizId);
+            const s = await ref.get();
+            const l = s.exists ? s.data() : null;
+            const st = statusOf(l, me.uid);
+            if (st !== 'mine') return send(res, 200, { ok: false, status: st });
+            const inScope = l.kind === 'quiz' ? l.targetId === quizId : (l.gq || []).includes(quizId);
+            if (!quizId || !inScope) return send(res, 200, { ok: false, status: 'scope' });
+            const pct = Math.round(Math.min(100, Math.max(0, Number(body.pct) || 0)) * 10) / 10;
+            const pref = db.doc(`link_progress/${token}_${me.uid}`);
+            const ps = await pref.get();
+            const old = (ps.exists ? ps.data().quizzes || {} : {})[quizId] || {};
+            const now = Timestamp.now();
+            await pref.set({
+                token, uid: me.uid, kind: l.kind, targetId: l.targetId, ownerUid: l.ownerUid,
+                quizzes: { [quizId]: {
+                    title: String(body.title || old.title || '').slice(0, 200), n: (old.n || 0) + 1,
+                    best: Math.max(old.best ?? 0, pct), last: pct, total: Math.max(0, Math.round(Number(body.total) || 0)),
+                    first: old.first || now, at: now
+                } }
+            }, { merge: true });
+            if (l.claims) await ref.update(new admin.firestore.FieldPath('claims', me.uid, 'seen'), now).catch(() => {});
+            return send(res, 200, { ok: true });
+        }
+
         if (action === 'folder') {
             const me = await verifyUser(req);
             const s = await ref.get();
@@ -574,6 +625,8 @@ module.exports = async function handler(req, res) {
             }
             return send(res, 200, {
                 status: st, root: l.targetId, expiresAt: untilMs(l.expiresAt),
+                // Trang thư mục hiện đúng kiểu link (riêng / nhóm), tên link và tên đã xác nhận của máy này — không nêu người gửi
+                link: { name: l.name || '', group: !!l.group, maxUses: usesOf(l), who: claimsOf(l)[me.uid]?.who || '' },
                 folder: { id: folderId, name: folder.name || '', color: folder.color || '', icon: folder.icon || '', parentId: folderId === l.targetId ? null : (folder.parentId || null) },
                 ownerName: l.ownerName || '', subFolders, quizzes
             });

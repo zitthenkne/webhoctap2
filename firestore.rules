@@ -314,6 +314,9 @@ service cloud.firestore {
     match /access_requests/{id} {
       allow read, write: if false;
     }
+    match /link_progress/{id} {
+      allow read, write: if false;     // kết quả làm bài qua link — chỉ api/link.js (Admin SDK)
+    }
     match /link_history/{id} {
       allow read, write: if false;
     }
