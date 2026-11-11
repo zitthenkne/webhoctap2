@@ -61,6 +61,7 @@ export function showShareAccess(target) {
     const section = document.getElementById('share-access-section');
     if (!section) return;
     build(section);
+    tabTouched = false;
     section.classList.remove('hidden');
     render();
     loadOnce();
@@ -82,7 +83,18 @@ const CSS = `
 .sa.hidden{display:none}
 .sa-h{display:flex;align-items:center;gap:7px;margin:0 0 8px;font-size:12px;font-weight:800;color:var(--sa-ink);letter-spacing:.01em}
 .sa-h i{width:22px;height:22px;flex:none;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:var(--sa-pink-d);background:var(--sa-soft)}
-.sa > div + div{padding-top:14px;border-top:1.5px dashed var(--sa-line)}
+.sa-pane{display:flex;flex-direction:column;gap:14px}
+.sa-pane[hidden]{display:none}
+.sa-pane > div + div{padding-top:14px;border-top:1.5px dashed var(--sa-line)}
+.sa-tabs{position:sticky;top:0;z-index:3;display:flex;gap:3px;padding:4px;border-radius:14px;background:#fcf8fa;border:1.5px solid var(--sa-line)}
+.sa-tabs button{flex:1;min-width:0;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 6px;border:0;border-radius:10px;background:transparent;font-size:12px;font-weight:800;color:var(--sa-mute);cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
+.sa-tabs button i{font-size:11px}
+.sa-tabs button.is-on{background:#fff;color:var(--sa-ink);box-shadow:0 1px 0 var(--sa-line),0 2px 6px rgba(59,34,48,.08)}
+.sa-tabs button.is-on i{color:var(--sa-pink-d)}
+.sa-tabs button.hidden{display:none}
+.sa-dot{min-width:17px;height:17px;padding:0 5px;border-radius:999px;background:var(--sa-bad);color:#fff;font-size:10px;line-height:17px;font-style:normal;animation:sa-pop .3s ease}
+.sa-dot.hidden{display:none}
+@keyframes sa-pop{from{transform:scale(.4)}to{transform:scale(1)}}
 .sa-person:first-child{background:#fdf6f9}
 .sa-person:first-child .sa-owner{padding:2px 8px;border-radius:999px;background:#fff;box-shadow:inset 0 0 0 1.5px var(--sa-line)}
 .sa-badge{margin-left:auto;padding:1px 8px;border-radius:999px;background:var(--sa-soft);color:var(--sa-pink-d);font-size:11px;font-weight:800}
@@ -137,8 +149,10 @@ const CSS = `
 .sa-switch input:focus-visible + i{box-shadow:0 0 0 3px rgba(255,105,180,.3)}
 .sa-note{margin:0;padding:8px 10px;border-radius:11px;background:#fff8e6;color:#9a6a00;font-size:11.5px;font-weight:700;line-height:1.4}
 .sa-note.hidden{display:none}
+.sa-once{display:flex;flex-direction:column;gap:12px}
 .sa-once.hidden,#sa-req-box.hidden{display:none}
-.sa-once-new{display:flex;flex-direction:column;gap:8px;margin:8px 0;padding:10px;border-radius:14px;background:#fcf8fa;border:1.5px solid var(--sa-line)}
+.sa-once .sa-h{margin:0}
+.sa-once-new{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:14px;background:#fcf8fa;border:1.5px solid var(--sa-line)}
 .sa-once-new .sa-btn,.sa-detail .sa-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px}
 .sa-line{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .sa-line .sa-input{flex:1 1 150px}
@@ -147,22 +161,55 @@ const CSS = `
 .sa-step button:hover{background:var(--sa-soft)}
 .sa-step b{min-width:22px;text-align:center;font-size:13px}
 .sa-step small{padding-right:9px;font-size:11px;font-weight:700;color:var(--sa-mute)}
-.sa-preview{margin:0;padding:8px 10px;border-radius:11px;background:#fff;border:1.5px dashed var(--sa-line);font-size:11.5px;line-height:1.45;color:var(--sa-mute)}
-.sa-preview b{display:block;margin-bottom:2px;font-size:12px;color:var(--sa-ink)}
+.sa-preview{margin:0;display:flex;flex-direction:column;gap:5px}
+.sa-pv-tag{font-size:10.5px;font-weight:800;color:var(--sa-mute);text-transform:uppercase;letter-spacing:.04em}
+.sa-pv-card{align-self:flex-start;max-width:100%;display:flex;flex-direction:column;gap:3px;padding:9px 11px;border-radius:4px 14px 14px 14px;background:#fff;border:1.5px solid var(--sa-line);border-left:4px solid var(--sa-pink);font-size:11.5px;line-height:1.45;color:var(--sa-mute)}
+.sa-pv-card b{font-size:12.5px;color:var(--sa-ink)}
+.sa-pv-card small{font-size:10.5px;color:#b394a3}
 button.sa-icon{border:0;background:transparent;cursor:pointer;padding:0}
-.sa-once-item>.sa-person{background:transparent}
-.sa-once-item>.sa-person:hover{background:#fdf6f9}
-.sa-once-row .sa-av{font-size:12px}
-.sa-once-item.is-expired,.sa-once-item.is-revoked{opacity:.62}
-.sa-seat{flex:none;margin-left:6px;padding:1px 7px;border-radius:999px;background:var(--sa-soft);color:var(--sa-pink-d);font-size:10.5px;font-weight:800}
-#sa-once-list{max-height:360px}
-.sa-detail{margin:2px 0 8px 39px;padding:10px;border-radius:12px;background:#fdf6f9;display:flex;flex-direction:column;gap:9px}
+#sa-once-list,#sa-req-list{max-height:none;overflow:visible;gap:8px}
+.sa-detail{margin-top:2px;padding:10px;border-radius:12px;background:#fdf6f9;display:flex;flex-direction:column;gap:9px}
+.sa-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.sa-stats div{display:flex;flex-direction:column;align-items:center;gap:1px;padding:8px 4px;border-radius:12px;background:#fcf8fa;border:1.5px solid var(--sa-line)}
+.sa-stats b{font-size:18px;line-height:1.1;color:var(--sa-ink)}
+.sa-stats small{font-size:10.5px;font-weight:700;color:var(--sa-mute);text-align:center}
+.sa-stats .is-warn{background:#fff8e6;border-color:#f6dc9b}.sa-stats .is-warn b{color:#b07800}
+.sa-card{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:14px;background:#fff;border:1.5px solid var(--sa-line);transition:border-color .15s,box-shadow .15s}
+.sa-card.is-open{border-color:var(--sa-pink);box-shadow:0 0 0 3px rgba(255,105,180,.1)}
+.sa-card.is-expired{opacity:.62}
+.sa-top{display:flex;align-items:center;gap:9px}
+.sa-pill{flex:none;padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:800;white-space:nowrap}
+.sa-pill.is-free{background:#e8f1ff;color:#2f6fd0}.sa-pill.is-used{background:#dcf5ea;color:var(--sa-ok)}
+.sa-pill.is-full{background:#efe9ff;color:#6d4fd6}.sa-pill.is-expired{background:#f1ebee;color:#8a6f7c}
+.sa-mid{display:flex;align-items:center;gap:10px}
+.sa-seats{flex:1;display:flex;gap:3px;min-width:40px}
+.sa-seats i{flex:1;height:6px;border-radius:99px;background:#efe3e9}
+.sa-seats i.on{background:var(--sa-ok)}
+.sa-card.is-full .sa-seats i.on{background:#a78bfa}
+.sa-seats.is-bar{height:6px;border-radius:99px;background:#efe3e9;overflow:hidden}
+.sa-seats.is-bar i{flex:none;height:100%}
+.sa-seat-n{flex:none;font-size:11px;font-weight:800;color:var(--sa-mute)}
+.sa-faces{display:flex;flex:none}
+.sa-faces span{width:22px;height:22px;margin-left:-6px;border-radius:999px;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:800;color:#fff}
+.sa-faces span:first-child{margin-left:0}
+.sa-faces .is-more{background:#efe3e9;color:#5b4250}
+.sa-ttl{display:inline-flex;align-items:center;gap:4px}
+.sa-ttl.is-soon{color:#c26a00;font-weight:800}
+.sa-acts{display:flex;gap:6px}
+.sa-acts .sa-btn{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:0}
+.sa-btn-danger{color:var(--sa-bad)!important}
+.sa-req-card{background:#fffaf0;border-color:#f6dc9b}
+.sa-msg{margin:0;padding:7px 10px;border-radius:4px 12px 12px 12px;background:#fff;border:1.5px solid #f6dc9b;font-size:12px;line-height:1.45;color:#7a5b12;white-space:pre-wrap;word-break:break-word}
+.sa-hist-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:6px;height:34px;border:1.5px dashed var(--sa-line);border-radius:11px;background:transparent;font-size:11.5px;font-weight:800;color:var(--sa-mute);cursor:pointer}
+.sa-hist-btn:hover{border-color:var(--sa-pink);color:var(--sa-pink-d)}
+.sa-hist{list-style:none;margin:2px 0 0 10px;padding:0 0 0 14px;border-left:2px solid var(--sa-line);display:flex;flex-direction:column;gap:10px}
+.sa-hist li{position:relative;display:flex;flex-direction:column;gap:2px}
+.sa-hist li::before{content:'';position:absolute;left:-20px;top:4px;width:10px;height:10px;border-radius:999px;background:#fff;border:2px solid #c4b5bd}
+.sa-hist li.is-revoked::before{border-color:var(--sa-bad)}
+.sa-hist .sa-sub{white-space:normal}
 .sa-detail .sa-mini{margin:0}
 .sa-claim{display:flex;align-items:center;gap:8px}
 .sa-claim .sa-av{width:24px;height:24px;font-size:10px}
-.sa-req{background:#fff8e6!important}
-.sa-req .sa-sub.is-msg{white-space:normal;color:#7a5b12}
-.sa-req-btns{display:flex;flex-direction:column;gap:4px}
 .sa-btn-sm{height:30px;padding:0 10px;font-size:11.5px;border-radius:9px}
 .sa-btn-ghost{background:#fff;color:#5b4250;box-shadow:inset 0 0 0 1.5px var(--sa-line)}
 @media (max-width:420px){.sa{padding:12px}.sa-add{flex-wrap:wrap}.sa-input{flex-basis:100%}.sa-select{flex:1}}
@@ -187,12 +234,37 @@ const leftText = (ms) => {
     return h < 1 ? `còn ${Math.max(1, Math.round(h * 60))} phút` : h < 48 ? `còn ${Math.round(h)} giờ` : `còn ${Math.round(h / 24)} ngày`;
 };
 
+// Ba tab: Mọi người (thêm người + quyền chung) · Link riêng · Cài đặt. Nhớ tab lần trước trên máy; có yêu cầu chờ duyệt mà chưa bấm tab nào
+// thì tự nhảy sang Link riêng. Chọn nhiều bộ đề (không có oneTime) thì ẩn tab Link riêng.
+let tab = (() => { try { return localStorage.getItem('sa-tab') || 'people'; } catch (e) { return 'people'; } })();
+let tabTouched = false;
+function applyTab() {
+    const sec = document.getElementById('share-access-section');
+    if (!sec) return;
+    const hasLinks = !!current?.oneTime;
+    const want = !tabTouched && hasLinks && once.requests.length ? 'links' : tab;
+    const t = want === 'links' && !hasLinks ? 'people' : want;
+    sec.querySelector('.sa-tabs [data-tab="links"]')?.classList.toggle('hidden', !hasLinks);
+    sec.querySelectorAll('.sa-tabs [data-tab]').forEach(b => {
+        const on = b.dataset.tab === t;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    sec.querySelectorAll('[data-pane]').forEach(p => { p.hidden = p.dataset.pane !== t; });
+}
+
 function build(section) {
     if (section.dataset.built) return;
     section.dataset.built = '1';
     injectCss();
     section.className = 'sa';
     section.innerHTML = `
+        <div class="sa-tabs" role="tablist" aria-label="Chia sẻ">
+            <button type="button" role="tab" data-tab="people"><i class="fas fa-user-group"></i> Mọi người</button>
+            <button type="button" role="tab" data-tab="links"><i class="fas fa-key"></i> Link riêng <em id="sa-tab-dot" class="sa-dot hidden"></em></button>
+            <button type="button" role="tab" data-tab="settings"><i class="fas fa-sliders"></i> Cài đặt</button>
+        </div>
+        <div class="sa-pane" data-pane="people">
         <div>
             <p class="sa-h"><i class="fas fa-user-plus"></i> Thêm người</p>
             <div class="sa-add">
@@ -228,14 +300,17 @@ function build(section) {
                 </div>
             </div>
         </div>
+        </div>
+        <div class="sa-pane" data-pane="links" hidden>
         <div id="sa-once" class="sa-once hidden">
+            <div id="sa-once-stats" class="sa-stats"></div>
             <div id="sa-req-box" class="hidden">
-                <p class="sa-h"><i class="fas fa-hand"></i> Yêu cầu truy cập <span id="sa-req-count" class="sa-badge"></span></p>
+                <p class="sa-h" style="margin-bottom:8px"><i class="fas fa-hand"></i> Yêu cầu truy cập <span id="sa-req-count" class="sa-badge"></span></p>
                 <ul id="sa-req-list" class="sa-list"></ul>
             </div>
-            <p class="sa-h"><i class="fas fa-mobile-screen"></i> Link riêng theo người nhận <span id="sa-once-count" class="sa-badge"></span></p>
-            <p class="sa-desc" style="margin:0">Mỗi người một link có tên. Không cần tài khoản: mỗi máy bấm mở chiếm 1 suất, hết suất thì máy khác bị chặn và chỉ gửi được yêu cầu truy cập (phải đăng nhập).</p>
             <div class="sa-once-new">
+                <p class="sa-h"><i class="fas fa-plus"></i> Tạo link mới</p>
+                <p class="sa-desc" style="margin:0">Không cần tài khoản: mỗi máy mở link chiếm 1 suất. Hết suất thì máy khác bị chặn, chỉ gửi được yêu cầu truy cập.</p>
                 <div class="sa-line">
                     <input type="text" id="sa-once-name" class="sa-input" maxlength="60" placeholder="Tên người nhận — vd: An" autocomplete="off">
                     <span class="sa-step" aria-label="Số thiết bị mở được"><button type="button" data-once-uses="-1" aria-label="Bớt"><i class="fas fa-minus"></i></button><b id="sa-once-uses">1</b><button type="button" data-once-uses="1" aria-label="Thêm"><i class="fas fa-plus"></i></button><small>thiết bị</small></span>
@@ -244,10 +319,13 @@ function build(section) {
                     ${ONCE_HOURS.map(([h, l]) => `<button type="button" data-once-hours="${h}" role="radio">${l}</button>`).join('')}
                 </div>
                 <p id="sa-once-preview" class="sa-preview"></p>
-                <button type="button" id="sa-once-create" class="sa-btn"><i class="fas fa-plus"></i> Tạo link &amp; sao chép</button>
+                <button type="button" id="sa-once-create" class="sa-btn"><i class="fas fa-copy"></i> Tạo link &amp; sao chép</button>
             </div>
+            <p class="sa-h"><i class="fas fa-mobile-screen"></i> Link đã tạo <span id="sa-once-count" class="sa-badge"></span></p>
             <ul id="sa-once-list" class="sa-list"></ul>
         </div>
+        </div>
+        <div class="sa-pane" data-pane="settings" hidden>
         <label class="sa-switch-row">
             <span class="sa-switch"><input type="checkbox" id="share-allow-copy"><i></i></span>
             <span><b>Cho người khác mang đề đi</b>
@@ -258,6 +336,7 @@ function build(section) {
             <span><b>Cho tải về làm offline</b>
                 <small>Người được chia sẻ có nút "Tải offline" và máy họ tự lưu đề để làm khi mất mạng. Tắt (mặc định): họ chỉ làm khi có mạng, bản đã tải trước đó tự xóa.</small></span>
         </label>
+        </div>
         <p id="share-scope-note" class="sa-note hidden"></p>`;
     bindOnce(section);
 }
@@ -428,7 +507,8 @@ function renderPreview() {
     const el = document.getElementById('sa-once-preview');
     if (!el) return;
     const p = previewOf((document.getElementById('sa-once-name')?.value || '').replace(/\s+/g, ' ').trim(), onceUses);
-    el.innerHTML = `<b>${esc(p.title)}</b>${esc(p.desc)}`;
+    el.innerHTML = `<span class="sa-pv-tag">Xem trước khi dán vào Messenger / Zalo</span>
+        <span class="sa-pv-card"><b>${esc(p.title)}</b>${esc(p.desc)}<small>${esc(location.host)} · link riêng</small></span>`;
     const n = document.getElementById('sa-once-uses');
     if (n) n.textContent = onceUses;
 }
@@ -448,14 +528,31 @@ function claimRow(token, c, live) {
         </div>`;
 }
 
+// Thanh suất: mỗi ô = 1 thiết bị (≤ 12 ô), nhiều hơn thì một thanh liền
+const seatBar = (used, max) => max <= 12
+    ? `<span class="sa-seats">${Array.from({ length: max }, (_, i) => `<i${i < used ? ' class="on"' : ''}></i>`).join('')}</span>`
+    : `<span class="sa-seats is-bar"><i class="on" style="width:${Math.round(used / max * 100)}%"></i></span>`;
+// Mặt những người / máy đã mở (tối đa 4, còn lại "+n")
+function faces(claims) {
+    const show = claims.slice(0, 4).map(c => {
+        const who = c.email || c.name || c.label || 'Một thiết bị';
+        return `<span title="${esc(who)}" style="background:${c.anon ? '#60a5fa' : avColor(who)}">${c.anon ? '<i class="fas fa-mobile-screen"></i>' : esc(who.charAt(0).toUpperCase())}</span>`;
+    }).join('');
+    return claims.length ? `<span class="sa-faces">${show}${claims.length > 4 ? `<span class="is-more">+${claims.length - 4}</span>` : ''}</span>` : '';
+}
+const ONCE_STATE = {
+    free: ['#60a5fa', 'fa-mobile-screen', 'Chưa ai mở'], used: ['#34c38f', 'fa-check', 'Đang dùng'],
+    full: ['#a78bfa', 'fa-lock', 'Đã đủ máy'], expired: ['#c4b5bd', 'fa-clock', 'Hết hạn']
+};
+
 function linkRow(l) {
-    const st = onceState(l), used = linkUsed(l);
-    const S = { free: ['#60a5fa', 'fa-mobile-screen'], used: ['#34c38f', 'fa-check'], full: ['#34c38f', 'fa-lock'], expired: ['#c4b5bd', 'fa-clock'] }[st];
+    const st = onceState(l), used = linkUsed(l), claims = l.claims || [];
+    const S = ONCE_STATE[st];
     const live = st !== 'expired';
-    const last = (l.claims || []).reduce((m, c) => Math.max(m, c.seen || c.at || 0), 0);
-    const sub = !live ? 'Đã hết hạn — sẽ tự chuyển vào lịch sử'
-        : [used ? `${used} máy đã mở` : 'Chưa ai mở', last ? `gần nhất ${fmtUntil(last)}` : `tạo ${fmtUntil(l.createdAt)}`,
-            l.expiresAt == null ? 'không hết hạn' : leftText(l.expiresAt)].join(' · ');
+    const last = claims.reduce((m, c) => Math.max(m, c.seen || c.at || 0), 0);
+    const soon = live && l.expiresAt != null && l.expiresAt - Date.now() < 24 * 3600000;
+    const ttl = !live ? 'sẽ tự chuyển vào lịch sử' : l.expiresAt == null ? 'không hết hạn' : leftText(l.expiresAt);
+    const sub = `<span class="sa-ttl${soon ? ' is-soon' : ''}"><i class="fas fa-clock"></i> ${esc(ttl)}</span> · ${esc(last ? `mở gần nhất ${fmtUntil(last)}` : `tạo ${fmtUntil(l.createdAt)}`)}`;
     const open = openRows.has(l.token);
     const detail = !open ? '' : `
         <div class="sa-detail">
@@ -471,13 +568,17 @@ function linkRow(l) {
             ${used ? (l.claims || []).map(c => claimRow(l.token, c, live)).join('') : '<span class="sa-sub">Chưa có máy nào.</span>'}
         </div>`;
     return `
-        <li class="sa-once-item is-${st}">
-            <div class="sa-person sa-once-row">
+        <li class="sa-card is-${st}${open ? ' is-open' : ''}">
+            <div class="sa-top">
                 <span class="sa-av" style="background:${S[0]}"><i class="fas ${S[1]}"></i></span>
-                <span class="sa-who"><span class="sa-name">${l.name ? `<b>${esc(l.name)}</b>` : '<i>Chưa đặt tên</i>'}<span class="sa-seat">${used}/${l.maxUses}</span></span><span class="sa-sub" title="${esc(sub)}">${esc(sub)}</span></span>
-                ${live ? `<button type="button" class="sa-icon" data-once-copy="${esc(l.token)}" title="Sao chép link" aria-label="Sao chép link"><i class="fas fa-copy"></i></button>` : ''}
-                <button type="button" class="sa-icon" data-once-edit="${esc(l.token)}" title="${open ? 'Thu gọn' : 'Chi tiết / chỉnh sửa'}" aria-label="Chi tiết"><i class="fas ${open ? 'fa-minus' : 'fa-pen'}"></i></button>
-                ${live ? `<button type="button" class="sa-icon" data-once-revoke="${esc(l.token)}" title="Thu hồi link" aria-label="Thu hồi link"><i class="fas fa-xmark"></i></button>` : ''}
+                <span class="sa-who"><span class="sa-name">${l.name ? `Gửi <b>${esc(l.name)}</b>` : '<i>Chưa đặt tên</i>'}</span><span class="sa-sub">${sub}</span></span>
+                <span class="sa-pill is-${st}">${S[2]}</span>
+            </div>
+            <div class="sa-mid">${seatBar(used, l.maxUses)}<span class="sa-seat-n">${used}/${l.maxUses} máy</span>${faces(claims)}</div>
+            <div class="sa-acts">
+                ${live ? `<button type="button" class="sa-btn sa-btn-sm" data-once-copy="${esc(l.token)}"><i class="fas fa-copy"></i> Sao chép</button>` : ''}
+                <button type="button" class="sa-btn sa-btn-sm sa-btn-ghost" data-once-edit="${esc(l.token)}" aria-expanded="${open}"><i class="fas ${open ? 'fa-chevron-up' : 'fa-pen'}"></i> ${open ? 'Thu gọn' : 'Chi tiết'}</button>
+                ${live ? `<button type="button" class="sa-btn sa-btn-sm sa-btn-ghost sa-btn-danger" data-once-revoke="${esc(l.token)}"><i class="fas fa-xmark"></i> Thu hồi</button>` : ''}
             </div>${detail}
         </li>`;
 }
@@ -487,14 +588,16 @@ function reqRow(r) {
     const from = r.viaLink ? `qua link “${r.linkName || 'chưa đặt tên'}”` : (r.kind === 'folder' ? 'từ trang thư mục' : 'từ trang bộ đề');
     const sub = [r.name ? r.email : '', from, r.label, [r.city, r.country].filter(Boolean).join(', '), r.updatedAt ? fmtUntil(r.updatedAt) : ''].filter(Boolean).join(' · ');
     return `
-        <li class="sa-person sa-req">
-            <span class="sa-av" style="background:${avColor(r.email || who)}">${esc(who.charAt(0).toUpperCase())}</span>
-            <span class="sa-who"><span class="sa-name" title="${esc(r.email)}">${esc(who)}</span><span class="sa-sub" title="${esc(sub)}">${esc(sub)}</span>
-                ${r.message ? `<span class="sa-sub is-msg">“${esc(r.message)}”</span>` : ''}</span>
-            <span class="sa-req-btns">
-                <button type="button" class="sa-btn sa-btn-sm" data-req-ok="${esc(r.id)}">Duyệt</button>
-                <button type="button" class="sa-btn sa-btn-sm sa-btn-ghost" data-req-no="${esc(r.id)}">Từ chối</button>
-            </span>
+        <li class="sa-card sa-req-card">
+            <div class="sa-top">
+                <span class="sa-av" style="background:${avColor(r.email || who)}">${esc(who.charAt(0).toUpperCase())}</span>
+                <span class="sa-who"><span class="sa-name" title="${esc(r.email)}">${esc(who)}</span><span class="sa-sub" title="${esc(sub)}">${esc(sub)}</span></span>
+            </div>
+            ${r.message ? `<p class="sa-msg">${esc(r.message)}</p>` : ''}
+            <div class="sa-acts">
+                <button type="button" class="sa-btn sa-btn-sm" data-req-ok="${esc(r.id)}"><i class="fas fa-check"></i> Duyệt</button>
+                <button type="button" class="sa-btn sa-btn-sm sa-btn-ghost" data-req-no="${esc(r.id)}"><i class="fas fa-xmark"></i> Từ chối</button>
+            </div>
         </li>`;
 }
 
@@ -504,11 +607,10 @@ function histRow(h) {
     const list = opens.map(o => [o.who || o.label || 'Một thiết bị', o.who ? o.label : '', o.place, o.at ? `mở ${fmtUntil(o.at)}` : '',
         o.seen && o.seen !== o.at ? `gần nhất ${fmtUntil(o.seen)}` : ''].filter(Boolean).join(' · '));
     return `
-        <li class="sa-person sa-once-item is-expired" style="align-items:flex-start">
-            <span class="sa-av" style="background:#c4b5bd"><i class="fas fa-clock"></i></span>
-            <span class="sa-who"><span class="sa-name">${h.name ? `<b>${esc(h.name)}</b>` : '<i>Chưa đặt tên</i>'}</span>
-                <span class="sa-sub" title="${esc(head)}">${esc(head)}</span>
-                ${list.map(t => `<span class="sa-sub" title="${esc(t)}">• ${esc(t)}</span>`).join('')}</span>
+        <li class="is-${h.reason === 'revoked' ? 'revoked' : 'expired'}">
+            <span class="sa-name">${h.name ? `Gửi <b>${esc(h.name)}</b>` : '<i>Chưa đặt tên</i>'}</span>
+            <span class="sa-sub">${esc(head)}</span>
+            ${list.length ? list.map(t => `<span class="sa-sub">• ${esc(t)}</span>`).join('') : '<span class="sa-sub">• Không ai mở</span>'}
         </li>`;
 }
 
@@ -517,6 +619,9 @@ function renderOnce() {
     if (!box) return;
     const on = !!current?.oneTime;
     box.classList.toggle('hidden', !on);
+    applyTab();
+    const dot = document.getElementById('sa-tab-dot');
+    if (dot) { dot.textContent = on ? once.requests.length : ''; dot.classList.toggle('hidden', !on || !once.requests.length); }
     if (!on) return;
     box.querySelectorAll('[data-once-hours]').forEach(b => {
         const sel = Number(b.dataset.onceHours) === onceHours;
@@ -525,9 +630,15 @@ function renderOnce() {
     });
     renderPreview();
     writeOnceCache();
-    const live = once.links.filter(l => onceState(l) !== 'expired').length;
+    const liveLinks = once.links.filter(l => onceState(l) !== 'expired');
+    const live = liveLinks.length;
     const count = document.getElementById('sa-once-count');
-    if (count) count.textContent = once.loading && once.links.length ? 'đang cập nhật…' : live ? `${live} link` : '';
+    if (count) count.innerHTML = once.loading && once.links.length ? '<i class="fas fa-spinner fa-spin"></i> đang cập nhật' : live ? `${live} link` : '';
+    const stats = document.getElementById('sa-once-stats');
+    if (stats) stats.innerHTML = `
+        <div><b>${live}</b><small>link đang mở</small></div>
+        <div><b>${liveLinks.reduce((n, l) => n + linkUsed(l), 0)}</b><small>máy đã vào</small></div>
+        <div class="${once.requests.length ? 'is-warn' : ''}"><b>${once.requests.length}</b><small>chờ duyệt</small></div>`;
 
     // Yêu cầu truy cập đang chờ
     const reqBox = document.getElementById('sa-req-box');
@@ -540,9 +651,9 @@ function renderOnce() {
     const list = document.getElementById('sa-once-list');
     if (!list) return;
     const hist = once.history.length ? `
-        <li><button type="button" class="sa-icon" data-hist-toggle style="width:auto;padding:4px 8px;font-size:11.5px;font-weight:800">
-            <i class="fas ${historyOpen ? 'fa-minus' : 'fa-plus'}"></i>&nbsp;Lịch sử link (${once.history.length})</button></li>
-        ${historyOpen ? once.history.map(histRow).join('') : ''}` : '';
+        <li><button type="button" class="sa-hist-btn" data-hist-toggle aria-expanded="${historyOpen}">
+            <i class="fas fa-clock-rotate-left"></i> ${historyOpen ? 'Ẩn' : 'Xem'} lịch sử link đã hết hạn / thu hồi (${once.history.length})</button>
+            ${historyOpen ? `<ul class="sa-hist">${once.history.map(histRow).join('')}</ul>` : ''}</li>` : '';
     if (!once.links.length) {
         list.innerHTML = `<li class="sa-empty">${once.loading ? 'Đang tải danh sách link…' : once.error ? esc('Không tải được: ' + once.error) : 'Chưa có link nào — đặt tên người nhận rồi bấm Tạo link.'}</li>${hist}`;
         return;
@@ -663,6 +774,14 @@ function inviteHref(t, email, role) {
 
 function bindOnce(section) {
     bindOnceBlock(section);
+    section.querySelector('.sa-tabs').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-tab]');
+        if (!b) return;
+        tab = b.dataset.tab; tabTouched = true;
+        try { localStorage.setItem('sa-tab', tab); } catch (err) {}
+        applyTab();
+    });
+    section.addEventListener('focusin', () => { tabTouched = true; });   // đang gõ thì đừng tự nhảy tab
     const input = section.querySelector('#share-person-input');
     section.querySelector('#share-person-add-btn').addEventListener('click', addPerson);
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addPerson(); } });
