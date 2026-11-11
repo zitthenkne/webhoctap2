@@ -155,6 +155,20 @@ const CSS = `
 .sa-once-new{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:14px;background:#fcf8fa;border:1.5px solid var(--sa-line)}
 .sa-once-new .sa-btn,.sa-detail .sa-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px}
 .sa-line{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.sa-tags{flex:1 1 170px;min-width:0;min-height:38px;display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:4px 6px;border-radius:11px;border:1.5px solid var(--sa-line);background:#fff;cursor:text;transition:border-color .15s,box-shadow .15s}
+.sa-tags:focus-within{border-color:var(--sa-pink);box-shadow:0 0 0 3px rgba(255,105,180,.16)}
+.sa-once-new > .sa-tags{flex:none}
+.sa-tags.hidden,.sa-input.hidden{display:none}
+.sa-tag{display:inline-flex;align-items:center;gap:2px;max-width:100%;padding:3px 3px 3px 9px;border-radius:999px;background:var(--sa-soft);color:var(--sa-pink-d);font-size:12px;font-weight:800;animation:sa-pop .18s ease}
+.sa-tag button{width:18px;height:18px;border:0;border-radius:999px;background:transparent;color:inherit;font-size:13px;line-height:1;cursor:pointer;padding:0}
+.sa-tag button:hover{background:#fff}
+.sa-tag-in{flex:1;min-width:90px;height:28px;border:0;outline:0;background:transparent;font-size:13px;color:var(--sa-ink);padding:0 4px}
+.sa-area{height:auto;min-height:84px;padding:9px 11px;line-height:1.45;resize:vertical;font-family:inherit}
+.sa-area.hidden{display:none}
+.sa-roster{display:flex;flex-wrap:wrap;gap:4px}
+.sa-roster span{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;background:#fff;color:var(--sa-mute);box-shadow:inset 0 0 0 1.5px var(--sa-line)}
+.sa-roster span.is-in{background:#dcf5ea;color:var(--sa-ok);box-shadow:none}
+.sa-roster i{font-size:9px}
 .sa-line .sa-input{flex:1 1 150px}
 .sa-step{display:inline-flex;align-items:center;height:36px;border-radius:11px;border:1.5px solid var(--sa-line);background:#fff;overflow:hidden}
 .sa-step button{width:30px;height:100%;border:0;background:transparent;color:var(--sa-pink-d);cursor:pointer;font-size:10px}
@@ -310,11 +324,18 @@ function build(section) {
             </div>
             <div class="sa-once-new">
                 <p class="sa-h"><i class="fas fa-plus"></i> Tạo link mới</p>
-                <p class="sa-desc" style="margin:0">Không cần tài khoản: mỗi máy mở link chiếm 1 suất. Hết suất thì máy khác bị chặn, chỉ gửi được yêu cầu truy cập.</p>
+                <div class="sa-seg" role="radiogroup" aria-label="Kiểu link">
+                    <button type="button" role="radio" data-once-mode="one"><i class="fas fa-user-plus"></i> Một người</button>
+                    <button type="button" role="radio" data-once-mode="group"><i class="fas fa-users"></i> Cả nhóm</button>
+                </div>
+                <p id="sa-once-mode-desc" class="sa-desc" style="margin:0"></p>
                 <div class="sa-line">
-                    <input type="text" id="sa-once-name" class="sa-input" maxlength="60" placeholder="Tên người nhận — vd: An" autocomplete="off">
+                    <div class="sa-tags" data-tags="names"><input type="text" class="sa-tag-in" maxlength="60" placeholder="Tên người nhận, cách nhau dấu phẩy" autocomplete="off" aria-label="Tên người nhận"></div>
+                    <input type="text" id="sa-once-name" class="sa-input hidden" maxlength="60" placeholder="Tên nhóm — vd: Tổ 17" autocomplete="off">
                     <span class="sa-step" aria-label="Số thiết bị mở được"><button type="button" data-once-uses="-1" aria-label="Bớt"><i class="fas fa-minus"></i></button><b id="sa-once-uses">1</b><button type="button" data-once-uses="1" aria-label="Thêm"><i class="fas fa-plus"></i></button><small>thiết bị</small></span>
                 </div>
+                <div class="sa-tags hidden" data-tags="members"><input type="text" class="sa-tag-in" maxlength="60" placeholder="Thành viên (không bắt buộc) — Minh, Hoa, Khang…" autocomplete="off" aria-label="Thành viên nhóm"></div>
+                <p id="sa-tags-hint" class="sa-desc" style="margin:-2px 0 0"></p>
                 <div class="sa-chips" role="radiogroup" aria-label="Thời hạn link">
                     ${ONCE_HOURS.map(([h, l]) => `<button type="button" data-once-hours="${h}" role="radio">${l}</button>`).join('')}
                 </div>
@@ -432,10 +453,18 @@ function render() {
 // Link hết hạn / thu hồi: máy chủ xóa và chỉ giữ LỊCH SỬ gọn (tên, ai mở lúc nào) — khối "Lịch sử link".
 let once = { key: '', links: [], requests: [], history: [], loading: false, error: '' };
 let onceUses = 1;
+let onceGroup = false;               // LINK NHÓM: "Gửi Tổ 17…", người mở chọn / gõ tên mình (api/link.js claim.who)
+// Ô nhập tên kiểu THẺ: gõ dấu phẩy / Enter / dán cả danh sách là tách thành từng tên.
+//   names: người nhận (Một người — nhiều tên = tạo nhiều link riêng một lượt) · members: thành viên link nhóm
+const tags = { names: [], members: [] };
 const openRows = new Set();          // link đang mở phần chi tiết
 let historyOpen = false;
 const onceUrl = (token) => apiUrl(`api/link?t=${encodeURIComponent(token)}`);
-const ONCE_MAX_USES = 50;            // khớp MAX_USES trong api/link.js
+const ONCE_MAX_USES = 200;           // khớp MAX_USES trong api/link.js
+/** Ô danh sách thành viên → mảng tên (mỗi dòng / dấu phẩy một tên, bỏ trùng). */
+const membersOf = (text) => [...new Map(String(text || '').split(/[\n,;]+/).map(s => s.replace(/\s+/g, ' ').trim().slice(0, 40))
+    .filter(Boolean).map(s => [s.toLocaleLowerCase('vi'), s])).values()];
+const linkTitle = (l) => l.name ? `${l.group ? 'Nhóm' : 'Gửi'} <b>${esc(l.name)}</b>` : `<i>${l.group ? 'Nhóm chưa đặt tên' : 'Chưa đặt tên'}</i>`;
 
 async function onceApi(action, extra = {}) {
     const u = auth.currentUser;
@@ -495,34 +524,78 @@ const onceState = (l) => (l.expiresAt != null && l.expiresAt <= Date.now()) ? 'e
 const putLink = (l) => { const i = once.links.findIndex(x => x.token === l.token); if (i >= 0) once.links[i] = l; else once.links.unshift(l); };
 
 /** Bản xem trước khớp thẻ Open Graph máy chủ vẽ (api/link.js previewPage). */
-function previewOf(name, uses) {
+function previewOf(name, uses, group) {
     const verb = current?.oneTime?.kind === 'folder' ? 'học thư mục' : 'làm bộ đề';
     const what = current?.title ? `“${current.title}”` : '';
+    if (group) return {
+        title: `${name ? `Gửi ${name}: các bạn` : 'Các bạn'} được mời ${verb} ${what} trên Zitthenkne`.replace(/\s+/g, ' '),
+        desc: 'Link chung của nhóm — mỗi bạn chọn tên mình và mở trên một thiết bị nhé.'
+    };
     return {
         title: `${name ? `Gửi bạn ${name}, bạn` : 'Bạn'} được mời ${verb} ${what} trên Zitthenkne`.replace(/\s+/g, ' '),
-        desc: uses === 1 ? 'Đây là link dùng 1 lần nên đừng chia sẻ cho người khác.' : `Link riêng chỉ mở được trên ${uses} thiết bị — đừng chia sẻ cho người khác.`
+        desc: `Link riêng dành cho bạn, mở được trên ${uses} thiết bị — giữ cho riêng mình nhé.`
     };
+}
+/** Tên trong ô thẻ + chữ đang gõ dở (chưa bấm phẩy). */
+function tagsOf(kind) {
+    const pending = document.querySelector(`#sa-once [data-tags="${kind}"] .sa-tag-in`)?.value || '';
+    return membersOf([...tags[kind], pending].join('\n'));
+}
+function addTags(kind, text) {
+    tags[kind] = membersOf([...tags[kind], text].join('\n'));
+    renderTags(kind);
+}
+function renderTags(kind) {
+    const box = document.querySelector(`#sa-once [data-tags="${kind}"]`);
+    if (!box) return;
+    box.querySelectorAll('.sa-tag').forEach(x => x.remove());
+    box.querySelector('.sa-tag-in').insertAdjacentHTML('beforebegin', tags[kind].map((n, i) =>
+        `<span class="sa-tag">${esc(n)}<button type="button" data-untag="${kind}" data-i="${i}" aria-label="Bỏ ${esc(n)}">×</button></span>`).join(''));
+    if (kind === 'members' && tags.members.length) onceUses = Math.min(ONCE_MAX_USES, tags.members.length);
+    renderPreview();
 }
 function renderPreview() {
     const el = document.getElementById('sa-once-preview');
     if (!el) return;
-    const p = previewOf((document.getElementById('sa-once-name')?.value || '').replace(/\s+/g, ' ').trim(), onceUses);
+    const names = onceGroup ? [] : tagsOf('names');
+    const p = previewOf(onceGroup ? (document.getElementById('sa-once-name')?.value || '').replace(/\s+/g, ' ').trim() : (names[0] || ''), onceUses, onceGroup);
     el.innerHTML = `<span class="sa-pv-tag">Xem trước khi dán vào Messenger / Zalo</span>
-        <span class="sa-pv-card"><b>${esc(p.title)}</b>${esc(p.desc)}<small>${esc(location.host)} · link riêng</small></span>`;
+        <span class="sa-pv-card"><b>${esc(p.title)}</b>${esc(p.desc)}<small>${esc(location.host)} · ${onceGroup ? 'link nhóm' : 'link riêng'}</small></span>`;
     const n = document.getElementById('sa-once-uses');
     if (n) n.textContent = onceUses;
+    // Kiểu link: Một người / Cả nhóm
+    document.querySelectorAll('#sa-once [data-once-mode]').forEach(b => {
+        const on = (b.dataset.onceMode === 'group') === onceGroup;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+    document.getElementById('sa-once-name')?.classList.toggle('hidden', !onceGroup);
+    document.querySelector('#sa-once [data-tags="names"]')?.classList.toggle('hidden', onceGroup);
+    document.querySelector('#sa-once [data-tags="members"]')?.classList.toggle('hidden', !onceGroup);
+    const md = document.getElementById('sa-once-mode-desc');
+    if (md) md.textContent = onceGroup
+        ? 'Một link chung cho cả nhóm. Người mở chọn / gõ tên mình, mỗi tên một máy. Mỗi máy chiếm 1 suất và làm bài bao nhiêu lần cũng được.'
+        : 'Không cần tài khoản: mỗi máy mở link chiếm 1 suất. Hết suất thì máy khác chỉ gửi được yêu cầu truy cập.';
+    const members = onceGroup ? tagsOf('members') : [];
+    const hint = document.getElementById('sa-tags-hint');
+    if (hint) hint.textContent = onceGroup
+        ? (members.length ? `${members.length} thành viên — người mở chọn đúng tên mình.` : 'Bỏ trống danh sách thì người mở tự gõ tên.')
+        : names.length > 1 ? `Sẽ tạo ${names.length} link riêng, mỗi người một link — sao chép cả danh sách một lượt.` : 'Gõ dấu phẩy để thêm người — mỗi người một link riêng.';
+    const btn = document.getElementById('sa-once-create');
+    if (btn && !btn.disabled) btn.innerHTML = `<i class="fas fa-copy"></i> ${names.length > 1 ? `Tạo ${names.length} link &amp; sao chép` : 'Tạo link &amp; sao chép'}`;
 }
 
 const stepper = (attrs, n) => `<span class="sa-step"><button type="button" ${attrs} data-d="-1" aria-label="Bớt"><i class="fas fa-minus"></i></button><b>${n}</b><button type="button" ${attrs} data-d="1" aria-label="Thêm"><i class="fas fa-plus"></i></button><small>thiết bị</small></span>`;
 
+const whoOf = (c) => c.who || c.email || c.name || c.label || 'Một thiết bị';
 function claimRow(token, c, live) {
-    const who = c.email || c.name || c.label || 'Một thiết bị';
-    const sub = [c.email || c.name ? c.label : '', [c.city, c.country].filter(Boolean).join(', '),
+    const who = whoOf(c);
+    const sub = [c.who ? c.email : '', c.who || c.email || c.name ? c.label : '', [c.city, c.country].filter(Boolean).join(', '),
         c.at ? `mở ${fmtUntil(c.at)}` : '', c.seen && c.seen !== c.at ? `gần nhất ${fmtUntil(c.seen)}` : '',
         c.via === 'request' ? 'được duyệt yêu cầu' : ''].filter(Boolean).join(' · ');
     return `
         <div class="sa-claim">
-            <span class="sa-av" style="background:${c.anon ? '#60a5fa' : avColor(who)}">${c.anon ? '<i class="fas fa-mobile-screen"></i>' : esc(who.charAt(0).toUpperCase())}</span>
+            <span class="sa-av" style="background:${c.anon && !c.who ? '#60a5fa' : avColor(who)}">${c.anon && !c.who ? '<i class="fas fa-mobile-screen"></i>' : esc(who.charAt(0).toUpperCase())}</span>
             <span class="sa-who"><span class="sa-name" title="${esc(who)}">${esc(who)}</span><span class="sa-sub" title="${esc(sub)}">${esc(sub)}</span></span>
             ${live ? `<button type="button" class="sa-icon" data-kick="${esc(token)}" data-uid="${esc(c.uid)}" title="Gỡ và chặn máy này" aria-label="Gỡ máy này"><i class="fas fa-xmark"></i></button>` : ''}
         </div>`;
@@ -535,8 +608,8 @@ const seatBar = (used, max) => max <= 12
 // Mặt những người / máy đã mở (tối đa 4, còn lại "+n")
 function faces(claims) {
     const show = claims.slice(0, 4).map(c => {
-        const who = c.email || c.name || c.label || 'Một thiết bị';
-        return `<span title="${esc(who)}" style="background:${c.anon ? '#60a5fa' : avColor(who)}">${c.anon ? '<i class="fas fa-mobile-screen"></i>' : esc(who.charAt(0).toUpperCase())}</span>`;
+        const who = whoOf(c), icon = c.anon && !c.who;
+        return `<span title="${esc(who)}" style="background:${icon ? '#60a5fa' : avColor(who)}">${icon ? '<i class="fas fa-mobile-screen"></i>' : esc(who.charAt(0).toUpperCase())}</span>`;
     }).join('');
     return claims.length ? `<span class="sa-faces">${show}${claims.length > 4 ? `<span class="is-more">+${claims.length - 4}</span>` : ''}</span>` : '';
 }
@@ -554,13 +627,25 @@ function linkRow(l) {
     const ttl = !live ? 'sẽ tự chuyển vào lịch sử' : l.expiresAt == null ? 'không hết hạn' : leftText(l.expiresAt);
     const sub = `<span class="sa-ttl${soon ? ' is-soon' : ''}"><i class="fas fa-clock"></i> ${esc(ttl)}</span> · ${esc(last ? `mở gần nhất ${fmtUntil(last)}` : `tạo ${fmtUntil(l.createdAt)}`)}`;
     const open = openRows.has(l.token);
+    // Link nhóm có danh sách: ai đã vào (xanh) / chưa vào
+    const members = l.members || [];
+    const inKeys = new Set(claims.map(c => (c.who || '').toLocaleLowerCase('vi')).filter(Boolean));
+    const nIn = members.filter(m => inKeys.has(m.toLocaleLowerCase('vi'))).length;
+    const roster = !l.group || !members.length ? '' : `
+            <span class="sa-mini">Thành viên đã vào (${nIn}/${members.length})</span>
+            <div class="sa-roster">${members.map(m => inKeys.has(m.toLocaleLowerCase('vi'))
+                ? `<span class="is-in"><i class="fas fa-check"></i>${esc(m)}</span>` : `<span>${esc(m)}</span>`).join('')}</div>`;
     const detail = !open ? '' : `
         <div class="sa-detail">
+            ${roster}
             ${live ? `
             <div class="sa-line">
-                <input type="text" class="sa-input" data-rename-input="${esc(l.token)}" value="${esc(l.name)}" maxlength="60" placeholder="Tên người nhận">
+                <input type="text" class="sa-input" data-rename-input="${esc(l.token)}" value="${esc(l.name)}" maxlength="60" placeholder="${l.group ? 'Tên nhóm' : 'Tên người nhận'}">
                 <button type="button" class="sa-btn sa-btn-sm" data-rename="${esc(l.token)}">Lưu tên</button>
             </div>
+            ${l.group ? `
+            <textarea class="sa-input sa-area" data-members-input="${esc(l.token)}" rows="3" placeholder="Minh, Hoa, Khang… (dấu phẩy hoặc xuống dòng) — bỏ trống: người mở tự gõ tên">${esc(members.join('\n'))}</textarea>
+            <button type="button" class="sa-btn sa-btn-sm sa-btn-ghost" data-members="${esc(l.token)}"><i class="fas fa-users"></i> Lưu danh sách thành viên</button>` : ''}
             <div class="sa-line"><span class="sa-mini">Mở được trên</span>${stepper(`data-seat="${esc(l.token)}"`, l.maxUses)}</div>
             <div><span class="sa-mini">Gia hạn tính từ bây giờ</span>
                 <div class="sa-chips">${ONCE_HOURS.map(([h, t]) => `<button type="button" data-extend="${esc(l.token)}" data-h="${h}">${t}</button>`).join('')}</div></div>` : ''}
@@ -570,8 +655,8 @@ function linkRow(l) {
     return `
         <li class="sa-card is-${st}${open ? ' is-open' : ''}">
             <div class="sa-top">
-                <span class="sa-av" style="background:${S[0]}"><i class="fas ${S[1]}"></i></span>
-                <span class="sa-who"><span class="sa-name">${l.name ? `Gửi <b>${esc(l.name)}</b>` : '<i>Chưa đặt tên</i>'}</span><span class="sa-sub">${sub}</span></span>
+                <span class="sa-av" style="background:${S[0]}"><i class="fas ${l.group && (st === 'free' || st === 'used') ? 'fa-users' : S[1]}"></i></span>
+                <span class="sa-who"><span class="sa-name">${linkTitle(l)}</span><span class="sa-sub">${sub}</span></span>
                 <span class="sa-pill is-${st}">${S[2]}</span>
             </div>
             <div class="sa-mid">${seatBar(used, l.maxUses)}<span class="sa-seat-n">${used}/${l.maxUses} máy</span>${faces(claims)}</div>
@@ -608,7 +693,7 @@ function histRow(h) {
         o.seen && o.seen !== o.at ? `gần nhất ${fmtUntil(o.seen)}` : ''].filter(Boolean).join(' · '));
     return `
         <li class="is-${h.reason === 'revoked' ? 'revoked' : 'expired'}">
-            <span class="sa-name">${h.name ? `Gửi <b>${esc(h.name)}</b>` : '<i>Chưa đặt tên</i>'}</span>
+            <span class="sa-name">${linkTitle(h)}</span>
             <span class="sa-sub">${esc(head)}</span>
             ${list.length ? list.map(t => `<span class="sa-sub">• ${esc(t)}</span>`).join('') : '<span class="sa-sub">• Không ai mở</span>'}
         </li>`;
@@ -671,6 +756,36 @@ function bindOnceBlock(section) {
     const nameInput = section.querySelector('#sa-once-name');
     nameInput.addEventListener('input', renderPreview);
     nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); section.querySelector('#sa-once-create').click(); } });
+    // Ô thẻ: phẩy / chấm phẩy / Enter = chốt một tên · dán cả danh sách = tách hết · Backspace khi trống = bỏ tên cuối.
+    // Danh sách nhóm → số suất tự bằng số thành viên (vẫn chỉnh tay được).
+    section.querySelectorAll('#sa-once [data-tags]').forEach(tbox => {
+        const kind = tbox.dataset.tags;
+        const inp = tbox.querySelector('.sa-tag-in');
+        tbox.addEventListener('click', (e) => { if (e.target === tbox) inp.focus(); });
+        inp.addEventListener('keydown', (e) => {
+            if (e.key === ',' || e.key === ';' || (e.key === 'Enter' && inp.value.trim())) {
+                e.preventDefault();
+                addTags(kind, inp.value); inp.value = '';
+            } else if (e.key === 'Enter') {
+                e.preventDefault(); section.querySelector('#sa-once-create').click();
+            } else if (e.key === 'Backspace' && !inp.value && tags[kind].length) {
+                tags[kind].pop(); renderTags(kind);
+            }
+        });
+        // Bàn phím điện thoại không phải lúc nào cũng báo phím ',' → bắt cả lúc chữ đã vào ô
+        inp.addEventListener('input', () => {
+            const parts = inp.value.split(/[,;\n]/);
+            if (parts.length > 1) { inp.value = parts.pop(); addTags(kind, parts.join('\n')); }
+            else renderPreview();
+        });
+        inp.addEventListener('paste', (e) => {
+            const text = e.clipboardData?.getData('text') || '';
+            if (!/[,;\n]/.test(text)) return;
+            e.preventDefault();
+            addTags(kind, inp.value + text); inp.value = '';
+        });
+        inp.addEventListener('blur', () => { if (inp.value.trim()) { addTags(kind, inp.value); inp.value = ''; } });
+    });
     // Một lượt gọi máy chủ cho một nút: khóa nút, lỗi thì báo, xong vẽ lại
     const run = async (btn, fn, failMsg) => {
         if (btn.disabled) return;
@@ -689,16 +804,59 @@ function bindOnceBlock(section) {
         if (d.onceHours !== undefined) { onceHours = Number(d.onceHours) || 0; return renderOnce(); }
         if (d.onceUses !== undefined) { onceUses = Math.min(ONCE_MAX_USES, Math.max(1, onceUses + Number(d.onceUses))); return renderPreview(); }
         if (d.histToggle !== undefined) { historyOpen = !historyOpen; return renderOnce(); }
+        if (d.untag) { tags[d.untag].splice(Number(d.i), 1); return renderTags(d.untag); }
+        if (d.onceMode) {
+            const g = d.onceMode === 'group';
+            if (g === onceGroup) return;
+            onceGroup = g;
+            onceUses = g ? Math.max(tags.members.length, 10) : 1;
+            return renderPreview();
+        }
         if (t.id === 'sa-once-create') {
             if (!o) return;
+            const sameItem = () => once.key === `${o.kind}:${o.id}`;
+            const clearTags = (kind) => {
+                tags[kind] = [];
+                const inp = box.querySelector(`[data-tags="${kind}"] .sa-tag-in`);
+                if (inp) inp.value = '';
+                renderTags(kind);
+            };
+            if (onceGroup) {
+                const members = tagsOf('members');
+                if (members.length > onceUses
+                    && !await showConfirm(`Danh sách có ${members.length} người nhưng link chỉ mở được trên ${onceUses} máy — ${members.length - onceUses} người sẽ không vào được.`,
+                        { title: 'Ít suất hơn số thành viên', confirmText: 'Vẫn tạo', cancelText: 'Sửa lại' })) return;
+                return run(t, async () => {
+                    const name = nameInput.value.replace(/\s+/g, ' ').trim();
+                    const r = await onceApi('create', { kind: o.kind, id: o.id, hours: onceHours, name, maxUses: onceUses, group: true, members });
+                    if (sameItem()) putLink(r.link);
+                    nameInput.value = ''; onceUses = 10; t.disabled = false; clearTags('members');
+                    if (await copyText(onceUrl(r.link.token))) showToast(`Đã tạo và sao chép link nhóm${name ? ` ${name}` : ''} — dán vào nhóm chat sẽ hiện lời mời.`, 'success', 5000);
+                }, 'Không tạo được link');
+            }
+            // Một người — nhiều tên = nhiều link riêng (song song), sao chép "Tên: link" từng dòng
+            const names = tagsOf('names');
             return run(t, async () => {
-                const name = nameInput.value.replace(/\s+/g, ' ').trim();
-                const r = await onceApi('create', { kind: o.kind, id: o.id, hours: onceHours, name, maxUses: onceUses });
-                if (once.key === `${o.kind}:${o.id}`) putLink(r.link);
-                nameInput.value = ''; onceUses = 1; t.disabled = false;
-                const copied = await copyText(onceUrl(r.link.token));
-                if (copied) showToast(`Đã tạo và sao chép link${name ? ` cho ${name}` : ''} — dán vào Messenger/Zalo sẽ hiện lời mời riêng.`, 'success', 5000);
+                const list = names.length ? names : [''];
+                const res = await Promise.allSettled(list.map(name => onceApi('create', { kind: o.kind, id: o.id, hours: onceHours, name, maxUses: onceUses })));
+                const made = res.filter(x => x.status === 'fulfilled').map(x => x.value.link);
+                const failed = res.find(x => x.status === 'rejected');
+                if (!made.length) throw failed.reason;
+                if (sameItem()) made.slice().reverse().forEach(putLink);
+                onceUses = 1; t.disabled = false; clearTags('names');
+                const text = made.length === 1 ? onceUrl(made[0].token) : made.map(l => `${l.name}: ${onceUrl(l.token)}`).join('\n');
+                if (await copyText(text)) showToast(made.length === 1
+                    ? `Đã tạo và sao chép link${made[0].name ? ` cho ${made[0].name}` : ''} — dán vào Messenger/Zalo sẽ hiện lời mời riêng.`
+                    : `Đã tạo ${made.length} link và sao chép cả danh sách (mỗi dòng “Tên: link”).`, 'success', 5000);
+                if (failed) showToast(`${list.length - made.length} link chưa tạo được: ${failed.reason.message}`, 'error', 6000);
             }, 'Không tạo được link');
+        }
+        if (d.members) {
+            const v = box.querySelector(`[data-members-input="${d.members}"]`)?.value || '';
+            return run(t, async () => {
+                putLink((await onceApi('update', { token: d.members, members: membersOf(v) })).link);
+                showToast('Đã lưu danh sách thành viên.', 'success');
+            }, 'Không lưu được danh sách');
         }
         if (d.onceCopy) { if (await copyText(onceUrl(d.onceCopy))) showToast('Đã sao chép link.', 'success'); return; }
         if (d.onceEdit) { openRows.has(d.onceEdit) ? openRows.delete(d.onceEdit) : openRows.add(d.onceEdit); return renderOnce(); }

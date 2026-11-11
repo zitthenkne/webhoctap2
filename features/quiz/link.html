@@ -12,7 +12,7 @@
     <meta property="og:site_name" content="Zitthenkne">
     <meta property="og:locale" content="vi_VN">
     <meta property="og:title" content="Bạn được mời làm bộ đề trên Zitthenkne">
-    <meta property="og:description" content="Link riêng chỉ mở được trên MỘT thiết bị — bấm để mở trên máy của bạn.">
+    <meta property="og:description" content="Link riêng dành cho bạn — bấm để mở trên máy của bạn.">
     <meta property="og:image" content="/assets/og_squirrel_study.jpg">
     <meta name="twitter:card" content="summary_large_image">
 
@@ -65,10 +65,27 @@
         .lk-chip i { font-size: .65rem; color: var(--pink-d); }
         .lk-desc { margin: 14px auto 0; max-width: 24rem; font-size: .88rem; font-weight: 600; line-height: 1.55; color: #8A7080; }
         .lk-note {
-            display: flex; gap: 9px; align-items: flex-start; text-align: left; margin: 16px 0 0; padding: 11px 13px; border-radius: 14px;
-            background: #FFF8E6; border: 1.5px dashed #F2D58A; color: #7A5B12; font-size: .8rem; font-weight: 600; line-height: 1.5;
+            display: flex; gap: 9px; align-items: flex-start; text-align: left; margin: 14px 0 0; padding: 10px 13px; border-radius: 14px;
+            background: #FFF6FA; color: #8A6A7B; font-size: .78rem; font-weight: 600; line-height: 1.5;
         }
-        .lk-note i { margin-top: 3px; color: #E2A21A; }
+        .lk-note i { margin-top: 3px; color: var(--pink); }
+        /* "Vé mời riêng": dải xé có 2 khía ở mép thẻ, 3 ý ngắn (riêng ai · mấy thiết bị · làm không giới hạn) */
+        .lk-ticket {
+            position: relative; margin: 18px -24px 0; padding: 16px 16px 2px; border-top: 2px dashed #F3D3DF;
+            display: flex; justify-content: center; gap: 6px;
+        }
+        .lk-ticket::before, .lk-ticket::after {
+            content: ''; position: absolute; top: -12px; width: 22px; height: 22px; border-radius: 50%;
+            background: #F8E3EE; box-shadow: inset 0 0 0 1.5px #F6C9D8;
+        }
+        .lk-ticket::before { left: -12px; } .lk-ticket::after { right: -12px; }
+        .lk-tk { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+        .lk-tk i {
+            width: 34px; height: 34px; margin-bottom: 3px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+            background: #FFF0F5; color: var(--pink-d); font-size: .85rem;
+        }
+        .lk-tk b { font-size: .8rem; color: var(--ink); overflow-wrap: anywhere; }
+        .lk-tk small { font-size: .68rem; font-weight: 600; color: var(--soft); line-height: 1.35; }
         .lk-actions { margin-top: 20px; display: flex; flex-direction: column; gap: 8px; }
         .lk-btn {
             height: 48px; padding: 0 20px; border: 0; border-radius: 15px; display: inline-flex; align-items: center; justify-content: center; gap: 9px;
@@ -81,6 +98,24 @@
         .lk-btn-ghost { height: 42px; background: #fff; color: #8A5A72; border: 1.5px solid #F0D3DF; font-size: .85rem; }
         .lk-btn-ghost:hover { color: #E0588F; border-color: #F29CBB; }
         .lk-btn:focus-visible { outline: 2.5px solid var(--pink); outline-offset: 2px; }
+        /* Link nhóm: chọn / gõ tên */
+        .lk-ask { margin: 0; font-size: .9rem; font-weight: 700; color: var(--ink); }
+        .lk-who { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-height: 260px; overflow-y: auto; padding: 2px; }
+        .lk-who button {
+            padding: 8px 13px; border-radius: 999px; border: 1.5px solid var(--line); background: #fff; color: #6E3A55;
+            font: 700 .85rem 'Quicksand', sans-serif; cursor: pointer; transition: all .15s;
+        }
+        .lk-who button:hover:not(:disabled) { border-color: var(--pink); }
+        .lk-who button.is-on { background: var(--pink); border-color: var(--pink); color: #fff; box-shadow: 0 3px 0 var(--pink-d); }
+        .lk-who button:disabled { opacity: .5; cursor: not-allowed; text-decoration: line-through; }
+        .lk-who button:disabled i { color: #15925F; }
+        .lk-input {
+            height: 46px; padding: 0 14px; border-radius: 14px; border: 1.5px solid var(--line); background: #fff; outline: 0;
+            font: 600 .92rem 'Quicksand', sans-serif; color: #3b2230; text-align: center;
+        }
+        .lk-input:focus { border-color: var(--pink); box-shadow: 0 0 0 3px rgba(255, 127, 176, .2); }
+        .lk-err { margin: 0; padding: 9px 12px; border-radius: 12px; background: #FFE4E4; color: #B42318; font-size: .8rem; font-weight: 700; line-height: 1.45; }
+        .lk-left { margin: 0; font-size: .75rem; font-weight: 700; color: var(--soft); }
         .lk-foot { margin-top: 18px; font-size: .72rem; font-weight: 600; color: #B39AA7; }
         .lk-foot a { color: inherit; }
         .hidden { display: none !important; }
@@ -94,6 +129,7 @@
         <h1 id="lk-title" class="lk-title">Đang kiểm tra link…</h1>
         <div id="lk-meta" class="lk-meta"></div>
         <p id="lk-desc" class="lk-desc"></p>
+        <div id="lk-ticket" class="lk-ticket hidden"></div>
         <p id="lk-note" class="lk-note hidden"></p>
         <div id="lk-actions" class="lk-actions"></div>
         <div id="lk-request"></div>

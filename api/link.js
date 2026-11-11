@@ -8,7 +8,8 @@
 //
 // Dữ liệu (CHỈ máy chủ đọc/ghi — firestore.rules chặn app):
 //   share_links/{token} = { kind: 'quiz'|'folder', targetId, ownerUid, ownerName, title, count, createdAt, expiresAt (null = không hết hạn),
-//                           name (tên người nhận), maxUses (số suất, 1..50), claims: { uid: { at, seen, label, city, country, anon, email, name, via } },
+//                           name (tên người nhận / tên nhóm), maxUses (số suất, 1..200), group (link nhóm), members (danh sách tên, có thể rỗng),
+//                           claims: { uid: { at, seen, label, city, country, anon, email, name, who (tên tự xưng — link nhóm), via } },
 //                           blocked: [uid bị chủ gỡ], revoked, revokedAt, gq: [quizId], gf: [folderId] }
 //     (link cũ: claimedBy/claimedAt/claimLabel/claimCity/claimCountry/lastSeenAt/claimAnon — claimsOf() đọc được, lần ghi sau đổi sang claims)
 //   link_grants/{uid}   = { q: { quizId: hạn }, f: { folderId: hạn } } — luật linkGranted() cho uid này đọc đúng các bộ đề / thư mục đó tới hạn.
@@ -25,11 +26,12 @@
 //                        trình duyệt thật tự chuyển sang features/quiz/link.html?t=<mã>. Trình quét không chạy JS → không bao giờ chiếm suất.
 // POST — body.action:
 //   peek      { token }                       — ai cũng gọi: { status, kind, title, count, ownerName, expiresAt, name, maxUses }
-//   claim     { token, label }                — cần token Firebase (ẩn danh / thật): chiếm 1 suất → { status: 'mine'|'owner'|..., kind, targetId }
+//   claim     { token, label, who? }          — cần token Firebase (ẩn danh / thật): chiếm 1 suất → { status: 'mine'|'owner'|..., kind, targetId }
+//                                               link nhóm: thiếu who → needWho · ngoài danh sách → notMember · tên đã có máy giữ → whoTaken
 //   folder    { token, folderId }             — người giữ link mở một thư mục trong nhánh: { status, folder, subFolders, quizzes }
-//   create    { kind, id, hours, name, maxUses } — CHỦ: tạo link (hours: 24 | 168 | 720 | 0 = không hết hạn)
+//   create    { kind, id, hours, name, maxUses, group?, members? } — CHỦ: tạo link (hours: 24 | 168 | 720 | 0 = không hết hạn)
 //   list      { kind, id }                    — CHỦ: các link còn sống + yêu cầu đang chờ + lịch sử link của mục này
-//   update    { token, name?, maxUses?, hours? } — CHỦ: đổi tên / số suất / gia hạn (tính từ bây giờ)
+//   update    { token, name?, maxUses?, hours?, members? } — CHỦ: đổi tên / số suất / gia hạn (tính từ bây giờ) / danh sách nhóm
 //   kick      { token, uid }                  — CHỦ: gỡ + chặn một máy / tài khoản khỏi link
 //   revoke    { token }                       — CHỦ: thu hồi (gỡ mọi quyền, chuyển link vào lịch sử)
 //   request   { token | kind,id, message, label } — TÀI KHOẢN THẬT: gửi yêu cầu truy cập
@@ -44,7 +46,8 @@ const { init, verifyUser, send, readJson, geoOf, untilMs } = require('./_lib/adm
 const FAR_MS = Date.parse('2100-01-01T00:00:00Z');     // "không hết hạn" trong link_grants (luật so request.time < hạn)
 const HOUR_CHOICES = [24, 168, 720, 0];
 const MAX_LINKS = 30;                                  // mỗi bộ đề / thư mục
-const MAX_USES = 50;                                   // suất tối đa mỗi link
+const MAX_USES = 200;                                  // suất tối đa mỗi link (link nhóm cho cả lớp)
+const MAX_MEMBERS = 200;                               // danh sách thành viên link nhóm
 const MAX_DEPTH = 25;                                  // thư mục lồng nhau
 const LEGACY = ['claimedBy', 'claimedAt', 'claimLabel', 'claimCity', 'claimCountry', 'lastSeenAt', 'claimAnon'];
 const cleanId = (s) => String(s || '').replace(/[^\w-]/g, '').slice(0, 64);
@@ -56,6 +59,19 @@ const hoursOf = (h, def) => (HOUR_CHOICES.includes(Number(h)) ? Number(h) : def)
 const isAnon = (me) => me?.firebase?.sign_in_provider === 'anonymous';
 const reqIdOf = (kind, id, uid) => `${kind === 'folder' ? 'f' : 'q'}_${id}_${uid}`;
 const ms = (v) => untilMs(v);
+// LINK NHÓM (group: true): "Gửi Tổ 17…" — người mở phải XƯNG TÊN (chọn trong danh sách thành viên nếu chủ có nhập, không thì tự gõ).
+// Mỗi tên chỉ một máy giữ; mỗi máy vẫn chiếm 1 suất và làm bài bao nhiêu lần cũng được.
+const whoKey = (s) => cleanName(s).toLocaleLowerCase('vi');
+function cleanMembers(arr) {
+    const seen = new Set(), out = [];
+    for (const raw of Array.isArray(arr) ? arr : []) {
+        const n = cleanName(raw).slice(0, 40);
+        if (n && !seen.has(whoKey(n))) { seen.add(whoKey(n)); out.push(n); }
+        if (out.length >= MAX_MEMBERS) break;
+    }
+    return out;
+}
+const takenWho = (l) => Object.values(claimsOf(l)).map(x => x.who).filter(Boolean);
 
 async function optionalUser(req) {
     if (!/^Bearer\s+/i.test(req.headers.authorization || '')) return null;
@@ -123,7 +139,7 @@ async function ungrant(db, admin, l, uids = Object.keys(claimsOf(l))) {
     await Promise.all(uids.map(uid => db.doc(`link_grants/${uid}`).update(...args).catch(() => {})));
 }
 
-function newLinkDoc(Timestamp, me, kind, id, t, { hours, name, maxUses, claims = {} }) {
+function newLinkDoc(Timestamp, me, kind, id, t, { hours, name, maxUses, claims = {}, group = false, members = [] }) {
     const now = Date.now();
     return {
         kind, targetId: id, ownerUid: me.uid,
@@ -132,17 +148,19 @@ function newLinkDoc(Timestamp, me, kind, id, t, { hours, name, maxUses, claims =
         count: kind === 'quiz' ? (Number(t.questionCount) || (Array.isArray(t.questions) ? t.questions.length : 0)) : null,
         createdAt: Timestamp.fromMillis(now),
         expiresAt: hours ? Timestamp.fromMillis(now + hours * 3600 * 1000) : null,
-        name: cleanName(name), maxUses: usesOf({ maxUses }), claims, blocked: [], gq: [], gf: []
+        name: cleanName(name), maxUses: usesOf({ maxUses }), claims, blocked: [], gq: [], gf: [],
+        ...(group ? { group: true, members: cleanMembers(members) } : {})
     };
 }
 
 function view(token, l) {
     const claims = Object.entries(claimsOf(l)).map(([uid, x]) => ({
         uid, at: ms(x.at), seen: ms(x.seen), label: x.label || '', city: x.city || '', country: x.country || '',
-        anon: !!x.anon, email: x.email || '', name: x.name || '', via: x.via || ''
+        anon: !!x.anon, email: x.email || '', name: x.name || '', who: x.who || '', via: x.via || ''
     })).sort((a, b) => (a.at || 0) - (b.at || 0));
     return {
         token, kind: l.kind, targetId: l.targetId, status: statusOf(l, null), name: l.name || '', maxUses: usesOf(l),
+        group: !!l.group, members: l.members || [],
         createdAt: ms(l.createdAt), expiresAt: ms(l.expiresAt), claims
     };
 }
@@ -158,10 +176,10 @@ async function archiveMany(db, admin, pairs, reason) {
     const l0 = pairs[0][1];
     await Promise.all(pairs.map(([, l]) => ungrant(db, admin, l)));
     const entries = pairs.map(([token, l]) => ({
-        token, name: l.name || '', maxUses: usesOf(l), createdAt: l.createdAt || null, expiresAt: l.expiresAt || null,
+        token, name: l.name || '', maxUses: usesOf(l), group: !!l.group, createdAt: l.createdAt || null, expiresAt: l.expiresAt || null,
         endedAt: Timestamp.now(), reason,
         opens: Object.values(claimsOf(l)).map(x => ({
-            who: x.email || x.name || '', label: x.label || '', place: [x.city, x.country].filter(Boolean).join(', '),
+            who: x.who || x.email || x.name || '', label: x.label || '', place: [x.city, x.country].filter(Boolean).join(', '),
             at: x.at || null, seen: x.seen || null, via: x.via || ''
         }))
     }));
@@ -189,7 +207,7 @@ async function historyOf(db, token) {
 
 function histView(e) {
     return {
-        token: e.token, name: e.name || '', maxUses: e.maxUses || 1, reason: e.reason, createdAt: ms(e.createdAt), expiresAt: ms(e.expiresAt), endedAt: ms(e.endedAt),
+        token: e.token, name: e.name || '', maxUses: e.maxUses || 1, group: !!e.group, reason: e.reason, createdAt: ms(e.createdAt), expiresAt: ms(e.expiresAt), endedAt: ms(e.endedAt),
         opens: (e.opens || []).map(o => ({ who: o.who || '', label: o.label || '', place: o.place || '', at: ms(o.at), seen: ms(o.seen), via: o.via || '' }))
     };
 }
@@ -238,10 +256,15 @@ async function previewPage(req, res) {
     if (l && (st === 'ok' || st === 'taken')) {
         const verb = l.kind === 'folder' ? 'học thư mục' : 'làm bộ đề';
         const what = l.title ? `“${l.title}”` : '';
-        title = `${l.name ? `Gửi bạn ${l.name}, bạn` : 'Bạn'} được mời ${verb} ${what} trên Zitthenkne`.replace(/\s+/g, ' ');
         const uses = usesOf(l);
-        desc = (uses === 1 ? 'Đây là link dùng 1 lần nên đừng chia sẻ cho người khác.' : `Link riêng chỉ mở được trên ${uses} thiết bị — đừng chia sẻ cho người khác.`)
-            + (l.ownerName ? ` Từ ${l.ownerName}.` : '');
+        if (l.group) {
+            title = `${l.name ? `Gửi ${l.name}: các bạn` : 'Các bạn'} được mời ${verb} ${what} trên Zitthenkne`.replace(/\s+/g, ' ');
+            desc = 'Link chung của nhóm — mỗi bạn chọn tên mình và mở trên một thiết bị nhé.';
+        } else {
+            title = `${l.name ? `Gửi bạn ${l.name}, bạn` : 'Bạn'} được mời ${verb} ${what} trên Zitthenkne`.replace(/\s+/g, ' ');
+            desc = `Link riêng dành cho bạn, mở được trên ${uses} thiết bị — giữ cho riêng mình nhé.`;
+        }
+        desc += l.ownerName ? ` Từ ${l.ownerName}.` : '';
     } else if (l) {
         desc = st === 'expired' ? 'Link này đã hết hạn.' : 'Link này không còn hiệu lực.';
     }
@@ -303,7 +326,8 @@ module.exports = async function handler(req, res) {
             }
             if (mine.length >= MAX_LINKS) throw err(400, `Mỗi mục tối đa ${MAX_LINKS} link — xóa bớt link cũ trước nhé.`);
             const token = crypto.randomBytes(24).toString('base64url');
-            const l = newLinkDoc(Timestamp, me, kind, id, t, { hours: hoursOf(body.hours, 168), name: body.name, maxUses: body.maxUses });
+            const l = newLinkDoc(Timestamp, me, kind, id, t, { hours: hoursOf(body.hours, 168), name: body.name, maxUses: body.maxUses,
+                group: body.group === true, members: body.members });
             await db.doc(`share_links/${token}`).set(l);
             return send(res, 200, { ok: true, link: view(token, l) });
         }
@@ -341,6 +365,7 @@ module.exports = async function handler(req, res) {
             const patch = {};
             if (body.name !== undefined) patch.name = cleanName(body.name);
             if (body.maxUses !== undefined) patch.maxUses = usesOf({ maxUses: body.maxUses });
+            if (body.members !== undefined && l.group) patch.members = cleanMembers(body.members);
             if (body.hours !== undefined) {
                 const h = hoursOf(body.hours, 168);
                 patch.expiresAt = h ? Timestamp.fromMillis(Date.now() + h * 3600 * 1000) : null;
@@ -416,7 +441,8 @@ module.exports = async function handler(req, res) {
                     const st = statusOf(x, r.uid);
                     if (!x || x.ownerUid !== me.uid || x.targetId !== r.targetId || st === 'expired' || st === 'missing') return null;
                     const c = { ...claimsOf(x) };
-                    if (!c[r.uid]) c[r.uid] = entry;
+                    // Link nhóm: người được duyệt mang tên tài khoản làm "tên trong nhóm"
+                    if (!c[r.uid]) c[r.uid] = x.group ? { ...entry, who: cleanName(r.name || (r.email || '').split('@')[0]).slice(0, 40) } : entry;
                     const blocked = (x.blocked || []).filter(u => u !== r.uid);
                     const maxUses = Math.min(MAX_USES, Math.max(usesOf(x), Object.keys(c).length));
                     tx.update(ref, { ...claimsPatch(admin, c), blocked, maxUses });
@@ -464,7 +490,8 @@ module.exports = async function handler(req, res) {
             if (status === 'expired') await archive(db, admin, token, l, 'expired').catch(() => {});
             return send(res, 200, {
                 status, kind: l.kind, title: l.title || '', count: l.count ?? null, ownerName: l.ownerName || '',
-                name: l.name || '', maxUses: usesOf(l),
+                name: l.name || '', maxUses: usesOf(l), used: Object.keys(claimsOf(l)).length,
+                ...(l.group ? { group: true, members: l.members || [], taken: takenWho(l) } : {}),
                 expiresAt: untilMs(l.expiresAt), ...(status === 'mine' || status === 'owner' ? { targetId: l.targetId } : {})
             });
         }
@@ -473,7 +500,7 @@ module.exports = async function handler(req, res) {
             const me = await verifyUser(req);
             const geo = geoOf(req);
             const label = String(body.label || '').slice(0, 80);
-            // Giao dịch: hai máy bấm cùng lúc giành suất cuối thì chỉ MỘT máy giữ được
+            // Giao dịch: hai máy bấm cùng lúc giành suất cuối (hay cùng một tên trong nhóm) thì chỉ MỘT máy giữ được
             const out = await db.runTransaction(async (tx) => {
                 const s = await tx.get(ref);
                 const l = s.exists ? s.data() : null;
@@ -481,9 +508,22 @@ module.exports = async function handler(req, res) {
                 if (st !== 'ok' && st !== 'mine') return { st, l };
                 const now = Timestamp.now();
                 const c = { ...claimsOf(l) };
+                // Link nhóm: máy mới phải xưng tên; có danh sách thì tên phải nằm trong đó; mỗi tên một máy
+                let who = '';
+                if (st === 'ok' && l.group) {
+                    who = cleanName(body.who).slice(0, 40);
+                    if (!who) return { st: 'needWho', l };
+                    const members = l.members || [];
+                    if (members.length) {
+                        who = members.find(m => whoKey(m) === whoKey(who)) || '';
+                        if (!who) return { st: 'notMember', l };
+                    }
+                    if (takenWho(l).some(x => whoKey(x) === whoKey(who))) return { st: 'whoTaken', l };
+                }
                 c[me.uid] = st === 'mine' ? { ...c[me.uid], seen: now }
                     : { at: now, seen: now, label, city: geo.city || '', country: geo.country || '', anon: isAnon(me),
-                        email: isAnon(me) ? '' : String(me.email || '').slice(0, 120), name: isAnon(me) ? '' : String(me.name || '').slice(0, 80), via: 'link' };
+                        email: isAnon(me) ? '' : String(me.email || '').slice(0, 120), name: isAnon(me) ? '' : String(me.name || '').slice(0, 80),
+                        ...(who ? { who } : {}), via: 'link' };
                 tx.update(ref, claimsPatch(admin, c));
                 return { st: 'mine', l: { ...l, claims: c } };
             });

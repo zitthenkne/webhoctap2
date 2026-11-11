@@ -36,7 +36,9 @@ const fmtLeft = (ms) => {
 };
 
 /** Vẽ thẻ: tone (pink | ok | warn | bad), icon, tiêu đề, chip, mô tả, ghi chú, nút. */
-function paint({ tone = '', icon, kicker, title, chips = [], desc = '', note = '', actions = '' }) {
+function paint({ tone = '', icon, kicker, title, chips = [], desc = '', note = '', actions = '', ticket = [] }) {
+    $('lk-ticket').innerHTML = ticket.map(t => `<span class="lk-tk"><i class="fas ${t.icon}"></i><b>${esc(t.b)}</b><small>${esc(t.s)}</small></span>`).join('');
+    $('lk-ticket').classList.toggle('hidden', !ticket.length);
     $('lk-card').dataset.tone = tone;
     $('lk-icon').className = `fas ${icon}`;
     if (kicker != null) $('lk-kicker').textContent = kicker;
@@ -55,20 +57,20 @@ const RETRY = `<button type="button" class="lk-btn lk-btn-ghost" onclick="locati
 
 function showStatus(status) {
     const map = {
-        taken: ['fa-lock', 'Bạn chưa có quyền truy cập', 'Link này đã được mở trên đủ số thiết bị cho phép, máy của bạn không nằm trong số đó.'],
-        blocked: ['fa-user-slash', 'Bạn chưa có quyền truy cập', 'Người chia sẻ đã gỡ máy / tài khoản này khỏi link.'],
-        revoked: ['fa-link-slash', 'Link đã bị thu hồi', 'Người chia sẻ đã thu hồi link này.'],
-        expired: ['fa-clock', 'Link đã hết hạn', 'Thời hạn của link đã qua nên không mở được nữa.'],
-        missing: ['fa-link-slash', 'Link không còn hiệu lực', 'Link sai, đã bị xóa, hoặc bộ đề / thư mục đã bị xóa.'],
-        unclaimed: ['fa-link-slash', 'Link không còn hiệu lực', 'Hãy mở lại đúng link được gửi cho bạn.']
+        taken: ['fa-ticket', 'Link này đã có người giữ rồi', 'Link được làm riêng và đã mở trên một thiết bị khác. Nếu bạn cũng muốn vào, nhắn người chia sẻ một câu ở dưới nhé.'],
+        blocked: ['fa-ticket', 'Thiết bị này chưa có trong link', 'Người chia sẻ đã cập nhật lại danh sách thiết bị của link này. Bạn có thể nhắn họ ở dưới nhé.'],
+        revoked: ['fa-envelope-open', 'Link đã được đóng lại', 'Người chia sẻ đã đóng link này. Nếu bạn vẫn cần, nhắn họ một câu ở dưới nhé.'],
+        expired: ['fa-hourglass-end', 'Link đã hết hạn', 'Thời hạn của link đã qua. Bạn có thể nhắn người chia sẻ để xin lại ở dưới nhé.'],
+        missing: ['fa-link-slash', 'Không tìm thấy link này', 'Có thể link bị gõ sai, hoặc nội dung đã được người chia sẻ xóa đi.'],
+        unclaimed: ['fa-link-slash', 'Không tìm thấy link này', 'Hãy mở lại đúng link được gửi cho bạn nhé.']
     };
     const [icon, title, desc] = map[status] || map.missing;
-    paint({ tone: status === 'expired' ? 'warn' : 'bad', icon, title, desc, actions: HOME });
+    paint({ tone: status === 'missing' || status === 'unclaimed' ? 'bad' : 'warn', icon, title, desc, actions: HOME });
     // Mọi trường hợp bị chặn mà link còn đó → cho gửi yêu cầu truy cập (máy chủ biết link trỏ tới đâu)
     if (['taken', 'blocked', 'revoked', 'expired'].includes(status)) mountAccessRequest($('lk-request'), { token });
 }
 
-async function claim(btn) {
+async function claim(btn, who = '') {
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Đang mở…';
     try {
@@ -83,7 +85,14 @@ async function claim(btn) {
                 return;
             }
         }
-        const r = await call('claim', { label: deviceLabel() });
+        const r = await call('claim', { label: deviceLabel(), who });
+        // Link nhóm: tên vừa bị máy khác giành / không có trong danh sách → tải lại danh sách, báo ngay trên thẻ
+        const WHO_ERR = {
+            whoTaken: `Tên “${who}” vừa được một thiết bị khác chọn rồi. Nếu đó không phải bạn, nhắn người chia sẻ giúp nhé.`,
+            notMember: `Chưa thấy “${who}” trong danh sách nhóm — bạn chọn lại tên mình nhé.`,
+            needWho: 'Bạn chọn hoặc nhập tên mình trước nhé.'
+        };
+        if (WHO_ERR[r.status]) return main(WHO_ERR[r.status]);
         if (r.status === 'mine' || r.status === 'owner') {
             paint({ tone: 'ok', icon: 'fa-check', title: 'Đã mở trên máy này', desc: 'Đang chuyển tới nội dung…' });
             location.replace(targetUrl(r.kind, r.targetId, { viaLink: r.status === 'mine' }));
@@ -95,7 +104,54 @@ async function claim(btn) {
     }
 }
 
-async function main() {
+/** Link nhóm: chọn tên trong danh sách (có danh sách) hoặc tự gõ tên → nút "Mình là … — mở trên máy này". */
+function groupPicker(info, err) {
+    const u = auth.currentUser;
+    const key = (s) => String(s || '').trim().toLocaleLowerCase('vi');
+    const taken = new Set((info.taken || []).map(key));
+    const members = info.members || [];
+    const left = Math.max(0, (info.maxUses || 1) - (info.used || 0));
+    $('lk-actions').innerHTML = `
+        ${err ? `<p class="lk-err"><i class="fas fa-triangle-exclamation"></i> ${esc(err)}</p>` : ''}
+        <p class="lk-ask">Bạn là ai trong ${esc(info.name || 'nhóm')}?</p>
+        ${members.length ? `
+            ${members.length > 12 ? '<input id="lk-who-find" class="lk-input" placeholder="Tìm tên…" autocomplete="off">' : ''}
+            <div id="lk-who-list" class="lk-who" role="radiogroup">
+                ${members.map(m => taken.has(key(m))
+                    ? `<button type="button" disabled title="Đã có máy vào bằng tên này"><i class="fas fa-check"></i> ${esc(m)}</button>`
+                    : `<button type="button" role="radio" aria-checked="false" data-who="${esc(m)}">${esc(m)}</button>`).join('')}
+            </div>`
+        : `<input id="lk-who-input" class="lk-input" maxlength="40" placeholder="Họ tên của bạn — vd: Nguyễn Minh" autocomplete="name"
+              value="${esc(u && !u.isAnonymous ? (u.displayName || '') : '')}">`}
+        <button type="button" id="lk-claim" class="lk-btn lk-btn-main" disabled><i class="fas fa-mobile-screen"></i> Mở trên máy này</button>
+        <p class="lk-left">Nhóm còn ${left}/${info.maxUses} chỗ trống</p>`;
+    let who = '';
+    const btn = $('lk-claim');
+    const pick = (name) => {
+        who = name.replace(/\s+/g, ' ').trim();
+        btn.disabled = !who;
+        btn.innerHTML = who ? `<i class="fas fa-check"></i> Mình là ${esc(who)} — mở trên máy này` : '<i class="fas fa-mobile-screen"></i> Mở trên máy này';
+    };
+    $('lk-who-list')?.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-who]');
+        if (!b) return;
+        $('lk-who-list').querySelectorAll('[data-who]').forEach(x => { const on = x === b; x.classList.toggle('is-on', on); x.setAttribute('aria-checked', on); });
+        pick(b.dataset.who);
+    });
+    $('lk-who-find')?.addEventListener('input', (e) => {
+        const q = key(e.target.value);
+        $('lk-who-list').querySelectorAll('button').forEach(b => { b.hidden = !!q && !key(b.textContent).includes(q); });
+    });
+    const input = $('lk-who-input');
+    if (input) {
+        input.addEventListener('input', () => pick(input.value));
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && who) btn.click(); });
+        pick(input.value);
+    }
+    btn.addEventListener('click', () => claim(btn, who));
+}
+
+async function main(err = '') {
     if (!token) return showStatus('missing');
     try { await auth.authStateReady(); } catch (e) { /* vẫn hỏi được không kèm danh tính */ }
     let info;
@@ -114,7 +170,7 @@ async function main() {
     if (info.status === 'owner') {
         paint({
             icon: 'fa-crown', kicker: 'Link của bạn', title: info.title || what,
-            desc: 'Đây là link 1 thiết bị do chính bạn tạo. Bạn mở thử sẽ KHÔNG tốn lượt — người nhận vẫn dùng được.',
+            desc: 'Đây là link riêng do chính bạn tạo. Bạn mở thử không tốn chỗ nào — người nhận vẫn dùng được.',
             chips: [{ icon: 'fa-clock', text: fmtLeft(info.expiresAt) }],
             actions: `<a class="lk-btn lk-btn-main" href="${targetUrl(info.kind, info.targetId, { viaLink: false })}"><i class="fas fa-eye"></i> Xem ${what.toLowerCase()}</a>` + HOME
         });
@@ -129,19 +185,45 @@ async function main() {
         info.ownerName ? { icon: 'fa-user', text: `Từ ${info.ownerName}` } : null,
         { icon: 'fa-clock', text: fmtLeft(info.expiresAt) }
     ].filter(Boolean);
+    // Giọng nhẹ nhàng: link là "vé mời riêng" — nói rõ gắn với 1 thiết bị nhưng như một lời dặn, không phải lời cấm.
+    const verb = info.kind === 'folder' ? 'thư mục' : 'bộ đề';
+    const from = info.ownerName || 'Một người bạn';
+    const TIP = 'Mẹo nhỏ: mở bằng trình duyệt bạn hay dùng để học (không phải tab ẩn danh), lần sau quay lại là vào thẳng luôn.';
+    const UNLIMITED = { icon: 'fa-infinity', b: 'Thoải mái', s: 'làm bao nhiêu lần cũng được' };
+    if (info.group) {
+        paint({
+            icon: 'fa-users',
+            kicker: info.name ? `Thiệp mời · ${info.name}` : 'Thiệp mời của nhóm',
+            title: info.title || what,
+            chips,
+            desc: `${from} gửi ${verb} này cho cả ${info.name || 'nhóm'}. Mỗi bạn chọn tên mình — thiết bị bạn đang dùng sẽ được giữ chỗ cho riêng bạn.`,
+            ticket: [
+                { icon: 'fa-users', b: info.name || 'Cả nhóm', s: 'link chung của nhóm' },
+                { icon: 'fa-mobile-screen', b: 'Mỗi bạn 1 máy', s: 'chọn tên là giữ chỗ' },
+                UNLIMITED
+            ],
+            note: TIP
+        });
+        return groupPicker(info, err);
+    }
+    const ticket = [
+        { icon: 'fa-heart', b: info.name ? `Riêng ${info.name}` : 'Riêng bạn', s: 'link làm riêng cho bạn' },
+        { icon: 'fa-mobile-screen', b: uses === 1 ? '1 thiết bị' : `${uses} thiết bị`, s: uses === 1 ? 'gắn với máy mở đầu tiên' : 'gắn với các máy mở đầu tiên' },
+        UNLIMITED
+    ];
     paint({
-        icon: info.kind === 'folder' ? 'fa-folder-open' : 'fa-file-lines',
-        kicker: info.name ? `Gửi bạn ${info.name}` : `${what} được chia sẻ · link riêng`,
+        icon: info.kind === 'folder' ? 'fa-folder-open' : 'fa-envelope-open-text',
+        kicker: info.name ? `Thiệp mời riêng · gửi ${info.name}` : 'Thiệp mời riêng',
         title: info.title || what,
         chips,
-        desc: `${info.name ? `Bạn ${info.name} được mời ${info.kind === 'folder' ? 'học thư mục' : 'làm bộ đề'} này trên Zitthenkne. ` : ''}`
-            + (uses === 1 ? 'Đây là link dùng 1 lần — chỉ mở được trên MỘT thiết bị, đừng chia sẻ cho người khác. '
-                : `Link riêng chỉ mở được trên ${uses} thiết bị — đừng chia sẻ cho người khác. `)
-            + 'Bấm nút dưới để giữ link cho máy (trình duyệt) bạn đang dùng.',
+        desc: `${info.name ? `Chào ${info.name}! ` : ''}${from} gửi riêng ${verb} này cho bạn. `
+            + (uses === 1 ? 'Link sẽ ở lại với thiết bị bạn mở đầu tiên, nên bạn giữ nó cho riêng mình nhé.'
+                : `Link mở được trên ${uses} thiết bị, nên bạn giữ nó cho riêng mình nhé.`),
+        ticket,
         note: u && !u.isAnonymous
             ? `Bạn đang đăng nhập <b>${esc(u.email || u.displayName || 'tài khoản')}</b> — link sẽ gắn với tài khoản này.`
-            : 'Hãy mở bằng trình duyệt bạn sẽ dùng để học. Không dùng tab ẩn danh và đừng xóa dữ liệu trình duyệt, không thì chính bạn cũng mất quyền vào.',
-        actions: `<button type="button" id="lk-claim" class="lk-btn lk-btn-main"><i class="fas fa-mobile-screen"></i> Mở trên máy này</button>`
+            : TIP,
+        actions: `<button type="button" id="lk-claim" class="lk-btn lk-btn-main"><i class="fas fa-envelope-open"></i> Mở trên máy này</button>`
     });
     $('lk-claim').addEventListener('click', (e) => claim(e.currentTarget));
 }
