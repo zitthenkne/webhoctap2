@@ -529,11 +529,11 @@ function previewOf(name, uses, group) {
     const what = current?.title ? `“${current.title}”` : '';
     if (group) return {
         title: `${name ? `Gửi ${name}: các bạn` : 'Các bạn'} được mời ${verb} ${what} trên Zitthenkne`.replace(/\s+/g, ' '),
-        desc: 'Link chung của nhóm — mỗi bạn chọn tên mình và mở trên một thiết bị nhé.'
+        desc: 'Link truy cập nhóm — mỗi thành viên xác nhận tên và sử dụng trên 1 thiết bị.'
     };
     return {
         title: `${name ? `Gửi bạn ${name}, bạn` : 'Bạn'} được mời ${verb} ${what} trên Zitthenkne`.replace(/\s+/g, ' '),
-        desc: `Link riêng dành cho bạn, mở được trên ${uses} thiết bị — giữ cho riêng mình nhé.`
+        desc: `Link truy cập riêng, sử dụng được trên ${uses} thiết bị.`
     };
 }
 /** Tên trong ô thẻ + chữ đang gõ dở (chưa bấm phẩy). */

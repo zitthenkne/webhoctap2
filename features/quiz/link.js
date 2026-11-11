@@ -37,7 +37,7 @@ const fmtLeft = (ms) => {
 
 /** Vẽ thẻ: tone (pink | ok | warn | bad), icon, tiêu đề, chip, mô tả, ghi chú, nút. */
 function paint({ tone = '', icon, kicker, title, chips = [], desc = '', note = '', actions = '', ticket = [] }) {
-    $('lk-ticket').innerHTML = ticket.map(t => `<span class="lk-tk"><i class="fas ${t.icon}"></i><b>${esc(t.b)}</b><small>${esc(t.s)}</small></span>`).join('');
+    $('lk-ticket').innerHTML = ticket.map(t => `<span class="lk-tk"><i class="fas ${t.icon}"></i><small>${esc(t.s)}</small><b>${esc(t.b)}</b></span>`).join('');
     $('lk-ticket').classList.toggle('hidden', !ticket.length);
     $('lk-card').dataset.tone = tone;
     $('lk-icon').className = `fas ${icon}`;
@@ -57,12 +57,12 @@ const RETRY = `<button type="button" class="lk-btn lk-btn-ghost" onclick="locati
 
 function showStatus(status) {
     const map = {
-        taken: ['fa-ticket', 'Link này đã có người giữ rồi', 'Link được làm riêng và đã mở trên một thiết bị khác. Nếu bạn cũng muốn vào, nhắn người chia sẻ một câu ở dưới nhé.'],
-        blocked: ['fa-ticket', 'Thiết bị này chưa có trong link', 'Người chia sẻ đã cập nhật lại danh sách thiết bị của link này. Bạn có thể nhắn họ ở dưới nhé.'],
-        revoked: ['fa-envelope-open', 'Link đã được đóng lại', 'Người chia sẻ đã đóng link này. Nếu bạn vẫn cần, nhắn họ một câu ở dưới nhé.'],
-        expired: ['fa-hourglass-end', 'Link đã hết hạn', 'Thời hạn của link đã qua. Bạn có thể nhắn người chia sẻ để xin lại ở dưới nhé.'],
-        missing: ['fa-link-slash', 'Không tìm thấy link này', 'Có thể link bị gõ sai, hoặc nội dung đã được người chia sẻ xóa đi.'],
-        unclaimed: ['fa-link-slash', 'Không tìm thấy link này', 'Hãy mở lại đúng link được gửi cho bạn nhé.']
+        taken: ['fa-ticket', 'Link đã được sử dụng', 'Link này đã được kích hoạt trên thiết bị khác. Bạn có thể gửi yêu cầu truy cập bên dưới.'],
+        blocked: ['fa-ticket', 'Thiết bị chưa được cấp quyền', 'Thiết bị này không còn trong danh sách truy cập của link. Bạn có thể gửi yêu cầu truy cập bên dưới.'],
+        revoked: ['fa-link-slash', 'Link đã được đóng', 'Link này không còn hiệu lực. Bạn có thể gửi yêu cầu truy cập bên dưới.'],
+        expired: ['fa-hourglass-end', 'Link đã hết hạn', 'Thời hạn truy cập của link đã kết thúc. Bạn có thể gửi yêu cầu truy cập bên dưới.'],
+        missing: ['fa-link-slash', 'Không tìm thấy link', 'Link không đúng hoặc nội dung đã bị xóa.'],
+        unclaimed: ['fa-link-slash', 'Không tìm thấy link', 'Vui lòng mở lại đúng link được gửi cho bạn.']
     };
     const [icon, title, desc] = map[status] || map.missing;
     paint({ tone: status === 'missing' || status === 'unclaimed' ? 'bad' : 'warn', icon, title, desc, actions: HOME });
@@ -79,7 +79,7 @@ async function claim(btn, who = '') {
             catch (e) {
                 const off = ['auth/operation-not-allowed', 'auth/admin-restricted-operation'].includes(e?.code);
                 paint({ tone: 'bad', icon: 'fa-triangle-exclamation', title: off ? 'Trang chưa sẵn sàng cho link 1 thiết bị' : 'Không mở được',
-                    desc: off ? 'Chủ trang cần bật đăng nhập ẩn danh (Firebase → Authentication → Anonymous). Báo người chia sẻ giúp mình nhé.'
+                    desc: off ? 'Chủ trang cần bật đăng nhập ẩn danh (Firebase → Authentication → Anonymous). Vui lòng báo cho người chia sẻ.'
                         : 'Trình duyệt chặn lưu phiên (chế độ riêng tư / chặn cookie?). Thử trình duyệt thường rồi mở lại link.',
                     actions: RETRY + HOME });
                 return;
@@ -88,9 +88,9 @@ async function claim(btn, who = '') {
         const r = await call('claim', { label: deviceLabel(), who });
         // Link nhóm: tên vừa bị máy khác giành / không có trong danh sách → tải lại danh sách, báo ngay trên thẻ
         const WHO_ERR = {
-            whoTaken: `Tên “${who}” vừa được một thiết bị khác chọn rồi. Nếu đó không phải bạn, nhắn người chia sẻ giúp nhé.`,
-            notMember: `Chưa thấy “${who}” trong danh sách nhóm — bạn chọn lại tên mình nhé.`,
-            needWho: 'Bạn chọn hoặc nhập tên mình trước nhé.'
+            whoTaken: `Tên “${who}” đã được xác nhận trên một thiết bị khác. Nếu có nhầm lẫn, vui lòng liên hệ người chia sẻ.`,
+            notMember: `“${who}” không có trong danh sách nhóm. Vui lòng chọn đúng tên.`,
+            needWho: 'Vui lòng chọn hoặc nhập tên trước khi tiếp tục.'
         };
         if (WHO_ERR[r.status]) return main(WHO_ERR[r.status]);
         if (r.status === 'mine' || r.status === 'owner') {
@@ -113,7 +113,7 @@ function groupPicker(info, err) {
     const left = Math.max(0, (info.maxUses || 1) - (info.used || 0));
     $('lk-actions').innerHTML = `
         ${err ? `<p class="lk-err"><i class="fas fa-triangle-exclamation"></i> ${esc(err)}</p>` : ''}
-        <p class="lk-ask">Bạn là ai trong ${esc(info.name || 'nhóm')}?</p>
+        <p class="lk-ask">Chọn tên của bạn trong ${esc(info.name || 'nhóm')}</p>
         ${members.length ? `
             ${members.length > 12 ? '<input id="lk-who-find" class="lk-input" placeholder="Tìm tên…" autocomplete="off">' : ''}
             <div id="lk-who-list" class="lk-who" role="radiogroup">
@@ -123,14 +123,14 @@ function groupPicker(info, err) {
             </div>`
         : `<input id="lk-who-input" class="lk-input" maxlength="40" placeholder="Họ tên của bạn — vd: Nguyễn Minh" autocomplete="name"
               value="${esc(u && !u.isAnonymous ? (u.displayName || '') : '')}">`}
-        <button type="button" id="lk-claim" class="lk-btn lk-btn-main" disabled><i class="fas fa-mobile-screen"></i> Mở trên máy này</button>
-        <p class="lk-left">Nhóm còn ${left}/${info.maxUses} chỗ trống</p>`;
+        <button type="button" id="lk-claim" class="lk-btn lk-btn-main" disabled><i class="fas fa-mobile-screen"></i> Mở trên thiết bị này</button>
+        <p class="lk-left">Còn ${left}/${info.maxUses} chỗ trống</p>`;
     let who = '';
     const btn = $('lk-claim');
     const pick = (name) => {
         who = name.replace(/\s+/g, ' ').trim();
         btn.disabled = !who;
-        btn.innerHTML = who ? `<i class="fas fa-check"></i> Mình là ${esc(who)} — mở trên máy này` : '<i class="fas fa-mobile-screen"></i> Mở trên máy này';
+        btn.innerHTML = who ? `<i class="fas fa-check"></i> Xác nhận ${esc(who)} và mở` : '<i class="fas fa-mobile-screen"></i> Mở trên thiết bị này';
     };
     $('lk-who-list')?.addEventListener('click', (e) => {
         const b = e.target.closest('[data-who]');
@@ -163,14 +163,14 @@ async function main(err = '') {
     const what = info.kind === 'folder' ? 'Thư mục' : 'Bộ đề';
     // Máy này đang giữ link (mở lại) → vào thẳng (claim lại để làm mới quyền)
     if (info.status === 'mine') {
-        paint({ tone: 'ok', icon: 'fa-check', kicker: `${what} · máy này đang giữ link`, title: info.title || what, desc: 'Đang mở…' });
+        paint({ tone: 'ok', icon: 'fa-check', kicker: `${what} · thiết bị đã được xác nhận`, title: info.title || what, desc: 'Đang mở…' });
         const btn = document.createElement('button');
         return claim(btn);
     }
     if (info.status === 'owner') {
         paint({
             icon: 'fa-crown', kicker: 'Link của bạn', title: info.title || what,
-            desc: 'Đây là link riêng do chính bạn tạo. Bạn mở thử không tốn chỗ nào — người nhận vẫn dùng được.',
+            desc: 'Đây là link do bạn tạo. Lượt mở của bạn không tính vào số thiết bị của link.',
             chips: [{ icon: 'fa-clock', text: fmtLeft(info.expiresAt) }],
             actions: `<a class="lk-btn lk-btn-main" href="${targetUrl(info.kind, info.targetId, { viaLink: false })}"><i class="fas fa-eye"></i> Xem ${what.toLowerCase()}</a>` + HOME
         });
@@ -182,48 +182,45 @@ async function main(err = '') {
     const uses = info.maxUses || 1;
     const chips = [
         info.kind === 'quiz' && info.count ? { icon: 'fa-list-ol', text: `${info.count} câu` } : null,
-        info.ownerName ? { icon: 'fa-user', text: `Từ ${info.ownerName}` } : null,
         { icon: 'fa-clock', text: fmtLeft(info.expiresAt) }
     ].filter(Boolean);
-    // Giọng nhẹ nhàng: link là "vé mời riêng" — nói rõ gắn với 1 thiết bị nhưng như một lời dặn, không phải lời cấm.
-    const verb = info.kind === 'folder' ? 'thư mục' : 'bộ đề';
-    const from = info.ownerName || 'Một người bạn';
-    const TIP = 'Mẹo nhỏ: mở bằng trình duyệt bạn hay dùng để học (không phải tab ẩn danh), lần sau quay lại là vào thẳng luôn.';
-    const UNLIMITED = { icon: 'fa-infinity', b: 'Thoải mái', s: 'làm bao nhiêu lần cũng được' };
+    // Văn phong trung tính, không nêu người gửi: nói rõ link gắn với thiết bị như một thông tin, không phải lời cấm.
+    const verb = info.kind === 'folder' ? 'Thư mục' : 'Bộ đề';
+    const TIP = 'Nên mở bằng trình duyệt thường dùng (không dùng chế độ ẩn danh) để lần sau truy cập lại trực tiếp.';
+    const UNLIMITED = { icon: 'fa-rotate-right', b: 'Không giới hạn', s: 'Số lần làm bài' };
     if (info.group) {
         paint({
             icon: 'fa-users',
-            kicker: info.name ? `Thiệp mời · ${info.name}` : 'Thiệp mời của nhóm',
+            kicker: info.name ? `Link truy cập nhóm · ${info.name}` : 'Link truy cập nhóm',
             title: info.title || what,
             chips,
-            desc: `${from} gửi ${verb} này cho cả ${info.name || 'nhóm'}. Mỗi bạn chọn tên mình — thiết bị bạn đang dùng sẽ được giữ chỗ cho riêng bạn.`,
+            desc: `${verb} này được chia sẻ cho ${info.name || 'nhóm'}. Vui lòng chọn tên của bạn để xác nhận; mỗi thành viên sử dụng trên 1 thiết bị.`,
             ticket: [
-                { icon: 'fa-users', b: info.name || 'Cả nhóm', s: 'link chung của nhóm' },
-                { icon: 'fa-mobile-screen', b: 'Mỗi bạn 1 máy', s: 'chọn tên là giữ chỗ' },
+                info.name ? { icon: 'fa-users', b: info.name, s: 'Đối tượng' } : { icon: 'fa-users', b: 'Link nhóm', s: 'Loại link' },
+                { icon: 'fa-mobile-screen', b: '1 thiết bị / người', s: 'Giới hạn truy cập' },
                 UNLIMITED
             ],
             note: TIP
         });
         return groupPicker(info, err);
     }
-    const ticket = [
-        { icon: 'fa-heart', b: info.name ? `Riêng ${info.name}` : 'Riêng bạn', s: 'link làm riêng cho bạn' },
-        { icon: 'fa-mobile-screen', b: uses === 1 ? '1 thiết bị' : `${uses} thiết bị`, s: uses === 1 ? 'gắn với máy mở đầu tiên' : 'gắn với các máy mở đầu tiên' },
-        UNLIMITED
-    ];
     paint({
-        icon: info.kind === 'folder' ? 'fa-folder-open' : 'fa-envelope-open-text',
-        kicker: info.name ? `Thiệp mời riêng · gửi ${info.name}` : 'Thiệp mời riêng',
+        icon: info.kind === 'folder' ? 'fa-folder-open' : 'fa-file-lines',
+        kicker: info.name ? `Link truy cập riêng · ${info.name}` : 'Link truy cập riêng',
         title: info.title || what,
         chips,
-        desc: `${info.name ? `Chào ${info.name}! ` : ''}${from} gửi riêng ${verb} này cho bạn. `
-            + (uses === 1 ? 'Link sẽ ở lại với thiết bị bạn mở đầu tiên, nên bạn giữ nó cho riêng mình nhé.'
-                : `Link mở được trên ${uses} thiết bị, nên bạn giữ nó cho riêng mình nhé.`),
-        ticket,
+        desc: `${verb} này được chia sẻ riêng cho ${info.name || 'bạn'}. `
+            + (uses === 1 ? 'Link được gắn với thiết bị mở đầu tiên và chỉ sử dụng được trên thiết bị đó.'
+                : `Link được gắn với ${uses} thiết bị mở đầu tiên và chỉ sử dụng được trên các thiết bị đó.`),
+        ticket: [
+            info.name ? { icon: 'fa-user', b: info.name, s: 'Người nhận' } : { icon: 'fa-lock', b: 'Riêng tư', s: 'Loại link' },
+            { icon: 'fa-mobile-screen', b: `${uses} thiết bị`, s: 'Giới hạn truy cập' },
+            UNLIMITED
+        ],
         note: u && !u.isAnonymous
-            ? `Bạn đang đăng nhập <b>${esc(u.email || u.displayName || 'tài khoản')}</b> — link sẽ gắn với tài khoản này.`
+            ? `Bạn đang đăng nhập <b>${esc(u.email || u.displayName || 'tài khoản')}</b> — link sẽ được gắn với tài khoản này.`
             : TIP,
-        actions: `<button type="button" id="lk-claim" class="lk-btn lk-btn-main"><i class="fas fa-envelope-open"></i> Mở trên máy này</button>`
+        actions: `<button type="button" id="lk-claim" class="lk-btn lk-btn-main"><i class="fas fa-mobile-screen"></i> Mở trên thiết bị này</button>`
     });
     $('lk-claim').addEventListener('click', (e) => claim(e.currentTarget));
 }

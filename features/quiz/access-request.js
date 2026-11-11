@@ -120,7 +120,7 @@ function paintForm(box, target, u, denied, error = '') {
         <p class="ar-h"><i class="fas fa-hand"></i> Xin quyền truy cập</p>
         <p class="ar-p">${denied ? 'Lần trước chủ đã từ chối — bạn có thể gửi lại kèm lời nhắn. ' : ''}${whoLine(u)}</p>
         <div class="ar-row">
-            <textarea class="ar-in" rows="2" maxlength="300" placeholder="Lời nhắn cho chủ (không bắt buộc) — vd: mình là An, lớp Y4"></textarea>
+            <textarea class="ar-in" rows="2" maxlength="300" placeholder="Lời nhắn (không bắt buộc) — vd: Nguyễn An, lớp Y4"></textarea>
             <button type="button" class="ar-btn ar-main" data-ar="send"><i class="fas fa-hand"></i> Gửi yêu cầu truy cập</button>
             ${error ? `<p class="ar-err">${esc(error)}</p>` : ''}
         </div>`;
