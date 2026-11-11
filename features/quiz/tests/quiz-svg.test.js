@@ -35,7 +35,8 @@ test('không đụng khối mermaid', () => {
 test('ảnh Markdown: nhận https / data / nội bộ, chặn chèn thuộc tính và javascript:', async () => {
     const { parseInlineMarkdown } = await import('../quiz-helpers.js');
     const ok = parseInlineMarkdown('![Leopold](https://upload.wikimedia.org/wikipedia/commons/e/eb/Handgriffe.JPG)');
-    assert.match(ok, /<img src="https:\/\/upload\.wikimedia\.org\/[^"]+" alt="Leopold" loading="lazy"/);
+    // ảnh ngoài đi qua proxy thu nhỏ (img-proxy.js), link gốc nằm trong ?url=
+    assert.match(ok, /<img src="https:\/\/wsrv\.nl\/\?url=upload\.wikimedia\.org%2F[^"]+" alt="Leopold" loading="lazy"/);
     assert.doesNotMatch(parseInlineMarkdown('![x](javascript:alert(1))'), /<img/);
     assert.doesNotMatch(parseInlineMarkdown('![x](https://a.b/c.png" onerror="alert(1))'), /onerror="/);
     assert.match(parseInlineMarkdown('![x](uploads/a.png)'), /<img src="uploads\/a\.png"/);
@@ -45,7 +46,7 @@ test('link [chữ](url) + URL có dấu _ không bị luật in nghiêng phá', 
     const { parseInlineMarkdown } = await import('../quiz-helpers.js');
     const cap = parseInlineMarkdown('*Hình: X · CC BY-SA 4.0 · [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Some_file_name.jpg)*');
     assert.match(cap, /<a href="https:\/\/commons\.wikimedia\.org\/wiki\/File:Some_file_name\.jpg" target="_blank" rel="noopener noreferrer"/);
-    assert.match(parseInlineMarkdown('![a](https://up.org/Some_file_name.jpg) _nghiêng_'), /src="https:\/\/up\.org\/Some_file_name\.jpg".*<em class="obsidian-italic">nghiêng<\/em>/);
+    assert.match(parseInlineMarkdown('![a](https://up.org/Some_file_name.jpg) _nghiêng_'), /src="https:\/\/wsrv\.nl\/\?url=up\.org%2FSome_file_name\.jpg[^"]*".*<em class="obsidian-italic">nghiêng<\/em>/);
     assert.doesNotMatch(parseInlineMarkdown('[x](javascript:alert(1))'), /<a /);
     assert.doesNotMatch(parseInlineMarkdown('[y](https://a.b/c"onmouseover="z)'), /onmouseover="/);
 });

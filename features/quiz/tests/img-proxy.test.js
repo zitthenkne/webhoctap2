@@ -14,8 +14,14 @@ test('ảnh png/jpg/webp catbox -> wsrv.nl, link gốc mã hoá trong ?url=', ()
     assert.ok(fastImgUrl('https://files.catbox.moe/a.JPG').startsWith('https://wsrv.nl/'));
 });
 
-test('host khác, GIF, link hỏng: giữ nguyên', () => {
-    for (const s of ['https://upload.wikimedia.org/a.png', 'https://files.catbox.moe/a.gif', 'uploads/a.png', 'không phải url'])
+test('host khác cũng qua proxy (ảnh gốc to làm cạn GPU máy cảm ứng), giữ cả ?query', () => {
+    const u = new URL(fastImgUrl('https://upload.wikimedia.org/a.png?x=1'));
+    assert.equal(u.origin, 'https://wsrv.nl');
+    assert.equal(u.searchParams.get('url'), 'upload.wikimedia.org/a.png?x=1');
+});
+
+test('GIF, link nội bộ, link đã qua proxy, data:, link hỏng: giữ nguyên', () => {
+    for (const s of ['https://files.catbox.moe/a.gif', 'uploads/a.png', 'https://wsrv.nl/?url=a.png', 'data:image/png;base64,AA', 'không phải url'])
         assert.equal(fastImgUrl(s), s);
 });
 

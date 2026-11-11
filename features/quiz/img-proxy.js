@@ -7,8 +7,10 @@ export function fastImgUrl(url) {
     try {
         const u = new URL(url);
         // GIF giữ nguyên: proxy chỉ giữ khung đầu, mất ảnh động.
-        if (u.hostname !== 'files.catbox.moe' || !/\.(png|jpe?g|webp)$/i.test(u.pathname)) return url;
-        return `${PROXY}?url=${encodeURIComponent(u.host + u.pathname)}&w=1600&we&output=webp&q=85`;
+        // (2026-11-11) Mọi host, không riêng catbox: ảnh gốc 3000–4000px (Wikimedia, imgur…) giải mã ra vài chục MB,
+        // mạng yếu về từng mẩu -> iPad / điện thoại cạn bộ nhớ GPU, cả màn hình hiện mảng trơn màu / nửa vời rồi giật (§17 quiz-stationery.css).
+        if (!/^https?:$/.test(u.protocol) || u.origin + '/' === PROXY || !/\.(png|jpe?g|webp)$/i.test(u.pathname)) return url;
+        return `${PROXY}?url=${encodeURIComponent(u.host + u.pathname + u.search)}&w=1600&we&output=webp&q=85`;
     } catch (e) { return url; }
 }
 

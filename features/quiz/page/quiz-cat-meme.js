@@ -13,71 +13,73 @@ let _preloadedMemes = { idx: -1, happy: null, sad: null };
 // cái còn lại chưa dùng nên giữ nguyên (khỏi tải lại cả 2).
 let _lastConsumed = null;
 
+// Dùng bản 200w.webp (rộng 200px, động) thay giphy.gif gốc: trung bình 175 KB thay vì 1,5 MB (đo 2026-11-11).
+// GIF gốc từng ngốn hết băng thông mạng yếu + giải mã nặng -> giật khi cuộn / chuyển câu / chọn đáp án.
 // Meme câu ĐÚNG — 10 GIF đầu của mỗi trang giphy.com/explore/laugh, /explore/dancing, /explore/happy-baby (lấy 2026-10-10)
 const HAPPY_CAT_MEMES = [
-    'https://media.giphy.com/media/anYBNhqT2BYcg/giphy.gif',
-    'https://media.giphy.com/media/fUYhyT9IjftxrxJXcE/giphy.gif',
-    'https://media.giphy.com/media/l0ExayQDzrI2xOb8A/giphy.gif',
-    'https://media.giphy.com/media/CoDp6NnSmItoY/giphy.gif',
-    'https://media.giphy.com/media/3i7zenReaUuI0/giphy.gif',
-    'https://media.giphy.com/media/vbqr9NgKRuKq7meXsi/giphy.gif',
-    'https://media.giphy.com/media/s5wFafpHxqKbIEERl9/giphy.gif',
-    'https://media.giphy.com/media/KgETWyGt3C6Lxs0URG/giphy.gif',
-    'https://media.giphy.com/media/IhyGL914g9ShHdHVFy/giphy.gif',
-    'https://media.giphy.com/media/3oEjHI8WJv4x6UPDB6/giphy.gif',
-    'https://media.giphy.com/media/raHMQ4nj2Ugx2/giphy.gif',
-    'https://media.giphy.com/media/8m4R4pvViWtRzbloJ1/giphy.gif',
-    'https://media.giphy.com/media/aCB9UFwAw7Nio/giphy.gif',
-    'https://media.giphy.com/media/5xaOcLGvzHxDKjufnLW/giphy.gif',
-    'https://media.giphy.com/media/8pYMOn1sEb43EloTf8/giphy.gif',
-    'https://media.giphy.com/media/3o7qE2VAxuXWeyvJIY/giphy.gif',
-    'https://media.giphy.com/media/Uowdj8xg3XZ7bKlA1N/giphy.gif',
-    'https://media.giphy.com/media/K3Sbp8fOgKye4/giphy.gif',
-    'https://media.giphy.com/media/kL1KAdQYmKXle/giphy.gif',
-    'https://media.giphy.com/media/MJs7EYwHyG8XC/giphy.gif',
-    'https://media.giphy.com/media/l2GsSPkKjx6ZW/giphy.gif',
-    'https://media.giphy.com/media/Xw6yFn7frR3Y4/giphy.gif',
-    'https://media.giphy.com/media/fyg9iUe1Atm8/giphy.gif',
-    'https://media.giphy.com/media/2WofVGJmHSKrpRPhJp/giphy.gif',
-    'https://media.giphy.com/media/l41m3YpztVBtugahW/giphy.gif',
-    'https://media.giphy.com/media/jYyAvhENR8y5s4MVjp/giphy.gif',
-    'https://media.giphy.com/media/BTZZkDu0SVUwn3NEAq/giphy.gif',
-    'https://media.giphy.com/media/XI58RM2X0VNX6I3LId/giphy.gif',
-    'https://media.giphy.com/media/9cQQ8dARB1gj8Rc59D/giphy.gif',
-    'https://media.giphy.com/media/4JCiJFD0XfYQ/giphy.gif'
+    'https://media.giphy.com/media/anYBNhqT2BYcg/200w.webp',
+    'https://media.giphy.com/media/fUYhyT9IjftxrxJXcE/200w.webp',
+    'https://media.giphy.com/media/l0ExayQDzrI2xOb8A/200w.webp',
+    'https://media.giphy.com/media/CoDp6NnSmItoY/200w.webp',
+    'https://media.giphy.com/media/3i7zenReaUuI0/200w.webp',
+    'https://media.giphy.com/media/vbqr9NgKRuKq7meXsi/200w.webp',
+    'https://media.giphy.com/media/s5wFafpHxqKbIEERl9/200w.webp',
+    'https://media.giphy.com/media/KgETWyGt3C6Lxs0URG/200w.webp',
+    'https://media.giphy.com/media/IhyGL914g9ShHdHVFy/200w.webp',
+    'https://media.giphy.com/media/3oEjHI8WJv4x6UPDB6/200w.webp',
+    'https://media.giphy.com/media/raHMQ4nj2Ugx2/200w.webp',
+    'https://media.giphy.com/media/8m4R4pvViWtRzbloJ1/200w.webp',
+    'https://media.giphy.com/media/aCB9UFwAw7Nio/200w.webp',
+    'https://media.giphy.com/media/5xaOcLGvzHxDKjufnLW/200w.webp',
+    'https://media.giphy.com/media/8pYMOn1sEb43EloTf8/200w.webp',
+    'https://media.giphy.com/media/3o7qE2VAxuXWeyvJIY/200w.webp',
+    'https://media.giphy.com/media/Uowdj8xg3XZ7bKlA1N/200w.webp',
+    'https://media.giphy.com/media/K3Sbp8fOgKye4/200w.webp',
+    'https://media.giphy.com/media/kL1KAdQYmKXle/200w.webp',
+    'https://media.giphy.com/media/MJs7EYwHyG8XC/200w.webp',
+    'https://media.giphy.com/media/l2GsSPkKjx6ZW/200w.webp',
+    'https://media.giphy.com/media/Xw6yFn7frR3Y4/200w.webp',
+    'https://media.giphy.com/media/fyg9iUe1Atm8/200w.webp',
+    'https://media.giphy.com/media/2WofVGJmHSKrpRPhJp/200w.webp',
+    'https://media.giphy.com/media/l41m3YpztVBtugahW/200w.webp',
+    'https://media.giphy.com/media/jYyAvhENR8y5s4MVjp/200w.webp',
+    'https://media.giphy.com/media/BTZZkDu0SVUwn3NEAq/200w.webp',
+    'https://media.giphy.com/media/XI58RM2X0VNX6I3LId/200w.webp',
+    'https://media.giphy.com/media/9cQQ8dARB1gj8Rc59D/200w.webp',
+    'https://media.giphy.com/media/4JCiJFD0XfYQ/200w.webp'
 ];
 // Meme câu SAI — 10 GIF đầu của mỗi trang giphy.com/explore/sad-baby, /search/sad-cat, /search/sad-dog (lấy 2026-10-10)
 const SAD_CAT_MEMES = [
-    'https://media.giphy.com/media/fhLgA6nJec3Cw/giphy.gif',
-    'https://media.giphy.com/media/CScMUbPKAPeQ8d2nUi/giphy.gif',
-    'https://media.giphy.com/media/Y5PnpRvm8PVba/giphy.gif',
-    'https://media.giphy.com/media/BLJy2x6QwzgdrCfAlD/giphy.gif',
-    'https://media.giphy.com/media/3xz2BYfei21lOMQ6NG/giphy.gif',
-    'https://media.giphy.com/media/hmWnkhWgLrx5jRH6Kk/giphy.gif',
-    'https://media.giphy.com/media/l0Hee6sB3fXbAdhRK/giphy.gif',
-    'https://media.giphy.com/media/UDD1PWeNwS1Co/giphy.gif',
-    'https://media.giphy.com/media/4V3RuU0zSq1SC8Hh4x/giphy.gif',
-    'https://media.giphy.com/media/avOACDD5vOg71fncY3/giphy.gif',
-    'https://media.giphy.com/media/Lz6971fkGSgCMOOncl/giphy.gif',
-    'https://media.giphy.com/media/LdMWg0xQTfmcpFF5Yt/giphy.gif',
-    'https://media.giphy.com/media/TZBED1pP5m8N2/giphy.gif',
-    'https://media.giphy.com/media/CqOaLsqzD7hVUHBaV9/giphy.gif',
-    'https://media.giphy.com/media/qzTEbvfPgBOR8nvEUn/giphy.gif',
-    'https://media.giphy.com/media/PXQ0tu3SgX8ytZyqYs/giphy.gif',
-    'https://media.giphy.com/media/3OhXBaoR1tVPW/giphy.gif',
-    'https://media.giphy.com/media/jnvlNj9fDf9MT89rMn/giphy.gif',
-    'https://media.giphy.com/media/cbn6M2FbHf3fW/giphy.gif',
-    'https://media.giphy.com/media/SD76gausf7LPe7AGfU/giphy.gif',
-    'https://media.giphy.com/media/OzlmyoTC2n3aOTXGFi/giphy.gif',
-    'https://media.giphy.com/media/3cL541BfVOYrqIysRR/giphy.gif',
-    'https://media.giphy.com/media/MuztdWJQ4PR7i/giphy.gif',
-    'https://media.giphy.com/media/OrJ4mJFzjstYpb4yE7/giphy.gif',
-    'https://media.giphy.com/media/9j6hhcUNPHpfMv6qQC/giphy.gif',
-    'https://media.giphy.com/media/UohTsyhfrsPFm/giphy.gif',
-    'https://media.giphy.com/media/gvTYmbKCwkaly/giphy.gif',
-    'https://media.giphy.com/media/NXgyr1jxOKMDA0ilWO/giphy.gif',
-    'https://media.giphy.com/media/IbC4n27fdTUWaEeVOw/giphy.gif',
-    'https://media.giphy.com/media/yT7JPIdGb5oJO/giphy.gif'
+    'https://media.giphy.com/media/fhLgA6nJec3Cw/200w.webp',
+    'https://media.giphy.com/media/CScMUbPKAPeQ8d2nUi/200w.webp',
+    'https://media.giphy.com/media/Y5PnpRvm8PVba/200w.webp',
+    'https://media.giphy.com/media/BLJy2x6QwzgdrCfAlD/200w.webp',
+    'https://media.giphy.com/media/3xz2BYfei21lOMQ6NG/200w.webp',
+    'https://media.giphy.com/media/hmWnkhWgLrx5jRH6Kk/200w.webp',
+    'https://media.giphy.com/media/l0Hee6sB3fXbAdhRK/200w.webp',
+    'https://media.giphy.com/media/UDD1PWeNwS1Co/200w.webp',
+    'https://media.giphy.com/media/4V3RuU0zSq1SC8Hh4x/200w.webp',
+    'https://media.giphy.com/media/avOACDD5vOg71fncY3/200w.webp',
+    'https://media.giphy.com/media/Lz6971fkGSgCMOOncl/200w.webp',
+    'https://media.giphy.com/media/LdMWg0xQTfmcpFF5Yt/200w.webp',
+    'https://media.giphy.com/media/TZBED1pP5m8N2/200w.webp',
+    'https://media.giphy.com/media/CqOaLsqzD7hVUHBaV9/200w.webp',
+    'https://media.giphy.com/media/qzTEbvfPgBOR8nvEUn/200w.webp',
+    'https://media.giphy.com/media/PXQ0tu3SgX8ytZyqYs/200w.webp',
+    'https://media.giphy.com/media/3OhXBaoR1tVPW/200w.webp',
+    'https://media.giphy.com/media/jnvlNj9fDf9MT89rMn/200w.webp',
+    'https://media.giphy.com/media/cbn6M2FbHf3fW/200w.webp',
+    'https://media.giphy.com/media/SD76gausf7LPe7AGfU/200w.webp',
+    'https://media.giphy.com/media/OzlmyoTC2n3aOTXGFi/200w.webp',
+    'https://media.giphy.com/media/3cL541BfVOYrqIysRR/200w.webp',
+    'https://media.giphy.com/media/MuztdWJQ4PR7i/200w.webp',
+    'https://media.giphy.com/media/OrJ4mJFzjstYpb4yE7/200w.webp',
+    'https://media.giphy.com/media/9j6hhcUNPHpfMv6qQC/200w.webp',
+    'https://media.giphy.com/media/UohTsyhfrsPFm/200w.webp',
+    'https://media.giphy.com/media/gvTYmbKCwkaly/200w.webp',
+    'https://media.giphy.com/media/NXgyr1jxOKMDA0ilWO/200w.webp',
+    'https://media.giphy.com/media/IbC4n27fdTUWaEeVOw/200w.webp',
+    'https://media.giphy.com/media/yT7JPIdGb5oJO/200w.webp'
 ];
 
 // Người dùng có thể tắt meme ở trang thiết lập; lựa chọn lưu cục bộ (mặc định BẬT).
@@ -87,10 +89,18 @@ export function getCatMemeEnabled() {
 
 function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
+// Mạng 2G / bật Tiết kiệm dữ liệu (Chrome/Android báo được): bỏ meme, nhường mạng cho bài làm.
+function slowNet() {
+    const c = navigator.connection;
+    return !!(c && (c.saveData || /2g/.test(c.effectiveType || '')));
+}
+// Meme tải quá mốc này thì bỏ (hủy tải luôn) — hiện muộn khi đã đọc sang chỗ khác chỉ gây giật.
+const MEME_LOAD_MS = 1500;
+
 // Chọn sẵn 1 GIF đúng + 1 GIF sai cho câu hiện tại và tải trước vào cache trình duyệt,
 // để khi người dùng trả lời thì meme hiện ra ngay (đỡ phải chờ tải GIF nặng).
 export function preloadCurrentMemes() {
-    if (!getCatMemeEnabled()) return;
+    if (!getCatMemeEnabled() || slowNet()) return;
     const idx = state.currentIndex;
     if (_preloadedMemes.idx === idx && _preloadedMemes.happy && _preloadedMemes.sad) return;
     // Giữ lại meme CHƯA hiện ở câu trước (vẫn còn tải sẵn), chỉ chọn+tải mới cái đã dùng.
@@ -135,7 +145,7 @@ export function hideCatMeme() {
 }
 
 export function showCatMeme(isCorrect) {
-    if (!getCatMemeEnabled()) return; // người dùng đã tắt meme
+    if (!getCatMemeEnabled() || slowNet()) return; // người dùng đã tắt meme / mạng quá yếu
     _lastConsumed = isCorrect ? 'happy' : 'sad'; // câu sau chỉ tải lại đúng loại này
     let el = document.getElementById('cat-meme-pop');
     if (!el) {
@@ -184,5 +194,7 @@ export function showCatMeme(isCorrect) {
         if (i < candidates.length) img.src = candidates[i];
         else { img.onerror = null; img.onload = null; hideCatMeme(); } // hết link dự phòng -> ẩn luôn
     };
+    // Hết hạn chờ mà chưa hiện được ảnh nào -> ẩn (hideCatMeme gỡ src = hủy tải). reveal() xóa hẹn giờ này.
+    _catMemeTimer = setTimeout(hideCatMeme, MEME_LOAD_MS);
     img.src = candidates[0];
 }

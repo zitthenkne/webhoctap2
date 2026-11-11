@@ -1,0 +1,50 @@
+/* features/quiz/quiz-touch.css — MÁY CẢM ỨNG (điện thoại, iPad) — 2026-11-11
+   Giữ nguyên giao diện sổ tay (màu, giấy kẻ ô, băng keo, bố cục). Chỉ bỏ / thay những thứ bắt GPU vẽ lại liên tục:
+   triệu chứng cũ trên điện thoại là cả màn hình hiện mảng trơn màu / nửa vời rồi giật khi cuộn, chuyển câu, chọn đáp án
+   (máy vẽ ô hình không kịp). Luật cho hiệu ứng mới trên cảm ứng:
+     - hiệu ứng lặp vô hạn chỉ dùng transform / scale / opacity (GPU tự lo), KHÔNG box-shadow / background-position;
+     - không backdrop-filter (kính mờ phải làm mờ lại phần nội dung bên dưới mỗi khung hình khi cuộn);
+     - bóng đổ nhòe nhỏ.
+   Nạp CUỐI <head> (sau quiz-min.css) để thắng Tailwind cùng độ ưu tiên. */
+
+@keyframes nb-breathe-t { 0%, 100% { scale: 1; } 50% { scale: 1.05; } }
+
+@media (hover: none) and (pointer: coarse) {
+    /* 1. Bóng tờ giấy: nhòe 44px -> 18px. Thẻ câu hỏi dài cả nghìn px, nhòe to = vẽ lại rất nặng mỗi lần thẻ đổi
+          (chọn đáp án, hiện giải thích). Nhìn gần như cũ. */
+    :root {
+        --shadow-page: 0 12px 18px -12px rgba(214, 140, 130, 0.5), 0 2px 6px rgba(214, 150, 140, 0.1);
+        --shadow-sticky: 0 6px 10px -6px rgba(190, 130, 115, 0.38);
+    }
+    html.theme-dark {
+        --shadow-page: 0 12px 18px -10px rgba(0, 0, 0, 0.7);
+        --shadow-sticky: 0 6px 10px -6px rgba(0, 0, 0, 0.6);
+    }
+
+    /* 2. Bỏ mọi kính mờ (đồng hồ nổi, hộp sửa câu, khung xem trước…; thanh trên/đáy đã bỏ từ §17 quiz-stationery.css) */
+    *, *::before, *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+    #quiz-preview .sticky { background: var(--paper) !important; }   /* đầu khung xem trước từng dựa vào kính mờ cho dễ đọc */
+
+    /* 3. Nhịp "thở" từng chạy bằng box-shadow (vẽ lại mỗi khung hình, vô hạn) -> phóng nhẹ bằng `scale`.
+          Đáng kể nhất: nút Câu tiếp ở thanh đáy thở suốt từ lúc chọn đáp án tới lúc sang câu — đúng lúc kéo đọc giải thích.
+          Dùng `scale` (không phải transform) để không đè hiệu ứng nhấn của nút. */
+    #start-now-btn.nb-cta,
+    #quiz-mobile-nav .qmn-arrow-next.is-ready { animation: nb-breathe-t 2.4s ease-in-out infinite !important; }
+    .quiz-note-act.is-live,
+    #quizSection .essay-mic.is-live { animation: nb-breathe-t 1.2s ease-in-out infinite !important; }
+
+    /* 4. Ô đáp án: chạm xong :hover "dính" lại -> nút phóng/nhích + transition-all cho MỌI thuộc tính. Cảm ứng không cần hover;
+          chỉ cho chuyển màu. */
+    #quizSection .answer-btn:hover { transform: none !important; }
+    #quizSection .answer-btn { transition-property: background-color, border-color, color !important; }
+
+    /* 5. Sơ đồ Mermaid: mỗi ô một drop-shadow = mỗi ô một lớp vẽ riêng ngoài màn hình. Viền màu vẫn giữ. */
+    :is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.node > * { filter: none !important; }
+}
+
+@media (hover: none) and (pointer: coarse) and (prefers-reduced-motion: reduce) {
+    #start-now-btn.nb-cta,
+    #quiz-mobile-nav .qmn-arrow-next.is-ready,
+    .quiz-note-act.is-live,
+    #quizSection .essay-mic.is-live { animation: none !important; }
+}

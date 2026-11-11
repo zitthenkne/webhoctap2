@@ -334,6 +334,27 @@ function getQuestionSizeClass(fontSize, rawQuestion) {
     return ladder[idx];
 }
 
+// Mạng yếu: ảnh trong đề / giải thích tải muộn, hiện ra là đẩy cả thẻ nhảy (giật cả màn hình khi chuyển câu, khi chọn
+// đáp án xong hiện giải thích). Lúc rảnh tải sẵn ảnh của câu đang xem (cả phần giải thích) + câu kế tiếp vào cache.
+const _warmedQs = new WeakSet();
+function warmQuestionImages(idx) {
+    const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 300));
+    idle(() => {
+        for (const i of [idx, idx + 1]) {
+            const q = state.questions[i];
+            if (!q || typeof q !== 'object' || _warmedQs.has(q)) continue;
+            _warmedQs.add(q);
+            const raw = [q.caseText, q.question, ...(q.answers || q.options || []), q.explanation, ...(q.optionExplanations || []), q.note, q.expanded]
+                .filter(s => typeof s === 'string' && s).join('\n\n');
+            if (!/!\[|<img/i.test(raw)) continue;
+            for (const m of parseMarkdown(raw).matchAll(/<img[^>]+src="([^"]+)"/g)) {
+                const src = m[1].replace(/&amp;/g, '&');
+                if (!src.startsWith('data:')) new Image().src = src;
+            }
+        }
+    });
+}
+
 export function showQuestion() {
     dismissNoteEditor(); // lưu ghi chú cụm từ của câu cũ trước khi thay DOM
     // Đang làm bài -> mở khóa nhóm điều khiển làm bài trong bảng thiết lập
@@ -365,6 +386,7 @@ export function showQuestion() {
     cancelAutoNext();
     // Tải trước meme cho câu này ngay khi đang đọc đề -> trả lời là hiện liền, không trễ
     preloadCurrentMemes();
+    warmQuestionImages(state.currentIndex);
     updateProgressBar();
     const question = state.questions[state.currentIndex];
     const quizSection = document.getElementById('quizSection');

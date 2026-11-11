@@ -447,13 +447,17 @@ async function syncWake() {
 
 /* ---------------------------------------------------------------- 8. Thanh trên tự ẩn (điện thoại) */
 function setupBarAway() {
+    // Lớp gắn lên CHÍNH thanh trên, không lên <body>: đổi lớp ở body giữa lúc cuộn bắt trình duyệt (nhất là Safari iPhone)
+    // tính lại style cả trang với ~700 KB CSS -> giật khi kéo (2026-11-11).
+    const topbar = document.querySelector('.nb-topbar');
+    if (!topbar) return;
     let lastY = window.scrollY, ticking = false;
     window.addEventListener('scroll', () => {
         if (ticking) return;
         ticking = true;
         requestAnimationFrame(() => {
             ticking = false;
-            const cl = document.body.classList;
+            const cl = topbar.classList;
             if (window.innerWidth >= 768) { cl.remove('nb-bar-away'); return; }   // thanh trên chỉ có ở điện thoại
             const y = window.scrollY, dy = y - lastY;
             if (y < 90) { cl.remove('nb-bar-away'); lastY = y; }

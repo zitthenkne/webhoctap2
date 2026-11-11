@@ -4338,7 +4338,7 @@ html.theme-dark #annot-note-pop .anp-row .anp-ok { --hi: #3a1422; background: #F
 
 /* 18.8 Thanh trên điện thoại trượt đi khi cuộn xuống, hiện lại khi cuộn lên (quiz-boost.js) */
 .nb-topbar { transition: transform .22s ease; }
-body.nb-bar-away .nb-topbar { transform: translateY(-105%); }
+.nb-topbar.nb-bar-away { transform: translateY(-105%); }
 
 @media (prefers-reduced-motion: reduce) {
     #quizSection #undo-answer-btn, .ms-stamp, #quizSection #listen-btn.is-speaking i { animation: none; }

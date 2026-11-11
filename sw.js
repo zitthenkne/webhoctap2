@@ -4,7 +4,7 @@
 //    có mạng là máy tự lấy bản mới. Chỉ tăng khi thêm / bớt / đổi tên file trong urlsToCache (để nạp sẵn đúng bộ cho offline).
 //  - CDN_CACHE: thư viện + phông từ CDN (URL có phiên bản, gần như bất biến) → GIỮ qua các phiên bản.
 //  - IMG_CACHE: ảnh tải lúc chạy (nền, avatar, ảnh bệnh án) → giữ qua các phiên bản, tối đa IMG_MAX mục.
-const CACHE_NAME = 'zitthenkne-v397';
+const CACHE_NAME = 'zitthenkne-v398';
 const CDN_CACHE = 'zitthenkne-cdn';
 const IMG_CACHE = 'zitthenkne-img';
 const IMG_MAX = 600;
@@ -101,6 +101,7 @@ const urlsToCache = [
   'features/quiz/quiz-stationery.css',
   'features/quiz/tailwind-quiz.css',
   'features/quiz/quiz-min.css',
+  'features/quiz/quiz-touch.css',
   'core/write-errors.js',
   'features/quiz/fa-quiz/fa-quiz.css',
   'features/quiz/fa-quiz/solid.woff2',
@@ -560,7 +561,7 @@ async function cacheFirst(request, url, store) {
 // ETag, file không đổi chỉ tốn một phản hồi 304 rất nhẹ — vượt luôn cache HTTP 10 phút của GitHub Pages) rồi cất vào
 // cache. Mạng chậm quá NET_WAIT_MS hoặc mất mạng: trả bản trong cache (bản mới vẫn tải tiếp & cất cho lần sau);
 // không có cả hai thì điều hướng trang rơi về offline.html.
-const NET_WAIT_MS = 3000;
+const NET_WAIT_MS = 3000, SUB_WAIT_MS = 1200;
 async function networkFirst(request) {
   const cache = await caches.open(CACHE_NAME);
   // Điều hướng thường kèm query (quiz.html?id=...): cache chỉ có bản không query,
@@ -581,8 +582,11 @@ async function networkFirst(request) {
     return res;
   }).catch(() => undefined);
 
+  // File con (JS/CSS) chờ ngắn hơn trang: mạng yếu mà mỗi file chờ đủ 3s thì mở trang rất lâu (cây module nhiều tầng).
+  // Bản mới vẫn tải tiếp & cất cho lần sau.
+  const wait = request.mode === 'navigate' ? NET_WAIT_MS : SUB_WAIT_MS;
   let timer;
-  const slow = new Promise((resolve) => { timer = setTimeout(resolve, NET_WAIT_MS); });
+  const slow = new Promise((resolve) => { timer = setTimeout(resolve, wait); });
   const first = await Promise.race([network, slow]);
   clearTimeout(timer);
   if (first) return first;                    // mạng kịp trả lời -> bản mới nhất

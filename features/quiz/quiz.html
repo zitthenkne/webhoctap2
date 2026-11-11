@@ -341,6 +341,7 @@
          Thêm class Tailwind mới (quiz.html / features/quiz / core) thì chạy `node tailwind-dong-bang.mjs`. -->
     <link rel="stylesheet" href="tailwind-quiz.css">
     <link rel="stylesheet" href="quiz-min.css">   <!-- "Giao diện tinh gọn": mọi luật nằm dưới html.ui-min, không bật thì không có tác dụng; PHẢI nằm sau tailwind-quiz.css -->
+    <link rel="stylesheet" href="quiz-touch.css">  <!-- Máy cảm ứng: bỏ hiệu ứng bắt GPU vẽ lại liên tục (giật / mảng trơn màu trên điện thoại). Nạp CUỐI. -->
 </head>
 <body class="flex items-center justify-center min-h-screen p-2 sm:p-4 text-sm">
     <!-- Nút thoát chế độ tập trung nay nằm trong thanh tập trung (page/quiz-focus.js, #focus-bar) -->
