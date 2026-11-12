@@ -96,6 +96,7 @@ async function claim(btn, who = '', kind = 'quiz') {
         };
         if (WHO_ERR[r.status]) return main(WHO_ERR[r.status]);
         if (['mine', 'owner', 'visitor'].includes(r.status)) {
+            if (who) try { localStorage.setItem('linkWho', who); } catch (e) {}   // quiz-run.js ghi tên này cho trang Quản trị
             paint({ tone: 'ok', icon: 'fa-check', title: 'Đã mở trên máy này', desc: 'Đang chuyển tới nội dung…' });
             location.replace(targetUrl(r.kind, r.targetId, { viaLink: r.status !== 'owner' }));
             return;

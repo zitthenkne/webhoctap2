@@ -36,7 +36,7 @@ export async function quizRunStart({ quizId, title, mode, startedAt }) {
     // F5 giữa bài: trang vào thẳng câu đang làm có thể trước khi Firebase khôi phục phiên → chờ, đừng tưởng người đăng nhập là khách
     try { await auth.authStateReady?.(); } catch (e) {}
     const u = auth.currentUser;
-    if (!quizId || u?.isAnonymous) return;
+    if (!quizId) return;
     let dl;
     try { dl = await import('./device-limit.js'); } catch (e) { return; }
     if (!u) return guestStart(dl, { quizId, title, mode, startedAt });
@@ -47,8 +47,11 @@ export async function quizRunStart({ quizId, title, mode, startedAt }) {
     const info = { quizId: String(quizId).slice(0, 120), title: String(title || '').slice(0, 200), mode: String(mode || '').slice(0, 20) };
     me.ref = doc(db, 'quiz_runs', `${u.uid}_${device}`);
     me.startRef = doc(db, 'quiz_starts', `${u.uid}_${device}_${start}`);
+    // Ẩn danh = người mở bằng link riêng (features/quiz/link.js) → không có email, lấy tên đã chọn trên link
+    let name = u.displayName || '';
+    if (u.isAnonymous) { try { name = localStorage.getItem('linkWho') || ''; } catch (e) {} name = `🔗 ${name || 'Khách link riêng'}`; }
     setDoc(me.ref, {
-        uid: u.uid, email: (u.email || '').toLowerCase(), name: (u.displayName || '').slice(0, 80), device, label: me.label, ...info,
+        uid: u.uid, email: (u.email || '').toLowerCase(), name: name.slice(0, 80), device, label: me.label, ...info,
         state: 'doing', startedAt: start, at: serverTimestamp(), expireAt: Timestamp.fromMillis(Date.now() + KEEP_MS)
     }).catch(() => {});
     setDoc(me.startRef, {

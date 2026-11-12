@@ -58,7 +58,8 @@ const fmtDate = (ms) => ms ? new Date(ms).toLocaleString('vi-VN', { hour: '2-dig
 const fmtShort = (ms) => ms ? new Date(ms).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '—';
 const fmtClock = (ms) => ms ? new Date(ms).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '—';
 const msOf = (v) => v == null ? 0 : typeof v.toMillis === 'function' ? v.toMillis() : typeof v === 'number' ? v : new Date(v).getTime() || 0;
-const nameOf = (x) => x.name || x.displayName || (x.email || '').split('@')[0] || x.uid;
+// không tên, không email = tài khoản ẩn danh của link riêng (core/quiz-run.js)
+const nameOf = (x) => x.name || x.displayName || (x.email || '').split('@')[0] || (x.uid ? `🔗 Khách link riêng · ${x.uid.slice(0, 5)}` : '');
 const deviceIcon = (label) => /Android|iPhone|Điện thoại/.test(label) ? 'fa-mobile-screen' : /iPad|bảng/.test(label) ? 'fa-tablet-screen-button' : 'fa-laptop';
 
 // ---------------- Trạng thái ----------------
