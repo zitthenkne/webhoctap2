@@ -341,16 +341,16 @@ button.sa-icon{border:0;background:transparent;cursor:pointer;padding:0}
 /* Mã QR từng link: ảnh polaroid dán băng keo + nút Phóng to / Tải ảnh; màn phóng to nằm ngoài .sa (gắn vào body) */
 .sa-acts .sa-qr-btn{flex:none;width:38px;padding:0}
 .sa-acts .sa-qr-btn.is-on{background:var(--sa-pink);color:#fff;border-color:var(--sa-pink);box-shadow:0 2px 0 var(--sa-pink-d)}
-.sa-qr{display:flex;align-items:center;flex-wrap:wrap;gap:14px;padding:14px 12px 10px;border-radius:14px;background:#FFF8FB;border:1.5px dashed #F4D6E1;animation:sa-in .2s ease}
+.sa-qr{display:flex;flex-direction:column;align-items:center;gap:14px;padding:18px 12px 12px;border-radius:14px;background:#FFF8FB;border:1.5px dashed #F4D6E1;animation:sa-in .2s ease;text-align:center}
 .sa-qr-full{--sa-pink:#ff69b4;--sa-pink-d:#e0559f;--tape-mask:conic-gradient(from 45deg at left,#000 90deg,#0000 0) left/51% 6px repeat-y,conic-gradient(from 225deg at right,#000 90deg,#0000 0) right/51% 6px repeat-y;
   --stripes:repeating-linear-gradient(45deg,rgba(255,255,255,.45) 0 4px,transparent 4px 8px)}
-.sa-polaroid{position:relative;flex:none;width:150px;margin:0;padding:8px 8px 6px;border-radius:4px;background:#fff;box-shadow:0 2px 0 #F1DCE5,0 12px 20px -12px rgba(120,60,90,.55);rotate:-2deg}
+.sa-polaroid{position:relative;flex:none;width:min(260px,100%);margin:0;padding:8px 8px 6px;border-radius:4px;background:#fff;box-shadow:0 2px 0 #F1DCE5,0 12px 20px -12px rgba(120,60,90,.55);rotate:-2deg}
 .sa-polaroid::before{content:'';position:absolute;top:-9px;left:50%;width:56px;height:17px;translate:-50% 0;rotate:3deg;background-color:color-mix(in srgb,#F7B2CB 85%,transparent);background-image:var(--stripes);-webkit-mask:var(--tape-mask);mask:var(--tape-mask)}
 .sa-qr-img{width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:11px;color:#9b8a93;text-align:center}
 .sa-qr-img svg{display:block;width:100%;height:100%}
 .sa-polaroid figcaption{margin-top:5px;font-size:12.5px;font-weight:800;color:#6E3A55;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sa-polaroid figcaption small{display:block;margin-top:4px;font-size:13px;font-weight:600;color:#A07086}
-.sa-qr-side{flex:1;min-width:150px;display:flex;flex-direction:column;gap:7px}
+.sa-qr-side{width:min(260px,100%);display:flex;flex-direction:column;gap:7px}
 .sa-qr-side p{margin:0;font-size:11.5px;line-height:1.45;color:#6f5a64}
 .sa-qr-side .sa-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:999px;text-decoration:none}
 .sa-qr-full{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:20px;background:rgba(60,25,42,.62);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);animation:sa-in .2s ease}
@@ -694,8 +694,12 @@ async function notifyAccessRequests() {
 }
 whenAuthReady(6000).then(u => { if (u && !u.isAnonymous && !u.offline) notifyAccessRequests(); }).catch(() => {});
 
-const linkUsed = (l) => (l.claims || []).length;
-const onceState = (l) => (l.expiresAt != null && l.expiresAt <= Date.now()) ? 'expired' : linkUsed(l) >= l.maxUses ? 'full' : linkUsed(l) ? 'used' : 'free';
+const linkUsed = (l) => (l.claims || []).length;     // máy GIỮ SUẤT (đã làm bài)
+// Link thư mục: máy đã vào xem nhưng chưa làm bài (api/link.js visits) — chưa tính suất
+const linkVisitors = (l) => l.visitors || [];
+const linkDevices = (l) => linkUsed(l) + linkVisitors(l).length;
+const onceState = (l) => (l.expiresAt != null && l.expiresAt <= Date.now()) ? 'expired' : linkUsed(l) >= l.maxUses ? 'full'
+    : linkUsed(l) ? 'used' : linkVisitors(l).length ? 'visited' : 'free';
 // Chỉ 'list' kèm kết quả làm bài (claims[].done) — link trả về từ sửa / gỡ / duyệt thì giữ lại kết quả đang có
 const putLink = (l) => {
     const i = once.links.findIndex(x => x.token === l.token);
@@ -800,10 +804,12 @@ function resultsByQuiz(l) {
 /** Theo người: thẻ nhỏ — ai, máy gì, mở lúc nào · huy hiệu điểm · các viên điểm từng đề */
 function claimRow(token, c, live, kind = 'quiz') {
     const who = whoOf(c), done = c.done || [];
+    const first = c.in || c.at;                       // lần vào đầu tiên (máy đã vào xem rồi mới làm bài: c.in)
     const meta = [c.who ? c.email : '', c.who || c.email || c.name ? c.label : '', [c.city, c.country].filter(Boolean).join(', '),
-        c.at ? `mở ${fmtUntil(c.at)}` : '', c.via === 'request' ? 'được duyệt yêu cầu' : ''].filter(Boolean).join(' · ');
+        first ? `vào ${fmtUntil(first)}` : '', c.n > 1 ? `${c.n} lượt vào` : '', c.via === 'request' ? 'được duyệt yêu cầu' : ''].filter(Boolean).join(' · ');
     const avg = done.length ? Math.round(done.reduce((s, x) => s + pctOf(x), 0) / done.length) : null;
-    const grade = !done.length ? '<span class="sa-grade is-none"><i class="fas fa-clock"></i> Chưa làm</span>'
+    const grade = c.visit ? '<span class="sa-grade is-none" title="Đã vào xem, chưa làm bài — chưa tính suất"><i class="fas fa-door-open"></i> Đã vào · chưa làm</span>'
+        : !done.length ? '<span class="sa-grade is-none"><i class="fas fa-clock"></i> Chưa làm</span>'
         : kind === 'quiz' ? `<span class="sa-grade ${pctClass(avg)}"><i class="fas fa-trophy"></i> ${avg}%</span>`
         : `<span class="sa-grade ${pctClass(avg)}" title="Điểm cao nhất trung bình">${done.length} đề · TB ${avg}%</span>`;
     return `
@@ -833,7 +839,8 @@ function faces(claims) {
 }
 // [màu chữ, màu nền nhạt, icon, nhãn]
 const ONCE_STATE = {
-    free: ['#3b82f6', '#e6f0ff', 'fa-share-nodes', 'Chưa ai mở'], used: ['#16a36a', '#ddf6ea', 'fa-check', 'Đang dùng'],
+    free: ['#3b82f6', '#e6f0ff', 'fa-share-nodes', 'Chưa ai mở'], visited: ['#0891b2', '#dff6fb', 'fa-door-open', 'Đã có người vào'],
+    used: ['#16a36a', '#ddf6ea', 'fa-check', 'Đang dùng'],
     full: ['#7c5ce0', '#efe9ff', 'fa-lock', 'Đã đủ máy'], expired: ['#9b8a93', '#f1ebee', 'fa-clock', 'Hết hạn']
 };
 const editRows = new Set();          // link đang mở khối "Chỉnh sửa link"
@@ -883,9 +890,12 @@ async function showQrFull(token) {
 
 function linkRow(l) {
     const st = onceState(l), used = linkUsed(l), claims = l.claims || [];
+    const visitors = linkVisitors(l);
+    const everyone = [...claims, ...visitors];          // mọi máy đã vào (giữ suất + mới xem)
+    const visitsN = everyone.reduce((n, c) => n + (c.n || 1), 0);
     const S = ONCE_STATE[st];
     const live = st !== 'expired';
-    const last = claims.reduce((m, c) => Math.max(m, c.seen || c.at || 0), 0);
+    const last = everyone.reduce((m, c) => Math.max(m, c.seen || c.at || 0), 0);
     const soon = live && l.expiresAt != null && l.expiresAt - Date.now() < 24 * 3600000;
     const ttl = !live ? 'sẽ tự chuyển vào lịch sử' : l.expiresAt == null ? 'không hết hạn' : leftText(l.expiresAt);
     const sub = `<span class="sa-ttl${soon ? ' is-soon' : ''}"><i class="fas fa-clock"></i> ${esc(ttl)}</span> · ${esc(last ? `mở gần nhất ${fmtUntil(last)}` : `tạo ${fmtUntil(l.createdAt)}`)}`;
@@ -896,7 +906,7 @@ function linkRow(l) {
     const byQuiz = resByQuiz.has(l.token);
     // Link nhóm có danh sách: ai đã vào (xanh) / chưa vào
     const members = l.members || [];
-    const inKeys = new Set(claims.map(c => (c.who || '').toLocaleLowerCase('vi')).filter(Boolean));
+    const inKeys = new Set(everyone.map(c => (c.who || '').toLocaleLowerCase('vi')).filter(Boolean));
     const nIn = members.filter(m => inKeys.has(m.toLocaleLowerCase('vi'))).length;
     const roster = !l.group || !members.length ? '' : `
             <section class="sa-sec">
@@ -907,13 +917,13 @@ function linkRow(l) {
     // Chi tiết: thành viên → ai đã mở & kết quả → (gập) chỉnh sửa link
     const results = `
             <section class="sa-sec">
-                <h5><i class="fas fa-trophy"></i> Kết quả làm bài <small>${used}/${l.maxUses} máy</small>
+                <h5><i class="fas fa-trophy"></i> Kết quả làm bài <small>${used}/${l.maxUses} suất${visitors.length ? ` · ${visitors.length} máy mới vào xem` : ''}</small>
                     ${l.kind === 'folder' && nDone ? `<span class="sa-mini-seg">
                         <button type="button" data-resview="${esc(l.token)}" data-v="person" class="${byQuiz ? '' : 'is-on'}">Theo người</button>
                         <button type="button" data-resview="${esc(l.token)}" data-v="quiz" class="${byQuiz ? 'is-on' : ''}">Theo đề</button></span>` : ''}</h5>
-                ${!used ? '<p class="sa-empty-row">Chưa có máy nào mở link.</p>'
+                ${!everyone.length ? '<p class="sa-empty-row">Chưa có máy nào mở link.</p>'
                     : byQuiz && l.kind === 'folder' ? resultsByQuiz(l)
-                    : claims.map(c => claimRow(l.token, c, live, l.kind)).join('')}
+                    : everyone.map(c => claimRow(l.token, c, live, l.kind)).join('')}
             </section>`;
     const editing = editRows.has(l.token);
     const edit = !live ? '' : `
@@ -954,7 +964,9 @@ function linkRow(l) {
                 <span class="sa-who"><span class="sa-name">${linkTitle(l)}</span><span class="sa-sub">${sub}</span></span>
                 <span class="sa-pill">${S[3]}</span>
             </div>
-            <div class="sa-mid">${seatBar(used, l.maxUses)}<span class="sa-seat-n">${used}/${l.maxUses} máy</span>${faces(claims)}</div>
+            <div class="sa-mid">${seatBar(used, l.maxUses)}<span class="sa-seat-n">${used}/${l.maxUses} suất</span>${faces(everyone)}</div>
+            ${everyone.length ? `<div class="sa-sum"><i class="fas fa-door-open"></i><span>${everyone.length} máy đã vào · ${visitsN} lượt</span>
+                ${visitors.length ? `<small>${visitors.length} chưa làm (chưa tính suất)</small>` : ''}</div>` : ''}
             ${used ? `<div class="sa-sum"><i class="fas fa-list-check"></i>
                 <span class="sa-sum-bar"><u style="width:${Math.round(nDone / used * 100)}%"></u></span>
                 <span>${nDone}/${used} đã làm bài</span>${nSubmit ? `<small>${nSubmit} lượt nộp</small>` : ''}</div>` : ''}
@@ -987,8 +999,11 @@ function reqRow(r) {
 
 function histRow(h) {
     const opens = h.opens || [];
-    const head = `${h.reason === 'revoked' ? 'Thu hồi' : 'Hết hạn'} ${fmtUntil(h.endedAt)} · tạo ${fmtUntil(h.createdAt)} · ${opens.length}/${h.maxUses} máy đã mở`;
-    const list = opens.map(o => [o.who || o.label || 'Một thiết bị', o.who ? o.label : '', o.place, o.at ? `mở ${fmtUntil(o.at)}` : '',
+    const seats = opens.filter(o => !o.visit).length;
+    const head = `${h.reason === 'revoked' ? 'Thu hồi' : 'Hết hạn'} ${fmtUntil(h.endedAt)} · tạo ${fmtUntil(h.createdAt)} · ${seats}/${h.maxUses} suất`
+        + (opens.length > seats ? ` · ${opens.length - seats} máy chỉ vào xem` : '');
+    const list = opens.map(o => [o.who || o.label || 'Một thiết bị', o.who ? o.label : '', o.place, o.at ? `vào ${fmtUntil(o.at)}` : '',
+        o.n > 1 ? `${o.n} lượt` : '', o.visit ? 'chưa làm' : '',
         o.seen && o.seen !== o.at ? `gần nhất ${fmtUntil(o.seen)}` : '',
         o.done?.length ? `làm ${o.done.length} đề: ${o.done.slice(0, 4).map(d => `${d.t || 'Bộ đề'} ${Math.round(d.b ?? 0)}%`).join(', ')}${o.done.length > 4 ? '…' : ''}` : ''
     ].filter(Boolean).join(' · '));
@@ -1016,7 +1031,8 @@ function renderOnceInfo() {
     }
     const list = document.getElementById('sa-help-list');
     if (list) list.innerHTML = [
-        'Mỗi máy mở link = <b>1 suất</b>. Làm bài không giới hạn.',
+        isFolder ? 'Vào xem thư mục <b>không tính suất</b> (vẫn ghi nhận đã vào, bao nhiêu lượt). Bắt đầu làm một bộ đề mới tính <b>1 suất</b> cho máy đó.'
+            : 'Mỗi máy mở link = <b>1 suất</b>. Làm bài không giới hạn.',
         'Đổi Hạn chế / Ai có link không ảnh hưởng link riêng.',
         'Hết hạn, thu hồi, gỡ máy → <b>mất quyền ngay</b>.',
         'Bảng kết quả chỉ tính người mở bằng link riêng.',
@@ -1048,7 +1064,7 @@ function renderOnce() {
     const stats = document.getElementById('sa-once-stats');
     if (stats) stats.innerHTML = `
         <div><i class="fas fa-share-nodes"></i><b>${live}</b><small>link đang mở</small></div>
-        <div class="is-blue"><i class="fas fa-mobile-screen"></i><b>${liveLinks.reduce((n, l) => n + linkUsed(l), 0)}</b><small>máy đã vào</small></div>
+        <div class="is-blue"><i class="fas fa-mobile-screen"></i><b>${liveLinks.reduce((n, l) => n + linkDevices(l), 0)}</b><small>máy đã vào</small></div>
         <div class="${once.requests.length ? 'is-amber' : 'is-zero'}"><i class="fas fa-hand"></i><b>${once.requests.length}</b><small>chờ duyệt</small></div>`;
 
     // Yêu cầu truy cập đang chờ

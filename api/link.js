@@ -10,6 +10,8 @@
 //   share_links/{token} = { kind: 'quiz'|'folder', targetId, ownerUid, ownerName, title, count, createdAt, expiresAt (null = không hết hạn),
 //                           name (tên người nhận / tên nhóm), maxUses (số suất, 1..200), group (link nhóm), members (danh sách tên, có thể rỗng),
 //                           claims: { uid: { at, seen, label, city, country, anon, email, name, who (tên tự xưng — link nhóm), via } },
+//                           visits: { uid: {...như claims} } — LINK THƯ MỤC: máy đã VÀO XEM nhưng chưa làm bài, KHÔNG tính suất
+//                           (2026-11-12). Bấm vào một bộ đề để làm mới 'claim' = chiếm suất (mở bộ đề là đọc được câu hỏi rồi).
 //                           blocked: [uid bị chủ gỡ], revoked, revokedAt, gq: [quizId], gf: [folderId] }
 //     (link cũ: claimedBy/claimedAt/claimLabel/claimCity/claimCountry/lastSeenAt/claimAnon — claimsOf() đọc được, lần ghi sau đổi sang claims)
 //   link_grants/{uid}   = { q: { quizId: hạn }, f: { folderId: hạn } } — luật linkGranted() cho uid này đọc đúng các bộ đề / thư mục đó tới hạn.
@@ -28,7 +30,8 @@
 //   peek      { token }                       — ai cũng gọi: { status, kind, title, count, ownerName, expiresAt, name, maxUses }
 //   claim     { token, label, who? }          — cần token Firebase (ẩn danh / thật): chiếm 1 suất → { status: 'mine'|'owner'|..., kind, targetId }
 //                                               link nhóm: thiếu who → needWho · ngoài danh sách → notMember · tên đã có máy giữ → whoTaken
-//   folder    { token, folderId }             — người giữ link mở một thư mục trong nhánh: { status, folder, subFolders, quizzes, link }
+//   visit     { token, label, who? }          — LINK THƯ MỤC: ghi nhận "đã vào" (không tốn suất) → { status: 'visitor'|'mine'|'owner'|..., kind, targetId }
+//   folder    { token, folderId }             — người giữ link (hoặc đã vào xem) mở một thư mục trong nhánh: { status, folder, subFolders, quizzes, link }
 //   progress  { token, quizId, pct, total, title } — người giữ link nộp bài: ghi link_progress để chủ xem ai làm đề nào
 //   create    { kind, id, hours, name, maxUses, group?, members? } — CHỦ: tạo link (hours: 24 | 168 | 720 | 0 = không hết hạn)
 //   list      { kind, id }                    — CHỦ: các link còn sống + yêu cầu đang chờ + lịch sử link của mục này
@@ -72,7 +75,28 @@ function cleanMembers(arr) {
     }
     return out;
 }
-const takenWho = (l) => Object.values(claimsOf(l)).map(x => x.who).filter(Boolean);
+// Tên đã có máy xưng (giữ suất HOẶC đã vào xem) — trừ chính máy `exceptUid` (máy đang xem giờ bắt đầu làm bài)
+const takenWho = (l, exceptUid = '') => [...Object.entries(claimsOf(l)), ...Object.entries(visitsOf(l))]
+    .filter(([uid]) => uid !== exceptUid).map(([, x]) => x.who).filter(Boolean);
+const MAX_VISITS = 300;                                // máy "đã vào xem" giữ tối đa (bỏ máy lâu nhất) — doc khỏi phình
+/** Máy đã vào xem thư mục, chưa chiếm suất: { uid: {...} } */
+const visitsOf = (l) => (l?.visits && typeof l.visits === 'object' ? l.visits : {});
+const isVisitor = (l, uid) => !!uid && !!visitsOf(l)[uid] && !claimsOf(l)[uid];
+/** Bỏ trường rỗng ('' / null / undefined / false) trước khi ghi Firestore */
+const compact = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== '' && v != null && v !== false));
+const SEEN_GAP_MS = 60 * 1000;                         // tải lại trong 1 phút: không tính thêm lượt vào, không ghi
+/** Link nhóm: kiểm tên máy mới xưng → { who } hoặc { st: needWho | notMember | whoTaken } */
+function checkWho(l, raw, uid) {
+    let who = cleanName(raw).slice(0, 40);
+    if (!who) return { st: 'needWho' };
+    const members = l.members || [];
+    if (members.length) {
+        who = members.find(m => whoKey(m) === whoKey(who)) || '';
+        if (!who) return { st: 'notMember' };
+    }
+    if (takenWho(l, uid).some(x => whoKey(x) === whoKey(who))) return { st: 'whoTaken' };
+    return { who };
+}
 
 async function optionalUser(req) {
     if (!/^Bearer\s+/i.test(req.headers.authorization || '')) return null;
@@ -170,12 +194,17 @@ function progressMap(docs) {
 function view(token, l, prog = {}) {
     const claims = Object.entries(claimsOf(l)).map(([uid, x]) => ({
         uid, at: ms(x.at), seen: ms(x.seen), label: x.label || '', city: x.city || '', country: x.country || '',
-        anon: !!x.anon, email: x.email || '', name: x.name || '', who: x.who || '', via: x.via || '', done: doneView(prog[uid])
+        anon: !!x.anon, email: x.email || '', name: x.name || '', who: x.who || '', via: x.via || '', in: ms(x.in), n: x.n || 1, done: doneView(prog[uid])
+    })).sort((a, b) => (a.at || 0) - (b.at || 0));
+    const c = claimsOf(l);
+    const visitors = Object.entries(visitsOf(l)).filter(([uid]) => !c[uid]).map(([uid, x]) => ({
+        uid, at: ms(x.at), seen: ms(x.seen), label: x.label || '', city: x.city || '', country: x.country || '',
+        anon: !x.email, email: x.email || '', name: x.name || '', who: x.who || '', n: x.n || 1, visit: true, done: []
     })).sort((a, b) => (a.at || 0) - (b.at || 0));
     return {
         token, kind: l.kind, targetId: l.targetId, status: statusOf(l, null), name: l.name || '', maxUses: usesOf(l),
         group: !!l.group, members: l.members || [],
-        createdAt: ms(l.createdAt), expiresAt: ms(l.expiresAt), claims
+        createdAt: ms(l.createdAt), expiresAt: ms(l.expiresAt), claims, visitors
     };
 }
 
@@ -200,9 +229,12 @@ async function archiveMany(db, admin, pairs, reason) {
         endedAt: Timestamp.now(), reason,
         opens: Object.entries(claimsOf(l)).map(([uid, x]) => ({
             who: x.who || x.email || x.name || '', label: x.label || '', place: [x.city, x.country].filter(Boolean).join(', '),
-            at: x.at || null, seen: x.seen || null, via: x.via || '',
+            at: x.at || null, seen: x.seen || null, via: x.via || '', n: x.n || 1,
             done: Object.values(prog[token]?.[uid] || {}).slice(0, 60).map(q => ({ t: q.title || '', b: q.best ?? null, n: q.n || 0 }))
-        }))
+        })).concat(Object.entries(visitsOf(l)).filter(([uid]) => !claimsOf(l)[uid]).map(([, x]) => ({
+            who: x.who || x.email || x.name || '', label: x.label || '', place: [x.city, x.country].filter(Boolean).join(', '),
+            at: x.at || null, seen: x.seen || null, n: x.n || 1, visit: true, done: []
+        })))
     }));
     const tokens = new Set(entries.map(e => e.token));
     const href = db.doc(`link_history/${histIdOf(l0.kind, l0.targetId)}`);
@@ -230,7 +262,7 @@ async function historyOf(db, token) {
 function histView(e) {
     return {
         token: e.token, name: e.name || '', maxUses: e.maxUses || 1, group: !!e.group, reason: e.reason, createdAt: ms(e.createdAt), expiresAt: ms(e.expiresAt), endedAt: ms(e.endedAt),
-        opens: (e.opens || []).map(o => ({ who: o.who || '', label: o.label || '', place: o.place || '', at: ms(o.at), seen: ms(o.seen), via: o.via || '', done: o.done || [] }))
+        opens: (e.opens || []).map(o => ({ who: o.who || '', label: o.label || '', place: o.place || '', at: ms(o.at), seen: ms(o.seen), via: o.via || '', visit: !!o.visit, n: o.n || 1, done: o.done || [] }))
     };
 }
 
@@ -376,9 +408,11 @@ module.exports = async function handler(req, res) {
                     const x = (await tx.get(ref)).data();
                     const c = { ...claimsOf(x) };
                     delete c[uid];
+                    const visits = { ...visitsOf(x) };
+                    delete visits[uid];
                     const blocked = [...new Set([...(x.blocked || []), uid])].slice(-200);
-                    tx.update(ref, { ...claimsPatch(admin, c), blocked });
-                    return { ...x, claims: c, blocked };
+                    tx.update(ref, { ...claimsPatch(admin, c), visits, blocked });
+                    return { ...x, claims: c, visits, blocked };
                 });
                 await ungrant(db, admin, l, [uid]);
                 return send(res, 200, { ok: true, link: view(token, out) });
@@ -513,10 +547,56 @@ module.exports = async function handler(req, res) {
             if (status === 'expired') await archive(db, admin, token, l, 'expired').catch(() => {});
             return send(res, 200, {
                 status, kind: l.kind, title: l.title || '', count: l.count ?? null, ownerName: l.ownerName || '',
-                name: l.name || '', maxUses: usesOf(l), used: Object.keys(claimsOf(l)).length,
+                name: l.name || '', maxUses: usesOf(l), used: Object.keys(claimsOf(l)).length, visitor: isVisitor(l, me?.uid),
+                // Số máy KHÁC đã vào xem nhưng chưa làm (chưa tốn suất) — trang cổng báo cho người mở biết
+                viewers: Object.keys(visitsOf(l)).filter(u => u !== me?.uid && !claimsOf(l)[u]).length,
                 ...(l.group ? { group: true, members: l.members || [], taken: takenWho(l) } : {}),
                 expiresAt: untilMs(l.expiresAt), ...(status === 'mine' || status === 'owner' ? { targetId: l.targetId } : {})
             });
+        }
+
+        // LINK THƯ MỤC: vào xem → ghi nhận "đã vào" cho chủ thấy, KHÔNG chiếm suất (làm bài mới 'claim').
+        // Chỉ vào được khi link còn suất (hết suất thì máy mới vào cũng không làm được bài → trang cổng báo + xin quyền).
+        if (action === 'visit') {
+            const me = await verifyUser(req);
+            const geo = geoOf(req);
+            const label = String(body.label || '').slice(0, 80);
+            const out = await db.runTransaction(async (tx) => {
+                const s = await tx.get(ref);
+                const l = s.exists ? s.data() : null;
+                const st = statusOf(l, me.uid);
+                if (st !== 'ok') return { st, l };
+                if (l.kind !== 'folder') return { st: 'notFolder', l };
+                // Đã vào trước đó → KHÔNG ghi gì ở đây (lượt vào + "mở gần nhất" đếm ở action 'folder' khi mở thư mục gốc)
+                if (visitsOf(l)[me.uid]) return { st: 'visitor', l };
+                const now = Timestamp.now();
+                const v = { ...visitsOf(l) };
+                let who = '';
+                if (l.group) {
+                    const w = checkWho(l, body.who, me.uid);
+                    if (w.st) return { st: w.st, l };
+                    who = w.who;
+                }
+                // Gọn: chỉ lưu trường có giá trị (thiếu email = máy ẩn danh) — đỡ dung lượng doc + băng thông khi chủ xem danh sách
+                v[me.uid] = compact({ at: now, seen: now, n: 1, label, city: geo.city, country: geo.country,
+                    email: isAnon(me) ? '' : String(me.email || '').slice(0, 120), name: isAnon(me) ? '' : String(me.name || '').slice(0, 80), who });
+                // Quá nhiều máy chỉ xem → bỏ máy vào lâu nhất
+                const uids = Object.keys(v);
+                if (uids.length > MAX_VISITS) uids.sort((a, b) => (ms(v[a].seen) || 0) - (ms(v[b].seen) || 0))
+                    .slice(0, uids.length - MAX_VISITS).forEach(u => delete v[u]);
+                tx.update(ref, { visits: v });
+                return { st: 'visitor', l };
+            });
+            const { st, l } = out;
+            if (st === 'expired') await archive(db, admin, token, l, 'expired').catch(() => {});
+            if (st === 'missing') {
+                const old = await historyOf(db, token).catch(() => null);
+                if (old) return send(res, 200, { status: old.e.reason === 'revoked' ? 'revoked' : 'expired' });
+            }
+            if (st === 'notFolder') throw err(400, 'Link này không phải thư mục');
+            if (!['visitor', 'mine', 'owner'].includes(st)) return send(res, 200, { status: st });
+            if (!await targetOf(db, l.kind, l.targetId, l.ownerUid)) return send(res, 200, { status: 'missing' });
+            return send(res, 200, { status: st, kind: l.kind, targetId: l.targetId });
         }
 
         if (action === 'claim') {
@@ -531,23 +611,24 @@ module.exports = async function handler(req, res) {
                 if (st !== 'ok' && st !== 'mine') return { st, l };
                 const now = Timestamp.now();
                 const c = { ...claimsOf(l) };
+                // Máy đã VÀO XEM thư mục (visits) giờ bắt đầu làm bài → giữ tên đã xưng, lần vào đầu tiên ghi ở `in`
+                const v = st === 'ok' ? visitsOf(l)[me.uid] : null;
                 // Link nhóm: máy mới phải xưng tên; có danh sách thì tên phải nằm trong đó; mỗi tên một máy
-                let who = '';
-                if (st === 'ok' && l.group) {
-                    who = cleanName(body.who).slice(0, 40);
-                    if (!who) return { st: 'needWho', l };
-                    const members = l.members || [];
-                    if (members.length) {
-                        who = members.find(m => whoKey(m) === whoKey(who)) || '';
-                        if (!who) return { st: 'notMember', l };
-                    }
-                    if (takenWho(l).some(x => whoKey(x) === whoKey(who))) return { st: 'whoTaken', l };
+                let who = v?.who || '';
+                if (st === 'ok' && l.group && !who) {
+                    const w = checkWho(l, body.who, me.uid);
+                    if (w.st) return { st: w.st, l };
+                    who = w.who;
                 }
-                c[me.uid] = st === 'mine' ? { ...c[me.uid], seen: now }
-                    : { at: now, seen: now, label, city: geo.city || '', country: geo.country || '', anon: isAnon(me),
+                const old = c[me.uid];
+                if (st === 'mine' && Date.now() - (ms(old.seen) || 0) < SEEN_GAP_MS) return { st: 'mine', l };   // tải lại liền: khỏi ghi
+                c[me.uid] = st === 'mine' ? { ...old, seen: now, n: (old.n || 1) + 1 }
+                    : { at: now, seen: now, n: v?.n || 1, label, city: geo.city || '', country: geo.country || '', anon: isAnon(me),
                         email: isAnon(me) ? '' : String(me.email || '').slice(0, 120), name: isAnon(me) ? '' : String(me.name || '').slice(0, 80),
-                        ...(who ? { who } : {}), via: 'link' };
-                tx.update(ref, claimsPatch(admin, c));
+                        ...(who ? { who } : {}), ...(v?.at ? { in: v.at } : {}), via: 'link' };
+                const patch = claimsPatch(admin, c);
+                if (v) patch[`visits.${me.uid}`] = admin.firestore.FieldValue.delete();
+                tx.update(ref, patch);
                 return { st: 'mine', l: { ...l, claims: c } };
             });
             const { st, l } = out;
@@ -594,8 +675,9 @@ module.exports = async function handler(req, res) {
             const me = await verifyUser(req);
             const s = await ref.get();
             const l = s.exists ? s.data() : null;
-            const st = statusOf(l, me.uid);
-            if (st !== 'mine' && st !== 'owner') return send(res, st === 'ok' ? 401 : 403, { status: st === 'ok' ? 'unclaimed' : st });
+            // Máy đã vào xem (chưa chiếm suất) duyệt được thư mục nhưng KHÔNG được cấp quyền đọc bộ đề — làm bài phải 'claim' trước
+            const st = statusOf(l, me.uid) === 'ok' && isVisitor(l, me.uid) ? 'visitor' : statusOf(l, me.uid);
+            if (!['mine', 'owner', 'visitor'].includes(st)) return send(res, st === 'ok' ? 401 : 403, { status: st === 'ok' ? 'unclaimed' : st });
             if (l.kind !== 'folder') throw err(400, 'Link này không phải thư mục');
             const folderId = cleanId(body.folderId) || l.targetId;
             // Thư mục yêu cầu phải nằm trong nhánh của thư mục gốc của link: đi ngược parentId tới gốc
@@ -620,13 +702,24 @@ module.exports = async function handler(req, res) {
                 .map(q => ({ id: q.id, title: q.title || '', questionCount: q.questionCount || 0 }));
             if (st === 'mine') {
                 await grant(db, admin, ref, l, me.uid, { f: [folderId, ...subFolders.map(f => f.id)], q: quizzes.map(q => q.id) });
-                // Link kiểu mới: ghi "mở gần nhất" thẳng vào claims.<uid>.seen (link cũ một-máy thì thôi — lần claim sau tự đổi sang kiểu mới)
-                if (l.claims) await ref.update(new admin.firestore.FieldPath('claims', me.uid, 'seen'), Timestamp.now()).catch(() => {});
+            }
+            // "Mở gần nhất" + LƯỢT VÀO (đếm khi mở thư mục gốc) — MỘT lần ghi; tải lại / đi qua lại trong 1 phút thì không ghi.
+            // Link cũ một-máy (chưa có claims) thì thôi — lần claim sau tự đổi sang kiểu mới.
+            const field = st === 'visitor' ? 'visits' : st === 'mine' && l.claims ? 'claims' : '';
+            const rec = field ? (field === 'visits' ? visitsOf(l) : l.claims)[me.uid] : null;
+            if (rec && Date.now() - (ms(rec.seen) || 0) >= SEEN_GAP_MS) {
+                const FP = admin.firestore.FieldPath;
+                const args = [new FP(field, me.uid, 'seen'), Timestamp.now()];
+                if (folderId === l.targetId) args.push(new FP(field, me.uid, 'n'), admin.firestore.FieldValue.increment(1));
+                await ref.update(...args).catch(() => {});
             }
             return send(res, 200, {
                 status: st, root: l.targetId, expiresAt: untilMs(l.expiresAt),
                 // Trang thư mục hiện đúng kiểu link (riêng / nhóm), tên link và tên đã xác nhận của máy này — không nêu người gửi
-                link: { name: l.name || '', group: !!l.group, maxUses: usesOf(l), who: claimsOf(l)[me.uid]?.who || '' },
+                link: { name: l.name || '', group: !!l.group, maxUses: usesOf(l), who: (claimsOf(l)[me.uid] || visitsOf(l)[me.uid])?.who || '',
+                    // Máy này từng vào xem trước đây (không phải lần đầu ngay lúc này) mà chưa làm → trang thư mục nhắc "chưa mất suất"
+                    back: st === 'visitor' && Date.now() - (ms(visitsOf(l)[me.uid]?.at) || 0) > SEEN_GAP_MS,
+                    used: Object.keys(claimsOf(l)).length },
                 folder: { id: folderId, name: folder.name || '', color: folder.color || '', icon: folder.icon || '', parentId: folderId === l.targetId ? null : (folder.parentId || null) },
                 ownerName: l.ownerName || '', subFolders, quizzes
             });

@@ -875,8 +875,8 @@
 .rh-row .rh-btn { flex: 1; justify-content: center; }
 
 .rh-qr {
-    width: 10rem;
-    height: 10rem;
+    width: min(16rem, 100%);   /* QR to để quét ngay */
+    aspect-ratio: 1;
     margin: .4rem auto;
     display: grid;
     place-items: center;
@@ -885,7 +885,7 @@
     border: 2px solid var(--rh-line);
     padding: .4rem;
 }
-.rh-qr img, .rh-qr canvas { width: 100%; height: 100%; }
+.rh-qr img, .rh-qr canvas, .rh-qr > div { width: 100%; height: 100%; }
 .rh-link {
     display: flex;
     gap: .4rem;

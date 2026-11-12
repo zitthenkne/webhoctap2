@@ -301,6 +301,9 @@
 
         /* Hộp QR chia sẻ: luôn nền trắng kể cả dark mode để máy quét đọc được */
         #share-qr-box { background: #fff !important; }
+        /* QR to + ở giữa để quét ngay (trước là ô 144px) — đè cỡ w-36 h-36 của Tailwind đóng băng */
+        #share-qr-box { width: min(240px, 100%) !important; height: auto !important; aspect-ratio: 1; margin-inline: auto; }
+        #share-qr-box svg { display: block; width: 100%; height: 100%; }
 
         /* Thanh "Bắt đầu ngay" nổi ở đáy màn hình mobile khi nút chính trôi khỏi tầm nhìn */
         #mobile-start-bar {

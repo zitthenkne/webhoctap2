@@ -70,7 +70,9 @@ function showStatus(status) {
     if (['taken', 'blocked', 'revoked', 'expired'].includes(status)) mountAccessRequest($('lk-request'), { token });
 }
 
-async function claim(btn, who = '') {
+// Thư mục: 'visit' = ghi nhận đã vào, KHÔNG tốn suất (bấm làm một bộ đề trong thư mục mới chiếm suất — folder.js startLinkQuiz).
+// Bộ đề: 'claim' chiếm suất ngay (mở bộ đề là đọc được câu hỏi).
+async function claim(btn, who = '', kind = 'quiz') {
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Đang mở…';
     try {
@@ -85,7 +87,7 @@ async function claim(btn, who = '') {
                 return;
             }
         }
-        const r = await call('claim', { label: deviceLabel(), who });
+        const r = await call(kind === 'folder' ? 'visit' : 'claim', { label: deviceLabel(), who });
         // Link nhóm: tên vừa bị máy khác giành / không có trong danh sách → tải lại danh sách, báo ngay trên thẻ
         const WHO_ERR = {
             whoTaken: `Tên “${who}” đã được xác nhận trên một thiết bị khác. Nếu có nhầm lẫn, vui lòng liên hệ người chia sẻ.`,
@@ -93,9 +95,9 @@ async function claim(btn, who = '') {
             needWho: 'Vui lòng chọn hoặc nhập tên trước khi tiếp tục.'
         };
         if (WHO_ERR[r.status]) return main(WHO_ERR[r.status]);
-        if (r.status === 'mine' || r.status === 'owner') {
+        if (['mine', 'owner', 'visitor'].includes(r.status)) {
             paint({ tone: 'ok', icon: 'fa-check', title: 'Đã mở trên máy này', desc: 'Đang chuyển tới nội dung…' });
-            location.replace(targetUrl(r.kind, r.targetId, { viaLink: r.status === 'mine' }));
+            location.replace(targetUrl(r.kind, r.targetId, { viaLink: r.status !== 'owner' }));
             return;
         }
         showStatus(r.status);
@@ -148,7 +150,7 @@ function groupPicker(info, err) {
         input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && who) btn.click(); });
         pick(input.value);
     }
-    btn.addEventListener('click', () => claim(btn, who));
+    btn.addEventListener('click', () => claim(btn, who, info.kind));
 }
 
 async function main(err = '') {
@@ -162,10 +164,11 @@ async function main(err = '') {
     }
     const what = info.kind === 'folder' ? 'Thư mục' : 'Bộ đề';
     // Máy này đang giữ link (mở lại) → vào thẳng (claim lại để làm mới quyền)
-    if (info.status === 'mine') {
+    // Máy này đã vào xem thư mục (chưa làm bài) → vào thẳng, vẫn chưa tốn suất
+    if (info.status === 'mine' || (info.status === 'ok' && info.visitor)) {
         paint({ tone: 'ok', icon: 'fa-check', kicker: `${what} · thiết bị đã được xác nhận`, title: info.title || what, desc: 'Đang mở…' });
         const btn = document.createElement('button');
-        return claim(btn);
+        return claim(btn, '', info.kind);
     }
     if (info.status === 'owner') {
         paint({
@@ -186,7 +189,11 @@ async function main(err = '') {
     ].filter(Boolean);
     // Văn phong trung tính, không nêu người gửi: nói rõ link gắn với thiết bị như một thông tin, không phải lời cấm.
     const verb = info.kind === 'folder' ? 'Thư mục' : 'Bộ đề';
-    const TIP = 'Nên mở bằng trình duyệt thường dùng (không dùng chế độ ẩn danh) để lần sau truy cập lại trực tiếp.';
+    // Thư mục: đã có máy khác vào xem nhưng chưa làm bài → báo rõ là CHƯA mất suất nào
+    const seenNote = info.viewers
+        ? `<b>Lưu ý:</b> link này đã từng được mở xem trên ${info.viewers > 1 ? `${info.viewers} thiết bị khác` : 'một thiết bị khác'} nhưng chưa làm bài, nên <b>chưa mất suất nào</b> (còn ${Math.max(0, uses - (info.used || 0))}/${uses} suất).`
+        : '';
+    const TIP = seenNote || 'Nên mở bằng trình duyệt thường dùng (không dùng chế độ ẩn danh) để lần sau truy cập lại trực tiếp.';
     const UNLIMITED = { icon: 'fa-rotate-right', b: 'Không giới hạn', s: 'Số lần làm bài' };
     if (info.group) {
         paint({
@@ -210,19 +217,21 @@ async function main(err = '') {
         title: info.title || what,
         chips,
         desc: `${verb} này được chia sẻ riêng cho ${info.name || 'bạn'}. `
-            + (uses === 1 ? 'Link được gắn với thiết bị mở đầu tiên và chỉ sử dụng được trên thiết bị đó.'
+            + (info.kind === 'folder'
+                ? `Xem thư mục thoải mái; khi bắt đầu làm một bộ đề, link mới được gắn với thiết bị này (tối đa ${uses} thiết bị).`
+                : uses === 1 ? 'Link được gắn với thiết bị mở đầu tiên và chỉ sử dụng được trên thiết bị đó.'
                 : `Link được gắn với ${uses} thiết bị mở đầu tiên và chỉ sử dụng được trên các thiết bị đó.`),
         ticket: [
             info.name ? { icon: 'fa-user', b: info.name, s: 'Người nhận' } : { icon: 'fa-lock', b: 'Riêng tư', s: 'Loại link' },
             { icon: 'fa-mobile-screen', b: `${uses} thiết bị`, s: 'Giới hạn truy cập' },
             UNLIMITED
         ],
-        note: u && !u.isAnonymous
+        note: seenNote || (u && !u.isAnonymous
             ? `Bạn đang đăng nhập <b>${esc(u.email || u.displayName || 'tài khoản')}</b> — link sẽ được gắn với tài khoản này.`
-            : TIP,
+            : TIP),
         actions: `<button type="button" id="lk-claim" class="lk-btn lk-btn-main"><i class="fas fa-mobile-screen"></i> Mở trên thiết bị này</button>`
     });
-    $('lk-claim').addEventListener('click', (e) => claim(e.currentTarget));
+    $('lk-claim').addEventListener('click', (e) => claim(e.currentTarget, '', info.kind));
 }
 
 main();

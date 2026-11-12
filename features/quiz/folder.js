@@ -17,7 +17,7 @@ import { markSharedSeen } from './shared-inbox.js';
 import { rememberOpened, listShelf, forgetShelf, togglePinShelf, clearShelf, localStatsFor } from './local-shelf.js';
 import { showToast, showConfirm } from '../../core/utils.js';
 import { requireFeature } from '../../core/features.js';
-import { apiUrl } from '../../core/device-limit.js';
+import { apiUrl, deviceLabel } from '../../core/device-limit.js';
 import {
     doc, getDoc, collection, setDoc, arrayRemove, writeBatch
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
@@ -515,6 +515,28 @@ function bindSharedActions(me, data, redraw) {
 
 // ---------- LINK DÙNG CHO 1 THIẾT BỊ (folder.html?id=…&link=<mã>, api/link.js) ----------
 // Thư mục vẫn riêng tư: máy chủ kiểm máy này đang giữ link, trả nội dung + cấp quyền đọc các bộ đề bên trong (firestore.rules linkGranted).
+// Máy mới chỉ VÀO XEM (status 'visitor'): duyệt thư mục không tốn suất; bấm làm một bộ đề → startLinkQuiz chiếm suất rồi mới mở đề.
+async function linkApi(action, extra) {
+    const u = auth.currentUser;
+    const r = await withTimeout(fetch(apiUrl('api/link'), {
+        method: 'POST', cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await u.getIdToken()}` },
+        body: JSON.stringify({ action, ...extra })
+    }));
+    return r.json().catch(() => ({}));
+}
+async function startLinkQuiz(token, folderId, href, btn) {
+    if (btn) btn.style.pointerEvents = 'none';
+    try {
+        const c = await linkApi('claim', { token, label: deviceLabel() });
+        if (c.status !== 'mine' && c.status !== 'owner') { location.replace(`link.html?t=${encodeURIComponent(token)}`); return; }
+        await linkApi('folder', { token, folderId });          // giờ đã giữ suất → cấp quyền đọc các bộ đề của thư mục này
+        location.href = href;
+    } catch (e) {
+        showToast('Mạng đang chậm, chưa mở được bộ đề. Thử lại nhé.', 'error');
+        if (btn) btn.style.pointerEvents = '';
+    }
+}
 async function linkFolderPage(token, folderId) {
     renderSkeleton();
     try { await auth.authStateReady(); } catch (e) {}
@@ -536,7 +558,7 @@ async function linkFolderPage(token, folderId) {
     const st = data.status;
     // Chưa nhận / hết suất / hết hạn / thu hồi / bị gỡ → trang cổng (báo đúng lý do + nút Gửi yêu cầu truy cập)
     if (['unclaimed', 'taken', 'expired', 'revoked', 'blocked'].includes(st)) { location.replace(`link.html?t=${encodeURIComponent(token)}`); return; }
-    if (st !== 'mine' && st !== 'owner') {
+    if (!['mine', 'owner', 'visitor'].includes(st)) {
         showMessage('fa-link-slash', 'Link không còn hiệu lực', data.error || 'Link đã bị xóa, hoặc thư mục đã bị xóa.');
         return;
     }
@@ -554,6 +576,7 @@ async function linkFolderPage(token, folderId) {
         metaHTML: `<span class="fp-access is-once"><i class="fas ${L.group ? 'fa-users' : 'fa-lock'}"></i> ${kindLabel}${L.name ? ` · ${escapeHtml(L.name)}` : ''}</span>`
             + (L.who ? span('fa-user-check', `Đã xác nhận: <b>${escapeHtml(L.who)}</b>`) : '')
             + (st === 'mine' ? span('fa-mobile-screen', L.group ? '1 thiết bị / người' : `${L.maxUses || 1} thiết bị`) : '')
+            + (st === 'visitor' ? span('fa-eye', 'Đang xem · bắt đầu làm bài mới gắn link với thiết bị này') : '')
             + (left == null ? '' : span('fa-clock', left < 48 ? `còn ${Math.max(1, Math.round(left))} giờ` : `còn ${Math.round(left / 24)} ngày`))
     });
     document.title = `${f.name || 'Thư mục'} - Zitthenkne`;
@@ -561,10 +584,23 @@ async function linkFolderPage(token, folderId) {
     if (f.parentId) {
         $('fp-hero-actions').innerHTML = `<a class="fp-btn" href="folder.html?id=${encodeURIComponent(f.parentId)}&link=${encodeURIComponent(token)}"><i class="fas fa-arrow-up"></i> Thư mục cha</a>`;
     }
-    if (st === 'mine' && (folderId || data.root) === data.root) {
+    if (st !== 'owner' && (folderId || data.root) === data.root) {
         rememberOpened({ kind: 'folder', id: f.id, title: f.name, ownerName: '', access: 'link', link: token });
     }
     finishFolderPage(data.subFolders || [], data.quizzes || [], { link: token });
+    // Mới vào xem: bấm làm bộ đề → chiếm suất trước (chưa giữ suất thì chưa có quyền đọc đề)
+    if (st === 'visitor') {
+        if (L.back && (folderId || data.root) === data.root) {
+            const max = L.maxUses || 1;
+            showToast(`Thiết bị này đã từng vào link nhưng chưa làm bài, nên chưa mất suất nào (còn ${Math.max(0, max - (L.used || 0))}/${max} suất). Bắt đầu làm một bộ đề mới tính 1 suất.`, 'info', 7000);
+        }
+        $('folder-quiz-list')?.addEventListener('click', (e) => {
+            const a = e.target.closest('a[href^="quiz.html"]');
+            if (!a) return;
+            e.preventDefault();
+            startLinkQuiz(token, f.id, a.getAttribute('href'), a);
+        });
+    }
 }
 
 async function main() {

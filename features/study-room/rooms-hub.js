@@ -1191,7 +1191,7 @@ async function paintQr(box, text) {
     if (!box) return;
     try {
         const m = await import('../../core/qr.js');
-        box.innerHTML = `<div style="width:150px;height:150px">${await m.qrSvg(text)}</div>`;
+        box.innerHTML = `<div>${await m.qrSvg(text)}</div>`;   /* cỡ theo khung .rh-qr */
     } catch (e) {
         box.innerHTML = '<span style="font-size:.72rem;color:#8b8494;text-align:center;padding:.5rem">Mất mạng nên chưa tải được mã QR — dùng nút chép link nhé.</span>';
     }

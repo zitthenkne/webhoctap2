@@ -226,7 +226,7 @@ function initLayout() {
         if (!box) return;
         try {
             const m = await import('../../core/qr.js');
-            box.innerHTML = `<div style="width:168px;height:168px">${await m.qrSvg(location.href)}</div>`;
+            box.innerHTML = `<div>${await m.qrSvg(location.href)}</div>`;   /* cỡ theo khung .rm-qr */
         } catch (e) {
             box.innerHTML = '<p class="text-[11px] text-muted px-2 text-center">Không tải được mã QR (mất mạng) — dùng nút Chép link nhé.</p>';
         }

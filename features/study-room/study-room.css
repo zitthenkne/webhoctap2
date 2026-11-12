@@ -1341,12 +1341,12 @@ html.theme-dark .rm-hero-title { color: #FFB9D6; }
 .rm-qr-wrap { text-align: center; margin-top: .9rem; }
 .rm-qr {
     display: inline-grid; place-items: center;
-    width: 11.5rem; height: 11.5rem; padding: .7rem;
+    width: min(16rem, 100%); aspect-ratio: 1; padding: .7rem;   /* QR to để quét ngay */
     border-radius: var(--rm-r); background: #fff;
     border: 2px solid var(--rm-line); box-shadow: var(--rm-shadow-sm);
     animation: rm-pop-in .3s var(--rm-spring) both;
 }
-.rm-qr img, .rm-qr canvas { width: 100% !important; height: 100% !important; border-radius: .5rem; }
+.rm-qr img, .rm-qr canvas, .rm-qr > div { width: 100% !important; height: 100% !important; border-radius: .5rem; }
 
 /* ============ ĐIỆN THOẠI (≤767px) ============
    Nguyên tắc: màn chính chỉ giữ CÂU HỎI · PHƯƠNG ÁN · BẢNG PHIẾU.
