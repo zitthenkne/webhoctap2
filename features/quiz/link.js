@@ -35,15 +35,21 @@ const fmtLeft = (ms) => {
     return h < 1 ? `Còn ${Math.max(1, Math.round(h * 60))} phút` : h < 48 ? `Còn ${Math.round(h)} giờ` : `Còn ${Math.round(h / 24)} ngày`;
 };
 
-/** Vẽ thẻ: tone (pink | ok | warn | bad), icon, tiêu đề, chip, mô tả, ghi chú, nút. */
+// Màu pastel xoay vòng cho 3 ô thông tin / các chip (bảng màu data-c trong link.html)
+const TILE_C = ['pink', 'lilac', 'mint'], CHIP_C = ['sky', 'butter', 'peach'];
+
+/** Vẽ thẻ: tone (pink | ok | warn | bad), icon, tiêu đề, chip, mô tả, ghi chú, nút. Có ô thông tin (ticket) = màn mời nhận → bố cục 2 cột trên màn rộng. */
 function paint({ tone = '', icon, kicker, title, chips = [], desc = '', note = '', actions = '', ticket = [] }) {
-    $('lk-ticket').innerHTML = ticket.map(t => `<span class="lk-tk"><i class="fas ${t.icon}"></i><small>${esc(t.s)}</small><b>${esc(t.b)}</b></span>`).join('');
+    const card = $('lk-card');
+    card.classList.remove('is-loading');
+    card.dataset.layout = ticket.length ? 'split' : 'solo';
+    $('lk-ticket').innerHTML = ticket.map((t, i) => `<span class="lk-tk" data-c="${TILE_C[i % 3]}"><i class="fas ${t.icon}"></i><span><small>${esc(t.s)}</small><b>${esc(t.b)}</b></span></span>`).join('');
     $('lk-ticket').classList.toggle('hidden', !ticket.length);
-    $('lk-card').dataset.tone = tone;
+    card.dataset.tone = tone;
     $('lk-icon').className = `fas ${icon}`;
     if (kicker != null) $('lk-kicker').textContent = kicker;
     $('lk-title').textContent = title;
-    $('lk-meta').innerHTML = chips.map(c => `<span class="lk-chip"><i class="fas ${c.icon}"></i>${esc(c.text)}</span>`).join('');
+    $('lk-meta').innerHTML = chips.map((c, i) => `<span class="lk-chip" data-c="${CHIP_C[i % 3]}"><i class="fas ${c.icon}"></i>${esc(c.text)}</span>`).join('');
     $('lk-desc').textContent = desc;
     $('lk-note').innerHTML = note ? `<i class="fas fa-circle-info"></i><span>${note}</span>` : '';
     $('lk-note').classList.toggle('hidden', !note);
@@ -70,11 +76,16 @@ function showInApp(kind) {
     const act = kind === 'folder' ? 'bắt đầu làm bài' : 'bấm mở';
     const chrome = `intent://${location.host}${location.pathname}${location.search}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(location.href)};end`;
     el.innerHTML = `
-        <b><i class="fas fa-triangle-exclamation"></i> Bạn đang mở trong ${IN_APP}</b>
-        <p>Xem trước thì không sao. Nhưng nếu ${act} ở đây, link sẽ gắn với ${IN_APP} → lần sau mở bằng ${BROWSER} bị tính <b>máy khác</b> và bị chặn.</p>
-        <p><b style="display:inline">Cách mở bằng ${BROWSER}:</b> bấm <b style="display:inline">${IOS ? '⋯' : '⋮'}</b> ở góc trên → <i>Mở bằng trình duyệt</i>${ANDROID ? ', hoặc bấm nút dưới' : ', hoặc sao chép link rồi dán vào ' + BROWSER}.</p>
-        ${ANDROID ? `<a class="lk-btn lk-btn-main" href="${chrome}"><i class="fab fa-chrome"></i> Mở bằng Chrome</a>` : ''}
-        <button type="button" class="lk-btn lk-btn-ghost" id="lk-copy"><i class="fas fa-copy"></i> Sao chép link</button>`;
+        <p class="lk-inapp-h"><i class="fas fa-triangle-exclamation"></i><span><b>Bạn đang mở trong ${IN_APP}</b><small>Chuyển sang ${BROWSER} trước khi ${act}</small></span></p>
+        <p>Xem trước thì không sao. Nhưng nếu ${act} ngay trong ${IN_APP}, link sẽ gắn với ${IN_APP} → lần sau mở bằng ${BROWSER} bị tính <b>máy khác</b> và bị chặn.</p>
+        <ol>
+            <li><span>Bấm <b>${IOS ? '⋯' : '⋮'}</b> ở góc trên màn hình</span></li>
+            <li><span>Chọn <b>Mở bằng trình duyệt</b>${ANDROID ? ' — hoặc bấm nút dưới' : ' — hoặc chép link, dán vào Safari'}</span></li>
+        </ol>
+        <div class="lk-inapp-btns">
+            ${ANDROID ? `<a class="lk-btn lk-btn-butter" href="${chrome}"><i class="fab fa-chrome"></i> Mở bằng Chrome</a>` : ''}
+            <button type="button" class="lk-btn lk-btn-ghost" id="lk-copy"><i class="fas fa-copy"></i> Sao chép link</button>
+        </div>`;
     el.classList.remove('hidden');
     $('lk-copy').addEventListener('click', async (e) => {
         const b = e.currentTarget;
@@ -86,13 +97,21 @@ function showInApp(kind) {
     });
 }
 
-/** Ghi chú 3 dòng: cái gì vẫn vào lại được / cái gì bị tính máy khác / lỡ bị chặn thì làm gì. */
+/** Ghi chú thiết bị: 3 bước (xem → gắn máy → vào lại) + 2 lưu ý (cái gì bị tính máy khác / lỡ bị chặn thì làm gì). */
 function showGuide(kind) {
-    const when = kind === 'folder' ? 'Chỉ khi bắt đầu làm bài, link mới gắn với máy.' : 'Bấm mở là link gắn với máy này.';
+    const [s1, s1d] = kind === 'folder' ? ['Xem thư mục', 'Thoải mái, chưa tốn suất'] : ['Xem trang này', 'Chưa tốn suất'];
+    const [s2, s2d] = kind === 'folder' ? ['Bắt đầu làm bài', 'Link gắn với máy này'] : ['Bấm mở', 'Link gắn với máy này'];
     $('lk-guide').innerHTML = `
-        <div><i class="fas fa-circle-check" style="color:#15925F"></i><span>${when} Sau đó <b>mở lại link, tab mới, tắt máy mở lại</b> trên cùng trình duyệt đều vào được.</span></div>
-        <div><i class="fas fa-circle-xmark" style="color:#D14343"></i><span><b>Bị tính máy khác (bị chặn):</b> tab ẩn danh, trình duyệt khác, xóa dữ liệu duyệt web, mở trong Zalo/Messenger rồi sang ${BROWSER}${IOS ? ', Safari ↔ biểu tượng ngoài màn hình chính' : ''}.</span></div>
-        <div><i class="fas fa-rotate-left" style="color:#3B82F6"></i><span><b>Lỡ bị chặn:</b> mở lại bằng đúng trình duyệt lần đầu; vẫn không được thì bấm <b>Gửi yêu cầu truy cập</b>.</span></div>`;
+        <p class="lk-guide-h">Link hoạt động thế nào</p>
+        <ol class="lk-steps">
+            <li class="lk-step" data-c="sky"><b><span>1</span>${s1}</b><small>${s1d}</small></li>
+            <li class="lk-step" data-c="pink"><b><span>2</span>${s2}</b><small>${s2d}</small></li>
+            <li class="lk-step" data-c="mint"><b><span>3</span>Vào lại</b><small>Cùng trình duyệt: mở lại link, tab mới, tắt máy… vẫn vào được</small></li>
+        </ol>
+        <div class="lk-alerts">
+            <p class="lk-alert" data-c="peach"><i class="fas fa-circle-xmark"></i><span><b>Bị tính máy khác (bị chặn):</b> tab ẩn danh, trình duyệt khác, xóa dữ liệu duyệt web, mở trong Zalo/Messenger rồi sang ${BROWSER}${IOS ? ', Safari ↔ biểu tượng ngoài màn hình chính' : ''}.</span></p>
+            <p class="lk-alert" data-c="lilac"><i class="fas fa-rotate-left"></i><span><b>Lỡ bị chặn:</b> mở lại bằng đúng trình duyệt lần đầu; vẫn không được thì bấm <b>Gửi yêu cầu truy cập</b>.</span></p>
+        </div>`;
     $('lk-guide').classList.remove('hidden');
 }
 
@@ -282,7 +301,9 @@ async function main(err = '') {
         // Trong app: nút nhận lùi xuống thành nút phụ — nút chính là "Mở bằng Chrome" trong khung vàng
         actions: !signedIn && IN_APP
             ? `<button type="button" id="lk-claim" class="lk-btn lk-btn-ghost"><i class="fas fa-mobile-screen"></i> Vẫn mở trong ${IN_APP}</button>`
-            : `<button type="button" id="lk-claim" class="lk-btn lk-btn-main"><i class="fas fa-mobile-screen"></i> Mở trên thiết bị này</button>`
+            : `<button type="button" id="lk-claim" class="lk-btn lk-btn-main lk-btn-xl"><i class="fas fa-mobile-screen"></i>
+                   <span class="lk-btn-txt">Mở trên thiết bị này<small>${info.kind === 'folder' ? 'Xem thư mục trước — chưa tốn suất' : 'Link sẽ gắn với máy này'}</small></span></button>
+               ${signedIn ? '' : '<p class="lk-micro"><span><i class="fas fa-user-slash"></i>Không cần tài khoản</span><span><i class="fas fa-bolt"></i>Mở ngay, không cài đặt</span></p>'}`
     });
     if (!signedIn) { showInApp(info.kind); showGuide(info.kind); }
     $('lk-claim').addEventListener('click', (e) => claim(e.currentTarget, '', info.kind));
