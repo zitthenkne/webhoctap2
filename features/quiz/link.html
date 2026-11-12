@@ -116,6 +116,20 @@
         .lk-input:focus { border-color: var(--pink); box-shadow: 0 0 0 3px rgba(255, 127, 176, .2); }
         .lk-err { margin: 0; padding: 9px 12px; border-radius: 12px; background: #FFE4E4; color: #B42318; font-size: .8rem; font-weight: 700; line-height: 1.45; }
         .lk-left { margin: 0; font-size: .75rem; font-weight: 700; color: var(--soft); }
+        /* Đang mở trong app (Zalo/Messenger…): cảnh báo mở bằng trình duyệt trước khi nhận */
+        .lk-inapp { margin: 16px 0 0; padding: 13px 14px; border-radius: 16px; text-align: left; background: #FFF4D6; border: 1.5px solid #F5D68A; color: #6B4A06; }
+        .lk-inapp b { display: flex; align-items: center; gap: 7px; font-size: .9rem; color: #8A5A00; }
+        .lk-inapp p { margin: 5px 0 0; font-size: .8rem; font-weight: 600; line-height: 1.5; }
+        .lk-inapp .lk-btn { width: 100%; margin-top: 10px; }
+        .lk-inapp .lk-btn-main { background: #E2A21A; box-shadow: 0 4px 0 #B07B0C; }
+        .lk-inapp .lk-btn-main:hover { background: #D69612; }
+        .lk-inapp input { width: 100%; margin-top: 8px; height: 38px; font-size: .78rem; }
+        /* Ghi chú thiết bị: 3 dòng ✓ / ✗ / ↻ */
+        .lk-guide { margin: 16px 0 0; padding: 4px 13px; border-radius: 14px; background: #fff; box-shadow: inset 0 0 0 1.5px var(--line); text-align: left; }
+        .lk-guide div { display: flex; gap: 10px; padding: 9px 0; font-size: .78rem; font-weight: 600; line-height: 1.5; color: #7A6170; }
+        .lk-guide div + div { border-top: 1px dashed var(--line); }
+        .lk-guide i { width: 16px; margin-top: 3px; text-align: center; flex: none; }
+        .lk-guide b { color: var(--ink); }
         .lk-foot { margin-top: 18px; font-size: .72rem; font-weight: 600; color: #B39AA7; }
         .lk-foot a { color: inherit; }
         .hidden { display: none !important; }
@@ -131,7 +145,9 @@
         <p id="lk-desc" class="lk-desc"></p>
         <div id="lk-ticket" class="lk-ticket hidden"></div>
         <p id="lk-note" class="lk-note hidden"></p>
+        <div id="lk-inapp" class="lk-inapp hidden"></div>
         <div id="lk-actions" class="lk-actions"></div>
+        <div id="lk-guide" class="lk-guide hidden"></div>
         <div id="lk-request"></div>
         <p class="lk-foot">Zitthenkne · <a href="../../index.html">Trang chủ</a></p>
     </main>

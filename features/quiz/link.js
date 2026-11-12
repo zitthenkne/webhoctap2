@@ -50,6 +50,50 @@ function paint({ tone = '', icon, kicker, title, chips = [], desc = '', note = '
     $('lk-actions').innerHTML = actions;
     $('lk-request').innerHTML = '';
     $('lk-request').className = '';
+    $('lk-inapp').classList.add('hidden');
+    $('lk-guide').classList.add('hidden');
+}
+
+// Trình duyệt NHÚNG trong app (Zalo, Messenger, Facebook…) có kho dữ liệu riêng: nhận link ở đây rồi sau mở bằng Chrome/Safari
+// = 2 máy → bị chặn. Xem trước thì không sao (chưa tốn suất) — chỉ dặn đừng NHẬN / bắt đầu làm bài trong app.
+const UA = navigator.userAgent || '';
+const IN_APP = /Zalo/i.test(UA) ? 'Zalo' : /messenger/i.test(UA) ? 'Messenger' : /FBAN|FBAV|FB_IAB|FBIOS/.test(UA) ? 'Facebook'
+    : /Instagram/.test(UA) ? 'Instagram' : /TikTok|musical_ly|Bytedance/i.test(UA) ? 'TikTok' : /\bLine\//.test(UA) ? 'LINE' : '';
+const IOS = /iPhone|iPad|iPod/.test(UA) || (/Macintosh/.test(UA) && navigator.maxTouchPoints > 1);
+const ANDROID = /Android/.test(UA);
+const BROWSER = IOS ? 'Safari' : 'Chrome';
+
+/** Đang ở trong app → khung vàng: nút mở bằng Chrome (Android) / sao chép link + chỉ cách mở. */
+function showInApp(kind) {
+    if (!IN_APP) return;
+    const el = $('lk-inapp');
+    const act = kind === 'folder' ? 'bắt đầu làm bài' : 'bấm mở';
+    const chrome = `intent://${location.host}${location.pathname}${location.search}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(location.href)};end`;
+    el.innerHTML = `
+        <b><i class="fas fa-triangle-exclamation"></i> Bạn đang mở trong ${IN_APP}</b>
+        <p>Xem trước thì không sao. Nhưng nếu ${act} ở đây, link sẽ gắn với ${IN_APP} → lần sau mở bằng ${BROWSER} bị tính <b>máy khác</b> và bị chặn.</p>
+        <p><b style="display:inline">Cách mở bằng ${BROWSER}:</b> bấm <b style="display:inline">${IOS ? '⋯' : '⋮'}</b> ở góc trên → <i>Mở bằng trình duyệt</i>${ANDROID ? ', hoặc bấm nút dưới' : ', hoặc sao chép link rồi dán vào ' + BROWSER}.</p>
+        ${ANDROID ? `<a class="lk-btn lk-btn-main" href="${chrome}"><i class="fab fa-chrome"></i> Mở bằng Chrome</a>` : ''}
+        <button type="button" class="lk-btn lk-btn-ghost" id="lk-copy"><i class="fas fa-copy"></i> Sao chép link</button>`;
+    el.classList.remove('hidden');
+    $('lk-copy').addEventListener('click', async (e) => {
+        const b = e.currentTarget;
+        try { await navigator.clipboard.writeText(location.href); b.innerHTML = `<i class="fas fa-check"></i> Đã chép — dán vào ${BROWSER}`; }
+        catch (err) {   // webview chặn clipboard → hiện ô link để tự chép
+            if (!$('lk-copy-box')) b.insertAdjacentHTML('afterend', `<input id="lk-copy-box" class="lk-input" readonly value="${esc(location.href)}">`);
+            $('lk-copy-box').select();
+        }
+    });
+}
+
+/** Ghi chú 3 dòng: cái gì vẫn vào lại được / cái gì bị tính máy khác / lỡ bị chặn thì làm gì. */
+function showGuide(kind) {
+    const when = kind === 'folder' ? 'Chỉ khi bắt đầu làm bài, link mới gắn với máy.' : 'Bấm mở là link gắn với máy này.';
+    $('lk-guide').innerHTML = `
+        <div><i class="fas fa-circle-check" style="color:#15925F"></i><span>${when} Sau đó <b>mở lại link, tab mới, tắt máy mở lại</b> trên cùng trình duyệt đều vào được.</span></div>
+        <div><i class="fas fa-circle-xmark" style="color:#D14343"></i><span><b>Bị tính máy khác (bị chặn):</b> tab ẩn danh, trình duyệt khác, xóa dữ liệu duyệt web, mở trong Zalo/Messenger rồi sang ${BROWSER}${IOS ? ', Safari ↔ biểu tượng ngoài màn hình chính' : ''}.</span></div>
+        <div><i class="fas fa-rotate-left" style="color:#3B82F6"></i><span><b>Lỡ bị chặn:</b> mở lại bằng đúng trình duyệt lần đầu; vẫn không được thì bấm <b>Gửi yêu cầu truy cập</b>.</span></div>`;
+    $('lk-guide').classList.remove('hidden');
 }
 
 const HOME = `<a class="lk-btn lk-btn-ghost" href="../../index.html"><i class="fas fa-house"></i> Về trang chủ</a>`;
@@ -65,7 +109,11 @@ function showStatus(status) {
         unclaimed: ['fa-link-slash', 'Không tìm thấy link', 'Vui lòng mở lại đúng link được gửi cho bạn.']
     };
     const [icon, title, desc] = map[status] || map.missing;
-    paint({ tone: status === 'missing' || status === 'unclaimed' ? 'bad' : 'warn', icon, title, desc, actions: HOME });
+    // taken/blocked: thường do đổi trình duyệt (Zalo/Messenger → Chrome, ẩn danh…) → nói thẳng cách thử trước khi xin quyền
+    const note = ['taken', 'blocked'].includes(status)
+        ? `Nếu đây là máy của bạn: thường do mở bằng <b>trình duyệt khác lần đầu</b> (Zalo/Messenger, Chrome, Safari, tab ẩn danh). Thử mở link bằng đúng trình duyệt đó.`
+        : '';
+    paint({ tone: status === 'missing' || status === 'unclaimed' ? 'bad' : 'warn', icon, title, desc, note, actions: HOME });
     // Mọi trường hợp bị chặn mà link còn đó → cho gửi yêu cầu truy cập (máy chủ biết link trỏ tới đâu)
     if (['taken', 'blocked', 'revoked', 'expired'].includes(status)) mountAccessRequest($('lk-request'), { token });
 }
@@ -194,7 +242,7 @@ async function main(err = '') {
     const seenNote = info.viewers
         ? `<b>Lưu ý:</b> link này đã từng được mở xem trên ${info.viewers > 1 ? `${info.viewers} thiết bị khác` : 'một thiết bị khác'} nhưng chưa làm bài, nên <b>chưa mất suất nào</b> (còn ${Math.max(0, uses - (info.used || 0))}/${uses} suất).`
         : '';
-    const TIP = seenNote || 'Nên mở bằng trình duyệt thường dùng (không dùng chế độ ẩn danh) để lần sau truy cập lại trực tiếp.';
+    const signedIn = !!u && !u.isAnonymous;   // đã đăng nhập thật → link gắn với tài khoản, không theo trình duyệt
     const UNLIMITED = { icon: 'fa-rotate-right', b: 'Không giới hạn', s: 'Số lần làm bài' };
     if (info.group) {
         paint({
@@ -208,8 +256,9 @@ async function main(err = '') {
                 { icon: 'fa-mobile-screen', b: '1 thiết bị / người', s: 'Giới hạn truy cập' },
                 UNLIMITED
             ],
-            note: TIP
+            note: seenNote
         });
+        if (!u || u.isAnonymous) { showInApp(info.kind); showGuide(info.kind); }
         return groupPicker(info, err);
     }
     paint({
@@ -227,11 +276,15 @@ async function main(err = '') {
             { icon: 'fa-mobile-screen', b: `${uses} thiết bị`, s: 'Giới hạn truy cập' },
             UNLIMITED
         ],
-        note: seenNote || (u && !u.isAnonymous
+        note: seenNote || (signedIn
             ? `Bạn đang đăng nhập <b>${esc(u.email || u.displayName || 'tài khoản')}</b> — link sẽ được gắn với tài khoản này.`
-            : TIP),
-        actions: `<button type="button" id="lk-claim" class="lk-btn lk-btn-main"><i class="fas fa-mobile-screen"></i> Mở trên thiết bị này</button>`
+            : ''),
+        // Trong app: nút nhận lùi xuống thành nút phụ — nút chính là "Mở bằng Chrome" trong khung vàng
+        actions: !signedIn && IN_APP
+            ? `<button type="button" id="lk-claim" class="lk-btn lk-btn-ghost"><i class="fas fa-mobile-screen"></i> Vẫn mở trong ${IN_APP}</button>`
+            : `<button type="button" id="lk-claim" class="lk-btn lk-btn-main"><i class="fas fa-mobile-screen"></i> Mở trên thiết bị này</button>`
     });
+    if (!signedIn) { showInApp(info.kind); showGuide(info.kind); }
     $('lk-claim').addEventListener('click', (e) => claim(e.currentTarget, '', info.kind));
 }
 
