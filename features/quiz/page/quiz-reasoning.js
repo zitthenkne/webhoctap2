@@ -358,7 +358,9 @@ export function revealReasoning(q) {
     wire();
     if (reasonPrefs.marks()) markCues(rs);
     // nạp lười: quiz-annotations đụng DOM lúc nạp (test Node); trang làm bài đã nạp sẵn nên không tốn mạng
-    if (sec.querySelector('.qr-tip')) import('./quiz-annotations.js').then(m => m.relayNoteLines(0));
+    // Chỉ vẽ khi còn gợi ý CHƯA có hàng (data-an): chỗ gọi nào chạy applyAnnotationsAll ngay sau thì nó đã vẽ rồi — không được
+    // gọi relayNoteLines(0) ở đây: nó hủy lượt xếp lại sau 350ms của applyAnnotationsAll (đợi thẻ câu trượt vào xong) -> mũi tên lệch.
+    if (sec.querySelector('.qr-tip')) import('./quiz-annotations.js').then(m => { if (sec.querySelector('.qr-tip:not([data-an])')) m.applyAnnotationsAll(); });
     applySteps(area);
     watchWires(area);
     if (!seen.has(cur.key)) {

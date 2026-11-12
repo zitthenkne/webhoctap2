@@ -927,7 +927,7 @@ function drawNoteLinks(band) {
 }
 // Bố cục đổi (xoay máy, kéo khung, phông Quicksand tải xong, dấu quét dữ kiện chèn vào đề) -> dòng xuống chỗ khác -> vẽ lại hàng
 let _relayT = 0;
-export function relayNoteLines(delay = 120) {
+function relayNoteLines(delay = 120) {
     clearTimeout(_relayT);
     _relayT = setTimeout(() => {
         const sec = document.getElementById('quizSection');
@@ -1753,6 +1753,10 @@ export function setupAnnotations() {
         let w0 = 0;
         new ResizeObserver(([en]) => { const w = Math.round(en.contentRect.width); if (w !== w0) { w0 = w; relayNoteLines(); } }).observe(secEl);
     }
+    // Khối CHỨA ghi chú (thẻ câu trượt vào khi chuyển câu, ô đáp án nảy…) vừa chạy xong hiệu ứng: lúc đang chạy thì toạ độ đo bị
+    // transform làm lệch -> mũi tên / hàng đặt sai chỗ. Xong hiệu ứng thì xếp lại theo vị trí thật. (Hiệu ứng của chính cụm từ /
+    // hàng ghi chú không chứa dải nào nên không lọt vào đây.)
+    if (secEl) secEl.addEventListener('animationend', (e) => { if (e.target.querySelector && e.target.querySelector('.an-band')) relayNoteLines(0); });
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => relayNoteLines(0));
     // phông viết tay chỉ được tải khi hàng ghi chú đầu tiên xuất hiện -> đo lại bề rộng chữ khi nó tải xong
     if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', () => relayNoteLines(0));
