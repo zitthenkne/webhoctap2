@@ -95,6 +95,7 @@ const CSS = `
 .sa-dot{min-width:17px;height:17px;padding:0 5px;border-radius:999px;background:var(--sa-bad);color:#fff;font-size:10px;line-height:17px;font-style:normal;animation:sa-pop .3s ease}
 .sa-dot.hidden{display:none}
 @keyframes sa-pop{from{transform:scale(.4)}to{transform:scale(1)}}
+@keyframes sa-in{from{opacity:0;transform:translateY(4px)}}
 .sa-person:first-child{background:#fdf6f9}
 .sa-person:first-child .sa-owner{padding:2px 8px;border-radius:999px;background:#fff;box-shadow:inset 0 0 0 1.5px var(--sa-line)}
 .sa-badge{margin-left:auto;padding:1px 8px;border-radius:999px;background:var(--sa-soft);color:var(--sa-pink-d);font-size:11px;font-weight:800}
@@ -230,7 +231,7 @@ button.sa-icon{border:0;background:transparent;cursor:pointer;padding:0}
 .sa-hist li.is-revoked::before{border-color:var(--sa-bad)}
 .sa-hist .sa-sub{white-space:normal}
 /* Chi tiết link: các khối nền hồng nhạt — Thành viên · Kết quả làm bài · Chỉnh sửa (gập) */
-.sa-detail{display:flex;flex-direction:column;gap:10px;animation:sa-pop .2s ease}
+.sa-detail{display:flex;flex-direction:column;gap:10px;animation:sa-in .2s ease}
 .sa-detail .sa-mini{margin:0}
 .sa-sec{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:15px;background:#fcf8fa}
 .sa-sec h5{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:0;font-size:12px;font-weight:800;color:var(--sa-ink)}
@@ -337,6 +338,42 @@ button.sa-icon{border:0;background:transparent;cursor:pointer;padding:0}
 /* Yêu cầu truy cập = giấy note vàng dán băng keo */
 .sa-req-card{position:relative;background-color:#FFF8DC;background-image:linear-gradient(rgba(215,170,60,.14) 1px,transparent 1px);background-size:100% 22px;border:1.5px solid #F2DFA6;box-shadow:0 3px 0 #F2DFA6;rotate:-.6deg;margin-top:6px}
 .sa-req-card::before{content:'';position:absolute;top:-9px;left:50%;width:56px;height:17px;translate:-50% 0;rotate:-3deg;background-color:color-mix(in srgb,#F6DD92 90%,transparent);background-image:var(--stripes);-webkit-mask:var(--tape-mask);mask:var(--tape-mask)}
+/* Mã QR từng link: ảnh polaroid dán băng keo + nút Phóng to / Tải ảnh; màn phóng to nằm ngoài .sa (gắn vào body) */
+.sa-acts .sa-qr-btn{flex:none;width:38px;padding:0}
+.sa-acts .sa-qr-btn.is-on{background:var(--sa-pink);color:#fff;border-color:var(--sa-pink);box-shadow:0 2px 0 var(--sa-pink-d)}
+.sa-qr{display:flex;align-items:center;flex-wrap:wrap;gap:14px;padding:14px 12px 10px;border-radius:14px;background:#FFF8FB;border:1.5px dashed #F4D6E1;animation:sa-in .2s ease}
+.sa-qr-full{--sa-pink:#ff69b4;--sa-pink-d:#e0559f;--tape-mask:conic-gradient(from 45deg at left,#000 90deg,#0000 0) left/51% 6px repeat-y,conic-gradient(from 225deg at right,#000 90deg,#0000 0) right/51% 6px repeat-y;
+  --stripes:repeating-linear-gradient(45deg,rgba(255,255,255,.45) 0 4px,transparent 4px 8px)}
+.sa-polaroid{position:relative;flex:none;width:150px;margin:0;padding:8px 8px 6px;border-radius:4px;background:#fff;box-shadow:0 2px 0 #F1DCE5,0 12px 20px -12px rgba(120,60,90,.55);rotate:-2deg}
+.sa-polaroid::before{content:'';position:absolute;top:-9px;left:50%;width:56px;height:17px;translate:-50% 0;rotate:3deg;background-color:color-mix(in srgb,#F7B2CB 85%,transparent);background-image:var(--stripes);-webkit-mask:var(--tape-mask);mask:var(--tape-mask)}
+.sa-qr-img{width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:11px;color:#9b8a93;text-align:center}
+.sa-qr-img svg{display:block;width:100%;height:100%}
+.sa-polaroid figcaption{margin-top:5px;font-size:12.5px;font-weight:800;color:#6E3A55;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sa-polaroid figcaption small{display:block;margin-top:4px;font-size:13px;font-weight:600;color:#A07086}
+.sa-qr-side{flex:1;min-width:150px;display:flex;flex-direction:column;gap:7px}
+.sa-qr-side p{margin:0;font-size:11.5px;line-height:1.45;color:#6f5a64}
+.sa-qr-side .sa-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:999px;text-decoration:none}
+.sa-qr-full{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:20px;background:rgba(60,25,42,.62);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);animation:sa-in .2s ease}
+.sa-polaroid.is-big{width:min(80vw,64vh,520px);padding:16px 16px 12px;rotate:-1.5deg}
+.sa-polaroid.is-big::before{width:110px;height:30px;top:-15px}
+.sa-polaroid.is-big figcaption{margin-top:10px;font-size:24px}
+.sa-qr-full .sa-btn{height:44px;padding:0 28px;font-size:14px;border-radius:999px}
+/* Ghi chú tab Link riêng: dòng chế độ hiện tại (xanh = Hạn chế, vàng = Ai có link) + mục gập giải thích */
+.sa-once-info{display:flex;flex-direction:column;gap:8px;min-width:0}
+.sa-modebar{display:flex;align-items:flex-start;flex-wrap:wrap;gap:8px;margin:0;padding:9px 11px;border-radius:12px;font-size:11.5px;line-height:1.5}
+.sa-modebar > i{margin-top:3px}
+.sa-modebar > span{flex:1;min-width:180px}
+.sa-modebar.is-ok{background:#EAF8F0;color:#24704b;border:1.5px dashed #BFE5CD}
+.sa-modebar.is-warn{background:#FFF6DC;color:#7a5b12;border:1.5px dashed #F2D58A}
+.sa-modebar button{margin-left:auto;align-self:center;padding:5px 11px;border:0;border-radius:999px;background:#fff;color:#946200;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 0 #F2D58A}
+.sa-help{border-radius:12px;background:#fff;border:1.5px dashed #F2CFDC}
+.sa-help > summary{display:flex;align-items:center;gap:7px;padding:8px 11px;font-size:11.5px;font-weight:800;color:#6f5a64;cursor:pointer;list-style:none}
+.sa-help > summary::-webkit-details-marker{display:none}
+.sa-help > summary::after{content:'▾';margin-left:auto;color:#C99BB0;transition:transform .15s}
+.sa-help[open] > summary::after{transform:rotate(180deg)}
+.sa-help > summary i{color:var(--sa-pink-d)}
+.sa-help ul{margin:0;padding:0 12px 10px 28px;display:flex;flex-direction:column;gap:5px;font-size:11.5px;line-height:1.5;color:#6f5a64}
+.sa-help b{color:var(--sa-ink)}
 /* Tab Mọi người / Cài đặt: các ô = giấy trắng viền may */
 .sa-general,.sa-switch-row{background:#fff;border:1.5px dashed #F2C3D4;box-shadow:0 2px 0 #F8DDE7}
 .sa-person:first-child{background:#FFF1F6}
@@ -346,7 +383,7 @@ button.sa-icon{border:0;background:transparent;cursor:pointer;padding:0}
   #shareQuizModal > div:has(.sa[data-tab="links"]){max-width:min(940px,calc(100vw - 64px))!important}
   #shareQuizModal > div{transition:max-width .25s ease}
   .sa[data-tab="links"] .sa-once:not(.hidden){display:grid;grid-template-columns:minmax(0,350px) minmax(0,1fr);gap:14px 18px;align-items:start}
-  .sa[data-tab="links"] #sa-once-stats{grid-column:1/-1}
+  .sa[data-tab="links"] #sa-once-stats,.sa[data-tab="links"] .sa-once-info{grid-column:1/-1}
   .sa[data-tab="links"] .sa-once-side{position:sticky;top:56px}
   .sa[data-tab="links"] .sa-stats div{grid-template-columns:auto auto 1fr}
   .sa[data-tab="links"] .sa-stats small{grid-column:auto;margin:0}
@@ -443,6 +480,13 @@ function build(section) {
         <div class="sa-pane" data-pane="links" hidden>
         <div id="sa-once" class="sa-once hidden">
             <div id="sa-once-stats" class="sa-stats"></div>
+            <div class="sa-once-info">
+                <p id="sa-once-mode" class="sa-modebar"></p>
+                <details class="sa-help">
+                    <summary><i class="fas fa-circle-info"></i> Cách link riêng hoạt động</summary>
+                    <ul id="sa-help-list"></ul>
+                </details>
+            </div>
             <div class="sa-once-side">
             <div id="sa-req-box" class="hidden">
                 <p class="sa-h" style="margin-bottom:8px"><i class="fas fa-hand"></i> Yêu cầu truy cập <span id="sa-req-count" class="sa-badge"></span></p>
@@ -535,10 +579,12 @@ function render() {
         icon.innerHTML = `<i class="fas ${general === 'public' ? 'fa-share-nodes' : 'fa-lock'}"></i>`;
     }
     const desc = document.getElementById('share-general-desc');
-    if (desc) desc.textContent = general === 'public'
+    // Link riêng (tab Link riêng) chạy độc lập với chế độ này — ghi rõ để khỏi tưởng "Hạn chế" là chặn cả link riêng
+    const linkNote = t.oneTime ? (general === 'public' ? ' Lúc này không cần link riêng.' : ' Người có link riêng vẫn vào được.') : '';
+    if (desc) desc.textContent = (general === 'public'
         ? 'Ai có đường liên kết đều xem và làm bài được, không cần tài khoản (khách lưu kết quả trên máy của họ).'
         : general === 'mixed' ? 'Các bộ đề đã chọn đang khác nhau — chọn một chế độ để áp cho tất cả.'
-        : 'Chỉ những người trong danh sách trên mở được — đăng nhập Google đúng email, tối đa 2 máy.';
+        : 'Chỉ những người trong danh sách trên mở được — đăng nhập Google đúng email, tối đa 2 máy.') + (general === 'mixed' ? '' : linkNote);
 
     // Hạn link công khai (publicUntil — luật Firestore so với giờ máy chủ)
     document.getElementById('share-expiry-row')?.classList.toggle('hidden', general !== 'public');
@@ -710,14 +756,12 @@ function renderPreview() {
     document.querySelector('#sa-once [data-tags="names"]')?.classList.toggle('hidden', onceGroup);
     document.querySelector('#sa-once [data-tags="members"]')?.classList.toggle('hidden', !onceGroup);
     const md = document.getElementById('sa-once-mode-desc');
-    if (md) md.textContent = onceGroup
-        ? 'Một link chung cho cả nhóm. Người mở chọn / gõ tên mình, mỗi tên một máy. Mỗi máy chiếm 1 suất và làm bài bao nhiêu lần cũng được.'
-        : 'Không cần tài khoản: mỗi máy mở link chiếm 1 suất. Hết suất thì máy khác chỉ gửi được yêu cầu truy cập.';
+    if (md) md.textContent = onceGroup ? 'Một link cho cả nhóm, mỗi người chọn tên mình.' : 'Mỗi người một link, mỗi máy 1 suất.';
     const members = onceGroup ? tagsOf('members') : [];
     const hint = document.getElementById('sa-tags-hint');
     if (hint) hint.textContent = onceGroup
-        ? (members.length ? `${members.length} thành viên — người mở chọn đúng tên mình.` : 'Bỏ trống danh sách thì người mở tự gõ tên.')
-        : names.length > 1 ? `Sẽ tạo ${names.length} link riêng, mỗi người một link — sao chép cả danh sách một lượt.` : 'Gõ dấu phẩy để thêm người — mỗi người một link riêng.';
+        ? (members.length ? `${members.length} thành viên.` : 'Bỏ trống thì người mở tự gõ tên.')
+        : names.length > 1 ? `Tạo ${names.length} link, sao chép cả danh sách.` : 'Gõ dấu phẩy để thêm người.';
     const btn = document.getElementById('sa-once-create');
     if (btn && !btn.disabled) btn.innerHTML = `<i class="fas fa-copy"></i> ${names.length > 1 ? `Tạo ${names.length} link &amp; sao chép` : 'Tạo link &amp; sao chép'}`;
 }
@@ -793,6 +837,49 @@ const ONCE_STATE = {
     full: ['#7c5ce0', '#efe9ff', 'fa-lock', 'Đã đủ máy'], expired: ['#9b8a93', '#f1ebee', 'fa-clock', 'Hết hạn']
 };
 const editRows = new Set();          // link đang mở khối "Chỉnh sửa link"
+// MÃ QR từng link (core/qr.js — tạo trên máy, không gửi link ra ngoài; mỗi link một bảng màu). qrCache: token → { svg, png } để vẽ lại không nháy.
+const qrRows = new Set();
+const qrCache = new Map();
+const qrMod = () => import('../../core/qr.js');
+const qrCaption = (l) => l ? `${l.group ? 'Nhóm' : 'Gửi'} ${l.name || (l.group ? 'chưa đặt tên' : 'bạn')}` : '';
+async function qrOf(token) {
+    if (!qrCache.has(token)) {
+        const m = await qrMod();
+        const url = onceUrl(token);
+        const [svg, png] = await Promise.all([m.qrSvg(url, { seed: token }), m.qrPng(url, { seed: token })]);
+        qrCache.set(token, { svg, png });
+    }
+    return qrCache.get(token);
+}
+/** Điền mã vào các khung QR đang hiện (sau mỗi lần vẽ lại danh sách). */
+function fillQrs() {
+    document.querySelectorAll('#sa-once [data-qr-box]').forEach(async (box) => {
+        const token = box.dataset.qrBox;
+        if (box.dataset.done) return;
+        try {
+            const q = await qrOf(token);
+            box.innerHTML = q.svg; box.dataset.done = '1';
+            const dl = box.closest('.sa-qr')?.querySelector('[data-qr-dl]');
+            if (dl) dl.href = q.png;
+        } catch (e) { box.innerHTML = '<span>Không tạo được mã QR — kiểm tra mạng.</span>'; }
+    });
+}
+/** Phóng to toàn màn hình — chiếu lên cho cả lớp quét. Bấm nền / Esc / nút Đóng để tắt. */
+async function showQrFull(token) {
+    const l = once.links.find(x => x.token === token);
+    let q;
+    try { q = await qrOf(token); } catch (e) { return showToast('Không tạo được mã QR — kiểm tra mạng.', 'error'); }
+    const ov = document.createElement('div');
+    ov.className = 'sa-qr-full';
+    ov.innerHTML = `<figure class="sa-polaroid is-big"><div class="sa-qr-img">${q.svg}</div>
+        <figcaption>${esc(qrCaption(l))}<small>Quét bằng camera điện thoại · mỗi máy 1 suất</small></figcaption></figure>
+        <button type="button" class="sa-btn">Đóng</button>`;
+    const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    ov.addEventListener('click', (e) => { if (e.target === ov || e.target.closest('button')) close(); });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(ov);
+}
 
 function linkRow(l) {
     const st = onceState(l), used = linkUsed(l), claims = l.claims || [];
@@ -846,6 +933,19 @@ function linkRow(l) {
                     <div class="sa-chips">${ONCE_HOURS.map(([h, t]) => `<button type="button" data-extend="${esc(l.token)}" data-h="${h}">${t}</button>`).join('')}</div></div>
             </section>` : ''}`;
     const detail = !open ? '' : `<div class="sa-detail">${roster}${results}${edit}</div>`;
+    // Mã QR: ảnh polaroid dán băng keo + Phóng to / Tải ảnh
+    const qrOpen = live && qrRows.has(l.token);
+    const cached = qrCache.get(l.token);
+    const qr = !qrOpen ? '' : `
+            <div class="sa-qr">
+                <figure class="sa-polaroid"><div class="sa-qr-img" data-qr-box="${esc(l.token)}"${cached ? ' data-done="1"' : ''}>${cached ? cached.svg : '<span>Đang tạo mã…</span>'}</div>
+                    <figcaption>${esc(qrCaption(l))}</figcaption></figure>
+                <div class="sa-qr-side">
+                    <p>Quét bằng camera điện thoại để mở. ${l.group ? 'Chiếu lên màn hình cho cả nhóm quét.' : 'Mỗi máy quét = 1 suất.'}</p>
+                    <button type="button" class="sa-btn sa-btn-sm" data-qr-full="${esc(l.token)}"><i class="fas fa-expand"></i> Phóng to</button>
+                    <a class="sa-btn sa-btn-sm sa-btn-ghost" data-qr-dl="${esc(l.token)}" ${cached ? `href="${cached.png}"` : ''} download="ma-qr-${esc((l.name || 'link').replace(/[^\p{L}\p{N}]+/gu, '-'))}.png"><i class="fas fa-download"></i> Tải ảnh</a>
+                </div>
+            </div>`;
     const icon = l.group && (st === 'free' || st === 'used') ? 'fa-users' : S[2];
     return `
         <li class="sa-card is-${st}${open ? ' is-open' : ''}" style="--st:${S[0]};--stb:${S[1]}">
@@ -859,10 +959,11 @@ function linkRow(l) {
                 <span class="sa-sum-bar"><u style="width:${Math.round(nDone / used * 100)}%"></u></span>
                 <span>${nDone}/${used} đã làm bài</span>${nSubmit ? `<small>${nSubmit} lượt nộp</small>` : ''}</div>` : ''}
             <div class="sa-acts">
-                ${live ? `<button type="button" class="sa-btn sa-btn-sm" data-once-copy="${esc(l.token)}"><i class="fas fa-copy"></i> Sao chép</button>` : ''}
+                ${live ? `<button type="button" class="sa-btn sa-btn-sm" data-once-copy="${esc(l.token)}"><i class="fas fa-copy"></i> Sao chép</button>
+                <button type="button" class="sa-btn sa-btn-sm sa-btn-ghost sa-qr-btn${qrOpen ? ' is-on' : ''}" data-once-qr="${esc(l.token)}" title="Mã QR" aria-label="Mã QR" aria-expanded="${qrOpen}"><i class="fas fa-qrcode"></i></button>` : ''}
                 <button type="button" class="sa-btn sa-btn-sm sa-btn-ghost" data-once-edit="${esc(l.token)}" aria-expanded="${open}"><i class="fas ${open ? 'fa-chevron-up' : 'fa-chart-pie'}"></i> ${open ? 'Thu gọn' : 'Chi tiết'}</button>
                 ${live ? `<button type="button" class="sa-btn sa-btn-sm sa-btn-ghost sa-btn-danger" data-once-revoke="${esc(l.token)}"><i class="fas fa-xmark"></i> Thu hồi</button>` : ''}
-            </div>${detail}
+            </div>${qr}${detail}
         </li>`;
 }
 
@@ -899,6 +1000,30 @@ function histRow(h) {
         </li>`;
 }
 
+// Ghi chú trong tab Link riêng: link riêng chạy ĐỘC LẬP với "Quyền truy cập chung" (firestore.rules linkGranted) —
+// dòng trạng thái theo chế độ hiện tại + mục gập giải thích các trường hợp.
+function renderOnceInfo() {
+    const v = current?.view?.() || {};
+    const isFolder = current?.oneTime?.kind === 'folder';
+    const what = isFolder ? 'thư mục' : 'bộ đề';
+    const mode = document.getElementById('sa-once-mode');
+    if (mode) {
+        const pub = v.isPublic === true && !v.mixed;
+        mode.className = 'sa-modebar ' + (pub ? 'is-warn' : 'is-ok');
+        mode.innerHTML = pub
+            ? `<i class="fas fa-share-nodes"></i><span><b>Ai có link:</b> ai cầm link thường cũng vào được.</span><button type="button" data-tab-go="people">Chuyển Hạn chế</button>`
+            : `<i class="fas fa-lock"></i><span><b>Hạn chế:</b> chỉ người có link riêng hoặc được thêm email mới vào được.</span>`;
+    }
+    const list = document.getElementById('sa-help-list');
+    if (list) list.innerHTML = [
+        'Mỗi máy mở link = <b>1 suất</b>. Làm bài không giới hạn.',
+        'Đổi Hạn chế / Ai có link không ảnh hưởng link riêng.',
+        'Hết hạn, thu hồi, gỡ máy → <b>mất quyền ngay</b>.',
+        'Bảng kết quả chỉ tính người mở bằng link riêng.',
+        isFolder ? `Mở được cả thư mục con và đề thêm sau.` : ''
+    ].filter(Boolean).map(t => `<li>${t}</li>`).join('');
+}
+
 function renderOnce() {
     const box = document.getElementById('sa-once');
     if (!box) return;
@@ -915,6 +1040,7 @@ function renderOnce() {
     });
     renderPreview();
     writeOnceCache();
+    renderOnceInfo();
     const liveLinks = once.links.filter(l => onceState(l) !== 'expired');
     const live = liveLinks.length;
     const count = document.getElementById('sa-once-count');
@@ -944,6 +1070,7 @@ function renderOnce() {
         return;
     }
     list.innerHTML = once.links.map(linkRow).join('') + hist;
+    fillQrs();
 }
 
 async function copyText(text) {
@@ -1004,7 +1131,10 @@ function bindOnceBlock(section) {
         if (d.onceHours !== undefined) { onceHours = Number(d.onceHours) || 0; return renderOnce(); }
         if (d.onceUses !== undefined) { onceUses = Math.min(ONCE_MAX_USES, Math.max(1, onceUses + Number(d.onceUses))); return renderPreview(); }
         if (d.histToggle !== undefined) { historyOpen = !historyOpen; return renderOnce(); }
+        if (d.tabGo) { section.querySelector(`.sa-tabs [data-tab="${d.tabGo}"]`)?.click(); return; }
         if (d.resview) { d.v === 'quiz' ? resByQuiz.add(d.resview) : resByQuiz.delete(d.resview); return renderOnce(); }
+        if (d.onceQr) { qrRows.has(d.onceQr) ? qrRows.delete(d.onceQr) : qrRows.add(d.onceQr); return renderOnce(); }
+        if (d.qrFull) return showQrFull(d.qrFull);
         if (d.editToggle) { editRows.has(d.editToggle) ? editRows.delete(d.editToggle) : editRows.add(d.editToggle); return renderOnce(); }
         if (d.untag) { tags[d.untag].splice(Number(d.i), 1); return renderTags(d.untag); }
         if (d.onceMode) {

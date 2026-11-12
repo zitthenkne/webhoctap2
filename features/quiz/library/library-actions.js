@@ -942,11 +942,7 @@ export function openShareQuizModal(quizId, quizTitle) {
     linkInput.value = quizUrl;
     embedInput.value = `<iframe src="${quizUrl}" width="100%" height="600px" style="border:none; border-radius:12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);"></iframe>`;
 
-    // Tạo và hiển thị mã QR động
-    const qrImg = document.getElementById('share-qr-img');
-    if (qrImg) {
-        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(quizUrl)}`;
-    }
+    showLocalQr(quizUrl);
 
     bindQuickShareButtons(quizUrl, quizTitle, `Hãy cùng làm bài kiểm tra "${quizTitle}" trên Zitthenkne nhé!`);
     showShareAccess(quizShareTarget(quizId));
@@ -1016,6 +1012,18 @@ function bulkShareTarget(ids) {
         title: `${ids.length} bộ đề`,
         link: new URL('features/quiz/folder.html?shared=me', window.location.origin).href
     };
+}
+
+// Mã QR của link chung: tạo ngay trên máy (core/qr.js) thay cho api.qrserver.com — không gửi link ra dịch vụ ngoài.
+// Mở hộp của mục khác trước khi kịp tạo xong → bỏ kết quả cũ.
+function showLocalQr(url) {
+    const img = document.getElementById('share-qr-img');
+    if (!img) return;
+    img.removeAttribute('src');
+    img.dataset.for = url;
+    import('../../../core/qr.js').then(m => m.qrSvgUrl(url))
+        .then(src => { if (img.dataset.for === url) img.src = src; })
+        .catch(() => {});
 }
 
 export function closeShareQuizModal() {
@@ -1165,8 +1173,7 @@ export async function openShareFolderModal(folderId, folderName) {
     linkInput.value = url;
     if (embedSection) embedSection.classList.add('hidden'); // nhúng iframe chỉ hợp với bộ đề
 
-    const qrImg = document.getElementById('share-qr-img');
-    if (qrImg) qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(url)}`;
+    showLocalQr(url);
 
     bindQuickShareButtons(url, folderName, `Mình chia sẻ thư mục đề "${folderName}" trên Zitthenkne nhé!`);
     showShareAccess(folderShareTarget(folderId));

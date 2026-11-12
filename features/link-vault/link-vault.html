@@ -2121,7 +2121,8 @@
             const qrBtn = quickBody.querySelector('[data-qv-qr]');
             if (qrBtn) qrBtn.addEventListener('click', () => {
                 const box = quickBody.querySelector('#qv-qr-box'), img = box.querySelector('img');
-                if (!img.getAttribute('src')) img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=8&data=' + encodeURIComponent(l.url || '');
+                // Mã QR tạo ngay trên máy (core/qr.js) — không gửi link tài liệu ra dịch vụ ngoài
+                if (!img.getAttribute('src')) import('../../core/qr.js').then(m => m.qrSvgUrl(l.url || '', { seed: l.id })).then(src => { img.src = src; }).catch(() => {});
                 box.classList.toggle('hidden');
                 if (!box.classList.contains('hidden')) box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
             });

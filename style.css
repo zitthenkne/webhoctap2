@@ -618,20 +618,20 @@ body {
     transition-duration: 0.08s;
 }
 
-/* Icon = sticker bế viền trắng, nền màu gốc của thư mục */
+/* Icon = sticker TRÒN bế viền trắng, nền pastel, biểu tượng màu thư mục (mềm hơn ô vuông màu đặc) */
 .folder-icon-wrapper {
     width: 2.55rem;
     height: 2.55rem;
-    border-radius: 12px;
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1.08rem;
     flex-shrink: 0;
-    background: var(--fc, #f59e0b);
-    color: #fff;
+    background: color-mix(in srgb, var(--fc, #f59e0b) 20%, #ffffff);
+    color: color-mix(in srgb, var(--fc, #f59e0b) 85%, #2a1520);
     box-shadow: 0 0 0 2.5px #fff,
-                0 4px 9px -3px color-mix(in srgb, var(--fc, #f59e0b) 65%, #4a2233);
+                0 4px 10px -4px color-mix(in srgb, var(--fc, #f59e0b) 60%, #4a2233);
     rotate: -4deg;
     transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), rotate 0.28s ease;
 }
@@ -734,6 +734,92 @@ body {
 .folders-scroll-container.folders-custom-cols .folder-mini-card {
     width: auto !important;
     flex: none !important;
+}
+
+/* Điện thoại (<768px, chế độ lưới/cuộn ngang — KHÔNG áp cho dạng danh sách):
+   thẻ hẹp nên icon đứng cạnh tên làm tên bị cắt cụt → xếp DỌC: icon sticker dán đè mép túi,
+   tên chiếm trọn bề ngang (2 dòng), số liệu bên dưới. Thẻ gọn hơn → cuộn ngang thấy ~2,3 thẻ,
+   chọn 2–3 cột cũng không vỡ. */
+@media (max-width: 767px) {
+    /* Bỏ cuộn ngang (nhiều thư mục là vuốt mãi không hết) → lưới tự co (2 cột ở điện thoại thường,
+       3 cột ở máy ngang/lớn), JS chia trang 6 thư mục/trang (foldersPerPage trong library-render.js) */
+    .folders-scroll-container:not(.is-folder-list) {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+        gap: 1.4rem 1rem; /* thoáng: khe hàng đủ chỗ cho tai hồ sơ, không dính thẻ phía trên */
+        overflow: visible;
+        scroll-snap-type: none !important;
+        padding-inline: 2px;
+    }
+    .folders-scroll-container:not(.is-folder-list) .folder-mini-card {
+        width: auto;
+        margin-top: 1.15rem;
+    }
+    /* Bản "dễ thương" cho điện thoại: màu pastel nhạt hơn, viền mảnh, bo tròn hơn, BỎ 2 lớp giấy xếp chồng
+       phía sau + đường may nét đứt (nhiều nét quá nhìn ngộp); độ đầy đã có tai "N bộ đề" + xấp giấy. */
+    :is(.folders-scroll-container:not(.is-folder-list), .folder-open-scene) .folder-mini-card {
+        container-type: inline-size; /* để xấp giấy tự gọn lại khi chọn 3+ cột (xem @container bên dưới) */
+        --fd-bw: 1.5px;
+        --fd-back: color-mix(in srgb, var(--fc) 20%, #fffaf7);
+        --fd-front: color-mix(in srgb, var(--fc) 6%, #fffefc);
+        --fd-edge: color-mix(in srgb, var(--fc) 30%, #ffffff);
+        --fd-rim: 0 0 0 var(--fd-bw) var(--fd-edge);
+        --fd-stack: 0 0 0 0 transparent;
+        padding-top: 2.2rem;
+        border-radius: 0 20px 20px 20px;
+        box-shadow: var(--fd-rim), 0 10px 22px -14px color-mix(in srgb, var(--fc) 55%, #5a2a40);
+    }
+    :is(.folders-scroll-container:not(.is-folder-list), .folder-open-scene) .folder-mini-card[data-fill="0"] {
+        --fd-back: color-mix(in srgb, var(--fc) 11%, #fffaf7);
+        --fd-edge: color-mix(in srgb, var(--fc) 22%, #ffffff);
+    }
+    :is(.folders-scroll-container:not(.is-folder-list), .folder-open-scene) .folder-mini-card::after {
+        min-width: 4rem;
+        height: calc(1.3rem + 2px);
+        padding: 0 1rem 0 0.75rem;
+        border-radius: 12px 22px 0 0 / 12px 1.3rem 0 0;
+        font-size: 0.62rem;
+        line-height: 1.3rem;
+    }
+    :is(.folders-scroll-container:not(.is-folder-list), .folder-open-scene) .folder-mini-card-content::before { display: none; }
+    :is(.folders-scroll-container:not(.is-folder-list), .folder-open-scene) .folder-mini-card.is-pinned::after { padding-left: 1.2rem; }
+    :is(.folders-scroll-container:not(.is-folder-list), .folder-open-scene) .folder-pin-badge { top: -1.45rem; font-size: 0.82rem; }
+    :is(.folders-scroll-container:not(.is-folder-list), .folder-open-scene) .fd-papers {
+        top: 0.3rem;
+        height: 2.6rem;
+        left: 2.6rem;   /* chừa góc trái cho icon dán đè */
+        right: 2.1rem;
+    }
+    :is(.folders-scroll-container:not(.is-folder-list), .folder-open-scene) .folder-mini-card-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.45rem;
+        min-height: 0;
+        padding: 0.7rem 0.8rem 0.8rem;
+        border-radius: 16px 16px 20px 20px;
+        box-shadow: 0 0 0 var(--fd-bw) var(--fd-edge),
+                    0 -4px 10px -8px color-mix(in srgb, var(--fc) 45%, #5a2a40);
+    }
+    :is(.folders-scroll-container:not(.is-folder-list), .folder-open-scene) .folder-mini-card-content > .min-w-0 { align-self: stretch; }
+    :is(.folders-scroll-container:not(.is-folder-list), .folder-open-scene) .folder-mini-card-content::after {
+        left: 2.85rem;
+        width: 2.2rem;
+        top: -0.45rem;
+    }
+    :is(.folders-scroll-container:not(.is-folder-list), .folder-open-scene) .folder-icon-wrapper {
+        width: 2.3rem;
+        height: 2.3rem;
+        margin-top: -1.65rem; /* nhô lên khỏi mép túi như sticker dán */
+        font-size: 0.95rem;
+    }
+    :is(.folders-scroll-container:not(.is-folder-list), .folder-open-scene) .fd-name { font-size: 0.85rem; }
+    :is(.folders-scroll-container:not(.is-folder-list), .folder-open-scene) .folder-mini-card > .fd-menu-wrap { top: 0.15rem; right: 0.2rem; }
+    :is(.folders-scroll-container:not(.is-folder-list), .folder-open-scene) .folder-mini-card .folder-menu-btn { width: 1.6rem; height: 1.6rem; }
+    :is(.folders-scroll-container:not(.is-folder-list), .folder-open-scene) .folder-public-badge { top: 0.36rem; right: 1.95rem; }
+    /* Thẻ rất hẹp (3+ cột): xấp giấy bị bóp thành que, lại bị nút "..." che → bỏ; số bộ đề vẫn ghi trên tai */
+    @container (max-width: 8.5rem) {
+        .folders-scroll-container .folder-mini-card .fd-papers { display: none; }
+    }
 }
 
 /* Nút phân trang Thư mục */
@@ -2540,37 +2626,33 @@ body.is-dragging-folder .folder-mini-card .folder-preview-pop { display: none; }
 .folder-open-scene {
     position: absolute;
     will-change: transform, opacity;
-    animation: foScene 1.7s cubic-bezier(0.32, 0.72, 0.24, 1) forwards;
+    animation: foScene 0.6s cubic-bezier(0.3, 0.6, 0.3, 1) forwards;
 }
-/* Nhịp: ép xuống (anticipation) → bật lên như lò xo → chững lại cho nắp mở → lao về phía người xem rồi tan.
-   Mọi mốc dùng CÙNG danh sách hàm transform (nội suy từng hàm). */
+/* Nhịp ~0,6s: hơi nhấc lên khi túi hé → phóng nhẹ về phía người xem rồi tan (bản cũ 1,7s ép-bật-lò xo,
+   phóng 2,1 lần → gượng). Mọi mốc dùng CÙNG danh sách hàm transform. */
 @keyframes foScene {
-    0%   { transform: scale(1, 1) translateZ(0) translateY(0) rotateX(0deg); opacity: 1; animation-timing-function: ease-in; }
-    8%   { transform: scale(1.05, 0.9) translateZ(0) translateY(3px) rotateX(0deg); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
-    18%  { transform: scale(0.98, 1.06) translateZ(30px) translateY(-7px) rotateX(5deg); animation-timing-function: ease-in-out; }
-    34%  { transform: scale(1.06, 1.06) translateZ(40px) translateY(-4px) rotateX(3deg); animation-timing-function: cubic-bezier(0.32, 0.72, 0.24, 1); }
-    58%  { transform: scale(1.22, 1.22) translateZ(70px) translateY(-10px) rotateX(3deg); }
-    70%  { opacity: 1; }
-    100% { transform: scale(2.1, 2.1) translateZ(240px) translateY(-26px) rotateX(0deg); opacity: 0; }
+    0%   { transform: translateY(0) scale(1); opacity: 1; }
+    45%  { transform: translateY(-4px) scale(1.04); opacity: 1; }
+    100% { transform: translateY(-10px) scale(1.12); opacity: 0; }
 }
 
 /* Quầng sáng pastel cùng màu thư mục lan ra phía sau. Màu phẳng; độ mềm do box-shadow (vẽ MỘT lần
-   rồi chỉ phóng/mờ bằng GPU) — bản cũ dùng filter:blur nên mỗi khung bị làm mờ lại → giật. */
+   rồi chỉ phóng/mờ bằng GPU) — filter:blur làm mỗi khung bị làm mờ lại → giật. */
 .fo-glow {
     position: absolute;
     inset: -8% -4%;
     border-radius: 50%;
-    --fo-glow-c: color-mix(in srgb, var(--fc, #ec4899) 32%, #fffaf5);
+    --fo-glow-c: color-mix(in srgb, var(--fc, #ec4899) 28%, #fffaf5);
     background: var(--fo-glow-c);
-    box-shadow: 0 0 34px 22px var(--fo-glow-c);
+    box-shadow: 0 0 30px 18px var(--fo-glow-c);
     opacity: 0;
     will-change: transform, opacity;
-    animation: foGlow 1.7s ease-out forwards;
+    animation: foGlow 0.6s ease-out forwards;
 }
 @keyframes foGlow {
-    0%   { opacity: 0; transform: scale(0.7); }
-    32%  { opacity: 0.6; }
-    100% { opacity: 0; transform: scale(1.2); }
+    0%   { opacity: 0; transform: scale(0.8); }
+    40%  { opacity: 0.5; }
+    100% { opacity: 0; transform: scale(1.15); }
 }
 
 /* Bản sao của thẻ: phủ kín khung cảnh, không chạy hoạt ảnh xuất hiện */
@@ -2583,86 +2665,38 @@ body.is-dragging-folder .folder-mini-card .folder-preview-pop { display: none; }
     box-sizing: border-box;
     animation: none;
 }
-/* Tờ giấy dài hết thân bìa (phần dưới vốn nằm sau túi, giống thẻ thật) → túi lật ra là thấy nguyên tờ */
-.fo-ghost .fd-papers { height: auto; bottom: 1.2rem; }
+/* Giấy GIỮ NGUYÊN kích thước như trên thẻ (bản cũ kéo dài hết thân bìa → tờ giấy hẹp và dài), chỉ nhô lên
+   và xoè nhẹ. Mỗi tờ một keyframe số cứng (không var()/calc()) để chạy trên luồng GPU ở Safari. */
 .fo-ghost .fd-papers i {
-    will-change: transform, opacity;
-    animation-duration: 1.7s;
-    animation-timing-function: cubic-bezier(0.28, 0.8, 0.24, 1);
-    animation-fill-mode: both;
+    will-change: transform;
+    animation: 0.55s cubic-bezier(0.3, 1.35, 0.5, 1) both;
 }
-/* Mỗi tờ một keyframe số cứng (không var()/calc()) để chắc chắn chạy trên luồng GPU ở Safari */
-.fo-ghost .fd-papers i:nth-child(1) { animation-name: foPaper1; animation-delay: 200ms; }
-.fo-ghost .fd-papers i:nth-child(2) { animation-name: foPaper2; animation-delay: 260ms; }
-.fo-ghost .fd-papers i:nth-child(3) { animation-name: foPaper3; animation-delay: 320ms; }
-/* Từ chỗ đang thò trên thẻ → BẬT vọt lên quá đà → lắng xuống xoè hình quạt → bay tiếp và tan */
-@keyframes foPaper1 {
-    0%   { transform: none; opacity: 1; animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1); }
-    24%  { transform: translate(-1.9rem, -5rem) rotate(-18deg) scale(1.1); opacity: 1; animation-timing-function: ease-in-out; }
-    38%  { transform: translate(-1.7rem, -4.2rem) rotate(-12deg) scale(1.06); opacity: 1; animation-timing-function: ease-in; }
-    100% { transform: translate(-3rem, -8.4rem) rotate(-22deg) scale(1.1); opacity: 0; }
-}
-@keyframes foPaper2 {
-    0%   { transform: none; opacity: 1; animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1); }
-    24%  { transform: translate(0, -5.6rem) rotate(4deg) scale(1.12); opacity: 1; animation-timing-function: ease-in-out; }
-    38%  { transform: translate(0, -4.7rem) rotate(1deg) scale(1.07); opacity: 1; animation-timing-function: ease-in; }
-    100% { transform: translate(0, -9rem) rotate(3deg) scale(1.1); opacity: 0; }
-}
-@keyframes foPaper3 {
-    0%   { transform: none; opacity: 1; animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1); }
-    24%  { transform: translate(1.9rem, -5rem) rotate(16deg) scale(1.1); opacity: 1; animation-timing-function: ease-in-out; }
-    38%  { transform: translate(1.7rem, -4.2rem) rotate(11deg) scale(1.06); opacity: 1; animation-timing-function: ease-in; }
-    100% { transform: translate(3rem, -8.4rem) rotate(20deg) scale(1.1); opacity: 0; }
-}
-/* Túi trước = nắp: ngả về phía người xem quanh bản lề ở đáy (cùng chiều với lúc rê chuột lên thẻ) */
+.fo-ghost .fd-papers i:nth-child(1) { animation-name: foPaper1; }
+.fo-ghost .fd-papers i:nth-child(2) { animation-name: foPaper2; animation-delay: 40ms; }
+.fo-ghost .fd-papers i:nth-child(3) { animation-name: foPaper3; animation-delay: 80ms; }
+@keyframes foPaper1 { to { transform: translate(-0.3rem, -0.85rem) rotate(-5deg); } }
+@keyframes foPaper2 { to { transform: translateY(-1.1rem); } }
+@keyframes foPaper3 { to { transform: translate(0.3rem, -0.85rem) rotate(5deg); } }
+/* Túi trước hé ra quanh bản lề ở đáy (cùng chiều lúc rê chuột), không lật quá 90° nên chữ vẫn đọc được */
 .fo-ghost .folder-mini-card-content {
-    will-change: transform, opacity;
-    animation: foFlap 1.7s cubic-bezier(0.5, 0.02, 0.3, 1) forwards;
+    will-change: transform;
+    animation: foFlap 0.5s cubic-bezier(0.25, 0.8, 0.3, 1) forwards;
 }
-/* Chữ + icon trong túi mờ đi trước khi túi lật quá 90° (không thì lộ chữ bị lật ngược) */
-.fo-ghost .folder-mini-card-content > * {
-    animation: foFlapInk 1.7s linear forwards;
-}
-.fo-ghost .folder-mini-card-content::after { display: none; } /* băng washi do .fo-tape bóc bay riêng */
-@keyframes foFlapInk {
-    0%, 14% { opacity: 1; }
-    22%, 100% { opacity: 0; }
-}
-/* Nắp: khép nhẹ (bị ép) → hé → BẬT mở quá đà → dội lại → ngả hẳn ra */
 @keyframes foFlap {
-    0%   { transform: perspective(700px) rotateX(-9deg); animation-timing-function: ease-in; }
-    8%   { transform: perspective(700px) rotateX(-3deg); animation-timing-function: ease-out; }
-    14%  { transform: perspective(700px) rotateX(-22deg); animation-timing-function: cubic-bezier(0.3, 0.1, 0.3, 1); }
-    30%  { transform: perspective(700px) rotateX(-132deg); opacity: 1; animation-timing-function: ease-in-out; }
-    38%  { transform: perspective(700px) rotateX(-110deg); animation-timing-function: ease-out; }
-    60%  { transform: perspective(700px) rotateX(-138deg); }
-    100% { transform: perspective(700px) rotateX(-150deg); opacity: 0.7; }
+    from { transform: perspective(700px) rotateX(-9deg); }
+    to   { transform: perspective(700px) rotateX(-34deg); }
 }
 
-/* ── Lớp hiệu ứng thêm (library/folder-open-fx.js): chỉ transform + opacity, dựng sẵn ở trạng thái
-   trong suốt rồi chạy bằng WAAPI lúc .is-go. Nằm TRỰC TIẾP trong .folder-open-stage (không nằm trong
-   .folder-open-scene) để không bị phóng to theo cảnh và không bị "phẳng hoá" bởi opacity của cảnh. */
-.fo-ring, .fo-bit, .fo-spark, .fo-tape, .fo-badge {
+/* Sticker icon bay vào breadcrumb (library/folder-open-fx.js): nằm TRỰC TIẾP trong .folder-open-stage
+   để không bị phóng/mờ theo cảnh. Dựng sẵn trong suốt, chạy bằng WAAPI lúc .is-go. */
+.fo-badge {
     position: absolute;
+    z-index: 2;
+    margin: 0;
     opacity: 0;
     pointer-events: none;
     will-change: transform, opacity;
 }
-.fo-ring { border: 3px solid; border-radius: 50%; }
-.fo-bit { left: 0; top: 0; width: 5px; height: 9px; border-radius: 2px; }
-.fo-bit.is-dot { width: 6px; height: 6px; border-radius: 50%; }
-.fo-spark { line-height: 1; translate: -50% -50%; }
-.fo-tape {
-    width: 2.7rem;
-    height: 1rem;
-    transform-origin: 0 50%;
-    rotate: -4deg;
-    background-color: color-mix(in srgb, var(--fc) 34%, #fffdfa);
-    background-image: repeating-linear-gradient(45deg, transparent 0 4px, rgba(255, 255, 255, 0.55) 4px 6px);
-    clip-path: polygon(0 0, 100% 0, 96% 25%, 100% 50%, 96% 75%, 100% 100%, 0 100%, 4% 75%, 0 50%, 4% 25%);
-}
-.fo-badge { z-index: 2; margin: 0; }
-
 /* Thẻ thư mục thật: nhún nhẹ rồi mờ dần để "nhường chỗ" cho chiếc thư mục 3D hiện lên đúng vị trí */
 .folder-mini-card.folder-ejecting {
     animation: folderEject 0.32s cubic-bezier(0.4, 0, 0.2, 1) forwards;
@@ -2907,10 +2941,9 @@ img.quiz-image { width: auto; max-width: 100%; max-height: 70vh; }
 .is-folder-list .folder-icon-wrapper {
     width: 2.1rem;
     height: 2.1rem;
-    border-radius: 10px;
     font-size: 0.92rem;
     rotate: 0deg;
-    box-shadow: 0 3px 7px -3px color-mix(in srgb, var(--fc, #f59e0b) 65%, #4a2233);
+    box-shadow: 0 3px 7px -3px color-mix(in srgb, var(--fc, #f59e0b) 55%, #4a2233);
 }
 .is-folder-list .fd-name { -webkit-line-clamp: 1; font-size: 0.84rem; }
 .is-folder-list .folder-meta-time { margin-top: 0.05rem; }

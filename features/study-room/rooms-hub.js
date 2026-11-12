@@ -1186,25 +1186,12 @@ function openInviteModal(r) {
     });
 }
 
-function loadQrLib() {
-    if (window.QRCode) return Promise.resolve();
-    if (window.__qrLoading) return window.__qrLoading;
-    window.__qrLoading = new Promise((res, rej) => {
-        const sc = document.createElement('script');
-        sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
-        sc.onload = res;
-        sc.onerror = rej;
-        document.head.appendChild(sc);
-    });
-    return window.__qrLoading;
-}
-
+// Mã QR "sổ dán" (core/qr.js — tạo trên máy, nạp lười)
 async function paintQr(box, text) {
     if (!box) return;
     try {
-        await loadQrLib();
-        box.innerHTML = '';
-        new window.QRCode(box, { text, width: 150, height: 150, colorDark: '#4a3b52', colorLight: '#ffffff', correctLevel: window.QRCode.CorrectLevel.M });
+        const m = await import('../../core/qr.js');
+        box.innerHTML = `<div style="width:150px;height:150px">${await m.qrSvg(text)}</div>`;
     } catch (e) {
         box.innerHTML = '<span style="font-size:.72rem;color:#8b8494;text-align:center;padding:.5rem">Mất mạng nên chưa tải được mã QR — dùng nút chép link nhé.</span>';
     }

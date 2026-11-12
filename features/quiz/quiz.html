@@ -1163,39 +1163,14 @@
                 };
                 const shareModal = document.getElementById('shareQuizModal');
 
-                // --- Mã QR tạo ngay trên máy (qrcode-generator, nạp lười khi mở modal lần đầu)
-                //     thay cho api.qrserver.com: không phụ thuộc dịch vụ ngoài, không rò link đề ---
-                let qrLibPromise = null;
-                function ensureQrLib() {
-                    if (window.qrcode) return Promise.resolve();
-                    if (!qrLibPromise) {
-                        qrLibPromise = new Promise(function (resolve, reject) {
-                            const s = document.createElement('script');
-                            s.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js';
-                            s.onload = resolve;
-                            s.onerror = function () { qrLibPromise = null; reject(new Error('Không tải được thư viện QR')); };
-                            document.head.appendChild(s);
-                        });
-                    }
-                    return qrLibPromise;
-                }
+                // --- Mã QR "sổ dán" tạo ngay trên máy (core/qr.js, nạp lười khi mở modal lần đầu):
+                //     không phụ thuộc dịch vụ ngoài, không rò link đề ---
                 function renderShareQr(url) {
                     const box = document.getElementById('share-qr-box');
                     if (!box) return;
                     box.innerHTML = '<span class="text-[11px] text-gray-300">Đang tạo mã…</span>';
-                    ensureQrLib().then(function () {
-                        const qr = window.qrcode(0, 'M');
-                        qr.addData(url);
-                        qr.make();
-                        box.innerHTML = qr.createSvgTag(4, 8);
-                        const svg = box.querySelector('svg');
-                        if (svg) {
-                            const w = parseInt(svg.getAttribute('width'), 10);
-                            const h = parseInt(svg.getAttribute('height'), 10);
-                            if (w && h && !svg.getAttribute('viewBox')) svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
-                            svg.setAttribute('width', '100%');
-                            svg.setAttribute('height', '100%');
-                        }
+                    import('../../core/qr.js').then(function (m) { return m.qrSvg(url); }).then(function (svg) {
+                        box.innerHTML = svg;
                     }).catch(function () {
                         box.innerHTML = '<span class="text-[11px] text-gray-400">Không tạo được mã QR</span>';
                     });

@@ -220,31 +220,13 @@ function initLayout() {
     };
     el('share-room-btn')?.addEventListener('click', openShare);
 
-    // Mã QR: nạp thư viện lần đầu mở hộp mời (không kéo sẵn cho nhẹ trang)
-    function loadQrLib() {
-        if (window.QRCode) return Promise.resolve();
-        if (window.__qrLoading) return window.__qrLoading;
-        window.__qrLoading = new Promise((res, rej) => {
-            const sc = document.createElement('script');
-            sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
-            sc.onload = res;
-            sc.onerror = rej;
-            document.head.appendChild(sc);
-        });
-        return window.__qrLoading;
-    }
+    // Mã QR "sổ dán" (core/qr.js — tạo trên máy, nạp lười lần đầu mở hộp mời)
     async function paintQr() {
         const box = el('share-qr');
         if (!box) return;
         try {
-            await loadQrLib();
-            box.innerHTML = '';
-            new window.QRCode(box, {
-                text: location.href,
-                width: 168, height: 168,
-                colorDark: '#4a3b52', colorLight: '#ffffff',
-                correctLevel: window.QRCode.CorrectLevel.M,
-            });
+            const m = await import('../../core/qr.js');
+            box.innerHTML = `<div style="width:168px;height:168px">${await m.qrSvg(location.href)}</div>`;
         } catch (e) {
             box.innerHTML = '<p class="text-[11px] text-muted px-2 text-center">Không tải được mã QR (mất mạng) — dùng nút Chép link nhé.</p>';
         }

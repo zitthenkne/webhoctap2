@@ -62,9 +62,9 @@ function prefersReducedMotion() {
     return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-// Hoạt ảnh "mở thư mục" 3D: NHÂN BẢN chính thẻ vừa bấm rồi cho bản sao diễn — túi trước lật mở
-// (bản lề ở đáy), đúng mấy tờ giấy kẻ dòng thò lên trên thẻ trồi lên & xoè ra, rồi cả khối phóng to
-// tiến về phía người xem và tan dần → khung đầu tiên giống hệt thẻ (cùng tai, giấy, túi, màu, icon).
+// Hoạt ảnh "mở thư mục": NHÂN BẢN chính thẻ vừa bấm rồi cho bản sao diễn — túi trước hé ra (bản lề
+// ở đáy), mấy tờ giấy thò trên thẻ nhô lên & xoè nhẹ, cả khối phóng nhẹ rồi tan → khung đầu tiên giống
+// hệt thẻ (cùng tai, giấy, túi, màu, icon).
 // Chạy trên lớp phủ position:fixed gắn ở body nên không bị việc render lại thư viện xoá mất.
 // onGo chạy đúng lúc hoạt ảnh bắt đầu (bản sao đã vẽ xong, thẻ thật đã ẩn) — việc làm đổi bố cục
 // trang (breadcrumb…) phải đặt ở đó, không thì thẻ thật dịch xuống trước khi bản sao kịp che.
@@ -111,7 +111,7 @@ function playFolderOpenBurst(cardEl, onGo) {
     };
     requestAnimationFrame(() => requestAnimationFrame(go));
     setTimeout(go, 120); // tab nền không bắn rAF → vẫn phải mở được thư mục
-    setTimeout(() => stage.remove(), 1950);
+    setTimeout(() => stage.remove(), 800);
 }
 
 // Dựng một thẻ thư mục hoàn chỉnh (markup + toàn bộ listener: mở, menu, ghim, đổi màu, xóa, kéo-thả)
@@ -237,11 +237,11 @@ export function createFolderCard(folder) {
             enter();
             loadAndDisplayLibrary(1);
         } else {
-            // Bản sao của thẻ lật túi, giấy bung ra. Trễ nhẹ để xấp giấy kịp xoè lên từ thư mục
-            // trước khi danh sách đổi sang nội dung bên trong.
+            // Bản sao của thẻ hé túi, giấy nhô lên rồi tan (~0,6s). Nội dung bên trong hiện ngay
+            // khi hiệu ứng đang chạy, không bắt người dùng chờ.
             playFolderOpenBurst(card, () => {
                 enter();
-                setTimeout(() => loadAndDisplayLibrary(1), 900);
+                setTimeout(() => loadAndDisplayLibrary(1), 280);
             });
         }
     });

@@ -19,6 +19,13 @@ import { canUseRollingLibrary, loadLibraryChunk, loadAllLibraryInBackground, loa
 import { moveQuizToFolder, moveFolder } from './library-actions.js';
 import { filterLibraryByMode, currentSearchMode, handleLibrarySearch } from './library-search.js';
 
+// Điện thoại: lưới 2 cột → mỗi trang 6 thư mục (3 hàng) cho khỏi kéo dài; máy lớn giữ FOLDERS_PER_PAGE
+const PHONE_MQ = window.matchMedia('(max-width: 767px)');
+const foldersPerPage = () => (PHONE_MQ.matches ? 6 : FOLDERS_PER_PAGE);
+PHONE_MQ.addEventListener?.('change', () => {   // xoay máy/đổi cỡ qua ngưỡng → chia trang lại
+    if (document.getElementById('folders-container')) renderLibrary(S.userQuizSets, S.currentLibraryPage);
+});
+
 export function updateLayoutButtons() {
     const gridBtn = document.getElementById('library-layout-grid-btn');
     const listBtn = document.getElementById('library-layout-list-btn');
@@ -318,8 +325,9 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
         if (!isSearching) {
             const visibleFolders = getFoldersForDisplay(); // con của cấp hiện tại, hoặc kết quả tìm xuyên cấp
             const totalFolders = visibleFolders.length;
-            const showAll = S.foldersExpanded || S.folderSearchTerm.trim() !== '' || totalFolders <= FOLDERS_PER_PAGE;
-            const totalFolderPages = Math.ceil(totalFolders / FOLDERS_PER_PAGE) || 1;
+            const perPage = foldersPerPage();
+            const showAll = S.foldersExpanded || S.folderSearchTerm.trim() !== '' || totalFolders <= perPage;
+            const totalFolderPages = Math.ceil(totalFolders / perPage) || 1;
 
             // Không có thư mục nào khớp từ khoá tìm kiếm → báo "không tìm thấy"
             if (totalFolders === 0 && S.folderSearchTerm.trim() !== '') {
@@ -333,8 +341,8 @@ export function renderLibrary(quizzesToDisplay, page = 1) {
             } else {
                 if (S.currentFolderPage > totalFolderPages) S.currentFolderPage = totalFolderPages;
                 if (S.currentFolderPage < 1) S.currentFolderPage = 1;
-                const startIdx = (S.currentFolderPage - 1) * FOLDERS_PER_PAGE;
-                foldersToDisplay = visibleFolders.slice(startIdx, startIdx + FOLDERS_PER_PAGE);
+                const startIdx = (S.currentFolderPage - 1) * perPage;
+                foldersToDisplay = visibleFolders.slice(startIdx, startIdx + perPage);
             }
 
             foldersToDisplay.forEach((folder, idx) => {
@@ -509,7 +517,7 @@ function renderFoldersToggle(totalFolders) {
     const toggle = document.getElementById('folders-toggle');
     if (!toggle) return;
 
-    if (totalFolders <= FOLDERS_PER_PAGE) {
+    if (totalFolders <= foldersPerPage()) {
         toggle.innerHTML = '';
         toggle.classList.add('hidden');
         return;
@@ -558,7 +566,20 @@ function renderFoldersPagination(totalFolders, currentPage, totalPages) {
     });
     paginationContainer.appendChild(prevBtn);
 
+    // Nhiều trang: chỉ hiện trang đầu, cuối và quanh trang hiện tại (1 … 4 5 6 … 12) kẻo tràn hàng trên điện thoại
+    const pages = [];
     for (let i = 1; i <= totalPages; i++) {
+        if (totalPages <= 7 || i === 1 || i === totalPages || Math.abs(i - currentPage) <= 1) pages.push(i);
+        else if (pages[pages.length - 1] !== '…') pages.push('…');
+    }
+    for (const i of pages) {
+        if (i === '…') {
+            const gap = document.createElement('span');
+            gap.className = 'text-xs text-gray-400 px-0.5';
+            gap.textContent = '…';
+            paginationContainer.appendChild(gap);
+            continue;
+        }
         const pageBtn = document.createElement('button');
         pageBtn.type = 'button';
         pageBtn.className = `folder-page-btn ${i === currentPage ? 'active' : ''}`;
