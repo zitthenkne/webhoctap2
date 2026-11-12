@@ -231,17 +231,29 @@ function renderEmptyState(container, type) {
     }
 }
 
+// Hoạt ảnh "nở" thẻ chỉ chạy khi ĐỔI khung nhìn (mở thư mục, sang trang, đổi lọc/sắp xếp/kiểu hiện, tìm kiếm).
+// renderLibrary bị gọi lại nhiều lần cho CÙNG khung nhìn (vẽ từ cache → dữ liệu mới về → đồng bộ lịch sử làm bài,
+// bấm ghim…): mỗi lần như vậy cả lưới chớp tắt rồi trượt lên lại → cảm giác giật. Cùng khung nhìn thì vẽ tĩnh.
+let lastViewKey = null;
+
 export function renderLibrary(quizzesToDisplay, page = 1) {
     if (typeof page !== 'number') page = 1;
     const quizListContainer = document.getElementById('quiz-list-container');
+    const librarySearchInput = document.getElementById('library-search-input');
+    const isSearching = librarySearchInput && librarySearchInput.value.trim() !== '';
+
+    const viewKey = [S.currentFolderId, page, S.currentFolderPage, S.foldersExpanded, S.folderSearchTerm,
+        S.folderSortMode, S.folderLayoutMode, S.libraryFilterMode, S.librarySortMode, S.libraryLayoutMode,
+        S.isSelectionMode, isSearching ? librarySearchInput.value.trim() : ''].join('|');
+    const sameView = viewKey === lastViewKey;
+    lastViewKey = viewKey;
+
     if (quizListContainer) {
-        quizListContainer.className = S.libraryLayoutMode === 'list' ? 'quiz-grid is-list' : 'quiz-grid';
+        quizListContainer.className = (S.libraryLayoutMode === 'list' ? 'quiz-grid is-list' : 'quiz-grid') + (sameView ? ' lib-no-enter' : '');
         applyQuizGridColumns(quizListContainer);
         quizListContainer.innerHTML = '';
     }
-
-    const librarySearchInput = document.getElementById('library-search-input');
-    const isSearching = librarySearchInput && librarySearchInput.value.trim() !== '';
+    document.getElementById('folders-container')?.classList.toggle('lib-no-enter', sameView);
 
     // Thư mục đang mở vừa bị xoá (ở máy khác / vào thùng rác) → về gốc thay vì kẹt ở màn trống
     if (S.currentFolderId && !folderById(S.currentFolderId)) {

@@ -114,9 +114,16 @@ export function syncAttemptsFromServer() {
 const QUIZ_LAST_OPENED_KEY = 'quizLastOpened';
 const QUIZ_LAST_OPENED_MAX = 60; // giữ gọn localStorage: chỉ nhớ 60 bộ đề mở gần nhất
 
+// Nhớ bản đã parse trong MỘT lượt vẽ: getLastTouchedAt bị gọi cho MỌI bộ đề mỗi lần vẽ
+// (dải "Làm gần đây", bộ lọc "Gần đây") — trước đây JSON.parse lại cả map cho từng bộ.
+// Hết tác vụ hiện tại là bỏ nhớ → lần sau đọc lại localStorage (trang khác/tab khác ghi vẫn thấy ngay).
+let openedMap = null;
 export function getQuizLastOpenedMap() {
-    try { return JSON.parse(localStorage.getItem(QUIZ_LAST_OPENED_KEY) || '{}'); }
-    catch { return {}; }
+    if (openedMap) return openedMap;
+    try { openedMap = JSON.parse(localStorage.getItem(QUIZ_LAST_OPENED_KEY) || '{}') || {}; }
+    catch { openedMap = {}; }
+    setTimeout(() => { openedMap = null; }, 0);
+    return openedMap;
 }
 
 export function markQuizOpened(quizId) {

@@ -566,7 +566,8 @@ body > div > footer a.bg-clip-text { background: none; color: #E0588F; }
     border: 1.5px solid #F3D3DF;
     border-radius: 18px;
     box-shadow: 0 2px 0 #F6DCE6, 0 14px 26px -20px rgba(160, 70, 105, .55);
-    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    /* Không backdrop-filter: nền đã đục 96% nên mờ phía sau gần như không thấy, mà bảng này DÍNH mép trên
+       → mỗi khung cuộn trình duyệt phải làm mờ lại cả dải phía sau (giật rõ trên điện thoại). */
 }
 /* Hàng công cụ: ô tìm giãn hết chỗ trống, [Bộ đề|Câu hỏi] + Sắp xếp + nút lọc nằm cùng hàng (máy tính) */
 .lib-toolbar { display: flex; align-items: center; gap: 8px; padding: 10px; }

@@ -1,4 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap');
+/* Font Quicksand: mỗi trang tự <link> trong <head> (song song), KHÔNG @import ở đây — @import bắt
+   trình duyệt tải xong style.css rồi mới đi lấy font → thêm một vòng mạng chặn vẽ trên mọi trang. */
 
 body {
     font-family: 'Quicksand', 'Poppins', 'Baloo 2', cursive, sans-serif;
@@ -1988,6 +1989,12 @@ html .katex-display > .katex {
 @keyframes quizCardIn {
     from { opacity: 0; transform: translateY(12px) scale(0.98); }
     to { opacity: 1; transform: none; }
+}
+/* Vẽ lại CÙNG khung nhìn (dữ liệu mới về, ghim, đồng bộ…) → không "nở" lại từ đầu (library-render.js: lastViewKey).
+   Chừa các hoạt ảnh phản hồi thao tác (vừa nhận, đích thả, bật ra) — chúng gắn sau khi vẽ. */
+.lib-no-enter > :is(.folder-mini-card, .quiz-grid-card, .quiz-list-card):not(.just-received, .drop-target, .folder-ejecting),
+.lib-no-enter .qc-bar > span {
+    animation: none;
 }
 
 /* Thẻ đang mở menu "..." được nâng lên trên mọi thẻ khác để dàn lựa chọn không bị che.

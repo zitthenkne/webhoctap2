@@ -41,8 +41,18 @@ export function folderHex(folder) {
 // Thư mục có thể nằm trong thư mục khác qua trường `parentId` (không có / null = ở Thư viện gốc).
 // Mọi chỗ cần biết "thư mục cha" / "bộ đề đang ở đâu" PHẢI đi qua các hàm dưới đây: chúng coi
 // cha đã xoá / không tồn tại là "ở gốc" → không có thư mục hay bộ đề nào bị mất tích khỏi giao diện.
+// Tra theo Map dựng lại khi mảng bị gán mới hoặc đổi độ dài (push/splice/filter) — trước đây .find() tuyến tính,
+// bị gọi cho MỌI bộ đề × mỗi lần vẽ (quizFolderOf, folderStats…) → O(bộ đề × thư mục) mỗi render.
+let folderMapSrc = null, folderMapLen = -1, folderMap = new Map();
 export function folderById(id) {
-    return id ? (S.userFolders.find(f => f.id === id) || null) : null;
+    if (!id) return null;
+    const arr = S.userFolders;
+    if (arr !== folderMapSrc || arr.length !== folderMapLen) {
+        folderMap = new Map(arr.map(f => [f.id, f]));
+        folderMapSrc = arr;
+        folderMapLen = arr.length;
+    }
+    return folderMap.get(id) || null;
 }
 /** Thư mục cha HỢP LỆ của một thư mục (null = ở gốc). */
 export function parentIdOf(folder) {
