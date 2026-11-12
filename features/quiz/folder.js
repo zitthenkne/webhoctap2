@@ -529,7 +529,9 @@ async function startLinkQuiz(token, folderId, href, btn) {
     if (btn) btn.style.pointerEvents = 'none';
     try {
         const c = await linkApi('claim', { token, label: deviceLabel() });
-        if (c.status !== 'mine' && c.status !== 'owner') { location.replace(`link.html?t=${encodeURIComponent(token)}`); return; }
+        // Tên đã xưng lúc vào xem vừa bị máy khác làm bài trước (whoTaken…) → về trang cổng chọn lại tên, kèm lý do
+        const why = ['whoTaken', 'notMember'].includes(c.status) ? `&why=${c.status}` : '';
+        if (c.status !== 'mine' && c.status !== 'owner') { location.replace(`link.html?t=${encodeURIComponent(token)}${why}`); return; }
         await linkApi('folder', { token, folderId });          // giờ đã giữ suất → cấp quyền đọc các bộ đề của thư mục này
         location.href = href;
     } catch (e) {

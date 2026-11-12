@@ -75,8 +75,9 @@ function cleanMembers(arr) {
     }
     return out;
 }
-// Tên đã có máy xưng (giữ suất HOẶC đã vào xem) — trừ chính máy `exceptUid` (máy đang xem giờ bắt đầu làm bài)
-const takenWho = (l, exceptUid = '') => [...Object.entries(claimsOf(l)), ...Object.entries(visitsOf(l))]
+// Tên đã có máy GIỮ SUẤT (đã làm bài) — trừ chính máy `exceptUid`. Máy chỉ vào xem (visits) KHÔNG giữ tên: chưa làm bài thì chưa mất gì;
+// hai máy cùng xem bằng một tên → máy nào bắt đầu làm bài trước được tên, máy kia chọn lại (action 'claim').
+const takenWho = (l, exceptUid = '') => Object.entries(claimsOf(l))
     .filter(([uid]) => uid !== exceptUid).map(([, x]) => x.who).filter(Boolean);
 const MAX_VISITS = 300;                                // máy "đã vào xem" giữ tối đa (bỏ máy lâu nhất) — doc khỏi phình
 /** Máy đã vào xem thư mục, chưa chiếm suất: { uid: {...} } */
@@ -613,11 +614,16 @@ module.exports = async function handler(req, res) {
                 const c = { ...claimsOf(l) };
                 // Máy đã VÀO XEM thư mục (visits) giờ bắt đầu làm bài → giữ tên đã xưng, lần vào đầu tiên ghi ở `in`
                 const v = st === 'ok' ? visitsOf(l)[me.uid] : null;
-                // Link nhóm: máy mới phải xưng tên; có danh sách thì tên phải nằm trong đó; mỗi tên một máy
+                // Link nhóm: máy mới phải xưng tên; có danh sách thì tên phải nằm trong đó; mỗi tên một máy.
+                // Máy đã vào xem dùng lại tên đã xưng — vẫn kiểm lại vì tên đó có thể vừa bị máy khác làm bài trước
                 let who = v?.who || '';
-                if (st === 'ok' && l.group && !who) {
-                    const w = checkWho(l, body.who, me.uid);
-                    if (w.st) return { st: w.st, l };
+                if (st === 'ok' && l.group) {
+                    const w = checkWho(l, who || body.who, me.uid);
+                    if (w.st) {
+                        // Bỏ lượt xem cũ → trang cổng hiện lại danh sách để chọn tên khác
+                        if (v) tx.update(ref, { [`visits.${me.uid}`]: admin.firestore.FieldValue.delete() });
+                        return { st: w.st, l };
+                    }
                     who = w.who;
                 }
                 const old = c[me.uid];

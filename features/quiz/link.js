@@ -188,7 +188,7 @@ function groupPicker(info, err) {
             ${members.length > 12 ? '<input id="lk-who-find" class="lk-input" placeholder="Tìm tên…" autocomplete="off">' : ''}
             <div id="lk-who-list" class="lk-who" role="radiogroup">
                 ${members.map(m => taken.has(key(m))
-                    ? `<button type="button" disabled title="Đã có máy vào bằng tên này"><i class="fas fa-check"></i> ${esc(m)}</button>`
+                    ? `<button type="button" disabled title="Đã có máy làm bài bằng tên này"><i class="fas fa-check"></i> ${esc(m)}</button>`
                     : `<button type="button" role="radio" aria-checked="false" data-who="${esc(m)}">${esc(m)}</button>`).join('')}
             </div>`
         : `<input id="lk-who-input" class="lk-input" maxlength="40" placeholder="Họ tên của bạn — vd: Nguyễn Minh" autocomplete="name"
@@ -309,4 +309,9 @@ async function main(err = '') {
     $('lk-claim').addEventListener('click', (e) => claim(e.currentTarget, '', info.kind));
 }
 
-main();
+// folder.js gửi về kèm ?why=… khi tên đã xưng lúc xem không dùng được để làm bài → báo ngay trên danh sách chọn tên
+const WHY = {
+    whoTaken: 'Tên bạn chọn lúc xem đã được dùng để làm bài trên thiết bị khác. Vui lòng chọn lại đúng tên của bạn.',
+    notMember: 'Tên bạn chọn lúc xem không còn trong danh sách nhóm. Vui lòng chọn lại.'
+};
+main(WHY[new URLSearchParams(location.search).get('why')] || '');
