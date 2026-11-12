@@ -31,7 +31,8 @@ export function rememberOpened({ kind, id, title, count, ownerName, access, link
         ownerName: ownerName || old?.ownerName || '',
         access: access || old?.access || '',            // 'public' | 'shared' | 'link' (link 1 thiết bị — api/link.js)
         link: link || old?.link || '',                  // mã link 1 thiết bị của thư mục: mở lại từ kệ phải kèm mã (folder.html?link=)
-        openedAt: Date.now()
+        openedAt: Date.now(),
+        firstAt: old?.firstAt || old?.openedAt || Date.now()    // "Mở lần đầu" ở hồ sơ trang thư mục
     };
     const rest = list.filter(x => keyOf(x.kind, x.id) !== k);
     // Đầy kệ: bỏ mục cũ nhất KHÔNG ghim
@@ -77,6 +78,17 @@ export function listLocalResults(quizId) {
     const all = load(RESULTS_KEY);
     return quizId ? all.filter(x => x.quizId === quizId) : all;
 }
+/** Xóa kết quả khách lưu trên máy của các bộ đề này (người dùng tự dọn ở bảng "Hồ sơ của bạn"). Trả số lượt đã xóa. */
+export function forgetLocalResults(quizIds) {
+    const ids = new Set(quizIds);
+    const all = load(RESULTS_KEY);
+    const left = all.filter(x => !ids.has(x.quizId));
+    save(RESULTS_KEY, left);
+    return all.length - left.length;
+}
+/** Mục trên kệ (đọc, không ghi) */
+export const shelfEntry = (kind, id) => load(SHELF_KEY).find(x => x.kind === kind && x.id === id) || null;
+
 /** Lượt gần nhất + điểm cao nhất của một bộ đề (để hiện trên kệ). */
 export function localStatsFor(quizId) {
     const rs = listLocalResults(quizId);

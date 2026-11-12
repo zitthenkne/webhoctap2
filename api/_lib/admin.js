@@ -11,7 +11,10 @@ function init() {
     const json = raw.trim().startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8');
     const cred = JSON.parse(json);
     if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.cert(cred), projectId: cred.project_id });
-    ready = { admin, db: admin.firestore(), auth: admin.auth() };
+    const db = admin.firestore();
+    // REST thay gRPC: khỏi nạp thư viện gRPC nặng → khởi động lạnh (cold start) nhanh hơn rõ rệt. API không dùng onSnapshot nên không mất gì.
+    db.settings({ preferRest: true });
+    ready = { admin, db, auth: admin.auth() };
     return ready;
 }
 

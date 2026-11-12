@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#FCEAF0">
     <title>Thư mục đề - Zitthenkne</title>
     <link rel="icon" type="image/png" href="../../assets/favicons/favicon-quiz-folder.png">
 
@@ -16,61 +17,85 @@
     <meta property="og:image" content="/assets/og_squirrel_study.jpg">
     <meta name="twitter:card" content="summary_large_image">
 
+    <!-- Bắt tay sớm với máy chủ Firebase (folder.js đọc Firestore ngay khi mở) -->
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="../../style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Font Awesome không chặn vẽ trang: icon hiện sau một nhịp, chữ + bố cục hiện ngay -->
+    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
 
-    <!-- Giao diện trang (2026-11-03): lớp .fp-* — "sổ cắt dán" giống thư viện ở trang chủ.
-         Đầu trang là một BÌA HỒ SƠ to tô theo màu thư mục (--fc, folder.js đặt), các mục có tiêu đề + số đếm,
-         ô tìm / sắp xếp bộ đề khi thư mục đông. Thẻ thư mục / bộ đề dùng chung style.css với thư viện. -->
+    <!-- Giao diện trang (2026-11-12): "SỔ DÁN TEM THƯ" — lớp .fp-*.
+         Bìa đầu trang = bìa sổ tô theo màu thư mục (--fc, folder.js đặt) + tem icon răng cưa + dấu bưu điện ngày hôm nay.
+         Mỗi bộ đề là một con tem: viền giấy trắng răng cưa (::before) + dấu bưu điện mờ (::after) — chỉ ở trang này,
+         thẻ gốc vẫn dùng chung style.css với thư viện. .fp-perf = mép răng cưa tem (mask), dùng lại cho icon nhỏ. -->
     <style>
         :root {
             --fp-ink: #6E3A55;
             --fp-ink-soft: #A07086;
-            --fp-paper: #FFFCF8;
+            --fp-paper: #FFFDF9;
             --fp-line: #F3D3DF;
             --fp-pink: #FF7FB0;
             --fp-pink-d: #E05A8E;
+            --fp-ease: cubic-bezier(.22, 1, .36, 1);
         }
+        /* Trang sổ tem: giấy kem hồng chấm bi mờ (không background-attachment: fixed → cuộn mượt trên điện thoại) */
         body {
             font-family: 'Quicksand', 'Outfit', sans-serif;
-            background-color: #FCE4EC;
+            background-color: #FCEAF0;
             background-image:
-                linear-gradient(rgba(236, 110, 155, .10) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(236, 110, 155, .10) 1px, transparent 1px),
-                linear-gradient(135deg, #FCE4EC 0%, #F3E5F5 55%, #E8EAF6 100%);
-            background-size: 24px 24px, 24px 24px, 100% 100%;
-            background-attachment: fixed;
+                radial-gradient(rgba(214, 112, 156, .16) 1.1px, transparent 1.6px),
+                linear-gradient(180deg, #FFF6F2 0%, #FCEAF0 45%, #F4E9F8 100%);
+            background-size: 22px 22px, 100% 100%;
             min-height: 100vh;
         }
         .fp-wrap { max-width: 72rem; margin: 0 auto; padding: 14px 16px 40px; }
         .fp-wrap .hidden { display: none !important; }   /* lớp hidden do JS bật/tắt — thắng mọi display của .fp-* */
         @media (min-width: 640px) { .fp-wrap { padding: 20px 24px 56px; } }
 
+        /* Hai class Tailwind không có trong tailwind-quiz.css (bản đóng băng) */
+        .right-1\.5 { right: .375rem; }
+        .max-w-\[calc\(100vw-2rem\)\] { max-width: calc(100vw - 2rem); }
+
+        /* ---------- Mép răng cưa của tem: viền giấy (padding) đục lỗ tròn, lõi (content-box) tô --perf-ink ---------- */
+        .fp-perf, .fp-shelf-ic {
+            --pp: 5px;
+            padding: var(--pp);
+            border-radius: 0;
+            background: linear-gradient(var(--perf-ink, #FFE1EA) 0 0) content-box, var(--perf-paper, #FFFDF9);
+            -webkit-mask:
+                radial-gradient(circle, #0000 calc(var(--pp) * .5), #000 calc(var(--pp) * .5 + .5px)) calc(var(--pp) * -1) calc(var(--pp) * -1) / calc(var(--pp) * 2) calc(var(--pp) * 2) round,
+                linear-gradient(#000 0 0) content-box;
+            mask:
+                radial-gradient(circle, #0000 calc(var(--pp) * .5), #000 calc(var(--pp) * .5 + .5px)) calc(var(--pp) * -1) calc(var(--pp) * -1) / calc(var(--pp) * 2) calc(var(--pp) * 2) round,
+                linear-gradient(#000 0 0) content-box;
+        }
+
         /* ---------- Thanh trên ---------- */
-        .fp-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 34px; }
+        .fp-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 36px; }
         .fp-brand { display: inline-flex; align-items: center; gap: 9px; min-width: 0; color: var(--fp-ink); font-weight: 800; font-size: 1rem; text-decoration: none; }
-        .fp-brand img { width: 34px; height: 34px; flex: none; border-radius: 11px; background: #fff; padding: 3px; box-shadow: 0 2px 0 #F4B6CB; }
+        .fp-brand img { width: 34px; height: 34px; flex: none; border-radius: 11px; background: #fff; padding: 3px; box-shadow: 0 2px 0 #F4B6CB; transition: rotate .3s var(--fp-ease); }
+        .fp-brand:hover img { rotate: -8deg; }
         .fp-brand span { white-space: nowrap; }
         .fp-top-actions { display: flex; align-items: center; gap: 8px; }
         .fp-btn {
-            height: 38px; padding: 0 13px; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-            border-radius: 12px; background: #fff; color: #8A5A72; border: 1.5px solid #F0D3DF; box-shadow: 0 2px 0 #F6DCE6;
+            height: 38px; padding: 0 14px; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+            border-radius: 14px; background: #fff; color: #8A5A72; border: 1.5px solid #F0D3DF; box-shadow: 0 2px 0 #F6DCE6;
             font-size: .8rem; font-weight: 800; white-space: nowrap; cursor: pointer; text-decoration: none;
-            transition: color .15s, border-color .15s, transform .12s, box-shadow .12s, background .15s;
+            transition: color .15s, border-color .15s, transform .18s var(--fp-ease), box-shadow .18s, background .15s;
         }
-        .fp-btn:hover { color: #E0588F; border-color: #F29CBB; transform: translateY(-1px); box-shadow: 0 3px 0 #F4C3D5; }
+        .fp-btn:hover { color: #E0588F; border-color: #F29CBB; transform: translateY(-2px); box-shadow: 0 4px 0 #F4C3D5; }
         .fp-btn:active { transform: translateY(1px); box-shadow: 0 1px 0 #F6DCE6; }
         .fp-btn:focus-visible, .fp-btn-main:focus-visible { outline: 2.5px solid var(--fp-pink); outline-offset: 2px; }
         .fp-btn.is-done { color: #15925F; border-color: #9EDDBE; background: #EFFAF4; }
         .fp-btn-main { background: var(--fp-pink); color: #fff; border-color: var(--fp-pink); box-shadow: 0 3px 0 var(--fp-pink-d); }
         .fp-btn-main:hover { background: #F76BA3; color: #fff; border-color: #F76BA3; box-shadow: 0 4px 0 var(--fp-pink-d); }
         @media (max-width: 479px) { .fp-top .fp-btn .fp-btn-text { display: none; } .fp-top .fp-btn { width: 38px; padding: 0; } }
-        /* Tailwind CDN chèn preflight SAU thẻ style này: [type='button'] { background-color: transparent } cùng độ ưu tiên
+        /* tailwind-quiz.css (preflight) nạp SAU thẻ style này: [type='button'] { background-color: transparent } cùng độ ưu tiên
            với một lớp → neo bằng #fp-root để nền nút không bị xóa */
         #fp-root .fp-btn { background-color: #fff; }
         #fp-root .fp-btn.is-done { background-color: #EFFAF4; }
@@ -78,20 +103,23 @@
         #fp-root .fp-btn-main:hover { background-color: #F76BA3; }
         #fp-root .fp-link-btn { background-color: #fff; }
 
-        /* ---------- Đầu trang: BÌA HỒ SƠ to, tai hồ sơ ghi loại trang ---------- */
+        /* ---------- Đầu trang: BÌA SỔ TEM, tai hồ sơ ghi loại trang ---------- */
         .fp-hero {
             --fc: #f59e0b;
-            --fp-edge: color-mix(in srgb, var(--fc) 42%, #ffffff);
-            position: relative;
-            display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 18px;
-            margin-bottom: 30px; padding: 24px 22px 22px;
-            border-radius: 0 24px 24px 24px;
-            background-color: color-mix(in srgb, var(--fc) 13%, #fffdfa);
-            background-image: radial-gradient(color-mix(in srgb, var(--fc) 26%, transparent) 1px, transparent 1.6px);
+            --fp-edge: color-mix(in srgb, var(--fc) 40%, #ffffff);
+            position: relative; isolation: isolate;
+            display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 20px;
+            margin-bottom: 34px; padding: 26px 22px 22px;
+            border-radius: 0 26px 26px 26px;
+            background-color: color-mix(in srgb, var(--fc) 11%, #fffdfa);
+            background-image: radial-gradient(color-mix(in srgb, var(--fc) 24%, transparent) 1px, transparent 1.6px);
             background-size: 16px 16px;
             border: 2px solid var(--fp-edge);
-            box-shadow: 0 4px 0 var(--fp-edge), 0 24px 40px -26px color-mix(in srgb, var(--fc) 75%, #5a2a40);
+            box-shadow: 0 4px 0 var(--fp-edge), 0 26px 44px -28px color-mix(in srgb, var(--fc) 75%, #5a2a40);
+            /* đường may nét đứt chạy viền trong như bìa sổ vải */
+            outline: 1.5px dashed color-mix(in srgb, var(--fc) 38%, #ffffff); outline-offset: -9px;
             transition: background-color .4s, border-color .4s;
+            animation: fp-rise .55s var(--fp-ease) both;
         }
         /* tai hồ sơ nhô lên mép trên-trái */
         .fp-hero::before {
@@ -99,32 +127,38 @@
             position: absolute; left: -2px; bottom: calc(100% - 2px);
             min-width: 7.5rem; height: 26px; padding: 0 22px 0 14px; box-sizing: border-box;
             border: 2px solid var(--fp-edge); border-bottom: 0; border-radius: 12px 22px 0 0 / 12px 26px 0 0;
-            background-color: color-mix(in srgb, var(--fc) 13%, #fffdfa);
+            background-color: color-mix(in srgb, var(--fc) 11%, #fffdfa);
             font-size: .7rem; font-weight: 800; line-height: 24px; letter-spacing: .03em; white-space: nowrap;
             color: color-mix(in srgb, var(--fc) 45%, #3a2430);
         }
-        /* băng washi góc phải */
+        /* băng washi giữa mép trên */
         .fp-hero::after {
-            content: ''; position: absolute; top: -10px; right: 34px; width: 80px; height: 22px; rotate: 4deg; pointer-events: none;
-            background-color: color-mix(in srgb, var(--fc) 40%, #ffffff);
+            content: ''; position: absolute; top: -11px; right: 150px; width: 84px; height: 22px; rotate: -4deg; pointer-events: none;
+            background-color: color-mix(in srgb, var(--fc) 38%, #ffffff);
             background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, .5) 0 6px, transparent 6px 12px);
             clip-path: polygon(0 0, 100% 0, 97% 25%, 100% 50%, 97% 75%, 100% 100%, 0 100%, 3% 75%, 0 50%, 3% 25%);
             opacity: .9;
         }
-        .fp-hero-icon {
-            width: 76px; height: 76px; flex: none; border-radius: 24px;
-            display: flex; align-items: center; justify-content: center;
-            background: var(--fc); color: #fff; font-size: 2rem;
-            box-shadow: 0 0 0 4px #fff, 0 12px 22px -10px color-mix(in srgb, var(--fc) 75%, #4a2233);
-            rotate: -5deg; transition: background .4s;
+        /* Tem icon: bóng đổ nằm ở lớp bọc (mask của tem cắt mất box-shadow), nhấp nhô rất nhẹ */
+        .fp-stamp-wrap {
+            display: block; flex: none; rotate: -5deg;
+            filter: drop-shadow(0 8px 10px color-mix(in srgb, var(--fc) 45%, rgba(74, 34, 51, .35)));
+            animation: fp-bob 5.5s ease-in-out 1s infinite;
         }
-        .fp-hero-text { min-width: 0; }
+        .fp-hero-icon {
+            --pp: 6px; --perf-ink: var(--fc);
+            width: 82px; height: 82px;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 2rem; transition: background .4s;
+        }
+        .fp-hero-icon i { filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .12)); }
+        .fp-hero-text { position: relative; z-index: 1; min-width: 0; }
         .fp-title {
-            margin: 0; font-size: clamp(1.35rem, 3.6vw, 2.05rem); line-height: 1.15; font-weight: 800; letter-spacing: -.01em;
+            margin: 0; font-size: clamp(1.35rem, 3.6vw, 2.1rem); line-height: 1.15; font-weight: 800; letter-spacing: -.01em;
             color: color-mix(in srgb, var(--fc) 22%, #33202a); overflow-wrap: anywhere;
             display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
         }
-        .fp-meta { margin: 6px 0 0; font-size: .84rem; font-weight: 600; color: #8A7080; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+        .fp-meta { margin: 7px 0 0; font-size: .84rem; font-weight: 600; color: #8A7080; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
         .fp-access {
             display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px;
             font-size: .7rem; font-weight: 800; background: #fff; color: #7B6470; box-shadow: inset 0 0 0 1.5px #EBD9E1;
@@ -134,34 +168,50 @@
         .fp-access.is-shared { color: #6D5DE0; background: #F3F0FF; box-shadow: inset 0 0 0 1.5px #D9D2FA; }
         .fp-access.is-once { color: #B4570B; background: #FFF4E5; box-shadow: inset 0 0 0 1.5px #F6D3A8; }
         .fp-access.is-owner { color: #D9487F; background: #FFF1F6; box-shadow: inset 0 0 0 1.5px #F6C9D8; }
-        .fp-stats { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+        .fp-stats { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
         .fp-stats:empty { display: none; }
         .fp-stat {
             display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px 6px 7px; border-radius: 999px;
             background: #fff; font-size: .78rem; font-weight: 700; color: #7A6170;
             box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--fc) 26%, #ffffff), 0 2px 0 color-mix(in srgb, var(--fc) 14%, #ffffff);
+            animation: fp-pop .45s var(--fp-ease) both;
         }
+        .fp-stat:nth-child(2) { animation-delay: .07s; }
+        .fp-stat:nth-child(3) { animation-delay: .14s; }
         .fp-stat i {
             width: 22px; height: 22px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
             font-size: .62rem; color: #fff; background: var(--fc);
         }
         .fp-stat b { color: color-mix(in srgb, var(--fc) 30%, #33202a); font-weight: 800; font-variant-numeric: tabular-nums; }
-        .fp-hero-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+        .fp-hero-actions { position: relative; z-index: 1; grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
         .fp-hero-actions:empty { display: none; }
+
+        /* Dấu bưu điện: mực theo màu thư mục, "đóng cộp" một lần khi mở trang */
+        .fp-postmark {
+            position: absolute; z-index: 0; top: 12px; right: 10px; width: 168px; height: 80px; pointer-events: none;
+            color: color-mix(in srgb, var(--fc) 55%, #5a2a40); opacity: .34; mix-blend-mode: multiply;
+            font-family: 'Outfit', sans-serif;
+            transform-origin: 76% 50%; rotate: -12deg;
+            animation: fp-thump .6s cubic-bezier(.3, 1.6, .5, 1) .35s both;
+        }
         @media (min-width: 768px) {
-            .fp-hero { grid-template-columns: auto minmax(0, 1fr) auto; padding: 28px 28px 26px; gap: 22px; }
-            .fp-hero-actions { grid-column: auto; flex-direction: column; align-items: stretch; }
+            .fp-hero { grid-template-columns: auto minmax(0, 1fr) auto; padding: 32px 30px 28px; gap: 24px; }
+            .fp-hero-actions { grid-column: auto; flex-direction: column; align-items: stretch; align-self: end; }
+            .fp-hero-text { padding-right: 120px; }
+            .fp-hero:has(.fp-hero-actions:not(:empty)) .fp-hero-text { padding-right: 0; }
+            .fp-postmark { width: 200px; height: 96px; top: 14px; right: 18px; }
         }
         @media (max-width: 479px) {
-            .fp-hero { gap: 14px; padding: 20px 16px 18px; border-radius: 0 20px 20px 20px; }
-            .fp-hero-icon { width: 58px; height: 58px; border-radius: 18px; font-size: 1.5rem; }
-            .fp-hero::after { right: 18px; width: 60px; }
+            .fp-hero { gap: 14px; padding: 22px 16px 18px; border-radius: 0 22px 22px 22px; }
+            .fp-hero-icon { --pp: 5px; width: 64px; height: 64px; font-size: 1.5rem; }
+            .fp-hero::after { right: 110px; width: 62px; }
+            .fp-postmark { width: 124px; height: 60px; top: 8px; right: 4px; opacity: .26; }
         }
 
         /* ---------- Các mục ---------- */
-        .fp-section { margin-bottom: 30px; }
+        .fp-section { margin-bottom: 34px; }
         .fp-section.hidden { display: none; }
-        .fp-section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+        .fp-section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
         .fp-section-title {
             position: relative; isolation: isolate; width: fit-content; margin: 0;
             display: inline-flex; align-items: center; gap: 8px;
@@ -184,12 +234,12 @@
         .fp-tools { display: flex; align-items: center; gap: 8px; flex: 1 1 260px; justify-content: flex-end; }
         .fp-tools.hidden { display: none; }
         .fp-search { position: relative; flex: 1 1 auto; max-width: 340px; }
-        .fp-search i { position: absolute; left: 12px; top: 50%; translate: 0 -50%; color: #D59AB4; font-size: .78rem; pointer-events: none; }
+        .fp-search i { position: absolute; left: 13px; top: 50%; translate: 0 -50%; color: #D59AB4; font-size: .78rem; pointer-events: none; }
         .fp-search input, .fp-sort {
-            height: 38px; border-radius: 12px; border: 1.5px solid #EED3DE; background: #fff;
-            font-size: .82rem; font-weight: 600; color: #3b2230; outline: 0; transition: border-color .15s, box-shadow .15s;
+            height: 40px; border-radius: 14px; border: 1.5px solid #EED3DE; background: #fff;
+            font-size: .82rem; font-weight: 600; color: #3b2230; outline: 0; transition: border-color .15s, box-shadow .2s;
         }
-        .fp-search input { width: 100%; padding: 0 12px 0 32px; }
+        .fp-search input { width: 100%; padding: 0 12px 0 34px; }
         .fp-search input::placeholder { color: #C3A2B2; }
         .fp-sort { padding: 0 10px; font-weight: 700; color: #6E3A55; cursor: pointer; flex: none; }
         .fp-search input:focus, .fp-sort:focus { border-color: var(--fp-pink); box-shadow: 0 0 0 4px rgba(255, 127, 176, .16); }
@@ -197,62 +247,265 @@
         .fp-no-match.hidden { display: none; }
         #folder-sub-list { padding-top: .2rem; }
 
+        /* ---------- MỖI BỘ ĐỀ LÀ MỘT CON TEM (chỉ ở trang này) ----------
+           ::before = viền giấy trắng 8px quanh thẻ, mép ngoài đục lỗ răng cưa (mask). Nằm z-index -1 trong ngữ cảnh xếp lớp
+           của thẻ → dưới chữ, trên bóng đổ; lõi trong suốt nên giấy kẻ của thẻ vẫn lộ ra.
+           ::after = dấu bưu điện mờ góc phải (vòng tròn + sóng huỷ tem), mực theo màu bộ đề. */
+        #fp-root .quiz-grid { gap: 1.7rem 1.5rem; padding: 10px 9px 4px; }
+        #fp-root .quiz-grid-card {
+            isolation: isolate;
+            border-radius: 5px;
+            min-height: 11.5rem;
+            box-shadow: 0 12px 20px -8px color-mix(in srgb, var(--qc) 55%, rgba(74, 34, 51, .5));
+        }
+        #fp-root .quiz-grid-card::before,
+        #fp-root .quiz-skeleton-card::before {
+            content: ''; position: absolute; inset: -9.5px; z-index: -1; pointer-events: none;
+            border: 8px solid var(--fp-paper);
+            -webkit-mask: radial-gradient(circle, #0000 3.2px, #000 3.7px) -6px -6px / 12px 12px round;
+            mask: radial-gradient(circle, #0000 3.2px, #000 3.7px) -6px -6px / 12px 12px round;
+            transition: border-color .3s;
+        }
+        /* Khung chờ cũng là con tem để lúc tải không "nhảy" hình */
+        #fp-root .quiz-skeleton-card { position: relative; isolation: isolate; border-radius: 5px; min-height: 11.5rem; }
+        @media (hover: hover) {
+            #fp-root .quiz-grid-card:hover {
+                transform: translateY(-5px);
+                rotate: calc(var(--qc-tilt, 0deg) * -1.5);
+                box-shadow: 0 22px 30px -12px color-mix(in srgb, var(--qc) 65%, rgba(74, 34, 51, .55));
+            }
+        }
+        #fp-root .quiz-grid-card:active { transform: translateY(-1px) scale(.985); }
+        #fp-root .quiz-grid-card .qc-foot { margin-top: auto; }
+        #fp-root .quiz-grid-card .qc-top { padding-right: 3.6rem; }   /* chừa chỗ mệnh giá */
+
+        /* Mệnh giá tem = số câu, in to góc phải */
+        .fp-denom {
+            position: absolute; top: 13px; right: 16px; z-index: 1; pointer-events: none;
+            display: flex; flex-direction: column; align-items: flex-end; line-height: 1;
+            font-family: 'Outfit', sans-serif; font-size: .54rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+            color: color-mix(in srgb, var(--qc) 55%, #6b3a50);
+        }
+        .fp-denom b { font-size: 1.6rem; letter-spacing: -.02em; color: color-mix(in srgb, var(--qc) 72%, #3a2430); }
+
+        /* Dấu bưu điện THẬT trên tem đã làm: vòng đôi + điểm cao nhất + sóng huỷ tem, màu theo điểm, "cộp" xuống khi hiện */
+        .fp-cancel {
+            --sc: #15925F;
+            position: absolute; top: 52px; right: 22px; z-index: 2; pointer-events: none;
+            width: 64px; height: 64px; border-radius: 50%; border: 4px double var(--sc); color: var(--sc);
+            display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1;
+            font-family: 'Outfit', sans-serif; rotate: -14deg; opacity: .8; mix-blend-mode: multiply;
+            animation: fp-cancel-in .55s cubic-bezier(.3, 1.6, .5, 1) both;
+            animation-delay: calc(var(--card-index, 0) * 42ms + .3s);
+        }
+        .fp-cancel.is-mid { --sc: #C27A0E; }
+        .fp-cancel.is-low { --sc: #D23B5C; }
+        .fp-cancel b { font-size: .98rem; font-weight: 800; }
+        .fp-cancel small { margin-top: 2px; font-size: .46rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+        .fp-cancel::before {
+            content: ''; position: absolute; right: calc(100% - 6px); top: 50%; width: 56px; height: 30px; translate: 0 -50%;
+            background: var(--sc); opacity: .55;
+            -webkit-mask: var(--fp-waves) center / 100% 100% no-repeat; mask: var(--fp-waves) center / 100% 100% no-repeat;
+        }
+        #fp-root {
+            --fp-waves: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 30' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M2 6q5-4 10 0t10 0t10 0t10 0t10 0M2 15q5-4 10 0t10 0t10 0t10 0t10 0M2 24q5-4 10 0t10 0t10 0t10 0t10 0'/%3E%3C/svg%3E");
+        }
+        .fp-fresh {
+            display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px; font-size: .68rem; font-weight: 800;
+            background: color-mix(in srgb, var(--qc) 16%, #ffffff); color: color-mix(in srgb, var(--qc) 60%, #3a2430);
+        }
+        .fp-fresh i { font-size: .6rem; }
+
+        /* Ánh kim lướt qua tem khi rê chuột (như tem hologram) */
+        .fp-sheen { position: absolute; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; border-radius: inherit; }
+        .fp-sheen::before {
+            content: ''; position: absolute; top: -30%; bottom: -30%; left: -60%; width: 50%; rotate: 18deg; opacity: 0;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .6), rgba(255, 214, 236, .4), rgba(196, 228, 255, .35), transparent);
+            transition: translate .9s var(--fp-ease), opacity .3s;
+        }
+        @media (hover: hover) { #fp-root .quiz-grid-card:hover .fp-sheen::before { translate: 360% 0; opacity: 1; } }
+
+        /* Tem vừa bốc thăm: lắc nhẹ + viền giấy hoá vàng + nhãn "Bốc trúng" (giữ tên quizCardIn để hoạt ảnh vào không chạy lại) */
+        #fp-root .quiz-grid-card.is-picked {
+            animation: quizCardIn .42s cubic-bezier(.22, 1, .36, 1) backwards, fp-wiggle .9s var(--fp-ease);
+            box-shadow: 0 20px 34px -10px rgba(230, 160, 40, .55);
+        }
+        #fp-root .quiz-grid-card.is-picked::before { border-color: #FFE7A0; }
+        #fp-root .quiz-grid-card.is-picked::after {
+            content: attr(data-tag); position: absolute; top: -27px; left: 12px; z-index: 3; padding: 2px 9px; border-radius: 999px;
+            background: #FFC94D; color: #6B4200; font-size: .66rem; font-weight: 800; box-shadow: 0 2px 0 #E6A920;
+            animation: fp-pop .4s var(--fp-ease) both;
+        }
+
+        /* Kiểu xem DANH SÁCH GỌN: tem nằm ngang, mệnh giá + dấu + nút ở bên phải */
+        #fp-root .quiz-grid.fp-compact { grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); gap: 1.35rem 1.5rem; }
+        #fp-root .fp-compact .quiz-grid-card { flex-direction: row; align-items: center; gap: .8rem; min-height: 0; padding: .8rem .85rem .8rem 1rem; }
+        #fp-root .fp-compact .qc-top { flex: 1 1 auto; align-items: center; padding-right: 0; }
+        #fp-root .fp-compact .qc-rail { display: none; }
+        #fp-root .fp-compact .fp-denom { position: static; order: 2; flex: none; }
+        #fp-root .fp-compact .fp-denom b { font-size: 1.25rem; }
+        #fp-root .fp-compact .fp-cancel { position: relative; top: auto; right: auto; order: 2; flex: none; width: 46px; height: 46px; margin: -8px 0; }
+        #fp-root .fp-compact .fp-cancel::before, #fp-root .fp-compact .fp-cancel small { display: none; }
+        #fp-root .fp-compact .fp-cancel b { font-size: .78rem; }
+        #fp-root .fp-compact .qc-foot { order: 3; flex: none; margin: 0; padding: 0; border: 0; }
+        #fp-root .fp-compact .practice-btn { padding: .55rem .9rem; }
+        @media (max-width: 479px) {
+            #fp-root .fp-compact .quiz-card-icon { display: none; }
+            #fp-root .fp-compact .practice-btn span { display: none; }
+            #fp-root .fp-compact .is-stamped .fp-denom { display: none; }   /* chật: tem đã làm chỉ giữ dấu điểm */
+        }
+
+        /* Tô sáng chữ khớp ô tìm: nét bút dạ quang */
+        .fp-mark { background: linear-gradient(transparent 42%, #FFE38A 42%, #FFE38A 92%, transparent 92%); color: inherit; padding: 0 1px; border-radius: 2px; }
+
+        /* Thẻ con tem trong lưới 1 cột (điện thoại): chừa chỗ cho mép răng cưa */
+        @media (max-width: 479px) {
+            #fp-root .quiz-grid { padding-inline: 10px; gap: 1.6rem; }
+            #fp-root .quiz-grid-card, #fp-root .quiz-skeleton-card { min-height: 9.5rem; }
+        }
+
+        /* ---------- Thanh lọc / bốc thăm / kiểu xem ---------- */
+        .fp-bar { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+        .fp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        .fp-chip {
+            height: 32px; padding: 0 11px; display: inline-flex; align-items: center; gap: 6px; border-radius: 999px;
+            font-size: .76rem; font-weight: 800; color: #8A5A72; border: 1.5px dashed #EBC3D3; cursor: pointer;
+            transition: color .15s, border-color .15s, background-color .15s, transform .18s var(--fp-ease);
+        }
+        #fp-root .fp-chip { background-color: rgba(255, 255, 255, .78); }
+        .fp-chip:hover { color: #E0588F; border-color: #F29CBB; transform: translateY(-1px); }
+        .fp-chip i { font-size: .7rem; opacity: .8; }
+        .fp-chip b { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: #FFE6EF; font-size: .66rem; }
+        #fp-root .fp-chip.is-on { background-color: var(--fp-ink); color: #fff; border-style: solid; border-color: var(--fp-ink); }
+        .fp-chip.is-on b { background: rgba(255, 255, 255, .22); }
+        .fp-bar-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+        .fp-lucky i { color: #F2A93B; transition: rotate .5s var(--fp-ease); }
+        .fp-lucky:hover i { rotate: 200deg; }
+        .fp-view { display: inline-flex; gap: 2px; padding: 3px; border-radius: 13px; background: #fff; border: 1.5px solid #F0D3DF; }
+        .fp-view button { width: 32px; height: 28px; border-radius: 9px; color: #C3A2B2; font-size: .8rem; transition: color .15s, background-color .15s; }
+        .fp-view button:hover { color: #E0588F; }
+        #fp-root .fp-view button[aria-pressed="true"] { background-color: #FFE6EF; color: #E0588F; }
+        /* Máy tính: thanh công cụ dính trên đầu khi cuộn danh sách dài */
+        @media (min-width: 768px) {
+            #fp-quiz-head {
+                position: sticky; top: 10px; z-index: 30; margin-inline: -12px; padding: 10px 12px; border-radius: 20px;
+                background: rgba(255, 249, 251, .86); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+                box-shadow: 0 10px 24px -20px rgba(160, 70, 105, .7);
+            }
+        }
+        .fp-more { display: flex; justify-content: center; margin-top: 24px; }
+
+        /* ---------- Sổ tem ở bìa: tiến độ sưu tầm ---------- */
+        .fp-album { margin-top: 14px; max-width: 30rem; }
+        .fp-album-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 10px; font-size: .78rem; font-weight: 700; color: #7A6170; }
+        .fp-album-row i { color: var(--fc); }
+        .fp-album-row b { font-size: .95rem; font-weight: 800; color: color-mix(in srgb, var(--fc) 35%, #33202a); }
+        .fp-album-bar { position: relative; height: 12px; margin-top: 7px; border-radius: 3px; background: #fff; overflow: hidden; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--fc) 30%, #ffffff); }
+        .fp-album-bar > span {
+            position: absolute; top: 3px; bottom: 3px; left: 3px; width: max(0px, calc(var(--w) - 6px)); transform-origin: left;
+            background: repeating-linear-gradient(90deg, var(--fc) 0 9px, transparent 9px 12px);   /* hàng tem nhỏ */
+            animation: fp-grow 1s var(--fp-ease) .45s both;
+        }
+        .fp-album-hint { margin: 6px 0 0; font-size: .72rem; font-weight: 600; color: #A08898; }
+
+        /* ---------- HỒ SƠ CỦA BẠN: một dải ngắn dưới bìa — bạn là ai + vào khi nào ---------- */
+        .fp-me {
+            display: flex; align-items: center; gap: 10px; margin: -14px 0 30px; padding: 8px 12px 8px 10px;
+            border-radius: 16px; background: rgba(255, 253, 249, .9); border: 1.5px dashed #E6D2EE;
+            animation: fp-rise .45s var(--fp-ease) .1s both;
+        }
+        .fp-me-badge { --pp: 3px; --perf-ink: #EFE4FB; width: 30px; height: 34px; flex: none; display: flex; align-items: center; justify-content: center; color: #8B5CC9; font-size: .8rem; rotate: -5deg; }
+        .fp-me-chips { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: .8rem; font-weight: 600; color: #6E5566; }
+        .fp-me-chip { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+        .fp-me-chip i { color: #C49ADB; font-size: .72rem; }
+        .fp-me-chip b { font-weight: 800; color: #3b2230; }
+        .fp-me-act {
+            flex: none; height: 30px; padding: 0 11px; display: inline-flex; align-items: center; gap: 6px; border-radius: 10px;
+            font-size: .74rem; font-weight: 800; color: #8A5A72; border: 1.5px solid #F0D3DF; text-decoration: none; cursor: pointer;
+            transition: color .15s, border-color .15s;
+        }
+        #fp-root .fp-me-act { background-color: #fff; }
+        .fp-me-act:hover { color: #E0588F; border-color: #F29CBB; }
+        .fp-me-act.is-danger:hover { color: #D14343; border-color: #F6C9C9; }
+        /* Nút "Làm tiếp" ở bìa */
+        #fp-root .fp-continue { height: auto; min-height: 46px; max-width: 100%; padding: 7px 16px 7px 13px; justify-content: flex-start; text-align: left; }
+        .fp-continue-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+        .fp-continue-text small { font-size: .62rem; font-weight: 700; opacity: .85; }
+        .fp-continue-text > span { max-width: 15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* Tem "Lên đầu trang" */
+        .fp-totop {
+            position: fixed; right: 16px; bottom: 18px; z-index: 60; padding: 0; border: 0; cursor: pointer;
+            filter: drop-shadow(0 8px 10px rgba(190, 80, 120, .35));
+            opacity: 0; translate: 0 16px; pointer-events: none; transition: opacity .25s, translate .3s var(--fp-ease);
+        }
+        .fp-totop.is-on { opacity: 1; translate: 0 0; pointer-events: auto; }
+        .fp-totop .fp-perf { --pp: 4px; --perf-ink: var(--fp-pink); width: 46px; height: 52px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1rem; rotate: 6deg; transition: rotate .3s var(--fp-ease); }
+        .fp-totop:hover .fp-perf { rotate: -4deg; }
+        .fp-totop:focus-visible { outline: 2.5px solid var(--fp-pink); outline-offset: 3px; }
+
         /* Kết quả của khách trên thẻ bộ đề (local-shelf.js) */
         .fp-score { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px; font-size: .68rem; font-weight: 800; }
         .fp-score.is-good { background: #dcfce7; color: #047857; }
         .fp-score.is-mid { background: #fef3c7; color: #b45309; }
         .fp-score.is-low { background: #ffe4e6; color: #be123c; }
 
-        /* ---------- Báo lỗi / trống / ghi chú tài khoản ---------- */
+        /* ---------- Báo lỗi / trống / ghi chú tài khoản: phong bì thư ---------- */
         .fp-empty {
             --le: #EC5F95; --le-bg: #FFE1EA;
-            position: relative; max-width: 480px; margin: 10px auto 28px; padding: 38px 24px 30px; text-align: center;
-            border-radius: 22px; background-color: var(--fp-paper);
-            background-image: linear-gradient(rgba(236, 110, 155, .12) 1px, transparent 1px), linear-gradient(90deg, rgba(236, 110, 155, .12) 1px, transparent 1px);
-            background-size: 22px 22px; border: 1.5px solid #F6C9D8; box-shadow: 0 3px 0 #F6D2DE, 0 18px 30px -20px rgba(160, 70, 105, .5);
+            position: relative; max-width: 480px; margin: 14px auto 30px; padding: 40px 24px 30px; text-align: center;
+            border-radius: 20px; background-color: var(--fp-paper);
+            /* viền phong bì thư máy bay: sọc chéo hồng – xanh */
+            border: 7px solid transparent;
+            background:
+                linear-gradient(var(--fp-paper) 0 0) padding-box,
+                repeating-linear-gradient(-45deg, #F7A8C4 0 12px, #fff 12px 18px, #9CC9EC 18px 30px, #fff 30px 36px) border-box;
+            box-shadow: 0 18px 30px -20px rgba(160, 70, 105, .55);
+            animation: fp-rise .5s var(--fp-ease) both;
         }
         .fp-empty.hidden { display: none; }
-        .fp-empty::before {
-            content: ''; position: absolute; top: -11px; left: 50%; width: 96px; height: 22px; translate: -50% 0; rotate: -3deg;
-            background-color: color-mix(in srgb, var(--le) 38%, #ffffff);
-            background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, .45) 0 6px, transparent 6px 12px);
-            clip-path: polygon(0 0, 100% 0, 97% 25%, 100% 50%, 97% 75%, 100% 100%, 0 100%, 3% 75%, 0 50%, 3% 25%);
-        }
         .fp-empty-icon {
-            width: 72px; height: 72px; margin: 0 auto 14px; border-radius: 22px; display: flex; align-items: center; justify-content: center;
-            background: var(--le-bg); color: var(--le); font-size: 1.7rem; rotate: -5deg;
-            box-shadow: 0 0 0 4px #fff, 0 10px 18px -10px color-mix(in srgb, var(--le) 70%, #000);
+            --pp: 5px; --perf-ink: var(--le-bg);
+            width: 76px; height: 76px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center;
+            color: var(--le); font-size: 1.7rem; rotate: -5deg;
         }
+        .fp-empty-stamp { display: block; width: fit-content; margin: 0 auto; filter: drop-shadow(0 8px 10px rgba(190, 80, 120, .28)); }
         .fp-empty h2 { margin: 0; font-size: 1.08rem; font-weight: 800; color: var(--fp-ink); }
         .fp-empty p { margin: 6px auto 0; max-width: 24rem; font-size: .86rem; font-weight: 600; line-height: 1.55; color: #9A7384; }
-        .fp-empty-actions { margin-top: 16px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+        .fp-empty-actions { margin-top: 18px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
         .fp-note {
-            display: flex; align-items: flex-start; gap: 10px; margin: 0 0 26px; padding: 13px 15px; border-radius: 16px;
+            display: flex; align-items: flex-start; gap: 10px; margin: 0 0 28px; padding: 13px 15px; border-radius: 16px;
             background: #FFF8E6; border: 1.5px dashed #F2D58A; color: #7A5B12; font-size: .86rem; font-weight: 600; line-height: 1.5;
         }
         .fp-note.hidden { display: none; }
         .fp-note > i { margin-top: 3px; color: #E2A21A; }
         .fp-note a { color: #D9487F; font-weight: 800; text-decoration: underline; text-underline-offset: 2px; }
 
-        /* ---------- Kệ "Trên máy này" ---------- */
+        /* ---------- Kệ "Trên máy này": trang sổ có dải giấy bóng kính, mỗi mục một con tem nhỏ ---------- */
         .fp-shelf {
-            padding: 20px 18px 16px; border-radius: 22px; background: rgba(255, 252, 248, .9);
+            position: relative; padding: 22px 18px 18px; border-radius: 22px; background: rgba(255, 253, 249, .92);
             border: 1.5px solid var(--fp-line); box-shadow: 0 3px 0 #F6DCE6, 0 18px 30px -24px rgba(160, 70, 105, .5);
         }
         .fp-shelf.hidden { display: none; }
         .fp-shelf .fp-section-title { --tape: #D9F0E3; }
         .fp-shelf .fp-section-title > i { color: #2FA36B; }
         .fp-shelf-hint { margin: 6px 0 0; font-size: .76rem; font-weight: 600; color: #A08898; }
-        .fp-shelf-list { display: grid; gap: 8px; margin-top: 14px; }
+        .fp-shelf-list { display: grid; gap: 9px; margin-top: 14px; }
         @media (min-width: 900px) { .fp-shelf-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         .fp-shelf-item {
-            display: flex; align-items: center; gap: 11px; padding: 10px 10px 10px 11px; border-radius: 16px;
-            background: #fff; border: 1.5px solid #F3E1E8; transition: border-color .15s, transform .15s, box-shadow .15s;
+            display: flex; align-items: center; gap: 12px; padding: 9px 10px 9px 10px; border-radius: 14px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, .95), rgba(255, 255, 255, .8));
+            border: 1.5px solid #F3E1E8; transition: border-color .15s, transform .2s var(--fp-ease), box-shadow .2s;
         }
-        .fp-shelf-item:hover { border-color: #F29CBB; transform: translateY(-1px); box-shadow: 0 8px 16px -12px rgba(190, 80, 120, .5); }
-        .fp-shelf-ic { width: 40px; height: 40px; flex: none; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: .95rem; }
-        .fp-shelf-ic.is-folder { background: #FFF1CC; color: #E2A21A; }
-        .fp-shelf-ic.is-quiz { background: #FFE1EA; color: #EC5F95; }
+        .fp-shelf-item:hover { border-color: #F29CBB; transform: translateY(-2px); box-shadow: 0 10px 18px -12px rgba(190, 80, 120, .5); }
+        .fp-shelf-ic {
+            --pp: 4px;
+            width: 42px; height: 42px; flex: none; display: flex; align-items: center; justify-content: center; font-size: .95rem;
+            rotate: -4deg; transition: rotate .3s var(--fp-ease);
+        }
+        .fp-shelf-item:hover .fp-shelf-ic { rotate: 4deg; }
+        .fp-shelf-ic.is-folder { --perf-ink: #FFF1CC; color: #E2A21A; }
+        .fp-shelf-ic.is-quiz { --perf-ink: #FFE1EA; color: #EC5F95; }
         .fp-shelf-main { min-width: 0; flex: 1; text-decoration: none; }
         .fp-shelf-title { display: block; font-size: .88rem; font-weight: 800; color: #3b2230; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .fp-shelf-title .fa-thumbtack { color: #EC5F95; font-size: .7rem; margin-right: 4px; }
@@ -267,11 +520,35 @@
 
         /* ---------- Chân trang ---------- */
         .fp-foot {
-            margin-top: 40px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
+            margin-top: 44px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
             font-size: .78rem; font-weight: 600; color: #A07086;
         }
-        @media (prefers-reduced-motion: reduce) { .fp-btn, .fp-shelf-item { transition: none; } }
+        .fp-foot-stamp { --pp: 3px; --perf-ink: #FFE1EA; width: 30px; height: 34px; display: flex; align-items: center; justify-content: center; color: #EC5F95; font-size: .8rem; rotate: 6deg; }
+
+        /* ---------- Chuyển động: nhẹ, chỉ transform/opacity ---------- */
+        @keyframes fp-rise { from { opacity: 0; transform: translateY(14px); } }
+        @keyframes fp-pop { from { opacity: 0; transform: scale(.85); } }
+        @keyframes fp-bob { 50% { translate: 0 -4px; rotate: -2deg; } }
+        @keyframes fp-thump {
+            0% { opacity: 0; transform: scale(1.6); }
+            55% { opacity: .5; transform: scale(.93); }
+            100% { transform: scale(1); }
+        }
+        @keyframes fp-cancel-in { 0% { opacity: 0; scale: 1.9; } 60% { opacity: .9; scale: .92; } 100% { scale: 1; } }
+        @keyframes fp-wiggle {
+            20% { rotate: -4deg; scale: 1.04; } 40% { rotate: 3deg; } 60% { rotate: -2deg; } 80% { rotate: 1deg; }
+        }
+        @keyframes fp-grow { from { scale: 0 1; } }
+        @media (prefers-reduced-motion: reduce) {
+            .fp-hero, .fp-stat, .fp-empty, .fp-postmark, .fp-stamp-wrap, .fp-cancel, .fp-album-bar > span, .fp-me { animation: none; }
+            #fp-root .quiz-grid-card.is-picked { animation: none; }
+            .fp-btn, .fp-shelf-item, .fp-shelf-ic, .fp-sheen::before, .fp-totop { transition: none; }
+        }
     </style>
+    <!-- Tailwind ĐÓNG BĂNG (thay Play CDN ~400KB JS dò DOM mỗi lần mở trang). Phải nạp CUỐI <head> như CDN từng chèn.
+         Nguồn quét đã gồm features/quiz/*.js + core/*.js. Thêm class Tailwind mới vào trang này → chạy lại tailwind-dong-bang.mjs
+         hoặc thêm luật tay vào thẻ style ở trên (như .right-1.5). -->
+    <link rel="stylesheet" href="tailwind-quiz.css">
     <script src="../../pwa-install.js" defer></script>
 </head>
 <body class="text-gray-700">
@@ -279,7 +556,7 @@
         <!-- Thanh trên: thương hiệu + sao chép link + về trang chủ -->
         <nav class="fp-top" aria-label="Điều hướng">
             <a href="../../index.html" class="fp-brand" title="Về trang chủ Zitthenkne">
-                <img src="../../assets/logo.png" alt=""><span>Zitthenkne</span>
+                <img src="../../assets/logo.png" alt="" width="34" height="34"><span>Zitthenkne</span>
             </a>
             <div class="fp-top-actions">
                 <button type="button" id="fp-copy-link" class="fp-btn hidden" title="Sao chép đường dẫn trang này">
@@ -291,18 +568,39 @@
             </div>
         </nav>
 
-        <!-- Đầu trang: bìa hồ sơ tô theo màu & icon thư mục (folder.js) -->
+        <!-- Đầu trang: bìa sổ tem tô theo màu & icon thư mục (folder.js) -->
         <header id="folder-header" class="fp-hero" data-tab="Thư mục chia sẻ">
-            <span id="folder-icon" class="fp-hero-icon" aria-hidden="true">
-                <i class="fas fa-folder-open"></i>
+            <!-- Dấu bưu điện: ngày hôm nay (script cuối trang) -->
+            <svg class="fp-postmark" viewBox="0 0 210 100" aria-hidden="true" focusable="false">
+                <defs><path id="fp-pm-arc" d="M127 50a33 33 0 1 1 66 0a33 33 0 1 1-66 0"/></defs>
+                <g fill="none" stroke="currentColor" stroke-linecap="round">
+                    <path stroke-width="2.6" d="M4 30q9-7 18 0t18 0t18 0t18 0t18 0t18 0M4 50q9-7 18 0t18 0t18 0t18 0t18 0t18 0M4 70q9-7 18 0t18 0t18 0t18 0t18 0t18 0"/>
+                    <circle cx="160" cy="50" r="45" stroke-width="3"/>
+                    <circle cx="160" cy="50" r="26" stroke-width="1.6"/>
+                </g>
+                <g fill="currentColor" font-weight="800">
+                    <text font-size="9.5" letter-spacing="1"><textPath href="#fp-pm-arc" textLength="200" lengthAdjust="spacing">ZITTHENKNE ✦ SỔ TEM ĐỀ ✦ HỌC VUI ✦</textPath></text>
+                    <text x="160" y="47" text-anchor="middle" font-size="10">HỌC</text>
+                    <text id="fp-pm-date" x="160" y="60" text-anchor="middle" font-size="9.5" font-weight="700"></text>
+                </g>
+            </svg>
+            <span class="fp-stamp-wrap" aria-hidden="true">
+                <span id="folder-icon" class="fp-hero-icon fp-perf">
+                    <i class="fas fa-folder-open"></i>
+                </span>
             </span>
             <div class="fp-hero-text">
                 <h1 id="folder-name" class="fp-title">Đang mở thư mục…</h1>
                 <p id="folder-meta" class="fp-meta">Zitthenkne · thư mục được chia sẻ</p>
                 <div id="folder-stats" class="fp-stats"></div>
+                <!-- Sổ tem: X/Y bộ đề đã làm (folder.js drawAlbum) -->
+                <div id="fp-album" class="fp-album hidden"></div>
             </div>
             <div id="fp-hero-actions" class="fp-hero-actions"></div>
         </header>
+
+        <!-- Hồ sơ của bạn: danh tính, lần vào, nhật ký làm bài (folder.js drawMe) -->
+        <section id="fp-me" class="fp-me hidden" aria-label="Hồ sơ của bạn"></section>
 
         <!-- Trang "Được chia sẻ với tôi" khi chưa đăng nhập / chưa xác nhận email (folder.js) -->
         <p id="shared-account-note" class="fp-note hidden"></p>
@@ -315,10 +613,10 @@
             <div id="folder-sub-list" class="folders-scroll-container"></div>
         </section>
 
-        <!-- Danh sách bộ đề bên trong (+ tìm / sắp xếp khi đông) -->
+        <!-- Danh sách bộ đề bên trong (+ tìm / sắp xếp khi đông) — mỗi bộ đề hiện như một con tem -->
         <section id="fp-quiz-section" class="fp-section">
             <div id="fp-quiz-head" class="fp-section-head hidden">
-                <h2 class="fp-section-title"><i class="fas fa-file-lines"></i><span id="fp-quiz-label">Bộ đề</span><span id="fp-quiz-count" class="fp-count"></span></h2>
+                <h2 class="fp-section-title"><i class="fas fa-stamp"></i><span id="fp-quiz-label">Bộ đề</span><span id="fp-quiz-count" class="fp-count"></span></h2>
                 <div id="fp-tools" class="fp-tools hidden">
                     <label class="fp-search">
                         <i class="fas fa-search"></i>
@@ -330,14 +628,31 @@
                         <option value="few">Ít câu nhất</option>
                     </select>
                 </div>
+                <!-- Lọc theo tiến độ + bốc thăm + kiểu xem (folder.js) -->
+                <div id="fp-bar" class="fp-bar hidden">
+                    <div id="fp-chips" class="fp-chips hidden" role="group" aria-label="Lọc bộ đề"></div>
+                    <div class="fp-bar-actions">
+                        <button type="button" id="fp-lucky" class="fp-btn fp-lucky" title="Chọn ngẫu nhiên một bộ đề chưa làm">
+                            <i class="fas fa-dice"></i><span>Bốc thăm 1 tem</span>
+                        </button>
+                        <div id="fp-view" class="fp-view" role="group" aria-label="Kiểu xem">
+                            <button type="button" data-view="grid" aria-pressed="true" title="Xem dạng tem"><i class="fas fa-table-cells-large"></i></button>
+                            <button type="button" data-view="list" aria-pressed="false" title="Xem dạng danh sách gọn"><i class="fas fa-list"></i></button>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div id="folder-quiz-list" class="quiz-grid"></div>
             <p id="fp-no-match" class="fp-no-match hidden"></p>
+            <!-- Thư mục đông: vẽ dần từng đợt 24 tem, cuộn gần tới là tự vẽ tiếp -->
+            <div id="fp-more" class="fp-more hidden">
+                <button type="button" id="fp-more-btn" class="fp-btn"><i class="fas fa-chevron-down"></i> Xem thêm <b id="fp-more-count"></b> tem</button>
+            </div>
         </section>
 
-        <!-- Báo lỗi / thư mục trống -->
+        <!-- Báo lỗi / thư mục trống: phong bì thư -->
         <div id="folder-message" class="fp-empty hidden" role="status">
-            <div class="fp-empty-icon"><i id="folder-message-icon" class="fas fa-folder-open"></i></div>
+            <span class="fp-empty-stamp" aria-hidden="true"><span class="fp-empty-icon fp-perf"><i id="folder-message-icon" class="fas fa-folder-open"></i></span></span>
             <h2 id="folder-message-title"></h2>
             <p id="folder-message-desc"></p>
             <div id="folder-access-request" style="max-width:24rem;margin:0 auto"></div>
@@ -360,14 +675,27 @@
         </section>
 
         <footer class="fp-foot">
-            <span>Học vui hơn với bộ đề của riêng bạn trên Zitthenkne</span>
+            <span class="fp-foot-stamp fp-perf" aria-hidden="true"><i class="fas fa-heart"></i></span>
             <a href="../../index.html" class="fp-btn"><i class="fas fa-house"></i> Về trang chủ Zitthenkne</a>
         </footer>
     </div>
 
+    <!-- Tem "Lên đầu trang" (hiện khi bìa đã cuộn khuất) -->
+    <button type="button" id="fp-totop" class="fp-totop" aria-label="Lên đầu trang" title="Lên đầu trang">
+        <span class="fp-perf"><i class="fas fa-arrow-up"></i></span>
+    </button>
+
     <!-- Thông báo (core/utils.js showToast) — trang "Được chia sẻ với tôi": rời chia sẻ / lưu bản sao -->
     <div id="toast-container" class="fixed top-4 right-4 z-[100] max-w-[calc(100vw-2rem)]"></div>
 
+    <script>
+        // Ngày trên dấu bưu điện = hôm nay (dd.mm.yy)
+        (function () {
+            var d = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; };
+            var el = document.getElementById('fp-pm-date');
+            if (el) el.textContent = p(d.getDate()) + '.' + p(d.getMonth() + 1) + '.' + String(d.getFullYear()).slice(2);
+        })();
+    </script>
     <script type="module" src="folder.js"></script>
 </body>
 </html>

@@ -118,7 +118,8 @@ function showGuide(kind) {
 const HOME = `<a class="lk-btn lk-btn-ghost" href="../../index.html"><i class="fas fa-house"></i> Về trang chủ</a>`;
 const RETRY = `<button type="button" class="lk-btn lk-btn-ghost" onclick="location.reload()"><i class="fas fa-rotate-right"></i> Thử lại</button>`;
 
-function showStatus(status) {
+/** visitor: máy này từng VÀO XEM thư mục (peek trả info.visitor) — hết suất lúc chưa kịp làm bài thì báo đúng lý do. */
+function showStatus(status, visitor = false) {
     const map = {
         taken: ['fa-ticket', 'Link đã được sử dụng', 'Link này đã được kích hoạt trên thiết bị khác. Bạn có thể gửi yêu cầu truy cập bên dưới.'],
         blocked: ['fa-ticket', 'Thiết bị chưa được cấp quyền', 'Thiết bị này không còn trong danh sách truy cập của link. Bạn có thể gửi yêu cầu truy cập bên dưới.'],
@@ -127,9 +128,14 @@ function showStatus(status) {
         missing: ['fa-link-slash', 'Không tìm thấy link', 'Link không đúng hoặc nội dung đã bị xóa.'],
         unclaimed: ['fa-link-slash', 'Không tìm thấy link', 'Vui lòng mở lại đúng link được gửi cho bạn.']
     };
-    const [icon, title, desc] = map[status] || map.missing;
-    // taken/blocked: thường do đổi trình duyệt (Zalo/Messenger → Chrome, ẩn danh…) → nói thẳng cách thử trước khi xin quyền
-    const note = ['taken', 'blocked'].includes(status)
+    let [icon, title, desc] = map[status] || map.missing;
+    if (status === 'taken' && visitor) {
+        title = 'Link đã hết suất';
+        desc = 'Thiết bị này đã vào xem nhưng chưa làm bài, và các suất của link vừa được dùng hết. Bạn có thể gửi yêu cầu truy cập bên dưới.';
+    }
+    // taken (máy lạ): thường do đổi trình duyệt (Zalo/Messenger → Chrome, ẩn danh…) → nói thẳng cách thử trước khi xin quyền.
+    // blocked thì KHÔNG: máy được nhận ra đúng, chỉ là người chia sẻ đã gỡ.
+    const note = status === 'taken' && !visitor
         ? `Nếu đây là máy của bạn: thường do mở bằng <b>trình duyệt khác lần đầu</b> (Zalo/Messenger, Chrome, Safari, tab ẩn danh). Thử mở link bằng đúng trình duyệt đó.`
         : '';
     paint({ tone: status === 'missing' || status === 'unclaimed' ? 'bad' : 'warn', icon, title, desc, note, actions: HOME });
@@ -139,12 +145,19 @@ function showStatus(status) {
 
 // Thư mục: 'visit' = ghi nhận đã vào, KHÔNG tốn suất (bấm làm một bộ đề trong thư mục mới chiếm suất — folder.js startLinkQuiz).
 // Bộ đề: 'claim' chiếm suất ngay (mở bộ đề là đọc được câu hỏi).
+// Phiên ẩn danh tạo SẴN lúc trang hiện nút (người nhận còn đang đọc / chọn tên) → bấm là gọi máy chủ luôn, khỏi chờ thêm ~0,5–1s.
+// Chỉ tạo phiên, KHÔNG nhận link (nhận vẫn phải bấm). Lỗi thì quên promise để lúc bấm thử lại và báo lỗi.
+let anonP = null;
+const ensureAnon = () => auth.currentUser ? Promise.resolve()
+    : (anonP ||= signInAnonymously(auth).catch((e) => { anonP = null; throw e; }));
+
 async function claim(btn, who = '', kind = 'quiz') {
     btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Đang mở…';
+    const step = (t) => { btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> ${t}`; };
+    step(auth.currentUser ? 'Đang xác nhận thiết bị…' : 'Đang chuẩn bị thiết bị…');
     try {
         if (!auth.currentUser) {
-            try { await signInAnonymously(auth); }
+            try { await ensureAnon(); step('Đang xác nhận thiết bị…'); }
             catch (e) {
                 const off = ['auth/operation-not-allowed', 'auth/admin-restricted-operation'].includes(e?.code);
                 paint({ tone: 'bad', icon: 'fa-triangle-exclamation', title: off ? 'Trang chưa sẵn sàng cho link 1 thiết bị' : 'Không mở được',
@@ -157,14 +170,14 @@ async function claim(btn, who = '', kind = 'quiz') {
         const r = await call(kind === 'folder' ? 'visit' : 'claim', { label: deviceLabel(), who });
         // Link nhóm: tên vừa bị máy khác giành / không có trong danh sách → tải lại danh sách, báo ngay trên thẻ
         const WHO_ERR = {
-            whoTaken: `Tên “${who}” đã được xác nhận trên một thiết bị khác. Nếu có nhầm lẫn, vui lòng liên hệ người chia sẻ.`,
+            whoTaken: `Tên “${who}” đã được dùng để làm bài trên một thiết bị khác. Nếu có nhầm lẫn, vui lòng liên hệ người chia sẻ.`,
             notMember: `“${who}” không có trong danh sách nhóm. Vui lòng chọn đúng tên.`,
             needWho: 'Vui lòng chọn hoặc nhập tên trước khi tiếp tục.'
         };
         if (WHO_ERR[r.status]) return main(WHO_ERR[r.status]);
         if (['mine', 'owner', 'visitor'].includes(r.status)) {
             if (who) try { localStorage.setItem('linkWho', who); } catch (e) {}   // quiz-run.js ghi tên này cho trang Quản trị
-            paint({ tone: 'ok', icon: 'fa-check', title: 'Đã mở trên máy này', desc: 'Đang chuyển tới nội dung…' });
+            paint({ tone: 'ok', icon: 'fa-check', title: 'Đã mở trên máy này', desc: r.kind === 'folder' ? 'Đang mở thư mục…' : 'Đang mở bộ đề…' });
             location.replace(targetUrl(r.kind, r.targetId, { viaLink: r.status !== 'owner' }));
             return;
         }
@@ -235,6 +248,8 @@ async function main(err = '') {
     // Máy này đã vào xem thư mục (chưa làm bài) → vào thẳng, vẫn chưa tốn suất
     if (info.status === 'mine' || (info.status === 'ok' && info.visitor)) {
         paint({ tone: 'ok', icon: 'fa-check', kicker: `${what} · thiết bị đã được xác nhận`, title: info.title || what, desc: 'Đang mở…' });
+        // Thư mục: chuyển thẳng — trang thư mục tự kiểm + cấp quyền (action 'folder'), khỏi gọi máy chủ thêm một lượt ở đây
+        if (info.kind === 'folder' && info.targetId) return location.replace(targetUrl('folder', info.targetId));
         const btn = document.createElement('button');
         return claim(btn, '', info.kind);
     }
@@ -247,7 +262,8 @@ async function main(err = '') {
         });
         return;
     }
-    if (info.status !== 'ok') return showStatus(info.status);
+    if (info.status !== 'ok') return showStatus(info.status, info.visitor);
+    if (!auth.currentUser) ensureAnon().catch(() => {});   // tạo sẵn phiên trong lúc người nhận đọc / chọn tên
 
     const u = auth.currentUser;
     const uses = info.maxUses || 1;
@@ -314,4 +330,6 @@ const WHY = {
     whoTaken: 'Tên bạn chọn lúc xem đã được dùng để làm bài trên thiết bị khác. Vui lòng chọn lại đúng tên của bạn.',
     notMember: 'Tên bạn chọn lúc xem không còn trong danh sách nhóm. Vui lòng chọn lại.'
 };
-main(WHY[new URLSearchParams(location.search).get('why')] || '');
+const why = new URLSearchParams(location.search).get('why');
+if (why) try { history.replaceState(null, '', location.pathname + `?t=${encodeURIComponent(token)}`); } catch (e) {}   // tải lại không báo lỗi cũ
+main(WHY[why] || '');

@@ -14,7 +14,7 @@ import { db, auth } from '../../core/firebase-init.js';
 import { whenAuthReady, refreshEmailVerified } from '../../core/auth-session.js';
 import { runQueryRest } from '../../core/firestore-rest.js';
 import { markSharedSeen } from './shared-inbox.js';
-import { rememberOpened, listShelf, forgetShelf, togglePinShelf, clearShelf, localStatsFor } from './local-shelf.js';
+import { rememberOpened, listShelf, forgetShelf, togglePinShelf, clearShelf, localStatsFor, listLocalResults, forgetLocalResults, shelfEntry } from './local-shelf.js';
 import { showToast, showConfirm } from '../../core/utils.js';
 import { requireFeature } from '../../core/features.js';
 import { apiUrl, deviceLabel } from '../../core/device-limit.js';
@@ -75,8 +75,22 @@ function setHero({ hex, icon, name, tab, metaHTML, stats } = {}) {
     if (metaHTML != null) $('folder-meta').innerHTML = metaHTML;
     if (stats) {
         $('folder-stats').innerHTML = stats.filter(s => s && s.n != null).map(s =>
-            `<span class="fp-stat"><i class="fas ${s.icon}"></i><b>${fmtNum(s.n)}</b> ${s.label}</span>`).join('');
+            `<span class="fp-stat"><i class="fas ${s.icon}"></i><b data-n="${Number(s.n) || 0}">0</b> ${s.label}</span>`).join('');
+        countUp($('folder-stats'));
     }
+}
+const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+// Số liệu đầu trang đếm tăng dần (~0,7 giây)
+function countUp(root) {
+    const els = [...root.querySelectorAll('b[data-n]')];
+    if (reduceMotion()) { els.forEach(b => { b.textContent = fmtNum(b.dataset.n); }); return; }
+    const t0 = performance.now();
+    const step = (t) => {
+        const k = Math.min(1, (t - t0) / 700), e = 1 - (1 - k) ** 3;
+        els.forEach(b => { b.textContent = fmtNum(Math.round(b.dataset.n * e)); });
+        if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
 }
 const accessBadge = (kind) => kind === 'public'
     ? '<span class="fp-access is-public"><i class="fas fa-globe"></i> Công khai</span>'
@@ -118,6 +132,7 @@ function showMessage(icon, title, desc) {
     $('folder-quiz-list').innerHTML = '';
     $('fp-quiz-head')?.classList.add('hidden');
     $('fp-no-match')?.classList.add('hidden');
+    $('fp-more')?.classList.add('hidden');
     $('folder-message-icon').className = `fas ${icon}`;
     $('folder-message-title').textContent = title;
     $('folder-message-desc').textContent = desc;
@@ -179,73 +194,327 @@ function renderSubFolders(folders, { shared = false, link = '' } = {}) {
     section?.classList.remove('hidden');
 }
 
-// ---------- Danh sách bộ đề: tìm theo tên (bỏ dấu) + sắp xếp, hiện công cụ khi > 4 bộ ----------
+// ---------- Danh sách bộ đề = trang tem: tìm (bỏ dấu, tô sáng chữ khớp) + sắp xếp + lọc theo tiến độ + bốc thăm + tải dần ----------
 const fold = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd');
 let quizView = { items: [], shared: false, link: '' };
 let toolsBound = false;
+let quizFilter = 'all';          // all | todo | done | weak
+let viewList = [];               // danh sách sau tìm/lọc/sắp xếp
+let shown = 0;                   // số tem đã vẽ (tải dần theo QUIZ_PAGE)
+const QUIZ_PAGE = 24;
+
+// Tiến độ làm bài — KHÔNG tốn lượt mạng: khách = kết quả lưu trên máy (local-shelf.js); đã đăng nhập = cache lịch sử mà
+// thư viện đã đồng bộ (library-attempts.js, localStorage quizAttemptCache_<uid>). Máy chưa từng mở thư viện thì chưa có dấu.
+let progMap = new Map();          // quizId -> { last, best, at, first, count }
+let linkDone = new Map();         // link 1 thiết bị: nhật ký làm bài máy chủ ghi cho máy này (api/link.js 'folder' → done)
+function buildProgress(items) {
+    const uid = auth.currentUser?.uid;
+    let att = {};
+    try { att = (uid && JSON.parse(localStorage.getItem(`quizAttemptCache_${uid}`) || 'null')?.map) || {}; } catch (e) { /* hỏng cache → coi như chưa có */ }
+    const guest = {};
+    for (const r of listLocalResults()) {                 // mới nhất trước → lượt cuối vòng lặp là lượt đầu tiên
+        const g = guest[r.quizId] || (guest[r.quizId] = { last: r, best: r, count: 0 });
+        g.count++;
+        g.first = r.completedAt || 0;
+        if (r.percentage > g.best.percentage) g.best = r;
+    }
+    progMap = new Map();
+    for (const q of items) {
+        const g = guest[q.id], a = att[q.id], s = linkDone.get(q.id);
+        let e = null;
+        if (g || a) {
+            const aPct = a && a.t ? Math.round(a.s / a.t * 100) : null;
+            const gAt = g ? (g.last.completedAt || 0) : 0;
+            const last = aPct != null && (!g || (a.at || 0) >= gAt) ? aPct : g ? Math.round(g.last.percentage) : 0;
+            e = { last, best: Math.max(last, g ? Math.round(g.best.percentage) : 0), at: Math.max(gAt, a?.at || 0), first: g?.first || 0, count: g ? g.count : 0 };
+        }
+        if (s) {
+            const sl = Math.round(s.last ?? 0), sb = Math.round(s.best ?? sl);
+            e = !e ? { last: sl, best: sb, at: s.at || 0, first: s.first || 0, count: s.n || 0 }
+                : { last: (s.at || 0) >= e.at ? sl : e.last, best: Math.max(e.best, sb), at: Math.max(e.at, s.at || 0),
+                    first: Math.min(...[e.first, s.first].filter(Boolean)) || 0, count: Math.max(e.count, s.n || 0) };
+        }
+        if (e) progMap.set(q.id, e);
+    }
+}
+const FILTERS = [
+    ['all', 'Tất cả', 'fa-border-all', () => true],
+    ['todo', 'Chưa làm', 'fa-envelope', (q) => !progMap.has(q.id)],
+    ['done', 'Đã đóng dấu', 'fa-stamp', (q) => progMap.has(q.id)],
+    ['weak', 'Cần ôn lại', 'fa-rotate-left', (q) => (progMap.get(q.id)?.last ?? 100) < 50]
+];
 
 function setQuizList(items, { shared = false, label, link = '' } = {}) {
     quizView = { items, shared, link };
+    buildProgress(items);
     $('fp-quiz-label').textContent = label || (shared ? 'Bộ đề được chia sẻ' : 'Bộ đề');
     $('fp-quiz-head').classList.toggle('hidden', !items.length);
     $('fp-tools').classList.toggle('hidden', items.length <= 4);
-    if (!toolsBound) {
-        toolsBound = true;
-        let t = 0;
-        $('fp-search').addEventListener('input', () => { clearTimeout(t); t = setTimeout(drawQuizList, 120); });
-        $('fp-sort').addEventListener('change', drawQuizList);
-    }
+    $('fp-bar').classList.toggle('hidden', items.length < 2);
+    if (!FILTERS.some(f => f[0] === quizFilter && items.some(f[3]))) quizFilter = 'all';
+    if (!toolsBound) bindQuizTools();
+    applyView();
+    drawAlbum(items);
+    drawContinue(items);
     drawQuizList();
 }
 
+function bindQuizTools() {
+    toolsBound = true;
+    let t = 0;
+    const search = $('fp-search');
+    search.addEventListener('input', () => { clearTimeout(t); t = setTimeout(drawQuizList, 120); });
+    search.addEventListener('keydown', (e) => { if (e.key === 'Escape' && search.value) { search.value = ''; drawQuizList(); } });
+    $('fp-sort').addEventListener('change', drawQuizList);
+    // Phím "/" = nhảy vào ô tìm (như GitHub/YouTube)
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey || $('fp-tools').classList.contains('hidden')) return;
+        if (e.target.closest?.('input, textarea, select, [contenteditable="true"]')) return;
+        e.preventDefault();
+        search.focus();
+    });
+    $('fp-chips').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-filter]');
+        if (!b || b.dataset.filter === quizFilter) return;
+        quizFilter = b.dataset.filter;
+        drawQuizList();
+    });
+    $('fp-view').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-view]');
+        if (!b) return;
+        try { localStorage.setItem('fpQuizView', b.dataset.view); } catch (err) { /* chế độ riêng tư */ }
+        applyView();
+    });
+    $('fp-lucky').addEventListener('click', pickLucky);
+    $('fp-root').addEventListener('click', (e) => {
+        const c = e.target.closest('#fp-continue');
+        if (c) revealQuiz(c.dataset.qid)?.querySelector('a.practice-btn')?.click();   // qua đúng đường bấm thẻ (link 1 thiết bị: chiếm suất trước)
+    });
+    $('fp-more-btn').addEventListener('click', () => moreQuizzes());
+    if ('IntersectionObserver' in window) {
+        new IntersectionObserver((es) => { if (es[0].isIntersecting) moreQuizzes(); }, { rootMargin: '700px 0px' }).observe($('fp-more'));
+    }
+}
+
+function applyView() {
+    let v = 'grid';
+    try { v = localStorage.getItem('fpQuizView') === 'list' ? 'list' : 'grid'; } catch (e) { /* mặc định lưới */ }
+    $('folder-quiz-list').classList.toggle('fp-compact', v === 'list');
+    $('fp-view').querySelectorAll('[data-view]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
+}
+
 function drawQuizList() {
-    const { items, shared, link } = quizView;
+    const { items } = quizView;
     const raw = ($('fp-search').value || '').trim();
     const q = fold(raw);
     const sort = $('fp-sort').value;
-    let list = q ? items.filter(x => fold(x.title).includes(q)) : items.slice();
+    const pass = FILTERS.find(f => f[0] === quizFilter)[3];
+    let list = items.filter(x => pass(x) && (!q || fold(x.title).includes(q)));
     const byTitle = (a, b) => (a.title || '').localeCompare(b.title || '', 'vi', { sensitivity: 'base' });
     if (sort === 'count') list.sort((a, b) => (b.questionCount || 0) - (a.questionCount || 0) || byTitle(a, b));
     else if (sort === 'few') list.sort((a, b) => (a.questionCount || 0) - (b.questionCount || 0) || byTitle(a, b));
     else list.sort(byTitle);
-    $('fp-quiz-count').textContent = items.length ? (q ? `${list.length}/${items.length}` : items.length) : '';
+    const narrowed = q || quizFilter !== 'all';
+    $('fp-quiz-count').textContent = items.length ? (narrowed ? `${list.length}/${items.length}` : items.length) : '';
+    // Chip lọc chỉ có nghĩa khi đã có ít nhất một tem được đóng dấu
+    const chips = $('fp-chips');
+    chips.classList.toggle('hidden', !progMap.size);
+    chips.innerHTML = FILTERS.map(([key, text, icon, fn]) => {
+        const n = items.filter(fn).length;
+        if (key !== 'all' && !n) return '';
+        return `<button type="button" class="fp-chip${key === quizFilter ? ' is-on' : ''}" data-filter="${key}" aria-pressed="${key === quizFilter}"><i class="fas ${icon}"></i>${text}<b>${n}</b></button>`;
+    }).join('');
     const none = $('fp-no-match');
-    none.classList.toggle('hidden', !(q && !list.length));
-    if (q && !list.length) none.textContent = `Không có bộ đề nào khớp “${raw}”.`;
-    renderQuizzes(list, { shared, link });
+    none.classList.toggle('hidden', !(narrowed && !list.length));
+    if (narrowed && !list.length) none.textContent = q ? `Không có bộ đề nào khớp “${raw}”.` : 'Không có bộ đề nào trong mục này.';
+    viewList = list;
+    shown = 0;
+    $('folder-quiz-list').innerHTML = '';
+    moreQuizzes();
 }
 
+// Vẽ thêm một đợt tem (hoặc tới khi đủ `n` tem nữa). Vẽ nối đuôi → tem cũ không "nở" lại.
+function moreQuizzes(n = QUIZ_PAGE) {
+    if (shown >= viewList.length) return;
+    const { shared, link } = quizView;
+    const q = fold(($('fp-search').value || '').trim());
+    const chunk = viewList.slice(shown, shown + Math.max(n, QUIZ_PAGE));
+    $('folder-quiz-list').insertAdjacentHTML('beforeend', chunk.map((x, i) => quizCardHTML(x, i, { shared, link, q })).join(''));
+    shown += chunk.length;
+    const left = viewList.length - shown;
+    $('fp-more').classList.toggle('hidden', left <= 0);
+    $('fp-more-count').textContent = left;
+}
+
+const findCard = (qid) => [...$('folder-quiz-list').children].find(el => el.dataset.qid === qid);
+// Đảm bảo tem của bộ đề đang nằm trên trang (bỏ lọc / tìm nếu nó bị ẩn, vẽ thêm nếu chưa tới lượt)
+function revealQuiz(qid) {
+    if (!viewList.some(x => x.id === qid)) { quizFilter = 'all'; $('fp-search').value = ''; drawQuizList(); }
+    const idx = viewList.findIndex(x => x.id === qid);
+    if (idx >= shown) moreQuizzes(idx + 1 - shown);
+    return findCard(qid);
+}
+
+// "Bốc thăm 1 tem": ưu tiên bộ CHƯA làm trong danh sách đang xem → cuộn tới, tem lắc nhẹ + viền vàng
+function pickLucky() {
+    const todo = viewList.filter(x => !progMap.has(x.id));
+    const pool = todo.length ? todo : viewList;
+    if (!pool.length) return;
+    const prev = $('folder-quiz-list').querySelector('.is-picked');
+    let q = pool[Math.floor(Math.random() * pool.length)];
+    if (pool.length > 1 && prev && prev.dataset.qid === q.id) q = pool[(pool.indexOf(q) + 1) % pool.length];
+    const card = revealQuiz(q.id);
+    if (card) spotlight(card, '★ Bốc trúng');
+}
+// Cuộn tới một tem, lắc nhẹ + viền vàng + nhãn nhỏ (bốc thăm / bấm từ nhật ký làm bài)
+function spotlight(card, tag) {
+    $('folder-quiz-list').querySelector('.is-picked')?.classList.remove('is-picked');
+    card.classList.remove('is-picked');
+    void card.offsetWidth;                 // trúng lại đúng tem đó vẫn lắc lại
+    card.dataset.tag = tag;
+    card.classList.add('is-picked');
+    card.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'center' });
+    setTimeout(() => card.querySelector('a.practice-btn')?.focus({ preventScroll: true }), 450);
+}
+
+// Sổ tem ở đầu trang: X/Y tem đã đóng dấu + thanh tiến độ răng cưa
+function drawAlbum(items) {
+    const box = $('fp-album');
+    if (!items.length) { box.classList.add('hidden'); return; }
+    const done = items.filter(q => progMap.has(q.id));
+    const pct = Math.round(done.length / items.length * 100);
+    const avg = done.length ? Math.round(done.reduce((s, q) => s + progMap.get(q.id).best, 0) / done.length) : null;
+    box.innerHTML = `
+        <div class="fp-album-row">
+            <span><i class="fas fa-book-bookmark"></i> Sổ tem của bạn: <b>${done.length}</b>/${items.length} tem đã đóng dấu</span>
+            ${avg != null ? `<span class="fp-score ${scoreClass(avg)}">điểm cao nhất TB ${avg}%</span>` : ''}
+        </div>
+        <div class="fp-album-bar" role="progressbar" aria-label="Tiến độ sưu tầm tem" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span style="--w:${pct}%"></span></div>
+        ${done.length ? '' : '<p class="fp-album-hint">Làm xong một bộ đề là con tem đó được đóng dấu bưu điện kèm điểm.</p>'}`;
+    box.classList.remove('hidden');
+}
+
+// Nút "Làm tiếp" ở đầu trang: bộ đề trong thư mục này được mở / làm gần nhất trên máy này
+function drawContinue(items) {
+    $('fp-continue')?.remove();
+    let opened = {};
+    try { opened = JSON.parse(localStorage.getItem('quizLastOpened') || '{}') || {}; } catch (e) { /* bỏ qua */ }
+    let pick = null, latest = 0;
+    for (const q of items) {
+        const t = Math.max(opened[q.id] || 0, progMap.get(q.id)?.at || 0);
+        if (t > latest) { latest = t; pick = q; }
+    }
+    if (!pick) return;
+    const done = progMap.has(pick.id);
+    const title = escapeHtml(pick.title || 'Không tên');
+    $('fp-hero-actions').insertAdjacentHTML('beforeend', `
+        <button type="button" id="fp-continue" class="fp-btn fp-btn-main fp-continue" data-qid="${escapeHtml(pick.id)}" title="${title}">
+            <i class="fas ${done ? 'fa-rotate-right' : 'fa-play'}"></i>
+            <span class="fp-continue-text"><small>${done ? 'Làm lại bộ gần nhất' : 'Làm tiếp bộ đang dở'}</small><span>${title}</span></span>
+        </button>`);
+}
+
+// ---------- "HỒ SƠ CỦA BẠN": một dải ngắn — bạn là ai với thư mục này + vào khi nào ----------
+// (thời điểm làm từng đề nằm ngay trên con tem; số đề đã làm nằm ở sổ tem đầu trang → không lặp lại ở đây)
+// ctx = { chips: [[icon, HTML đã escape, title?]], token?, visitor?, group?, guest? }
+// KHÔNG ghi chú kiểu "chủ link thấy…" / không hiện khu vực: chủ không muốn người mở biết mức dữ liệu được ghi.
+const fmtDate = (t) => {
+    const d = new Date(t), p = (n) => String(n).padStart(2, '0');
+    return `${p(d.getHours())}:${p(d.getMinutes())} ${p(d.getDate())}/${p(d.getMonth() + 1)}${d.getFullYear() !== new Date().getFullYear() ? `/${d.getFullYear()}` : ''}`;
+};
+let meCtx = null;
+
+function drawMe(ctx) {
+    meCtx = ctx;
+    const box = $('fp-me');
+    if (!box) return;
+    const hasGuest = ctx.guest && listLocalResults().some(r => quizView.items.some(q => q.id === r.quizId));
+    const actions = [
+        ctx.visitor ? `<button type="button" class="fp-me-act" data-act="unvisit"><i class="fas fa-user-pen"></i>${ctx.group ? 'Chọn lại tên' : 'Xoá lượt vào'}</button>` : '',
+        ctx.guest ? `<a class="fp-me-act" href="../../index.html?next=${encodeURIComponent(location.href)}"><i class="fas fa-right-to-bracket"></i>Đăng nhập để lưu</a>` : '',
+        hasGuest ? '<button type="button" class="fp-me-act is-danger" data-act="forget"><i class="fas fa-eraser"></i>Xoá kết quả trên máy</button>' : ''
+    ].join('');
+    box.innerHTML = `
+        <span class="fp-me-badge fp-perf" aria-hidden="true"><i class="fas fa-id-card"></i></span>
+        <div class="fp-me-chips">${ctx.chips.filter(c => c && c[1]).map(([icon, html, title]) =>
+            `<span class="fp-me-chip"${title ? ` title="${escapeHtml(title)}"` : ''}><i class="fas ${icon}"></i>${html}</span>`).join('')}
+            ${actions}</div>`;
+    box.classList.remove('hidden');
+    if (!box.dataset.bound) { box.dataset.bound = '1'; box.addEventListener('click', onMeClick); }
+}
+
+async function onMeClick(e) {
+    const act = e.target.closest('[data-act]')?.dataset.act;
+    if (!act || !meCtx) return;
+    if (act === 'unvisit') {
+        const ok = await showConfirm(meCtx.group
+            ? 'Xoá tên đã xưng trên máy này để chọn lại? Bạn chưa làm bài nên chưa mất suất nào.'
+            : 'Xoá lượt vào xem của máy này? Bạn chưa làm bài nên chưa mất suất nào; mở lại link là vào lại được.',
+            { title: meCtx.group ? 'Chọn lại tên?' : 'Xoá lượt vào?', confirmText: meCtx.group ? 'Chọn lại' : 'Xoá', cancelText: 'Hủy' });
+        if (!ok) return;
+        try {
+            const r = await linkApi('unvisit', { token: meCtx.token });
+            if (!r.ok) { showToast('Máy này đã làm bài (đã giữ suất) — muốn đổi tên hãy nhờ chủ link.', 'warning'); return; }
+            location.replace(`link.html?t=${encodeURIComponent(meCtx.token)}`);
+        } catch (err) { showToast('Mạng đang chậm, thử lại nhé.', 'error'); }
+        return;
+    }
+    if (act === 'forget') {
+        const ok = await showConfirm('Xoá kết quả làm bài các bộ đề trong thư mục này đang lưu trên trình duyệt này? (Không ảnh hưởng bộ đề gốc.)',
+            { title: 'Xoá kết quả trên máy?', confirmText: 'Xoá', cancelText: 'Hủy', tone: 'danger' });
+        if (!ok) return;
+        const n = forgetLocalResults(quizView.items.map(q => q.id));
+        setQuizList(quizView.items, { shared: quizView.shared, link: quizView.link, label: $('fp-quiz-label').textContent });
+        drawMe(meCtx);
+        showToast(`Đã xoá ${n} lượt làm bài trên máy này.`, 'success');
+    }
+}
 function scoreClass(p) { return p >= 80 ? 'is-good' : p >= 50 ? 'is-mid' : 'is-low'; }
 
-function renderQuizzes(quizzes, { shared = false, link = '' } = {}) {
-    const list = document.getElementById('folder-quiz-list');
-    // Mở từ link riêng / nhóm: gắn &link để nộp bài báo điểm cho chủ link (link-progress.js)
-    const lq = link ? `&link=${encodeURIComponent(link)}` : '';
-    list.innerHTML = quizzes.map((q, i) => {
+// Tô sáng phần tên khớp ô tìm (so khớp bỏ dấu → đổi vị trí về chuỗi gốc)
+function markTitle(title, q) {
+    if (!q) return escapeHtml(title);
+    let f = '';
+    const map = [];
+    for (let i = 0; i < title.length; i++) for (const c of fold(title[i])) { f += c; map.push(i); }
+    const at = f.indexOf(q);
+    if (at < 0) return escapeHtml(title);
+    const s = map[at], e = map[at + q.length - 1] + 1;
+    return `${escapeHtml(title.slice(0, s))}<mark class="fp-mark">${escapeHtml(title.slice(s, e))}</mark>${escapeHtml(title.slice(e))}`;
+}
+
+function quizCardHTML(q, i, { shared = false, link = '', q: query = '' } = {}) {
+        // Mở từ link riêng / nhóm: gắn &link để nộp bài báo điểm cho chủ link (link-progress.js)
+        const lq = link ? `&link=${encodeURIComponent(link)}` : '';
         const a = accentFor(q.id);
-        const title = escapeHtml(q.title || 'Không tên');
-        // Khách đã làm trên máy này (local-shelf.js) → hiện điểm cao nhất, nút thành "Làm lại"
-        const st = localStatsFor(q.id);
-        const best = st ? Math.round(st.best.percentage) : null;
+        const rawTitle = q.title || 'Không tên';
+        const title = escapeHtml(rawTitle);
+        const n = q.questionCount || 0;
+        // Đã làm (trên máy này / lịch sử tài khoản) → tem bị đóng dấu bưu điện kèm điểm, nút thành "Làm lại"
+        const p = progMap.get(q.id);
+        const tip = p ? `${p.count ? `Đã làm ${p.count} lần · ` : ''}gần nhất ${p.last}% · cao nhất ${p.best}%` : '';
         return `
-        <div class="quiz-grid-card" data-paper="${a.paper}" style="--qc-from:${a.from};--qc-to:${a.to};--qc-tilt:${a.tilt}deg;--card-index:${Math.min(i, 12)}">
+        <div class="quiz-grid-card${p ? ' is-stamped' : ''}" data-qid="${escapeHtml(q.id)}" data-paper="${a.paper}" style="--qc-from:${a.from};--qc-to:${a.to};--qc-tilt:${a.tilt}deg;--card-index:${Math.min(i, 12)}">
             <span class="qc-rail" aria-hidden="true"></span>
+            <span class="fp-sheen" aria-hidden="true"></span>
+            <span class="fp-denom" title="${n} câu hỏi"><b>${n}</b>câu</span>
+            ${p ? `<span class="fp-cancel ${scoreClass(p.best)}" title="${tip}"><b>${p.best}%</b><small>đã làm</small></span>` : ''}
             <div class="qc-top">
                 <span class="quiz-card-icon" aria-hidden="true">
                     <i class="fas ${a.icon}"></i>
                 </span>
                 <div class="qc-head">
-                    <h3 class="qc-title" title="${title}"><a href="quiz.html?id=${q.id}${lq}">${title}</a></h3>
+                    <h3 class="qc-title" title="${title}"><a href="quiz.html?id=${q.id}${lq}">${markTitle(rawTitle, query)}</a></h3>
                     <p class="qc-meta">
-                        <span class="qc-meta-item"><i class="fas fa-list-ol"></i><b>${q.questionCount || 0}</b> câu</span>
-                        ${st ? `<span class="fp-score ${scoreClass(best)}" title="Đã làm ${st.count} lần trên máy này · gần nhất ${Math.round(st.last.percentage)}%"><i class="fas fa-trophy"></i>${best}%</span>` : ''}
+                        ${p ? `<span class="fp-score ${scoreClass(p.last)}" title="${tip}"><i class="fas fa-clock-rotate-left"></i>${p.last}%${p.at ? ` · ${fmtAgo(p.at)}` : ''}</span>`
+                            : '<span class="fp-fresh"><i class="fas fa-wand-magic-sparkles"></i>Tem mới</span>'}
                         ${shared && q.sharedBy ? `<span class="qc-meta-item"><i class="fas fa-user"></i>từ ${escapeHtml(q.sharedBy)}</span>` : ''}
                         ${shared ? `<span class="qc-meta-item"><i class="fas ${canEdit(q) ? 'fa-pen' : 'fa-eye'}"></i>${canEdit(q) ? 'Người chỉnh sửa' : 'Người xem'}</span>` : ''}
                     </p>
                 </div>
             </div>
             <div class="qc-foot">
-                <a href="quiz.html?id=${q.id}${lq}" class="practice-btn"><i class="fas ${st ? 'fa-rotate-right' : 'fa-play'}"></i><span>${st ? 'Làm lại' : 'Làm bài'}</span></a>
+                <a href="quiz.html?id=${q.id}${lq}" class="practice-btn"><i class="fas ${p ? 'fa-rotate-right' : 'fa-play'}"></i><span>${p ? 'Làm lại' : 'Làm bài'}</span></a>
                 ${shared && canEdit(q) ? `
                 <a href="../editor/editor.html?id=${encodeURIComponent(q.id)}" class="practice-btn" style="flex:0 0 auto" title="Sửa câu hỏi (bạn là Người chỉnh sửa)"><i class="fas fa-pen"></i></a>` : ''}
                 ${shared && q.allowTakeout === true ? `
@@ -254,7 +523,6 @@ function renderQuizzes(quizzes, { shared = false, link = '' } = {}) {
                 <button type="button" class="shared-leave-btn practice-btn" style="flex:0 0 auto" data-kind="quiz" data-id="${escapeHtml(q.id)}" title="Rời chia sẻ (ẩn bộ đề này khỏi danh sách của bạn)"><i class="fas fa-right-from-bracket"></i></button>` : ''}
             </div>
         </div>`;
-    }).join('');
 }
 
 // Trang này chỉ liệt kê bộ đề (tên + số câu) → REST có chọn trường (SDK kéo NGUYÊN mỗi bộ đề kèm mảng câu hỏi).
@@ -576,7 +844,7 @@ async function linkFolderPage(token, folderId) {
     setHero({
         hex, icon: f.icon || 'fa-folder-open', name: f.name || 'Thư mục', tab: kindLabel,
         metaHTML: `<span class="fp-access is-once"><i class="fas ${L.group ? 'fa-users' : 'fa-lock'}"></i> ${kindLabel}${L.name ? ` · ${escapeHtml(L.name)}` : ''}</span>`
-            + (L.who ? span('fa-user-check', `Đã xác nhận: <b>${escapeHtml(L.who)}</b>`) : '')
+            + (L.who && !data.me ? span('fa-user-check', `Đã xác nhận: <b>${escapeHtml(L.who)}</b>`) : '')
             + (st === 'mine' ? span('fa-mobile-screen', L.group ? '1 thiết bị / người' : `${L.maxUses || 1} thiết bị`) : '')
             + (st === 'visitor' ? span('fa-eye', 'Đang xem · bắt đầu làm bài mới gắn link với thiết bị này') : '')
             + (left == null ? '' : span('fa-clock', left < 48 ? `còn ${Math.max(1, Math.round(left))} giờ` : `còn ${Math.round(left / 24)} ngày`))
@@ -589,8 +857,18 @@ async function linkFolderPage(token, folderId) {
     if (st !== 'owner' && (folderId || data.root) === data.root) {
         rememberOpened({ kind: 'folder', id: f.id, title: f.name, ownerName: '', access: 'link', link: token });
     }
+    linkDone = new Map((data.done || []).map(d => [d.quizId, d]));
     finishFolderPage(data.subFolders || [], data.quizzes || [], { link: token });
-    // Mới vào xem: bấm làm bộ đề → chiếm suất trước (chưa giữ suất thì chưa có quyền đọc đề)
+    const m = data.me;
+    if (m) drawMe({
+        token, visitor: st === 'visitor', group: !!L.group,
+        chips: [
+            ['fa-user-check', `<b>${escapeHtml(m.who || (m.anon ? 'Máy ẩn danh' : m.email))}</b>`, m.who ? (m.anon ? 'Chưa đăng nhập' : m.email) : ''],
+            ['fa-laptop', escapeHtml(m.label)],
+            ['fa-door-open', m.first ? `Vào ${fmtDate(m.first)}` : ''],
+            st === 'mine' ? ['fa-ticket', m.claimed ? `Giữ suất từ ${fmtDate(m.claimed)}` : ''] : null
+        ]
+    });    // Mới vào xem: bấm làm bộ đề → chiếm suất trước (chưa giữ suất thì chưa có quyền đọc đề)
     if (st === 'visitor') {
         if (L.back && (folderId || data.root) === data.root) {
             const max = L.maxUses || 1;
@@ -699,7 +977,7 @@ async function main() {
         if (isOwner) return finishFolderPage(subFolders, quizzes);
         // Người được chia sẻ: thẻ có vai trò, nút Sửa (Người chỉnh sửa), Lưu bản sao, Rời chia sẻ — như trang "Được chia sẻ với tôi"
         const data = { folders: subFolders, sets: quizzes, total: NaN };
-        const draw = () => finishFolderPage(data.folders, data.sets, { shared: true });
+        const draw = () => { finishFolderPage(data.folders, data.sets, { shared: true }); drawLocalMe(folderId, me); };
         draw();
         bindSharedActions(me, data, draw);
         return;
@@ -718,8 +996,20 @@ async function main() {
         return;
     }
     finishFolderPage(subFolders, quizzes);
+    if (!isOwner) drawLocalMe(folderId, me);
 }
 
+// Hồ sơ cho thư mục công khai / chia sẻ riêng (dữ liệu trên máy — quyền xem & người chia sẻ đã có ở bìa)
+function drawLocalMe(folderId, me) {
+    const sh = shelfEntry('folder', folderId);
+    drawMe({
+        guest: !me,
+        chips: [
+            ['fa-user-check', me ? `<b>${escapeHtml(me.email)}</b>` : 'Khách — kết quả chỉ lưu trên máy này'],
+            ['fa-door-open', sh ? `Mở lần đầu ${fmtDate(sh.firstAt || sh.openedAt)}` : '']
+        ]
+    });
+}
 // Dòng phụ dưới tên thư mục: nhãn quyền truy cập + "từ ai"
 let pageAccess = 'public';
 let pageOwner = '';
@@ -749,4 +1039,13 @@ function finishFolderPage(subFolders, quizzes, { shared = false, link = '' } = {
     document.getElementById('folder-message').classList.add('hidden');
 }
 
+// Nút tem "Lên đầu trang": hiện khi bìa đầu trang đã cuộn khuất
+function bindToTop() {
+    const btn = $('fp-totop');
+    if (!btn || !('IntersectionObserver' in window)) return;
+    new IntersectionObserver(([e]) => btn.classList.toggle('is-on', !e.isIntersecting)).observe($('folder-header'));
+    btn.addEventListener('click', () => scrollTo({ top: 0, behavior: reduceMotion() ? 'auto' : 'smooth' }));
+}
+
+bindToTop();
 main();
