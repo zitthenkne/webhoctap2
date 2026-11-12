@@ -142,10 +142,60 @@ function setLit({ cues, steps }) {
     const key = [...cues].join() + '|' + [...steps].join();
     if (!card || (key === litKey && card.classList.contains('qr-focus') === (key !== '|'))) return;   // rê trong cùng một mục: khỏi dựng lại
     litKey = key;
-    card.querySelectorAll('.is-lit').forEach(el => el.classList.remove('is-lit'));
+    card.querySelectorAll('.is-lit, .qr-struck').forEach(el => el.classList.remove('is-lit', 'qr-struck'));
     card.classList.toggle('qr-focus', cues.size + steps.size > 0);
     cues.forEach(n => card.querySelectorAll(`.qr-hit[data-cue="${n}"], #reason-area .qr-cue[data-cue="${n}"]`).forEach(el => el.classList.add('is-lit')));
-    steps.forEach(n => card.querySelector(`#reason-area .qr-step[data-step="${n}"]`)?.classList.add('is-lit'));
+    steps.forEach(n => {
+        const step = card.querySelector(`#reason-area .qr-step[data-step="${n}"]`);
+        if (!step) return;
+        step.classList.add('is-lit');
+        // bước loại trừ: phương án bị gạch sáng viền ngay ở đề (chữ cái = thứ tự đang hiện)
+        step.querySelectorAll('.qr-opt').forEach(o => card.querySelector(`.answer-content[data-annot="a${o.textContent.charCodeAt(0) - 65}"]`)?.closest('.answer-btn')?.classList.add('qr-struck'));
+    });
+    card.querySelectorAll('.qr-wire').forEach(w => { if (cues.has(w.dataset.cue) && steps.has(w.dataset.step)) w.classList.add('is-lit'); });
+}
+
+// ---- Sơ đồ: dây cong nối dữ kiện (cột trái) -> bước dùng nó (cột phải). Chỉ vẽ khi thẻ đang xếp 2 cột (CSS @container qr).
+// Toạ độ theo offset* (không phải getBoundingClientRect): hiệu ứng hiện dần dùng transform, đo giữa chừng sẽ lệch.
+let wireRO = null;
+const offIn = (el, root) => { let x = 0, y = 0; for (let e = el; e && e !== root; e = e.offsetParent) { x += e.offsetLeft; y += e.offsetTop; } return { x, y, w: el.offsetWidth, h: el.offsetHeight }; };
+function drawWires(body) {
+    body.querySelector('.qr-wires')?.remove();
+    const cuesEl = body.querySelector('.qr-cues'), stepsEl = body.querySelector('.qr-steps');
+    if (!cur || !cuesEl || !stepsEl || !body.offsetWidth) return;
+    const cb = offIn(cuesEl, body), sb = offIn(stepsEl, body);
+    if (sb.x < cb.x + cb.w + 24) return;   // đang xếp dọc
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('class', 'qr-wires');
+    svg.setAttribute('aria-hidden', 'true');
+    body.querySelectorAll('.qr-step:not([hidden])').forEach(step => {
+        const refs = [...step.querySelectorAll('.qr-ref[data-cue]')];
+        const node = offIn(step.querySelector('.qr-node'), body);
+        refs.forEach((ref, i) => {
+            const n = ref.getAttribute('data-cue'), cue = cuesEl.querySelector(`.qr-cue[data-cue="${n}"]`);
+            if (!cue) return;
+            const c = offIn(cue, body);
+            const x1 = c.x + c.w + 3, y1 = c.y + c.h / 2;
+            const x2 = node.x - 6, y2 = node.y + node.h / 2 + (i - (refs.length - 1) / 2) * 6;   // nhiều dữ kiện vào một bước: xòe đầu dây
+            const mx = (x1 + x2) / 2;
+            const p = document.createElementNS(ns, 'path');
+            p.setAttribute('d', `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2} m-5,-3.5 l5,3.5 l-5,3.5`);
+            p.setAttribute('class', `qr-wire is-${cur.rs.cues[n - 1].kind}`);
+            p.setAttribute('pathLength', '1');
+            p.dataset.cue = n;
+            p.dataset.step = step.getAttribute('data-step');
+            svg.appendChild(p);
+        });
+    });
+    if (svg.childNodes.length) body.appendChild(svg);
+}
+function watchWires(area) {
+    if (wireRO) wireRO.disconnect();
+    const body = area.querySelector('.qr');
+    if (!body || typeof ResizeObserver !== 'function') return;
+    wireRO = new ResizeObserver(() => drawWires(body));   // gọi ngay lần đầu + mỗi khi thẻ đổi cỡ (mở bước, gập, xoay máy)
+    wireRO.observe(body);
 }
 const NONE = { cues: new Set(), steps: new Set() };
 function lightFor(links, ms = 1600) {
@@ -310,6 +360,7 @@ export function revealReasoning(q) {
     // nạp lười: quiz-annotations đụng DOM lúc nạp (test Node); trang làm bài đã nạp sẵn nên không tốn mạng
     if (sec.querySelector('.qr-tip')) import('./quiz-annotations.js').then(m => m.relayNoteLines(0));
     applySteps(area);
+    watchWires(area);
     if (!seen.has(cur.key)) {
         seen.add(cur.key);
         if (canFx()) playIntro(sec, area, rs);

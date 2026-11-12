@@ -48,3 +48,12 @@ test('markdown: mỗi dòng một khối, danh sách lồng, việc cần làm, 
     assert.equal(noteHasMd('có\nhai dòng'), true);
     assert.equal(noteHasMd('a -> b'), true);
 });
+
+test('ghi chú lồng: {cụm :: ghi chú con} — gạch cụm, dòng ↳ ngay sau dòng chứa cụm, lồng nhiều tầng, định dạng vẫn chạy', () => {
+    const html = noteMdHtml('Do {niêm mạc :: **mỏng** {một lớp :: tế bào trụ}} dễ rách\ndòng hai');
+    assert.equal(html, '<div class="p">Do <span class="sn" data-k="0">niêm mạc</span> dễ rách</div>'
+        + '<div class="sub" data-k="0"><b>mỏng</b> <span class="sn" data-k="1">một lớp</span><div class="sub" data-k="1">tế bào trụ</div></div>'
+        + '<div class="p">dòng hai</div>');
+    assert.equal(noteMdHtml('{thiếu ghi chú ::} và {không có dấu}'), '<div class="p">{thiếu ghi chú ::} và {không có dấu}</div>', 'sai khuôn thì để nguyên chữ');
+    assert.equal(noteHasMd('a {b :: c}'), true);
+});

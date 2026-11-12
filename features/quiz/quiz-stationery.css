@@ -4185,6 +4185,37 @@ html.theme-dark #annot-note-pop .anp-row .anp-ok { --hi: #3a1422; background: #F
 #annot-note-pop.anp-above::before { bottom: -9px; border-left: 0; border-top: 0; border-bottom-right-radius: 4px; }
 #annot-note-pop.anp-below .anp-tape { display: none; }
 #annot-note-pop .anp-row .anp-all { --h: var(--hue-lav); --hi: var(--ink-lav); }
+#annot-note-pop .anp-row button { white-space: nowrap; flex-shrink: 0; }   /* chữ nút không bao giờ rớt dòng (2026-11-12) */
+/* Chú thích lồng tại chỗ (2026-11-12): bôi đen một cụm trong ghi chú -> viên thuốc “cụm” + ô gõ + ✓ hiện ngay dưới phần đọc */
+#annot-note-pop .anp-read ::selection { background: color-mix(in srgb, var(--hue-lav) 45%, transparent); }
+#annot-note-pop .anp-sub-hint { display: block; font-size: 11.5px; font-weight: 600; color: var(--ink-muted); }
+#annot-note-pop .anp-sub-hint i { margin-right: .15rem; color: var(--ink-lav); }
+#annot-note-pop .anp-sub-form {
+    display: flex; align-items: center; gap: .4rem;
+    padding: .25rem .3rem .25rem .7rem;
+    border-radius: 999px;
+    background: var(--surface-card);
+    border: 2px dashed color-mix(in srgb, var(--hue-lav) 60%, transparent);
+    animation: anp-in .3s var(--spring) both;
+}
+#annot-note-pop .anp-sub-form:focus-within { border-style: solid; border-color: var(--hue-lav); }
+#annot-note-pop :is(.anp-sub-form, .anp-sub-hint)[hidden] { display: none; }
+#annot-note-pop .anp-sub-q {
+    flex: 0 1 auto; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 12px; font-weight: 800; color: var(--ink-lav);
+}
+#annot-note-pop .anp-sub-in {
+    flex: 1; min-width: 0; height: 2rem; padding: 0; border: 0; outline: 0; background: transparent;
+    font: 600 14px Quicksand, sans-serif; color: var(--ink);
+}
+@media (pointer: coarse) { #annot-note-pop .anp-sub-in { font-size: 16px; } }   /* iOS: < 16px là tự phóng to trang khi chạm ô */
+#annot-note-pop .anp-sub-ok {
+    flex: none; width: 2rem; height: 2rem; border: 0; border-radius: 50%; cursor: pointer;
+    display: inline-grid; place-items: center; font-size: 13px;
+    color: #8E2A55; background: color-mix(in srgb, var(--hue-blossom) 55%, #fff);
+    box-shadow: 0 2px 0 color-mix(in srgb, var(--hue-blossom) 40%, transparent);
+}
+#annot-note-pop .anp-sub-ok:active { transform: translateY(2px); box-shadow: none; }
 
 
 /* Sổ ghi chú cả bộ đề: mục ghi chú cụm từ = cụm chữ (vạch bút dạ) trên lời ghi chú */
@@ -6179,9 +6210,9 @@ html:not(.case-h-set) #quizSection #case-body:has(img.quiz-image):not(.hidden) {
      bản lề = vàng bơ bút dạ · âm tính có giá trị = trời · mồi nhử = gạch lượn đào (không tô nền, để khỏi nổi như dữ kiện thật).
    Lớp .qr-* KHÔNG phụ thuộc #quizSection -> màn kết quả (studyExtrasHtml) dùng lại y nguyên.
    ============================================================ */
-.qr-hit, .qr-cue, .qr-ref { --qk: var(--hue-butter); --qk-ink: var(--ink-butter); }
-:is(.qr-hit, .qr-cue, .qr-ref).is-neg  { --qk: var(--hue-sky);   --qk-ink: var(--ink-sky); }
-:is(.qr-hit, .qr-cue, .qr-ref).is-trap { --qk: var(--hue-peach); --qk-ink: var(--ink-peach); }
+.qr-hit, .qr-cue, .qr-ref, .qr-wire { --qk: var(--hue-butter); --qk-ink: var(--ink-butter); }
+:is(.qr-hit, .qr-cue, .qr-ref, .qr-wire).is-neg  { --qk: var(--hue-sky);   --qk-ink: var(--ink-sky); }
+:is(.qr-hit, .qr-cue, .qr-ref, .qr-wire).is-trap { --qk: var(--hue-peach); --qk-ink: var(--ink-peach); }
 
 /* 37.1 Dữ kiện tô trong đề — bút dạ = 2 lớp nền MỘT màu (thân + vạch đáy; không phải gradient trang trí) để hiệu ứng
         kéo background-size "tô" từ trái sang phải. --qr-a = độ đậm, đổi theo trạng thái (rê / soi / mờ). */
@@ -6325,15 +6356,46 @@ button.qr-cue:focus-visible, button.qr-ref:focus-visible { outline: 3px solid co
 }
 .qr-hint { grid-column: 2; font-size: 0.8rem; color: color-mix(in srgb, var(--ink) 80%, transparent); }
 .qr-hint::before { content: "➜ "; color: var(--qk-ink); font-weight: 800; }
-/* Thẻ ở trang làm bài, màn rộng (2026-11-12): bỏ lưới 2 cột (vé cao thấp lệch, vé lẻ mồ côi) -> mỗi dữ kiện MỘT hàng,
-   3 cột thẳng hàng như bảng: số · “cụm” + vai · ➜ gợi ý. Màn kết quả / phiếu tự luận (khung hẹp) giữ kiểu vé cũ. */
-@media (min-width: 720px) {
-    #reason-area .qr-cues { grid-template-columns: auto fit-content(42%) minmax(0, 1fr); gap: 0.3rem 0.6rem; }
-    #reason-area .qr-cues > li { display: contents; }
-    #reason-area .qr-cue { grid-column: 1 / -1; grid-template-columns: subgrid; align-items: baseline; padding: 0.3rem 0.65rem; }
-    #reason-area .qr-n { grid-row: auto; align-self: center; margin-top: 0; }
-    #reason-area .qr-hint { grid-column: 3; }
+/* SƠ ĐỒ SUY LUẬN (2026-11-12) — thẻ ở trang làm bài, khung đủ rộng: dữ kiện một cột bên TRÁI, chuỗi suy luận bên PHẢI,
+   dây cong (svg.qr-wires, quiz-reasoning.js drawWires) nối từng dữ kiện tới bước dùng nó -> khỏi dò số ①②. Dây cùng màu vai dữ kiện,
+   tự vẽ dần khi thẻ hiện, sáng theo khi rê. Khung hẹp (điện thoại, màn kết quả): xếp dọc như cũ, không dây. */
+.qr { position: relative; }
+#quizSection .kb-reason { container: qr / inline-size; }
+@container qr (min-width: 760px) {
+    .qr:has(.qr-cues):has(.qr-steps) { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 0.85rem 3.4rem; align-items: start; }
+    .qr:has(.qr-cues):has(.qr-steps) .qr-cues { grid-template-columns: minmax(0, 1fr); }
+    .qr:has(.qr-cues):has(.qr-steps) .qr-goal { grid-column: 1 / -1; }
 }
+/* Khung hẹp (điện thoại) — không có dây nên: (1) chip nguồn ở mỗi bước mang luôn CHỮ của dữ kiện (lấy từ title, cắt … khi dài)
+   -> khỏi cuộn lên dò số; (2) "gạch A B" lên cùng hàng với nguồn, kết luận trọn một hàng bên dưới; (3) đầu thẻ bỏ chữ "Thu gọn". */
+@container qr (max-width: 759.98px) {
+    #reason-area .qr-step-main .qr-from { flex: 1 1 auto; min-width: 0; }
+    #reason-area .qr-step-main .qr-out { order: 1; }
+    #reason-area .qr-step-main .qr-to { order: 2; flex-basis: 100%; }
+    #reason-area .qr-ref[data-cue] { display: inline-flex; align-items: center; max-width: 100%; padding: 0 0.5rem 0 0.4rem; }
+    #reason-area .qr-ref[data-cue]::after {
+        content: "“" attr(title) "”";
+        min-width: 0; max-width: 11em; margin-left: 0.3em;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        font-weight: 700; color: var(--ink);
+    }
+    #quizSection .kb-reason .kb-fold-txt { display: none; }
+    #quizSection .kb-reason .kb-body { padding-top: 0.7rem; }
+    #reason-area .qr { gap: 0.7rem; }
+}
+.qr-wires { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.qr-wire {
+    fill: none; stroke: color-mix(in srgb, var(--qk-ink) 62%, var(--qk));
+    stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+    opacity: 0.85; transition: opacity .18s, stroke-width .18s;
+}
+.qr-focus .qr-wire:not(.is-lit) { opacity: 0.12; }
+.qr-wire.is-lit { stroke-width: 2.6; opacity: 1; }
+#reason-area.qr-pre .qr-wire { opacity: 0; }
+#reason-area.qr-anim .qr-wire { stroke-dasharray: 1; animation: qr-wire .7s cubic-bezier(.4, 0, .2, 1) var(--qr-rail-d, 0s) both; }
+@keyframes qr-wire { from { stroke-dashoffset: 1; } }
+/* rê / chạm một bước loại trừ: phương án bị gạch viền đứt đỏ ngay ở đề */
+#quizSection .answer-btn.qr-struck { outline: 2px dashed var(--bad-line); outline-offset: 2px; }
 
 /* Gợi ý viết tay cạnh dữ kiện trong đề (span.qr-tip[data-note] trong mark.qr-hit — hàng + mũi tên do máy ghi chú cụm từ vẽ, §ghi chú):
    mark đã tô + có số tròn rồi -> bỏ vạch và bong bóng số của ghi chú; nửa trước của mark bị hàng ghi chú cắt đôi không lặp số. */

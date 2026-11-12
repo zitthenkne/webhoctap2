@@ -16,7 +16,7 @@ import { state } from '../quiz-state.js';
 import { pushStudyToCloud } from './quiz-study-sync.js';
 import { studyKeys } from '../quiz-study-store.js';
 import { NOTE_TAGS, noteTagsOf, noteCount } from './quiz-notes-panel.js';
-import { arrowizeTyping, noteMdHtml, ensureNoteMdCss, mountNoteRow } from './quiz-note-md.js';
+import { arrowizeTyping, noteMdHtml, ensureNoteMdCss, mountNoteRow, alignNoteSubs } from './quiz-note-md.js';
 import { syncQuizNavPanel } from '../quiz-ui.js';
 import { showQuestion } from './quiz-question-view.js';
 import { showToast } from '../../../core/utils.js';
@@ -999,8 +999,17 @@ const NOTE_FMT = [
     '|',
     ['ul', 'Danh sách gạch đầu dòng', '<i class="fas fa-list-ul"></i>'],
     ['ol', 'Danh sách đánh số', '<i class="fas fa-list-ol"></i>'],
-    ['task', 'Danh sách việc cần làm ☐', '<i class="far fa-square-check"></i>']
+    ['task', 'Danh sách việc cần làm ☐', '<i class="far fa-square-check"></i>'],
+    '|',
+    ['sub', 'Chú thích cụm đang bôi đen: {cụm :: ghi chú con} — lồng nhiều tầng được', '<i class="fas fa-comment-dots"></i>']
 ];
+// Ghi chú LỒNG (quiz-note-md.js): bọc đoạn đang chọn thành {cụm :: |} rồi đặt con trỏ ở chỗ viết ghi chú con
+function subInTa(ta) {
+    const s = ta.selectionStart, e = ta.selectionEnd, sel = ta.value.slice(s, e).trim();
+    replaceInTa(ta, s, e, `{${sel} :: }`);
+    const c = sel ? s + sel.length + 5 : s + 1;   // chưa chọn gì: con trỏ ở chỗ gõ cụm
+    ta.setSelectionRange(c, c);
+}
 // Khung to (bản 3): nhớ theo máy người xem, không cần đồng bộ
 const NOTE_BIG_KEY = 'qz-note-editor-big';
 const noteBigPref = () => { try { return localStorage.getItem(NOTE_BIG_KEY) === '1'; } catch (e) { return false; } };
@@ -1099,7 +1108,12 @@ function openNoteEditor(ctx) {
         + (view ? '' : '<button type="button" class="anp-x anp-big" data-anp="big" aria-pressed="false" title="Khung to" aria-label="Phóng to khung viết"><i class="fas fa-up-right-and-down-left-from-center"></i></button>')
         + '<button type="button" class="anp-x" data-anp="cancel" title="Đóng (Esc)" aria-label="Đóng"><i class="fas fa-xmark"></i></button></div>'
         + (view
+            // Chú thích lồng ngay tại chỗ: bôi đen một cụm trong ghi chú -> ô gõ hiện ra, Enter là xong (không phải vào khung Sửa)
             ? '<div class="anp-read"></div>'
+            + (ctx.id ? '<div class="anp-sub"><span class="anp-sub-hint"><i class="fas fa-i-cursor"></i> Bôi đen một cụm ở trên để chú thích riêng cụm đó</span>'
+                + '<form class="anp-sub-form" hidden><span class="anp-sub-q"></span>'
+                + `<input class="anp-sub-in" type="text" maxlength="300" enterkeyhint="done" autocomplete="off" aria-label="Ghi chú cho cụm vừa bôi đen" placeholder="Ghi chú cho cụm này…">`
+                + '<button type="submit" class="anp-sub-ok" title="Lưu (Enter)" aria-label="Lưu chú thích"><i class="fas fa-check"></i></button></form></div>' : '')
             : '<div class="anp-card">'
             + '<div class="anp-fmt" role="toolbar" aria-label="Định dạng ghi chú"><div class="anp-fmt-tools">'
             + NOTE_FMT.map(f => (f === '|' ? '<span class="anp-sep" aria-hidden="true"></span>'
@@ -1138,13 +1152,45 @@ function openNoteEditor(ctx) {
     box.querySelector('.anp-quote span').textContent = quote;
     const ta = box.querySelector('.anp-ta');
     const prev = box.querySelector('.anp-prev');
+    let subSel = '', onSel = null;
     ensureNoteMdCss();
     if (view) {
         const rd = box.querySelector('.anp-read');
         rd.classList.add('nmd');
         rd.innerHTML = noteMdHtml(ctx.note || '');
+        const form = box.querySelector('.anp-sub-form'), hint = box.querySelector('.anp-sub-hint');
+        if (form) {
+            const raw = ctx.note || '', inp = form.querySelector('input');
+            // Vùng chọn đổi (kể cả kéo tay nắm trên cảm ứng): nhớ cụm + hiện ô gõ. Chạm vào ô gõ làm mất vùng chọn -> vẫn giữ cụm đã nhớ.
+            onSel = () => {
+                const s = window.getSelection();
+                if (!s || s.isCollapsed || !rd.contains(s.anchorNode) || !rd.contains(s.focusNode)) return;
+                const t = String(s).trim();
+                if (!t || t === subSel) return;
+                const ok = raw.includes(t);   // cụm vắt qua chữ có định dạng / ký hiệu đã đổi thì không tìm lại được trong bản gốc
+                subSel = ok ? t : '';
+                form.hidden = !ok;
+                hint.hidden = ok;
+                hint.lastChild.textContent = ok ? '' : ' Cụm này vắt qua chỗ có định dạng — bấm Sửa rồi dùng nút 💬';
+                form.querySelector('.anp-sub-q').textContent = '“' + t + '”';
+            };
+            // máy tính: thả chuột xong là gõ luôn; cảm ứng không tự bật bàn phím (đang còn chỉnh tay nắm vùng chọn)
+            rd.addEventListener('mouseup', () => setTimeout(() => { if (subSel && !form.hidden && !(window.matchMedia && window.matchMedia('(pointer: coarse)').matches)) inp.focus({ preventScroll: true }); }, 0));
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const val = inp.value.trim(), at = raw.indexOf(subSel);
+                if (!val || !subSel || at < 0) return;
+                const note = tidyNote(raw.slice(0, at) + `{${subSel} :: ${val}}` + raw.slice(at + subSel.length));
+                if (!updateAnnotNote(ctx.qText, ctx.id, note)) return;
+                noteSpans(ctx.id).forEach(el => el.setAttribute('data-note', note));
+                renderNoteLines(document.getElementById('quizSection'));
+                afterNoteChange();
+                openNoteEditor({ ...ctx, note });   // mở lại bóng thoại đọc với chú thích mới — chú thích tiếp cụm khác được ngay
+            });
+        }
     } else ta.value = ctx.note || '';
     document.body.appendChild(box);
+    if (view) alignNoteSubs(box.querySelector('.anp-read'));
     // Ô tự cao theo chữ (tới 40vh thì cuộn trong ô); nhãn đang có trong ghi chú sáng lên
     const fit = () => { box.style.overflowY = ''; if (box.scrollHeight > box.clientHeight + 1) box.style.overflowY = 'auto'; };
     const grow = () => {
@@ -1170,6 +1216,7 @@ function openNoteEditor(ctx) {
         btn.setAttribute('aria-pressed', String(on));
         btn.querySelector('span').textContent = on ? 'Sửa' : 'Xem';
         btn.title = on ? 'Quay lại viết' : 'Xem ghi chú sẽ hiện thế nào';
+        if (on) alignNoteSubs(prev);
         if (on) btn.focus({ preventScroll: true });   // ô viết vừa ẩn: giữ tiêu điểm trong khung (Esc / Ctrl+Enter vẫn ăn)
         else ta.focus();
         fit();
@@ -1233,6 +1280,7 @@ function openNoteEditor(ctx) {
     if (ta) { ta.addEventListener('input', onInput); setBig(noteBigPref()); } else fit();
     place(); placed = true;
     noteEd = { box, ta, ctx, colors, cleanup: null };
+    if (onSel) { document.addEventListener('selectionchange', onSel); noteEd.cleanup = () => document.removeEventListener('selectionchange', onSel); }
     // Cảm ứng: bàn phím ảo che nửa dưới màn hình (layout viewport không đổi) -> co khung theo visualViewport; khung tự cuộn,
     // chân khung (Lưu) dính đáy nên luôn bấm được.
     const vv = window.visualViewport;
@@ -1319,7 +1367,8 @@ function openNoteEditor(ctx) {
         if (fmt && ta) {
             const k = fmt.dataset.anpFmt;
             if (box.classList.contains('is-preview')) setPreview(false);   // đang xem trước mà bấm định dạng: quay lại viết rồi áp
-            if (FMT_WRAP[k]) wrapInTa(ta, FMT_WRAP[k]);
+            if (k === 'sub') subInTa(ta);
+            else if (FMT_WRAP[k]) wrapInTa(ta, FMT_WRAP[k]);
             else if (LIST_RE[k]) listInTa(ta, k);
             else replaceInTa(ta, ta.selectionStart, ta.selectionEnd, k);
             return;
@@ -1354,8 +1403,7 @@ function openNoteEditor(ctx) {
         else if (act === 'auto-color') { colors.color = colors.inkColor = ''; previewColors(); }
         else if (act === 'save') saveNoteEditor();
         else if (act === 'del') deleteNoteEditor();
-        else if (act === 'edit') openNoteEditor({ ...ctx, mode: 'edit' });
-        else if (act === 'all') { closeNoteEditor(); import('./quiz-notes-all.js').then(m => m.openAllNotes({ filter: 'phrase' })); }
+        else if (act === 'edit') openNoteEditor({ ...ctx, mode: 'edit' });        else if (act === 'all') { closeNoteEditor(); import('./quiz-notes-all.js').then(m => m.openAllNotes({ filter: 'phrase' })); }
     });
     box.addEventListener('keydown', (e) => {
         e.stopPropagation(); // đừng kích hoạt phím tắt A–D / mũi tên của trang làm bài

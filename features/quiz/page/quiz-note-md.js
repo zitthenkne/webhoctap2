@@ -65,7 +65,7 @@ export function noteInlineHtml(raw) {
         return h;
     }).join('');
 }
-function lineBody(text) {
+function lineBodyRaw(text) {
     let s = String(text);
     let pre = '';
     const box = /^(?:\[( |x|X)\]|([☐☑]))\s*/.exec(s);
@@ -78,11 +78,61 @@ function lineBody(text) {
     if (tag) return pre + `<span class="t">${noteInlineHtml(tag[1])}</span>` + noteInlineHtml(s.slice(tag[1].length));
     return pre + noteInlineHtml(s);
 }
+// ---- Ghi chú LỒNG (2026-11-12): {cụm :: ghi chú con} — ghi chú cho một cụm NẰM TRONG ghi chú; ghi chú con lồng tiếp được.
+// Cụm được gạch bút dạ (.sn), ghi chú con thành một dòng "↳ …" (.sub) ngay dưới dòng chứa cụm; alignNoteSubs kéo nó về dưới cụm.
+// Tách cụm ra TRƯỚC khi áp định dạng (dấu riêng kcụm) để **đậm** / mũi tên… trong cụm vẫn chạy.
+function pullSubs(s, subs, st) {
+    let out = '', i = 0;
+    while (i < s.length) {
+        if (s[i] === '{') {
+            let d = 1, j = i + 1, sep = -1;
+            for (; j < s.length && d; j++) {
+                if (s[j] === '{') d++;
+                else if (s[j] === '}') d--;
+                else if (d === 1 && sep < 0 && s.startsWith('::', j)) sep = j;
+            }
+            const phrase = sep > 0 ? s.slice(i + 1, sep).trim() : '', note = sep > 0 ? s.slice(sep + 2, j - 1).trim() : '';
+            if (!d && phrase && note) {
+                const k = st.n++;
+                subs.push([k, note]);
+                out += `${k}${pullSubs(phrase, subs, st)}`;   // cụm chứa sẵn một chú thích nhỏ hơn bên trong
+                i = j;
+                continue;
+            }
+        }
+        out += s[i++];
+    }
+    return out;
+}
+// -> [html của dòng, html các ghi chú con của dòng đó]
+function withSubs(text, st, render) {
+    const subs = [];
+    const html = render(pullSubs(String(text), subs, st))
+        .replace(/(\d+)/g, '<span class="sn" data-k="$1">').replace(//g, '</span>');
+    return [html, subs.map(([k, t]) => { const [h, more] = withSubs(t, st, noteInlineHtml); return `<div class="sub" data-k="${k}">${h}${more}</div>`; }).join('')];
+}
+// Đặt từng ghi chú con ngay DƯỚI cụm của nó (left, không đổi bề rộng -> chiều cao hàng giữ nguyên, bố cục ngoài không phải đo lại).
+// Gọi sau khi khối đã nằm trong trang; cha trước con (thứ tự tài liệu).
+export function alignNoteSubs(box) {
+    if (!box) return;
+    box.querySelectorAll('.sub[data-k]').forEach(sub => {
+        const sn = box.querySelector(`.sn[data-k="${sub.dataset.k}"]`);
+        sub.style.left = '0px';
+        const a = sn && [...sn.getClientRects()].pop();
+        if (!a) return;
+        const s = sub.getBoundingClientRect(), host = sub.parentElement.getBoundingClientRect();
+        sub.style.left = Math.max(0, Math.min(a.left - s.left, host.right - s.right)) + 'px';
+    });
+}
+
 // Cả ghi chú -> HTML khối (mỗi dòng một khối, nên không cần white-space: pre-line)
 export function noteMdHtml(text) {
     const lines = String(text ?? '').replace(/\r/g, '').split('\n');
-    let out = '';
+    const st = { n: 0 };
+    let out = '', subs = '';
+    const lineBody = (t) => { const [h, more] = withSubs(t, st, lineBodyRaw); subs += more; return h; };
     for (const line of lines) {
+        out += subs; subs = '';   // ghi chú con của dòng trước: ngay sau khối của dòng đó
         if (!line.trim()) { out += '<div class="g"></div>'; continue; }
         let m;
         if (/^\s*([-*_])(?:\s*\1){2,}\s*$/.test(line)) { out += '<hr>'; continue; }
@@ -99,10 +149,10 @@ export function noteMdHtml(text) {
         }
         out += `<div class="p">${lineBody(line.replace(/^\s+/, ''))}</div>`;
     }
-    return out;
+    return out + subs;
 }
 // Ghi chú có dùng định dạng / nhiều dòng không (khung viết chỉ hiện "Xem trước" khi có)
-export const noteHasMd = (text) => /\n|\*\*|__|~~|==|`|\^|(^|\s)[*_~]\S|^\s*(#{1,3}\s|>|[-*+]\s|\d{1,3}[.)]\s)|->|=>|<-|<=|>=|!=/m.test(String(text || ''));
+export const noteHasMd = (text) => /\n|\*\*|__|~~|==|`|\^|\{[^{}\n]*::|(^|\s)[*_~]\S|^\s*(#{1,3}\s|>|[-*+]\s|\d{1,3}[.)]\s)|->|=>|<-|<=|>=|!=/m.test(String(text || ''));
 
 // Kiểu chung: dùng trong bóng thoại đọc ghi chú (tài liệu chính) và trong hàng ghi chú (shadow DOM).
 // Màu theo biến của hàng / bóng thoại (--nt, --nt-ink) — biến CSS đi xuyên shadow DOM.
@@ -129,6 +179,10 @@ export const NOTE_MD_CSS = `
 .nmd .t { font-weight: 700; }
 .nmd .ck { display: inline-block; width: .78em; height: .78em; margin-right: .28em; vertical-align: -.06em; border: 1.5px solid currentColor; border-radius: .22em; box-sizing: border-box; }
 .nmd .ck.on { background: currentColor; box-shadow: inset 0 0 0 1.5px var(--surface-card, #fff); }
+.nmd .sn { text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--nt, currentColor) 55%, transparent); text-decoration-thickness: .4em; text-underline-offset: -.24em; text-decoration-skip-ink: none; }
+.nmd .sub { position: relative; box-sizing: border-box; width: fit-content; max-width: 100%; padding-left: 1.05em; font-size: .92em; text-align: left; }
+.nmd .sub::before { content: "↳"; position: absolute; left: .05em; top: 0; font-weight: 700; }
+.nmd .sub .sub { font-size: 1em; }
 `;
 // Bóng thoại / sổ ghi chú (tài liệu chính) cần cùng kiểu: chèn một lần
 export function ensureNoteMdCss(doc = document) {
@@ -164,6 +218,9 @@ export function mountNoteRow(row, text) {
     let root = row.shadowRoot;
     try { root = root || row.attachShadow({ mode: 'open' }); } catch (e) { return; }
     root.innerHTML = rowStyles(root) + `<div class="tx nmd" part="text">${noteMdHtml(text)}</div>`;
+    // ghi chú lồng: hàng đổi bề rộng (lúc xếp dải, đổi cỡ khung) thì cụm dời chỗ -> kéo ghi chú con theo
+    const tx = root.querySelector('.tx');
+    if (tx.querySelector('.sub') && typeof ResizeObserver === 'function') new ResizeObserver(() => alignNoteSubs(tx)).observe(tx);
 }
 // Bản sao DOM (innerHTML) không mang theo shadow root -> dựng lại nội dung cho mọi hàng ghi chú trong khối đó
 export function hydrateNoteRows(container) {
