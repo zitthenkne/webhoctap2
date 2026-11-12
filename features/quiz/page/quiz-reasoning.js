@@ -17,11 +17,13 @@ import { scrollBehaviorFor } from './quiz-page-prefs.js';
 const L = (i) => String.fromCharCode(65 + i);
 const str = (v) => (v == null ? '' : String(v).trim());
 
-const LS = { marks: 'quiz_reason_marks', step: 'quiz_reason_step', fx: 'quiz_reason_fx', fold: 'quiz_reason_folded' };
+const LS = { marks: 'quiz_reason_marks', notes: 'quiz_reason_notes', step: 'quiz_reason_step', fx: 'quiz_reason_fx', fold: 'quiz_reason_folded' };
+const TIP_TAG = { key: 'star', neg: 'ask', trap: 'trap' };   // màu hàng ghi chú: dùng lại bộ nhãn của ghi chú cụm từ (bơ / trời / đào)
 const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { } };
 export const reasonPrefs = {
     marks: () => lsGet(LS.marks) !== '0',    // tô dữ kiện trong đề — mặc định bật
+    notes: () => lsGet(LS.notes) !== '0',    // gợi ý viết tay + mũi tên cạnh dữ kiện đã tô — mặc định bật
     step: () => lsGet(LS.step) === '1',      // mở chuỗi suy luận từng bước — mặc định tắt
     fx: () => lsGet(LS.fx) !== '0',          // hiệu ứng quét — mặc định bật
     folded: () => lsGet(LS.fold) === '1',
@@ -81,6 +83,7 @@ function markCues(rs) {
     if (!sec || sec.querySelector('.qr-hit')) return;
     const regions = [['case', sec.querySelector('[data-annot="case"]')], ['q', sec.querySelector('[data-annot="q"]')]];
     sec.querySelectorAll('.answer-content[data-annot^="a"]').forEach(el => regions.push([L(+el.getAttribute('data-annot').slice(1)), el]));
+    const tips = reasonPrefs.notes();
     rs.cues.forEach((c, i) => {
         const hit = locateCue(c, regions);      // tìm SAU khi đã bọc dữ kiện trước (bọc làm tách text node)
         if (hit) {
@@ -88,10 +91,21 @@ function markCues(rs) {
                 const k = document.createElement('mark');
                 k.className = `qr-hit is-${c.kind}`;
                 k.setAttribute('data-cue', String(i + 1));
-                if (c.hint) k.title = c.hint;
+                if (c.hint && !tips) k.title = c.hint;
                 return k;
             });
-            if (marks.length) marks[marks.length - 1].setAttribute('data-n', String(i + 1));
+            const tail = marks[marks.length - 1];
+            if (tail) tail.setAttribute('data-n', String(i + 1));
+            if (tail && c.hint && tips) {
+                // Gợi ý = ghi chú TĨNH của máy ghi chú cụm từ (quiz-annotations.js renderNoteLines: [data-annot] span[data-note])
+                // -> hàng viết tay + mũi tên cong ngay dưới cụm, không thêm ký tự nào vào đề. data-qk = màu theo vai dữ kiện.
+                const tip = document.createElement('span');
+                tip.className = 'qr-tip';
+                tip.setAttribute('data-note', c.hint);
+                tip.dataset.qk = TIP_TAG[c.kind];
+                while (tail.firstChild) tip.appendChild(tail.firstChild);
+                tail.appendChild(tip);
+            }
             return;
         }
         sec.querySelectorAll(`#reason-area .qr-cue[data-cue="${i + 1}"]`).forEach(b => { b.classList.add('is-miss'); b.title = 'Không tìm thấy cụm này trong đề'; });
@@ -293,6 +307,8 @@ export function revealReasoning(q) {
     area.classList.remove('hidden');
     wire();
     if (reasonPrefs.marks()) markCues(rs);
+    // nạp lười: quiz-annotations đụng DOM lúc nạp (test Node); trang làm bài đã nạp sẵn nên không tốn mạng
+    if (sec.querySelector('.qr-tip')) import('./quiz-annotations.js').then(m => m.relayNoteLines(0));
     applySteps(area);
     if (!seen.has(cur.key)) {
         seen.add(cur.key);
@@ -304,6 +320,7 @@ export function revealReasoning(q) {
 export function setupReasoningSettings(rerender) {
     const rows = [
         ['qs-reason-marks', LS.marks, true, true, (on) => (on ? '' : 'Đã tắt tô dữ kiện trong đề — thẻ Hướng tư duy vẫn giữ')],
+        ['qs-reason-notes', LS.notes, true, true, () => ''],
         ['qs-reason-step', LS.step, false, true, (on) => (on ? 'Chuỗi suy luận mở từng bước: tự đoán trước, phím G mở bước tiếp' : '')],
         ['qs-reason-fx', LS.fx, true, false, () => ''],
     ];

@@ -566,7 +566,8 @@ function renderNoteLines(root) {
             const quoteParts = [];
             frags.forEach(f => { const fk = f.getAttribute('data-annot-id') || f; const q = quoteParts.find(p => p.k === fk); if (q) q.t += f.textContent; else quoteParts.push({ k: fk, t: f.textContent }); });
             row.setAttribute('aria-label', 'Ghi chú cho “' + quoteParts.map(p => p.t.trim()).join(' … ') + '”: ' + note);
-            if (look) row.dataset.tag = look[0];
+            const tag = look ? look[0] : last.dataset.qk;   // data-qk: gợi ý dữ kiện của "Quét dữ kiện" (quiz-reasoning.js markCues)
+            if (tag) row.dataset.tag = tag;
             if (id) { row.dataset.id = id; row.tabIndex = 0; row.title = 'Bấm để xem / sửa ghi chú'; }
             else row.classList.add('is-static');
             if (typeof k === 'string' && k.startsWith('g:')) {
@@ -926,7 +927,7 @@ function drawNoteLinks(band) {
 }
 // Bố cục đổi (xoay máy, kéo khung, phông Quicksand tải xong, dấu quét dữ kiện chèn vào đề) -> dòng xuống chỗ khác -> vẽ lại hàng
 let _relayT = 0;
-function relayNoteLines(delay = 120) {
+export function relayNoteLines(delay = 120) {
     clearTimeout(_relayT);
     _relayT = setTimeout(() => {
         const sec = document.getElementById('quizSection');

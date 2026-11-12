@@ -6325,6 +6325,21 @@ button.qr-cue:focus-visible, button.qr-ref:focus-visible { outline: 3px solid co
 }
 .qr-hint { grid-column: 2; font-size: 0.8rem; color: color-mix(in srgb, var(--ink) 80%, transparent); }
 .qr-hint::before { content: "➜ "; color: var(--qk-ink); font-weight: 800; }
+/* Thẻ ở trang làm bài, màn rộng (2026-11-12): bỏ lưới 2 cột (vé cao thấp lệch, vé lẻ mồ côi) -> mỗi dữ kiện MỘT hàng,
+   3 cột thẳng hàng như bảng: số · “cụm” + vai · ➜ gợi ý. Màn kết quả / phiếu tự luận (khung hẹp) giữ kiểu vé cũ. */
+@media (min-width: 720px) {
+    #reason-area .qr-cues { grid-template-columns: auto fit-content(42%) minmax(0, 1fr); gap: 0.3rem 0.6rem; }
+    #reason-area .qr-cues > li { display: contents; }
+    #reason-area .qr-cue { grid-column: 1 / -1; grid-template-columns: subgrid; align-items: baseline; padding: 0.3rem 0.65rem; }
+    #reason-area .qr-n { grid-row: auto; align-self: center; margin-top: 0; }
+    #reason-area .qr-hint { grid-column: 3; }
+}
+
+/* Gợi ý viết tay cạnh dữ kiện trong đề (span.qr-tip[data-note] trong mark.qr-hit — hàng + mũi tên do máy ghi chú cụm từ vẽ, §ghi chú):
+   mark đã tô + có số tròn rồi -> bỏ vạch và bong bóng số của ghi chú; nửa trước của mark bị hàng ghi chú cắt đôi không lặp số. */
+mark.qr-hit span.qr-tip[data-note] { text-decoration-line: none; }
+mark.qr-hit .qr-tip[data-an]::after { display: none !important; }
+mark.qr-hit[data-n]:has(+ .an-band + mark.qr-hit[data-an-split])::after { content: none; }
 
 /* ② Chuỗi suy luận: đường chỉ đứt dọc nối các bước, nút vuông B1 B2… */
 .qr-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.45rem; position: relative; }
@@ -6351,6 +6366,11 @@ button.qr-cue:focus-visible, button.qr-ref:focus-visible { outline: 3px solid co
     background: color-mix(in srgb, var(--st) 7%, var(--surface-card));
     border: 1.5px solid color-mix(in srgb, var(--st) 30%, transparent);
 }
+/* Bố cục gọn (2026-11-12): nguồn ➜ kiểu · kết luận · "gạch X" chung MỘT dòng khi đủ chỗ (trước là 3 dòng / bước); hẹp thì tự rớt dòng */
+.qr-step-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.15rem 0.55rem; }
+.qr-step-main .qr-from { flex: none; }
+.qr-step-main .qr-to { flex: 1 1 18rem; min-width: 0; margin-top: 0; }
+.qr-step-main .qr-out { flex: none; margin: 0 0 0 auto; }
 .qr-from { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
 .qr-ref {
     display: inline-grid; place-items: center;
