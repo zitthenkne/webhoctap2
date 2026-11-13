@@ -17,7 +17,16 @@ export function rememberLinkToken(quizId) {
 }
 
 /** Gọi sau khi nộp bài: { pct, total } + tên bộ đề. */
-export async function reportLinkProgress(quizId, { pct, total }, title = '') {
+export function reportLinkProgress(quizId, { pct, total }, title = '') {
+    return post(quizId, { action: 'progress', quizId, pct, total, title: String(title).slice(0, 200) });
+}
+
+/** Gọi khi bấm bắt đầu làm (chế độ thường): chủ link thấy "đang làm đề này từ lúc…". Không mở từ link → không gọi gì. */
+export function reportLinkStart(quizId, title = '', at = Date.now()) {
+    return post(quizId, { action: 'start', quizId, at, title: String(title).slice(0, 120) });
+}
+
+async function post(quizId, body) {
     let token = null;
     try { token = localStorage.getItem(KEY(quizId)); } catch (e) {}
     const u = auth.currentUser;
@@ -26,7 +35,7 @@ export async function reportLinkProgress(quizId, { pct, total }, title = '') {
         const r = await fetch(apiUrl('api/link'), {
             method: 'POST', keepalive: true, cache: 'no-store',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await u.getIdToken()}` },
-            body: JSON.stringify({ action: 'progress', token, quizId, pct, total, title: String(title).slice(0, 200) })
+            body: JSON.stringify({ ...body, token })
         });
         const d = await r.json().catch(() => ({}));
         // Link đã đóng / máy bị gỡ → quên mã, lần sau khỏi gọi

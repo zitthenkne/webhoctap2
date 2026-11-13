@@ -245,6 +245,16 @@ button.sa-icon{border:0;background:transparent;cursor:pointer;padding:0}
 .sa-av-soft{width:32px;height:32px;flex:none;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800}
 .sa-grade{flex:none;display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800;white-space:nowrap}
 .sa-grade.is-good{background:#dcf5ea;color:#11734b}.sa-grade.is-mid{background:#fff1cc;color:#946200}.sa-grade.is-low{background:#ffe4e4;color:#b42318}.sa-grade.is-none{background:#f3eef1;color:#9b8a93}
+.sa-grade.is-doing{background:#e3eeff;color:#2563eb}.sa-grade.is-view{background:#dff6fb;color:#0e7490}.sa-grade.is-stale{background:#fff1e6;color:#b45309}
+.sa-grade.is-doing i,.sa-grade.is-view i{animation:sa-blink 1.6s ease-in-out infinite}
+@keyframes sa-blink{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.sa-grade i{animation:none!important}}
+/* Mốc giờ: vào → bắt đầu → đang làm → nộp */
+.sa-tl{display:flex;flex-wrap:wrap;gap:4px 10px;margin:0;padding:0 0 0 41px;list-style:none;font-size:11px;color:var(--sa-mute)}
+.sa-tl li{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.sa-tl li i{font-size:10px;opacity:.75}
+.sa-tl li.is-doing{color:#2563eb;font-weight:700}.sa-tl li.is-stale{color:#b45309}
+.sa-tl li b{font-weight:700;max-width:160px;overflow:hidden;text-overflow:ellipsis}
 .sa-kick{width:26px;height:26px;flex:none;border:0;border-radius:9px;background:transparent;color:#cdb6c1;cursor:pointer}
 .sa-kick:hover{background:#fff1f1;color:var(--sa-bad)}
 .sa-done{display:flex;flex-wrap:wrap;gap:5px}
@@ -802,16 +812,36 @@ function resultsByQuiz(l) {
         </div>`).join('');
 }
 /** Theo người: thẻ nhỏ — ai, máy gì, mở lúc nào · huy hiệu điểm · các viên điểm từng đề */
+// Trạng thái sống (không tốn thêm lượt đọc — suy từ mốc giờ đã có trong 'list'):
+//   đang xem = máy chỉ vào xem, mở thư mục trong 10 phút qua · đang làm = bấm bắt đầu một đề (c.go) chưa nộp, trong 3 giờ qua
+const VIEW_LIVE_MS = 10 * 60000, DOING_MS = 3 * 3600000;
+const isDoing = (c) => !!c.go?.at && Date.now() - c.go.at < DOING_MS;
+const dur = (ms) => { const m = Math.max(1, Math.round(ms / 60000)); return m < 60 ? `${m} phút` : `${Math.floor(m / 60)} giờ${m % 60 ? ` ${m % 60} phút` : ''}`; };
 function claimRow(token, c, live, kind = 'quiz') {
     const who = whoOf(c), done = c.done || [];
     const first = c.in || c.at;                       // lần vào đầu tiên (máy đã vào xem rồi mới làm bài: c.in)
     const meta = [c.who ? c.email : '', c.who || c.email || c.name ? c.label : '', [c.city, c.country].filter(Boolean).join(', '),
-        first ? `vào ${fmtUntil(first)}` : '', c.n > 1 ? `${c.n} lượt vào` : '', c.via === 'request' ? 'được duyệt yêu cầu' : ''].filter(Boolean).join(' · ');
+        c.n > 1 ? `${c.n} lượt vào` : '', c.via === 'request' ? 'được duyệt yêu cầu' : ''].filter(Boolean).join(' · ');
     const avg = done.length ? Math.round(done.reduce((s, x) => s + pctOf(x), 0) / done.length) : null;
-    const grade = c.visit ? '<span class="sa-grade is-none" title="Đã vào xem, chưa làm bài — chưa tính suất"><i class="fas fa-door-open"></i> Đã vào · chưa làm</span>'
-        : !done.length ? '<span class="sa-grade is-none"><i class="fas fa-clock"></i> Chưa làm</span>'
+    const doing = isDoing(c), viewing = c.visit && c.seen && Date.now() - c.seen < VIEW_LIVE_MS;
+    const goT = c.go?.t ? `“${c.go.t}”` : 'bài';
+    const grade = c.visit ? (viewing ? '<span class="sa-grade is-view" title="Đang xem thư mục, chưa bấm làm đề nào — chưa tính suất"><i class="fas fa-eye"></i> Đang xem</span>'
+            : '<span class="sa-grade is-none" title="Đã vào xem, chưa làm bài — chưa tính suất"><i class="fas fa-door-open"></i> Đã vào · chưa làm</span>')
+        : !done.length && doing ? `<span class="sa-grade is-doing" title="${esc(`Đang làm ${goT} từ ${fmtUntil(c.go.at)}`)}"><i class="fas fa-pen"></i> Đang làm</span>`
+        : !done.length && c.go ? '<span class="sa-grade is-stale" title="Đã bắt đầu nhưng chưa nộp bài"><i class="fas fa-pause"></i> Bỏ dở</span>'
+        : !done.length ? '<span class="sa-grade is-none" title="Đã giữ suất, chưa bấm bắt đầu làm"><i class="fas fa-clock"></i> Chưa bắt đầu</span>'
         : kind === 'quiz' ? `<span class="sa-grade ${pctClass(avg)}"><i class="fas fa-trophy"></i> ${avg}%</span>`
         : `<span class="sa-grade ${pctClass(avg)}" title="Điểm cao nhất trung bình">${done.length} đề · TB ${avg}%</span>`;
+    // Mốc giờ: vào → giữ suất (thư mục: lần đầu bấm làm) → đang làm / bỏ dở → nộp gần nhất → mở gần nhất
+    const lastDone = done.reduce((m, x) => Math.max(m, x.at || 0), 0);
+    const tl = [
+        first && ['fa-door-open', `Vào ${fmtUntil(first)}`],
+        c.in && c.at && ['fa-ticket', `Bấm làm ${fmtUntil(c.at)}`],
+        c.go?.at && (doing ? ['fa-pen', `Đang làm <b title="${esc(goT)}">${esc(kind === 'quiz' ? 'bài' : goT)}</b> từ ${fmtUntil(c.go.at)} (${dur(Date.now() - c.go.at)})`, 'is-doing']
+            : ['fa-pause', `Mở <b title="${esc(goT)}">${esc(kind === 'quiz' ? 'bài' : goT)}</b> ${fmtUntil(c.go.at)}, chưa nộp`, 'is-stale']),
+        lastDone && ['fa-flag-checkered', `Nộp gần nhất ${fmtUntil(lastDone)}`],
+        c.seen && c.seen - (first || 0) > 60000 && !(c.go?.at && Math.abs(c.seen - c.go.at) < 60000) && ['fa-eye', `Mở gần nhất ${fmtUntil(c.seen)}`]
+    ].filter(Boolean);
     return `
         <div class="sa-pr">
             <div class="sa-pr-top">
@@ -820,6 +850,7 @@ function claimRow(token, c, live, kind = 'quiz') {
                 ${grade}
                 ${live ? `<button type="button" class="sa-kick" data-kick="${esc(token)}" data-uid="${esc(c.uid)}" title="Gỡ và chặn máy này" aria-label="Gỡ máy này"><i class="fas fa-xmark"></i></button>` : ''}
             </div>
+            ${tl.length ? `<ul class="sa-tl">${tl.map(([i, h, cls]) => `<li${cls ? ` class="${cls}"` : ''}><i class="fas ${i}"></i>${h}</li>`).join('')}</ul>` : ''}
             ${kind !== 'quiz' && done.length ? `<div class="sa-done">${done.map(x => scoreChip(x.title || 'Bộ đề', x)).join('')}</div>`
                 : kind === 'quiz' && done[0]?.n > 1 ? `<div class="sa-done">${scoreChip('Gần nhất', { ...done[0], best: done[0].last })}<span class="sa-sub">${done[0].n} lần nộp</span></div>` : ''}
         </div>`;
@@ -903,6 +934,7 @@ function linkRow(l) {
     // Kết quả làm bài: bao nhiêu máy đã nộp, tổng lượt nộp
     const nDone = claims.filter(c => c.done?.length).length;
     const nSubmit = claims.reduce((n, c) => n + (c.done || []).reduce((k, x) => k + (x.n || 0), 0), 0);
+    const nDoing = claims.filter(isDoing).length;
     const byQuiz = resByQuiz.has(l.token);
     // Link nhóm có danh sách: ai đã vào (xanh) / chưa vào
     const members = l.members || [];
@@ -969,7 +1001,7 @@ function linkRow(l) {
                 ${visitors.length ? `<small>${visitors.length} chưa làm (chưa tính suất)</small>` : ''}</div>` : ''}
             ${used ? `<div class="sa-sum"><i class="fas fa-list-check"></i>
                 <span class="sa-sum-bar"><u style="width:${Math.round(nDone / used * 100)}%"></u></span>
-                <span>${nDone}/${used} đã làm bài</span>${nSubmit ? `<small>${nSubmit} lượt nộp</small>` : ''}</div>` : ''}
+                <span>${nDone}/${used} đã nộp bài</span>${nDoing || nSubmit ? `<small>${[nDoing ? `${nDoing} đang làm` : '', nSubmit ? `${nSubmit} lượt nộp` : ''].filter(Boolean).join(' · ')}</small>` : ''}</div>` : ''}
             <div class="sa-acts">
                 ${live ? `<button type="button" class="sa-btn sa-btn-sm" data-once-copy="${esc(l.token)}"><i class="fas fa-copy"></i> Sao chép</button>
                 <button type="button" class="sa-btn sa-btn-sm sa-btn-ghost sa-qr-btn${qrOpen ? ' is-on' : ''}" data-once-qr="${esc(l.token)}" title="Mã QR" aria-label="Mã QR" aria-expanded="${qrOpen}"><i class="fas fa-qrcode"></i></button>` : ''}

@@ -22,7 +22,7 @@ import { groupQuestionsByCase, tagCaseSequence } from './quiz-cases.js';
 import { showQuestion, accrueTime } from './quiz-question-view.js';
 import { hideMobileNav } from './quiz-mobile-nav.js';
 import { rememberOpened, syncLocalResults } from '../local-shelf.js';
-import { rememberLinkToken, reportLinkProgress } from '../link-progress.js';
+import { rememberLinkToken, reportLinkProgress, reportLinkStart } from '../link-progress.js';
 import { quizRunStart, quizRunEnd } from '../../../core/quiz-run.js';
 import { canUse, showLocked } from '../../../core/features.js';
 
@@ -68,6 +68,14 @@ function needsAccessCheck(d) {
 // thay vì kẹt ở "Đang tải thông tin..." với tiêu đề "Lỗi" khô khan.
 // request: bị chặn vì quyền (riêng tư / hết hạn / thu hồi) → thêm khối "Gửi yêu cầu truy cập" (../access-request.js)
 function showLandingError(message, { showRetry = true, request = false } = {}) {
+    // Mở bằng URL bộ đề kèm mã link riêng (quiz.html?id=…&link=…) mà máy này chưa có quyền — vd người nhận chép link từng đề gửi người khác
+    // → đưa về CỔNG link riêng: máy lạ phải chiếm suất (chủ link thấy) hoặc bị chặn + xin quyền, không có lối vào riêng. Mỗi phiên một lần (khỏi vòng lặp).
+    const lt = request ? (new URLSearchParams(location.search).get('link') || '').replace(/[^\w-]/g, '').slice(0, 64) : '';
+    if (lt) {
+        let first = true;
+        try { first = !sessionStorage.getItem('zlinkGate:' + lt); sessionStorage.setItem('zlinkGate:' + lt, '1'); } catch (e) {}
+        if (first) { location.replace(`link.html?t=${encodeURIComponent(lt)}`); return; }
+    }
     const landing = document.getElementById('quiz-landing');
     if (!landing) return;
     landing.innerHTML = `
@@ -575,6 +583,8 @@ export function startQuizMode(questionsArray, mode = 'normal', restoreState = nu
         quizId: state.quizData?.id || new URLSearchParams(location.search).get('id'),
         title: state.quizData?.title || '', mode, startedAt: +new Date(state.quizStartTime)
     });
+    // Mở từ link riêng / nhóm → báo chủ link "đang làm" (chỉ chế độ thường — chế độ này mới nộp điểm)
+    if (state.quizMode === 'normal') reportLinkStart(state.quizData?.id, state.quizData?.title, +new Date(state.quizStartTime));
     // Tải lại trang (F5) giữa lúc đang tập trung → vào lại vẫn tập trung (cờ do page/quiz-focus.js ghi, xóa khi tắt/nộp bài)
     try {
         if (!state.focusMode) {

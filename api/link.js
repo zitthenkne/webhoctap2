@@ -35,6 +35,7 @@
 //                                               me (hồ sơ máy này: tên, thiết bị, lần vào…), done (nhật ký làm bài của máy này) }
 //   unvisit   { token }                       — máy ĐANG VÀO XEM (chưa tốn suất) tự xoá lượt vào (chọn lại tên)
 //   progress  { token, quizId, pct, total, title } — người giữ link nộp bài: ghi link_progress để chủ xem ai làm đề nào
+//   start     { token, quizId, title, at }    — người giữ link bấm bắt đầu làm đề → claims.<uid>.go (chủ thấy "đang làm")
 //   create    { kind, id, hours, name, maxUses, group?, members? } — CHỦ: tạo link (hours: 24 | 168 | 720 | 0 = không hết hạn)
 //   list      { kind, id }                    — CHỦ: các link còn sống + yêu cầu đang chờ + lịch sử link của mục này
 //   update    { token, name?, maxUses?, hours?, members? } — CHỦ: đổi tên / số suất / gia hạn (tính từ bây giờ) / danh sách nhóm
@@ -234,7 +235,8 @@ function progressMap(docs) {
 function view(token, l, prog = {}) {
     const claims = Object.entries(claimsOf(l)).map(([uid, x]) => ({
         uid, at: ms(x.at), seen: ms(x.seen), label: x.label || '', city: x.city || '', country: x.country || '',
-        anon: !!x.anon, email: x.email || '', name: x.name || '', who: x.who || '', via: x.via || '', in: ms(x.in), n: x.n || 1, done: doneView(prog[uid])
+        anon: !!x.anon, email: x.email || '', name: x.name || '', who: x.who || '', via: x.via || '', in: ms(x.in), n: x.n || 1, done: doneView(prog[uid]),
+        go: x.go ? { q: x.go.q || '', t: x.go.t || '', at: ms(x.go.at) } : null
     })).sort((a, b) => (a.at || 0) - (b.at || 0));
     const c = claimsOf(l);
     const visitors = Object.entries(visitsOf(l)).filter(([uid]) => !c[uid]).map(([uid, x]) => ({
@@ -716,7 +718,34 @@ module.exports = async function handler(req, res) {
                     first: old.first || now, at: now
                 } }
             }, { merge: true });
-            if (l.claims) await ref.update(new admin.firestore.FieldPath('claims', me.uid, 'seen'), now).catch(() => {});
+            if (l.claims) {
+                const FP = admin.firestore.FieldPath;
+                const args = [new FP('claims', me.uid, 'seen'), now];
+                // Nộp xong đề đang làm → bỏ dấu "đang làm" (cùng lượt ghi, không tốn thêm)
+                if (l.claims[me.uid]?.go?.q === quizId) args.push(new FP('claims', me.uid, 'go'), admin.firestore.FieldValue.delete());
+                await ref.update(...args).catch(() => {});
+            }
+            return send(res, 200, { ok: true });
+        }
+
+        // Người giữ link BẤM BẮT ĐẦU làm một đề (chế độ thường) → claims.<uid>.go = { q, t, at } cho chủ thấy "đang làm đề nào, từ lúc nào".
+        // Chỉ giữ đề gần nhất (ghi đè), nộp bài thì 'progress' xoá. Tiếp tục bài dở (cùng giờ bắt đầu) → khỏi ghi.
+        if (action === 'start') {
+            const me = await verifyUser(req);
+            const quizId = cleanId(body.quizId);
+            const s = await ref.get();
+            const l = s.exists ? s.data() : null;
+            const st = statusOf(l, me.uid);
+            if (st !== 'mine' || !l.claims) return send(res, 200, { ok: false, status: st });
+            const inScope = l.kind === 'quiz' ? l.targetId === quizId : (l.gq || []).includes(quizId);
+            if (!quizId || !inScope) return send(res, 200, { ok: false, status: 'scope' });
+            const now = Date.now();
+            const at = Math.min(now, Math.max(now - 12 * 3600000, Number(body.at) || now));
+            const go = l.claims[me.uid]?.go;
+            if (go?.q === quizId && Math.abs((ms(go.at) || 0) - at) < SEEN_GAP_MS) return send(res, 200, { ok: true });
+            const FP = admin.firestore.FieldPath;
+            await ref.update(new FP('claims', me.uid, 'go'), { q: quizId, t: String(body.title || '').slice(0, 120), at: Timestamp.fromMillis(at) },
+                new FP('claims', me.uid, 'seen'), Timestamp.now());
             return send(res, 200, { ok: true });
         }
 
