@@ -340,6 +340,8 @@ async function requestTarget(db, body) {
 }
 
 // ---------- Trang xem trước (Open Graph) riêng từng link ----------
+// Chỉ BOT xem trước (Messenger / Zalo / Telegram…) tới được đây: người thật bị vercel.json chuyển thẳng ở edge sang link.html
+// (đỡ một lượt khởi động hàm + đi-về VN ↔ iad1). Bot mới nào hiện thẻ chung → thêm tên nó vào danh sách user-agent trong vercel.json.
 const escHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 async function previewPage(req, res) {
     const token = cleanId(req.query.t);

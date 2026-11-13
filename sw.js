@@ -4,7 +4,7 @@
 //    có mạng là máy tự lấy bản mới. Chỉ tăng khi thêm / bớt / đổi tên file trong urlsToCache (để nạp sẵn đúng bộ cho offline).
 //  - CDN_CACHE: thư viện + phông từ CDN (URL có phiên bản, gần như bất biến) → GIỮ qua các phiên bản.
 //  - IMG_CACHE: ảnh tải lúc chạy (nền, avatar, ảnh bệnh án) → giữ qua các phiên bản, tối đa IMG_MAX mục.
-const CACHE_NAME = 'zitthenkne-v399';
+const CACHE_NAME = 'zitthenkne-v400';
 const CDN_CACHE = 'zitthenkne-cdn';
 const IMG_CACHE = 'zitthenkne-img';
 const IMG_MAX = 600;
@@ -115,6 +115,8 @@ const urlsToCache = [
   'features/quiz/web_assets/badge_stationery_srs.webp',
   'features/flashcard/flashcard.js',
   'core/firebase-init.js',
+  'core/firebase-auth.js',
+  'core/api-url.js',
   'core/utils.js',
   'core/offline-write.js',
   'core/auth-session.js',

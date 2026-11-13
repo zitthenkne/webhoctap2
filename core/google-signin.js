@@ -7,7 +7,7 @@
 // Kết quả redirect xử lý ở CHÍNH trang đã bấm: trang đó gọi resumeGoogle(tag) lúc mở rồi làm nốt phần sau đăng nhập như với popup.
 // Redirect cần authDomain CÙNG tên miền web (firebase-init.js + vercel.json chuyển /__/auth) — khác tên miền thì Safari chặn bộ nhớ bên thứ ba, quay về trắng tay.
 // browserPopupRedirectResolver chỉ truyền lúc gọi, không gắn vào initializeAuth (firebase-init.js: gắn sẵn thì mọi trang tải thêm iframe ~550ms).
-import { auth } from './firebase-init.js';
+import { auth } from './firebase-auth.js';   // chỉ auth — trang cổng link riêng không nạp Firestore
 import {
     GoogleAuthProvider, signInWithPopup, linkWithPopup, signInWithRedirect, linkWithRedirect, getRedirectResult, browserPopupRedirectResolver
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";

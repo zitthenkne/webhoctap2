@@ -4,10 +4,10 @@
 // (khách ẩn danh không gửi được). Máy chủ: api/link.js (request / myRequest). Chủ duyệt ở hộp Chia sẻ (share-access.js) → người xin
 // được 1 suất trên link → khối này tự chuyển sang link đó.
 // Đăng nhập xong luôn TẢI LẠI trang: biết đâu tài khoản đó đã có quyền sẵn (được chia sẻ riêng, đang giữ suất trên link).
-import { auth } from '../../core/firebase-init.js';
+import { auth } from '../../core/firebase-auth.js';
 import { signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { openGoogle, resumeGoogle, isCancelled } from '../../core/google-signin.js';
-import { apiUrl, deviceLabel } from '../../core/device-limit.js';
+import { apiUrl, deviceLabel } from '../../core/api-url.js';
 
 const CSS = `
 .ar{margin-top:16px;padding:14px;border-radius:16px;background:#fff;border:1.5px dashed #F3C6D7;text-align:left;font-family:inherit;color:#3b2230}

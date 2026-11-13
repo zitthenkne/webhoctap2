@@ -16,6 +16,7 @@ import { auth, db } from './firebase-init.js';
 import { doc, getDoc, setDoc, onSnapshot, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { markMine, clearMine } from './scope.js';
+import { apiUrl, deviceLabel } from './api-url.js';
 
 export const MAX_DEVICES = 2;
 export const EXEMPT_MAX = 20;                         // khớp EXEMPT_MAX trong api/devices.js
@@ -121,16 +122,8 @@ export function deviceId() {
     } catch (e) { return 'nostorage'; }
 }
 
-/** Tên máy dễ hiểu cho danh sách ở trang Hồ sơ, vd "iPad · Safari", "Điện thoại Android · Chrome". */
-export function deviceLabel() {
-    const ua = navigator.userAgent || '';
-    const iPad = /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);   // iPadOS tự xưng là Mac
-    const os = iPad ? 'iPad' : /iPhone/.test(ua) ? 'iPhone' : /Android/.test(ua) ? (/Mobile/.test(ua) ? 'Điện thoại Android' : 'Máy tính bảng Android')
-        : /Windows/.test(ua) ? 'Máy tính Windows' : /Macintosh/.test(ua) ? 'Máy Mac' : /CrOS/.test(ua) ? 'Chromebook' : /Linux/.test(ua) ? 'Máy Linux' : 'Thiết bị';
-    const br = /Edg\//.test(ua) ? 'Edge' : /CriOS|Chrome\//.test(ua) ? 'Chrome' : /FxiOS|Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'Trình duyệt';
-    const app = window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone ? ' (ứng dụng)' : '';
-    return `${os} · ${br}${app}`;
-}
+// deviceLabel + apiUrl: core/api-url.js (không kéo Firestore) — xuất lại ở đây cho nơi đã import từ tệp này
+export { deviceLabel, apiUrl };
 
 /**
  * Chi tiết máy cho báo cáo máy khách (core/quiz-run.js): { os: 'Android 14' | 'iOS 17.5' | 'Windows 10/11'…, model: 'SM-G991B' (Android),
@@ -179,7 +172,6 @@ function takeFresh() {
 
 // ---------- Gọi máy chủ (api/devices.js) ----------
 // Danh sách máy + lịch sử đăng nhập do MÁY CHỦ ghi (luật chặn app ghi) — máy chủ xác minh token thật, lấy auth_time + IP/vị trí thật.
-export const apiUrl = (path) => new URL(path, (typeof location !== 'undefined' && /\.vercel\.app$/i.test(location.hostname) ? location.origin : 'https://zitthenkne.vercel.app') + '/').href;
 const callDevices = (body) => callApi('api/devices', body);
 
 /**
