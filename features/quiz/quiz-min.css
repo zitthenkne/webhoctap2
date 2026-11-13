@@ -516,3 +516,33 @@ html.ui-min #quiz-settings-popover .qs-top { background: var(--surface-card) !im
 html.ui-min #quiz-settings-popover .qs-presets { border-width: 1.5px; }
 html.ui-min #quiz-settings-popover .qs-preset, html.ui-min #quiz-settings-popover .qs-tab[aria-selected="true"] { box-shadow: inset 0 0 0 1.5px var(--m-line) !important; }
 html.ui-min #quiz-settings-popover .qs-preset[aria-pressed="true"] { box-shadow: inset 0 0 0 1.5px var(--hue-butter) !important; }
+
+/* ═════════ 16. MỨC 2 "ÍT MÀU" (2026-11-13) — html.ui-min.ui-calm; công tắc #qs-calm (chỉ hiện khi đã bật tinh gọn), nhớ theo máy localStorage quiz_min_calm ═════════
+   Người dùng: "thêm 1 mức nữa ít màu hơn, đỡ màu mè, nhưng vẫn tương đối mềm mại và dễ thương". Giữ nguyên HÌNH của §13–15 (bo tròn, viên thuốc, chữ cái tròn, sóc trong vòng)
+   nhưng gộp 6 tông kẹo về MỘT nền kem phớt hồng + viền hồng tro + chữ nâu hồng; hồng đậm chỉ còn là điểm nhấn (nút chính, thanh tiến độ, nhãn "Câu n/N", chế độ đang chọn).
+   Màu BÁO NGHĨA giữ nguyên: xanh dương = chọn/đã làm, xanh lá / đỏ = đúng / sai, vàng bơ = đang xem.
+   --ink-* đổi từ <body> trở xuống (không đổi trên html để --o-ink-* còn giữ màu gốc); nội dung câu hỏi / giải thích lấy lại màu gốc để khung ghi chú/trích dẫn vẫn phân biệt. */
+html.ui-min.ui-calm {
+    --bg-desk: #FAF6F7;
+    --c-tint: color-mix(in srgb, var(--hue-blossom) 6%, var(--surface-card));
+    --c-line: color-mix(in srgb, var(--ink-blossom) 18%, transparent);
+    --c-ink: color-mix(in srgb, var(--ink-blossom) 45%, var(--ink));
+    --c-hue: color-mix(in srgb, var(--hue-blossom) 35%, #B3A8AD);
+    --m-line: var(--c-line);
+    --t-blossom: var(--c-tint); --t-peach: var(--c-tint); --t-butter: var(--c-tint); --t-mint: var(--c-tint); --t-sky: var(--c-tint); --t-lav: var(--c-tint);
+    --b-blossom: var(--c-line); --b-peach: var(--c-line); --b-butter: var(--c-line); --b-mint: var(--c-line); --b-sky: var(--c-line); --b-lav: var(--c-line);
+    --o-ink-peach: var(--ink-peach); --o-ink-butter: var(--ink-butter); --o-ink-mint: var(--ink-mint); --o-ink-sky: var(--ink-sky); --o-ink-lav: var(--ink-lav);
+}
+html.ui-min.ui-calm.theme-dark { --bg-desk: #1E1A1C; }
+html.ui-min.ui-calm body { --ink-peach: var(--c-ink); --ink-butter: var(--c-ink); --ink-mint: var(--c-ink); --ink-sky: var(--c-ink); --ink-lav: var(--c-ink); }
+html.ui-min.ui-calm :is(.question-text, .answer-content, .kb-body, #case-body, .quiz-note-input) { --ink-peach: var(--o-ink-peach); --ink-butter: var(--o-ink-butter); --ink-mint: var(--o-ink-mint); --ink-sky: var(--o-ink-sky); --ink-lav: var(--o-ink-lav); }
+
+/* đáp án A/B/C/D: một tông hồng tro thay vì 4 màu */
+html.ui-min.ui-calm #quizSection #answers-container > .answer-btn { --h: var(--c-hue); --hi: var(--c-ink); }
+/* chế độ đang chọn: điểm nhấn hồng */
+html.ui-min.ui-calm .mode-preset.mp-active[data-mode] { border-color: var(--hue-blossom) !important; background: color-mix(in srgb, var(--hue-blossom) 12%, var(--surface-card)) !important; }
+html.ui-min.ui-calm .mode-preset.mp-active .mp-name { color: var(--ink-blossom) !important; }
+html.ui-min.ui-calm #start-srs-btn { background: var(--c-tint) !important; border: 1.5px solid var(--c-line) !important; color: var(--ink-blossom) !important; }
+/* bảng số câu: số chưa làm nâu hồng; "đã làm" giữ xanh dương báo nghĩa (tông xanh trời §13 vừa bị gộp về kem) */
+html.ui-min.ui-calm .quiz-nav-btn { color: var(--c-ink); }
+html.ui-min.ui-calm .quiz-nav-btn.is-done:not(.is-current):not(.is-correct):not(.is-wrong) { background: var(--pick-bg) !important; border-color: var(--pick-line) !important; color: var(--pick-ink) !important; }

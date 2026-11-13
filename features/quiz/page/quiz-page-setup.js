@@ -95,6 +95,7 @@ export function setupSettings() {
     const pop = document.getElementById('quiz-settings-popover');
     const rowDark = document.getElementById('qs-dark');
     const rowMin = document.getElementById('qs-min');
+    const rowCalm = document.getElementById('qs-calm');
     const rowSound = document.getElementById('qs-sound');
     const rowVibrate = document.getElementById('qs-vibrate');
     const rowMeme = document.getElementById('qs-meme');
@@ -120,7 +121,12 @@ export function setupSettings() {
 
     const sync = () => {
         if (rowDark) rowDark.setAttribute('aria-checked', getTheme() === 'dark');
-        if (rowMin) rowMin.setAttribute('aria-checked', document.documentElement.classList.contains('ui-min'));
+        const minOn = document.documentElement.classList.contains('ui-min');
+        if (rowMin) rowMin.setAttribute('aria-checked', minOn);
+        if (rowCalm) {                                            // mức 2 "Ít màu" chỉ có nghĩa khi đang tinh gọn
+            rowCalm.style.display = minOn ? '' : 'none';
+            rowCalm.setAttribute('aria-checked', document.documentElement.classList.contains('ui-calm'));
+        }
         if (rowSound) rowSound.setAttribute('aria-checked', getSound());
         if (soundDetail) soundDetail.hidden = !getSound();
         if (packSel) packSel.value = getPack();
@@ -163,6 +169,10 @@ export function setupSettings() {
         if (minCss && on) minCss.media = 'all';
         setLS('quiz_minimal', on ? '1' : '0');
         window.dispatchEvent(new Event('resize'));
+        sync();
+    });
+    if (rowCalm) rowCalm.addEventListener('click', () => {       // tinh gọn mức 2: ít màu (quiz-min.css §16)
+        setLS('quiz_min_calm', document.documentElement.classList.toggle('ui-calm') ? '1' : '0');
         sync();
     });
     if (rowSound) rowSound.addEventListener('click', () => {
