@@ -40,6 +40,36 @@
 
     /* 5. Sơ đồ Mermaid: mỗi ô một drop-shadow = mỗi ô một lớp vẽ riêng ngoài màn hình. Viền màu vẫn giữ. */
     :is(#quiz-container, #quiz-landing, .rm-dgv) svg[id^="mm"] g.node > * { filter: none !important; }
+
+    /* 6. (2026-11-13) "Kéo lên xuống hay dính vào thứ không kéo được rồi giật" — khung cuộn lồng trong thẻ câu hỏi:
+          - Khung bảng (.table-responsive) có overflow-x:auto nên trình duyệt tự cho cả overflow-y:auto -> nó là khung cuộn HAI chiều;
+            ngón đặt lên bảng là Safari giao cú vuốt cho bảng trước. Khóa chiều dọc: bảng chỉ còn kéo NGANG, vuốt dọc đi thẳng ra trang.
+          - contain chiều ngang: kéo bảng tới mép là cử chỉ bị nuốt (trang không nhận phần còn lại) -> trả về auto.
+          - Bảng vừa khung (.tr-fit — page/quiz-page-setup.js đo lúc ngón chạm): không còn là khung cuộn nữa.
+          - Dải số câu ở iPad dọc: bỏ bắt dính (scroll-snap) — dải tự "hít" về ô gần nhất ngay lúc trang đang trôi làm khựng. */
+    :is(#quiz-landing, #quiz-container, #case-peek-sheet) .table-responsive { overflow-y: hidden; overscroll-behavior-x: auto; }
+    :is(#quiz-landing, #quiz-container, #case-peek-sheet) .table-responsive.tr-fit { overflow: hidden; }
+    #quiz-nav-panel #question-nav-wrapper.quiz-nav-grid { scroll-snap-type: none; overscroll-behavior-x: auto; }
+
+    /* 7. Nền body "đứng yên" (style.css: background-attachment: fixed) buộc vẽ lại nền khi cuộn trên một số bản Safari; trang làm bài
+          đã có lớp ảnh nền riêng (body::before, position: fixed) nên body cứ cuộn thường. */
+    body { background-attachment: scroll; }
+
+    /* 7b. Mẩu giấy giải thích trong ô đáp án nghiêng 0,35° (transform): khối chữ dài vài trăm px bị tách thành lớp vẽ riêng và phải
+           vẽ lại (chữ nghiêng) khi cuộn. Cảm ứng: để thẳng — mắt gần như không thấy khác. */
+    #quizSection .option-explanation:not(.hidden) { transform: none; }
+
+    /* 8. Dòng gợi ý phím tắt cuối thẻ (A–D, ← →, Enter…): máy cảm ứng không dùng tới — bảng phím tắt đầy đủ vẫn mở được bằng nút. */
+    #quizSection .quiz-kbd-hint { display: none !important; }
+}
+
+/* IPAD DỌC lúc làm bài (768–1023px, cảm ứng) — đọc ở khoảng cách cầm máy tính bảng:
+   lời giải thích từng phương án đang nhỏ hơn hẳn chữ đáp án (15px cạnh 18px) -> nâng lên, giãn dòng; ô chạm nhỏ nới cho vừa ngón. */
+@media (hover: none) and (pointer: coarse) and (min-width: 768px) and (max-width: 1023px) {
+    /* 1em = cỡ chữ khối bao quanh (~16,5px, trước là ~15px) nên vẫn co giãn theo nút Cỡ chữ A- / A+ */
+    #quizSection .answer-btn .option-explanation { font-size: 1em !important; line-height: 1.65 !important; }
+    #quizSection .case-dot { min-width: 2.4rem; min-height: 2.4rem; }
+    #quizSection #edit-question-btn { min-height: 42px; }
 }
 
 @media (hover: none) and (pointer: coarse) and (prefers-reduced-motion: reduce) {

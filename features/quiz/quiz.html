@@ -343,7 +343,11 @@
          — đúng chỗ CDN từng chèn — vì nhiều luật của trang ngầm để Tailwind thắng khi cùng độ ưu tiên.
          Thêm class Tailwind mới (quiz.html / features/quiz / core) thì chạy `node tailwind-dong-bang.mjs`. -->
     <link rel="stylesheet" href="tailwind-quiz.css">
-    <link rel="stylesheet" href="quiz-min.css">   <!-- "Giao diện tinh gọn": mọi luật nằm dưới html.ui-min, không bật thì không có tác dụng; PHẢI nằm sau tailwind-quiz.css -->
+    <!-- "Giao diện tinh gọn": mọi luật nằm dưới html.ui-min, không bật thì không có tác dụng; PHẢI nằm sau tailwind-quiz.css.
+         Chưa bật tinh gọn -> media="not all": trình duyệt vẫn tải (ưu tiên thấp) nhưng KHÔNG chặn lần vẽ đầu (đỡ ~69 KB CSS);
+         bật công tắc thì page/quiz-page-setup.js đổi media về "all". -->
+    <link rel="stylesheet" href="quiz-min.css" id="quiz-min-css" media="not all">
+    <script>if (document.documentElement.classList.contains('ui-min')) document.getElementById('quiz-min-css').media = 'all';</script>
     <link rel="stylesheet" href="quiz-touch.css">  <!-- Máy cảm ứng: bỏ hiệu ứng bắt GPU vẽ lại liên tục (giật / mảng trơn màu trên điện thoại). Nạp CUỐI. -->
 </head>
 <body class="flex items-center justify-center min-h-screen p-2 sm:p-4 text-sm">
@@ -385,7 +389,7 @@
                         <span class="washi-tape washi-butter" aria-hidden="true"></span>
                         <span class="nb-doodle nb-doodle-heart" aria-hidden="true"></span>
                         <span class="nb-doodle nb-doodle-star" aria-hidden="true"></span>
-                        <img id="quiz-hero-img" src="web_assets/mascot_stationery_squirrel.webp" alt="Sóc Zitthenkne cầm bút chì" width="112" height="112" class="mascot-sticker w-full h-full object-contain" />
+                        <img id="quiz-hero-img" src="web_assets/mascot_stationery_squirrel.webp" alt="Sóc Zitthenkne cầm bút chì" width="112" height="112" fetchpriority="high" decoding="async" class="mascot-sticker w-full h-full object-contain" />
                     </button>
                     <div class="bt-hero-main flex-1 min-w-0 w-full">
                         <h1 id="quiz-title" class="text-xl sm:text-2xl lg:text-3xl font-extrabold mb-1.5 tracking-tight">Đang tải thông tin...</h1>
@@ -412,6 +416,8 @@
                                     <span id="stat-last-attempt-sub" class="nb-stat-sub text-[10px] font-medium mt-0.5"></span>
                                 </div>
                             </div>
+                            <!-- Độ thuộc bài (quiz-ui.js renderMastery): chỉ hiện khi bộ đề đã có câu trong lịch ôn -->
+                            <div id="quiz-mastery" class="qz-mastery" hidden></div>
                             <div class="bt-preview flex flex-wrap items-center justify-center gap-2">
                                 <button id="show-preview-btn" title="Xem trước một số câu hỏi" class="nb-soft-btn px-4 py-2 font-semibold rounded-xl transition flex items-center gap-2 text-xs sm:text-sm">
                                     <i class="fas fa-eye"></i>
@@ -458,6 +464,23 @@
                         </button>
                     </div>
                 </div>
+                <!-- Đề đã từng mở trên máy này: điền tên + số câu NGAY lúc trình duyệt vừa đọc tới đây, không chờ ~40 module tải xong
+                     (quiz-ui.js loadQuizDetails ghi quizMeta_<id> rồi điền lại số liệu thật). Khóa riêng theo tài khoản — core/scope.js. -->
+                <script>
+                    try {
+                        var qm = JSON.parse(localStorage.getItem('quizMeta_' + new URLSearchParams(location.search).get('id')) || 'null');
+                        if (qm && qm.t && qm.n > 0) {
+                            document.getElementById('quiz-title').textContent = qm.t;
+                            document.getElementById('quiz-info').textContent = 'Chọn chế độ, chỉnh chi tiết nếu cần rồi bấm Bắt đầu.';
+                            document.title = qm.t;
+                            var qmc = document.getElementById('stat-questions-count');
+                            qmc.textContent = qm.n + ' câu';
+                            qmc.classList.remove('skeleton-line');
+                            document.getElementById('stat-duration-est').textContent = '≈ ' + Math.max(1, Math.ceil(qm.n / 2 + 10)) + ' phút gợi ý';
+                            window.quizQuestionsLength = qm.n;
+                        }
+                    } catch (e) {}
+                </script>
 
                 <div class="bt-col bt-col-l">
                     <!-- Chọn nhanh chế độ: mỗi preset chỉ gạt sẵn các tùy chọn bên dưới (1 chạm là xong),
@@ -718,8 +741,10 @@
                 <span>UMP</span>
             </p>
             <script>
-            // Các script inline cho toggle và redirect
-            document.addEventListener('DOMContentLoaded', function() {
+            // Các script inline cho toggle và redirect.
+            // Chạy NGAY khi đọc xong thân trang (gọi ở cuối <body>), KHÔNG chờ DOMContentLoaded: sự kiện đó đợi cả cây module
+            // (~40 file + Firebase) tải xong, trong lúc ấy trang chờ đứng im không bấm được gì.
+            window.__landingInit = function() {
                 // Mẹo ôn tập xoay vòng (random khi tải + đổi khi bấm nút)
                 const tipText = document.getElementById('quiz-tip-text');
                 const tipNextBtn = document.getElementById('quiz-tip-next');
@@ -1270,7 +1295,65 @@
                         .then(() => toast('Đã copy mã nhúng!', 'success'))
                         .catch(() => toast('Không thể sao chép!', 'error'));
                 });
-            });
+
+                // Thẻ "Thời gian": biết số câu từ bản nhớ (quizMeta_) thì điền luôn, khỏi chờ module
+                const statDur = document.getElementById('stat-duration');
+                if (statDur && window.quizQuestionsLength) {
+                    statDur.textContent = timedCheckbox && timedCheckbox.checked && timedInput ? timedInput.value + ' phút' : 'Tự do';
+                    statDur.classList.remove('skeleton-line');
+                }
+
+                // Bấm Bắt đầu khi module / dữ liệu bộ đề CHƯA sẵn sàng: ghi nhận, quiz-page.js tự bấm lại ngay khi tải xong
+                const startBtnEarly = document.getElementById('start-now-btn');
+                if (startBtnEarly) startBtnEarly.addEventListener('click', function () {
+                    if (window.__quizBooted) return;
+                    window.__startQueued = true;
+                    const ic = startBtnEarly.querySelector('i');
+                    if (ic) ic.className = 'fas fa-spinner fa-spin';
+                });
+
+                // === Sóc biết nói: chào theo giờ khi mở trang, bấm vào sóc thì nói câu khác + nhún một cái ===
+                const heroBtn = document.getElementById('quiz-hero-btn');
+                if (heroBtn) {
+                    const say = document.createElement('span');
+                    say.className = 'mascot-say';
+                    say.setAttribute('aria-live', 'polite');
+                    heroBtn.appendChild(say);
+                    const h = new Date().getHours();
+                    const hello = h < 5 ? 'Khuya rồi đó… làm ít câu rồi ngủ nha 🌙'
+                        : h < 11 ? 'Chào buổi sáng! Hôm nay chiến đề nào? ☀️'
+                        : h < 14 ? 'Ăn trưa chưa? No bụng rồi hãy học nha 🍚'
+                        : h < 18 ? 'Chiều rồi, làm vài câu cho tỉnh nè 🌰'
+                        : h < 23 ? 'Tối học là nhớ lâu nhất đó ✨'
+                        : 'Gần nửa đêm rồi, ráng chút rồi nghỉ nha 🌙';
+                    const lines = [
+                        'Sai thì mình ôn lại, không sao hết 🌰',
+                        'Hít sâu… rồi bấm Bắt đầu nha!',
+                        'Mình giữ hạt dẻ, bạn giữ điểm A 💪',
+                        'Câu khó cứ đánh dấu, lát quay lại nè',
+                        'Uống miếng nước rồi học tiếp nha 💧',
+                        'Mỗi ngày vài câu là thuộc hồi nào không hay ✨'
+                    ];
+                    let sayTimer = 0, lineIdx = Math.floor(Math.random() * lines.length);
+                    const speak = function (text, ms) {
+                        say.textContent = text;
+                        say.classList.add('show');
+                        clearTimeout(sayTimer);
+                        sayTimer = setTimeout(function () { say.classList.remove('show'); }, ms);
+                    };
+                    window.__mascotSay = speak;   // quiz-page.js suggestMode: sóc nói lý do gợi ý chế độ
+                    heroBtn.addEventListener('click', function () {
+                        lineIdx = (lineIdx + 1) % lines.length;
+                        speak(lines[lineIdx], 3200);
+                        const img = document.getElementById('quiz-hero-img');   // nhún trên ẢNH: nút đang mang hoạt ảnh lơ lửng
+                        if (img) { img.classList.remove('mascot-boing'); void img.offsetWidth; img.classList.add('mascot-boing'); }
+                    });
+                    // Điện thoại: bong bóng nằm đè lên tấm vé số liệu nên KHÔNG tự chào — chỉ nói khi được bấm hoặc khi có gợi ý chế độ
+                    if (!window.matchMedia('(max-width: 639px)').matches) {
+                        setTimeout(function () { if (!say.classList.contains('show')) speak(hello, 4200); }, 500);
+                    }
+                }
+            };
             </script>
         </div>
 
@@ -1972,6 +2055,7 @@
         </div>
     </div>
 
+    <script>window.__landingInit();</script>
     <script type="module" src="quiz-page.js"></script>
     <!-- Hộp Chia sẻ: chủ bộ đề bật/tắt công khai + chia sẻ riêng theo tài khoản ngay tại trang làm bài.
          Gắn khi hộp hiện ra (hộp do script thường ở trên mở), đọc bộ đề đang mở từ state của quiz-state.js. -->
@@ -1982,7 +2066,8 @@
         import { updateDocQ as updateDoc } from '../../core/offline-write.js';
         import { showToast } from '../../core/utils.js';
         import { state } from './quiz-state.js';
-        import { showShareAccess, hideShareAccess } from './share-access.js';
+        // share-access.js (~108 KB) chỉ nạp khi CHỦ bộ đề mở hộp Chia sẻ — không nằm trên đường tải trang nữa
+        let shareMod = null;
         // (Bản bộ đề lưu trong máy tự lấy lại khi doc đổi updateTime — quiz-fresh.js — nên không cần sửa tay ở đây.)
 
         const modal = document.getElementById('shareQuizModal');
@@ -2013,11 +2098,14 @@
         window.addEventListener('quiz:data', syncShareButtons);
         onAuthStateChanged(auth, syncShareButtons);
 
-        const mount = () => {
+        const mount = async () => {
             const q = state.quizData;
             const id = q && (q.id || new URLSearchParams(location.search).get('id'));
-            if (!q || !id || !isOwner()) { modal.classList.add('hidden'); return hideShareAccess(); }
-            showShareAccess({
+            if (!q || !id || !isOwner()) { modal.classList.add('hidden'); return shareMod?.hideShareAccess(); }
+            try { shareMod = shareMod || await import('./share-access.js'); }
+            catch (e) { return showToast('Không tải được hộp Chia sẻ — kiểm tra mạng rồi thử lại.', 'error'); }
+            if (modal.classList.contains('hidden')) return;      // đã đóng hộp trong lúc chờ tải
+            shareMod.showShareAccess({
                 view: () => q,
                 targets: async () => [{ col: 'quiz_sets', id, obj: q }],
                 setPublic: async (v, until) => {
@@ -2040,8 +2128,8 @@
             .observe(modal, { attributes: true, attributeFilter: ['class'] });
     </script>
     <script>
-    // Hamburger menu logic for quiz.html
-    document.addEventListener('DOMContentLoaded', function() {
+    // Hamburger menu logic for quiz.html — chạy ngay (script nằm cuối <body>, mọi phần tử đã có), không chờ cây module tải xong
+    (function() {
         // Linh vật giờ là sticker cố định (web_assets/mascot_stationery_squirrel.webp);
         // ảnh OG ngẫu nhiên vẫn chỉ dùng cho thẻ chia sẻ (og:image) ở <head>.
 
@@ -2154,7 +2242,7 @@
                 mainStartBtn.click();
             });
         }
-    });
+    })();
     </script>
     <div id="toast-container"></div>
 </body>

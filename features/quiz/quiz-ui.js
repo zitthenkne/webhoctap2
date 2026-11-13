@@ -3,7 +3,7 @@
 import { state, MARK_REASONS } from './quiz-state.js';
 import { scrollBehaviorFor, sfx, getVibrate } from './page/quiz-page-prefs.js';
 import { parseMarkdown, renderMath, convertScoreToGPA, formatTime, triggerConfetti, stripOptionLabels, isAnswerCorrect, getCorrectIndexes, answerCredit, sessionScore } from './quiz-helpers.js';
-import { previewSrsCounts, getNewPerDay, setNewPerDay } from './quiz-srs-store.js';
+import { previewSrsCounts, getNewPerDay, setNewPerDay, readSrsMap } from './quiz-srs-store.js';
 import { caseCellClass } from './page/quiz-cases.js';
 import { isEssay, isPendingEssay, isEssayGraded, needsReview, questionWeight, answerTextOf } from './quiz-essay-core.js';
 import { essayReviewHtml } from './page/quiz-essay.js';
@@ -42,6 +42,8 @@ export function updateProgressBar() {
         const progress = state.questions.length > 0 ? ((state.currentIndex / state.questions.length) * 100) : 0;
         progressFill.style.width = `${progress}%`;
     }
+    // Tên tab = tiến độ: mở nhiều tab vẫn biết đang ở câu mấy
+    if (state.questions.length) document.title = `${state.currentIndex + 1}/${state.questions.length} · ${(state.quizData && state.quizData.title) || 'Làm bài'}`;
 }
 
 /**
@@ -237,6 +239,10 @@ export function renderPreviewQuestions() {
     const badge = document.getElementById('preview-count-badge');
     if (badge) badge.innerHTML = `<i class="fas fa-layer-group"></i> ${previewCount} / ${total} câu`;
 
+    // Khung xem trước đang đóng -> chưa dựng (đỡ parse Markdown + nạp KaTeX/Mermaid lúc mở trang); nút "Xem trước" gọi lại hàm này khi mở
+    const box = document.getElementById('quiz-preview');
+    if (box && box.classList.contains('hidden')) return;
+
     let html = '';
     previewQuestions.forEach((q, idx) => {
         const answerOptions = stripOptionLabels(q.answers || q.options);
@@ -302,6 +308,8 @@ export function loadQuizDetails() {
         document.title = state.quizData.title;
 
         window.quizQuestionsLength = state.originalQuestions.length;
+        // Nhớ tên + số câu để lần mở sau trang chờ hiện ngay (script đầu trang chờ của quiz.html đọc khóa này)
+        try { localStorage.setItem('quizMeta_' + state.quizData.id, JSON.stringify({ t: state.quizData.title, n: state.originalQuestions.length })); } catch (e) { }
 
         if (statQuestionsCount) {
             statQuestionsCount.textContent = `${state.originalQuestions.length} câu`;
@@ -343,6 +351,25 @@ export function loadQuizDetails() {
     }
 }
 
+// Thanh "độ thuộc bài" dưới tấm vé số liệu: đã thuộc (đúng liên tiếp ≥ 3 lần — cùng ngưỡng summarizeSrs) · đang học · chưa học.
+// Số liệu lấy từ lịch ôn ngắt quãng trong máy; bộ đề chưa ôn câu nào thì ẩn.
+function renderMastery(quizId) {
+    const el = document.getElementById('quiz-mastery');
+    if (!el) return;
+    const map = readSrsMap(quizId);
+    const total = (state.originalQuestions || []).length;
+    let seen = 0, strong = 0;
+    (state.originalQuestions || []).forEach(q => {
+        const e = map[q && q.question ? String(q.question).trim() : ''];
+        if (e) { seen++; if ((e.n | 0) >= 3) strong++; }
+    });
+    el.hidden = !seen || !total;
+    if (el.hidden) return;
+    const pct = (n) => (n / total * 100).toFixed(1);
+    el.innerHTML = `<span class="qz-mastery-bar" role="img" aria-label="Đã thuộc ${strong} trên ${total} câu"><i class="is-strong" style="width:${pct(strong)}%"></i><i class="is-learn" style="width:${pct(seen - strong)}%"></i></span>
+        <span class="qz-mastery-txt"><b>Đã thuộc ${strong}/${total}</b><span>đang học ${seen - strong} · chưa học ${total - seen}</span></span>`;
+}
+
 // Điền số liệu cho card "Ôn ngắt quãng" trên landing: X câu đến hạn · Y câu mới
 // hôm nay (previewSrsCounts KHÔNG trừ quota — quota chỉ trừ khi thật sự bắt đầu).
 function renderSrsLandingCard() {
@@ -364,6 +391,7 @@ function renderSrsLandingCard() {
         startBtn.innerHTML = startBtn.disabled
             ? '<i class="fas fa-circle-check"></i> Chưa đến hạn'
             : '<i class="fas fa-calendar-check"></i> Ôn ngay';
+        renderMastery(quizId);
     };
 
     if (newPerDayInput) {
@@ -520,7 +548,8 @@ export function showResults(totalTime, opts = {}) {
         topicStats[t].total++;
         if (isAnswerCorrect(q, state.userAnswers[i])) topicStats[t].correct++;
     });
-    const topicEntries = Object.entries(topicStats);
+    // Chủ đề YẾU NHẤT lên đầu; chủ đề còn câu sai có nút luyện ngay riêng các câu sai của chủ đề đó
+    const topicEntries = Object.entries(topicStats).sort((a, b) => a[1].correct / a[1].total - b[1].correct / b[1].total);
     let topicHtml = '';
     if (topicEntries.length >= 2) {
         topicHtml = `
@@ -528,8 +557,8 @@ export function showResults(totalTime, opts = {}) {
             <h3 class="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
                 <i class="fas fa-chart-pie text-pink-500"></i> Kết quả theo chủ đề
             </h3>
-            <div class="space-y-3">
-                ${topicEntries.map(([topic, s]) => {
+            <div class="space-y-3" id="result-topics">
+                ${topicEntries.map(([topic, s], ti) => {
             const pct = s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0;
             let barColor = 'bg-red-400';
             if (pct >= 80) barColor = 'bg-green-500';
@@ -538,7 +567,7 @@ export function showResults(totalTime, opts = {}) {
                     <div>
                         <div class="flex justify-between items-center text-sm mb-1">
                             <span class="font-medium text-gray-600 truncate pr-2">${topic}</span>
-                            <span class="font-semibold text-gray-500 flex-shrink-0">${s.correct}/${s.total} · ${pct}%</span>
+                            <span class="res-topic-side">${s.total > s.correct ? `<button type="button" class="res-topic-go" data-ti="${ti}" title="Làm lại riêng các câu sai / bỏ trống của chủ đề này"><i class="fas fa-redo-alt"></i> Luyện ${s.total - s.correct} câu</button>` : ''}<span class="font-semibold text-gray-500 flex-shrink-0">${s.correct}/${s.total} · ${pct}%</span></span>
                         </div>
                         <div class="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
                             <div class="h-full ${barColor} rounded-full transition-all duration-700" style="width:${pct}%"></div>
@@ -579,15 +608,50 @@ export function showResults(totalTime, opts = {}) {
         return isPendingEssay(q, ua) ? 'pending' : (!un && isAnswerCorrect(q, ua)) ? 'correct' : (un ? 'unanswered' : 'wrong');
     };
 
+    // RUỘT từng câu (các phương án, giải thích, ghi nhớ, ghi chú) chỉ dựng khi câu được MỞ lần đầu (fillBody bên dưới):
+    // nộp bài 200 câu không còn phải parse Markdown + dựng DOM cho 200 khối đang ẩn → màn kết quả hiện gần như tức thì.
+    const bodyHtml = (index) => {
+        const q = state.questions[index];
+        const userAnswerIndex = state.userAnswers[index];
+        const essay = isEssay(q);
+        const answerOptions = essay ? [] : (stripOptionLabels(q.answers || q.options) || []);
+        const isUnanswered = userAnswerIndex === null || userAnswerIndex === undefined;
+        const correctIdxList = getCorrectIndexes(q);
+        const userIdxList = essay ? [] : Array.isArray(userAnswerIndex) ? userAnswerIndex : (isUnanswered ? [] : [userAnswerIndex]);
+        const firstCorrectIdx = correctIdxList.length ? correctIdxList[0] : q.correctAnswerIndex;
+        const correctOptionExp = q.optionExplanations && q.optionExplanations[firstCorrectIdx] && String(q.optionExplanations[firstCorrectIdx]).trim();
+        const explanationText = correctOptionExp || (q.explanation && String(q.explanation).trim());
+        const myNote = String(myNotes[q.question] || '').trim();
+        const caseText = q.caseText ? String(q.caseText).trim() : '';
+        const caseBlock = caseText ? `
+                <details class="result-case rounded-lg border border-cyan-200 bg-cyan-50/60 px-2.5 py-2">
+                    <summary class="cursor-pointer text-xs font-semibold text-cyan-700 select-none"><i class="fas fa-notes-medical mr-1"></i>${escMeta((q.caseTitle && String(q.caseTitle).trim()) || 'Ca lâm sàng')} — xem tình huống</summary>
+                    <div class="mt-2 leading-relaxed text-gray-700">${parseMarkdown(caseText)}</div>
+                </details>` : '';
+        // Mọi phương án, tô ngay tại chỗ: xanh = đáp án đúng, đỏ = bạn chọn sai — nhìn là biết mình lệch ở đâu
+        const optionsHtml = essay ? '' : `
+                <ul class="rv-opts"${correctIdxList.length > 1 ? ' data-multi="1"' : ''}>${answerOptions.map((opt, i) => {
+            const ok = correctIdxList.includes(i), picked = userIdxList.includes(i);
+            const tag = ok && picked ? '<i class="fas fa-check"></i> Bạn chọn đúng' : ok ? '<i class="fas fa-check"></i> Đáp án đúng' : picked ? '<i class="fas fa-times"></i> Bạn chọn' : '';
+            return `<li class="rv-opt${ok ? ' is-ok' : picked ? ' is-bad' : ''}"><span class="rv-letter">${letter(i)}</span><span class="rv-text">${parseMarkdown(opt)}</span>${tag ? `<span class="rv-tag">${tag}</span>` : ''}</li>`;
+        }).join('')}</ul>
+                ${isUnanswered ? '<p class="rv-blank"><i class="fas fa-minus-circle"></i> Bạn chưa trả lời câu này</p>' : ''}`;
+        return `
+                ${caseBlock}
+                ${essay ? essayReviewHtml(q, index, userAnswerIndex) : optionsHtml}
+                ${explanationText && !essay ? `
+                <div class="mt-1 p-2.5 bg-amber-50/60 border border-amber-100 rounded-lg text-gray-600">
+                    <span class="font-semibold text-gray-700"><i class="fas fa-lightbulb text-amber-400 mr-1"></i>Giải thích:</span> ${parseMarkdown(explanationText)}
+                </div>` : ''}
+                ${essay ? '' : studyExtrasHtml(q)}
+                ${myNote ? `<div class="result-note"><div class="result-note-head"><i class="fas fa-sticky-note"></i> Ghi chú của bạn</div><div class="result-note-body">${noteTextHtml(myNote)}</div></div>` : ''}`;
+    };
+
     const detailedResultsHtml = state.questions.map((q, index) => {
         const userAnswerIndex = state.userAnswers[index];
         const essay = isEssay(q);
         const answerOptions = essay ? [] : stripOptionLabels(q.answers || q.options);
-        const isUnanswered = userAnswerIndex === null || userAnswerIndex === undefined;
-        const isCorrect = !isUnanswered && isAnswerCorrect(q, userAnswerIndex);
         const status = resultStatus(q, userAnswerIndex);
-        // Câu nhiều đáp án đúng: gộp các lựa chọn của người dùng / các đáp án đúng thành chuỗi "A, C".
-        const correctIdxList = getCorrectIndexes(q);
 
         if (!answerOptions || !Array.isArray(answerOptions)) {
             return `<div class="result-item rounded-xl bg-red-50 border border-red-200 p-3" data-status="wrong" data-ridx="${index}">
@@ -595,14 +659,7 @@ export function showResults(totalTime, opts = {}) {
                     </div>`;
         }
 
-        const userIdxList = essay ? [] : Array.isArray(userAnswerIndex) ? userAnswerIndex.slice().sort((a, b) => a - b) : (isUnanswered ? [] : [userAnswerIndex]);
-        const userAnswerText = userIdxList.map(i => `${letter(i)}. ${parseMarkdown(answerOptions[i])}`).join('<br>');
-        const correctAnswerText = correctIdxList.map(i => `${letter(i)}. ${parseMarkdown(answerOptions[i])}`).join('<br>');
         const cfg = statusConfig[status];
-        const firstCorrectIdx = correctIdxList.length ? correctIdxList[0] : q.correctAnswerIndex;
-        const correctOptionExp = q.optionExplanations && q.optionExplanations[firstCorrectIdx] && String(q.optionExplanations[firstCorrectIdx]).trim();
-        const explanationText = correctOptionExp || (q.explanation && String(q.explanation).trim());
-        const hasExplanation = !!explanationText;
 
         const markReasonKey = markedSet.has(index) ? (markedReasons[index] || 'review') : '';
         const mr = markReasonKey ? MARK_REASONS[markReasonKey] : null;
@@ -613,17 +670,10 @@ export function showResults(totalTime, opts = {}) {
         const noteBadge = myNote ? `<span class="q-note-badge" title="Bạn có ghi chú cho câu này"><i class="fas fa-sticky-note"></i> Ghi chú${askNote ? ' · hỏi lại' : ''}</span>` : '';
         const markBadge = mr ? `<span class="q-mark-badge" style="background:${mr.bg};color:${mr.text}" title="Đã đánh dấu: ${mr.label}"><i class="fas ${mr.icon}"></i> ${mr.short}</span>` : '';
 
-        // Ca lâm sàng: chip nhận diện ở tiêu đề + tình huống (thu gọn) trong phần chi tiết.
+        // Ca lâm sàng: chip nhận diện ở tiêu đề (tình huống thu gọn nằm trong ruột — bodyHtml)
         const caseText = q.caseText ? String(q.caseText).trim() : '';
         const caseSeqLabel = (q.__caseTotal && q.__caseTotal > 1) ? ` ${q.__caseSeq}/${q.__caseTotal}` : '';
-        const caseTitleSafe = ((q.caseTitle && String(q.caseTitle).trim()) || 'Ca lâm sàng')
-            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         const caseBadge = caseText ? `<span class="q-case-badge inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-cyan-100 text-cyan-700 border border-cyan-200" title="Câu thuộc ca lâm sàng"><i class="fas fa-notes-medical"></i> Ca${caseSeqLabel}</span>` : '';
-        const caseBlock = caseText ? `
-                <details class="result-case rounded-lg border border-cyan-200 bg-cyan-50/60 px-2.5 py-2">
-                    <summary class="cursor-pointer text-xs font-semibold text-cyan-700 select-none"><i class="fas fa-notes-medical mr-1"></i>${caseTitleSafe} — xem tình huống</summary>
-                    <div class="mt-2 leading-relaxed text-gray-700">${parseMarkdown(caseText)}</div>
-                </details>` : '';
 
         return `
         <div class="result-item rounded-xl border ${cfg.wrap} overflow-hidden transition-all" data-status="${status}" data-ridx="${index}" data-marked="${markReasonKey}"${essay && needsReview(q, userAnswerIndex) ? ' data-review="1"' : ''}${myNote ? ' data-note="1"' : ''}${askNote ? ' data-ask="1"' : ''}>
@@ -646,25 +696,7 @@ export function showResults(totalTime, opts = {}) {
                 </div>
                 <i class="fas fa-chevron-down text-gray-300 text-xs flex-shrink-0 mt-1.5 result-chevron transition-transform duration-300"></i>
             </div>
-            <div class="result-body hidden border-t border-gray-200/50 px-3 py-3 space-y-2 text-sm bg-white/50">
-                ${caseBlock}
-                ${essay ? essayReviewHtml(q, index, userAnswerIndex) : `
-                ${!isCorrect ? `
-                <div>
-                    <span class="font-medium text-gray-500">Bạn chọn: </span>
-                    <span class="${isUnanswered ? 'text-gray-400 italic' : 'text-red-600 font-medium'}">${isUnanswered ? 'Chưa trả lời' : userAnswerText}</span>
-                </div>` : ''}
-                <div>
-                    <span class="font-medium text-gray-500">Đáp án đúng${correctIdxList.length > 1 ? ' (chọn tất cả)' : ''}: </span>
-                    <span class="text-green-600 font-medium">${correctAnswerText}</span>
-                </div>`}
-                ${hasExplanation && !essay ? `
-                <div class="mt-1 p-2.5 bg-amber-50/60 border border-amber-100 rounded-lg text-gray-600">
-                    <span class="font-semibold text-gray-700"><i class="fas fa-lightbulb text-amber-400 mr-1"></i>Giải thích:</span> ${parseMarkdown(explanationText)}
-                </div>` : ''}
-                ${essay ? '' : studyExtrasHtml(q)}
-                ${myNote ? `<div class="result-note"><div class="result-note-head"><i class="fas fa-sticky-note"></i> Ghi chú của bạn</div><div class="result-note-body">${noteTextHtml(myNote)}</div></div>` : ''}
-            </div>
+            <div class="result-body hidden border-t border-gray-200/50 px-3 py-3 space-y-2 text-sm bg-white/50"></div>
         </div>`;
     }).join('');
 
@@ -951,6 +983,15 @@ export function showResults(totalTime, opts = {}) {
         showToast(`Đã tải ${items.length} thẻ`, 'success', 2000);
     });
 
+    // "Luyện N câu" của một chủ đề: quiz-session.js nghe sự kiện này rồi mở phiên ôn riêng các câu sai của chủ đề đó
+    document.getElementById('result-topics')?.addEventListener('click', (e) => {
+        const b = e.target.closest('.res-topic-go');
+        if (b) window.dispatchEvent(new CustomEvent('quiz:practice-topic', { detail: topicEntries[Number(b.dataset.ti)][0] }));
+    });
+
+    // Tên tab = xếp loại vừa đạt
+    if (!opts.instant) document.title = `${letterGrade} · ${fmt1(gpa4)}/4 · ${metaTitle || 'Kết quả'}`;
+
     // Pháo giấy chúc mừng khi đạt điểm cao
     if (gpa4 >= 3.5 && !opts.instant) {   // từ B+ trở lên; bắn khi số vừa dừng
         setTimeout(() => triggerConfetti(), 1400);
@@ -1033,6 +1074,13 @@ export function showResults(totalTime, opts = {}) {
     // Mở/đóng chi tiết từng câu (accordion): mặc định gọn, bấm để xem đầy đủ
     const detailedList = document.getElementById('detailed-results-list');
     if (detailedList) {
+        // Dựng ruột câu ở lần mở đầu tiên (bodyHtml) rồi mới chạy KaTeX / Mermaid cho riêng khối đó
+        const fillBody = (item, body) => {
+            if (body.dataset.filled) return;
+            body.dataset.filled = '1';
+            body.innerHTML = bodyHtml(Number(item.getAttribute('data-ridx')));
+            renderMath(body);
+        };
         const toggleItem = (header) => {
             const item = header.closest('.result-item');
             if (!item) return;
@@ -1041,6 +1089,7 @@ export function showResults(totalTime, opts = {}) {
             const chevron = header.querySelector('.result-chevron');
             const question = header.querySelector('.result-question');
             const willOpen = body.classList.contains('hidden');
+            if (willOpen) fillBody(item, body);
             body.classList.toggle('hidden', !willOpen);
             if (chevron) chevron.classList.toggle('rotate-180', willOpen);
             if (question) question.classList.toggle('line-clamp-2', !willOpen);
@@ -1066,6 +1115,7 @@ export function showResults(totalTime, opts = {}) {
                 const body = item.querySelector('.result-body');
                 const header = item.querySelector('.result-header');
                 if (!body || !header) return;
+                if (open) fillBody(item, body);
                 body.classList.toggle('hidden', !open);
                 const chevron = header.querySelector('.result-chevron');
                 const question = header.querySelector('.result-question');

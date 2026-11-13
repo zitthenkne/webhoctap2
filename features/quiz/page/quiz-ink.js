@@ -87,6 +87,12 @@ function step(k, back) {
 
 // ---- Gắn lớp mực cho mọi hình trong bài (đề / ca / giải thích / mở rộng) ----
 const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(es => es.forEach(e => { const cv = e.target.parentElement?.querySelector('canvas.qi-ink'); if (cv) paint(cv, e.target); })) : null;
+// Bút đặt lên hình: không cuộn trang / không hiện kính lúp, menu ảnh (ngón tay vẫn cuộn bình thường).
+// Gắn lên TỪNG khung hình, không lên document: bộ nghe touch "không thụ động" ở document bắt Safari hỏi JS trước MỌI cú vuốt
+// trên cả trang rồi mới cho cuộn (2026-11-13: cuộn trên iPad khựng lúc đặt ngón). Giờ chỉ vùng hình mới phải chờ.
+const blockStylus = (e) => { if ([...(e.changedTouches || [])].some(t => t.touchType === 'stylus')) e.preventDefault(); };
+const guardStylus = (el) => ['touchstart', 'touchmove'].forEach(t => el.addEventListener(t, blockStylus, { passive: false }));
+
 function decorate(root) {
     root.querySelectorAll(IMG_SEL).forEach(img => {
         if (img.parentElement.classList.contains('qi-wrap') || img.closest('#img-lightbox')) return;
@@ -100,6 +106,7 @@ function decorate(root) {
         cv.dataset.inkKey = k;
         cv.setAttribute('aria-hidden', 'true');
         wrap.append(img, cv);
+        guardStylus(wrap);
         if (!img.title) img.title = 'Bấm để phóng to và vẽ ghi chú · Apple Pencil viết thẳng lên hình';
         const go = () => paint(cv, img);
         if (img.complete) go(); else img.addEventListener('load', go, { once: true });
@@ -221,11 +228,9 @@ export function setupInk() {
         const cv = wrap && wrap.querySelector('canvas.qi-ink');
         if (cv && begin(e, cv)) { ls.set('quiz_scratch_pen', '1'); e.preventDefault(); }
     });
-    // Bút đặt lên hình: không cuộn trang / không hiện kính lúp, menu ảnh (ngón tay vẫn cuộn bình thường)
-    const stylus = (e) => [...(e.changedTouches || [])].some(t => t.touchType === 'stylus');
-    ['touchstart', 'touchmove'].forEach(t => document.addEventListener(t, (e) => {
-        if (stylus(e) && e.target.closest && e.target.closest('.qi-wrap, #img-lightbox .qi-stage')) e.preventDefault();
-    }, { passive: false }));
+    // Chặn cuộn khi bút đặt lên hình: guardStylus gắn theo từng khung hình (decorate) + khung phóng to dưới đây
+    const stageEl = box && box.querySelector('.qi-stage');
+    if (stageEl) guardStylus(stageEl);
     document.addEventListener('pointermove', move);
     document.addEventListener('pointerup', end);
     document.addEventListener('pointercancel', end);

@@ -84,6 +84,7 @@ function showLandingError(message, { showRetry = true, request = false } = {}) {
             ${request ? '<div id="landing-access-request" class="w-full max-w-sm"></div>' : ''}
         </div>`;
     const quizId = new URLSearchParams(location.search).get('id');
+    try { localStorage.removeItem('quizMeta_' + quizId); } catch (e) {}   // không mở được nữa → lần sau đừng hiện sẵn tên đề
     if (request && quizId) import('../access-request.js')
         .then(m => m.mountAccessRequest(document.getElementById('landing-access-request'), { kind: 'quiz', id: quizId }))
         .catch(() => {});
@@ -700,6 +701,15 @@ export function refreshResults() {
         updateQuizResultScore(r.score, r.total, r.pct);
     }
 }
+
+// Màn kết quả → "Luyện N câu" của một chủ đề (quiz-ui.js bắn sự kiện): ôn riêng các câu sai / bỏ trống thuộc chủ đề đó
+window.addEventListener('quiz:practice-topic', (e) => {
+    const qs = state.questions.filter((q, i) => String(q.topic || '').trim() === e.detail
+        && !isAnswerCorrect(q, state.userAnswers[i]) && !isPendingEssay(q, state.userAnswers[i]));
+    if (!qs.length) return;
+    state._pickInfo = null;
+    startQuizMode(qs, 'practice');
+});
 
 export function startIncorrectPracticeMode() {
     // Câu tự luận chưa tự chấm không tính là sai

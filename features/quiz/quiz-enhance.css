@@ -3668,7 +3668,7 @@ html.theme-dark #quizSection .answer-btn:hover {
 }
 
 #quiz-landing.quiz-landing-leaving {
-    animation: quiz-landing-leave .42s cubic-bezier(.4, 0, .2, 1) both;
+    animation: quiz-landing-leave .2s cubic-bezier(.4, 0, .2, 1) both;   /* khớp LEAVE_MS trong quiz-page.js */
     pointer-events: none;
 }
 
@@ -3684,8 +3684,12 @@ html.theme-dark #quizSection .answer-btn:hover {
     }
 }
 
+/* `backwards`, KHÔNG `both`/`forwards` (2026-11-13): giữ khung hình cuối = #quiz-container mang transform mãi mãi (dù là ma trận đơn vị).
+   Hậu quả: (1) cả màn làm bài thành MỘT lớp vẽ riêng cao vài nghìn px — máy cảm ứng vẽ lại từng mảng khi cuộn -> giật;
+   (2) mọi phần tử position:fixed bên trong (sổ ghi chú trượt ở iPad dọc / điện thoại) neo theo khung này chứ không theo màn hình
+   -> sổ mở ra nằm tít cuối thẻ, ngoài màn hình, và kéo dài trang thêm một khoảng trống. Hết hoạt ảnh là transform về none. */
 #quiz-container.quiz-enter {
-    animation: quiz-enter .5s cubic-bezier(.16, 1, .3, 1) both;
+    animation: quiz-enter .5s cubic-bezier(.16, 1, .3, 1) backwards;
 }
 
 /* --- Nhãn A/B/C/D: viên tròn gradient nổi khối, đổi màu theo đúng/sai --- */
@@ -4744,4 +4748,155 @@ body.has-mobile-nav #auto-next-pill {
     #auto-next-pill.show {
         transform: none;
     }
+}
+/* ============================================================================================
+   NÂNG CẤP 2026-11-13 — trang chờ + màn kết quả. Chỉ dùng biến màu của sổ tay (quiz-stationery.css)
+   nên tự đúng ở chế độ tối và giao diện tinh gọn.
+   ============================================================================================ */
+
+/* --- Sóc biết nói: bong bóng lời thoại (quiz.html __landingInit) --- */
+#quiz-hero-btn .mascot-say {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 50%;
+    z-index: 5;
+    width: max-content;
+    max-width: 190px;
+    padding: 7px 11px;
+    border-radius: 14px;
+    border: 2px solid color-mix(in srgb, var(--hue-blossom, #FF8FB8) 55%, transparent);
+    background: var(--surface-card, #fff);
+    color: var(--ink, #5A4640);
+    font-size: 11.5px;
+    font-weight: 700;
+    line-height: 1.35;
+    text-align: left;
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--hue-blossom, #FF8FB8) 30%, transparent);
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px) scale(.92);
+    transform-origin: top center;
+    transition: opacity .18s ease, transform .22s cubic-bezier(.34, 1.56, .64, 1);
+    pointer-events: none;
+}
+#quiz-hero-btn .mascot-say.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+#quiz-hero-btn { z-index: 20; }   /* nút sóc tự là một ngữ cảnh xếp lớp (đang có hoạt ảnh) -> nâng cả nút để bong bóng nổi trên tấm vé số liệu */
+#quiz-hero-btn .mascot-say::before {          /* đuôi bong bóng chỉ lên sóc */
+    content: "";
+    position: absolute;
+    top: -7px; left: 50%;
+    width: 10px; height: 10px;
+    margin-left: -5px;
+    background: inherit;
+    border-left: 2px solid color-mix(in srgb, var(--hue-blossom, #FF8FB8) 55%, transparent);
+    border-top: 2px solid color-mix(in srgb, var(--hue-blossom, #FF8FB8) 55%, transparent);
+    transform: rotate(45deg);
+}
+/* Điện thoại: sóc nằm sát mép trái -> bong bóng vẫn ở DƯỚI sóc nhưng canh theo mép trái (không tràn khỏi trang, không che tên đề) */
+@media (max-width: 639px) {
+    #quiz-hero-btn .mascot-say {
+        left: 0;
+        max-width: min(230px, 62vw);
+        transform: translateY(-4px) scale(.92);
+        transform-origin: top left;
+    }
+    #quiz-hero-btn .mascot-say.show { transform: none; }
+    #quiz-hero-btn .mascot-say::before { left: 40px; }
+}
+@keyframes mascot-boing {
+    0% { transform: scale(1) rotate(0); }
+    30% { transform: scale(1.14, .88) rotate(-6deg); }
+    60% { transform: scale(.94, 1.08) rotate(4deg); }
+    100% { transform: scale(1) rotate(0); }
+}
+#quiz-hero-img.mascot-boing { animation: mascot-boing .5s cubic-bezier(.34, 1.56, .64, 1); }
+
+/* --- Nhãn "Gợi ý" trên thẻ chế độ (quiz-page.js suggestMode) --- */
+.mode-preset .mp-hint {
+    position: absolute;
+    top: -9px; left: -5px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: .02em;
+    color: #fff;
+    background: var(--hue-blossom, #FF8FB8);
+    box-shadow: 0 2px 0 var(--ink-blossom, #C8487A), 0 0 0 2px var(--surface-card, #fff);
+    transform: rotate(-6deg);
+    pointer-events: none;
+}
+
+/* --- Thanh độ thuộc bài dưới tấm vé số liệu (quiz-ui.js renderMastery) --- */
+.qz-mastery { flex: 1 1 100%; display: flex; align-items: center; gap: 10px; text-align: left; }
+.qz-mastery[hidden] { display: none; }
+.qz-mastery-bar {
+    flex: 1 1 auto;
+    display: flex;
+    height: 10px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--ink-muted, #9A8780) 18%, transparent);
+}
+.qz-mastery-bar i { display: block; height: 100%; transition: width .5s ease; }
+.qz-mastery-bar .is-strong { background: var(--ok-solid, #3DB37A); }
+.qz-mastery-bar .is-learn { background: var(--hue-butter, #F2BE2E); }
+.qz-mastery-txt { flex: 0 0 auto; display: flex; flex-direction: column; font-size: 11px; line-height: 1.3; color: var(--ink-muted, #9A8780); font-weight: 600; }
+.qz-mastery-txt b { color: var(--ok-ink, #1E7A4C); font-weight: 800; }
+
+/* --- Nút Bắt đầu đang chờ dữ liệu bộ đề (đã ghi nhận cú bấm) --- */
+#start-now-btn:has(.fa-spinner) { cursor: progress; opacity: .85; }
+
+/* --- Màn kết quả: mọi phương án, tô đúng / sai ngay tại chỗ (quiz-ui.js bodyHtml) --- */
+.rv-opts { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.rv-opt {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 7px 10px;
+    border-radius: 12px;
+    border: 1.5px solid color-mix(in srgb, var(--ink-muted, #9A8780) 28%, transparent);
+    color: var(--ink, #5A4640);
+}
+.rv-opt .rv-letter {
+    flex: 0 0 auto;
+    width: 22px; height: 22px;
+    display: grid; place-items: center;
+    border-radius: 999px;
+    font-size: 11px; font-weight: 800;
+    color: var(--ink-muted, #9A8780);
+    background: color-mix(in srgb, var(--ink-muted, #9A8780) 16%, transparent);
+}
+.rv-opt .rv-text { flex: 1 1 auto; min-width: 0; }
+.rv-opt .rv-text > p { margin: 0; }
+.rv-opt .rv-tag { flex: 0 0 auto; align-self: center; font-size: 10.5px; font-weight: 800; white-space: nowrap; }
+.rv-opt.is-ok { background: var(--ok-bg, #DDF6E8); border-color: var(--ok-line, #7ED3A4); }
+.rv-opt.is-ok .rv-letter { background: var(--ok-solid, #3DB37A); color: #fff; }
+.rv-opt.is-ok .rv-tag { color: var(--ok-ink, #1E7A4C); }
+.rv-opt.is-bad { background: var(--bad-bg, #FFE4E4); border-color: var(--bad-line, #F4A0A0); }
+.rv-opt.is-bad .rv-letter { background: var(--bad-solid, #E4646C); color: #fff; }
+.rv-opt.is-bad .rv-tag { color: var(--bad-ink, #A33A42); }
+.rv-blank { margin: 0; font-size: 12px; font-style: italic; color: var(--ink-muted, #9A8780); }
+@media (max-width: 479px) {
+    .rv-opt { flex-wrap: wrap; }
+    .rv-opt .rv-tag { flex-basis: 100%; padding-left: 30px; }
+}
+
+/* --- Màn kết quả: nút "Luyện N câu" của từng chủ đề --- */
+.res-topic-side { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.res-topic-go {
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1.5px solid color-mix(in srgb, var(--hue-blossom, #FF8FB8) 60%, transparent);
+    background: color-mix(in srgb, var(--hue-blossom, #FF8FB8) 12%, var(--surface-card, #fff));
+    color: var(--ink-blossom, #C8487A);
+    font-size: 11px; font-weight: 800;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: transform .15s ease, background .15s ease;
+}
+.res-topic-go:hover { background: color-mix(in srgb, var(--hue-blossom, #FF8FB8) 24%, var(--surface-card, #fff)); transform: translateY(-1px); }
+.res-topic-go:active { transform: scale(.96); }
+
+@media (prefers-reduced-motion: reduce) {
+    #quiz-hero-btn .mascot-say { transition: opacity .15s ease; }
+    #quiz-hero-img.mascot-boing { animation: none; }
+    .qz-mastery-bar i, .res-topic-go { transition: none; }
 }

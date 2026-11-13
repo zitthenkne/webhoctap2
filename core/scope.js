@@ -19,7 +19,7 @@ const OWNER_KEY = 'privOwner';
 const MODE_KEY = 'deviceMode';          // 'personal' | 'shared'
 export const PRIVATE_PREFIXES = [
     'quizState_', 'quizStateQ_', 'quiz_notes_', 'quiz_marks_', 'quiz_annot_', 'quiz_study_base_',
-    'quiz_srs_', 'quizSrsSum_', 'quiz_qedits_', 'quiz_scratch_', 'quiz_ink_', 'quiz_essay_',
+    'quiz_srs_', 'quizSrsSum_', 'quiz_qedits_', 'quiz_scratch_', 'quiz_ink_', 'quiz_essay_', 'quizMeta_',
     'zitthenkne_offline_quiz_ids',
 ];
 const isPrivate = (k) => PRIVATE_PREFIXES.some(p => k.startsWith(p));

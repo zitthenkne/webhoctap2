@@ -159,6 +159,8 @@ export function setupSettings() {
     });
     if (rowMin) rowMin.addEventListener('click', () => {         // giao diện tinh gọn: class + nhớ theo máy (quiz-min.css)
         const on = document.documentElement.classList.toggle('ui-min');
+        const minCss = document.getElementById('quiz-min-css');   // quiz.html nạp sẵn với media="not all" (không chặn vẽ) — bật thì cho áp dụng
+        if (minCss && on) minCss.media = 'all';
         setLS('quiz_minimal', on ? '1' : '0');
         window.dispatchEvent(new Event('resize'));
         sync();
@@ -496,6 +498,15 @@ export function setupResizers() {
 // Ghi lần cuối có gì đó cuộn (capture để bắt cả khung cuộn con: bảng, ca lâm sàng...).
 let lastScrollAt = 0;
 window.addEventListener('scroll', () => { lastScrollAt = Date.now(); }, { capture: true, passive: true });
+
+// Bảng nằm trong khung cuộn ngang (.table-responsive). Bảng VỪA khung (không có gì để kéo ngang) mà khung vẫn là "khung cuộn" thì
+// Safari cảm ứng hay giao cú vuốt cho nó: trang đứng im / khựng dù bảng chẳng trôi đi đâu. Ngón đặt lên bảng -> đo lại: vừa khung thì
+// đánh dấu .tr-fit (quiz-touch.css tắt hẳn cuộn của khung đó), rộng hơn khung thì gỡ dấu để vẫn kéo ngang được. Đo lúc chạm nên
+// xoay máy / đổi cỡ chữ tự đúng lại.
+document.addEventListener('touchstart', (e) => {
+    const box = e.target.closest && e.target.closest('.table-responsive');
+    if (box) box.classList.toggle('tr-fit', box.scrollWidth - box.clientWidth <= 2);
+}, { capture: true, passive: true });
 
 // true = cú chạm này KHÔNG được hiểu là chuyển câu.
 function touchNavBlocked(target) {

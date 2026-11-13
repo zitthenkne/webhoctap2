@@ -24,7 +24,7 @@ import { state, clearQuizState, saveQuizState, readQuizState, flushQuizState } f
 import { ensureMermaidInit, applyOptionOrder } from './quiz-helpers.js';
 import { rebuildFromBlueprint, mergeBranches } from './quiz-attempt.js';
 import { branchConflict, resolveBranchConflict } from './page/quiz-study-sync.js';
-import { showSubmitQuizBtn } from './quiz-ui.js';
+import { showSubmitQuizBtn, renderPreviewQuestions } from './quiz-ui.js';
 
 import { scrollQuizToTop } from './page/quiz-page-prefs.js';
 import { getCatMemeEnabled, setMemeEnabled } from './page/quiz-cat-meme.js';
@@ -51,6 +51,9 @@ import {
     loadQuizData, startQuizMode, startQuizWithCurrentSettings, startSrsSession, startPickedSession, endQuiz
 } from './page/quiz-session.js';
 
+// Trang chờ "bay" ra bao lâu rồi mới vào bài — khớp thời lượng animation quiz-landing-leave (quiz-enhance.css). Trước là 420ms.
+const LEAVE_MS = 200;
+
 // Thời điểm nộp bài -> chuỗi "x phút/giờ/ngày trước" (quá 1 tuần thì hiện ngày cụ thể)
 function formatTimeAgo(ms) {
     if (!ms) return '';
@@ -63,6 +66,20 @@ function formatTimeAgo(ms) {
     if (days < 7) return `${days} ngày trước`;
     const d = new Date(ms);
     return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+}
+
+// Gợi ý chế độ theo kết quả lần trước: dán nhãn "Gợi ý" lên thẻ chế độ + sóc nói lý do (window.__mascotSay — script trang chờ quiz.html).
+// Chỉ là gợi ý: không tự gạt tùy chọn nào của người dùng.
+function suggestMode(mode, why) {
+    document.querySelectorAll('#quiz-mode-presets .mp-hint').forEach(el => el.remove());
+    const btn = document.querySelector(`#quiz-mode-presets [data-mode="${mode}"]`);
+    if (!btn) return;
+    const tag = document.createElement('span');
+    tag.className = 'mp-hint';
+    tag.textContent = 'Gợi ý';
+    btn.appendChild(tag);
+    btn.title = why;
+    if (typeof window.__mascotSay === 'function') window.__mascotSay(why, 6000);
 }
 
 // Thẻ "Lần làm gần nhất" trên trang thiết lập: đọc cache kết quả đã đồng bộ sẵn từ thư viện
@@ -85,10 +102,15 @@ function setupLastAttemptStat() {
         if (attempt && attempt.t) {
             valueEl.textContent = `${attempt.s}/${attempt.t} câu`;
             if (subEl) subEl.textContent = formatTimeAgo(attempt.at);
+            const pct = attempt.s / attempt.t * 100, last = `Lần trước ${attempt.s}/${attempt.t}`;
+            if (pct < 50) suggestMode('study', `${last} — "Ôn tập" lại cho chắc nha 💪`);
+            else if (pct < 80) suggestMode('sprint', `${last} — làm nhanh 20 câu lấp chỗ hổng nè ✨`);
+            else suggestMode('exam', `${last}, giỏi quá! Thử "Thi thử" tính giờ xem 🏆`);
         } else if (cache && cache.lastSync > 0) {
             // Đã từng đồng bộ mà không có kết quả cho đề này -> chắc chắn là chưa làm
             valueEl.textContent = 'Chưa làm';
             if (subEl) subEl.textContent = 'Chiến thôi!';
+            suggestMode('study', 'Đề mới nè! Thử "Ôn tập" để vừa làm vừa xem giải thích nha 🌰');
         } else {
             valueEl.textContent = '—';
             if (subEl) subEl.textContent = '';
@@ -365,6 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (showPreviewBtn && quizPreview) {
         showPreviewBtn.addEventListener('click', () => {
             quizPreview.classList.toggle('hidden');
+            renderPreviewQuestions();   // danh sách chỉ dựng khi khung đang mở (quiz-ui.js)
             syncPreviewBtn();
         });
     }
@@ -426,6 +449,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const startNowBtn = document.getElementById('start-now-btn');
     if (startNowBtn) {
         startNowBtn.addEventListener('click', async () => {
+            // Dữ liệu bộ đề chưa về: script trang chờ (quiz.html) đã ghi nhận cú bấm, loadQuizData xong sẽ tự bấm lại
+            if (!window.__quizBooted) return;
             // Có bài dở -> hỏi đúng lúc này (người dùng vừa chủ động bấm nên câu hỏi không đường đột)
             let beginQuiz = startQuizWithCurrentSettings;
             const savedState = getPendingSavedState();
@@ -442,7 +467,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
                 landing.classList.add('quiz-landing-leaving');
                 scrollQuizToTop();
-                setTimeout(beginQuiz, reduce ? 0 : 420);
+                setTimeout(beginQuiz, reduce ? 0 : LEAVE_MS);
             } else {
                 beginQuiz();
             }
@@ -473,7 +498,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
                 landing.classList.add('quiz-landing-leaving');
                 scrollQuizToTop();
-                setTimeout(runSrs, reduce ? 0 : 420);
+                setTimeout(runSrs, reduce ? 0 : LEAVE_MS);
             } else {
                 runSrs();
             }
@@ -596,6 +621,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // đứng lại ở trang thiết lập, gợi ý "đang làm dở" đã hiện và người dùng tự bấm nút.
     const resumingAfterReload = document.documentElement.classList.contains('quiz-resuming');
     loadQuizData().then(() => {
+        window.__quizBooted = true;
         if (resumingAfterReload) {
             const saved = getPendingSavedState();
             if (saved && state.quizData) { restoreSavedSession(saved); return; }
@@ -612,6 +638,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (params.get('srs') === '1' && !getPendingSavedState()
             && Array.isArray(state.originalQuestions) && state.originalQuestions.length) {
             startSrsSession();
+            return;
         }
-    }).finally(() => document.documentElement.classList.remove('quiz-resuming'));
+        // Người dùng đã bấm Bắt đầu trong lúc chờ tải → vào bài luôn (nút gốc còn đó và đã có câu hỏi)
+        if (window.__startQueued) {
+            window.__startQueued = false;
+            const ic = startNowBtn && startNowBtn.querySelector('i');
+            if (ic) ic.className = 'fas fa-play';
+            if (startNowBtn && startNowBtn.isConnected && Array.isArray(state.originalQuestions) && state.originalQuestions.length) startNowBtn.click();
+        }
+    }).finally(() => { window.__quizBooted = true; document.documentElement.classList.remove('quiz-resuming'); });
 });

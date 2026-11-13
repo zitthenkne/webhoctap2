@@ -2008,7 +2008,9 @@ function setupPenMode() {
     try { cfg = { ...cfg, ...JSON.parse(localStorage.getItem(PEN_KEY) || '{}') }; } catch (e) {}
     if (!PEN_TOOLS.includes(cfg.tool)) cfg.tool = 'highlight';
     const save = () => { try { localStorage.setItem(PEN_KEY, JSON.stringify(cfg)); } catch (e) {} };
+    let syncPenTouch = () => {};   // gán ở cuối hàm (cần penTouch): gắn / gỡ bộ nghe touch chặn cuộn theo cfg.on
     const sync = () => {
+        syncPenTouch();
         dock.classList.toggle('is-on', !!cfg.on);
         dock.classList.toggle('is-mini', !!cfg.mini);
         dock.dataset.tool = cfg.tool;
@@ -2307,7 +2309,8 @@ function setupPenMode() {
     // Bút / ngón (khi bật) đặt lên chữ: không cuộn, không kính lúp / menu chọn chữ, không vuốt chuyển câu
     // (Safari phát pointerdown trước touchstart; phòng khi thứ tự ngược: bút chạm lên chữ thì chặn luôn, pointerdown tới sau nhận cờ)
     let stylusBlockedAt = -1e9;
-    ['touchstart', 'touchmove'].forEach(type => document.addEventListener(type, (e) => {
+    const penTouch = (e) => {
+        const type = e.type;
         if (type === 'touchstart') dropStaleStroke();
         if (!stroke && type === 'touchstart' && cfg.on && [...(e.changedTouches || [])].some(t => t.touchType === 'stylus')
             && e.target.closest && e.target.closest('#quizSection [data-annot]') && !e.target.closest('.qi-wrap, img, video, canvas, input, textarea, select, a[href], .an-line')) {
@@ -2318,7 +2321,16 @@ function setupPenMode() {
         if (e.cancelable) e.preventDefault();
         if (type === 'touchstart') stroke.touchBlocked = true;
         e.stopPropagation();
-    }, { capture: true, passive: false }));
+    };
+    // Bộ nghe "không thụ động" ở document bắt trình duyệt hỏi JS trước MỌI cú vuốt rồi mới cho cuộn -> chỉ gắn khi bút tô đang BẬT
+    // (nét tô chỉ bắt đầu khi cfg.on); tắt bút là gỡ, trang cuộn thẳng không chờ JS (2026-11-13: iPad khựng lúc đặt ngón kéo).
+    let penTouchOn = false;
+    syncPenTouch = () => {
+        if (!!cfg.on === penTouchOn) return;
+        penTouchOn = !!cfg.on;
+        ['touchstart', 'touchmove'].forEach(type => document[penTouchOn ? 'addEventListener' : 'removeEventListener'](type, penTouch, { capture: true, passive: false }));
+    };
+    syncPenTouch();
     document.addEventListener('selectstart', (e) => { if (stroke) e.preventDefault(); }, true);
     // Sau một nét: nuốt click kèm theo (không chọn đáp án / không gỡ đoạn tô dưới đầu bút)
     window.addEventListener('click', (e) => {

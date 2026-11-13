@@ -21,15 +21,22 @@ const noteOpen = () => document.body.classList.contains('fm-note-open');
 
 // Bàn phím ảo (iOS không co trang, chỉ co visualViewport): phần màn bị che = innerHeight − vv.height − vv.offsetTop.
 // Đang gõ ghi chú trong sổ trượt -> body.qmn-kb, sổ nhấc lên ngay trên bàn phím (§30c). Android co cả trang nên kb ≈ 0.
+// (2026-11-13) Hàm này chạy theo visualViewport resize/scroll — Safari bắn liên tục khi thanh công cụ co giãn / trang nảy lúc đang kéo.
+// Ghi biến CSS lên <html> mỗi lần = tính lại style CẢ TRANG (~700 KB CSS) ngay giữa cú vuốt -> giật. --kb / --vvh chỉ có sổ ghi chú
+// trượt dùng (quiz-stationery.css §30c), nên: sổ đóng thì không ghi gì; sổ mở thì chỉ ghi khi giá trị thật sự đổi.
+let lastKb = -1, lastVvh = -1;
 function syncKb() {
     const vv = window.visualViewport;
     if (!vv) return;
+    const body = document.body.classList;
+    if (!noteOpen()) { if (body.contains('qmn-kb')) body.remove('qmn-kb'); return; }
     const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-    const on = kb > 80 && noteOpen() && document.body.classList.contains('qmn-dock-on') && !document.body.classList.contains('focus-mode-active');
+    const vvh = Math.round(vv.height);
+    const on = kb > 80 && body.contains('qmn-dock-on') && !body.contains('focus-mode-active');
     const root = document.documentElement.style;
-    root.setProperty('--kb', kb + 'px');
-    root.setProperty('--vvh', Math.round(vv.height) + 'px');
-    document.body.classList.toggle('qmn-kb', on);
+    if (kb !== lastKb) { lastKb = kb; root.setProperty('--kb', kb + 'px'); }
+    if (vvh !== lastVvh) { lastVvh = vvh; root.setProperty('--vvh', vvh + 'px'); }
+    if (body.contains('qmn-kb') !== on) body.toggle('qmn-kb', on);
 }
 function syncNoteBtn() {
     syncKb();
