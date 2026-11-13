@@ -353,12 +353,12 @@ async function previewPage(req, res) {
         const verb = l.kind === 'folder' ? 'học thư mục' : 'làm bộ đề';
         const what = l.title ? `“${l.title}”` : '';
         const uses = usesOf(l);
-        // Tiêu đề NGẮN (không đuôi "trên Zitthenkne" — tên trang đã hiện ở dòng tên miền): tiêu đề tràn 2 dòng thì Messenger / Zalo cắt mất dòng mô tả
+        // Đuôi ngắn gắn vào TIÊU ĐỀ: khung chat Messenger thường không hiện dòng mô tả
         if (l.group) {
-            title = `${l.name ? `Gửi ${l.name}: các bạn` : 'Các bạn'} được mời ${verb} ${what}`.replace(/\s+/g, ' ').trim();
+            title = `${l.name ? `Gửi ${l.name}: các bạn` : 'Các bạn'} được mời ${verb} ${what} trên Zitthenkne · link nhóm, mỗi người 1 thiết bị`.replace(/\s+/g, ' ');
             desc = 'Link truy cập nhóm — mỗi thành viên xác nhận tên và sử dụng trên 1 thiết bị.';
         } else {
-            title = `${l.name ? `Gửi bạn ${l.name}, bạn` : 'Bạn'} được mời ${verb} ${what}`.replace(/\s+/g, ' ').trim();
+            title = `${l.name ? `Gửi bạn ${l.name}, bạn` : 'Bạn'} được mời ${verb} ${what} trên Zitthenkne · link riêng, ${uses} thiết bị`.replace(/\s+/g, ' ');
             desc = `Link truy cập riêng, sử dụng được trên ${uses} thiết bị.`;
         }
     } else if (l) {

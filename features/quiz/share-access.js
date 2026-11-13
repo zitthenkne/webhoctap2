@@ -725,11 +725,11 @@ function previewOf(name, uses, group) {
     const verb = current?.oneTime?.kind === 'folder' ? 'học thư mục' : 'làm bộ đề';
     const what = current?.title ? `“${current.title}”` : '';
     if (group) return {
-        title: `${name ? `Gửi ${name}: các bạn` : 'Các bạn'} được mời ${verb} ${what}`.replace(/\s+/g, ' ').trim(),
+        title: `${name ? `Gửi ${name}: các bạn` : 'Các bạn'} được mời ${verb} ${what} trên Zitthenkne · link nhóm, mỗi người 1 thiết bị`.replace(/\s+/g, ' '),
         desc: 'Link truy cập nhóm — mỗi thành viên xác nhận tên và sử dụng trên 1 thiết bị.'
     };
     return {
-        title: `${name ? `Gửi bạn ${name}, bạn` : 'Bạn'} được mời ${verb} ${what}`.replace(/\s+/g, ' ').trim(),
+        title: `${name ? `Gửi bạn ${name}, bạn` : 'Bạn'} được mời ${verb} ${what} trên Zitthenkne · link riêng, ${uses} thiết bị`.replace(/\s+/g, ' '),
         desc: `Link truy cập riêng, sử dụng được trên ${uses} thiết bị.`
     };
 }
