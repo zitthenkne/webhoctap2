@@ -30,7 +30,9 @@ html.ui-min :where(*):not(:focus-visible) { outline-style: none; }
 html.ui-min :focus-visible, html.ui-min #quizSection .answer-btn:focus-visible { outline: 2px solid var(--pick-solid); outline-offset: 2px; }
 
 /* ───────── 3. Gỡ trang trí ───────── */
-html.ui-min .washi-tape, html.ui-min .nb-doodle, html.ui-min #qz-brand, html.ui-min .qz-foot { display: none !important; }
+html.ui-min .washi-tape, html.ui-min .nb-doodle, html.ui-min #qz-brand { display: none !important; }
+/* KHÔNG ẩn .qz-foot: margin-bottom của nó (quiz-stationery.css, body.has-mobile-nav / qmn-dock-on) là chỗ chừa cho thanh điều hướng đáy — ẩn đi thì thanh che mất cuối "Mở rộng" */
+html.ui-min .qz-foot { background: none; color: var(--m-faint); }
 html.ui-min .nb-binder::before, html.ui-min #quizSection .quiz-card::before { display: none !important; }
 html.ui-min #quiz-title, html.ui-min #quizSection .quiz-question-heading, html.ui-min .marker-highlight { text-decoration: none; }
 
