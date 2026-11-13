@@ -353,11 +353,12 @@ async function previewPage(req, res) {
         const verb = l.kind === 'folder' ? 'học thư mục' : 'làm bộ đề';
         const what = l.title ? `“${l.title}”` : '';
         const uses = usesOf(l);
+        // Tiêu đề NGẮN (không đuôi "trên Zitthenkne" — tên trang đã hiện ở dòng tên miền): tiêu đề tràn 2 dòng thì Messenger / Zalo cắt mất dòng mô tả
         if (l.group) {
-            title = `${l.name ? `Gửi ${l.name}: các bạn` : 'Các bạn'} được mời ${verb} ${what} trên Zitthenkne`.replace(/\s+/g, ' ');
+            title = `${l.name ? `Gửi ${l.name}: các bạn` : 'Các bạn'} được mời ${verb} ${what}`.replace(/\s+/g, ' ').trim();
             desc = 'Link truy cập nhóm — mỗi thành viên xác nhận tên và sử dụng trên 1 thiết bị.';
         } else {
-            title = `${l.name ? `Gửi bạn ${l.name}, bạn` : 'Bạn'} được mời ${verb} ${what} trên Zitthenkne`.replace(/\s+/g, ' ');
+            title = `${l.name ? `Gửi bạn ${l.name}, bạn` : 'Bạn'} được mời ${verb} ${what}`.replace(/\s+/g, ' ').trim();
             desc = `Link truy cập riêng, sử dụng được trên ${uses} thiết bị.`;
         }
     } else if (l) {
@@ -366,7 +367,9 @@ async function previewPage(req, res) {
     const host = req.headers['x-forwarded-host'] || req.headers.host || 'zitthenkne.vercel.app';
     const origin = `${String(host).includes('localhost') ? 'http' : 'https'}://${host}`;
     const target = `/features/quiz/link.html?t=${encodeURIComponent(token)}`;
-    const T = escHtml(title), D = escHtml(desc), img = `${origin}/assets/og_squirrel_study.jpg`;
+    // Ảnh ngang 1024×536 (~160 KB) + khai báo kích thước: mỗi link là URL MỚI → Messenger / Zalo luôn quét "lần đầu"; không biết cỡ ảnh
+    // thì Facebook xử lý ảnh sau và hiện thẻ nhỏ (mất ảnh + dòng mô tả)
+    const T = escHtml(title), D = escHtml(desc), img = `${origin}/assets/og_link.jpg`;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
     return res.status(200).send(`<!DOCTYPE html>
@@ -374,7 +377,7 @@ async function previewPage(req, res) {
 <title>${T}</title>
 <meta property="og:type" content="website"><meta property="og:site_name" content="Zitthenkne"><meta property="og:locale" content="vi_VN">
 <meta property="og:title" content="${T}"><meta property="og:description" content="${D}">
-<meta property="og:url" content="${escHtml(origin + req.url)}"><meta property="og:image" content="${img}"><meta property="og:image:alt" content="${T}">
+<meta property="og:url" content="${escHtml(origin + req.url)}"><meta property="og:image" content="${img}"><meta property="og:image:secure_url" content="${img}"><meta property="og:image:type" content="image/jpeg"><meta property="og:image:width" content="1024"><meta property="og:image:height" content="536"><meta property="og:image:alt" content="${T}">
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${T}"><meta name="twitter:description" content="${D}"><meta name="twitter:image" content="${img}">
 <script>location.replace(${JSON.stringify(target)});</script>
 </head><body style="font-family:sans-serif;text-align:center;margin-top:50px;color:#e0559f"><p>Đang mở link…</p><noscript><a href="${escHtml(target)}">Bấm vào đây để mở</a></noscript></body></html>`);
