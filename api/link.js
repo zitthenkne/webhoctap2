@@ -28,14 +28,16 @@
 //                        trình duyệt thật tự chuyển sang features/quiz/link.html?t=<mã>. Trình quét không chạy JS → không bao giờ chiếm suất.
 // POST — body.action:
 //   peek      { token }                       — ai cũng gọi: { status, kind, title, count, ownerName, expiresAt, name, maxUses }
-//   claim     { token, label, who? }          — cần token Firebase (ẩn danh / thật): chiếm 1 suất → { status: 'mine'|'owner'|..., kind, targetId }
+//   claim     { token, label, who?, folderId? } — cần token Firebase (ẩn danh / thật): chiếm 1 suất → { status: 'mine'|'owner'|..., kind, targetId, scoped? }
+//                                               link thư mục + folderId: cấp luôn quyền bộ đề của thư mục đó (scoped: true) — khỏi gọi 'folder'
 //                                               link nhóm: thiếu who → needWho · ngoài danh sách → notMember · tên đã có máy giữ → whoTaken
 //   visit     { token, label, who? }          — LINK THƯ MỤC: ghi nhận "đã vào" (không tốn suất) → { status: 'visitor'|'mine'|'owner'|..., kind, targetId }
 //   folder    { token, folderId }             — người giữ link (hoặc đã vào xem) mở một thư mục trong nhánh: { status, folder, subFolders, quizzes, link,
 //                                               me (hồ sơ máy này: tên, thiết bị, lần vào…), done (nhật ký làm bài của máy này) }
 //   unvisit   { token }                       — máy ĐANG VÀO XEM (chưa tốn suất) tự xoá lượt vào (chọn lại tên)
-//   progress  { token, quizId, pct, total, title } — người giữ link nộp bài: ghi link_progress để chủ xem ai làm đề nào
-//   start     { token, quizId, title, at }    — người giữ link bấm bắt đầu làm đề → claims.<uid>.go (chủ thấy "đang làm")
+//   progress  { token, quizId, pct, total, title, mode? } — người giữ link nộp bài: ghi link_progress để chủ xem ai làm đề nào
+//                                               mode practice / srs = lượt ôn → chỉ đếm (pn, pat), không tính vào điểm
+//   start     { token, quizId, title, at, mode? } — người giữ link bấm bắt đầu làm / ôn → claims.<uid>.go (chủ thấy "đang làm / đang ôn")
 //   create    { kind, id, hours, name, maxUses, group?, members? } — CHỦ: tạo link (hours: 24 | 168 | 720 | 0 = không hết hạn)
 //   list      { kind, id }                    — CHỦ: các link còn sống + yêu cầu đang chờ + lịch sử link của mục này
 //   update    { token, name?, maxUses?, hours?, members? } — CHỦ: đổi tên / số suất / gia hạn (tính từ bây giờ) / danh sách nhóm
@@ -131,9 +133,14 @@ function statusOf(l, uid) {
     return Object.keys(c).length >= usesOf(l) ? 'taken' : 'ok';
 }
 
-/** Mục đích còn tồn tại và vẫn của chủ link? Trả data hoặc null. */
+/** Mục đích còn tồn tại và vẫn của chủ link? Trả data (CHỈ các trường gọn dưới đây) hoặc null.
+ *  Field mask: bộ đề nặng vài trăm KB (mảng câu hỏi) mà ở đây chỉ cần chủ / đã xoá / tên / số câu → khỏi kéo cả đề mỗi lần nhận link,
+ *  mở hộp Chia sẻ, duyệt yêu cầu (nhanh hơn + đỡ băng thông máy chủ ↔ Firestore). Đề cũ thiếu questionCount → đọc đủ một lần để đếm câu. */
+const LEAN_FIELDS = ['userId', 'deleted', 'title', 'name', 'questionCount'];
 async function targetOf(db, kind, id, ownerUid) {
-    const s = await db.doc(`${colOf(kind)}/${id}`).get();
+    const ref = db.doc(`${colOf(kind)}/${id}`);
+    let [s] = await db.getAll(ref, { fieldMask: LEAN_FIELDS });
+    if (s.exists && kind === 'quiz' && s.get('questionCount') == null) s = await ref.get();
     const d = s.exists ? s.data() : null;
     return d && !d.deleted && d.userId === ownerUid ? d : null;
 }
@@ -156,6 +163,60 @@ async function grant(db, admin, ref, l, uid, { q = [], f = [] }) {
     if (newQ.length) patch.gq = FV.arrayUnion(...newQ);
     if (newF.length) patch.gf = FV.arrayUnion(...newF);
     if (Object.keys(patch).length) await ref.update(patch);
+}
+
+/**
+ * LINK THƯ MỤC: thư mục `folderId` có nằm trong nhánh của thư mục gốc link không + nội dung trực tiếp của nó.
+ * → { id, folder, subFolders, quizzes } hoặc null (không thuộc nhánh / đã xoá).
+ * Thư mục gốc, hoặc đã từng được cấp qua link này (gf — chỉ ghi sau khi đã kiểm nhánh): đọc nó SONG SONG với danh sách con, khỏi đi ngược
+ * từng tầng cha (mỗi tầng một lượt đọc nối tiếp). Thư mục lạ mới đi ngược parentId tới gốc như trước.
+ */
+async function folderScope(db, l, folderId) {
+    const own = (d) => d && !d.deleted && d.userId === l.ownerUid ? d : null;
+    const known = folderId === l.targetId || (l.gf || []).includes(folderId);
+    const lists = Promise.all([
+        db.collection('quiz_folders').where('parentId', '==', folderId).where('userId', '==', l.ownerUid).get(),
+        db.collection('quiz_sets').where('folderId', '==', folderId).where('userId', '==', l.ownerUid).select('title', 'questionCount', 'deleted').get()
+    ]);
+    lists.catch(() => {});   // lỗi xử lý ở await bên dưới; tránh unhandled khi thư mục không thuộc nhánh
+    let folder = null;
+    if (known) {
+        const fs = await db.doc(`quiz_folders/${folderId}`).get();
+        folder = own(fs.exists ? fs.data() : null);
+        // Chủ đã chuyển thư mục này ra khỏi nhánh (cha mới không thuộc nhánh đã cấp) → không tin gf nữa, đi ngược kiểm lại
+        if (folder && folderId !== l.targetId && !(l.gf || []).includes(folder.parentId)) return folderScope(db, { ...l, gf: [] }, folderId);
+    } else {
+        let cur = folderId;
+        for (let i = 0; i < MAX_DEPTH && cur; i++) {
+            const fs = await db.doc(`quiz_folders/${cur}`).get();
+            const d = own(fs.exists ? fs.data() : null);
+            if (!d) break;
+            if (i === 0) folder = d;
+            if (cur === l.targetId) { cur = 'ROOT'; break; }
+            cur = d.parentId || null;
+        }
+        if (cur !== 'ROOT') folder = null;
+    }
+    if (!folder) return null;
+    const [subSnap, setSnap] = await lists;
+    return {
+        id: folderId, folder,
+        subFolders: subSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(f => !f.deleted)
+            .map(f => ({ id: f.id, name: f.name || '', color: f.color || '', icon: f.icon || '' })),
+        quizzes: setSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(q => !q.deleted)
+            .map(q => ({ id: q.id, title: q.title || '', questionCount: q.questionCount || 0 }))
+    };
+}
+/** Cấp quyền đọc thư mục + thư mục con + bộ đề trong đó cho uid: ghi link_grants SONG SONG với MỘT lượt update link (gq/gf + `extra`). */
+async function grantFolder(db, admin, ref, l, uid, { id, subFolders, quizzes }, extra = []) {
+    const f = [...new Set([l.targetId, id, ...subFolders.map(x => x.id)])];   // kèm gốc: claim từ thư mục con cũng cấp luôn gốc
+    const q = quizzes.map(x => x.id);
+    const FV = admin.firestore.FieldValue;
+    const args = [...extra];
+    const newQ = q.filter(id => !(l.gq || []).includes(id)), newF = f.filter(id => !(l.gf || []).includes(id));
+    if (newQ.length) args.push('gq', FV.arrayUnion(...newQ));
+    if (newF.length) args.push('gf', FV.arrayUnion(...newF));
+    await Promise.all([writeGrant(db, admin, uid, untilMs(l.expiresAt), q, f), args.length ? ref.update(...args) : null]);
 }
 
 /** Gỡ mọi quyền link này đã cấp (cho mọi người giữ, hoặc chỉ `uids`). */
@@ -222,9 +283,14 @@ function newLinkDoc(Timestamp, me, kind, id, t, { hours, name, maxUses, claims =
 // ---------- Kết quả làm bài qua link (action 'progress') ----------
 // link_progress/{token}_{uid} = { token, uid, kind, targetId, ownerUid, quizzes: { quizId: { title, n, best, last, total, first, at } } }
 // — một doc cho mỗi (link, máy); chủ đọc qua 'list'. Link vào lịch sử → chép gọn vào opens[].done rồi xóa doc.
-const doneView = (quizzes) => Object.entries(quizzes || {}).map(([quizId, x]) => ({
+// Bài làm đủ đề (chế độ thường, n > 0) → điểm. Lượt ÔN (câu sai / câu chọn từ tìm kiếm / ngắt quãng — pn, pat) KHÔNG phải điểm cả đề → tách riêng (pracView)
+const doneView = (quizzes) => Object.entries(quizzes || {}).filter(([, x]) => x.n > 0).map(([quizId, x]) => ({
     quizId, title: x.title || '', n: x.n || 0, best: x.best ?? null, last: x.last ?? null, total: x.total || 0, at: ms(x.at), first: ms(x.first)
 })).sort((a, b) => (b.at || 0) - (a.at || 0));
+const pracView = (quizzes) => Object.entries(quizzes || {}).filter(([, x]) => x.pn > 0).map(([quizId, x]) => ({
+    quizId, title: x.title || '', pn: x.pn, m: x.pm || '', at: ms(x.pat)
+})).sort((a, b) => (b.at || 0) - (a.at || 0));
+const MODES = ['practice', 'srs'];                     // chế độ ôn (không chấm điểm cả đề); còn lại = 'normal'
 /** Snapshot truy vấn link_progress → { token: { uid: quizzes } } */
 function progressMap(docs) {
     const m = {};
@@ -235,8 +301,9 @@ function progressMap(docs) {
 function view(token, l, prog = {}) {
     const claims = Object.entries(claimsOf(l)).map(([uid, x]) => ({
         uid, at: ms(x.at), seen: ms(x.seen), label: x.label || '', city: x.city || '', country: x.country || '',
-        anon: !!x.anon, email: x.email || '', name: x.name || '', who: x.who || '', via: x.via || '', in: ms(x.in), n: x.n || 1, done: doneView(prog[uid]),
-        go: x.go ? { q: x.go.q || '', t: x.go.t || '', at: ms(x.go.at) } : null
+        anon: !!x.anon, email: x.email || '', name: x.name || '', who: x.who || '', via: x.via || '', in: ms(x.in), n: x.n || 1,
+        done: doneView(prog[uid]), prac: pracView(prog[uid]),
+        go: x.go ? { q: x.go.q || '', t: x.go.t || '', at: ms(x.go.at), m: x.go.m || '' } : null
     })).sort((a, b) => (a.at || 0) - (b.at || 0));
     const c = claimsOf(l);
     const visitors = Object.entries(visitsOf(l)).filter(([uid]) => !c[uid]).map(([uid, x]) => ({
@@ -272,7 +339,7 @@ async function archiveMany(db, admin, pairs, reason) {
         opens: Object.entries(claimsOf(l)).map(([uid, x]) => ({
             who: x.who || x.email || x.name || '', label: x.label || '', place: [x.city, x.country].filter(Boolean).join(', '),
             at: x.at || null, seen: x.seen || null, via: x.via || '', n: x.n || 1,
-            done: Object.values(prog[token]?.[uid] || {}).slice(0, 60).map(q => ({ t: q.title || '', b: q.best ?? null, n: q.n || 0 }))
+            done: Object.values(prog[token]?.[uid] || {}).filter(q => q.n > 0).slice(0, 60).map(q => ({ t: q.title || '', b: q.best ?? null, n: q.n || 0 }))
         })).concat(Object.entries(visitsOf(l)).filter(([uid]) => !claimsOf(l)[uid]).map(([, x]) => ({
             who: x.who || x.email || x.name || '', label: x.label || '', place: [x.city, x.country].filter(Boolean).join(', '),
             at: x.at || null, seen: x.seen || null, n: x.n || 1, visit: true, done: []
@@ -684,8 +751,12 @@ module.exports = async function handler(req, res) {
                         ...(who ? { who } : {}), ...(v?.at ? { in: v.at } : {}), via: 'link' };
                 const patch = claimsPatch(admin, c);
                 if (v) patch[`visits.${me.uid}`] = admin.firestore.FieldValue.delete();
+                // Ghi luôn "đã cấp quyền mục này" (gq / gf — để thu hồi) trong cùng lượt ghi → grant() phía sau khỏi update link thêm lần nữa
+                const gk = l.kind === 'quiz' ? 'gq' : 'gf';
+                const g = l[gk] || [];
+                if (!g.includes(l.targetId)) patch[gk] = admin.firestore.FieldValue.arrayUnion(l.targetId);
                 tx.update(ref, patch);
-                return { st: 'mine', l: { ...l, claims: c } };
+                return { st: 'mine', l: { ...l, claims: c, [gk]: g.includes(l.targetId) ? g : [...g, l.targetId] } };
             });
             const { st, l } = out;
             if (st === 'expired') await archive(db, admin, token, l, 'expired').catch(() => {});
@@ -695,34 +766,37 @@ module.exports = async function handler(req, res) {
             }
             if (st !== 'mine' && st !== 'owner') return send(res, 200, { status: st });
             if (st === 'owner') return send(res, 200, { status: st, kind: l.kind, targetId: l.targetId });
-            if (!await targetOf(db, l.kind, l.targetId, l.ownerUid)) return send(res, 200, { status: 'missing' });
-            await grant(db, admin, ref, l, me.uid, l.kind === 'quiz' ? { q: [l.targetId] } : { f: [l.targetId] });
-            return send(res, 200, { status: st, kind: l.kind, targetId: l.targetId });
+            // Link thư mục + folderId (bấm làm đề trong thư mục — folder.js startLinkQuiz): kiểm nhánh + cấp quyền bộ đề của thư mục đó
+            // ngay trong lượt này → trình duyệt khỏi gọi thêm 'folder' (đỡ một chuyến VN ↔ máy chủ)
+            const fid = l.kind === 'folder' ? cleanId(body.folderId) : '';
+            const [t, sc] = await Promise.all([targetOf(db, l.kind, l.targetId, l.ownerUid), fid ? folderScope(db, l, fid) : null]);
+            if (!t) return send(res, 200, { status: 'missing' });
+            if (sc) await grantFolder(db, admin, ref, l, me.uid, sc);
+            else await grant(db, admin, ref, l, me.uid, l.kind === 'quiz' ? { q: [l.targetId] } : { f: [l.targetId] });
+            return send(res, 200, { status: st, kind: l.kind, targetId: l.targetId, ...(fid ? { scoped: !!sc } : {}) });
         }
 
         // Người giữ link nộp bài → ghi điểm cho chủ xem (chỉ khi máy đang giữ link và bộ đề nằm trong phạm vi link)
         if (action === 'progress') {
             const me = await verifyUser(req);
             const quizId = cleanId(body.quizId);
-            const s = await ref.get();
+            const pref = db.doc(`link_progress/${token}_${me.uid}`);
+            const [s, ps] = await Promise.all([ref.get(), pref.get()]);   // đọc song song: link + điểm cũ
             const l = s.exists ? s.data() : null;
             const st = statusOf(l, me.uid);
             if (st !== 'mine') return send(res, 200, { ok: false, status: st });
             const inScope = l.kind === 'quiz' ? l.targetId === quizId : (l.gq || []).includes(quizId);
             if (!quizId || !inScope) return send(res, 200, { ok: false, status: 'scope' });
             const pct = Math.round(Math.min(100, Math.max(0, Number(body.pct) || 0)) * 10) / 10;
-            const pref = db.doc(`link_progress/${token}_${me.uid}`);
-            const ps = await pref.get();
+            const mode = MODES.includes(body.mode) ? body.mode : 'normal';
             const old = (ps.exists ? ps.data().quizzes || {} : {})[quizId] || {};
             const now = Timestamp.now();
-            await pref.set({
-                token, uid: me.uid, kind: l.kind, targetId: l.targetId, ownerUid: l.ownerUid,
-                quizzes: { [quizId]: {
-                    title: String(body.title || old.title || '').slice(0, 200), n: (old.n || 0) + 1,
-                    best: Math.max(old.best ?? 0, pct), last: pct, total: Math.max(0, Math.round(Number(body.total) || 0)),
-                    first: old.first || now, at: now
-                } }
-            }, { merge: true });
+            const title = String(body.title || old.title || '').slice(0, 200);
+            // Lượt ôn: chỉ đếm số lượt + lúc ôn (merge giữ nguyên điểm bài làm đủ đề nếu có)
+            const entry = mode === 'normal'
+                ? { title, n: (old.n || 0) + 1, best: Math.max(old.best ?? 0, pct), last: pct, total: Math.max(0, Math.round(Number(body.total) || 0)), first: old.first || now, at: now }
+                : { title, pn: (old.pn || 0) + 1, pm: mode, pat: now, first: old.first || now };
+            await pref.set({ token, uid: me.uid, kind: l.kind, targetId: l.targetId, ownerUid: l.ownerUid, quizzes: { [quizId]: entry } }, { merge: true });
             if (l.claims) {
                 const FP = admin.firestore.FieldPath;
                 const args = [new FP('claims', me.uid, 'seen'), now];
@@ -749,7 +823,8 @@ module.exports = async function handler(req, res) {
             const go = l.claims[me.uid]?.go;
             if (go?.q === quizId && Math.abs((ms(go.at) || 0) - at) < SEEN_GAP_MS) return send(res, 200, { ok: true });
             const FP = admin.firestore.FieldPath;
-            await ref.update(new FP('claims', me.uid, 'go'), { q: quizId, t: String(body.title || '').slice(0, 120), at: Timestamp.fromMillis(at) },
+            const m = MODES.includes(body.mode) ? body.mode : '';   // '' = làm đủ đề; practice / srs = đang ôn
+            await ref.update(new FP('claims', me.uid, 'go'), compact({ q: quizId, t: String(body.title || '').slice(0, 120), at: Timestamp.fromMillis(at), m }),
                 new FP('claims', me.uid, 'seen'), Timestamp.now());
             return send(res, 200, { ok: true });
         }
@@ -763,42 +838,26 @@ module.exports = async function handler(req, res) {
             if (!['mine', 'owner', 'visitor'].includes(st)) return send(res, st === 'ok' ? 401 : 403, { status: st === 'ok' ? 'unclaimed' : st });
             if (l.kind !== 'folder') throw err(400, 'Link này không phải thư mục');
             const folderId = cleanId(body.folderId) || l.targetId;
-            // Thư mục yêu cầu phải nằm trong nhánh của thư mục gốc của link: đi ngược parentId tới gốc
-            let cur = folderId, folder = null;
-            for (let i = 0; i < MAX_DEPTH && cur; i++) {
-                const fs = await db.doc(`quiz_folders/${cur}`).get();
-                const d = fs.exists ? fs.data() : null;
-                if (!d || d.deleted || d.userId !== l.ownerUid) break;
-                if (i === 0) folder = d;
-                if (cur === l.targetId) { cur = 'ROOT'; break; }
-                cur = d.parentId || null;
-            }
-            if (cur !== 'ROOT' || !folder) return send(res, 404, { status: 'missing' });
-            const [subSnap, setSnap, progSnap] = await Promise.all([
-                db.collection('quiz_folders').where('parentId', '==', folderId).where('userId', '==', l.ownerUid).get(),
-                db.collection('quiz_sets').where('folderId', '==', folderId).where('userId', '==', l.ownerUid)
-                    .select('title', 'questionCount', 'deleted').get(),
+            const [sc, progSnap] = await Promise.all([
+                folderScope(db, l, folderId),
                 // Nhật ký làm bài của CHÍNH máy này trên link (1 doc) — chỉ máy giữ suất mới nộp bài được
                 st === 'mine' ? db.doc(`link_progress/${token}_${me.uid}`).get().catch(() => null) : null
             ]);
-            const subFolders = subSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(f => !f.deleted)
-                .map(f => ({ id: f.id, name: f.name || '', color: f.color || '', icon: f.icon || '' }));
-            const quizzes = setSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(q => !q.deleted)
-                .map(q => ({ id: q.id, title: q.title || '', questionCount: q.questionCount || 0 }));
-            if (st === 'mine') {
-                await grant(db, admin, ref, l, me.uid, { f: [folderId, ...subFolders.map(f => f.id)], q: quizzes.map(q => q.id) });
-            }
-            // "Mở gần nhất" + LƯỢT VÀO (đếm khi mở thư mục gốc) — MỘT lần ghi; tải lại / đi qua lại trong 1 phút thì không ghi.
+            if (!sc) return send(res, 404, { status: 'missing' });
+            const { folder, subFolders, quizzes } = sc;
+            // "Mở gần nhất" + LƯỢT VÀO (đếm khi mở thư mục gốc) — gộp chung MỘT lượt ghi với quyền; tải lại / đi qua lại trong 1 phút thì không ghi.
             // Link cũ một-máy (chưa có claims) thì thôi — lần claim sau tự đổi sang kiểu mới.
             const rec0 = st === 'visitor' ? visitsOf(l)[me.uid] : st === 'mine' ? claimsOf(l)[me.uid] : null;
             const field = st === 'visitor' ? 'visits' : st === 'mine' && l.claims ? 'claims' : '';
             const rec = field ? (field === 'visits' ? visitsOf(l) : l.claims)[me.uid] : null;
+            const seenArgs = [];
             if (rec && Date.now() - (ms(rec.seen) || 0) >= SEEN_GAP_MS) {
                 const FP = admin.firestore.FieldPath;
-                const args = [new FP(field, me.uid, 'seen'), Timestamp.now()];
-                if (folderId === l.targetId) args.push(new FP(field, me.uid, 'n'), admin.firestore.FieldValue.increment(1));
-                await ref.update(...args).catch(() => {});
+                seenArgs.push(new FP(field, me.uid, 'seen'), Timestamp.now());
+                if (folderId === l.targetId) seenArgs.push(new FP(field, me.uid, 'n'), admin.firestore.FieldValue.increment(1));
             }
+            if (st === 'mine') await grantFolder(db, admin, ref, l, me.uid, sc, seenArgs);
+            else if (seenArgs.length) await ref.update(...seenArgs).catch(() => {});
             return send(res, 200, {
                 status: st, root: l.targetId, expiresAt: untilMs(l.expiresAt),
                 // Trang thư mục hiện đúng kiểu link (riêng / nhóm), tên link và tên đã xác nhận của máy này — không nêu người gửi

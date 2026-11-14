@@ -796,11 +796,12 @@ async function linkApi(action, extra) {
 async function startLinkQuiz(token, folderId, href, btn) {
     if (btn) btn.style.pointerEvents = 'none';
     try {
-        const c = await linkApi('claim', { token, label: deviceLabel() });
+        // folderId: máy chủ cấp luôn quyền đọc các bộ đề của thư mục này trong cùng lượt claim (api/link.js scoped)
+        const c = await linkApi('claim', { token, label: deviceLabel(), folderId });
         // Tên đã xưng lúc vào xem vừa bị máy khác làm bài trước (whoTaken…) → về trang cổng chọn lại tên, kèm lý do
         const why = ['whoTaken', 'notMember'].includes(c.status) ? `&why=${c.status}` : '';
         if (c.status !== 'mine' && c.status !== 'owner') { location.replace(`link.html?t=${encodeURIComponent(token)}${why}`); return; }
-        await linkApi('folder', { token, folderId });          // giờ đã giữ suất → cấp quyền đọc các bộ đề của thư mục này
+        if (c.status === 'mine' && !c.scoped) await linkApi('folder', { token, folderId });   // máy chủ cũ / chưa cấp được → cách cũ
         location.href = href;
     } catch (e) {
         showToast('Mạng đang chậm, chưa mở được bộ đề. Thử lại nhé.', 'error');

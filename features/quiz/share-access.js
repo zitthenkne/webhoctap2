@@ -715,7 +715,11 @@ const putLink = (l) => {
     const i = once.links.findIndex(x => x.token === l.token);
     if (i < 0) return once.links.unshift(l);
     const old = once.links[i];
-    (l.claims || []).forEach(c => { if (!c.done?.length) c.done = old.claims?.find(o => o.uid === c.uid)?.done || []; });
+    (l.claims || []).forEach(c => {
+        const o = old.claims?.find(x => x.uid === c.uid);
+        if (!c.done?.length) c.done = o?.done || [];
+        if (!c.prac?.length) c.prac = o?.prac || [];
+    });
     once.links[i] = l;
 };
 const resByQuiz = new Set();          // link đang xem kết quả "Theo đề" (mặc định "Theo người")
@@ -825,9 +829,14 @@ function claimRow(token, c, live, kind = 'quiz') {
     const avg = done.length ? Math.round(done.reduce((s, x) => s + pctOf(x), 0) / done.length) : null;
     const doing = isDoing(c), viewing = c.visit && c.seen && Date.now() - c.seen < VIEW_LIVE_MS;
     const goT = c.go?.t ? `“${c.go.t}”` : 'bài';
+    // Lượt ÔN (câu sai / câu chọn từ tìm kiếm / ngắt quãng): không phải bài làm đủ đề → không có điểm, chỉ đếm
+    const prac = c.prac || [], pracN = prac.reduce((n, x) => n + (x.pn || 0), 0);
+    const lastPrac = prac.reduce((m, x) => Math.max(m, x.at || 0), 0);
+    const goVerb = c.go?.m ? 'ôn' : 'làm';
     const grade = c.visit ? (viewing ? '<span class="sa-grade is-view" title="Đang xem thư mục, chưa bấm làm đề nào — chưa tính suất"><i class="fas fa-eye"></i> Đang xem</span>'
             : '<span class="sa-grade is-none" title="Đã vào xem, chưa làm bài — chưa tính suất"><i class="fas fa-door-open"></i> Đã vào · chưa làm</span>')
-        : !done.length && doing ? `<span class="sa-grade is-doing" title="${esc(`Đang làm ${goT} từ ${fmtUntil(c.go.at)}`)}"><i class="fas fa-pen"></i> Đang làm</span>`
+        : !done.length && doing ? `<span class="sa-grade is-doing" title="${esc(`Đang ${goVerb} ${goT} từ ${fmtUntil(c.go.at)}`)}"><i class="fas fa-pen"></i> Đang ${goVerb}</span>`
+        : !done.length && pracN ? `<span class="sa-grade is-stale" title="${esc(`Chỉ ôn câu lẻ ${pracN} lượt, chưa nộp bài làm đủ đề`)}"><i class="fas fa-book-open-reader"></i> Chỉ ôn</span>`
         : !done.length && c.go ? '<span class="sa-grade is-stale" title="Đã bắt đầu nhưng chưa nộp bài"><i class="fas fa-pause"></i> Bỏ dở</span>'
         : !done.length ? '<span class="sa-grade is-none" title="Đã giữ suất, chưa bấm bắt đầu làm"><i class="fas fa-clock"></i> Chưa bắt đầu</span>'
         : kind === 'quiz' ? `<span class="sa-grade ${pctClass(avg)}"><i class="fas fa-trophy"></i> ${avg}%</span>`
@@ -837,9 +846,10 @@ function claimRow(token, c, live, kind = 'quiz') {
     const tl = [
         first && ['fa-door-open', `Vào ${fmtUntil(first)}`],
         c.in && c.at && ['fa-ticket', `Bấm làm ${fmtUntil(c.at)}`],
-        c.go?.at && (doing ? ['fa-pen', `Đang làm <b title="${esc(goT)}">${esc(kind === 'quiz' ? 'bài' : goT)}</b> từ ${fmtUntil(c.go.at)} (${dur(Date.now() - c.go.at)})`, 'is-doing']
+        c.go?.at && (doing ? ['fa-pen', `Đang ${goVerb} <b title="${esc(goT)}">${esc(kind === 'quiz' ? 'bài' : goT)}</b> từ ${fmtUntil(c.go.at)} (${dur(Date.now() - c.go.at)})`, 'is-doing']
             : ['fa-pause', `Mở <b title="${esc(goT)}">${esc(kind === 'quiz' ? 'bài' : goT)}</b> ${fmtUntil(c.go.at)}, chưa nộp`, 'is-stale']),
         lastDone && ['fa-flag-checkered', `Nộp gần nhất ${fmtUntil(lastDone)}`],
+        lastPrac && ['fa-book-open-reader', `Ôn câu lẻ ${pracN} lượt, gần nhất ${fmtUntil(lastPrac)}`],
         c.seen && c.seen - (first || 0) > 60000 && !(c.go?.at && Math.abs(c.seen - c.go.at) < 60000) && ['fa-eye', `Mở gần nhất ${fmtUntil(c.seen)}`]
     ].filter(Boolean);
     return `

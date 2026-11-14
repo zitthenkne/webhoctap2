@@ -22,7 +22,7 @@ import { groupQuestionsByCase, tagCaseSequence } from './quiz-cases.js';
 import { showQuestion, accrueTime } from './quiz-question-view.js';
 import { hideMobileNav } from './quiz-mobile-nav.js';
 import { rememberOpened, syncLocalResults } from '../local-shelf.js';
-import { rememberLinkToken, reportLinkProgress, reportLinkStart } from '../link-progress.js';
+import { rememberLinkToken, reportLinkProgress, reportLinkStart, guardLinkOffline } from '../link-progress.js';
 import { quizRunStart, quizRunEnd } from '../../../core/quiz-run.js';
 import { canUse, showLocked } from '../../../core/features.js';
 
@@ -475,6 +475,11 @@ export function startQuizMode(questionsArray, mode = 'normal', restoreState = nu
         showToast('Đang mất mạng — tài khoản của bạn chưa được mở "Làm offline" nên cần có mạng để bắt đầu làm bài.', 'warning', 5000);
         return;
     }
+    // Bộ đề mở qua link riêng / nhóm mà chủ chưa cho làm offline: mất mạng thì không bắt đầu, đang làm mà mất mạng thì khoá tới khi có mạng lại
+    if (!guardLinkOffline(state.quizData)) {
+        showToast('Đang mất mạng — bộ đề này cần có mạng để làm bài.', 'warning', 5000);
+        return;
+    }
     if (mode === 'normal' || mode === 'practice' || mode === 'srs') {
         showSubmitQuizBtn(true);
     } else {
@@ -583,8 +588,8 @@ export function startQuizMode(questionsArray, mode = 'normal', restoreState = nu
         quizId: state.quizData?.id || new URLSearchParams(location.search).get('id'),
         title: state.quizData?.title || '', mode, startedAt: +new Date(state.quizStartTime)
     });
-    // Mở từ link riêng / nhóm → báo chủ link "đang làm" (chỉ chế độ thường — chế độ này mới nộp điểm)
-    if (state.quizMode === 'normal') reportLinkStart(state.quizData?.id, state.quizData?.title, +new Date(state.quizStartTime));
+    // Mở từ link riêng / nhóm → báo chủ link "đang làm" (thường) / "đang ôn" (practice, srs) — trước chỉ báo chế độ thường nên ôn thì chủ không thấy gì
+    reportLinkStart(state.quizData?.id, state.quizData?.title, +new Date(state.quizStartTime), state.quizMode);
     // Tải lại trang (F5) giữa lúc đang tập trung → vào lại vẫn tập trung (cờ do page/quiz-focus.js ghi, xóa khi tắt/nộp bài)
     try {
         if (!state.focusMode) {
@@ -651,8 +656,9 @@ export function endQuiz() {
     const run = quizRunEnd({ pct: r.pct });
     if (state.quizMode === 'normal') {
         saveQuizResult(r.score, r.total, r.pct, totalTime, { ...run, startedAt: state.quizStartTime ? +new Date(state.quizStartTime) : null });
-        reportLinkProgress(state.quizData?.id, r, state.quizData?.title);
     }
+    // Báo chủ link mọi chế độ: chế độ ôn máy chủ chỉ đếm lượt, không tính điểm
+    reportLinkProgress(state.quizData?.id, r, state.quizData?.title, state.quizMode);
 
     const quizSection = document.getElementById('quizSection');
     const resultsSection = document.getElementById('resultsSection');
