@@ -105,6 +105,7 @@ export function setupSettings() {
     const rowShowAns = document.getElementById('qs-show-answer');
     const bgOpacityInput = document.getElementById('qs-bg-opacity');
     const rowShuffleBg = document.getElementById('qs-shuffle-bg');
+    const rowBgColor = document.getElementById('qs-bg-color');
     if (!fab || !pop) return;
     setupAutoNextGuards(); // chạm/cuộn/gõ phím ở bất kỳ đâu đều hủy đếm ngược tự chuyển câu
 
@@ -144,6 +145,7 @@ export function setupSettings() {
         if (rowShowAns) rowShowAns.setAttribute('aria-checked', !!state.quizOptions.showAnswerImmediately);
         if (bgOpacityInput) bgOpacityInput.value = getBgOpacity();
         applyBgOpacity(getBgOpacity());
+        if (rowBgColor) rowBgColor.setAttribute('aria-checked', document.documentElement.classList.contains('quiz-bg-color'));
     };
     sync();
 
@@ -283,6 +285,13 @@ export function setupSettings() {
         // Không đóng popover khi tương tác với thanh trượt
         bgOpacityInput.addEventListener('click', (e) => e.stopPropagation());
     }
+    if (rowBgColor) rowBgColor.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const on = document.documentElement.classList.toggle('quiz-bg-color');
+        setLS('quiz_bg_mode', on ? 'color' : 'image');
+        if (!on && typeof window.shuffleQuizBg === 'function') window.shuffleQuizBg();   // lần đầu bật lại ảnh: chưa có ảnh nào được nạp
+        sync();
+    });
     if (rowShuffleBg) rowShuffleBg.addEventListener('click', (e) => {
         // Giữ popover mở để bấm đổi liên tục cho tới khi ưng ý
         e.stopPropagation();

@@ -54,9 +54,13 @@
                 var noBg = false;
                 try { noBg = window.matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600; } catch (e) {}
                 if (noBg) document.documentElement.classList.add('no-quiz-bg');
+                // Người dùng chọn "Nền chỉ màu" (bảng thiết lập) -> không tải ảnh
+                var colorBg = false;
+                try { colorBg = localStorage.getItem('quiz_bg_mode') === 'color'; } catch (e) {}
+                if (colorBg) document.documentElement.classList.add('quiz-bg-color');
                 // Chọn lại ngẫu nhiên cặp nền sáng/tối — phơi ra cho nút "Đổi nền" trong bảng thiết lập gọi
                 window.shuffleQuizBg = function () {
-                    if (noBg) return;
+                    if (noBg || document.documentElement.classList.contains('quiz-bg-color')) return;
                     var lightUrl = encodeURI('../../assets/bg quiz page/' + pick(lightImages));
                     var darkUrl = encodeURI('../../assets/bg quiz page dark/' + pick(darkImages));
                     document.documentElement.style.setProperty('--quiz-bg-light', 'url("' + lightUrl + '")');
@@ -1554,6 +1558,10 @@
                         <button type="button" role="radio" data-paper="lined" title="Kẻ dòng" aria-label="Kẻ dòng"></button>
                         <button type="button" role="radio" data-paper="plain" title="Trơn" aria-label="Trơn"></button>
                     </span>
+                </div>
+                <div class="qs-row" id="qs-bg-color" role="switch" aria-checked="false" tabindex="0" data-k="nen mau tron khong anh nen hinh nen">
+                    <span class="qs-label"><i class="fas fa-fill-drip"></i> Nền chỉ màu</span>
+                    <span class="qs-switch"></span>
                 </div>
                 <div class="qs-row qs-row-slider" data-k="anh nen hinh nen mo ro">
                     <span class="qs-label"><i class="fas fa-sun"></i> Độ rõ ảnh nền</span>

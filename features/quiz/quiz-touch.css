@@ -28,8 +28,10 @@
     /* 3. Nhịp "thở" từng chạy bằng box-shadow (vẽ lại mỗi khung hình, vô hạn) -> phóng nhẹ bằng `scale`.
           Đáng kể nhất: nút Câu tiếp ở thanh đáy thở suốt từ lúc chọn đáp án tới lúc sang câu — đúng lúc kéo đọc giải thích.
           Dùng `scale` (không phải transform) để không đè hiệu ứng nhấn của nút. */
-    #start-now-btn.nb-cta,
-    #quiz-mobile-nav .qmn-arrow-next.is-ready { animation: nb-breathe-t 2.4s ease-in-out infinite !important; }
+    #start-now-btn.nb-cta { animation: nb-breathe-t 2.4s ease-in-out infinite !important; }
+    /* (2026-11-17) Nút Tiếp ở thanh đáy KHÔNG thở nữa: phóng-thu suốt lúc đọc giải thích làm thanh đáy như phình ra, khung câu hỏi như co lại.
+       Nút vốn đã hồng đậm, đứng yên vẫn đủ nổi. */
+    #quiz-mobile-nav .qmn-arrow-next.is-ready { animation: none !important; }
     .quiz-note-act.is-live,
     #quizSection .essay-mic.is-live { animation: nb-breathe-t 1.2s ease-in-out infinite !important; }
 
@@ -61,6 +63,17 @@
 
     /* 8. Dòng gợi ý phím tắt cuối thẻ (A–D, ← →, Enter…): máy cảm ứng không dùng tới — bảng phím tắt đầy đủ vẫn mở được bằng nút. */
     #quizSection .quiz-kbd-hint { display: none !important; }
+
+    /* 9. (2026-11-17) "Bấm đáp án là khung co lại / thanh đáy phình ra, giật; sang câu mới hết": đúng lúc thẻ dài ra (hiện giải thích,
+          tự cuộn tới đáp án đúng) lại chạy thêm cả chùm hiệu ứng -> bỏ hết trên cảm ứng, màu đúng/sai + nhãn "Bạn chọn" vẫn giữ.
+          (pháo giấy: quiz-helpers.js triggerConfetti tự bỏ trên cảm ứng) */
+    #quizSection .answer-btn.wrong-answer-shake,
+    #quizSection .answer-btn .answer-letter,
+    #quizSection .answer-btn.correct-answer-pulse::before,
+    #quiz-nav-panel::before,
+    #quiz-mobile-nav .qmn-score > span.is-bump { animation: none !important; }
+    #quizSection .answer-btn.correct-answer-pulse::before { display: none; }
+    #quizSection .option-explanation { transition: none !important; }
 }
 
 /* IPAD DỌC lúc làm bài (768–1023px, cảm ứng) — đọc ở khoảng cách cầm máy tính bảng:

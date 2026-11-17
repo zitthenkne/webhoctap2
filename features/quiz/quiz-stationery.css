@@ -2660,9 +2660,10 @@ body::after {
         color-mix(in srgb, var(--bg-desk) 16%, transparent);
 }
 /* điện thoại không tải ảnh nền (quiz.html gắn html.no-quiz-bg theo loại máy) -> giấu luôn 2 dòng chỉnh nền */
-html.no-quiz-bg body::before { display: none; }
-html.no-quiz-bg .qs-row-slider:has(#qs-bg-opacity),
-html.no-quiz-bg #qs-shuffle-bg { display: none !important; }
+html:is(.no-quiz-bg, .quiz-bg-color) body::before { display: none; }
+html:is(.no-quiz-bg, .quiz-bg-color) .qs-row-slider:has(#qs-bg-opacity),
+html:is(.no-quiz-bg, .quiz-bg-color) #qs-shuffle-bg { display: none !important; }
+html.no-quiz-bg #qs-bg-color { display: none !important; }   /* điện thoại vốn đã nền màu */
 /* chữ nghiêng = xanh dương, đậm = hồng đậm — màu đổi theo nền chứa nó: xem §16.1 */
 
 /* 15.2 Lề vở: hai vạch hồng dọc cạnh gáy lò xo (trang chờ + trang làm bài, từ 640px) */

@@ -463,12 +463,13 @@ if (typeof window !== 'undefined') {
 // bật 'giảm chuyển động' của hệ điều hành thì không bắn.
 export function triggerConfetti() {
     if (document.body.classList.contains('focus-mode-active')) return;   // tập trung: không pháo giấy
-    const touch = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+    // Cảm ứng: không pháo giấy — canvas phủ cả màn vẽ lại mỗi khung đúng lúc thẻ dài ra + tự cuộn -> giật (2026-11-17)
+    if (window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches) return;
     loadConfetti().then(() => confetti({
-        particleCount: touch ? 36 : 80,
+        particleCount: 80,
         spread: 60,
         origin: { y: 0.8 },
-        ticks: touch ? 110 : 200,
+        ticks: 200,
         disableForReducedMotion: true
     })).catch(() => {});
 }
