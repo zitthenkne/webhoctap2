@@ -632,8 +632,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // như thường (không bắt đầu lại). Có bài dở thì không tự vào — giống ?srs=1.
         const pick = params.get('pick');
         if (pick !== null) {
-            const u = new URL(location.href); u.searchParams.delete('pick'); history.replaceState(history.state, '', u.href);
-            if (!getPendingSavedState() && startPickedSession(pick.split(',').map(Number))) return;
+            const u = new URL(location.href); u.searchParams.delete('pick'); u.searchParams.delete('wrong'); history.replaceState(history.state, '', u.href);
+            if (!getPendingSavedState() && startPickedSession(pick.split(',').map(Number), params.get('wrong') === '1')) return;
         }
         if (params.get('srs') === '1' && !getPendingSavedState()
             && Array.isArray(state.originalQuestions) && state.originalQuestions.length) {

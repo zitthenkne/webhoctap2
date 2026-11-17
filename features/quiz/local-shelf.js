@@ -120,6 +120,7 @@ export async function syncLocalResults(uid) {
                     timeTaken: r.timeTaken ?? null,
                     percentage: Math.max(0, Math.min(100, Number(r.percentage) || 0)),
                     completedAt: new Date(r.completedAt || Date.now()),
+                    ...(r.wrong ? { wrong: String(r.wrong) } : {}),
                     fromGuest: true
                 });
                 done++;

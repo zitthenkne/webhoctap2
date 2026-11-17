@@ -150,7 +150,8 @@ async function loadQuizHistory(quizId, userId) {
                 total: data.totalQuestions,
                 percentage: data.percentage,
                 timeTaken: data.timeTaken || 0,
-                quizTitle: data.quizTitle || ""
+                quizTitle: data.quizTitle || "",
+                wrong: typeof data.wrong === 'string' ? data.wrong : ''
             });
         });
         history.sort((a, b) => b.rawDate - a.rawDate);
@@ -411,7 +412,14 @@ function renderHistoryList(history) {
         }
         
         const timeTakenFormatted = h.timeTaken > 0 ? formatTimeDetailed(h.timeTaken) : "N/A";
-        
+        // Lượt có lưu số câu sai -> mở lại đúng các câu đó (quiz.html?pick=, chỉ số gốc trong bộ đề)
+        const wrongPick = /^\d+(,\d+)*$/.test(h.wrong) ? h.wrong : '';
+        const retryBtn = wrongPick
+            ? `<a href="quiz.html?id=${encodeURIComponent(quizId)}&pick=${wrongPick}&wrong=1" class="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-pink-600 bg-pink-50 hover:bg-pink-100 border border-pink-100 rounded-lg px-2.5 py-1 transition">
+                    <i class="fas fa-redo-alt"></i> Làm lại ${wrongPick.split(',').length} câu sai
+               </a>`
+            : '';
+
         return `
             <div class="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-100 hover:border-pink-200 hover:shadow-sm transition-all duration-300 group">
                 <div class="flex items-center gap-3">
@@ -432,6 +440,7 @@ function renderHistoryList(history) {
                                 <i class="fas fa-clock text-gray-300"></i> Thời gian: <strong>${timeTakenFormatted}</strong>
                             </span>
                         </div>
+                        ${retryBtn ? `<div>${retryBtn}</div>` : ''}
                     </div>
                 </div>
                 
@@ -576,7 +585,7 @@ function showGuestHistory(id) {
     const history = rows.map(r => {
         const d = new Date(r.completedAt || 0);
         return { id: r.id, time: formatDate(d), rawDate: d, score: r.score, total: r.totalQuestions, percentage: r.percentage,
-                 timeTaken: r.timeTaken || 0, quizTitle: r.quizTitle || '' };
+                 timeTaken: r.timeTaken || 0, quizTitle: r.quizTitle || '', wrong: typeof r.wrong === 'string' ? r.wrong : '' };
     }).sort((a, b) => b.rawDate - a.rawDate);
     calculateAndDisplayStats(history);
     drawProgressChart(history);

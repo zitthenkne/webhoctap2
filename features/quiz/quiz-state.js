@@ -311,7 +311,8 @@ export async function saveQuizResult(finalScore, totalQuestions, percentage, tim
         lastLocalResultId = saveLocalResult({
             quizId: new URLSearchParams(window.location.search).get('id'),
             quizTitle: state.quizData?.title || '',
-            score: finalScore, totalQuestions, percentage, timeTaken
+            score: finalScore, totalQuestions, percentage, timeTaken,
+            ...(extra.wrong ? { wrong: extra.wrong } : {})
         });
         if (lastLocalResultId) showToast('Đã lưu kết quả trên máy này. Đăng nhập để đồng bộ vào tài khoản.', 'info', 4000);
         return;

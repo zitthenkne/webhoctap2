@@ -424,7 +424,7 @@ export function showQuestion() {
     }
 
     let title = state.quizMode === 'practice'
-        ? (state._pickInfo ? `Câu từ tìm kiếm ${state.currentIndex + 1}<span class="q-of"> / ${state.questions.length}</span>` : 'Luyện tập lại')
+        ? (state._pickInfo ? `${state._pickInfo.wrong ? 'Câu sai' : 'Câu từ tìm kiếm'} ${state.currentIndex + 1}<span class="q-of"> / ${state.questions.length}</span>` : 'Luyện tập lại')
         : `Câu hỏi ${state.currentIndex + 1}<span class="q-of"> / ${state.questions.length}</span>`;
     saveQuizState();
 

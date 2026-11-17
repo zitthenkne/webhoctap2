@@ -655,7 +655,11 @@ export function endQuiz() {
     // Máy làm bài + cờ "2 máy cùng lúc" lưu kèm kết quả → trang Quản trị dựng báo cáo, không tốn thêm lượt ghi
     const run = quizRunEnd({ pct: r.pct });
     if (state.quizMode === 'normal') {
-        saveQuizResult(r.score, r.total, r.pct, totalTime, { ...run, startedAt: state.quizStartTime ? +new Date(state.quizStartTime) : null });
+        // wrong: chỉ số gốc các câu sai / bỏ trống ("3,7,12") — trang lịch sử mở lại bằng quiz.html?pick=
+        const wrong = state.questions
+            .filter((q, i) => Number.isInteger(q.__origIdx) && !isAnswerCorrect(q, state.userAnswers[i]) && !isPendingEssay(q, state.userAnswers[i]))
+            .map(q => q.__origIdx).sort((a, b) => a - b).join(',');
+        saveQuizResult(r.score, r.total, r.pct, totalTime, { ...run, startedAt: state.quizStartTime ? +new Date(state.quizStartTime) : null, wrong });
     }
     // Báo chủ link mọi chế độ: chế độ ôn máy chủ chỉ đếm lượt, không tính điểm
     reportLinkProgress(state.quizData?.id, r, state.quizData?.title, state.quizMode);
@@ -919,7 +923,7 @@ export function startQuizWithCurrentSettings() {
 
 // Mở từ kết quả TÌM CÂU HỎI ở thư viện (quiz.html?id=…&pick=3,7,12 — chỉ số gốc trong bộ đề): luyện ngay đúng các câu đó,
 // giữ thứ tự gốc, hiện đáp án sau mỗi câu, không tính giờ. Trả về false nếu không có chỉ số hợp lệ.
-export function startPickedSession(indices) {
+export function startPickedSession(indices, fromWrong = false) {
     const n = (state.originalQuestions || []).length;
     const picked = [...new Set(indices)].filter(i => Number.isInteger(i) && i >= 0 && i < n).sort((a, b) => a - b);
     if (!picked.length) return false;
@@ -929,7 +933,7 @@ export function startPickedSession(indices) {
     state.quizOptions.isTimed = false;
     state.quizOptions.timedMinutes = 0;
     state.quizOptions.showAnswerImmediately = true;
-    state._pickInfo = { n: picked.length };
+    state._pickInfo = { n: picked.length, wrong: fromWrong };
     startQuizMode(picked.map(i => ({ ...state.originalQuestions[i], __origIdx: i })), 'practice');
     return true;
 }
