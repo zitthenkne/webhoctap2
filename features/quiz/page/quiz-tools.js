@@ -19,6 +19,12 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const quizId = () => new URLSearchParams(location.search).get('id') || 'x';
 const TOOLS = ['scratch', 'calc'];
 const buzz = (ms = 6) => { if (getVibrate() && navigator.vibrate) navigator.vibrate(ms); };
+// Icon giấy nháp (2026-11-17): trang sổ gáy lò xo + nét nháp nguệch ngoạc + bút chì — trước là bút chì trơn, lẫn với nút "Sửa"
+export const SCRATCH_ICON = '<svg class="qt-scratch-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + '<path d="M13.5 2.5h-7a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-6"/>'
+    + '<path d="M2.5 7h4M2.5 12h4M2.5 17h4"/>'
+    + '<path d="M9 17.2c1.1-1.5 2-1.5 2.8 0s1.8 1.5 2.9 0"/>'
+    + '<path d="M20.6 3.4a1.5 1.5 0 0 0-2.1 0l-5.6 5.6-.7 2.8 2.8-.7 5.6-5.6a1.5 1.5 0 0 0 0-2.1z"/></svg>';
 
 function inQuiz() {
     const box = $('quiz-container'), res = $('resultsSection');
@@ -45,7 +51,7 @@ function buildDock() {
     <section id="qt-scratch" class="qt-panel" hidden aria-label="Giấy nháp">
         <span class="washi-tape washi-lav qt-tape" aria-hidden="true"></span>
         <header class="qt-head">
-            <span class="qt-label"><i class="fas fa-pencil"></i><span class="qt-word">Nháp</span><b id="qt-scratch-q"></b></span>
+            <span class="qt-label">${SCRATCH_ICON}<span class="qt-word">Nháp</span><b id="qt-scratch-q"></b></span>
             <div class="qt-group">
                 <button type="button" class="qt-ib" data-act="paper" aria-label="Đổi kiểu giấy"><i class="fas fa-table-cells"></i></button>
                 <button type="button" class="qt-ib" data-act="max" aria-label="Phóng to giấy nháp" aria-pressed="false"><i class="fas fa-up-right-and-down-left-from-center"></i></button>
@@ -53,8 +59,9 @@ function buildDock() {
                 <button type="button" class="qt-ib" data-act="export" title="Lưu trang nháp thành ảnh (iPad: chia sẻ / lưu vào Ảnh)" aria-label="Lưu trang nháp thành ảnh"><i class="fas fa-image"></i></button>
             </div>
             <div class="qt-group">
-                <button type="button" class="qt-ib" data-act="undo" title="Hoàn tác" aria-label="Hoàn tác"><i class="fas fa-rotate-left"></i></button>
-                <button type="button" class="qt-ib" data-act="redo" title="Làm lại" aria-label="Làm lại"><i class="fas fa-rotate-right"></i></button>
+                <button type="button" class="qt-ib" data-act="undo" title="Hoàn tác (giữ để hoàn tác liên tục)" aria-label="Hoàn tác"><i class="fas fa-rotate-left"></i></button>
+                <button type="button" class="qt-ib" data-act="redo" title="Làm lại (giữ để làm lại liên tục)" aria-label="Làm lại"><i class="fas fa-rotate-right"></i></button>
+                <button type="button" class="qt-ib" data-act="paste" hidden title="Dán phần đã chép (Ctrl+V) — dán được sang câu khác" aria-label="Dán"><svg class="qt-svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4.5" width="14" height="16.5" rx="2"/><path d="M9 4.5V3h6v1.5M9 11h6M9 15h4"/></svg></button>
                 <button type="button" class="qt-ib" data-act="clear" title="Xóa trang nháp của câu này (hoàn tác được)" aria-label="Xóa trang nháp"><i class="fas fa-trash-can"></i></button>
             </div>
             <button type="button" class="qt-x" data-act="close" data-tool="scratch" title="Đóng giấy nháp" aria-label="Đóng giấy nháp"><i class="fas fa-times"></i></button>
@@ -90,6 +97,7 @@ function buildDock() {
             <div class="qt-selmenu" hidden role="toolbar" aria-label="Phần đã khoanh">
                 <button type="button" data-sel="color" title="Đổi sang màu đang chọn"><span class="qt-selc" aria-hidden="true"></span>Tô màu</button>
                 <button type="button" data-sel="dup" title="Nhân bản"><i class="fas fa-clone"></i>Nhân bản</button>
+                <button type="button" data-sel="copy" title="Chép (Ctrl+C) — dán được sang câu khác"><i class="fas fa-copy"></i>Chép</button>
                 <button type="button" data-sel="del" class="qt-sel-del" title="Xóa phần đã khoanh"><i class="fas fa-trash-can"></i>Xóa</button>
             </div>
             <button type="button" class="qt-zoom" hidden title="Về cỡ 100%"><i class="fas fa-magnifying-glass"></i><span>100%</span></button>
@@ -325,13 +333,15 @@ const PEN_KINDS = { fountain: [0.45, 1.1], ball: [0.85, 0.3], brush: [0.2, 1.8] 
 const TOOLS_PEN = ['pen', 'hl', 'erase', 'lasso', 'shape', 'text', 'laser'];
 const ZMIN = 0.4, ZMAX = 5;
 const HEX = /^#[0-9a-f]{6}$/i;
-let prefs = { pen: 'pen', color: 'ink', size: 1, paper: 'grid', kind: 'fountain', hlLine: 0, erase: 'stroke', eraseHl: false, recent: [], seen: {} };
+let prefs = { pen: 'pen', color: 'ink', size: 1, paper: 'grid', kind: 'fountain', hlLine: 0, erase: 'stroke', eraseHl: false, scribble: true, stab: 1, eraseBack: false, back: 'pen', tool: {}, recent: [], seen: {} };
 try { Object.assign(prefs, JSON.parse(ls.get('quiz_scratch_prefs') || '{}')); } catch (e) { }
 if (!TOOLS_PEN.includes(prefs.pen)) prefs.pen = 'pen';
 if (!PAPERS.includes(prefs.paper)) prefs.paper = 'grid';
 if (!PEN_KINDS[prefs.kind]) prefs.kind = 'fountain';
 prefs.recent = (Array.isArray(prefs.recent) ? prefs.recent : []).filter(c => HEX.test(c)).slice(0, 3);
 if (!prefs.seen || typeof prefs.seen !== 'object') prefs.seen = {};
+if (!prefs.tool || typeof prefs.tool !== 'object') prefs.tool = {};
+if (![0, 1, 2].includes(prefs.stab)) prefs.stab = 1;
 let pal = {};
 let pages = {}, pagesStamp = null, pageKey = null;
 let sheet, paper, ink, live, pctx, ictx, lctx, dpr = 1, sheetW = 0, sheetH = 0;
@@ -384,24 +394,61 @@ function readPalette() {
 }
 const colorOf = (st) => (st.t === 'hl' ? pal.hl : pal.pen)[st.c] || (HEX.test(st.c || '') ? st.c : pal.pen.ink);
 
+// Bản lưu hỏng / lệch kiểu (sửa tay, bản cũ) không được làm vỡ cả giấy nháp: bỏ riêng nét sai, giữ nét đúng
+const okStroke = (st) => !!st && typeof st === 'object' && (st.t === 'tx'
+    ? typeof st.s === 'string' && Number.isFinite(st.x) && Number.isFinite(st.y) && st.f > 0
+    : (st.t === 'pen' || st.t === 'hl') && st.w > 0 && Array.isArray(st.p) && st.p.length >= 3 && st.p.length % 3 === 0);
+// Bản sao BỀN trong IndexedDB (2026-11-17): iPad / điện thoại hay tắt hẳn web-app khi chuyển app (nhất là lúc offline, không tải lại được)
+// -> sessionStorage mất sạch, mở lại thì bài còn mà nháp mất. sessionStorage vẫn là nguồn chính (đọc đồng bộ, nhanh); IDB chỉ để cứu.
+let idbP = null;
+const idb = () => idbP || (idbP = new Promise((res) => {
+    try { const r = indexedDB.open('quizScratch', 1); r.onupgradeneeded = () => r.result.createObjectStore('p'); r.onsuccess = () => res(r.result); r.onerror = () => res(null); }
+    catch (e) { res(null); }
+}));
+const idbPut = (k, v) => idb().then(db => { try { if (db) db.transaction('p', 'readwrite').objectStore('p').put(v, k); } catch (e) { } });
+const idbGet = (k) => idb().then(db => db && new Promise((res) => {
+    try { const q = db.transaction('p').objectStore('p').get(k); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); }
+    catch (e) { res(null); }
+}));
+function fillPages(o, t) {
+    if (!o || o.t !== t || !o.p || typeof o.p !== 'object') return;
+    for (const k in o.p) {
+        const s = Array.isArray(o.p[k]) ? o.p[k].filter(okStroke) : [];
+        if (s.length) pages[k] = { s, undo: [], redo: [], v: { s: 1, x: 0, y: 0 } };
+    }
+}
 function ensurePages() {
     const t = stamp();
     if (t === pagesStamp) return;
     pagesStamp = t; pages = {}; pageKey = null;
-    try {
-        const o = JSON.parse(ss.get(storeKey()) || 'null');
-        if (o && o.t === t && o.p) for (const k in o.p) pages[k] = { s: o.p[k], undo: [], redo: [], v: { s: 1, x: 0, y: 0 } };
-    } catch (e) { }
+    const key = storeKey(), raw = ss.get(key);
+    try { fillPages(JSON.parse(raw || 'null'), t); } catch (e) { }
+    if (raw) return;
+    // sessionStorage trống (app vừa bị tắt hẳn rồi mở lại): lấy bản trong IndexedDB, nếu vẫn đúng lượt làm này và chưa vẽ gì mới
+    idbGet(key).then((v) => {
+        if (!v || pagesStamp !== t || Object.values(pages).some(pg => pg.s.length)) return;
+        try { fillPages(JSON.parse(v), t); } catch (e) { return; }
+        ss.set(key, v);
+        if (pageKey !== null && !busy()) { redraw(); syncScratchBar(); }
+    });
 }
-let saveT = 0;
-function saveSoon() {
-    clearTimeout(saveT);
-    saveT = setTimeout(() => {
-        const p = {};
-        for (const k in pages) if (pages[k].s.length) p[k] = pages[k].s;
-        ss.set(storeKey(), JSON.stringify({ t: pagesStamp, p }));
-    }, 700);
+let saveT = 0, saveIdle = 0;
+const ric = window.requestIdleCallback ? (f) => requestIdleCallback(f, { timeout: 1500 }) : (f) => setTimeout(f, 0);
+const cic = window.cancelIdleCallback ? cancelIdleCallback : clearTimeout;
+function saveNow() {
+    clearTimeout(saveT); saveT = 0; cic(saveIdle); saveIdle = 0;
+    const p = {};
+    for (const k in pages) if (pages[k].s.length) p[k] = pages[k].s;
+    const v = JSON.stringify({ t: pagesStamp, p });
+    ss.set(storeKey(), v);
+    idbPut(storeKey(), v);
 }
+// Ghi (JSON cả xấp nháp) lúc máy RẢNH sau khi ngừng viết 0,7 s — không chen vào khung hình đang vẽ nét kế tiếp
+function saveSoon() { clearTimeout(saveT); cic(saveIdle); saveIdle = 0; saveT = setTimeout(() => { saveIdle = ric(saveNow); }, 700); }
+// F5 / tắt tab / chuyển app ngay sau nét cuối: ghi luôn, khỏi mất nét đang chờ 700 ms
+const flushSave = () => { if (saveT) saveNow(); };
+addEventListener('pagehide', flushSave);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSave(); });
 
 function fitSheet() {
     if (!sheet || scratchEl.hidden) return;
@@ -532,11 +579,48 @@ function drawStroke(ctx, st) {
 // Dùng chung với mực trên HÌNH trong đề (page/quiz-ink.js): cùng cách làm trơn nét, đậm nhạt theo lực bút, bảng màu theo sáng/tối
 export { SIZES, readPalette, drawStroke, penSeg, penTail, hlPath, setStyle, inkPressure };
 
+// Vẽ lại trang (hoàn tác, đổi câu, thu phóng xong, tẩy…): mỗi nét ĐÃ GHI dựng hình (Path2D) một lần rồi nhớ — lần sau chỉ tô lại,
+// không tính lại đường cong / bề rộng từng đoạn. Nét đang viết (cur) vẫn qua drawStroke vì điểm còn đổi.
+const pathCache = new WeakMap();
+function strokeRuns(st) {
+    let runs = pathCache.get(st);
+    if (runs) return runs;
+    const p = st.p, n = p.length / 3;
+    runs = [];
+    if (st.t === 'hl') {
+        const P = new Path2D();
+        P.moveTo(p[0], p[1]);
+        for (let k = 1; k < n; k++) P.quadraticCurveTo(p[k * 3 - 3], p[k * 3 - 2], (p[k * 3 - 3] + p[k * 3]) / 2, (p[k * 3 - 2] + p[k * 3 + 1]) / 2);
+        P.lineTo(p[n * 3 - 3], p[n * 3 - 2] + (n === 1 ? 0.01 : 0));
+        runs.push({ w: st.w, P });
+    } else {
+        let cur = null;
+        for (let k = 1; k < n; k++) {
+            const i = (k - 1) * 3, x0 = p[i], y0 = p[i + 1], mx = (x0 + p[i + 3]) / 2, my = (y0 + p[i + 4]) / 2;
+            const wk = Math.round(widthAt(st, k - 1) * 4) / 4;
+            if (!cur || cur.w !== wk) {
+                cur = { w: wk, P: new Path2D() }; runs.push(cur);
+                if (k === 1) cur.P.moveTo(x0, y0); else cur.P.moveTo((p[i - 3] + x0) / 2, (p[i - 2] + y0) / 2);
+            }
+            if (k === 1) cur.P.lineTo(mx, my); else cur.P.quadraticCurveTo(x0, y0, mx, my);
+        }
+    }
+    pathCache.set(st, runs);
+    return runs;
+}
+function drawCommitted(ctx, st) {
+    if (st.t === 'tx') { drawText(ctx, st); return; }
+    setStyle(ctx, st);
+    const runs = strokeRuns(st);
+    if (st.t === 'hl') { ctx.save(); ctx.globalAlpha = 0.4; ctx.lineWidth = st.w; ctx.stroke(runs[0].P); ctx.restore(); return; }
+    for (const r of runs) { ctx.lineWidth = r.w; ctx.stroke(r.P); }
+    penTail(ctx, st);
+}
 // dạ quang nằm dưới mực, chữ gõ nằm trên cùng
 function drawAll(ctx, s, skip = -1) {
-    s.forEach((st, i) => { if (i !== skip && st.t === 'hl') drawStroke(ctx, st); });
-    s.forEach((st, i) => { if (i !== skip && st.t === 'pen') drawStroke(ctx, st); });
-    s.forEach((st, i) => { if (i !== skip && st.t === 'tx') drawStroke(ctx, st); });
+    s.forEach((st, i) => { if (i !== skip && st.t === 'hl') drawCommitted(ctx, st); });
+    s.forEach((st, i) => { if (i !== skip && st.t === 'pen') drawCommitted(ctx, st); });
+    s.forEach((st, i) => { if (i !== skip && st.t === 'tx') drawCommitted(ctx, st); });
 }
 // Giấy kẻ theo khung nhìn v (đơn vị = px của ctx): ô 22 · dòng 28 · chấm 20, cộng vạch lề hồng như vở
 function drawPaper(ctx, v, w, h, kind = prefs.paper) {
@@ -627,12 +711,47 @@ function hoverDot(x, y) {
 function addPoint(ev) {
     const st = cur.st;
     let [x, y] = toPage(ev.clientX, ev.clientY, cur.rect);
-    x = Math.round(x * 10) / 10; y = Math.round(y * 10) / 10;
     const n = st.p.length / 3;
+    cur.rx = x; cur.ry = y;   // vị trí thật của ngòi — nhấc bút thì nối nốt tới đây
+    // Chống rung (kiểu "Pen stabilization" của GoodNotes): điểm mới chỉ đi theo ngòi một phần khi tay chậm (run, viết chữ nhỏ),
+    // đi nhanh thì bám sát ngòi (gần như không trễ). Mạnh = kéo về nhiều hơn.
+    if (n && prefs.stab && !cur.shape) {
+        const px = st.p[n * 3 - 3], py = st.p[n * 3 - 2], d = Math.hypot(x - px, y - py) * view().s;
+        const base = prefs.stab === 2 ? 0.3 : 0.55, a = Math.min(1, base + d / 36);
+        x = px + (x - px) * a; y = py + (y - py) * a;
+    }
+    x = Math.round(x * 10) / 10; y = Math.round(y * 10) / 10;
     if (n && Math.abs(st.p[n * 3 - 3] - x) < 0.6 && Math.abs(st.p[n * 3 - 2] - y) < 0.6) return false;   // bút 240Hz: bỏ điểm sát nhau (nét y hệt, lưu & vẽ lại nhẹ hơn)
     const pr = inkPressure(cur, ev, x, y, st);
     st.p.push(x, y, pr);
     return true;
+}
+
+// Rút gọn điểm lúc nhấc bút (Ramer–Douglas–Peucker 3 chiều: x, y, lực×6): bỏ điểm gần như thẳng hàng và cùng lực —
+// nét nhìn y hệt (lệch < eps px) nhưng ít điểm hơn hẳn -> lưu nhẹ, vẽ lại / tẩy / khoanh nhanh hơn. Giữ 4 điểm đầu (vuốt nhọn đầu nét).
+function simplify(p, eps) {
+    const n = p.length / 3;
+    if (n < 8) return p;
+    const keep = new Uint8Array(n), Z = 6, e2 = eps * eps, stack = [[0, n - 1]];
+    for (let i = 0; i < 4; i++) keep[i] = 1;
+    keep[n - 1] = 1;
+    while (stack.length) {
+        const [a, b] = stack.pop();
+        if (b - a < 2) continue;
+        const ax = p[a * 3], ay = p[a * 3 + 1], az = p[a * 3 + 2] * Z, dx = p[b * 3] - ax, dy = p[b * 3 + 1] - ay, dz = p[b * 3 + 2] * Z - az;
+        const L = dx * dx + dy * dy + dz * dz;
+        let far = -1, best = e2;
+        for (let i = a + 1; i < b; i++) {
+            const qx = p[i * 3] - ax, qy = p[i * 3 + 1] - ay, qz = p[i * 3 + 2] * Z - az;
+            const t = L ? clamp((qx * dx + qy * dy + qz * dz) / L, 0, 1) : 0;
+            const ex = qx - t * dx, ey = qy - t * dy, ez = qz - t * dz, d2 = ex * ex + ey * ey + ez * ez;
+            if (d2 > best) { best = d2; far = i; }
+        }
+        if (far >= 0) { keep[far] = 1; stack.push([a, far], [far, b]); }
+    }
+    const o = [];
+    for (let i = 0; i < n; i++) if (keep[i]) o.push(p[i * 3], p[i * 3 + 1], p[i * 3 + 2]);
+    return o;
 }
 
 /* ---------------------------------------------------------------- Tẩy */
@@ -647,9 +766,25 @@ function hitStroke(st, x, y, R) {
     }
     return false;
 }
+// Chèn điểm vào đoạn dài hơn `step` (nét vẽ nhanh có điểm cách xa nhau) — để tẩy từng phần cắt được cả giữa hai điểm thưa
+function fillGaps(p, step) {
+    const o = [];
+    for (let k = 0; k < p.length; k += 3) {
+        if (k) {
+            const ax = p[k - 3], ay = p[k - 2], d = Math.hypot(p[k] - ax, p[k + 1] - ay);
+            for (let j = 1; j * step < d; j++) {
+                const t = j * step / d;
+                o.push(Math.round((ax + (p[k] - ax) * t) * 10) / 10, Math.round((ay + (p[k + 1] - ay) * t) * 10) / 10, p[k - 1] + (p[k + 2] - p[k - 1]) * t);
+            }
+        }
+        o.push(p[k], p[k + 1], p[k + 2]);
+    }
+    return o;
+}
 // Tẩy từng phần: bỏ các điểm nằm trong vòng tẩy, phần còn lại tách thành các nét riêng. null = không chạm nét này
 function splitStroke(st, x, y, R) {
-    const p = st.p, rr = (R + st.w / 2) ** 2, runs = [];
+    if (!hitStroke(st, x, y, R)) return null;   // xét theo ĐOẠN nối, không chỉ điểm lấy mẫu
+    const p = fillGaps(st.p, Math.max(2, R / 2)), rr = (R + st.w / 2) ** 2, runs = [];
     let run = [], hit = false;
     for (let k = 0; k < p.length; k += 3) {
         const dx = p[k] - x, dy = p[k + 1] - y;
@@ -661,23 +796,80 @@ function splitStroke(st, x, y, R) {
     return runs.filter(r => r.length >= 6).map(r => ({ ...st, p: r }));
 }
 function inTextBox(st, x, y, R = 0) { const b = textBox(st); return x >= b.x - R && x <= b.x + b.w + R && y >= b.y - R && y <= b.y + b.h + R; }
-function eraseAt(x, y) {
-    const pg = page(), R = eraseR(), out = [];
-    let changed = false;
-    for (const st of pg.s) {
-        if (prefs.eraseHl && st.t !== 'hl') { out.push(st); continue; }
-        if (st.t === 'tx') { if (inTextBox(st, x, y, R)) changed = true; else out.push(st); continue; }
-        if (prefs.erase === 'part') {
-            const parts = splitStroke(st, x, y, R);
-            if (parts) { changed = true; out.push(...parts); } else out.push(st);
-            continue;
+// pts = mọi điểm (gộp) của MỘT lần di chuyển: xử lý hết rồi vẽ lại trang MỘT lần (trước đây mỗi điểm một lần -> tẩy giật)
+function eraseAt(pts) {
+    const pg = page(), R = eraseR();
+    let s = pg.s, changed = false;
+    for (const [x, y] of pts) {
+        const out = [];
+        let hit = false;
+        for (const st of s) {
+            if (prefs.eraseHl && st.t !== 'hl') { out.push(st); continue; }
+            if (st.t === 'tx') { if (inTextBox(st, x, y, R)) hit = true; else out.push(st); continue; }
+            const b = strokeBox(st);   // nét ở xa vòng tẩy: bỏ qua luôn, khỏi duyệt từng điểm (trang dày nét vẫn tẩy mượt)
+            if (x < b.x - R || x > b.x + b.w + R || y < b.y - R || y > b.y + b.h + R) { out.push(st); continue; }
+            if (prefs.erase === 'part') {
+                const parts = splitStroke(st, x, y, R);
+                if (parts) { hit = true; out.push(...parts); } else out.push(st);
+                continue;
+            }
+            if (hitStroke(st, x, y, R)) hit = true; else out.push(st);
         }
-        if (hitStroke(st, x, y, R)) changed = true; else out.push(st);
+        if (hit) { s = out; changed = true; }
     }
-    if (changed) { pg.s = out; redraw(); }
+    if (changed) { pg.s = s; redraw(); }
+    const [x, y] = pts[pts.length - 1];
     clearLive();
     lctx.save(); lctx.globalAlpha = 0.5; lctx.lineWidth = 1.5 / view().s; lctx.strokeStyle = pal.pen.ink;
     lctx.beginPath(); lctx.arc(x, y, R, 0, Math.PI * 2); lctx.stroke(); lctx.restore();
+}
+
+/* ---------------------------------------------------------------- Gạch xóa (kiểu GoodNotes "Scribble to Erase") */
+// Nét bút ngoằn ngoèo qua lại >= 4 lần trên một vùng gọn = cử chỉ gạch xóa. Đếm số lần ĐỔI CHIỀU theo trục x và y (có ngưỡng
+// chống rung tay), lấy trục nhiều hơn; thêm điều kiện đường đi dài gấp nhiều lần vùng bao (nét chữ thường không như vậy).
+function isScribble(p) {
+    const n = p.length / 3;
+    if (n < 10) return false;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, len = 0;
+    for (let k = 0; k < p.length; k += 3) {
+        x0 = Math.min(x0, p[k]); y0 = Math.min(y0, p[k + 1]); x1 = Math.max(x1, p[k]); y1 = Math.max(y1, p[k + 1]);
+        if (k) len += Math.hypot(p[k] - p[k - 3], p[k + 1] - p[k - 2]);
+    }
+    const W = x1 - x0, H = y1 - y0;
+    if (Math.max(W, H) < 12) return false;
+    const flips = (o, ext) => {
+        const thr = Math.max(5, ext * 0.3);
+        let dir = 0, extr = p[o], c = 0;
+        for (let k = o + 3; k < p.length; k += 3) {
+            const v = p[k];
+            if (dir >= 0 && v > extr) { extr = v; if (!dir && v - p[o] > thr) dir = 1; }
+            else if (dir <= 0 && v < extr) { extr = v; if (!dir && p[o] - v > thr) dir = -1; }
+            if (dir === 1 && extr - v > thr) { c++; dir = -1; extr = v; }
+            else if (dir === -1 && v - extr > thr) { c++; dir = 1; extr = v; }
+        }
+        return c;
+    };
+    // đếm theo trục DÀI của vết (gạch ngang qua chữ = qua lại theo x); trục ngắn chỉ tính khi vết gần vuông —
+    // để chữ viết liền kiểu "mm", "ww" (lên xuống nhiều nhưng dàn ngang) không bị nhầm là gạch xóa
+    const fx = flips(0, W), fy = flips(1, H), major = W >= H ? fx : fy, minor = W >= H ? fy : fx;
+    const zig = major >= 4 || (minor >= 4 && Math.min(W, H) >= 0.6 * Math.max(W, H));
+    return zig && len > 2.5 * Math.max(W, H);
+}
+// Nét nằm dưới vết gạch: phần lớn điểm (>= 60%) trong vùng vết gạch VÀ vết gạch thật sự đi qua nó. Trả chỉ số các nét đó.
+function scribbleVictims(sc, s) {
+    const b = strokeBox(sc), pad = 4, R = Math.max(4, sc.w * 1.5);
+    const inB = (x, y) => x >= b.x - pad && x <= b.x + b.w + pad && y >= b.y - pad && y <= b.y + b.h + pad;
+    const out = [];
+    s.forEach((st, i) => {
+        if (st.t === 'tx') { const t = textBox(st); if (inB(t.x + t.w / 2, t.y + t.h / 2) && t.w < b.w * 1.6 + 20) out.push(i); return; }
+        const sb = strokeBox(st);
+        if (sb.x > b.x + b.w + pad || sb.x + sb.w < b.x - pad || sb.y > b.y + b.h + pad || sb.y + sb.h < b.y - pad) return;
+        let n = 0, m = 0;
+        for (let k = 0; k < st.p.length; k += 3) { m++; if (inB(st.p[k], st.p[k + 1])) n++; }
+        if (!m || n / m < 0.6) return;
+        for (let k = 0; k < sc.p.length; k += 6) if (hitStroke(st, sc.p[k], sc.p[k + 1], R)) { out.push(i); return; }
+    });
+    return out;
 }
 
 /* ---------------------------------------------------------------- Nắn hình */
@@ -762,12 +954,18 @@ function recognize(p) {
 }
 
 /* ---------------------------------------------------------------- Khoanh chọn */
+// Nét đã ghi không bao giờ bị sửa tại chỗ (khoanh / kéo / đổi màu / tẩy đều tạo nét MỚI) -> khung bao tính một lần rồi nhớ
+const sBoxCache = new WeakMap();
 function strokeBox(st) {
     if (st.t === 'tx') return textBox(st);
+    let b = sBoxCache.get(st);
+    if (b) return b;
     const p = st.p, r = st.w / 2;
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (let k = 0; k < p.length; k += 3) { x0 = Math.min(x0, p[k]); y0 = Math.min(y0, p[k + 1]); x1 = Math.max(x1, p[k]); y1 = Math.max(y1, p[k + 1]); }
-    return { x: x0 - r, y: y0 - r, w: x1 - x0 + 2 * r, h: y1 - y0 + 2 * r };
+    b = { x: x0 - r, y: y0 - r, w: x1 - x0 + 2 * r, h: y1 - y0 + 2 * r };
+    sBoxCache.set(st, b);
+    return b;
 }
 function unionBox(list) {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -795,8 +993,14 @@ function drawSel() {
     lctx.beginPath(); lctx.rect(b.x - pad, b.y - pad, b.w + pad * 2, b.h + pad * 2); lctx.fill(); lctx.stroke();
     lctx.setLineDash([]); lctx.fillStyle = pal.paper; lctx.lineWidth = 2 / v.s;
     lctx.beginPath(); lctx.arc(b.x + b.w + pad, b.y + b.h + pad, 7 / v.s, 0, Math.PI * 2); lctx.fill(); lctx.stroke();
+    // tay nắm XOAY: chấm tròn trên mép trên, nối bằng que ngắn
+    const [hx, hy] = rotHandle(b);
+    lctx.beginPath(); lctx.moveTo(hx, b.y - pad); lctx.lineTo(hx, hy + 7 / v.s); lctx.stroke();
+    lctx.beginPath(); lctx.arc(hx, hy, 7 / v.s, 0, Math.PI * 2); lctx.fill(); lctx.stroke();
+    lctx.beginPath(); lctx.arc(hx, hy, 3.2 / v.s, -Math.PI * 0.9, Math.PI * 0.4); lctx.stroke();
     lctx.restore();
 }
+const rotHandle = (b) => { const v = view(); return [b.x + b.w / 2, b.y - 6 / v.s - 26 / v.s]; };
 function drawLasso() {
     clearLive();
     const p = lasso.p, v = view();
@@ -825,18 +1029,19 @@ function placeSelMenu() {
     selMenu.hidden = false;
     selMenu.querySelector('.qt-selc').style.background = colorOf({ t: 'pen', c: prefs.color });
     const mw = selMenu.offsetWidth, mh = selMenu.offsetHeight;
-    let top = (b.y - 6 / v.s) * v.s + v.y - mh - 10;
+    let top = (b.y - 6 / v.s) * v.s + v.y - mh - 10 - 40;   // chừa chỗ cho tay nắm xoay phía trên khung (cao ~ 40px)
     if (top < 6) top = (b.y + b.h + 6 / v.s) * v.s + v.y + 14;
     selMenu.style.top = Math.round(clamp(top, 6, Math.max(6, sheetH - mh - 6))) + 'px';
     selMenu.style.left = Math.round(clamp((b.x + b.w / 2) * v.s + v.x - mw / 2, 6, Math.max(6, sheetW - mw - 6))) + 'px';
 }
 function startLasso(e, rect, x, y) {
     if (sel) {
-        const b = sel.box, v = view(), pad = 6 / v.s;
-        const onHandle = Math.hypot(x - (b.x + b.w + pad), y - (b.y + b.h + pad)) <= 20 / v.s;
+        const b = sel.box, v = view(), pad = 6 / v.s, [hx, hy] = rotHandle(b);
+        const onRot = Math.hypot(x - hx, y - hy) <= 20 / v.s;
+        const onHandle = !onRot && Math.hypot(x - (b.x + b.w + pad), y - (b.y + b.h + pad)) <= 20 / v.s;
         const inBox = x >= b.x - pad && x <= b.x + b.w + pad && y >= b.y - pad && y <= b.y + b.h + pad;
-        if (onHandle || inBox) {
-            drag = { id: e.pointerId, rect, mode: onHandle ? 'scale' : 'move', x0: x, y0: y, before: page().s, box0: { ...b }, moved: false };
+        if (onRot || onHandle || inBox) {
+            drag = { id: e.pointerId, rect, mode: onRot ? 'rot' : onHandle ? 'scale' : 'move', x0: x, y0: y, before: page().s, box0: { ...b }, moved: false };
             selMenu.hidden = true;
             return;
         }
@@ -848,7 +1053,15 @@ function endLasso() {
     const poly = lasso.p;
     lasso = null;
     clearLive();
-    if (poly.length < 8) return;
+    if (poly.length < 8) {
+        // CHẠM (không khoanh) vào một nét = chọn riêng nét đó (nét trên cùng), như GoodNotes
+        const [x, y] = poly, s = page().s, R = 10 / view().s;
+        for (let i = s.length - 1; i >= 0; i--) {
+            const st = s[i];
+            if (st.t === 'tx' ? inTextBox(st, x, y, R) : hitStroke(st, x, y, R)) { setSel([i]); buzz(8); return; }
+        }
+        return;
+    }
     const idx = [];
     page().s.forEach((st, i) => {
         if (st.t === 'tx') { const b = textBox(st); if (inPoly(poly, b.x + b.w / 2, b.y + b.h / 2)) idx.push(i); return; }
@@ -864,7 +1077,15 @@ function moveDrag(x, y) {
     d.moved = true;
     let fn, f = 1;
     if (d.mode === 'move') { const dx = x - d.x0, dy = y - d.y0; fn = (px, py) => [px + dx, py + dy]; }
-    else {
+    else if (d.mode === 'rot') {
+        // xoay quanh tâm khung lúc bắt đầu; gần 0 / 90 / 180 / 270° (± 6°) thì hít vào cho thẳng
+        const cx = b.x + b.w / 2, cy = b.y + b.h / 2, Q = Math.PI / 2;
+        let a = Math.atan2(y - cy, x - cx) - Math.atan2(d.y0 - cy, d.x0 - cx);
+        const near = Math.round(a / Q) * Q;
+        if (Math.abs(a - near) < 0.105) a = near;
+        const co = Math.cos(a), si = Math.sin(a);
+        fn = (px, py) => [cx + (px - cx) * co - (py - cy) * si, cy + (px - cx) * si + (py - cy) * co];
+    } else {
         f = clamp(Math.hypot(x - b.x, y - b.y) / (Math.hypot(b.w, b.h) || 1), 0.15, 8);
         fn = (px, py) => [b.x + (px - b.x) * f, b.y + (py - b.y) * f];
     }
@@ -889,7 +1110,32 @@ function selAction(act) {
         commit([...s, ...clones]);
         setSel(clones.map((_, j) => s.length + j));
     } else if (act === 'color') { commit(s.map((st, i) => (set.has(i) ? { ...st, c: prefs.color } : st))); setSel(sel.idx); }
+    else if (act === 'copy') { clip = sel.idx.map(i => s[i]); syncScratchBar(); buzz(); flashMsg('Đã chép — mở câu khác rồi bấm Dán'); return; }
     redraw(); placeSelMenu(); buzz();
+}
+// Chép / Dán (kiểu GoodNotes): bộ nhớ tạm trong trang, dán được sang trang nháp của câu khác
+let clip = null;
+function pasteClip() {
+    if (!clip || !clip.length || pageKey === null) return;
+    finishText();
+    const s = page().s, v = view(), b = unionBox(clip);
+    // đặt giữa khung đang nhìn; dán lại đúng trang cũ thì lệch chéo một chút cho khỏi chồng khít lên bản gốc
+    let dx = (sheetW / 2 - v.x) / v.s - (b.x + b.w / 2), dy = (sheetH / 2 - v.y) / v.s - (b.y + b.h / 2);
+    if (clip.some(st => s.includes(st))) { dx = 18 / v.s; dy = 18 / v.s; }
+    const clones = clip.map(st => mapStroke(st, (x, y) => [x + dx, y + dy]));
+    commit([...s, ...clones]);
+    setTool('lasso');
+    setSel(clones.map((_, j) => s.length + j));
+    redraw(); placeSelMenu(); buzz();
+    ls.set('quiz_scratch_prefs', JSON.stringify(prefs)); syncScratchBar();
+}
+// thông báo ngắn trên giấy (dùng lại chip thu phóng thì rối) — tự tắt sau 1,6 s
+let flashT = 0;
+function flashMsg(t) {
+    let m = sheet.querySelector('.qt-msg');
+    if (!m) { m = document.createElement('div'); m.className = 'qt-msg'; m.setAttribute('role', 'status'); sheet.appendChild(m); }
+    m.textContent = t; m.hidden = false;
+    clearTimeout(flashT); flashT = setTimeout(() => { m.hidden = true; }, 1600);
 }
 
 /* ---------------------------------------------------------------- Gõ chữ */
@@ -994,15 +1240,27 @@ function exportPage() {
     } else download();
 }
 
+// Đổi công cụ — mỗi công cụ NHỚ màu + cỡ riêng như GoodNotes (bút mực đen nét mảnh, dạ quang vàng nét to, tẩy cỡ lớn…)
+function setTool(t) {
+    if (prefs.pen === t || !TOOLS_PEN.includes(t)) return;
+    prefs.tool[prefs.pen] = { color: prefs.color, size: prefs.size };
+    if (t === 'erase') prefs.back = prefs.pen;
+    prefs.pen = t;
+    const m = prefs.tool[t];
+    if (m && (HEX.test(m.color) || PEN_VAR[m.color]) && [0, 1, 2].includes(m.size)) { prefs.color = m.color; prefs.size = m.size; }
+}
+
 /* ---------------------------------------------------------------- Hàng tùy chọn của công cụ đang cầm */
 const segOpt = (key, items) => `<div class="qt-seg" role="group">${items.map(([v, l]) => `<button type="button" data-opt="${key}" data-val="${v}" aria-pressed="${String(prefs[key]) === String(v)}">${l}</button>`).join('')}</div>`;
 const chipOpt = (key, label) => `<button type="button" class="qt-chip" data-opt="${key}" data-val="toggle" aria-pressed="${!!prefs[key]}">${label}</button>`;
 const hintOpt = (ico, html) => `<span class="qt-hint"><i class="fas ${ico}" aria-hidden="true"></i>${html}</span>`;
 const OPTS = {
-    pen: () => segOpt('kind', [['fountain', 'Bút máy'], ['ball', 'Bút bi'], ['brush', 'Bút lông']]) + hintOpt('fa-hand', 'Vẽ xong <b>giữ yên bút</b> = tự nắn thành hình'),
+    pen: () => segOpt('kind', [['fountain', 'Bút máy'], ['ball', 'Bút bi'], ['brush', 'Bút lông']])
+        + `<span class="qt-hint qt-lbl">Chống rung</span>` + segOpt('stab', [[0, 'Tắt'], [1, 'Vừa'], [2, 'Mạnh']]) + chipOpt('scribble', 'Gạch xóa')
+        + hintOpt('fa-hand', 'Vẽ xong <b>giữ yên bút</b> = nắn thành hình · <b>gạch qua lại</b> đè lên chữ = xóa'),
     hl: () => segOpt('hlLine', [[0, 'Tự do'], [1, 'Kẻ thẳng']]) + hintOpt('fa-hand', 'Giữ yên cuối nét = nắn thẳng'),
-    erase: () => segOpt('erase', [['stroke', 'Cả nét'], ['part', 'Từng phần']]) + chipOpt('eraseHl', 'Chỉ tẩy dạ quang'),
-    lasso: () => hintOpt('fa-hand-pointer','Khoanh quanh nét → kéo để <b>dời</b>, kéo chấm góc để <b>phóng to / thu nhỏ</b>, chạm màu để <b>đổi màu</b>'),
+    erase: () => segOpt('erase', [['stroke', 'Cả nét'], ['part', 'Từng phần']]) + chipOpt('eraseHl', 'Chỉ tẩy dạ quang') + chipOpt('eraseBack', 'Tẩy xong về bút'),
+    lasso: () => hintOpt('fa-hand-pointer','Khoanh quanh nét hoặc <b>chạm vào một nét</b> → kéo để <b>dời</b>, chấm góc = <b>phóng to / thu nhỏ</b>, chấm trên = <b>xoay</b>'),
     shape: () => hintOpt('fa-wand-magic-sparkles','Vẽ tròn, vuông, tam giác, mũi tên, đường thẳng — tự nắn thẳng thớm'),
     text: () => hintOpt('fa-keyboard', 'Chạm vào giấy để gõ · chạm chữ cũ để sửa · cỡ chữ = nút cỡ nét'),
     laser: () => hintOpt('fa-wand-magic-sparkles', 'Vẽ là sáng lên rồi tự mờ — để chỉ, không lưu lại'),
@@ -1031,8 +1289,55 @@ function setupScratch() {
     const isEraserTip = (e) => e.pointerType === 'pen' && (e.buttons & 32);   // đầu tẩy của bút Surface/Wacom
     // Cử chỉ kiểu GoodNotes: chạm NHANH 2 ngón = hoàn tác, 3 ngón = làm lại; chụm / kéo 2 ngón = thu phóng / dời trang
     const touches = new Map();   // pointerId -> { sx, sy, x, y }
-    let gest = null, firstTouchAt = 0, pinch = null, viewRaf = 0;
-    const queueView = () => { if (!viewRaf) viewRaf = requestAnimationFrame(() => { viewRaf = 0; redraw(); placeSelMenu(); }); };
+    let gest = null, firstTouchAt = 0, pinch = null, viewRaf = 0, hlRaf = 0, resizeDue = false;
+    const queueView = () => {
+        if (!viewRaf) viewRaf = requestAnimationFrame(() => { viewRaf = 0; if (pinch) { pinch.css = true; cssView(pinch.v0); } else { redraw(); placeSelMenu(); } });
+    };
+    // Dạ quang: lớp tạm vẽ lại cả nét -> tối đa MỘT lần mỗi khung hình (bút 240Hz bắn 4 sự kiện / khung)
+    const queueHl = () => {
+        if (!hlRaf) hlRaf = requestAnimationFrame(() => { hlRaf = 0; if (cur && cur.st.t === 'hl' && !cur.snap && !cur.line) { clearLive(); setStyle(lctx, cur.st); hlPath(lctx, cur.st); } });
+    };
+    const opId = () => { const o = cur || erasing || lasso || drag || tap || laz; return o ? o.id : null; };
+    // Đầu bút "đuổi kịp" (kiểu GoodNotes): mực thật chỉ vẽ tới TRUNG ĐIỂM đoạn cuối (đường cong cần điểm kế) -> lớp tạm nối nốt tới
+    // điểm cuối + vài điểm trình duyệt DỰ ĐOÁN bút sắp tới. Nét bám sát ngòi hơn hẳn; lần di chuyển sau xóa đi vẽ lại.
+    const drawLead = (e) => {
+        const st = cur.st, p = st.p, n = p.length / 3;
+        clearCtx(lctx);
+        if (n < 2) return;
+        const i = (n - 2) * 3;
+        setStyle(lctx, st); lctx.lineWidth = widthAt(st, n - 1);
+        lctx.beginPath(); lctx.moveTo((p[i] + p[i + 3]) / 2, (p[i + 1] + p[i + 4]) / 2); lctx.lineTo(p[i + 3], p[i + 4]);
+        const pred = (e.getPredictedEvents && e.getPredictedEvents()) || [];
+        for (const ev of pred.slice(0, 3)) { const [x, y] = toPage(ev.clientX, ev.clientY, cur.rect); lctx.lineTo(x, y); }
+        lctx.stroke();
+    };
+    // Chống tì tay: lúc bút đang chạm giấy và ~0,35 s sau khi nhấc bút, ngón tay / mép bàn tay không vẽ (dù đã bật vẽ bằng ngón)
+    let penDown = false, penUpAt = 0;
+    const palmGuard = () => penDown || performance.now() - penUpAt < 350;
+    // nhấc bút ở BẤT KỲ đâu (kể cả trượt ra ngoài giấy) mới tính là nhấc — không thì ngón tay bị chặn mãi
+    ['pointerup', 'pointercancel'].forEach(t => document.addEventListener(t, (e) => { if (e.pointerType === 'pen' && penDown) { penDown = false; penUpAt = performance.now(); } }, true));
+    // Thu phóng / dời trang bằng 2 ngón: KHÔNG vẽ lại cả trang mỗi khung hình — phóng / dời luôn ảnh đã vẽ bằng GPU (transform CSS),
+    // buông tay mới vẽ lại sắc nét theo khung nhìn mới. Trang dày nét vẫn chụm mượt.
+    const cssView = (v0) => {
+        const v = view(), k = v.s / v0.s, t = `translate(${v.x - k * v0.x}px, ${v.y - k * v0.y}px) scale(${k})`;
+        [paper, ink, live].forEach(c => { c.style.transform = t; });
+        selMenu.hidden = true; syncZoom();
+    };
+    const stopPinch = () => {
+        if (!pinch) return;
+        const { css, v0 } = pinch, v = view();
+        pinch = null;
+        if (viewRaf) { cancelAnimationFrame(viewRaf); viewRaf = 0; }
+        // buông tay gần 100% (± 8%) thì hít về đúng 100%, giữ nguyên chỗ đang nhìn (giữa khung); gần mép gốc thì về hẳn gốc
+        if (v.s !== 1 && Math.abs(v.s - 1) < 0.08) {
+            const cx = sheetW / 2, cy = sheetH / 2;
+            v.x = cx - (cx - v.x) / v.s; v.y = cy - (cy - v.y) / v.s; v.s = 1;
+            if (Math.abs(v.x) < 24 && Math.abs(v.y) < 24) { v.x = 0; v.y = 0; }
+            buzz(8);
+        }
+        // vẽ lại cả khi chụm quá nhanh, chưa kịp tới khung hình nào (khung nhìn đã đổi mà ảnh chưa)
+        if (css || v.s !== v0.s || v.x !== v0.x || v.y !== v0.y) { [paper, ink, live].forEach(c => { c.style.transform = ''; }); redraw(); placeSelMenu(); }
+    };
     const startPinch = () => {
         const [a, b] = [...touches.values()], r = sheet.getBoundingClientRect(), v = view();
         pinch = { r, v0: { ...v }, d0: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), m0: [(a.x + b.x) / 2 - r.left, (a.y + b.y) / 2 - r.top] };
@@ -1063,20 +1368,28 @@ function setupScratch() {
     sheet.addEventListener('pointerdown', (e) => {
         if (e.target.closest(UI)) return;
         if (e.pointerType === 'touch') {
+            // Chống tì tay theo CỠ vùng chạm: máy đã thấy bút mà vùng chạm to (> 50px) = lòng / mép bàn tay -> bỏ hẳn, kể cả khỏi cử chỉ
+            if (penSeen && Math.max(e.width || 0, e.height || 0) > 50) return;
             if (!touches.size) firstTouchAt = performance.now();
             touches.set(e.pointerId, { sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY });
             if (touches.size >= 2) {
+                // Bút / chuột đang viết: lòng bàn tay, ngón tay chạm thêm KHÔNG thành cử chỉ (trước đây trang bị dời / phóng ngay giữa nét)
+                const own = opId();
+                if (own !== null && !touches.has(own)) return;
                 if (!gest) gest = { n: 0, t0: firstTouchAt, moved: false };
                 gest.n = Math.max(gest.n, touches.size);
                 // ngón thứ hai chạm ngay sau ngón đầu: nét ngón đầu vừa bắt đầu là một phần của cử chỉ -> bỏ nét đó
                 if (cur && cur.touch && (performance.now() - cur.t0 < 260 || cur.st.p.length < 36)) cancelCur();
                 if (lasso && lasso.touch) { lasso = null; clearLive(); }
-                if (touches.size === 2) { finishText(); startPinch(); } else pinch = null;
+                // Việc ngón đầu đang làm (nét dài, tẩy, kéo phần khoanh…) chốt lại luôn: trước đây nó treo -> giấy nháp "đơ", không vẽ được nữa
+                if (own !== null && busy()) finishOp({ pointerId: own, type: 'pointercancel', clientX: 0, clientY: 0 });
+                stopPinch();
+                if (touches.size === 2) { finishText(); startPinch(); }
                 return;
             }
         }
-        if (e.pointerType === 'pen') { if (!penSeen) { penSeen = true; ls.set('quiz_scratch_pen', '1'); syncScratchBar(); } }
-        else if (e.pointerType === 'touch' && !fingerOn()) return;   // tì tay khi viết bằng bút
+        if (e.pointerType === 'pen') { penDown = true; if (!penSeen) { penSeen = true; ls.set('quiz_scratch_pen', '1'); syncScratchBar(); } }
+        else if (e.pointerType === 'touch' && (!fingerOn() || palmGuard())) return;   // tì tay khi viết bằng bút
         if (e.pointerType === 'mouse' && e.button !== 0) return;
         if (busy() || pageKey === null) return;                       // đang có một nét khác (ngón thứ hai, lòng bàn tay...)
         finishText();
@@ -1086,8 +1399,8 @@ function setupScratch() {
         const [x, y] = toPage(e.clientX, e.clientY, rect);
         if (prefs.pen === 'erase' || isEraserTip(e)) {
             clearSel();
-            erasing = { id: e.pointerId, rect, before: page().s };
-            eraseAt(x, y);
+            erasing = { id: e.pointerId, rect, before: page().s, last: [x, y] };
+            eraseAt([[x, y]]);
             return;
         }
         if (prefs.pen === 'lasso') { startLasso(e, rect, x, y); if (lasso) lasso.touch = e.pointerType === 'touch'; return; }
@@ -1103,6 +1416,7 @@ function setupScratch() {
         addPoint(e);
         setStyle(t === 'hl' ? lctx : ictx, cur.st);
         if (t === 'hl') { clearLive(); setStyle(lctx, cur.st); hlPath(lctx, cur.st); }
+        else if (!cur.shape) penTail(ictx, cur.st);   // chấm mực hiện NGAY lúc đặt bút (trước đây chỉ hiện khi nhấc bút / bắt đầu kéo)
         if (!cur.shape) armSnap(e.clientX, e.clientY);
     });
     let hoverRect = null;
@@ -1121,7 +1435,19 @@ function setupScratch() {
         }
         const evs = (e.getCoalescedEvents && e.getCoalescedEvents()) || [];
         const all = evs.length ? evs : [e];
-        if (erasing && e.pointerId === erasing.id) { all.forEach(ev => eraseAt(...toPage(ev.clientX, ev.clientY, erasing.rect))); return; }
+        if (erasing && e.pointerId === erasing.id) {
+            // Tẩy liền mạch: lấp đầy quãng giữa hai lần báo vị trí — quẹt nhanh không còn "nhảy cóc" qua nét
+            const pts = [], step = Math.max(2, eraseR() / 2);
+            let [lx, ly] = erasing.last;
+            for (const ev of all) {
+                const [x, y] = toPage(ev.clientX, ev.clientY, erasing.rect), d = Math.hypot(x - lx, y - ly);
+                for (let j = 1; j * step < d; j++) pts.push([lx + (x - lx) * j * step / d, ly + (y - ly) * j * step / d]);
+                pts.push([x, y]); lx = x; ly = y;
+            }
+            erasing.last = [lx, ly];
+            eraseAt(pts);
+            return;
+        }
         if (lasso && e.pointerId === lasso.id) {
             const [x, y] = toPage(e.clientX, e.clientY, lasso.rect), p = lasso.p;
             if (Math.hypot(x - p[p.length - 2], y - p[p.length - 1]) * view().s > 2) { p.push(x, y); drawLasso(); }
@@ -1142,24 +1468,32 @@ function setupScratch() {
         for (const ev of all) {
             if (addPoint(ev) && st.t === 'pen') penSeg(ictx, st, st.p.length / 3 - 1);   // vẽ ngay đoạn mới, không chờ khung hình
         }
-        if (st.t === 'hl') { clearLive(); setStyle(lctx, st); hlPath(lctx, st); }
+        if (st.t === 'hl') queueHl(); else drawLead(e);
     });
     sheet.addEventListener('pointerleave', () => { hoverRect = null; if (!busy() && !laserRaf) clearLive(); });
     const end = (e) => {
         if (touches.delete(e.pointerId) && gest) {
-            if (touches.size < 2) pinch = null;
+            if (touches.size < 2) stopPinch();
             if (!touches.size) {
                 const quick = !gest.moved && performance.now() - gest.t0 < 500, n = gest.n;
                 gest = null;
                 if (quick && (n === 2 ? undo() : redo())) buzz(10);
             }
-            return;
-        }
+        } else finishOp(e);
+        // khung đổi cỡ (xoay màn, kéo ngăn) lúc đang viết: bù lại ngay khi xong việc
+        if (resizeDue && !busy()) { resizeDue = false; fitSheet(); placeSelMenu(); }
+    };
+    function finishOp(e) {
         if (erasing && e.pointerId === erasing.id) {
             const pg = page(), before = erasing.before;
             erasing = null;
             clearLive();
             if (pg.s !== before) { const now = pg.s; pg.s = before; commit(now); }
+            // "Tẩy xong về bút" (GoodNotes: Auto-deselect): tẩy một nhát rồi tự cầm lại công cụ trước đó
+            if (prefs.eraseBack && prefs.pen === 'erase') {
+                setTool(TOOLS_PEN.includes(prefs.back) && prefs.back !== 'erase' ? prefs.back : 'pen');
+                ls.set('quiz_scratch_prefs', JSON.stringify(prefs)); syncScratchBar();
+            }
             return;
         }
         if (lasso && e.pointerId === lasso.id) { endLasso(); return; }
@@ -1175,11 +1509,27 @@ function setupScratch() {
         const c = cur, st = c.st;
         clearTimeout(c.holdT);
         cur = null;
+        const free = !c.snap && !c.line && !c.shape;
+        // chống rung để điểm cuối hơi trễ sau ngòi -> nối nốt tới đúng chỗ nhấc bút
+        if (free && prefs.stab && c.rx !== undefined) {
+            const n = st.p.length / 3, lx = st.p[n * 3 - 3], ly = st.p[n * 3 - 2];
+            if (Math.hypot(c.rx - lx, c.ry - ly) > 0.6) {
+                st.p.push(Math.round(c.rx * 10) / 10, Math.round(c.ry * 10) / 10, st.p[n * 3 - 1]);
+                if (st.t === 'pen') { setStyle(ictx, st); penSeg(ictx, st, n); }
+            }
+        }
+        // Gạch xóa: vết ngoằn ngoèo đè lên nét cũ -> xóa các nét bên dưới + chính vết gạch (một bước, hoàn tác được).
+        // Không đè lên gì thì giữ như nét thường (có khi người dùng cố ý vẽ zíc zắc).
+        if (st.t === 'pen' && prefs.pen === 'pen' && prefs.scribble && !c.snap && !c.shape && isScribble(st.p)) {
+            const s = page().s, gone = new Set(scribbleVictims(st, s));
+            if (gone.size) { clearLive(); commit(s.filter((_, i) => !gone.has(i))); redraw(); buzz(18); return; }
+        }
         if (!c.snap && c.shape) { const q = recognize(st.p); if (q) st.p = q.p; }
-        else if (!c.snap && !c.line && st.t === 'pen') penTail(ictx, st);
+        else if (!c.snap && !c.line && st.t === 'pen') { clearLive(); penTail(ictx, st); }   // bỏ đầu bút tạm, mực thật vẽ nốt
+        if (free) st.p = simplify(st.p, 0.35 / view().s);   // mực trên màn đã vẽ từ điểm đầy đủ; bản lưu gọn hơn
         commit([...page().s, st]);
         if (st.t === 'hl' || c.snap || c.shape) redraw();   // dạ quang từ lớp tạm về đúng chỗ (dưới mực) · hình đã nắn vẽ lại sạch
-    };
+    }
     sheet.addEventListener('pointerup', end);
     sheet.addEventListener('pointercancel', end);
     sheet.addEventListener('lostpointercapture', end);
@@ -1200,7 +1550,28 @@ function setupScratch() {
     }, { passive: false });
     zoomChip.addEventListener('click', () => { resetView(); buzz(); });
     selMenu.addEventListener('click', (e) => { const b = e.target.closest('[data-sel]'); if (b) selAction(b.dataset.sel); });
+    // Giữ nút hoàn tác / làm lại = lùi / tiến liên tục (~9 bước / giây) cho tới khi nhả tay
+    let repT = 0, repeated = false;
+    const stopRep = () => { clearTimeout(repT); clearInterval(repT); repT = 0; };
+    scratchEl.querySelectorAll('[data-act="undo"], [data-act="redo"]').forEach(b => {
+        b.addEventListener('pointerdown', () => {
+            stopRep(); repeated = false;
+            repT = setTimeout(() => {
+                repeated = true;
+                const step = () => { if ((b.dataset.act === 'undo' ? undo() : redo())) buzz(4); else stopRep(); };
+                step(); repT = setInterval(step, 110);
+            }, 420);
+        });
+        ['pointerup', 'pointerleave', 'pointercancel'].forEach(t => b.addEventListener(t, stopRep));
+    });
     document.addEventListener('keydown', (e) => {
+        // Ctrl / ⌘ + C / V: chép phần đã khoanh, dán (kể cả sang câu khác)
+        if ((e.ctrlKey || e.metaKey) && !e.altKey && !typing() && !scratchEl.hidden) {
+            const k = e.key.toLowerCase();
+            const textSel = String(window.getSelection ? window.getSelection() : '').length > 0;   // đang bôi đen chữ trên trang -> để trình duyệt chép chữ
+            if (k === 'c' && sel && !textSel) { e.preventDefault(); selAction('copy'); return; }
+            if (k === 'v' && clip && clip.length) { e.preventDefault(); pasteClip(); return; }
+        }
         if (!sel || typing() || scratchEl.hidden) return;
         if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); selAction('del'); }
         else if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); clearSel(); }
@@ -1215,8 +1586,8 @@ function setupScratch() {
         pickColor(c);
     });
     const pickColor = (c) => {
+        if (prefs.pen === 'erase' || prefs.pen === 'laser') setTool('pen');
         prefs.color = c;
-        if (prefs.pen === 'erase' || prefs.pen === 'laser') prefs.pen = 'pen';
         if (sel) selAction('color');
         buzz();
         ls.set('quiz_scratch_prefs', JSON.stringify(prefs));
@@ -1231,7 +1602,7 @@ function setupScratch() {
             const t = b.dataset.pen;
             if (prefs.pen === t) optsOpen = !optsOpen;   // chạm lại công cụ đang cầm = mở / đóng tùy chọn của nó
             else {
-                prefs.pen = t;
+                setTool(t);
                 if (!prefs.seen[t]) { prefs.seen[t] = 1; optsOpen = true; }   // lần đầu cầm công cụ: hiện luôn cách dùng
             }
             if (t !== 'lasso') clearSel();
@@ -1239,13 +1610,16 @@ function setupScratch() {
         } else if (b.dataset.color) { pickColor(b.dataset.color); return; }
         else if (b.dataset.opt) {
             const k = b.dataset.opt, v = b.dataset.val;
-            prefs[k] = v === 'toggle' ? !prefs[k] : (k === 'hlLine' ? +v : v);
+            prefs[k] = v === 'toggle' ? !prefs[k] : (k === 'hlLine' || k === 'stab' ? +v : v);
         }
         else if (b.dataset.size) prefs.size = +b.dataset.size;
         else if (b.dataset.act === 'paper') { prefs.paper = PAPERS[(PAPERS.indexOf(prefs.paper) + 1) % PAPERS.length]; redraw(); }
         else if (b.dataset.act === 'finger') ls.set('quiz_scratch_finger', fingerOn() ? '0' : '1');
-        else if (b.dataset.act === 'undo') undo();
-        else if (b.dataset.act === 'redo') redo();
+        else if (b.dataset.act === 'undo' || b.dataset.act === 'redo') {
+            if (repeated) { repeated = false; return; }   // vừa giữ-lặp xong: cú "click" lúc nhả tay không tính thêm một bước
+            if (b.dataset.act === 'undo') undo(); else redo();
+        }
+        else if (b.dataset.act === 'paste') { pasteClip(); return; }
         else if (b.dataset.act === 'clear' && pg && pg.s.length) { finishText(); clearSel(); commit([]); redraw(); }
         else if (b.dataset.act === 'export') { exportPage(); return; }
         else if (b.dataset.act === 'max') {
@@ -1257,7 +1631,7 @@ function setupScratch() {
         ls.set('quiz_scratch_prefs', JSON.stringify(prefs));
         syncScratchBar();
     });
-    new ResizeObserver(() => { if (!busy()) { fitSheet(); placeSelMenu(); } }).observe(sheet);
+    new ResizeObserver(() => { if (busy()) { resizeDue = true; return; } fitSheet(); placeSelMenu(); }).observe(sheet);
     // Đổi sáng / tối: đổi màu mực rồi vẽ lại
     let dark = document.documentElement.classList.contains('theme-dark');
     new MutationObserver(() => {
@@ -1300,6 +1674,7 @@ function syncScratchBar() {
     scratchEl.querySelector('[data-act="redo"]').disabled = !(pg && pg.redo.length);
     scratchEl.querySelector('[data-act="clear"]').disabled = !(pg && pg.s.length);
     scratchEl.querySelector('[data-act="export"]').disabled = !(pg && pg.s.length);
+    scratchEl.querySelector('[data-act="paste"]').hidden = !(clip && clip.length);
     sheet.classList.toggle('has-ink', !!(pg && pg.s.length) || !!cur || !!textEd);
     placeSelMenu();
 }

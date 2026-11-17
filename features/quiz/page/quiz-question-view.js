@@ -25,6 +25,13 @@ import { gradeSrsAnswer } from '../quiz-srs-store.js';
 import { isEssay, isPendingEssay } from '../quiz-essay-core.js';
 import { essayCardHtml, setupEssay, isEssayRevealed, caseRevealsHtml, noteCaseProgress, lockMcqIfNeeded } from './quiz-essay.js';
 import { reasoningCardHtml, revealReasoning } from './quiz-reasoning.js';
+// Icon giấy nháp — bản sao của SCRATCH_ICON (page/quiz-tools.js). CỐ Ý không import: offline mà cache lỡ có quiz-tools.js bản cũ
+// (thiếu export) thì cả trang làm bài chết trắng; chép 1 chuỗi SVG an toàn hơn.
+const SCRATCH_ICON = '<svg class="qt-scratch-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + '<path d="M13.5 2.5h-7a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-6"/>'
+    + '<path d="M2.5 7h4M2.5 12h4M2.5 17h4"/>'
+    + '<path d="M9 17.2c1.1-1.5 2-1.5 2.8 0s1.8 1.5 2.9 0"/>'
+    + '<path d="M20.6 3.4a1.5 1.5 0 0 0-2.1 0l-5.6 5.6-.7 2.8 2.8-.7 5.6-5.6a1.5 1.5 0 0 0 0-2.1z"/></svg>';
 
 // Câu vừa hiển thị trước đó — dùng để biết khi nào THỰC SỰ chuyển sang câu khác
 // (để cuộn lên đầu trang) so với khi chỉ vẽ lại cùng một câu (đổi cỡ chữ, ghi chú…).
@@ -521,7 +528,7 @@ export function showQuestion() {
                 <button type="button" id="listen-btn" class="q-tool-btn" title="Nghe đọc câu hỏi (phím R) · bấm giữ để đổi giọng" aria-label="Nghe đọc câu hỏi" aria-pressed="false"><i class="fas fa-volume-up"></i></button>
                 <button type="button" id="copy-q-btn" class="q-tool-btn" title="Sao chép câu hỏi + đáp án (phím K)" aria-label="Sao chép câu hỏi và đáp án"><i class="fas fa-copy"></i></button>
                 <button type="button" id="pen-btn" class="q-tool-btn" title="Bút tô nhanh — vuốt Apple Pencil / kéo chuột qua chữ là tô, ghi chú (phím J)" aria-label="Bút tô nhanh" aria-pressed="${document.body.classList.contains('qz-pen-on')}"><i class="fas fa-highlighter"></i></button>
-                <button type="button" id="scratch-btn" class="q-tool-btn" title="Giấy nháp — viết bằng Apple Pencil / bút / ngón tay (phím W)" aria-label="Giấy nháp" aria-pressed="false"><i class="fas fa-pencil"></i></button>
+                <button type="button" id="scratch-btn" class="q-tool-btn" title="Giấy nháp — viết bằng Apple Pencil / bút / ngón tay (phím W)" aria-label="Giấy nháp" aria-pressed="false">${SCRATCH_ICON}</button>
                 <button type="button" id="calc-btn" class="q-tool-btn" title="Máy tính + công thức y khoa (phím L)" aria-label="Máy tính" aria-pressed="false"><i class="fas fa-calculator"></i></button>
                 <button type="button" id="edit-question-btn" class="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border border-pink-300 text-[#FF69B4] bg-pink-50 hover:bg-pink-100 hover:text-pink-600 transition" title="Sửa đáp án, giải thích, ghi chú, mở rộng cho câu này" aria-label="Sửa câu hỏi">
                     <i class="fas fa-pen-to-square"></i>
