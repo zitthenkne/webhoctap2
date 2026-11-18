@@ -128,7 +128,7 @@ function buildDock() {
         </header>
         <div class="qt-pane" data-pane="calc">
             <div class="qt-brand" aria-hidden="true">
-                <span class="qt-model"><b>MEDI</b>CALC<small>SV-19</small></span>
+                <span class="qt-model"><b>medi</b>calc<i class="fas fa-heart"></i></span>
                 <span class="qt-dots"><i></i><i></i><i></i></span>
             </div>
             <div class="qt-lcd" title="Chạm vào máy tính rồi gõ phím được">

@@ -5718,17 +5718,17 @@ html.qt-bottom #qt-dock .qt-grip::after { width: 3rem; height: 6px; }
    Màu phím: số kem · hàm oải hương · phép tính đào · xóa hồng · khoa học xanh trời · bộ nhớ bạc hà · dấu = đào đặc. */
 #qt-calc {
     --sh: var(--hue-blossom);
-    --ol: color-mix(in srgb, var(--hue-blossom), var(--ink) 15%);   /* viền hồng pastel (không dùng màu mực cho nhẹ) */
+    --ol: color-mix(in srgb, var(--hue-blossom) 62%, var(--surface-card));   /* viền hồng phấn (nhạt, không pha mực) */
     --hi: transparent; --lo: transparent; --drop: transparent;   /* tab Công thức / Đơn vị dùng chung: 2D thì tắt bóng mờ */
     --body: color-mix(in srgb, var(--hue-blossom) 9%, var(--surface-card));
     position: fixed; z-index: 47; left: 0; top: 0; width: min(19.5rem, calc(100vw - 8px)); max-height: calc(100vh - 8px);
     background: radial-gradient(circle, color-mix(in srgb, var(--hue-blossom) 22%, transparent) 1.2px, transparent 1.7px) 0 0 / 12px 12px, var(--body);
     border: 2.5px solid var(--ol); border-radius: 1.8rem;
-    box-shadow: 0 5px 0 var(--ol);
+    box-shadow: 0 5px 0 var(--ol), 0 16px 30px -12px color-mix(in srgb, var(--hue-blossom) 55%, transparent);
     transition: rotate 0.2s var(--spring), scale 0.2s var(--spring), translate 0.2s var(--spring), box-shadow 0.2s ease;
     animation: qt-pop 0.34s var(--spring);
 }
-#qt-calc.is-drag { rotate: -2deg; scale: 1.03; translate: 0 -4px; box-shadow: 0 9px 0 var(--ol); }
+#qt-calc.is-drag { rotate: -2deg; scale: 1.03; translate: 0 -4px; box-shadow: 0 9px 0 var(--ol), 0 24px 36px -12px color-mix(in srgb, var(--hue-blossom) 55%, transparent); }
 /* tai mèo: chân tai đè lên viền thân cho liền nét */
 #qt-calc .qt-ear { position: absolute; top: -0.85rem; width: 1.6rem; height: 1.05rem; overflow: visible; pointer-events: none; }
 #qt-calc .qt-ear-l { left: 2.2rem; }
@@ -5740,7 +5740,7 @@ html.qt-bottom #qt-dock .qt-grip::after { width: 3rem; height: 6px; }
 /* thanh trên */
 #qt-calc .qt-head { cursor: grab; touch-action: none; gap: 0.3rem; padding: 0.5rem 0.5rem 0.45rem 0.35rem; border-bottom: 2px dashed color-mix(in srgb, var(--ol) 30%, transparent); }
 #qt-calc.is-drag .qt-head { cursor: grabbing; }
-#qt-calc .qt-grab { flex: none; display: grid; place-items: center; width: 1rem; font-size: 0.75rem; color: var(--ink-peach); opacity: 0.6; }
+#qt-calc .qt-grab { flex: none; display: grid; place-items: center; width: 1rem; font-size: 0.75rem; color: var(--ink-blossom); opacity: 0.5; }
 #qt-calc .qt-head :is(.qt-ib, .qt-x) {
     width: 2rem; height: 2rem; border: 2px solid var(--ol); background: var(--surface-card); color: var(--ink);
     box-shadow: 0 2.5px 0 var(--ol); transition: transform 0.08s ease, box-shadow 0.08s ease, color 0.15s ease;
@@ -5776,11 +5776,11 @@ html.qt-bottom #qt-dock .qt-grip::after { width: 3rem; height: 6px; }
 
 /* tên máy + 3 chấm kẹo */
 #qt-calc .qt-brand { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; height: 1.05rem; padding: 0 0.35rem; margin-bottom: -0.1rem; }
-#qt-calc .qt-model { font-size: 0.62rem; font-weight: 800; font-style: italic; letter-spacing: 0.16em; white-space: nowrap; color: var(--ink-muted); }
-#qt-calc .qt-model b { color: var(--ink-peach); }
-#qt-calc .qt-model small { margin-left: 0.45rem; font-size: 0.54rem; letter-spacing: 0.06em; font-style: normal; opacity: 0.75; }
+#qt-calc .qt-model { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.03em; white-space: nowrap; color: var(--ink-lav); }
+#qt-calc .qt-model b { font-weight: 700; color: var(--ink-blossom); }
+#qt-calc .qt-model i { margin-left: 0.2rem; font-size: 0.62rem; color: var(--hue-blossom); }
 #qt-calc .qt-dots { display: flex; gap: 0.28rem; }
-#qt-calc .qt-dots i { width: 0.62rem; height: 0.62rem; border-radius: 50%; border: 1.5px solid var(--ol); background: var(--hue-blossom); }
+#qt-calc .qt-dots i { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: var(--hue-blossom); opacity: 0.75; }
 #qt-calc .qt-dots i:nth-child(2) { background: var(--hue-butter); }
 #qt-calc .qt-dots i:nth-child(3) { background: var(--hue-mint); }
 
@@ -5789,9 +5789,9 @@ html.qt-bottom #qt-dock .qt-grip::after { width: 3rem; height: 6px; }
     --lcd: var(--hue-mint);
     position: relative; flex: none; display: flex; flex-direction: column; justify-content: flex-end; min-height: 6.6rem; overflow: hidden;
     margin: 0.15rem 0.1rem 0.2rem; padding: 0.42rem 0.75rem 0.5rem; text-align: right; border-radius: 1.1rem;
-    background: color-mix(in srgb, var(--lcd) 14%, var(--paper));
-    border: 2.5px solid color-mix(in srgb, var(--lcd), var(--ink) 12%);
-    box-shadow: inset 0 3px 0 color-mix(in srgb, var(--lcd) 22%, transparent);
+    background: color-mix(in srgb, var(--lcd) 11%, var(--paper));
+    border: 2px solid color-mix(in srgb, var(--lcd) 60%, var(--surface-card));
+    box-shadow: inset 0 3px 0 color-mix(in srgb, var(--lcd) 18%, transparent);
     transition: background-color 0.15s ease;
 }
 #qt-calc.is-hot .qt-lcd { background: color-mix(in srgb, var(--lcd) 22%, var(--paper)); }
@@ -5800,7 +5800,7 @@ html.qt-bottom #qt-dock .qt-grip::after { width: 3rem; height: 6px; }
 #qt-calc .qt-mem { background: var(--hue-mint); color: #1f4a3a; border: 1.5px solid var(--ol); animation: qt-num-pop 0.3s var(--spring); }
 #qt-calc .qt-deg { display: none; color: var(--ink-sky); border: 1.5px dashed currentColor; }
 #qt-calc.is-sci .qt-deg { display: inline-block; }
-#qt-calc .qt-kbd { margin-left: auto; font-size: 0.72rem; color: var(--ink-peach); opacity: 0; transition: opacity 0.15s ease; }
+#qt-calc .qt-kbd { margin-left: auto; font-size: 0.72rem; color: var(--ink-blossom); opacity: 0; transition: opacity 0.15s ease; }
 #qt-calc.is-hot .qt-kbd { opacity: 0.8; }
 
 /* bé mặt cười: data-mood = idle (chớp mắt) · happy (cười tít, nhảy lên) · oops (> <, lắc) · wink (nháy mắt) */
@@ -5828,13 +5828,13 @@ html.qt-bottom #qt-dock .qt-grip::after { width: 3rem; height: 6px; }
 #qt-calc .qt-last[data-v] { cursor: pointer; }
 #qt-calc .qt-last[data-v]:hover { background: color-mix(in srgb, var(--sh) 18%, transparent); }
 #qt-calc .qt-last b { color: var(--ink); }
-#qt-calc .qt-expr { overflow: hidden; white-space: nowrap; font-size: 1.95rem; font-weight: 800; line-height: 1.2; min-height: 1.2em; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; transform-origin: right center; }
-#qt-calc :is(.qt-lcd, .qt-hsheet) .op { padding: 0 0.05em; color: var(--ink-peach); }
+#qt-calc .qt-expr { overflow: hidden; white-space: nowrap; font-size: 1.95rem; font-weight: 700; line-height: 1.2; min-height: 1.2em; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; transform-origin: right center; }
+#qt-calc :is(.qt-lcd, .qt-hsheet) .op { padding: 0 0.05em; color: var(--ink-blossom); }
 #qt-calc .qt-zero { color: var(--ink-faint); }
 #qt-calc .qt-expr .ghost { color: var(--ink-faint); opacity: 0.75; }   /* ngoặc chưa đóng: máy tự đóng khi bấm = */
 #qt-calc .qt-expr.is-pop { animation: qt-num-pop 0.36s var(--spring); }
 #qt-calc .qt-res { min-height: 1.3em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.95rem; font-weight: 700; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
-#qt-calc .qt-res .qt-eq { color: var(--ink-peach); font-weight: 800; }
+#qt-calc .qt-res .qt-eq { color: var(--ink-blossom); font-weight: 700; }
 #qt-calc .qt-res.is-ok { color: var(--ok-ink); animation: qt-num-pop 0.3s var(--spring); }
 #qt-calc .qt-res.is-err { color: var(--bad-ink); }
 #qt-calc .qt-lcd.is-err { animation: qt-shake 0.36s ease; }
@@ -5843,7 +5843,7 @@ html.qt-bottom #qt-dock .qt-grip::after { width: 3rem; height: 6px; }
 #qt-calc .qt-kwrap { position: relative; flex: none; display: flex; flex-direction: column; gap: 0.55rem; }
 #qt-calc .qt-crow { display: flex; align-items: center; gap: 0.3rem; min-width: 0; padding-top: 0.1rem; }
 #qt-calc .qt-pill {
-    --pb: color-mix(in srgb, var(--hue-lav) 12%, var(--surface-card)); --pl: color-mix(in srgb, var(--hue-lav), var(--ink) 12%);
+    --pb: color-mix(in srgb, var(--hue-lav) 12%, var(--surface-card)); --pl: color-mix(in srgb, var(--hue-lav) 60%, var(--surface-card));
     flex: 0 1 auto; min-width: 0; overflow: hidden; display: inline-flex; align-items: center; gap: 0.28rem; height: 1.9rem; padding: 0 0.6rem; cursor: pointer; white-space: nowrap;
     border-radius: 999px; border: 2px solid var(--pl); background: var(--pb); box-shadow: 0 2.5px 0 var(--pl);
     font-size: 0.72rem; font-weight: 800; color: var(--ink-muted);
@@ -5857,29 +5857,29 @@ html.qt-bottom #qt-dock .qt-grip::after { width: 3rem; height: 6px; }
 #qt-calc .qt-pill:active:not(:disabled) { transform: translateY(2.5px); box-shadow: 0 0 0 var(--pl); }
 #qt-calc .qt-pill:disabled { opacity: 0.45; cursor: default; }
 #qt-calc .qt-pill[data-act="copy"] { margin-left: auto; color: var(--ink-lav); }
-#qt-calc .qt-pill[data-act="hist"] { --pb: color-mix(in srgb, var(--hue-peach) 12%, var(--surface-card)); --pl: color-mix(in srgb, var(--hue-peach), var(--ink) 12%); color: var(--ink-peach); }
-#qt-calc .qt-pill-sci { color: var(--ink-sky); --pb: color-mix(in srgb, var(--hue-sky) 14%, var(--surface-card)); --pl: color-mix(in srgb, var(--hue-sky), var(--ink) 12%); }
+#qt-calc .qt-pill[data-act="hist"] { --pb: color-mix(in srgb, var(--hue-blossom) 12%, var(--surface-card)); --pl: color-mix(in srgb, var(--hue-blossom) 60%, var(--surface-card)); color: var(--ink-blossom); }
+#qt-calc .qt-pill-sci { color: var(--ink-sky); --pb: color-mix(in srgb, var(--hue-sky) 14%, var(--surface-card)); --pl: color-mix(in srgb, var(--hue-sky) 60%, var(--surface-card)); }
 #qt-calc .qt-pill-sci:hover:not(:disabled) { color: var(--ink-sky); }
 /* nút bật (Khoa học / Lịch sử đang mở): lún xuống và tô đậm nền */
 #qt-calc .qt-pill-sci[aria-pressed="true"] { --pb: color-mix(in srgb, var(--hue-sky) 38%, var(--surface-card)); transform: translateY(1.5px); box-shadow: 0 1px 0 var(--pl); }
-#qt-calc .qt-pill[aria-expanded="true"] { --pb: color-mix(in srgb, var(--hue-peach) 36%, var(--surface-card)); transform: translateY(1.5px); box-shadow: 0 1px 0 var(--pl); }
+#qt-calc .qt-pill[aria-expanded="true"] { --pb: color-mix(in srgb, var(--hue-blossom) 30%, var(--surface-card)); transform: translateY(1.5px); box-shadow: 0 1px 0 var(--pl); }
 #qt-calc .qt-badge {
     display: inline-grid; place-items: center; min-width: 1.1rem; height: 1.1rem; padding: 0 0.28rem; border-radius: 999px;
-    background: var(--hue-peach); color: #fff; font-size: 0.6rem; font-weight: 800; line-height: 1;
+    background: var(--hue-blossom); color: #fff; font-size: 0.6rem; font-weight: 700; line-height: 1;
 }
 
 /* khay phím: ô màu phẳng viền mực, phím nằm trong */
 #qt-calc .qt-keys {
     display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.45rem 0.4rem; padding: 0.55rem 0.5rem 0.7rem; border-radius: 1.3rem;
-    background: color-mix(in srgb, var(--hue-lav) 9%, var(--surface-card)); border: 2px dashed color-mix(in srgb, var(--hue-lav) 55%, var(--surface-card));
+    background: color-mix(in srgb, var(--hue-lav) 7%, var(--surface-card)); border: 2px dashed color-mix(in srgb, var(--hue-lav) 40%, var(--surface-card));
 }
 /* phím sticker pastel: mỗi nhóm một màu (--h) — nền nhạt, viền + bóng cứng cùng màu đậm hơn chút; bấm = lún hẳn xuống.
    Vệt bóng nhỏ góc trên trái cho "bóng bẩy" mà vẫn 2D */
 #qt-calc .qt-keys button {
     --h: var(--hue-vanilla);
-    --kb: color-mix(in srgb, var(--h) 30%, var(--surface-card)); --kl: color-mix(in srgb, var(--h), var(--ink) 14%); --ki: var(--ink);
-    position: relative; height: 2.7rem; padding: 0; cursor: pointer; border-radius: 0.95rem; font-size: 1.2rem; font-weight: 800; color: var(--ki);
-    background: var(--kb); border: 2px solid var(--kl); box-shadow: 0 3.5px 0 var(--kl);
+    --kb: color-mix(in srgb, var(--h) 26%, var(--surface-card)); --kl: color-mix(in srgb, var(--h) 58%, var(--surface-card)); --ki: var(--ink);
+    position: relative; height: 2.7rem; padding: 0; cursor: pointer; border-radius: 999px; font-size: 1.2rem; font-weight: 700; color: var(--ki);
+    background: var(--kb); border: 1.5px solid var(--kl); box-shadow: 0 3.5px 0 var(--kl);
     transition: transform 0.07s ease, box-shadow 0.07s ease;
 }
 /* hàng số cầu vồng pastel: 789 hồng · 456 vàng bơ · 123 bạc hà · 0 . xanh trời (nền gần trắng, chỉ viền mang màu) */
@@ -5888,23 +5888,23 @@ html.qt-bottom #qt-dock .qt-grip::after { width: 3rem; height: 6px; }
 #qt-calc .qt-keys :is([data-k="4"], [data-k="5"], [data-k="6"]) { --h: var(--hue-butter); }
 #qt-calc .qt-keys :is([data-k="1"], [data-k="2"], [data-k="3"]) { --h: var(--hue-mint); }
 #qt-calc .qt-keys :is([data-k="0"], [data-k="."]) { --h: var(--hue-sky); }
-#qt-calc .qt-keys button::after { content: ""; position: absolute; top: 0.3rem; left: 0.36rem; width: 0.45rem; height: 0.22rem; border-radius: 999px; background: #fff; opacity: 0.75; rotate: -20deg; pointer-events: none; }
+#qt-calc .qt-keys button::after { content: ""; position: absolute; top: 0.32rem; left: 0.62rem; width: 0.45rem; height: 0.22rem; border-radius: 999px; background: #fff; opacity: 0.75; rotate: -20deg; pointer-events: none; }
 html.theme-dark #qt-calc .qt-keys button::after { opacity: 0.14; }
 #qt-calc .qt-keys button:active { transform: translateY(3.5px); box-shadow: 0 0 0 var(--kl); }
 @media (hover: hover) { #qt-calc .qt-keys button:hover { transform: translateY(-1px); box-shadow: 0 4.5px 0 var(--kl); } }
 #qt-calc .qt-keys button:focus-visible { outline: 3px solid color-mix(in srgb, var(--hue-sky) 75%, transparent); outline-offset: 2px; }
 #qt-calc .qt-keys .is-fn { --h: var(--hue-lav); --ki: var(--ink-lav); font-size: 1rem; }
-#qt-calc .qt-keys .is-op { --h: var(--hue-peach); --kb: color-mix(in srgb, var(--h) 34%, var(--surface-card)); --ki: var(--ink-peach); font-size: 1.35rem; }
-#qt-calc .qt-keys .is-ac { --h: var(--hue-blossom); --kb: color-mix(in srgb, var(--h) 40%, var(--surface-card)); --ki: var(--ink-blossom); font-size: 0.95rem; }
+#qt-calc .qt-keys .is-op { --h: var(--hue-peach); --ki: var(--ink-peach); font-size: 1.35rem; }
+#qt-calc .qt-keys .is-ac { --h: var(--hue-blossom); --kb: color-mix(in srgb, var(--h) 34%, var(--surface-card)); --ki: var(--ink-blossom); font-size: 0.95rem; }
 #qt-calc .qt-keys .is-del { --h: var(--hue-blossom); --kb: color-mix(in srgb, var(--h) 18%, var(--surface-card)); --ki: var(--ink-blossom); font-size: 1.05rem; }
 /* dấu bằng: viên kẹo hồng đặc, nổi bật nhất */
-#qt-calc .qt-keys .is-eq { --h: var(--hue-blossom); --kb: var(--hue-blossom); --ki: #fff; font-size: 1.6rem; text-shadow: 0 1.5px 0 color-mix(in srgb, var(--kl) 60%, transparent); }
+#qt-calc .qt-keys .is-eq { --h: var(--hue-blossom); --kb: color-mix(in srgb, var(--h) 82%, #fff); --kl: color-mix(in srgb, var(--h), var(--ink) 8%); --ki: #fff; font-size: 1.6rem; text-shadow: 0 1px 0 color-mix(in srgb, var(--ink) 18%, transparent); }
 /* hàng bộ nhớ (luôn hiện): viên bạc hà thấp, bóng mỏng hơn */
 #qt-calc .qt-keys .is-mem { --h: var(--hue-mint); --ki: var(--ink-mint); height: 2rem; border-radius: 999px; font-size: 0.78rem; box-shadow: 0 2.5px 0 var(--kl); }
 #qt-calc .qt-keys .is-mem::after { top: 0.24rem; left: 0.5rem; }
 #qt-calc .qt-keys .is-mem:active { transform: translateY(2.5px); box-shadow: 0 0 0 var(--kl); }
 /* 3 hàng khoa học (nút "Khoa học"): xanh trời, thấp hơn phím chính */
-#qt-calc .qt-keys .is-sci { display: none; --h: var(--hue-sky); --kb: color-mix(in srgb, var(--h) 24%, var(--surface-card)); --ki: var(--ink-sky); height: 2.25rem; border-radius: 0.8rem; font-size: 0.9rem; }
+#qt-calc .qt-keys .is-sci { display: none; --h: var(--hue-sky); --kb: color-mix(in srgb, var(--h) 22%, var(--surface-card)); --ki: var(--ink-sky); height: 2.25rem; font-size: 0.9rem; }
 #qt-calc.is-sci .qt-keys .is-sci { display: block; animation: qt-key-in 0.24s var(--spring) backwards; }
 #qt-calc.is-sci .qt-keys .is-sci:nth-child(n+6) { animation-delay: 0.03s; }
 #qt-calc.is-sci .qt-keys .is-sci:nth-child(n+11) { animation-delay: 0.06s; }
@@ -6064,7 +6064,7 @@ html.qt-bottom #qt-dock { padding-left: max(0.65rem, env(safe-area-inset-left, 0
     #qt-calc .qt-res { min-height: 0; }
     #qt-calc .qt-pill { height: 1.5rem; }
     #qt-calc .qt-keys { padding-block: 0.35rem 0.55rem; }
-    #qt-calc .qt-keys button { height: 2.1rem; border-radius: 0.8rem; }
+    #qt-calc .qt-keys button { height: 2.1rem; }
     #qt-calc .qt-keys :is(.is-sci, .is-mem) { height: 1.75rem; }
     #qt-calc .qt-head { padding-block: 0.3rem; }
 }
