@@ -113,6 +113,7 @@ function buildDock() {
     calcEl.hidden = true;
     calcEl.setAttribute('aria-label', 'Máy tính');
     calcEl.innerHTML = `
+        ${EAR('l')}${EAR('r')}
         <span class="washi-tape washi-butter qt-tape" aria-hidden="true"></span>
         <header class="qt-head qt-drag" title="Nắm thanh này để kéo máy tính đi chỗ khác · bấm đúp để về chỗ cũ">
             <span class="qt-grab" aria-hidden="true"><i class="fas fa-grip-lines"></i></span>
@@ -128,11 +129,13 @@ function buildDock() {
         <div class="qt-pane" data-pane="calc">
             <div class="qt-brand" aria-hidden="true">
                 <span class="qt-model"><b>MEDI</b>CALC<small>SV-19</small></span>
-                <span class="qt-solar"><i></i><i></i><i></i><i></i></span>
+                <span class="qt-dots"><i></i><i></i><i></i></span>
             </div>
             <div class="qt-lcd" title="Chạm vào máy tính rồi gõ phím được">
                 <div class="qt-lcd-top">
                     ${FACE_SVG}
+                    <b class="qt-mem" title="Bộ nhớ đang có số (MR để gọi)" hidden>M</b>
+                    <small class="qt-deg" title="sin / cos / tan tính theo độ">DEG</small>
                     <i class="fas fa-keyboard qt-kbd" title="Đang nhận phím từ bàn phím"></i>
                 </div>
                 <button type="button" class="qt-last" title="Bấm để dùng lại kết quả này" hidden></button>
@@ -141,7 +144,7 @@ function buildDock() {
             </div>
             <div class="qt-kwrap">
                 <div class="qt-crow">
-                    <button type="button" class="qt-pill qt-pill-sci" data-act="sci" aria-pressed="false" title="Hiện / ẩn hàng phím khoa học: ln, eˣ, π, x⁻¹, Ans"><i class="qt-fx" aria-hidden="true">f(x)</i><span>Khoa học</span></button>
+                    <button type="button" class="qt-pill qt-pill-sci" data-act="sci" aria-pressed="false" title="Hiện / ẩn phím khoa học: sin cos tan, ln, eˣ, 10ˣ, x³, ∛, n!, |x|, ±, EXP"><i class="qt-fx" aria-hidden="true">f(x)</i><span>Khoa học</span></button>
                     <button type="button" class="qt-pill" data-act="copy" title="Chép kết quả (Ctrl+C)"><i class="fas fa-copy" aria-hidden="true"></i><span>Chép</span></button>
                     <button type="button" class="qt-pill" data-act="hist" aria-expanded="false" title="Các phép tính đã làm (phím H)"><i class="fas fa-clock-rotate-left" aria-hidden="true"></i><span>Lịch sử</span><b class="qt-badge" hidden></b></button>
                 </div>
@@ -1704,9 +1707,14 @@ function syncScratchPage() {
 // - Hàng nút có chữ: Khoa học · Chép (Ctrl+C) · Lịch sử (phím H) — lịch sử mở thành tờ giấy kẻ dòng phủ lên bàn phím,
 //   lưu 30 phép qua F5 và lần làm bài sau; trên màn LCD luôn thấy phép vừa làm, bấm vào là dùng lại.
 // - Tab Công thức / Đơn vị chia nhóm theo màu (Thận, Khí máu, Dịch · thuốc…), có ô tìm không dấu.
+// Nâng cấp 2026-11-18: giao diện 2D sticker (viền mực, bóng cứng, tai mèo) · "Khoa học" bật 3 hàng: sin cos tan (độ) π e ·
+// ln eˣ 10ˣ x³ ∛ · x⁻¹ n! |x| ± EXP · thêm hàng bộ nhớ luôn hiện: MC MR M+ M− Ans (bộ nhớ giữ qua F5).
 // [phím, nhãn, lớp, nhãn đọc]
 const KEYS = [
-    ['ln(', 'ln', 'is-fn is-sci', 'Logarit tự nhiên'], ['e^(', 'eˣ', 'is-fn is-sci', 'e mũ x'], ['π', 'π', 'is-fn is-sci', 'Số pi'], ['⁻¹', 'x⁻¹', 'is-fn is-sci', 'Nghịch đảo'], ['Ans', 'Ans', 'is-fn is-sci', 'Kết quả trước'],
+    ['sin(', 'sin', 'is-fn is-sci', 'Sin (độ)'], ['cos(', 'cos', 'is-fn is-sci', 'Cos (độ)'], ['tan(', 'tan', 'is-fn is-sci', 'Tan (độ)'], ['π', 'π', 'is-fn is-sci', 'Số pi'], ['e', 'e', 'is-fn is-sci', 'Số e'],
+    ['ln(', 'ln', 'is-fn is-sci', 'Logarit tự nhiên'], ['e^(', 'eˣ', 'is-fn is-sci', 'e mũ x'], ['10^(', '10ˣ', 'is-fn is-sci', '10 mũ x'], ['^3', 'x³', 'is-fn is-sci', 'Lập phương'], ['∛', '∛', 'is-fn is-sci', 'Căn bậc ba'],
+    ['⁻¹', 'x⁻¹', 'is-fn is-sci', 'Nghịch đảo'], ['!', 'n!', 'is-fn is-sci', 'Giai thừa'], ['abs(', '|x|', 'is-fn is-sci', 'Trị tuyệt đối'], ['±', '±', 'is-fn is-sci', 'Đổi dấu số đang gõ'], ['×10^', 'EXP', 'is-fn is-sci', 'Nhân 10 mũ'],
+    ['MC', 'MC', 'is-mem', 'Xóa bộ nhớ'], ['MR', 'MR', 'is-mem', 'Gọi số trong bộ nhớ'], ['M+', 'M+', 'is-mem', 'Cộng vào bộ nhớ'], ['M-', 'M−', 'is-mem', 'Trừ khỏi bộ nhớ'], ['Ans', 'Ans', 'is-mem', 'Kết quả trước'],
     ['AC', 'AC', 'is-ac', 'Xóa hết'], ['back', '⌫', 'is-del', 'Xóa một ký tự (giữ để xóa hết)'], ['(', '(', 'is-fn', 'Mở ngoặc'], [')', ')', 'is-fn', 'Đóng ngoặc'], ['÷', '÷', 'is-op', 'Chia'],
     ['^2', 'x²', 'is-fn', 'Bình phương'], ['7', '7'], ['8', '8'], ['9', '9'], ['×', '×', 'is-op', 'Nhân'],
     ['^', 'xʸ', 'is-fn', 'Lũy thừa'], ['4', '4'], ['5', '5'], ['6', '6'], ['−', '−', 'is-op', 'Trừ'],
@@ -1724,10 +1732,13 @@ const FACE_SVG = `<svg class="qt-face" data-mood="idle" viewBox="0 0 30 20" aria
     <path class="f-m f-mb" d="M12.2 11.5h5.6q-.3 3.6-2.8 3.6t-2.8-3.6z"/>
     <path class="f-m f-mw" d="M11.8 13.6q.8-1.1 1.6 0t1.6 0 1.6 0 1.6 0"/>
 </svg>`;
-const TOKENS = ['log(', 'ln(', 'Ans', '⁻¹'];        // ⌫ xóa một lần cả cụm
-const PREFIX = ['√', 'log(', 'ln(', 'e^('];         // bấm ngay sau "=": bọc kết quả vừa ra, vd √(kết quả)
+// Tai mèo trên đầu máy (chân tai đè lên viền thân máy cho liền nét)
+const EAR = (side) => `<svg class="qt-ear qt-ear-${side}" viewBox="0 0 24 16" aria-hidden="true"><path class="e-o" d="M1 18L8.5 3.5Q11 -.5 13.5 3.5L23 18"/><path class="e-i" d="M7 16L11 7.5L15.5 16z"/></svg>`;
+const TOKENS = ['×10^', '10^(', 'sin(', 'cos(', 'tan(', 'abs(', 'log(', 'ln(', 'e^(', 'Ans', '⁻¹'];   // ⌫ xóa một lần cả cụm
+const PREFIX = ['√', '∛', 'log(', 'ln(', 'e^(', '10^(', 'sin(', 'cos(', 'tan(', 'abs('];         // bấm ngay sau "=": bọc kết quả vừa ra, vd √(kết quả)
 const MAX_LEN = 160;
 let expr = '', justEq = false, calcHot = false, sci = ls.get('quiz_calc_sci') === '1', histOpen = false;
+let mem = parseFloat(ls.get('quiz_calc_mem')) || 0;
 let hist = [];
 try {
     const h = JSON.parse(ls.get('quiz_calc_hist') || '[]');
@@ -1747,9 +1758,15 @@ function calcEval(src) {
         i += m[0].length;
         return parseFloat(m[0]);
     };
+    const trig = (f) => Math.round(f(unary() * Math.PI / 180) * 1e12) / 1e12;   // theo độ; làm tròn để sin(180) = 0
     const atom = () => {
         if (eat('(')) { const v = add(); eat(')'); return v; }
         if (eat('√')) return Math.sqrt(unary());
+        if (eat('∛')) return Math.cbrt(unary());
+        if (eat('sin')) return trig(Math.sin);
+        if (eat('cos')) return trig(Math.cos);
+        if (eat('tan')) return trig(Math.tan);
+        if (eat('abs')) return Math.abs(unary());
         if (eat('log')) return Math.log10(unary());
         if (eat('ln')) return Math.log(unary());
         if (eat('Ans')) return ans();
@@ -1757,7 +1774,8 @@ function calcEval(src) {
         if (eat('e')) return Math.E;
         return num();
     };
-    const post = () => { let v = atom(); for (;;) { if (eat('%')) v /= 100; else if (eat('⁻¹')) v = 1 / v; else return v; } };
+    const fact = (n) => { if (!Number.isInteger(n) || n < 0 || n > 170) return NaN; let r = 1; for (let k = 2; k <= n; k++) r *= k; return r; };
+    const post = () => { let v = atom(); for (;;) { if (eat('%')) v /= 100; else if (eat('⁻¹')) v = 1 / v; else if (eat('!')) v = fact(v); else return v; } };
     const pow = () => { const b = post(); return eat('^') ? Math.pow(b, unary()) : b; };
     const unary = () => (eat('-') ? -unary() : eat('+') ? unary() : pow());
     const mul = () => {
@@ -1765,7 +1783,7 @@ function calcEval(src) {
         for (;;) {
             if (eat('*')) v *= unary();
             else if (eat('/')) v /= unary();
-            else if (i < s.length && /[\d.(√lπeA]/.test(s[i])) v *= unary();
+            else if (i < s.length && /[\d.(√∛lπeAasct]/.test(s[i])) v *= unary();
             else return v;
         }
     };
@@ -1795,7 +1813,35 @@ function fmtNum(v) {
 const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const tryEval = (t) => { try { const r = fmtNum(calcEval(t)); return r === 'Lỗi' ? '' : r; } catch (e) { return ''; } };
 
+// Bộ nhớ: M+ / M− cộng / trừ giá trị đang hiện (đang gõ dở thì giá trị xem trước), MR dán số nhớ, MC xóa
+function memPress(k) {
+    if (k === 'MR') { insertVal(fmtNum(mem)); return; }
+    if (k === 'MC') mem = 0;
+    else {
+        let v = NaN;
+        try { v = calcEval(expr); } catch (e) { }
+        if (!Number.isFinite(v)) { showMsg('Chưa có số để nhớ', 'is-err'); return; }
+        mem += k === 'M+' ? v : -v;
+    }
+    ls.set('quiz_calc_mem', mem ? String(mem) : '');
+    renderCalc();
+    showMsg(k === 'MC' ? 'Đã xóa bộ nhớ' : 'Nhớ: ' + fmtNum(mem), 'is-ok');
+}
+// ±: vừa ra kết quả thì đổi dấu cả kết quả; đang gõ thì đổi dấu số cuối (5 − 3 ± -> 5 − (−3)); chưa có số thì gõ dấu trừ
+function negate() {
+    if (justEq) {
+        expr = expr.startsWith('−') ? expr.slice(1).replace(/^\((.*)\)$/, '$1') : '−' + (/×/.test(expr) ? '(' + expr + ')' : expr);
+        renderCalc();
+        return;
+    }
+    const m = /(\(−)?(\d+\.?\d*|\.\d+)$/.exec(expr);
+    if (!m) { calcPress('−'); return; }
+    expr = expr.slice(0, m.index) + (m[1] ? m[2] : '(−' + m[2]);
+    renderCalc();
+}
 function calcPress(k) {
+    if (/^M[CR+-]$/.test(k)) { memPress(k); return; }
+    if (k === '±') { negate(); return; }
     if (k === 'AC') { expr = ''; justEq = false; }
     else if (k === 'back') {
         const t = TOKENS.find(x => expr.endsWith(x));
@@ -1815,11 +1861,11 @@ function calcPress(k) {
         return;
     } else {
         if (justEq && PREFIX.includes(k)) { expr = (k.endsWith('(') ? k : k + '(') + expr + ')'; justEq = false; renderCalc(); return; }
-        const isOp = /^([+−×÷^%)]|⁻¹)/.test(k);
-        if (justEq && /^(\^|⁻¹|%)/.test(k) && !/^[\d.]+$/.test(expr)) expr = '(' + expr + ')';   // (−5)², (1,5×10^21)²
+        const isOp = /^([+−×÷^%)!]|⁻¹)/.test(k);
+        if (justEq && /^(\^|⁻¹|%|!)/.test(k) && !/^[\d.]+$/.test(expr)) expr = '(' + expr + ')';   // (−5)², (1,5×10^21)²
         if (justEq && !isOp) expr = '';   // vừa ra kết quả: gõ số mới là phép tính mới, gõ dấu là tính tiếp
         justEq = false;
-        if (!expr && /^([+×÷^%]|⁻¹)/.test(k)) { if (!hist.length) return; expr = 'Ans'; }   // màn trống + gõ dấu: tính tiếp từ Ans
+        if (!expr && /^([+×÷^%!]|⁻¹)/.test(k)) { if (!hist.length) return; expr = 'Ans'; }   // màn trống + gõ dấu: tính tiếp từ Ans
         if (/^[+×÷^]$/.test(k)) {   // 2 dấu liền: dấu sau thay dấu trước (5 + × -> 5 ×)
             expr = expr.replace(/[+−×÷^]+$/, '');
             if (!expr) return;
@@ -1847,7 +1893,7 @@ function flash(el, cls) { el.classList.remove(cls); void el.offsetWidth; el.clas
 // Hiển thị: nhóm 3 chữ số (khoảng hẹp, chỉ để nhìn — chép / tính vẫn là số trơn), tô màu dấu & hàm
 const lcdHtml = (t) => esc(t)
     .replace(/(^|[^\d.])(\d{4,})/g, (m, a, d) => a + d.replace(/\B(?=(\d{3})+$)/g, ' '))
-    .replace(/log|ln|Ans|⁻¹|[+−×÷^%()√π]/g, (m) => `<span class="op">${m}</span>`);
+    .replace(/log|ln|Ans|sin|cos|tan|abs|⁻¹|[+−×÷^%()√∛π!]/g, (m) => `<span class="op">${m}</span>`);
 
 const setMood = (m) => { const f = calcEl.querySelector('.qt-face'); if (f && f.dataset.mood !== m) f.dataset.mood = m; };
 let msgT = 0;
@@ -1891,6 +1937,7 @@ function renderCalc() {
     calcEl.querySelector('.qt-hs-clr').disabled = !hist.length;
     const badge = calcEl.querySelector('.qt-badge');
     badge.hidden = !hist.length; badge.textContent = hist.length;
+    calcEl.querySelector('.qt-mem').hidden = !mem;
     calcEl.classList.toggle('is-sci', sci);
     calcEl.querySelector('[data-act="sci"]').setAttribute('aria-pressed', String(sci));
     calcEl.querySelector('.qt-crow [data-act="copy"]').disabled = !expr;
@@ -1981,7 +2028,7 @@ function setupCalc() {
             '*': '×', 'x': '×', '/': '÷', ':': '÷', '-': '−', ',': '.', 'Enter': '=', '=': '=', 'Backspace': 'back', 'Delete': 'AC', 'c': 'AC',
             'p': 'π', 'a': 'Ans', 'r': '√', 'n': 'ln(', 'e': 'e',
         };
-        const k = map[e.key] || (/^[\d.+()^%]$/.test(e.key) ? e.key : '');
+        const k = map[e.key] || (/^[\d.+()^%!]$/.test(e.key) ? e.key : '');
         if (!k) return;
         e.preventDefault(); e.stopImmediatePropagation();
         if (histOpen) setHist(false);
